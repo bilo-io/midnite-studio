@@ -51,6 +51,26 @@ describe('parseStoredWorkflows', () => {
     expect(parseStoredWorkflows({ workflows: 'nope' })).toEqual([]);
     expect(parseStoredWorkflows([workflowEntry('a')])).toEqual([]);
   });
+
+  it('migrates a legacy condition node\'s outgoing edge onto its `true` port on load (Theme A)', () => {
+    const legacy = {
+      ...(workflowEntry('w') as Record<string, unknown>),
+      nodes: [
+        { id: 'c', label: 'Check', x: 0, y: 0, kind: 'condition', config: { left: 'x', op: 'eq', right: '1' } },
+        {
+          id: 'b',
+          label: 'Then',
+          x: 0,
+          y: 0,
+          kind: 'http',
+          config: { method: 'GET', url: 'http://127.0.0.1/x', headers: {}, params: {}, queryShaped: false },
+        },
+      ],
+      edges: [{ id: 'e1', from: 'c', to: 'b' }],
+    };
+    const [loaded] = parseStoredWorkflows({ version: 1, workflows: [legacy] });
+    expect(loaded!.edges).toEqual([{ id: 'e1', from: 'c', to: 'b', fromPort: 'true', kind: 'conditional' }]);
+  });
 });
 
 describe('parseStoredRuns', () => {

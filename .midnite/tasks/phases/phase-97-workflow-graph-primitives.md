@@ -80,35 +80,35 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 
 ## Deliverables
 
-### A — Typed ports and edge kinds (M)
+### A — Typed ports and edge kinds (M) — ✅ DONE (PR #557, 2026-09-24)
 
-- [ ] `WorkflowPortSchema` in [`workflow.ts`](../../../packages/shared/src/workflow.ts):
+- [x] `WorkflowPortSchema` in [`workflow.ts`](../../../packages/shared/src/workflow.ts):
       `{id, label, direction: 'in'|'out', type: WorkflowPortType}` with
       `WORKFLOW_PORT_TYPES = ['any','json','text','number','boolean','verdict','artifact-ref']`.
       Each node kind declares its ports in a pure `portsForNode(node)`. Most are static:
       `condition` → `true`/`false`, a verifier → `pass`/`fail`. Some are config-driven: router
       cases, join inputs.
-- [ ] Every node kind with an executor also gets an implicit **`error`** out-port (type `json`,
+- [x] Every node kind with an executor also gets an implicit **`error`** out-port (type `json`,
       `{message, status}`). `note` and the harness frame get no ports.
-- [ ] `WorkflowEdgeSchema` gains `fromPort`, `toPort` and
+- [x] `WorkflowEdgeSchema` gains `fromPort`, `toPort` and
       `kind: 'data'|'conditional'|'loop'|'error'`, all `.optional()` in the wire schema.
       `normalizeEdge(edge)` fills the defaults (`out` → `in`, `data`). This is the same
       optional-plus-reader pattern `isWorkflowEnabled` uses (`:278`), so no fixture across `shared`
       or `desktop` has to change.
-- [ ] Per-port **output schema**: an optional `outputShape` on an out-port — a small JSON-shape
+- [x] Per-port **output schema**: an optional `outputShape` on an out-port — a small JSON-shape
       descriptor (`{type, properties?, items?}`), not full JSON Schema. An agent / script / http
       node can pin it in its config.
-- [ ] `canConnect(fromNode, fromPort, toNode, toPort, edges)` in `shared` →
+- [x] `canConnect(fromNode, fromPort, toNode, toPort, edges)` in `shared` →
       `{ok:true}|{ok:false, reason}`. It checks direction, type compatibility (`any` accepts all;
       `verdict` → `boolean` allowed; `json` shape compatible when both sides declare one), a single
       edge per in-port unless the port is a join input, and `wouldCycle` for non-`loop` edges.
-- [ ] `validateWorkflow` (`:407`) reports edges whose ports no longer exist (a router case was
+- [x] `validateWorkflow` (`:407`) reports edges whose ports no longer exist (a router case was
       deleted) as `WorkflowIssue`s instead of dropping them silently.
-- [ ] Migration: `migrateWorkflowEdges(workflow)` runs on load in
+- [x] Migration: `migrateWorkflowEdges(workflow)` runs on load in
       [`workflows-store.ts`](../../../packages/desktop/src/main/workflows-store.ts). A legacy
       `condition` node's outgoing edges map to its `true` port, which preserves today's
       "false gates everything downstream" behaviour exactly.
-- [ ] Vitest (`workflow.test.ts`): the `canConnect` truth table, the migration identity on every
+- [x] Vitest (`workflow.test.ts`): the `canConnect` truth table, the migration identity on every
       existing fixture, a legacy condition keeping its semantics, and unknown-port issues.
 
 ### B — Routing, joins and the error port (L)

@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { WorkflowSchema, type Workflow } from '@midnite/studio-shared';
+import { WorkflowSchema, migrateWorkflowEdges, type Workflow } from '@midnite/studio-shared';
 
 /**
  * Workflows, persisted globally under Electron's `userData` — one
@@ -59,7 +59,10 @@ export function parseStoredWorkflows(value: unknown): Workflow[] {
   const result: Workflow[] = [];
   for (const entry of workflows) {
     const parsed = WorkflowSchema.safeParse(entry);
-    if (parsed.success) result.push(parsed.data);
+    // Theme A's per-edge readiness (Theme B) reads `fromPort` directly — this
+    // is what keeps a legacy `condition` node's "false gates everything
+    // downstream" behaviour intact once that field is the only signal.
+    if (parsed.success) result.push(migrateWorkflowEdges(parsed.data));
   }
   return result;
 }

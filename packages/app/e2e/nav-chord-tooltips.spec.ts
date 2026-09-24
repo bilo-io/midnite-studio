@@ -44,6 +44,29 @@ async function hoverRailRow(page: Page, name: string) {
   return link;
 }
 
+/**
+ * Hover a row until its bubble shows `chord`.
+ *
+ * A second `hover()` at the pointer's current spot dispatches no new
+ * `pointerenter`, so when the expand reflow lands the row under the pointer
+ * without re-entering it, the 400ms open delay never starts and the bubble
+ * never comes. That raced on CI's macOS runners (the failure was always
+ * "tooltip not found", never a wrong chord). Nudging the pointer off the row
+ * and back re-enters it; `toPass` retries only that, never the assertion's
+ * meaning.
+ */
+async function expectChord(page: Page, name: string, chord: RegExp): Promise<void> {
+  const link = await hoverRailRow(page, name);
+  await expect(async () => {
+    const box = await link.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height + 40);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    }
+    await expect(page.getByRole('tooltip')).toHaveText(chord, { timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
+}
+
 test.describe('nav rail chord tooltips', () => {
   test('shows the chord — and only the chord — for a row that has one', async ({ page }) => {
     await open(page);
@@ -65,8 +88,7 @@ test.describe('nav rail chord tooltips', () => {
       ['Search', /^(⌘⇧F|Ctrl\+Shift\+F)$/],
       ['Changes', /^(⌘2|Ctrl\+2)$/],
     ] as const) {
-      await hoverRailRow(page, name);
-      await expect(page.getByRole('tooltip')).toHaveText(chord);
+      await expectChord(page, name, chord);
       // Off the rail entirely, so the next row's bubble is unambiguously its
       // own rather than the previous one still fading.
       await page.mouse.move(600, 400);
