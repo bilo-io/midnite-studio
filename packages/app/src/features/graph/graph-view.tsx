@@ -39,7 +39,7 @@ import { useRefsBySha } from './ref-badge';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
-import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
+import { useActiveAgentWorktreePaths, useActiveAgentWorktreeSessions } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
 import { resolveProvenanceDetails } from './provenance-mark';
@@ -237,6 +237,16 @@ export function GraphView() {
       return false;
     },
     [activeWorktreePaths],
+  );
+
+  // The session behind `isAgentActive(ref)` — a separate map rather than
+  // folded into the callback above because most rows never call this one at
+  // all (only a ref whose badge is about to render the avatar does).
+  const activeAgentSessions = useActiveAgentWorktreeSessions();
+  const agentSessionFor = useCallback(
+    (ref: (typeof refs)[number]) =>
+      ref.worktreePath ? activeAgentSessions.get(ref.worktreePath) : undefined,
+    [activeAgentSessions],
   );
 
   // Docked to the window's right edge, so its splitter is on its LEFT and a
@@ -565,6 +575,7 @@ export function GraphView() {
                     syncing={syncing}
                     currentBranch={currentBranch}
                     isAgentActive={isAgentActive}
+                    agentSessionFor={agentSessionFor}
                   />
                 </div>
               );

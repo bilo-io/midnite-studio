@@ -38,7 +38,7 @@ describe('RefBadge with agentActive glow', () => {
     expect((badge as HTMLElement).style.boxShadow).toBe('');
   });
 
-  it('renders RefBadge with agent gradient glow when agentActive is true', () => {
+  it('renders RefBadge with the shared AI-agent pulsating glow class when agentActive is true', () => {
     const ref = makeRef('feature/active-agent');
     const { container } = render(
       <RefBadge
@@ -49,10 +49,16 @@ describe('RefBadge with agentActive glow', () => {
       />,
     );
 
-    const badge = container.querySelector('[data-ref="refs/heads/feature/active-agent"]');
+    const badge = container.querySelector(
+      '[data-ref="refs/heads/feature/active-agent"]',
+    ) as HTMLElement;
     expect(badge).toBeDefined();
-    expect((badge as HTMLElement).style.boxShadow).toContain('hsl(var(--lane-h) var(--lane-s) var(--lane-l)');
-    expect((badge as HTMLElement).style.boxShadow).toContain('14px');
+    // The animated ring is CSS-driven (`.ref-badge-agent-glow`, `styles.css`
+    // — the shared `activity-glow-pulse` keyframe and `--activity-agent`
+    // token, Phase 95 Theme A's "AI agent" identity colour) rather than an
+    // inline box-shadow, so a CSS animation can own the whole property.
+    expect(badge.className).toContain('ref-badge-agent-glow');
+    expect(badge.style.boxShadow).toBe('');
   });
 
   it('renders HeadGlow sweep animation when agentActive is true even if not head', () => {

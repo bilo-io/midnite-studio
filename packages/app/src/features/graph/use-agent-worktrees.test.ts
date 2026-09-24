@@ -1,7 +1,7 @@
 import type { RepoDescriptor, TerminalSession, Worktree } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { activeAgentWorktreePaths } from './use-agent-worktrees';
+import { activeAgentWorktreePaths, activeAgentWorktreeSessions } from './use-agent-worktrees';
 
 const worktree = (repoId: string, path: string, isMain = false): Worktree => ({
   id: `${repoId}:${path}`,
@@ -103,6 +103,52 @@ describe('activeAgentWorktreePaths', () => {
     const liveCwd = {};
 
     const active = activeAgentWorktreePaths(sessions, states, liveAgentId, liveCwd, repos);
+    expect(active.size).toBe(0);
+  });
+});
+
+describe('activeAgentWorktreeSessions', () => {
+  it('maps a live agent worktree path to its session and resolved agent id', () => {
+    const sessions = [
+      createSession('s1', 'agent', 'claude', '/Users/x/Dev/midnite-studio/.worktrees/agent-wt'),
+    ];
+    const states = { s1: 'open' as const };
+    const liveAgentId = {};
+    const liveCwd = {};
+
+    const active = activeAgentWorktreeSessions(sessions, states, liveAgentId, liveCwd, repos);
+    const entry = active.get('/Users/x/Dev/midnite-studio/.worktrees/agent-wt');
+    expect(entry?.session.id).toBe('s1');
+    expect(entry?.agentId).toBe('claude');
+  });
+
+  it('resolves the PROBED agent id over the session\'s declared one', () => {
+    const sessions = [
+      createSession('s1', 'shell', undefined, '/Users/x/Dev/midnite-studio/.worktrees/agent-wt'),
+    ];
+    const states = { s1: 'open' as const };
+    const liveAgentId = { s1: 'codex' };
+    const liveCwd = {};
+
+    const active = activeAgentWorktreeSessions(sessions, states, liveAgentId, liveCwd, repos);
+    expect(active.get('/Users/x/Dev/midnite-studio/.worktrees/agent-wt')?.agentId).toBe('codex');
+  });
+
+  it('backs activeAgentWorktreePaths — same keys either way', () => {
+    const sessions = [
+      createSession('s1', 'agent', 'claude', '/Users/x/Dev/midnite-studio/.worktrees/agent-wt'),
+    ];
+    const states = { s1: 'open' as const };
+    const liveAgentId = {};
+    const liveCwd = {};
+
+    const sessionMap = activeAgentWorktreeSessions(sessions, states, liveAgentId, liveCwd, repos);
+    const paths = activeAgentWorktreePaths(sessions, states, liveAgentId, liveCwd, repos);
+    expect(new Set(sessionMap.keys())).toEqual(paths);
+  });
+
+  it('returns an empty map when nothing is live', () => {
+    const active = activeAgentWorktreeSessions([], {}, {}, {}, repos);
     expect(active.size).toBe(0);
   });
 });
