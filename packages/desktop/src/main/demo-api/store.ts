@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { resetScriptedRoutes } from './scripted-routes';
+
 /**
  * The demo API's data: in-memory collections, reset on stop, nothing persisted.
  *
@@ -59,6 +61,11 @@ export function collectionCount(): number {
 
 export function resetDemoStore(): void {
   collections.clear();
+  // The scripted `/demo/*` group's own per-key counters (Phase 97 Theme M)
+  // reset alongside the generic store's collections — one "stop" clears both
+  // halves of the server's memory, so a restarted demo API never inherits a
+  // stale `fail-n`/`verify` attempt count from a previous run.
+  resetScriptedRoutes();
 }
 
 export function listRecords(

@@ -169,6 +169,100 @@ describe('demo API bind', () => {
   });
 });
 
+describe('demo API scripted routes (Phase 97 Theme M)', () => {
+  it('echo reflects method, query, headers and a parsed JSON body', async () => {
+    const echoed = await json('/demo/echo?a=1&b=two', {
+      method: 'POST',
+      headers: { 'x-demo': 'yes' },
+      body: JSON.stringify({ hello: 'world' }),
+    });
+    expect(echoed.status).toBe(200);
+    expect(echoed.body.method).toBe('POST');
+    expect(echoed.body.query).toEqual({ a: '1', b: 'two' });
+    expect((echoed.body.headers as Record<string, string>)['x-demo']).toBe('yes');
+    expect(echoed.body.body).toEqual({ hello: 'world' });
+  });
+
+  it('echo reflects a non-JSON body as raw text', async () => {
+    const echoed = await json('/demo/echo', { method: 'POST', body: 'not json' });
+    expect(echoed.body.body).toBe('not json');
+  });
+
+  it('delay reports the requested and delayed ms for a small request — the cap itself is asserted in scripted-routes.test.ts, never by waiting it out here', async () => {
+    const short = await json('/demo/delay?ms=5');
+    expect(short.status).toBe(200);
+    expect(short.body).toEqual({ requestedMs: 5, delayedMs: 5 });
+  });
+
+  it('fail-n fails the first n calls per key with 500, then passes, and counters are independent per key', async () => {
+    const first = await json('/demo/fail-n?key=retry-me&n=2');
+    expect(first.status).toBe(500);
+    expect(first.body.attempt).toBe(1);
+    const second = await json('/demo/fail-n?key=retry-me&n=2');
+    expect(second.status).toBe(500);
+    expect(second.body.attempt).toBe(2);
+    const third = await json('/demo/fail-n?key=retry-me&n=2');
+    expect(third.status).toBe(200);
+    expect(third.body).toMatchObject({ ok: true, attempt: 3 });
+
+    // A different key starts its own count from zero.
+    const otherKey = await json('/demo/fail-n?key=another&n=2');
+    expect(otherKey.status).toBe(500);
+    expect(otherKey.body.attempt).toBe(1);
+  });
+
+  it('fail-n counter resets when the store resets (stop)', async () => {
+    await json('/demo/fail-n?key=resets&n=5');
+    resetDemoStore();
+    const afterReset = await json('/demo/fail-n?key=resets&n=5');
+    expect(afterReset.body.attempt).toBe(1);
+  });
+
+  it('flaky is deterministic for a given seed — the same seed replays the same sequence', async () => {
+    // The same literal seed, with its call counter reset in between, must
+    // reproduce the same first roll (and therefore the same pass/fail).
+    resetDemoStore();
+    const a = await json('/demo/flaky?rate=0.5&seed=repeatable');
+    resetDemoStore();
+    const b = await json('/demo/flaky?rate=0.5&seed=repeatable');
+    expect(a.body.roll).toBe(b.body.roll);
+    expect(a.status).toBe(b.status);
+  });
+
+  it('classify buckets a numeric risk and passes a named band through', async () => {
+    expect((await json('/demo/classify?risk=0.1')).body.risk).toBe('low');
+    expect((await json('/demo/classify?risk=0.5')).body.risk).toBe('medium');
+    expect((await json('/demo/classify?risk=0.9')).body.risk).toBe('high');
+    expect((await json('/demo/classify?risk=high')).body.risk).toBe('high');
+  });
+
+  it('research/:lane names the lane back and returns findings for it', async () => {
+    const res = await json('/demo/research/company-sources');
+    expect(res.status).toBe(200);
+    expect(res.body.lane).toBe('company-sources');
+    expect(Array.isArray(res.body.findings)).toBe(true);
+    expect((res.body.findings as string[]).length).toBeGreaterThan(0);
+  });
+
+  it('research with no lane 400s', async () => {
+    expect((await json('/demo/research')).status).toBe(400);
+  });
+
+  it('verify fails until passAfter attempts, then passes — the Harness template loops on this', async () => {
+    resetDemoStore();
+    const first = await json('/demo/verify?key=loop-me&passAfter=2');
+    expect(first.body).toMatchObject({ pass: false, attempt: 1, passAfter: 2 });
+    const second = await json('/demo/verify?key=loop-me&passAfter=2');
+    expect(second.body).toMatchObject({ pass: true, attempt: 2, passAfter: 2 });
+  });
+
+  it('an unrecognised /demo/* route 404s rather than falling into the generic collection store', async () => {
+    expect((await json('/demo/not-a-route')).status).toBe(404);
+    // `demo` itself can never become a generic collection.
+    expect((await json('/demo')).body.records).toBeUndefined();
+  });
+});
+
 describe('demo store', () => {
   it('evicts the oldest past the per-collection cap', () => {
     resetDemoStore();

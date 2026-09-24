@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
+import { handleScriptedDemoRoute } from './scripted-routes';
 import {
   createRecord,
   deleteRecord,
@@ -113,6 +114,16 @@ export async function handleDemoRequest(req: IncomingMessage, res: ServerRespons
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const segments = url.pathname.split('/').filter((segment) => segment !== '');
   const method = req.method ?? 'GET';
+
+  // The scripted `/demo/*` group (Phase 97 Theme M) is checked before the
+  // generic `/:collection[/:id]` router below, and before its `segments.length
+  // > 2` cap — `/demo/research/:lane` is three segments deep by design. A
+  // `demo` collection can never exist in the generic store either way.
+  if (segments[0] === 'demo') {
+    const handled = await handleScriptedDemoRoute(req, res, segments.slice(1), url);
+    if (!handled) send(res, 404, { error: 'Not found.' });
+    return;
+  }
 
   if (segments.length === 0) {
     send(res, 200, { service: 'midnite-studio demo api', collections: ['items', 'users', '…'] });
