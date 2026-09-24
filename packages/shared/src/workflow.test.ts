@@ -57,9 +57,18 @@ describe('WorkflowSchema', () => {
   it('discriminates node kinds on `kind`, and rejects one that is not in the vocabulary', () => {
     expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
-    // cannot drift apart without this failing. `agent`/`script` (Theme J)
-    // joined the MVP's original five.
-    expect(WORKFLOW_NODE_KINDS).toEqual(['http', 'transform', 'condition', 'delay', 'note', 'agent', 'script']);
+    // cannot drift apart without this failing. `agent`/`script` (Theme J) and
+    // `join` (Theme B) joined the MVP's original five.
+    expect(WORKFLOW_NODE_KINDS).toEqual([
+      'http',
+      'transform',
+      'condition',
+      'delay',
+      'note',
+      'agent',
+      'script',
+      'join',
+    ]);
   });
 
   it('keeps fractional node positions — the canvas snaps, the schema does not', () => {
@@ -227,6 +236,16 @@ describe('validateWorkflow', () => {
     ]);
   });
 
+  it('names a join with nothing wired to any of its in-N ports (Theme B)', () => {
+    const issues = validateWorkflow(
+      workflow({
+        nodes: [node(), { id: 'j', label: 'Merge', x: 0, y: 0, kind: 'join', config: { mode: 'all', inputs: 2 } }],
+        edges: [],
+      }),
+    );
+    expect(issues).toContainEqual({ message: '"Merge" has nothing to join.', nodeId: 'j' });
+  });
+
   it('does not double-report a note connection as a missing port', () => {
     const issues = validateWorkflow(
       workflow({
@@ -241,9 +260,12 @@ describe('validateWorkflow', () => {
 });
 
 describe('portsForNode', () => {
-  it('gives every executor-bearing kind an implicit multi-input `in` and an `error` out-port', () => {
+  it('gives every plain executor-bearing kind an implicit multi-input `in` and an `error` out-port', () => {
+    // `note` has no executor at all; `join` has no implicit `in` — its
+    // in-ports are the config-driven `in-1..in-N` covered below — but both
+    // still get the shared `error` out-port, checked separately.
     for (const kind of WORKFLOW_NODE_KINDS) {
-      if (kind === 'note') continue;
+      if (kind === 'note' || kind === 'join') continue;
       const n = { ...node(), kind } as WorkflowNode;
       const ports = portsForNode(n);
       expect(ports).toContainEqual(
@@ -280,6 +302,41 @@ describe('portsForNode', () => {
     };
     const out = portsForNode(n).find((p) => p.id === 'out');
     expect(out?.outputShape).toEqual(shape);
+  });
+
+  it('gives a join distinct in-1..in-N ports, an `out` and an `error` (Theme B)', () => {
+    const n: WorkflowNode = {
+      id: 'j',
+      label: 'Merge',
+      x: 0,
+      y: 0,
+      kind: 'join',
+      config: { mode: 'all', inputs: 3 },
+    };
+    const ports = portsForNode(n);
+    expect(ports.filter((p) => p.direction === 'in').map((p) => p.id)).toEqual(['in-1', 'in-2', 'in-3']);
+    // Distinct ids, no `allowMultiple` — `canConnect`'s existing "one edge
+    // per in-port unless allowMultiple" already enforces one edge each.
+    expect(ports.filter((p) => p.direction === 'in').every((p) => p.allowMultiple === undefined)).toBe(true);
+    expect(ports.some((p) => p.id === 'out' && p.direction === 'out')).toBe(true);
+    expect(ports.some((p) => p.id === WORKFLOW_ERROR_PORT_ID && p.direction === 'out')).toBe(true);
+  });
+
+  it('only an allSettled join pins a fulfilled/rejected outputShape on `out`', () => {
+    const all: WorkflowNode = { id: 'j', label: 'Merge', x: 0, y: 0, kind: 'join', config: { mode: 'all', inputs: 2 } };
+    const allSettled: WorkflowNode = {
+      id: 'j',
+      label: 'Merge',
+      x: 0,
+      y: 0,
+      kind: 'join',
+      config: { mode: 'allSettled', inputs: 2 },
+    };
+    expect(portsForNode(all).find((p) => p.id === 'out')?.outputShape).toBeUndefined();
+    expect(portsForNode(allSettled).find((p) => p.id === 'out')?.outputShape).toEqual({
+      type: 'object',
+      properties: { fulfilled: { type: 'array', items: { type: 'any' } }, rejected: { type: 'array', items: { type: 'any' } } },
+    });
   });
 });
 
