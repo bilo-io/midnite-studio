@@ -195,22 +195,32 @@ independent and can start at once). **I** needs **E** and **H**.
       variant marks it usable without downloading.
 - [ ] Already-installed results show "Installed" instead of Pull.
 
-### E — Model detail modal (M)
+### E — Model detail modal (M) — ✅ DONE (PR #548, 2026-09-24)
 
-- [ ] `features/models/model-detail.tsx` on `modal.tsx` size `lg`, opened from Installed, Discover
-      and Cloud rows.
-- [ ] Header: name, tag, family, `SiOllama` or a cloud mark, local size or "cloud", modified date.
-- [ ] Stat grid: parameter size, quantisation, **context length** (the model's own and the
-      effective one — daemon default or `num_ctx`), architecture, embedding length where present.
-- [ ] Capability chips: completion, tools, thinking, vision, embedding.
-- [ ] **Fit for agents** verdict: ✅ tools + effective context ≥ 64k; ⚠ with the reason ("no tool
-      calling", "context 4096 — agents need 64k") and Theme G's fix inline.
-- [ ] Tabs for Modelfile, Template, Parameters and Licence, read-only, in the existing code/markdown
-      renderer (no Monaco on the modal's critical path).
-- [ ] Actions: Pull / Delete / Unload (as applicable), **Launch with…** (Theme I), and "Set as
-      default for <agent>".
-- [ ] A Discover result that is not installed still opens the modal with the search data it has,
-      and a Pull button instead of the `show`-backed sections.
+- [x] `features/models/model-detail.tsx` on `modal.tsx` size `lg`, opened from an Installed row
+      (`ModelRow`'s `onOpenDetail`, Theme C's own hook for this). **Correction:** Discover and Cloud
+      rows are not wired — Themes D/F had not merged yet at branch time. The component's own doc
+      comment flags the extension point (an `installed` prop swapping the `show`-backed sections for
+      a Pull button) for whichever of D/F/I lands next against a real not-yet-installed row shape.
+- [x] Header: name, tag, family, `SiOllama`, local size, modified date. **Correction:** no cloud mark
+      yet — no cloud row is reachable in this PR.
+- [x] Stat grid: parameter size, quantisation, **context length** (the model's own and the
+      effective one — daemon default or `num_ctx`, via new `effectiveContextLength()`/`deriveNumCtx()`),
+      architecture, embedding length where present (new `deriveEmbeddingLength()`).
+- [x] Capability chips: whatever `show` reports (completion, tools, thinking, vision, embedding).
+- [x] **Fit for agents** verdict: ✅ tools + effective context ≥ 64k; ⚠ with the reason ("no tool
+      calling", "context 4096 — agents need 64k") and Theme G's fix inline. Also surfaced on
+      Settings ▸ Agent's Ollama model picker (Theme H), the other place the phase doc calls for the
+      warning.
+- [x] Tabs for Modelfile, Template, Parameters and Licence, read-only, reusing `CodePreview` (files
+      preview's existing code renderer — no Monaco on the modal's critical path).
+- [x] Actions: Delete / Unload (as applicable), "Set as default for <agent>" (writes Theme H's
+      `agentBackends`). **Correction:** Pull has no reachable "not installed" case yet (same D/F
+      dependency as above); **Launch with…** is a disabled stub — Theme I's own hook, same precedent
+      `ModelRow.onOpenDetail` set for this modal itself.
+- [ ] **Not built — depends on Theme D/F, unmerged at branch time.** A Discover/Cloud result that is
+      not installed opening the modal with search data and a Pull button instead of the `show`-backed
+      sections — left for whichever of D/F/I lands next, per the correction above.
 
 ### F — Cloud models and account (M)
 
@@ -229,17 +239,25 @@ independent and can start at once). **I** needs **E** and **H**.
 - [ ] Settings ▸ Ollama links to ollama.com/settings/keys and to the pricing page; the app never
       shows credit balances it cannot read.
 
-### G — The context-length fix (S)
+### G — The context-length fix (S) — ✅ DONE (PR #548, 2026-09-24)
 
-- [ ] `shared/src/ollama.ts`: `agentFitness(detail, effectiveCtx)` → `{fit, reasons[]}` — pure
-      function, unit-tested.
-- [ ] **Make a 64k variant**: one click calls `create` with `FROM <model>` +
-      `PARAMETER num_ctx 65536` as `<model>-64k`, streams its progress like a pull, then offers it
-      as the agent's model. The original model is untouched.
-- [ ] The warning shows in the detail modal, the agent picker (Theme H) and the per-launch picker
-      (Theme I). No global `OLLAMA_CONTEXT_LENGTH` change, ever.
-- [ ] Cloud models count as fit by default (hosted context is large); a cloud model whose catalogue
-      entry says otherwise is flagged.
+- [x] `shared/src/ollama.ts`: `agentFitness(detail, effectiveCtx)` → `{fit, reasons[]}` — pure
+      function, unit-tested. `effectiveContextLength()`/`deriveNumCtx()` compute `effectiveCtx` from
+      `/api/show`'s `parameters` block.
+- [x] **Make a 64k variant**: one click (behind a confirm, naming the disk cost) calls `create` with
+      `FROM <model>` + `PARAMETER num_ctx 65536` as `<model>-64k`. The original model is untouched.
+      **Correction:** no per-layer progress stream — `ollama/client.ts`'s own doc comment on
+      `ollamaCreate` (Theme B) already flagged that as out of scope for a one-shot action; the button
+      shows a spinner via a plain mutation instead. "Offers it as the agent's model" is the existing
+      "Set as default for <agent>" control once the variant is installed and its own detail reopened,
+      not an automatic rebind.
+- [x] The warning shows in the detail modal (Theme E) and the Settings ▸ Agent picker (Theme H).
+      **Correction:** the per-launch picker (Theme I) doesn't exist yet — left for that theme, which
+      can call the same `agentFitness()`. No global `OLLAMA_CONTEXT_LENGTH` change, anywhere.
+- [x] `agentFitness()` takes no position on local vs. cloud — a caller for a cloud model passes
+      whatever `effectiveCtx` its own catalogue implies (a large sentinel by default, per the phase
+      doc's cloud-models-fit-by-default decision). No cloud caller exists yet (Theme F, unmerged at
+      branch time); the function is ready for it.
 
 ### H — Agents on Ollama (L) — ✅ DONE (PR #542, 2026-09-24)
 

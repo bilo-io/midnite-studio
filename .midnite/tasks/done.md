@@ -1,6 +1,40 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 96 Themes E, G — Model detail modal + the context-length fix
+
+[PR #548](https://github.com/bilo-io/midnite-studio/pull/548).
+
+**`agentFitness()` is the one place "is this model good for an agent" gets decided.** New
+`shared/src/ollama.ts` exports: `agentFitness(detail, effectiveCtx) → {fit, reasons[]}` (pure,
+flags missing `tools` capability and `effectiveCtx < 65536`, with the phase doc's own reason
+wording), `effectiveContextLength(detail)` + `deriveNumCtx(parameters)` (a model's actual running
+context — its `num_ctx` override if its Modelfile sets one, else Ollama's own 4096 default — as
+distinct from `deriveContextLength()`'s architectural maximum), and `deriveEmbeddingLength()`
+alongside it. `OLLAMA_DEFAULT_CONTEXT_LENGTH`/`AGENT_MIN_CONTEXT_LENGTH` are the two constants
+everything else is measured against.
+
+**`features/models/model-detail.tsx`** — the Theme E modal, wired into `ModelRow`'s `onOpenDetail`
+(Theme C's own hook for this, previously a no-op stub). Header, a stat grid (parameters/
+quantisation/architecture/context — both the max and the effective figure — /embedding),
+capability chips, the fit verdict with an inline **Make `<model>-64k`** action (behind a confirm,
+calls the already-landed `ollamaCreate` with `PARAMETER num_ctx 65536`), read-only Modelfile/
+Template/Parameters/Licence tabs on the existing `CodePreview` renderer, Delete/Unload, and "Set
+as default for &lt;agent&gt;" writing Theme H's `agentBackends`. Discover/Cloud rows (Themes D/F)
+weren't merged at branch time, so only the Installed path is wired — the component's own doc
+comment names the extension point for whichever of D/F/I lands next.
+
+**The same warning on Settings ▸ Agent.** `agent-page.tsx`'s `OllamaBackendRow` (Theme H) now
+fetches `show` for whichever model is selected and renders a ⚠ next to the picker when
+`agentFitness` says it isn't ready — the agent-picker half of Theme G's "the warning shows in the
+detail modal, the agent picker and the per-launch picker" bullet; the per-launch picker is
+Theme I's.
+
+**Scope left to later themes**: Discover/Cloud not-installed rows opening this modal with a Pull
+button instead of the `show`-backed sections (Theme D/F/I), the per-launch picker's own fit badge
+(Theme I), and cloud models' fitness (Theme F — `agentFitness()` is provider-agnostic and ready
+for it, no caller yet).
+
 ## 2026-09-24 — Phase 96 Theme H — Agents on Ollama
 
 [PR #542](https://github.com/bilo-io/midnite-studio/pull/542).
