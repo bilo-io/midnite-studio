@@ -33,6 +33,7 @@ export const PREFERENCE_KEYS = [
   'agentSkills', // agent-page.tsx
   'agentModes', // agent-page.tsx
   'agentApiKeys', // agent-page.tsx
+  'agentBackends', // agent-page.tsx (Phase 96 Theme H)
   'skillExecutionMode', // agent-page.tsx
   'allowForceWithLease', // git-safety-page.tsx
   'locateByIpEnabled', // privacy-page.tsx (Phase 76 Theme D)
