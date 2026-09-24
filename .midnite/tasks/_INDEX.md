@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | ◻ TODO | — | 0/91 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L M |
 | [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 11/72 | `██░░░░░░░░` | 15% | C H | D E F G I |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
@@ -111,6 +112,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 <!-- Newest-first, mirroring the ## Phases table above. Headlines belong underneath the table so the progress table stays right at the top of the file. -->
 
 **Headlines:**
+
+- **[Phase 97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md)** (0% · 0/91) — **Planned 2026-09-24, brainstormed with the user**, seeded by the Graph / Harness / Loop Engineering articles in `docs/agentic_engineering/`. Makes the Workflows editor able to draw those articles' diagrams: typed ports and edge kinds (data / conditional / loop / error) with a connect-time type check, per-edge routing, a join node (all / any / allSettled) and an error port in place of `skipDownstream`, bounded loop back-edges (mandatory maxIterations + budget, dry-round convergence, failures carried forward, escalation), human gates (run panel, bell, MCP, PR comment), verifier and router nodes, durable run state with checkpoint/resume and per-node failure policy, cron / forge-PR triggers while the app is open, a harness frame + policy gate, per-kind canvas styling, receipts on Phase 94 Theme A's run record with iteration replay, a `{{demo.baseUrl}}` demo endpoint group, and five built-in templates in a gallery. One engine, no LLM judge.
 
 - **[Phase 96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md)** (15% · 11/72, [PR #540](https://github.com/bilo-io/midnite-studio/pull/540)) — **Planned 2026-09-24, brainstormed with the user.** Adds Ollama to the toolchain (Health row, daemon probe, install, start), a main-side Ollama client, a Models rail view (installed, ollama.com search scraped and cached, cloud catalogue, streamed pulls) with a rich model-detail modal and a one-click 64k-context variant, and a per-agent "native | Ollama" backend for claude, codex, cline, opencode and copilot — env vars for claude/copilot, `--oss -m` for codex, `ollama launch` for cline/opencode — honoured by every launch path, plus the wand and Plan-with-AI on an Ollama model. **Themes B and A landed** (2026-09-24, PR #540): the foundation client/schemas/IPC and the Health page row. The rest swarm next.
 
@@ -252,6 +255,24 @@ human/packaged-app verification passes.
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 97 — Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md)
+
+*The Graph, Harness and Loop Engineering diagrams, made drawable and runnable in the Workflows editor — one engine, bounded cycles, no LLM judge.*
+
+- ◻ **A** — typed ports + edge kinds (data/conditional/loop/error), per-port output shapes, `canConnect`, legacy-edge migration
+- ◻ **B** — per-edge routing, a `join` node (all/any/allSettled), the error port replaces `skipDownstream`
+- ◻ **C** — controlled cycles: `loop` back-edges, iteration-scoped runs, failures carried forward, convergence/budget stop, `exhausted` escalation
+- ◻ **D** — human `gate` node: `waiting` status, run panel, bell, glow, timeout, MCP decide, PR/issue comment, Auto-mate + kill switch
+- ◻ **E** — `verify` node: agent-as-checker verdict + exit-code / test-counts / JSON-path checks
+- ◻ **F** — `router` node: expression or agent-label cases with a default port
+- ◻ **G** — durable run state (`state` node), checkpoints, resume `interrupted` runs, per-node failure policy
+- ◻ **H** — `trigger` node: manual, cron while the app is open, forge PR opened/updated via the poller
+- ◻ **I** — harness `frame` group with six slots + a `policy` permission gate
+- ◻ **J** — canvas styling: edge styles per kind, loop badge, port colours by type, gate/verify/router/join/trigger/frame visuals
+- ◻ **K** — change receipts on Phase 94 Theme A's run record, replay by loop iteration
+- ◻ **L** — template gallery + five built-ins (Graph diamond, Harness build, Loop maker/checker, Research & publish, Risk router)
+- ◻ **M** — demo endpoint group: `{{demo.baseUrl}}` + scripted `/demo/*` routes for HTTP nodes
 
 ### [Phase 96 — Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md)
 
