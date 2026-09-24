@@ -372,3 +372,24 @@ describe('AgentPage - Ollama fit-for-agents warning (Phase 96 Theme G)', () => {
     expect(await within(claudeCard).findByText(/not agent-ready/)).toBeTruthy();
   });
 });
+
+describe('AgentPage - Headless AI features use (Phase 96 Theme I)', () => {
+  it('defaults to the primary agent and stores a picked Ollama model', async () => {
+    useUiStore.setState({ headlessAiOllamaModel: null });
+    renderView(<AgentPage />, {
+      fixtures: { ...fixtures, ollamaModels: [{ name: 'qwen3:14b' }] },
+    });
+
+    const select = (await screen.findByLabelText('Headless AI features use')) as HTMLSelectElement;
+    expect(select.value).toBe('');
+    await waitFor(() => {
+      expect(within(select).getAllByRole('option').map((o) => o.textContent)).toContain('Ollama · qwen3:14b');
+    });
+
+    fireEvent.change(select, { target: { value: 'qwen3:14b' } });
+    expect(useUiStore.getState().headlessAiOllamaModel).toBe('qwen3:14b');
+
+    fireEvent.change(select, { target: { value: '' } });
+    expect(useUiStore.getState().headlessAiOllamaModel).toBeNull();
+  });
+});

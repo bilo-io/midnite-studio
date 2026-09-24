@@ -1517,6 +1517,13 @@ export type UiState = {
   agentBackends: Record<string, AgentOllamaBinding>;
   setAgentBackend: (agentId: string, binding: AgentOllamaBinding) => void;
   /**
+   * Settings ▸ Agent ▸ "Headless AI features use" (Phase 96 Theme I): `null`
+   * runs the wand and Plan with AI on the primary agent's CLI (the default);
+   * an Ollama model name sends both to that model's `/api/chat` instead.
+   */
+  headlessAiOllamaModel: string | null;
+  setHeadlessAiOllamaModel: (model: string | null) => void;
+  /**
    * Non-secret mirror of main's account registry (Phase 90 Theme B) — main
    * owns the authoritative copy; this is what lets the title-bar avatar and
    * Settings ▸ Accounts render without an IPC round trip on every paint.
@@ -2072,6 +2079,7 @@ export type PersistedUi = Pick<
   | 'agentModes'
   | 'agentApiKeys'
   | 'agentBackends'
+  | 'headlessAiOllamaModel'
   | 'skillExecutionMode'
   | 'repoGroups'
   | 'repoGroupMembership'
@@ -2229,6 +2237,8 @@ export const useUiStore = create<UiState>()(
       agentBackends: {},
       setAgentBackend: (agentId, binding) =>
         set((state) => ({ agentBackends: { ...state.agentBackends, [agentId]: binding } })),
+      headlessAiOllamaModel: null,
+      setHeadlessAiOllamaModel: (model) => set({ headlessAiOllamaModel: model }),
       forgeAccounts: [],
       setForgeAccounts: (forgeAccounts) => set({ forgeAccounts }),
       forgeActiveAccountId: null,
@@ -3012,6 +3022,7 @@ export const useUiStore = create<UiState>()(
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
         agentBackends: state.agentBackends,
+        headlessAiOllamaModel: state.headlessAiOllamaModel,
         forgeAccounts: state.forgeAccounts,
         forgeActiveAccountId: state.forgeActiveAccountId,
         forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
