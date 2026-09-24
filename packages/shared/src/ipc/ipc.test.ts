@@ -1735,6 +1735,7 @@ describe('workflow contract', () => {
       workflowRunsList: ['WorkflowRunsListRequest', 'WorkflowRunsListResponse'],
       workflowRunsGet: ['WorkflowRunsGetRequest', 'WorkflowRunsGetResponse'],
       workflowRunChanged: [],
+      workflowNodeSessionStarted: ['WorkflowNodeSessionStartedEvent'],
       workflowSetDefaults: ['WorkflowSetDefaultsRequest'],
       demoApiStart: ['DemoApiStartResponse'],
       demoApiStop: ['DemoApiStopResponse'],

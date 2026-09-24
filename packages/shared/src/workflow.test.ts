@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  WORKFLOW_AGENT_DONE_MARKER,
+  WORKFLOW_AGENT_DONE_MARKER_PATTERN,
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WORKFLOW_NODE_KINDS,
   WorkflowNodeSchema,
   WorkflowRunSchema,
   WorkflowSchema,
+  agentNodeDonePrompt,
   ancestorIds,
   findCycleEdge,
   validateWorkflow,
@@ -46,15 +49,38 @@ describe('WorkflowSchema', () => {
   });
 
   it('discriminates node kinds on `kind`, and rejects one that is not in the vocabulary', () => {
-    expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'agent' }).success).toBe(false);
+    expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
-    // cannot drift apart without this failing.
-    expect(WORKFLOW_NODE_KINDS).toEqual(['http', 'transform', 'condition', 'delay', 'note']);
+    // cannot drift apart without this failing. `agent`/`script` (Theme J)
+    // joined the MVP's original five.
+    expect(WORKFLOW_NODE_KINDS).toEqual(['http', 'transform', 'condition', 'delay', 'note', 'agent', 'script']);
   });
 
   it('keeps fractional node positions — the canvas snaps, the schema does not', () => {
     const parsed = WorkflowNodeSchema.parse({ ...node(), x: 12.5, y: -3.25 });
     expect([parsed.x, parsed.y]).toEqual([12.5, -3.25]);
+  });
+
+  it('parses an agent node and a script node (Theme J)', () => {
+    const agentNode = WorkflowNodeSchema.parse({
+      id: 'a',
+      label: 'Ask',
+      x: 0,
+      y: 0,
+      kind: 'agent',
+      config: { agentId: 'claude', prompt: 'Do the thing' },
+    });
+    expect(agentNode.kind === 'agent' && agentNode.config.agentId).toBe('claude');
+
+    const scriptNode = WorkflowNodeSchema.parse({
+      id: 's',
+      label: 'Run',
+      x: 0,
+      y: 0,
+      kind: 'script',
+      config: { command: 'echo hi', env: { FOO: 'bar' } },
+    });
+    expect(scriptNode.kind === 'script' && scriptNode.config.command).toBe('echo hi');
   });
 
   it('bounds a delay at a minute', () => {
@@ -113,6 +139,34 @@ describe('validateWorkflow', () => {
       workflow({ nodes: [node({ config: { method: 'GET', url: '  ', headers: {}, params: {}, queryShaped: false } })], edges: [] }),
     );
     expect(issues).toEqual([{ message: '"Fetch" has no URL.', nodeId: 'a' }]);
+  });
+
+  it('names an agent node with no agent selected and one with no prompt (Theme J)', () => {
+    const noAgent = validateWorkflow(
+      workflow({
+        nodes: [{ id: 'a', label: 'Ask', x: 0, y: 0, kind: 'agent', config: { agentId: '', prompt: 'Do it' } }],
+        edges: [],
+      }),
+    );
+    expect(noAgent).toEqual([{ message: '"Ask" has no agent selected.', nodeId: 'a' }]);
+
+    const noPrompt = validateWorkflow(
+      workflow({
+        nodes: [{ id: 'a', label: 'Ask', x: 0, y: 0, kind: 'agent', config: { agentId: 'claude', prompt: '  ' } }],
+        edges: [],
+      }),
+    );
+    expect(noPrompt).toEqual([{ message: '"Ask" has no prompt.', nodeId: 'a' }]);
+  });
+
+  it('names a script node with no command (Theme J)', () => {
+    const issues = validateWorkflow(
+      workflow({
+        nodes: [{ id: 'a', label: 'Run', x: 0, y: 0, kind: 'script', config: { command: '', env: {} } }],
+        edges: [],
+      }),
+    );
+    expect(issues).toEqual([{ message: '"Run" has no command.', nodeId: 'a' }]);
   });
 
   it('names the edge that points at a node that no longer exists', () => {
@@ -228,5 +282,20 @@ describe('ancestorIds', () => {
   it('excludes the node itself even when it sits on a cycle', () => {
     const edges = [edge('e1', 'a', 'b'), edge('e2', 'b', 'a')];
     expect(ancestorIds('a', edges)).toEqual(new Set(['b']));
+  });
+});
+
+describe('agentNodeDonePrompt / WORKFLOW_AGENT_DONE_MARKER_PATTERN (Theme J)', () => {
+  it('appends the done-marker instruction to the node prompt, keeping the original text', () => {
+    const built = agentNodeDonePrompt('Fix the failing test');
+    expect(built).toContain('Fix the failing test');
+    expect(built).toContain(WORKFLOW_AGENT_DONE_MARKER);
+  });
+
+  it('matches a bare marker, and captures ok/fail when present', () => {
+    expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('blah MIDNITE_WORKFLOW_NODE_DONE blah')?.[1]).toBeUndefined();
+    expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('MIDNITE_WORKFLOW_NODE_DONE: ok')?.[1]).toBe('ok');
+    expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('MIDNITE_WORKFLOW_NODE_DONE: fail')?.[1]).toBe('fail');
+    expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('nothing here')).toBeNull();
   });
 });
