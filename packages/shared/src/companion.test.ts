@@ -589,35 +589,41 @@ describe('composeOverviewSpeech', () => {
     expect(speech).toContain('It is 1 commit ahead of the remote.');
   });
 
-  it('groups the landed digest by conventional-commit prefix rather than reading raw titles', () => {
+  it('routes the digest through toSpokenDigest — phase/theme, not a raw title', () => {
     const speech = composeOverviewSpeech(snapshotFixture(), {
       digest: {
         since: Date.parse('2026-09-07T09:00:00Z'),
         landed: [
-          { kind: 'pr', title: 'feat(agent): support primary agent selection', ref: '#372', at: 0 },
+          {
+            kind: 'pr',
+            title: 'feat(agent): support primary agent selection (Phase 81 Theme A) (#372)',
+            ref: '#372',
+            at: 0,
+          },
         ],
         inProgress: [],
       },
       now: Date.parse('2026-09-08T09:00:00Z'),
+      rng: () => 0,
     });
-    expect(speech).toContain('Feature - (agent): support primary agent selection in PR 372.');
+    expect(speech).toContain('Phase 81, theme A landed.');
+    expect(speech).not.toContain('#372');
+    expect(speech).not.toContain('feat(agent)');
   });
 
-  it('separates the heading, Landed and In-progress blocks with a paragraph break', () => {
+  it('separates the heading and the digest with a paragraph break — one digest paragraph, not two', () => {
     const speech = composeOverviewSpeech(snapshotFixture(), {
-      // A non-empty landed section, so the "clean slate" fourth block does
-      // not also appear — this is asserting the block count, not its wording.
       digest: { since: 0, landed: [{ kind: 'commit', title: 'fix: x', ref: 'a', at: 0 }], inProgress: [] },
     });
-    expect(speech.split(COMPANION_PARAGRAPH_BREAK)).toHaveLength(3);
+    expect(speech.split(COMPANION_PARAGRAPH_BREAK)).toHaveLength(2);
   });
 
-  it('says nothing has landed and nothing is open, exactly as the markdown does', () => {
+  it('says nothing has landed and nothing is in progress, exactly as toSpokenDigest does', () => {
     const speech = composeOverviewSpeech(snapshotFixture(), {
       digest: { since: 0, landed: [], inProgress: [] },
+      rng: () => 0,
     });
-    expect(speech).toContain('nothing.');
-    expect(speech).toContain('Nothing is open right now.');
+    expect(speech).toContain('Nothing has landed, and nothing is in progress right now.');
   });
 
   it('appends the switch offer as its own paragraph', () => {

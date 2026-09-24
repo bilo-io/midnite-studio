@@ -800,6 +800,176 @@ export function groupedDigestSpeech(items: readonly CompanionDigestItem[]): stri
   );
 }
 
+// --- Ad Hoc · the intro digest's own spoken rendering -----------------------
+//
+// `composeOverviewSpeech` used to read the digest through `groupedDigestSpeech`
+// — a group per conventional-commit `type(scope)`, every member's own
+// description read out and a bare PR number spoken aloud ("in PR 372"). That
+// is closer to "a list read aloud" than "a colleague's quick catch-up", and
+// this repo's own commit/tracker titles carry exactly the noise a voice
+// should never repeat: `(WIP)`, `[M · half a day]`-style effort tags and
+// `(#123)` PR refs are literal substrings of a real title here (see
+// `git log`'s own recent subjects). `toSpokenDigest` replaces that half of
+// the pipeline for the greeting/intro path: it names a `Phase N` once per
+// phase with its theme letters oxford-joined ("Phase 96, themes A, B and C
+// landed") rather than one sentence per item, and it never interpolates a
+// raw title into its output at all — the phase/theme pair is *extracted*
+// from the title, everything else about the title is simply not spoken. That
+// is what makes the WIP/tag/PR-number/markdown/URL stripping unconditional
+// rather than a second regex pass to keep in sync with the first.
+//
+// `composeOverviewMarkdown` (the thread's own turn) is untouched by any of
+// this — it still renders every item via `digestItemMarkdown`, byte for byte
+// as before. Two independent projections of the same `CompanionDigest`, same
+// as `composeOverviewMarkdown`/`composeOverviewSpeech` already are.
+
+/** `Phase 96 Themes B, A` / `Phase 82 Theme C` / `Phase 96 C, H —` → the phase number and its theme letters, deduped and sorted A→Z. `themes` is empty when a phase is named with no theme letters attached, `null` when no phase is named at all. */
+function parsePhaseThemes(title: string): { phase: string; themes: string[] } | null {
+  const withWord = /Phase\s+(\d+)(?:[,:]?\s+Themes?\s+([A-Za-z](?:\s*,\s*[A-Za-z])*))/.exec(title);
+  if (withWord) {
+    return { phase: withWord[1] as string, themes: dedupedThemeLetters(withWord[2] as string) };
+  }
+  // `_INDEX.md`'s own WIP rows carry the theme letters with no "Theme(s)" word
+  // at all ("Phase 96 C, H — <title>") — the dash anchors the match so a
+  // title's own capitalised first word can never be mistaken for one.
+  const noWord = /Phase\s+(\d+)\s+([A-Za-z](?:\s*,\s*[A-Za-z])*)\s*[—–-]/.exec(title);
+  if (noWord) {
+    return { phase: noWord[1] as string, themes: dedupedThemeLetters(noWord[2] as string) };
+  }
+  const bare = /Phase\s+(\d+)\b/.exec(title);
+  return bare ? { phase: bare[1] as string, themes: [] } : null;
+}
+
+function dedupedThemeLetters(raw: string): string[] {
+  const letters = raw
+    .split(',')
+    .map((letter) => letter.trim().toUpperCase())
+    .filter((letter) => /^[A-Z]$/.test(letter));
+  return Array.from(new Set(letters)).sort();
+}
+
+/** "Phase 96, themes A, B and C" / "Phase 82, theme C" / "Phase 86" — no trailing punctuation, one caller joins several of these into a sentence. */
+function phaseGroupPhrase(group: { phase: string; themes: ReadonlySet<string> }): string {
+  const themes = Array.from(group.themes).sort();
+  if (themes.length === 0) return `Phase ${group.phase}`;
+  const word = themes.length === 1 ? 'theme' : 'themes';
+  return `Phase ${group.phase}, ${word} ${oxfordJoin(themes)}`;
+}
+
+/**
+ * Every item that names a phase, folded into one group per phase number
+ * (themes unioned across every item that named that phase) — a commit, its
+ * merged PR and a `done.md` entry for the same phase collapse to one group.
+ * Items that name no phase at all are counted, never named.
+ */
+function groupByPhase(items: readonly CompanionDigestItem[]): {
+  groups: Array<{ phase: string; themes: ReadonlySet<string> }>;
+  otherCount: number;
+} {
+  const order: string[] = [];
+  const byPhase = new Map<string, Set<string>>();
+  let otherCount = 0;
+  for (const item of items) {
+    const parsed = parsePhaseThemes(item.title);
+    if (parsed === null) {
+      otherCount += 1;
+      continue;
+    }
+    let themes = byPhase.get(parsed.phase);
+    if (!themes) {
+      themes = new Set();
+      byPhase.set(parsed.phase, themes);
+      order.push(parsed.phase);
+    }
+    for (const letter of parsed.themes) themes.add(letter);
+  }
+  return { groups: order.map((phase) => ({ phase, themes: byPhase.get(phase) as Set<string> })), otherCount };
+}
+
+/**
+ * The landed half of {@link toSpokenDigest} — one sentence naming every
+ * phase group, oxford-joined, plus a trailing count for whatever named no
+ * phase. Never names an item individually: a title is either phase-shaped
+ * (and only its phase/theme is spoken) or it is one of the count.
+ */
+function landedSpoken(items: readonly CompanionDigestItem[]): string {
+  if (items.length === 0) return 'Nothing landed.';
+  const { groups, otherCount } = groupByPhase(items);
+  if (groups.length === 0) return `${plural(otherCount, 'change')} landed.`;
+  const main = `${oxfordJoin(groups.map(phaseGroupPhrase))} landed.`;
+  return otherCount === 0 ? main : `${main} Plus ${plural(otherCount, 'other change')}.`;
+}
+
+/**
+ * The in-progress half — counts only, per the greeting/intro brief: a list of
+ * what is still open is a wait, not a summary. Distinct phases are counted
+ * (an open PR, its branch and its `_INDEX.md` WIP row for the same phase are
+ * one phase in flight, not three), and named "phases" only when every item in
+ * flight names one; a mixed or phase-less set is counted as generic "things"
+ * rather than mislabelling something that is not a phase as one.
+ */
+function inProgressSpoken(items: readonly CompanionDigestItem[]): string {
+  if (items.length === 0) return 'Nothing is in progress right now.';
+  const phases = new Set<string>();
+  let unparsed = 0;
+  for (const item of items) {
+    const parsed = parsePhaseThemes(item.title);
+    if (parsed === null) unparsed += 1;
+    else phases.add(parsed.phase);
+  }
+  // Every item parsed a phase — even two items sharing one (an open PR and
+  // its own `_INDEX.md` row) still count as one phase in flight, not two.
+  const allPhases = unparsed === 0;
+  const count = allPhases ? phases.size : items.length;
+  const verb = count === 1 ? 'is' : 'are';
+  return `${plural(count, allPhases ? 'phase' : 'thing')} ${verb} in progress.`;
+}
+
+/**
+ * A small, fixed set of openers for the spoken digest — Ad Hoc: "a tiny bit
+ * of personality... nothing cheesy, no more than one quip per summary". One
+ * is picked per call (`rng`, injected exactly as {@link summariseDigest}'s
+ * is, for a deterministic test) and it is the summary's *only* aside — the
+ * rest of the output is facts. `{name}` resolves through
+ * {@link interpolatePhrase} exactly as every other phrase-bank line does, so
+ * a configured honorific (Phase 80) is respected here too.
+ */
+const DIGEST_OPENERS = [
+  'Quick catch-up{name}.',
+  'Here is where things stand{name}.',
+  'Fast rundown{name}.',
+  'Catching you up{name}.',
+] as const;
+
+export type SpokenDigestOptions = {
+  now?: number;
+  rng?: () => number;
+  /** A resolved honorific (e.g. from {@link pickHonorific}) — `''`, the default, says nothing extra. */
+  honorific?: string;
+};
+
+/**
+ * The intro/greeting digest, rendered for a voice rather than a screen —
+ * succinct, consolidated by phase and theme, counts only for what is still
+ * open, and never a title's raw text. Pure and deterministic given `rng`.
+ *
+ * `composeOverviewMarkdown`'s own rendering of the same {@link CompanionDigest}
+ * is untouched by this — see the section docblock above.
+ */
+export function toSpokenDigest(digest: CompanionDigest, options: SpokenDigestOptions = {}): string {
+  const { rng = Math.random, honorific = '' } = options;
+  const opener = interpolatePhrase(
+    DIGEST_OPENERS[pickIndex(rng, DIGEST_OPENERS.length)] as string,
+    honorific,
+  );
+
+  if (digest.landed.length === 0 && digest.inProgress.length === 0) {
+    return `${opener} Nothing has landed, and nothing is in progress right now.`;
+  }
+
+  return `${opener} ${landedSpoken(digest.landed)} ${inProgressSpoken(digest.inProgress)}`;
+}
+
 // --- B · pure grounding helpers --------------------------------------------
 
 /**
@@ -1626,6 +1796,15 @@ export type OverviewMarkdownOptions = {
   /** Whether to append the "shall I switch?" offer. The caller decides, from `snapshot.repos > 1`. */
   offerSwitch?: boolean;
   now?: number;
+  /**
+   * Forwarded to {@link toSpokenDigest} — `composeOverviewMarkdown` ignores
+   * both of these, so passing them alongside `digest`/`offerSwitch`/`now` to
+   * either function is always safe (`orient()` in `concierge.ts` does exactly
+   * that, from the one options object).
+   */
+  rng?: () => number;
+  /** A resolved honorific — see {@link SpokenDigestOptions}. */
+  honorific?: string;
 };
 
 /**
@@ -1922,8 +2101,8 @@ export function sanitizeForSpeech(text: string): string {
 /**
  * {@link composeOverviewMarkdown}'s spoken projection — built directly from
  * the same snapshot/digest data rather than derived from the markdown, so the
- * digest sections can use {@link groupedDigestSpeech} in place of reading
- * each bullet's raw title.
+ * digest itself is {@link toSpokenDigest}'s consolidated, phase-and-theme
+ * rendering rather than one sentence per item.
  *
  * **The on-screen markdown is untouched by this.** `describeSnapshot`'s own
  * lines are already the plain sentences a voice should read — that is that
@@ -1935,38 +2114,23 @@ export function sanitizeForSpeech(text: string): string {
  *
  * Blocks are separated by {@link COMPANION_PARAGRAPH_BREAK} so `say`
  * (`concierge.ts`) can pause between them — the heading-and-facts, the
- * Landed section, the In-progress section and the switch offer are each
- * their own paragraph, the same grouping {@link composeOverviewMarkdown}
- * gives them with a blank line.
+ * digest (one paragraph — {@link toSpokenDigest} already reads as a single
+ * catch-up rather than a Landed/In-progress pair) and the switch offer are
+ * each their own paragraph.
  *
- * `sanitizeForSpeech` runs once, over the whole joined result, exactly as it
- * already does for a plain `markdownToSpeech` projection — it never touches
- * a `groupedDigestSpeech` PR/commit ref (those are already resolved to
- * either "in PR 372" or nothing), but it still redacts a stray path, URL or
- * semver anywhere else in the overview.
+ * `sanitizeForSpeech` still runs once, over the whole joined result — it is
+ * idempotent and `toSpokenDigest`'s own output has nothing left for it to
+ * redact, but `describeSnapshot`'s facts (a branch name, a path) still can.
  */
 export function composeOverviewSpeech(
   snapshot: CompanionSnapshot,
   options: OverviewMarkdownOptions = {},
 ): string {
-  const { digest = null, offerSwitch = false, now = Date.now() } = options;
+  const { digest = null, offerSwitch = false, now = Date.now(), rng, honorific = '' } = options;
   const blocks: string[] = [describeSnapshot(snapshot).join(' ')];
 
   if (digest !== null) {
-    const when = sinceLabel(digest.since, now);
-    blocks.push(
-      digest.landed.length === 0
-        ? `Landed ${when}: nothing.`
-        : `Landed ${when}: ${groupedDigestSpeech(digest.landed).join(' ')}`,
-    );
-    blocks.push(
-      digest.inProgress.length === 0
-        ? 'Nothing is open right now.'
-        : `In progress: ${groupedDigestSpeech(digest.inProgress).join(' ')}`,
-    );
-    if (digest.landed.length === 0 && digest.inProgress.length === 0) {
-      blocks.push('A clean slate, then.');
-    }
+    blocks.push(toSpokenDigest(digest, { now, rng, honorific }));
   }
 
   if (offerSwitch) blocks.push('Want to switch to another one?');
