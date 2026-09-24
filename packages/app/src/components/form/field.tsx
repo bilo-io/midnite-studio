@@ -100,6 +100,15 @@ const TEXT_INPUT_CLASSNAME =
 const GRADIENT_TEXT_AREA_CLASSNAME =
   'block w-full rounded-md border-0 bg-background px-1.5 py-1 text-xs outline-none disabled:opacity-50';
 
+/** `TextField`'s own gradient variant — `border-0`/`outline-none` in place of
+ *  `TEXT_INPUT_CLASSNAME`'s border and focus ring, matching
+ *  `GRADIENT_TEXT_AREA_CLASSNAME`'s reasoning above exactly: the wrapper
+ *  draws the border on `:focus-within`, so the control must not draw a second
+ *  one. No `block` override here — an `<input>` has no descender gap to
+ *  correct for, unlike the multi-line `<textarea>` case. */
+const GRADIENT_TEXT_INPUT_CLASSNAME =
+  'w-full rounded-md border-0 bg-background px-1.5 py-1 text-xs outline-none disabled:opacity-50';
+
 export function TextField({
   value,
   onChange,
@@ -108,6 +117,7 @@ export function TextField({
   disabled,
   className,
   onFocus,
+  gradient,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -116,8 +126,14 @@ export function TextField({
   disabled?: boolean;
   className?: string;
   onFocus?: (event: React.FocusEvent<HTMLInputElement>) => void;
+  /** Opt-in gradient-border-on-focus halo — `TextArea`'s own `gradient` prop,
+   *  mirrored here for Phase 95 Theme F's "Plan with AI" prompt input: the
+   *  full glow (border + pulse) while focused, and only the gradient border
+   *  at rest, is exactly `.gradient-border`/`.gradient-border--glow`'s own
+   *  `:focus-within` behaviour — no bespoke CSS needed. */
+  gradient?: boolean;
 }) {
-  return (
+  const input = (
     <input
       type="text"
       value={value}
@@ -126,9 +142,13 @@ export function TextField({
       aria-label={label}
       placeholder={placeholder}
       disabled={disabled}
-      className={`${TEXT_INPUT_CLASSNAME} ${className ?? ''}`}
+      className={`${gradient ? GRADIENT_TEXT_INPUT_CLASSNAME : TEXT_INPUT_CLASSNAME} ${className ?? ''}`}
     />
   );
+
+  if (!gradient) return input;
+
+  return <div className="gradient-border gradient-border--glow rounded-md">{input}</div>;
 }
 
 export function TextArea({
