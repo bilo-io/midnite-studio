@@ -24,11 +24,14 @@ function issueOf(key: string, number: number) {
 
 function fakeOps(over: Partial<PlanConfirmOps> = {}): PlanConfirmOps {
   return {
-    createProject: vi.fn(async () => ({ ok: true, projectId: 'proj-1' })),
-    createIssue: vi.fn(async (taskKey: string) => ({ ok: true, ...issueOf(taskKey, taskKey === 'api' ? 101 : 102) })),
-    addToProject: vi.fn(async () => ({ ok: true })),
-    linkBlockedBy: vi.fn(async () => ({ ok: true })),
-    linkSubIssue: vi.fn(async () => ({ ok: true })),
+    createProject: vi.fn(async () => ({ ok: true as const, projectId: 'proj-1' })),
+    createIssue: vi.fn(async (taskKey: string) => ({
+      ok: true as const,
+      ...issueOf(taskKey, taskKey === 'api' ? 101 : 102),
+    })),
+    addToProject: vi.fn(async () => ({ ok: true as const })),
+    linkBlockedBy: vi.fn(async () => ({ ok: true as const })),
+    linkSubIssue: vi.fn(async () => ({ ok: true as const })),
     ...over,
   };
 }
@@ -92,7 +95,9 @@ describe('runPlanConfirm', () => {
   it('stops at the first failure, leaving later steps pending — a partial-failure report', async () => {
     const ops = fakeOps({
       createIssue: vi.fn(async (taskKey: string) =>
-        taskKey === 'ui' ? { ok: false, message: 'GitHub said no.' } : { ok: true, ...issueOf(taskKey, 101) },
+        taskKey === 'ui'
+          ? { ok: false as const, message: 'GitHub said no.' }
+          : { ok: true as const, ...issueOf(taskKey, 101) },
       ),
     });
     const mode: PlanConfirmMode = { kind: 'project', target: { kind: 'new' } };
@@ -119,10 +124,10 @@ describe('runPlanConfirm', () => {
       createIssue: vi.fn(async (taskKey: string) => {
         if (taskKey === 'ui') {
           uiAttempts += 1;
-          if (uiAttempts === 1) return { ok: false, message: 'flaky' };
-          return { ok: true, ...issueOf('ui', 102) };
+          if (uiAttempts === 1) return { ok: false as const, message: 'flaky' };
+          return { ok: true as const, ...issueOf('ui', 102) };
         }
-        return { ok: true, ...issueOf('api', 101) };
+        return { ok: true as const, ...issueOf('api', 101) };
       }),
     });
     const mode: PlanConfirmMode = { kind: 'project', target: { kind: 'new' } };
@@ -144,7 +149,7 @@ describe('runPlanConfirm', () => {
 
   it('reports an add-to-project step as failed rather than throwing when its issue was never created', async () => {
     const ops = fakeOps({
-      createIssue: vi.fn(async () => ({ ok: false, message: 'boom' })),
+      createIssue: vi.fn(async () => ({ ok: false as const, message: 'boom' })),
     });
     const mode: PlanConfirmMode = { kind: 'project', target: { kind: 'existing', projectId: 'proj-9' } };
     const steps = buildPlanConfirmSteps(blueprint, mode);
