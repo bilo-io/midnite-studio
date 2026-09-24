@@ -1255,6 +1255,16 @@ export const EVENT_CHANNELS = {
    * re-fetch needs neither.
    */
   workflowRunChanged: 'mstudio:workflow:run-changed',
+  /**
+   * An `agent`/`script` workflow node (Phase 95 Theme J) started a real
+   * terminal session — main creates the `TerminalSession` and its pty
+   * directly (the engine runs in main already), so there is no
+   * `terminal:save`/`pty:create` round trip from the renderer to hang this
+   * off; the renderer instead adopts the session this event hands it
+   * (`use-workflow-node-sessions.ts`), exactly as `hydrate()` adopts a
+   * restored one, then follows its `ptyData`/`ptyExit` like any other.
+   */
+  workflowNodeSessionStarted: 'mstudio:workflow:node-session-started',
   /** A studio's status changed — see `VideoStudioChangedEventSchema`. */
   videoStudioChanged: 'mstudio:video:studio-changed',
   /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */

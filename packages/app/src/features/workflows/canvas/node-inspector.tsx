@@ -8,10 +8,12 @@ import { EmptyState } from '../../../components/empty-state';
 import { declaredOutputFields } from './node-output-fields';
 import { NODE_KIND_META } from './node-kind-meta';
 import {
+  AgentForm,
   ConditionForm,
   DelayForm,
   HttpForm,
   NoteForm,
+  ScriptForm,
   TransformForm,
   type NodeFormProps,
 } from './node-forms';
@@ -28,6 +30,8 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   condition: ConditionForm,
   delay: DelayForm,
   note: NoteForm,
+  agent: AgentForm,
+  script: ScriptForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };

@@ -2569,6 +2569,25 @@ export const WorkflowRunChangedEventSchema = z.object({
 export type WorkflowRunChangedEvent = z.infer<typeof WorkflowRunChangedEventSchema>;
 
 /**
+ * `workflowNodeSessionStarted`'s payload (Phase 95 Theme J) — mirrors
+ * `RestoredTerminalSession`'s `live` shape (minus `activity`, which the
+ * renderer's own detector announces separately on `pty:activity` once
+ * something is actually tracked) rather than inventing a second one, since
+ * this is the same "here is a session, and here is the live pty behind it"
+ * fact `terminal:list` answers for a restored row.
+ */
+export const WorkflowNodeSessionStartedEvent = z.object({
+  session: TerminalSessionSchema,
+  live: z.object({
+    ptyId: z.string().min(1),
+    pid: z.number().int().positive(),
+    cols: z.number().int().positive(),
+    rows: z.number().int().positive(),
+  }),
+});
+export type WorkflowNodeSessionStartedEvent = z.infer<typeof WorkflowNodeSessionStartedEvent>;
+
+/**
  * The Workflows settings page (Theme I), one-way like `updateSetChannel` —
  * `ipcMain.on`, not `invoke`. Bounded here too, not just in the UI: a
  * mistyped value must fail to parse rather than park every run for ten

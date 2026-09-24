@@ -249,6 +249,74 @@ export function NoteForm({ node, onChange }: NodeFormProps) {
 }
 
 /**
+ * Phase 95 Theme J. `agentId` is a plain text field rather than a roster
+ * picker — the roster (`BUILTIN_AGENTS`/`agents.json`) is a runtime fact
+ * about the host this form has no access to (it lives behind
+ * `terminal-service.ts` in main), and validating it is `validateWorkflow`'s
+ * job at run time, not this form's at edit time.
+ */
+export function AgentForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  if (node.kind !== 'agent') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  return (
+    <>
+      <Field label="Agent" hint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in.">
+        <TextField label="Agent" value={config.agentId} onChange={(agentId) => update({ agentId })} placeholder="claude" />
+      </Field>
+      <Field label="Prompt" hint="What to ask the agent to do. The node completes once it prints a done marker and goes idle.">
+        <TextArea
+          label="Prompt"
+          value={config.prompt}
+          onChange={(prompt) => update({ prompt })}
+          rows={6}
+          onFocus={(event) =>
+            onInterpolatableFocus({ value: config.prompt, onChange: (prompt) => update({ prompt }), el: event.currentTarget })
+          }
+        />
+      </Field>
+      <Field label="Model" hint="Optional — the agent's own --model flag, when it has one.">
+        <TextField label="Model" value={config.model ?? ''} onChange={(model) => update({ model: model || undefined })} />
+      </Field>
+    </>
+  );
+}
+
+export function ScriptForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  if (node.kind !== 'script') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  return (
+    <>
+      <Field label="Command" hint="Run in a real login shell — may reference an upstream node's output.">
+        <TextArea
+          label="Command"
+          value={config.command}
+          onChange={(command) => update({ command })}
+          rows={4}
+          onFocus={(event) =>
+            onInterpolatableFocus({ value: config.command, onChange: (command) => update({ command }), el: event.currentTarget })
+          }
+        />
+      </Field>
+      <Field label="Working directory" hint="Optional — defaults to the OS home directory (workflows are not repo-scoped).">
+        <TextField label="Working directory" value={config.cwd ?? ''} onChange={(cwd) => update({ cwd: cwd || undefined })} />
+      </Field>
+      <KeyValueRows
+        label="Env"
+        value={config.env}
+        onChange={(env) => update({ env })}
+        onValueFocus={(key, value, el) =>
+          onInterpolatableFocus({ value, onChange: (next) => update({ env: { ...config.env, [key]: next } }), el })
+        }
+      />
+    </>
+  );
+}
+
+/**
  * A minimal key/value row editor for `headers`/`params` — no drag-reorder,
  * since HTTP header/param order carries no meaning worth preserving.
  */

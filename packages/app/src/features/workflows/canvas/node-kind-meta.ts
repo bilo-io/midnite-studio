@@ -1,5 +1,5 @@
 import type { WorkflowNode, WorkflowNodeKind } from '@midnite/studio-shared';
-import { LuClock, LuGitBranch, LuGlobe, LuShuffle, LuStickyNote } from 'react-icons/lu';
+import { LuBot, LuClock, LuGitBranch, LuGlobe, LuShuffle, LuSquareTerminal, LuStickyNote } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
 
@@ -37,6 +37,24 @@ export const NODE_KIND_META: Record<
   },
   delay: { label: 'Delay', icon: LuClock, category: 'action', description: 'Pause the run for a fixed time.' },
   note: { label: 'Note', icon: LuStickyNote, category: 'storage', description: 'A label on the canvas — never runs.' },
+  /**
+   * Phase 95 Theme J. Both take the `action` hue — they run something with a
+   * real side effect, exactly like `http`, rather than the unused `trigger`
+   * hue: every run in this app is still manual, and neither kind starts one
+   * on its own.
+   */
+  agent: {
+    label: 'Agent',
+    icon: LuBot,
+    category: 'action',
+    description: 'Run a roster agent in a real terminal session.',
+  },
+  script: {
+    label: 'Script',
+    icon: LuSquareTerminal,
+    category: 'action',
+    description: 'Run a shell command in a real terminal session.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -56,5 +74,9 @@ export function nodeSummary(node: WorkflowNode): string {
       return `${node.config.ms}ms`;
     case 'note':
       return node.config.text.trim() || 'Empty note';
+    case 'agent':
+      return node.config.agentId.trim() ? `Run ${node.config.agentId}` : 'No agent selected';
+    case 'script':
+      return node.config.command.trim() || 'No command';
   }
 }

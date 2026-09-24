@@ -24,7 +24,15 @@ afterAll(async () => {
 });
 
 function context(over: Partial<ExecutorContext> = {}): ExecutorContext {
-  return { upstream: {}, signal: { cancelled: () => false }, timeoutMs: 5_000, ...over };
+  return {
+    upstream: {},
+    signal: { cancelled: () => false },
+    timeoutMs: 5_000,
+    workflowId: 'w1',
+    runId: 'r1',
+    reportSessionId: async () => {},
+    ...over,
+  };
 }
 
 function httpNode(config: Partial<Extract<WorkflowNode, { kind: 'http' }>['config']>): WorkflowNode {

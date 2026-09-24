@@ -225,7 +225,7 @@ export async function startWorkflowRun(
 
   const state: InFlight = { cancelled: false, done: Promise.resolve() };
   inFlight.set(run.id, state);
-  state.done = drive(run.id, runnable, deps, state).finally(() => inFlight.delete(run.id));
+  state.done = drive(run.id, workflow.id, runnable, deps, state).finally(() => inFlight.delete(run.id));
   // Not awaited: the invoke answers with the run, not with its outcome. The
   // rejection guard is here because `drive` throwing would otherwise be an
   // unhandled rejection taking main down.
@@ -272,6 +272,7 @@ export async function cancelWorkflowRun(runId: string, deps: EngineDeps): Promis
  */
 async function drive(
   runId: string,
+  workflowId: string,
   nodes: readonly WorkflowNode[],
   deps: EngineDeps,
   state: InFlight,
@@ -391,7 +392,7 @@ async function drive(
           continue;
         }
         // Started OUTSIDE the lock — see the module doc.
-        const promise = executeNode(runId, node, deps, state, executors).finally(() =>
+        const promise = executeNode(runId, workflowId, node, deps, state, executors).finally(() =>
           running.delete(nodeId),
         );
         running.set(nodeId, promise);
@@ -477,12 +478,13 @@ function timeoutFor(node: WorkflowNode, deps: EngineDeps): number {
  */
 async function executeNode(
   runId: string,
+  workflowId: string,
   node: WorkflowNode,
   deps: EngineDeps,
   state: InFlight,
   executors: ExecutorRegistry,
 ): Promise<void> {
-  const outcome = await runNode(runId, node, deps, state, executors, timeoutFor(node, deps));
+  const outcome = await runNode(runId, workflowId, node, deps, state, executors, timeoutFor(node, deps));
   await settleNode(runId, node.id, outcome, deps);
 }
 
@@ -496,6 +498,7 @@ async function executeNode(
  */
 async function runNode(
   runId: string,
+  workflowId: string,
   node: WorkflowNode,
   deps: EngineDeps,
   state: InFlight,
@@ -541,6 +544,7 @@ async function runNode(
   });
 
   const signal: CancelSignal = { cancelled: () => state.cancelled };
+  const reportSessionId = (sessionId: string) => patchNodeSessionId(runId, node.id, sessionId, deps);
   let settled = false;
 
   return new Promise((resolve) => {
@@ -550,7 +554,7 @@ async function runNode(
       resolve({ status: 'timeout' });
     }, timeoutMs);
 
-    void executors[node.kind](node, { upstream, signal, timeoutMs }).then(
+    void executors[node.kind](node, { upstream, signal, timeoutMs, workflowId, runId, reportSessionId }).then(
       (result) => {
         if (settled) return;
         settled = true;
@@ -618,5 +622,34 @@ async function settleNode(
   });
   // `null` on a not-found run/node or a settle that lost the idempotence
   // race — nothing changed, so nothing to announce.
+  if (run) deps.emitChanged(run);
+}
+
+/**
+ * Stamp an `agent`/`script` node's live `sessionId` onto the run (Phase 95
+ * Theme J) — a MID-FLIGHT patch, not a settle: `executors/agent.ts` and
+ * `executors/script.ts` call this the moment their pty exists, well before
+ * the node finishes, so the terminal accordion group and the canvas node's
+ * own glow can bind to a real session while it is still running rather than
+ * only once it is done. A no-op if the run vanished or the node already
+ * settled — the same guard `settleNode` applies, for the identical reason: a
+ * cancel that raced ahead of this write must not resurrect a node's
+ * `running`-only field.
+ */
+async function patchNodeSessionId(
+  runId: string,
+  nodeId: string,
+  sessionId: string,
+  deps: EngineDeps,
+): Promise<void> {
+  const run = await withRunLock(runId, async () => {
+    const run = await deps.getRun(runId);
+    if (!run) return null;
+    const node = run.nodes.find((n) => n.nodeId === nodeId);
+    if (!node || node.status !== 'running') return null;
+    node.sessionId = sessionId;
+    await deps.saveRun(run);
+    return run;
+  });
   if (run) deps.emitChanged(run);
 }

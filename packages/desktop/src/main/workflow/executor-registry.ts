@@ -44,6 +44,24 @@ export type ExecutorContext = {
   signal: CancelSignal;
   /** Milliseconds; the engine has already applied the node's own override. */
   timeoutMs: number;
+  /**
+   * The run this node belongs to (Phase 95 Theme J) — `agent`/`script`
+   * executors need both to stamp `TerminalSession.workflowRunRef`, which
+   * `node.id` alone cannot supply (the run knows its own id and its
+   * workflow's; the node schema knows neither). Every other executor ignores
+   * these two fields entirely.
+   */
+  workflowId: string;
+  runId: string;
+  /**
+   * Record this node's `TerminalSession` id onto the run (Phase 95 Theme J),
+   * as soon as `agent`/`script` know it — not only once the node settles.
+   * Without this, the terminal accordion group and the canvas node's live
+   * glow would have no `sessionId` to bind to until the node was already
+   * done, which is exactly the window they most need it. A no-op for every
+   * other executor.
+   */
+  reportSessionId: (sessionId: string) => Promise<void>;
 };
 
 /**
