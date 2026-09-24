@@ -1,6 +1,7 @@
 import { Accordion } from '@bilo-io/ui';
 import { LuFilter, LuLayoutList, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
+import { SwitchRow } from '../../../components/form/toggle-rows';
 import { isNavViewVisible, RAIL_VIEW_IDS } from '../../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import {
@@ -112,22 +113,35 @@ function describeNarrowed(view: ViewId): string {
   return filter.dirtyOnly ? `${names} only, and only checkouts with changes` : `${names} only`;
 }
 
+/**
+ * One "Rail destinations" row — a `SwitchRow` (Phase 41 Theme G) rather than
+ * a bare checkbox, sized up and given a whole-row hover highlight so it reads
+ * as one clickable strip rather than a text label beside a control:
+ * `SwitchRow`'s `<label>` already stretches the real `<input>` over the full
+ * row, so the row *is* the hit target (click, Space/Enter all land on the one
+ * focusable input) rather than a second click handler racing the switch's
+ * own. Text opacity follows `visible` rather than a separate "disabled"
+ * state — every `RAIL_VIEW_IDS` entry stays toggleable, there is no row here
+ * that is locked non-interactive (Landing and Settings are excluded from
+ * `RAIL_VIEW_IDS` entirely, per `nav-visibility.ts`, so they never render as
+ * a row a lock would apply to).
+ */
 function SidenavRow({ view, label }: { view: ViewId; label: string }) {
   const navVisibility = useUiStore((s) => s.navVisibility);
   const setNavViewVisible = useUiStore((s) => s.setNavViewVisible);
   const visible = isNavViewVisible(navVisibility, view);
 
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-2 text-xs">
-      <span className="min-w-0 truncate">{label}</span>
-      <input
-        type="checkbox"
-        checked={visible}
-        onChange={(e) => setNavViewVisible(view, e.target.checked)}
-        className="accent-[hsl(var(--primary))]"
-        aria-label={`Show ${label} in the sidenav`}
-      />
-    </label>
+    <SwitchRow
+      id={view}
+      label={label}
+      title={`Show ${label} in the sidenav`}
+      on={visible}
+      onToggle={(_id, next) => setNavViewVisible(view, next)}
+      className={`-mx-1.5 min-h-8 rounded-md px-1.5 py-2 !text-xs transition-colors hover:bg-accent/40 ${
+        visible ? '!text-foreground' : '!text-muted-foreground opacity-50'
+      }`}
+    />
   );
 }
 
