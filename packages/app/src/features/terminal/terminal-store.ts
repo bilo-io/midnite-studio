@@ -236,6 +236,20 @@ type TerminalState = {
 
   hydrate: () => Promise<void>;
   openSession: (request: NewSessionRequest) => TerminalSession;
+  /**
+   * Adopt a session **main already created and persisted** (Phase 95 Theme
+   * J's `workflowNodeSessionStarted` push) — `openSession`'s mirror image.
+   * `openSession` is the renderer minting a session and asking main to spawn
+   * its pty; this is main having already done both and handing the result
+   * over, so there is no `pty.create`/`terminal.save` round trip to make
+   * here (main made them of itself). Idempotent against a duplicate delivery
+   * (a StrictMode double-effect, a redundant event) — a session id already
+   * in the store is left untouched rather than duplicated. Deliberately
+   * never touches `activeId`: unlike a user pressing Play, a workflow node
+   * starting in the background must not steal focus from whatever the
+   * terminal panel is already showing.
+   */
+  adoptSession: (session: TerminalSession, ptyId: string) => void;
   queueInput: (sessionId: string, input: string) => void;
   /** Consumed on pty creation — one paste per queue, never on a revive. */
   clearPendingInput: (sessionId: string) => void;
@@ -524,6 +538,17 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     }));
     bridge()?.terminal.save({ session });
     return session;
+  },
+
+  adoptSession: (session, ptyId) => {
+    set((state) => {
+      if (state.sessions.some((s) => s.id === session.id)) return state;
+      return {
+        sessions: [...state.sessions, session],
+        states: { ...state.states, [session.id]: 'open' },
+        ptyIds: { ...state.ptyIds, [session.id]: ptyId },
+      };
+    });
   },
 
   closeSession: (sessionId, intent = 'closed') => {

@@ -10,8 +10,11 @@ import {
 } from 'react-icons/lu';
 
 import { activityStatusVar } from '../../activity/activity-status-color';
-import { useActivityGlow } from '../../activity/use-activity-glow';
+import { useActivityGlow, type ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { nodeSummary, NODE_KIND_META, type NodeCategory } from './node-kind-meta';
+
+/** A stable empty array — `sessions` for every node kind before Theme J's `agent`/`script` ever bind one, and every non-`agent`/`script` node forever. */
+const EMPTY_NODE_SESSIONS: readonly ActivityGlowSessionInput[] = [];
 
 /** `data` this node type is mounted with — see `workflow-layout.ts`'s `toFlowGraph`. */
 export type WorkflowNodeData = {
@@ -20,6 +23,8 @@ export type WorkflowNodeData = {
   status?: WorkflowNodeStatus;
   error?: string;
   readOnly?: boolean;
+  /** This node's own live `TerminalSession`(s) (Theme J's `agent`/`script` kinds) — see `use-workflow-run.ts`'s `useLiveWorkflowNodeSessions`. */
+  sessions?: readonly ActivityGlowSessionInput[];
 };
 
 /**
@@ -79,7 +84,7 @@ const CATEGORY_VAR: Record<NodeCategory, string> = {
  * the ring width is what carries selection when the colour is already taken.
  */
 export function WorkflowNodeView({ id, data, selected }: NodeProps) {
-  const { node, invalid, status, error, readOnly } = data as unknown as WorkflowNodeData;
+  const { node, invalid, status, error, readOnly, sessions } = data as unknown as WorkflowNodeData;
   const meta = NODE_KIND_META[node.kind];
   const Icon = meta.icon;
   const StatusIcon = status ? STATUS_ICON[status] : null;
@@ -87,16 +92,20 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
 
   const ringClass = invalid ? 'ring-2 ring-destructive' : selected ? 'ring-2 ring-primary' : 'ring-1 ring-border';
 
-  // The shared activity glow (Phase 95 Theme A/C) rather than a one-off
-  // pulse class — Theme C's own `useActivityGlow` doc comment names workflow
-  // nodes as its Theme I hookup ("Theme J, not yet built" refers only to a
-  // *session* ever binding here, which happens once agent/script node kinds
-  // exist; `sessions` stays empty for every kind this theme ships). With no
-  // session, the run's own `fallbackStatus` is all that drives it: `idle`
-  // (no ring) before a run has ever touched the node, then the shared
-  // queued/running/done/failed tokens and their motion guards for free.
+  /*
+    The shared activity glow (Phase 95 Theme A/C) rather than a one-off pulse
+    class — Theme C's own `useActivityGlow` doc comment names workflow nodes
+    as its Theme I hookup, deferring only the case where a real SESSION binds
+    here, which Theme J's `agent`/`script` kinds now do. Precedence is
+    `resolveActivityGlow`'s own, unmodified by this theme: an agent actively
+    working (or a plain shell) in `sessions` outranks `fallbackStatus`, which
+    is what makes a node glow the global activity palette while something is
+    actually running in it and fall back to its own queued/running/done/
+    failed run-state colour the moment nothing is. Every other node kind
+    still passes `EMPTY_NODE_SESSIONS`, so nothing about their glow changes.
+  */
   const glow = useActivityGlow({
-    sessions: [],
+    sessions: sessions ?? EMPTY_NODE_SESSIONS,
     fallbackStatus: status ? STATUS_TO_ACTIVITY[status] : undefined,
   });
 

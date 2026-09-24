@@ -1424,7 +1424,18 @@ export type UiState = {
    * `screensaverOpen` is not persisted either.
    */
   killSwitchOpen: boolean;
-  openKillSwitch: () => void;
+  /**
+   * The workflow the kill switch was opened FOR (Phase 95 Theme J) — set only
+   * when opened from a workflow-run's own terminal accordion group header
+   * (`sessions-view.tsx`), so the modal's `flow` scope has a real
+   * `{workflowId}` to key on instead of the `null` every other opener leaves
+   * it at (`kill-switch-modal.tsx`'s own note on why `flow` rendered
+   * disabled before this theme). Cleared on close so a later open from the
+   * command palette or a project board's own toggle does not inherit a
+   * stale workflow.
+   */
+  killSwitchFlowWorkflowId: string | null;
+  openKillSwitch: (flow?: { workflowId: string }) => void;
   closeKillSwitch: () => void;
   /**
    * Which skill each entry of the sidebar's midnite menu invokes.
@@ -2170,6 +2181,7 @@ export const useUiStore = create<UiState>()(
       automateEnabledByProject: {},
       automateCapByProject: {},
       killSwitchOpen: false,
+      killSwitchFlowWorkflowId: null,
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
@@ -2886,8 +2898,8 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           automateCapByProject: { ...state.automateCapByProject, [projectId]: clampAutomateConcurrency(cap) },
         })),
-      openKillSwitch: () => set({ killSwitchOpen: true }),
-      closeKillSwitch: () => set({ killSwitchOpen: false }),
+      openKillSwitch: (flow) => set({ killSwitchOpen: true, killSwitchFlowWorkflowId: flow?.workflowId ?? null }),
+      closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),

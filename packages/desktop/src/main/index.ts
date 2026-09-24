@@ -79,6 +79,7 @@ import {
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
 import { registerWorkflowHandlers } from './ipc/workflow-handlers';
+import { configureWorkflowNodeSessions } from './workflow/node-sessions';
 import { configureLoopRuns, noteSessionExit } from './loop-runs';
 import { createLoopRunsStore } from './loop-runs-store';
 import { createTerminalStore } from './terminal-store';
@@ -561,6 +562,9 @@ if (!app.requestSingleInstanceLock()) {
       createWorkflowRunsStore(userData, getWorkflowRunHistoryCap),
       getMainWindow,
     );
+    // Phase 95 Theme J — where an `agent`/`script` node's executor announces
+    // the real terminal session it just started (`workflowNodeSessionStarted`).
+    configureWorkflowNodeSessions(getMainWindow);
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));

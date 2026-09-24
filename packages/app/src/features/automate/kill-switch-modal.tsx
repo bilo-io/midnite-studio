@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LuFolderGit2, LuGlobe, LuSquareKanban, LuUserRound, LuWorkflow } from 'react-icons/lu';
 
 import { KILL_SCOPES, KILL_SCOPE_LABEL, type KillScope } from '@midnite/studio-shared';
@@ -103,21 +103,37 @@ export function KillSwitchModal() {
   const forgeAccounts = useUiStore((s) => s.forgeAccounts);
   const forgeActiveAccountId = useUiStore((s) => s.forgeActiveAccountId);
   const automateEnabledByProject = useUiStore((s) => s.automateEnabledByProject);
+  const flowWorkflowId = useUiStore((s) => s.killSwitchFlowWorkflowId);
 
   const repoBoardProjectId = selectedRepoId ? (projectBoardByRepo[selectedRepoId] ?? null) : null;
   const activeAccount = forgeAccounts.find((a) => a.id === forgeActiveAccountId);
 
-  // No `flow` context yet — Theme I/J are what give a workflow run a real id
-  // to key on (see `TerminalSessionSchema.workflowRunRef`'s own note). The
-  // option still renders, disabled with "No workflow is open" until then.
+  // `flow` has a real id once this modal is opened FOR a workflow run — the
+  // terminal accordion group's own kill button (`sessions-view.tsx`) is the
+  // one opener that passes it (Phase 95 Theme J); every other opener (the
+  // command palette, a project board's own toggle) leaves it `null` and the
+  // option renders disabled, exactly as it did before this theme.
   const context: KillScopeContext = {
     ...EMPTY_KILL_SCOPE_CONTEXT,
+    flow: flowWorkflowId ? { workflowId: flowWorkflowId } : null,
     project: repoBoardProjectId ? { projectId: repoBoardProjectId } : null,
     repo: selectedRepoId ? { repoId: selectedRepoId } : null,
     forgeUser: activeAccount ? { forgeAccountKey: activeAccount.id } : null,
   };
 
   const [scope, setScope] = useState<KillScope>(() => defaultScope(context));
+
+  // This overlay never unmounts (it is gated by `!open` below, not by a
+  // parent conditionally rendering it), so `scope`'s `useState` initializer
+  // only ever runs once for the app's whole life — reopening otherwise keeps
+  // whatever was last picked, which is fine for the command palette/board
+  // openers (remembering the last scope is reasonable) but wrong for THIS
+  // opener: pre-scoping to Flow is the whole point of the group header's own
+  // kill button, so a fresh `flow` context on open forces it back to `flow`
+  // rather than leaving a stale scope from a previous, unrelated open.
+  useEffect(() => {
+    if (open && flowWorkflowId) setScope('flow');
+  }, [open, flowWorkflowId]);
 
   if (!open) return null;
 
