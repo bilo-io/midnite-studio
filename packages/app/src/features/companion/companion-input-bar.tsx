@@ -10,6 +10,11 @@ import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
 import { Tooltip } from '../../components/tooltip';
 import { useCompanionStore } from '../../store/companion-store';
+import {
+  useCompanionSpeakingLevelBars,
+  useMicLevelBars,
+  type LevelBars,
+} from './audio/waveform';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 import {
   filterSlashCommands,
@@ -17,6 +22,32 @@ import {
   slashInsertText,
   type SlashCommandItem,
 } from './slash-commands';
+
+/**
+ * The mic/companion level meter — nine thin bars, each height-scaled 0..1
+ * from {@link LevelBars}. Deliberately not a `<canvas>`: nine `<span>`s with
+ * an inline `height` cost nothing to lay out at this size and need no
+ * device-pixel-ratio handling, and the "never animate `filter: blur()`"
+ * motion rule has nothing to say about a plain height change.
+ */
+function LevelMeterBars({ bars, label }: { bars: LevelBars; label: string }) {
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      data-testid="companion-level-meter"
+      className="flex h-4 w-6 shrink-0 items-end justify-center gap-px"
+    >
+      {bars.map((level, index) => (
+        <span
+          key={index}
+          className="w-0.5 rounded-full bg-primary/70"
+          style={{ height: `${Math.max(2, Math.round(level * 16))}px` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 /** How tall the textarea may grow before it starts scrolling instead. */
 const MAX_TEXTAREA_HEIGHT = 160;
@@ -126,6 +157,17 @@ export function CompanionInputBar({
     (listener) => companionPorts().onMicAvailabilityChange(listener),
     () => companionPorts().micUnavailableReason(),
   );
+  /*
+    The two level meters (Ad Hoc: companion input + voice improvements) —
+    mutually exclusive in practice (a mic press already interrupts any
+    speech, `onInterrupt` above), but read independently rather than as one
+    "active engine" union so each stays a one-line call at its own render
+    site. See `audio/waveform.ts`'s module doc for the reduced-motion, window-
+    focus and system-TTS-engine fallbacks both already apply.
+  */
+  const speaking = useCompanionStore((state) => state.state === 'speaking');
+  const micLevels = useMicLevelBars(micHeld);
+  const speakingLevels = useCompanionSpeakingLevelBars(speaking);
 
   /*
     Autogrow. Reset to `auto` before reading `scrollHeight` — without it the
@@ -382,6 +424,16 @@ export function CompanionInputBar({
           />
         </div>
         <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
+          {/*
+            The level meter — mic while held, the companion's own reply
+            while it plays. Rendered inside the same button cluster (not a
+            fourth control) so it never reflows the row when it appears.
+          */}
+          {micHeld ? (
+            <LevelMeterBars bars={micLevels} label="Microphone level" />
+          ) : speaking ? (
+            <LevelMeterBars bars={speakingLevels} label="Companion speaking level" />
+          ) : null}
           {/*
             Plain buttons wrapped in `Tooltip` rather than `IconButton`, and
             only because of the gesture: push-to-talk needs `onPointerDown`,

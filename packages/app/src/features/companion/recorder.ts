@@ -141,6 +141,15 @@ export type CompanionRecorder = {
   /** Stop and discard — Escape, or a state change that makes the utterance moot. */
   cancelRecording: () => void;
   isRecording: () => boolean;
+  /**
+   * The live capture stream, or `null` while not recording (Ad Hoc: the mic
+   * level meter). Exposed read-only — nothing outside this module may stop
+   * or replace its tracks, only read them for an `AnalyserNode` tap
+   * (`audio/waveform.ts`). The stream this returns is stopped the moment
+   * `stopRecording`/`cancelRecording` runs, same as always; a caller that
+   * held a reference past that point holds a dead stream, not a leak.
+   */
+  getStream: () => MediaStream | null;
   /** Send a blob to main for recognition. Never throws; the envelope carries the failure. */
   transcribe: (blob: Blob, providerId?: SttProviderId) => Promise<GitOpResult<{ text: string }>>;
 };
@@ -165,6 +174,7 @@ export function createRecorder(overrides: Partial<RecorderDeps> = {}): Companion
 
   return {
     isRecording: () => recorder !== null,
+    getStream: () => stream,
 
     startRecording: async () => {
       if (recorder !== null) throw new RecorderError('busy', recorderErrorMessage('busy'));
@@ -302,6 +312,7 @@ export const startRecording = (): Promise<void> => companionRecorder.startRecord
 export const stopRecording = (): Promise<Blob> => companionRecorder.stopRecording();
 export const cancelRecording = (): void => companionRecorder.cancelRecording();
 export const isRecording = (): boolean => companionRecorder.isRecording();
+export const getActiveStream = (): MediaStream | null => companionRecorder.getStream();
 export const transcribe = (
   blob: Blob,
   providerId?: SttProviderId,
