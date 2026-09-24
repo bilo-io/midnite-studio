@@ -1,6 +1,33 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 96 Theme I — Launch surfaces
+
+[PR #549](https://github.com/bilo-io/midnite-studio/pull/549). This is the last build theme of Phase 96. Only its
+verification items remain, and most of them are human or packaged-app passes.
+
+**The per-launch override has one precedence rule.** `startAgent` takes `modelOverride`
+(`StartAgentModelOverride`), and for that one launch it always wins over the agent's persisted
+`agentBackends` default, rather than being layered on top of it. When a launch resolves to
+Ollama, the caller's own `--model` (from `loopModelArgs`) is stripped, because
+`ollamaLaunchRecipe`'s `argsBefore` owns that flag. This also closes the double-`--model` risk
+where a persisted Ollama default meets a native composer pick. The card composer offers an
+"Ollama · <model>" group of installed models for the five Ollama-backed agents, with the
+recipe's own words in the command preview and a ⚠ fit badge from `agentFitness`; the helpers
+are in `features/models/launch-options.ts`. The model detail modal's "Launch with…" (agent plus
+repo) replaces Theme E's disabled stub.
+
+**The wand and Plan with AI can run on Ollama.** `AiImproveFieldRequest` and
+`AiPlanBlueprintRequest` take an optional `ollamaModel`. When it is set, main calls the new
+`ollamaChat` (`POST /api/chat`, not streamed) through `main/ai/ollama-headless.ts#runOllamaPrompt`
+instead of a headless CLI. The timeouts are the same, Plan keeps its one retry on bad JSON, and
+a stopped daemon returns an error envelope. The picker is Settings ▸ Agent ▸ "Headless AI
+features use" (`headlessAiOllamaModel`, persisted), and `queries.ts#withHeadlessAiModel` applies
+it at call time.
+
+**Follow-ups:** an Ollama group in the loop composer (its model is a persisted `LoopModel`
+enum), and the not-yet-pulled cloud catalogue in the per-launch picker.
+
 ## 2026-09-24 — Phase 96 Themes D, F — Discover search, cloud models and the vault key
 
 [PR #547](https://github.com/bilo-io/midnite-studio/pull/547).
