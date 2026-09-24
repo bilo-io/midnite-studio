@@ -64,8 +64,14 @@ const SILENT_BARS: LevelBars = new Array(WAVEFORM_BAR_COUNT).fill(0);
 /** The "something is happening, no per-sample signal to draw" frame — filled, not moving. */
 const STATIC_ACTIVE_BARS: LevelBars = new Array(WAVEFORM_BAR_COUNT).fill(0.35);
 
-/** Downsample an analyser's time-domain buffer into `WAVEFORM_BAR_COUNT` 0..1 peaks. */
-function sampleAnalyser(analyser: AnalyserNode, buffer: Uint8Array<ArrayBuffer>): LevelBars {
+/**
+ * Downsample an analyser's time-domain buffer into `WAVEFORM_BAR_COUNT` 0..1
+ * peaks. Exported for `waveform.test.ts` — jsdom has no real Web Audio
+ * implementation to drive the hooks' own rAF loop against, so this pure
+ * function (fed a hand-built fake shaped like an `AnalyserNode`) is what
+ * that file's coverage actually rests on.
+ */
+export function sampleAnalyser(analyser: AnalyserNode, buffer: Uint8Array<ArrayBuffer>): LevelBars {
   analyser.getByteTimeDomainData(buffer);
   const bars: number[] = [];
   const chunk = Math.max(1, Math.floor(buffer.length / WAVEFORM_BAR_COUNT));

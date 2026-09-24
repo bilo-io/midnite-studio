@@ -24,20 +24,26 @@ import {
   factory that closed over an ordinary `const` would run before it existed —
   the same reason `credential-vault.test.ts` hoists its `safeStorage` doubles.
 */
-const { speaker, stopCompanionPersonality, setCompanionVolume, recorder } = vi.hoisted(() => ({
-  speaker: { speak: vi.fn(() => Promise.resolve()), cancel: vi.fn() },
-  stopCompanionPersonality: vi.fn(),
-  setCompanionVolume: vi.fn(),
-  recorder: {
-    startRecording: vi.fn(() => Promise.resolve()),
-    stopRecording: vi.fn(() => Promise.resolve(new Blob([]))),
-    cancelRecording: vi.fn(),
-    isRecording: vi.fn(() => false),
-    transcribe: vi.fn((_blob: Blob) =>
-      Promise.resolve({ ok: true as const, value: { text: 'hello there' } }),
-    ),
-  },
-}));
+const { speaker, stopCompanionPersonality, setCompanionVolume, recorder, webSpeech } = vi.hoisted(
+  () => ({
+    speaker: { speak: vi.fn(() => Promise.resolve()), cancel: vi.fn() },
+    stopCompanionPersonality: vi.fn(),
+    setCompanionVolume: vi.fn(),
+    recorder: {
+      startRecording: vi.fn(() => Promise.resolve()),
+      stopRecording: vi.fn(() => Promise.resolve(new Blob([]))),
+      cancelRecording: vi.fn(),
+      isRecording: vi.fn(() => false),
+      transcribe: vi.fn((_blob: Blob) =>
+        Promise.resolve({ ok: true as const, value: { text: 'hello there' } }),
+      ),
+    },
+    webSpeech: {
+      supported: vi.fn(() => false),
+      start: vi.fn((_onDone: (result: unknown) => void) => null as { stop: () => void; cancel: () => void } | null),
+    },
+  }),
+);
 
 vi.mock('./speaker', () => ({ companionTtsSpeaker: speaker }));
 vi.mock('./filler', () => ({ stopCompanionPersonality: () => stopCompanionPersonality() }));
@@ -54,6 +60,14 @@ vi.mock('./recorder', async () => {
     transcribe: (blob: Blob) => recorder.transcribe(blob),
   };
 });
+// Themes F/G predate the Web Speech engine (Ad Hoc). Mocked the same way
+// `./recorder` is, so a test can drive "the browser has/hasn't got
+// SpeechRecognition" and "what a session's onDone callback reports"
+// deterministically rather than depending on jsdom's own (absent) global.
+vi.mock('./web-speech', () => ({
+  webSpeechSupported: () => webSpeech.supported(),
+  startWebSpeechRecognition: (onDone: (result: unknown) => void) => webSpeech.start(onDone),
+}));
 
 /*
   Statically imported, and re-registered per test rather than reset through
@@ -64,8 +78,10 @@ vi.mock('./recorder', async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   recorder.isRecording.mockReturnValue(false);
+  webSpeech.supported.mockReturnValue(false);
+  webSpeech.start.mockReturnValue(null);
   useCompanionStore.setState({ state: 'idle', transcript: [] });
-  useUiStore.setState({ companionMicMode: 'push', companionVolume: 0.7 });
+  useUiStore.setState({ companionMicMode: 'push', companionVolume: 0.7, companionSttEngine: 'server' });
   resetCompanionPorts();
   __resetVoicePortsForTest();
   registerVoicePorts();
@@ -361,6 +377,117 @@ describe('push-to-talk', () => {
     await settle();
     expect(useCompanionStore.getState().state).toBe('idle');
     expect(recorder.stopRecording).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Web Speech engine (Ad Hoc: companion input + voice improvements)', () => {
+  it('micAvailable reflects webSpeechSupported(), with no sttStatus() round trip', () => {
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+    webSpeech.supported.mockReturnValue(true);
+    expect(companionPorts().micAvailable()).toBe(true);
+
+    webSpeech.supported.mockReturnValue(false);
+    expect(companionPorts().micAvailable()).toBe(false);
+  });
+
+  it("micUnavailableReason explains this Chromium build has no built-in recogniser at all", () => {
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+    webSpeech.supported.mockReturnValue(false);
+    expect(companionPorts().micUnavailableReason()).toContain('no built-in speech recognition');
+  });
+
+  it('notifies onMicAvailabilityChange the moment the engine preference itself changes', () => {
+    // The module-scope watcher `beforeEach` disposes (`__resetVoicePortsForTest`)
+    // is what carries this notification — same reason every `watchCompanionSilence`
+    // test below re-establishes its own.
+    const stop = watchCompanionSilence();
+    try {
+      const listener = vi.fn();
+      companionPorts().onMicAvailabilityChange(listener);
+      useUiStore.setState({ companionSttEngine: 'webSpeech' });
+      expect(listener).toHaveBeenCalled();
+    } finally {
+      stop();
+    }
+  });
+
+  it('starts a Web Speech session on press instead of the server recorder', async () => {
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+    webSpeech.start.mockReturnValue({ stop: vi.fn(), cancel: vi.fn() });
+
+    companionPorts().micPressStart();
+    await settle();
+
+    expect(webSpeech.start).toHaveBeenCalledTimes(1);
+    expect(recorder.startRecording).not.toHaveBeenCalled();
+    expect(useCompanionStore.getState().state).toBe('listening');
+  });
+
+  it('stops the session (not the recorder) on release', async () => {
+    const stop = vi.fn();
+    webSpeech.start.mockReturnValue({ stop, cancel: vi.fn() });
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+
+    companionPorts().micPressStart();
+    await settle();
+    companionPorts().micPressEnd();
+    await settle();
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(recorder.stopRecording).not.toHaveBeenCalled();
+  });
+
+  it("lands the session's transcript in the textarea, unsent — same contract as the server engine", async () => {
+    const transcriptSink = vi.fn();
+    setCompanionPorts({ transcriptSink });
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+    webSpeech.start.mockImplementation((onDone: (result: unknown) => void) => {
+      onDone({ ok: true, text: 'ship the feature' });
+      return { stop: vi.fn(), cancel: vi.fn() };
+    });
+
+    companionPorts().micPressStart();
+    await settle();
+
+    expect(transcriptSink).toHaveBeenCalledExactlyOnceWith('ship the feature');
+    expect(useCompanionStore.getState().state).toBe('idle');
+  });
+
+  it("speaks the engine's own error message on failure (e.g. Electron's network error)", async () => {
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+    webSpeech.start.mockImplementation((onDone: (result: unknown) => void) => {
+      onDone({ ok: false, message: 'The built-in browser speech engine could not reach its recognition service.' });
+      return { stop: vi.fn(), cancel: vi.fn() };
+    });
+
+    companionPorts().micPressStart();
+    await settle();
+
+    expect(useCompanionStore.getState().transcript[0]?.text).toContain('could not reach');
+    expect(speaker.speak).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports "no built-in speech recognition" rather than silently doing nothing when start() returns null', async () => {
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+    webSpeech.start.mockReturnValue(null);
+
+    companionPorts().micPressStart();
+    await settle();
+
+    expect(useCompanionStore.getState().transcript[0]?.text).toContain('no built-in speech recognition');
+    expect(useCompanionStore.getState().state).toBe('idle');
+  });
+
+  it('cancels a live session on interrupt, same as the recorder', async () => {
+    const cancel = vi.fn();
+    webSpeech.start.mockReturnValue({ stop: vi.fn(), cancel });
+    useUiStore.setState({ companionSttEngine: 'webSpeech' });
+
+    companionPorts().micPressStart();
+    await settle();
+    companionPorts().interrupt();
+
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });
 
