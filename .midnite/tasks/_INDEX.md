@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | ◻ TODO | — | 0/72 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 0/72 | `░░░░░░░░░░` | 0% | A B | C D E F G H I |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
@@ -257,8 +257,8 @@ human/packaged-app verification passes.
 
 *Ollama as a toolchain item, a Models hub for local and cloud models, and a per-agent Ollama backend for claude, codex, cline, opencode and copilot.*
 
-- ◻ **A** — Ollama row on the Health page: binary + daemon probe, brew install/update, Start Ollama (never stop)
-- ◻ **B** — main-side Ollama client (`tags/show/ps/pull/delete/create/version`), `mstudio:ollama:*` IPC, streamed pull queue
+- 🔄 **A** — Ollama row on the Health page: binary + daemon probe, brew install/update, Start Ollama (never stop)
+- 🔄 **B** — main-side Ollama client (`tags/show/ps/pull/delete/create/version`), `mstudio:ollama:*` IPC, streamed pull queue
 - ◻ **C** — Models rail view: Installed tab, pull-by-name, pull queue, daemon-down state, Settings ▸ Ollama
 - ◻ **D** — Discover: main-side ollama.com search scrape + cache, fixture-tested parser, local/cloud filters
 - ◻ **E** — model detail modal: stats, capabilities, context, fit-for-agents verdict, Modelfile/template/licence tabs
