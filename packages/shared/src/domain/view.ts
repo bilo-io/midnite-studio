@@ -54,6 +54,9 @@ export const VIEW_IDS = [
   'councils',
   'workflows',
   'video',
+  // Phase 96 Theme C — global like `video` above: an Ollama daemon and its
+  // models are not scoped to an open checkout.
+  'models',
   'sessions',
   'apiClient',
   'settings',
@@ -82,6 +85,9 @@ export const SETTINGS_PAGE_IDS = [
   'projects',
   'workflows',
   'video',
+  // Phase 96 Theme C — host override + default model; the cloud API key row
+  // (Theme F) lives here too, disabled until that theme lands.
+  'ollama',
   'gitSafety',
   'trashSafety',
   'apiClient',

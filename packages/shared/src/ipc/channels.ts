@@ -422,6 +422,9 @@ export const CHANNELS = {
   ollamaCreate: 'mstudio:ollama:create',
   /** `keep_alive: 0` against `/api/generate` — unloads a running model, never stops the daemon. */
   ollamaUnload: 'mstudio:ollama:unload',
+  /** Theme C — the persisted host override + default model; see `ollama/settings-store.ts`. */
+  ollamaSettingsGet: 'mstudio:ollama:settings-get',
+  ollamaSettingsSet: 'mstudio:ollama:settings-set',
 
   // --- optimizer (Phase 59) ---------------------------------------------------
   /** Smart Scan across every registered repo/worktree, plus one optional extra root. */

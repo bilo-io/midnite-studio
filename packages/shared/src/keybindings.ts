@@ -379,6 +379,11 @@ export const COMMANDS = [
   { id: 'automate.kill', label: 'Auto-mate Kill Switch', group: 'operation' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
   /**
+   * Phase 96 Theme C. Chord-free, same reasoning as `view.video` right
+   * above — reachable from the rail and the palette.
+   */
+  { id: 'view.models', label: 'Go to Models', group: 'view' },
+  /**
    * Phase 66 Theme B. Chord-free like `view.video` above rather than a
    * `Mod+Shift+…` chord (Decision 5): only five of nineteen views wear one,
    * and `keybindings.ts`'s own `Mod+Shift+` space is nearly exhausted.
