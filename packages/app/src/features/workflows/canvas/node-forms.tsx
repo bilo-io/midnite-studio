@@ -2,8 +2,12 @@ import {
   WORKFLOW_CONDITION_OPS,
   WORKFLOW_DELAY_MAX_MS,
   WORKFLOW_HTTP_METHODS,
+  WORKFLOW_JOIN_MAX_INPUTS,
+  WORKFLOW_JOIN_MIN_INPUTS,
+  WORKFLOW_JOIN_MODES,
   type WorkflowConditionOp,
   type WorkflowHttpMethod,
+  type WorkflowJoinMode,
   type WorkflowNode,
 } from '@midnite/studio-shared';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
@@ -245,6 +249,49 @@ export function NoteForm({ node, onChange }: NodeFormProps) {
     <Field label="Text" hint="Canvas furniture — a note has no executor and cannot connect to other nodes.">
       <TextArea label="Text" value={config.text} onChange={(text) => onChange({ ...node, config: { text } })} rows={4} />
     </Field>
+  );
+}
+
+const JOIN_MODE_LABEL: Record<WorkflowJoinMode, string> = {
+  all: 'All — waits for every input, fails if any did not succeed',
+  any: 'Any — settles the instant one input succeeds',
+  allSettled: 'Every outcome — always waits, always succeeds, splits fulfilled/rejected',
+};
+
+/**
+ * Phase 97 Theme B. `inputs` is a declared count, not a per-port list — the
+ * canvas draws `in-1..in-N` from it (`portsForNode`) and the user wires
+ * however many actually matter; this form only owns the count and the mode.
+ */
+export function JoinForm({ node, onChange }: NodeFormProps) {
+  if (node.kind !== 'join') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  return (
+    <>
+      <Field label="Mode" hint="How the join decides it is done.">
+        <SelectField
+          label="Mode"
+          value={config.mode}
+          onChange={(mode: WorkflowJoinMode) => update({ mode })}
+          options={WORKFLOW_JOIN_MODES.map((mode) => ({ value: mode, label: JOIN_MODE_LABEL[mode] }))}
+        />
+      </Field>
+      <Field label="Inputs" hint={`Between ${WORKFLOW_JOIN_MIN_INPUTS} and ${WORKFLOW_JOIN_MAX_INPUTS} in-ports.`}>
+        <TextField
+          label="Inputs"
+          value={String(config.inputs)}
+          onChange={(raw) => {
+            const parsed = Number.parseInt(raw, 10);
+            const inputs = Number.isFinite(parsed)
+              ? Math.max(WORKFLOW_JOIN_MIN_INPUTS, Math.min(WORKFLOW_JOIN_MAX_INPUTS, parsed))
+              : WORKFLOW_JOIN_MIN_INPUTS;
+            update({ inputs });
+          }}
+        />
+      </Field>
+    </>
   );
 }
 

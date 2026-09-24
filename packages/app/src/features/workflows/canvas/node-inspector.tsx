@@ -12,6 +12,7 @@ import {
   ConditionForm,
   DelayForm,
   HttpForm,
+  JoinForm,
   NoteForm,
   ScriptForm,
   TransformForm,
@@ -32,6 +33,7 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   note: NoteForm,
   agent: AgentForm,
   script: ScriptForm,
+  join: JoinForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };

@@ -49,6 +49,8 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Agent', config: { agentId: '', prompt: '' } };
     case 'script':
       return { ...base, kind, label: 'Script', config: { command: '', env: {} } };
+    case 'join':
+      return { ...base, kind, label: 'Join', config: { mode: 'all', inputs: 2 } };
   }
 }
 

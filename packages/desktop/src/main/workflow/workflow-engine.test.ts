@@ -84,6 +84,10 @@ function fakeRegistry(
     note: executor,
     agent: executor,
     script: executor,
+    // A join never reaches an executor (it settles inline in the driver) —
+    // included only so this fixture registry satisfies `ExecutorRegistry`'s
+    // exhaustive `Record`.
+    join: executor,
   };
 }
 
@@ -242,7 +246,7 @@ describe('failure propagation', () => {
       w,
       deps(store, {
         executors: fakeRegistry(
-          { gate: async () => ({ ok: true, output: { passed: false }, skipDownstream: true }) },
+          { gate: async () => ({ ok: true, output: { passed: false }, port: 'false' }) },
           recorder,
         ),
       }),
@@ -253,9 +257,9 @@ describe('failure propagation', () => {
     const gate = run.nodes.find((n) => n.nodeId === 'gate')!;
     const after = run.nodes.find((n) => n.nodeId === 'after')!;
     expect(gate.status).toBe('succeeded');
-    expect(gate.gatedDownstream).toBe(true);
+    expect(gate.settledPort).toBe('false');
     expect(after.status).toBe('skipped');
-    expect(after.error).toContain('condition');
+    expect(after.error).toContain('true');
     // Nothing failed, so the run completed — a branch that did not apply is
     // not a broken run.
     expect(run.status).toBe('completed');
@@ -694,7 +698,7 @@ describe('the skip cascade, regardless of node array order', () => {
       w,
       deps(store, {
         executors: fakeRegistry(
-          { gate: async () => ({ ok: true, output: { passed: false }, skipDownstream: true }) },
+          { gate: async () => ({ ok: true, output: { passed: false }, port: 'false' }) },
           recorder,
         ),
       }),
