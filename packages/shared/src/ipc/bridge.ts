@@ -887,10 +887,15 @@ export type MidniteStudioBridge = {
    * `forge.workflows` above, which means *GitHub Actions*. See `workflow.ts`.
    *
    * `run` resolves with the freshly-minted run rather than the finished one: a
-   * run can take minutes, and its progress arrives on `onRunChanged`. That
-   * event carries nothing, exactly as `loopRuns.onChanged` does — the consumer
-   * re-fetches the single run it is looking at, which needs no ordering
-   * guarantee and no reconciliation story in the renderer.
+   * run can take minutes, and its progress arrives on `onRunChanged`.
+   *
+   * **That event now carries the run itself** (Phase 95 Theme I), not
+   * nothing — the one thing every `emitChanged` call site in
+   * `workflow-engine.ts` always has fresh in hand. Theme G's history view
+   * still just re-fetches by id on any ping (its `useWorkflowRunEvents`
+   * predates this and needs no ordering guarantee); the editing canvas is
+   * the new consumer that reads the payload directly, so a run in flight
+   * lights up node by node without a second round trip per settle.
    */
   workflow: {
     list: () => Promise<z.infer<typeof S.WorkflowListResponse>>;
@@ -910,7 +915,7 @@ export type MidniteStudioBridge = {
         req: In<typeof S.WorkflowRunsGetRequest>,
       ) => Promise<z.infer<typeof S.WorkflowRunsGetResponse>>;
     };
-    onRunChanged: (handler: () => void) => Unsubscribe;
+    onRunChanged: (handler: (event: z.infer<typeof S.WorkflowRunChangedEventSchema>) => void) => Unsubscribe;
     /** One-way, like `update.setChannel` — sent on change, not synced on boot. */
     setDefaults: (req: In<typeof S.WorkflowSetDefaultsRequest>) => void;
   };

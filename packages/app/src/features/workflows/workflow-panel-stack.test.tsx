@@ -24,6 +24,13 @@ beforeAll(() => {
     disconnect(): void {}
   }
   vi.stubGlobal('ResizeObserver', StubResizeObserver);
+  // `@xyflow/react`'s first mount in a file (Phase 95 Theme I) pays a real
+  // one-time cost under jsdom — its own store/CSS setup, not a hang; later
+  // tests in this file are fast because the module is already resolved. The
+  // default 5s test timeout is tuned for logic tests, not a heavy canvas
+  // library's cold mount, so this file raises it rather than the flaky "add
+  // a retry" fix.
+  vi.setConfig({ testTimeout: 15000 });
 });
 
 function run(over: Partial<WorkflowRun> = {}): WorkflowRun {

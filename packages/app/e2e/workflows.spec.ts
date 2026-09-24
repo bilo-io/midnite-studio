@@ -12,7 +12,15 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * same call `councils.spec.ts` makes for its own run.start. What only the
  * assembled app can show is the canvas itself: adding/connecting/selecting/
  * deleting/undoing nodes, and the list's create/duplicate/delete/import.
+ *
+ * A wider viewport than the project default (Phase 95 Theme I): the
+ * Workflows view now stacks five panels side by side — the repo rail, the
+ * workflow list, the new node palette, the canvas and the inspector — and at
+ * the default 1280px the canvas itself is squeezed to a sliver too narrow
+ * for two separated nodes and their connection handles to both stay inside
+ * it, the same reason `dashboard-shots.spec.ts` widens its own viewport.
  */
+test.use({ viewport: { width: 1600, height: 1000 } });
 
 async function open(page: Page, data: MockFixtures = fixtures): Promise<void> {
   await installMockBridge(page, data);
@@ -34,14 +42,28 @@ async function createWorkflow(page: Page): Promise<void> {
   await expect(canvas(page)).toBeVisible();
 }
 
+/**
+ * A palette row (Phase 95 Theme I) is a real `<button>`, but wears
+ * `role="listitem"` under its `role="list"` container (`node-palette.tsx`)
+ * so the palette reads as an accessible list rather than a button toolbar —
+ * an explicit `role` overrides an element's implicit one, so `getByRole`
+ * has to ask for "listitem" here, not "button".
+ */
 async function addNode(page: Page, label: string): Promise<void> {
-  await page.getByRole('button', { name: `Add ${label} node` }).click();
+  await page.getByRole('listitem', { name: `Add ${label} node` }).click();
 }
 
-/** Drags a node's body by a fixed offset so two newly-added nodes (which land on the same spot) separate. */
+/**
+ * Drags a node's own card by a fixed offset so two newly-added nodes (which
+ * land on the same spot) separate — the drag target is the card `div`
+ * itself (Phase 95 Theme I's React Flow port; the old hand-rolled SVG
+ * canvas's own `<rect>` child no longer exists), which sits inside React
+ * Flow's own `.react-flow__node` wrapper and still starts that wrapper's
+ * drag on a plain mousedown/move/up.
+ */
 async function dragNodeBy(page: Page, nodeId: string, dx: number, dy: number): Promise<void> {
-  const rect = page.locator(`[data-node-id="${nodeId}"] rect`);
-  const box = await rect.boundingBox();
+  const node = page.locator(`[data-node-id="${nodeId}"]`);
+  const box = await node.boundingBox();
   if (!box) throw new Error(`node ${nodeId} has no bounding box`);
   const startX = box.x + box.width / 2;
   const startY = box.y + box.height / 2;
@@ -52,20 +74,33 @@ async function dragNodeBy(page: Page, nodeId: string, dx: number, dy: number): P
 }
 
 /**
- * Drags from the source node's out-port to a point just inside the target
- * node's body (rather than the in-port's exact edge coordinate) — the drop
- * check is "inside the target node's bounding box", and landing exactly on a
- * boundary risks a sub-pixel rounding miss between screen and graph space.
+ * Drags from the source node's right (source) Handle to the target node's
+ * left (target) Handle — React Flow's default `connectionMode: 'strict'`
+ * (never overridden here) requires landing on a compatible Handle exactly,
+ * not merely inside the target node's body, unlike the old SVG canvas's own
+ * "anywhere near the in-port" tolerance. `data-nodeid`/`data-handlepos` are
+ * `@xyflow/react`'s own `Handle` attributes (`workflow-node-view.tsx`'s
+ * `Handle type="source" position={Position.Right}`, etc.) — not this app's
+ * `data-node-id`, which only ever names the *card*.
  */
 async function connect(page: Page, fromNodeId: string, toNodeId: string): Promise<void> {
-  const outPort = page.locator(`[data-node-id="${fromNodeId}"] [data-port="out"]`);
-  const targetRect = page.locator(`[data-node-id="${toNodeId}"] rect`);
-  const outBox = await outPort.boundingBox();
-  const targetBox = await targetRect.boundingBox();
-  if (!outBox || !targetBox) throw new Error('port or node has no bounding box');
-  await page.mouse.move(outBox.x + outBox.width / 2, outBox.y + outBox.height / 2);
+  const outHandle = page.locator(`[data-nodeid="${fromNodeId}"][data-handlepos="right"]`);
+  const inHandle = page.locator(`[data-nodeid="${toNodeId}"][data-handlepos="left"]`);
+  // A manual `hover` + `mouse.down`/`move`/`up` sequence, not `Locator.dragTo`
+  // — `dragTo`'s own actionability check demands the SOURCE handle's
+  // bounding box be "stable" before it will even mouse down on it, and once
+  // a handle is carrying a live edge React Flow re-renders it as part of the
+  // edge's own connectivity classes on a cadence that check never settles
+  // against, so `dragTo` spins retrying "move and down" until it times out.
+  // `hover()` alone is enough to arm React Flow's own connection-start
+  // handler (a bare `page.mouse.move` to the same coordinates is not
+  // reliable here), and raw `page.mouse` calls thereafter act on literal
+  // coordinates without re-checking stability.
+  await outHandle.hover();
   await page.mouse.down();
-  await page.mouse.move(targetBox.x + 20, targetBox.y + targetBox.height / 2, { steps: 8 });
+  const inBox = await inHandle.boundingBox();
+  if (!inBox) throw new Error('target handle has no bounding box');
+  await page.mouse.move(inBox.x + inBox.width / 2, inBox.y + inBox.height / 2, { steps: 8 });
   await page.mouse.up();
 }
 
@@ -77,7 +112,10 @@ test('the empty state renders with no workflows', async ({ page }) => {
 test('creating a workflow selects it and shows the canvas', async ({ page }) => {
   await open(page);
   await createWorkflow(page);
-  await expect(page.getByText('Untitled workflow')).toBeVisible();
+  // `.first()`: the name also appears in the toolbar's "Edit workflow
+  // details" trigger (Phase 95 Theme I) — see the duplicate test's identical
+  // note below.
+  await expect(page.getByText('Untitled workflow').first()).toBeVisible();
   await expect(canvas(page)).toBeVisible();
 });
 
@@ -105,12 +143,15 @@ test('connects two nodes with an edge, rejecting the cycle it would create back'
   const second = ids.find((id) => id !== first);
   if (!second) throw new Error('second node has no id');
 
+  // `.react-flow__edge` — React Flow's own edge wrapper carries `data-id`
+  // (the edge's id) and `data-testid="rf__edge-<id>"`, never a bare
+  // `data-edge-id`; that was the old hand-rolled SVG canvas's own attribute.
   await connect(page, first, second);
-  await expect(page.locator('[data-edge-id]')).toHaveCount(1);
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 
   // The reverse direction would create a 2-node cycle — refused at draw time.
   await connect(page, second, first);
-  await expect(page.locator('[data-edge-id]')).toHaveCount(1);
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1);
 });
 
 test('selects a node and removes it on Delete', async ({ page }) => {
@@ -156,7 +197,11 @@ test('duplicates a workflow from the list context menu', async ({ page }) => {
   await page.getByText('Untitled workflow').first().click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Duplicate' }).click();
 
-  await expect(page.getByText('Untitled workflow (copy)')).toBeVisible();
+  // `.first()`: the same name now also appears in the toolbar's "Edit
+  // workflow details" trigger (Phase 95 Theme I), which shows the open
+  // workflow's own name — the list row is first in DOM order, same as the
+  // pre-duplicate `.first()` a few lines up.
+  await expect(page.getByText('Untitled workflow (copy)').first()).toBeVisible();
   // The duplicate carries its own node, with a fresh id — not the original.
   await expect(page.locator('[data-node-id]')).toHaveCount(1);
 });
@@ -232,7 +277,12 @@ test('running a workflow, viewing it in history, and returning to editing', asyn
   await expect(page.getByText('Viewing run')).toBeVisible();
   await expect(page.getByLabel('URL')).toHaveCount(0);
 
-  await page.locator('[data-node-id]').first().click();
+  // `force`: React Flow's own MiniMap (Phase 95 Theme I) sits bottom-right
+  // over the canvas, and `fitView`'s auto-centring can land this single node
+  // directly under it — a real click would land on the minimap here too, but
+  // that is an artifact of a one-node canvas, not something worth chasing a
+  // different node position for.
+  await page.locator('[data-node-id]').first().click({ force: true });
   await expect(page.getByText('Succeeded')).toBeVisible();
 
   await page.getByRole('button', { name: 'Back to editing' }).click();
@@ -289,4 +339,66 @@ test('the demo API pill starts the server and inserts its URL into the selected 
   await page.getByRole('button', { name: 'stop' }).click();
   await expect(page.getByText('Demo API · stopped')).toBeVisible();
   await expect(page.getByTitle('Insert base URL into the selected node')).toHaveCount(0);
+});
+
+/**
+ * Drag-from-palette (Phase 95 Theme I) — the phase doc names this as one of
+ * the two flows that genuinely need a real browser (real pointer + native
+ * HTML5 drag-and-drop, which `node-palette.test.tsx`'s jsdom `fireEvent`
+ * coverage only fakes the `dataTransfer` payload for, never a real drag
+ * gesture) rather than a vitest/jsdom test. `NodePalette`'s row carries a
+ * real `draggable` attribute and `workflow-canvas.tsx`'s `onDrop` reads
+ * `event.clientX/Y` through `screenToFlowPosition` — both only mean anything
+ * under a real compositor.
+ */
+test('drag-from-palette: dragging a node kind onto the canvas adds it where it was dropped', async ({
+  page,
+}) => {
+  await open(page);
+  await createWorkflow(page);
+
+  const source = page.getByRole('listitem', { name: 'Add Condition node' });
+  const target = canvas(page);
+  // No explicit `targetPosition` — its default (the target's own centre) is
+  // guaranteed to land inside the canvas; a fixed offset risks landing in a
+  // neighbouring panel on a narrower viewport, which is exactly what an
+  // earlier version of this test did.
+  await source.dragTo(target);
+
+  await expect(page.locator('[data-node-id]')).toHaveCount(1);
+  // "Condition" — the card header's `uppercase` is a CSS text-transform
+  // (`workflow-node-view.tsx`), which never changes the actual text node.
+  // `.first()`: a freshly-dropped condition node's own editable label
+  // (`createNode`'s default) also happens to read "Condition", matching the
+  // kind badge beside it.
+  await expect(canvas(page).getByText('Condition', { exact: true }).first()).toBeVisible();
+});
+
+/**
+ * Panel-resize (Phase 95 Theme I) — the second of the phase doc's two
+ * real-browser-only flows: `useResizable`'s pointer math reads real
+ * `getBoundingClientRect()`/`clientX` values, which are always `{0,0,0,0}`/0
+ * under jsdom (`workflows-resizable.test.tsx` covers this hook's keyboard
+ * path instead, deliberately, for exactly that reason). This exercises the
+ * bottom run panel's own resize handle — the one surface this theme adds —
+ * with a real pointer drag, not a keyboard nudge.
+ */
+test('panel-resize: dragging the run panel handle changes its height', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+
+  await page.getByText('Run output').click();
+
+  const handle = page.getByRole('separator', { name: 'Resize run output panel' });
+  const before = await handle.boundingBox();
+  if (!before) throw new Error('resize handle has no bounding box');
+
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width / 2, before.y - 60, { steps: 8 });
+  await page.mouse.up();
+
+  const after = await handle.boundingBox();
+  if (!after) throw new Error('resize handle lost its bounding box after dragging');
+  expect(after.y).not.toBeCloseTo(before.y, 0);
 });

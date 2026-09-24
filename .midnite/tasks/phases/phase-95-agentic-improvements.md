@@ -415,30 +415,77 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 - [ ] Tests: next-card selection (blocked, board order, cap); scope → session filter per attribution
       field; modal sentence per scope; focus returns to the trigger on close (Phase 68).
 
-### I — The workflow editor, at midnite's level (L)
+### I — The workflow editor, at midnite's level (L) — ✅ DONE (PR #534, 2026-09-24)
 
-- [ ] Adopt `@xyflow/react` and `@dagrejs/dagre`, **loaded only with the Workflows view** (dynamic
+- [x] Adopt `@xyflow/react` and `@dagrejs/dagre`, **loaded only with the Workflows view** (dynamic
       import). This deliberately reverses Phase 43's no-graph-library decision; record the before /
       after entry-chunk and total-JS numbers from `bundle-report.mjs` in the PR.
-- [ ] Port midnite's editor shell into `packages/app/src/features/workflows/`: the collapsible,
+      **Measured:** entry chunk 427.9 KB → 426.6 KB (unchanged, within build-hash noise); total JS
+      36,161.5 KB → 36,398.1 KB (+236.6 KB, all inside the lazy `workflows-view` chunk, 280.8 KB
+      gzip 92.4 KB) — neither library reaches the entry chunk, confirmed by `bundle-report.mjs`
+      against both a `main` build and this branch's.
+- [x] Port midnite's editor shell into `packages/app/src/features/workflows/`: the collapsible,
       searchable **node palette** (drag onto canvas), the right **config panel** swappable with
       **run history** (with step-through replay), floating **panel toggles** with animated widths,
       and the collapsible **bottom run panel** with **Nodes** (input / resolved params / output /
       error) and **Logs** tabs plus markdown export.
-- [ ] Port the **toolbar** behaviour (`workflow-page-header.tsx`): edit details, run history,
+      **Decision (unattended run):** `WorkflowNodeRunSchema` never recorded a separate `input`/
+      `resolvedParams` (only `output`/`error`) — the Nodes tab surfaces what the schema actually
+      has, and the **Logs** tab is a chronological replay synthesised from each node's own
+      start/end/status/error, not a second data source the executor never produced
+      (`run-output-panel.tsx`'s own doc comment). Step-through replay (`run-replay.ts` +
+      `run-replay-controls.tsx`) orders a run's nodes by when each settled and paints the canvas
+      "as of step N", play/pause/prev/next/first/last, mounted in the canvas toolbar while viewing
+      a picked run.
+- [x] Port the **toolbar** behaviour (`workflow-page-header.tsx`): edit details, run history,
       save-as-template, enabled toggle, Run, Save/Saved with autosave, busy spinner; icons mapped to
-      `react-icons/lu`.
-- [ ] Port the canvas: dot background, zoom/fit controls, pannable minimap, animated edges, and the
+      `react-icons/lu`. `enabled` is a new optional field on `WorkflowSchema` (`isWorkflowEnabled`
+      reads a missing value as on, so no pre-Theme-I workflow's behaviour changes).
+- [x] Port the canvas: dot background, zoom/fit controls, pannable minimap, animated edges, and the
       card-style node view (tinted header by category hue, icon chip, one-line summary, status glyph,
       inline error). Category hue tokens (`--node-trigger|action|logic|data|storage`) join the theme
-      tokens.
-- [ ] **Live run state on the editing canvas** — not only the history view. Replace the bare
+      tokens. **Decision (unattended run):** this MVP's five node kinds have no `trigger`; `note` —
+      canvas furniture with no executor — takes the `storage` hue ("a note/comment persisted
+      alongside the flow") rather than going untinted, so the category-tint code has no fifth
+      "no category" branch to carry. The node's own live-run ring paints through `.activity-glow`
+      (Phase 95 Theme A) via `useActivityGlow` (Theme C, landed while this theme was in flight) —
+      exactly the hookup Theme C's own doc comment names for Theme I — with an empty `sessions`
+      list (no node kind in this theme ever binds a pty) and the run's own status as
+      `fallbackStatus`; `idle` (no ring) before a run has ever touched the node, then the shared
+      queued/running/done/failed tokens and motion guards for free. An earlier draft of this theme
+      shipped a one-off `.wf-node-running` pulse instead, written before Theme C had landed;
+      reconciled onto the shared family once it did, rather than leaving two answers to "is this
+      node running" in the codebase.
+- [x] **Live run state on the editing canvas** — not only the history view. Replace the bare
       `workflowRunChanged` re-fetch with per-node status in the event payload.
-- [ ] Existing workflows open unchanged: a migration maps saved SVG-canvas positions onto React Flow
+      `WorkflowRunChangedEventSchema` (`{workflowId, run}`) replaces the bare ping; every
+      `emitChanged` call site in `workflow-engine.ts` already has the just-mutated run in hand, so
+      passing it costs nothing. `useLiveWorkflowRun`/`useLiveWorkflowNodeStatuses` read the payload
+      directly, so a run's node statuses paint the canvas while editing keeps working — `readOnly`
+      still keys only off history-view mode, never off "a run is in flight".
+- [x] Existing workflows open unchanged: a migration maps saved SVG-canvas positions onto React Flow
       node positions; `http|transform|condition|delay|note` all render as card nodes.
-- [ ] Replace midnite's gateway REST/WebSocket calls with the existing workflow IPC channels.
-- [ ] Tests: position migration; palette search/filter; bottom panel tabs render a run; e2e only
-      for drag-from-palette and panel-resize (real pointer + layout — named in the spec header).
+      **The migration is the identity map, not a coordinate transform:** `WorkflowNode.x`/`.y` were
+      always a plain top-left-pixel `{x,y}` (`workflow-layout.ts`'s `toFlowPosition`/
+      `fromFlowPosition` doc comment) — the same convention React Flow's own `node.position` uses —
+      so a workflow saved before this theme opens with its layout untouched. `autoLayout` (dagre,
+      `rankdir: 'LR'`) is the toolbar's own opt-in "Auto layout" action, never run on open or on
+      every edit.
+- [x] Replace midnite's gateway REST/WebSocket calls with the existing workflow IPC channels.
+      (Already true before this theme — the SVG canvas it replaces was IPC-only; nothing here ever
+      called a gateway.)
+- [x] Tests: position migration (`workflow-layout.test.ts`); palette search/filter
+      (`node-palette.test.tsx`); bottom panel tabs render a run (`run-output-panel.test.tsx`); step-
+      through replay ordering (`run-replay.test.ts`); the rewritten canvas suite
+      (`workflow-canvas.test.tsx`, 14 cases: render, invalid/status/error overlays, read-only mode,
+      Run gating, drop-to-add, Auto layout); the toolbar (`workflow-toolbar.test.tsx`, rename,
+      enabled gate, save-as-template, Run). e2e (`workflows.spec.ts`) only for **drag-from-palette**
+      and **panel-resize** (real pointer + layout, named in the spec header) — the pre-existing
+      cases (add/connect/select/delete/undo/duplicate/run-history) were adapted to the new DOM
+      (React Flow's own `data-testid`/`data-nodeid`/`data-handlepos` attributes replace the old SVG
+      canvas's `data-edge-id`/`data-port`) rather than multiplied; the spec widens its viewport to
+      1600×1000 (the five side-by-side panels squeeze the default 1280px canvas too narrow for two
+      separated nodes and their connection handles to both stay inside it).
 
 ### J — Agent and script nodes, grouped in the terminal (L)
 

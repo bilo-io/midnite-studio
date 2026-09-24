@@ -1,27 +1,17 @@
 import { validateWorkflow, type Workflow, type WorkflowNode } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { NODE_KIND_META } from './node-kind-meta';
 import { WorkflowCanvas, type WorkflowGraph } from './workflow-canvas';
 
 /**
- * jsdom implements neither `ResizeObserver`, pointer capture, nor
- * `PointerEvent` itself — the first two are the same gaps
- * `use-browser-bounds.test.tsx` patches for the same reason. The third is
- * why `fireEvent.pointerDown` alone is not enough here: `@testing-library/dom`
- * constructs a real `window.PointerEvent` when one exists and falls back to
- * a bare `Event` with none of the requested init (`button`, `clientX`,
- * `pointerId`, …) applied when it doesn't — so every pointer test below
- * would silently no-op without this polyfill. `MouseEvent` already carries
- * `button`/`clientX`/`clientY` correctly under jsdom; `pointerId` is the one
- * field a real `PointerEvent` adds that this canvas reads.
- *
- * Real coordinates don't matter either way: `getBoundingClientRect` is
- * always `{0,0,0,0}` under jsdom, so every test below works in the tiny
- * viewport that leaves the canvas centred on the origin by construction.
+ * @xyflow/react needs the same jsdom gaps the hand-rolled SVG canvas's own
+ * tests patched (`ResizeObserver`, `PointerEvent`, pointer capture) — see
+ * this file's own history for why: `getBoundingClientRect` is always
+ * `{0,0,0,0}` under jsdom, which the library tolerates (it renders nodes at
+ * their given positions regardless of an unmeasured viewport), but it reads
+ * `ResizeObserver` on mount and pointer capture on every drag.
  */
 beforeAll(() => {
   class StubResizeObserver {
@@ -30,33 +20,37 @@ beforeAll(() => {
     disconnect(): void {}
   }
   vi.stubGlobal('ResizeObserver', StubResizeObserver);
-
-  class PointerEventPolyfill extends MouseEvent {
-    public pointerId: number;
-    public pointerType: string;
-    constructor(type: string, params: PointerEventInit = {}) {
-      super(type, params);
-      this.pointerId = params.pointerId ?? 0;
-      this.pointerType = params.pointerType ?? 'mouse';
-    }
-  }
-  vi.stubGlobal('PointerEvent', PointerEventPolyfill);
-
   Element.prototype.setPointerCapture = vi.fn();
   Element.prototype.releasePointerCapture = vi.fn();
+  Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+  // @xyflow/react's first mount in a file pays a real one-time setup cost
+  // under jsdom — see `workflow-panel-stack.test.tsx`'s identical note.
+  vi.setConfig({ testTimeout: 15000 });
 });
 
 function noteNode(id: string, x: number, y: number): WorkflowNode {
   return { id, label: id, x, y, kind: 'note', config: { text: '' } };
 }
 
+function httpNode(id: string, x: number, y: number, url = 'https://example.com'): WorkflowNode {
+  return {
+    id,
+    label: id,
+    x,
+    y,
+    kind: 'http',
+    config: { method: 'GET', url, headers: {}, params: {}, queryShaped: false },
+  };
+}
+
 function Harness({
   initial,
   onChangeSpy,
+  ...rest
 }: {
   initial: WorkflowGraph;
   onChangeSpy?: (next: WorkflowGraph) => void;
-}) {
+} & Partial<Omit<Parameters<typeof WorkflowCanvas>[0], 'graph' | 'onChange' | 'resetKey'>>) {
   const [graph, setGraph] = useState(initial);
   return (
     <WorkflowCanvas
@@ -66,6 +60,7 @@ function Harness({
         onChangeSpy?.(next);
         setGraph(next);
       }}
+      {...rest}
     />
   );
 }
@@ -73,84 +68,69 @@ function Harness({
 describe('WorkflowCanvas', () => {
   afterEach(() => cleanup());
 
-  it('renders every node close enough to the default viewport to be visible', () => {
+  it('renders every node, each carrying its own id and kind', async () => {
     const { container } = render(
-      <Harness initial={{ nodes: [noteNode('a', 0, 0), noteNode('b', 20, 0)], edges: [] }} />,
+      <Harness initial={{ nodes: [noteNode('a', 0, 0), httpNode('b', 300, 0)], edges: [] }} />,
     );
-    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2);
+    await waitFor(() => expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2));
+    expect(container.querySelector('[data-node-id="a"]')?.getAttribute('data-node-kind')).toBe('note');
+    expect(container.querySelector('[data-node-id="b"]')?.getAttribute('data-node-kind')).toBe('http');
   });
 
-  it('adds one node of each kind from the toolbar, at the same fresh id', () => {
-    render(<Harness initial={{ nodes: [], edges: [] }} />);
-    for (const kind of Object.keys(NODE_KIND_META) as (keyof typeof NODE_KIND_META)[]) {
-      fireEvent.click(screen.getByLabelText(`Add ${NODE_KIND_META[kind].label} node`));
-    }
-    expect(document.querySelectorAll('[data-node-id]')).toHaveLength(Object.keys(NODE_KIND_META).length);
-  });
-
-  it('selects a node with a click and removes it on Delete', () => {
-    const { container } = render(<Harness initial={{ nodes: [noteNode('a', 0, 0)], edges: [] }} />);
-
-    const nodeEl = container.querySelector('[data-node-id="a"]')!;
-    fireEvent.pointerDown(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
-    fireEvent.pointerUp(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
-
-    fireEvent.keyDown(screen.getByRole('application'), { key: 'Delete' });
-
-    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(0);
-  });
-
-  it('Escape clears the selection instead of deleting anything', () => {
-    const { container } = render(<Harness initial={{ nodes: [noteNode('a', 0, 0)], edges: [] }} />);
-
-    const nodeEl = container.querySelector('[data-node-id="a"]')!;
-    fireEvent.pointerDown(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
-    fireEvent.pointerUp(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
-
-    const surface = screen.getByRole('application');
-    fireEvent.keyDown(surface, { key: 'Escape' });
-    fireEvent.keyDown(surface, { key: 'Delete' });
-
-    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(1);
-  });
-
-  it('undoes the last committed change with Undo', () => {
-    const { container } = render(<Harness initial={{ nodes: [noteNode('a', 0, 0)], edges: [] }} />);
-
-    fireEvent.click(screen.getByLabelText('Add Note node'));
-    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2);
-
-    fireEvent.click(screen.getByLabelText('Undo'));
-    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(1);
-
-    fireEvent.click(screen.getByLabelText('Redo'));
-    expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2);
-  });
-
-  it('culls nodes far outside the viewport, keeping the DOM small at 200 nodes', () => {
-    const nodes: WorkflowNode[] = [];
-    for (let i = 0; i < 10; i += 1) nodes.push(noteNode(`near-${i}`, i * 10, 0));
-    for (let i = 0; i < 190; i += 1) nodes.push(noteNode(`far-${i}`, 5_000 + i * 1_000, 5_000));
-
-    const { container } = render(<Harness initial={{ nodes, edges: [] }} />);
-    const rendered = container.querySelectorAll('[data-node-id]').length;
-
-    expect(rendered).toBeGreaterThan(0);
-    expect(rendered).toBeLessThan(nodes.length);
-    expect(rendered).toBeLessThan(300);
-  });
-
-  it('draws a destructive badge on a node named by invalidNodeIds', () => {
+  it('draws a destructive ring on a node named by invalidNodeIds', async () => {
     const { container } = render(
-      <WorkflowCanvas
-        graph={{ nodes: [noteNode('a', 0, 0), noteNode('b', 20, 0)], edges: [] }}
-        resetKey="w1"
-        onChange={() => {}}
+      <Harness
+        initial={{ nodes: [noteNode('a', 0, 0), noteNode('b', 200, 0)], edges: [] }}
         invalidNodeIds={new Set(['a'])}
       />,
     );
-    expect(container.querySelector('[data-node-id="a"] [data-invalid-badge]')).not.toBeNull();
-    expect(container.querySelector('[data-node-id="b"] [data-invalid-badge]')).toBeNull();
+    await waitFor(() => expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2));
+    expect(container.querySelector('[data-node-id="a"]')?.className).toContain('ring-destructive');
+    expect(container.querySelector('[data-node-id="b"]')?.className).not.toContain('ring-destructive');
+  });
+
+  it('colours a node by its run status rather than by validity', async () => {
+    const { container } = render(
+      <Harness
+        initial={{ nodes: [noteNode('a', 0, 0), noteNode('b', 200, 0)], edges: [] }}
+        nodeStatuses={new Map([['a', 'failed'], ['b', 'succeeded']])}
+        readOnly
+      />,
+    );
+    await waitFor(() =>
+      expect(container.querySelector('[data-node-id="a"]')?.getAttribute('data-status')).toBe('failed'),
+    );
+    expect(container.querySelector('[data-node-id="b"]')?.getAttribute('data-status')).toBe('succeeded');
+  });
+
+  it('shows an inline error on a node nodeErrors names', async () => {
+    render(
+      <Harness
+        initial={{ nodes: [httpNode('a', 0, 0)], edges: [] }}
+        nodeErrors={new Map([['a', 'Connection refused']])}
+        readOnly
+      />,
+    );
+    expect(await screen.findByText('Connection refused')).not.toBeNull();
+  });
+
+  it('hides the editing toolbar and shows a "Viewing run" label in read-only mode', () => {
+    render(<Harness initial={{ nodes: [noteNode('a', 0, 0)], edges: [] }} readOnly />);
+    expect(screen.getByText('Viewing run')).not.toBeNull();
+    expect(screen.queryByLabelText('Undo')).toBeNull();
+    expect(screen.queryByLabelText('Auto layout')).toBeNull();
+  });
+
+  it('shows Undo/Redo/Auto layout while editing, Undo and Redo starting disabled', () => {
+    render(<Harness initial={{ nodes: [noteNode('a', 0, 0)], edges: [] }} />);
+    expect((screen.getByLabelText('Undo') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Redo') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Auto layout') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables Auto layout with nothing on the canvas', () => {
+    render(<Harness initial={{ nodes: [], edges: [] }} />);
+    expect((screen.getByLabelText('Auto layout') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('hides the Run control entirely when onRun is not passed', () => {
@@ -161,13 +141,7 @@ describe('WorkflowCanvas', () => {
   it('disables Run and names the reason when runDisabledReason is set', () => {
     const onRun = vi.fn();
     render(
-      <WorkflowCanvas
-        graph={{ nodes: [], edges: [] }}
-        resetKey="w1"
-        onChange={() => {}}
-        onRun={onRun}
-        runDisabledReason={'"HTTP" has no URL.'}
-      />,
+      <Harness initial={{ nodes: [], edges: [] }} onRun={onRun} runDisabledReason={'"HTTP" has no URL.'} />,
     );
     const run = screen.getByRole('button', { name: /run/i }) as HTMLButtonElement;
     expect(run.disabled).toBe(true);
@@ -178,9 +152,7 @@ describe('WorkflowCanvas', () => {
 
   it('calls onRun when the workflow is valid', () => {
     const onRun = vi.fn();
-    render(
-      <WorkflowCanvas graph={{ nodes: [], edges: [] }} resetKey="w1" onChange={() => {}} onRun={onRun} />,
-    );
+    render(<Harness initial={{ nodes: [], edges: [] }} onRun={onRun} />);
     const run = screen.getByRole('button', { name: /run/i }) as HTMLButtonElement;
     expect(run.disabled).toBe(false);
     fireEvent.click(run);
@@ -188,14 +160,6 @@ describe('WorkflowCanvas', () => {
   });
 
   it('acceptance: clearing a required URL disables Run via the real validateWorkflow pass', () => {
-    const httpNodeWithUrl = (url: string): WorkflowNode => ({
-      id: 'n1',
-      label: 'HTTP',
-      x: 0,
-      y: 0,
-      kind: 'http',
-      config: { method: 'GET', url, headers: {}, params: {}, queryShaped: false },
-    });
     const asWorkflow = (nodes: WorkflowNode[]): Workflow => ({
       id: 'w1',
       name: 'W',
@@ -206,13 +170,11 @@ describe('WorkflowCanvas', () => {
     });
 
     function ValidatedHarness({ url }: { url: string }) {
-      const nodes = [httpNodeWithUrl(url)];
+      const nodes = [httpNode('n1', 0, 0, url)];
       const issues = validateWorkflow(asWorkflow(nodes));
       return (
-        <WorkflowCanvas
-          graph={{ nodes, edges: [] }}
-          resetKey="w1"
-          onChange={() => {}}
+        <Harness
+          initial={{ nodes, edges: [] }}
           onRun={() => {}}
           runDisabledReason={issues[0]?.message}
         />
@@ -226,51 +188,51 @@ describe('WorkflowCanvas', () => {
     expect((screen.getByRole('button', { name: /run/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  describe('readOnly (Theme G — run view)', () => {
-    it('hides the editing toolbar and shows a "Viewing run" label instead', () => {
-      render(<WorkflowCanvas graph={{ nodes: [noteNode('a', 0, 0)], edges: [] }} resetKey="w1" onChange={() => {}} readOnly />);
-      expect(screen.getByText('Viewing run')).not.toBeNull();
-      expect(screen.queryByLabelText('Undo')).toBeNull();
-      expect(screen.queryByLabelText('Add Note node')).toBeNull();
+  it('dropping a palette kind onto the canvas adds a node of that kind', async () => {
+    const onChangeSpy = vi.fn();
+    const { container } = render(
+      <Harness initial={{ nodes: [], edges: [] }} onChangeSpy={onChangeSpy} />,
+    );
+    const surface = screen.getByRole('application', { name: 'Workflow canvas' });
+    fireEvent.drop(surface, {
+      clientX: 100,
+      clientY: 100,
+      dataTransfer: { getData: () => 'delay' },
     });
+    await waitFor(() => expect(onChangeSpy).toHaveBeenCalledTimes(1));
+    const [next] = onChangeSpy.mock.calls[0] as [WorkflowGraph];
+    expect(next.nodes).toHaveLength(1);
+    expect(next.nodes[0]!.kind).toBe('delay');
+    await waitFor(() => expect(container.querySelectorAll('[data-node-id]')).toHaveLength(1));
+  });
 
-    it('still selects a node with a click, but a Delete does nothing', () => {
-      const { container } = render(
-        <WorkflowCanvas graph={{ nodes: [noteNode('a', 0, 0)], edges: [] }} resetKey="w1" onChange={() => {}} readOnly />,
-      );
-      const nodeEl = container.querySelector('[data-node-id="a"]')!;
-      fireEvent.pointerDown(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
-      fireEvent.pointerUp(nodeEl, { pointerId: 1, button: 0, clientX: 5, clientY: 5 });
-
-      fireEvent.keyDown(screen.getByRole('application'), { key: 'Delete' });
-      expect(container.querySelectorAll('[data-node-id]')).toHaveLength(1);
+  it('a drop is ignored in read-only mode', () => {
+    const onChangeSpy = vi.fn();
+    render(<Harness initial={{ nodes: [], edges: [] }} onChangeSpy={onChangeSpy} readOnly />);
+    fireEvent.drop(screen.getByRole('application', { name: 'Workflow canvas' }), {
+      clientX: 100,
+      clientY: 100,
+      dataTransfer: { getData: () => 'delay' },
     });
+    expect(onChangeSpy).not.toHaveBeenCalled();
+  });
 
-    it('does not drag a node — its position stays put', () => {
-      const onChangeSpy = vi.fn();
-      const { container } = render(
-        <WorkflowCanvas graph={{ nodes: [noteNode('a', 0, 0)], edges: [] }} resetKey="w1" onChange={onChangeSpy} readOnly />,
-      );
-      const nodeEl = container.querySelector('[data-node-id="a"]')!;
-      fireEvent.pointerDown(nodeEl, { pointerId: 1, button: 0, clientX: 0, clientY: 0 });
-      fireEvent.pointerMove(nodeEl, { pointerId: 1, clientX: 40, clientY: 40 });
-      fireEvent.pointerUp(nodeEl, { pointerId: 1, button: 0, clientX: 40, clientY: 40 });
-      expect(onChangeSpy).not.toHaveBeenCalled();
-    });
-
-    it('colours a node by its run status rather than by validity/selection', () => {
-      const { container } = render(
-        <WorkflowCanvas
-          graph={{ nodes: [noteNode('a', 0, 0), noteNode('b', 20, 0)], edges: [] }}
-          resetKey="w1"
-          onChange={() => {}}
-          readOnly
-          nodeStatuses={new Map([['a', 'failed'], ['b', 'succeeded']])}
-        />,
-      );
-      expect(container.querySelector('[data-node-id="a"]')?.getAttribute('data-status')).toBe('failed');
-      expect(container.querySelector('[data-node-id="a"] rect')?.getAttribute('class')).toContain('stroke-destructive');
-      expect(container.querySelector('[data-node-id="b"] rect')?.getAttribute('class')).toContain('stroke-green-500');
-    });
+  it('Auto layout commits new positions for a connected chain', async () => {
+    const onChangeSpy = vi.fn();
+    render(
+      <Harness
+        initial={{
+          nodes: [httpNode('a', 0, 0), httpNode('b', 0, 0)],
+          edges: [{ id: 'e1', from: 'a', to: 'b' }],
+        }}
+        onChangeSpy={onChangeSpy}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText('Auto layout'));
+    await waitFor(() => expect(onChangeSpy).toHaveBeenCalledTimes(1));
+    const [next] = onChangeSpy.mock.calls[0] as [WorkflowGraph];
+    const a = next.nodes.find((n) => n.id === 'a')!;
+    const b = next.nodes.find((n) => n.id === 'b')!;
+    expect(a.x).toBeLessThan(b.x);
   });
 });

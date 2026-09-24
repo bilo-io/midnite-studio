@@ -16,6 +16,9 @@ beforeAll(() => {
   vi.stubGlobal('ResizeObserver', StubResizeObserver);
   window.HTMLElement.prototype.setPointerCapture = vi.fn();
   window.HTMLElement.prototype.releasePointerCapture = vi.fn();
+  // See `workflow-panel-stack.test.tsx`'s identical note: `@xyflow/react`'s
+  // first mount in a file pays a real one-time setup cost under jsdom.
+  vi.setConfig({ testTimeout: 15000 });
 });
 
 function installBridge() {
