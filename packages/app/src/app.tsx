@@ -42,6 +42,7 @@ import { VIEW_COMPONENT } from './components/view-registry';
 import { useKeptAliveView } from './components/view-keep-alive';
 import { navChord } from './components/nav-chords';
 import { isNavViewVisible } from './components/nav-visibility';
+import { useNavCategoryIconVars } from './components/use-nav-category-icon-vars';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
@@ -706,6 +707,17 @@ function Shell() {
   const isForgeViewAvailable = useForgeViewAvailability(selectedRepoId);
   const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
   const navVisibility = useUiStore((s) => s.navVisibility);
+
+  // Ad hoc: sidenav category icons — the Git rail section's own glyph tracks
+  // the selected repo's forge, same `useRemotes` + `pickForgeRemote` pairing
+  // `useForgeViewAvailability` above uses (react-query dedupes the identical
+  // key, so this is not a second fetch).
+  const { data: categoryIconRemotes } = useRemotes(selectedRepoId);
+  const gitCategoryForgeKind = useMemo(
+    () => pickForgeRemote(categoryIconRemotes ?? [])?.forge?.kind ?? null,
+    [categoryIconRemotes],
+  );
+  useNavCategoryIconVars(gitCategoryForgeKind);
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
