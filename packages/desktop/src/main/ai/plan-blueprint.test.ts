@@ -238,6 +238,6 @@ describe('planBlueprint — on an Ollama model (Phase 96 Theme I)', () => {
       deps({ ollama: { chat, baseUrl } }),
     );
     expect(result).toMatchObject({ ok: false });
-    if (!result.ok) expect(result.message).toContain('Could not reach Ollama');
+    expect(result).toMatchObject({ message: expect.stringContaining('Could not reach Ollama') });
   });
 });

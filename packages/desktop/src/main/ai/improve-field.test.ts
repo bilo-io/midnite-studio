@@ -234,6 +234,6 @@ describe('improveField — on an Ollama model (Phase 96 Theme I)', () => {
     });
     const result = await improveField(input, deps({ ollama: { chat, baseUrl } }));
     expect(result).toMatchObject({ ok: false });
-    if (!result.ok) expect(result.message).toContain('took too long');
+    expect(result).toMatchObject({ message: expect.stringContaining('took too long') });
   });
 });
