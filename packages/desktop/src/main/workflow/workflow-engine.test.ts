@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { Workflow, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
+import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
 
 import type { ExecutorRegistry, NodeExecutor, NodeOutcome } from './executor-registry';
 import {

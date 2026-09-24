@@ -83,7 +83,14 @@ export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
           </div>
         ) : null}
 
-        {node.gatedDownstream ? (
+        {/*
+          Phase 97 Theme B moved the engine off `gatedDownstream` onto
+          `settledPort` — a condition node that settled `false` reads exactly
+          the same way here. `gatedDownstream` stays on the schema only to
+          keep pre-Theme-B run history parsing; nothing writes it `true`
+          again, so checking it here would make this banner never render.
+        */}
+        {node.kind === 'condition' && node.settledPort === 'false' ? (
           <p className="flex items-start gap-1.5 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">
             <LuTriangleAlert aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
             This condition did not hold — everything downstream of it was skipped.

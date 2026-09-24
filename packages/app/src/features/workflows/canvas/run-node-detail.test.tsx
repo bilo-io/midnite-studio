@@ -45,8 +45,13 @@ describe('RunNodeDetail', () => {
     expect(screen.getByText('Output truncated.')).not.toBeNull();
   });
 
-  it('explains a gated-downstream condition', () => {
-    render(<RunNodeDetail node={run({ kind: 'condition', gatedDownstream: true })} />);
+  it('explains a condition that settled false (Theme B: settledPort, not gatedDownstream)', () => {
+    render(<RunNodeDetail node={run({ kind: 'condition', settledPort: 'false' })} />);
     expect(screen.getByText(/everything downstream of it was skipped/)).not.toBeNull();
+  });
+
+  it('says nothing for a condition that settled true', () => {
+    render(<RunNodeDetail node={run({ kind: 'condition', settledPort: 'true' })} />);
+    expect(screen.queryByText(/everything downstream of it was skipped/)).toBeNull();
   });
 });

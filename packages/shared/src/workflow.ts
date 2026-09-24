@@ -607,13 +607,14 @@ export function isWorkflowEnabled(workflow: Pick<Workflow, 'enabled'>): boolean 
  *
  * A pre-Theme-A `condition` node's outgoing edges had no port at all — they
  * fired whenever the run reached them, and a false predicate gated
- * everything downstream via `WorkflowNodeRun.gatedDownstream` (`:330` in the
- * engine). Once Theme B removes that field and starts reading `fromPort`
- * instead, an edge with no `fromPort` would look like an unconditional `out`
- * edge — taken every time, true or false. So this migration sets the one
- * thing that preserves the old behaviour exactly: a legacy condition edge's
- * `fromPort` becomes `'true'`, so it is only ever taken when the condition
- * settles true, same as before.
+ * everything downstream via `WorkflowNodeRun.gatedDownstream`. Theme B moved
+ * the engine onto reading `fromPort`/`settledPort` instead — `gatedDownstream`
+ * stays on the schema only so a pre-Theme-B run's history still parses, and
+ * nothing writes it `true` again. Without this migration, an edge with no
+ * `fromPort` would look like an unconditional `out` edge — taken every time,
+ * true or false. So this migration sets the one thing that preserves the old
+ * behaviour exactly: a legacy condition edge's `fromPort` becomes `'true'`,
+ * so it is only ever taken when the condition settles true, same as before.
  *
  * **Identity for every other workflow.** An edge that already has a
  * `fromPort`, or whose source is not a `condition` node, is returned
