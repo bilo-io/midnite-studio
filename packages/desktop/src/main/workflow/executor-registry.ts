@@ -11,13 +11,17 @@ import type { WorkflowNode } from '@midnite/studio-shared';
 /**
  * What an executor answers with.
  *
- * `output` is what downstream nodes interpolate against. `skipDownstream` is
- * the `condition` node's whole job — a satisfied predicate is `ok: true` and
- * carries on; an unsatisfied one is also `ok: true` (nothing went wrong) but
- * asks the engine to mark everything downstream `skipped`.
+ * `output` is what downstream nodes interpolate against. `port` is which
+ * out-port the node settled on (Phase 97 Theme B) — every kind but
+ * `condition` has exactly one success out-port (`'out'`), so `port` is
+ * optional and defaults there; `condition` is the one kind that must name
+ * which of `'true'`/`'false'` it settled on. This replaces the old
+ * `skipDownstream` flag: a false predicate is no longer a special signal the
+ * engine hard-codes for one node kind, it is an ordinary untaken edge like
+ * any other routed port (see `workflow-engine.ts`'s per-edge readiness pass).
  */
 export type NodeOutcome =
-  | { ok: true; output: unknown; truncated?: boolean; skipDownstream?: boolean }
+  | { ok: true; output: unknown; truncated?: boolean; port?: string }
   /**
    * `timedOut` is what makes the node's recorded status `timeout` rather than
    * `failed`. It matters because the executor is the only party that can abort

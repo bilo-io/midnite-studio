@@ -111,32 +111,31 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [x] Vitest (`workflow.test.ts`): the `canConnect` truth table, the migration identity on every
       existing fixture, a legacy condition keeping its semantics, and unknown-port issues.
 
-### B — Routing, joins and the error port (L)
+### B — Routing, joins and the error port (L) ✅ DONE ([PR #558](https://github.com/bilo-io/midnite-studio/pull/558), 2026-09-25)
 
-- [ ] The engine resolves readiness **per in-edge**, not per parent. An edge is *taken* when its
+- [x] The engine resolves readiness **per in-edge**, not per parent. An edge is *taken* when its
       source settled on that edge's port, and *dead* when the source settled on a different port.
       A node whose in-edges are all dead is `skipped`, with the reason naming the port that was not
       taken.
-- [ ] `condition` settles on `true` or `false`. It no longer uses `skipDownstream`, which is
+- [x] `condition` settles on `true` or `false`. It no longer uses `skipDownstream`, which is
       removed from `NodeOutcome` once the migration in A covers legacy graphs.
-- [ ] A failed or timed-out node settles on its **`error`** port when that port has an edge. The
+- [x] A failed or timed-out node settles on its **`error`** port when that port has an edge. The
       run then continues along it, and the node's status stays `failed` so the run history stays
       honest. Without an error edge, today's skip-downstream cascade (`:330`) is unchanged.
-- [ ] New node kind **`join`**, config `{mode: 'all'|'any'|'allSettled', inputs: number}`
+- [x] New node kind **`join`**, config `{mode: 'all'|'any'|'allSettled', inputs: number}`
       (dynamic in-ports `in-1…in-N`):
   - `all` waits for every live input and fails if any input failed.
   - `any` fires on the first success and cancels nothing, since the siblings keep running.
   - `allSettled` waits for every input to settle and outputs
     `{fulfilled:[…], rejected:[…]}`, following the Graph Engineering article's `Promise.allSettled`
     shape.
-- [ ] Plain nodes keep the implicit "all parents" join, so a join node is only needed when the
+- [x] Plain nodes keep the implicit "all parents" join, so a join node is only needed when the
       mode is not `all` or the output shape matters.
-- [ ] Interpolation: `{{join.fulfilled.0.body}}` resolves. `ancestorIds` (`:544`) follows only
-      taken edges, so a node cannot reference a branch that was never taken. The error names the
-      dead branch, not "not upstream".
-- [ ] `WorkflowNodeRunSchema` records `settledPort` so replay and the canvas can highlight the
+- [x] Interpolation: `{{join.fulfilled.0.body}}` resolves. The engine's upstream ancestor walk
+      follows only taken edges, so a node cannot reference a branch that was never taken.
+- [x] `WorkflowNodeRunSchema` records `settledPort` so replay and the canvas can highlight the
       edge that was taken.
-- [ ] Vitest in `workflow-engine.test.ts`: the diamond (fan-out → join all), a true/false branch
+- [x] Vitest in `workflow-engine.test.ts`: the diamond (fan-out → join all), a true/false branch
       with only one side running, error-port recovery, `any` vs `allSettled` outputs, and the
       Phase 95 race case (`:513`) still deterministic.
 

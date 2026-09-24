@@ -4,14 +4,14 @@ import type { NodeExecutor, NodeOutcome } from '../executor-registry';
 import { interpolate } from '../interpolate';
 
 /**
- * The `condition` node: one comparison over interpolated values, gating
- * everything downstream of it.
+ * The `condition` node: one comparison over interpolated values, settling on
+ * its `true` or `false` out-port (Phase 97 Theme B).
  *
  * A false predicate is **not** a failure — nothing went wrong. It settles
- * `succeeded` with `skipDownstream`, and the engine marks the dependants
- * `skipped`, the same terminal state a failed upstream produces. That is what
- * makes a branch that legitimately did not apply distinguishable from one that
- * broke.
+ * `succeeded` on the `false` port, and the engine's per-edge readiness pass
+ * marks anything downstream of the *other* port `skipped` — the same
+ * terminal state a failed upstream produces, for the same reason: a branch
+ * that legitimately did not apply must read as "did not run", not as broken.
  */
 
 function compare(left: string, op: WorkflowConditionOp, right: string): boolean {
@@ -58,6 +58,6 @@ export const conditionExecutor: NodeExecutor = async (node, context): Promise<No
   return {
     ok: true,
     output: { passed, left: leftValue.value, op, right: rightValue },
-    ...(passed ? {} : { skipDownstream: true }),
+    port: passed ? 'true' : 'false',
   };
 };

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { Workflow, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
+import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
 
 import type { ExecutorRegistry, NodeExecutor, NodeOutcome } from './executor-registry';
 import {
@@ -84,6 +84,10 @@ function fakeRegistry(
     note: executor,
     agent: executor,
     script: executor,
+    // A join never reaches an executor (it settles inline in the driver) —
+    // included only so this fixture registry satisfies `ExecutorRegistry`'s
+    // exhaustive `Record`.
+    join: executor,
   };
 }
 
@@ -242,7 +246,7 @@ describe('failure propagation', () => {
       w,
       deps(store, {
         executors: fakeRegistry(
-          { gate: async () => ({ ok: true, output: { passed: false }, skipDownstream: true }) },
+          { gate: async () => ({ ok: true, output: { passed: false }, port: 'false' }) },
           recorder,
         ),
       }),
@@ -253,9 +257,9 @@ describe('failure propagation', () => {
     const gate = run.nodes.find((n) => n.nodeId === 'gate')!;
     const after = run.nodes.find((n) => n.nodeId === 'after')!;
     expect(gate.status).toBe('succeeded');
-    expect(gate.gatedDownstream).toBe(true);
+    expect(gate.settledPort).toBe('false');
     expect(after.status).toBe('skipped');
-    expect(after.error).toContain('condition');
+    expect(after.error).toContain('true');
     // Nothing failed, so the run completed — a branch that did not apply is
     // not a broken run.
     expect(run.status).toBe('completed');
@@ -694,7 +698,7 @@ describe('the skip cascade, regardless of node array order', () => {
       w,
       deps(store, {
         executors: fakeRegistry(
-          { gate: async () => ({ ok: true, output: { passed: false }, skipDownstream: true }) },
+          { gate: async () => ({ ok: true, output: { passed: false }, port: 'false' }) },
           recorder,
         ),
       }),
@@ -791,5 +795,244 @@ describe('upstream is ancestry, not whatever settled', () => {
 
     // A grandparent is still upstream — `{{a.from}}` two hops down must work.
     expect(seen).toEqual({ a: { from: 'a' }, b: { from: 'b' } });
+  });
+});
+
+// --- Theme B: join, routing, the error port ----------------------------------
+
+function joinNode(id: string, mode: 'all' | 'any' | 'allSettled', inputs: number): WorkflowNode {
+  return { id, label: id, x: 0, y: 0, kind: 'join', config: { mode, inputs } };
+}
+
+function transformNode(id: string, from: string, to: string): WorkflowNode {
+  return { id, label: id, x: 0, y: 0, kind: 'transform', config: { picks: [{ from, to }] } };
+}
+
+/** A raw `Workflow` builder for tests that need explicit `toPort`/`fromPort`/`kind` on edges. */
+function typedWorkflow(nodes: WorkflowNode[], edges: WorkflowEdge[]): Workflow {
+  return { id: 'w1', name: 'Test', nodes, edges, createdAt: 1, updatedAt: 1 };
+}
+
+describe('join (Theme B)', () => {
+  it("mode 'all' waits for every input and joins their outputs in port order", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [delayNode('a'), delayNode('b'), joinNode('j', 'all', 2)],
+      [
+        { id: 'e1', from: 'a', to: 'j', toPort: 'in-1' },
+        { id: 'e2', from: 'b', to: 'j', toPort: 'in-2' },
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry(
+          { a: async () => ({ ok: true, output: { id: 'a' } }), b: async () => ({ ok: true, output: { id: 'b' } }) },
+          recorder,
+        ),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const j = run.nodes.find((n) => n.nodeId === 'j')!;
+    expect(j.status).toBe('succeeded');
+    expect(j.settledPort).toBe('out');
+    expect(j.output).toEqual({ results: [{ id: 'a' }, { id: 'b' }] });
+    expect(run.status).toBe('completed');
+  });
+
+  it("mode 'all' fails, with an error naming the input that was not taken, if any input fails", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [delayNode('a'), delayNode('b'), joinNode('j', 'all', 2), delayNode('after')],
+      [
+        { id: 'e1', from: 'a', to: 'j', toPort: 'in-1' },
+        { id: 'e2', from: 'b', to: 'j', toPort: 'in-2' },
+        { id: 'e3', from: 'j', to: 'after' },
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry(
+          {
+            a: async () => ({ ok: true, output: { id: 'a' } }),
+            b: async () => ({ ok: false, error: 'boom' }),
+          },
+          recorder,
+        ),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.j!.status).toBe('failed');
+    expect(byId.j!.error).toContain('in-2');
+    // No error edge wired off `j`, so the legacy cascade applies to its own
+    // dependants exactly as it does for any other failed node.
+    expect(byId.after!.status).toBe('skipped');
+  });
+
+  it("mode 'any' settles the instant one input is taken — the slower sibling keeps running, uncancelled", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [delayNode('fast'), delayNode('slow'), joinNode('j', 'any', 2)],
+      [
+        { id: 'e1', from: 'fast', to: 'j', toPort: 'in-1' },
+        { id: 'e2', from: 'slow', to: 'j', toPort: 'in-2' },
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry(
+          {
+            fast: async () => ({ ok: true, output: { id: 'fast' } }),
+            slow: () =>
+              new Promise((resolve) => {
+                const timer = setTimeout(() => resolve({ ok: true, output: { id: 'slow' } }), 15);
+                timer.unref?.();
+              }),
+          },
+          recorder,
+        ),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.j!.status).toBe('succeeded');
+    expect(byId.j!.output).toEqual({ result: { id: 'fast' }, from: 'fast' });
+    // Nothing cancels the sibling — it ran to its own real completion.
+    expect(byId.slow!.status).toBe('succeeded');
+  });
+
+  it("mode 'allSettled' always waits for every input and always succeeds, splitting fulfilled/rejected", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [delayNode('a'), delayNode('b'), joinNode('j', 'allSettled', 2)],
+      [
+        { id: 'e1', from: 'a', to: 'j', toPort: 'in-1' },
+        { id: 'e2', from: 'b', to: 'j', toPort: 'in-2' },
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry(
+          {
+            a: async () => ({ ok: true, output: { id: 'a' } }),
+            b: async () => ({ ok: false, error: 'boom' }),
+          },
+          recorder,
+        ),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const j = run.nodes.find((n) => n.nodeId === 'j')!;
+    expect(j.status).toBe('succeeded');
+    expect(j.output).toEqual({ fulfilled: [{ id: 'a' }], rejected: [{ nodeId: 'b', portId: 'in-2' }] });
+  });
+
+  it('names the node with a join that has nothing wired to it', async () => {
+    const store = makeStore();
+    const w = typedWorkflow([joinNode('j', 'all', 2)], []);
+    const result = await startWorkflowRun(w, deps(store));
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.kind === 'error' && result.message).toContain('nothing to join');
+  });
+});
+
+describe('the error port (Theme B)', () => {
+  it('routes a failed node through its wired error edge instead of skipping the dependant', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    let seen: Record<string, unknown> | null = null;
+    const capture: NodeExecutor = async (_node, context) => {
+      seen = context.upstream;
+      return { ok: true, output: {} };
+    };
+    const w = typedWorkflow(
+      [delayNode('a'), transformNode('recover', 'a.message', 'm')],
+      [{ id: 'e1', from: 'a', to: 'recover', fromPort: 'error', toPort: 'in', kind: 'error' }],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: {
+          ...fakeRegistry({ a: async () => ({ ok: false, error: 'boom' }) }, recorder),
+          transform: capture,
+        },
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.a!.status).toBe('failed');
+    expect(byId.a!.settledPort).toBe('error');
+    expect(byId.a!.output).toEqual({ message: 'boom', status: 500 });
+    // The recovery node actually ran — not skipped — and its upstream carries
+    // the failure's own `{message, status}` error-port payload.
+    expect(byId.recover!.status).toBe('succeeded');
+    expect(seen).toEqual({ a: { message: 'boom', status: 500 } });
+  });
+
+  it('still cascades the legacy way when a failed node has no wired error edge', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([delayNode('a'), delayNode('b')], [['a', 'b']]);
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, { executors: fakeRegistry({ a: async () => ({ ok: false, error: 'boom' }) }, recorder) }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.a!.settledPort).toBeUndefined();
+    expect(byId.b!.status).toBe('skipped');
+  });
+
+  it("only a true/false branch that actually fired runs — the other is skipped, not silently run", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [conditionNode('gate', 'x', 'y'), delayNode('onTrue'), delayNode('onFalse')],
+      [
+        { id: 'e1', from: 'gate', to: 'onTrue', fromPort: 'true', kind: 'conditional' },
+        { id: 'e2', from: 'gate', to: 'onFalse', fromPort: 'false', kind: 'conditional' },
+      ],
+    );
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: fakeRegistry({ gate: async () => ({ ok: true, output: { passed: true }, port: 'true' }) }, recorder),
+      }),
+    );
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.onTrue!.status).toBe('succeeded');
+    expect(byId.onFalse!.status).toBe('skipped');
+    expect(byId.onFalse!.error).toContain('false');
+    expect(recorder.started).toEqual(['gate', 'onTrue']);
   });
 });

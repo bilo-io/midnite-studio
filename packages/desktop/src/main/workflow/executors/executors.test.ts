@@ -272,22 +272,22 @@ describe('the condition executor', () => {
     return { id: 'c', label: 'If', x: 0, y: 0, kind: 'condition', config };
   }
 
-  it('passes a satisfied predicate without gating', async () => {
+  it('settles on the `true` port for a satisfied predicate', async () => {
     const outcome = await conditionExecutor(
       conditionNode({ left: '{{fetch.status}}', op: 'eq', right: '200' }),
       context({ upstream }),
     );
     expect(outcome.ok).toBe(true);
-    expect(outcome.ok && outcome.skipDownstream).toBeUndefined();
+    expect(outcome.ok && outcome.port).toBe('true');
   });
 
-  it('gates downstream on a false predicate — a success, not a failure', async () => {
+  it('settles on the `false` port for a false predicate — a success, not a failure', async () => {
     const outcome = await conditionExecutor(
       conditionNode({ left: '{{fetch.status}}', op: 'eq', right: '404' }),
       context({ upstream }),
     );
     expect(outcome.ok).toBe(true);
-    expect(outcome.ok && outcome.skipDownstream).toBe(true);
+    expect(outcome.ok && outcome.port).toBe('false');
   });
 
   it('compares numerically where the op is numeric', async () => {

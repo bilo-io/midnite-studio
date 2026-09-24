@@ -28,5 +28,9 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       return ['output'];
     case 'script':
       return ['exitCode', 'output'];
+    case 'join':
+      if (node.config.mode === 'allSettled') return ['fulfilled', 'rejected'];
+      if (node.config.mode === 'any') return ['result', 'from'];
+      return ['results'];
   }
 }

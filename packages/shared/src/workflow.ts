@@ -36,6 +36,7 @@ export const WORKFLOW_NODE_KINDS = [
   'note',
   'agent',
   'script',
+  'join',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -286,6 +287,37 @@ export const WorkflowScriptConfigSchema = z.object({
 });
 export type WorkflowScriptConfig = z.infer<typeof WorkflowScriptConfigSchema>;
 
+/**
+ * A **join** node (Phase 97 Theme B) — the explicit merge point for a
+ * fan-out, when the implicit "all parents" behaviour every plain node's `in`
+ * port already has (Theme A) is not what's wanted: a different join mode, or
+ * a distinct output shape to reference downstream.
+ *
+ * `inputs` is a declared **count**, not a list — the canvas draws `in-1`
+ * through `in-N` and the user wires however many of them matter; an unwired
+ * port is simply absent from the run (see the engine's `joinPortStates`).
+ * Bounded the same way `WORKFLOW_DELAY_MAX_MS` is: a join is a merge point,
+ * not a general-purpose N-ary op, so a canvas that wants more than eight
+ * branches probably wants two joins.
+ */
+export const WORKFLOW_JOIN_MODES = ['all', 'any', 'allSettled'] as const;
+export const WorkflowJoinModeSchema = z.enum(WORKFLOW_JOIN_MODES);
+export type WorkflowJoinMode = z.infer<typeof WorkflowJoinModeSchema>;
+
+export const WORKFLOW_JOIN_MIN_INPUTS = 2;
+export const WORKFLOW_JOIN_MAX_INPUTS = 8;
+
+export const WorkflowJoinConfigSchema = z.object({
+  mode: WorkflowJoinModeSchema.default('all'),
+  inputs: z
+    .number()
+    .int()
+    .min(WORKFLOW_JOIN_MIN_INPUTS)
+    .max(WORKFLOW_JOIN_MAX_INPUTS)
+    .default(WORKFLOW_JOIN_MIN_INPUTS),
+});
+export type WorkflowJoinConfig = z.infer<typeof WorkflowJoinConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -330,6 +362,10 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('script'),
     config: WorkflowScriptConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('join'),
+    config: WorkflowJoinConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -388,6 +424,26 @@ export function portsForNode(node: WorkflowNode): WorkflowPort[] {
       return [inPort(), dataOutPort('out', 'Output', node.config.outputShape), errorPort()];
     case 'script':
       return [inPort(), dataOutPort('out', 'Output', node.config.outputShape), errorPort()];
+    case 'join': {
+      const inputs: WorkflowPort[] = [];
+      for (let i = 1; i <= node.config.inputs; i += 1) {
+        inputs.push({ id: `in-${i}`, label: `In ${i}`, direction: 'in', type: 'any' });
+      }
+      // `allSettled` is the one mode whose output isn't just "the merged
+      // value" — it's a fulfilled/rejected split (Promise.allSettled's own
+      // shape), so only it pins an outputShape here.
+      const outputShape: WorkflowPortShape | undefined =
+        node.config.mode === 'allSettled'
+          ? {
+              type: 'object',
+              properties: {
+                fulfilled: { type: 'array', items: { type: 'any' } },
+                rejected: { type: 'array', items: { type: 'any' } },
+              },
+            }
+          : undefined;
+      return [...inputs, dataOutPort('out', 'Joined', outputShape), errorPort()];
+    }
     default: {
       // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
       // what makes adding a kind a typecheck failure here.
@@ -551,13 +607,14 @@ export function isWorkflowEnabled(workflow: Pick<Workflow, 'enabled'>): boolean 
  *
  * A pre-Theme-A `condition` node's outgoing edges had no port at all — they
  * fired whenever the run reached them, and a false predicate gated
- * everything downstream via `WorkflowNodeRun.gatedDownstream` (`:330` in the
- * engine). Once Theme B removes that field and starts reading `fromPort`
- * instead, an edge with no `fromPort` would look like an unconditional `out`
- * edge — taken every time, true or false. So this migration sets the one
- * thing that preserves the old behaviour exactly: a legacy condition edge's
- * `fromPort` becomes `'true'`, so it is only ever taken when the condition
- * settles true, same as before.
+ * everything downstream via `WorkflowNodeRun.gatedDownstream`. Theme B moved
+ * the engine onto reading `fromPort`/`settledPort` instead — `gatedDownstream`
+ * stays on the schema only so a pre-Theme-B run's history still parses, and
+ * nothing writes it `true` again. Without this migration, an edge with no
+ * `fromPort` would look like an unconditional `out` edge — taken every time,
+ * true or false. So this migration sets the one thing that preserves the old
+ * behaviour exactly: a legacy condition edge's `fromPort` becomes `'true'`,
+ * so it is only ever taken when the condition settles true, same as before.
  *
  * **Identity for every other workflow.** An edge that already has a
  * `fromPort`, or whose source is not a `condition` node, is returned
@@ -635,6 +692,19 @@ export const WorkflowNodeRunSchema = z.object({
    * everything *downstream*, which the engine then marks `skipped`.
    */
   gatedDownstream: z.boolean().default(false),
+  /**
+   * The out-port this node actually settled on (Phase 97 Theme B) — `'out'`
+   * for a plain success, `'true'`/`'false'` for a condition, `'error'` for a
+   * failure/timeout routed through a wired error edge. Unset for `skipped`,
+   * for a `pending`/`running` node, and for a failure/timeout with **no**
+   * error edge — that last case is deliberate: it is what tells the engine's
+   * cascade "this node produced nothing routable", which is the exact
+   * legacy behaviour {@link migrateWorkflowEdges}'s doc comment describes.
+   * What the engine's per-edge readiness pass (`workflow-engine.ts`) reads to
+   * decide whether an edge was *taken* or *dead*, and what replay (Theme K)
+   * and the canvas (Theme J) highlight the taken path from.
+   */
+  settledPort: z.string().min(1).optional(),
   error: z.string().optional(),
   startedAt: z.number().int().nonnegative().optional(),
   endedAt: z.number().int().nonnegative().optional(),
@@ -733,6 +803,12 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     }
     if (node.kind === 'script' && node.config.command.trim() === '') {
       issues.push({ message: `"${node.label}" has no command.`, nodeId: node.id });
+    }
+    if (
+      node.kind === 'join' &&
+      !workflow.edges.some((edge) => edge.to === node.id && normalizeEdge(edge).toPort.startsWith('in-'))
+    ) {
+      issues.push({ message: `"${node.label}" has nothing to join.`, nodeId: node.id });
     }
   }
 

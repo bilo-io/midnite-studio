@@ -1,5 +1,14 @@
 import type { WorkflowNode, WorkflowNodeKind } from '@midnite/studio-shared';
-import { LuBot, LuClock, LuGitBranch, LuGlobe, LuShuffle, LuSquareTerminal, LuStickyNote } from 'react-icons/lu';
+import {
+  LuBot,
+  LuClock,
+  LuGitBranch,
+  LuGlobe,
+  LuMerge,
+  LuShuffle,
+  LuSquareTerminal,
+  LuStickyNote,
+} from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
 
@@ -55,6 +64,19 @@ export const NODE_KIND_META: Record<
     category: 'action',
     description: 'Run a shell command in a real terminal session.',
   },
+  /**
+   * Phase 97 Theme B. `logic` hue, beside `condition` — a join is a routing
+   * decision (which inputs count, and how), not an action with a side
+   * effect. Full canvas treatment (the pill shape, taken/dead edge styling)
+   * is Theme J's job; this is the minimal entry the exhaustive maps below
+   * need to keep compiling.
+   */
+  join: {
+    label: 'Join',
+    icon: LuMerge,
+    category: 'logic',
+    description: 'Merge several branches — all, any, or every outcome.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -78,5 +100,7 @@ export function nodeSummary(node: WorkflowNode): string {
       return node.config.agentId.trim() ? `Run ${node.config.agentId}` : 'No agent selected';
     case 'script':
       return node.config.command.trim() || 'No command';
+    case 'join':
+      return `${node.config.mode} · ${node.config.inputs} inputs`;
   }
 }

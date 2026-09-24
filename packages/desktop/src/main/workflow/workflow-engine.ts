@@ -1,16 +1,20 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  WORKFLOW_ERROR_PORT_ID,
   WORKFLOW_NODE_CONCURRENCY,
   WORKFLOW_NODE_TIMEOUT_MS,
   failure,
   findCycleEdge,
   migrateWorkflowEdges,
+  normalizeEdge,
   ok,
+  portsForNode,
   validateWorkflow,
   type GitOpResult,
   type Workflow,
   type WorkflowEdge,
+  type WorkflowJoinMode,
   type WorkflowNode,
   type WorkflowNodeRun,
   type WorkflowNodeStatus,
@@ -147,6 +151,172 @@ function buildGraph(nodeIds: readonly string[], edges: readonly WorkflowEdge[]):
     children.get(edge.from)?.push(edge.to);
   }
   return { parents, children };
+}
+
+/** Every edge keyed by its target node id — the shape the readiness pass below walks. */
+function edgesByTarget(edges: readonly WorkflowEdge[]): Map<string, WorkflowEdge[]> {
+  const map = new Map<string, WorkflowEdge[]>();
+  for (const edge of edges) {
+    if (!map.has(edge.to)) map.set(edge.to, []);
+    map.get(edge.to)!.push(edge);
+  }
+  return map;
+}
+
+// --- per-edge readiness (Phase 97 Theme B) ------------------------------------
+
+/**
+ * Whether an edge was actually followed, resolved **per edge, not per
+ * parent** — the doc's own framing. `sourceSettledPort` is
+ * {@link WorkflowNodeRun.settledPort}, written once at settle time (below) so
+ * this function never has to re-derive it.
+ *
+ * `sourceSettledPort === undefined` on a terminal, non-skipped source is the
+ * **legacy-cascade** case: a failed/timed-out node with no wired error edge
+ * settles on nothing routable, so every one of its outgoing edges is dead —
+ * exactly today's "a failure skips every dependant" behaviour, just reached
+ * through the port mechanism instead of a status-category check.
+ */
+type EdgeState = 'taken' | 'dead' | 'pending';
+
+function edgeState(
+  edge: WorkflowEdge,
+  sourceStatus: WorkflowNodeStatus | undefined,
+  sourceSettledPort: string | undefined,
+): EdgeState {
+  if (sourceStatus === undefined || sourceStatus === 'pending' || sourceStatus === 'running') {
+    return 'pending';
+  }
+  if (sourceStatus === 'skipped') return 'dead'; // never settled on any port — cascades as dead.
+  if (sourceSettledPort === undefined) return 'dead'; // legacy cascade, see doc comment above.
+  return normalizeEdge(edge).fromPort === sourceSettledPort ? 'taken' : 'dead';
+}
+
+/**
+ * What a settled node's own `settledPort` should be — the one place this is
+ * computed, shared by the async-executor path ({@link settleNode}) and the
+ * join's inline settlement so the two can never disagree about what "this
+ * node has an error edge" means.
+ */
+function settledPortFor(
+  status: WorkflowNodeStatus,
+  outcomePort: string | undefined,
+  nodeId: string,
+  edges: readonly WorkflowEdge[],
+): string | undefined {
+  if (status === 'succeeded') return outcomePort ?? 'out';
+  if (status === 'failed' || status === 'timeout') {
+    const hasErrorEdge = edges.some(
+      (edge) => edge.from === nodeId && normalizeEdge(edge).fromPort === WORKFLOW_ERROR_PORT_ID,
+    );
+    return hasErrorEdge ? WORKFLOW_ERROR_PORT_ID : undefined;
+  }
+  return undefined; // pending / running / skipped.
+}
+
+/** The shared `{message, status}` shape every error port carries — see `errorPort()` in `shared/src/workflow.ts`. */
+function errorOutcomePayload(message: string, timedOut: boolean): { message: string; status: number } {
+  return { message, status: timedOut ? 408 : 500 };
+}
+
+/**
+ * Why a skipped node's dependant reads the way it does — kept close to
+ * {@link edgeState} so the two stay in sync. `conditional`/`loop` edges name
+ * the port that was not taken; a plain `data`/`error` edge behind a failure
+ * keeps the MVP's original wording.
+ */
+function deadEdgeMessage(edge: WorkflowEdge, sourceStatus: WorkflowNodeStatus | undefined): string {
+  const normalized = normalizeEdge(edge);
+  if (normalized.kind === 'conditional' || normalized.kind === 'loop') {
+    return `Skipped — "${normalized.fromPort}" was not taken.`;
+  }
+  if (sourceStatus === 'skipped') return 'Skipped — an earlier step did not run.';
+  return 'Skipped — an earlier step did not succeed.';
+}
+
+// --- join settlement (Phase 97 Theme B) ---------------------------------------
+
+type JoinPortState = { portId: string; edge: WorkflowEdge; state: EdgeState };
+
+/**
+ * A join's own wired ports, each matched to the (at most one) edge landing on
+ * it — an unwired `in-N` is simply absent here, not counted against any mode.
+ */
+function joinPortStates(
+  joinNode: WorkflowNode,
+  inEdges: readonly WorkflowEdge[],
+  statusOf: (id: string) => WorkflowNodeStatus | undefined,
+  portOf: (id: string) => string | undefined,
+): JoinPortState[] {
+  const ports = portsForNode(joinNode).filter((port) => port.direction === 'in');
+  const states: JoinPortState[] = [];
+  for (const port of ports) {
+    const edge = inEdges.find((candidate) => normalizeEdge(candidate).toPort === port.id);
+    if (!edge) continue;
+    states.push({ portId: port.id, edge, state: edgeState(edge, statusOf(edge.from), portOf(edge.from)) });
+  }
+  return states;
+}
+
+type JoinOutcome = 'wait' | { settle: 'succeeded' | 'failed'; reason: string };
+
+/**
+ * The three modes from the phase doc. `all` keeps the same AND semantics
+ * plain nodes have, just surfaced as the join's own `failed` status rather
+ * than a silent skip — the doc's "fails if any input failed". `any` fires the
+ * instant one input is taken and never waits on, or cancels, the rest. Every
+ * mode with zero wired ports fails immediately: a join with nothing to join
+ * is a misconfigured graph, not a vacuous success.
+ */
+function joinOutcome(mode: WorkflowJoinMode, states: readonly JoinPortState[]): JoinOutcome {
+  if (states.length === 0) return { settle: 'failed', reason: 'This join has nothing wired to it.' };
+  const pending = states.filter((s) => s.state === 'pending');
+  const taken = states.filter((s) => s.state === 'taken');
+  const dead = states.filter((s) => s.state === 'dead');
+
+  if (mode === 'any') {
+    if (taken.length > 0) return { settle: 'succeeded', reason: '' };
+    if (pending.length > 0) return 'wait';
+    return { settle: 'failed', reason: 'Every input to this join was skipped or failed.' };
+  }
+  if (mode === 'allSettled') {
+    if (pending.length > 0) return 'wait';
+    return { settle: 'succeeded', reason: '' };
+  }
+  // 'all'
+  if (dead.length > 0) {
+    return { settle: 'failed', reason: `"${dead[0]!.portId}" was not taken.` };
+  }
+  if (pending.length > 0) return 'wait';
+  return { settle: 'succeeded', reason: '' };
+}
+
+/**
+ * Build the join's own output once its mode has decided to settle —
+ * `results` (`all`), the single winning input (`any`), or the
+ * `{fulfilled, rejected}` split (`allSettled`, Promise.allSettled's own
+ * shape — `{{join.fulfilled.0.body}}` in the phase doc's own worked example).
+ * `nodeOutput` reads a settled ancestor's recorded output straight off the run.
+ */
+function buildJoinOutput(
+  mode: WorkflowJoinMode,
+  states: readonly JoinPortState[],
+  nodeOutput: (nodeId: string) => unknown,
+): unknown {
+  const taken = states.filter((s) => s.state === 'taken');
+  if (mode === 'any') {
+    const winner = taken[0];
+    return winner ? { result: nodeOutput(winner.edge.from), from: winner.edge.from } : null;
+  }
+  if (mode === 'allSettled') {
+    return {
+      fulfilled: taken.map((s) => nodeOutput(s.edge.from)),
+      rejected: states
+        .filter((s) => s.state === 'dead')
+        .map((s) => ({ nodeId: s.edge.from, portId: s.portId })),
+    };
+  }
+  return { results: taken.map((s) => nodeOutput(s.edge.from)) };
 }
 
 // `findCycleEdge` itself now lives in `shared/src/workflow.ts` — the canvas
@@ -308,8 +478,10 @@ async function drive(
           run.nodes.map((n) => n.nodeId),
           run.edges,
         );
+        const incoming = edgesByTarget(run.edges);
         const status = new Map(run.nodes.map((n) => [n.nodeId, n.status]));
-        const gated = new Map(run.nodes.map((n) => [n.nodeId, n.gatedDownstream === true]));
+        const settledPort = new Map(run.nodes.map((n) => [n.nodeId, n.settledPort]));
+        const nodeById = new Map(run.nodes.map((n) => [n.nodeId, n]));
 
         /*
           The cascade runs to a FIXED POINT, not once over the array.
@@ -326,26 +498,58 @@ async function drive(
           It must also settle before eligibility is computed at all, or a node
           under a failed parent counts as "still waiting" for ever and the
           driver finds nothing to start and nothing to wait on.
+
+          Two things settle directly in this loop rather than through the
+          async executor path below: a **skip** (as before) and, new in Theme
+          B, a **join** — pure aggregation over already-terminal ancestor
+          outputs, so it has nothing to await and settles the moment its mode
+          decides.
         */
         let mutated = false;
         for (;;) {
           let changedThisPass = false;
           for (const node of run.nodes) {
             if (node.status !== 'pending') continue;
-            const parents = graph.parents.get(node.nodeId) ?? [];
-            const blocked = parents.find((parent) => {
-              const parentStatus = status.get(parent);
-              if (parentStatus === 'failed' || parentStatus === 'timeout' || parentStatus === 'skipped') {
-                return true;
+            const def = byId.get(node.nodeId);
+            const inEdges = incoming.get(node.nodeId) ?? [];
+
+            if (def?.kind === 'join') {
+              const states = joinPortStates(
+                def,
+                inEdges,
+                (id) => status.get(id),
+                (id) => settledPort.get(id),
+              );
+              const outcome = joinOutcome(def.config.mode, states);
+              if (outcome === 'wait') continue;
+              node.status = outcome.settle;
+              node.startedAt = node.startedAt ?? clock.now();
+              node.endedAt = clock.now();
+              if (outcome.settle === 'succeeded') {
+                node.output = buildJoinOutput(def.config.mode, states, (id) => nodeById.get(id)?.output);
+              } else {
+                node.error = outcome.reason;
               }
-              return gated.get(parent) === true;
-            });
-            if (blocked === undefined) continue;
+              node.settledPort = settledPortFor(node.status, 'out', node.nodeId, run.edges);
+              if (node.settledPort === WORKFLOW_ERROR_PORT_ID) {
+                node.output = errorOutcomePayload(outcome.reason, false);
+              }
+              status.set(node.nodeId, node.status);
+              settledPort.set(node.nodeId, node.settledPort);
+              changedThisPass = true;
+              mutated = true;
+              continue;
+            }
+
+            if (inEdges.length === 0) continue; // a root node — nothing to gate on.
+            const states = inEdges.map((edge) => edgeState(edge, status.get(edge.from), settledPort.get(edge.from)));
+            if (states.some((s) => s === 'pending')) continue;
+            const deadIndex = states.findIndex((s) => s === 'dead');
+            if (deadIndex === -1) continue; // every in-edge taken — eligible below.
+
+            const deadEdge = inEdges[deadIndex]!;
             node.status = 'skipped';
-            node.error =
-              gated.get(blocked) === true
-                ? 'Skipped — a condition upstream did not hold.'
-                : 'Skipped — an earlier step did not succeed.';
+            node.error = deadEdgeMessage(deadEdge, status.get(deadEdge.from));
             node.endedAt = clock.now();
             status.set(node.nodeId, 'skipped');
             changedThisPass = true;
@@ -360,6 +564,13 @@ async function drive(
           .filter(
             (node) =>
               node.status === 'pending' &&
+              // A join never reaches the async executor path — it always
+              // settles above, inline, the moment its mode decides. Excluded
+              // here defensively: if it is still `pending` at this point some
+              // real wired parent is genuinely non-terminal, so this check
+              // would already exclude it, but nothing should ever depend on
+              // that holding by coincidence.
+              byId.get(node.nodeId)?.kind !== 'join' &&
               (graph.parents.get(node.nodeId) ?? []).every((parent) =>
                 TERMINAL.has(status.get(parent) ?? 'pending'),
               ),
@@ -515,14 +726,19 @@ async function runNode(
 ): Promise<{ status: WorkflowNodeStatus; result?: NodeOutcome }> {
   const clock = deps.clock ?? realClock;
   /*
-    Only this node's ANCESTORS, not every node that happens to have settled.
+    Only this node's ANCESTORS reached through a TAKEN edge (Phase 97 Theme
+    B), not every structural ancestor and not every node that happens to have
+    settled.
 
     Handing over every settled output made a reference across two unconnected
     branches resolve or fail depending purely on scheduling — `{{b.body.id}}`
     from a node in a different branch worked if `b` won the race and failed if
     it did not, which with a concurrency of 4 flips run to run. Restricting it
-    to real ancestors makes both outcomes deterministic and makes
-    `interpolate.ts`'s "is not upstream of this one" message literally true.
+    to real ancestors made both outcomes deterministic; restricting it further
+    to *taken* ancestors is the same fix applied to routing — a node behind a
+    condition's dead branch, or reached only through an error port that never
+    fired, is not meaningfully "upstream" either, and `{{...}}` referencing it
+    should fail the same honest way an unconnected reference does.
 
     Read immediately before the call, under the lock, so a node that waited on
     a join sees everything that landed while it waited.
@@ -530,17 +746,22 @@ async function runNode(
   const upstream = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
     if (!run) return {};
-    const graph = buildGraph(
-      run.nodes.map((n) => n.nodeId),
-      run.edges,
-    );
+    const incoming = edgesByTarget(run.edges);
+    const status = new Map(run.nodes.map((n) => [n.nodeId, n.status]));
+    const settledPort = new Map(run.nodes.map((n) => [n.nodeId, n.settledPort]));
+
+    const takenParentsOf = (id: string): string[] =>
+      (incoming.get(id) ?? [])
+        .filter((edge) => edgeState(edge, status.get(edge.from), settledPort.get(edge.from)) === 'taken')
+        .map((edge) => edge.from);
+
     const ancestors = new Set<string>();
-    const queue = [...(graph.parents.get(node.id) ?? [])];
+    const queue = takenParentsOf(node.id);
     while (queue.length > 0) {
       const id = queue.shift()!;
       if (ancestors.has(id)) continue;
       ancestors.add(id);
-      queue.push(...(graph.parents.get(id) ?? []));
+      queue.push(...takenParentsOf(id));
     }
 
     const outputs: Record<string, unknown> = {};
@@ -613,16 +834,31 @@ async function settleNode(
     } else if (result?.ok === true) {
       node.output = result.output;
       node.truncated = result.truncated === true;
-      /*
-        A false predicate is not a failure and not a skip: the `condition` node
-        itself ran and answered. What it gates is everything DOWNSTREAM, so the
-        gate is its own recorded field rather than a status — marking the
-        condition `skipped` would say the step never ran, which is the opposite
-        of what happened. The driver's cascade reads exactly this flag.
-      */
-      if (result.skipDownstream === true) node.gatedDownstream = true;
     } else if (result?.ok === false) {
       node.error = result.error;
+    }
+
+    /*
+      Which out-port this settle actually routes through (Phase 97 Theme B) —
+      `'true'`/`'false'` for a condition, `'out'` for a plain success, `'error'`
+      only when a wired error edge exists. This is what the driver's per-edge
+      readiness pass reads to decide, for every downstream edge, whether it
+      was taken or dead — the same mechanism now covers what `gatedDownstream`
+      used to special-case for `condition` alone. That field stays on the
+      schema for reading pre-Theme-B run history; nothing here writes it again.
+    */
+    node.settledPort = settledPortFor(
+      node.status,
+      result?.ok === true ? result.port : undefined,
+      node.nodeId,
+      run.edges,
+    );
+    // Routed onto the error port: give the downstream node something to
+    // `{{...}}`-reference, matching `errorPort()`'s declared `{message,
+    // status}` shape in `shared/src/workflow.ts` — the same payload a failed
+    // join builds for itself just above.
+    if (node.settledPort === WORKFLOW_ERROR_PORT_ID) {
+      node.output = errorOutcomePayload(node.error ?? 'Unknown error', node.status === 'timeout');
     }
 
     await deps.saveRun(run);
