@@ -4,6 +4,7 @@ import { LuCopy, LuServer } from 'react-icons/lu';
 
 import { MCP_TOOLS, MCP_TOOL_IDS } from '@midnite/studio-shared';
 
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { Field } from './controls';
 
@@ -73,20 +74,13 @@ export function McpSettingsPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="MCP Server" icon={<LuServer className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="mcp-enabled"
             label="Enable MCP server"
-            hint="Serves eight read-only tools (repo, status, graph, diff, branches, pull requests, checks) over a local Unix socket, so an agent started in this app's own terminal can ask instead of shelling out to git/gh. Off by default — turning it on widens this app's attack surface to any process on the machine that can reach the socket."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(event) => setEnabled.mutate(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Enable MCP server
-            </label>
-          </Field>
+            description="Serves eight read-only tools (repo, status, graph, diff, branches, pull requests, checks) over a local Unix socket, so an agent started in this app's own terminal can ask instead of shelling out to git/gh. Off by default — turning it on widens this app's attack surface to any process on the machine that can reach the socket."
+            on={enabled}
+            onToggle={(_id, next) => setEnabled.mutate(next)}
+          />
 
           {setEnabled.data?.error && <div className="text-xs text-destructive">{setEnabled.data.error}</div>}
 
@@ -135,22 +129,16 @@ export function McpSettingsPage() {
 
       <Accordion title="Let agents steer the UI" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="mcp-allow-ui"
             label="Let agents steer the UI"
-            hint="A second, narrower switch under the one above — off by default, and disabled until the master switch is on. It gates two tools: ui.navigate and ui.command, which open a view or run a palette command the same way the companion does."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={allowUi}
-                onChange={(event) => setAllowUi.mutate(event.target.checked)}
-                disabled={!enabled}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))] disabled:opacity-50"
-                data-testid="mcp-allow-ui"
-              />
-              Let agents steer the UI
-            </label>
-          </Field>
+            description="A second, narrower switch under the one above — off by default, and disabled until the master switch is on. It gates two tools: ui.navigate and ui.command, which open a view or run a palette command the same way the companion does."
+            on={allowUi}
+            onToggle={(_id, next) => setAllowUi.mutate(next)}
+            testId="mcp-allow-ui"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
 
           {setAllowUi.data?.error && (
             <div className="text-xs text-destructive">{setAllowUi.data.error}</div>

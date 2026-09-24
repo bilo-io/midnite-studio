@@ -38,6 +38,7 @@ export function SettingsSwitchRow({
   disabled,
   title,
   className,
+  testId,
 }: {
   id: string;
   label: string;
@@ -52,6 +53,8 @@ export function SettingsSwitchRow({
   title?: string;
   /** Extra classes on the row itself, appended after the defaults so a caller can override sizing/spacing (as `sidebar-page.tsx` does). */
   className?: string;
+  /** `data-testid` on the real input, for the handful of call sites a pre-existing test already keyed off one rather than role/name. */
+  testId?: string;
 }) {
   return (
     <label
@@ -79,6 +82,7 @@ export function SettingsSwitchRow({
         type="checkbox"
         role="switch"
         aria-label={label}
+        data-testid={testId}
         checked={on}
         disabled={disabled}
         onChange={(event) => {

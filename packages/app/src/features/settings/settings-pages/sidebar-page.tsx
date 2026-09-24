@@ -136,7 +136,7 @@ function SidenavRow({ view, label }: { view: ViewId; label: string }) {
       title={`Show ${label} in the sidenav`}
       on={visible}
       onToggle={(_id, next) => setNavViewVisible(view, next)}
-      className="-mx-1.5 min-h-8 !gap-2 px-1.5 py-1 !text-xs"
+      className="-mx-1.5 min-h-8 !gap-2 !px-1.5 !py-1 !text-xs"
     />
   );
 }
