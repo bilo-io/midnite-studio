@@ -442,3 +442,41 @@ export async function ollamaPull(
     });
   });
 }
+
+export type OllamaChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+
+/**
+ * `POST /api/chat`, one-shot (`stream: false`) — Theme I's wand and Plan with
+ * AI, the one place this app calls a model's HTTP API directly rather than
+ * going through a CLI (see the phase doc's "Wand / Plan-with-AI on Ollama
+ * call `/api/chat` directly" decision: Ollama is local with no key to store,
+ * and a pty round-trip would only add latency).
+ *
+ * Not streamed: both callers (`main/ai/improve-field.ts`,
+ * `main/ai/plan-blueprint.ts`) want the whole reply before doing anything
+ * with it — a rewrite drops straight into a field, a blueprint has to parse
+ * as JSON — so there is nothing a partial chunk would let either do sooner.
+ * `opts.signal` still cancels the in-flight request exactly like every other
+ * export here; there is just no NDJSON stream to interrupt mid-line.
+ */
+export async function ollamaChat(
+  req: { model: string; messages: OllamaChatMessage[] },
+  opts: { baseUrl?: string; timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<string> {
+  const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
+  const res = await fetchWithTimeout(
+    `${baseUrl}/api/chat`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: req.model, messages: req.messages, stream: false }),
+    },
+    opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    opts.signal,
+  );
+  if (!res.ok) throw new Error(`Ollama /api/chat returned ${res.status} for "${req.model}".`);
+  const body = (await res.json()) as unknown;
+  const content = asString(asRecord(asRecord(body)?.message)?.content);
+  if (content === undefined) throw new Error('Ollama /api/chat returned no message content.');
+  return content;
+}
