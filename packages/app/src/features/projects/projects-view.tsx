@@ -65,6 +65,7 @@ import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
 import { PageDetachMark } from '../../components/page-detach-mark';
 import { ProjectDialog, type ProjectDialogMode } from './project-dialog';
+import { PlanWithAiBar } from './plan/plan-with-ai-bar';
 
 const PROJECTS_MODES = ['table', 'board', 'graph'] as const;
 type ProjectsMode = (typeof PROJECTS_MODES)[number];
@@ -361,6 +362,15 @@ export function ProjectsView() {
           </select>
         </label>
 
+        {repoId !== null && capability?.ops.createIssue ? (
+          <PlanWithAiBar
+            repoId={repoId}
+            repoName={repoName}
+            worktreePath={worktreePath}
+            origin={{ kind: 'project', capability, defaultProjectId: selectedProjectId }}
+          />
+        ) : null}
+
         {capability?.ops.createProject ? (
           <IconButton
             icon={LuPlus}
@@ -647,6 +657,7 @@ export function ProjectsView() {
           onClose={() => setProjectDialogMode(null)}
           repoId={repoId}
           repoName={repoName}
+          worktreePath={worktreePath}
           mode={projectDialogMode}
           onCreated={(projectId) => setProjectBoard(repoId, projectId)}
         />

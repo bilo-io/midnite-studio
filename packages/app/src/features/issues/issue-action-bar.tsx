@@ -1,12 +1,21 @@
 import type { ForgeIssue, ForgeProjectWriteResult } from '@midnite/studio-shared';
+import { pickForgeRemote } from '@midnite/studio-shared';
 import { LuCircleCheck, LuKanban, LuMessageSquare, LuRotateCcw } from 'react-icons/lu';
 import { useState, type MouseEvent } from 'react';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { Spinner } from '../../components/skeleton';
-import { useAddProjectItem, useCommentIssue, useForgeProjects, useSetIssueState } from '../../services/queries';
+import {
+  useActiveForgeCapability,
+  useAddProjectItem,
+  useCommentIssue,
+  useForgeProjects,
+  useRemotes,
+  useSetIssueState,
+} from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
+import { PlanWithAiBar } from '../projects/plan/plan-with-ai-bar';
 
 /**
  * Everything this app can change about an issue, in one row (Phase 54 Theme G).
@@ -24,13 +33,30 @@ import { useUiStore } from '../../store/ui-store';
  * optimistic; a close that appeared before `gh` accepted it would be the app
  * lying at exactly the moment trust matters.
  */
-export function IssueActionBar({ repoId, issue }: { repoId: string; issue: ForgeIssue }) {
+export function IssueActionBar({
+  repoId,
+  issue,
+  worktreePath,
+}: {
+  repoId: string;
+  issue: ForgeIssue;
+  worktreePath?: string | null | undefined;
+}) {
   const enabled = useUiStore((s) => s.forgeWritesEnabled);
   const [composing, setComposing] = useState(false);
   const [body, setBody] = useState('');
 
   const comment = useCommentIssue(repoId, issue.number);
   const setState = useSetIssueState(repoId, issue.number);
+
+  // Plan with AI (Phase 95 Theme F) — its third entry point, sub-issues of
+  // this one. `repoName`/`capability` computed the same way `IssueDialog`
+  // computes them, rather than threading two more props down from
+  // `issues-view.tsx` for a control that only needs them itself.
+  const remotes = useRemotes(repoId);
+  const forge = pickForgeRemote(remotes.data ?? [])?.forge ?? null;
+  const repoName = forge ? `${forge.owner}/${forge.repo}` : '';
+  const { capability } = useActiveForgeCapability(repoId);
 
   /*
     "Add to project" reuses exactly the data `ReviewActionBar`'s own menu
@@ -120,6 +146,16 @@ export function IssueActionBar({ repoId, issue }: { repoId: string; issue: Forge
           </span>
         ) : null}
       </div>
+
+      {enabled && capability?.ops.createIssue ? (
+        <PlanWithAiBar
+          repoId={repoId}
+          repoName={repoName}
+          worktreePath={worktreePath}
+          origin={{ kind: 'subIssue', capability, originNumber: issue.number, originTitle: issue.title }}
+          placeholder="Break this issue into sub-issues…"
+        />
+      ) : null}
 
       {composing ? (
         <div className="flex flex-col gap-1.5 rounded border border-border bg-muted/30 p-2">

@@ -5,6 +5,7 @@ import { WandField } from '../../components/wand-field';
 import { useDialogs } from '../../components/dialog-host';
 import { useActiveForgeCapability, useCreateProject, useDeleteProject, useEditProject } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
+import { PlanWithAiBar } from './plan/plan-with-ai-bar';
 
 /** Create, or edit an existing board. `itemCount` (edit only) is the
  *  blast-radius number for its delete confirm — the caller's own already-
@@ -20,14 +21,16 @@ export function ProjectDialog({
   onClose,
   repoId,
   repoName,
+  worktreePath,
   mode,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   repoId: string;
-  /** For the wand's prompt only — "owner/name", never a `repoId`. */
+  /** For the wand's (and Plan with AI's) prompt only — "owner/name", never a `repoId`. */
   repoName: string;
+  worktreePath?: string | null | undefined;
   mode: ProjectDialogMode;
   /** Fired with the new board's node id on a successful create, so the
    *  caller can select it immediately rather than leave the picker on
@@ -148,6 +151,19 @@ export function ProjectDialog({
             />
             <span>Closed</span>
           </label>
+        ) : capability?.ops.createIssue ? (
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">
+              Or let AI draft the board and its tasks — opens on top of this dialog, which you can
+              then cancel.
+            </span>
+            <PlanWithAiBar
+              repoId={repoId}
+              repoName={repoName}
+              worktreePath={worktreePath}
+              origin={{ kind: 'project', capability, defaultProjectId: null }}
+            />
+          </div>
         ) : null}
 
         {createError || editError || deleteError ? (

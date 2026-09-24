@@ -37,8 +37,8 @@ function freshTaskKey(): string {
 }
 
 export type PlanSheetOrigin =
-  | { kind: 'project'; capability: ForgeCapability | null; defaultProjectId: string | null }
-  | { kind: 'subIssue'; capability: ForgeCapability | null; originNumber: number; originTitle: string };
+  | { kind: 'project'; capability: ForgeCapability | null | undefined; defaultProjectId: string | null }
+  | { kind: 'subIssue'; capability: ForgeCapability | null | undefined; originNumber: number; originTitle: string };
 
 export function PlanBlueprintSheet({
   open,
