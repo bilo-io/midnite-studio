@@ -121,6 +121,7 @@ const bridge: Pick<
   | 'forge'
   | 'forgeAccounts'
   | 'forgeProject'
+  | 'ai'
   | 'shell'
   | 'clipboard'
   | 'ops'
@@ -235,6 +236,11 @@ const bridge: Pick<
     issueComments: (req) => call(CHANNELS.forgeIssueComments, req),
     issueComment: (req) => call(CHANNELS.forgeIssueComment, req),
     issueSetState: (req) => call(CHANNELS.forgeIssueSetState, req),
+    issueCreate: (req) => call(CHANNELS.forgeIssueCreate, req),
+    issueEdit: (req) => call(CHANNELS.forgeIssueEdit, req),
+    issueDelete: (req) => call(CHANNELS.forgeIssueDelete, req),
+    issuesLink: (req) => call(CHANNELS.forgeIssuesLink, req),
+    issuesUnlink: (req) => call(CHANNELS.forgeIssuesUnlink, req),
     runDetail: (req) => call(CHANNELS.forgeRunDetail, req),
     runLog: (req) => call(CHANNELS.forgeRunLog, req),
     workflows: (req) => call(CHANNELS.forgeWorkflows, req),
@@ -274,6 +280,14 @@ const bridge: Pick<
     setField: (req) => call(CHANNELS.forgeProjectSetField, req),
     addItem: (req) => call(CHANNELS.forgeProjectAddItem, req),
     clearField: (req) => call(CHANNELS.forgeProjectClearField, req),
+    create: (req) => call(CHANNELS.forgeProjectCreate, req),
+    edit: (req) => call(CHANNELS.forgeProjectEdit, req),
+    delete: (req) => call(CHANNELS.forgeProjectDelete, req),
+    addDraftItem: (req) => call(CHANNELS.forgeProjectAddDraftItem, req),
+    removeItem: (req) => call(CHANNELS.forgeProjectRemoveItem, req),
+  },
+  ai: {
+    improveField: (req) => call(CHANNELS.aiImproveField, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

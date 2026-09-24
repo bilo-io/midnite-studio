@@ -1,15 +1,16 @@
-import { useMemo } from 'react';
-import { LuRefreshCw } from 'react-icons/lu';
+import { useMemo, useState } from 'react';
+import { LuPlus, LuRefreshCw } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { useForgeIssues, useRefreshForge } from '../../services/queries';
+import { useActiveForgeCapability, useForgeIssues, useRefreshForge } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
 import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useIssuesStore } from '../../store/issues-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { IssueDetail } from './issue-detail';
+import { IssueDialog } from './issue-dialog';
 import { IssueList } from './issue-list';
 import { IssueListSkeleton } from './issues-skeletons';
 import { pickInitialIssue } from './issue-order';
@@ -28,9 +29,11 @@ import { PageDetachMark } from '../../components/page-detach-mark';
  * Theme E's filter toolbar is what narrows it back down.
  */
 export function IssuesView() {
-  const { repoId } = useActiveWorktree();
+  const { repoId, worktreePath } = useActiveWorktree();
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
+  const [creating, setCreating] = useState(false);
+  const { capability } = useActiveForgeCapability(repoId);
 
   const list = useResizable({
     size: layout.issuesListWidth,
@@ -94,11 +97,20 @@ export function IssuesView() {
           <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground/70">
             {rows.length}
           </span>
+          {capability?.ops.createIssue ? (
+            <IconButton
+              icon={LuPlus}
+              label="New issue"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setCreating(true)}
+            />
+          ) : null}
           <IconButton
             icon={LuRefreshCw}
             label="Refresh issues"
             size="sm"
-            className="ml-auto"
+            className={capability?.ops.createIssue ? '' : 'ml-auto'}
             onClick={refresh}
           />
         </div>
@@ -127,6 +139,14 @@ export function IssuesView() {
       ) : (
         <IssueDetail repoId={repoId} issue={selected} />
       )}
+
+      <IssueDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        repoId={repoId}
+        worktreePath={worktreePath}
+        mode={{ kind: 'create' }}
+      />
     </div>
   );
 }

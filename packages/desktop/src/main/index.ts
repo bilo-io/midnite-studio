@@ -48,6 +48,7 @@ import { handleBare } from './ipc/handle';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerForgeAccountHandlers } from './ipc/forge-account-handlers';
 import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
+import { registerAiHandlers } from './ipc/ai-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
 import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
@@ -366,6 +367,7 @@ if (!app.requestSingleInstanceLock()) {
     registerForgeHandlers();
     registerForgeAccountHandlers();
     registerForgeProjectHandlers();
+    registerAiHandlers();
     // Phase 84 Themes B/C: auto-fetch and forge polling both move to main,
     // one instance for the whole process regardless of how many windows are
     // open. `initFetchScheduler` is reconciled below alongside the watchers;

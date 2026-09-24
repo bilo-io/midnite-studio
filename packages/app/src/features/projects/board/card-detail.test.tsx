@@ -10,9 +10,44 @@ import { CardDetail } from './card-detail';
 afterEach(cleanup);
 
 const setField = vi.fn();
+
+const NO_OPS = {
+  createIssue: false,
+  editIssue: false,
+  deleteIssue: false,
+  createProject: false,
+  editProject: false,
+  deleteProject: false,
+  addProjectItem: false,
+  removeProjectItem: false,
+  linkBlockedBy: false,
+  linkSubIssue: false,
+};
+const NO_CAPABILITY = {
+  pulls: 'none' as const,
+  issues: 'none' as const,
+  checks: 'none' as const,
+  projects: 'none' as const,
+  threadResolution: 'none' as const,
+  requestChanges: 'none' as const,
+  repoListing: 'none' as const,
+  ops: NO_OPS,
+};
+const FULL_CAPABILITY = { ...NO_CAPABILITY, ops: { ...NO_OPS, editIssue: true, deleteIssue: true } };
+const capabilities = vi.fn(async () => NO_CAPABILITY);
+const remotesList = vi.fn(async () => [
+  {
+    name: 'origin',
+    fetchUrl: 'https://github.com/acme/widgets.git',
+    pushUrl: 'https://github.com/acme/widgets.git',
+    forge: { kind: 'github' as const, host: 'github.com', owner: 'acme', repo: 'widgets' },
+  },
+]);
 vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
     forgeProject: { setField },
+    forgeAccounts: { capabilities },
+    remotes: { list: remotesList },
     terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
     agent: { list: vi.fn(async () => ({ agents: [], status: [] })) },
   }),
@@ -22,15 +57,23 @@ vi.mock('../../../services/bridge', () => ({
 let forgeWritesEnabled = true;
 const setCardSkill = vi.fn();
 let cardSkillByTask: Record<string, string> = {};
-vi.mock('../../../store/ui-store', () => ({
-  useUiStore: (
+function makeUseUiStore() {
+  const useUiStoreFn = (
     selector: (state: {
       forgeWritesEnabled: boolean;
       cardSkillByTask: Record<string, string>;
       setCardSkill: typeof setCardSkill;
+      primaryAgent: string;
     }) => unknown,
-  ) => selector({ forgeWritesEnabled, cardSkillByTask, setCardSkill }),
-}));
+  ) => selector({ forgeWritesEnabled, cardSkillByTask, setCardSkill, primaryAgent: 'claude' });
+  // `Modal`'s own `useDismiss`/`useFocusTrap` read the occluder counter
+  // through `useUiStore.getState()` directly (not the hook), which only
+  // fires once a dialog this test mounts actually opens — Theme E's
+  // `IssueDialog` is the first thing in this file to do that.
+  useUiStoreFn.getState = () => ({ incrementOccluders: () => {}, decrementOccluders: () => {} });
+  return useUiStoreFn;
+}
+vi.mock('../../../store/ui-store', () => ({ useUiStore: makeUseUiStore() }));
 
 const statusField: ForgeProjectField = {
   id: 'f-status',
@@ -101,6 +144,8 @@ describe('CardDetail', () => {
     setCardSkill.mockReset();
     forgeWritesEnabled = true;
     cardSkillByTask = {};
+    capabilities.mockReset();
+    capabilities.mockResolvedValue(NO_CAPABILITY);
   });
 
   it('renders the title, the number linked to github.com, and assignees', () => {
@@ -226,6 +271,29 @@ describe('CardDetail', () => {
       cardSkillByTask = { 'PVT_1:item1': 'brainstorm', 'PVT_1:item2': 'refine' };
       renderDetail(vi.fn(), { item: otherItem });
       expect(screen.getByText('Refine Plan')).toBeDefined();
+    });
+  });
+
+  describe('Edit issue (Phase 95 Theme E)', () => {
+    it('has no Edit button when the capability grants no issue write', async () => {
+      renderDetail();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(screen.queryByRole('button', { name: 'Edit issue' })).toBeNull();
+    });
+
+    it('opens IssueDialog on the current issue when the capability allows it', async () => {
+      // `mockResolvedValue`, not `-Once` — `useActiveForgeCapability` queries
+      // twice (once for the transient `'unknown'` kind before `useRemotes`
+      // resolves, once for the real `'github'` kind after), and a `-Once`
+      // override would be consumed by the first, leaving the button gated on
+      // the default no-ops answer.
+      capabilities.mockResolvedValue(FULL_CAPABILITY);
+      renderDetail();
+
+      const editButton = await screen.findByRole('button', { name: 'Edit issue' });
+      fireEvent.click(editButton);
+
+      expect(await screen.findByText('Edit issue #42')).toBeDefined();
     });
   });
 });

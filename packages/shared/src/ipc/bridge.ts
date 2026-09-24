@@ -341,6 +341,36 @@ export type MidniteStudioBridge = {
     ) => Promise<z.infer<typeof S.ForgeIssueSetStateResponse>>;
 
     /*
+      Issue and dependency-link CRUD (Phase 95 Theme D/E) — `IssueDialog`'s
+      create/edit/delete and the blocked-by/sub-issue links a future theme
+      draws in the project graph. Same envelope discipline as every write
+      above: `ForgeWriteResult`/`ForgeIssueCreateResult`/`ForgeLinkWriteResult`,
+      never a rejection. `capabilitiesFor(kind).ops` (read by the dialog, not
+      enforced here) says which of these a given repo's forge actually
+      implements.
+    */
+    /** Create an issue. Reads it back through `issueDetail` on success. */
+    issueCreate: (
+      req: In<typeof S.ForgeIssueCreateRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueCreateResponse>>;
+    /** A partial edit — every field optional, an absent one left unchanged. */
+    issueEdit: (
+      req: In<typeof S.ForgeIssueEditRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueEditResponse>>;
+    /** Delete outright. The blast-radius confirm is the caller's job. */
+    issueDelete: (
+      req: In<typeof S.ForgeIssueDeleteRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssueDeleteResponse>>;
+    /** Add a `blockedBy`/`subIssue` dependency edge between two issues. */
+    issuesLink: (
+      req: In<typeof S.ForgeIssuesLinkRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssuesLinkResponse>>;
+    /** The inverse of `issuesLink`. */
+    issuesUnlink: (
+      req: In<typeof S.ForgeIssuesUnlinkRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssuesUnlinkResponse>>;
+
+    /*
       Interest-based polling (Phase 84 Theme C). One-way, mirroring
       `pty.subscribe`/`pty.unsubscribe`: the renderer learns of a change from
       `onChanged`, not a return value, and a window's subscriptions are
@@ -431,6 +461,46 @@ export type MidniteStudioBridge = {
     clearField: (
       req: In<typeof S.ForgeProjectClearFieldRequest>,
     ) => Promise<z.infer<typeof S.ForgeProjectClearFieldResponse>>;
+
+    /*
+      Board CRUD, drafts and remove-item (Phase 95 Theme D/E) —
+      `ProjectDialog`'s create/edit/delete, folded onto the same
+      `ForgeProjectWriteResult`/`ForgeProjectCreateResult` envelopes every
+      write above already answers.
+    */
+    /** A new board. */
+    create: (
+      req: In<typeof S.ForgeProjectCreateRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectCreateResponse>>;
+    /** Rename a board, or close/reopen it. */
+    edit: (
+      req: In<typeof S.ForgeProjectEditRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectEditResponse>>;
+    /** Delete a board outright. The blast-radius confirm is the caller's job. */
+    delete: (
+      req: In<typeof S.ForgeProjectDeleteRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectDeleteResponse>>;
+    /** `addProjectV2DraftIssue` — a new draft item with no issue behind it. */
+    addDraftItem: (
+      req: In<typeof S.ForgeProjectAddDraftItemRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectAddDraftItemResponse>>;
+    /** Remove a row from the board — not the issue/PR it points at. */
+    removeItem: (
+      req: In<typeof S.ForgeProjectRemoveItemRequest>,
+    ) => Promise<z.infer<typeof S.ForgeProjectRemoveItemResponse>>;
+  };
+
+  /**
+   * The wand (Phase 95 Theme E) — rewrite one issue/project field's text
+   * through the roster's cheapest headless CLI. Its own top-level group
+   * rather than folded into `forge`: it never touches a forge (the call is
+   * local to the CLI), and Theme F's own `ai:planBlueprint` will land beside
+   * it here rather than under `forge` or `forgeProject` either.
+   */
+  ai: {
+    improveField: (
+      req: In<typeof S.AiImproveFieldRequest>,
+    ) => Promise<z.infer<typeof S.AiImproveFieldResponse>>;
   };
 
   /**

@@ -11,6 +11,8 @@ import {
   LuKanban,
   LuLayers,
   LuNotebookPen,
+  LuPencil,
+  LuPlus,
   LuTable,
   LuWorkflow,
 } from 'react-icons/lu';
@@ -62,6 +64,7 @@ import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
 import { PageDetachMark } from '../../components/page-detach-mark';
+import { ProjectDialog, type ProjectDialogMode } from './project-dialog';
 
 const PROJECTS_MODES = ['table', 'board', 'graph'] as const;
 type ProjectsMode = (typeof PROJECTS_MODES)[number];
@@ -144,7 +147,10 @@ export function ProjectsView() {
   // (`use-repo-actions.ts` reads it the same way) — no new IPC channel, and
   // react-query dedupes the fetch against any other consumer already open.
   const remotes = useRemotes(repoId);
-  const forgeOwner = pickForgeRemote(remotes.data ?? [])?.forge?.owner ?? null;
+  const forge = pickForgeRemote(remotes.data ?? [])?.forge ?? null;
+  const forgeOwner = forge?.owner ?? null;
+  /** For the wand's prompt only (`ProjectDialog`) — "owner/name", never a `repoId`. */
+  const repoName = forge ? `${forge.owner}/${forge.repo}` : '';
   /*
     Phase 90 Theme H's own deferred item, unblocked now that a real adapter
     can report `projects: 'partial'` — GitLab's Issue Boards, mapped through
@@ -156,6 +162,10 @@ export function ProjectsView() {
   const { capability } = useActiveForgeCapability(repoId);
   const repoBoards = boards.filter((b) => b.linkedToRepo);
   const ownerBoards = boards.filter((b) => !b.linkedToRepo);
+
+  // Phase 95 Theme E — create/edit/delete, sharing one dialog mount rather
+  // than two: `null` is closed, the mode carries which of the two it is.
+  const [projectDialogMode, setProjectDialogMode] = useState<ProjectDialogMode | null>(null);
 
   const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? null) : null;
   const cascade = useCascadeReveal({
@@ -350,6 +360,33 @@ export function ProjectsView() {
             )}
           </select>
         </label>
+
+        {capability?.ops.createProject ? (
+          <IconButton
+            icon={LuPlus}
+            label="New board"
+            size="sm"
+            onClick={() => setProjectDialogMode({ kind: 'create' })}
+          />
+        ) : null}
+        {boardStillExists && (capability?.ops.editProject || capability?.ops.deleteProject) ? (
+          <IconButton
+            icon={LuPencil}
+            label="Edit board"
+            size="sm"
+            onClick={() => {
+              const board = boards.find((b) => b.id === selectedProjectId);
+              if (!board) return;
+              setProjectDialogMode({
+                kind: 'edit',
+                projectId: board.id,
+                title: board.title,
+                closed: board.closed,
+                itemCount: allItems.length,
+              });
+            }}
+          />
+        ) : null}
 
         <div
           role="group"
@@ -601,6 +638,17 @@ export function ProjectsView() {
           cascadeStyleFor={cascade.styleFor}
         />
       )}
+
+      {repoId !== null && projectDialogMode ? (
+        <ProjectDialog
+          open
+          onClose={() => setProjectDialogMode(null)}
+          repoId={repoId}
+          repoName={repoName}
+          mode={projectDialogMode}
+          onCreated={(projectId) => setProjectBoard(repoId, projectId)}
+        />
+      ) : null}
     </div>
   );
 }

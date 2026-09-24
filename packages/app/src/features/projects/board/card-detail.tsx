@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
-import { LuX } from 'react-icons/lu';
+import { LuPencil, LuX } from 'react-icons/lu';
 
+import { IconButton } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { UserAvatar } from '../../../components/user-avatar';
+import { useActiveForgeCapability } from '../../../services/queries';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { ExternalLink } from '../../markdown/external-link';
+import { IssueDialog } from '../../issues/issue-dialog';
 import { type AgentCommandId, useUiStore } from '../../../store/ui-store';
 import { CardComposer } from './card-composer';
 import { CONTENT_ICON } from './card-chrome';
@@ -69,6 +73,22 @@ export function CardDetail({
   const skillId = useUiStore((state) => state.cardSkillByTask[taskKey]);
   const setCardSkill = useUiStore((state) => state.setCardSkill);
 
+  // Phase 95 Theme E — "Edit issue", the one entry point Theme D's own
+  // deferred delete-confirm was written against. `IssueDialog` resolves its
+  // own repo name off `repoId`'s remote, so nothing extra is derived here.
+  // **Known limitation, shared with every other forge write in this app**:
+  // the edit/delete IPC channels resolve owner/repo from the OPEN checkout's
+  // `.git/config` server-side (`forge-handlers.ts`'s `resolveAdapter`), not
+  // from this card's own (possibly different) repo — a cross-repo project
+  // board's card from another repo would be edited against the wrong one.
+  // Every existing write this pane already offers (`commentIssue`,
+  // `setIssueState` via `IssueActionBar`) has the identical limitation; fixing
+  // it needs an explicit-owner/repo request shape across the whole forge IPC
+  // surface, which is well beyond this theme.
+  const [editingIssue, setEditingIssue] = useState(false);
+  const { capability } = useActiveForgeCapability(repoId);
+  const isIssue = item.content.type === 'issue';
+
   return (
     <div className="flex h-full flex-col" data-testid="card-detail">
       <header className="flex shrink-0 items-start gap-2 border-b border-border px-3 py-2.5">
@@ -96,6 +116,14 @@ export function CardDetail({
             </p>
           ) : null}
         </div>
+        {isIssue && repoId !== null && (capability?.ops.editIssue || capability?.ops.deleteIssue) ? (
+          <IconButton
+            icon={LuPencil}
+            label="Edit issue"
+            size="sm"
+            onClick={() => setEditingIssue(true)}
+          />
+        ) : null}
         <button
           type="button"
           aria-label="Close"
@@ -105,6 +133,16 @@ export function CardDetail({
           <LuX aria-hidden className="h-3.5 w-3.5" />
         </button>
       </header>
+
+      {isIssue && repoId !== null && number !== null ? (
+        <IssueDialog
+          open={editingIssue}
+          onClose={() => setEditingIssue(false)}
+          repoId={repoId}
+          worktreePath={worktreePath}
+          mode={{ kind: 'edit', number, linkedPrCount: linkedPrs.length }}
+        />
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {item.content.assignees.length > 0 ? (

@@ -327,6 +327,16 @@ export const CHANNELS = {
    *  points at). The inverse of `forgeProjectAddItem`/`-add-draft-item`. */
   forgeProjectRemoveItem: 'mstudio:forge-project:remove-item',
 
+  /**
+   * The wand (Phase 95 Theme E) — rewrite one issue/project field's text
+   * through the provider's CLI headless, with its cheap model
+   * (`shared/src/ai-models.ts`). Answers a `GitOpResult` envelope, the same
+   * "no CLI is installed"/"it timed out" posture `companionAsk` already
+   * takes: a missing agent CLI or an empty reply is a sentence the wand
+   * renders beside the field, never a thrown error.
+   */
+  aiImproveField: 'mstudio:ai:improve-field',
+
   // --- shell ---------------------------------------------------------------
   /**
    * Hand a URL to the OS browser. Protocol-restricted at both ends — see the

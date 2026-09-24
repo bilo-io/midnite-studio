@@ -70,6 +70,30 @@ const BLAST_RADIUS_COPY = {
     consequence: 'will be written to a local, gitignored overlay file, never committed.',
     noEffect: 'No secret values to write.',
   },
+  /**
+   * Phase 95 Theme E — deleting an issue on the forge. The count is the
+   * issue's own linked pull requests (`ForgeProjectItemContent.linkedPrs`),
+   * the one relationship this app already tracks for a card — not a
+   * `blockedBy`/`subIssue` dependency count, which would need a project
+   * graph walk `IssueDialog` has no reason to perform just to open.
+   */
+  issue: {
+    subject: (n: number) => `${n} linked pull request${n === 1 ? '' : 's'}`,
+    consequence: 'will lose its reference to this issue once it is deleted.',
+    noEffect: 'No pull requests are linked to it.',
+  },
+  /**
+   * Phase 95 Theme E — deleting a project board. The count is the board's
+   * own item count (`useForgeProjectItems`) — GitHub's own project deletion
+   * is irreversible, so this is the one number that actually describes the
+   * blast radius: everything on the board, not the issues/PRs it points at.
+   */
+  project: {
+    subject: (n: number) => `${n} item${n === 1 ? '' : 's'}`,
+    consequence:
+      'will come off the board when it is deleted — this cannot be undone. The issues and pull requests themselves are not deleted.',
+    noEffect: 'The board has no items on it.',
+  },
 } as const;
 
 export type ConfirmRequest = {

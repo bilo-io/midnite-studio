@@ -267,25 +267,66 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       idempotent in both directions (add, remove, and a same-numbered issue in a different repo
       is never confused with the local one).
 
-### E — Issue and project dialogs, with a magic wand (L)
+### E — Issue and project dialogs, with a magic wand (L) — ✅ DONE (PR #533, 2026-09-24)
 
-- [ ] `IssueDialog` (create/edit) and `ProjectDialog` (create/edit) on `Modal`, following
+- [x] `IssueDialog` (create/edit) and `ProjectDialog` (create/edit) on `Modal`, following
       [`report-issue-dialog.tsx`](../../../packages/app/src/components/report-issue-dialog.tsx);
       entry points: Issues view header, Projects header beside the board select, card detail
       "Edit issue". Fields shown per the provider's `ops` capability.
-- [ ] `shared/src/ai-models.ts`: a per-provider fast/cheap model registry (`claude → haiku`,
+      [`issue-dialog.tsx`](../../../packages/app/src/features/issues/issue-dialog.tsx),
+      [`project-dialog.tsx`](../../../packages/app/src/features/projects/project-dialog.tsx).
+      **Decision (unattended run):** labels/assignees are one comma-separated text input each,
+      not a picker — a picker needs a new IPC read (the repo's labels/collaborators) this theme
+      did not ask for, and a text input matches `gh issue create --label/--assignee`'s own
+      grammar exactly. **Delete's blast-radius count** (deferred to this theme by Theme D):
+      an issue's is its linked-PR count (`ForgeProjectItemContent.linkedPrs`, the one relation a
+      card already carries — not a `blockedBy`/`subIssue` graph walk this dialog has no reason to
+      perform just to open); a board's is its own already-fetched item count
+      (`useForgeProjectItems`), never re-queried. Two new `BLAST_RADIUS_COPY` entries
+      (`issue`, `project`) in `confirm-dialog.tsx`. **Known limitation, shared with every other
+      forge write in this app**: the edit/delete channels resolve owner/repo from the *open
+      checkout's* `.git/config` server-side, not from the card's own (possibly different) repo —
+      a cross-repo project board's card would edit against the wrong repo. Pre-existing across
+      the whole forge IPC surface (`commentIssue`, `setIssueState`, …), not introduced here; fixing
+      it needs an explicit-owner/repo request shape, well beyond this theme.
+- [x] `shared/src/ai-models.ts`: a per-provider fast/cheap model registry (`claude → haiku`,
       `codex → its mini model`, `gemini → flash`, …) with `cheapModelFor(agentId)` and
       `fastModelFor(agentId)`, superseding the Claude-only assumption for these two uses.
-- [ ] Main-side `ai:improveField` — builds a short prompt (field name, current text, the other
+      **Decision (unattended run):** coverage is honest, not exhaustive — only providers with a
+      documented, stable small model get a row (claude, codex, gemini, `agy`, grok, cursor);
+      the rest (`opencode`, `copilot`, `cline`, `aider`, `openclaude`, `kilo`, `goose`) return
+      `null` ("run with whatever the CLI already defaults to") rather than a guessed flag pointed
+      at a model the account cannot reach. `modelArgsFor` defaults every provider to `--model
+      <name>`, verified against Claude/Codex/Cursor's own `--help`; model *names* are a snapshot
+      (documented as unverified, the same posture Theme D took for Azure's work-item-type default).
+- [x] Main-side `ai:improveField` — builds a short prompt (field name, current text, the other
       fields as context, the repo name), runs the provider's CLI headless with its cheap model and a
       deadline (the `ask.ts` pattern), and returns the rewritten text in an envelope.
-- [ ] A wand icon button (`react-icons` wand glyph) beside each text field: click → field goes
-      read-only with the `.activity-glow` agent ring while generating → the suggestion replaces the
-      value with a one-step Undo. Esc cancels the call.
-- [ ] Provider choice: the provider of the most recently launched agent in this repo, overridable
-      in Settings ▸ Agent.
-- [ ] Tests: prompt builder; envelope on CLI missing / timeout / empty output; dialog fields gated
-      by capability.
+      [`main/ai/improve-field.ts`](../../../packages/desktop/src/main/ai/improve-field.ts) reuses
+      `companion/ask.ts`'s own `resolveHeadlessAgent` rather than a second roster walk.
+- [x] A wand icon button (`react-icons` wand glyph, `LuWandSparkles`) beside each text field:
+      click → field goes read-only with the `.activity-glow` agent ring while generating → the
+      suggestion replaces the value with a one-step Undo. Esc cancels the call.
+      [`wand-field.tsx`](../../../packages/app/src/components/wand-field.tsx). **Decision
+      (unattended run):** Esc-cancel is client-side only — there is no IPC channel to kill the
+      main-side subprocess mid-flight, and this theme did not ask for one, so Esc marks the
+      in-flight request stale (re-enabling the field immediately) while the subprocess keeps
+      running to its own 30s deadline in the background and its answer is discarded on arrival.
+      Also **`readOnly`, not `disabled`**, while generating — a genuinely `disabled` HTML control
+      receives no keyboard events in a real browser, which would make Esc unreachable the moment
+      the field needs it.
+- [x] Provider choice: the provider of the most recently launched agent in this repo, overridable
+      in Settings ▸ Agent. **Decision (unattended run): reuses `ui-store.ts`'s existing
+      `primaryAgent`** (already Settings ▸ Agent's overridable default, `agent-page.tsx`) rather
+      than introducing new per-repo "most recently launched" session-recency tracking — the doc's
+      own note for this line was a `recommend`, not a `resolved`, and `primaryAgent` already *is*
+      the user's chosen default agent; a new tracker is unjustified extra state for what the
+      wand needs (which agent to ask), especially with nothing else in the app tracking recency
+      today.
+- [x] Tests: prompt builder (`ai-models.test.ts`, `improve-field.test.ts`); envelope on CLI
+      missing / timeout / empty output (`improve-field.test.ts`); dialog fields gated by
+      capability (`issue-dialog.test.tsx`, `project-dialog.test.tsx`, `card-detail.test.tsx`'s
+      new "Edit issue" describe block); `wand-field.test.tsx` for the Undo/Esc/error-envelope UI.
 
 ### F — Plan with AI (L)
 
