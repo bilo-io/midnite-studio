@@ -101,4 +101,14 @@ describe('NodeInspector', () => {
     fireEvent.focus(screen.getByLabelText('URL'));
     expect(screen.queryByText('Insert a reference')).toBeNull();
   });
+
+  it('the "Use demo API" quick-fill inserts a {{demo.baseUrl}} route into the URL field (Phase 97 Theme M)', () => {
+    render(<Harness nodes={[httpNode('a', 'HTTP')]} edges={[]} selectedId="a" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use demo API' }));
+    fireEvent.click(screen.getByRole('button', { name: /\/demo\/echo/ }));
+
+    const url = screen.getByLabelText('URL') as HTMLInputElement;
+    expect(url.value).toBe('{{demo.baseUrl}}/demo/echo');
+  });
 });

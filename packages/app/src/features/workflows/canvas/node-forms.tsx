@@ -16,6 +16,7 @@ import { Field, TextArea, TextField } from '../../../components/form/field';
 import { IconButton } from '../../../components/icon-button';
 import { SelectField } from '../../../components/form/select-field';
 import { SwitchRow } from '../../../components/form/toggle-rows';
+import { DemoApiQuickFill } from './demo-api-quick-fill';
 
 /**
  * One form per node kind (Phase 43 Theme F), dispatched by {@link NODE_FORMS}
@@ -64,16 +65,28 @@ export function HttpForm({ node, onChange, onInterpolatableFocus }: NodeFormProp
           options={WORKFLOW_HTTP_METHODS.map((method) => ({ value: method, label: method }))}
         />
       </Field>
-      <Field label="URL" hint="May reference an upstream node's output, e.g. {{nodeId.field}}.">
-        <TextField
-          label="URL"
-          value={config.url}
-          onChange={(url) => update({ url })}
-          placeholder="https://example.com/api"
-          onFocus={(event) =>
-            onInterpolatableFocus({ value: config.url, onChange: (url) => update({ url }), el: event.currentTarget })
-          }
-        />
+      <Field
+        label="URL"
+        hint="May reference an upstream node's output, e.g. {{nodeId.field}}, or {{demo.baseUrl}} for the demo API."
+      >
+        <div className="flex items-center gap-1.5">
+          <div className="min-w-0 flex-1">
+            <TextField
+              label="URL"
+              value={config.url}
+              onChange={(url) => update({ url })}
+              placeholder="https://example.com/api"
+              onFocus={(event) =>
+                onInterpolatableFocus({
+                  value: config.url,
+                  onChange: (url) => update({ url }),
+                  el: event.currentTarget,
+                })
+              }
+            />
+          </div>
+          <DemoApiQuickFill onInsert={(url) => update({ url })} />
+        </div>
       </Field>
       <SwitchRow
         id={`${node.id}-query-shaped`}
