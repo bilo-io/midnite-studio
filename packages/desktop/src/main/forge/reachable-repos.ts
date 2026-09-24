@@ -6,6 +6,7 @@ import { forgeAccountToken } from './forge-accounts';
 import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './github/gh-shell';
 import { parseJsonPayload } from './github/gh-parse';
 import { glGet } from './gitlab/gitlab-client';
+import { gitlabProjectLanguages, type GitlabLanguageProject } from './gitlab/gitlab-languages';
 import { forgeHttpRequest } from './http';
 
 /**
@@ -143,6 +144,7 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
   }
 
   const repos: ReachableRepo[] = [];
+  const projectIds: Array<number | undefined> = [];
   for (const raw of result.data) {
     if (typeof raw !== 'object' || raw === null) continue;
     const r = raw as Record<string, unknown>;
@@ -167,6 +169,25 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
         stars: r['star_count'],
         defaultBranch: r['default_branch'],
       }),
+    });
+    projectIds.push(typeof r['id'] === 'number' && Number.isInteger(r['id']) ? r['id'] : undefined);
+  }
+
+  // Awaited before answering, not streamed in on a follow-up: bounded to the
+  // first rows, a few in flight, a whole-step budget, and cached on
+  // `last_activity_at` — so a second open costs no requests at all. See
+  // `gitlab/gitlab-languages.ts`.
+  const projects: GitlabLanguageProject[] = [];
+  repos.forEach((repo, i) => {
+    const id = projectIds[i];
+    if (id !== undefined) projects.push({ id, lastActivityAt: repo.updatedAt });
+  });
+  if (projects.length > 0) {
+    const languages = await gitlabProjectLanguages(forge, account, projects);
+    repos.forEach((repo, i) => {
+      const id = projectIds[i];
+      const found = id !== undefined ? languages.get(id) : undefined;
+      if (found && found.length > 0) repo.languages = found;
     });
   }
   return { ok: true, repos };
