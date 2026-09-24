@@ -122,6 +122,14 @@ const uiState = {
   // Drag-to-skill's own column → skill map (Phase 95 Theme G) — `BoardView`
   // reads this unconditionally now.
   columnSkillByProject: {} as Record<string, Record<string, string>>,
+  // Auto-mate (Phase 95 Theme H) — `useAutomate` and `resolveSessionAttribution`
+  // both read these unconditionally now, the same "BoardView reads this
+  // unconditionally" reason `columnSkillByProject` was added for.
+  automateEnabledByProject: {} as Record<string, boolean>,
+  automateCapByProject: {} as Record<string, number>,
+  setAutomateEnabled: vi.fn(),
+  forgeAccounts: [] as { id: string; kind: string }[],
+  forgeActiveAccountId: null as string | null,
 };
 function useUiStoreMock<T>(selector: (state: typeof uiState) => T): T {
   return selector(uiState);

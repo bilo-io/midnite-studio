@@ -41,6 +41,8 @@ import {
   positionToItemId,
 } from './board-keyboard';
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
+import { AutomateToggle } from './automate-toggle';
+import { useAutomate } from './use-automate';
 import { CardPanelStack } from './card-panel-stack';
 import {
   decideColumnSkillAction,
@@ -68,6 +70,8 @@ export function BoardView({
   worktreePath,
   fields,
   items,
+  allItems = items,
+  blockedByFieldName = 'Blocked by',
   groupField,
   collapsedColumns,
   onToggleColumn,
@@ -82,6 +86,22 @@ export function BoardView({
   worktreePath: string | undefined;
   fields: readonly ForgeProjectField[];
   items: readonly ForgeProjectItem[];
+  /**
+   * The whole board, unfiltered — passed alongside `items` (Phase 95 Theme
+   * H) rather than in place of it: `items` (the toolbar-filtered set) is
+   * what columns render, but Auto-mate's own blocker check must not miss a
+   * blocker the toolbar filter hid, the same "reads the whole board" rule
+   * `projects-view.tsx`'s own `graph` derivation already states for exactly
+   * this reason. Optional, defaulting to `items` — every test call site
+   * predates Auto-mate and has no reason to care about the distinction.
+   */
+  allItems?: readonly ForgeProjectItem[];
+  /** Case-insensitive project-field name Auto-mate's own blocker check reads
+   *  (`useAutomate`, `resolveForgeGraph`'s `blockedByFieldName` option) —
+   *  threaded through rather than read again from `useUiStore` here, so this
+   *  component still owns no store reads beyond what it already has.
+   *  Optional, defaulting to `resolveForgeGraph`'s own `'Blocked by'`. */
+  blockedByFieldName?: string;
   /** Resolved by the caller via `resolveGroupField` (Phase 52 Theme B) — this
    *  component groups by whatever it is handed, `Status` included. */
   groupField: ForgeProjectField | null;
@@ -248,6 +268,21 @@ export function BoardView({
   const states = useTerminalStore((s) => s.states);
   const toasts = useToasts();
   const columnSkillOverrides = useUiStore((s) => s.columnSkillByProject[projectId]);
+
+  // Auto-mate (Phase 95 Theme H) — a hook, not inline logic, so its own exit-
+  // code/fill effects run regardless of which early return below fires
+  // (rules of hooks), and so `board-view.tsx` stays the "renders the board"
+  // file rather than growing a second job.
+  useAutomate({
+    projectId,
+    repoId,
+    worktreePath,
+    allItems,
+    fields,
+    groupField,
+    blockedByFieldName,
+    columnSkillOverrides,
+  });
 
   const [activeItem, setActiveItem] = useState<ForgeProjectItem | null>(null);
 
@@ -540,47 +575,55 @@ export function BoardView({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div ref={boardRef} className="flex h-full min-h-0" data-testid="board-view" onKeyDown={handleBoardKeyDown}>
-        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
-          {columns.map((column) => (
-            <BoardColumnView
-              key={column.id}
-              column={column}
-              columns={columns}
-              fields={cardFields}
-              projectId={projectId}
-              selectedItemId={selectedItemId}
-              focusedItemId={focusedItemId}
-              collapsed={collapsedColumns.has(column.id)}
-              writesEnabled={writesEnabled}
-              disabledReason={disabledReason}
-              onToggle={() => onToggleColumn(column.id)}
-              onSelectItem={(itemId) => {
-                setFocusedItemId(itemId);
-                onSelectItem(itemId);
-              }}
-              onMoveToColumn={moveItemToColumn}
-            />
-          ))}
-        </div>
+      <div
+        ref={boardRef}
+        className="flex h-full min-h-0 flex-col"
+        data-testid="board-view"
+        onKeyDown={handleBoardKeyDown}
+      >
+        <AutomateToggle projectId={projectId} />
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
+            {columns.map((column) => (
+              <BoardColumnView
+                key={column.id}
+                column={column}
+                columns={columns}
+                fields={cardFields}
+                projectId={projectId}
+                selectedItemId={selectedItemId}
+                focusedItemId={focusedItemId}
+                collapsed={collapsedColumns.has(column.id)}
+                writesEnabled={writesEnabled}
+                disabledReason={disabledReason}
+                onToggle={() => onToggleColumn(column.id)}
+                onSelectItem={(itemId) => {
+                  setFocusedItemId(itemId);
+                  onSelectItem(itemId);
+                }}
+                onMoveToColumn={moveItemToColumn}
+              />
+            ))}
+          </div>
 
-        {selectedItemId ? (
-          <>
-            <ResizeHandle resizable={cardPanelResizable} axis="x" label="Resize task details" />
-            <CardPanelStack
-              projectId={projectId}
-              repoId={repoId}
-              worktreePath={worktreePath}
-              items={boardItems}
-              fields={fields}
-              selectedItemId={selectedItemId}
-              onSelectItem={onSelectItem}
-              onClose={() => onSelectItem(null)}
-              style={{ width: cardPanelResizable.current }}
-              className={cardPanelResizable.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}
-            />
-          </>
-        ) : null}
+          {selectedItemId ? (
+            <>
+              <ResizeHandle resizable={cardPanelResizable} axis="x" label="Resize task details" />
+              <CardPanelStack
+                projectId={projectId}
+                repoId={repoId}
+                worktreePath={worktreePath}
+                items={boardItems}
+                fields={fields}
+                selectedItemId={selectedItemId}
+                onSelectItem={onSelectItem}
+                onClose={() => onSelectItem(null)}
+                style={{ width: cardPanelResizable.current }}
+                className={cardPanelResizable.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}
+              />
+            </>
+          ) : null}
+        </div>
       </div>
 
       {/*

@@ -168,6 +168,10 @@ vi.mock('../../store/ui-store', () => ({
         // `BoardView` reads this unconditionally now, so the mock needs the
         // key even though no test here drives a real drag.
         columnSkillByProject: Record<string, Record<string, string>>;
+        // Auto-mate (Phase 95 Theme H) — `useAutomate` reads these
+        // unconditionally now, the same reason `columnSkillByProject` is here.
+        automateEnabledByProject: Record<string, boolean>;
+        automateCapByProject: Record<string, number>;
       }) => unknown,
     ) =>
       selector({
@@ -187,6 +191,8 @@ vi.mock('../../store/ui-store', () => ({
         setCardSkill,
         agentSkills: {},
         columnSkillByProject: {},
+        automateEnabledByProject: {},
+        automateCapByProject: {},
       }),
     {
       /*
@@ -196,7 +202,16 @@ vi.mock('../../store/ui-store', () => ({
         filter toolbar's <MultiSelectMenu> registers on the dismissal stack, and
         a bare selector function has no `getState` to call.
       */
-      getState: () => ({ incrementOccluders: () => {}, decrementOccluders: () => {} }),
+      getState: () => ({
+        incrementOccluders: () => {},
+        decrementOccluders: () => {},
+        // `resolveSessionAttribution`/`use-automate.ts` reach these via the
+        // vanilla `getState()` escape hatch (Phase 95 Theme H), same as the
+        // occluder counters above.
+        forgeAccounts: [] as { id: string; kind: string }[],
+        forgeActiveAccountId: null as string | null,
+        setAutomateEnabled: () => {},
+      }),
     },
   ),
 }));
