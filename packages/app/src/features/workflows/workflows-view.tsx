@@ -65,6 +65,16 @@ function workflowPanelLabel(entry: WorkflowPanelEntry): string {
 const SAVE_DEBOUNCE_MS = 500;
 
 /**
+ * The collapsed node palette's own rendered width — matching
+ * `board-view.tsx`'s `COLLAPSED_WIDTH` (`w-9`) rather than leaving the
+ * wrapper's width unset. Both states need a real pixel value for
+ * `transition-[width]` to animate between them at all: CSS cannot
+ * interpolate to or from `auto`, which is what an unset width used to fall
+ * back to.
+ */
+const WORKFLOW_PALETTE_COLLAPSED_WIDTH = 36;
+
+/**
  * Workflows (Phase 43) — replaces the `<Placeholder>` `app.tsx` has rendered
  * for this `ViewId` since Phase 19. Global, like Councils: reachable with no
  * repository open, which is why `app.tsx` seats it ahead of the
@@ -326,8 +336,8 @@ function WorkflowEditor({
 
       <div className="flex min-h-0 flex-1">
         <div
-          className="shrink-0"
-          style={{ width: paletteCollapsed ? undefined : layout.workflowPaletteWidth }}
+          className="shrink-0 overflow-hidden transition-[width] duration-150 ease-in-out"
+          style={{ width: paletteCollapsed ? WORKFLOW_PALETTE_COLLAPSED_WIDTH : layout.workflowPaletteWidth }}
         >
           <NodePalette
             collapsed={paletteCollapsed}
