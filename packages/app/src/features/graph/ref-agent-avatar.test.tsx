@@ -1,4 +1,4 @@
-import type { TerminalSession } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +7,10 @@ import { RefAgentAvatar } from './ref-agent-avatar';
 const revealSessionMock = vi.fn((_sessionId: string) => true);
 vi.mock('../terminal/reveal-session', () => ({
   revealSession: (sessionId: string) => revealSessionMock(sessionId),
+}));
+
+vi.mock('../terminal/use-agents', () => ({
+  useAgents: () => ({ agents: [...BUILTIN_AGENTS] }),
 }));
 
 const session: TerminalSession = {
@@ -32,6 +36,23 @@ describe('RefAgentAvatar', () => {
     expect(avatar.style.width).toBe('14px');
     expect(avatar.style.height).toBe('14px');
     expect(avatar.className).toContain('rounded-full');
+  });
+
+  it("colours the agent's mark with the roster's own accent, not the ambient text colour", () => {
+    const { getByTestId } = render(<RefAgentAvatar session={session} agentId="claude" />);
+
+    const icon = getByTestId('ref-agent-avatar').querySelector('svg');
+    expect(icon).not.toBeNull();
+    // jsdom normalises a `#RRGGBB` inline style to `rgb(r, g, b)` — Claude's
+    // roster accent (`#D97757`) is `rgb(217, 119, 87)`.
+    expect((icon as SVGElement).style.color).toBe('rgb(217, 119, 87)');
+  });
+
+  it('falls back to the ambient text colour for an id with no roster entry', () => {
+    const { getByTestId } = render(<RefAgentAvatar session={session} agentId="unknown-agent" />);
+
+    const icon = getByTestId('ref-agent-avatar').querySelector('svg');
+    expect((icon as SVGElement).style.color).toBe('');
   });
 
   it('reveals a "Reveal session" button on hover, hidden until then', () => {
