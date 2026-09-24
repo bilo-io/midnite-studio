@@ -10,6 +10,7 @@ export const SHARED_CONTRACT_VERSION = '0.1.0' as const;
 export * from './activity-palette';
 export * from './agent-invocation';
 export * from './ai-models';
+export * from './automate';
 export * from './ansi';
 export * from './companion';
 export * from './council';

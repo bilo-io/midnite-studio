@@ -1,6 +1,12 @@
 import { Accordion } from '@bilo-io/ui';
 import { useState } from 'react';
-import { LuCheck, LuColumns3, LuCopy, LuGitFork, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
+import { LuBot, LuCheck, LuColumns3, LuCopy, LuGitFork, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
+
+import {
+  AUTOMATE_CONCURRENCY_DEFAULT,
+  AUTOMATE_CONCURRENCY_MAX,
+  AUTOMATE_CONCURRENCY_MIN,
+} from '@midnite/studio-shared';
 
 import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '../../projects/board/board-derive';
 import { bridge } from '../../../services/bridge';
@@ -110,6 +116,61 @@ export function ProjectsPage() {
       <Accordion title="Column → skill" icon={<LuColumns3 className="h-4 w-4" />}>
         <ColumnSkillMapSection />
       </Accordion>
+
+      <Accordion title="Auto-mate" icon={<LuBot className="h-4 w-4" />}>
+        <AutomateCapSection />
+      </Accordion>
+    </div>
+  );
+}
+
+/**
+ * Auto-mate's concurrency cap (Phase 95 Theme H) — 1 to 5, default 1, edited
+ * per project for whichever board is open right now, the identical "no
+ * picker here, follows the Projects view" rule `ColumnSkillMapSection`
+ * above already follows. The on/off switch itself lives on the board's own
+ * header toggle, not here — a setting a user reaches for mid-task belongs
+ * where the task is, the same reasoning `ProjectsPage`'s own docblock gives
+ * for the default-board memory staying out of this page too.
+ */
+function AutomateCapSection() {
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const projectBoardByRepo = useUiStore((s) => s.projectBoardByRepo);
+  const projectId = selectedRepoId ? projectBoardByRepo[selectedRepoId] : undefined;
+  const cap = useUiStore((s) => (projectId ? s.automateCapByProject[projectId] : undefined)) ?? AUTOMATE_CONCURRENCY_DEFAULT;
+  const setAutomateCap = useUiStore((s) => s.setAutomateCap);
+  // Read-only here — the on/off switch itself is `AutomateToggle` in the
+  // board header, not this page (see the section's own docblock).
+  const enabled = useUiStore((s) => (projectId ? (s.automateEnabledByProject[projectId] ?? false) : false));
+
+  if (!projectId) {
+    return (
+      <p className="p-3 text-[11px] leading-relaxed text-muted-foreground">
+        No project board is open yet — like the column → skill map above, the cap is edited per
+        project, for whichever board is currently open.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 p-3">
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        {enabled ? 'On for this board.' : 'Off for this board.'} While on (its own toggle is in the
+        board header, not here), Auto-mate keeps this many unblocked Todo cards running at once,
+        starting the next one the moment a slot frees — and stops entirely on the first one that
+        fails, rather than skipping ahead.
+      </p>
+      <Field label="Concurrency cap" hint="How many cards Auto-mate runs at once, 1 to 5.">
+        <input
+          type="number"
+          aria-label="Auto-mate concurrency cap"
+          min={AUTOMATE_CONCURRENCY_MIN}
+          max={AUTOMATE_CONCURRENCY_MAX}
+          value={cap}
+          onChange={(event) => setAutomateCap(projectId, Number(event.target.value))}
+          className="h-7 w-16 rounded border border-border bg-background px-2 text-xs outline-none"
+        />
+      </Field>
     </div>
   );
 }

@@ -561,6 +561,8 @@ export function ProjectsView() {
           repoId={repoId}
           worktreePath={worktreePath}
           items={filteredItems}
+          allItems={allItems}
+          blockedByFieldName={blockedByFieldName}
           fields={allFields}
           groupField={groupField}
           collapsedColumns={collapsedColumns}

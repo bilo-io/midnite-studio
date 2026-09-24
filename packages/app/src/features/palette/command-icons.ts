@@ -22,6 +22,7 @@ import {
   LuLink,
   LuLock,
   LuNotebookPen,
+  LuOctagonX,
   LuPalette,
   LuPanelLeft,
   LuPanelRight,
@@ -111,6 +112,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'search.open': LuSearch,
   'op.abort': LuX,
   'op.continue': LuPlay,
+  'automate.kill': LuOctagonX,
   // LuCommand, not LuSearch: `search.open` (Search Everywhere) is what should
   // own the magnifier, and Phase 39 put both of these on the status bar's
   // shortcut rail where the two would otherwise have worn the same glyph.

@@ -390,29 +390,65 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       reaching `startAgent` (`autoSend: true`, a trailing `\r`) are Playwright cases in
       `kanban.spec.ts` — pointer drag is a real-browser capability jsdom cannot supply.
 
-### H — Auto-mate, and the kill switch (L)
+### H — Auto-mate, and the kill switch (L) — ✅ DONE (PR #535, 2026-09-24)
 
-- [ ] **Session attribution.** Add optional `projectRef {projectId, forge}`, `workflowRunRef
+- [x] **Session attribution.** Add optional `projectRef {projectId, forge}`, `workflowRunRef
       {workflowId, runId, nodeId}` and `forgeAccountKey` to `TerminalSessionSchema` (in the object
       literal, not `.extend()` — the schema ends in `.superRefine`), stamped by whatever launches the
       session (card Play, drag-to-skill, Auto-mate, workflow run). Unstamped sessions are reachable
-      only by the repo and global scopes.
-- [ ] **Auto-mate** — a toggle on a project board (and on a workflow). While on: when a task's
+      only by the repo and global scopes. **Decision (unattended run):** `resolveSessionAttribution`
+      (`terminal/session-attribution.ts`) is the one place `projectRef`/`forgeAccountKey` are
+      resolved — `forgeAccountKey` reads the app's single globally-`forgeActiveAccountId`, since
+      there is no per-repo/per-board account binding to read instead, and `projectRef.forge` mirrors
+      that same account's `kind` for want of a repo→forge-kind resolver (carried for future
+      disambiguation; the kill switch's own scope filter keys on `projectId` alone). A workflow-run
+      stamp is deferred: today's workflow engine runs in-process with no pty, so there is no
+      terminal session for Theme J's own future agent/script-node executors to stamp yet — the
+      schema field ships now so that landing needs no schema change.
+- [x] **Auto-mate** — a toggle on a project board (and on a workflow). While on: when a task's
       session ends successfully, pick the **next unblocked card in board order** in the Todo column
       (all `blockedBy` issues closed) and start it with the column's mapped skill. A concurrency cap
       (1–5, **default 1**) in Settings ▸ Projects. Stops when nothing unblocked remains, and **stops
-      on the first failed task** rather than skipping ahead.
-- [ ] The toggle and the board header wear the agent `.activity-glow` while Auto-mate is on; a
-      status-bar chip shows each running mate and its scope.
-- [ ] **Kill switch** — a button beside every Auto-mate toggle and in the command palette
+      on the first failed task** rather than skipping ahead. **Decisions (unattended run):** (1)
+      "the column's mapped skill" is read straight off the Todo column itself — the same
+      `resolveColumnSkill`/`decideColumnSkillAction` machinery drag-to-skill (Theme G) already
+      applies to a drop, applied here to a card already sitting in that column instead, so an
+      out-of-the-box board (which maps only "In progress"/"In review", never "Todo") does nothing
+      until the user maps its own backlog column in the existing Column → skill settings — no new
+      mapping surface invented. (2) "Unblocked" reads `ForgeGraphNode.blocked` (`unmetBlockerCount
+      > 0`), not the narrower `.ready` flag `resolveForgeGraph` computes — `ready` requires
+      `counts.total > 0` ("had a blocker, now cleared"), which reads `false` for the overwhelmingly
+      common card that never had a blocker at all; `blocked` is the one field that means "workable
+      right now" for both cases (`automate-derive.ts`'s own docblock). (3) Deliberately
+      project-board-only in this theme — a workflow's own Auto-mate needs Theme I's engine to have
+      a board of its own to drive first, matching Theme C's precedent of deferring the workflow
+      canvas's own glow to that same theme.
+- [x] The toggle and the board header wear the agent `.activity-glow` while Auto-mate is on; a
+      status-bar chip shows each running mate and its scope. **Decision (unattended run):** the
+      chip names boards by project id, not title — the status bar has no project-title lookup of
+      its own, and the chip's own click-through (opens Projects) makes fetching one just for a
+      label redundant.
+- [x] **Kill switch** — a button beside every Auto-mate toggle and in the command palette
       (`automate.kill`, registered in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts)
       `COMMANDS`). Opens a modal with **five large icon options with labels**: **Flow**, **Project**,
       **Repo**, **Forge user**, **Global**. Below the options, one plain sentence explains the
       selected scope and how many sessions it will stop ("Stops 3 sessions and turns off Auto-mate
       for Midnite Studio's project board."). At the bottom, **half-width Cancel and Confirm**.
-- [ ] Confirm turns off every Auto-mate in scope, then kills each matching session through
-      `pty.kill`; Global also kills plain shells, with the count shown before confirming.
-- [ ] Tests: next-card selection (blocked, board order, cap); scope → session filter per attribution
+      **Decision (unattended run):** all five options always render — an unavailable scope (no
+      board/repo/forge account/workflow open) is disabled with its own reason rather than hidden,
+      so the layout never shifts board to board; the modal opens on the narrowest available scope
+      by `KILL_SCOPES`' own declared order, falling back to Global.
+- [x] Confirm turns off every Auto-mate in scope, then kills each matching session through
+      `pty.kill` (via the existing `closeSession`, which already calls it); Global also kills plain
+      shells, with the count shown before confirming. **Decision (unattended run):** turning off
+      "every Auto-mate in scope" is exact for `project`/`global`; `repo` scope turns off only the
+      one board `projectBoardByRepo` remembers for that repo — the sole project↔repo association
+      this app persists — and `flow`/`forgeUser` turn off no board at all, since Auto-mate has no
+      toggle at either level (`kill-scope.ts`'s own `projectIdsToDisableForScope` docblock). Every
+      scope's own *session* kill is unaffected by this narrowing — that filter reads
+      `repoId`/`projectRef`/`forgeAccountKey` directly off each session, regardless of which board
+      remembers what.
+- [x] Tests: next-card selection (blocked, board order, cap); scope → session filter per attribution
       field; modal sentence per scope; focus returns to the trigger on close (Phase 68).
 
 ### I — The workflow editor, at midnite's level (L) — ✅ DONE (PR #534, 2026-09-24)

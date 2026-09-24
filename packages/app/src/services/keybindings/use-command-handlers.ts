@@ -535,6 +535,7 @@ export function useCommandHandlers(): CommandRuntime {
     'palette.files': { enabled: true, run: () => usePaletteStore.getState().open('files') },
 
     'app.lock': { enabled: true, run: () => useUiStore.getState().lockScreen() },
+    'automate.kill': { enabled: true, run: () => useUiStore.getState().openKillSwitch() },
     'app.screensaver': {
       enabled: true,
       run: () => useUiStore.getState().setScreensaverOpen(true, false),

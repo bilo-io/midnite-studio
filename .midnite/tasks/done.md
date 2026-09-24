@@ -37,6 +37,51 @@ the pre-existing `workflows.spec.ts` cases adapted to the new DOM (React Flow's 
 Theme G's concurrent 449 → 454 raise) with the file's own committed-justification convention.
 190 vitest (workflows + activity + motion-guards) and 15 Playwright cases, all green.
 
+## 2026-09-24 — Phase 95 Theme H — Auto-mate, and the kill switch
+
+[PR #535](https://github.com/bilo-io/midnite-studio/pull/535).
+
+Session attribution: `TerminalSessionSchema` gains optional `projectRef {projectId, forge}`,
+`workflowRunRef {workflowId, runId, nodeId}` and `forgeAccountKey`, stamped at launch by
+`resolveSessionAttribution` (`terminal/session-attribution.ts`) and threaded through
+`startAgent`/`openSession`. Card Play, drag-to-skill and Auto-mate all stamp `projectRef` +
+`forgeAccountKey` off the app's one globally-active forge account; `workflowRunRef` ships unset —
+today's workflow engine has no pty for Theme J's future node executors to stamp yet.
+
+Auto-mate (`use-automate.ts`, mounted in `board-view.tsx`): an opt-in per-project toggle
+(`AutomateToggle`, wearing `.activity-glow` while on) that fills up to a configurable concurrency
+cap (1–5, default 1, Settings ▸ Projects) with unblocked cards from the board's own "Todo" column,
+launched with that column's own mapped skill — reusing Theme G's `resolveColumnSkill`/
+`decideColumnSkillAction` rather than a second mapping surface, so an out-of-the-box board (which
+maps only "In progress"/"In review") does nothing until the user maps its backlog column too.
+"Unblocked" reads `ForgeGraphNode.blocked`, not the narrower `.ready` flag — `resolveForgeGraph`
+defines `ready` as "had a blocker, now cleared" (`counts.total > 0`), which misses the common case
+of a card that never had one at all; `blocked` is what actually means "workable now" either way
+(`automate-derive.ts`). Auto-mate watches `exitCodes` and stops (flips its own toggle off) on the
+first non-zero exit, surfacing a toast, rather than skipping ahead. A status-bar chip
+(`automate-chip.tsx`) lists every board currently running one.
+
+The kill switch: five always-rendered scope options — Flow, Project, Repo, Forge user, Global —
+each disabled with its own reason when nothing is open to key it on (`kill-switch-modal.tsx`),
+opening on the narrowest available scope by default. One sentence names the live count
+(`sessionsForScope`, `kill-scope.ts`) and how many project boards Confirm will also turn Auto-mate
+off for; half-width Cancel/Confirm below. Reached from a button beside every `AutomateToggle` and
+from the command palette via the new chord-free `automate.kill` command
+(`shared/src/keybindings.ts`). Confirm closes every matching session through the existing
+`closeSession` (which already calls `pty.kill`) and flips off Auto-mate for whichever boards the
+scope covers exactly — `project`/`global` precisely, `repo` only for the one board
+`projectBoardByRepo` remembers for it (the sole project↔repo link this app persists), `flow`/
+`forgeUser` turning off no board at all (Auto-mate has no toggle at either level yet).
+
+New tests: `kill-scope.test.ts` (scope matching, live-session filtering, which boards a scope
+disables), `automate-derive.test.ts` (`findTodoColumn`/`nextUnblockedCard`, including the
+never-blocked-vs-`ready:false` case that caught a real bug during this theme), `use-automate.test.tsx`
+(fills to cap in board order, stops on failure, refills a freed slot), `kill-switch-modal.test.tsx`
+(five options, per-scope disabling/defaulting, the sentence, Confirm/Cancel, focus returning to
+the trigger per Phase 68), `automate-chip.test.tsx`, and extended `projects-page.test.tsx`/
+`persisted-keys.test.ts`/`ui-store` migration coverage (v25 → v26). `moon run :typecheck :lint :test`
+green across every package (9,772 tests).
+
 ## 2026-09-24 — Phase 95 Theme E — Issue/project dialogs and the magic wand
 
 [PR #533](https://github.com/bilo-io/midnite-studio/pull/533).

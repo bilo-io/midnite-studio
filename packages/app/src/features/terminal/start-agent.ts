@@ -49,6 +49,9 @@ export function startAgent({
   command,
   surface,
   taskRef,
+  projectRef,
+  workflowRunRef,
+  forgeAccountKey,
   extraArgs = [],
   autoSend = false,
   mode,
@@ -72,6 +75,10 @@ export function startAgent({
   surface?: TerminalSurface;
   /** `{ projectId, itemId }` — required alongside `surface: 'kanban'` (Phase 41 Theme D). */
   taskRef?: { projectId: string; itemId: string };
+  /** Session attribution (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
+  projectRef?: { projectId: string; forge: string };
+  workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
+  forgeAccountKey?: string;
   /**
    * Extra flags for the agent's own CLI, ahead of the prompt — the FAB's
    * `--model` picker is the only caller today (`loopModelArgs`). Words, not a
@@ -103,6 +110,9 @@ export function startAgent({
     repoId,
     ...(surface === undefined ? {} : { surface }),
     ...(taskRef === undefined ? {} : { taskRef }),
+    ...(projectRef === undefined ? {} : { projectRef }),
+    ...(workflowRunRef === undefined ? {} : { workflowRunRef }),
+    ...(forgeAccountKey === undefined ? {} : { forgeAccountKey }),
   });
 
   const executionMode = mode ?? useUiStore.getState().skillExecutionMode ?? 'interactive';

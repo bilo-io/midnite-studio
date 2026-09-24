@@ -77,6 +77,7 @@ import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
 import { TitleBarBattery } from './features/battery/battery-titlebar';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
+import { KillSwitchModal } from './features/automate/kill-switch-modal';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { CommitActivityPanel } from './features/activity/commit-activity-panel';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
@@ -2074,6 +2075,7 @@ export function App() {
         </Suspense>
       </ErrorBoundary>
       <ScreensaverHost />
+      <KillSwitchModal />
     </ShellProviders>
   );
 }

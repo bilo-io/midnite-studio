@@ -6,6 +6,7 @@ import { MonitorCluster } from '../monitor/monitor-cluster';
 
 import { ActivityToggle } from './activity-toggle';
 import { AssistantMenu } from './assistant-menu';
+import { AutomateChip } from './automate-chip';
 import { BrowserToggle } from './browser-toggle';
 import { ChecksVerdictSegment } from './checks-verdict';
 import { ExplorerToggle } from './explorer-toggle';
@@ -128,6 +129,10 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // Outranks op-progress: a rebase you have forgotten you are mid-way through
   // is the single most expensive thing this bar can tell you.
   { id: 'in-progress', zone: 'center', group: 'progress', priority: 20, label: 'Mid-operation', El: InProgressSegment },
+  // Phase 95 Theme H — one chip per project board with Auto-mate on, naming
+  // its scope. Silent (renders `null`) unless at least one board has it on,
+  // the same "nothing to report" rule `InProgressSegment` above follows.
+  { id: 'automate', zone: 'center', group: 'progress', priority: 25, label: 'Auto-mate', El: AutomateChip },
   // ---- Right zone ------------------------------------------------------
   // `repo`: forge verdicts about the checkout. They sit at the window's outer
   // corner, the highest-attention position, and outrank the machine's vitals at

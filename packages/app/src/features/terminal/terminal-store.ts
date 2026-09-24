@@ -82,6 +82,10 @@ export type NewSessionRequest = {
   surface?: TerminalSurface;
   /** `{ projectId, itemId }` — set only for `surface: 'kanban'` (Phase 41 Theme D). */
   taskRef?: { projectId: string; itemId: string };
+  /** Stamped at launch (Phase 95 Theme H) — see `TerminalSessionSchema`'s own docs. */
+  projectRef?: { projectId: string; forge: string };
+  workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
+  forgeAccountKey?: string;
 };
 
 type TerminalState = {
@@ -507,6 +511,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       createdAt: Date.now(),
       ...(request.surface === undefined ? {} : { surface: request.surface }),
       ...(request.taskRef === undefined ? {} : { taskRef: request.taskRef }),
+      ...(request.projectRef === undefined ? {} : { projectRef: request.projectRef }),
+      ...(request.workflowRunRef === undefined ? {} : { workflowRunRef: request.workflowRunRef }),
+      ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
     };
 
     set((state) => ({
