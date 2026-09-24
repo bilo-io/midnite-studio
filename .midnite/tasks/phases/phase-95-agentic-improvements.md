@@ -447,11 +447,15 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       tokens. **Decision (unattended run):** this MVP's five node kinds have no `trigger`; `note` —
       canvas furniture with no executor — takes the `storage` hue ("a note/comment persisted
       alongside the flow") rather than going untinted, so the category-tint code has no fifth
-      "no category" branch to carry. The node's own live-run pulse (`.wf-node-running`) is its own
-      small class rather than joining `.activity-glow` (Phase 95 Theme A): Theme C's
-      `useActivityGlow` — the family's real workflow-canvas consumer — is in flight concurrently
-      per this doc's own dependency note, and wiring a second consumer onto it here would be
-      exactly the kind of cross-theme collision the split into themes exists to avoid.
+      "no category" branch to carry. The node's own live-run ring paints through `.activity-glow`
+      (Phase 95 Theme A) via `useActivityGlow` (Theme C, landed while this theme was in flight) —
+      exactly the hookup Theme C's own doc comment names for Theme I — with an empty `sessions`
+      list (no node kind in this theme ever binds a pty) and the run's own status as
+      `fallbackStatus`; `idle` (no ring) before a run has ever touched the node, then the shared
+      queued/running/done/failed tokens and motion guards for free. An earlier draft of this theme
+      shipped a one-off `.wf-node-running` pulse instead, written before Theme C had landed;
+      reconciled onto the shared family once it did, rather than leaving two answers to "is this
+      node running" in the codebase.
 - [x] **Live run state on the editing canvas** — not only the history view. Replace the bare
       `workflowRunChanged` re-fetch with per-node status in the event payload.
       `WorkflowRunChangedEventSchema` (`{workflowId, run}`) replaces the bare ping; every

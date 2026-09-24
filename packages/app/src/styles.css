@@ -4702,49 +4702,10 @@ html[data-motion='reduced'] .session-row-pulse {
   --forge-brand: var(--brand-dark);
 }
 
-/* Workflow canvas (Phase 95 Theme I) — the React Flow node's "a run is
- * actively touching this node" pulse, ported from midnite's `.node-running`
- * (`app/globals.css:1355-1406`). Deliberately its own small class rather than
- * `.activity-glow` (Phase 95 Theme A): that family's real workflow-canvas
- * consumer is Theme C's `useActivityGlow` (in flight concurrently with this
- * theme, per the phase doc's own dependency note), and wiring a second
- * consumer onto it here — ahead of Theme C landing — is exactly the kind of
- * concurrent-edit collision the phase doc's themes are split to avoid. This
- * class answers only "what is this node's `WorkflowNodeStatus` doing right
- * now" via `activityStatusVar` (`features/activity/activity-status-color.ts`,
- * already merged in Theme A), the same mapping `run-node-detail.tsx` already
- * uses — so the colour is never a second answer to a question Theme A/C
- * already answered, only a new place asking it. */
-@keyframes wf-node-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--activity-running) 55%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--activity-running) 25%, transparent);
-  }
-}
-
-.wf-node-running {
-  animation: wf-node-pulse 1.6s ease-in-out infinite;
-}
-
-/* Same focus gate as `.activity-glow`/`.agent-run-glow` above — a blurred
- * window pays for none of these animations either. */
-html[data-window-focused='false'] .wf-node-running {
-  animation-play-state: paused;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wf-node-running {
-    animation: none !important;
-    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--activity-running) 55%, transparent);
-  }
-}
-
-html[data-motion='reduced'] .wf-node-running {
-  animation: none !important;
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--activity-running) 55%, transparent);
-}
+/* Workflow canvas nodes (Phase 95 Theme I) paint their live run state
+ * through `.activity-glow` (Phase 95 Theme A) via `useActivityGlow` (Theme
+ * C, landed) — `workflow-node-view.tsx`'s own doc comment. No node-specific
+ * ring class lives here: Theme C's own CSS family and motion guards already
+ * cover it, and a workflow card is just its newest consumer. */
 
 

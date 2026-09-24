@@ -10,6 +10,7 @@ import {
 } from 'react-icons/lu';
 
 import { activityStatusVar } from '../../activity/activity-status-color';
+import { useActivityGlow } from '../../activity/use-activity-glow';
 import { nodeSummary, NODE_KIND_META, type NodeCategory } from './node-kind-meta';
 
 /** `data` this node type is mounted with — see `workflow-layout.ts`'s `toFlowGraph`. */
@@ -86,13 +87,27 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
 
   const ringClass = invalid ? 'ring-2 ring-destructive' : selected ? 'ring-2 ring-primary' : 'ring-1 ring-border';
 
+  // The shared activity glow (Phase 95 Theme A/C) rather than a one-off
+  // pulse class — Theme C's own `useActivityGlow` doc comment names workflow
+  // nodes as its Theme I hookup ("Theme J, not yet built" refers only to a
+  // *session* ever binding here, which happens once agent/script node kinds
+  // exist; `sessions` stays empty for every kind this theme ships). With no
+  // session, the run's own `fallbackStatus` is all that drives it: `idle`
+  // (no ring) before a run has ever touched the node, then the shared
+  // queued/running/done/failed tokens and their motion guards for free.
+  const glow = useActivityGlow({
+    sessions: [],
+    fallbackStatus: status ? STATUS_TO_ACTIVITY[status] : undefined,
+  });
+
   return (
     <div
       data-node-id={id}
       data-node-kind={node.kind}
       data-status={status}
+      data-activity-status={glow.status}
       style={{ width: 200 }}
-      className={`wf-node group overflow-hidden rounded-lg bg-card shadow-sm ${ringClass} ${isRunning ? 'wf-node-running' : ''} ${readOnly ? '' : 'cursor-move'}`}
+      className={`wf-node activity-glow group overflow-hidden rounded-lg bg-card shadow-sm ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
     >
       {node.kind !== 'note' ? (
         <Handle
