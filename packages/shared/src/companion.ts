@@ -1296,6 +1296,28 @@ export const COMPANION_MIC_MODES = ['push', 'toggle'] as const;
 export const CompanionMicModeSchema = z.enum(COMPANION_MIC_MODES);
 export type CompanionMicMode = (typeof COMPANION_MIC_MODES)[number];
 
+/**
+ * Which engine turns a held mic press into text (Ad Hoc: companion input +
+ * voice improvements).
+ *
+ * `server` is Phase 79 Theme F's original path unchanged — `MediaRecorder`
+ * captures a blob and main recognises it (`whisper-local`/`openai-whisper`).
+ * `webSpeech` is new: the browser's own `SpeechRecognition` /
+ * `webkitSpeechRecognition`, running entirely in the renderer with no IPC
+ * round trip. It stays opt-in rather than the default — in Electron,
+ * Chromium's `webkitSpeechRecognition` depends on a Google-hosted
+ * recognition service and an API key Electron does not ship, so it typically
+ * fails with a `network` error the instant it starts (`recorder.ts`'s own
+ * docblock called this out when Theme F chose the server path instead, and
+ * manual verification against a packaged-equivalent build reproduces the
+ * same failure). A user who wants to try it anyway can flip it on in
+ * Settings ▸ Companion ▸ Microphone; the offline/cloud server engine stays
+ * the default every fresh install and every migrated one lands on.
+ */
+export const COMPANION_STT_ENGINES = ['server', 'webSpeech'] as const;
+export const CompanionSttEngineSchema = z.enum(COMPANION_STT_ENGINES);
+export type CompanionSttEngine = (typeof COMPANION_STT_ENGINES)[number];
+
 /** Pick the next filler gap. `rng` injected so the scheduler's tests are exact. */
 export function nextFillerDelayMs(rng: () => number = Math.random): number {
   const { min, max } = COMPANION_FILLER_SPACING_MS;

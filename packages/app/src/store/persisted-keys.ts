@@ -132,6 +132,7 @@ export const PREFERENCE_KEYS = [
   // than ahead of them — so neither was ever an orphan.
   'companionVolume', // companion-page.tsx (Voice ▸ Companion volume)
   'companionMicMode', // companion-page.tsx (Microphone ▸ hold or tap)
+  'companionSttEngine', // companion-page.tsx (Microphone ▸ recognition engine, Ad Hoc)
   // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
   // real control already — the Knowledge view's own pill bar
   // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
