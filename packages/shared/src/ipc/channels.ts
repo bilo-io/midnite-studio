@@ -336,6 +336,14 @@ export const CHANNELS = {
    * renders beside the field, never a thrown error.
    */
   aiImproveField: 'mstudio:ai:improve-field',
+  /**
+   * Plan with AI (Phase 95 Theme F) — a fast, non-thinking model proposes a
+   * project/task/blocked-by blueprint from a free-text prompt, headless,
+   * with the same `GitOpResult` posture as `aiImproveField`. `main/ai/plan-
+   * blueprint.ts` retries once on a reply the schema rejects before this
+   * channel answers `{ok:false}`.
+   */
+  aiPlanBlueprint: 'mstudio:ai:plan-blueprint',
 
   // --- shell ---------------------------------------------------------------
   /**

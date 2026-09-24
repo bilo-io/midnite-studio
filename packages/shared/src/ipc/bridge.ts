@@ -501,6 +501,12 @@ export type MidniteStudioBridge = {
     improveField: (
       req: In<typeof S.AiImproveFieldRequest>,
     ) => Promise<z.infer<typeof S.AiImproveFieldResponse>>;
+    /** Plan with AI (Phase 95 Theme F) — a fresh blueprint, or a re-plan
+     *  carrying `existing` back as context. Never touches a forge; the review
+     *  sheet's own Confirm is what sequences Theme D's writes afterward. */
+    planBlueprint: (
+      req: In<typeof S.AiPlanBlueprintRequest>,
+    ) => Promise<z.infer<typeof S.AiPlanBlueprintResponse>>;
   };
 
   /**
