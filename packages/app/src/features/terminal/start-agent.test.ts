@@ -211,3 +211,57 @@ describe('startAgent — Ollama binding resolution (Phase 96 Theme H)', () => {
     expect(session.backend).toBeUndefined();
   });
 });
+
+describe('startAgent — per-launch model override (Phase 96 Theme I)', () => {
+  const base = {
+    repoId: 'r1',
+    cwd: '/repo',
+    title: 'Patrol',
+    prompt: 'hello',
+    agentId: 'claude',
+    command: 'claude',
+    surface: 'fab' as const,
+  };
+
+  beforeEach(() => {
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, pendingInput: {} });
+    useUiStore.setState({ agentBackends: {} });
+  });
+
+  it('an Ollama override wins over a native default, and drops the caller’s own --model', () => {
+    const session = startAgent({
+      ...base,
+      extraArgs: ['--model', 'opus'],
+      modelOverride: { backend: 'ollama', model: 'qwen3:14b' },
+    });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe(
+      "claude --model qwen3:14b 'hello'",
+    );
+    expect(session.ollamaModel).toBe('qwen3:14b');
+  });
+
+  it('an Ollama override wins over a different persisted Ollama model', () => {
+    useUiStore.setState({ agentBackends: { claude: { backend: 'ollama', model: 'llama3' } } });
+    const session = startAgent({ ...base, modelOverride: { backend: 'ollama', model: 'qwen3:14b' } });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe(
+      "claude --model qwen3:14b 'hello'",
+    );
+  });
+
+  it('a native override runs natively even when the default is Ollama, keeping the caller’s --model', () => {
+    useUiStore.setState({ agentBackends: { claude: { backend: 'ollama', model: 'llama3' } } });
+    const session = startAgent({
+      ...base,
+      extraArgs: ['--model', 'opus'],
+      modelOverride: { backend: 'native' },
+    });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe("claude --model opus 'hello'");
+    expect(session.backend).toBeUndefined();
+  });
+
+  it('a persisted Ollama default never stacks a second --model from the caller', () => {
+    useUiStore.setState({ agentBackends: { claude: { backend: 'ollama', model: 'llama3' } } });
+    const session = startAgent({ ...base, extraArgs: ['--model', 'opus'] });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe("claude --model llama3 'hello'");
+  });
+});
