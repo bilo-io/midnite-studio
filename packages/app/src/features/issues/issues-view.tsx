@@ -137,7 +137,7 @@ export function IssuesView() {
       {selected === null ? (
         <Notice>{issues.isFetching ? 'Asking GitHub…' : 'No issues to show for this repository.'}</Notice>
       ) : (
-        <IssueDetail repoId={repoId} issue={selected} />
+        <IssueDetail repoId={repoId} issue={selected} worktreePath={worktreePath} />
       )}
 
       <IssueDialog

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
+
 import {
   CompanionAboutUserSchema,
   CompanionAskReplySchema,
@@ -1149,6 +1151,42 @@ export const AiImproveFieldRequest = z.object({
  * would strand the in-flight edit. See `main/ai/improve-field.ts`.
  */
 export const AiImproveFieldResponse = GitOpResultOf(z.object({ text: z.string() }));
+
+// --- Plan with AI: ai:planBlueprint (Phase 95 Theme F) ----------------------
+
+/**
+ * `existing` carries the sheet's own current edits back as context for
+ * **Re-plan** — the phase doc's own wording ("iterates with the current
+ * edits sent back as context"). Absent on the first generation. `originIssue`
+ * is present only when Plan with AI was opened from an existing issue's
+ * detail pane — Confirm then creates **sub-issues** of it instead of adding
+ * each task to a project board (see `plan-confirm.ts`, renderer-side).
+ * `agentId`/`repoPath`/`repoName` mirror `AiImproveFieldRequest`'s own three
+ * fields exactly, for the identical reason: the renderer's preferred agent
+ * travels because main keeps no copy of it, and `repoName` is prompt text,
+ * never a `cwd`.
+ */
+export const AiPlanBlueprintRequest = z.object({
+  agentId: z.string().min(1).optional(),
+  repoPath: z.string().min(1).nullable().optional(),
+  repoName: z.string().max(200).default(''),
+  prompt: z.string().trim().min(1, 'a plan needs a prompt').max(4000),
+  existing: AiPlanBlueprintSchema.optional(),
+  originIssue: z
+    .object({
+      number: IssueNumber,
+      title: z.string().max(200),
+    })
+    .optional(),
+});
+
+/**
+ * `{ok:false}` covers "no headless CLI", "it timed out", and "two attempts
+ * both failed to answer with a blueprint the schema accepts" — the last one
+ * `main/ai/plan-blueprint.ts`'s own one retry, not a caller-visible retry
+ * loop. Never a rejection, same posture as every other `ai:*`/`forge:*` write.
+ */
+export const AiPlanBlueprintResponse = GitOpResultOf(z.object({ blueprint: AiPlanBlueprintSchema }));
 
 // --- shell -----------------------------------------------------------------
 

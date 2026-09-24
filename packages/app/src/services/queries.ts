@@ -1,4 +1,5 @@
 import type {
+  AiPlanBlueprint,
   AppIssueSubmitRequest,
   AppIssueSubmitResult,
   ClosedSession,
@@ -9,6 +10,8 @@ import type {
   ForgeAccount,
   ForgeCapability,
   ForgeKind,
+  ForgeLinkKind,
+  ForgeLinkWriteResult,
   ReachableReposResult,
   ForgeIssueCommentsResult,
   ForgeIssueCreateResult,
@@ -1898,6 +1901,54 @@ export function useImproveField() {
       const api = bridge();
       if (!api) return { ok: false, kind: 'error', message: '' };
       return api.ai.improveField(input);
+    },
+  });
+}
+
+/**
+ * Plan with AI (Phase 95 Theme F) — draft or revise a blueprint. No cache to
+ * invalidate, the same reasoning `useImproveField` gives: nothing is written
+ * to a forge here, only a sheet's own local draft.
+ */
+export function usePlanBlueprint() {
+  return useMutation({
+    mutationFn: async (input: {
+      agentId?: string;
+      repoPath?: string | null;
+      repoName: string;
+      prompt: string;
+      existing?: AiPlanBlueprint;
+      originIssue?: { number: number; title: string };
+    }): Promise<GitOpResult<{ blueprint: AiPlanBlueprint }>> => {
+      const api = bridge();
+      if (!api) return { ok: false, kind: 'error', message: '' };
+      return api.ai.planBlueprint(input);
+    },
+  });
+}
+
+/**
+ * A `blockedBy`/`subIssue` dependency edge between two issues (Phase 95
+ * Theme F's Confirm step) — `IssueDialog`/`ProjectDialog`'s siblings had no
+ * reason to add this hook before Plan with AI's confirm sequencer needed it.
+ * No repo-scoped cache key bound at the hook's lifetime, matching
+ * `useAddProjectItem`'s own reasoning: the confirm sequencer calls this once
+ * per edge across potentially several repos in one sitting (a cross-repo
+ * `targetRepo`), so `repoId`/`number`/`targetNumber` all travel with each
+ * `mutate()` call instead.
+ */
+export function useLinkIssues() {
+  return useMutation({
+    mutationFn: async (input: {
+      repoId: string;
+      kind: ForgeLinkKind;
+      number: number;
+      targetNumber: number;
+      targetRepo?: string;
+    }): Promise<ForgeLinkWriteResult> => {
+      const api = bridge();
+      if (!api) return { ok: false, cli: EMPTY_CLI, error: null };
+      return api.forge.issuesLink(input);
     },
   });
 }

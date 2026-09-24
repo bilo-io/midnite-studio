@@ -24,7 +24,15 @@ import { UserAvatar } from '../../components/user-avatar';
  * fixed above that scroll, the same split `PrDetail` draws between its own
  * header and its tab content.
  */
-export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIssue }) {
+export function IssueDetail({
+  repoId,
+  issue,
+  worktreePath,
+}: {
+  repoId: string;
+  issue: ForgeIssue;
+  worktreePath?: string | null | undefined;
+}) {
   const detail = useForgeIssueDetail(repoId, issue.number);
   const comments = useForgeIssueComments(repoId, issue.number, true);
 
@@ -94,7 +102,7 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
         conversation scroll underneath.
       */}
       <div className="shrink-0 border-b border-border px-4 py-2">
-        <IssueActionBar repoId={repoId} issue={issue} />
+        <IssueActionBar repoId={repoId} issue={issue} worktreePath={worktreePath} />
       </div>
 
       {loading ? (

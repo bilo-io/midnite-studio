@@ -288,6 +288,7 @@ const bridge: Pick<
   },
   ai: {
     improveField: (req) => call(CHANNELS.aiImproveField, req),
+    planBlueprint: (req) => call(CHANNELS.aiPlanBlueprint, req),
   },
   shell: {
     // `invoke`, not `send`: the renderer needs to know a URL was refused, and

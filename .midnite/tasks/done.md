@@ -1,6 +1,50 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 95 Theme F — Plan with AI
+
+[PR #536](https://github.com/bilo-io/midnite-studio/pull/536).
+
+An inline prompt + "Plan with AI" button (`plan-with-ai-bar.tsx`) mounted at all three entry
+points the phase doc names — the Projects toolbar, the create-project dialog, and the issue
+detail pane (sub-issues of an existing one) — wearing `TextField`'s new `gradient` prop, a
+sibling to `TextArea`'s own: `.gradient-border`/`.gradient-border--glow`'s existing
+`:focus-within` behaviour (spinning conic border + bloom) already reads as "full glow when
+focused, gradient border otherwise", so no bespoke CSS was needed.
+
+Main-side `ai:planBlueprint` (`main/ai/plan-blueprint.ts`) clones `improve-field.ts`'s
+`runProcess`/`GitOpResult` pattern with `fastModelFor` in place of `cheapModelFor`, asks the
+CLI for one JSON blueprint (`{project, tasks, edges}`), and retries once — with the invalid
+reply folded into the correction prompt — before an error envelope. The schema and its
+`firstBalancedObject` JSON recovery (`companion.ts`'s `parseAskReply` in shape, its own small
+copy) live in new `shared/src/ai-plan-blueprint.ts`.
+
+The review sheet (`plan-blueprint-sheet.tsx`) generates immediately on open from the prompt
+already typed at the entry point, is fully editable — title/body/labels per task, add/remove
+rows, a per-row "blocked by" checklist — except while a plan is generating or re-planning,
+when it locks under the `.activity-glow` agent ring; Re-plan sends the current edited draft
+back as context. A mini dependency preview (`plan-graph-preview.tsx`) synthesizes a
+`ForgeGraph` of `'draft'` nodes straight from the blueprint and feeds it into the project
+graph's own `layoutForgeGraph` — no second ranking algorithm.
+
+Nothing touches a forge until Confirm. `plan-confirm.ts`'s `buildPlanConfirmSteps`/
+`runPlanConfirm` are pure, injected with a `PlanConfirmOps` seam (real `services/queries.ts`
+mutations from the sheet, fakes in tests) so the whole sequencing — create the board or target
+the one already selected → create each issue → add each to the board → write each blocked-by
+edge, or link each as a sub-issue of the origin issue in sub-issue mode — is unit-tested
+without a bridge. A failure stops the run, leaves later steps `'pending'`, and Retry-remaining
+is exactly "run it again", since every already-`'done'` step is skipped. A new `useLinkIssues`
+hook is Theme D's `issuesLink` channel's first renderer consumer. The target selector's third
+option, "Issues only", is what keeps the whole flow usable on GitLab/Bitbucket/Azure, whose
+`ops.createProject`/`addProjectItem` are `false`.
+
+New edges show up in the project graph through the existing `blockedBy` read — no code needed.
+27 new vitest cases across shared, desktop and app (blueprint schema, prompt building, one
+retry on bad JSON, confirm sequencing + partial-failure + Retry-remaining, edit lock while
+generating, blueprint→graph translation); `moon run :typecheck :lint :test` green modulo two
+confirmed-unrelated failures noted on the PR (one pre-existing on `origin/main` itself, one a
+concurrency flake that passes in isolation).
+
 ## 2026-09-24 — Phase 95 Theme I — The workflow editor, at midnite's level
 
 [PR #534](https://github.com/bilo-io/midnite-studio/pull/534).

@@ -328,29 +328,64 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       capability (`issue-dialog.test.tsx`, `project-dialog.test.tsx`, `card-detail.test.tsx`'s
       new "Edit issue" describe block); `wand-field.test.tsx` for the Undo/Esc/error-envelope UI.
 
-### F — Plan with AI (L)
+### F — Plan with AI (L) — ✅ DONE (PR #536, 2026-09-24)
 
-- [ ] An inline **prompt input + "Plan with AI" button** pair, in the Projects toolbar, the
+- [x] An inline **prompt input + "Plan with AI" button** pair, in the Projects toolbar, the
       create-project dialog, and the issue detail pane (for an existing issue). The input wears the
       full glow (border + pulse) when focused and only the gradient border otherwise.
-- [ ] Main-side `ai:planBlueprint` — runs the provider's **fast, non-thinking** model headless and
+      [`plan-with-ai-bar.tsx`](../../../packages/app/src/features/projects/plan/plan-with-ai-bar.tsx)
+      is the one component mounted at all three entry points
+      ([`projects-view.tsx`](../../../packages/app/src/features/projects/projects-view.tsx)'s
+      toolbar, [`project-dialog.tsx`](../../../packages/app/src/features/projects/project-dialog.tsx)'s
+      create mode, [`issue-action-bar.tsx`](../../../packages/app/src/features/issues/issue-action-bar.tsx)).
+      **Decision:** the glow is `TextField`'s new `gradient` prop
+      ([`components/form/field.tsx`](../../../packages/app/src/components/form/field.tsx)), mirroring
+      `TextArea`'s existing one — `.gradient-border`/`.gradient-border--glow`'s own `:focus-within`
+      behaviour (a spinning full-spectrum conic border plus a box-shadow bloom) already *is* "full
+      glow when focused, gradient border otherwise"; no bespoke CSS needed.
+- [x] Main-side `ai:planBlueprint` — runs the provider's **fast, non-thinking** model headless and
       asks for JSON: `{project: {title, description}, tasks: [{key, title, body, labels}],
       edges: [{from, to, kind: 'blockedBy'}]}`, validated with zod; one retry on invalid JSON, then
-      an error envelope.
-- [ ] A review sheet: editable task rows (title, body, labels), add/remove rows, edit edges, and a
+      an error envelope. [`shared/src/ai-plan-blueprint.ts`](../../../packages/shared/src/ai-plan-blueprint.ts)
+      (schema + `parsePlanBlueprintReply`, the `firstBalancedObject` recovery `companion.ts`'s
+      `parseAskReply` already uses) and
+      [`main/ai/plan-blueprint.ts`](../../../packages/desktop/src/main/ai/plan-blueprint.ts)
+      (`improve-field.ts`'s `runProcess`/`GitOpResult` pattern, `fastModelFor` instead of
+      `cheapModelFor`) — the exact spot Theme E's own `bridge.ts` docblock reserved for it.
+- [x] A review sheet: editable task rows (title, body, labels), add/remove rows, edit edges, and a
       mini dependency preview using the project graph's layout. **Re-plan** iterates with the
       current edits sent back as context. The sheet is **editable except while a plan is
       generating** (locked, with the agent glow on the sheet).
-- [ ] **Nothing touches the forge until Confirm.** Confirm runs Theme D ops in order: create the
+      [`plan-blueprint-sheet.tsx`](../../../packages/app/src/features/projects/plan/plan-blueprint-sheet.tsx);
+      the mini preview
+      ([`plan-graph-preview.tsx`](../../../packages/app/src/features/projects/plan/plan-graph-preview.tsx))
+      synthesizes a `ForgeGraph` of `'draft'` nodes from the blueprint's own tasks/edges and feeds it
+      straight into `layoutForgeGraph` — no second ranking algorithm, no board read.
+- [x] **Nothing touches the forge until Confirm.** Confirm runs Theme D ops in order: create the
       project (or target the chosen one) → create each issue → add each to the project → write each
       blocked-by link, with a progress list and per-step envelopes. A partial failure stops, lists
       what was created, and offers Retry-remaining.
-- [ ] From an existing issue: the same sheet, but Confirm creates **sub-issues** of it
-      (`linkIssues subIssue`) plus their blocked-by edges.
-- [ ] The new edges appear in the project graph on the next refresh (they arrive through the
-      existing `blockedBy` read).
-- [ ] Tests: blueprint schema; confirm sequencing and partial-failure report; edit lock while
-      generating.
+      [`plan-confirm.ts`](../../../packages/app/src/features/projects/plan/plan-confirm.ts)'s
+      `buildPlanConfirmSteps`/`runPlanConfirm` are pure and injected with `PlanConfirmOps` (real
+      `services/queries.ts` mutations from the sheet, fakes from the test) — Retry-remaining is
+      exactly "call `runPlanConfirm` again with the same steps/context", since every already-`'done'`
+      step is skipped outright.
+- [x] From an existing issue: the same sheet, but Confirm creates **sub-issues** of it
+      (`linkIssues subIssue`) plus their blocked-by edges. New
+      [`useLinkIssues`](../../../packages/app/src/services/queries.ts) hook — Theme D's `issuesLink`
+      channel had no renderer consumer before this theme.
+- [x] The new edges appear in the project graph on the next refresh (they arrive through the
+      existing `blockedBy` read) — no code needed; `resolveForgeGraph` already parses a native
+      `blockedBy` connection or `Blocked by #N` body fallback on the next `useForgeProjectItems` read.
+- [x] Tests: blueprint schema (`ai-plan-blueprint.test.ts`, `plan-blueprint.test.ts`); confirm
+      sequencing and partial-failure report (`plan-confirm.test.ts` — ordering, a stopped run leaving
+      later steps `'pending'`, Retry-remaining skipping `'done'` steps); edit lock while generating
+      (`plan-blueprint-sheet.test.tsx`); plus blueprint→graph translation
+      (`plan-graph-preview.test.tsx`) and the entry-point bar (`plan-with-ai-bar.test.tsx`).
+      **Decision:** the review sheet's target selector offers "New board" / "Existing board" /
+      "Issues only" — the last one is what keeps Plan with AI usable on GitLab/Bitbucket/Azure, whose
+      `ops.createProject`/`ops.addProjectItem` are `false` (Theme D's `ISSUE_ONLY_OPS`): issues and
+      blocked-by links still get created, just never added to a board that provider has no write for.
 
 ### G — Card and node controls, and drag-to-skill (M) — ✅ DONE (PR #532, 2026-09-24)
 
