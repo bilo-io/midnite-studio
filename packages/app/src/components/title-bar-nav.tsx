@@ -48,6 +48,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   councils: 'Councils',
   workflows: 'Workflows',
   video: 'Video',
+  models: 'Models',
   sessions: 'Sessions',
   optimizer: 'Optimizer',
   apiClient: 'API Client',

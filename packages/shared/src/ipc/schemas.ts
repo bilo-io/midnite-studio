@@ -166,6 +166,7 @@ import {
   OllamaModelSchema,
   OllamaPullProgressEventSchema,
   OllamaRunningModelSchema,
+  OllamaSettingsSchema,
 } from '../ollama';
 import {
   VideoProjectSchema,
@@ -2473,6 +2474,18 @@ export const OllamaUnloadResponse = GitOpResultSchema;
 
 /** Pushed on `mstudio:ollama:pull-progress`. */
 export const OllamaPullProgressPayload = OllamaPullProgressEventSchema;
+
+/** Plain, like `OllamaStatusResponse` — reading persisted settings never fails
+ *  in a way worth an envelope. */
+export const OllamaSettingsGetResponse = OllamaSettingsSchema;
+
+/** Partial — only the fields a caller sends are changed; the rest keep their
+ *  persisted value. */
+export const OllamaSettingsSetRequest = z.object({
+  host: z.string().nullable().optional(),
+  defaultModel: z.string().nullable().optional(),
+});
+export const OllamaSettingsSetResponse = GitOpResultOf(OllamaSettingsSchema);
 
 // --- optimizer (Phase 59) ---------------------------------------------------
 

@@ -55,7 +55,10 @@ function emitPullProgress(event: OllamaPullProgressEvent): void {
  * request for a model already pulling returns the same `pullId` rather than
  * opening a second HTTP stream against the same daemon download.
  */
-export function startOllamaPull(model: string): { pullId: string; model: string } {
+export function startOllamaPull(
+  model: string,
+  baseUrl?: string,
+): { pullId: string; model: string } {
   const existingId = pullIdByModel.get(model);
   if (existingId && pullsById.has(existingId)) {
     return { pullId: existingId, model };
@@ -67,14 +70,15 @@ export function startOllamaPull(model: string): { pullId: string; model: string 
   pullsById.set(pullId, state);
   pullIdByModel.set(model, pullId);
 
-  void runPull(state);
+  void runPull(state, baseUrl);
 
   return { pullId, model };
 }
 
-async function runPull(state: PullState): Promise<void> {
+async function runPull(state: PullState, baseUrl?: string): Promise<void> {
   try {
     await ollamaPull(state.model, {
+      baseUrl,
       signal: state.controller.signal,
       onLine: (line: OllamaPullLine) => {
         const done = line.status === 'success';

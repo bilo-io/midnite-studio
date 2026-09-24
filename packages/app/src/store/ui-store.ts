@@ -250,6 +250,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'workflows', label: 'Workflows', group: 'tools' },
   { id: 'projects', label: 'Projects', group: 'tools' },
   { id: 'video', label: 'Video Studio', group: 'tools' },
+  { id: 'ollama', label: 'Ollama', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'ai' },
   { id: 'companion', label: 'Companion', group: 'ai' },
   { id: 'mcp', label: 'MCP Server', group: 'ai' },

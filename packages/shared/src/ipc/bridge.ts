@@ -1223,6 +1223,13 @@ export type MidniteStudioBridge = {
     onPullProgress: (
       handler: (event: z.infer<typeof S.OllamaPullProgressPayload>) => void,
     ) => Unsubscribe;
+    /** Theme C — the persisted host override + default model. */
+    settings: {
+      get: () => Promise<z.infer<typeof S.OllamaSettingsGetResponse>>;
+      set: (
+        req: In<typeof S.OllamaSettingsSetRequest>,
+      ) => Promise<z.infer<typeof S.OllamaSettingsSetResponse>>;
+    };
   };
 
   /**

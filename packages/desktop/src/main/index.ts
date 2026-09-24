@@ -114,6 +114,8 @@ import { registerVideoHandlers } from './ipc/video-handlers';
 import { configureVideo, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
+import { configureOllamaSettings } from './ollama/settings-service';
+import { createOllamaSettingsStore } from './ollama/settings-store';
 import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
@@ -570,6 +572,7 @@ if (!app.requestSingleInstanceLock()) {
     configureWorkflowNodeSessions(getMainWindow);
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
     configureOllamaPullQueue(getMainWindow);
+    configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));

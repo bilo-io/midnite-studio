@@ -53,6 +53,41 @@ moment `useAgents()`'s query resolved (a few milliseconds after mount) — hidin
 Backend/model row for every agent after the very first async tick. Fixed in the fixture, caught by
 `agent-page.test.tsx`'s new coverage before it ever reached review.
 
+## 2026-09-24 — Phase 96 Theme C — the Models view
+
+[PR #541](https://github.com/bilo-io/midnite-studio/pull/541).
+
+A new `models` rail view (`SiOllama`, global like Video Studio — an Ollama daemon and its models
+are a property of the machine, not of an open checkout): an **Installed** list (name, tag,
+family/parameter-size/quantisation chips, size on disk, modified date, capability chips lazily
+fetched off `show`, a running badge with VRAM from `ps`), unload, delete behind a confirm naming
+the model's size, a pull-by-name field, and a pull-queue panel fed by `onPullProgress` through a
+dedicated zustand store (`features/models/models-pull-queue-store.ts`) so the queue survives
+leaving the view. A daemon-down state offers **Start Ollama**, reusing the Health page's own
+`submitCommand` pty primitive (now exported). No tab strip — Discover (Theme D) and Cloud (Theme
+F) don't exist yet, and a strip with two disabled placeholders would be exactly the "dead wiring"
+Theme B's own scope note argues against. `onOpenDetail` is a real (no-op) prop reserved for
+Theme E's model-detail modal.
+
+**New, beyond the original checklist**: Theme B's client resolved only `OLLAMA_HOST`/its hardcoded
+default and explicitly deferred a configurable override to this theme's own Settings page — so
+this PR adds a persisted host override in main (`desktop/src/main/ollama/settings-store.ts`, JSON
+under `userData` mirroring `video/projects-store.ts`, plus a cached `settings-service.ts`) and two
+IPC channels (`mstudio:ollama:settings-{get,set}`). `resolveOllamaBaseUrl` (Theme B) stays pure and
+env-only with its existing tests untouched; `getConfiguredOllamaHost()` is consulted ahead of it by
+`ollama-handlers.ts` and `pull-queue.ts`. Settings ▸ Ollama exposes host + default model (the
+latter stored for later themes — H's per-agent binding, I's headless-AI picker — to read through
+the same round-trip); the cloud API key row is a disabled placeholder (Theme F owns the vault key)
+and the phase doc's own "search cache clear button" bullet is not built (Theme D owns that cache).
+
+Tests: vitest coverage for the pull-queue store's transitions (queued → pulling →
+success/cancelled/failed), the three `ModelsView` empty states (loading, daemon-down,
+installed-empty), and the new main-side settings store/service. Playwright screenshots
+(`e2e/models-view-shots.spec.ts`, `MSTUDIO_SHOTS=1`) for the daemon-down, installed-empty and
+installed-running states — no `ollama` entry existed yet in the shared `test-support/mock-bridge.ts`
+(Theme C is the first consumer), so the spec patches `window.midniteStudio.ollama` directly via a
+second `addInitScript` rather than widening that ~4600-line shared fixture.
+
 ## 2026-09-24 — Phase 96 Themes B, A — Ollama client, IPC, and a Health page row
 
 [PR #540](https://github.com/bilo-io/midnite-studio/pull/540).

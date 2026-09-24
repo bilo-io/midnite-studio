@@ -184,6 +184,7 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
     '/councils',
     '/workflows',
     '/video',
+    '/models',
   ]);
 });
 

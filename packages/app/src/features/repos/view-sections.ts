@@ -226,6 +226,10 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   councils: WORK_IN_PROGRESS,
   workflows: WORK_IN_PROGRESS,
   video: WORK_IN_PROGRESS,
+  // A formality the `Record` demands, same reasoning as `database`: an
+  // Ollama daemon is not repo-scoped, so this view shows no sidebar section
+  // to narrow in the first place (Phase 96 Theme C).
+  models: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
   // No dedicated sidebar section (its collections live under `.midnite/api/`

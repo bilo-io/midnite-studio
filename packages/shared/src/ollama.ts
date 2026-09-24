@@ -147,3 +147,24 @@ export const OllamaSearchResultItemSchema = z.object({
   cloud: z.boolean().optional(),
 });
 export type OllamaSearchResultItem = z.infer<typeof OllamaSearchResultItemSchema>;
+
+// --- settings (Theme C) -------------------------------------------------------
+
+/**
+ * The one piece of Ollama config Theme B explicitly left for this theme to
+ * build: "no Settings ▸ Ollama page yet to read an override from." Persisted
+ * in main (`desktop/src/main/ollama/settings-store.ts`), not the renderer, so
+ * a configured host reaches every client call — `resolveOllamaBaseUrl`
+ * (Theme B) stays a pure env-only function with its own unit tests intact;
+ * `getConfiguredOllamaHost()` is consulted ahead of it.
+ *
+ * `defaultModel` has no consumer yet in this PR — it is read by later themes
+ * (H's per-agent binding, I's headless-AI picker) as the pre-fill for "which
+ * model" once they exist; storing it beside `host` now means those themes
+ * don't need their own IPC round-trip for one string.
+ */
+export const OllamaSettingsSchema = z.object({
+  host: z.string().nullable(),
+  defaultModel: z.string().nullable(),
+});
+export type OllamaSettings = z.infer<typeof OllamaSettingsSchema>;
