@@ -161,6 +161,13 @@ import {
 } from '../council';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
 import {
+  OllamaDaemonStatusSchema,
+  OllamaModelDetailSchema,
+  OllamaModelSchema,
+  OllamaPullProgressEventSchema,
+  OllamaRunningModelSchema,
+} from '../ollama';
+import {
   VideoProjectSchema,
   VideoRenderProgressEventSchema,
   VideoRenderSchema,
@@ -2407,8 +2414,54 @@ export const SystemHealthResponse = z.object({
   node: ToolchainBinarySchema.optional(),
   pnpm: ToolchainBinarySchema.optional(),
   moon: ToolchainBinarySchema.optional(),
+  /** The `ollama` binary itself — separate from `ollamaDaemon` below, since a
+   *  binary can be installed with its daemon not running. */
+  ollama: ToolchainBinarySchema.optional(),
+  /** `GET /api/version` through Theme B's client, short-timeout — absent
+   *  entirely on a machine `readSystemHealth` hasn't probed Ollama on. */
+  ollamaDaemon: OllamaDaemonStatusSchema.optional(),
 });
 export type SystemHealth = z.infer<typeof SystemHealthResponse>;
+
+// --- ollama (Phase 96 Theme B) -----------------------------------------------
+
+/** Plain, not `GitOpResult` — an unreachable daemon is data, not a failure. */
+export const OllamaStatusResponse = OllamaDaemonStatusSchema;
+
+export const OllamaListResponse = GitOpResultOf(z.object({ models: z.array(OllamaModelSchema) }));
+
+export const OllamaShowRequest = z.object({
+  model: z.string().min(1),
+  verbose: z.boolean().optional(),
+});
+export const OllamaShowResponse = GitOpResultOf(OllamaModelDetailSchema);
+
+export const OllamaPsResponse = GitOpResultOf(z.object({ models: z.array(OllamaRunningModelSchema) }));
+
+export const OllamaPullRequest = z.object({ model: z.string().min(1) });
+/** Resolves immediately with a `pullId` — the pull itself streams on `ollamaPullProgress`. */
+export const OllamaPullResponse = GitOpResultOf(
+  z.object({ pullId: z.string().min(1), model: z.string().min(1) }),
+);
+
+export const OllamaPullCancelRequest = z.object({ pullId: z.string().min(1) });
+export const OllamaPullCancelResponse = GitOpResultSchema;
+
+export const OllamaDeleteRequest = z.object({ model: z.string().min(1) });
+export const OllamaDeleteResponse = GitOpResultSchema;
+
+export const OllamaCreateRequest = z.object({
+  from: z.string().min(1),
+  name: z.string().min(1),
+  parameters: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+});
+export const OllamaCreateResponse = GitOpResultOf(z.object({ name: z.string().min(1) }));
+
+export const OllamaUnloadRequest = z.object({ model: z.string().min(1) });
+export const OllamaUnloadResponse = GitOpResultSchema;
+
+/** Pushed on `mstudio:ollama:pull-progress`. */
+export const OllamaPullProgressPayload = OllamaPullProgressEventSchema;
 
 // --- optimizer (Phase 59) ---------------------------------------------------
 

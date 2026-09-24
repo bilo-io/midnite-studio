@@ -21,6 +21,7 @@ export * from './ipc';
 export * from './keybindings';
 export * from './loops';
 export * from './mcp';
+export * from './ollama';
 export * from './perf';
 export * from './process-env';
 export * from './redact';

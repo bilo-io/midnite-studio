@@ -1,4 +1,4 @@
-export type ToolchainToolId = 'homebrew' | 'node' | 'pnpm' | 'moon';
+export type ToolchainToolId = 'homebrew' | 'node' | 'pnpm' | 'moon' | 'ollama';
 
 export type ToolchainToolMeta = {
   id: ToolchainToolId;
@@ -32,6 +32,12 @@ export const TOOLCHAIN_TOOLS: Record<ToolchainToolId, ToolchainToolMeta> = {
     docsUrl: 'https://moonrepo.dev',
     repoUrl: 'https://github.com/moonrepo/moon',
   },
+  ollama: {
+    id: 'ollama',
+    name: 'Ollama',
+    docsUrl: 'https://ollama.com',
+    repoUrl: 'https://github.com/ollama/ollama',
+  },
 };
 
 /** Match the numeric core of a version line, e.g. `22.12.0`, `v22.12.0`, or `4.4.18`. */
@@ -59,6 +65,8 @@ export function toolchainReleaseUrl(tool: ToolchainToolId, version: string): str
       return `https://github.com/pnpm/pnpm/releases/tag/v${version}`;
     case 'moon':
       return `https://github.com/moonrepo/moon/releases/tag/v${version}`;
+    case 'ollama':
+      return `https://github.com/ollama/ollama/releases/tag/v${version}`;
   }
 }
 

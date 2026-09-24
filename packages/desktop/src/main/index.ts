@@ -112,6 +112,8 @@ import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { configureVideo, stopAllVideoProcesses } from './video-service';
+import { registerOllamaHandlers } from './ipc/ollama-handlers';
+import { configureOllamaPullQueue } from './ollama/pull-queue';
 import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
@@ -439,6 +441,7 @@ if (!app.requestSingleInstanceLock()) {
     registerLoopRunsHandlers();
     registerWorkflowHandlers();
     registerVideoHandlers();
+    registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
     registerFinanceHandlers();
@@ -566,6 +569,7 @@ if (!app.requestSingleInstanceLock()) {
     // the real terminal session it just started (`workflowNodeSessionStarted`).
     configureWorkflowNodeSessions(getMainWindow);
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
+    configureOllamaPullQueue(getMainWindow);
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));

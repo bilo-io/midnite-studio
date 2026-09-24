@@ -4,7 +4,8 @@ import { preferredTargets } from './cli-path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { SystemHealth, ToolchainBinary } from '@midnite/studio-shared';
+import type { OllamaDaemonStatus, SystemHealth, ToolchainBinary } from '@midnite/studio-shared';
+import { ollamaVersion, resolveOllamaBaseUrl } from './ollama/client';
 
 export type { SystemHealth, ToolchainBinary };
 
@@ -69,7 +70,7 @@ export async function probeBinary(
 export async function readSystemHealth(): Promise<SystemHealth> {
   const home = homedir();
 
-  const [git, homebrew, node, pnpm, moon, sshResult] = await Promise.all([
+  const [git, homebrew, node, pnpm, moon, ollama, ollamaDaemon, sshResult] = await Promise.all([
     probeBinary('git', ['/usr/bin/git', '/opt/homebrew/bin/git', '/usr/local/bin/git']),
     probeBinary('brew', ['/opt/homebrew/bin/brew', '/usr/local/bin/brew']),
     probeBinary('node', [
@@ -87,6 +88,12 @@ export async function readSystemHealth(): Promise<SystemHealth> {
       '/opt/homebrew/bin/moon',
       '/usr/local/bin/moon',
     ]),
+    probeBinary('ollama', [
+      '/usr/local/bin/ollama',
+      '/opt/homebrew/bin/ollama',
+      '/Applications/Ollama.app/Contents/Resources/ollama',
+    ]),
+    probeOllamaDaemon(),
     (async () => {
       let running = false;
       let keys = 0;
@@ -134,5 +141,24 @@ export async function readSystemHealth(): Promise<SystemHealth> {
     node,
     pnpm,
     moon,
+    ollama,
+    ollamaDaemon,
   };
+}
+
+/**
+ * `GET /api/version` through Theme B's client — a short, bounded probe so an
+ * absent daemon never slows `readSystemHealth`'s `Promise.all` down to
+ * `PROBE_TIMEOUT_MS`. Never throws: an unreachable daemon is `reachable:
+ * false`, the same "degrade rather than fail" shape every other probe here
+ * already follows.
+ */
+async function probeOllamaDaemon(): Promise<OllamaDaemonStatus> {
+  const host = resolveOllamaBaseUrl();
+  try {
+    const version = await ollamaVersion({ baseUrl: host, timeoutMs: PROBE_TIMEOUT_MS });
+    return { reachable: true, version, host };
+  } catch {
+    return { reachable: false, version: null, host };
+  }
 }

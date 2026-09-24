@@ -13,6 +13,9 @@ describe('readSystemHealth', () => {
     expect(health).toHaveProperty('node');
     expect(health).toHaveProperty('pnpm');
     expect(health).toHaveProperty('moon');
+    expect(health).toHaveProperty('ollama');
+    expect(health.ollamaDaemon).toBeDefined();
+    expect(typeof health.ollamaDaemon?.reachable).toBe('boolean');
   }, 15_000);
 });
 
