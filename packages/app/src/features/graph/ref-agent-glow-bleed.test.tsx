@@ -29,13 +29,17 @@ describe('RefAgentGlowBleed', () => {
 
   it('renders nothing while inactive', () => {
     const anchor = makeAnchor({ left: 10, top: 20, width: 60, height: 18 });
-    const { queryByTestId } = render(<RefAgentGlowBleed anchor={anchor} active={false} />);
+    const { queryByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={false} colorIdx={0} palette="vivid" />,
+    );
     expect(queryByTestId('ref-agent-glow-bleed')).toBeNull();
   });
 
   it('positions the portalled halo at the anchor chip\'s own rect', () => {
     const anchor = makeAnchor({ left: 12, top: 34, width: 64, height: 20 });
-    const { getByTestId } = render(<RefAgentGlowBleed anchor={anchor} active={true} />);
+    const { getByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+    );
 
     const glow = getByTestId('ref-agent-glow-bleed');
     expect(glow.style.left).toBe('12px');
@@ -48,7 +52,9 @@ describe('RefAgentGlowBleed', () => {
 
   it('recomputes the rect on scroll rather than closing, throttled to a single rAF', () => {
     const anchor = makeAnchor({ left: 0, top: 0, width: 50, height: 16 });
-    const { getByTestId } = render(<RefAgentGlowBleed anchor={anchor} active={true} />);
+    const { getByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+    );
 
     let raf: FrameRequestCallback | null = null;
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -75,10 +81,25 @@ describe('RefAgentGlowBleed', () => {
 
   it('stops rendering once active flips back to false', () => {
     const anchor = makeAnchor({ left: 1, top: 2, width: 3, height: 4 });
-    const { queryByTestId, rerender } = render(<RefAgentGlowBleed anchor={anchor} active={true} />);
+    const { queryByTestId, rerender } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+    );
     expect(queryByTestId('ref-agent-glow-bleed')).not.toBeNull();
 
-    rerender(<RefAgentGlowBleed anchor={anchor} active={false} />);
+    rerender(<RefAgentGlowBleed anchor={anchor} active={false} colorIdx={0} palette="vivid" />);
     expect(queryByTestId('ref-agent-glow-bleed')).toBeNull();
+  });
+
+  it("carries the branch's own lane colour, not a fixed identity colour — the portal is not a DOM descendant of the chip, so it cannot inherit --lane-h/s/l and sets its own copy", () => {
+    const anchor = makeAnchor({ left: 0, top: 0, width: 40, height: 16 });
+    const { getByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={4} palette="vivid" />,
+    );
+
+    const glow = getByTestId('ref-agent-glow-bleed');
+    expect(glow.className).toContain('ref-badge-agent-arc-glow');
+    expect(glow.style.getPropertyValue('--lane-h')).not.toBe('');
+    expect(glow.style.getPropertyValue('--lane-s')).toMatch(/%$/);
+    expect(glow.style.getPropertyValue('--lane-l')).toMatch(/%$/);
   });
 });

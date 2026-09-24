@@ -204,11 +204,12 @@ export function RefBadge({
       } ${
         // An agent working in this ref's worktree always wins the animated
         // ring over the plain "lit lane" pulse — it is the more specific,
-        // more urgent fact about the branch. See `.ref-badge-agent-glow` in
-        // styles.css: same shared pulse keyframe as `.activity-glow`'s
-        // `agent` status, recoloured with `--activity-agent` rather than the
-        // lane hue `.graph-badge-glow` uses.
-        agentActive ? 'ref-badge-agent-glow' : branchGlow ? 'graph-badge-glow' : ''
+        // more urgent fact about the branch. No extra chip-level class here:
+        // `HeadGlow`'s `.ref-badge-agent-arc-ring` (in-row border) and
+        // `RefAgentGlowBleed`'s `.ref-badge-agent-arc-glow` (portalled halo)
+        // carry the whole effect between them, both in the branch's own
+        // lane hue rather than a chip-level colour swap.
+        !agentActive && branchGlow ? 'graph-badge-glow' : ''
       } ${
         // A drop target has to look like one mid-drag, or the gesture is a
         // guess — the ring is the only feedback the user gets before releasing.
@@ -245,10 +246,15 @@ export function RefBadge({
 
   // Portalled past the cell's `overflow-hidden` and the row's own
   // `transform` — see `RefAgentGlowBleed`'s own comment for why it bleeds
-  // into neighbouring rows where the in-row `.ref-badge-agent-glow` ring
-  // above cannot. `active` is `agentActive` alone (not `agentSession`):
-  // the ring on the chip already keys off the same boolean.
-  const glowBleed = <RefAgentGlowBleed anchor={chipRef} active={agentActive} />;
+  // into neighbouring rows where the in-row `.ref-badge-agent-arc-ring`
+  // above cannot. `active` is `agentActive` alone (not `agentSession`): the
+  // ring on the chip already keys off the same boolean. `colorIdx`/`palette`
+  // are the lane hue this branch's arc glows in — the portal is not a DOM
+  // descendant of the chip, so `--lane-h/s/l` cannot cascade to it and it
+  // needs its own copy, same as `SyncOverlay` below.
+  const glowBleed = (
+    <RefAgentGlowBleed anchor={chipRef} active={agentActive} colorIdx={colorIdx} palette={palette} />
+  );
 
   if (!expandable) {
     if (!avatar) {
@@ -491,35 +497,38 @@ const STRIP_GAP = 3;
  * also static here — the sweep is the only animated layer — so the usual
  * objection to animating `box-shadow` does not apply.
  *
- * `agentActive` recolours the sweep from the checked-out chip's lane-hue/white
- * highlight to the shared `--activity-agent` identity colour, and widens the
- * band from 1px to 1.5px — this is the "full border" half of the agent glow:
- * unlike the halo (`.ref-badge-agent-glow`/`RefAgentGlowBleed`), this sweep
- * was never clipped (it oversteps the chip by only a page or two), so the fix
- * here is not escaping a clipping ancestor, it is making the border agree
- * with the halo's colour and read as one effect rather than a lane-tinted
- * ring around an agent-tinted glow.
+ * `agentActive` swaps the sweep out for an orbiting gradient arc
+ * (`.ref-badge-agent-arc-ring`, `styles.css`) — a `conic-gradient` travelling
+ * round the chip's perimeter rather than a gradient sliding left to right —
+ * coloured from THIS branch's own lane hue sub-spectrum (`--lane-h` ± 25°)
+ * rather than the fixed `--activity-agent` identity colour: an agent session
+ * is a fact about this branch, not a different, agent-coloured one. This is
+ * the "border" half of the agent glow; the halo half is
+ * `RefAgentGlowBleed`'s portalled `.ref-badge-agent-arc-glow`, which shares
+ * the same hue-band gradient and the same `--arc-angle` orbit.
  */
 function HeadGlow({ agentActive = false }: { agentActive?: boolean }) {
+  if (agentActive) {
+    return (
+      <span aria-hidden className="ref-badge-agent-arc-ring pointer-events-none absolute -inset-[1.5px] rounded-[4px]" />
+    );
+  }
   return (
     <>
       {/*
-        The moving layer: a 200%-wide gradient sliding across a 1-1.5px frame.
+        The moving layer: a 200%-wide gradient sliding across a 1px frame.
 
         `padding-box`/`border-box` masking is what makes a gradient BORDER
         rather than a gradient fill — the two backgrounds are composited with
-        `xor`, so the gradient survives only in the band between the two
+        `xor`, so the gradient survives only in the 1px band between the two
         boxes and the chip's own fill shows through the middle untouched.
       */}
       <span
         aria-hidden
-        className={`pointer-events-none absolute animate-lane-sweep rounded-[4px] ${
-          agentActive ? '-inset-[1.5px] p-[1.5px]' : '-inset-px p-px'
-        }`}
+        className="pointer-events-none absolute -inset-px animate-lane-sweep rounded-[4px] p-px"
         style={{
-          background: agentActive
-            ? 'linear-gradient(90deg, color-mix(in srgb, var(--activity-agent) 0%, transparent) 0%, color-mix(in srgb, var(--activity-agent) 55%, white 45%) 25%, color-mix(in srgb, var(--activity-agent) 0%, transparent) 50%, color-mix(in srgb, var(--activity-agent) 55%, white 45%) 75%, color-mix(in srgb, var(--activity-agent) 0%, transparent) 100%)'
-            : 'linear-gradient(90deg, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 0%, hsl(0 0% 100% / 0.85) 25%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 50%, hsl(0 0% 100% / 0.85) 75%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 100%)',
+          background:
+            'linear-gradient(90deg, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 0%, hsl(0 0% 100% / 0.85) 25%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 50%, hsl(0 0% 100% / 0.85) 75%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 100%)',
           backgroundSize: '200% 100%',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
