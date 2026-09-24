@@ -643,6 +643,39 @@ export const TerminalSessionSchema = z
      * `TerminalSessionSchema` cannot be `.extend()`ed.
      */
     agentConversationId: z.string().optional(),
+    /**
+     * Which ProjectV2 board this session is working against (Phase 95 Theme
+     * H) — stamped at launch by card Play, drag-to-skill and Auto-mate.
+     * Broader than {@link taskRef}: a card-launched session carries both
+     * (mirroring the same `projectId`), but a future workflow-run launch
+     * (Theme J's agent/script node executors) can be scoped to a project with
+     * no single card behind it, which `taskRef`'s `kanban`-surface-only shape
+     * cannot express. `forge` is the account's `ForgeAccount.kind` at launch
+     * time — carried for disambiguation should two providers ever mint the
+     * same project id, not required by today's scope filtering, which keys
+     * on `projectId` alone.
+     *
+     * Must be listed in the object literal, not added via `.extend()` — see
+     * this schema's own closing `.superRefine()` note.
+     */
+    projectRef: z.object({ projectId: z.string().min(1), forge: z.string().min(1) }).optional(),
+    /**
+     * Which workflow run (and node) launched this session (Phase 95 Theme H)
+     * — unset until Theme J's agent/script node executors exist to stamp it
+     * (today's workflow engine runs in-process, no pty). The field ships now
+     * so that landing does not need a schema change.
+     */
+    workflowRunRef: z
+      .object({ workflowId: z.string().min(1), runId: z.string().min(1), nodeId: z.string().min(1) })
+      .optional(),
+    /**
+     * The forge account active in the app (`forgeActiveAccountId`) when this
+     * session launched — `ForgeAccount.id`'s own `${kind}:${host}:${login}`
+     * shape, best-effort: the app has no per-repo/per-board account binding
+     * today, only one globally "active" account, so this is what "the forge
+     * user that started it" means until that changes.
+     */
+    forgeAccountKey: z.string().min(1).optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

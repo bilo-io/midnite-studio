@@ -368,6 +368,15 @@ export const COMMANDS = [
   // exhaustion — a run action does not need a global chord, and the canvas's
   // own Run button (Theme F) is already one click away once the view is open.
   { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
+  /**
+   * Phase 95 Theme H. Chord-free, like `op.abort`/`op.continue` above — a
+   * kill switch is reached often enough to want a palette row and rarely
+   * enough that spending a chord on it is not worth it, especially with the
+   * `Mod+Shift+` space already tight. The board's own Auto-mate toggle opens
+   * the identical modal one click away; this is the same action from
+   * anywhere.
+   */
+  { id: 'automate.kill', label: 'Auto-mate Kill Switch', group: 'operation' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
   /**
    * Phase 66 Theme B. Chord-free like `view.video` above rather than a
