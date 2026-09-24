@@ -150,25 +150,34 @@ independent and can start at once). **I** needs **E** and **H**.
 - [x] Unit tests against a stubbed HTTP server: NDJSON chunk splitting across reads, cancel
       mid-layer, 404 model, connection refused → `{ok:false, kind:'error'}`.
 
-### C — The Models view (M)
+### C — The Models view (M) — ✅ DONE (PR #541, 2026-09-24)
 
-- [ ] Register `models` in `VIEW_IDS`, `view-registry.tsx`, `RAIL_VIEW_IDS`, `nav-icons.ts`
+- [x] Register `models` in `VIEW_IDS`, `view-registry.tsx`, `RAIL_VIEW_IDS`, `nav-icons.ts`
       (`SiOllama`) and `title-bar-nav.tsx`; a `view.models` command in
       [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) with no chord.
-- [ ] **Installed** tab: name, tag, family, parameter size, quantisation, size on disk, modified,
+- [x] **Installed** tab: name, tag, family, parameter size, quantisation, size on disk, modified,
       capability chips (from a lazily-fetched `show`), and a **running** badge (VRAM, expires in)
       from `ps`, refreshed on focus and after every write.
-- [ ] Row actions: open detail (Theme E), unload (when running), delete behind a confirm naming
-      the size and any agent default that points at the model.
-- [ ] **Pull by name** field (`qwen3.5:14b`, `gpt-oss:120b-cloud`) always visible — the fallback
+- [x] Row actions: open detail (stubbed `onOpenDetail` hook — Theme E wires the real modal),
+      unload (when running), delete behind a confirm naming the size. **Correction:** "any agent
+      default that points at the model" is not named in the confirm — no per-agent binding exists
+      yet (that's Theme H), so there is nothing true to say there until it lands.
+- [x] **Pull by name** field (`qwen3.5:14b`, `gpt-oss:120b-cloud`) always visible — the fallback
       when Discover cannot parse.
-- [ ] Pull queue panel: per-layer progress bar, bytes/total, status line, cancel; survives
-      switching views (state lives in a store fed by the event stream).
-- [ ] Daemon-down state: an empty state with **Start Ollama** (Theme A) instead of an error wall.
-- [ ] Settings ▸ Ollama page: host URL, cloud API key (Theme F), default model for new agent
-      bindings, and a "search cache" clear button.
-- [ ] vitest/jsdom coverage for the store transitions (queued → pulling → success / cancelled /
-      failed) and the three empty states.
+- [x] Pull queue panel: per-layer progress bar, bytes/total, status line, cancel; survives
+      switching views (state lives in `models-pull-queue-store.ts`, a zustand store fed by the
+      `onPullProgress` event stream).
+- [x] Daemon-down state: an empty state with **Start Ollama** (Theme A) instead of an error wall.
+- [x] Settings ▸ Ollama page: host URL, default model for new agent bindings. **Correction:** the
+      cloud API key row is a disabled placeholder (Theme F owns the vault key) and the "search
+      cache" clear button is not built — Discover's cache is Theme D's own deliverable, and a
+      clear button for a cache that does not exist yet would be dead UI.
+- [x] vitest/jsdom coverage for the store transitions (queued → pulling → success / cancelled /
+      failed) and the three empty states (loading, daemon-down, installed-empty).
+- [x] **New, not in the original checklist:** a persisted Ollama host override
+      (`ollamaSettingsGet`/`ollamaSettingsSet` IPC, `desktop/src/main/ollama/settings-store.ts` +
+      `settings-service.ts`) — Theme B's client resolved only `OLLAMA_HOST`/the hardcoded default
+      and explicitly deferred a configurable override to this theme's own Settings page.
 
 ### D — Discover: library search (M)
 
