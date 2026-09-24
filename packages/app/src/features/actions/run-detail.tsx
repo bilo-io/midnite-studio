@@ -212,7 +212,7 @@ function RunHeader({
   const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
   const fileUrl = file === null ? null : workflowFileUrl(run.url, run.headBranch ?? 'HEAD', file);
   const status = runStatus(run);
-  const style = getActionItemStyle(status.tone);
+  const style = getActionItemStyle(status);
   const prNumber = findRunPrNumber(run, pulls);
 
   return (
@@ -301,7 +301,7 @@ function JobRow({
   const [open, setOpen] = useState(() => shouldExpandJob(job));
   const took = duration(job.startedAt, job.completedAt);
   const status = jobStatus(job);
-  const style = getActionItemStyle(status.tone);
+  const style = getActionItemStyle(status);
 
   return (
     <li>
@@ -345,7 +345,7 @@ function JobRow({
         <ul className="ml-8 border-l border-border/60 pl-2">
           {job.steps.map((step) => {
             const stepStatus = jobStatus({ ...step, id: '', url: '', steps: [] });
-            const stepStyle = getActionItemStyle(stepStatus.tone);
+            const stepStyle = getActionItemStyle(stepStatus);
             return (
               <li
                 key={`${step.number}:${step.name}`}

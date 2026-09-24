@@ -240,6 +240,8 @@ export const LOOP_GATE_ALLOWLIST: Record<string, string> = {
     'the title bar active agent counter text shimmer — mounted only while at least one background agent session is live.',
   'actions-shimmer':
     'the Actions run-list row shimmer — mounted only on a row whose GitHub Actions run is actively `running`.',
+  'actions-pulse':
+    'the Actions run-list row pulse — mounted only on a row that is queued/requested/pending/waiting, its `actions-shimmer` sibling above.',
   'actions-glow-pulse-ok':
     'the Actions status glow pulse for a passing run — mounted only on a row whose run just completed successfully.',
   'actions-glow-pulse-fail':

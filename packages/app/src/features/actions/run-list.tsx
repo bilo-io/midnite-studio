@@ -150,7 +150,7 @@ function RunRow({
   // change, so a running one would show a finished-looking duration.
   const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
   const status = runStatus(run);
-  const style = getActionItemStyle(status.tone);
+  const style = getActionItemStyle(status);
 
   return (
     <button

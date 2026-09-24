@@ -49,29 +49,44 @@ const makePull = (over: Partial<ForgePull>): ForgePull => ({
 
 describe('getActionItemStyle', () => {
   it('returns green text and actions-glow-ok for ok tone', () => {
-    const style = getActionItemStyle('ok');
+    const style = getActionItemStyle({ tone: 'ok' });
     expect(style.textClass).toContain('text-emerald-500');
     expect(style.glowClass).toBe('actions-glow-ok');
     expect(style.rowClass).toBe('');
   });
 
   it('returns red text and actions-glow-fail for fail tone', () => {
-    const style = getActionItemStyle('fail');
+    const style = getActionItemStyle({ tone: 'fail' });
     expect(style.textClass).toContain('text-red-500');
     expect(style.glowClass).toBe('actions-glow-fail');
     expect(style.rowClass).toBe('');
   });
 
-  it('returns orange text and actions-item-running for busy tone', () => {
-    const style = getActionItemStyle('busy');
-    expect(style.textClass).toContain('text-orange-500');
-    expect(style.rowClass).toBe('actions-item-running');
-  });
-
   it('returns muted text for idle tone', () => {
-    const style = getActionItemStyle('idle');
+    const style = getActionItemStyle({ tone: 'idle' });
     expect(style.textClass).toBe('text-muted-foreground');
     expect(style.glowClass).toBe('');
+    expect(style.rowClass).toBe('');
+  });
+
+  /*
+   * Phase: fix — the actual bug this file exists to prevent. `tone` alone
+   * cannot tell a running row from a queued one (both `busy`), so the row
+   * class is read off `spin`/`pulse` instead — never off `tone`.
+   */
+  it('shimmers (actions-item-running) only when spin is set, busy or warn', () => {
+    expect(getActionItemStyle({ tone: 'busy', spin: true }).rowClass).toBe('actions-item-running');
+    expect(getActionItemStyle({ tone: 'warn', spin: true }).rowClass).toBe('actions-item-running');
+  });
+
+  it('pulses (actions-item-queued), never shimmers, when pulse is set without spin', () => {
+    expect(getActionItemStyle({ tone: 'busy', pulse: true }).rowClass).toBe('actions-item-queued');
+    expect(getActionItemStyle({ tone: 'warn', pulse: true }).rowClass).toBe('actions-item-queued');
+  });
+
+  it('gets neither shimmer nor pulse, and keeps orange text, for a settled busy-tone row', () => {
+    const style = getActionItemStyle({ tone: 'busy' });
+    expect(style.textClass).toContain('text-orange-500');
     expect(style.rowClass).toBe('');
   });
 });
