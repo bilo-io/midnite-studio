@@ -232,39 +232,51 @@ independent and can start at once). **I** needs **E** and **H**.
 - [ ] Cloud models count as fit by default (hosted context is large); a cloud model whose catalogue
       entry says otherwise is flagged.
 
-### H — Agents on Ollama (L)
+### H — Agents on Ollama (L) — ✅ DONE (PR #TBD, 2026-09-24)
 
-- [ ] **Per-session env.** Extend the pty create request with an optional `env: Record<string,
+- [x] **Per-session env.** Extend the pty create request with an optional `env: Record<string,
       string>` (zod-validated, keys matching `^[A-Z_][A-Z0-9_]*$`), merged over `process.env` in
       `createPty` **after** the existing fingerprint env. An empty-string value is kept, not
       dropped (`ANTHROPIC_API_KEY=""` depends on it). The broker path carries it too.
-- [ ] `AgentDefinitionSchema` gains `backends?: ('ollama')[]` for the five supported agents in
+- [x] `AgentDefinitionSchema` gains `backends?: ('ollama')[]` for the five supported agents in
       `BUILTIN_AGENTS`. A per-agent binding `{backend: 'native' | 'ollama', model?: string}` lives in
       the persisted agent preferences, not in `agents.json`.
-- [ ] `shared/src/ollama-launch.ts`: `ollamaLaunchRecipe(agentId, model, base)` → `{env, argsBefore,
+- [x] `shared/src/ollama-launch.ts`: `ollamaLaunchRecipe(agentId, model, base)` → `{env, argsBefore,
       commandOverride?}`, a pure table:
-  - [ ] **claude**: env `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` (`ollama` locally, the vault
+  - [x] **claude**: env `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` (`ollama` locally, the vault
         key against `ollama.com`), `ANTHROPIC_API_KEY=""`; args `--model <m>`.
-  - [ ] **copilot**: env `COPILOT_PROVIDER_BASE_URL=<base>/v1`, `COPILOT_PROVIDER_API_KEY`,
+  - [x] **copilot**: env `COPILOT_PROVIDER_BASE_URL=<base>/v1`, `COPILOT_PROVIDER_API_KEY`,
         `COPILOT_PROVIDER_WIRE_API=responses`, `COPILOT_MODEL=<m>`.
-  - [ ] **codex**: args `--oss -m <m>` (no profile file written).
-  - [ ] **cline**, **opencode**: command becomes `ollama launch <agent> --model <m> --yes --`
-        followed by the agent's usual args. A one-time notice names the config file each writes
-        before the first launch.
-- [ ] The vault key reaches the env **in main only**: the renderer sends a `useOllamaKey: true`
-      marker, and main resolves it, so the key never crosses the bridge.
-- [ ] Every launch path resolves the binding: `start-agent.ts` (terminal and cards), loops, councils
-      (`council-runner.ts`) and workflow agent nodes (`node-sessions.ts`), all through one resolver,
-      not five copies.
-- [ ] Settings ▸ Agent: for each supported agent, a Backend select (Native / Ollama) and a model
-      picker listing installed + cloud models with Theme G's fit badge; unsupported agents show no
-      control.
-- [ ] Session identity: an Ollama-backed session carries `backend: 'ollama'` and the model, and its
-      row and badge show a small `SiOllama` mark next to the agent icon.
-- [ ] Headless mode (`agentHeadlessArgs`) composes with the recipe for all five agents — tested,
-      since councils and the companion run headless.
-- [ ] Unit tests: every recipe row, env-merge order, empty-string preservation, and the key never
-      appearing in any renderer-bound payload.
+  - [x] **codex**: args `--oss -m <m>` (no profile file written).
+  - [x] **cline**, **opencode**: command becomes `ollama launch <agent> --model <m> --yes --`
+        followed by the agent's usual args. **Correction:** the one-time notice naming the config
+        file did not land — `ollamaLaunchRecipe` carries the `commandOverride` a UI notice would
+        key off, but no toast/dialog was wired in this pass; a cheap Theme I follow-up.
+- [ ] **Not built — depends on Theme F, unmerged at the time.** The vault key reaching the env in
+      main only (a renderer `useOllamaKey: true` marker main resolves) needs a vault slot Theme F
+      hasn't added yet. `ollamaLaunchRecipe`/`resolveAgentLaunch` already take an optional
+      `authToken` parameter reserved for it, so wiring the marker through is additive once Theme F
+      lands — implementing a marker with no vault behind it now would be dead wiring.
+- [x] Every launch path resolves the binding: `start-agent.ts` (terminal and cards — which is also
+      every loop, companion and sessions-view launch, since all of them call `startAgent()`),
+      councils (`council-runner.ts`) and workflow agent nodes (`executors/agent.ts` →
+      `node-sessions.ts`), all through the one `resolveAgentLaunch()` resolver. **Known gap:**
+      `companion/ask.ts`'s one-shot headless ask (`runProcess`, not a pty) is a fourth,
+      architecturally distinct launch path not wired to the resolver — out of this PR's four named
+      paths, left for a follow-up.
+- [x] Settings ▸ Agent: for each supported agent, a Backend select (Native / Ollama) and a model
+      picker. **Correction:** installed models only (`window.midniteStudio.ollama.list()`) — the
+      cloud catalogue is Theme F's own scope and Theme G's fit badge isn't built yet, so no badge
+      renders; unsupported agents show no control.
+- [x] Session identity: an Ollama-backed session carries `backend: 'ollama'` and the model, and its
+      row shows a small `SiOllama` corner mark next to the agent icon.
+- [x] Headless mode (`agentHeadlessArgs`) composes with the recipe for all five agents — tested
+      (`ollama-launch.test.ts`, `council-runner.test.ts` exercises codex headless via a real
+      binding).
+- [x] Unit tests: every recipe row, the resolver's native/absent/modelless/unsupported-agent
+      fallthrough, `PtyCreateRequest.env`'s shouty-snake key validation and empty-string
+      preservation. The vault-key-never-in-a-renderer-payload test doesn't apply yet — no vault key
+      is wired in this PR (see the Theme F dependency above).
 
 ### I — Launch surfaces (M)
 
