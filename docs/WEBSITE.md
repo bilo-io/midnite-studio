@@ -244,10 +244,18 @@ Other details the file settles:
 - **`/download` and `/pricing` need no rewrite.** Each page is emitted as a
   directory index (`dist/download/index.html`, `dist/pricing/index.html`), so
   Vercel serves them as-is.
-- **`ignoreCommand`** skips a build when the commit touched neither
-  `packages/website/**`, the lockfile nor the root eslint config. If the diff
-  cannot be computed (no `HEAD^` in a shallow clone) it exits non-zero and the
-  build simply runs.
+- **Vercel's Git integration does not deploy.** `git.deploymentEnabled: false`
+  turns it off: it created a deployment for every push to every branch, each
+  counting against Vercel's deployment rate limit *before* an `ignoreCommand`
+  could skip it, so busy agent PRs that never touched the site went red with
+  "Deployment rate limited". Deploys come from
+  [`.github/workflows/vercel.yml`](../.github/workflows/vercel.yml) instead,
+  path-filtered to `packages/website/**` — a preview on a pull request, production
+  on `main`. It needs three repo secrets, `VERCEL_TOKEN` (a Vercel account
+  token), `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` (both from
+  `.vercel/project.json` after `vercel link` in `packages/website`); until they
+  exist the job is a green no-op. A future public app (e.g. `packages/docs`)
+  gets its own Vercel project and a sibling job, not a wider filter.
 - **pnpm version** comes from the root `pnpm-lock.yaml` (v9), which Vercel
   detects; the root `package.json`'s `packageManager` field is not read because
   the root directory is the site.
