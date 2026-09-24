@@ -28,7 +28,7 @@ describe('TrashSafetyPage (Phase 74 Theme C/D)', () => {
     reset();
     render(<TrashSafetyPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow emptying the Trash' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow emptying the Trash' }));
 
     expect(useUiStore.getState().allowTrashEmpty).toBe(false);
     expect(await screen.findByText('Allow emptying the Trash?')).toBeTruthy();
@@ -38,7 +38,7 @@ describe('TrashSafetyPage (Phase 74 Theme C/D)', () => {
     reset();
     render(<TrashSafetyPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow emptying the Trash' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow emptying the Trash' }));
     await screen.findByText('Allow emptying the Trash?');
     fireEvent.click(screen.getByRole('button', { name: 'I understand' }));
 
@@ -50,7 +50,7 @@ describe('TrashSafetyPage (Phase 74 Theme C/D)', () => {
     reset();
     render(<TrashSafetyPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow emptying the Trash' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow emptying the Trash' }));
     await screen.findByText('Allow emptying the Trash?');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -63,7 +63,7 @@ describe('TrashSafetyPage (Phase 74 Theme C/D)', () => {
     useUiStore.setState({ allowTrashEmpty: true, trashEmptyConsentGiven: true });
     render(<TrashSafetyPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow emptying the Trash' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow emptying the Trash' }));
 
     expect(useUiStore.getState().allowTrashEmpty).toBe(false);
     // A fact about what the user was shown, not a live permission.
@@ -76,7 +76,7 @@ describe('TrashSafetyPage (Phase 74 Theme C/D)', () => {
     useUiStore.setState({ allowTrashEmpty: false, trashEmptyConsentGiven: true });
     render(<TrashSafetyPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow emptying the Trash' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow emptying the Trash' }));
 
     expect(useUiStore.getState().allowTrashEmpty).toBe(true);
     expect(screen.queryByText('Allow emptying the Trash?')).toBeNull();

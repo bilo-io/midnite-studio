@@ -169,24 +169,24 @@ describe('AccountsPage', () => {
   it('toggles forgeScopeReposToActiveAccount', async () => {
     installBridge();
     render(<AccountsPage />, { wrapper: createWrapper() });
-    const checkbox = (await screen.findByText(
-      "Hide repos that don't belong to the active account",
-    )).previousSibling as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
+    const toggle = (await screen.findByRole('switch', {
+      name: "Hide repos that don't belong to the active account",
+    })) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
 
-    fireEvent.click(checkbox);
+    fireEvent.click(toggle);
     expect(useUiStore.getState().forgeScopeReposToActiveAccount).toBe(false);
   });
 
   it('toggles forgeSyncGhAuthSwitch', async () => {
     installBridge();
     render(<AccountsPage />, { wrapper: createWrapper() });
-    const checkbox = (await screen.findByText(
-      'Run `gh auth switch` when the active GitHub account changes',
-    )).previousSibling as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
+    const toggle = (await screen.findByRole('switch', {
+      name: 'Run `gh auth switch` when the active GitHub account changes',
+    })) as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
 
-    fireEvent.click(checkbox);
+    fireEvent.click(toggle);
     expect(useUiStore.getState().forgeSyncGhAuthSwitch).toBe(false);
   });
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { LuDownload } from 'react-icons/lu';
 import { Accordion } from '@bilo-io/ui';
 import { Choice, Field } from './controls';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
 import type { UpdateState } from '@midnite/studio-shared';
 
@@ -54,17 +55,13 @@ export function UpdatesPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="App Updates" icon={<LuDownload className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field label="Automatic Update Checks" hint="Periodically check for app updates in the background.">
-            <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={autoCheck}
-                onChange={(e) => setAutoCheck(e.target.checked)}
-                className="accent-[hsl(var(--primary))]"
-              />
-              <span>Check for updates automatically</span>
-            </label>
-          </Field>
+          <SettingsSwitchRow
+            id="updates-auto-check"
+            label="Check for updates automatically"
+            description="Periodically check for app updates in the background."
+            on={autoCheck}
+            onToggle={(_id, next) => setAutoCheck(next)}
+          />
 
           <Choice
             label="Update Channel"

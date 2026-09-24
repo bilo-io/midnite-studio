@@ -122,23 +122,25 @@ describe('SettingsView, assembled through the real bridge', () => {
 
     const graphToggle = screen.getByRole('switch', { name: 'Graph' }) as HTMLInputElement;
     const graphRow = graphToggle.closest('label') as HTMLLabelElement;
+    // The row's label/icon wrapper — `SettingsSwitchRow`'s text-opacity span.
+    const graphLabelWrap = () => within(graphRow).getByText('Graph').parentElement?.parentElement;
     expect(graphToggle.checked).toBe(true);
     // Enabled rows read at full opacity.
-    expect(graphRow.className).not.toContain('opacity-50');
+    expect(graphLabelWrap()?.className).toContain('text-foreground');
 
     // A click on the switch itself toggles exactly once.
     fireEvent.click(graphToggle);
     expect(graphToggle.checked).toBe(false);
     expect(useUiStore.getState().navVisibility).toEqual({ graph: false });
     // Turned off reads as semi-transparent text.
-    expect(graphRow.className).toContain('opacity-50');
+    expect(graphLabelWrap()?.className).toContain('text-muted-foreground');
 
     // Clicking anywhere else on the row — the label wraps the switch, so the
     // click lands once on the one focusable control, not twice.
     fireEvent.click(within(graphRow).getByText('Graph'));
     expect(graphToggle.checked).toBe(true);
     expect(useUiStore.getState().navVisibility).toEqual({});
-    expect(graphRow.className).not.toContain('opacity-50');
+    expect(graphLabelWrap()?.className).toContain('text-foreground');
 
     fireEvent.click(graphToggle);
     fireEvent.click(screen.getByRole('button', { name: 'Show all destinations' }));

@@ -2,6 +2,7 @@ import { Accordion } from '@bilo-io/ui';
 import { APP_DEFINITIONS, APP_IDS } from '@midnite/studio-shared';
 import { LuLayoutGrid } from 'react-icons/lu';
 
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { APP_ICON } from '../../../components/icons';
 import { useUiStore } from '../../../store/ui-store';
 import { Field } from './controls';
@@ -44,31 +45,24 @@ export function AppsPage() {
                 label={definition.label}
                 hint={new URL(definition.launchUrl).host}
               >
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={(event) => useUiStore.getState().setAppEnabled(id, event.target.checked)}
-                      className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-                      data-testid={`apps-settings-toggle-${id}`}
-                    />
-                    <Icon aria-hidden className="h-4 w-4 shrink-0" />
-                    {definition.label}
-                  </label>
+                <div className="flex flex-col gap-1">
+                  <SettingsSwitchRow
+                    id={id}
+                    label={definition.label}
+                    icon={<Icon aria-hidden className="h-4 w-4 shrink-0" />}
+                    on={enabled}
+                    onToggle={(_id, next) => useUiStore.getState().setAppEnabled(id, next)}
+                    testId={`apps-settings-toggle-${id}`}
+                  />
                   {enabled ? (
-                    <label className="ml-5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={discardIdle}
-                        onChange={(event) =>
-                          useUiStore.getState().setAppDiscardIdle(id, event.target.checked)
-                        }
-                        className="h-3 w-3 accent-[hsl(var(--primary))]"
-                        data-testid={`apps-settings-discard-toggle-${id}`}
-                      />
-                      Discard when idle (10 min hidden)
-                    </label>
+                    <SettingsSwitchRow
+                      id={`${id}-discard-idle`}
+                      label="Discard when idle (10 min hidden)"
+                      on={discardIdle}
+                      onToggle={(_id, next) => useUiStore.getState().setAppDiscardIdle(id, next)}
+                      testId={`apps-settings-discard-toggle-${id}`}
+                      className="ml-5 !w-auto !text-[11px]"
+                    />
                   ) : null}
                 </div>
               </Field>

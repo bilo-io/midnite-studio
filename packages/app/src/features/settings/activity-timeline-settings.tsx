@@ -1,7 +1,8 @@
 import { GRIDLINE_CADENCE } from '../../components/commit-activity-timeline/activity-buckets';
+import { SettingsSwitchRow } from '../../components/form/settings-switch-row';
 import { useUiStore } from '../../store/ui-store';
 
-import { Choice, Field } from './settings-pages/controls';
+import { Choice } from './settings-pages/controls';
 
 /**
  * The commit-activity timeline's settings: what it draws, which way it hangs,
@@ -91,22 +92,13 @@ export function ActivityTimelineSettings() {
           ],
         ]}
       />
-      <Field
-        label="Gridlines"
-        hint={`Rules across the time axis, at the current timeframe's cadence — ${GRIDLINE_CADENCE[timeframe]}.`}
-      >
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={gridlines}
-            onChange={(event) =>
-              useUiStore.getState().setActivityTimelineGridlines(event.target.checked)
-            }
-            className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-          />
-          Show gridlines
-        </label>
-      </Field>
+      <SettingsSwitchRow
+        id="activity-timeline-gridlines"
+        label="Show gridlines"
+        description={`Rules across the time axis, at the current timeframe's cadence — ${GRIDLINE_CADENCE[timeframe]}.`}
+        on={gridlines}
+        onToggle={(_id, next) => useUiStore.getState().setActivityTimelineGridlines(next)}
+      />
     </div>
   );
 }

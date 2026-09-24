@@ -6,6 +6,7 @@ import { LuCalendar, LuClock, LuImage, LuPalette, LuSparkles } from 'react-icons
 
 import { ACCENT_OPTIONS, BACKGROUND_PATTERN_OPTIONS } from '@bilo-io/shell';
 
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import {
   useAppearanceStore,
   type AccentId,
@@ -142,7 +143,7 @@ export function AppearancePage() {
       <Accordion title="Effects" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field label="Visual effects" hint="Each is independent of the motion setting.">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col">
               {(
                 [
                   ['pageReveal', 'Page reveal'],
@@ -150,15 +151,13 @@ export function AppearancePage() {
                   ['glass', 'Frosted glass'],
                 ] as [keyof VisualEffects, string][]
               ).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={s.effects[key]}
-                    onChange={(event) => s.setEffect(key, event.target.checked)}
-                    className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-                  />
-                  {label}
-                </label>
+                <SettingsSwitchRow
+                  key={key}
+                  id={key}
+                  label={label}
+                  on={s.effects[key]}
+                  onToggle={(_id, next) => s.setEffect(key, next)}
+                />
               ))}
             </div>
           </Field>
@@ -444,20 +443,13 @@ function TitlebarTimeSettingsAccordion() {
   return (
     <Accordion title="Titlebar Time" icon={<LuClock className="h-4 w-4" />} defaultOpen>
       <div className="flex flex-col gap-4 p-3">
-        <Field
-          label="Titlebar Center Pill Items"
-          hint="Choose whether the time appears in the top center status bar."
-        >
-          <label className="flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={showTime}
-              onChange={(e) => setShowTime(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-            />
-            Time
-          </label>
-        </Field>
+        <SettingsSwitchRow
+          id="show-time"
+          label="Time"
+          description="Choose whether the time appears in the top center status bar."
+          on={showTime}
+          onToggle={(_id, next) => setShowTime(next)}
+        />
 
         <Choice<string>
           label="Clock display mode"
@@ -481,17 +473,13 @@ function TitlebarTimeSettingsAccordion() {
           ]}
         />
 
-        <Field label="Seconds display" hint="Show live seconds in digital clock.">
-          <label className="flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={showSeconds}
-              onChange={(e) => setShowSeconds(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-            />
-            Show seconds (:ss)
-          </label>
-        </Field>
+        <SettingsSwitchRow
+          id="show-seconds"
+          label="Show seconds (:ss)"
+          description="Show live seconds in digital clock."
+          on={showSeconds}
+          onToggle={(_id, next) => setShowSeconds(next)}
+        />
       </div>
     </Accordion>
   );
@@ -513,25 +501,19 @@ function TitlebarDateSettingsAccordion() {
           label="Titlebar Center Pill Items"
           hint="Choose which date/weather elements appear in the top center status bar."
         >
-          <div className="flex flex-col gap-1.5">
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={showDate}
-                onChange={(e) => setShowDate(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Date
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={showWeather}
-                onChange={(e) => setShowWeather(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Weather & temperature
-            </label>
+          <div className="flex flex-col">
+            <SettingsSwitchRow
+              id="show-date"
+              label="Date"
+              on={showDate}
+              onToggle={(_id, next) => setShowDate(next)}
+            />
+            <SettingsSwitchRow
+              id="show-weather"
+              label="Weather & temperature"
+              on={showWeather}
+              onToggle={(_id, next) => setShowWeather(next)}
+            />
           </div>
         </Field>
 

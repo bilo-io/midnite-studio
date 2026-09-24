@@ -77,7 +77,7 @@ describe('MonitorPage, assembled through the real bridge', () => {
 
     expect(await screen.findByTestId('metric-gpu')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'GPU' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'GPU' }));
 
     await waitFor(() => expect(screen.queryByTestId('metric-gpu')).toBeNull());
     // The others are untouched — this is a per-metric preference, not a switch.

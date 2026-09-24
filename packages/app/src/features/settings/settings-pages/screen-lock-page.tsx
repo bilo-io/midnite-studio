@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Accordion } from '@bilo-io/ui';
 import { LuClock, LuLock, LuMapPin, LuX } from 'react-icons/lu';
 
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
 import { PasscodeSetupDialog } from '../../screensaver/passcode-pad';
 import { fmtLocationName } from '../../weather/weather-derive';
 import { useLocationSearch } from '../../weather/weather-queries';
 import { useWeatherStore } from '../../weather/weather-store';
 import type { WeatherLocation } from '../../weather/weather-types';
-import { Choice, Field } from './controls';
+import { Choice } from './controls';
 
 const LOCATION_SEARCH_DEBOUNCE_MS = 300;
 
@@ -170,36 +171,23 @@ export function ScreenLockPage() {
 
       <Accordion title="Screen Lock" icon={<LuLock className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
-            label="Require passcode"
-            hint="Prompt for a 4-digit passcode before leaving the screensaver."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={requirePasscode}
-                onChange={(e) => toggleRequirePasscode(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Require passcode to unlock
-            </label>
-          </Field>
+          <SettingsSwitchRow
+            id="require-passcode"
+            label="Require passcode to unlock"
+            description="Prompt for a 4-digit passcode before leaving the screensaver."
+            on={requirePasscode}
+            onToggle={(_id, next) => toggleRequirePasscode(next)}
+          />
 
-          <Field
+          <SettingsSwitchRow
+            id="passcode-only-when-locked"
             label="Only when manually locked"
-            hint="Require passcode only when locked deliberately, not for idle screensaver."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={passcodeOnlyWhenLocked}
-                disabled={!requirePasscode}
-                onChange={(e) => setPasscodeOnlyWhenLocked(e.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Only when manually locked
-            </label>
-          </Field>
+            description="Require passcode only when locked deliberately, not for idle screensaver."
+            on={passcodeOnlyWhenLocked}
+            onToggle={(_id, next) => setPasscodeOnlyWhenLocked(next)}
+            disabled={!requirePasscode}
+            title={!requirePasscode ? 'Require a passcode first.' : undefined}
+          />
 
           <div className="flex items-center justify-between gap-4 border-t border-border/60 pt-3">
             <div className="flex items-center gap-2 text-xs">

@@ -17,6 +17,7 @@ import {
   useRunDiagnostics,
   useUntrustDiagnostics,
 } from '../../../services/queries';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { ReportIssueDialog } from '../../../components/report-issue-dialog';
 import { useActiveWorktree } from '../../../services/use-status';
@@ -58,23 +59,22 @@ export function MonitorPage() {
             label="Metrics shown"
             hint="Readouts in the footer's right cluster. A metric this machine cannot report is never shown, whatever is ticked here."
           >
-            <ul className="flex flex-col gap-1.5">
+            <ul className="flex flex-col">
               {METRIC_IDS.map((id: MetricId) => (
                 <li key={id}>
-                  <label className="flex cursor-pointer items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={!hidden.includes(id)}
-                      onChange={() => toggleMetric(id)}
-                      className="accent-[hsl(var(--primary))]"
-                    />
-                    <span
-                      aria-hidden
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: metricColor(id) }}
-                    />
-                    {METRIC_LABELS[id]}
-                  </label>
+                  <SettingsSwitchRow
+                    id={id}
+                    label={METRIC_LABELS[id]}
+                    icon={
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: metricColor(id) }}
+                      />
+                    }
+                    on={!hidden.includes(id)}
+                    onToggle={() => toggleMetric(id)}
+                  />
                 </li>
               ))}
             </ul>

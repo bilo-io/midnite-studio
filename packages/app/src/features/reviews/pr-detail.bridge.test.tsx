@@ -165,7 +165,7 @@ describe('PrDetail — the review write path, assembled through the real bridge'
     renderView(<SettingsAndPull />, { fixtures: base });
     await screen.findByRole('region', { name: 'Pull request #201' });
 
-    const consent = screen.getByRole('checkbox', {
+    const consent = screen.getByRole('switch', {
       name: /Allow Midnite Studio to act on pull requests/,
     });
     expect((consent as HTMLInputElement).checked).toBe(false);

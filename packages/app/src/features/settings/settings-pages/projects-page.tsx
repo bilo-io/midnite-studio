@@ -9,6 +9,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '../../projects/board/board-derive';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { Field, TextField } from './controls';
@@ -35,20 +36,13 @@ export function ProjectsPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="Launch and run" icon={<LuPlay className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="launch-and-run-enabled"
             label="Allow launch-and-run from a card"
-            hint="Reveals a second button beside Start on a card's composer, beside the existing type-but-don't-send default. Pressing it still shows a confirm dialog with the exact composed command first — this setting only removes the extra step of reaching the button, not the look-before-you-leap."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={launchAndRunEnabled}
-                onChange={(event) => setLaunchAndRunEnabled(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Allow launch-and-run from a card
-            </label>
-          </Field>
+            description="Reveals a second button beside Start on a card's composer, beside the existing type-but-don't-send default. Pressing it still shows a confirm dialog with the exact composed command first — this setting only removes the extra step of reaching the button, not the look-before-you-leap."
+            on={launchAndRunEnabled}
+            onToggle={(_id, next) => setLaunchAndRunEnabled(next)}
+          />
 
           <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
             <p className="font-medium text-foreground">Why this stays off by default</p>

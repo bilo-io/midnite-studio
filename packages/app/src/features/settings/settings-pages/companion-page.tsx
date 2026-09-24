@@ -30,6 +30,7 @@ import { setCompanionVolume as applyCompanionVolume } from '../../companion/audi
 import { companionTtsSpeaker } from '../../companion/speaker';
 import { refreshMicAvailability } from '../../companion/voice-ports';
 import { IconButton } from '../../../components/icon-button';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { Choice, Field, TextArea } from './controls';
@@ -185,21 +186,14 @@ export function CompanionPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="Companion" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="companion-enabled"
             label="Enable companion"
-            hint="Adds a chat panel and a quick-access row, and lets the app speak. Off by default — an app that talks unprompted has to be asked for."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={companionEnabled}
-                onChange={(event) => setCompanionEnabled(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-                data-testid="companion-enable"
-              />
-              Enable companion
-            </label>
-          </Field>
+            description="Adds a chat panel and a quick-access row, and lets the app speak. Off by default — an app that talks unprompted has to be asked for."
+            on={companionEnabled}
+            onToggle={(_id, next) => setCompanionEnabled(next)}
+            testId="companion-enable"
+          />
         </div>
       </Accordion>
 
@@ -213,22 +207,16 @@ export function CompanionPage() {
             is that control, and its default is what makes an enabled companion
             audible.
           */}
-          <Field
+          <SettingsSwitchRow
+            id="companion-speak-aloud"
             label="Speak replies aloud"
-            hint="On by default. Turn off to keep the thread and routing silent — a shared office, a call."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={companionSpeakAloud}
-                onChange={(event) => setCompanionSpeakAloud(event.target.checked)}
-                disabled={!companionEnabled}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))] disabled:opacity-50"
-                data-testid="companion-speak-aloud"
-              />
-              Speak replies aloud
-            </label>
-          </Field>
+            description="On by default. Turn off to keep the thread and routing silent — a shared office, a call."
+            on={companionSpeakAloud}
+            onToggle={(_id, next) => setCompanionSpeakAloud(next)}
+            disabled={!companionEnabled}
+            title={!companionEnabled ? 'Enable the companion first.' : undefined}
+            testId="companion-speak-aloud"
+          />
 
           {/*
             Phase 80 Theme C: the companion now tries a bundled local voice
@@ -342,16 +330,18 @@ export function CompanionPage() {
                 Preview
               </button>
               {localeVoices.length > 0 && localeVoices.length < voices.length ? (
-                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={showAllVoices}
-                    onChange={(event) => setShowAllVoices(event.target.checked)}
-                    className="h-3 w-3 accent-[hsl(var(--primary))]"
-                    data-testid="companion-show-all-voices"
-                  />
-                  Show all {voices.length} voices
-                </label>
+                // Compact, not full-width — this toggle sits inline in a
+                // button toolbar (Say hello / Preview), not on its own
+                // settings row, so it keeps `SettingsSwitchRow`'s hover and
+                // whole-control click behaviour but not its default width.
+                <SettingsSwitchRow
+                  id="show-all-voices"
+                  label={`Show all ${voices.length} voices`}
+                  on={showAllVoices}
+                  onToggle={(_id, next) => setShowAllVoices(next)}
+                  testId="companion-show-all-voices"
+                  className="!w-fit !gap-1.5 !rounded !px-1 !py-0.5 !text-[11px]"
+                />
               ) : null}
             </div>
             <p className="text-[11px] text-muted-foreground" data-testid="companion-say-hello-engine">
@@ -426,22 +416,16 @@ export function CompanionPage() {
 
       <Accordion title="Hands-free run" icon={<LuBot className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
-          <Field
-            label="Let the companion press Return"
-            hint="Off: a prepared command is typed but left for you to send. On: the companion sends it itself, after saying which command out loud."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={companionHandsFree}
-                onChange={(event) => setCompanionHandsFree(event.target.checked)}
-                disabled={!companionEnabled}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))] disabled:opacity-50"
-                data-testid="companion-hands-free"
-              />
-              Allow hands-free run
-            </label>
-          </Field>
+          <SettingsSwitchRow
+            id="companion-hands-free"
+            label="Allow hands-free run"
+            description="Off: a prepared command is typed but left for you to send. On: the companion sends it itself, after saying which command out loud."
+            on={companionHandsFree}
+            onToggle={(_id, next) => setCompanionHandsFree(next)}
+            disabled={!companionEnabled}
+            title={!companionEnabled ? 'Enable the companion first.' : undefined}
+            testId="companion-hands-free"
+          />
 
           <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
             <p className="font-medium text-foreground">What this still never does</p>
@@ -523,22 +507,16 @@ export function CompanionPage() {
             />
           </Field>
 
-          <Field
-            label="Offer music on a long wait"
-            hint="After 20s waiting on an agent, offers something to listen to. Never plays without a yes."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={companionMusicOffer}
-                onChange={(event) => setCompanionMusicOffer(event.target.checked)}
-                disabled={!companionEnabled}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))] disabled:opacity-50"
-                data-testid="companion-music-offer"
-              />
-              Offer elevator music
-            </label>
-          </Field>
+          <SettingsSwitchRow
+            id="companion-music-offer"
+            label="Offer elevator music"
+            description="After 20s waiting on an agent, offers something to listen to. Never plays without a yes."
+            on={companionMusicOffer}
+            onToggle={(_id, next) => setCompanionMusicOffer(next)}
+            disabled={!companionEnabled}
+            title={!companionEnabled ? 'Enable the companion first.' : undefined}
+            testId="companion-music-offer"
+          />
         </div>
       </Accordion>
     </div>

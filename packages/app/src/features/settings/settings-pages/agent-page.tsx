@@ -32,6 +32,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { IconButton } from '../../../components/icon-button';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { resolveAgentIcon } from '../../../components/icons';
 import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { bridge, hasBridge } from '../../../services/bridge';
@@ -566,27 +567,23 @@ function HookToggleRow({ repoId, repoName }: { repoId: string; repoName: string 
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={installed ?? false}
-          disabled={isLoading || pending}
-          onChange={async (event) => {
-            const next = event.target.checked;
-            setError(null);
-            setPending(true);
-            try {
-              const result = await setHookInstalled(repoId, next);
-              if (!result.ok && result.kind === 'error') setError(result.message);
-            } finally {
-              setPending(false);
-            }
-          }}
-          className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-          data-testid={`hook-toggle-${repoId}`}
-        />
-        {repoName}
-      </label>
+      <SettingsSwitchRow
+        id={repoId}
+        label={repoName}
+        on={installed ?? false}
+        disabled={isLoading || pending}
+        testId={`hook-toggle-${repoId}`}
+        onToggle={async (_id, next) => {
+          setError(null);
+          setPending(true);
+          try {
+            const result = await setHookInstalled(repoId, next);
+            if (!result.ok && result.kind === 'error') setError(result.message);
+          } finally {
+            setPending(false);
+          }
+        }}
+      />
       {error ? <p className="ml-5 text-[11px] text-destructive">{error}</p> : null}
     </div>
   );
@@ -808,10 +805,10 @@ function LoopDefaultFields() {
               ) : (
                 /*
                   Grouped the way the panel groups them, so the two surfaces
-                  read as one form. Uniformly checkboxes here even where the
-                  panel draws a switch: every row is answering the same
-                  question — does a fresh run start with this on — rather than
-                  putting a policy in force right now.
+                  read as one form. Each row answers the same question — does
+                  a fresh run start with this on — not "is this in force
+                  right now"; `modifier.promptFragment` carries that context
+                  as the row's own tooltip rather than a second line of text.
                 */
                 LOOP_GROUPS.map((group) => {
                   const modifiers = loop.modifiers.filter((m) => m.group === group.id);
@@ -822,21 +819,15 @@ function LoopDefaultFields() {
                         {group.label}
                       </h4>
                       {modifiers.map((modifier) => (
-                        <label
+                        <SettingsSwitchRow
                           key={modifier.id}
+                          id={modifier.id}
+                          label={modifier.label}
                           title={modifier.promptFragment}
-                          className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground hover:text-foreground"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={defaults[loop.id]?.[modifier.id] ?? modifier.defaultOn}
-                            onChange={(event) =>
-                              setDefault(loop.id, modifier.id, event.target.checked)
-                            }
-                            className="h-3 w-3 shrink-0 accent-primary"
-                          />
-                          <span>{modifier.label}</span>
-                        </label>
+                          on={defaults[loop.id]?.[modifier.id] ?? modifier.defaultOn}
+                          onToggle={(_id, next) => setDefault(loop.id, modifier.id, next)}
+                          className="!text-[11px]"
+                        />
                       ))}
                     </Fragment>
                   );
