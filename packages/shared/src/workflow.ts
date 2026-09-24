@@ -52,6 +52,89 @@ export const WORKFLOW_HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', '
 export const WorkflowHttpMethodSchema = z.enum(WORKFLOW_HTTP_METHODS);
 export type WorkflowHttpMethod = z.infer<typeof WorkflowHttpMethodSchema>;
 
+// --- ports & edge kinds (Phase 97 Theme A) ------------------------------------
+
+/**
+ * What a port carries. `'any'` is the wildcard both directions accept;
+ * `'verdict'` is the maker/checker signal Theme E's verifier (and the
+ * existing `MIDNITE_WORKFLOW_NODE_DONE` marker) settle on, connectable to a
+ * `'boolean'` in-port so a `condition`-shaped consumer can read it without a
+ * transform node between them (see {@link canConnect}). `'artifact-ref'`
+ * names a produced file/output by reference rather than inlining it, for the
+ * built-in templates (Theme L) that pass an agent's output along without
+ * re-embedding it at every hop.
+ */
+export const WORKFLOW_PORT_TYPES = [
+  'any',
+  'json',
+  'text',
+  'number',
+  'boolean',
+  'verdict',
+  'artifact-ref',
+] as const;
+export const WorkflowPortTypeSchema = z.enum(WORKFLOW_PORT_TYPES);
+export type WorkflowPortType = z.infer<typeof WorkflowPortTypeSchema>;
+
+/**
+ * A small JSON-shape descriptor — deliberately not full JSON Schema (Decision
+ * 4 in the phase doc). It says "an object with these keys" or "an array of
+ * X", nothing about formats, patterns or unions. `properties`/`items` are
+ * themselves shapes, so a couple of levels of nesting (an http response's
+ * `{items: [{id, title}]}`) is expressible; anything deeper is what
+ * `'json'`/`'any'` ports are for.
+ */
+export type WorkflowPortShape = {
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
+  properties?: Record<string, WorkflowPortShape>;
+  items?: WorkflowPortShape;
+};
+
+export const WorkflowPortShapeSchema: z.ZodType<WorkflowPortShape> = z.lazy(() =>
+  z.object({
+    type: z.enum(['string', 'number', 'boolean', 'object', 'array', 'any']),
+    properties: z.record(z.string(), WorkflowPortShapeSchema).optional(),
+    items: WorkflowPortShapeSchema.optional(),
+  }),
+);
+
+/**
+ * One connection point on a node, as computed by {@link portsForNode} —
+ * **never persisted on the node itself**, so a kind's port list can change (a
+ * config field renamed, a router case added) without a migration; only the
+ * edges that reference a port id need one ({@link migrateWorkflowEdges}).
+ */
+export const WorkflowPortSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  direction: z.enum(['in', 'out']),
+  type: WorkflowPortTypeSchema,
+  /** Out-port only — what an agent/script/http node's config can pin (below), read by {@link canConnect}'s shape check. */
+  outputShape: WorkflowPortShapeSchema.optional(),
+  /**
+   * In-port only. `true` for every plain node's implicit `in` port below,
+   * which already behaves as an all-parents join today — Kahn scheduling in
+   * `workflow-engine.ts` waits on every incoming edge regardless of how many
+   * land on it — so restricting it here would break existing and future
+   * fan-in graphs that don't need a `join` node's `any`/`allSettled`
+   * semantics (Theme B). Left unset for a port meant to take exactly one
+   * edge (a future single-consumer `in`, or one of a join's distinctly-`id`d
+   * `in-1`/`in-2`/… ports, which don't need this flag because each is its
+   * own id).
+   */
+  allowMultiple: z.boolean().optional(),
+});
+export type WorkflowPort = z.infer<typeof WorkflowPortSchema>;
+
+/**
+ * Every node kind with an executor gets this out-port implicitly (`note` —
+ * canvas furniture with no executor — gets none). Its payload is always
+ * `{message, status}`, declared as the port's own `outputShape` in
+ * {@link portsForNode} so a downstream `{{...}}` hint can name `message`
+ * without the node's config saying anything about it.
+ */
+export const WORKFLOW_ERROR_PORT_ID = 'error';
+
 // --- node configs ------------------------------------------------------------
 
 export const WorkflowHttpConfigSchema = z.object({
@@ -79,6 +162,8 @@ export const WorkflowHttpConfigSchema = z.object({
    * workflow is refused as "still running" and the run only ends at quit.
    */
   timeoutMs: z.number().int().positive().max(600_000).optional(),
+  /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
+  outputShape: WorkflowPortShapeSchema.optional(),
 });
 export type WorkflowHttpConfig = z.infer<typeof WorkflowHttpConfigSchema>;
 
@@ -179,6 +264,8 @@ export const WorkflowAgentConfigSchema = z.object({
   agentId: z.string().default(''),
   prompt: z.string().default(''),
   model: z.string().optional(),
+  /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
+  outputShape: WorkflowPortShapeSchema.optional(),
 });
 export type WorkflowAgentConfig = z.infer<typeof WorkflowAgentConfigSchema>;
 
@@ -194,6 +281,8 @@ export const WorkflowScriptConfigSchema = z.object({
   command: z.string().default(''),
   cwd: z.string().optional(),
   env: z.record(z.string(), z.string()).default({}),
+  /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
+  outputShape: WorkflowPortShapeSchema.optional(),
 });
 export type WorkflowScriptConfig = z.infer<typeof WorkflowScriptConfigSchema>;
 
