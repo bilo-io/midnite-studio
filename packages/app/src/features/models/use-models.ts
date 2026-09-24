@@ -119,6 +119,28 @@ export function usePullCancel() {
   });
 }
 
+/**
+ * Theme G's one-click `<model>-64k` context variant — `POST /api/create`
+ * (Theme B), already wired end to end (`bridge().ollama.create`, the
+ * `mstudio:ollama:create` channel, `ollamaCreate` in main). `ollama/
+ * client.ts`'s own doc comment on that function says per-line progress was
+ * deliberately left out of Theme B's PR ("Theme G's own progress UI … awaits
+ * completion rather than exposing per-line progress the way `ollamaPull`
+ * does"), so this stays a plain mutation — the modal shows a spinner while
+ * it is pending, not a `pull`-style progress bar.
+ */
+export function useCreateModel() {
+  const invalidate = useInvalidateModels();
+  return useMutation({
+    mutationFn: async (req: { from: string; name: string; parameters?: Record<string, string | number> }) =>
+      (await bridge()?.ollama.create(req)) ?? noBridge<{ name: string }>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      if (result.ok) invalidate();
+    },
+  });
+}
+
 export function useOllamaSettings() {
   return useQuery({
     queryKey: MODELS_KEYS.settings,

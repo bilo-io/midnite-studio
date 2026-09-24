@@ -10,6 +10,7 @@ import { LoadingRegion, Skeleton, Spinner } from '../../components/skeleton';
 import { bridge } from '../../services/bridge';
 import { formatBytes } from '../monitor/format-bytes';
 import { submitCommand } from '../settings/settings-pages/health-page';
+import { ModelDetailModal } from './model-detail';
 import { useModelsPullQueueStore, type PullEntry } from './models-pull-queue-store';
 import {
   useDeleteModel,
@@ -225,6 +226,7 @@ function InstalledList() {
   const models = useOllamaModels();
   const running = useOllamaRunning();
   const runningByName = new Map((running.data ?? []).map((row) => [row.model, row]));
+  const [detailModel, setDetailModel] = useState<OllamaModel | null>(null);
 
   if (models.isLoading) {
     return (
@@ -248,16 +250,30 @@ function InstalledList() {
   return (
     <div className="flex flex-col gap-1.5">
       {(models.data ?? []).map((model) => (
-        <ModelRow key={model.digest} model={model} running={runningByName.get(model.model)} />
+        <ModelRow
+          key={model.digest}
+          model={model}
+          running={runningByName.get(model.model)}
+          onOpenDetail={setDetailModel}
+        />
       ))}
+      <ModelDetailModal
+        open={detailModel !== null}
+        onClose={() => setDetailModel(null)}
+        model={detailModel}
+        running={detailModel ? runningByName.get(detailModel.model) : undefined}
+      />
     </div>
   );
 }
 
 /**
- * `onOpenDetail` — Theme E's model-detail modal is not built in this PR; this
- * is the hook it wires into. A no-op today, kept as a real prop (not a TODO
- * comment) so the row's own click target doesn't move when Theme E lands.
+ * `onOpenDetail` — Theme E's model-detail modal (`model-detail.tsx`), wired
+ * from `InstalledList` above. Takes the full row (not just its name/tag) so
+ * the modal has size/modified-date without a second `list` round-trip — the
+ * `list`-fetched `OllamaModel` and the `show`-fetched `OllamaModelDetail`
+ * are two different shapes on the wire (Theme B), and only the list carries
+ * those two fields.
  */
 function ModelRow({
   model,
@@ -266,7 +282,7 @@ function ModelRow({
 }: {
   model: OllamaModel;
   running: OllamaRunningModel | undefined;
-  onOpenDetail?: (model: string) => void;
+  onOpenDetail?: (model: OllamaModel) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detail = useOllamaShow(expanded ? model.model : null);
@@ -297,7 +313,7 @@ function ModelRow({
           type="button"
           onClick={() => {
             setExpanded((value) => !value);
-            onOpenDetail(model.model);
+            onOpenDetail(model);
           }}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
