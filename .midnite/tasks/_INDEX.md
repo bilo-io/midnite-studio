@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 11/72 | `██░░░░░░░░` | 15% | C | D E F G H I |
+| [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 11/72 | `██░░░░░░░░` | 15% | C H | D E F G I |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
@@ -264,7 +264,7 @@ human/packaged-app verification passes.
 - ◻ **E** — model detail modal: stats, capabilities, context, fit-for-agents verdict, Modelfile/template/licence tabs
 - ◻ **F** — cloud models: `ollama signin` detection, vault-held `OLLAMA_API_KEY`, cloud catalogue, name normalisation
 - ◻ **G** — context-length fitness check and one-click `<model>-64k` variant
-- ◻ **H** — per-session pty env + per-agent backend binding; hybrid launch recipe (env / `--oss` / `ollama launch`) on every launch path
+- 🔄 **H** — per-session pty env + per-agent backend binding; hybrid launch recipe (env / `--oss` / `ollama launch`) on every launch path
 - ◻ **I** — per-launch Ollama model override, Launch with… from the modal, wand / Plan-with-AI via `/api/chat`
 
 ### [Phase 95 — Agentic improvements](phases/phase-95-agentic-improvements.md)
