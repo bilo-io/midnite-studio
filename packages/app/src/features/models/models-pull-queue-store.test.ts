@@ -37,7 +37,7 @@ describe('models-pull-queue-store', () => {
     });
 
     progress({ pullId: 'p1', model: 'qwen3.5:14b', status: 'success', done: true });
-    const finished = useModelsPullQueueStore.getState().pulls.p1;
+    const finished = useModelsPullQueueStore.getState().pulls.p1!;
     expect(finished.status).toBe('success');
     expect(finished.done).toBe(true);
     expect(finished.failed).toBe(false);
@@ -49,7 +49,7 @@ describe('models-pull-queue-store', () => {
     progress({ pullId: 'p2', model: 'llama3:8b', status: 'pulling manifest' });
     progress({ pullId: 'p2', model: 'llama3:8b', status: 'cancelled', done: true });
 
-    const finished = useModelsPullQueueStore.getState().pulls.p2;
+    const finished = useModelsPullQueueStore.getState().pulls.p2!;
     expect(finished.done).toBe(true);
     expect(finished.failed).toBe(true);
     expect(finished.status).toBe('cancelled');
@@ -65,7 +65,7 @@ describe('models-pull-queue-store', () => {
       done: true,
     });
 
-    const finished = useModelsPullQueueStore.getState().pulls.p3;
+    const finished = useModelsPullQueueStore.getState().pulls.p3!;
     expect(finished.done).toBe(true);
     expect(finished.failed).toBe(true);
     expect(finished.status).toBe('error: connection refused');
@@ -94,8 +94,8 @@ describe('models-pull-queue-store', () => {
   it('preserves startedAt across progress updates for the same pull', () => {
     const { queued, progress } = useModelsPullQueueStore.getState();
     queued('p7', 'model-a');
-    const startedAt = useModelsPullQueueStore.getState().pulls.p7.startedAt;
+    const startedAt = useModelsPullQueueStore.getState().pulls.p7!.startedAt;
     progress({ pullId: 'p7', model: 'model-a', status: 'pulling manifest' });
-    expect(useModelsPullQueueStore.getState().pulls.p7.startedAt).toBe(startedAt);
+    expect(useModelsPullQueueStore.getState().pulls.p7!.startedAt).toBe(startedAt);
   });
 });
