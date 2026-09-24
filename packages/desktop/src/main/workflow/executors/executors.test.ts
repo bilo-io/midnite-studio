@@ -209,6 +209,26 @@ describe('the http executor', () => {
     expect(result.bodyIsJson).toBe(false);
     expect(typeof result.body).toBe('string');
   });
+
+  it('fails with a friendly message when a {{demo...}} reference has no demo namespace upstream (Phase 97 Theme M)', async () => {
+    const outcome = await httpExecutor(httpNode({ url: '{{demo.baseUrl}}/items' }), context());
+    expect(outcome.ok).toBe(false);
+    expect(!outcome.ok && outcome.error).toBe('Demo API is not running — start it from the Demo API pill.');
+  });
+
+  it('resolves {{demo.baseUrl}} once the reserved namespace is upstream', async () => {
+    const outcome = await httpExecutor(
+      httpNode({ url: '{{demo.baseUrl}}/items' }),
+      context({ upstream: { demo: { baseUrl: api.baseUrl } } }),
+    );
+    expect(outcome.ok).toBe(true);
+  });
+
+  it('leaves an ordinary unresolved reference with the generic interpolate error, not the demo message', async () => {
+    const outcome = await httpExecutor(httpNode({ url: '{{someNode.url}}' }), context());
+    expect(outcome.ok).toBe(false);
+    expect(!outcome.ok && outcome.error).toContain('not upstream of this one');
+  });
 });
 
 describe('the transform executor', () => {

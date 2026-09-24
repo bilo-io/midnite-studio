@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
 
+import { startFixtureServer, type FixtureServer } from '../demo-api/fixture-server';
 import type { ExecutorRegistry, NodeExecutor, NodeOutcome } from './executor-registry';
+import { httpExecutor } from './executors/http';
 import {
   cancelWorkflowRun,
   runLocksSizeForTests,
@@ -1034,5 +1036,57 @@ describe('the error port (Theme B)', () => {
     expect(byId.onFalse!.status).toBe('skipped');
     expect(byId.onFalse!.error).toContain('false');
     expect(recorder.started).toEqual(['gate', 'onTrue']);
+  });
+});
+
+function httpDemoNode(id: string, url = '{{demo.baseUrl}}/items'): WorkflowNode {
+  return { id, label: id, x: 0, y: 0, kind: 'http', config: { method: 'GET', url, headers: {}, params: {}, queryShaped: false } };
+}
+
+/**
+ * `{{demo.baseUrl}}` (Phase 97 Theme M) with the real `httpExecutor` swapped
+ * in for the `http` kind — every other kind stays the fake registry, since
+ * these two tests are only about the reserved `demo` root the engine injects
+ * into `upstream`, not about routing or joins.
+ */
+describe('demo API interpolation (Phase 97 Theme M)', () => {
+  it('resolves {{demo.baseUrl}} against the running demo API', async () => {
+    const api: FixtureServer = await startFixtureServer();
+    try {
+      const store = makeStore();
+      const recorder: Recorder = { started: [], settled: [] };
+      const w = workflow([httpDemoNode('h')], []);
+
+      const started = await startWorkflowRun(
+        w,
+        deps(store, { executors: { ...fakeRegistry({}, recorder), http: httpExecutor } }),
+      );
+      expect(started.ok).toBe(true);
+      await settle();
+
+      const run = store.get(started.ok ? started.value.id : '')!;
+      const node = run.nodes.find((n) => n.nodeId === 'h');
+      expect(node?.status).toBe('succeeded');
+    } finally {
+      await api.stop();
+    }
+  });
+
+  it('fails an http node referencing {{demo.baseUrl}} with a friendly message when the demo API is not running', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([httpDemoNode('h')], []);
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, { executors: { ...fakeRegistry({}, recorder), http: httpExecutor } }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const node = run.nodes.find((n) => n.nodeId === 'h');
+    expect(node?.status).toBe('failed');
+    expect(node?.error).toBe('Demo API is not running — start it from the Demo API pill.');
   });
 });
