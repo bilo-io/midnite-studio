@@ -952,6 +952,14 @@ async function settleNode(
         node.settledPort = decision.settledPortOverride;
         node.loopExit = decision.reason;
         upsertLoopState(run, decision.loopState);
+      } else if (decision.action === 'bypass') {
+        // Still a loop source, just not taking the loop edge THIS settle
+        // (e.g. a condition that finally passed) — `takenPort` must still be
+        // recorded, or a node that iterated at least once would fall back to
+        // the blanket `gatedDownstream` cascade on the very settle that
+        // finally lets it move on, which cannot tell its ordinary
+        // continuation apart from its `exhausted` escalation child.
+        node.takenPort = decision.takenPort;
       }
     }
 
