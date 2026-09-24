@@ -405,6 +405,24 @@ export const CHANNELS = {
   updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
 
+  // --- ollama (Phase 96 Theme B) -----------------------------------------------
+  /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */
+  ollamaStatus: 'mstudio:ollama:status',
+  /** `GET /api/tags` — installed models. */
+  ollamaList: 'mstudio:ollama:list',
+  /** `POST /api/show` — one model's full detail, including derived `contextLength`. */
+  ollamaShow: 'mstudio:ollama:show',
+  /** `GET /api/ps` — currently loaded models. */
+  ollamaPs: 'mstudio:ollama:ps',
+  /** Starts a pull, returning immediately with a `pullId`; progress streams on `ollamaPullProgress`. */
+  ollamaPull: 'mstudio:ollama:pull',
+  ollamaPullCancel: 'mstudio:ollama:pull-cancel',
+  ollamaDelete: 'mstudio:ollama:delete',
+  /** `POST /api/create` — e.g. Theme G's one-click `<model>-64k` context variant. */
+  ollamaCreate: 'mstudio:ollama:create',
+  /** `keep_alive: 0` against `/api/generate` — unloads a running model, never stops the daemon. */
+  ollamaUnload: 'mstudio:ollama:unload',
+
   // --- optimizer (Phase 59) ---------------------------------------------------
   /** Smart Scan across every registered repo/worktree, plus one optional extra root. */
   optimizerScan: 'mstudio:optimizer:scan',
@@ -1311,6 +1329,13 @@ export const EVENT_CHANNELS = {
   /** The run finished (or was aborted) — carries the whole `ApiRunSummary`,
    *  mirroring `dbQueryDone`. */
   apiRunDone: 'mstudio:api-client:run-done',
+
+  /**
+   * A pull's progress advanced (or finished/failed/was cancelled), keyed by
+   * the `pullId` `ollamaPull` returned — see `OllamaPullProgressEventSchema`.
+   * Coalesced in the pull queue to roughly 10 events/s per pull.
+   */
+  ollamaPullProgress: 'mstudio:ollama:pull-progress',
 
   /**
    * A cold ForceAtlas2 pass advanced — `{repoId, done, total}` — Theme D's

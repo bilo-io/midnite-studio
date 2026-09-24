@@ -1202,6 +1202,30 @@ export type MidniteStudioBridge = {
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
 
   /**
+   * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull
+   * queue. `status` is a plain probe (unreachable is data); every other call
+   * that touches the daemon returns a `GitOpResult`. `pull` resolves
+   * immediately with a `pullId`; its progress arrives on `onPullProgress`,
+   * keyed by that same id, until a `done: true` event closes it out.
+   */
+  ollama: {
+    status: () => Promise<z.infer<typeof S.OllamaStatusResponse>>;
+    list: () => Promise<z.infer<typeof S.OllamaListResponse>>;
+    show: (req: In<typeof S.OllamaShowRequest>) => Promise<z.infer<typeof S.OllamaShowResponse>>;
+    ps: () => Promise<z.infer<typeof S.OllamaPsResponse>>;
+    pull: (req: In<typeof S.OllamaPullRequest>) => Promise<z.infer<typeof S.OllamaPullResponse>>;
+    pullCancel: (
+      req: In<typeof S.OllamaPullCancelRequest>,
+    ) => Promise<z.infer<typeof S.OllamaPullCancelResponse>>;
+    delete: (req: In<typeof S.OllamaDeleteRequest>) => Promise<z.infer<typeof S.OllamaDeleteResponse>>;
+    create: (req: In<typeof S.OllamaCreateRequest>) => Promise<z.infer<typeof S.OllamaCreateResponse>>;
+    unload: (req: In<typeof S.OllamaUnloadRequest>) => Promise<z.infer<typeof S.OllamaUnloadResponse>>;
+    onPullProgress: (
+      handler: (event: z.infer<typeof S.OllamaPullProgressPayload>) => void,
+    ) => Unsubscribe;
+  };
+
+  /**
    * The Workspace Optimizer (Phase 59) — Smart Scan/Storage, the widened
    * process table, kill, and GPU stats. Gated behind a default-off setting;
    * see `Settings ▸ Workspace Optimizer`.
