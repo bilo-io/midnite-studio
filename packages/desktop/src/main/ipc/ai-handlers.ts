@@ -30,6 +30,7 @@ export function registerAiHandlers(): void {
         fieldName: req.fieldName,
         fieldValue: req.fieldValue,
         otherFields: req.otherFields,
+        ollamaModel: req.ollamaModel,
       }),
     (issue): GitOpResult<{ text: string }> => failure(issue),
   );
@@ -45,6 +46,7 @@ export function registerAiHandlers(): void {
         prompt: req.prompt,
         existing: req.existing,
         originIssue: req.originIssue,
+        ollamaModel: req.ollamaModel,
       }),
     (issue): GitOpResult<{ blueprint: AiPlanBlueprint }> => failure(issue),
   );

@@ -211,3 +211,29 @@ describe('improveField', () => {
     expect(result).toEqual({ ok: true, value: { text: 'A clean rewrite.' } });
   });
 });
+
+describe('improveField — on an Ollama model (Phase 96 Theme I)', () => {
+  const baseUrl = async () => 'http://127.0.0.1:11434';
+  const input = { repoName: 'o/r', fieldName: 'title', fieldValue: 'fix thing', ollamaModel: 'qwen3:14b' };
+
+  it('rewrites through /api/chat with no CLI on the roster', async () => {
+    const chat = vi.fn(async () => '  Fix the thing  ');
+    const result = await improveField(input, deps({ agents: async () => [], ollama: { chat, baseUrl } }));
+    expect(result).toEqual({ ok: true, value: { text: 'Fix the thing' } });
+  });
+
+  it('an empty reply is refused', async () => {
+    const chat = vi.fn(async () => '   ');
+    const result = await improveField(input, deps({ ollama: { chat, baseUrl } }));
+    expect(result.ok).toBe(false);
+  });
+
+  it('a timeout reads as a cancellation', async () => {
+    const chat = vi.fn(async () => {
+      throw new Error('The operation was aborted.');
+    });
+    const result = await improveField(input, deps({ ollama: { chat, baseUrl } }));
+    expect(result).toMatchObject({ ok: false });
+    if (!result.ok) expect(result.message).toContain('took too long');
+  });
+});

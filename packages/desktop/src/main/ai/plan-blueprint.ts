@@ -15,6 +15,7 @@ import {
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
 import { listAgents } from '../terminal-service';
 import { resolveHeadlessAgent } from '../companion/ask';
+import { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
 
 /**
  * Plan with AI (Phase 95 Theme F) — `main/ai/improve-field.ts`'s pattern
@@ -49,6 +50,8 @@ export type AiPlanBlueprintInput = {
   existing?: AiPlanBlueprint | undefined;
   /** Present only when planning sub-issues of an already-open issue. */
   originIssue?: { number: number; title: string } | undefined;
+  /** Phase 96 Theme I — run on this Ollama model via `/api/chat`, not a CLI. */
+  ollamaModel?: string | undefined;
 };
 
 export type AiPlanBlueprintDeps = {
@@ -56,6 +59,7 @@ export type AiPlanBlueprintDeps = {
   spawn?: SpawnFn | undefined;
   timeoutMs?: number | undefined;
   home?: (() => string) | undefined;
+  ollama?: OllamaHeadlessDeps | undefined;
 };
 
 export const defaultAiPlanBlueprintDeps: AiPlanBlueprintDeps = { agents: listAgents };
@@ -182,29 +186,39 @@ export async function planBlueprint(
   input: AiPlanBlueprintInput,
   deps: AiPlanBlueprintDeps = defaultAiPlanBlueprintDeps,
 ): Promise<GitOpResult<{ blueprint: AiPlanBlueprint }>> {
-  const roster = await deps.agents();
-  const resolved = resolveHeadlessAgent(roster, input.agentId);
-  if (!resolved) {
-    return failure('No agent CLI with a headless mode is installed, so there is nothing to plan with.');
+  const basePrompt = buildPlanBlueprintPrompt(input);
+  let label: string;
+  let run: (prompt: string) => ReturnType<typeof runOnce>;
+
+  if (input.ollamaModel) {
+    const model = input.ollamaModel;
+    label = model;
+    run = (prompt) => runOllamaPrompt(model, prompt, deps.timeoutMs ?? AI_PLAN_BLUEPRINT_TIMEOUT_MS, deps.ollama);
+  } else {
+    const roster = await deps.agents();
+    const resolved = resolveHeadlessAgent(roster, input.agentId);
+    if (!resolved) {
+      return failure('No agent CLI with a headless mode is installed, so there is nothing to plan with.');
+    }
+    const cwd = input.repoPath ?? (deps.home ?? homedir)();
+    label = resolved.agent.label;
+    run = (prompt) => runOnce(resolved, prompt, cwd, deps);
   }
 
-  const cwd = input.repoPath ?? (deps.home ?? homedir)();
-  const basePrompt = buildPlanBlueprintPrompt(input);
-
-  const first = await runOnce(resolved, basePrompt, cwd, deps);
+  const first = await run(basePrompt);
   if (!first.ok) return failure(first.message);
 
   const firstBlueprint = parsePlanBlueprintReply(first.data);
   if (firstBlueprint) return ok({ blueprint: firstBlueprint });
 
-  // One retry, per the phase doc — the CLI's own last reply becomes part of
+  // One retry, per the phase doc — the model's own last reply becomes part of
   // the correction prompt rather than a second blind attempt.
   const retryPrompt = buildRetryPrompt(basePrompt, first.data);
-  const second = await runOnce(resolved, retryPrompt, cwd, deps);
+  const second = await run(retryPrompt);
   if (!second.ok) return failure(second.message);
 
   const secondBlueprint = parsePlanBlueprintReply(second.data);
   if (secondBlueprint) return ok({ blueprint: secondBlueprint });
 
-  return failure(`${resolved.agent.label} could not answer with a plan in the shape this app expects.`);
+  return failure(`${label} could not answer with a plan in the shape this app expects.`);
 }

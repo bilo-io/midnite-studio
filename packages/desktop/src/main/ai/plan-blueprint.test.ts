@@ -200,3 +200,44 @@ describe('planBlueprint', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+describe('planBlueprint — on an Ollama model (Phase 96 Theme I)', () => {
+  const baseUrl = async () => 'http://127.0.0.1:11434';
+
+  it('calls /api/chat instead of spawning a CLI, and parses the reply', async () => {
+    const spawn = vi.fn();
+    const chat = vi.fn(async () => VALID_JSON);
+    const result = await planBlueprint(
+      { repoName: 'o/r', prompt: 'ship it', ollamaModel: 'qwen3:14b' },
+      deps({ spawn: spawn as unknown as SpawnFn, agents: async () => [], ollama: { chat, baseUrl } }),
+    );
+    expect(result.ok).toBe(true);
+    expect(spawn).not.toHaveBeenCalled();
+    expect(chat).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'qwen3:14b' }),
+      expect.objectContaining({ baseUrl: 'http://127.0.0.1:11434' }),
+    );
+  });
+
+  it('retries once on bad JSON, then succeeds', async () => {
+    const chat = vi.fn().mockResolvedValueOnce('nope').mockResolvedValueOnce(VALID_JSON);
+    const result = await planBlueprint(
+      { repoName: 'o/r', prompt: 'ship it', ollamaModel: 'qwen3:14b' },
+      deps({ ollama: { chat, baseUrl } }),
+    );
+    expect(result.ok).toBe(true);
+    expect(chat).toHaveBeenCalledTimes(2);
+  });
+
+  it('a stopped daemon is an error envelope, not a throw', async () => {
+    const chat = vi.fn(async () => {
+      throw new Error('fetch failed');
+    });
+    const result = await planBlueprint(
+      { repoName: 'o/r', prompt: 'ship it', ollamaModel: 'qwen3:14b' },
+      deps({ ollama: { chat, baseUrl } }),
+    );
+    expect(result).toMatchObject({ ok: false });
+    if (!result.ok) expect(result.message).toContain('Could not reach Ollama');
+  });
+});
