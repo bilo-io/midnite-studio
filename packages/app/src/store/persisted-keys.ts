@@ -41,6 +41,8 @@ export const PREFERENCE_KEYS = [
   'apiClientRequestTimeoutS', // api-client-page.tsx
   'autoFetchEnabled', // sidebar-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
+  'automateCapByProject', // projects-page.tsx — Auto-mate's concurrency cap (Phase 95 Theme H)
+  'automateEnabledByProject', // projects-page.tsx — Auto-mate's on/off switch, read there and set from the board toggle (Phase 95 Theme H)
   'blockedByFieldName', // projects-page.tsx
   'browserDiscardMs', // browser-page.tsx
   'columnSkillByProject', // projects-page.tsx — drag-to-skill's column → skill map (Phase 95 Theme G)

@@ -78,6 +78,10 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'window.detachBrowser',
   // Same recoverability class as its four siblings above (Phase 81 Theme B).
   'window.detachCompanion',
+  // Opens the kill switch modal, which has its own Cancel/Confirm — the same
+  // recoverability class as `account.switcher.open`'s "opening a menu is
+  // recoverable by definition" above (Phase 95 Theme H).
+  'automate.kill',
 ] as const;
 
 export function isPaletteSafe(id: CommandId): boolean {
@@ -213,6 +217,9 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   // running", which the companion cannot itself have started.
   'op.abort': 'never',
   'op.continue': 'never',
+  // Opens the modal — its own Cancel/Confirm is the actual gate on stopping
+  // anything, the same reasoning `account.switcher.open` gets `direct` for.
+  'automate.kill': 'direct',
   'palette.open': 'direct',
   'palette.files': 'direct',
   'file.save': 'confirm',

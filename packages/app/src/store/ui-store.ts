@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import {
+  clampAutomateConcurrency,
   DEFAULT_BROWSER_DISCARD_MS,
   DEFAULT_COMPANION_VOLUME,
   DEFAULT_SKILL_EXECUTION_MODE,
@@ -1399,6 +1400,33 @@ export type UiState = {
    *  `DEFAULT_COLUMN_SKILLS`; `''` keeps the key but disables it. */
   setColumnSkill: (projectId: string, columnName: string, template: string | undefined) => void;
   /**
+   * Auto-mate's own on/off switch (Phase 95 Theme H), keyed by `projectId` —
+   * the same "editable per project, for whichever board is open" rule
+   * `columnSkillByProject` already follows, since Auto-mate walks one board's
+   * own Todo column. Absent means off, the same "absence is the true unset"
+   * convention `cardSkillByTask` uses.
+   */
+  automateEnabledByProject: Record<string, boolean>;
+  setAutomateEnabled: (projectId: string, enabled: boolean) => void;
+  /**
+   * Auto-mate's concurrency cap (Phase 95 Theme H) — 1 to 5, default 1 (the
+   * phase doc's own numbers, `clampAutomateConcurrency` in
+   * `@midnite/studio-shared`). Absent means the default; only ever written
+   * with an already-clamped value, so a stale persisted blob from a future,
+   * wider range cannot leave this reading garbage.
+   */
+  automateCapByProject: Record<string, number>;
+  setAutomateCap: (projectId: string, cap: number) => void;
+  /**
+   * The kill switch modal's open/closed state — transient, not persisted:
+   * reopening the app to a modal already open over nothing it was looking at
+   * would be a worse first frame than just starting closed, the same reason
+   * `screensaverOpen` is not persisted either.
+   */
+  killSwitchOpen: boolean;
+  openKillSwitch: () => void;
+  closeKillSwitch: () => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1998,6 +2026,8 @@ export type PersistedUi = Pick<
   | 'projectViewByProject'
   | 'cardSkillByTask'
   | 'columnSkillByProject'
+  | 'automateEnabledByProject'
+  | 'automateCapByProject'
   | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
@@ -2137,6 +2167,9 @@ export const useUiStore = create<UiState>()(
       projectViewByProject: {},
       cardSkillByTask: {},
       columnSkillByProject: {},
+      automateEnabledByProject: {},
+      automateCapByProject: {},
+      killSwitchOpen: false,
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
@@ -2845,6 +2878,16 @@ export const useUiStore = create<UiState>()(
             columnSkillByProject: touchProjectView(state.columnSkillByProject, projectId, nextColumns),
           };
         }),
+      setAutomateEnabled: (projectId, enabled) =>
+        set((state) => ({
+          automateEnabledByProject: { ...state.automateEnabledByProject, [projectId]: enabled },
+        })),
+      setAutomateCap: (projectId, cap) =>
+        set((state) => ({
+          automateCapByProject: { ...state.automateCapByProject, [projectId]: clampAutomateConcurrency(cap) },
+        })),
+      openKillSwitch: () => set({ killSwitchOpen: true }),
+      closeKillSwitch: () => set({ killSwitchOpen: false }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -2857,7 +2900,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 25,
+      version: 26,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2915,6 +2958,8 @@ export const useUiStore = create<UiState>()(
         projectViewByProject: state.projectViewByProject,
         cardSkillByTask: state.cardSkillByTask,
         columnSkillByProject: state.columnSkillByProject,
+        automateEnabledByProject: state.automateEnabledByProject,
+        automateCapByProject: state.automateCapByProject,
         blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
@@ -3057,6 +3102,11 @@ export const useUiStore = create<UiState>()(
        * drag-to-skill's per-project override map did not exist before this
        * version, so a pre-v25 blob and a fresh install land on the identical
        * empty map and every board reads `DEFAULT_COLUMN_SKILLS` unmodified.
+       * v25 → v26: seed `automateEnabledByProject = {}` and
+       * `automateCapByProject = {}` (Phase 95 Theme H) — Auto-mate did not
+       * exist before this version, so a pre-v26 blob and a fresh install
+       * land on the identical empty maps and every board reads the default
+       * (off, cap 1) unmodified.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3099,6 +3149,8 @@ export const useUiStore = create<UiState>()(
           companionMicMode?: CompanionMicMode;
           cardSkillByTask?: Record<string, AgentCommandId>;
           columnSkillByProject?: Record<string, Record<string, string>>;
+          automateEnabledByProject?: Record<string, boolean>;
+          automateCapByProject?: Record<string, number>;
           forgeAccounts?: ForgeAccount[];
           forgeActiveAccountId?: string | null;
           forgeScopeReposToActiveAccount?: boolean;
@@ -3209,6 +3261,10 @@ export const useUiStore = create<UiState>()(
         if (version < 25) {
           state.columnSkillByProject = {};
         }
+        if (version < 26) {
+          state.automateEnabledByProject = {};
+          state.automateCapByProject = {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -3258,6 +3314,8 @@ export const useUiStore = create<UiState>()(
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
           columnSkillByProject: { ...current.columnSkillByProject, ...saved.columnSkillByProject },
+          automateEnabledByProject: { ...current.automateEnabledByProject, ...saved.automateEnabledByProject },
+          automateCapByProject: { ...current.automateCapByProject, ...saved.automateCapByProject },
         };
       },
     },
