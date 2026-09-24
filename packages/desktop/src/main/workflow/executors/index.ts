@@ -3,6 +3,7 @@ import { agentExecutor } from './agent';
 import { conditionExecutor } from './condition';
 import { delayExecutor } from './delay';
 import { httpExecutor } from './http';
+import { joinExecutor } from './join';
 import { noteExecutor } from './note';
 import { scriptExecutor } from './script';
 import { transformExecutor } from './transform';
@@ -25,6 +26,7 @@ export const defaultExecutors: ExecutorRegistry = {
   note: noteExecutor,
   agent: agentExecutor,
   script: scriptExecutor,
+  join: joinExecutor,
 };
 
 export {
@@ -32,6 +34,7 @@ export {
   conditionExecutor,
   delayExecutor,
   httpExecutor,
+  joinExecutor,
   noteExecutor,
   scriptExecutor,
   transformExecutor,
