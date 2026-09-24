@@ -232,7 +232,7 @@ independent and can start at once). **I** needs **E** and **H**.
 - [ ] Cloud models count as fit by default (hosted context is large); a cloud model whose catalogue
       entry says otherwise is flagged.
 
-### H — Agents on Ollama (L) — ✅ DONE (PR #TBD, 2026-09-24)
+### H — Agents on Ollama (L) — ✅ DONE (PR #542, 2026-09-24)
 
 - [x] **Per-session env.** Extend the pty create request with an optional `env: Record<string,
       string>` (zod-validated, keys matching `^[A-Z_][A-Z0-9_]*$`), merged over `process.env` in
