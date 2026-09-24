@@ -5,6 +5,7 @@ import {
   WORKFLOW_NODE_TIMEOUT_MS,
   failure,
   findCycleEdge,
+  migrateWorkflowEdges,
   ok,
   validateWorkflow,
   type GitOpResult,
@@ -179,9 +180,16 @@ function statusFor(run: WorkflowRun): WorkflowRun['status'] {
  * and a run is not one.
  */
 export async function startWorkflowRun(
-  workflow: Workflow,
+  workflowIn: Workflow,
   deps: EngineDeps,
 ): Promise<GitOpResult<WorkflowRun>> {
+  // A workflow reaching the engine directly (a test fixture, or any future
+  // caller that bypasses `workflows-store.ts`'s own load-time migration)
+  // still gets a legacy `condition` node's edges mapped onto its `true` port
+  // — otherwise `validateWorkflow`'s port-existence check (Theme A) would
+  // reject an old workflow that has always run fine.
+  const workflow = migrateWorkflowEdges(workflowIn);
+
   const issues = validateWorkflow(workflow);
   if (issues.length > 0) {
     const first = issues[0]!;

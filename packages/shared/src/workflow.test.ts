@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   WORKFLOW_AGENT_DONE_MARKER,
   WORKFLOW_AGENT_DONE_MARKER_PATTERN,
+  WORKFLOW_ERROR_PORT_ID,
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WORKFLOW_NODE_KINDS,
   WorkflowNodeSchema,
@@ -10,12 +11,17 @@ import {
   WorkflowSchema,
   agentNodeDonePrompt,
   ancestorIds,
+  canConnect,
   findCycleEdge,
+  migrateWorkflowEdges,
+  normalizeEdge,
+  portsForNode,
   validateWorkflow,
   wouldCycle,
   type Workflow,
   type WorkflowEdge,
   type WorkflowNode,
+  type WorkflowPort,
 } from './workflow';
 
 function node(over: Partial<Extract<WorkflowNode, { kind: 'http' }>> = {}): WorkflowNode {
@@ -209,6 +215,222 @@ describe('validateWorkflow', () => {
       }),
     );
     expect(issues).toEqual([{ message: 'This workflow has nothing to run.' }]);
+  });
+
+  it('names an edge whose port no longer exists on either end (Theme A)', () => {
+    const issues = validateWorkflow(
+      workflow({ edges: [{ id: 'e1', from: 'a', to: 'b', fromPort: 'gone', toPort: 'also-gone' }] }),
+    );
+    expect(issues).toEqual([
+      { message: '"Fetch" has no out-port named "gone".', edgeId: 'e1' },
+      { message: '"Create" has no in-port named "also-gone".', edgeId: 'e1' },
+    ]);
+  });
+
+  it('does not double-report a note connection as a missing port', () => {
+    const issues = validateWorkflow(
+      workflow({
+        nodes: [node(), { id: 'n', label: 'Why', x: 0, y: 0, kind: 'note', config: { text: 'hi' } }],
+        edges: [{ id: 'e1', from: 'a', to: 'n' }],
+      }),
+    );
+    expect(issues).toEqual([
+      { message: 'A note cannot be connected — it is a label, not a step.', edgeId: 'e1' },
+    ]);
+  });
+});
+
+describe('portsForNode', () => {
+  it('gives every executor-bearing kind an implicit multi-input `in` and an `error` out-port', () => {
+    for (const kind of WORKFLOW_NODE_KINDS) {
+      if (kind === 'note') continue;
+      const n = { ...node(), kind } as WorkflowNode;
+      const ports = portsForNode(n);
+      expect(ports).toContainEqual(
+        expect.objectContaining({ id: 'in', direction: 'in', type: 'any', allowMultiple: true }),
+      );
+      expect(ports.some((p) => p.id === WORKFLOW_ERROR_PORT_ID && p.direction === 'out')).toBe(true);
+    }
+  });
+
+  it('gives a note no ports at all', () => {
+    const n: WorkflowNode = { id: 'n', label: 'Why', x: 0, y: 0, kind: 'note', config: { text: '' } };
+    expect(portsForNode(n)).toEqual([]);
+  });
+
+  it('settles a condition on named true/false out-ports, not a single out', () => {
+    const n: WorkflowNode = {
+      id: 'c',
+      label: 'Check',
+      x: 0,
+      y: 0,
+      kind: 'condition',
+      config: { left: '{{a.status}}', op: 'eq', right: '200' },
+    };
+    const ports = portsForNode(n);
+    expect(ports.filter((p) => p.direction === 'out').map((p) => p.id).sort()).toEqual(['error', 'false', 'true']);
+  });
+
+  it('copies an http/agent/script node\'s configured outputShape onto its `out` port', () => {
+    const shape = { type: 'object' as const, properties: { id: { type: 'number' as const } } };
+    const n: WorkflowNode = {
+      ...node(),
+      kind: 'http',
+      config: { method: 'GET', url: 'u', headers: {}, params: {}, queryShaped: false, outputShape: shape },
+    };
+    const out = portsForNode(n).find((p) => p.id === 'out');
+    expect(out?.outputShape).toEqual(shape);
+  });
+});
+
+describe('normalizeEdge', () => {
+  it('fills fromPort/toPort/kind defaults for a pre-Theme-A edge', () => {
+    expect(normalizeEdge({ id: 'e1', from: 'a', to: 'b' })).toEqual({
+      id: 'e1',
+      from: 'a',
+      to: 'b',
+      fromPort: 'out',
+      toPort: 'in',
+      kind: 'data',
+    });
+  });
+
+  it('leaves an already-typed edge untouched', () => {
+    const edge: WorkflowEdge = { id: 'e1', from: 'a', to: 'b', fromPort: 'true', toPort: 'in', kind: 'conditional' };
+    expect(normalizeEdge(edge)).toEqual(edge);
+  });
+});
+
+describe('canConnect', () => {
+  const httpNode: WorkflowNode = node();
+  const conditionNode: WorkflowNode = {
+    id: 'c',
+    label: 'Check',
+    x: 0,
+    y: 0,
+    kind: 'condition',
+    config: { left: '{{a.status}}', op: 'eq', right: '200' },
+  };
+  const targetNode: WorkflowNode = { ...node(), id: 'b', label: 'Create' };
+
+  const outPort = (p: Partial<WorkflowPort> = {}): WorkflowPort => ({
+    id: 'out',
+    label: 'Response',
+    direction: 'out',
+    type: 'json',
+    ...p,
+  });
+  const inPort = (p: Partial<WorkflowPort> = {}): WorkflowPort => ({
+    id: 'in',
+    label: 'In',
+    direction: 'in',
+    type: 'any',
+    allowMultiple: true,
+    ...p,
+  });
+
+  it('allows a compatible connection', () => {
+    expect(canConnect(httpNode, outPort(), targetNode, inPort(), [])).toEqual({ ok: true });
+  });
+
+  it('rejects the wrong direction on either end', () => {
+    expect(canConnect(httpNode, inPort(), targetNode, inPort(), []).ok).toBe(false);
+    expect(canConnect(httpNode, outPort(), targetNode, outPort(), []).ok).toBe(false);
+  });
+
+  it('rejects a self-connection', () => {
+    expect(canConnect(httpNode, outPort(), httpNode, inPort(), []).ok).toBe(false);
+  });
+
+  it('rejects an incompatible port type', () => {
+    const result = canConnect(httpNode, outPort({ type: 'text' }), targetNode, inPort({ type: 'number' }), []);
+    expect(result).toEqual({ ok: false, reason: '"Response" (text) cannot connect to "In" (number).' });
+  });
+
+  it('any accepts everything, in either port', () => {
+    expect(canConnect(httpNode, outPort({ type: 'any' }), targetNode, inPort({ type: 'number' }), []).ok).toBe(true);
+    expect(canConnect(httpNode, outPort({ type: 'text' }), targetNode, inPort({ type: 'any' }), []).ok).toBe(true);
+  });
+
+  it('allows verdict -> boolean, but not boolean -> verdict', () => {
+    expect(canConnect(httpNode, outPort({ type: 'verdict' }), targetNode, inPort({ type: 'boolean' }), []).ok).toBe(true);
+    expect(canConnect(httpNode, outPort({ type: 'boolean' }), targetNode, inPort({ type: 'verdict' }), []).ok).toBe(false);
+  });
+
+  it('rejects mismatched shapes only when both sides declare one', () => {
+    const objShape = { type: 'object' as const };
+    const arrShape = { type: 'array' as const };
+    expect(
+      canConnect(httpNode, outPort({ outputShape: objShape }), targetNode, inPort({ outputShape: arrShape }), []).ok,
+    ).toBe(false);
+    // One side unpinned — permissive.
+    expect(canConnect(httpNode, outPort({ outputShape: objShape }), targetNode, inPort(), []).ok).toBe(true);
+  });
+
+  it('rejects a second edge into a single-input port, allows it when allowMultiple', () => {
+    const existing: WorkflowEdge = { id: 'e1', from: 'x', to: 'b', toPort: 'in' };
+    const single = canConnect(httpNode, outPort(), targetNode, inPort({ allowMultiple: undefined }), [existing]);
+    expect(single).toEqual({
+      ok: false,
+      reason: '"In" already has a connection — only a multi-input port accepts more than one.',
+    });
+    const multi = canConnect(httpNode, outPort(), targetNode, inPort({ allowMultiple: true }), [existing]);
+    expect(multi.ok).toBe(true);
+  });
+
+  it('rejects a connection that would create a cycle', () => {
+    // a -> b already exists; connecting b -> a would close the loop.
+    const existing: WorkflowEdge[] = [{ id: 'e1', from: 'a', to: 'b' }];
+    expect(canConnect(targetNode, outPort(), httpNode, inPort(), existing).ok).toBe(false);
+  });
+
+  it('lets a condition connect from its named true/false ports', () => {
+    const truePort: WorkflowPort = { id: 'true', label: 'True', direction: 'out', type: 'any' };
+    expect(canConnect(conditionNode, truePort, targetNode, inPort(), []).ok).toBe(true);
+  });
+});
+
+describe('migrateWorkflowEdges', () => {
+  it('is the identity — same reference — for a workflow with no legacy condition edge', () => {
+    const w = workflow();
+    expect(migrateWorkflowEdges(w)).toBe(w);
+  });
+
+  it('maps a legacy condition node\'s outgoing edge onto its `true` port', () => {
+    const w = workflow({
+      nodes: [
+        { id: 'c', label: 'Check', x: 0, y: 0, kind: 'condition', config: { left: 'x', op: 'eq', right: '1' } },
+        node({ id: 'b', label: 'Create' }),
+      ],
+      edges: [{ id: 'e1', from: 'c', to: 'b' }],
+    });
+    const migrated = migrateWorkflowEdges(w);
+    expect(migrated).not.toBe(w);
+    expect(migrated.edges).toEqual([{ id: 'e1', from: 'c', to: 'b', fromPort: 'true', kind: 'conditional' }]);
+  });
+
+  it('preserves the false-gates-everything-downstream semantics: only the true branch is a taken edge', () => {
+    const w = workflow({
+      nodes: [
+        { id: 'c', label: 'Check', x: 0, y: 0, kind: 'condition', config: { left: 'x', op: 'eq', right: '1' } },
+        node({ id: 'b', label: 'Create' }),
+      ],
+      edges: [{ id: 'e1', from: 'c', to: 'b' }],
+    });
+    const migrated = migrateWorkflowEdges(w);
+    const normalized = normalizeEdge(migrated.edges[0]!);
+    expect(normalized.fromPort).toBe('true');
+  });
+
+  it('leaves an edge with an explicit fromPort untouched, even from a condition node', () => {
+    const w = workflow({
+      nodes: [
+        { id: 'c', label: 'Check', x: 0, y: 0, kind: 'condition', config: { left: 'x', op: 'eq', right: '1' } },
+        node({ id: 'b', label: 'Create' }),
+      ],
+      edges: [{ id: 'e1', from: 'c', to: 'b', fromPort: 'false' }],
+    });
+    expect(migrateWorkflowEdges(w)).toBe(w);
   });
 });
 
