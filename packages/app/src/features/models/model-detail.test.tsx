@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
+import { useTerminalStore } from '../terminal/terminal-store';
 import { ModelDetailModal } from './model-detail';
 
 function model(over: Partial<OllamaModel> = {}): OllamaModel {
@@ -51,6 +52,10 @@ function installBridge(showResult: OllamaModelDetail) {
       onPullProgress: vi.fn(() => () => {}),
       settings: { get: vi.fn(), set: vi.fn() },
     } as unknown as MidniteStudioBridge['ollama'],
+    repos: {
+      list: vi.fn().mockResolvedValue([{ id: 'r1', path: '/repo', name: 'repo', headRef: 'main', worktrees: [] }]),
+    } as unknown as MidniteStudioBridge['repos'],
+    terminal: { save: vi.fn() } as unknown as MidniteStudioBridge['terminal'],
   };
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = bridge;
   return { show, create, del, unload };
@@ -163,9 +168,28 @@ describe('ModelDetailModal — set as default for an agent', () => {
 
     await waitFor(() => expect(screen.getByLabelText(/agent to set/i)).toBeTruthy());
     fireEvent.change(screen.getByLabelText(/agent to set/i), { target: { value: 'claude' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Set' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set as default' }));
 
     expect(useUiStore.getState().agentBackends.claude).toEqual({ backend: 'ollama', model: 'qwen3.5:14b' });
+  });
+});
+
+describe('ModelDetailModal — Launch with… (Phase 96 Theme I)', () => {
+  it('opens an agent session on this model in the picked repo, then closes', async () => {
+    installBridge(detail());
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, pendingInput: {} });
+    useUiStore.setState({ agentBackends: {} });
+    const onClose = vi.fn();
+    renderModal({ model: model(), onClose });
+
+    await waitFor(() => expect(screen.getByLabelText(/repository to launch in/i)).toHaveProperty('value', 'r1'));
+    fireEvent.change(screen.getByLabelText(/agent to set/i), { target: { value: 'claude' } });
+    fireEvent.click(screen.getByRole('button', { name: /launch with/i }));
+
+    const [session] = useTerminalStore.getState().sessions;
+    expect(session).toMatchObject({ agentId: 'claude', cwd: '/repo', backend: 'ollama', ollamaModel: 'qwen3.5:14b' });
+    expect(useTerminalStore.getState().pendingInput[session!.id]).toBe('claude --model qwen3.5:14b');
+    expect(onClose).toHaveBeenCalled();
   });
 });
 

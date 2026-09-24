@@ -22,7 +22,10 @@ import { SiOllama } from 'react-icons/si';
 import { useDialogs } from '../../components/dialog-host';
 import { Modal } from '../../components/modal';
 import { Spinner } from '../../components/skeleton';
+import { useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
+import { startAgent } from '../terminal/start-agent';
+import { useAgents } from '../terminal/use-agents';
 import { formatBytes } from '../monitor/format-bytes';
 import { CodePreview } from '../files/preview/code-preview';
 import { useCreateModel, useDeleteModel, useOllamaShow, useUnloadModel } from './use-models';
@@ -79,6 +82,9 @@ export function ModelDetailModal({
 }) {
   const [tab, setTab] = useState<Tab>('modelfile');
   const [launchAgent, setLaunchAgent] = useState('');
+  const [launchRepo, setLaunchRepo] = useState('');
+  const { data: repos } = useRepos();
+  const roster = useAgents();
   const dialogs = useDialogs();
   const setAgentBackend = useUiStore((s) => s.setAgentBackend);
 
@@ -124,6 +130,23 @@ export function ModelDetailModal({
       onConfirm: () =>
         create.mutate({ from: model.model, name: variantName, parameters: { num_ctx: AGENT_MIN_CONTEXT_LENGTH } }),
     });
+  };
+
+  /** Theme I — a new interactive session on this model, whatever the agent's
+   *  own default is (`startAgent`'s `modelOverride` precedence). */
+  const repoForLaunch = (repos ?? []).find((r) => r.id === launchRepo) ?? (repos ?? [])[0];
+  const launchWith = () => {
+    const agent = roster.agents.find((a) => a.id === launchAgent);
+    if (!agent || !repoForLaunch) return;
+    startAgent({
+      repoId: repoForLaunch.id,
+      cwd: repoForLaunch.path,
+      title: `${agent.label} · ${model.name}`,
+      agentId: agent.id,
+      command: agent.command,
+      modelOverride: { backend: 'ollama', model: model.model },
+    });
+    onClose();
   };
 
   const setDefault = () => {
@@ -280,19 +303,6 @@ export function ModelDetailModal({
             Delete
           </button>
 
-          {/* "Launch with…" (Theme I) has no session-opening wiring yet — a
-              real, disabled hook rather than an omitted button, the same
-              precedent `ModelRow.onOpenDetail` set for this modal itself. */}
-          <button
-            type="button"
-            disabled
-            title="Opens a new session on this model — Theme I"
-            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium opacity-50"
-          >
-            <LuRocket className="h-3.5 w-3.5" />
-            Launch with…
-          </button>
-
           <div className="ml-auto flex items-center gap-1.5">
             <select
               value={launchAgent}
@@ -300,20 +310,43 @@ export function ModelDetailModal({
               aria-label="Agent to set this model as default for"
               className="h-7 rounded border border-input bg-background px-1.5 text-[11px] outline-none focus-visible:border-primary"
             >
-              <option value="">Set as default for…</option>
+              <option value="">Agent…</option>
               {ollamaAgents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
                   {agent.label}
                 </option>
               ))}
             </select>
+            <select
+              value={repoForLaunch?.id ?? ''}
+              onChange={(event) => setLaunchRepo(event.target.value)}
+              aria-label="Repository to launch in"
+              className="h-7 max-w-[160px] rounded border border-input bg-background px-1.5 text-[11px] outline-none focus-visible:border-primary"
+            >
+              {(repos ?? []).length === 0 ? <option value="">No repositories open</option> : null}
+              {(repos ?? []).map((repo) => (
+                <option key={repo.id} value={repo.id}>
+                  {repo.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={launchWith}
+              disabled={!launchAgent || !repoForLaunch}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent/40 disabled:opacity-50"
+            >
+              <LuRocket className="h-3.5 w-3.5" aria-hidden />
+              Launch with…
+            </button>
             <button
               type="button"
               onClick={setDefault}
               disabled={!launchAgent}
+              title="Make this the agent's default model (Settings ▸ Agent)"
               className="rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent/40 disabled:opacity-50"
             >
-              Set
+              Set as default
             </button>
           </div>
         </footer>
