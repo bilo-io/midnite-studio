@@ -1,4 +1,5 @@
 import type {
+  AiPlanBlueprint,
   AppIssueSubmitRequest,
   AppIssueSubmitResult,
   ClosedSession,
@@ -9,6 +10,8 @@ import type {
   ForgeAccount,
   ForgeCapability,
   ForgeKind,
+  ForgeLinkKind,
+  ForgeLinkWriteResult,
   ReachableReposResult,
   ForgeIssueCommentsResult,
   ForgeIssueCreateResult,
