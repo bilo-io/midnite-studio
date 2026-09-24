@@ -334,12 +334,188 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
 
+/** Every executor-bearing kind's single, always-present, all-parents-join in-port. */
+function inPort(): WorkflowPort {
+  return { id: 'in', label: 'In', direction: 'in', type: 'any', allowMultiple: true };
+}
+
+function dataOutPort(id: string, label: string, outputShape?: WorkflowPortShape): WorkflowPort {
+  return { id, label, direction: 'out', type: 'json', ...(outputShape ? { outputShape } : {}) };
+}
+
+function errorPort(): WorkflowPort {
+  return {
+    id: WORKFLOW_ERROR_PORT_ID,
+    label: 'Error',
+    direction: 'out',
+    type: 'json',
+    outputShape: {
+      type: 'object',
+      properties: { message: { type: 'string' }, status: { type: 'number' } },
+    },
+  };
+}
+
+/**
+ * A node kind's connection points, computed fresh from the node (never
+ * persisted — see {@link WorkflowPortSchema}'s doc comment). Most kinds are
+ * static; `condition` is the phase doc's own worked example of settling on a
+ * named out-port instead of a single `out`. Exhaustive over
+ * {@link WorkflowNodeKind} — adding a kind is a compile error here until this
+ * switch is widened on purpose, the same discipline `WORKFLOW_NODE_KINDS`
+ * already asks for.
+ */
+export function portsForNode(node: WorkflowNode): WorkflowPort[] {
+  switch (node.kind) {
+    case 'http':
+      return [inPort(), dataOutPort('out', 'Response', node.config.outputShape), errorPort()];
+    case 'transform':
+      return [inPort(), dataOutPort('out', 'Output'), errorPort()];
+    case 'condition':
+      return [
+        inPort(),
+        { id: 'true', label: 'True', direction: 'out', type: 'any' },
+        { id: 'false', label: 'False', direction: 'out', type: 'any' },
+        errorPort(),
+      ];
+    case 'delay':
+      return [inPort(), { id: 'out', label: 'Out', direction: 'out', type: 'any' }, errorPort()];
+    case 'note':
+      // Canvas furniture with no executor — validateWorkflow already refuses
+      // any edge touching one.
+      return [];
+    case 'agent':
+      return [inPort(), dataOutPort('out', 'Output', node.config.outputShape), errorPort()];
+    case 'script':
+      return [inPort(), dataOutPort('out', 'Output', node.config.outputShape), errorPort()];
+    default: {
+      // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
+      // what makes adding a kind a typecheck failure here.
+      const exhaustive: never = node;
+      return exhaustive;
+    }
+  }
+}
+
+export const WORKFLOW_EDGE_KINDS = ['data', 'conditional', 'loop', 'error'] as const;
+export const WorkflowEdgeKindSchema = z.enum(WORKFLOW_EDGE_KINDS);
+export type WorkflowEdgeKind = z.infer<typeof WorkflowEdgeKindSchema>;
+
 export const WorkflowEdgeSchema = z.object({
   id: z.string().min(1),
   from: z.string().min(1),
   to: z.string().min(1),
+  /** Source port id (Theme A). Optional on the wire — {@link normalizeEdge} defaults it to `'out'`. */
+  fromPort: z.string().min(1).optional(),
+  /** Target port id (Theme A). Optional on the wire — {@link normalizeEdge} defaults it to `'in'`. */
+  toPort: z.string().min(1).optional(),
+  /** Optional on the wire — {@link normalizeEdge} defaults it to `'data'`. */
+  kind: WorkflowEdgeKindSchema.optional(),
 });
 export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>;
+
+/** An edge with every Theme A field's default filled in — never persisted this way, only read this way. */
+export type NormalizedWorkflowEdge = WorkflowEdge & {
+  fromPort: string;
+  toPort: string;
+  kind: WorkflowEdgeKind;
+};
+
+/**
+ * Fills `fromPort`/`toPort`/`kind`'s defaults — the same optional-plus-reader
+ * pattern {@link isWorkflowEnabled} uses, so every edge saved before Theme A
+ * keeps meaning exactly what it meant: an unported `{id, from, to}` edge is a
+ * plain `data` edge from `out` to `in`.
+ */
+export function normalizeEdge(edge: WorkflowEdge): NormalizedWorkflowEdge {
+  return {
+    ...edge,
+    fromPort: edge.fromPort ?? 'out',
+    toPort: edge.toPort ?? 'in',
+    kind: edge.kind ?? 'data',
+  };
+}
+
+const PORT_TYPE_COMPAT: Partial<Record<WorkflowPortType, readonly WorkflowPortType[]>> = {
+  // The maker/checker verdict can drive a boolean-shaped consumer (a
+  // `condition`-like in-port) directly — never the other way around, a plain
+  // boolean carries no verdict evidence.
+  verdict: ['boolean'],
+};
+
+function portTypesCompatible(from: WorkflowPortType, to: WorkflowPortType): boolean {
+  if (from === 'any' || to === 'any' || from === to) return true;
+  return PORT_TYPE_COMPAT[from]?.includes(to) ?? false;
+}
+
+function shapesCompatible(from?: WorkflowPortShape, to?: WorkflowPortShape): boolean {
+  // Permissive unless *both* sides pinned a shape — an unpinned side has
+  // nothing to conflict with (phase doc: "compatible when both sides declare one").
+  if (!from || !to) return true;
+  if (from.type === 'any' || to.type === 'any') return true;
+  return from.type === to.type;
+}
+
+export type WorkflowConnectResult = { ok: true } | { ok: false; reason: string };
+
+/**
+ * The canvas connect-drag's gate for a **new** edge — direction, type and
+ * shape compatibility, in-port multiplicity, self-connection, and
+ * {@link wouldCycle}. It never re-validates an already-persisted edge (that
+ * is {@link validateWorkflow}'s job), so a workflow saved before Theme A, or
+ * one edited by a future theme that draws edges without going through the
+ * canvas, is never retroactively broken by this function.
+ *
+ * Cycle-checking always runs here because this is the ordinary connect-drag
+ * path, which never produces a `loop`-kind edge — a controlled back-edge
+ * (Theme C) is drawn through its own affordance, not this one.
+ */
+export function canConnect(
+  fromNode: WorkflowNode,
+  fromPort: WorkflowPort,
+  toNode: WorkflowNode,
+  toPort: WorkflowPort,
+  edges: readonly WorkflowEdge[],
+): WorkflowConnectResult {
+  if (fromPort.direction !== 'out') {
+    return { ok: false, reason: `"${fromPort.label}" is an in-port — a connection must start at an out-port.` };
+  }
+  if (toPort.direction !== 'in') {
+    return { ok: false, reason: `"${toPort.label}" is an out-port — a connection must end at an in-port.` };
+  }
+  if (fromNode.id === toNode.id) {
+    return { ok: false, reason: 'A node cannot connect to itself.' };
+  }
+  if (!portTypesCompatible(fromPort.type, toPort.type)) {
+    return {
+      ok: false,
+      reason: `"${fromPort.label}" (${fromPort.type}) cannot connect to "${toPort.label}" (${toPort.type}).`,
+    };
+  }
+  if (!shapesCompatible(fromPort.outputShape, toPort.outputShape)) {
+    return {
+      ok: false,
+      reason: `"${fromPort.label}"'s output shape does not match what "${toPort.label}" expects.`,
+    };
+  }
+  if (toPort.allowMultiple !== true) {
+    const occupied = edges.some((edge) => {
+      if (edge.to !== toNode.id) return false;
+      return normalizeEdge(edge).toPort === toPort.id;
+    });
+    if (occupied) {
+      return {
+        ok: false,
+        reason: `"${toPort.label}" already has a connection — only a multi-input port accepts more than one.`,
+      };
+    }
+  }
+  const nodeIds = [...new Set([...edges.flatMap((edge) => [edge.from, edge.to]), fromNode.id, toNode.id])];
+  if (wouldCycle(edges, nodeIds, { from: fromNode.id, to: toNode.id })) {
+    return { ok: false, reason: 'That connection would create a cycle.' };
+  }
+  return { ok: true };
+}
 
 export const WorkflowSchema = z.object({
   id: z.string().min(1),
@@ -366,6 +542,42 @@ export type Workflow = z.infer<typeof WorkflowSchema>;
 /** `enabled` unset (every workflow saved before Theme I) reads as on. */
 export function isWorkflowEnabled(workflow: Pick<Workflow, 'enabled'>): boolean {
   return workflow.enabled !== false;
+}
+
+/**
+ * Run on load ({@link WorkflowsStore}'s `parseStoredWorkflows`, `desktop`) so
+ * every persisted workflow carries edges Theme B's per-edge-readiness engine
+ * can read directly.
+ *
+ * A pre-Theme-A `condition` node's outgoing edges had no port at all — they
+ * fired whenever the run reached them, and a false predicate gated
+ * everything downstream via `WorkflowNodeRun.gatedDownstream` (`:330` in the
+ * engine). Once Theme B removes that field and starts reading `fromPort`
+ * instead, an edge with no `fromPort` would look like an unconditional `out`
+ * edge — taken every time, true or false. So this migration sets the one
+ * thing that preserves the old behaviour exactly: a legacy condition edge's
+ * `fromPort` becomes `'true'`, so it is only ever taken when the condition
+ * settles true, same as before.
+ *
+ * **Identity for every other workflow.** An edge that already has a
+ * `fromPort`, or whose source is not a `condition` node, is returned
+ * untouched — and if nothing in the workflow needed migrating, the same
+ * `Workflow` reference comes back, not a shallow copy. This is what makes
+ * "old workflows execute exactly as today" a fact about the function, not
+ * just an intention.
+ */
+export function migrateWorkflowEdges(workflow: Workflow): Workflow {
+  const nodesById = new Map(workflow.nodes.map((node) => [node.id, node]));
+  let changed = false;
+
+  const edges = workflow.edges.map((edge) => {
+    if (edge.fromPort !== undefined) return edge;
+    if (nodesById.get(edge.from)?.kind !== 'condition') return edge;
+    changed = true;
+    return { ...edge, fromPort: 'true', kind: edge.kind ?? 'conditional' };
+  });
+
+  return changed ? { ...workflow, edges } : workflow;
 }
 
 // --- runs --------------------------------------------------------------------
@@ -545,6 +757,30 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     for (const end of [edge.from, edge.to]) {
       if (workflow.nodes.find((n) => n.id === end)?.kind === 'note') {
         issues.push({ message: `A note cannot be connected — it is a label, not a step.`, edgeId: edge.id });
+      }
+    }
+
+    // A port that no longer exists — a router case deleted, a node's kind
+    // changed — leaves the edge dangling by name rather than by node. Only
+    // checked once both ends resolve to a real, connectable node; the two
+    // checks above already cover a missing node, and the note check above
+    // already covers a note (which has no ports by design — flagging that
+    // as a missing port would just repeat the same fact in a worse sentence).
+    const fromNode = workflow.nodes.find((n) => n.id === edge.from);
+    const toNode = workflow.nodes.find((n) => n.id === edge.to);
+    if (fromNode && toNode && fromNode.kind !== 'note' && toNode.kind !== 'note') {
+      const normalized = normalizeEdge(edge);
+      if (!portsForNode(fromNode).some((port) => port.direction === 'out' && port.id === normalized.fromPort)) {
+        issues.push({
+          message: `"${fromNode.label}" has no out-port named "${normalized.fromPort}".`,
+          edgeId: edge.id,
+        });
+      }
+      if (!portsForNode(toNode).some((port) => port.direction === 'in' && port.id === normalized.toPort)) {
+        issues.push({
+          message: `"${toNode.label}" has no in-port named "${normalized.toPort}".`,
+          edgeId: edge.id,
+        });
       }
     }
   }
