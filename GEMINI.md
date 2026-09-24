@@ -385,13 +385,13 @@ table in `.midnite/tasks/_INDEX.md`.
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
-workflow — the `.midnite/tasks/` tracker, the nine core skills mirrored into `.claude/`, `.agents/`
+workflow — the `.midnite/tasks/` tracker, the ten core skills mirrored into `.claude/`, `.agents/`
 and `.codex/`, and `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` stubs — for onboarding a *different* repo
 onto it, not this one. The midnite menu's Setup leaf is what will copy it in and track a hash
 manifest so a re-run is an upgrade rather than a guess (Phase 49); until then,
 [`midnite-setup`](.claude/skills/midnite-setup/SKILL.md) is the interactive path — it emits this
 same tree. See the template's own [README](templates/midnite/README.md) for what ships and why
-three of this repo's twelve skills are deliberately left out.
+three of this repo's thirteen skills are deliberately left out.
 
 ## graphify
 
