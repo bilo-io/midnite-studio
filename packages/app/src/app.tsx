@@ -1804,12 +1804,23 @@ function Shell() {
                     width={companionPanel.current}
                     /*
                       The FAB floats over the bottom-right of this whole row,
-                      so it lands on the LAST right-docked column. With Loops
-                      open that is Loops (and `app.tsx` hides the FAB for it);
-                      with Loops shut it is this panel, whose input bar then
-                      has to leave the corner clear. See the prop's own doc.
+                      so it lands on the LAST right-docked column — but only
+                      while it is actually rendered there. The round button
+                      (below) is itself hidden whenever EITHER panel is
+                      docked (`!fabPanelDocked && !companionDocked`) — while
+                      THIS panel is docked, that is always true, so the
+                      button has already morphed into the statusbar's
+                      `AssistantMenu` and never lands on this corner at all.
+                      Without `!companionDocked` here, this reserved 56px (Ad
+                      Hoc: companion input fixes) was dead space to the right
+                      of the send button for as long as the panel stayed
+                      docked and Loops stayed shut — space cleared for a
+                      button that was never there to clear space for. It
+                      still matters for the moment `companionDocked` itself
+                      goes false (closing or detaching) while this frame's
+                      own exit tween is still playing.
                     */
-                    reserveFabSpace={!fabPanelDocked}
+                    reserveFabSpace={!fabPanelDocked && !companionDocked}
                   />
                 )}
               </div>
