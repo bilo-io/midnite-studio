@@ -1,0 +1,73 @@
+name: Vercel
+
+# Deploy the public site to Vercel — but only when the site actually changed.
+#
+# Why this is a workflow and not Vercel's own Git integration: that integration
+# creates a deployment for EVERY push to every branch, and each one counts
+# against Vercel's deployment rate limit before `ignoreCommand` ever gets to
+# skip it. With a busy repo (several agent PRs an hour, each pushing per step)
+# the limit ran out and every PR carried a red "Deployment rate limited" check
+# for a site it never touched. So `vercel.json` sets
+# `git.deploymentEnabled: false`, and the path filter below is what decides.
+#
+# Add future public apps (e.g. `packages/docs/**`) as their own Vercel project
+# with a sibling job and paths filter, not by widening this one.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/website/**'
+      - '.github/workflows/vercel.yml'
+  pull_request:
+    paths:
+      - 'packages/website/**'
+      - '.github/workflows/vercel.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    # A secret cannot be referenced in a job-level `if`, so it is lifted into
+    # an env var and checked in a step — the same guard website.yml's publish
+    # job uses. Until the three secrets exist this job is a green no-op.
+    env:
+      HAS_TOKEN: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' && 'yes' || 'no' }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check the Vercel secrets exist
+        id: guard
+        run: |
+          if [ "$HAS_TOKEN" != "yes" ]; then
+            echo "deploy=no" >> "$GITHUB_OUTPUT"
+            echo "::notice::VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID not set — skipping the deploy. See docs/WEBSITE.md."
+          else
+            echo "deploy=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.guard.outputs.deploy == 'yes'
+
+      # A source deploy, not `--prebuilt`: Vercel still runs vercel.json's own
+      # filtered install + build remotely, so this job needs no pnpm, no node
+      # and no GitHub Packages token. The project's Root Directory
+      # (`packages/website`) is read from the project settings, which is why
+      # this runs from the repo root.
+      - name: Deploy
+        if: steps.guard.outputs.deploy == 'yes'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && '--prod' || '' }}
+        run: |
+          set -eu
+          url=$(npx --yes vercel@latest deploy --yes $PROD --token "$VERCEL_TOKEN")
+          echo "Deployed: $url"
+          echo "### Vercel: $url" >> "$GITHUB_STEP_SUMMARY"
