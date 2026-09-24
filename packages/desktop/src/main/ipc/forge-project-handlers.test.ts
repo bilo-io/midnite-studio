@@ -48,18 +48,13 @@ vi.mock('../forge/github/gh-project-write', () => ({
 }));
 
 /*
-  The rest of `forge-handlers.ts`'s import graph, stubbed. `repoForge` and
-  `noForgeStatus` — the only two things `forge-project-handlers.ts` takes from
-  it — need none of these, but importing the module for real transforms and
-  evaluates every forge adapter behind `registry.ts` (GitHub, GitLab, Bitbucket,
-  Azure), the account store and vault, and `window-manager`. Cold, that was
-  over a second of the first test's budget on an idle machine, and on a loaded
-  one it ran the first test past vitest's 5 s timeout. None of them is under
-  test here.
+  Parts of the import graph no test here exercises, stubbed. The registry and
+  its adapters stay real, since every handler dispatches through `adapterFor`,
+  but the account store/vault and `window-manager` behind `forge-handlers.ts`
+  only added cold-import time. On a loaded machine that pushed the first test
+  past vitest's 5 s timeout.
 */
-vi.mock('../forge/registry', () => ({ adapterFor: vi.fn(() => null) }));
 vi.mock('../forge/forge-accounts', () => ({ activeAccountFor: vi.fn(async () => null) }));
-vi.mock('../forge/github/gh-shell', () => ({ ghStatus: vi.fn() }));
 vi.mock('../window-manager', () => ({ resolveWindow: vi.fn(() => null) }));
 
 const OK_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
