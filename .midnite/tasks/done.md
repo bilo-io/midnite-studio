@@ -1,6 +1,58 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 96 Themes B, A — Ollama client, IPC, and a Health page row
+
+[PR #540](https://github.com/bilo-io/midnite-studio/pull/540).
+
+**Theme B**, the foundation every later theme reads through: a new `shared/src/ollama.ts` — the
+camelCase wire contract (`OllamaModel`, `OllamaModelDetail`, `OllamaRunningModel`,
+`OllamaPullProgressEvent`, `OllamaDaemonStatus`, and `OllamaSearchResultItem` declared as a
+contract-only type for Theme D) — plus `deriveContextLength`, a pure function reading
+`model_info`'s `"<arch>.context_length"` key, since the architecture prefix varies per model
+family and this is the one fact Theme G's fitness verdict hinges on. Nine `mstudio:ollama:*`
+channels (`status`, `list`, `show`, `ps`, `pull`, `pullCancel`, `delete`, `create`, `unload`) plus
+the `mstudio:ollama:pull-progress` event stream, wired through `channels.ts` → `schemas.ts` →
+`bridge.ts` → preload, mirroring `video`'s own group shape exactly. Every call that touches the
+daemon returns `GitOpResultOf(...)`; `ollamaStatus` alone stays a plain `OllamaDaemonStatus` —
+an unreachable daemon is ordinary data, not a failure, the same way `SystemHealthResponse` is
+never wrapped.
+
+`desktop/src/main/ollama/client.ts` is the raw HTTP client — fetch + `AbortController` + timeout,
+`OLLAMA_HOST`-aware base-URL resolution, and a hand-rolled line-buffered NDJSON reader (a
+carry-over buffer across chunk boundaries) for `pull`/`create`, since no existing module in this
+repo streams NDJSON over a live HTTP response. Every Ollama snake_case field
+(`parent_model`, `modified_at`, `size_vram`, `context_length`, …) is mapped into the camelCase
+contract inside this client — nothing downstream ever sees a raw Ollama field name.
+`desktop/src/main/ollama/pull-queue.ts` is the streamed pull queue: one active pull per model (a
+second request for a model already pulling joins the same `pullId`), cancel aborts the HTTP
+stream via a module-level `AbortController` map, and progress is throttled to ~10 events/s per
+pull — mirroring `video/render-service.ts`'s own `Map`-per-concern queue shape, the closest
+existing precedent for "streamed progress from a long-lived main operation."
+
+**Scope trim, both recorded in the phase doc:** `search` is not wired as a channel in this PR —
+its real backing is Theme D's `ollama/library-search.ts` scraper, and a channel with no handler
+behind it is dead wiring; the response *shape* (`OllamaSearchResultItem`) is declared now so later
+themes don't have to bikeshed naming. And the client's base URL is `OLLAMA_HOST`/default only —
+Settings ▸ Ollama (Theme C) and the cloud base + vault key (Theme F) don't exist yet to read from.
+
+**Theme A**: a bespoke Ollama row on the Health page (`system-health.ts` gains an `ollama` binary
+probe alongside the existing git/homebrew/node/pnpm/moon probes, plus an `ollamaDaemon` probe via
+Theme B's client), not folded into the existing `toolchainKeys` list — the binary-vs-daemon
+distinction is a three-state fact (`not installed` / `installed, daemon down` / `running`) none of
+the four generic rows carry. Install/Update run `brew install|upgrade --cask ollama-app` through
+the same "type into a fresh pty" pattern `agent-page.tsx`'s `submitCommand` already established;
+Start Ollama runs `open -a Ollama` when the app bundle resolved, else a detached `ollama serve &`,
+then a bounded (~15s) re-probe — never a stop/restart control, per the phase doc's "never quit the
+user's daemon" guardrail.
+
+Tests: `shared/src/ollama.test.ts` (schema + `deriveContextLength` cases),
+`desktop/src/main/ollama/client.test.ts` (17 cases against real throwaway `node:http` servers —
+NDJSON split across chunks, cancel mid-pull, daemon-down, timeout, 404 — never a mocked `fetch`,
+per `api-client/send.test.ts`'s own house rule), `desktop/src/main/ollama/pull-queue.test.ts`
+(dedup, cancel, throttling), plus updated `system-health.test.ts`/`toolchain-version.test.ts` and
+8 new `health-page.test.tsx` cases for the row's four states.
+
 ## 2026-09-24 — Phase 95 Theme J — Agent and script nodes, grouped in the terminal
 
 [PR #537](https://github.com/bilo-io/midnite-studio/pull/537).

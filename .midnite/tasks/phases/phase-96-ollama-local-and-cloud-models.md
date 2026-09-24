@@ -105,41 +105,49 @@ independent and can start at once). **I** needs **E** and **H**.
 
 ## Deliverables
 
-### A — Ollama in the toolchain (S)
+### A — Ollama in the toolchain (S) — ✅ DONE (PR #540, 2026-09-24)
 
-- [ ] `system-health.ts`: add `ollama` to the parallel probe with fallback paths
+- [x] `system-health.ts`: add `ollama` to the parallel probe with fallback paths
       `/usr/local/bin/ollama`, `/opt/homebrew/bin/ollama` and
       `/Applications/Ollama.app/Contents/Resources/ollama`.
-- [ ] Extend `ToolchainBinarySchema` / `SystemHealthResponse` with an `ollamaDaemon` block —
+- [x] Extend `ToolchainBinarySchema` / `SystemHealthResponse` with an `ollamaDaemon` block —
       `{reachable, version?, host}` from `GET /api/version` through Theme B's client, with a short
       timeout so an absent daemon never slows the Health page.
-- [ ] `toolchain-version.ts` + `health-page.tsx`: an Ollama row (binary version, daemon
-      reachable/unreachable, host), with its docs and release links.
-- [ ] Install / Update actions on the Ollama row, reusing the Agent page's `submitCommand()` pty
+- [x] `toolchain-version.ts` + `health-page.tsx`: an Ollama row (binary version, daemon
+      reachable/unreachable, host), with its docs and release links. Built as a **bespoke row**,
+      not a `toolchainKeys` entry — the binary-vs-daemon distinction is a fact none of the four
+      existing generic toolchain rows carry.
+- [x] Install / Update actions on the Ollama row, reusing the Agent page's `submitCommand()` pty
       pattern: `brew install --cask ollama-app` when Homebrew is present, otherwise a link to the
       dmg. Update is `brew upgrade --cask ollama-app` (or the formula, whichever is installed).
-- [ ] **Start Ollama**: `open -a Ollama` when the app bundle exists, otherwise `ollama serve` in a
+- [x] **Start Ollama**: `open -a Ollama` when the app bundle exists, otherwise `ollama serve` in a
       detached background pty session. Re-probe until reachable (bounded) and render the result.
       No stop/restart control, by design.
-- [ ] Unit tests: probe fallback resolution, daemon-unreachable envelope, version parse.
+- [x] Unit tests: probe fallback resolution, daemon-unreachable envelope, version parse.
 
-### B — Main-side Ollama client and IPC (M)
+### B — Main-side Ollama client and IPC (M) — ✅ DONE (PR #540, 2026-09-24)
 
-- [ ] New `desktop/src/main/ollama/client.ts`: `version`, `tags`, `show(model, verbose)`, `ps`,
+- [x] New `desktop/src/main/ollama/client.ts`: `version`, `tags`, `show(model, verbose)`, `ps`,
       `pull(model)` (NDJSON stream), `delete(model)`, `create(from, name, parameters)`, `unload(model)`
-      (`keep_alive: 0`). The base URL comes from Settings ▸ Ollama (default `OLLAMA_HOST` or
-      `http://127.0.0.1:11434`); the cloud base is `https://ollama.com` with the vault key.
-- [ ] `shared/src/ollama.ts`: zod schemas for `OllamaModel` (tags row), `OllamaModelDetail`
+      (`keep_alive: 0`). **Correction:** the base URL resolves from `OLLAMA_HOST` (default
+      `http://127.0.0.1:11434`) only — there is no Settings ▸ Ollama page yet to read an override
+      from (that's Theme C), and the `https://ollama.com` cloud base + vault key is Theme F's own
+      scope, not built here.
+- [x] `shared/src/ollama.ts`: zod schemas for `OllamaModel` (tags row), `OllamaModelDetail`
       (show — `capabilities`, `contextLength` derived from `model_info["<arch>.context_length"]`,
       `details`, `license`, `modelfile`, `template`, `parameters`), `OllamaRunningModel` (ps),
-      `OllamaPullProgress`, `OllamaSearchResult`. Parsing is tolerant: unknown fields pass
+      `OllamaPullProgressEvent`, `OllamaSearchResultItem`. Parsing is tolerant: unknown fields pass
       through, missing optional ones never fail the whole payload.
-- [ ] IPC channels `mstudio:ollama:*` (`status`, `list`, `show`, `ps`, `pull`, `pullCancel`,
-      `delete`, `create`, `unload`, `search`) in `channels.ts`, the bridge type and preload; a
+- [x] IPC channels `mstudio:ollama:*` (`status`, `list`, `show`, `ps`, `pull`, `pullCancel`,
+      `delete`, `create`, `unload`) in `channels.ts`, the bridge type and preload; a
       `mstudio:ollama:pull-progress` event stream, keyed by a pull id returned from `pull`.
-- [ ] A main-side pull queue: one active pull per model, cancel aborts the HTTP stream,
+      **Correction:** `search` is not wired in this PR — its real backing
+      (`ollama/library-search.ts`, the ollama.com scraper) is Theme D's own deliverable, and a
+      channel with no handler behind it is dead wiring. `OllamaSearchResultItem`'s shape is
+      declared now so Theme D doesn't have to bikeshed naming.
+- [x] A main-side pull queue: one active pull per model, cancel aborts the HTTP stream,
       progress coalesced to at most ~10 events/s per pull so a fast link does not flood IPC.
-- [ ] Unit tests against a stubbed HTTP server: NDJSON chunk splitting across reads, cancel
+- [x] Unit tests against a stubbed HTTP server: NDJSON chunk splitting across reads, cancel
       mid-layer, 404 model, connection refused → `{ok:false, kind:'error'}`.
 
 ### C — The Models view (M)
