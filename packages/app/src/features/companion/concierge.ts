@@ -231,14 +231,20 @@ export async function orient(deps: ConciergeDeps): Promise<void> {
   const digest = repoPath === null ? null : await deps.digest({ repoPath });
   if (deps.signal.aborted) return finish(deps);
 
-  const overviewOptions = { digest, offerSwitch: snapshot.repos > 1, now: deps.now?.() };
+  const overviewOptions = {
+    digest,
+    offerSwitch: snapshot.repos > 1,
+    now: deps.now?.(),
+    rng: deps.rng,
+    honorific: pickHonorific(deps.settings().honorifics, deps.rng),
+  };
   /*
     Two projections of the same two inputs, not one derived from the other:
     `composeOverviewMarkdown` is what the thread shows (unchanged by this),
-    `composeOverviewSpeech` is what the voice reads — grouped by
-    conventional-commit prefix rather than one bullet's raw title at a time,
-    and paragraph-paced rather than run together as `sayMarkdown`'s generic
-    `markdownToSpeech` projection would read it.
+    `composeOverviewSpeech` is what the voice reads — the digest itself is
+    `toSpokenDigest`'s consolidated, phase-and-theme rendering rather than one
+    bullet's raw title at a time, and paragraph-paced rather than run together
+    as `sayMarkdown`'s generic `markdownToSpeech` projection would read it.
   */
   await say(
     deps,
