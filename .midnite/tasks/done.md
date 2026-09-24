@@ -1,6 +1,58 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme B — Routing, joins and the error port
+
+PR #TBD. Stacked on Theme A's port/edge-kind contract (PR #557) — moves the engine off the
+`condition` node's `skipDownstream` special case onto typed per-edge routing every kind shares.
+
+- [x] The engine resolves readiness **per in-edge, not per parent**
+      (`workflow-engine.ts`'s `edgeState`): an edge is *taken* when its source's recorded
+      `settledPort` matches the edge's `fromPort`, *dead* when it doesn't (or the source was
+      `skipped`), *pending* while the source isn't terminal yet. Plain nodes keep the implicit
+      "all parents" AND join Theme A's port doc comment describes — a node is skipped the instant
+      any of its in-edges is dead, same cascade as before, now edge/port-driven instead of
+      status-category-driven. Every pre-Phase-97 fixture (and `workflow-engine.test.ts`'s 27
+      original tests) still passes unmodified in behaviour.
+- [x] `condition` settles on its named `true`/`false` port (`NodeOutcome.port`) instead of the
+      `skipDownstream` flag, which is gone from `executor-registry.ts` entirely.
+      `WorkflowNodeRunSchema.settledPort` (new field) records what a node actually settled on —
+      `'out'` for a plain success, `'true'`/`'false'` for a condition, `'error'` only when a wired
+      error edge exists. `gatedDownstream` stays on the schema for reading pre-Theme-B run
+      history; nothing writes it `true` again — `run-node-detail.tsx`'s "condition did not hold"
+      banner now reads `settledPort` instead.
+- [x] A failed/timed-out node with a wired `error`-kind edge settles on that port instead of
+      cascading a skip: the node's own status stays `failed` (run history stays honest), but a
+      downstream recovery node actually runs, with the failure's `{message, status}` payload as
+      its input. No error edge wired → the legacy skip-downstream cascade, byte-identical.
+- [x] New node kind **`join`** (`WORKFLOW_JOIN_MODES = ['all','any','allSettled']`, `inputs: 2..8`,
+      distinct `in-1..in-N` ports). Settles **inline in the engine's cascade fixed-point loop**,
+      not through the async executor path — pure aggregation over already-terminal ancestor
+      outputs has nothing to await. `all` waits for every wired port and fails (naming the input)
+      if any is dead; `any` settles the instant one port is taken, siblings keep running
+      uncancelled; `allSettled` always waits for every port and always succeeds with
+      `{fulfilled: [...], rejected: [{nodeId, portId}, ...]}`. `executors/join.ts` exists only so
+      `ExecutorRegistry`'s exhaustive `Record` still compiles.
+- [x] The engine's upstream-resolution ancestor walk (`runNode`) now follows **only taken edges**
+      — a node can no longer `{{...}}`-reference a branch that was never actually executed.
+- [x] `validateWorkflow` flags a join with nothing wired to any of its `in-N` ports.
+- [x] App-side minimal wiring so the package still compiles and a join is actually usable from the
+      canvas: `NODE_KIND_META`, `NODE_FORMS` (a `JoinForm` — mode select + input count),
+      `node-output-fields.ts`, `workflow-io.ts`'s `createNode`. Full canvas polish (pill shape,
+      taken/dead edge styling, port-type colouring) stays Theme J's job.
+- [x] Vitest: `workflow.test.ts` gains join port/config/validation coverage;
+      `workflow-engine.test.ts` gains the diamond (fan-out → join `all`), a join `all` failure
+      naming the dead input, join `any` settling early with an uncancelled sibling, join
+      `allSettled`'s fulfilled/rejected split, error-port recovery, the legacy no-error-edge
+      cascade, and a true/false fork where only the live branch runs. The two pre-existing
+      `skipDownstream`-shaped test fixtures were rewritten to the `port` contract (same asserted
+      behaviour); every other Theme A/pre-Phase-97 test in the file is unedited and green.
+
+**Final shared names for D/E/F/H/I** (which build on B) — the join node kind and its three
+modes, `WorkflowNodeRun.settledPort`, the `error`-kind edge convention, and
+`edgeState`/`joinPortStates`/`joinOutcome`/`settledPortFor` as the engine's extension points
+(Theme C's loop back-edges hook the same functions — see the shared board).
+
 ## 2026-09-24 — Phase 97 Theme A — Typed ports and edge kinds
 
 [PR #557](https://github.com/bilo-io/midnite-studio/pull/557). Every other Phase 97 theme
