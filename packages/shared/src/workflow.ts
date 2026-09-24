@@ -991,6 +991,14 @@ export const WorkflowNodeRunSchema = z.object({
    * What the engine's per-edge readiness pass (`workflow-engine.ts`) reads to
    * decide whether an edge was *taken* or *dead*, and what replay (Theme K)
    * and the canvas (Theme J) highlight the taken path from.
+   *
+   * **Theme C overrides this** on a loop source's non-`converged` stop (to
+   * `'exhausted'`) and on a `converged` stop with a single alternate
+   * out-port — `loop-controller.ts`'s `evaluateLoopSettle`, applied by
+   * `workflow-engine.ts`'s `settleNode` after the computation above. This is
+   * the ONLY loop-specific routing signal; a `loop`-kind edge never enters
+   * the per-edge readiness pass at all (see `buildGraph`'s doc comment in
+   * `workflow-engine.ts`).
    */
   settledPort: z.string().min(1).optional(),
   error: z.string().optional(),
@@ -1016,15 +1024,6 @@ export const WorkflowNodeRunSchema = z.object({
    * `activeNodeRun`/`activeNodeRuns` for "the current one".
    */
   iteration: z.number().int().min(1).optional(),
-  /**
-   * Engine-internal routing signal (Theme C), set ONLY when this node is a
-   * `loop` edge's source — every other node/kind never has this field set,
-   * which is what keeps a non-looping workflow's scheduling byte-identical
-   * to before Theme C. Names which out-port this settle actually took (e.g.
-   * a condition's `'true'`/`'false'`, or `'exhausted'` on a non-converged
-   * loop exit), generalizing `gatedDownstream` for exactly this narrow case.
-   */
-  takenPort: z.string().min(1).optional(),
   /**
    * Set on the loop source's record for the iteration where a loop actually
    * stopped (as opposed to one that simply never looped). Mirrors

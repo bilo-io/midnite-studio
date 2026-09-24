@@ -4,10 +4,12 @@ import {
   WORKFLOW_AGENT_DONE_MARKER_PATTERN,
   agentInteractiveArgs,
   agentNodeDonePrompt,
+  formatLoopFailuresBlock,
   isOllamaCloudModelName,
   resolveAgentLaunch,
   shellQuote,
   toAgentPrompt,
+  type WorkflowLoopFailure,
 } from '@midnite/studio-shared';
 
 import { appendCapped, cleanCapturedOutput } from '../../council-output';
@@ -75,7 +77,14 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
       binding?.model && isOllamaCloudModelName(binding.model) ? await readOllamaApiKey() : null;
     const launch = resolveAgentLaunch(agent, binding, resolveOllamaBaseUrl(), authToken ?? undefined);
 
-    const prompt = agentNodeDonePrompt(config.prompt);
+    // Phase 97 Theme C — "failure carried forward": `{{loop.failures}}` is
+    // injected by `workflow-engine.ts`'s `runNode` only for a node sitting
+    // inside an active loop body, so this is a no-op for every agent node
+    // outside one (which is every agent node in a non-looping workflow).
+    const loopContext = context.upstream.loop as { failures?: WorkflowLoopFailure[] } | undefined;
+    const promptWithLoopFailures = config.prompt + formatLoopFailuresBlock(loopContext?.failures ?? []);
+
+    const prompt = agentNodeDonePrompt(promptWithLoopFailures);
     const words = [
       launch.command,
       ...(launch.backend === 'ollama' ? launch.argsBefore : config.model ? ['--model', config.model] : []),
