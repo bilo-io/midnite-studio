@@ -448,6 +448,7 @@ const bridge: Pick<
   secrets: {
     get: (req) => call(CHANNELS.secretsGet, req),
     set: (req) => call(CHANNELS.secretsSet, req),
+    has: (req) => call(CHANNELS.secretsHas, req),
   },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),
@@ -637,6 +638,9 @@ const bridge: Pick<
       get: () => call(CHANNELS.ollamaSettingsGet),
       set: (req) => call(CHANNELS.ollamaSettingsSet, req),
     },
+    search: (req) => call(CHANNELS.ollamaSearch, req),
+    cloudList: () => call(CHANNELS.ollamaCloudList),
+    signInStatus: () => call(CHANNELS.ollamaSignInStatus),
   },
   optimizer: {
     scan: (req) => call(CHANNELS.optimizerScan, req),

@@ -1,18 +1,22 @@
 import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 
 import {
+  ollamaCloudTags,
   ollamaCreate,
   ollamaDelete,
   ollamaPs,
   ollamaShow,
+  ollamaSignedIn,
   ollamaTags,
   ollamaUnload,
   ollamaVersion,
   resolveOllamaBaseUrl,
 } from '../ollama/client';
+import { searchOllamaLibrary } from '../ollama/library-search';
 import { cancelOllamaPull, startOllamaPull } from '../ollama/pull-queue';
 import { getConfiguredOllamaHost, getOllamaSettings, setOllamaSettings } from '../ollama/settings-service';
 import { handle, handleBare } from './handle';
+import { readOllamaApiKey } from './secrets-handlers';
 
 /** The configured override (Theme C) wins; an unset override falls back to
  *  Theme B's env-only `resolveOllamaBaseUrl()`. */
@@ -145,6 +149,28 @@ export function registerOllamaHandlers(): void {
     },
     (issue) => failure(issue),
   );
+
+  // --- search + cloud (Phase 96 Themes D, F) ---------------------------------
+
+  handle(
+    CHANNELS.ollamaSearch,
+    schemas.OllamaSearchRequest,
+    async ({ query, scope }) => searchOllamaLibrary(query, scope),
+    (issue) => failure(issue),
+  );
+
+  handleBare(CHANNELS.ollamaCloudList, async () => {
+    try {
+      const apiKey = (await readOllamaApiKey()) ?? undefined;
+      return ok({ models: await ollamaCloudTags({ apiKey }) });
+    } catch (error) {
+      return failure(errorMessage(error));
+    }
+  });
+
+  handleBare(CHANNELS.ollamaSignInStatus, async () => {
+    return { signedIn: await ollamaSignedIn({ baseUrl: await resolveHost() }) };
+  });
 }
 
 function errorMessage(error: unknown): string {
