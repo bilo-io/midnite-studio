@@ -46,6 +46,8 @@ const loadWorkflowsView = () => import('../features/workflows/workflows-view');
 const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
 const loadVideoView = () => import('../features/video/video-view');
 const VideoView = lazy(() => loadVideoView().then((m) => ({ default: m.VideoView })));
+const loadModelsView = () => import('../features/models/models-view');
+const ModelsView = lazy(() => loadModelsView().then((m) => ({ default: m.ModelsView })));
 const loadDatabaseView = () => import('../features/database/database-view');
 const DatabaseView = lazy(() => loadDatabaseView().then((m) => ({ default: m.DatabaseView })));
 const loadDashboardView = () => import('../features/dashboard/dashboard-view');
@@ -189,6 +191,9 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   workflows: { Component: WorkflowsView, global: true },
   // Global too (Phase 44) — a video project is not a property of an open checkout.
   video: { Component: VideoView, global: true },
+  // Global too (Phase 96 Theme C) — an Ollama daemon and its models are a
+  // property of the machine, not of an open checkout.
+  models: { Component: ModelsView, global: true },
   // `global: true` is the substance of this entry, not decoration: session
   // history spans repos, so without the flag the empty workspace would render
   // until one is open, making every other repo's history unreachable

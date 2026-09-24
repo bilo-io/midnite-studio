@@ -18,8 +18,12 @@ import {
  * no shared helper exists yet for two settings pages doing the identical
  * "run this in a pty" thing, so this is a deliberate, small duplication
  * rather than a from-scratch extraction this phase did not ask for.
+ *
+ * Exported (Phase 96 Theme C) — the Models view's own daemon-down empty
+ * state reuses this one "run it in a pty" primitive for its Start Ollama
+ * button rather than a third copy.
  */
-function submitCommand(command: string, title = 'ollama'): void {
+export function submitCommand(command: string, title = 'ollama'): void {
   if (!command) return;
   const ui = useUiStore.getState();
   ui.setTerminalOpen(true);

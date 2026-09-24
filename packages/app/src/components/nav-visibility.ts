@@ -28,6 +28,7 @@ export const RAIL_VIEW_IDS: readonly ViewId[] = [
   'councils',
   'workflows',
   'video',
+  'models',
 ];
 
 /** Whether a view's rail row is shown. Landing and Settings are never gated here. */
@@ -47,6 +48,7 @@ export const COMMAND_NAV_VIEW: Partial<Record<CommandId, ViewId>> = {
   'view.files': 'files',
   'view.issues': 'issues',
   'view.video': 'video',
+  'view.models': 'models',
   'view.apiClient': 'apiClient',
   'status.focus': 'changes',
   'workflow.run': 'workflows',

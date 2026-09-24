@@ -27,6 +27,7 @@ import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
 import { McpSettingsPage } from './settings-pages/mcp-page';
 import { MonitorPage } from './settings-pages/monitor-page';
+import { OllamaSettingsPage } from './settings-pages/ollama-page';
 import { OptimizerSettingsPage } from './settings-pages/optimizer-settings-page';
 import { PrivacyPage } from './settings-pages/privacy-page';
 import { ProjectsPage } from './settings-pages/projects-page';
@@ -63,6 +64,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   projects: () => <ProjectsPage />,
   workflows: () => <WorkflowsPage />,
   video: () => <VideoSettingsPage />,
+  ollama: () => <OllamaSettingsPage />,
   gitSafety: () => <GitSafetyPage />,
   trashSafety: () => <TrashSafetyPage />,
   apiClient: () => <ApiClientPage />,

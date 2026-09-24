@@ -484,6 +484,10 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('video'),
     }),
+    'view.models': withNavVisibility(navVisibility, 'view.models', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('models'),
+    }),
     'view.apiClient': withNavVisibility(navVisibility, 'view.apiClient', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('apiClient'),

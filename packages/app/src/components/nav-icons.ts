@@ -2,7 +2,7 @@ import type { IconType } from 'react-icons';
 import { GoBeaker, GoGitPullRequest, GoGlobe, GoIssueOpened, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import { PiTerminalDuotone } from 'react-icons/pi';
-import { SiGrapheneos } from 'react-icons/si';
+import { SiGrapheneos, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuAudioLines,
@@ -93,6 +93,10 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   councils: CirclePileIcon,
   workflows: LuWorkflow,
   video: LuClapperboard,
+  // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this
+  // view is specifically Ollama's models, and the phase doc's own research
+  // already settled on `SiOllama` for it.
+  models: SiOllama,
   // A duotone terminal, not a Lucide glyph — Sessions is the live/closed
   // terminal roster, and the duotone fill reads more distinctly from
   // `SETTINGS_PAGE_ICON.terminal`'s plain `LuTerminal` at rail size.
@@ -128,6 +132,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   projects: LuSquareKanban,
   workflows: LuWorkflow,
   video: LuClapperboard,
+  ollama: SiOllama,
   gitSafety: LuShieldAlert,
   // A literal trash can, not a third shield glyph: `reviews` already owns
   // `LuShieldCheck` and `gitSafety` owns `LuShieldAlert`, and a third shield

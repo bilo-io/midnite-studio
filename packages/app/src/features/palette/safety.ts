@@ -140,7 +140,7 @@ const ID_DISPATCH_OK = new Set<CommandId>([
  * decides how the companion may use it — the same guarantee `VIEW_COMPONENT`
  * and `CommandRuntime` already give.
  *
- * `view.graph`/`view.files`/`view.issues`/`view.video`/`view.apiClient` are
+ * `view.graph`/`view.files`/`view.issues`/`view.video`/`view.models`/`view.apiClient` are
  * `never` here — a deliberate narrowing of Decision 5's prose ("direct: every
  * `view.*`"), flagged in this PR's description. The companion's `navigate`
  * intent (Theme B) reaches every view through `CompanionVocabulary.views`
@@ -230,6 +230,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'workflow.run': 'confirm',
   // See the docblock above.
   'view.video': 'never',
+  'view.models': 'never',
   'view.apiClient': 'never',
   'theme.select': 'direct',
   'theme.import': 'direct',
