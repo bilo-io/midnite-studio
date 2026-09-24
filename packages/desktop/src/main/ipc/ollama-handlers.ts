@@ -11,19 +11,27 @@ import {
   resolveOllamaBaseUrl,
 } from '../ollama/client';
 import { cancelOllamaPull, startOllamaPull } from '../ollama/pull-queue';
+import { getConfiguredOllamaHost, getOllamaSettings, setOllamaSettings } from '../ollama/settings-service';
 import { handle, handleBare } from './handle';
 
+/** The configured override (Theme C) wins; an unset override falls back to
+ *  Theme B's env-only `resolveOllamaBaseUrl()`. */
+async function resolveHost(): Promise<string> {
+  return (await getConfiguredOllamaHost()) ?? resolveOllamaBaseUrl();
+}
+
 /**
- * Ollama (Phase 96 Theme B) — thin `handle`/`handleBare` forwarding onto
- * `ollama/client.ts` and `ollama/pull-queue.ts`, mirroring `video-handlers.ts`'s
- * own shape: every decision (mapping, throttling, one-pull-per-model) lives in
- * those two modules, not here.
+ * Ollama (Phase 96 Theme B/C) — thin `handle`/`handleBare` forwarding onto
+ * `ollama/client.ts`, `ollama/pull-queue.ts` and `ollama/settings-service.ts`,
+ * mirroring `video-handlers.ts`'s own shape: every decision (mapping,
+ * throttling, one-pull-per-model, host resolution) lives in those modules,
+ * not here.
  */
 export function registerOllamaHandlers(): void {
   // Plain data, never a `GitOpResult` — an unreachable daemon is an ordinary
   // state the Health page and Models view both render, not a failure.
   handleBare(CHANNELS.ollamaStatus, async () => {
-    const host = resolveOllamaBaseUrl();
+    const host = await resolveHost();
     try {
       const version = await ollamaVersion({ baseUrl: host });
       return { reachable: true, version, host };
@@ -34,7 +42,7 @@ export function registerOllamaHandlers(): void {
 
   handleBare(CHANNELS.ollamaList, async () => {
     try {
-      return ok({ models: await ollamaTags() });
+      return ok({ models: await ollamaTags({ baseUrl: await resolveHost() }) });
     } catch (error) {
       return failure(errorMessage(error));
     }
@@ -45,7 +53,7 @@ export function registerOllamaHandlers(): void {
     schemas.OllamaShowRequest,
     async ({ model, verbose }) => {
       try {
-        return ok(await ollamaShow(model, { verbose }));
+        return ok(await ollamaShow(model, { verbose, baseUrl: await resolveHost() }));
       } catch (error) {
         return failure(errorMessage(error));
       }
@@ -55,7 +63,7 @@ export function registerOllamaHandlers(): void {
 
   handleBare(CHANNELS.ollamaPs, async () => {
     try {
-      return ok({ models: await ollamaPs() });
+      return ok({ models: await ollamaPs({ baseUrl: await resolveHost() }) });
     } catch (error) {
       return failure(errorMessage(error));
     }
@@ -64,7 +72,7 @@ export function registerOllamaHandlers(): void {
   handle(
     CHANNELS.ollamaPull,
     schemas.OllamaPullRequest,
-    async ({ model }) => ok(startOllamaPull(model)),
+    async ({ model }) => ok(startOllamaPull(model, await resolveHost())),
     (issue) => failure(issue),
   );
 
@@ -86,7 +94,7 @@ export function registerOllamaHandlers(): void {
     schemas.OllamaDeleteRequest,
     async ({ model }) => {
       try {
-        await ollamaDelete(model);
+        await ollamaDelete(model, { baseUrl: await resolveHost() });
         return ok();
       } catch (error) {
         return failure(errorMessage(error));
@@ -100,7 +108,7 @@ export function registerOllamaHandlers(): void {
     schemas.OllamaCreateRequest,
     async ({ from, name, parameters }) => {
       try {
-        await ollamaCreate({ from, name, parameters });
+        await ollamaCreate({ from, name, parameters }, { baseUrl: await resolveHost() });
         return ok({ name });
       } catch (error) {
         return failure(errorMessage(error));
@@ -114,8 +122,23 @@ export function registerOllamaHandlers(): void {
     schemas.OllamaUnloadRequest,
     async ({ model }) => {
       try {
-        await ollamaUnload(model);
+        await ollamaUnload(model, { baseUrl: await resolveHost() });
         return ok();
+      } catch (error) {
+        return failure(errorMessage(error));
+      }
+    },
+    (issue) => failure(issue),
+  );
+
+  handleBare(CHANNELS.ollamaSettingsGet, async () => getOllamaSettings());
+
+  handle(
+    CHANNELS.ollamaSettingsSet,
+    schemas.OllamaSettingsSetRequest,
+    async (patch) => {
+      try {
+        return ok(await setOllamaSettings(patch));
       } catch (error) {
         return failure(errorMessage(error));
       }

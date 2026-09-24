@@ -633,6 +633,10 @@ const bridge: Pick<
     create: (req) => call(CHANNELS.ollamaCreate, req),
     unload: (req) => call(CHANNELS.ollamaUnload, req),
     onPullProgress: (handler) => subscribe(EVENT_CHANNELS.ollamaPullProgress, handler),
+    settings: {
+      get: () => call(CHANNELS.ollamaSettingsGet),
+      set: (req) => call(CHANNELS.ollamaSettingsSet, req),
+    },
   },
   optimizer: {
     scan: (req) => call(CHANNELS.optimizerScan, req),
