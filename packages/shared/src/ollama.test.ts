@@ -11,6 +11,7 @@ import {
   OllamaSearchResultItemSchema,
   agentFitness,
   deriveContextLength,
+  deriveEmbeddingLength,
   deriveNumCtx,
   effectiveContextLength,
 } from './ollama';
@@ -38,6 +39,17 @@ describe('deriveContextLength', () => {
     expect(deriveContextLength({ 'llama.context_length': '4096' })).toBeNull();
     expect(deriveContextLength({ 'llama.context_length': 0 })).toBeNull();
     expect(deriveContextLength({ 'llama.context_length': -1 })).toBeNull();
+  });
+});
+
+describe('deriveEmbeddingLength', () => {
+  it('reads the first "<arch>.embedding_length" key it finds', () => {
+    expect(deriveEmbeddingLength({ 'llama.embedding_length': 4096 })).toBe(4096);
+  });
+
+  it('returns null when model_info is undefined or has no embedding key', () => {
+    expect(deriveEmbeddingLength(undefined)).toBeNull();
+    expect(deriveEmbeddingLength({ 'llama.context_length': 4096 })).toBeNull();
   });
 });
 

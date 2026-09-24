@@ -77,6 +77,20 @@ export function deriveContextLength(modelInfo: Record<string, unknown> | undefin
   return null;
 }
 
+/**
+ * Same key-scan as {@link deriveContextLength}, for `"<arch>.embedding_length"`
+ * — Theme E's stat grid shows it "where present": most generation models
+ * don't report one (`null`, not shown), embedding models do.
+ */
+export function deriveEmbeddingLength(modelInfo: Record<string, unknown> | undefined): number | null {
+  if (!modelInfo) return null;
+  for (const [key, value] of Object.entries(modelInfo)) {
+    if (!key.endsWith('.embedding_length')) continue;
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
 // --- `/api/ps` — one running model row --------------------------------------
 
 export const OllamaRunningModelSchema = z.object({

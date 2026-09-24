@@ -3,6 +3,7 @@ import {
   AGENT_MIN_CONTEXT_LENGTH,
   BUILTIN_AGENTS,
   agentFitness,
+  deriveEmbeddingLength,
   effectiveContextLength,
   supportsOllamaBackend,
 } from '@midnite/studio-shared';
@@ -91,6 +92,7 @@ export function ModelDetailModal({
   const detail = detailQuery.data;
   const effectiveCtx = detail ? effectiveContextLength(detail) : null;
   const fitness = detail && effectiveCtx !== null ? agentFitness(detail, effectiveCtx) : null;
+  const embeddingLength = detail ? deriveEmbeddingLength(detail.modelInfo) : null;
   const capabilities = detail?.capabilities ?? [];
   const already64k = model.model.endsWith('-64k');
   const variantName = `${model.model}-64k`;
@@ -173,6 +175,9 @@ export function ModelDetailModal({
                   }
                   sub={effectiveCtx !== null ? `${effectiveCtx.toLocaleString()} effective` : undefined}
                 />
+                {embeddingLength !== null ? (
+                  <Stat label="Embedding" value={embeddingLength.toLocaleString()} />
+                ) : null}
               </div>
 
               <div className="flex flex-wrap gap-1.5 px-4 pb-2">
