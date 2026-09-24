@@ -6,8 +6,10 @@ import { createPortal } from 'react-dom';
 import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
+import type { ActiveAgentWorktreeSession } from './use-agent-worktrees';
 import type { PaletteStyle } from './graph-themes';
 import { laneInk, laneVars } from './lane-colors';
+import { RefAgentAvatar } from './ref-agent-avatar';
 import type { SyncAction } from './ref-sync';
 
 /**
@@ -86,6 +88,7 @@ export function RefBadge({
   onDoubleClick,
   agentActive = false,
   branchGlow = false,
+  agentSession,
   dnd,
 }: {
   refItem: Ref;
@@ -114,6 +117,13 @@ export function RefBadge({
   agentActive?: boolean;
   /** Whether this ref sits on the actively highlighted / glowing branch. */
   branchGlow?: boolean;
+  /**
+   * The live agent session working in this ref's worktree, if any — from
+   * `useActiveAgentWorktreeSessions()`. Set together with `agentActive` (it
+   * is the session that makes `agentActive` true), never on its own: this is
+   * what draws the avatar beside the chip and what "Reveal session" opens.
+   */
+  agentSession?: ActiveAgentWorktreeSession;
   /** Drag/drop wiring from useRefDnd — omitted where the badge is static. */
   dnd?: {
     setNodeRef: (node: HTMLElement | null) => void;
@@ -167,21 +177,19 @@ export function RefBadge({
               color: laneInk(colorIdx, palette),
               /*
                 The still half of the "you are here" marker. See `HeadGlow` for
-                why this is a shadow and not a blurred child element.
-                When an agent is also active, an enriched multi-layered gradient glow is applied.
+                why this is a shadow and not a blurred child element. Dropped
+                whenever `.ref-badge-agent-glow`/`.graph-badge-glow` (below) is
+                about to paint its own animated box-shadow over the top of it —
+                a CSS animation's `box-shadow` keyframes replace an element's
+                inline value outright rather than compositing with it, so a
+                static shadow set here would be dead weight in both cases.
               */
-              boxShadow: agentActive
-                ? '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8), 0 0 8px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65), 0 0 16px 4px hsl(calc(var(--lane-h) + 15) var(--lane-s) var(--lane-l) / 0.4)'
-                : branchGlow
+              boxShadow:
+                agentActive || branchGlow
                   ? undefined
                   : '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5)',
             }
-          : agentActive
-            ? {
-                boxShadow:
-                  '0 0 0 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.7), 0 0 8px 2px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.55), 0 0 14px 3px hsl(calc(var(--lane-h) + 15) var(--lane-s) var(--lane-l) / 0.35)',
-              }
-            : undefined),
+          : undefined),
         opacity: current || agentActive || branchGlow ? 1 : RESTING_OPACITY,
       }}
       className={`relative inline-flex min-w-0 max-w-full shrink cursor-default items-center gap-1 rounded-[3px] border px-1.5 py-px text-[11px] leading-4 transition-opacity ${
@@ -193,7 +201,13 @@ export function RefBadge({
               ? 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.75)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.2)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] font-medium hover:opacity-100'
               : 'border-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.45)] bg-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-l)/0.14)] text-[hsl(var(--lane-h)_var(--lane-s)_var(--lane-ink-l))] hover:opacity-100'
       } ${
-        branchGlow && !agentActive ? 'graph-badge-glow' : ''
+        // An agent working in this ref's worktree always wins the animated
+        // ring over the plain "lit lane" pulse — it is the more specific,
+        // more urgent fact about the branch. See `.ref-badge-agent-glow` in
+        // styles.css: same shared pulse keyframe as `.activity-glow`'s
+        // `agent` status, recoloured with `--activity-agent` rather than the
+        // lane hue `.graph-badge-glow` uses.
+        agentActive ? 'ref-badge-agent-glow' : branchGlow ? 'graph-badge-glow' : ''
       } ${
         // A drop target has to look like one mid-drag, or the gesture is a
         // guess — the ring is the only feedback the user gets before releasing.
@@ -220,22 +234,38 @@ export function RefBadge({
   */
   const share = crowded ? 'max-w-[60%]' : 'max-w-full';
 
+  // The agent avatar (and its hover-revealed "Reveal session" button) sits
+  // right of the chip, outside its own Tooltip — the two have independent
+  // hover stories (the chip's tooltip names the ref, the avatar's names the
+  // session), and nesting one inside the other would fight over the pointer.
+  const avatar = agentSession ? (
+    <RefAgentAvatar session={agentSession.session} agentId={agentSession.agentId} />
+  ) : null;
+
   if (!expandable) {
+    if (!avatar) {
+      return (
+        <Tooltip label={<RefTooltip refItem={refItem} />}>
+          {/*
+            The wrapper is `contents`-free on purpose: Tooltip clones its child
+            and needs a real element to hang a ref and handlers on, and the chip
+            IS that element.
+          */}
+          {chip}
+        </Tooltip>
+      );
+    }
     return (
-      <Tooltip label={<RefTooltip refItem={refItem} />}>
-        {/*
-          The wrapper is `contents`-free on purpose: Tooltip clones its child
-          and needs a real element to hang a ref and handlers on, and the chip
-          IS that element.
-        */}
-        {chip}
-      </Tooltip>
+      <span className={`flex w-fit min-w-0 shrink items-center gap-1 ${share}`}>
+        <Tooltip label={<RefTooltip refItem={refItem} />}>{chip}</Tooltip>
+        {avatar}
+      </span>
     );
   }
 
   return (
     <span
-      className={`flex w-fit min-w-0 shrink items-center ${share}`}
+      className={`flex w-fit min-w-0 shrink items-center gap-1 ${share}`}
       onMouseEnter={enter}
       onMouseLeave={leave}
     >
@@ -253,6 +283,7 @@ export function RefBadge({
           onLeave={leave}
         />
       ) : null}
+      {avatar}
     </span>
   );
 }
@@ -266,7 +297,7 @@ export function RefBadge({
  * way out, cancelled by an enter anywhere in the group, is what makes the gap
  * between the two crossable.
  */
-function useHoverGroup() {
+export function useHoverGroup() {
   const [hovered, setHovered] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

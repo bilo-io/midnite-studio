@@ -3369,6 +3369,44 @@ html[data-motion='reduced'] .activity-glow[data-activity-status='running'] {
 }
 
 /*
+  Ref badges whose worktree carries a live agent session (`ref-badge.tsx`'s
+  `agentActive`) — reuses `.activity-glow`'s own `activity-glow-pulse`
+  keyframe and `--activity-agent` token verbatim rather than a parallel
+  keyframe, but skips `.activity-glow`'s base class: that class repaints its
+  target's BACKGROUND (`background-image`'s opaque `hsl(var(--background))`
+  layer, so a conic-gradient border can show through the 1px band around it),
+  which would blank out the chip's own lane-tinted fill — the one thing that
+  makes a ref badge read as "this branch" at a glance. Only the pulse is
+  reused; the ring colour is the shared "an agent is driving this" identity
+  (`--activity-agent`) rather than the branch's own lane hue, same
+  distinction `.graph-badge-glow` (lane hue, no agent) draws against this.
+*/
+.ref-badge-agent-glow {
+  --activity-ring-color: var(--activity-agent);
+  animation: activity-glow-pulse 2s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .ref-badge-agent-glow {
+  animation-play-state: running;
+}
+
+html[data-window-focused='false'] .ref-badge-agent-glow {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .ref-badge-agent-glow {
+    animation: none;
+    box-shadow: 0 0 8px var(--activity-agent);
+  }
+}
+
+html[data-motion='reduced'] .ref-badge-agent-glow {
+  animation: none;
+  box-shadow: 0 0 8px var(--activity-agent);
+}
+
+/*
   Dependency edge states (Phase 75 Theme E) — `edge-appearance.ts` picks
   these classes off two endpoints (plus, for the fourth row, the same glow
   map the node's own ring reads); nothing here inspects graph data itself.

@@ -17,6 +17,7 @@ import {
 import { getProvenanceTooltip, ProvenanceMark } from './provenance-mark';
 import { RefBadge } from './ref-badge';
 import { badgeActions, type SyncAction } from './ref-sync';
+import type { ActiveAgentWorktreeSession } from './use-agent-worktrees';
 
 /**
  * One commit row: lane graphic, ref badges, subject, author, date.
@@ -81,6 +82,14 @@ export type GraphRowProps = {
   currentBranch: string | null;
   /** Check if an agent is active on a ref's worktree. */
   isAgentActive?: (ref: Ref) => boolean;
+  /**
+   * The live agent session behind `isAgentActive(ref)`, if any — drives the
+   * agent avatar and its "Reveal session" button beside the badge. Kept
+   * separate from `isAgentActive` (rather than folded into one lookup)
+   * because most existing callers only ever needed the boolean, and the
+   * boolean-only `RefOverflowButton` popover still does.
+   */
+  agentSessionFor?: (ref: Ref) => ActiveAgentWorktreeSession | undefined;
   /** Current timestamp (ms) for live recency calculations. */
   nowMs?: number;
   /** Commit provenance (Phase 78 Theme C). */
@@ -123,6 +132,7 @@ function GraphRowInner({
   syncing,
   currentBranch,
   isAgentActive,
+  agentSessionFor,
 }: GraphRowProps) {
   // `refs` arrives sorted by importance (HEAD, locals, remotes, tags), so the
   // slice keeps the ref you most need to see and buries the ones you don't.
@@ -250,6 +260,7 @@ function GraphRowInner({
             onSync={(action) => onSync(ref, action)}
             syncing={syncing[ref.fullName] ?? null}
             agentActive={isAgentActive ? isAgentActive(ref) : false}
+            agentSession={agentSessionFor ? agentSessionFor(ref) : undefined}
             branchGlow={onGlowingLane}
             onContextMenu={(event) => {
               // Stop the row's own menu opening as well — the badge's menu is
@@ -278,6 +289,7 @@ function GraphRowInner({
             onRefContextMenu={onRefContextMenu}
             onRefActivate={onRefActivate}
             isAgentActive={isAgentActive}
+            agentSessionFor={agentSessionFor}
             branchGlow={onGlowingLane}
           />
         ) : null}
@@ -614,6 +626,7 @@ function DraggableRefBadge({
   onSync,
   syncing,
   agentActive,
+  agentSession,
   branchGlow,
   onContextMenu,
   onDoubleClick,
@@ -627,6 +640,7 @@ function DraggableRefBadge({
   onSync: (action: SyncAction) => void;
   syncing: SyncAction['kind'] | null;
   agentActive?: boolean;
+  agentSession?: ActiveAgentWorktreeSession;
   branchGlow?: boolean;
   onContextMenu: (event: React.MouseEvent) => void;
   onDoubleClick: (event: React.MouseEvent) => void;
@@ -643,6 +657,7 @@ function DraggableRefBadge({
       onSync={onSync}
       syncing={syncing}
       agentActive={agentActive}
+      agentSession={agentSession}
       branchGlow={branchGlow}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
@@ -671,6 +686,7 @@ function RefOverflowButton({
   onRefContextMenu,
   onRefActivate,
   isAgentActive,
+  agentSessionFor,
   branchGlow,
 }: {
   refs: readonly Ref[];
@@ -679,6 +695,7 @@ function RefOverflowButton({
   onRefContextMenu: (event: React.MouseEvent, ref: Ref) => void;
   onRefActivate: (ref: Ref) => void;
   isAgentActive?: (ref: Ref) => boolean;
+  agentSessionFor?: (ref: Ref) => ActiveAgentWorktreeSession | undefined;
   branchGlow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -762,6 +779,7 @@ function RefOverflowButton({
                         colorIdx={colorIdx}
                         palette={palette}
                         agentActive={active}
+                        agentSession={agentSessionFor ? agentSessionFor(ref) : undefined}
                         branchGlow={branchGlow}
                         onContextMenu={(event) => {
                           event.preventDefault();
