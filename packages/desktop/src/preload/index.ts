@@ -159,6 +159,7 @@ const bridge: Pick<
   | 'cli'
   | 'update'
   | 'systemHealth'
+  | 'ollama'
   | 'optimizer'
   | 'protocol'
   | 'db'
@@ -621,6 +622,18 @@ const bridge: Pick<
     submitIssue: (r) => call(CHANNELS.reportSubmitIssue, r),
   },
   systemHealth: () => call(CHANNELS.systemHealth),
+  ollama: {
+    status: () => call(CHANNELS.ollamaStatus),
+    list: () => call(CHANNELS.ollamaList),
+    show: (req) => call(CHANNELS.ollamaShow, req),
+    ps: () => call(CHANNELS.ollamaPs),
+    pull: (req) => call(CHANNELS.ollamaPull, req),
+    pullCancel: (req) => call(CHANNELS.ollamaPullCancel, req),
+    delete: (req) => call(CHANNELS.ollamaDelete, req),
+    create: (req) => call(CHANNELS.ollamaCreate, req),
+    unload: (req) => call(CHANNELS.ollamaUnload, req),
+    onPullProgress: (handler) => subscribe(EVENT_CHANNELS.ollamaPullProgress, handler),
+  },
   optimizer: {
     scan: (req) => call(CHANNELS.optimizerScan, req),
     onScanProgress: (handler) => subscribe(EVENT_CHANNELS.optimizerScanProgress, handler),
