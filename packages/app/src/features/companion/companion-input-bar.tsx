@@ -386,8 +386,18 @@ export function CompanionInputBar({
                   : 'text-foreground hover:bg-accent/60'
               }`}
             >
-              <span className="truncate font-medium">{item.label}</span>
-              <span className="truncate text-[11px] text-muted-foreground">{item.description}</span>
+              {/*
+                `shrink-0` on the label, `min-w-0 flex-1` on the description:
+                without an explicit basis, a flex row's default `shrink` is
+                equal on both children, and truncation was landing on the
+                short label — "Backlog Task" cut to "Backlog …" — while the
+                long description had barely started giving up space. The
+                label is the thing a row is picked by; it never truncates.
+              */}
+              <span className="shrink-0 font-medium">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
+                {item.description}
+              </span>
             </div>
           ))}
         </div>
