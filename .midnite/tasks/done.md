@@ -1,6 +1,48 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 97 Theme A — Typed ports and edge kinds
+
+[PR #557](https://github.com/bilo-io/midnite-studio/pull/557). Every other Phase 97 theme
+depends on this — the port/edge-kind schema is the shared contract they all build on.
+
+- [x] `WorkflowPortSchema` in `workflow.ts`: `{id, label, direction: 'in'|'out', type:
+      WorkflowPortType}` with `WORKFLOW_PORT_TYPES = ['any','json','text','number','boolean',
+      'verdict','artifact-ref']`. Each node kind declares its ports in a pure
+      `portsForNode(node)`, exhaustive over `WorkflowNodeKind`. `condition` settles on named
+      `true`/`false` out-ports rather than a single `out`.
+- [x] Every node kind with an executor gets an implicit **`error`** out-port
+      (`WORKFLOW_ERROR_PORT_ID`, type `json`, shape `{message, status}`). `note` gets none.
+- [x] `WorkflowEdgeSchema` gains `fromPort`, `toPort` and `kind: 'data'|'conditional'|'loop'|
+      'error'`, all `.optional()` in the wire schema — the same optional-plus-reader pattern
+      `isWorkflowEnabled` uses, so no existing fixture needs to change. `normalizeEdge(edge)`
+      fills the defaults (`out` → `in`, `data`).
+- [x] Per-port **output schema**: an optional `outputShape` on an out-port — a small JSON-shape
+      descriptor (`{type, properties?, items?}`), not full JSON Schema. `http`/`agent`/`script`
+      configs gain an optional `outputShape` field, copied onto that kind's `out` port by
+      `portsForNode`.
+- [x] `canConnect(fromNode, fromPort, toNode, toPort, edges)` in `shared` →
+      `{ok:true}|{ok:false, reason}`. Checks direction, type compatibility (`any` accepts all;
+      `verdict` → `boolean` one-way; `json` shape compatible only when both sides declare one), a
+      single edge per in-port unless `allowMultiple`, self-connection, and `wouldCycle`.
+- [x] `validateWorkflow` reports an edge whose (normalized) port no longer exists on its node as
+      a `WorkflowIssue`, without double-reporting a note connection it already flags.
+- [x] `migrateWorkflowEdges(workflow)` — identity (same reference) unless a legacy `condition`
+      node's outgoing edge has no `fromPort`, in which case it maps to `'true'` (+
+      `kind: 'conditional'`), preserving "false gates everything downstream" exactly. Wired into
+      `workflows-store.ts`'s load path, and into `workflow-engine.ts`'s `startWorkflowRun` too —
+      the latter is what keeps `workflow-engine.test.ts` passing **unedited**, since its fixtures
+      reach the engine directly rather than through the store.
+- [x] Vitest: `workflow.test.ts` gains 27 tests (the `canConnect` truth table, `portsForNode` per
+      kind, `normalizeEdge`, migration identity + legacy-condition mapping, dangling-port
+      issues). `workflow-stores.test.ts` covers migration-on-load.
+
+**Final shared names for B/C/J/M** — `WORKFLOW_PORT_TYPES`, `WorkflowPort`, `portsForNode`,
+`WORKFLOW_EDGE_KINDS`, `normalizeEdge`, `canConnect`, `migrateWorkflowEdges`,
+`WORKFLOW_ERROR_PORT_ID`. Join's dynamic inputs (B) should be distinctly-`id`'d ports
+(`in-1`, `in-2`, …), not one shared `allowMultiple` port — that flag exists for the plain-node
+implicit-join case.
+
 ## 2026-09-24 — Phase 96 Theme I — Launch surfaces
 
 [PR #549](https://github.com/bilo-io/midnite-studio/pull/549). This is the last build theme of Phase 96. Only its
