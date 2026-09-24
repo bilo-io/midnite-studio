@@ -111,7 +111,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [x] Vitest (`workflow.test.ts`): the `canConnect` truth table, the migration identity on every
       existing fixture, a legacy condition keeping its semantics, and unknown-port issues.
 
-### B — Routing, joins and the error port (L) ✅ DONE (PR #TBD, 2026-09-25)
+### B — Routing, joins and the error port (L) ✅ DONE ([PR #558](https://github.com/bilo-io/midnite-studio/pull/558), 2026-09-25)
 
 - [x] The engine resolves readiness **per in-edge**, not per parent. An edge is *taken* when its
       source settled on that edge's port, and *dead* when the source settled on a different port.

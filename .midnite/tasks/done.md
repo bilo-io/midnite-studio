@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-25 — Phase 97 Theme B — Routing, joins and the error port
 
-PR #TBD. Stacked on Theme A's port/edge-kind contract (PR #557) — moves the engine off the
+[PR #558](https://github.com/bilo-io/midnite-studio/pull/558). Stacked on Theme A's port/edge-kind contract (PR #557) — moves the engine off the
 `condition` node's `skipDownstream` special case onto typed per-edge routing every kind shares.
 
 - [x] The engine resolves readiness **per in-edge, not per parent**
