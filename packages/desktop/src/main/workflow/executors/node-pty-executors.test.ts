@@ -103,6 +103,10 @@ describe('script executor', () => {
     const reported: string[] = [];
     const promise = executor(scriptNode('echo hi'), context(reported));
 
+    // `startSession` resolves on a microtask before the executor registers
+    // its `onPty` callbacks — flush that one tick before emitting anything,
+    // or `emitData`/`emitExit` below fire into a still-null callback.
+    await vi.advanceTimersByTimeAsync(0);
     fake.emitData('hi\n');
     fake.emitExit(0);
 
@@ -121,6 +125,7 @@ describe('script executor', () => {
     const executor = createScriptExecutor(fake.deps);
     const promise = executor(scriptNode('false'), context([]));
 
+    await vi.advanceTimersByTimeAsync(0);
     fake.emitExit(1);
 
     const outcome = await promise;
@@ -160,6 +165,7 @@ describe('agent executor', () => {
     const reported: string[] = [];
     const promise = executor(agentNode('claude', 'Do the thing'), context(reported));
 
+    await vi.advanceTimersByTimeAsync(0);
     fake.emitData('working...\n');
     fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: ok\n');
     // The marker alone, while still "thinking", must not settle the node —
@@ -189,6 +195,7 @@ describe('agent executor', () => {
     const executor = createAgentExecutor(fake.deps);
     const promise = executor(agentNode('claude', 'Do the thing'), context([]));
 
+    await vi.advanceTimersByTimeAsync(0);
     fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: fail\n');
     await vi.advanceTimersByTimeAsync(150);
 
@@ -201,6 +208,7 @@ describe('agent executor', () => {
     const executor = createAgentExecutor(fake.deps);
     const promise = executor(agentNode('claude', 'Do the thing'), context([]));
 
+    await vi.advanceTimersByTimeAsync(0);
     fake.emitExit(0);
 
     const outcome: NodeOutcome = await promise;
