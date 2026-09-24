@@ -247,7 +247,7 @@ before work exists, an Auto-mate that keeps going, and a kill switch that stops 
 - ◻ **F** — Plan with AI: editable blueprint sheet, re-plan, confirm creates project + issues + links (or sub-issues)
 - ✅ **G** (PR #532) — start / stop / `>_` controls on cards and nodes; drag-to-column fires the mapped skill behind an Undo toast
 - ◻ **H** — session attribution refs, Auto-mate (next unblocked, cap default 1), and the five-scope kill-switch modal
-- ◻ **I** — workflow editor parity with midnite on lazy-loaded React Flow: palette, panels, bottom run panel, toolbar, live run state
+- ✅ **I** (PR #534) — workflow editor parity with midnite on lazy-loaded React Flow: palette, panels, bottom run panel, toolbar, live run state
 - ◻ **J** — agent and script workflow nodes in real ptys, grouped per run in a terminal accordion, glow by run state
 
 ### [Phase 94 — AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md)

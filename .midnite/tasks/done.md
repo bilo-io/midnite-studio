@@ -1,6 +1,42 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 95 Theme I — The workflow editor, at midnite's level
+
+[PR #534](https://github.com/bilo-io/midnite-studio/pull/534).
+
+Ports the workflow editor onto lazy-loaded `@xyflow/react` + `@dagrejs/dagre`, reversing Phase 43's
+own no-graph-library decision — the phase doc's own recorded rationale, with `bundle-report.mjs`
+numbers to back it: entry chunk unchanged (427.9 → 426.6 KB), +236.6 KB landing entirely inside the
+lazy `workflows-view` chunk. `WorkflowNode.x`/`.y` were already top-left pixel coordinates — the
+same convention React Flow's own `node.position` uses — so the "position migration" the checklist
+calls for is `workflow-layout.ts`'s identity adapter, not a coordinate transform.
+
+Ships: the node palette (`node-palette.tsx` — collapsible, searchable, drag-or-click to add, now an
+animated-width collapse); the card-style node view (`workflow-node-view.tsx` — category-tinted
+header, icon chip, one-line summary, inline error, and a live run-state ring painted through the
+shared `.activity-glow` family via `useActivityGlow`, reconciling an early-draft one-off pulse class
+once Theme C's hook — which its own doc comment already named as this theme's hookup — landed);
+the toolbar (`workflow-toolbar.tsx` — rename, enabled toggle, save-as-template, Run, Save/Saved +
+busy spinner, run history); the bottom run panel (`run-output-panel.tsx` — Nodes + Logs tabs,
+Markdown export; Logs is a synthesised chronological replay of each node's own lifecycle, since the
+schema never recorded a separate log stream); step-through run replay (`run-replay.ts` +
+`run-replay-controls.tsx` — orders a run's nodes by when each settled, play/pause/prev/next/
+first/last); live run state on the *editing* canvas via an extended `workflowRunChanged` payload
+(`{workflowId, run}`, not a bare ping — every `emitChanged` call site already has the run in hand);
+and a dagre-driven "Auto layout" toolbar action.
+
+Also fixed along the way: a genuine `handleNodesChange` bug (`emitSelection` — a cross-component
+setState — was called from inside the `setNodes` updater, which is exactly what React's "Cannot
+update a component while rendering a different component" warning describes).
+
+e2e is scoped to the phase doc's own named exception — drag-from-palette and panel-resize — with
+the pre-existing `workflows.spec.ts` cases adapted to the new DOM (React Flow's own
+`data-testid`/`data-nodeid`/`data-handlepos` replace the old SVG canvas's `data-edge-id`/
+`data-port`) rather than multiplied; `e2e-budget.mjs`'s ratchet raised 454 → 456 (stacking on
+Theme G's concurrent 449 → 454 raise) with the file's own committed-justification convention.
+190 vitest (workflows + activity + motion-guards) and 15 Playwright cases, all green.
+
 ## 2026-09-24 — Phase 95 Theme E — Issue/project dialogs and the magic wand
 
 [PR #533](https://github.com/bilo-io/midnite-studio/pull/533).

@@ -415,7 +415,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 - [ ] Tests: next-card selection (blocked, board order, cap); scope → session filter per attribution
       field; modal sentence per scope; focus returns to the trigger on close (Phase 68).
 
-### I — The workflow editor, at midnite's level (L) — ✅ DONE (PR #TBD, 2026-09-24)
+### I — The workflow editor, at midnite's level (L) — ✅ DONE (PR #534, 2026-09-24)
 
 - [x] Adopt `@xyflow/react` and `@dagrejs/dagre`, **loaded only with the Workflows view** (dynamic
       import). This deliberately reverses Phase 43's no-graph-library decision; record the before /
