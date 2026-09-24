@@ -38,7 +38,7 @@ function fakePty(): {
 
   const deps: NodePtyDeps = {
     listAgents: async (): Promise<AgentDefinition[]> => [
-      { id: 'claude', label: 'Claude', command: 'claude', icon: 'claude', mode: 'both' } as AgentDefinition,
+      { id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#000000' },
     ],
     startSession: async (params) => ({
       ok: true,

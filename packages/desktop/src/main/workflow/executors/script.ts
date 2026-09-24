@@ -92,7 +92,7 @@ export function createScriptExecutor(deps: NodePtyDeps = defaultNodePtyDeps): No
         started.ptyId,
         (bytes) => {
           const capped = appendCapped(buffer, bytes, SCRIPT_OUTPUT_CAP_BYTES);
-          buffer = capped.buffer;
+          buffer = capped.buffer as Uint8Array<ArrayBuffer>;
           truncated = truncated || capped.truncated;
         },
         (exitCode) => {

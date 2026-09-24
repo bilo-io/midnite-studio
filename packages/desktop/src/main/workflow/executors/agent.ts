@@ -120,7 +120,7 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
         started.ptyId,
         (bytes) => {
           const capped = appendCapped(buffer, bytes, AGENT_OUTPUT_CAP_BYTES);
-          buffer = capped.buffer;
+          buffer = capped.buffer as Uint8Array<ArrayBuffer>;
           truncated = truncated || capped.truncated;
 
           if (markerResult === null) {
