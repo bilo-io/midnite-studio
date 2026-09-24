@@ -120,16 +120,30 @@ describe('SettingsView, assembled through the real bridge', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Sidebar' })).toBeTruthy();
 
-    const graphToggle = screen.getByRole('checkbox', { name: 'Show Graph in the sidenav' });
-    expect((graphToggle as HTMLInputElement).checked).toBe(true);
+    const graphToggle = screen.getByRole('switch', { name: 'Graph' }) as HTMLInputElement;
+    const graphRow = graphToggle.closest('label') as HTMLLabelElement;
+    expect(graphToggle.checked).toBe(true);
+    // Enabled rows read at full opacity.
+    expect(graphRow.className).not.toContain('opacity-50');
+
+    // A click on the switch itself toggles exactly once.
+    fireEvent.click(graphToggle);
+    expect(graphToggle.checked).toBe(false);
+    expect(useUiStore.getState().navVisibility).toEqual({ graph: false });
+    // Turned off reads as semi-transparent text.
+    expect(graphRow.className).toContain('opacity-50');
+
+    // Clicking anywhere else on the row — the label wraps the switch, so the
+    // click lands once on the one focusable control, not twice.
+    fireEvent.click(within(graphRow).getByText('Graph'));
+    expect(graphToggle.checked).toBe(true);
+    expect(useUiStore.getState().navVisibility).toEqual({});
+    expect(graphRow.className).not.toContain('opacity-50');
 
     fireEvent.click(graphToggle);
-    expect((graphToggle as HTMLInputElement).checked).toBe(false);
-    expect(useUiStore.getState().navVisibility).toEqual({ graph: false });
-
     fireEvent.click(screen.getByRole('button', { name: 'Show all destinations' }));
     expect(useUiStore.getState().navVisibility).toEqual({});
-    expect((graphToggle as HTMLInputElement).checked).toBe(true);
+    expect(graphToggle.checked).toBe(true);
   });
 
   it("reads every view's narrowing, edits it live, and resets it", async () => {
