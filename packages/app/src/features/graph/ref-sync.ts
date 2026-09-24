@@ -215,4 +215,10 @@ export function syncActions(
  * context menu where there is room to name them.
  */
 export const badgeActions = (actions: readonly SyncAction[]): SyncAction[] =>
-  actions.filter((action) => action.count > 0);
+  actions
+    .filter((action) => action.count > 0)
+    // Push (↑) left of pull (↓) — the same order the chip's own `↑N ↓M`
+    // counts read in, so each button sits under the number it acts on.
+    .sort((a, b) => BADGE_ORDER.indexOf(a.kind) - BADGE_ORDER.indexOf(b.kind));
+
+const BADGE_ORDER: readonly SyncAction['kind'][] = ['push', 'pull'];

@@ -217,7 +217,7 @@ describe('badgeActions', () => {
   it('keeps only the verbs with a count — the ones the chip just raised', () => {
     const ref = branch({ upstream: upstream({ ahead: 2, behind: 5 }) });
     const kinds = badgeActions(syncActions(ref, 'main', REMOTES)).map((a) => a.kind);
-    expect(kinds).toEqual(['pull', 'push']);
+    expect(kinds).toEqual(['push', 'pull']);
   });
 
   it('is empty for an in-sync branch, so nothing expands on hover', () => {
