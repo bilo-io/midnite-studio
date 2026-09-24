@@ -1,6 +1,44 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 95 Theme E — Issue/project dialogs and the magic wand
+
+[PR #533](https://github.com/bilo-io/midnite-studio/pull/533).
+
+The UI Theme D's `ForgeAdapter` CRUD had nothing to call it: `IssueDialog` and `ProjectDialog`
+(create/edit, on `Modal`, following `report-issue-dialog.tsx`'s shape), wired at the three entry
+points the phase doc named — Issues view header ("New issue"), Projects header beside the board
+select ("New board"/"Edit board"), and `CardDetail`'s new "Edit issue" button. Fields gated by
+`capabilitiesFor(kind).ops` throughout. Delete on both goes through the blast-radius confirm
+Theme D deferred here — two new `BLAST_RADIUS_COPY` entries in `confirm-dialog.tsx`; an issue's
+count is its linked-PR count (`ForgeProjectItemContent.linkedPrs`, the one relation a card
+already carries), a board's is its own already-fetched item count (`useForgeProjectItems`, never
+re-queried).
+
+The magic wand: `shared/src/ai-models.ts` gives every roster agent a `cheapModelFor`/
+`fastModelFor` lookup (claude → `haiku`, codex → `gpt-5-mini`, gemini/`agy` → `gemini-2.5-flash`,
+grok → `grok-4-fast`; honest gaps return `null` for CLIs with no documented small model) plus
+`modelArgsFor` for the `--model` flag. `main/ai/improve-field.ts` (`mstudio:ai:improve-field`)
+is `companion/ask.ts`'s own headless pattern — it reuses that file's `resolveHeadlessAgent`
+rather than a second roster walk — with the cheap model's flag inserted ahead of the prompt and
+a 30s deadline, answering the same `GitOpResult` envelope. `components/wand-field.tsx` is the
+shared control: `.activity-glow` agent ring while generating, one-step Undo, Esc cancels
+(client-side stale-marking only — there is no IPC channel to kill the subprocess mid-flight, and
+`readOnly` rather than `disabled` on the field so Esc's keydown is still reachable while
+generating).
+
+Also wired the forge issue/project CRUD IPC channels onto the preload bridge and
+`shared/src/ipc/bridge.ts`'s type — Theme D's own scope was main/shared only, so the channels and
+handlers existed but had no `window.midniteStudio` surface yet.
+
+**Decisions made unattended**: labels/assignees are comma-separated text inputs, not a picker
+(matches `gh issue create`'s own flag grammar, no new IPC read); the wand's provider is
+`ui-store.ts`'s existing `primaryAgent` rather than a new "most recently launched agent"
+tracker (the doc's own note there was a `recommend`, not `resolved`); the edit/delete channels'
+existing "resolves owner/repo from the open checkout" limitation (shared with every other forge
+write in this app) means a cross-repo board's card edits against the wrong repo — not introduced
+here, and out of this theme's scope to fix.
+
 ## 2026-09-24 — Phase 95 Theme G — Card/node controls and drag-to-skill
 
 [PR #532](https://github.com/bilo-io/midnite-studio/pull/532).

@@ -243,7 +243,7 @@ before work exists, an Auto-mate that keeps going, and a kill switch that stops 
 - ✅ **B** (PR #526) — Settings ▸ Activity page: presets, per-status overrides, agent vs shell style, speed/intensity, live preview
 - ✅ **C** (PR #527) — `useActivityGlow` on cards, graph nodes, terminal rows and Sessions (workflow nodes deferred to Theme I), plus an agent-icon / terminal-glyph identity badge
 - ✅ **D** (PR #528) — `ForgeAdapter` issue + project CRUD, blocked-by / sub-issue link writes, per-operation capabilities, body-ref fallback
-- ◻ **E** — issue / project dialogs with a magic wand (cheap model, headless CLI) and a per-provider model registry
+- ✅ **E** (PR #533) — issue / project dialogs with a magic wand (cheap model, headless CLI) and a per-provider model registry
 - ◻ **F** — Plan with AI: editable blueprint sheet, re-plan, confirm creates project + issues + links (or sub-issues)
 - ✅ **G** (PR #532) — start / stop / `>_` controls on cards and nodes; drag-to-column fires the mapped skill behind an Undo toast
 - ◻ **H** — session attribution refs, Auto-mate (next unblocked, cap default 1), and the five-scope kill-switch modal

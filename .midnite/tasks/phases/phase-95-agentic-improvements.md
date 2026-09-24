@@ -267,7 +267,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       idempotent in both directions (add, remove, and a same-numbered issue in a different repo
       is never confused with the local one).
 
-### E — Issue and project dialogs, with a magic wand (L) — ✅ DONE (PR #531, 2026-09-24)
+### E — Issue and project dialogs, with a magic wand (L) — ✅ DONE (PR #533, 2026-09-24)
 
 - [x] `IssueDialog` (create/edit) and `ProjectDialog` (create/edit) on `Modal`, following
       [`report-issue-dialog.tsx`](../../../packages/app/src/components/report-issue-dialog.tsx);
