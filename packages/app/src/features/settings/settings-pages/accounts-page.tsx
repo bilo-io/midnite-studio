@@ -16,6 +16,7 @@ import type { ForgeAccount, ForgeKind, ReachableRepo } from '@midnite/studio-sha
 
 import type { IconComponent } from '../../../components/icon-button';
 import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { UserAvatar } from '../../../components/user-avatar';
 import {
   useAddForgeAccount,
@@ -278,34 +279,20 @@ export function AccountsPage() {
               ))}
             </select>
           </Field>
-          <Field
-            label="Hide other accounts' repos"
-            hint="When on, an open repo whose remote doesn't belong to the active account is hidden from the sidebar rather than closed — switch back and it reappears exactly as you left it."
-          >
-            <label className="flex cursor-pointer items-start gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={scopeReposToActiveAccount}
-                onChange={(event) => setScopeReposToActiveAccount(event.target.checked)}
-                className="mt-0.5 accent-[hsl(var(--primary))]"
-              />
-              <span>Hide repos that don't belong to the active account</span>
-            </label>
-          </Field>
-          <Field
-            label="Sync gh auth switch"
-            hint="Switching to a GitHub account also runs `gh auth switch` in a shell beside the app, so every `gh` invocation on this machine — including in your own terminal — follows the same identity. Off leaves your terminal's `gh` session untouched."
-          >
-            <label className="flex cursor-pointer items-start gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={syncGhAuthSwitch}
-                onChange={(event) => setSyncGhAuthSwitch(event.target.checked)}
-                className="mt-0.5 accent-[hsl(var(--primary))]"
-              />
-              <span>Run `gh auth switch` when the active GitHub account changes</span>
-            </label>
-          </Field>
+          <SettingsSwitchRow
+            id="scope-repos-to-active-account"
+            label="Hide repos that don't belong to the active account"
+            description="When on, an open repo whose remote doesn't belong to the active account is hidden from the sidebar rather than closed — switch back and it reappears exactly as you left it."
+            on={scopeReposToActiveAccount}
+            onToggle={(_id, next) => setScopeReposToActiveAccount(next)}
+          />
+          <SettingsSwitchRow
+            id="sync-gh-auth-switch"
+            label="Run `gh auth switch` when the active GitHub account changes"
+            description="Switching to a GitHub account also runs `gh auth switch` in a shell beside the app, so every `gh` invocation on this machine — including in your own terminal — follows the same identity. Off leaves your terminal's `gh` session untouched."
+            on={syncGhAuthSwitch}
+            onToggle={(_id, next) => setSyncGhAuthSwitch(next)}
+          />
         </div>
       </Accordion>
 

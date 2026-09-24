@@ -2,8 +2,8 @@ import { Accordion } from '@bilo-io/ui';
 import { LuTrash2 } from 'react-icons/lu';
 
 import { useDialogs } from '../../../components/dialog-host';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
-import { Field } from './controls';
 
 /**
  * Phase 74 Theme D's opt-in, copying `GitSafetyPage`'s shape exactly — that
@@ -56,20 +56,13 @@ export function TrashSafetyPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="Empty Trash" icon={<LuTrash2 className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="allow-trash-empty"
             label="Allow emptying the Trash"
-            hint="Adds an Empty Trash card to the Optimizer's Storage tab. Emptying is permanent — it asks Finder to do it, and there is no undo. Nothing else in Midnite Studio ever deletes without moving to the Trash first."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={allowTrashEmpty}
-                onChange={(event) => handleToggle(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Allow emptying the Trash
-            </label>
-          </Field>
+            description="Adds an Empty Trash card to the Optimizer's Storage tab. Emptying is permanent — it asks Finder to do it, and there is no undo. Nothing else in Midnite Studio ever deletes without moving to the Trash first."
+            on={allowTrashEmpty}
+            onToggle={(_id, next) => handleToggle(next)}
+          />
 
           <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
             <p className="font-medium text-foreground">What this still never does</p>

@@ -4,6 +4,7 @@ import { Accordion } from '@bilo-io/ui';
 import { LuGauge, LuHardDrive } from 'react-icons/lu';
 
 import { useDialogs } from '../../../components/dialog-host';
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useOptimizerStore } from '../../../store/optimizer-store';
 import { useUiStore } from '../../../store/ui-store';
 import { ECOSYSTEM_LABELS, ECOSYSTEM_ORDER } from '../../optimizer/category-palette';
@@ -29,36 +30,27 @@ export function OptimizerSettingsPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="Workspace Optimizer" icon={<LuGauge className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="optimizer-enabled"
             label="Enable Workspace Optimizer"
-            hint="Adds an Optimizer view with Smart Scan, Storage, Memory and GPU tabs, pointed at the repos/worktrees this app manages plus one folder you pick per scan — never an unscoped disk crawl."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={optimizerEnabled}
-                onChange={(event) => setOptimizerEnabled(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Enable Workspace Optimizer
-            </label>
-          </Field>
+            description="Adds an Optimizer view with Smart Scan, Storage, Memory and GPU tabs, pointed at the repos/worktrees this app manages plus one folder you pick per scan — never an unscoped disk crawl."
+            on={optimizerEnabled}
+            onToggle={(_id, next) => setOptimizerEnabled(next)}
+          />
 
           <Field
             label="Ecosystems to scan"
             hint="Smart Scan looks for every one of these by default. Unchecking one skips its detectors entirely — a new ecosystem this app learns later scans by default for everyone already using this switch, the same way hidden footer metrics work."
           >
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col">
               {TOGGLEABLE_ECOSYSTEMS.map((ecosystem) => (
-                <label key={ecosystem} className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={!disabledEcosystems.includes(ecosystem)}
-                    onChange={() => toggleEcosystem(ecosystem)}
-                    className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-                  />
-                  {ECOSYSTEM_LABELS[ecosystem]}
-                </label>
+                <SettingsSwitchRow
+                  key={ecosystem}
+                  id={ecosystem}
+                  label={ECOSYSTEM_LABELS[ecosystem]}
+                  on={!disabledEcosystems.includes(ecosystem)}
+                  onToggle={() => toggleEcosystem(ecosystem)}
+                />
               ))}
             </div>
           </Field>
@@ -145,20 +137,13 @@ function SystemCachesSection() {
   return (
     <Accordion title="System caches" icon={<LuHardDrive className="h-4 w-4" />}>
       <div className="flex flex-col gap-4 p-3">
-        <Field
+        <SettingsSwitchRow
+          id="allow-system-cache-clean"
           label="Allow cleaning system caches"
-          hint="Scans and cleans a fixed, hand-reviewed list of dev-tool caches outside any repo Midnite manages — Cargo, Gradle, Homebrew, and others below — never an unscoped sweep of your home directory."
-        >
-          <label className="flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={allowSystemCacheClean}
-              onChange={(event) => handleToggle(event.target.checked)}
-              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-            />
-            Allow cleaning system caches
-          </label>
-        </Field>
+          description="Scans and cleans a fixed, hand-reviewed list of dev-tool caches outside any repo Midnite manages — Cargo, Gradle, Homebrew, and others below — never an unscoped sweep of your home directory."
+          on={allowSystemCacheClean}
+          onToggle={(_id, next) => handleToggle(next)}
+        />
 
         {labels.length > 0 ? (
           <ul className="list-disc space-y-1 pl-4 text-[11px] text-muted-foreground">

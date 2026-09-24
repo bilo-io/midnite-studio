@@ -67,7 +67,7 @@ describe('OptimizerSettingsPage — System caches (Phase 73 Theme C)', () => {
     installBridge(CATALOGUE);
     render(<OptimizerSettingsPage />, { wrapper: createWrapper() });
 
-    const checkbox = screen.getByRole('checkbox', { name: 'Allow cleaning system caches' });
+    const checkbox = screen.getByRole('switch', { name: 'Allow cleaning system caches' });
     fireEvent.click(checkbox);
 
     // Clicking opens the confirm dialog — the boolean stays false until
@@ -87,7 +87,7 @@ describe('OptimizerSettingsPage — System caches (Phase 73 Theme C)', () => {
     installBridge(CATALOGUE);
     render(<OptimizerSettingsPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow cleaning system caches' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow cleaning system caches' }));
     await screen.findByText('Allow Midnite to clean caches outside your repos?');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -105,7 +105,7 @@ describe('OptimizerSettingsPage — System caches (Phase 73 Theme C)', () => {
     installBridge(CATALOGUE);
     render(<OptimizerSettingsPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow cleaning system caches' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow cleaning system caches' }));
 
     expect(useUiStore.getState().allowSystemCacheClean).toBe(false);
     // Consent is a fact about what the user was shown, not a live
@@ -124,7 +124,7 @@ describe('OptimizerSettingsPage — System caches (Phase 73 Theme C)', () => {
     installBridge(CATALOGUE);
     render(<OptimizerSettingsPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow cleaning system caches' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow cleaning system caches' }));
 
     expect(useUiStore.getState().allowSystemCacheClean).toBe(true);
     expect(screen.queryByText('Allow Midnite to clean caches outside your repos?')).toBeNull();
@@ -137,7 +137,7 @@ describe('OptimizerSettingsPage — System caches (Phase 73 Theme C)', () => {
     render(<OptimizerSettingsPage />, { wrapper: createWrapper() });
 
     await screen.findByText('Cargo registry'); // catalogue loaded onto the page
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Allow cleaning system caches' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Allow cleaning system caches' }));
 
     for (const entry of CATALOGUE) {
       expect(await screen.findAllByText(entry.label)).not.toHaveLength(0);

@@ -1,8 +1,8 @@
 import { Accordion } from '@bilo-io/ui';
 import { LuShieldAlert } from 'react-icons/lu';
 
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
-import { Field } from './controls';
 
 /**
  * Phase 22 Theme F's opt-in, its own settings section rather than a row on
@@ -19,20 +19,13 @@ export function GitSafetyPage() {
     <div className="flex flex-col gap-3">
       <Accordion title="Force-push" icon={<LuShieldAlert className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
+          <SettingsSwitchRow
+            id="allow-force-with-lease"
             label="Allow force-push (with lease)"
-            hint="Offers a force-push option on the ref badge menu, but only once a plain push has already been rejected as non-fast-forward, and only ever as --force-with-lease against the exact remote sha you were shown."
-          >
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={allowForceWithLease}
-                onChange={(event) => setAllowForceWithLease(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-              />
-              Allow force-push (with lease)
-            </label>
-          </Field>
+            description="Offers a force-push option on the ref badge menu, but only once a plain push has already been rejected as non-fast-forward, and only ever as --force-with-lease against the exact remote sha you were shown."
+            on={allowForceWithLease}
+            onToggle={(_id, next) => setAllowForceWithLease(next)}
+          />
 
           <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
             <p className="font-medium text-foreground">What this still never does</p>

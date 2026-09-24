@@ -30,7 +30,7 @@ test.describe('the feature gate', () => {
       .getByRole('navigation', { name: 'Settings pages' })
       .getByRole('button', { name: 'Workspace Optimizer' })
       .click();
-    await page.getByRole('checkbox', { name: 'Enable Workspace Optimizer' }).check();
+    await page.getByRole('switch', { name: 'Enable Workspace Optimizer' }).check();
 
     await expect(page.getByRole('link', { name: 'Optimizer', exact: true })).toBeVisible();
   });

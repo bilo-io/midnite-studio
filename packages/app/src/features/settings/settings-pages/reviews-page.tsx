@@ -1,3 +1,4 @@
+import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useForgeCli } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
 import { Field } from './controls';
@@ -35,27 +36,13 @@ export function ReviewsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Field
-        label="Review actions"
-        hint="Whether the Reviews page may approve, request changes, comment, merge, request reviewers, take a pull request out of draft, or re-run checks — and whether the Issues page may comment, close or reopen an issue, or add either to a project. Off until you turn it on."
-      >
-        <label className="flex cursor-pointer items-start gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(event) => setEnabled(event.target.checked)}
-            className="mt-0.5 accent-[hsl(var(--primary))]"
-          />
-          <span>
-            Allow Midnite Studio to act on pull requests and issues
-            <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
-              Every action runs through your own <code>gh</code> CLI, as you, and is shown before it
-              is sent. Merging additionally asks for confirmation with the number of commits it
-              would land.
-            </span>
-          </span>
-        </label>
-      </Field>
+      <SettingsSwitchRow
+        id="forge-writes-enabled"
+        label="Allow Midnite Studio to act on pull requests and issues"
+        description="Whether the Reviews page may approve, request changes, comment, merge, request reviewers, take a pull request out of draft, or re-run checks — and whether the Issues page may comment, close or reopen an issue, or add either to a project. Off until you turn it on. Every action runs through your own `gh` CLI, as you, and is shown before it is sent. Merging additionally asks for confirmation with the number of commits it would land."
+        on={enabled}
+        onToggle={(_id, next) => setEnabled(next)}
+      />
 
       <Field
         label="What stays out"
