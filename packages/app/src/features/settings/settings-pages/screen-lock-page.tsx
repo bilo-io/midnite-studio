@@ -9,7 +9,7 @@ import { fmtLocationName } from '../../weather/weather-derive';
 import { useLocationSearch } from '../../weather/weather-queries';
 import { useWeatherStore } from '../../weather/weather-store';
 import type { WeatherLocation } from '../../weather/weather-types';
-import { Choice, Field } from './controls';
+import { Choice } from './controls';
 
 const LOCATION_SEARCH_DEBOUNCE_MS = 300;
 

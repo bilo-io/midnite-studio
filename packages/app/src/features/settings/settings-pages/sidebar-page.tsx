@@ -307,20 +307,13 @@ export function SidebarPage() {
 
       <Accordion title="Repository Sync" icon={<LuRefreshCw className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
-          <Field
-            label="Auto fetch"
-            hint="Runs in the background, in main — once for the whole app regardless of how many windows are open — paused while no window is visible or the machine is idle/locked (Phase 84 Theme B)."
-          >
-            <label className="flex cursor-pointer items-start gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={autoFetchEnabled}
-                onChange={(e) => setAutoFetchEnabled(e.target.checked)}
-                className="mt-0.5 accent-[hsl(var(--primary))]"
-              />
-              Automatically fetch every listed repository
-            </label>
-          </Field>
+          <SettingsSwitchRow
+            id="auto-fetch-enabled"
+            label="Automatically fetch every listed repository"
+            description="Runs in the background, in main — once for the whole app regardless of how many windows are open — paused while no window is visible or the machine is idle/locked (Phase 84 Theme B)."
+            on={autoFetchEnabled}
+            onToggle={(_id, next) => setAutoFetchEnabled(next)}
+          />
 
           <Field
             label="Auto fetch interval"

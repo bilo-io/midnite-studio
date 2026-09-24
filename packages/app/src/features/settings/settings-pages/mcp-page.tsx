@@ -6,7 +6,6 @@ import { MCP_TOOLS, MCP_TOOL_IDS } from '@midnite/studio-shared';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
-import { Field } from './controls';
 
 const MCP_STATUS_KEY = ['mcp-status'] as const;
 const MCP_CALLS_KEY = ['mcp-calls'] as const;
