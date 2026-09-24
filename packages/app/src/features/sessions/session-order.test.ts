@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   groupSessionsByRepo,
+  groupSessionsByWorkflowRun,
   isClosedManagedSession,
   mergeManagedSessions,
   pickInitialClosedSession,
@@ -153,5 +154,75 @@ describe('pickInitialClosedSession (unchanged for the closed subset)', () => {
       closed({ id: 'b', repoId: 'r1', title: 'repo', createdAt: 1, closedAt: 20 }),
     ];
     expect(pickInitialClosedSession(rows, 'gone')).toBe('b');
+  });
+});
+
+describe('groupSessionsByWorkflowRun (Phase 95 Theme J)', () => {
+  it('groups only sessions carrying a workflowRunRef, by workflowId+runId', () => {
+    const merged = mergeManagedSessions(
+      [
+        live({
+          id: 'wf-1',
+          repoId: 'workflow',
+          title: 'Workflow',
+          createdAt: 1,
+          workflowRunRef: { workflowId: 'w1', runId: 'run1', nodeId: 'n1' },
+        }),
+        live({
+          id: 'wf-2',
+          repoId: 'workflow',
+          title: 'Workflow',
+          createdAt: 2,
+          workflowRunRef: { workflowId: 'w1', runId: 'run1', nodeId: 'n2' },
+        }),
+        live({ id: 'plain', repoId: 'r1', title: 'repo', createdAt: 1 }),
+      ],
+      [],
+    );
+
+    const groups = groupSessionsByWorkflowRun(merged);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.workflowId).toBe('w1');
+    expect(groups[0]?.runId).toBe('run1');
+    expect(groups[0]?.sessions.map((s) => s.id)).toEqual(['wf-1', 'wf-2']);
+  });
+
+  it('keeps two different runs of the same workflow in separate groups, newest first', () => {
+    const merged = mergeManagedSessions(
+      [
+        live({
+          id: 'old',
+          repoId: 'workflow',
+          title: 'Workflow',
+          createdAt: 1,
+          workflowRunRef: { workflowId: 'w1', runId: 'run1', nodeId: 'n1' },
+        }),
+        live({
+          id: 'new',
+          repoId: 'workflow',
+          title: 'Workflow',
+          createdAt: 100,
+          workflowRunRef: { workflowId: 'w1', runId: 'run2', nodeId: 'n1' },
+        }),
+      ],
+      [],
+    );
+
+    const groups = groupSessionsByWorkflowRun(merged);
+    expect(groups.map((g) => g.runId)).toEqual(['run2', 'run1']);
+  });
+
+  it('never includes a closed (archived) session — ClosedSession carries no workflowRunRef', () => {
+    const merged = mergeManagedSessions(
+      [],
+      [closed({ id: 'archived', repoId: 'workflow', title: 'Workflow', createdAt: 1, closedAt: 2 })],
+    );
+
+    expect(groupSessionsByWorkflowRun(merged)).toEqual([]);
+  });
+
+  it('produces nothing when no session carries a workflowRunRef', () => {
+    const merged = mergeManagedSessions([live({ id: 'plain', repoId: 'r1', title: 'repo', createdAt: 1 })], []);
+    expect(groupSessionsByWorkflowRun(merged)).toEqual([]);
   });
 });

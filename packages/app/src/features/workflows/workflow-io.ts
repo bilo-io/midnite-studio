@@ -45,6 +45,10 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Delay', config: { ms: 1000 } };
     case 'note':
       return { ...base, kind, label: 'Note', config: { text: '' } };
+    case 'agent':
+      return { ...base, kind, label: 'Agent', config: { agentId: '', prompt: '' } };
+    case 'script':
+      return { ...base, kind, label: 'Script', config: { command: '', env: {} } };
   }
 }
 

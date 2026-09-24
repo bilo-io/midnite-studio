@@ -6,6 +6,7 @@ import {
   commitsForLiveSession,
   commitsForSession,
   DEFAULT_LOOPS,
+  WORKFLOW_SESSION_REPO_ID,
   type AgentDefinition,
   type ClosedSession,
   type Commit,
@@ -15,12 +16,15 @@ import {
   LuActivity,
   LuBot,
   LuChevronRight,
+  LuExternalLink,
   LuFilter,
+  LuOctagonX,
   LuPlay,
   LuRefreshCw,
   LuSearch,
   LuTerminal,
   LuTrash2,
+  LuWorkflow,
   LuX,
 } from 'react-icons/lu';
 
@@ -39,6 +43,7 @@ import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
+import { useWorkflowRevealStore } from '../../store/workflow-reveal-store';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
 import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from '../terminal/close-session';
@@ -56,9 +61,11 @@ import { useAgents } from '../terminal/use-agents';
 import { loopIcon } from '../loops/loop-icons';
 import { useLoopRuns } from '../loops/use-loop-runs';
 import { LiveSessionTerminal } from './live-session-terminal';
+import { useWorkflows } from '../workflows/use-workflow';
 import {
   formatDuration,
   groupSessionsByRepo,
+  groupSessionsByWorkflowRun,
   isClosedManagedSession,
   mergeManagedSessions,
   pickInitialClosedSession,
@@ -67,6 +74,7 @@ import {
   type ManagedSession,
   type ManagedSessionLiveness,
   type SessionGroup,
+  type WorkflowRunSessionGroup,
 } from './session-order';
 import { NO_SESSIONS_EMPTY, SessionListSkeleton } from './sessions-skeletons';
 import { TranscriptView } from './transcript-view';
@@ -250,6 +258,7 @@ export function SessionsView({
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [selectedLiveness, setSelectedLiveness] = useState<ManagedSessionLiveness[]>([]);
   const [collapsedRepos, setCollapsedRepos] = useState<ReadonlySet<string>>(() => new Set());
+  const [collapsedWorkflowRuns, setCollapsedWorkflowRuns] = useState<ReadonlySet<string>>(() => new Set());
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -257,6 +266,14 @@ export function SessionsView({
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  };
+
+  const toggleWorkflowRunCollapse = (key: string) => {
+    setCollapsedWorkflowRuns((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
       return next;
     });
   };
@@ -417,7 +434,16 @@ export function SessionsView({
     }
   };
 
-  const groups = useMemo(() => groupSessionsByRepo(rows), [rows]);
+  // Phase 95 Theme J — a workflow node's session is pulled OUT of the
+  // ordinary by-repo grouping entirely (its `repoId` is a sentinel,
+  // `WORKFLOW_SESSION_REPO_ID`, not a real repo) and grouped by its own run
+  // instead, in its own accordion headed by the workflow's icon and name.
+  const workflowRunGroups = useMemo(() => groupSessionsByWorkflowRun(rows), [rows]);
+  const groups = useMemo(
+    () => groupSessionsByRepo(rows.filter((row) => row.repoId !== WORKFLOW_SESSION_REPO_ID)),
+    [rows],
+  );
+  const workflows = useWorkflows();
 
   const purgeOne = (record: ClosedSession) => {
     dialogs.confirm({
@@ -610,6 +636,29 @@ export function SessionsView({
           <EmptyState icon={NO_SESSIONS_EMPTY.icon} title={NO_SESSIONS_EMPTY.title} body={NO_SESSIONS_EMPTY.body} />
         ) : (
           <div role="list" aria-label="Sessions" className="hide-scrollbar min-h-0 flex-1 overflow-auto">
+            {workflowRunGroups.map((group) => {
+              const key = `${group.workflowId}:${group.runId}`;
+              return (
+                <WorkflowRunSessionsGroup
+                  key={key}
+                  group={group}
+                  workflowName={workflows.data?.find((w) => w.id === group.workflowId)?.name}
+                  open={!collapsedWorkflowRuns.has(key)}
+                  bodyId={`sessions-workflow-run-group-${key}`}
+                  onToggleCollapse={() => toggleWorkflowRunCollapse(key)}
+                  agents={agents}
+                  selectedId={selectedId}
+                  onSelect={selectRow}
+                  onKill={killSession}
+                  onResume={onResume}
+                  loopIdBySession={loopIdBySession}
+                  selectedIds={selectedIds}
+                  toggleSelected={toggleSelected}
+                  commits={commits}
+                  onNavigateToGraph={navigateToGraph}
+                />
+              );
+            })}
             {groups.map((group, groupIndex) => (
               <RepoSessionsGroup
                 key={group.repoId}
@@ -803,6 +852,112 @@ function LiveSessionHost({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * A workflow run's own terminal accordion group (Phase 95 Theme J) — headed
+ * by the workflow's icon, name and how long ago its first node started,
+ * rather than a repo name, and reusing `SessionRow`/`Collapse` wholesale
+ * ("Reuse the Sessions view's accordion… rather than writing a second one",
+ * the phase doc's own checklist item — the group header is new, the row
+ * rendering is not). Two controls a repo group does not carry: **reveal**
+ * (opens the Workflows view straight onto this run's history) and **kill**
+ * (opens the five-scope kill switch pre-scoped to Flow for this workflow).
+ */
+function WorkflowRunSessionsGroup({
+  group,
+  workflowName,
+  open,
+  bodyId,
+  onToggleCollapse,
+  agents,
+  selectedId,
+  onSelect,
+  onKill,
+  onResume,
+  loopIdBySession,
+  selectedIds,
+  toggleSelected,
+  commits,
+  onNavigateToGraph,
+}: {
+  group: WorkflowRunSessionGroup;
+  /** `undefined` while `useWorkflows()` is still loading, or the workflow was since deleted — falls back to a generic label rather than blocking the group on a name. */
+  workflowName: string | undefined;
+  open: boolean;
+  bodyId: string;
+  onToggleCollapse: () => void;
+  agents: readonly AgentDefinition[];
+  selectedId: string | null;
+  onSelect: (session: ManagedSession) => void;
+  onKill: (session: ManagedLiveSession) => void;
+  onResume?: ((session: ManagedSession) => void) | undefined;
+  loopIdBySession: ReadonlyMap<string, string>;
+  selectedIds: ReadonlySet<string>;
+  toggleSelected: (id: string) => void;
+  commits?: readonly Commit[] | undefined;
+  onNavigateToGraph?: ((session: ManagedSession, sessionCommits: Commit[]) => void) | undefined;
+}) {
+  const title = workflowName ?? 'Workflow';
+
+  const reveal = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    useWorkflowRevealStore.getState().reveal({ workflowId: group.workflowId, runId: group.runId });
+    useUiStore.getState().setActiveView('workflows');
+  };
+
+  const kill = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    useUiStore.getState().openKillSwitch({ workflowId: group.workflowId });
+  };
+
+  return (
+    <div className="border-b border-border/40 last:border-b-0">
+      <div className="sticky top-0 z-10 flex h-7 items-center gap-1 bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
+        >
+          <LuChevronRight
+            aria-hidden
+            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+              open ? 'rotate-90' : ''
+            }`}
+          />
+          <LuWorkflow aria-hidden className="h-3 w-3 shrink-0" />
+          <span className="truncate font-semibold uppercase tracking-wide">{title}</span>
+          <span className="shrink-0 text-muted-foreground/70">{relativeAge(group.startedAt, Date.now())}</span>
+          <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>
+        </button>
+        <IconButton icon={LuExternalLink} label="Reveal this run in the Workflows view" size="sm" onClick={reveal} />
+        <IconButton icon={LuOctagonX} label="Kill switch for this workflow" size="sm" onClick={kill} />
+      </div>
+      <Collapse open={open} id={bodyId} aria-label={title}>
+        {group.sessions.map((record) => (
+          <SessionRow
+            key={record.id}
+            record={record}
+            agent={agents.find((a) => a.id === record.agentId)}
+            agentLabel={agentLabelFor(record.agentId, agents)}
+            selected={record.id === selectedId}
+            onSelect={() => onSelect(record)}
+            onPurge={undefined}
+            onKill={() => onKill(record)}
+            onResume={onResume ? () => onResume(record) : undefined}
+            loopId={loopIdBySession.get(record.id)}
+            checked={selectedIds.has(record.id)}
+            onToggleChecked={() => toggleSelected(record.id)}
+            commits={commits}
+            onNavigateToGraph={onNavigateToGraph}
+          />
+        ))}
+      </Collapse>
     </div>
   );
 }

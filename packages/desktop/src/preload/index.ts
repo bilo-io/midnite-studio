@@ -436,6 +436,7 @@ const bridge: Pick<
       get: (req) => call(CHANNELS.workflowRunsGet, req),
     },
     onRunChanged: (handler) => subscribe(EVENT_CHANNELS.workflowRunChanged, handler),
+    onNodeSessionStarted: (handler) => subscribe(EVENT_CHANNELS.workflowNodeSessionStarted, handler),
     setDefaults: (req) => ipcRenderer.send(CHANNELS.workflowSetDefaults, req),
   },
   demoApi: {

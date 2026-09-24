@@ -922,6 +922,13 @@ export type MidniteStudioBridge = {
       ) => Promise<z.infer<typeof S.WorkflowRunsGetResponse>>;
     };
     onRunChanged: (handler: (event: z.infer<typeof S.WorkflowRunChangedEventSchema>) => void) => Unsubscribe;
+    /**
+     * An `agent`/`script` node (Phase 95 Theme J) started a real terminal
+     * session — see the channel's own doc in `channels.ts`.
+     */
+    onNodeSessionStarted: (
+      handler: (event: z.infer<typeof S.WorkflowNodeSessionStartedEvent>) => void,
+    ) => Unsubscribe;
     /** One-way, like `update.setChannel` — sent on change, not synced on boot. */
     setDefaults: (req: In<typeof S.WorkflowSetDefaultsRequest>) => void;
   };

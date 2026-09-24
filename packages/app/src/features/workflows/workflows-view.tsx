@@ -19,6 +19,7 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useToastStore } from '../../store/toast-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { useWorkflowRevealStore } from '../../store/workflow-reveal-store';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
 import { DemoApiPill } from './demo-api-pill';
@@ -31,7 +32,13 @@ import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
 import { cloneWorkflowWithFreshIds, createNode } from './workflow-io';
 import { RunHistoryList } from './run-history-list';
 import { RunOutputPanel } from './run-output-panel';
-import { useLiveWorkflowRun, useRunWorkflow, useWorkflowRun, useWorkflowRuns } from './use-workflow-run';
+import {
+  useLiveWorkflowNodeSessions,
+  useLiveWorkflowRun,
+  useRunWorkflow,
+  useWorkflowRun,
+  useWorkflowRuns,
+} from './use-workflow-run';
 import { useSaveWorkflow, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
@@ -91,6 +98,20 @@ export function WorkflowsView() {
   const workflows = useWorkflows();
   const selected = workflows.data?.find((workflow) => workflow.id === selectedId) ?? null;
 
+  /**
+   * "Reveal run in the Workflows view" (Theme J, the terminal accordion
+   * group's own header button) — a pending request just needs the right
+   * workflow selected; `WorkflowEditor` below (remounted via `key`) is what
+   * actually opens that run's own history detail, once it exists to push
+   * onto its own `panels` stack.
+   */
+  const revealPending = useWorkflowRevealStore((s) => s.pending);
+  useEffect(() => {
+    if (!revealPending) return;
+    if (!workflows.data?.some((workflow) => workflow.id === revealPending.workflowId)) return;
+    setSelectedId(revealPending.workflowId);
+  }, [revealPending, workflows.data]);
+
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
 
@@ -114,7 +135,12 @@ export function WorkflowsView() {
       <ResizeHandle resizable={list} axis="x" label="Resize workflows list" />
       <div className="min-h-0 min-w-0 flex-1">
         {selected ? (
-          <WorkflowEditor key={selected.id} workflow={selected} onWorkflowSaved={setSelectedId} />
+          <WorkflowEditor
+            key={selected.id}
+            workflow={selected}
+            onWorkflowSaved={setSelectedId}
+            initialRunId={revealPending?.workflowId === selected.id ? revealPending.runId : undefined}
+          />
         ) : (
           <EmptyState
             icon={LuWorkflow}
@@ -152,10 +178,13 @@ export function WorkflowsView() {
 function WorkflowEditor({
   workflow,
   onWorkflowSaved,
+  initialRunId,
 }: {
   workflow: Workflow;
   /** "Save as template" (Theme I) lands a brand-new workflow — this is how the caller selects it. */
   onWorkflowSaved: (id: string) => void;
+  /** "Reveal run" (Theme J) — opens straight onto this run's history detail on mount, once. */
+  initialRunId?: string;
 }) {
   const save = useSaveWorkflow();
   const runWorkflow = useRunWorkflow();
@@ -168,6 +197,19 @@ function WorkflowEditor({
   // switch, the same way that remount already resets `local`/`selection`.
   const panels = usePanelHistory<WorkflowPanelEntry>({ kind: 'inspector' }, { isSame: sameWorkflowPanelEntry });
   useRegisterActivePanel(panels, true);
+
+  // "Reveal run" (Theme J) — this component is already remounted per
+  // workflow (`key={workflow.id}` on the caller), so `initialRunId` is
+  // stable for this mount's whole life; push straight onto the run's own
+  // history detail once, then consume the request so reopening the same
+  // workflow later (without a fresh reveal) does not re-trigger it.
+  useEffect(() => {
+    if (!initialRunId) return;
+    panels.push({ kind: 'history' });
+    panels.push({ kind: 'run', runId: initialRunId });
+    useWorkflowRevealStore.getState().consume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per mount, deliberately not on every `panels` identity change
+  }, [initialRunId]);
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
@@ -264,6 +306,15 @@ function WorkflowEditor({
         : undefined),
     [replayed, focusedRun],
   );
+  /**
+   * Only the workflow's OWN currently-live run ever has a session to show
+   * (Theme J) — a historical run being viewed in `mode === 'run'` has none:
+   * its sessions have either ended (dropped their `workflowRunRef` on
+   * archive) or are no longer running, so `nodeStatuses`/`nodeErrors` above
+   * (which read `focusedRun`, live or historical) are what paints the canvas
+   * while this is empty.
+   */
+  const nodeSessions = useLiveWorkflowNodeSessions(workflow.id);
 
   const commitLocal = (updated: Workflow) => {
     setLocal(updated);
@@ -361,6 +412,7 @@ function WorkflowEditor({
               invalidNodeIds={mode === 'edit' ? invalidNodeIds : undefined}
               nodeStatuses={nodeStatuses}
               nodeErrors={nodeErrors}
+              nodeSessions={nodeSessions}
               readOnly={mode === 'run'}
               toolbarExtra={
                 mode === 'edit' ? (

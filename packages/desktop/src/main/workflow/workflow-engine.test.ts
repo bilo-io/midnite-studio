@@ -82,6 +82,8 @@ function fakeRegistry(
     condition: executor,
     delay: executor,
     note: executor,
+    agent: executor,
+    script: executor,
   };
 }
 

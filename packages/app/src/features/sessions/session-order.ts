@@ -49,6 +49,8 @@ export type ManagedLiveSession = {
   createdAt: number;
   surface?: TerminalSurface;
   agentConversationId?: string;
+  /** Phase 95 Theme J — set only for an `agent`/`script` workflow node's session; see `groupSessionsByWorkflowRun`. */
+  workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
 };
 
 /**
@@ -91,6 +93,7 @@ export function mergeManagedSessions(
     repoId: session.repoId,
     createdAt: session.createdAt,
     ...(session.surface === undefined ? {} : { surface: session.surface }),
+    ...(session.workflowRunRef === undefined ? {} : { workflowRunRef: session.workflowRunRef }),
   }));
 
   const closedRows: ManagedSession[] = closed.map((record) => ({ ...record, liveness: 'closed' }));
@@ -156,6 +159,67 @@ export function groupSessionsByRepo(sessions: readonly ManagedSession[]): Sessio
   }));
 
   return groups.sort((a, b) => groupSortKey(b) - groupSortKey(a));
+}
+
+/** One workflow run's own terminal accordion group (Phase 95 Theme J). */
+export type WorkflowRunSessionGroup = {
+  workflowId: string;
+  runId: string;
+  /** Earliest session's `createdAt` — when this run's first node actually started a pty. */
+  startedAt: number;
+  sessions: ManagedLiveSession[];
+};
+
+/**
+ * Only a **live** session ever carries a `workflowRunRef` — `ClosedSession`
+ * (the Phase 67 archive) does not, so a session that has already ended and
+ * been archived falls back to the ordinary by-repo history the moment it
+ * closes. That is an acceptable narrowing, not a bug: this group exists to
+ * show a run *in flight* (or just finished, before anyone archives it), not
+ * to be a second permanent history view.
+ */
+function hasWorkflowRunRef(
+  session: ManagedSession,
+): session is ManagedLiveSession & { workflowRunRef: NonNullable<ManagedLiveSession['workflowRunRef']> } {
+  return !isClosedManagedSession(session) && session.workflowRunRef !== undefined;
+}
+
+/**
+ * Pulls every workflow-node session OUT of `sessions` and into its own
+ * per-run group, one group per `{workflowId, runId}` pair — the terminal
+ * accordion group Theme J's own checklist asks for, headed by the
+ * workflow's icon and name (`sessions-view.tsx` resolves the name; this
+ * module has no business reading the workflow store). Groups sort newest
+ * run first, sessions within a group keep the store's own live order
+ * (`sortGroupRows`, same as a repo group).
+ *
+ * Callers must filter these sessions OUT of whatever they pass to
+ * {@link groupSessionsByRepo} — a workflow-node session's `repoId` is the
+ * `WORKFLOW_SESSION_REPO_ID` sentinel, which would otherwise show up as one
+ * more (meaningless) repo group.
+ */
+export function groupSessionsByWorkflowRun(sessions: readonly ManagedSession[]): WorkflowRunSessionGroup[] {
+  const byRun = new Map<string, ManagedLiveSession[]>();
+  for (const session of sessions) {
+    if (!hasWorkflowRunRef(session)) continue;
+    const key = `${session.workflowRunRef.workflowId}:${session.workflowRunRef.runId}`;
+    const existing = byRun.get(key);
+    if (existing) existing.push(session);
+    else byRun.set(key, [session]);
+  }
+
+  const groups: WorkflowRunSessionGroup[] = [...byRun.values()].map((rows) => {
+    const ref = (rows[0] as ManagedLiveSession & { workflowRunRef: NonNullable<ManagedLiveSession['workflowRunRef']> })
+      .workflowRunRef;
+    return {
+      workflowId: ref.workflowId,
+      runId: ref.runId,
+      startedAt: Math.min(...rows.map((r) => r.createdAt)),
+      sessions: sortGroupRows(rows) as ManagedLiveSession[],
+    };
+  });
+
+  return groups.sort((a, b) => b.startedAt - a.startedAt);
 }
 
 /**

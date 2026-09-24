@@ -1,6 +1,56 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 95 Theme J — Agent and script nodes, grouped in the terminal
+
+[PR #537](https://github.com/bilo-io/midnite-studio/pull/537).
+
+Two new workflow node kinds (`shared/src/workflow.ts`): `agent` (agentId, prompt, model) and
+`script` (command, cwd, env), both running in a **real pty**, the same broker path (`createPty`,
+`pty-service.ts`) every other terminal session in this app uses — never a second spawn route. A
+script node types `command; exit $?` and settles on the shell's own exit code, `council-runner.ts`'s
+own pattern; an agent node runs interactively and settles once BOTH an explicit done marker
+(`MIDNITE_WORKFLOW_NODE_DONE: ok|fail`, appended to its prompt by `agentNodeDonePrompt`) is seen AND
+its activity reaches idle — the phase doc's own open decision, resolved as recommended, since
+activity-idle alone is ambiguous for an agent paused on a question of its own.
+
+Sessions are created directly by **main**, not round-tripped through the renderer: a new
+`desktop/src/main/workflow/node-sessions.ts` mints the `TerminalSession`, spawns its pty, persists
+it (`terminal-service.saveTerminal`) and pushes the result to the renderer over a new
+`workflowNodeSessionStarted` event, since the workflow engine already runs in main and there is
+nothing on the renderer side to have started it. The renderer adopts it
+(`useTerminalStore.adoptSession`, `use-workflow-node-sessions.ts`) exactly the way `hydrate()`
+adopts a restored session, and from there it behaves like any other session — `ptyData`/`ptyExit`,
+close, kill.
+
+**Terminal accordion groups** (`sessions-view.tsx`): a workflow-node session's `repoId` is a
+sentinel (`WORKFLOW_SESSION_REPO_ID`, workflows have no real repo), filtered out of the ordinary
+by-repo grouping and grouped by `workflowRunRef` instead (`groupSessionsByWorkflowRun`,
+`session-order.ts`), in a new `WorkflowRunSessionsGroup` that reuses `SessionRow`/`Collapse`
+wholesale — only the header is new. The header carries collapse, **reveal this run in the Workflows
+view** (a small new `workflow-reveal-store.ts`, mirroring `workflow-run-command-store.ts`'s shape
+for the opposite direction), and **kill, pre-scoped to Flow** — the kill switch's `flow` scope
+finally gets a real id (`ui-store.killSwitchFlowWorkflowId`) after Theme H shipped it permanently
+disabled with a note naming this theme as the one that would wire it up.
+
+**Node glow, no new precedence logic**: Theme C's `useActivityGlow`/`resolveActivityGlow` was
+already built to take a list of live sessions per target (its own doc comment named this theme as
+the hookup) — this only threads the real ones through, via a new `useLiveWorkflowNodeSessions`
+(`use-workflow-run.ts`) and a new `nodeSessions` prop on `WorkflowCanvas`. A node now glows the
+shared activity palette while a session is actively working on it and falls back to its own
+queued/running/done/failed run-state colour the moment nothing is — exactly the precedence the hook
+already had.
+
+New tests: `node-pty-executors.test.ts` (desktop) — both executors against an injected fake pty
+layer, covering marker+idle precedence (not the marker alone), cancellation, a non-roster agent id,
+script exit codes, and an unexpected session exit. `session-order.test.ts` additions for the new
+grouping (including that a closed/archived session correctly falls out of it, since `ClosedSession`
+carries no `workflowRunRef`). `workflow.test.ts` additions for the new schema, `validateWorkflow`
+rules and the done-marker pattern. Node glow precedence itself was already covered by Theme C;
+existing `workflow-canvas.test.tsx`/`node-inspector.test.tsx`/`kill-switch-modal.test.tsx` suites
+pass unchanged. `moon run :typecheck :lint :test` green (`app:test` 530 files / 5331 tests,
+`desktop:test` 201 files / 2357 tests).
+
 ## 2026-09-24 — Phase 95 Theme F — Plan with AI
 
 [PR #536](https://github.com/bilo-io/midnite-studio/pull/536).

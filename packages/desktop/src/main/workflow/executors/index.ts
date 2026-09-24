@@ -1,8 +1,10 @@
 import type { ExecutorRegistry } from '../executor-registry';
+import { agentExecutor } from './agent';
 import { conditionExecutor } from './condition';
 import { delayExecutor } from './delay';
 import { httpExecutor } from './http';
 import { noteExecutor } from './note';
+import { scriptExecutor } from './script';
 import { transformExecutor } from './transform';
 
 /**
@@ -21,6 +23,16 @@ export const defaultExecutors: ExecutorRegistry = {
   condition: conditionExecutor,
   delay: delayExecutor,
   note: noteExecutor,
+  agent: agentExecutor,
+  script: scriptExecutor,
 };
 
-export { conditionExecutor, delayExecutor, httpExecutor, noteExecutor, transformExecutor };
+export {
+  agentExecutor,
+  conditionExecutor,
+  delayExecutor,
+  httpExecutor,
+  noteExecutor,
+  scriptExecutor,
+  transformExecutor,
+};

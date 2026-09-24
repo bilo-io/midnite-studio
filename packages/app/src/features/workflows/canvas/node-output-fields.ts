@@ -10,7 +10,9 @@ import type { WorkflowNode } from '@midnite/studio-shared';
  *
  * `condition`, `delay` and `note` produce nothing worth naming: a condition
  * gates downstream nodes rather than emitting data, a delay's only effect is
- * time passing, and a note has no executor at all.
+ * time passing, and a note has no executor at all. `agent`/`script` (Theme J)
+ * name what their executors actually record — the raw pty transcript and,
+ * for a script node, its shell exit code.
  */
 export function declaredOutputFields(node: WorkflowNode): string[] {
   switch (node.kind) {
@@ -22,5 +24,9 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
     case 'delay':
     case 'note':
       return [];
+    case 'agent':
+      return ['output'];
+    case 'script':
+      return ['exitCode', 'output'];
   }
 }

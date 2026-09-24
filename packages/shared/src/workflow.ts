@@ -28,7 +28,15 @@ import { z } from 'zod';
  * honest schema change with a compile error at every exhaustive `Record` rather
  * than a value quietly slotting into a union nobody widened on purpose.
  */
-export const WORKFLOW_NODE_KINDS = ['http', 'transform', 'condition', 'delay', 'note'] as const;
+export const WORKFLOW_NODE_KINDS = [
+  'http',
+  'transform',
+  'condition',
+  'delay',
+  'note',
+  'agent',
+  'script',
+] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
 /**
@@ -129,6 +137,66 @@ export const WorkflowNoteConfigSchema = z.object({
 });
 export type WorkflowNoteConfig = z.infer<typeof WorkflowNoteConfigSchema>;
 
+/**
+ * The sentinel line {@link agentNodeDonePrompt} asks the agent to print once
+ * it has fully finished the node's task — `executors/agent.ts`'s own
+ * completion signal, alongside activity reaching idle (Theme J's resolved
+ * "agent node done detection" decision: activity-idle alone is ambiguous for
+ * an agent paused on a question of its own). `:ok`/`:fail` is how the agent
+ * reports its own outcome; a bare marker with neither suffix reads as `ok`,
+ * so an agent whose skill has not been taught the `:fail` form still
+ * completes the node rather than hanging it to the outer per-node deadline.
+ */
+export const WORKFLOW_AGENT_DONE_MARKER = 'MIDNITE_WORKFLOW_NODE_DONE';
+
+/** `/(ok|fail)/` capture group, tolerant of surrounding text on the same line. */
+export const WORKFLOW_AGENT_DONE_MARKER_PATTERN = new RegExp(
+  `${WORKFLOW_AGENT_DONE_MARKER}(?::\\s*(ok|fail))?`,
+);
+
+/**
+ * The instruction appended to an agent node's own prompt — never sent to the
+ * shell on its own, always as the tail of {@link WorkflowAgentConfig.prompt}.
+ * Separated into its own function (rather than inlined in the executor) so a
+ * test can assert the exact wording the agent is told, once.
+ */
+export function agentNodeDonePrompt(prompt: string): string {
+  return `${prompt}\n\nWhen you have completely finished this task, print a line containing exactly "${WORKFLOW_AGENT_DONE_MARKER}: ok" (or "${WORKFLOW_AGENT_DONE_MARKER}: fail" if you could not complete it), then stop.`;
+}
+
+/**
+ * An **agent** node (Phase 95 Theme J) — runs the named roster agent
+ * headless-free, interactively, in a real pty (`executors/agent.ts`), with
+ * `prompt` extended by {@link agentNodeDonePrompt}. `model` is free text
+ * (the agent's own `--model` flag, when it has one) rather than a per-agent
+ * enum — `shared/src/ai-models.ts` (Theme E) already covers the wand/planner's
+ * cheap-model case; a workflow node's model choice is a different axis
+ * (interactive session, not headless) and reuses that registry only for its
+ * option list in the renderer, not for its shape here.
+ */
+export const WorkflowAgentConfigSchema = z.object({
+  /** A `BUILTIN_AGENTS`/roster id, e.g. `'claude'` — validated against the roster at run time, not parse time (the roster is a runtime fact about the host, not a property of the saved workflow). */
+  agentId: z.string().default(''),
+  prompt: z.string().default(''),
+  model: z.string().optional(),
+});
+export type WorkflowAgentConfig = z.infer<typeof WorkflowAgentConfigSchema>;
+
+/**
+ * A **script** node (Phase 95 Theme J) — runs `command` in a real pty
+ * (`executors/script.ts`), exactly like a plain shell session, and settles on
+ * the shell's own exit status (`; exit $?`, `council-runner.ts`'s own
+ * pattern). `cwd` is optional because workflows are global, not per-repo (this
+ * module's own doc comment) — unset runs from the OS home directory, the same
+ * fallback `council-runner.ts`'s one-shot ptys use.
+ */
+export const WorkflowScriptConfigSchema = z.object({
+  command: z.string().default(''),
+  cwd: z.string().optional(),
+  env: z.record(z.string(), z.string()).default({}),
+});
+export type WorkflowScriptConfig = z.infer<typeof WorkflowScriptConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -165,6 +233,14 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('note'),
     config: WorkflowNoteConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('agent'),
+    config: WorkflowAgentConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('script'),
+    config: WorkflowScriptConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -261,6 +337,16 @@ export const WorkflowNodeRunSchema = z.object({
   error: z.string().optional(),
   startedAt: z.number().int().nonnegative().optional(),
   endedAt: z.number().int().nonnegative().optional(),
+  /**
+   * The `TerminalSession` an `agent`/`script` node ran in (Phase 95 Theme J) —
+   * unset for every other kind, and unset for an agent/script node too until
+   * its pty actually exists (a node the driver never reached, or one whose
+   * session failed to start at all). This is what lets the terminal
+   * accordion group and the canvas node's live glow find "this node's own
+   * session" without re-deriving it from `TerminalSession.workflowRunRef`
+   * on every render — the run already has it once the executor stamps it.
+   */
+  sessionId: z.string().min(1).optional(),
 });
 export type WorkflowNodeRun = z.infer<typeof WorkflowNodeRunSchema>;
 
@@ -337,6 +423,15 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
         message: `"${node.label}" compares with "${node.config.op}" but has no right-hand value.`,
         nodeId: node.id,
       });
+    }
+    if (node.kind === 'agent' && node.config.agentId.trim() === '') {
+      issues.push({ message: `"${node.label}" has no agent selected.`, nodeId: node.id });
+    }
+    if (node.kind === 'agent' && node.config.prompt.trim() === '') {
+      issues.push({ message: `"${node.label}" has no prompt.`, nodeId: node.id });
+    }
+    if (node.kind === 'script' && node.config.command.trim() === '') {
+      issues.push({ message: `"${node.label}" has no command.`, nodeId: node.id });
     }
   }
 
@@ -502,3 +597,14 @@ export const WORKFLOW_NODE_CONCURRENCY = 4;
  * `MAX_STORED_LOOP_RUNS`.
  */
 export const MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW = 20;
+
+/**
+ * `TerminalSession.repoId` for an agent/script node's session (Phase 95 Theme
+ * J). Workflows are global, not per-repo (this module's own doc comment), so
+ * there is no real repo id to stamp — this sentinel is what lets the schema's
+ * `repoId: z.string().min(1)` stay satisfied without inventing a fake repo,
+ * and what `sessions-view.tsx` filters OUT of the ordinary by-repo grouping
+ * (a workflow-run session is grouped by `workflowRunRef` instead — see
+ * `groupSessionsByWorkflowRun`).
+ */
+export const WORKFLOW_SESSION_REPO_ID = 'workflow';

@@ -96,6 +96,7 @@ import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
+import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
@@ -2054,6 +2055,11 @@ export function App() {
   // once — one missed while every TerminalView was unmounted left the loop
   // reading as live for the rest of the app run.
   useSessionExits();
+  // Phase 95 Theme J — a workflow's agent/script node sessions arrive
+  // unasked, from main; adopted here for the same reason as the two hooks
+  // above, so a run with every workflow-adjacent view unmounted still lands
+  // its sessions in the store.
+  useWorkflowNodeSessions();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>

@@ -558,25 +558,69 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       1600×1000 (the five side-by-side panels squeeze the default 1280px canvas too narrow for two
       separated nodes and their connection handles to both stay inside it).
 
-### J — Agent and script nodes, grouped in the terminal (L)
+### J — Agent and script nodes, grouped in the terminal (L) — ✅ DONE (PR #537, 2026-09-24)
 
-- [ ] New node kinds in `shared/src/workflow.ts`: **`agent`** (agent id, skill or prompt, model)
+- [x] New node kinds in `shared/src/workflow.ts`: **`agent`** (agent id, skill or prompt, model)
       and **`script`** (command, cwd, env). Both execute in a **real pty session** started by main,
       stamped with `workflowRunRef`; the node succeeds or fails on the session's exit status (agent:
       when its activity reaches idle after the prompt, plus an explicit done marker).
-- [ ] **Terminal accordion groups.** When a run starts, the terminal session list gains a group
+      **Decisions (unattended run):** the done marker is `MIDNITE_WORKFLOW_NODE_DONE: ok|fail`,
+      appended to the node's own prompt by `agentNodeDonePrompt` (`shared/src/workflow.ts`) — the
+      phase doc's own open decision, resolved as recommended (activity-idle alone is ambiguous for
+      an agent paused on a question of its own). A script node settles the same way a council member
+      does (`council-runner.ts`): typed as `command; exit $?`, so the shell's own exit *is* the
+      command's. `env` has no `createPty` parameter to ride, so it rides the shell's own assignment
+      syntax (`KEY='value' command`) instead of widening the pty-create IPC contract. Sessions are
+      created directly by main — `desktop/src/main/workflow/node-sessions.ts` calls the same
+      `createPty` every other session uses (never a second spawn path) and pushes the result to the
+      renderer over a new `workflowNodeSessionStarted` event, since the workflow engine already runs
+      in main and there is no renderer round trip to hang this off (the renderer adopts it via
+      `useTerminalStore.adoptSession` / `use-workflow-node-sessions.ts`, mirroring how `hydrate()`
+      adopts a restored session).
+- [x] **Terminal accordion groups.** When a run starts, the terminal session list gains a group
       headed by the workflow's icon and name (and run number), containing one session per agent /
       script node as it starts. Reuse the Sessions view's accordion (`groupSessionsByRepo` /
       `collapsedRepos` / sticky header in [`session-order.ts`](../../../packages/app/src/features/sessions/session-order.ts))
       rather than writing a second one. Ungrouped sessions render exactly as today.
-- [ ] Group header controls: collapse, reveal run in the Workflows view, and the kill switch
+      **Decision (unattended run):** a workflow-node session's `repoId` is a sentinel
+      (`WORKFLOW_SESSION_REPO_ID = 'workflow'`, workflows have no real repo) filtered OUT of
+      `groupSessionsByRepo`'s input and grouped by `workflowRunRef` instead
+      (`groupSessionsByWorkflowRun`), in its own accordion (`WorkflowRunSessionsGroup`) that reuses
+      `SessionRow`/`Collapse` wholesale — only the group header is new. "Run number" is the group's
+      relative age (`relativeAge`) rather than an invented sequence field on `WorkflowRun`.
+- [x] Group header controls: collapse, reveal run in the Workflows view, and the kill switch
       pre-scoped to **Flow**.
-- [ ] **Node glow.** Workflow nodes follow the global Activity settings: an agent actively working
+      **Decisions (unattended run):** "reveal" is a small new `workflow-reveal-store.ts`, mirroring
+      `workflow-run-command-store.ts`'s shape for the opposite direction — `WorkflowsView` keeps
+      "which workflow is open" as local state, not a store, so there is nothing to call through
+      directly. The kill switch's `flow` scope finally gets a real id: `ui-store.killSwitchFlowWorkflowId`,
+      set only by this button (`openKillSwitch({workflowId})`) — Theme H shipped the option
+      permanently disabled with a note naming Theme J as the one that would wire it up. The modal
+      itself never unmounts (gated by `!open`, not conditionally rendered), so its own `scope` state
+      persists across opens; a `useEffect` forces it back to `flow` whenever this specific opener is
+      used, so a stale scope from an earlier open never survives it.
+- [x] **Node glow.** Workflow nodes follow the global Activity settings: an agent actively working
       on a node shows the agent gradient + its identity badge; a script node shows the metallic shell
       ring + terminal badge; any node **without an agent actively working on it** shows its run state
       (`queued`, `running`, `waiting`, `done`, `failed`) in that status's configured colour.
-- [ ] Tests: executor lifecycle for agent / script nodes (fake pty); grouping of sessions by
+      **Decision (unattended run):** no new precedence logic — Theme C's `useActivityGlow`/
+      `resolveActivityGlow` was already built to take a *list* of live sessions per target (its own
+      doc comment named this theme). This only threads the real ones through: a new
+      `useLiveWorkflowNodeSessions` (`use-workflow-run.ts`) reads the workflow's own live run's
+      sessions out of the terminal store, keyed by `nodeId`, and `WorkflowCanvas` gets a new
+      `nodeSessions` prop carried onto each node's `data.sessions` — the exact precedence the hook
+      already had is what gives the "global palette while active, else run state" behaviour for free.
+- [x] Tests: executor lifecycle for agent / script nodes (fake pty); grouping of sessions by
       `workflowRunRef`; node glow precedence.
+      `node-pty-executors.test.ts` (desktop) covers both executors against an injected fake pty layer
+      (`NodePtyDeps`) — marker+idle precedence (not the marker alone), cancellation, a non-roster
+      agent id, script exit codes, an unexpected session exit. `session-order.test.ts` covers the new
+      grouping (including that a closed/archived session — which carries no `workflowRunRef` —
+      correctly falls out of it). `workflow.test.ts` covers the new schema, `validateWorkflow` rules
+      and the done-marker pattern. Node glow precedence itself was already covered by Theme C's
+      `use-activity-glow.test.ts`; this theme only adds the wiring, verified by the existing
+      `workflow-canvas.test.tsx`/`node-inspector.test.tsx` suites passing unchanged plus the two
+      screenshots in the PR.
 
 ## Files this phase touches
 
@@ -615,8 +659,11 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       forced failure; the kill switch at Project scope stops it and its session, and the modal's
       sentence and counts match what was stopped.
 - [ ] `bundle-report.mjs`: entry chunk unchanged by React Flow (numbers in the PR).
-- [ ] A workflow with one agent node and one script node creates one terminal accordion group
+- [x] A workflow with one agent node and one script node creates one terminal accordion group
       with two sessions; nodes glow per the precedence rule, and the group's kill switch stops both.
+      Verified against the mocked-bridge harness (screenshot in PR #537) plus the executor and
+      grouping unit tests; the "kill switch stops both" half is the existing, unchanged
+      `sessionsForScope`/`closeSession` path (`kill-scope.ts`), now reachable with a real `flow` id.
 - [ ] Human pass: the whole loop — plan a project, drag a card, let Auto-mate carry the chain,
       kill it — on a packaged build.
 

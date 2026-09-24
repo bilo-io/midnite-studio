@@ -2548,6 +2548,12 @@ export function buildMockBridge(data: MockFixtures) {
         }),
       },
       onRunChanged: () => () => {},
+      // Phase 95 Theme J — no fixture seeds a real push here (the accordion
+      // group's own shots seed `data.terminalSessions` directly with a
+      // `workflowRunRef`, matching how `terminal.list` already fixtures a
+      // restored session); this only needs to exist so `App`'s always-
+      // mounted `useWorkflowNodeSessions()` has something to subscribe to.
+      onNodeSessionStarted: () => () => {},
     },
     /** The demo API status pill (Phase 43 Theme D). No push event — the
      *  renderer polls, so `status` just answers whatever `start`/`stop`

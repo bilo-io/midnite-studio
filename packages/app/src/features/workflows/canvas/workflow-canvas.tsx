@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKe
 import { LuLayoutGrid, LuPlay, LuRedo2, LuUndo2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
+import type { ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { createNode } from '../workflow-io';
 import { WORKFLOW_NODE_DND_MIME } from './node-palette';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeData } from './workflow-node-view';
@@ -71,6 +72,8 @@ export function WorkflowCanvas(props: {
   nodeStatuses?: ReadonlyMap<string, WorkflowNodeStatus>;
   /** A run's per-node error, keyed by node id — shown inline on the node card. */
   nodeErrors?: ReadonlyMap<string, string>;
+  /** An `agent`/`script` node's own live session(s), keyed by node id (Theme J) — see `use-workflow-run.ts`'s `useLiveWorkflowNodeSessions`. */
+  nodeSessions?: ReadonlyMap<string, readonly ActivityGlowSessionInput[]>;
   /** Extra toolbar content (Theme G's History control, e.g.) — the canvas owns the bar, not what a caller puts in it. */
   toolbarExtra?: React.ReactNode;
 }) {
@@ -93,10 +96,13 @@ function WorkflowCanvasInner({
   readOnly,
   nodeStatuses,
   nodeErrors,
+  nodeSessions,
   toolbarExtra,
 }: Parameters<typeof WorkflowCanvas>[0]) {
   const { screenToFlowPosition, fitView } = useReactFlow();
-  const [nodes, setNodes] = useState<Node[]>(() => decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors));
+  const [nodes, setNodes] = useState<Node[]>(() =>
+    decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions),
+  );
   const [edges, setEdges] = useState<Edge[]>(() => toFlowGraph(graph.nodes, graph.edges).edges);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
 
@@ -111,15 +117,15 @@ function WorkflowCanvasInner({
   // those have already been committed by the time a new `graph` prop lands.
   useEffect(() => {
     const flow = toFlowGraph(graph.nodes, graph.edges);
-    setNodes((prev) => decorate(flow.nodes, invalidNodeIds, nodeStatuses, nodeErrors, prev));
+    setNodes((prev) => decorate(flow.nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, prev));
     setEdges(flow.edges);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- decorate below re-applies on its own effect
   }, [graph]);
 
-  // Overlay-only resync — run status/validity/error changes shouldn't rebuild positions.
+  // Overlay-only resync — run status/validity/error/session changes shouldn't rebuild positions.
   useEffect(() => {
-    setNodes((prev) => decorate(prev, invalidNodeIds, nodeStatuses, nodeErrors));
-  }, [invalidNodeIds, nodeStatuses, nodeErrors]);
+    setNodes((prev) => decorate(prev, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions));
+  }, [invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions]);
 
   useEffect(() => {
     undoStack.current = [];
@@ -387,6 +393,7 @@ function decorate(
   invalidNodeIds: ReadonlySet<string> | undefined,
   nodeStatuses: ReadonlyMap<string, WorkflowNodeStatus> | undefined,
   nodeErrors: ReadonlyMap<string, string> | undefined,
+  nodeSessions: ReadonlyMap<string, readonly ActivityGlowSessionInput[]> | undefined,
   previous?: Node[],
 ): Node[] {
   const previousById = new Map((previous ?? []).map((n) => [n.id, n]));
@@ -401,6 +408,7 @@ function decorate(
         invalid: invalidNodeIds?.has(node.id) ?? false,
         status: nodeStatuses?.get(node.id),
         error: nodeErrors?.get(node.id),
+        sessions: nodeSessions?.get(node.id),
       },
     };
   });
