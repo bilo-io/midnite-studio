@@ -21,6 +21,7 @@ import {
   type WorkflowRun,
 } from '@midnite/studio-shared';
 
+import { demoApiStatus } from '../demo-api/server';
 import { defaultExecutors } from './executors';
 import type { CancelSignal, ExecutorRegistry, NodeOutcome } from './executor-registry';
 
@@ -771,6 +772,20 @@ async function runNode(
     }
     return outputs;
   });
+
+  /*
+    Theme M's reserved `{{demo.baseUrl}}` root (Phase 97 — see
+    `WORKFLOW_RESERVED_INTERPOLATION_ROOTS` in shared/src/workflow.ts, which
+    `validateWorkflow` uses to keep `demo` from ever being a real node id).
+    Set only while the demo API is actually running — left unset otherwise, so
+    a reference resolves to nothing and the `http` executor's own check turns
+    that into "Demo API is not running…" rather than the generic "not
+    upstream" message a made-up node id would get.
+  */
+  const demoStatus = demoApiStatus();
+  if (demoStatus.running) {
+    upstream.demo = { baseUrl: `http://127.0.0.1:${demoStatus.port}` };
+  }
 
   const signal: CancelSignal = { cancelled: () => state.cancelled };
   const reportSessionId = (sessionId: string) => patchNodeSessionId(runId, node.id, sessionId, deps);

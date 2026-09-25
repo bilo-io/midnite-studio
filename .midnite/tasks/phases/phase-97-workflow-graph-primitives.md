@@ -393,17 +393,21 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [ ] Vitest: every template parses, passes `validateWorkflow`, uses only `{{demo.baseUrl}}` for
       http URLs, and runs to completion in the engine test harness with fake executors.
 
-### M — Demo endpoint group for HTTP nodes (M)
+### M — Demo endpoint group for HTTP nodes (M) — ✅ DONE ([PR #559](https://github.com/bilo-io/midnite-studio/pull/559), 2026-09-25)
 
 *Added in the brainstorm on the user's request: templates and demos need a stable, scriptable
 HTTP target.*
 
-- [ ] A reserved interpolation root **`{{demo.baseUrl}}`**, resolved by main at execution time from
+- [x] A reserved interpolation root **`{{demo.baseUrl}}`**, resolved by main at execution time from
       `demoApiStatus()`. If the demo API is not running, the node fails with "Demo API is not
       running — start it from the Demo API pill", never a bare `ECONNREFUSED`.
-      [`interpolate.ts`](../../../packages/desktop/src/main/workflow/interpolate.ts) reserves `demo`
-      (and `loop`, `state` from C / G), and `validateWorkflow` rejects a node whose id collides.
-- [ ] A scripted **`/demo/*` route group** beside the generic store in
+      **`WORKFLOW_RESERVED_INTERPOLATION_ROOTS = ['demo', 'loop', 'state']`** lives in
+      [`shared/src/workflow.ts`](../../../packages/shared/src/workflow.ts), not `interpolate.ts` —
+      `validateWorkflow` (which rejects a node id colliding with one) lives in `shared`, and `shared`
+      can never import from `desktop`, so the one shared list has to live where both sides can reach
+      it. `interpolate.ts`/`workflow-engine.ts` import the same constant; the actual namespace
+      (`upstream.demo = {baseUrl}`) is injected at the engine's `runNode` call site.
+- [x] A scripted **`/demo/*` route group** beside the generic store in
       [`routes.ts`](../../../packages/desktop/src/main/demo-api/routes.ts), each deterministic and
       query-driven:
       - `/demo/echo`
@@ -416,10 +420,12 @@ HTTP target.*
       - `/demo/verify?key=&passAfter=`
 
       Counters reset with the store on stop.
-- [ ] The http node form offers `{{demo.baseUrl}}` in its URL hints and a "Use demo API" quick-fill
-      listing the routes above. Opening a template whose nodes reference `{{demo.baseUrl}}` offers
-      to start the demo API.
-- [ ] Vitest: route behaviour (`demo-api.test.ts`), `fail-n` counter reset, `{{demo.baseUrl}}`
+- [x] The http node form offers `{{demo.baseUrl}}` in its URL hints and a "Use demo API" quick-fill
+      listing the routes above. A dismissible banner above the canvas offers to start the demo API
+      whenever the open workflow has a node referencing `{{demo.baseUrl}}` and it isn't running
+      (scoped to the open workflow rather than "opening a template" — Theme L's gallery doesn't
+      exist yet, and any workflow with that reference is the superset that matters).
+- [x] Vitest: route behaviour (`demo-api.test.ts`), `fail-n` counter reset, `{{demo.baseUrl}}`
       resolution with the server up and down, and the http executor suite still passing with no
       network, per its existing acceptance criterion.
 

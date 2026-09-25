@@ -6,6 +6,7 @@ import {
   WORKFLOW_ERROR_PORT_ID,
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WORKFLOW_NODE_KINDS,
+  WORKFLOW_RESERVED_INTERPOLATION_ROOTS,
   WorkflowNodeSchema,
   WorkflowRunSchema,
   WorkflowSchema,
@@ -182,6 +183,18 @@ describe('validateWorkflow', () => {
       }),
     );
     expect(issues).toEqual([{ message: '"Run" has no command.', nodeId: 'a' }]);
+  });
+
+  it('rejects a node id that collides with a reserved interpolation root (Theme M)', () => {
+    for (const reserved of WORKFLOW_RESERVED_INTERPOLATION_ROOTS) {
+      const issues = validateWorkflow(workflow({ nodes: [node({ id: reserved })], edges: [] }));
+      expect(issues).toEqual([
+        {
+          message: `"Fetch" cannot use the reserved id "${reserved}" — {{${reserved}...}} is reserved for the engine.`,
+          nodeId: reserved,
+        },
+      ]);
+    }
   });
 
   it('names the edge that points at a node that no longer exists', () => {

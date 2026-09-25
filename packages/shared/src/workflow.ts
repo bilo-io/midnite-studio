@@ -224,6 +224,19 @@ export const WorkflowNoteConfigSchema = z.object({
 export type WorkflowNoteConfig = z.infer<typeof WorkflowNoteConfigSchema>;
 
 /**
+ * `{{...}}` interpolation roots the engine reserves for synthetic data that is
+ * never a node's recorded output: `demo` (Theme M — `{{demo.baseUrl}}`, the
+ * demo API's URL), `loop` (Theme C — `{{loop.iteration}}` and friends inside a
+ * controlled cycle) and `state` (Theme G — `{{state.<key>}}` durable run
+ * state). Declared once, here in `shared`, so `validateWorkflow` below can
+ * reject a node id that collides with one — the actual injection of each
+ * namespace into a run's `upstream` record happens per-theme at the engine's
+ * own call site (`workflow-engine.ts`'s `runNode`), never in this file.
+ */
+export const WORKFLOW_RESERVED_INTERPOLATION_ROOTS = ['demo', 'loop', 'state'] as const;
+export type WorkflowReservedInterpolationRoot = (typeof WORKFLOW_RESERVED_INTERPOLATION_ROOTS)[number];
+
+/**
  * The sentinel line {@link agentNodeDonePrompt} asks the agent to print once
  * it has fully finished the node's task — `executors/agent.ts`'s own
  * completion signal, alongside activity reaching idle (Theme J's resolved
@@ -782,6 +795,13 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
   for (const node of workflow.nodes) {
     if (ids.has(node.id)) issues.push({ message: `Duplicate node id "${node.id}".`, nodeId: node.id });
     ids.add(node.id);
+
+    if ((WORKFLOW_RESERVED_INTERPOLATION_ROOTS as readonly string[]).includes(node.id)) {
+      issues.push({
+        message: `"${node.label}" cannot use the reserved id "${node.id}" — {{${node.id}...}} is reserved for the engine.`,
+        nodeId: node.id,
+      });
+    }
 
     if (node.kind === 'http' && node.config.url.trim() === '') {
       issues.push({ message: `"${node.label}" has no URL.`, nodeId: node.id });

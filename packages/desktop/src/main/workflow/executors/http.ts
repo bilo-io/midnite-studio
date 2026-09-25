@@ -73,9 +73,33 @@ export async function readCapped(
   return { text: new TextDecoder().decode(buffer), truncated, bytes: buffer.byteLength };
 }
 
+/**
+ * Whether a template string references the reserved `{{demo...}}` root
+ * (Phase 97 Theme M — `WORKFLOW_RESERVED_INTERPOLATION_ROOTS` in
+ * `shared/src/workflow.ts`). `validateWorkflow` keeps `demo` from ever being a
+ * real node id, so any `{{demo.xxx}}` in a config field can only mean the
+ * demo API's namespace — never a coincidence with some other node's name.
+ */
+const REFERENCES_DEMO_ROOT = /\{\{\s*demo\b/;
+
+function referencesDemoRoot(config: HttpNodeConfigLike): boolean {
+  const fields = [config.url, config.body, ...Object.values(config.headers), ...Object.values(config.params)];
+  return fields.some((field) => field !== undefined && REFERENCES_DEMO_ROOT.test(field));
+}
+
+type HttpNodeConfigLike = { url: string; body?: string; headers: Record<string, string>; params: Record<string, string> };
+
 export const httpExecutor: NodeExecutor = async (node, context): Promise<NodeOutcome> => {
   if (node.kind !== 'http') return { ok: false, error: 'Not an http node.' };
   const config = node.config;
+
+  // A friendlier failure than the generic "not upstream" interpolate error:
+  // `demo` is a reserved namespace the engine injects only while the demo API
+  // is actually listening (`workflow-engine.ts`'s `runNode`), so its absence
+  // here means exactly one thing.
+  if (context.upstream.demo === undefined && referencesDemoRoot(config)) {
+    return { ok: false, error: 'Demo API is not running — start it from the Demo API pill.' };
+  }
 
   const url = interpolate(config.url, context.upstream);
   if (!url.ok) return { ok: false, error: url.error };

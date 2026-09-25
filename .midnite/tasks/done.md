@@ -1,6 +1,46 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme M — Demo endpoint group for HTTP nodes
+
+[PR #559](https://github.com/bilo-io/midnite-studio/pull/559). A stable, scriptable HTTP target for templates and demos, so an `http` node has
+something honest and deterministic to call.
+
+- [x] **`WORKFLOW_RESERVED_INTERPOLATION_ROOTS = ['demo', 'loop', 'state']`**, the one shared list
+      Themes M/C/G build their `{{...}}` namespaces against, lives in
+      `packages/shared/src/workflow.ts` — not `interpolate.ts` as the phase doc first suggested:
+      `validateWorkflow` (which rejects a node id colliding with a reserved root) lives in `shared`,
+      and `shared` can never import from `desktop`, so the one shared list has to live where both
+      sides can reach it. `interpolate.ts` stays pure and engine-free per its own docblock; the
+      actual namespace injection happens per-theme at `workflow-engine.ts`'s `runNode` call site.
+- [x] `{{demo.baseUrl}}`: `runNode` sets `upstream.demo = { baseUrl }` whenever `demoApiStatus()`
+      reports the demo API running, resolved fresh on every node run. The `http` executor
+      special-cases a `{{demo...}}` reference with no `demo` namespace upstream into "Demo API is
+      not running — start it from the Demo API pill." instead of the generic "not upstream"
+      interpolate error — never a bare `ECONNREFUSED`.
+- [x] A scripted **`/demo/*` route group**
+      (`packages/desktop/src/main/demo-api/scripted-routes.ts`), checked ahead of the generic
+      `/:collection[/:id]` store: `echo`, `delay?ms=` (capped at `WORKFLOW_DELAY_MAX_MS`, the same
+      constant the `delay` node uses), `fail-n?key=&n=` (fails the first *n* calls per key, then
+      passes — what makes a loop template genuinely loop), `flaky?rate=&seed=` (a seeded mulberry32
+      PRNG, so a seed always replays the same pass/fail sequence), `classify?risk=`,
+      `research/:lane`, and `verify?key=&passAfter=`. `fail-n`/`verify` counters are module state,
+      reset by `resetScriptedRoutes()` wired into `store.ts`'s `resetDemoStore()` so a demo-API stop
+      clears both halves of server memory together. `/demo/delay`'s cap is unit-tested as a pure
+      function (`capDelayMs`), never by waiting out the cap in a test.
+- [x] The http node form's URL field gained a "Use demo API" popover
+      (`canvas/demo-api-quick-fill.tsx`) listing the routes above, inserting
+      `{{demo.baseUrl}}<path>` on pick. A dismissible banner above the canvas
+      (`demo-api-offer-banner.tsx`) offers to start the demo API whenever the open workflow has a
+      node referencing `{{demo.baseUrl}}` and it isn't running yet — scoped to the open workflow
+      rather than "opening a template" since Theme L's gallery doesn't exist yet.
+- [x] Vitest: route behaviour and counter reset (`demo-api.test.ts`), the pure delay cap
+      (`scripted-routes.test.ts`), `{{demo.baseUrl}}` resolution with the demo API up and down
+      (`executors.test.ts`, `workflow-engine.test.ts`), the reserved-id collision check
+      (`workflow.test.ts`), and the two UI pieces (`node-inspector.test.tsx`,
+      `demo-api-offer-banner.test.tsx`). The http executor suite still passes with the network cable
+      out, per its existing acceptance criterion.
+
 ## 2026-09-25 — Phase 97 Theme B — Routing, joins and the error port
 
 [PR #558](https://github.com/bilo-io/midnite-studio/pull/558). Stacked on Theme A's port/edge-kind contract (PR #557) — moves the engine off the
