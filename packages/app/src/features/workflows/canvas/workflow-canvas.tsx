@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { LuLayoutGrid, LuPlay, LuRedo2, LuUndo2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
+import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import type { ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { createNode } from '../workflow-io';
 import { inferEdgeKind } from './edge-style';
@@ -120,6 +121,19 @@ function WorkflowCanvasInner({
   const redoStack = useRef<WorkflowGraph[]>([]);
   const graphRef = useRef(graph);
   graphRef.current = graph;
+
+  /**
+   * `html[data-window-focused]` (Theme J) — every `data`/`conditional`/`loop`
+   * edge's `.wf-edge-live` dash animation is `animation-play-state: paused`
+   * by default in `styles.css`, resumed only while the window has focus, the
+   * same idle-CPU concern `browser-gradient-spin`/`screensaver-title` gate
+   * this way. Unconditional (not `hasRunningRun`-scoped the way
+   * `workflows-view.tsx`'s own gate is for its run glow) because a `pending`
+   * edge — the canvas's default, un-run state — is exactly the state this
+   * animation is *most* often left running in, with nothing else guaranteed
+   * to be gating the attribute at that time.
+   */
+  useWindowFocusGate(true);
 
   /** `WorkflowNodeView`'s connect-drag port dimming (Theme J) — see `workflow-graph-context.tsx`. */
   const graphContextValue = useMemo(

@@ -4952,10 +4952,16 @@ html[data-motion='reduced'] .session-row-pulse {
  * (Phase 97 Theme J, `workflow-edge-view.tsx`'s `.wf-edge-live`). A dead edge
  * never gets this class at all (it fades via `opacity` instead), so nothing
  * here needs to distinguish taken from pending — both read as "still live"
- * until a run marks the edge dead. Gated under reduced motion the same way
- * every other looping animation in this file is: the OS preference disables
- * it unless the in-app setting overrides to `full`, and the in-app `reduced`
- * setting disables it even when the OS does not ask for it. */
+ * until a run marks the edge dead.
+ *
+ * Two independent gates, both load-bearing:
+ * - `animation-play-state`, off `html[data-window-focused]`
+ *   (`workflow-canvas.tsx`'s own `useWindowFocusGate(true)`) — an editor left
+ *   open and blurred for hours must not keep dashing every edge on the canvas
+ *   forever, the same idle-CPU reasoning `browser-gradient-spin`/
+ *   `screensaver-title` gate this way elsewhere in this file.
+ * - reduced motion, the same OS-preference-plus-in-app-override pair every
+ *   other looping animation here uses. */
 @keyframes wf-edge-dash {
   to {
     stroke-dashoffset: -16;
@@ -4964,7 +4970,11 @@ html[data-motion='reduced'] .session-row-pulse {
 
 .wf-edge-live {
   stroke-dasharray: 5 3;
-  animation: wf-edge-dash 0.6s linear infinite;
+  animation: wf-edge-dash 0.6s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .wf-edge-live {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
