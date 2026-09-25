@@ -86,8 +86,8 @@ describe('WorkflowSchema', () => {
     // Every kind in the exported list is parseable — the list and the union
     // cannot drift apart without this failing. `agent`/`script` (Theme J),
     // `join` (Theme B), `gate` (Theme D), `router` (Theme F), `verify`
-    // (Theme E), `trigger` (Theme H) and `state` (Theme G) joined the MVP's
-    // original five.
+    // (Theme E), `trigger` (Theme H), `state` (Theme G) and `frame`/`policy`
+    // (Theme I) joined the MVP's original five.
     expect(WORKFLOW_NODE_KINDS).toEqual([
       'http',
       'transform',
@@ -102,6 +102,8 @@ describe('WorkflowSchema', () => {
       'verify',
       'trigger',
       'state',
+      'frame',
+      'policy',
     ]);
   });
 
@@ -502,14 +504,15 @@ describe('workflowIssueSeverity', () => {
 
 describe('portsForNode', () => {
   it('gives every plain executor-bearing kind an implicit multi-input `in` and an `error` out-port', () => {
-    // `note` has no executor at all; `join`/`router` have config-driven
-    // out-ports (`in-1..in-N`, one per declared case) rather than the plain
-    // implicit shape this loop checks; `trigger` has no in-port by design
-    // (Theme H — it is the graph's own start) — all three covered on their
-    // own below instead, and this fixture's `config` is an `http` node's
-    // shape reused across every kind, which their port functions actually read.
+    // `note`/`frame` have no executor at all; `join`/`router` have
+    // config-driven out-ports (`in-1..in-N`, one per declared case) rather
+    // than the plain implicit shape this loop checks; `trigger` has no
+    // in-port by design (Theme H — it is the graph's own start) — all five
+    // covered on their own below instead, and this fixture's `config` is an
+    // `http` node's shape reused across every kind, which their port
+    // functions actually read.
     for (const kind of WORKFLOW_NODE_KINDS) {
-      if (kind === 'note' || kind === 'join' || kind === 'router' || kind === 'trigger') continue;
+      if (kind === 'note' || kind === 'join' || kind === 'router' || kind === 'trigger' || kind === 'frame') continue;
       const n = { ...node(), kind } as WorkflowNode;
       const ports = portsForNode(n);
       expect(ports).toContainEqual(

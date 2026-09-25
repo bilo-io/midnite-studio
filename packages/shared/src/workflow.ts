@@ -69,6 +69,8 @@ export const WORKFLOW_NODE_KINDS = [
   'verify',
   'trigger',
   'state',
+  'frame',
+  'policy',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -176,6 +178,20 @@ export const WORKFLOW_ERROR_PORT_ID = 'error';
  */
 export const WORKFLOW_LOOP_EXHAUSTED_PORT_ID = 'exhausted';
 
+// --- policy actions (Phase 97 Theme I) ----------------------------------------
+
+/**
+ * The closed action vocabulary a `policy` node's `allow`/`requireApprovalFor`
+ * (below) and an `agent`/`script`/`http` node's own `actions` field both draw
+ * from — "model suggests → policy checks → tool executes" (the phase doc's
+ * own phrase) only works if both sides of that check speak the same closed
+ * words. Declared here, ahead of the http/agent/script config schemas below,
+ * because those schemas reference it directly.
+ */
+export const WORKFLOW_ACTIONS = ['network', 'write-files', 'open-pr', 'push', 'deploy', 'delete-data'] as const;
+export const WorkflowActionSchema = z.enum(WORKFLOW_ACTIONS);
+export type WorkflowAction = z.infer<typeof WorkflowActionSchema>;
+
 // --- node configs ------------------------------------------------------------
 
 export const WorkflowHttpConfigSchema = z.object({
@@ -215,6 +231,20 @@ export const WorkflowHttpConfigSchema = z.object({
    * on purpose, not a default nobody looked at. Unset reads `false`.
    */
   idempotent: z.boolean().optional(),
+  /**
+   * Phase 97 Theme I — the actions this request performs, over
+   * {@link WORKFLOW_ACTIONS}. Checked against whichever `policy` node(s)
+   * govern this node ({@link checkNodePolicy}) both before the run starts
+   * ({@link validateWorkflow}) and, for `'network'` specifically, again by
+   * `httpExecutor` itself at send time. Optional, not `.default([])` — the
+   * same optional-plus-reader pattern `isWorkflowEnabled` uses, so every
+   * `http`/`agent`/`script` fixture across the whole repo predating this
+   * theme still typechecks with no `actions` field at all. Unset reads `[]`
+   * ({@link checkNodePolicy}'s own reader) — "declares nothing", so a node
+   * with no declared actions is never checked against any policy, which is
+   * what keeps every pre-Theme-I workflow running unchanged.
+   */
+  actions: z.array(WorkflowActionSchema).optional(),
 });
 export type WorkflowHttpConfig = z.infer<typeof WorkflowHttpConfigSchema>;
 
@@ -344,6 +374,8 @@ export const WorkflowAgentConfigSchema = z.object({
   model: z.string().optional(),
   /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
   outputShape: WorkflowPortShapeSchema.optional(),
+  /** Phase 97 Theme I — see {@link WorkflowHttpConfigSchema.actions}'s identical doc comment. */
+  actions: z.array(WorkflowActionSchema).optional(),
 });
 export type WorkflowAgentConfig = z.infer<typeof WorkflowAgentConfigSchema>;
 
@@ -361,6 +393,8 @@ export const WorkflowScriptConfigSchema = z.object({
   env: z.record(z.string(), z.string()).default({}),
   /** Pins this node's `out` port shape (Theme A) — optional, read by {@link portsForNode}. */
   outputShape: WorkflowPortShapeSchema.optional(),
+  /** Phase 97 Theme I — see {@link WorkflowHttpConfigSchema.actions}'s identical doc comment. */
+  actions: z.array(WorkflowActionSchema).optional(),
 });
 export type WorkflowScriptConfig = z.infer<typeof WorkflowScriptConfigSchema>;
 
@@ -756,6 +790,85 @@ export const WorkflowFailurePolicySchema = z.discriminatedUnion('kind', [
 ]);
 export type WorkflowFailurePolicy = z.infer<typeof WorkflowFailurePolicySchema>;
 
+// --- harness frame & policy gate (Phase 97 Theme I) ---------------------------
+
+/** A frame with no explicit size (a fresh one, or one saved before this theme) starts big enough for a small harness. */
+export const WORKFLOW_FRAME_DEFAULT_WIDTH = 640;
+export const WORKFLOW_FRAME_DEFAULT_HEIGHT = 320;
+
+/**
+ * A **frame** node (Phase 97 Theme I) — canvas-only, like `note`: no executor,
+ * no ports, `validateWorkflow` refuses any edge touching one. Unlike `note`,
+ * it groups other nodes — the Harness diagram's six labelled slots
+ * (Contract/Context/State/Tools/Permissions/Evidence, each free markdown) —
+ * and a group needs somewhere to draw its own boundary, hence `width`/
+ * `height` alongside the base schema's `x`/`y`. Membership is **not** a field
+ * on this schema; it is {@link WorkflowNodeBaseSchema}'s own `frameId`, read
+ * off the MEMBER node, the same direction `onFailure`'s `repair`/`escalate`
+ * point FROM the node that carries the policy — a frame with a hundred
+ * members would otherwise need a hundred-entry array kept in sync by hand.
+ *
+ * Only Contract and Context are actually consumed by the engine
+ * ({@link formatFrameContractContext}, prepended to a contained `agent`
+ * node's composed prompt — "turn the request into a contract"). State/Tools/
+ * Permissions/Evidence are free text for a human reader; `policy` (below) is
+ * what actually enforces Tools/Permissions, and `verify` (Theme E) is what
+ * actually enforces Evidence — the frame's own slots document the harness,
+ * they do not re-implement either.
+ */
+export const WorkflowFrameConfigSchema = z.object({
+  contract: z.string().default(''),
+  context: z.string().default(''),
+  state: z.string().default(''),
+  tools: z.string().default(''),
+  permissions: z.string().default(''),
+  evidence: z.string().default(''),
+  width: z.number().int().positive().default(WORKFLOW_FRAME_DEFAULT_WIDTH),
+  height: z.number().int().positive().default(WORKFLOW_FRAME_DEFAULT_HEIGHT),
+});
+export type WorkflowFrameConfig = z.infer<typeof WorkflowFrameConfigSchema>;
+
+/**
+ * The block prepended (never appended — Theme C's `{{loop.failures}}` block
+ * is what appends) to a frame-contained `agent` node's own prompt, ahead of
+ * `agentNodeDonePrompt`'s own tail. Empty when both slots are blank, so a
+ * frame with an agent inside it but nothing written in either slot changes
+ * that node's prompt not at all — the phase doc's own "a frame never changes
+ * scheduling" extends here to "an empty frame never changes a prompt" either.
+ */
+export function formatFrameContractContext(frame: Pick<WorkflowFrameConfig, 'contract' | 'context'>): string {
+  const parts: string[] = [];
+  if (frame.contract.trim() !== '') parts.push(`Contract:\n${frame.contract.trim()}`);
+  if (frame.context.trim() !== '') parts.push(`Context:\n${frame.context.trim()}`);
+  if (parts.length === 0) return '';
+  return `${parts.join('\n\n')}\n\n`;
+}
+
+/**
+ * A **policy** node (Phase 97 Theme I) — a permission gate over
+ * {@link WORKFLOW_ACTIONS}, ordinary ports (`in`/`out`/`error`, see
+ * {@link portsForNodeKind}), pass-through executor
+ * (`executors/policy.ts`). `allow` is the closed set a governed node may
+ * declare; `requireApprovalFor` is the subset of `allow` that also pauses for
+ * a human decision — an action listed here but NOT in `allow` is simply
+ * denied, never "needs approval" (see {@link checkNodePolicy}: denial always
+ * wins). A policy with an empty `allow` denies every action any governed node
+ * declares — a legitimate lockdown, not a mistake `validateWorkflow` flags.
+ *
+ * "Governs" is graph reachability, not a listed member array: every
+ * `agent`/`script`/`http` node reachable from this policy node
+ * ({@link governingPolicies}, reusing {@link ancestorIds} verbatim — no new
+ * traversal) that ALSO declares a non-empty `actions` set is checked against
+ * it. A node with no declared actions, or with no policy node upstream of it
+ * at all, is never checked against anything — the same "old workflows run
+ * unchanged" guarantee every other Theme in this phase keeps.
+ */
+export const WorkflowPolicyConfigSchema = z.object({
+  allow: z.array(WorkflowActionSchema).default([]),
+  requireApprovalFor: z.array(WorkflowActionSchema).default([]),
+});
+export type WorkflowPolicyConfig = z.infer<typeof WorkflowPolicyConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -772,6 +885,17 @@ export const WorkflowNodeBaseSchema = z.object({
   y: z.number(),
   /** Phase 97 Theme G — what this node does on failure/timeout. See {@link WorkflowFailurePolicySchema}. Unset behaves exactly like `{kind:'stop'}`, today's behaviour. */
   onFailure: WorkflowFailurePolicySchema.optional(),
+  /**
+   * Phase 97 Theme I — which `frame` node's six slots this node sits inside,
+   * for canvas grouping and (for an `agent` node) prompt composition. Read
+   * off the MEMBER, never off the frame itself — see
+   * {@link WorkflowFrameConfigSchema}'s own doc comment for why. Unset for
+   * every node outside a frame, which is every node in a workflow saved
+   * before this theme. `validateWorkflow` rejects a dangling reference, a
+   * reference to a non-`frame` node, and a `frame` node carrying one of its
+   * own (no nested frames).
+   */
+  frameId: z.string().min(1).optional(),
 });
 
 export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
@@ -826,6 +950,14 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('state'),
     config: WorkflowStateConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('frame'),
+    config: WorkflowFrameConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('policy'),
+    config: WorkflowPolicyConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -958,6 +1090,12 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
       return [{ id: 'out', label: 'Out', direction: 'out', type: 'any' }, errorPort()];
     case 'state':
       return [inPort(), dataOutPort('out', 'Value'), errorPort()];
+    case 'frame':
+      // Canvas furniture that groups other nodes, not a step of its own —
+      // `validateWorkflow` refuses any edge touching one, exactly like `note`.
+      return [];
+    case 'policy':
+      return [inPort(), dataOutPort('out', 'Policy'), errorPort()];
     default: {
       // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
       // what makes adding a kind a typecheck failure here.
@@ -1632,6 +1770,71 @@ export function workflowIssueSeverity(issue: Pick<WorkflowIssue, 'severity'>): W
   return issue.severity ?? 'error';
 }
 
+// --- policy enforcement (Phase 97 Theme I) ------------------------------------
+
+function nodeDeclaredActions(node: WorkflowNode): WorkflowAction[] {
+  if (node.kind === 'agent' || node.kind === 'script' || node.kind === 'http') return node.config.actions ?? [];
+  return [];
+}
+
+/**
+ * Every `policy` node that GOVERNS `nodeId` — a topological ancestor of it,
+ * reusing {@link ancestorIds} verbatim rather than a second traversal. This is
+ * the whole "downstream of a policy" rule (the phase doc's own phrase): a
+ * policy node need not be the node's DIRECT parent, and one governed node may
+ * sit under several policy nodes at once (their `allow`/`requireApprovalFor`
+ * union — see {@link checkNodePolicy}).
+ */
+export function governingPolicies(
+  nodeId: string,
+  nodes: readonly WorkflowNode[],
+  edges: readonly WorkflowEdge[],
+): WorkflowNode[] {
+  const ancestors = ancestorIds(nodeId, edges);
+  return nodes.filter((n) => n.kind === 'policy' && ancestors.has(n.id));
+}
+
+export type WorkflowPolicyCheck = {
+  /** Actions this node declares that no governing policy allows — `validateWorkflow` blocks Run on these. */
+  denied: WorkflowAction[];
+  /** Actions this node declares, IS allowed to take, but which some governing policy also lists in `requireApprovalFor` — the engine's implicit gate (`workflow-engine.ts`'s `runNode`) pauses on these. */
+  requiresApproval: WorkflowAction[];
+};
+
+/**
+ * Resolves what a node's own declared `actions` mean against whichever
+ * `policy` node(s) govern it. No declared actions, or no governing policy at
+ * all, both read as "nothing to check" — the same "old workflows run
+ * unchanged" guarantee every prior Theme in this phase keeps. **Denial always
+ * wins**: an action not in the union of every governing policy's `allow` is
+ * `denied` outright, never `requiresApproval`, even if some policy also lists
+ * it under `requireApprovalFor` — approval is a gate on doing an ALLOWED
+ * thing carefully, not a way to partially allow a denied one.
+ */
+export function checkNodePolicy(
+  node: WorkflowNode,
+  nodes: readonly WorkflowNode[],
+  edges: readonly WorkflowEdge[],
+): WorkflowPolicyCheck {
+  const actions = nodeDeclaredActions(node);
+  if (actions.length === 0) return { denied: [], requiresApproval: [] };
+  const policies = governingPolicies(node.id, nodes, edges);
+  if (policies.length === 0) return { denied: [], requiresApproval: [] };
+
+  const allow = new Set<WorkflowAction>();
+  const requireApproval = new Set<WorkflowAction>();
+  for (const policy of policies) {
+    if (policy.kind !== 'policy') continue;
+    for (const action of policy.config.allow) allow.add(action);
+    for (const action of policy.config.requireApprovalFor) requireApproval.add(action);
+  }
+
+  return {
+    denied: actions.filter((action) => !allow.has(action)),
+    requiresApproval: actions.filter((action) => allow.has(action) && requireApproval.has(action)),
+  };
+}
+
 /**
  * Everything that makes a workflow unrunnable, in one pure function shared by
  * the engine (which refuses to start) and the canvas (which disables Run and
@@ -1773,6 +1976,33 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
       issues.push({ message: `"${node.label}" has no key.`, nodeId: node.id });
     }
 
+    // Phase 97 Theme I — a node whose declared action no governing policy
+    // allows fails validation before the run starts (the phase doc's own
+    // wording). `requiresApproval` is not checked here at all: it is not an
+    // error, it is what the engine's implicit gate (`workflow-engine.ts`)
+    // pauses on at run time.
+    if (node.kind === 'agent' || node.kind === 'script' || node.kind === 'http') {
+      const policyCheck = checkNodePolicy(node, workflow.nodes, workflow.edges);
+      for (const action of policyCheck.denied) {
+        issues.push({
+          message: `"${node.label}" performs the "${action}" action, which no governing policy allows.`,
+          nodeId: node.id,
+        });
+      }
+    }
+    if (node.kind === 'frame' && node.frameId !== undefined) {
+      issues.push({
+        message: `"${node.label}" is a frame and cannot itself sit inside another frame.`,
+        nodeId: node.id,
+      });
+    }
+    if (node.kind !== 'frame' && node.frameId !== undefined) {
+      const frame = nodesById.get(node.frameId);
+      if (!frame || frame.kind !== 'frame') {
+        issues.push({ message: `"${node.label}" is assigned to a frame that no longer exists.`, nodeId: node.id });
+      }
+    }
+
     // Phase 97 Theme G — `onFailure`'s own three "does this even make
     // sense" checks, independent of which kind carries the policy.
     const policy = node.onFailure;
@@ -1820,10 +2050,16 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     }
     seenEdges.add(pair);
     // A `note` is canvas furniture with no executor: an edge into or out of one
-    // would join a branch that can never produce or consume anything.
+    // would join a branch that can never produce or consume anything. A
+    // `frame` (Phase 97 Theme I) is the identical case — it groups nodes via
+    // `frameId`, not edges.
     for (const end of [edge.from, edge.to]) {
-      if (workflow.nodes.find((n) => n.id === end)?.kind === 'note') {
+      const endKind = workflow.nodes.find((n) => n.id === end)?.kind;
+      if (endKind === 'note') {
         issues.push({ message: `A note cannot be connected — it is a label, not a step.`, edgeId: edge.id });
+      }
+      if (endKind === 'frame') {
+        issues.push({ message: `A frame cannot be connected — it groups nodes, it is not a step.`, edgeId: edge.id });
       }
     }
 
@@ -1835,7 +2071,14 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     // as a missing port would just repeat the same fact in a worse sentence).
     const fromNode = workflow.nodes.find((n) => n.id === edge.from);
     const toNode = workflow.nodes.find((n) => n.id === edge.to);
-    if (fromNode && toNode && fromNode.kind !== 'note' && toNode.kind !== 'note') {
+    if (
+      fromNode &&
+      toNode &&
+      fromNode.kind !== 'note' &&
+      toNode.kind !== 'note' &&
+      fromNode.kind !== 'frame' &&
+      toNode.kind !== 'frame'
+    ) {
       const normalized = normalizeEdge(edge);
       // `workflow.edges` is passed here (Theme C) so a loop edge's own
       // `exhausted` out-port — which only exists BECAUSE this edge is a
@@ -1887,7 +2130,7 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     }
   }
 
-  if (workflow.nodes.every((node) => node.kind === 'note')) {
+  if (workflow.nodes.every((node) => node.kind === 'note' || node.kind === 'frame')) {
     issues.push({ message: 'This workflow has nothing to run.' });
   }
 
