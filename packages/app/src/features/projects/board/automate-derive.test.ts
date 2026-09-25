@@ -1,7 +1,7 @@
-import type { ForgeGraph, ForgeGraphNode, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeGraph, ForgeGraphNode, ForgeProjectItem, WorkflowRun } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { findTodoColumn, nextUnblockedCard } from './automate-derive';
+import { findTodoColumn, nextUnblockedCard, workflowRunNeedsAttention } from './automate-derive';
 import type { BoardColumn } from './board-derive';
 
 const draft = (id: string, title: string): ForgeProjectItem => ({
@@ -87,5 +87,50 @@ describe('nextUnblockedCard', () => {
   it('returns undefined once nothing unblocked remains', () => {
     const graph = graphOf([node('a', true), node('b', true), node('c', true)]);
     expect(nextUnblockedCard(column, graph, new Set(['a', 'b', 'c']))).toBeUndefined();
+  });
+});
+
+describe('workflowRunNeedsAttention (Phase 97 Theme D)', () => {
+  const run = (overrides: Partial<Pick<WorkflowRun, 'status' | 'nodes'>>): Pick<WorkflowRun, 'status' | 'nodes'> => ({
+    status: 'running',
+    nodes: [],
+    ...overrides,
+  });
+
+  it('is true for a running run with a gate waiting', () => {
+    expect(
+      workflowRunNeedsAttention(
+        run({
+          nodes: [
+            { nodeId: 'g', kind: 'gate', label: 'Gate', status: 'waiting', truncated: false, gatedDownstream: false },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('is false once the run has finished, even if a node still reads waiting in stale history', () => {
+    expect(
+      workflowRunNeedsAttention(
+        run({
+          status: 'completed',
+          nodes: [
+            { nodeId: 'g', kind: 'gate', label: 'Gate', status: 'waiting', truncated: false, gatedDownstream: false },
+          ],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is false for an ordinary running run with nothing waiting', () => {
+    expect(
+      workflowRunNeedsAttention(
+        run({
+          nodes: [
+            { nodeId: 'h', kind: 'http', label: 'HTTP', status: 'running', truncated: false, gatedDownstream: false },
+          ],
+        }),
+      ),
+    ).toBe(false);
   });
 });

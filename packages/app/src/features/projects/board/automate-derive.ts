@@ -1,4 +1,4 @@
-import type { ForgeGraph, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeGraph, ForgeProjectItem, WorkflowRun } from '@midnite/studio-shared';
 
 import type { BoardColumn } from './board-derive';
 
@@ -43,4 +43,23 @@ export function nextUnblockedCard(
 ): ForgeProjectItem | undefined {
   const blockedByItemId = new Map(graph.nodes.map((node) => [node.itemId, node.blocked]));
   return column.items.find((item) => !excludeItemIds.has(item.id) && blockedByItemId.get(item.id) === false);
+}
+
+/**
+ * Whether a workflow run should read as "still going" — never as done, and
+ * never eligible for Auto-mate to treat as a stopped state — because a human
+ * gate is sitting `waiting` inside it (Phase 97 Theme D's own bullet: "a card
+ * whose workflow run is waiting is not done").
+ *
+ * **No card actually calls this yet.** Auto-mate today drives a card through
+ * a roster agent's own terminal session (`use-automate.ts`), never a
+ * workflow run — that file's own doc comment names the missing link
+ * explicitly ("a workflow's own Auto-mate... needs Theme I's engine"), so
+ * there is no `card → WorkflowRun` reference anywhere in this codebase to
+ * read from yet. This is the pure predicate that integration will need the
+ * day it exists, kept here (rather than invented as a fake call site) so the
+ * rule is written down, tested, and ready rather than silently dropped.
+ */
+export function workflowRunNeedsAttention(run: Pick<WorkflowRun, 'status' | 'nodes'>): boolean {
+  return run.status === 'running' && run.nodes.some((node) => node.status === 'waiting');
 }
