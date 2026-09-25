@@ -13,11 +13,15 @@
  * vocabulary is exactly five kinds and its centre of gravity is HTTP; see the
  * phase doc for why (a workflow engine with nothing to call is a diagram).
  *
- * Runs are **manual only**. No cron, no webhook ingress, no file-watch
- * triggers: a workflow runs because someone pressed Run.
+ * Runs were **manual only** at the MVP. Phase 97 Theme H adds an optional
+ * `trigger` node — a schedule (cron, while the app is open) or a forge PR
+ * event — but the plain Run button still always works regardless: there is
+ * still no webhook ingress and no file-watch trigger, and "manual" is one of
+ * the trigger's own `on` choices, not a separate code path.
  */
 import { z } from 'zod';
 
+import { isValidCronExpression } from './workflow-cron';
 import { WORKFLOW_TEST_COUNT_PARSERS } from './workflow-test-parsers';
 
 // --- node kinds --------------------------------------------------------------
@@ -42,6 +46,7 @@ export const WORKFLOW_NODE_KINDS = [
   'gate',
   'router',
   'verify',
+  'trigger',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -575,6 +580,50 @@ export type WorkflowVerifyEvidence = {
   failures: string[];
 };
 
+// --- trigger (Phase 97 Theme H) -----------------------------------------------
+
+export const WORKFLOW_TRIGGER_ONS = ['manual', 'schedule', 'forge-pr'] as const;
+export const WorkflowTriggerOnSchema = z.enum(WORKFLOW_TRIGGER_ONS);
+export type WorkflowTriggerOn = z.infer<typeof WorkflowTriggerOnSchema>;
+
+/** `opened` is a PR appearing for the first time; `updated` is any later change to one already open — see `trigger-scheduler.ts`'s own diff. */
+export const WORKFLOW_TRIGGER_FORGE_PR_EVENTS = ['opened', 'updated'] as const;
+export const WorkflowTriggerForgePrEventSchema = z.enum(WORKFLOW_TRIGGER_FORGE_PR_EVENTS);
+export type WorkflowTriggerForgePrEvent = z.infer<typeof WorkflowTriggerForgePrEventSchema>;
+
+/**
+ * A **trigger** node (Phase 97 Theme H) — the graph's own start, at most one
+ * per workflow ({@link validateWorkflow}). It has no in-port ({@link portsForNode}),
+ * so it is always eligible to run first; its single `out` port carries
+ * whatever fired it (nothing for a manual run or a bare schedule tick, a PR's
+ * own facts for `forge-pr` — see `trigger-scheduler.ts`'s
+ * `{number, title, headRef, url, author}` shape, which is a **run-time**
+ * payload threaded through `EngineDeps.triggerPayload`, never part of this
+ * config).
+ *
+ * `on` only decides how this workflow is armed to fire *automatically* — the
+ * ordinary manual Run button still works regardless of `on`, exactly like
+ * every other node kind's "you can always press Run" today. `'manual'` is the
+ * explicit "nothing automatic" choice and the schema default.
+ */
+export const WorkflowTriggerConfigSchema = z.discriminatedUnion('on', [
+  z.object({ on: z.literal('manual') }),
+  z.object({
+    on: z.literal('schedule'),
+    /** 5-field cron, validated here so a bad value fails to parse rather than silently never firing — see `workflow-cron.ts`. */
+    cron: z.string().refine(isValidCronExpression, { message: 'Not a valid 5-field cron expression.' }),
+  }),
+  z.object({
+    on: z.literal('forge-pr'),
+    /** The app's own registered-repo id (`RepoDescriptor.id`) — resolved to a forge remote at poll time by `trigger-scheduler.ts`, never persisted here. */
+    repoId: z.string().min(1),
+    events: z.array(WorkflowTriggerForgePrEventSchema).min(1).default(['opened', 'updated']),
+    /** A `*`-glob over the PR's head branch name (`ForgePull.headBranch`) — unset matches every branch. */
+    branchFilter: z.string().min(1).optional(),
+  }),
+]);
+export type WorkflowTriggerConfig = z.infer<typeof WorkflowTriggerConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -635,6 +684,10 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('verify'),
     config: WorkflowVerifyConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('trigger'),
+    config: WorkflowTriggerConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -761,6 +814,10 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
         { id: 'fail', label: 'Fail', direction: 'out', type: 'verdict' },
         errorPort(),
       ];
+    case 'trigger':
+      // No `inPort()` — a trigger is the graph's own start (Theme H,
+      // `validateWorkflow`'s at-most-one-trigger rule).
+      return [{ id: 'out', label: 'Out', direction: 'out', type: 'any' }, errorPort()];
     default: {
       // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
       // what makes adding a kind a typecheck failure here.
@@ -1420,6 +1477,7 @@ export function workflowIssueSeverity(issue: Pick<WorkflowIssue, 'severity'>): W
 export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
   const issues: WorkflowIssue[] = [];
   const ids = new Set<string>();
+  const triggerNodeCount = workflow.nodes.filter((node) => node.kind === 'trigger').length;
 
   for (const node of workflow.nodes) {
     if (ids.has(node.id)) issues.push({ message: `Duplicate node id "${node.id}".`, nodeId: node.id });
@@ -1529,6 +1587,15 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
           });
         }
       }
+    }
+    if (node.kind === 'trigger' && triggerNodeCount > 1) {
+      // Every trigger node is flagged, not just the "extras" — array order is
+      // insertion/edit order, not canvas position, so there is no principled
+      // way to say which one the user meant to keep.
+      issues.push({
+        message: `"${node.label}" — only one trigger node is allowed per workflow.`,
+        nodeId: node.id,
+      });
     }
   }
 

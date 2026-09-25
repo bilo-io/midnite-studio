@@ -85,8 +85,8 @@ describe('WorkflowSchema', () => {
     expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
     // cannot drift apart without this failing. `agent`/`script` (Theme J),
-    // `join` (Theme B), `gate` (Theme D), `router` (Theme F) and `verify`
-    // (Theme E) joined the MVP's original five.
+    // `join` (Theme B), `gate` (Theme D), `router` (Theme F), `verify` (Theme
+    // E) and `trigger` (Theme H) joined the MVP's original five.
     expect(WORKFLOW_NODE_KINDS).toEqual([
       'http',
       'transform',
@@ -99,6 +99,7 @@ describe('WorkflowSchema', () => {
       'gate',
       'router',
       'verify',
+      'trigger',
     ]);
   });
 
@@ -392,6 +393,31 @@ describe('validateWorkflow', () => {
     expect(noAgent).toContainEqual({ message: '"Route" has no prompt.', nodeId: 'r' });
   });
 
+  it('flags every trigger node once a workflow has more than one (Theme H)', () => {
+    const trigger = (id: string, label: string): WorkflowNode => ({
+      id,
+      label,
+      x: 0,
+      y: 0,
+      kind: 'trigger',
+      config: { on: 'manual' },
+    });
+    const one = validateWorkflow(workflow({ nodes: [trigger('t1', 'Start')], edges: [] }));
+    expect(one).not.toContainEqual(expect.objectContaining({ nodeId: 't1' }));
+
+    const two = validateWorkflow(
+      workflow({ nodes: [trigger('t1', 'Start'), trigger('t2', 'Also start')], edges: [] }),
+    );
+    expect(two).toContainEqual({
+      message: '"Start" — only one trigger node is allowed per workflow.',
+      nodeId: 't1',
+    });
+    expect(two).toContainEqual({
+      message: '"Also start" — only one trigger node is allowed per workflow.',
+      nodeId: 't2',
+    });
+  });
+
   it('does not double-report a note connection as a missing port', () => {
     const issues = validateWorkflow(
       workflow({
@@ -476,11 +502,12 @@ describe('portsForNode', () => {
   it('gives every plain executor-bearing kind an implicit multi-input `in` and an `error` out-port', () => {
     // `note` has no executor at all; `join`/`router` have config-driven
     // out-ports (`in-1..in-N`, one per declared case) rather than the plain
-    // implicit shape this loop checks, and this fixture's `config` is an
-    // `http` node's shape reused across every kind, which their port
-    // functions actually read — covered on their own below instead.
+    // implicit shape this loop checks; `trigger` has no in-port by design
+    // (Theme H — it is the graph's own start) — all three covered on their
+    // own below instead, and this fixture's `config` is an `http` node's
+    // shape reused across every kind, which their port functions actually read.
     for (const kind of WORKFLOW_NODE_KINDS) {
-      if (kind === 'note' || kind === 'join' || kind === 'router') continue;
+      if (kind === 'note' || kind === 'join' || kind === 'router' || kind === 'trigger') continue;
       const n = { ...node(), kind } as WorkflowNode;
       const ports = portsForNode(n);
       expect(ports).toContainEqual(
@@ -493,6 +520,16 @@ describe('portsForNode', () => {
   it('gives a note no ports at all', () => {
     const n: WorkflowNode = { id: 'n', label: 'Why', x: 0, y: 0, kind: 'note', config: { text: '' } };
     expect(portsForNode(n)).toEqual([]);
+  });
+
+  it('gives a trigger an `out` and `error` port, but no `in` (Theme H)', () => {
+    const n: WorkflowNode = { id: 't', label: 'Start', x: 0, y: 0, kind: 'trigger', config: { on: 'manual' } };
+    const ports = portsForNode(n);
+    expect(ports).toEqual([
+      { id: 'out', label: 'Out', direction: 'out', type: 'any' },
+      expect.objectContaining({ id: WORKFLOW_ERROR_PORT_ID, direction: 'out' }),
+    ]);
+    expect(ports.some((p) => p.direction === 'in')).toBe(false);
   });
 
   it('settles a condition on named true/false out-ports, not a single out', () => {
@@ -1094,5 +1131,48 @@ describe('WorkflowVerifyConfigSchema / verify node (Theme E)', () => {
       verifyNode({ config: { check: 'json-path', source: '{{a.status}}', op: 'eq' } }),
     );
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('WorkflowTriggerConfigSchema (Theme H)', () => {
+  const triggerNode = (config: unknown): unknown => ({
+    id: 't',
+    label: 'Start',
+    x: 0,
+    y: 0,
+    kind: 'trigger',
+    config,
+  });
+
+  it('parses manual, schedule and forge-pr variants', () => {
+    expect(WorkflowNodeSchema.safeParse(triggerNode({ on: 'manual' })).success).toBe(true);
+    expect(WorkflowNodeSchema.safeParse(triggerNode({ on: 'schedule', cron: '0 9 * * *' })).success).toBe(true);
+    expect(
+      WorkflowNodeSchema.safeParse(
+        triggerNode({ on: 'forge-pr', repoId: 'repo-1', events: ['opened'], branchFilter: 'release/*' }),
+      ).success,
+    ).toBe(true);
+  });
+
+  it('fails to parse a schedule with a malformed cron string', () => {
+    expect(WorkflowNodeSchema.safeParse(triggerNode({ on: 'schedule', cron: 'not a cron' })).success).toBe(false);
+    expect(WorkflowNodeSchema.safeParse(triggerNode({ on: 'schedule', cron: '* * * *' })).success).toBe(false);
+  });
+
+  it('fails to parse a forge-pr trigger with no repoId or an empty events list', () => {
+    expect(WorkflowNodeSchema.safeParse(triggerNode({ on: 'forge-pr', repoId: '', events: ['opened'] })).success).toBe(
+      false,
+    );
+    expect(WorkflowNodeSchema.safeParse(triggerNode({ on: 'forge-pr', repoId: 'repo-1', events: [] })).success).toBe(
+      false,
+    );
+  });
+
+  it('defaults forge-pr events to both opened and updated', () => {
+    const parsed = WorkflowNodeSchema.parse(triggerNode({ on: 'forge-pr', repoId: 'repo-1' }));
+    expect(parsed.kind === 'trigger' && parsed.config.on === 'forge-pr' && parsed.config.events).toEqual([
+      'opened',
+      'updated',
+    ]);
   });
 });
