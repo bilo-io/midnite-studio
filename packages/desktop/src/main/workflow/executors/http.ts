@@ -93,6 +93,14 @@ export const httpExecutor: NodeExecutor = async (node, context): Promise<NodeOut
   if (node.kind !== 'http') return { ok: false, error: 'Not an http node.' };
   const config = node.config;
 
+  // Phase 97 Theme I — the runtime backstop for `network`. `validateWorkflow`
+  // already refuses to start a run with this action denied; this is the one
+  // check that still applies if that got bypassed somehow (a workflow edited
+  // between an explicit re-validate and this node's own turn).
+  if (context.deniedActions?.includes('network')) {
+    return { ok: false, error: 'This request is blocked by policy: "network" is not an allowed action here.' };
+  }
+
   // A friendlier failure than the generic "not upstream" interpolate error:
   // `demo` is a reserved namespace the engine injects only while the demo API
   // is actually listening (`workflow-engine.ts`'s `runNode`), so its absence

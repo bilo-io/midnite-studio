@@ -1,6 +1,65 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme I — Harness frame and policy gate
+
+[PR #575](https://github.com/bilo-io/midnite-studio/pull/575). A canvas-only `frame` node grouping other nodes under six labelled slots,
+and a `policy` node enforcing a closed action vocabulary on downstream agent/script/http
+nodes — "model suggests → policy checks → tool executes."
+
+- [x] New canvas-only kind **`frame`** (no executor, like `note`): six markdown slots
+      (Contract/Context/State left, Tools/Permissions/Evidence right). Membership is a new
+      **`WorkflowNodeBaseSchema.frameId`** (every kind), read off the MEMBER node rather
+      than a list on the frame — real React-Flow parent/child nesting (`parentId`/`extent`)
+      was deliberately not used, since it would make a child's position parent-relative and
+      break `toFlowPosition`'s documented identity-mapping invariant for every pre-Theme-I
+      workflow. Rendered through the SAME `WorkflowNodeView` (a new `NodeShapeVariant =
+      'frame'`, Theme J's own documented extension point) rather than a second React Flow
+      node type, sized from `config.width`/`height` (default 640×320). `toFlowGraph` sorts
+      frame nodes first (React Flow paints later array entries on top, so this alone puts
+      member cards above their frame, no CSS z-index needed) and `autoLayout` excludes
+      frames from dagre entirely, bounding each (with members) to their padded bounding box
+      afterward (`boundFrames`) — a frame with no members keeps its last position/size.
+      Membership is assigned via a "Frame" `<select>` in the node inspector.
+- [x] **Contract + Context prepend** to a contained `agent` node's own composed prompt
+      (`formatFrameContractContext`), via a new `ExecutorContext.promptPrefix` — deliberately
+      NOT a fourth reserved interpolation root (`{{frame.contract}}` was never meant to be
+      `{{...}}`-referenceable; this is plain prompt-composition text). A frame never changes
+      scheduling.
+- [x] New node kind **`policy`** (ordinary in/out/error ports, trivial pass-through
+      executor), config `{allow, requireApprovalFor}` over a closed `WORKFLOW_ACTIONS`
+      vocabulary (`network`/`write-files`/`open-pr`/`push`/`deploy`/`delete-data`). A node's
+      declared `actions` field landed `.optional()`, not `.default([])` — the latter broke
+      every pre-existing `WorkflowNode` object-literal fixture across the repo under strict
+      typing (`z.infer` is the zod OUTPUT type), so it followed the codebase's own
+      established optional-plus-reader convention instead. **Governance is graph
+      reachability** (`governingPolicies`, reusing `ancestorIds` verbatim — no new
+      traversal), not a listed member array: several policies can jointly govern one node
+      (`checkNodePolicy` unions their `allow`/`requireApprovalFor`), and **denial always
+      wins** over `requiresApproval`. A denied action blocks Run (`validateWorkflow`).
+- [x] **The implicit gate reuses Theme D's exact runtime path**, unmodified —
+      `gate-waiters.ts`'s `registerGateWaiter`/`resolveGateWaiter` and
+      `decideWorkflowGate` — keyed by the GOVERNED node's own `(runId, nodeId)` rather than
+      a synthetic gate node, since both already key purely by `runId:nodeId` and check
+      `status === 'waiting'` generically, never `kind === 'gate'`. Lives in
+      `workflow-engine.ts`'s `runNode`, run BEFORE the generic per-node timeout `Promise` is
+      constructed (so the wait never counts against the node's own timeout — no
+      `WORKFLOW_GATE_ENGINE_BACKSTOP_MS`-style constant needed), with a new
+      `patchNodeRunning` (the inverse of `patchNodeWaiting`) restoring `'running'` once
+      approved, before the real executor starts — needed because `patchNodeSessionId`'s own
+      `status !== 'running'` guard would otherwise silently no-op for an agent/script node.
+      The run panel's existing `GateDecideRow` already renders for any `status === 'waiting'`
+      node regardless of kind, so it needed zero changes to pick this up.
+- [x] **`http` honours `network` defensively at the executor too** — a new
+      `ExecutorContext.deniedActions`, computed by the engine, read only by `httpExecutor` —
+      the runtime backstop behind `validateWorkflow`'s own block.
+- [x] Vitest: frame membership survives save/load (shared `WorkflowSchema` round-trip) and
+      auto-layout (`boundFrames`), contract prepending (`formatFrameContractContext` plus a
+      desktop engine-integration test), policy validation (`checkNodePolicy`/
+      `governingPolicies`/`validateWorkflow`), and policy-driven approval routing (pauses
+      before the executor runs, approve/reject, cancel-while-pending, a mid-flight
+      `reportSessionId` proving `patchNodeRunning` actually ran).
+
 ## 2026-09-25 — Phase 97 Theme G — Durable run state and failure policy
 
 [PR #574](https://github.com/bilo-io/midnite-studio/pull/574). A per-run **state store**, checkpoint/resume across a crash, and per-node

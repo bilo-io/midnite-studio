@@ -111,6 +111,8 @@ function fakeRegistry(
     verify: executor,
     trigger: executor,
     state: executor,
+    frame: executor,
+    policy: executor,
   };
 }
 
@@ -2043,5 +2045,247 @@ describe('resume after a simulated crash (Phase 97 Theme G)', () => {
     expect(decided.ok).toBe(true);
     await settle();
     expect(store.get(runId)!.nodes.find((n) => n.nodeId === 'g')?.status).toBe('succeeded');
+  });
+});
+
+// --- Phase 97 Theme I: harness frame and policy gate --------------------------
+
+function policyNode(id: string, allow: string[], requireApprovalFor: string[] = []): WorkflowNode {
+  return { id, label: id, x: 0, y: 0, kind: 'policy', config: { allow, requireApprovalFor } } as WorkflowNode;
+}
+
+function httpActionsNode(id: string, actions: string[]): WorkflowNode {
+  return {
+    id,
+    label: id,
+    x: 0,
+    y: 0,
+    kind: 'http',
+    config: { method: 'GET', url: 'http://127.0.0.1/x', headers: {}, params: {}, queryShaped: false, actions },
+  } as WorkflowNode;
+}
+
+function frameNodeFixture(id: string, contract: string, context: string): WorkflowNode {
+  return {
+    id,
+    label: 'THE AGENT HARNESS',
+    x: 0,
+    y: 0,
+    kind: 'frame',
+    config: { contract, context, state: '', tools: '', permissions: '', evidence: '', width: 640, height: 320 },
+  } as WorkflowNode;
+}
+
+function agentNode(id: string, frameId?: string): WorkflowNode {
+  return {
+    id,
+    label: id,
+    x: 0,
+    y: 0,
+    kind: 'agent',
+    config: { agentId: 'claude', prompt: 'Do the thing.' },
+    ...(frameId !== undefined ? { frameId } : {}),
+  } as WorkflowNode;
+}
+
+describe('policy-driven approval routing (Phase 97 Theme I)', () => {
+  it('pauses the governed node — waiting, its executor never called — until a policy-required approval decides it', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [policyNode('p', ['network'], ['network']), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, recorder) }));
+    expect(started.ok).toBe(true);
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    const waiting = store.get(runId)!;
+    expect(waiting.status).toBe('running');
+    expect(waiting.nodes.find((n) => n.nodeId === 'h')?.status).toBe('waiting');
+    // The implicit gate pauses BEFORE the executor is ever invoked.
+    expect(recorder.started).not.toContain('h');
+
+    const decided = await decideWorkflowGate(runId, 'h', 'approved', 'go ahead', 'panel', deps(store));
+    expect(decided.ok).toBe(true);
+    await settle();
+
+    const done = store.get(runId)!;
+    expect(done.nodes.find((n) => n.nodeId === 'h')?.status).toBe('succeeded');
+    expect(recorder.started).toContain('h');
+    expect(done.status).toBe('completed');
+  });
+
+  it('a rejected approval settles the governed node failed, with the rejection note in the error', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [policyNode('p', ['network'], ['network']), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    const decided = await decideWorkflowGate(runId, 'h', 'rejected', 'not today', 'panel', deps(store));
+    expect(decided.ok).toBe(true);
+    await settle();
+
+    const run = store.get(runId)!;
+    const node = run.nodes.find((n) => n.nodeId === 'h')!;
+    expect(node.status).toBe('failed');
+    expect(node.error).toContain('not today');
+    expect(recorder.started).not.toContain('h');
+    expect(run.status).toBe('failed');
+  });
+
+  it('reuses the SAME decideWorkflowGate/gate-waiters path a real gate uses — decideWorkflowGate needs no kind check to decide this non-gate node', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [policyNode('p', ['network'], ['network']), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    // The MCP tool and the run panel both funnel through this exact call —
+    // no `kind === 'gate'` branch anywhere in it (see `decideWorkflowGate`'s
+    // own doc comment).
+    const decided = await decideWorkflowGate(runId, 'h', 'approved', undefined, 'mcp', deps(store));
+    expect(decided.ok).toBe(true);
+  });
+
+  it('restores "running" before the real executor starts — a mid-flight patch (reportSessionId) lands, proving the node is not still "waiting"', async () => {
+    const store = makeStore();
+    const executor: NodeExecutor = async (node, context) => {
+      if (node.id === 'h') await context.reportSessionId('sess-1');
+      return { ok: true, output: null };
+    };
+    const registry: ExecutorRegistry = { ...fakeRegistry({}, { started: [], settled: [] }), http: executor };
+    const w = typedWorkflow(
+      [policyNode('p', ['network'], ['network']), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: registry }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    await decideWorkflowGate(runId, 'h', 'approved', undefined, 'panel', deps(store));
+    await settle();
+
+    const node = store.get(runId)!.nodes.find((n) => n.nodeId === 'h')!;
+    expect(node.sessionId).toBe('sess-1');
+  });
+
+  it('cancelling a run with a pending policy approval settles the node failed with "Cancelled."', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [policyNode('p', ['network'], ['network']), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+    expect(store.get(runId)!.nodes.find((n) => n.nodeId === 'h')?.status).toBe('waiting');
+
+    const cancelled = await cancelWorkflowRun(runId, deps(store));
+    expect(cancelled.ok).toBe(true);
+
+    const run = store.get(runId)!;
+    expect(run.status).toBe('cancelled');
+    expect(run.nodes.find((n) => n.nodeId === 'h')?.error).toBe('Cancelled.');
+  });
+
+  it('an action that is allowed outright (no requireApprovalFor) never pauses at all', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [policyNode('p', ['network'], []), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    const run = store.get(runId)!;
+    expect(run.nodes.find((n) => n.nodeId === 'h')?.status).toBe('succeeded');
+    expect(run.status).toBe('completed');
+  });
+
+  it('startWorkflowRun refuses to start when a node performs an action no governing policy allows', async () => {
+    const store = makeStore();
+    const w = typedWorkflow(
+      [policyNode('p', [], []), httpActionsNode('h', ['network'])],
+      [{ id: 'e1', from: 'p', to: 'h' }],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, { started: [], settled: [] }) }));
+    expect(started.ok).toBe(false);
+  });
+});
+
+describe("a frame's Contract + Context prepend to a contained agent node's prompt (Phase 97 Theme I)", () => {
+  it('prepends both slots, formatted, ahead of the agent node’s own prompt', async () => {
+    const store = makeStore();
+    const prefixes: Record<string, string | undefined> = {};
+    const executor: NodeExecutor = async (node, context) => {
+      prefixes[node.id] = context.promptPrefix;
+      return { ok: true, output: null };
+    };
+    const registry: ExecutorRegistry = { ...fakeRegistry({}, { started: [], settled: [] }), agent: executor };
+    const w = typedWorkflow(
+      [frameNodeFixture('f', 'Ship the fix.', 'Repo X, branch Y.'), agentNode('a', 'f')],
+      [],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: registry }));
+    expect(started.ok).toBe(true);
+    await settle();
+
+    expect(prefixes.a).toBe('Contract:\nShip the fix.\n\nContext:\nRepo X, branch Y.\n\n');
+  });
+
+  it('is empty for an agent node outside any frame', async () => {
+    const store = makeStore();
+    const prefixes: Record<string, string | undefined> = {};
+    const executor: NodeExecutor = async (node, context) => {
+      prefixes[node.id] = context.promptPrefix;
+      return { ok: true, output: null };
+    };
+    const registry: ExecutorRegistry = { ...fakeRegistry({}, { started: [], settled: [] }), agent: executor };
+    const w = typedWorkflow([agentNode('a')], []);
+
+    const started = await startWorkflowRun(w, deps(store, { executors: registry }));
+    expect(started.ok).toBe(true);
+    await settle();
+
+    expect(prefixes.a ?? '').toBe('');
+  });
+
+  it('is empty when the frame exists but both slots are blank — an empty frame changes nothing', async () => {
+    const store = makeStore();
+    const prefixes: Record<string, string | undefined> = {};
+    const executor: NodeExecutor = async (node, context) => {
+      prefixes[node.id] = context.promptPrefix;
+      return { ok: true, output: null };
+    };
+    const registry: ExecutorRegistry = { ...fakeRegistry({}, { started: [], settled: [] }), agent: executor };
+    const w = typedWorkflow([frameNodeFixture('f', '', ''), agentNode('a', 'f')], []);
+
+    const started = await startWorkflowRun(w, deps(store, { executors: registry }));
+    expect(started.ok).toBe(true);
+    await settle();
+
+    expect(prefixes.a ?? '').toBe('');
   });
 });

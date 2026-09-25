@@ -4,9 +4,11 @@ import {
   LuBot,
   LuClock,
   LuDatabase,
+  LuFrame,
   LuGitBranch,
   LuGlobe,
   LuMerge,
+  LuShieldAlert,
   LuShieldCheck,
   LuShuffle,
   LuSplit,
@@ -144,6 +146,32 @@ export const NODE_KIND_META: Record<
     category: 'data',
     description: "Write a value into this run's durable state — set, merge, or append.",
   },
+  /**
+   * Phase 97 Theme I. `storage` hue, beside `note` — canvas furniture that
+   * groups nodes rather than a step with its own side effect, exactly like
+   * `note`'s own reasoning. `LuFrame` — the actual glyph its own name
+   * suggests, for the literal "frame" the Harness diagram draws.
+   */
+  frame: {
+    label: 'Frame',
+    icon: LuFrame,
+    category: 'storage',
+    description: 'Group nodes under a shared contract, context and policy — the harness, drawn.',
+  },
+  /**
+   * Phase 97 Theme I. `logic` hue, beside `gate` — a permission decision,
+   * not an action with its own side effect. `LuShieldAlert`, not `gate`'s
+   * `LuShieldCheck`: a policy is a boundary a node's declared actions are
+   * checked against, not a human's own approve/reject call (which is what
+   * `requireApprovalFor` routes through — an ordinary gate wait, just
+   * triggered by this node rather than sitting in the graph as one).
+   */
+  policy: {
+    label: 'Policy',
+    icon: LuShieldAlert,
+    category: 'logic',
+    description: 'A permission gate — which actions downstream nodes may take, and which need approval.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -195,5 +223,11 @@ export function nodeSummary(node: WorkflowNode): string {
       return `Forge PR · ${node.config.events.join('/')}`;
     case 'state':
       return node.config.key.trim() ? `${node.config.op} ${node.config.key}` : `${node.config.op} (no key)`;
+    case 'frame':
+      // Membership (`frameId`) lives on the MEMBER node, not here, so this
+      // can only describe the frame's own slots, not who's inside it.
+      return node.config.contract.trim() || node.config.context.trim() ? 'Contract set' : 'Empty harness';
+    case 'policy':
+      return node.config.allow.length === 0 ? 'Allows nothing' : `Allows ${node.config.allow.length}`;
   }
 }

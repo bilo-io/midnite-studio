@@ -1,4 +1,11 @@
-import { WorkflowSchema, type Workflow, type WorkflowNode, type WorkflowNodeKind } from '@midnite/studio-shared';
+import {
+  WORKFLOW_FRAME_DEFAULT_HEIGHT,
+  WORKFLOW_FRAME_DEFAULT_WIDTH,
+  WorkflowSchema,
+  type Workflow,
+  type WorkflowNode,
+  type WorkflowNodeKind,
+} from '@midnite/studio-shared';
 
 /**
  * Pure workflow construction and JSON import/export helpers — testable
@@ -64,6 +71,24 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Trigger', config: { on: 'manual' } };
     case 'state':
       return { ...base, kind, label: 'State', config: { op: 'set', key: '', value: '' } };
+    case 'frame':
+      return {
+        ...base,
+        kind,
+        label: 'THE AGENT HARNESS',
+        config: {
+          contract: '',
+          context: '',
+          state: '',
+          tools: '',
+          permissions: '',
+          evidence: '',
+          width: WORKFLOW_FRAME_DEFAULT_WIDTH,
+          height: WORKFLOW_FRAME_DEFAULT_HEIGHT,
+        },
+      };
+    case 'policy':
+      return { ...base, kind, label: 'Policy', config: { allow: [], requireApprovalFor: [] } };
   }
 }
 
@@ -90,7 +115,16 @@ export function cloneWorkflowWithFreshIds(workflow: Workflow, now: number, name?
     ...workflow,
     id: crypto.randomUUID(),
     name: name ?? workflow.name,
-    nodes: workflow.nodes.map((node) => ({ ...node, id: nodeIdMap.get(node.id) ?? node.id })),
+    nodes: workflow.nodes.map((node) => ({
+      ...node,
+      id: nodeIdMap.get(node.id) ?? node.id,
+      // Phase 97 Theme I — a member's `frameId` must follow its frame's own
+      // fresh id, or a clone/import would silently point every frame-member
+      // node at a frame that no longer exists in the copy (a dangling
+      // reference `validateWorkflow` would then flag on a workflow the user
+      // never touched).
+      ...(node.frameId !== undefined ? { frameId: nodeIdMap.get(node.frameId) ?? node.frameId } : {}),
+    })),
     edges: workflow.edges.map((edge) => ({
       ...edge,
       id: crypto.randomUUID(),
