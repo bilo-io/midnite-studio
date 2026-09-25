@@ -7,6 +7,7 @@ import {
   WORKFLOW_JOIN_MODES,
   WORKFLOW_ROUTER_MAX_CASES,
   WORKFLOW_ROUTER_MODES,
+  WORKFLOW_STATE_OPS,
   WORKFLOW_TEST_COUNT_PARSERS,
   WORKFLOW_TRIGGER_FORGE_PR_EVENTS,
   WORKFLOW_TRIGGER_ONS,
@@ -18,6 +19,7 @@ import {
   type WorkflowJoinMode,
   type WorkflowNode,
   type WorkflowRouterMode,
+  type WorkflowStateOp,
   type WorkflowTestCountParser,
   type WorkflowTriggerOn,
   type WorkflowVerifyCheck,
@@ -873,6 +875,48 @@ export function TriggerForm({ node, onChange }: NodeFormProps) {
           </Field>
         </>
       ) : null}
+    </>
+  );
+}
+
+const STATE_OP_LABEL: Record<WorkflowStateOp, string> = {
+  set: 'Set',
+  merge: 'Merge into',
+  append: 'Append to',
+};
+
+export function StateForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  if (node.kind !== 'state') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  return (
+    <>
+      <Field label="Operation" hint="How this write combines with the key's current value, if any.">
+        <SelectField
+          label="Operation"
+          value={config.op}
+          onChange={(op: WorkflowStateOp) => update({ op })}
+          options={WORKFLOW_STATE_OPS.map((op) => ({ value: op, label: STATE_OP_LABEL[op] }))}
+        />
+      </Field>
+      <Field label="Key" hint="Read anywhere downstream as {{state.<key>}}.">
+        <TextField label="Key" value={config.key} onChange={(key) => update({ key })} placeholder="counter" />
+      </Field>
+      <Field
+        label="Value"
+        hint="May reference an upstream node's output. Parsed as JSON when it parses (42, true, {&quot;a&quot;:1}), kept as text otherwise."
+      >
+        <TextField
+          label="Value"
+          value={config.value}
+          onChange={(value) => update({ value })}
+          placeholder="{{nodeId.field}}"
+          onFocus={(event) =>
+            onInterpolatableFocus({ value: config.value, onChange: (value) => update({ value }), el: event.currentTarget })
+          }
+        />
+      </Field>
     </>
   );
 }
