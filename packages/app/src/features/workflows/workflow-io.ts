@@ -2,9 +2,11 @@ import {
   WORKFLOW_FRAME_DEFAULT_HEIGHT,
   WORKFLOW_FRAME_DEFAULT_WIDTH,
   WorkflowSchema,
+  instantiateWorkflowTemplateWorkflow,
   type Workflow,
   type WorkflowNode,
   type WorkflowNodeKind,
+  type WorkflowTemplate,
 } from '@midnite/studio-shared';
 
 /**
@@ -167,4 +169,31 @@ export function parseImportedWorkflow(raw: string, now: number): ImportWorkflowR
   }
 
   return { ok: true, workflow: cloneWorkflowWithFreshIds(result.data, now) };
+}
+
+/**
+ * Phase 97 Theme L — a fresh, runnable workflow from a gallery template:
+ * the template's three omitted fields filled in, then every node/edge id
+ * re-minted through {@link cloneWorkflowWithFreshIds}, so one template used
+ * twice never yields two workflows sharing node ids.
+ */
+export function workflowFromTemplate(template: WorkflowTemplate, now: number): Workflow {
+  return cloneWorkflowWithFreshIds(instantiateWorkflowTemplateWorkflow(template, now), now, template.title);
+}
+
+/**
+ * The editor's "Save as template" — the in-editor workflow as a **user**
+ * template (its own `user-` id, so it can never collide with a built-in's
+ * slug), rather than a clone in the ordinary workflow list.
+ */
+export function templateFromWorkflow(workflow: Workflow): WorkflowTemplate {
+  const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = workflow;
+  return {
+    id: `user-${crypto.randomUUID()}`,
+    title: workflow.name,
+    blurb: workflow.description ?? '',
+    source: '',
+    tags: [],
+    workflow: rest,
+  };
 }
