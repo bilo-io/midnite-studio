@@ -136,6 +136,14 @@ export type WorkflowPort = z.infer<typeof WorkflowPortSchema>;
  */
 export const WORKFLOW_ERROR_PORT_ID = 'error';
 
+/**
+ * Added to a node's ports (Theme C) only when it is a loop edge's source —
+ * see {@link portsForNode}'s `edges` parameter. Taken by a non-`'converged'`
+ * loop exit ({@link WorkflowLoopExitReason}); typically wired to Theme D's
+ * human gate as the escalation path.
+ */
+export const WORKFLOW_LOOP_EXHAUSTED_PORT_ID = 'exhausted';
+
 // --- node configs ------------------------------------------------------------
 
 export const WorkflowHttpConfigSchema = z.object({
@@ -413,8 +421,24 @@ function errorPort(): WorkflowPort {
  * {@link WorkflowNodeKind} — adding a kind is a compile error here until this
  * switch is widened on purpose, the same discipline `WORKFLOW_NODE_KINDS`
  * already asks for.
+ *
+ * `edges` (Theme C) is optional and additive only — every pre-Theme-C call
+ * site (the canvas's own port lookups, Theme A's tests) still works with a
+ * bare `portsForNode(node)`. When passed, and `node` is the source of a
+ * `kind: 'loop'` edge, the {@link WORKFLOW_LOOP_EXHAUSTED_PORT_ID} out-port is
+ * appended — it does not exist on a node with no outgoing loop edge, which is
+ * what stops it cluttering every node kind that never loops.
  */
-export function portsForNode(node: WorkflowNode): WorkflowPort[] {
+export function portsForNode(node: WorkflowNode, edges?: readonly WorkflowEdge[]): WorkflowPort[] {
+  const ports = portsForNodeKind(node);
+  const isLoopSource = edges?.some((edge) => edge.from === node.id && normalizeEdge(edge).kind === 'loop');
+  if (isLoopSource) {
+    ports.push({ id: WORKFLOW_LOOP_EXHAUSTED_PORT_ID, label: 'Exhausted', direction: 'out', type: 'any' });
+  }
+  return ports;
+}
+
+function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
   switch (node.kind) {
     case 'http':
       return [inPort(), dataOutPort('out', 'Response', node.config.outputShape), errorPort()];
@@ -470,6 +494,82 @@ export const WORKFLOW_EDGE_KINDS = ['data', 'conditional', 'loop', 'error'] as c
 export const WorkflowEdgeKindSchema = z.enum(WORKFLOW_EDGE_KINDS);
 export type WorkflowEdgeKind = z.infer<typeof WorkflowEdgeKindSchema>;
 
+// --- controlled cycles (Phase 97 Theme C) -------------------------------------
+
+/**
+ * A `loop` edge's bounds are mandatory — there is no such thing as an
+ * unbounded back-edge (Decision 3). `maxIterations` is a hard cap on the
+ * article's "6 iterations"; `budgetMs` is the wall-clock twin ("2 dry rounds
+ * or 6 iterations" — whichever bound is hit first wins). There is
+ * deliberately no token/cost field: Phase 94 Decision 8 covers why the app
+ * cannot honestly see an agent's token use.
+ */
+export const WORKFLOW_LOOP_MAX_ITERATIONS = 20;
+
+/** Six hours — generous, but still a real ceiling on a mistyped budget. */
+export const WORKFLOW_LOOP_MAX_BUDGET_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * How a loop decides it has nothing more to gain from another pass, short of
+ * hitting a bound. `dry-rounds` is the Graph Engineering article's "2 dry
+ * rounds" — `rounds` consecutive iterations whose `keyPath` value (resolved
+ * against the loop SOURCE node's own output, the same node the edge is
+ * attached to) repeats one already seen, rejected iterations included. Its
+ * dedupe state lives on {@link WorkflowLoopState}, not here, because it
+ * accumulates across iterations rather than describing the edge itself.
+ * `until-port` is the simpler alternative: converged the moment the source's
+ * output carries a truthy field named `port`.
+ */
+export const WorkflowLoopConvergenceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('dry-rounds'),
+    rounds: z.number().int().min(1).max(10),
+    keyPath: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal('until-port'),
+    port: z.string().min(1),
+  }),
+]);
+export type WorkflowLoopConvergence = z.infer<typeof WorkflowLoopConvergenceSchema>;
+
+export const WorkflowLoopConfigSchema = z.object({
+  maxIterations: z.number().int().min(1).max(WORKFLOW_LOOP_MAX_ITERATIONS),
+  budgetMs: z.number().int().min(1).max(WORKFLOW_LOOP_MAX_BUDGET_MS),
+  convergence: WorkflowLoopConvergenceSchema.optional(),
+});
+export type WorkflowLoopConfig = z.infer<typeof WorkflowLoopConfigSchema>;
+
+/**
+ * Every way a loop stops. Only `'converged'` is a happy stop — a loop that
+ * got what it needed before running out of room. The other three all take
+ * the loop source's `exhausted` out-port (see {@link WORKFLOW_LOOP_EXHAUSTED_PORT_ID}),
+ * which is typically wired to a human gate (Theme D) as the escalation path.
+ */
+export const WORKFLOW_LOOP_EXIT_REASONS = ['converged', 'max-iterations', 'budget', 'cancelled'] as const;
+export const WorkflowLoopExitReasonSchema = z.enum(WORKFLOW_LOOP_EXIT_REASONS);
+export type WorkflowLoopExitReason = z.infer<typeof WorkflowLoopExitReasonSchema>;
+
+/**
+ * A loop's accumulated, persisted state for one run — one entry per loop edge
+ * id, keyed that way (not by node id) because two distinct loop edges could
+ * in principle share a source node. `startedAt` is stamped the first time the
+ * loop's source node settles, not at run start, so `budgetMs` measures the
+ * loop's own wall-clock rather than everything that ran before it got a
+ * turn. `seenKeyHashes`/`dryStreak` are the dry-rounds dedupe state — kept
+ * here rather than recomputed, so it survives a resume (Theme G) without
+ * replaying every past iteration's output.
+ */
+export const WorkflowLoopStateSchema = z.object({
+  edgeId: z.string().min(1),
+  iteration: z.number().int().min(1),
+  startedAt: z.number().int().nonnegative(),
+  seenKeyHashes: z.array(z.string()).default([]),
+  dryStreak: z.number().int().min(0).default(0),
+  exitReason: WorkflowLoopExitReasonSchema.optional(),
+});
+export type WorkflowLoopState = z.infer<typeof WorkflowLoopStateSchema>;
+
 export const WorkflowEdgeSchema = z.object({
   id: z.string().min(1),
   from: z.string().min(1),
@@ -480,6 +580,14 @@ export const WorkflowEdgeSchema = z.object({
   toPort: z.string().min(1).optional(),
   /** Optional on the wire — {@link normalizeEdge} defaults it to `'data'`. */
   kind: WorkflowEdgeKindSchema.optional(),
+  /**
+   * Mandatory in spirit, optional on the wire the same way `kind` is:
+   * {@link validateWorkflow} is what actually enforces "a `loop`-kind edge
+   * must carry this" (a zod-level `.superRefine` cannot see the sibling
+   * `kind` field cleanly across a `.optional()` boundary without duplicating
+   * the whole object shape). Meaningless when `kind !== 'loop'`.
+   */
+  loop: WorkflowLoopConfigSchema.optional(),
 });
 export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>;
 
@@ -528,18 +636,12 @@ function shapesCompatible(from?: WorkflowPortShape, to?: WorkflowPortShape): boo
 export type WorkflowConnectResult = { ok: true } | { ok: false; reason: string };
 
 /**
- * The canvas connect-drag's gate for a **new** edge — direction, type and
- * shape compatibility, in-port multiplicity, self-connection, and
- * {@link wouldCycle}. It never re-validates an already-persisted edge (that
- * is {@link validateWorkflow}'s job), so a workflow saved before Theme A, or
- * one edited by a future theme that draws edges without going through the
- * canvas, is never retroactively broken by this function.
- *
- * Cycle-checking always runs here because this is the ordinary connect-drag
- * path, which never produces a `loop`-kind edge — a controlled back-edge
- * (Theme C) is drawn through its own affordance, not this one.
+ * Direction, type/shape compatibility, in-port multiplicity and
+ * self-connection — everything {@link canConnect} and {@link canConnectLoop}
+ * check identically. What differs between them is cycle handling alone,
+ * which is why it is NOT in here; see each function's own doc comment.
  */
-export function canConnect(
+function canConnectPorts(
   fromNode: WorkflowNode,
   fromPort: WorkflowPort,
   toNode: WorkflowNode,
@@ -579,11 +681,184 @@ export function canConnect(
       };
     }
   }
+  return { ok: true };
+}
+
+/**
+ * The canvas connect-drag's gate for a **new** edge — direction, type and
+ * shape compatibility, in-port multiplicity, self-connection, and
+ * {@link wouldCycle}. It never re-validates an already-persisted edge (that
+ * is {@link validateWorkflow}'s job), so a workflow saved before Theme A, or
+ * one edited by a future theme that draws edges without going through the
+ * canvas, is never retroactively broken by this function.
+ *
+ * Cycle-checking always runs here because this is the ordinary connect-drag
+ * path, which never produces a `loop`-kind edge — a controlled back-edge
+ * (Theme C) is drawn through its own affordance, {@link canConnectLoop}, not
+ * this one.
+ */
+export function canConnect(
+  fromNode: WorkflowNode,
+  fromPort: WorkflowPort,
+  toNode: WorkflowNode,
+  toPort: WorkflowPort,
+  edges: readonly WorkflowEdge[],
+): WorkflowConnectResult {
+  const base = canConnectPorts(fromNode, fromPort, toNode, toPort, edges);
+  if (!base.ok) return base;
   const nodeIds = [...new Set([...edges.flatMap((edge) => [edge.from, edge.to]), fromNode.id, toNode.id])];
   if (wouldCycle(edges, nodeIds, { from: fromNode.id, to: toNode.id })) {
     return { ok: false, reason: 'That connection would create a cycle.' };
   }
   return { ok: true };
+}
+
+/**
+ * The controlled-back-edge affordance (Theme C, Decision 3) — the ONE
+ * deliberate exception to `canConnect`'s blanket cycle rejection. Identical
+ * port checks to {@link canConnect} (direction, type/shape, multiplicity,
+ * self-connection), but INVERTED cycle handling: a loop edge that does not
+ * actually close a cycle back to an earlier node is the mistake here, not
+ * the one this function exists to prevent. Cycle-closing is checked against
+ * the NON-loop edges only — a loop edge closing a cycle with another loop
+ * edge (rather than with the ordinary DAG) is not what this phase means by a
+ * controlled back-edge, and {@link findAcyclicEdgeViolation} would not catch
+ * it either.
+ */
+export function canConnectLoop(
+  fromNode: WorkflowNode,
+  fromPort: WorkflowPort,
+  toNode: WorkflowNode,
+  toPort: WorkflowPort,
+  edges: readonly WorkflowEdge[],
+): WorkflowConnectResult {
+  const base = canConnectPorts(fromNode, fromPort, toNode, toPort, edges);
+  if (!base.ok) return base;
+  const nonLoopEdges = edges.filter((edge) => normalizeEdge(edge).kind !== 'loop');
+  const nodeIds = [...new Set([...edges.flatMap((edge) => [edge.from, edge.to]), fromNode.id, toNode.id])];
+  if (!wouldCycle(nonLoopEdges, nodeIds, { from: fromNode.id, to: toNode.id })) {
+    return { ok: false, reason: 'A loop edge must close a cycle back to an earlier node.' };
+  }
+  return { ok: true };
+}
+
+/**
+ * The cycle check that treats `kind: 'loop'` edges as the one legitimate
+ * exception (Decision 3) — filters them out before delegating to
+ * {@link findCycleEdge}, so a graph whose only cycle is closed by a
+ * controlled loop edge reports no violation, while a cycle made purely of
+ * `data`/`conditional`/`error` edges is still caught. This is what
+ * `workflow-engine.ts`'s pre-run check calls instead of `findCycleEdge`
+ * directly — `findCycleEdge` itself stays exactly as `canConnect` and the
+ * canvas already use it, since neither of those ever needs to see a loop
+ * edge as anything but a cycle (they reject all of them).
+ */
+export function findAcyclicEdgeViolation(
+  nodeIds: readonly string[],
+  edges: readonly WorkflowEdge[],
+): WorkflowEdge | null {
+  return findCycleEdge(
+    nodeIds,
+    edges.filter((edge) => normalizeEdge(edge).kind !== 'loop'),
+  );
+}
+
+/**
+ * The loop body: every node on a path from the loop edge's `to` (where
+ * execution resumes) forward to its `from` (the decision node), inclusive of
+ * both — computed over the non-loop edges only, so a nested/adjacent loop
+ * edge never leaks into this one's body. The engine resets exactly this set
+ * to a fresh `pending` record on every iteration ({@link WorkflowNodeRun.iteration}).
+ */
+export function loopBodyNodeIds(
+  loopEdge: Pick<WorkflowEdge, 'from' | 'to'>,
+  allEdges: readonly WorkflowEdge[],
+): Set<string> {
+  const nonLoopEdges = allEdges.filter((edge) => normalizeEdge(edge).kind !== 'loop');
+
+  const forward = new Map<string, string[]>();
+  for (const edge of nonLoopEdges) {
+    if (!forward.has(edge.from)) forward.set(edge.from, []);
+    forward.get(edge.from)!.push(edge.to);
+  }
+  const reachableFromTarget = new Set<string>([loopEdge.to]);
+  const queue = [loopEdge.to];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    for (const next of forward.get(id) ?? []) {
+      if (reachableFromTarget.has(next)) continue;
+      reachableFromTarget.add(next);
+      queue.push(next);
+    }
+  }
+
+  const backFromSource = ancestorIds(loopEdge.from, nonLoopEdges);
+  backFromSource.add(loopEdge.from);
+
+  const body = new Set<string>();
+  for (const id of reachableFromTarget) {
+    if (backFromSource.has(id)) body.add(id);
+  }
+  body.add(loopEdge.to);
+  body.add(loopEdge.from);
+  return body;
+}
+
+/**
+ * Small, non-cryptographic, stable hash for dry-rounds dedupe
+ * ({@link WorkflowLoopConvergence}'s `dry-rounds` variant) — FNV-1a. Just
+ * enough to tell "have we seen this `keyPath` value before" apart from a
+ * genuinely new one; not `node:crypto`, which `shared` cannot import (it
+ * must stay browser-safe for `app`).
+ */
+export function hashLoopKey(value: unknown): string {
+  const text = typeof value === 'string' ? value : (JSON.stringify(value) ?? String(value));
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+/**
+ * A tiny dotted-path walk against a loop source node's own output — what
+ * `dry-rounds`' `keyPath` and `until-port`'s `port` resolve against.
+ * Deliberately not `interpolate.ts`'s `{{...}}` grammar (no `{{}}`
+ * delimiters, no node id — the loop source's own output is the only thing
+ * either convergence rule ever reads) and never throws: an unresolvable
+ * path is `undefined`, which {@link hashLoopKey} happily hashes as
+ * `"undefined"` — a loop whose `keyPath` is wrong dedupes everything
+ * together rather than crashing the run, which is the more recoverable
+ * failure mode for a config mistake this far from the request that caused it.
+ */
+export function readLoopKeyPath(output: unknown, path: string): unknown {
+  let current: unknown = output;
+  for (const segment of path.split('.').filter((s) => s.length > 0)) {
+    if (current === null || current === undefined || typeof current !== 'object') return undefined;
+    if (Array.isArray(current)) {
+      const index = Number.parseInt(segment, 10);
+      current = Number.isInteger(index) && index >= 0 && index < current.length ? current[index] : undefined;
+      continue;
+    }
+    current = Object.hasOwn(current, segment) ? (current as Record<string, unknown>)[segment] : undefined;
+  }
+  return current;
+}
+
+/** One earlier iteration's failure, as carried into `{{loop.failures}}`. */
+export type WorkflowLoopFailure = { iteration: number; nodeId: string; message: string };
+
+/**
+ * The block an `agent` node's executor appends to its own prompt when
+ * `{{loop.failures}}` is non-empty (the phase doc's "previous attempt failed
+ * because…" requirement) — pure, so the wording is tested once here rather
+ * than through a full pty fixture in `executors/agent.test.ts`.
+ */
+export function formatLoopFailuresBlock(failures: readonly WorkflowLoopFailure[]): string {
+  if (failures.length === 0) return '';
+  const lines = failures.map((f) => `- iteration ${f.iteration} (${f.nodeId}): ${f.message}`);
+  return `\n\nPrevious attempt(s) in this loop failed:\n${lines.join('\n')}`;
 }
 
 export const WorkflowSchema = z.object({
@@ -716,6 +991,14 @@ export const WorkflowNodeRunSchema = z.object({
    * What the engine's per-edge readiness pass (`workflow-engine.ts`) reads to
    * decide whether an edge was *taken* or *dead*, and what replay (Theme K)
    * and the canvas (Theme J) highlight the taken path from.
+   *
+   * **Theme C overrides this** on a loop source's non-`converged` stop (to
+   * `'exhausted'`) and on a `converged` stop with a single alternate
+   * out-port — `loop-controller.ts`'s `evaluateLoopSettle`, applied by
+   * `workflow-engine.ts`'s `settleNode` after the computation above. This is
+   * the ONLY loop-specific routing signal; a `loop`-kind edge never enters
+   * the per-edge readiness pass at all (see `buildGraph`'s doc comment in
+   * `workflow-engine.ts`).
    */
   settledPort: z.string().min(1).optional(),
   error: z.string().optional(),
@@ -731,8 +1014,31 @@ export const WorkflowNodeRunSchema = z.object({
    * on every render — the run already has it once the executor stamps it.
    */
   sessionId: z.string().min(1).optional(),
+  /**
+   * Which pass through a loop body this record is for (Theme C). Unset for
+   * every pre-Theme-C run and every node that never sits inside a loop —
+   * read as `1` via {@link nodeRunIteration}, the same optional-plus-reader
+   * pattern {@link isWorkflowEnabled} uses. A looping node accumulates
+   * MULTIPLE entries in `WorkflowRun.nodes` sharing this `nodeId`, one per
+   * iteration and never overwritten — see `loop-controller.ts`'s
+   * `activeNodeRun`/`activeNodeRuns` for "the current one".
+   */
+  iteration: z.number().int().min(1).optional(),
+  /**
+   * Set on the loop source's record for the iteration where a loop actually
+   * stopped (as opposed to one that simply never looped). Mirrors
+   * `WorkflowLoopState.exitReason`, but scoped to this one settle rather
+   * than the loop as a whole — Theme K's replay-by-iteration reads this to
+   * find the exact iteration an escalation happened on.
+   */
+  loopExit: WorkflowLoopExitReasonSchema.optional(),
 });
 export type WorkflowNodeRun = z.infer<typeof WorkflowNodeRunSchema>;
+
+/** Unset (every pre-Theme-C record) reads as iteration 1. */
+export function nodeRunIteration(nodeRun: Pick<WorkflowNodeRun, 'iteration'>): number {
+  return nodeRun.iteration ?? 1;
+}
 
 /**
  * A single run of a workflow.
@@ -758,8 +1064,20 @@ export const WorkflowRunSchema = z.object({
   error: z.string().optional(),
   startedAt: z.number().int().nonnegative(),
   endedAt: z.number().int().nonnegative().optional(),
+  /**
+   * Per-loop-edge bookkeeping (Theme C) — unset for every pre-Theme-C run
+   * and every run with no loop edge, read as `[]` via
+   * {@link workflowLoopStates}. Theme G's resume and Theme K's replay both
+   * build on this, so keep the shape stable — see {@link WorkflowLoopState}.
+   */
+  loopStates: z.array(WorkflowLoopStateSchema).optional(),
 });
 export type WorkflowRun = z.infer<typeof WorkflowRunSchema>;
+
+/** Unset (every pre-Theme-C run, and every run with no loop edge yet reached) reads as `[]`. */
+export function workflowLoopStates(run: Pick<WorkflowRun, 'loopStates'>): WorkflowLoopState[] {
+  return run.loopStates ?? [];
+}
 
 // --- validation --------------------------------------------------------------
 
@@ -866,7 +1184,14 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     const toNode = workflow.nodes.find((n) => n.id === edge.to);
     if (fromNode && toNode && fromNode.kind !== 'note' && toNode.kind !== 'note') {
       const normalized = normalizeEdge(edge);
-      if (!portsForNode(fromNode).some((port) => port.direction === 'out' && port.id === normalized.fromPort)) {
+      // `workflow.edges` is passed here (Theme C) so a loop edge's own
+      // `exhausted` out-port — which only exists BECAUSE this edge is a
+      // loop edge — resolves rather than reading as a dangling port name.
+      if (
+        !portsForNode(fromNode, workflow.edges).some(
+          (port) => port.direction === 'out' && port.id === normalized.fromPort,
+        )
+      ) {
         issues.push({
           message: `"${fromNode.label}" has no out-port named "${normalized.fromPort}".`,
           edgeId: edge.id,
@@ -877,6 +1202,34 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
           message: `"${toNode.label}" has no in-port named "${normalized.toPort}".`,
           edgeId: edge.id,
         });
+      }
+    }
+
+    // Controlled cycles (Theme C, Decision 3): a `loop` edge's bounds are
+    // mandatory, and the edge must actually close a cycle — a `loop`-kind
+    // edge that doesn't loop back anywhere is just a mistake, not a
+    // controlled back-edge. A cycle made only of NON-loop edges is rejected
+    // too, but at the engine's pre-run check (`findAcyclicEdgeViolation`),
+    // the same place every other cycle is caught — this function stays
+    // cycle-agnostic for everything else per its own doc comment above.
+    if (normalizeEdge(edge).kind === 'loop') {
+      if (!edge.loop) {
+        issues.push({
+          message: `"${edge.id}" is a loop edge with no maxIterations/budget set.`,
+          edgeId: edge.id,
+        });
+      }
+      if (fromNode && toNode) {
+        const nonLoopSiblings = workflow.edges.filter(
+          (e) => e.id !== edge.id && normalizeEdge(e).kind !== 'loop',
+        );
+        const nodeIds = workflow.nodes.map((n) => n.id);
+        if (!wouldCycle(nonLoopSiblings, nodeIds, { from: edge.from, to: edge.to })) {
+          issues.push({
+            message: `"${edge.id}" is a loop edge that does not close a cycle back to an earlier node.`,
+            edgeId: edge.id,
+          });
+        }
       }
     }
   }

@@ -139,27 +139,27 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       with only one side running, error-port recovery, `any` vs `allSettled` outputs, and the
       Phase 95 race case (`:513`) still deterministic.
 
-### C — Controlled cycles (L)
+### C — Controlled cycles (L) ✅ DONE ([PR #560](https://github.com/bilo-io/midnite-studio/pull/560), 2026-09-25)
 
-- [ ] A `loop` edge carries `loop: {maxIterations: 1..20, budgetMs, convergence?}`. Convergence is
+- [x] A `loop` edge carries `loop: {maxIterations: 1..20, budgetMs, convergence?}`. Convergence is
       one of `{kind:'dry-rounds', rounds, keyPath}`, as in the article's "2 dry rounds or 6
       iterations", or `{kind:'until-port', port}`.
-- [ ] Schema validation rejects a `loop` edge with no bounds, a `loop` edge that does not close a
+- [x] Schema validation rejects a `loop` edge with no bounds, a `loop` edge that does not close a
       cycle, and a cycle made only of non-`loop` edges. `findCycleEdge` ignores `loop` edges, so
       the rest of the graph must stay a DAG.
-- [ ] Engine: when a `loop` edge is taken, the **loop body** is reset to `pending` under a new
+- [x] Engine: when a `loop` edge is taken, the **loop body** is reset to `pending` under a new
       `iteration` index. The body is every node on a path from the loop target back to the loop
       source. The run records every iteration's `WorkflowNodeRun`s (keyed
       `nodeId#iteration`) rather than overwriting them.
-- [ ] **Failure carried forward.** Each iteration exposes `{{loop.iteration}}`, `{{loop.previous.<nodeId>…}}`
+- [x] **Failure carried forward.** Each iteration exposes `{{loop.iteration}}`, `{{loop.previous.<nodeId>…}}`
       and `{{loop.failures}}` (the fail-port outputs of every earlier pass, capped and passed
       through [`redact.ts`](../../../packages/shared/src/redact.ts)). An agent node's composed
       prompt gets a "previous attempt failed because…" block appended when `loop.failures` is
       non-empty. This is the Harness article's `state.failures.push(evidence.gap)`.
-- [ ] **Dedupe against everything seen.** `dry-rounds` convergence hashes the `keyPath` values of
+- [x] **Dedupe against everything seen.** `dry-rounds` convergence hashes the `keyPath` values of
       every iteration, rejected ones included, per the Graph Engineering article's warning that
       rejected ideas otherwise come back.
-- [ ] Stops, each recorded as a distinct `loopExit` reason on the run:
+- [x] Stops, each recorded as a distinct `loopExit` reason on the run:
       - `converged`
       - `max-iterations`
       - `budget`
@@ -167,11 +167,11 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 
       A non-converged exit takes the loop source's `exhausted` out-port (added by C). That port
       is typically wired to a human gate (D), which is the articles' "escalation path".
-- [ ] Budget is wall-clock only. There is no token accounting; see [Phase 94](phase-94-ai-engineering.md)
+- [x] Budget is wall-clock only. There is no token accounting; see [Phase 94](phase-94-ai-engineering.md)
       Decision 8 for why the app cannot honestly see an agent's token use.
-- [ ] `MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW` is unchanged. A run's per-iteration node records
+- [x] `MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW` is unchanged. A run's per-iteration node records
       are capped at `maxIterations × body size`, which the schema bounds.
-- [ ] Vitest: a 3-attempt build/verify loop that passes on attempt 2, exhaustion → `exhausted`
+- [x] Vitest: a 3-attempt build/verify loop that passes on attempt 2, exhaustion → `exhausted`
       port, dry-round convergence with a repeated rejected key, budget stop with an injected clock,
       and cancel mid-iteration.
 

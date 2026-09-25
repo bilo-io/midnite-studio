@@ -4,20 +4,31 @@ import {
   WORKFLOW_AGENT_DONE_MARKER,
   WORKFLOW_AGENT_DONE_MARKER_PATTERN,
   WORKFLOW_ERROR_PORT_ID,
+  WORKFLOW_LOOP_EXHAUSTED_PORT_ID,
+  WORKFLOW_LOOP_MAX_ITERATIONS,
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WORKFLOW_NODE_KINDS,
   WORKFLOW_RESERVED_INTERPOLATION_ROOTS,
+  WorkflowEdgeSchema,
   WorkflowNodeSchema,
   WorkflowRunSchema,
   WorkflowSchema,
   agentNodeDonePrompt,
   ancestorIds,
   canConnect,
+  canConnectLoop,
+  findAcyclicEdgeViolation,
   findCycleEdge,
+  formatLoopFailuresBlock,
+  hashLoopKey,
+  loopBodyNodeIds,
   migrateWorkflowEdges,
+  nodeRunIteration,
   normalizeEdge,
   portsForNode,
+  readLoopKeyPath,
   validateWorkflow,
+  workflowLoopStates,
   wouldCycle,
   type Workflow,
   type WorkflowEdge,
@@ -589,5 +600,230 @@ describe('agentNodeDonePrompt / WORKFLOW_AGENT_DONE_MARKER_PATTERN (Theme J)', (
     expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('MIDNITE_WORKFLOW_NODE_DONE: ok')?.[1]).toBe('ok');
     expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('MIDNITE_WORKFLOW_NODE_DONE: fail')?.[1]).toBe('fail');
     expect(WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec('nothing here')).toBeNull();
+  });
+});
+
+// --- Phase 97 Theme C: controlled cycles --------------------------------------
+
+function buildNode(id: string): WorkflowNode {
+  return { id, label: id, x: 0, y: 0, kind: 'delay', config: { ms: 0 } };
+}
+
+function loopWorkflow(): { build: WorkflowNode; verify: WorkflowNode; decide: WorkflowNode; done: WorkflowNode } {
+  return {
+    build: buildNode('build'),
+    verify: buildNode('verify'),
+    decide: {
+      id: 'decide',
+      label: 'Passed?',
+      x: 0,
+      y: 0,
+      kind: 'condition',
+      config: { left: '{{verify.passed}}', op: 'eq', right: 'true' },
+    },
+    done: buildNode('done'),
+  };
+}
+
+describe('portsForNode (Theme C: the exhausted port)', () => {
+  it('adds no exhausted port when edges are omitted, or when the node has no outgoing loop edge', () => {
+    const { decide } = loopWorkflow();
+    expect(portsForNode(decide).some((p) => p.id === WORKFLOW_LOOP_EXHAUSTED_PORT_ID)).toBe(false);
+    expect(portsForNode(decide, []).some((p) => p.id === WORKFLOW_LOOP_EXHAUSTED_PORT_ID)).toBe(false);
+  });
+
+  it('adds the exhausted out-port when the node sources a loop edge', () => {
+    const { decide } = loopWorkflow();
+    const edges: WorkflowEdge[] = [
+      { id: 'loop1', from: 'decide', to: 'build', fromPort: 'false', kind: 'loop', loop: { maxIterations: 3, budgetMs: 60_000 } },
+    ];
+    const exhausted = portsForNode(decide, edges).find((p) => p.id === WORKFLOW_LOOP_EXHAUSTED_PORT_ID);
+    expect(exhausted).toMatchObject({ direction: 'out', type: 'any' });
+  });
+});
+
+describe('canConnectLoop', () => {
+  const outPort = (id = 'false'): WorkflowPort => ({ id, label: id, direction: 'out', type: 'any' });
+  const inPort = (): WorkflowPort => ({ id: 'in', label: 'In', direction: 'in', type: 'any', allowMultiple: true });
+
+  it('allows a back-edge that closes a cycle over the existing non-loop edges', () => {
+    const { build, decide } = loopWorkflow();
+    const existing: WorkflowEdge[] = [
+      { id: 'e1', from: 'build', to: 'verify' },
+      { id: 'e2', from: 'verify', to: 'decide' },
+    ];
+    expect(canConnectLoop(decide, outPort(), build, inPort(), existing)).toEqual({ ok: true });
+  });
+
+  it('rejects a "loop" edge that does not actually close a cycle', () => {
+    const { build, decide } = loopWorkflow();
+    // No path from build back to decide exists, so decide -> build closes nothing.
+    expect(canConnectLoop(decide, outPort(), build, inPort(), []).ok).toBe(false);
+  });
+
+  it('still rejects the ordinary port/direction mistakes', () => {
+    const { build, decide } = loopWorkflow();
+    expect(canConnectLoop(decide, inPort(), build, inPort(), []).ok).toBe(false);
+    expect(canConnectLoop(decide, outPort(), decide, inPort(), []).ok).toBe(false);
+  });
+});
+
+describe('findAcyclicEdgeViolation', () => {
+  it('reports no violation for a cycle closed entirely by a loop edge', () => {
+    const ids = ['build', 'verify', 'decide'];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', from: 'build', to: 'verify' },
+      { id: 'e2', from: 'verify', to: 'decide' },
+      { id: 'loop1', from: 'decide', to: 'build', kind: 'loop', loop: { maxIterations: 3, budgetMs: 1000 } },
+    ];
+    expect(findAcyclicEdgeViolation(ids, edges)).toBeNull();
+  });
+
+  it('still catches a cycle made only of non-loop edges', () => {
+    const ids = ['a', 'b', 'c'];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', from: 'a', to: 'b' },
+      { id: 'e2', from: 'b', to: 'c' },
+      { id: 'e3', from: 'c', to: 'a' },
+    ];
+    expect(findAcyclicEdgeViolation(ids, edges)).not.toBeNull();
+  });
+});
+
+describe('loopBodyNodeIds', () => {
+  it('is every node on a path from the loop target forward to the loop source, inclusive', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', from: 'build', to: 'verify' },
+      { id: 'e2', from: 'verify', to: 'decide' },
+      { id: 'loop1', from: 'decide', to: 'build', kind: 'loop' },
+    ];
+    expect(loopBodyNodeIds({ from: 'decide', to: 'build' }, edges)).toEqual(
+      new Set(['build', 'verify', 'decide']),
+    );
+  });
+
+  it('excludes a sibling branch that is not on the loop path', () => {
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', from: 'build', to: 'verify' },
+      { id: 'e2', from: 'verify', to: 'decide' },
+      { id: 'e3', from: 'build', to: 'sideNote' }, // not on the decide->build path
+      { id: 'loop1', from: 'decide', to: 'build', kind: 'loop' },
+    ];
+    const body = loopBodyNodeIds({ from: 'decide', to: 'build' }, edges);
+    expect(body.has('sideNote')).toBe(false);
+  });
+});
+
+describe('validateWorkflow (Theme C: loop edges)', () => {
+  it('rejects a loop edge with no maxIterations/budget', () => {
+    const { build, verify, decide, done } = loopWorkflow();
+    const w: Workflow = {
+      id: 'w',
+      name: 'Loop',
+      nodes: [build, verify, decide, done],
+      edges: [
+        { id: 'e1', from: 'build', to: 'verify' },
+        { id: 'e2', from: 'verify', to: 'decide' },
+        { id: 'e3', from: 'decide', to: 'done', fromPort: 'true' },
+        { id: 'loop1', from: 'decide', to: 'build', fromPort: 'false', kind: 'loop' },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const issues = validateWorkflow(w);
+    expect(issues.some((i) => i.edgeId === 'loop1' && i.message.includes('maxIterations'))).toBe(true);
+  });
+
+  it('rejects a loop edge that does not close a cycle', () => {
+    const { build, verify, decide, done } = loopWorkflow();
+    const w: Workflow = {
+      id: 'w',
+      name: 'Loop',
+      nodes: [build, verify, decide, done],
+      edges: [
+        { id: 'e1', from: 'build', to: 'verify' },
+        { id: 'e2', from: 'verify', to: 'decide' },
+        // "loop" edge points somewhere that isn't upstream of decide at all.
+        { id: 'loop1', from: 'decide', to: 'done', kind: 'loop', loop: { maxIterations: 3, budgetMs: 1000 } },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const issues = validateWorkflow(w);
+    expect(issues.some((i) => i.edgeId === 'loop1' && i.message.includes('does not close a cycle'))).toBe(true);
+  });
+
+  it('accepts a well-formed loop edge, and resolves its exhausted port', () => {
+    const { build, verify, decide, done } = loopWorkflow();
+    const gate = buildNode('gate');
+    const w: Workflow = {
+      id: 'w',
+      name: 'Loop',
+      nodes: [build, verify, decide, done, gate],
+      edges: [
+        { id: 'e1', from: 'build', to: 'verify' },
+        { id: 'e2', from: 'verify', to: 'decide' },
+        { id: 'e3', from: 'decide', to: 'done', fromPort: 'true' },
+        { id: 'loop1', from: 'decide', to: 'build', fromPort: 'false', kind: 'loop', loop: { maxIterations: 3, budgetMs: 1000 } },
+        { id: 'e4', from: 'decide', to: 'gate', fromPort: 'exhausted', toPort: 'in' },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    expect(validateWorkflow(w)).toEqual([]);
+  });
+});
+
+describe('WorkflowEdgeSchema (Theme C: loop bounds)', () => {
+  it('parses a well-formed loop edge', () => {
+    const edge = {
+      id: 'loop1',
+      from: 'decide',
+      to: 'build',
+      kind: 'loop',
+      loop: { maxIterations: 5, budgetMs: 60_000, convergence: { kind: 'dry-rounds', rounds: 2, keyPath: 'idea.id' } },
+    };
+    expect(WorkflowEdgeSchema.safeParse(edge).success).toBe(true);
+  });
+
+  it(`rejects maxIterations above ${WORKFLOW_LOOP_MAX_ITERATIONS}`, () => {
+    const edge = { id: 'loop1', from: 'a', to: 'b', kind: 'loop', loop: { maxIterations: 21, budgetMs: 1000 } };
+    expect(WorkflowEdgeSchema.safeParse(edge).success).toBe(false);
+  });
+});
+
+describe('hashLoopKey / readLoopKeyPath', () => {
+  it('hashes equal values identically and different values differently', () => {
+    expect(hashLoopKey('idea-1')).toBe(hashLoopKey('idea-1'));
+    expect(hashLoopKey('idea-1')).not.toBe(hashLoopKey('idea-2'));
+  });
+
+  it('walks a dotted path against an arbitrary output', () => {
+    expect(readLoopKeyPath({ idea: { id: 'x1' } }, 'idea.id')).toBe('x1');
+    expect(readLoopKeyPath({ idea: { id: 'x1' } }, 'idea.missing')).toBeUndefined();
+    expect(readLoopKeyPath(null, 'a.b')).toBeUndefined();
+  });
+});
+
+describe('formatLoopFailuresBlock', () => {
+  it('is empty for no failures', () => {
+    expect(formatLoopFailuresBlock([])).toBe('');
+  });
+
+  it('lists each failure by iteration', () => {
+    const block = formatLoopFailuresBlock([
+      { iteration: 1, nodeId: 'verify', message: 'expected 200, got 500' },
+    ]);
+    expect(block).toContain('iteration 1');
+    expect(block).toContain('verify');
+    expect(block).toContain('expected 200, got 500');
+  });
+});
+
+describe('nodeRunIteration / workflowLoopStates (Theme C readers)', () => {
+  it('read a missing field as the pre-Theme-C default', () => {
+    expect(nodeRunIteration({})).toBe(1);
+    expect(nodeRunIteration({ iteration: 3 })).toBe(3);
+    expect(workflowLoopStates({})).toEqual([]);
   });
 });

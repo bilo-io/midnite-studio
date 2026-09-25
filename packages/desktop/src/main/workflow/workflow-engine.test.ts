@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
+import type { Workflow, WorkflowEdge, WorkflowLoopConfig, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
 
 import { startFixtureServer, type FixtureServer } from '../demo-api/fixture-server';
 import type { ExecutorRegistry, NodeExecutor, NodeOutcome } from './executor-registry';
@@ -1036,6 +1036,230 @@ describe('the error port (Theme B)', () => {
     expect(byId.onFalse!.status).toBe('skipped');
     expect(byId.onFalse!.error).toContain('false');
     expect(recorder.started).toEqual(['gate', 'onTrue']);
+  });
+});
+
+// --- Phase 97 Theme C: controlled cycles --------------------------------------
+
+describe('controlled cycles (Theme C)', () => {
+  /**
+   * build -> verify -> decide -[true]-> done
+   *                       \-[loop,false]-> build
+   *                        \-[exhausted]-> gate
+   *
+   * `decide`'s own script controls which port it settles on (Theme B's
+   * `NodeOutcome.port`) — the fake registry bypasses the real `condition`
+   * executor entirely, so a test script returning `port: 'false'` IS "the
+   * predicate failed", exactly like `conditionExecutor` itself would report.
+   */
+  function loopWorkflow(loopOver: Partial<WorkflowLoopConfig> = {}): Workflow {
+    return {
+      id: 'w1',
+      name: 'Loop',
+      nodes: [
+        delayNode('build'),
+        delayNode('verify'),
+        conditionNode('decide', '{{verify.passed}}', 'true'),
+        delayNode('done'),
+        delayNode('gate'),
+      ],
+      edges: [
+        { id: 'e1', from: 'build', to: 'verify' },
+        { id: 'e2', from: 'verify', to: 'decide' },
+        { id: 'e3', from: 'decide', to: 'done', fromPort: 'true', kind: 'conditional' },
+        {
+          id: 'loop1',
+          from: 'decide',
+          to: 'build',
+          fromPort: 'false',
+          kind: 'loop',
+          loop: { maxIterations: 3, budgetMs: 3_600_000, ...loopOver },
+        },
+        { id: 'e4', from: 'decide', to: 'gate', fromPort: 'exhausted', toPort: 'in', kind: 'conditional' },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+  }
+
+  it('passes on attempt 2: build/verify/decide each run twice, done runs once, gate never runs', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    let decideCalls = 0;
+    const script: Record<string, () => Promise<NodeOutcome>> = {
+      decide: async () => {
+        decideCalls += 1;
+        return decideCalls === 1
+          ? { ok: true, output: { passed: false }, port: 'false' }
+          : { ok: true, output: { passed: true }, port: 'true' };
+      },
+    };
+
+    const started = await startWorkflowRun(loopWorkflow(), deps(store, { executors: fakeRegistry(script, recorder) }));
+    expect(started.ok).toBe(true);
+    await settle();
+
+    expect(recorder.started.filter((id) => id === 'build')).toHaveLength(2);
+    expect(recorder.started.filter((id) => id === 'verify')).toHaveLength(2);
+    expect(recorder.started.filter((id) => id === 'decide')).toHaveLength(2);
+    expect(recorder.started.filter((id) => id === 'done')).toHaveLength(1);
+    expect(recorder.started.filter((id) => id === 'gate')).toHaveLength(0);
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    expect(run.status).toBe('completed');
+    expect(run.nodes.find((n) => n.nodeId === 'done')?.status).toBe('succeeded');
+    expect(run.nodes.find((n) => n.nodeId === 'gate')?.status).toBe('skipped');
+  });
+
+  it('terminates at maxIterations, taking the exhausted port instead of looping forever', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const script: Record<string, () => Promise<NodeOutcome>> = {
+      // Always "fails" — never converges on its own.
+      decide: async () => ({ ok: true, output: { passed: false }, port: 'false' }),
+    };
+
+    const started = await startWorkflowRun(
+      loopWorkflow({ maxIterations: 2 }),
+      deps(store, { executors: fakeRegistry(script, recorder) }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    // Exactly maxIterations (2) passes through the body — the loop does not
+    // run forever even though `decide` never once "passes".
+    expect(recorder.started.filter((id) => id === 'build')).toHaveLength(2);
+    expect(recorder.started.filter((id) => id === 'decide')).toHaveLength(2);
+    expect(recorder.started.filter((id) => id === 'gate')).toHaveLength(1);
+    expect(recorder.started.filter((id) => id === 'done')).toHaveLength(0);
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const decideRecords = run.nodes.filter((n) => n.nodeId === 'decide');
+    const lastDecide = decideRecords[decideRecords.length - 1]!;
+    expect(lastDecide.loopExit).toBe('max-iterations');
+    expect(lastDecide.settledPort).toBe('exhausted');
+    expect(run.loopStates).toHaveLength(1);
+    expect(run.loopStates![0]!.exitReason).toBe('max-iterations');
+    expect(run.nodes.find((n) => n.nodeId === 'gate')?.status).toBe('succeeded');
+    expect(run.nodes.find((n) => n.nodeId === 'done')?.status).toBe('skipped');
+  });
+
+  it('stops on budget with an injected clock, even under maxIterations', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const script: Record<string, () => Promise<NodeOutcome>> = {
+      decide: async () => ({ ok: true, output: { passed: false }, port: 'false' }),
+    };
+    // Every `now()` call jumps 1s forward — the second settle of `decide`
+    // sees far more than `budgetMs` elapsed since the loop's own start.
+    let tick = 0;
+    const started = await startWorkflowRun(
+      loopWorkflow({ maxIterations: 10, budgetMs: 50 }),
+      deps(store, {
+        executors: fakeRegistry(script, recorder),
+        clock: {
+          now: () => {
+            tick += 1000;
+            return tick;
+          },
+          setTimeout: (fn, _ms) => {
+            const timer = setTimeout(fn, 0);
+            timer.unref?.();
+            return timer;
+          },
+          clearTimeout: ((handle: never) => clearTimeout(handle)) as never,
+        },
+      }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    expect(run.loopStates).toHaveLength(1);
+    expect(run.loopStates![0]!.exitReason).toBe('budget');
+    expect(run.nodes.find((n) => n.nodeId === 'gate')?.status).toBe('succeeded');
+    // Stopped well short of the 10-iteration cap.
+    expect(recorder.started.filter((id) => id === 'decide').length).toBeLessThan(10);
+  });
+
+  it('converges on a repeated dry-rounds key rather than looping forever, taking the alternate (non-exhausted) port', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const script: Record<string, () => Promise<NodeOutcome>> = {
+      // Always "rejects", and always the SAME idea — nothing new is ever produced.
+      decide: async () => ({ ok: true, output: { passed: false, idea: { id: 'x1' } }, port: 'false' }),
+    };
+
+    const started = await startWorkflowRun(
+      loopWorkflow({
+        maxIterations: 20,
+        convergence: { kind: 'dry-rounds', rounds: 2, keyPath: 'idea.id' },
+      }),
+      deps(store, { executors: fakeRegistry(script, recorder) }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    // Round 1 (fresh key) + 2 repeats to reach a dryStreak of `rounds` (2).
+    expect(recorder.started.filter((id) => id === 'decide')).toHaveLength(3);
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    expect(run.status).toBe('completed');
+    expect(run.loopStates).toHaveLength(1);
+    expect(run.loopStates![0]!.exitReason).toBe('converged');
+    const decideRecords = run.nodes.filter((n) => n.nodeId === 'decide');
+    expect(decideRecords[decideRecords.length - 1]!.loopExit).toBe('converged');
+    // `decide`'s single non-loop, non-error out-port is `true` — converged
+    // takes that (not `exhausted`), so `done` runs and `gate` does not.
+    expect(run.nodes.find((n) => n.nodeId === 'done')?.status).toBe('succeeded');
+    expect(run.nodes.find((n) => n.nodeId === 'gate')?.status).toBe('skipped');
+  });
+
+  it('cancels mid-iteration: no node left pending or running, and the open loop is marked cancelled', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const slow = () =>
+      new Promise<NodeOutcome>((resolve) => {
+        const timer = setTimeout(() => resolve({ ok: true, output: {} }), 300);
+        timer.unref?.();
+      });
+    const script: Record<string, () => Promise<NodeOutcome>> = {
+      build: slow,
+      decide: async () => ({ ok: true, output: { passed: false }, port: 'false' }),
+    };
+
+    const started = await startWorkflowRun(loopWorkflow(), deps(store, { executors: fakeRegistry(script, recorder) }));
+    expect(started.ok).toBe(true);
+    const runId = started.ok ? started.value.id : '';
+
+    // Let the first pass reach `build` (slow) mid-flight, then cancel.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const cancelled = await cancelWorkflowRun(runId, deps(store));
+    expect(cancelled.ok).toBe(true);
+
+    const run = store.get(runId)!;
+    expect(run.status).toBe('cancelled');
+    expect(run.nodes.filter((n) => n.status === 'pending')).toHaveLength(0);
+    expect(run.nodes.filter((n) => n.status === 'running')).toHaveLength(0);
+  });
+
+  it('still rejects a cycle made only of non-loop edges', async () => {
+    const store = makeStore();
+    const w: Workflow = {
+      id: 'w3',
+      name: 'Bad cycle',
+      nodes: [delayNode('a'), delayNode('b'), delayNode('c')],
+      edges: [
+        { id: 'e1', from: 'a', to: 'b' },
+        { id: 'e2', from: 'b', to: 'c' },
+        { id: 'e3', from: 'c', to: 'a' }, // no `kind: 'loop'` — a plain data-edge cycle.
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const started = await startWorkflowRun(w, deps(store, { executors: fakeRegistry({}, { started: [], settled: [] }) }));
+    expect(started.ok).toBe(false);
+    expect(!started.ok && started.kind === 'error' && started.message).toContain('cycle');
   });
 });
 

@@ -5,7 +5,7 @@ import {
   WORKFLOW_NODE_CONCURRENCY,
   WORKFLOW_NODE_TIMEOUT_MS,
   failure,
-  findCycleEdge,
+  findAcyclicEdgeViolation,
   migrateWorkflowEdges,
   normalizeEdge,
   ok,
@@ -24,6 +24,15 @@ import {
 import { demoApiStatus } from '../demo-api/server';
 import { defaultExecutors } from './executors';
 import type { CancelSignal, ExecutorRegistry, NodeOutcome } from './executor-registry';
+import {
+  activeNodeRun,
+  activeNodeRuns,
+  buildLoopContext,
+  evaluateLoopSettle,
+  nonLoopEdges,
+  pushIterationRecords,
+  upsertLoopState,
+} from './loop-controller';
 
 /**
  * Runs one workflow: topological order over the graph, independent branches in
@@ -144,6 +153,17 @@ type Graph = {
   children: Map<string, string[]>;
 };
 
+/**
+ * `edges` must already have `kind: 'loop'` edges filtered out (`nonLoopEdges`,
+ * `loop-controller.ts`) — every call site below does that before calling in.
+ * A loop edge never enters the ordinary graph: its target already ran in an
+ * earlier iteration and is `succeeded`/terminal, not `pending`, so it would
+ * never become "eligible" again through this structural graph anyway —
+ * iteration is driven entirely by `pushIterationRecords` pushing fresh
+ * `pending` records. Building `parents`/`children` from the RAW edge list
+ * (loop edges included) would instead deadlock the very first iteration: the
+ * loop's target would appear to depend on its own not-yet-run decision node.
+ */
 function buildGraph(nodeIds: readonly string[], edges: readonly WorkflowEdge[]): Graph {
   const parents = new Map<string, string[]>(nodeIds.map((id) => [id, []]));
   const children = new Map<string, string[]>(nodeIds.map((id) => [id, []]));
@@ -154,7 +174,12 @@ function buildGraph(nodeIds: readonly string[], edges: readonly WorkflowEdge[]):
   return { parents, children };
 }
 
-/** Every edge keyed by its target node id — the shape the readiness pass below walks. */
+/**
+ * Every edge keyed by its target node id — the shape the readiness pass below
+ * walks. Same `nonLoopEdges` precondition as {@link buildGraph} — a `loop`
+ * edge is this app's one non-routable edge kind, a scheduling primitive
+ * `loop-controller.ts` owns rather than an ordinary taken/dead edge.
+ */
 function edgesByTarget(edges: readonly WorkflowEdge[]): Map<string, WorkflowEdge[]> {
   const map = new Map<string, WorkflowEdge[]>();
   for (const edge of edges) {
@@ -336,7 +361,10 @@ const TERMINAL: ReadonlySet<WorkflowNodeStatus> = new Set([
 ]);
 
 function statusFor(run: WorkflowRun): WorkflowRun['status'] {
-  if (run.nodes.some((node) => node.status === 'failed' || node.status === 'timeout')) return 'failed';
+  // `activeNodeRuns`, not raw `run.nodes`: a loop body node whose FIRST
+  // iteration failed but whose latest iteration succeeded must not fail the
+  // whole run over history a later pass already superseded.
+  if (activeNodeRuns(run).some((node) => node.status === 'failed' || node.status === 'timeout')) return 'failed';
   return 'completed';
 }
 
@@ -368,7 +396,9 @@ export async function startWorkflowRun(
   }
 
   const runnable = workflow.nodes.filter((node) => node.kind !== 'note');
-  const cycle = findCycleEdge(
+  // `findAcyclicEdgeViolation`, not `findCycleEdge` directly (Theme C): a
+  // `loop`-kind edge is the one deliberate exception to acyclicity.
+  const cycle = findAcyclicEdgeViolation(
     runnable.map((node) => node.id),
     workflow.edges,
   );
@@ -475,11 +505,12 @@ async function drive(
       const ready = await withRunLock(runId, async () => {
         const run = await deps.getRun(runId);
         if (!run) return [];
+        const structuralEdges = nonLoopEdges(run.edges);
         const graph = buildGraph(
           run.nodes.map((n) => n.nodeId),
-          run.edges,
+          structuralEdges,
         );
-        const incoming = edgesByTarget(run.edges);
+        const incoming = edgesByTarget(structuralEdges);
         const status = new Map(run.nodes.map((n) => [n.nodeId, n.status]));
         const settledPort = new Map(run.nodes.map((n) => [n.nodeId, n.settledPort]));
         const nodeById = new Map(run.nodes.map((n) => [n.nodeId, n]));
@@ -659,6 +690,11 @@ async function finalizeRun(
         node.error = node.error ?? 'Cancelled.';
         node.endedAt = clock.now();
       }
+      // Theme C: any loop still in progress (no `exitReason` yet) is
+      // stamped `cancelled` too, for the run's own telemetry — the loop
+      // body's `pending` records are already swept to `skipped` by the loop
+      // just above; this is purely the record of why.
+      run.loopStates = (run.loopStates ?? []).map((s) => (s.exitReason ? s : { ...s, exitReason: 'cancelled' }));
       run.status = 'cancelled';
     } else if (driveError !== null) {
       // The engine itself broke, so no node's own state is trustworthy: every
@@ -705,7 +741,7 @@ async function executeNode(
   executors: ExecutorRegistry,
 ): Promise<void> {
   const outcome = await runNode(runId, workflowId, node, deps, state, executors, timeoutFor(node, deps));
-  await settleNode(runId, node.id, outcome, deps);
+  await settleNode(runId, node.id, outcome, deps, node);
 }
 
 /**
@@ -747,7 +783,11 @@ async function runNode(
   const upstream = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
     if (!run) return {};
-    const incoming = edgesByTarget(run.edges);
+    // Loop edges excluded (Theme C) for the identical reason the eligibility
+    // pass excludes them — see `buildGraph`'s doc comment: otherwise a loop
+    // body's own ancestor walk would fold back through its not-yet-settled
+    // decision node, or through the node's own earlier iteration.
+    const incoming = edgesByTarget(nonLoopEdges(run.edges));
     const status = new Map(run.nodes.map((n) => [n.nodeId, n.status]));
     const settledPort = new Map(run.nodes.map((n) => [n.nodeId, n.settledPort]));
 
@@ -766,10 +806,18 @@ async function runNode(
     }
 
     const outputs: Record<string, unknown> = {};
-    for (const recorded of run.nodes) {
-      if (!ancestors.has(recorded.nodeId)) continue;
-      if (recorded.output !== undefined) outputs[recorded.nodeId] = recorded.output;
+    for (const ancestorId of ancestors) {
+      // `activeNodeRun` (Theme C), not a raw scan of `run.nodes`: once a loop
+      // has iterated, an ancestor id may have several historical records —
+      // this is the current one.
+      const record = activeNodeRun(run, ancestorId);
+      if (record && record.output !== undefined) outputs[ancestorId] = record.output;
     }
+    // `{{loop.iteration}}` / `{{loop.previous.<nodeId>...}}` / `{{loop.failures}}`
+    // (Theme C) — `null` for any node outside an active loop body, which is
+    // every node in a workflow with no loop edge.
+    const loopContext = buildLoopContext(run, node.id, run.edges);
+    if (loopContext) outputs.loop = loopContext;
     return outputs;
   });
 
@@ -828,12 +876,18 @@ async function settleNode(
   nodeId: string,
   outcome: { status: WorkflowNodeStatus; result?: NodeOutcome },
   deps: EngineDeps,
+  workflowNode?: WorkflowNode,
 ): Promise<void> {
   const clock = deps.clock ?? realClock;
   const run = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
     if (!run) return null;
-    const node = run.nodes.find((n) => n.nodeId === nodeId);
+    // `activeNodeRun` (Theme C), not a bare `.find`: once a loop has run more
+    // than once, several records share this `nodeId` (one per iteration) and
+    // the one that is actually `running` is always the latest — `.find`
+    // would return the FIRST (oldest, already-terminal) one and silently
+    // no-op every settle after a node's first iteration.
+    const node = activeNodeRun(run, nodeId);
     if (!node) return null;
     // The idempotence guard, INSIDE the lock: a cancel can race a real settle,
     // and whichever landed first is the one that counts.
@@ -876,6 +930,34 @@ async function settleNode(
       node.output = errorOutcomePayload(node.error ?? 'Unknown error', node.status === 'timeout');
     }
 
+    // Phase 97 Theme C: only ever does anything when `workflowNode` is a
+    // `loop` edge's source AND this settle's `settledPort` matches that
+    // edge's own port — see `loop-controller.ts`'s doc comment for the full
+    // decision. Deliberately AFTER B's `settledPort`/error-payload logic
+    // above, since a `stop` here OVERRIDES `settledPort` rather than
+    // computing it from scratch — there is no second cascade, only a
+    // redirect B's own per-edge readiness pass then routes through as usual.
+    if (workflowNode && (node.status === 'succeeded' || node.status === 'failed')) {
+      const decision = evaluateLoopSettle({
+        node: workflowNode,
+        nodeRun: node,
+        edges: run.edges,
+        loopStates: run.loopStates ?? [],
+        now: clock.now(),
+      });
+      if (decision.action === 'iterate') {
+        upsertLoopState(run, decision.loopState);
+        pushIterationRecords(run, decision.bodyNodeIds, decision.nextIteration);
+      } else if (decision.action === 'stop') {
+        node.settledPort = decision.settledPortOverride;
+        node.loopExit = decision.reason;
+        upsertLoopState(run, decision.loopState);
+      }
+      // `decision.action === 'none'` needs nothing: B's own `settledPort`
+      // (already written above) already routes this node's other children
+      // correctly, whether or not it ever sourced a loop edge at all.
+    }
+
     await deps.saveRun(run);
     return run;
   });
@@ -904,7 +986,8 @@ async function patchNodeSessionId(
   const run = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
     if (!run) return null;
-    const node = run.nodes.find((n) => n.nodeId === nodeId);
+    // `activeNodeRun` — see `settleNode`'s identical comment.
+    const node = activeNodeRun(run, nodeId);
     if (!node || node.status !== 'running') return null;
     node.sessionId = sessionId;
     await deps.saveRun(run);

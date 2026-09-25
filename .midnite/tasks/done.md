@@ -41,6 +41,44 @@ something honest and deterministic to call.
       `demo-api-offer-banner.test.tsx`). The http executor suite still passes with the network cable
       out, per its existing acceptance criterion.
 
+## 2026-09-25 — Phase 97 Theme C — Controlled cycles
+
+[PR #560](https://github.com/bilo-io/midnite-studio/pull/560). Stacked on Theme A's port/edge-kind
+contract (#557) and Theme B's per-edge routing (#558) — the ONE deliberate exception to the
+graph's acyclicity rule.
+
+- [x] A `loop` edge carries `loop: {maxIterations: 1..20, budgetMs, convergence?}` — `{kind:
+      'dry-rounds', rounds, keyPath}` or `{kind:'until-port', port}`.
+- [x] Schema validation rejects a `loop` edge with no bounds or one that does not close a cycle;
+      `findAcyclicEdgeViolation` (filters `loop` edges before delegating to `findCycleEdge`) still
+      rejects a cycle made only of non-loop edges. `canConnectLoop` is the loop edge's own
+      connect-drag affordance — requires a cycle, the inverse of the unchanged `canConnect`.
+- [x] Engine: a taken loop edge resets the **loop body** (every node on a path from the loop
+      target back to the loop source) to `pending` under a new `iteration` index —
+      `WorkflowNodeRun`s are keyed `nodeId#iteration` and never overwritten.
+      `loop-controller.ts`'s `evaluateLoopSettle` is the whole decision, kept pure; it overrides
+      `WorkflowNodeRun.settledPort` (Theme B's own field) on a stop rather than running a second
+      cascade — Theme B's existing per-edge readiness pass does the actual routing. A `loop`-kind
+      edge itself never enters that generic edge machinery (`nonLoopEdges` filters it out of
+      every structural traversal), which also avoids a real deadlock on the first iteration.
+- [x] **Failure carried forward**: `{{loop.iteration}}`, `{{loop.previous.<nodeId>...}}` and
+      `{{loop.failures}}` (capped, redacted via `redact.ts`) injected into the engine's upstream
+      resolution for a node inside an active loop body. An agent node's prompt gets a "previous
+      attempt(s) failed" block appended when non-empty.
+- [x] **Dedupe against everything seen**: `dry-rounds` convergence hashes every iteration's
+      `keyPath` value, rejected ones included.
+- [x] Four distinct `loopExit` reasons: `converged`, `max-iterations`, `budget`, `cancelled`. Only
+      `converged` is a happy stop (picks a single unambiguous alternate out-port, falling back to
+      `exhausted` too when none exists); the other three always redirect to the loop source's
+      `exhausted` out-port (added by C), typically wired to a future human gate (D) as escalation.
+- [x] `WorkflowRun.loopStates?: WorkflowLoopState[]` persists per-loop-edge iteration/budget/dedupe
+      state — Theme G (resume) and Theme K (replay by iteration) build on this.
+- [x] Vitest: `workflow.test.ts` (loop schema/validation/cycle helpers),
+      `loop-controller.test.ts` (new, pure decision logic), and `workflow-engine.test.ts` (a
+      3-attempt loop passing on attempt 2, exhaustion at maxIterations, a budget stop with an
+      injected clock, dry-rounds convergence, cancel mid-iteration, a data-edge-only cycle still
+      rejected, and a non-looping condition node's routing confirmed untouched).
+
 ## 2026-09-25 — Phase 97 Theme B — Routing, joins and the error port
 
 [PR #558](https://github.com/bilo-io/midnite-studio/pull/558). Stacked on Theme A's port/edge-kind contract (PR #557) — moves the engine off the
