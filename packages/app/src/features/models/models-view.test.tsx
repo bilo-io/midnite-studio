@@ -180,6 +180,92 @@ describe('ModelsView — Discover tab', () => {
     });
     expect(screen.getByRole('button', { name: /open ollama.com\/search/i })).toBeTruthy();
   });
+
+  it('renders search result card with action button at top right, pulls in middle right, and updated date at bottom right', async () => {
+    installBridge({
+      reachable: true,
+      searchItems: [
+        searchResult({
+          name: 'qwen2.5-coder',
+          description: 'Code model from Alibaba Cloud.',
+          capabilities: ['tools', 'thinking'],
+          variants: ['7b', '14b', '32b'],
+          pulls: '4.2M',
+          updatedAt: '3 weeks ago',
+        }),
+      ],
+    });
+    renderView();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Discover' }));
+    fireEvent.change(screen.getByPlaceholderText(/search ollama.com/i), {
+      target: { value: 'qwen' },
+    });
+
+    await waitFor(() => expect(screen.getByText('qwen2.5-coder')).toBeTruthy(), { timeout: 2000 });
+
+    // Left/middle content
+    expect(screen.getByText('Code model from Alibaba Cloud.')).toBeTruthy();
+    expect(screen.getAllByText('tools').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('thinking').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('7b')).toBeTruthy();
+    expect(screen.getByText('14b')).toBeTruthy();
+    expect(screen.getByText('32b')).toBeTruthy();
+
+    // Right-side items
+    const pullBtn = screen.getByRole('button', { name: /^pull$/i });
+    const pullsCount = screen.getByText('4.2M pulls');
+    const updatedAt = screen.getByText('updated 3 weeks ago');
+
+    expect(pullBtn).toBeTruthy();
+    expect(pullsCount).toBeTruthy();
+    expect(updatedAt).toBeTruthy();
+
+    // Verify right-side flex column structure and vertical ordering
+    const rightCol = pullBtn.closest('.flex-col');
+    expect(rightCol).toBeTruthy();
+    const children = Array.from(rightCol?.children ?? []);
+    expect(children.length).toBe(3);
+    // Top right: action button
+    expect(children[0]?.contains(pullBtn)).toBe(true);
+    // Middle right: pulls count
+    expect(children[1]?.contains(pullsCount)).toBe(true);
+    // Bottom right: updated date
+    expect(children[2]?.contains(updatedAt)).toBe(true);
+  });
+
+  it('renders Installed chip at top right when model is installed, alongside pulls and updated date', async () => {
+    installBridge({
+      reachable: true,
+      models: [model({ name: 'llama3.1:8b', model: 'llama3.1:8b' })],
+      searchItems: [
+        searchResult({
+          name: 'llama3.1',
+          variants: ['8b', '70b'],
+          pulls: '120M',
+          updatedAt: '1 year ago',
+        }),
+      ],
+    });
+    renderView();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Discover' }));
+    fireEvent.change(screen.getByPlaceholderText(/search ollama.com/i), {
+      target: { value: 'llama' },
+    });
+
+    await waitFor(() => expect(screen.getByText('llama3.1')).toBeTruthy(), { timeout: 2000 });
+    const pullsCount = screen.getByText('120M pulls');
+    const updatedAt = screen.getByText('updated 1 year ago');
+
+    const rightCol = pullsCount.closest('.flex-col');
+    expect(rightCol).toBeTruthy();
+    const children = Array.from(rightCol?.children ?? []);
+    expect(children.length).toBe(3);
+    expect(children[0]?.textContent).toBe('Installed');
+    expect(children[1]?.contains(pullsCount)).toBe(true);
+    expect(children[2]?.contains(updatedAt)).toBe(true);
+  });
 });
 
 describe('ModelsView — Cloud tab', () => {
