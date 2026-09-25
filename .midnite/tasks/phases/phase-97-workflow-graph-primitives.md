@@ -277,7 +277,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       existing `port`/`settledPort` mechanism — no new run-record field needed).
 - [x] Vitest: first-match order, the default fallback, and an unknown agent label.
 
-### G — Durable run state and failure policy (L)
+### G — Durable run state and failure policy (L) — ✅ DONE ([PR #574](https://github.com/bilo-io/midnite-studio/pull/574), 2026-09-25)
 
 - [x] A per-run **state store**: `WorkflowRun.state: Record<string, JsonValue>`, written by a new
       `state` node kind (`{op:'set'|'merge'|'append', key, value}`) and read anywhere as
