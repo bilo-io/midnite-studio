@@ -31,3 +31,4 @@ export * from './terminal';
 export * from './version';
 export * from './video';
 export * from './workflow';
+export * from './workflow-test-parsers';
