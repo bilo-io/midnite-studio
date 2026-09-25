@@ -85,8 +85,9 @@ describe('WorkflowSchema', () => {
     expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
     // cannot drift apart without this failing. `agent`/`script` (Theme J),
-    // `join` (Theme B), `gate` (Theme D), `router` (Theme F), `verify` (Theme
-    // E) and `trigger` (Theme H) joined the MVP's original five.
+    // `join` (Theme B), `gate` (Theme D), `router` (Theme F), `verify`
+    // (Theme E), `trigger` (Theme H) and `state` (Theme G) joined the MVP's
+    // original five.
     expect(WORKFLOW_NODE_KINDS).toEqual([
       'http',
       'transform',
@@ -100,6 +101,7 @@ describe('WorkflowSchema', () => {
       'router',
       'verify',
       'trigger',
+      'state',
     ]);
   });
 
