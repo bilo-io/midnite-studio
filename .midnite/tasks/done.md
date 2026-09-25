@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 23 — A command palette, and the registry that can finally feed it
+
+[Phase 23](phases/phase-23-command-palette.md) marked ✅ DONE (59/59 items verified).
+Centralized data-only command registry in `shared` with `CommandGroup` grouping, unified `useCommandHandlers()` dispatcher, modal command palette with fuzzy matching and matched-character highlighting, frecency nudge, safe-writes allowlist, navigation providers (commands, views, settings, repos, worktrees, terminal sessions, agent roster, refs), git-engine fast NUL-delimited file finder, retrofitted focus trap across modal dialogs, and native menu wiring.
+
 ## 2026-09-25 — Phase 22 — Stash, the reflog, and writes you can take back
 
 [Phase 22](phases/phase-22-stash-and-safety-net.md) marked ✅ DONE (70/70 items verified).
