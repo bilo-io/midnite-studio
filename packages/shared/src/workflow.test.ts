@@ -29,12 +29,14 @@ import {
   portsForNode,
   readLoopKeyPath,
   validateWorkflow,
+  workflowIssueSeverity,
   workflowLoopStates,
   wouldCycle,
   type Workflow,
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowPort,
+  type WorkflowVerifyConfig,
 } from './workflow';
 
 function node(over: Partial<Extract<WorkflowNode, { kind: 'http' }>> = {}): WorkflowNode {
@@ -61,6 +63,18 @@ function workflow(over: Partial<Workflow> = {}): Workflow {
   };
 }
 
+function verifyNode(over: Partial<Extract<WorkflowNode, { kind: 'verify' }>> & { config?: WorkflowVerifyConfig } = {}): WorkflowNode {
+  return {
+    id: 'v',
+    label: 'Verify',
+    x: 0,
+    y: 0,
+    kind: 'verify',
+    config: { check: 'exit-code', command: 'exit 0', env: {} },
+    ...over,
+  } as WorkflowNode;
+}
+
 describe('WorkflowSchema', () => {
   it('round-trips a two-node workflow through JSON unchanged', () => {
     const w = workflow();
@@ -71,8 +85,8 @@ describe('WorkflowSchema', () => {
     expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
     // cannot drift apart without this failing. `agent`/`script` (Theme J),
-    // `join` (Theme B), `gate` (Theme D) and `router` (Theme F) joined the
-    // MVP's original five.
+    // `join` (Theme B), `gate` (Theme D), `router` (Theme F) and `verify`
+    // (Theme E) joined the MVP's original five.
     expect(WORKFLOW_NODE_KINDS).toEqual([
       'http',
       'transform',
@@ -84,6 +98,7 @@ describe('WorkflowSchema', () => {
       'join',
       'gate',
       'router',
+      'verify',
     ]);
   });
 
@@ -388,6 +403,73 @@ describe('validateWorkflow', () => {
       { message: 'A note cannot be connected — it is a label, not a step.', edgeId: 'e1' },
     ]);
   });
+
+  it('names a verify node missing its check-specific fields (Theme E)', () => {
+    const noAgent = validateWorkflow(
+      workflow({ nodes: [verifyNode({ config: { check: 'agent', agentId: '', prompt: '' } })], edges: [] }),
+    );
+    expect(noAgent).toEqual([{ message: '"Verify" has no agent selected for its check.', nodeId: 'v' }]);
+
+    const noCommand = validateWorkflow(
+      workflow({ nodes: [verifyNode({ config: { check: 'exit-code', command: '  ', env: {} } })], edges: [] }),
+    );
+    expect(noCommand).toEqual([{ message: '"Verify" has no command.', nodeId: 'v' }]);
+
+    const noTestCommand = validateWorkflow(
+      workflow({
+        nodes: [
+          verifyNode({ config: { check: 'test-counts', command: '', env: {}, parser: 'vitest', minPassed: 1 } }),
+        ],
+        edges: [],
+      }),
+    );
+    expect(noTestCommand).toEqual([{ message: '"Verify" has no command.', nodeId: 'v' }]);
+
+    const noRight = validateWorkflow(
+      workflow({
+        nodes: [verifyNode({ config: { check: 'json-path', source: '{{a.status}}', op: 'eq' } })],
+        edges: [],
+      }),
+    );
+    expect(noRight).toEqual([
+      { message: '"Verify" compares with "eq" but has no right-hand value.', nodeId: 'v' },
+    ]);
+  });
+
+  it('warns (does not error) when a verify agent check shares its maker\'s agent id (Theme E)', () => {
+    const maker: WorkflowNode = { id: 'm', label: 'Build', x: 0, y: 0, kind: 'agent', config: { agentId: 'claude', prompt: 'build it' } };
+    const checker = verifyNode({ config: { check: 'agent', agentId: 'claude', prompt: 'check it' } });
+
+    const issues = validateWorkflow(
+      workflow({ nodes: [maker, checker], edges: [{ id: 'e1', from: 'm', to: 'v' }] }),
+    );
+    expect(issues).toEqual([
+      {
+        message:
+          '"Verify" checks the same agent ("claude") that produced the work it is checking — a checker that is not the maker catches more.',
+        nodeId: 'v',
+        severity: 'warning',
+      },
+    ]);
+    expect(issues.every((issue) => workflowIssueSeverity(issue) === 'warning')).toBe(true);
+  });
+
+  it('does not warn when a verify agent check uses a different agent than its maker (Theme E)', () => {
+    const maker: WorkflowNode = { id: 'm', label: 'Build', x: 0, y: 0, kind: 'agent', config: { agentId: 'claude', prompt: 'build it' } };
+    const checker = verifyNode({ config: { check: 'agent', agentId: 'codex', prompt: 'check it' } });
+
+    const issues = validateWorkflow(
+      workflow({ nodes: [maker, checker], edges: [{ id: 'e1', from: 'm', to: 'v' }] }),
+    );
+    expect(issues).toEqual([]);
+  });
+});
+
+describe('workflowIssueSeverity', () => {
+  it('reads an unset severity as the blocking default', () => {
+    expect(workflowIssueSeverity({ severity: undefined })).toBe('error');
+    expect(workflowIssueSeverity({ severity: 'warning' })).toBe('warning');
+  });
 });
 
 describe('portsForNode', () => {
@@ -453,6 +535,15 @@ describe('portsForNode', () => {
     expect(ports.filter((p) => p.direction === 'in').every((p) => p.allowMultiple === undefined)).toBe(true);
     expect(ports.some((p) => p.id === 'out' && p.direction === 'out')).toBe(true);
     expect(ports.some((p) => p.id === WORKFLOW_ERROR_PORT_ID && p.direction === 'out')).toBe(true);
+  });
+
+  it('settles a verify node on named pass/fail verdict out-ports, plus the standard error port (Theme E)', () => {
+    const ports = portsForNode(verifyNode());
+    const outPorts = ports.filter((p) => p.direction === 'out');
+    expect(outPorts.map((p) => p.id).sort()).toEqual(['error', 'fail', 'pass']);
+    expect(outPorts.find((p) => p.id === 'pass')).toMatchObject({ type: 'verdict' });
+    expect(outPorts.find((p) => p.id === 'fail')).toMatchObject({ type: 'verdict' });
+    expect(ports).toContainEqual(expect.objectContaining({ id: 'in', direction: 'in', allowMultiple: true }));
   });
 
   it('only an allSettled join pins a fulfilled/rejected outputShape on `out`', () => {
@@ -972,5 +1063,36 @@ describe('nodeRunIteration / workflowLoopStates (Theme C readers)', () => {
     expect(nodeRunIteration({})).toBe(1);
     expect(nodeRunIteration({ iteration: 3 })).toBe(3);
     expect(workflowLoopStates({})).toEqual([]);
+  });
+});
+
+describe('WorkflowVerifyConfigSchema / verify node (Theme E)', () => {
+  it('round-trips every check kind through JSON unchanged', () => {
+    const configs: WorkflowVerifyConfig[] = [
+      { check: 'agent', agentId: 'claude', prompt: 'Grade this.', model: 'opus' },
+      { check: 'exit-code', command: 'npm test', cwd: '/repo', env: { CI: '1' } },
+      { check: 'test-counts', command: 'vitest --reporter=json', cwd: undefined, env: {}, parser: 'vitest', minPassed: 1 },
+      { check: 'json-path', source: '{{a.status}}', op: 'eq', right: '200' },
+    ];
+    for (const config of configs) {
+      const n = verifyNode({ config });
+      expect(WorkflowNodeSchema.parse(JSON.parse(JSON.stringify(n)))).toEqual(n);
+    }
+  });
+
+  it('rejects a check kind outside the closed vocabulary', () => {
+    const result = WorkflowNodeSchema.safeParse(verifyNode({ config: { check: 'llm-vibes' } as unknown as WorkflowVerifyConfig }));
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects json-path with a non-empty op and no right-hand value at the schema level too — right stays optional, so this is validateWorkflow\'s job, not zod\'s', () => {
+    // Documents the boundary: zod alone accepts `right: undefined` for any op
+    // (the same "half-built workflow must still save" reasoning `condition`
+    // already relies on) — `validateWorkflow`'s own test above is what
+    // actually enforces the rule at run time.
+    const parsed = WorkflowNodeSchema.safeParse(
+      verifyNode({ config: { check: 'json-path', source: '{{a.status}}', op: 'eq' } }),
+    );
+    expect(parsed.success).toBe(true);
   });
 });
