@@ -910,7 +910,7 @@ function WorkflowRunSessionsGroup({
 
   const kill = (event: React.MouseEvent) => {
     event.stopPropagation();
-    useUiStore.getState().openKillSwitch({ workflowId: group.workflowId });
+    useUiStore.getState().openKillSwitch({ workflowId: group.workflowId, runId: group.runId });
   };
 
   return (

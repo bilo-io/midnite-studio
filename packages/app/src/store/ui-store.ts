@@ -1438,7 +1438,17 @@ export type UiState = {
    * stale workflow.
    */
   killSwitchFlowWorkflowId: string | null;
-  openKillSwitch: (flow?: { workflowId: string }) => void;
+  /**
+   * The specific run the kill switch was opened FOR (Phase 97 Theme D) —
+   * alongside `killSwitchFlowWorkflowId`, so the `flow` scope's Confirm can
+   * cancel the run itself (`bridge().workflow.cancel`), not only close its
+   * terminal sessions. A `gate` node has no pty at all, so closing sessions
+   * alone left a waiting gate completely unstoppable via this modal before
+   * this field existed. Cleared on close for the identical reason the
+   * workflow id is.
+   */
+  killSwitchFlowRunId: string | null;
+  openKillSwitch: (flow?: { workflowId: string; runId?: string }) => void;
   closeKillSwitch: () => void;
   /**
    * Which skill each entry of the sidebar's midnite menu invokes.
@@ -2219,6 +2229,7 @@ export const useUiStore = create<UiState>()(
       automateCapByProject: {},
       killSwitchOpen: false,
       killSwitchFlowWorkflowId: null,
+      killSwitchFlowRunId: null,
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
@@ -2942,8 +2953,13 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           automateCapByProject: { ...state.automateCapByProject, [projectId]: clampAutomateConcurrency(cap) },
         })),
-      openKillSwitch: (flow) => set({ killSwitchOpen: true, killSwitchFlowWorkflowId: flow?.workflowId ?? null }),
-      closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null }),
+      openKillSwitch: (flow) =>
+        set({
+          killSwitchOpen: true,
+          killSwitchFlowWorkflowId: flow?.workflowId ?? null,
+          killSwitchFlowRunId: flow?.runId ?? null,
+        }),
+      closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
