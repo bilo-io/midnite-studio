@@ -18,9 +18,12 @@ import {
   ancestorIds,
   canConnect,
   canConnectLoop,
+  checkNodePolicy,
   findAcyclicEdgeViolation,
   findCycleEdge,
+  formatFrameContractContext,
   formatLoopFailuresBlock,
+  governingPolicies,
   hashLoopKey,
   loopBodyNodeIds,
   migrateWorkflowEdges,
@@ -33,6 +36,7 @@ import {
   workflowLoopStates,
   wouldCycle,
   type Workflow,
+  type WorkflowAction,
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowPort,
@@ -1179,5 +1183,195 @@ describe('WorkflowTriggerConfigSchema (Theme H)', () => {
       'opened',
       'updated',
     ]);
+  });
+});
+
+// --- Phase 97 Theme I: harness frame and policy gate --------------------------
+
+function frameNode(over: Partial<Extract<WorkflowNode, { kind: 'frame' }>> = {}): WorkflowNode {
+  return {
+    id: 'f',
+    label: 'THE AGENT HARNESS',
+    x: 0,
+    y: 0,
+    kind: 'frame',
+    config: { contract: '', context: '', state: '', tools: '', permissions: '', evidence: '', width: 640, height: 320 },
+    ...over,
+  } as WorkflowNode;
+}
+
+function policyNode(over: Partial<Extract<WorkflowNode, { kind: 'policy' }>> = {}): WorkflowNode {
+  return {
+    id: 'p',
+    label: 'Policy',
+    x: 0,
+    y: 0,
+    kind: 'policy',
+    config: { allow: [], requireApprovalFor: [] },
+    ...over,
+  } as WorkflowNode;
+}
+
+function httpNodeWithActions(id: string, actions: WorkflowAction[]): WorkflowNode {
+  return node({ id, config: { method: 'GET', url: 'http://127.0.0.1/x', headers: {}, params: {}, queryShaped: false, actions } });
+}
+
+describe('portsForNode (Theme I: frame and policy)', () => {
+  it('gives a frame no ports at all — canvas furniture, like note', () => {
+    expect(portsForNode(frameNode())).toEqual([]);
+  });
+
+  it('gives a policy an ordinary in/out/error shape', () => {
+    const ports = portsForNode(policyNode());
+    expect(ports.some((p) => p.id === 'in' && p.direction === 'in')).toBe(true);
+    expect(ports.some((p) => p.id === 'out' && p.direction === 'out')).toBe(true);
+    expect(ports.some((p) => p.id === WORKFLOW_ERROR_PORT_ID && p.direction === 'out')).toBe(true);
+  });
+});
+
+describe('formatFrameContractContext', () => {
+  it('is empty when both slots are blank', () => {
+    expect(formatFrameContractContext({ contract: '', context: '   ' })).toBe('');
+  });
+
+  it('formats only the slots that are set', () => {
+    expect(formatFrameContractContext({ contract: 'Ship the fix.', context: '' })).toBe('Contract:\nShip the fix.\n\n');
+  });
+
+  it('joins both slots with a blank line between, and trails one', () => {
+    const result = formatFrameContractContext({ contract: 'Ship the fix.', context: 'Repo X, branch Y.' });
+    expect(result).toBe('Contract:\nShip the fix.\n\nContext:\nRepo X, branch Y.\n\n');
+  });
+});
+
+describe('governingPolicies / checkNodePolicy', () => {
+  it('finds nothing to check for a node with no declared actions, even under a policy', () => {
+    const nodes = [policyNode({ id: 'p', config: { allow: [], requireApprovalFor: [] } }), node({ id: 'a' })];
+    const edges: WorkflowEdge[] = [{ id: 'e1', from: 'p', to: 'a' }];
+    expect(checkNodePolicy(nodes[1]!, nodes, edges)).toEqual({ denied: [], requiresApproval: [] });
+  });
+
+  it('finds nothing to check for a node with declared actions but no governing policy', () => {
+    const httpNode = httpNodeWithActions('a', ['network']);
+    expect(checkNodePolicy(httpNode, [httpNode], [])).toEqual({ denied: [], requiresApproval: [] });
+  });
+
+  it('denies an action no governing policy allows', () => {
+    const policy = policyNode({ id: 'p', config: { allow: ['write-files'], requireApprovalFor: [] } });
+    const httpNode = httpNodeWithActions('a', ['network']);
+    const edges: WorkflowEdge[] = [{ id: 'e1', from: 'p', to: 'a' }];
+    expect(governingPolicies('a', [policy, httpNode], edges)).toEqual([policy]);
+    expect(checkNodePolicy(httpNode, [policy, httpNode], edges)).toEqual({ denied: ['network'], requiresApproval: [] });
+  });
+
+  it('flags requiresApproval only for an action that is BOTH allowed and in requireApprovalFor', () => {
+    const policy = policyNode({ id: 'p', config: { allow: ['network'], requireApprovalFor: ['network'] } });
+    const httpNode = httpNodeWithActions('a', ['network']);
+    const edges: WorkflowEdge[] = [{ id: 'e1', from: 'p', to: 'a' }];
+    expect(checkNodePolicy(httpNode, [policy, httpNode], edges)).toEqual({ denied: [], requiresApproval: ['network'] });
+  });
+
+  it('denial always wins — an action in requireApprovalFor but NOT in allow is denied, never a pending approval', () => {
+    const policy = policyNode({ id: 'p', config: { allow: [], requireApprovalFor: ['network'] } });
+    const httpNode = httpNodeWithActions('a', ['network']);
+    const edges: WorkflowEdge[] = [{ id: 'e1', from: 'p', to: 'a' }];
+    expect(checkNodePolicy(httpNode, [policy, httpNode], edges)).toEqual({ denied: ['network'], requiresApproval: [] });
+  });
+
+  it('governs through multiple hops — reuses ancestorIds, not just direct parents', () => {
+    const policy = policyNode({ id: 'p', config: { allow: ['network'], requireApprovalFor: [] } });
+    const mid: WorkflowNode = { id: 'mid', label: 'Pass through', x: 0, y: 0, kind: 'transform', config: { picks: [] } };
+    const httpNode = httpNodeWithActions('a', ['network']);
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', from: 'p', to: 'mid' },
+      { id: 'e2', from: 'mid', to: 'a' },
+    ];
+    expect(checkNodePolicy(httpNode, [policy, mid, httpNode], edges)).toEqual({ denied: [], requiresApproval: [] });
+  });
+
+  it('unions allow/requireApprovalFor across every governing policy', () => {
+    const policyA = policyNode({ id: 'p1', config: { allow: ['network'], requireApprovalFor: [] } });
+    const policyB = policyNode({ id: 'p2', config: { allow: ['write-files'], requireApprovalFor: ['write-files'] } });
+    const httpNode = httpNodeWithActions('a', ['network', 'write-files']);
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', from: 'p1', to: 'a' },
+      { id: 'e2', from: 'p2', to: 'a' },
+    ];
+    expect(checkNodePolicy(httpNode, [policyA, policyB, httpNode], edges)).toEqual({
+      denied: [],
+      requiresApproval: ['write-files'],
+    });
+  });
+});
+
+describe('validateWorkflow (Theme I: frame and policy)', () => {
+  it('blocks Run when a node performs an action no governing policy allows', () => {
+    const policy = policyNode({ id: 'p', config: { allow: [], requireApprovalFor: [] } });
+    const httpNode = httpNodeWithActions('a', ['network']);
+    const w = workflow({ nodes: [policy, httpNode], edges: [{ id: 'e1', from: 'p', to: 'a' }] });
+    const issues = validateWorkflow(w);
+    expect(issues.some((i) => i.nodeId === 'a' && workflowIssueSeverity(i) === 'error')).toBe(true);
+  });
+
+  it('does not flag a node whose declared action IS allowed', () => {
+    const policy = policyNode({ id: 'p', config: { allow: ['network'], requireApprovalFor: [] } });
+    const httpNode = httpNodeWithActions('a', ['network']);
+    const w = workflow({ nodes: [policy, httpNode], edges: [{ id: 'e1', from: 'p', to: 'a' }] });
+    expect(validateWorkflow(w).some((i) => i.nodeId === 'a')).toBe(false);
+  });
+
+  it('rejects a frame that itself sits inside another frame', () => {
+    const outer = frameNode({ id: 'outer' });
+    const inner = frameNode({ id: 'inner', frameId: 'outer' });
+    const w = workflow({ nodes: [outer, inner], edges: [] });
+    expect(validateWorkflow(w).some((i) => i.nodeId === 'inner')).toBe(true);
+  });
+
+  it('rejects a dangling frameId', () => {
+    const w = workflow({ nodes: [node({ frameId: 'does-not-exist' })], edges: [] });
+    expect(validateWorkflow(w).some((i) => i.nodeId === 'a')).toBe(true);
+  });
+
+  it('rejects a frameId pointing at a non-frame node', () => {
+    const other = node({ id: 'b' });
+    const w = workflow({ nodes: [node({ frameId: 'b' }), other], edges: [] });
+    expect(validateWorkflow(w).some((i) => i.nodeId === 'a')).toBe(true);
+  });
+
+  it('accepts a valid frameId pointing at a real frame, with no issue', () => {
+    const frame = frameNode();
+    const w = workflow({ nodes: [node({ frameId: 'f' }), frame], edges: [] });
+    expect(validateWorkflow(w).some((i) => i.nodeId === 'a')).toBe(false);
+  });
+
+  it('rejects an edge touching a frame — it groups nodes, it is not a step', () => {
+    const frame = frameNode();
+    const other = node({ id: 'b' });
+    const w = workflow({ nodes: [frame, other], edges: [{ id: 'e1', from: 'f', to: 'b' }] });
+    expect(validateWorkflow(w).some((i) => i.edgeId === 'e1')).toBe(true);
+  });
+
+  it('treats a workflow of only notes and frames as having nothing to run', () => {
+    const w = workflow({
+      nodes: [
+        { id: 'n', label: 'Note', x: 0, y: 0, kind: 'note', config: { text: '' } },
+        frameNode(),
+      ],
+      edges: [],
+    });
+    expect(validateWorkflow(w).some((i) => i.message === 'This workflow has nothing to run.')).toBe(true);
+  });
+});
+
+describe('WorkflowSchema (Theme I: frameId survives save/load)', () => {
+  it('round-trips a member node under a frame through JSON unchanged', () => {
+    const w = workflow({ nodes: [node({ frameId: 'f' }), frameNode()], edges: [] });
+    expect(WorkflowSchema.parse(JSON.parse(JSON.stringify(w)))).toEqual(w);
+  });
+
+  it('leaves frameId unset for every node that never had one — every pre-Theme-I workflow', () => {
+    const w = workflow();
+    const parsed = WorkflowSchema.parse(w);
+    expect(parsed.nodes.every((n) => n.frameId === undefined)).toBe(true);
   });
 });
