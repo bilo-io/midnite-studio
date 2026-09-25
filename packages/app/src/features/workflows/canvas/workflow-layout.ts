@@ -31,9 +31,51 @@ export function fromFlowPosition(position: { x: number; y: number }): { x: numbe
   return { x: position.x, y: position.y };
 }
 
+/** A frame's own auto-layout position pads its members' bounding box by this much on every side (Phase 97 Theme I) — enough that a member card reads as visibly "inside" rather than flush against the border. */
+export const WORKFLOW_FRAME_LAYOUT_PADDING = 48;
+
+/**
+ * Positions each `frame` node (Phase 97 Theme I) to bound its own members
+ * (`WorkflowNode.frameId`), padded — called from {@link autoLayout} AFTER
+ * dagre has already placed every non-frame node, so `positions` already
+ * holds every member's new spot. A frame with zero members is left alone
+ * entirely (nothing to bound around, and dagre never touches a `frame`
+ * node either — see {@link autoLayout}'s own doc comment), which is what
+ * keeps an empty frame's own last drag-placed position stable across an
+ * auto-layout run.
+ */
+function boundFrames(
+  nodes: readonly WorkflowNode[],
+  positions: Map<string, { x: number; y: number; width?: number; height?: number }>,
+): void {
+  for (const frame of nodes) {
+    if (frame.kind !== 'frame') continue;
+    const members = nodes.filter((n) => n.frameId === frame.id);
+    if (members.length === 0) continue;
+
+    const rects = members.map((member) => {
+      const pos = positions.get(member.id) ?? { x: member.x, y: member.y };
+      return { x: pos.x, y: pos.y, width: WORKFLOW_NODE_WIDTH, height: WORKFLOW_NODE_HEIGHT };
+    });
+    const minX = Math.min(...rects.map((r) => r.x));
+    const minY = Math.min(...rects.map((r) => r.y));
+    const maxX = Math.max(...rects.map((r) => r.x + r.width));
+    const maxY = Math.max(...rects.map((r) => r.y + r.height));
+
+    positions.set(frame.id, {
+      x: minX - WORKFLOW_FRAME_LAYOUT_PADDING,
+      y: minY - WORKFLOW_FRAME_LAYOUT_PADDING,
+      width: maxX - minX + WORKFLOW_FRAME_LAYOUT_PADDING * 2,
+      height: maxY - minY + WORKFLOW_FRAME_LAYOUT_PADDING * 2,
+    });
+  }
+}
+
 /**
  * Auto-arranges a graph left-to-right with dagre (Theme I's toolbar "Auto
- * layout" action) and returns each node's next `{x, y}`, keyed by id.
+ * layout" action) and returns each node's next `{x, y}` (and, for a `frame`
+ * with members, its next `{width, height}` too — see {@link boundFrames}),
+ * keyed by id.
  *
  * **Never runs on open or on every edit** — only from the explicit toolbar
  * button. Running it silently on load would fight a user who dragged nodes
@@ -43,16 +85,23 @@ export function fromFlowPosition(position: { x: number; y: number }): { x: numbe
  * `rankdir: 'LR'` matches the node card's own left-in/right-out ports
  * (`workflow-node-view.tsx`'s `Handle` placement) — the same left-to-right
  * flow the old SVG canvas drew.
+ *
+ * **`frame` nodes never enter dagre at all** (Phase 97 Theme I) — they have
+ * no edges to rank by (`validateWorkflow` refuses any edge touching one,
+ * same as `note`), and their own fixed `WORKFLOW_NODE_WIDTH`/`HEIGHT` box
+ * would be the wrong size besides. `boundFrames` positions them afterward,
+ * once every real node's rank is settled.
  */
 export function autoLayout(
   nodes: readonly WorkflowNode[],
   edges: readonly WorkflowEdge[],
-): Map<string, { x: number; y: number }> {
+): Map<string, { x: number; y: number; width?: number; height?: number }> {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: 'LR', nodesep: 32, ranksep: 96 });
   g.setDefaultEdgeLabel(() => ({}));
 
   for (const node of nodes) {
+    if (node.kind === 'frame') continue;
     g.setNode(node.id, { width: WORKFLOW_NODE_WIDTH, height: WORKFLOW_NODE_HEIGHT });
   }
   for (const edge of edges) {
@@ -70,7 +119,7 @@ export function autoLayout(
 
   dagre.layout(g);
 
-  const positions = new Map<string, { x: number; y: number }>();
+  const positions = new Map<string, { x: number; y: number; width?: number; height?: number }>();
   for (const node of nodes) {
     const laidOut = g.node(node.id) as { x: number; y: number } | undefined;
     if (!laidOut) continue;
@@ -78,22 +127,38 @@ export function autoLayout(
     // top-left corner, the same adjustment `toFlowPosition`'s docblock notes.
     positions.set(node.id, { x: laidOut.x - WORKFLOW_NODE_WIDTH / 2, y: laidOut.y - WORKFLOW_NODE_HEIGHT / 2 });
   }
+  boundFrames(nodes, positions);
   return positions;
 }
 
 /** `WorkflowNode`/`WorkflowEdge` → React Flow's own `Node`/`Edge` shape, for the canvas's controlled render. */
+/**
+ * `WorkflowNode`/`WorkflowEdge` → React Flow's own `Node`/`Edge` shape, for
+ * the canvas's controlled render.
+ *
+ * **`frame` nodes (Phase 97 Theme I) sort first** in the returned array —
+ * React Flow paints later array entries on top of earlier ones, so this
+ * alone is what puts every member card visually above its own frame, with
+ * no CSS z-index tricks and no real React-Flow parent/child nesting (which
+ * would make a member's position PARENT-RELATIVE and break
+ * {@link toFlowPosition}'s documented identity-mapping invariant for every
+ * other node). `zIndex: -1` on the frame itself is redundant insurance for
+ * the same ordering, not the actual mechanism.
+ */
 export function toFlowGraph(
   nodes: readonly WorkflowNode[],
   edges: readonly WorkflowEdge[],
 ): { nodes: Node[]; edges: Edge[] } {
+  const ordered = [...nodes.filter((n) => n.kind === 'frame'), ...nodes.filter((n) => n.kind !== 'frame')];
   return {
-    nodes: nodes.map((node) => ({
+    nodes: ordered.map((node) => ({
       id: node.id,
       type: 'workflowNode',
       position: toFlowPosition(node),
       data: { node },
-      width: WORKFLOW_NODE_WIDTH,
-      height: WORKFLOW_NODE_HEIGHT,
+      width: node.kind === 'frame' ? node.config.width : WORKFLOW_NODE_WIDTH,
+      height: node.kind === 'frame' ? node.config.height : WORKFLOW_NODE_HEIGHT,
+      ...(node.kind === 'frame' ? { zIndex: -1 } : {}),
     })),
     edges: edges.map((edge) => ({
       id: edge.id,

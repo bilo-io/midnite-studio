@@ -387,7 +387,27 @@ function WorkflowCanvasInner({
   const handleAutoLayout = useCallback(() => {
     const positions = autoLayout(graphRef.current.nodes, graphRef.current.edges);
     commit({
-      nodes: graphRef.current.nodes.map((node) => ({ ...node, ...(positions.get(node.id) ?? { x: node.x, y: node.y }) })),
+      nodes: graphRef.current.nodes.map((node) => {
+        const pos = positions.get(node.id);
+        if (!pos) return node;
+        // Phase 97 Theme I — a frame's next `width`/`height` (from
+        // `autoLayout`'s own `boundFrames` pass) lives in `config`, not on
+        // the node root the way `x`/`y` do; every other kind never gets a
+        // `width`/`height` entry in `positions` at all.
+        if (node.kind === 'frame' && (pos.width !== undefined || pos.height !== undefined)) {
+          return {
+            ...node,
+            x: pos.x,
+            y: pos.y,
+            config: {
+              ...node.config,
+              ...(pos.width !== undefined ? { width: pos.width } : {}),
+              ...(pos.height !== undefined ? { height: pos.height } : {}),
+            },
+          };
+        }
+        return { ...node, x: pos.x, y: pos.y };
+      }),
       edges: graphRef.current.edges,
     });
     requestAnimationFrame(() => fitView({ padding: 0.2, duration: 200 }));
