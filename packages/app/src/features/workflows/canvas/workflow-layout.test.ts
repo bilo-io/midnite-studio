@@ -1,10 +1,29 @@
 import type { WorkflowEdge, WorkflowNode } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { autoLayout, fromFlowPosition, toFlowGraph, toFlowPosition } from './workflow-layout';
+import {
+  autoLayout,
+  fromFlowPosition,
+  toFlowGraph,
+  toFlowPosition,
+  WORKFLOW_FRAME_LAYOUT_PADDING,
+  WORKFLOW_NODE_HEIGHT,
+  WORKFLOW_NODE_WIDTH,
+} from './workflow-layout';
 
-function node(id: string, x: number, y: number): WorkflowNode {
-  return { id, label: id, x, y, kind: 'note', config: { text: '' } };
+function node(id: string, x: number, y: number, frameId?: string): WorkflowNode {
+  return { id, label: id, x, y, kind: 'note', config: { text: '' }, ...(frameId !== undefined ? { frameId } : {}) };
+}
+
+function frameNode(id: string, x = 0, y = 0, width = 400, height = 200): WorkflowNode {
+  return {
+    id,
+    label: 'THE AGENT HARNESS',
+    x,
+    y,
+    kind: 'frame',
+    config: { contract: '', context: '', state: '', tools: '', permissions: '', evidence: '', width, height },
+  };
 }
 
 describe('toFlowPosition / fromFlowPosition (position migration)', () => {
@@ -39,6 +58,27 @@ describe('toFlowGraph', () => {
         data: { edge: edges[0] },
       },
     ]);
+  });
+
+  it('sorts frame nodes first (Theme I) — React Flow paints later entries on top, so this puts member cards above their frame', () => {
+    const nodes = [node('member', 10, 10), frameNode('f'), node('other', 20, 20)];
+    const { nodes: flowNodes } = toFlowGraph(nodes, []);
+    expect(flowNodes.map((n) => n.id)).toEqual(['f', 'member', 'other']);
+  });
+
+  it('sizes a frame node from its own config, not the fixed card size every other kind uses', () => {
+    const { nodes: flowNodes } = toFlowGraph([frameNode('f', 0, 0, 640, 320)], []);
+    const frame = flowNodes.find((n) => n.id === 'f')!;
+    expect(frame.width).toBe(640);
+    expect(frame.height).toBe(320);
+    expect(frame.zIndex).toBe(-1);
+  });
+
+  it('sizes an ordinary node from the fixed card constants, unaffected by any frame in the same graph', () => {
+    const { nodes: flowNodes } = toFlowGraph([frameNode('f'), node('a', 0, 0)], []);
+    const plain = flowNodes.find((n) => n.id === 'a')!;
+    expect(plain.width).toBe(WORKFLOW_NODE_WIDTH);
+    expect(plain.height).toBe(WORKFLOW_NODE_HEIGHT);
   });
 });
 
@@ -90,5 +130,41 @@ describe('autoLayout', () => {
     expect(withLoop.get('a')).toEqual(withoutLoop.get('a'));
     expect(withLoop.get('b')).toEqual(withoutLoop.get('b'));
     expect(withLoop.get('c')).toEqual(withoutLoop.get('c'));
+  });
+
+  describe('frame containment (Phase 97 Theme I)', () => {
+    it("bounds a frame's next position/size to its members' padded bounding box, once dagre has placed them", () => {
+      const nodes = [frameNode('f'), node('a', 0, 0, 'f'), node('b', 0, 0, 'f')];
+      const edges: WorkflowEdge[] = [{ id: 'e1', from: 'a', to: 'b' }];
+      const positions = autoLayout(nodes, edges);
+
+      const a = positions.get('a')!;
+      const b = positions.get('b')!;
+      const frame = positions.get('f')!;
+
+      const minX = Math.min(a.x, b.x);
+      const minY = Math.min(a.y, b.y);
+      const maxX = Math.max(a.x, b.x) + WORKFLOW_NODE_WIDTH;
+      const maxY = Math.max(a.y, b.y) + WORKFLOW_NODE_HEIGHT;
+
+      expect(frame.x).toBe(minX - WORKFLOW_FRAME_LAYOUT_PADDING);
+      expect(frame.y).toBe(minY - WORKFLOW_FRAME_LAYOUT_PADDING);
+      expect(frame.width).toBe(maxX - minX + WORKFLOW_FRAME_LAYOUT_PADDING * 2);
+      expect(frame.height).toBe(maxY - minY + WORKFLOW_FRAME_LAYOUT_PADDING * 2);
+    });
+
+    it('leaves a frame with no members out of the position map entirely — its last position/size survives auto-layout untouched', () => {
+      const nodes = [frameNode('f', 100, 200, 400, 200), node('a', 0, 0)];
+      const positions = autoLayout(nodes, []);
+      expect(positions.has('f')).toBe(false);
+    });
+
+    it('never enters a frame node into dagre — it has no edges to rank by', () => {
+      // A frame with an (invalid, `validateWorkflow` would reject it) edge
+      // touching it must not crash dagre or claim a rank.
+      const nodes = [frameNode('f'), node('a', 0, 0)];
+      const edges: WorkflowEdge[] = [{ id: 'e1', from: 'f', to: 'a' }];
+      expect(() => autoLayout(nodes, edges)).not.toThrow();
+    });
   });
 });
