@@ -144,6 +144,34 @@ describe('RunOutputPanel', () => {
       );
     });
   });
+
+  describe('an interrupted run (Phase 97 Theme G)', () => {
+    afterEach(() => {
+      delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    });
+
+    it('shows a Resume button only when the run is interrupted', () => {
+      render(<RunOutputPanel run={run({ status: 'interrupted' })} collapsed={false} onToggleCollapsed={() => {}} height={200} />);
+      expect(screen.getByRole('button', { name: 'Resume run' })).not.toBeNull();
+    });
+
+    it('does not show Resume for a completed run', () => {
+      render(<RunOutputPanel run={run({ status: 'completed' })} collapsed={false} onToggleCollapsed={() => {}} height={200} />);
+      expect(screen.queryByRole('button', { name: 'Resume run' })).toBeNull();
+    });
+
+    it('Resume calls bridge().workflow.resume with the run id', async () => {
+      const resume = vi.fn().mockResolvedValue({ ok: true });
+      (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
+        workflow: { resume } as unknown as MidniteStudioBridge['workflow'],
+      } as Partial<MidniteStudioBridge>;
+
+      render(<RunOutputPanel run={run({ status: 'interrupted' })} collapsed={false} onToggleCollapsed={() => {}} height={200} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Resume run' }));
+
+      await waitFor(() => expect(resume).toHaveBeenCalledWith({ runId: 'r1' }));
+    });
+  });
 });
 
 describe('runToMarkdown', () => {
