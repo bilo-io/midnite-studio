@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 25 — Search everywhere, and the blame that explains it
+
+[Phase 25](phases/phase-25-search-everywhere.md) marked ✅ DONE (101/101 items verified).
+Full history and content search across engine, desktop, and app: widened log arg builder with pickaxe (-S/-G) and --follow, streamed git grep at any revision with context lines, porcelain blame parser and reader, per-window stream registry with concurrency ceilings and 5,000-hit cap, 3-mode Search view with TanStack Virtual scroller, status-bar search progress readout with in-place cancellation, CodePreview per-line row model with blame gutter, floating find bar (Mod+f), and Search settings page.
+
 ## 2026-09-25 — Phase 24 — The explorer learns to write, and to search
 
 [Phase 24](phases/phase-24-writable-explorer.md) marked ✅ DONE (70/70 items verified).

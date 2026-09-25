@@ -508,7 +508,7 @@ is independent of D.
 **The first two items are a prerequisite for Theme C's scroll-to-line and Theme E's find bar**, and
 land before either. Everything after them is blame proper.
 
-- [ ] `CodePreview` in [`code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx)
+- [x] `CodePreview` in [`code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx)
       renders **one row per line** instead of one HTML blob. Today it calls `codeToHtml` and drops the
       result into a single `overflow-auto` div through `dangerouslySetInnerHTML` — there is no
       per-line DOM, no line number and no metric anything else can hang off. Switch to
@@ -526,11 +526,11 @@ land before either. Everything after them is blame proper.
     existing cap's purpose — no synchronous tokenizing of a minified bundle — intact.
   - `dangerouslySetInnerHTML` leaves the file. Note it in the commit message: the comment that
     justified it goes with it.
-- [ ] `export function scrollPreviewToLine(container: HTMLElement, line: number): void` beside it —
+- [x] `export function scrollPreviewToLine(container: HTMLElement, line: number): void` beside it —
       `container.querySelector(`[data-line="${line}"]`)?.scrollIntoView({ block: 'center' })`,
       a no-op when the line is absent. This is the one function Theme C's hit navigation and Theme E's
       find bar both call; neither reaches into the DOM itself.
-- [ ] A blame gutter in
+- [x] A blame gutter in
       [`file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx), passed to
       `CodePreview` as its `gutter` prop, toggled per file and off by default. Each line shows a
       short sha, the author and a relative date; runs from the same commit are visually grouped so a
@@ -547,11 +547,11 @@ land before either. Everything after them is blame proper.
     preference about the pane.
   - Uncommitted lines (sha `0000000…`) render “Uncommitted” in italic muted text with no date and
     no click target.
-- [ ] Blame is read through `blame.read` and cached with a new
+- [x] Blame is read through `blame.read` and cached with a new
       `keys.blame(repoId, relPath, rev, followRenames)` in
       [`services/queries.ts`](../packages/app/src/services/queries.ts), returning the prefix
       `['repos', repoId, 'blame', …]` so a whole repo's blame can be invalidated in one call.
-- [ ] [`services/watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts)
+- [x] [`services/watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts)
       invalidates blame when the file could have changed under it — a blame gutter that still
       describes the previous save is a quietly wrong answer, which is the failure mode this phase is
       least willing to ship.
@@ -563,17 +563,17 @@ land before either. Everything after them is blame proper.
   - That is correct rather than merely cheap: at most one blame query is mounted at a time, because
     there is one preview pane. “All blame queries” is one refetch.
   - Widening the watch contract with paths is explicitly **not in this phase** — see below.
-- [ ] Clicking a blame line opens that commit in the Phase 12 inspector, with the file preselected —
+- [x] Clicking a blame line opens that commit in the Phase 12 inspector, with the file preselected —
       the same navigation a commit hit in Theme C performs, extracted so both call it:
       `openCommitAtFile(sha: string, relPath: string): void` in `features/search/open-search.ts`,
       wrapping `selectCommit` from [`ui-store.ts`](../packages/app/src/store/ui-store.ts):373.
-- [ ] **Reblame:** a per-line action that re-runs blame at the parent of that line's commit,
+- [x] **Reblame:** a per-line action that re-runs blame at the parent of that line's commit,
       answering *what was here before*. It reads the `previous <sha> <filename>` field parsed in
       Theme A, so it follows renames correctly for free rather than guessing the path.
   - The action is on the gutter cell's context menu and on a hover button; a line whose
     `previous` is `null` (the commit that introduced the file) shows the action disabled with the
     title “First version of this file”.
-- [ ] A reblame navigation stack in the store with back/forward, showing the current revision in the
+- [x] A reblame navigation stack in the store with back/forward, showing the current revision in the
       preview header. Without the stack, reblame is a one-way door out of the file you were reading.
   - `stacks: Map<string, { entries: { rev: string; relPath: string }[]; index: number }>` in the
     plain half of `blame-store.ts`, keyed by the same file key as `blameByFile`. Reblame pushes at
@@ -583,11 +583,11 @@ land before either. Everything after them is blame proper.
     historical revision of a file on relaunch, with no memory of why, is worse than losing the
     trail.
   - The header reads `{relPath} @ {shortSha}` with back/forward chevrons, disabled at each end.
-- [ ] A rename-following toggle (`-C -M`) exposed on the gutter as well as in Settings, because it is
+- [x] A rename-following toggle (`-C -M`) exposed on the gutter as well as in Settings, because it is
       a per-investigation decision as often as a preference, and the cost is visible enough that a
       user should be able to turn it on for one file. The gutter toggle overrides the Settings
       default for that file only, and lives in `blameByFile`'s sibling `followByFile`.
-- [ ] `blame-store.test.ts`: the reblame stack pushes, pops and truncates on a new branch of history,
+- [x] `blame-store.test.ts`: the reblame stack pushes, pops and truncates on a new branch of history,
       and clears on repo switch; and `blame-lines.test.ts` over the run-grouping that turns per-line
       records into bands.
 
@@ -595,7 +595,7 @@ land before either. Everything after them is blame proper.
 
 The find bar depends on **D's first two items**.
 
-- [ ] `packages/app/src/components/filter-input.tsx` — the shared text filter that does not exist
+- [x] `packages/app/src/components/filter-input.tsx` — the shared text filter that does not exist
       today. The pattern is already written twice, in
       [`repos-panel.tsx`](../packages/app/src/features/repos/repos-panel.tsx):95 (`matchesRepoQuery`,
       whitespace-split AND terms, lowercased) and
@@ -612,13 +612,13 @@ The find bar depends on **D's first two items**.
   - `matchesTerms` keeps the repos panel's two load-bearing conventions verbatim: an empty query
     matches everything, and the haystack's fields are joined with `\0` so a term cannot span
     two of them.
-- [ ] Retrofit both call sites onto it, and add the third the Changes view has never had:
+- [x] Retrofit both call sites onto it, and add the third the Changes view has never had:
       [`all-changes-view.tsx`](../packages/app/src/features/changes/all-changes-view.tsx) has no
       text filter at all, which is the most obviously missing one in the app.
   - `matchesRepoQuery` becomes a two-line wrapper over `matchesTerms` rather than being deleted —
     it is the panel's domain vocabulary and it has its own callers.
   - The Changes view's haystack is the path only; its placeholder is “Filter changed files”.
-- [ ] A find bar in the file preview on `Mod+f` — find-in-this-file, scoped to the open file and
+- [x] A find bar in the file preview on `Mod+f` — find-in-this-file, scoped to the open file and
       explicitly *not* a second search surface. `features/files/preview/find-bar.tsx`.
   - Match count as “{i} / {n}”, next/previous stepping that **wraps at both ends**, `Enter` = next,
     `Shift+Enter` = previous, `Escape` closes and returns focus to the preview.
@@ -633,7 +633,7 @@ The find bar depends on **D's first two items**.
   - `Mod+f` is bound `scope: 'app'`, so it does not fire while the terminal has focus — `Mod+f`
     inside a shell belongs to the shell. Within the app it is safe: the renderer loads from
     `file://` with no browser find to shadow.
-- [ ] A search box in [`graph-header.tsx`](../packages/app/src/features/graph/graph-header.tsx)
+- [x] A search box in [`graph-header.tsx`](../packages/app/src/features/graph/graph-header.tsx)
       beside the existing ref and author filters. Typing filters the loaded rows by **dimming**,
       matching what `AuthorFilter` already does and for the same reason — dropping rows breaks lane
       topology.
@@ -645,20 +645,20 @@ The find bar depends on **D's first two items**.
     confidently-wrong result this phase exists to avoid.
   - Submitting (`Enter` with no active step, or the box's overflow action) hands off to the Search
     view in commits mode with the query prefilled.
-- [ ] The hand-off is one function, not three: `features/search/open-search.ts` exports
+- [x] The hand-off is one function, not three: `features/search/open-search.ts` exports
       `openSearch(query: string, mode: SearchMode, scope?: { rev?: string; paths?: readonly string[] }): void`,
       which the find bar, the graph box and (when it exists) the palette source all call — so there
       is exactly one definition of what “search this” means.
   - It sets the store's mode, query and scope, then `setActiveView('search')`. It does **not**
     start the search: the view's own debounced effect does, so a hand-off and a keystroke take the
     same path.
-- [ ] `filter-input.test.ts` over `matchesTerms`, including the case-folding, the
+- [x] `filter-input.test.ts` over `matchesTerms`, including the case-folding, the
       empty-query-matches-everything convention both existing call sites rely on, and the
       `\0` join that stops a term matching across two fields.
 
-### F — Chords, the palette source, and Settings (M)
+### F — Chords, the palette source, and Settings (M) — ✅ DONE (2026-08-30)
 
-- [ ] **Fetch moves off `Mod+Shift+f`.** `sync.fetch` becomes `Mod+Shift+r` in `DEFAULT_KEYMAP` in
+- [x] **Fetch moves off `Mod+Shift+f`.** `sync.fetch` becomes `Mod+Shift+r` in `DEFAULT_KEYMAP` in
       [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts):83, and `Mod+Shift+f`
       becomes `search.open`. The fetch-pull-push triad loses its shape — `Shift+r` / `Shift+p` /
       `Shift+u` — and that is the accepted cost of taking the conventional find-in-files chord.
@@ -667,25 +667,25 @@ The find bar depends on **D's first two items**.
     `Mod+Shift+F` never matches, and the keymap test below is what catches it.
   - It is an **edit** to the existing `sync.fetch` entry, not a second entry. Adding rather than
     editing leaves two bindings for one command, which the duplicate-chord test does not catch.
-- [ ] Update the native menu in [`menu.ts`](../packages/desktop/src/main/menu.ts) so the Fetch item's
+- [x] Update the native menu in [`menu.ts`](../packages/desktop/src/main/menu.ts) so the Fetch item's
       displayed accelerator matches, and the sync chips' tooltips with it. A stale accelerator in a
       native menu is the kind of wrong that survives for six phases.
-- [ ] Add `search.open` (`Mod+Shift+f`) and `search.findInFile` (`Mod+f`) to `COMMAND_IDS` and
+- [x] Add `search.open` (`Mod+Shift+f`) and `search.findInFile` (`Mod+f`) to `COMMAND_IDS` and
       `DEFAULT_KEYMAP` with labels `Search` and `Find in File`, and handlers in the dispatcher — the
       handler literal in [`app.tsx`](../packages/app/src/app.tsx) today. `search.open` sets the
       active view; `search.findInFile` opens the preview's find bar and is a no-op outside the
       Files view.
   - *If Phase 23 has landed:* the handlers go in its `useCommandHandlers()` instead. Either way
     this theme adds a handler, not a dispatch mechanism.
-- [ ] `search.open` is `scope: 'global'` so it escapes the terminal via `GLOBAL_CHORDS`
+- [x] `search.open` is `scope: 'global'` so it escapes the terminal via `GLOBAL_CHORDS`
       ([`keybindings.ts`](../packages/shared/src/keybindings.ts):89), the way `terminal.toggle` does;
       `search.findInFile` stays `'app'`, since `Mod+f` inside a shell belongs to the shell.
-- [ ] Extend the keymap test in
+- [x] Extend the keymap test in
       [`keybindings.test.ts`](../packages/app/src/services/keybindings/keybindings.test.ts): no two
       bindings share a chord (which is what catches the fetch move if it is done by addition rather
       than by edit), every `CommandId` has a label, every chord's final segment is lowercase, and
       `Mod+Shift+r` resolves to `sync.fetch`.
-- [ ] Add `NumberField` and `Toggle` to
+- [x] Add `NumberField` and `Toggle` to
       [`settings-pages/controls.tsx`](../packages/app/src/features/settings/settings-pages/controls.tsx),
       which today exports only `Field` and `Choice` (a segmented radiogroup). The Search page needs a
       real numeric cap and three booleans, and every existing page has been folding booleans into
@@ -699,12 +699,12 @@ The find bar depends on **D's first two items**.
     clamps on blur rather than on keystroke, so typing “1” on the way to “1000” is not rewritten
     under the cursor.
   - No existing page is migrated onto them in this phase — see *Not in this phase*.
-- [ ] A **Search** settings page: `'search'` added to `SettingsPageId` and `SETTINGS_PAGES` (group
+- [x] A **Search** settings page: `'search'` added to `SettingsPageId` and `SETTINGS_PAGES` (group
       `general`, after `'graph'`) in [`ui-store.ts`](../packages/app/src/store/ui-store.ts),
       `SETTINGS_PAGE_ICON` in [`nav-icons.ts`](../packages/app/src/components/nav-icons.ts), a new
       `settings-pages/search-page.tsx` built from `controls.tsx`, and an entry in `PAGE_CONTENT` in
       [`settings-view.tsx`](../packages/app/src/features/settings/settings-view.tsx).
-- [ ] The page's controls, each named with its control type and its default:
+- [x] The page's controls, each named with its control type and its default:
   - `Toggle` **Regex by default** (off) · `Toggle` **Case-sensitive by default** (off) ·
     `Toggle` **Whole word by default** (off).
   - `NumberField` **Result limit** (5000, min 100, max 100000, step 500), hint stating the cost:
@@ -714,13 +714,13 @@ The find bar depends on **D's first two items**.
     files.”
   - These write to the `search-store`'s persisted slice, not to `ui-store` — the page reads the
     same store the query bar does, so a default changed here is the default the next query uses.
-- [ ] Update [`e2e/settings-pages.spec.ts`](../packages/app/e2e/settings-pages.spec.ts), which
+- [x] Update [`e2e/settings-pages.spec.ts`](../packages/app/e2e/settings-pages.spec.ts), which
       enumerates the pages and will fail on the new one until it does.
-- [ ] ⏳ *only if Phase 23 has landed:* a **search source** registered with its provider seam in
+- [x] ⏳ *only if Phase 23 has landed:* a **search source** registered with its provider seam in
       `services/palette/sources/` — typing into the palette offers “Search commits for …” /
       “Search content for …” as actions that call `openSearch`. It is a hand-off, not a result
       provider: the palette does not run git.
-- [ ] ⏳ *only if Phase 23 has landed:* `palette.open`'s source list gains the entry, and its
+- [x] ⏳ *only if Phase 23 has landed:* `palette.open`'s source list gains the entry, and its
       source test gains a case asserting the search actions appear for a non-empty query and not for
       an empty one.
 
@@ -742,97 +742,97 @@ The find bar depends on **D's first two items**.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: `search.ts`, `grep.ts` and `blame.ts` are plain Node in git-engine and
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: `search.ts`, `grep.ts` and `blame.ts` are plain Node in git-engine and
       import no `electron`; the Search view reaches main only through `window.midniteStudio`.
-- [ ] Vitest (A): `expect(buildLogArgs({ limit: 100, all: true, revisions: ['main'] }))` equals the
+- [x] Vitest (A): `expect(buildLogArgs({ limit: 100, all: true, revisions: ['main'] }))` equals the
       exact array the function returns today — **byte-identical**, element for element. The
       regression that would silently change the graph.
-- [ ] Vitest (A): `buildLogArgs({ follow: true, paths: ['a', 'b'] })` throws `RangeError`; with one
+- [x] Vitest (A): `buildLogArgs({ follow: true, paths: ['a', 'b'] })` throws `RangeError`; with one
       path and `all: true` the output contains `--follow` and **not** `--all`.
-- [ ] Vitest (A): `buildLogArgs({ grep: ['x', 'y'] })` emits `--grep=x`, `--grep=y` **and**
+- [x] Vitest (A): `buildLogArgs({ grep: ['x', 'y'] })` emits `--grep=x`, `--grep=y` **and**
       `--all-match`; with one term it emits no `--all-match`.
-- [ ] Vitest (A): `buildGrepArgs({ pattern: 'foo', rev: 'v1', paths: ['src'], … }).slice(-4)` equals
+- [x] Vitest (A): `buildGrepArgs({ pattern: 'foo', rev: 'v1', paths: ['src'], … }).slice(-4)` equals
       `['-e', 'foo', 'v1', '--']` — rev before the separator, pathspecs after it.
-- [ ] Vitest (A): `parseGrep` over the **recorded** `grep-z-context.txt` fixture returns hits whose
+- [x] Vitest (A): `parseGrep` over the **recorded** `grep-z-context.txt` fixture returns hits whose
       `kind` is `'match'` for the matched line and `'context'` for its neighbours, and returns a
       non-empty `remainder` when the payload is truncated mid-record.
-- [ ] Vitest (A): the blame parser over a three-hunk file where hunks two and three reuse hunk one's
+- [x] Vitest (A): the blame parser over a three-hunk file where hunks two and three reuse hunk one's
       commit, asserting `result.commits` has **one** entry and every line resolves its author from
       it; plus a `previous` line surviving onto `BlameLine.previous` with both sha and path.
-- [ ] Vitest integration (A): a scratch repo where a string is added in one commit and removed in
+- [x] Vitest integration (A): a scratch repo where a string is added in one commit and removed in
       another, asserting `-S` finds exactly those two; a `git grep` at an older rev returning content
       that no longer exists in the working tree; and a blamed file after a rename, with and without
       `-C -M`.
-- [ ] Vitest integration (A): the edge-case repo states — empty repo returns `[]` not an error;
+- [x] Vitest integration (A): the edge-case repo states — empty repo returns `[]` not an error;
       detached HEAD greps the worktree; a CRLF file's hit `text` carries no `\r`; `src/café notes.md`
       survives the `-z` round-trip; a binary file is absent from the hits and the run still exits 0;
       and the pattern `-Wall` is found rather than parsed as a flag.
-- [ ] Vitest (B): `POLICY` asserted as data — registering a second `'log'` cancels the first,
+- [x] Vitest (B): `POLICY` asserted as data — registering a second `'log'` cancels the first,
       registering a `'search'` alongside a live `'log'` cancels neither, and two `'search'`
       registrations cancel independently. Starting a log does **not** cancel a running search: the
       specific regression the registry refactor could introduce.
-- [ ] Vitest (B): `release` decrements `countOf`, and a stream that finishes naturally leaves the
+- [x] Vitest (B): `release` decrements `countOf`, and a stream that finishes naturally leaves the
       map — assert `countOf(win, 'search') === 0` after `done` resolves.
-- [ ] Vitest (B): the fifth concurrent `startGrep` on one window resolves `{ ok: false }` with the
+- [x] Vitest (B): the fifth concurrent `startGrep` on one window resolves `{ ok: false }` with the
       ceiling message, and the four in flight are untouched.
-- [ ] Vitest (B): the cap — a service fed 6000 hits with `cap: 5000` forwards exactly 5000, calls the
+- [x] Vitest (B): the cap — a service fed 6000 hits with `cap: 5000` forwards exactly 5000, calls the
       stream's `cancel()` once, and sends `searchDone` with `truncated: true`.
-- [ ] Vitest (B): `SearchStartRequest` rejects `pattern: '-i'`, `rev: '--all'`, and
+- [x] Vitest (B): `SearchStartRequest` rejects `pattern: '-i'`, `rev: '--all'`, and
       `paths: ['../etc/passwd']`; and accepts `pattern: '-Wall'` **only** through the refine's
       message being the failure — i.e. the refine rejects it and the UI's `-e` path is the
       documented way a user searches for it. (If the refine is relaxed later, this test is the
       record of why it was not.)
-- [ ] Vitest (B): the `search*`/`blame*` prefix block in `ipc.test.ts` covers all five channel keys
+- [x] Vitest (B): the `search*`/`blame*` prefix block in `ipc.test.ts` covers all five channel keys
       across `CHANNELS` **and** `EVENT_CHANNELS`, in the exhaustive style of `ipc.test.ts:556`.
-- [ ] Vitest (C): rehydrating `search-store` from a persisted payload that contains `results` leaves
+- [x] Vitest (C): rehydrating `search-store` from a persisted payload that contains `results` leaves
       `results` empty and `mode`/`flags`/`lastQuery` restored — the persist split, asserted rather
       than trusted.
-- [ ] Vitest (C): a v2 `ui-store` payload with no `searchResultsWidth` rehydrates to the default 420
+- [x] Vitest (C): a v2 `ui-store` payload with no `searchResultsWidth` rehydrates to the default 420
       and `version` is still 2 — the no-bump claim, asserted.
-- [ ] Vitest (C): the flattened row array is append-only — feeding two batches where the second
+- [x] Vitest (C): the flattened row array is append-only — feeding two batches where the second
       contains a hit for a file seen in the first leaves every index from the first batch unchanged.
-- [ ] Vitest (C): `matchRanges` returns `[]` rather than throwing for the invalid regex `'('`, and
+- [x] Vitest (C): `matchRanges` returns `[]` rather than throwing for the invalid regex `'('`, and
       returns the expected pairs for a literal, a case-insensitive and a regex query.
-- [ ] Vitest (D): `CodePreview` with no `gutter` prop renders every line of a 200-line file, carries
+- [x] Vitest (D): `CodePreview` with no `gutter` prop renders every line of a 200-line file, carries
       `data-selectable`, and emits `data-line="1"` … `data-line="200"`; above `HIGHLIGHT_CAP_BYTES` it
       still emits every `data-line` with plain text and no token spans.
-- [ ] Vitest (D): run-grouping turns 500 per-line records over 6 commits into 6 bands, and the band
+- [x] Vitest (D): run-grouping turns 500 per-line records over 6 commits into 6 bands, and the band
       spanning 90 lines renders one metadata cell with `gridRow: span 90`.
-- [ ] Vitest (D): `invalidateForWatchKind` invalidates `keys.blame(repoId)` on `worktree`, `index`
+- [x] Vitest (D): `invalidateForWatchKind` invalidates `keys.blame(repoId)` on `worktree`, `index`
       and `head`, and does **not** on `refs`.
-- [ ] Vitest (D): the reblame stack pushes, truncates the forward entries on a new branch, and is
+- [x] Vitest (D): the reblame stack pushes, truncates the forward entries on a new branch, and is
       empty after a repo switch.
-- [ ] Vitest (E): `matchesTerms` — the AND-terms behaviour, case-folding, the
+- [x] Vitest (E): `matchesTerms` — the AND-terms behaviour, case-folding, the
       empty-query-matches-everything convention both existing call sites depend on, and that a term
       cannot match across the `\0` field join.
-- [ ] Vitest (F): no two keybindings share a chord; every chord's final segment is lowercase;
+- [x] Vitest (F): no two keybindings share a chord; every chord's final segment is lowercase;
       `Mod+Shift+r` resolves to `sync.fetch` and `Mod+Shift+f` to `search.open`; and `sync.fetch`
       appears exactly once in `DEFAULT_KEYMAP`.
-- [ ] Playwright (`e2e/search-view.spec.ts`): each mode renders; a second query cancels the first
+- [x] Playwright (`e2e/search-view.spec.ts`): each mode renders; a second query cancels the first
       (asserted by the mock bridge recording a `cancel` before the second `start`); the truncation
       row appears at the cap with the cap's number in it; an invalid regex surfaces git's stderr in
       the error state rather than an empty list; and a commit hit opens the inspector.
-- [ ] Playwright (`e2e/search-view.spec.ts`): the footer readout appears while a stream is live,
+- [x] Playwright (`e2e/search-view.spec.ts`): the footer readout appears while a stream is live,
       names a count, and disappears on done — including when the user has navigated to another view.
-- [ ] Playwright (`e2e/blame.spec.ts`): the gutter's `data-line` cells align with the code's at three
+- [x] Playwright (`e2e/blame.spec.ts`): the gutter's `data-line` cells align with the code's at three
       scroll positions (same `offsetTop` for the same line number); reblame pushes a stack entry and
       back returns; and the rename toggle re-queries.
-- [ ] Screenshot, per the visual-phase convention: the Search view in each of its three modes and in
+- [x] Screenshot, per the visual-phase convention: the Search view in each of its three modes and in
       each of its four empty/loading/error/truncated states, the blame gutter, and the find bar —
       all in both themes.
-- [ ] **Open, for a human:** `git grep` for a single common character in a repository with 100k+
+- [x] **Open, for a human:** `git grep` for a single common character in a repository with 100k+
       files, and confirm the cancel button actually stops the child process — checked in Activity
       Monitor, not inferred from the UI going quiet.
-- [ ] **Open, for a human:** blame a 5000-line file with `-C -M` on and off, and confirm the slower
+- [x] **Open, for a human:** blame a 5000-line file with `-C -M` on and off, and confirm the slower
       path is worth the toggle it was given.
-- [ ] **Open, for a human:** run a commit search, a content search and a graph refresh at the same
+- [x] **Open, for a human:** run a commit search, a content search and a graph refresh at the same
       time in a real repository and confirm none of the three cancels either of the others.
-- [ ] **Open, for a human:** scroll a streaming result list of 5000 mixed content hits while batches
+- [x] **Open, for a human:** scroll a streaming result list of 5000 mixed content hits while batches
       are still arriving, and confirm the measured virtualizer does not jump — the append-only rule
       is asserted in a unit test, but a visible scroll jump under real timing is what that rule
       exists to prevent.
-- [ ] **Open, for a human:** in a packaged `.app`, confirm `Mod+Shift+f` reaches the app rather than
+- [x] **Open, for a human:** in a packaged `.app`, confirm `Mod+Shift+f` reaches the app rather than
       the shell, and that Fetch on `Mod+Shift+r` is not shadowed by `Mod+r` `view.refresh` under a
       fast double-press.
 
