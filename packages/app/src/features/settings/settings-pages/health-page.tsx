@@ -304,8 +304,15 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
     [],
   );
 
-  const startSshAgent = () => {
+  const startSshAgent = async () => {
     setBusy('ssh-start');
+    if (window.midniteStudio?.systemHealthStartSshAgent) {
+      try {
+        await window.midniteStudio.systemHealthStartSshAgent();
+      } catch {
+        // ignore
+      }
+    }
     submitCommand('eval "$(ssh-agent -s)"', 'SSH Agent');
     sshReprobeTimer.current = setTimeout(
       () => reprobeSsh(REPROBE_ATTEMPTS, (h) => h.sshAgent.running),

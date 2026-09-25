@@ -1204,6 +1204,7 @@ export type MidniteStudioBridge = {
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
+  systemHealthStartSshAgent?: () => Promise<z.infer<typeof S.SystemHealthStartSshAgentResponse>>;
 
   /**
    * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull

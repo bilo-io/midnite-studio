@@ -107,6 +107,18 @@ export async function readSystemHealth(): Promise<SystemHealth> {
       let keys = 0;
       let version: string | null = null;
 
+      if (!process.env['SSH_AUTH_SOCK'] && process.platform === 'darwin') {
+        try {
+          const { stdout } = await execAsync('launchctl getenv SSH_AUTH_SOCK', { timeout: 1000 });
+          const sock = stdout.trim();
+          if (sock && existsSync(sock)) {
+            process.env['SSH_AUTH_SOCK'] = sock;
+          }
+        } catch {
+          // not available from launchctl
+        }
+      }
+
       const agentPromise = (async () => {
         try {
           const { stdout } = await execAsync('ssh-add -l', { timeout: PROBE_TIMEOUT_MS });
@@ -115,8 +127,11 @@ export async function readSystemHealth(): Promise<SystemHealth> {
             keys = stdout.trim().split('\n').length;
           }
         } catch (err: unknown) {
-          const errorMsg = String(err);
-          if (errorMsg.includes('The agent has no identities')) {
+          const out =
+            String((err as { stdout?: string }).stdout ?? '') +
+            String((err as { stderr?: string }).stderr ?? '') +
+            String(err);
+          if (out.includes('The agent has no identities')) {
             running = true;
             keys = 0;
           } else {
@@ -195,3 +210,35 @@ async function probeOllamaDaemon(): Promise<OllamaDaemonStatus> {
     return { reachable: false, version: null, host };
   }
 }
+
+/**
+ * Start the system ssh-agent daemon and expose its socket to the current
+ * process environment (and launchctl on macOS), so future probes and git
+ * operations can immediately authenticate against it.
+ */
+export async function startSshAgent(): Promise<{ ok: boolean; sock?: string; pid?: number }> {
+  try {
+    const { stdout } = await execAsync('ssh-agent -s', { timeout: PROBE_TIMEOUT_MS });
+    const sockMatch = stdout.match(/SSH_AUTH_SOCK=([^;]+);/);
+    const pidMatch = stdout.match(/SSH_AGENT_PID=([^;]+);/);
+    const sock = sockMatch?.[1]?.trim();
+    const pid = pidMatch?.[1]?.trim();
+    if (sock) {
+      process.env['SSH_AUTH_SOCK'] = sock;
+      if (process.platform === 'darwin') {
+        try {
+          await execAsync(`launchctl setenv SSH_AUTH_SOCK "${sock}"`, { timeout: 1000 });
+        } catch {
+          // ignore launchctl errors
+        }
+      }
+    }
+    if (pid) {
+      process.env['SSH_AGENT_PID'] = pid;
+    }
+    return { ok: true, sock, pid: pid ? Number(pid) : undefined };
+  } catch {
+    return { ok: false };
+  }
+}
+
