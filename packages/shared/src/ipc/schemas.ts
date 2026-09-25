@@ -2399,6 +2399,7 @@ export const CliStatusResponse = z.object({
   path: z.string().nullable(),
   target: z.string().nullable(),
   managed: z.boolean(),
+  version: z.string().nullable().optional(),
 });
 export type CliStatusResponse = z.infer<typeof CliStatusResponse>;
 export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });
@@ -2445,7 +2446,7 @@ export type ToolchainBinary = z.infer<typeof ToolchainBinarySchema>;
 export const SystemHealthResponse = z.object({
   git: ToolchainBinarySchema,
   shell: z.string().nullable(),
-  sshAgent: z.object({ running: z.boolean(), keys: z.number() }),
+  sshAgent: z.object({ running: z.boolean(), keys: z.number(), version: z.string().nullable().optional() }),
   cli: CliStatusResponse,
   homebrew: ToolchainBinarySchema.optional(),
   node: ToolchainBinarySchema.optional(),
