@@ -96,6 +96,7 @@ function fakeRegistry(
     gate: executor,
     router: executor,
     verify: executor,
+    trigger: executor,
   };
 }
 
