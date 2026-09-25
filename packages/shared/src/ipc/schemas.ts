@@ -183,6 +183,7 @@ import {
   WorkflowRunSchema,
   WorkflowSchema,
 } from '../workflow';
+import { WorkflowTemplateSchema } from '../workflow-templates/types';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -2683,6 +2684,18 @@ export const WorkflowCancelResponse = GitOpResultSchema;
 /** Phase 97 Theme G — resume a run left `interrupted`. Resolves with the resumed run, the same shape `WorkflowRunResponse` uses. */
 export const WorkflowResumeRequest = z.object({ runId: z.string().min(1) });
 export const WorkflowResumeResponse = GitOpResultOf(WorkflowRunSchema);
+
+/**
+ * Phase 97 Theme L — the gallery's **user** section: templates saved from the
+ * editor's "Save as template", kept in main beside `workflows.json`. The five
+ * built-ins are not on the wire — they are data in `shared`, read directly.
+ */
+export const WorkflowTemplatesListResponse = z.object({ templates: z.array(WorkflowTemplateSchema) });
+/** Upsert by `template.id`, the same one-channel shape `WorkflowSaveRequest` uses. */
+export const WorkflowTemplateSaveRequest = z.object({ template: WorkflowTemplateSchema });
+export const WorkflowTemplateSaveResponse = GitOpResultOf(WorkflowTemplateSchema);
+export const WorkflowTemplateDeleteRequest = z.object({ id: z.string().min(1) });
+export const WorkflowTemplateDeleteResponse = GitOpResultSchema;
 
 export const WorkflowRunsListRequest = z.object({ workflowId: z.string().min(1) });
 export const WorkflowRunsListResponse = z.object({ runs: z.array(WorkflowRunSchema) });

@@ -114,6 +114,7 @@ import {
   onWorkflowsChanged,
   pollWorkflowGateApprovals,
 } from './workflow-service';
+import { configureWorkflowTemplates, createWorkflowTemplatesStore } from './workflow-templates-store';
 import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
 import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
@@ -580,6 +581,8 @@ if (!app.requestSingleInstanceLock()) {
       createWorkflowRunsStore(userData, getWorkflowRunHistoryCap),
       getMainWindow,
     );
+    // Phase 97 Theme L — the template gallery's user section.
+    configureWorkflowTemplates(createWorkflowTemplatesStore(userData));
     // Phase 95 Theme J — where an `agent`/`script` node's executor announces
     // the real terminal session it just started (`workflowNodeSessionStarted`).
     configureWorkflowNodeSessions(getMainWindow);

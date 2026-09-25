@@ -435,6 +435,11 @@ const bridge: Pick<
     cancel: (req) => call(CHANNELS.workflowCancel, req),
     resume: (req) => call(CHANNELS.workflowResume, req),
     gateDecide: (req) => call(CHANNELS.workflowGateDecide, req),
+    templates: {
+      list: () => call(CHANNELS.workflowTemplatesList),
+      save: (req) => call(CHANNELS.workflowTemplateSave, req),
+      delete: (req) => call(CHANNELS.workflowTemplateDelete, req),
+    },
     runs: {
       list: (req) => call(CHANNELS.workflowRunsList, req),
       get: (req) => call(CHANNELS.workflowRunsGet, req),

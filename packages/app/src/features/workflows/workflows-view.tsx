@@ -33,7 +33,7 @@ import { RunNodeDetail } from './canvas/run-node-detail';
 import { RunReplayControls } from './canvas/run-replay-controls';
 import { nodeStatusesAtStep } from './canvas/run-replay';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
-import { cloneWorkflowWithFreshIds, createNode } from './workflow-io';
+import { createNode, templateFromWorkflow } from './workflow-io';
 import { RunHistoryList } from './run-history-list';
 import { RunOutputPanel } from './run-output-panel';
 import {
@@ -43,7 +43,7 @@ import {
   useWorkflowRun,
   useWorkflowRuns,
 } from './use-workflow-run';
-import { useSaveWorkflow, useWorkflows } from './use-workflow';
+import { useSaveWorkflow, useSaveWorkflowTemplate, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
 
@@ -142,7 +142,6 @@ export function WorkflowsView() {
           <WorkflowEditor
             key={selected.id}
             workflow={selected}
-            onWorkflowSaved={setSelectedId}
             initialRunId={revealPending?.workflowId === selected.id ? revealPending.runId : undefined}
           />
         ) : (
@@ -181,16 +180,14 @@ export function WorkflowsView() {
  */
 function WorkflowEditor({
   workflow,
-  onWorkflowSaved,
   initialRunId,
 }: {
   workflow: Workflow;
-  /** "Save as template" (Theme I) lands a brand-new workflow — this is how the caller selects it. */
-  onWorkflowSaved: (id: string) => void;
   /** "Reveal run" (Theme J) — opens straight onto this run's history detail on mount, once. */
   initialRunId?: string;
 }) {
   const save = useSaveWorkflow();
+  const saveTemplate = useSaveWorkflowTemplate();
   const runWorkflow = useRunWorkflow();
   const { schedule } = useFlushableSave<Workflow>((next) => save.mutate(next), SAVE_DEBOUNCE_MS);
   const [local, setLocal] = useState(workflow);
@@ -371,13 +368,16 @@ function WorkflowEditor({
     commitLocal({ ...local, nodes: [...local.nodes, node], updatedAt: Date.now() });
   };
 
+  // Phase 97 Theme L — lands in the template gallery's "Your templates"
+  // section, not as a clone in the ordinary workflow list.
   const saveAsTemplate = () => {
-    const clone = cloneWorkflowWithFreshIds(local, Date.now(), `${local.name} (template)`);
-    save.mutate(clone, {
+    const template = templateFromWorkflow(local);
+    saveTemplate.mutate(template, {
       onSuccess: (result) => {
         if (result.ok) {
-          useToastStore.getState().addToast({ message: `Saved "${clone.name}" as a new workflow.`, status: 'success' });
-          onWorkflowSaved(clone.id);
+          useToastStore
+            .getState()
+            .addToast({ message: `Saved "${template.title}" to your templates.`, status: 'success' });
         }
       },
     });
