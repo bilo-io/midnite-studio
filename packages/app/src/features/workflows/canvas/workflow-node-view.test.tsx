@@ -1,4 +1,4 @@
-import type { WorkflowNode } from '@midnite/studio-shared';
+import type { WorkflowNode, WorkflowNodeStatus } from '@midnite/studio-shared';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -52,6 +52,15 @@ const joinNode: WorkflowNode = {
   y: 0,
   kind: 'join',
   config: { mode: 'all', inputs: 2 },
+};
+
+const verifyNode: WorkflowNode = {
+  id: 'n5',
+  label: 'Verify',
+  x: 900,
+  y: 0,
+  kind: 'verify',
+  config: { check: 'exit-code', command: 'exit 0', env: {} },
 };
 
 function mount(graph: WorkflowGraph) {
@@ -112,5 +121,28 @@ describe('WorkflowNodeView — node shape', () => {
     const { container } = mount({ nodes: [joinNode], edges: [] });
     const joinCard = container.querySelector('[data-node-id="n3"]') as HTMLElement;
     expect(joinCard.className).toContain('rounded-full');
+  });
+});
+
+describe('WorkflowNodeView — check-badge (verify, Theme E)', () => {
+  it('shows no pass/fail badge before any run has settled it', () => {
+    const { container } = mount({ nodes: [verifyNode], edges: [] });
+    const card = container.querySelector('[data-node-id="n5"]') as HTMLElement;
+    expect(card.textContent).not.toContain('pass');
+    expect(card.textContent).not.toContain('fail');
+  });
+
+  it("shows the node's own pass/fail verdict — its generic status is always `succeeded` either way", () => {
+    const { container } = render(
+      <WorkflowCanvas
+        graph={{ nodes: [verifyNode], edges: [] }}
+        resetKey="w1"
+        onChange={() => {}}
+        nodeStatuses={new Map<string, WorkflowNodeStatus>([['n5', 'succeeded']])}
+        nodeSettledPorts={new Map([['n5', 'fail']])}
+      />,
+    );
+    const card = container.querySelector('[data-node-id="n5"]') as HTMLElement;
+    expect(card.textContent).toContain('fail');
   });
 });
