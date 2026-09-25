@@ -121,6 +121,7 @@ function context(over: Partial<ExecutorContext> = {}): ExecutorContext {
     workflowId: 'w1',
     runId: 'r1',
     reportSessionId: async () => {},
+    reportWaiting: async () => {},
     ...over,
   };
 }
