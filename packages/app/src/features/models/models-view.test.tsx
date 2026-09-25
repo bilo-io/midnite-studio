@@ -119,6 +119,18 @@ describe('ModelsView — installed empty state', () => {
 
     await waitFor(() => expect(screen.getByText(/no models installed yet/i)).toBeTruthy());
   });
+
+  it('offers variant autocomplete on the Installed tab pull field', async () => {
+    const { search } = installBridge({ reachable: true, models: [], searchItems: [searchResult()] });
+    renderView();
+
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Pull a model' }), {
+      target: { value: 'llama' },
+    });
+
+    await waitFor(() => expect(screen.getByText('llama3.1:8b')).toBeTruthy(), { timeout: 2000 });
+    expect(search).toHaveBeenCalledWith({ query: 'llama', scope: 'local' });
+  });
 });
 
 describe('ModelsView — installed list', () => {
@@ -166,7 +178,7 @@ describe('ModelsView — Discover tab', () => {
     expect(screen.queryByRole('button', { name: /^pull$/i })).toBeNull();
   });
 
-  it('falls back to a pull-by-name link when the scraper cannot parse the page', async () => {
+  it('falls back to Discover guidance when the scraper cannot parse the page', async () => {
     installBridge({ reachable: true, searchParseFailed: true });
     renderView();
 

@@ -23,6 +23,7 @@ import { useUiStore } from '../../store/ui-store';
 import { formatBytes } from '../monitor/format-bytes';
 import { submitCommand } from '../settings/settings-pages/health-page';
 import { ModelDetailModal } from './model-detail';
+import { PullModelField } from './pull-model-field';
 import { useModelsPullQueueStore, type PullEntry } from './models-pull-queue-store';
 import {
   useDeleteModel,
@@ -92,7 +93,7 @@ export function ModelsView() {
 
       {tab === 'installed' ? (
         <>
-          <PullByNameField />
+          <PullModelField />
           <PullQueuePanel />
           <InstalledList />
         </>
@@ -169,49 +170,6 @@ function DaemonDownState({ onStarted }: { onStarted: () => void }) {
         </button>
       </div>
     </div>
-  );
-}
-
-function PullByNameField() {
-  const [name, setName] = useState('');
-  const pull = usePullModel();
-  const queued = useModelsPullQueueStore((s) => s.queued);
-
-  const submit = () => {
-    const model = name.trim();
-    if (!model) return;
-    pull.mutate(model, {
-      onSuccess: (result) => {
-        if (result.ok) queued(result.value.pullId, result.value.model);
-      },
-    });
-    setName('');
-  };
-
-  return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <input
-        type="text"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        placeholder="Pull by name — qwen3.5:14b, gpt-oss:120b-cloud…"
-        className="h-7 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-      />
-      <button
-        type="submit"
-        disabled={name.trim().length === 0 || pull.isPending}
-        className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-accent/40 px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-      >
-        {pull.isPending ? <Spinner className="h-3 w-3" /> : <LuDownload className="h-3 w-3" />}
-        Pull
-      </button>
-    </form>
   );
 }
 
@@ -302,7 +260,7 @@ function InstalledList() {
       <EmptyState
         icon={SiOllama}
         title="No models installed yet"
-        body="Pull one by name above to get started."
+        body="Search ollama.com above and pull a variant to get started."
       />
     );
   }
@@ -569,7 +527,7 @@ function SearchFallback({ query }: { query: string }) {
     <EmptyState
       icon={SiOllama}
       title="Couldn't read ollama.com's results"
-      body="The Installed tab's pull-by-name field always works, or open the search on ollama.com directly."
+      body="Use the Installed tab's pull search, or open ollama.com directly."
       action={
         <button
           type="button"

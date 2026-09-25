@@ -1,4 +1,9 @@
-import type { OllamaModel, OllamaSearchResultItem, OllamaSettings } from '@midnite/studio-shared';
+import type {
+  OllamaModel,
+  OllamaModelDetail,
+  OllamaSearchResultItem,
+  OllamaSettings,
+} from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -114,6 +119,14 @@ export function usePullModel() {
     mutationFn: async (model: string) =>
       (await bridge()?.ollama.pull({ model })) ?? noBridge<{ pullId: string; model: string }>(),
     onSuccess: (result) => reportFailure(result),
+  });
+}
+
+/** Confirms a pull tag exists in the library (`POST /api/show`) before download. */
+export function useVerifyPullTarget() {
+  return useMutation({
+    mutationFn: async (model: string) =>
+      (await bridge()?.ollama.show({ model })) ?? noBridge<OllamaModelDetail>(),
   });
 }
 
