@@ -1270,6 +1270,115 @@ describe('controlled cycles (Theme C)', () => {
   });
 });
 
+describe('a verify node as a loop source (Theme E)', () => {
+  /**
+   * build -> verify -[loop,fail]-> build
+   *              \-[pass]-> done
+   *
+   * A `verify` node's `'fail'` port is not an executor failure (same as
+   * `condition`'s `false`), so it can source a loop edge exactly like the
+   * `decide`/`condition` node above does with its `false` port — the only
+   * difference this test cares about is that `loop-controller.ts`'s
+   * `buildLoopContext` recognises a `verify` node's `'fail'` settle as a
+   * loop failure too, and prefers its own evidence `message` over a raw
+   * `JSON.stringify` of the whole evidence object.
+   */
+  it("a verify fail carries its evidence into iteration 2's {{loop.failures}}", async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+
+    let verifyCalls = 0;
+    const verifyScript = async (): Promise<NodeOutcome> => {
+      verifyCalls += 1;
+      return verifyCalls === 1
+        ? {
+            ok: true,
+            output: {
+              check: 'exit-code',
+              passed: 0,
+              failed: 1,
+              message: 'Exited with code 1.',
+              failures: ['Exited with code 1.'],
+            },
+            port: 'fail',
+          }
+        : {
+            ok: true,
+            output: { check: 'exit-code', passed: 1, failed: 0, message: 'Exited with code 0.', failures: [] },
+            port: 'pass',
+          };
+    };
+
+    // `delay` (not `verify`) so this can also stand in for `build` and
+    // capture what `runNode` injected under `upstream.loop` for it, without
+    // a second fake-registry override just for one node id.
+    const capturedLoopContext: unknown[] = [];
+    const buildExecutor: NodeExecutor = async (node, context) => {
+      // Mirrors `fakeRegistry`'s own started/settled bookkeeping (this
+      // replaces its `delay` entry entirely, rather than layering on top of
+      // it, so this node id's own recorder pushes have to happen here).
+      recorder.started.push(node.id);
+      if (node.id === 'build') capturedLoopContext.push(context.upstream['loop']);
+      if (context.signal.cancelled()) return { ok: false, error: 'Cancelled.' };
+      recorder.settled.push(node.id);
+      return { ok: true, output: { id: node.id } };
+    };
+
+    const w: Workflow = {
+      id: 'w1',
+      name: 'Verify loop',
+      nodes: [
+        delayNode('build'),
+        { id: 'verify', label: 'verify', x: 0, y: 0, kind: 'verify', config: { check: 'exit-code', command: 'exit 0', env: {} } },
+        delayNode('done'),
+      ],
+      edges: [
+        { id: 'e1', from: 'build', to: 'verify' },
+        { id: 'e2', from: 'verify', to: 'done', fromPort: 'pass', kind: 'conditional' },
+        {
+          id: 'loop1',
+          from: 'verify',
+          to: 'build',
+          fromPort: 'fail',
+          kind: 'loop',
+          loop: { maxIterations: 3, budgetMs: 3_600_000 },
+        },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+
+    const started = await startWorkflowRun(
+      w,
+      deps(store, {
+        executors: { ...fakeRegistry({ verify: verifyScript }, recorder), delay: buildExecutor },
+      }),
+    );
+    expect(started.ok).toBe(true);
+    await settle();
+
+    expect(recorder.started.filter((id) => id === 'build')).toHaveLength(2);
+    expect(recorder.started.filter((id) => id === 'verify')).toHaveLength(2);
+
+    // Iteration 1's `build` runs before the loop edge has ever been taken —
+    // no loop state exists for it yet, so `upstream.loop` is unset.
+    expect(capturedLoopContext[0]).toBeUndefined();
+    // Iteration 2's `build` sees iteration 1's verify failure carried
+    // forward, with the verify node's own evidence `message` — not a raw
+    // `JSON.stringify` of the whole evidence object.
+    expect(capturedLoopContext[1]).toMatchObject({
+      iteration: 2,
+      failures: [{ iteration: 1, nodeId: 'verify', message: 'Exited with code 1.' }],
+    });
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    expect(run.status).toBe('completed');
+    expect(run.nodes.find((n) => n.nodeId === 'done')?.status).toBe('succeeded');
+    const verifyRecords = run.nodes.filter((n) => n.nodeId === 'verify');
+    expect(verifyRecords.map((n) => n.settledPort)).toEqual(['fail', 'pass']);
+  });
+});
+
 function httpDemoNode(id: string, url = '{{demo.baseUrl}}/items'): WorkflowNode {
   return { id, label: id, x: 0, y: 0, kind: 'http', config: { method: 'GET', url, headers: {}, params: {}, queryShaped: false } };
 }
