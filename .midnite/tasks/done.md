@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-25 — Phase 97 Theme M — Demo endpoint group for HTTP nodes
 
-PR #TBD. A stable, scriptable HTTP target for templates and demos, so an `http` node has
+[PR #559](https://github.com/bilo-io/midnite-studio/pull/559). A stable, scriptable HTTP target for templates and demos, so an `http` node has
 something honest and deterministic to call.
 
 - [x] **`WORKFLOW_RESERVED_INTERPOLATION_ROOTS = ['demo', 'loop', 'state']`**, the one shared list

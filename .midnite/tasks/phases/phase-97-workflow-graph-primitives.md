@@ -393,7 +393,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [ ] Vitest: every template parses, passes `validateWorkflow`, uses only `{{demo.baseUrl}}` for
       http URLs, and runs to completion in the engine test harness with fake executors.
 
-### M — Demo endpoint group for HTTP nodes (M) — ✅ DONE (PR #TBD, 2026-09-25)
+### M — Demo endpoint group for HTTP nodes (M) — ✅ DONE ([PR #559](https://github.com/bilo-io/midnite-studio/pull/559), 2026-09-25)
 
 *Added in the brainstorm on the user's request: templates and demos need a stable, scriptable
 HTTP target.*
