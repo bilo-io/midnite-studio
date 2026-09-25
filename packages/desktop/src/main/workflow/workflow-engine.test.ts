@@ -1036,6 +1036,7 @@ describe('the error port (Theme B)', () => {
     expect(byId.onFalse!.status).toBe('skipped');
     expect(byId.onFalse!.error).toContain('false');
     expect(recorder.started).toEqual(['gate', 'onTrue']);
+  });
 });
 
 // --- Phase 97 Theme C: controlled cycles --------------------------------------
