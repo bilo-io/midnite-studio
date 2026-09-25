@@ -1,5 +1,5 @@
 import { canConnect, portsForNode, type WorkflowNode, type WorkflowNodeStatus, type WorkflowPort } from '@midnite/studio-shared';
-import { Handle, Position, useConnection, type NodeProps } from '@xyflow/react';
+import { Handle, Position, useConnection, type ConnectionState, type NodeProps } from '@xyflow/react';
 import {
   LuCircleCheck,
   LuCircleX,
@@ -97,7 +97,7 @@ function portTopPercent(index: number, count: number): string {
 function isPortDimmed(
   port: WorkflowPort,
   thisNode: WorkflowNode,
-  connection: ReturnType<typeof useConnection>,
+  connection: ConnectionState,
   graph: ReturnType<typeof useWorkflowGraphContext>,
 ): boolean {
   if (!connection.inProgress || !graph) return false;

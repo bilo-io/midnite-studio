@@ -251,8 +251,12 @@ function WorkflowCanvasInner({
    * type allows it), which this treats as "no such port" rather than
    * guessing a default.
    */
-  const connectionIsValid = useCallback((connection: Connection): boolean => {
-    const { source, target, sourceHandle, targetHandle } = connection;
+  const connectionIsValid = useCallback((connectionOrEdge: Connection | Edge): boolean => {
+    // `<ReactFlow>`'s `isValidConnection` is also asked about an EXISTING
+    // edge (a reconnect drag) — this canvas never enables reconnection
+    // (`Edge`'s own fields aren't distinguished from `Connection`'s below),
+    // so the same source/target/handle read covers both call shapes.
+    const { source, target, sourceHandle, targetHandle } = connectionOrEdge;
     if (!source || !target || source === target) return false;
     const fromNode = graphRef.current.nodes.find((n) => n.id === source);
     const toNode = graphRef.current.nodes.find((n) => n.id === target);
@@ -522,6 +526,34 @@ function decorate(
         error: nodeErrors?.get(node.id),
         sessions: nodeSessions?.get(node.id),
       },
+    };
+  });
+}
+
+/**
+ * `workflow-edge-view.tsx`'s own overlay merge (Theme J) — every RF edge
+ * already carries `data.edge` (the raw `WorkflowEdge`, set once by
+ * `toFlowGraph` and never touched again); this only ever refreshes
+ * `sourceStatus`/`sourceSettledPort`, the two run-derived fields the edge
+ * component reads for its taken/dead/pending paint. `edge.data` is
+ * guaranteed to be `WorkflowEdgeData`-shaped by construction (only
+ * `toFlowGraph` and this function ever produce it), so no `previous`
+ * fallback is needed the way `decorate` above needs one for a node's `data`.
+ */
+function decorateEdges(
+  edges: Edge[],
+  nodeStatuses: ReadonlyMap<string, WorkflowNodeStatus> | undefined,
+  nodeSettledPorts: ReadonlyMap<string, string> | undefined,
+): Edge[] {
+  return edges.map((edge) => {
+    const { edge: workflowEdge } = edge.data as unknown as WorkflowEdgeData;
+    return {
+      ...edge,
+      data: {
+        edge: workflowEdge,
+        sourceStatus: nodeStatuses?.get(workflowEdge.from),
+        sourceSettledPort: nodeSettledPorts?.get(workflowEdge.from),
+      } satisfies WorkflowEdgeData,
     };
   });
 }
