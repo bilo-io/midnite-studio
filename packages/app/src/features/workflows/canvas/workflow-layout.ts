@@ -56,6 +56,15 @@ export function autoLayout(
     g.setNode(node.id, { width: WORKFLOW_NODE_WIDTH, height: WORKFLOW_NODE_HEIGHT });
   }
   for (const edge of edges) {
+    // A `loop` edge is a controlled back-edge (Phase 97 Theme C) — it always
+    // points from a later node back to an earlier one, and feeding it to
+    // dagre would either force a cycle dagre has to break arbitrarily or
+    // drag the whole "earlier" side of the graph rightward to satisfy it.
+    // Excluded from ranking here; `workflow-edge-view.tsx` still draws it,
+    // curved, over whatever rank the other edges settle on. Checked inline
+    // (`edge.kind === 'loop'`) rather than importing a helper from Theme C's
+    // own branch, which is not merged yet.
+    if (edge.kind === 'loop') continue;
     if (g.hasNode(edge.from) && g.hasNode(edge.to)) g.setEdge(edge.from, edge.to);
   }
 
@@ -90,8 +99,16 @@ export function toFlowGraph(
       id: edge.id,
       source: edge.from,
       target: edge.to,
-      type: 'smoothstep',
-      animated: true,
+      sourceHandle: edge.fromPort,
+      targetHandle: edge.toPort,
+      // `workflow-edge-view.tsx` (Theme J) owns styling and the taken/dead/
+      // pending read entirely — `data.edge` is the raw `WorkflowEdge` so it
+      // can read `kind`/`fromPort` itself rather than this function
+      // pre-computing them; `sourceStatus`/`sourceSettledPort` are filled in
+      // by `workflow-canvas.tsx`'s per-render edge decorate step, which is
+      // the one place that has a run's per-node data.
+      type: 'workflowEdge',
+      data: { edge },
     })),
   };
 }

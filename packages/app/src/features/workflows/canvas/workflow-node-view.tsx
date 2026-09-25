@@ -1,5 +1,5 @@
-import type { WorkflowNode, WorkflowNodeStatus } from '@midnite/studio-shared';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { canConnect, portsForNode, type WorkflowNode, type WorkflowNodeStatus, type WorkflowPort } from '@midnite/studio-shared';
+import { Handle, Position, useConnection, type ConnectionState, type NodeProps } from '@xyflow/react';
 import {
   LuCircleCheck,
   LuCircleX,
@@ -11,7 +11,10 @@ import {
 
 import { activityStatusVar } from '../../activity/activity-status-color';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../../activity/use-activity-glow';
+import { PORT_TYPE_COLOR_VAR } from './edge-style';
 import { nodeSummary, NODE_KIND_META, type NodeCategory } from './node-kind-meta';
+import { NODE_SHAPE } from './node-shape';
+import { useWorkflowGraphContext } from './workflow-graph-context';
 
 /** A stable empty array — `sessions` for every node kind before Theme J's `agent`/`script` ever bind one, and every non-`agent`/`script` node forever. */
 const EMPTY_NODE_SESSIONS: readonly ActivityGlowSessionInput[] = [];
@@ -71,6 +74,49 @@ const CATEGORY_VAR: Record<NodeCategory, string> = {
   storage: 'hsl(var(--node-storage))',
 };
 
+/** Evenly distributes N handles down one side of the card — `(i+1)/(N+1)` keeps the first and last off the corners, unlike xyflow's own default single-handle centring. */
+function portTopPercent(index: number, count: number): string {
+  return `${((index + 1) / (count + 1)) * 100}%`;
+}
+
+/**
+ * Whether an in-progress connect-drag should dim this port (Phase 97 Theme
+ * J's "a connect drag dims incompatible handles live"). `connection` is
+ * `useConnection()`'s own return — `inProgress: false` outside a drag, in
+ * which case nothing ever dims. `graph` is `null` outside `WorkflowCanvas`
+ * (a standalone test render, say), which also dims nothing rather than
+ * throwing.
+ *
+ * Connections can start from either handle type under xyflow's default
+ * `connectionMode: 'strict'` — dragging from an out-port (`fromHandle.type
+ * === 'source'`) only ever proposes landing on one of THIS node's in-ports,
+ * and dragging from an in-port backward only ever proposes one of THIS
+ * node's out-ports, so the two directions call {@link canConnect} with
+ * their arguments swapped rather than sharing one call shape.
+ */
+function isPortDimmed(
+  port: WorkflowPort,
+  thisNode: WorkflowNode,
+  connection: ConnectionState,
+  graph: ReturnType<typeof useWorkflowGraphContext>,
+): boolean {
+  if (!connection.inProgress || !graph) return false;
+  if (connection.fromNode.id === thisNode.id) return false; // never dim the node the drag started from.
+  const fromNode = (connection.fromNode.data as WorkflowNodeData).node;
+  const fromPorts = portsForNode(fromNode, graph.edges);
+  const draggingFromSource = connection.fromHandle.type === 'source';
+  if (draggingFromSource) {
+    if (port.direction !== 'in') return false;
+    const fromPort = fromPorts.find((p) => p.id === connection.fromHandle.id && p.direction === 'out');
+    if (!fromPort) return false;
+    return !canConnect(fromNode, fromPort, thisNode, port, graph.edges).ok;
+  }
+  if (port.direction !== 'out') return false;
+  const toPort = fromPorts.find((p) => p.id === connection.fromHandle.id && p.direction === 'in');
+  if (!toPort) return false;
+  return !canConnect(thisNode, port, fromNode, toPort, graph.edges).ok;
+}
+
 /**
  * The workflow canvas's card-style node (Phase 95 Theme I, ported from
  * midnite's `nodes/workflow-node-view.tsx`): a category-tinted header strip,
@@ -89,6 +135,19 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   const Icon = meta.icon;
   const StatusIcon = status ? STATUS_ICON[status] : null;
   const isRunning = status === 'running';
+  const shape = NODE_SHAPE[node.kind];
+
+  const connection = useConnection();
+  const graphContext = useWorkflowGraphContext();
+
+  // `graphContext?.edges` (Theme C) is what makes THIS node's own `exhausted`
+  // out-port appear the moment an outgoing `loop` edge is drawn off it —
+  // `portsForNode`'s `edges` param is optional precisely so a standalone
+  // render (no `WorkflowCanvas` context, e.g. a test) still gets every OTHER
+  // port right, just not that one.
+  const ports = node.kind === 'note' ? [] : portsForNode(node, graphContext?.edges);
+  const inPorts = ports.filter((p) => p.direction === 'in');
+  const outPorts = ports.filter((p) => p.direction === 'out');
 
   const ringClass = invalid ? 'ring-2 ring-destructive' : selected ? 'ring-2 ring-primary' : 'ring-1 ring-border';
 
@@ -116,43 +175,83 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
       data-status={status}
       data-activity-status={glow.status}
       style={{ width: 200 }}
-      className={`wf-node activity-glow group overflow-hidden rounded-lg bg-card shadow-sm ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
+      className={`wf-node activity-glow group overflow-hidden bg-card shadow-sm ${shape === 'pill' ? 'rounded-full' : 'rounded-lg'} ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
     >
-      {node.kind !== 'note' ? (
+      {inPorts.map((port, i) => (
         <Handle
+          key={port.id}
+          id={port.id}
           type="target"
           position={Position.Left}
-          className="!h-2.5 !w-2.5 !border-border !bg-background"
+          title={`${port.label} (${port.type})`}
+          style={{
+            top: portTopPercent(i, inPorts.length),
+            backgroundColor: PORT_TYPE_COLOR_VAR[port.type],
+            opacity: isPortDimmed(port, node, connection, graphContext) ? 0.35 : 1,
+          }}
+          className="!h-2.5 !w-2.5 !border-background"
         />
-      ) : null}
+      ))}
 
-      <div
-        className="flex items-center gap-1.5 px-2 py-1"
-        style={{ background: `color-mix(in srgb, ${CATEGORY_VAR[meta.category]} 16%, transparent)` }}
-      >
-        <span
-          aria-hidden
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
-          style={{ background: `color-mix(in srgb, ${CATEGORY_VAR[meta.category]} 32%, transparent)` }}
-        >
-          <Icon aria-hidden className="h-2.5 w-2.5" style={{ color: CATEGORY_VAR[meta.category] }} />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          {meta.label}
-        </span>
-        {StatusIcon ? (
-          <StatusIcon
+      {shape === 'pill' ? (
+        <div className="flex items-center gap-1.5 px-3 py-1.5">
+          <span
             aria-hidden
-            className={`h-3 w-3 shrink-0 ${isRunning ? 'animate-spin' : ''}`}
-            style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[status!]) }}
-          />
-        ) : null}
-      </div>
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+            style={{ background: `color-mix(in srgb, ${CATEGORY_VAR[meta.category]} 32%, transparent)` }}
+          >
+            <Icon aria-hidden className="h-2.5 w-2.5" style={{ color: CATEGORY_VAR[meta.category] }} />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+            {node.label}
+            <span className="ml-1 font-normal text-muted-foreground">· {nodeSummary(node)}</span>
+          </span>
+          {StatusIcon ? (
+            <StatusIcon
+              aria-hidden
+              className={`h-3 w-3 shrink-0 ${isRunning ? 'animate-spin' : ''}`}
+              style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[status!]) }}
+            />
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <div
+            className="flex items-center gap-1.5 px-2 py-1"
+            style={{ background: `color-mix(in srgb, ${CATEGORY_VAR[meta.category]} 16%, transparent)` }}
+          >
+            {shape === 'diamond-header' ? (
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 shrink-0 rotate-45"
+                style={{ background: CATEGORY_VAR[meta.category] }}
+              />
+            ) : null}
+            <span
+              aria-hidden
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+              style={{ background: `color-mix(in srgb, ${CATEGORY_VAR[meta.category]} 32%, transparent)` }}
+            >
+              <Icon aria-hidden className="h-2.5 w-2.5" style={{ color: CATEGORY_VAR[meta.category] }} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {meta.label}
+            </span>
+            {StatusIcon ? (
+              <StatusIcon
+                aria-hidden
+                className={`h-3 w-3 shrink-0 ${isRunning ? 'animate-spin' : ''}`}
+                style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[status!]) }}
+              />
+            ) : null}
+          </div>
 
-      <div className="px-2 py-1.5">
-        <p className="truncate text-xs font-medium text-foreground">{node.label}</p>
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{nodeSummary(node)}</p>
-      </div>
+          <div className="px-2 py-1.5">
+            <p className="truncate text-xs font-medium text-foreground">{node.label}</p>
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{nodeSummary(node)}</p>
+          </div>
+        </>
+      )}
 
       {error ? (
         <div className="flex items-start gap-1 border-t border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
@@ -161,13 +260,21 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
         </div>
       ) : null}
 
-      {node.kind !== 'note' ? (
+      {outPorts.map((port, i) => (
         <Handle
+          key={port.id}
+          id={port.id}
           type="source"
           position={Position.Right}
-          className="!h-2.5 !w-2.5 !border-primary !bg-primary/80"
+          title={`${port.label} (${port.type})`}
+          style={{
+            top: portTopPercent(i, outPorts.length),
+            backgroundColor: PORT_TYPE_COLOR_VAR[port.type],
+            opacity: isPortDimmed(port, node, connection, graphContext) ? 0.35 : 1,
+          }}
+          className="!h-2.5 !w-2.5 !border-background"
         />
-      ) : null}
+      ))}
     </div>
   );
 }

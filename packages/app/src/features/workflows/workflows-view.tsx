@@ -1,7 +1,9 @@
 import {
   isWorkflowEnabled,
   validateWorkflow,
+  workflowLoopStates,
   type Workflow,
+  type WorkflowLoopState,
   type WorkflowNode,
   type WorkflowNodeKind,
   type WorkflowNodeStatus,
@@ -307,6 +309,34 @@ function WorkflowEditor({
         : undefined),
     [replayed, focusedRun],
   );
+  /** The taken/dead edge highlighting's own input (Theme J) — same `replayed`/`focusedRun` pairing as `nodeStatuses`/`nodeErrors` above. */
+  const nodeSettledPorts = useMemo<ReadonlyMap<string, string> | undefined>(
+    () =>
+      replayed?.settledPorts ??
+      (focusedRun
+        ? new Map(
+            focusedRun.nodes
+              .filter((n): n is typeof n & { settledPort: string } => n.settledPort !== undefined)
+              .map((n) => [n.nodeId, n.settledPort]),
+          )
+        : undefined),
+    [replayed, focusedRun],
+  );
+  /**
+   * The loop iteration badge's own input (Theme J, off Theme C's
+   * `WorkflowRun.loopStates`) — keyed by edge id, unlike the three maps
+   * above (keyed by node id), because a loop's state describes the EDGE
+   * (Theme C's own doc comment: "two distinct loop edges could in principle
+   * share a source node"). Not `replayed`-aware — Theme K's own "replay by
+   * iteration" owns scrubbing a loop's *history*; this shows the run's
+   * final/live iteration count regardless of where a plain step-replay
+   * scrubber is parked, the same simplification the phase's own dependency
+   * order implies (K depends on this run record, not the other way round).
+   */
+  const loopStates = useMemo<ReadonlyMap<string, WorkflowLoopState> | undefined>(
+    () => (focusedRun ? new Map(workflowLoopStates(focusedRun).map((state) => [state.edgeId, state])) : undefined),
+    [focusedRun],
+  );
   /**
    * Only the workflow's OWN currently-live run ever has a session to show
    * (Theme J) — a historical run being viewed in `mode === 'run'` has none:
@@ -414,6 +444,8 @@ function WorkflowEditor({
               invalidNodeIds={mode === 'edit' ? invalidNodeIds : undefined}
               nodeStatuses={nodeStatuses}
               nodeErrors={nodeErrors}
+              nodeSettledPorts={nodeSettledPorts}
+              loopStates={loopStates}
               nodeSessions={nodeSessions}
               readOnly={mode === 'run'}
               toolbarExtra={
