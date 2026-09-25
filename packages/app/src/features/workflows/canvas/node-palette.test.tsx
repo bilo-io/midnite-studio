@@ -9,8 +9,9 @@ describe('NodePalette', () => {
   it('lists every node kind by default', () => {
     render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
     // 5 from Phase 43's MVP vocabulary, Phase 95 Theme J's `agent`/`script`,
-    // Phase 97 Theme B's `join`, and Phase 97 Theme D's `gate`.
-    expect(screen.getByRole('list', { name: 'Node types' }).querySelectorAll('[role="listitem"]')).toHaveLength(9);
+    // Phase 97 Theme B's `join`, Phase 97 Theme D's `gate`, and Phase 97
+    // Theme F's `router`.
+    expect(screen.getByRole('list', { name: 'Node types' }).querySelectorAll('[role="listitem"]')).toHaveLength(10);
   });
 
   it('filters rows by label as the query changes', () => {
