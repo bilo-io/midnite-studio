@@ -14,6 +14,8 @@ import {
   type GitOpResult,
   type Workflow,
   type WorkflowEdge,
+  type WorkflowGateDecidedBy,
+  type WorkflowGateDecision,
   type WorkflowJoinMode,
   type WorkflowNode,
   type WorkflowNodeRun,
@@ -24,6 +26,7 @@ import {
 import { demoApiStatus } from '../demo-api/server';
 import { defaultExecutors } from './executors';
 import type { CancelSignal, ExecutorRegistry, NodeOutcome } from './executor-registry';
+import { resolveGateWaiter } from './gate-waiters';
 import {
   activeNodeRun,
   activeNodeRuns,
@@ -719,7 +722,21 @@ async function finalizeRun(
   if (run) deps.emitChanged(run);
 }
 
+/**
+ * Effectively "never" for the generic per-node deadline race below — a
+ * `gate` manages its own timeout entirely inside its executor
+ * (`executors/gate.ts`'s own `config.timeoutMs`, or waiting forever), and the
+ * generic race MUST NOT win first: it produces the `timeout` `WorkflowNodeStatus`,
+ * which `statusFor` treats as a run failure — wrong for a gate's own timeout,
+ * which settles `rejected` (an ordinary branch, exactly like a `false`
+ * `condition`), never a failure. Capped just under `setTimeout`'s signed
+ * 32-bit ms ceiling (`2^31 - 1`) rather than `Infinity`, which Node clamps to
+ * firing on the very next tick instead of "never".
+ */
+const WORKFLOW_GATE_ENGINE_BACKSTOP_MS = 2_147_483_000;
+
 function timeoutFor(node: WorkflowNode, deps: EngineDeps): number {
+  if (node.kind === 'gate') return WORKFLOW_GATE_ENGINE_BACKSTOP_MS;
   if (node.kind === 'http' && node.config.timeoutMs !== undefined) return node.config.timeoutMs;
   return deps.defaultTimeoutMs ?? WORKFLOW_NODE_TIMEOUT_MS;
 }
@@ -837,6 +854,7 @@ async function runNode(
 
   const signal: CancelSignal = { cancelled: () => state.cancelled };
   const reportSessionId = (sessionId: string) => patchNodeSessionId(runId, node.id, sessionId, deps);
+  const reportWaiting = () => patchNodeWaiting(runId, node.id, deps);
   let settled = false;
 
   return new Promise((resolve) => {
@@ -846,7 +864,15 @@ async function runNode(
       resolve({ status: 'timeout' });
     }, timeoutMs);
 
-    void executors[node.kind](node, { upstream, signal, timeoutMs, workflowId, runId, reportSessionId }).then(
+    void executors[node.kind](node, {
+      upstream,
+      signal,
+      timeoutMs,
+      workflowId,
+      runId,
+      reportSessionId,
+      reportWaiting,
+    }).then(
       (result) => {
         if (settled) return;
         settled = true;
@@ -890,8 +916,12 @@ async function settleNode(
     const node = activeNodeRun(run, nodeId);
     if (!node) return null;
     // The idempotence guard, INSIDE the lock: a cancel can race a real settle,
-    // and whichever landed first is the one that counts.
-    if (node.status !== 'running') return null;
+    // and whichever landed first is the one that counts. `'waiting'` joins
+    // `'running'` here (Phase 97 Theme D): by the time a `gate`'s own
+    // executor promise resolves, `reportWaiting` has already moved this
+    // node's status to `'waiting'` — a guard that only accepted `'running'`
+    // would silently no-op every gate decide.
+    if (node.status !== 'running' && node.status !== 'waiting') return null;
 
     node.status = outcome.status;
     node.endedAt = clock.now();
@@ -994,4 +1024,61 @@ async function patchNodeSessionId(
     return run;
   });
   if (run) deps.emitChanged(run);
+}
+
+/**
+ * Move a node from `running` to `waiting` (Phase 97 Theme D) — a MID-FLIGHT
+ * patch, the identical idiom {@link patchNodeSessionId} above already uses:
+ * `executors/gate.ts` calls this the moment it starts, well before its own
+ * promise resolves, so the run panel/bell/kill-switch see the pause the
+ * instant it begins rather than only once the gate is eventually decided.
+ * A no-op if the run vanished or the node already left `running` (a cancel
+ * that raced ahead of this write) — the same guard every mid-flight patch in
+ * this file applies.
+ */
+async function patchNodeWaiting(runId: string, nodeId: string, deps: EngineDeps): Promise<void> {
+  const run = await withRunLock(runId, async () => {
+    const run = await deps.getRun(runId);
+    if (!run) return null;
+    const node = activeNodeRun(run, nodeId);
+    if (!node || node.status !== 'running') return null;
+    node.status = 'waiting';
+    await deps.saveRun(run);
+    return run;
+  });
+  if (run) deps.emitChanged(run);
+}
+
+/**
+ * Decide a `gate` node currently `waiting` — the one function every decide
+ * channel funnels through (`workflowGateDecide` IPC, the MCP tool, and
+ * `gate-forge-service.ts`'s PR-comment poll), each passing its own
+ * {@link WorkflowGateDecidedBy}. Resolving the in-memory waiter
+ * (`gate-waiters.ts`) is what actually unblocks the gate's own executor
+ * promise; `settleNode` (already running as part of `executeNode`'s own
+ * await chain) is what then writes the settle onto the run.
+ *
+ * Read-then-resolve rather than resolve-then-check: `getRun`/`activeNodeRun`
+ * exist here only to answer with an honest, specific failure message
+ * (`GitOpResult`'s whole point) — `resolveGateWaiter`'s own `false` already
+ * covers every case where there is nothing to decide, including a run that
+ * no longer exists.
+ */
+export async function decideWorkflowGate(
+  runId: string,
+  nodeId: string,
+  decision: WorkflowGateDecision,
+  note: string | undefined,
+  decidedBy: WorkflowGateDecidedBy,
+  deps: EngineDeps,
+): Promise<GitOpResult> {
+  const run = await deps.getRun(runId);
+  if (!run) return failure('That run no longer exists.');
+  const node = activeNodeRun(run, nodeId);
+  if (!node) return failure('That step no longer exists.');
+  if (node.status !== 'waiting') return failure('This gate is not waiting for a decision.');
+
+  const resolved = resolveGateWaiter(runId, nodeId, { decision, note, decidedBy });
+  if (!resolved) return failure('This gate is not waiting for a decision.');
+  return ok();
 }

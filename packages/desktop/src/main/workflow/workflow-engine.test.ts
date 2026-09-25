@@ -90,6 +90,7 @@ function fakeRegistry(
     // included only so this fixture registry satisfies `ExecutorRegistry`'s
     // exhaustive `Record`.
     join: executor,
+    gate: executor,
   };
 }
 
