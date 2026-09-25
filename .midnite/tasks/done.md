@@ -1,6 +1,52 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme G — Durable run state and failure policy
+
+[PR #574](https://github.com/bilo-io/midnite-studio/pull/574). A per-run **state store**, checkpoint/resume across a crash, and per-node
+`onFailure` — the phase doc's "the run survives the process, and a node can say what to do
+when it fails" bullets.
+
+- [x] New node kind **`state`** (`{op:'set'|'merge'|'append', key, value}`) writes into
+      `WorkflowRun.state: Record<string, JsonValue>`, read anywhere as `{{state.<key>}}`.
+      The interpolate-and-parse half lives in `executors/state.ts`; the actual
+      read-modify-write happens in `workflow-engine.ts`'s `settleNode`, inside the SAME run
+      lock every other settle already holds, so two `state` nodes racing in parallel can
+      never interleave a write. Capped at `WORKFLOW_STATE_MAX_BYTES` (65536, the whole
+      state's `JSON.stringify`d length) — a breach fails only the writing node, leaving
+      prior state untouched.
+- [x] **Checkpoints** were already mostly free (every settle already persists the run);
+      the state write above rides the same `saveRun` call, so nothing needed a second
+      write path.
+- [x] **Resume.** `workflow-service.ts`'s boot sweep now marks a dangling `running` run
+      `interrupted` (a new `WorkflowRunStatus`) instead of silently sweeping it to
+      `cancelled`, and resets its `running`/`waiting` nodes to `pending` rather than
+      `skipped`. New engine export `resumeWorkflowRun(workflow, run, deps)` restarts
+      `drive()` from exactly that checkpoint — settled nodes stay settled, reset nodes
+      re-run from scratch, a waiting gate re-registering its own waiter for free (the
+      identical path a first run takes, no resume-specific gate machinery needed). New
+      `workflowResume` IPC channel and a run-panel **Resume** button (a plain `bridge()`
+      call + local state, not `useMutation`, so `RunOutputPanel` keeps working in tests
+      with no `QueryClientProvider`).
+- [x] Per-node **`onFailure`** on `WorkflowNodeBaseSchema` (every kind may set it): `retry`
+      re-runs in `executeNode` with a fixed backoff via the engine's own injected clock,
+      gated by a new `http` `config.idempotent` opt-in before a `POST`/`PATCH` is ever
+      retried (`isHttpRetrySafe`, flagged as a `severity:'warning'` `validateWorkflow`
+      issue otherwise — worth a badge, not worth blocking Run). `fallback`/`skip`/
+      `repair`/`escalate` apply in `settleNode` via `applyFailurePolicy`: `fallback` forces
+      the error port even with no wired error edge; `skip` settles `skipped` instead of
+      `failed`, so the node stops dragging the run's own status down; `repair`/`escalate`
+      synthesize a deterministic-id `error`-kind edge straight into `run.edges`, reusing
+      100% of the existing taken-edge cascade/upstream-resolution machinery rather than a
+      second routing pass. A generic `OnFailureSection` in `node-inspector.tsx` is the one
+      shared editor for the policy, below whichever kind-specific form is showing.
+- [x] Vitest: crash-resume (incl. gate waiter re-registration via a new test-only
+      `forgetInFlightForTests`, which simulates an actual process death rather than just a
+      hung in-process promise), each failure policy — `repair`/`escalate` tested with a
+      "gatekeeper" node so the target is provably not a graph root that would have run
+      anyway — state set/merge/append plus the byte-cap breach, retry backoff with the
+      injected clock, and the http idempotency gate.
+
 ## 2026-09-25 — Phase 97 Theme H — Trigger node
 
 [PR #565](https://github.com/bilo-io/midnite-studio/pull/565). A new `trigger` node kind (hue `--node-trigger`, finally used) — at most one per

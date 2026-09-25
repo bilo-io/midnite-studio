@@ -62,6 +62,8 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Verify', config: { check: 'exit-code', command: '', env: {} } };
     case 'trigger':
       return { ...base, kind, label: 'Trigger', config: { on: 'manual' } };
+    case 'state':
+      return { ...base, kind, label: 'State', config: { op: 'set', key: '', value: '' } };
   }
 }
 

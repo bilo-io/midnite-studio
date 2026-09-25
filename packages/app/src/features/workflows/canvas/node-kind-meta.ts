@@ -3,6 +3,7 @@ import {
   LuBadgeCheck,
   LuBot,
   LuClock,
+  LuDatabase,
   LuGitBranch,
   LuGlobe,
   LuMerge,
@@ -132,6 +133,17 @@ export const NODE_KIND_META: Record<
     category: 'trigger',
     description: 'Start the run — manual, on a schedule, or a forge PR event.',
   },
+  /**
+   * Phase 97 Theme G. `data` hue, beside `transform` — a `state` node's job
+   * is durable per-run storage, not a routing decision, so it takes the
+   * data-shaped tint rather than `logic`'s.
+   */
+  state: {
+    label: 'State',
+    icon: LuDatabase,
+    category: 'data',
+    description: "Write a value into this run's durable state — set, merge, or append.",
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -181,5 +193,7 @@ export function nodeSummary(node: WorkflowNode): string {
       if (node.config.on === 'manual') return 'Manual';
       if (node.config.on === 'schedule') return `Schedule · ${node.config.cron}`;
       return `Forge PR · ${node.config.events.join('/')}`;
+    case 'state':
+      return node.config.key.trim() ? `${node.config.op} ${node.config.key}` : `${node.config.op} (no key)`;
   }
 }

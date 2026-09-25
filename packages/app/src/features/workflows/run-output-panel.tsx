@@ -1,11 +1,53 @@
 import type { WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
 import { Fragment, useState } from 'react';
-import { LuChevronDown, LuChevronUp, LuDownload } from 'react-icons/lu';
+import { LuChevronDown, LuChevronUp, LuDownload, LuPlay } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
+import { bridge } from '../../services/bridge';
 import { activityStatusVar } from '../activity/activity-status-color';
 import { NODE_KIND_META } from './canvas/node-kind-meta';
 import { GateDecideRow } from './gate-decide-row';
+
+/**
+ * The run panel's own Resume control (Phase 97 Theme G), shown only for a
+ * run left `interrupted` (the app quit while it was in flight). A plain
+ * direct `bridge()` call with local pending/error state, the same idiom
+ * `GateDecideRow` already uses right above — not a `useMutation` hook, so
+ * this component (and `RunOutputPanel` itself) keeps working in every test
+ * that renders it with no `QueryClientProvider` around it.
+ */
+function ResumeRunButton({ runId }: { runId: string }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resume = async () => {
+    setPending(true);
+    setError(null);
+    const result = await bridge()?.workflow.resume({ runId });
+    setPending(false);
+    if (result && !result.ok) setError(result.kind === 'error' ? result.message : 'Could not resume.');
+  };
+
+  return (
+    <span className="flex items-center gap-1">
+      <button
+        type="button"
+        title="Resume this run from where it left off"
+        aria-label="Resume run"
+        disabled={pending}
+        onClick={(event) => {
+          event.stopPropagation();
+          void resume();
+        }}
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[hsl(var(--activity-waiting))] hover:bg-background disabled:opacity-50"
+      >
+        <LuPlay aria-hidden className="h-3 w-3" />
+        {pending ? 'Resuming…' : 'Resume'}
+      </button>
+      {error ? <span className="text-destructive">{error}</span> : null}
+    </span>
+  );
+}
 
 const STATUS_LABEL: Record<WorkflowRun['nodes'][number]['status'], string> = {
   pending: 'Pending',
@@ -155,7 +197,11 @@ export function RunOutputPanel({
                         ? 'succeeded'
                         : run.status === 'failed'
                           ? 'failed'
-                          : 'pending'
+                          // Phase 97 Theme G — an interrupted run is paused
+                          // for the user, same token a waiting gate uses.
+                          : run.status === 'interrupted'
+                            ? 'waiting'
+                            : 'pending'
                 ],
               ),
             }}
@@ -164,19 +210,22 @@ export function RunOutputPanel({
           </span>
         ) : null}
         {!collapsed && run ? (
-          <button
-            type="button"
-            title="Export run as Markdown"
-            aria-label="Export run as Markdown"
-            onClick={(event) => {
-              event.stopPropagation();
-              downloadMarkdown(run);
-            }}
-            className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-background hover:text-foreground"
-          >
-            <LuDownload aria-hidden className="h-3 w-3" />
-            Export
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            {run.status === 'interrupted' ? <ResumeRunButton runId={run.id} /> : null}
+            <button
+              type="button"
+              title="Export run as Markdown"
+              aria-label="Export run as Markdown"
+              onClick={(event) => {
+                event.stopPropagation();
+                downloadMarkdown(run);
+              }}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-background hover:text-foreground"
+            >
+              <LuDownload aria-hidden className="h-3 w-3" />
+              Export
+            </button>
+          </div>
         ) : null}
       </div>
 

@@ -1763,6 +1763,7 @@ describe('workflow contract', () => {
       workflowDelete: ['WorkflowDeleteRequest', 'WorkflowDeleteResponse'],
       workflowRun: ['WorkflowRunRequest', 'WorkflowRunResponse'],
       workflowCancel: ['WorkflowCancelRequest', 'WorkflowCancelResponse'],
+      workflowResume: ['WorkflowResumeRequest', 'WorkflowResumeResponse'],
       workflowGateDecide: ['WorkflowGateDecideRequest', 'WorkflowGateDecideResponse'],
       workflowRunsList: ['WorkflowRunsListRequest', 'WorkflowRunsListResponse'],
       workflowRunsGet: ['WorkflowRunsGetRequest', 'WorkflowRunsGetResponse'],

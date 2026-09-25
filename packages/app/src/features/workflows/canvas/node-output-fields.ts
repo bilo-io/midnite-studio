@@ -45,5 +45,7 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       // Manual and schedule fires carry nothing (the executor's own output is
       // `null`) — only a forge-pr fire hands downstream nodes real fields.
       return node.config.on === 'forge-pr' ? ['number', 'title', 'headRef', 'url', 'author'] : [];
+    case 'state':
+      return ['op', 'key', 'value'];
   }
 }

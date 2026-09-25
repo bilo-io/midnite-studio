@@ -8,6 +8,7 @@ import {
   getRun,
   listRunsForWorkflow,
   listWorkflows,
+  resumeRun,
   runWorkflow,
   saveWorkflow,
   setWorkflowDefaults,
@@ -50,6 +51,13 @@ export function registerWorkflowHandlers(): void {
     CHANNELS.workflowCancel,
     schemas.WorkflowCancelRequest,
     async ({ runId }) => cancelRun(runId),
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.workflowResume,
+    schemas.WorkflowResumeRequest,
+    async ({ runId }) => resumeRun(runId),
     (issue) => failure(issue),
   );
 

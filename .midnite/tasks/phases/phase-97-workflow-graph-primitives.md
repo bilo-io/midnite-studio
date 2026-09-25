@@ -277,19 +277,19 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       existing `port`/`settledPort` mechanism — no new run-record field needed).
 - [x] Vitest: first-match order, the default fallback, and an unknown agent label.
 
-### G — Durable run state and failure policy (L)
+### G — Durable run state and failure policy (L) — ✅ DONE ([PR #574](https://github.com/bilo-io/midnite-studio/pull/574), 2026-09-25)
 
-- [ ] A per-run **state store**: `WorkflowRun.state: Record<string, JsonValue>`, written by a new
+- [x] A per-run **state store**: `WorkflowRun.state: Record<string, JsonValue>`, written by a new
       `state` node kind (`{op:'set'|'merge'|'append', key, value}`) and read anywhere as
       `{{state.<key>}}`. Writes go through the engine, one at a time per run. Size is capped and a
       breach fails the writing node with a clear message.
-- [ ] **Checkpoints.** After every node settles, the engine persists the run (statuses, iteration
+- [x] **Checkpoints.** After every node settles, the engine persists the run (statuses, iteration
       indices, `state`, loop counters) through
       [`workflow-runs-store.ts`](../../../packages/desktop/src/main/workflow-runs-store.ts).
-- [ ] **Resume.** On boot, a run left `running` is marked `interrupted` (a new
+- [x] **Resume.** On boot, a run left `running` is marked `interrupted` (a new
       `WorkflowRunStatus`) instead of silently `failed`. The run panel offers **Resume**, which
       restarts from the last checkpoint: settled nodes stay settled, and `running` nodes re-run.
-- [ ] Per-node **failure policy** `onFailure`:
+- [x] Per-node **failure policy** `onFailure`:
   - `{kind:'retry', attempts, backoffMs}`
   - `fallback` (to the error port)
   - `skip` (settle as skipped, downstream proceeds)
@@ -298,10 +298,10 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
   - `stop` (fail the run)
 
   The default is today's behaviour.
-- [ ] Idempotency note in the http form: retry is offered on `GET|HEAD|PUT|DELETE` by default and
+- [x] Idempotency note in the http form: retry is offered on `GET|HEAD|PUT|DELETE` by default and
       on `POST|PATCH` only behind an explicit "this call is idempotent" toggle, per the Graph
       Engineering article's "make writes idempotent so a retry does not duplicate side effects".
-- [ ] Vitest: resume after a simulated crash (store reloaded mid-run), each failure policy, the
+- [x] Vitest: resume after a simulated crash (store reloaded mid-run), each failure policy, the
       state-size cap, and retry backoff with an injected clock.
 
 ### H — Trigger node (M)

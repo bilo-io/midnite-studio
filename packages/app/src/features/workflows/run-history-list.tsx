@@ -11,6 +11,7 @@ const STATUS_LABEL: Record<WorkflowRunStatus, string> = {
   completed: 'Completed',
   failed: 'Failed',
   cancelled: 'Cancelled',
+  interrupted: 'Interrupted',
 };
 
 const STATUS_DOT: Record<WorkflowRunStatus, string> = {
@@ -18,6 +19,10 @@ const STATUS_DOT: Record<WorkflowRunStatus, string> = {
   completed: 'bg-green-500',
   failed: 'bg-destructive',
   cancelled: 'bg-muted-foreground',
+  // Phase 97 Theme G — a distinct amber, matching neither a still-running
+  // run (blue) nor a deliberate cancel (muted): the app quit mid-flight,
+  // and Resume is one click away.
+  interrupted: 'bg-amber-500',
 };
 
 /** Coarse relative age — this list is scanned, not read closely. */
@@ -122,4 +127,5 @@ const STATUS_OPTIONS: MultiSelectOption[] = [
   { value: 'completed', label: 'Completed' },
   { value: 'failed', label: 'Failed' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'interrupted', label: 'Interrupted' },
 ];
