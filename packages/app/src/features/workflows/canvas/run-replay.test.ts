@@ -53,9 +53,9 @@ describe('replayOrder', () => {
 
 describe('nodeStatusesAtStep', () => {
   const r = run([
-    nodeRun({ nodeId: 'a', startedAt: 100, status: 'succeeded' }),
+    nodeRun({ nodeId: 'a', startedAt: 100, status: 'succeeded', settledPort: 'out' }),
     nodeRun({ nodeId: 'b', startedAt: 200, status: 'failed', error: 'boom' }),
-    nodeRun({ nodeId: 'c', startedAt: 300, status: 'succeeded' }),
+    nodeRun({ nodeId: 'c', startedAt: 300, status: 'succeeded', settledPort: 'out' }),
   ]);
 
   it('step 0 — nothing has happened yet, every node reads pending', () => {
@@ -67,12 +67,15 @@ describe('nodeStatusesAtStep', () => {
   });
 
   it('a partial step shows real status for settled nodes, pending for the rest', () => {
-    const { statuses, errors } = nodeStatusesAtStep(r, 2);
+    const { statuses, errors, settledPorts } = nodeStatusesAtStep(r, 2);
     expect(statuses.get('a')).toBe('succeeded');
     expect(statuses.get('b')).toBe('failed');
     expect(statuses.get('c')).toBe('pending');
     expect(errors.get('b')).toBe('boom');
     expect(errors.has('c')).toBe(false);
+    expect(settledPorts.get('a')).toBe('out');
+    expect(settledPorts.has('b')).toBe(false);
+    expect(settledPorts.has('c')).toBe(false);
   });
 
   it('the final step (node count) matches the run\'s own recorded statuses', () => {

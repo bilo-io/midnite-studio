@@ -307,6 +307,19 @@ function WorkflowEditor({
         : undefined),
     [replayed, focusedRun],
   );
+  /** The taken/dead edge highlighting's own input (Theme J) — same `replayed`/`focusedRun` pairing as `nodeStatuses`/`nodeErrors` above. */
+  const nodeSettledPorts = useMemo<ReadonlyMap<string, string> | undefined>(
+    () =>
+      replayed?.settledPorts ??
+      (focusedRun
+        ? new Map(
+            focusedRun.nodes
+              .filter((n): n is typeof n & { settledPort: string } => n.settledPort !== undefined)
+              .map((n) => [n.nodeId, n.settledPort]),
+          )
+        : undefined),
+    [replayed, focusedRun],
+  );
   /**
    * Only the workflow's OWN currently-live run ever has a session to show
    * (Theme J) — a historical run being viewed in `mode === 'run'` has none:
@@ -414,6 +427,7 @@ function WorkflowEditor({
               invalidNodeIds={mode === 'edit' ? invalidNodeIds : undefined}
               nodeStatuses={nodeStatuses}
               nodeErrors={nodeErrors}
+              nodeSettledPorts={nodeSettledPorts}
               nodeSessions={nodeSessions}
               readOnly={mode === 'run'}
               toolbarExtra={

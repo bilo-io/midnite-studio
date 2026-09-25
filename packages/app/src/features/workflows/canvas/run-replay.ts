@@ -31,17 +31,24 @@ export function replayOrder(run: WorkflowRun): WorkflowNodeRun[] {
 export function nodeStatusesAtStep(
   run: WorkflowRun,
   step: number,
-): { statuses: ReadonlyMap<string, WorkflowNodeStatus>; errors: ReadonlyMap<string, string> } {
+): {
+  statuses: ReadonlyMap<string, WorkflowNodeStatus>;
+  errors: ReadonlyMap<string, string>;
+  /** `WorkflowNodeRun.settledPort` as of this step (Phase 97 Theme J) — what the canvas's taken/dead edge highlighting reads while a `RunReplayControls` scrubber is in play. Unset entries (a node not yet reached, or one with no routable settle) are simply absent, same as `errors`. */
+  settledPorts: ReadonlyMap<string, string>;
+} {
   const order = replayOrder(run);
   const statuses = new Map<string, WorkflowNodeStatus>();
   const errors = new Map<string, string>();
+  const settledPorts = new Map<string, string>();
   order.forEach((node, index) => {
     if (index < step) {
       statuses.set(node.nodeId, node.status);
       if (node.error !== undefined) errors.set(node.nodeId, node.error);
+      if (node.settledPort !== undefined) settledPorts.set(node.nodeId, node.settledPort);
     } else {
       statuses.set(node.nodeId, 'pending');
     }
   });
-  return { statuses, errors };
+  return { statuses, errors, settledPorts };
 }

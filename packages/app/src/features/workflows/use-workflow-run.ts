@@ -82,6 +82,33 @@ export function useLiveWorkflowNodeStatuses(
 }
 
 /**
+ * `useLiveWorkflowRun`'s run, reshaped for `WorkflowCanvas`'s `nodeSettledPorts`
+ * prop (Phase 97 Theme J) — the same live-overlay pairing
+ * `useLiveWorkflowNodeStatuses` above already gives `nodeStatuses`, one map
+ * per field rather than a combined object so a consumer that only wants one
+ * of the two (the run-history list, say) never re-renders on the other's
+ * change. A node with no `settledPort` yet (pending/running/skipped, or a
+ * legacy-cascade failure) is simply absent, matching `nodeErrors`'s own
+ * "unset means nothing to show" convention.
+ */
+export function useLiveWorkflowNodeSettledPorts(
+  workflowId: string | null,
+): ReadonlyMap<string, string> | undefined {
+  const run = useLiveWorkflowRun(workflowId);
+  return useMemo(
+    () =>
+      run
+        ? new Map(
+            run.nodes
+              .filter((node): node is typeof node & { settledPort: string } => node.settledPort !== undefined)
+              .map((node) => [node.nodeId, node.settledPort]),
+          )
+        : undefined,
+    [run],
+  );
+}
+
+/**
  * `useLiveWorkflowRun`'s run, reshaped for `WorkflowCanvas`'s `nodeSessions`
  * prop (Phase 95 Theme J) — every live `TerminalSession` stamped with THIS
  * run's own `workflowRunRef`, grouped by `nodeId`, in the exact
