@@ -93,7 +93,9 @@ export const riskRouterTemplate: WorkflowTemplate = {
         x: 940,
         y: 60,
         kind: 'join',
-        config: { mode: 'all', inputs: 2 },
+        // allSettled, not all: on a low-risk or unclassified change neither
+        // audit runs, and an `all` join fails on an input that was not taken.
+        config: { mode: 'allSettled', inputs: 2 },
       },
       {
         id: 'human',
