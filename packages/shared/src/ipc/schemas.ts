@@ -177,7 +177,12 @@ import {
   VideoStudioStatusSchema,
   VideoToolchainSchema,
 } from '../video';
-import { WORKFLOW_MAX_NODE_TIMEOUT_MS, WorkflowRunSchema, WorkflowSchema } from '../workflow';
+import {
+  WORKFLOW_MAX_NODE_TIMEOUT_MS,
+  WorkflowGateDecisionSchema,
+  WorkflowRunSchema,
+  WorkflowSchema,
+} from '../workflow';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -2672,6 +2677,20 @@ export const WorkflowRunsListResponse = z.object({ runs: z.array(WorkflowRunSche
 
 export const WorkflowRunsGetRequest = z.object({ runId: z.string().min(1) });
 export const WorkflowRunsGetResponse = z.object({ run: WorkflowRunSchema.nullable() });
+
+/**
+ * Phase 97 Theme D — decide a `gate` node currently `waiting`. `note` is the
+ * approver's optional free text, carried into `{{gate.note}}` downstream
+ * (the phase doc's own bullet). `decision` reuses {@link WorkflowGateDecisionSchema}
+ * so the wire vocabulary and the gate's own out-port ids can never drift.
+ */
+export const WorkflowGateDecideRequest = z.object({
+  runId: z.string().min(1),
+  nodeId: z.string().min(1),
+  decision: WorkflowGateDecisionSchema,
+  note: z.string().optional(),
+});
+export const WorkflowGateDecideResponse = GitOpResultSchema;
 
 /**
  * `workflowRunChanged`'s payload (Phase 95 Theme I) — the run itself, not a

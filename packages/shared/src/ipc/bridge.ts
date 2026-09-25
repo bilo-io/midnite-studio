@@ -913,6 +913,8 @@ export type MidniteStudioBridge = {
     delete: (req: In<typeof S.WorkflowDeleteRequest>) => Promise<GitOpResult>;
     run: (req: In<typeof S.WorkflowRunRequest>) => Promise<z.infer<typeof S.WorkflowRunResponse>>;
     cancel: (req: In<typeof S.WorkflowCancelRequest>) => Promise<GitOpResult>;
+    /** Phase 97 Theme D — decide a `gate` node currently `waiting`, from the run panel. */
+    gateDecide: (req: In<typeof S.WorkflowGateDecideRequest>) => Promise<GitOpResult>;
     runs: {
       list: (
         req: In<typeof S.WorkflowRunsListRequest>,
