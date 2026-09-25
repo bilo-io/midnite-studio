@@ -224,9 +224,9 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [x] Vitest: approve / reject / timeout routing, MCP decide with and without consent, a comment
       from the wrong author ignored, a cancelled gate, and Auto-mate's derive with a waiting run.
 
-### E — Verifier node (M)
+### E — Verifier node (M) — ✅ DONE ([PR #564](https://github.com/bilo-io/midnite-studio/pull/564), 2026-09-25)
 
-- [ ] New node kind **`verify`**, ports `in` → `pass` / `fail` (type `verdict`, with an evidence
+- [x] New node kind **`verify`**, ports `in` → `pass` / `fail` (type `verdict`, with an evidence
       payload). The config is a discriminated union over `check`:
   - `agent`: an agent node config whose done marker `ok|fail` is the verdict. It must be a
     different agent id or skill from its maker when wired after an agent node; `validateWorkflow`
@@ -235,12 +235,31 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
   - `test-counts`: a script config plus a parser (`vitest|jest|junit-xml|tap`) yielding
     `{passed, failed, skipped}`, with pass meaning `failed === 0 && passed >= minPassed`.
   - `json-path`: `{source: '{{node.path}}', op, right}`, reusing `WORKFLOW_CONDITION_OPS`.
-- [ ] Evidence (`{check, passed, failed, message, failures[]}`) is capped and redacted, and is what
-      C's `loop.failures` carries into the next iteration.
-- [ ] The test-count parsers live in `shared` as pure functions and are fixture-tested. If
-      [Phase 94](phase-94-ai-engineering.md) Theme B lands first, reuse its parsers instead of
-      writing a second set.
-- [ ] Vitest: each check kind's pass and fail, parser fixtures, and a maker == checker warning.
+  (Phase 94 Theme B had not landed on main when this was picked up — its `checked loop iteration`
+  is a different contract (an existing `TestSuite`/`runTestSuite` shape) from this theme's explicit
+  `parser` choice anyway, so fresh parsers were written per the doc's own fallback. `check:'agent'`
+  reuses `executors/agent.ts`'s roster+pty+done-marker machinery directly, via a new shared
+  `runAgentToDoneMarker` extracted from it — not a second copy. `exit-code`/`test-counts` run
+  **headlessly** via `process-runner.ts` (`/bin/sh -c`), not the interactive-pty `script` node —
+  a check needs clean stdout, not a terminal transcript. `validateWorkflow`'s maker == matcher
+  warning needed a new `severity: 'error'|'warning'` field on `WorkflowIssue` — the engine's
+  pre-run gate and the canvas's Run-disable both now filter to error-severity only, so a warning
+  never blocks Run.)
+- [x] Evidence (`{check, passed, failed, message, failures[]}`) is capped and redacted, and is what
+      C's `loop.failures` carries into the next iteration. (`loop-controller.ts`'s
+      `buildLoopContext` extended: a verify node's `'fail'` `settledPort` now also counts as a
+      loop failure, scoped to `kind === 'verify'` so it can't misfire on any other kind's ports;
+      its evidence `message` is preferred over a raw `JSON.stringify` of the whole object.)
+- [x] The test-count parsers live in `shared` as pure functions and are fixture-tested
+      (`shared/src/workflow-test-parsers.ts`) — `parseWorkflowTestCounts(parser, raw)` dispatching
+      to a jest-like parser (serves both `vitest`/`jest`, which share the reporter shape) plus
+      dedicated `junit-xml`/`tap` parsers.
+- [x] Vitest: each check kind's pass and fail, parser fixtures, and a maker == checker warning.
+      Also an engine-level test proving a verify `'fail'` inside a loop body carries its evidence
+      into iteration 2's `{{loop.failures}}`. Canvas: a new `check-badge` node-shape variant
+      (`node-shape.ts`) showing the node's actual last verdict — its generic run status is always
+      `succeeded` either way — reading a new `WorkflowNodeData.settledPort` threaded through
+      `workflow-canvas.tsx`'s node `decorate()`.
 
 ### F — Router node (S/M)
 

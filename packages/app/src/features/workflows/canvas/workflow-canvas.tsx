@@ -119,7 +119,7 @@ function WorkflowCanvasInner({
 }: Parameters<typeof WorkflowCanvas>[0]) {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const [nodes, setNodes] = useState<Node[]>(() =>
-    decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions),
+    decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, nodeSettledPorts),
   );
   const [edges, setEdges] = useState<Edge[]>(() =>
     decorateEdges(toFlowGraph(graph.nodes, graph.edges).edges, nodeStatuses, nodeSettledPorts, loopStates),
@@ -157,15 +157,15 @@ function WorkflowCanvasInner({
   // those have already been committed by the time a new `graph` prop lands.
   useEffect(() => {
     const flow = toFlowGraph(graph.nodes, graph.edges);
-    setNodes((prev) => decorate(flow.nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, prev));
+    setNodes((prev) => decorate(flow.nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, nodeSettledPorts, prev));
     setEdges(decorateEdges(flow.edges, nodeStatuses, nodeSettledPorts, loopStates));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- decorate below re-applies on its own effect
   }, [graph]);
 
-  // Overlay-only resync — run status/validity/error/session changes shouldn't rebuild positions.
+  // Overlay-only resync — run status/validity/error/session/settledPort changes shouldn't rebuild positions.
   useEffect(() => {
-    setNodes((prev) => decorate(prev, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions));
-  }, [invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions]);
+    setNodes((prev) => decorate(prev, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, nodeSettledPorts));
+  }, [invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, nodeSettledPorts]);
 
   // Edge overlay resync — a run's status/settledPort changes repaint the
   // taken/dead read without touching edge identity or position.
@@ -527,13 +527,18 @@ function WorkflowCanvasInner({
   );
 }
 
-/** Merges run-derived overlay data (`status`/`invalid`/`error`) into a node list without touching positions. */
+/** Merges run-derived overlay data (`status`/`invalid`/`error`/`settledPort`) into a node list without touching positions. */
 function decorate(
   nodes: Node[],
   invalidNodeIds: ReadonlySet<string> | undefined,
   nodeStatuses: ReadonlyMap<string, WorkflowNodeStatus> | undefined,
   nodeErrors: ReadonlyMap<string, string> | undefined,
   nodeSessions: ReadonlyMap<string, readonly ActivityGlowSessionInput[]> | undefined,
+  // Theme E: the same per-node `settledPort` map the edge component already
+  // reads (`decorateEdges` below) — a `verify` node's card reads it too, to
+  // show its actual `pass`/`fail` verdict (its `status` alone is always
+  // `succeeded`, whichever port it settled on).
+  nodeSettledPorts?: ReadonlyMap<string, string>,
   previous?: Node[],
 ): Node[] {
   const previousById = new Map((previous ?? []).map((n) => [n.id, n]));
@@ -549,6 +554,7 @@ function decorate(
         status: nodeStatuses?.get(node.id),
         error: nodeErrors?.get(node.id),
         sessions: nodeSessions?.get(node.id),
+        settledPort: nodeSettledPorts?.get(node.id),
       },
     };
   });

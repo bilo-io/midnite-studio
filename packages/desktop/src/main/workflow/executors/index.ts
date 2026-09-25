@@ -10,6 +10,7 @@ import { noteExecutor } from './note';
 import { routerExecutor } from './router';
 import { scriptExecutor } from './script';
 import { transformExecutor } from './transform';
+import { verifyExecutor } from './verify';
 
 /**
  * Wired to the real forge layer (`gate-forge-service.ts`) — self-contained
@@ -39,6 +40,7 @@ export const defaultExecutors: ExecutorRegistry = {
   join: joinExecutor,
   gate: gateExecutor,
   router: routerExecutor,
+  verify: verifyExecutor,
 };
 
 export {
@@ -52,4 +54,5 @@ export {
   routerExecutor,
   scriptExecutor,
   transformExecutor,
+  verifyExecutor,
 };

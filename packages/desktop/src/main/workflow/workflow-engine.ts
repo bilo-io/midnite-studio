@@ -11,6 +11,7 @@ import {
   ok,
   portsForNode,
   validateWorkflow,
+  workflowIssueSeverity,
   type GitOpResult,
   type Workflow,
   type WorkflowEdge,
@@ -392,7 +393,11 @@ export async function startWorkflowRun(
   // reject an old workflow that has always run fine.
   const workflow = migrateWorkflowEdges(workflowIn);
 
-  const issues = validateWorkflow(workflow);
+  // Theme E's maker == checker rule (and any future warning) must not block
+  // Run — only an error-severity issue does. `workflowIssueSeverity` reads a
+  // pre-Theme-E issue (no `severity` field at all) as `'error'`, so this
+  // filter changes nothing for a workflow that has never had a warning.
+  const issues = validateWorkflow(workflow).filter((issue) => workflowIssueSeverity(issue) === 'error');
   if (issues.length > 0) {
     const first = issues[0]!;
     return failure(`This workflow cannot run yet: ${first.message}`);

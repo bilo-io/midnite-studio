@@ -7,11 +7,16 @@ import {
   WORKFLOW_JOIN_MODES,
   WORKFLOW_ROUTER_MAX_CASES,
   WORKFLOW_ROUTER_MODES,
+  WORKFLOW_TEST_COUNT_PARSERS,
+  WORKFLOW_VERIFY_CHECKS,
   type WorkflowConditionOp,
   type WorkflowHttpMethod,
   type WorkflowJoinMode,
   type WorkflowNode,
   type WorkflowRouterMode,
+  type WorkflowTestCountParser,
+  type WorkflowVerifyCheck,
+  type WorkflowVerifyConfig,
 } from '@midnite/studio-shared';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 
@@ -375,6 +380,183 @@ export function ScriptForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
           onInterpolatableFocus({ value, onChange: (next) => update({ env: { ...config.env, [key]: next } }), el })
         }
       />
+    </>
+  );
+}
+
+const VERIFY_CHECK_LABEL: Record<WorkflowVerifyCheck, string> = {
+  agent: 'Agent verdict',
+  'exit-code': 'Exit code',
+  'test-counts': 'Test counts',
+  'json-path': 'JSON path',
+};
+
+/** A fresh, minimal config for a check kind — switching kinds replaces the whole config, since the fields genuinely differ. */
+function defaultVerifyCheckConfig(check: WorkflowVerifyCheck): WorkflowVerifyConfig {
+  switch (check) {
+    case 'agent':
+      return { check, agentId: '', prompt: '' };
+    case 'exit-code':
+      return { check, command: '', env: {} };
+    case 'test-counts':
+      return { check, command: '', env: {}, parser: 'vitest', minPassed: 1 };
+    case 'json-path':
+      return { check, source: '', op: 'eq', right: '' };
+  }
+}
+
+/**
+ * Phase 97 Theme E. One `Check` selector over the four kinds, then exactly
+ * that kind's own fields — switching kinds calls `onChange` with
+ * {@link defaultVerifyCheckConfig} rather than patching, since an `agent`
+ * check's `agentId`/`prompt` and a `json-path` check's `source`/`op`/`right`
+ * share no fields worth carrying across.
+ */
+export function VerifyForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  if (node.kind !== 'verify') return null;
+  const config = node.config;
+
+  return (
+    <>
+      <Field label="Check" hint="What decides pass vs fail.">
+        <SelectField
+          label="Check"
+          value={config.check}
+          onChange={(check: WorkflowVerifyCheck) => onChange({ ...node, config: defaultVerifyCheckConfig(check) })}
+          options={WORKFLOW_VERIFY_CHECKS.map((check) => ({ value: check, label: VERIFY_CHECK_LABEL[check] }))}
+        />
+      </Field>
+
+      {config.check === 'agent' ? (
+        <>
+          <Field label="Agent" hint="A roster agent id — ideally different from the agent that produced the work it checks.">
+            <TextField
+              label="Agent"
+              value={config.agentId}
+              onChange={(agentId) => onChange({ ...node, config: { ...config, agentId } })}
+              placeholder="claude"
+            />
+          </Field>
+          <Field label="Prompt" hint="What to ask the checking agent to grade. Completes on its own done marker.">
+            <TextArea
+              label="Prompt"
+              value={config.prompt}
+              onChange={(prompt) => onChange({ ...node, config: { ...config, prompt } })}
+              rows={4}
+              onFocus={(event) =>
+                onInterpolatableFocus({
+                  value: config.prompt,
+                  onChange: (prompt) => onChange({ ...node, config: { ...config, prompt } }),
+                  el: event.currentTarget,
+                })
+              }
+            />
+          </Field>
+          <Field label="Model" hint="Optional — the agent's own --model flag, when it has one.">
+            <TextField
+              label="Model"
+              value={config.model ?? ''}
+              onChange={(model) => onChange({ ...node, config: { ...config, model: model || undefined } })}
+            />
+          </Field>
+        </>
+      ) : null}
+
+      {config.check === 'exit-code' || config.check === 'test-counts' ? (
+        <>
+          <Field label="Command" hint="Run headlessly (no terminal, no interactive shell) — only the exit code and stdout are read.">
+            <TextArea label="Command" value={config.command} onChange={(command) => onChange({ ...node, config: { ...config, command } })} rows={3} />
+          </Field>
+          <Field label="Working directory" hint="Optional — defaults to the OS home directory.">
+            <TextField
+              label="Working directory"
+              value={config.cwd ?? ''}
+              onChange={(cwd) => onChange({ ...node, config: { ...config, cwd: cwd || undefined } })}
+            />
+          </Field>
+          <KeyValueRows
+            label="Env"
+            value={config.env}
+            onChange={(env) => onChange({ ...node, config: { ...config, env } })}
+            onValueFocus={(key, value, el) =>
+              onInterpolatableFocus({
+                value,
+                onChange: (next) => onChange({ ...node, config: { ...config, env: { ...config.env, [key]: next } } }),
+                el,
+              })
+            }
+          />
+        </>
+      ) : null}
+
+      {config.check === 'test-counts' ? (
+        <>
+          <Field label="Parser" hint="Which reporter format the command's stdout is in.">
+            <SelectField
+              label="Parser"
+              value={config.parser}
+              onChange={(parser: WorkflowTestCountParser) => onChange({ ...node, config: { ...config, parser } })}
+              options={WORKFLOW_TEST_COUNT_PARSERS.map((parser) => ({ value: parser, label: parser }))}
+            />
+          </Field>
+          <Field label="Minimum passed" hint="Fails if fewer than this many tests passed, even with zero failures.">
+            <TextField
+              label="Minimum passed"
+              value={String(config.minPassed)}
+              onChange={(raw) => {
+                const parsed = Number.parseInt(raw, 10);
+                onChange({ ...node, config: { ...config, minPassed: Number.isFinite(parsed) ? Math.max(0, parsed) : 0 } });
+              }}
+            />
+          </Field>
+        </>
+      ) : null}
+
+      {config.check === 'json-path' ? (
+        <>
+          <Field label="Source" hint="May reference an upstream node's output.">
+            <TextField
+              label="Source"
+              value={config.source}
+              onChange={(source) => onChange({ ...node, config: { ...config, source } })}
+              placeholder="{{nodeId.field}}"
+              onFocus={(event) =>
+                onInterpolatableFocus({
+                  value: config.source,
+                  onChange: (source) => onChange({ ...node, config: { ...config, source } }),
+                  el: event.currentTarget,
+                })
+              }
+            />
+          </Field>
+          <Field label="Compares" hint="How the source value is tested — reuses `condition`'s own comparison.">
+            <SelectField
+              label="Compares"
+              value={config.op}
+              onChange={(op: WorkflowConditionOp) =>
+                onChange({ ...node, config: { ...config, op, right: op === 'empty' ? undefined : config.right } })
+              }
+              options={WORKFLOW_CONDITION_OPS.map((op) => ({ value: op, label: CONDITION_OP_LABEL[op] }))}
+            />
+          </Field>
+          {config.op === 'empty' ? null : (
+            <Field label="Right" hint="Compared against the source value.">
+              <TextField
+                label="Right"
+                value={config.right ?? ''}
+                onChange={(right) => onChange({ ...node, config: { ...config, right } })}
+                onFocus={(event) =>
+                  onInterpolatableFocus({
+                    value: config.right ?? '',
+                    onChange: (right) => onChange({ ...node, config: { ...config, right } }),
+                    el: event.currentTarget,
+                  })
+                }
+              />
+            </Field>
+          )}
+        </>
+      ) : null}
     </>
   );
 }

@@ -14,7 +14,12 @@ import { interpolate } from '../interpolate';
  * that legitimately did not apply must read as "did not run", not as broken.
  */
 
-/** Exported so a second consumer of the same condition-shaped comparison (Theme F's `router` expression mode) never re-implements this switch. */
+/**
+ * Exported so every other consumer of a condition-shaped comparison — Theme
+ * F's `router` expression mode, Theme E's `verify` json-path check — never
+ * re-implements this switch and can never quietly disagree about what
+ * `'gte'` means.
+ */
 export function evaluateConditionOp(left: string, op: WorkflowConditionOp, right: string): boolean {
   switch (op) {
     case 'empty':

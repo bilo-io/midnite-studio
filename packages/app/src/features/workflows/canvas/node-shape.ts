@@ -16,18 +16,23 @@ import type { WorkflowNodeKind } from '@midnite/studio-shared';
  *   header label (`gate`, Phase 97 Theme D) — the diamond accent's own
  *   "which way does this branch" role, worn by a human decision instead of
  *   a computed one.
+ * - `check-badge` — a plain card whose header carries a small pass/fail
+ *   badge showing the node's own last verdict (`verify`, Theme E) — unlike
+ *   `diamond-header`/`pill`/`shield`, this variant's own content depends on
+ *   run state, not just the node's config, so it reads
+ *   `WorkflowNodeData.settledPort`.
  *
- * **Extension point for E/F/H/I** (documented on the phase doc's own
+ * **Extension point for H/I** (documented on the phase doc's own
  * dependency list, not invented here): a new node kind adds one case to
  * {@link WORKFLOW_NODE_KINDS} in `shared/src/workflow.ts`, which makes this
  * `Record` fail to typecheck until it is widened with a shape variant —
- * `verify` → `'check-badge'`, `router` → reuse `'diamond-header'`,
  * `trigger` → `'start-card'`, `frame` → `'frame'`. Each new variant is then
- * given its own rendering branch in `workflow-node-view.tsx` next to
- * `diamond-header`/`pill`/`shield` below — this map only says *which*
- * variant a kind gets, never how one is drawn.
+ * given its own rendering branch in
+ * `workflow-node-view.tsx` next to `diamond-header`/`pill`/`shield`/
+ * `check-badge` below — this map only says *which* variant a kind gets,
+ * never how one is drawn.
  */
-export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill' | 'shield';
+export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill' | 'shield' | 'check-badge';
 
 export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   http: 'card',
@@ -41,4 +46,5 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   gate: 'shield',
   /** Phase 97 Theme F — reuses `diamond-header` verbatim, per this map's own extension-point note above: "which way does this branch" is exactly what a router is too, just with more than two ways. */
   router: 'diamond-header',
+  verify: 'check-badge',
 };

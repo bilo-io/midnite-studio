@@ -18,6 +18,8 @@
  */
 import { z } from 'zod';
 
+import { WORKFLOW_TEST_COUNT_PARSERS } from './workflow-test-parsers';
+
 // --- node kinds --------------------------------------------------------------
 
 /**
@@ -39,6 +41,7 @@ export const WORKFLOW_NODE_KINDS = [
   'join',
   'gate',
   'router',
+  'verify',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -461,6 +464,117 @@ export const WorkflowRouterConfigSchema = z.object({
 });
 export type WorkflowRouterConfig = z.infer<typeof WorkflowRouterConfigSchema>;
 
+// --- verify (Phase 97 Theme E) ------------------------------------------------
+
+/**
+ * A **verify** node — the phase doc's "checker that is not the maker": one
+ * comparison over four kinds of evidence, settling on its `pass`/`fail`
+ * out-port (never a failure in itself — see {@link portsForNodeKind}'s
+ * `'verify'` case and the doc comment on {@link WorkflowVerifyEvidence}).
+ *
+ * `agent`/`exit-code`/`test-counts` each embed just enough of the
+ * corresponding node's own config to run the check standalone — a verify
+ * node has no upstream node to borrow a config from (an agent node's DONE
+ * marker only means "that node finished", not "check this"), so the check
+ * config is self-contained rather than a reference.
+ */
+export const WORKFLOW_VERIFY_CHECKS = ['agent', 'exit-code', 'test-counts', 'json-path'] as const;
+export const WorkflowVerifyCheckSchema = z.enum(WORKFLOW_VERIFY_CHECKS);
+export type WorkflowVerifyCheck = z.infer<typeof WorkflowVerifyCheckSchema>;
+
+/**
+ * The maker/checker verdict: an embedded agent, run exactly like an `agent`
+ * node (Phase 95 Theme J's roster + done-marker machinery,
+ * `executors/verify.ts` reusing `executors/agent.ts`'s
+ * `runAgentToDoneMarker`), whose `MIDNITE_WORKFLOW_NODE_DONE: ok|fail`
+ * marker becomes the `pass`/`fail` verdict directly rather than an executor
+ * failure.
+ */
+export const WorkflowVerifyAgentCheckSchema = z.object({
+  check: z.literal('agent'),
+  agentId: z.string().default(''),
+  prompt: z.string().default(''),
+  model: z.string().optional(),
+});
+export type WorkflowVerifyAgentCheck = z.infer<typeof WorkflowVerifyAgentCheckSchema>;
+
+/**
+ * Same `{command, cwd, env}` shape as {@link WorkflowScriptConfigSchema}
+ * (minus `outputShape`, which a check has no use for), but run **headlessly**
+ * — `process-runner.ts`, not a `script` node's interactive pty — so the
+ * exit code and stdout are clean signal rather than a terminal transcript.
+ */
+export const WorkflowVerifyExitCodeCheckSchema = z.object({
+  check: z.literal('exit-code'),
+  command: z.string().default(''),
+  cwd: z.string().optional(),
+  env: z.record(z.string(), z.string()).default({}),
+});
+export type WorkflowVerifyExitCodeCheck = z.infer<typeof WorkflowVerifyExitCodeCheckSchema>;
+
+/**
+ * The same headless run as `exit-code`, plus a named `parser` for the
+ * command's stdout ({@link WORKFLOW_TEST_COUNT_PARSERS},
+ * `workflow-test-parsers.ts`) yielding `{passed, failed, skipped}`. Passes
+ * when `failed === 0 && passed >= minPassed` — a suite with zero tests
+ * collected (a typo'd filter, a broken config) is **not** a pass by default;
+ * `minPassed: 0` opts back into that if a template genuinely wants it.
+ */
+export const WorkflowVerifyTestCountsCheckSchema = z.object({
+  check: z.literal('test-counts'),
+  command: z.string().default(''),
+  cwd: z.string().optional(),
+  env: z.record(z.string(), z.string()).default({}),
+  parser: z.enum(WORKFLOW_TEST_COUNT_PARSERS),
+  minPassed: z.number().int().min(0).default(1),
+});
+export type WorkflowVerifyTestCountsCheck = z.infer<typeof WorkflowVerifyTestCountsCheckSchema>;
+
+/**
+ * A `condition`-shaped comparison against a single interpolated value —
+ * reuses {@link WORKFLOW_CONDITION_OPS} and `executors/condition.ts`'s own
+ * comparison (`evaluateConditionOp`), so a verify node's json-path check and
+ * a plain `condition` node can never disagree about what `'gte'` means.
+ */
+export const WorkflowVerifyJsonPathCheckSchema = z.object({
+  check: z.literal('json-path'),
+  /** Usually `{{nodeId.path}}` — interpolated before comparison. */
+  source: z.string(),
+  op: WorkflowConditionOpSchema,
+  /** Absent for the unary `empty`. */
+  right: z.string().optional(),
+});
+export type WorkflowVerifyJsonPathCheck = z.infer<typeof WorkflowVerifyJsonPathCheckSchema>;
+
+export const WorkflowVerifyConfigSchema = z.discriminatedUnion('check', [
+  WorkflowVerifyAgentCheckSchema,
+  WorkflowVerifyExitCodeCheckSchema,
+  WorkflowVerifyTestCountsCheckSchema,
+  WorkflowVerifyJsonPathCheckSchema,
+]);
+export type WorkflowVerifyConfig = z.infer<typeof WorkflowVerifyConfigSchema>;
+
+/** Evidence is capped this many failures deep — the same order of magnitude as `loop.failures`' own cap. */
+export const WORKFLOW_VERIFY_MAX_FAILURES = 20;
+
+/**
+ * A verify node's own `output` — what `{{verifyNodeId.path}}` resolves
+ * against downstream, and, when this node sits inside a loop body, exactly
+ * what Theme C's `buildLoopContext` turns into `{{loop.failures}}` for the
+ * next iteration (see `loop-controller.ts`'s `isFailure` check, extended for
+ * a verify node's `'fail'` `settledPort`). `failures` is capped at
+ * {@link WORKFLOW_VERIFY_MAX_FAILURES} and redacted (`redactPaths`) by the
+ * executor before it ever reaches an interpolated prompt — the same
+ * discipline `loop.failures` itself already applies.
+ */
+export type WorkflowVerifyEvidence = {
+  check: WorkflowVerifyCheck;
+  passed: number;
+  failed: number;
+  message: string;
+  failures: string[];
+};
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -517,6 +631,10 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('router'),
     config: WorkflowRouterConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('verify'),
+    config: WorkflowVerifyConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -630,6 +748,17 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
           }),
         ),
         { id: WORKFLOW_ROUTER_DEFAULT_PORT_ID, label: 'Default', direction: 'out', type: 'any' },
+        errorPort(),
+      ];
+    case 'verify':
+      // `verdict` (Theme A), not `json` — a downstream `condition`-shaped
+      // in-port can read `pass`/`fail` directly (`canConnect`'s
+      // `verdict -> boolean` allowance), no transform node needed between
+      // a verifier and a branch on its result.
+      return [
+        inPort(),
+        { id: 'pass', label: 'Pass', direction: 'out', type: 'verdict' },
+        { id: 'fail', label: 'Fail', direction: 'out', type: 'verdict' },
         errorPort(),
       ];
     default: {
@@ -1253,12 +1382,31 @@ export function workflowLoopStates(run: Pick<WorkflowRun, 'loopStates'>): Workfl
  * `nodeId`/`edgeId` are what lets the canvas point at the offending element
  * rather than showing a paragraph.
  */
+/**
+ * Optional on the wire, defaulting to `'error'` via {@link workflowIssueSeverity}
+ * — the same optional-plus-reader pattern {@link isWorkflowEnabled} uses, so
+ * every issue this function produced before Theme E stays exactly as
+ * blocking as it always was. `'warning'` is for something worth surfacing
+ * that must NOT stop Run — Theme E's own maker == checker check is the first
+ * of these; the engine (`workflow-engine.ts`) and the canvas
+ * (`workflows-view.tsx`) both filter to error-severity issues before
+ * deciding whether a workflow can run.
+ */
+export const WorkflowIssueSeveritySchema = z.enum(['error', 'warning']);
+export type WorkflowIssueSeverity = z.infer<typeof WorkflowIssueSeveritySchema>;
+
 export const WorkflowIssueSchema = z.object({
   message: z.string().min(1),
   nodeId: z.string().min(1).optional(),
   edgeId: z.string().min(1).optional(),
+  severity: WorkflowIssueSeveritySchema.optional(),
 });
 export type WorkflowIssue = z.infer<typeof WorkflowIssueSchema>;
+
+/** Unset (every issue produced before Theme E) reads as `'error'` — the blocking default. */
+export function workflowIssueSeverity(issue: Pick<WorkflowIssue, 'severity'>): WorkflowIssueSeverity {
+  return issue.severity ?? 'error';
+}
 
 /**
  * Everything that makes a workflow unrunnable, in one pure function shared by
@@ -1346,6 +1494,39 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
         }
         if (!node.config.agent || node.config.agent.prompt.trim() === '') {
           issues.push({ message: `"${node.label}" has no prompt.`, nodeId: node.id });
+        }
+      }
+    }
+    if (node.kind === 'verify') {
+      const check = node.config;
+      if (check.check === 'agent' && check.agentId.trim() === '') {
+        issues.push({ message: `"${node.label}" has no agent selected for its check.`, nodeId: node.id });
+      }
+      if ((check.check === 'exit-code' || check.check === 'test-counts') && check.command.trim() === '') {
+        issues.push({ message: `"${node.label}" has no command.`, nodeId: node.id });
+      }
+      if (check.check === 'json-path' && check.op !== 'empty' && check.right === undefined) {
+        issues.push({
+          message: `"${node.label}" compares with "${check.op}" but has no right-hand value.`,
+          nodeId: node.id,
+        });
+      }
+      // The phase doc's own maker/checker rule: a verify node whose `agent`
+      // check reuses the SAME agent id as the node feeding its `in` port is
+      // suspicious, not invalid — a checker that is not the maker is the
+      // whole point of a verifier (the Loop Engineering article's own
+      // rule), but a workflow that has always run this way should not be
+      // retroactively blocked from running. `severity: 'warning'` is what
+      // keeps this off the engine's/canvas's blocking path.
+      if (check.check === 'agent' && check.agentId.trim() !== '') {
+        const inEdge = workflow.edges.find((edge) => edge.to === node.id && normalizeEdge(edge).toPort === 'in');
+        const maker = inEdge ? workflow.nodes.find((n) => n.id === inEdge.from) : undefined;
+        if (maker?.kind === 'agent' && maker.config.agentId.trim() === check.agentId.trim()) {
+          issues.push({
+            message: `"${node.label}" checks the same agent ("${check.agentId}") that produced the work it is checking — a checker that is not the maker catches more.`,
+            nodeId: node.id,
+            severity: 'warning',
+          });
         }
       }
     }
