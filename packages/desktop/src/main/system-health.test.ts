@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSshVersion, probeBinary, readSystemHealth } from './system-health';
+import { parseSshVersion, probeBinary, readSystemHealth, startSshAgent } from './system-health';
 
 describe('readSystemHealth', () => {
   // A smoke test against the real probes, bounded to PROBE_TIMEOUT_MS in the source.
@@ -60,3 +60,14 @@ describe('probeBinary', () => {
     expect(result).toEqual({ path: null, version: null });
   });
 });
+
+describe('startSshAgent', () => {
+  it('attempts to start or resolve ssh-agent without throwing', async () => {
+    const result = await startSshAgent();
+    expect(typeof result.ok).toBe('boolean');
+    if (result.ok && result.sock) {
+      expect(typeof result.sock).toBe('string');
+    }
+  });
+});
+

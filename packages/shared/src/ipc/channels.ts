@@ -404,6 +404,7 @@ export const CHANNELS = {
   /** This version's changelog section, fetched from the public mirror repo. */
   updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
+  systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */

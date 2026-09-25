@@ -2443,6 +2443,13 @@ export const ToolchainBinarySchema = z.object({
 });
 export type ToolchainBinary = z.infer<typeof ToolchainBinarySchema>;
 
+export const SystemHealthStartSshAgentResponse = z.object({
+  ok: z.boolean(),
+  sock: z.string().optional(),
+  pid: z.number().optional(),
+});
+export type SystemHealthStartSshAgentResponse = z.infer<typeof SystemHealthStartSshAgentResponse>;
+
 export const SystemHealthResponse = z.object({
   git: ToolchainBinarySchema,
   shell: z.string().nullable(),
