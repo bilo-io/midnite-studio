@@ -214,7 +214,7 @@ export const WorkflowHttpConfigSchema = z.object({
    * retry that resends it must be something the workflow's author asserted
    * on purpose, not a default nobody looked at. Unset reads `false`.
    */
-  idempotent: z.boolean().default(false),
+  idempotent: z.boolean().optional(),
 });
 export type WorkflowHttpConfig = z.infer<typeof WorkflowHttpConfigSchema>;
 
@@ -228,7 +228,7 @@ export type WorkflowHttpConfig = z.infer<typeof WorkflowHttpConfigSchema>;
  * never disagree about what "safe to retry" means.
  */
 export function isHttpRetrySafe(config: Pick<WorkflowHttpConfig, 'method' | 'idempotent'>): boolean {
-  if (config.method === 'POST' || config.method === 'PATCH') return config.idempotent;
+  if (config.method === 'POST' || config.method === 'PATCH') return config.idempotent === true;
   return true;
 }
 
@@ -770,6 +770,8 @@ export const WorkflowNodeBaseSchema = z.object({
   label: z.string().min(1),
   x: z.number(),
   y: z.number(),
+  /** Phase 97 Theme G — what this node does on failure/timeout. See {@link WorkflowFailurePolicySchema}. Unset behaves exactly like `{kind:'stop'}`, today's behaviour. */
+  onFailure: WorkflowFailurePolicySchema.optional(),
 });
 
 export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
@@ -820,6 +822,10 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('trigger'),
     config: WorkflowTriggerConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('state'),
+    config: WorkflowStateConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -950,6 +956,8 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
       // No `inPort()` — a trigger is the graph's own start (Theme H,
       // `validateWorkflow`'s at-most-one-trigger rule).
       return [{ id: 'out', label: 'Out', direction: 'out', type: 'any' }, errorPort()];
+    case 'state':
+      return [inPort(), dataOutPort('out', 'Value'), errorPort()];
     default: {
       // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
       // what makes adding a kind a typecheck failure here.
@@ -1427,7 +1435,16 @@ export const WorkflowNodeStatusSchema = z.enum([
 ]);
 export type WorkflowNodeStatus = z.infer<typeof WorkflowNodeStatusSchema>;
 
-export const WorkflowRunStatusSchema = z.enum(['running', 'completed', 'failed', 'cancelled']);
+/**
+ * `'interrupted'` (Phase 97 Theme G) replaces what used to be a silent sweep
+ * to `'cancelled'` on boot (`workflow-service.ts`'s `loadRuns`): a run still
+ * `'running'` when the app quit did not choose to stop, its driver just had
+ * no process left to run in. It is a durable, resumable pause — the run
+ * panel's own **Resume** action restarts `drive()` from exactly this
+ * checkpoint, same as a `waiting` gate node was always meant to survive a
+ * restart but, pre-Theme-G, never could.
+ */
+export const WorkflowRunStatusSchema = z.enum(['running', 'completed', 'failed', 'cancelled', 'interrupted']);
 export type WorkflowRunStatus = z.infer<typeof WorkflowRunStatusSchema>;
 
 /**
@@ -1552,12 +1569,27 @@ export const WorkflowRunSchema = z.object({
    * build on this, so keep the shape stable — see {@link WorkflowLoopState}.
    */
   loopStates: z.array(WorkflowLoopStateSchema).optional(),
+  /**
+   * Durable per-run key/value state (Phase 97 Theme G), written one op at a
+   * time by a `state` node and read anywhere as `{{state.<key>}}` — unset
+   * for every pre-Theme-G run and every run with no `state` node yet
+   * reached, read as `{}` via {@link workflowRunState}. Capped at
+   * {@link WORKFLOW_STATE_MAX_BYTES} (the whole object's `JSON.stringify`d
+   * size), enforced by `workflow-state.ts` at write time — a breach fails
+   * only the writing node, leaving this field exactly as it was.
+   */
+  state: z.record(z.string(), JsonValueSchema).optional(),
 });
 export type WorkflowRun = z.infer<typeof WorkflowRunSchema>;
 
 /** Unset (every pre-Theme-C run, and every run with no loop edge yet reached) reads as `[]`. */
 export function workflowLoopStates(run: Pick<WorkflowRun, 'loopStates'>): WorkflowLoopState[] {
   return run.loopStates ?? [];
+}
+
+/** Unset (every pre-Theme-G run, and every run with no `state` node yet reached) reads as `{}`. */
+export function workflowRunState(run: Pick<WorkflowRun, 'state'>): Record<string, JsonValue> {
+  return run.state ?? {};
 }
 
 // --- validation --------------------------------------------------------------
@@ -1576,10 +1608,13 @@ export function workflowLoopStates(run: Pick<WorkflowRun, 'loopStates'>): Workfl
  * — the same optional-plus-reader pattern {@link isWorkflowEnabled} uses, so
  * every issue this function produced before Theme E stays exactly as
  * blocking as it always was. `'warning'` is for something worth surfacing
- * that must NOT stop Run — Theme E's own maker == checker check is the first
- * of these; the engine (`workflow-engine.ts`) and the canvas
- * (`workflows-view.tsx`) both filter to error-severity issues before
- * deciding whether a workflow can run.
+ * that must NOT stop Run — Theme E's own maker == checker check is the
+ * first of these, and Theme G's is the second: a `POST`/`PATCH` `http` node
+ * with `onFailure: {kind:'retry'}` and no `config.idempotent` opt-in (real,
+ * worth a badge, not worth blocking Run for — the engine simply declines to
+ * retry it, see `isHttpRetrySafe`). The engine (`workflow-engine.ts`) and
+ * the canvas (`workflows-view.tsx`) both filter to error-severity issues
+ * before deciding whether a workflow can run.
  */
 export const WorkflowIssueSeveritySchema = z.enum(['error', 'warning']);
 export type WorkflowIssueSeverity = z.infer<typeof WorkflowIssueSeveritySchema>;
@@ -1610,6 +1645,11 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
   const issues: WorkflowIssue[] = [];
   const ids = new Set<string>();
   const triggerNodeCount = workflow.nodes.filter((node) => node.kind === 'trigger').length;
+  // Built upfront, not accumulated mid-loop like `ids` below: `onFailure`'s
+  // `repair`/`escalate` target may be declared later in `workflow.nodes`
+  // than the node naming it, and a forward reference is not an error.
+  const allNodeIds = new Set(workflow.nodes.map((n) => n.id));
+  const nodesById = new Map(workflow.nodes.map((n) => [n.id, n]));
 
   for (const node of workflow.nodes) {
     if (ids.has(node.id)) issues.push({ message: `Duplicate node id "${node.id}".`, nodeId: node.id });
@@ -1727,6 +1767,38 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
       issues.push({
         message: `"${node.label}" — only one trigger node is allowed per workflow.`,
         nodeId: node.id,
+      });
+    }
+    if (node.kind === 'state' && node.config.key.trim() === '') {
+      issues.push({ message: `"${node.label}" has no key.`, nodeId: node.id });
+    }
+
+    // Phase 97 Theme G — `onFailure`'s own three "does this even make
+    // sense" checks, independent of which kind carries the policy.
+    const policy = node.onFailure;
+    if (policy?.kind === 'repair' || policy?.kind === 'escalate') {
+      if (!allNodeIds.has(policy.nodeId)) {
+        issues.push({
+          message: `"${node.label}"'s "${policy.kind}" failure policy points at a step that no longer exists.`,
+          nodeId: node.id,
+        });
+      } else if (policy.kind === 'escalate' && nodesById.get(policy.nodeId)?.kind !== 'gate') {
+        issues.push({
+          message: `"${node.label}"'s "escalate" failure policy must point at a gate step.`,
+          nodeId: node.id,
+        });
+      }
+    }
+    if (
+      policy?.kind === 'retry' &&
+      node.kind === 'http' &&
+      (node.config.method === 'POST' || node.config.method === 'PATCH') &&
+      !node.config.idempotent
+    ) {
+      issues.push({
+        message: `"${node.label}" retries a ${node.config.method} request that isn't marked idempotent — it will not actually be retried.`,
+        nodeId: node.id,
+        severity: 'warning',
       });
     }
   }
