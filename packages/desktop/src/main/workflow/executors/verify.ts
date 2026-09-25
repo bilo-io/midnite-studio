@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 
 import {
   WORKFLOW_VERIFY_MAX_FAILURES,
+  agentNodeDonePrompt,
   parseWorkflowTestCounts,
   redactPaths,
   type WorkflowVerifyEvidence,
@@ -13,7 +14,7 @@ import {
 import { interpolate } from '../interpolate';
 import { runProcess, type ProcessSink, type SpawnFn } from '../../process-runner';
 import type { ExecutorContext, NodeExecutor, NodeOutcome } from '../executor-registry';
-import { runAgentToDoneMarker } from './agent';
+import { parseAgentDoneMarker, runAgentToDoneMarker } from './agent';
 import { evaluateConditionOp } from './condition';
 import { defaultNodePtyDeps, type NodePtyDeps } from './node-pty-deps';
 
@@ -218,23 +219,29 @@ async function runAgentCheck(
   if (config.agentId.trim() === '') return { ok: false, error: 'This node has no agent selected for its check.' };
   if (config.prompt.trim() === '') return { ok: false, error: 'This node has no prompt for its check.' };
 
-  const result = await runAgentToDoneMarker(
+  return runAgentToDoneMarker(
     { agentId: config.agentId, prompt: config.prompt, model: config.model },
     node,
     context,
     agentDeps,
+    {
+      buildPrompt: agentNodeDonePrompt,
+      parseMarker: parseAgentDoneMarker,
+      // A `fail` marker is a verdict, not an executor failure: it settles
+      // the `fail` port with evidence, unlike the plain agent node.
+      toOutcome: (marker) => {
+        const passed = marker === 'ok';
+        const evidence: WorkflowVerifyEvidence = {
+          check: 'agent',
+          passed: passed ? 1 : 0,
+          failed: passed ? 0 : 1,
+          message: passed ? 'Agent reported ok.' : 'Agent reported it could not complete this task.',
+          failures: passed ? [] : ['Agent reported it could not complete this task.'],
+        };
+        return { ok: true, output: evidence, port: passed ? 'pass' : 'fail' };
+      },
+    },
   );
-  if (!result.ok) return result;
-
-  const passed = result.markerResult === 'ok';
-  const evidence: WorkflowVerifyEvidence = {
-    check: 'agent',
-    passed: passed ? 1 : 0,
-    failed: passed ? 0 : 1,
-    message: passed ? 'Agent reported ok.' : 'Agent reported it could not complete this task.',
-    failures: passed ? [] : ['Agent reported it could not complete this task.'],
-  };
-  return { ok: true, output: evidence, port: passed ? 'pass' : 'fail' };
 }
 
 export function createVerifyExecutor(deps: VerifyExecutorDeps = defaultVerifyExecutorDeps): NodeExecutor {
