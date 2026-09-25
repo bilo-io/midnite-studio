@@ -163,6 +163,18 @@ export function isRunning(runId: string): boolean {
   return inFlight.has(runId);
 }
 
+/**
+ * Test-only: `inFlight` is otherwise module-private. A real crash drops
+ * every in-memory promise along with the whole process; a test simulating
+ * one (a node executor whose promise never resolves) has no such reset
+ * short of this — without it, `resumeWorkflowRun`'s own `isRunning` guard
+ * would see the original, still-"running" `drive()` and refuse to start a
+ * second one, which is correct in-process but not what a real restart does.
+ */
+export function forgetInFlightForTests(runId: string): void {
+  inFlight.delete(runId);
+}
+
 // --- graph -------------------------------------------------------------------
 
 type Graph = {
