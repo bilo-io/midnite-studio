@@ -9,6 +9,7 @@ import {
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
   WORKFLOW_NODE_KINDS,
   WORKFLOW_RESERVED_INTERPOLATION_ROOTS,
+  WORKFLOW_ROUTER_DEFAULT_PORT_ID,
   WorkflowEdgeSchema,
   WorkflowNodeSchema,
   WorkflowRunSchema,
@@ -70,7 +71,8 @@ describe('WorkflowSchema', () => {
     expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
     // cannot drift apart without this failing. `agent`/`script` (Theme J),
-    // `join` (Theme B) and `gate` (Theme D) joined the MVP's original five.
+    // `join` (Theme B), `gate` (Theme D) and `router` (Theme F) joined the
+    // MVP's original five.
     expect(WORKFLOW_NODE_KINDS).toEqual([
       'http',
       'transform',
@@ -81,6 +83,7 @@ describe('WorkflowSchema', () => {
       'script',
       'join',
       'gate',
+      'router',
     ]);
   });
 
@@ -281,6 +284,99 @@ describe('validateWorkflow', () => {
     expect(issues).toContainEqual({ message: '"Gate" has no title.', nodeId: 'g' });
   });
 
+  it('names a router with no cases, a duplicate case id and a reserved case id (Theme F)', () => {
+    const noCases = validateWorkflow(
+      workflow({
+        nodes: [{ id: 'r', label: 'Route', x: 0, y: 0, kind: 'router', config: { mode: 'expression', cases: [] } }],
+        edges: [],
+      }),
+    );
+    expect(noCases).toContainEqual({ message: '"Route" has no cases.', nodeId: 'r' });
+
+    const duplicate = validateWorkflow(
+      workflow({
+        nodes: [
+          {
+            id: 'r',
+            label: 'Route',
+            x: 0,
+            y: 0,
+            kind: 'router',
+            config: {
+              mode: 'expression',
+              cases: [
+                { id: 'a', label: 'A', when: { left: 'x', op: 'eq', right: '1' } },
+                { id: 'a', label: 'A again', when: { left: 'x', op: 'eq', right: '2' } },
+              ],
+            },
+          },
+        ],
+        edges: [],
+      }),
+    );
+    expect(duplicate).toContainEqual({ message: '"Route" has two cases with the id "a".', nodeId: 'r' });
+
+    const reserved = validateWorkflow(
+      workflow({
+        nodes: [
+          {
+            id: 'r',
+            label: 'Route',
+            x: 0,
+            y: 0,
+            kind: 'router',
+            config: {
+              mode: 'expression',
+              cases: [{ id: 'default', label: 'Default-ish', when: { left: 'x', op: 'eq', right: '1' } }],
+            },
+          },
+        ],
+        edges: [],
+      }),
+    );
+    expect(reserved).toContainEqual({
+      message: '"Route" case "Default-ish" cannot use the reserved id "default".',
+      nodeId: 'r',
+    });
+  });
+
+  it('names an expression-mode router case with no condition, and an agent-label router with no agent/prompt (Theme F)', () => {
+    const noCondition = validateWorkflow(
+      workflow({
+        nodes: [
+          {
+            id: 'r',
+            label: 'Route',
+            x: 0,
+            y: 0,
+            kind: 'router',
+            config: { mode: 'expression', cases: [{ id: 'a', label: 'A' }] },
+          },
+        ],
+        edges: [],
+      }),
+    );
+    expect(noCondition).toContainEqual({ message: '"Route" case "A" has no condition.', nodeId: 'r' });
+
+    const noAgent = validateWorkflow(
+      workflow({
+        nodes: [
+          {
+            id: 'r',
+            label: 'Route',
+            x: 0,
+            y: 0,
+            kind: 'router',
+            config: { mode: 'agent-label', cases: [{ id: 'a', label: 'A' }] },
+          },
+        ],
+        edges: [],
+      }),
+    );
+    expect(noAgent).toContainEqual({ message: '"Route" has no agent selected.', nodeId: 'r' });
+    expect(noAgent).toContainEqual({ message: '"Route" has no prompt.', nodeId: 'r' });
+  });
+
   it('does not double-report a note connection as a missing port', () => {
     const issues = validateWorkflow(
       workflow({
@@ -296,11 +392,13 @@ describe('validateWorkflow', () => {
 
 describe('portsForNode', () => {
   it('gives every plain executor-bearing kind an implicit multi-input `in` and an `error` out-port', () => {
-    // `note` has no executor at all; `join` has no implicit `in` — its
-    // in-ports are the config-driven `in-1..in-N` covered below — but both
-    // still get the shared `error` out-port, checked separately.
+    // `note` has no executor at all; `join`/`router` have config-driven
+    // out-ports (`in-1..in-N`, one per declared case) rather than the plain
+    // implicit shape this loop checks, and this fixture's `config` is an
+    // `http` node's shape reused across every kind, which their port
+    // functions actually read — covered on their own below instead.
     for (const kind of WORKFLOW_NODE_KINDS) {
-      if (kind === 'note' || kind === 'join') continue;
+      if (kind === 'note' || kind === 'join' || kind === 'router') continue;
       const n = { ...node(), kind } as WorkflowNode;
       const ports = portsForNode(n);
       expect(ports).toContainEqual(
@@ -390,6 +488,26 @@ describe('portsForNode', () => {
       'rejected',
       WORKFLOW_ERROR_PORT_ID,
     ]);
+  });
+
+  it('gives a router one out-port per declared case, plus the fixed default and error ports (Theme F)', () => {
+    const n: WorkflowNode = {
+      id: 'r',
+      label: 'Route',
+      x: 0,
+      y: 0,
+      kind: 'router',
+      config: {
+        mode: 'expression',
+        cases: [
+          { id: 'urgent', label: 'Urgent', when: { left: '{{a.risk}}', op: 'gt', right: '80' } },
+          { id: 'low', label: 'Low', when: { left: '{{a.risk}}', op: 'lt', right: '20' } },
+        ],
+      },
+    };
+    const ports = portsForNode(n);
+    expect(ports.map((p) => p.id)).toEqual(['in', 'urgent', 'low', WORKFLOW_ROUTER_DEFAULT_PORT_ID, WORKFLOW_ERROR_PORT_ID]);
+    expect(ports.find((p) => p.id === 'urgent')?.label).toBe('Urgent');
   });
 });
 

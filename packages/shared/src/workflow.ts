@@ -38,6 +38,7 @@ export const WORKFLOW_NODE_KINDS = [
   'script',
   'join',
   'gate',
+  'router',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -405,6 +406,61 @@ export const WorkflowGateConfigSchema = z.object({
 });
 export type WorkflowGateConfig = z.infer<typeof WorkflowGateConfigSchema>;
 
+// --- router (Phase 97 Theme F) ------------------------------------------------
+
+export const WORKFLOW_ROUTER_MODES = ['expression', 'agent-label'] as const;
+export const WorkflowRouterModeSchema = z.enum(WORKFLOW_ROUTER_MODES);
+export type WorkflowRouterMode = z.infer<typeof WorkflowRouterModeSchema>;
+
+/** The fixed out-port every router has beyond its own cases — see {@link portsForNode}. Not a config field: it always exists, the same way {@link WORKFLOW_ERROR_PORT_ID} always exists. */
+export const WORKFLOW_ROUTER_DEFAULT_PORT_ID = 'default';
+
+/** A sane ceiling on how many named routes one node can fan out to — the same "bounded, not unlimited" discipline `WORKFLOW_JOIN_MAX_INPUTS` already applies to a join's inputs. */
+export const WORKFLOW_ROUTER_MAX_CASES = 12;
+
+/**
+ * One named route. `when` is the "condition-shaped `{left, op, right}`" the
+ * phase doc names for **expression** mode — evaluated in array order, first
+ * match wins ({@link WorkflowRouterConfigSchema}'s own doc comment). Optional
+ * because **agent-label** mode never reads it (the embedded agent chooses
+ * among case `id`s instead); a case missing `when` while in expression mode
+ * is flagged by {@link validateWorkflow}, the same way a `condition` node
+ * missing its right-hand value already is.
+ */
+export const WorkflowRouterCaseSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  when: WorkflowConditionConfigSchema.optional(),
+});
+export type WorkflowRouterCase = z.infer<typeof WorkflowRouterCaseSchema>;
+
+/**
+ * A **router** node (Phase 97 Theme F) — one out-port per declared case, plus
+ * the always-present {@link WORKFLOW_ROUTER_DEFAULT_PORT_ID}. Two ways to pick
+ * a route:
+ *
+ * - `'expression'`: the first case whose `when` holds wins (reusing
+ *   `WORKFLOW_CONDITION_OPS` and `condition.ts`'s own evaluator — see
+ *   `evaluateWorkflowCondition`). No case matching (or none configured with a
+ *   `when` at all) settles on `default`.
+ * - `'agent-label'`: `agent` is an embedded agent config (Phase 95 Theme J's
+ *   own `WorkflowAgentConfigSchema`, reused rather than a second shape) whose
+ *   done marker is extended to name one of this router's own case **ids**
+ *   (`executors/router.ts`'s `WORKFLOW_ROUTER_DONE_MARKER_PATTERN`) — a
+ *   closed, deterministic vocabulary the classifier picks from, never free
+ *   text it invents. An id the agent prints that names no configured case
+ *   routes to `default` — this is the article's "the classifier is
+ *   probabilistic, the allowed routes are deterministic": a hallucinated
+ *   label must never be guessed into the nearest case.
+ */
+export const WorkflowRouterConfigSchema = z.object({
+  mode: WorkflowRouterModeSchema.default('expression'),
+  cases: z.array(WorkflowRouterCaseSchema).max(WORKFLOW_ROUTER_MAX_CASES).default([]),
+  /** `'agent-label'` mode only — unset (or incomplete) is flagged by {@link validateWorkflow}, same as a plain `agent` node with no agent/prompt. */
+  agent: WorkflowAgentConfigSchema.optional(),
+});
+export type WorkflowRouterConfig = z.infer<typeof WorkflowRouterConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -457,6 +513,10 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('gate'),
     config: WorkflowGateConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('router'),
+    config: WorkflowRouterConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -556,6 +616,20 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
         inPort(),
         { id: 'approved', label: 'Approved', direction: 'out', type: 'any' },
         { id: 'rejected', label: 'Rejected', direction: 'out', type: 'any' },
+        errorPort(),
+      ];
+    case 'router':
+      return [
+        inPort(),
+        ...node.config.cases.map(
+          (routerCase): WorkflowPort => ({
+            id: routerCase.id,
+            label: routerCase.label,
+            direction: 'out',
+            type: 'any',
+          }),
+        ),
+        { id: WORKFLOW_ROUTER_DEFAULT_PORT_ID, label: 'Default', direction: 'out', type: 'any' },
         errorPort(),
       ];
     default: {
@@ -1239,6 +1313,41 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
       !workflow.edges.some((edge) => edge.to === node.id && normalizeEdge(edge).toPort.startsWith('in-'))
     ) {
       issues.push({ message: `"${node.label}" has nothing to join.`, nodeId: node.id });
+    }
+    if (node.kind === 'router') {
+      if (node.config.cases.length === 0) {
+        issues.push({ message: `"${node.label}" has no cases.`, nodeId: node.id });
+      }
+      const seenCaseIds = new Set<string>();
+      for (const routerCase of node.config.cases) {
+        if (routerCase.id === WORKFLOW_ROUTER_DEFAULT_PORT_ID) {
+          issues.push({
+            message: `"${node.label}" case "${routerCase.label}" cannot use the reserved id "default".`,
+            nodeId: node.id,
+          });
+        }
+        if (seenCaseIds.has(routerCase.id)) {
+          issues.push({
+            message: `"${node.label}" has two cases with the id "${routerCase.id}".`,
+            nodeId: node.id,
+          });
+        }
+        seenCaseIds.add(routerCase.id);
+        if (node.config.mode === 'expression' && !routerCase.when) {
+          issues.push({
+            message: `"${node.label}" case "${routerCase.label}" has no condition.`,
+            nodeId: node.id,
+          });
+        }
+      }
+      if (node.config.mode === 'agent-label') {
+        if (!node.config.agent || node.config.agent.agentId.trim() === '') {
+          issues.push({ message: `"${node.label}" has no agent selected.`, nodeId: node.id });
+        }
+        if (!node.config.agent || node.config.agent.prompt.trim() === '') {
+          issues.push({ message: `"${node.label}" has no prompt.`, nodeId: node.id });
+        }
+      }
     }
   }
 
