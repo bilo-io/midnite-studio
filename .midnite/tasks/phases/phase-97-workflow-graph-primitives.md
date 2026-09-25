@@ -244,17 +244,19 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 
 ### F — Router node (S/M)
 
-- [ ] New node kind **`router`**, config
-      `{mode: 'expression'|'agent-label', cases: [{id, label, when?}], default: true}` with one
-      out-port per case plus `default`.
+- [x] New node kind **`router`**, config
+      `{mode: 'expression'|'agent-label', cases: [{id, label, when?}]}` with one out-port per case
+      plus the always-present `default` (a fixed implicit out-port, not a config field — same
+      idiom as the implicit `error` port every executor-bearing kind gets).
   - `expression`: the first `when` (a condition-shaped `{left, op, right}`) that holds wins.
   - `agent-label`: an embedded agent config whose done marker is extended to
     `MIDNITE_WORKFLOW_NODE_DONE: route=<caseId>`. An unknown label routes to `default`, never to a
     guess. This is the article's "the classifier is probabilistic, the allowed routes are
     deterministic".
-- [ ] The run records the chosen case and the value / label that chose it, which answers "why did
-      the system choose this route".
-- [ ] Vitest: first-match order, the default fallback, and an unknown agent label.
+- [x] The run records the chosen case and the value / label that chose it, which answers "why did
+      the system choose this route" (`NodeOutcome.output = {case, reason}`, settled via the
+      existing `port`/`settledPort` mechanism — no new run-record field needed).
+- [x] Vitest: first-match order, the default fallback, and an unknown agent label.
 
 ### G — Durable run state and failure policy (L)
 
