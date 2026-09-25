@@ -325,26 +325,61 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [x] Vitest: cron parse and next-fire (DST and month rollover), the at-most-one-trigger rule,
       skip-while-running, and a forge projection change firing once.
 
-### I — Harness frame and policy gate (M)
+### I — Harness frame and policy gate (M) — ✅ DONE ([PR #575](https://github.com/bilo-io/midnite-studio/pull/575), 2026-09-25)
 
-- [ ] New canvas-only kind **`frame`** (no executor, like `note`): a React Flow group node whose
-      children are the nodes dragged inside it. It has six labelled **slots**
-      (Contract / Context / State on the left, Tools / Permissions / Evidence on the right), each
-      a markdown field, mirroring the Harness diagram.
-- [ ] When the frame contains agent nodes, the **Contract** and **Context** slots are prepended to
-      each contained agent node's composed prompt, which is the article's "turn the request into a
-      contract". A frame never changes scheduling.
-- [ ] New node kind **`policy`** (a permission gate), config
-      `{allow: string[], requireApprovalFor: string[]}` over a closed action vocabulary
-      (`network`, `write-files`, `open-pr`, `push`, `deploy`, `delete-data`).
-  - Downstream agent / script / http nodes declare an `actions` set.
-  - A node whose action is in `requireApprovalFor` routes through an implicit D gate.
-  - A node whose action is not allowed fails validation before the run starts.
+- [x] New canvas-only kind **`frame`** (no executor, like `note`): groups other nodes under six
+      labelled **slots** (Contract / Context / State on the left, Tools / Permissions / Evidence on
+      the right), each a markdown field, mirroring the Harness diagram. Membership is
+      **`WorkflowNodeBaseSchema.frameId`** (every kind), read off the MEMBER node rather than a list
+      on the frame — real React-Flow parent/child nesting (`parentId`/`extent`) was deliberately not
+      used, since a child's position would then become parent-relative and break
+      `toFlowPosition`'s documented identity-mapping invariant for every pre-Theme-I workflow. The
+      canvas renders a frame through the SAME `WorkflowNodeView` (a new `NodeShapeVariant = 'frame'`,
+      J's own documented extension point) rather than a second React Flow node type, sized from
+      `config.width`/`height` (default 640×320) instead of the fixed 200×64 card. `toFlowGraph`
+      sorts frame nodes first (React Flow paints later array entries on top, so this alone puts
+      member cards above their frame) and `autoLayout` excludes frames from dagre, bounding each
+      (with members) to their padded bounding box afterward (`boundFrames`) — the "auto-layout"
+      half of this bullet's own acceptance criterion. Frame membership is assigned via a "Frame"
+      `<select>` in the node inspector, not drag-to-reparent.
+- [x] When the frame contains agent nodes, the **Contract** and **Context** slots are prepended to
+      each contained agent node's composed prompt (`formatFrameContractContext`, prepended via a
+      new `ExecutorContext.promptPrefix`, never through `context.upstream` — `frame` is deliberately
+      not a fourth reserved interpolation root, since this is plain prompt text, not a
+      `{{...}}`-referenceable value). A frame never changes scheduling — no engine change beyond
+      that one prompt-composition read.
+- [x] New node kind **`policy`** (a permission gate, ordinary in/out/error ports, trivial
+      pass-through executor), config `{allow: WorkflowAction[], requireApprovalFor:
+      WorkflowAction[]}` over a closed action vocabulary (`WORKFLOW_ACTIONS`: `network`,
+      `write-files`, `open-pr`, `push`, `deploy`, `delete-data`).
+  - Downstream agent / script / http nodes declare an `actions` set (`.optional()`, not
+    `.default([])` — the latter breaks every pre-existing fixture across the repo that
+    constructs a `WorkflowNode` literal; the established optional-plus-reader convention
+    avoided that). "Downstream" is graph **reachability** (`governingPolicies`, reusing
+    `ancestorIds` verbatim — no new traversal), not a listed member array, so one policy can sit
+    several hops upstream and several policies can jointly govern one node (`checkNodePolicy`
+    unions their `allow`/`requireApprovalFor`; **denial always wins** over `requiresApproval`).
+  - A node whose action is in `requireApprovalFor` routes through an **implicit D gate that
+    reuses Theme D's exact runtime path** — `gate-waiters.ts`'s `registerGateWaiter`/
+    `resolveGateWaiter` and `decideWorkflowGate`, unmodified — keyed by the GOVERNED node's own
+    `(runId, nodeId)` rather than a synthetic gate node. Lives in `workflow-engine.ts`'s
+    `runNode`, run before the generic per-node timeout `Promise` is even constructed (so the
+    wait never counts against the node's own timeout), with a new `patchNodeRunning` (the
+    inverse of `patchNodeWaiting`) restoring `'running'` once approved, before the real executor
+    starts. The run panel's existing `GateDecideRow` already renders for any `status ===
+    'waiting'` node regardless of `kind`, so it needed no change to pick this up.
+  - A node whose action is not allowed fails validation before the run starts
+    (`validateWorkflow`, blocking severity).
   - This is "model suggests → policy checks → tool executes" enforced outside the model.
-- [ ] The http executor honours `network`: an http node under a policy without `network` fails
-      before sending.
-- [ ] Vitest: frame membership survives save/load and auto-layout, contract prepending, policy
-      validation, and policy-driven approval routing.
+- [x] The http executor honours `network`: an http node under a policy without `network` fails
+      before sending (`ExecutorContext.deniedActions`, computed by the engine, read only by
+      `httpExecutor` — the runtime backstop behind `validateWorkflow`'s own block).
+- [x] Vitest: frame membership survives save/load (shared) and auto-layout (app's `boundFrames`
+      tests), contract prepending (shared's `formatFrameContractContext` + desktop's engine
+      integration), policy validation (shared's `checkNodePolicy`/`governingPolicies`/
+      `validateWorkflow`), and policy-driven approval routing (desktop's `workflow-engine.test.ts`:
+      pauses before the executor runs, approve/reject, cancel-while-pending, the mid-flight
+      `reportSessionId` proving `patchNodeRunning` actually ran).
 
 ### J — Canvas styling (M) — ✅ DONE (PR #561, 2026-09-25)
 
