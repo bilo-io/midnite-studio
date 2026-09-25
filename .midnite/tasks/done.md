@@ -1,6 +1,57 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme E — Verifier node
+
+[PR #564](https://github.com/bilo-io/midnite-studio/pull/564). A new `verify` node kind — the
+phase doc's "checker that is not the maker" — settling `pass`/`fail` over four kinds of evidence
+(agent verdict, exit code, test counts, a JSON path), building on Theme A's `verdict` port type,
+Theme B's `settledPort` convention, Theme C's `{{loop.failures}}`, and (rebased post-merge) Theme
+D's `gate`/Theme J's canvas extension points/Theme F's shared `runAgentToDoneMarker`.
+
+- [x] New node kind **`verify`**, ports `in` → `pass`/`fail` (type `verdict`) plus the standard
+      `error` port every executor-bearing kind gets. `pass`/`fail` is never an executor failure —
+      same principle as `condition`'s `true`/`false` and Theme D's gate `approved`/`rejected`.
+      Config is a discriminated union over `check`: `agent` (an embedded agent config whose done
+      marker is the verdict), `exit-code`/`test-counts` (a `{command,cwd,env}` script, run
+      **headlessly** via `process-runner.ts` rather than the interactive-pty `script` node — a
+      check needs clean stdout, not a terminal transcript), and `json-path` (reuses
+      `WORKFLOW_CONDITION_OPS`).
+- [x] Phase 94 Theme B had not landed on main when this was picked up (no
+      `main/runs/verify.ts`) — its "checked loop iteration" is a different contract anyway (an
+      existing `TestSuite`/`runTestSuite` shape, auto-sniffed) from this theme's explicit `parser`
+      choice, so fresh pure parsers were written in `shared/src/workflow-test-parsers.ts`:
+      `parseWorkflowTestCounts(parser, raw)` dispatching to a jest-like parser (serves both
+      `vitest`/`jest`, which share the reporter shape) plus dedicated `junit-xml`/`tap` parsers —
+      each fixture-tested.
+- [x] `check:'agent'` reuses `executors/agent.ts`'s roster+pty+done-marker machinery via Theme F's
+      generic `runAgentToDoneMarker<T>(config, node, context, deps, watch)`, passing its own
+      `AgentDoneMarkerWatch` (`ok`/`fail` marker grammar, `toOutcome` turning it into a `pass`/`fail`
+      port rather than `agent`'s own `ok:false` collapse) — a third caller alongside `agentExecutor`
+      and the router's agent-label mode, never a second copy of the loop.
+- [x] Evidence (`{check, passed, failed, message, failures[]}`) is capped at 20 entries and
+      redacted (`redactPaths`) — `loop-controller.ts`'s `buildLoopContext` extended so a verify
+      node's `'fail'` `settledPort` also counts as a loop failure (previously only
+      `failed`/`timeout`/`loopExit`), scoped to `kind === 'verify'` so it can't misfire on any
+      other kind's port names, and prefers the evidence's own `message` over a raw
+      `JSON.stringify` of the whole object.
+- [x] **Maker == checker WARNS, does not block.** `WorkflowIssue` gained an optional
+      `severity: 'error'|'warning'` (unset reads `'error'` — every pre-existing issue stays exactly
+      as blocking as before). `workflow-engine.ts`'s pre-run gate now filters to error-severity
+      issues only.
+- [x] **Canvas**: `node-kind-meta.ts` (`LuBadgeCheck`, `logic` category), a new `check-badge`
+      `NodeShapeVariant` and a render branch in `workflow-node-view.tsx` showing the node's actual
+      last verdict — its generic run `status` is always `succeeded` either way, so a plain status
+      icon can't distinguish pass from fail; reads a new `WorkflowNodeData.settledPort`, threaded
+      through `workflow-canvas.tsx`'s node `decorate()` (reusing the map already built for edge
+      painting).
+- [x] Vitest: each check kind's pass/fail/infra-failure/cancellation (`executors/verify.test.ts`,
+      14 tests), parser fixtures (`workflow-test-parsers.test.ts`), the maker == checker warning
+      firing and not firing (`workflow.test.ts`), and an engine-level test proving a verify `'fail'`
+      inside a loop body carries its evidence into iteration 2's `{{loop.failures}}`
+      (`workflow-engine.test.ts`). App: check-badge render coverage
+      (`workflow-node-view.test.tsx`).
+
 ## 2026-09-25 — Phase 97 Theme F — Router node
 
 [PR #563](https://github.com/bilo-io/midnite-studio/pull/563). A new `router` node kind
