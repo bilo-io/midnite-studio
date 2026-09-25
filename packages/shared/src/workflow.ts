@@ -37,6 +37,7 @@ export const WORKFLOW_NODE_KINDS = [
   'agent',
   'script',
   'join',
+  'gate',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -339,6 +340,71 @@ export const WorkflowJoinConfigSchema = z.object({
 });
 export type WorkflowJoinConfig = z.infer<typeof WorkflowJoinConfigSchema>;
 
+// --- gate (Phase 97 Theme D) ---------------------------------------------------
+
+/**
+ * A gate's two out-ports — settled exactly like `condition`'s `true`/`false`
+ * (Theme B's `settledPort` convention): approval is not a failure, it is an
+ * ordinary branch. `WorkflowGateDecisionSchema` doubles as the decide IPC/MCP
+ * tool's own input, so the wire vocabulary and the port ids can never drift
+ * apart from each other.
+ */
+export const WORKFLOW_GATE_DECISIONS = ['approved', 'rejected'] as const;
+export const WorkflowGateDecisionSchema = z.enum(WORKFLOW_GATE_DECISIONS);
+export type WorkflowGateDecision = z.infer<typeof WorkflowGateDecisionSchema>;
+
+/**
+ * Which of the four surfaces (Decision 5 in the phase doc) actually decided a
+ * gate — carried on the settled node's own output so the run panel/replay can
+ * say "approved via MCP" rather than just "approved". `'cancelled'` is not a
+ * real decision a human or tool made; it is what a cancelled run's own poll
+ * writes into the same field for a consistent output shape (never read as a
+ * `settledPort`, which stays whatever B's per-edge cascade already computed
+ * for a `failed` node).
+ */
+export const WORKFLOW_GATE_DECIDED_BY = ['panel', 'mcp', 'pr-comment', 'timeout', 'cancelled'] as const;
+export const WorkflowGateDecidedBySchema = z.enum(WORKFLOW_GATE_DECIDED_BY);
+export type WorkflowGateDecidedBy = z.infer<typeof WorkflowGateDecidedBySchema>;
+
+/**
+ * A gate posts one PR/issue comment carrying this shape — `kind`/`repoId`
+ * mirror `ForgeIssue`'s own addressing rather than a `Forge` value, because a
+ * workflow is global (this module's own doc comment) and has no repository
+ * of its own to resolve one from; `repoId` is the app's own registered-repo
+ * id (`RepoDescriptor.id`), the same id `git-safety`/kill-switch scopes key
+ * on. The forge remote itself is resolved from that repo, at decide time, by
+ * `gate-forge-service.ts` — never persisted here.
+ */
+export const WorkflowGateLinkedRefSchema = z.object({
+  kind: z.enum(['pr', 'issue']),
+  repoId: z.string().min(1),
+  number: z.number().int().positive(),
+});
+export type WorkflowGateLinkedRef = z.infer<typeof WorkflowGateLinkedRefSchema>;
+
+/**
+ * A **gate** node (Phase 97 Theme D) — the run pauses here (`WorkflowNodeRun.status`
+ * turns `'waiting'`) until a human or tool decides `approved`/`rejected`, from
+ * any of four surfaces: the run panel, the notification bell, an MCP tool, or
+ * — when `linkedRef` is set — a `/midnite approve <token>`/`/midnite reject
+ * <token>` comment on that PR/issue from the account that owns the forge
+ * credential the gate posted with.
+ *
+ * `onTimeout` is a closed `'reject'` literal rather than a boolean or a wider
+ * enum — Decision 5's own resolution names auto-reject as the one timeout
+ * behaviour; a silent auto-approve would be the one outcome a human gate must
+ * never produce on its own.
+ */
+export const WorkflowGateConfigSchema = z.object({
+  title: z.string().default(''),
+  instructions: z.string().default(''),
+  /** Bounded the same way `WorkflowHttpConfig.timeoutMs` is (Decision: six hours as a sane outer bound — `WORKFLOW_LOOP_MAX_BUDGET_MS` below is the identical ceiling Theme C already chose for "generous but still a real ceiling on a mistyped budget"). Unset waits forever (until decided or the run is cancelled). */
+  timeoutMs: z.number().int().positive().max(21_600_000).optional(),
+  onTimeout: z.literal('reject').default('reject'),
+  linkedRef: WorkflowGateLinkedRefSchema.optional(),
+});
+export type WorkflowGateConfig = z.infer<typeof WorkflowGateConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -387,6 +453,10 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('join'),
     config: WorkflowJoinConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('gate'),
+    config: WorkflowGateConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -481,6 +551,13 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
           : undefined;
       return [...inputs, dataOutPort('out', 'Joined', outputShape), errorPort()];
     }
+    case 'gate':
+      return [
+        inPort(),
+        { id: 'approved', label: 'Approved', direction: 'out', type: 'any' },
+        { id: 'rejected', label: 'Rejected', direction: 'out', type: 'any' },
+        errorPort(),
+      ];
     default: {
       // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
       // what makes adding a kind a typecheck failure here.
@@ -935,6 +1012,17 @@ export function migrateWorkflowEdges(workflow: Workflow): Workflow {
  * most needs to explain — `council.ts`'s member states carry it for the same
  * reason. `skipped` is what a node downstream of a failure, a timeout, or a
  * false `condition` reaches, and what a cancel leaves un-started nodes in.
+ *
+ * `waiting` (Phase 97 Theme D) is a **gate** node's own paused state — reached
+ * from `running` (`workflow-engine.ts`'s `patchNodeWaiting`, the same
+ * mid-flight-patch idiom `patchNodeSessionId` already uses) and left only by a
+ * decide reaching the node, or the run being cancelled. Deliberately **not**
+ * terminal: the run itself stays `running` and every downstream edge reads
+ * `pending` (`edgeState`) for as long as the gate sits here, which is the
+ * whole mechanism that makes a run actually pause rather than just LOOK
+ * paused. It carries no extra field of its own — `WorkflowNodeRun.status`
+ * being `'waiting'` *is* the durable "this run is paused for approval" fact,
+ * and it already round-trips through `workflow-runs-store.ts` for free.
  */
 export const WorkflowNodeStatusSchema = z.enum([
   'pending',
@@ -943,6 +1031,7 @@ export const WorkflowNodeStatusSchema = z.enum([
   'failed',
   'timeout',
   'skipped',
+  'waiting',
 ]);
 export type WorkflowNodeStatus = z.infer<typeof WorkflowNodeStatusSchema>;
 
@@ -1141,6 +1230,9 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     }
     if (node.kind === 'script' && node.config.command.trim() === '') {
       issues.push({ message: `"${node.label}" has no command.`, nodeId: node.id });
+    }
+    if (node.kind === 'gate' && node.config.title.trim() === '') {
+      issues.push({ message: `"${node.label}" has no title.`, nodeId: node.id });
     }
     if (
       node.kind === 'join' &&
