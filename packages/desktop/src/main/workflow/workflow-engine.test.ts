@@ -111,6 +111,8 @@ function fakeRegistry(
     verify: executor,
     trigger: executor,
     state: executor,
+    frame: executor,
+    policy: executor,
   };
 }
 

@@ -4,8 +4,10 @@ import {
   WORKFLOW_ERROR_PORT_ID,
   WORKFLOW_NODE_CONCURRENCY,
   WORKFLOW_NODE_TIMEOUT_MS,
+  checkNodePolicy,
   failure,
   findAcyclicEdgeViolation,
+  formatFrameContractContext,
   isHttpRetrySafe,
   migrateWorkflowEdges,
   normalizeEdge,
@@ -24,6 +26,7 @@ import {
   type WorkflowNode,
   type WorkflowNodeRun,
   type WorkflowNodeStatus,
+  type WorkflowPolicyCheck,
   type WorkflowRun,
   type WorkflowStateOp,
 } from '@midnite/studio-shared';
@@ -31,7 +34,7 @@ import {
 import { demoApiStatus } from '../demo-api/server';
 import { defaultExecutors } from './executors';
 import type { CancelSignal, ExecutorRegistry, NodeOutcome } from './executor-registry';
-import { resolveGateWaiter } from './gate-waiters';
+import { registerGateWaiter, resolveGateWaiter } from './gate-waiters';
 import {
   activeNodeRun,
   activeNodeRuns,
@@ -783,7 +786,7 @@ async function drive(
           continue;
         }
         // Started OUTSIDE the lock — see the module doc.
-        const promise = executeNode(runId, workflowId, node, deps, state, executors).finally(() =>
+        const promise = executeNode(runId, workflowId, node, deps, state, executors, nodes).finally(() =>
           running.delete(nodeId),
         );
         running.set(nodeId, promise);
@@ -917,6 +920,7 @@ async function executeNode(
   deps: EngineDeps,
   state: InFlight,
   executors: ExecutorRegistry,
+  nodes: readonly WorkflowNode[],
 ): Promise<void> {
   const clock = deps.clock ?? realClock;
   const policy = node.onFailure;
@@ -926,7 +930,7 @@ async function executeNode(
   let attempt = 1;
   let outcome: { status: WorkflowNodeStatus; result?: NodeOutcome };
   for (;;) {
-    outcome = await runNode(runId, workflowId, node, deps, state, executors, timeoutFor(node, deps));
+    outcome = await runNode(runId, workflowId, node, deps, state, executors, timeoutFor(node, deps), nodes);
     const failed = outcome.status === 'failed' || outcome.status === 'timeout';
     if (!failed || !retryable || attempt >= maxAttempts || state.cancelled) break;
 
@@ -940,6 +944,21 @@ async function executeNode(
     attempt += 1;
   }
   await settleNode(runId, node.id, outcome, deps, node);
+}
+
+/** What `runNode`'s upstream-building lock returns for a node with nothing to check (no declared actions, or no governing policy) — every pre-Theme-I node, always. */
+const EMPTY_POLICY_CHECK: WorkflowPolicyCheck = { denied: [], requiresApproval: [] };
+
+/**
+ * The Contract + Context prefix for an `agent` node's own `frameId` (Phase 97
+ * Theme I) — `''` when the id names no real `frame` node (a dangling
+ * reference `validateWorkflow` already flags, but the engine must still not
+ * throw over a workflow saved mid-edit) or when the frame exists but both
+ * slots are blank.
+ */
+function formatFramePrefixFor(frameId: string, nodes: readonly WorkflowNode[]): string {
+  const frame = nodes.find((n) => n.id === frameId);
+  return frame && frame.kind === 'frame' ? formatFrameContractContext(frame.config) : '';
 }
 
 /**
@@ -958,6 +977,16 @@ async function runNode(
   state: InFlight,
   executors: ExecutorRegistry,
   timeoutMs: number,
+  /**
+   * Every node in the workflow, WITH config (Phase 97 Theme I) — `run.nodes`
+   * is `WorkflowNodeRun[]`, a run-history record with no `config` at all, so
+   * policy governance (`checkNodePolicy`) and a frame lookup
+   * (`formatFramePrefixFor`) need this separate parameter instead — the same
+   * live node list `drive`'s own `byId` is built from. See
+   * `resumeWorkflowRun`'s doc comment for why "live, not frozen" is already
+   * this engine's accepted answer for where a node's config comes from.
+   */
+  nodes: readonly WorkflowNode[],
 ): Promise<{ status: WorkflowNodeStatus; result?: NodeOutcome }> {
   const clock = deps.clock ?? realClock;
   /*
@@ -978,9 +1007,9 @@ async function runNode(
     Read immediately before the call, under the lock, so a node that waited on
     a join sees everything that landed while it waited.
   */
-  const upstream = await withRunLock(runId, async () => {
+  const { outputs: upstream, policyCheck, framePrefix } = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
-    if (!run) return {};
+    if (!run) return { outputs: {}, policyCheck: EMPTY_POLICY_CHECK, framePrefix: '' };
     // Loop edges excluded (Theme C) for the identical reason the eligibility
     // pass excludes them — see `buildGraph`'s doc comment: otherwise a loop
     // body's own ancestor walk would fold back through its not-yet-settled
@@ -1020,7 +1049,19 @@ async function runNode(
     // state as of the moment it started, the same "resolved right before
     // the call" rule every other upstream read above already follows.
     outputs.state = run.state ?? {};
-    return outputs;
+
+    // Phase 97 Theme I — resolved here, inside the SAME lock, since this is
+    // where `run.edges` (frozen at run start) is already in hand; `nodes`
+    // (the function's own parameter, WITH config — `run.nodes` is only
+    // `WorkflowNodeRun[]`, a status record) is threaded down from `drive`.
+    // `policyCheck` feeds both the implicit approval wait below and
+    // `httpExecutor`'s own `deniedActions` read; `framePrefix` feeds
+    // `executors/agent.ts`'s prompt composition.
+    const policyCheck = checkNodePolicy(node, nodes, run.edges);
+    const framePrefix =
+      node.kind === 'agent' && node.frameId !== undefined ? formatFramePrefixFor(node.frameId, nodes) : '';
+
+    return { outputs, policyCheck, framePrefix };
   });
 
   /*
@@ -1035,6 +1076,24 @@ async function runNode(
   const demoStatus = demoApiStatus();
   if (demoStatus.running) {
     upstream.demo = { baseUrl: `http://127.0.0.1:${demoStatus.port}` };
+  }
+
+  /*
+    Phase 97 Theme I — the implicit gate: an action this node declares that a
+    governing `policy` requires approval for pauses HERE, before the real
+    executor ever starts, and BEFORE the generic per-node deadline timer
+    below is even constructed — the identical "a wait must not count against
+    the node's own timeout" reasoning `WORKFLOW_GATE_ENGINE_BACKSTOP_MS`
+    exists for, achieved here by ordering rather than a backstop constant.
+    Rejection settles the node `failed` directly, through the SAME error
+    shape every other genuine infra failure produces, without ever reaching
+    `executors[node.kind]` at all.
+  */
+  if (policyCheck.requiresApproval.length > 0) {
+    const approval = await awaitPolicyApproval(runId, node, deps, state);
+    if (!approval.ok) {
+      return { status: 'failed', result: { ok: false, error: approval.error } };
+    }
   }
 
   const signal: CancelSignal = { cancelled: () => state.cancelled };
@@ -1058,6 +1117,8 @@ async function runNode(
       reportSessionId,
       reportWaiting,
       triggerPayload: deps.triggerPayload,
+      promptPrefix: framePrefix,
+      deniedActions: policyCheck.denied,
     }).then(
       (result) => {
         if (settled) return;
@@ -1267,6 +1328,84 @@ async function patchNodeWaiting(runId: string, nodeId: string, deps: EngineDeps)
     return run;
   });
   if (run) deps.emitChanged(run);
+}
+
+/**
+ * The inverse of {@link patchNodeWaiting} (Phase 97 Theme I) — flips a node
+ * back from `waiting` to `running` the moment a policy-required approval
+ * lands, right before its real executor starts. Needed because
+ * {@link patchNodeSessionId}'s own `status !== 'running'` guard (used by the
+ * `agent`/`script` executors) would otherwise silently no-op for the entire
+ * remainder of the node's run — every other `running`-only invariant in this
+ * file assumes a node that reached its executor is, in fact, `running`,
+ * which an implicitly-gated node is not until this runs.
+ */
+async function patchNodeRunning(runId: string, nodeId: string, deps: EngineDeps): Promise<void> {
+  const run = await withRunLock(runId, async () => {
+    const run = await deps.getRun(runId);
+    if (!run) return null;
+    const node = activeNodeRun(run, nodeId);
+    if (!node || node.status !== 'waiting') return null;
+    node.status = 'running';
+    await deps.saveRun(run);
+    return run;
+  });
+  if (run) deps.emitChanged(run);
+}
+
+/**
+ * Waits for a policy-required approval to reach this GOVERNED node (Phase 97
+ * Theme I) — reusing Theme D's exact runtime path, `gate-waiters.ts` +
+ * (eventually) `decideWorkflowGate`, keyed by this node's own `(runId,
+ * nodeId)` rather than a synthetic `gate` node. `decideWorkflowGate` and
+ * `gate-waiters.ts` themselves need NO changes for this to work: both
+ * already key purely by `runId:nodeId` and check `status === 'waiting'`
+ * generically, never `kind === 'gate'` — so the run panel's decide IPC and
+ * the MCP `workflow_gate_decide` tool decide this node with zero code
+ * changes there.
+ *
+ * Cancel is polled the identical way `executors/gate.ts` polls its own —
+ * `state.cancelled` every 50ms, `resolveGateWaiter` with `decidedBy:
+ * 'cancelled'` — living HERE, in the engine, rather than in an executor,
+ * because only the engine has the graph in hand to know a policy governs
+ * this node at all; no executor knows what a `policy` node even is.
+ */
+async function awaitPolicyApproval(
+  runId: string,
+  node: WorkflowNode,
+  deps: EngineDeps,
+  state: InFlight,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await patchNodeWaiting(runId, node.id, deps);
+
+  const outcome = await new Promise<{ ok: true } | { ok: false; error: string }>((resolve) => {
+    let settled = false;
+    const finish = (result: { ok: true } | { ok: false; error: string }) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
+      resolve(result);
+    };
+
+    void registerGateWaiter(runId, node.id).then((result) => {
+      finish(
+        result.decision === 'approved'
+          ? { ok: true }
+          : { ok: false, error: `Policy approval was rejected${result.note ? `: ${result.note}` : '.'}` },
+      );
+    });
+
+    const poll = setInterval(() => {
+      if (state.cancelled) {
+        resolveGateWaiter(runId, node.id, { decision: 'rejected', note: 'Cancelled.', decidedBy: 'cancelled' });
+        finish({ ok: false, error: 'Cancelled.' });
+      }
+    }, 50);
+    poll.unref?.();
+  });
+
+  if (outcome.ok) await patchNodeRunning(runId, node.id, deps);
+  return outcome;
 }
 
 /**
