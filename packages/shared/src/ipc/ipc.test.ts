@@ -983,7 +983,7 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
     ).toBe(true);
   });
 
-  it('McpGetResponse/McpSetRequest carry the allowUi switch introduced beside enabled', () => {
+  it('McpGetResponse/McpSetRequest carry the allowUi and allowGateDecide switches introduced beside enabled', () => {
     expect(
       schemas.McpGetResponse.safeParse({
         enabled: false,
@@ -991,9 +991,11 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         socketPath: null,
         shimPath: null,
         allowUi: false,
+        allowGateDecide: false,
       }).success,
     ).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowUi: true }).success).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowGateDecide: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({}).success).toBe(true);
   });
 });
@@ -1761,6 +1763,7 @@ describe('workflow contract', () => {
       workflowDelete: ['WorkflowDeleteRequest', 'WorkflowDeleteResponse'],
       workflowRun: ['WorkflowRunRequest', 'WorkflowRunResponse'],
       workflowCancel: ['WorkflowCancelRequest', 'WorkflowCancelResponse'],
+      workflowGateDecide: ['WorkflowGateDecideRequest', 'WorkflowGateDecideResponse'],
       workflowRunsList: ['WorkflowRunsListRequest', 'WorkflowRunsListResponse'],
       workflowRunsGet: ['WorkflowRunsGetRequest', 'WorkflowRunsGetResponse'],
       workflowRunChanged: [],
@@ -1787,6 +1790,7 @@ describe('workflow contract', () => {
       schemas.WorkflowDeleteRequest,
       schemas.WorkflowRunRequest,
       schemas.WorkflowCancelRequest,
+      schemas.WorkflowGateDecideRequest,
       schemas.WorkflowRunsListRequest,
       schemas.WorkflowRunsGetRequest,
     ]) {

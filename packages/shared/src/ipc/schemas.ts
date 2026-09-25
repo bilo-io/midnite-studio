@@ -3303,14 +3303,21 @@ export const McpGetResponse = z.object({
   socketPath: z.string().nullable(),
   shimPath: z.string().nullable(),
   allowUi: z.boolean(),
+  /** Phase 97 Theme D's third switch — whether `workflow_gate_decide` may actually decide anything. */
+  allowGateDecide: z.boolean(),
 });
 /**
- * Both fields optional so the master switch and the UI-steering switch stay
- * two independent controls over one channel rather than needing two: a
- * request touches only the field it means to change, and the handler
- * (`mcp-handlers.ts`) reads the current value of whichever field is absent.
+ * All three fields optional so the master switch and the two narrower
+ * switches stay independent controls over one channel rather than needing
+ * three: a request touches only the field it means to change, and the
+ * handler (`mcp-handlers.ts`) reads the current value of whichever field is
+ * absent.
  */
-export const McpSetRequest = z.object({ enabled: z.boolean().optional(), allowUi: z.boolean().optional() });
+export const McpSetRequest = z.object({
+  enabled: z.boolean().optional(),
+  allowUi: z.boolean().optional(),
+  allowGateDecide: z.boolean().optional(),
+});
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
 
