@@ -135,11 +135,30 @@ type KeyState = {
 
 const keyOf = (repoId: string, kind: ForgeSubscriptionKind): string => `${repoId}::${kind}`;
 
+/** A `{repoId, kind}` hash change, as handed to a non-window listener — see {@link ForgePoller.onChanged}. */
+export type ForgeChangeListener = (repoId: string, kind: ForgeSubscriptionKind) => void;
+
 /** Registered once, real at boot — see `index.ts`. Tests build their own. */
 export class ForgePoller {
   private readonly keys = new Map<string, KeyState>();
+  private readonly changeListeners = new Set<ForgeChangeListener>();
 
   constructor(private readonly deps: ForgePollerDeps) {}
+
+  /**
+   * A main-side (non-window) listener for "this repoId/kind's projection hash
+   * changed" (Phase 97 Theme H's `trigger-scheduler.ts`) — the exact same
+   * subscribe/interval/hash/backoff/visibility-gate machinery every window's
+   * `EVENT_CHANNELS.forgeChanged` subscription already runs on, just also
+   * notified here instead of only broadcast to `BrowserWindow`s. A caller
+   * still has to `subscribe` a `{repoId, kind}` pair (with any reserved,
+   * never-a-real-window id) for this to ever fire — zero subscribers still
+   * costs zero polling, unchanged. Returns the unsubscribe function.
+   */
+  onChanged(listener: ForgeChangeListener): () => void {
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
 
   /** A window subscribes interest in one `{repoId, kind}` pair. */
   subscribe(repoId: string, kind: ForgeSubscriptionKind, windowId: number): void {
@@ -243,6 +262,7 @@ export class ForgePoller {
 
     if (state.lastHash !== null && state.lastHash !== outcome.hash) {
       this.deps.broadcastChanged(state.repoId, state.kind);
+      for (const listener of this.changeListeners) listener(state.repoId, state.kind);
     }
     state.lastHash = outcome.hash;
   }

@@ -74,6 +74,18 @@ export type ExecutorContext = {
    * a decision that may take an arbitrary amount of real time.
    */
   reportWaiting: () => Promise<void>;
+  /**
+   * What actually fired this run, for the `trigger` node alone (Phase 97
+   * Theme H) — `undefined` for a plain manual Run or a bare schedule tick,
+   * the PR's own facts (`{number, title, headRef, url, author}`) for a
+   * `forge-pr` trigger. This is a **run-time** fact, never part of the
+   * node's own config (`WorkflowTriggerConfigSchema` only says how the
+   * workflow is armed, not what any one run was armed BY) — set once, on
+   * `EngineDeps.triggerPayload`, by whichever `runWorkflow` call started this
+   * run (`workflow-service.ts`), and threaded straight through unchanged.
+   * Every executor but `executors/trigger.ts` ignores this.
+   */
+  triggerPayload?: unknown;
 };
 
 /**

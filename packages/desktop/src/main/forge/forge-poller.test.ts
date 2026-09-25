@@ -163,6 +163,38 @@ describe('ForgePoller', () => {
     expect(changed).toEqual([{ repoId: 'repo-a', kind: 'runs' }]);
   });
 
+  it('onChanged (Theme H) notifies a non-window listener alongside broadcastChanged, exactly once per real change', async () => {
+    let hash = 'v1';
+    const poll = vi.fn<() => Promise<PollOutcome>>(async () => ({ ok: true, hash }));
+    const { deps, fireAll } = makeDeps({ poll });
+    const poller = new ForgePoller(deps);
+    const seen: Array<{ repoId: string; kind: string }> = [];
+    const unsubscribe = poller.onChanged((repoId, kind) => seen.push({ repoId, kind }));
+
+    poller.subscribe('repo-a', 'pulls', -1); // a reserved sentinel id, never a real window id
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(seen).toHaveLength(0); // the seeding poll is not a change
+
+    fireAll();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(seen).toHaveLength(0); // same hash, still nothing
+
+    hash = 'v2';
+    fireAll();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(seen).toEqual([{ repoId: 'repo-a', kind: 'pulls' }]);
+
+    unsubscribe();
+    hash = 'v3';
+    fireAll();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(seen).toHaveLength(1); // unsubscribed — no further notifications
+  });
+
   it('a rate-limit response backs off and reports backoffUntil', async () => {
     const poll = vi.fn<() => Promise<PollOutcome>>(async () => ({
       ok: false,
