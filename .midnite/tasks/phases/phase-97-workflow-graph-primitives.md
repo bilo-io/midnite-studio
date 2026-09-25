@@ -319,11 +319,12 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
   - `error`: dashed in the `failed` status colour.
   - `loop`: dashed, drawn as a curved back-edge routed *under* the body (not through it), with an
     **iteration badge** `2/3` while running and the bounds on hover.
-  (`workflow-edge-view.tsx`. The iteration-badge slot renders `data.iterationLabel` but nothing
-  populates it yet — Theme C's `WorkflowRun.loopStates`/per-node `iteration` aren't merged; wiring
-  the real value in is a one-line addition to `workflow-canvas.tsx`'s edge-decorate step once they
-  land. The "bounds on hover" affordance is deferred with them — there is no iteration budget to
-  show yet.)
+  (`workflow-edge-view.tsx`. Rebased onto Theme C (#560) once it merged: the iteration badge is a
+  real read — `edge-style.ts`'s `iterationLabelFor` formats `WorkflowLoopState.iteration` over
+  `WorkflowEdge.loop.maxIterations`, off a new `WorkflowCanvas.loopStates` prop
+  (`workflows-view.tsx`'s `workflowLoopStates(focusedRun)`, keyed by edge id). Not
+  replay-scrubber-aware — Theme K owns replay by iteration, not this theme. "The bounds on hover"
+  is a real `title` too, `loopBoundsTitle`.)
 - [x] Port handles coloured by `WORKFLOW_PORT_TYPES`, as new theme tokens `--port-json|text|number|boolean|verdict|artifact`
       defined for light and dark themes. A connect drag dims incompatible handles live
       (`canConnect`) and shows the rejection reason in a tooltip on drop.

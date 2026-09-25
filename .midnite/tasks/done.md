@@ -3,19 +3,25 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-25 — Phase 97 Theme J — Canvas styling
 
-[PR #561](https://github.com/bilo-io/midnite-studio/pull/561). Builds on Theme A's ports/edge-kinds and Theme B's `settledPort`/`edgeState` — gives the
-workflow canvas the per-kind visual language the phase's three seed diagrams draw, scoped to the
-node/edge kinds that actually exist on `main` today (`condition`, `join`; D/E/F/H/I's `gate`/
-`verify`/`router`/`trigger`/`frame` aren't merged yet).
+[PR #561](https://github.com/bilo-io/midnite-studio/pull/561). Builds on Theme A's ports/edge-kinds, Theme B's `settledPort`/`edgeState`, and — once
+rebased mid-flight onto its merge — Theme C's `loop`-edge contract (`WorkflowLoopState`,
+`WorkflowEdge.loop`, the `exhausted` port). Gives the workflow canvas the per-kind visual language
+the phase's three seed diagrams draw, scoped to the node/edge kinds that actually exist on `main`
+today (`condition`, `join`; D/E/F/H/I's `gate`/`verify`/`router`/`trigger`/`frame` aren't merged
+yet).
 
 - [x] **Edge style per kind**, in a new custom edge component (`workflow-edge-view.tsx`, registered
       as `edgeTypes`): `data` solid, `conditional` solid plus the source port's label chip, `error`
       dashed in the `failed` status colour, `loop` dashed and routed as a curved back-edge (bezier,
       fixed curvature) rather than the orthogonal `smoothstep` every other kind uses — a back-edge
       always points from a later node to an earlier one, and a straight/stepped line would cross
-      through whatever sits between them. The iteration-badge slot (`data.iterationLabel`) renders
-      nothing until Theme C's `WorkflowRun.loopStates` merges; wiring the real value in is a
-      one-line addition to the canvas's edge-decorate step, not a new component.
+      through whatever sits between them. The iteration badge is a real read once Theme C landed:
+      `edge-style.ts`'s `iterationLabelFor` formats `WorkflowLoopState.iteration` over
+      `WorkflowEdge.loop.maxIterations`, off a new `WorkflowCanvas.loopStates` prop
+      (`workflows-view.tsx`'s `workflowLoopStates(focusedRun)`, keyed by edge id, not
+      replay-scrubber-aware — Theme K owns replay by iteration); `loopBoundsTitle` gives the badge
+      a real "bounds on hover" tooltip. Every `portsForNode()` call site in the canvas also now
+      passes the live edges, so a loop source's `exhausted` out-port renders and validates.
 - [x] **Port handles per `portsForNode()` entry**, not one bare in/out `Handle` per side —
       `workflow-node-view.tsx` now renders one per port, coloured by `WORKFLOW_PORT_TYPES` via six
       new theme tokens (`--port-json|text|number|boolean|verdict|artifact`, light+dark;
@@ -41,16 +47,17 @@ node/edge kinds that actually exist on `main` today (`condition`, `join`; D/E/F/
       the same way it already does `nodeErrors`) and paints a dead edge at 35% opacity, a taken one
       with the animated dash kept.
 - [x] **Dagre ignores `loop` edges when ranking** (`workflow-layout.ts`'s `autoLayout`, checked
-      inline against `edge.kind === 'loop'` rather than importing anything from Theme C's own
-      unmerged branch) — a back-edge fed to dagre would otherwise force a cycle it has to break
-      arbitrarily. Still drawn afterward by the edge component. Frame-children layout (the doc's
-      other `J` bullet) is Theme I's own kind, not yet on `main`.
+      inline against `edge.kind === 'loop'`, written before Theme C had merged and left that way
+      after — a back-edge fed to dagre would otherwise force a cycle it has to break arbitrarily.
+      Still drawn afterward by the edge component. Frame-children layout (the doc's other `J`
+      bullet) is Theme I's own kind, not yet on `main`.
 - [x] `react-icons/lu` only — no new glyph was needed (`condition`/`join` already had theirs);
       `icon-names.test.ts` derives its check from source via `import.meta.glob`, so there was
       nothing to add by hand.
-- [x] Vitest: `edge-style.test.ts` (19 tests — `EDGE_KIND_STYLE`/`PORT_TYPE_COLOR_VAR` exhaustive
+- [x] Vitest: `edge-style.test.ts` (26 tests — `EDGE_KIND_STYLE`/`PORT_TYPE_COLOR_VAR` exhaustive
       over their shared enums, `rendererEdgeState`'s pending/dead/taken/legacy-cascade/untaken-
-      branch reads, `inferEdgeKind`'s error/conditional/data split) and
+      branch reads, `inferEdgeKind`'s error/conditional/data split, `iterationLabelFor`'s
+      no-loop/no-state/formatted/no-config reads, `loopBoundsTitle`'s minutes rounding) and
       `workflow-node-view.test.tsx` (6 tests — handle count and `data-handleid` per node kind,
       each handle's own port-type colour, the diamond marker, the join pill). One Playwright
       **visual** baseline (`e2e/visual/workflows-canvas.spec.ts`, locator-cropped canvas, real
