@@ -1137,35 +1137,31 @@ describe('keybindings', () => {
     expect(toggle?.chord.startsWith('Mod')).toBe(false);
   });
 
-  it('gives the reload pair the browser chords, and keeps them out of the terminal', () => {
-    // Mod+R / Mod+Shift+R mean reload everywhere else. Neither is `global`:
-    // that scope is the xterm escape allow-list, and a reload is the last
-    // thing that should reach through a shell. Keeping them OUT of the
-    // terminal takes `TERMINAL_YIELD_COMMANDS` as well — asserted below.
+  it('gives the reload pair the browser chords with global scope so they escape the terminal', () => {
+    // Mod+R / Mod+Shift+R mean reload everywhere, including when the terminal
+    // is focused. Both carry `scope: 'global'` so they are in GLOBAL_CHORDS
+    // and escape xterm.
     const soft = DEFAULT_KEYMAP.find((b) => b.command === 'app.reload');
     const hard = DEFAULT_KEYMAP.find((b) => b.command === 'app.hardReload');
     expect(soft?.chord).toBe('Mod+r');
     expect(hard?.chord).toBe('Mod+Shift+r');
-    expect(soft?.scope).toBe('app');
-    expect(hard?.scope).toBe('app');
-    expect(GLOBAL_CHORDS).not.toContain('Mod+r');
-    expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+r');
+    expect(soft?.scope).toBe('global');
+    expect(hard?.scope).toBe('global');
+    expect(GLOBAL_CHORDS).toContain('Mod+r');
+    expect(GLOBAL_CHORDS).toContain('Mod+Shift+r');
   });
 
-  it('yields exactly the reload pair, the panel-history pair, the loop toggle, detach-active and browser find to the shell, and nothing else', () => {
-    // Seven wide on purpose: `app` scope does not, on its own, keep a chord out
+  it('yields exactly the panel-history pair, the loop toggle, detach-active and browser find to the shell, and nothing else', () => {
+    // Five wide on purpose: `app` scope does not, on its own, keep a chord out
     // of the terminal, and everything else is better off firing from there.
-    // `panel.back`/`panel.forward` (Phase 42 Theme D) join the reload pair
-    // for the same reason `Mod+R` does — `Mod+[` off macOS is `Ctrl+[`,
-    // which is `ESC` in every shell — `fab.toggle` joins them off the back
-    // of taking `Mod+l`, which is `Ctrl+L`, i.e. clear-screen — and
-    // `window.detachActive` (Phase 55) joins them for the same reason:
-    // `Mod+Shift+D` off macOS is `Ctrl+Shift+D`, meaningful inside a shell.
-    // `browser.find` (Phase 32 Theme G) joins them because `Mod+f` off macOS
-    // is `Ctrl+F`, readline's forward-char.
+    // `panel.back`/`panel.forward` (Phase 42 Theme D) yield to the shell
+    // because `Mod+[` off macOS is `Ctrl+[`, which is `ESC` in every shell —
+    // `fab.toggle` joins them off the back of taking `Mod+l`, which is
+    // `Ctrl+L`, i.e. clear-screen — and `window.detachActive` (Phase 55) joins
+    // them for the same reason: `Mod+Shift+D` off macOS is `Ctrl+Shift+D`,
+    // meaningful inside a shell. `browser.find` (Phase 32 Theme G) joins them
+    // because `Mod+f` off macOS is `Ctrl+F`, readline's forward-char.
     expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual([
-      'app.hardReload',
-      'app.reload',
       'browser.find',
       'fab.toggle',
       'panel.back',
