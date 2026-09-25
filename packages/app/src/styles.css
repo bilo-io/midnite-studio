@@ -466,6 +466,12 @@ nav[aria-label='Views']::-webkit-scrollbar {
   display: none;
 }
 
+/* Sidenav expanded width is 3rem narrower: 16rem -> 13rem */
+aside[aria-label="Views"].w-64,
+aside:has(> nav[aria-label="Views"]).w-64 {
+  width: 13rem !important;
+}
+
 /* ---------------------------------------------------------------------------
  * react-grid-layout, retinted.
  *
@@ -3391,6 +3397,96 @@ html[data-motion='reduced'] .activity-glow[data-activity-status='thinking'] {
 html[data-motion='reduced'] .activity-glow[data-activity-status='running'] {
   animation: none;
   box-shadow: 0 0 8px var(--activity-running);
+}
+
+/* ---------------------------------------------------------------------------
+ * Round agent icons in the terminal list (`terminal-session-list.tsx`).
+ *
+ * Orbiting gradient arc with a slightly thicker 2px border and a synchronized
+ * pseudo-element glow rotating together using the agent's brand accent
+ * (`--agent-accent`, falling back to `--activity-agent`).
+ * ------------------------------------------------------------------------- */
+
+@property --agent-arc-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes agent-arc-spin {
+  to {
+    --agent-arc-angle: 360deg;
+  }
+}
+
+.terminal-agent-glow {
+  --agent-arc-gradient: conic-gradient(
+    from var(--agent-arc-angle),
+    transparent 0deg,
+    transparent 180deg,
+    color-mix(in srgb, var(--agent-accent, var(--activity-agent)) 20%, transparent) 220deg,
+    color-mix(in srgb, var(--agent-accent, var(--activity-agent)) 65%, transparent) 300deg,
+    var(--agent-accent, var(--activity-agent)) 355deg,
+    transparent 360deg
+  );
+}
+
+.terminal-agent-glow[data-activity-status='agent'],
+.activity-glow[data-agent-icon='true'][data-activity-status='agent'] {
+  border: 2px solid transparent !important;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    var(--agent-arc-gradient);
+  box-shadow: none;
+  animation: agent-arc-spin 3s linear infinite paused;
+}
+
+.terminal-agent-glow[data-activity-status='agent']::before,
+.activity-glow[data-agent-icon='true'][data-activity-status='agent']::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: var(--agent-arc-gradient);
+  filter: blur(3px);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: -1;
+  animation: agent-arc-spin 3s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .terminal-agent-glow[data-activity-status='agent'],
+html:not([data-window-focused='false']) .terminal-agent-glow[data-activity-status='agent']::before,
+html:not([data-window-focused='false']) .activity-glow[data-agent-icon='true'][data-activity-status='agent'],
+html:not([data-window-focused='false']) .activity-glow[data-agent-icon='true'][data-activity-status='agent']::before {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .terminal-agent-glow[data-activity-status='agent'],
+  html:not([data-motion='full']) .terminal-agent-glow[data-activity-status='agent']::before,
+  html:not([data-motion='full']) .activity-glow[data-agent-icon='true'][data-activity-status='agent'],
+  html:not([data-motion='full']) .activity-glow[data-agent-icon='true'][data-activity-status='agent']::before {
+    animation: none;
+  }
+  html:not([data-motion='full']) .terminal-agent-glow[data-activity-status='agent'],
+  html:not([data-motion='full']) .activity-glow[data-agent-icon='true'][data-activity-status='agent'] {
+    border-color: var(--agent-accent, var(--activity-agent)) !important;
+  }
+}
+
+html[data-motion='reduced'] .terminal-agent-glow[data-activity-status='agent'],
+html[data-motion='reduced'] .terminal-agent-glow[data-activity-status='agent']::before,
+html[data-motion='reduced'] .activity-glow[data-agent-icon='true'][data-activity-status='agent'],
+html[data-motion='reduced'] .activity-glow[data-agent-icon='true'][data-activity-status='agent']::before {
+  animation: none;
+}
+
+html[data-motion='reduced'] .terminal-agent-glow[data-activity-status='agent'],
+html[data-motion='reduced'] .activity-glow[data-agent-icon='true'][data-activity-status='agent'] {
+  border-color: var(--agent-accent, var(--activity-agent)) !important;
 }
 
 /*
