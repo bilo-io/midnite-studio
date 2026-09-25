@@ -615,30 +615,41 @@ function SearchResultCard({
   };
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2">
-      <div className="flex items-start gap-2">
+    <div className="flex items-stretch justify-between gap-3 rounded-md border border-border/60 p-2">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
         <SiOllama aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-        <button
-          type="button"
-          onClick={() => onOpenDetail(searchResultPullTarget(item, variant))}
-          className="min-w-0 flex-1 text-left"
-        >
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-xs font-medium">{item.name}</span>
-            {item.cloud ? <Chip tone="accent">cloud</Chip> : null}
-            {(item.capabilities ?? []).map((cap) => (
-              <Chip key={cap}>{cap}</Chip>
-            ))}
-          </div>
-          {item.description ? (
-            <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={() => onOpenDetail(searchResultPullTarget(item, variant))}
+            className="w-full text-left"
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-xs font-medium">{item.name}</span>
+              {item.cloud ? <Chip tone="accent">cloud</Chip> : null}
+              {(item.capabilities ?? []).map((cap) => (
+                <Chip key={cap}>{cap}</Chip>
+              ))}
+            </div>
+            {item.description ? (
+              <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
+            ) : null}
+          </button>
+
+          {variants.length > 1 ? (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {variants.map((v) => (
+                <button key={v} type="button" onClick={() => setVariant(v)}>
+                  <Chip tone={variant === v ? 'selected' : 'muted'}>{v}</Chip>
+                </button>
+              ))}
+            </div>
           ) : null}
-          <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-            {item.pulls ? <span>{item.pulls} pulls</span> : null}
-            {item.updatedAt ? <span>updated {item.updatedAt}</span> : null}
-          </div>
-        </button>
-        <div className="flex shrink-0 items-center gap-1.5">
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end justify-between gap-1 text-right text-[11px] text-muted-foreground">
+        <div>
           {alreadyInstalled ? (
             <Chip tone="accent">Installed</Chip>
           ) : (
@@ -653,17 +664,9 @@ function SearchResultCard({
             </button>
           )}
         </div>
+        <div className="my-auto">{item.pulls ? <span>{item.pulls} pulls</span> : null}</div>
+        <div>{item.updatedAt ? <span>updated {item.updatedAt}</span> : null}</div>
       </div>
-
-      {variants.length > 1 ? (
-        <div className="flex flex-wrap gap-1 pl-6">
-          {variants.map((v) => (
-            <button key={v} type="button" onClick={() => setVariant(v)}>
-              <Chip tone={variant === v ? 'selected' : 'muted'}>{v}</Chip>
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
