@@ -550,7 +550,7 @@ describe('upstream outputs', () => {
     expect(started.ok).toBe(true);
     await settle();
 
-    expect(seen).toEqual({ a: { token: 'abc' } });
+    expect(seen).toEqual({ a: { token: 'abc' }, state: {} });
   });
 
   it('reads upstream fresh, so a node that waited sees what landed while it waited', async () => {
@@ -591,7 +591,7 @@ describe('upstream outputs', () => {
     expect(started.ok).toBe(true);
     await settle();
 
-    expect(seen).toEqual({ a: { first: 1 }, b: { second: 2 } });
+    expect(seen).toEqual({ a: { first: 1 }, b: { second: 2 }, state: {} });
   });
 });
 
@@ -768,7 +768,7 @@ describe('upstream is ancestry, not whatever settled', () => {
     await settle();
 
     // Only `c`, `d`'s single ancestor. Not `a` and not `b`.
-    expect(seen).toEqual({ c: { from: 'c' } });
+    expect(seen).toEqual({ c: { from: 'c' }, state: {} });
   });
 
   it('hands a node every ancestor, not just its direct parents', async () => {
@@ -805,7 +805,7 @@ describe('upstream is ancestry, not whatever settled', () => {
     await settle();
 
     // A grandparent is still upstream — `{{a.from}}` two hops down must work.
-    expect(seen).toEqual({ a: { from: 'a' }, b: { from: 'b' } });
+    expect(seen).toEqual({ a: { from: 'a' }, b: { from: 'b' }, state: {} });
   });
 });
 
@@ -1000,7 +1000,7 @@ describe('the error port (Theme B)', () => {
     // The recovery node actually ran — not skipped — and its upstream carries
     // the failure's own `{message, status}` error-port payload.
     expect(byId.recover!.status).toBe('succeeded');
-    expect(seen).toEqual({ a: { message: 'boom', status: 500 } });
+    expect(seen).toEqual({ a: { message: 'boom', status: 500 }, state: {} });
   });
 
   it('still cascades the legacy way when a failed node has no wired error edge', async () => {
