@@ -28,7 +28,17 @@ describe('toFlowGraph', () => {
     expect(flowNodes).toHaveLength(2);
     expect(flowNodes[0]).toMatchObject({ id: 'a', type: 'workflowNode', position: { x: 0, y: 0 } });
     expect(flowNodes[1]).toMatchObject({ id: 'b', type: 'workflowNode', position: { x: 300, y: 120 } });
-    expect(flowEdges).toEqual([{ id: 'e1', source: 'a', target: 'b', type: 'smoothstep', animated: true }]);
+    expect(flowEdges).toEqual([
+      {
+        id: 'e1',
+        source: 'a',
+        target: 'b',
+        sourceHandle: undefined,
+        targetHandle: undefined,
+        type: 'workflowEdge',
+        data: { edge: edges[0] },
+      },
+    ]);
   });
 });
 
@@ -63,5 +73,22 @@ describe('autoLayout', () => {
     const a = positions.get('a')!;
     const b = positions.get('b')!;
     expect(Math.abs(a.y - b.y)).toBeGreaterThan(0);
+  });
+
+  it('ignores a loop-kind edge for ranking — a back-edge never drags the earlier node rightward', () => {
+    const nodes = [node('a', 0, 0), node('b', 0, 0), node('c', 0, 0)];
+    const withLoop = autoLayout(nodes, [
+      { id: 'e1', from: 'a', to: 'b' },
+      { id: 'e2', from: 'b', to: 'c' },
+      { id: 'e3', from: 'c', to: 'b', kind: 'loop' },
+    ]);
+    const withoutLoop = autoLayout(nodes, [
+      { id: 'e1', from: 'a', to: 'b' },
+      { id: 'e2', from: 'b', to: 'c' },
+    ]);
+    // Same ranking either way — the `loop` edge back to `b` never entered dagre.
+    expect(withLoop.get('a')).toEqual(withoutLoop.get('a'));
+    expect(withLoop.get('b')).toEqual(withoutLoop.get('b'));
+    expect(withLoop.get('c')).toEqual(withoutLoop.get('c'));
   });
 });
