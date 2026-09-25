@@ -1,6 +1,7 @@
 import {
   isWorkflowEnabled,
   validateWorkflow,
+  workflowIssueSeverity,
   workflowLoopStates,
   type Workflow,
   type WorkflowLoopState,
@@ -283,6 +284,11 @@ function WorkflowEditor({
   const focusedRun = mode === 'run' ? (activeRun.data ?? null) : liveRun;
 
   const issues = validateWorkflow(local);
+  // Phase 97 Theme G — a `warning`-severity issue (today, only a `POST`/
+  // `PATCH` http node's non-idempotent retry) is worth a badge but must not
+  // block Run: the engine itself simply declines to retry it, no different
+  // from a workflow with no `onFailure` policy at all.
+  const blockingIssues = issues.filter((issue) => workflowIssueSeverity(issue) !== 'warning');
   const invalidNodeIds = new Set(issues.map((issue) => issue.nodeId).filter((id): id is string => id !== undefined));
   const selectedId = selection.size === 1 ? (Array.from(selection)[0] ?? null) : null;
   const selectedNode = selectedId ? (local.nodes.find((node) => node.id === selectedId) ?? null) : null;
@@ -386,7 +392,7 @@ function WorkflowEditor({
    */
   const runRef = useRef<() => void>(() => {});
   runRef.current = () => {
-    if (mode === 'edit' && issues.length === 0 && isWorkflowEnabled(local)) {
+    if (mode === 'edit' && blockingIssues.length === 0 && isWorkflowEnabled(local)) {
       runWorkflow.mutate(local.id);
       setRunPanelCollapsed(false);
     }
@@ -412,7 +418,7 @@ function WorkflowEditor({
         mode={mode}
         onBackToEditing={() => panels.reset()}
         onRun={mode === 'edit' ? () => runRef.current() : undefined}
-        runDisabledReason={issues[0]?.message}
+        runDisabledReason={blockingIssues[0]?.message}
         isRunning={runWorkflow.isPending}
       />
 
