@@ -311,7 +311,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [ ] Vitest: frame membership survives save/load and auto-layout, contract prepending, policy
       validation, and policy-driven approval routing.
 
-### J — Canvas styling (M) — ✅ DONE (PR TBD, 2026-09-25)
+### J — Canvas styling (M) — ✅ DONE (PR #561, 2026-09-25)
 
 - [x] Edge style per kind in the canvas's custom edge component:
   - `data`: solid.

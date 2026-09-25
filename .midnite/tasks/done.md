@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-25 — Phase 97 Theme J — Canvas styling
 
-PR TBD. Builds on Theme A's ports/edge-kinds and Theme B's `settledPort`/`edgeState` — gives the
+[PR #561](https://github.com/bilo-io/midnite-studio/pull/561). Builds on Theme A's ports/edge-kinds and Theme B's `settledPort`/`edgeState` — gives the
 workflow canvas the per-kind visual language the phase's three seed diagrams draw, scoped to the
 node/edge kinds that actually exist on `main` today (`condition`, `join`; D/E/F/H/I's `gate`/
 `verify`/`router`/`trigger`/`frame` aren't merged yet).
