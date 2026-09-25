@@ -6,12 +6,17 @@ import {
   ok,
   type GitOpResult,
   type Workflow,
+  type WorkflowGateDecidedBy,
+  type WorkflowGateDecision,
+  type WorkflowNode,
   type WorkflowRun,
 } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
+import { pollGateApprovals, type WaitingLinkedGate } from './workflow/gate-forge-service';
 import {
   cancelWorkflowRun,
+  decideWorkflowGate,
   isRunning,
   startWorkflowRun,
   type EngineDeps,
@@ -119,7 +124,11 @@ async function loadRuns(): Promise<void> {
       error: 'Interrupted — the app quit while this run was in flight.',
       endedAt: Date.now(),
       nodes: run.nodes.map((node) =>
-        node.status === 'running' || node.status === 'pending'
+        // `'waiting'` (Phase 97 Theme D) joins `'running'`/`'pending'` here —
+        // a gate left waiting has no in-memory waiter across a restart
+        // (`gate-waiters.ts` is process-local state), so it can never be
+        // decided; Theme G's real resume replaces this whole crude sweep.
+        node.status === 'running' || node.status === 'pending' || node.status === 'waiting'
           ? { ...node, status: 'skipped' as const, error: node.error ?? 'Interrupted.' }
           : node,
       ),
@@ -222,4 +231,46 @@ export async function runWorkflow(workflowId: string): Promise<GitOpResult<Workf
 export async function cancelRun(runId: string): Promise<GitOpResult> {
   await ensureRunsLoaded();
   return cancelWorkflowRun(runId, engineDeps());
+}
+
+/** Phase 97 Theme D — the one function every decide channel (the IPC handler above, the MCP tool, `gate-forge-service.ts`'s PR-comment poll) funnels through. */
+export async function decideGate(
+  runId: string,
+  nodeId: string,
+  decision: WorkflowGateDecision,
+  note: string | undefined,
+  decidedBy: WorkflowGateDecidedBy,
+): Promise<GitOpResult> {
+  await ensureRunsLoaded();
+  return decideWorkflowGate(runId, nodeId, decision, note, decidedBy, engineDeps());
+}
+
+// --- gate PR-comment approval polling (Phase 97 Theme D) ---------------------
+
+/** Every currently-waiting gate that also carries a `linkedRef` — built from this module's own in-memory `runs`/`workflows`, which is exactly why `gate-forge-service.ts` never imports either directly (see that file's own doc comment on the import-cycle it avoids). */
+function waitingLinkedGates(): WaitingLinkedGate[] {
+  const gates: WaitingLinkedGate[] = [];
+  for (const run of runs) {
+    if (run.status !== 'running') continue;
+    const workflow = workflows.find((w) => w.id === run.workflowId);
+    if (!workflow) continue;
+    for (const nodeRun of run.nodes) {
+      if (nodeRun.status !== 'waiting') continue;
+      const node = workflow.nodes.find((n): n is WorkflowNode & { kind: 'gate' } => n.id === nodeRun.nodeId && n.kind === 'gate');
+      if (!node?.config.linkedRef) continue;
+      gates.push({ runId: run.id, workflowId: run.workflowId, nodeId: nodeRun.nodeId, node });
+    }
+  }
+  return gates;
+}
+
+/** One poll tick — a no-op (zero forge calls) whenever nothing is both `waiting` and `linkedRef`-carrying. Called on an interval by `main/index.ts`; exported bare so a test can drive it directly without a timer. */
+export async function pollWorkflowGateApprovals(): Promise<void> {
+  await ensureRunsLoaded();
+  await ensureWorkflowsLoaded();
+  const gates = waitingLinkedGates();
+  if (gates.length === 0) return;
+  await pollGateApprovals(gates, async (runId, nodeId, decision, note) => {
+    await decideGate(runId, nodeId, decision, note, 'pr-comment');
+  });
 }

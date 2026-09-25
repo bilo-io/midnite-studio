@@ -3,6 +3,7 @@ import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 import { defaultLogger } from '../log';
 import {
   cancelRun,
+  decideGate,
   deleteWorkflow,
   getRun,
   listRunsForWorkflow,
@@ -49,6 +50,13 @@ export function registerWorkflowHandlers(): void {
     CHANNELS.workflowCancel,
     schemas.WorkflowCancelRequest,
     async ({ runId }) => cancelRun(runId),
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.workflowGateDecide,
+    schemas.WorkflowGateDecideRequest,
+    async ({ runId, nodeId, decision, note }) => decideGate(runId, nodeId, decision, note, 'panel'),
     (issue) => failure(issue),
   );
 
