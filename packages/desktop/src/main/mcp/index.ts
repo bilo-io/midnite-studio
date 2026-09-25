@@ -3,9 +3,15 @@ import { join } from 'node:path';
 import { createMcpStore, type McpSettings } from '../mcp-store';
 import { defaultLogger, type Logger } from '../log';
 import { startMcpServer, type McpServerHandle } from './server';
-import { getMcpAllowUi, resetMcpAllowUiStateForTests, setMcpAllowUiState } from './ui-gate';
+import {
+  getMcpAllowGateDecide,
+  getMcpAllowUi,
+  resetMcpAllowUiStateForTests,
+  setMcpAllowGateDecideState,
+  setMcpAllowUiState,
+} from './ui-gate';
 
-export { getMcpAllowUi } from './ui-gate';
+export { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -35,6 +41,8 @@ export type McpStatus = {
   shimPath: string | null;
   /** Phase 81 Theme F's second switch — whether `ui.navigate`/`ui.command` may actually act. */
   allowUi: boolean;
+  /** Phase 97 Theme D's third switch — whether `workflow_gate_decide` may actually decide anything. */
+  allowGateDecide: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -75,6 +83,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   const settings = await store.load();
   enabled = settings.enabled;
   setMcpAllowUiState(settings.allowUi);
+  setMcpAllowGateDecideState(settings.allowGateDecide);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -99,6 +108,7 @@ export function getMcpStatus(): McpStatus {
     socketPath: handle?.socketPath ?? null,
     shimPath: mcpShimScriptPath(),
     allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
   };
 }
 
@@ -115,7 +125,12 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 2, enabled: next, allowUi: getMcpAllowUi() };
+  const settings: McpSettings = {
+    version: 3,
+    enabled: next,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+  };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
 
@@ -148,9 +163,26 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 2, enabled, allowUi: next };
+  const settings: McpSettings = { version: 3, enabled, allowUi: next, allowGateDecide: getMcpAllowGateDecide() };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowUiState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 97 Theme D's third Settings switch. Identical shape to
+ * `setMcpAllowUi` — never starts or stops the socket, only gates whether
+ * `workflow_gate_decide` will act once a call reaches it.
+ */
+export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = { version: 3, enabled, allowUi: getMcpAllowUi(), allowGateDecide: next };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowGateDecideState(next);
 
   return { ok: true, status: getMcpStatus() };
 }

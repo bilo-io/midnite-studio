@@ -233,6 +233,51 @@ export async function cancelRun(runId: string): Promise<GitOpResult> {
   return cancelWorkflowRun(runId, engineDeps());
 }
 
+/**
+ * Every currently-waiting gate, across every workflow (Phase 97 Theme D) —
+ * `workflow_gates_list` (MCP) and the notification bell's own subscription
+ * both read this shape. Unlike `waitingLinkedGates` below, this does NOT
+ * filter to `linkedRef`-carrying gates: every waiting gate is a legitimate
+ * MCP/bell candidate, whether or not it also happens to have a PR/issue tied
+ * to it.
+ */
+export type WaitingGate = {
+  runId: string;
+  workflowId: string;
+  workflowName: string;
+  nodeId: string;
+  label: string;
+  title: string;
+  instructions: string;
+  startedAt: number | undefined;
+};
+
+export async function listWaitingGates(): Promise<WaitingGate[]> {
+  await ensureRunsLoaded();
+  await ensureWorkflowsLoaded();
+  const gates: WaitingGate[] = [];
+  for (const run of runs) {
+    if (run.status !== 'running') continue;
+    const workflow = workflows.find((w) => w.id === run.workflowId);
+    for (const nodeRun of run.nodes) {
+      if (nodeRun.status !== 'waiting') continue;
+      const node = workflow?.nodes.find((n) => n.id === nodeRun.nodeId);
+      const config = node?.kind === 'gate' ? node.config : undefined;
+      gates.push({
+        runId: run.id,
+        workflowId: run.workflowId,
+        workflowName: run.workflowName,
+        nodeId: nodeRun.nodeId,
+        label: nodeRun.label,
+        title: config?.title ?? '',
+        instructions: config?.instructions ?? '',
+        startedAt: nodeRun.startedAt,
+      });
+    }
+  }
+  return gates;
+}
+
 /** Phase 97 Theme D — the one function every decide channel (the IPC handler above, the MCP tool, `gate-forge-service.ts`'s PR-comment poll) funnels through. */
 export async function decideGate(
   runId: string,

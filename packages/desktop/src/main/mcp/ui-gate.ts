@@ -1,7 +1,8 @@
 /**
- * The `allowUi` flag, in memory — read by `tools.ts`'s `ui.navigate`/
- * `ui.command` handlers on every call, written by `main/mcp/index.ts`'s
- * `setMcpAllowUi` (which owns persisting it through `mcp-store.ts`).
+ * The `allowUi`/`allowGateDecide` flags, in memory — read by `tools.ts`'s
+ * `ui.navigate`/`ui.command`/`workflow_gate_decide` handlers on every call,
+ * written by `main/mcp/index.ts`'s `setMcpAllowUi`/`setMcpAllowGateDecide`
+ * (which own persisting each through `mcp-store.ts`).
  *
  * Split into its own module rather than living on `main/mcp/index.ts`
  * directly: `index.ts` sits above `server.ts` → `dispatch.ts` → `tools.ts`
@@ -11,6 +12,7 @@
  */
 
 let allowUi = false;
+let allowGateDecide = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -22,7 +24,18 @@ export function setMcpAllowUiState(next: boolean): void {
   allowUi = next;
 }
 
+/** Read synchronously by `tools.ts`'s `workflow_gate_decide` handler (Phase 97 Theme D) — the gate that must run before any workflow state changes. */
+export function getMcpAllowGateDecide(): boolean {
+  return allowGateDecide;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowGateDecideState(next: boolean): void {
+  allowGateDecide = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
+  allowGateDecide = false;
 }

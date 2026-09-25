@@ -146,7 +146,7 @@ describe('mcp stdio shim', () => {
    * this generically; this one pins the count and one tool's JSON schema so
    * a future registry change that silently drops `ui.*` fails here by name.
    */
-  it('lists eleven tools, with ui.navigate’s view as a JSON-schema enum of VIEW_IDS', async () => {
+  it('lists thirteen tools, with ui.navigate’s view as a JSON-schema enum of VIEW_IDS', async () => {
     const home = await mkdtemp(join(tmpdir(), 'mstudio-mcp-shim-home-'));
     try {
       const { parsed } = await runShim(
@@ -164,7 +164,8 @@ describe('mcp stdio shim', () => {
           | { tools?: Array<{ name: string; inputSchema?: { properties?: Record<string, unknown> } }> }
           | undefined
         )?.tools ?? [];
-      expect(tools).toHaveLength(11);
+      // Phase 97 Theme D added two: workflow_gates_list, workflow_gate_decide.
+      expect(tools).toHaveLength(13);
 
       const uiNavigate = tools.find((t) => t.name === 'ui.navigate');
       const viewProperty = uiNavigate?.inputSchema?.properties?.['view'] as { enum?: string[] } | undefined;

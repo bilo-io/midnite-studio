@@ -28,8 +28,16 @@ import { join } from 'node:path';
  * file (no `allowUi` field at all) the same way it reads a corrupt one —
  * `allowUi` defaults to `false` either way, so an upgrade never silently
  * grants the wider permission.
+ *
+ * **`version: 3` adds `allowGateDecide`** (Phase 97 Theme D) — a THIRD
+ * switch, identical shape and identical off-by-default posture, gating
+ * `workflow_gate_decide`: the first MCP tool that changes app state rather
+ * than the window chrome. A `version: 1`/`version: 2` file has no
+ * `allowGateDecide` key at all, which the same plain `=== true` check below
+ * already turns into `false` — no separate migration branch needed, exactly
+ * Theme F's own precedent for `allowUi`.
  */
-export type McpSettings = { version: 2; enabled: boolean; allowUi: boolean };
+export type McpSettings = { version: 3; enabled: boolean; allowUi: boolean; allowGateDecide: boolean };
 
 export type McpStore = {
   load: () => Promise<McpSettings>;
@@ -38,7 +46,12 @@ export type McpStore = {
 
 const FILE_NAME = 'mcp.json';
 
-export const DEFAULT_MCP_SETTINGS: McpSettings = { version: 2, enabled: false, allowUi: false };
+export const DEFAULT_MCP_SETTINGS: McpSettings = {
+  version: 3,
+  enabled: false,
+  allowUi: false,
+  allowGateDecide: false,
+};
 
 export function createMcpStore(directory: string): McpStore {
   const file = join(directory, FILE_NAME);
@@ -66,19 +79,22 @@ export function createMcpStore(directory: string): McpStore {
 }
 
 /**
- * Validate without zod: this module is main-only and the shape is three
+ * Validate without zod: this module is main-only and the shape is four
  * fields, matching `repo-store.ts`'s own reasoning for a hand-rolled guard.
  *
- * Reads both versions the same way and always answers `version: 2`: a
- * `version: 1` file has no `allowUi` key at all, which the plain `=== true`
- * check below already turns into `false` — the exact migration Theme F
- * calls for, with no separate branch on the stored `version` needed.
+ * Reads all three versions the same way and always answers `version: 3`: a
+ * `version: 1`/`version: 2` file has no `allowGateDecide` key at all, which
+ * the plain `=== true` check below already turns into `false` — the exact
+ * migration Theme D calls for, with no separate branch on the stored
+ * `version` needed (the same reasoning `version: 2`'s own comment gave for
+ * `allowUi`).
  */
 export function parseStoredSettings(value: unknown): McpSettings {
   if (typeof value !== 'object' || value === null) return { ...DEFAULT_MCP_SETTINGS };
   const enabled = (value as { enabled?: unknown }).enabled === true;
   const allowUi = (value as { allowUi?: unknown }).allowUi === true;
-  return { version: 2, enabled, allowUi };
+  const allowGateDecide = (value as { allowGateDecide?: unknown }).allowGateDecide === true;
+  return { version: 3, enabled, allowUi, allowGateDecide };
 }
 
 /** A store that always reports "off" — the fallback before one is configured. */
