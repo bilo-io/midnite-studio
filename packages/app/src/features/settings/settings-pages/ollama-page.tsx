@@ -14,8 +14,9 @@ import { DefaultModelRow } from './default-model-row';
 import { submitCommand } from './health-page';
 
 /**
- * Settings ▸ Ollama (Phase 96 Themes C, F) — host override and default model
- * (Theme C), cloud API key + sign-in status (Theme F), all persisted in main
+ * Settings ▸ Ollama (Phase 96 Themes C, F) — host override, default model picker
+ * over installed models (`DefaultModelRow`, Theme C), cloud API key + sign-in
+ * status (Theme F), all persisted in main
  * so a configured host/key reaches every daemon/cloud call, not just this
  * page's own reads. The API key never round-trips back to this page —
  * `useOllamaApiKeyHasKey` only ever answers `hasKey: boolean`.
