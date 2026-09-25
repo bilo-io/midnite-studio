@@ -67,6 +67,14 @@ export async function probeBinary(
   }
 }
 
+export function parseSshVersion(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const first = trimmed.split(',')[0]?.trim() ?? trimmed;
+  return first.replace(/^OpenSSH_/, 'OpenSSH ').trim() || null;
+}
+
 export async function readSystemHealth(): Promise<SystemHealth> {
   const home = homedir();
 
@@ -97,23 +105,38 @@ export async function readSystemHealth(): Promise<SystemHealth> {
     (async () => {
       let running = false;
       let keys = 0;
-      try {
-        const { stdout } = await execAsync('ssh-add -l', { timeout: PROBE_TIMEOUT_MS });
-        running = true;
-        if (!stdout.includes('The agent has no identities')) {
-          keys = stdout.trim().split('\n').length;
-        }
-      } catch (err: unknown) {
-        const errorMsg = String(err);
-        if (errorMsg.includes('The agent has no identities')) {
+      let version: string | null = null;
+
+      const agentPromise = (async () => {
+        try {
+          const { stdout } = await execAsync('ssh-add -l', { timeout: PROBE_TIMEOUT_MS });
           running = true;
-          keys = 0;
-        } else {
-          running = false;
-          keys = 0;
+          if (!stdout.includes('The agent has no identities')) {
+            keys = stdout.trim().split('\n').length;
+          }
+        } catch (err: unknown) {
+          const errorMsg = String(err);
+          if (errorMsg.includes('The agent has no identities')) {
+            running = true;
+            keys = 0;
+          } else {
+            running = false;
+            keys = 0;
+          }
         }
-      }
-      return { running, keys };
+      })();
+
+      const versionPromise = (async () => {
+        try {
+          const { stdout, stderr } = await execAsync('ssh -V', { timeout: PROBE_TIMEOUT_MS });
+          version = parseSshVersion(stdout || stderr);
+        } catch {
+          version = null;
+        }
+      })();
+
+      await Promise.all([agentPromise, versionPromise]);
+      return { running, keys, version };
     })(),
   ]);
 
@@ -132,11 +155,21 @@ export async function readSystemHealth(): Promise<SystemHealth> {
     }
   }
 
+  let cliVersion: string | null = null;
+  if (installed && foundPath) {
+    try {
+      const { stdout } = await execAsync(`"${foundPath}" --version`, { timeout: PROBE_TIMEOUT_MS });
+      cliVersion = stdout.trim() || null;
+    } catch {
+      cliVersion = null;
+    }
+  }
+
   return {
     git,
     shell,
     sshAgent: sshResult,
-    cli: { installed, path: foundPath, target: foundTarget, managed: installed },
+    cli: { installed, path: foundPath, target: foundTarget, managed: installed, version: cliVersion },
     homebrew,
     node,
     pnpm,

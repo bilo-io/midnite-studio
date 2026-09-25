@@ -256,6 +256,8 @@ function ToolchainVersionValue({
 export function HealthChecklist({ compact }: { compact?: boolean }) {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<'cli-install' | 'cli-update' | 'ssh-start' | 'ssh-add-key' | null>(null);
+  const sshReprobeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasBridge = typeof window !== 'undefined' && Boolean(window.midniteStudio?.systemHealth);
 
@@ -270,6 +272,72 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
       .catch(() => setHealth(null))
       .finally(() => setLoading(false));
   }, [hasBridge]);
+
+  useEffect(
+    () => () => {
+      if (sshReprobeTimer.current) clearTimeout(sshReprobeTimer.current);
+    },
+    [],
+  );
+
+  const reprobeSsh = useCallback(
+    (attemptsLeft: number, condition: (h: SystemHealth) => boolean) => {
+      if (!window.midniteStudio?.systemHealth) {
+        setBusy(null);
+        return;
+      }
+      window.midniteStudio
+        .systemHealth()
+        .then((next) => {
+          setHealth(next);
+          if (condition(next) || attemptsLeft <= 1) {
+            setBusy(null);
+            return;
+          }
+          sshReprobeTimer.current = setTimeout(
+            () => reprobeSsh(attemptsLeft - 1, condition),
+            REPROBE_INTERVAL_MS,
+          );
+        })
+        .catch(() => setBusy(null));
+    },
+    [],
+  );
+
+  const startSshAgent = () => {
+    setBusy('ssh-start');
+    submitCommand('eval "$(ssh-agent -s)"', 'SSH Agent');
+    sshReprobeTimer.current = setTimeout(
+      () => reprobeSsh(REPROBE_ATTEMPTS, (h) => h.sshAgent.running),
+      REPROBE_INTERVAL_MS,
+    );
+  };
+
+  const addSshKey = () => {
+    setBusy('ssh-add-key');
+    const initialKeys = health?.sshAgent.keys ?? 0;
+    submitCommand('ssh-add', 'SSH Key Add');
+    sshReprobeTimer.current = setTimeout(
+      () => reprobeSsh(REPROBE_ATTEMPTS, (h) => h.sshAgent.keys > initialKeys),
+      REPROBE_INTERVAL_MS,
+    );
+  };
+
+  const handleCliAction = async (action: 'cli-install' | 'cli-update') => {
+    if (!window.midniteStudio?.cli?.install) return;
+    setBusy(action);
+    try {
+      await window.midniteStudio.cli.install({ target: 'auto' });
+      if (window.midniteStudio.systemHealth) {
+        const next = await window.midniteStudio.systemHealth();
+        setHealth(next);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setBusy(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -326,13 +394,41 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
             )}
             <span className="font-medium text-xs">SSH Agent</span>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {health?.sshAgent.running
-              ? health.sshAgent.keys > 0
-                ? `Running (${health.sshAgent.keys} keys loaded)`
-                : 'Running (no keys loaded)'
-              : 'Undetected'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {health?.sshAgent.running
+                ? health.sshAgent.keys > 0
+                  ? `Running (${health.sshAgent.keys} keys loaded)`
+                  : 'Running (no keys loaded)'
+                : 'Undetected'}
+            </span>
+            {health?.sshAgent.version ? (
+              <span className="font-mono text-xs text-muted-foreground">
+                {health.sshAgent.version}
+              </span>
+            ) : null}
+            {!health?.sshAgent.running ? (
+              <button
+                type="button"
+                onClick={startSshAgent}
+                disabled={busy !== null}
+                className="flex h-6 items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+              >
+                {busy === 'ssh-start' ? <Spinner className="h-3 w-3" /> : <LuPlay className="h-3 w-3" />}
+                Start Agent
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={addSshKey}
+                disabled={busy !== null}
+                className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-accent/40 px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                {busy === 'ssh-add-key' ? <Spinner className="h-3 w-3" /> : null}
+                Add Key
+              </button>
+            )}
+          </div>
         </div>
 
         {/* CLI Integration check */}
@@ -345,9 +441,39 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
             )}
             <span className="font-medium text-xs">midnite-studio CLI</span>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {health?.cli.installed ? `Installed at ${health.cli.path}` : 'Not installed'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {health?.cli.installed ? (health.cli.path ? `Installed at ${health.cli.path}` : 'Installed') : 'Not installed'}
+            </span>
+            {health?.cli.installed && health.cli.version ? (
+              <span className="font-mono text-xs text-muted-foreground">
+                {health.cli.version}
+              </span>
+            ) : null}
+            {!health?.cli.installed ? (
+              <button
+                type="button"
+                aria-label="Install CLI"
+                onClick={() => handleCliAction('cli-install')}
+                disabled={busy !== null}
+                className="flex h-6 items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+              >
+                {busy === 'cli-install' ? <Spinner className="h-3 w-3" /> : null}
+                Install
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label="Update CLI"
+                onClick={() => handleCliAction('cli-update')}
+                disabled={busy !== null}
+                className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-accent/40 px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                {busy === 'cli-update' ? <Spinner className="h-3 w-3" /> : null}
+                Update
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

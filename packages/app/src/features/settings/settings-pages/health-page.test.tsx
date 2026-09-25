@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   setTerminalOpen: vi.fn(),
   openSession: vi.fn(() => ({ id: 'session-1' })),
   queueInput: vi.fn(),
+  cliInstall: vi.fn(),
 }));
 
 vi.mock('../../../services/queries', () => ({
@@ -37,8 +38,8 @@ vi.mock('../../terminal/terminal-store', () => ({
 const mockHealthData: SystemHealth = {
   git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
   shell: '/bin/zsh',
-  sshAgent: { running: true, keys: 2 },
-  cli: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true },
+  sshAgent: { running: true, keys: 2, version: 'OpenSSH 9.6p1' },
+  cli: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true, version: '0.1.0' },
   homebrew: { path: '/opt/homebrew/bin/brew', version: 'Homebrew 4.4.18' },
   node: { path: '/opt/homebrew/bin/node', version: 'v22.12.0' },
   pnpm: { path: '/opt/homebrew/bin/pnpm', version: '9.15.0' },
@@ -52,12 +53,15 @@ describe('HealthChecklist', () => {
     mocks.setTerminalOpen.mockReset();
     mocks.openSession.mockReset().mockReturnValue({ id: 'session-1' });
     mocks.queueInput.mockReset();
+    mocks.cliInstall.mockReset().mockResolvedValue({ ok: true });
     mocks.systemHealth.mockResolvedValue(mockHealthData);
 
-    // @ts-expect-error test bridge mock
     window.midniteStudio = {
       systemHealth: mocks.systemHealth,
-    };
+      cli: {
+        install: mocks.cliInstall,
+      },
+    } as unknown as typeof window.midniteStudio;
   });
 
   afterEach(() => {
@@ -127,6 +131,79 @@ describe('HealthChecklist', () => {
     // Click Homebrew's not installed button
     fireEvent.click(screen.getByRole('button', { name: /Homebrew not installed/i }));
     expect(mocks.openExternal).toHaveBeenCalledWith('https://brew.sh');
+  });
+
+  it('renders CLI and SSH Agent version strings when available', async () => {
+    render(<HealthChecklist />);
+
+    await waitFor(() => {
+      expect(screen.getByText('0.1.0')).toBeDefined();
+      expect(screen.getByText('OpenSSH 9.6p1')).toBeDefined();
+    });
+  });
+
+  it('offers Update when CLI is installed and triggers installation on click', async () => {
+    render(<HealthChecklist />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /update cli/i })).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /update cli/i }));
+    expect(mocks.cliInstall).toHaveBeenCalledWith({ target: 'auto' });
+    await waitFor(() => {
+      expect(mocks.systemHealth).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('offers Install when CLI is not installed and triggers installation on click', async () => {
+    mocks.systemHealth.mockResolvedValue({
+      ...mockHealthData,
+      cli: { installed: false, path: null, target: null, managed: false, version: null },
+    });
+
+    render(<HealthChecklist />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /install cli/i })).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /install cli/i }));
+    expect(mocks.cliInstall).toHaveBeenCalledWith({ target: 'auto' });
+    await waitFor(() => {
+      expect(mocks.systemHealth).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('offers Add Key when SSH agent is running and triggers ssh-add on click', async () => {
+    render(<HealthChecklist />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add Key' })).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Key' }));
+    expect(mocks.setTerminalOpen).toHaveBeenCalledWith(true);
+    expect(mocks.openSession).toHaveBeenCalledWith(expect.objectContaining({ title: 'SSH Key Add' }));
+    expect(mocks.queueInput).toHaveBeenCalledWith('session-1', 'ssh-add\r');
+  });
+
+  it('offers Start Agent when SSH agent is not running and triggers start on click', async () => {
+    mocks.systemHealth.mockResolvedValue({
+      ...mockHealthData,
+      sshAgent: { running: false, keys: 0, version: 'OpenSSH 9.6p1' },
+    });
+
+    render(<HealthChecklist />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Start Agent/i })).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Start Agent/i }));
+    expect(mocks.setTerminalOpen).toHaveBeenCalledWith(true);
+    expect(mocks.openSession).toHaveBeenCalledWith(expect.objectContaining({ title: 'SSH Agent' }));
+    expect(mocks.queueInput).toHaveBeenCalledWith('session-1', 'eval "$(ssh-agent -s)"\r');
   });
 });
 
