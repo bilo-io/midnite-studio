@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | 🔄 WIP | — | 36/91 | `████░░░░░░` | 40% | D | E F G H I K L |
+| [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | 🔄 WIP | — | 36/91 | `████░░░░░░` | 40% | D E | F G H I K L |
 | [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 58/73 | `████████░░` | 79% | — | (15 verification items, mostly human/packaged-app passes) |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
@@ -265,7 +265,7 @@ human/packaged-app verification passes.
 - ✅ **B** — per-edge routing, a `join` node (all/any/allSettled), the error port replaces `skipDownstream` ([PR #558](https://github.com/bilo-io/midnite-studio/pull/558))
 - 🔄 **C** — controlled cycles: `loop` back-edges, iteration-scoped runs, failures carried forward, convergence/budget stop, `exhausted` escalation
 - ◻ **D** — human `gate` node: `waiting` status, run panel, bell, glow, timeout, MCP decide, PR/issue comment, Auto-mate + kill switch
-- ◻ **E** — `verify` node: agent-as-checker verdict + exit-code / test-counts / JSON-path checks
+- 🔄 **E** — `verify` node: agent-as-checker verdict + exit-code / test-counts / JSON-path checks
 - ◻ **F** — `router` node: expression or agent-label cases with a default port
 - ◻ **G** — durable run state (`state` node), checkpoints, resume `interrupted` runs, per-node failure policy
 - ◻ **H** — `trigger` node: manual, cron while the app is open, forge PR opened/updated via the poller
