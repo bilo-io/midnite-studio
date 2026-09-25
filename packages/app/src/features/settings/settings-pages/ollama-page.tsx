@@ -10,11 +10,13 @@ import {
   useSetOllamaSettings,
 } from '../../models/use-models';
 import { openExternal } from '../../../services/queries';
+import { DefaultModelRow } from './default-model-row';
 import { submitCommand } from './health-page';
 
 /**
- * Settings ▸ Ollama (Phase 96 Themes C, F) — host override and default model
- * (Theme C), cloud API key + sign-in status (Theme F), all persisted in main
+ * Settings ▸ Ollama (Phase 96 Themes C, F) — host override, default model picker
+ * over installed models (`DefaultModelRow`, Theme C), cloud API key + sign-in
+ * status (Theme F), all persisted in main
  * so a configured host/key reaches every daemon/cloud call, not just this
  * page's own reads. The API key never round-trips back to this page —
  * `useOllamaApiKeyHasKey` only ever answers `hasKey: boolean`.
@@ -25,23 +27,16 @@ export function OllamaSettingsPage() {
   const setSettings = useSetOllamaSettings();
 
   const [host, setHost] = useState('');
-  const [defaultModel, setDefaultModel] = useState('');
 
   useEffect(() => {
     if (settings.data) {
       setHost(settings.data.host ?? '');
-      setDefaultModel(settings.data.defaultModel ?? '');
     }
   }, [settings.data]);
 
   const saveHost = () => {
     const trimmed = host.trim();
     setSettings.mutate({ host: trimmed.length > 0 ? trimmed : null });
-  };
-
-  const saveDefaultModel = () => {
-    const trimmed = defaultModel.trim();
-    setSettings.mutate({ defaultModel: trimmed.length > 0 ? trimmed : null });
   };
 
   return (
@@ -66,20 +61,7 @@ export function OllamaSettingsPage() {
         </div>
       </div>
 
-      <div className="space-y-1">
-        <p className="text-xs font-medium text-foreground">Default model</p>
-        <p className="text-[11px] text-muted-foreground">
-          Pre-fills the model picker when a new agent binding is created (Phase 96 Theme H).
-        </p>
-        <input
-          type="text"
-          value={defaultModel}
-          onChange={(event) => setDefaultModel(event.target.value)}
-          onBlur={saveDefaultModel}
-          placeholder="qwen3.5:14b"
-          className="h-7 w-full rounded-md border border-border bg-card px-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        />
-      </div>
+      <DefaultModelRow />
 
       <SignInRow />
       <ApiKeyRow />

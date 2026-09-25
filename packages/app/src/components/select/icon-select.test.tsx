@@ -46,6 +46,33 @@ describe('IconSelect', () => {
 
     expect(screen.getByLabelText('Model')).toHaveProperty('disabled', true);
   });
+
+  it('can clear a value when isClearable is set', () => {
+    const onChange = vi.fn();
+    render(
+      <IconSelect
+        ariaLabel="Model"
+        options={OPTIONS}
+        value="claude"
+        isClearable
+        onChange={onChange}
+      />,
+    );
+
+    const clear = document.querySelector('.icon-select__clear-indicator');
+    expect(clear).toBeTruthy();
+    fireEvent.mouseDown(clear!);
+
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
+  it('stays enabled with no options when isClearable allows an empty value', () => {
+    render(
+      <IconSelect ariaLabel="Model" options={[]} value="" isClearable onChange={vi.fn()} />,
+    );
+
+    expect(screen.getByLabelText('Model')).toHaveProperty('disabled', false);
+  });
 });
 
 describe('MultiIconSelect', () => {

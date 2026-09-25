@@ -130,6 +130,7 @@ export function IconSelect({
   value,
   onChange,
   isSearchable = true,
+  isClearable = false,
   isDisabled = false,
   menuInPortal = false,
   placeholder,
@@ -139,6 +140,8 @@ export function IconSelect({
   value: string;
   onChange: (id: string) => void;
   isSearchable?: boolean;
+  /** When set, the control clears to an empty value and calls `onChange('')`. */
+  isClearable?: boolean;
   isDisabled?: boolean;
   /** See {@link PORTAL_PROPS} — for a select inside an `overflow: hidden` box. */
   menuInPortal?: boolean;
@@ -156,14 +159,15 @@ export function IconSelect({
       options={options}
       value={selected}
       isSearchable={isSearchable}
-      isDisabled={isDisabled || options.length === 0}
+      isClearable={isClearable}
+      isDisabled={isDisabled || (!isClearable && options.length === 0)}
       placeholder={placeholder ?? 'Select…'}
       isOptionDisabled={(option) => option.isDisabled === true}
       getOptionValue={(option) => option.id}
       getOptionLabel={(option) => option.label}
       formatOptionLabel={(option) => <OptionLabel option={option} />}
       onChange={(next) => {
-        if (next) onChange(next.id);
+        onChange(next?.id ?? '');
       }}
     />
   );
