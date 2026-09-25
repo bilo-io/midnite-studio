@@ -766,6 +766,8 @@ export const CHANNELS = {
   workflowDelete: 'mstudio:workflow:delete',
   workflowRun: 'mstudio:workflow:run',
   workflowCancel: 'mstudio:workflow:cancel',
+  /** Phase 97 Theme G — the run panel's Resume action on an `interrupted` run. */
+  workflowResume: 'mstudio:workflow:resume',
   workflowRunsList: 'mstudio:workflow-runs:list',
   workflowRunsGet: 'mstudio:workflow-runs:get',
   /** Phase 97 Theme D — decide a `gate` node waiting for approval, from the run panel. */

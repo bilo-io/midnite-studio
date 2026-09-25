@@ -18,6 +18,7 @@ import {
   cancelWorkflowRun,
   decideWorkflowGate,
   isRunning,
+  resumeWorkflowRun,
   startWorkflowRun,
   type EngineDeps,
 } from './workflow/workflow-engine';
@@ -122,10 +123,15 @@ async function ensureRunsLoaded(): Promise<void> {
 
 async function loadRuns(): Promise<void> {
   /*
-    A run this file says is `running` outlived nothing: its driver died with the
-    process that started it. Finalise on load rather than leaving a run that can
-    never advance — the same honest posture `loop-runs.ts` takes with a session
-    whose pty is gone.
+    A run this file says is `running` outlived nothing: its driver died with
+    the process that started it — but that is not the same as the user
+    choosing to stop it. Phase 97 Theme G: mark it `interrupted` (a durable,
+    resumable pause) instead of the old silent sweep to `cancelled`, and put
+    every node that has no trustworthy in-memory state left — `running` (its
+    executor's promise died with the process) or `waiting` (its gate waiter,
+    `gate-waiters.ts`, is process-local and gone) — back to `pending` so
+    `resumeWorkflowRun` re-runs them from scratch, gate waiter included, the
+    identical path a first run takes.
   */
   const restored = await runsStore.load();
   let dangling = false;
@@ -134,16 +140,11 @@ async function loadRuns(): Promise<void> {
     dangling = true;
     return {
       ...run,
-      status: 'cancelled' as const,
+      status: 'interrupted' as const,
       error: 'Interrupted — the app quit while this run was in flight.',
-      endedAt: Date.now(),
       nodes: run.nodes.map((node) =>
-        // `'waiting'` (Phase 97 Theme D) joins `'running'`/`'pending'` here —
-        // a gate left waiting has no in-memory waiter across a restart
-        // (`gate-waiters.ts` is process-local state), so it can never be
-        // decided; Theme G's real resume replaces this whole crude sweep.
-        node.status === 'running' || node.status === 'pending' || node.status === 'waiting'
-          ? { ...node, status: 'skipped' as const, error: node.error ?? 'Interrupted.' }
+        node.status === 'running' || node.status === 'waiting'
+          ? { ...node, status: 'pending' as const, error: undefined, endedAt: undefined, sessionId: undefined }
           : node,
       ),
     };
@@ -268,6 +269,16 @@ export async function runWorkflow(
 export async function cancelRun(runId: string): Promise<GitOpResult> {
   await ensureRunsLoaded();
   return cancelWorkflowRun(runId, engineDeps());
+}
+
+/** Phase 97 Theme G — the run panel's **Resume** action on an `interrupted` run. */
+export async function resumeRun(runId: string): Promise<GitOpResult<WorkflowRun>> {
+  await ensureRunsLoaded();
+  const run = runs.find((r) => r.id === runId);
+  if (!run) return failure('That run no longer exists.');
+  const workflow = await getWorkflow(run.workflowId);
+  if (!workflow) return failure('The workflow this run belongs to no longer exists.');
+  return resumeWorkflowRun(workflow, run, engineDeps());
 }
 
 /**

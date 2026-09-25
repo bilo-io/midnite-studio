@@ -6,6 +6,7 @@ import {
   WORKFLOW_NODE_TIMEOUT_MS,
   failure,
   findAcyclicEdgeViolation,
+  isHttpRetrySafe,
   migrateWorkflowEdges,
   normalizeEdge,
   ok,
@@ -15,13 +16,16 @@ import {
   type GitOpResult,
   type Workflow,
   type WorkflowEdge,
+  type WorkflowFailurePolicy,
   type WorkflowGateDecidedBy,
   type WorkflowGateDecision,
   type WorkflowJoinMode,
+  type JsonValue,
   type WorkflowNode,
   type WorkflowNodeRun,
   type WorkflowNodeStatus,
   type WorkflowRun,
+  type WorkflowStateOp,
 } from '@midnite/studio-shared';
 
 import { demoApiStatus } from '../demo-api/server';
@@ -37,6 +41,7 @@ import {
   pushIterationRecords,
   upsertLoopState,
 } from './loop-controller';
+import { applyStateNodeWrite } from './workflow-state';
 
 /**
  * Runs one workflow: topological order over the graph, independent branches in
@@ -259,6 +264,67 @@ function errorOutcomePayload(message: string, timedOut: boolean): { message: str
   return { message, status: timedOut ? 408 : 500 };
 }
 
+// --- failure policy (Phase 97 Theme G) ----------------------------------------
+
+/**
+ * Applies a settled node's `onFailure` policy — called from `settleNode`
+ * only once the node's status is `failed`/`timeout` and its ordinary
+ * `settledPort` has already been computed. Mutates `node` (and, for
+ * `repair`/`escalate`, `run.edges`) in place; the caller is already holding
+ * the run lock.
+ */
+function applyFailurePolicy(run: WorkflowRun, node: WorkflowNodeRun, policy: WorkflowFailurePolicy): void {
+  switch (policy.kind) {
+    case 'stop':
+    case 'retry':
+      // `retry`'s own attempts are exhausted by the time this runs (the loop
+      // lives in `executeNode`) — nothing left to do beyond `stop`'s default,
+      // which is exactly what `settledPort` already computed above.
+      return;
+    case 'skip':
+      // Settle `skipped` instead of `failed`/`timeout` — `edgeState` treats
+      // a skipped source as dead on every outgoing edge regardless of
+      // `settledPort`, so this one node no longer drags the run's own
+      // status to `failed` (`statusFor`), and its dependants see the same
+      // "an earlier step did not run" cascade any other skip produces.
+      node.status = 'skipped';
+      node.settledPort = undefined;
+      return;
+    case 'fallback':
+      // Route through the error port unconditionally — exactly as though a
+      // real error edge were wired, unlike the default which only does
+      // that when one actually is.
+      node.settledPort = WORKFLOW_ERROR_PORT_ID;
+      return;
+    case 'repair':
+    case 'escalate':
+      node.settledPort = WORKFLOW_ERROR_PORT_ID;
+      addSyntheticFailureEdge(run, node.nodeId, policy.nodeId, policy.kind);
+      return;
+    default: {
+      const exhaustive: never = policy;
+      return exhaustive;
+    }
+  }
+}
+
+/**
+ * `repair`/`escalate`'s wiring: a one-time, deterministically-id'd `error`
+ * edge from the failed node's error port to the named target's `in` port —
+ * added directly to `run.edges` (persisted the moment this settle saves),
+ * so the driver's very next tick treats the target as an ordinary taken-edge
+ * descendant and reuses every bit of the existing cascade/upstream-resolution
+ * machinery for free. A no-op if the target does not exist in this run (a
+ * stale reference `validateWorkflow` would have already flagged) or if the
+ * edge was already synthesized on an earlier iteration of a looping node.
+ */
+function addSyntheticFailureEdge(run: WorkflowRun, fromNodeId: string, toNodeId: string, tag: 'repair' | 'escalate'): void {
+  if (!run.nodes.some((n) => n.nodeId === toNodeId)) return;
+  const id = `synthetic-${tag}:${fromNodeId}->${toNodeId}`;
+  if (run.edges.some((edge) => edge.id === id)) return;
+  run.edges.push({ id, from: fromNodeId, to: toNodeId, fromPort: WORKFLOW_ERROR_PORT_ID, toPort: 'in', kind: 'error' });
+}
+
 /**
  * Why a skipped node's dependant reads the way it does — kept close to
  * {@link edgeState} so the two stay in sync. `conditional`/`loop` edges name
@@ -403,10 +469,11 @@ export async function startWorkflowRun(
   // reject an old workflow that has always run fine.
   const workflow = migrateWorkflowEdges(workflowIn);
 
-  // Theme E's maker == checker rule (and any future warning) must not block
-  // Run — only an error-severity issue does. `workflowIssueSeverity` reads a
-  // pre-Theme-E issue (no `severity` field at all) as `'error'`, so this
-  // filter changes nothing for a workflow that has never had a warning.
+  // Theme E's maker == checker rule and Theme G's non-idempotent-POST-retry
+  // warning must not block Run — only an error-severity issue does.
+  // `workflowIssueSeverity` reads a pre-Theme-E issue (no `severity` field
+  // at all) as `'error'`, so this filter changes nothing for a workflow
+  // that has never had a warning.
   const issues = validateWorkflow(workflow).filter((issue) => workflowIssueSeverity(issue) === 'error');
   if (issues.length > 0) {
     const first = issues[0]!;
@@ -484,6 +551,49 @@ export async function cancelWorkflowRun(runId: string, deps: EngineDeps): Promis
   */
   await state.done.catch(() => undefined);
   return ok();
+}
+
+/**
+ * Resume a run left `interrupted` (Phase 97 Theme G) — restarts `drive()`
+ * from exactly the persisted checkpoint: a node already
+ * `succeeded`/`failed`/`timeout`/`skipped` stays settled (the driver's own
+ * eligibility pass never re-visits a terminal node), and every node
+ * `workflow-service.ts`'s boot sweep reset back to `pending` (anything that
+ * was `running`/`waiting` when the app quit) re-runs from scratch — a
+ * `gate` among them re-registers its own waiter the moment its executor
+ * starts, the identical path a first run takes.
+ *
+ * `workflow` is the run's CURRENT live definition, not a frozen one — unlike
+ * `run.nodes`/`run.edges` (frozen at the ORIGINAL start, per this module's
+ * own doc comment), a node's own config was never persisted onto the run,
+ * so resuming after an edit picks up that edit. Acceptable and documented,
+ * not a bug: there is nowhere else the config could come from, and the
+ * driver's own defensive "a claimed id with no node behind it" settle
+ * (`drive`, below) already covers a node deleted since the run started.
+ */
+export async function resumeWorkflowRun(
+  workflow: Workflow,
+  run: WorkflowRun,
+  deps: EngineDeps,
+): Promise<GitOpResult<WorkflowRun>> {
+  if (run.status !== 'interrupted') return failure('This run is not interrupted.');
+  if (isRunning(run.id)) return failure('This run is already active.');
+
+  const migrated = migrateWorkflowEdges(workflow);
+  const runnable = migrated.nodes.filter((node) => node.kind !== 'note');
+
+  const resumed: WorkflowRun = { ...run, status: 'running', error: undefined, endedAt: undefined };
+  await deps.saveRun(resumed);
+  deps.emitChanged(resumed);
+
+  const inFlightState: InFlight = { cancelled: false, done: Promise.resolve() };
+  inFlight.set(resumed.id, inFlightState);
+  inFlightState.done = drive(resumed.id, workflow.id, runnable, deps, inFlightState).finally(() =>
+    inFlight.delete(resumed.id),
+  );
+  void inFlightState.done.catch(() => undefined);
+
+  return ok(resumed);
 }
 
 // --- the driver --------------------------------------------------------------
@@ -764,6 +874,30 @@ function timeoutFor(node: WorkflowNode, deps: EngineDeps): number {
  * paths calling the same settle, and the timer unref'd so a pending deadline
  * never holds the event loop open at quit.
  */
+/**
+ * Whether a node with `onFailure: {kind:'retry'}` may actually be retried —
+ * the http idempotency rule (Phase 97 Theme G): `GET`/`HEAD`/`PUT`/`DELETE`
+ * always are, `POST`/`PATCH` only with `config.idempotent` set (see
+ * {@link isHttpRetrySafe}, shared with `validateWorkflow`'s own warning for
+ * the same case). Every other node kind has no such hazard to guard.
+ */
+function canRetryNode(node: WorkflowNode): boolean {
+  return node.kind !== 'http' || isHttpRetrySafe(node.config);
+}
+
+/**
+ * Run one node, retrying it in place when `onFailure: {kind:'retry'}` says
+ * to (Phase 97 Theme G) — a fixed `backoffMs` wait between attempts, not
+ * exponential (the phase doc asks for "retry backoff with an injected
+ * clock", not a curve), via the SAME injected `deps.clock` the per-node
+ * deadline already uses so a test can assert on it without a real wait.
+ *
+ * The node's persisted status stays `'running'` for the whole retry
+ * sequence — only the FINAL outcome is ever written (`settleNode`, below):
+ * an in-between failed attempt is not itself a checkpoint-worthy event, and
+ * writing one would show a node flickering to `failed` and back on a run
+ * history nobody asked to see attempt-by-attempt.
+ */
 async function executeNode(
   runId: string,
   workflowId: string,
@@ -772,7 +906,27 @@ async function executeNode(
   state: InFlight,
   executors: ExecutorRegistry,
 ): Promise<void> {
-  const outcome = await runNode(runId, workflowId, node, deps, state, executors, timeoutFor(node, deps));
+  const clock = deps.clock ?? realClock;
+  const policy = node.onFailure;
+  const maxAttempts = policy?.kind === 'retry' ? policy.attempts : 1;
+  const retryable = policy?.kind === 'retry' && canRetryNode(node);
+
+  let attempt = 1;
+  let outcome: { status: WorkflowNodeStatus; result?: NodeOutcome };
+  for (;;) {
+    outcome = await runNode(runId, workflowId, node, deps, state, executors, timeoutFor(node, deps));
+    const failed = outcome.status === 'failed' || outcome.status === 'timeout';
+    if (!failed || !retryable || attempt >= maxAttempts || state.cancelled) break;
+
+    const backoffMs = policy!.kind === 'retry' ? policy!.backoffMs : 0;
+    if (backoffMs > 0) {
+      await new Promise<void>((resolve) => {
+        clock.setTimeout(() => resolve(), backoffMs);
+      });
+    }
+    if (state.cancelled) break;
+    attempt += 1;
+  }
   await settleNode(runId, node.id, outcome, deps, node);
 }
 
@@ -850,6 +1004,10 @@ async function runNode(
     // every node in a workflow with no loop edge.
     const loopContext = buildLoopContext(run, node.id, run.edges);
     if (loopContext) outputs.loop = loopContext;
+    // `{{state.<key>}}` (Theme G) — this node's read of the run's durable
+    // state as of the moment it started, the same "resolved right before
+    // the call" rule every other upstream read above already follows.
+    outputs.state = run.state ?? {};
     return outputs;
   });
 
@@ -954,6 +1112,27 @@ async function settleNode(
     }
 
     /*
+      Phase 97 Theme G — a `state` node's own write, applied HERE, inside
+      the same run lock every other settle already holds, so two `state`
+      nodes racing in parallel (Theme B's ordinary fan-out) can never
+      interleave a read-modify-write. `executors/state.ts` only resolves
+      `{op, key, value}`; the actual set/merge/append (and the size-cap
+      check) is `workflow-state.ts`'s job — a cap breach fails THIS node
+      (not the whole run), leaving `run.state` exactly as it was.
+    */
+    if (workflowNode?.kind === 'state' && node.status === 'succeeded' && result?.ok === true) {
+      const draft = result.output as { op: WorkflowStateOp; key: string; value: JsonValue };
+      const write = applyStateNodeWrite(run.state ?? {}, draft.op, draft.key, draft.value);
+      if (write.ok) {
+        run.state = write.state;
+        node.output = write.output;
+      } else {
+        node.status = 'failed';
+        node.error = write.error;
+      }
+    }
+
+    /*
       Which out-port this settle actually routes through (Phase 97 Theme B) —
       `'true'`/`'false'` for a condition, `'out'` for a plain success, `'error'`
       only when a wired error edge exists. This is what the driver's per-edge
@@ -968,6 +1147,19 @@ async function settleNode(
       node.nodeId,
       run.edges,
     );
+
+    // Phase 97 Theme G — per-node failure policy. `retry`'s own re-run loop
+    // lives in `executeNode`; by the time a `retry`-policy node reaches here
+    // with a failed/timeout status, its attempts are exhausted (or it was
+    // never retry-safe — `isHttpRetrySafe`), and what happens next is
+    // exactly `stop`'s default, already computed above. Deliberately BEFORE
+    // the error-payload memo just below, so a `fallback`/`repair`/
+    // `escalate`'s forced error-port settle gets the same `{message,
+    // status}` payload a real wired error edge would.
+    if ((node.status === 'failed' || node.status === 'timeout') && workflowNode?.onFailure) {
+      applyFailurePolicy(run, node, workflowNode.onFailure);
+    }
+
     // Routed onto the error port: give the downstream node something to
     // `{{...}}`-reference, matching `errorPort()`'s declared `{message,
     // status}` shape in `shared/src/workflow.ts` — the same payload a failed

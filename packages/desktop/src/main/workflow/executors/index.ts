@@ -9,6 +9,7 @@ import { joinExecutor } from './join';
 import { noteExecutor } from './note';
 import { routerExecutor } from './router';
 import { scriptExecutor } from './script';
+import { stateExecutor } from './state';
 import { transformExecutor } from './transform';
 import { triggerExecutor } from './trigger';
 import { verifyExecutor } from './verify';
@@ -43,6 +44,7 @@ export const defaultExecutors: ExecutorRegistry = {
   router: routerExecutor,
   verify: verifyExecutor,
   trigger: triggerExecutor,
+  state: stateExecutor,
 };
 
 export {
@@ -55,6 +57,7 @@ export {
   noteExecutor,
   routerExecutor,
   scriptExecutor,
+  stateExecutor,
   transformExecutor,
   triggerExecutor,
   verifyExecutor,

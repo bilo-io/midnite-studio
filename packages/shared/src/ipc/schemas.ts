@@ -2680,6 +2680,10 @@ export const WorkflowRunResponse = GitOpResultOf(WorkflowRunSchema);
 export const WorkflowCancelRequest = z.object({ runId: z.string().min(1) });
 export const WorkflowCancelResponse = GitOpResultSchema;
 
+/** Phase 97 Theme G — resume a run left `interrupted`. Resolves with the resumed run, the same shape `WorkflowRunResponse` uses. */
+export const WorkflowResumeRequest = z.object({ runId: z.string().min(1) });
+export const WorkflowResumeResponse = GitOpResultOf(WorkflowRunSchema);
+
 export const WorkflowRunsListRequest = z.object({ workflowId: z.string().min(1) });
 export const WorkflowRunsListResponse = z.object({ runs: z.array(WorkflowRunSchema) });
 
