@@ -121,6 +121,22 @@
     --node-logic: 38 85% 50%; /* amber — matches --health-warn's "a branch point" hue */
     --node-data: 158 55% 42%; /* teal-green — matches --cal-*'s data-shaping hue */
     --node-storage: 330 55% 55%; /* rose — a note/comment persisted alongside the flow */
+
+    /* The workflow canvas's port-type hues (Phase 97 Theme J) — a port
+     * handle's own colour, keyed by `WorkflowPortType`
+     * (`shared/src/workflow.ts`'s `WORKFLOW_PORT_TYPES`), independent of the
+     * node-category hues above (those tint a whole node card; these tint one
+     * connection point on it). `'any'` and `'artifact-ref'`'s dash-suffixed
+     * name both fall back to `--border` / this ramp's `artifact` entry
+     * respectively at the call site (`edge-style.ts`'s `PORT_TYPE_COLOR_VAR`)
+     * rather than getting a sparse seventh token here for the wildcard type,
+     * which never needs to stand out. */
+    --port-json: 38 70% 50%; /* amber */
+    --port-text: 217 70% 55%; /* blue */
+    --port-number: 265 55% 58%; /* purple */
+    --port-boolean: 158 55% 40%; /* teal-green */
+    --port-verdict: 0 65% 55%; /* red — the maker/checker signal, deliberately the "attention" hue */
+    --port-artifact: 330 55% 55%; /* rose — matches --node-storage, both name "a persisted thing" */
   }
 
   .dark {
@@ -153,6 +169,15 @@
     --node-logic: 38 95% 58%;
     --node-data: 158 60% 55%;
     --node-storage: 330 60% 68%;
+
+    /* Lifted for the same reason every other category hue above is —
+     * mid-tones read muddy against a near-black canvas. */
+    --port-json: 38 90% 62%;
+    --port-text: 217 91% 68%;
+    --port-number: 265 65% 70%;
+    --port-boolean: 158 60% 55%;
+    --port-verdict: 0 75% 65%;
+    --port-artifact: 330 60% 68%;
 
     /* Lifted for contrast against a near-black background, same reasoning as
      * --health-warn above. */
@@ -4921,6 +4946,35 @@ html[data-motion='reduced'] .session-row-pulse {
   mask-position: center;
   background-color: var(--nav-cat-color, currentColor);
   vertical-align: -2px;
+}
+
+/* Workflow canvas — a live (pending or taken) edge's marching-dash animation
+ * (Phase 97 Theme J, `workflow-edge-view.tsx`'s `.wf-edge-live`). A dead edge
+ * never gets this class at all (it fades via `opacity` instead), so nothing
+ * here needs to distinguish taken from pending — both read as "still live"
+ * until a run marks the edge dead. Gated under reduced motion the same way
+ * every other looping animation in this file is: the OS preference disables
+ * it unless the in-app setting overrides to `full`, and the in-app `reduced`
+ * setting disables it even when the OS does not ask for it. */
+@keyframes wf-edge-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.wf-edge-live {
+  stroke-dasharray: 5 3;
+  animation: wf-edge-dash 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .wf-edge-live {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .wf-edge-live {
+  animation: none;
 }
 
 
