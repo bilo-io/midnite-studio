@@ -311,34 +311,50 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 - [ ] Vitest: frame membership survives save/load and auto-layout, contract prepending, policy
       validation, and policy-driven approval routing.
 
-### J — Canvas styling (M)
+### J — Canvas styling (M) — ✅ DONE (PR TBD, 2026-09-25)
 
-- [ ] Edge style per kind in the canvas's custom edge component:
+- [x] Edge style per kind in the canvas's custom edge component:
   - `data`: solid.
   - `conditional`: solid with the port label at the source.
   - `error`: dashed in the `failed` status colour.
   - `loop`: dashed, drawn as a curved back-edge routed *under* the body (not through it), with an
     **iteration badge** `2/3` while running and the bounds on hover.
-- [ ] Port handles coloured by `WORKFLOW_PORT_TYPES`, as new theme tokens `--port-json|text|number|boolean|verdict|artifact`
+  (`workflow-edge-view.tsx`. The iteration-badge slot renders `data.iterationLabel` but nothing
+  populates it yet — Theme C's `WorkflowRun.loopStates`/per-node `iteration` aren't merged; wiring
+  the real value in is a one-line addition to `workflow-canvas.tsx`'s edge-decorate step once they
+  land. The "bounds on hover" affordance is deferred with them — there is no iteration budget to
+  show yet.)
+- [x] Port handles coloured by `WORKFLOW_PORT_TYPES`, as new theme tokens `--port-json|text|number|boolean|verdict|artifact`
       defined for light and dark themes. A connect drag dims incompatible handles live
       (`canConnect`) and shows the rejection reason in a tooltip on drop.
-- [ ] Node shapes from the diagrams:
+- [x] Node shapes from the diagrams:
   - condition and router: a diamond-accented header.
   - gate: a shield icon plus the waiting glow.
   - verify: a check badge showing its last verdict.
   - join: a narrow pill.
   - trigger: a left-rounded "start" card.
   - frame: a light bordered container titled *THE AGENT HARNESS* by default.
-- [ ] The taken path highlights after a run: dead edges go to 35% opacity, and taken edges keep
+  (`node-shape.ts`'s `NODE_SHAPE` is exhaustive over today's `WorkflowNodeKind` — only `condition`
+  → `diamond-header` and `join` → `pill` exist to style; gate/verify/router/trigger/frame are D/E/F/H/I's
+  kinds, not yet on main. The map's own doc comment names each one's future variant so adding the
+  kind is a compile error here until it's given one, per the swarm brief's explicit scope note.)
+- [x] The taken path highlights after a run: dead edges go to 35% opacity, and taken edges keep
       the animated stroke.
-- [ ] Dagre layout ignores `loop` edges for ranking (then draws them), and lays out frame children
-      inside the frame.
-- [ ] Icons: `react-icons/lu` only (e.g. `LuShieldCheck`, `LuGitFork`, `LuMerge`, `LuRepeat`,
+- [x] Dagre layout ignores `loop` edges for ranking (then draws them), and lays out frame children
+      inside the frame. (The frame-children half is Theme I's own kind, not yet on main — nothing
+      to lay out inside a container that doesn't exist yet.)
+- [x] Icons: `react-icons/lu` only (e.g. `LuShieldCheck`, `LuGitFork`, `LuMerge`, `LuRepeat`,
       `LuSplit`, `LuTimer`, `LuFrame`, `LuBadgeCheck`). Every new name is added to the
-      `icon-names.test.ts` resolution check.
-- [ ] Vitest for edge-kind → style mapping and handle colour. One Playwright **visual** baseline
+      `icon-names.test.ts` resolution check. (No new glyph was needed — condition/join already had
+      theirs; `icon-names.test.ts` derives its list from source via `import.meta.glob`, so nothing
+      to add by hand. The listed names are D/E/F/H/I's own icons to import when they add their kinds.)
+- [x] Vitest for edge-kind → style mapping and handle colour. One Playwright **visual** baseline
       (locator-cropped canvas with every edge kind), within the ~100-baseline / 3 MB budget. The
-      spec header names "real CSS / SVG path rendering" as its browser need.
+      spec header names "real CSS / SVG path rendering" as its browser need. (Verified locally
+      against a `-darwin.png` baseline, gitignored by convention; no docker in this sandbox to
+      produce the committed `-linux.png` — needs `MSTUDIO_CROSS_PLATFORM=1 moon run
+      root:visual-regen` from a machine with docker before the opt-in cross-platform CI lane can
+      diff it.)
 
 ### K — Receipts and replay by iteration (M)
 

@@ -1,6 +1,71 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme J — Canvas styling
+
+PR TBD. Builds on Theme A's ports/edge-kinds and Theme B's `settledPort`/`edgeState` — gives the
+workflow canvas the per-kind visual language the phase's three seed diagrams draw, scoped to the
+node/edge kinds that actually exist on `main` today (`condition`, `join`; D/E/F/H/I's `gate`/
+`verify`/`router`/`trigger`/`frame` aren't merged yet).
+
+- [x] **Edge style per kind**, in a new custom edge component (`workflow-edge-view.tsx`, registered
+      as `edgeTypes`): `data` solid, `conditional` solid plus the source port's label chip, `error`
+      dashed in the `failed` status colour, `loop` dashed and routed as a curved back-edge (bezier,
+      fixed curvature) rather than the orthogonal `smoothstep` every other kind uses — a back-edge
+      always points from a later node to an earlier one, and a straight/stepped line would cross
+      through whatever sits between them. The iteration-badge slot (`data.iterationLabel`) renders
+      nothing until Theme C's `WorkflowRun.loopStates` merges; wiring the real value in is a
+      one-line addition to the canvas's edge-decorate step, not a new component.
+- [x] **Port handles per `portsForNode()` entry**, not one bare in/out `Handle` per side —
+      `workflow-node-view.tsx` now renders one per port, coloured by `WORKFLOW_PORT_TYPES` via six
+      new theme tokens (`--port-json|text|number|boolean|verdict|artifact`, light+dark;
+      `edge-style.ts`'s `PORT_TYPE_COLOR_VAR`, `'any'` falling back to `--border`). A connect-drag
+      in progress dims a handle live via the REAL `canConnect` (type/shape/multiplicity/self/cycle),
+      read off a new `WorkflowGraphContext` a node view otherwise has no way to reach; an invalid
+      drop shows `canConnect`'s own rejection reason in a short-lived tooltip at the pointer. The
+      canvas's own connect-drag gate (`isValidConnection`/`handleConnect`) was rewired onto the same
+      real `canConnect` + `inferEdgeKind` (was an ad hoc dup+cycle check that never looked at ports
+      at all) — a new edge now carries a real `fromPort`/`toPort`/`kind` instead of defaulting to
+      the bare legacy shape every time.
+- [x] **Node shapes** — `node-shape.ts`'s `NODE_SHAPE`, exhaustive over today's five kinds:
+      `condition` gets a diamond-accented header, `join` a narrow, fully-rounded pill (no separate
+      header strip), everything else the plain card. The map's own doc comment names each future
+      kind's variant (`gate`→shield, `verify`→check-badge, `router`→reuses diamond-header,
+      `trigger`→start-card, `frame`→frame) so D/E/F/H/I add one `Record` entry each, a compile
+      error until they do.
+- [x] **Taken/dead highlighting after a run** — a renderer-side `rendererEdgeState` (`edge-style.ts`,
+      a pure port of `workflow-engine.ts`'s private `edgeState`; `app` cannot import `desktop`)
+      reads a run's per-node `status`/`settledPort` (both now threaded all the way down:
+      `nodeStatusesAtStep`/`useLiveWorkflowRun` gain a `settledPort`-shaped read alongside their
+      existing `status`/`error` ones, `workflows-view.tsx` computes and passes `nodeSettledPorts`
+      the same way it already does `nodeErrors`) and paints a dead edge at 35% opacity, a taken one
+      with the animated dash kept.
+- [x] **Dagre ignores `loop` edges when ranking** (`workflow-layout.ts`'s `autoLayout`, checked
+      inline against `edge.kind === 'loop'` rather than importing anything from Theme C's own
+      unmerged branch) — a back-edge fed to dagre would otherwise force a cycle it has to break
+      arbitrarily. Still drawn afterward by the edge component. Frame-children layout (the doc's
+      other `J` bullet) is Theme I's own kind, not yet on `main`.
+- [x] `react-icons/lu` only — no new glyph was needed (`condition`/`join` already had theirs);
+      `icon-names.test.ts` derives its check from source via `import.meta.glob`, so there was
+      nothing to add by hand.
+- [x] Vitest: `edge-style.test.ts` (19 tests — `EDGE_KIND_STYLE`/`PORT_TYPE_COLOR_VAR` exhaustive
+      over their shared enums, `rendererEdgeState`'s pending/dead/taken/legacy-cascade/untaken-
+      branch reads, `inferEdgeKind`'s error/conditional/data split) and
+      `workflow-node-view.test.tsx` (6 tests — handle count and `data-handleid` per node kind,
+      each handle's own port-type colour, the diamond marker, the join pill). One Playwright
+      **visual** baseline (`e2e/visual/workflows-canvas.spec.ts`, locator-cropped canvas, real
+      CSS/SVG path rendering, light+dark): a six-node fixture exercising all four
+      `WorkflowEdgeKind`s at once. Verified locally against a `-darwin.png` (gitignored by
+      convention); no docker in this sandbox to produce the committed `-linux.png` — needs
+      `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` before the opt-in cross-platform CI
+      lane can diff it.
+- Also fixed in passing: `styles-motion-guards.test.ts`'s loop-gate check caught the new
+  `.wf-edge-live` dash animation running unconditionally forever — it now starts
+  `animation-play-state: paused` and only runs under `html:not([data-window-focused='false'])`,
+  via a new unconditional `useWindowFocusGate(true)` in `WorkflowCanvasInner` (the existing call in
+  `workflows-view.tsx` is `hasRunningRun`-scoped, which doesn't cover plain editing — the state this
+  animation is *most* often left running in).
+
 ## 2026-09-25 — Phase 97 Theme M — Demo endpoint group for HTTP nodes
 
 [PR #559](https://github.com/bilo-io/midnite-studio/pull/559). A stable, scriptable HTTP target for templates and demos, so an `http` node has
