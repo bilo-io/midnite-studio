@@ -1,6 +1,44 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme H — Trigger node
+
+[PR #565](https://github.com/bilo-io/midnite-studio/pull/565). A new `trigger` node kind (hue `--node-trigger`, finally used) — at most one per
+workflow, no in-ports — starts a run from something other than the Run button: `manual`
+(today's behaviour, the default), `schedule` (a 5-field cron string, validated in `shared`), or
+`forge-pr` (repo + event list + optional branch filter).
+
+- [x] `on` config union — `manual | schedule {cron} | forge-pr {repoId, events, branchFilter?}` —
+      plus `validateWorkflow`'s at-most-one-trigger rule and cron-string validation, all in
+      `packages/shared/src/workflow.ts`.
+- [x] Hand-rolled 5-field vixie-cron subset in new `packages/shared/src/workflow-cron.ts`
+      (`*`, `*/n`, `a-b`, `a-b/n`, comma lists, POSIX day-of-month/day-of-week OR semantics) —
+      no cron npm dependency, keeping `shared` zod-only. `nextCronFireTimes` walks native `Date`
+      local get/set with smart month → day → hour → minute jumps so DST and impossible dates
+      (Feb 30) terminate fast; the trigger form previews the next 3 fire times with it.
+- [x] A trigger's per-run *dynamic* payload (which PR fired it, or nothing for manual/schedule)
+      is threaded, not persisted: `EngineDeps.triggerPayload` → `ExecutorContext.triggerPayload` →
+      `executors/trigger.ts` echoes it as `output`. `workflow-service.ts`'s
+      `runWorkflow(workflowId, triggerPayload?)` is the one call site that sets it.
+- [x] `desktop/src/main/workflow/trigger-scheduler.ts` arms one `setTimeout` per enabled
+      schedule-trigger workflow, re-armed on fire — no poll, no missed-tick replay after a
+      relaunch; the next tick is always computed from now. `forge-pr` triggers subscribe through
+      a small additive `onChanged`/`offChanged` pub-sub added to the existing `ForgePoller`
+      (same subscribe/poll/hash/backoff machinery every window already uses, no second timer),
+      doing a one-shot `listPulls` diff against a per-repo snapshot keyed by PR number on each
+      change notification, classifying opened/updated and applying `branchFilter` as a `*`-glob
+      on `headBranch`. Output: `{number, title, headRef, url, author}`.
+- [x] Skip-while-running: `workflow-service.ts` gains `isWorkflowRunning(workflowId)`
+      (mirrors `deleteWorkflow`'s own in-flight check) and logs the skip against the workflow via
+      the injected `Logger`, answering "why didn't it fire" without a new IPC/UI surface.
+      `TriggerScheduler` is reconciled from `main/index.ts` at boot and whenever
+      `saveWorkflow`/`deleteWorkflow` change the workflow set (`onWorkflowsChanged` hook).
+- [x] Canvas: `node-kind-meta.ts`, a left-rounded "start" card shape in `node-shape.ts`, a
+      `TriggerForm` (on-type picker + next-3-fire preview) in `node-forms.tsx`, output fields and
+      palette wiring — 159 workflow tests green in `app`.
+- [x] Vitest: cron parse + next-fire including DST and month rollover, at-most-one-trigger,
+      skip-while-running, and a forge projection change firing the trigger exactly once.
+
 ## 2026-09-25 — Phase 97 Theme E — Verifier node
 
 [PR #564](https://github.com/bilo-io/midnite-studio/pull/564). A new `verify` node kind — the

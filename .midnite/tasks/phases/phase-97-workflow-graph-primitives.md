@@ -306,23 +306,23 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
 
 ### H — Trigger node (M)
 
-- [ ] New node kind **`trigger`** (hue `--node-trigger`, finally used), at most one per workflow,
+- [x] New node kind **`trigger`** (hue `--node-trigger`, finally used), at most one per workflow,
       with no in-ports. Config is a union over `on`:
   - `manual` (the default, which is today's Run button)
   - `schedule` (`{cron}`, 5-field, validated in `shared`)
   - `forge-pr` (`{repoId, events: ['opened','updated'], branchFilter?}`)
-- [ ] A main-side **trigger scheduler** (`desktop/src/main/workflow/trigger-scheduler.ts`) arms
+- [x] A main-side **trigger scheduler** (`desktop/src/main/workflow/trigger-scheduler.ts`) arms
       schedules for enabled workflows (`isWorkflowEnabled`) while the app runs. Missed ticks while
       the app was closed are **not** replayed; the next tick is computed from now. It is idle-cheap
       (one timer to the next due tick, not a poll) and respects the window visibility gate for
       nothing, since it runs in main.
-- [ ] `forge-pr` subscribes through `forge-poller.ts`'s existing projection/hash machinery rather
+- [x] `forge-pr` subscribes through `forge-poller.ts`'s existing projection/hash machinery rather
       than adding a second poller. The PR's `{number, title, headRef, url, author}` becomes the
       trigger node's output.
-- [ ] A triggered run does not start while the same workflow already has a live run. The skip is
+- [x] A triggered run does not start while the same workflow already has a live run. The skip is
       logged against the workflow, which answers "why didn't it fire".
-- [ ] The trigger form previews the next 3 fire times (a pure function in `shared`).
-- [ ] Vitest: cron parse and next-fire (DST and month rollover), the at-most-one-trigger rule,
+- [x] The trigger form previews the next 3 fire times (a pure function in `shared`).
+- [x] Vitest: cron parse and next-fire (DST and month rollover), the at-most-one-trigger rule,
       skip-while-running, and a forge projection change firing once.
 
 ### I — Harness frame and policy gate (M)
