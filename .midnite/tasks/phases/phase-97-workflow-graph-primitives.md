@@ -451,7 +451,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       includes the receipt.
 - [ ] Vitest: receipt assembly from a fixture run, replay ordering across iterations, and export.
 
-### L — Built-in templates and a gallery (M) — ✅ DONE ([PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD), 2026-09-26)
+### L — Built-in templates and a gallery (M) — ✅ DONE ([PR #578](https://github.com/bilo-io/midnite-studio/pull/578), 2026-09-26)
 
 - [x] Templates as validated JSON in `shared` (`shared/src/workflow-templates/*.ts`, each a
       `WorkflowSchema` minus ids and timestamps, plus `{id, title, blurb, source, tags}`).

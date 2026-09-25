@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-26 — Phase 97 Theme L — Built-in templates and a gallery
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Five built-in workflow templates as
+[PR #578](https://github.com/bilo-io/midnite-studio/pull/578). Five built-in workflow templates as
 validated data in `shared`, a "New from template" gallery, and "Save as template" into a user
 section of that same gallery.
 

@@ -272,7 +272,7 @@ human/packaged-app verification passes.
 - ✅ **I** — harness `frame` group with six slots + a `policy` permission gate, its `requireApprovalFor` action reusing Theme D's own implicit gate path ([PR #575](https://github.com/bilo-io/midnite-studio/pull/575))
 - ✅ **J** — canvas styling: edge styles per kind, loop badge, port colours by type, gate/verify/router/join/trigger/frame visuals ([PR #561](https://github.com/bilo-io/midnite-studio/pull/561))
 - ◻ **K** — change receipts on Phase 94 Theme A's run record, replay by loop iteration
-- ✅ **L** — template gallery + five built-ins (Graph diamond, Harness build, Loop maker/checker, Research & publish, Risk router) ([PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD))
+- ✅ **L** — template gallery + five built-ins (Graph diamond, Harness build, Loop maker/checker, Research & publish, Risk router) ([PR #578](https://github.com/bilo-io/midnite-studio/pull/578))
 - ◻ **M** — demo endpoint group: `{{demo.baseUrl}}` + scripted `/demo/*` routes for HTTP nodes
 
 ### [Phase 96 — Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md)
