@@ -139,7 +139,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       with only one side running, error-port recovery, `any` vs `allSettled` outputs, and the
       Phase 95 race case (`:513`) still deterministic.
 
-### C — Controlled cycles (L)
+### C — Controlled cycles (L) ✅ DONE ([PR #560](https://github.com/bilo-io/midnite-studio/pull/560), 2026-09-25)
 
 - [x] A `loop` edge carries `loop: {maxIterations: 1..20, budgetMs, convergence?}`. Convergence is
       one of `{kind:'dry-rounds', rounds, keyPath}`, as in the article's "2 dry rounds or 6
