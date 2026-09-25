@@ -11,6 +11,7 @@ import {
   LuSplit,
   LuSquareTerminal,
   LuStickyNote,
+  LuTimer,
 } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
@@ -18,9 +19,9 @@ import type { IconComponent } from '../../../components/icon-button';
 /**
  * The workflow node view's five category hues (`styles.css`'s
  * `--node-trigger|action|logic|data|storage`, ported from midnite —
- * Phase 95 Theme I). `trigger` has no mapped kind in this MVP's five-kind
- * vocabulary — every run here is manual, so nothing IS a trigger yet — and
- * stays reachable for the `agent`/`script` node kinds Theme J adds.
+ * Phase 95 Theme I). `trigger` sat unmapped from the MVP through Phase 97
+ * Themes A-F — every run was manual, so nothing WAS a trigger — until Theme H
+ * gives it the one kind it was always reserved for.
  */
 export type NodeCategory = 'trigger' | 'action' | 'logic' | 'data' | 'storage';
 
@@ -118,6 +119,19 @@ export const NODE_KIND_META: Record<
     category: 'logic',
     description: 'Check the upstream result — agent verdict, exit code, test counts or a JSON path.',
   },
+  /**
+   * Phase 97 Theme H. The one kind that finally uses the `trigger` hue —
+   * every other kind runs an action or a routing decision, this one is the
+   * graph's own start. At most one per workflow (`validateWorkflow`). The
+   * plain Run button still always works regardless of `config.on` — this is
+   * only how the workflow is armed to fire *automatically*.
+   */
+  trigger: {
+    label: 'Trigger',
+    icon: LuTimer,
+    category: 'trigger',
+    description: 'Start the run — manual, on a schedule, or a forge PR event.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -162,5 +176,10 @@ export function nodeSummary(node: WorkflowNode): string {
             ? `${node.config.source || '…'} is empty`
             : `${node.config.source || '…'} ${node.config.op} ${node.config.right || '…'}`;
       }
+      break;
+    case 'trigger':
+      if (node.config.on === 'manual') return 'Manual';
+      if (node.config.on === 'schedule') return `Schedule · ${node.config.cron}`;
+      return `Forge PR · ${node.config.events.join('/')}`;
   }
 }

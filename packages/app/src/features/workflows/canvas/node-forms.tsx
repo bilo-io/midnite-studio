@@ -8,13 +8,18 @@ import {
   WORKFLOW_ROUTER_MAX_CASES,
   WORKFLOW_ROUTER_MODES,
   WORKFLOW_TEST_COUNT_PARSERS,
+  WORKFLOW_TRIGGER_FORGE_PR_EVENTS,
+  WORKFLOW_TRIGGER_ONS,
   WORKFLOW_VERIFY_CHECKS,
+  isValidCronExpression,
+  nextCronFireTimes,
   type WorkflowConditionOp,
   type WorkflowHttpMethod,
   type WorkflowJoinMode,
   type WorkflowNode,
   type WorkflowRouterMode,
   type WorkflowTestCountParser,
+  type WorkflowTriggerOn,
   type WorkflowVerifyCheck,
   type WorkflowVerifyConfig,
 } from '@midnite/studio-shared';
@@ -763,6 +768,107 @@ export function RouterForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
                   el: event.currentTarget,
                 })
               }
+            />
+          </Field>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+const TRIGGER_ON_LABEL: Record<WorkflowTriggerOn, string> = {
+  manual: 'Manual — the Run button only',
+  schedule: 'Schedule — a cron expression, while the app is open',
+  'forge-pr': 'Forge PR — a pull request opened or updated',
+};
+
+/**
+ * Phase 97 Theme H. Switching `on` rebuilds the whole config — the three
+ * variants share no fields (`cron` only exists for `schedule`;
+ * `repoId`/`events`/`branchFilter` only for `forge-pr`) — rather than
+ * patching a shared shape the way every `update()` above does.
+ *
+ * The "next 3 fire times" preview is a direct, un-debounced read of
+ * `nextCronFireTimes` off the current `cron` string on every render — cheap
+ * (a handful of calendar jumps, see that function's own doc comment) and
+ * exactly what lets it update live as the field is typed.
+ */
+export function TriggerForm({ node, onChange }: NodeFormProps) {
+  if (node.kind !== 'trigger') return null;
+  const config = node.config;
+
+  const setOn = (on: WorkflowTriggerOn) => {
+    if (on === 'manual') {
+      onChange({ ...node, config: { on: 'manual' } });
+      return;
+    }
+    if (on === 'schedule') {
+      onChange({ ...node, config: { on: 'schedule', cron: '0 9 * * *' } });
+      return;
+    }
+    onChange({ ...node, config: { on: 'forge-pr', repoId: '', events: ['opened', 'updated'] } });
+  };
+
+  return (
+    <>
+      <Field label="Fires on" hint="The plain Run button always works too — this only decides what fires it automatically.">
+        <SelectField
+          label="Fires on"
+          value={config.on}
+          onChange={setOn}
+          options={WORKFLOW_TRIGGER_ONS.map((on) => ({ value: on, label: TRIGGER_ON_LABEL[on] }))}
+        />
+      </Field>
+
+      {config.on === 'schedule' ? (
+        <Field label="Cron" hint="5 fields: minute hour day-of-month month day-of-week.">
+          <TextField
+            label="Cron"
+            value={config.cron}
+            onChange={(cron) => onChange({ ...node, config: { on: 'schedule', cron } })}
+            placeholder="0 9 * * *"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {isValidCronExpression(config.cron)
+              ? `Next: ${nextCronFireTimes(config.cron, Date.now(), 3)
+                  .map((ts) => new Date(ts).toLocaleString())
+                  .join('  ·  ')}`
+              : 'Not a valid 5-field cron.'}
+          </p>
+        </Field>
+      ) : null}
+
+      {config.on === 'forge-pr' ? (
+        <>
+          <Field label="Repo" hint="The app's own registered-repo id — resolved to a forge remote at poll time.">
+            <TextField
+              label="Repo"
+              value={config.repoId}
+              onChange={(repoId) => onChange({ ...node, config: { ...config, repoId } })}
+            />
+          </Field>
+          <Field label="Events" hint="Which PR changes fire this workflow — at least one.">
+            <div className="flex flex-col gap-1">
+              {WORKFLOW_TRIGGER_FORGE_PR_EVENTS.map((event) => (
+                <SwitchRow
+                  key={event}
+                  id={`${node.id}-event-${event}`}
+                  label={event === 'opened' ? 'Opened' : 'Updated'}
+                  on={config.events.includes(event)}
+                  onToggle={(_id, on) => {
+                    const events = on ? [...config.events, event] : config.events.filter((e) => e !== event);
+                    // Never let the last box come unchecked — the schema requires at least one.
+                    onChange({ ...node, config: { ...config, events: events.length > 0 ? events : config.events } });
+                  }}
+                />
+              ))}
+            </div>
+          </Field>
+          <Field label="Branch filter" hint="Optional — a *-glob over the PR's head branch, e.g. release/*.">
+            <TextField
+              label="Branch filter"
+              value={config.branchFilter ?? ''}
+              onChange={(branchFilter) => onChange({ ...node, config: { ...config, branchFilter: branchFilter || undefined } })}
             />
           </Field>
         </>

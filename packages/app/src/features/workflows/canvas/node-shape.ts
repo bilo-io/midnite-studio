@@ -21,18 +21,20 @@ import type { WorkflowNodeKind } from '@midnite/studio-shared';
  *   `diamond-header`/`pill`/`shield`, this variant's own content depends on
  *   run state, not just the node's config, so it reads
  *   `WorkflowNodeData.settledPort`.
+ * - `start-card` — the plain card, left-rounded instead of square-cornered
+ *   (`trigger`, Phase 97 Theme H) — a graph's own start has no in-port to
+ *   dock a handle on, so the rounded edge reads as "nothing connects here."
  *
- * **Extension point for H/I** (documented on the phase doc's own
- * dependency list, not invented here): a new node kind adds one case to
+ * **Extension point for I** (documented on the phase doc's own dependency
+ * list, not invented here): a new node kind adds one case to
  * {@link WORKFLOW_NODE_KINDS} in `shared/src/workflow.ts`, which makes this
  * `Record` fail to typecheck until it is widened with a shape variant —
- * `trigger` → `'start-card'`, `frame` → `'frame'`. Each new variant is then
- * given its own rendering branch in
- * `workflow-node-view.tsx` next to `diamond-header`/`pill`/`shield`/
- * `check-badge` below — this map only says *which* variant a kind gets,
- * never how one is drawn.
+ * `frame` → `'frame'`. Each new variant is then given its own rendering
+ * branch in `workflow-node-view.tsx` next to
+ * `diamond-header`/`pill`/`shield`/`check-badge`/`start-card` below — this
+ * map only says *which* variant a kind gets, never how one is drawn.
  */
-export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill' | 'shield' | 'check-badge';
+export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill' | 'shield' | 'check-badge' | 'start-card';
 
 export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   http: 'card',
@@ -47,4 +49,6 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   /** Phase 97 Theme F — reuses `diamond-header` verbatim, per this map's own extension-point note above: "which way does this branch" is exactly what a router is too, just with more than two ways. */
   router: 'diamond-header',
   verify: 'check-badge',
+  /** Phase 97 Theme H — see `'start-card'`'s own doc note above. */
+  trigger: 'start-card',
 };
