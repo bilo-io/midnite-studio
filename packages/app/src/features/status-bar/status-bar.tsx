@@ -219,7 +219,7 @@ export function StatusBar() {
     <footer
       ref={footerRef}
       data-testid="status-bar"
-      className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-t border-border bg-card/50 px-3 text-xs text-muted-foreground"
+      className="relative z-10 grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-t border-border bg-card/50 px-3 text-xs text-muted-foreground"
     >
       {/*
         Mounted directly here, not through `STATUS_SEGMENTS` — at `collapsed`

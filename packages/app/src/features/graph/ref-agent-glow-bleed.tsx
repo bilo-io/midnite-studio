@@ -50,7 +50,34 @@ import { laneVars } from './lane-colors';
  * name or the ahead/behind counts under it: contrast is never a function of
  * glow intensity, because the readable layer and the glowing layer are two
  * different elements.
+ *
+ * Stacking: positioned at `z-graph-glow` (1) — above ordinary in-flow graph
+ * rows (0) so the halo bleeds into neighbouring rows without clipping, but
+ * below `data-terminal-frame` (`z-10`), splitters (`z-20`), the nav rail (`z-40`),
+ * browser panes (`z-45`), menus (`z-80`), and popovers (`z-85`).
  */
+function computeVisibleRect(
+  node: HTMLElement,
+): { x: number; y: number; width: number; height: number } | null {
+  const box = node.getBoundingClientRect();
+  // An unrendered element (e.g. display: none when the terminal maximizes) has
+  // zero dimensions; do not portal a halo at (0, 0).
+  if (box.width === 0 && box.height === 0) return null;
+
+  // If inside the virtualised graph scroll container, hide the portalled halo
+  // when the row is scrolled completely out of view (past top or bottom).
+  const scrollParent = node.closest('[role="grid"]');
+  if (scrollParent) {
+    const scrollBox = scrollParent.getBoundingClientRect();
+    // Allow a 12px bleed margin so halos on edge rows bleed naturally before vanishing.
+    if (box.bottom < scrollBox.top - 12 || box.top > scrollBox.bottom + 12) {
+      return null;
+    }
+  }
+
+  return { x: box.left, y: box.top, width: box.width, height: box.height };
+}
+
 export function RefAgentGlowBleed({
   anchor,
   active,
@@ -74,8 +101,7 @@ export function RefAgentGlowBleed({
     }
     const node = anchor.current;
     if (!node) return;
-    const box = node.getBoundingClientRect();
-    setRect({ x: box.left, y: box.top, width: box.width, height: box.height });
+    setRect(computeVisibleRect(node));
   }, [active, anchor]);
 
   useEffect(() => {
@@ -87,8 +113,7 @@ export function RefAgentGlowBleed({
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        const box = node.getBoundingClientRect();
-        setRect({ x: box.left, y: box.top, width: box.width, height: box.height });
+        setRect(computeVisibleRect(node));
       });
     };
     window.addEventListener('scroll', reposition, true);
@@ -106,7 +131,7 @@ export function RefAgentGlowBleed({
     <span
       aria-hidden
       data-testid="ref-agent-glow-bleed"
-      className="ref-badge-agent-arc-glow pointer-events-none fixed z-[46] rounded-[3px]"
+      className="ref-badge-agent-arc-glow pointer-events-none fixed z-graph-glow rounded-[3px]"
       style={{ ...laneVars(colorIdx, palette), left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
     />,
     document.body,
