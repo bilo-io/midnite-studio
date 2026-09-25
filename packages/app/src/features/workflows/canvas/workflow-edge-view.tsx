@@ -1,7 +1,7 @@
 import type { WorkflowEdge, WorkflowNodeStatus } from '@midnite/studio-shared';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
 
-import { DEAD_EDGE_OPACITY, EDGE_KIND_STYLE, rendererEdgeState } from './edge-style';
+import { DEAD_EDGE_OPACITY, EDGE_KIND_STYLE, loopBoundsTitle, rendererEdgeState } from './edge-style';
 
 /** `data` this edge type is mounted with — see `workflow-layout.ts`'s `toFlowGraph` and `workflow-canvas.tsx`'s per-render decorate step. */
 export type WorkflowEdgeData = {
@@ -9,10 +9,10 @@ export type WorkflowEdgeData = {
   sourceStatus?: WorkflowNodeStatus;
   sourceSettledPort?: string;
   /**
-   * `n/max` while a controlled loop is mid-run — populated once Theme C's
-   * `WorkflowRun.loopStates` merges (`workflow-canvas.tsx` reads it there
-   * with an optional chain; this component only needs the finished string).
-   * `undefined` renders no badge, which is every loop edge's state today.
+   * `n/max` while a controlled loop is mid-run — `workflow-canvas.tsx`'s
+   * `iterationLabelFor` reads Theme C's `WorkflowLoopState`/`WorkflowEdge.loop`
+   * for this; `undefined` renders no badge (no run has reached this loop
+   * yet, or the edge isn't a `loop` edge at all).
    */
   iterationLabel?: string;
 };
@@ -92,12 +92,17 @@ export function WorkflowEdgeView({
       {style.showSourcePortLabel || edgeData.iterationLabel ? (
         <EdgeLabelRenderer>
           <div
+            // The iteration badge alone takes pointer events (and a
+            // `title`) — the phase doc's "the bounds on hover" — a plain
+            // port-label chip has nothing further to reveal, so it stays
+            // `pointer-events-none` like every other edge decoration.
+            title={edgeData.iterationLabel ? loopBoundsTitle(edgeData.edge) : undefined}
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               opacity: state === 'dead' ? DEAD_EDGE_OPACITY : 1,
             }}
-            className="pointer-events-none rounded bg-card px-1 py-0.5 text-[9px] font-medium text-muted-foreground shadow-sm"
+            className={`rounded bg-card px-1 py-0.5 text-[9px] font-medium text-muted-foreground shadow-sm ${edgeData.iterationLabel ? '' : 'pointer-events-none'}`}
           >
             {edgeData.iterationLabel ?? edgeData.edge.fromPort}
           </div>

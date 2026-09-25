@@ -1,7 +1,13 @@
-import { WORKFLOW_EDGE_KINDS, WORKFLOW_PORT_TYPES, type WorkflowEdge, type WorkflowNode } from '@midnite/studio-shared';
+import {
+  WORKFLOW_EDGE_KINDS,
+  WORKFLOW_PORT_TYPES,
+  type WorkflowEdge,
+  type WorkflowLoopState,
+  type WorkflowNode,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { EDGE_KIND_STYLE, inferEdgeKind, PORT_TYPE_COLOR_VAR, rendererEdgeState } from './edge-style';
+import { EDGE_KIND_STYLE, inferEdgeKind, iterationLabelFor, loopBoundsTitle, PORT_TYPE_COLOR_VAR, rendererEdgeState } from './edge-style';
 
 function edge(overrides: Partial<WorkflowEdge> & Pick<WorkflowEdge, 'from' | 'to'>): WorkflowEdge {
   return { id: 'e1', ...overrides };
@@ -115,5 +121,50 @@ describe('inferEdgeKind', () => {
 
   it('is "data" for a plain node\'s out port', () => {
     expect(inferEdgeKind(node('http'), 'out')).toBe('data');
+  });
+});
+
+function loopState(overrides: Partial<WorkflowLoopState> & Pick<WorkflowLoopState, 'edgeId' | 'iteration'>): WorkflowLoopState {
+  return { startedAt: 0, seenKeyHashes: [], dryStreak: 0, ...overrides };
+}
+
+describe('iterationLabelFor', () => {
+  const loopEdge = edge({ from: 'a', to: 'b', kind: 'loop', loop: { maxIterations: 6, budgetMs: 60_000 } });
+
+  it('is undefined for a non-loop edge', () => {
+    const states = new Map([['e1', loopState({ edgeId: 'e1', iteration: 2 })]]);
+    expect(iterationLabelFor(edge({ from: 'a', to: 'b' }), states)).toBeUndefined();
+  });
+
+  it('is undefined before any run has reached the loop', () => {
+    expect(iterationLabelFor(loopEdge, undefined)).toBeUndefined();
+    expect(iterationLabelFor(loopEdge, new Map())).toBeUndefined();
+  });
+
+  it('is "iteration/maxIterations" once a run has an entry for this edge', () => {
+    const states = new Map([['e1', loopState({ edgeId: 'e1', iteration: 2 })]]);
+    expect(iterationLabelFor(loopEdge, states)).toBe('2/6');
+  });
+
+  it('falls back to the bare iteration when the edge carries no loop config', () => {
+    const noConfig = edge({ from: 'a', to: 'b', kind: 'loop' });
+    const states = new Map([['e1', loopState({ edgeId: 'e1', iteration: 4 })]]);
+    expect(iterationLabelFor(noConfig, states)).toBe('4');
+  });
+});
+
+describe('loopBoundsTitle', () => {
+  it('is undefined with no loop config', () => {
+    expect(loopBoundsTitle(edge({ from: 'a', to: 'b', kind: 'loop' }))).toBeUndefined();
+  });
+
+  it('names both bounds, minutes rounded from the budget', () => {
+    const loopEdge = edge({ from: 'a', to: 'b', kind: 'loop', loop: { maxIterations: 6, budgetMs: 5 * 60_000 } });
+    expect(loopBoundsTitle(loopEdge)).toBe('Up to 6 iterations, 5m budget.');
+  });
+
+  it('falls back to milliseconds under a minute', () => {
+    const loopEdge = edge({ from: 'a', to: 'b', kind: 'loop', loop: { maxIterations: 2, budgetMs: 500 } });
+    expect(loopBoundsTitle(loopEdge)).toBe('Up to 2 iterations, 500ms budget.');
   });
 });

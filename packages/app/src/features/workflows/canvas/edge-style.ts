@@ -3,6 +3,7 @@ import {
   WORKFLOW_ERROR_PORT_ID,
   type WorkflowEdge,
   type WorkflowEdgeKind,
+  type WorkflowLoopState,
   type WorkflowNode,
   type WorkflowNodeStatus,
   type WorkflowPortType,
@@ -105,4 +106,28 @@ export function inferEdgeKind(fromNode: WorkflowNode, fromPortId: string): Workf
   if (fromPortId === WORKFLOW_ERROR_PORT_ID) return 'error';
   if (fromNode.kind === 'condition') return 'conditional';
   return 'data';
+}
+
+/**
+ * A `loop` edge's `n/max` badge (Theme C's `WorkflowLoopState`/
+ * `WorkflowEdge.loop.maxIterations`) — `undefined` for anything that isn't a
+ * `loop` edge, or one no run has reached yet. `maxIterations` absent (a
+ * schema-invalid edge `validateWorkflow` already flags on its own) shows the
+ * bare iteration count rather than inventing a bound.
+ */
+export function iterationLabelFor(
+  edge: WorkflowEdge,
+  loopStates: ReadonlyMap<string, WorkflowLoopState> | undefined,
+): string | undefined {
+  if ((edge.kind ?? 'data') !== 'loop') return undefined;
+  const state = loopStates?.get(edge.id);
+  if (!state) return undefined;
+  return edge.loop ? `${state.iteration}/${edge.loop.maxIterations}` : `${state.iteration}`;
+}
+
+/** The iteration badge's hover text (the phase doc's "the bounds on hover") — the loop's own bound, spelled out rather than left to the bare `n/max` the badge shows. */
+export function loopBoundsTitle(edge: WorkflowEdge): string | undefined {
+  if (!edge.loop) return undefined;
+  const minutes = Math.round(edge.loop.budgetMs / 60_000);
+  return `Up to ${edge.loop.maxIterations} iterations, ${minutes >= 1 ? `${minutes}m` : `${edge.loop.budgetMs}ms`} budget.`;
 }

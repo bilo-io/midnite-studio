@@ -1,4 +1,11 @@
-import { canConnect, portsForNode, type WorkflowEdge, type WorkflowNode, type WorkflowNodeStatus } from '@midnite/studio-shared';
+import {
+  canConnect,
+  portsForNode,
+  type WorkflowEdge,
+  type WorkflowLoopState,
+  type WorkflowNode,
+  type WorkflowNodeStatus,
+} from '@midnite/studio-shared';
 import {
   Background,
   BackgroundVariant,
@@ -24,7 +31,7 @@ import { IconButton } from '../../../components/icon-button';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import type { ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { createNode } from '../workflow-io';
-import { inferEdgeKind } from './edge-style';
+import { inferEdgeKind, iterationLabelFor } from './edge-style';
 import { WORKFLOW_EDGE_TYPES, type WorkflowEdgeData } from './workflow-edge-view';
 import { WorkflowGraphContext } from './workflow-graph-context';
 import { WORKFLOW_NODE_DND_MIME } from './node-palette';
@@ -79,6 +86,8 @@ export function WorkflowCanvas(props: {
   nodeErrors?: ReadonlyMap<string, string>;
   /** A run's per-node `settledPort`, keyed by node id (Theme J) — what the custom edge component reads to paint the taken/dead path. */
   nodeSettledPorts?: ReadonlyMap<string, string>;
+  /** A run's per-loop-edge state, keyed by edge id (Theme C's `WorkflowRun.loopStates`) — what the custom edge component reads for the loop kind's `n/max` iteration badge. */
+  loopStates?: ReadonlyMap<string, WorkflowLoopState>;
   /** An `agent`/`script` node's own live session(s), keyed by node id (Theme J) — see `use-workflow-run.ts`'s `useLiveWorkflowNodeSessions`. */
   nodeSessions?: ReadonlyMap<string, readonly ActivityGlowSessionInput[]>;
   /** Extra toolbar content (Theme G's History control, e.g.) — the canvas owns the bar, not what a caller puts in it. */
@@ -104,6 +113,7 @@ function WorkflowCanvasInner({
   nodeStatuses,
   nodeErrors,
   nodeSettledPorts,
+  loopStates,
   nodeSessions,
   toolbarExtra,
 }: Parameters<typeof WorkflowCanvas>[0]) {
@@ -112,7 +122,7 @@ function WorkflowCanvasInner({
     decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions),
   );
   const [edges, setEdges] = useState<Edge[]>(() =>
-    decorateEdges(toFlowGraph(graph.nodes, graph.edges).edges, nodeStatuses, nodeSettledPorts),
+    decorateEdges(toFlowGraph(graph.nodes, graph.edges).edges, nodeStatuses, nodeSettledPorts, loopStates),
   );
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [connectRejection, setConnectRejection] = useState<{ message: string; x: number; y: number } | null>(null);
@@ -148,7 +158,7 @@ function WorkflowCanvasInner({
   useEffect(() => {
     const flow = toFlowGraph(graph.nodes, graph.edges);
     setNodes((prev) => decorate(flow.nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, prev));
-    setEdges(decorateEdges(flow.edges, nodeStatuses, nodeSettledPorts));
+    setEdges(decorateEdges(flow.edges, nodeStatuses, nodeSettledPorts, loopStates));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- decorate below re-applies on its own effect
   }, [graph]);
 
@@ -160,8 +170,8 @@ function WorkflowCanvasInner({
   // Edge overlay resync — a run's status/settledPort changes repaint the
   // taken/dead read without touching edge identity or position.
   useEffect(() => {
-    setEdges((prev) => decorateEdges(prev, nodeStatuses, nodeSettledPorts));
-  }, [nodeStatuses, nodeSettledPorts]);
+    setEdges((prev) => decorateEdges(prev, nodeStatuses, nodeSettledPorts, loopStates));
+  }, [nodeStatuses, nodeSettledPorts, loopStates]);
 
   useEffect(() => {
     undoStack.current = [];
@@ -275,8 +285,8 @@ function WorkflowCanvasInner({
     const fromNode = graphRef.current.nodes.find((n) => n.id === source);
     const toNode = graphRef.current.nodes.find((n) => n.id === target);
     if (!fromNode || !toNode) return false;
-    const fromPort = portsForNode(fromNode).find((p) => p.id === sourceHandle && p.direction === 'out');
-    const toPort = portsForNode(toNode).find((p) => p.id === targetHandle && p.direction === 'in');
+    const fromPort = portsForNode(fromNode, graphRef.current.edges).find((p) => p.id === sourceHandle && p.direction === 'out');
+    const toPort = portsForNode(toNode, graphRef.current.edges).find((p) => p.id === targetHandle && p.direction === 'in');
     if (!fromPort || !toPort) return false;
     // A literal duplicate (same two nodes, same two ports) is refused even
     // though `canConnect` itself would allow it for a multi-input port —
@@ -295,8 +305,8 @@ function WorkflowCanvasInner({
       const fromNode = graphRef.current.nodes.find((n) => n.id === source);
       const toNode = graphRef.current.nodes.find((n) => n.id === target);
       if (!fromNode || !toNode) return;
-      const fromPort = portsForNode(fromNode).find((p) => p.id === sourceHandle && p.direction === 'out');
-      const toPort = portsForNode(toNode).find((p) => p.id === targetHandle && p.direction === 'in');
+      const fromPort = portsForNode(fromNode, graphRef.current.edges).find((p) => p.id === sourceHandle && p.direction === 'out');
+      const toPort = portsForNode(toNode, graphRef.current.edges).find((p) => p.id === targetHandle && p.direction === 'in');
       if (!fromPort || !toPort) return;
       commit({
         nodes: graphRef.current.nodes,
@@ -333,8 +343,8 @@ function WorkflowCanvasInner({
       if (!fromNode || !fromHandle || !toNode || !toHandle) return;
       const fromWorkflowNode = (fromNode.data as WorkflowNodeData).node;
       const toWorkflowNode = (toNode.data as WorkflowNodeData).node;
-      const fromPort = portsForNode(fromWorkflowNode).find((p) => p.id === fromHandle.id);
-      const toPort = portsForNode(toWorkflowNode).find((p) => p.id === toHandle.id);
+      const fromPort = portsForNode(fromWorkflowNode, graphRef.current.edges).find((p) => p.id === fromHandle.id);
+      const toPort = portsForNode(toWorkflowNode, graphRef.current.edges).find((p) => p.id === toHandle.id);
       if (!fromPort || !toPort) return;
       const result =
         fromPort.direction === 'out'
@@ -548,16 +558,18 @@ function decorate(
  * `workflow-edge-view.tsx`'s own overlay merge (Theme J) — every RF edge
  * already carries `data.edge` (the raw `WorkflowEdge`, set once by
  * `toFlowGraph` and never touched again); this only ever refreshes
- * `sourceStatus`/`sourceSettledPort`, the two run-derived fields the edge
- * component reads for its taken/dead/pending paint. `edge.data` is
- * guaranteed to be `WorkflowEdgeData`-shaped by construction (only
- * `toFlowGraph` and this function ever produce it), so no `previous`
- * fallback is needed the way `decorate` above needs one for a node's `data`.
+ * `sourceStatus`/`sourceSettledPort`/`iterationLabel`, the run-derived
+ * fields the edge component reads for its taken/dead/pending paint and the
+ * loop kind's badge. `edge.data` is guaranteed to be `WorkflowEdgeData`-
+ * shaped by construction (only `toFlowGraph` and this function ever produce
+ * it), so no `previous` fallback is needed the way `decorate` above needs
+ * one for a node's `data`.
  */
 function decorateEdges(
   edges: Edge[],
   nodeStatuses: ReadonlyMap<string, WorkflowNodeStatus> | undefined,
   nodeSettledPorts: ReadonlyMap<string, string> | undefined,
+  loopStates: ReadonlyMap<string, WorkflowLoopState> | undefined,
 ): Edge[] {
   return edges.map((edge) => {
     const { edge: workflowEdge } = edge.data as unknown as WorkflowEdgeData;
@@ -567,7 +579,9 @@ function decorateEdges(
         edge: workflowEdge,
         sourceStatus: nodeStatuses?.get(workflowEdge.from),
         sourceSettledPort: nodeSettledPorts?.get(workflowEdge.from),
+        iterationLabel: iterationLabelFor(workflowEdge, loopStates),
       } satisfies WorkflowEdgeData,
     };
   });
 }
+

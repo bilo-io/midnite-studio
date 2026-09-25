@@ -103,7 +103,7 @@ function isPortDimmed(
   if (!connection.inProgress || !graph) return false;
   if (connection.fromNode.id === thisNode.id) return false; // never dim the node the drag started from.
   const fromNode = (connection.fromNode.data as WorkflowNodeData).node;
-  const fromPorts = portsForNode(fromNode);
+  const fromPorts = portsForNode(fromNode, graph.edges);
   const draggingFromSource = connection.fromHandle.type === 'source';
   if (draggingFromSource) {
     if (port.direction !== 'in') return false;
@@ -137,12 +137,17 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   const isRunning = status === 'running';
   const shape = NODE_SHAPE[node.kind];
 
-  const ports = node.kind === 'note' ? [] : portsForNode(node);
-  const inPorts = ports.filter((p) => p.direction === 'in');
-  const outPorts = ports.filter((p) => p.direction === 'out');
-
   const connection = useConnection();
   const graphContext = useWorkflowGraphContext();
+
+  // `graphContext?.edges` (Theme C) is what makes THIS node's own `exhausted`
+  // out-port appear the moment an outgoing `loop` edge is drawn off it —
+  // `portsForNode`'s `edges` param is optional precisely so a standalone
+  // render (no `WorkflowCanvas` context, e.g. a test) still gets every OTHER
+  // port right, just not that one.
+  const ports = node.kind === 'note' ? [] : portsForNode(node, graphContext?.edges);
+  const inPorts = ports.filter((p) => p.direction === 'in');
+  const outPorts = ports.filter((p) => p.direction === 'out');
 
   const ringClass = invalid ? 'ring-2 ring-destructive' : selected ? 'ring-2 ring-primary' : 'ring-1 ring-border';
 
