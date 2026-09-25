@@ -107,6 +107,13 @@ const config: Config = {
        */
       zIndex: {
         /*
+          The git graph active agent halo portalled to <body> to bleed into
+          neighbouring rows without being clipped by the row's transform or cell
+          overflow-hidden. Must sit above normal in-flow graph rows (0) but
+          below the terminal frame (10) so it never bleeds over the terminal.
+        */
+        'graph-glow': '1',
+        /*
           The full-screen browser pane, and the one entry in here that is NOT
           a portalled layer: it stays inside the content row, but has to paint
           over `@bilo-io/shell`'s nav rail — a `position: fixed`, `z-40`

@@ -102,4 +102,63 @@ describe('RefAgentGlowBleed', () => {
     expect(glow.style.getPropertyValue('--lane-s')).toMatch(/%$/);
     expect(glow.style.getPropertyValue('--lane-l')).toMatch(/%$/);
   });
+
+  it('carries z-graph-glow class to stack below terminal frame (z-10) and does not use hardcoded z-[46]', () => {
+    const anchor = makeAnchor({ left: 10, top: 20, width: 60, height: 18 });
+    const { getByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+    );
+
+    const glow = getByTestId('ref-agent-glow-bleed');
+    expect(glow.className).toContain('z-graph-glow');
+    expect(glow.className).not.toContain('z-[46]');
+  });
+
+  it('renders nothing when the anchor has zero width and height (hidden/unrendered)', () => {
+    const anchor = makeAnchor({ left: 0, top: 0, width: 0, height: 0 });
+    const { queryByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+    );
+    expect(queryByTestId('ref-agent-glow-bleed')).toBeNull();
+  });
+
+  it('does not render when anchor is scrolled out of its role="grid" container', () => {
+    const grid = document.createElement('div');
+    grid.setAttribute('role', 'grid');
+    grid.getBoundingClientRect = () =>
+      ({ left: 0, top: 100, width: 800, height: 400, right: 800, bottom: 500, x: 0, y: 100, toJSON() {} }) as DOMRect;
+    document.body.appendChild(grid);
+
+    const anchor = createRef<HTMLElement>();
+    const node = document.createElement('span');
+    // Anchor scrolled far below grid bottom (e.g. top: 600 > 500 + 12):
+    node.getBoundingClientRect = () =>
+      ({ left: 50, top: 600, width: 60, height: 20, right: 110, bottom: 620, x: 50, y: 600, toJSON() {} }) as DOMRect;
+    grid.appendChild(node);
+    (anchor as { current: HTMLElement }).current = node;
+
+    let raf: FrameRequestCallback | null = null;
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      raf = cb;
+      return 1;
+    });
+
+    const { queryByTestId } = render(
+      <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+    );
+    expect(queryByTestId('ref-agent-glow-bleed')).toBeNull();
+
+    // Now position within grid bounds and trigger scroll update:
+    node.getBoundingClientRect = () =>
+      ({ left: 50, top: 200, width: 60, height: 20, right: 110, bottom: 220, x: 50, y: 200, toJSON() {} }) as DOMRect;
+    act(() => {
+      window.dispatchEvent(new Event('scroll'));
+    });
+    act(() => {
+      raf?.(0);
+    });
+    expect(queryByTestId('ref-agent-glow-bleed')).not.toBeNull();
+
+    vi.unstubAllGlobals();
+  });
 });

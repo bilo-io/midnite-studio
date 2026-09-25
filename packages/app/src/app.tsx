@@ -1718,7 +1718,10 @@ function Shell() {
                       clips itself now, but the terminal is the one surface in this
                       window whose chrome must never be sat on, and a z-index is a
                       cheaper guarantee of that than trusting every future pane to
-                      keep its overflow to itself.
+                      keep its overflow to itself. In particular, z-10 and bg-background
+                      keep it strictly above the git graph's portalled active-agent
+                      halo (`z-graph-glow`, 1) so rotating arcs never bleed over the
+                      terminal when the graph is underneath or behind it.
 
                       Two boxes, not one, and the reason is the pty. This outer box
                       is the one that animates; the panel inside it is already at
@@ -1729,7 +1732,7 @@ function Shell() {
                       a frame behind. This way the shell is told its new size once,
                       at the start, and what moves is only the window onto it.
                     */
-                    className="relative z-10 shrink-0 overflow-hidden border-t border-border animate-fade-in"
+                    className="relative z-10 shrink-0 overflow-hidden border-t border-border bg-background animate-fade-in"
                     style={terminalTween.style}
                   >
                     {/*
