@@ -1,4 +1,4 @@
-import { wouldCycle, type WorkflowEdge, type WorkflowNode, type WorkflowNodeStatus } from '@midnite/studio-shared';
+import { canConnect, portsForNode, type WorkflowEdge, type WorkflowNode, type WorkflowNodeStatus } from '@midnite/studio-shared';
 import {
   Background,
   BackgroundVariant,
@@ -12,16 +12,20 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type FinalConnectionState,
   type Node,
   type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { LuLayoutGrid, LuPlay, LuRedo2, LuUndo2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
 import type { ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { createNode } from '../workflow-io';
+import { inferEdgeKind } from './edge-style';
+import { WORKFLOW_EDGE_TYPES, type WorkflowEdgeData } from './workflow-edge-view';
+import { WorkflowGraphContext } from './workflow-graph-context';
 import { WORKFLOW_NODE_DND_MIME } from './node-palette';
 import { WORKFLOW_NODE_TYPES, type WorkflowNodeData } from './workflow-node-view';
 import { autoLayout, fromFlowPosition, toFlowGraph, WORKFLOW_NODE_HEIGHT, WORKFLOW_NODE_WIDTH } from './workflow-layout';
@@ -72,6 +76,8 @@ export function WorkflowCanvas(props: {
   nodeStatuses?: ReadonlyMap<string, WorkflowNodeStatus>;
   /** A run's per-node error, keyed by node id — shown inline on the node card. */
   nodeErrors?: ReadonlyMap<string, string>;
+  /** A run's per-node `settledPort`, keyed by node id (Theme J) — what the custom edge component reads to paint the taken/dead path. */
+  nodeSettledPorts?: ReadonlyMap<string, string>;
   /** An `agent`/`script` node's own live session(s), keyed by node id (Theme J) — see `use-workflow-run.ts`'s `useLiveWorkflowNodeSessions`. */
   nodeSessions?: ReadonlyMap<string, readonly ActivityGlowSessionInput[]>;
   /** Extra toolbar content (Theme G's History control, e.g.) — the canvas owns the bar, not what a caller puts in it. */
@@ -96,6 +102,7 @@ function WorkflowCanvasInner({
   readOnly,
   nodeStatuses,
   nodeErrors,
+  nodeSettledPorts,
   nodeSessions,
   toolbarExtra,
 }: Parameters<typeof WorkflowCanvas>[0]) {
@@ -103,13 +110,22 @@ function WorkflowCanvasInner({
   const [nodes, setNodes] = useState<Node[]>(() =>
     decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions),
   );
-  const [edges, setEdges] = useState<Edge[]>(() => toFlowGraph(graph.nodes, graph.edges).edges);
+  const [edges, setEdges] = useState<Edge[]>(() =>
+    decorateEdges(toFlowGraph(graph.nodes, graph.edges).edges, nodeStatuses, nodeSettledPorts),
+  );
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+  const [connectRejection, setConnectRejection] = useState<{ message: string; x: number; y: number } | null>(null);
 
   const undoStack = useRef<WorkflowGraph[]>([]);
   const redoStack = useRef<WorkflowGraph[]>([]);
   const graphRef = useRef(graph);
   graphRef.current = graph;
+
+  /** `WorkflowNodeView`'s connect-drag port dimming (Theme J) — see `workflow-graph-context.tsx`. */
+  const graphContextValue = useMemo(
+    () => ({ nodesById: new Map(graph.nodes.map((node) => [node.id, node])), edges: graph.edges }),
+    [graph],
+  );
 
   // Structural resync — a new `graph` (from an undo, a side-panel edit, an
   // external save, or our own `onChange` round-tripping back down) always
@@ -118,7 +134,7 @@ function WorkflowCanvasInner({
   useEffect(() => {
     const flow = toFlowGraph(graph.nodes, graph.edges);
     setNodes((prev) => decorate(flow.nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, prev));
-    setEdges(flow.edges);
+    setEdges(decorateEdges(flow.edges, nodeStatuses, nodeSettledPorts));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- decorate below re-applies on its own effect
   }, [graph]);
 
@@ -126,6 +142,12 @@ function WorkflowCanvasInner({
   useEffect(() => {
     setNodes((prev) => decorate(prev, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions));
   }, [invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions]);
+
+  // Edge overlay resync — a run's status/settledPort changes repaint the
+  // taken/dead read without touching edge identity or position.
+  useEffect(() => {
+    setEdges((prev) => decorateEdges(prev, nodeStatuses, nodeSettledPorts));
+  }, [nodeStatuses, nodeSettledPorts]);
 
   useEffect(() => {
     undoStack.current = [];
@@ -217,21 +239,96 @@ function WorkflowCanvasInner({
     [commit, readOnly],
   );
 
+  /**
+   * The connect-drag's real gate (Theme J), used both by `<ReactFlow>`'s own
+   * `isValidConnection` (so xyflow's `connectionState.isValid` — read by
+   * `handleConnectEnd` below for the rejection tooltip — agrees with what
+   * this canvas is about to do) and, redundantly but cheaply, inside
+   * `handleConnect` itself. `sourceHandle`/`targetHandle` are always a real
+   * port id once every node renders one `Handle` per `portsForNode` entry
+   * (`workflow-node-view.tsx`) — `null` only for a connection object that
+   * predates that (never produced by this canvas, but `Connection`'s own
+   * type allows it), which this treats as "no such port" rather than
+   * guessing a default.
+   */
+  const connectionIsValid = useCallback((connection: Connection): boolean => {
+    const { source, target, sourceHandle, targetHandle } = connection;
+    if (!source || !target || source === target) return false;
+    const fromNode = graphRef.current.nodes.find((n) => n.id === source);
+    const toNode = graphRef.current.nodes.find((n) => n.id === target);
+    if (!fromNode || !toNode) return false;
+    const fromPort = portsForNode(fromNode).find((p) => p.id === sourceHandle && p.direction === 'out');
+    const toPort = portsForNode(toNode).find((p) => p.id === targetHandle && p.direction === 'in');
+    if (!fromPort || !toPort) return false;
+    // A literal duplicate (same two nodes, same two ports) is refused even
+    // though `canConnect` itself would allow it for a multi-input port —
+    // drawing the identical edge twice is never useful, only confusing.
+    const duplicate = graphRef.current.edges.some(
+      (e) => e.from === source && e.to === target && (e.fromPort ?? 'out') === fromPort.id && (e.toPort ?? 'in') === toPort.id,
+    );
+    if (duplicate) return false;
+    return canConnect(fromNode, fromPort, toNode, toPort, graphRef.current.edges).ok;
+  }, []);
+
   const handleConnect = useCallback(
     (connection: Connection) => {
-      const { source, target } = connection;
-      if (!source || !target || source === target) return;
-      const targetNode = graphRef.current.nodes.find((n) => n.id === target);
-      if (targetNode?.kind === 'note') return;
-      const nodeIds = graphRef.current.nodes.map((n) => n.id);
-      if (graphRef.current.edges.some((e) => e.from === source && e.to === target)) return;
-      if (wouldCycle(graphRef.current.edges, nodeIds, { from: source, to: target })) return;
+      const { source, target, sourceHandle, targetHandle } = connection;
+      if (!source || !target) return;
+      const fromNode = graphRef.current.nodes.find((n) => n.id === source);
+      const toNode = graphRef.current.nodes.find((n) => n.id === target);
+      if (!fromNode || !toNode) return;
+      const fromPort = portsForNode(fromNode).find((p) => p.id === sourceHandle && p.direction === 'out');
+      const toPort = portsForNode(toNode).find((p) => p.id === targetHandle && p.direction === 'in');
+      if (!fromPort || !toPort) return;
       commit({
         nodes: graphRef.current.nodes,
-        edges: [...graphRef.current.edges, { id: crypto.randomUUID(), from: source, to: target }],
+        edges: [
+          ...graphRef.current.edges,
+          {
+            id: crypto.randomUUID(),
+            from: source,
+            to: target,
+            fromPort: fromPort.id,
+            toPort: toPort.id,
+            kind: inferEdgeKind(fromNode, fromPort.id),
+          },
+        ],
       });
     },
     [commit],
+  );
+
+  /**
+   * The connect-drag's own rejection tooltip (Theme J's "shows the
+   * rejection reason in a tooltip on drop") — `onConnect` never fires for an
+   * invalid drop (`isValidConnection` above already refused it), so this is
+   * the one callback that still sees the attempt: xyflow calls it on every
+   * connect-drag's end, valid or not, with the final `toHandle`/`toNode`
+   * still populated when the drop landed on a real (if incompatible)
+   * handle. A drop over empty canvas (`toNode` null) has nothing to explain
+   * and shows nothing.
+   */
+  const handleConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
+      if (readOnly || connectionState.isValid !== false) return;
+      const { fromNode, fromHandle, toNode, toHandle } = connectionState;
+      if (!fromNode || !fromHandle || !toNode || !toHandle) return;
+      const fromWorkflowNode = (fromNode.data as WorkflowNodeData).node;
+      const toWorkflowNode = (toNode.data as WorkflowNodeData).node;
+      const fromPort = portsForNode(fromWorkflowNode).find((p) => p.id === fromHandle.id);
+      const toPort = portsForNode(toWorkflowNode).find((p) => p.id === toHandle.id);
+      if (!fromPort || !toPort) return;
+      const result =
+        fromPort.direction === 'out'
+          ? canConnect(fromWorkflowNode, fromPort, toWorkflowNode, toPort, graphRef.current.edges)
+          : canConnect(toWorkflowNode, toPort, fromWorkflowNode, fromPort, graphRef.current.edges);
+      if (result.ok) return;
+      const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+      if (!point) return;
+      setConnectRejection({ message: result.reason, x: point.clientX, y: point.clientY });
+      window.setTimeout(() => setConnectRejection(null), 3000);
+    },
+    [readOnly],
   );
 
   const addNodeAt = useCallback(
@@ -348,40 +445,55 @@ function WorkflowCanvasInner({
           </div>
         ) : null}
 
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={WORKFLOW_NODE_TYPES}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          onConnect={readOnly ? undefined : handleConnect}
-          nodesDraggable={!readOnly}
-          nodesConnectable={!readOnly}
-          elementsSelectable
-          deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
-          selectionKeyCode={null}
-          multiSelectionKeyCode={['Shift']}
-          panOnDrag={readOnly ? true : [1, 2]}
-          selectionOnDrag={!readOnly}
-          panOnScroll
-          zoomActivationKeyCode={['Meta', 'Control']}
-          minZoom={0.25}
-          maxZoom={2}
-          snapToGrid
-          snapGrid={[GRID_STEP, GRID_STEP]}
-          proOptions={{ hideAttribution: true }}
-          fitView
-        >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="!bg-background" />
-          <Controls showInteractive={false} className="!bg-card !text-foreground [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-accent" />
-          <MiniMap
-            pannable
-            zoomable
-            className="!bg-card"
-            maskColor="rgba(0,0,0,0.15)"
-            nodeColor="var(--border)"
-          />
-        </ReactFlow>
+        {connectRejection ? (
+          <div
+            role="status"
+            style={{ position: 'fixed', left: connectRejection.x + 12, top: connectRejection.y + 12 }}
+            className="pointer-events-none z-20 max-w-64 rounded-md border border-destructive/40 bg-card px-2 py-1 text-[11px] text-destructive shadow-md"
+          >
+            {connectRejection.message}
+          </div>
+        ) : null}
+
+        <WorkflowGraphContext.Provider value={graphContextValue}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={WORKFLOW_NODE_TYPES}
+            edgeTypes={WORKFLOW_EDGE_TYPES}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={readOnly ? undefined : handleConnect}
+            onConnectEnd={readOnly ? undefined : handleConnectEnd}
+            isValidConnection={readOnly ? undefined : connectionIsValid}
+            nodesDraggable={!readOnly}
+            nodesConnectable={!readOnly}
+            elementsSelectable
+            deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+            selectionKeyCode={null}
+            multiSelectionKeyCode={['Shift']}
+            panOnDrag={readOnly ? true : [1, 2]}
+            selectionOnDrag={!readOnly}
+            panOnScroll
+            zoomActivationKeyCode={['Meta', 'Control']}
+            minZoom={0.25}
+            maxZoom={2}
+            snapToGrid
+            snapGrid={[GRID_STEP, GRID_STEP]}
+            proOptions={{ hideAttribution: true }}
+            fitView
+          >
+            <Background variant={BackgroundVariant.Dots} gap={16} size={1} className="!bg-background" />
+            <Controls showInteractive={false} className="!bg-card !text-foreground [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-accent" />
+            <MiniMap
+              pannable
+              zoomable
+              className="!bg-card"
+              maskColor="rgba(0,0,0,0.15)"
+              nodeColor="var(--border)"
+            />
+          </ReactFlow>
+        </WorkflowGraphContext.Provider>
       </div>
     </div>
   );
