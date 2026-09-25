@@ -94,6 +94,7 @@ function fakeRegistry(
     // exhaustive `Record`.
     join: executor,
     gate: executor,
+    router: executor,
   };
 }
 
