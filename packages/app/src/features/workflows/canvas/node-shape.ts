@@ -51,4 +51,6 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   verify: 'check-badge',
   /** Phase 97 Theme H — see `'start-card'`'s own doc note above. */
   trigger: 'start-card',
+  /** Phase 97 Theme G — the plain card: a `state` write has no "which way" or "waiting on a human" role worth its own accent. */
+  state: 'card',
 };
