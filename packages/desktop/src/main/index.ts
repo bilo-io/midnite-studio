@@ -107,9 +107,16 @@ import { fingerprintFile } from './socket-name';
 import { configureCouncils } from './council-service';
 import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
-import { configureWorkflows, getWorkflowRunHistoryCap, pollWorkflowGateApprovals } from './workflow-service';
+import {
+  configureWorkflows,
+  getWorkflowRunHistoryCap,
+  listWorkflows,
+  onWorkflowsChanged,
+  pollWorkflowGateApprovals,
+} from './workflow-service';
 import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
+import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { configureVideo, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
@@ -381,7 +388,12 @@ if (!app.requestSingleInstanceLock()) {
     // subscription-driven (`registerForgePollHandlers`), so a repo closing
     // just means its views unmount and unsubscribe on their own.
     initFetchScheduler(defaultLogger);
-    registerForgePollHandlers(createForgePoller(defaultLogger));
+    // Captured in a local (previously built anonymously right into the
+    // register call) so Phase 97 Theme H's trigger scheduler can subscribe
+    // its own `forge-pr` triggers onto this SAME instance below — one
+    // poller for the whole process, never a second one.
+    const forgePoller = createForgePoller(defaultLogger);
+    registerForgePollHandlers(forgePoller);
     registerSettingsHandlers();
     registerDiagHandlers();
     registerSessionsHandlers();
@@ -570,6 +582,18 @@ if (!app.requestSingleInstanceLock()) {
     // Phase 95 Theme J — where an `agent`/`script` node's executor announces
     // the real terminal session it just started (`workflowNodeSessionStarted`).
     configureWorkflowNodeSessions(getMainWindow);
+    /*
+      Phase 97 Theme H — arms `trigger` nodes (cron schedules, forge-pr
+      subscriptions over the SAME `forgePoller` instance above) for every
+      enabled workflow, reconciled now and again whenever a workflow is
+      saved/deleted (`onWorkflowsChanged`, so editing a schedule takes effect
+      immediately rather than only on next launch).
+    */
+    initTriggerScheduler(forgePoller, defaultLogger);
+    void listWorkflows().then((workflows) => reconcileTriggerScheduler(workflows));
+    onWorkflowsChanged(() => {
+      void listWorkflows().then((workflows) => reconcileTriggerScheduler(workflows));
+    });
     /*
       Phase 97 Theme D — the PR/issue comment approval channel's own poll.
       Same cadence as `forge-poller.ts`'s `FORGE_POLL_MS`, but unconditional

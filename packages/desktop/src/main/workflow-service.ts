@@ -38,6 +38,19 @@ import { nullWorkflowsStore, type WorkflowsStore } from './workflows-store';
 let workflowsStore: WorkflowsStore = nullWorkflowsStore;
 let runsStore: WorkflowRunsStore = nullWorkflowRunsStore;
 let getWindowThunk: () => BrowserWindow | null = () => null;
+/**
+ * Fired, fire-and-forget, at the end of `saveWorkflow`/`deleteWorkflow` (Phase
+ * 97 Theme H) — `trigger-scheduler.ts`'s own `reconcile` is wired here from
+ * `main/index.ts`'s boot, so editing a workflow's schedule (or disabling it,
+ * or deleting it) re-arms its timer immediately rather than only on the next
+ * app restart. A no-op by default so every existing test/call site that never
+ * configures one keeps working unchanged.
+ */
+let onWorkflowsChangedThunk: () => void = () => undefined;
+
+export function onWorkflowsChanged(listener: () => void): void {
+  onWorkflowsChangedThunk = listener;
+}
 
 let workflows: Workflow[] = [];
 let runs: WorkflowRun[] = [];
@@ -83,6 +96,7 @@ export function configureWorkflows(
   getWindowThunk = getWindow;
   workflowsLoading = null;
   runsLoading = null;
+  onWorkflowsChangedThunk = () => undefined;
 }
 
 function emitChanged(run: WorkflowRun): void {
@@ -165,6 +179,7 @@ export async function saveWorkflow(next: Workflow): Promise<Workflow> {
   };
   workflows = index === -1 ? [...workflows, saved] : workflows.map((w) => (w.id === saved.id ? saved : w));
   await workflowsStore.save(workflows);
+  onWorkflowsChangedThunk();
   return saved;
 }
 
@@ -181,8 +196,7 @@ export async function deleteWorkflow(id: string): Promise<GitOpResult> {
   await ensureRunsLoaded();
   if (!workflows.some((workflow) => workflow.id === id)) return failure('That workflow no longer exists.');
 
-  const inFlight = runs.find((run) => run.workflowId === id && isRunning(run.id));
-  if (inFlight) {
+  if (await isWorkflowRunning(id)) {
     return failure('This workflow is still running. Cancel the run before deleting it.');
   }
 
@@ -192,7 +206,20 @@ export async function deleteWorkflow(id: string): Promise<GitOpResult> {
   runs = runs.filter((run) => run.workflowId !== id);
   await workflowsStore.save(workflows);
   await runsStore.save(runs);
+  onWorkflowsChangedThunk();
   return ok();
+}
+
+/**
+ * Does this workflow already have a live run? (Phase 97 Theme H's
+ * skip-while-running rule — `trigger-scheduler.ts` checks this before ever
+ * calling `runWorkflow`.) The same in-flight check `deleteWorkflow` already
+ * needed inline, factored out so both callers agree on what "still running"
+ * means.
+ */
+export async function isWorkflowRunning(workflowId: string): Promise<boolean> {
+  await ensureRunsLoaded();
+  return runs.some((run) => run.workflowId === workflowId && isRunning(run.id));
 }
 
 // --- runs --------------------------------------------------------------------
@@ -217,15 +244,25 @@ async function saveRun(run: WorkflowRun): Promise<void> {
   await runsStore.save(runs);
 }
 
-function engineDeps(): EngineDeps {
-  return { saveRun, getRun, emitChanged, defaultTimeoutMs };
+function engineDeps(triggerPayload?: unknown): EngineDeps {
+  return { saveRun, getRun, emitChanged, defaultTimeoutMs, triggerPayload };
 }
 
-export async function runWorkflow(workflowId: string): Promise<GitOpResult<WorkflowRun>> {
+/**
+ * `triggerPayload` (Phase 97 Theme H) is what a `trigger` node's own output
+ * becomes for this one run — unset for the ordinary manual Run button, the
+ * PR's own facts for a `forge-pr` fire (`trigger-scheduler.ts`'s only caller
+ * of this with a payload). Every other caller of `runWorkflow` — the IPC
+ * handler, MCP, the scheduler's own `schedule` tick — passes none.
+ */
+export async function runWorkflow(
+  workflowId: string,
+  triggerPayload?: unknown,
+): Promise<GitOpResult<WorkflowRun>> {
   const workflow = await getWorkflow(workflowId);
   if (!workflow) return failure('That workflow no longer exists.');
   await ensureRunsLoaded();
-  return startWorkflowRun(workflow, engineDeps());
+  return startWorkflowRun(workflow, engineDeps(triggerPayload));
 }
 
 export async function cancelRun(runId: string): Promise<GitOpResult> {

@@ -60,6 +60,8 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       // first — the plainest default a fresh node can run once a command is
       // filled in.
       return { ...base, kind, label: 'Verify', config: { check: 'exit-code', command: '', env: {} } };
+    case 'trigger':
+      return { ...base, kind, label: 'Trigger', config: { on: 'manual' } };
   }
 }
 

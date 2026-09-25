@@ -193,7 +193,7 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
       data-status={status}
       data-activity-status={glow.status}
       style={{ width: 200 }}
-      className={`wf-node activity-glow group overflow-hidden bg-card shadow-sm ${shape === 'pill' ? 'rounded-full' : 'rounded-lg'} ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
+      className={`wf-node activity-glow group overflow-hidden bg-card shadow-sm ${shape === 'pill' ? 'rounded-full' : shape === 'start-card' ? 'rounded-l-full rounded-r-lg' : 'rounded-lg'} ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
     >
       {inPorts.map((port, i) => (
         <Handle

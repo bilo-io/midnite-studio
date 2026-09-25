@@ -10,6 +10,7 @@ import { noteExecutor } from './note';
 import { routerExecutor } from './router';
 import { scriptExecutor } from './script';
 import { transformExecutor } from './transform';
+import { triggerExecutor } from './trigger';
 import { verifyExecutor } from './verify';
 
 /**
@@ -41,6 +42,7 @@ export const defaultExecutors: ExecutorRegistry = {
   gate: gateExecutor,
   router: routerExecutor,
   verify: verifyExecutor,
+  trigger: triggerExecutor,
 };
 
 export {
@@ -54,5 +56,6 @@ export {
   routerExecutor,
   scriptExecutor,
   transformExecutor,
+  triggerExecutor,
   verifyExecutor,
 };

@@ -18,6 +18,7 @@ import {
   RouterForm,
   ScriptForm,
   TransformForm,
+  TriggerForm,
   VerifyForm,
   type NodeFormProps,
 } from './node-forms';
@@ -40,6 +41,7 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   gate: GateForm,
   router: RouterForm,
   verify: VerifyForm,
+  trigger: TriggerForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };

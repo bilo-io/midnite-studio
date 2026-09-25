@@ -97,6 +97,16 @@ export type EngineDeps = {
    * global, for the same testability reason as `clock`.
    */
   defaultTimeoutMs?: number;
+  /**
+   * What fired this particular run (Phase 97 Theme H) — threaded straight
+   * onto `ExecutorContext.triggerPayload` for the `trigger` node alone (see
+   * that field's own doc comment). `workflow-service.ts`'s `runWorkflow` is
+   * the one caller that ever sets this; every other `EngineDeps` construction
+   * (tests included) leaves it `undefined`, which the `trigger` executor
+   * reads as "nothing dynamic fired this" — a plain manual Run or a bare
+   * schedule tick.
+   */
+  triggerPayload?: unknown;
 };
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -877,6 +887,7 @@ async function runNode(
       runId,
       reportSessionId,
       reportWaiting,
+      triggerPayload: deps.triggerPayload,
     }).then(
       (result) => {
         if (settled) return;

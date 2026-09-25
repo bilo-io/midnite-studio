@@ -41,5 +41,9 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       // `{{verifyNodeId.path}}` can actually resolve, whichever check kind
       // produced it.
       return ['check', 'passed', 'failed', 'message', 'failures'];
+    case 'trigger':
+      // Manual and schedule fires carry nothing (the executor's own output is
+      // `null`) — only a forge-pr fire hands downstream nodes real fields.
+      return node.config.on === 'forge-pr' ? ['number', 'title', 'headRef', 'url', 'author'] : [];
   }
 }
