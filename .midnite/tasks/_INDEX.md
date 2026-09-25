@@ -81,7 +81,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | — | Verification |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 41/101 | `████░░░░░░` | 41% | — | — |
-| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | — | J (2 human passes) |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | ✅ DONE | x1 | 59/59 | `██████████` | 100% | — | — |
 | [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | ✅ DONE | — | 70/70 | `██████████` | 100% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |

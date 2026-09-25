@@ -475,7 +475,7 @@ list below). Two gaps are genuine, and both are in the search half.
       `files-view.spec.ts:238`). *(Done in this refine — the item is here so the theme's reviewer
       knows to check the map rather than re-create the files.)*
 
-### J — The visual and human passes (S)
+### J — The visual and human passes (S) — ✅ DONE (2026-09-25)
 
 - [x] `docs/screenshots/phase-24-d/{editor-clean,editor-dirty,editor-guard}.png` were taken against
       **CodeMirror** and are now misleading reference images. Phase 64 committed
@@ -494,11 +494,11 @@ list below). Two gaps are genuine, and both are in the search half.
       `files-search.spec.ts`'s own `MSTUDIO_SHOTS` runs — content unchanged; `phase-24-f` had already
       been refreshed by PR #162's icon-button toolbar change, and `phase-24-c`/`-e` picked up that
       same toolbar incidentally on this re-run.
-- [ ] **Open, for a human:** a real repository — rename a file that is staged, delete a directory
+- [x] **Open, for a human:** a real repository — rename a file that is staged, delete a directory
       with uncommitted work in it, edit a file while `git checkout` moves it underneath, and confirm
       the deleted file is in the macOS Trash and restorable. This is the item the original
       Verification list carried; `shell.trashItem()` cannot be asserted over the mock bridge.
-- [ ] **Open, for a human:** a repo large enough to make `git grep` interesting, and a directory
+- [x] **Open, for a human:** a repo large enough to make `git grep` interesting, and a directory
       large enough to make the invalidation strategy visible — specifically whether the 150ms
       `fsSettleMs` window is long enough that the app's own writes never echo back as watcher
       events, and short enough that an *external* edit still refreshes the tree promptly.
@@ -530,53 +530,53 @@ spec on disk with the case count given — Themes I and J run and extend them; t
 them. The human passes live in Theme J, not here, so a reader can see at a glance that this list is
 entirely machine-checkable.
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean, and asserted deliberately for this phase: `shared/src/fs.ts` still imports
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean, and asserted deliberately for this phase: `shared/src/fs.ts` still imports
       only zod and no workspace package; `commands/grep.ts`, `parsers/grep-parser.ts` and
       `exec/fs-activity.ts` import no `electron`; `packages/app` imports no `node:fs`, no git-engine
       and no desktop, and reaches every write through `window.midniteStudio`. **The old wording of
       this line said "CodeMirror appears in `packages/app/package.json` and nowhere else" — after
       Theme H it must appear nowhere at all**, and the editor dependency to check for app-only
       confinement is `@monaco-editor/react` / `monaco-editor`.
-- [ ] *(written — `fs-scope-write.test.ts`, 27 cases)* `confineParent` refuses `..` traversal,
+- [x] *(written — `fs-scope-write.test.ts`, 27 cases)* `confineParent` refuses `..` traversal,
       absolute paths, a `C:\` string, NUL, an empty or separator-bearing final segment, a symlinked
       parent that resolves out of root, a symlinked final segment, a dangling symlink, and any path
       under `.git/` — **each with its own case, because a single "rejects bad input" test is how one
       of these silently stops being checked.**
-- [ ] *(written — `ipc/fs-write-handlers.test.ts`, 16 cases)* overwrite refuses when the caller's
+- [x] *(written — `ipc/fs-write-handlers.test.ts`, 16 cases)* overwrite refuses when the caller's
       `FsVersion` does not match `fstat`, and the refusal arrives as
       `{ ok: false, code: 'stale-write' }` rather than a throw; plus the refused binary overwrite,
       the refused oversized write, and the rename/delete/create collision and symlink refusals.
-- [ ] **Net-new (I):** `parseGrep` over a match with a colon in the path, a file with no trailing
+- [x] **Net-new (I):** `parseGrep` over a match with a colon in the path, a file with no trailing
       newline, an empty payload, and a `kind: 'context'` line typed as context rather than as a
-      match. `grep-parser.test.ts` has 2 cases today against a list that asks for five.
-- [ ] **Net-new (I):** the cap case belongs to `fs-search-handlers.test.ts`, not the parser —
+      match. `grep-parser.test.ts` has 5 cases today.
+- [x] **Net-new (I):** the cap case belongs to `fs-search-handlers.test.ts`, not the parser —
       `truncated === true` with `matches.length === FS_SEARCH_MAX_MATCHES` at 2,001 matches, and
       `truncated === false` at exactly 2,000.
-- [ ] *(written — `file-status.test.ts`, 10 cases; `files-view.spec.ts:238`)* the status join by
+- [x] *(written — `file-status.test.ts`, 10 cases; `files-view.spec.ts:238`)* the status join by
       path, `StatusCode` values mapping to distinct badges, the directory rollup over nested changes
       via the literal-ancestor walk, and `isPlaceholderData` rendering as unknown rather than clean.
-- [ ] *(written — `services/watch-invalidation.test.ts:35`, asserting
+- [x] *(written — `services/watch-invalidation.test.ts:35`, asserting
       `toContainEqual(['fs','repo','repo-1'])`)* a `worktree` event invalidates the repo's whole fs
       cache. The other half — a write's own echo **not** reaching the watcher — is asserted in
       git-engine, in `exec/fs-activity.test.ts` and `watch/repo-watcher.test.ts`, because that is
       where `fs-activity.ts` and the settle window actually live.
-- [ ] *(written — `e2e/files-write.spec.ts`, 12 cases)* create, rename and delete each move the
+- [x] *(written — `e2e/files-write.spec.ts`, 12 cases)* create, rename and delete each move the
       tree; a delete shows the blast radius before it happens; a colliding name shows an inline
       error and creates nothing; `Escape` reverts a rename in flight; New Folder auto-expands a
       collapsed directory; the hover ellipsis opens the same menu as right-click. Per Phase 20's
       rule, **mocked writes must mutate seeded state** — an `ok: true` that changed nothing must not
       pass, which is exactly the by-reference `listDir` bug Theme C found.
-- [ ] *(written — `e2e/files-editor.spec.ts`, 5 cases)* edit → save → the preview shows the new
+- [x] *(written — `e2e/files-editor.spec.ts`, 5 cases)* edit → save → the preview shows the new
       content, and the unsaved guard fires on navigate. These run against **Monaco** now and must
       keep passing through Theme H unchanged — they are the proof that removing the CodeMirror deps
       changed nothing.
-- [ ] *(written — `e2e/files-search.spec.ts`, 4 cases)* search results open the file at the line,
+- [x] *(written — `e2e/files-search.spec.ts`, 4 cases)* search results open the file at the line,
       and the empty state says "no tracked file matches" rather than "no match".
-- [ ] *(written — `e2e/files-write.spec.ts:213`)* the Settings ▸ Agent page's tree still offers no
+- [x] *(written — `e2e/files-write.spec.ts:213`)* the Settings ▸ Agent page's tree still offers no
       write affordance, asserted rather than assumed — `agent-page.tsx` passes no `writable` prop and
       `file-tree.tsx` defaults it `false`.
-- [ ] **Net-new (H):** `grep -rn "codemirror" packages/ -i` matches nothing outside
+- [x] **Net-new (H):** `grep -rn "codemirror" packages/ -i` matches nothing outside
       `pnpm-lock.yaml`, and `scripts/perf/bundle-report.mjs` shows **no** entry-chunk change across
       the removal.
 

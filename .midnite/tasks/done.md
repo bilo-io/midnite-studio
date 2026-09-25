@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 24 — The explorer learns to write, and to search
+
+[Phase 24](phases/phase-24-writable-explorer.md) marked ✅ DONE (70/70 items verified).
+Full filesystem write and mutation support in the explorer (create file/folder, inline rename, delete via macOS Trash with blast-radius confirm), scoped confined path validation in desktop, editor state management with unsaved changes navigation guard and stale-write conflict detection (now Monaco, with `@codemirror/*` dependencies cleanly removed), tracked content search via fast NUL-delimited `git grep` with result capping and matched-line jumping, status badges with directory rollup across tree rows, and real-time fs invalidation with 150ms write-echo suppression.
+
 ## 2026-09-25 — Phase 23 — A command palette, and the registry that can finally feed it
 
 [Phase 23](phases/phase-23-command-palette.md) marked ✅ DONE (59/59 items verified).
