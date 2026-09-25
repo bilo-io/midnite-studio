@@ -285,6 +285,11 @@ export function upsertLoopState(run: WorkflowRun, state: WorkflowLoopState): voi
 
 // --- {{loop.*}} interpolation context -------------------------------------------
 
+/** A verify node's own `WorkflowVerifyEvidence.message` reads better than `JSON.stringify`-ing the whole evidence object. */
+function isVerifyEvidenceMessage(output: unknown): output is { message: string } {
+  return typeof output === 'object' && output !== null && typeof (output as Record<string, unknown>)['message'] === 'string';
+}
+
 function stringifyForFailureMessage(value: unknown): string {
   if (typeof value === 'string') return value;
   try {
@@ -330,9 +335,23 @@ export function buildLoopContext(
     for (const record of run.nodes) {
       if (!body.has(record.nodeId)) continue;
       if (nodeRunIteration(record) >= state.iteration) continue;
-      const isFailure = record.status === 'failed' || record.status === 'timeout' || record.loopExit !== undefined;
+      // A `verify` node's `'fail'` verdict (Theme E) is not an executor
+      // failure — same as `condition`'s `true`/`false`, it settles
+      // `succeeded` — so it needs its own arm here alongside the genuine
+      // failure/timeout/loopExit cases. Scoped to `kind === 'verify'` so it
+      // can never misfire on some other kind that happens to route through
+      // a port literally named `'fail'`.
+      const isVerifyFail = record.kind === 'verify' && record.settledPort === 'fail';
+      const isFailure =
+        record.status === 'failed' || record.status === 'timeout' || record.loopExit !== undefined || isVerifyFail;
       if (!isFailure) continue;
-      const rawMessage = record.error ?? (record.output !== undefined ? stringifyForFailureMessage(record.output) : 'no output');
+      const rawMessage =
+        record.error ??
+        (isVerifyFail && isVerifyEvidenceMessage(record.output)
+          ? record.output.message
+          : record.output !== undefined
+            ? stringifyForFailureMessage(record.output)
+            : 'no output');
       failures.push({ iteration: nodeRunIteration(record), nodeId: record.nodeId, message: redactPaths(rawMessage) });
     }
 

@@ -95,6 +95,7 @@ function fakeRegistry(
     join: executor,
     gate: executor,
     router: executor,
+    verify: executor,
   };
 }
 

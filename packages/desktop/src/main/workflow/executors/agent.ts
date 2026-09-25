@@ -43,6 +43,20 @@ import { defaultNodePtyDeps, NODE_PTY_POLL_MS, type NodePtyDeps } from './node-p
  * killed the session, the shell crashed) still settles the node — as a
  * failure, via `onExit` — so a closed session can never leave a node stuck
  * `running` until the outer per-node deadline.
+ *
+ * **{@link runAgentToDoneMarker}** is this executor's core — roster lookup,
+ * launch resolution, the pty session and the idle poll — factored out
+ * (Phase 97 Theme F) so any node whose marker grammar differs (Theme F's
+ * `router` agent-label mode, Theme E's `verify` agent check) never has to
+ * re-implement the loop, only its own {@link AgentDoneMarkerWatch}:
+ * `buildPrompt` wraps the caller's own task text with whatever sentinel
+ * instruction the agent must print, `parseMarker` reads the accumulated
+ * output for it, and `toOutcome` turns a found marker plus the captured
+ * transcript into THIS caller's actual settle — different callers settle on
+ * different ports (an `agent` node fails on `'fail'`; `verify`'s `'fail'` is
+ * an ordinary `pass`/`fail` port, never a failure; `router`'s watch names a
+ * case id instead of `ok`/`fail` at all). `createAgentExecutor` below is a
+ * thin, behaviour-preserving wrapper over it.
  */
 
 const AGENT_OUTPUT_CAP_BYTES = 200_000;
@@ -65,11 +79,12 @@ export type AgentLaunchConfig = {
  *
  * `buildPrompt` wraps the caller's own task text with whatever sentinel
  * instruction it needs the agent to print (`agentNodeDonePrompt`'s `ok`/
- * `fail` for a plain `agent` node, Theme F's `routerAgentLabelPrompt` for a
- * `router` in agent-label mode). `parseMarker` scans the accumulated output
- * so far and returns the parsed marker, or `null` while it hasn't appeared
- * yet. `toOutcome` turns a found marker plus the captured transcript into
- * this node's actual settle — different callers settle on different ports.
+ * `fail` for a plain `agent` node or a `verify` agent check, Theme F's
+ * `routerAgentLabelPrompt` for a `router` in agent-label mode). `parseMarker`
+ * scans the accumulated output so far and returns the parsed marker, or
+ * `null` while it hasn't appeared yet. `toOutcome` turns a found marker plus
+ * the captured transcript into this node's actual settle — different
+ * callers settle on different ports.
  */
 export type AgentDoneMarkerWatch<T> = {
   buildPrompt: (prompt: string) => string;
@@ -78,19 +93,29 @@ export type AgentDoneMarkerWatch<T> = {
 };
 
 /**
+ * The `ok`/`fail` marker grammar every plain agent-flavoured node shares (the
+ * `agent` node itself, and Theme E's `verify` agent check) — the two only
+ * ever differ in what `toOutcome` does with the result, never in how the
+ * marker is written or read.
+ */
+export function parseAgentDoneMarker(bufferText: string): 'ok' | 'fail' | null {
+  const match = WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec(bufferText);
+  if (!match) return null;
+  return match[1] === 'fail' ? 'fail' : 'ok';
+}
+
+/**
  * Roster lookup, launch, and pty-watch for "run a roster agent until it
  * prints a done marker and goes idle" — extracted out of `agentExecutor`
  * (Phase 97 Theme F) so a second caller with a different marker grammar
- * (`router`'s agent-label mode) never has to re-implement this loop.
- * `agentExecutor` below is a thin, behaviour-preserving wrapper over this.
+ * (`router`'s agent-label mode, `verify`'s agent check) never has to
+ * re-implement this loop. `agentExecutor` below is a thin, behaviour-
+ * preserving wrapper over this.
  */
 export async function runAgentToDoneMarker<T>(
   config: AgentLaunchConfig,
   node: { id: string; label: string },
-  context: Pick<
-    Parameters<NodeExecutor>[1],
-    'workflowId' | 'runId' | 'reportSessionId' | 'signal'
-  >,
+  context: Pick<Parameters<NodeExecutor>[1], 'workflowId' | 'runId' | 'reportSessionId' | 'signal'>,
   deps: NodePtyDeps,
   watch: AgentDoneMarkerWatch<T>,
 ): Promise<NodeOutcome> {
@@ -191,6 +216,16 @@ export async function runAgentToDoneMarker<T>(
   });
 }
 
+/** The plain `agent` node's own watch: `ok` succeeds, `fail` is an executor failure (unlike `verify`'s use of the identical marker grammar). */
+const agentNodeDoneMarkerWatch: AgentDoneMarkerWatch<'ok' | 'fail'> = {
+  buildPrompt: (prompt) => agentNodeDonePrompt(prompt),
+  parseMarker: parseAgentDoneMarker,
+  toOutcome: (marker, output) =>
+    marker === 'ok'
+      ? { ok: true, output, truncated: output.truncated }
+      : { ok: false, error: 'The agent reported it could not complete this task.' },
+};
+
 export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): NodeExecutor {
   return async (node, context): Promise<NodeOutcome> => {
     if (node.kind !== 'agent') return { ok: false, error: 'Not an agent node.' };
@@ -210,18 +245,7 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
       node,
       context,
       deps,
-      {
-        buildPrompt: (prompt) => agentNodeDonePrompt(prompt),
-        parseMarker: (bufferText) => {
-          const match = WORKFLOW_AGENT_DONE_MARKER_PATTERN.exec(bufferText);
-          if (!match) return null;
-          return match[1] === 'fail' ? 'fail' : 'ok';
-        },
-        toOutcome: (marker, output) =>
-          marker === 'ok'
-            ? { ok: true, output, truncated: output.truncated }
-            : { ok: false, error: 'The agent reported it could not complete this task.' },
-      },
+      agentNodeDoneMarkerWatch,
     );
   };
 }
