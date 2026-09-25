@@ -61,6 +61,33 @@ describe('McpSettingsPage', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith({ enabled: true }));
   });
 
+  it('renders the gate-decide switch disabled with the server off', async () => {
+    installBridge();
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+
+    // Its own accordion starts collapsed (only "MCP Server" is `defaultOpen`)
+    // — open it first, same as a user would. `getByTestId`, not
+    // `findByLabelText`: the Accordion region itself also carries an
+    // `aria-label` matching its own title, which is the identical string.
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents decide workflow gates' }));
+    const checkbox = await screen.findByTestId('mcp-allow-gate-decide');
+    expect((checkbox as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('toggling the gate-decide switch calls mcp.set with the new value', async () => {
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowGateDecide: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents decide workflow gates' }));
+    const checkbox = await screen.findByTestId('mcp-allow-gate-decide');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowGateDecide: true }));
+  });
+
   it('renders an empty state with no calls', async () => {
     installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });

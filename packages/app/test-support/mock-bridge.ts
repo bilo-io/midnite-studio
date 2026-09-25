@@ -830,7 +830,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -3983,10 +3983,12 @@ export function buildMockBridge(data: MockFixtures) {
         shimPath:
           '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
         allowUi: mcpAllowUi,
+        allowGateDecide: mcpAllowGateDecide,
       }),
-      set: async (req: { enabled?: boolean; allowUi?: boolean }) => {
+      set: async (req: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
+        if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -3996,6 +3998,7 @@ export function buildMockBridge(data: MockFixtures) {
           shimPath:
             '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
           allowUi: mcpAllowUi,
+          allowGateDecide: mcpAllowGateDecide,
         };
       },
       calls: async () => ({
@@ -4198,6 +4201,9 @@ export function buildMockBridge(data: MockFixtures) {
   // fields).
   // eslint-disable-next-line no-var
   var mcpAllowUi = data.mcp?.allowUi ?? false;
+  // Phase 97 Theme D's third switch — same off-by-default, independent posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowGateDecide = data.mcp?.allowGateDecide ?? false;
 
   // Which STT providers a key has been "saved" for in this page's lifetime
   // (Theme F) — mutated by `sttSet`, read by `sttStatus`, so a spec can
