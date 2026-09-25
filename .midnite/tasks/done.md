@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-25 — Phase 97 Theme F — Router node
 
-[PR #PENDING](https://github.com/bilo-io/midnite-studio/pull/PENDING). A new `router` node kind
+[PR #563](https://github.com/bilo-io/midnite-studio/pull/563). A new `router` node kind
 fans a run out to one of several named cases, or `default` — the graph-diagram counterpart to
 Theme D's human gate and Theme B's `join`, settled the same `port`/`settledPort` way `condition`
 already is, so no engine change was needed at all.
