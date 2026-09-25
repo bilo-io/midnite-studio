@@ -53,6 +53,8 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Join', config: { mode: 'all', inputs: 2 } };
     case 'gate':
       return { ...base, kind, label: 'Gate', config: { title: '', instructions: '', onTimeout: 'reject' } };
+    case 'router':
+      return { ...base, kind, label: 'Router', config: { mode: 'expression', cases: [] } };
   }
 }
 

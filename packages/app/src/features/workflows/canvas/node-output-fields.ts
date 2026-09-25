@@ -34,5 +34,7 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       return ['results'];
     case 'gate':
       return ['decision', 'note', 'decidedBy'];
+    case 'router':
+      return ['case', 'reason'];
   }
 }
