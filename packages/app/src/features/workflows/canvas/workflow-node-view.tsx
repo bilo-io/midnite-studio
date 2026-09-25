@@ -30,6 +30,16 @@ export type WorkflowNodeData = {
   readOnly?: boolean;
   /** This node's own live `TerminalSession`(s) (Theme J's `agent`/`script` kinds) — see `use-workflow-run.ts`'s `useLiveWorkflowNodeSessions`. */
   sessions?: readonly ActivityGlowSessionInput[];
+  /**
+   * A run's own `settledPort` for this node (Theme E) — the same
+   * `nodeSettledPorts` map `workflow-canvas.tsx` already threads to the
+   * custom edge component (for taken/dead painting), now also read here so
+   * the `check-badge` shape can show a `verify` node's actual `pass`/`fail`
+   * verdict. A verify node's generic `status` is `succeeded` either way — a
+   * `'fail'` verdict is not an executor failure — so `status` alone cannot
+   * distinguish the two; this can.
+   */
+  settledPort?: string;
 };
 
 /**
@@ -138,7 +148,7 @@ function isPortDimmed(
  * the ring width is what carries selection when the colour is already taken.
  */
 export function WorkflowNodeView({ id, data, selected }: NodeProps) {
-  const { node, invalid, status, error, readOnly, sessions } = data as unknown as WorkflowNodeData;
+  const { node, invalid, status, error, readOnly, sessions, settledPort } = data as unknown as WorkflowNodeData;
   const meta = NODE_KIND_META[node.kind];
   const Icon = meta.icon;
   const StatusIcon = status ? STATUS_ICON[status] : null;
@@ -248,6 +258,18 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
             <span className="min-w-0 flex-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               {meta.label}
             </span>
+            {shape === 'check-badge' && (settledPort === 'pass' || settledPort === 'fail') ? (
+              <span
+                aria-hidden
+                className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+                style={{
+                  color: activityStatusVar(settledPort === 'pass' ? 'done' : 'failed'),
+                  background: `color-mix(in srgb, ${activityStatusVar(settledPort === 'pass' ? 'done' : 'failed')} 18%, transparent)`,
+                }}
+              >
+                {settledPort}
+              </span>
+            ) : null}
             {StatusIcon ? (
               <StatusIcon
                 aria-hidden

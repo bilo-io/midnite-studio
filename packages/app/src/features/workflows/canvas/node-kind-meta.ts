@@ -1,5 +1,6 @@
 import type { WorkflowNode, WorkflowNodeKind } from '@midnite/studio-shared';
 import {
+  LuBadgeCheck,
   LuBot,
   LuClock,
   LuGitBranch,
@@ -105,6 +106,18 @@ export const NODE_KIND_META: Record<
     category: 'logic',
     description: 'Send the run down one of several named cases, or default.',
   },
+  /**
+   * Phase 97 Theme E. `logic` hue, beside `condition`/`join` — a verifier is
+   * a routing decision (`pass`/`fail`) over a computed or agent-graded
+   * check, not an action with its own side effect (the checked action
+   * already ran upstream).
+   */
+  verify: {
+    label: 'Verify',
+    icon: LuBadgeCheck,
+    category: 'logic',
+    description: 'Check the upstream result — agent verdict, exit code, test counts or a JSON path.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -136,5 +149,18 @@ export function nodeSummary(node: WorkflowNode): string {
       return node.config.mode === 'agent-label'
         ? `Agent label · ${node.config.cases.length} case${node.config.cases.length === 1 ? '' : 's'}`
         : `Expression · ${node.config.cases.length} case${node.config.cases.length === 1 ? '' : 's'}`;
+    case 'verify':
+      switch (node.config.check) {
+        case 'agent':
+          return node.config.agentId.trim() ? `Agent verdict · ${node.config.agentId}` : 'No agent selected';
+        case 'exit-code':
+          return node.config.command.trim() ? `Exit code · ${node.config.command}` : 'No command';
+        case 'test-counts':
+          return node.config.command.trim() ? `Test counts (${node.config.parser})` : 'No command';
+        case 'json-path':
+          return node.config.op === 'empty'
+            ? `${node.config.source || '…'} is empty`
+            : `${node.config.source || '…'} ${node.config.op} ${node.config.right || '…'}`;
+      }
   }
 }

@@ -55,6 +55,11 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Gate', config: { title: '', instructions: '', onTimeout: 'reject' } };
     case 'router':
       return { ...base, kind, label: 'Router', config: { mode: 'expression', cases: [] } };
+    case 'verify':
+      // `exit-code` is the check with no roster/parser dependency to pick
+      // first — the plainest default a fresh node can run once a command is
+      // filled in.
+      return { ...base, kind, label: 'Verify', config: { check: 'exit-code', command: '', env: {} } };
   }
 }
 

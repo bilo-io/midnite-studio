@@ -36,5 +36,10 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       return ['decision', 'note', 'decidedBy'];
     case 'router':
       return ['case', 'reason'];
+    case 'verify':
+      // `WorkflowVerifyEvidence`'s own field names (Theme E) — what
+      // `{{verifyNodeId.path}}` can actually resolve, whichever check kind
+      // produced it.
+      return ['check', 'passed', 'failed', 'message', 'failures'];
   }
 }
