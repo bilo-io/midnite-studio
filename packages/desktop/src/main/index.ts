@@ -93,7 +93,7 @@ import {
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
-import { createForgePoller } from './forge/forge-poller';
+import { createForgePoller, FORGE_POLL_MS } from './forge/forge-poller';
 import { registerForgePollHandlers } from './ipc/forge-poll-handlers';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
 import { createConnectionsStore } from './db/connections-store';
@@ -107,7 +107,7 @@ import { fingerprintFile } from './socket-name';
 import { configureCouncils } from './council-service';
 import { createCouncilsRunsStore } from './councils-runs-store';
 import { createCouncilsStore } from './councils-store';
-import { configureWorkflows, getWorkflowRunHistoryCap } from './workflow-service';
+import { configureWorkflows, getWorkflowRunHistoryCap, pollWorkflowGateApprovals } from './workflow-service';
 import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
 import { registerVideoHandlers } from './ipc/video-handlers';
@@ -570,6 +570,16 @@ if (!app.requestSingleInstanceLock()) {
     // Phase 95 Theme J — where an `agent`/`script` node's executor announces
     // the real terminal session it just started (`workflowNodeSessionStarted`).
     configureWorkflowNodeSessions(getMainWindow);
+    /*
+      Phase 97 Theme D — the PR/issue comment approval channel's own poll.
+      Same cadence as `forge-poller.ts`'s `FORGE_POLL_MS`, but unconditional
+      rather than subscription-gated: a waiting gate is worth checking
+      whether or not any window has a matching forge view open. Costs
+      nothing when there is nothing waiting — `pollWorkflowGateApprovals`'s
+      own early return, `waitingLinkedGates()`, is what keeps this idle.
+    */
+    const gateApprovalTimer = setInterval(() => void pollWorkflowGateApprovals(), FORGE_POLL_MS);
+    gateApprovalTimer.unref();
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));

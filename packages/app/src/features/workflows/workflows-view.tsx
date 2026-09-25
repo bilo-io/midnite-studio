@@ -471,6 +471,7 @@ function WorkflowEditor({
           {runPanelCollapsed ? null : <ResizeHandle resizable={runPanel} axis="y" label="Resize run output panel" />}
           <RunOutputPanel
             run={focusedRun}
+            workflowNodes={local.nodes}
             collapsed={runPanelCollapsed}
             onToggleCollapsed={() => setRunPanelCollapsed(!runPanelCollapsed)}
             height={runPanel.current}

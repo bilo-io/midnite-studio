@@ -14,6 +14,7 @@ import {
   WindowRoleSchema,
 } from './domain';
 import { isCommandId } from './keybindings';
+import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
  * Midnite Studio speaks MCP (Phase 57).
@@ -61,7 +62,9 @@ type McpToolEntry = {
     | 'forge.checks'
     | 'ui.state'
     | 'ui.navigate'
-    | 'ui.command';
+    | 'ui.command'
+    | 'workflow_gates_list'
+    | 'workflow_gate_decide';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -225,6 +228,52 @@ export const MCP_TOOLS = {
     output: z.object({ did: z.literal('ran'), label: z.string() }),
     readOnly: false,
   },
+  /*
+   * Phase 97 Theme D — a workflow's own human gate, over MCP. `workflow_gate_decide`
+   * is this app's FIRST non-read-only MCP tool that touches app state rather
+   * than the window chrome (`ui.navigate`/`ui.command` steer the UI; this
+   * decides a real paused run) — gated by its own `Settings ▸ MCP ▸ Let
+   * agents decide workflow gates` switch (`allowGateDecide` on
+   * `McpSettings`), off by default and never implied by `enabled` or
+   * `allowUi`, the identical posture Theme F already established for those
+   * two. Workflows are global (no `repoPath` — see `workflow.ts`'s own doc
+   * comment), so neither tool extends `McpRepoTarget`.
+   */
+  workflow_gates_list: {
+    id: 'workflow_gates_list',
+    title: 'List gates waiting for approval',
+    description:
+      'Lists every workflow run currently paused on a human gate — call before `workflow_gate_decide` to find a runId/nodeId to decide.',
+    input: z.object({}),
+    output: z.array(
+      z.object({
+        runId: z.string(),
+        workflowId: z.string(),
+        workflowName: z.string(),
+        nodeId: z.string(),
+        label: z.string(),
+        title: z.string(),
+        instructions: z.string(),
+        /** Epoch ms this node started waiting. */
+        startedAt: z.number().int().nonnegative().optional(),
+      }),
+    ),
+    readOnly: true,
+  },
+  workflow_gate_decide: {
+    id: 'workflow_gate_decide',
+    title: 'Decide a waiting workflow gate',
+    description:
+      'Approves or rejects one gate a workflow run is paused on — call `workflow_gates_list` first to find its runId/nodeId, refused unless its own Settings switch is on.',
+    input: z.object({
+      runId: z.string().min(1),
+      nodeId: z.string().min(1),
+      decision: WorkflowGateDecisionSchema,
+      note: z.string().optional(),
+    }),
+    output: z.object({ decided: z.literal(true) }),
+    readOnly: false,
+  },
 } satisfies Record<string, McpToolEntry>;
 
 /**
@@ -234,6 +283,10 @@ export const MCP_TOOLS = {
  * sentence rather than two copies that can drift.
  */
 export const UI_TOOLS_OFF_MESSAGE = 'UI tools are off — Settings ▸ MCP ▸ Let agents steer the UI';
+
+/** The exact refusal `workflow_gate_decide` answers with while `McpSettings.allowGateDecide` is off. */
+export const GATE_DECIDE_OFF_MESSAGE =
+  'Gate decide is off — Settings ▸ MCP ▸ Let agents decide workflow gates';
 
 /** Derived, never hand-maintained — exactly `COMMAND_IDS` from `COMMANDS` in `keybindings.ts`. */
 export type McpToolId = keyof typeof MCP_TOOLS;

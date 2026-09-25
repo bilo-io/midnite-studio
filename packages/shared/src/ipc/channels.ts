@@ -767,6 +767,8 @@ export const CHANNELS = {
   workflowCancel: 'mstudio:workflow:cancel',
   workflowRunsList: 'mstudio:workflow-runs:list',
   workflowRunsGet: 'mstudio:workflow-runs:get',
+  /** Phase 97 Theme D — decide a `gate` node waiting for approval, from the run panel. */
+  workflowGateDecide: 'mstudio:workflow:gate-decide',
   /**
    * One-way, fire-and-forget (Theme I) — the same shape `updateSetChannel`
    * uses for a renderer setting that reaches main: `ipcMain.on`, not a

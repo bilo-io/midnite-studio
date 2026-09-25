@@ -13,6 +13,8 @@ import {
   uiCommand,
   uiNavigate,
   uiState,
+  workflowGateDecide,
+  workflowGatesList,
 } from './tools';
 import { McpToolError } from './errors';
 
@@ -35,6 +37,8 @@ export const MCP_HANDLERS: {
   'ui.state': uiState,
   'ui.navigate': uiNavigate,
   'ui.command': uiCommand,
+  workflow_gates_list: workflowGatesList,
+  workflow_gate_decide: workflowGateDecide,
 };
 
 export type McpDispatchResult =

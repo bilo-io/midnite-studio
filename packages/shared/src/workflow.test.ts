@@ -69,8 +69,8 @@ describe('WorkflowSchema', () => {
   it('discriminates node kinds on `kind`, and rejects one that is not in the vocabulary', () => {
     expect(WorkflowNodeSchema.safeParse({ ...node(), kind: 'shellexec' }).success).toBe(false);
     // Every kind in the exported list is parseable — the list and the union
-    // cannot drift apart without this failing. `agent`/`script` (Theme J) and
-    // `join` (Theme B) joined the MVP's original five.
+    // cannot drift apart without this failing. `agent`/`script` (Theme J),
+    // `join` (Theme B) and `gate` (Theme D) joined the MVP's original five.
     expect(WORKFLOW_NODE_KINDS).toEqual([
       'http',
       'transform',
@@ -80,6 +80,7 @@ describe('WorkflowSchema', () => {
       'agent',
       'script',
       'join',
+      'gate',
     ]);
   });
 
@@ -270,6 +271,16 @@ describe('validateWorkflow', () => {
     expect(issues).toContainEqual({ message: '"Merge" has nothing to join.', nodeId: 'j' });
   });
 
+  it('names a gate with no title (Theme D)', () => {
+    const issues = validateWorkflow(
+      workflow({
+        nodes: [{ id: 'g', label: 'Gate', x: 0, y: 0, kind: 'gate', config: { title: '', instructions: '', onTimeout: 'reject' } }],
+        edges: [],
+      }),
+    );
+    expect(issues).toContainEqual({ message: '"Gate" has no title.', nodeId: 'g' });
+  });
+
   it('does not double-report a note connection as a missing port', () => {
     const issues = validateWorkflow(
       workflow({
@@ -361,6 +372,24 @@ describe('portsForNode', () => {
       type: 'object',
       properties: { fulfilled: { type: 'array', items: { type: 'any' } }, rejected: { type: 'array', items: { type: 'any' } } },
     });
+  });
+
+  it("settles a gate on named approved/rejected out-ports, exactly like condition's true/false (Theme D)", () => {
+    const n: WorkflowNode = {
+      id: 'g',
+      label: 'Ship it?',
+      x: 0,
+      y: 0,
+      kind: 'gate',
+      config: { title: 'Ship it?', instructions: '', onTimeout: 'reject' },
+    };
+    const ports = portsForNode(n);
+    expect(ports.map((p) => p.id)).toEqual(['in', 'approved', 'rejected', WORKFLOW_ERROR_PORT_ID]);
+    expect(ports.filter((p) => p.direction === 'out').map((p) => p.id)).toEqual([
+      'approved',
+      'rejected',
+      WORKFLOW_ERROR_PORT_ID,
+    ]);
   });
 });
 

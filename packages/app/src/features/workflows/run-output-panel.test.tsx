@@ -1,5 +1,5 @@
-import type { WorkflowRun } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { MidniteStudioBridge, WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { RunOutputPanel, runToMarkdown } from './run-output-panel';
@@ -80,6 +80,69 @@ describe('RunOutputPanel', () => {
   it('exposes an Export button that downloads markdown once a run exists', () => {
     render(<RunOutputPanel run={run()} collapsed={false} onToggleCollapsed={() => {}} height={200} />);
     expect(screen.getByLabelText('Export run as Markdown')).not.toBeNull();
+  });
+
+  describe('a waiting gate (Phase 97 Theme D)', () => {
+    const gateNode: WorkflowNode = {
+      id: 'g1',
+      label: 'Gate',
+      x: 0,
+      y: 0,
+      kind: 'gate',
+      config: { title: 'Ship it?', instructions: 'Check the diff.', onTimeout: 'reject' },
+    };
+    const waitingRun = run({
+      status: 'running',
+      nodes: [
+        { nodeId: 'g1', kind: 'gate', label: 'Gate', status: 'waiting', truncated: false, gatedDownstream: false },
+      ],
+    });
+
+    afterEach(() => {
+      delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    });
+
+    it("shows the gate's own title/instructions and Approve/Reject once workflowNodes carries its config", () => {
+      render(
+        <RunOutputPanel
+          run={waitingRun}
+          workflowNodes={[gateNode]}
+          collapsed={false}
+          onToggleCollapsed={() => {}}
+          height={200}
+        />,
+      );
+
+      expect(screen.getByText('Waiting for approval')).not.toBeNull();
+      expect(screen.getByText('Ship it?')).not.toBeNull();
+      expect(screen.getByText('Check the diff.')).not.toBeNull();
+      expect(screen.getByRole('button', { name: /Approve/ })).not.toBeNull();
+      expect(screen.getByRole('button', { name: /Reject/ })).not.toBeNull();
+    });
+
+    it('Approve calls bridge().workflow.gateDecide with the run/node id and the typed note', async () => {
+      const gateDecide = vi.fn().mockResolvedValue({ ok: true });
+      (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
+        workflow: { gateDecide } as unknown as MidniteStudioBridge['workflow'],
+      } as Partial<MidniteStudioBridge>;
+
+      render(
+        <RunOutputPanel
+          run={waitingRun}
+          workflowNodes={[gateNode]}
+          collapsed={false}
+          onToggleCollapsed={() => {}}
+          height={200}
+        />,
+      );
+
+      fireEvent.change(screen.getByPlaceholderText('Optional note'), { target: { value: 'lgtm' } });
+      fireEvent.click(screen.getByRole('button', { name: /Approve/ }));
+
+      await waitFor(() =>
+        expect(gateDecide).toHaveBeenCalledWith({ runId: 'r1', nodeId: 'g1', decision: 'approved', note: 'lgtm' }),
+      );
+    });
   });
 });
 

@@ -86,6 +86,7 @@ function context(reported: string[], over: Partial<ExecutorContext> = {}): Execu
     reportSessionId: async (id) => {
       reported.push(id);
     },
+    reportWaiting: async () => {},
     ...over,
   };
 }

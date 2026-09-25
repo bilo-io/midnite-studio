@@ -32,6 +32,7 @@ export function McpSettingsPage() {
         socketPath: null,
         shimPath: null,
         allowUi: false,
+        allowGateDecide: false,
       },
   });
 
@@ -54,6 +55,16 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 97 Theme D's third switch — the same shape as `setAllowUi`, just as
+   * narrow: it never touches the socket, only whether `workflow_gate_decide`
+   * will act once a call reaches it.
+   */
+  const setAllowGateDecide = useMutation({
+    mutationFn: async (nextAllowGateDecide: boolean) => bridge()?.mcp.set({ allowGateDecide: nextAllowGateDecide }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -67,6 +78,7 @@ export function McpSettingsPage() {
   const enabled = status.data?.enabled ?? false;
   const running = status.data?.running ?? false;
   const allowUi = status.data?.allowUi ?? false;
+  const allowGateDecide = status.data?.allowGateDecide ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite-studio -- node ${status.data.shimPath}` : null;
 
   return (
@@ -156,6 +168,25 @@ export function McpSettingsPage() {
               <li>Act while the screen is locked.</li>
             </ul>
           </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents decide workflow gates" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-gate-decide"
+            label="Let agents decide workflow gates"
+            description="A third switch, as narrow as the one above — off by default, and disabled until the master switch is on. It gates one tool: workflow_gate_decide, which approves or rejects a workflow run currently paused on a human gate. workflow_gates_list (read-only) always works once the server is on."
+            on={allowGateDecide}
+            onToggle={(_id, next) => setAllowGateDecide.mutate(next)}
+            testId="mcp-allow-gate-decide"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowGateDecide.data?.error && (
+            <div className="text-xs text-destructive">{setAllowGateDecide.data.error}</div>
+          )}
         </div>
       </Accordion>
 

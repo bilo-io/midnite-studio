@@ -432,6 +432,7 @@ const bridge: Pick<
     delete: (req) => call(CHANNELS.workflowDelete, req),
     run: (req) => call(CHANNELS.workflowRun, req),
     cancel: (req) => call(CHANNELS.workflowCancel, req),
+    gateDecide: (req) => call(CHANNELS.workflowGateDecide, req),
     runs: {
       list: (req) => call(CHANNELS.workflowRunsList, req),
       get: (req) => call(CHANNELS.workflowRunsGet, req),

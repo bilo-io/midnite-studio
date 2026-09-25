@@ -6,11 +6,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createMcpStore } from '../mcp-store';
 import {
+  getMcpAllowGateDecide,
   getMcpAllowUi,
   getMcpServerHandle,
   getMcpStatus,
   registerMcpServer,
   resetMcpServerStateForTests,
+  setMcpAllowGateDecide,
   setMcpAllowUi,
   setMcpEnabled,
 } from './index';
@@ -45,7 +47,7 @@ describe('registerMcpServer', () => {
 
   it('binds a socket when the store says enabled', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 2, enabled: true, allowUi: false });
+    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: false, allowGateDecide: false });
 
     const handle = await registerMcpServer({
       userDataDir,
@@ -59,7 +61,7 @@ describe('registerMcpServer', () => {
 
   it('loads allowUi from the store too, alongside enabled', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 2, enabled: false, allowUi: true });
+    await createMcpStore(userDataDir).save({ version: 3, enabled: false, allowUi: true, allowGateDecide: false });
 
     await registerMcpServer({
       userDataDir,
@@ -90,15 +92,16 @@ describe('setMcpEnabled', () => {
 
     // Persisted, not just in memory.
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 2,
+      version: 3,
       enabled: true,
       allowUi: false,
+      allowGateDecide: false,
     });
   });
 
   it('stops the server live when turned off, and persists the flag', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 2, enabled: true, allowUi: false });
+    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: false, allowGateDecide: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -112,15 +115,16 @@ describe('setMcpEnabled', () => {
     expect(result.ok && result.status.running).toBe(false);
     expect(getMcpServerHandle()).toBeNull();
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 2,
+      version: 3,
       enabled: false,
       allowUi: false,
+      allowGateDecide: false,
     });
   });
 
   it('preserves allowUi when only the enabled flag changes', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 2, enabled: false, allowUi: true });
+    await createMcpStore(userDataDir).save({ version: 3, enabled: false, allowUi: true, allowGateDecide: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -130,9 +134,10 @@ describe('setMcpEnabled', () => {
 
     await setMcpEnabled(true);
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 2,
+      version: 3,
       enabled: true,
       allowUi: true,
+      allowGateDecide: false,
     });
   });
 
@@ -160,15 +165,16 @@ describe('setMcpAllowUi', () => {
     expect(getMcpServerHandle()).toBeNull(); // allowUi never starts the server
 
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 2,
+      version: 3,
       enabled: false,
       allowUi: true,
+      allowGateDecide: false,
     });
   });
 
   it('preserves enabled when only allowUi changes', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 2, enabled: true, allowUi: false });
+    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: false, allowGateDecide: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -178,14 +184,65 @@ describe('setMcpAllowUi', () => {
 
     await setMcpAllowUi(true);
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 2,
+      version: 3,
       enabled: true,
       allowUi: true,
+      allowGateDecide: false,
     });
   });
 
   it('answers ok:false before registerMcpServer has run', async () => {
     const result = await setMcpAllowUi(true);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe('setMcpAllowGateDecide', () => {
+  it('persists the flag and never touches the socket', async () => {
+    const userDataDir = tempDir();
+    const handle = await registerMcpServer({
+      userDataDir,
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+    expect(handle).toBeNull(); // enabled is still off
+
+    const result = await setMcpAllowGateDecide(true);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.status.allowGateDecide).toBe(true);
+    expect(getMcpAllowGateDecide()).toBe(true);
+    expect(getMcpServerHandle()).toBeNull(); // allowGateDecide never starts the server
+
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 3,
+      enabled: false,
+      allowUi: false,
+      allowGateDecide: true,
+    });
+  });
+
+  it('preserves enabled and allowUi when only allowGateDecide changes', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: true, allowGateDecide: false });
+    await registerMcpServer({
+      userDataDir,
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+
+    await setMcpAllowGateDecide(true);
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 3,
+      enabled: true,
+      allowUi: true,
+      allowGateDecide: true,
+    });
+  });
+
+  it('answers ok:false before registerMcpServer has run', async () => {
+    const result = await setMcpAllowGateDecide(true);
     expect(result.ok).toBe(false);
   });
 });

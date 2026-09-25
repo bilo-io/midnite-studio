@@ -1,6 +1,68 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme D — Human gate
+
+[PR #562](https://github.com/bilo-io/midnite-studio/pull/562). A run pauses for approval, decided
+from any of four surfaces — the run panel, the notification bell, an MCP tool, or a PR/issue
+comment — building on Theme A's ports, Theme B's `settledPort` convention, and (post-merge, once
+rebased) Theme J's canvas-styling extension points.
+
+- [x] New node kind **`gate`**, config `{title, instructions, timeoutMs?, onTimeout:'reject',
+      linkedRef?}`. Settles `approved`/`rejected` — its own out-ports, exactly like `condition`'s
+      `true`/`false` — never a failure, plus the standard `error` port every executor-bearing kind
+      gets.
+- [x] New `WorkflowNodeStatus` value **`waiting`** — excluded from `TERMINAL`, so the run stays
+      `running` and every downstream edge reads `pending` for as long as the gate sits here. This
+      status IS the durable "paused" fact on the run record; no second field was needed.
+- [x] **Engine** (`workflow-engine.ts`, `executors/gate.ts`, new `gate-waiters.ts`): the gate goes
+      through the ordinary async-executor path, not an inline settle like `join`. Its executor
+      patches its own status `running` → `waiting` via a new `context.reportWaiting()` (the same
+      mid-flight-patch idiom `reportSessionId`/`patchNodeSessionId` already use), then awaits an
+      in-memory waiter any of the four decide channels resolves. `settleNode`'s idempotence guard
+      had to widen from `status !== 'running'` to also accept `'waiting'` — the trickiest bug,
+      since by settle time the node is sitting in `waiting`, not `running`, and the old guard
+      silently no-op'd every decide. The generic per-node engine deadline is capped near-infinite
+      for `gate` (`WORKFLOW_GATE_ENGINE_BACKSTOP_MS`) so it can never preempt the gate's own
+      `config.timeoutMs` (a plain `setTimeout` inside the executor, `delay.ts`'s own un-injected-
+      clock convention) — the generic deadline produces the `timeout` status, which fails the whole
+      run; a gate's own timeout must settle `rejected` instead, an ordinary branch. Cancel: the
+      executor polls `context.signal.cancelled()` on a 50ms interval (verbatim `delay.ts`),
+      settling `{ok:false, error:'Cancelled.'}` — identical to any other in-flight node on cancel,
+      no special case needed in `finalizeRun`. New exported `decideWorkflowGate(runId, nodeId,
+      decision, note, decidedBy, deps)` is the one function every decide channel funnels through.
+- [x] **Run panel**: a new `GateDecideRow` renders under any `waiting` gate — title, instructions
+      (read from the live workflow's own node config, since `WorkflowNodeRun` carries none),
+      Approve/Reject and an optional note, over a new `workflowGateDecide` IPC channel.
+- [x] **Notification bell**: `useWaitingGateToasts()` (mounted once, from `App`) reveals the run via
+      `workflow-reveal-store.ts` through the existing toast system, deduping per `runId:nodeId` and
+      removing the entry once decided.
+- [x] **Node glow**: reuses the existing `waiting` `ActivityStatus` token — no new colour logic.
+      Canvas: a new `shield` `NodeShapeVariant` (Theme J's own extension point) — the plain card
+      plus a small shield accent beside `diamond-header`'s rotated square.
+- [x] **MCP**: `workflow_gates_list` (read-only) and `workflow_gate_decide` (the first non-read-only
+      MCP tool), gated by a third `McpSettings.allowGateDecide` switch (`version: 3`, same shape as
+      Theme F's `allowUi`), with its own Settings ▸ MCP card.
+- [x] **PR/issue comment approval**: `gate-comment.ts` (pure token/body/parse helpers) +
+      `gate-forge-service.ts`, wired through the EXISTING multi-forge `ForgeAdapter`/`adapterFor`
+      (Phase 90 Theme D) rather than a GitHub-only path — `resolveAdapter` exported from
+      `forge-handlers.ts` for the reuse. A standalone poll, called from `workflow-service.ts` on the
+      same `FORGE_POLL_MS` cadence `forge-poller.ts` uses, costs zero forge calls whenever nothing
+      is waiting. "The account that owns the forge credential" resolves to an explicit
+      `ForgeAccount.login` when one exists, or `gh api user`'s own login for the common `gh`-
+      delegated GitHub case. A wrong-author comment is ignored and logged, never acted on.
+- [x] **Auto-mate**: no card→workflow-run link exists anywhere yet — confirmed from
+      `use-automate.ts`'s own doc comment. Added the pure, tested `workflowRunNeedsAttention(run)`
+      in `automate-derive.ts` for that future integration, rather than fabricating a fake hook.
+- [x] **Kill switch**: `openKillSwitch` gained a `runId` (already sitting in `sessions-view.tsx`'s
+      own `group.runId`); Confirm now also calls `bridge().workflow.cancel({runId})` for the Flow
+      scope — previously it only closed terminal sessions, which left a waiting gate (no pty at
+      all) completely unstoppable via this modal.
+- [x] Vitest: approve/reject/timeout/cancel routing (`workflow-engine.test.ts`), MCP decide with and
+      without consent (`gate-tools.test.ts`), a PR-comment from the wrong author ignored and logged
+      (`gate-comment.test.ts`), and Auto-mate's `workflowRunNeedsAttention` with a waiting run
+      (`automate-derive.test.ts`) — plus run-panel, bell-toast and kill-switch component coverage.
+
 ## 2026-09-25 — Phase 97 Theme J — Canvas styling
 
 [PR #561](https://github.com/bilo-io/midnite-studio/pull/561). Builds on Theme A's ports/edge-kinds, Theme B's `settledPort`/`edgeState`, and — once

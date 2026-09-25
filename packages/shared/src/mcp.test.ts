@@ -15,11 +15,11 @@ describe('MCP_TOOLS', () => {
   });
 
   /**
-   * Phase 81 Theme F's two write tools are the only `readOnly: false`
-   * entries — everything else, including the two other `ui.*` reads, stays
-   * `true`.
+   * Phase 81 Theme F's two `ui.*` write tools plus Phase 97 Theme D's
+   * `workflow_gate_decide` are the only `readOnly: false` entries —
+   * everything else, including `workflow_gates_list`, stays `true`.
    */
-  const writeTools = new Set<McpToolId>(['ui.navigate', 'ui.command']);
+  const writeTools = new Set<McpToolId>(['ui.navigate', 'ui.command', 'workflow_gate_decide']);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
     for (const id of MCP_TOOL_IDS) {
@@ -106,6 +106,8 @@ describe('MCP_TOOLS', () => {
     },
     'ui.navigate': { did: 'navigated', view: 'graph' },
     'ui.command': { did: 'ran', label: 'Fetch' },
+    workflow_gates_list: [],
+    workflow_gate_decide: { decided: true },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -126,6 +128,10 @@ describe('MCP_TOOLS', () => {
       'ui.state': {},
       'ui.navigate': { view: 'graph' },
       'ui.command': { id: 'sync.fetch' },
+      // Workflows are global, not repo-scoped (`workflow.ts`'s own doc
+      // comment) — neither gate tool extends `McpRepoTarget`.
+      workflow_gates_list: {},
+      workflow_gate_decide: { runId: 'r1', nodeId: 'n1', decision: 'approved' },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;

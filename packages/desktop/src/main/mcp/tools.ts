@@ -15,6 +15,7 @@ import {
 import {
   checksVerdict,
   DIFF_LINE_CAP,
+  GATE_DECIDE_OFF_MESSAGE,
   isSupportedForgeKind,
   pickForgeRemote,
   UI_TOOLS_OFF_MESSAGE,
@@ -30,8 +31,9 @@ import {
 import { requestUiAction } from '../companion/ui-bridge';
 import { listPulls, listRuns } from '../forge/github/gh-cli';
 import { listRepos } from '../repo-registry';
+import { decideGate, listWaitingGates } from '../workflow-service';
 import { McpToolError } from './errors';
-import { getMcpAllowUi } from './ui-gate';
+import { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
 
 /**
  * The eight read-only MCP tools (Phase 57 Theme D), one function per tool id.
@@ -295,4 +297,31 @@ export async function uiCommand(input: McpToolInput<'ui.command'>): Promise<McpT
   }
 
   return { did: 'ran', label: result.value.label };
+}
+
+// --- workflow gate.* (Phase 97 Theme D) --------------------------------------
+//
+// Workflows are global (`workflow.ts`'s own doc comment) — neither tool
+// resolves a repository, so neither goes through `resolveRegisteredRepo`.
+
+export async function workflowGatesList(): Promise<McpToolOutput<'workflow_gates_list'>> {
+  return listWaitingGates();
+}
+
+/**
+ * The first non-read-only MCP tool that changes app state (`ui.navigate`/
+ * `ui.command` steer the window; this decides a real paused run) — gated by
+ * its own `Settings ▸ MCP ▸ Let agents decide workflow gates` switch,
+ * mirroring `uiNavigate`/`uiCommand`'s own off-switch refusal shape exactly.
+ */
+export async function workflowGateDecide(
+  input: McpToolInput<'workflow_gate_decide'>,
+): Promise<McpToolOutput<'workflow_gate_decide'>> {
+  if (!getMcpAllowGateDecide()) throw new McpToolError('refused', GATE_DECIDE_OFF_MESSAGE);
+
+  const result = await decideGate(input.runId, input.nodeId, input.decision, input.note, 'mcp');
+  if (!result.ok) {
+    throw new McpToolError('not-found', result.kind === 'error' ? result.message : 'Could not decide this gate.');
+  }
+  return { decided: true };
 }

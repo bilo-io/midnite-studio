@@ -66,6 +66,14 @@ export type ExecutorContext = {
    * other executor.
    */
   reportSessionId: (sessionId: string) => Promise<void>;
+  /**
+   * Patch this node's own status from `running` to `waiting` (Phase 97 Theme
+   * D), the moment the `gate` executor starts — the same mid-flight-patch
+   * idiom as {@link reportSessionId}, one call site above. Every other
+   * executor ignores this; a gate calls it once, before it starts waiting on
+   * a decision that may take an arbitrary amount of real time.
+   */
+  reportWaiting: () => Promise<void>;
 };
 
 /**

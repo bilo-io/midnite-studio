@@ -175,39 +175,53 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       port, dry-round convergence with a repeated rejected key, budget stop with an injected clock,
       and cancel mid-iteration.
 
-### D — Human gate (M)
+### D — Human gate (M) ✅ DONE ([PR #562](https://github.com/bilo-io/midnite-studio/pull/562), 2026-09-25)
 
-- [ ] New node kind **`gate`**, config
+- [x] New node kind **`gate`**, config
       `{title, instructions, timeoutMs?, onTimeout: 'reject', linkedRef?: {kind:'pr'|'issue', repoId, number}}`,
       ports `approved` / `rejected`.
-- [ ] A reached gate puts the node in a new **`waiting`** `WorkflowNodeStatus`. The run stays
+- [x] A reached gate puts the node in a new **`waiting`** `WorkflowNodeStatus`. The run stays
       `running`. `WorkflowNodeStatusSchema` (`:293`) gains the value, and every exhaustive switch
       over it is updated.
-- [ ] **Run panel:** the gate's row in `run-output-panel.tsx` shows the instructions, the upstream
-      artifact(s) and Approve / Reject with an optional note. The note becomes `{{gate.note}}`
-      downstream.
-- [ ] **Notification bell:** `notification-bell.tsx` gets a "workflow waiting on you" entry that
-      reveals the run via `workflow-reveal-store.ts` (Phase 95 Theme J).
-- [ ] **Node glow:** the gate paints `waiting` through `useActivityGlow`. There is no new colour
+- [x] **Run panel:** the gate's row in `run-output-panel.tsx` shows the instructions, the upstream
+      artifact(s) and Approve / Reject with an optional note. The note reaches downstream the same
+      way every other kind's output does — `{{gateNodeId.note}}` off the settled `{decision, note,
+      decidedBy}` output — the doc's own `{{gate.note}}` shorthand names the pattern, not a fourth
+      reserved root (there can be several gates in one graph; `demo`/`loop`/`state` stay the only
+      three closed, global namespaces).
+- [x] **Notification bell:** a new `useWaitingGateToasts()` hook (mounted once, from `App`) reveals
+      the run via `workflow-reveal-store.ts` (Phase 95 Theme J) through the existing toast system,
+      deduping per `runId:nodeId` and removing the entry once the gate is decided.
+- [x] **Node glow:** the gate paints `waiting` through `useActivityGlow`. There is no new colour
       logic.
-- [ ] **Timeout:** when `timeoutMs` is set, main auto-rejects at the deadline with the note
-      "timed out". The clock is main's, so a closed window does not stop it. A quit app loses it,
-      which G's resume handles.
-- [ ] **MCP approval:** new Studio MCP tools `workflow_gates_list` (read-only) and
+- [x] **Timeout:** when `timeoutMs` is set, main auto-rejects at the deadline with the note
+      "Timed out." — inside the gate's own executor (a plain `setTimeout`, `delay.ts`'s own
+      convention), never the engine's generic per-node deadline, which would wrongly fail the run.
+      A quit app loses it, which G's resume handles (today's crude boot sweep already force-cancels
+      any `waiting` node, matching how `running`/`pending` are already treated pre-Theme-G).
+- [x] **MCP approval:** new Studio MCP tools `workflow_gates_list` (read-only) and
       `workflow_gate_decide` (`{runId, nodeId, decision, note}`). The latter is the first
-      non-read-only MCP tool. It goes through [`ui-gate.ts`](../../../packages/desktop/src/main/mcp/ui-gate.ts)'s
-      consent path, is audited in [`audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts),
-      and is off unless Settings ▸ MCP allows it. It is not a repository write, so
-      [Phase 57](phase-57-mcp-server.md) Decision 5 stands.
-- [ ] **PR/issue comment approval:** when `linkedRef` is set, the gate posts one comment with a
-      token (`/midnite approve <token>` / `/midnite reject <token>`). The forge poller watches that
-      thread, and a matching comment **from the account that owns the forge credential** decides
+      non-read-only MCP tool. It goes through a third `McpSettings.allowGateDecide` switch
+      (`ui-gate.ts`'s consent path, same shape as Theme F's `allowUi`), is audited in
+      [`audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts) automatically (no `repoPath` on
+      either tool, so the ring just shows one), and is off unless Settings ▸ MCP allows it. It is
+      not a repository write, so [Phase 57](phase-57-mcp-server.md) Decision 5 stands.
+- [x] **PR/issue comment approval:** when `linkedRef` is set, the gate posts one comment with a
+      token (`/midnite approve <token>` / `/midnite reject <token>`) through the existing
+      multi-forge `ForgeAdapter`/`adapterFor` (Phase 90 Theme D), not a GitHub-only path. A
+      standalone poll (`gate-forge-service.ts`, called from `workflow-service.ts` on the same
+      `FORGE_POLL_MS` cadence as `forge-poller.ts`, zero forge calls when nothing is waiting) reads
+      the thread and a matching comment **from the account that owns the forge credential** decides
       the gate. Anyone else's comment is ignored and logged.
-- [ ] **Auto-mate:** `automate-derive.ts` treats a card whose workflow run is `waiting` as **not
-      done**, so the board does not advance past it.
-- [ ] **Kill switch:** the Flow scope cancels a waiting run like any running one. The gate
-      settles `cancelled` and posts nothing further.
-- [ ] Vitest: approve / reject / timeout routing, MCP decide with and without consent, a comment
+- [x] **Auto-mate:** no card→workflow-run link exists anywhere yet (`use-automate.ts`'s own doc
+      comment says so explicitly — Auto-mate drives a roster agent's terminal session today, never
+      a workflow run). Added the pure, tested predicate `workflowRunNeedsAttention(run)` in
+      `automate-derive.ts` for that future integration to call, rather than fabricating a fake hook.
+- [x] **Kill switch:** the Flow scope cancels a waiting run like any running one — `openKillSwitch`
+      gained a `runId` (already sitting in `sessions-view.tsx`'s own `group.runId`), and Confirm now
+      also calls `bridge().workflow.cancel({runId})`. A gate has no pty at all, so this was
+      previously unstoppable via this modal (closing zero sessions did nothing).
+- [x] Vitest: approve / reject / timeout routing, MCP decide with and without consent, a comment
       from the wrong author ignored, a cancelled gate, and Auto-mate's derive with a waiting run.
 
 ### E — Verifier node (M)

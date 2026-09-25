@@ -12,18 +12,22 @@ import type { WorkflowNodeKind } from '@midnite/studio-shared';
  *   Theme F's `router` reuses this exact variant, not a new one).
  * - `pill` — a narrow, fully-rounded shape with no header strip (`join`) —
  *   a routing decision has no config worth a body, just its mode.
+ * - `shield` — the plain card, plus a small shield accent ahead of the
+ *   header label (`gate`, Phase 97 Theme D) — the diamond accent's own
+ *   "which way does this branch" role, worn by a human decision instead of
+ *   a computed one.
  *
- * **Extension point for D/E/F/H/I** (documented on the phase doc's own
+ * **Extension point for E/F/H/I** (documented on the phase doc's own
  * dependency list, not invented here): a new node kind adds one case to
  * {@link WORKFLOW_NODE_KINDS} in `shared/src/workflow.ts`, which makes this
  * `Record` fail to typecheck until it is widened with a shape variant —
- * `gate` → `'shield'`, `verify` → `'check-badge'`, `router` → reuse
- * `'diamond-header'`, `trigger` → `'start-card'`, `frame` → `'frame'`. Each
- * new variant is then given its own rendering branch in
- * `workflow-node-view.tsx` next to `diamond-header`/`pill` below — this map
- * only says *which* variant a kind gets, never how one is drawn.
+ * `verify` → `'check-badge'`, `router` → reuse `'diamond-header'`,
+ * `trigger` → `'start-card'`, `frame` → `'frame'`. Each new variant is then
+ * given its own rendering branch in `workflow-node-view.tsx` next to
+ * `diamond-header`/`pill`/`shield` below — this map only says *which*
+ * variant a kind gets, never how one is drawn.
  */
-export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill';
+export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill' | 'shield';
 
 export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   http: 'card',
@@ -34,4 +38,5 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   agent: 'card',
   script: 'card',
   join: 'pill',
+  gate: 'shield',
 };

@@ -95,8 +95,13 @@ const noForgeIssueCreate = (): ForgeIssueCreateResult => ({ ok: false, cli: noFo
  * will start populating (`activeAccountFor` returns `null` for every host
  * until then, which is exactly GitHub's own pre-refactor behaviour: `gh`
  * itself is the credential, not an account record).
+ *
+ * Exported for `gate-forge-service.ts` (Phase 97 Theme D) — a gate's
+ * PR/issue comment approval needs exactly this `{forge, adapter}` pair, from
+ * a `repoId` alone, and re-deriving it a second way would be the one thing
+ * this function exists to avoid.
  */
-async function resolveAdapter(
+export async function resolveAdapter(
   repoId: string,
 ): Promise<{ forge: Forge; adapter: ForgeAdapter } | null> {
   const forge = await repoForge(repoId);

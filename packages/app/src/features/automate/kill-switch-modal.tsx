@@ -3,6 +3,7 @@ import { LuFolderGit2, LuGlobe, LuSquareKanban, LuUserRound, LuWorkflow } from '
 
 import { KILL_SCOPES, KILL_SCOPE_LABEL, type KillScope } from '@midnite/studio-shared';
 
+import { bridge } from '../../services/bridge';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { useDismiss } from '../../components/use-dismiss';
 import { useUiStore } from '../../store/ui-store';
@@ -26,8 +27,14 @@ const SCOPE_ICON: Record<KillScope, typeof LuGlobe> = {
  * The one sentence above the buttons, naming exactly what Confirm does
  * (`docs/INITIAL_PLAN.md`'s own blast-radius convention, generalised past a
  * git op) — the phase doc's own worked example is `project`'s wording here.
+ *
+ * `cancelsRun` (Phase 97 Theme D) is `flow`-only: the run itself is also
+ * cancelled, not just its terminal sessions — worth naming explicitly for
+ * the all-gate case, where `count` is 0 (a gate has no pty to close) and the
+ * sentence would otherwise read "Stops 0 sessions", which understates what
+ * Confirm is actually about to do.
  */
-function scopeSentence(scope: KillScope, count: number, automateOffCount: number): string {
+function scopeSentence(scope: KillScope, count: number, automateOffCount: number, cancelsRun: boolean): string {
   const sessions = `${count} session${count === 1 ? '' : 's'}`;
   const suffix =
     automateOffCount > 0
@@ -35,7 +42,9 @@ function scopeSentence(scope: KillScope, count: number, automateOffCount: number
       : '.';
   switch (scope) {
     case 'flow':
-      return `Stops ${sessions} for this workflow${suffix}`;
+      return cancelsRun
+        ? `Stops ${sessions} and cancels this workflow run${suffix}`
+        : `Stops ${sessions} for this workflow${suffix}`;
     case 'project':
       return `Stops ${sessions} on this project board${suffix}`;
     case 'repo':
@@ -104,6 +113,7 @@ export function KillSwitchModal() {
   const forgeActiveAccountId = useUiStore((s) => s.forgeActiveAccountId);
   const automateEnabledByProject = useUiStore((s) => s.automateEnabledByProject);
   const flowWorkflowId = useUiStore((s) => s.killSwitchFlowWorkflowId);
+  const flowRunId = useUiStore((s) => s.killSwitchFlowRunId);
 
   const repoBoardProjectId = selectedRepoId ? (projectBoardByRepo[selectedRepoId] ?? null) : null;
   const activeAccount = forgeAccounts.find((a) => a.id === forgeActiveAccountId);
@@ -146,6 +156,20 @@ export function KillSwitchModal() {
     }
     for (const session of matching) {
       useTerminalStore.getState().closeSession(session.id);
+    }
+    /*
+      Phase 97 Theme D — the Flow scope cancels the run itself, not only its
+      terminal sessions. A `gate` node has no pty to close (it settles from a
+      decide, not a shell exiting), so a waiting gate was completely
+      unstoppable via this modal before `killSwitchFlowRunId` existed —
+      closing zero matching sessions and reporting nothing to confirm.
+      `runId` is only ever set when this modal was opened FOR a specific
+      workflow run (`sessions-view.tsx`'s own kill button); the command
+      palette / project-board openers leave it `null`, so this never fires
+      for them.
+    */
+    if (scope === 'flow' && flowRunId) {
+      void bridge()?.workflow.cancel({ runId: flowRunId });
     }
     close();
   };
@@ -198,7 +222,7 @@ export function KillSwitchModal() {
           </div>
 
           <p className="mt-3 text-xs font-medium text-destructive">
-            {scopeSentence(scope, matching.length, automateOffProjectIds.length)}
+            {scopeSentence(scope, matching.length, automateOffProjectIds.length, scope === 'flow' && Boolean(flowRunId))}
           </p>
 
           <div className="mt-4 flex gap-2">
@@ -213,7 +237,11 @@ export function KillSwitchModal() {
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={matching.length === 0 && automateOffProjectIds.length === 0}
+              disabled={
+                matching.length === 0 &&
+                automateOffProjectIds.length === 0 &&
+                !(scope === 'flow' && flowRunId)
+              }
               className="h-8 flex-1 rounded-md bg-destructive px-3 text-sm font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirm

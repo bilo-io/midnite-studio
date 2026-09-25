@@ -4,9 +4,12 @@ import type { Workflow, WorkflowEdge, WorkflowLoopConfig, WorkflowNode, Workflow
 
 import { startFixtureServer, type FixtureServer } from '../demo-api/fixture-server';
 import type { ExecutorRegistry, NodeExecutor, NodeOutcome } from './executor-registry';
+import { createGateExecutor } from './executors/gate';
 import { httpExecutor } from './executors/http';
+import { resetGateWaitersForTests } from './gate-waiters';
 import {
   cancelWorkflowRun,
+  decideWorkflowGate,
   runLocksSizeForTests,
   startWorkflowRun,
   type EngineDeps,
@@ -90,6 +93,7 @@ function fakeRegistry(
     // included only so this fixture registry satisfies `ExecutorRegistry`'s
     // exhaustive `Record`.
     join: executor,
+    gate: executor,
   };
 }
 
@@ -109,6 +113,7 @@ async function settle(): Promise<void> {
 
 beforeEach(() => {
   expect(runLocksSizeForTests()).toBe(0);
+  resetGateWaitersForTests();
 });
 
 // --- the tests ---------------------------------------------------------------
@@ -1312,5 +1317,160 @@ describe('demo API interpolation (Phase 97 Theme M)', () => {
     const node = run.nodes.find((n) => n.nodeId === 'h');
     expect(node?.status).toBe('failed');
     expect(node?.error).toBe('Demo API is not running — start it from the Demo API pill.');
+  });
+});
+
+// --- Phase 97 Theme D: the gate node ------------------------------------------
+
+function gateNode(id: string, timeoutMs?: number): WorkflowNode {
+  return {
+    id,
+    label: id,
+    x: 0,
+    y: 0,
+    kind: 'gate',
+    config: { title: 'Ship it?', instructions: '', onTimeout: 'reject', ...(timeoutMs !== undefined ? { timeoutMs } : {}) },
+  };
+}
+
+function gateRegistry(recorder: Recorder): ExecutorRegistry {
+  return { ...fakeRegistry({}, recorder), gate: createGateExecutor() };
+}
+
+describe('gate node (Phase 97 Theme D)', () => {
+  it('pauses the run: the node reaches waiting, and the run itself stays running', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([gateNode('g')], []);
+
+    const started = await startWorkflowRun(w, deps(store, { executors: gateRegistry(recorder) }));
+    expect(started.ok).toBe(true);
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    expect(run.status).toBe('running');
+    expect(run.nodes.find((n) => n.nodeId === 'g')?.status).toBe('waiting');
+  });
+
+  it('approve settles succeeded on the approved port — an ordinary branch, never a failure — and runs only that branch', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [gateNode('g'), delayNode('onApproved'), delayNode('onRejected')],
+      [
+        { id: 'e1', from: 'g', to: 'onApproved', fromPort: 'approved' },
+        { id: 'e2', from: 'g', to: 'onRejected', fromPort: 'rejected' },
+      ],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: gateRegistry(recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    const decided = await decideWorkflowGate(runId, 'g', 'approved', 'lgtm', 'panel', deps(store));
+    expect(decided.ok).toBe(true);
+    await settle();
+
+    const run = store.get(runId)!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.g!.status).toBe('succeeded');
+    expect(byId.g!.settledPort).toBe('approved');
+    expect(byId.g!.output).toEqual({ decision: 'approved', note: 'lgtm', decidedBy: 'panel' });
+    expect(byId.onApproved!.status).toBe('succeeded');
+    expect(byId.onRejected!.status).toBe('skipped');
+    expect(run.status).toBe('completed');
+  });
+
+  it('reject settles succeeded on the rejected port and runs only that branch', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = typedWorkflow(
+      [gateNode('g'), delayNode('onApproved'), delayNode('onRejected')],
+      [
+        { id: 'e1', from: 'g', to: 'onApproved', fromPort: 'approved' },
+        { id: 'e2', from: 'g', to: 'onRejected', fromPort: 'rejected' },
+      ],
+    );
+
+    const started = await startWorkflowRun(w, deps(store, { executors: gateRegistry(recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    const decided = await decideWorkflowGate(runId, 'g', 'rejected', undefined, 'panel', deps(store));
+    expect(decided.ok).toBe(true);
+    await settle();
+
+    const run = store.get(runId)!;
+    const byId = Object.fromEntries(run.nodes.map((n) => [n.nodeId, n]));
+    expect(byId.g!.status).toBe('succeeded');
+    expect(byId.g!.settledPort).toBe('rejected');
+    expect(byId.g!.output).toEqual({ decision: 'rejected', note: null, decidedBy: 'panel' });
+    expect(byId.onApproved!.status).toBe('skipped');
+    expect(byId.onRejected!.status).toBe('succeeded');
+  });
+
+  it('auto-rejects at its own config.timeoutMs, well before the generic per-node deadline could ever fire', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([gateNode('g', 5)], []);
+
+    const started = await startWorkflowRun(w, deps(store, { executors: gateRegistry(recorder) }));
+    await settle();
+
+    const run = store.get(started.ok ? started.value.id : '')!;
+    const node = run.nodes.find((n) => n.nodeId === 'g')!;
+    // Succeeded, not the generic `timeout` status — a gate's own timeout is
+    // an ordinary rejected branch, never a run-failing category.
+    expect(node.status).toBe('succeeded');
+    expect(node.settledPort).toBe('rejected');
+    expect(node.output).toEqual({ decision: 'rejected', note: 'Timed out.', decidedBy: 'timeout' });
+    expect(run.status).toBe('completed');
+  });
+
+  it('decideWorkflowGate refuses a decision for a node that is not (or no longer) waiting', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([gateNode('g')], []);
+    const started = await startWorkflowRun(w, deps(store, { executors: gateRegistry(recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+
+    const first = await decideWorkflowGate(runId, 'g', 'approved', undefined, 'panel', deps(store));
+    expect(first.ok).toBe(true);
+    await settle();
+
+    // Decided once already — a second decide (a race between two channels)
+    // is refused, not silently re-applied.
+    const second = await decideWorkflowGate(runId, 'g', 'rejected', undefined, 'mcp', deps(store));
+    expect(second.ok).toBe(false);
+
+    // A node id that was never a gate at all.
+    const bogus = await decideWorkflowGate(runId, 'nope', 'approved', undefined, 'panel', deps(store));
+    expect(bogus.ok).toBe(false);
+  });
+
+  it('cancelling a run with a waiting gate settles it failed with "Cancelled." and the run itself as cancelled', async () => {
+    const store = makeStore();
+    const recorder: Recorder = { started: [], settled: [] };
+    const w = workflow([gateNode('g')], []);
+
+    const started = await startWorkflowRun(w, deps(store, { executors: gateRegistry(recorder) }));
+    const runId = started.ok ? started.value.id : '';
+    await settle();
+    expect(store.get(runId)!.nodes.find((n) => n.nodeId === 'g')?.status).toBe('waiting');
+
+    const cancelled = await cancelWorkflowRun(runId, deps(store));
+    expect(cancelled.ok).toBe(true);
+
+    const run = store.get(runId)!;
+    expect(run.status).toBe('cancelled');
+    const node = run.nodes.find((n) => n.nodeId === 'g')!;
+    expect(node.status).toBe('failed');
+    expect(node.error).toBe('Cancelled.');
+
+    // Nothing left waiting on this gate — a decide arriving after the fact
+    // (a slow PR-comment poll tick, say) is a clean no-op, not a crash.
+    const lateDecide = await decideWorkflowGate(runId, 'g', 'approved', undefined, 'pr-comment', deps(store));
+    expect(lateDecide.ok).toBe(false);
   });
 });

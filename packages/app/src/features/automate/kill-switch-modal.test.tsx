@@ -3,7 +3,7 @@
  * pointer capability needed (`docs/TESTING.md`'s own rule).
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
@@ -16,6 +16,8 @@ describe('KillSwitchModal (Phase 95 Theme H)', () => {
     useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
     useUiStore.setState({
       killSwitchOpen: false,
+      killSwitchFlowWorkflowId: null,
+      killSwitchFlowRunId: null,
       selectedRepoId: null,
       projectBoardByRepo: {},
       forgeAccounts: [],
@@ -122,6 +124,27 @@ describe('KillSwitchModal (Phase 95 Theme H)', () => {
 
     expect(useTerminalStore.getState().sessions).toHaveLength(1);
     expect(useUiStore.getState().killSwitchOpen).toBe(false);
+  });
+
+  it('Confirm cancels the run for the Flow scope when opened for one (Phase 97 Theme D)', () => {
+    const cancel = vi.fn().mockResolvedValue({ ok: true });
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+      workflow: { cancel },
+    };
+    // A waiting `gate` has no terminal session at all — zero matching
+    // sessions is the exact case this theme fixes: Confirm used to have
+    // nothing to do and the button was disabled.
+    useUiStore.setState({ killSwitchOpen: true, killSwitchFlowWorkflowId: 'wf-1', killSwitchFlowRunId: 'run-1' });
+    render(<KillSwitchModal />);
+
+    expect(screen.getByText('Stops 0 sessions and cancels this workflow run.')).not.toBeNull();
+    expect((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    expect(cancel).toHaveBeenCalledWith({ runId: 'run-1' });
+    expect(useUiStore.getState().killSwitchOpen).toBe(false);
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
   });
 
   it('focus returns to the trigger on close (Phase 68)', () => {

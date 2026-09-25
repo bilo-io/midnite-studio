@@ -6,6 +6,8 @@ import {
   LuClock3,
   LuLoaderCircle,
   LuMinus,
+  LuShieldCheck,
+  LuShieldQuestion,
   LuTriangleAlert,
 } from 'react-icons/lu';
 
@@ -45,6 +47,11 @@ const STATUS_TO_ACTIVITY = {
   failed: 'failed',
   timeout: 'failed',
   skipped: 'queued',
+  // A gate `waiting` for approval reuses the existing `waiting` ActivityStatus
+  // token — the same amber a session waiting on input already paints
+  // (`use-activity-glow.ts`'s own priority table). No new colour logic, per
+  // the phase doc's own bullet.
+  waiting: 'waiting',
 } as const;
 
 const STATUS_ICON: Record<WorkflowNodeStatus, typeof LuCircleCheck> = {
@@ -54,6 +61,7 @@ const STATUS_ICON: Record<WorkflowNodeStatus, typeof LuCircleCheck> = {
   failed: LuCircleX,
   timeout: LuCircleX,
   skipped: LuMinus,
+  waiting: LuShieldQuestion,
 };
 
 /**
@@ -226,6 +234,9 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
                 className="h-1.5 w-1.5 shrink-0 rotate-45"
                 style={{ background: CATEGORY_VAR[meta.category] }}
               />
+            ) : null}
+            {shape === 'shield' ? (
+              <LuShieldCheck aria-hidden className="h-2.5 w-2.5 shrink-0" style={{ color: CATEGORY_VAR[meta.category] }} />
             ) : null}
             <span
               aria-hidden

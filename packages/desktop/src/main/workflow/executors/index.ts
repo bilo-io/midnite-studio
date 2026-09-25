@@ -1,12 +1,21 @@
 import type { ExecutorRegistry } from '../executor-registry';
+import { postGateApprovalComment } from '../gate-forge-service';
 import { agentExecutor } from './agent';
 import { conditionExecutor } from './condition';
 import { delayExecutor } from './delay';
+import { createGateExecutor } from './gate';
 import { httpExecutor } from './http';
 import { joinExecutor } from './join';
 import { noteExecutor } from './note';
 import { scriptExecutor } from './script';
 import { transformExecutor } from './transform';
+
+/**
+ * Wired to the real forge layer (`gate-forge-service.ts`) — self-contained
+ * (only forge/registry modules, never `workflow-service.ts`/`workflow-engine.ts`),
+ * which is what keeps this an ordinary dependency edge rather than a cycle.
+ */
+const gateExecutor = createGateExecutor({ postApprovalComment: postGateApprovalComment });
 
 /**
  * The default registry — the one place a node kind is bound to its executor.
@@ -27,12 +36,14 @@ export const defaultExecutors: ExecutorRegistry = {
   agent: agentExecutor,
   script: scriptExecutor,
   join: joinExecutor,
+  gate: gateExecutor,
 };
 
 export {
   agentExecutor,
   conditionExecutor,
   delayExecutor,
+  gateExecutor,
   httpExecutor,
   joinExecutor,
   noteExecutor,
