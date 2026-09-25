@@ -98,6 +98,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
+import { useWaitingGateToasts } from './features/workflows/use-waiting-gate-toasts';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
@@ -2084,6 +2085,10 @@ export function App() {
   // above, so a run with every workflow-adjacent view unmounted still lands
   // its sessions in the store.
   useWorkflowNodeSessions();
+  // Phase 97 Theme D — the notification bell's "workflow waiting on you"
+  // entry, for the identical reason: a gate can start waiting with the
+  // Workflows view unmounted.
+  useWaitingGateToasts();
   return (
     <ShellProviders queryClient={queryClient}>
       <DialogHost>
