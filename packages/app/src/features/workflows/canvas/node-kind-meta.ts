@@ -5,6 +5,7 @@ import {
   LuGitBranch,
   LuGlobe,
   LuMerge,
+  LuShieldCheck,
   LuShuffle,
   LuSquareTerminal,
   LuStickyNote,
@@ -77,6 +78,19 @@ export const NODE_KIND_META: Record<
     category: 'logic',
     description: 'Merge several branches — all, any, or every outcome.',
   },
+  /**
+   * Phase 97 Theme D. `logic` hue, beside `condition`/`join` — a gate is a
+   * routing decision too, just one a human (or an MCP tool, or a PR comment)
+   * makes instead of the engine. The shield glyph is the one visual claim
+   * this theme makes; the shape (a distinct node silhouette) is Theme J's
+   * canvas-styling extension point — see `node-shape.ts`.
+   */
+  gate: {
+    label: 'Gate',
+    icon: LuShieldCheck,
+    category: 'logic',
+    description: 'Pause the run for approval — the run panel, the bell, MCP, or a PR comment.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -102,5 +116,7 @@ export function nodeSummary(node: WorkflowNode): string {
       return node.config.command.trim() || 'No command';
     case 'join':
       return `${node.config.mode} · ${node.config.inputs} inputs`;
+    case 'gate':
+      return node.config.title.trim() || 'No title';
   }
 }

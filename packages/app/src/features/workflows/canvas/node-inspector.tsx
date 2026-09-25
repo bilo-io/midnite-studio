@@ -11,6 +11,7 @@ import {
   AgentForm,
   ConditionForm,
   DelayForm,
+  GateForm,
   HttpForm,
   JoinForm,
   NoteForm,
@@ -34,6 +35,7 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   agent: AgentForm,
   script: ScriptForm,
   join: JoinForm,
+  gate: GateForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };

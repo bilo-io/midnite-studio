@@ -1,10 +1,11 @@
-import type { WorkflowRun } from '@midnite/studio-shared';
-import { useState } from 'react';
+import type { WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
+import { Fragment, useState } from 'react';
 import { LuChevronDown, LuChevronUp, LuDownload } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { activityStatusVar } from '../activity/activity-status-color';
 import { NODE_KIND_META } from './canvas/node-kind-meta';
+import { GateDecideRow } from './gate-decide-row';
 
 const STATUS_LABEL: Record<WorkflowRun['nodes'][number]['status'], string> = {
   pending: 'Pending',
@@ -13,6 +14,7 @@ const STATUS_LABEL: Record<WorkflowRun['nodes'][number]['status'], string> = {
   failed: 'Failed',
   timeout: 'Timed out',
   skipped: 'Skipped',
+  waiting: 'Waiting for approval',
 };
 
 const STATUS_TO_ACTIVITY = {
@@ -22,6 +24,7 @@ const STATUS_TO_ACTIVITY = {
   failed: 'failed',
   timeout: 'failed',
   skipped: 'queued',
+  waiting: 'waiting',
 } as const;
 
 function formatDuration(ms: number): string {
@@ -106,11 +109,14 @@ type Tab = 'nodes' | 'logs';
  */
 export function RunOutputPanel({
   run,
+  workflowNodes,
   collapsed,
   onToggleCollapsed,
   height,
 }: {
   run: WorkflowRun | null;
+  /** The live workflow's own nodes (Theme D) — a `WorkflowNodeRun` carries no config, so a waiting `gate`'s title/instructions are read from here by `nodeId`, not from the run. */
+  workflowNodes?: readonly WorkflowNode[];
   collapsed: boolean;
   onToggleCollapsed: () => void;
   /** Live drag height from `workflows-view.tsx`'s `useResizable` — the panel is dumb about its own size. */
@@ -136,7 +142,24 @@ export function RunOutputPanel({
         {collapsed ? <LuChevronUp aria-hidden className="h-3 w-3" /> : <LuChevronDown aria-hidden className="h-3 w-3" />}
         Run output
         {run ? (
-          <span className="ml-1 font-normal" style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[run.nodes.find((n) => n.status === 'running') ? 'running' : run.status === 'completed' ? 'succeeded' : run.status === 'failed' ? 'failed' : 'pending']) }}>
+          <span
+            className="ml-1 font-normal"
+            style={{
+              color: activityStatusVar(
+                STATUS_TO_ACTIVITY[
+                  run.nodes.some((n) => n.status === 'waiting')
+                    ? 'waiting'
+                    : run.nodes.find((n) => n.status === 'running')
+                      ? 'running'
+                      : run.status === 'completed'
+                        ? 'succeeded'
+                        : run.status === 'failed'
+                          ? 'failed'
+                          : 'pending'
+                ],
+              ),
+            }}
+          >
             {run.status}
           </span>
         ) : null}
@@ -198,21 +221,28 @@ export function RunOutputPanel({
                             ? formatDuration(node.endedAt - node.startedAt)
                             : '—';
                         const detail = node.error ?? (node.output !== undefined ? (typeof node.output === 'string' ? node.output : JSON.stringify(node.output)) : '—');
+                        const workflowNode = workflowNodes?.find((n) => n.id === node.nodeId);
+                        const gateConfig = node.kind === 'gate' && workflowNode?.kind === 'gate' ? workflowNode.config : undefined;
                         return (
-                          <tr key={node.nodeId} className="border-t border-border/50">
-                            <td className="px-2 py-1">
-                              <span className="text-muted-foreground">{NODE_KIND_META[node.kind].label}</span>{' '}
-                              {node.label}
-                            </td>
-                            <td className="px-2 py-1" style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[node.status]) }}>
-                              {STATUS_LABEL[node.status]}
-                            </td>
-                            <td className="px-2 py-1 tabular-nums text-muted-foreground">{duration}</td>
-                            <td className={`max-w-[320px] truncate px-2 py-1 ${node.error ? 'text-destructive' : 'text-muted-foreground'}`} title={detail}>
-                              {detail}
-                              {node.truncated ? ' (truncated)' : ''}
-                            </td>
-                          </tr>
+                          <Fragment key={node.nodeId}>
+                            <tr className="border-t border-border/50">
+                              <td className="px-2 py-1">
+                                <span className="text-muted-foreground">{NODE_KIND_META[node.kind].label}</span>{' '}
+                                {node.label}
+                              </td>
+                              <td className="px-2 py-1" style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[node.status]) }}>
+                                {STATUS_LABEL[node.status]}
+                              </td>
+                              <td className="px-2 py-1 tabular-nums text-muted-foreground">{duration}</td>
+                              <td className={`max-w-[320px] truncate px-2 py-1 ${node.error ? 'text-destructive' : 'text-muted-foreground'}`} title={detail}>
+                                {detail}
+                                {node.truncated ? ' (truncated)' : ''}
+                              </td>
+                            </tr>
+                            {node.status === 'waiting' ? (
+                              <GateDecideRow runId={run.id} nodeId={node.nodeId} config={gateConfig} />
+                            ) : null}
+                          </Fragment>
                         );
                       })}
                     </tbody>

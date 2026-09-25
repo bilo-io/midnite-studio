@@ -2563,6 +2563,20 @@ export function buildMockBridge(data: MockFixtures) {
         return { ok: true as const, value: run };
       },
       cancel: async () => {},
+      // Phase 97 Theme D — mutates the matching node in place, exactly like
+      // the real engine's settle, so a fixture that seeds a `waiting` gate
+      // node can assert the run panel's decide round trip end to end.
+      gateDecide: async (req: { runId: string; nodeId: string; decision: 'approved' | 'rejected'; note?: string }) => {
+        const run = workflowRuns.find((r) => r.id === req.runId);
+        const node = (run?.nodes as Array<{ nodeId: string; status: string; settledPort?: string; output?: unknown }> | undefined)?.find(
+          (n) => n.nodeId === req.nodeId,
+        );
+        if (!run || !node) return { ok: false as const, kind: 'error' as const, message: 'Gate not found.' };
+        node.status = 'succeeded';
+        node.settledPort = req.decision;
+        node.output = { decision: req.decision, note: req.note ?? null, decidedBy: 'panel' };
+        return { ok: true as const };
+      },
       runs: {
         list: async (req: { workflowId: string }) => ({
           runs: workflowRuns.filter((r) => r.workflowId === req.workflowId),

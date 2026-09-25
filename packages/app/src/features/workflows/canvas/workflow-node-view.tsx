@@ -6,6 +6,7 @@ import {
   LuClock3,
   LuLoaderCircle,
   LuMinus,
+  LuShieldQuestion,
   LuTriangleAlert,
 } from 'react-icons/lu';
 
@@ -45,6 +46,11 @@ const STATUS_TO_ACTIVITY = {
   failed: 'failed',
   timeout: 'failed',
   skipped: 'queued',
+  // A gate `waiting` for approval reuses the existing `waiting` ActivityStatus
+  // token — the same amber a session waiting on input already paints
+  // (`use-activity-glow.ts`'s own priority table). No new colour logic, per
+  // the phase doc's own bullet.
+  waiting: 'waiting',
 } as const;
 
 const STATUS_ICON: Record<WorkflowNodeStatus, typeof LuCircleCheck> = {
@@ -54,6 +60,7 @@ const STATUS_ICON: Record<WorkflowNodeStatus, typeof LuCircleCheck> = {
   failed: LuCircleX,
   timeout: LuCircleX,
   skipped: LuMinus,
+  waiting: LuShieldQuestion,
 };
 
 /**

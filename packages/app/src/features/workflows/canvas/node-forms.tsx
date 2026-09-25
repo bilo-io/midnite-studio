@@ -377,6 +377,57 @@ export function ScriptForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
 }
 
 /**
+ * Phase 97 Theme D. `linkedRef` (the PR/issue comment approval channel) has
+ * no editor here yet — wiring a repo/PR picker into this form is real UI
+ * surface of its own, and every other approval channel (run panel, bell,
+ * MCP) works with `linkedRef` unset. Left as a follow-up rather than a half
+ * -built picker: `WorkflowGateLinkedRefSchema` is stable and ready for one.
+ */
+export function GateForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  if (node.kind !== 'gate') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  return (
+    <>
+      <Field label="Title" hint="Shown wherever this gate is decided from — the run panel, the bell, MCP.">
+        <TextField label="Title" value={config.title} onChange={(title) => update({ title })} placeholder="Ship it?" />
+      </Field>
+      <Field label="Instructions" hint="What the approver needs to know. May reference an upstream node's output.">
+        <TextArea
+          label="Instructions"
+          value={config.instructions}
+          onChange={(instructions) => update({ instructions })}
+          rows={4}
+          onFocus={(event) =>
+            onInterpolatableFocus({
+              value: config.instructions,
+              onChange: (instructions) => update({ instructions }),
+              el: event.currentTarget,
+            })
+          }
+        />
+      </Field>
+      <Field label="Timeout" hint="Milliseconds until this gate auto-rejects. Empty waits forever.">
+        <TextField
+          label="Timeout"
+          value={config.timeoutMs === undefined ? '' : String(config.timeoutMs)}
+          onChange={(raw) => {
+            const trimmed = raw.trim();
+            if (trimmed === '') {
+              update({ timeoutMs: undefined });
+              return;
+            }
+            const parsed = Number.parseInt(trimmed, 10);
+            if (Number.isFinite(parsed) && parsed > 0) update({ timeoutMs: Math.min(parsed, 21_600_000) });
+          }}
+        />
+      </Field>
+    </>
+  );
+}
+
+/**
  * A minimal key/value row editor for `headers`/`params` — no drag-reorder,
  * since HTTP header/param order carries no meaning worth preserving.
  */

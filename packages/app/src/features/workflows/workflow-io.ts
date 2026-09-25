@@ -51,6 +51,8 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Script', config: { command: '', env: {} } };
     case 'join':
       return { ...base, kind, label: 'Join', config: { mode: 'all', inputs: 2 } };
+    case 'gate':
+      return { ...base, kind, label: 'Gate', config: { title: '', instructions: '', onTimeout: 'reject' } };
   }
 }
 

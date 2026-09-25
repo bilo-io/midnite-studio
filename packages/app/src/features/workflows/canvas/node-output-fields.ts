@@ -32,5 +32,7 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       if (node.config.mode === 'allSettled') return ['fulfilled', 'rejected'];
       if (node.config.mode === 'any') return ['result', 'from'];
       return ['results'];
+    case 'gate':
+      return ['decision', 'note', 'decidedBy'];
   }
 }

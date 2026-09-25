@@ -12,6 +12,7 @@ const STATUS_LABEL: Record<WorkflowNodeRun['status'], string> = {
   failed: 'Failed',
   timeout: 'Timed out',
   skipped: 'Skipped',
+  waiting: 'Waiting for approval',
 };
 
 /**
@@ -31,6 +32,7 @@ const STATUS_TO_ACTIVITY: Record<WorkflowNodeRun['status'], ActivityStatus> = {
   failed: 'failed',
   timeout: 'failed',
   skipped: 'queued',
+  waiting: 'waiting',
 };
 
 function formatDuration(ms: number): string {
