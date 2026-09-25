@@ -78,14 +78,18 @@ async function dragNodeBy(page: Page, nodeId: string, dx: number, dy: number): P
  * left (target) Handle — React Flow's default `connectionMode: 'strict'`
  * (never overridden here) requires landing on a compatible Handle exactly,
  * not merely inside the target node's body, unlike the old SVG canvas's own
- * "anywhere near the in-port" tolerance. `data-nodeid`/`data-handlepos` are
- * `@xyflow/react`'s own `Handle` attributes (`workflow-node-view.tsx`'s
- * `Handle type="source" position={Position.Right}`, etc.) — not this app's
- * `data-node-id`, which only ever names the *card*.
+ * "anywhere near the in-port" tolerance. `data-nodeid`/`data-handlepos`/
+ * `data-handleid` are `@xyflow/react`'s own `Handle` attributes
+ * (`workflow-node-view.tsx`'s `Handle id="out" type="source"
+ * position={Position.Right}`, etc.) — not this app's `data-node-id`, which
+ * only ever names the *card*. `data-handleid` is pinned to the plain
+ * `out`/`in` ports (Phase 97 Theme J gave every node one `Handle` per
+ * `portsForNode()` entry, so `http`'s own right side alone now carries both
+ * `out` and `error` — `data-handlepos` no longer resolves to one element).
  */
 async function connect(page: Page, fromNodeId: string, toNodeId: string): Promise<void> {
-  const outHandle = page.locator(`[data-nodeid="${fromNodeId}"][data-handlepos="right"]`);
-  const inHandle = page.locator(`[data-nodeid="${toNodeId}"][data-handlepos="left"]`);
+  const outHandle = page.locator(`[data-nodeid="${fromNodeId}"][data-handlepos="right"][data-handleid="out"]`);
+  const inHandle = page.locator(`[data-nodeid="${toNodeId}"][data-handlepos="left"][data-handleid="in"]`);
   // A manual `hover` + `mouse.down`/`move`/`up` sequence, not `Locator.dragTo`
   // — `dragTo`'s own actionability check demands the SOURCE handle's
   // bounding box be "stable" before it will even mouse down on it, and once
