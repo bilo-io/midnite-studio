@@ -22,6 +22,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { useWorkflowRevealStore } from '../../store/workflow-reveal-store';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
+import { DemoApiOfferBanner } from './demo-api-offer-banner';
 import { DemoApiPill } from './demo-api-pill';
 import { NodeInspector } from './canvas/node-inspector';
 import { NodePalette } from './canvas/node-palette';
@@ -399,6 +400,7 @@ function WorkflowEditor({
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {mode === 'edit' ? <DemoApiOfferBanner workflowId={workflow.id} nodes={local.nodes} /> : null}
           <div className="min-h-0 flex-1">
             <WorkflowCanvas
               resetKey={workflow.id}
