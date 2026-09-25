@@ -7,6 +7,7 @@ import { createGateExecutor } from './gate';
 import { httpExecutor } from './http';
 import { joinExecutor } from './join';
 import { noteExecutor } from './note';
+import { routerExecutor } from './router';
 import { scriptExecutor } from './script';
 import { transformExecutor } from './transform';
 
@@ -37,6 +38,7 @@ export const defaultExecutors: ExecutorRegistry = {
   script: scriptExecutor,
   join: joinExecutor,
   gate: gateExecutor,
+  router: routerExecutor,
 };
 
 export {
@@ -47,6 +49,7 @@ export {
   httpExecutor,
   joinExecutor,
   noteExecutor,
+  routerExecutor,
   scriptExecutor,
   transformExecutor,
 };

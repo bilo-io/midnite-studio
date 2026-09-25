@@ -39,4 +39,6 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   script: 'card',
   join: 'pill',
   gate: 'shield',
+  /** Phase 97 Theme F — reuses `diamond-header` verbatim, per this map's own extension-point note above: "which way does this branch" is exactly what a router is too, just with more than two ways. */
+  router: 'diamond-header',
 };

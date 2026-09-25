@@ -7,6 +7,7 @@ import type { ExecutorContext, NodeOutcome } from '../executor-registry';
 import { createAgentExecutor } from './agent';
 import type { AgentNodeOutput } from './agent';
 import type { NodePtyDeps } from './node-pty-deps';
+import { createRouterExecutor } from './router';
 import { createScriptExecutor } from './script';
 import type { ScriptNodeOutput } from './script';
 
@@ -271,5 +272,77 @@ describe('agent executor', () => {
     expect(params.env).toBeUndefined();
     expect(params.backend).toBeUndefined();
     expect(params.ollamaModel).toBeUndefined();
+  });
+});
+
+function routerAgentLabelNode(cases: { id: string; label: string }[]): WorkflowNode {
+  return {
+    id: 'n1',
+    label: 'Route',
+    x: 0,
+    y: 0,
+    kind: 'router',
+    config: { mode: 'agent-label', cases, agent: { agentId: 'claude', prompt: 'Classify this' } },
+  };
+}
+
+describe('router executor (Theme F, agent-label mode)', () => {
+  it('settles on the out-port named by the marker when it is a known case id', async () => {
+    const fake = fakePty();
+    const executor = createRouterExecutor(fake.deps);
+    const promise = executor(
+      routerAgentLabelNode([
+        { id: 'urgent', label: 'Urgent' },
+        { id: 'spam', label: 'Spam' },
+      ]),
+      context([]),
+    );
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: route=urgent\n');
+    await vi.advanceTimersByTimeAsync(150);
+
+    const outcome = await promise;
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.port).toBe('urgent');
+    expect(outcome.ok && (outcome.output as { case: string }).case).toBe('urgent');
+  });
+
+  it('routes to default, never a guess, when the marker names no configured case', async () => {
+    const fake = fakePty();
+    const executor = createRouterExecutor(fake.deps);
+    const promise = executor(
+      routerAgentLabelNode([
+        { id: 'urgent', label: 'Urgent' },
+        { id: 'spam', label: 'Spam' },
+      ]),
+      context([]),
+    );
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: route=something-else\n');
+    await vi.advanceTimersByTimeAsync(150);
+
+    const outcome = await promise;
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.port).toBe('default');
+    expect(outcome.ok && (outcome.output as { reason: { label: string } }).reason.label).toBe('something-else');
+  });
+
+  it('refuses an agent-label router with no agent selected, with no pty started', async () => {
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const executor = createRouterExecutor({ ...fake.deps, startSession: started });
+    const node: WorkflowNode = {
+      id: 'n1',
+      label: 'Route',
+      x: 0,
+      y: 0,
+      kind: 'router',
+      config: { mode: 'agent-label', cases: [{ id: 'a', label: 'A' }], agent: { agentId: '', prompt: 'x' } },
+    };
+    const outcome = await executor(node, context([]));
+    expect(outcome.ok).toBe(false);
+    expect(started).not.toHaveBeenCalled();
   });
 });

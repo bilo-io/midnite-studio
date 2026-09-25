@@ -5,10 +5,13 @@ import {
   WORKFLOW_JOIN_MAX_INPUTS,
   WORKFLOW_JOIN_MIN_INPUTS,
   WORKFLOW_JOIN_MODES,
+  WORKFLOW_ROUTER_MAX_CASES,
+  WORKFLOW_ROUTER_MODES,
   type WorkflowConditionOp,
   type WorkflowHttpMethod,
   type WorkflowJoinMode,
   type WorkflowNode,
+  type WorkflowRouterMode,
 } from '@midnite/studio-shared';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 
@@ -423,6 +426,165 @@ export function GateForm({ node, onChange, onInterpolatableFocus }: NodeFormProp
           }}
         />
       </Field>
+    </>
+  );
+}
+
+const ROUTER_MODE_LABEL: Record<WorkflowRouterMode, string> = {
+  expression: 'Expression — first matching condition wins',
+  'agent-label': 'Agent label — an embedded agent classifies the input',
+};
+
+/**
+ * Phase 97 Theme F. `cases` owns its own id/label/condition rows; the
+ * always-present `default` out-port (unmatched, or an agent label naming no
+ * case) has no row here — like `error`, it is implicit, never edited.
+ */
+export function RouterForm({ node, onChange, onInterpolatableFocus }: NodeFormProps) {
+  if (node.kind !== 'router') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  const updateCase = (index: number, patch: Partial<(typeof config.cases)[number]>) => {
+    const cases = config.cases.map((routerCase, i) => (i === index ? { ...routerCase, ...patch } : routerCase));
+    update({ cases });
+  };
+  const addCase = () => {
+    if (config.cases.length >= WORKFLOW_ROUTER_MAX_CASES) return;
+    let id = 'case';
+    let n = 1;
+    while (config.cases.some((routerCase) => routerCase.id === id)) {
+      id = `case${n}`;
+      n += 1;
+    }
+    update({ cases: [...config.cases, { id, label: 'New case' }] });
+  };
+  const removeCase = (index: number) => update({ cases: config.cases.filter((_, i) => i !== index) });
+
+  return (
+    <>
+      <Field label="Mode" hint="How this router decides which case wins.">
+        <SelectField
+          label="Mode"
+          value={config.mode}
+          onChange={(mode: WorkflowRouterMode) => update({ mode })}
+          options={WORKFLOW_ROUTER_MODES.map((mode) => ({ value: mode, label: ROUTER_MODE_LABEL[mode] }))}
+        />
+      </Field>
+      <Field
+        label="Cases"
+        hint={
+          config.mode === 'expression'
+            ? 'Evaluated in order — the first whose condition holds wins. Falls through to Default.'
+            : 'The closed set of ids the embedded agent may choose from. An unrecognised answer falls through to Default.'
+        }
+      >
+        <div className="flex flex-col gap-2">
+          {config.cases.map((routerCase, index) => (
+            <div key={index} className="flex flex-col gap-1 rounded border border-border p-1.5">
+              <div className="flex items-center gap-1">
+                <TextField
+                  label={`Case ${index + 1} id`}
+                  value={routerCase.id}
+                  onChange={(id) => updateCase(index, { id })}
+                  placeholder="caseId"
+                  className="min-w-0 flex-1"
+                />
+                <TextField
+                  label={`Case ${index + 1} label`}
+                  value={routerCase.label}
+                  onChange={(label) => updateCase(index, { label })}
+                  placeholder="Label"
+                  className="min-w-0 flex-1"
+                />
+                <IconButton icon={LuTrash2} label={`Remove case ${index + 1}`} size="sm" onClick={() => removeCase(index)} />
+              </div>
+              {config.mode === 'expression' ? (
+                <div className="flex items-center gap-1">
+                  <TextField
+                    label={`Case ${index + 1} left`}
+                    value={routerCase.when?.left ?? ''}
+                    onChange={(left) =>
+                      updateCase(index, { when: { left, op: routerCase.when?.op ?? 'eq', right: routerCase.when?.right } })
+                    }
+                    placeholder="{{nodeId.field}}"
+                    className="min-w-0 flex-1"
+                    onFocus={(event) =>
+                      onInterpolatableFocus({
+                        value: routerCase.when?.left ?? '',
+                        onChange: (left) =>
+                          updateCase(index, {
+                            when: { left, op: routerCase.when?.op ?? 'eq', right: routerCase.when?.right },
+                          }),
+                        el: event.currentTarget,
+                      })
+                    }
+                  />
+                  <SelectField
+                    label={`Case ${index + 1} compares`}
+                    value={routerCase.when?.op ?? 'eq'}
+                    onChange={(op: WorkflowConditionOp) =>
+                      updateCase(index, {
+                        when: {
+                          left: routerCase.when?.left ?? '',
+                          op,
+                          right: op === 'empty' ? undefined : routerCase.when?.right,
+                        },
+                      })
+                    }
+                    options={WORKFLOW_CONDITION_OPS.map((op) => ({ value: op, label: CONDITION_OP_LABEL[op] }))}
+                  />
+                  {routerCase.when?.op === 'empty' ? null : (
+                    <TextField
+                      label={`Case ${index + 1} right`}
+                      value={routerCase.when?.right ?? ''}
+                      onChange={(right) =>
+                        updateCase(index, { when: { left: routerCase.when?.left ?? '', op: routerCase.when?.op ?? 'eq', right } })
+                      }
+                      className="min-w-0 flex-1"
+                    />
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ))}
+          <IconButton
+            icon={LuPlus}
+            label="Add case"
+            size="sm"
+            onClick={addCase}
+            disabled={config.cases.length >= WORKFLOW_ROUTER_MAX_CASES}
+          />
+        </div>
+      </Field>
+      {config.mode === 'agent-label' ? (
+        <>
+          <Field label="Agent" hint="A roster agent id, e.g. claude, codex, agy — whatever is installed and logged in.">
+            <TextField
+              label="Agent"
+              value={config.agent?.agentId ?? ''}
+              onChange={(agentId) => update({ agent: { agentId, prompt: config.agent?.prompt ?? '', model: config.agent?.model } })}
+              placeholder="claude"
+            />
+          </Field>
+          <Field label="Prompt" hint="What to classify. The case ids above are appended automatically as the allowed answers.">
+            <TextArea
+              label="Prompt"
+              value={config.agent?.prompt ?? ''}
+              onChange={(prompt) => update({ agent: { agentId: config.agent?.agentId ?? '', prompt, model: config.agent?.model } })}
+              rows={4}
+              onFocus={(event) =>
+                onInterpolatableFocus({
+                  value: config.agent?.prompt ?? '',
+                  onChange: (prompt) =>
+                    update({ agent: { agentId: config.agent?.agentId ?? '', prompt, model: config.agent?.model } }),
+                  el: event.currentTarget,
+                })
+              }
+            />
+          </Field>
+        </>
+      ) : null}
     </>
   );
 }

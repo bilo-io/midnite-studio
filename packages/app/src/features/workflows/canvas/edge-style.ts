@@ -104,7 +104,10 @@ export const DEAD_EDGE_OPACITY = 0.35;
  */
 export function inferEdgeKind(fromNode: WorkflowNode, fromPortId: string): WorkflowEdgeKind {
   if (fromPortId === WORKFLOW_ERROR_PORT_ID) return 'error';
-  if (fromNode.kind === 'condition') return 'conditional';
+  // Theme F: a `router`'s out-ports are exactly its declared cases plus
+  // `default` — the same "named branch, not a bare `out`" shape a
+  // `condition`'s `true`/`false` has, so its edges read the same way.
+  if (fromNode.kind === 'condition' || fromNode.kind === 'router') return 'conditional';
   return 'data';
 }
 

@@ -7,6 +7,7 @@ import {
   LuMerge,
   LuShieldCheck,
   LuShuffle,
+  LuSplit,
   LuSquareTerminal,
   LuStickyNote,
 } from 'react-icons/lu';
@@ -91,6 +92,19 @@ export const NODE_KIND_META: Record<
     category: 'logic',
     description: 'Pause the run for approval — the run panel, the bell, MCP, or a PR comment.',
   },
+  /**
+   * Phase 97 Theme F. `logic` hue, beside `condition`/`join`/`gate` — a
+   * router is a routing decision too, just fanning out to N named cases
+   * instead of two. `LuSplit` over `LuGitBranch` (`condition`'s own glyph)
+   * so the two read as different jobs at a glance despite sharing the
+   * `diamond-header` shape (`node-shape.ts`).
+   */
+  router: {
+    label: 'Router',
+    icon: LuSplit,
+    category: 'logic',
+    description: 'Send the run down one of several named cases, or default.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -118,5 +132,9 @@ export function nodeSummary(node: WorkflowNode): string {
       return `${node.config.mode} · ${node.config.inputs} inputs`;
     case 'gate':
       return node.config.title.trim() || 'No title';
+    case 'router':
+      return node.config.mode === 'agent-label'
+        ? `Agent label · ${node.config.cases.length} case${node.config.cases.length === 1 ? '' : 's'}`
+        : `Expression · ${node.config.cases.length} case${node.config.cases.length === 1 ? '' : 's'}`;
   }
 }

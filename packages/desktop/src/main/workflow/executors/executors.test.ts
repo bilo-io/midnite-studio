@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { WorkflowNode } from '@midnite/studio-shared';
+import { WORKFLOW_ROUTER_DEFAULT_PORT_ID, type WorkflowNode } from '@midnite/studio-shared';
 
 import { startFixtureServer, type FixtureServer } from '../../demo-api/fixture-server';
 import type { ExecutorContext, NodeOutcome } from '../executor-registry';
-import { conditionExecutor, delayExecutor, httpExecutor, transformExecutor } from './index';
+import { conditionExecutor, delayExecutor, httpExecutor, routerExecutor, transformExecutor } from './index';
 import type { HttpNodeOutput } from './http';
 
 /**
@@ -346,6 +346,58 @@ describe('the condition executor', () => {
       context({ upstream }),
     );
     expect(empty.ok && (empty.output as { passed: boolean }).passed).toBe(true);
+  });
+});
+
+describe('the router executor (Theme F, expression mode)', () => {
+  const upstream = { fetch: { risk: 90 } };
+
+  function routerNode(config: Extract<WorkflowNode, { kind: 'router' }>['config']): WorkflowNode {
+    return { id: 'r', label: 'Route', x: 0, y: 0, kind: 'router', config };
+  }
+
+  it('settles on the first case whose condition holds, in declared order', async () => {
+    const outcome = await routerExecutor(
+      routerNode({
+        mode: 'expression',
+        cases: [
+          { id: 'high', label: 'High', when: { left: '{{fetch.risk}}', op: 'gt', right: '50' } },
+          // Also matches (90 > 10) — but 'high' is declared first and must win.
+          { id: 'nonzero', label: 'Nonzero', when: { left: '{{fetch.risk}}', op: 'gt', right: '10' } },
+        ],
+      }),
+      context({ upstream }),
+    );
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.port).toBe('high');
+    expect(outcome.ok && (outcome.output as { case: string }).case).toBe('high');
+  });
+
+  it('falls through to the default port when no case matches', async () => {
+    const outcome = await routerExecutor(
+      routerNode({
+        mode: 'expression',
+        cases: [{ id: 'low', label: 'Low', when: { left: '{{fetch.risk}}', op: 'lt', right: '10' } }],
+      }),
+      context({ upstream }),
+    );
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.port).toBe(WORKFLOW_ROUTER_DEFAULT_PORT_ID);
+    expect(outcome.ok && (outcome.output as { reason: { mode: string } }).reason.mode).toBe('default');
+  });
+
+  it('falls through to default when a case has no condition at all', async () => {
+    const outcome = await routerExecutor(
+      routerNode({ mode: 'expression', cases: [{ id: 'a', label: 'A' }] }),
+      context({ upstream }),
+    );
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.port).toBe(WORKFLOW_ROUTER_DEFAULT_PORT_ID);
+  });
+
+  it('fails when it has no cases at all', async () => {
+    const outcome = await routerExecutor(routerNode({ mode: 'expression', cases: [] }), context({ upstream }));
+    expect(outcome.ok).toBe(false);
   });
 });
 

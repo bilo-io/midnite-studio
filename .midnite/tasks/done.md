@@ -1,6 +1,47 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 97 Theme F — Router node
+
+[PR #563](https://github.com/bilo-io/midnite-studio/pull/563). A new `router` node kind
+fans a run out to one of several named cases, or `default` — the graph-diagram counterpart to
+Theme D's human gate and Theme B's `join`, settled the same `port`/`settledPort` way `condition`
+already is, so no engine change was needed at all.
+
+- [x] New node kind **`router`**, config `{mode: 'expression'|'agent-label', cases: [{id, label,
+      when?}], agent?}`. `default` is a fixed implicit out-port (`WORKFLOW_ROUTER_DEFAULT_PORT_ID`)
+      beyond the declared cases, not a config field — the same idiom as the implicit `error` port
+      every executor-bearing kind already gets.
+  - **Expression mode** evaluates cases in declared array order; the first whose `when`
+    (condition-shaped `{left, op, right}`) holds wins, reusing `condition.ts`'s own evaluator —
+    now exported as `evaluateConditionOp`/`evaluateWorkflowCondition` rather than duplicated.
+  - **Agent-label mode** embeds a `WorkflowAgentConfigSchema` (Phase 95 Theme J's own shape,
+    reused rather than a second one) whose done marker is extended to `MIDNITE_WORKFLOW_NODE_DONE:
+    route=<caseId>` — a closed, deterministic vocabulary the classifier picks from. An id the
+    agent prints that names no configured case routes to `default`, never a fuzzy guess — the
+    article's "the classifier is probabilistic, the allowed routes are deterministic".
+- [x] **Reuse, not duplication**: `agent.ts`'s roster-lookup/pty-launch/idle-poll/cancel loop was
+      extracted into a generic `runAgentToDoneMarker<T>(config, node, context, deps, {buildPrompt,
+      parseMarker, toOutcome})`, parameterised over the marker grammar being watched for.
+      `agentExecutor` is now a thin, behaviour-preserving wrapper over it; the router's
+      agent-label mode is the second caller, watching `route=<id>` instead of `ok`/`fail`.
+- [x] The run records the chosen case and what chose it — `NodeOutcome.output = {case:
+      <caseId>|'default', reason: {mode:'expression', when:{left,op,right}} |
+      {mode:'agent-label', label:<raw text the agent printed>} | {mode:'default'}}` — answering
+      "why did the system choose this route" without a new run-record field: `port` carries the
+      same `case` value straight into Theme B's existing `settledPort`/`edgeState` cascade.
+- [x] `validateWorkflow`: no cases, a duplicate or reserved (`'default'`) case id, an
+      expression-mode case with no condition, and an incomplete agent-label config are all
+      flagged.
+- [x] Canvas: icon `LuSplit`, `logic` category, reuses `condition`'s `diamond-header` shape
+      verbatim (Theme J's own documented extension point — no new render branch needed), edges off
+      a router read as `conditional` with the case label at the source. `RouterForm` covers both
+      modes: an ordered case list with a left/op/right row per case in expression mode, an
+      embedded agent id/prompt in agent-label mode.
+- [x] Vitest: first-match order, the default fallback (no case matches, and a case with no
+      condition at all), a router with no cases refusing, and — for agent-label — a known case id
+      settling on its own port and an unrecognised one settling on `default` instead.
+
 ## 2026-09-25 — Phase 97 Theme D — Human gate
 
 [PR #562](https://github.com/bilo-io/midnite-studio/pull/562). A run pauses for approval, decided
