@@ -451,16 +451,16 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       includes the receipt.
 - [ ] Vitest: receipt assembly from a fixture run, replay ordering across iterations, and export.
 
-### L — Built-in templates and a gallery (M)
+### L — Built-in templates and a gallery (M) — ✅ DONE ([PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD), 2026-09-26)
 
-- [ ] Templates as validated JSON in `shared` (`shared/src/workflow-templates/*.ts`, each a
+- [x] Templates as validated JSON in `shared` (`shared/src/workflow-templates/*.ts`, each a
       `WorkflowSchema` minus ids and timestamps, plus `{id, title, blurb, source, tags}`).
       Instantiation uses the existing `cloneWorkflowWithFreshIds`. Templates are data, never code.
-- [ ] **Template gallery**: a "New from template" entry in [`workflow-list.tsx`](../../../packages/app/src/features/workflows/workflow-list.tsx)
+- [x] **Template gallery**: a "New from template" entry in [`workflow-list.tsx`](../../../packages/app/src/features/workflows/workflow-list.tsx)
       opening a sheet of cards, each with a mini canvas preview (static, laid out by dagre), a
       blurb and a link to the source article section. "Save as template" in the toolbar adds to a
       **user** section of the same gallery instead of cloning into the list.
-- [ ] Five built-ins, each runnable end-to-end against the demo API (M) and a stub agent:
+- [x] Five built-ins, each runnable end-to-end against the demo API (M) and a stub agent:
       1. **Graph Engineering diamond**: request → scope (agent) → fan-out {research, build,
          verify} → join(all) → synthesize (agent) → verify → pass → ship / fail → loop back to
          build (max 3).
@@ -474,10 +474,10 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
          repair → loop / pass → human gate → publish.
       5. **Risk router**: trigger (forge-pr) → classify (router, `agent-label`: low | high |
          default) → quick review / full parallel audit (fan-out + join) / human gate.
-- [ ] Each template carries note nodes quoting the article's rule it demonstrates. A template
+- [x] Each template carries note nodes quoting the article's rule it demonstrates. A template
       that needs a repo or forge account shows a setup checklist on instantiation rather than
       failing at run time.
-- [ ] Vitest: every template parses, passes `validateWorkflow`, uses only `{{demo.baseUrl}}` for
+- [x] Vitest: every template parses, passes `validateWorkflow`, uses only `{{demo.baseUrl}}` for
       http URLs, and runs to completion in the engine test harness with fake executors.
 
 ### M — Demo endpoint group for HTTP nodes (M) — ✅ DONE ([PR #559](https://github.com/bilo-io/midnite-studio/pull/559), 2026-09-25)

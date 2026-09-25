@@ -1,6 +1,37 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 97 Theme L — Built-in templates and a gallery
+
+[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Five built-in workflow templates as
+validated data in `shared`, a "New from template" gallery, and "Save as template" into a user
+section of that same gallery.
+
+- [x] `shared/src/workflow-templates/` — `WorkflowTemplateSchema` (a `Workflow` minus
+      id/timestamps plus `{id, title, blurb, source, tags, setupChecklist?}`) and
+      `WORKFLOW_TEMPLATES`, each entry `.parse()`d at module load so a broken built-in fails
+      on import. Instantiation is `instantiateWorkflowTemplateWorkflow` piped through the
+      app's existing `cloneWorkflowWithFreshIds` (`workflowFromTemplate`).
+- [x] Five built-ins — Graph Engineering diamond, Harness bounded build, Loop Engineering
+      maker/checker, Research & publish, Risk router — each with a note node quoting the
+      article rule it demonstrates, http nodes only on `{{demo.baseUrl}}`. Risk router ships
+      its trigger as `manual` (a `forge-pr` trigger needs a registered repo id) with a setup
+      checklist shown once on instantiation; its audit join is `allSettled`, since an `all`
+      join fails on an input that was not taken (the low-risk and unclassified routes).
+- [x] Gallery (`template-gallery.tsx`) — a `Modal` of cards with a static SVG mini-preview
+      laid out by the editor's own `autoLayout` (dagre), blurb, source line and tags; a
+      "Your templates" section with delete. Opened from a new "New from template" button in
+      `workflow-list.tsx`.
+- [x] "Save as template" now saves a **user** template (`user-` id, never a built-in's slug)
+      through a new main-owned `workflow-templates-store.ts` (`workflow-templates.json` under
+      `userData`, per-entry validation like `workflows-store.ts`) and three
+      `workflowTemplates*` IPC channels, instead of cloning into the workflow list.
+- [x] Vitest: every template parses, passes `validateWorkflow` with no error-severity issue,
+      uses only demo-API URLs, and runs to completion in the engine with fake executors
+      (gates approved through the real `decideWorkflowGate` path); the user store's
+      save/reload/upsert/delete/built-in-id refusal; the gallery's cards, instantiation with
+      fresh ids and the setup-checklist toast.
+
 ## 2026-09-25 — Phase 97 Theme I — Harness frame and policy gate
 
 [PR #575](https://github.com/bilo-io/midnite-studio/pull/575). A canvas-only `frame` node grouping other nodes under six labelled slots,
