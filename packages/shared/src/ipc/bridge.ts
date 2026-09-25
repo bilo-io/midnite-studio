@@ -917,6 +917,14 @@ export type MidniteStudioBridge = {
     resume: (req: In<typeof S.WorkflowResumeRequest>) => Promise<z.infer<typeof S.WorkflowResumeResponse>>;
     /** Phase 97 Theme D — decide a `gate` node currently `waiting`, from the run panel. */
     gateDecide: (req: In<typeof S.WorkflowGateDecideRequest>) => Promise<GitOpResult>;
+    /** Phase 97 Theme L — user-saved templates for the gallery's own section. */
+    templates: {
+      list: () => Promise<z.infer<typeof S.WorkflowTemplatesListResponse>>;
+      save: (
+        req: In<typeof S.WorkflowTemplateSaveRequest>,
+      ) => Promise<z.infer<typeof S.WorkflowTemplateSaveResponse>>;
+      delete: (req: In<typeof S.WorkflowTemplateDeleteRequest>) => Promise<GitOpResult>;
+    };
     runs: {
       list: (
         req: In<typeof S.WorkflowRunsListRequest>,
