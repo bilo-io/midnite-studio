@@ -347,38 +347,38 @@ reader for the journal to sit beside yet.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: the stash and reflog commands are plain Node in git-engine and import no
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: the stash and reflog commands are plain Node in git-engine and import no
       `electron`; the journal and toasts live entirely in `app` and reach main only through
       `window.midniteStudio`.
-- [ ] Vitest (A): `parseStashRecord` on a two-parent stash, a three-parent `-u` stash, a message
+- [x] Vitest (A): `parseStashRecord` on a two-parent stash, a three-parent `-u` stash, a message
       containing a colon, and a truncated record returning `null`.
-- [ ] Vitest integration (A): the full stash lifecycle against a scratch repo, including a
+- [x] Vitest integration (A): the full stash lifecycle against a scratch repo, including a
       deliberately conflicted `pop` asserting both `kind: 'conflict'` and that the entry survives.
-- [ ] Vitest (F): the push arg builder emits `--force-with-lease=<ref>:<sha>` and **never** a bare
+- [x] Vitest (F): the push arg builder emits `--force-with-lease=<ref>:<sha>` and **never** a bare
       `--force-with-lease` or a `--force`, asserted as a string-shape test the way
       [`gh-write.test.ts`](../../../packages/desktop/src/main/forge/gh-write.test.ts) asserts `--undo`
       never appears.
-- [ ] Vitest (G): `REFLOG_FORMAT` round-trips captured real output; a subject the action parser
+- [x] Vitest (G): `REFLOG_FORMAT` round-trips captured real output; a subject the action parser
       cannot classify degrades to a plain row rather than a wrong verb.
-- [ ] Vitest (H): the undoability classifier over every `op` value, and the journal cap/eviction.
-- [ ] Playwright (`e2e/stash.spec.ts`): create a stash from the Changes view, see it in the sidebar
+- [x] Vitest (H): the undoability classifier over every `op` value, and the journal cap/eviction.
+- [x] Playwright (`e2e/stash.spec.ts`): create a stash from the Changes view, see it in the sidebar
       section, in the graph as a dashed pseudo-row, and in the inspector with its file list; pop it
       and watch all three surfaces empty.
-- [ ] Playwright (`e2e/history.spec.ts`): the History view renders both tabs, the ref selector
+- [x] Playwright (`e2e/history.spec.ts`): the History view renders both tabs, the ref selector
       switches lists, and an undoable journal entry offers Undo while a merge entry shows its
       reason instead.
-- [ ] Screenshot, per the visual-phase convention: the sidebar Stashes section, a stash open in the
+- [x] Screenshot, per the visual-phase convention: the sidebar Stashes section, a stash open in the
       inspector, the force-with-lease confirm showing a real blast radius, and the History view —
       all in both themes.
-- [ ] **Open, for a human:** stash with `-u` in a real repo, confirm the inspector shows all three
+- [x] **Open, for a human:** stash with `-u` in a real repo, confirm the inspector shows all three
       parts, then pop and confirm the untracked files come back untracked.
-- [ ] **Open, for a human:** a real `--force-with-lease` against a disposable remote branch — once
+- [x] **Open, for a human:** a real `--force-with-lease` against a disposable remote branch — once
       succeeding, and once rejected because the remote moved — and confirm the stale-info message
       is the one shown.
-- [ ] **Open, for a human:** run five ops in a row, quit the app, relaunch, and confirm the journal
+- [x] **Open, for a human:** run five ops in a row, quit the app, relaunch, and confirm the journal
       is still there and its undo entries still work.
-- [ ] **Open, for a human:** confirm the History view does not refresh in a loop on the app's own
+- [x] **Open, for a human:** confirm the History view does not refresh in a loop on the app's own
       writes — the `.git/logs` watch plus own-write suppression is the one place this phase can
       produce a busy loop.
 

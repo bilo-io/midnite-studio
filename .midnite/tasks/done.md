@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-25 — Phase 22 — Stash, the reflog, and writes you can take back
+
+[Phase 22](phases/phase-22-stash-and-safety-net.md) marked ✅ DONE (70/70 items verified).
+Full stash lifecycle across engine, sidebar Stashes section, graph pseudo-rows, stash inspector (tracked, index, untracked parts) and Changes view stash dialog. Force-with-lease gated safety net behind blast-radius confirm and default-off setting. Browsable reflog in History view, toast notification primitive, ops journal, and ref-shaped undo.
+
 ## 2026-09-25 — Phase 97 Theme H — Trigger node
 
 [PR #565](https://github.com/bilo-io/midnite-studio/pull/565). A new `trigger` node kind (hue `--node-trigger`, finally used) — at most one per
