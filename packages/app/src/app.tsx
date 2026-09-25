@@ -703,6 +703,19 @@ function Shell() {
   const collapsedNavSections = useUiStore((s) => s.collapsedNavSections);
   const toggleNavSection = useUiStore((s) => s.toggleNavSection);
 
+  useEffect(() => {
+    // When the nav is locked open, override `@bilo-io/shell`'s `--nav-offset`
+    // (16rem) with the narrower 13rem that matches our CSS override on the
+    // `<aside>` width. Restoring to '' falls back to whatever shell last set,
+    // which is already 3.5rem for auto/collapsed. Without this the page content
+    // remains offset by 16rem while the rail is actually 13rem wide.
+    document.documentElement.style.setProperty(
+      '--nav-offset',
+      navMode === 'expanded' ? '13rem' : '',
+    );
+  }, [navMode]);
+
+
   useDefaultSelection();
   usePruneClosedRepos();
 

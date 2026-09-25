@@ -625,11 +625,22 @@ function SessionIcon({
   );
 
   if (activityStatus === 'idle') return icon;
+  const isAgent = Boolean(agent) || activityStatus === 'agent';
   return (
     <span
       data-activity-status={activityStatus}
+      {...(isAgent ? { 'data-agent-icon': 'true' } : {})}
       data-testid="session-icon-glow"
-      className="activity-glow flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+      className={`activity-glow flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+        isAgent ? 'terminal-agent-glow' : ''
+      }`}
+      style={
+        isAgent
+          ? ({
+              '--agent-accent': agent?.accent ?? 'var(--activity-agent)',
+            } as React.CSSProperties)
+          : undefined
+      }
     >
       {icon}
     </span>
