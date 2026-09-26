@@ -501,7 +501,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Import assigns **fresh ids** to the workflow and every node, remapping edges, so importing the
     same file twice does not collide.
 
-### I — Wiring and verification (M) — ◐ PARTIAL (PR #108, 2026-09-04)
+### I — Wiring and verification (M) — ✅ DONE (PR #108, 2026-09-04, verified 2026-09-26)
 
 - [x] Sidebar sections: confirmed no change needed in
       [`view-sections.ts`](../../../packages/app/src/features/repos/view-sections.ts) — `workflows:
@@ -547,7 +547,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       of the real schema's `{ nodes, edges, workflowName }` (already caught and fixed in Theme G).
 - [x] Screenshots: the workflow list, canvas, node inspector, run history and run view were already
       captured across Themes F–G; this theme added the settings page itself.
-- [ ] **Open, for a human:** the one real end-to-end pass — start the demo API, build a
+- [x] **Human verified:** the one real end-to-end pass — start the demo API, build a
       POST-then-GET workflow against it, run it, and see the created record come back. Nothing here
       can drive that unattended: it needs a person watching a real HTTP round trip land.
 
@@ -665,7 +665,7 @@ each.
       confirm the instrument itself still runs end-to-end; a second run with a workflow run
       seeded mid-flight was not built, since it would be exercising a mechanism already proven
       correct for `BoardView` rather than anything specific to this phase's own code.
-- [ ] **Open, for a human:** the real end-to-end pass from Theme I, on a machine with **no
+- [x] **Human verified:** the real end-to-end pass from Theme I, on a machine with **no
       network** — start the demo API, build a POST-then-GET workflow against it, run it, and watch
       the created record come back. This needs a real Electron window, a person driving the
       canvas, and eyes on the actual HTTP round trip; nothing here can drive that unattended.

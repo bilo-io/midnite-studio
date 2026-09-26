@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 43 — Workflows
+
+[Phase 43](phases/phase-43-workflows-mvp.md) marked ✅ DONE (77/77 items verified).
+Visual Workflows MVP and execution engine: zod-discriminated domain contracts (`Workflow*`); topological DAG execution engine (Kahn's algorithm) in desktop main with concurrency bounds, cycle detection, per-node deadlines, and cancellation; HTTP, transform, condition, and delay node executors with `{{node.field}}` template interpolation; built-in ephemeral `node:http` demo CRUD API server with one-click base-URL injection; custom SVG canvas with pan/zoom, pointer-event node dragging, and sideways bézier edge routing; collapsible right-hand node inspector with live output interpolation; push-based run visualization with execution history popover; `userData` persistence (`workflows-store.ts`, `workflow-runs-store.ts`); Workflows settings page; and `workflow.run` palette execution command.
+
 ## 2026-09-26 — Phase 42 — Councils, rearranged
 
 [Phase 42](phases/phase-42-councils-layout.md) marked ✅ DONE (44/44 items verified).
