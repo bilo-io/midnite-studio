@@ -1,6 +1,30 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 94 Theme A — The run record, in `shared`
+
+PR TBD. One vocabulary over the four run records that already disagree (loop, session, council,
+workflow) — a pure `shared` projection, not a fifth store, unblocking Phase 97 Theme K (workflow
+change receipts).
+
+- [x] `packages/shared/src/domain/agent-run.ts`: `AgentRunSchema`
+      (`id`/`kind`/`repoId`/`cwd`/`sessionId?`/`agentId?`/`skillId?`/`label`/`startedAt`/`endedAt?`/
+      `status`/`exitCode?`/`verdict?`/`sourceId?`), `AgentRunKindSchema`
+      (`loop`/`session`/`council`/`workflow`), `AgentRunStatusSchema` (`LoopRunStatusSchema` plus
+      `abandoned`), and `AgentRunVerdictSchema` reusing `TestFailureSchema`/`TestRunReasonSchema`
+      rather than declaring parallel shapes. Also exported as `AgentRunRecord` — Phase 97 Theme K's
+      own checklist names it that; both resolve to the same type.
+- [x] `packages/shared/src/domain/agent-command.ts`: `AgentCommandId`/`AGENT_COMMAND_IDS` lifted out
+      of `ui-store.ts` (the exact manoeuvre Phase 81 Theme A used for `ViewId`/`SettingsPageId`) so
+      `AgentRunSchema.skillId` can be a closed `z.enum` over it. `ui-store.ts` re-exports the type
+      unchanged — no import path moves — and keeps `DEFAULT_AGENT_SKILLS` as UI copy.
+- [x] Pure selectors (`runsForRepo`, `runsForSkill`, `latestVerdict`, `skillOutcomeTally`) and two
+      adapters (`fromLoopRun`, `fromClosedSession`) projecting the existing `LoopRunRecord`/
+      `ClosedSession` shapes into an `AgentRun` — no on-disk store moves or migrates in this theme.
+- [x] `agent-run.test.ts` / `agent-command.test.ts`: 18 new tests (schema round-trips, both
+      adapters against real fixtures, the tally's "no verdict tallies as neither pass nor fail"
+      case). `moon run :typecheck :lint :test` green across all 8 workspace projects.
+
 ## 2026-09-26 — Phase 97 Theme L — Built-in templates and a gallery
 
 [PR #578](https://github.com/bilo-io/midnite-studio/pull/578). Five built-in workflow templates as
