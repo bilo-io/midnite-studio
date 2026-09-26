@@ -197,7 +197,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The run record, in `shared` (M) — ✅ DONE
+### A — The run record, in `shared` (M) — ✅ DONE ([PR #579](https://github.com/bilo-io/midnite-studio/pull/579), 2026-09-26)
 
 One vocabulary over the four records that already disagree. Pure `shared`: zod only, no electron, no
 imports from any other workspace package.

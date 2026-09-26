@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-26 — Phase 94 Theme A — The run record, in `shared`
 
-PR TBD. One vocabulary over the four run records that already disagree (loop, session, council,
+[PR #579](https://github.com/bilo-io/midnite-studio/pull/579). One vocabulary over the four run records that already disagree (loop, session, council,
 workflow) — a pure `shared` projection, not a fifth store, unblocking Phase 97 Theme K (workflow
 change receipts).
 
