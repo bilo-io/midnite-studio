@@ -53,17 +53,22 @@ Run verification checks across the workspace and targeted packages:
 
 ---
 
-## 📋 Stage 3 — Human Verification Digest
+## 📋 Stage 3 — Human Verification Digest & Interactive Decision UI
 
 1. Collate **only** the outstanding manual / human verification items:
    - Items requiring physical device or OS-specific interactions (e.g. macOS native menus, detached panels).
    - Packaged-app behavioral passes (`desktop:install-local`).
    - Real-world repository workflows or live forge API checks.
    - Visual inspection passes.
-2. Present a clear, scannable digest to the user listing each outstanding item.
-3. Prompt the user for confirmation:
-   - State whether automated verification passed completely.
-   - Ask for sign-off on the manual verification items to mark the phase done via a direct question to the user.
+2. Present a clear, scannable markdown digest to the user listing each outstanding manual verification item.
+3. **Interactive Decision UI (MANDATORY — do not require typed input):**
+   Always invoke the interactive modal/option prompter (e.g. `ask_question` with `is_multi_select: true`, or the CLI's native multi-choice UI) with checkboxes so the user can select multiple actions in a single click without typing:
+   - `Mark Phase {x} as ✅ DONE`
+   - `Skip Phase {x} (keep as WIP)`
+   - `Continue immediately to Phase {y}`
+   - `Jump to Phase {z}...`
+
+   *Example pattern:* The user can check both `Mark Phase {x} as ✅ DONE` AND `Continue immediately to Phase {y}` simultaneously to batch confirmation and advancement in one gesture. Always preserve write-in capability for custom overrides.
 
 ---
 
