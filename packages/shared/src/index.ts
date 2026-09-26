@@ -32,5 +32,6 @@ export * from './version';
 export * from './video';
 export * from './workflow';
 export * from './workflow-cron';
+export * from './workflow-receipt';
 export * from './workflow-test-parsers';
 export * from './workflow-templates';

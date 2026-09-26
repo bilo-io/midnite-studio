@@ -1,4 +1,4 @@
-import type { WorkflowNode, WorkflowRun } from '@midnite/studio-shared';
+import { buildWorkflowRunReceipt, nodeRunIteration, type WorkflowNode, type WorkflowRun } from '@midnite/studio-shared';
 import { Fragment, useState } from 'react';
 import { LuChevronDown, LuChevronUp, LuDownload, LuPlay } from 'react-icons/lu';
 
@@ -6,6 +6,7 @@ import { EmptyState } from '../../components/empty-state';
 import { bridge } from '../../services/bridge';
 import { activityStatusVar } from '../activity/activity-status-color';
 import { NODE_KIND_META } from './canvas/node-kind-meta';
+import { nodeRunGroups } from './canvas/run-replay-iteration';
 import { GateDecideRow } from './gate-decide-row';
 
 /**
@@ -102,8 +103,47 @@ function buildLogLines(run: WorkflowRun): string[] {
   return events.map((e) => `[${formatClock(e.at)}] ${e.text}`);
 }
 
-/** The run as a markdown document — the panel's "Export as Markdown" button. */
-export function runToMarkdown(run: WorkflowRun): string {
+/** The receipt's own markdown section (Phase 97 Theme K) — one line per field, `—` for an empty list/value rather than an empty heading with nothing under it. */
+function receiptToMarkdown(run: WorkflowRun, workflowNodes: readonly WorkflowNode[] | undefined): string[] {
+  const receipt = buildWorkflowRunReceipt(run, workflowNodes);
+  const list = (values: readonly string[]): string => (values.length > 0 ? values.join(', ') : '—');
+  const lines = [
+    '## Receipt',
+    '',
+    `- **Node kinds used**: ${list(receipt.nodeKinds)}`,
+    `- **Agents used**: ${list(receipt.agentsUsed)}`,
+    `- **Frame(s) consumed**: ${list(receipt.contextSources.frameIds)}`,
+    `- **Trigger payload**: ${receipt.contextSources.triggerPayload !== null ? '`' + JSON.stringify(receipt.contextSources.triggerPayload) + '`' : '—'}`,
+    `- **Policy version**: ${receipt.policyVersion || '—'}`,
+    `- **Wall-clock**: ${formatDuration(receipt.wallClockMs)}`,
+    `- **Rollback point**: ${receipt.rollbackPoint ?? '—'}`,
+  ];
+  if (receipt.loopIterations.length > 0) {
+    lines.push(
+      '- **Loop iterations**: ' +
+        receipt.loopIterations.map((loop) => `${loop.edgeId} × ${loop.iterations}${loop.exitReason ? ` (${loop.exitReason})` : ''}`).join(', '),
+    );
+  }
+  if (receipt.verifierVerdicts.length > 0) {
+    lines.push('- **Verifier verdicts**: ' + receipt.verifierVerdicts.map((v) => `${v.label}: ${v.passed} passed / ${v.failed} failed`).join('; '));
+  }
+  if (receipt.humanDecisions.length > 0) {
+    lines.push('- **Human decisions**: ' + receipt.humanDecisions.map((d) => `${d.label}: ${d.decision} (via ${d.decidedBy})`).join('; '));
+  }
+  lines.push(
+    `- **Accepted artifact**: ${receipt.acceptedArtifact ? `${receipt.acceptedArtifact.label} — ${JSON.stringify(receipt.acceptedArtifact.output).slice(0, 200)}` : '—'}`,
+  );
+  return lines;
+}
+
+/**
+ * The run as a markdown document — the panel's "Export as Markdown" button.
+ * `workflowNodes` is optional (the panel always has it — see
+ * {@link RunOutputPanel}'s own prop of the same name); without it the
+ * receipt's `agentsUsed`/`contextSources.frameIds` read as empty, same as
+ * {@link buildWorkflowRunReceipt} itself.
+ */
+export function runToMarkdown(run: WorkflowRun, workflowNodes?: readonly WorkflowNode[]): string {
   const duration = run.endedAt !== undefined ? formatDuration(run.endedAt - run.startedAt) : 'in progress';
   const lines: string[] = [
     `# ${run.workflowName} — run ${run.id}`,
@@ -119,14 +159,15 @@ export function runToMarkdown(run: WorkflowRun): string {
     const nodeDuration =
       node.startedAt !== undefined && node.endedAt !== undefined ? formatDuration(node.endedAt - node.startedAt) : '—';
     const detail = (node.error ?? (node.output !== undefined ? JSON.stringify(node.output) : '—')).replace(/\|/g, '\\|').slice(0, 200);
-    lines.push(`| ${node.label} | ${node.kind} | ${STATUS_LABEL[node.status]} | ${nodeDuration} | ${detail} |`);
+    const passSuffix = nodeRunIteration(node) > 1 ? ` (pass ${nodeRunIteration(node)})` : '';
+    lines.push(`| ${node.label}${passSuffix} | ${node.kind} | ${STATUS_LABEL[node.status]} | ${nodeDuration} | ${detail} |`);
   }
-  lines.push('', '## Log', '', '```', ...buildLogLines(run), '```', '');
+  lines.push('', ...receiptToMarkdown(run, workflowNodes), '', '## Log', '', '```', ...buildLogLines(run), '```', '');
   return lines.join('\n');
 }
 
-function downloadMarkdown(run: WorkflowRun): void {
-  const blob = new Blob([runToMarkdown(run)], { type: 'text/markdown' });
+function downloadMarkdown(run: WorkflowRun, workflowNodes: readonly WorkflowNode[] | undefined): void {
+  const blob = new Blob([runToMarkdown(run, workflowNodes)], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -218,7 +259,7 @@ export function RunOutputPanel({
               aria-label="Export run as Markdown"
               onClick={(event) => {
                 event.stopPropagation();
-                downloadMarkdown(run);
+                downloadMarkdown(run, workflowNodes);
               }}
               className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-background hover:text-foreground"
             >
@@ -264,35 +305,47 @@ export function RunOutputPanel({
                       </tr>
                     </thead>
                     <tbody>
-                      {run.nodes.map((node) => {
-                        const duration =
-                          node.startedAt !== undefined && node.endedAt !== undefined
-                            ? formatDuration(node.endedAt - node.startedAt)
-                            : '—';
-                        const detail = node.error ?? (node.output !== undefined ? (typeof node.output === 'string' ? node.output : JSON.stringify(node.output)) : '—');
-                        const workflowNode = workflowNodes?.find((n) => n.id === node.nodeId);
-                        const gateConfig = node.kind === 'gate' && workflowNode?.kind === 'gate' ? workflowNode.config : undefined;
-                        return (
-                          <Fragment key={node.nodeId}>
-                            <tr className="border-t border-border/50">
-                              <td className="px-2 py-1">
-                                <span className="text-muted-foreground">{NODE_KIND_META[node.kind].label}</span>{' '}
-                                {node.label}
-                              </td>
-                              <td className="px-2 py-1" style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[node.status]) }}>
-                                {STATUS_LABEL[node.status]}
-                              </td>
-                              <td className="px-2 py-1 tabular-nums text-muted-foreground">{duration}</td>
-                              <td className={`max-w-[320px] truncate px-2 py-1 ${node.error ? 'text-destructive' : 'text-muted-foreground'}`} title={detail}>
-                                {detail}
-                                {node.truncated ? ' (truncated)' : ''}
-                              </td>
-                            </tr>
-                            {node.status === 'waiting' ? (
-                              <GateDecideRow runId={run.id} nodeId={node.nodeId} config={gateConfig} />
-                            ) : null}
-                          </Fragment>
-                        );
+                      {nodeRunGroups(run).flatMap((group) => {
+                        const workflowNode = workflowNodes?.find((n) => n.id === group.nodeId);
+                        // A looped node's own accumulated iteration records
+                        // (Phase 97 Theme K) — a "Pass N" badge only when
+                        // there is more than one, so an ordinary run's table
+                        // reads exactly as it always did.
+                        const showPass = group.runs.length > 1;
+                        return group.runs.map((node) => {
+                          const duration =
+                            node.startedAt !== undefined && node.endedAt !== undefined
+                              ? formatDuration(node.endedAt - node.startedAt)
+                              : '—';
+                          const detail = node.error ?? (node.output !== undefined ? (typeof node.output === 'string' ? node.output : JSON.stringify(node.output)) : '—');
+                          const gateConfig = node.kind === 'gate' && workflowNode?.kind === 'gate' ? workflowNode.config : undefined;
+                          return (
+                            <Fragment key={`${group.nodeId}:${nodeRunIteration(node)}`}>
+                              <tr className="border-t border-border/50">
+                                <td className="px-2 py-1">
+                                  <span className="text-muted-foreground">{NODE_KIND_META[node.kind].label}</span>{' '}
+                                  {node.label}
+                                  {showPass ? (
+                                    <span className="ml-1.5 rounded bg-accent px-1 py-px text-[10px] font-medium text-muted-foreground">
+                                      Pass {nodeRunIteration(node)}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="px-2 py-1" style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[node.status]) }}>
+                                  {STATUS_LABEL[node.status]}
+                                </td>
+                                <td className="px-2 py-1 tabular-nums text-muted-foreground">{duration}</td>
+                                <td className={`max-w-[320px] truncate px-2 py-1 ${node.error ? 'text-destructive' : 'text-muted-foreground'}`} title={detail}>
+                                  {detail}
+                                  {node.truncated ? ' (truncated)' : ''}
+                                </td>
+                              </tr>
+                              {node.status === 'waiting' ? (
+                                <GateDecideRow runId={run.id} nodeId={node.nodeId} config={gateConfig} />
+                              ) : null}
+                            </Fragment>
+                          );
+                        });
                       })}
                     </tbody>
                   </table>

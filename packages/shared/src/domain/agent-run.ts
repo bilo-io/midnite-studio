@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import type { LoopRunRecord } from '../loops';
+import { WorkflowRunReceiptSchema, buildWorkflowRunReceipt } from '../workflow-receipt';
+import type { WorkflowNode, WorkflowRun } from '../workflow';
 import { AGENT_COMMAND_IDS, type AgentCommandId } from './agent-command';
 import type { ClosedSession } from './session-history';
 import { TestFailureSchema, TestRunReasonSchema } from './tests';
@@ -90,6 +92,15 @@ export const AgentRunSchema = z.object({
    * projecting into this one shape never loses the record's home key.
    */
   sourceId: z.string().min(1).optional(),
+  /**
+   * [Phase 97](../../../../.midnite/tasks/phases/phase-97-workflow-graph-primitives.md)
+   * Theme K's "change receipt" — set only for `kind: 'workflow'` (the same
+   * optional-and-kind-conditional convention `sessionId`/`exitCode` already
+   * follow in this schema), built by {@link fromWorkflowRun}. Every other
+   * kind leaves this unset; there is nothing here for a loop/session/council
+   * run to attach.
+   */
+  receipt: WorkflowRunReceiptSchema.optional(),
 });
 export type AgentRun = z.infer<typeof AgentRunSchema>;
 
@@ -238,5 +249,61 @@ export function fromClosedSession(
     status: CLOSED_SESSION_REASON_TO_STATUS[session.reason],
     exitCode: session.exitCode ?? undefined,
     verdict: extra.verdict,
+  };
+}
+
+/**
+ * `completed`/`failed` both read as `exited` — the pass/fail distinction
+ * lives in `exitCode` instead, the same way a real process's own exit code
+ * would carry it. `cancelled` reads as `stopped` ("asked to end", the same
+ * meaning `fromClosedSession`'s `closed` carries). `interrupted` reads as
+ * `abandoned` — a record left behind with no process left to run in, exactly
+ * `WorkflowRunStatusSchema`'s own doc comment for that status.
+ */
+const WORKFLOW_RUN_STATUS_TO_AGENT_STATUS: Record<WorkflowRun['status'], AgentRunStatus> = {
+  running: 'running',
+  completed: 'exited',
+  failed: 'exited',
+  cancelled: 'stopped',
+  interrupted: 'abandoned',
+};
+
+export interface FromWorkflowRunContext {
+  repoId: string;
+  cwd: string;
+  label: string;
+  agentId?: string;
+  skillId?: AgentCommandId;
+  verdict?: AgentRunVerdict;
+  /** Passed straight through to {@link buildWorkflowRunReceipt}'s own `extra.rollbackPoint` — see that function's doc comment for why this adapter cannot resolve one itself. */
+  rollbackPoint?: string | null;
+  /** The live workflow's own `WorkflowNode[]` — see {@link buildWorkflowRunReceipt}'s doc comment for exactly which receipt fields need this (and read as `[]` without it). */
+  workflowNodes?: readonly WorkflowNode[];
+}
+
+/**
+ * `WorkflowRun` (`workflow.ts`) → `AgentRun`, `kind: 'workflow'` — the fourth
+ * and last of Phase 94 Theme A's own sources, wired up once
+ * [Phase 97](../../../../.midnite/tasks/phases/phase-97-workflow-graph-primitives.md)
+ * Theme K landed. `record.workflowId` becomes `sourceId`, and this is the one
+ * adapter that always attaches a {@link buildWorkflowRunReceipt} receipt —
+ * the whole point of this projection existing.
+ */
+export function fromWorkflowRun(run: WorkflowRun, extra: FromWorkflowRunContext): AgentRun {
+  return {
+    id: run.id,
+    kind: 'workflow',
+    repoId: extra.repoId,
+    cwd: extra.cwd,
+    agentId: extra.agentId,
+    skillId: extra.skillId,
+    label: extra.label,
+    startedAt: run.startedAt,
+    endedAt: run.endedAt,
+    status: WORKFLOW_RUN_STATUS_TO_AGENT_STATUS[run.status],
+    exitCode: run.status === 'completed' ? 0 : run.status === 'failed' ? 1 : undefined,
+    verdict: extra.verdict,
+    sourceId: run.workflowId,
+    receipt: buildWorkflowRunReceipt(run, extra.workflowNodes, { rollbackPoint: extra.rollbackPoint }),
   };
 }

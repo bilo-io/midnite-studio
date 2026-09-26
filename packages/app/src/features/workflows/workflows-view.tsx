@@ -27,11 +27,13 @@ import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/
 import { useFlushableSave } from '../councils/use-flushable-save';
 import { DemoApiOfferBanner } from './demo-api-offer-banner';
 import { DemoApiPill } from './demo-api-pill';
+import { IterationScrubber } from './canvas/iteration-scrubber';
 import { NodeInspector } from './canvas/node-inspector';
 import { NodePalette } from './canvas/node-palette';
 import { RunNodeDetail } from './canvas/run-node-detail';
 import { RunReplayControls } from './canvas/run-replay-controls';
 import { nodeStatusesAtStep } from './canvas/run-replay';
+import { nodeStatusesAtIteration } from './canvas/run-replay-iteration';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
 import { createNode, templateFromWorkflow } from './workflow-io';
 import { RunHistoryList } from './run-history-list';
@@ -251,6 +253,16 @@ function WorkflowEditor({
   useEffect(() => setReplayStep(null), [activeRunId]);
 
   /**
+   * Replay **by iteration** (Phase 97 Theme K, `canvas/run-replay-iteration.ts`)
+   * — an independent override from `replayStep` above: picking a pass clears
+   * the flat step position and vice versa, so only one ever drives the
+   * canvas. `null` means "no pass picked", same "resets on a run switch"
+   * rule as `replayStep`.
+   */
+  const [replayIteration, setReplayIteration] = useState<number | null>(null);
+  useEffect(() => setReplayIteration(null), [activeRunId]);
+
+  /**
    * The live `workflowRunChanged` payload (Phase 95 Theme I —
    * `use-workflow-run.ts`'s `useLiveWorkflowRun`), read straight off the IPC
    * event rather than waiting on `useWorkflowRuns`' invalidate-then-refetch
@@ -299,23 +311,29 @@ function WorkflowEditor({
   // the canvas toolbar for `mode === 'run'`.
   const runForReplay = mode === 'run' ? activeRun.data : undefined;
   const replayed = runForReplay && replayStep !== null ? nodeStatusesAtStep(runForReplay, replayStep) : null;
+  // The iteration scrubber (Theme K) wins over the flat step scrubber when
+  // BOTH happen to be set — `IterationScrubber`'s own prev/next always clears
+  // `replayStep`, and vice versa, so in practice at most one is non-null.
+  const iterationReplayed =
+    runForReplay && replayIteration !== null ? nodeStatusesAtIteration(runForReplay, replayIteration) : null;
+  const scrubbed = iterationReplayed ?? replayed;
 
   const nodeStatuses = useMemo<ReadonlyMap<string, WorkflowNodeStatus> | undefined>(
-    () => replayed?.statuses ?? (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
-    [replayed, focusedRun],
+    () => scrubbed?.statuses ?? (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
+    [scrubbed, focusedRun],
   );
   const nodeErrors = useMemo<ReadonlyMap<string, string> | undefined>(
     () =>
-      replayed?.errors ??
+      scrubbed?.errors ??
       (focusedRun
         ? new Map(focusedRun.nodes.filter((n): n is typeof n & { error: string } => n.error !== undefined).map((n) => [n.nodeId, n.error]))
         : undefined),
-    [replayed, focusedRun],
+    [scrubbed, focusedRun],
   );
-  /** The taken/dead edge highlighting's own input (Theme J) — same `replayed`/`focusedRun` pairing as `nodeStatuses`/`nodeErrors` above. */
+  /** The taken/dead edge highlighting's own input (Theme J) — same `scrubbed`/`focusedRun` pairing as `nodeStatuses`/`nodeErrors` above. */
   const nodeSettledPorts = useMemo<ReadonlyMap<string, string> | undefined>(
     () =>
-      replayed?.settledPorts ??
+      scrubbed?.settledPorts ??
       (focusedRun
         ? new Map(
             focusedRun.nodes
@@ -323,7 +341,7 @@ function WorkflowEditor({
               .map((n) => [n.nodeId, n.settledPort]),
           )
         : undefined),
-    [replayed, focusedRun],
+    [scrubbed, focusedRun],
   );
   /**
    * The loop iteration badge's own input (Theme J, off Theme C's
@@ -465,11 +483,24 @@ function WorkflowEditor({
                     }}
                   />
                 ) : activeRun.data ? (
-                  <RunReplayControls
-                    run={activeRun.data}
-                    step={replayStep ?? activeRun.data.nodes.length}
-                    onStepChange={setReplayStep}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <RunReplayControls
+                      run={activeRun.data}
+                      step={replayStep ?? activeRun.data.nodes.length}
+                      onStepChange={(step) => {
+                        setReplayIteration(null);
+                        setReplayStep(step);
+                      }}
+                    />
+                    <IterationScrubber
+                      run={activeRun.data}
+                      iteration={replayIteration}
+                      onIterationChange={(iterationValue) => {
+                        setReplayStep(null);
+                        setReplayIteration(iterationValue);
+                      }}
+                    />
+                  </div>
                 ) : null
               }
             />

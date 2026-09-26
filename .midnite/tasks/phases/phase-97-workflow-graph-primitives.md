@@ -427,9 +427,9 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       root:visual-regen` from a machine with docker before the opt-in cross-platform CI lane can
       diff it.)
 
-### K — Receipts and replay by iteration (M)
+### K — Receipts and replay by iteration (M) — ✅ DONE ([PR #580](https://github.com/bilo-io/midnite-studio/pull/580), 2026-09-26)
 
-- [ ] Consumes [Phase 94](phase-94-ai-engineering.md) Theme A's `AgentRunRecord` (kind
+- [x] Consumes [Phase 94](phase-94-ai-engineering.md) Theme A's `AgentRunRecord` (kind
       `workflow`). A completed workflow run writes a **change receipt** onto it:
       - context sources (frame slots, trigger payload)
       - policy version (hash of the policy nodes)
@@ -442,14 +442,42 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       - rollback point (the repo HEAD at trigger time, when the run has a repo)
 
       There is **no cost field**, per Phase 94 Decision 8.
-- [ ] If Phase 94 Theme A has not landed when this theme is picked up, stop and pick another
-      theme. Do not invent a parallel record.
-- [ ] Replay: `run-replay.ts` orders steps by `(iteration, settledAt)`. The replay controls gain an
+      (`packages/shared/src/workflow-receipt.ts`'s `buildWorkflowRunReceipt`, a pure function over
+      a `WorkflowRun` plus its optional live `WorkflowNode[]`, attached via a new
+      `AgentRunSchema.receipt` field and the new `fromWorkflowRun` adapter — the fourth of Phase
+      94 Theme A's own sources. Two honest, documented gaps, neither closeable without touching
+      `workflow-engine.ts` (out of this theme's own scope): a policy-governed node's *implicit*
+      gate approval (Theme I) leaves no decision record on its own run, so `humanDecisions` only
+      ever lists explicit `gate` nodes; and a node's own `onFailure: retry` attempts (Theme G) are
+      never persisted per-attempt at all — `executeNode`'s own doc comment says so — so "retries"
+      is not actually surfaced, only loop-edge iteration counts.)
+- [x] If Phase 94 Theme A has not landed when this theme is picked up, stop and pick another
+      theme. Do not invent a parallel record. (It had — merged as [PR #579](https://github.com/bilo-io/midnite-studio/pull/579).)
+- [x] Replay: `run-replay.ts` orders steps by `(iteration, settledAt)`. The replay controls gain an
       iteration scrubber ("pass 2 of 3"), and the canvas paints each pass's statuses and the
       taken edge.
-- [ ] The run output panel's Nodes tab groups a looped node's runs by iteration. Markdown export
+      (**Deviated from the literal wording, documented on the p97 board and in the PR**:
+      `WorkflowNodeRun.iteration` is only ever set for a node inside a loop body — a node before
+      or after the loop reads as `1` regardless of how many passes ran. Sorting the WHOLE run by
+      `(iteration, settledAt)` as the primary key would put a post-loop node ahead of a later loop
+      pass it actually settled after — exactly Theme L's own `harness-bounded-build` template's
+      shape. So `run-replay.ts`'s existing flat scrubber (`replayOrder`/`nodeStatusesAtStep`) is
+      untouched, still purely chronological, and `(iteration, settledAt)` instead orders the new,
+      additive `canvas/run-replay-iteration.ts` (`nodesForIteration`/`nodeStatusesAtIteration`/
+      `nodeRunGroups`) — a correct, unambiguous use of that tuple since it never reshuffles nodes
+      belonging to different iterations against each other. `IterationScrubber` mounts beside
+      `RunReplayControls` in the canvas toolbar, mutually exclusive with the flat step scrubber.)
+- [x] The run output panel's Nodes tab groups a looped node's runs by iteration. Markdown export
       includes the receipt.
-- [ ] Vitest: receipt assembly from a fixture run, replay ordering across iterations, and export.
+      (`nodeRunGroups` groups `run.nodes` by node id with a "Pass N" badge shown only when a node
+      actually accumulated more than one record — this also fixed a latent duplicate-React-key
+      bug the flat per-record render had for any looped node. `runToMarkdown` gained a
+      `workflowNodes?` param and a new "## Receipt" section.)
+- [x] Vitest: receipt assembly from a fixture run, replay ordering across iterations, and export.
+      (`workflow-receipt.test.ts` (shared, 18 tests), `run-replay-iteration.test.ts` (app, 10
+      tests, including the exact "post-loop node must not read as reached during an earlier pass"
+      case the (iteration, settledAt) deviation above is about), and three new
+      `run-output-panel.test.tsx` cases for the Pass-N grouping and the Receipt export section.)
 
 ### L — Built-in templates and a gallery (M) — ✅ DONE ([PR #578](https://github.com/bilo-io/midnite-studio/pull/578), 2026-09-26)
 
