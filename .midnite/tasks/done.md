@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 40 — GitHub Projects
+
+[Phase 40](phases/phase-40-github-projects.md) marked ✅ DONE (53/53 items verified).
+GitHub ProjectV2 planning integration: shared domain contracts (`ForgeProject*`) with discriminated union content and field types; GraphQL-based ProjectV2 reader in desktop with pagination, owner resolution, and 1 000-item ceiling truncation; field mutations (`setItemFieldValue`, `addItemToProject`) with stdin JSON payloads; lazy-loaded Projects view with item table, custom fields, and missing-scope diagnostics (`gh auth refresh -s project`); and full write safety gating behind `forgeWritesEnabled`.
+
 ## 2026-09-26 — Phase 39 — One rail, five chords and four loops
 
 [Phase 39](phases/phase-39-status-bar-shortcut-rail.md) marked ✅ DONE (63/63 items verified).

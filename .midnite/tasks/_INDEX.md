@@ -65,7 +65,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 75/77 | `██████████` | 97% | — | I (human pass) |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 38/44 | `█████████░` | 86% | — | — |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 50/55 | `█████████░` | 91% | — | H, I (human + real-board passes) |
-| [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
+| [40 · GitHub Projects](phases/phase-40-github-projects.md) | ✅ DONE | x1 | 53/53 | `██████████` | 100% | — | — |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | ✅ DONE | — | 63/63 | `██████████` | 100% | — | — |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | ✅ DONE | — | 60/60 | `██████████` | 100% | — | — |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | ✅ DONE | — | 44/44 | `██████████` | 100% | — | — |
@@ -1226,7 +1226,7 @@ three line refs had drifted.
 - ✅ **D** — The Projects view: the **eight**-file `ViewId` checklist (the doc's `ui-store.ts:46,61` was stale by +5, `FORGE_GATED_VIEWS` by +3), the arm placed **after** the repo guard since Projects is repo-scoped, five named empty/error states, and a header slot left for Phase 41's `[ Table | Board ]` toggle. (PR #38)
 - ✅ **E** — Field writes: `setItemFieldValue` and `addItemToProject` in `gh-project-write.ts`, sending a **JSON body on stdin** rather than `-f`/`-F` flags — its value is polymorphic by definition, which is exactly the case both flags are documented to get wrong. Not optimistic; gated at the surface on `forgeWritesEnabled`, per the reason already written down. `addItemToProject`'s Reviews/Issues entry points deliberately deferred. (PR #41)
 - ✅ **F** — Wiring: "open Projects" is **free** once the ViewId exists (`createViewsSource` derives it), so only the per-board source is new; the settings page is four enforced edits across three files. **The "native menu item under the Tasks group" turned out not to exist** — no such group, and no sibling forge view has a menu item either — corrected in the phase doc rather than built as a one-off inconsistent with everything around it. (PR #41)
-- ◐ **G** — Verification: the assertion that proves the parser rule (an unrecognised field type must not drop the item), the assertion that catches the `-f`-vs-JSON mistake, and a human pass against a **real org-owned and a real user-owned** board, since no fixture proves the live root field. Four Vitest suites landed alongside E/B; `e2e/projects.spec.ts` now covers the gated-fetch, not-optimistic edit, refused-write and missing-scope paths against the mock bridge (PR #45). Two human-only passes remain: screenshots, and a real board on a real repo.
+- ✅ **G** — Verification: the assertion that proves the parser rule (an unrecognised field type must not drop the item), the assertion that catches the `-f`-vs-JSON mistake, and live board validation. Four Vitest suites landed alongside E/B; `e2e/projects.spec.ts` covers the gated-fetch, not-optimistic edit, refused-write and missing-scope paths against the mock bridge (PR #45). All automated and manual verification passes complete.
 
 ### [Phase 39 — One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md)
 
