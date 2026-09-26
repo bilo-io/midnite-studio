@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 35 — FAB Mission Control
+
+[Phase 35](phases/phase-35-fab-mission-control.md) marked ✅ DONE (40/40 items verified).
+FAB Mission Control for autonomous agent loops: `surface: 'fab'` terminal sessions with sleep/wake lifecycle, FAB button morphing with spectrum halo glow reflecting active loops, per-loop status indicators and activity detection, loop composer modal with prompt templates and modifier flags, graceful stop semantics (SIGINT followed by sleep), status bar attention alerts with notification bell routing, and persistent loop state rehydration across app restarts.
+
 ## 2026-09-26 — Phase 33 — Application Installation, CLI Tool & Desktop Integration
 
 [Phase 33](phases/phase-33-installable-app-and-cli-integration.md) marked ✅ DONE (59/59 items verified).

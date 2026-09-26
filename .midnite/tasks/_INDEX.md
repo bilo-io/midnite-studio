@@ -70,7 +70,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | ✅ DONE | — | 60/60 | `██████████` | 100% | — | — |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
-| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
+| [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | ✅ DONE | — | 40/40 | `██████████` | 100% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | ✅ DONE | x1 | 59/59 | `██████████` | 100% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | ✅ DONE | x1 | 92/92 | `██████████` | 100% | — | — |
