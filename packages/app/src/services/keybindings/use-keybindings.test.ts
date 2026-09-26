@@ -5,7 +5,7 @@ import { COMMAND_IDS, type CommandId } from '@midnite/studio-shared';
 
 import { usePaletteStore } from '../../store/palette-store';
 import { useUiStore } from '../../store/ui-store';
-import { useKeybindings } from './use-keybindings';
+import { shouldEscapeTerminal, useKeybindings } from './use-keybindings';
 import type { CommandRuntime } from './use-command-handlers';
 
 const fakeRuntime = (): { runtime: CommandRuntime; run: Record<CommandId, ReturnType<typeof vi.fn>> } => {
@@ -105,16 +105,16 @@ describe('useKeybindings', () => {
   });
 });
 
-describe('the reload pair yields to the shell', () => {
-  it('does not reload on Mod+R aimed at a terminal', () => {
+describe('the reload pair fires even when the terminal is focused', () => {
+  it('reloads on Mod+R and Mod+Shift+R aimed at a terminal', () => {
     const { runtime, run } = fakeRuntime();
     renderHook(() => useKeybindings(runtime));
 
     inXterm({ key: 'r', metaKey: true });
     inXterm({ key: 'r', metaKey: true, shiftKey: true });
 
-    expect(run['app.reload']).not.toHaveBeenCalled();
-    expect(run['app.hardReload']).not.toHaveBeenCalled();
+    expect(run['app.reload']).toHaveBeenCalledTimes(1);
+    expect(run['app.hardReload']).toHaveBeenCalledTimes(1);
   });
 
   it('still reloads on Mod+R anywhere else', () => {
@@ -128,11 +128,12 @@ describe('the reload pair yields to the shell', () => {
     expect(run['app.hardReload']).toHaveBeenCalledTimes(1);
   });
 
-  /**
-   * The carve-out is two commands wide, deliberately — `Mod+1` jumping to the
-   * Graph from inside a shell is useful, and stays.
-   */
-  it('leaves every other app-scope chord firing from inside a terminal', () => {
+  it('allows shouldEscapeTerminal to return true for Mod+r and Mod+Shift+r', () => {
+    expect(shouldEscapeTerminal(new KeyboardEvent('keydown', { key: 'r', metaKey: true }))).toBe(true);
+    expect(shouldEscapeTerminal(new KeyboardEvent('keydown', { key: 'r', metaKey: true, shiftKey: true }))).toBe(true);
+  });
+
+  it('leaves other app-scope chords firing from inside a terminal', () => {
     const { runtime, run } = fakeRuntime();
     renderHook(() => useKeybindings(runtime));
 
@@ -174,8 +175,8 @@ describe('YIELD_ROOTS — Monaco gets its own yield set (Phase 64 Theme D)', () 
 
   it('still fires status.commit (Mod+Enter) aimed at a terminal — the Monaco yield set is its own list', () => {
     // `status.commit` is in Monaco's yield list but NOT the terminal's
-    // (`.xterm`'s own six are the reload pair, the panel-history pair,
-    // `fab.toggle` and `window.detachActive`) — proof that generalising
+    // (`.xterm`'s own yield commands are the panel-history pair, `fab.toggle`,
+    // `window.detachActive` and `browser.find`) — proof that generalising
     // `insideTerminal` into `YIELD_ROOTS` did not leak Monaco's carve-out
     // into the terminal's.
     const { runtime, run } = fakeRuntime();
