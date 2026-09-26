@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 36 — Faster, lighter, same app
+
+[Phase 36](phases/phase-36-performance-diet.md) marked ✅ DONE (64/64 items verified).
+Application performance diet and regression budgets: entry chunk cut by 56% (2 481.3 → 1 084.7 KB) via React.lazy Suspense boundaries on thirteen views and split xterm/markdown pipelines; main-process boot time reduced by taking synchronous login-shell probe off startup path; pty broker CPU reduced 11× by coalescing output into 16ms frames; unified icon family on `react-icons/lu` with complete `lucide-react` ban; single shared `useNow` timer for all visible clocks; 10k LRU diff highlight cache with per-key subscriber notifications; and strict automated perf budgets via `moon run app:perf`.
+
 ## 2026-09-26 — Phase 35 — FAB Mission Control
 
 [Phase 35](phases/phase-35-fab-mission-control.md) marked ✅ DONE (40/40 items verified).

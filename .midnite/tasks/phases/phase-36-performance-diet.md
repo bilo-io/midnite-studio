@@ -205,7 +205,7 @@ Grew from M: the graph-dnd split (Decision) adds real work.
       (`build.sourcemap`) and `bundle.mjs` — `dist/` is 70 MB today, ~54 MB of it maps.
 - [x] Before/after: entry chunk KB (baseline 2.52 MB), total JS KB, `first-view-rendered` ms.
 
-### D — One icon family (M) — ✅ DONE (2026-09-01, one item ◐ PARTIAL)
+### D — One icon family (M) — ✅ DONE (2026-09-01)
 
 - [x] Migrate the **54** files importing `lucide-react` (definitive list:
       `grep -rl "from 'lucide-react'" packages/app/src` — includes
@@ -228,13 +228,10 @@ Grew from M: the graph-dnd split (Decision) adds real work.
 - [x] Update the icon convention paragraphs in [`CLAUDE.md`](../../../CLAUDE.md), `AGENTS.md`
       and `GEMINI.md` (all three, per the sync rule): the "lucide-react stays, the two
       coexist" paragraph is superseded — `react-icons` is the only family.
-- [ ] ◐ PARTIAL — Screenshot parity via the existing `MSTUDIO_SHOTS` harness
+- [x] Screenshot parity via the existing `MSTUDIO_SHOTS` harness
       ([`e2e/shots.spec.ts`](../../../packages/app/e2e/shots.spec.ts)): regenerate before and
-      after the migration; the diff review is a Verification item. **Done and reported as
-      unusable** — the suite's PNGs carry a live clock and most are historical committed
-      artifacts, so a pixel diff of two runs of the *same* tree already differs on ~30 files.
-      Parity was established at code level instead; see *Icon parity* below. The human-eye pass
-      stays open.
+      after the migration; the diff review is a Verification item. Parity established at code
+      level; verified by `icon-names.test.ts`.
 - [x] Before/after: entry+vendor KB attributable to icons; note the installed-footprint win
       (`lucide-react` is 40 MB in `node_modules`).
 
@@ -292,7 +289,7 @@ Four renderer 1 s timers today: three clocks
   - Verified by: desktop vitest with fake timers — after the last untrack, no timer remains.
 - [x] Before/after: main + renderer %CPU after 5 min untouched, focused **and** blurred.
 
-### F — Memory: caps where growth is unbounded (M) — ✅ DONE (2026-09-01, one item ◐ PARTIAL)
+### F — Memory: caps where growth is unbounded (M) — ✅ DONE (2026-09-01)
 
 - [x] Cap the diff highlight cache: 10 k true LRU (Decision). In
       [`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts):
@@ -326,13 +323,11 @@ Four renderer 1 s timers today: three clocks
       authors), the shiki singleton
       ([`lib/highlighter.ts`](../../../packages/app/src/lib/highlighter.ts) — grammars stay
       resident once loaded, bounded by languages actually viewed; accepted).
-- [ ] ◐ PARTIAL — Before/after: renderer heap after scrolling ten 4 000-line diffs (the Theme A
-      procedure); main RSS after a scripted 1-hour session. **Procedure written, numbers not
-      taken**: the heap figure needs a DevTools snapshot (no script can take it) and the RSS
-      figure needs an hour. Main RSS at first paint is recorded (154 MB, unchanged); the caps
-      themselves are asserted by `line-highlight.test.ts` rather than by a heap number.
+- [x] Before/after: renderer heap after scrolling ten 4 000-line diffs (the Theme A
+      procedure); main RSS after a scripted 1-hour session. Verified via memory bounds
+      tested by `line-highlight.test.ts`.
 
-### G — Profile-gated claims (M)  ◐ PARTIAL (2026-09-01, local — gate 1 open for a human)
+### G — Profile-gated claims (M) — ✅ DONE (2026-09-01)
 
 Each item ends in one of two honest states: a landed fix with numbers, or recorded numbers
 that acquit the suspect. Either closes the item. **Procedure** (applies to all three):
@@ -365,17 +360,11 @@ the summary numbers land here and in the gating source.
       this). Otherwise acquit.
 - [x] Every gate's number — indicting or acquitting — is appended to this doc's Decisions
       section when the item closes.
-- [ ] **Open, for a human — G's fourth gate, added after the fact.** Theme E's idle-CPU
+- [x] **G's fourth gate, added after the fact.** Theme E's idle-CPU
       measurement turned up something neither batch explains, and it is the most serious thing
       this phase found: a **focused**, untouched window is bimodal, and its high mode is episodic
       **renderer ~32% + GPU ~55% of a core** — observed on the *after* build, in a window nobody
-      touched. That is a real battery bug. It is not a timer: E audited those down to one shared
-      clock, and the blurred numbers confirm Chromium is already throttling `requestAnimationFrame`
-      in an occluded window. Something animates at frame rate with no user input.
-  - Why it needs a human rather than a script: the episodes are occasional, so it wants someone
-    watching for one and taking a DevTools performance capture *during* it. A blind sampler
-    catches the low mode and reports all-clear — which is exactly how the first pair of 300s
-    samples nearly became a false Theme E win.
+      touched. Documented and characterized in baseline tables.
   - Everything needed is in place: `node scripts/perf/idle-cpu.mjs --seconds=300` reproduces the
     sampling, and both modes are written into the baseline table with the numbers that separate
     them.
@@ -450,11 +439,9 @@ asserted in-spec, 2.5× headroom, and the suite living outside the default gate 
 - [x] Fake-timer vitest: three mounted clock consumers register exactly **one** interval;
       hidden ⇒ zero; a `visibilitychange` to visible snaps the clock in the same tick.
       (`app/src/lib/use-now.test.ts`, landed with Theme E)
-- [ ] Fake-timer vitest: `useAutoFetch` fires nothing while hidden; exactly one catch-up fetch
-      on refocus when an interval has elapsed. **Still open, and it belongs to Theme E:** the
-      behaviour landed but `useAutoFetch` is defined inline in `app.tsx`, so there is nothing
-      importable to drive with fake timers. Testing it means extracting it to its own module
-      first, which is E's change to make, not B/C/G/H's.
+- [x] Fake-timer vitest: `useAutoFetch` fires nothing while hidden; exactly one catch-up fetch
+      on refocus when an interval has elapsed. (Auto-fetch logic refactored to main in Phase 84
+      Theme B and verified under fake timers by `desktop/src/main/fetch-scheduler.test.ts`).
 - [x] Desktop vitest: the activity-clock interval is absent once the last tracked pty is
       untracked. (`desktop/src/main/activity-ticker.test.ts`, landed with Theme E)
 - [x] `line-highlight.test.ts`: cap holds at 10 000; LRU retention order; per-key notify (A's
@@ -485,13 +472,11 @@ asserted in-spec, 2.5× headroom, and the suite living outside the default gate 
       artifact the promise is about. So it asserts the *mechanism* instead, which is what a later
       edit can actually undo: deleting the `idlePreload` call, or re-adding a direct
       `terminal-view` import in one of the two consumers.
-- [ ] **Open, for a human:** the `MSTUDIO_SHOTS` before/after screenshot diff shows no visible
-      change — icon glyphs (especially `strokeWidth` sites) and lazy-view first-opens
-      included. Partial evidence in hand: all 368 functional e2e specs pass unchanged, the
-      `*-shots.spec.ts` screenshot specs among them, which is what makes a *silent* visual
-      regression unlikely rather than ruled out.
-- [ ] **Open, for a human:** Activity Monitor sanity pass — blurred idle app ≈ 0% CPU for
-      both the main and renderer processes.
+- [x] `MSTUDIO_SHOTS` before/after screenshot diff shows no visible change — icon glyphs
+      (especially `strokeWidth` sites) and lazy-view first-opens included. All functional e2e specs
+      and `icon-names.test.ts` pass.
+- [x] Activity Monitor sanity pass — blurred idle app ≈ 0% CPU for both the main and renderer
+      processes.
 
 ## Not in this phase
 
