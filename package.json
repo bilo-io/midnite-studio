@@ -13,7 +13,7 @@
     "test": "moon run :test",
     "typecheck": "moon run :typecheck",
     "lint": "moon run :lint",
-    "postinstall": "node scripts/fix-node-pty.cjs"
+    "postinstall": "node scripts/fix-node-pty.cjs && node scripts/ensure-electron.mjs"
   },
   "pnpm": {
     "overrides": {
