@@ -203,6 +203,11 @@ when it fails" bullets.
       anyway — state set/merge/append plus the byte-cap breach, retry backoff with the
       injected clock, and the http idempotency gate.
 
+## 2026-09-26 — Phase 45 — The leak audit
+
+[Phase 45](phases/phase-45-leak-audit.md) marked ✅ DONE (35/35 items verified).
+Memory retention audit and leak remediation across `packages/desktop` main process and terminal broker: repeatable retention harness (`scripts/perf/memory-report.mjs` attaching CDP via `electron-run.mjs`, with `retainedPerCycleKb` budget in `budgets.json`) measuring main, renderer, and broker slopes independently; systematic retention sweep of all 35 module-level collections in desktop; terminal broker scrollback leak remediation (`scrollbackBySession` pruned on session exit/kill, `ControlMessage` protocol extensions, and reconcile-on-reconnect backstop); memory capping for run history stores (`council-service.ts` and `loop-runs.ts` bounded at write time); bounded `runLocks` cleanup with `evictIfCurrent`; unhandled promise rejection fixes; structural cleanup for terminal store `dropKey`; closed browser tab `webContents` listener detachment; LRU-bounded `workflowCache`; and extended retention e2e test suite (`packages/app/e2e/perf/retention.spec.ts`) asserting flat slopes for terminal, repo, and browser tabs.
+
 ## 2026-09-26 — Phase 44 — Video Studio
 
 [Phase 44](phases/phase-44-video-studio.md) marked ✅ DONE (64/64 items verified).
