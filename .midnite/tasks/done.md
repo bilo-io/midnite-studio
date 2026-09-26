@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 39 — One rail, five chords and four loops
+
+[Phase 39](phases/phase-39-status-bar-shortcut-rail.md) marked ✅ DONE (63/63 items verified).
+Status bar shortcut rail teaching interface chords at rest: unified `StatusToggle` component with pure `showsName`/`showsChord` visibility rules; platform-aware chord display via `displayChord`; derived group separators with DOM-based empty-group pruning; relocated Command Palette (`Mod+k`) and Go-to-File (`Mod+p`) to the rail; dedicated health diagnostics group; and four loop launchers with resting single-glyph collapse, hover/click expansion, per-loop glow styling, and focus-gated pulse animations.
+
 ## 2026-09-26 — Phase 37 — A glow that knows which tab
 
 [Phase 37](phases/phase-37-fab-tab-glow.md) marked ✅ DONE (44/44 items verified).
