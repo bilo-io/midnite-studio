@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { PaletteStyle } from './graph-themes';
@@ -31,13 +31,16 @@ import { laneVars } from './lane-colors';
  * own inline style cannot cascade here; this component sets its own copy,
  * the same way `SyncOverlay` (`ref-badge.tsx`) already does for its strip.
  *
- * Repositioned rather than closed on scroll/resize — `SyncOverlay` and
- * `RefAgentAvatar`'s hover strip both close instead, because those are
- * ephemeral, hover-triggered popovers with an obvious next trigger to
- * reopen them. This is a standing "an agent is live here" signal for as
- * long as the session is, so making it flicker out on every scroll tick
- * would read as the glow breaking rather than a deliberate dismissal.
- * Recompute is `requestAnimationFrame`-throttled to at most once per frame.
+ * Where it portals: into the nearest `[data-graph-glow-layer]` ancestor when
+ * there is one (the graph's virtualizer content div — see `GLOW_LAYER_ATTR`),
+ * positioned `absolute` relative to it, and only to `document.body` as a
+ * `fixed` fallback outside the graph. Either way it is repositioned rather
+ * than closed — `SyncOverlay` and `RefAgentAvatar`'s hover strip both close
+ * instead, because those are ephemeral, hover-triggered popovers. This is a
+ * standing "an agent is live here" signal for as long as the session is.
+ * Remeasures are `requestAnimationFrame`-throttled to at most once per frame,
+ * driven by `ResizeObserver` on the chip and the layer, window resize, and —
+ * in the body fallback only — scroll.
  *
  * The outer span itself stays fully transparent, exactly chip-sized and
  * `pointer-events: none` — the actual gradient paints on a `::before`
@@ -52,17 +55,45 @@ import { laneVars } from './lane-colors';
  * different elements.
  *
  * Stacking: positioned at `z-graph-glow` (1) — above ordinary in-flow graph
- * rows (0) so the halo bleeds into neighbouring rows without clipping, but
- * below `data-terminal-frame` (`z-10`), splitters (`z-20`), the nav rail (`z-40`),
+ * rows (0) so the halo bleeds into neighbouring rows, clipped by the graph
+ * scroller like the rows themselves; in the body fallback it stays below
+ * `data-terminal-frame` (`z-10`), splitters (`z-20`), the nav rail (`z-40`),
  * browser panes (`z-45`), menus (`z-80`), and popovers (`z-85`).
  */
-function computeVisibleRect(
-  node: HTMLElement,
-): { x: number; y: number; width: number; height: number } | null {
+/**
+ * Opt-in attribute for the element the halo should live inside instead of
+ * `document.body`. The graph sets it on the virtualizer's content div — the
+ * positioned parent every row is translated within — which buys two things a
+ * body-level `fixed` halo could not have:
+ *
+ * - **It moves with the chip by construction.** The rect is measured relative
+ *   to the layer, and the layer and the row move together — on scroll, and on
+ *   every layout shift that fires no scroll/resize event at all: the
+ *   uncommitted/stash rows mounting above the scroller once status loads, the
+ *   nav rail settling its width at launch. A viewport-fixed halo missed all
+ *   of those and sat a row (and a rail's width) off-target until the next
+ *   resize.
+ * - **It is clipped by the scroller like every row is.** Scrolled up under the
+ *   uncommitted/stash rows and the header — which sit above the scroller, not
+ *   in it — the halo now goes behind them with its row instead of painting
+ *   over them.
+ */
+export const GLOW_LAYER_ATTR = 'data-graph-glow-layer';
+
+type GlowRect = { x: number; y: number; width: number; height: number };
+
+function computeVisibleRect(node: HTMLElement, layer: HTMLElement | null): GlowRect | null {
   const box = node.getBoundingClientRect();
   // An unrendered element (e.g. display: none when the terminal maximizes) has
   // zero dimensions; do not portal a halo at (0, 0).
   if (box.width === 0 && box.height === 0) return null;
+
+  if (layer) {
+    // Inside the layer the scroller's own overflow clips the halo, so no
+    // visibility culling is needed — only the offset from the layer's origin.
+    const origin = layer.getBoundingClientRect();
+    return { x: box.left - origin.left, y: box.top - origin.top, width: box.width, height: box.height };
+  }
 
   // If inside the virtualised graph scroll container, hide the portalled halo
   // when the row is scrolled completely out of view (past top or bottom).
@@ -90,50 +121,66 @@ export function RefAgentGlowBleed({
   colorIdx: number;
   palette: PaletteStyle;
 }) {
-  const [rect, setRect] = useState<{ x: number; y: number; width: number; height: number } | null>(
-    null,
-  );
+  const [placed, setPlaced] = useState<{ rect: GlowRect; layer: HTMLElement | null } | null>(null);
 
   useLayoutEffect(() => {
     if (!active) {
-      setRect(null);
+      setPlaced(null);
       return;
     }
     const node = anchor.current;
     if (!node) return;
-    setRect(computeVisibleRect(node));
-  }, [active, anchor]);
+    const layer = node.closest<HTMLElement>(`[${GLOW_LAYER_ATTR}]`);
+    const measure = () => {
+      const rect = computeVisibleRect(node, layer);
+      setPlaced((prev) =>
+        rect === null
+          ? null
+          : prev &&
+              prev.layer === layer &&
+              prev.rect.x === rect.x &&
+              prev.rect.y === rect.y &&
+              prev.rect.width === rect.width &&
+              prev.rect.height === rect.height
+            ? prev
+            : { rect, layer },
+      );
+    };
+    measure();
 
-  useEffect(() => {
-    if (!active) return;
-    const node = anchor.current;
-    if (!node) return;
     let raf = 0;
     const reposition = () => {
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0;
-        setRect(computeVisibleRect(node));
+        measure();
       });
     };
-    window.addEventListener('scroll', reposition, true);
+    // Inside a layer, scrolling cannot change the offset — only the chip's or
+    // the layer's own box changing can (a column resize, rows streaming in).
+    if (!layer) window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reposition);
+    observer?.observe(node);
+    if (layer) observer?.observe(layer);
     return () => {
-      window.removeEventListener('scroll', reposition, true);
+      if (!layer) window.removeEventListener('scroll', reposition, true);
       window.removeEventListener('resize', reposition);
+      observer?.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
   }, [active, anchor]);
 
-  if (!active || !rect) return null;
+  if (!active || !placed) return null;
+  const { rect, layer } = placed;
 
   return createPortal(
     <span
       aria-hidden
       data-testid="ref-agent-glow-bleed"
-      className="ref-badge-agent-arc-glow pointer-events-none fixed z-graph-glow rounded-[3px]"
+      className={`ref-badge-agent-arc-glow pointer-events-none ${layer ? 'absolute' : 'fixed'} z-graph-glow rounded-[3px]`}
       style={{ ...laneVars(colorIdx, palette), left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
     />,
-    document.body,
+    layer ?? document.body,
   );
 }

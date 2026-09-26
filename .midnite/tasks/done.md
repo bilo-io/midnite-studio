@@ -1,6 +1,208 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 97 Theme K — Receipts and replay by iteration
+
+[PR #580](https://github.com/bilo-io/midnite-studio/pull/580). A change receipt on Phase 94 Theme A's `AgentRun`, plus replay by iteration — the last
+of Phase 97's thirteen themes, unblocked once Theme A landed (PR #579).
+
+- [x] `packages/shared/src/workflow-receipt.ts` (new): `WorkflowRunReceiptSchema`/
+      `buildWorkflowRunReceipt` — a pure function over a `WorkflowRun` plus its optional live
+      `WorkflowNode[]`, assembling context sources (frame slots, trigger payload), a policy-output
+      hash, distinct node kinds/agents used, verifier verdicts, loop iterations (from
+      `WorkflowRun.loopStates`), human decisions (from `gate` nodes' own recorded output),
+      wall-clock and the accepted artifact (the LAST node to settle in real chronological order,
+      not by iteration first — see below). No cost field, per Phase 94 Decision 8. Two documented
+      gaps left deliberately open (closing either means touching `workflow-engine.ts`, outside
+      this theme's scope): an implicit policy-gate approval (Theme I) leaves no decision record,
+      and a node's own retry attempts (Theme G) are never persisted per-attempt at all.
+- [x] `domain/agent-run.ts`: new optional `AgentRunSchema.receipt` field (workflow-kind only, the
+      same optional-and-kind-conditional convention `sessionId`/`exitCode` already use) and a
+      `fromWorkflowRun` adapter — the fourth and last of Phase 94 Theme A's own sources.
+- [x] `nodeRunSettledAt` (`shared/src/workflow.ts`, beside `nodeRunIteration`) — the schema has no
+      dedicated "when did this settle" field, so it reads as `endedAt ?? startedAt`.
+- [x] Replay by iteration: **deviated from the phase doc's literal `(iteration, settledAt)` global
+      ordering, documented on the p97 board and in the PR.** `WorkflowNodeRun.iteration` is only
+      ever set for a node inside a loop body — a node before/after the loop reads as `1`
+      regardless of how many passes ran, so sorting the WHOLE run by iteration-first would put a
+      post-loop node ahead of a later pass it actually settled after (exactly Theme L's own
+      `harness-bounded-build` template's shape). `run-replay.ts`'s existing flat scrubber stays
+      untouched and purely chronological; the new, additive
+      `packages/app/src/features/workflows/canvas/run-replay-iteration.ts`
+      (`runIterations`/`totalIterations`/`nodesForIteration`/`nodeStatusesAtIteration`/
+      `nodeRunGroups`) is what actually orders `(iteration, settledAt)` — a correct use of that
+      tuple since it never reshuffles nodes across different iterations. A new `IterationScrubber`
+      ("pass 2 of 3") mounts beside `RunReplayControls`, mutually exclusive with the flat scrubber.
+- [x] `run-output-panel.tsx`: the Nodes tab now groups a looped node's own run records with a
+      "Pass N" badge (shown only when there's more than one) — also fixing a latent duplicate-
+      React-key bug the flat per-record render had for any node with more than one iteration.
+      Markdown export gained a `workflowNodes?` param and a "## Receipt" section.
+- [x] Vitest: `workflow-receipt.test.ts` (shared, 18 tests, including the exact "the last node to
+      settle in real time, not by iteration first" case), `run-replay-iteration.test.ts` (app, 10
+      tests, including the post-loop-node-must-not-read-as-reached-early case), and three new
+      `run-output-panel.test.tsx` cases for the Pass-N grouping and Receipt export. Full
+      `moon run :typecheck :lint :test` green.
+
+## 2026-09-26 — Phase 94 Theme A — The run record, in `shared`
+
+[PR #579](https://github.com/bilo-io/midnite-studio/pull/579). One vocabulary over the four run records that already disagree (loop, session, council,
+workflow) — a pure `shared` projection, not a fifth store, unblocking Phase 97 Theme K (workflow
+change receipts).
+
+- [x] `packages/shared/src/domain/agent-run.ts`: `AgentRunSchema`
+      (`id`/`kind`/`repoId`/`cwd`/`sessionId?`/`agentId?`/`skillId?`/`label`/`startedAt`/`endedAt?`/
+      `status`/`exitCode?`/`verdict?`/`sourceId?`), `AgentRunKindSchema`
+      (`loop`/`session`/`council`/`workflow`), `AgentRunStatusSchema` (`LoopRunStatusSchema` plus
+      `abandoned`), and `AgentRunVerdictSchema` reusing `TestFailureSchema`/`TestRunReasonSchema`
+      rather than declaring parallel shapes. Also exported as `AgentRunRecord` — Phase 97 Theme K's
+      own checklist names it that; both resolve to the same type.
+- [x] `packages/shared/src/domain/agent-command.ts`: `AgentCommandId`/`AGENT_COMMAND_IDS` lifted out
+      of `ui-store.ts` (the exact manoeuvre Phase 81 Theme A used for `ViewId`/`SettingsPageId`) so
+      `AgentRunSchema.skillId` can be a closed `z.enum` over it. `ui-store.ts` re-exports the type
+      unchanged — no import path moves — and keeps `DEFAULT_AGENT_SKILLS` as UI copy.
+- [x] Pure selectors (`runsForRepo`, `runsForSkill`, `latestVerdict`, `skillOutcomeTally`) and two
+      adapters (`fromLoopRun`, `fromClosedSession`) projecting the existing `LoopRunRecord`/
+      `ClosedSession` shapes into an `AgentRun` — no on-disk store moves or migrates in this theme.
+- [x] `agent-run.test.ts` / `agent-command.test.ts`: 18 new tests (schema round-trips, both
+      adapters against real fixtures, the tally's "no verdict tallies as neither pass nor fail"
+      case). `moon run :typecheck :lint :test` green across all 8 workspace projects.
+
+## 2026-09-26 — Phase 97 Theme L — Built-in templates and a gallery
+
+[PR #578](https://github.com/bilo-io/midnite-studio/pull/578). Five built-in workflow templates as
+validated data in `shared`, a "New from template" gallery, and "Save as template" into a user
+section of that same gallery.
+
+- [x] `shared/src/workflow-templates/` — `WorkflowTemplateSchema` (a `Workflow` minus
+      id/timestamps plus `{id, title, blurb, source, tags, setupChecklist?}`) and
+      `WORKFLOW_TEMPLATES`, each entry `.parse()`d at module load so a broken built-in fails
+      on import. Instantiation is `instantiateWorkflowTemplateWorkflow` piped through the
+      app's existing `cloneWorkflowWithFreshIds` (`workflowFromTemplate`).
+- [x] Five built-ins — Graph Engineering diamond, Harness bounded build, Loop Engineering
+      maker/checker, Research & publish, Risk router — each with a note node quoting the
+      article rule it demonstrates, http nodes only on `{{demo.baseUrl}}`. Risk router ships
+      its trigger as `manual` (a `forge-pr` trigger needs a registered repo id) with a setup
+      checklist shown once on instantiation; its audit join is `allSettled`, since an `all`
+      join fails on an input that was not taken (the low-risk and unclassified routes).
+- [x] Gallery (`template-gallery.tsx`) — a `Modal` of cards with a static SVG mini-preview
+      laid out by the editor's own `autoLayout` (dagre), blurb, source line and tags; a
+      "Your templates" section with delete. Opened from a new "New from template" button in
+      `workflow-list.tsx`.
+- [x] "Save as template" now saves a **user** template (`user-` id, never a built-in's slug)
+      through a new main-owned `workflow-templates-store.ts` (`workflow-templates.json` under
+      `userData`, per-entry validation like `workflows-store.ts`) and three
+      `workflowTemplates*` IPC channels, instead of cloning into the workflow list.
+- [x] Vitest: every template parses, passes `validateWorkflow` with no error-severity issue,
+      uses only demo-API URLs, and runs to completion in the engine with fake executors
+      (gates approved through the real `decideWorkflowGate` path); the user store's
+      save/reload/upsert/delete/built-in-id refusal; the gallery's cards, instantiation with
+      fresh ids and the setup-checklist toast.
+
+## 2026-09-25 — Phase 97 Theme I — Harness frame and policy gate
+
+[PR #575](https://github.com/bilo-io/midnite-studio/pull/575). A canvas-only `frame` node grouping other nodes under six labelled slots,
+and a `policy` node enforcing a closed action vocabulary on downstream agent/script/http
+nodes — "model suggests → policy checks → tool executes."
+
+- [x] New canvas-only kind **`frame`** (no executor, like `note`): six markdown slots
+      (Contract/Context/State left, Tools/Permissions/Evidence right). Membership is a new
+      **`WorkflowNodeBaseSchema.frameId`** (every kind), read off the MEMBER node rather
+      than a list on the frame — real React-Flow parent/child nesting (`parentId`/`extent`)
+      was deliberately not used, since it would make a child's position parent-relative and
+      break `toFlowPosition`'s documented identity-mapping invariant for every pre-Theme-I
+      workflow. Rendered through the SAME `WorkflowNodeView` (a new `NodeShapeVariant =
+      'frame'`, Theme J's own documented extension point) rather than a second React Flow
+      node type, sized from `config.width`/`height` (default 640×320). `toFlowGraph` sorts
+      frame nodes first (React Flow paints later array entries on top, so this alone puts
+      member cards above their frame, no CSS z-index needed) and `autoLayout` excludes
+      frames from dagre entirely, bounding each (with members) to their padded bounding box
+      afterward (`boundFrames`) — a frame with no members keeps its last position/size.
+      Membership is assigned via a "Frame" `<select>` in the node inspector.
+- [x] **Contract + Context prepend** to a contained `agent` node's own composed prompt
+      (`formatFrameContractContext`), via a new `ExecutorContext.promptPrefix` — deliberately
+      NOT a fourth reserved interpolation root (`{{frame.contract}}` was never meant to be
+      `{{...}}`-referenceable; this is plain prompt-composition text). A frame never changes
+      scheduling.
+- [x] New node kind **`policy`** (ordinary in/out/error ports, trivial pass-through
+      executor), config `{allow, requireApprovalFor}` over a closed `WORKFLOW_ACTIONS`
+      vocabulary (`network`/`write-files`/`open-pr`/`push`/`deploy`/`delete-data`). A node's
+      declared `actions` field landed `.optional()`, not `.default([])` — the latter broke
+      every pre-existing `WorkflowNode` object-literal fixture across the repo under strict
+      typing (`z.infer` is the zod OUTPUT type), so it followed the codebase's own
+      established optional-plus-reader convention instead. **Governance is graph
+      reachability** (`governingPolicies`, reusing `ancestorIds` verbatim — no new
+      traversal), not a listed member array: several policies can jointly govern one node
+      (`checkNodePolicy` unions their `allow`/`requireApprovalFor`), and **denial always
+      wins** over `requiresApproval`. A denied action blocks Run (`validateWorkflow`).
+- [x] **The implicit gate reuses Theme D's exact runtime path**, unmodified —
+      `gate-waiters.ts`'s `registerGateWaiter`/`resolveGateWaiter` and
+      `decideWorkflowGate` — keyed by the GOVERNED node's own `(runId, nodeId)` rather than
+      a synthetic gate node, since both already key purely by `runId:nodeId` and check
+      `status === 'waiting'` generically, never `kind === 'gate'`. Lives in
+      `workflow-engine.ts`'s `runNode`, run BEFORE the generic per-node timeout `Promise` is
+      constructed (so the wait never counts against the node's own timeout — no
+      `WORKFLOW_GATE_ENGINE_BACKSTOP_MS`-style constant needed), with a new
+      `patchNodeRunning` (the inverse of `patchNodeWaiting`) restoring `'running'` once
+      approved, before the real executor starts — needed because `patchNodeSessionId`'s own
+      `status !== 'running'` guard would otherwise silently no-op for an agent/script node.
+      The run panel's existing `GateDecideRow` already renders for any `status === 'waiting'`
+      node regardless of kind, so it needed zero changes to pick this up.
+- [x] **`http` honours `network` defensively at the executor too** — a new
+      `ExecutorContext.deniedActions`, computed by the engine, read only by `httpExecutor` —
+      the runtime backstop behind `validateWorkflow`'s own block.
+- [x] Vitest: frame membership survives save/load (shared `WorkflowSchema` round-trip) and
+      auto-layout (`boundFrames`), contract prepending (`formatFrameContractContext` plus a
+      desktop engine-integration test), policy validation (`checkNodePolicy`/
+      `governingPolicies`/`validateWorkflow`), and policy-driven approval routing (pauses
+      before the executor runs, approve/reject, cancel-while-pending, a mid-flight
+      `reportSessionId` proving `patchNodeRunning` actually ran).
+
+## 2026-09-25 — Phase 97 Theme G — Durable run state and failure policy
+
+[PR #574](https://github.com/bilo-io/midnite-studio/pull/574). A per-run **state store**, checkpoint/resume across a crash, and per-node
+`onFailure` — the phase doc's "the run survives the process, and a node can say what to do
+when it fails" bullets.
+
+- [x] New node kind **`state`** (`{op:'set'|'merge'|'append', key, value}`) writes into
+      `WorkflowRun.state: Record<string, JsonValue>`, read anywhere as `{{state.<key>}}`.
+      The interpolate-and-parse half lives in `executors/state.ts`; the actual
+      read-modify-write happens in `workflow-engine.ts`'s `settleNode`, inside the SAME run
+      lock every other settle already holds, so two `state` nodes racing in parallel can
+      never interleave a write. Capped at `WORKFLOW_STATE_MAX_BYTES` (65536, the whole
+      state's `JSON.stringify`d length) — a breach fails only the writing node, leaving
+      prior state untouched.
+- [x] **Checkpoints** were already mostly free (every settle already persists the run);
+      the state write above rides the same `saveRun` call, so nothing needed a second
+      write path.
+- [x] **Resume.** `workflow-service.ts`'s boot sweep now marks a dangling `running` run
+      `interrupted` (a new `WorkflowRunStatus`) instead of silently sweeping it to
+      `cancelled`, and resets its `running`/`waiting` nodes to `pending` rather than
+      `skipped`. New engine export `resumeWorkflowRun(workflow, run, deps)` restarts
+      `drive()` from exactly that checkpoint — settled nodes stay settled, reset nodes
+      re-run from scratch, a waiting gate re-registering its own waiter for free (the
+      identical path a first run takes, no resume-specific gate machinery needed). New
+      `workflowResume` IPC channel and a run-panel **Resume** button (a plain `bridge()`
+      call + local state, not `useMutation`, so `RunOutputPanel` keeps working in tests
+      with no `QueryClientProvider`).
+- [x] Per-node **`onFailure`** on `WorkflowNodeBaseSchema` (every kind may set it): `retry`
+      re-runs in `executeNode` with a fixed backoff via the engine's own injected clock,
+      gated by a new `http` `config.idempotent` opt-in before a `POST`/`PATCH` is ever
+      retried (`isHttpRetrySafe`, flagged as a `severity:'warning'` `validateWorkflow`
+      issue otherwise — worth a badge, not worth blocking Run). `fallback`/`skip`/
+      `repair`/`escalate` apply in `settleNode` via `applyFailurePolicy`: `fallback` forces
+      the error port even with no wired error edge; `skip` settles `skipped` instead of
+      `failed`, so the node stops dragging the run's own status down; `repair`/`escalate`
+      synthesize a deterministic-id `error`-kind edge straight into `run.edges`, reusing
+      100% of the existing taken-edge cascade/upstream-resolution machinery rather than a
+      second routing pass. A generic `OnFailureSection` in `node-inspector.tsx` is the one
+      shared editor for the policy, below whichever kind-specific form is showing.
+- [x] Vitest: crash-resume (incl. gate waiter re-registration via a new test-only
+      `forgetInFlightForTests`, which simulates an actual process death rather than just a
+      hung in-process promise), each failure policy — `repair`/`escalate` tested with a
+      "gatekeeper" node so the target is provably not a graph root that would have run
+      anyway — state set/merge/append plus the byte-cap breach, retry backoff with the
+      injected clock, and the http idempotency gate.
+
 ## 2026-09-26 — Phase 44 — Video Studio
 
 [Phase 44](phases/phase-44-video-studio.md) marked ✅ DONE (64/64 items verified).

@@ -1,4 +1,4 @@
-import type { Workflow } from '@midnite/studio-shared';
+import type { Workflow, WorkflowTemplate } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { bridge } from '../../services/bridge';
@@ -17,6 +17,7 @@ import { noBridge, reportFailure } from '../../services/bridge-result';
  */
 const WORKFLOW_KEYS = {
   list: ['workflows'] as const,
+  templates: ['workflow-templates'] as const,
 };
 
 export function useWorkflows() {
@@ -45,6 +46,37 @@ export function useDeleteWorkflow() {
     onSuccess: (result) => {
       reportFailure<void>(result);
       if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.list });
+    },
+  });
+}
+
+/** Phase 97 Theme L — the gallery's user section. The built-ins are `WORKFLOW_TEMPLATES`, read directly. */
+export function useWorkflowTemplates() {
+  return useQuery({
+    queryKey: WORKFLOW_KEYS.templates,
+    queryFn: async () => (await bridge()?.workflow.templates.list())?.templates ?? [],
+  });
+}
+
+export function useSaveWorkflowTemplate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (template: WorkflowTemplate) =>
+      (await bridge()?.workflow.templates.save({ template })) ?? noBridge<WorkflowTemplate>(),
+    onSuccess: (result) => {
+      reportFailure<WorkflowTemplate>(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.templates });
+    },
+  });
+}
+
+export function useDeleteWorkflowTemplate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await bridge()?.workflow.templates.delete({ id })) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.templates });
     },
   });
 }

@@ -1,9 +1,10 @@
-import type { WorkflowEdge, WorkflowIssue, WorkflowNode, WorkflowNodeKind } from '@midnite/studio-shared';
+import type { WorkflowEdge, WorkflowFailurePolicy, WorkflowIssue, WorkflowNode, WorkflowNodeKind } from '@midnite/studio-shared';
 import { ancestorIds } from '@midnite/studio-shared';
 import { useState, type ReactNode } from 'react';
 import { LuTriangleAlert } from 'react-icons/lu';
 
-import { TextField } from '../../../components/form/field';
+import { Field, TextField } from '../../../components/form/field';
+import { SelectField } from '../../../components/form/select-field';
 import { EmptyState } from '../../../components/empty-state';
 import { declaredOutputFields } from './node-output-fields';
 import { NODE_KIND_META } from './node-kind-meta';
@@ -11,12 +12,15 @@ import {
   AgentForm,
   ConditionForm,
   DelayForm,
+  FrameForm,
   GateForm,
   HttpForm,
   JoinForm,
   NoteForm,
+  PolicyForm,
   RouterForm,
   ScriptForm,
+  StateForm,
   TransformForm,
   TriggerForm,
   VerifyForm,
@@ -42,6 +46,9 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   router: RouterForm,
   verify: VerifyForm,
   trigger: TriggerForm,
+  state: StateForm,
+  frame: FrameForm,
+  policy: PolicyForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };
@@ -49,6 +56,145 @@ type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLEl
 /** `NodeFormProps.onInterpolatableFocus` only ever hands over an input/textarea. */
 function asTextInput(el: HTMLElement): HTMLInputElement | HTMLTextAreaElement {
   return el as HTMLInputElement | HTMLTextAreaElement;
+}
+
+const FAILURE_POLICY_LABEL: Record<WorkflowFailurePolicy['kind'], string> = {
+  stop: 'Stop (default)',
+  retry: 'Retry',
+  fallback: 'Fall back to the error port',
+  skip: 'Skip this step',
+  repair: 'Repair — route to a step',
+  escalate: 'Escalate — route to a gate',
+};
+
+/**
+ * `onFailure` (Phase 97 Theme G) — every executor-bearing kind's own shared
+ * base-schema field, so it lives here rather than in a per-kind `node-forms.tsx`
+ * component: one editor, below whichever kind-specific form is showing, not
+ * eleven copies of the same policy picker.
+ */
+function OnFailureSection({
+  node,
+  nodes,
+  onChange,
+}: {
+  node: WorkflowNode;
+  nodes: readonly WorkflowNode[];
+  onChange: (next: WorkflowNode) => void;
+}) {
+  const policy = node.onFailure;
+  const setPolicy = (next: WorkflowFailurePolicy | undefined) => onChange({ ...node, onFailure: next });
+  const targets = nodes.filter((n) => n.id !== node.id && n.kind !== 'note');
+  const gates = targets.filter((n) => n.kind === 'gate');
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">On failure</p>
+      <Field label="Policy" hint="What this step does if it fails or times out.">
+        <SelectField
+          label="On-failure policy"
+          value={policy?.kind ?? 'stop'}
+          onChange={(kind: WorkflowFailurePolicy['kind']) => {
+            if (kind === 'stop') setPolicy(undefined);
+            else if (kind === 'retry') setPolicy({ kind: 'retry', attempts: 3, backoffMs: 1000 });
+            else if (kind === 'fallback') setPolicy({ kind: 'fallback' });
+            else if (kind === 'skip') setPolicy({ kind: 'skip' });
+            else if (kind === 'repair') setPolicy({ kind: 'repair', nodeId: targets[0]?.id ?? '' });
+            else setPolicy({ kind: 'escalate', nodeId: gates[0]?.id ?? '' });
+          }}
+          options={(Object.keys(FAILURE_POLICY_LABEL) as WorkflowFailurePolicy['kind'][]).map((kind) => ({
+            value: kind,
+            label: FAILURE_POLICY_LABEL[kind],
+          }))}
+        />
+      </Field>
+      {policy?.kind === 'retry' ? (
+        <>
+          <Field label="Attempts" hint="Total tries, including the first — up to 10.">
+            <TextField
+              label="Attempts"
+              value={String(policy.attempts)}
+              onChange={(raw) => {
+                const parsed = Number.parseInt(raw, 10);
+                setPolicy({ ...policy, attempts: Number.isFinite(parsed) ? Math.max(1, Math.min(10, parsed)) : 1 });
+              }}
+            />
+          </Field>
+          <Field label="Backoff" hint="Fixed wait between attempts, in milliseconds — up to 60000.">
+            <TextField
+              label="Backoff (ms)"
+              value={String(policy.backoffMs)}
+              onChange={(raw) => {
+                const parsed = Number.parseInt(raw, 10);
+                setPolicy({ ...policy, backoffMs: Number.isFinite(parsed) ? Math.max(0, Math.min(60_000, parsed)) : 0 });
+              }}
+            />
+          </Field>
+        </>
+      ) : null}
+      {policy?.kind === 'repair' ? (
+        <Field label="Repair step" hint="Receives this step's error as its input and becomes eligible to run.">
+          {targets.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">No other step to repair to yet.</p>
+          ) : (
+            <SelectField
+              label="Repair step"
+              value={policy.nodeId}
+              onChange={(nodeId: string) => setPolicy({ ...policy, nodeId })}
+              options={targets.map((n) => ({ value: n.id, label: n.label }))}
+            />
+          )}
+        </Field>
+      ) : null}
+      {policy?.kind === 'escalate' ? (
+        <Field label="Escalate to" hint="Must be a gate step.">
+          {gates.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">No gate step to escalate to yet.</p>
+          ) : (
+            <SelectField
+              label="Escalate to"
+              value={policy.nodeId}
+              onChange={(nodeId: string) => setPolicy({ ...policy, nodeId })}
+              options={gates.map((n) => ({ value: n.id, label: n.label }))}
+            />
+          )}
+        </Field>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Which `frame` node this node's `frameId` names (Phase 97 Theme I) — the
+ * one control for canvas grouping every kind but `frame` itself shares
+ * (frames don't nest, `validateWorkflow`'s own rule). Membership is read off
+ * the MEMBER node (`WorkflowNodeBaseSchema.frameId`), never off the frame,
+ * so this is the one place it is ever assigned.
+ */
+function FrameSelector({
+  node,
+  nodes,
+  onChange,
+}: {
+  node: WorkflowNode;
+  nodes: readonly WorkflowNode[];
+  onChange: (next: WorkflowNode) => void;
+}) {
+  const frames = nodes.filter((n) => n.kind === 'frame');
+  if (frames.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-2">
+      <Field label="Frame" hint="Groups this node under a harness frame's contract, context and policy.">
+        <SelectField
+          label="Frame"
+          value={node.frameId ?? ''}
+          onChange={(frameId: string) => onChange({ ...node, frameId: frameId === '' ? undefined : frameId })}
+          options={[{ value: '', label: 'None' }, ...frames.map((f) => ({ value: f.id, label: f.label }))]}
+        />
+      </Field>
+    </div>
+  );
 }
 
 /**
@@ -132,6 +278,10 @@ export function NodeInspector({
 
       <div className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 py-2">
         <Form node={node} onChange={onChange} onInterpolatableFocus={setActiveField} />
+        {node.kind === 'frame' ? null : <FrameSelector node={node} nodes={nodes} onChange={onChange} />}
+        {node.kind === 'note' || node.kind === 'frame' ? null : (
+          <OnFailureSection node={node} nodes={nodes} onChange={onChange} />
+        )}
       </div>
 
       {activeField && references.length > 0 ? (

@@ -24,17 +24,27 @@ import type { WorkflowNodeKind } from '@midnite/studio-shared';
  * - `start-card` — the plain card, left-rounded instead of square-cornered
  *   (`trigger`, Phase 97 Theme H) — a graph's own start has no in-port to
  *   dock a handle on, so the rounded edge reads as "nothing connects here."
+ * - `frame` — a big bordered container sized from its own `config.width`/
+ *   `height` rather than the fixed 200×64 every other variant uses, showing
+ *   its six slots instead of a one-line summary; no ports (`frame` has none
+ *   — see `portsForNode`). This was this map's own documented Theme I
+ *   extension point, landing now.
  *
- * **Extension point for I** (documented on the phase doc's own dependency
- * list, not invented here): a new node kind adds one case to
- * {@link WORKFLOW_NODE_KINDS} in `shared/src/workflow.ts`, which makes this
- * `Record` fail to typecheck until it is widened with a shape variant —
- * `frame` → `'frame'`. Each new variant is then given its own rendering
- * branch in `workflow-node-view.tsx` next to
- * `diamond-header`/`pill`/`shield`/`check-badge`/`start-card` below — this
- * map only says *which* variant a kind gets, never how one is drawn.
+ * A new node kind adds one case to {@link WORKFLOW_NODE_KINDS} in
+ * `shared/src/workflow.ts`, which makes this `Record` fail to typecheck
+ * until it is widened with a shape variant. Each new variant is then given
+ * its own rendering branch in `workflow-node-view.tsx` next to
+ * `diamond-header`/`pill`/`shield`/`check-badge`/`start-card`/`frame` below
+ * — this map only says *which* variant a kind gets, never how one is drawn.
  */
-export type NodeShapeVariant = 'card' | 'diamond-header' | 'pill' | 'shield' | 'check-badge' | 'start-card';
+export type NodeShapeVariant =
+  | 'card'
+  | 'diamond-header'
+  | 'pill'
+  | 'shield'
+  | 'check-badge'
+  | 'start-card'
+  | 'frame';
 
 export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   http: 'card',
@@ -51,4 +61,10 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   verify: 'check-badge',
   /** Phase 97 Theme H — see `'start-card'`'s own doc note above. */
   trigger: 'start-card',
+  /** Phase 97 Theme G — the plain card: a `state` write has no "which way" or "waiting on a human" role worth its own accent. */
+  state: 'card',
+  /** Phase 97 Theme I — see `'frame'`'s own doc note above. */
+  frame: 'frame',
+  /** Phase 97 Theme I — the plain card: `policy` is a permission boundary, not a "which way does this branch" or "waiting on a human" role. */
+  policy: 'card',
 };

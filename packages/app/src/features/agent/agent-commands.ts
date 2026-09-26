@@ -2,6 +2,7 @@ import type { IconType } from 'react-icons';
 import {
   LuBug,
   LuChartLine,
+  LuCheckCheck,
   LuClipboardCheck,
   LuFilePen,
   LuGauge,
@@ -159,6 +160,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuFilePen,
     category: 'tasks',
     hint: 'Deepen an existing phase doc until any model could execute it.',
+  },
+  {
+    id: 'verifyPhase',
+    label: 'Verify Phase',
+    icon: LuCheckCheck,
+    category: 'tasks',
+    hint: 'Run phase verification checks and prepare human sign-off to mark done.',
   },
   {
     id: 'execSwarm',

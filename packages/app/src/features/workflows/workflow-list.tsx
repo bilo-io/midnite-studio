@@ -1,6 +1,6 @@
-import type { Workflow } from '@midnite/studio-shared';
+import type { Workflow, WorkflowTemplate } from '@midnite/studio-shared';
 import { useRef, useState } from 'react';
-import { LuCopy, LuDownload, LuPlus, LuTrash2, LuUpload, LuWorkflow } from 'react-icons/lu';
+import { LuCopy, LuDownload, LuLayoutTemplate, LuPlus, LuTrash2, LuUpload, LuWorkflow } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -8,13 +8,21 @@ import { EmptyState } from '../../components/empty-state';
 import { FilterInput } from '../../components/filter-input';
 import { IconButton } from '../../components/icon-button';
 import { useToastStore } from '../../store/toast-store';
-import { useDeleteWorkflow, useSaveWorkflow, useWorkflows } from './use-workflow';
+import { TemplateGallery } from './template-gallery';
+import {
+  useDeleteWorkflow,
+  useDeleteWorkflowTemplate,
+  useSaveWorkflow,
+  useWorkflowTemplates,
+  useWorkflows,
+} from './use-workflow';
 import {
   cloneWorkflowWithFreshIds,
   createEmptyWorkflow,
   exportWorkflowFilename,
   exportWorkflowJson,
   parseImportedWorkflow,
+  workflowFromTemplate,
 } from './workflow-io';
 
 /**
@@ -42,6 +50,9 @@ export function WorkflowList({
   const dialogs = useDialogs();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const userTemplates = useWorkflowTemplates();
+  const removeTemplate = useDeleteWorkflowTemplate();
   const all: Workflow[] = workflows.data ?? [];
   const needle = query.trim().toLowerCase();
   const rows = needle.length === 0 ? all : all.filter((w) => w.name.toLowerCase().includes(needle));
@@ -52,6 +63,37 @@ export function WorkflowList({
       onSuccess: (result) => {
         if (result.ok) onSelect(workflow.id);
       },
+    });
+  };
+
+  // Phase 97 Theme L — instantiate a gallery card as a new workflow. A
+  // template that needs a repo or forge account says so once, here, rather
+  // than failing at run time.
+  const instantiateTemplate = (template: WorkflowTemplate) => {
+    const workflow = workflowFromTemplate(template, Date.now());
+    setGalleryOpen(false);
+    save.mutate(workflow, {
+      onSuccess: (result) => {
+        if (!result.ok) return;
+        onSelect(workflow.id);
+        if (template.setupChecklist?.length) {
+          useToastStore.getState().addToast({
+            message: `Before "${template.title}" runs on its own: ${template.setupChecklist.join(' ')}`,
+            status: 'info',
+          });
+        }
+      },
+    });
+  };
+
+  const deleteTemplate = (template: WorkflowTemplate) => {
+    dialogs.confirm({
+      title: `Delete the template "${template.title}"?`,
+      body: 'Workflows already made from it are not affected.',
+      confirmLabel: 'Delete',
+      danger: true,
+      blastRadius: null,
+      onConfirm: () => removeTemplate.mutate(template.id),
     });
   };
 
@@ -120,6 +162,7 @@ export function WorkflowList({
           className="ml-auto"
           onClick={() => fileInputRef.current?.click()}
         />
+        <IconButton icon={LuLayoutTemplate} label="New from template" size="sm" onClick={() => setGalleryOpen(true)} />
         <IconButton icon={LuPlus} label="New workflow" size="sm" onClick={createNewWorkflow} />
         <input
           ref={fileInputRef}
@@ -133,6 +176,14 @@ export function WorkflowList({
           }}
         />
       </div>
+
+      <TemplateGallery
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        userTemplates={userTemplates.data ?? []}
+        onUse={instantiateTemplate}
+        onDelete={deleteTemplate}
+      />
 
       {all.length > 0 ? (
         <div className="shrink-0 border-b border-border px-2 py-1.5">

@@ -766,6 +766,12 @@ export const CHANNELS = {
   workflowDelete: 'mstudio:workflow:delete',
   workflowRun: 'mstudio:workflow:run',
   workflowCancel: 'mstudio:workflow:cancel',
+  /** Phase 97 Theme G — the run panel's Resume action on an `interrupted` run. */
+  workflowResume: 'mstudio:workflow:resume',
+  /** Phase 97 Theme L — the template gallery's user section (built-ins are shared data, not a channel). */
+  workflowTemplatesList: 'mstudio:workflow-templates:list',
+  workflowTemplateSave: 'mstudio:workflow-templates:save',
+  workflowTemplateDelete: 'mstudio:workflow-templates:delete',
   workflowRunsList: 'mstudio:workflow-runs:list',
   workflowRunsGet: 'mstudio:workflow-runs:get',
   /** Phase 97 Theme D — decide a `gate` node waiting for approval, from the run panel. */

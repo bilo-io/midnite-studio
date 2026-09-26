@@ -1,6 +1,7 @@
 import {
   isWorkflowEnabled,
   validateWorkflow,
+  workflowIssueSeverity,
   workflowLoopStates,
   type Workflow,
   type WorkflowLoopState,
@@ -26,13 +27,15 @@ import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/
 import { useFlushableSave } from '../councils/use-flushable-save';
 import { DemoApiOfferBanner } from './demo-api-offer-banner';
 import { DemoApiPill } from './demo-api-pill';
+import { IterationScrubber } from './canvas/iteration-scrubber';
 import { NodeInspector } from './canvas/node-inspector';
 import { NodePalette } from './canvas/node-palette';
 import { RunNodeDetail } from './canvas/run-node-detail';
 import { RunReplayControls } from './canvas/run-replay-controls';
 import { nodeStatusesAtStep } from './canvas/run-replay';
+import { nodeStatusesAtIteration } from './canvas/run-replay-iteration';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
-import { cloneWorkflowWithFreshIds, createNode } from './workflow-io';
+import { createNode, templateFromWorkflow } from './workflow-io';
 import { RunHistoryList } from './run-history-list';
 import { RunOutputPanel } from './run-output-panel';
 import {
@@ -42,7 +45,7 @@ import {
   useWorkflowRun,
   useWorkflowRuns,
 } from './use-workflow-run';
-import { useSaveWorkflow, useWorkflows } from './use-workflow';
+import { useSaveWorkflow, useSaveWorkflowTemplate, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
 
@@ -141,7 +144,6 @@ export function WorkflowsView() {
           <WorkflowEditor
             key={selected.id}
             workflow={selected}
-            onWorkflowSaved={setSelectedId}
             initialRunId={revealPending?.workflowId === selected.id ? revealPending.runId : undefined}
           />
         ) : (
@@ -180,16 +182,14 @@ export function WorkflowsView() {
  */
 function WorkflowEditor({
   workflow,
-  onWorkflowSaved,
   initialRunId,
 }: {
   workflow: Workflow;
-  /** "Save as template" (Theme I) lands a brand-new workflow — this is how the caller selects it. */
-  onWorkflowSaved: (id: string) => void;
   /** "Reveal run" (Theme J) — opens straight onto this run's history detail on mount, once. */
   initialRunId?: string;
 }) {
   const save = useSaveWorkflow();
+  const saveTemplate = useSaveWorkflowTemplate();
   const runWorkflow = useRunWorkflow();
   const { schedule } = useFlushableSave<Workflow>((next) => save.mutate(next), SAVE_DEBOUNCE_MS);
   const [local, setLocal] = useState(workflow);
@@ -253,6 +253,16 @@ function WorkflowEditor({
   useEffect(() => setReplayStep(null), [activeRunId]);
 
   /**
+   * Replay **by iteration** (Phase 97 Theme K, `canvas/run-replay-iteration.ts`)
+   * — an independent override from `replayStep` above: picking a pass clears
+   * the flat step position and vice versa, so only one ever drives the
+   * canvas. `null` means "no pass picked", same "resets on a run switch"
+   * rule as `replayStep`.
+   */
+  const [replayIteration, setReplayIteration] = useState<number | null>(null);
+  useEffect(() => setReplayIteration(null), [activeRunId]);
+
+  /**
    * The live `workflowRunChanged` payload (Phase 95 Theme I —
    * `use-workflow-run.ts`'s `useLiveWorkflowRun`), read straight off the IPC
    * event rather than waiting on `useWorkflowRuns`' invalidate-then-refetch
@@ -283,6 +293,11 @@ function WorkflowEditor({
   const focusedRun = mode === 'run' ? (activeRun.data ?? null) : liveRun;
 
   const issues = validateWorkflow(local);
+  // Phase 97 Theme G — a `warning`-severity issue (today, only a `POST`/
+  // `PATCH` http node's non-idempotent retry) is worth a badge but must not
+  // block Run: the engine itself simply declines to retry it, no different
+  // from a workflow with no `onFailure` policy at all.
+  const blockingIssues = issues.filter((issue) => workflowIssueSeverity(issue) !== 'warning');
   const invalidNodeIds = new Set(issues.map((issue) => issue.nodeId).filter((id): id is string => id !== undefined));
   const selectedId = selection.size === 1 ? (Array.from(selection)[0] ?? null) : null;
   const selectedNode = selectedId ? (local.nodes.find((node) => node.id === selectedId) ?? null) : null;
@@ -296,23 +311,29 @@ function WorkflowEditor({
   // the canvas toolbar for `mode === 'run'`.
   const runForReplay = mode === 'run' ? activeRun.data : undefined;
   const replayed = runForReplay && replayStep !== null ? nodeStatusesAtStep(runForReplay, replayStep) : null;
+  // The iteration scrubber (Theme K) wins over the flat step scrubber when
+  // BOTH happen to be set — `IterationScrubber`'s own prev/next always clears
+  // `replayStep`, and vice versa, so in practice at most one is non-null.
+  const iterationReplayed =
+    runForReplay && replayIteration !== null ? nodeStatusesAtIteration(runForReplay, replayIteration) : null;
+  const scrubbed = iterationReplayed ?? replayed;
 
   const nodeStatuses = useMemo<ReadonlyMap<string, WorkflowNodeStatus> | undefined>(
-    () => replayed?.statuses ?? (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
-    [replayed, focusedRun],
+    () => scrubbed?.statuses ?? (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
+    [scrubbed, focusedRun],
   );
   const nodeErrors = useMemo<ReadonlyMap<string, string> | undefined>(
     () =>
-      replayed?.errors ??
+      scrubbed?.errors ??
       (focusedRun
         ? new Map(focusedRun.nodes.filter((n): n is typeof n & { error: string } => n.error !== undefined).map((n) => [n.nodeId, n.error]))
         : undefined),
-    [replayed, focusedRun],
+    [scrubbed, focusedRun],
   );
-  /** The taken/dead edge highlighting's own input (Theme J) — same `replayed`/`focusedRun` pairing as `nodeStatuses`/`nodeErrors` above. */
+  /** The taken/dead edge highlighting's own input (Theme J) — same `scrubbed`/`focusedRun` pairing as `nodeStatuses`/`nodeErrors` above. */
   const nodeSettledPorts = useMemo<ReadonlyMap<string, string> | undefined>(
     () =>
-      replayed?.settledPorts ??
+      scrubbed?.settledPorts ??
       (focusedRun
         ? new Map(
             focusedRun.nodes
@@ -320,7 +341,7 @@ function WorkflowEditor({
               .map((n) => [n.nodeId, n.settledPort]),
           )
         : undefined),
-    [replayed, focusedRun],
+    [scrubbed, focusedRun],
   );
   /**
    * The loop iteration badge's own input (Theme J, off Theme C's
@@ -365,13 +386,16 @@ function WorkflowEditor({
     commitLocal({ ...local, nodes: [...local.nodes, node], updatedAt: Date.now() });
   };
 
+  // Phase 97 Theme L — lands in the template gallery's "Your templates"
+  // section, not as a clone in the ordinary workflow list.
   const saveAsTemplate = () => {
-    const clone = cloneWorkflowWithFreshIds(local, Date.now(), `${local.name} (template)`);
-    save.mutate(clone, {
+    const template = templateFromWorkflow(local);
+    saveTemplate.mutate(template, {
       onSuccess: (result) => {
         if (result.ok) {
-          useToastStore.getState().addToast({ message: `Saved "${clone.name}" as a new workflow.`, status: 'success' });
-          onWorkflowSaved(clone.id);
+          useToastStore
+            .getState()
+            .addToast({ message: `Saved "${template.title}" to your templates.`, status: 'success' });
         }
       },
     });
@@ -386,7 +410,7 @@ function WorkflowEditor({
    */
   const runRef = useRef<() => void>(() => {});
   runRef.current = () => {
-    if (mode === 'edit' && issues.length === 0 && isWorkflowEnabled(local)) {
+    if (mode === 'edit' && blockingIssues.length === 0 && isWorkflowEnabled(local)) {
       runWorkflow.mutate(local.id);
       setRunPanelCollapsed(false);
     }
@@ -412,7 +436,7 @@ function WorkflowEditor({
         mode={mode}
         onBackToEditing={() => panels.reset()}
         onRun={mode === 'edit' ? () => runRef.current() : undefined}
-        runDisabledReason={issues[0]?.message}
+        runDisabledReason={blockingIssues[0]?.message}
         isRunning={runWorkflow.isPending}
       />
 
@@ -459,11 +483,24 @@ function WorkflowEditor({
                     }}
                   />
                 ) : activeRun.data ? (
-                  <RunReplayControls
-                    run={activeRun.data}
-                    step={replayStep ?? activeRun.data.nodes.length}
-                    onStepChange={setReplayStep}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <RunReplayControls
+                      run={activeRun.data}
+                      step={replayStep ?? activeRun.data.nodes.length}
+                      onStepChange={(step) => {
+                        setReplayIteration(null);
+                        setReplayStep(step);
+                      }}
+                    />
+                    <IterationScrubber
+                      run={activeRun.data}
+                      iteration={replayIteration}
+                      onIterationChange={(iterationValue) => {
+                        setReplayStep(null);
+                        setReplayIteration(iterationValue);
+                      }}
+                    />
+                  </div>
                 ) : null
               }
             />

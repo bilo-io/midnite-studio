@@ -8,10 +8,16 @@ import {
   getRun,
   listRunsForWorkflow,
   listWorkflows,
+  resumeRun,
   runWorkflow,
   saveWorkflow,
   setWorkflowDefaults,
 } from '../workflow-service';
+import {
+  deleteWorkflowTemplate,
+  listWorkflowTemplates,
+  saveWorkflowTemplate,
+} from '../workflow-templates-store';
 import { handle, handleBare, handleSend } from './handle';
 
 /**
@@ -54,6 +60,13 @@ export function registerWorkflowHandlers(): void {
   );
 
   handle(
+    CHANNELS.workflowResume,
+    schemas.WorkflowResumeRequest,
+    async ({ runId }) => resumeRun(runId),
+    (issue) => failure(issue),
+  );
+
+  handle(
     CHANNELS.workflowGateDecide,
     schemas.WorkflowGateDecideRequest,
     async ({ runId, nodeId, decision, note }) => decideGate(runId, nodeId, decision, note, 'panel'),
@@ -72,6 +85,22 @@ export function registerWorkflowHandlers(): void {
     schemas.WorkflowRunsGetRequest,
     async ({ runId }) => ({ run: await getRun(runId) }),
     () => ({ run: null }),
+  );
+
+  handleBare(CHANNELS.workflowTemplatesList, async () => ({ templates: await listWorkflowTemplates() }));
+
+  handle(
+    CHANNELS.workflowTemplateSave,
+    schemas.WorkflowTemplateSaveRequest,
+    async ({ template }) => saveWorkflowTemplate(template),
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.workflowTemplateDelete,
+    schemas.WorkflowTemplateDeleteRequest,
+    async ({ id }) => deleteWorkflowTemplate(id),
+    (issue) => failure(issue),
   );
 
   handleSend(
