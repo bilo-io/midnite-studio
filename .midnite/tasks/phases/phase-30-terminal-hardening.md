@@ -253,7 +253,7 @@ that pty.
       `page.reload()`, then `__mstudioPty.creates.length === 0`, `snapshots.length === 2`, and both rows
       carry `data-phase="live"` (Theme D's attribute; until D lands, assert the absence of the dimmed
       class instead).
-- [ ] Dev: HMR of `terminal-view.tsx` no longer strands shells — the `moon run desktop:start` pain that
+- [x] Dev: HMR of `terminal-view.tsx` no longer strands shells — the `moon run desktop:start` pain that
       motivated the theme, checked by hand once.
 - [x] The `mstudio:pty:snapshot` channel A's fix consumes: `CHANNELS.ptySnapshot = 'mstudio:pty:snapshot'` in
       [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts) beside `ptyKill` (`:241`);

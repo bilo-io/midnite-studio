@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 30 — A terminal that survives you
+
+[Phase 30](phases/phase-30-terminal-hardening.md) marked ✅ DONE (91/91 items verified).
+Hardened terminal architecture with detached background pty broker (`broker.js`), snapshot ring buffer with reattach on renderer reload/HMR, honest session states (live, asleep, ended), process tree inspection (`ps -o stat,comm,args`) with foreground command detection and live title updates, TUI agent activity detection (thinking spinner, waiting dot-wave, idle caret, unsure dot) with fail-soft timeouts and doubt telemetry.
+
 ## 2026-09-26 — Phase 29 — Markdown slides, everywhere markdown already renders
 
 [Phase 29](phases/phase-29-markdown-slides-viewer.md) marked ✅ DONE (49/49 items verified).
