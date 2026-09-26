@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isAnchored,
   isCommentableLine,
+  leftSideLines,
   positionForLine,
   rightSideLines,
   threadsForFile,
@@ -28,7 +29,7 @@ const line = (over: Partial<DiffLine> = {}): DiffLine => ({
   ...over,
 });
 
-const diff = (hunks: { newStart: number; lines: DiffLine[] }[]): FileDiff => ({
+const diff = (hunks: { newStart?: number; oldStart?: number; lines: DiffLine[] }[]): FileDiff => ({
   path: 'src/app.tsx',
   oldPath: null,
   change: 'modified',
@@ -36,9 +37,9 @@ const diff = (hunks: { newStart: number; lines: DiffLine[] }[]): FileDiff => ({
   oldMode: null,
   newMode: null,
   hunks: hunks.map((hunk) => ({
-    oldStart: hunk.newStart,
+    oldStart: hunk.oldStart ?? hunk.newStart ?? 1,
     oldLines: hunk.lines.length,
-    newStart: hunk.newStart,
+    newStart: hunk.newStart ?? hunk.oldStart ?? 1,
     newLines: hunk.lines.length,
     heading: '',
     lines: hunk.lines,
@@ -126,6 +127,58 @@ describe('rightSideLines', () => {
     expect(lines.has(50)).toBe(false);
     expect(lines.has(10)).toBe(true);
     expect(lines.has(90)).toBe(true);
+  });
+});
+
+describe('leftSideLines', () => {
+  it('collects the old-file numbers of deleted and context lines', () => {
+    const lines = leftSideLines(
+      diff([{ oldStart: 10, lines: [line({ oldNo: 10, newNo: 10 }), line({ kind: 'del', oldNo: 11, newNo: null })] }]),
+    );
+
+    expect([...lines].sort((a, b) => a - b)).toEqual([10, 11]);
+  });
+
+  it('omits added lines, which have no left side to anchor to', () => {
+    const lines = leftSideLines(
+      diff([
+        { oldStart: 10, lines: [line({ kind: 'add', oldNo: null, newNo: 10 }), line({ oldNo: 10, newNo: 11 })] },
+      ]),
+    );
+
+    expect([...lines]).toEqual([10]);
+  });
+
+  it('leaves the gap between two hunks out, rather than filling the range', () => {
+    const lines = leftSideLines(
+      diff([
+        { oldStart: 10, lines: [line({ oldNo: 10, newNo: 10 })] },
+        { oldStart: 90, lines: [line({ oldNo: 90, newNo: 90 })] },
+      ]),
+    );
+
+    expect(lines.has(50)).toBe(false);
+    expect(lines.has(10)).toBe(true);
+    expect(lines.has(90)).toBe(true);
+  });
+
+  it('expanded-context line keeps its membership', () => {
+    const lines = leftSideLines(
+      diff([
+        {
+          oldStart: 1,
+          lines: [
+            line({ kind: 'ctx', oldNo: 1, newNo: 1 }),
+            line({ kind: 'ctx', oldNo: 2, newNo: 2 }),
+            line({ kind: 'del', oldNo: 3, newNo: null }),
+          ],
+        },
+      ]),
+    );
+
+    expect(lines.has(1)).toBe(true);
+    expect(lines.has(2)).toBe(true);
+    expect(lines.has(3)).toBe(true);
   });
 });
 

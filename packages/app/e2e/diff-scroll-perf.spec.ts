@@ -103,10 +103,8 @@ test('a 4000-line diff in split mode stays windowed and bounded', async ({ page 
   await openBigDiff(page);
 
   // Toggle split mode
-  const splitToggle = page.getByRole('button', { name: /split/i });
-  if (await splitToggle.isVisible()) {
-    await splitToggle.click();
-  }
+  const splitToggle = page.getByRole('button', { name: 'Switch to side-by-side diff' });
+  await splitToggle.click();
 
   const mounted = await renderedRows(page);
   expect(mounted).toBeGreaterThan(0);
