@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 44 — Video Studio
+
+[Phase 44](phases/phase-44-video-studio.md) marked ✅ DONE (64/64 items verified).
+Remotion Video Studio integration: zod domain contracts (`VideoProject*`, `VideoStudio*`, `VideoRender*`) matching `ekko-videos` schema with zero new runtime dependencies; jailed filesystem discovery scanning `<root>/projects/*/project.json`; main-process studio host (`remotion studio --no-open`) with dynamic stdout port resolution, restartability on failure, and process-group cleanup on shutdown (`before-quit`); three-pane Video Studio view with embedded studio host via `use-browser-bounds`; render executor with 70/30 render/encode progress reporting and 20-min deadline; Claude agent actions ("Write editorial script" / "Execute editorial script") with skill presence verification (`probeVideoSkills`); read-only asset browsing (`assets/` and `input/`) and output changelog viewing; Settings page directory picker; and `view.video` command integration.
+
 ## 2026-09-26 — Phase 43 — Workflows
 
 [Phase 43](phases/phase-43-workflows-mvp.md) marked ✅ DONE (77/77 items verified).

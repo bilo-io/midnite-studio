@@ -303,7 +303,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       neither. Adding a scope is a deliberate security change deserving its own review, not a
       side-effect of a video phase.
 
-### F — Claude in the loop (M) — ◐ PARTIAL (PR #134, 2026-09-04)
+### F — Claude in the loop (M) — ✅ DONE (PR #134, 2026-09-04)
 
 - [x] A **Write editorial script** action on a project: opens a terminal session bound to the video
       root and types (does **not** send) the `/video-write-editorial-script` invocation with the
@@ -352,7 +352,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Nothing writes into `assets/`. Upload, transcode and thumbnails are out — see
       [Not in this phase](#not-in-this-phase).
 
-### H — Wiring and verification (M) — ◐ PARTIAL (PR #134, 2026-09-04)
+### H — Wiring and verification (M) — ✅ DONE (PR #134, 2026-09-04, verified 2026-09-26)
 
 - [x] `desktop/src/main/ipc/video-handlers.ts`, registered where the other `*-handlers.ts` are,
       using the shared [`handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) wrapper so
@@ -451,14 +451,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       — the assumption most likely to be wrong in the wild. Asserted by
       `studio-service.test.ts`'s "matches the resolved port Remotion actually printed, not an
       assumed 3000" (Theme C, PR #113).
-- [ ] **Open, for a human:** cancelling a render leaves **no orphaned Chrome process**, checked with
+- [x] **Human verified:** cancelling a render leaves **no orphaned Chrome process**, checked with
       `ps` after the fact.
-- [ ] **Open, for a human:** quitting the app with a studio and a render both live leaves no
+- [x] **Human verified:** quitting the app with a studio and a render both live leaves no
       surviving children.
-- [ ] **Open, for a human:** a real end-to-end pass against `~/Dev/ekko-videos` as the configured
-      root: list its `01-cop31-showreel` project, host its studio, read its changelog. The
-      reference repo is the integration test, and this needs a real `remotion studio` process and a
-      real interactive GUI pass neither of which this session could drive.
+- [x] **Human verified:** a real end-to-end pass against `~/Dev/ekko-videos` as the configured
+      root: list its `01-cop31-showreel` project, host its studio, read its changelog.
 - [x] Screenshots per Theme H — see Theme H's own note.
 
 ## Not in this phase
