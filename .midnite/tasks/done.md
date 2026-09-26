@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 41 — Agentic Kanban
+
+[Phase 41](phases/phase-41-agentic-kanban.md) marked ✅ DONE (55/55 items verified).
+Agentic Kanban board over GitHub ProjectV2: `[ Table | Board ]` toggle in Projects view with persistent mode; pure column derivation from `Status` single-select options; variable-height card virtualization; `@dnd-kit` column dragging with optimistic updates and rollback; dedicated `surface: 'kanban'` terminal sessions with `taskRef` binding; in-card lazy xterm terminal mounting with WebGL budget protection; card composer with prompt generation from GitHub item text; state-driven running glow animations; and broker restart survival with session re-homing.
+
 ## 2026-09-26 — Phase 40 — GitHub Projects
 
 [Phase 40](phases/phase-40-github-projects.md) marked ✅ DONE (53/53 items verified).
