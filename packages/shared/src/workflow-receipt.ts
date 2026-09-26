@@ -4,7 +4,6 @@ import {
   WorkflowGateDecidedBySchema,
   WorkflowGateDecisionSchema,
   WorkflowLoopExitReasonSchema,
-  nodeRunIteration,
   nodeRunSettledAt,
   type WorkflowNode,
   type WorkflowNodeKind,
@@ -211,14 +210,16 @@ export function buildWorkflowRunReceipt(
       };
     });
 
+  // Real chronological order, NOT `(iteration, settledAt)` — "the last node
+  // output" means the last thing that actually happened in wall-clock time.
+  // A node downstream of a multi-pass loop (iteration unset, reads as 1) can
+  // easily settle after a later loop iteration (iteration 2+) chronologically
+  // while sorting "before" it under an iteration-primary key — exactly the
+  // built-in templates' own shape (loop → exhausted → human gate → ship). See
+  // `nodeRunSettledAt`'s own doc comment and the p97 board's Theme K note.
   const settled = [...run.nodes]
     .filter((node) => node.output !== undefined)
-    .sort(
-      (a, b) =>
-        nodeRunIteration(a) - nodeRunIteration(b) ||
-        nodeRunSettledAt(a) - nodeRunSettledAt(b) ||
-        a.nodeId.localeCompare(b.nodeId),
-    );
+    .sort((a, b) => nodeRunSettledAt(a) - nodeRunSettledAt(b) || a.nodeId.localeCompare(b.nodeId));
   const lastSettled = settled.length > 0 ? settled[settled.length - 1] : undefined;
 
   return {
