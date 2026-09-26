@@ -197,49 +197,49 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The run record, in `shared` (M)
+### A — The run record, in `shared` (M) — ✅ DONE ([PR #579](https://github.com/bilo-io/midnite-studio/pull/579), 2026-09-26)
 
 One vocabulary over the four records that already disagree. Pure `shared`: zod only, no electron, no
 imports from any other workspace package.
 
-- [ ] Add [`packages/shared/src/domain/agent-run.ts`](../../../packages/shared/src/domain/agent-run.ts)
+- [x] Add [`packages/shared/src/domain/agent-run.ts`](../../../packages/shared/src/domain/agent-run.ts)
       with `AgentRunSchema`:
       `{ id, kind: AgentRunKind, repoId, cwd, sessionId?, agentId?, skillId?, label, startedAt, endedAt?, status: AgentRunStatus, exitCode?, verdict?, sourceId? }`.
       `AgentRunKindSchema = z.enum(['loop','session','council','workflow'])` names the four existing
       producers; `sourceId` is the producer's own id (`loopId`, `councilId`, `workflowId`) so nothing
       loses its home key.
-- [ ] `skillId: AgentCommandIdSchema.optional()` — **deliberately the same enum Phase 92 settled on**
+- [x] `skillId: AgentCommandIdSchema.optional()` — **deliberately the same enum Phase 92 settled on**
       (`AgentCommandId`, [`ui-store.ts:1698-1719`](../../../packages/app/src/store/ui-store.ts), 22
       members). This is the item that requires moving the union: `AgentCommandId` lives in the
       *renderer* today, and `shared` cannot import `app`. Lift the id union (and only the union) into
       `shared/src/domain/agent-command.ts`, re-export it from `ui-store.ts` so no import path moves —
       the exact manoeuvre [Phase 81](phase-81-where-the-companion-can-take-you.md) Theme A used for
       `ViewId`. `AGENT_COMMANDS`' labels and icons are UI copy and stay in `app`.
-- [ ] `AgentRunStatusSchema = z.enum(['running','stopped','exited','abandoned'])` — a superset of
+- [x] `AgentRunStatusSchema = z.enum(['running','stopped','exited','abandoned'])` — a superset of
       `LoopRunStatusSchema` ([`loops.ts:546`](../../../packages/shared/src/loops.ts)) plus
       `abandoned` for the case `main/loop-runs.ts:54-65` already handles by hand (a record still
       `running` at boot because the app died under it).
-- [ ] `AgentRunVerdictSchema` — the phase's actual point:
+- [x] `AgentRunVerdictSchema` — the phase's actual point:
       `{ checkedAt, suiteId, outcome: 'pass'|'fail'|'unavailable', passed, failed, skipped, durationMs, failures: TestFailure[], reason?: TestRunReason }`.
       Reuse `TestFailureSchema` / `TestRunReasonSchema`
       ([`domain/tests.ts:127`/`:123`](../../../packages/shared/src/domain/tests.ts)) rather than
       declaring parallel shapes; `unavailable` is how `{ ok: false, reason }` arrives without
       pretending a missing suite is a failure.
-- [ ] Pure, module-level selectors, testable with no store and no Electron:
+- [x] Pure, module-level selectors, testable with no store and no Electron:
       `runsForRepo(runs, repoId)`, `runsForSkill(runs, skillId)`, `latestVerdict(run)`,
       `skillOutcomeTally(runs): Map<AgentCommandId, {pass, fail, unavailable}>`. Follow
       `notesForRepo`'s precedent — selectors are functions in the module, not methods on a store.
-- [ ] `export function fromLoopRun(record: LoopRunRecord, extra): AgentRun` — the adapter, in
+- [x] `export function fromLoopRun(record: LoopRunRecord, extra): AgentRun` — the adapter, in
       `shared`, so `loops.ts`'s record stays the loop console's own shape and the unification is a
       projection rather than a rewrite of a persisted file. Same for `ClosedSession` →
       `AgentRun` (`kind: 'session'`).
-- [ ] **No migration of the three on-disk stores in this theme.** `loop-runs.json`,
+- [x] **No migration of the three on-disk stores in this theme.** `loop-runs.json`,
       the councils store and `workflow-runs` keep their files and their 200-record caps; Theme D
       reads them through the adapters. Decision 2 records why, and what the cost is.
-- [ ] Vitest [`agent-run.test.ts`](../../../packages/shared/src/domain/agent-run.test.ts): round-trip
+- [x] Vitest [`agent-run.test.ts`](../../../packages/shared/src/domain/agent-run.test.ts): round-trip
       each schema; `fromLoopRun` against a real `LoopRunRecord` fixture; `skillOutcomeTally` over a
       mixed set; a run with no verdict tallies as neither pass nor fail.
-- [ ] `packages/shared/src/domain/index.ts` re-exports; `agent-command.ts` too.
+- [x] `packages/shared/src/domain/index.ts` re-exports; `agent-command.ts` too.
 
 ### B — The sensor: a checked loop iteration (L)
 

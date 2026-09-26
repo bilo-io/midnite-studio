@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | 🔄 WIP | — | 76/91 | `████████░░` | 84% | — | K |
 | [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 58/73 | `████████░░` | 79% | — | (15 verification items, mostly human/packaged-app passes) |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
-| [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | 🔄 WIP | — | 0/87 | `░░░░░░░░░░` | 0% | A | B C D E F G H |
+| [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | 🔄 WIP | — | 9/87 | `█░░░░░░░░░` | 10% | — | B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
