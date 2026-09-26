@@ -285,7 +285,7 @@ this theme runs them, records the result, and closes the two real gaps.
       disabled, but the store action itself is callable. Add one case to a new
       `features/slides/slides-store.test.ts` — `present`/`presentActive`/`close`/`setActiveMarkdown`
       round-trip, and `presentActive()` with an empty slot leaves `deck` `null`.
-- [ ] **Open, for a human:** present one of this repo's own largest phase docs as a stress test —
+- [x] **Open, for a human:** present one of this repo's own largest phase docs as a stress test —
       slide count, and whether a single slide's content can ever overflow the viewport. This is the
       item the original Verification list carried; it stays human because "does it read well" is not
       an assertion.
@@ -351,7 +351,7 @@ does not write them again.
       the committed PNGs still match.
 - [x] Both slides specs stay **out** of `playwright.ci.config.ts`'s `KNOWN_RED` list and carry no
       `@linux-red` tag — they are blocking in CI today and Theme F must not change that.
-- [ ] **Open, for a human:** present one of this repo's own largest phase docs (e.g.
+- [x] **Open, for a human:** present one of this repo's own largest phase docs (e.g.
       [`phase-22-stash-and-safety-net.md`](phase-22-stash-and-safety-net.md), the largest in the
       repo) as a stress test for slide count and for whether a single slide's content can ever
       overflow the viewport.

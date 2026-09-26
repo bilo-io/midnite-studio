@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 29 — Markdown slides, everywhere markdown already renders
+
+[Phase 29](phases/phase-29-markdown-slides-viewer.md) marked ✅ DONE (49/49 items verified).
+Fullscreen, heading-paginated slide deck viewer over markdown across Files preview, PR details, comment threads, Issue details, and release notes: AST-based deck-parser splitting on headings (h1 cover, h2-h6 slides, lists per item, code fences/tables as steps, protected fenced block contents), typewriter title reveal, step-by-step bullet reveal, full keyboard navigation with help overlay, SlidesModal in-app z-dialog occluder, and markdown.presentAsSlides command integration.
+
 ## 2026-09-25 — Phase 25 — Search everywhere, and the blame that explains it
 
 [Phase 25](phases/phase-25-search-everywhere.md) marked ✅ DONE (101/101 items verified).
