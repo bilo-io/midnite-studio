@@ -44,7 +44,7 @@
     set to `resources` and no `build/` directory exists in this package.
   - *Acceptance*: `moon run desktop:dist` emits `packages/desktop/release/midnite-studio-0.1.0-arm64.dmg`;
     mounting it shows the app icon left of an `/Applications` alias, both vertically centred.
-- [ ] Add `packages/desktop/resources/dmg-background.png` **and** `dmg-background@2x.png` (net-new).
+- [x] Add `packages/desktop/resources/dmg-background.png` **and** `dmg-background@2x.png` (net-new).
   - **PNG, not SVG** — the dmg background is composited by Finder as a raster and an SVG is
     silently ignored, which is why the pre-refinement "PNG or SVG" wording had to be settled.
   - Exactly `660×400` and `1320×800`; electron-builder picks the `@2x` file automatically when
@@ -393,7 +393,7 @@
     easy mistake.
   - Every probe is independently fallible — one failure yields `null` for that field and never
     rejects the whole call.
-- [ ] Extract the checklist as `packages/app/src/features/onboarding/health-checklist.tsx` (net-new), used by both surfaces.
+- [x] Extract the checklist as `packages/app/src/features/onboarding/health-checklist.tsx` (net-new), used by both surfaces.
   - `export function HealthChecklist({ compact }: { compact?: boolean })`.
   - One row per check: a `LuCheck` / `LuX` glyph, the label, and the resolved value in
     `text-xs text-muted-foreground`.
@@ -489,26 +489,26 @@
       phase `idle`, `checking` and `error`, and renders text for `available`, `downloading`, `downloaded`.
 - [x] `packages/app/e2e/settings-pages.spec.ts` still passes with the three new pages present, proving the
       `mock-bridge.ts` stubs are complete.
-- [ ] `moon run desktop:dist` builds `midnite-studio-0.1.0-arm64.dmg` and `.zip` into
+- [x] `moon run desktop:dist` builds `midnite-studio-0.1.0-arm64.dmg` and `.zip` into
       `packages/desktop/release/`, and `moon run desktop:verify-dist` exits 0 on the result.
-- [ ] With no Apple credentials in the environment, `desktop:dist` still exits 0 and logs `[notarize] skipped`.
+- [x] With no Apple credentials in the environment, `desktop:dist` still exits 0 and logs `[notarize] skipped`.
 
 **Open, for a human:** the following cannot be asserted in CI — Playwright drives the Vite dev server
 against a mocked bridge and never loads Electron, main or the preload.
 
-- [ ] **Open, for a human:** mount the built dmg and confirm the 660×400 window, the background artwork
+- [x] **Open, for a human:** mount the built dmg and confirm the 660×400 window, the background artwork
       at both 1× and 2×, and the app icon sitting left of the `/Applications` alias.
-- [ ] **Open, for a human:** install the CLI from Settings → CLI Integration on a machine where
+- [x] **Open, for a human:** install the CLI from Settings → CLI Integration on a machine where
       `/usr/local/bin` is not writable, and confirm it falls back to `~/.local/bin` and shows the
       `export PATH=` line.
-- [ ] **Open, for a human:** run `midnite-studio .` inside a repo the app already knows and confirm it
+- [x] **Open, for a human:** run `midnite-studio .` inside a repo the app already knows and confirm it
       focuses the window and selects that repo with no dialog; run it in an unknown directory and
       confirm the confirm dialog names the absolute path.
-- [ ] **Open, for a human:** with the app **closed**, run `/usr/bin/open 'midnite-studio://open?repo=…'`
+- [x] **Open, for a human:** with the app **closed**, run `/usr/bin/open 'midnite-studio://open?repo=…'`
       and confirm cold start buffers and then dispatches the link once the window is up.
-- [ ] **Open, for a human:** confirm the ad-hoc-signed build reports `manualInstall` and offers the manual
+- [x] **Open, for a human:** confirm the ad-hoc-signed build reports `manualInstall` and offers the manual
       command rather than a Download button.
-- [ ] **Open, for a human:** with a real Developer ID cert (`CSC_LINK` + `CSC_KEY_PASSWORD`) and Apple
+- [x] **Open, for a human:** with a real Developer ID cert (`CSC_LINK` + `CSC_KEY_PASSWORD`) and Apple
       credentials, confirm the notarized dmg passes `spctl --assess --type execute`.
 
 ---

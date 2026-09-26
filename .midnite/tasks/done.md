@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 33 — Application Installation, CLI Tool & Desktop Integration
+
+[Phase 33](phases/phase-33-installable-app-and-cli-integration.md) marked ✅ DONE (59/59 items verified).
+Polished macOS application packaging (DMG window layout, hardened runtime entitlements, `notarize.cjs` afterSign hook, and `verify-dist` integrity gate); POSIX `midnite-studio` CLI wrapper with zsh/bash/fish shell completions, PATH symlinking (`/usr/local/bin` fallback to `~/.local/bin`), and `midnite-studio://` custom URL protocol handler with cold-start deep-link dispatch; auto-updater service via electron-updater generic provider (`latest-mac.yml`), App Updates settings page, and status bar update pill; first-run onboarding wizard with system health checks (git, shell, ssh-agent, CLI status) and `onboardedAt` store migration.
+
 ## 2026-09-26 — Phase 32 — The browser gets an engine, and the tabs to fill it
 
 [Phase 32](phases/phase-32-browser-engine-and-tabs.md) marked ✅ DONE (92/92 items verified).
