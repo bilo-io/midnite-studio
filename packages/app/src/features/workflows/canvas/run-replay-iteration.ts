@@ -66,7 +66,21 @@ export function nodeStatusesAtIteration(
   errors: ReadonlyMap<string, string>;
   settledPorts: ReadonlyMap<string, string>;
 } {
-  const passNodes = nodesForIteration(run, iteration);
+  // `nodeRunIteration` reads an unset field as `1` — which would otherwise
+  // make every plain, non-looped node look like "this pass's own record"
+  // specifically for pass 1. A node id is only genuinely loop-affiliated when
+  // it accumulated MORE THAN ONE record across the whole run (Theme C: one
+  // per iteration it actually reached) — the same signal
+  // `run-output-panel.tsx`'s "Pass N" badge uses. Everything else always
+  // goes through the chronology check below, regardless of which pass is
+  // selected — and is excluded from `passEnd`'s own computation too, so a
+  // post-loop node's own (late) settle time never leaks into "when did this
+  // pass end".
+  const recordCounts = new Map<string, number>();
+  for (const node of run.nodes) recordCounts.set(node.nodeId, (recordCounts.get(node.nodeId) ?? 0) + 1);
+  const isLoopAffiliated = (nodeId: string): boolean => (recordCounts.get(nodeId) ?? 0) > 1;
+
+  const passNodes = nodesForIteration(run, iteration).filter((node) => isLoopAffiliated(node.nodeId));
   const passEnd = passNodes.reduce((max, node) => Math.max(max, nodeRunSettledAt(node)), Number.NEGATIVE_INFINITY);
   const passRecordByNodeId = new Map(passNodes.map((node) => [node.nodeId, node]));
 
@@ -75,24 +89,32 @@ export function nodeStatusesAtIteration(
   const settledPorts = new Map<string, string>();
   const seenNodeIds = new Set<string>();
 
+  const paint = (nodeId: string, record: WorkflowNodeRun) => {
+    statuses.set(nodeId, record.status);
+    if (record.error !== undefined) errors.set(nodeId, record.error);
+    if (record.settledPort !== undefined) settledPorts.set(nodeId, record.settledPort);
+  };
+
   for (const node of run.nodes) {
     if (seenNodeIds.has(node.nodeId)) continue;
     seenNodeIds.add(node.nodeId);
 
-    const passRecord = passRecordByNodeId.get(node.nodeId);
-    // A node with no record at all for this exact pass is a plain
-    // (non-looped) node — a looped node always has one entry per iteration
-    // it actually reached, so its own pass record is never missing here.
-    const record = passRecord ?? run.nodes.find((n) => n.nodeId === node.nodeId);
-    const reached = passRecord !== undefined || (record !== undefined && nodeRunSettledAt(record) <= passEnd);
-
-    if (record && reached) {
-      statuses.set(node.nodeId, record.status);
-      if (record.error !== undefined) errors.set(node.nodeId, record.error);
-      if (record.settledPort !== undefined) settledPorts.set(node.nodeId, record.settledPort);
-    } else {
-      statuses.set(node.nodeId, 'pending');
+    if (isLoopAffiliated(node.nodeId)) {
+      // This pass either reached it (paint that pass's own record) or it
+      // hasn't yet — never a chronology fallback, since "reached iteration
+      // N" is exactly what having a record for iteration N means.
+      const passRecord = passRecordByNodeId.get(node.nodeId);
+      if (passRecord) paint(node.nodeId, passRecord);
+      else statuses.set(node.nodeId, 'pending');
+      continue;
     }
+
+    // A plain node (before or after the loop, never inside it) shows its one
+    // real record once this pass's own last record has settled on or after
+    // it, `pending` before that.
+    const record = run.nodes.find((n) => n.nodeId === node.nodeId);
+    if (record && nodeRunSettledAt(record) <= passEnd) paint(node.nodeId, record);
+    else statuses.set(node.nodeId, 'pending');
   }
 
   return { statuses, errors, settledPorts };
