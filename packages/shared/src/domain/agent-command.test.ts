@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_COMMAND_IDS, type AgentCommandId } from './agent-command';
 
 describe('AGENT_COMMAND_IDS', () => {
-  it('has 22 members, matching the roster Phase 92 settled on', () => {
-    expect(AGENT_COMMAND_IDS.length).toBe(22);
+  it('has 23 members, matching the roster with verifyPhase', () => {
+    expect(AGENT_COMMAND_IDS.length).toBe(23);
   });
 
   it('has no duplicates', () => {
