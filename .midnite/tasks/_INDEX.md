@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | ◻ TODO | — | 0/67 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | 🔄 WIP | — | 81/91 | `█████████░` | 89% | — | (10 verification items, mostly human/packaged-app passes) |
 | [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 58/73 | `████████░░` | 79% | — | (15 verification items, mostly human/packaged-app passes) |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
@@ -256,6 +257,21 @@ human/packaged-app verification passes.
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 98 — Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md)
+
+*One full-window first-run overlay replaces both onboarding modals — brand intro, typed titles, git → forges → accounts → CLI → toolchain → Ollama, a FAB handoff on skip, and a Welcome finale.*
+
+- ◻ **A** — overlay frame (X, theme picker, dots, Skip), `SETUP_PAGES` registry, one migrated first-run gate, `setup.open` command
+- ◻ **B** — brand choreography: caret + typed gradient "Midnite", FLIP into a fixed title anchor, typed titles + fading bodies, reduced motion
+- ◻ **C** — Skip/X → FAB handoff with a pointing arrow, FAB "Resume setup" leaf
+- ◻ **D** — shared setup catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row
+- ◻ **E** — git detect/install, multi-select forge buttons, gh/glab/az CLI rows (Bitbucket no-CLI)
+- ◻ **F** — account cards (avatar, name, login, email) + `gitIdentityGet/Set` global git identity
+- ◻ **G** — Midnite CLI page over `cliStatus`/`cliInstall`
+- ◻ **H** — toolchain checklist (agent CLIs, JS stack, containers, media/misc) with brand-coloured icons
+- ◻ **I** — Ollama page: education, `systemMemory`, RAM-gated curated models, background pulls lifted to app level
+- ◻ **J** — completion transition + "Welcome to [logo] Midnite Studio" finale
 
 ### [Phase 97 — Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md)
 
