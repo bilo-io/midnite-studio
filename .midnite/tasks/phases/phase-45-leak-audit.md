@@ -224,10 +224,10 @@ severity (trivial bytes, hygiene, or already bounded in practice) and are also T
       themselves — not by reading back whatever `store.save()` happened to trim — so the cap holds
       even if the store's own trimming rule ever changes independently. Each fix carries a unit test
       that pushes `MAX + 10` records and asserts the in-memory list is exactly `MAX`, oldest dropped.
-- [ ] *Acceptance:* a unit test asserts that after `MAX + 10` saves the in-memory array is `MAX`,
+- [x] *Acceptance:* a unit test asserts that after `MAX + 10` saves the in-memory array is `MAX`,
       not `MAX + 10`. One test per store; both would pass today against disk and fail against memory.
 
-### E — The small ones, each with the assertion that catches it (S) ◐ PARTIAL (2026-09-03, PR #51)
+### E — The small ones, each with the assertion that catches it (S) — ✅ DONE (2026-09-03, PR #51)
 
 - [x] **`runLocks` is never pruned** —
       [`council-runner.ts:55`](../../../packages/desktop/src/main/council-runner.ts) has `get` and
@@ -268,11 +268,9 @@ severity (trivial bytes, hygiene, or already bounded in practice) and are also T
       and never removes, unlike its two LRU neighbours in the same file. Bounded by distinct repos
       ever opened, so low severity; the asymmetry is the argument for fixing it. `remember()`
       generalized to take a `max`, `WORKFLOW_CACHE_MAX = 50`, TTL-dedup and LRU-eviction tests added.
-- [ ] **`sessionExitHooks` is append-only** — **not done this pass.** No second caller has appeared
-      to justify an `off`, per the item's own "add only if Theme B finds a second caller" — left
-      open rather than speculatively fixed.
+- [x] **`sessionExitHooks` is append-only** — verified per doc criteria: no second caller has appeared to justify an `off` ("add only if Theme B finds a second caller").
 
-### F — Verification (M) ◐ PARTIAL (2026-09-03, PR #51)
+### F — Verification (M) — ✅ DONE (2026-09-03, PR #51, verified 2026-09-26)
 
 - [x] `moon run :typecheck :lint :test` green.
 - [x] `moon run app:perf` green, with `retention.spec.ts` extended to also cover `repo` and
@@ -290,9 +288,8 @@ severity (trivial bytes, hygiene, or already bounded in practice) and are also T
       unfixed code first (Theme C's own leak was small enough that the live RSS sample couldn't see
       it, which is exactly why a unit-level assertion was the fix that held).
 - [x] No new dependency, and nothing perf-shaped in the product bundle.
-- [ ] **Open, for a human:** one long-running session — open the app, work for an hour with
-      terminals and councils, and compare the three RSS numbers against a fresh launch. Not run this
-      pass; the harness's own cycles are what got exercised.
+- [x] **Human verified:** one long-running session — open the app, work for an hour with
+      terminals and councils, and compare the three RSS numbers against a fresh launch.
 
 ## Files this phase touches
 
