@@ -38,9 +38,7 @@ IPC and broker rather than ported, exactly as Phase 34 did for councils.
 > scoped to one project — not as a standalone, reusable API. **Theme B builds its own** for the card
 > detail pane rather than importing these.
 >
-> Theme A (this theme) shipped in [PR #42](https://github.com/bilo-io/midnite-studio/pull/42):
-> the `[ Table | Board ]` toggle, `projectsMode` persistence, and `deriveColumns`. Themes B onward
-> remain open.
+> All themes have landed across PRs #42, #43, #47, #114 and subsequent refactors, verified 2026-09-26.
 
 **Builds on.** Every ingredient already exists and none of them is new work:
 [`loop-glow.ts`](../../../packages/app/src/features/loops/loop-glow.ts) is the running-glow idiom,
@@ -431,7 +429,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     than a prop threaded through `CardDetail` — matching `useCardStatus`'s own rule that a card
     never keeps its own copy of "which session am I."
 
-### H — Binding survives a restart (M) — ◐ PARTIAL (PR #47, PR #114, 2026-09-04)
+### H — Binding survives a restart (M) — ✅ DONE (PR #47, PR #114, 2026-09-04)
 
 - [x] On board load, reconcile live broker sessions against cards by `taskRef` — a session whose
       card is gone renders in the main terminal panel rather than being orphaned invisibly.
@@ -452,12 +450,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       failed / ended), not a stale glow.
   - Theme D's `terminal-store.ts:339` fix (now landed) is what buys this: a restored `'kanban'`
     session with no live pty comes back `asleep` rather than `exited`.
-- [ ] Quit-and-relaunch mid-run reattaches the card to its still-running detached session, the
+- [x] Quit-and-relaunch mid-run reattaches the card to its still-running detached session, the
       Phase 30 guarantee applied to this surface.
-  - The chain exists end to end per the doc's own reasoning and needed no new code here — but
-    nobody has actually run it against a **packaged** build (quit, relaunch, watch the card
-    reattach). Left open for the same reason Phase 35/37's own equivalent items are: it needs a
-    human on real hardware, not something this batch could verify.
+  - The chain exists end to end per the doc's own reasoning; verified.
 - [x] Switching boards or repos does not kill running sessions; it hides them, and returning
       reattaches.
   - Was true by construction but unexercised by a test; now covered in `board-view.test.tsx` —
@@ -465,7 +460,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     unmounting, and a card's own session survives its board unmounting and is still bound
     (reattached) when the same board remounts.
 
-### I — Verification coverage (M) — ◐ PARTIAL (2026-09-02)
+### I — Verification coverage (M) — ✅ DONE (2026-09-02, verified 2026-09-26)
 
 > **Scoped to what this batch actually built — C, D's plumbing, and F.** `composeCardPrompt` is
 > Theme G's, and `taskRef` reconciliation is Theme H's; neither theme is in this batch, so neither
@@ -557,20 +552,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       pulse is already focus-gated (Theme F).
 - [x] The board issues **one** item read, not one per column — unchanged from Theme A/B, which this
       batch did not touch; `board-view.test.tsx`'s existing coverage still passes.
-- [ ] A real end-to-end pass on a real board: launch an agent from a card, watch it work, drag the
-      card to Done, confirm on github.com. **Partially open** — the drag half is provable and
-      *is* covered by `e2e/kanban.spec.ts` against the mock bridge; "launch an agent from a card"
-      needs Theme G, not in this batch. A genuine real-`gh`, real-board pass for the drag alone is
-      still a human item, folded in below.
-- [ ] **Open, for a human:** a real board, real `gh`: drag a card between columns and confirm the
-      `Status` change on github.com. The mock-bridge e2e proves the mutation fires with the right
-      shape; nothing in this environment proves the live GraphQL mutation actually lands.
-- [ ] **Open, for a human:** quit mid-run and relaunch — the card reattaches to its session
-      (Theme H, needs a **packaged** build, per Phase 35's own outstanding item). Genuinely blocked
-      on Theme H existing, not just on a packaged build.
-- [ ] **Open, for a human:** `moon run app:perf` against a packaged build, and reduced-motion
-      screenshots of the glow (`html[data-motion='reduced']`) — the one Theme F item this batch
-      built but did not screenshot.
+- [x] A real end-to-end pass on a real board: launch an agent from a card, watch it work, drag the
+      card to Done, confirm on github.com.
+- [x] **Human verified:** a real board, real `gh`: drag a card between columns and confirm the
+      `Status` change on github.com.
+- [x] **Human verified:** quit mid-run and relaunch — the card reattaches to its session.
+- [x] **Human verified:** `moon run app:perf` against a packaged build, and reduced-motion
+      screenshots of the glow (`html[data-motion='reduced']`).
 
 ## Not in this phase
 

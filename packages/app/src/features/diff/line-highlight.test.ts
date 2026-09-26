@@ -13,12 +13,16 @@ import type { DiffLine } from '@midnite/studio-shared';
  * confidence about the two things under test, which are the cache and the
  * listener map, not shiki's tokens.
  */
+const { codeToTokensBase } = vi.hoisted(() => ({
+  codeToTokensBase: vi.fn(async (text: string) => [[{ content: text, color: '#abcdef' }]]),
+}));
+
 vi.mock('../../lib/highlighter', () => ({
   getHighlighter: async () => ({
     getLoadedLanguages: () => ['typescript'],
     loadLanguage: async () => undefined,
     getLoadedThemes: () => ['github-dark'],
-    codeToTokensBase: async (text: string) => [[{ content: text, color: '#abcdef' }]],
+    codeToTokensBase,
   }),
   resolveHighlightTheme: async () => 'github-dark',
 }));
@@ -124,12 +128,33 @@ describe('line-highlight subscribers', () => {
     const before = __lineHighlightListenerKeys();
 
     const { unmount } = renderHook(() =>
-      useLineHighlight('unmount-probe.ts', line('const a = 1;'), true),
+      useLineHighlight(NO_GRAMMAR, line('const a = 1;'), true),
     );
     expect(__lineHighlightListenerKeys()).toBe(before + 1);
 
     unmount();
 
     expect(__lineHighlightListenerKeys()).toBe(before);
+  });
+
+  it('hits cache for same text on left and right in split, tokenizing once', async () => {
+    codeToTokensBase.mockClear();
+    const sameLine: DiffLine = {
+      kind: 'ctx',
+      oldNo: 10,
+      newNo: 10,
+      text: 'const splitCached = true;',
+      ranges: [],
+      noNewline: false,
+    };
+
+    // Render left side
+    renderHook(() => useLineHighlight('split-file.ts', sameLine, true));
+    // Render right side with same content
+    renderHook(() => useLineHighlight('split-file.ts', sameLine, true));
+
+    await waitFor(() => {
+      expect(codeToTokensBase).toHaveBeenCalledTimes(1);
+    });
   });
 });

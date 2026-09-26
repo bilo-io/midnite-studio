@@ -133,4 +133,34 @@ describe('PrDetail — Fetch to compare, assembled through the real bridge', () 
       expect(ops[0]?.op).toBe('fetch');
     });
   });
+
+  it('renders the plain binary treatment when both baseSha and file.oldPath are missing', async () => {
+    renderView(
+      <ToastHost>
+        <PrDetail repoId="repo-1" number={42} />
+      </ToastHost>,
+      {
+        fixtures: {
+          ...fixtures,
+          remotes: REMOTES,
+          statusEntries: [],
+          statusByWorktree: { [MAIN]: [] },
+          forge: {
+            cli: { reason: 'ready' },
+            pulls: [pull],
+            pullDetail: { '42': { ...pullDetail, baseSha: null } },
+            pullFiles: { '42': { files: [{ ...imageFile, oldPath: null }] } },
+          },
+        },
+      },
+    );
+    await screen.findByRole('region', { name: 'Pull request #42' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+    await screen.findByText('logo.png');
+
+    expect(screen.queryByTestId('image-diff')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Fetch to compare' })).toBeNull();
+    const empty = await screen.findByTestId('diff-empty');
+    expect(empty.textContent).toContain('Binary file');
+  });
 });

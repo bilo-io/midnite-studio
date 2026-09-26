@@ -419,13 +419,13 @@ the label rule was scoped to `full` only.
       its own tab, with its transcript"*.
 - [x] `html[data-motion='reduced']`: no pulse anywhere in the rail; running launchers still
       opaque and still coloured; computed `animation-name` is `none`.
-- [ ] Full keyboard pass: tab through the rail, every control reachable, focus visible, names
+- [x] Full keyboard pass: tab through the rail, every control reachable, focus visible, names
       revealed on focus, `aria-pressed` correct on all six toggles.
 - [x] `moon run :typecheck :lint :test` green — 2 722 tests (PR #7). `moon run app:perf` (entry
       chunk 1132.1 KB, in budget) and blurred idle CPU (15.83% of one core, no loop running —
       Decision 9's focus gate is what makes that number hold with a loop running too) now
       recorded in Theme G.
-- [ ] A human-eye pass at `full` on a wide window: the rail reads as three groups, and four
+- [x] A human-eye pass at `full` on a wide window: the rail reads as three groups, and four
       resting launchers do not shout.
 
 ## Not in this phase

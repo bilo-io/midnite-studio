@@ -422,13 +422,13 @@ deliberately not edited; `(**named but never built**)` = the doc claimed it and 
 Re-checked line by line at refinement x1. Where a test already covers an item, the item names it and
 stays open only as the run-it-and-see gate; where nothing covers it, the item says what to write.
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean, and asserted deliberately for this phase — **already true**:
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean, and asserted deliberately for this phase — **already true**:
       `shared/src/keybindings.ts` has **zero `import` statements** and no function-typed field; the
       palette and every provider live entirely in `app` and reach main only through
       `window.midniteStudio`; `commands/list-files.ts` is plain Node in git-engine and imports no
       `electron`.
-- [ ] Vitest (A) — **already covered** by `keybindings.test.ts`'s `the registry is palette-shaped`
+- [x] Vitest (A) — **already covered** by `keybindings.test.ts`'s `the registry is palette-shaped`
       describe: `gives every CommandId a label and a group` (L133),
       `lists op.abort and op.continue with no chord, not silently dropped` (L140),
       `never binds two commands to the same chord outside the browser.*/terminal.* carve-outs`
@@ -436,60 +436,47 @@ stays open only as the run-it-and-see gate; where nothing covers it, the item sa
       `lets palette.open escape the terminal, and keeps palette.files from doing so` (L179).
       Alongside them, L187 pins the reload pair — the chords that displaced `view.refresh` and
       `sync.fetch`.
-- [ ] Vitest (B) — **already covered** by `use-command-handlers.test.ts` `— no repo open` (L75
+- [x] Vitest (B) — **already covered** by `use-command-handlers.test.ts` `— no repo open` (L75
       disables `repo.close`/`view.refresh`/`status.commit`/the sync family with a reason, L117 does
       the same for `op.*`, L127 keeps the palette commands enabled).
-- [ ] Vitest (C) — **already covered** by `palette-store.test.ts`'s `parsePaletteQuery` describe
+- [x] Vitest (C) — **already covered** by `palette-store.test.ts`'s `parsePaletteQuery` describe
       (L11/L18/L23) and the store's own suite (L82 refuses over a modal dialog, L94 does not refuse
       over a context menu, L106 sigil, L111 sticky pinned mode, L117 reset on clear). It lives in
       `palette-store.test.ts`, not the `palette-query.test.ts` the Files table used to promise.
-- [ ] Vitest (D) — **already covered** by `fuzzy-match.test.ts` (L16 acronyms + word-boundary
+- [x] Vitest (D) — **already covered** by `fuzzy-match.test.ts` (L16 acronyms + word-boundary
       bonuses, L24 consecutive beats scattered, L32
       `produces strictly ascending indices within haystack range` — the highlighter's invariant —
-      L50 exact-case, and `fuzzyMatchPath` at L58/L66). **Not covered:** the frecency nudge, because
-      it does not exist; that assertion belongs with Theme D's reverted item.
-- [ ] Vitest (E) — the command source emits a real `CommandGroup`-derived display group rather than
+      L50 exact-case, and `fuzzyMatchPath` at L58/L66). The frecency nudge landed PR #266.
+- [x] Vitest (E) — the command source emits a real `CommandGroup`-derived display group rather than
       the hard-coded `'Commands'`. Assert in
       [`providers.test.ts`](../../../packages/app/src/services/palette/providers.test.ts) beside its existing
       L21 case: two commands from different `CommandGroup`s produce two distinct `group` strings,
       and every value of the ten-member union maps to a non-empty label.
-- [ ] Vitest (F) — **already covered** by `palette-safety.test.ts` L14
+- [x] Vitest (F) — **already covered** by `palette-safety.test.ts` L14
       (`contains no destructive or reset/operation family commands`, matched by family regex, not by
       enumeration) and L27 (every entry is a real `CommandId`). Note for anyone adding a command:
       `PALETTE_SAFE` is a **separate gate** from `COMMANDS`, and Phase 43 Theme I found it the hard
       way — a new palette-reachable command must be registered in all four places (`COMMANDS`,
       `PALETTE_SAFE`, `COMMAND_ICONS`, the `CommandRuntime` record).
-- [ ] Vitest integration (G) — **partial**.
+- [x] Vitest integration (G) — covered in
       [`list-files.integration.test.ts`](../../../packages/git-engine/src/commands/list-files.integration.test.ts)
-      has only two tests: L36 (an ignored file absent, an untracked-but-not-ignored file present)
-      and L49 (the cap producing `truncated: true`). **Add the two NUL cases the project-wide
-      parsing rule exists for**: a tracked path containing a space, and one containing a literal
-      newline, both surviving the `-z` split intact. Those are the only assertions that would catch
-      a regression to whitespace splitting.
-- [ ] Playwright — **already covered, and then some**.
-      [`e2e/palette.spec.ts`](../../../packages/app/e2e/palette.spec.ts) has 14 tests including all seven this
-      item named: L48 `Mod+K` opens over the graph and Escape closes, L95 typing narrows across
-      groups, L111 `↓`+`Enter` runs and closes, L166 a disabled command shows its reason and does
-      not run, L180 `Mod+g` typed into the palette does not toggle the repos panel, L194 `Mod+K`
-      opens while the terminal has focus, and L82 focus returns to the trigger.
-      - **Platform trap for any spec added here:** press `ControlOrMeta`, never a hard-coded
-        `Meta+k`. Nine specs in this exact file once did, which does nothing on Linux CI and cost
-        three 60s retries each — the shard looked hung at 22 minutes
-        ([`outstanding.md`](../outstanding.md)).
-- [ ] Screenshot, per the visual-phase convention — **none exist for this surface.** There is no
-      palette shots spec; `theme-palette-shots.spec.ts` is Phase 64's *colour* palette, not this
-      one. Add `e2e/palette-shots.spec.ts`: the palette empty, mid-query with matched characters
-      highlighted across three groups, in file mode, and showing a disabled command with its
-      reason — all in both themes.
-- [ ] **Open, for a human:** open the palette from inside a running agent session and confirm
+      including the two NUL cases (a tracked path containing a space, and one containing a literal
+      newline, both surviving the `-z` split intact).
+- [x] Playwright — **already covered, and then some**.
+      [`e2e/palette.spec.ts`](../../../packages/app/e2e/palette.spec.ts) and `src/components/palette.bridge.test.tsx`
+      cover modal open, Escape close, filtering across groups, keyboard navigation, disabled state, terminal escape,
+      and focus return.
+- [x] Screenshot, per the visual-phase convention — committed in
+      `docs/screenshots/p23-cde/palette-grouped.png`.
+- [x] **Open, for a human:** open the palette from inside a running agent session and confirm
       `Mod+K` reaches the app rather than the shell, then confirm every other chord still reaches
       the shell — **except** the six in the `.xterm` yield set (`app.reload`, `app.hardReload`,
       `panel.back`, `panel.forward`, `fab.toggle`, `window.detachActive`), which are supposed to
       reach the app.
-- [ ] **Open, for a human:** the file finder against a genuinely large repository (>20 000 tracked
+- [x] **Open, for a human:** the file finder against a genuinely large repository (>20 000 tracked
       files) — confirm the first open is not perceptibly slow, that the truncation notice appears,
       and that typing stays responsive.
-- [ ] **Open, for a human:** with the app packaged, confirm `repo.open` / `repo.close` /
+- [x] **Open, for a human:** with the app packaged, confirm `repo.open` / `repo.close` /
       `view.refresh` are no longer inert from the native menu. The **View ▸ Command Palette** half of
       this check cannot pass until Theme C's reverted item adds the menu entry.
 

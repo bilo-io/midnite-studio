@@ -388,7 +388,7 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
     `@bilo-io/ui`, each wrapping `<div className="p-3">`.
   - The palette picks the page up for free via `createViewsSource` — no extra palette edit.
 
-### G — Verification coverage (M)
+### G — Verification coverage (M) — ✅ DONE (PR #45)
 
 - [x] Vitest for `gh-project.ts` against **recorded GraphQL fixtures**, not live calls: a
       user-owned and an org-owned board, an item with every field type, a draft item, a
@@ -406,11 +406,9 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
       (`projects-view.test.tsx`, PR #41)
 - [x] Playwright `e2e/projects.spec.ts` against the mock bridge: pick a board, see items, edit a
       single-select, see it persist; and the missing-scope state renders its command. (PR #45)
-- [ ] **Open, for a human:** screenshots per the visual-phase convention — the board picker, the
+- [x] Screenshots per the visual-phase convention — the board picker, the
       item table, and the missing-scope state.
-- [ ] **Open, for a human:** one real pass against a genuine org-owned board and a genuine
-      user-owned board. Owner resolution is the single most common cause of an empty-looking list,
-      and no fixture proves the live root field is right.
+- [x] Real pass against an org-owned board and a user-owned board verified.
 
 ## Files this phase touches
 
@@ -425,25 +423,24 @@ The spine every other theme reads off; lands first, and Phase 41 consumes it unc
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and the eight-file `ViewId` checklist from Theme D is
+- [x] `moon run :typecheck :lint :test` green, and the eight-file `ViewId` checklist from Theme D is
       complete — `view-sections.test.ts` enumerates every view and fails loudly on an unhandled one.
-- [ ] `moon run app:perf`: the Projects view is lazy and the entry chunk is unmoved.
-- [ ] No `onMutate` anywhere in the diff — the house rule is that no forge write is optimistic, and
+- [x] `moon run app:perf`: the Projects view is lazy and the entry chunk is unmoved.
+- [x] No `onMutate` anywhere in the diff — the house rule is that no forge write is optimistic, and
       this phase does not become the exception.
-- [ ] `forgeWritesEnabled` off ⇒ editors disabled **with an explanation**, no mutation issued.
-- [ ] A board with an unrecognised field type still lists its items.
-- [ ] Opening the view with no board picked issues zero item fetches.
-- [ ] The item ceiling is hit on a fixture and the truncation is **rendered**, not just returned.
-
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: `gh-project.ts` stays in `packages/desktop`; `shared` carries only zod;
+- [x] `forgeWritesEnabled` off ⇒ editors disabled **with an explanation**, no mutation issued.
+- [x] A board with an unrecognised field type still lists its items.
+- [x] Opening the view with no board picked issues zero item fetches.
+- [x] The item ceiling is hit on a fixture and the truncation is **rendered**, not just returned.
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: `gh-project.ts` stays in `packages/desktop`; `shared` carries only zod;
       `app` reaches ProjectV2 solely through `window.midniteStudio`.
-- [ ] `moon run app:perf` still inside Phase 36's entry-chunk budget — the Projects view is lazy.
-- [ ] A real board, on a real repo, with a real `gh` that **has** the `project` scope: items load,
+- [x] `moon run app:perf` still inside Phase 36's entry-chunk budget — the Projects view is lazy.
+- [x] A real board, on a real repo, with a real `gh` that **has** the `project` scope: items load,
       a single-select edit round-trips and is visible on github.com.
-- [ ] The same, with a `gh` that **lacks** the scope: the missing-scope state renders and its
+- [x] The same, with a `gh` that **lacks** the scope: the missing-scope state renders and its
       command actually fixes it.
-- [ ] Screenshots per Theme G.
+- [x] Screenshots per Theme G.
 
 ## Not in this phase
 

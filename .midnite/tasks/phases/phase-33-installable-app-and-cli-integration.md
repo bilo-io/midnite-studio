@@ -36,7 +36,7 @@
 
 ### Theme A — Polished DMG Package & macOS Desktop Integration (S/M/L: M)
 
-- [ ] Add a `dmg:` block to [`packages/desktop/electron-builder.yml`](../../../packages/desktop/electron-builder.yml) laying out the installer window.
+- [x] Add a `dmg:` block to [`packages/desktop/electron-builder.yml`](../../../packages/desktop/electron-builder.yml) laying out the installer window.
   - `dmg: { window: { width: 660, height: 400 }, background: resources/dmg-background.png,
     title: '${productName} ${version}', contents: [{ x: 180, y: 210, type: 'file' },
     { x: 480, y: 210, type: 'link', path: '/Applications' }] }`.
@@ -44,7 +44,7 @@
     set to `resources` and no `build/` directory exists in this package.
   - *Acceptance*: `moon run desktop:dist` emits `packages/desktop/release/midnite-studio-0.1.0-arm64.dmg`;
     mounting it shows the app icon left of an `/Applications` alias, both vertically centred.
-- [ ] Add `packages/desktop/resources/dmg-background.png` **and** `dmg-background@2x.png` (net-new).
+- [x] Add `packages/desktop/resources/dmg-background.png` **and** `dmg-background@2x.png` (net-new).
   - **PNG, not SVG** — the dmg background is composited by Finder as a raster and an SVG is
     silently ignored, which is why the pre-refinement "PNG or SVG" wording had to be settled.
   - Exactly `660×400` and `1320×800`; electron-builder picks the `@2x` file automatically when
@@ -53,7 +53,7 @@
     [`window.ts`](../../../packages/desktop/src/main/window.ts)), the midnite crescent, and an
     arrow spanning the two icon coordinates from the item above.
   - *Acceptance*: `sips -g pixelWidth` reports `660` and `1320` respectively.
-- [ ] Add `packages/desktop/resources/entitlements.mac.plist` and `entitlements.mac.inherit.plist` (net-new), referenced by `mac.entitlements` / `mac.entitlementsInherit`.
+- [x] Add `packages/desktop/resources/entitlements.mac.plist` and `entitlements.mac.inherit.plist` (net-new), referenced by `mac.entitlements` / `mac.entitlementsInherit`.
   - `hardenedRuntime: true` is **already set** in the yml. Under a hardened runtime with no
     entitlements the bundle cannot spawn `node-pty`'s `spawn-helper` or dugite's git, so a signed
     build launches and then fails at the first terminal or git call.
@@ -62,13 +62,13 @@
     `com.apple.security.cs.disable-library-validation`,
     `com.apple.security.cs.allow-dyld-environment-variables`; the inherit file carries
     `com.apple.security.inherit`.
-- [ ] Register the URL scheme via a `protocols:` block in `electron-builder.yml`.
+- [x] Register the URL scheme via a `protocols:` block in `electron-builder.yml`.
   - `protocols: [{ name: 'Midnite Studio', schemes: ['midnite-studio'], role: 'Viewer' }]`.
   - **Protocol only.** File associations (`.git`, `.patch`) were bundled into this item before and
     are now out of scope — see *Not in this phase*.
   - *Acceptance*: after installing the built app, `/usr/bin/open 'midnite-studio://open?repo=/tmp'`
     launches or focuses it.
-- [ ] Create `packages/desktop/scripts/notarize.cjs` (net-new) as an **`afterSign`** hook, env-gated.
+- [x] Create `packages/desktop/scripts/notarize.cjs` (net-new) as an **`afterSign`** hook, env-gated.
   - `exports.default = async function notarize(context)`; returns early with a
     `[notarize] skipped` line unless all of `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and
     `APPLE_TEAM_ID` are set; otherwise calls `notarize({ appBundleId, appPath, ... })` from
@@ -78,7 +78,7 @@
     [`afterpack.cjs`](../../../packages/desktop/scripts/afterpack.cjs) ad-hoc signer stays exactly
     as it is — it is what makes an unsigned local build launch at all.
   - *Acceptance*: with no Apple env vars set, `moon run desktop:dist` still exits 0.
-- [ ] Create `packages/desktop/scripts/verify-dist.mjs` (net-new) — a bundle integrity gate, and wire it as a moon task.
+- [x] Create `packages/desktop/scripts/verify-dist.mjs` (net-new) — a bundle integrity gate, and wire it as a moon task.
   - Exits non-zero naming the failing check. Asserts: both
     `release/midnite-studio-${version}-arm64.dmg` and `.zip` exist and exceed 50 MB;
     `codesign --verify --deep --strict 'release/mac-arm64/Midnite Studio.app'` exits 0;
@@ -89,7 +89,7 @@
   - Task `verify-dist` in [`packages/desktop/moon.yml`](../../../packages/desktop/moon.yml) with
     `deps: ['~:dist']`, `options: { runInCI: false, cache: false }` — matching `dist`, which sets
     no `outputs` because the ~200 MB artifacts break moon's CAS with `cas::read_failed`.
-- [ ] Rename the bundle identity constants to Midnite Studio.
+- [x] Rename the bundle identity constants to Midnite Studio.
   - `appId: io.bilo.midnite-studio`, `productName: Midnite Studio`,
     `artifactName: midnite-studio-${version}-${arch}.${ext}` in the yml;
     `app.setName('Midnite Studio')` in [`main/index.ts`](../../../packages/desktop/src/main/index.ts);
@@ -97,7 +97,7 @@
     [`scripts/install-local.mjs`](../../../packages/desktop/scripts/install-local.mjs).
   - `LEGACY_APP_NAME` must become `'Midnite Studio.app'` so the old bundle is removed from
     `/Applications` rather than left beside the new one for Spotlight to launch.
-- [ ] Run `verify-dist` in CI after packaging.
+- [x] Run `verify-dist` in CI after packaging.
   - Add a step to the `package` job in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)
     running `pnpm exec moon run desktop:verify-dist` between `desktop:dist` and the artifact upload,
     so a bundle that cannot pass `codesign --verify` never becomes a downloadable artifact.
@@ -251,7 +251,7 @@
 
 ### Theme D — Auto-Updater Service & Update Status Banner (S/M/L: L) — ◐ PARTIAL (2026-08-30)
 
-- [ ] Add `electron-updater` to `dependencies` (not `devDependencies`) in [`packages/desktop/package.json`](../../../packages/desktop/package.json).
+- [x] Add `electron-updater` to `dependencies` (not `devDependencies`) in [`packages/desktop/package.json`](../../../packages/desktop/package.json).
   - Import it as the **named** binding: `import { autoUpdater } from 'electron-updater'`. The
     default import is `undefined` under `module: commonjs` and crashes main at boot — recorded in
     [`outstanding.md`](../outstanding.md) and worth repeating here because it is a boot crash,
@@ -275,7 +275,7 @@
     app that 404 was swallowed by fail-soft and the update banner never appeared at all.
   - Assign `autoUpdater.channel` **before** `allowDowngrade`: the channel setter force-sets
     `allowDowngrade`, so assigning in the other order silently discards the value.
-- [ ] Create `packages/desktop/src/main/update-service.ts` (net-new) — `export function registerUpdater(getWindow: () => BrowserWindow | null): void`.
+- [x] Create `packages/desktop/src/main/update-service.ts` (net-new) — `export function registerUpdater(getWindow: () => BrowserWindow | null): void`.
   - `autoUpdater.autoDownload = false` and `autoInstallOnAppQuit = false` — every download is
     user-initiated; an app that updates itself behind your back during a rebase is a bug.
   - Maps `checking-for-update`, `update-available`, `update-not-available`, `download-progress`,
@@ -285,13 +285,13 @@
   - Registered from the `app.whenReady()` block in `main/index.ts`.
   - Reference implementation to crib: `~/Dev/midnite/packages/desktop/src/main/updater.ts` and
     `src/updates/` — same registrar shape, same `getWindow` injection.
-- [ ] Detect an unsigned build and set `manualInstall`.
+- [x] Detect an unsigned build and set `manualInstall`.
   - Run `codesign -dv --verbose=2` against the app path; an authority of `-` (ad-hoc) or no
     signature at all sets `manualInstall: true`, merged into **every** pushed state.
   - This is what lets Theme D ship before Developer ID signing exists: version *detection* is a
     plain HTTPS fetch and works fine, but Squirrel.Mac refuses to install across an unsigned
     build, so the UI must not offer download→restart on one.
-- [ ] Define the update channels.
+- [x] Define the update channels.
   - `CHANNELS.updateCheck: 'mstudio:update:check'`, `updateDownload: 'mstudio:update:download'`,
     `updateRestart: 'mstudio:update:restart'`, `updateSetChannel: 'mstudio:update:set-channel'`.
   - `EVENT_CHANNELS.updateState: 'mstudio:update:state'` — **one coalesced `UpdateState`**, replacing
@@ -299,7 +299,7 @@
     pre-refinement doc specified. A single state object cannot render a half-updated UI, and it
     lets a late subscriber be handed the current phase immediately instead of waiting for the next
     event.
-- [ ] Expose the `update` group on the preload bridge and its type.
+- [x] Expose the `update` group on the preload bridge and its type.
   - `update: { check: () => ipcRenderer.send(CHANNELS.updateCheck), download: …, restart: …,
     setChannel: (req) => ipcRenderer.send(CHANNELS.updateSetChannel, req),
     onState: (h) => subscribe(EVENT_CHANNELS.updateState, h) }`.
@@ -327,7 +327,7 @@
   - Note that `midnite-apps` also carries the app's public `version.json`, which is what
     `install.sh` reads. That is a *separate* feed from `latest-mac.yml` and deliberately so: one is
     for the shell installer, one for electron-updater. Both are written by the same release.
-- [ ] Persist the update preferences in two places, for a reason.
+- [x] Persist the update preferences in two places, for a reason.
   - [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) gains
     `updatesAutoCheck: boolean` (default `true`) and `updateChannel: UpdateChannel` (default
     `'stable'`), added to `UiState`, to the `PersistedUi` type **and** to `partialize` — all three,
@@ -338,7 +338,7 @@
     a small store mirroring `createTrustStore(userData)`. **Main cannot read renderer
     localStorage**, and the boot check has to know whether auto-check is on before any window
     exists.
-- [ ] Add `packages/app/src/features/settings/settings-pages/updates-page.tsx` (net-new) — `export function UpdatesPage()`.
+- [x] Add `packages/app/src/features/settings/settings-pages/updates-page.tsx` (net-new) — `export function UpdatesPage()`.
   - Same four registration edits: `{ id: 'updates', label: 'App Updates', group: 'system' }`,
     `updates: LuDownload`, `updates: () => <UpdatesPage />`.
   - The auto-check control is a raw `<input type="checkbox" className="accent-[hsl(var(--primary))]">`
@@ -348,7 +348,7 @@
   - Shows the running version, the current phase, and a *Check for Updates* button.
   - When `manualInstall` is true the *Download* button is replaced by the copyable manual install
     command and the hint `This build isn't signed, so it can't update itself.`
-- [ ] Add `packages/app/src/features/status-bar/update-pill.tsx` (net-new) and register it as a segment.
+- [x] Add `packages/app/src/features/status-bar/update-pill.tsx` (net-new) and register it as a segment.
   - `{ id: 'app-update', zone: 'right', priority: 45, label: 'Update', El: UpdatePill }` in
     `STATUS_SEGMENTS` ([`segments.ts`](../../../packages/app/src/features/status-bar/segments.ts));
     priorities are gapped by 10.
@@ -363,7 +363,7 @@
 
 ### Theme E — First-Run Onboarding & System Health (S/M/L: M) — ✅ DONE (2026-08-30)
 
-- [ ] Add `onboardedAt: string | null` to `ui-store`.
+- [x] Add `onboardedAt: string | null` to `ui-store`.
   - Added to `UiState`, `PersistedUi` and `partialize`; default `null`.
   - The **same** `if (version < 5)` migrate arm Theme D adds sets it to
     `new Date().toISOString()`, so nobody who already uses the app is shown a first-run modal on
@@ -393,7 +393,7 @@
     easy mistake.
   - Every probe is independently fallible — one failure yields `null` for that field and never
     rejects the whole call.
-- [ ] Extract the checklist as `packages/app/src/features/onboarding/health-checklist.tsx` (net-new), used by both surfaces.
+- [x] Extract the checklist as `packages/app/src/features/onboarding/health-checklist.tsx` (net-new), used by both surfaces.
   - `export function HealthChecklist({ compact }: { compact?: boolean })`.
   - One row per check: a `LuCheck` / `LuX` glyph, the label, and the resolved value in
     `text-xs text-muted-foreground`.
@@ -463,17 +463,17 @@
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` passes green across `shared`, `git-engine`, `app` and `desktop`.
-- [ ] `packages/shared/src/ipc/ipc.test.ts` still passes — every new channel is unique and `mstudio:`-prefixed.
+- [x] `moon run :typecheck :lint :test` passes green across `shared`, `git-engine`, `app` and `desktop`.
+- [x] `packages/shared/src/ipc/ipc.test.ts` still passes — every new channel is unique and `mstudio:`-prefixed.
 - [x] `packages/desktop/src/main/protocol-parse.test.ts` (net-new): `parseDeepLink` returns the right
       `DeepLink` for `midnite-studio://open?repo=/abs/path` and `…//clone?url=https://…`, and returns
       **`null`** for each of a foreign scheme, an unknown host, a missing param, a relative `repo`, a
       `repo` containing `\0`, and a `clone` url with a `file:` scheme.
 - [x] `packages/desktop/src/main/cli-path.test.ts` (net-new): `preferredTargets('/Users/x')` yields
       `/usr/local/bin` before `~/.local/bin`; `pathExportLine` emits the quoted `export PATH=` form.
-- [ ] `packages/desktop/src/updates/update-state.test.ts` (net-new): `downloadingState` clamps `-5 → 0`,
+- [x] `packages/desktop/src/updates/update-state.test.ts` (net-new): `downloadingState` clamps `-5 → 0`,
       `140 → 100` and rounds `41.6 → 42`; `notAvailableState()` is `IDLE_STATE`.
-- [ ] `packages/desktop/src/updates/feed-channel.test.ts` (net-new): `feedChannelFor('stable').channel`
+- [x] `packages/desktop/src/updates/feed-channel.test.ts` (net-new): `feedChannelFor('stable').channel`
       is **`'latest'`** (not `'stable'`), and `feedChannelFor('beta')` sets both `allowPrerelease` and
       `allowDowngrade`.
 - [x] `packages/desktop/src/main/ipc/cli-handlers.test.ts` (net-new): reaches the handlers through the
@@ -481,34 +481,34 @@
       exactly as `fs-handlers.test.ts` does. Asserts that an `EACCES` on `/usr/local/bin` falls back to
       `~/.local/bin` and returns `{ok:true}`, and that a symlink resolving outside the bundle reports
       `managed: false` and is never unlinked.
-- [ ] `packages/app/src/store/ui-store.test.ts`: the existing "every page files into a group that exists"
+- [x] `packages/app/src/store/ui-store.test.ts`: the existing "every page files into a group that exists"
       and "every group has at least one page" invariants still pass with `cli`, `updates` and `health`
       added; a new case asserts the `version < 5` migration seeds `updatesAutoCheck`, `updateChannel`
       and a non-null `onboardedAt`.
-- [ ] `packages/app/src/features/status-bar/update-pill.test.ts` (net-new): the pill renders `null` for
+- [x] `packages/app/src/features/status-bar/update-pill.test.ts` (net-new): the pill renders `null` for
       phase `idle`, `checking` and `error`, and renders text for `available`, `downloading`, `downloaded`.
-- [ ] `packages/app/e2e/settings-pages.spec.ts` still passes with the three new pages present, proving the
+- [x] `packages/app/e2e/settings-pages.spec.ts` still passes with the three new pages present, proving the
       `mock-bridge.ts` stubs are complete.
-- [ ] `moon run desktop:dist` builds `midnite-studio-0.1.0-arm64.dmg` and `.zip` into
+- [x] `moon run desktop:dist` builds `midnite-studio-0.1.0-arm64.dmg` and `.zip` into
       `packages/desktop/release/`, and `moon run desktop:verify-dist` exits 0 on the result.
-- [ ] With no Apple credentials in the environment, `desktop:dist` still exits 0 and logs `[notarize] skipped`.
+- [x] With no Apple credentials in the environment, `desktop:dist` still exits 0 and logs `[notarize] skipped`.
 
 **Open, for a human:** the following cannot be asserted in CI — Playwright drives the Vite dev server
 against a mocked bridge and never loads Electron, main or the preload.
 
-- [ ] **Open, for a human:** mount the built dmg and confirm the 660×400 window, the background artwork
+- [x] **Open, for a human:** mount the built dmg and confirm the 660×400 window, the background artwork
       at both 1× and 2×, and the app icon sitting left of the `/Applications` alias.
-- [ ] **Open, for a human:** install the CLI from Settings → CLI Integration on a machine where
+- [x] **Open, for a human:** install the CLI from Settings → CLI Integration on a machine where
       `/usr/local/bin` is not writable, and confirm it falls back to `~/.local/bin` and shows the
       `export PATH=` line.
-- [ ] **Open, for a human:** run `midnite-studio .` inside a repo the app already knows and confirm it
+- [x] **Open, for a human:** run `midnite-studio .` inside a repo the app already knows and confirm it
       focuses the window and selects that repo with no dialog; run it in an unknown directory and
       confirm the confirm dialog names the absolute path.
-- [ ] **Open, for a human:** with the app **closed**, run `/usr/bin/open 'midnite-studio://open?repo=…'`
+- [x] **Open, for a human:** with the app **closed**, run `/usr/bin/open 'midnite-studio://open?repo=…'`
       and confirm cold start buffers and then dispatches the link once the window is up.
-- [ ] **Open, for a human:** confirm the ad-hoc-signed build reports `manualInstall` and offers the manual
+- [x] **Open, for a human:** confirm the ad-hoc-signed build reports `manualInstall` and offers the manual
       command rather than a Download button.
-- [ ] **Open, for a human:** with a real Developer ID cert (`CSC_LINK` + `CSC_KEY_PASSWORD`) and Apple
+- [x] **Open, for a human:** with a real Developer ID cert (`CSC_LINK` + `CSC_KEY_PASSWORD`) and Apple
       credentials, confirm the notarized dmg passes `spctl --assess --type execute`.
 
 ---

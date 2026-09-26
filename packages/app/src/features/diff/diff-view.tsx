@@ -264,7 +264,7 @@ export function DiffView({
                       <DiffCell
                         cell={row.left}
                         side="left"
-                        showGutter={showOldGutter}
+                        showGutter
                         path={diff.path}
                         dark={dark}
                       />
@@ -430,7 +430,7 @@ function InlineDiffBody({
                       <DiffCell
                         cell={row.left}
                         side="left"
-                        showGutter={showOldGutter}
+                        showGutter
                         path={diff.path}
                         dark={dark}
                       />

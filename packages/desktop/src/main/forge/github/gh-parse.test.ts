@@ -805,6 +805,11 @@ describe('parsePullDetail', () => {
     expect(parsePullDetail(row)?.headSha).toBe('a'.repeat(40));
   });
 
+  it('maps baseRefOid onto baseSha (and defaults to null when absent)', () => {
+    expect(parsePullDetail(row)?.baseSha).toBeNull();
+    expect(parsePullDetail({ ...row, baseRefOid: 'b'.repeat(40) })?.baseSha).toBe('b'.repeat(40));
+  });
+
   it('carries the detail-only facts', () => {
     const detail = parsePullDetail(row);
     expect(detail?.body).toBe('Why this exists.');

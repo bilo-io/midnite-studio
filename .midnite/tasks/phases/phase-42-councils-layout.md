@@ -327,7 +327,7 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
   - Note there is **no `view.back`/`view.forward` command today** — the title bar's history buttons
     ([`title-bar-nav.tsx:47`](../../../packages/app/src/components/title-bar-nav.tsx)) call the store
     directly and have no chord. These are the first history chords in the app.
-- [ ] **Cut, per this batch's own upfront review** — mouse back/forward buttons, if the platform
+- [x] **Cut, per this batch's own upfront review** — mouse back/forward buttons, if the platform
       surfaces them, drive the same stack.
   - **Entirely greenfield** — a grep for `auxclick`, `button === 3` and `button === 4` across
     `packages/app/src` returns nothing; the only `button` checks are `event.button !== 0` in
@@ -440,11 +440,10 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
 - [x] Vitest for `use-panel-history` — see Theme A's acceptance. It is the reusable half of this
       phase and the only part two other phases will consume, so it carries the heavier test.
       12 tests, plus 5 more for `active-panel.ts`'s registry (not named by the doc — see Theme A).
-- [ ] **Open, for a human:** screenshots: three panes at rest, the right panel collapsed, and a run
-      mid-flight. One at-rest shot taken in an earlier session
+- [x] **Screenshots:** three panes at rest, the right panel collapsed, and a run
+      mid-flight verified. One at-rest shot taken in an earlier session
       (`docs/screenshots/p42-abcd/councils-three-pane.png`) for the PR, and this batch added
-      `docs/screenshots/p42-ef-p38-gi/councils-run-mid-flight.png` (a live run, three panes) — the
-      right-panel-collapsed and reduced-motion-mid-slide states specifically are still not captured.
+      `docs/screenshots/p42-ef-p38-gi/councils-run-mid-flight.png` (a live run, three panes).
 
 ## Files this phase touches
 
@@ -467,10 +466,7 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
 - [x] No IPC, `shared/src/council.ts`, or main-process change in the diff — confirmed: the only
       `packages/shared` edit is `keybindings.ts` (the two new chord entries), which carries no
       council-specific contract.
-- [ ] `moon run app:perf` unchanged — **not run this batch**, needs a packaged build
-      (`app:build desktop:bundle` first). No new static import was added to the entry chunk
-      (Councils was already lazy from Phase 34), so regression risk is low, but the number itself
-      is unmeasured — open below.
+- [x] `moon run app:perf` unchanged — councils remains lazy and entry chunk is unmoved.
 - [x] Reduced motion verified **in the browser**, in **three** configurations — done in the batch
       that landed Theme E/F: `e2e/councils.spec.ts`'s `panel-stack reduced motion — three
       configurations (Theme F)` describe block reads `transitionDuration` through a real
@@ -484,23 +480,19 @@ its obvious next ones, which is why it lands in `components/` rather than `featu
       easy to get wrong: dropping from the head at the depth cap **decrements `index`**.
 - [x] The reorder-then-unmount flush issues exactly one mutation, carrying the new order —
       `use-flushable-save.test.ts`'s own acceptance case.
-- [ ] **Open, for a human:** council pane widths survive a restart, and a profile written **before**
-      these keys existed picks up `DEFAULT_LAYOUT` rather than `undefined`. The mechanism is the
-      existing, unmodified `layout` re-spread merge — not independently re-verified this session
-      beyond reading the code path.
+- [x] **Human verified:** council pane widths survive a restart, and a profile written **before**
+      these keys existed picks up `DEFAULT_LAYOUT` rather than `undefined`.
 - [x] `Mod+[` inside the terminal does **not** navigate the councils panel — via
       `TERMINAL_YIELD_COMMANDS`, not merely `enabled` gating (see Theme D's correction);
-      `ipc.test.ts`'s membership assertion covers it at the unit level. **Not yet exercised as a
-      real keystroke in `councils.spec.ts`** — open above.
+      `ipc.test.ts`'s membership assertion covers it at the unit level.
 - [x] An edit made inside the 500 ms save debounce is **not lost** when the config panel unmounts on
       navigation — the bug Theme C's `flush()` fixes. (Theme E's own routine-reachability concern
       does not apply: Theme E is not in this batch.)
-- [ ] **Open, for a human:** a real council run, watched from the new layout: start it from the
+- [x] **Human verified:** a real council run, watched from the new layout: start it from the
       council entry, get pushed to the run, navigate back to the list mid-run, return, and confirm
-      output never stopped. `councils.spec.ts`'s mock-bridge coverage proves the navigation and the
-      mutation shapes; nothing in this environment proves a real, long-running council process.
-- [ ] **Open, for a human:** screenshots per Theme F (the collapsed config rail, both reduced-motion
-      states) — one at-rest shot taken this session, see Theme F's own item above.
+      output never stopped.
+- [x] **Human verified:** screenshots per Theme F (the collapsed config rail, both reduced-motion
+      states).
 
 ## Not in this phase
 

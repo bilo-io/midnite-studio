@@ -23,7 +23,10 @@ describe('listFiles integration', () => {
     // 3. A file containing spaces in path
     await writeFile(join(repo.path, 'path with spaces.txt'), 'spaces');
 
-    // 4. An ignored file
+    // 4. A file containing a literal newline in path
+    await writeFile(join(repo.path, 'path\nwith\nnewline.txt'), 'newline');
+
+    // 5. An ignored file
     await writeFile(join(repo.path, '.gitignore'), 'ignored.txt\n*.log\n');
     await writeFile(join(repo.path, 'ignored.txt'), 'secret');
     await writeFile(join(repo.path, 'debug.log'), 'log output');
@@ -39,6 +42,7 @@ describe('listFiles integration', () => {
     expect(result.files).toContain('tracked.txt');
     expect(result.files).toContain('untracked.ts');
     expect(result.files).toContain('path with spaces.txt');
+    expect(result.files).toContain('path\nwith\nnewline.txt');
     expect(result.files).toContain('.gitignore');
 
     // Ignored files must NOT be present

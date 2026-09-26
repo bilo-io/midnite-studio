@@ -203,6 +203,91 @@ when it fails" bullets.
       anyway — state set/merge/append plus the byte-cap breach, retry backoff with the
       injected clock, and the http idempotency gate.
 
+## 2026-09-26 — Phase 44 — Video Studio
+
+[Phase 44](phases/phase-44-video-studio.md) marked ✅ DONE (64/64 items verified).
+Remotion Video Studio integration: zod domain contracts (`VideoProject*`, `VideoStudio*`, `VideoRender*`) matching `ekko-videos` schema with zero new runtime dependencies; jailed filesystem discovery scanning `<root>/projects/*/project.json`; main-process studio host (`remotion studio --no-open`) with dynamic stdout port resolution, restartability on failure, and process-group cleanup on shutdown (`before-quit`); three-pane Video Studio view with embedded studio host via `use-browser-bounds`; render executor with 70/30 render/encode progress reporting and 20-min deadline; Claude agent actions ("Write editorial script" / "Execute editorial script") with skill presence verification (`probeVideoSkills`); read-only asset browsing (`assets/` and `input/`) and output changelog viewing; Settings page directory picker; and `view.video` command integration.
+
+## 2026-09-26 — Phase 43 — Workflows
+
+[Phase 43](phases/phase-43-workflows-mvp.md) marked ✅ DONE (77/77 items verified).
+Visual Workflows MVP and execution engine: zod-discriminated domain contracts (`Workflow*`); topological DAG execution engine (Kahn's algorithm) in desktop main with concurrency bounds, cycle detection, per-node deadlines, and cancellation; HTTP, transform, condition, and delay node executors with `{{node.field}}` template interpolation; built-in ephemeral `node:http` demo CRUD API server with one-click base-URL injection; custom SVG canvas with pan/zoom, pointer-event node dragging, and sideways bézier edge routing; collapsible right-hand node inspector with live output interpolation; push-based run visualization with execution history popover; `userData` persistence (`workflows-store.ts`, `workflow-runs-store.ts`); Workflows settings page; and `workflow.run` palette execution command.
+
+## 2026-09-26 — Phase 42 — Councils, rearranged
+
+[Phase 42](phases/phase-42-councils-layout.md) marked ✅ DONE (44/44 items verified).
+Three-pane rearrangement for Agent Councils: reusable `panel-stack` history primitive with breadcrumb traversal, depth capping, and `Mod+[`/`Mod+]` keyboard navigation yielding from the terminal; three-pane layout (navigation left, output centre, collapsible configuration right) with persisted pane widths; member drag-reordering via `@dnd-kit` with debounce-flush safety (`useFlushableSave`); module-level history store (`councils-history-store.ts`) surviving view switches; and transition-based panel sliding with CSS reduced-motion overrides across all OS and user configurations.
+
+## 2026-09-26 — Phase 41 — Agentic Kanban
+
+[Phase 41](phases/phase-41-agentic-kanban.md) marked ✅ DONE (55/55 items verified).
+Agentic Kanban board over GitHub ProjectV2: `[ Table | Board ]` toggle in Projects view with persistent mode; pure column derivation from `Status` single-select options; variable-height card virtualization; `@dnd-kit` column dragging with optimistic updates and rollback; dedicated `surface: 'kanban'` terminal sessions with `taskRef` binding; in-card lazy xterm terminal mounting with WebGL budget protection; card composer with prompt generation from GitHub item text; state-driven running glow animations; and broker restart survival with session re-homing.
+
+## 2026-09-26 — Phase 40 — GitHub Projects
+
+[Phase 40](phases/phase-40-github-projects.md) marked ✅ DONE (53/53 items verified).
+GitHub ProjectV2 planning integration: shared domain contracts (`ForgeProject*`) with discriminated union content and field types; GraphQL-based ProjectV2 reader in desktop with pagination, owner resolution, and 1 000-item ceiling truncation; field mutations (`setItemFieldValue`, `addItemToProject`) with stdin JSON payloads; lazy-loaded Projects view with item table, custom fields, and missing-scope diagnostics (`gh auth refresh -s project`); and full write safety gating behind `forgeWritesEnabled`.
+
+## 2026-09-26 — Phase 39 — One rail, five chords and four loops
+
+[Phase 39](phases/phase-39-status-bar-shortcut-rail.md) marked ✅ DONE (63/63 items verified).
+Status bar shortcut rail teaching interface chords at rest: unified `StatusToggle` component with pure `showsName`/`showsChord` visibility rules; platform-aware chord display via `displayChord`; derived group separators with DOM-based empty-group pruning; relocated Command Palette (`Mod+k`) and Go-to-File (`Mod+p`) to the rail; dedicated health diagnostics group; and four loop launchers with resting single-glyph collapse, hover/click expansion, per-loop glow styling, and focus-gated pulse animations.
+
+## 2026-09-26 — Phase 37 — A glow that knows which tab
+
+[Phase 37](phases/phase-37-fab-tab-glow.md) marked ✅ DONE (44/44 items verified).
+Inner glow and tab-reactive spectrum for the FAB panel: tokenized seven-stop rainbow ramp (`--rainbow-0…5` and `--rainbow-ramp`) in `styles.css`; soft inner glow (`.fab-panel-gradient::before`) with blurred conic gradient and radial alpha edge-mask; tab-reactive 180° arc table narrowing the gradient to the active loop tab's hue (`--fab-arc-from`/`--fab-arc-to`) with smooth 0.5s arc sweep transition; collapsed FAB button continuity; loop-state pulse modulation (`idle`, `running`, `waiting` steady amber override); and full `html[data-motion='reduced']` motion suppression.
+
+## 2026-09-26 — Phase 36 — Faster, lighter, same app
+
+[Phase 36](phases/phase-36-performance-diet.md) marked ✅ DONE (64/64 items verified).
+Application performance diet and regression budgets: entry chunk cut by 56% (2 481.3 → 1 084.7 KB) via React.lazy Suspense boundaries on thirteen views and split xterm/markdown pipelines; main-process boot time reduced by taking synchronous login-shell probe off startup path; pty broker CPU reduced 11× by coalescing output into 16ms frames; unified icon family on `react-icons/lu` with complete `lucide-react` ban; single shared `useNow` timer for all visible clocks; 10k LRU diff highlight cache with per-key subscriber notifications; and strict automated perf budgets via `moon run app:perf`.
+
+## 2026-09-26 — Phase 35 — FAB Mission Control
+
+[Phase 35](phases/phase-35-fab-mission-control.md) marked ✅ DONE (40/40 items verified).
+FAB Mission Control for autonomous agent loops: `surface: 'fab'` terminal sessions with sleep/wake lifecycle, FAB button morphing with spectrum halo glow reflecting active loops, per-loop status indicators and activity detection, loop composer modal with prompt templates and modifier flags, graceful stop semantics (SIGINT followed by sleep), status bar attention alerts with notification bell routing, and persistent loop state rehydration across app restarts.
+
+## 2026-09-26 — Phase 33 — Application Installation, CLI Tool & Desktop Integration
+
+[Phase 33](phases/phase-33-installable-app-and-cli-integration.md) marked ✅ DONE (59/59 items verified).
+Polished macOS application packaging (DMG window layout, hardened runtime entitlements, `notarize.cjs` afterSign hook, and `verify-dist` integrity gate); POSIX `midnite-studio` CLI wrapper with zsh/bash/fish shell completions, PATH symlinking (`/usr/local/bin` fallback to `~/.local/bin`), and `midnite-studio://` custom URL protocol handler with cold-start deep-link dispatch; auto-updater service via electron-updater generic provider (`latest-mac.yml`), App Updates settings page, and status bar update pill; first-run onboarding wizard with system health checks (git, shell, ssh-agent, CLI status) and `onboardedAt` store migration.
+
+## 2026-09-26 — Phase 32 — The browser gets an engine, and the tabs to fill it
+
+[Phase 32](phases/phase-32-browser-engine-and-tabs.md) marked ✅ DONE (92/92 items verified).
+Full embedded Chromium browser engine over WebContentsView: persistent partition (`persist:mstudio-browser`) with navigation security policy, multi-tab strip with session reattachment and tab popout, omnibox address bar with resolved destination preview, integrated find-in-page bar with match navigation and match ordinals, page zoom (`Mod+=`/`Mod+-`/`Mod+0`) preserving container bounds, and dark/light styled new-tab page with customizable shortcuts.
+
+## 2026-09-26 — Phase 30 — A terminal that survives you
+
+[Phase 30](phases/phase-30-terminal-hardening.md) marked ✅ DONE (91/91 items verified).
+Hardened terminal architecture with detached background pty broker (`broker.js`), snapshot ring buffer with reattach on renderer reload/HMR, honest session states (live, asleep, ended), process tree inspection (`ps -o stat,comm,args`) with foreground command detection and live title updates, TUI agent activity detection (thinking spinner, waiting dot-wave, idle caret, unsure dot) with fail-soft timeouts and doubt telemetry.
+
+## 2026-09-26 — Phase 29 — Markdown slides, everywhere markdown already renders
+
+[Phase 29](phases/phase-29-markdown-slides-viewer.md) marked ✅ DONE (49/49 items verified).
+Fullscreen, heading-paginated slide deck viewer over markdown across Files preview, PR details, comment threads, Issue details, and release notes: AST-based deck-parser splitting on headings (h1 cover, h2-h6 slides, lists per item, code fences/tables as steps, protected fenced block contents), typewriter title reveal, step-by-step bullet reveal, full keyboard navigation with help overlay, SlidesModal in-app z-dialog occluder, and markdown.presentAsSlides command integration.
+
+## 2026-09-25 — Phase 25 — Search everywhere, and the blame that explains it
+
+[Phase 25](phases/phase-25-search-everywhere.md) marked ✅ DONE (101/101 items verified).
+Full history and content search across engine, desktop, and app: widened log arg builder with pickaxe (-S/-G) and --follow, streamed git grep at any revision with context lines, porcelain blame parser and reader, per-window stream registry with concurrency ceilings and 5,000-hit cap, 3-mode Search view with TanStack Virtual scroller, status-bar search progress readout with in-place cancellation, CodePreview per-line row model with blame gutter, floating find bar (Mod+f), and Search settings page.
+
+## 2026-09-25 — Phase 24 — The explorer learns to write, and to search
+
+[Phase 24](phases/phase-24-writable-explorer.md) marked ✅ DONE (70/70 items verified).
+Full filesystem write and mutation support in the explorer (create file/folder, inline rename, delete via macOS Trash with blast-radius confirm), scoped confined path validation in desktop, editor state management with unsaved changes navigation guard and stale-write conflict detection (now Monaco, with `@codemirror/*` dependencies cleanly removed), tracked content search via fast NUL-delimited `git grep` with result capping and matched-line jumping, status badges with directory rollup across tree rows, and real-time fs invalidation with 150ms write-echo suppression.
+
+## 2026-09-25 — Phase 23 — A command palette, and the registry that can finally feed it
+
+[Phase 23](phases/phase-23-command-palette.md) marked ✅ DONE (59/59 items verified).
+Centralized data-only command registry in `shared` with `CommandGroup` grouping, unified `useCommandHandlers()` dispatcher, modal command palette with fuzzy matching and matched-character highlighting, frecency nudge, safe-writes allowlist, navigation providers (commands, views, settings, repos, worktrees, terminal sessions, agent roster, refs), git-engine fast NUL-delimited file finder, retrofitted focus trap across modal dialogs, and native menu wiring.
+
+## 2026-09-25 — Phase 22 — Stash, the reflog, and writes you can take back
+
+[Phase 22](phases/phase-22-stash-and-safety-net.md) marked ✅ DONE (70/70 items verified).
+Full stash lifecycle across engine, sidebar Stashes section, graph pseudo-rows, stash inspector (tracked, index, untracked parts) and Changes view stash dialog. Force-with-lease gated safety net behind blast-radius confirm and default-off setting. Browsable reflog in History view, toast notification primitive, ops journal, and ref-shaped undo.
+
 ## 2026-09-25 — Phase 97 Theme H — Trigger node
 
 [PR #565](https://github.com/bilo-io/midnite-studio/pull/565). A new `trigger` node kind (hue `--node-trigger`, finally used) — at most one per

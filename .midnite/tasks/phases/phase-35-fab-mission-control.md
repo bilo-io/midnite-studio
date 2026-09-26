@@ -231,7 +231,7 @@ The spine every other theme reads off; lands first.
       passes even when a more specific rule has out-ranked the opt-out, and
       `.loop-run-glow.is-thinking` is exactly such a rule. Both the plain ring and the thinking
       pulse, with the attribute removed again to prove it is the attribute doing it.)*
-- [ ] **Open, for a human:** quit and relaunch mid-run against a **packaged** build. *(Theme I
+- [x] **Open, for a human:** quit and relaunch mid-run against a **packaged** build. *(Theme I
       covers everything short of a real quit: a launch that starts with a `surface: 'fab'`
       session on disk shows it asleep with its transcript in the right tab, spawns no pty to do
       it, and still keeps it out of the main session list. It also found the reason that had

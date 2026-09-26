@@ -448,11 +448,11 @@ Every line below was re-checked against the tree at refinement x1. An item that 
 already covers says which test and stays open only as the run-it-and-see gate; an item nothing
 covers says exactly what to write and where.
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean — this phase adds nothing to git-engine and nothing to the renderer that
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean — this phase adds nothing to git-engine and nothing to the renderer that
       reaches past `window.midniteStudio`; the only main-process change is Theme H's `baseRefOid`
       in `gh-cli.ts`/`gh-parse.ts`.
-- [ ] Vitest (A) — the alignment matrix, which
+- [x] Vitest (A) — the alignment matrix, which
       [`split-diff-rows.test.ts`](../../../packages/app/src/features/diff/split-diff-rows.test.ts)
       does **not** have today. Add to that file, driving `toSplitRows` (never the private helpers):
       a balanced 3-for-3 run, an unbalanced 5-for-2 and 2-for-5, a pure addition against an empty
@@ -461,24 +461,24 @@ covers says exactly what to write and where.
       `split-line` row has `'empty'` on both sides.
       - Do **not** re-add an assertion that pairing matches `pairLines`. It never did (see the
         scope guardrails), and `pairLines` is private to `diff-parser.ts` anyway.
-- [ ] Vitest (A) — `canSplit` returns `false` for a `combined` diff and a `binary` diff
+- [x] Vitest (A) — `canSplit` returns `false` for a `combined` diff and a `binary` diff
       (**already covered**: `split-diff-rows.test.ts:7`,
       `canSplit returns false for binary or combined diffs`). The doc's third case, a zero-hunk
       diff, is **wrong**: the shipped body is `!diff.binary && !diff.combined`, so a zero-hunk diff
       splits and renders empty. Assert the true behaviour instead — a zero-hunk diff returns `true`
       and `toSplitRows` returns `[]`, and the empty body is `describeEmptyDiff`'s job.
-- [ ] Vitest (B) — `useLineHighlight`'s cache is hit for the same text on the opposite side, so
+- [x] Vitest (B) — `useLineHighlight`'s cache is hit for the same text on the opposite side, so
       split does not double the highlighting work. The cache key is content-shaped
       (`${dark}${path}${kind}${text}`), which is why this holds; assert it in
       [`line-highlight.test.ts`](../../../packages/app/src/features/diff/line-highlight.test.ts)
       by highlighting the same `ctx` line as `side: 'left'` then `side: 'right'` and expecting one
       tokenizer call, not two.
-- [ ] Vitest (B) — the left-gutter wart: `DiffCell` renders its number gutter on **both** sides in
+- [x] Vitest (B) — the left-gutter wart: `DiffCell` renders its number gutter on **both** sides in
       split regardless of `diffShowOldGutter`. Today `diff-view.tsx:247` passes
       `showGutter={showOldGutter}` to the left cell only. Fix it to a hard `showGutter`, and assert
       it: with `diffShowOldGutter: false` and `diffLayout: 'split'`, both columns still render line
       numbers.
-- [ ] Vitest (F) — `leftSideLines` has **no test at all**. Its twin `rightSideLines` has a full
+- [x] Vitest (F) — `leftSideLines` has **no test at all**. Its twin `rightSideLines` has a full
       describe at
       [`comment-anchors.test.ts:94`](../../../packages/app/src/features/diff/comment-anchors.test.ts);
       add the matching `describe('leftSideLines')` over the same fixture — a `del` line is in the
@@ -486,22 +486,22 @@ covers says exactly what to write and where.
       keeps its membership.
       - The per-side thread map and `isCommentableLine`'s four cases **are** already covered
         (`comment-anchors.test.ts:81`, `:158-169`, `:306-320`); this item is only the missing twin.
-- [ ] Vitest (H) — **the doc's assertion as written can never pass.** `baseSha` is
+- [x] Vitest (H) — **the doc's assertion as written can never pass.** `baseSha` is
       `.nullable().default(null)`, so a payload with no `baseSha` parses successfully; there is no
       rejection to assert, and `grep -rn baseSha` across every test file returns zero hits. Replace
       it with the two assertions that are actually load-bearing: `ForgePullDetailSchema.parse({…})`
       with `baseRefOid` absent yields `baseSha === null`, and `pr-file-accordion.tsx`'s gate
       (`baseSha || file.oldPath`) renders the plain binary treatment rather than an empty image pane
       when both are missing.
-- [ ] Playwright — [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts)
+- [x] Playwright — [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts)
       passes unmodified after Theme B, and its `toggling side-by-side diff switches rendering
       layout` test (L81) stays green. **There are no committed unified screenshots** anywhere under
       `packages/app` (no `*-snapshots*` directory exists), so the doc's byte-identical-screenshot
       guard was never real; the RTL and e2e assertions are the whole guard.
-- [ ] Playwright — write `e2e/diff-split.spec.ts` per Theme C's reverted item: gutter numbers on an
+- [x] Playwright — write `e2e/diff-split.spec.ts` per Theme C's reverted item: gutter numbers on an
       unbalanced hunk, a blank opposite on one-sided rows, and the preference surviving
       `page.reload()`.
-- [ ] Playwright — **fix the silently-passing split test** in
+- [x] Playwright — **fix the silently-passing split test** in
       [`e2e/diff-scroll-perf.spec.ts:102`](../../../packages/app/e2e/diff-scroll-perf.spec.ts),
       `a 4000-line diff in split mode stays windowed and bounded`. It guards its own toggle click
       behind `if (await splitToggle.isVisible())` with a `/split/i` name filter, and the control's
@@ -509,11 +509,11 @@ covers says exactly what to write and where.
       test therefore almost certainly measures **unified** and passes for the wrong reason. Change
       the locator to the exact name and drop the `isVisible()` guard so a missing toggle fails.
       - The row-count assertion itself is correct as a **range**
-        (`expect(mounted).toBeGreaterThan(0); expect(mounted).toBeLessThan(400);` at L79-81 and
-        L112-114 over `ROW_COUNT = 4000`) — leave it. The timing half of the old exact-count
-        argument moved to `e2e/perf/diff-scroll.spec.ts` under `moon run app:perf`, reading
-        `scripts/perf/budgets.json` (Phase 36 Theme H).
-- [ ] Screenshot, per the visual-phase convention — **none exist**. Add split shots to the existing
+      (`expect(mounted).toBeGreaterThan(0); expect(mounted).toBeLessThan(400);` at L79-81 and
+      L112-114 over `ROW_COUNT = 4000`) — leave it. The timing half of the old exact-count
+      argument moved to `e2e/perf/diff-scroll.spec.ts` under `moon run app:perf`, reading
+      `scripts/perf/budgets.json` (Phase 36 Theme H).
+- [x] Screenshot, per the visual-phase convention — **none exist**. Add split shots to the existing
       [`e2e/diff-settings-shots.spec.ts`](../../../packages/app/e2e/diff-settings-shots.spec.ts)
       rather than a new shots spec: split in the Reviews Files tab with a thread open, split in a
       full-width commit tab, and the accordion toolbar, in both themes. The narrow-pane fallback

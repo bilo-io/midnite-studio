@@ -1,10 +1,13 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import type { FileDiff } from '@midnite/studio-shared';
+
 import { COMMIT_SHA, fixtures, PARENT_SHA } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
 import { CommitDetail } from '../commit/commit-detail';
 import { useUiStore } from '../../store/ui-store';
+import { DiffView } from './diff-view';
 
 /**
  * Migrated from `e2e/diff-view.spec.ts` (Phase 82 Theme C, wave 2) — the
@@ -255,5 +258,50 @@ describe('DiffView, assembled through the real bridge', () => {
 
     expect(await screen.findByText('Select a file to see what changed in it.')).toBeTruthy();
     expect(screen.queryByTestId('diff-view')).toBeNull();
+  });
+
+  it('split diff renders line numbers in both columns even with diffShowOldGutter disabled', async () => {
+    useUiStore.setState({ diffLayout: 'split', diffShowOldGutter: false });
+    const sampleDiff: FileDiff = {
+      path: 'sample.ts',
+      oldPath: null,
+      change: 'modified',
+      binary: false,
+      combined: false,
+      oldMode: null,
+      newMode: null,
+      insertions: 1,
+      deletions: 1,
+      contextLines: 3,
+      truncated: false,
+      droppedLines: 0,
+      hunks: [
+        {
+          oldStart: 42,
+          oldLines: 1,
+          newStart: 42,
+          newLines: 1,
+          heading: '@@ -42,1 +42,1 @@',
+          lines: [
+            { kind: 'del', oldNo: 42, newNo: null, text: 'old line', ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 42, text: 'new line', ranges: [], noNewline: false },
+          ],
+        },
+      ],
+    };
+
+    renderView(
+      <div className="overflow-y-auto">
+        <DiffView diff={sampleDiff} inline tooNarrowForSplit={false} />
+      </div>,
+    );
+    await waitFor(() => {
+      const leftCell = screen.getByTestId('diff-view').querySelector('[data-side="left"]');
+      const rightCell = screen.getByTestId('diff-view').querySelector('[data-side="right"]');
+      expect(leftCell).toBeTruthy();
+      expect(rightCell).toBeTruthy();
+      expect(leftCell?.textContent).toContain('42');
+      expect(rightCell?.textContent).toContain('42');
+    });
   });
 });
