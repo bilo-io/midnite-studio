@@ -2,7 +2,7 @@ import { act, cleanup, render } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { RefAgentGlowBleed } from './ref-agent-glow-bleed';
+import { GLOW_LAYER_ATTR, RefAgentGlowBleed } from './ref-agent-glow-bleed';
 
 /**
  * `RefAgentGlowBleed` portals to `document.body`, positioned from the
@@ -160,5 +160,54 @@ describe('RefAgentGlowBleed', () => {
     expect(queryByTestId('ref-agent-glow-bleed')).not.toBeNull();
 
     vi.unstubAllGlobals();
+  });
+  describe('inside a glow layer (the graph scroller content)', () => {
+    function makeLayered(layerTop: number, chipTop: number) {
+      const layer = document.createElement('div');
+      layer.setAttribute(GLOW_LAYER_ATTR, '');
+      let origin = { left: 200, top: layerTop };
+      layer.getBoundingClientRect = () =>
+        ({ ...origin, width: 800, height: 4000, right: 0, bottom: 0, x: 0, y: 0, toJSON() {} }) as DOMRect;
+      const node = document.createElement('span');
+      let chip = { left: 212, top: chipTop };
+      node.getBoundingClientRect = () =>
+        ({ ...chip, width: 64, height: 20, right: 0, bottom: 0, x: 0, y: 0, toJSON() {} }) as DOMRect;
+      layer.appendChild(node);
+      document.body.appendChild(layer);
+      const anchor = createRef<HTMLElement>();
+      (anchor as { current: HTMLElement }).current = node;
+      return {
+        layer,
+        anchor,
+        move(dy: number) {
+          origin = { ...origin, top: origin.top + dy };
+          chip = { ...chip, top: chip.top + dy };
+        },
+      };
+    }
+
+    it('portals into the layer, positioned relative to it, so it is clipped by the scroller and goes behind the uncommitted/stash rows above it', () => {
+      const { layer, anchor } = makeLayered(100, 144);
+      const { getByTestId } = render(
+        <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+      );
+      const glow = getByTestId('ref-agent-glow-bleed');
+      expect(glow.parentElement).toBe(layer);
+      expect(glow.className).toContain('absolute');
+      expect(glow.className).not.toContain('fixed');
+      expect(glow.style.left).toBe('12px');
+      expect(glow.style.top).toBe('44px');
+    });
+
+    it('stays on target when the whole graph shifts with no scroll or resize event (e.g. the uncommitted row mounting above it at launch)', () => {
+      const { anchor, move } = makeLayered(100, 144);
+      const { getByTestId } = render(
+        <RefAgentGlowBleed anchor={anchor} active={true} colorIdx={0} palette="vivid" />,
+      );
+      move(43);
+      const glow = getByTestId('ref-agent-glow-bleed');
+      expect(glow.style.top).toBe('44px');
+      expect(glow.style.left).toBe('12px');
+    });
   });
 });
