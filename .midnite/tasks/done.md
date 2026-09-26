@@ -1,6 +1,48 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 97 Theme K — Receipts and replay by iteration
+
+[PR TBD]. A change receipt on Phase 94 Theme A's `AgentRun`, plus replay by iteration — the last
+of Phase 97's thirteen themes, unblocked once Theme A landed (PR #579).
+
+- [x] `packages/shared/src/workflow-receipt.ts` (new): `WorkflowRunReceiptSchema`/
+      `buildWorkflowRunReceipt` — a pure function over a `WorkflowRun` plus its optional live
+      `WorkflowNode[]`, assembling context sources (frame slots, trigger payload), a policy-output
+      hash, distinct node kinds/agents used, verifier verdicts, loop iterations (from
+      `WorkflowRun.loopStates`), human decisions (from `gate` nodes' own recorded output),
+      wall-clock and the accepted artifact (the LAST node to settle in real chronological order,
+      not by iteration first — see below). No cost field, per Phase 94 Decision 8. Two documented
+      gaps left deliberately open (closing either means touching `workflow-engine.ts`, outside
+      this theme's scope): an implicit policy-gate approval (Theme I) leaves no decision record,
+      and a node's own retry attempts (Theme G) are never persisted per-attempt at all.
+- [x] `domain/agent-run.ts`: new optional `AgentRunSchema.receipt` field (workflow-kind only, the
+      same optional-and-kind-conditional convention `sessionId`/`exitCode` already use) and a
+      `fromWorkflowRun` adapter — the fourth and last of Phase 94 Theme A's own sources.
+- [x] `nodeRunSettledAt` (`shared/src/workflow.ts`, beside `nodeRunIteration`) — the schema has no
+      dedicated "when did this settle" field, so it reads as `endedAt ?? startedAt`.
+- [x] Replay by iteration: **deviated from the phase doc's literal `(iteration, settledAt)` global
+      ordering, documented on the p97 board and in the PR.** `WorkflowNodeRun.iteration` is only
+      ever set for a node inside a loop body — a node before/after the loop reads as `1`
+      regardless of how many passes ran, so sorting the WHOLE run by iteration-first would put a
+      post-loop node ahead of a later pass it actually settled after (exactly Theme L's own
+      `harness-bounded-build` template's shape). `run-replay.ts`'s existing flat scrubber stays
+      untouched and purely chronological; the new, additive
+      `packages/app/src/features/workflows/canvas/run-replay-iteration.ts`
+      (`runIterations`/`totalIterations`/`nodesForIteration`/`nodeStatusesAtIteration`/
+      `nodeRunGroups`) is what actually orders `(iteration, settledAt)` — a correct use of that
+      tuple since it never reshuffles nodes across different iterations. A new `IterationScrubber`
+      ("pass 2 of 3") mounts beside `RunReplayControls`, mutually exclusive with the flat scrubber.
+- [x] `run-output-panel.tsx`: the Nodes tab now groups a looped node's own run records with a
+      "Pass N" badge (shown only when there's more than one) — also fixing a latent duplicate-
+      React-key bug the flat per-record render had for any node with more than one iteration.
+      Markdown export gained a `workflowNodes?` param and a "## Receipt" section.
+- [x] Vitest: `workflow-receipt.test.ts` (shared, 18 tests, including the exact "the last node to
+      settle in real time, not by iteration first" case), `run-replay-iteration.test.ts` (app, 10
+      tests, including the post-loop-node-must-not-read-as-reached-early case), and three new
+      `run-output-panel.test.tsx` cases for the Pass-N grouping and Receipt export. Full
+      `moon run :typecheck :lint :test` green.
+
 ## 2026-09-26 — Phase 94 Theme A — The run record, in `shared`
 
 [PR #579](https://github.com/bilo-io/midnite-studio/pull/579). One vocabulary over the four run records that already disagree (loop, session, council,

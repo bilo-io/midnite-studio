@@ -33,6 +33,19 @@ export const WorkflowReceiptVerdictSchema = z.object({
 });
 export type WorkflowReceiptVerdict = z.infer<typeof WorkflowReceiptVerdictSchema>;
 
+/**
+ * Per-loop-edge iteration tally, from `WorkflowRun.loopStates` verbatim.
+ *
+ * **Known gap, deliberately not closed here**: the phase doc's own checklist
+ * also asks for "retries" alongside loop iterations. A node's own
+ * `onFailure: {kind:'retry'}` attempts (Theme G) are NOT persisted anywhere
+ * on `WorkflowNodeRun`/`WorkflowRun` — `workflow-engine.ts`'s own doc comment
+ * for `executeNode` says so explicitly ("an in-between failed attempt is not
+ * itself a checkpoint-worthy event"). There is nothing for a pure function
+ * over the run record to read, and adding that bookkeeping would mean
+ * changing `workflow-engine.ts`, which is outside this theme's own
+ * checklist. So this only ever reports loop-edge iterations.
+ */
 export const WorkflowReceiptLoopIterationSchema = z.object({
   edgeId: z.string().min(1),
   iterations: z.number().int().min(1),
