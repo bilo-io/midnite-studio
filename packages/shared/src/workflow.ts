@@ -1677,6 +1677,21 @@ export function nodeRunIteration(nodeRun: Pick<WorkflowNodeRun, 'iteration'>): n
 }
 
 /**
+ * When a node run "settled" — the schema has no dedicated field for this
+ * (Phase 97 Theme K), so it reads as `endedAt`, falling back to `startedAt`
+ * for a record that started but never ended (still `running`, or the app
+ * quit under it), and `+Infinity` for one that never even started (a
+ * `pending` record downstream of a not-yet-reached part of the graph). This
+ * is what `run-replay.ts`'s flat scrubber already keyed on before this
+ * theme (there just under a different, inlined expression) and what the new
+ * per-iteration views (`canvas/run-replay-iteration.ts`, app package) order
+ * `(iteration, settledAt)` by.
+ */
+export function nodeRunSettledAt(nodeRun: Pick<WorkflowNodeRun, 'startedAt' | 'endedAt'>): number {
+  return nodeRun.endedAt ?? nodeRun.startedAt ?? Number.POSITIVE_INFINITY;
+}
+
+/**
  * A single run of a workflow.
  *
  * **`nodes` and `edges` are frozen at run start.** The whole run object is
