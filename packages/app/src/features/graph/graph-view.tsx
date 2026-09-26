@@ -526,7 +526,13 @@ export function GraphView() {
           className="min-h-0 flex-1 overflow-auto"
           role="grid"
         >
-          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          <div
+            className="relative w-full"
+            style={{ height: virtualizer.getTotalSize() }}
+            // Agent-glow halos portal in here rather than to <body> — see
+            // `GLOW_LAYER_ATTR` in ref-agent-glow-bleed.tsx.
+            data-graph-glow-layer=""
+          >
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index];
               if (!row) return null;

@@ -135,6 +135,18 @@ function isPortDimmed(
   return !canConnect(thisNode, port, fromNode, toPort, graph.edges).ok;
 }
 
+/** One labelled line in a `frame` node's own card — a slot's first line, or an em dash when it's blank. */
+function FrameSlotLine({ label, value }: { label: string; value: string }) {
+  const trimmed = value.trim();
+  const firstLine = trimmed.split('\n')[0] ?? '';
+  return (
+    <p className="truncate">
+      <span className="font-medium text-foreground/70">{label}: </span>
+      {firstLine || '—'}
+    </p>
+  );
+}
+
 /**
  * The workflow canvas's card-style node (Phase 95 Theme I, ported from
  * midnite's `nodes/workflow-node-view.tsx`): a category-tinted header strip,
@@ -162,8 +174,9 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   // out-port appear the moment an outgoing `loop` edge is drawn off it —
   // `portsForNode`'s `edges` param is optional precisely so a standalone
   // render (no `WorkflowCanvas` context, e.g. a test) still gets every OTHER
-  // port right, just not that one.
-  const ports = node.kind === 'note' ? [] : portsForNode(node, graphContext?.edges);
+  // port right, just not that one. `frame` (Theme I) has none either — it's
+  // canvas furniture, exactly like `note`.
+  const ports = node.kind === 'note' || node.kind === 'frame' ? [] : portsForNode(node, graphContext?.edges);
   const inPorts = ports.filter((p) => p.direction === 'in');
   const outPorts = ports.filter((p) => p.direction === 'out');
 
@@ -192,7 +205,10 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
       data-node-kind={node.kind}
       data-status={status}
       data-activity-status={glow.status}
-      style={{ width: 200 }}
+      // `frame` (Theme I) is sized from its own config, not the fixed 200px
+      // every other shape uses — it groups other node cards, so it needs
+      // room to actually contain them.
+      style={node.kind === 'frame' ? { width: node.config.width, height: node.config.height } : { width: 200 }}
       className={`wf-node activity-glow group overflow-hidden bg-card shadow-sm ${shape === 'pill' ? 'rounded-full' : shape === 'start-card' ? 'rounded-l-full rounded-r-lg' : 'rounded-lg'} ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
     >
       {inPorts.map((port, i) => (
@@ -211,7 +227,28 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
         />
       ))}
 
-      {shape === 'pill' ? (
+      {shape === 'frame' && node.kind === 'frame' ? (
+        <div className="flex h-full flex-col gap-1.5 overflow-hidden p-2">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Icon aria-hidden className="h-3 w-3 shrink-0" style={{ color: CATEGORY_VAR[meta.category] }} />
+            <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {node.label}
+            </span>
+          </div>
+          <div className="grid min-h-0 flex-1 grid-cols-2 gap-x-3 gap-y-1 overflow-hidden text-[10px] leading-tight text-muted-foreground">
+            <div className="flex flex-col gap-1 overflow-hidden">
+              <FrameSlotLine label="Contract" value={node.config.contract} />
+              <FrameSlotLine label="Context" value={node.config.context} />
+              <FrameSlotLine label="State" value={node.config.state} />
+            </div>
+            <div className="flex flex-col gap-1 overflow-hidden">
+              <FrameSlotLine label="Tools" value={node.config.tools} />
+              <FrameSlotLine label="Permissions" value={node.config.permissions} />
+              <FrameSlotLine label="Evidence" value={node.config.evidence} />
+            </div>
+          </div>
+        </div>
+      ) : shape === 'pill' ? (
         <div className="flex items-center gap-1.5 px-3 py-1.5">
           <span
             aria-hidden

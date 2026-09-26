@@ -138,9 +138,8 @@ export const COMMANDS = [
    *
    * Listed in `TERMINAL_YIELD_COMMANDS` below, unlike the g/b toggles beside
    * it: `Mod` is Ctrl off macOS, and `Ctrl+L` there is the shell's own
-   * clear-screen. Same carve-out as the reload pair, for the same reason — the
-   * dispatcher grabs every bound chord app-wide, terminal focus included, so
-   * `app` scope alone would swallow it.
+   * clear-screen. The dispatcher grabs every bound chord app-wide, terminal
+   * focus included, so `app` scope alone would swallow it.
    */
   { id: 'fab.toggle', label: 'Quick Access', group: 'view', chord: 'Mod+l' },
   /**
@@ -299,14 +298,11 @@ export const COMMANDS = [
   { id: 'view.refresh', label: 'Refresh', group: 'view' },
   /**
    * `Mod+r` / `Mod+Shift+r`, the browser reload pair — plain, and bypassing
-   * the HTTP cache. `app` scope, and additionally listed in
-   * `TERMINAL_YIELD_COMMANDS` below, which is what actually keeps them out of
-   * the shell: `app` alone would still fire them with xterm focused, and
-   * `Ctrl+R` (which is what `Mod+R` is off macOS) is readline's
-   * reverse-i-search.
+   * the HTTP cache. `global` scope: they escape xterm and reload even when
+   * the terminal is focused, behaving identically everywhere across the app.
    */
-  { id: 'app.reload', label: 'Reload', group: 'view', chord: 'Mod+r' },
-  { id: 'app.hardReload', label: 'Hard Reload', group: 'view', chord: 'Mod+Shift+r' },
+  { id: 'app.reload', label: 'Reload', group: 'view', chord: 'Mod+r', scope: 'global' },
+  { id: 'app.hardReload', label: 'Hard Reload', group: 'view', chord: 'Mod+Shift+r', scope: 'global' },
   /**
    * Mod+Shift+l, the shifted sibling of `fab.toggle`'s Mod+l — the same letter,
    * one modifier apart, for the two things the "L" surfaces do. It replaces
@@ -474,13 +470,11 @@ export const YIELD_ROOTS: readonly YieldRoot[] = [
      * included — `scope` only governs xterm's own escape allow-list, so `app`
      * is not, on its own, "the terminal keeps this". For nearly every command
      * that is right: `Mod+1` should still jump to the Graph from inside a
-     * shell. The reload pair is the exception, in both directions at once.
-     * `Mod` is Ctrl off macOS, and `Ctrl+R` there is readline's
-     * reverse-i-search — the single most-used keystroke a shell owns — and
-     * the command it would fire instead throws the whole renderer away
-     * mid-command. So these two, and only these two, fall through to the
-     * terminal when that is what has focus; the title bar's reload button
-     * and the palette are both still one gesture away.
+     * shell.
+     *
+     * Previously the reload pair yielded to the shell to protect Ctrl+R
+     * (readline reverse-i-search off macOS), but they now carry `global` scope
+     * and escape the terminal to trigger reload uniformly from anywhere.
      *
      * `panel.back`/`panel.forward` (Phase 42 Theme D) join them for the
      * identical reason: `Mod+[` off macOS is `Ctrl+[`, which is `ESC` in
@@ -496,8 +490,6 @@ export const YIELD_ROOTS: readonly YieldRoot[] = [
      * place.
      */
     commands: [
-      'app.reload',
-      'app.hardReload',
       'panel.back',
       'panel.forward',
       'fab.toggle',

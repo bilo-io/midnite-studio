@@ -1,4 +1,13 @@
-import { WorkflowSchema, type Workflow, type WorkflowNode, type WorkflowNodeKind } from '@midnite/studio-shared';
+import {
+  WORKFLOW_FRAME_DEFAULT_HEIGHT,
+  WORKFLOW_FRAME_DEFAULT_WIDTH,
+  WorkflowSchema,
+  instantiateWorkflowTemplateWorkflow,
+  type Workflow,
+  type WorkflowNode,
+  type WorkflowNodeKind,
+  type WorkflowTemplate,
+} from '@midnite/studio-shared';
 
 /**
  * Pure workflow construction and JSON import/export helpers — testable
@@ -64,6 +73,24 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       return { ...base, kind, label: 'Trigger', config: { on: 'manual' } };
     case 'state':
       return { ...base, kind, label: 'State', config: { op: 'set', key: '', value: '' } };
+    case 'frame':
+      return {
+        ...base,
+        kind,
+        label: 'THE AGENT HARNESS',
+        config: {
+          contract: '',
+          context: '',
+          state: '',
+          tools: '',
+          permissions: '',
+          evidence: '',
+          width: WORKFLOW_FRAME_DEFAULT_WIDTH,
+          height: WORKFLOW_FRAME_DEFAULT_HEIGHT,
+        },
+      };
+    case 'policy':
+      return { ...base, kind, label: 'Policy', config: { allow: [], requireApprovalFor: [] } };
   }
 }
 
@@ -90,7 +117,16 @@ export function cloneWorkflowWithFreshIds(workflow: Workflow, now: number, name?
     ...workflow,
     id: crypto.randomUUID(),
     name: name ?? workflow.name,
-    nodes: workflow.nodes.map((node) => ({ ...node, id: nodeIdMap.get(node.id) ?? node.id })),
+    nodes: workflow.nodes.map((node) => ({
+      ...node,
+      id: nodeIdMap.get(node.id) ?? node.id,
+      // Phase 97 Theme I — a member's `frameId` must follow its frame's own
+      // fresh id, or a clone/import would silently point every frame-member
+      // node at a frame that no longer exists in the copy (a dangling
+      // reference `validateWorkflow` would then flag on a workflow the user
+      // never touched).
+      ...(node.frameId !== undefined ? { frameId: nodeIdMap.get(node.frameId) ?? node.frameId } : {}),
+    })),
     edges: workflow.edges.map((edge) => ({
       ...edge,
       id: crypto.randomUUID(),
@@ -133,4 +169,31 @@ export function parseImportedWorkflow(raw: string, now: number): ImportWorkflowR
   }
 
   return { ok: true, workflow: cloneWorkflowWithFreshIds(result.data, now) };
+}
+
+/**
+ * Phase 97 Theme L — a fresh, runnable workflow from a gallery template:
+ * the template's three omitted fields filled in, then every node/edge id
+ * re-minted through {@link cloneWorkflowWithFreshIds}, so one template used
+ * twice never yields two workflows sharing node ids.
+ */
+export function workflowFromTemplate(template: WorkflowTemplate, now: number): Workflow {
+  return cloneWorkflowWithFreshIds(instantiateWorkflowTemplateWorkflow(template, now), now, template.title);
+}
+
+/**
+ * The editor's "Save as template" — the in-editor workflow as a **user**
+ * template (its own `user-` id, so it can never collide with a built-in's
+ * slug), rather than a clone in the ordinary workflow list.
+ */
+export function templateFromWorkflow(workflow: Workflow): WorkflowTemplate {
+  const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = workflow;
+  return {
+    id: `user-${crypto.randomUUID()}`,
+    title: workflow.name,
+    blurb: workflow.description ?? '',
+    source: '',
+    tags: [],
+    workflow: rest,
+  };
 }

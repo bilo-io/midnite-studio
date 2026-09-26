@@ -1,4 +1,4 @@
-import type { WorkflowNode } from '@midnite/studio-shared';
+import type { WorkflowAction, WorkflowNode } from '@midnite/studio-shared';
 
 /**
  * The one place a node kind is bound to the code that runs it.
@@ -86,6 +86,31 @@ export type ExecutorContext = {
    * Every executor but `executors/trigger.ts` ignores this.
    */
   triggerPayload?: unknown;
+  /**
+   * The Contract + Context slots of the `frame` node containing this one
+   * (Phase 97 Theme I), pre-formatted and ready to prepend — see
+   * `formatFrameContractContext` in `shared/src/workflow.ts`. Set by the
+   * engine (`workflow-engine.ts`'s `runNode`) only for an `agent` node whose
+   * `frameId` names a real frame with something in either slot. Optional —
+   * the same convention `triggerPayload` above already uses — so every
+   * pre-Theme-I `ExecutorContext` fixture across the test suite still
+   * typechecks with no changes; `undefined` reads as `''` at the one call
+   * site that reads it (`executors/agent.ts`). Every executor but that one
+   * ignores this entirely.
+   */
+  promptPrefix?: string;
+  /**
+   * Actions this node declared that no governing `policy` node allows (Phase
+   * 97 Theme I), computed once by the engine from `checkNodePolicy` before
+   * this executor runs. `validateWorkflow` already refuses to start a run
+   * with a denied action, so this is the runtime backstop for whatever
+   * bypasses that — a run started from a workflow edited between an
+   * explicit re-validate and this node's own turn. Optional, same reasoning
+   * as `promptPrefix` above; `undefined` reads as `[]`. Only `httpExecutor`
+   * (the one the phase doc calls out by name) reads this; every other
+   * executor ignores it.
+   */
+  deniedActions?: readonly WorkflowAction[];
 };
 
 /**

@@ -240,8 +240,15 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
     const loopContext = context.upstream.loop as { failures?: WorkflowLoopFailure[] } | undefined;
     const promptWithLoopFailures = config.prompt + formatLoopFailuresBlock(loopContext?.failures ?? []);
 
+    // Phase 97 Theme I — the containing frame's Contract + Context slots,
+    // PREPENDED (loop failures above append) — set by `workflow-engine.ts`'s
+    // `runNode` only when this node's `frameId` names a real frame with
+    // something in either slot, `undefined` otherwise (every agent node
+    // outside a frame, which is every agent node saved before this theme).
+    const promptWithFramePrefix = (context.promptPrefix ?? '') + promptWithLoopFailures;
+
     return runAgentToDoneMarker(
-      { agentId: config.agentId, prompt: promptWithLoopFailures, model: config.model },
+      { agentId: config.agentId, prompt: promptWithFramePrefix, model: config.model },
       node,
       context,
       deps,

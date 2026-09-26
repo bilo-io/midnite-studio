@@ -32,9 +32,10 @@ const row = (items: Item[], label: string): Item | undefined =>
 describe('the View menu', () => {
   /**
    * Both rows exist to be clicked, and neither carries a native accelerator:
-   * an Electron accelerator fires whenever the window is focused, xterm
-   * included, which would reload the app out from under the Ctrl+R the
-   * renderer deliberately leaves to the shell (`TERMINAL_YIELD_COMMANDS`).
+   * an Electron accelerator fires whenever the window is focused, bypassing
+   * the renderer's key listener. The reload pair carries `global` scope in
+   * the shared keymap instead, firing uniformly across the app including
+   * when the terminal is focused.
    * Same trade the `repo.close` row already makes.
    */
   it('offers Reload and Hard Reload, with no native accelerator on either', () => {

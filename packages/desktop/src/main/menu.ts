@@ -67,13 +67,11 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
    * the live keyboard shortcut is gone, and the renderer's own listener
    * already covers Mod+w everywhere this menu's accelerator would have.
    *
-   * `app.reload`/`app.hardReload` are here for the same reason wearing a
-   * different hat. Their chords are the browser ones (Mod+R, Mod+Shift+R) and
-   * the renderer deliberately lets a terminal keep them — see
-   * `TERMINAL_YIELD_COMMANDS`. An accelerator registered here fires whenever
-   * the WINDOW is focused, xterm included, so it would reload the app out from
-   * under someone's Ctrl+R reverse-i-search and undo that carve-out entirely.
-   * The chord is real everywhere else; the menu row is for clicking.
+   * `app.reload`/`app.hardReload` carry `scope: 'global'` (like `palette.open`
+   * below), so their chords (Mod+R, Mod+Shift+R) already reach the app from
+   * inside a shell through the renderer's own dispatcher. Leaving their native
+   * accelerator unassigned keeps keystroke handling unified in the renderer.
+   * The chord is real everywhere; the menu row is for clicking.
    *
    * `repos.toggle`, `fab.toggle` and `repo.open` join them for Phase 64 Theme
    * D, wearing yet another hat: an OS accelerator bypasses `YIELD_ROOTS`

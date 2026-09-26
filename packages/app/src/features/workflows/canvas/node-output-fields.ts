@@ -47,5 +47,12 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
       return node.config.on === 'forge-pr' ? ['number', 'title', 'headRef', 'url', 'author'] : [];
     case 'state':
       return ['op', 'key', 'value'];
+    case 'frame':
+      // Canvas furniture with no executor — `validateWorkflow` refuses any
+      // edge touching one, so nothing ever references this.
+      return [];
+    case 'policy':
+      // Matches `policyExecutor`'s own pass-through output shape.
+      return ['allow', 'requireApprovalFor'];
   }
 }

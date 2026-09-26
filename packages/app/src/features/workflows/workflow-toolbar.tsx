@@ -101,7 +101,7 @@ export function WorkflowToolbar({
       <span className="ml-auto flex shrink-0 items-center gap-1">
         <button
           type="button"
-          title="Save as template — duplicates this workflow, ready to build another run from"
+          title="Save as template — adds this workflow to your templates in the gallery"
           onClick={onSaveAsTemplate}
           className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
         >

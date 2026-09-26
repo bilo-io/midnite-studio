@@ -8,6 +8,7 @@ import {
   DEFAULT_SKILL_EXECUTION_MODE,
   METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
+  type AgentCommandId,
   type AgentMode,
   type AgentOllamaBinding,
   type AppId,
@@ -206,6 +207,17 @@ export type GraphSelection =
  */
 export type { ViewId, SettingsPageId } from '@midnite/studio-shared';
 export { VIEW_IDS, SETTINGS_PAGE_IDS } from '@midnite/studio-shared';
+
+/**
+ * `AgentCommandId` moved to `@midnite/studio-shared` (Phase 94 Theme A) so
+ * `AgentRunSchema.skillId` (`domain/agent-run.ts`) can be a closed `z.enum`
+ * over it — `shared` cannot import `app`. Re-exported here so no existing
+ * `import type { AgentCommandId } from '../store/ui-store'` call site has to
+ * move. `DEFAULT_AGENT_SKILLS` below is UI copy and stays put, exactly as
+ * `VIEW_LABELS`/`SETTINGS_PAGES` stayed put when `ViewId`/`SettingsPageId`
+ * made the same move in Phase 81 Theme A.
+ */
+export type { AgentCommandId } from '@midnite/studio-shared';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -1924,41 +1936,6 @@ export type UiState = {
   setScreensaverOpen: (open: boolean, locked?: boolean) => void;
   lockScreen: () => void;
 };
-
-/**
- * The verbs the sidebar's midnite menu offers, grouped into the menu's three
- * categories: agent tasks, release tasks, then loops.
- *
- * Ids, not labels or glyphs: those live with the menu in
- * `features/agent/agent-commands.ts`, the same split `SETTINGS_PAGES` and
- * `PAGE_ICON` already use, so this file stays a plain data module that pulls no
- * icon package in behind it. The ids are also the persisted keys, so they stay
- * put while the labels the menu shows are free to be reworded.
- */
-export type AgentCommandId =
-  | 'execBacklog'
-  | 'execAdhoc'
-  | 'addressIssue'
-  | 'brainstorm'
-  | 'refine'
-  | 'verifyPhase'
-  | 'execSwarm'
-  | 'prReview'
-  | 'prFeedback'
-  | 'triage'
-  | 'releasePrep'
-  | 'releaseComplete'
-  | 'gitReport'
-  | 'gitCleanup'
-  | 'loopGuard'
-  | 'loopPatrol'
-  | 'loopPrReview'
-  | 'loopPrFeedback'
-  | 'loopExecBacklog'
-  | 'loopExecAdhoc'
-  | 'loopAddressIssue'
-  | 'loopBrainstorm'
-  | 'loopOverhaul';
 
 /**
  * A user-created group in the repositories sidebar.

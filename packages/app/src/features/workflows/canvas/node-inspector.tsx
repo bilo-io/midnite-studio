@@ -12,10 +12,12 @@ import {
   AgentForm,
   ConditionForm,
   DelayForm,
+  FrameForm,
   GateForm,
   HttpForm,
   JoinForm,
   NoteForm,
+  PolicyForm,
   RouterForm,
   ScriptForm,
   StateForm,
@@ -45,6 +47,8 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   verify: VerifyForm,
   trigger: TriggerForm,
   state: StateForm,
+  frame: FrameForm,
+  policy: PolicyForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };
@@ -161,6 +165,39 @@ function OnFailureSection({
 }
 
 /**
+ * Which `frame` node this node's `frameId` names (Phase 97 Theme I) — the
+ * one control for canvas grouping every kind but `frame` itself shares
+ * (frames don't nest, `validateWorkflow`'s own rule). Membership is read off
+ * the MEMBER node (`WorkflowNodeBaseSchema.frameId`), never off the frame,
+ * so this is the one place it is ever assigned.
+ */
+function FrameSelector({
+  node,
+  nodes,
+  onChange,
+}: {
+  node: WorkflowNode;
+  nodes: readonly WorkflowNode[];
+  onChange: (next: WorkflowNode) => void;
+}) {
+  const frames = nodes.filter((n) => n.kind === 'frame');
+  if (frames.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-2">
+      <Field label="Frame" hint="Groups this node under a harness frame's contract, context and policy.">
+        <SelectField
+          label="Frame"
+          value={node.frameId ?? ''}
+          onChange={(frameId: string) => onChange({ ...node, frameId: frameId === '' ? undefined : frameId })}
+          options={[{ value: '', label: 'None' }, ...frames.map((f) => ({ value: f.id, label: f.label }))]}
+        />
+      </Field>
+    </div>
+  );
+}
+
+/**
  * The workflow canvas's selected-node config panel (Phase 43 Theme F) — the
  * base entry of `workflows-view.tsx`'s right-hand `panel-stack` (Phase 52
  * Theme F). Carries no width or border of its own: `workflows-view.tsx`'s
@@ -241,7 +278,10 @@ export function NodeInspector({
 
       <div className="hide-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 py-2">
         <Form node={node} onChange={onChange} onInterpolatableFocus={setActiveField} />
-        {node.kind === 'note' ? null : <OnFailureSection node={node} nodes={nodes} onChange={onChange} />}
+        {node.kind === 'frame' ? null : <FrameSelector node={node} nodes={nodes} onChange={onChange} />}
+        {node.kind === 'note' || node.kind === 'frame' ? null : (
+          <OnFailureSection node={node} nodes={nodes} onChange={onChange} />
+        )}
       </div>
 
       {activeField && references.length > 0 ? (

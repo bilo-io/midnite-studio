@@ -3,10 +3,12 @@ import { postGateApprovalComment } from '../gate-forge-service';
 import { agentExecutor } from './agent';
 import { conditionExecutor } from './condition';
 import { delayExecutor } from './delay';
+import { frameExecutor } from './frame';
 import { createGateExecutor } from './gate';
 import { httpExecutor } from './http';
 import { joinExecutor } from './join';
 import { noteExecutor } from './note';
+import { policyExecutor } from './policy';
 import { routerExecutor } from './router';
 import { scriptExecutor } from './script';
 import { stateExecutor } from './state';
@@ -45,16 +47,20 @@ export const defaultExecutors: ExecutorRegistry = {
   verify: verifyExecutor,
   trigger: triggerExecutor,
   state: stateExecutor,
+  frame: frameExecutor,
+  policy: policyExecutor,
 };
 
 export {
   agentExecutor,
   conditionExecutor,
   delayExecutor,
+  frameExecutor,
   gateExecutor,
   httpExecutor,
   joinExecutor,
   noteExecutor,
+  policyExecutor,
   routerExecutor,
   scriptExecutor,
   stateExecutor,

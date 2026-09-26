@@ -1,4 +1,5 @@
 import {
+  WORKFLOW_ACTIONS,
   WORKFLOW_CONDITION_OPS,
   WORKFLOW_DELAY_MAX_MS,
   WORKFLOW_HTTP_METHODS,
@@ -14,6 +15,7 @@ import {
   WORKFLOW_VERIFY_CHECKS,
   isValidCronExpression,
   nextCronFireTimes,
+  type WorkflowAction,
   type WorkflowConditionOp,
   type WorkflowHttpMethod,
   type WorkflowJoinMode,
@@ -918,6 +920,107 @@ export function StateForm({ node, onChange, onInterpolatableFocus }: NodeFormPro
         />
       </Field>
     </>
+  );
+}
+
+/**
+ * Phase 97 Theme I. Six markdown slots, no `{{...}}` insertion — these are
+ * plain prompt-composition text (see `formatFrameContractContext` in
+ * `shared/src/workflow.ts`), never interpolated. Frame membership itself is
+ * NOT edited here — it lives on the MEMBER node's own `frameId`
+ * (`node-inspector.tsx`'s "Frame" select, shown for every other kind).
+ */
+export function FrameForm({ node, onChange }: NodeFormProps) {
+  if (node.kind !== 'frame') return null;
+  const config = node.config;
+  const update = (patch: Partial<typeof config>) => onChange({ ...node, config: { ...config, ...patch } });
+
+  return (
+    <>
+      <Field label="Contract" hint="What this harness's agents are being asked to do — prepended to every contained agent node's prompt.">
+        <TextArea label="Contract" value={config.contract} onChange={(contract) => update({ contract })} rows={3} />
+      </Field>
+      <Field label="Context" hint="Background the agents need — also prepended to every contained agent node's prompt.">
+        <TextArea label="Context" value={config.context} onChange={(context) => update({ context })} rows={3} />
+      </Field>
+      <Field label="State" hint="Notes on what this harness already knows or has produced. Not sent to any agent automatically.">
+        <TextArea label="State" value={config.state} onChange={(state) => update({ state })} rows={2} />
+      </Field>
+      <Field label="Tools" hint="What this harness's agents may use. Documentation only — a policy node is what actually enforces it.">
+        <TextArea label="Tools" value={config.tools} onChange={(tools) => update({ tools })} rows={2} />
+      </Field>
+      <Field label="Permissions" hint="What this harness's agents may do. Documentation only — a policy node is what actually enforces it.">
+        <TextArea
+          label="Permissions"
+          value={config.permissions}
+          onChange={(permissions) => update({ permissions })}
+          rows={2}
+        />
+      </Field>
+      <Field label="Evidence" hint="What proves the work was done. Documentation only — a verify node is what actually checks it.">
+        <TextArea label="Evidence" value={config.evidence} onChange={(evidence) => update({ evidence })} rows={2} />
+      </Field>
+    </>
+  );
+}
+
+const WORKFLOW_ACTION_LABEL: Record<WorkflowAction, string> = {
+  network: 'Network — call a URL',
+  'write-files': 'Write files',
+  'open-pr': 'Open a pull request',
+  push: 'Push to a remote',
+  deploy: 'Deploy',
+  'delete-data': 'Delete data',
+};
+
+/**
+ * Phase 97 Theme I. Two independent toggles per action — "Allowed" and
+ * "Needs approval" — rather than a disabled-until-allowed pair: the
+ * semantics (`checkNodePolicy` in `shared/src/workflow.ts`) already say
+ * "needs approval" only ever takes effect for an action that is ALSO
+ * allowed, so nothing is lost by letting both toggle freely and explaining
+ * the rule in the second switch's own title instead.
+ */
+export function PolicyForm({ node, onChange }: NodeFormProps) {
+  if (node.kind !== 'policy') return null;
+  const config = node.config;
+
+  const toggleAllow = (action: WorkflowAction, on: boolean) => {
+    const allow = on ? [...config.allow, action] : config.allow.filter((a) => a !== action);
+    onChange({ ...node, config: { ...config, allow } });
+  };
+  const toggleApproval = (action: WorkflowAction, on: boolean) => {
+    const requireApprovalFor = on
+      ? [...config.requireApprovalFor, action]
+      : config.requireApprovalFor.filter((a) => a !== action);
+    onChange({ ...node, config: { ...config, requireApprovalFor } });
+  };
+
+  return (
+    <Field
+      label="Actions"
+      hint="Which actions a downstream agent/script/http node may take, and which need approval first — enforced outside the model."
+    >
+      <div className="flex flex-col gap-1.5">
+        {WORKFLOW_ACTIONS.map((action) => (
+          <div key={action} className="flex flex-col gap-1 rounded-md border border-border px-2 py-1.5">
+            <SwitchRow
+              id={`${node.id}-allow-${action}`}
+              label={WORKFLOW_ACTION_LABEL[action]}
+              on={config.allow.includes(action)}
+              onToggle={(_id, on) => toggleAllow(action, on)}
+            />
+            <SwitchRow
+              id={`${node.id}-approval-${action}`}
+              label="Needs approval"
+              title="Only takes effect when this action is also allowed above."
+              on={config.requireApprovalFor.includes(action)}
+              onToggle={(_id, on) => toggleApproval(action, on)}
+            />
+          </div>
+        ))}
+      </div>
+    </Field>
   );
 }
 

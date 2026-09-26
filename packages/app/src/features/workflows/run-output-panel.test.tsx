@@ -145,6 +145,31 @@ describe('RunOutputPanel', () => {
     });
   });
 
+  describe('a looped node\'s runs (Phase 97 Theme K)', () => {
+    const loopedRun = run({
+      nodes: [
+        { nodeId: 'trigger', kind: 'trigger', label: 'Start', status: 'succeeded', truncated: false, gatedDownstream: false, startedAt: 0, endedAt: 10 },
+        { nodeId: 'build', kind: 'agent', label: 'Build', status: 'succeeded', truncated: false, gatedDownstream: false, startedAt: 10, endedAt: 100, iteration: 1 },
+        { nodeId: 'build', kind: 'agent', label: 'Build', status: 'succeeded', truncated: false, gatedDownstream: false, startedAt: 100, endedAt: 200, iteration: 2 },
+      ],
+    });
+
+    it('shows one row per iteration with a "Pass N" badge, not a single collapsed row', () => {
+      render(<RunOutputPanel run={loopedRun} collapsed={false} onToggleCollapsed={() => {}} height={200} />);
+      expect(screen.getAllByText('Build')).toHaveLength(2);
+      expect(screen.getByText('Pass 1')).not.toBeNull();
+      expect(screen.getByText('Pass 2')).not.toBeNull();
+    });
+
+    it('a node that never looped shows no pass badge at all', () => {
+      render(<RunOutputPanel run={loopedRun} collapsed={false} onToggleCollapsed={() => {}} height={200} />);
+      expect(screen.queryByText('Pass 3')).toBeNull();
+      // "Start" (the trigger) has exactly one record — no badge for it.
+      const startCell = screen.getByText('Start');
+      expect(startCell.parentElement?.textContent).not.toContain('Pass');
+    });
+  });
+
   describe('an interrupted run (Phase 97 Theme G)', () => {
     afterEach(() => {
       delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
@@ -181,5 +206,27 @@ describe('runToMarkdown', () => {
     expect(md).toContain('**completed**');
     expect(md).toContain('| Call API | http | Succeeded |');
     expect(md).toContain('boom');
+  });
+
+  it('includes a Receipt section (Phase 97 Theme K), with no cost field anywhere in it', () => {
+    const md = runToMarkdown(run());
+    expect(md).toContain('## Receipt');
+    expect(md).toContain('**Node kinds used**: http, transform');
+    expect(md).toContain('**Wall-clock**');
+    expect(md.toLowerCase()).not.toContain('cost');
+  });
+
+  it('reads agentsUsed into the receipt section when workflowNodes is supplied', () => {
+    const agentRun = run({
+      nodes: [{ nodeId: 'build', kind: 'agent', label: 'Build', status: 'succeeded', truncated: false, gatedDownstream: false, output: 'ok' }],
+    });
+    const workflowNodes: WorkflowNode[] = [{ id: 'build', label: 'Build', x: 0, y: 0, kind: 'agent', config: { agentId: 'claude', prompt: 'go' } }];
+    const md = runToMarkdown(agentRun, workflowNodes);
+    expect(md).toContain('**Agents used**: claude');
+  });
+
+  it('reads agentsUsed as empty without workflowNodes', () => {
+    const md = runToMarkdown(run());
+    expect(md).toContain('**Agents used**: —');
   });
 });
