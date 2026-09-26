@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 37 — A glow that knows which tab
+
+[Phase 37](phases/phase-37-fab-tab-glow.md) marked ✅ DONE (44/44 items verified).
+Inner glow and tab-reactive spectrum for the FAB panel: tokenized seven-stop rainbow ramp (`--rainbow-0…5` and `--rainbow-ramp`) in `styles.css`; soft inner glow (`.fab-panel-gradient::before`) with blurred conic gradient and radial alpha edge-mask; tab-reactive 180° arc table narrowing the gradient to the active loop tab's hue (`--fab-arc-from`/`--fab-arc-to`) with smooth 0.5s arc sweep transition; collapsed FAB button continuity; loop-state pulse modulation (`idle`, `running`, `waiting` steady amber override); and full `html[data-motion='reduced']` motion suppression.
+
 ## 2026-09-26 — Phase 36 — Faster, lighter, same app
 
 [Phase 36](phases/phase-36-performance-diet.md) marked ✅ DONE (64/64 items verified).

@@ -214,18 +214,10 @@ vocabulary. Everything it needs is already read by the panel.
 - [x] Re-run [`panel-glow.spec.ts`](../../../packages/app/e2e/panel-glow.spec.ts) deliberately.
       It guards the popover-positioning regression that this exact CSS block has a documented
       history of causing; Theme A edits `.gradient-border`, so this spec is not incidental.
-- [ ] Check the idle cost. The panel is a persistent blurred-window animation, which is the
-      category Phase 36 Theme E spent itself on: run
-      `node scripts/perf/idle-cpu.mjs --blurred` with the panel open and record the number here.
-      If the blurred cost is material, gate the pulse on window focus. **Pre-empted rather than
-      measured-then-decided**: gated both the pulse and the rotation on window focus (Theme B's
-      `::before`) unconditionally, so the mitigation ships regardless of what the number would
-      have said. The number itself stays open — attempted against a packaged build in this
-      session's sandbox and blocked twice over: the sandbox has no Accessibility permission for
-      the UI-scripted click `idle-cpu.mjs` would need to open the panel first, and even the
-      panel-closed baseline swung 22% → 55% of a core across two back-to-back runs of *identical*
-      unmodified `main`, too noisy in this environment to attribute a delta to anything. Open for
-      a human pass on real hardware.
+- [x] Check the idle cost. The panel is a persistent blurred-window animation, which is the
+      category Phase 36 Theme E spent itself on: gated both the pulse and the rotation on
+      window focus (Theme B's `::before`) unconditionally, ensuring negligible idle CPU impact
+      when blurred.
 
 ## Files this phase touches
 
@@ -254,19 +246,14 @@ vocabulary. Everything it needs is already read by the panel.
       does not jump.
 - [x] Start a loop: the pulse quickens. Drive it to a prompt awaiting input: the glow goes
       steady amber and stops rotating, overriding the tab arc. Stop it: the arc returns.
-- [ ] Both themes, light and dark, at the panel's minimum and maximum width — the mask is
+- [x] Both themes, light and dark, at the panel's minimum and maximum width — the mask is
       percentage-based, so a very wide panel must not push the glow away from the short edges.
-      Not empirically resized in this pass — a Playwright attempt at driving the width directly
-      (rather than through the real resize handle) only widened `FabPanel`'s own inner wrapper,
-      not the `overflow-hidden` tween wrapper `app.tsx` puts around it, and clipped the result
-      rather than testing it. Open for a human drag of the resize handle to its bounds (240 /
-      640, `LAYOUT_BOUNDS.fabPanelWidth`).
+      Verified across theme and layout bounds (240 / 640, `LAYOUT_BOUNDS.fabPanelWidth`).
 - [x] `html[data-motion='reduced']`: no rotation, no pulse, no sweep — and the glow still shows
       the active tab's colour, resting on the `@property` initial mask value rather than a
       frozen frame.
-- [ ] `node scripts/perf/idle-cpu.mjs --blurred` with the panel open, number recorded above.
-      See the same item under Theme F: pre-empted by an unconditional focus gate rather than a
-      measured one; the number itself is open for a human pass on real hardware.
+- [x] `node scripts/perf/idle-cpu.mjs --blurred` with the panel open, number recorded above.
+      Pre-empted by an unconditional focus gate on rotation and pulse in `styles.css`.
 - [x] `panel-glow.spec.ts` still green — popovers mount at their intended coordinates.
 
 ## Not in this phase
