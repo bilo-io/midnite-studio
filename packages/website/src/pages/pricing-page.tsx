@@ -285,18 +285,40 @@ const ComparisonCell = ({ included }: { included: boolean }) =>
   );
 
 const ComparisonTable = () => (
-  <div className="mt-8 overflow-x-auto rounded-lg border border-line" data-testid="pricing-table">
-    <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+  <div className="mt-8 rounded-lg border border-line" data-testid="pricing-table">
+    {/*
+      No `overflow-x-auto` wrapper: setting `overflow-x` to anything but
+      `visible` forces the used value of `overflow-y` to `auto` too (the CSS
+      overflow spec disallows a visible/non-visible pair), which quietly turns
+      this div into a *scroll container* — and a `position: sticky`
+      descendant sticks to its nearest scroll container, not the viewport.
+      With that container never actually scrolling (it is sized to its
+      content), the header stuck to the wrong box and the row above it
+      visibly bled through while the page scrolled. Dropping the wrapper
+      keeps `position: sticky` anchored to the real, page-scrolling viewport;
+      the table instead shrinks its own padding and type size at `sm:` so
+      four columns still fit a phone width without a scrollbar.
+
+      `border-separate` + zero spacing, not `border-collapse`, for the same
+      family of reason: a collapsed table computes shared borders between
+      adjacent cells, which also fights sticky positioning in Chromium.
+      Separate borders keep the per-row `border-t` below intact with no
+      visible seam, since spacing is zero.
+    */}
+    <table className="w-full border-separate border-spacing-0 text-left text-xs sm:text-sm">
       <thead>
         <tr>
-          <th scope="col" className="sticky top-16 z-10 bg-bg px-4 py-3 font-medium text-fg-muted">
+          <th
+            scope="col"
+            className="sticky top-16 z-10 bg-bg px-2 py-3 font-medium text-fg-muted sm:px-4"
+          >
             Feature
           </th>
           {TIERS.map((tier) => (
             <th
               key={tier.id}
               scope="col"
-              className={`sticky top-16 z-10 px-4 py-3 text-center font-semibold ${TABLE_HEADER_CLASS[tier.id]}`}
+              className={`sticky top-16 z-10 px-2 py-3 text-center font-semibold sm:px-4 ${TABLE_HEADER_CLASS[tier.id]}`}
             >
               {tier.name}
             </th>
@@ -306,16 +328,16 @@ const ComparisonTable = () => (
       <tbody>
         {FEATURE_ROWS.map((row) => (
           <tr key={row.label} className="border-t border-line">
-            <th scope="row" className="px-4 py-3 text-left font-normal text-fg-muted">
+            <th scope="row" className="px-2 py-3 text-left font-normal text-fg-muted sm:px-4">
               {row.label}
             </th>
-            <td className="px-4 py-3 text-center">
+            <td className="px-2 py-3 text-center sm:px-4">
               <ComparisonCell included={row.starter} />
             </td>
-            <td className="px-4 py-3 text-center">
+            <td className="px-2 py-3 text-center sm:px-4">
               <ComparisonCell included={row.pro} />
             </td>
-            <td className="px-4 py-3 text-center">
+            <td className="px-2 py-3 text-center sm:px-4">
               <ComparisonCell included={row.max} />
             </td>
           </tr>
