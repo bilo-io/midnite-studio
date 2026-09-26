@@ -427,7 +427,7 @@ Theme A → **M** is independent after A → **L** last (it needs every node kin
       root:visual-regen` from a machine with docker before the opt-in cross-platform CI lane can
       diff it.)
 
-### K — Receipts and replay by iteration (M) — ✅ DONE (PR TBD, 2026-09-26)
+### K — Receipts and replay by iteration (M) — ✅ DONE ([PR #580](https://github.com/bilo-io/midnite-studio/pull/580), 2026-09-26)
 
 - [x] Consumes [Phase 94](phase-94-ai-engineering.md) Theme A's `AgentRunRecord` (kind
       `workflow`). A completed workflow run writes a **change receipt** onto it:

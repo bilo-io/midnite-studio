@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-26 — Phase 97 Theme K — Receipts and replay by iteration
 
-[PR TBD]. A change receipt on Phase 94 Theme A's `AgentRun`, plus replay by iteration — the last
+[PR #580](https://github.com/bilo-io/midnite-studio/pull/580). A change receipt on Phase 94 Theme A's `AgentRun`, plus replay by iteration — the last
 of Phase 97's thirteen themes, unblocked once Theme A landed (PR #579).
 
 - [x] `packages/shared/src/workflow-receipt.ts` (new): `WorkflowRunReceiptSchema`/
