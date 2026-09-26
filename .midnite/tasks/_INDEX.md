@@ -63,7 +63,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 32/35 | `█████████░` | 91% | — | F (human long-running-session pass) |
 | [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | H (3 human passes) |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 75/77 | `██████████` | 97% | — | I (human pass) |
-| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 38/44 | `█████████░` | 86% | — | — |
+| [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | ✅ DONE | x1 | 44/44 | `██████████` | 100% | — | — |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | ✅ DONE | x1 | 55/55 | `██████████` | 100% | — | — |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | ✅ DONE | x1 | 53/53 | `██████████` | 100% | — | — |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | ✅ DONE | — | 63/63 | `██████████` | 100% | — | — |

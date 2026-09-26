@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 42 — Councils, rearranged
+
+[Phase 42](phases/phase-42-councils-layout.md) marked ✅ DONE (44/44 items verified).
+Three-pane rearrangement for Agent Councils: reusable `panel-stack` history primitive with breadcrumb traversal, depth capping, and `Mod+[`/`Mod+]` keyboard navigation yielding from the terminal; three-pane layout (navigation left, output centre, collapsible configuration right) with persisted pane widths; member drag-reordering via `@dnd-kit` with debounce-flush safety (`useFlushableSave`); module-level history store (`councils-history-store.ts`) surviving view switches; and transition-based panel sliding with CSS reduced-motion overrides across all OS and user configurations.
+
 ## 2026-09-26 — Phase 41 — Agentic Kanban
 
 [Phase 41](phases/phase-41-agentic-kanban.md) marked ✅ DONE (55/55 items verified).
