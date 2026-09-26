@@ -25,6 +25,7 @@ export const AGENT_COMMAND_IDS = [
   'addressIssue',
   'brainstorm',
   'refine',
+  'verifyPhase',
   'execSwarm',
   'prReview',
   'prFeedback',

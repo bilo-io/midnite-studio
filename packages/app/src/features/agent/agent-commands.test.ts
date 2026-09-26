@@ -37,6 +37,10 @@ describe('AGENT_COMMANDS', () => {
     );
     expect(AGENT_COMMANDS.find((command) => command.id === 'refine')?.label).toBe('Refine Plan');
     expect(DEFAULT_AGENT_SKILLS.refine).toBe('/midnite-refine');
+    expect(AGENT_COMMANDS.find((command) => command.id === 'verifyPhase')?.label).toBe(
+      'Verify Phase',
+    );
+    expect(DEFAULT_AGENT_SKILLS.verifyPhase).toBe('/midnite-verify');
   });
 
   it('leaves the Patrol loop bare — its skills come from the FAB checkboxes', () => {

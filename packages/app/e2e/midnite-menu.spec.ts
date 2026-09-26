@@ -164,6 +164,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Address Issue',
     'Ideate',
     'Refine Plan',
+    'Verify Phase',
     'Swarm',
   ]);
 

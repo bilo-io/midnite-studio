@@ -1963,6 +1963,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   addressIssue: '/midnite-address-issue',
   brainstorm: '/midnite-ideate',
   refine: '/midnite-refine',
+  verifyPhase: '/midnite-verify',
   execSwarm: '/midnite-swarm',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
