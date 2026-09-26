@@ -493,7 +493,7 @@ jobs:
       # and GitHub's service containers are exposed on the runner's network
       # directly, not to each other, so both need distinct host ports.
       mariadb:
-        image: mariadb:11
+        image: mariadb:13
         env:
           MARIADB_ROOT_PASSWORD: mstudio
           MARIADB_DATABASE: mstudio_test
