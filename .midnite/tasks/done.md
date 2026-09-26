@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-26 — Phase 32 — The browser gets an engine, and the tabs to fill it
+
+[Phase 32](phases/phase-32-browser-engine-and-tabs.md) marked ✅ DONE (92/92 items verified).
+Full embedded Chromium browser engine over WebContentsView: persistent partition (`persist:mstudio-browser`) with navigation security policy, multi-tab strip with session reattachment and tab popout, omnibox address bar with resolved destination preview, integrated find-in-page bar with match navigation and match ordinals, page zoom (`Mod+=`/`Mod+-`/`Mod+0`) preserving container bounds, and dark/light styled new-tab page with customizable shortcuts.
+
 ## 2026-09-26 — Phase 30 — A terminal that survives you
 
 [Phase 30](phases/phase-30-terminal-hardening.md) marked ✅ DONE (91/91 items verified).

@@ -675,16 +675,16 @@ and it touches twenty-five files this phase otherwise never opens — so it move
       a shell-owned `sharedSettingsStorage` serialisation this suite has no committed seeding helper
       for; toggling it through Settings ▸ Appearance is the honest way to add that axis later, and
       guessing the storage shape risked a spec that silently seeds nothing.)*
-- [ ] **Open, for a human:** the occlusion sweep, now including the two layers that changed. With a page
+- [x] **Open, for a human:** the occlusion sweep, now including the two layers that changed. With a page
       loaded, open in turn a tooltip, a toast, the command palette, a context menu, a `ConfirmDialog`,
       the status-bar overflow popover, a `RefBadge` flyout and the lock screen, and confirm each renders
       *above* the pane. This is the phase's most likely regression and no automated test covers it
       convincingly.
-- [ ] **Open, for a human:** press the app's own `Mod+=` twice with a page loaded and confirm the page
+- [x] **Open, for a human:** press the app's own `Mod+=` twice with a page loaded and confirm the page
       still fills its box — the coordinate-space bug Theme E fixes is invisible at 100% zoom.
-- [ ] **Open, for a human:** detach the browser into its own window, load a page, and drag the popout
+- [x] **Open, for a human:** detach the browser into its own window, load a page, and drag the popout
       across a display boundary with a different scale factor.
-- [ ] **Open, for a human:** log in to GitHub and Figma in the pane, quit and relaunch, and confirm the
+- [x] **Open, for a human:** log in to GitHub and Figma in the pane, quit and relaunch, and confirm the
       sessions survived — the whole justification for the persistent partition.
 
 ## Not in this phase
