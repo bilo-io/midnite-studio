@@ -1446,6 +1446,157 @@ html[data-page-hidden='true'] .ws-kanban-card,
 html[data-page-hidden='true'] .ws-kanban-card *,
 html[data-page-hidden='true'] .ws-ci-throb,
 html[data-page-hidden='true'] [class*='ws-ci-'],
-html[data-page-hidden='true'] [class*='ws-win-'] {
+html[data-page-hidden='true'] [class*='ws-win-'],
+html[data-page-hidden='true'] [class*='ws-pricing-'] {
   animation-play-state: paused;
+}
+
+/*
+  ── Pricing page ────────────────────────────────────────────────────────────
+
+  Four small pieces that exist only for `pages/pricing-page.tsx`: the title's
+  moving glow, the billing toggle's two selected-state pulses, the Pro tier's
+  fixed brand surface, and the Max tier's always-inverted theme. Named
+  `ws-pricing-*` and kept out of the rainbow block above because none of the
+  four are reused anywhere else on the site — `[class*='ws-pricing-']` just
+  above is what pauses all of them together while the tab is hidden.
+*/
+@layer utilities {
+  /*
+    The page title: `.ws-rainbow-text` (already on the heading) gives it the
+    drifting gradient fill; this adds a glow whose hue sweeps through
+    `--ws-angle` in lockstep with `ws-rainbow-turn`, so the light reads as
+    travelling along the stroke rather than sitting still under a static
+    fill. Unlike `.ws-brand-glow` (the nav wordmark, deliberately static —
+    see its own comment) this one is meant to move: a page title is on
+    screen once, not for the whole visit, so the "permanent breath in
+    permanent chrome" problem that keeps the nav mark still does not apply
+    here.
+
+    **Carries `.ws-rainbow-text`'s own `ws-rainbow-drift` alongside
+    `ws-rainbow-turn` in one `animation` declaration, rather than leaving the
+    drift to that class.** `animation` is a shorthand: two same-specificity
+    rules on one element do not merge it, the later one in the layer wins
+    outright, and this rule is necessarily later (this block is appended
+    after the rainbow block above). Repeating the drift here at the same
+    18s timing keeps the fill moving instead of freezing it the moment this
+    class is added.
+  */
+  .ws-pricing-title-glow {
+    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) var(--ws-neon-sat) var(--ws-neon-lum));
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ws-neon-color) 55%, transparent))
+      drop-shadow(0 0 16px color-mix(in srgb, var(--ws-neon-color) 40%, transparent));
+    animation:
+      ws-rainbow-drift 18s linear infinite,
+      ws-rainbow-turn 6s linear infinite;
+  }
+
+  /*
+    The billing toggle's "Monthly" label, while selected: the normal
+    foreground colour (unselected sits at `text-fg-subtle`) plus a shallow
+    opacity breath — the same restrained amplitude as `ws-neon-pulse`, just
+    on opacity rather than a shadow, since a plain label has no glow to
+    pulse.
+  */
+  .ws-pricing-pulse {
+    animation: ws-pricing-label-pulse 1.8s var(--ws-ease) infinite;
+  }
+
+  /*
+    The billing toggle's "Yearly" label, while selected: worn together with
+    `.ws-rainbow-text`. The gradient fill alone reads as "brand"; this adds
+    the pulsing glow that reads as "selected". **This one does not also
+    repeat the drift** — unlike the title above, a small toggle label reads
+    better as a still fill with a pulsing glow on it than as two motions at
+    once, and `animation` being a shorthand means this rule (later in the
+    layer) replaces `.ws-rainbow-text`'s drift outright rather than adding
+    to it, which is what makes the fill still here in the first place.
+  */
+  .ws-pricing-yearly-glow {
+    animation: ws-pricing-yearly-pulse 2.4s var(--ws-ease) infinite;
+  }
+
+  /*
+    The Pro tier's card and table-header background: the full ramp as a
+    surface rather than clipped to text, drifting the same way
+    `.ws-rainbow-text` does and reusing its own `ws-rainbow-drift` keyframe
+    (same `background-size` ratio) instead of a second one. Pro's own text
+    and CTA are pinned to white in both themes (`pricing-page.tsx`), because
+    this card is a fixed brand surface, not a themed one — unlike Max's card
+    below, there is no "light Pro" or "dark Pro".
+  */
+  .ws-pricing-pro-card {
+    background-image: linear-gradient(120deg, var(--ws-rainbow-ramp));
+    background-size: 200% 100%;
+    background-position: 0 0;
+    animation: ws-rainbow-drift 14s linear infinite;
+  }
+
+  /*
+    The Max tier's card and table-header: not a fixed surface like Pro's,
+    but the *opposite* of whichever theme is active — a dark card in light
+    mode, a light one in dark mode. Re-declares the same triplets
+    `tokens.css` sets at `:root` and `:root[data-theme='light']`, scoped to
+    this class instead, so every `bg-*`/`text-*`/`border-*` utility already
+    used inside the card (and nowhere else) picks up the swapped values for
+    free through the ordinary custom-property cascade — no new utility
+    classes, no `dark:` variant (the site has none; see
+    `tailwind.config.ts`'s file comment).
+
+    The two rules below are deliberately the mirror image of `tokens.css`'s
+    two theme blocks: the default (dark root) gets the light theme's values,
+    and `[data-theme='light']`/`.ws-auto-light` (light root) gets the dark
+    theme's. Kept in step with `tokens.css` by hand — the accent trio is
+    included because the "-17%" badge and the Max CTA reach for it too.
+  */
+  .ws-pricing-invert {
+    --ws-bg-hsl: 240 20% 99%;
+    --ws-bg-elevated-hsl: 240 24% 96%;
+    --ws-bg-sunken-hsl: 240 22% 93%;
+    --ws-fg-hsl: 240 24% 12%;
+    --ws-fg-muted-hsl: 240 10% 36%;
+    --ws-fg-subtle-hsl: 240 8% 50%;
+    --ws-border-hsl: 240 14% 87%;
+    --ws-border-strong-hsl: 240 14% 76%;
+    --ws-accent-hsl: 265 62% 48%;
+    --ws-accent-fg-hsl: 0 0% 100%;
+    --ws-accent-soft-hsl: 265 70% 94%;
+  }
+
+  :root[data-theme='light'] .ws-pricing-invert,
+  :root.ws-auto-light .ws-pricing-invert {
+    --ws-bg-hsl: 240 18% 6%;
+    --ws-bg-elevated-hsl: 240 15% 10%;
+    --ws-bg-sunken-hsl: 240 22% 4%;
+    --ws-fg-hsl: 240 12% 96%;
+    --ws-fg-muted-hsl: 240 8% 72%;
+    --ws-fg-subtle-hsl: 240 7% 52%;
+    --ws-border-hsl: 240 12% 18%;
+    --ws-border-strong-hsl: 240 12% 28%;
+    --ws-accent-hsl: 265 78% 68%;
+    --ws-accent-fg-hsl: 265 40% 8%;
+    --ws-accent-soft-hsl: 265 60% 20%;
+  }
+}
+
+@keyframes ws-pricing-label-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes ws-pricing-yearly-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--ws-rainbow-2) 45%, transparent))
+      drop-shadow(0 0 8px color-mix(in srgb, var(--ws-rainbow-2) 30%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ws-rainbow-2) 75%, transparent))
+      drop-shadow(0 0 16px color-mix(in srgb, var(--ws-rainbow-2) 55%, transparent));
+  }
 }
