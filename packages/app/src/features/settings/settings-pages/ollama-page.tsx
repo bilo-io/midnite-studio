@@ -12,6 +12,7 @@ import {
 import { openExternal } from '../../../services/queries';
 import { DefaultModelRow } from './default-model-row';
 import { submitCommand } from './health-page';
+import { InstallModelRow } from './install-model-row';
 
 /**
  * Settings ▸ Ollama (Phase 96 Themes C, F) — host override, default model picker
@@ -19,7 +20,8 @@ import { submitCommand } from './health-page';
  * status (Theme F), all persisted in main
  * so a configured host/key reaches every daemon/cloud call, not just this
  * page's own reads. The API key never round-trips back to this page —
- * `useOllamaApiKeyHasKey` only ever answers `hasKey: boolean`.
+ * `useOllamaApiKeyHasKey` only ever answers `hasKey: boolean`. `InstallModelRow`
+ * pulls a model by search or exact name through the Models view's own queue.
  */
 export function OllamaSettingsPage() {
   const settings = useOllamaSettings();
@@ -63,6 +65,7 @@ export function OllamaSettingsPage() {
 
       <DefaultModelRow />
 
+      <InstallModelRow />
       <SignInRow />
       <ApiKeyRow />
     </div>
