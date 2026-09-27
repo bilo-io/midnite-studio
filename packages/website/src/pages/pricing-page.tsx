@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import { LuCheck, LuMinus } from 'react-icons/lu';
 
 import { Button, Container, GlowCard, Heading, Lede, Reveal } from '../components';
+import { Faq } from '../sections/faq/faq-section';
+import type { FaqEntry } from '../sections/faq/faq';
 import { SiteNav } from '../components/site-nav';
 import { anchorHref } from '../routes';
 import { Footer } from '../sections/footer/footer';
@@ -20,6 +22,17 @@ export const MAX_MONTHLY_USD = 10;
 export const MAX_YEARLY_USD = 100;
 export const MAX_YEARLY_STRUCK_USD = 120;
 export const YEARLY_DISCOUNT_LABEL = '-17%';
+
+/**
+ * The live-agent-session ceiling per tier, and the one limit that does not
+ * vary — terminals are unlimited everywhere. Named constants because both
+ * numbers are quoted twice each: once in a card's own bullets, once in the
+ * comparison table's Limits group, and a figure that changes belongs in one
+ * place.
+ */
+export const STARTER_SESSION_LIMIT = 5;
+export const PRO_SESSION_LIMIT = 10;
+const UNLIMITED = 'Unlimited';
 
 export type BillingPeriod = 'monthly' | 'yearly';
 type TierId = 'starter' | 'pro' | 'max';
@@ -41,7 +54,8 @@ const TIERS: readonly TierColumn[] = [
     features: [
       'Unlimited public repositories',
       'The full git client, terminal and forge views',
-      'All ten coding agents, no limits',
+      'Local models through Ollama, free on every tier',
+      `Up to ${STARTER_SESSION_LIMIT} live agent sessions at once, unlimited terminals`,
     ],
   },
   {
@@ -52,7 +66,8 @@ const TIERS: readonly TierColumn[] = [
     features: [
       'Everything in Starter',
       'Private repositories, the paid boundary',
-      'Loops and kanban-driven agent runs',
+      'Councils, Workflows and the Video Editor',
+      `Up to ${PRO_SESSION_LIMIT} live agent sessions at once`,
     ],
   },
   {
@@ -62,6 +77,7 @@ const TIERS: readonly TierColumn[] = [
     features: [
       'Everything in Pro',
       'Seat-based access for your whole team',
+      'Unlimited live agent sessions',
       'Shared team billing',
     ],
   },
@@ -87,34 +103,122 @@ const priceFor = (tier: TierId, billing: BillingPeriod): PriceDisplay => {
     : { price: `$${MAX_MONTHLY_USD}`, period: 'per seat / month' };
 };
 
+/** A comparison-table cell: a plain include/exclude flag, or a literal value (a limit). */
+type FeatureCell = boolean | string;
+
 type FeatureRow = {
   label: string;
-  starter: boolean;
-  pro: boolean;
-  max: boolean;
+  starter: FeatureCell;
+  pro: FeatureCell;
+  max: FeatureCell;
+};
+
+type FeatureGroup = {
+  id: string;
+  title: string;
+  rows: readonly FeatureRow[];
 };
 
 /**
- * The comparison table's rows — every claim on this list is one the site
- * already makes elsewhere (the FAQ, the Features section): the public/private
- * boundary, the full window (git client, terminal, forge), the ten-agent
- * roster, loops and the kanban board, and seat-based team billing. Nothing
- * here invents a capability the product does not have.
+ * The comparison table's rows, grouped by category — the first group is the
+ * plan-level claims the site already makes elsewhere (the FAQ, the Features
+ * section); the three after it mirror the app's own side rail one-for-one,
+ * copied as plain strings from `packages/app/src/app.tsx`'s
+ * `WORKSPACE_NAV_ITEMS`/`GIT_NAV_ITEMS`/`AGENT_NAV_ITEMS` and
+ * `VIEW_LABELS` (`packages/app/src/services/palette/providers.ts`) — this
+ * package never imports from `packages/app`, so the names are transcribed,
+ * not referenced, and the two can drift if the rail is ever relabelled.
+ *
+ * **The free/paid split below is a deliberate product decision, not a
+ * transcription of the rail.** Every Workspace and Git/Forge item is free on
+ * every tier, same as the rail itself, which draws no tier distinction.
+ * "Local models (Ollama)" is free everywhere too, because it runs entirely on
+ * the visitor's own machine and Ollama — there is nothing here to meter. The
+ * rest of the Agents group — Councils, Workflows, the Video Editor, and
+ * loop/kanban-driven agent runs — is the one place this page draws a line
+ * inside a rail category: those sit behind Pro and Max, the same paid
+ * boundary Private repositories already marks. The ten coding-agent CLIs
+ * (Claude, Codex, Copilot and the rest) are a different thing entirely —
+ * launching a vendor's own agent in a terminal pane, gated only by the
+ * Limits group's session count below — and stay free on every tier.
  */
-const FEATURE_ROWS: readonly FeatureRow[] = [
-  { label: 'Unlimited public repositories', starter: true, pro: true, max: true },
-  { label: 'Private repositories', starter: false, pro: true, max: true },
+const FEATURE_GROUPS: readonly FeatureGroup[] = [
   {
-    label: 'The full git client, terminal and forge in one window',
-    starter: true,
-    pro: true,
-    max: true,
+    id: 'plan-basics',
+    title: 'Plan basics',
+    rows: [
+      { label: 'Unlimited public repositories', starter: true, pro: true, max: true },
+      { label: 'Private repositories', starter: false, pro: true, max: true },
+      {
+        label: 'The full git client, terminal and forge in one window',
+        starter: true,
+        pro: true,
+        max: true,
+      },
+      {
+        label: 'All ten coding agents (Claude, Codex, Copilot and more)',
+        starter: true,
+        pro: true,
+        max: true,
+      },
+      { label: 'Multiple seats on one team', starter: false, pro: false, max: true },
+      { label: 'Shared team billing', starter: false, pro: false, max: true },
+      { label: 'Priority early-access support', starter: false, pro: true, max: true },
+    ],
   },
-  { label: 'All ten coding agents (Claude, Codex, Copilot and more)', starter: true, pro: true, max: true },
-  { label: 'Loops and kanban-driven agent runs', starter: false, pro: true, max: true },
-  { label: 'Multiple seats on one team', starter: false, pro: false, max: true },
-  { label: 'Shared team billing', starter: false, pro: false, max: true },
-  { label: 'Priority early-access support', starter: false, pro: true, max: true },
+  {
+    id: 'workspace',
+    title: 'Workspace',
+    rows: [
+      { label: 'Dashboard', starter: true, pro: true, max: true },
+      { label: 'Notes', starter: true, pro: true, max: true },
+      { label: 'Knowledge', starter: true, pro: true, max: true },
+      { label: 'Sessions', starter: true, pro: true, max: true },
+      { label: 'Explorer', starter: true, pro: true, max: true },
+      { label: 'Search', starter: true, pro: true, max: true },
+      { label: 'Optimizer', starter: true, pro: true, max: true },
+      { label: 'Tests', starter: true, pro: true, max: true },
+      { label: 'Database', starter: true, pro: true, max: true },
+      { label: 'API Client', starter: true, pro: true, max: true },
+    ],
+  },
+  {
+    id: 'git',
+    title: 'Git & Forge',
+    rows: [
+      { label: 'Issues', starter: true, pro: true, max: true },
+      { label: 'Projects', starter: true, pro: true, max: true },
+      { label: 'Graph', starter: true, pro: true, max: true },
+      { label: 'Changes', starter: true, pro: true, max: true },
+      { label: 'Actions', starter: true, pro: true, max: true },
+      { label: 'Reviews', starter: true, pro: true, max: true },
+      { label: 'History', starter: true, pro: true, max: true },
+    ],
+  },
+  {
+    id: 'agents',
+    title: 'Agents',
+    rows: [
+      { label: 'Local models (Ollama)', starter: true, pro: true, max: true },
+      { label: 'Councils', starter: false, pro: true, max: true },
+      { label: 'Workflows', starter: false, pro: true, max: true },
+      { label: 'Video Editor', starter: false, pro: true, max: true },
+      { label: 'Loops and kanban-driven agent runs', starter: false, pro: true, max: true },
+    ],
+  },
+  {
+    id: 'limits',
+    title: 'Limits',
+    rows: [
+      {
+        label: 'Live agent sessions at once',
+        starter: `Up to ${STARTER_SESSION_LIMIT}`,
+        pro: `Up to ${PRO_SESSION_LIMIT}`,
+        max: UNLIMITED,
+      },
+      { label: 'Terminals', starter: UNLIMITED, pro: UNLIMITED, max: UNLIMITED },
+    ],
+  },
 ];
 
 /** The switch's thumb position and the track's brand-coloured fill. */
@@ -168,6 +272,27 @@ const BillingToggle = ({
   );
 };
 
+/**
+ * The "Recommended" pill on the Pro card.
+ *
+ * A solid, fixed-dark backdrop — never a translucent wash — ringed by a
+ * conic-gradient border that rotates through the site's shared `--ws-angle`
+ * custom property (`site.css`), with a blurred copy of the same gradient
+ * behind it as the glow. `hsl(240 22% 4%)` is written as a literal rather
+ * than `var(--ws-bg-sunken)`: the Pro card underneath is a fixed brand
+ * surface with its text pinned to white in both themes (see
+ * `.ws-pricing-pro-card` in `site.css`), and a themed fill would flip to
+ * near-white in light mode and lose contrast against that white text.
+ */
+const RecommendedPill = () => (
+  <span
+    data-testid="pricing-recommended-pill"
+    className="ws-pricing-pill absolute -top-3 left-6 inline-flex items-center px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white"
+  >
+    <span className="relative">Recommended</span>
+  </span>
+);
+
 const TierCard = ({
   tier,
   billing,
@@ -195,11 +320,7 @@ const TierCard = ({
           .filter(Boolean)
           .join(' ')}
       >
-        {tier.recommended ? (
-          <span className="absolute -top-3 left-6 rounded-full border border-white/40 bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-            Recommended
-          </span>
-        ) : null}
+        {tier.recommended ? <RecommendedPill /> : null}
 
         <p
           className={`text-sm font-semibold uppercase tracking-[0.14em] ${
@@ -264,15 +385,38 @@ const TierCard = ({
   );
 };
 
-/** One `<th>`/`<td>` cell of the comparison table's per-tier styling. */
-const TABLE_HEADER_CLASS: Record<TierId, string> = {
+/**
+ * The Pro column's header cell.
+ *
+ * The gradient is painted on a `span` layered inside the `<th>`, rather than
+ * as the cell's own `background-image` the way `.ws-pricing-pro-card` is
+ * everywhere else it appears: a `<table>`'s own background-painting
+ * algorithm is a separate code path from an ordinary element's, and this
+ * table already opts out of `border-collapse` above for `position: sticky`
+ * to anchor correctly — the same family of table-specific quirk this
+ * sidesteps by moving the animated surface off the cell entirely and onto a
+ * plain positioned element inside it.
+ */
+const ProHeaderCell = () => (
+  <th
+    scope="col"
+    className="ws-pricing-pro-header sticky top-16 z-10 px-2 py-3 text-center font-semibold text-white sm:px-4"
+  >
+    <span aria-hidden="true" className="ws-pricing-pro-card absolute inset-0" />
+    <span className="relative">Pro</span>
+  </th>
+);
+
+const STATIC_HEADER_CLASS: Record<'starter' | 'max', string> = {
   starter: 'bg-bg-elevated text-fg',
-  pro: 'ws-pricing-pro-card text-white',
   max: 'ws-pricing-invert bg-bg-elevated text-fg',
 };
 
-const ComparisonCell = ({ included }: { included: boolean }) =>
-  included ? (
+const ComparisonCell = ({ value }: { value: FeatureCell }) => {
+  if (typeof value === 'string') {
+    return <span className="text-sm font-medium text-fg">{value}</span>;
+  }
+  return value ? (
     <>
       <LuCheck aria-hidden="true" className="mx-auto text-accent" />
       <span className="sr-only">Included</span>
@@ -283,6 +427,7 @@ const ComparisonCell = ({ included }: { included: boolean }) =>
       <span className="sr-only">Not included</span>
     </>
   );
+};
 
 const ComparisonTable = () => (
   <div className="mt-8 rounded-lg border border-line" data-testid="pricing-table">
@@ -314,33 +459,56 @@ const ComparisonTable = () => (
           >
             Feature
           </th>
-          {TIERS.map((tier) => (
-            <th
-              key={tier.id}
-              scope="col"
-              className={`sticky top-16 z-10 px-2 py-3 text-center font-semibold sm:px-4 ${TABLE_HEADER_CLASS[tier.id]}`}
-            >
-              {tier.name}
-            </th>
-          ))}
+          <th
+            scope="col"
+            className={`sticky top-16 z-10 px-2 py-3 text-center font-semibold sm:px-4 ${STATIC_HEADER_CLASS.starter}`}
+          >
+            Starter
+          </th>
+          <ProHeaderCell />
+          <th
+            scope="col"
+            className={`sticky top-16 z-10 px-2 py-3 text-center font-semibold sm:px-4 ${STATIC_HEADER_CLASS.max}`}
+          >
+            Max
+          </th>
         </tr>
       </thead>
       <tbody>
-        {FEATURE_ROWS.map((row) => (
-          <tr key={row.label} className="border-t border-line">
-            <th scope="row" className="px-2 py-3 text-left font-normal text-fg-muted sm:px-4">
-              {row.label}
-            </th>
-            <td className="px-2 py-3 text-center sm:px-4">
-              <ComparisonCell included={row.starter} />
-            </td>
-            <td className="px-2 py-3 text-center sm:px-4">
-              <ComparisonCell included={row.pro} />
-            </td>
-            <td className="px-2 py-3 text-center sm:px-4">
-              <ComparisonCell included={row.max} />
-            </td>
-          </tr>
+        {FEATURE_GROUPS.map((group) => (
+          <Fragment key={group.id}>
+            <tr>
+              {/*
+                A `<td>`, not a `<th scope="colgroup">`: a real colgroup
+                header would also read as a `columnheader` to the accessible
+                tree (and to `getAllByRole('columnheader')`), which this row
+                is not — it is a section divider spanning every column, not a
+                header any one of them associates with.
+              */}
+              <td
+                colSpan={4}
+                className="border-t border-line bg-bg-sunken px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-fg-subtle sm:px-4"
+              >
+                {group.title}
+              </td>
+            </tr>
+            {group.rows.map((row) => (
+              <tr key={row.label} className="border-t border-line">
+                <th scope="row" className="px-2 py-3 text-left font-normal text-fg-muted sm:px-4">
+                  {row.label}
+                </th>
+                <td className="px-2 py-3 text-center sm:px-4">
+                  <ComparisonCell value={row.starter} />
+                </td>
+                <td className="px-2 py-3 text-center sm:px-4">
+                  <ComparisonCell value={row.pro} />
+                </td>
+                <td className="px-2 py-3 text-center sm:px-4">
+                  <ComparisonCell value={row.max} />
+                </td>
+              </tr>
+            ))}
+          </Fragment>
         ))}
       </tbody>
     </table>
@@ -348,13 +516,82 @@ const ComparisonTable = () => (
 );
 
 /**
+ * The pricing page's own FAQ, reusing `sections/faq/faq-section.tsx`'s
+ * tablist/cross-fade component with a pricing-specific list rather than the
+ * landing page's general one — same pattern, different `id` (so both can
+ * exist in the same build with no anchor collision) and a pricing-scoped
+ * heading. See that component's header comment for why an accordion was
+ * never on the table.
+ */
+const PRICING_FAQ: readonly FaqEntry[] = [
+  {
+    slug: 'monthly-vs-yearly',
+    question: 'Monthly or yearly — what changes?',
+    answer: [
+      `Only the rhythm. Pro is $${PRO_MONTHLY_USD} a month or $${PRO_YEARLY_USD} a year; Max is $${MAX_MONTHLY_USD} a seat a month or $${MAX_YEARLY_USD} a seat a year. Paying yearly is ${YEARLY_DISCOUNT_LABEL} against the monthly rate, roughly two months free, and the toggle above the tiers switches every price on this page between the two instantly.`,
+      'The features and the limits are identical either way — billing period is the only thing that moves.',
+    ],
+  },
+  {
+    slug: 'per-seat',
+    question: 'What does "per seat" mean on Max?',
+    answer: [
+      'Max is priced per person on the team, not per repository or per machine. Add a teammate and the bill grows by one seat at the same rate everyone else pays; the whole team shares one invoice rather than each person paying separately.',
+      'Starter and Pro are single-seat by design — Max is the tier that exists specifically to add more people to one account.',
+    ],
+  },
+  {
+    slug: 'free-forever',
+    question: "What's free forever, not just while it's early access?",
+    answer: [
+      'Unlimited public repositories, the full git client, terminal and forge in one window, every Workspace and Git & Forge item on the comparison table above, all ten coding-agent CLIs, and local models through Ollama. None of that moves behind a paywall later — the paid boundary is private repositories and the Agents category (Councils, Workflows, the Video Editor and loop/kanban-driven runs), not the workspace itself.',
+      'Terminals are unlimited on every tier, Starter included, for the same reason: a terminal is not the thing this product charges for.',
+    ],
+  },
+  {
+    slug: 'session-limits',
+    question: 'What are the live agent session limits, and why does RAM matter?',
+    answer: [
+      `Starter runs up to ${STARTER_SESSION_LIMIT} live agent sessions at once, Pro up to ${PRO_SESSION_LIMIT}, and Max has no cap from the product side.`,
+      "Each session is a real agent process attached to a real pty, though, and every machine only has so much RAM — the practical ceiling on any given laptop is whichever number is lower, the plan's limit or what the hardware can actually hold open at once.",
+    ],
+  },
+  {
+    slug: 'local-models-free',
+    question: 'Are local models really free on every tier?',
+    answer: [
+      'Yes, including Starter. Local models run through your own Ollama install on your own machine, so there is nothing for the product to meter — the compute and the model weights are already yours.',
+      'The paid part of the Agents group — Councils, Workflows and the Video Editor — is the higher-order orchestration layer built on top; local models sit outside that boundary entirely.',
+    ],
+  },
+  {
+    slug: 'cancel-and-switch',
+    question: 'Can I cancel or switch plans?',
+    answer: [
+      'Yes — move between Starter, Pro and Max, or cancel outright, whenever you like. There is no contract term.',
+      'Checkout has not shipped yet, so today that is a conversation rather than a self-serve toggle; the early-access form is the way to start it.',
+    ],
+    links: [{ label: 'Ask for early access', href: anchorHref('early-access') }],
+  },
+  {
+    slug: 'team-seats',
+    question: 'How do I manage seats for my team on Max?',
+    answer: [
+      "Seats are managed by whoever owns the team's billing — add or remove a teammate and the next invoice reflects it, at the same per-seat rate for everyone on the account.",
+      'Starter and Pro stay single-seat; a team that outgrows one person is exactly the case Max exists for.',
+    ],
+  },
+];
+
+/**
  * The pricing page.
  *
  * Three columns at desktop width, stacked on a phone, with a feature
- * comparison table underneath. **No checkout, no Stripe, no payment link** —
- * the call to action is the early-access form the site already has. Nothing
- * here may link to `bilo-io/midnite-studio`; billing questions belong in the
- * public `bilo-io/midnite-apps` issue tracker.
+ * comparison table and a pricing-specific FAQ underneath. **No checkout, no
+ * Stripe, no payment link** — the call to action is the early-access form
+ * the site already has. Nothing here may link to `bilo-io/midnite-studio`;
+ * billing questions belong in the public `bilo-io/midnite-apps` issue
+ * tracker.
  */
 export const PricingPage = () => {
   const [billing, setBilling] = useState<BillingPeriod>('yearly');
@@ -374,7 +611,21 @@ export const PricingPage = () => {
           />
           <Container className="pb-12 pt-20 sm:pt-28">
             <div className="mx-auto max-w-2xl text-center">
-              <Heading level={1} className="ws-rainbow-text ws-pricing-title-glow inline-block w-fit">
+              {/*
+                `pb-2` plus a slightly looser `leading-[1.15]` (Tailwind's
+                `text-6xl` default is `line-height: 1`, tighter than this
+                glyph needs): at that line-height the "g"'s descender sits
+                right at the edge of the box the gradient fill and
+                `ws-pricing-title-glow`'s `drop-shadow` are both computed
+                against, and got visibly cropped. The extra headroom is
+                inside the same inline-block the gradient already fills, so
+                the fix costs nothing but a sliver of otherwise-empty space
+                under the word.
+              */}
+              <Heading
+                level={1}
+                className="ws-rainbow-text ws-pricing-title-glow inline-block w-fit pb-2 leading-[1.15]"
+              >
                 Pricing
               </Heading>
               <Lede className="mx-auto mt-4">
@@ -399,15 +650,22 @@ export const PricingPage = () => {
                 Compare every tier
               </Heading>
               <ComparisonTable />
+              <p className="mx-auto mt-4 max-w-prose text-center text-sm leading-relaxed text-fg-subtle">
+                Live agent session counts are the product's own ceiling — the practical limit on any
+                one machine is also bounded by its RAM, whichever number is lower.
+              </p>
             </div>
-
-            <p className="mx-auto mt-12 max-w-prose text-center text-sm leading-relaxed text-fg-subtle">
-              Councils, Workflows and the Video Editor will sit behind a higher tier later, once
-              checkout ships. This page shows three columns today; it does not invent a priced fourth
-              column for surfaces that are not paywalled yet.
-            </p>
           </Container>
         </div>
+
+        <Faq
+          entries={PRICING_FAQ}
+          id="pricing-faq"
+          label="Pricing questions"
+          eyebrow="Pricing questions"
+          heading="The pricing FAQ"
+          lede="The billing rhythm, what a seat is, what stays free, and the limits — asked plainly, answered the same way."
+        />
       </main>
       <Footer />
     </>

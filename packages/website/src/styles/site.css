@@ -1454,12 +1454,16 @@ html[data-page-hidden='true'] [class*='ws-pricing-'] {
 /*
   ── Pricing page ────────────────────────────────────────────────────────────
 
-  Four small pieces that exist only for `pages/pricing-page.tsx`: the title's
+  Small pieces that exist only for `pages/pricing-page.tsx`: the title's
   moving glow, the billing toggle's two selected-state pulses, the Pro tier's
-  fixed brand surface, and the Max tier's always-inverted theme. Named
-  `ws-pricing-*` and kept out of the rainbow block above because none of the
-  four are reused anywhere else on the site — `[class*='ws-pricing-']` just
-  above is what pauses all of them together while the tab is hidden.
+  fixed brand surface, the Max tier's always-inverted theme, the
+  "Recommended" pill's rotating border and glow, and the comparison table's
+  Pro column header (the same fixed brand surface, painted on an element the
+  table's own background-painting path never touches — see its own comment
+  below). Named `ws-pricing-*` and kept out of the rainbow block above
+  because none of them are reused anywhere else on the site —
+  `[class*='ws-pricing-']` just above is what pauses all of them together
+  while the tab is hidden.
 */
 @layer utilities {
   /*
@@ -1576,6 +1580,74 @@ html[data-page-hidden='true'] [class*='ws-pricing-'] {
     --ws-accent-hsl: 265 78% 68%;
     --ws-accent-fg-hsl: 265 40% 8%;
     --ws-accent-soft-hsl: 265 60% 20%;
+  }
+
+  /*
+    ── The "Recommended" pill ─────────────────────────────────────────────
+
+    A solid, fixed-dark backdrop — the old `bg-white/15` read as barely-there
+    against the Pro card's own bright surface — ringed by a conic-gradient
+    border that rotates through `--ws-angle`, with a blurred copy of the same
+    gradient behind it as the glow. Both share the registered property with
+    every other rotating surface on the site (`ws-rainbow-turn`), so they
+    turn in lockstep with the card underneath and the table header below.
+
+    The border is the two-background trick, not a second pseudo-element: an
+    opaque flat "gradient" (`linear-gradient` between two identical stops)
+    clipped to the padding box sits under the rotating conic clipped to the
+    border box, so the ring is the only place the conic shows and the centre
+    stays a flat, readable fill — one paint, not a stack of them.
+    `hsl(240 22% 4%)` is a literal rather than `var(--ws-bg-sunken)`: the Pro
+    card underneath is a fixed brand surface with its own text pinned to
+    white in both themes (`.ws-pricing-pro-card`, `pricing-page.tsx`), and
+    the token flips to near-white in the light theme — which would leave a
+    light pill under white text.
+
+    `isolation: isolate` keeps the glow's negative `z-index` scoped to this
+    element rather than sinking behind the card's own stacking context.
+  */
+  .ws-pricing-pill {
+    position: relative;
+    isolation: isolate;
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-color: hsl(240 22% 4%);
+    background-image:
+      linear-gradient(hsl(240 22% 4%), hsl(240 22% 4%)),
+      conic-gradient(from var(--ws-angle), var(--ws-rainbow-ramp));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    animation: ws-rainbow-turn 6s linear infinite;
+  }
+
+  .ws-pricing-pill::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    z-index: -1;
+    border-radius: inherit;
+    background-image: conic-gradient(from var(--ws-angle), var(--ws-rainbow-ramp));
+    filter: blur(10px);
+    opacity: 0.7;
+    animation: ws-rainbow-turn 6s linear infinite;
+  }
+
+  /*
+    ── The comparison table's Pro column header ────────────────────────────
+
+    `.ws-pricing-pro-card` reused unchanged, but painted on the `span` inside
+    the `<th>` (`pricing-page.tsx`'s `ProHeaderCell`) rather than as the
+    cell's own `background-image`. This table already gives up
+    `border-collapse` above so `position: sticky` anchors to the page rather
+    than to an accidental scroll container a table's collapsed-border layout
+    can create; painting the animated surface on an ordinary positioned
+    element instead of the `<th>` itself is the same defensive move for the
+    same reason — a `<table>`'s background painting is its own code path,
+    and this sidesteps it rather than depending on it animating correctly.
+    `.ws-pricing-pro-header` only supplies the containing block.
+  */
+  .ws-pricing-pro-header {
+    position: relative;
   }
 }
 

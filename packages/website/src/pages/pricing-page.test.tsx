@@ -11,7 +11,9 @@ import {
   PRO_MONTHLY_USD,
   PRO_YEARLY_STRUCK_USD,
   PRO_YEARLY_USD,
+  PRO_SESSION_LIMIT,
   PricingPage,
+  STARTER_SESSION_LIMIT,
   YEARLY_DISCOUNT_LABEL,
 } from './pricing-page';
 
@@ -98,10 +100,11 @@ describe('PricingPage', () => {
     expect(screen.queryByTestId('starter-discount-badge')).toBeNull();
   });
 
-  it('puts the Recommended tag on Pro only', () => {
+  it('puts the Recommended tag on Pro only, as the solid-fill pill', () => {
     render(<PricingPage />);
     const columns = screen.getByTestId('pricing-columns');
     expect(within(columns).getAllByText('Recommended')).toHaveLength(1);
+    expect(screen.getByTestId('pricing-recommended-pill')).toBeDefined();
   });
 
   it('routes every card CTA to the early-access form on the landing page', () => {
@@ -131,9 +134,80 @@ describe('PricingPage', () => {
     }
   });
 
-  it('names the higher-tier footnote without inventing a fourth priced column', () => {
+  it('groups the comparison table by category, mirroring the app rail', () => {
     render(<PricingPage />);
-    expect(screen.getByText(/Councils, Workflows and the Video Editor/i)).toBeDefined();
+    const table = screen.getByTestId('pricing-table');
+    expect(within(table).getByText('Plan basics')).toBeDefined();
+    expect(within(table).getByText('Workspace')).toBeDefined();
+    expect(within(table).getByText('Git & Forge')).toBeDefined();
+    expect(within(table).getByText('Agents')).toBeDefined();
+    expect(within(table).getByText('Limits')).toBeDefined();
+
+    // Every Workspace and Git & Forge item is free on every tier.
+    for (const label of [/^dashboard/i, /^explorer/i, /^issues/i, /^graph/i]) {
+      const row = within(table).getByRole('row', { name: label });
+      for (const cell of within(row).getAllByRole('cell')) {
+        expect(within(cell).getByText('Included', { selector: '.sr-only' })).toBeDefined();
+      }
+    }
+  });
+
+  it('splits the Agents group: paid features gated, local models free everywhere', () => {
+    render(<PricingPage />);
+    const table = screen.getByTestId('pricing-table');
+
+    // Workflows: unchecked for Starter, checked for Pro and Max.
+    const workflowsRow = within(table).getByRole('row', { name: /^workflows/i });
+    const workflowsCells = within(workflowsRow).getAllByRole('cell');
+    expect(within(workflowsCells[0]!).queryByText('Included')).toBeNull();
+    expect(within(workflowsCells[1]!).getByText('Included', { selector: '.sr-only' })).toBeDefined();
+    expect(within(workflowsCells[2]!).getByText('Included', { selector: '.sr-only' })).toBeDefined();
+
+    // Same split for Councils and the Video Editor.
+    for (const name of [/^councils/i, /^video editor/i]) {
+      const row = within(table).getByRole('row', { name });
+      const rowCells = within(row).getAllByRole('cell');
+      expect(within(rowCells[0]!).queryByText('Included')).toBeNull();
+      expect(within(rowCells[1]!).getByText('Included', { selector: '.sr-only' })).toBeDefined();
+      expect(within(rowCells[2]!).getByText('Included', { selector: '.sr-only' })).toBeDefined();
+    }
+
+    // Local models (Ollama): checked for all three tiers.
+    const localModelsRow = within(table).getByRole('row', { name: /local models/i });
+    for (const cell of within(localModelsRow).getAllByRole('cell')) {
+      expect(within(cell).getByText('Included', { selector: '.sr-only' })).toBeDefined();
+    }
+  });
+
+  it('shows the live-agent session limits per tier, with terminals unlimited everywhere', () => {
+    render(<PricingPage />);
+    const table = screen.getByTestId('pricing-table');
+
+    const sessionsRow = within(table).getByRole('row', { name: /live agent sessions/i });
+    const sessionCells = within(sessionsRow).getAllByRole('cell');
+    expect(sessionCells[0]!.textContent).toContain(String(STARTER_SESSION_LIMIT));
+    expect(sessionCells[1]!.textContent).toContain(String(PRO_SESSION_LIMIT));
+    expect(sessionCells[2]!.textContent).toMatch(/unlimited/i);
+
+    const terminalsRow = within(table).getByRole('row', { name: /^terminals/i });
+    for (const cell of within(terminalsRow).getAllByRole('cell')) {
+      expect(cell.textContent).toMatch(/unlimited/i);
+    }
+  });
+
+  it('foots the table with a RAM-bounded concurrency note', () => {
+    render(<PricingPage />);
+    expect(screen.getByText(/bounded by its RAM/i)).toBeDefined();
+  });
+
+  it('renders a pricing-specific FAQ section after the comparison table', () => {
+    render(<PricingPage />);
+    const table = screen.getByTestId('pricing-table');
+    const faq = document.getElementById('pricing-faq');
+    expect(faq).not.toBeNull();
+    const position = table.compareDocumentPosition(faq!);
+    expect(Boolean(position & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(within(faq as HTMLElement).getAllByText(/per seat/i).length).toBeGreaterThan(0);
   });
 
   it('renders the site footer, and the very same component the registry does', () => {

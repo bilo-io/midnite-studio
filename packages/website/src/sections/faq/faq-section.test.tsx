@@ -159,4 +159,26 @@ describe('<Faq>', () => {
       expect(panel(FAQ[0]!.slug).textContent).toContain(paragraph);
     }
   });
+
+  /**
+   * The reuse this component exists for: `pages/pricing-page.tsx` renders a
+   * second `<Faq>` with its own list and a distinct `id`, rather than
+   * duplicating the tablist/cross-fade markup. Covered here rather than
+   * only through the pricing page's own tests, since this is the contract
+   * the prop surface has to hold.
+   */
+  it('renders a custom entries list under a custom id, defaulting to that list\'s first slug', () => {
+    const entries = [
+      { slug: 'one', question: 'Question one?', answer: ['Answer one.'] },
+      { slug: 'two', question: 'Question two?', answer: ['Answer two.'] },
+    ];
+    render(<Faq entries={entries} id="custom-faq" heading="Custom heading" />);
+
+    expect(document.getElementById('custom-faq')).not.toBeNull();
+    expect(screen.getAllByText('Custom heading').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('faq-tab-one').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('faq-panel-one').dataset.selected).toBe('true');
+    fireEvent.click(screen.getByTestId('faq-tab-two'));
+    expect(screen.getByTestId('faq-panel-two').dataset.selected).toBe('true');
+  });
 });

@@ -122,11 +122,15 @@ export const faqFragment = (slug: string): string => `faq-${slug}`;
  * Which entry a URL fragment selects, or `null` for one that names none.
  *
  * Tolerates a leading `#` because both `location.hash` (which carries one) and a
- * hand-written call site (which usually does not) reach this.
+ * hand-written call site (which usually does not) reach this. `entries`
+ * defaults to the landing page's own `FAQ` so every existing call site
+ * (including this file's own use elsewhere) is unaffected; `faq-section.tsx`
+ * passes its own list for a page — like pricing — that renders a different
+ * one.
  */
-export const faqSlugFromHash = (hash: string): string | null => {
+export const faqSlugFromHash = (hash: string, entries: readonly FaqEntry[] = FAQ): string | null => {
   const bare = hash.replace(/^#/, '');
   if (!bare.startsWith('faq-')) return null;
   const slug = bare.slice('faq-'.length);
-  return FAQ.some((entry) => entry.slug === slug) ? slug : null;
+  return entries.some((entry) => entry.slug === slug) ? slug : null;
 };
