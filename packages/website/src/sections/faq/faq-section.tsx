@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { LuChevronRight, LuExternalLink } from 'react-icons/lu';
 
 import { Eyebrow, Heading, Lede, Reveal, Section } from '../../components';
@@ -74,6 +75,18 @@ const AnswerBody = ({ entry, lane }: { entry: FaqEntry; lane: number }) => (
   </>
 );
 
+export type FaqSectionProps = {
+  /** The list to render. Defaults to the landing page's own `FAQ`. */
+  entries?: readonly FaqEntry[];
+  /** The anchor id — also the registry key on the landing page's own instance. */
+  id?: string;
+  /** The `<section>`'s accessible label. Defaults to `id`. */
+  label?: string;
+  eyebrow?: ReactNode;
+  heading?: ReactNode;
+  lede?: ReactNode;
+};
+
 /**
  * The FAQ: a sticky list of questions on the left, one answer panel on the
  * right that cross-fades between them.
@@ -107,26 +120,40 @@ const AnswerBody = ({ entry, lane }: { entry: FaqEntry; lane: number }) => (
  * so the address bar is always copyable, without eight history entries
  * accumulating behind the Back button or the browser re-scrolling the page to
  * an anchor it thinks it has just been sent to.
+ *
+ * **Reused, not landing-page-only.** `entries`/`id`/`eyebrow`/`heading`/`lede`
+ * all default to the landing page's own values, so every existing call site —
+ * `<Faq />`, no props — is unchanged. `pages/pricing-page.tsx` is the second
+ * caller: same tablist/cross-fade pattern, a pricing-specific list and a
+ * distinct `id` so both can render in the same build with no anchor
+ * collision (they are on different pages and never both mounted at once).
  */
-export const Faq = () => {
+export const Faq = ({
+  entries = FAQ,
+  id = 'faq',
+  label,
+  eyebrow = 'Questions',
+  heading = 'The honest answers',
+  lede = 'Including the ones with no good news in them: what it does not run on, what is not open source, and what has not been decided yet.',
+}: FaqSectionProps = {}) => {
   const [selected, setSelected] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const fromHash = faqSlugFromHash(window.location.hash);
+      const fromHash = faqSlugFromHash(window.location.hash, entries);
       if (fromHash) return fromHash;
     }
-    return FAQ[0]!.slug;
+    return entries[0]!.slug;
   });
 
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     const onHashChange = () => {
-      const slug = faqSlugFromHash(window.location.hash);
+      const slug = faqSlugFromHash(window.location.hash, entries);
       if (slug) setSelected(slug);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  }, [entries]);
 
   /**
    * Select by index, move focus with it, and record it in the URL.
@@ -137,38 +164,38 @@ export const Faq = () => {
    * wrapped because a `file://` document and some embedded contexts throw on
    * it, and a FAQ that cannot be deep-linked is still a working FAQ.
    */
-  const select = useCallback((index: number, moveFocus: boolean) => {
-    const entry = FAQ[index];
-    if (!entry) return;
-    setSelected(entry.slug);
-    if (moveFocus) tabRefs.current.get(entry.slug)?.focus();
-    if (typeof window !== 'undefined' && window.history?.replaceState) {
-      try {
-        window.history.replaceState(null, '', `#${faqFragment(entry.slug)}`);
-      } catch {
-        /* Deep-linking is a nicety; losing it must not break selection. */
+  const select = useCallback(
+    (index: number, moveFocus: boolean) => {
+      const entry = entries[index];
+      if (!entry) return;
+      setSelected(entry.slug);
+      if (moveFocus) tabRefs.current.get(entry.slug)?.focus();
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        try {
+          window.history.replaceState(null, '', `#${faqFragment(entry.slug)}`);
+        } catch {
+          /* Deep-linking is a nicety; losing it must not break selection. */
+        }
       }
-    }
-  }, []);
+    },
+    [entries],
+  );
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const next = nextFaqIndex(event.key, index, FAQ.length);
+    const next = nextFaqIndex(event.key, index, entries.length);
     if (next === null) return;
     event.preventDefault();
     select(next, true);
   };
 
   return (
-    <Section id="faq" label="FAQ">
+    <Section id={id} label={label}>
       <div className="flex flex-col gap-4">
-        <Eyebrow>Questions</Eyebrow>
+        <Eyebrow>{eyebrow}</Eyebrow>
         <Heading level={2} typeIn>
-          The honest answers
+          {heading}
         </Heading>
-        <Lede typeIn>
-          Including the ones with no good news in them: what it does not run on, what is not
-          open source, and what has not been decided yet.
-        </Lede>
+        <Lede typeIn>{lede}</Lede>
       </div>
 
       <div className="mt-12 grid gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-12">
@@ -185,7 +212,7 @@ export const Faq = () => {
           data-testid="faq-tablist"
           className="flex flex-col gap-1.5 self-start lg:sticky lg:top-24"
         >
-          {FAQ.map((entry, index) => {
+          {entries.map((entry, index) => {
             const isSelected = entry.slug === selected;
             const lane = index % LANE_BORDER.length;
             return (
@@ -233,7 +260,7 @@ export const Faq = () => {
         */}
         <Reveal>
           <div className="grid">
-            {FAQ.map((entry, index) => {
+            {entries.map((entry, index) => {
               const isSelected = entry.slug === selected;
               return (
                 <div
