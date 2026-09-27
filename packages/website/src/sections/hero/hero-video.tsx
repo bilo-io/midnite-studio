@@ -14,7 +14,7 @@ const VIDEO_POSTER = 'video/hero-poster.jpg';
 /**
  * The product clip, and the poster it degrades to.
  *
- * `public/video/hero.{webm,mp4}` **is committed** — see `public/video/README.md`
+ * `public/video/hero.mp4` **is committed** — see `public/video/README.md`
  * for the source and the encode commands. It was not always: this element
  * shipped for a while with an empty `public/video/`, so every visitor silently
  * got the `error`-triggered fallback below instead of a video, which is what
@@ -38,6 +38,12 @@ const VIDEO_POSTER = 'video/hero-poster.jpg';
  * `useResolvedTheme()`'s `system` branch does.
  * `autoplay muted loop playsinline` is the only combination browsers will
  * start without a gesture, and `muted` is not negotiable for that reason.
+ *
+ * **MP4 (H.264) only, no WebM.** Both VP9 WebMs this site shipped failed in
+ * Chrome on macOS with `PIPELINE_ERROR_DECODE` — and a *decode* error never falls
+ * through to the next `<source>` (only an unsupported type or a network error
+ * does), so a WebM listed first took the working MP4 down with it. H.264 plays
+ * in every browser the site targets, so one source is also the simpler contract.
  */
 export const HeroVideo = ({ className = '' }: HeroVideoProps) => {
   const [failed, setFailed] = useState(false);
@@ -119,7 +125,6 @@ export const HeroVideo = ({ className = '' }: HeroVideoProps) => {
       onError={() => setFailed(true)}
       aria-label="Midnite Studio in use: the commit graph, the worktree sidebar and the integrated terminal."
     >
-      <source src={assetHref('video/hero.webm')} type="video/webm" onError={() => setFailed(true)} />
       <source src={assetHref('video/hero.mp4')} type="video/mp4" onError={() => setFailed(true)} />
     </video>
   );
