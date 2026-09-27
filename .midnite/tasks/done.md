@@ -203,6 +203,11 @@ when it fails" bullets.
       anyway — state set/merge/append plus the byte-cap breach, retry backoff with the
       injected clock, and the http idempotency gate.
 
+## 2026-09-27 — Phase 46 — The lock screen, and a motion policy that holds
+
+[Phase 46](phases/phase-46-lock-screen-and-motion.md) marked ✅ DONE (55/55 items verified).
+Lock screen overhaul and unified motion policy across renderer: keyless Open-Meteo weather widget in top-centre slot with stored city location and unmount-gated query lifecycle; battery widget integration in bottom-right slot reusing metrics sample with laptop-presence gating; interactive navigating pills with keyboard focus rings (`focus-visible:ring-2`), Enter activation, and passcode pad deferral (`onUnlock`/`onCancel`); corner layout slot map data structure; motion policy audit unifying on `@media (prefers-reduced-motion: reduce) { html:not([data-motion='full']) … }` dialect and eliminating duplicate `@keyframes pill-shimmer`; canvas rAF loop motion gating in `NeuroCloudBackground`; CI-enforced motion guard test harness (`styles-motion-guards.ts`, `styles-motion-guards.test.ts`) preventing unguarded keyframes or duplicated animation declarations; Playwright screenshot suite (`lock-screen-shots.spec.ts`) across motion modes and themes; and e2e verification (`lock-screen-widgets.spec.ts`) for keyboard navigation and reduced-motion animation cancellation.
+
 ## 2026-09-26 — Phase 45 — The leak audit
 
 [Phase 45](phases/phase-45-leak-audit.md) marked ✅ DONE (35/35 items verified).

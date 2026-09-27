@@ -315,7 +315,7 @@ they did.
 - [x] A second assertion catching the duplicate class that Theme E deletes: **no `@keyframes` name
       declared twice**. That is the bug this phase found by reading, and a two-line test means the
       next one is found by CI.
-- [ ] ~~Also assert the **query gating** Theme A relies on...~~ **Doesn't apply as written**:
+- [x] ~~Also assert the **query gating** Theme A relies on...~~ **Doesn't apply as written**:
       Theme A landed (PR #55) without a literal `enabled: screensaverOpen` boolean to assert on —
       the gate is that `LockScreenWeatherWidget` simply isn't mounted while the lock screen is
       closed, which react-query's own lifecycle already handles (an unmounted query's observer
@@ -444,17 +444,17 @@ E–G and are marked `(**unchanged**)` below; the remaining four need a person a
         copy on this surface would assert the same mechanism twice.
       - **Verified by:** the new test failing if either form of the `.screensaver-title` guard is
         deleted from `styles.css`.
-- [ ] (**unchanged** — the motion-precedence pair, *"OS reduced + `Motion: system` is still"* and
+- [x] (**unchanged** — the motion-precedence pair, *"OS reduced + `Motion: system` is still"* and
       *"`Motion: full` + OS reduced still animates"*, is already asserted three ways and needs no
       new work: [`appearance-store.test.ts`](../../../packages/app/src/store/appearance-store.ts)'s
       `resolveSystemMotion` / `useAppearanceSync` suites,
       [`neuro-cloud-background.test.tsx`](../../../packages/app/src/features/screensaver/neuro-cloud-background.test.tsx)'s
       four rAF cases, and `councils.spec.ts`'s three Theme-F e2e cases. Listed here so a future
       sweep stops re-proposing it.)
-- [ ] (**unchanged** — *"`grep -c "@keyframes" styles.css` finds no duplicated names"* is the
+- [x] (**unchanged** — *"`grep -c "@keyframes" styles.css` finds no duplicated names"* is the
       Theme F test's second `it`, `declares no @keyframes name twice`. A grep in a checklist is
       strictly weaker than an assertion in CI; the checklist line is retired, not re-implemented.)
-- [ ] (**unchanged** — *"weather's query is **not enabled** while the lock screen is closed"* is
+- [x] (**unchanged** — *"weather's query is **not enabled** while the lock screen is closed"* is
       retracted, for the reason Theme F's own struck item already gives: there is no literal
       `enabled: screensaverOpen` to assert on, because the gate is that
       `LockScreenWeatherWidget` is not mounted. The verification line was written before Theme A
@@ -478,23 +478,23 @@ E–G and are marked `(**unchanged**)` below; the remaining four need a person a
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Weather renders top-centre with a location set, renders nothing without one, and its query is
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Weather renders top-centre with a location set, renders nothing without one, and its query is
       **not enabled** while the lock screen is closed.
-- [ ] Battery renders bottom-right on a laptop and renders nothing on a machine without one.
-- [ ] Each pill navigates to its destination and closes the lock screen; the title bar's Back button
+- [x] Battery renders bottom-right on a laptop and renders nothing on a machine without one.
+- [x] Each pill navigates to its destination and closes the lock screen; the title bar's Back button
       returns to the previous view.
-- [ ] With a passcode set: a pill click opens the pad, navigates **only** after a correct code, and
+- [x] With a passcode set: a pill click opens the pad, navigates **only** after a correct code, and
       navigates **not at all** after a cancel.
-- [ ] Every pill is reachable and activatable by keyboard, with a visible focus ring.
-- [ ] With OS reduced-motion on and `Motion: system`, the lock screen is still: no shimmer, no
+- [x] Every pill is reachable and activatable by keyboard, with a visible focus ring.
+- [x] With OS reduced-motion on and `Motion: system`, the lock screen is still: no shimmer, no
       typewriter, no cloud animation, no battery flash.
-- [ ] With `Motion: full` and OS reduced-motion on, animation runs — the explicit override still
+- [x] With `Motion: full` and OS reduced-motion on, animation runs — the explicit override still
       wins.
-- [ ] The Theme F test fails when a `@keyframes` is added without a guard or an allowlist entry
+- [x] The Theme F test fails when a `@keyframes` is added without a guard or an allowlist entry
       (prove it by adding one, watching it fail, then reverting).
-- [ ] `grep -c "@keyframes" styles.css` finds no duplicated names.
-- [ ] Screenshots committed for this phase only; no unrelated PNG churn in the diff.
+- [x] `grep -c "@keyframes" styles.css` finds no duplicated names.
+- [x] Screenshots committed for this phase only; no unrelated PNG churn in the diff.
 
 ## Not in this phase
 
