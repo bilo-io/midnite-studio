@@ -268,6 +268,8 @@ describe('OllamaSettingsPage — install a model', () => {
 
     const input = await screen.findByRole('combobox', { name: /install a model/i });
     await waitFor(() => expect((input as HTMLInputElement).disabled).toBe(true));
-    expect(screen.getByText(/start ollama/i)).toBeTruthy();
+    // default-model-row shows its own "Start Ollama … to list installed models" line when
+    // unreachable, so match this row's specific wording rather than the shared prefix.
+    expect(screen.getByText(/start ollama.*to pull models/i)).toBeTruthy();
   });
 });
