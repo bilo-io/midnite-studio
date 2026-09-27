@@ -58,7 +58,13 @@ const bigDiff = {
   droppedLines: 0,
 };
 
-async function openBigDiff(page: Page): Promise<void> {
+/**
+ * Open the big diff — in the graph's inspector dock by default, or, with
+ * `inTab`, in the commit's full-width workbench tab. SPLIT needs the tab: the
+ * dock is capped below `DIFF_SPLIT_MIN_WIDTH`, so its split toggle is disabled
+ * by design (see `diff-view.spec.ts`'s `openCommitInTab`).
+ */
+async function openBigDiff(page: Page, { inTab = false } = {}): Promise<void> {
   const { installMockBridge } = await import('../test-support/mock-bridge');
   await installMockBridge(page, {
     ...fixtures,
@@ -67,6 +73,16 @@ async function openBigDiff(page: Page): Promise<void> {
   await page.goto('/');
 
   await page.getByText('feat(phase-11): package, install and run from /Applications').click();
+  if (inTab) {
+    await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
+
+    // Hover first: the rail's hover-expand reflow moves a collapsed link out
+    // from under a synthetic click (`diff-view.spec.ts`, `changes-panel.spec.ts`).
+    const link = page.getByRole('link', { name: 'Changes' });
+    await link.hover();
+    await expect(link.getByText('Changes', { exact: true })).toBeVisible();
+    await link.click();
+  }
   await page.getByRole('button', { name: /pnpm-lock\.yaml/ }).click();
   await expect(page.getByTestId('diff-view')).toBeVisible();
 }
@@ -100,11 +116,11 @@ test('a 4000-line diff still mounts a windowed handful of rows', async ({ page }
 */
 
 test('a 4000-line diff in split mode stays windowed and bounded', async ({ page }) => {
-  await openBigDiff(page);
+  await openBigDiff(page, { inTab: true });
 
-  // Toggle split mode
-  const splitToggle = page.getByRole('button', { name: 'Switch to side-by-side diff' });
-  await splitToggle.click();
+  await page.getByRole('button', { name: 'Switch to side-by-side diff' }).click();
+  // Prove the layout really switched, so the row count below is SPLIT's.
+  await expect(page.getByRole('button', { name: 'Switch to unified diff' })).toBeVisible();
 
   const mounted = await renderedRows(page);
   expect(mounted).toBeGreaterThan(0);
