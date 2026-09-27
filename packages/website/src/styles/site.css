@@ -1644,11 +1644,16 @@ html[data-page-hidden='true'] [class*='ws-pricing-'] {
     element instead of the `<th>` itself is the same defensive move for the
     same reason — a `<table>`'s background painting is its own code path,
     and this sidesteps it rather than depending on it animating correctly.
-    `.ws-pricing-pro-header` only supplies the containing block.
+
+    There is deliberately no `.ws-pricing-pro-header { position: relative }`
+    rule here any more — see `ProHeaderCell`'s own comment in
+    `pricing-page.tsx`. The `<th>`'s own `sticky` utility already supplies
+    the containing block the inner `absolute inset-0` span needs; a second,
+    same-layer rule setting `position: relative` on top of it won the
+    cascade by source order and silently turned the cell's *own* position
+    back from `sticky` to `relative`, which both broke its stickiness and
+    (with `top: 4rem` still applying) knocked it 4rem below its siblings.
   */
-  .ws-pricing-pro-header {
-    position: relative;
-  }
 }
 
 @keyframes ws-pricing-label-pulse {

@@ -10,18 +10,36 @@ import { anchorHref } from '../routes';
 import { Footer } from '../sections/footer/footer';
 
 /**
- * Published prices — the settled figures (three tiers, a 17% yearly
- * discount). Starter has no numeric price; the other five constants below
- * are what `priceFor` reads to build every price shown on the page, in both
- * billing modes, so a figure changes in exactly one place.
+ * Published prices — the settled figures (three tiers, a ~17% yearly
+ * discount). Starter has no numeric price; the four constants below are
+ * what `priceFor` reads to build every price shown on the page, in both
+ * billing modes, so a figure changes in exactly one place. The yearly
+ * figure is the *total billed once a year* ($60, $100) — `priceFor` divides
+ * it by twelve to get the effective-monthly headline Yearly mode shows
+ * ($5/mo, $8.33/seat/mo), it is never a second, independently-set constant.
  */
-export const PRO_MONTHLY_USD = 5;
-export const PRO_YEARLY_USD = 50;
-export const PRO_YEARLY_STRUCK_USD = 60;
+export const PRO_MONTHLY_USD = 6;
+export const PRO_YEARLY_USD = 60;
 export const MAX_MONTHLY_USD = 10;
 export const MAX_YEARLY_USD = 100;
-export const MAX_YEARLY_STRUCK_USD = 120;
-export const YEARLY_DISCOUNT_LABEL = '-17%';
+
+/** `$6` stays bare; `$8.33` (100 / 12) gets two decimal places. */
+const formatUsd = (amount: number): string =>
+  Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
+
+/** The yearly total's per-month equivalent — what Yearly mode headlines. */
+const effectiveMonthlyUsd = (yearlyUsd: number): number => yearlyUsd / 12;
+
+/**
+ * The percentage saved paying yearly instead of twelve months at the
+ * monthly rate, rounded to a whole number — never a hard-coded string.
+ * Pro (72 -> 60) and Max (120 -> 100) both land on 17%, so one badge label
+ * serves both; computed from Pro's own figures, not restated for Max.
+ */
+const yearlyDiscountPercent = (monthlyUsd: number, yearlyUsd: number): number =>
+  Math.round((1 - yearlyUsd / (monthlyUsd * 12)) * 100);
+
+export const YEARLY_DISCOUNT_LABEL = `-${yearlyDiscountPercent(PRO_MONTHLY_USD, PRO_YEARLY_USD)}%`;
 
 /**
  * The live-agent-session ceiling per tier, and the one limit that does not
@@ -84,23 +102,40 @@ const TIERS: readonly TierColumn[] = [
 ];
 
 type PriceDisplay = {
+  /** The big headline figure — "Free", "$6", or (Yearly) the effective "$5". */
   price: string;
-  period: string;
-  /** The pre-discount figure, struck through — yearly only, paid tiers only. */
+  /**
+   * Glued directly to `price` with no gap ("$5" + "/mo" reads as "$5/mo") —
+   * paid tiers only.
+   */
+  suffix?: string;
+  /** A loose, gapped word after the price — Starter's "forever" only. */
+  period?: string;
+  /** The monthly price, struck through — shown only in Yearly mode. */
   struck?: string;
+  /** "billed annually ($60/yr)" — Yearly mode, paid tiers only. */
+  finePrint?: string;
 };
 
 /** Every price shown on the page, for one tier in one billing mode. */
 const priceFor = (tier: TierId, billing: BillingPeriod): PriceDisplay => {
   if (tier === 'starter') return { price: 'Free', period: 'forever' };
-  if (tier === 'pro') {
-    return billing === 'yearly'
-      ? { price: `$${PRO_YEARLY_USD}`, period: 'per year', struck: `$${PRO_YEARLY_STRUCK_USD}` }
-      : { price: `$${PRO_MONTHLY_USD}`, period: 'per month' };
+
+  const monthlyUsd = tier === 'pro' ? PRO_MONTHLY_USD : MAX_MONTHLY_USD;
+  const yearlyUsd = tier === 'pro' ? PRO_YEARLY_USD : MAX_YEARLY_USD;
+  const suffix = tier === 'max' ? '/seat/mo' : '/mo';
+
+  if (billing === 'monthly') {
+    return { price: formatUsd(monthlyUsd), suffix };
   }
-  return billing === 'yearly'
-    ? { price: `$${MAX_YEARLY_USD}`, period: 'per seat / year', struck: `$${MAX_YEARLY_STRUCK_USD}` }
-    : { price: `$${MAX_MONTHLY_USD}`, period: 'per seat / month' };
+
+  const perSeat = tier === 'max' ? '/seat' : '';
+  return {
+    price: formatUsd(effectiveMonthlyUsd(yearlyUsd)),
+    suffix,
+    struck: formatUsd(monthlyUsd),
+    finePrint: `billed annually (${formatUsd(yearlyUsd)}${perSeat}/yr)`,
+  };
 };
 
 /** A comparison-table cell: a plain include/exclude flag, or a literal value (a limit). */
@@ -275,6 +310,14 @@ const BillingToggle = ({
 /**
  * The "Recommended" pill on the Pro card.
  *
+ * Straddles the card's top edge, centred — `left-1/2 top-0` anchors its own
+ * top-left corner to the card's top-centre point, and `-translate-x-1/2
+ * -translate-y-1/2` (percentages of the pill's *own* box, not the card's)
+ * slide it left by half its width and up by half its height, so exactly
+ * half sits above the border and half below it. That only reads correctly
+ * if the card never clips it — see `ws-pricing-pro-card`'s own comment in
+ * `site.css` and `overflow-visible` on the Pro `GlowCard` below.
+ *
  * A solid, fixed-dark backdrop — never a translucent wash — ringed by a
  * conic-gradient border that rotates through the site's shared `--ws-angle`
  * custom property (`site.css`), with a blurred copy of the same gradient
@@ -287,7 +330,7 @@ const BillingToggle = ({
 const RecommendedPill = () => (
   <span
     data-testid="pricing-recommended-pill"
-    className="ws-pricing-pill absolute -top-3 left-6 inline-flex items-center px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white"
+    className="ws-pricing-pill absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 inline-flex items-center px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white"
   >
     <span className="relative">Recommended</span>
   </span>
@@ -302,7 +345,7 @@ const TierCard = ({
   billing: BillingPeriod;
   index: number;
 }) => {
-  const { price, period, struck } = priceFor(tier.id, billing);
+  const { price, suffix, period, struck, finePrint } = priceFor(tier.id, billing);
   const isPro = tier.id === 'pro';
   const isMax = tier.id === 'max';
   const showDiscountBadge = billing === 'yearly' && tier.id !== 'starter';
@@ -314,7 +357,12 @@ const TierCard = ({
         interactive={tier.recommended}
         className={[
           'relative flex h-full flex-col',
-          isPro ? 'ws-pricing-pro-card ring-1 ring-white/30' : '',
+          // The Recommended pill straddles this card's top border, so the
+          // card itself must never clip it — GlowCard's own default is
+          // already `overflow: visible` (only `bare` opts into hidden), but
+          // this is stated explicitly on the one card that depends on it
+          // rather than relying on a default nothing here names.
+          isPro ? 'ws-pricing-pro-card overflow-visible ring-1 ring-white/30' : '',
           isMax ? 'ws-pricing-invert' : '',
         ]
           .filter(Boolean)
@@ -337,10 +385,16 @@ const TierCard = ({
               {struck}
             </span>
           ) : null}
-          <span
-            className={`font-mono text-4xl font-semibold tracking-tight ${isPro ? 'text-white' : 'text-fg'}`}
-          >
-            {price}
+          {/* No gap between the figure and its suffix — "$5" + "/mo" reads as one "$5/mo". */}
+          <span className="flex items-baseline">
+            <span
+              className={`font-mono text-4xl font-semibold tracking-tight ${isPro ? 'text-white' : 'text-fg'}`}
+            >
+              {price}
+            </span>
+            {suffix ? (
+              <span className={`text-sm ${isPro ? 'text-white/70' : 'text-fg-muted'}`}>{suffix}</span>
+            ) : null}
           </span>
           {period ? (
             <span className={`text-sm ${isPro ? 'text-white/70' : 'text-fg-muted'}`}>{period}</span>
@@ -358,6 +412,14 @@ const TierCard = ({
             </span>
           ) : null}
         </div>
+        {finePrint ? (
+          <p
+            data-testid={`${tier.id}-fine-print`}
+            className={`mt-1 text-xs ${isPro ? 'text-white/60' : 'text-fg-subtle'}`}
+          >
+            {finePrint}
+          </p>
+        ) : null}
 
         <ul className="mt-6 flex-1 space-y-3">
           {tier.features.map((feature) => (
@@ -396,11 +458,27 @@ const TierCard = ({
  * to anchor correctly — the same family of table-specific quirk this
  * sidesteps by moving the animated surface off the cell entirely and onto a
  * plain positioned element inside it.
+ *
+ * **No extra `position: relative` class here** — an earlier version added
+ * `.ws-pricing-pro-header` (`site.css`) purely to give the inner `absolute
+ * inset-0` span a containing block, reasoning it needed one of its own.
+ * It didn't: this `<th>` already carries Tailwind's `sticky` utility
+ * (`position: sticky`), which establishes a containing block for
+ * absolutely-positioned descendants exactly like `relative` does — sticky
+ * is "non-static" too. The extra class was not just redundant, it actively
+ * broke the header: `.ws-pricing-pro-header` lived in the same
+ * `@layer utilities` as Tailwind's own utilities but later in the generated
+ * stylesheet, so its `position: relative` won the cascade over `.sticky`'s
+ * `position: sticky` for this one cell only. With `top: 4rem` still applying
+ * to a `position: relative` box, the Pro header rendered 4rem (64px) lower
+ * than its three siblings — reading as its own row — while the other three
+ * `<th>`s, untouched by that class, stayed sticky and aligned. Dropping the
+ * class fixes both: one shared row, and a `<th>` that can actually stick.
  */
 const ProHeaderCell = () => (
   <th
     scope="col"
-    className="ws-pricing-pro-header sticky top-16 z-10 px-2 py-3 text-center font-semibold text-white sm:px-4"
+    className="sticky top-16 z-10 px-2 py-3 text-center font-semibold text-white sm:px-4"
   >
     <span aria-hidden="true" className="ws-pricing-pro-card absolute inset-0" />
     <span className="relative">Pro</span>
@@ -600,6 +678,24 @@ export const PricingPage = () => {
     <>
       <SiteNav offLanding />
       <main>
+        {/*
+          This wrapper stops at the tier cards, on purpose — it used to run
+          all the way through the comparison table below. `overflow-hidden`
+          only exists here to clip the radial-gradient backdrop to the hero,
+          but `overflow` accepts no "hidden on this axis, visible on that
+          one" answer for what a `position: sticky` descendant sticks
+          to: *any* ancestor whose `overflow` is not `visible` becomes that
+          descendant's scroll container, even one like this that never
+          actually scrolls because it is sized to its own content. With the
+          table's sticky header inside it, the header's containing block was
+          this static, non-scrolling box rather than the real page-scrolling
+          viewport, so it never actually stuck while the page scrolled —
+          `#582`/`#586` fixed the table's own `overflow-x` wrapper (see the
+          comment on `ComparisonTable` below) but missed this ancestor.
+          Ending the hero wrapper before the comparison section, rather than
+          stripping `overflow-hidden` from it, keeps the backdrop clipped to
+          the area it was drawn for.
+        */}
         <div className="relative isolate overflow-hidden">
           <div
             aria-hidden="true"
@@ -644,19 +740,21 @@ export const PricingPage = () => {
                 <TierCard key={tier.id} tier={tier} billing={billing} index={index} />
               ))}
             </div>
-
-            <div className="mt-16">
-              <Heading level={2} className="text-center">
-                Compare every tier
-              </Heading>
-              <ComparisonTable />
-              <p className="mx-auto mt-4 max-w-prose text-center text-sm leading-relaxed text-fg-subtle">
-                Live agent session counts are the product's own ceiling — the practical limit on any
-                one machine is also bounded by its RAM, whichever number is lower.
-              </p>
-            </div>
           </Container>
         </div>
+
+        <Container className="pb-12">
+          <div className="mt-16">
+            <Heading level={2} className="text-center">
+              Compare every tier
+            </Heading>
+            <ComparisonTable />
+            <p className="mx-auto mt-4 max-w-prose text-center text-sm leading-relaxed text-fg-subtle">
+              Live agent session counts are the product's own ceiling — the practical limit on any
+              one machine is also bounded by its RAM, whichever number is lower.
+            </p>
+          </div>
+        </Container>
 
         <Faq
           entries={PRICING_FAQ}

@@ -6,16 +6,20 @@ import { SECTIONS } from '../sections/registry';
 
 import {
   MAX_MONTHLY_USD,
-  MAX_YEARLY_STRUCK_USD,
   MAX_YEARLY_USD,
   PRO_MONTHLY_USD,
-  PRO_YEARLY_STRUCK_USD,
   PRO_YEARLY_USD,
   PRO_SESSION_LIMIT,
   PricingPage,
   STARTER_SESSION_LIMIT,
   YEARLY_DISCOUNT_LABEL,
 } from './pricing-page';
+
+/** Yearly total / 12, formatted the same way `pricing-page.tsx`'s own `formatUsd` does. */
+const effectiveMonthly = (yearlyUsd: number): string => {
+  const amount = yearlyUsd / 12;
+  return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
+};
 
 describe('PricingPage', () => {
   beforeEach(() => {
@@ -45,8 +49,6 @@ describe('PricingPage', () => {
     render(<PricingPage />);
     const toggle = screen.getByRole('switch', { name: /toggle monthly or yearly billing/i });
     expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText(`$${PRO_YEARLY_USD}`)).toBeDefined();
-    expect(screen.getByText(`$${MAX_YEARLY_USD}`)).toBeDefined();
   });
 
   it('shows Starter as Free in both billing modes', () => {
@@ -58,25 +60,47 @@ describe('PricingPage', () => {
     expect(within(columns).getByText('Free')).toBeDefined();
   });
 
-  it('shows the yearly prices and struck-through monthly-equivalent figures by default', () => {
-    render(<PricingPage />);
-    expect(screen.getByText(`$${PRO_YEARLY_USD}`)).toBeDefined();
-    expect(screen.getByText(`$${PRO_YEARLY_STRUCK_USD}`)).toBeDefined();
-    expect(screen.getByText(`$${MAX_YEARLY_USD}`)).toBeDefined();
-    expect(screen.getByText(`$${MAX_YEARLY_STRUCK_USD}`)).toBeDefined();
+  it('the -17% badge is derived, and equal for both paid tiers', () => {
+    // $72 -> $60 (Pro) and $120 -> $100 (Max) are both a 16.67% saving,
+    // rounded to the same whole-number badge — not two independent figures.
+    expect(YEARLY_DISCOUNT_LABEL).toBe('-17%');
+    expect(Math.round((1 - PRO_YEARLY_USD / (PRO_MONTHLY_USD * 12)) * 100)).toBe(17);
+    expect(Math.round((1 - MAX_YEARLY_USD / (MAX_MONTHLY_USD * 12)) * 100)).toBe(17);
   });
 
-  it('toggling to monthly updates every price and hides the struck-through figures and badges', () => {
+  it('Yearly headlines the effective monthly price next to the struck-through monthly price, with fine print', () => {
+    render(<PricingPage />);
+    const columns = screen.getByTestId('pricing-columns');
+
+    // Pro: $6 struck, $5/mo headline, "billed annually ($60/yr)" fine print.
+    expect(within(columns).getByText(`$${PRO_MONTHLY_USD}`)).toBeDefined();
+    expect(within(columns).getByText(effectiveMonthly(PRO_YEARLY_USD))).toBeDefined();
+    expect(screen.getByTestId('pro-fine-print').textContent).toBe(
+      `billed annually ($${PRO_YEARLY_USD}/yr)`,
+    );
+
+    // Max: $10 struck, $8.33/seat/mo headline, "billed annually ($100/seat/yr)" fine print.
+    expect(within(columns).getByText(`$${MAX_MONTHLY_USD}`)).toBeDefined();
+    expect(within(columns).getByText(effectiveMonthly(MAX_YEARLY_USD))).toBeDefined();
+    expect(screen.getByTestId('max-fine-print').textContent).toBe(
+      `billed annually ($${MAX_YEARLY_USD}/seat/yr)`,
+    );
+  });
+
+  it('toggling to monthly shows the plain monthly price with no struck-through figure, badge or fine print', () => {
     render(<PricingPage />);
     const toggle = screen.getByRole('switch', { name: /toggle monthly or yearly billing/i });
+    const columns = screen.getByTestId('pricing-columns');
 
     fireEvent.click(toggle);
 
     expect(toggle.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByText(`$${PRO_MONTHLY_USD}`)).toBeDefined();
-    expect(screen.getByText(`$${MAX_MONTHLY_USD}`)).toBeDefined();
-    expect(screen.queryByText(`$${PRO_YEARLY_STRUCK_USD}`)).toBeNull();
-    expect(screen.queryByText(`$${MAX_YEARLY_STRUCK_USD}`)).toBeNull();
+    expect(within(columns).getByText(`$${PRO_MONTHLY_USD}`)).toBeDefined();
+    expect(within(columns).getByText(`$${MAX_MONTHLY_USD}`)).toBeDefined();
+    expect(within(columns).queryByText(effectiveMonthly(PRO_YEARLY_USD))).toBeNull();
+    expect(within(columns).queryByText(effectiveMonthly(MAX_YEARLY_USD))).toBeNull();
+    expect(screen.queryByTestId('pro-fine-print')).toBeNull();
+    expect(screen.queryByTestId('max-fine-print')).toBeNull();
     expect(screen.queryByTestId('yearly-toggle-badge')).toBeNull();
     expect(screen.queryByTestId('pro-discount-badge')).toBeNull();
     expect(screen.queryByTestId('max-discount-badge')).toBeNull();
@@ -107,6 +131,23 @@ describe('PricingPage', () => {
     expect(screen.getByTestId('pricing-recommended-pill')).toBeDefined();
   });
 
+  it('straddles the pill on the Pro card’s top-centre edge, on an overflow-visible card', () => {
+    render(<PricingPage />);
+    const pill = screen.getByTestId('pricing-recommended-pill');
+    // Anchored to the card's top-centre, then pulled back by half its own
+    // box in both axes — half above the border, half inside it.
+    expect(pill.className).toContain('absolute');
+    expect(pill.className).toContain('left-1/2');
+    expect(pill.className).toContain('top-0');
+    expect(pill.className).toContain('-translate-x-1/2');
+    expect(pill.className).toContain('-translate-y-1/2');
+
+    // The Pro card must not clip the half that sits above its border.
+    const card = pill.parentElement;
+    expect(card).not.toBeNull();
+    expect(card!.className).toContain('overflow-visible');
+  });
+
   it('routes every card CTA to the early-access form on the landing page', () => {
     const { container } = render(<PricingPage />);
     const ctas = [...container.querySelectorAll('a[href="/#early-access"]')];
@@ -132,6 +173,52 @@ describe('PricingPage', () => {
     for (const cell of within(publicRepoRow).getAllByRole('cell')) {
       expect(within(cell).getByText('Included', { selector: '.sr-only' })).toBeDefined();
     }
+  });
+
+  /**
+   * Structural regression coverage for two table-header bugs — see
+   * `pricing-page.tsx`'s `ProHeaderCell` comment for the full story. This is
+   * a jsdom/RTL test, not a Playwright one: `packages/website` has no
+   * Playwright harness (it is a plain Vite + vitest/jsdom package, unlike
+   * `packages/app`), so a real-browser check (does the header actually
+   * *look* pinned while scrolling, computed from real layout) was run by
+   * hand against `vite preview` with a throwaway Playwright script and is
+   * described in the PR body, not checked in. What jsdom *can* assert is
+   * the DOM/class shape that caused each bug, so a regression here fails a
+   * test even though the visual symptom needs a real browser to see:
+   *   - all four header `<th>`s are one row, and every one of them (not a
+   *     shared `<thead>`/`<tr>`) individually carries `sticky`;
+   *   - the class that broke the Pro header's `position` (a same-layer
+   *     `position: relative` that raced `.sticky`'s `position: sticky` and
+   *     won by source order) is gone;
+   *   - the table's ancestor chain, up to `<main>`, carries no `overflow`
+   *     utility other than `visible` — any of `hidden`/`auto`/`clip`/`scroll`
+   *     turns that ancestor into `position: sticky`'s containing block
+   *     instead of the real, page-scrolling viewport.
+   */
+  it('keeps every tier header in one sticky row, with no overflow ancestor to break it', () => {
+    render(<PricingPage />);
+    const table = screen.getByTestId('pricing-table');
+    const headerRow = within(table).getAllByRole('row')[0]!;
+    const headers = within(headerRow).getAllByRole('columnheader');
+
+    expect(headers).toHaveLength(4);
+    for (const th of headers) {
+      expect(th.parentElement).toBe(headerRow);
+      expect(th.className).toContain('sticky');
+      expect(th.className).toContain('top-16');
+      // The class that used to fight `.sticky` for `position` on the Pro
+      // header only — must never come back.
+      expect(th.className).not.toContain('ws-pricing-pro-header');
+    }
+
+    const overflowUtilityRe = /(^|\s)overflow(-[xy])?-(hidden|auto|clip|scroll)(\s|$)/;
+    let node: HTMLElement | null = table;
+    while (node && node.tagName !== 'MAIN') {
+      expect(node.className).not.toMatch(overflowUtilityRe);
+      node = node.parentElement;
+    }
+    expect(node?.tagName).toBe('MAIN');
   });
 
   it('groups the comparison table by category, mirroring the app rail', () => {

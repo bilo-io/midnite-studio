@@ -105,7 +105,7 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'pricing',
     question: 'What will it cost?',
     answer: [
-      'Three tiers. Starter is free for public repositories, forever. Pro is $5 a month (or $50 a year) and unlocks private repositories, the one paid boundary in the product. Max is $10 per seat a month (or $100 per seat a year), for a team that wants multiple seats and shared billing.',
+      'Three tiers. Starter is free for public repositories, forever. Pro is $6 a month (or $60 a year, ~17% less) and unlocks private repositories, the one paid boundary in the product. Max is $10 per seat a month (or $100 per seat a year), for a team that wants multiple seats and shared billing.',
       'The build itself is free to download and install regardless of tier, and early access costs nothing but the issue you file to ask for it.',
     ],
     links: [
