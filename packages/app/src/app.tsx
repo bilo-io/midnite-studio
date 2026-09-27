@@ -703,6 +703,20 @@ function Shell() {
   const collapsedNavSections = useUiStore((s) => s.collapsedNavSections);
   const toggleNavSection = useUiStore((s) => s.toggleNavSection);
 
+  useEffect(() => {
+    // When the nav is locked open, override `@bilo-io/shell`'s own
+    // `--nav-offset` (16rem) with the narrower 13rem that matches our CSS
+    // override on the `<aside>` width. Only ever touched for 'expanded':
+    // `AppFrame` runs its own effect on the same `navMode` dependency and
+    // already sets the correct 3.5rem for 'auto'/'collapsed', so clearing
+    // the property here too — as an earlier version of this effect did —
+    // raced that effect and could leave `--nav-offset` unset (not merely
+    // wrong) whenever this one ran last, which is what broke `--nav-offset`
+    // for every non-expanded state, hover-expanded included.
+    if (navMode !== 'expanded') return;
+    document.documentElement.style.setProperty('--nav-offset', '13rem');
+  }, [navMode]);
+
   useDefaultSelection();
   usePruneClosedRepos();
 

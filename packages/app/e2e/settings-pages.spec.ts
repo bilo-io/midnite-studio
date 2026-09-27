@@ -193,7 +193,7 @@ test('the rail pin locks and unlocks, and only the lock shifts the page', async 
   // reload — one store field, seen from two places. The control lives on the
   // Sidebar page (locking the nav is a sidebar decision, not a theme one), so
   // the second view of the field is a page away.
-  expect(await navOffset()).toBe('16rem');
+  expect(await navOffset()).toBe('13rem');
   await expect(page.getByRole('button', { name: 'Unlock navigation' })).toHaveAttribute(
     'aria-pressed',
     'true',

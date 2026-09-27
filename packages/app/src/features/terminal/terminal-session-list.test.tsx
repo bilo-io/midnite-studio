@@ -221,6 +221,9 @@ describe('TerminalSessionList — the row icon wears the activity glow (Phase 95
     const glow = container.querySelector('[data-testid="session-icon-glow"]');
     expect(glow).not.toBeNull();
     expect(glow?.getAttribute('data-activity-status')).toBe('agent');
+    expect(glow?.getAttribute('data-agent-icon')).toBe('true');
+    expect(glow?.classList.contains('terminal-agent-glow')).toBe(true);
+    expect((glow as HTMLElement)?.style.getPropertyValue('--agent-accent')).toBe(claude.accent);
   });
 
   it('a live plain shell row wears the metallic shell ring', () => {
@@ -235,6 +238,8 @@ describe('TerminalSessionList — the row icon wears the activity glow (Phase 95
     const glow = container.querySelector('[data-testid="session-icon-glow"]');
     expect(glow).not.toBeNull();
     expect(glow?.getAttribute('data-activity-status')).toBe('shell');
+    expect(glow?.getAttribute('data-agent-icon')).toBeNull();
+    expect(glow?.classList.contains('terminal-agent-glow')).toBe(false);
   });
 
   it('a waiting agent row wears the waiting ring', () => {
