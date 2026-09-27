@@ -203,6 +203,16 @@ when it fails" bullets.
       anyway — state set/merge/append plus the byte-cap breach, retry backoff with the
       injected clock, and the http idempotency gate.
 
+## 2026-09-27 — Phase 46 — The lock screen, and a motion policy that holds
+
+[Phase 46](phases/phase-46-lock-screen-and-motion.md) marked ✅ DONE (55/55 items verified).
+Lock screen overhaul and unified motion policy across renderer: keyless Open-Meteo weather widget in top-centre slot with stored city location and unmount-gated query lifecycle; battery widget integration in bottom-right slot reusing metrics sample with laptop-presence gating; interactive navigating pills with keyboard focus rings (`focus-visible:ring-2`), Enter activation, and passcode pad deferral (`onUnlock`/`onCancel`); corner layout slot map data structure; motion policy audit unifying on `@media (prefers-reduced-motion: reduce) { html:not([data-motion='full']) … }` dialect and eliminating duplicate `@keyframes pill-shimmer`; canvas rAF loop motion gating in `NeuroCloudBackground`; CI-enforced motion guard test harness (`styles-motion-guards.ts`, `styles-motion-guards.test.ts`) preventing unguarded keyframes or duplicated animation declarations; Playwright screenshot suite (`lock-screen-shots.spec.ts`) across motion modes and themes; and e2e verification (`lock-screen-widgets.spec.ts`) for keyboard navigation and reduced-motion animation cancellation.
+
+## 2026-09-26 — Phase 45 — The leak audit
+
+[Phase 45](phases/phase-45-leak-audit.md) marked ✅ DONE (35/35 items verified).
+Memory retention audit and leak remediation across `packages/desktop` main process and terminal broker: repeatable retention harness (`scripts/perf/memory-report.mjs` attaching CDP via `electron-run.mjs`, with `retainedPerCycleKb` budget in `budgets.json`) measuring main, renderer, and broker slopes independently; systematic retention sweep of all 35 module-level collections in desktop; terminal broker scrollback leak remediation (`scrollbackBySession` pruned on session exit/kill, `ControlMessage` protocol extensions, and reconcile-on-reconnect backstop); memory capping for run history stores (`council-service.ts` and `loop-runs.ts` bounded at write time); bounded `runLocks` cleanup with `evictIfCurrent`; unhandled promise rejection fixes; structural cleanup for terminal store `dropKey`; closed browser tab `webContents` listener detachment; LRU-bounded `workflowCache`; and extended retention e2e test suite (`packages/app/e2e/perf/retention.spec.ts`) asserting flat slopes for terminal, repo, and browser tabs.
+
 ## 2026-09-26 — Phase 44 — Video Studio
 
 [Phase 44](phases/phase-44-video-studio.md) marked ✅ DONE (64/64 items verified).
