@@ -163,13 +163,20 @@ function semanticStatuses(agentStops: string[]): Partial<Record<ActivityStatus, 
 }
 
 const BRAND_AGENT_STOPS = ['hsl(220 90% 55%)', 'hsl(263 70% 55%)', 'hsl(347 75% 55%)', 'hsl(220 90% 55%)'];
+/**
+ * Mirrors `packages/app/src/styles.css`'s `--rainbow-ramp`, byte-for-byte —
+ * see that file's own comment. Blue (`#3b82f6`→`#2e7cfa`) and pink
+ * (`#ec4899`→`#e740d1`) were retinted there in an ad hoc, unphased rebalance
+ * (bluer, less pink); this array has to move with it or
+ * `activity-palette.test.ts`'s equivalence assertion goes stale.
+ */
 const RAINBOW_AGENT_STOPS = [
   '#f43f5e',
   '#f59e0b',
   '#10b981',
-  '#3b82f6',
+  '#2e7cfa',
   '#8b5cf6',
-  '#ec4899',
+  '#e740d1',
   '#f43f5e',
 ];
 const OCEAN_AGENT_STOPS = ['#0ea5e9', '#06b6d4', '#22d3ee', '#0ea5e9'];

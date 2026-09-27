@@ -33,7 +33,7 @@ describe('resolveActivityTokens', () => {
     const rainbow = ACTIVITY_PRESETS.rainbow;
     if (!rainbow) throw new Error('rainbow preset missing');
     const tokens = resolveActivityTokens(rainbow);
-    expect(tokens['--activity-agent-ramp']).toBe('#f43f5e, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ec4899, #f43f5e');
+    expect(tokens['--activity-agent-ramp']).toBe('#f43f5e, #f59e0b, #10b981, #2e7cfa, #8b5cf6, #e740d1, #f43f5e');
   });
 
   it('writes speed (with a unit) and intensity for every status', () => {
