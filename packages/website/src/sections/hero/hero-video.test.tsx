@@ -21,18 +21,17 @@ const publicVideoFiles = Object.keys(
 ).map((path) => path.split('/').pop());
 
 describe('HeroVideo', () => {
-  it('renders the video with both sources and its own poster', () => {
+  it('renders the video with its MP4 source and its own poster', () => {
     render(<HeroVideo />);
     const video = screen.getByTestId('hero-video');
     expect(video.getAttribute('poster')).toBe('/video/hero-poster.jpg');
     expect(Array.from(video.querySelectorAll('source')).map((s) => s.getAttribute('src'))).toEqual([
-      '/video/hero.webm',
       '/video/hero.mp4',
     ]);
   });
 
   /**
-   * vitest/jsdom (not Playwright): the bug this catches — `public/video/hero.{webm,mp4}`
+   * vitest/jsdom (not Playwright): the bug this catches — `public/video/hero.mp4`
    * sourced by the `<video>` but never actually committed, so every `<source>` 404ed in
    * production and the element silently degraded to the poster image — is a missing static
    * asset, not a browser rendering behaviour. A filesystem-backed check for the files the

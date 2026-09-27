@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('PilotVideo', () => {
-  it('renders both sources, the poster and preload="none", so nothing downloads before a click', () => {
+  it('renders the MP4 source, the poster and preload="none", so nothing downloads before a click', () => {
     render(<PilotVideo />);
     const video = screen.getByTestId('pilot-video');
     expect(video.getAttribute('preload')).toBe('none');
@@ -27,14 +27,14 @@ describe('PilotVideo', () => {
     expect(video.hasAttribute('autoplay')).toBe(false);
     expect(video.hasAttribute('muted')).toBe(false);
     expect(Array.from(video.querySelectorAll('source')).map((s) => s.getAttribute('src'))).toEqual(
-      ['/video/pilot-intro.webm', '/video/pilot-intro.mp4'],
+      ['/video/pilot-intro.mp4'],
     );
   });
 
   it('gives the player a real accessible name', () => {
     render(<PilotVideo />);
     const video = screen.getByTestId('pilot-video');
-    expect(video.getAttribute('aria-label')).toMatch(/Damion introduces Midnite Studio/);
+    expect(video.getAttribute('aria-label')).toMatch(/Midnite Studio introduction/);
   });
 
   it('has native controls, so playback is keyboard-operable once it starts', () => {

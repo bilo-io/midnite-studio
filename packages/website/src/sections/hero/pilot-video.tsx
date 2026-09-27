@@ -12,14 +12,16 @@ const POSTER = 'video/pilot-intro-poster.jpg';
  * The pilot: a framed, click-to-play clip beside the hero copy.
  *
  * This is **not** `HeroVideo` — that component is a muted, looping backdrop
- * clip of the app itself (`video/hero.{webm,mp4}`, still unrecorded — see its
- * own file), rendered full-width below the fold of this same section.
- * `PilotVideo` is a different thing entirely: a narrated introduction with a
- * named voice, which means it needs audio, needs a visitor's explicit consent
+ * clip (`video/hero.mp4`), rendered full-width below the fold of this same section.
+ * `PilotVideo` is a different thing entirely: the launch promo, with its
+ * soundtrack, which means it needs audio, needs a visitor's explicit consent
  * to start it, and needs to be *seen* as a control rather than as scenery. So
  * it gets its own component rather than a mode flag on `HeroVideo` — the two
  * never share a code path, and a change to one's autoplay/mute behaviour must
  * never leak into the other's.
+ *
+ * **MP4 only** — a VP9 WebM listed first hit a decode error in Chrome on macOS
+ * and never fell through to the MP4; see `HeroVideo`'s doc comment.
  *
  * **Click-to-play, not autoplay.** `preload="none"` on the `<video>` means
  * nothing downloads until the visitor commits, and the element carries no
@@ -62,9 +64,8 @@ export const PilotVideo = ({ className = '' }: PilotVideoProps) => {
         controls
         preload="none"
         poster={assetHref(POSTER)}
-        aria-label="Damion introduces Midnite Studio: a narrated walkthrough of the commit graph, the terminal and the docked browser, with sound."
+        aria-label="Midnite Studio introduction: the launch promo, with sound."
       >
-        <source src={assetHref('video/pilot-intro.webm')} type="video/webm" />
         <source src={assetHref('video/pilot-intro.mp4')} type="video/mp4" />
       </video>
 
