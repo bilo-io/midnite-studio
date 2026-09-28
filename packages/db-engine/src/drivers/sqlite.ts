@@ -13,18 +13,14 @@ type BetterSqlite3Db = InstanceType<BetterSqlite3Ctor>;
 /**
  * `better-sqlite3` is the repo's second native module and its first with a
  * genuine dual-ABI story: it must load under **Node 22.12.0** (ABI 127) for
- * `db-engine`'s own bare-vitest run and under **Electron 33.4.11** (ABI 130)
- * for the packaged app (see `rebuild-native.mjs`, extended in this same batch
- * to rebuild this module alongside `node-pty`).
+ * `db-engine`'s own bare-vitest run and under **Electron 42** (Node 24.15 /
+ * Chromium M148; native ABI from `electron-rebuild`) for the packaged app
+ * (see `rebuild-native.mjs`, which rebuilds this module alongside `node-pty`).
  *
  * Decision 6 recommended `node:sqlite` first, to sidestep the dual-ABI story
- * entirely. Checked against this repo's actual pins rather than assumed:
- * `node:sqlite` needs Node ≥22.5 behind `--experimental-sqlite`, which Node
- * 22.12.0 (this repo's pin) satisfies — but **Electron 33.4.11 bundles Node
- * 20.18.3**, not 22, so `node:sqlite` is not merely thin there, it does not
- * exist at all (`No such built-in module: node:sqlite`, verified by running
- * the packaged Electron binary directly). That rules out (c) outright, so
- * this driver is (a): `better-sqlite3`, rebuilt per-ABI by `rebuild-native.mjs`.
+ * entirely. Electron 42's bundled Node is 24, so `node:sqlite` now exists in
+ * the runtime — switching the driver is a later decision, not this bump.
+ * This driver stays (a): `better-sqlite3`, rebuilt per-ABI by `rebuild-native.mjs`.
  *
  * Loaded through the same unpacked-path fallback the broker already uses for
  * `node-pty` (`broker/index.ts`): when this module is bundled into `main.js`

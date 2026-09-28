@@ -15,7 +15,7 @@
   "dependencies": {
     "@huggingface/transformers": "^3.5.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.10.1",
     "dugite": "^2.7.1",
     "electron-updater": "^6.3.9",
     "kokoro-js": "^1.2.1",
@@ -36,7 +36,7 @@
     "@midnite/studio-shared": "workspace:*",
     "@types/node": "^22.10.2",
     "@types/unbzip2-stream": "^1.4.3",
-    "electron": "^33.2.0",
+    "electron": "^42.11.5",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.28.0",
     "typescript": "^5.6.3",

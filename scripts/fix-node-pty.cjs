@@ -14,14 +14,23 @@ const pnpmStore = path.join(repoRoot, 'node_modules', '.pnpm');
 
 function restoreHelpers(nodePtyDir) {
   const prebuilds = path.join(nodePtyDir, 'prebuilds');
-  if (!fs.existsSync(prebuilds)) return;
-  for (const arch of fs.readdirSync(prebuilds)) {
-    const helper = path.join(prebuilds, arch, 'spawn-helper');
-    try {
-      if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755);
-    } catch {
-      // best-effort; ignore unwritable / missing helpers
+  if (fs.existsSync(prebuilds)) {
+    for (const arch of fs.readdirSync(prebuilds)) {
+      const helper = path.join(prebuilds, arch, 'spawn-helper');
+      try {
+        if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755);
+      } catch {
+        // best-effort; ignore unwritable / missing helpers
+      }
     }
+  }
+  // `electron-rebuild` writes spawn-helper under build/Release, which is what
+  // a sandboxed Electron 42 process actually execs.
+  const rebuilt = path.join(nodePtyDir, 'build', 'Release', 'spawn-helper');
+  try {
+    if (fs.existsSync(rebuilt)) fs.chmodSync(rebuilt, 0o755);
+  } catch {
+    // best-effort
   }
 }
 

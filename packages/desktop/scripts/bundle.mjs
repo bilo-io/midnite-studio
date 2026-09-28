@@ -54,8 +54,8 @@ const wantSourcemap = process.env['MSTUDIO_SOURCEMAP'] === '1';
 const common = {
   bundle: true,
   platform: 'node',
-  // Electron 33 runs Node 20.
-  target: 'node20',
+  // Electron 42 runs Node 24.15 (Chromium M148).
+  target: 'node24',
   format: 'cjs',
   sourcemap: wantSourcemap,
   /*
@@ -103,6 +103,7 @@ const outfiles = [
   'companion-tts-worker',
   'knowledge-layout-worker',
 ].map((name) => ({
+  name,
   entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));
@@ -121,6 +122,15 @@ if (!wantSourcemap) {
 }
 
 await Promise.all(
-  outfiles.map(({ entry, out }) => build({ ...common, entryPoints: [entry], outfile: out })),
+  outfiles.map(({ name, entry, out }) =>
+    build({
+      ...common,
+      // The MCP stdio shim is spawned under the host Node (22), not Electron's
+      // bundled Node 24 — keep its syntax floor at node20.
+      target: name === 'mcp-shim' ? 'node20' : common.target,
+      entryPoints: [entry],
+      outfile: out,
+    }),
+  ),
 );
 
