@@ -58,7 +58,6 @@ import {
 import { useNow } from '../../lib/use-now';
 import { relativeAge } from '../actions/run-groups';
 import {
-  usePickAndOpenRepo,
   useForgeRuns,
   useRefs,
   useRemotes,
@@ -67,6 +66,7 @@ import {
   useStashes,
 } from '../../services/queries';
 import { openInMidnite } from '../../services/open-in-midnite';
+import { AddRepoModal } from './add-repo-modal';
 import {
   useRepoStatus,
   useWorktreeStatuses,
@@ -233,10 +233,10 @@ export function ReposPanel() {
   // header row below, same as a plain, un-merged popout always has.
   const portalTarget = usePopoutHeaderActions();
   const { data: repos = [], isLoading } = useRepos();
-  const { pickAndOpen, isPending } = usePickAndOpenRepo();
   const reorderRepos = useReorderRepos();
   const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
   const [error, setError] = useState<string | null>(null);
+  const [addRepoOpen, setAddRepoOpen] = useState(false);
   const [query, setQuery] = useState('');
   const sections = useViewSections();
   const folds = useRepoFolds();
@@ -299,12 +299,6 @@ export function ReposPanel() {
         return next;
       });
     }
-  };
-
-  const onOpen = async () => {
-    setError(null);
-    const result = await pickAndOpen();
-    if (result && !result.ok) setError(result.message);
   };
 
   /*
@@ -400,10 +394,9 @@ export function ReposPanel() {
       <NewGroupButton />
       <IconButton
         icon={LuPlus}
-        label="Open a repository…"
+        label="Add a repository…"
         size="sm"
-        disabled={isPending}
-        onClick={() => void onOpen()}
+        onClick={() => setAddRepoOpen(true)}
       />
     </>
   );
@@ -635,6 +628,7 @@ export function ReposPanel() {
           </>
         )}
       </div>
+      {addRepoOpen ? <AddRepoModal onClose={() => setAddRepoOpen(false)} /> : null}
     </div>
   );
 }

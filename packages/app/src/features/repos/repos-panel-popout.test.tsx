@@ -82,7 +82,7 @@ describe('ReposPanel popout header merge', () => {
 
     expect(screen.getByText('Git Repos')).toBeDefined();
     expect(screen.getByLabelText('Detach Git Repos into its own window')).toBeDefined();
-    expect(screen.getByLabelText('Open a repository…')).toBeDefined();
+    expect(screen.getByLabelText('Add a repository…')).toBeDefined();
   });
 
   it('portals the toolbar into the title bar once popped out with a merged frame', () => {
@@ -97,7 +97,7 @@ describe('ReposPanel popout header merge', () => {
     // `left` slot now, which this test does not mount.
     expect(screen.queryByText('Git Repos')).toBeNull();
     expect(screen.queryByLabelText('Detach Git Repos into its own window')).toBeNull();
-    expect(portal.querySelector('[aria-label="Open a repository…"]')).not.toBeNull();
+    expect(portal.querySelector('[aria-label="Add a repository…"]')).not.toBeNull();
 
     portal.remove();
   });
@@ -110,7 +110,7 @@ describe('ReposPanel popout header merge', () => {
 
     expect(screen.getByText('Git Repos')).toBeDefined();
     expect(screen.queryByLabelText('Detach Git Repos into its own window')).toBeNull();
-    expect(screen.getByLabelText('Open a repository…')).toBeDefined();
+    expect(screen.getByLabelText('Add a repository…')).toBeDefined();
   });
 
   it('renders filter repos input wrapped in gradient-border', () => {
