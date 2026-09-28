@@ -348,18 +348,21 @@ describe('the rainbow tokens', () => {
   });
 
   it('is a blue → violet → pink subspectrum, not the app’s own six stops', () => {
-    // Tailwind blue/indigo/violet/purple/fuchsia/pink 500, in increasing hue
-    // order (217°→330°) — a website-only re-cut, not a copy of the app's
-    // `--rainbow-0..5` (which keeps its full six). Indigo is lifted 1pt of
-    // lightness off Tailwind's own value to clear the 4.5:1 floor below.
+    // A blue-leaning rebalance of Tailwind blue/indigo/violet/purple/fuchsia/
+    // pink 500, in increasing hue order (217°→308°) — a website-only re-cut,
+    // not a copy of the app's `--rainbow-0..5` (which keeps its full six,
+    // retinted the same direction on its own two end stops). Blue and indigo
+    // are more saturated than Tailwind's own values; fuchsia and pink are
+    // both pulled a hue step toward violet/purple, shortening pink's share of
+    // the ramp.
     const tokens = tokensFor('dark');
     expect(STOPS.map((stop) => tripletFor(tokens, `--ws-rainbow-${stop}-hsl`))).toEqual([
-      '217 91% 60%',
-      '239 84% 68%',
+      '217 95% 58%',
+      '235 88% 68%',
       '258 90% 66%',
       '271 91% 65%',
-      '292 84% 61%',
-      '330 81% 60%',
+      '285 80% 60%',
+      '308 78% 58%',
     ]);
   });
 

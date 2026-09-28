@@ -664,17 +664,21 @@ section.bg-card\/60 {
  * blue 180°, violet 240°, pink 300°.
  *
  * `@bilo-io/ui`'s `tokens.css` carries its own two copies of this same ramp
- * (upstream, out of scope for this repo) — these values are deliberately
- * identical to those, so the day upstream tokenises its own copies the delta
- * here is a one-line diff rather than a hunt.
+ * (upstream, out of scope for this repo). These values used to be
+ * deliberately identical to those; blue and pink (below) no longer are — an
+ * ad hoc, unphased rebalance pulled this app's ramp the same direction as
+ * `packages/website/src/styles/tokens.css`'s own `--ws-rainbow-*` (blue
+ * stronger, pink pulled toward violet), on its own two stops only. Rose,
+ * amber, emerald and violet are untouched, and stay identical to upstream —
+ * this is a local override on top of `@bilo-io/ui`'s copy, not an edit to it.
  */
 :root {
   --rainbow-0: #f43f5e; /* rose, 0deg */
   --rainbow-1: #f59e0b; /* amber, 60deg */
   --rainbow-2: #10b981; /* emerald, 120deg */
-  --rainbow-3: #3b82f6; /* blue, 180deg */
+  --rainbow-3: #2e7cfa; /* blue, 180deg — strengthened from #3b82f6 */
   --rainbow-4: #8b5cf6; /* violet, 240deg */
-  --rainbow-5: #ec4899; /* pink, 300deg */
+  --rainbow-5: #e740d1; /* pink, 300deg — pulled toward violet from #ec4899 */
   /* Shorthand for a plain full-spectrum consumer: `conic-gradient(from …,
    * var(--rainbow-ramp))`. Theme C's arc gradients keep listing stops
    * individually — they need to omit some. */

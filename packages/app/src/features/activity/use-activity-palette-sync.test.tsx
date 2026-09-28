@@ -35,7 +35,7 @@ describe('useActivityPaletteSync', () => {
     });
     const root = document.documentElement.style;
     expect(root.getPropertyValue('--activity-agent-ramp')).toBe(
-      '#f43f5e, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ec4899, #f43f5e',
+      '#f43f5e, #f59e0b, #10b981, #2e7cfa, #8b5cf6, #e740d1, #f43f5e',
     );
   });
 

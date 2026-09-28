@@ -82,24 +82,33 @@
   /*
     ── The rainbow ───────────────────────────────────────────────────────────
 
-    A blue → violet → pink **subspectrum**, not a full rainbow: Tailwind's own
-    blue/indigo/violet/purple/fuchsia/pink 500 — `#3b82f6 #6366f1 #8b5cf6
-    #a855f7 #d946ef #ec4899` — six stops in increasing hue order across ~115°
-    of the wheel (217°→330°) rather than the full 360°. No green, yellow,
-    orange or red.
+    A blue → violet → pink **subspectrum**, not a full rainbow: six stops in
+    increasing hue order across ~91° of the wheel (217°→308°) rather than the
+    full 360°. No green, yellow, orange or red.
+
+    **Rebalanced toward blue, away from pink** (ad hoc, unphased): the two
+    outer stops moved off Tailwind's stock blue-500/indigo-500/fuchsia-500/
+    pink-500 — blue and indigo gained saturation for a punchier lead-in
+    (`#3b82f6`→`#2e7cfa`, `#6366f1`→`#6672f5`), and fuchsia/pink both pulled a
+    hue step toward violet/purple and shortened the arc they used to close the
+    ramp with (`#d946ef`→`#c247eb`, `#ec4899`→`#e740d1`; the 292°→330° span
+    that used to close the loop is now 285°→308°). Violet and purple (the
+    middle two stops) are untouched, so the identity anchor — `--ws-accent`
+    sitting between them — does not move.
 
     **This is a website-only re-cut, not a mirror of the app's ramp.** The
     six stops used to be `packages/app/src/styles.css`'s own `--rainbow-0..5`
-    (`#f43f5e #f59e0b #10b981 #3b82f6 #8b5cf6 #ec4899`, the FAB ring and the
-    live-agent readout's text) copied verbatim, on the theory that the site and
-    the app are one brand. The website's own brand marks — the wordmark, the
-    primary button, the section eyebrows — read calmer and more coherent
-    narrowed to the cool half of that wheel, so this block now diverges from
-    the app's on purpose; the app's FAB ring and readout keep the full six.
-    `--ws-accent` (265°, violet) already sits inside this narrower range,
-    between the ramp's own violet (258°) and purple (271°) stops, which is
-    what keeps "rainbow for emphasis, violet for function" (below) reading as
-    one hue family instead of two unrelated ones.
+    (the FAB ring and the live-agent readout's text) copied verbatim, on the
+    theory that the site and the app are one brand. The website's own brand
+    marks — the wordmark, the primary button, the section eyebrows — read
+    calmer and more coherent narrowed to the cool half of that wheel, so this
+    block diverges from the app's on purpose; the app's FAB ring and readout
+    keep the full six (retinted the same blue/pink direction, on their own
+    stops — see that file). `--ws-accent` (265°, violet) already sits inside
+    this narrower range, between the ramp's own violet (258°) and purple
+    (271°) stops, which is what keeps "rainbow for emphasis, violet for
+    function" (below) reading as one hue family instead of two unrelated
+    ones.
 
     `--ws-rainbow-ramp` still closes the loop by repeating stop 0 at the
     end — that is what makes a rotating conic seamless, and what lets
@@ -127,30 +136,36 @@
     ── Contrast ──────────────────────────────────────────────────────────────
 
     Gradient text is only as legible as its darkest stop, so every stop is
-    checked against the theme's own background, not against an average:
+    checked against the theme's own background, not against an average — and,
+    for the pricing page's Pro card (`.ws-pricing-pro-card`, `site.css`),
+    against a fixed white foreground, since that card pins its text to white
+    in both themes:
 
-    - Dark: all six clear 4.5:1 on `--ws-bg`, violet the tightest at 4.5:1.
+    - Dark: all six clear 4.5:1 on `--ws-bg`, violet the tightest at 4.5:1 —
+      unchanged, since violet itself did not move. White text on any stop
+      clears 3:1 (WCAG AA, large text), pink the tightest at 3.46:1 — up from
+      3.43:1 before the rebalance, not down.
     - Light: the dark stops do not all clear it on white, so the light theme
       re-derives the ramp at lower lightness and saturation, the same move as
-      before. Worst case there is pink at 5.4:1. The hues are the same six;
-      only the lightness and saturation move, which is the same thing
-      `--ws-accent` already does.
+      before. Worst case there is pink at 5.81:1 (was 5.4:1). The hues are the
+      same six; only the lightness and saturation move, which is the same
+      thing `--ws-accent` already does.
 
     `--ws-rainbow-ink` is the label colour that sits *on* a rainbow fill: near
     black on the dark theme's bright stops, white on the light theme's dark
     ones — both re-checked below and still clearing 4.5:1 at their tightest.
   */
-  --ws-rainbow-0-hsl: 217 91% 60%; /* blue    — #3b82f6 */
+  --ws-rainbow-0-hsl: 217 95% 58%; /* blue    — #2e7cfa, strengthened from #3b82f6 */
   --ws-rainbow-0: hsl(var(--ws-rainbow-0-hsl));
-  --ws-rainbow-1-hsl: 239 84% 68%; /* indigo  — #6366f1, lifted 1pt of lightness to clear 4.5:1 */
+  --ws-rainbow-1-hsl: 235 88% 68%; /* indigo  — #6672f5, strengthened from #6366f1 */
   --ws-rainbow-1: hsl(var(--ws-rainbow-1-hsl));
-  --ws-rainbow-2-hsl: 258 90% 66%; /* violet  — #8b5cf6 */
+  --ws-rainbow-2-hsl: 258 90% 66%; /* violet  — #8b5cf6, unchanged */
   --ws-rainbow-2: hsl(var(--ws-rainbow-2-hsl));
-  --ws-rainbow-3-hsl: 271 91% 65%; /* purple  — #a855f7 */
+  --ws-rainbow-3-hsl: 271 91% 65%; /* purple  — #a855f7, unchanged */
   --ws-rainbow-3: hsl(var(--ws-rainbow-3-hsl));
-  --ws-rainbow-4-hsl: 292 84% 61%; /* fuchsia — #d946ef */
+  --ws-rainbow-4-hsl: 285 80% 60%; /* fuchsia — #c247eb, pulled toward purple from #d946ef */
   --ws-rainbow-4: hsl(var(--ws-rainbow-4-hsl));
-  --ws-rainbow-5-hsl: 330 81% 60%; /* pink    — #ec4899 */
+  --ws-rainbow-5-hsl: 308 78% 58%; /* pink    — #e740d1, pulled toward violet from #ec4899 */
   --ws-rainbow-5: hsl(var(--ws-rainbow-5-hsl));
 
   --ws-rainbow-ramp:
@@ -254,14 +269,14 @@
 
     Not a saturation knob applied uniformly: each stop was measured against
     `--ws-bg` and dropped only as far as it had to be. Every stop clears
-    4.5:1; pink is the floor at 5.4:1, so gradient text needs no backplate.
+    4.5:1; pink is the floor at 5.8:1, so gradient text needs no backplate.
   */
-  --ws-rainbow-0-hsl: 217 80% 45%; /* blue    — 5.8:1 */
-  --ws-rainbow-1-hsl: 239 55% 50%; /* indigo  — 7.8:1 */
+  --ws-rainbow-0-hsl: 217 84% 43%; /* blue    — 6.2:1 */
+  --ws-rainbow-1-hsl: 235 58% 50%; /* indigo  — 7.4:1 */
   --ws-rainbow-2-hsl: 258 62% 48%; /* violet  — 7.7:1 */
   --ws-rainbow-3-hsl: 271 65% 46%; /* purple  — 7.1:1 */
-  --ws-rainbow-4-hsl: 292 60% 42%; /* fuchsia — 6.2:1 */
-  --ws-rainbow-5-hsl: 330 68% 45%; /* pink    — 5.4:1 */
+  --ws-rainbow-4-hsl: 285 56% 40%; /* fuchsia — 7.2:1 */
+  --ws-rainbow-5-hsl: 308 58% 42%; /* pink    — 5.8:1 */
 
   /* White, because the light ramp's stops are the dark ones now. */
   --ws-rainbow-ink: hsl(0 0% 100%);
