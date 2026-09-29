@@ -39,6 +39,7 @@ export function UncommittedRow({
   laneWidth,
   colorIdx,
   lane,
+  expanded = false,
   onSelect,
 }: {
   status: StatusResult;
@@ -49,7 +50,9 @@ export function UncommittedRow({
   colorIdx: number;
   /** Lane HEAD's commit sits on — not necessarily 0, and not necessarily row 0. */
   lane: number;
-  /** Opens the Changes view — the place the row is actually about. */
+  /** Whether the working copy's inline panel is open under the row. */
+  expanded?: boolean;
+  /** Toggles that inline panel — the Changes view's parts, folded into the graph. */
   onSelect: () => void;
 }) {
   const count = status.entries.length;
@@ -68,16 +71,20 @@ export function UncommittedRow({
       
       It sits ABOVE the `role="grid"` scroller, so a row role here would be an
       orphan with no grid owner — and it does not behave like a row either:
-      there is nothing to select, only somewhere to go. It carries no selected
-      state for the same reason. Tying one to `selectedCommitSha === null` made
-      it render as selected on load and after every repo switch, announcing a
-      selection the user had not made.
+      there is nothing to select, only a panel to open. So it is a disclosure
+      button (`aria-expanded`), never a selected row. Tying a selected state to
+      `selectedCommitSha === null` once made it render as selected on load and
+      after every repo switch, announcing a selection the user had not made.
     */
     <button
       type="button"
       onClick={onSelect}
-      aria-label={`${label} — open the Changes view`}
-      className="relative flex w-full shrink-0 cursor-default items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors hover:bg-accent/30"
+      aria-expanded={expanded}
+      aria-label={`${label} — ${expanded ? 'hide' : 'show'} the changes`}
+      data-testid="uncommitted-row"
+      className={`relative flex w-full shrink-0 cursor-default items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
+        expanded ? 'bg-accent/30' : 'hover:bg-accent/30'
+      }`}
       style={{ height: theme.rowHeight }}
     >
 

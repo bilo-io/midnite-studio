@@ -45,7 +45,7 @@ import {
   type AgentSignature,
   type Commit,
 } from '@midnite/studio-shared';
-import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
 import { useCommitFileDiff } from '../diff/use-file-diff';
@@ -108,11 +108,22 @@ export function CommitDetail({
   repoId,
   sha,
   onClose,
+  layout = 'stacked',
 }: {
   repoId: string;
   sha: string;
   onClose?: () => void;
+  /**
+   * `stacked` is the inspector as a narrow column — the header, the file list
+   * and one file's diff one above the other (the Changes workbench's commit
+   * tab). `split` is the git graph's inline panel: the header and the file
+   * list form a left column and the whole right column is the diff, of one
+   * file, a Cmd/Ctrl-click multi-selection, or — with nothing picked — every
+   * file. Same state, same parts; only the arrangement differs.
+   */
+  layout?: 'stacked' | 'split';
 }) {
+  const split = layout === 'split';
   const { data, isLoading } = useCommitDetail(repoId, sha);
   const { data: remotes } = useRemotes(repoId);
   const openTab = useWorkbenchStore((s) => s.openTab);
@@ -189,7 +200,7 @@ export function CommitDetail({
   // during render rather than in an effect — see `selected` below.
   const [state, setState] = useState<CommitViewState>({
     sha,
-    file: null,
+    files: EMPTY_FILES,
     collapsedDirs: EMPTY_SET,
     showAll: false,
   });
@@ -208,10 +219,13 @@ export function CommitDetail({
    * as, `useContextReset` in `use-file-diff.ts`.
    */
   const stale = state.sha !== sha;
-  const selected = stale ? null : state.file;
+  const picked = stale ? EMPTY_FILES : state.files;
+  const selected = picked.length === 1 ? picked[0]! : null;
   const collapsedDirs = stale ? EMPTY_SET : state.collapsedDirs;
-  const showAll = stale ? false : state.showAll;
-  if (stale) setState({ sha, file: null, collapsedDirs: EMPTY_SET, showAll: false });
+  // Split mode has no "one file" layout to leave: nothing picked IS every file.
+  const showAll = split ? picked.length === 0 : stale ? false : state.showAll;
+  if (stale) setState({ sha, files: EMPTY_FILES, collapsedDirs: EMPTY_SET, showAll: false });
+  const pickedPaths = useMemo(() => new Set(picked.map((file) => file.path)), [picked]);
 
   /**
    * Clicking the open file again closes the diff.
@@ -224,15 +238,25 @@ export function CommitDetail({
    * and the two views cannot both be answering "what do I look at" at once.
    */
   const toggleFile = useCallback(
-    (file: { path: string; oldPath: string | null }) => {
-      setState((current) => ({
-        ...current,
-        sha,
-        file: current.sha === sha && current.file?.path === file.path ? null : file,
-        showAll: false,
-      }));
+    (file: { path: string; oldPath: string | null }, modifiers?: { additive: boolean }) => {
+      const pick = { path: file.path, oldPath: file.oldPath };
+      setState((current) => {
+        const files = current.sha === sha ? current.files : EMPTY_FILES;
+        const has = files.some((f) => f.path === pick.path);
+        // Cmd/Ctrl-click grows or shrinks a multi-selection — split mode only,
+        // since the stacked pane has room for exactly one file's diff.
+        const next =
+          split && modifiers?.additive
+            ? has
+              ? files.filter((f) => f.path !== pick.path)
+              : [...files, pick]
+            : has && files.length === 1
+              ? EMPTY_FILES
+              : [pick];
+        return { ...current, sha, files: next, showAll: false };
+      });
     },
-    [sha],
+    [sha, split],
   );
 
   /** Tree/list stays a single-file affordance — selecting either exits `showAll`. */
@@ -245,12 +269,12 @@ export function CommitDetail({
   );
 
   const toggleShowAll = useCallback(() => {
-    setState((current) => ({
-      ...current,
-      sha,
-      showAll: current.sha === sha ? !current.showAll : true,
-    }));
-  }, [sha]);
+    setState((current) =>
+      split
+        ? { ...current, sha, files: EMPTY_FILES, showAll: false }
+        : { ...current, sha, showAll: current.sha === sha ? !current.showAll : true },
+    );
+  }, [sha, split]);
 
   const diff = useCommitFileDiff({
     repoId,
@@ -308,6 +332,16 @@ export function CommitDetail({
     axis: 'y',
   });
 
+  // The split layout's left column — details and the file list, left of the diff.
+  const listWidth = useUiStore((s) => s.layout.graphInlineListWidth);
+  const listColumn = useResizable({
+    size: listWidth,
+    onSize: (value) => setLayout('graphInlineListWidth', value),
+    initial: DEFAULT_LAYOUT.graphInlineListWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.graphInlineListWidth,
+  });
+
   if (isLoading) {
     return <p className="p-3 text-xs text-muted-foreground">Loading…</p>;
   }
@@ -335,67 +369,198 @@ export function CommitDetail({
   const insertions = data.files.reduce((sum, f) => sum + f.insertions, 0);
   const deletions = data.files.reduce((sum, f) => sum + f.deletions, 0);
 
+  const headerRow = (
+    /*
+      The accordion's header row, and the only part of the metadata that is
+      always on screen: the sha you came here to check, the copy button, and
+      the tree/list toggle. Pinned rather than scrolled, because it now also
+      carries the control that reveals everything below it.
+    */
+    <div className="flex shrink-0 items-center gap-1 py-2 pl-1 pr-2">
+      <button
+        type="button"
+        onClick={toggleMeta}
+        aria-expanded={metaOpen}
+        // Only while the panel exists: `aria-controls` naming an absent id is
+        // a dangling reference, and the region is unmounted rather than
+        // hidden — see the note on the block itself.
+        {...(metaOpen ? { 'aria-controls': metaId } : {})}
+        aria-label={metaOpen ? 'Hide the commit details' : 'Show the commit details'}
+        className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+      >
+        {metaOpen ? (
+          <LuChevronDown className="h-3 w-3" strokeWidth={2.5} />
+        ) : (
+          <LuChevronRight className="h-3 w-3" strokeWidth={2.5} />
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          openTab({
+            kind: 'commit',
+            repoId,
+            sha: data.sha,
+            label: `${data.sha.slice(0, 7)}: ${data.subject}`,
+          })
+        }
+        title={`Open commit in tab (${data.sha})`}
+        aria-label={`Open commit in tab (${data.sha})`}
+        className="group inline-flex min-w-0 flex-1 items-center gap-1 overflow-hidden font-mono text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <span className="truncate underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
+          {data.sha.slice(0, 16)}…
+        </span>
+        <LuExternalLink
+          aria-hidden
+          className="h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
+        />
+      </button>
+      <CopySha sha={data.sha} />
+      <div className="flex shrink-0 items-center">
+        <ViewToggle
+          view={fileView}
+          onChange={selectFileView}
+          // Split mode always shows the list, so tree/list stay pressed as picked.
+          pickerHidden={split ? false : showAll}
+          showAll={showAll}
+          onToggleAll={toggleShowAll}
+        />
+      </div>
+      {onClose ? <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} /> : null}
+    </div>
+  );
+
+  const metaHeader = (
+    <header className="px-3 pb-2">
+      <Identities
+        author={data.author}
+        committer={data.committer}
+        provenance={commitProvenance}
+        sessionName={sessionName}
+        agent={agent}
+        agents={agents}
+        onOpenSession={handleOpenSession}
+      />
+      <div className="mt-2">
+        <Suspense fallback={null}>
+          <CommitMessage
+            body={data.body}
+            remotes={remotes ?? EMPTY_REMOTES}
+            onSelectSha={followSha}
+          />
+        </Suspense>
+      </div>
+      <Parents parents={data.parents} onSelect={followSha} />
+    </header>
+  );
+
+  const totalsRow = (
+    <div className="flex shrink-0 items-center border-y border-border px-3 py-1.5">
+      <ChangeTotals fileCount={data.files.length} insertions={insertions} deletions={deletions} />
+    </div>
+  );
+
+  const selection = split
+    ? { path: null, paths: pickedPaths, onSelect: toggleFile }
+    : { path: selected?.path ?? null, onSelect: toggleFile };
+  const fileTree =
+    fileView === 'tree' ? (
+      <ChangeTree
+        nodes={tree}
+        selection={selection}
+        collapsed={collapsedDirs}
+        onToggleDir={toggleDir}
+        testId="commit-files"
+      />
+    ) : (
+      <ChangeTree
+        nodes={list}
+        selection={selection}
+        collapsed={EMPTY_SET}
+        onToggleDir={toggleDir}
+        flat
+        testId="commit-files"
+      />
+    );
+
+  const singleDiff = (
+    <DiffView
+      diff={diff.diff}
+      isLoading={diff.isLoading}
+      onExpandContext={diff.expandContext}
+      images={imageDiffSources(diff.diff, { kind: 'commit', repoId, sha: data.sha })}
+    />
+  );
+
+  const noFiles = (
+    <p className="px-3 py-2 text-xs text-muted-foreground">This commit changed no files.</p>
+  );
+
+  if (split) {
+    const pickedFiles = data.files.filter((file) => pickedPaths.has(file.path));
+    return (
+      <div className="flex h-full min-h-0" data-commit-layout="split">
+        <div
+          className={`flex shrink-0 flex-col border-r border-border ${
+            listColumn.dragging ? '' : 'transition-[width] duration-150 ease-in-out'
+          }`}
+          style={{ width: listColumn.current }}
+        >
+          {headerRow}
+          {/*
+            Capped rather than elastic, unlike the stacked layout's: here the
+            file list below it is what the column is FOR, and an unbounded
+            message would push it out of the panel.
+          */}
+          {metaOpen ? (
+            <div id={metaId} className="min-h-0 shrink-0 overflow-auto" style={{ maxHeight: '45%' }}>
+              {metaHeader}
+            </div>
+          ) : null}
+          {totalsRow}
+          {data.files.length === 0 ? (
+            noFiles
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto" data-testid="commit-file-pane">
+              {fileTree}
+            </div>
+          )}
+        </div>
+        <ResizeHandle resizable={listColumn} axis="x" label="Resize the commit file list" />
+        <div className="min-w-0 flex-1" data-testid="commit-diff-pane">
+          {data.files.length === 0 ? null : selected !== null ? (
+            singleDiff
+          ) : pickedFiles.length > 1 ? (
+            <CommitAllChanges
+              // Re-keyed on the pick so a changed selection re-opens every file in it.
+              key={pickedFiles.map((file) => file.path).join('\u0000')}
+              repoId={repoId}
+              sha={data.sha}
+              files={pickedFiles}
+              totals={{
+                fileCount: pickedFiles.length,
+                insertions: pickedFiles.reduce((n, f) => n + f.insertions, 0),
+                deletions: pickedFiles.reduce((n, f) => n + f.deletions, 0),
+              }}
+              initiallyExpanded
+            />
+          ) : (
+            <CommitAllChanges
+              repoId={repoId}
+              sha={data.sha}
+              files={data.files}
+              totals={{ fileCount: data.files.length, insertions, deletions }}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/*
-        The accordion's header row, and the only part of the metadata that is
-        always on screen: the sha you came here to check, the copy button, and
-        the tree/list toggle. Pinned rather than scrolled, because it now also
-        carries the control that reveals everything below it.
-      */}
-      <div className="flex shrink-0 items-center gap-1 py-2 pl-1 pr-2">
-        <button
-          type="button"
-          onClick={toggleMeta}
-          aria-expanded={metaOpen}
-          // Only while the panel exists: `aria-controls` naming an absent id is
-          // a dangling reference, and the region is unmounted rather than
-          // hidden — see the note on the block itself.
-          {...(metaOpen ? { 'aria-controls': metaId } : {})}
-          aria-label={metaOpen ? 'Hide the commit details' : 'Show the commit details'}
-          className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-        >
-          {metaOpen ? (
-            <LuChevronDown className="h-3 w-3" strokeWidth={2.5} />
-          ) : (
-            <LuChevronRight className="h-3 w-3" strokeWidth={2.5} />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            openTab({
-              kind: 'commit',
-              repoId,
-              sha: data.sha,
-              label: `${data.sha.slice(0, 7)}: ${data.subject}`,
-            })
-          }
-          title={`Open commit in tab (${data.sha})`}
-          aria-label={`Open commit in tab (${data.sha})`}
-          className="group inline-flex min-w-0 flex-1 items-center gap-1 overflow-hidden font-mono text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <span className="truncate underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
-            {data.sha.slice(0, 16)}…
-          </span>
-          <LuExternalLink
-            aria-hidden
-            className="h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
-          />
-        </button>
-        <CopySha sha={data.sha} />
-        <div className="flex shrink-0 items-center">
-          <ViewToggle
-            view={fileView}
-            onChange={selectFileView}
-            showAll={showAll}
-            onToggleAll={toggleShowAll}
-          />
-        </div>
-        {onClose ? (
-          <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />
-        ) : null}
-      </div>
+      {headerRow}
 
       {/*
         Unmounted when closed rather than clipped by a `<Collapse>`.
@@ -410,27 +575,7 @@ export function CommitDetail({
       */}
       {metaOpen ? (
         <div id={metaId} className="min-h-0 flex-1 overflow-auto">
-          <header className="px-3 pb-2">
-            <Identities
-              author={data.author}
-              committer={data.committer}
-              provenance={commitProvenance}
-              sessionName={sessionName}
-              agent={agent}
-              agents={agents}
-              onOpenSession={handleOpenSession}
-            />
-            <div className="mt-2">
-              <Suspense fallback={null}>
-                <CommitMessage
-                  body={data.body}
-                  remotes={remotes ?? EMPTY_REMOTES}
-                  onSelectSha={followSha}
-                />
-              </Suspense>
-            </div>
-            <Parents parents={data.parents} onSelect={followSha} />
-          </header>
+          {metaHeader}
         </div>
       ) : null}
 
@@ -439,18 +584,10 @@ export function CommitDetail({
         expand/collapse-all buttons — two single-purpose rows stacked on top of
         each other read as a layout bug, and both are one line's worth of text.
       */}
-      {showAll && data.files.length > 0 ? null : (
-        <div className="flex shrink-0 items-center border-y border-border px-3 py-1.5">
-          <ChangeTotals
-            fileCount={data.files.length}
-            insertions={insertions}
-            deletions={deletions}
-          />
-        </div>
-      )}
+      {showAll && data.files.length > 0 ? null : totalsRow}
 
       {data.files.length === 0 ? (
-        <p className="px-3 py-2 text-xs text-muted-foreground">This commit changed no files.</p>
+        noFiles
       ) : showAll ? (
         <div className="min-h-0 flex-1">
           <CommitAllChanges
@@ -475,24 +612,7 @@ export function CommitDetail({
             style={{ height: files.current, maxHeight: '60%' }}
             data-testid="commit-file-pane"
           >
-            {fileView === 'tree' ? (
-              <ChangeTree
-                nodes={tree}
-                selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
-                collapsed={collapsedDirs}
-                onToggleDir={toggleDir}
-                testId="commit-files"
-              />
-            ) : (
-              <ChangeTree
-                nodes={list}
-                selection={{ path: selected?.path ?? null, onSelect: toggleFile }}
-                collapsed={EMPTY_SET}
-                onToggleDir={toggleDir}
-                flat
-                testId="commit-files"
-              />
-            )}
+            {fileTree}
           </div>
 
           <ResizeHandle resizable={files} axis="y" label="Resize the commit file list" />
@@ -503,12 +623,7 @@ export function CommitDetail({
                 Select a file to see what changed in it.
               </p>
             ) : (
-              <DiffView
-                diff={diff.diff}
-                isLoading={diff.isLoading}
-                onExpandContext={diff.expandContext}
-                images={imageDiffSources(diff.diff, { kind: 'commit', repoId, sha: data.sha })}
-              />
+              singleDiff
             )}
           </div>
         </>
@@ -525,14 +640,18 @@ export function CommitDetail({
  */
 type CommitViewState = {
   sha: string;
-  file: { path: string; oldPath: string | null } | null;
+  /** The picked files — at most one in the stacked layout. */
+  files: readonly PickedFile[];
   collapsedDirs: ReadonlySet<string>;
   /** Whether the file pane and single-file diff are replaced by `CommitAllChanges`. */
   showAll: boolean;
 };
 
+type PickedFile = { path: string; oldPath: string | null };
+
 /** Neither is ever mutated, so one module-level instance avoids a render loop. */
 const EMPTY_SET: ReadonlySet<string> = new Set();
+const EMPTY_FILES: readonly PickedFile[] = [];
 const EMPTY_REMOTES: never[] = [];
 
 const shortSha = (sha: string): string => sha.slice(0, 12);
@@ -590,11 +709,14 @@ function CopySha({ sha }: { sha: string }) {
 function ViewToggle({
   view,
   onChange,
+  pickerHidden,
   showAll,
   onToggleAll,
 }: {
   view: CommitFileView;
   onChange: (view: CommitFileView) => void;
+  /** Whether "all" has replaced the file picker, so neither layout is pressed. */
+  pickerHidden: boolean;
   showAll: boolean;
   onToggleAll: () => void;
 }) {
@@ -604,21 +726,21 @@ function ViewToggle({
         icon={LuListTree}
         label="Group the files by folder"
         size="sm"
-        aria-pressed={!showAll && view === 'tree'}
-        className={!showAll && view === 'tree' ? 'bg-accent text-foreground' : ''}
+        aria-pressed={!pickerHidden && view === 'tree'}
+        className={!pickerHidden && view === 'tree' ? 'bg-accent text-foreground' : ''}
         onClick={() => onChange('tree')}
       />
       <IconButton
         icon={LuList}
         label="List the files by how much changed"
         size="sm"
-        aria-pressed={!showAll && view === 'list'}
-        className={!showAll && view === 'list' ? 'bg-accent text-foreground' : ''}
+        aria-pressed={!pickerHidden && view === 'list'}
+        className={!pickerHidden && view === 'list' ? 'bg-accent text-foreground' : ''}
         onClick={() => onChange('list')}
       />
       <IconButton
         icon={LuRows3}
-        label={showAll ? 'Back to one file at a time' : 'View all changes at once'}
+        label={pickerHidden ? 'Back to one file at a time' : 'View all changes at once'}
         size="sm"
         aria-pressed={showAll}
         className={showAll ? 'bg-accent text-foreground' : ''}

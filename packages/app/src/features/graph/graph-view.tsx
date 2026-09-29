@@ -14,7 +14,6 @@ import { useRefs, useSessionHistory, useStashes } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
-import { CommitDetail } from '../commit/commit-detail';
 import { ConflictResolutionStudio } from '../conflicts/conflict-resolution-studio';
 import { StashInspector } from '../stash/stash-inspector';
 import { StashRows } from './stash-rows';
@@ -38,6 +37,10 @@ import {
 import { CiRunModal } from './ci-run-modal';
 import { useRefsBySha } from './ref-badge';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
+import { CommitInlinePanel, WorkingTreeInlinePanel } from './graph-inline-panels';
+import { InlineExpander, InlineSlot, SLOT_INSET, lanesLeaving } from './inline-expansion';
+import { isReducedMotion } from '../../lib/reduced-motion';
+import { useEditableFocus } from '../../lib/use-editable-focus';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 import { useCommitCi } from './use-commit-ci';
@@ -67,11 +70,12 @@ export function GraphView() {
   const graphSelection = useUiStore((s) => s.graphSelection);
   const selectedSha = graphSelection?.kind === 'commit' ? graphSelection.sha : null;
   const selectCommit = useUiStore((s) => s.selectCommit);
+  const selectWorkingTree = useUiStore((s) => s.selectWorkingTree);
+  const workingTreeOpen = graphSelection?.kind === 'working-tree';
   const selectStash = useUiStore((s) => s.selectStash);
   const selectConflict = useUiStore((s) => s.selectConflict);
   const detailWidth = useUiStore((s) => s.layout.detailWidth);
   const setLayout = useUiStore((s) => s.setLayout);
-  const setActiveView = useUiStore((s) => s.setActiveView);
 
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
@@ -139,10 +143,34 @@ export function GraphView() {
     (`use-browser-bounds.ts`) for as long as a commit stayed selected beside it.
     Nothing here ever paints over that view, so nothing here should hide it.
   */
-  useDismiss(graphSelection !== null, () => selectCommit(null), {
+  /*
+    Two more conditions since the details moved inline (the graph's own
+    expand-in-place panels):
+
+    - `visible` — a kept-alive graph behind another view must not spend that
+      view's Escape collapsing a panel nobody can see;
+    - `!editing` — Escape typed into a field, the terminal or a Monaco editor
+      belongs to that field. The stack consumes every Escape it is handed, so
+      the only way to leave one to a focused field is not to be registered
+      while it has focus (`lib/use-editable-focus.ts`). The commit box's own
+      Escape blurs it, which un-registers nothing and re-arms this one, so a
+      second Escape then collapses the panel.
+  */
+  const editing = useEditableFocus();
+  useDismiss(visible && graphSelection !== null && !editing, () => selectCommit(null), {
     layer: 'inline',
     blocking: false,
   });
+
+  /**
+   * A click on a commit row opens its details under it; a click on the row
+   * already open closes them again. Read from the store at click time, so the
+   * callback is stable and the memoised rows never re-render for it.
+   */
+  const toggleCommit = useCallback((sha: string) => {
+    const { graphSelection: current, selectCommit: select } = useUiStore.getState();
+    select(current?.kind === 'commit' && current.sha === sha ? null : sha);
+  }, []);
 
   // `rows` is a stable buffer the store mutates in place for the life of a
   // stream (see graph-store.ts), so `rowCount` — not the array's own identity
@@ -209,8 +237,13 @@ export function GraphView() {
   );
 
   const onRowContextMenu = useCallback(
-    (event: { clientX: number; clientY: number }, row: (typeof rows)[number]) =>
-      dialogs.openMenu(event, commitMenu(row, currentBranch)),
+    (event: { clientX: number; clientY: number }, row: (typeof rows)[number]) => {
+      // The row's own right-click handler calls `onSelect` first, which is
+      // now a TOGGLE — so a right-click on the open row would close it under
+      // the menu. Selecting again here keeps the menu's target open.
+      useUiStore.getState().selectCommit(row.commit.sha);
+      dialogs.openMenu(event, commitMenu(row, currentBranch));
+    },
     [commitMenu, currentBranch, dialogs],
   );
   const onRefContextMenu = useCallback(
@@ -355,13 +388,143 @@ export function GraphView() {
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
   // to appear where the user released.
   const lastPointer = useRef({ clientX: 0, clientY: 0 });
+  /*
+    The inline panel's height: the persisted preference, dragged from the
+    slot's bottom edge, clamped to what the graph column can actually spare —
+    the bounds in the store are absolute pixels and cannot know the window.
+    A commit's panel may take all but a few rows' worth of the column; the
+    working copy's sits ABOVE the scroller, so it takes a smaller share and
+    leaves the history under it on screen.
+  */
+  const [columnHeight, setColumnHeight] = useState(0);
+  // A callback ref: the column only mounts once history has loaded, after
+  // this component's first effects have already run.
+  const columnObserver = useRef<ResizeObserver | null>(null);
+  const columnRef = useCallback((el: HTMLDivElement | null) => {
+    columnObserver.current?.disconnect();
+    columnObserver.current = null;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setColumnHeight(Math.round(entry.contentRect.height));
+    });
+    observer.observe(el);
+    columnObserver.current = observer;
+  }, []);
+  const inlineHeightPref = useUiStore((s) => s.layout.graphInlineHeight);
+  const inlineMin = LAYOUT_BOUNDS.graphInlineHeight.min;
+  const inlineMax = Math.max(
+    inlineMin,
+    Math.min(LAYOUT_BOUNDS.graphInlineHeight.max, columnHeight - INLINE_HEADROOM),
+  );
+  const inline = useResizable({
+    size: inlineHeightPref,
+    onSize: (value) => setLayout('graphInlineHeight', value),
+    initial: DEFAULT_LAYOUT.graphInlineHeight,
+    axis: 'y',
+    min: inlineMin,
+    max: inlineMax,
+  });
+  const workingTreeHeight = Math.min(
+    inline.current,
+    Math.max(inlineMin, Math.round(columnHeight * WORKING_TREE_SHARE)),
+  );
+
+  /*
+    Which commit row is expanded, and which one is still animating shut.
+
+    The expanded one is the selection; the closing one is the selection that
+    was, kept in state for exactly as long as its collapse runs (until
+    `InlineExpander`'s `onExited`), so opening another row can collapse the
+    first while the second opens instead of cutting it out mid-frame. Adjusted
+    during render rather than in an effect, so no frame renders the previous
+    row without its panel before the closing one mounts.
+  */
+  const expandedSha = selectedSha;
+  const [lastExpanded, setLastExpanded] = useState(expandedSha);
+  const [closingSha, setClosingSha] = useState<string | null>(null);
+  if (lastExpanded !== expandedSha) {
+    setLastExpanded(expandedSha);
+    setClosingSha(lastExpanded ?? (closingSha === expandedSha ? null : closingSha));
+  }
+  /** The working copy's panel stays mounted until its own collapse finishes. */
+  const [workingTreeMounted, setWorkingTreeMounted] = useState(workingTreeOpen);
+  if (workingTreeOpen && !workingTreeMounted) setWorkingTreeMounted(true);
+  /** Which panels have already played their entrance — see `InlineExpander`. */
+  const [seenPanels] = useState(() => new Set<string>());
+
+  /*
+    Every row is the theme's row height except the expanded one, which is its
+    row plus its panel. The expanded and the closing row are MEASURED
+    (`measureElement` on their wrappers) so the rows below follow the panel's
+    animated height frame by frame; the estimate below is only what the
+    virtualizer falls back to after a cache reset (`measure()` on a style
+    change), so it must already account for the panel.
+
+    Keyed by sha, not index: a commit made from the inline panel streams in a
+    new row 0 and shifts every index by one, and an index-keyed size cache
+    would hand the panel's height to the row above the one that has it.
+  */
+  const expandedIndex = useMemo(
+    () => (expandedSha === null ? -1 : rows.findIndex((row) => row.commit.sha === expandedSha)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, rowCount, expandedSha],
+  );
+  const sizing = useRef({ expandedIndex, slot: inline.current + SLOT_CHROME, rowHeight: theme.rowHeight });
+  sizing.current = { expandedIndex, slot: inline.current + SLOT_CHROME, rowHeight: theme.rowHeight };
+  const estimateSize = useCallback(
+    (index: number) =>
+      index === sizing.current.expandedIndex
+        ? sizing.current.rowHeight + sizing.current.slot
+        : sizing.current.rowHeight,
+    [],
+  );
+  const getItemKey = useCallback(
+    (index: number) => useGraphStore.getState().rows[index]?.commit.sha ?? index,
+    // A new stream is a new buffer: re-key it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [requestId],
+  );
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => theme.rowHeight,
-    // Every row is exactly the theme's row height, so measurement is overhead.
+    estimateSize,
+    getItemKey,
+    // Every other row is exactly the theme's row height, so measurement is overhead.
     overscan: 24,
   });
+
+  /**
+   * Once a panel has opened, scroll just far enough that the whole of it is
+   * on screen — the row it opened under stays where it was when it fits.
+   */
+  const revealExpanded = useCallback(() => {
+    const el = scrollRef.current;
+    const index = sizing.current.expandedIndex;
+    if (!el || index < 0) return;
+    const item = virtualizer.getVirtualItems().find((candidate) => candidate.index === index);
+    if (!item) return;
+    const bottom = item.end;
+    const viewBottom = el.scrollTop + el.clientHeight;
+    if (bottom <= viewBottom) return;
+    const top = Math.min(item.start, bottom - el.clientHeight);
+    // `?.`: jsdom's elements have no `scrollTo`.
+    el.scrollTo?.({ top, behavior: isReducedMotion() ? 'auto' : 'smooth' });
+  }, [virtualizer]);
+
+  /*
+    A commit selected from somewhere else — the palette, the dashboard, a sha
+    linked out of a commit message — opens under a row that may be nowhere
+    near the viewport. Bring it to the top; a click on a row on screen is
+    already in range and does not move anything.
+  */
+  useEffect(() => {
+    if (expandedIndex < 0) return;
+    const { startIndex, endIndex } = virtualizer.range ?? { startIndex: -1, endIndex: -1 };
+    if (expandedIndex >= startIndex && expandedIndex <= endIndex) return;
+    virtualizer.scrollToIndex(expandedIndex, { align: 'start' });
+    // Only when the selection moves, not on every range change while scrolling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSha, expandedIndex >= 0]);
 
   /**
    * Re-measure when the style changes.
@@ -450,6 +613,16 @@ export function GraphView() {
     [headOid, rows, rowCount],
   );
 
+  /*
+    The working-copy panel belongs to the uncommitted-changes row, so when a
+    commit takes the last change with it the row goes and the panel follows.
+    Only on a real, loaded status: `undefined` is "not read yet", not clean.
+  */
+  const workingTreeGone = status !== undefined && !hasUncommittedWork(status);
+  useEffect(() => {
+    if (workingTreeOpen && workingTreeGone) selectWorkingTree(false);
+  }, [workingTreeOpen, workingTreeGone, selectWorkingTree]);
+
   if (!repoId) {
     return <EmptyState title="No repository selected" body="Pick one from the sidebar." />;
   }
@@ -476,6 +649,7 @@ export function GraphView() {
         }}
       >
       <div
+        ref={columnRef}
         className="flex min-w-0 flex-1 flex-col"
         style={graphColumnVars(columns)}
         data-graph-ci={showCi ? 'on' : 'off'}
@@ -512,8 +686,39 @@ export function GraphView() {
             // colour, on a lane it does not sit on.
             colorIdx={headRow?.colorIdx ?? 0}
             lane={headRow?.lane ?? 0}
-            onSelect={() => setActiveView('changes')}
+            expanded={workingTreeOpen}
+            onSelect={() => selectWorkingTree(!workingTreeOpen)}
           />
+        ) : null}
+
+        {/*
+          The working copy's panel, expanded in place under its row — the
+          Changes view's list, commit box and diff, folded into the graph.
+          Outside the scroller like the row itself, so it never scrolls away
+          from the row it belongs to.
+        */}
+        {hasUncommittedWork(status) && (workingTreeOpen || workingTreeMounted) ? (
+          <InlineExpander
+            id="working-tree"
+            open={workingTreeOpen}
+            seen={seenPanels}
+            onExited={() => setWorkingTreeMounted(false)}
+          >
+            <InlineSlot
+              label="Working copy changes"
+              lanes={[{ lane: headRow?.lane ?? 0, colorIdx: headRow?.colorIdx ?? 0, dashed: true }]}
+              theme={theme}
+              gutterWidth={paintedGutter}
+              laneWidth={laneWidth}
+              height={workingTreeHeight}
+              resizable={inline}
+            >
+              <WorkingTreeInlinePanel
+                active={visible && workingTreeOpen}
+                onClose={() => selectWorkingTree(false)}
+              />
+            </InlineSlot>
+          </InlineExpander>
         ) : null}
 
         {/*
@@ -574,10 +779,15 @@ export function GraphView() {
               const provenanceMatches = matchesProvenanceFilter(commitProv, graphProvenanceFilter);
               const dimmed = !authorMatches || !shaMatches || !provenanceMatches;
               const { sessionName, agent } = resolveProvenanceDetails(commitProv, agents, sessions);
+              const slotOpen = row.commit.sha === expandedSha;
+              const slotClosing = !slotOpen && row.commit.sha === closingSha;
 
               return (
                 <div
                   key={row.commit.sha}
+                  // Only a row with a panel under it is measured — see `estimateSize`.
+                  ref={slotOpen || slotClosing ? virtualizer.measureElement : undefined}
+                  data-index={item.index}
                   className={`absolute left-0 top-0 w-full ${
                     isInitialCascade ? 'animate-fade-in cascade-delay' : ''
                   }`}
@@ -603,7 +813,7 @@ export function GraphView() {
                     markMode={provenanceMarkMode}
                     ci={showCi ? ciBySha.get(row.commit.sha) : undefined}
                     onOpenCi={onOpenCi}
-                    onSelect={selectCommit}
+                    onSelect={toggleCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}
                     onRefActivate={onRefActivate}
@@ -614,6 +824,33 @@ export function GraphView() {
                     isAgentActive={isAgentActive}
                     agentSessionFor={agentSessionFor}
                   />
+                  {slotOpen || slotClosing ? (
+                    <InlineExpander
+                      id={`commit:${row.commit.sha}`}
+                      open={slotOpen}
+                      seen={seenPanels}
+                      onEntered={revealExpanded}
+                      onExited={() =>
+                        setClosingSha((current) => (current === row.commit.sha ? null : current))
+                      }
+                    >
+                      <InlineSlot
+                        label={`Commit ${row.commit.sha.slice(0, 7)} details`}
+                        lanes={lanesLeaving(row)}
+                        theme={theme}
+                        gutterWidth={paintedGutter}
+                        laneWidth={laneWidth}
+                        height={inline.current}
+                        resizable={inline}
+                      >
+                        <CommitInlinePanel
+                          repoId={repoId}
+                          sha={row.commit.sha}
+                          onClose={() => selectCommit(null)}
+                        />
+                      </InlineSlot>
+                    </InlineExpander>
+                  ) : null}
                 </div>
               );
             })}
@@ -647,7 +884,12 @@ export function GraphView() {
         </footer>
       </div>
 
-      {graphSelection ? (
+      {/*
+        The right-hand aside, for what does NOT open inline: a stash entry and
+        the Conflict Resolution Studio. Commits and the working copy expand in
+        place under their own rows instead.
+      */}
+      {graphSelection?.kind === 'stash' || graphSelection?.kind === 'conflict' ? (
         <>
           <ResizeHandle resizable={detail} axis="x" label="Resize commit detail" />
           <aside
@@ -657,13 +899,7 @@ export function GraphView() {
             style={{ width: detail.current }}
           >
             <div className="min-h-0 flex-1">
-              {graphSelection.kind === 'commit' ? (
-                <CommitDetail
-                  repoId={repoId}
-                  sha={graphSelection.sha}
-                  onClose={() => selectCommit(null)}
-                />
-              ) : graphSelection.kind === 'stash' ? (
+              {graphSelection.kind === 'stash' ? (
                 <StashInspector
                   repoId={repoId}
                   selector={graphSelection.selector}
@@ -698,6 +934,13 @@ export function GraphView() {
 }
 
 const EMPTY_REFS: never[] = [];
+
+/** What the inline panel leaves of the column: the header, a couple of rows and the footer. */
+const INLINE_HEADROOM = 160;
+/** The working copy's panel's ceiling, as a share of the graph column. */
+const WORKING_TREE_SHARE = 0.6;
+/** The slot's own chrome around the card: the lane gaps above and below it, and the splitter. */
+const SLOT_CHROME = SLOT_INSET * 2 + 5;
 
 /**
  * How many of the graph's initial rows get a staggered fade-in.

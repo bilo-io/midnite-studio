@@ -83,8 +83,15 @@ async function openBigDiff(page: Page, { inTab = false } = {}): Promise<void> {
     await expect(link.getByText('Changes', { exact: true })).toBeVisible();
     await link.click();
   }
-  await page.getByRole('button', { name: /pnpm-lock\.yaml/ }).click();
-  await expect(page.getByTestId('diff-view')).toBeVisible();
+  // The visible file LIST's row: the graph's inline commit panel also lists
+  // every file in its all-changes accordion, and a kept-alive graph behind the
+  // Changes view still holds its own copy.
+  await page
+    .getByTestId('commit-files')
+    .filter({ visible: true })
+    .getByRole('button', { name: /pnpm-lock\.yaml/ })
+    .click();
+  await expect(page.getByTestId('diff-view').filter({ visible: true })).toBeVisible();
 }
 
 const renderedRows = (page: Page) =>

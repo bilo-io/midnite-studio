@@ -162,7 +162,12 @@ export function useCommandHandlers(): CommandRuntime {
   // nothing open.
   const sync = selectedRepoId && status ? syncAffordances(status.branch) : null;
 
-  const onWorkingTree = activeView === 'changes' && workbenchActiveTabId === null;
+  // The working tree's commit box is on screen in two places: the Changes
+  // view's working-tree tab, and the graph's inline working-copy panel.
+  const graphWorkingTreeOpen = useUiStore((s) => s.graphSelection?.kind === 'working-tree');
+  const onWorkingTree =
+    (activeView === 'changes' && workbenchActiveTabId === null) ||
+    (activeView === 'graph' && graphWorkingTreeOpen);
 
   const editorTarget = useFileEditorStore((s) => s.target);
   const editorDirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);

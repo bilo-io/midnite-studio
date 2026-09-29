@@ -200,6 +200,22 @@ describe('useCommandHandlers — a repo is selected', () => {
     expect(onTree.current['status.commit'].enabled).toBe(true);
   });
 
+  it("enables status.commit on the graph while its inline working-copy panel is open", () => {
+    useUiStore.setState({
+      selectedRepoId: REPO_ID,
+      activeView: 'graph',
+      graphSelection: { kind: 'working-tree' },
+    });
+    const { result: open } = withProviders(seededClient({}));
+    expect(open.current['status.commit'].enabled).toBe(true);
+
+    // A commit's panel is not a commit box.
+    useUiStore.setState({ graphSelection: { kind: 'commit', sha: 'abc' } });
+    const { result: commit } = withProviders(seededClient({}));
+    expect(commit.current['status.commit'].enabled).toBe(false);
+    useUiStore.setState({ graphSelection: null });
+  });
+
   it('disables status.commit when the Changes view is open on a non-working-tree tab', () => {
     useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'changes' });
     useWorkbenchStore.setState({ activeTabId: 'some-tab' });
