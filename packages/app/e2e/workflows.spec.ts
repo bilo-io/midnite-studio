@@ -252,8 +252,13 @@ test('deselecting every node closes the inspector', async ({ page }) => {
   await page.locator('[data-node-id]').first().click();
   await expect(page.getByLabel('URL')).toBeVisible();
 
+  await expect(page.getByTestId('workflow-inspector-panel')).toHaveAttribute('data-collapsed', 'false');
+
+  // Escape deselects, and the inspector — with nothing left to show —
+  // collapses to zero width.
   await canvas(page).press('Escape');
-  await expect(page.getByText('Select a node to configure it.')).toBeVisible();
+  await expect(page.getByTestId('workflow-inspector-panel')).toHaveAttribute('data-collapsed', 'true');
+  await expect(page.getByLabel('URL')).not.toBeInViewport();
 });
 
 /**

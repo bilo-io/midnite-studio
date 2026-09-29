@@ -99,6 +99,10 @@ describe('WorkflowsView resizable panels', () => {
     // Select workflow
     fireEvent.click(await screen.findByText('Fetch and log'));
     await screen.findByText('Inspector');
+    // Nothing is selected on load, so the inspector starts collapsed with
+    // no resize handle; open it by hand to reach one.
+    expect(screen.queryByRole('separator', { name: 'Resize workflow detail' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show inspector' }));
 
     const detailHandle = screen.getByRole('separator', { name: 'Resize workflow detail' });
     expect(detailHandle).toBeDefined();

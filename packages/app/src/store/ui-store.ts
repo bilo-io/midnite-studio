@@ -984,6 +984,15 @@ export type UiState = {
   /** The Workflows canvas's node palette, collapsed to a rail (Phase 95 Theme I). */
   workflowPaletteCollapsed: boolean;
   setWorkflowPaletteCollapsed: (collapsed: boolean) => void;
+  /**
+   * The Workflows editor's right-hand inspector, collapsed to zero width. Kept
+   * beside `workflowPaletteCollapsed` and persisted the same way, but the
+   * editor re-derives it whenever the canvas selection changes (open on a
+   * selection, closed on none — `use-inspector-collapse.ts`), so a persisted
+   * value only survives until the first selection change after launch.
+   */
+  workflowInspectorCollapsed: boolean;
+  setWorkflowInspectorCollapsed: (collapsed: boolean) => void;
   /** The Workflows canvas's bottom run panel, collapsed to its header bar (Phase 95 Theme I). */
   workflowRunPanelCollapsed: boolean;
   setWorkflowRunPanelCollapsed: (collapsed: boolean) => void;
@@ -2084,6 +2093,7 @@ export type PersistedUi = Pick<
   | 'setupState'
   | 'councilConfigCollapsed'
   | 'workflowPaletteCollapsed'
+  | 'workflowInspectorCollapsed'
   | 'workflowRunPanelCollapsed'
   | 'inactivityTimeoutS'
   | 'workflowDefaultTimeoutS'
@@ -2509,6 +2519,8 @@ export const useUiStore = create<UiState>()(
       setCouncilConfigCollapsed: (councilConfigCollapsed) => set({ councilConfigCollapsed }),
       workflowPaletteCollapsed: false,
       setWorkflowPaletteCollapsed: (workflowPaletteCollapsed) => set({ workflowPaletteCollapsed }),
+      workflowInspectorCollapsed: true,
+      setWorkflowInspectorCollapsed: (workflowInspectorCollapsed) => set({ workflowInspectorCollapsed }),
       workflowRunPanelCollapsed: true,
       setWorkflowRunPanelCollapsed: (workflowRunPanelCollapsed) => set({ workflowRunPanelCollapsed }),
 
@@ -3035,6 +3047,7 @@ export const useUiStore = create<UiState>()(
         setupState: state.setupState,
         councilConfigCollapsed: state.councilConfigCollapsed,
         workflowPaletteCollapsed: state.workflowPaletteCollapsed,
+        workflowInspectorCollapsed: state.workflowInspectorCollapsed,
         workflowRunPanelCollapsed: state.workflowRunPanelCollapsed,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,
