@@ -560,6 +560,10 @@ export type MockFixtures = {
   scaffoldApplyResult?:
     | { ok: true; value: { written: string[]; skipped: { path: string; reason: string }[] } }
     | { ok: false; kind: 'error'; message: string };
+  /** The open repo's own agent skills (`scaffold.listRepoSkills`) — the
+   *  Projects card skill picker's suggestions. Defaults to none, which leaves
+   *  the picker on its built-in task catalogue. */
+  repoSkills?: { name: string; description: string; source: '.claude' | '.agents' | '.codex' }[];
   /** The onboarding kit's `scaffold.installUserSkills` answer. */
   scaffoldInstallUserSkillsResult?:
     | { ok: true; value: { copied: string[]; targetDir: string } }
@@ -3168,6 +3172,7 @@ export function buildMockBridge(data: MockFixtures) {
         },
       apply: async () =>
         data.scaffoldApplyResult ?? { ok: true, value: { written: [], skipped: [] } },
+      listRepoSkills: async () => ({ ok: true, value: { skills: data.repoSkills ?? [] } }),
       installUserSkills: async () =>
         data.scaffoldInstallUserSkillsResult ?? {
           ok: true,

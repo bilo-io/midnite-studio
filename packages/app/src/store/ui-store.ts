@@ -1466,9 +1466,16 @@ export type UiState = {
    * rather than writing one. Bounded by `touchCardSkill`'s LRU
    * (`card-skill-lru.ts`) for the same reason `projectViewByProject` is.
    */
-  cardSkillByTask: Record<string, AgentCommandId>;
-  /** `skillId` of `undefined` clears the entry — the real "Not set", not an empty string written in its place. */
-  setCardSkill: (taskKey: string, skillId: AgentCommandId | undefined) => void;
+  cardSkillByTask: Record<string, string>;
+  /**
+   * `skill` of `undefined` (or blank) clears the entry — the real "Not set",
+   * not an empty string written in its place. A value is the picker's own
+   * free text, verbatim (`/midnite-create 98 D`); an entry persisted before
+   * the picker became a combobox may still hold a legacy `AgentCommandId`
+   * (`execAdhoc`), which `resolveCardSkillText` (`card-skill.ts`) maps to
+   * its template at read time rather than through a store migration.
+   */
+  setCardSkill: (taskKey: string, skill: string | undefined) => void;
   /**
    * The column → skill map behind a drag-to-skill drop (Phase 95 Theme G),
    * keyed by `projectId` (so "editable per project" reads off whichever
@@ -3024,8 +3031,9 @@ export const useUiStore = create<UiState>()(
           };
         }),
       setBlockedByFieldName: (blockedByFieldName) => set({ blockedByFieldName }),
-      setCardSkill: (taskKey, skillId) =>
+      setCardSkill: (taskKey, skill) =>
         set((state) => {
+          const skillId = skill?.trim() === '' ? undefined : skill;
           if (skillId === undefined) {
             const { [taskKey]: _dropped, ...rest } = state.cardSkillByTask;
             return { cardSkillByTask: rest };
@@ -3341,7 +3349,7 @@ export const useUiStore = create<UiState>()(
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
           companionSttEngine?: CompanionSttEngine;
-          cardSkillByTask?: Record<string, AgentCommandId>;
+          cardSkillByTask?: Record<string, string>;
           columnSkillByProject?: Record<string, Record<string, string>>;
           automateEnabledByProject?: Record<string, boolean>;
           automateCapByProject?: Record<string, number>;
