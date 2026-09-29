@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
-import { DEFAULT_LAYOUT, useUiStore } from '../../store/ui-store';
+import { DEFAULT_LAYOUT, useUiStore, type UiState } from '../../store/ui-store';
 import { MediaView } from './media-view';
 import { exportDisabledReason } from './use-media';
 
@@ -15,7 +15,7 @@ import { exportDisabledReason } from './use-media';
  * accordion reading `media.project.list`.
  */
 
-const open = (data: MockFixtures = fixtures, uiState: Parameters<typeof renderView>[1]['uiState'] = {}) =>
+const open = (data: MockFixtures = fixtures, uiState: Partial<UiState> = {}) =>
   renderView(<MediaView />, { fixtures: data, uiState: { selectedRepoId: 'repo-1', ...uiState } });
 
 beforeEach(() => {

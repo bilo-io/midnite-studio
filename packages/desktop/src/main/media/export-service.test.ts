@@ -102,6 +102,6 @@ describe('runFfmpegExport', () => {
     child.stderr.emit('data', Buffer.from('Invalid data found'));
     child.emit('close', 1);
     const result = await done;
-    expect(result.ok === false && result.message).toContain('Invalid data');
+    expect(result.ok === false && result.kind === 'error' && result.message).toContain('Invalid data');
   });
 });
