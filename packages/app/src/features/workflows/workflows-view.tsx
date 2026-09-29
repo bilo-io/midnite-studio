@@ -10,13 +10,14 @@ import {
   type WorkflowNodeStatus,
 } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LuWorkflow } from 'react-icons/lu';
+import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen, LuWorkflow } from 'react-icons/lu';
 
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
 import { PanelStack } from '../../components/panel-stack/panel-stack';
 import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { EmptyState } from '../../components/empty-state';
+import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
@@ -45,6 +46,7 @@ import {
   useWorkflowRun,
   useWorkflowRuns,
 } from './use-workflow-run';
+import { useInspectorCollapse } from './use-inspector-collapse';
 import { useSaveWorkflow, useSaveWorkflowTemplate, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
@@ -76,16 +78,6 @@ function workflowPanelLabel(entry: WorkflowPanelEntry): string {
 
 /** Matches `council-config-panel.tsx`'s own auto-save debounce. */
 const SAVE_DEBOUNCE_MS = 500;
-
-/**
- * The collapsed node palette's own rendered width — matching
- * `board-view.tsx`'s `COLLAPSED_WIDTH` (`w-9`) rather than leaving the
- * wrapper's width unset. Both states need a real pixel value for
- * `transition-[width]` to animate between them at all: CSS cannot
- * interpolate to or from `auto`, which is what an unset width used to fall
- * back to.
- */
-const WORKFLOW_PALETTE_COLLAPSED_WIDTH = 36;
 
 /**
  * Workflows (Phase 43) — replaces the `<Placeholder>` `app.tsx` has rendered
@@ -237,6 +229,8 @@ function WorkflowEditor({
     edge: 'end',
     ...LAYOUT_BOUNDS.workflowRunPanelHeight,
   });
+
+  const inspector = useInspectorCollapse({ selection, panelKind: panels.current.kind });
 
   const runs = useWorkflowRuns(workflow.id);
   const activeRunId = panels.current.kind === 'run' ? panels.current.runId : null;
@@ -441,16 +435,25 @@ function WorkflowEditor({
       />
 
       <div className="flex min-h-0 flex-1">
+        {/*
+          Collapsed is zero width, the same as the inspector on the right —
+          no rail, no gutter; the show/hide toggle is the canvas toolbar's
+          first control. Both states are real pixel values so
+          `transition-[width]` can animate between them (CSS cannot
+          interpolate to or from `auto`), and the inner column keeps the
+          palette's own width so its rows slide rather than reflow.
+        */}
         <div
-          className="shrink-0 overflow-hidden transition-[width] duration-150 ease-in-out"
-          style={{ width: paletteCollapsed ? WORKFLOW_PALETTE_COLLAPSED_WIDTH : layout.workflowPaletteWidth }}
+          data-testid="workflow-palette-panel"
+          data-collapsed={paletteCollapsed}
+          // `inert`, so a collapsed palette's rows drop out of the tab order.
+          inert={paletteCollapsed}
+          className="h-full shrink-0 overflow-hidden transition-[width] duration-150 ease-in-out"
+          style={{ width: paletteCollapsed ? 0 : layout.workflowPaletteWidth }}
         >
-          <NodePalette
-            collapsed={paletteCollapsed}
-            onToggleCollapsed={() => setPaletteCollapsed(!paletteCollapsed)}
-            onAddNode={addNodeFromPalette}
-            disabled={mode === 'run'}
-          />
+          <div className="h-full" style={{ width: layout.workflowPaletteWidth }}>
+            <NodePalette onAddNode={addNodeFromPalette} disabled={mode === 'run'} />
+          </div>
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -472,6 +475,24 @@ function WorkflowEditor({
               loopStates={loopStates}
               nodeSessions={nodeSessions}
               readOnly={mode === 'run'}
+              toolbarStart={
+                <IconButton
+                  icon={paletteCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
+                  label={paletteCollapsed ? 'Show node palette' : 'Hide node palette'}
+                  size="sm"
+                  aria-expanded={!paletteCollapsed}
+                  onClick={() => setPaletteCollapsed(!paletteCollapsed)}
+                />
+              }
+              toolbarEnd={
+                <IconButton
+                  icon={inspector.collapsed ? LuPanelRightOpen : LuPanelRightClose}
+                  label={inspector.collapsed ? 'Show inspector' : 'Hide inspector'}
+                  size="sm"
+                  aria-expanded={!inspector.collapsed}
+                  onClick={inspector.toggle}
+                />
+              }
               toolbarExtra={
                 mode === 'edit' ? (
                   <DemoApiPill
@@ -515,46 +536,60 @@ function WorkflowEditor({
           />
         </div>
 
-        <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />
+        {inspector.collapsed ? null : <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />}
+        {/*
+          Collapsed is zero width — no rail, no border, no gutter — so the
+          canvas takes the whole row; the show/hide toggle lives in the
+          canvas's own toolbar instead. The inner column keeps the panel's
+          real width throughout, so the contents slide out of view rather
+          than reflowing narrower on every frame of the transition, and the
+          transition is off while the resize handle is dragging.
+        */}
         <div
-          className="flex h-full shrink-0 flex-col border-l border-border"
-          style={{ width: detail.current }}
+          data-testid="workflow-inspector-panel"
+          data-collapsed={inspector.collapsed}
+          // `inert`, so a collapsed panel's fields drop out of the tab order.
+          inert={inspector.collapsed}
+          className={`h-full shrink-0 overflow-hidden ${detail.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
+          style={{ width: inspector.collapsed ? 0 : detail.current }}
         >
-        <PanelHeader
-          history={panels}
-          label={workflowPanelLabel}
-          className="shrink-0 border-b border-border px-2 py-1.5"
-        />
-        <PanelStack
-          history={panels}
-          className="min-h-0 flex-1"
-          render={(entry) => {
-            switch (entry.kind) {
-              case 'history':
-                return (
-                  <RunHistoryList
-                    workflowId={workflow.id}
-                    onSelectRun={(runId) => {
-                      panels.push({ kind: 'run', runId });
-                      setSelection(new Set());
-                    }}
-                  />
-                );
-              case 'run':
-                return <RunNodeDetail node={selectedRunNode} />;
-              case 'inspector':
-                return (
-                  <NodeInspector
-                    node={selectedNode}
-                    nodes={local.nodes}
-                    edges={local.edges}
-                    issue={selectedIssue}
-                    onChange={changeNode}
-                  />
-                );
-            }
-          }}
-        />
+          <div className="flex h-full flex-col border-l border-border" style={{ width: detail.current }}>
+            <PanelHeader
+              history={panels}
+              label={workflowPanelLabel}
+              className="shrink-0 border-b border-border px-2 py-1.5"
+            />
+            <PanelStack
+              history={panels}
+              className="min-h-0 flex-1"
+              render={(entry) => {
+                switch (entry.kind) {
+                  case 'history':
+                    return (
+                      <RunHistoryList
+                        workflowId={workflow.id}
+                        onSelectRun={(runId) => {
+                          panels.push({ kind: 'run', runId });
+                          setSelection(new Set());
+                        }}
+                      />
+                    );
+                  case 'run':
+                    return <RunNodeDetail node={selectedRunNode} />;
+                  case 'inspector':
+                    return (
+                      <NodeInspector
+                        node={selectedNode}
+                        nodes={local.nodes}
+                        edges={local.edges}
+                        issue={selectedIssue}
+                        onChange={changeNode}
+                      />
+                    );
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

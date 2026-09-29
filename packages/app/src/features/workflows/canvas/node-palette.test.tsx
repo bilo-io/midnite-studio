@@ -21,7 +21,7 @@ describe('NodePalette', () => {
   afterEach(() => cleanup());
 
   it('lists every node kind by default, each exactly once', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     expect(rows()).toHaveLength(WORKFLOW_NODE_KINDS.length);
     for (const kind of WORKFLOW_NODE_KINDS) {
       expect(screen.getAllByLabelText(`Add ${NODE_KIND_META[kind].label} node`)).toHaveLength(1);
@@ -29,7 +29,7 @@ describe('NodePalette', () => {
   });
 
   it('puts each kind under its own labelled group, in NODE_GROUPS order', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     const lists = within(palette()).getAllByRole('list');
     expect(lists.map((list) => list.getAttribute('aria-label'))).toEqual(NODE_GROUPS.map((group) => group.label));
     const control = within(palette()).getByRole('list', { name: 'Control flow' });
@@ -38,7 +38,7 @@ describe('NodePalette', () => {
   });
 
   it('collapses and re-expands a group from its heading', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     const toggle = groupToggle('Control flow');
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(toggle);
@@ -50,20 +50,20 @@ describe('NodePalette', () => {
   });
 
   it('filters rows by label as the query changes', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'http' } });
     expect(rows()).toHaveLength(1);
     expect(screen.getByLabelText('Add HTTP node')).not.toBeNull();
   });
 
   it('also filters by description, not just the label', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'comparison' } });
     expect(screen.getByLabelText('Add Condition node')).not.toBeNull();
   });
 
   it('searches across groups, dropping groups with no match', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     // "run" hits kinds in several groups (agent, script, trigger, …).
     fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'run' } });
     const expected = paletteGroups('run');
@@ -74,7 +74,7 @@ describe('NodePalette', () => {
   });
 
   it('opens a folded group while a query matches inside it, and restores the fold after', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     fireEvent.click(groupToggle('Control flow'));
     expect(groupToggle('Control flow').getAttribute('aria-expanded')).toBe('false');
 
@@ -87,7 +87,7 @@ describe('NodePalette', () => {
   });
 
   it('shows an empty state when nothing matches', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'zzz-no-match' } });
     expect(screen.getByText('No node matches this filter.')).not.toBeNull();
     expect(rows()).toHaveLength(0);
@@ -95,13 +95,13 @@ describe('NodePalette', () => {
 
   it('calls onAddNode with the clicked kind', () => {
     const onAddNode = vi.fn();
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={onAddNode} />);
+    render(<NodePalette onAddNode={onAddNode} />);
     fireEvent.click(screen.getByLabelText('Add Delay node'));
     expect(onAddNode).toHaveBeenCalledWith('delay');
   });
 
   it('sets the drag payload to the node kind on dragstart', () => {
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    render(<NodePalette onAddNode={() => {}} />);
     const setData = vi.fn();
     fireEvent.dragStart(screen.getByLabelText('Add Transform node'), {
       dataTransfer: { setData, effectAllowed: '' },
@@ -111,17 +111,15 @@ describe('NodePalette', () => {
 
   it('disables every row (no drag, no click) in read-only run view', () => {
     const onAddNode = vi.fn();
-    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={onAddNode} disabled />);
+    render(<NodePalette onAddNode={onAddNode} disabled />);
     const button = screen.getByLabelText('Add HTTP node') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.draggable).toBe(false);
   });
 
-  it('collapses to a rail with a single toggle button', () => {
-    const onToggleCollapsed = vi.fn();
-    render(<NodePalette collapsed onToggleCollapsed={onToggleCollapsed} onAddNode={() => {}} />);
-    expect(screen.queryByRole('region', { name: 'Node types' })).toBeNull();
-    fireEvent.click(screen.getByLabelText('Show node palette'));
-    expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
+  it('carries no show/hide control of its own — that toggle lives in the canvas toolbar', () => {
+    render(<NodePalette onAddNode={() => {}} />);
+    expect(screen.queryByLabelText('Show node palette')).toBeNull();
+    expect(screen.queryByLabelText('Hide node palette')).toBeNull();
   });
 });

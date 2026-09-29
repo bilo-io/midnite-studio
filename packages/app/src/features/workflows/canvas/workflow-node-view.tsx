@@ -135,6 +135,36 @@ function isPortDimmed(
   return !canConnect(thisNode, port, fromNode, toPort, graph.edges).ok;
 }
 
+/** The node card's resting outline width, in px. */
+export const NODE_RING_REST_WIDTH = 1;
+/** An invalid (but unselected) node's destructive ring width, in px. */
+export const NODE_RING_INVALID_WIDTH = 2;
+/** A selected node's ring width, in px — the thickest, so selection still reads when `invalid` has already taken the colour. */
+export const NODE_RING_SELECTED_WIDTH = 3;
+
+/**
+ * A node card's outline: width and colour, from its selected/invalid state.
+ *
+ * Drawn as an **inset `box-shadow` on an overlay span**, not the Tailwind
+ * `ring-*` utility the card used to carry, for two reasons:
+ *
+ * - `ring-*` is itself a `box-shadow` on the card, and `.activity-glow`
+ *   (`styles.css`) owns the card's `box-shadow` — its `idle` rule sets
+ *   `box-shadow: none` at higher specificity, and the `running`/`waiting`
+ *   states animate it. So on an un-run canvas the selection ring was never
+ *   painted at all, and on a running one the glow and the ring fought.
+ * - An inset shadow sits inside the card's own box, so going from 1px to 3px
+ *   changes no size and moves nothing: the card, its port handles and every
+ *   edge endpoint stay exactly where they were. An `outline` would also avoid
+ *   layout, but outlines paint above a box's children and would draw straight
+ *   through the port handles on the card's edges.
+ */
+export function nodeRing({ invalid, selected }: { invalid: boolean; selected: boolean }): { width: number; color: string } {
+  const color = invalid ? 'hsl(var(--destructive))' : selected ? 'hsl(var(--primary))' : 'hsl(var(--border))';
+  const width = selected ? NODE_RING_SELECTED_WIDTH : invalid ? NODE_RING_INVALID_WIDTH : NODE_RING_REST_WIDTH;
+  return { width, color };
+}
+
 /** One labelled line in a `frame` node's own card — a slot's first line, or an em dash when it's blank. */
 function FrameSlotLine({ label, value }: { label: string; value: string }) {
   const trimmed = value.trim();
@@ -158,6 +188,8 @@ function FrameSlotLine({ label, value }: { label: string; value: string }) {
  * border, so a selected-and-invalid node still reads as invalid (destructive
  * wins) without losing the "this is the selected one" affordance entirely —
  * the ring width is what carries selection when the colour is already taken.
+ * See {@link nodeRing} for why that ring is an inset overlay and not a
+ * Tailwind `ring-*` utility.
  */
 export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   const { node, invalid, status, error, readOnly, sessions, settledPort } = data as unknown as WorkflowNodeData;
@@ -180,7 +212,7 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   const inPorts = ports.filter((p) => p.direction === 'in');
   const outPorts = ports.filter((p) => p.direction === 'out');
 
-  const ringClass = invalid ? 'ring-2 ring-destructive' : selected ? 'ring-2 ring-primary' : 'ring-1 ring-border';
+  const ring = nodeRing({ invalid: invalid ?? false, selected: selected ?? false });
 
   /*
     The shared activity glow (Phase 95 Theme A/C) rather than a one-off pulse
@@ -209,8 +241,18 @@ export function WorkflowNodeView({ id, data, selected }: NodeProps) {
       // every other shape uses — it groups other node cards, so it needs
       // room to actually contain them.
       style={node.kind === 'frame' ? { width: node.config.width, height: node.config.height } : { width: 200 }}
-      className={`wf-node activity-glow group overflow-hidden bg-card shadow-sm ${shape === 'pill' ? 'rounded-full' : shape === 'start-card' ? 'rounded-l-full rounded-r-lg' : 'rounded-lg'} ${ringClass} ${readOnly ? '' : 'cursor-move'}`}
+      className={`wf-node activity-glow group overflow-hidden bg-card shadow-sm ${shape === 'pill' ? 'rounded-full' : shape === 'start-card' ? 'rounded-l-full rounded-r-lg' : 'rounded-lg'} ${readOnly ? '' : 'cursor-move'}`}
     >
+      {/* First child on purpose: an absolutely positioned sibling later in
+          the DOM paints over an earlier one, so every port handle below
+          still draws on top of the ring rather than under it. */}
+      <span
+        aria-hidden
+        data-testid="wf-node-ring"
+        data-ring-width={ring.width}
+        className="pointer-events-none absolute inset-0 rounded-[inherit] transition-[box-shadow] duration-100"
+        style={{ boxShadow: `inset 0 0 0 ${ring.width}px ${ring.color}` }}
+      />
       {inPorts.map((port, i) => (
         <Handle
           key={port.id}

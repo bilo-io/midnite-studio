@@ -3,6 +3,7 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { WorkflowCanvas, type WorkflowGraph } from './workflow-canvas';
+import { NODE_RING_REST_WIDTH, NODE_RING_SELECTED_WIDTH, nodeRing } from './workflow-node-view';
 
 /**
  * Handle colour and node shape (Phase 97 Theme J) — vitest/jsdom rather than
@@ -144,5 +145,32 @@ describe('WorkflowNodeView — check-badge (verify, Theme E)', () => {
     );
     const card = container.querySelector('[data-node-id="n5"]') as HTMLElement;
     expect(card.textContent).toContain('fail');
+  });
+});
+
+describe('WorkflowNodeView — selection ring', () => {
+  it('thickens from the resting 1px to 3px on selection, in the primary accent', () => {
+    expect(nodeRing({ invalid: false, selected: false })).toEqual({ width: 1, color: 'hsl(var(--border))' });
+    expect(nodeRing({ invalid: false, selected: true })).toEqual({ width: 3, color: 'hsl(var(--primary))' });
+  });
+
+  it('keeps the destructive colour when an invalid node is selected, and carries selection in the width', () => {
+    const invalid = nodeRing({ invalid: true, selected: false });
+    const both = nodeRing({ invalid: true, selected: true });
+    expect(invalid.color).toBe('hsl(var(--destructive))');
+    expect(both.color).toBe('hsl(var(--destructive))');
+    expect(both.width).toBeGreaterThan(invalid.width);
+  });
+
+  it('draws as an inset shadow on an overlay, so the card itself carries no ring utility', () => {
+    const { container } = mount({ nodes: [httpNode], edges: [] });
+    const card = container.querySelector('[data-node-id="n1"]') as HTMLElement;
+    expect(card.className).not.toMatch(/\bring-/);
+    const ring = card.querySelector('[data-testid="wf-node-ring"]') as HTMLElement;
+    expect(ring.dataset.ringWidth).toBe(String(NODE_RING_REST_WIDTH));
+    expect(ring.style.boxShadow).toContain(`inset 0 0 0 ${NODE_RING_REST_WIDTH}px`);
+    // First child, so every port handle after it paints on top of the ring.
+    expect(card.firstElementChild).toBe(ring);
+    expect(NODE_RING_SELECTED_WIDTH).toBeGreaterThanOrEqual(2);
   });
 });

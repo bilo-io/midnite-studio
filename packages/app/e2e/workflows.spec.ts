@@ -252,8 +252,13 @@ test('deselecting every node closes the inspector', async ({ page }) => {
   await page.locator('[data-node-id]').first().click();
   await expect(page.getByLabel('URL')).toBeVisible();
 
+  await expect(page.getByTestId('workflow-inspector-panel')).toHaveAttribute('data-collapsed', 'false');
+
+  // Escape deselects, and the inspector — with nothing left to show —
+  // collapses to zero width.
   await canvas(page).press('Escape');
-  await expect(page.getByText('Select a node to configure it.')).toBeVisible();
+  await expect(page.getByTestId('workflow-inspector-panel')).toHaveAttribute('data-collapsed', 'true');
+  await expect(page.getByLabel('URL')).not.toBeInViewport();
 });
 
 /**
@@ -405,4 +410,31 @@ test('panel-resize: dragging the run panel handle changes its height', async ({ 
   const after = await handle.boundingBox();
   if (!after) throw new Error('resize handle lost its bounding box after dragging');
   expect(after.y).not.toBeCloseTo(before.y, 0);
+});
+
+/**
+ * Side-panel collapse keeps the graph still (ad hoc, after Phase 97). Real
+ * browser only: the claim is about where a node card lands on screen while
+ * the palette's column animates from its width to zero and back — actual
+ * layout, `getBoundingClientRect()` and React Flow's viewport transform, all
+ * of which jsdom reports as zeros. The toggles' placement, ARIA state,
+ * zero-width styles and the auto-collapse rules are all vitest
+ * (`workflow-panel-toggles.test.tsx`, `use-inspector-collapse.test.tsx`).
+ */
+test('collapsing and expanding the node palette leaves the graph where it was on screen', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+  await addNode(page, 'HTTP');
+
+  const node = page.locator('[data-node-id]').first();
+  const palette = page.getByTestId('workflow-palette-panel');
+  const before = (await node.boundingBox())!.x;
+
+  await page.getByRole('button', { name: 'Hide node palette' }).click();
+  await expect.poll(async () => (await palette.boundingBox())?.width).toBe(0);
+  await expect.poll(async () => Math.round((await node.boundingBox())!.x - before)).toBe(0);
+
+  await page.getByRole('button', { name: 'Show node palette' }).click();
+  await expect.poll(async () => (await palette.boundingBox())?.width).toBeGreaterThan(0);
+  await expect.poll(async () => Math.round((await node.boundingBox())!.x - before)).toBe(0);
 });

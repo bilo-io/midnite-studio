@@ -7,7 +7,20 @@ import {
 } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { EDGE_KIND_STYLE, inferEdgeKind, iterationLabelFor, loopBoundsTitle, PORT_TYPE_COLOR_VAR, rendererEdgeState } from './edge-style';
+import {
+  clampEdgeOpacity,
+  DEAD_EDGE_OPACITY,
+  EDGE_KIND_STYLE,
+  EDGE_OPACITY_MAX,
+  EDGE_OPACITY_MIN,
+  edgeAppearance,
+  inferEdgeKind,
+  iterationLabelFor,
+  loopBoundsTitle,
+  PORT_TYPE_COLOR_VAR,
+  rendererEdgeState,
+  type RendererEdgeState,
+} from './edge-style';
 
 function edge(overrides: Partial<WorkflowEdge> & Pick<WorkflowEdge, 'from' | 'to'>): WorkflowEdge {
   return { id: 'e1', ...overrides };
@@ -166,5 +179,63 @@ describe('loopBoundsTitle', () => {
   it('falls back to milliseconds under a minute', () => {
     const loopEdge = edge({ from: 'a', to: 'b', kind: 'loop', loop: { maxIterations: 2, budgetMs: 500 } });
     expect(loopBoundsTitle(loopEdge)).toBe('Up to 2 iterations, 500ms budget.');
+  });
+});
+
+describe('edge opacity clamp', () => {
+  it('holds the bounds at 50% and 90%', () => {
+    expect(EDGE_OPACITY_MIN).toBe(0.5);
+    expect(EDGE_OPACITY_MAX).toBe(0.9);
+  });
+
+  it('clamps out-of-range values, and reads NaN as the floor rather than an invisible edge', () => {
+    expect(clampEdgeOpacity(0)).toBe(0.5);
+    expect(clampEdgeOpacity(0.35)).toBe(0.5);
+    expect(clampEdgeOpacity(0.7)).toBe(0.7);
+    expect(clampEdgeOpacity(1)).toBe(0.9);
+    expect(clampEdgeOpacity(Number.NaN)).toBe(0.5);
+  });
+
+  // Every variant the canvas can draw: each kind (data, conditional branch,
+  // error, loop) × each run state (pending/default, taken, dead) × running
+  // source × selected — and hover, which is each variant's `hoverOpacity`.
+  const states: RendererEdgeState[] = ['pending', 'taken', 'dead'];
+  const variants = WORKFLOW_EDGE_KINDS.flatMap((kind) =>
+    states.flatMap((state) =>
+      [false, true].flatMap((running) => [false, true].map((selected) => ({ kind, state, running, selected }))),
+    ),
+  );
+
+  it.each(variants)('keeps $kind / $state / running=$running / selected=$selected inside [0.5, 0.9], resting and hovered', (variant) => {
+    const look = edgeAppearance(variant);
+    for (const value of [look.opacity, look.hoverOpacity]) {
+      expect(value).toBeGreaterThanOrEqual(EDGE_OPACITY_MIN);
+      expect(value).toBeLessThanOrEqual(EDGE_OPACITY_MAX);
+    }
+    expect(look.hoverOpacity).toBeGreaterThanOrEqual(look.opacity);
+  });
+
+  it('never bakes opacity into the colour itself — every stroke is an opaque token', () => {
+    for (const variant of variants) {
+      expect(edgeAppearance(variant).stroke).not.toMatch(/rgba|color-mix|\/\s*0?\.\d|transparent/);
+    }
+  });
+
+  it('draws a dead edge at the floor, un-animated, and a selected one at the ceiling', () => {
+    const dead = edgeAppearance({ kind: 'data', state: 'dead', running: false, selected: false });
+    expect(dead.opacity).toBe(DEAD_EDGE_OPACITY);
+    expect(dead.animated).toBe(false);
+    const selected = edgeAppearance({ kind: 'data', state: 'pending', running: false, selected: true });
+    expect(selected.opacity).toBe(EDGE_OPACITY_MAX);
+    expect(selected.strokeWidth).toBeGreaterThan(dead.strokeWidth);
+  });
+
+  it('keeps each kind\'s own dash pattern and the error kind\'s colour', () => {
+    const error = edgeAppearance({ kind: 'error', state: 'pending', running: false, selected: false });
+    expect(error.stroke).toBe(EDGE_KIND_STYLE.error.strokeColorVar);
+    expect(error.dashArray).toBe(EDGE_KIND_STYLE.error.dashArray);
+    expect(edgeAppearance({ kind: 'loop', state: 'pending', running: false, selected: false }).dashArray).toBe(
+      EDGE_KIND_STYLE.loop.dashArray,
+    );
   });
 });

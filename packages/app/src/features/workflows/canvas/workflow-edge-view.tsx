@@ -1,7 +1,9 @@
 import type { WorkflowEdge, WorkflowNodeStatus } from '@midnite/studio-shared';
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
 
-import { DEAD_EDGE_OPACITY, EDGE_KIND_STYLE, loopBoundsTitle, rendererEdgeState } from './edge-style';
+import type { CSSProperties } from 'react';
+
+import { DEAD_EDGE_OPACITY, EDGE_KIND_STYLE, edgeAppearance, loopBoundsTitle, rendererEdgeState } from './edge-style';
 
 /** `data` this edge type is mounted with — see `workflow-layout.ts`'s `toFlowGraph` and `workflow-canvas.tsx`'s per-render decorate step. */
 export type WorkflowEdgeData = {
@@ -43,6 +45,7 @@ export function WorkflowEdgeView({
   targetPosition,
   data,
   markerEnd,
+  selected,
 }: EdgeProps) {
   const edgeData = data as unknown as WorkflowEdgeData;
   const kind = edgeData.edge.kind ?? 'data';
@@ -65,15 +68,12 @@ export function WorkflowEdgeView({
       })
     : getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 6 });
 
-  const strokeColor = style.strokeColorVar ?? 'hsl(var(--border))';
-  // Every edge animates until a run marks it dead — matching the canvas's
-  // pre-Theme-J look (every edge was `animated: true`) for the `pending`
-  // case (no run yet, or an upstream still in flight), and the phase doc's
-  // own "taken edges keep the animated stroke" for a settled one.
-  // `wf-edge-live`'s keyframe (`styles.css`) is itself gated under
-  // `prefers-reduced-motion: no-preference` — the motion policy this canvas
-  // otherwise follows for the activity glow.
-  const animated = state !== 'dead';
+  // Colour, width, opacity (rest and hover, both clamped to 50–90%) and the
+  // marching-dash animation all come from `edgeAppearance` — the one place an
+  // edge's look is derived. `wf-edge-live`'s keyframe (`styles.css`) is
+  // itself gated under `prefers-reduced-motion: no-preference` — the motion
+  // policy this canvas otherwise follows for the activity glow.
+  const look = edgeAppearance({ kind, state, running: edgeData.sourceStatus === 'running', selected: selected ?? false });
 
   return (
     <>
@@ -81,13 +81,16 @@ export function WorkflowEdgeView({
         id={id}
         path={path}
         markerEnd={markerEnd}
-        style={{
-          stroke: strokeColor,
-          strokeWidth: 1.5,
-          strokeDasharray: style.dashArray,
-          opacity: state === 'dead' ? DEAD_EDGE_OPACITY : 1,
-        }}
-        className={animated ? 'wf-edge-live' : undefined}
+        style={
+          {
+            stroke: look.stroke,
+            strokeWidth: look.strokeWidth,
+            strokeDasharray: look.dashArray,
+            '--wf-edge-opacity': look.opacity,
+            '--wf-edge-hover-opacity': look.hoverOpacity,
+          } as CSSProperties
+        }
+        className={`wf-edge-path${look.animated ? ' wf-edge-live' : ''}`}
       />
       {style.showSourcePortLabel || edgeData.iterationLabel ? (
         <EdgeLabelRenderer>

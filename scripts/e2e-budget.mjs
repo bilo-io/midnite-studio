@@ -147,7 +147,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // claim is that it lands aimed at the real FAB in the assembled app, then
 // clears out so that FAB can be clicked to resume. The handoff's phases, the
 // hidden-FAB wording and the resume-page rule are all vitest.
-export const MAX_DECLARED_E2E = 457;
+// Raised 457 -> 458 for the ad hoc Workflows canvas styling pass
+// (`workflows.spec.ts`, one test): collapsing a side panel keeps the graph
+// still on screen, which the canvas does by shifting React Flow's viewport by
+// its container's measured left-edge movement — real layout and
+// `getBoundingClientRect()`, zeros under jsdom. The toggles, the zero-width
+// state and the inspector's auto-collapse/Escape rules are all vitest.
+export const MAX_DECLARED_E2E = 458;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

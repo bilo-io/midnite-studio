@@ -28,6 +28,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { LuLayoutGrid, LuPlay, LuRedo2, LuUndo2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
+import { useDismiss } from '../../../components/use-dismiss';
+import { useEditableFocus } from '../../../lib/use-editable-focus';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import type { ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { createNode } from '../workflow-io';
@@ -43,6 +45,8 @@ export type WorkflowGraph = { nodes: WorkflowNode[]; edges: WorkflowEdge[] };
 /** Ring-buffer cap for canvas-local, in-session undo/redo. Not persisted. */
 const WORKFLOW_UNDO_LIMIT = 50;
 const GRID_STEP = 16;
+/** How far inside the canvas edge a selected node is kept when a side panel narrows the canvas over it. */
+const KEEP_IN_VIEW_MARGIN = 24;
 
 function snapToGrid(value: number, step: number): number {
   return Math.round(value / step) * step;
@@ -92,6 +96,10 @@ export function WorkflowCanvas(props: {
   nodeSessions?: ReadonlyMap<string, readonly ActivityGlowSessionInput[]>;
   /** Extra toolbar content (Theme G's History control, e.g.) — the canvas owns the bar, not what a caller puts in it. */
   toolbarExtra?: React.ReactNode;
+  /** Pinned to the bar's left end, before undo/redo — the node palette's show/hide toggle. */
+  toolbarStart?: React.ReactNode;
+  /** Pinned to the bar's right end, after everything else — the inspector's show/hide toggle. */
+  toolbarEnd?: React.ReactNode;
 }) {
   return (
     <ReactFlowProvider>
@@ -116,8 +124,10 @@ function WorkflowCanvasInner({
   loopStates,
   nodeSessions,
   toolbarExtra,
+  toolbarStart,
+  toolbarEnd,
 }: Parameters<typeof WorkflowCanvas>[0]) {
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, getViewport, setViewport, getNodes, getNodesBounds } = useReactFlow();
   const [nodes, setNodes] = useState<Node[]>(() =>
     decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, nodeSettledPorts),
   );
@@ -172,6 +182,48 @@ function WorkflowCanvasInner({
   useEffect(() => {
     setEdges((prev) => decorateEdges(prev, nodeStatuses, nodeSettledPorts, loopStates));
   }, [nodeStatuses, nodeSettledPorts, loopStates]);
+
+  /*
+    Side panels opening and closing (the palette on the left, the inspector
+    on the right, both animating their width) resize this container. The
+    rule is **keep the graph still on screen**, not re-fit: a re-fit would
+    zoom and pan on every node click, since selecting a node is what opens
+    the inspector. React Flow already anchors its viewport to the
+    container's left edge, so a right-hand resize leaves the graph where it
+    was on its own; a left-hand one moves that edge, and this shifts the
+    viewport back by exactly as much, frame by frame through the transition.
+
+    One exception, because "still" must not mean "hidden": selecting a node
+    near the right edge opens the inspector, which narrows the canvas over
+    that very node. So after the compensation, if the selection would fall
+    outside the canvas it pans by the minimum that brings it back inside
+    (left edge first, when the selection is wider than the canvas).
+  */
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let left = el.getBoundingClientRect().left;
+    const observer = new ResizeObserver(() => {
+      const rect = el.getBoundingClientRect();
+      const viewport = getViewport();
+      let x = viewport.x - (rect.left - left);
+      left = rect.left;
+
+      const selected = getNodes().filter((n) => n.selected);
+      if (selected.length > 0 && rect.width > 0) {
+        const bounds = getNodesBounds(selected);
+        const end = (bounds.x + bounds.width) * viewport.zoom + x;
+        if (end > rect.width - KEEP_IN_VIEW_MARGIN) x -= end - (rect.width - KEEP_IN_VIEW_MARGIN);
+        const start = bounds.x * viewport.zoom + x;
+        if (start < KEEP_IN_VIEW_MARGIN) x += KEEP_IN_VIEW_MARGIN - start;
+      }
+
+      if (x !== viewport.x) void setViewport({ ...viewport, x });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [getNodes, getNodesBounds, getViewport, setViewport]);
 
   useEffect(() => {
     undoStack.current = [];
@@ -230,7 +282,10 @@ function WorkflowCanvasInner({
         next = applyNodeChanges(changes, prev);
         return next;
       });
-      if (changes.some((c) => c.type === 'select')) emitSelection(next);
+      // `remove` too: deleting the selected node emits no `select` change of
+      // its own, and without this the parent would keep a selection naming a
+      // node that no longer exists (so the inspector would stay open on it).
+      if (changes.some((c) => c.type === 'select' || c.type === 'remove')) emitSelection(next);
 
       const drag = changes.find((c): c is Extract<NodeChange, { type: 'position' }> => c.type === 'position');
       if (!readOnly && drag && drag.dragging === false && drag.position) {
@@ -413,16 +468,34 @@ function WorkflowCanvasInner({
     requestAnimationFrame(() => fitView({ padding: 0.2, duration: 200 }));
   }, [commit, fitView]);
 
+  const clearSelection = useCallback(() => {
+    setNodes((prev) => prev.map((n) => (n.selected ? { ...n, selected: false } : n)));
+    setEdges((prev) => prev.map((e) => (e.selected ? { ...e, selected: false } : e)));
+    emitSelection([]);
+  }, [emitSelection]);
+
+  /*
+    Escape deselects — and so, through the editor's auto rule
+    (`use-inspector-collapse.ts`), collapses the inspector. On the shared
+    dismissal stack rather than this element's own `onKeyDown`, for the same
+    reasons `graph-view.tsx`'s commit selection is:
+
+    - `inline` + passive, so any menu, popover or dialog open over the canvas
+      is blocking and takes the Escape first; the selection survives it.
+    - it fires wherever focus is (a toolbar button, the inspector's own
+      header), not only while the canvas element itself has focus — and it is
+      NOT registered while focus is in something you type into
+      (`useEditableFocus`): an inspector field, the terminal's xterm input, a
+      Monaco editor. The stack consumes every Escape it is handed, so standing
+      down while typing is the only way to leave that Escape to the field.
+  */
+  const typing = useEditableFocus();
+  useDismiss(selection.size > 0 && !typing, clearSelection, { layer: 'inline', blocking: false });
+
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        setNodes((prev) => prev.map((n) => ({ ...n, selected: false })));
-        emitSelection([]);
-        return;
-      }
       if (readOnly) return;
       if (mod && key === 'z' && event.shiftKey) {
         event.preventDefault();
@@ -445,6 +518,7 @@ function WorkflowCanvasInner({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="hide-scrollbar flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5">
+        {toolbarStart}
         {readOnly ? (
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Viewing run</span>
         ) : (
@@ -461,22 +535,25 @@ function WorkflowCanvasInner({
           </>
         )}
         {toolbarExtra}
-        {selection.size > 0 ? <span className="ml-auto text-[11px] text-muted-foreground">{selection.size} selected</span> : null}
+        <span aria-hidden className="flex-1" />
+        {selection.size > 0 ? <span className="text-[11px] text-muted-foreground">{selection.size} selected</span> : null}
         {onRun ? (
           <button
             type="button"
             disabled={Boolean(runDisabledReason) || isRunning}
             title={runDisabledReason}
             onClick={onRun}
-            className={`flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40 ${selection.size > 0 ? '' : 'ml-auto'}`}
+            className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40"
           >
             <LuPlay aria-hidden className="h-3 w-3" />
             {isRunning ? 'Running…' : 'Run'}
           </button>
         ) : null}
+        {toolbarEnd}
       </div>
 
       <div
+        ref={containerRef}
         role="application"
         aria-label="Workflow canvas"
         tabIndex={0}
