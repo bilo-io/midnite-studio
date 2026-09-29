@@ -13,7 +13,10 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      // The one file of `shared` the site takes, by source path rather than the
+      // package barrel — see the alias in `vite.config.ts`.
+      "@midnite/studio-shared/install-command": ["../shared/src/install-command.ts"]
     }
   },
   "include": ["src/**/*", "vite.config.ts", "vitest.config.ts", "tailwind.config.ts"],
