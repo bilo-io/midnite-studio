@@ -3,7 +3,12 @@ import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DismissableScope, useDismissable, type DismissableNode } from './use-dismissable';
+import {
+  DismissableScope,
+  focusIsInOpenMenuTree,
+  useDismissable,
+  type DismissableNode,
+} from './use-dismissable';
 
 /**
  * The shared dismissal rules, exercised against a bare harness: a trigger, a
@@ -193,6 +198,23 @@ describe('useDismissable — one surface', () => {
     expect(document.documentElement.hasAttribute('data-dismissable-open')).toBe(true);
     fireEvent.pointerDown(screen.getByTestId('elsewhere'));
     expect(document.documentElement.hasAttribute('data-dismissable-open')).toBe(false);
+  });
+});
+
+describe('focusIsInOpenMenuTree', () => {
+  it('is true only while focus sits in an open surface or on its trigger', () => {
+    render(<Harness />);
+    act(() => trigger().focus());
+    expect(focusIsInOpenMenuTree()).toBe(false);
+
+    fireEvent.click(trigger());
+    expect(focusIsInOpenMenuTree()).toBe(true);
+    act(() => screen.getByRole('button', { name: 'parent item' }).focus());
+    expect(focusIsInOpenMenuTree()).toBe(true);
+
+    escape();
+    expect(parent()).toBeNull();
+    expect(focusIsInOpenMenuTree()).toBe(false);
   });
 });
 

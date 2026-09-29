@@ -160,6 +160,23 @@ export function isInsideOpenMenuTree(target: Node): boolean {
   return false;
 }
 
+/**
+ * Whether keyboard focus currently sits inside an open menu tree (a surface
+ * or its trigger).
+ *
+ * For code that moves focus of its own accord — the terminal's
+ * focus-follows-selection effect, which fires whenever a session turns
+ * `ready`. That is asynchronous, so it can land after the user has already
+ * opened a menu, and a `focusin` outside the tree reads as focus leaving: the
+ * menu they just opened closes under them. Checking this first leaves focus
+ * where the user put it.
+ */
+export function focusIsInOpenMenuTree(): boolean {
+  if (openNodes.size === 0 || typeof document === 'undefined') return false;
+  const active = document.activeElement;
+  return active !== null && active !== document.body && isInsideOpenMenuTree(active);
+}
+
 function openRoots(): DismissableNode[] {
   const roots = new Set<DismissableNode>();
   for (const node of openNodes) roots.add(rootOf(node));
