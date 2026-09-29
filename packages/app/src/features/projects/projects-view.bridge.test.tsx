@@ -69,6 +69,7 @@ const ITEM = {
     assignees: [],
     body: '',
     labels: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: {

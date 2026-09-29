@@ -65,6 +65,8 @@ import { TaskCard } from './task-card';
  * the board's items … not one query per column"), so switching modes costs
  * nothing extra and a board never fetches per column.
  */
+const NO_BLOCKED_ITEMS: ReadonlySet<string> = new Set();
+
 export function BoardView({
   projectId,
   repoId,
@@ -73,6 +75,7 @@ export function BoardView({
   items,
   allItems = items,
   blockedByFieldName = 'Blocked by',
+  blockedItemIds: blockedIds = NO_BLOCKED_ITEMS,
   groupField,
   collapsedColumns,
   onToggleColumn,
@@ -103,6 +106,13 @@ export function BoardView({
    *  component still owns no store reads beyond what it already has.
    *  Optional, defaulting to `resolveForgeGraph`'s own `'Blocked by'`. */
   blockedByFieldName?: string;
+  /**
+   * Items with an open blocker (`blockedItemIds(graph)`, computed once by the
+   * caller from the whole-board graph) — their status border holds still and
+   * fades. Optional, defaulting to none, so a caller with no graph still
+   * renders every card's plain status stroke.
+   */
+  blockedItemIds?: ReadonlySet<string>;
   /** Resolved by the caller via `resolveGroupField` (Phase 52 Theme B) — this
    *  component groups by whatever it is handed, `Status` included. */
   groupField: ForgeProjectField | null;
@@ -595,6 +605,7 @@ export function BoardView({
                 columns={columns}
                 fields={cardFields}
                 statusField={statusField}
+                blockedIds={blockedIds}
                 projectId={projectId}
                 selectedItemId={selectedItemId}
                 focusedItemId={focusedItemId}
@@ -644,7 +655,7 @@ export function BoardView({
               item={activeItem}
               fields={cardFields}
               projectId={projectId}
-              statusStroke={itemStatusStroke(activeItem, statusField)}
+              statusStroke={itemStatusStroke(activeItem, statusField, blockedIds.has(activeItem.id))}
             />
           </div>
         ) : null}
@@ -681,6 +692,7 @@ function BoardColumnView({
   columns,
   fields,
   statusField,
+  blockedIds,
   projectId,
   selectedItemId,
   focusedItemId,
@@ -697,6 +709,8 @@ function BoardColumnView({
   fields: readonly ForgeProjectField[];
   /** The board's Status field, for each card's status stroke. */
   statusField: ForgeProjectField | null;
+  /** `blockedItemIds(graph)` — which cards get the blocked status stroke. */
+  blockedIds: ReadonlySet<string>;
   projectId: string;
   selectedItemId: string | null;
   /** The roving-tabindex target (Phase 52 Theme G) — the one card on the
@@ -771,6 +785,7 @@ function BoardColumnView({
           columns={columns}
           fields={fields}
           statusField={statusField}
+          blockedIds={blockedIds}
           projectId={projectId}
           selectedItemId={selectedItemId}
           focusedItemId={focusedItemId}
@@ -788,6 +803,7 @@ function BoardColumnView({
                 item={item}
                 fields={fields}
                 statusField={statusField}
+                blockedIds={blockedIds}
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
                 tabIndex={item.id === focusedItemId ? 0 : -1}
@@ -830,6 +846,7 @@ function DraggableCard({
   item,
   fields,
   statusField,
+  blockedIds,
   projectId,
   isOpen,
   tabIndex,
@@ -844,6 +861,8 @@ function DraggableCard({
   fields: readonly ForgeProjectField[];
   /** The board's Status field, for each card's status stroke. */
   statusField: ForgeProjectField | null;
+  /** `blockedItemIds(graph)` — which cards get the blocked status stroke. */
+  blockedIds: ReadonlySet<string>;
   projectId: string;
   isOpen: boolean;
   /** Roving tabindex (Phase 52 Theme G) — forwarded to `TaskCard`, the
@@ -930,7 +949,7 @@ function DraggableCard({
         projectId={projectId}
         isOpen={isOpen}
         statusColor={statusColor}
-        statusStroke={itemStatusStroke(item, statusField)}
+        statusStroke={itemStatusStroke(item, statusField, blockedIds.has(item.id))}
         tabIndex={tabIndex}
         onClick={onClick}
       />
@@ -951,6 +970,7 @@ function VirtualizedColumnItems({
   columns,
   fields,
   statusField,
+  blockedIds,
   projectId,
   selectedItemId,
   focusedItemId,
@@ -964,6 +984,8 @@ function VirtualizedColumnItems({
   fields: readonly ForgeProjectField[];
   /** The board's Status field, for each card's status stroke. */
   statusField: ForgeProjectField | null;
+  /** `blockedItemIds(graph)` — which cards get the blocked status stroke. */
+  blockedIds: ReadonlySet<string>;
   projectId: string;
   selectedItemId: string | null;
   /** See `BoardColumnView`'s own note. **Known gap:** a focused card past the
@@ -1006,6 +1028,7 @@ function VirtualizedColumnItems({
                 item={item}
                 fields={fields}
                 statusField={statusField}
+                blockedIds={blockedIds}
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
                 tabIndex={item.id === focusedItemId ? 0 : -1}

@@ -6,6 +6,7 @@ import type { Remote } from '@midnite/studio-shared';
 
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
+import { useTerminalStore } from '../terminal/terminal-store';
 import { ProjectsView } from './projects-view';
 
 /**
@@ -540,6 +541,7 @@ describe('Phase 52 — filter toolbar, group-by, sort', () => {
             assignees: ['alice'],
             body: '',
             labels: [],
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
           },
           fieldValues: {},
         },
@@ -555,6 +557,7 @@ describe('Phase 52 — filter toolbar, group-by, sort', () => {
             assignees: ['bob'],
             body: '',
             labels: [],
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
           },
           fieldValues: {},
         },
@@ -1206,5 +1209,125 @@ describe('Phase 75 Theme H — filters and the graph’s own facets', () => {
     // onCollapse closed the panel by clearing selectedItemId
     expect(screen.queryByTestId('card-panel-stack')).toBeNull();
     expect(screen.queryByRole('separator', { name: 'Resize task details' })).toBeNull();
+  });
+});
+
+/*
+  List (table) rows wear the same status stroke as a board card and a graph
+  node (ad hoc) — as a left rule rather than an outline — and the same
+  blocked rule: still and faded while an open blocker stands. Blocked comes
+  from the one whole-board graph this view computes for every mode.
+*/
+describe('List view — status rule, blocked rows and the AI glow', () => {
+  const STATUS_FIELD = {
+    id: 'f-status',
+    name: 'Status',
+    dataType: 'single_select',
+    options: [
+      { id: 'o-todo', name: 'Todo', color: 'GRAY' },
+      { id: 'o-rev', name: 'In Review', color: 'PURPLE' },
+    ],
+  };
+  const row = (n: number, optionId: string, blockedBy: number[] = []) => ({
+    id: `item${n}`,
+    content: {
+      type: 'issue',
+      id: `I_${n}`,
+      number: n,
+      title: `Row ${n}`,
+      url: `https://github.com/acme/widgets/issues/${n}`,
+      state: 'open',
+      assignees: [],
+      body: '',
+      labels: [],
+      dependencies: {
+        blockedBy: blockedBy.map((b) => ({ number: b, title: '', state: 'open', repo: '' })),
+        parent: null,
+        subIssues: [],
+        blockedByTruncated: false,
+        subIssuesTruncated: false,
+      },
+    },
+    fieldValues: { 'f-status': { fieldId: 'f-status', dataType: 'single_select', optionId, name: '' } },
+  });
+
+  beforeAll(() => {
+    // The virtualizer sizes its window off the scroll element's offset box,
+    // which jsdom reports as 0 — no rows would mount at all.
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 800 });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 1200 });
+  });
+
+  beforeEach(() => {
+    list.mockReset();
+    fields.mockReset();
+    items.mockReset();
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    projectsMode = {};
+    projectViewByProject = {};
+    blockedByFieldName = 'Blocked by';
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [{ id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false }],
+      error: null,
+      kind: 'ok',
+    });
+    fields.mockResolvedValue({ cli: CLI_READY, fields: [STATUS_FIELD], error: null, kind: 'ok' });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      // Row 2 is blocked by the still-open row 1; row 3 stands alone.
+      items: [row(1, 'o-rev'), row(2, 'o-rev', [1]), row(3, 'o-todo')],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+  });
+
+  async function rowEl(id: string): Promise<HTMLElement> {
+    await screen.findByText('Row 1');
+    return document.querySelector(`[data-project-row="${id}"]`) as HTMLElement;
+  }
+
+  it('an unblocked row: a left rule in its status colour and dash, marching', async () => {
+    renderWithClient();
+    const el = await rowEl('item1');
+    expect(el.dataset.statusKind).toBe('inReview');
+    expect(el.hasAttribute('data-blocked')).toBe(false);
+    const line = el.querySelector('[data-status-border] line') as SVGLineElement;
+    expect(line.getAttribute('stroke')).toBe('#A855F7');
+    expect(line.getAttribute('stroke-dasharray')).toBe('6 4');
+    expect(line.getAttribute('stroke-opacity')).toBe('1');
+    expect(line.getAttribute('class')).toContain('status-stroke-animated');
+  });
+
+  it('a blocked row keeps its colour and dash, but holds still and fades', async () => {
+    renderWithClient();
+    const el = await rowEl('item2');
+    expect(el.hasAttribute('data-blocked')).toBe(true);
+    const line = el.querySelector('[data-status-border] line') as SVGLineElement;
+    expect(line.getAttribute('stroke')).toBe('#A855F7');
+    expect(line.getAttribute('stroke-dasharray')).toBe('6 4');
+    expect(line.getAttribute('stroke-opacity')).toBe('0.55');
+    expect(line.getAttribute('class')).not.toContain('status-stroke-animated');
+  });
+
+  it('a row with a live agent wears the one task glow in place of its rule', async () => {
+    useTerminalStore.getState().openSession({
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'row',
+      cwd: '/repo',
+      repoId: 'repo-1',
+      surface: 'kanban',
+      taskRef: { projectId: 'PVT_1', itemId: 'item3' },
+    });
+    renderWithClient();
+    const el = await rowEl('item3');
+    await waitFor(() => expect(el.className).toContain('agent-run-glow task-glow'));
+    expect(el.querySelector('[data-status-border]')).toBeNull();
+    // The other rows keep their rules.
+    expect(document.querySelector('[data-project-row="item1"] [data-status-border]')).not.toBeNull();
   });
 });

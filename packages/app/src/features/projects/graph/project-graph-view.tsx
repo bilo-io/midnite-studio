@@ -15,6 +15,7 @@ import {
 } from '../../workflows/canvas/workflow-path';
 import { findStatusField, itemStatusStroke, type StatusStroke } from '../status-stroke';
 import { edgeAppearance } from './edge-appearance';
+import { blockedItemIds } from './graph-blockers';
 import { DEFAULT_GRAPH_FACETS, filterForgeGraph, type ProjectGraphFacets } from './graph-filter';
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
 import { FORGE_GRAPH_GEOMETRY, layoutForgeGraph, nodeKey, topAlignedViewport, type PositionedNode } from './graph-layout';
@@ -100,15 +101,18 @@ export function ProjectGraphView({
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item] as const)), [items]);
   // One status stroke per item, read by both the node's border and the edge
   // leading out of it — computed once here so the two cannot disagree.
+  // Blocked comes off the whole-board graph (not the faceted one below), so
+  // hiding a blocker with a facet never makes its dependent look unblocked.
   const statusStrokeById = useMemo(() => {
     const statusField = findStatusField(fields);
+    const blocked = blockedItemIds(graph);
     const map = new Map<string, StatusStroke>();
     for (const item of items) {
-      const stroke = itemStatusStroke(item, statusField);
+      const stroke = itemStatusStroke(item, statusField, blocked.has(item.id));
       if (stroke) map.set(item.id, stroke);
     }
     return map;
-  }, [items, fields]);
+  }, [items, fields, graph]);
 
   // `items` is already the shared toolbar's own filtered array (Theme H) —
   // its ids are exactly what "survived the item filter" means, so no second
