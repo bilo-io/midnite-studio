@@ -58,7 +58,8 @@ export function RepoMediaTab({ tab }: { tab: MediaTab }) {
       toolbar={
         <ExportToolbar
           formats={MEDIA_TAB_EXPORT_FORMATS[tab]}
-          hasSelection={hasFile}
+          // Docs' md/html/pdf render without ffmpeg — Theme B's own path.
+          hasSelection={hasFile && tab !== 'doc'}
           onExport={onExport}
           busy={exporter.progress?.status === 'running'}
         />
