@@ -27,7 +27,7 @@ export const RAIL_VIEW_IDS: readonly ViewId[] = [
   'history',
   'councils',
   'workflows',
-  'video',
+  'media',
   'models',
 ];
 
@@ -47,7 +47,8 @@ export const COMMAND_NAV_VIEW: Partial<Record<CommandId, ViewId>> = {
   'graph.focus': 'graph',
   'view.files': 'files',
   'view.issues': 'issues',
-  'view.video': 'video',
+  'view.media': 'media',
+  'view.video': 'media',
   'view.models': 'models',
   'view.apiClient': 'apiClient',
   'status.focus': 'changes',

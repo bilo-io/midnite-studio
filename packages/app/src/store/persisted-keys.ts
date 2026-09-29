@@ -23,6 +23,7 @@ import type { PersistedUi } from './ui-store';
  * `features/settings/`.
  */
 export const PREFERENCE_KEYS = [
+  'mediaExportDir', // media-page.tsx
   // Already registered — each has a control in an existing settings page.
   'activityTimeframe', // activity-timeline-settings.tsx
   'activityTimelineAreaLayout', // activity-timeline-settings.tsx
@@ -153,6 +154,7 @@ export const SESSION_STATE_KEYS = [
   'browserDetached', // runtime popout state, corrected from main's window registry
   'browserOpen', // whether a panel is currently showing
   'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
+  'collapsedAccordionSections', // folded Accordion section ids — disclosure state
   'collapsedNavSections', // folded-section ids — disclosure state
   'collapsedRepoGroups', // folded-section ids — disclosure state
   'collapsedRepoSections', // folded-section ids — disclosure state
@@ -165,6 +167,8 @@ export const SESSION_STATE_KEYS = [
   'favouriteRepoIds', // user-marked favourites, edited in the repos panel, not a setting
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
+  'mediaPaneCollapsed', // side panel open state — disclosure state
+  'mediaTab', // current selection — which Media tab is showing
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'projectViewByProject', // last-viewed view per project

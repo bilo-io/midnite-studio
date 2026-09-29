@@ -44,8 +44,8 @@ const loadCouncilsView = () => import('../features/councils/councils-view');
 const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
 const loadWorkflowsView = () => import('../features/workflows/workflows-view');
 const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
-const loadVideoView = () => import('../features/video/video-view');
-const VideoView = lazy(() => loadVideoView().then((m) => ({ default: m.VideoView })));
+const loadMediaView = () => import('../features/media/media-view');
+const MediaView = lazy(() => loadMediaView().then((m) => ({ default: m.MediaView })));
 const loadModelsView = () => import('../features/models/models-view');
 const ModelsView = lazy(() => loadModelsView().then((m) => ({ default: m.ModelsView })));
 const loadDatabaseView = () => import('../features/database/database-view');
@@ -189,8 +189,10 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   councils: { Component: CouncilsView, global: true },
   // Global too (Phase 43) — a workflow is not scoped to a repo.
   workflows: { Component: WorkflowsView, global: true },
-  // Global too (Phase 44) — a video project is not a property of an open checkout.
-  video: { Component: VideoView, global: true },
+  // Global (Phase 99 Theme A, inheriting Phase 44's `video`): Docs, Images and
+  // Audio are repo-scoped and render their own "Open a repo" state, but Video
+  // resolves a global root, so the view must stay reachable with no repo open.
+  media: { Component: MediaView, global: true },
   // Global too (Phase 96 Theme C) — an Ollama daemon and its models are a
   // property of the machine, not of an open checkout.
   models: { Component: ModelsView, global: true },

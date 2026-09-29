@@ -97,7 +97,7 @@ export function VideoProjectList({
           <EmptyState
             icon={LuClapperboard}
             title="No projects yet"
-            body="Create one, or check Settings ▸ Video Studio if you haven't set a video root."
+            body="Create one, or check Settings ▸ Media if you haven't set a video root."
           />
         ) : (
           all.map((project) => {

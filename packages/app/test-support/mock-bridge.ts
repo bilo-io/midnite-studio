@@ -672,6 +672,15 @@ export type MockFixtures = {
     renders?: Record<string, Array<{ id: string; [key: string]: unknown }>>;
   };
   /**
+   * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
+   * path → text content; a project with no files is `{}`. `ffmpeg` defaults to
+   * found. Writes and removes mutate an in-memory copy, like `video.projects`.
+   */
+  media?: {
+    files?: Record<string, Record<string, string>>;
+    ffmpeg?: { found: true; path: string; version: string | null } | { found: false; reason: string };
+  };
+  /**
    * Database connections (Phase 61). Absent means an empty list — the
    * default "No connections yet" empty state `database-shots.spec.ts` shoots
    * first, before seeding one to shoot the connections list.
@@ -2869,6 +2878,78 @@ export function buildMockBridge(data: MockFixtures) {
       onStudioChanged: unsubscribe,
       onRenderProgress: unsubscribe,
     },
+    media: {
+      project: {
+        list: async (req: { tab: string }) => ({
+          ok: true as const,
+          value: Object.keys(mediaFiles)
+            .filter((key) => key.startsWith(`${req.tab}:`))
+            .map((key) => ({
+              name: key.slice(req.tab.length + 1),
+              fileCount: Object.keys(mediaFiles[key] ?? {}).length,
+              mtimeMs: 1,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        }),
+        create: async (req: { tab: string; project: string }) => {
+          const key = `${req.tab}:${req.project}`;
+          if (mediaFiles[key]) return { ok: false as const, kind: 'error' as const, message: 'exists' };
+          mediaFiles = { ...mediaFiles, [key]: {} };
+          return { ok: true as const, value: { name: req.project, fileCount: 0, mtimeMs: 1 } };
+        },
+        rename: async (req: { tab: string; project: string; to: string }) => {
+          const { [`${req.tab}:${req.project}`]: moved, ...rest } = mediaFiles;
+          mediaFiles = { ...rest, [`${req.tab}:${req.to}`]: moved ?? {} };
+          return { ok: true as const };
+        },
+        remove: async (req: { tab: string; project: string }) => {
+          const { [`${req.tab}:${req.project}`]: _gone, ...rest } = mediaFiles;
+          mediaFiles = rest;
+          return { ok: true as const };
+        },
+      },
+      file: {
+        list: async (req: { tab: string; project: string }) => ({
+          ok: true as const,
+          value: Object.entries(mediaFiles[`${req.tab}:${req.project}`] ?? {}).map(([path, content]) => ({
+            path,
+            size: content.length,
+            mtimeMs: 1,
+          })),
+        }),
+        read: async (req: { tab: string; project: string; path: string }) => {
+          const content = mediaFiles[`${req.tab}:${req.project}`]?.[req.path];
+          return content === undefined
+            ? { ok: false as const, kind: 'error' as const, message: 'File not found.' }
+            : { ok: true as const, value: content };
+        },
+        write: async (req: { tab: string; project: string; path: string; content: string }) => {
+          const key = `${req.tab}:${req.project}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [req.path]: req.content } };
+          return { ok: true as const, value: { size: req.content.length, largeFile: false } };
+        },
+        rename: async (req: { tab: string; project: string; path: string; to: string }) => {
+          const key = `${req.tab}:${req.project}`;
+          const { [req.path]: content, ...rest } = mediaFiles[key] ?? {};
+          mediaFiles = { ...mediaFiles, [key]: { ...rest, [req.to]: content ?? '' } };
+          return { ok: true as const };
+        },
+        remove: async (req: { tab: string; project: string; path: string }) => {
+          const key = `${req.tab}:${req.project}`;
+          const { [req.path]: _gone, ...rest } = mediaFiles[key] ?? {};
+          mediaFiles = { ...mediaFiles, [key]: rest };
+          return { ok: true as const };
+        },
+      },
+      reveal: async () => ({ ok: true as const }),
+      ffmpegStatus: async () => ({
+        ffmpeg: data.media?.ffmpeg ?? { found: true as const, path: '/opt/homebrew/bin/ffmpeg', version: '7.1' },
+      }),
+      export: async () => ({ ok: true as const, value: { dest: '/tmp/export.out' } }),
+      cancelExport: async () => ({ ok: true as const }),
+      onChanged: unsubscribe,
+      onExportProgress: unsubscribe,
+    },
     fs: {
       listDir: async (req: { scope: string; relPath: string }) => {
         const key = `${req.scope === 'repo' ? 'repo' : 'claude'}:${req.relPath}`;
@@ -4260,6 +4341,9 @@ export function buildMockBridge(data: MockFixtures) {
   var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
   // eslint-disable-next-line no-var
   var councilRunCounter = 0;
+  // --- media (Phase 99 Theme A) ----------------------------------------------
+  // eslint-disable-next-line no-var
+  var mediaFiles: Record<string, Record<string, string>> = { ...(data.media?.files ?? {}) };
   // --- video (Phase 44) -----------------------------------------------------
   /** Read once from the fixture, then mutated by `project.create`/`project.remove` like `councils`. */
   // eslint-disable-next-line no-var

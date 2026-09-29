@@ -116,10 +116,10 @@ describe('VideoView, assembled through the real bridge', () => {
     expect(detailHandle).toBeTruthy();
 
     expect((listHandle.previousElementSibling as HTMLElement).style.width).toBe(
-      `${DEFAULT_LAYOUT.videoProjectListWidth}px`,
+      `${DEFAULT_LAYOUT.mediaVideoExplorerWidth}px`,
     );
     expect((detailHandle.nextElementSibling as HTMLElement).style.width).toBe(
-      `${DEFAULT_LAYOUT.videoDetailWidth}px`,
+      `${DEFAULT_LAYOUT.mediaVideoDetailWidth}px`,
     );
   });
 });
