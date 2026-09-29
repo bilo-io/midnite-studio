@@ -286,9 +286,27 @@ export function StatusPill({
         aria-label={label}
         className={`inline-flex shrink-0 items-center ${GLYPH_CLASS[tone]} ${className}`}
       >
-        {spin ? <Spinner size="sm" tone="inherit" /> : <Icon className="size-3.5" strokeWidth={2.5} />}
+        <StatusGlyph status={status} />
       </span>
     </Tooltip>
+  );
+}
+
+/**
+ * A status's bare mark — the glyph (or the spinner, for a run in flight) in its
+ * tone's colour, and nothing else: no word, no tooltip, no accessible name.
+ *
+ * `StatusPill`'s own glyph, exported for a surface that supplies its own name
+ * and wrapper — the git graph's CI column wraps it in a button whose
+ * `aria-label` says what clicking does. One mapping, so a run is the same mark
+ * on the graph as it is on the Actions page.
+ */
+export function StatusGlyph({ status, className = '' }: { status: ForgeStatus; className?: string }) {
+  const { icon: Icon, tone, spin } = status;
+  return (
+    <span aria-hidden className={`inline-flex shrink-0 items-center ${GLYPH_CLASS[tone]} ${className}`}>
+      {spin ? <Spinner size="sm" tone="inherit" /> : <Icon className="size-3.5" strokeWidth={2.5} />}
+    </span>
   );
 }
 

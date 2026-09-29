@@ -58,6 +58,7 @@ export const PREFERENCE_KEYS = [
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
+  'graphShowCi', // graph-page.tsx — the "Columns" accordion
   'graphTheme', // graph-theme-picker.tsx (via graph-page.tsx)
   'hiddenMetrics', // monitor-page.tsx
   'inactivityTimeoutS', // screen-lock-page.tsx
