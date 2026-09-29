@@ -1,6 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  installCommand,
+  installerUrl,
+  MIDNITE_INSTALL_COMMAND,
+} from '@midnite/studio-shared/install-command';
+
 import { Footer } from '../sections/footer/footer';
 import { SECTIONS } from '../sections/registry';
 import { SITE_ORIGIN } from '../site-origin';
@@ -36,15 +42,25 @@ describe('DownloadPage', () => {
 
   it('curls install.sh from the site itself', () => {
     render(<DownloadPage />);
-    expect(screen.getByTestId('install-command').textContent).toBe(
-      `curl -fsSL ${SITE_ORIGIN}/install.sh | sh`,
-    );
+    expect(screen.getByTestId('install-command').textContent).toBe(installCommand(SITE_ORIGIN));
+    expect(installCommand(SITE_ORIGIN)).toBe(`curl -fsSL ${SITE_ORIGIN}/install.sh | sh`);
+  });
+
+  /**
+   * The app's "Update Midnite Studio" action runs `MIDNITE_INSTALL_COMMAND`
+   * outside the Midnite Studio checkout. With no `WEBSITE_ORIGIN` override
+   * (pinned empty in `vitest.config.ts`) the page must print that exact string,
+   * or the app and the published page would be curling different things.
+   */
+  it('prints the same command the app runs', () => {
+    render(<DownloadPage />);
+    expect(screen.getByTestId('install-command').textContent).toBe(MIDNITE_INSTALL_COMMAND);
   });
 
   it('offers the same URL to read as the one it pipes into sh', () => {
     render(<DownloadPage />);
     const href = screen.getByTestId('installer-link').getAttribute('href');
-    expect(href).toBe(`${SITE_ORIGIN}/install.sh`);
+    expect(href).toBe(installerUrl(SITE_ORIGIN));
     expect(screen.getByTestId('install-command').textContent).toContain(href);
   });
 

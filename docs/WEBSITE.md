@@ -53,10 +53,18 @@ site under `/midnite-apps/midnite-studio/`, so there the prefix has to be part o
 the value or the pasted command 404s. Set it together with `WEBSITE_BASE` or not
 at all, and it is in the `website:build` `inputs` for the same cache reason.
 
-The default lives in `site-origin.ts` rather than in the two `define` blocks that
-inline the constant: a default written twice is one that will eventually disagree
-with itself, so the configs inline only the override — the empty string when it
-is unset.
+The default is read by `site-origin.ts` rather than written into the two `define`
+blocks that inline the constant: a default written twice is one that will
+eventually disagree with itself, so the configs inline only the override — the
+empty string when it is unset.
+
+That default, and the command built from it, come from
+[`packages/shared/src/install-command.ts`](../packages/shared/src/install-command.ts)
+(`MIDNITE_SITE_ORIGIN`, `installerUrl`, `installCommand`). The app's "Update
+Midnite Studio" action runs the same command outside the Midnite Studio checkout,
+so both sides import it from there instead of each spelling the URL. The site
+takes that one file by a source alias (`vite.config.ts`, `vitest.config.ts`,
+`tsconfig.json`), not through the package barrel, so the bundle picks up no zod.
 
 ## `install.sh`, served from the site
 

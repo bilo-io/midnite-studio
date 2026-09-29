@@ -80,6 +80,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      /*
+        The installer command, shared with the app's "Update Midnite Studio"
+        action so the two can never curl different URLs. Aliased to the one
+        source file rather than resolved through the package: the barrel pulls
+        every zod schema in the wire contract, which a static marketing bundle
+        has no use for, and `install-command.ts` imports nothing at all.
+      */
+      '@midnite/studio-shared/install-command': fileURLToPath(
+        new URL('../shared/src/install-command.ts', import.meta.url),
+      ),
     },
   },
   server: {

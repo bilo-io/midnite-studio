@@ -17,6 +17,7 @@ export * from './companion';
 export * from './council';
 export * from './domain';
 export * from './fs';
+export * from './install-command';
 export * from './ipc';
 export * from './keybindings';
 export * from './loops';

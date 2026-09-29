@@ -41,6 +41,9 @@ tasks:
       # site's own origin absolutely), so a build following one with a different
       # value must not be a cache hit.
       - '$WEBSITE_ORIGIN'
+      # The install command comes from this one `shared` file (aliased in
+      # `vite.config.ts`), so a change to it must not be a cache hit here.
+      - '/packages/shared/src/install-command.ts'
     outputs:
       - 'dist'
 
@@ -84,3 +87,12 @@ tasks:
       - 'vitest.config.ts'
       - 'tailwind.config.ts'
       - 'package.json'
+      - '/packages/shared/src/install-command.ts'
+
+  # Inherited, plus the one `shared` file `tsconfig.json` maps a path to — the
+  # download page's install command is typed against it.
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - '/packages/shared/src/install-command.ts'

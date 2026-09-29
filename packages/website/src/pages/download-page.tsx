@@ -4,6 +4,8 @@ import { Button, Container, GlowCard, Heading, Lede } from '../components';
 import { SiteNav } from '../components/site-nav';
 import { hrefFor } from '../routes';
 import { Footer } from '../sections/footer/footer';
+import { installCommand, installerUrl } from '@midnite/studio-shared/install-command';
+
 import { SITE_ORIGIN } from '../site-origin';
 
 import { CopyButton } from './copy-button';
@@ -24,15 +26,17 @@ import { useLatestVersion } from './use-latest-version';
  * rewritten — it still resolves the version from `midnite-studio/version.json`
  * on the raw host, which is where the builds actually are.
  */
-const INSTALLER_URL = `${SITE_ORIGIN}/install.sh`;
+const INSTALLER_URL = installerUrl(SITE_ORIGIN);
 
 /**
  * The install command, verbatim, and the single source of it on this page.
  *
  * It is also what the copy button puts on the clipboard, so the two can never
- * drift. Documented in `docs/RELEASING.md`.
+ * drift. Documented in `docs/RELEASING.md`. Built by `shared`'s
+ * `installCommand`, which the app's "Update Midnite Studio" action also runs,
+ * so the page and the app cannot drift either.
  */
-const INSTALL_COMMAND = `curl -fsSL ${INSTALLER_URL} | sh`;
+const INSTALL_COMMAND = installCommand(SITE_ORIGIN);
 
 /** Where the builds live. This repo is private; nothing here may link to it. */
 const RELEASES_URL = 'https://github.com/bilo-io/midnite-apps/releases';

@@ -455,14 +455,30 @@ test.describe('Setup and Update', () => {
     await expect(page.locator('[data-terminal-panel]')).toHaveCount(0);
   });
 
-  test('Update is disabled outside the Midnite Studio checkout', async ({ page }) => {
+  test('Update runs the release installer outside the Midnite Studio checkout', async ({
+    page,
+  }) => {
     await open(page);
     await openLifecycleMenu(page);
 
     // The default fixture has no `install-local.mjs` entry, so the capability
     // check reads "not this checkout" — exactly the case this spec targets.
+    // Once disabled here; now it types the download page's one-liner instead.
     const update = page.getByRole('menuitem', { name: 'Update Midnite Studio', exact: true });
-    await expect(update).toBeDisabled();
+    await expect(update).toBeEnabled();
+    await update.click();
+
+    await expect(page.locator('[data-terminal-panel]')).toBeVisible();
+    /*
+      Spelled out rather than imported: under Playwright `@midnite/studio-shared`
+      resolves to shared's compiled `dist` (possibly stale), and its source is
+      loaded as CommonJS, which exposes no named exports. The vitest in
+      `project-actions.test.tsx` is what pins this to `MIDNITE_INSTALL_COMMAND`
+      itself; this spec only proves the row reaches a real pty with it.
+    */
+    await expect
+      .poll(() => ptyInputs(page))
+      .toEqual(['curl -fsSL https://midnite-studio-website.vercel.app/install.sh | sh\r']);
   });
 
   test('Update types and runs the install command on the Midnite Studio checkout', async ({
