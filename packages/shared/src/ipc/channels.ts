@@ -884,6 +884,8 @@ export const CHANNELS = {
   scaffoldPlan: 'mstudio:scaffold:plan',
   scaffoldApply: 'mstudio:scaffold:apply',
   scaffoldInstallUserSkills: 'mstudio:scaffold:install-user-skills',
+  // Reads the open repo's `<dir>/skills/*/SKILL.md` frontmatter. Writes nothing.
+  scaffoldListRepoSkills: 'mstudio:scaffold:list-repo-skills',
 
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',

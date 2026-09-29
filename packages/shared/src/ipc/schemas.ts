@@ -115,6 +115,7 @@ import {
   SupportedForgeKindSchema,
   isValidForgeAccountHost,
   InstallUserSkillsResultSchema,
+  RepoSkillListSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
   RepoStatsSchema,
@@ -2119,6 +2120,14 @@ export const ScaffoldApplyResponse = GitOpResultOf(ScaffoldApplyResultSchema);
 export const InstallUserSkillsRequest = z.object({}).default({});
 export type InstallUserSkillsRequest = z.infer<typeof InstallUserSkillsRequest>;
 export const InstallUserSkillsResponse = GitOpResultOf(InstallUserSkillsResultSchema);
+
+/**
+ * The open repo's own agent skills (`<.claude|.agents|.codex>/skills/<name>/SKILL.md`).
+ * `agentId` picks which convention directory wins a name present in more
+ * than one — the agent the caller is about to launch reads its own first.
+ */
+export const ListRepoSkillsRequest = RepoId.extend({ agentId: z.string().min(1).optional() });
+export const ListRepoSkillsResponse = GitOpResultOf(RepoSkillListSchema);
 
 // --- repository statistics (Phase 19) --------------------------------------
 

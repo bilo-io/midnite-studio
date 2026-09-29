@@ -8,12 +8,13 @@ import {
   schemas,
   type GitOpResult,
   type InstallUserSkillsResult,
+  type RepoSkillList,
   type ScaffoldApplyResult,
   type ScaffoldPlan,
 } from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
-import { applyScaffold, installUserSkills, planScaffold } from '../scaffold';
+import { applyScaffold, installUserSkills, listRepoSkills, planScaffold } from '../scaffold';
 import { templateRoot } from '../template-path';
 import { handle } from './handle';
 
@@ -23,7 +24,9 @@ const REPO_NOT_OPEN_MESSAGE = 'That repository is not open.';
  * The onboarding kit's channels — see `../scaffold/index.ts` for the
  * policy. `plan` and `apply` carry a `repoId`: main resolves the checkout
  * through `resolveWorkdir`. `installUserSkills` installs the kit's skills to
- * the user's `~/.claude/skills` folder.
+ * the user's `~/.claude/skills` folder. `listRepoSkills` reads (never
+ * writes) the open checkout's own skill frontmatter for the Projects card
+ * skill picker.
  */
 export function registerScaffoldHandlers(): void {
   handle<typeof schemas.ScaffoldPlanRequest, GitOpResult<ScaffoldPlan>>(
@@ -55,6 +58,17 @@ export function registerScaffoldHandlers(): void {
       const sourceDir = join(templateRoot(), '.claude', 'skills');
       const targetDir = join(homedir(), '.claude', 'skills');
       return installUserSkills(sourceDir, targetDir);
+    },
+    (issue) => failure(issue),
+  );
+
+  handle<typeof schemas.ListRepoSkillsRequest, GitOpResult<RepoSkillList>>(
+    CHANNELS.scaffoldListRepoSkills,
+    schemas.ListRepoSkillsRequest,
+    async (req) => {
+      const workdir = await resolveWorkdir(req.repoId);
+      if (!workdir) return failure<RepoSkillList>(REPO_NOT_OPEN_MESSAGE);
+      return listRepoSkills(workdir, req.agentId);
     },
     (issue) => failure(issue),
   );

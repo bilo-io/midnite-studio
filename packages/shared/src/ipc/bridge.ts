@@ -1112,6 +1112,10 @@ export type MidniteStudioBridge = {
     installUserSkills: (
       req?: In<typeof S.InstallUserSkillsRequest>,
     ) => Promise<z.infer<typeof S.InstallUserSkillsResponse>>;
+    /** The open repo's own agent skills, read off each `SKILL.md`'s frontmatter. */
+    listRepoSkills: (
+      req: In<typeof S.ListRepoSkillsRequest>,
+    ) => Promise<z.infer<typeof S.ListRepoSkillsResponse>>;
   };
 
   /**

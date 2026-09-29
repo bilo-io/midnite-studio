@@ -98,3 +98,21 @@ export const InstallUserSkillsResultSchema = z.object({
 });
 export const InstallUserSkillsResult = InstallUserSkillsResultSchema;
 export type InstallUserSkillsResult = z.infer<typeof InstallUserSkillsResultSchema>;
+
+/**
+ * One agent skill discovered in the open repo (`<dir>/skills/<name>/SKILL.md`),
+ * read off its frontmatter. `source` is which agent-convention directory it
+ * came from — `.claude` (Claude Code), `.codex` (Codex) or `.agents` (the
+ * agent-neutral mirror Antigravity and others read).
+ */
+export const RepoSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string(),
+  source: z.enum(['.claude', '.agents', '.codex']),
+});
+export type RepoSkill = z.infer<typeof RepoSkillSchema>;
+
+export const RepoSkillListSchema = z.object({
+  skills: z.array(RepoSkillSchema),
+});
+export type RepoSkillList = z.infer<typeof RepoSkillListSchema>;
