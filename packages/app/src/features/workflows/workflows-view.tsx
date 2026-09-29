@@ -10,7 +10,7 @@ import {
   type WorkflowNodeStatus,
 } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LuPanelRightClose, LuPanelRightOpen, LuWorkflow } from 'react-icons/lu';
+import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen, LuWorkflow } from 'react-icons/lu';
 
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
@@ -78,16 +78,6 @@ function workflowPanelLabel(entry: WorkflowPanelEntry): string {
 
 /** Matches `council-config-panel.tsx`'s own auto-save debounce. */
 const SAVE_DEBOUNCE_MS = 500;
-
-/**
- * The collapsed node palette's own rendered width — matching
- * `board-view.tsx`'s `COLLAPSED_WIDTH` (`w-9`) rather than leaving the
- * wrapper's width unset. Both states need a real pixel value for
- * `transition-[width]` to animate between them at all: CSS cannot
- * interpolate to or from `auto`, which is what an unset width used to fall
- * back to.
- */
-const WORKFLOW_PALETTE_COLLAPSED_WIDTH = 36;
 
 /**
  * Workflows (Phase 43) — replaces the `<Placeholder>` `app.tsx` has rendered
@@ -445,16 +435,25 @@ function WorkflowEditor({
       />
 
       <div className="flex min-h-0 flex-1">
+        {/*
+          Collapsed is zero width, the same as the inspector on the right —
+          no rail, no gutter; the show/hide toggle is the canvas toolbar's
+          first control. Both states are real pixel values so
+          `transition-[width]` can animate between them (CSS cannot
+          interpolate to or from `auto`), and the inner column keeps the
+          palette's own width so its rows slide rather than reflow.
+        */}
         <div
-          className="shrink-0 overflow-hidden transition-[width] duration-150 ease-in-out"
-          style={{ width: paletteCollapsed ? WORKFLOW_PALETTE_COLLAPSED_WIDTH : layout.workflowPaletteWidth }}
+          data-testid="workflow-palette-panel"
+          data-collapsed={paletteCollapsed}
+          // `inert`, so a collapsed palette's rows drop out of the tab order.
+          inert={paletteCollapsed}
+          className="h-full shrink-0 overflow-hidden transition-[width] duration-150 ease-in-out"
+          style={{ width: paletteCollapsed ? 0 : layout.workflowPaletteWidth }}
         >
-          <NodePalette
-            collapsed={paletteCollapsed}
-            onToggleCollapsed={() => setPaletteCollapsed(!paletteCollapsed)}
-            onAddNode={addNodeFromPalette}
-            disabled={mode === 'run'}
-          />
+          <div className="h-full" style={{ width: layout.workflowPaletteWidth }}>
+            <NodePalette onAddNode={addNodeFromPalette} disabled={mode === 'run'} />
+          </div>
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -476,6 +475,15 @@ function WorkflowEditor({
               loopStates={loopStates}
               nodeSessions={nodeSessions}
               readOnly={mode === 'run'}
+              toolbarStart={
+                <IconButton
+                  icon={paletteCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
+                  label={paletteCollapsed ? 'Show node palette' : 'Hide node palette'}
+                  size="sm"
+                  aria-expanded={!paletteCollapsed}
+                  onClick={() => setPaletteCollapsed(!paletteCollapsed)}
+                />
+              }
               toolbarEnd={
                 <IconButton
                   icon={inspector.collapsed ? LuPanelRightOpen : LuPanelRightClose}

@@ -45,6 +45,8 @@ export type WorkflowGraph = { nodes: WorkflowNode[]; edges: WorkflowEdge[] };
 /** Ring-buffer cap for canvas-local, in-session undo/redo. Not persisted. */
 const WORKFLOW_UNDO_LIMIT = 50;
 const GRID_STEP = 16;
+/** How far inside the canvas edge a selected node is kept when a side panel narrows the canvas over it. */
+const KEEP_IN_VIEW_MARGIN = 24;
 
 function snapToGrid(value: number, step: number): number {
   return Math.round(value / step) * step;
@@ -125,7 +127,7 @@ function WorkflowCanvasInner({
   toolbarStart,
   toolbarEnd,
 }: Parameters<typeof WorkflowCanvas>[0]) {
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, getViewport, setViewport, getNodes, getNodesBounds } = useReactFlow();
   const [nodes, setNodes] = useState<Node[]>(() =>
     decorate(toFlowGraph(graph.nodes, graph.edges).nodes, invalidNodeIds, nodeStatuses, nodeErrors, nodeSessions, nodeSettledPorts),
   );
@@ -180,6 +182,48 @@ function WorkflowCanvasInner({
   useEffect(() => {
     setEdges((prev) => decorateEdges(prev, nodeStatuses, nodeSettledPorts, loopStates));
   }, [nodeStatuses, nodeSettledPorts, loopStates]);
+
+  /*
+    Side panels opening and closing (the palette on the left, the inspector
+    on the right, both animating their width) resize this container. The
+    rule is **keep the graph still on screen**, not re-fit: a re-fit would
+    zoom and pan on every node click, since selecting a node is what opens
+    the inspector. React Flow already anchors its viewport to the
+    container's left edge, so a right-hand resize leaves the graph where it
+    was on its own; a left-hand one moves that edge, and this shifts the
+    viewport back by exactly as much, frame by frame through the transition.
+
+    One exception, because "still" must not mean "hidden": selecting a node
+    near the right edge opens the inspector, which narrows the canvas over
+    that very node. So after the compensation, if the selection would fall
+    outside the canvas it pans by the minimum that brings it back inside
+    (left edge first, when the selection is wider than the canvas).
+  */
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let left = el.getBoundingClientRect().left;
+    const observer = new ResizeObserver(() => {
+      const rect = el.getBoundingClientRect();
+      const viewport = getViewport();
+      let x = viewport.x - (rect.left - left);
+      left = rect.left;
+
+      const selected = getNodes().filter((n) => n.selected);
+      if (selected.length > 0 && rect.width > 0) {
+        const bounds = getNodesBounds(selected);
+        const end = (bounds.x + bounds.width) * viewport.zoom + x;
+        if (end > rect.width - KEEP_IN_VIEW_MARGIN) x -= end - (rect.width - KEEP_IN_VIEW_MARGIN);
+        const start = bounds.x * viewport.zoom + x;
+        if (start < KEEP_IN_VIEW_MARGIN) x += KEEP_IN_VIEW_MARGIN - start;
+      }
+
+      if (x !== viewport.x) void setViewport({ ...viewport, x });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [getNodes, getNodesBounds, getViewport, setViewport]);
 
   useEffect(() => {
     undoStack.current = [];
@@ -509,6 +553,7 @@ function WorkflowCanvasInner({
       </div>
 
       <div
+        ref={containerRef}
         role="application"
         aria-label="Workflow canvas"
         tabIndex={0}
