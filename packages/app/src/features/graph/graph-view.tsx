@@ -506,10 +506,9 @@ export function GraphView() {
     const bottom = item.end;
     const viewBottom = el.scrollTop + el.clientHeight;
     if (bottom <= viewBottom) return;
-    el.scrollTo({
-      top: Math.min(item.start, bottom - el.clientHeight),
-      behavior: isReducedMotion() ? 'auto' : 'smooth',
-    });
+    const top = Math.min(item.start, bottom - el.clientHeight);
+    // `?.`: jsdom's elements have no `scrollTo`.
+    el.scrollTo?.({ top, behavior: isReducedMotion() ? 'auto' : 'smooth' });
   }, [virtualizer]);
 
   /*
