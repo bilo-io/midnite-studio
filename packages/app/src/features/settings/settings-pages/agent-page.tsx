@@ -42,6 +42,7 @@ import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { loopIcon } from '../../loops/loop-icons';
 import { useAgents } from '../../terminal/use-agents';
+import { submitCommand } from '../../terminal/submit-command';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
@@ -152,25 +153,6 @@ export function AgentPage() {
       </Accordion>
     </div>
   );
-}
-
-/**
- * Spawns a shell in the integrated terminal and submits `command` with a trailing carriage return.
- */
-function submitCommand(command: string, title = 'agent setup'): void {
-  if (!command) return;
-  const ui = useUiStore.getState();
-  ui.setTerminalOpen(true);
-  const cwd = ui.selectedWorktreePath ?? '.';
-  const repoId = ui.selectedRepoId ?? 'default';
-  const session = useTerminalStore.getState().openSession({
-    kind: 'shell',
-    title,
-    cwd,
-    repoId,
-  });
-  const input = command.endsWith('\r') || command.endsWith('\n') ? command : `${command}\r`;
-  useTerminalStore.getState().queueInput(session.id, input);
 }
 
 function AgentCard({
