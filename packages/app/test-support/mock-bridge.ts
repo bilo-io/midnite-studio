@@ -905,15 +905,14 @@ export function pinPlatform(): void {
 /*
   Seed the app as already-onboarded, unless a spec asks for a first run.
 
-  Both onboarding surfaces — `FirstRunModal` (gated on the persisted
-  `onboardedAt`) and `OnboardingModal` (gated on `showOnboarding`) — are
-  full-screen `fixed inset-0` overlays. A fresh profile is what every spec
+  The setup overlay (Phase 98, gated on the persisted `setupState`) is a
+  full-screen `fixed inset-0` overlay. A fresh profile is what every spec
   gets, so without this every click in the suite lands on a welcome modal
   instead of the app, and the failure reads as "the element is there but
   something intercepts pointer events" rather than as onboarding.
 
   Written straight into the persist key rather than driven through the UI:
-  dismissing two modals at the top of fifty specs is fifty chances to forget,
+  dismissing the overlay at the top of fifty specs is fifty chances to forget,
   and onboarding is not what any of them is testing. The spec that does test
   it passes `firstRun: true` and gets the untouched fresh profile.
 
@@ -935,8 +934,12 @@ export function seedOnboardedProfile(): void {
       selectedRepoId: 'repo-1',
       selectedWorktreePath: '/tmp/midnite-studio',
       ...persisted.state,
-      onboardedAt: '2026-01-01T00:00:00.000Z',
-      showOnboarding: false,
+      setupState: {
+        completedAt: '2026-01-01T00:00:00.000Z',
+        dismissedAt: null,
+        lastPageId: null,
+        skippedPageIds: [],
+      },
     };
     localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
   } catch {
