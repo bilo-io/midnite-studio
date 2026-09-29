@@ -50,9 +50,10 @@ export function WorkingTreeInlinePanel({
   onClose,
 }: {
   active: boolean;
-  onClose: () => void;
+  /** Absent where there is nothing to collapse back to — an unborn repo's first commit. */
+  onClose?: () => void;
 }) {
-  const model = useWorkingTreeChanges({ emptyShowsAll: true });
+  const model = useWorkingTreeChanges();
   const listWidth = useUiStore((s) => s.layout.graphInlineListWidth);
   const setLayout = useUiStore((s) => s.setLayout);
   const listColumn = useResizable({
@@ -78,7 +79,7 @@ export function WorkingTreeInlinePanel({
         <CommitBox model={model} active={active} className="border-b border-border" />
         <WorkingTreeFileList
           model={model}
-          trailing={<IconButton icon={LuX} label="Close" size="sm" onClick={onClose} />}
+          trailing={onClose ? <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} /> : undefined}
         />
       </div>
       <ResizeHandle resizable={listColumn} axis="x" label="Resize the working-copy file list" />

@@ -245,8 +245,9 @@ describe('inline panels in the git graph', () => {
       target: { value: 'feat: from the graph' },
     });
     const button = await within(panel).findByRole('button', { name: 'Commit 1 file' });
-    // The app's gradient button treatment.
-    expect(button.className).toContain('loop-start-gradient');
+    // The brand-gradient primary button.
+    expect(button.className).toContain('brand-gradient-button');
+    expect(button.className).not.toContain('loop-start-gradient');
     fireEvent.click(button);
 
     await waitFor(() => {

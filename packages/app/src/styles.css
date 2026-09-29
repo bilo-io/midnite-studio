@@ -4708,6 +4708,99 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
     0 0 22px rgb(var(--fab-spec-5, 139 92 246) / 0.4);
 }
 
+/* ---------------------------------------------------------------------------
+ * `.brand-gradient-button` — a primary action filled with the brand gradient.
+ *
+ * The whole face is the brand's `--rainbow-ramp` (the same ramp the agent
+ * count and the setup wordmark wear, left to right), not a border: this is
+ * the button a screen is FOR, e.g. the working-copy panel's Commit.
+ * `.loop-start-gradient` above stays the Loops panel's quieter frame.
+ *
+ * Built from two pseudo-elements inside an isolated stacking context, so it
+ * never depends on what the ancestors paint:
+ * - `::after` is the crisp fill;
+ * - `::before` is a blurred copy of the SAME gradient behind it — the glow.
+ *   Both read `--brand-gradient`, so stops and angle cannot drift apart. It
+ *   fades in on hover and keyboard focus only.
+ *
+ * Text is near-black in both themes: the ramp is theme-independent, and dark
+ * ink clears 4.5:1 against every stop (the darkest, violet #8b5cf6, is ~5:1;
+ * white would fail on amber and emerald at ~2:1).
+ *
+ * Disabled (nothing staged): no glow, and the fill is desaturated and dimmed
+ * — the text stays full strength, so the label remains readable.
+ *
+ * The glow does not animate beyond its fade, so there is nothing to pause
+ * while the window is blurred; reduced motion drops the fade too.
+ * ------------------------------------------------------------------------ */
+.brand-gradient-button {
+  --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+  color: rgb(12 10 24);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.brand-gradient-button::before,
+.brand-gradient-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--brand-gradient);
+  pointer-events: none;
+}
+
+.brand-gradient-button::before {
+  z-index: -2;
+  filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.brand-gradient-button::after {
+  z-index: -1;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.brand-gradient-button:hover:not(:disabled)::before,
+.brand-gradient-button:focus-visible:not(:disabled)::before {
+  opacity: 0.85;
+}
+
+.brand-gradient-button:focus-visible {
+  outline: 2px solid hsl(var(--ring, var(--foreground)));
+  outline-offset: 2px;
+}
+
+.brand-gradient-button:disabled {
+  cursor: not-allowed;
+  text-shadow: none;
+}
+
+.brand-gradient-button:disabled::before {
+  display: none;
+}
+
+.brand-gradient-button:disabled::after {
+  filter: saturate(0.3);
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .brand-gradient-button::before,
+  html:not([data-motion='full']) .brand-gradient-button::after {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .brand-gradient-button::before,
+html[data-motion='reduced'] .brand-gradient-button::after {
+  transition: none;
+}
+
 /*
  * Keep TitleBar's center slot in-flow between left and right instead of
  * absolute-centered, preventing collision with wide left breadcrumbs / sync

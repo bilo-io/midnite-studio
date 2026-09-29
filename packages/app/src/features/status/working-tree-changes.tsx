@@ -35,11 +35,11 @@ import { StatusMark } from './status-mark';
 /**
  * The working tree's change list, commit box and diff pane, as parts.
  *
- * Lifted out of `StatusPanel` so the two places that show uncommitted work —
- * the Changes view's working-tree tab and the git graph's inline working-copy
- * panel — render the same components rather than two copies of them. Each
- * host owns only the ARRANGEMENT: the Changes view puts the commit box under
- * the list, the graph panel puts it on top; both put the diff on the right.
+ * Lifted out of the old standalone Changes view's `StatusPanel`, which is
+ * gone: the git graph's inline working-copy panel
+ * (`graph/graph-inline-panels.tsx`) is now their one host, and owns only the
+ * ARRANGEMENT — commit box on top, list under it, diff on the right. They
+ * stay here beside the rest of the working-tree status parts.
  *
  * One hook, {@link useWorkingTreeChanges}, holds everything the parts share —
  * the rows, the selection, the collapse state, the staging mutations — so a
@@ -79,12 +79,11 @@ const itemKey = (item: { path: string; staged: boolean }): string =>
 /**
  * Everything the working-tree parts share.
  *
- * @param emptyShowsAll what the diff pane shows with no file picked — `false`
- *   is the Changes view's "Select a file" prompt, `true` is the graph panel's
- *   every-file accordion, since a panel opened from the graph is asked "what
- *   is in the working copy" before it is asked about any one file.
+ * With no file picked the diff pane shows every changed file (collapsed): a
+ * panel opened from the graph is asked "what is in the working copy" before
+ * it is asked about any one file.
  */
-export function useWorkingTreeChanges({ emptyShowsAll = false }: { emptyShowsAll?: boolean } = {}) {
+export function useWorkingTreeChanges() {
   const target = useActiveWorktree();
   const repoId = target.repoId;
   const fileView = useUiStore((s) => s.changesFileView);
@@ -216,7 +215,7 @@ export function useWorkingTreeChanges({ emptyShowsAll = false }: { emptyShowsAll
     deletions: sum(staged, 'deletions') + sum(unstaged, 'deletions'),
   };
 
-  const showingAll = viewingAll || (emptyShowsAll && liveSelection.length === 0);
+  const showingAll = viewingAll || liveSelection.length === 0;
 
   return {
     target,
@@ -538,21 +537,17 @@ export function CommitBox({
       </div>
       {message.length > 0 ? (
         /*
-          The app's gradient button (`.loop-start-gradient`, the Loops panel's
-          Start): the spectrum as a border at rest, the full ramp orbiting
-          behind a halo on hover and keyboard focus. Its hover rules are all
-          `:not(:disabled)`, so a disabled Commit keeps only the quiet resting
-          frame — no glow — and `disabled:opacity-50` says it is off. The class
-          owns the border longhand, so no `border-*` utility is co-applied, and
-          its reduced-motion and window-blur guards already live beside it in
-          `styles.css`.
+          The brand-gradient primary button (`.brand-gradient-button` in
+          `styles.css`): the full ramp as its fill, and a blurred copy of the
+          same gradient as its hover/focus glow. Disabled (nothing staged)
+          drops the glow and desaturates the fill; the label stays readable.
         */
         <button
           type="button"
           onClick={() => void onCommit()}
           disabled={!canSubmit}
           data-testid="commit-button"
-          className="loop-start-gradient w-full rounded-md px-2 py-1.5 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="brand-gradient-button w-full rounded-md px-2 py-1.5 text-sm font-semibold"
         >
           Commit{' '}
           {staged.length > 0 ? `${staged.length} file${staged.length === 1 ? '' : 's'}` : ''}
@@ -565,8 +560,7 @@ export function CommitBox({
 /**
  * The diff side: one file's diff, several files' diffs, or every file's.
  *
- * - nothing picked: the "Select a file" prompt, or — with `emptyShowsAll` —
- *   the whole checkout as a collapsed accordion;
+ * - nothing picked: the whole checkout as a collapsed accordion;
  * - one file: that file's full diff, on the side it was picked from;
  * - several (Cmd/Ctrl-click): an accordion of just those, already open —
  *   picking them was asking to read them.
