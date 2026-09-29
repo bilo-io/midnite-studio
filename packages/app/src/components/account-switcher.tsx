@@ -84,21 +84,12 @@ export function AccountSwitcher({
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<MenuPosition | null>(null);
-  /*
-    The menu closes itself on any outside mousedown, in the capture phase —
-    so a click on this button while the menu is open would close it on
-    mousedown and reopen it on click. Remembering "was open" at mousedown is
-    what makes the button a toggle.
-  */
-  const wasOpenAtPointerDown = useRef(false);
 
   const openMenu = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     setMenu(
-      layout === 'rail'
-        ? { x: rect.right + 4, y: rect.top }
-        : { x: rect.left, y: rect.bottom + 4 },
+      layout === 'rail' ? { x: rect.right + 4, y: rect.top } : { x: rect.left, y: rect.bottom + 4 },
     );
   };
 
@@ -161,23 +152,16 @@ export function AccountSwitcher({
         }
         haspopup
         open={menu !== null}
-        onPointerDown={() => {
-          wasOpenAtPointerDown.current = menu !== null;
-        }}
-        onClick={() => {
-          if (wasOpenAtPointerDown.current) {
-            wasOpenAtPointerDown.current = false;
-            setMenu(null);
-            return;
-          }
-          openMenu();
-        }}
+        // A plain toggle: the menu is handed this button as its `trigger`,
+        // so the `pointerdown` ahead of this click no longer dismisses it.
+        onClick={() => (menu ? setMenu(null) : openMenu())}
       />
       {menu ? (
         <AccountSwitcherMenu
           position={menu}
           accounts={accounts}
           activeId={activeId}
+          trigger={buttonRef}
           onClose={() => setMenu(null)}
         />
       ) : null}
@@ -195,7 +179,6 @@ function SwitcherButton({
   glyph,
   haspopup = false,
   open = false,
-  onPointerDown,
   onClick,
 }: {
   buttonRef: React.RefObject<HTMLButtonElement | null>;
@@ -209,7 +192,6 @@ function SwitcherButton({
   glyph: React.ReactNode;
   haspopup?: boolean;
   open?: boolean;
-  onPointerDown?: () => void;
   onClick: () => void;
 }) {
   const popupProps = haspopup ? { 'aria-haspopup': 'menu' as const, 'aria-expanded': open } : {};
@@ -222,7 +204,6 @@ function SwitcherButton({
         aria-label={label}
         data-account-switcher="rail"
         {...popupProps}
-        onMouseDown={onPointerDown}
         onClick={onClick}
         className={`flex w-full shrink-0 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
           expanded ? '' : 'justify-center'
@@ -253,7 +234,6 @@ function SwitcherButton({
           aria-label={label}
           data-account-switcher="titlebar"
           {...popupProps}
-          onMouseDown={onPointerDown}
           onClick={onClick}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent"
         >
@@ -273,11 +253,13 @@ function AccountSwitcherMenu({
   position,
   accounts,
   activeId,
+  trigger,
   onClose,
 }: {
   position: MenuPosition;
   accounts: readonly ForgeAccount[];
   activeId: string | null;
+  trigger: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
   const switchAccount = useSwitchForgeAccount();
@@ -330,7 +312,7 @@ function AccountSwitcherMenu({
     return rows;
   }, [accounts, activeId, outOfScopeCount, scoping, setScoping, switchAccount]);
 
-  return <ContextMenu position={position} items={items} onClose={onClose} />;
+  return <ContextMenu position={position} items={items} onClose={onClose} trigger={trigger} />;
 }
 
 /**

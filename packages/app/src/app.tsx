@@ -1091,7 +1091,11 @@ function Shell() {
     in the JSX so `Component` is a capitalised binding React will treat as a
     component rather than as an intrinsic element.
   */
-  const { Component, global: viewIsGlobal, keepAlive: activeKeepAlive } = VIEW_COMPONENT[activeView];
+  const {
+    Component,
+    global: viewIsGlobal,
+    keepAlive: activeKeepAlive,
+  } = VIEW_COMPONENT[activeView];
 
   /*
     What the error boundary calls the thing that just broke — "Graph stopped
@@ -1671,10 +1675,7 @@ function Shell() {
               */}
               {keepAliveViewIds.map((viewId) => {
                 const isActive = viewId === activeView;
-                const {
-                  Component: SlotComponent,
-                  global: slotGlobal,
-                } = VIEW_COMPONENT[viewId];
+                const { Component: SlotComponent, global: slotGlobal } = VIEW_COMPONENT[viewId];
                 const slotLabel = ALL_NAV_ITEMS.find((item) => item.view === viewId)?.label;
                 return (
                   <ErrorBoundary key={viewId} resetKey={viewId} label={slotLabel}>
@@ -1959,7 +1960,10 @@ function Shell() {
           flip `quickAccessOpen`.
         */}
         {quickAccessOpen ? (
-          <QuickAccessMenu onClose={() => useUiStore.getState().setQuickAccessOpen(false)} />
+          <QuickAccessMenu
+            trigger={fabButtonRef}
+            onClose={() => useUiStore.getState().setQuickAccessOpen(false)}
+          />
         ) : null}
       </div>
     </AppFrame>

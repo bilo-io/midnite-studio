@@ -51,9 +51,9 @@ describe('ConfirmDialog requireAck', () => {
     );
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'I understand' }));
-    expect((screen.getByRole('button', { name: 'Empty Trash' }) as HTMLButtonElement).disabled).toBe(
-      false,
-    );
+    expect(
+      (screen.getByRole('button', { name: 'Empty Trash' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
 
     // Simulates `dialog-host.tsx`'s `setBlastRadius` patching the open request
     // in place — same component instance (no new `key`), only new props.
@@ -69,12 +69,12 @@ describe('ConfirmDialog requireAck', () => {
       />,
     );
 
-    expect((screen.getByRole('checkbox', { name: 'I understand' }) as HTMLInputElement).checked).toBe(
-      true,
-    );
-    expect((screen.getByRole('button', { name: 'Empty Trash' }) as HTMLButtonElement).disabled).toBe(
-      false,
-    );
+    expect(
+      (screen.getByRole('checkbox', { name: 'I understand' }) as HTMLInputElement).checked,
+    ).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Empty Trash' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 
   it('the trash BLAST_RADIUS_COPY arm reads "permanently deleted"', () => {

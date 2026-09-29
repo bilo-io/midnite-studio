@@ -121,7 +121,9 @@ describe('ToastHost', () => {
     function Local() {
       const toasts = useToasts();
       return (
-        <button onClick={() => toasts.show({ message: 'msg', action: { label: 'Undo', onAction } })}>
+        <button
+          onClick={() => toasts.show({ message: 'msg', action: { label: 'Undo', onAction } })}
+        >
           go
         </button>
       );

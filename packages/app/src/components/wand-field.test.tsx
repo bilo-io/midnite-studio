@@ -90,7 +90,9 @@ describe('WandField', () => {
     renderField('typing…');
 
     fireEvent.click(screen.getByRole('button', { name: 'Rewrite body with AI' }));
-    await waitFor(() => expect(screen.getByLabelText('body').getAttribute('readonly')).not.toBeNull());
+    await waitFor(() =>
+      expect(screen.getByLabelText('body').getAttribute('readonly')).not.toBeNull(),
+    );
 
     fireEvent.keyDown(screen.getByLabelText('body'), { key: 'Escape' });
     expect(screen.getByLabelText('body').getAttribute('readonly')).toBeNull();

@@ -5184,3 +5184,16 @@ html[data-motion='reduced'] .wf-edge-live {
 }
 
 
+
+/*
+ * While any menu, popover or picker is open (`use-dismissable.ts` sets the
+ * attribute), the title bar's drag regions stop being drag regions. A
+ * `-webkit-app-region: drag` strip hands its clicks to the window manager
+ * before the page ever sees a `pointerdown`, so a click on empty title bar
+ * could never count as "outside" and the menu stayed open under it. The
+ * shell sets the region as an inline style, hence the attribute selector and
+ * the `!important`; the window is draggable again the moment the menu closes.
+ */
+html[data-dismissable-open] [style*='app-region'] {
+  -webkit-app-region: no-drag !important;
+}
