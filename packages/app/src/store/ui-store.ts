@@ -199,6 +199,8 @@ export type GraphSelection =
   | { kind: 'stash'; selector: string }
   /** The Conflict Resolution Studio for one path (Phase 47 Theme D). */
   | { kind: 'conflict'; path: string }
+  /** The working copy, expanded inline under the graph's uncommitted-changes row. */
+  | { kind: 'working-tree' }
   | null;
 
 /**
@@ -369,6 +371,15 @@ export type LayoutSizes = {
   databaseConnectionsWidth: number;
   /** Settings' inner page nav, left of the active settings page (Ad hoc). */
   settingsNavWidth: number;
+  /**
+   * The git graph's inline panel (a commit's details, or the working copy),
+   * expanded under its row. One height for both kinds, so the panel is the
+   * same size whichever row you open. Clamped again at render time to a share
+   * of the graph, which these absolute bounds cannot know.
+   */
+  graphInlineHeight: number;
+  /** The inline panel's left column (details and the file list), left of the diff. */
+  graphInlineListWidth: number;
 };
 
 
@@ -469,6 +480,11 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   databaseConnectionsWidth: 288,
   // Matches the page nav's old fixed w-56.
   settingsNavWidth: 224,
+  // Room for a commit message's first paragraph, the file list and a
+  // screenful of diff, while leaving the rows around it on screen.
+  graphInlineHeight: 440,
+  // The Changes view's own list width — the same list, in the same place.
+  graphInlineListWidth: 384,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -542,6 +558,8 @@ export const LAYOUT_BOUNDS = {
   // Matches the pre-resizable component's own explicit min/max (Ad hoc).
   databaseConnectionsWidth: { min: 220, max: 480 },
   settingsNavWidth: { min: 180, max: 360 },
+  graphInlineHeight: { min: 200, max: 1200 },
+  graphInlineListWidth: { min: 240, max: 720 },
 } as const;
 
 /**
@@ -1175,6 +1193,8 @@ export type UiState = {
   selectRepo: (repoId: string | null) => void;
   selectWorktree: (path: string | null) => void;
   selectCommit: (sha: string | null) => void;
+  /** Expand (`true`) or collapse (`false`) the graph's inline working-copy panel. */
+  selectWorkingTree: (open: boolean) => void;
   /** Select a stash entry — clears any commit selection (Phase 22 Theme D). */
   selectStash: (selector: string | null) => void;
   /** Open the Conflict Resolution Studio for one path (Phase 47 Theme D). */
@@ -2635,6 +2655,14 @@ export const useUiStore = create<UiState>()(
       selectWorktree: (selectedWorktreePath) =>
         useFileEditorStore.getState().guardNavigation(() => set({ selectedWorktreePath })),
       selectCommit: (sha) => set({ graphSelection: sha === null ? null : { kind: 'commit', sha } }),
+      selectWorkingTree: (open) =>
+        set((state) =>
+          open
+            ? { graphSelection: { kind: 'working-tree' } }
+            : state.graphSelection?.kind === 'working-tree'
+              ? { graphSelection: null }
+              : state,
+        ),
       selectStash: (selector) =>
         set({ graphSelection: selector === null ? null : { kind: 'stash', selector } }),
       selectConflict: (path) =>

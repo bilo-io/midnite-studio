@@ -32,6 +32,7 @@ export function CommitAllChanges({
   sha,
   files,
   totals,
+  initiallyExpanded = false,
 }: {
   repoId: string;
   sha: string;
@@ -42,11 +43,14 @@ export function CommitAllChanges({
    * two thin bars — the same shape as `ChangesAccordion`'s header.
    */
   totals: { fileCount: number; insertions: number; deletions: number };
+  /** Open every file (up to the cap) on mount — for a hand-picked multi-selection. */
+  initiallyExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState<ExpansionState>(NOTHING_EXPANDED);
-
   const sorted = useMemo(() => [...files].sort((a, b) => a.path.localeCompare(b.path)), [files]);
   const paths = useMemo(() => sorted.map((file) => file.path), [sorted]);
+  const [expanded, setExpanded] = useState<ExpansionState>(() =>
+    initiallyExpanded ? expandAll(paths) : NOTHING_EXPANDED,
+  );
   const withheld = withheldByCap(paths);
 
   return (
