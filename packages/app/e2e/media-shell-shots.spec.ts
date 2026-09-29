@@ -36,7 +36,7 @@ test.describe('media shell screenshots', () => {
       media: { files: { 'doc:launch': { 'brief.md': '# Brief', 'notes/outline.md': '- a' }, 'doc:roadmap': {} } },
     });
     await page.getByRole('tab', { name: 'Docs' }).click();
-    await page.getByText('brief.md').click();
+    await page.getByText('brief', { exact: true }).click();
     await settle(page, 300);
     await page.screenshot({ path: shotPath(OUT, 'docs-tab.png') });
   });
