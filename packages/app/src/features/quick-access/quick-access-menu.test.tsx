@@ -2,7 +2,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCompanionStore } from '../../store/companion-store';
+import { INITIAL_SETUP_STATE } from '../../store/setup-state';
 import { useUiStore } from '../../store/ui-store';
+import { useSetupStore } from '../setup/setup-store';
 import { resetCompanionPorts, setCompanionPorts } from '../companion/companion-ports';
 import { QuickAccessMenu } from './quick-access-menu';
 
@@ -16,7 +18,11 @@ beforeEach(() => {
     // about what the `C` leaf and the companion strip look like on either side
     // of this switch, and a leaked `true` from another suite would flip them.
     companionEnabled: false,
+    // Finished, so the Resume setup leaf (Phase 98 Theme C) is absent and the
+    // row counts below hold; its own cases set this back to unfinished.
+    setupState: { ...INITIAL_SETUP_STATE, completedAt: '2026-01-01T00:00:00.000Z' },
   });
+  useSetupStore.setState({ requested: false, startPageId: null, resume: false });
   useCompanionStore.setState({ state: 'off', transcript: [] });
   resetCompanionPorts();
 });
@@ -184,5 +190,30 @@ describe('QuickAccessMenu', () => {
 
     expect(repeat).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers Resume setup while setup is unfinished, above the separator, and it resumes the overlay', () => {
+    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, dismissedAt: '2026-01-01T00:00:00.000Z' } });
+    const onClose = vi.fn();
+    render(<QuickAccessMenu onClose={onClose} />);
+
+    const rows = screen.getAllByRole('menuitem');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Loops'),
+      expect.stringContaining('Companion'),
+      expect.stringContaining('Notes'),
+      expect.stringContaining('Resume setup'),
+      expect.stringContaining('Report Issue'),
+      expect.stringContaining('Guided tour'),
+    ]);
+
+    fireEvent.keyDown(screen.getByTestId('quick-access-menu'), { key: 's' });
+    expect(useSetupStore.getState()).toMatchObject({ requested: true, resume: true, startPageId: null });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops Resume setup once setup is complete', () => {
+    render(<QuickAccessMenu onClose={() => {}} />);
+    expect(screen.queryByTestId('quick-access-row-s')).toBeNull();
   });
 });

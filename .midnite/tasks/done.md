@@ -1,6 +1,22 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-29 — Phase 98 Themes B + C — Brand choreography; Skip / X → FAB handoff and resume
+
+[PR #602](https://github.com/bilo-io/midnite-studio/pull/602). The brand mark opens setup and becomes the fixed title anchor, and leaving early now points at the FAB, which gains **Resume setup**.
+
+- [x] B: intro — `BrandMark` centred with a `caret-blink` caret; "Midnite" typed in `font-brand` with `--rainbow-ramp` clipped to the glyphs (`.setup-brand-gradient`).
+- [x] B: hand-off — the wordmark fades, then the mark glides (WAAPI FLIP, `flipKeyframes`/`playGlide`) into the anchor beside page 1's title.
+- [x] B: fixed anchor rendered by the frame; pages top-anchored so a body fading in never moves it.
+- [x] B: titles typed via `useTitleTypewriter` (new optional `delayMs` waits for the glide); body + Back/Next fade in (opacity only) after; caret parks at the end.
+- [x] B: reduced motion resolves every step at once (`isReducedMotion` honours `data-motion` and the OS setting); new keyframes pass `styles-motion-guards.ts` with no allowlist additions.
+- [x] B: vitest for the sequencer (`setup-choreography.test.ts`: intro phases, typed-then-reveal ordering, reduced-motion short-circuit, FLIP maths) on fake timers.
+- [x] C: X and Skip (and Escape) fade the content, show the hint, fade in a stand-in FAB over the real one, nudge an arrow at it, and dissolve after a beat or on any click.
+- [x] C: FAB hidden (`fabPanelDocked || companionDocked`) → the hint names ⌘K → "Run Setup Wizard", no arrow.
+- [x] C: Skip records the page in `skippedPageIds`; both set `dismissedAt`/`lastPageId` (`holdOpen()` keeps the frame mounted through the handoff).
+- [x] C: quick-access **Resume setup** leaf (`S`) while `completedAt === null`; reopens at `resumePageId` past the intro, mark gliding in from the centre.
+- [x] C: Playwright `setup-fab-handoff.spec.ts` (real `getBoundingClientRect`): hint + arrow aimed at the FAB, overlay gone, Resume reopens at the right page. e2e cap 456 → 457.
+
 ## 2026-09-29 — Phase 98 Theme A — Overlay frame and first-run gate
 
 [PR #600](https://github.com/bilo-io/midnite-studio/pull/600). One full-window setup overlay behind one persisted gate replaces the stacked `FirstRunModal` + `OnboardingModal`.

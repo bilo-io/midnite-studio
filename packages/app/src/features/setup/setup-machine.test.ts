@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CLOSED, FINALE, INTRO, dotStates, initialStep, nextStep, prevStep } from './setup-machine';
+import { CLOSED, FINALE, INTRO, dotStates, initialStep, nextStep, prevStep, resumePageId } from './setup-machine';
 
 const page = (index: number) => ({ kind: 'page', index }) as const;
 
@@ -48,5 +48,35 @@ describe('dotStates', () => {
   it('has every dot ahead at the intro and behind at the finale', () => {
     expect(dotStates(INTRO, ids, [])).toEqual(['upcoming', 'upcoming', 'upcoming']);
     expect(dotStates(FINALE, ids, ['b'])).toEqual(['done', 'skipped', 'done']);
+  });
+});
+
+describe('resumePageId (Theme C)', () => {
+  const ids = ['git', 'forges', 'accounts'];
+  const at = (lastPageId: string | null, skippedPageIds: string[] = []) => resumePageId(ids, { lastPageId, skippedPageIds });
+
+  it('never started a page: the first one', () => {
+    expect(at(null)).toBe('git');
+  });
+
+  it('left with X: the page it was left on', () => {
+    expect(at('forges')).toBe('forges');
+  });
+
+  it('left with Skip: the next page not skipped', () => {
+    expect(at('git', ['git'])).toBe('forges');
+    expect(at('git', ['git', 'forges'])).toBe('accounts');
+  });
+
+  it('everything from there on skipped: back to the page it was left on', () => {
+    expect(at('accounts', ['accounts'])).toBe('accounts');
+  });
+
+  it('a page since removed falls back to scanning from the start', () => {
+    expect(at('gone', ['git'])).toBe('forges');
+  });
+
+  it('no pages: nowhere', () => {
+    expect(resumePageId([], { lastPageId: null, skippedPageIds: [] })).toBeNull();
   });
 });

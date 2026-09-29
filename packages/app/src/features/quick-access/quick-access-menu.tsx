@@ -1,13 +1,14 @@
 import type { CompanionState } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2 } from 'react-icons/lu';
+import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2, LuRocket } from 'react-icons/lu';
 
 import type { MenuEntry } from '../../components/context-menu';
 import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { COMPANION_LOOK, CompanionGlyph } from '../companion/companion-look';
 import { companionPorts } from '../companion/companion-ports';
+import { useSetupStore } from '../setup/setup-store';
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 
@@ -31,13 +32,15 @@ type QuickAccessRow = QuickAccessItem | { type: 'separator' };
  * are store reads, and a module-scope array is evaluated once at import.
  * `firstStop`/`step` below take the rows as an argument for the same reason.
  *
- * Order is `L · C · N · —— · I · G`: the companion sits between Loops and
- * Notes, which is where the phase puts it, and the two not-yet-built leaves
- * stay below the separator.
+ * Order is `L · C · N · (R) · (S) · —— · I · G`: the companion sits between
+ * Loops and Notes, which is where the phase puts it, Repeat and Resume setup
+ * appear only while they have something to do, and the two not-yet-built
+ * leaves stay below the separator.
  */
 function buildRows(options: {
   companionEnabled: boolean;
   canRepeat: boolean;
+  setupIncomplete: boolean;
 }): readonly QuickAccessRow[] {
   const rows: QuickAccessRow[] = [
     {
@@ -80,6 +83,25 @@ function buildRows(options: {
       description: 'Say the last thing again',
       icon: LuRepeat2,
       onSelect: () => companionPorts().repeat(),
+    });
+  }
+
+  /*
+    Resume setup (Phase 98 Theme C) — where X and Skip on the setup overlay
+    say setup can be picked up again, so it is here for exactly as long as
+    setup is unfinished and gone once the finale's Get started sets
+    `completedAt`. Absent rather than disabled afterwards: a finished setup is
+    rerun from the palette (`setup.open`), not "resumed". The overlay works
+    out the page itself (`resumePageId`), which keeps the page registry and
+    its components out of this menu's chunk.
+  */
+  if (options.setupIncomplete) {
+    rows.push({
+      mnemonic: 'S',
+      label: 'Resume setup',
+      description: 'Pick setup up where you left it',
+      icon: LuRocket,
+      onSelect: () => useSetupStore.getState().resumeSetup(),
     });
   }
 
@@ -177,6 +199,7 @@ export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
   const hintTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const companionEnabled = useUiStore((s) => s.companionEnabled);
+  const setupIncomplete = useUiStore((s) => s.setupState.completedAt === null);
   const companionState = useCompanionStore((s) => s.state);
   const transcript = useCompanionStore((s) => s.transcript);
   const lastCompanionTurn = useMemo(
@@ -185,8 +208,8 @@ export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
   );
 
   const rows = useMemo(
-    () => buildRows({ companionEnabled, canRepeat: lastCompanionTurn !== null }),
-    [companionEnabled, lastCompanionTurn],
+    () => buildRows({ companionEnabled, canRepeat: lastCompanionTurn !== null, setupIncomplete }),
+    [companionEnabled, lastCompanionTurn, setupIncomplete],
   );
 
   useDismiss(true, onClose, { layer: 'popover' });

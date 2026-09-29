@@ -372,6 +372,59 @@ html[data-motion='reduced'] .agent-count-text {
   animation: none;
 }
 
+/* Setup overlay (Phase 98 Themes B and C).
+ *
+ * - `.setup-brand-gradient` — the intro's typed "Midnite": the same
+ *   `--rainbow-ramp` the agent count wears, clipped to the glyphs, but still —
+ *   it is colour, not motion, so reduced motion keeps it. The padding is clip
+ *   headroom: a script face's ink runs past its advance box, and a
+ *   background clipped to text is only painted inside the element's own box.
+ * - `.setup-caret` — the typing caret reuses Tailwind's `animate-caret-blink`.
+ *   Its guard removes the animation outright rather than letting the shell's
+ *   reset pin it to its final frame, which for `caret-blink` is invisible.
+ * - `.setup-handoff-arrow` — the arrow pointing at the FAB after X or Skip,
+ *   nudging toward it. A loop, so it is paused whenever the window is not
+ *   focused and removed under reduced motion; it is only mounted for the few
+ *   seconds the handoff lasts. Transform only, a compositor job. */
+.setup-brand-gradient {
+  padding: 0.12em 0.15em;
+  background-image: linear-gradient(90deg, var(--rainbow-ramp));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes setup-arrow-nudge {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(5px, 5px);
+  }
+}
+
+.setup-handoff-arrow {
+  animation: setup-arrow-nudge 1.1s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .setup-handoff-arrow {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .setup-caret,
+  html:not([data-motion='full']) .setup-handoff-arrow {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .setup-caret,
+html[data-motion='reduced'] .setup-handoff-arrow {
+  animation: none;
+}
+
 /* Battery status-bar segment — below 30% the low tier flashes, getting
  * faster the lower the reading goes: slow under 30%, quicker under 20%,
  * urgent under 10%. */
