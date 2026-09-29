@@ -108,6 +108,21 @@ describe('WorkflowSchema', () => {
       'state',
       'frame',
       'policy',
+      'ai-prompt',
+      'ai-extract',
+      'assert',
+      'fail',
+      'command',
+      'read-file',
+      'git-status',
+      'forge-comment',
+      'forge-issue',
+      'set-fields',
+      'json-extract',
+      'coalesce',
+      'notify',
+      'write-file',
+      'clipboard',
     ]);
   });
 
