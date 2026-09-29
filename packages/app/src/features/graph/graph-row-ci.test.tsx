@@ -106,6 +106,13 @@ describe('CommitGraphRow — CI column', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('opts its cells into the narrow-window rules the header uses', () => {
+    const { container } = renderRow({ ci });
+    expect(container.querySelector('.graph-ref-col')).not.toBeNull();
+    expect(container.querySelector('.graph-msg-col')).not.toBeNull();
+    expect(container.querySelector('.graph-ci-col')).not.toBeNull();
+  });
+
   it('draws no mark for a commit with no CI', () => {
     renderRow({ ci: undefined });
     expect(screen.queryByRole('button', { name: /^CI:/ })).toBeNull();

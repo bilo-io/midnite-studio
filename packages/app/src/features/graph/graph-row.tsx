@@ -256,7 +256,7 @@ function GraphRowInner({
         do being scannable.
       */}
       <div
-        className="flex shrink-0 items-center gap-1 overflow-hidden pl-2"
+        className="graph-ref-col flex items-center gap-1 overflow-hidden pl-2"
         style={{ width: 'var(--col-branch-tag)' }}
       >
         {shown.map((ref) => (
@@ -487,7 +487,7 @@ function GraphRowInner({
         the row and nothing was allowed to give.
       */}
       <div
-        className={`relative flex min-w-0 flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
+        className={`graph-msg-col relative flex flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
         } ${recencyTier === 'fresh' ? 'commit-row-shimmer' : ''}`}
       >

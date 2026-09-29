@@ -203,7 +203,7 @@ export function GraphHeader({
       >
         <span
           role="columnheader"
-          className="shrink-0 py-1 pl-2"
+          className="graph-ref-col truncate py-1 pl-2"
           style={{ width: columns.branchTag.current }}
         >
           Branch / Tag
@@ -258,7 +258,7 @@ export function GraphHeader({
           <span aria-hidden className="shrink-0" style={{ width: RAIL_WIDTH }} />
         ) : null}
 
-        <span role="columnheader" className="min-w-0 flex-1 py-1">
+        <span role="columnheader" className="graph-msg-col flex-1 truncate py-1">
           Commit message
         </span>
 

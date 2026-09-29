@@ -4201,6 +4201,35 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   display: none;
 }
 
+/* Narrow windows. The commit message is the one column the graph exists to be
+ * read by, so it keeps a real minimum width and everything else gives way
+ * first: the BRANCH / TAG column is the only shrinkable fixed column (down to
+ * a chip's worth), and below a 520px graph the CI column drops out entirely.
+ * The shrink is identical in the header, every commit row and the working
+ * copy/stash rows — in each, the ref column is the only item that can shrink
+ * and the fixed columns beside it match — so the grid stays aligned while it
+ * narrows. A container query, not a media query: the graph's width is the
+ * window minus the rail, the repos panel and the detail pane, none of which a
+ * viewport width knows about. */
+[data-graph-ci] {
+  container: graph / inline-size;
+}
+
+.graph-ref-col {
+  flex-shrink: 1;
+  min-width: 64px;
+}
+
+.graph-msg-col {
+  min-width: 96px;
+}
+
+@container graph (max-width: 520px) {
+  .graph-ci-col {
+    display: none;
+  }
+}
+
 /* A running run's spinner in the CI column stops turning while the window is
  * blurred — the same focus gate the rest of the graph's motion keys on, so a
  * graph left open behind another app is not animating a mark nobody sees. */
