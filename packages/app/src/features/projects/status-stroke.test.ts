@@ -5,6 +5,7 @@ import { issueItem } from './__fixtures__/project-item';
 import {
   findStatusField,
   itemStatusStroke,
+  STATUS_STROKE_BLOCKED_OPACITY,
   STATUS_STROKE_TABLE,
   STATUS_STROKE_WIDTH,
   statusKind,
@@ -97,6 +98,8 @@ describe('statusStroke', () => {
       color: '#A855F7',
       width: STATUS_STROKE_WIDTH,
       ...STATUS_STROKE_TABLE.inReview,
+      blocked: false,
+      opacity: 1,
     });
   });
 
@@ -106,6 +109,40 @@ describe('statusStroke', () => {
 
   it('a hex option colour passes through', () => {
     expect(statusStroke('Done', '#123456').color).toBe('#123456');
+  });
+});
+
+describe('statusStroke — blocked', () => {
+  it.each<[string, string]>([
+    ['Todo', 'GRAY'],
+    ['In Progress', 'YELLOW'],
+    ['In Review', 'PURPLE'],
+  ])('a blocked %s keeps its colour and dash, but holds still and fades', (name, color) => {
+    const open = statusStroke(name, color);
+    const blocked = statusStroke(name, color, true);
+    expect(open.animated).toBe(true);
+    expect(blocked).toEqual({
+      ...open,
+      animated: false,
+      blocked: true,
+      opacity: STATUS_STROKE_BLOCKED_OPACITY,
+    });
+  });
+
+  it('a blocked solid status stays solid and still, and fades too', () => {
+    const blocked = statusStroke('Done', 'GREEN', true);
+    expect(blocked).toMatchObject({ dashArray: null, animated: false, blocked: true });
+    expect(blocked.opacity).toBe(STATUS_STROKE_BLOCKED_OPACITY);
+  });
+
+  it('the blocked opacity is noticeably transparent, not invisible', () => {
+    expect(STATUS_STROKE_BLOCKED_OPACITY).toBeGreaterThanOrEqual(0.5);
+    expect(STATUS_STROKE_BLOCKED_OPACITY).toBeLessThanOrEqual(0.6);
+  });
+
+  it('never mutates the shared table', () => {
+    statusStroke('Todo', 'GRAY', true);
+    expect(STATUS_STROKE_TABLE.todo.animated).toBe(true);
   });
 });
 
@@ -130,6 +167,11 @@ describe('itemStatusStroke', () => {
   it('a value whose option was deleted resolves by its set-time name', () => {
     const stroke = itemStatusStroke(withStatus('o-gone', 'In Review'), statusField);
     expect(stroke).toMatchObject({ kind: 'inReview', color: '#A855F7' });
+  });
+
+  it('passes blocked through', () => {
+    const stroke = itemStatusStroke(withStatus('o-todo'), statusField, true);
+    expect(stroke).toMatchObject({ kind: 'todo', animated: false, blocked: true, opacity: STATUS_STROKE_BLOCKED_OPACITY });
   });
 
   it('is null with no Status field, no value, or no item', () => {

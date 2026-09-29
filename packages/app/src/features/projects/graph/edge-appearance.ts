@@ -54,12 +54,19 @@ import type { StatusStroke } from '../status-stroke';
  * is a guess, and dotted is how the graph says so) and takes only the
  * colour. A blocker with no status (a foreign node, or an item with no
  * Status value) falls back to the table above unchanged.
+ *
+ * **Blocked (ad hoc).** The stroke is the *blocker's*, so an edge into a
+ * blocked task keeps marching exactly as its blocker's own border does —
+ * that edge says "this is what you are waiting on, and it is moving". When
+ * the blocker is itself blocked, its stroke is already still and faded
+ * (`statusStroke`'s `blocked`), and the edge leading out of it wears that
+ * too, so a blocked card and its outgoing edge agree.
  */
 export interface EdgeAppearance {
   className: string;
   strokeWidth: number;
   /** Inline paint from a status stroke; absent when the table's own classes paint the edge. */
-  style?: { stroke: string; strokeDasharray?: string };
+  style?: { stroke: string; strokeDasharray?: string; strokeOpacity?: number };
 }
 
 const CONTAINS: EdgeAppearance = { className: 'dep-edge dep-edge-contains', strokeWidth: 1.5 };
@@ -109,9 +116,13 @@ export function edgeAppearance(
     return {
       className: classes.join(' '),
       strokeWidth: sourceStatus.width,
-      style: body
-        ? { stroke: sourceStatus.color }
-        : { stroke: sourceStatus.color, strokeDasharray: sourceStatus.dashArray ?? 'none' },
+      style: {
+        stroke: sourceStatus.color,
+        ...(body ? {} : { strokeDasharray: sourceStatus.dashArray ?? 'none' }),
+        // Only a blocked blocker fades its edge; `stroke-opacity` composes
+        // with `.dep-edge-body`'s own `opacity` rather than replacing it.
+        ...(sourceStatus.blocked ? { strokeOpacity: sourceStatus.opacity } : {}),
+      },
     };
   }
 
