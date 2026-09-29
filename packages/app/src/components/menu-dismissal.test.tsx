@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useRef } from 'react';
+import { StrictMode, useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../store/ui-store';
@@ -44,6 +44,19 @@ describe('ContextMenu', () => {
   ];
   const openSubmenu = () =>
     fireEvent.mouseEnter(screen.getByText('Open with').closest('div.relative')!);
+
+  it('survives StrictMode opening it from a focused row — the trap handing focus back is not "focus left"', () => {
+    const onClose = vi.fn();
+    const row = outside();
+    row.focus();
+    render(
+      <StrictMode>
+        <ContextMenu position={{ x: 0, y: 0 }} items={items} onClose={onClose} />
+      </StrictMode>,
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('menu').contains(document.activeElement)).toBe(true);
+  });
 
   it('closes on a pointerdown outside — pointerdown, not mousedown, which a page can suppress', () => {
     const onClose = vi.fn();

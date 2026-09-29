@@ -262,19 +262,6 @@ export function ContextMenu({
     setSubmenuIndex(null);
   };
 
-  /*
-    Focus lives inside the menu for as long as it is open.
-
-    Without this, reaching the first item by keyboard meant tabbing through the
-    entire rest of the document: the menu is portalled to the end of `<body>`,
-    so DOM order puts it after everything. The trap also hands focus back to
-    whatever held it when the menu opened — for a right-click, the row that was
-    clicked — which is Theme A's restoration arriving here for free.
-
-    The container's `tabIndex={-1}` is what the trap parks focus on when a menu
-    happens to have no selectable row at all.
-  */
-  useFocusTrap(ref, true);
 
   /**
    * One icon anywhere in the menu indents every row, so labels still line up
@@ -338,6 +325,27 @@ export function ContextMenu({
       onClose();
     },
   });
+
+  /*
+    Focus lives inside the menu for as long as it is open.
+
+    Without this, reaching the first item by keyboard meant tabbing through the
+    entire rest of the document: the menu is portalled to the end of `<body>`,
+    so DOM order puts it after everything. The trap also hands focus back to
+    whatever held it when the menu opened — for a right-click, the row that was
+    clicked — which is Theme A's restoration arriving here for free.
+
+    The container's `tabIndex={-1}` is what the trap parks focus on when a menu
+    happens to have no selectable row at all.
+
+    Declared AFTER `useDismissable`, and the order is load-bearing: React runs
+    effect cleanups in declaration order, and the trap's cleanup hands focus
+    back to the row outside the menu. Were the trap first, that `focusin`
+    would land while the dismissal listeners were still armed and read as
+    "focus left" — which under StrictMode's mount/unmount/mount closed every
+    right-click menu the instant it opened.
+  */
+  useFocusTrap(ref, true);
 
   // A resize moves the anchor out from under a cursor-placed menu; there is
   // no sensible place left to show it.

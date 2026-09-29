@@ -308,6 +308,12 @@ function syncListeners(): void {
  * Register a menu, popover or picker for every dismissal rule above, for as
  * long as `open`. Returns the node to hand to `DismissableScope` so surfaces
  * rendered inside it (submenus) join this one's tree.
+ *
+ * **Call it before `useFocusTrap`.** Effect cleanups run in declaration
+ * order, and the trap's cleanup moves focus back outside the surface; with
+ * the trap first, that `focusin` lands while these listeners are still armed
+ * and reads as focus leaving — which StrictMode's mount/unmount/mount turns
+ * into a menu that closes the moment it opens.
  */
 export function useDismissable(options: DismissableOptions): DismissableNode {
   const scopeParent = useContext(Scope);
