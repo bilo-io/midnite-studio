@@ -197,7 +197,10 @@ function SetupFrame({ startPageId }: { startPageId: string | null }) {
             Skip
             <LuChevronRight aria-hidden className="h-3.5 w-3.5" />
           </button>
-        ) : null}
+        ) : (
+          // Holds Skip's height, so the dots do not drop when it goes.
+          <span aria-hidden className="block h-5" />
+        )}
       </footer>
     </div>
   );
