@@ -192,6 +192,7 @@ import {
   MediaRelPathSchema,
   MediaTabSchema,
 } from '../media';
+import { DocExportFormatSchema } from '../media';
 import {
   VideoProjectSchema,
   VideoRenderProgressEventSchema,
@@ -3059,6 +3060,40 @@ export const MediaExportResponse = GitOpResultOf(z.object({ dest: z.string() }))
 
 export const MediaExportCancelRequest = z.object({ exportId: z.string().min(1) });
 export const MediaExportCancelResponse = GitOpResultSchema;
+
+/**
+ * Docs (Theme B) — one AI edit through the primary agent's headless CLI (the
+ * `improve-field.ts` seam, generalised). The renderer sends the live markdown,
+ * so unsaved edits are what the agent sees; `selection` scopes the edit.
+ * Answers replacement markdown only — nothing is written until Accept.
+ */
+export const MediaDocEditRequest = z.object({
+  repoId: z.string().min(1),
+  project: MediaProjectNameSchema,
+  path: MediaRelPathSchema,
+  markdown: z.string().max(200_000),
+  selection: z.string().max(50_000).optional(),
+  prompt: z.string().trim().min(1).max(4000),
+  agentId: z.string().min(1).optional(),
+  /** A `LOOP_MODELS` id; mapped through `loopModelArgs` (claude only). */
+  model: LoopModelSchema.optional(),
+  ollamaModel: z.string().min(1).max(200).optional(),
+});
+export const MediaDocEditResponse = GitOpResultOf(z.object({ replacement: z.string() }));
+
+/**
+ * `content` is the raw markdown for `md` and the standalone HTML for `html`
+ * and `pdf` (main prints it in a hidden window). A dismissed dialog answers
+ * `{ok:false, message:'cancelled'}`, as `MediaExportRequest` does.
+ */
+export const MediaDocExportRequest = z.object({
+  format: DocExportFormatSchema,
+  /** File stem the save dialog proposes. */
+  name: z.string().min(1).max(200),
+  content: z.string().max(20_000_000),
+  defaultDir: z.string().min(1).optional(),
+});
+export const MediaDocExportResponse = GitOpResultOf(z.object({ dest: z.string() }));
 
 export const MediaChangedPayload = MediaChangedEventSchema;
 export const MediaExportProgressPayload = MediaExportProgressEventSchema;

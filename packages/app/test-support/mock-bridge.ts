@@ -3058,6 +3058,16 @@ export function buildMockBridge(data: MockFixtures) {
       cancelExport: async () => ({ ok: true as const }),
       onChanged: unsubscribe,
       onExportProgress: unsubscribe,
+      doc: {
+        edit: async (req: { selection?: string; markdown: string; prompt: string }) => ({
+          ok: true as const,
+          value: { replacement: `${(req.selection ?? req.markdown).trim()}\n\n_Edited: ${req.prompt}_\n` },
+        }),
+        export: async (req: { name: string; format: string }) => ({
+          ok: true as const,
+          value: { dest: `/tmp/${req.name}.${req.format}` },
+        }),
+      },
     },
     fs: {
       listDir: async (req: { scope: string; relPath: string }) => {

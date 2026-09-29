@@ -1,7 +1,7 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 
-import { dialog, shell } from 'electron';
+import { BrowserWindow, dialog, shell } from 'electron';
 
 import {
   CHANNELS,
@@ -17,6 +17,8 @@ import {
   type MediaTab,
 } from '@midnite/studio-shared';
 
+import { runDocEdit } from '../ai/doc-edit';
+import { exportDoc } from '../media/doc-export';
 import { cancelFfmpegExport, isFfmpegFormat, runFfmpegExport } from '../media/export-service';
 import { createMediaStore } from '../media/media-store';
 import { resolveWorkdir } from '../repo-registry';
@@ -225,4 +227,60 @@ export function registerMediaHandlers(): void {
     ({ exportId }) => cancelFfmpegExport(exportId),
     (issue) => failure(issue),
   );
+
+  // --- Docs (Theme B) --------------------------------------------------------
+  handle(
+    CHANNELS.mediaDocEdit,
+    schemas.MediaDocEditRequest,
+    (req) =>
+      guard(async () =>
+        runDocEdit({
+          docName: req.path,
+          markdown: req.markdown,
+          selection: req.selection,
+          prompt: req.prompt,
+          agentId: req.agentId,
+          model: req.model,
+          ollamaModel: req.ollamaModel,
+          repoPath: (await resolveWorkdir(req.repoId)) ?? null,
+        }),
+      ),
+    (issue) => failure(issue),
+  );
+
+  handleFromSender(
+    CHANNELS.mediaDocExport,
+    schemas.MediaDocExportRequest,
+    (req, win) =>
+      guard(() =>
+        exportDoc(req, {
+          pickDest: async (defaultPath, format) => {
+            const { ext, label } = MEDIA_EXPORT_FORMAT_INFO[format];
+            const options = { defaultPath, filters: [{ name: label, extensions: [ext] }] };
+            const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+            return picked.canceled || !picked.filePath ? null : picked.filePath;
+          },
+          printToPdf: printHtmlFileToPdf,
+        }),
+      ),
+    (issue) => failure(issue),
+  );
+}
+
+/**
+ * A hidden, script-less window prints the doc's standalone HTML. Scripts are
+ * off: the HTML is the user's own markdown rendered, and nothing in it needs
+ * to run for the PDF to look right.
+ */
+async function printHtmlFileToPdf(htmlFile: string): Promise<Buffer> {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false },
+  });
+  try {
+    await win.loadFile(htmlFile);
+    return await win.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+  } finally {
+    win.destroy();
+  }
 }

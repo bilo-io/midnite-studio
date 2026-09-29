@@ -127,25 +127,30 @@ function textSink(): ProcessSink<string> {
 }
 
 /**
- * Rewrite one field, once.
+ * One prompt through the roster's headless CLI (or an Ollama model), answered
+ * as trimmed plain text — the runner `improveField` and Docs' `runDocEdit`
+ * (Phase 99 Theme B) share. `modelArgs` picks the model: the wand passes its
+ * cheap tier, a doc edit whatever the thread's picker chose. `what` names the
+ * job in the "no CLI" sentence.
  *
- * Never throws — every outcome is the `GitOpResult` envelope. Unlike
- * `askCompanion`'s "unparseable output is still a success" posture, an empty
- * reply here IS a failure: there is no fallback sentence a text field can
- * render in place of nothing, so a blank rewrite is refused rather than
- * silently blanking the field it was meant to improve.
+ * Never throws; an empty reply is a failure, since neither caller has a
+ * fallback to render in place of nothing.
  */
-export async function improveField(
-  input: AiImproveFieldInput,
-  deps: AiImproveFieldDeps = defaultAiImproveFieldDeps,
+export async function runHeadlessText(
+  input: {
+    prompt: string;
+    agentId?: string | undefined;
+    repoPath?: string | null | undefined;
+    ollamaModel?: string | undefined;
+    modelArgs: (agentId: string) => string[];
+    what: string;
+  },
+  deps: AiImproveFieldDeps,
+  defaultTimeoutMs: number,
 ): Promise<GitOpResult<{ text: string }>> {
+  const timeoutMs = deps.timeoutMs ?? defaultTimeoutMs;
   if (input.ollamaModel) {
-    const reply = await runOllamaPrompt(
-      input.ollamaModel,
-      buildImproveFieldPrompt(input),
-      deps.timeoutMs ?? AI_IMPROVE_FIELD_TIMEOUT_MS,
-      deps.ollama,
-    );
+    const reply = await runOllamaPrompt(input.ollamaModel, input.prompt, timeoutMs, deps.ollama);
     if (!reply.ok) return failure(reply.message);
     const text = reply.data.trim();
     return text.length === 0 ? failure(`${input.ollamaModel} answered with nothing.`) : ok({ text });
@@ -154,21 +159,19 @@ export async function improveField(
   const roster = await deps.agents();
   const resolved = resolveHeadlessAgent(roster, input.agentId);
   if (!resolved) {
-    return failure('No agent CLI with a headless mode is installed, so the wand has nothing to run.');
+    return failure(`No agent CLI with a headless mode is installed, so ${input.what} has nothing to run.`);
   }
 
-  const model = cheapModelFor(resolved.agent.id);
-  const modelArgs = model ? modelArgsFor(resolved.agent.id, model) : [];
-  const prompt = toAgentPrompt(buildImproveFieldPrompt(input), resolved.agent.id);
+  const prompt = toAgentPrompt(input.prompt, resolved.agent.id);
   const cwd = input.repoPath ?? (deps.home ?? homedir)();
 
   const outcome = await runProcess<string>(
     resolved.agent.command,
-    [...(resolved.agent.args ?? []), ...resolved.args, ...modelArgs, prompt],
+    [...(resolved.agent.args ?? []), ...resolved.args, ...input.modelArgs(resolved.agent.id), prompt],
     cwd,
     {
       sink: textSink(),
-      timeoutMs: deps.timeoutMs ?? AI_IMPROVE_FIELD_TIMEOUT_MS,
+      timeoutMs,
       ...(deps.spawn ? { spawn: deps.spawn } : {}),
     },
   );
@@ -186,4 +189,34 @@ export async function improveField(
     return failure(`${resolved.agent.label} answered with nothing.`);
   }
   return ok({ text });
+}
+
+/**
+ * Rewrite one field, once.
+ *
+ * Never throws — every outcome is the `GitOpResult` envelope. Unlike
+ * `askCompanion`'s "unparseable output is still a success" posture, an empty
+ * reply here IS a failure: there is no fallback sentence a text field can
+ * render in place of nothing, so a blank rewrite is refused rather than
+ * silently blanking the field it was meant to improve.
+ */
+export async function improveField(
+  input: AiImproveFieldInput,
+  deps: AiImproveFieldDeps = defaultAiImproveFieldDeps,
+): Promise<GitOpResult<{ text: string }>> {
+  return runHeadlessText(
+    {
+      prompt: buildImproveFieldPrompt(input),
+      agentId: input.agentId,
+      repoPath: input.repoPath,
+      ollamaModel: input.ollamaModel,
+      modelArgs: (agentId) => {
+        const model = cheapModelFor(agentId);
+        return model ? modelArgsFor(agentId, model) : [];
+      },
+      what: 'the wand',
+    },
+    deps,
+    AI_IMPROVE_FIELD_TIMEOUT_MS,
+  );
 }

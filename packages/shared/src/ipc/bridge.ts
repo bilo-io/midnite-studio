@@ -1121,6 +1121,13 @@ export type MidniteStudioBridge = {
     onExportProgress: (
       handler: (event: z.infer<typeof S.MediaExportProgressPayload>) => void,
     ) => Unsubscribe;
+    /** Docs (Theme B) — AI edit and md/html/pdf export, neither needing ffmpeg. */
+    doc: {
+      edit: (req: In<typeof S.MediaDocEditRequest>) => Promise<z.infer<typeof S.MediaDocEditResponse>>;
+      export: (
+        req: In<typeof S.MediaDocExportRequest>,
+      ) => Promise<z.infer<typeof S.MediaDocExportResponse>>;
+    };
   };
 
   /**
