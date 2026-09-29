@@ -43,11 +43,7 @@ export type DismissReason = 'escape' | 'outside' | 'focus-out' | 'window-blur' |
 
 /** Anything that can say which element opened a surface. */
 export type TriggerSource =
-  | RefObject<Element | null>
-  | Element
-  | null
-  | undefined
-  | (() => Element | null | undefined);
+  RefObject<Element | null> | Element | null | undefined | (() => Element | null | undefined);
 
 export type DismissableOptions = {
   open: boolean;
@@ -386,8 +382,7 @@ export function useDismissable(options: DismissableOptions): DismissableNode {
 
 // ── Trigger inference, for `DialogHost.openMenu` ──────────────────────────
 
-let lastInput: { kind: 'pointer'; target: Element; button: number } | { kind: 'key' } | null =
-  null;
+let lastInput: { kind: 'pointer'; target: Element; button: number } | { kind: 'key' } | null = null;
 let trackers = 0;
 
 const onTrackPointer = (event: PointerEvent) => {
