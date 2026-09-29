@@ -54,5 +54,38 @@ export function declaredOutputFields(node: WorkflowNode): string[] {
     case 'policy':
       // Matches `policyExecutor`'s own pass-through output shape.
       return ['allow', 'requireApprovalFor'];
+    // The palette kinds — each list is exactly what its executor
+    // (`desktop/src/main/workflow/executors/`) records as `output`.
+    case 'ai-prompt':
+      return node.config.format === 'json' ? ['text', 'json', 'via'] : ['text', 'via'];
+    case 'ai-extract':
+      return node.config.fields.map((field) => field.key);
+    case 'assert':
+      return ['passed', 'left', 'op', 'right'];
+    case 'fail':
+      // Never succeeds — only its error port carries anything.
+      return [];
+    case 'command':
+      return ['exitCode', 'stdout', 'stderr'];
+    case 'read-file':
+      return node.config.format === 'json' ? ['path', 'json', 'bytes'] : ['path', 'text', 'bytes'];
+    case 'git-status':
+      return ['branch', 'head', 'staged', 'unstaged', 'clean', 'path', 'repoId'];
+    case 'forge-comment':
+      return ['target', 'number'];
+    case 'forge-issue':
+      return ['number', 'url', 'title'];
+    case 'set-fields':
+      return Object.keys(node.config.fields);
+    case 'json-extract':
+      return ['value', 'found'];
+    case 'coalesce':
+      return ['value', 'index'];
+    case 'notify':
+      return ['title', 'body'];
+    case 'write-file':
+      return ['path', 'bytes', 'mode'];
+    case 'clipboard':
+      return ['length'];
   }
 }

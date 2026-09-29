@@ -1,6 +1,15 @@
+import { Notification, clipboard } from 'electron';
+
 import type { ExecutorRegistry } from '../executor-registry';
 import { postGateApprovalComment } from '../gate-forge-service';
 import { agentExecutor } from './agent';
+import { aiExtractExecutor, aiPromptExecutor } from './ai';
+import { commandExecutor } from './command';
+import { coalesceExecutor, jsonExtractExecutor, setFieldsExecutor } from './data';
+import { readFileExecutor, writeFileExecutor } from './files';
+import { forgeCommentExecutor, forgeIssueExecutor, gitStatusExecutor } from './git-forge';
+import { assertExecutor, failExecutor } from './guards';
+import { createClipboardExecutor, createNotifyExecutor } from './notify';
 import { conditionExecutor } from './condition';
 import { delayExecutor } from './delay';
 import { frameExecutor } from './frame';
@@ -22,6 +31,19 @@ import { verifyExecutor } from './verify';
  * which is what keeps this an ordinary dependency edge rather than a cycle.
  */
 const gateExecutor = createGateExecutor({ postApprovalComment: postGateApprovalComment });
+
+/**
+ * The one place the workflow executors touch Electron: `notify`/`clipboard`
+ * take their desktop seam as a dependency (see `notify.ts`), bound here to the
+ * real `Notification`/`clipboard`. Both are only dereferenced when a node
+ * actually runs, so importing this module outside Electron (the executor
+ * tests do) never calls into them.
+ */
+const notifyExecutor = createNotifyExecutor({
+  isSupported: () => Notification.isSupported(),
+  show: ({ title, body }) => new Notification({ title, body }).show(),
+});
+const clipboardExecutor = createClipboardExecutor({ writeText: (text) => clipboard.writeText(text) });
 
 /**
  * The default registry — the one place a node kind is bound to its executor.
@@ -49,10 +71,40 @@ export const defaultExecutors: ExecutorRegistry = {
   state: stateExecutor,
   frame: frameExecutor,
   policy: policyExecutor,
+  'ai-prompt': aiPromptExecutor,
+  'ai-extract': aiExtractExecutor,
+  assert: assertExecutor,
+  fail: failExecutor,
+  command: commandExecutor,
+  'read-file': readFileExecutor,
+  'git-status': gitStatusExecutor,
+  'forge-comment': forgeCommentExecutor,
+  'forge-issue': forgeIssueExecutor,
+  'set-fields': setFieldsExecutor,
+  'json-extract': jsonExtractExecutor,
+  coalesce: coalesceExecutor,
+  notify: notifyExecutor,
+  'write-file': writeFileExecutor,
+  clipboard: clipboardExecutor,
 };
 
 export {
   agentExecutor,
+  aiExtractExecutor,
+  aiPromptExecutor,
+  assertExecutor,
+  clipboardExecutor,
+  coalesceExecutor,
+  commandExecutor,
+  failExecutor,
+  forgeCommentExecutor,
+  forgeIssueExecutor,
+  gitStatusExecutor,
+  jsonExtractExecutor,
+  notifyExecutor,
+  readFileExecutor,
+  setFieldsExecutor,
+  writeFileExecutor,
   conditionExecutor,
   delayExecutor,
   frameExecutor,

@@ -55,6 +55,21 @@ function happyPathRegistry(): ExecutorRegistry {
     state: stateExecutor,
     frame: ok,
     policy: ok,
+    'ai-prompt': ok,
+    'ai-extract': ok,
+    assert: ok,
+    fail: ok,
+    command: ok,
+    'read-file': ok,
+    'git-status': ok,
+    'forge-comment': ok,
+    'forge-issue': ok,
+    'set-fields': ok,
+    'json-extract': ok,
+    coalesce: ok,
+    notify: ok,
+    'write-file': ok,
+    clipboard: ok,
   };
 }
 

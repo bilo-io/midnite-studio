@@ -91,6 +91,36 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
       };
     case 'policy':
       return { ...base, kind, label: 'Policy', config: { allow: [], requireApprovalFor: [] } };
+    case 'ai-prompt':
+      return { ...base, kind, label: 'Ask AI', config: { agentId: '', prompt: '', format: 'text' } };
+    case 'ai-extract':
+      return { ...base, kind, label: 'AI extract', config: { agentId: '', source: '', fields: [] } };
+    case 'assert':
+      return { ...base, kind, label: 'Assert', config: { left: '', op: 'eq', right: '', message: '' } };
+    case 'fail':
+      return { ...base, kind, label: 'Fail', config: { message: '' } };
+    case 'command':
+      return { ...base, kind, label: 'Command', config: { command: '', env: {}, allowNonZeroExit: false } };
+    case 'read-file':
+      return { ...base, kind, label: 'Read file', config: { path: '', format: 'text' } };
+    case 'git-status':
+      return { ...base, kind, label: 'Git status', config: { repoId: '' } };
+    case 'forge-comment':
+      return { ...base, kind, label: 'Comment', config: { repoId: '', target: 'pr', number: '', body: '' } };
+    case 'forge-issue':
+      return { ...base, kind, label: 'Create issue', config: { repoId: '', title: '', body: '', labels: [] } };
+    case 'set-fields':
+      return { ...base, kind, label: 'Set fields', config: { fields: {} } };
+    case 'json-extract':
+      return { ...base, kind, label: 'JSON extract', config: { source: '', path: '', required: true } };
+    case 'coalesce':
+      return { ...base, kind, label: 'First value', config: { candidates: [] } };
+    case 'notify':
+      return { ...base, kind, label: 'Notify', config: { title: '', body: '' } };
+    case 'write-file':
+      return { ...base, kind, label: 'Write file', config: { path: '', content: '', mode: 'overwrite' } };
+    case 'clipboard':
+      return { ...base, kind, label: 'Copy to clipboard', config: { text: '' } };
   }
 }
 

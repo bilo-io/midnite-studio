@@ -55,7 +55,7 @@ export type NodeFormProps = {
   onInterpolatableFocus: (target: { value: string; onChange: (next: string) => void; el: HTMLElement }) => void;
 };
 
-const CONDITION_OP_LABEL: Record<WorkflowConditionOp, string> = {
+export const CONDITION_OP_LABEL: Record<WorkflowConditionOp, string> = {
   eq: 'equals',
   ne: 'does not equal',
   lt: 'is less than',
@@ -1028,16 +1028,18 @@ export function PolicyForm({ node, onChange }: NodeFormProps) {
  * A minimal key/value row editor for `headers`/`params` — no drag-reorder,
  * since HTTP header/param order carries no meaning worth preserving.
  */
-function KeyValueRows({
+export function KeyValueRows({
   label,
   value,
   onChange,
   onValueFocus,
+  hint = 'Sent with every request. May reference an upstream node\'s output.',
 }: {
   label: string;
   value: Record<string, string>;
   onChange: (next: Record<string, string>) => void;
   onValueFocus: (key: string, value: string, el: HTMLElement) => void;
+  hint?: string;
 }) {
   const entries = Object.entries(value);
 
@@ -1061,7 +1063,7 @@ function KeyValueRows({
   };
 
   return (
-    <Field label={label} hint={`Sent with every request. May reference an upstream node's output.`}>
+    <Field label={label} hint={hint}>
       <div className="flex flex-col gap-1.5">
         {entries.map(([key, entryValue], index) => (
           <div key={index} className="flex items-center gap-1">

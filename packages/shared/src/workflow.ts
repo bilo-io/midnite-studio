@@ -71,6 +71,23 @@ export const WORKFLOW_NODE_KINDS = [
   'state',
   'frame',
   'policy',
+  // Palette kinds (after Phase 97) — see the "palette kinds" section below
+  // for what each one does and why it does not duplicate an existing kind.
+  'ai-prompt',
+  'ai-extract',
+  'assert',
+  'fail',
+  'command',
+  'read-file',
+  'git-status',
+  'forge-comment',
+  'forge-issue',
+  'set-fields',
+  'json-extract',
+  'coalesce',
+  'notify',
+  'write-file',
+  'clipboard',
 ] as const;
 export type WorkflowNodeKind = (typeof WORKFLOW_NODE_KINDS)[number];
 
@@ -869,6 +886,241 @@ export const WorkflowPolicyConfigSchema = z.object({
 });
 export type WorkflowPolicyConfig = z.infer<typeof WorkflowPolicyConfigSchema>;
 
+// --- palette kinds (after Phase 97) -------------------------------------------
+//
+// Fifteen small kinds that fill out the node palette's groups. Each one runs
+// on the existing engine unchanged — none adds a port kind, an edge kind, a
+// run status or an interpolation root — and each is a different job from the
+// Phase 97 primitive it sits beside (the doc comment on each says which).
+
+/**
+ * **Ask AI** — one headless, print-mode call to a roster CLI (or a local
+ * Ollama model): the same one-shot path the wand and the companion take
+ * (`main/ai/improve-field.ts`, `main/companion/ask.ts`), never a terminal
+ * session. That is the difference from `agent`, which drives an interactive
+ * pty until a done marker; this answers once with clean text. `format:
+ * 'json'` parses the reply (a markdown fence is tolerated) into `json`.
+ */
+export const WORKFLOW_AI_PROMPT_FORMATS = ['text', 'json'] as const;
+export const WorkflowAiPromptFormatSchema = z.enum(WORKFLOW_AI_PROMPT_FORMATS);
+export type WorkflowAiPromptFormat = z.infer<typeof WorkflowAiPromptFormatSchema>;
+
+export const WorkflowAiPromptConfigSchema = z.object({
+  /** A roster id to prefer; empty picks the first roster CLI with a headless mode (`resolveHeadlessAgent`). */
+  agentId: z.string().default(''),
+  /** `{{...}}`-interpolated before sending. */
+  prompt: z.string().default(''),
+  format: WorkflowAiPromptFormatSchema.default('text'),
+  /** The CLI's own `--model`, when it has one. */
+  model: z.string().optional(),
+  /** Run on this local Ollama model via `/api/chat` instead of a CLI. */
+  ollamaModel: z.string().optional(),
+});
+export type WorkflowAiPromptConfig = z.infer<typeof WorkflowAiPromptConfigSchema>;
+
+/** One field an `ai-extract` node asks the model for. `key` becomes the output property. */
+export const WorkflowAiExtractFieldSchema = z.object({
+  key: z.string().min(1),
+  description: z.string().default(''),
+});
+export type WorkflowAiExtractField = z.infer<typeof WorkflowAiExtractFieldSchema>;
+
+/** Past this many fields, an extraction wants to be two nodes. */
+export const WORKFLOW_AI_EXTRACT_MAX_FIELDS = 20;
+
+/**
+ * **AI extract** — `ai-prompt`'s headless call with a fixed instruction:
+ * read `source` and reply with a JSON object holding exactly the declared
+ * `fields`. The output always carries every declared key (one the model left
+ * out is `null`), so `{{node.<key>}}` downstream never fails on a missing
+ * property.
+ */
+export const WorkflowAiExtractConfigSchema = z.object({
+  agentId: z.string().default(''),
+  /** The text to read — usually `{{nodeId.body}}` or `{{nodeId.stdout}}`. */
+  source: z.string().default(''),
+  fields: z.array(WorkflowAiExtractFieldSchema).max(WORKFLOW_AI_EXTRACT_MAX_FIELDS).default([]),
+  model: z.string().optional(),
+  ollamaModel: z.string().optional(),
+});
+export type WorkflowAiExtractConfig = z.infer<typeof WorkflowAiExtractConfigSchema>;
+
+/**
+ * **Assert** — a `condition`-shaped comparison that *fails the node* when it
+ * does not hold. `condition` sends a false predicate down its `false` port as
+ * an ordinary branch and `verify` settles a `fail` verdict; an assert is a
+ * guard, so a false value is an error — carried on the `error` port (Phase 97
+ * Theme B) or into the node's own `onFailure` policy (Theme G).
+ */
+export const WorkflowAssertConfigSchema = z.object({
+  left: z.string().default(''),
+  op: WorkflowConditionOpSchema.default('eq'),
+  right: z.string().optional(),
+  /** `{{...}}`-interpolated; empty uses a generated "Expected … to …" sentence. */
+  message: z.string().default(''),
+});
+export type WorkflowAssertConfig = z.infer<typeof WorkflowAssertConfigSchema>;
+
+/**
+ * **Fail** — ends its branch with an error, always: the explicit terminal a
+ * router's `default` case or a gate's `rejected` port can point at, so the
+ * run says *why* it stopped rather than finishing `succeeded` with nothing
+ * downstream. No `out` port — it never succeeds.
+ */
+export const WorkflowFailConfigSchema = z.object({
+  message: z.string().default(''),
+});
+export type WorkflowFailConfig = z.infer<typeof WorkflowFailConfigSchema>;
+
+/**
+ * **Command** — `command` run headlessly in `/bin/sh -c` (the
+ * `process-runner.ts` path `verify`'s `exit-code` check already uses), never
+ * a pty. The difference from `script` is the output: a `script` node records
+ * a terminal transcript in a session the user can watch; a `command` node
+ * records clean `stdout`/`stderr`/`exitCode` a downstream `json-extract` can
+ * parse. A non-zero exit fails the node unless `allowNonZeroExit` is set.
+ */
+export const WorkflowCommandConfigSchema = z.object({
+  command: z.string().default(''),
+  cwd: z.string().optional(),
+  env: z.record(z.string(), z.string()).default({}),
+  allowNonZeroExit: z.boolean().default(false),
+  /** See {@link WorkflowHttpConfigSchema.actions}. */
+  actions: z.array(WorkflowActionSchema).optional(),
+});
+export type WorkflowCommandConfig = z.infer<typeof WorkflowCommandConfigSchema>;
+
+/** How `read-file` hands its contents on — as text, or parsed. */
+export const WORKFLOW_FILE_FORMATS = ['text', 'json'] as const;
+export const WorkflowFileFormatSchema = z.enum(WORKFLOW_FILE_FORMATS);
+export type WorkflowFileFormat = z.infer<typeof WorkflowFileFormatSchema>;
+
+/** Bigger than any config or fixture a workflow should read whole; smaller than a log it should not. */
+export const WORKFLOW_FILE_MAX_BYTES = 1_048_576;
+
+/**
+ * **Read file** — one file's contents into the run. `path` is
+ * `{{...}}`-interpolated and must be absolute (or `~/…`): workflows are
+ * global, not repo-scoped, so there is no root a relative path could mean.
+ */
+export const WorkflowReadFileConfigSchema = z.object({
+  path: z.string().default(''),
+  format: WorkflowFileFormatSchema.default('text'),
+});
+export type WorkflowReadFileConfig = z.infer<typeof WorkflowReadFileConfigSchema>;
+
+/**
+ * **Git status** — a read-only snapshot of one registered repository: branch,
+ * HEAD and staged/unstaged counts. `repoId` is the app's registered-repo id,
+ * the same addressing `trigger`'s `forge-pr` and `gate`'s `linkedRef` use.
+ */
+export const WorkflowGitStatusConfigSchema = z.object({
+  repoId: z.string().default(''),
+});
+export type WorkflowGitStatusConfig = z.infer<typeof WorkflowGitStatusConfigSchema>;
+
+/** A PR or an issue — `ForgeAdapter`'s `commentPull`/`commentIssue` split. */
+export const WORKFLOW_FORGE_TARGETS = ['pr', 'issue'] as const;
+export const WorkflowForgeTargetSchema = z.enum(WORKFLOW_FORGE_TARGETS);
+export type WorkflowForgeTarget = z.infer<typeof WorkflowForgeTargetSchema>;
+
+/**
+ * **Comment** — posts `body` on a PR or issue through the multi-forge
+ * `ForgeAdapter` (the write `gate` already uses for its approval comment).
+ * `number` is text, `{{...}}`-interpolated, so it can come straight off a
+ * `forge-pr` trigger as `{{trigger.number}}`.
+ */
+export const WorkflowForgeCommentConfigSchema = z.object({
+  repoId: z.string().default(''),
+  target: WorkflowForgeTargetSchema.default('pr'),
+  number: z.string().default(''),
+  body: z.string().default(''),
+});
+export type WorkflowForgeCommentConfig = z.infer<typeof WorkflowForgeCommentConfigSchema>;
+
+/** **Create issue** — `ForgeAdapter.createIssue`, with the created issue's number and url as output. */
+export const WorkflowForgeIssueConfigSchema = z.object({
+  repoId: z.string().default(''),
+  title: z.string().default(''),
+  body: z.string().default(''),
+  labels: z.array(z.string().min(1)).default([]),
+});
+export type WorkflowForgeIssueConfig = z.infer<typeof WorkflowForgeIssueConfigSchema>;
+
+/**
+ * **Set fields** — builds an object from values: each is
+ * `{{...}}`-interpolated, then best-effort parsed as JSON (`state`'s own
+ * rule), so `42` is a number and `{"a":1}` an object. `transform` can only
+ * *pick* upstream paths; this is how a workflow gets a constant, a composed
+ * string, or a value shaped for the next request. Unlike `state`, nothing is
+ * persisted on the run — it is an ordinary node output.
+ */
+export const WorkflowSetFieldsConfigSchema = z.object({
+  fields: z.record(z.string(), z.string()).default({}),
+});
+export type WorkflowSetFieldsConfig = z.infer<typeof WorkflowSetFieldsConfigSchema>;
+
+/**
+ * **JSON extract** — parses `source` (usually a command's stdout, or an http
+ * body that was not served as JSON) and reads one dotted `path` out of it
+ * (`items.0.id`; empty is the whole document). `{{...}}` can already walk an
+ * *object* output; this is for JSON that arrives as a string.
+ */
+export const WorkflowJsonExtractConfigSchema = z.object({
+  source: z.string().default(''),
+  path: z.string().default(''),
+  /** Set: a missing path fails the node. Unset: it yields `null`. */
+  required: z.boolean().default(true),
+});
+export type WorkflowJsonExtractConfig = z.infer<typeof WorkflowJsonExtractConfigSchema>;
+
+/** Upper bound on a `coalesce` node's candidate list. */
+export const WORKFLOW_COALESCE_MAX_CANDIDATES = 8;
+
+/**
+ * **First value** — the first candidate that resolves to a non-empty value.
+ * After a `router` or an `any` join only one branch ran, and a reference to a
+ * branch that did not run fails to interpolate (the engine only exposes the
+ * outputs of taken edges); this picks whichever branch's value exists.
+ */
+export const WorkflowCoalesceConfigSchema = z.object({
+  candidates: z.array(z.string()).max(WORKFLOW_COALESCE_MAX_CANDIDATES).default([]),
+  /** Used when no candidate resolves; unset fails the node instead. */
+  fallback: z.string().optional(),
+});
+export type WorkflowCoalesceConfig = z.infer<typeof WorkflowCoalesceConfigSchema>;
+
+/** **Notify** — a native macOS notification, shown by main. Both fields are `{{...}}`-interpolated. */
+export const WorkflowNotifyConfigSchema = z.object({
+  title: z.string().default(''),
+  body: z.string().default(''),
+});
+export type WorkflowNotifyConfig = z.infer<typeof WorkflowNotifyConfigSchema>;
+
+export const WORKFLOW_WRITE_FILE_MODES = ['overwrite', 'append'] as const;
+export const WorkflowWriteFileModeSchema = z.enum(WORKFLOW_WRITE_FILE_MODES);
+export type WorkflowWriteFileMode = z.infer<typeof WorkflowWriteFileModeSchema>;
+
+/**
+ * **Write file** — writes `content` to an absolute `path`. It always
+ * declares the `write-files` action ({@link nodeDeclaredActions}), so a
+ * `policy` node upstream governs it with no per-node opt-in. The parent
+ * directory must already exist, and a symlink target or any `.git` segment is
+ * refused — `fs-scope-write.ts`'s own rules, applied to a path with no root.
+ */
+export const WorkflowWriteFileConfigSchema = z.object({
+  path: z.string().default(''),
+  content: z.string().default(''),
+  mode: WorkflowWriteFileModeSchema.default('overwrite'),
+});
+export type WorkflowWriteFileConfig = z.infer<typeof WorkflowWriteFileConfigSchema>;
+
+/** **Copy to clipboard** — `{{...}}`-interpolated text onto the system clipboard. */
+export const WorkflowClipboardConfigSchema = z.object({
+  text: z.string().default(''),
+});
+export type WorkflowClipboardConfig = z.infer<typeof WorkflowClipboardConfigSchema>;
+
 // --- nodes -------------------------------------------------------------------
 
 /**
@@ -958,6 +1210,66 @@ export const WorkflowNodeSchema = z.discriminatedUnion('kind', [
   WorkflowNodeBaseSchema.extend({
     kind: z.literal('policy'),
     config: WorkflowPolicyConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('ai-prompt'),
+    config: WorkflowAiPromptConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('ai-extract'),
+    config: WorkflowAiExtractConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('assert'),
+    config: WorkflowAssertConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('fail'),
+    config: WorkflowFailConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('command'),
+    config: WorkflowCommandConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('read-file'),
+    config: WorkflowReadFileConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('git-status'),
+    config: WorkflowGitStatusConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('forge-comment'),
+    config: WorkflowForgeCommentConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('forge-issue'),
+    config: WorkflowForgeIssueConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('set-fields'),
+    config: WorkflowSetFieldsConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('json-extract'),
+    config: WorkflowJsonExtractConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('coalesce'),
+    config: WorkflowCoalesceConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('notify'),
+    config: WorkflowNotifyConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('write-file'),
+    config: WorkflowWriteFileConfigSchema,
+  }),
+  WorkflowNodeBaseSchema.extend({
+    kind: z.literal('clipboard'),
+    config: WorkflowClipboardConfigSchema,
   }),
 ]);
 export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>;
@@ -1096,6 +1408,36 @@ function portsForNodeKind(node: WorkflowNode): WorkflowPort[] {
       return [];
     case 'policy':
       return [inPort(), dataOutPort('out', 'Policy'), errorPort()];
+    case 'ai-prompt':
+      return [inPort(), dataOutPort('out', 'Reply'), errorPort()];
+    case 'ai-extract':
+      return [inPort(), dataOutPort('out', 'Fields'), errorPort()];
+    case 'assert':
+      return [inPort(), { id: 'out', label: 'Out', direction: 'out', type: 'any' }, errorPort()];
+    case 'fail':
+      // Never succeeds, so it has nothing to hand on but its error.
+      return [inPort(), errorPort()];
+    case 'command':
+      return [inPort(), dataOutPort('out', 'Output'), errorPort()];
+    case 'read-file':
+      return [inPort(), dataOutPort('out', 'Contents'), errorPort()];
+    case 'git-status':
+      return [inPort(), dataOutPort('out', 'Status'), errorPort()];
+    case 'forge-comment':
+      return [inPort(), dataOutPort('out', 'Posted'), errorPort()];
+    case 'forge-issue':
+      return [inPort(), dataOutPort('out', 'Issue'), errorPort()];
+    case 'set-fields':
+      return [inPort(), dataOutPort('out', 'Fields'), errorPort()];
+    case 'json-extract':
+    case 'coalesce':
+      return [inPort(), dataOutPort('out', 'Value'), errorPort()];
+    case 'notify':
+      return [inPort(), dataOutPort('out', 'Shown'), errorPort()];
+    case 'write-file':
+      return [inPort(), dataOutPort('out', 'Written'), errorPort()];
+    case 'clipboard':
+      return [inPort(), dataOutPort('out', 'Copied'), errorPort()];
     default: {
       // Unreachable while `WorkflowNodeKind` is exhaustive; the assignment is
       // what makes adding a kind a typecheck failure here.
@@ -1787,8 +2129,17 @@ export function workflowIssueSeverity(issue: Pick<WorkflowIssue, 'severity'>): W
 
 // --- policy enforcement (Phase 97 Theme I) ------------------------------------
 
-function nodeDeclaredActions(node: WorkflowNode): WorkflowAction[] {
-  if (node.kind === 'agent' || node.kind === 'script' || node.kind === 'http') return node.config.actions ?? [];
+/**
+ * The actions a node performs, for {@link checkNodePolicy}. `agent`/`script`/
+ * `http`/`command` declare theirs by hand (`config.actions`); `write-file`
+ * always writes a file, so its action is intrinsic rather than a box its
+ * author can forget to tick.
+ */
+export function nodeDeclaredActions(node: WorkflowNode): WorkflowAction[] {
+  if (node.kind === 'agent' || node.kind === 'script' || node.kind === 'http' || node.kind === 'command') {
+    return node.config.actions ?? [];
+  }
+  if (node.kind === 'write-file') return ['write-files'];
   return [];
 }
 
@@ -1848,6 +2199,70 @@ export function checkNodePolicy(
     denied: actions.filter((action) => !allow.has(action)),
     requiresApproval: actions.filter((action) => allow.has(action) && requireApproval.has(action)),
   };
+}
+
+/** The "incomplete config" checks for the palette kinds — one issue per missing required field. */
+function paletteKindIssues(node: WorkflowNode): WorkflowIssue[] {
+  const missing = (what: string): WorkflowIssue => ({ message: `"${node.label}" has no ${what}.`, nodeId: node.id });
+  switch (node.kind) {
+    case 'ai-prompt':
+      return node.config.prompt.trim() === '' ? [missing('prompt')] : [];
+    case 'ai-extract': {
+      const issues: WorkflowIssue[] = [];
+      if (node.config.source.trim() === '') issues.push(missing('source text'));
+      if (node.config.fields.length === 0) issues.push(missing('fields to extract'));
+      const keys = node.config.fields.map((field) => field.key);
+      if (new Set(keys).size !== keys.length) {
+        issues.push({ message: `"${node.label}" asks for the same field twice.`, nodeId: node.id });
+      }
+      return issues;
+    }
+    case 'assert': {
+      const issues: WorkflowIssue[] = [];
+      if (node.config.left.trim() === '') issues.push(missing('value to check'));
+      if (node.config.op !== 'empty' && node.config.right === undefined) {
+        issues.push({
+          message: `"${node.label}" compares with "${node.config.op}" but has no right-hand value.`,
+          nodeId: node.id,
+        });
+      }
+      return issues;
+    }
+    case 'command':
+      return node.config.command.trim() === '' ? [missing('command')] : [];
+    case 'read-file':
+    case 'write-file':
+      return node.config.path.trim() === '' ? [missing('path')] : [];
+    case 'git-status':
+      return node.config.repoId.trim() === '' ? [missing('repository')] : [];
+    case 'forge-comment': {
+      const issues: WorkflowIssue[] = [];
+      if (node.config.repoId.trim() === '') issues.push(missing('repository'));
+      if (node.config.number.trim() === '') {
+        issues.push(missing(`${node.config.target === 'pr' ? 'PR' : 'issue'} number`));
+      }
+      if (node.config.body.trim() === '') issues.push(missing('comment body'));
+      return issues;
+    }
+    case 'forge-issue': {
+      const issues: WorkflowIssue[] = [];
+      if (node.config.repoId.trim() === '') issues.push(missing('repository'));
+      if (node.config.title.trim() === '') issues.push(missing('title'));
+      return issues;
+    }
+    case 'set-fields':
+      return Object.keys(node.config.fields).length === 0 ? [missing('fields')] : [];
+    case 'json-extract':
+      return node.config.source.trim() === '' ? [missing('source')] : [];
+    case 'coalesce':
+      return node.config.candidates.length === 0 ? [missing('candidates')] : [];
+    case 'notify':
+      return node.config.title.trim() === '' ? [missing('title')] : [];
+    case 'clipboard':
+      return node.config.text.trim() === '' ? [missing('text to copy')] : [];
+    default:
+      return [];
+  }
 }
 
 /**
@@ -1990,13 +2405,14 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
     if (node.kind === 'state' && node.config.key.trim() === '') {
       issues.push({ message: `"${node.label}" has no key.`, nodeId: node.id });
     }
+    issues.push(...paletteKindIssues(node));
 
     // Phase 97 Theme I — a node whose declared action no governing policy
     // allows fails validation before the run starts (the phase doc's own
     // wording). `requiresApproval` is not checked here at all: it is not an
     // error, it is what the engine's implicit gate (`workflow-engine.ts`)
     // pauses on at run time.
-    if (node.kind === 'agent' || node.kind === 'script' || node.kind === 'http') {
+    if (nodeDeclaredActions(node).length > 0) {
       const policyCheck = checkNodePolicy(node, workflow.nodes, workflow.edges);
       for (const action of policyCheck.denied) {
         issues.push({
