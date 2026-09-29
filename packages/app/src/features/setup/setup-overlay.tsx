@@ -306,7 +306,15 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
       </header>
 
       <main {...content} className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6">
-        <div className="my-auto flex w-full max-w-xl flex-col gap-6 py-8">
+        {/*
+          Pages sit at a fixed height from the top rather than centred: a
+          centred column re-centres whenever its body grows, which would move
+          the title anchor as each body faded in and between pages of
+          different lengths. The intro and the finale stand alone, so centre.
+        */}
+        <div
+          className={`flex w-full max-w-xl flex-col gap-6 py-8 ${step.kind === 'page' ? 'mt-[14vh]' : 'my-auto'}`}
+        >
           {step.kind === 'intro' ? (
             <Intro
               instant={arrival.mode === 'instant'}
@@ -346,7 +354,14 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
                   <page.Component />
                 </div>
               ) : null}
-              <div className="flex items-center justify-between gap-2">
+              {/* Arrives with the body, so the buttons do not sit alone under a title still typing. */}
+              <div
+                className={`flex items-center justify-between gap-2 ${bodyShown && arrival.mode === 'typed' ? 'animate-fade-in' : ''}`}
+                style={{
+                  visibility: bodyShown ? 'visible' : 'hidden',
+                  ...(arrival.mode === 'typed' ? { animationDuration: '280ms' } : {}),
+                }}
+              >
                 <button
                   type="button"
                   onClick={back}
@@ -583,11 +598,11 @@ function HandoffCue({ target }: { target: RectLike | null }) {
           bottom: root.clientHeight - target.top + gap,
         }}
       >
-        <p role="status" className="max-w-[15rem] text-right text-sm text-foreground">
+        <p role="status" className="whitespace-nowrap text-right text-sm font-medium text-foreground">
           You can always continue setup from here
         </p>
         <span aria-hidden data-testid="setup-handoff-arrow" className="setup-handoff-arrow inline-block text-primary">
-          <LuArrowDownRight className="h-8 w-8" />
+          <LuArrowDownRight className="h-10 w-10" />
         </span>
       </div>
     </>
