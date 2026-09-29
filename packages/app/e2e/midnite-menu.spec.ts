@@ -1,5 +1,12 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+/*
+  By source path, not the package name: under Playwright the package resolves to
+  shared's compiled `dist`, which a spec must not depend on being fresh. The file
+  imports nothing, so reading it directly is safe.
+*/
+import { MIDNITE_INSTALL_COMMAND } from '../../shared/src/install-command';
+
 import { fixtures } from '../test-support/fixtures';
 import { clickRailLink, installMockBridge } from '../test-support/mock-bridge';
 
@@ -455,14 +462,21 @@ test.describe('Setup and Update', () => {
     await expect(page.locator('[data-terminal-panel]')).toHaveCount(0);
   });
 
-  test('Update is disabled outside the Midnite Studio checkout', async ({ page }) => {
+  test('Update runs the release installer outside the Midnite Studio checkout', async ({
+    page,
+  }) => {
     await open(page);
     await openLifecycleMenu(page);
 
     // The default fixture has no `install-local.mjs` entry, so the capability
     // check reads "not this checkout" — exactly the case this spec targets.
+    // Once disabled here; now it types the download page's one-liner instead.
     const update = page.getByRole('menuitem', { name: 'Update Midnite Studio', exact: true });
-    await expect(update).toBeDisabled();
+    await expect(update).toBeEnabled();
+    await update.click();
+
+    await expect(page.locator('[data-terminal-panel]')).toBeVisible();
+    await expect.poll(() => ptyInputs(page)).toEqual([`${MIDNITE_INSTALL_COMMAND}\r`]);
   });
 
   test('Update types and runs the install command on the Midnite Studio checkout', async ({
