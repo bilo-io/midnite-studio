@@ -168,7 +168,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // and the lane alignment; the other a far scroll away and back keeping the
 // expansion settled. Which panel is open, Escape, commit-from-panel and the
 // shared working-tree parts in both hosts are all vitest.
-export const MAX_DECLARED_E2E = 461;
+// Raised 461 -> 463 for Media ▸ Images (`media-images.spec.ts`, Phase 99
+// Theme C, two tests): CSS `columns` masonry only flows into columns under
+// real layout, the lightbox's fixed overlay is checked against the real
+// viewport, and the "+" tile's hover glow is a computed `box-shadow` /
+// `-webkit-text-stroke` jsdom never resolves. Stepping, wrap-around, Escape,
+// the reducer, catalogue and sidecar parsing are all vitest.
+export const MAX_DECLARED_E2E = 463;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

@@ -1,5 +1,6 @@
 import { imageSidecarPath, parseImageSidecar, type ImageSidecar } from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { LuChevronLeft, LuChevronRight, LuFolderOpen, LuRefreshCw, LuTrash2, LuX } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
@@ -69,7 +70,8 @@ export function Lightbox({
 
   if (!image) return null;
 
-  return (
+  // Portalled: the Media view sits in a stacking context below the title bar and rail.
+  return createPortal(
     <div
       ref={ref}
       role="dialog"
@@ -136,7 +138,8 @@ export function Lightbox({
           <LightboxAction icon={LuTrash2} label="Delete" danger disabled={!image.project} onClick={() => onDelete(image)} />
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
