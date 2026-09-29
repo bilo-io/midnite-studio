@@ -167,3 +167,31 @@ for (const mode of ['dark', 'light'] as const) {
     await page.getByTestId('projects-view').screenshot({ path: shotPath(OUT, `list-${mode}-${VARIANT}.png`) });
   });
 }
+
+/**
+ * The Projects card's agent avatar beside the terminal list's, for the same
+ * running session — they are one component now (`components/agent-avatar.tsx`),
+ * so the pair should be indistinguishable. Written as two crops into
+ * `test-results/`; `docs/screenshots/adhoc-blocked-glow/avatar-*.png` is the
+ * pair stitched side by side.
+ */
+for (const mode of ['dark', 'light'] as const) {
+  test(`agent avatar, card beside terminal list (${mode})`, async ({ page }) => {
+    await open(page, mode, 'Board view');
+    await page.keyboard.press('Control+`');
+    const row = page.locator('[data-session-row]').first();
+    await expect(row).toBeVisible();
+    await page.waitForTimeout(500);
+    const card = page.getByText('Build the importer (running)').locator('xpath=ancestor::*[@data-card-id]');
+    const cardBox = (await card.boundingBox())!;
+    await page.screenshot({
+      path: `test-results/avatar-parts/card-${mode}-${VARIANT}.png`,
+      clip: { x: cardBox.x + cardBox.width - 90, y: cardBox.y - 12, width: 104, height: 44 },
+    });
+    const rowBox = (await row.boundingBox())!;
+    await page.screenshot({
+      path: `test-results/avatar-parts/terminal-${mode}-${VARIANT}.png`,
+      clip: { x: rowBox.x, y: rowBox.y - 8, width: Math.min(rowBox.width, 200), height: rowBox.height + 16 },
+    });
+  });
+}
