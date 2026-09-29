@@ -11,6 +11,7 @@ import {
 } from '../../store/ui-store';
 import { bridge } from '../../services/bridge';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
+import { CI_COLUMN_WIDTH } from './ci-cell';
 import { RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { ProvenanceFilter } from './provenance-filter';
 import { RefFilter } from './ref-filter';
@@ -110,6 +111,7 @@ export type GutterBounds = { min: number; max: number };
 export const graphColumnVars = (columns: GraphColumnResizables): React.CSSProperties =>
   ({
     '--col-branch-tag': `${columns.branchTag.current}px`,
+    '--col-ci': `${CI_COLUMN_WIDTH}px`,
     '--col-author': `${columns.author.current}px`,
     '--col-date': `${columns.date.current}px`,
     '--col-sha': `${columns.sha.current}px`,
@@ -212,6 +214,19 @@ export function GraphHeader({
           gap={HEADER_GAP}
           label="Resize branch and tag column"
         />
+
+        {/*
+          One icon wide and fixed — hidden with the rest of the column by
+          `[data-graph-ci='off']`, never unmounted, so toggling it is a style
+          change rather than a re-render of every row.
+        */}
+        <span
+          role="columnheader"
+          aria-label="CI"
+          className="graph-ci-col shrink-0 overflow-hidden py-1 text-center"
+        >
+          CI
+        </span>
 
         {/*
           Clipped, because the gutter is sized by the history and by the drag —

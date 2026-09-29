@@ -3,6 +3,7 @@ import { LuPackage } from 'react-icons/lu';
 
 import { useUiStore } from '../../store/ui-store';
 import { toggleRepoSection } from '../repos/view-sections';
+import { CiSpacer } from './ci-cell';
 import { RAIL_WIDTH, laneCentre, nodeExtent, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor } from './lane-colors';
 
@@ -116,6 +117,8 @@ function StashRow({
 
       {/* Empty BRANCH / TAG cell: nothing points at a stash. */}
       <div className="shrink-0 pl-2" style={{ width: 'var(--col-branch-tag)' }} />
+      {/* The CI column's slot — nothing to show, but the grid has to match. */}
+      <CiSpacer />
 
       <span className="flex shrink-0 items-center">
         <svg
