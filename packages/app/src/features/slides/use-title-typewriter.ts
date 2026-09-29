@@ -12,6 +12,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * `instant` shows the full title with no typing at all — set by the caller
  * for a backward/jump navigation, matching the crib's own `instantRef` rule.
  * Respects `prefers-reduced-motion` the same way.
+ *
+ * `delayMs` holds the first character back — the setup overlay (Phase 98
+ * Theme B) waits for its brand mark to land beside the title before typing
+ * it. Ignored when `instant`: a title that is shown whole is shown now.
  */
 function prefersReducedMotion(): boolean {
   return (
@@ -20,7 +24,7 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-export function useTitleTypewriter(title: string, instant: boolean) {
+export function useTitleTypewriter(title: string, instant: boolean, delayMs = 0) {
   /*
     Lazily initialized to the CORRECT resting state, not a placeholder the
     effect corrects a tick later. `useState(true)` for `done` would default
@@ -46,23 +50,28 @@ export function useTitleTypewriter(title: string, instant: boolean) {
     setDone(false);
     let i = 0;
     const perChar = Math.max(16, Math.min(42, Math.round(720 / title.length)));
-    intervalRef.current = setInterval(() => {
-      i += 1;
-      setTyped(title.slice(0, i));
-      if (i >= title.length) {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        setDone(true);
-      }
-    }, perChar);
+    const startTyping = () => {
+      intervalRef.current = setInterval(() => {
+        i += 1;
+        setTyped(title.slice(0, i));
+        if (i >= title.length) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          setDone(true);
+        }
+      }, perChar);
+    };
+    const delay = delayMs > 0 ? setTimeout(startTyping, delayMs) : undefined;
+    if (delay === undefined) startTyping();
 
     return () => {
+      if (delay !== undefined) clearTimeout(delay);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, [title, instant]);
+  }, [title, instant, delayMs]);
 
   const complete = useCallback(() => {
     if (intervalRef.current) {

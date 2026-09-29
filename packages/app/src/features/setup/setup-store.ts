@@ -16,15 +16,32 @@ import { create } from 'zustand';
 type SetupRequests = {
   /** Whether something asked for the overlay this session. */
   requested: boolean;
-  /** The page to open at; `null` starts at the intro. */
+  /** The page to open at; `null` starts at the intro (or resumes, below). */
   startPageId: string | null;
+  /**
+   * Open at wherever setup was left (Phase 98 Theme C — the FAB's Resume
+   * setup leaf). The frame works out the page itself (`resumePageId`), so
+   * this store — and the quick-access menu that writes it — never has to
+   * import the page registry and its components.
+   */
+  resume: boolean;
   openSetup: (startPageId?: string | null) => void;
+  resumeSetup: () => void;
+  /**
+   * Keep the overlay mounted after its gate has closed. X and Skip write
+   * `dismissedAt` at once, which ends `isFirstRun` — without this the frame
+   * would unmount mid-handoff, before the arrow had pointed at anything.
+   */
+  holdOpen: () => void;
   closeSetup: () => void;
 };
 
 export const useSetupStore = create<SetupRequests>((set) => ({
   requested: false,
   startPageId: null,
-  openSetup: (startPageId = null) => set({ requested: true, startPageId }),
-  closeSetup: () => set({ requested: false, startPageId: null }),
+  resume: false,
+  openSetup: (startPageId = null) => set({ requested: true, startPageId, resume: false }),
+  resumeSetup: () => set({ requested: true, startPageId: null, resume: true }),
+  holdOpen: () => set({ requested: true }),
+  closeSetup: () => set({ requested: false, startPageId: null, resume: false }),
 }));

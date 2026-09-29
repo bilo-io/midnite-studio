@@ -75,3 +75,29 @@ export function dotStates(
     return skippedPageIds.includes(id) ? 'skipped' : 'done';
   });
 }
+
+/**
+ * Where the FAB's **Resume setup** (Phase 98 Theme C) reopens: the first page
+ * that is neither complete nor skipped.
+ *
+ * Completion is not recorded per page — setup is linear, so every page before
+ * the one the user left from counts as passed. The scan therefore starts at
+ * `lastPageId` (the first page when there is none, or it is gone) and takes
+ * the first page from there that is not in `skippedPageIds`: X on a page
+ * resumes that page, Skip on it resumes the one after. When everything from
+ * there on was skipped, it goes back to the page left from rather than
+ * guessing further. `null` only when there are no pages at all.
+ */
+export function resumePageId(
+  pageIds: readonly string[],
+  state: { lastPageId: string | null; skippedPageIds: readonly string[] },
+): string | null {
+  if (pageIds.length === 0) return null;
+  const last = state.lastPageId === null ? -1 : pageIds.indexOf(state.lastPageId);
+  const from = Math.max(last, 0);
+  for (let index = from; index < pageIds.length; index += 1) {
+    const id = pageIds[index]!;
+    if (!state.skippedPageIds.includes(id)) return id;
+  }
+  return pageIds[from] ?? null;
+}

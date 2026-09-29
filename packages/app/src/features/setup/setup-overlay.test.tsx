@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { INITIAL_SETUP_STATE } from '../../store/setup-state';
 import { useUiStore } from '../../store/ui-store';
+import { CHOREO } from './setup-choreography';
 import { SetupOverlay } from './setup-overlay';
 import { SETUP_PAGES } from './setup-pages';
 import { useSetupStore } from './setup-store';
@@ -15,6 +16,12 @@ import { useSetupStore } from './setup-store';
  * theme toggle, dots, Skip), page navigation by button and by arrow key, and
  * what each way out records. Each page's own content is covered beside it in
  * `pages/`.
+ *
+ * Those run under `data-motion='reduced'`, where Theme B's choreography
+ * resolves instantly — they are about the frame, not its motion. Theme B's
+ * own ordering (typed title first, body after) runs with full motion on fake
+ * timers further down, and Theme C's handoff to the FAB after that. The
+ * sequencer's timelines themselves are `setup-choreography.test.ts`.
  */
 function installBridge() {
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
@@ -48,21 +55,37 @@ function renderOverlay() {
 
 const DONE = '2026-01-01T00:00:00.000Z';
 
+const RESET_REQUESTS = { requested: false, startPageId: null, resume: false };
+
 beforeEach(() => {
   installBridge();
-  useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
-  useSetupStore.setState({ requested: false, startPageId: null });
+  document.documentElement.dataset['motion'] = 'reduced';
+  useUiStore.setState({
+    setupState: INITIAL_SETUP_STATE,
+    fabPanelOpen: false,
+    fabDetached: false,
+    companionPanelOpen: false,
+  });
+  useSetupStore.setState(RESET_REQUESTS);
 });
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  delete document.documentElement.dataset['motion'];
+  document.querySelector('[data-testid="fab-button"]')?.remove();
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
   useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
-  useSetupStore.setState({ requested: false, startPageId: null });
+  useSetupStore.setState(RESET_REQUESTS);
 });
 
 const overlay = () => screen.queryByTestId('setup-overlay');
 const stepOf = () => overlay()?.getAttribute('data-step');
+
+/** Theme C: after X or Skip the overlay holds the hint; a click anywhere lets it go. */
+function dismissHandoff() {
+  fireEvent.click(overlay()!);
+}
 
 describe('SetupOverlay — the gate', () => {
   it('opens by itself on a fresh profile, at the intro', () => {
@@ -191,6 +214,7 @@ describe('SetupOverlay — leaving early', () => {
     expect(state.lastPageId).toBe('forges');
     expect(state.dismissedAt).not.toBeNull();
     expect(state.completedAt).toBeNull();
+    dismissHandoff();
     expect(overlay()).toBeNull();
   });
 
@@ -202,6 +226,7 @@ describe('SetupOverlay — leaving early', () => {
     expect(state.skippedPageIds).toEqual([]);
     expect(state.lastPageId).toBe('machine');
     expect(state.dismissedAt).not.toBeNull();
+    dismissHandoff();
     expect(overlay()).toBeNull();
   });
 
@@ -210,6 +235,8 @@ describe('SetupOverlay — leaving early', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(useUiStore.getState().setupState.dismissedAt).not.toBeNull();
     expect(useUiStore.getState().setupState.skippedPageIds).toEqual([]);
+    // A second Escape, during the handoff, is "go now".
+    fireEvent.keyDown(window, { key: 'Escape' });
     expect(overlay()).toBeNull();
   });
 
@@ -239,7 +266,183 @@ describe('SetupOverlay — leaving early', () => {
     act(() => useSetupStore.getState().openSetup());
     expect(overlay()).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Close setup' }));
+    dismissHandoff();
     expect(overlay()).toBeNull();
     expect(document.activeElement).toBe(opener);
+  });
+});
+
+describe('SetupOverlay — brand choreography (Theme B)', () => {
+  beforeEach(() => {
+    document.documentElement.dataset['motion'] = 'full';
+    vi.useFakeTimers();
+  });
+
+  const word = () => screen.getByTestId('setup-intro-word').firstChild?.textContent ?? '';
+  const introPhase = () => screen.getByTestId('setup-intro').getAttribute('data-intro');
+  const title = () => screen.queryByTestId('setup-page-title')?.textContent ?? '';
+  const body = () => screen.queryByTestId('setup-page-body');
+
+  it('types "Midnite" beside the mark, then shows Begin', () => {
+    renderOverlay();
+    expect(introPhase()).toBe('typing');
+    expect(word()).toBe('');
+    act(() => vi.advanceTimersByTime(CHOREO.introLeadMs));
+    expect(word()).toBe('M');
+    act(() => vi.advanceTimersByTime(CHOREO.introCharMs * 6));
+    expect(word()).toBe('Midnite');
+    expect(introPhase()).toBe('typing');
+    act(() => vi.advanceTimersByTime(CHOREO.introSettleMs));
+    expect(introPhase()).toBe('ready');
+    expect(screen.getByRole('button', { name: 'Begin setup' }).parentElement?.style.visibility).toBe('visible');
+  });
+
+  it('Begin fades the word, then the page title types and only then does the body fade in', () => {
+    renderOverlay();
+    act(() => vi.runOnlyPendingTimers());
+    fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
+    // The word fades first; the step has not moved yet.
+    expect(stepOf()).toBe('intro');
+    act(() => vi.advanceTimersByTime(CHOREO.wordFadeMs));
+    expect(stepOf()).toBe('machine');
+    // Held back while the mark glides into the anchor.
+    expect(title()).toBe('');
+    expect(body()).toBeNull();
+    act(() => vi.advanceTimersByTime(CHOREO.glideMs + 60));
+    expect(title().length).toBeGreaterThan(0);
+    expect(title()).not.toBe('Check your machine');
+    expect(body()).toBeNull();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(title()).toBe('Check your machine');
+    expect(body()).not.toBeNull();
+    expect(body()?.className).toContain('animate-fade-in');
+  });
+
+  it('a page-to-page Next types without waiting for a glide; Back is instant', () => {
+    act(() => useSetupStore.getState().openSetup('machine'));
+    renderOverlay();
+    act(() => vi.advanceTimersByTime(2000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(stepOf()).toBe('forges');
+    expect(body()).toBeNull();
+    act(() => vi.advanceTimersByTime(60));
+    expect(title().length).toBeGreaterThan(0);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(body()).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(title()).toBe('Check your machine');
+    expect(body()).not.toBeNull();
+  });
+
+  it('opening straight onto a page glides the mark in from the centre (FLIP)', () => {
+    const animate = vi.fn();
+    const original = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = animate as unknown as typeof original;
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ left: 100, top: 40, width: 32, height: 32 } as DOMRect);
+    try {
+      act(() => useSetupStore.getState().openSetup('forges'));
+      renderOverlay();
+      expect(animate).toHaveBeenCalledTimes(1);
+      const [keyframes, options] = animate.mock.calls[0] as [Keyframe[], KeyframeAnimationOptions];
+      expect(keyframes[0]?.transform).toContain('scale(2)');
+      expect(keyframes[1]?.transform).toBe('none');
+      expect(options.duration).toBe(CHOREO.glideMs);
+      // The mark is the frame's: moving between pages does not glide it again.
+      act(() => vi.advanceTimersByTime(2000));
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      expect(animate).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLElement.prototype.animate = original;
+      rect.mockRestore();
+    }
+  });
+
+  it('reduced motion resolves every step at once', () => {
+    document.documentElement.dataset['motion'] = 'reduced';
+    renderOverlay();
+    expect(introPhase()).toBe('ready');
+    expect(word()).toBe('Midnite');
+    fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
+    expect(stepOf()).toBe('machine');
+    expect(title()).toBe('Check your machine');
+    expect(body()).not.toBeNull();
+    expect(body()?.className ?? '').not.toContain('animate-fade-in');
+  });
+});
+
+describe('SetupOverlay — the FAB handoff (Theme C)', () => {
+  function mountFab() {
+    const fab = document.createElement('button');
+    fab.setAttribute('data-testid', 'fab-button');
+    fab.getBoundingClientRect = () => ({ left: 900, top: 700, width: 40, height: 40 }) as DOMRect;
+    document.body.appendChild(fab);
+  }
+
+  it('Skip points at the FAB with a hint, then any click lets the app back', () => {
+    mountFab();
+    act(() => useSetupStore.getState().openSetup('machine'));
+    renderOverlay();
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+
+    expect(overlay()?.getAttribute('data-handoff')).toBe('pointing');
+    expect(screen.getByRole('status').textContent).toBe('You can always continue setup from here');
+    expect(screen.getByTestId('setup-handoff-arrow')).toBeTruthy();
+    const standIn = screen.getByTestId('setup-handoff-fab');
+    expect(standIn.style.left).toBe('900px');
+    expect(standIn.style.top).toBe('700px');
+    // The page behind the hint is faded and inert.
+    expect(overlay()?.querySelector('main')?.hasAttribute('inert')).toBe(true);
+
+    dismissHandoff();
+    expect(overlay()).toBeNull();
+  });
+
+  it('with the FAB hidden behind a docked panel, the hint names the palette command and there is no arrow', () => {
+    mountFab();
+    useUiStore.setState({ fabPanelOpen: true, fabDetached: false });
+    renderOverlay();
+    fireEvent.click(screen.getByRole('button', { name: 'Close setup' }));
+    expect(screen.getByRole('status').textContent).toContain('command palette');
+    expect(screen.getByRole('status').textContent).toContain('Run Setup Wizard');
+    expect(screen.queryByTestId('setup-handoff-arrow')).toBeNull();
+    expect(screen.queryByTestId('setup-handoff-fab')).toBeNull();
+  });
+
+  it('with full motion: content fades, the hint holds for a beat, and the overlay dissolves by itself', () => {
+    document.documentElement.dataset['motion'] = 'full';
+    vi.useFakeTimers();
+    mountFab();
+    renderOverlay();
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(overlay()?.getAttribute('data-handoff')).toBe('fading');
+    expect(screen.queryByRole('status')).toBeNull();
+    act(() => vi.advanceTimersByTime(CHOREO.handoffFadeMs));
+    expect(overlay()?.getAttribute('data-handoff')).toBe('pointing');
+    expect(screen.getByRole('status')).toBeTruthy();
+    act(() => vi.advanceTimersByTime(CHOREO.handoffBeatMs));
+    expect(overlay()?.getAttribute('data-handoff')).toBe('dissolving');
+    expect(overlay()?.style.opacity).toBe('0');
+    act(() => vi.advanceTimersByTime(CHOREO.dissolveMs));
+    expect(overlay()).toBeNull();
+  });
+
+  it('Resume setup reopens at the first page neither passed nor skipped, past the intro', () => {
+    useUiStore.setState({
+      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'machine', skippedPageIds: ['machine'] },
+    });
+    renderOverlay();
+    expect(overlay()).toBeNull();
+    act(() => useSetupStore.getState().resumeSetup());
+    expect(stepOf()).toBe('forges');
+  });
+
+  it('Resume after X reopens the page X was pressed on', () => {
+    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'forges' } });
+    renderOverlay();
+    act(() => useSetupStore.getState().resumeSetup());
+    expect(stepOf()).toBe('forges');
   });
 });
