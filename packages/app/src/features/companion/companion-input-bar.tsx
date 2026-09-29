@@ -9,12 +9,9 @@ import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 
 import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
 import { Tooltip } from '../../components/tooltip';
+import { useDismissable } from '../../components/use-dismissable';
 import { useCompanionStore } from '../../store/companion-store';
-import {
-  useCompanionSpeakingLevelBars,
-  useMicLevelBars,
-  type LevelBars,
-} from './audio/waveform';
+import { useCompanionSpeakingLevelBars, useMicLevelBars, type LevelBars } from './audio/waveform';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 import {
   filterSlashCommands,
@@ -119,7 +116,25 @@ export function CompanionInputBar({
   */
   const slashQuery = SLASH_TRIGGER.exec(value)?.[1] ?? null;
   const slashItems = slashQuery === null ? [] : filterSlashCommands(slashQuery);
-  const slashOpen = slashItems.length > 0;
+  /*
+    The draft a click-away or focus-away dismissed the list for. Keyed on the
+    text rather than a boolean so the next keystroke brings the list back on
+    its own — it is still derived from `value`, just not for this exact draft.
+  */
+  const [slashDismissedFor, setSlashDismissedFor] = useState<string | null>(null);
+  const slashListRef = useRef<HTMLDivElement>(null);
+  const slashOpen = slashItems.length > 0 && slashDismissedFor !== value;
+  // Outside `pointerdown` and focus leaving the textarea-plus-list close it,
+  // as every other gradient-border list does. Escape and Tab stay the
+  // textarea's own (`onKeyDown` below), so the hook takes neither.
+  useDismissable({
+    open: slashOpen,
+    surfaceRef: slashListRef,
+    trigger: textareaRef,
+    escape: false,
+    tab: 'none',
+    onDismiss: () => setSlashDismissedFor(value),
+  });
   const slashSelected = Math.min(slashIndex, Math.max(slashItems.length - 1, 0));
 
   // A fresh filter always highlights its own top match, not wherever the
@@ -358,6 +373,7 @@ export function CompanionInputBar({
       */}
       {slashOpen ? (
         <div
+          ref={slashListRef}
           role="listbox"
           aria-label="Slash commands"
           data-testid="companion-slash-popover"

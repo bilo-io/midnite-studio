@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useDismiss } from './use-dismiss';
+import { useDismissable } from './use-dismissable';
 import { useFocusTrap } from './use-focus-trap';
 
 /**
@@ -156,29 +156,32 @@ export function Popover({
     return () => observer.disconnect();
   }, [open, place]);
 
-  // Escape goes through the shared dismissal stack (Phase 62), which is what
-  // makes one keypress close one surface: the panel's own `stopPropagation`
-  // never worked, because every handler it was competing with was also on
-  // `window` and `stopPropagation` does not stop siblings on the same target.
-  // The hook's blocking registration also does the occluder bookkeeping this
-  // effect used to do by hand.
-  useDismiss(open, close, { layer: 'popover' });
+  // Escape, an outside `pointerdown`, and focus leaving — by Tab past either
+  // end or by anything else taking it — all go through `useDismissable`. The
+  // trigger counts as inside, so its own click toggles rather than the
+  // pointerdown closing the panel and the click reopening it. Escape and Tab
+  // hand focus back to the trigger; the hook's registration also does the
+  // occluder bookkeeping and keeps one Escape to one surface (Phase 62).
+  //
+  // `tab: 'edges'`, not `'close'`: this is a panel of controls, not a
+  // `role="menu"`, so Tab has to walk them. Only walking out of it closes it —
+  // which is what makes the focus trap's wrap unreachable from the keyboard
+  // now, and the trap itself kept only for placing focus on open and handing
+  // it back on close.
+  useDismissable({
+    open,
+    surfaceRef: panelRef,
+    trigger: triggerRef,
+    layer: 'popover',
+    tab: 'edges',
+    onDismiss: () => setOpen(false),
+  });
 
-  // Outside click, and a capture-phase scroll anywhere in the app. Scroll
-  // dismisses rather than repositions: the panel is anchored to an element that
-  // just moved, and chasing it mid-scroll reads as a glitch.
+  // A capture-phase scroll anywhere in the app. Scroll dismisses rather than
+  // repositions: the panel is anchored to an element that just moved, and
+  // chasing it mid-scroll reads as a glitch.
   useEffect(() => {
     if (!open) return;
-
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (panelRef.current?.contains(target)) return;
-      // The trigger's own click toggles; letting this fire too would close and
-      // immediately reopen, so the panel would never respond to its button.
-      if (triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
     // Scrolling *inside* the panel is the user reading it, not the anchor
     // moving out from under it — the notifications list is `overflow-y-auto`
     // and would otherwise dismiss itself on its own first wheel event.
@@ -187,21 +190,14 @@ export function Popover({
       if (target && panelRef.current?.contains(target)) return;
       setOpen(false);
     };
-
-    window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('scroll', onScroll, true);
-
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true);
-      window.removeEventListener('scroll', onScroll, true);
-    };
+    return () => window.removeEventListener('scroll', onScroll, true);
   }, [open, setOpen]);
 
-  // Keep Tab inside the panel while it is open. A panel that lets Tab walk
-  // out from under it is worse than one with no keyboard support at all:
-  // focus lands on controls the user cannot see, behind a surface that is
-  // still on screen. Extracted to `use-focus-trap.ts` (Phase 27 Theme G) so
-  // a non-Popover overlay (the browser pane) can reuse it verbatim.
+  // Move focus into the panel on open and back out on close. Tab no longer
+  // wraps here in practice — `useDismissable`'s `tab: 'edges'` closes the
+  // panel as focus walks off either end, so focus never lands on controls
+  // behind a surface that is still on screen, which is what the trap was for.
   useFocusTrap(panelRef, open);
 
   return (

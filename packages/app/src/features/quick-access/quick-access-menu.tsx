@@ -1,10 +1,16 @@
 import type { CompanionState } from '@midnite/studio-shared';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2, LuRocket } from 'react-icons/lu';
 
 import type { MenuEntry } from '../../components/context-menu';
-import { useDismiss } from '../../components/use-dismiss';
+import { useDismissable, type TriggerSource } from '../../components/use-dismissable';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { COMPANION_LOOK, CompanionGlyph } from '../companion/companion-look';
 import { companionPorts } from '../companion/companion-ports';
@@ -191,7 +197,18 @@ function step(
  * with the `C` leaf doubling as that open row rather than a second one
  * beside it.
  */
-export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
+export function QuickAccessMenu({
+  onClose,
+  trigger,
+}: {
+  onClose: () => void;
+  /**
+   * The FAB button, when the menu came from it. It counts as inside the
+   * menu, so a second press on it toggles the menu shut instead of the
+   * `pointerdown` dismissing it and the `click` reopening it.
+   */
+  trigger?: TriggerSource;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -212,7 +229,18 @@ export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
     [companionEnabled, lastCompanionTurn, setupIncomplete],
   );
 
-  useDismiss(true, onClose, { layer: 'popover' });
+  // Escape, an outside `pointerdown`, focus leaving, Tab and the window
+  // losing focus all close it — one rule set, shared with every other menu
+  // (`use-dismissable.ts`). It used to take Escape and nothing else.
+  useDismissable({
+    open: true,
+    surfaceRef: containerRef,
+    trigger,
+    layer: 'popover',
+    tab: 'close',
+    windowBlur: true,
+    onDismiss: () => onClose(),
+  });
   useFocusTrap(containerRef, true);
 
   useEffect(() => {
@@ -388,15 +416,10 @@ function CompanionStrip({
   const look = COMPANION_LOOK[state];
   const Glyph = look.icon;
   return (
-    <div
-      data-testid="companion-strip"
-      className="border-b border-border/70 px-3 py-1.5"
-    >
+    <div data-testid="companion-strip" className="border-b border-border/70 px-3 py-1.5">
       <div className="flex items-center gap-1.5">
         <Glyph aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
-        <span className="truncate text-[11px] font-medium text-muted-foreground">
-          {look.label}
-        </span>
+        <span className="truncate text-[11px] font-medium text-muted-foreground">{look.label}</span>
       </div>
       {lastText !== null ? (
         <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-foreground/80">
