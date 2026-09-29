@@ -1,5 +1,6 @@
 import { BUILTIN_AGENTS, type AgentDefinition, type AgentStatus } from '@midnite/studio-shared';
-import { useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query';
+import { useContext } from 'react';
 
 import { bridge, hasBridge } from '../../services/bridge';
 
@@ -25,14 +26,27 @@ export type AgentRoster = { agents: AgentDefinition[]; status: AgentStatus[] };
 /** The builtins with nothing known about them — the shape every fallback takes. */
 const UNPROBED: AgentRoster = { agents: [...BUILTIN_AGENTS], status: [] };
 
+/**
+ * Only ever used when no `QueryClientProvider` is above the caller. The agent
+ * avatar (`components/agent-avatar.tsx`) sits on Projects cards and graph
+ * nodes, which many tests mount bare. Without a provider there is no bridge to
+ * ask either, so the query stays disabled and the builtins are the answer,
+ * exactly as they are under jsdom with one.
+ */
+const NO_PROVIDER_CLIENT = new QueryClient();
+
 export function useAgents(): AgentRoster {
-  const { data } = useQuery({
-    queryKey: ['agents'],
-    queryFn: async (): Promise<AgentRoster> => {
-      const result = await bridge()?.agent.list();
-      return result ? { agents: result.agents, status: result.status } : UNPROBED;
+  const client = useContext(QueryClientContext) ?? NO_PROVIDER_CLIENT;
+  const { data } = useQuery(
+    {
+      queryKey: ['agents'],
+      queryFn: async (): Promise<AgentRoster> => {
+        const result = await bridge()?.agent.list();
+        return result ? { agents: result.agents, status: result.status } : UNPROBED;
+      },
+      enabled: hasBridge(),
     },
-    enabled: hasBridge(),
-  });
+    client,
+  );
   return data ?? UNPROBED;
 }
