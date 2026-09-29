@@ -102,6 +102,30 @@ gains a **Resume setup** leaf for that.
 
 ---
 
+## Headlines
+
+*One full-window first-run overlay replaces both onboarding modals — brand intro, typed titles, git → forges → accounts → CLI → toolchain → Ollama, a FAB handoff on skip, and a Welcome finale.*
+
+**Theme A — Overlay frame and first-run gate.** ◻ overlay frame (X, theme picker, dots, Skip), `SETUP_PAGES` registry, one migrated first-run gate, `setup.open` command
+
+**Theme B — Brand choreography.** ◻ brand choreography: caret + typed gradient "Midnite", FLIP into a fixed title anchor, typed titles + fading bodies, reduced motion
+
+**Theme C — Skip / X → FAB handoff and resume.** ◻ Skip/X → FAB handoff with a pointing arrow, FAB "Resume setup" leaf
+
+**Theme D — Setup catalogue, probes and the install runner.** ◻ shared setup catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row
+
+**Theme E — Git, forge selection and forge CLIs.** ◻ git detect/install, multi-select forge buttons, gh/glab/az CLI rows (Bitbucket no-CLI)
+
+**Theme F — Accounts and git identity.** ◻ account cards (avatar, name, login, email) + `gitIdentityGet/Set` global git identity
+
+**Theme G — Midnite CLI page.** ◻ Midnite CLI page over `cliStatus`/`cliInstall`
+
+**Theme H — Toolchain checklist.** ◻ toolchain checklist (agent CLIs, JS stack, containers, media/misc) with brand-coloured icons
+
+**Theme I — Local models with Ollama.** ◻ Ollama page: education, `systemMemory`, RAM-gated curated models, background pulls lifted to app level
+
+**Theme J — Completion transition and Welcome finale.** ◻ completion transition + "Welcome to [logo] Midnite Studio" finale
+
 ## Deliverables
 
 ### A — Overlay frame and first-run gate (M)

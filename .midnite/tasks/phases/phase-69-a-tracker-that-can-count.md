@@ -65,6 +65,16 @@ picked; a phase whose theme letters disagree will have the wrong theme claimed.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*15 of 69 docs disagree with the index about their own item counts; three phases marked 100% hold 162 open boxes; one declares two themes twice with contradictory stamps. The guard all three skills run checks only that a row exists, never that it is right.* (97% · 30/31, [PR #168](https://github.com/bilo-io/midnite-studio/pull/168)) — **Themes A, B, C landed** (2026-09-05). One human verification item stays open. 31 items, three themes, no dependency.
+
+**Theme A — The check.** ✅ The check: `scripts/tracker-check.mjs`, seven rules (row exists, doc exists, counts agree, no duplicate theme letters, theme letters agree, `Refined: xN` matches, bar and `%` match), import-free like Phase 53's `version-check.mjs`, with `--fix` for the arithmetic rules **only** — a duplicate theme is a human decision, not an arithmetic one. ([PR #168](https://github.com/bilo-io/midnite-studio/pull/168)) Landed: the automated tracker check (`scripts/tracker-check.mjs`, seven consistency rules, `--fix` for arithmetic rules 3 and 7) wired as `root:tracker-check` and in CI.
+
+**Theme B — The three structural bugs it fails on today.** ✅ The three structural bugs it fails on day one: Phase 32's duplicate H and I with contradictory stamps (`✅ DONE` at :279 vs `✅ PARTIAL` at :312), Phase 33's `✅ PARTIAL` where `◐` belongs, and phases 25 and 35's theme-letter drift. ([PR #168](https://github.com/bilo-io/midnite-studio/pull/168)) Landed: the four structural bugs resolved (Phase 32's duplicate H/I, Phase 33's `◐` stamps, Phase 25's heading level, Phase 35's theme key).
+
+**Theme C — Making the fifteen honest, without pretending.** ✅ Making the fifteen honest without pretending: `--fix` the arithmetic so three phases' `%` **drops** from 100% and nine `✅ DONE` rows become `🔄 WIP`, re-describe the parked entries in `outstanding.md` now that the doc is the accurate record, and replace the shell one-liner in six skill files with the task. **Ticks nothing** — the tracker becomes honest about being incomplete, not more complete. ([PR #168](https://github.com/bilo-io/midnite-studio/pull/168)) Landed: the index numbers reconciled across all 19 drifted phases with `outstanding.md` updated.
+
 ## Deliverables
 
 ### A — The check (M) — ✅ DONE (PR #168, 2026-09-05)

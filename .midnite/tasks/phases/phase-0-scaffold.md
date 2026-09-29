@@ -4,6 +4,10 @@ The empty monorepo skeleton: proto + moon + pnpm workspace, four packages, GH Pa
 Read `docs/INITIAL_PLAN.md` → "Package layout" before starting. Crib root config from
 `~/Dev/midnite` (`.moon/tasks.yml` nearly verbatim; `tsconfig.base.json` with paths renamed).
 
+## Headlines
+
+**Theme A.** ✅ proto/moon/pnpm skeleton, four packages, boundary lint rules, GH Packages auth proven
+
 ## Deliverables
 
 - [x] `.prototools` — node 22.12.0, pnpm 9.15.0, moon 2.3.4

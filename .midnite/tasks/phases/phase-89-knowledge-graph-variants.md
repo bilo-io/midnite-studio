@@ -13,6 +13,32 @@ before a single new dependency lands. F–I then add one library each, behind it
 end with four half-integrated renderers and no shared contract; a phase that proves the contract
 against sigma's own four looks has something for the libraries to fit into.
 
+## Headlines
+
+*Phase 87 shipped one renderer, hard-coded: `KnowledgeCanvas` is 57 lines that call `useSigmaGraph` and nothing else. A pill bar above the canvas makes the renderer a named variant — sigma deepened first (the seam, an expand-from-a-core intro, an animated focus alpha, four looks, the worker's layouts), then one alternative library per theme behind its own dynamic `import()`. The grounding corrected three premises: **focus alpha dimming already ships** (`knowledge-canvas-colors.ts`, with a docblock on why the values are premultiplied — straight alpha produced no dimming at all on the dark theme), **the existing rAF loop cannot carry the intro** (`PulseTracker` tweens `size` only and repaints with `skipIndexation: true`; positions re-index on a full refresh alone), and **the graph is now 15,292 nodes / 37,036 links**, not the 14,881 / 36,032 three code comments still quote. Phase 87 rejected vis-network for the CDN, not the library — Theme H says so in the code.*
+
+**Theme A — The variant seam and the pill bar.** ✅ (PR [#437](https://github.com/bilo-io/midnite-studio/pull/437)) — the `KnowledgeRenderer` seam, the pill bar inside the canvas column, an overflow menu, a persisted `rendererVariant`
+
+**Theme B — Expand from a core.** ✅ (PR #436) — expand from a core: a position-channel tween, centroid origin, degree stagger, and the re-indexation problem solved out loud
+
+**Theme C — Focus alpha, animated.** ✅ (PR [#463](https://github.com/bilo-io/midnite-studio/pull/463)) — focus alpha, animated: `AlphaRampTracker` ramps dimmed/rest/neighbour/focus instead of snapping, premultiplied invariant preserved, `DEFAULT_NODE_ALPHA` retuned 0.65 → 0.5
+
+**Theme D — Four sigma looks.** ✅ (PR [#438](https://github.com/bilo-io/midnite-studio/pull/438)) — four sigma looks: Atlas, Constellation, Orbit, Clusters (over the existing community-collapse machinery)
+
+**Theme E — Layout variants in the worker.** ✅ layout variants in the worker (circlepack, hierarchical, noverlap), layout id in the cache key, tweened transitions ([PR #439](https://github.com/bilo-io/midnite-studio/pull/439))
+
+**Theme F — force-graph.** ◻ the `force-graph` variant (WebGL; the one alternative with a shot at 15k nodes)
+
+**Theme G — cytoscape.js.** ◻ the `cytoscape.js` variant
+
+**Theme H — vis-network.** ◻ the `vis-network` variant, with Phase 87's CDN-not-library rejection qualified in the code
+
+**Theme I — d3-force, live.** ◻ `d3-force` live: a simulation you watch settle, on our own canvas, with a hard settle ceiling
+
+**Theme J — The gate, and the bake-off.** ◻ the capability gate and the bake-off: TTFP/FPS/memory per variant on the real graph, thresholds from measurement, stale counts fixed
+
+**Theme K — Verification and budgets.** ◻ verification: pure-layer units, one seam e2e, three baselines (not nine), bundle and idle-CPU budgets, licence audit
+
 ## What the grounding changed
 
 Three premises this phase would otherwise have been written on turned out to be wrong.

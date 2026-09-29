@@ -52,6 +52,30 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ---
 
+## Headlines
+
+*Passes two and three over [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md), which is pass one and is not repeated. The sweep found classes the scan never looked at — a **1,695-entry lockfile with zero vulnerability scanning on any trigger** (fourteen tool names grepped, no hits), `ci.yml` with **no top-level `permissions:`**, `agentApiKeys` holding seven provider keys plus a `GITHUB_TOKEN` slot in plaintext `localStorage` (a larger leak than the finance key the scan named), both `safeStorage` vaults written 0644, `redact.ts` blind to `glpat-`/`AKIA`/`apikey=`/PEM blocks while its output is designed for a public tracker, no `SECURITY.md`, no checksums on any release, and zero Electron fuses. Every item names the file, the symbol, the guard and the test — the doc's own stated standard, so a Sonnet- or Flash-class executor needs no judgement. Phase 76 owns the CSP, `sandbox: true`, the Electron bump, the finance key and the `ipcMain.on` sweep; this phase owns the rest and names the three seams. Repo visibility verified `private` — `CLAUDE.md` asserts both.*
+
+**Theme A — The rebase editor stops generating a shell script.** ◻ the rebase editor stops generating a shell script: a constant helper body, the plan in its own 0600 file, `exec` out of the schema, and a byte-equality test
+
+**Theme B — Every git positional gets an end-of-options guard.** ◻ `--end-of-options` at all 25 argv sites, `SafeArgvString`/`SafeRefString` exported and applied to ~20 schemas, a pure `buildXArgs` per command, and one table-driven injection test
+
+**Theme C — The remote field stops being a transport.** ◻ the remote field stops being a transport: `GIT_PROTOCOL_FROM_USER=0`, a protocol allowlist, `--all` as a field not a sentinel, remote names resolved against `listRemotes`
+
+**Theme D — DevTools, the release bundle, and the lock screen.** ◻ DevTools behind `app.isPackaged`, explicit minify, no sourcemaps/manifest in the artifact (asserted), and the lock screen's authority moved to main with a hashed passcode
+
+**Theme E — The Electron security checklist, item by item.** ◻ the Electron checklist: one global `web-contents-created` net, parsed-scheme `openExternal`, the unconfined `showItemInFolder`, device/display-media handlers, an `mstudio-file:` referrer check, the socket chmod race
+
+**Theme F — Teardown, listeners, and the leak test that proves them.** ◻ teardown proved rather than assumed: a real leak test, the duplicate updater registrations, `setMaxListeners`, and Phase 84's visibility gates asserted
+
+**Theme G — Redaction that covers the secrets we actually hold, and a lint that stops new ones.** ◻ redaction on the console arm, nine missing secret patterns, a recursive `redactRecord`, `agentApiKeys` into the vault, 0600 vault files, and a lint that fails on the next plaintext credential
+
+**Theme H — The install path, the update feed, and the signature story.** ◻ the install path: a published SHA256SUMS, a digest in `version.json`, `codesign`/`spctl` before the quarantine strip, Electron fuses, `allowDowngrade` off, `execFileSync`
+
+**Theme I — CI gates so none of this regresses.** ◻ CI gates: a top-level `permissions:` block, a `root:audit` task with expiring suppressions, a `gate-audit` job, Renovate's OSV fast lane, `onlyBuiltDependencies`, SHA-pinned release actions, an Electron-freshness warning
+
+**Theme J — A disclosure route, and the audit of record.** ◻ a disclosure route: `SECURITY.md`, the audits committed under `docs/security/` with a per-finding status index, and the repo-visibility contradiction resolved across all three convention files
+
 ## Deliverables
 
 ### A — The rebase editor stops generating a shell script (L)

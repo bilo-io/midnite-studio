@@ -41,6 +41,20 @@ future scope, not this one. **No LEFT-side apply** — see Theme B.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*GitHub's ` ```suggestion ` fence, rendered specially the way `slide-code.tsx` already renders any tagged fence, then applied straight to the local working tree rather than pushed as a commit through GitHub's API — the local-first move the web UI can't make. A and B parse the fence and resolve the multi-line range `startLine`/`line` already describe but nothing reads yet; C is the phase's real weight, detecting whether the local file still matches what the suggestion assumes, since the existing outdated-thread check only ever covered drift on GitHub's side; D renders the preview and wires Apply to Phase 24's existing whole-file write, never auto-staging; E wires it up.* (95% · 19/20, [PR #51](https://github.com/bilo-io/midnite-studio/pull/51) + [PR #62](https://github.com/bilo-io/midnite-studio/pull/62)) — **Themes A–E landed.** Themes B–E (PR #62, 2026-09-03) finish the phase.
+
+**Theme A — Suggestion detection + parsing.** ✅ Suggestion detection: a pure `extractSuggestion(body)` parsing the comment's markdown AST for a ` ```suggestion ` fence, prose-tolerant, tested against multiple/absent/wrapped cases. (PR #51) `extractSuggestion(body)` (Theme A, PR #51) walks the same mdast tree `deck-parser.ts` already builds for a ` ```suggestion ` fence anywhere in the body, depth-first in document order.
+
+**Theme B — Line-range resolution.** ◻ Line-range resolution: `(startLine ?? line)` through `line`, `RIGHT`-side only — the first consumer of `startLine`, which every existing thread renderer currently ignores. `suggestionLineRange(thread)` resolves the 1-indexed range a suggestion replaces off `startLine`/`line` (`RIGHT`-side only — Apply is never offered at all on a `LEFT`-side thread).
+
+**Theme C — Local-file divergence detection, the phase's real weight.** ◻ Local-file divergence detection *(the phase's real weight)*: compares the file's current content at the resolved range against what the suggestion assumes, disabling Apply with a named reason on mismatch, deletion, or an already-`outdated` thread — stricter than and separate from `fsWriteFile`'s own staleness check. `checkSuggestionApplies`/`expectedRightSideText` compare the local file's current content at that range against what the PR's own diff says is there, independent of `fsWriteFile`'s own `expectedVersion` check, failing closed on any mismatch, unverifiable gap, deleted file, or already-`outdated` thread.
+
+**Theme D — Suggestion rendering, and the write.** ◻ Rendering + the write: a `code`/`pre` override on `CommentBody` styled off `DiffCell`'s tokens, an Apply button calling the existing `fsWriteFile` IPC with no new write channel, never auto-resolving the thread. `comment-thread.tsx`'s `CommentBody` renders a `suggestion` fence as a struck-through/added preview (`slide-code.tsx`'s `language-(\w+)` pattern, `DiffCell`'s own add/del tokens) with an Apply button disabled — reason as its `title` — before any click; Apply rides Phase 24's existing whole-file `fsWriteFile` (no new write channel) and never auto-stages, auto-commits, or resolves the thread, exactly [Phase 47](phase-47-conflict-resolution-studio.md)'s settled posture for an externally-suggested change landing on disk. A real defect was caught in review: `spliceSuggestion` was rejoining a CRLF file's *untouched* lines with a bare `\n` too, silently flattening the whole file's line endings on every Apply — fixed to preserve the file's own ending.
+
+**Theme E — Wiring + verification.** ◻ Wiring + verification: the full apply path end to end, each Theme C refusal path asserted individually, and repo-scope containment reused from `fs-scope-write.ts`. **One item stays open by design** — Theme E's human-only pass, applying a real github.com suggestion against a real checkout to confirm line endings/encoding survive (no fixture can prove that against GitHub's actual payload shape).
+
 ## Deliverables
 
 ### A — Suggestion detection + parsing (S) ✅ DONE (2026-09-03, PR #51)

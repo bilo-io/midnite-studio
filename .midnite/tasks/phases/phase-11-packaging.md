@@ -5,6 +5,10 @@ Installable macOS arm64 app; CI; repo docs complete.
 Crib from `~/Dev/midnite/packages/desktop/`: `electron-builder.yml`, `scripts/afterpack.cjs`,
 `scripts/install-local.mjs`.
 
+## Headlines
+
+**Theme A.** ✅ electron-builder arm64, afterpack/install-local scripts, CI workflow, README/docs final
+
 ## Deliverables
 
 - [x] `desktop/electron-builder.yml` — appId, dmg+zip, arm64; files globs include the built `app/dist` renderer; `asar: true` + `asarUnpack: '**/*.node'` (node-pty); `npmRebuild: false`

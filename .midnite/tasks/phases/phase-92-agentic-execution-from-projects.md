@@ -62,6 +62,20 @@ not widen the skill catalogue beyond the app's existing `AgentCommandId`s, and i
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*A kanban card's Play button and the dependency graph node's copy of it both auto-send the whole issue — title, URL, assignees, labels, capped body — via `composeCardPrompt`, unread. This phase gives a card a chosen skill (local state, not a GitHub field) and shrinks the launched prompt to that skill plus the issue link; unset, Play opens a three-entry menu (Exec/Brainstorm/Refine) instead of guessing.* (100% · 36/36, PR #478, PR #481, PR #482) — **Landed, all five themes.** A kanban card's Play button and the dependency graph node's own copy of it (`task-card.tsx:128-163`, `project-graph-node.tsx:168-205`) both auto-send a prompt built from the issue's full title, URL, assignees, labels and body — capped at 4 000 characters, but otherwise the whole remote issue, unread by a human, to whichever agent last ran — via `composeCardPrompt` (Phase 41 Theme G). This phase adds a per-card skill choice and shrinks that prompt to a link plus the chosen skill. 36 items, five themes, no new dependency, no new IPC channel.
+
+**Theme A — One launch path, not two copies.** ✅ (PR #478) Extracts the two copy-pasted Play-button implementations into one `useCardPlay` hook.
+
+**Theme B — The prompt shrinks: a link, not the issue.** ✅ (PR #478) Adds `composeSkillLaunchPrompt` (`<skill template> <issue url>`), leaving `composeCardPrompt` itself untouched since it still backs `CardComposer`'s own human-reviewed textarea.
+
+**Theme C — A skill lives on the card, chosen in its detail pane.** ✅ (PR #481) Adds `cardSkillByTask`, local renderer-only state (not a GitHub Projects field — no schema change, no new IPC) keyed like `projectViewByProject` already is, with an `IconSelect` picker in `CardDetail` sourced from the app's own `AgentCommandId` catalogue (`agent-commands.ts`/`DEFAULT_AGENT_SKILLS`), confirmed as the source of truth over a `.claude/skills/` directory scan (nothing in the app does that today, and `agent-page.tsx`'s own comment argues against it).
+
+**Theme D — Play, forked on whether a skill is set.** ✅ (PR #481) Forks Play on whether that state is set — set, launch directly with the shrunk prompt; unset, a `ContextMenu` at the pointer (the same `useDialogs().openMenu` pattern `board-view.tsx`'s "Move to ▸" already uses) offering exactly Exec (`execAdhoc`), Brainstorm, Refine, with the pick both launching and persisting for next time. Named but deliberately not fixed: neither Play button today checks `blockers`, and both already bypass Phase 50 Theme B's `launchAndRunEnabled` gate and confirm dialog with a hardcoded `autoSend: true` — this phase's link-only prompt narrows the risk of the second gap without closing either.
+
+**Theme E — Verification coverage.** ◻ Closed out verification: the vitest coverage for every pure function, the store round-trip and both component suites had already landed with B-D and were confirmed present rather than rewritten; the one genuinely new piece was two Playwright cases per surface (`e2e/kanban.spec.ts`, `e2e/project-graph.spec.ts`) proving the menu-open/launch-and-close fork against the real `ContextMenu` portal and the real `pty:create` `initialInput`, which `use-card-play.test.tsx`'s isolated hook render cannot reach — raising the e2e ratchet 441 → 445 with a committed justification.
+
 ## Deliverables
 
 ### A — One launch path, not two copies (S) — ✅ DONE (PR #478, 2026-09-20)

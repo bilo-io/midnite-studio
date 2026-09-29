@@ -7,6 +7,10 @@ Crib: `~/Dev/midnite/packages/gateway/src/terminal/spawner/pty-spawner.ts` (lazy
 `require('node-pty')`, `isPidAlive`) and `~/Dev/midnite/packages/web/components/live-terminal.tsx`
 (deferred-open ResizeObserver, safeFit, theme swap).
 
+## Headlines
+
+**Theme A.** ✅ pty-service (node-pty in main), xterm panel, Ctrl+` keybinding service + menu + footer bar
+
 ## Deliverables
 
 - [x] `desktop/src/main/pty-service.ts` — sessions keyed by `ptyId`; spawns the user's login shell with shell-path-fixed PATH; cwd = selected worktree; data → `mstudio:pty:data` as `Uint8Array` (structured clone, **no base64**); kill on window close; lazy fail-soft node-pty load degrades to "terminal unavailable"

@@ -65,6 +65,16 @@ boundary can only say that something did.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Sixteen views, eighteen `lazy()` calls and zero error boundaries — one render throw blanks the window. Collapses `app.tsx`'s 17-branch view ternary into an exhaustive `VIEW_COMPONENT` record, hangs a resettable boundary off it, and applies the existing `EmptyState`/`Skeleton` primitives to the six views that render none of the three states.* (0% · 0/34) — **Planned, not started.** Three facts that are one problem. Deliberately small — 34 items, three themes, `packages/app` only, no new dependency, no new IPC channel, no new surface.
+
+**Theme A — One record, not a seventeen-branch ternary.** ✅ One record, not a ternary: `components/view-registry.tsx`'s `Record<ViewId, ViewEntry>` with a `global` flag replacing the load-bearing branch order, so a new `ViewId` fails typecheck instead of falling through to `Placeholder` (which is also how the stale `todo/` copy gets fixed). The view switch is a 17-branch ternary sitting beside three per-`ViewId` records that already do the job declaratively, which is how `sessions` fell through to a `Placeholder` still pointing users at a `todo/` directory that no longer exists.
+
+**Theme B — A boundary per view.** ✅ A boundary per view: `components/error-boundary.tsx`, reset on `activeView`, an `EmptyState` fallback with Try-again and Copy-details, mounted outside the view `Suspense`, on the three optional modals (silent `null`) and on the detached root. The renderer has **zero** error boundaries against eighteen `lazy()` calls, so one render throw or one 404'd chunk after an in-place reinstall blanks the whole window.
+
+**Theme C — The three states, applied.** ✅ The three states, applied: the error → empty → skeleton → content ordering written down, then applied to `dashboard`, `tests`, `history`, `video`, `files` and `changes`, which carry none of the three today. Six views render no empty, loading **or** error state while both primitives exist with twenty and eighteen consumers.
+
 ## Deliverables
 
 ### A — One record, not a seventeen-branch ternary (S) — ✅ DONE (PR #170, 2026-09-05)

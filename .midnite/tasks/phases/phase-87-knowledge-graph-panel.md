@@ -62,6 +62,24 @@ force-directed layout is real compute, not a detail — which is what Theme A ex
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Every graphified repo already carries a 14,881-node map of itself that only the CLI and a hook can see. A pinned **Knowledge** rail row beside Notes renders the active repo's own `graph.json` with WebGL — the full graph, not the 600-node aggregate, and never the generated `graph.html`, which CDN-loads vis-network from unpkg and would walk straight into Phase 76's renderer CSP.*
+
+**Theme A — `packages/knowledge`, the electron-free engine.** ✅ (PR [#408](https://github.com/bilo-io/midnite-studio/pull/408)) — `packages/knowledge`: electron-free reader, lean projection, ForceAtlas2, cache keyed on `built_at_commit`
+
+**Theme B — The IPC contract and the main-process handler.** ✅ (PR [#408](https://github.com/bilo-io/midnite-studio/pull/408)) — the IPC contract in `shared` and the main handler, with layout off the main thread (`worker_threads`, Decision 3)
+
+**Theme C — The rail row and view registration.** ✅ (PR [#407](https://github.com/bilo-io/midnite-studio/pull/407)) — `'knowledge'` into `VIEW_IDS` after `'notes'`, the third pinned rail row, `SiGrapheneos`
+
+**Theme D — The sigma canvas.** ✅ (PR [#411](https://github.com/bilo-io/midnite-studio/pull/411)) — the sigma + graphology WebGL canvas: zoom LOD, community colour (`--tab-group-N` tokens, hue bucket × lightness tier), theme repaint via a `MutationObserver`, hidden-means-idle, entry chunk confirmed byte-identical
+
+**Theme E — The four interactions.** ✅ (PR [#411](https://github.com/bilo-io/midnite-studio/pull/411)) — click-to-open (Explorer preview), search + focus + neighbourhood highlight, a virtualized community filter, relation/weight/confidence edge filtering (default `calls` alone — Decision 8, resolved unattended against this repo's own measured graph data)
+
+**Theme F — Repo switching, empty and stale states.** ✅ (PR [#410](https://github.com/bilo-io/midnite-studio/pull/410)) — repo switching, the greyed row and instructional panel, staleness reported not acted on
+
+**Theme G — Tests and the numbers.** ✅ (PR [#412](https://github.com/bilo-io/midnite-studio/pull/412)) — the canvas-only Playwright suite (`knowledge-canvas.spec.ts`), the measured numbers, and the clean-up pass on #411: writing a real-browser test for the canvas caught and fixed two shipped bugs — sigma's canvas never resizing when its own flex container did (the node panel's Close button was unclickable, eaten by a stale-sized canvas), and the search-and-focus camera flying to the wrong point (raw graph coordinates passed where sigma expects its own normalized "framed graph" space). Nine general Verification lines (packaged-app network trace, cache/staleness/GPU-leak checks, the view-specific idle-cpu reading, the committed Linux visual baseline — this sandbox has no docker — and one human eyeball pass) are deliberately left open; see the phase doc.
+
 ## Deliverables
 
 ### A — `packages/knowledge`, the electron-free engine (M) — ✅ DONE (PR #408, 2026-09-16)

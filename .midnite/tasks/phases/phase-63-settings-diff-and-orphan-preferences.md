@@ -83,6 +83,16 @@ persisted is exactly the kind of drift the partition exists to catch. See Decisi
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*`useUiStore` persists (as of this PR) 72 keys and every preference cluster among them has a settings page that owns it — except four. `diffLayout`, `diffShowOldGutter`, `commitFileView` and `changesFileView` were reachable only from controls that are conditionally rendered, so the diff-layout toggle did not exist at all while a binary file was open. One page, and one test that stops a fifth from being orphaned.* (100% · 32/32 · **Refined x1**, [PR #167](https://github.com/bilo-io/midnite-studio/pull/167)) — **Themes A, B, C landed** (2026-09-05).
+
+**Theme A — The page.** ✅ [PR #167](https://github.com/bilo-io/midnite-studio/pull/167) — The page: `settings-pages/diff-page.tsx` in `sidebar-page.tsx`'s shape, two accordions ("Diff view", "File lists"), four `Choice` blocks whose hints name the constraints the toolbar hides, and a per-accordion reset to the literal store defaults. A Settings ▸ Diff page for `diffLayout`, `diffShowOldGutter`, `commitFileView` and `changesFileView` — the two diff controls were only reachable via toolbar toggles that disappear while viewing a binary or deleted file.
+
+**Theme B — Registration, and the one the compiler will not catch.** ✅ [PR #167](https://github.com/bilo-io/midnite-studio/pull/167) — Registration, and the one the compiler will not catch: `SettingsPageId`, `SETTINGS_PAGES`, `settings-view.tsx`'s `PAGE_CONTENT` (not `PAGES`), plus the exhaustive `SETTINGS_PAGE_ICON` record — and verifying that the palette and title-bar nav need no edit because both derive from `SETTINGS_PAGES`.
+
+**Theme C — No orphan preference.** ✅ [PR #167](https://github.com/bilo-io/midnite-studio/pull/167) — No orphan preference: `store/persisted-keys.ts` partitioning all persisted keys into preference vs session state, each exclusion annotated, typed so a key in neither list fails typecheck, and a test asserting every non-orphan preference key is named somewhere under `features/settings/`. The durable half: `store/persisted-keys.ts` partitions every persisted key into preference vs session state, asserted by a type-level exhaustiveness check and a runtime grep test. **Re-derived at merge time**: the doc's x1 audit counted 71 keys with a 9/25 split of 34 orphans; a sibling PR (#163) landed one more persisted key after that audit, and `sectionFilters` turned out to already be a registered preference rather than session state as the doc's seed table had it — the actual, test-verified partition is 42 preference / 30 session-state keys covering the real 72-key `PersistedUi`. The five-orphan `KNOWN_ORPHANS` allow-list (`browserLayout`, `loopChoices`, `loopAgents`, `loopModels`, `loopSchedules` — Decision 6) and the `*Detached` docblock correction (Decision 7) landed as specified.
+
 ## Deliverables
 
 ### A — The page (M)

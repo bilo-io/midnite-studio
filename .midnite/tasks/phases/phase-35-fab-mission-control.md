@@ -50,6 +50,22 @@ launch.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The FAB panel becomes a real loop console. Today every tab latches onto the same pre-existing session (a stale-closure bug in `fab-terminal-view.tsx`) while its actual spawns pile into the main terminal housing; this phase gives each tab its own in-panel session via a `surface: 'main' | 'fab'` flag on `TerminalSessionSchema`, a per-loop checkbox composer, and Start↔Stop with the gradient glow pulse. A is the shared contract (LoopDefinition, surface, run-record schemas); B kills the triplicated prompt truth by unifying the FAB with `DEFAULT_AGENT_SKILLS` into one Settings-editable registry; C is the session-hosting fix; D the composer + Start/Stop/glow; E the mission-control layer (FAB dots, waiting-toasts, capped run history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, transcript kept.* (98% · 39/40) — All five themes landed (2026-09-01, local). Made the (previously untracked, ad-hoc) FAB panel a real loop console: each tab owns its own in-panel terminal session (`surface: 'fab'`, never in the main housing), a checkbox prompt composer per loop, Start↔Stop with the gradient glow pulse, and a mission-control layer — FAB badges, waiting-toasts, a capped run history.
+
+**Theme A — Shared contracts: loops and surfaces.** ✅ Shared contracts: `LoopDefinition`/`LoopRunRecord` schemas, `composeLoopPrompt`, `surface` on `TerminalSessionSchema` (zod-optional, so old `terminals.json` parses), `mstudio:loop-runs:*` channels. (2026-09-01, local — no PR/no remote)
+
+**Theme B — One loop registry, not three prompt copies.** ✅ Registry unification: `DEFAULT_LOOPS` retires the FAB's hard-coded prompts by naming an `agentCommandId` into `agentSkills` (wrapped, not migrated — one prompt store, loops as a view over it); Settings ▸ Agent ▸ Loops edits modifier defaults. (2026-09-01) Also retires the FAB's hard-coded prompts by pointing each loop at the `DEFAULT_AGENT_SKILLS` entry it runs, so there is one prompt store rather than three.
+
+**Theme C — A session that lives in the FAB and nowhere else.** ✅ Session hosting: `surface: 'fab'` sessions filtered out of the main housing/session-list, `startAgent` returns the session (stale-closure bug gone by construction), lazy create-on-Start, `TerminalView` `layoutClassName` prop, asleep rehydration into tabs. (2026-09-01)
+
+**Theme D — Compose, Start, Stop, glow.** ✅ Composer + Start/Stop: modifier checkboxes + extras field collapsing to a chip strip, prompt composition on Start, Stop = interrupt-then-sleep with the transcript kept, `.loop-run-glow` in three states keyed to agent activity, each with a reduced-motion opt-out. (2026-09-01)
+
+**Theme E — Mission control: badges, toasts, history.** ✅ Mission control: FAB glow + per-loop dots (amber on waiting), an actionable waiting notice, `loop-runs-store.ts` capped history whose ENDS are owned by main (finalised off the pty's own exit) + per-tab history list, `fab-loops.spec.ts`. (2026-09-01)
+
+**Verification follow-up.** Themes F–I (PR #3) then closed three of the four open verification items and as much of the fourth as a browser reaches — and found, in the doing, that a persisted loop never came back unless you opened the *main* terminal panel first. One item stays open for a human: quit and relaunch mid-run against a **packaged** build.
+
 ## Deliverables
 
 ### A — Shared contracts: loops and surfaces (S/M) — ✅ DONE (2026-09-01)
