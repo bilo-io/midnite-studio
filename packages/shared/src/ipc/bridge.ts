@@ -1054,6 +1054,45 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Media page (Phase 99 Theme A) — the repo-scoped media store under
+   * `<repo>/.midnite/media/<tab>/`, the ffmpeg probe and the export service.
+   * Every op answers a `GitOpResult` envelope.
+   */
+  media: {
+    project: {
+      list: (
+        req: In<typeof S.MediaProjectListRequest>,
+      ) => Promise<z.infer<typeof S.MediaProjectListResponse>>;
+      create: (
+        req: In<typeof S.MediaProjectCreateRequest>,
+      ) => Promise<z.infer<typeof S.MediaProjectCreateResponse>>;
+      rename: (req: In<typeof S.MediaProjectRenameRequest>) => Promise<GitOpResult>;
+      remove: (req: In<typeof S.MediaProjectRemoveRequest>) => Promise<GitOpResult>;
+    };
+    file: {
+      list: (
+        req: In<typeof S.MediaFileListRequest>,
+      ) => Promise<z.infer<typeof S.MediaFileListResponse>>;
+      read: (
+        req: In<typeof S.MediaFileReadRequest>,
+      ) => Promise<z.infer<typeof S.MediaFileReadResponse>>;
+      write: (
+        req: In<typeof S.MediaFileWriteRequest>,
+      ) => Promise<z.infer<typeof S.MediaFileWriteResponse>>;
+      rename: (req: In<typeof S.MediaFileRenameRequest>) => Promise<GitOpResult>;
+      remove: (req: In<typeof S.MediaFileRemoveRequest>) => Promise<GitOpResult>;
+    };
+    reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
+    ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
+    export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;
+    cancelExport: (req: In<typeof S.MediaExportCancelRequest>) => Promise<GitOpResult>;
+    onChanged: (handler: (event: z.infer<typeof S.MediaChangedPayload>) => void) => Unsubscribe;
+    onExportProgress: (
+      handler: (event: z.infer<typeof S.MediaExportProgressPayload>) => void,
+    ) => Unsubscribe;
+  };
+
+  /**
    * The onboarding kit's Setup/Update leaves (Phase 49). `plan` reads the
    * template tree and the target repo and writes nothing — safe to call
    * unprompted, the same posture as `diag.detect`. `apply` writes only the

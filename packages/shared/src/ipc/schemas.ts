@@ -170,6 +170,19 @@ import {
   OllamaSettingsSchema,
 } from '../ollama';
 import {
+  FfmpegStatusSchema,
+  MediaChangedEventSchema,
+  MediaExportFormatSchema,
+  MediaExportOptionsSchema,
+  MediaExportProgressEventSchema,
+  MediaExportSourceSchema,
+  MediaFileEntrySchema,
+  MediaProjectNameSchema,
+  MediaProjectSchema,
+  MediaRelPathSchema,
+  MediaTabSchema,
+} from '../media';
+import {
   VideoProjectSchema,
   VideoRenderProgressEventSchema,
   VideoRenderSchema,
@@ -2890,6 +2903,99 @@ export const VideoRootSetResponse = z.object({ root: z.string().nullable() });
  */
 export const VideoStudioChangedPayload = VideoStudioChangedEventSchema;
 export const VideoRenderProgressPayload = VideoRenderProgressEventSchema;
+
+// --- media (Phase 99 Theme A) ------------------------------------------------
+
+/** Every media op names its repo and tab; main resolves `<repo>/.midnite/media/<tab>`. */
+const MediaScope = { repoId: z.string().min(1), tab: MediaTabSchema };
+
+export const MediaProjectListRequest = z.object(MediaScope);
+export const MediaProjectListResponse = GitOpResultOf(z.array(MediaProjectSchema));
+
+export const MediaProjectCreateRequest = z.object({ ...MediaScope, project: MediaProjectNameSchema });
+export const MediaProjectCreateResponse = GitOpResultOf(MediaProjectSchema);
+
+export const MediaProjectRenameRequest = z.object({
+  ...MediaScope,
+  project: MediaProjectNameSchema,
+  to: MediaProjectNameSchema,
+});
+export const MediaProjectRenameResponse = GitOpResultSchema;
+
+export const MediaProjectRemoveRequest = z.object({ ...MediaScope, project: MediaProjectNameSchema });
+export const MediaProjectRemoveResponse = GitOpResultSchema;
+
+export const MediaFileListRequest = z.object({ ...MediaScope, project: MediaProjectNameSchema });
+export const MediaFileListResponse = GitOpResultOf(z.array(MediaFileEntrySchema));
+
+/** `utf8` for docs/sidecars, `base64` for binary payloads. */
+export const MediaEncodingSchema = z.enum(['utf8', 'base64']);
+
+export const MediaFileReadRequest = z.object({
+  ...MediaScope,
+  project: MediaProjectNameSchema,
+  path: MediaRelPathSchema,
+  encoding: MediaEncodingSchema.default('utf8'),
+});
+export const MediaFileReadResponse = GitOpResultOf(z.string());
+
+/** Creates the project folder and any intermediate dirs inside it. */
+export const MediaFileWriteRequest = z.object({
+  ...MediaScope,
+  project: MediaProjectNameSchema,
+  path: MediaRelPathSchema,
+  content: z.string(),
+  encoding: MediaEncodingSchema.default('utf8'),
+});
+/** `largeFile` is past `MEDIA_LARGE_FILE_BYTES` — the renderer's cue for the LFS hint. */
+export const MediaFileWriteResponse = GitOpResultOf(
+  z.object({ size: z.number().int().nonnegative(), largeFile: z.boolean() }),
+);
+
+export const MediaFileRenameRequest = z.object({
+  ...MediaScope,
+  project: MediaProjectNameSchema,
+  path: MediaRelPathSchema,
+  to: MediaRelPathSchema,
+});
+export const MediaFileRenameResponse = GitOpResultSchema;
+
+export const MediaFileRemoveRequest = z.object({
+  ...MediaScope,
+  project: MediaProjectNameSchema,
+  path: MediaRelPathSchema,
+});
+export const MediaFileRemoveResponse = GitOpResultSchema;
+
+export const MediaRevealRequest = z.object({
+  ...MediaScope,
+  project: MediaProjectNameSchema,
+  path: MediaRelPathSchema.optional(),
+});
+export const MediaRevealResponse = GitOpResultSchema;
+
+export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
+
+/**
+ * `exportId` is minted by the renderer so it can cancel before the invoke
+ * resolves. `defaultDir` seeds the save dialog (Settings ▸ Media's export
+ * folder). Resolves `{dest}` on success; a dismissed dialog is `{ok:false,
+ * kind:'error', message:'cancelled'}`.
+ */
+export const MediaExportRequest = z.object({
+  exportId: z.string().min(1),
+  source: MediaExportSourceSchema,
+  format: MediaExportFormatSchema,
+  options: MediaExportOptionsSchema.default({}),
+  defaultDir: z.string().min(1).optional(),
+});
+export const MediaExportResponse = GitOpResultOf(z.object({ dest: z.string() }));
+
+export const MediaExportCancelRequest = z.object({ exportId: z.string().min(1) });
+export const MediaExportCancelResponse = GitOpResultSchema;
+
+export const MediaChangedPayload = MediaChangedEventSchema;
+export const MediaExportProgressPayload = MediaExportProgressEventSchema;
 
 // --- database (Phase 61) -----------------------------------------------------
 

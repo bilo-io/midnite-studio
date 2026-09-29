@@ -1832,6 +1832,46 @@ describe('workflow contract', () => {
   });
 });
 
+describe('media contract (Phase 99 Theme A)', () => {
+  it('covers every media channel', () => {
+    const expected: Record<string, string[]> = {
+      mediaProjectList: ['MediaProjectListRequest', 'MediaProjectListResponse'],
+      mediaProjectCreate: ['MediaProjectCreateRequest', 'MediaProjectCreateResponse'],
+      mediaProjectRename: ['MediaProjectRenameRequest', 'MediaProjectRenameResponse'],
+      mediaProjectRemove: ['MediaProjectRemoveRequest', 'MediaProjectRemoveResponse'],
+      mediaFileList: ['MediaFileListRequest', 'MediaFileListResponse'],
+      mediaFileRead: ['MediaFileReadRequest', 'MediaFileReadResponse'],
+      mediaFileWrite: ['MediaFileWriteRequest', 'MediaFileWriteResponse'],
+      mediaFileRename: ['MediaFileRenameRequest', 'MediaFileRenameResponse'],
+      mediaFileRemove: ['MediaFileRemoveRequest', 'MediaFileRemoveResponse'],
+      mediaReveal: ['MediaRevealRequest', 'MediaRevealResponse'],
+      mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
+      mediaExport: ['MediaExportRequest', 'MediaExportResponse'],
+      mediaExportCancel: ['MediaExportCancelRequest', 'MediaExportCancelResponse'],
+      mediaChanged: ['MediaChangedPayload'],
+      mediaExportProgress: ['MediaExportProgressPayload'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('media'),
+    );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('refuses traversal and absolute paths at the schema', () => {
+    const base = { repoId: 'r', tab: 'doc', project: 'p' };
+    expect(schemas.MediaFileReadRequest.safeParse({ ...base, path: 'a/b.md' }).success).toBe(true);
+    for (const path of ['../x', 'a/../../x', '/etc/passwd', 'a//b']) {
+      expect(schemas.MediaFileReadRequest.safeParse({ ...base, path }).success).toBe(false);
+    }
+    for (const project of ['..', '.hidden', 'a/b']) {
+      expect(schemas.MediaProjectCreateRequest.safeParse({ ...base, project }).success).toBe(false);
+    }
+  });
+});
+
 describe('video contract', () => {
   /*
     Same prefix-scoped, opt-in guard as `workflow contract` above — there is
