@@ -500,7 +500,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // Room for a commit message's first paragraph, the file list and a
   // screenful of diff, while leaving the rows around it on screen.
   graphInlineHeight: 440,
-  // The Changes view's own list width — the same list, in the same place.
+  // The old Changes view's list width — the same list, in the same place.
   graphInlineListWidth: 384,
 };
 
@@ -1102,7 +1102,7 @@ export type UiState = {
    * before it existed.
    *
    * Keyed by view because the answer is per-view. Filtering Actions down to its
-   * two sections and then wanting the whole tree in Changes are unrelated
+   * two sections and then wanting the whole tree in Graph are unrelated
    * decisions, and one flag for both would make each undo the other.
    */
   sectionFilters: Partial<Record<ViewId, boolean>>;
