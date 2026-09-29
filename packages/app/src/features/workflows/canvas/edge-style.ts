@@ -89,8 +89,116 @@ export function rendererEdgeState(
   return normalizeEdge(edge).fromPort === sourceSettledPort ? 'taken' : 'dead';
 }
 
-/** A dead edge's opacity — the phase doc's own "35%" number, named once so the edge component and its test share it. */
-export const DEAD_EDGE_OPACITY = 0.35;
+/**
+ * The floor and ceiling every edge's stroke opacity is held to. Below 50% an
+ * edge on the dark canvas all but disappears (the pre-clamp canvas drew every
+ * edge in `--border` — itself a low-contrast token — so even "full opacity"
+ * was faint); above 90% a crossing of several edges reads as one solid
+ * block. {@link edgeAppearance} is the only place an edge opacity is
+ * produced, and it passes every value through {@link clampEdgeOpacity}.
+ */
+export const EDGE_OPACITY_MIN = 0.5;
+export const EDGE_OPACITY_MAX = 0.9;
+
+/** Holds `value` inside [{@link EDGE_OPACITY_MIN}, {@link EDGE_OPACITY_MAX}]. `NaN` reads as the floor, never as an invisible edge. */
+export function clampEdgeOpacity(value: number): number {
+  if (Number.isNaN(value)) return EDGE_OPACITY_MIN;
+  return Math.min(EDGE_OPACITY_MAX, Math.max(EDGE_OPACITY_MIN, value));
+}
+
+/**
+ * A dead edge's opacity. The phase doc asked for 35%; the edge-visibility
+ * pass lifted every edge to at least {@link EDGE_OPACITY_MIN}, so a dead
+ * edge now sits AT the floor and reads as dead by losing its colour and its
+ * marching dashes, not by near-vanishing.
+ */
+export const DEAD_EDGE_OPACITY = EDGE_OPACITY_MIN;
+
+/**
+ * Every variant an edge can be drawn in, orthogonal to its kind. `hovered`
+ * never reaches this function as a boolean — the pointer's hover is CSS
+ * (`.react-flow__edge:hover`, `styles.css`) — so its opacity is precomputed
+ * here as `hoverOpacity` and handed to CSS through a custom property,
+ * keeping the clamp in this one place.
+ */
+export type EdgeVariantInput = {
+  kind: WorkflowEdgeKind;
+  state: RendererEdgeState;
+  /** The source node is mid-run — the edge is about to carry data. */
+  running: boolean;
+  selected: boolean;
+};
+
+export type EdgeAppearance = {
+  stroke: string;
+  strokeWidth: number;
+  /** Already clamped. */
+  opacity: number;
+  /** Already clamped — applied by CSS while the pointer is over the edge. */
+  hoverOpacity: number;
+  dashArray?: string;
+  /** Whether the marching-dash `.wf-edge-live` animation runs. */
+  animated: boolean;
+};
+
+/** The resting edge colour: a real foreground tone rather than `--border`, so opacity — not a faint token — is what sets how strong an edge reads. */
+const EDGE_STROKE = 'hsl(var(--muted-foreground))';
+const EDGE_STROKE_SELECTED = 'hsl(var(--primary))';
+
+/** Raw (pre-clamp) opacities per variant, strongest wins. */
+const EDGE_OPACITY = {
+  rest: 0.6,
+  taken: 0.8,
+  running: 0.85,
+  error: 0.7,
+  selected: 0.9,
+  hoverBoost: 0.2,
+} as const;
+
+/** Stroke width, px: 2 at rest (1.5 was lost on the dark canvas even at full opacity), 2.5 selected. */
+export const EDGE_STROKE_WIDTH = 2;
+export const EDGE_STROKE_WIDTH_SELECTED = 2.5;
+
+/**
+ * An edge's whole visual recipe for one render — the only function that
+ * decides an edge's opacity, and the one that clamps it. Kind supplies the
+ * dash pattern and (for `error`) a fixed colour; state/running/selected pick
+ * the opacity and width.
+ */
+export function edgeAppearance({ kind, state, running, selected }: EdgeVariantInput): EdgeAppearance {
+  const kindStyle = EDGE_KIND_STYLE[kind];
+  const stroke = selected
+    ? EDGE_STROKE_SELECTED
+    : state === 'dead'
+      ? EDGE_STROKE
+      : running
+        ? activityStatusVar('running')
+        : (kindStyle.strokeColorVar ?? EDGE_STROKE);
+
+  const raw = selected
+    ? EDGE_OPACITY.selected
+    : state === 'dead'
+      ? DEAD_EDGE_OPACITY
+      : running
+        ? EDGE_OPACITY.running
+        : state === 'taken'
+          ? EDGE_OPACITY.taken
+          : kind === 'error'
+            ? EDGE_OPACITY.error
+            : EDGE_OPACITY.rest;
+
+  const opacity = clampEdgeOpacity(raw);
+  return {
+    stroke,
+    strokeWidth: selected ? EDGE_STROKE_WIDTH_SELECTED : EDGE_STROKE_WIDTH,
+    opacity,
+    hoverOpacity: clampEdgeOpacity(opacity + EDGE_OPACITY.hoverBoost),
+    dashArray: kindStyle.dashArray,
+    // Every edge animates until a run marks it dead — see
+    // `workflow-edge-view.tsx` for the history of that rule.
+    animated: state !== 'dead',
+  };
+}
 
 /**
  * What kind a **new** connect-drag edge should carry, from the source port

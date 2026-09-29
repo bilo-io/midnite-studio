@@ -5200,6 +5200,20 @@ html[data-motion='reduced'] .session-row-pulse {
   vertical-align: -2px;
 }
 
+/* Workflow canvas — every edge's stroke opacity. The numbers are NOT here:
+ * `edge-style.ts`'s `edgeAppearance` computes both (clamped to 50–90%) and
+ * hands them over as custom properties, so this file only chooses between
+ * the resting value and the hovered one. `stroke-opacity` rather than
+ * `opacity` so the edge's label chip and interaction path are unaffected. */
+.wf-edge-path {
+  stroke-opacity: var(--wf-edge-opacity, 0.6);
+  transition: stroke-opacity 0.12s ease;
+}
+
+.react-flow__edge:hover .wf-edge-path {
+  stroke-opacity: var(--wf-edge-hover-opacity, 0.8);
+}
+
 /* Workflow canvas — a live (pending or taken) edge's marching-dash animation
  * (Phase 97 Theme J, `workflow-edge-view.tsx`'s `.wf-edge-live`). A dead edge
  * never gets this class at all (it fades via `opacity` instead), so nothing
