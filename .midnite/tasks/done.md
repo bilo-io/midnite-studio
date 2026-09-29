@@ -1,6 +1,19 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-29 — Phase 98 Theme A — Overlay frame and first-run gate
+
+[PR #600](https://github.com/bilo-io/midnite-studio/pull/600). One full-window setup overlay behind one persisted gate replaces the stacked `FirstRunModal` + `OnboardingModal`.
+
+- [x] `features/setup/setup-overlay.tsx` at `z-dialog`, via `useDismiss({layer: 'dialog', blocking: true})` + `useFocusTrap`; added to `occluder-coverage.test.tsx`.
+- [x] Chrome: X (top left), `ThemeToggle` (top right, new `elevated` prop so its menu paints above the overlay), pagination dots bottom-centre (active / done / skipped / upcoming), "Skip >" underneath.
+- [x] `SETUP_PAGES` registry grown from `ONBOARDING_STEPS` (flat array; rows carry `titleTyped` and optional `canAdvance`); the frame keeps Back/Next.
+- [x] Pure `setup-machine.ts`: `intro → page[i] → finale → closed`; Back/Next and ←/→ (ignored in text fields and with modifiers), Esc on the X path.
+- [x] `setupState {completedAt, dismissedAt, lastPageId, skippedPageIds}` in `persisted-keys.ts`; ui-store v27 → v28 migration — `onboardedAt !== null` or `showOnboarding === false` counts as done, `onboardingSkippedStepIds` → `skippedPageIds`, old keys deleted.
+- [x] `FirstRunModal`/`OnboardingModal` and their `app.tsx` mounts removed; their content kept as interim `machine`/`forges` pages (E/F split the forge cards); Settings ▸ Accounts' skipped-forge banner gained **Resume setup**.
+- [x] Chord-free `setup.open` ("Run Setup Wizard") in `COMMANDS`, handled in `use-command-handlers.ts`, palette-safe, companion `direct`.
+- [x] Vitest: gate + migration (fresh, old-onboarded, old-skipped), machine + dots, frame chrome, navigation and keys, every exit's bookkeeping, focus return; `onboarding-wizard.spec.ts` rewritten in place as `setup-overlay.spec.ts` (still one e2e test).
+
 ## 2026-09-26 — Phase 97 Theme K — Receipts and replay by iteration
 
 [PR #580](https://github.com/bilo-io/midnite-studio/pull/580). A change receipt on Phase 94 Theme A's `AgentRun`, plus replay by iteration — the last

@@ -142,7 +142,7 @@ import {
   ternary that used to stand where `<Component />` does below. The `lazy()`
   calls and the reasoning about which views stay eager moved there with them.
 
-  What is left here is the three rarely-shown modals, which are not views: each
+  What is left here is the two rarely-shown overlays, which are not views: each
   keeps its own boundary with a `null` fallback rather than joining the view
   boundary, because they are overlays, and a spinner floating over the app while
   a modal's chunk arrives would be a worse frame than the modal simply appearing
@@ -150,12 +150,8 @@ import {
 */
 const loadSlidesModal = () => import('./features/slides/slides-modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
-const loadOnboardingModal = () => import('./features/onboarding/onboarding-modal');
-const OnboardingModal = lazy(() =>
-  loadOnboardingModal().then((m) => ({ default: m.OnboardingModal })),
-);
-const loadFirstRunModal = () => import('./features/onboarding/first-run-modal');
-const FirstRunModal = lazy(() => loadFirstRunModal().then((m) => ({ default: m.FirstRunModal })));
+const loadSetupOverlay = () => import('./features/setup/setup-overlay');
+const SetupOverlay = lazy(() => loadSetupOverlay().then((m) => ({ default: m.SetupOverlay })));
 
 /**
  * A QueryClient tuned for a desktop app talking to its own main process.
@@ -1965,18 +1961,6 @@ function Shell() {
         {quickAccessOpen ? (
           <QuickAccessMenu onClose={() => useUiStore.getState().setQuickAccessOpen(false)} />
         ) : null}
-        {/*
-          Silent, like the two below: a modal whose chunk fails to load must not
-          paint an error card over the app it was optional to. It renders
-          nothing, exactly as it renders nothing while loading — and the throw
-          still reaches `lib/report.ts`, so "it silently never appeared" is a
-          recorded fact rather than a mystery.
-        */}
-        <ErrorBoundary label="First run" silent>
-          <Suspense fallback={null}>
-            <FirstRunModal />
-          </Suspense>
-        </ErrorBoundary>
       </div>
     </AppFrame>
   );
@@ -2112,9 +2096,16 @@ export function App() {
         <ToastHost>
           <PaletteHost>
             <Shell />
-            <ErrorBoundary label="Onboarding" silent>
+            {/*
+              Silent, like Slides below: an overlay whose chunk fails to load
+              must not paint an error card over the app it was optional to. It
+              renders nothing, exactly as it renders nothing while loading — and
+              the throw still reaches `lib/report.ts`, so "it silently never
+              appeared" is a recorded fact rather than a mystery.
+            */}
+            <ErrorBoundary label="Setup" silent>
               <Suspense fallback={null}>
-                <OnboardingModal />
+                <SetupOverlay />
               </Suspense>
             </ErrorBoundary>
           </PaletteHost>

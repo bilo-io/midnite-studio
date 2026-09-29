@@ -31,6 +31,7 @@ import {
   useUiStore,
   type ForgeSwitcherPlacement,
 } from '../../../store/ui-store';
+import { useSetupStore } from '../../setup/setup-store';
 import { Field, TextField } from './controls';
 import { ReachableRepoActions } from './reachable-repo-actions';
 import { ReachableRepoRow } from './reachable-repo-row';
@@ -148,15 +149,16 @@ export function AccountsPage() {
   const syncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
   const setSyncGhAuthSwitch = useUiStore((s) => s.setForgeSyncGhAuthSwitch);
   /*
-    The onboarding wizard's "Connect your forges" step (Phase 90 Theme I,
-    `onboarding-steps.ts`'s `id: 'forges'`) records itself here on Skip. A
-    literal id rather than an import of `ONBOARDING_STEPS`: that module
-    already imports this file (`forge-connect-step.tsx` reads
-    `PROVIDER_HOST`/`PROVIDER_LABEL`/`PROVIDER_TOKEN_HINT` below), so
-    importing it back would be a cycle for one string.
+    The setup overlay's "Connect your forges" page (Phase 98 Theme A,
+    `setup-pages.ts`'s `id: 'forges'`) records itself here on Skip. A literal
+    id rather than an import of `SETUP_PAGES`: that module already imports
+    this file (`forge-connect-page.tsx` reads `PROVIDER_HOST`/`PROVIDER_LABEL`/
+    `PROVIDER_TOKEN_HINT` below), so importing it back would be a cycle for
+    one string. `setup-store.ts` imports nothing, so "Resume setup" is free.
   */
-  const skippedForgeStep = useUiStore((s) => s.onboardingSkippedStepIds.includes('forges'));
-  const clearSkippedForgeStep = useUiStore((s) => s.setOnboardingStepSkipped);
+  const skippedForgeStep = useUiStore((s) => s.setupState.skippedPageIds.includes('forges'));
+  const clearSkippedForgeStep = useUiStore((s) => s.setSetupPageSkipped);
+  const openSetup = useSetupStore((s) => s.openSetup);
 
   /*
     The account switcher's "Add account…" (Phase 90 Theme L) lands here with
@@ -191,13 +193,22 @@ export function AccountsPage() {
       {skippedForgeStep ? (
         <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
           <span>You skipped connecting a forge during setup — add one below whenever you're ready.</span>
-          <button
-            type="button"
-            onClick={() => clearSkippedForgeStep('forges', false)}
-            className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Got it
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openSetup('forges')}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Resume setup
+            </button>
+            <button
+              type="button"
+              onClick={() => clearSkippedForgeStep('forges', false)}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Got it
+            </button>
+          </div>
         </div>
       ) : null}
       <Accordion title="Accounts" icon={<LuCircleUserRound className="h-4 w-4" />} defaultOpen>

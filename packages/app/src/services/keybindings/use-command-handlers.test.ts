@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BranchStatus, StatusResult } from '@midnite/studio-shared';
 
 import { useAccountSwitcherStore } from '../../components/account-switcher-store';
+import { useSetupStore } from '../../features/setup/setup-store';
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
 import { useSlidesStore } from '../../features/slides/slides-store';
@@ -527,6 +528,18 @@ describe('useCommandHandlers — the reload pair', () => {
   it('is a no-op rather than a throw with no preload bridge', () => {
     const { result } = withProviders(new QueryClient());
     expect(() => result.current['app.reload'].run()).not.toThrow();
+  });
+});
+
+describe('useCommandHandlers — setup.open (Phase 98 Theme A)', () => {
+  it('asks the setup overlay to open at its intro', () => {
+    useSetupStore.setState({ requested: false, startPageId: 'forges' });
+    const { result } = withProviders(new QueryClient());
+    const command = result.current['setup.open'];
+    expect(command.enabled).toBe(true);
+    command.run();
+    expect(useSetupStore.getState()).toMatchObject({ requested: true, startPageId: null });
+    useSetupStore.setState({ requested: false, startPageId: null });
   });
 });
 

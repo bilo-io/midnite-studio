@@ -66,6 +66,12 @@ import { useFileEditorStore } from './file-editor-store';
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
+import {
+  INITIAL_SETUP_STATE,
+  migrateSetupState,
+  withPageSkipped,
+  type SetupState,
+} from './setup-state';
 
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
@@ -954,25 +960,24 @@ export type UiState = {
   setLoopEnabled: (loopId: string, on: boolean) => void;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
-  onboardedAt: string | null;
   occluders: number;
   incrementOccluders: () => void;
   decrementOccluders: () => void;
   setUpdatesAutoCheck: (autoCheck: boolean) => void;
   setUpdateChannel: (channel: 'stable' | 'beta') => void;
-  setOnboardedAt: (timestamp: string | null) => void;
-  showOnboarding: boolean;
-  setShowOnboarding: (show: boolean) => void;
   /**
-   * Which optional onboarding wizard steps (Phase 90 Theme I) the user chose
-   * Skip on, by `WizardStep['id']`. Not cleared once the modal closes —
-   * `accounts-page.tsx` reads it to say "you skipped this" and offer the
-   * step again, and a skip the app forgets is a step the user can never
-   * find. Cleared per-step by `setOnboardingStepSkipped(id, false)` once the
-   * user acts on the offer (connects a forge, or dismisses the notice).
+   * The setup overlay's one gate (Phase 98 Theme A) — see `setup-state.ts`.
+   * Replaced `onboardedAt`, `showOnboarding` and `onboardingSkippedStepIds`
+   * in v28; the migration folds all three into it.
    */
-  onboardingSkippedStepIds: string[];
-  setOnboardingStepSkipped: (stepId: string, skipped: boolean) => void;
+  setupState: SetupState;
+  updateSetupState: (patch: Partial<SetupState>) => void;
+  /**
+   * Record or clear one Skip. Not cleared when the overlay closes —
+   * `accounts-page.tsx` reads it to say "you skipped this" and offer the page
+   * again, and a skip the app forgets is a page the user can never find.
+   */
+  setSetupPageSkipped: (pageId: string, skipped: boolean) => void;
   /** Councils' right configuration panel, collapsed to a rail (Phase 42 Theme B). */
   councilConfigCollapsed: boolean;
   setCouncilConfigCollapsed: (collapsed: boolean) => void;
@@ -2076,9 +2081,7 @@ export type PersistedUi = Pick<
   | 'favouriteRepoIds'
   | 'updatesAutoCheck'
   | 'updateChannel'
-  | 'onboardedAt'
-  | 'showOnboarding'
-  | 'onboardingSkippedStepIds'
+  | 'setupState'
   | 'councilConfigCollapsed'
   | 'workflowPaletteCollapsed'
   | 'workflowRunPanelCollapsed'
@@ -2488,23 +2491,19 @@ export const useUiStore = create<UiState>()(
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
-      onboardedAt: null,
       occluders: 0,
       incrementOccluders: () => set((s) => ({ occluders: s.occluders + 1 })),
       decrementOccluders: () => set((s) => ({ occluders: Math.max(0, s.occluders - 1) })),
       setUpdatesAutoCheck: (updatesAutoCheck) => set({ updatesAutoCheck }),
       setUpdateChannel: (updateChannel) => set({ updateChannel }),
-      setOnboardedAt: (onboardedAt) => set({ onboardedAt }),
-      showOnboarding: true,
-      setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
-      onboardingSkippedStepIds: [],
-      setOnboardingStepSkipped: (stepId, skipped) =>
+      setupState: INITIAL_SETUP_STATE,
+      updateSetupState: (patch) => set((state) => ({ setupState: { ...state.setupState, ...patch } })),
+      setSetupPageSkipped: (pageId, skipped) =>
         set((state) => ({
-          onboardingSkippedStepIds: skipped
-            ? state.onboardingSkippedStepIds.includes(stepId)
-              ? state.onboardingSkippedStepIds
-              : [...state.onboardingSkippedStepIds, stepId]
-            : state.onboardingSkippedStepIds.filter((id) => id !== stepId),
+          setupState: {
+            ...state.setupState,
+            skippedPageIds: withPageSkipped(state.setupState.skippedPageIds, pageId, skipped),
+          },
         })),
       councilConfigCollapsed: false,
       setCouncilConfigCollapsed: (councilConfigCollapsed) => set({ councilConfigCollapsed }),
@@ -2951,7 +2950,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 27,
+      version: 28,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -3030,13 +3029,10 @@ export const useUiStore = create<UiState>()(
         favouriteRepoIds: state.favouriteRepoIds,
         updatesAutoCheck: state.updatesAutoCheck,
         updateChannel: state.updateChannel,
-        onboardedAt: state.onboardedAt,
-        /* Persisted for the same reason `onboardedAt` is: the welcome modal is
-         * a full-screen `inset-0` overlay, so a default of `true` that is never
-         * written down means it is re-raised over the whole app on every single
-         * launch — and the only way past it is to dismiss it again. */
-        showOnboarding: state.showOnboarding,
-        onboardingSkippedStepIds: state.onboardingSkippedStepIds,
+        /* Persisted because the setup overlay covers the whole window: a gate
+         * that is never written down re-raises it over the app on every launch,
+         * and the only way past it is to dismiss it again. */
+        setupState: state.setupState,
         councilConfigCollapsed: state.councilConfigCollapsed,
         workflowPaletteCollapsed: state.workflowPaletteCollapsed,
         workflowRunPanelCollapsed: state.workflowRunPanelCollapsed,
@@ -3166,6 +3162,11 @@ export const useUiStore = create<UiState>()(
        * before this version, and `'server'` is also the fresh-install
        * default, so a pre-v27 blob and a fresh install land on the same
        * engine.
+       * v27 → v28: fold `onboardedAt`, `showOnboarding` and
+       * `onboardingSkippedStepIds` into `setupState` (Phase 98 Theme A) —
+       * see `migrateSetupState`. Either old latch closed counts as done, so an
+       * existing install never sees the new overlay unasked. The three old
+       * keys are deleted, not left to rot beside their replacement.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3178,6 +3179,9 @@ export const useUiStore = create<UiState>()(
           updatesAutoCheck?: boolean;
           updateChannel?: 'stable' | 'beta';
           onboardedAt?: string | null;
+          showOnboarding?: boolean;
+          onboardingSkippedStepIds?: string[];
+          setupState?: SetupState;
           activityTimelineStyle?: string;
           projectViewByProject?: Record<string, ProjectViewState>;
           terminalDetached?: boolean;
@@ -3328,6 +3332,14 @@ export const useUiStore = create<UiState>()(
         if (version < 27) {
           state.companionSttEngine = 'server';
         }
+        if (version < 28) {
+          // An existing `setupState` wins: no real pre-v28 blob has one, but a
+          // test profile seeded straight into the persist key does.
+          state.setupState ??= migrateSetupState(state, new Date().toISOString());
+          delete state.onboardedAt;
+          delete state.showOnboarding;
+          delete state.onboardingSkippedStepIds;
+        }
         return state as PersistedUi;
       },
       /**
@@ -3345,6 +3357,7 @@ export const useUiStore = create<UiState>()(
           ...current,
           ...saved,
           layout: { ...current.layout, ...saved.layout },
+          setupState: { ...current.setupState, ...saved.setupState },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
           navVisibility: parseNavVisibility(saved.navVisibility ?? current.navVisibility),

@@ -106,7 +106,7 @@ gains a **Resume setup** leaf for that.
 
 *One full-window first-run overlay replaces both onboarding modals — brand intro, typed titles, git → forges → accounts → CLI → toolchain → Ollama, a FAB handoff on skip, and a Welcome finale.*
 
-**Theme A — Overlay frame and first-run gate.** ◻ overlay frame (X, theme picker, dots, Skip), `SETUP_PAGES` registry, one migrated first-run gate, `setup.open` command
+**Theme A — Overlay frame and first-run gate.** ✅ Overlay frame (X, theme picker, dots, Skip), `SETUP_PAGES` registry, one migrated first-run gate, `setup.open` command ([PR #600](https://github.com/bilo-io/midnite-studio/pull/600)). Landed: `features/setup/setup-overlay.tsx` (full-window `z-dialog`, `useDismiss` + `useFocusTrap`, in `occluder-coverage.test.tsx`), a pure `setup-machine.ts` (`intro → page[i] → finale → closed`; ←/→ ignored inside text fields and with modifiers; → on the finale is a no-op), and `setupState` behind a ui-store v27 → v28 migration that retires `onboardedAt`/`showOnboarding`/`onboardingSkippedStepIds`. `FirstRunModal` and `OnboardingModal` are gone; their content survives as two interim pages (`machine`, `forges` — the old step id, so old skips still resolve) until Themes D–I replace them. Skip already records the page and both exits set `dismissedAt`/`lastPageId`, so Theme C only adds the FAB handoff. `ThemeToggle` gained an `elevated` prop (its `z-menu` menu would otherwise paint under the overlay). Settings ▸ Accounts' skipped-forge banner has **Resume setup**. The e2e spec was rewritten in place (`onboarding-wizard.spec.ts` → `setup-overlay.spec.ts`, still one test).
 
 **Theme B — Brand choreography.** ◻ brand choreography: caret + typed gradient "Midnite", FLIP into a fixed title anchor, typed titles + fading bodies, reduced motion
 
@@ -128,33 +128,33 @@ gains a **Resume setup** leaf for that.
 
 ## Deliverables
 
-### A — Overlay frame and first-run gate (M)
+### A — Overlay frame and first-run gate (M) — ✅ DONE (PR #600, 2026-09-29)
 
-- [ ] `features/setup/setup-overlay.tsx` covers the app window at `z-dialog`, registered through
+- [x] `features/setup/setup-overlay.tsx` covers the app window at `z-dialog`, registered through
       `useDismiss({layer: 'dialog', blocking: true})` and `useFocusTrap`. It is added to
       `occluder-coverage.test.tsx`.
-- [ ] Chrome:
+- [x] Chrome:
       - an **X** icon button at top left;
       - `ThemeToggle` at top right;
       - **pagination dots** bottom-centre, where the current dot is active and completed dots are filled;
       - a **"Skip >"** text link underneath the dots.
-- [ ] The step registry grows from `ONBOARDING_STEPS` into `SETUP_PAGES`. It keeps the
+- [x] The step registry grows from `ONBOARDING_STEPS` into `SETUP_PAGES`. It keeps the
       flat-array rule (a page is added by appending a row). Each row gains `titleTyped: string` and an
       optional `canAdvance` predicate, and the frame keeps its Back/Next controls.
-- [ ] A page state machine: `intro → page[i] → finale → closed`. Back/Next plus ←/→ step
+- [x] A page state machine: `intro → page[i] → finale → closed`. Back/Next plus ←/→ step
       between pages, and Esc routes to the X path (Theme C). Every non-intro, non-finale page is
       optional.
-- [ ] One persisted gate replaces both latches:
+- [x] One persisted gate replaces both latches:
       - `setupState: {completedAt, dismissedAt, lastPageId, skippedPageIds}`, entered in `persisted-keys.ts`.
       - Migration: `onboardedAt !== null` **or** `showOnboarding === false` counts as done, so existing users never see it.
       - The old `onboardingSkippedStepIds` maps into `skippedPageIds`.
-- [ ] Remove `FirstRunModal` and `OnboardingModal` along with their mounts in `app.tsx`. Move
+- [x] Remove `FirstRunModal` and `OnboardingModal` along with their mounts in `app.tsx`. Move
       `ForgeConnectStep`'s card logic into Theme E/F pages. Point the `accounts-page.tsx` "resume
       skipped step" affordance at the overlay.
-- [ ] Add a chord-free `setup.open` command ("Run setup wizard") in
+- [x] Add a chord-free `setup.open` command ("Run setup wizard") in
       [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) `COMMANDS`, handled in
       `use-command-handlers.ts`.
-- [ ] Vitest:
+- [x] Vitest:
       - gate and migration: fresh profile, old-onboarded profile, old-skipped profile;
       - page navigation and key handling;
       - the frame renders X, theme toggle, dots and Skip.

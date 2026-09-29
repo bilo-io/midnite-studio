@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ForgeConnectStep } from './forge-connect-step';
+import { ForgeConnectPage } from './forge-connect-page';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -33,10 +33,10 @@ afterEach(() => {
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
 });
 
-describe('ForgeConnectStep', () => {
+describe('ForgeConnectPage', () => {
   it('shows one card per supported provider', async () => {
     installBridge();
-    render(<ForgeConnectStep />, { wrapper: createWrapper() });
+    render(<ForgeConnectPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByText('GitHub')).toBeTruthy();
     expect(screen.getByText('GitLab')).toBeTruthy();
@@ -46,7 +46,7 @@ describe('ForgeConnectStep', () => {
 
   it('lets GitHub connect with no token, but requires one for the other three', async () => {
     installBridge();
-    render(<ForgeConnectStep />, { wrapper: createWrapper() });
+    render(<ForgeConnectPage />, { wrapper: createWrapper() });
 
     await screen.findByText('GitHub');
     const [githubConnect] = screen.getAllByRole('button', { name: 'Connect' });
@@ -74,7 +74,7 @@ describe('ForgeConnectStep', () => {
       delegated: null,
     };
     installBridge({ list: vi.fn().mockResolvedValue([account]) });
-    render(<ForgeConnectStep />, { wrapper: createWrapper() });
+    render(<ForgeConnectPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByText('The Octocat')).toBeTruthy();
     expect(screen.getByText('Connected')).toBeTruthy();

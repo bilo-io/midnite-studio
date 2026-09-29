@@ -165,8 +165,6 @@ export const SESSION_STATE_KEYS = [
   'favouriteRepoIds', // user-marked favourites, edited in the repos panel, not a setting
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
-  'onboardedAt', // one-way first-run lifecycle latch
-  'onboardingSkippedStepIds', // wizard skip history — surfaced read-only by accounts-page.tsx's banner, not itself a setting
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'projectViewByProject', // last-viewed view per project
@@ -178,7 +176,7 @@ export const SESSION_STATE_KEYS = [
   'selectedRepoId', // current selection
   'selectedWorktreePath', // current selection
   'settingsPage', // current selection — which settings page is showing
-  'showOnboarding', // one-way first-run lifecycle latch
+  'setupState', // setup overlay's first-run gate + skip history — lifecycle, not a setting
   'terminalDetached', // runtime popout state, corrected from main's window registry
   'terminalListOpen', // whether a panel is currently showing
   'terminalMaximized', // transient "terminal fills the window" mode

@@ -1,6 +1,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
+import { ThemeProvider } from '@bilo-io/ui/theme';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useUiStore } from '../store/ui-store';
@@ -14,7 +15,8 @@ import { BrowserSwitcherOverlay } from '../features/browser/browser-switcher-ove
 import { TerminalSwitcherOverlay } from '../features/terminal/terminal-switcher-overlay';
 import { SlidesModal } from '../features/slides/slides-modal';
 import { CouncilCreateDialog } from '../features/councils/council-create-dialog';
-import { FirstRunModal } from '../features/onboarding/first-run-modal';
+import { SetupOverlay } from '../features/setup/setup-overlay';
+import { INITIAL_SETUP_STATE } from '../store/setup-state';
 import { MergeDialog } from '../features/reviews/merge-dialog';
 import { HelpOverlay } from '../features/slides/help-overlay';
 import { StashPushDialog } from '../features/status/stash-push-dialog';
@@ -134,9 +136,18 @@ describe('occluder coverage across overlays', () => {
     );
   });
 
-  it('8. FirstRunModal registers as an occluder', () => {
-    useUiStore.setState({ onboardedAt: null });
-    assertOccluderLifecycle(() => render(withProviders(<FirstRunModal />)));
+  it('8. SetupOverlay registers as an occluder', () => {
+    // A fresh gate — the first-run auto-open — is what mounts it.
+    useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
+    assertOccluderLifecycle(() =>
+      render(
+        withProviders(
+          <ThemeProvider>
+            <SetupOverlay />
+          </ThemeProvider>,
+        ),
+      ),
+    );
   });
 
   it('9. MergeDialog registers as an occluder', () => {

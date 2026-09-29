@@ -9,6 +9,7 @@ import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { devServerUrl } from '../../features/browser/dev-server';
 import { useDevServer } from '../../features/browser/use-dev-server';
 import { useGraphStore } from '../../features/graph/graph-store';
+import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
@@ -296,6 +297,13 @@ export function useCommandHandlers(): CommandRuntime {
         else useAccountSwitcherStore.getState().requestOpen();
       },
     },
+    /*
+      Phase 98 Theme A. Opens the setup overlay at its intro — the one way in
+      for a profile that has already finished or left setup, since the
+      overlay opens by itself only on a first run. Enabled unconditionally:
+      it needs no repo, and every page in it is optional.
+    */
+    'setup.open': { enabled: true, run: () => useSetupStore.getState().openSetup() },
     /*
       Phase 71 Theme C. Forced `target: 'in-app'` and tagged with the repo it
       was detected for: a dev server is the one URL whose whole point is the

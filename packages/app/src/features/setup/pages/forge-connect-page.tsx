@@ -16,17 +16,19 @@ import { TextField } from '../../settings/settings-pages/controls';
 const SUPPORTED_KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucket', 'azure'];
 
 /**
- * Step two — optional. Four provider cards, one `whoami`-validated add per
+ * The forges page (Phase 98 Theme A carries it over from the old wizard's
+ * step two; Themes E and F split it into forge selection and account cards).
+ * Four provider cards, one `whoami`-validated add per
  * card (Theme B's `useAddForgeAccount`, the same mutation
  * `accounts-page.tsx`'s form drives), so a token pasted here is stored and
- * verified exactly the way it would be from Settings ▸ Accounts — this step
+ * verified exactly the way it would be from Settings ▸ Accounts — this page
  * is not a second credential path, only an earlier door to the first one.
  *
  * GitHub gets no required field: an empty token asks main to detect the
  * account already signed in via `gh` (`delegated: 'gh'`), matching the card's
  * own hint text.
  */
-export function ForgeConnectStep() {
+export function ForgeConnectPage() {
   const { data: accounts = [] } = useForgeAccounts();
 
   return (

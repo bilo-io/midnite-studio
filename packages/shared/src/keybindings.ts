@@ -194,6 +194,13 @@ export const COMMANDS = [
    */
   { id: 'account.switcher.open', label: 'Switch Forge Account…', group: 'view' },
   /**
+   * Open the setup overlay (Phase 98 Theme A) — the first-run walkthrough of
+   * git, forges, accounts and toolchain. It opens by itself only on a fresh
+   * profile; this is how everyone else reaches it. Chord-free: setup is a
+   * once-in-a-while act, not a reflex worth a global chord.
+   */
+  { id: 'setup.open', label: 'Run Setup Wizard', group: 'view' },
+  /**
    * Open the dev server detected for the active repository (Phase 71 Theme C).
    * Absent from the palette's own list when nothing is listening — detection
    * is a hint, and a disabled row teaches nothing an absent one does not.
