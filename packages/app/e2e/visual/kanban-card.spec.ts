@@ -113,7 +113,7 @@ async function openBoard(page: Page): Promise<void> {
 function runningCard(page: Page) {
   return page
     .getByText('Wire the write path')
-    .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    .locator('xpath=ancestor::*[@data-card-id]');
 }
 
 for (const theme of ['light', 'dark'] as const) {

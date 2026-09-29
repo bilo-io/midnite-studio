@@ -122,7 +122,7 @@ async function openBoard(page: Page, mode: 'light' | 'dark'): Promise<void> {
 async function shotCard(page: Page, name: string): Promise<void> {
   const card = page
     .getByText('Wire the write path')
-    .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    .locator('xpath=ancestor::*[@data-card-id]');
   const box = (await card.boundingBox())!;
   const pad = 20;
   await page.waitForTimeout(300);
