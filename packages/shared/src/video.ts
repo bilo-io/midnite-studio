@@ -157,6 +157,8 @@ export const VideoToolchainSchema = z.object({
   node: VideoToolBinarySchema,
   npx: VideoToolBinarySchema,
   remotionVersion: z.string().optional(),
+  /** Phase 99 Theme A — the Media export service's required external tool. Optional so older fixtures stay valid. */
+  ffmpeg: VideoToolBinarySchema.optional(),
   skills: z.object({
     videoWriteScript: VideoToolBinarySchema,
     videoExecuteScript: VideoToolBinarySchema,

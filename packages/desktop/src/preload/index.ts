@@ -141,6 +141,7 @@ const bridge: Pick<
   | 'finance'
   | 'apiClient'
   | 'video'
+  | 'media'
   | 'fs'
   | 'stats'
   | 'diag'
@@ -514,6 +515,27 @@ const bridge: Pick<
     },
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
+  },
+  media: {
+    project: {
+      list: (req) => call(CHANNELS.mediaProjectList, req),
+      create: (req) => call(CHANNELS.mediaProjectCreate, req),
+      rename: (req) => call(CHANNELS.mediaProjectRename, req),
+      remove: (req) => call(CHANNELS.mediaProjectRemove, req),
+    },
+    file: {
+      list: (req) => call(CHANNELS.mediaFileList, req),
+      read: (req) => call(CHANNELS.mediaFileRead, req),
+      write: (req) => call(CHANNELS.mediaFileWrite, req),
+      rename: (req) => call(CHANNELS.mediaFileRename, req),
+      remove: (req) => call(CHANNELS.mediaFileRemove, req),
+    },
+    reveal: (req) => call(CHANNELS.mediaReveal, req),
+    ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
+    export: (req) => call(CHANNELS.mediaExport, req),
+    cancelExport: (req) => call(CHANNELS.mediaExportCancel, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaChanged, handler),
+    onExportProgress: (handler) => subscribe(EVENT_CHANNELS.mediaExportProgress, handler),
   },
   loopRuns: {
     list: () => call(CHANNELS.loopRunsList),

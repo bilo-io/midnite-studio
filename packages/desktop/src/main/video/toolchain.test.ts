@@ -30,6 +30,7 @@ describe('buildToolchainProbeScript', () => {
     expect(script).toContain('command -v npx');
     expect(script).toContain('__MSTUDIO_VIDEO_node_START__');
     expect(script).toContain('__MSTUDIO_VIDEO_npx_END__');
+    expect(script).toContain('command -v ffmpeg');
   });
 });
 

@@ -21,7 +21,7 @@ const END = (name: string): string => `__MSTUDIO_VIDEO_${name}_END__`;
 
 /** One `command -v` per binary, framed so a shell banner cannot be misread as a path. */
 export function buildToolchainProbeScript(): string {
-  return ['node', 'npx']
+  return ['node', 'npx', 'ffmpeg']
     .map(
       (bin) =>
         `printf '\\n%s\\n' ${START(bin)}; command -v ${bin} 2>/dev/null || true; printf '\\n%s\\n' ${END(bin)}`,
@@ -51,8 +51,17 @@ function parseBinary(output: string, name: string): VideoToolBinary {
 
 /** Pure, so the interesting cases — a dead shell, an rc-file banner, a shell
  *  function rather than a file — are reviewable against captured output. */
-export function parseToolchainProbeOutput(output: string): { node: VideoToolBinary; npx: VideoToolBinary } {
-  return { node: parseBinary(output, 'node'), npx: parseBinary(output, 'npx') };
+export function parseToolchainProbeOutput(output: string): {
+  node: VideoToolBinary;
+  npx: VideoToolBinary;
+  ffmpeg: VideoToolBinary;
+} {
+  return {
+    node: parseBinary(output, 'node'),
+    npx: parseBinary(output, 'npx'),
+    // Phase 99 Theme A — the Media export service's required external tool.
+    ffmpeg: parseBinary(output, 'ffmpeg'),
+  };
 }
 
 /** `dependencies` first: a project pins its Remotion version there in every
@@ -115,8 +124,8 @@ export async function probeVideoToolchain(
     if (!inFlight) {
       inFlight = (async () => {
         const { output } = await run(buildToolchainProbeScript(), PROBE_TIMEOUT_MS);
-        const { node, npx } = parseToolchainProbeOutput(output);
-        return { node, npx };
+        const { node, npx, ffmpeg } = parseToolchainProbeOutput(output);
+        return { node, npx, ffmpeg };
       })().finally(() => {
         inFlight = null;
       });
