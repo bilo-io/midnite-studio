@@ -132,7 +132,6 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
     'API Client',
     'Projects',
     'Graph',
-    'Changes',
     'Actions',
     'Reviews',
     'Issues',
@@ -177,7 +176,6 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
     '/issues',
     '/projects',
     '/graph',
-    '/changes',
     '/actions',
     '/reviews',
     '/history',
@@ -191,7 +189,7 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
 test('each view is reachable and none of them answers as the graph', async ({ page }) => {
   await open(page);
 
-  for (const label of ['Dashboard', 'Explorer', 'Changes', 'Actions', 'Tests', 'Reviews', 'Graph']) {
+  for (const label of ['Dashboard', 'Explorer', 'Actions', 'Tests', 'Reviews', 'Graph']) {
     await clickRail(page, label);
     await expect(rail(page, label)).toHaveAttribute('aria-current', 'page');
   }

@@ -111,7 +111,7 @@ test.describe('Phase 22 screenshots', () => {
     await page.screenshot({ path: shotPath(OUT, 'theme-d-stash-inspector.png') });
   });
 
-  test('Theme E — Stash prompt from the Changes view', async ({ page }) => {
+  test('Theme E — Stash prompt from the working-copy panel', async ({ page }) => {
     const data: MockFixtures = {
       ...fixtures,
       statusEntries: [
@@ -121,9 +121,7 @@ test.describe('Phase 22 screenshots', () => {
     };
     await installMockBridge(page, data);
     await page.goto('/');
-    const link = page.getByRole('link', { name: 'Changes' });
-    await link.hover();
-    await link.click();
+    await page.getByRole('button', { name: /^2 uncommitted changes/ }).click();
     await page.getByRole('button', { name: 'Stash changes' }).click();
     await page.getByRole('dialog', { name: 'Stash changes' }).waitFor();
     await settle(page, SETTLE_MS);

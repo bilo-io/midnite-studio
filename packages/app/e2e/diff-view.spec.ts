@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { COMMIT_SHA, fixtures } from '../test-support/fixtures';
+import { fixtures } from '../test-support/fixtures';
 import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
@@ -38,35 +38,22 @@ async function openCommit(page: Page): Promise<void> {
 }
 
 /**
- * Open the commit as a full-width workbench tab (Theme G) rather than the
- * graph's narrow inspector dock.
+ * Open the commit wide enough for SPLIT.
  *
- * Needed for anything that exercises SPLIT: `LAYOUT_BOUNDS.detailWidth` caps
- * that dock at 720px and it renders one pixel short of even that by default
- * (`DIFF_SPLIT_MIN_WIDTH`, Theme C's width fallback), so the toggle is
- * permanently disabled there — by design, which is the whole reason the
- * full-width tab exists.
+ * `DIFF_SPLIT_MIN_WIDTH` (720px) gates the toggle on the diff pane's real
+ * width. The full-width Changes workbench tab this used to open is gone with
+ * that view; the graph's inline commit panel gives its right-hand column to
+ * the diff, which clears the bar once the window is desktop-wide.
  */
 async function openCommitInTab(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openCommit(page);
-  await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
-
-  // The nav rail's hover-expand reflow moves a collapsed link out from under a
-  // synthetic click before it lands — hover first and wait for the expanded
-  // label, per `changes-panel.spec.ts`'s own note on this exact hazard.
-  const link = page.getByRole('link', { name: 'Changes' });
-  await link.hover();
-  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-  await link.click();
-
-  await expect(windowFile(page)).toBeVisible();
 }
 
 /*
   The file LIST's row, not any button naming the file: the graph's inline
   commit panel (the inspector's split layout) also lists every file in its
-  all-changes accordion, and a kept-alive graph behind the Changes view still
-  holds its own copy of the list — so the visible file list is the target.
+  all-changes accordion — so the visible file list is the target.
 */
 const windowFile = (page: Page) =>
   page.getByTestId('commit-files').filter({ visible: true }).getByRole('button', { name: /window\.ts/ });

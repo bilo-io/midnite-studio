@@ -1,11 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
- * The sidebar as a workbench — counts, the Changes filter, the menus, and the
- * whole-checkout diff.
+ * The sidebar as a workbench — counts, the menus, and the whole-checkout diff.
  *
  * These are the parts that only the assembled app can demonstrate. The unit
  * tests already cover the reducers underneath (which tab takes focus, what the
@@ -16,16 +15,19 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  *
  * Phase 82 Theme C, wave 4: 10 of this file's 18 tests moved to
  * `src/features/repos/repos-panel.bridge.test.tsx`, mounting the real
- * `ReposPanel`. **The 8 that stay** are genuine Playwright territory: one
- * real-CSS assertion (the Git mark's computed brand-orange colour), three
- * geometry (`boundingBox()` comparisons for the tab bar's stats-before-close
- * ordering, the section headings' shared row height, and a folded repo's
+ * `ReposPanel`. **The 6 that stay** are genuine Playwright territory: one
+ * real-CSS assertion (the Git mark's computed brand-orange colour), two
+ * geometry (the section headings' shared row height, and a folded repo's
  * trailing-edge alignment), one more geometry-and-cross-component (the commit
- * box's equal inset, which also needs the Changes workbench mounted), and
- * three genuine cross-component flows — "View all changes" opens a tab
- * hosted by `Workbench` (a sibling component `ReposPanel` does not render),
- * so its accordion counts, totals and close behaviour test `Workbench` +
- * `AllChangesView`, not this file's subject.
+ * box's equal inset, in the graph's working-copy panel), and two genuine
+ * multi-view flows — "View all changes" in the sidebar navigates to the git
+ * graph and expands its working-copy panel on that checkout (a sibling view
+ * `ReposPanel` does not render), so its accordion counts and totals test
+ * `GraphView` + `ChangesAccordion`, not this file's subject.
+ *
+ * Two tests went with the standalone Changes view and its workbench tab
+ * strip: "the all-changes tab carries its own totals in the tab bar" and "the
+ * working-tree tab cannot be closed" — there is no tab to carry or close.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -144,8 +146,14 @@ async function open(page: Page, data: MockFixtures = base): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 }
 
-/** See `clickRailLink` in `mock-bridge.ts` for why a plain `.click()` races the rail's own hover-expand. */
-const goToChanges = (page: Page) => clickRailLink(page, 'Changes');
+/** "View all changes" on the dirty worktree: the graph, on that checkout, with its working-copy panel open. */
+async function viewFeatureChanges(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: 'View all changes in worktree feature/x' })
+    .first()
+    .click();
+  await expect(page.getByRole('region', { name: 'Working copy changes' })).toBeVisible();
+}
 
 /**
  * The panel's own heading matches the status-bar button that summons it, word
@@ -163,18 +171,13 @@ test('the panel heading is "Git Repos", in the Git mark and its brand orange', a
   await expect(heading.locator('svg').first()).toHaveCSS('color', 'rgb(240, 80, 50)');
 });
 
-test('View all changes opens a tab of per-file accordions', async ({ page }) => {
+test('View all changes opens the graph working-copy panel of per-file accordions', async ({ page }) => {
   await open(page);
+  await viewFeatureChanges(page);
 
-  await page
-    .getByRole('button', { name: 'View all changes in worktree feature/x' })
-    .first()
-    .click();
-
-  // Opening the tab has to switch to the view that hosts it, or the click
-  // appears to do nothing at all.
-  await expect(page.getByRole('tab', { name: 'feature/x' })).toHaveAttribute(
-    'aria-selected',
+  // It went to the graph, on the checkout the row named.
+  await expect(page.getByRole('button', { name: /^3 uncommitted changes/ })).toHaveAttribute(
+    'aria-expanded',
     'true',
   );
   await expect(page.getByTestId('change-totals')).toContainText('3 files');
@@ -193,13 +196,9 @@ test('View all changes opens a tab of per-file accordions', async ({ page }) => 
   await expect(page.getByTestId('diff-view')).toHaveCount(0);
 });
 
-test('the all-changes tab totals the checkout without expanding anything', async ({ page }) => {
+test('the working-copy panel totals the checkout without expanding anything', async ({ page }) => {
   await open(page);
-
-  await page
-    .getByRole('button', { name: 'View all changes in worktree feature/x' })
-    .first()
-    .click();
+  await viewFeatureChanges(page);
 
   // The point of the header total: it is a real sum over all three files while
   // every one of them is still closed and no `git diff` has run.
@@ -212,43 +211,6 @@ test('the all-changes tab totals the checkout without expanding anything', async
   // And each closed row carries its own pair — the whole reason the counts come
   // from the view's numstat rather than from the diff the body would fetch.
   await expect(page.getByRole('button', { name: /README\.md/ })).toContainText('+300');
-});
-
-test('the all-changes tab carries its own totals in the tab bar', async ({ page }) => {
-  await open(page);
-
-  await page
-    .getByRole('button', { name: 'View all changes in worktree feature/x' })
-    .first()
-    .click();
-
-  // Ahead of the close button, so it reads before the "X" rather than after it.
-  const tab = page.getByRole('tab', { name: 'feature/x' }).locator('..');
-  await expect(tab).toContainText('3');
-  await expect(tab).toContainText('+321');
-  await expect(tab).toContainText('−3');
-
-  const closeButton = page.getByRole('button', { name: 'Close feature/x' });
-  const statsBox = (await tab.getByText('+321').boundingBox())!;
-  const closeBox = (await closeButton.boundingBox())!;
-  expect(statsBox.x).toBeLessThan(closeBox.x);
-});
-
-test('the working-tree tab cannot be closed', async ({ page }) => {
-  await open(page);
-  await page
-    .getByRole('button', { name: 'View all changes in worktree feature/x' })
-    .first()
-    .click();
-
-  await expect(page.getByRole('button', { name: 'Close feature/x' })).toBeVisible();
-  // A strip you can empty to nothing is a view with no content.
-  await expect(
-    page.getByRole('button', { name: /^Close (Working tree|midnite-studio)$/ }),
-  ).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Close feature/x' }).click();
-  await expect(page.getByRole('tab', { name: 'feature/x' })).toHaveCount(0);
 });
 
 test('the section headings share one height, whether or not they carry an action', async ({
@@ -330,7 +292,7 @@ test('a folded repo hangs its branch and count off the trailing edge', async ({ 
 
 test('commit message input has equal inset on all sides when empty', async ({ page }) => {
   await open(page);
-  await goToChanges(page);
+  await viewFeatureChanges(page);
 
   const textarea = page.getByPlaceholder('Commit message');
   await expect(textarea).toBeVisible();
