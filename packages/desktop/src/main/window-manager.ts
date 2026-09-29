@@ -52,7 +52,6 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   'apps-youtube': { width: 1280, height: 860 },
   graph: { width: 1280, height: 860 },
   actions: { width: 1180, height: 800 },
-  changes: { width: 1280, height: 860 },
   files: { width: 1180, height: 820 },
   database: { width: 1280, height: 820 },
   dashboard: { width: 1280, height: 900 },

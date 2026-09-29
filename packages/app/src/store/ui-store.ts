@@ -292,7 +292,6 @@ export type LayoutSizes = {
   /** The terminal panel's session list, beside the active terminal. */
   terminalListWidth: number;
   detailWidth: number;
-  changesListWidth: number;
   /** The Files view's tree pane, left of the preview. */
   filesTreeWidth: number;
   /**
@@ -436,7 +435,6 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // nothing about how the panel looks until someone actually drags it.
   terminalListWidth: 176,
   detailWidth: 384,
-  changesListWidth: 384,
   filesTreeWidth: 320,
   commitFilesHeight: 200,
   actionsJobsHeight: 200,
@@ -526,7 +524,6 @@ export const LAYOUT_BOUNDS = {
   // is the one list pane whose rows get longer the more useful they are.
   terminalListWidth: { min: 120, max: 560 },
   detailWidth: { min: 280, max: 720 },
-  changesListWidth: { min: 240, max: 720 },
   filesTreeWidth: { min: 200, max: 640 },
   // Absolute pixels, like its neighbours — but the inspector additionally caps
   // the rendered height at a share of the pane, because these bounds cannot know
@@ -709,6 +706,12 @@ export type UiState = {
    * state unrepresentable instead.
    */
   graphSelection: GraphSelection;
+  /**
+   * Bumped by `openWorkingCopyInGraph` — a request, not a value: the graph
+   * view watches it and brings the working-copy row (and its expanded panel)
+   * into view each time it changes. Not persisted.
+   */
+  graphWorkingCopyReveal: number;
   /**
    * Whether the repositories sidebar is shown at all.
    *
@@ -1238,6 +1241,15 @@ export type UiState = {
   selectCommit: (sha: string | null) => void;
   /** Expand (`true`) or collapse (`false`) the graph's inline working-copy panel. */
   selectWorkingTree: (open: boolean) => void;
+  /**
+   * The one way to "show the pending changes": go to the git graph with the
+   * working-copy row's inline panel expanded and scrolled into view. It
+   * replaced the standalone Changes view, so every former entry point to that
+   * view — Mod+2, the palette, the status bar, the repo actions — calls this.
+   * `repoId`/`worktreePath` retarget the selection first, for a caller naming
+   * a specific checkout (a sidebar row's "View all changes").
+   */
+  openWorkingCopyInGraph: (target?: { repoId?: string; worktreePath?: string | null }) => void;
   /** Select a stash entry — clears any commit selection (Phase 22 Theme D). */
   selectStash: (selector: string | null) => void;
   /** Open the Conflict Resolution Studio for one path (Phase 47 Theme D). */
@@ -2239,6 +2251,41 @@ adoptRenamedPersistKey('midnite-studio.ui', 'midnite-studio.ui');
  * relaunching the app) throws `sessionStorage` away with it, same as a closed
  * browser tab, which is what keeps a full restart landing on Graph.
  */
+/**
+ * The history push `setActiveView` makes — a no-op for the view already on
+ * screen. Shared with `openWorkingCopyInGraph`, which navigates inside a
+ * larger `set`.
+ */
+function navigateTo(
+  state: Pick<UiState, 'activeView' | 'viewHistory' | 'viewHistoryIndex' | 'terminalMaximized'>,
+  view: ViewId,
+): Partial<UiState> {
+  if (view === state.activeView) return {};
+  const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
+  return {
+    activeView: view,
+    viewHistory,
+    viewHistoryIndex: viewHistory.length - 1,
+    ...(state.terminalMaximized ? { terminalMaximized: false } : {}),
+  };
+}
+
+/**
+ * What switching repository resets. Switching repo invalidates every
+ * selection scoped to the old one — the ref filter included: refs are
+ * per-repo, so carrying `refs/heads/feat-x` into a repo that has no such
+ * branch yields an empty graph that looks like missing history.
+ */
+const repoSwitchReset = (): Partial<UiState> => ({
+  selectedWorktreePath: null,
+  graphSelection: null,
+  graphRefFilter: [],
+  graphAuthorFilter: [],
+  graphSessionFilter: null,
+  graphShaFilter: null,
+  graphProvenanceFilter: 'all',
+});
+
 export const SESSION_ACTIVE_VIEW_KEY = 'midnite-studio.activeView';
 
 /**
@@ -2258,6 +2305,8 @@ export function readSessionActiveView(): ViewId {
     // Phase 99 Theme A: `video` became Media's Video tab (the v29 migration
     // points `mediaTab` there for a persisted blob that still says `video`).
     if (stored === 'video') return 'media';
+    // The Changes view folded into the graph's working-copy panel.
+    if (stored === 'changes') return 'graph';
     if (stored && (VIEW_IDS as readonly string[]).includes(stored)) return stored as ViewId;
   } catch {
     // Private mode or a disabled-storage policy — starting on Graph is a
@@ -2466,6 +2515,7 @@ export const useUiStore = create<UiState>()(
       selectedRepoId: null,
       selectedWorktreePath: null,
       graphSelection: null,
+      graphWorkingCopyReveal: 0,
       reposOpen: true,
       terminalOpen: false,
       terminalMaximized: false,
@@ -2677,18 +2727,7 @@ export const useUiStore = create<UiState>()(
       // normal-height panel) so the session is not disrupted — only the
       // fullscreen state is cleared.
       setActiveView: (view) =>
-        useFileEditorStore.getState().guardNavigation(() =>
-          set((state) => {
-            if (view === state.activeView) return {};
-            const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
-            return {
-              activeView: view,
-              viewHistory,
-              viewHistoryIndex: viewHistory.length - 1,
-              ...(state.terminalMaximized ? { terminalMaximized: false } : {}),
-            };
-          }),
-        ),
+        useFileEditorStore.getState().guardNavigation(() => set((state) => navigateTo(state, view))),
       // The title bar's Back/Forward buttons change `activeView` exactly like
       // `setActiveView` does, so they carry the same guard.
       goBack: () =>
@@ -2708,23 +2747,9 @@ export const useUiStore = create<UiState>()(
           }),
         ),
       setSettingsPage: (settingsPage) => set({ settingsPage }),
-      // Switching repo invalidates every selection scoped to the old one — the
-      // ref filter included: refs are per-repo, so carrying `refs/heads/feat-x`
-      // into a repo that has no such branch yields an empty graph that looks
-      // like missing history.
+      // See `repoSwitchReset` for what a switch invalidates.
       selectRepo: (selectedRepoId) =>
-        useFileEditorStore.getState().guardNavigation(() =>
-          set({
-            selectedRepoId,
-            selectedWorktreePath: null,
-            graphSelection: null,
-            graphRefFilter: [],
-            graphAuthorFilter: [],
-            graphSessionFilter: null,
-            graphShaFilter: null,
-            graphProvenanceFilter: 'all',
-          }),
-        ),
+        useFileEditorStore.getState().guardNavigation(() => set({ ...repoSwitchReset(), selectedRepoId })),
       selectWorktree: (selectedWorktreePath) =>
         useFileEditorStore.getState().guardNavigation(() => set({ selectedWorktreePath })),
       selectCommit: (sha) => set({ graphSelection: sha === null ? null : { kind: 'commit', sha } }),
@@ -2735,6 +2760,22 @@ export const useUiStore = create<UiState>()(
             : state.graphSelection?.kind === 'working-tree'
               ? { graphSelection: null }
               : state,
+        ),
+      // One guarded `set`, not `selectRepo` + `selectWorktree` +
+      // `setActiveView` in a row: each of those guards on its own, so a dirty
+      // editor would otherwise ask the same question up to three times.
+      openWorkingCopyInGraph: (target = {}) =>
+        useFileEditorStore.getState().guardNavigation(() =>
+          set((state) => {
+            const switchingRepo = target.repoId !== undefined && target.repoId !== state.selectedRepoId;
+            return {
+              ...(switchingRepo ? { ...repoSwitchReset(), selectedRepoId: target.repoId } : {}),
+              ...(target.worktreePath !== undefined ? { selectedWorktreePath: target.worktreePath } : {}),
+              ...navigateTo(state, 'graph'),
+              graphSelection: { kind: 'working-tree' },
+              graphWorkingCopyReveal: state.graphWorkingCopyReveal + 1,
+            };
+          }),
         ),
       selectStash: (selector) =>
         set({ graphSelection: selector === null ? null : { kind: 'stash', selector } }),
@@ -3074,7 +3115,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 29,
+      version: 30,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3471,6 +3512,7 @@ export const useUiStore = create<UiState>()(
           delete state.onboardingSkippedStepIds;
         }
         if (version < 29) migrateVideoToMedia(state);
+        if (version < 30) migrateChangesToGraph(state);
         return state as PersistedUi;
       },
       /**
@@ -3604,6 +3646,25 @@ export function migrateVideoToMedia(state: Record<string, unknown>): Record<stri
   // A pre-Media profile's only media surface was Video Studio, and Video is
   // the one tab that works without a repo — open Media there, not on Docs.
   state.mediaTab ??= 'video';
+  return state;
+}
+
+/**
+ * v29 → v30: the standalone Changes view is gone — its contents live in the
+ * git graph's working-copy panel. Drops every persisted `changes` view key
+ * (hiding Changes in Settings ▸ Sidebar has nothing left to hide, and its
+ * repo-section filter nothing left to filter) and the pane width only that
+ * view used. A stray `activeView: 'changes'` goes to the graph. Mutates and
+ * returns the raw blob; exported for its test.
+ */
+export function migrateChangesToGraph(state: Record<string, unknown>): Record<string, unknown> {
+  const layout = state.layout as Record<string, unknown> | undefined;
+  if (layout && typeof layout === 'object') delete layout.changesListWidth;
+  for (const key of ['navVisibility', 'sectionFilters'] as const) {
+    const record = state[key] as Record<string, unknown> | undefined;
+    if (record && typeof record === 'object') delete record.changes;
+  }
+  if (state.activeView === 'changes') state.activeView = 'graph';
   return state;
 }
 

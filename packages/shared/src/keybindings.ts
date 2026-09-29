@@ -326,7 +326,13 @@ export const COMMANDS = [
    */
   { id: 'view.graph', label: 'Go to Graph', group: 'graph', chord: 'Mod+Shift+g' },
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
-  { id: 'status.focus', label: 'Focus Changes', group: 'status', chord: 'Mod+2' },
+  /**
+   * Kept as `status.focus` (a persisted keymap override names the id) and
+   * kept on `Mod+2`, beside `graph.focus`'s `Mod+1`: there is no Changes view
+   * any more, so the chord now opens the graph with the working-copy row's
+   * inline panel expanded — `openWorkingCopyInGraph` in `ui-store.ts`.
+   */
+  { id: 'status.focus', label: 'Show Working Copy Changes', group: 'status', chord: 'Mod+2' },
   { id: 'status.commit', label: 'Commit', group: 'status', chord: 'Mod+Enter' },
   // Chord-free since the reload pair took Mod+Shift+r — see `view.refresh`.
   { id: 'sync.fetch', label: 'Fetch', group: 'sync' },

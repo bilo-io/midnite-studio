@@ -10,7 +10,6 @@ import { VIEW_ICON } from './nav-icons';
 export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   graph: 'Graph',
   actions: 'Actions',
-  changes: 'Changes',
   files: 'File Explorer',
   database: 'DB Explorer',
   dashboard: 'Dashboard',

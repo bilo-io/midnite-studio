@@ -45,7 +45,6 @@ export const PANEL_WINDOW_ROLES = [
 export const PAGE_WINDOW_ROLES = [
   'graph',
   'actions',
-  'changes',
   'files',
   'database',
   'dashboard',

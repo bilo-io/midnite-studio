@@ -31,7 +31,6 @@ import {
 } from '../../components/account-switcher-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore, type ViewId } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
 import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
 import { bridge } from '../bridge';
 import { openInMidnite } from '../open-in-midnite';
@@ -139,7 +138,6 @@ export function useCommandHandlers(): CommandRuntime {
   // which only ever read `getState()` inside `run` since they don't need to
   // know the tab's kind to decide whether they are enabled.
   const activeBrowserTab = useBrowserStore((s) => s.tabs.find((t) => t.id === s.activeTabId) ?? null);
-  const workbenchActiveTabId = useWorkbenchStore((s) => s.activeTabId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
 
@@ -162,12 +160,10 @@ export function useCommandHandlers(): CommandRuntime {
   // nothing open.
   const sync = selectedRepoId && status ? syncAffordances(status.branch) : null;
 
-  // The working tree's commit box is on screen in two places: the Changes
-  // view's working-tree tab, and the graph's inline working-copy panel.
+  // The working tree's commit box is on screen in one place: the graph's
+  // inline working-copy panel.
   const graphWorkingTreeOpen = useUiStore((s) => s.graphSelection?.kind === 'working-tree');
-  const onWorkingTree =
-    (activeView === 'changes' && workbenchActiveTabId === null) ||
-    (activeView === 'graph' && graphWorkingTreeOpen);
+  const onWorkingTree = activeView === 'graph' && graphWorkingTreeOpen;
 
   const editorTarget = useFileEditorStore((s) => s.target);
   const editorDirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
@@ -520,14 +516,14 @@ export function useCommandHandlers(): CommandRuntime {
     }),
     'status.focus': withNavVisibility(navVisibility, 'status.focus', {
       enabled: true,
-      run: () => useUiStore.getState().setActiveView('changes'),
+      run: () => useUiStore.getState().openWorkingCopyInGraph(),
     }),
     'status.commit':
       selectedRepoId && onWorkingTree
         ? { enabled: true, run: () => useCommitBoxStore.getState().handle?.run() }
         : {
             enabled: false,
-            disabledReason: selectedRepoId ? 'Switch to the working tree to commit' : NO_REPO,
+            disabledReason: selectedRepoId ? 'Open the working copy in the graph to commit' : NO_REPO,
             run: () => {},
           },
 

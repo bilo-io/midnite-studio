@@ -56,8 +56,6 @@ const loadFilesView = () => import('../features/files/files-view');
 const FilesView = lazy(() => loadFilesView().then((m) => ({ default: m.FilesView })));
 const loadSearchView = () => import('../features/search/search-view');
 const SearchView = lazy(() => loadSearchView().then((m) => ({ default: m.SearchView })));
-const loadWorkbench = () => import('../features/workbench/workbench');
-const Workbench = lazy(() => loadWorkbench().then((m) => ({ default: m.Workbench })));
 const loadActionsView = () => import('../features/actions/actions-view');
 const ActionsView = lazy(() => loadActionsView().then((m) => ({ default: m.ActionsView })));
 const loadTestsView = () => import('../features/tests/tests-view');
@@ -178,8 +176,6 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
     keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS, maxRows: GRAPH_KEEP_ALIVE_MAX_ROWS },
     cascade: true,
   },
-  // Kept-alive (Theme G), with StatusPanel file rows cascading on mount/reveal/repo-switch (Theme K.5).
-  changes: { Component: Workbench, keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS }, cascade: true },
   actions: { Component: ActionsView, cascade: true },
   reviews: { Component: ReviewsView, cascade: true },
   issues: { Component: IssuesView, cascade: true },
