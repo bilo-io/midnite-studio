@@ -7,12 +7,12 @@ import { PageDetachMark } from '../../components/page-detach-mark';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { useForgePulls, useForgeRunDetail, useForgeRuns, useRefreshForge } from '../../services/queries';
+import { useForgePulls, useForgeRuns, useRefreshForge } from '../../services/queries';
 import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActionsStore } from '../../store/actions-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useActiveWorktree } from '../../services/use-status';
-import { RunDetail } from './run-detail';
+import { RunDetailPanel } from './run-detail-panel';
 import { RunList } from './run-list';
 import { pickInitialRun } from './run-groups';
 
@@ -76,8 +76,6 @@ export function ActionsView() {
     (stored !== null && rows.some((run) => run.id === stored) ? stored : null) ??
     pickInitialRun(rows);
   const selected = rows.find((run) => run.id === selectedRunId) ?? null;
-
-  const detail = useForgeRunDetail(repoId, selectedRunId, selectedRunId !== null);
 
   if (repoId === null) {
     return <Notice>Select a repository to see its workflow runs.</Notice>;
@@ -153,14 +151,7 @@ export function ActionsView() {
           {runs.isFetching ? 'Asking GitHub…' : 'No workflow runs to show for this repository.'}
         </Notice>
       ) : (
-        <RunDetail
-          repoId={repoId}
-          run={selected}
-          jobs={detail.data?.detail?.jobs ?? []}
-          loadingJobs={detail.isFetching}
-          jobsError={detail.data?.error ?? null}
-          pulls={pulls.data?.pulls}
-        />
+        <RunDetailPanel repoId={repoId} run={selected} pulls={pulls.data?.pulls} />
       )}
     </div>
   );
