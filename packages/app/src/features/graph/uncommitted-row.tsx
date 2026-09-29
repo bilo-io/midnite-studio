@@ -52,7 +52,7 @@ export function UncommittedRow({
   lane: number;
   /** Whether the working copy's inline panel is open under the row. */
   expanded?: boolean;
-  /** Toggles that inline panel — the Changes view's parts, folded into the graph. */
+  /** Toggles that inline panel — the working copy's list, commit box and diff. */
   onSelect: () => void;
 }) {
   const count = status.entries.length;
@@ -168,7 +168,7 @@ export function UncommittedRow({
  * Whether there is anything to draw.
  *
  * An unborn repo has no commits to sit above and nothing staged, so the row
- * would be the whole graph — which is the Changes view's job, not this one's.
+ * would be the whole graph — `Graph` shows the working-copy panel on its own then.
  */
 export const hasUncommittedWork = (status: StatusResult | undefined): status is StatusResult =>
   status !== undefined && !status.branch.unborn && status.entries.length > 0;

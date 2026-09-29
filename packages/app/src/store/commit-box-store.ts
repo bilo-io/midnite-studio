@@ -4,21 +4,18 @@ import { create } from 'zustand';
  * The one imperative seam between a global command and a commit box, plus the
  * draft message every commit box for the same checkout shares.
  *
- * Two hosts render a commit box now: the Changes view's working-tree tab and
- * the graph's inline working-copy panel. Validation still lives in the box
- * (`CommitBox` in `working-tree-changes.tsx`) — lifting it here would mean two
- * places computing "can this commit" instead of one. What moved here is only
+ * The commit box lives in the graph's working-copy panel (the standalone
+ * Changes view that used to be a second host is gone). Validation still lives
+ * in the box (`CommitBox` in `working-tree-changes.tsx`). What lives here is
  * the DRAFT: the inline panel unmounts when it collapses, and a half-written
- * message must not go with it; and typing in one host and switching to the
- * other should find the same words waiting, because it is the same commit.
+ * message must not go with it.
  *
  * A box registers a handle closing over its own `onCommit`, so
  * `status.commit` (Mod+Enter) triggers exactly what a click on the button
- * would, without reimplementing it. Handles STACK: the Changes view's box
- * registers for as long as it is mounted, and the graph's inline box pushes
- * on top of it only while the graph is on screen with the panel open, so the
+ * would, without reimplementing it. Handles STACK — a box registers only
+ * while it is on screen (a detached graph window's copy included), so the
  * topmost handle is always the box the user is looking at, and closing the
- * panel hands the shortcut straight back rather than leaving it unbound.
+ * panel hands the shortcut back rather than leaving it pointing at nothing.
  */
 export type CommitBoxHandle = {
   /** Focuses the textarea, and submits when the button would not be disabled. */

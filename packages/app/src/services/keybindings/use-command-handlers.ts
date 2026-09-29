@@ -160,10 +160,12 @@ export function useCommandHandlers(): CommandRuntime {
   // nothing open.
   const sync = selectedRepoId && status ? syncAffordances(status.branch) : null;
 
-  // The working tree's commit box is on screen in one place: the graph's
-  // inline working-copy panel.
+  // The working tree's commit box lives in the graph: the inline working-copy
+  // panel, or — in an unborn repo, with no history to hang it on — the panel
+  // the graph shows in place of its "No commits yet" state.
   const graphWorkingTreeOpen = useUiStore((s) => s.graphSelection?.kind === 'working-tree');
-  const onWorkingTree = activeView === 'graph' && graphWorkingTreeOpen;
+  const firstCommit = status?.branch.unborn === true && status.entries.length > 0;
+  const onWorkingTree = activeView === 'graph' && (graphWorkingTreeOpen || firstCommit);
 
   const editorTarget = useFileEditorStore((s) => s.target);
   const editorDirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
