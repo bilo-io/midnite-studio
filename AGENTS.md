@@ -12,6 +12,15 @@ carries the architecture, IPC contract, data model, and the verified research co
 **Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table, `done.md` is the
 append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
+**`_INDEX.md` is status only — scan its table, nothing else.** Its `## Phases` table (Status, Done,
+`🔄 WIP` and `◻ TODO` theme letters) is all a session needs to find what is TODO, in flight or
+done. Each phase's narrative — why it exists, what landed, per-theme notes — lives in the
+`## Headlines` section at the top of its own `phases/phase-N-*.md`, one short paragraph per theme
+(`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
+theme lands or a phase is refined, verified or created, write the narrative into that doc's
+Headlines paragraph and touch only the phase's *row* in `_INDEX.md`. The index was 438 KB before
+the move; keeping prose out of it is what keeps the first read of every session cheap.
+
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
 
 This repo drives three coding agents — **Claude** (`CLAUDE.md`), **Codex** (`AGENTS.md`, this
@@ -377,8 +386,9 @@ and drives this same recurring-table report until every one of them has merged.
 ## Phase workflow
 
 One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`, leave
-`moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, and update the
-table in `.midnite/tasks/_INDEX.md`.
+`moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, update the
+phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
+the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
 
 ## Onboarding another repo
 
