@@ -85,6 +85,13 @@ vi.mock('../../services/bridge', () => ({
   hasBridge: () => true,
 }));
 
+// The Reload button's terminal hand-off — the real one opens a pty session
+// through the terminal store, which this suite has no reason to stand up.
+const submitCommand = vi.fn();
+vi.mock('../terminal/submit-command', () => ({
+  submitCommand: (...args: unknown[]) => submitCommand(...args),
+}));
+
 vi.mock('../../services/use-status', () => ({
   useActiveWorktree: () => ({ repoId: 'repo-1', worktreePath: '/repo' }),
 }));
@@ -310,6 +317,90 @@ describe('ProjectsView', () => {
     expect(await screen.findByText('No projects')).toBeDefined();
     expect(fields).not.toHaveBeenCalled();
     expect(items).not.toHaveBeenCalled();
+  });
+
+  describe('Reload on the board list\'s empty and error states', () => {
+    beforeEach(() => {
+      submitCommand.mockReset();
+      // Only the interval is faked — react-query and `waitFor` keep their
+      // real `setTimeout`s.
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('"No projects" runs the scope refresh in the terminal and refetches', async () => {
+      list.mockResolvedValue({ cli: CLI_READY, projects: [], error: null, kind: 'ok' });
+
+      renderWithClient();
+      expect(await screen.findByText('No projects')).toBeDefined();
+      expect(list).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+
+      expect(submitCommand).toHaveBeenCalledWith('gh auth refresh -s project', 'gh');
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    });
+
+    it('keeps re-probing on an interval, and lands on the board list once it appears', async () => {
+      list.mockResolvedValue({ cli: CLI_READY, projects: [], error: null, kind: 'ok' });
+
+      renderWithClient();
+      fireEvent.click(await screen.findByRole('button', { name: 'Reload' }));
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+
+      list.mockResolvedValue({
+        cli: CLI_READY,
+        projects: [{ id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://x', closed: false }],
+        error: null,
+        kind: 'ok',
+      });
+      vi.advanceTimersByTime(5000);
+
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(3));
+      expect(await screen.findByText('Pick a board')).toBeDefined();
+      // The button unmounted with the empty state — its interval went with it.
+      vi.advanceTimersByTime(60_000);
+      expect(list).toHaveBeenCalledTimes(3);
+      expect(submitCommand).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops re-probing once the view unmounts', async () => {
+      list.mockResolvedValue({ cli: CLI_READY, projects: [], error: null, kind: 'ok' });
+
+      const { unmount } = renderWithClient();
+      fireEvent.click(await screen.findByRole('button', { name: 'Reload' }));
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+
+      unmount();
+      vi.advanceTimersByTime(5 * 60_000);
+      expect(list).toHaveBeenCalledTimes(2);
+    });
+
+    it('"Could not load projects" offers the same Reload', async () => {
+      list.mockResolvedValue({ cli: CLI_READY, projects: [], error: 'HTTP 401: Bad credentials', kind: 'ok' });
+
+      renderWithClient();
+      expect(await screen.findByText('Could not load projects')).toBeDefined();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+
+      expect(submitCommand).toHaveBeenCalledWith('gh auth refresh -s project', 'gh');
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    });
+
+    it('"Could not reach the GitHub CLI" runs the side-effect-free gh auth status instead', async () => {
+      list.mockRejectedValue(new Error('spawn gh ENOENT'));
+
+      renderWithClient();
+      expect(await screen.findByText('Could not reach the GitHub CLI')).toBeDefined();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
+
+      expect(submitCommand).toHaveBeenCalledWith('gh auth status', 'gh');
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    });
   });
 
   it('shows the missing-scope state with the exact fix command, verbatim', async () => {

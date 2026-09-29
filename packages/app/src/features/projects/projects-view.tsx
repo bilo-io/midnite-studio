@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   LuArrowDown,
   LuArrowUp,
@@ -13,6 +13,7 @@ import {
   LuNotebookPen,
   LuPencil,
   LuPlus,
+  LuRefreshCw,
   LuTable,
   LuWorkflow,
 } from 'react-icons/lu';
@@ -64,6 +65,7 @@ import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
 import { PageDetachMark } from '../../components/page-detach-mark';
+import { submitCommand } from '../terminal/submit-command';
 import { ProjectDialog, type ProjectDialogMode } from './project-dialog';
 import { PlanWithAiBar } from './plan/plan-with-ai-bar';
 
@@ -222,6 +224,13 @@ export function ProjectsView() {
         icon={VIEW_ICON.projects}
         title="Could not reach the GitHub CLI"
         body={projects.error instanceof Error ? projects.error.message : String(projects.error)}
+        action={
+          <ReloadProjectsButton
+            command={GH_DIAGNOSE_COMMAND}
+            busy={projects.isFetching}
+            onReload={() => void projects.refetch()}
+          />
+        }
       />
     );
   }
@@ -234,6 +243,13 @@ export function ProjectsView() {
         icon={VIEW_ICON.projects}
         title="Could not load projects"
         body={projects.data.error}
+        action={
+          <ReloadProjectsButton
+            command={SCOPE_FIX_COMMAND}
+            busy={projects.isFetching}
+            onReload={() => void projects.refetch()}
+          />
+        }
       />
     );
   }
@@ -244,6 +260,13 @@ export function ProjectsView() {
         icon={VIEW_ICON.projects}
         title="No projects"
         body="This owner has no projects, or none this token can see."
+        action={
+          <ReloadProjectsButton
+            command={SCOPE_FIX_COMMAND}
+            busy={projects.isFetching}
+            onReload={() => void projects.refetch()}
+          />
+        }
       />
     );
   }
@@ -847,9 +870,82 @@ function ProjectItemsTable({
   );
 }
 
-
 /** How the fix is spelled — shown verbatim, per the phase doc's own rule. */
 const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
+
+/**
+ * What the transport-error state's Reload runs instead. That state means the
+ * `forgeProject.list` call itself never answered — not that gh refused — so
+ * re-authorising is a guess; `gh auth status` is side-effect-free and shows,
+ * in the terminal, whether gh is installed and signed in at all.
+ */
+const GH_DIAGNOSE_COMMAND = 'gh auth status';
+
+/**
+ * Re-probe cadence after Reload. `gh auth refresh` is gh's interactive
+ * browser/device-code flow, so its completion time is the user's, not the
+ * shell's — and a shell session gives no "command finished" signal to key
+ * off. A bounded poll (~2 min) is the same shape the Health page's Start
+ * Ollama button uses, just stretched to fit a browser round trip. It stops
+ * early for free: once the list comes back non-empty this button unmounts,
+ * and the effect cleanup below clears the interval.
+ */
+const RELOAD_REPROBE_ATTEMPTS = 24;
+const RELOAD_REPROBE_INTERVAL_MS = 5000;
+
+/**
+ * Reload for the board list's empty and error states: runs `command` in the
+ * integrated terminal (the shared `submitCommand` primitive), refetches
+ * immediately, then keeps refetching on the bounded cadence above so the
+ * view picks up the refreshed token without the user having to come back
+ * and click again.
+ */
+function ReloadProjectsButton({
+  command,
+  busy,
+  onReload,
+}: {
+  command: string;
+  busy: boolean;
+  onReload: () => void;
+}) {
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The interval outlives the render that started it, so it calls through a
+  // ref rather than capturing whichever `onReload` closure was current then.
+  const onReloadRef = useRef(onReload);
+  onReloadRef.current = onReload;
+
+  const stop = (): void => {
+    if (timer.current !== null) clearInterval(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stop, []);
+
+  const reload = (): void => {
+    submitCommand(command, 'gh');
+    onReloadRef.current();
+    stop();
+    let attempts = 0;
+    timer.current = setInterval(() => {
+      attempts += 1;
+      onReloadRef.current();
+      if (attempts >= RELOAD_REPROBE_ATTEMPTS) stop();
+    }, RELOAD_REPROBE_INTERVAL_MS);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={reload}
+      disabled={busy}
+      title={`Runs \`${command}\` in the terminal, then reloads`}
+      className="flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+    >
+      <LuRefreshCw aria-hidden className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />
+      Reload
+    </button>
+  );
+}
 
 /**
  * The missing-`read:project`-scope state.
