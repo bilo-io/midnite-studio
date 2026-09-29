@@ -169,10 +169,10 @@ describe('SettingsView, assembled through the real bridge', () => {
     );
     expect(await screen.findByRole('heading', { name: 'Sidebar' })).toBeTruthy();
 
-    // The defaults, readable per row: Changes arrives narrowed, Graph whole.
-    const changes = screen.getByRole('radiogroup', { name: 'Changes' });
+    // The defaults, readable per row: Actions arrives narrowed, Graph whole.
+    const actions = screen.getByRole('radiogroup', { name: 'Actions' });
     expect(
-      changes.querySelector('[role="radio"][aria-checked="true"]')?.textContent,
+      actions.querySelector('[role="radio"][aria-checked="true"]')?.textContent,
     ).toBe('Narrowed');
     const graph = screen.getByRole('radiogroup', { name: 'Graph' });
     expect(graph.querySelector('[role="radio"][aria-checked="true"]')?.textContent).toBe(

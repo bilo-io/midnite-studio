@@ -79,8 +79,8 @@ describe('useWindowSync — page roles', () => {
 
   it('drops a page again when its window closes', () => {
     renderHook(() => useWindowSync());
-    mocks.handler?.({ windows: [descriptor('main', 1), descriptor('changes', 2), descriptor('files', 3)] });
-    expect(useUiStore.getState().detachedPages).toEqual(['changes', 'files']);
+    mocks.handler?.({ windows: [descriptor('main', 1), descriptor('actions', 2), descriptor('files', 3)] });
+    expect(useUiStore.getState().detachedPages).toEqual(['actions', 'files']);
 
     mocks.handler?.({ windows: [descriptor('main', 1), descriptor('files', 3)] });
     expect(useUiStore.getState().detachedPages).toEqual(['files']);

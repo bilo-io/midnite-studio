@@ -176,23 +176,10 @@ describe('ReposPanel workbench and rail, assembled through the real bridge', () 
     expect(screen.queryByLabelText(/^main: \d+ changed/)).toBeNull();
   });
 
-  it('the Changes view hides the checkouts with nothing in them', async () => {
+  it('the changed-checkouts filter is visible while on, and reversible', async () => {
     open();
-    expect(await screen.findByRole('heading', { name: 'Local' })).toBeTruthy();
-
-    useUiStore.getState().setActiveView('changes');
-
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Local' })).toBeNull());
-    expect(screen.getByRole('heading', { name: 'Worktrees' })).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: /Actions for worktree feature\/x/ }),
-    ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Actions for worktree main' })).toBeNull();
-  });
-
-  it('the filter is visible while on, and reversible', async () => {
-    open();
-    useUiStore.getState().setActiveView('changes');
+    useUiStore.getState().setActiveView('graph');
+    fireEvent.click(await screen.findByRole('button', { name: 'Show every ref and checkout' }));
 
     const toggle = await screen.findByRole('button', { name: 'Showing only changed checkouts' });
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
@@ -429,16 +416,15 @@ describe("ReposPanel's view-scoped section filtering (nav-shell)", () => {
     expect(screen.getByRole('heading', { name: 'Tags' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Reviews' })).toBeTruthy();
 
-    // Per-view: it did not also unfilter Changes.
-    useUiStore.getState().setActiveView('changes');
+    // Per-view: it did not also unfilter Tests.
+    useUiStore.getState().setActiveView('tests');
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Local' })).toBeNull());
   });
 
   it('a view with no narrowing of its own can still be filtered by hand', async () => {
     open();
     // Graph has no `filterFor` entry at all — the `dirtyOnly: false` +
-    // `filtered: false` case, labelled differently from both the Changes
-    // and the Actions toggles.
+    // `filtered: false` case, labelled differently from the Actions toggle.
     useUiStore.getState().setActiveView('graph');
 
     expect(await screen.findByRole('heading', { name: 'Local' })).toBeTruthy();

@@ -223,7 +223,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
     open();
 
     const shaLink = await screen.findByRole('button', {
-      name: `Open commit in tab (${COMMIT_SHA})`,
+      name: `Show commit in graph (${COMMIT_SHA})`,
     });
     expect(shaLink.textContent).toContain(`${COMMIT_SHA.slice(0, 16)}…`);
 
@@ -233,6 +233,14 @@ describe('CommitDetail, assembled through the real bridge', () => {
     // The full 40 characters, not the abbreviation the header shows.
     await waitFor(() => expect(clipboard.__mstudioClipboard).toEqual([COMMIT_SHA]));
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeTruthy();
+  });
+
+  it('the sha link shows the commit in the graph (the Changes workbench commit tab is gone)', async () => {
+    open();
+    useUiStore.setState({ activeView: 'search' });
+    fireEvent.click(await screen.findByRole('button', { name: `Show commit in graph (${COMMIT_SHA})` }));
+    expect(useUiStore.getState().activeView).toBe('graph');
+    expect(useUiStore.getState().graphSelection).toEqual({ kind: 'commit', sha: COMMIT_SHA });
   });
 
   /**
@@ -257,7 +265,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
     expect(identities()).toBeNull();
     expect(screen.queryByTestId('commit-message')).toBeNull();
     expect(
-      screen.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).textContent,
+      screen.getByRole('button', { name: `Show commit in graph (${COMMIT_SHA})` }).textContent,
     ).toContain(`${COMMIT_SHA.slice(0, 16)}…`);
     expect(screen.getByRole('button', { name: 'Copy the full sha' })).toBeTruthy();
     expect(files()).toBeTruthy();
@@ -285,7 +293,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
     fireEvent.click(await screen.findByRole('button', { name: `Show commit ${PARENT_SHA}` }));
 
     expect(
-      await screen.findByRole('button', { name: `Open commit in tab (${PARENT_SHA})` }),
+      await screen.findByRole('button', { name: `Show commit in graph (${PARENT_SHA})` }),
     ).toHaveProperty('textContent', expect.stringContaining(`${PARENT_SHA.slice(0, 16)}…`));
     expect(await screen.findByText('Root commit — no parents.')).toBeTruthy();
   });
@@ -296,7 +304,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
     fireEvent.click(await screen.findByRole('button', { name: LINKED_ABBREV }));
 
     expect(
-      await screen.findByRole('button', { name: `Open commit in tab (${LINKED_SHA})` }),
+      await screen.findByRole('button', { name: `Show commit in graph (${LINKED_SHA})` }),
     ).toHaveProperty('textContent', expect.stringContaining(`${LINKED_SHA.slice(0, 16)}…`));
     expect(await screen.findByText('fix(graph): the linkified target')).toBeTruthy();
   });

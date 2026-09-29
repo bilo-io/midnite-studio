@@ -114,9 +114,9 @@ describe('TitleBarNav Breadcrumbs', () => {
       expect(screen.getByText('Graph').dataset.revealed).toBe('false');
 
       act(() => {
-        useUiStore.setState({ activeView: 'changes' });
+        useUiStore.setState({ activeView: 'actions' });
       });
-      expect(screen.getByText('Changes').dataset.revealed).toBe('true');
+      expect(screen.getByText('Actions').dataset.revealed).toBe('true');
     });
   });
 

@@ -71,7 +71,6 @@ beforeEach(() => {
   });
   useWorkbenchStore.setState({
     tabs: [],
-    activeTabId: null,
     activeQueryTabId: null,
     dirtyQueryTabIds: new Set(),
   });
