@@ -21,7 +21,7 @@ import {
  * motion, so the ramp and the marching dashes rest at the same frame in every
  * run.
  *
- * Two tasks are blocked (by an open blocker), one has a running agent and one
+ * Three tasks are blocked (by an open blocker), one has a running agent and one
  * a waiting one — seeded `terminalSessions` with the card's own `taskRef`,
  * the same shape `project-graph-glow-shots.spec.ts` uses.
  *
@@ -96,6 +96,7 @@ const ITEMS = [
   issue(4, 'Build the importer (running)', DOING),
   issue(5, 'Document the importer (blocked)', TODO, [4]),
   issue(6, 'Polish the empty states (waiting)', REVIEW),
+  issue(7, 'Review the importer docs (blocked)', REVIEW, [5]),
 ];
 
 const session = (id: string, itemId: string, pid: number) => ({
