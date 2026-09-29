@@ -141,7 +141,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // bottom run panel's tabs, dagre layout, the position-migration adapter —
 // has its own vitest coverage; `workflows.spec.ts`'s pre-existing cases were
 // only adapted to the new DOM, not multiplied.
-export const MAX_DECLARED_E2E = 456;
+// Raised 456 -> 457 for Phase 98 Theme C's `setup-fab-handoff.spec.ts` (one
+// test): the arrow the setup overlay leaves after Skip is placed from the
+// FAB's live `getBoundingClientRect()` — all zeros under jsdom — and the
+// claim is that it lands aimed at the real FAB in the assembled app, then
+// clears out so that FAB can be clicked to resume. The handoff's phases, the
+// hidden-FAB wording and the resume-page rule are all vitest.
+export const MAX_DECLARED_E2E = 457;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
