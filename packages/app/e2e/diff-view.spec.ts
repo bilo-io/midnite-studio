@@ -34,7 +34,7 @@ async function openCommit(page: Page): Promise<void> {
   await expect(row).toBeVisible();
   await row.click();
 
-  await expect(page.getByRole('button', { name: /window\.ts/ })).toBeVisible();
+  await expect(windowFile(page)).toBeVisible();
 }
 
 /**
@@ -59,8 +59,17 @@ async function openCommitInTab(page: Page): Promise<void> {
   await expect(link.getByText('Changes', { exact: true })).toBeVisible();
   await link.click();
 
-  await expect(page.getByRole('button', { name: /window\.ts/ })).toBeVisible();
+  await expect(windowFile(page)).toBeVisible();
 }
+
+/*
+  The file LIST's row, not any button naming the file: the graph's inline
+  commit panel (the inspector's split layout) also lists every file in its
+  all-changes accordion, and a kept-alive graph behind the Changes view still
+  holds its own copy of the list — so the visible file list is the target.
+*/
+const windowFile = (page: Page) =>
+  page.getByTestId('commit-files').filter({ visible: true }).getByRole('button', { name: /window\.ts/ });
 
 const diff = (page: Page) => page.getByTestId('diff-view');
 const lines = (page: Page, kind: 'add' | 'del' | 'ctx') =>
@@ -68,7 +77,7 @@ const lines = (page: Page, kind: 'add' | 'del' | 'ctx') =>
 
 test('the old line-number column is off by default and toggles on', async ({ page }) => {
   await openCommit(page);
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
 
   const firstRow = lines(page, 'ctx').first();
   // One gutter: the new-file number only.
@@ -80,13 +89,13 @@ test('the old line-number column is off by default and toggles on', async ({ pag
   // And the preference is persisted, so it survives a reload.
   await page.reload();
   await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
   await expect(page.getByRole('button', { name: 'Hide original line numbers' })).toBeVisible();
 });
 
 test('toggling side-by-side diff switches rendering layout', async ({ page }) => {
   await openCommitInTab(page);
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
 
   const toggle = page.getByRole('button', { name: 'Switch to side-by-side diff' });
   await expect(toggle).toBeVisible();
@@ -109,7 +118,7 @@ test('syntax highlighting colours a line without disturbing the intraline diff m
   page,
 }) => {
   await openCommit(page);
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
   await expect(diff(page)).toBeVisible();
 
   // Highlighting is scheduled through requestIdleCallback and lands

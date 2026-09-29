@@ -353,15 +353,20 @@ test.describe('graph row polish', () => {
     await expect(page.getByRole('button', { name: /uncommitted change/ })).toHaveCount(0);
   });
 
-  test('the working-copy row opens the Changes view and selects nothing', async ({ page }) => {
+  test('the working-copy row expands its changes inline and selects nothing', async ({ page }) => {
     await openGraph(page, withStatus(DIRTY_ONE));
     // It must not announce a selection it does not have — which it did while
     // "selected" was tied to `selectedCommitSha === null`, i.e. to the state
-    // every repo switch starts in.
+    // every repo switch starts in. It is a disclosure instead.
     const working = page.getByRole('button', { name: /^1 uncommitted change\b/ });
     await expect(working).not.toHaveAttribute('aria-selected', /.*/);
+    await expect(working).toHaveAttribute('aria-expanded', 'false');
 
+    // The Changes view's parts open in place, under the row, and the graph
+    // stays — the history is still on screen around the panel.
     await working.click();
-    await expect(page.getByRole('grid')).toHaveCount(0);
+    await expect(working).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('region', { name: 'Working copy changes' })).toBeVisible();
+    await expect(page.getByRole('grid')).toHaveCount(1);
   });
 });

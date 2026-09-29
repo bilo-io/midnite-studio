@@ -60,13 +60,10 @@ test('the metadata collapses to its header, and the choice survives a reload', a
   // been told about.
   await expect(identities(page)).toBeVisible();
 
-  // A diff has to be open for "the space goes to the diff" to be measurable at
-  // all — the closed state is a one-line placeholder either way.
-  await files(page)
-    .getByRole('button', { name: 'packages/desktop/src/main/window.ts', exact: true })
-    .click();
-  await expect(page.getByTestId('diff-view')).toBeVisible();
-  const paneBefore = (await page.getByTestId('diff-view').boundingBox())?.height ?? 0;
+  // The graph opens a commit inline, in the inspector's split layout: the
+  // details sit above the file list in the left column, so closing them is
+  // measured on the file list, which is what inherits the height.
+  const paneBefore = (await page.getByTestId('commit-file-pane').boundingBox())?.height ?? 0;
 
   await page.getByRole('button', { name: 'Hide the commit details' }).click();
 
@@ -77,8 +74,8 @@ test('the metadata collapses to its header, and the choice survives a reload', a
   await expect(page.getByRole('button', { name: 'Copy the full sha' })).toBeVisible();
   await expect(files(page)).toBeVisible();
 
-  // The whole point of closing it: the height goes to the diff below.
-  const paneAfter = (await page.getByTestId('diff-view').boundingBox())?.height ?? 0;
+  // The whole point of closing it: the height goes to the file list below.
+  const paneAfter = (await page.getByTestId('commit-file-pane').boundingBox())?.height ?? 0;
   expect(paneAfter).toBeGreaterThan(paneBefore + 40);
 
   await page.reload();
@@ -110,17 +107,19 @@ test('the tree ⇄ list choice survives a reload', async ({ page }) => {
 test('the file list and the diff can be resized against each other', async ({ page }) => {
   await openCommit(page);
 
+  // Inline, the list is the left column and the diff the right one, so the
+  // splitter between them is a vertical rule dragged sideways.
   const pane = page.getByTestId('commit-file-pane');
-  const before = (await pane.boundingBox())?.height ?? 0;
+  const before = (await pane.boundingBox())?.width ?? 0;
 
   const handle = page.getByRole('separator', { name: 'Resize the commit file list' });
   const box = await handle.boundingBox();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + 80);
+  await page.mouse.move(box!.x + 80, box!.y + box!.height / 2);
   await page.mouse.up();
 
-  const after = (await pane.boundingBox())?.height ?? 0;
+  const after = (await pane.boundingBox())?.width ?? 0;
   expect(after).toBeGreaterThan(before + 40);
 });
 
