@@ -27,7 +27,12 @@ export type InterpolateResult = { ok: true; value: string } | { ok: false; error
  */
 const TOKEN = /\{\{\{\{|\{\{([^{}]*)\}\}/g;
 
-function walk(root: unknown, segments: string[]): { found: true; value: unknown } | { found: false } {
+/**
+ * The dotted-path walk every `{{...}}` reference uses, exported so a node
+ * that reads a path out of a value it parsed itself (`json-extract`) walks it
+ * by exactly the same rules — `hasOwn`, numeric array indices, nothing else.
+ */
+export function walk(root: unknown, segments: string[]): { found: true; value: unknown } | { found: false } {
   let current: unknown = root;
   for (const segment of segments) {
     if (current === null || current === undefined) return { found: false };

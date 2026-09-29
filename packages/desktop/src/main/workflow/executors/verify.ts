@@ -75,20 +75,22 @@ function shellQuoteEnvValue(value: string): string {
   return `'${value.replace(/'/g, String.raw`'\''`)}'`;
 }
 
-type HeadlessScriptResult =
-  | { ok: true; exitCode: number | null; stdout: string; combinedTail: string }
+export type HeadlessScriptResult =
+  | { ok: true; exitCode: number | null; stdout: string; stderr: string; combinedTail: string }
   | { ok: false; error: string };
 
 /**
  * Runs `config.command` in `/bin/sh -c`, actively killed on
  * `context.signal.cancelled()` (the same 50ms-poll idiom `script.ts`/
  * `agent.ts` use for their own pty sessions, adapted to `process-runner.ts`'s
- * `onSpawned` hook since there is no pty here to poll through).
+ * `onSpawned` hook since there is no pty here to poll through). Exported for
+ * the `command` node (`executors/command.ts`), which is this same headless
+ * run with the output handed on rather than graded.
  */
-async function runHeadlessScript(
+export async function runHeadlessScript(
   config: Pick<WorkflowVerifyExitCodeCheck | WorkflowVerifyTestCountsCheck, 'command' | 'cwd' | 'env'>,
-  context: ExecutorContext,
-  deps: VerifyExecutorDeps,
+  context: Pick<ExecutorContext, 'signal' | 'timeoutMs'>,
+  deps: Pick<VerifyExecutorDeps, 'spawn' | 'now'>,
 ): Promise<HeadlessScriptResult> {
   if (config.command.trim() === '') return { ok: false, error: 'This node has no command.' };
 
@@ -129,7 +131,7 @@ async function runHeadlessScript(
   const combined = outcome.stderr.length > 0 ? `${outcome.data}\n${outcome.stderr}` : outcome.data;
   const combinedTail =
     combined.length > VERIFY_OUTPUT_CAP_BYTES ? combined.slice(-VERIFY_OUTPUT_CAP_BYTES) : combined;
-  return { ok: true, exitCode: outcome.exitCode, stdout: outcome.data, combinedTail };
+  return { ok: true, exitCode: outcome.exitCode, stdout: outcome.data, stderr: outcome.stderr, combinedTail };
 }
 
 async function runExitCodeCheck(

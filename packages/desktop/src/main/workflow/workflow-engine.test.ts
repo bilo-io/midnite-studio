@@ -113,6 +113,21 @@ function fakeRegistry(
     state: executor,
     frame: executor,
     policy: executor,
+    'ai-prompt': executor,
+    'ai-extract': executor,
+    assert: executor,
+    fail: executor,
+    command: executor,
+    'read-file': executor,
+    'git-status': executor,
+    'forge-comment': executor,
+    'forge-issue': executor,
+    'set-fields': executor,
+    'json-extract': executor,
+    coalesce: executor,
+    notify: executor,
+    'write-file': executor,
+    clipboard: executor,
   };
 }
 
