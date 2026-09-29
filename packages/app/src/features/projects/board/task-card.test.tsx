@@ -115,6 +115,20 @@ describe('TaskCard', () => {
       expect(rect.getAttribute('class')).not.toContain('status-stroke-animated');
     });
 
+    it('a blocked card: its status colour and dash, held still and faded', () => {
+      const stroke = statusStroke('In Review', 'PURPLE', true);
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={stroke} />,
+      );
+      const card = container.querySelector('[data-card-id]') as HTMLElement;
+      expect(card.hasAttribute('data-blocked')).toBe(true);
+      const rect = container.querySelector('[data-status-border] rect') as SVGRectElement;
+      expect(rect.getAttribute('stroke')).toBe(stroke.color);
+      expect(rect.getAttribute('stroke-dasharray')).toBe(stroke.dashArray);
+      expect(rect.getAttribute('stroke-opacity')).toBe('0.55');
+      expect(rect.getAttribute('class')).not.toContain('status-stroke-animated');
+    });
+
     it('pauses the march while the card is off-screen', () => {
       const { container } = renderCard(
         <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Todo', 'GRAY')} />,
@@ -136,8 +150,11 @@ describe('TaskCard', () => {
       const { container } = renderCard(
         <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Todo', 'GRAY')} />,
       );
-      expect(container.querySelector('.agent-run-glow')).not.toBeNull();
+      expect(container.querySelector('.agent-run-glow.task-glow')).not.toBeNull();
       expect(container.querySelector('[data-status-border]')).toBeNull();
+      // jsdom has no IntersectionObserver, so the card counts as off-screen,
+      // which is what pauses the glow's spin and bloom.
+      expect(container.querySelector('.task-glow')?.hasAttribute('data-offscreen')).toBe(true);
     });
 
     it('no status: the plain border and column ring, as before', () => {

@@ -10,7 +10,7 @@ import { closeSessionWithConfirm } from '../../terminal/close-session';
 import { revealSession } from '../../terminal/reveal-session';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
-import type { CardGlowState } from '../board/glow-state';
+import { taskGlowClass, type CardGlowState } from '../board/glow-state';
 import { StatusBorder } from '../board/status-border';
 import { useCardPlay } from '../board/use-card-play';
 import type { StatusStroke } from '../status-stroke';
@@ -142,7 +142,7 @@ export function ProjectGraphNode({
         // the ready badge below.
         'project-graph-node relative flex cursor-pointer flex-col rounded bg-background px-2 py-1.5 text-left text-xs',
         borderClass,
-        glow === 'idle' ? '' : `agent-run-glow is-${glow}`,
+        taskGlowClass(glow),
       ]
         .filter(Boolean)
         .join(' ')}

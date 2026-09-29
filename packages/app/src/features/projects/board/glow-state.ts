@@ -61,3 +61,16 @@ export function cardGlowStateFromActivity(
   }
   return deriveCardGlowState({ running: false, waiting: false, isOpen: isOpenWithSession });
 }
+
+/**
+ * The class list a task wears for its glow state — on a board card, a graph
+ * node and a list row alike, so the three views paint one glow. `''` when
+ * idle. `task-glow` is the Projects modifier over the shared
+ * `.agent-run-glow` ring (`styles.css`): a thicker border and a bloom built
+ * from the same gradient, drawn by the host's own `::after`. Scoped to a
+ * modifier so the ring's other wearer (the workflow run-history button) is
+ * left exactly as it was.
+ */
+export function taskGlowClass(glow: CardGlowState): string {
+  return glow === 'idle' ? '' : `agent-run-glow task-glow is-${glow}`;
+}

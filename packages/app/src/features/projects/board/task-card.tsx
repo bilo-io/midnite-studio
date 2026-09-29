@@ -13,7 +13,7 @@ import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICO
 import { CardTerminal } from './card-terminal';
 import type { StatusStroke } from '../status-stroke';
 import { StatusBorder } from './status-border';
-import { cardGlowStateFromActivity } from './glow-state';
+import { cardGlowStateFromActivity, taskGlowClass } from './glow-state';
 import { useCardPlay } from './use-card-play';
 import { useCardStatus } from './use-card-status';
 import { useCardVisible } from './use-card-visible';
@@ -167,11 +167,15 @@ export function TaskCard({
         }
       }}
       data-status-kind={statusStroke?.kind}
+      data-blocked={statusStroke?.blocked ? '' : undefined}
+      // Pauses the glow's spin and bloom while scrolled out of view, the
+      // same IntersectionObserver the status border and xterm mount key off.
+      data-offscreen={glow !== 'idle' && !visible ? '' : undefined}
       className={`relative flex w-full flex-col gap-1.5 rounded bg-background px-2 py-1.5 text-left text-xs ${
         showStatusBorder
           ? 'border-2 border-transparent hover:bg-accent/40'
           : 'border border-border hover:border-foreground/30'
-      } ${glow === 'idle' ? '' : `agent-run-glow is-${glow}`}`}
+      } ${taskGlowClass(glow)}`}
       // A static ring in the card's own status-pill colour, once idle with
       // nothing else to show — never applied while a real glow class is
       // active above, so it can never fight the ramp/amber ring for the

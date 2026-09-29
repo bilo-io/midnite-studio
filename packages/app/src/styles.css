@@ -3221,57 +3221,113 @@ html[data-motion='reduced'] .agent-run-glow.is-running {
 }
 
 /*
-  Graph-only bloom (Phase 75 Theme D — closing one of Theme F's four items
-  deferred here, since Theme F had no node to wire it into yet) — a blurred
-  copy of the ring behind a running/waiting node, the crib's own `::after`.
-  A glance across a 300-node canvas can spot the lit one this way without
-  reading every ring in turn. The card never wears this: a kanban column is
-  narrow enough for the ring alone to read, and a blur behind every card in
-  one column would smear into its neighbours — so this is scoped to
-  `.project-graph-node`, never bare `.agent-run-glow`.
-
-  `background: inherit` picks up whichever `background-image` the co-applied
-  `.is-running`/`.is-waiting` rule above painted, so the bloom is always the
-  same colour as the ring in front of it without a second copy of either
-  gradient. `::after` rather than a second DOM element — nothing here needs
-  to be inspectable, only visible, and `project-graph-node.tsx` carries no
-  extra markup for it.
+  A closed graph node's own solid ring. (An unclosed comment above this rule
+  had swallowed it, and the graph-only `::after` bloom after it, since #445;
+  the bloom is now `.task-glow` below, shared with the board and the list.)
+*/
 .project-graph-node.is-closed {
   border-width: 2.5px;
   border-color: hsl(var(--dep-done));
 }
 
-.project-graph-node.agent-run-glow.is-running::after,
-.project-graph-node.agent-run-glow.is-waiting::after {
+/*
+  Task glow (ad hoc) — the Projects modifier over `.agent-run-glow`, worn by a
+  board card, a graph node and a list row alike (`taskGlowClass` in
+  `features/projects/board/glow-state.ts`), so the three views paint one glow.
+  A modifier rather than an edit to `.agent-run-glow` itself, so that ring's
+  other wearer (the workflow run-history button) is left exactly as it was.
+
+  - A thicker ring: 3px, from the shared 1px — as thick as a 4px card corner
+    takes while still reading as rounded.
+  - One paint, two layers. The ring's gradient lives in one custom property,
+    `--task-glow-paint`, and the bloom is the host's own `::after` painted
+    with that same property and blurred. An unregistered custom property's
+    computed value has its `var()`s substituted, so the pseudo inherits the
+    host's gradient with the host's *current* `--loop-glow-angle` already in
+    it: the same stops at the same angle on every frame, from the one
+    `loop-glow-spin` animation, with no second rotation to drift out of step.
+    Waiting swaps the property to amber, and the bloom follows.
+  - The bloom is cut out of the host's own box by a mask
+    (`mask-composite: exclude`) rather than tucked beneath it with a
+    negative z-index. A board column or the table between the card and the
+    nearest stacking context has its own background, which a `z-index: -1`
+    layer would paint under, and this way no host has to become a stacking
+    context to fix that.
+  - It replaces `card-glow-pulse`'s pink/blue box-shadow, a second colour
+    scheme beside the ring, with the bloom's own opacity breathing.
+  - Cheap: a blurred pseudo on each *glowing* task only, and paused the way
+    every loop here is — blurred window, off-screen card (`data-offscreen`,
+    from the card's own IntersectionObserver), reduced motion.
+*/
+@keyframes task-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.task-glow.agent-run-glow {
+  --task-glow-border: 3px;
+  --task-glow-spread: 14px;
+  --task-glow-paint: conic-gradient(from var(--loop-glow-angle, 0deg), var(--rainbow-ramp));
+  border-width: var(--task-glow-border);
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    var(--task-glow-paint);
+}
+
+.task-glow.agent-run-glow.is-running {
+  animation: loop-glow-spin 4s linear infinite;
+}
+
+.task-glow.agent-run-glow.is-waiting {
+  --task-glow-paint: linear-gradient(#f59e0b, #f59e0b);
+  box-shadow: none;
+}
+
+.task-glow.agent-run-glow.is-running::after,
+.task-glow.agent-run-glow.is-waiting::after {
   content: '';
   position: absolute;
-  inset: -10px;
-  z-index: -1;
-  border-radius: inherit;
-  background: inherit;
-  filter: blur(10px);
-  opacity: 0.6;
+  inset: calc(-1 * (var(--task-glow-border) + var(--task-glow-spread)));
+  padding: var(--task-glow-spread);
+  background: var(--task-glow-paint) content-box;
+  filter: blur(7px);
+  opacity: 0.85;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
   pointer-events: none;
 }
 
-.project-graph-node.agent-run-glow.is-running::after {
-  animation:
-    loop-glow-spin 4s linear infinite,
-    card-glow-pulse 2s ease-in-out infinite;
+.task-glow.agent-run-glow.is-running::after {
+  animation: task-glow-breathe 2s ease-in-out infinite;
 }
 
-/* Same focus gate as the ring itself — a blurred window pays for neither. */
-html[data-window-focused='false'] .project-graph-node.agent-run-glow.is-running::after {
+html[data-window-focused='false'] .task-glow.agent-run-glow.is-running::after,
+.task-glow.agent-run-glow.is-running[data-offscreen],
+.task-glow.agent-run-glow.is-running[data-offscreen]::after {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) .project-graph-node.agent-run-glow.is-running::after {
+  html:not([data-motion='full']) .task-glow.agent-run-glow.is-running {
+    box-shadow: none;
+  }
+
+  html:not([data-motion='full']) .task-glow.agent-run-glow.is-running::after {
     animation: none;
   }
 }
 
-html[data-motion='reduced'] .project-graph-node.agent-run-glow.is-running::after {
+html[data-motion='reduced'] .task-glow.agent-run-glow.is-running {
+  box-shadow: none;
+}
+
+html[data-motion='reduced'] .task-glow.agent-run-glow.is-running::after {
   animation: none;
 }
 
