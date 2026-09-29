@@ -108,8 +108,10 @@ export function InlineExpander({
         { duration: EXPAND_MS, easing: EASING },
       );
       let live = true;
+      let finished = false;
       animation.finished.then(
         () => {
+          finished = true;
           if (live) callbacks.current.onEntered?.();
         },
         () => {},
@@ -117,6 +119,10 @@ export function InlineExpander({
       return () => {
         live = false;
         animation.cancel();
+        // Cut off before it finished — StrictMode's effect replay, or the row
+        // scrolled out mid-animation: it has not been seen yet, so the next
+        // mount plays it rather than appearing settled.
+        if (!finished) seen.delete(id);
       };
     }
 

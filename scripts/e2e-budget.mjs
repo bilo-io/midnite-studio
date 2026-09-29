@@ -159,7 +159,16 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // top — real `getBoundingClientRect` geometry across three elements and a real
 // `elementFromPoint` stacking check, neither of which jsdom lays out. The DOM
 // structure, aggregation, batching and modal behaviour are all vitest.
-export const MAX_DECLARED_E2E = 459;
+// Raised 459 -> 461 for the git graph's inline expand-in-place panels
+// (`graph-inline-panels.spec.ts`, two tests): the panel's height animates
+// through the Web Animations API (absent from jsdom), the virtualizer's
+// variable-height slot is only as right as the geometry it measures, and the
+// lanes running under the card line up with the next row's only in real
+// layout. One test covers the open/close animation, the rows following it
+// and the lane alignment; the other a far scroll away and back keeping the
+// expansion settled. Which panel is open, Escape, commit-from-panel and the
+// shared working-tree parts in both hosts are all vitest.
+export const MAX_DECLARED_E2E = 461;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
