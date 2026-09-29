@@ -67,4 +67,20 @@ export const NODE_SHAPE: Record<WorkflowNodeKind, NodeShapeVariant> = {
   frame: 'frame',
   /** Phase 97 Theme I — the plain card: `policy` is a permission boundary, not a "which way does this branch" or "waiting on a human" role. */
   policy: 'card',
+  /** The palette kinds all wear the plain card — none is a branch, a join, a human wait or a start. */
+  'ai-prompt': 'card',
+  'ai-extract': 'card',
+  assert: 'card',
+  fail: 'card',
+  command: 'card',
+  'read-file': 'card',
+  'git-status': 'card',
+  'forge-comment': 'card',
+  'forge-issue': 'card',
+  'set-fields': 'card',
+  'json-extract': 'card',
+  coalesce: 'card',
+  notify: 'card',
+  'write-file': 'card',
+  clipboard: 'card',
 };

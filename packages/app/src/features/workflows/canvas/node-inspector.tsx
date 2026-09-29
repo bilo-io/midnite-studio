@@ -26,6 +26,23 @@ import {
   VerifyForm,
   type NodeFormProps,
 } from './node-forms';
+import {
+  AiExtractForm,
+  AiPromptForm,
+  AssertForm,
+  ClipboardForm,
+  CoalesceForm,
+  CommandForm,
+  FailForm,
+  ForgeCommentForm,
+  ForgeIssueForm,
+  GitStatusForm,
+  JsonExtractForm,
+  NotifyForm,
+  ReadFileForm,
+  SetFieldsForm,
+  WriteFileForm,
+} from './palette-node-forms';
 
 /**
  * One form per node kind, dispatched exhaustively — a sixth
@@ -49,6 +66,21 @@ const NODE_FORMS: Record<WorkflowNodeKind, (props: NodeFormProps) => ReactNode> 
   state: StateForm,
   frame: FrameForm,
   policy: PolicyForm,
+  'ai-prompt': AiPromptForm,
+  'ai-extract': AiExtractForm,
+  assert: AssertForm,
+  fail: FailForm,
+  command: CommandForm,
+  'read-file': ReadFileForm,
+  'git-status': GitStatusForm,
+  'forge-comment': ForgeCommentForm,
+  'forge-issue': ForgeIssueForm,
+  'set-fields': SetFieldsForm,
+  'json-extract': JsonExtractForm,
+  coalesce: CoalesceForm,
+  notify: NotifyForm,
+  'write-file': WriteFileForm,
+  clipboard: ClipboardForm,
 };
 
 type ActiveField = { value: string; onChange: (next: string) => void; el: HTMLElement };

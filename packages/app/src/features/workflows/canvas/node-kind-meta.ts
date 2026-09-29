@@ -1,20 +1,35 @@
 import type { WorkflowNode, WorkflowNodeKind } from '@midnite/studio-shared';
 import {
   LuBadgeCheck,
+  LuBell,
   LuBot,
+  LuBraces,
+  LuCheckCheck,
+  LuCircleDot,
+  LuClipboardCopy,
   LuClock,
   LuDatabase,
+  LuFilePen,
+  LuFileText,
   LuFrame,
   LuGitBranch,
+  LuGitCommitHorizontal,
   LuGlobe,
+  LuLayers,
   LuMerge,
+  LuMessageSquare,
+  LuOctagonX,
+  LuScanText,
   LuShieldAlert,
   LuShieldCheck,
   LuShuffle,
+  LuSparkles,
   LuSplit,
   LuSquareTerminal,
   LuStickyNote,
+  LuTerminal,
   LuTimer,
+  LuVariable,
 } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
@@ -46,7 +61,9 @@ export const NODE_GROUPS = [
   { id: 'ai', label: 'Agents & AI' },
   { id: 'control', label: 'Control flow' },
   { id: 'actions', label: 'Actions' },
+  { id: 'git', label: 'Git & forge' },
   { id: 'data', label: 'Data & transform' },
+  { id: 'output', label: 'Output & notify' },
   { id: 'harness', label: 'Harness & notes' },
 ] as const;
 export type NodeGroup = (typeof NODE_GROUPS)[number]['id'];
@@ -233,6 +250,116 @@ export const NODE_KIND_META: Record<
     description:
       'A permission gate — which actions downstream nodes may take, and which need approval.',
   },
+  /*
+   * The palette kinds (after Phase 97) — each group's "a few more". Hues
+   * follow the rule the kinds above already set: a side effect is `action`,
+   * a routing or guard decision is `logic`, shaping a value is `data`.
+   */
+  'ai-prompt': {
+    label: 'Ask AI',
+    icon: LuSparkles,
+    category: 'action',
+    group: 'ai',
+    description: 'One headless prompt to a roster CLI or Ollama — clean text or JSON back, no terminal.',
+  },
+  'ai-extract': {
+    label: 'AI extract',
+    icon: LuScanText,
+    category: 'action',
+    group: 'ai',
+    description: 'Pull named fields out of free text into a JSON object.',
+  },
+  assert: {
+    label: 'Assert',
+    icon: LuCheckCheck,
+    category: 'logic',
+    group: 'control',
+    description: 'Fail the step unless a comparison holds — a guard, not a branch.',
+  },
+  fail: {
+    label: 'Fail',
+    icon: LuOctagonX,
+    category: 'logic',
+    group: 'control',
+    description: 'End this branch with an error and a message of your own.',
+  },
+  command: {
+    label: 'Command',
+    icon: LuTerminal,
+    category: 'action',
+    group: 'actions',
+    description: 'Run a shell command headlessly and capture stdout, stderr and the exit code.',
+  },
+  'read-file': {
+    label: 'Read file',
+    icon: LuFileText,
+    category: 'action',
+    group: 'actions',
+    description: "Read a file's contents as text or parsed JSON.",
+  },
+  'git-status': {
+    label: 'Git status',
+    icon: LuGitCommitHorizontal,
+    category: 'data',
+    group: 'git',
+    description: "A repository's branch, HEAD and staged/unstaged counts.",
+  },
+  'forge-comment': {
+    label: 'Comment',
+    icon: LuMessageSquare,
+    category: 'action',
+    group: 'git',
+    description: 'Post a comment on a pull request or issue.',
+  },
+  'forge-issue': {
+    label: 'Create issue',
+    icon: LuCircleDot,
+    category: 'action',
+    group: 'git',
+    description: "Open a new issue on the repository's forge.",
+  },
+  'set-fields': {
+    label: 'Set fields',
+    icon: LuVariable,
+    category: 'data',
+    group: 'data',
+    description: 'Build an object from values you type — constants, composed text, JSON.',
+  },
+  'json-extract': {
+    label: 'JSON extract',
+    icon: LuBraces,
+    category: 'data',
+    group: 'data',
+    description: 'Parse JSON text and read one path out of it.',
+  },
+  coalesce: {
+    label: 'First value',
+    icon: LuLayers,
+    category: 'data',
+    group: 'data',
+    description: 'The first of several values that exists — for after a router or an any-join.',
+  },
+  notify: {
+    label: 'Notify',
+    icon: LuBell,
+    category: 'action',
+    group: 'output',
+    description: 'Show a desktop notification.',
+  },
+  'write-file': {
+    label: 'Write file',
+    icon: LuFilePen,
+    category: 'action',
+    group: 'output',
+    description: "Write or append text to a file — governed by a policy's write-files action.",
+  },
+  clipboard: {
+    label: 'Copy to clipboard',
+    icon: LuClipboardCopy,
+    category: 'action',
+    group: 'output',
+    description: 'Put text on the system clipboard.',
+  },
 };
 
 /** One line describing what a node actually does, for the palette, the node card and the bottom run panel. */
@@ -297,8 +424,46 @@ export function nodeSummary(node: WorkflowNode): string {
         ? 'Contract set'
         : 'Empty harness';
     case 'policy':
-      return node.config.allow.length === 0
-        ? 'Allows nothing'
-        : `Allows ${node.config.allow.length}`;
+      return node.config.allow.length === 0 ? 'Allows nothing' : `Allows ${node.config.allow.length}`;
+    case 'ai-prompt':
+      if (!node.config.prompt.trim()) return 'No prompt';
+      return `${node.config.format === 'json' ? 'JSON' : 'Text'} · ${node.config.ollamaModel || node.config.agentId || 'any headless CLI'}`;
+    case 'ai-extract':
+      return node.config.fields.length === 0
+        ? 'No fields'
+        : `Extract ${node.config.fields.map((field) => field.key).join(', ')}`;
+    case 'assert':
+      return node.config.op === 'empty'
+        ? `Assert ${node.config.left || '…'} is empty`
+        : `Assert ${node.config.left || '…'} ${node.config.op} ${node.config.right || '…'}`;
+    case 'fail':
+      return node.config.message.trim() || 'Stop with an error';
+    case 'command':
+      return node.config.command.trim() || 'No command';
+    case 'read-file':
+      return node.config.path.trim() || 'No path';
+    case 'git-status':
+      return node.config.repoId.trim() || 'No repository';
+    case 'forge-comment': {
+      const noun = node.config.target === 'pr' ? 'PR' : 'Issue';
+      return node.config.number.trim() ? `${noun} #${node.config.number.trim().replace(/^#/, '')}` : `No ${noun} number`;
+    }
+    case 'forge-issue':
+      return node.config.title.trim() || 'No title';
+    case 'set-fields': {
+      const count = Object.keys(node.config.fields).length;
+      return count === 0 ? 'No fields' : `${count} field${count === 1 ? '' : 's'}`;
+    }
+    case 'json-extract':
+      return node.config.path.trim() ? `Path ${node.config.path}` : 'Whole document';
+    case 'coalesce':
+      return `${node.config.candidates.length} candidate${node.config.candidates.length === 1 ? '' : 's'}`;
+    case 'notify':
+      return node.config.title.trim() || 'No title';
+    case 'write-file':
+      if (!node.config.path.trim()) return 'No path';
+      return `${node.config.mode === 'append' ? 'Append to' : 'Write'} ${node.config.path}`;
+    case 'clipboard':
+      return node.config.text.trim() || 'Nothing to copy';
   }
 }
