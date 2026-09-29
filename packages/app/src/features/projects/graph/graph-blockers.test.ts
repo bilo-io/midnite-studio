@@ -1,7 +1,14 @@
-import { resolveForgeGraph, type ForgeGraph, type ForgeGraphNode, type ForgeProjectItem } from '@midnite/studio-shared';
+import {
+  resolveForgeGraph,
+  type ForgeGraph,
+  type ForgeGraphNode,
+  type ForgeIssueLinkSet,
+  type ForgeProjectItem,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { apiFieldBlockersFor } from './graph-blockers';
+import { issueItem } from '../__fixtures__/project-item';
+import { apiFieldBlockersFor, blockedItemIds } from './graph-blockers';
 
 const node = (overrides: Partial<ForgeGraphNode> & Pick<ForgeGraphNode, 'itemId' | 'number'>): ForgeGraphNode => ({
   repo: '',
@@ -142,5 +149,52 @@ describe('apiFieldBlockersFor', () => {
 
     const graph = resolveForgeGraph(items, [], { boardRepo: '' });
     expect(apiFieldBlockersFor(graph, 'item1')).toEqual([{ repo: '', number: 199 }]);
+  });
+});
+
+describe('blockedItemIds', () => {
+  const blockedBy = (...numbers: { number: number; state: 'open' | 'closed' }[]): ForgeIssueLinkSet => ({
+    blockedBy: numbers.map(({ number, state }) => ({ number, title: '', state, repo: '' })),
+    parent: null,
+    subIssues: [],
+    blockedByTruncated: false,
+    subIssuesTruncated: false,
+  });
+  const item = (number: number, state: 'open' | 'closed', deps = blockedBy()): ForgeProjectItem => {
+    const base = issueItem();
+    return issueItem({
+      id: `item${number}`,
+      content: { ...(base.content as Extract<ForgeProjectItem['content'], { type: 'issue' }>), number, state, dependencies: deps },
+    });
+  };
+
+  it('is the items with an open blocker, straight from resolveForgeGraph', () => {
+    const items = [
+      item(1, 'closed'),
+      item(2, 'open', blockedBy({ number: 1, state: 'closed' })),
+      item(3, 'open', blockedBy({ number: 2, state: 'open' })),
+      item(4, 'open'),
+      item(5, 'open', blockedBy({ number: 1, state: 'closed' }, { number: 4, state: 'open' })),
+    ];
+    const graph = resolveForgeGraph(items, [], { boardRepo: '' });
+    expect([...blockedItemIds(graph)].sort()).toEqual(['item3', 'item5']);
+  });
+
+  it('agrees with every node the graph itself calls blocked', () => {
+    const items = [item(1, 'open'), item(2, 'open', blockedBy({ number: 1, state: 'open' }))];
+    const graph = resolveForgeGraph(items, [], { boardRepo: '' });
+    const ids = blockedItemIds(graph);
+    for (const n of graph.nodes) expect(ids.has(n.itemId)).toBe(n.blocked && n.itemId !== '');
+  });
+
+  it('skips foreign nodes, which carry no item id', () => {
+    const graph: ForgeGraph = {
+      nodes: [node({ itemId: '', number: 9, foreign: true, blocked: true })],
+      edges: [],
+      truncated: false,
+      totalCount: 1,
+      kind: 'ok',
+    };
+    expect(blockedItemIds(graph).size).toBe(0);
   });
 });

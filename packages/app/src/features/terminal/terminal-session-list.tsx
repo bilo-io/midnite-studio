@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   commitsForLiveSession,
-  type ActivityStatus,
   type AgentDefinition,
   type TerminalSession,
 } from '@midnite/studio-shared';
@@ -13,14 +12,12 @@ import {
   LuPanelRight,
   LuPencil,
   LuRotateCcw,
-  LuTerminal,
   LuX,
 } from 'react-icons/lu';
-import { SiOllama } from 'react-icons/si';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
-import { resolveAgentIcon } from '../../components/icons';
+import { AgentAvatar } from '../../components/agent-avatar';
 import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
 import { Spinner } from '../../components/skeleton';
@@ -273,7 +270,7 @@ function SessionRow({
   const name = sessionLabel(session, autoName, agent?.label);
 
   // Phase 95 Theme C — the row's own icon wears the ring, not the whole
-  // row: `SessionIcon` already IS this row's identity badge (its mark), so
+  // row: `AgentAvatar` already IS this row's identity badge (its mark), so
   // the addition here is only the glow around it, sized down to the icon.
   const rowActivity = useActivityGlow(
     live
@@ -375,7 +372,7 @@ function SessionRow({
       onDoubleClick={rename}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1 text-left">
-        <SessionIcon
+        <AgentAvatar
           agent={runningAgent}
           live={live}
           activityStatus={rowActivity.status}
@@ -574,75 +571,5 @@ function UnknownDot() {
       aria-label="Activity unknown"
       className="size-1 rounded-full bg-muted-foreground/35"
     />
-  );
-}
-
-/**
- * A shell gets lucide's terminal glyph; an agent gets its own mark, in its own
- * accent from the roster — so a Claude session is identifiable before the label
- * is read, which is the whole reason the list is scannable at a glance.
- */
-/**
- * The row's mark: a terminal glyph, or the agent's own.
- *
- * Resolved through `AGENT_ICONS` rather than hard-coded. This used to render
- * `<ClaudeIcon>` for *any* agent id, which was invisible while the roster had
- * exactly one entry in it and would have put Claude's face on Codex the moment
- * it had two.
- */
-function SessionIcon({
-  agent,
-  live,
-  activityStatus,
-  ollamaBacked,
-}: {
-  agent: AgentDefinition | undefined;
-  live: boolean;
-  /** `useActivityGlow`'s own status (Phase 95 Theme C) — wraps this mark in the shared glow ring, `'idle'` painting none at all. */
-  activityStatus: ActivityStatus;
-  /** Session identity (Phase 96 Theme H) — `session.backend === 'ollama'`. */
-  ollamaBacked?: boolean;
-}) {
-  const className = `size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`;
-  const Mark = agent ? resolveAgentIcon(agent) : LuTerminal;
-  const icon = (
-    <span className="relative inline-flex shrink-0">
-      <Mark
-        className={className}
-        // Inline because the accent is data from the roster, not a Tailwind class
-        // — a user-added agent brings a colour Tailwind has never seen. `agent`
-        // is `undefined` for the plain-shell glyph, so this is `undefined` too.
-        style={agent ? { color: agent.accent } : undefined}
-      />
-      {ollamaBacked ? (
-        <SiOllama
-          aria-label="Running on Ollama"
-          title="Running on Ollama"
-          className="absolute -bottom-1 -right-1 size-2 rounded-full bg-background text-foreground"
-        />
-      ) : null}
-    </span>
-  );
-
-  if (activityStatus === 'idle') return icon;
-  const isAgent = Boolean(agent) || activityStatus === 'agent';
-  return (
-    <span
-      data-activity-status={activityStatus}
-      {...(isAgent ? { 'data-agent-icon': 'true' } : {})}
-      data-testid="session-icon-glow"
-      className={`activity-glow flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-        isAgent ? 'terminal-agent-glow' : ''
-      }`}
-      style={
-        isAgent
-          ? ({
-              '--agent-accent': agent?.accent ?? 'var(--activity-agent)',
-            } as React.CSSProperties)
-          : undefined
-      }
-    >
-      {icon}
-    </span>
   );
 }

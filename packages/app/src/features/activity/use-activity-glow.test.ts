@@ -18,11 +18,19 @@ describe('resolveActivityGlow — precedence table', () => {
   it('a live agent session with no activity guess yet: agent (actively working)', () => {
     const result = resolveActivityGlow({ sessions: [session()] });
     expect(result.status).toBe('agent');
-    expect(result.badges).toEqual([{ sessionId: 's1', kind: 'agent', agentId: 'claude', label: 'claude' }]);
+    expect(result.badges).toEqual([{ sessionId: 's1', kind: 'agent', agentId: 'claude', label: 'claude', status: 'agent' }]);
   });
 
   it('a live agent session between turns: thinking', () => {
     expect(resolveActivityGlow({ sessions: [session({ activity: 'thinking' })] }).status).toBe('thinking');
+  });
+
+  it("each badge carries its own session's status, not the target's winner", () => {
+    const result = resolveActivityGlow({
+      sessions: [session({ activity: 'thinking' }), session({ sessionId: 's2', activity: 'waiting' })],
+    });
+    expect(result.status).toBe('waiting');
+    expect(result.badges.map((badge) => badge.status)).toEqual(['thinking', 'waiting']);
   });
 
   it('a live agent session blocked on input: waiting', () => {
@@ -32,7 +40,7 @@ describe('resolveActivityGlow — precedence table', () => {
   it('a live plain shell (no resolved agent id): shell', () => {
     const result = resolveActivityGlow({ sessions: [session({ agentId: undefined })] });
     expect(result.status).toBe('shell');
-    expect(result.badges).toEqual([{ sessionId: 's1', kind: 'shell', agentId: undefined, label: 'Terminal' }]);
+    expect(result.badges).toEqual([{ sessionId: 's1', kind: 'shell', agentId: undefined, label: 'Terminal', status: 'shell' }]);
   });
 
   it('an ended (not running) session contributes no status and no badge', () => {

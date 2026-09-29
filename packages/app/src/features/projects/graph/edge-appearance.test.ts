@@ -131,6 +131,30 @@ describe('edgeAppearance — status stroke', () => {
     expect(appearance.style).toEqual({ stroke: inReview.color });
   });
 
+  it('an edge INTO a blocked task is its blocker\'s own stroke — still marching', () => {
+    const appearance = edgeAppearance(BLOCKS, node(), node({ blocked: true }), 'idle', inReview);
+    expect(appearance.className).toContain('dep-edge-animated');
+    expect(appearance.style).toEqual({ stroke: inReview.color, strokeDasharray: inReview.dashArray });
+  });
+
+  it('an edge OUT of a blocked task wears its blocked stroke: same dash, still, faded', () => {
+    const blocked = statusStroke('In Review', 'PURPLE', true);
+    const appearance = edgeAppearance(BLOCKS, node({ blocked: true }), node({ blocked: true }), 'idle', blocked);
+    expect(appearance.className).toBe('dep-edge dep-edge-status');
+    expect(appearance.style).toEqual({
+      stroke: blocked.color,
+      strokeDasharray: blocked.dashArray,
+      strokeOpacity: blocked.opacity,
+    });
+  });
+
+  it('a blocked body edge fades with stroke-opacity, leaving the body class its own opacity', () => {
+    const blocked = statusStroke('Todo', 'GRAY', true);
+    const appearance = edgeAppearance({ ...BLOCKS, source: 'body' }, node(), node(), 'idle', blocked);
+    expect(appearance.className).toBe('dep-edge dep-edge-status dep-edge-body');
+    expect(appearance.style).toEqual({ stroke: blocked.color, strokeOpacity: blocked.opacity });
+  });
+
   it('a contains edge ignores the status', () => {
     expect(edgeAppearance(CONTAINS, node(), node(), 'idle', inReview).style).toBeUndefined();
   });

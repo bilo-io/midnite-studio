@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deriveCardGlowState } from './glow-state';
+import { deriveCardGlowState, taskGlowClass } from './glow-state';
 
 describe('deriveCardGlowState', () => {
   it('running and no question: pulsing running state', () => {
@@ -27,5 +27,15 @@ describe('deriveCardGlowState', () => {
 
   it('neither running nor open: no glow', () => {
     expect(deriveCardGlowState({ running: false, waiting: false, isOpen: false })).toBe('idle');
+  });
+});
+
+describe('taskGlowClass', () => {
+  it('idle wears nothing', () => {
+    expect(taskGlowClass('idle')).toBe('');
+  });
+
+  it.each(['running', 'waiting', 'open'] as const)('%s wears the shared ring, the task modifier and its state', (glow) => {
+    expect(taskGlowClass(glow).split(' ')).toEqual(['agent-run-glow', 'task-glow', `is-${glow}`]);
   });
 });

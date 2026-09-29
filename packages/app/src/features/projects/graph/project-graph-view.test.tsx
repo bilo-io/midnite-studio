@@ -6,6 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DialogHost } from '../../../components/dialog-host';
 import { draftItem, issueItem, pullItem, resetProjectItemSeq, withBlockedBy } from '../__fixtures__/project-item';
 import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from './graph-filter';
+import { STATUS_STROKE_BLOCKED_OPACITY } from '../status-stroke';
 import { ProjectGraphView } from './project-graph-view';
 
 /** `useCardPlay` (Theme A/D), reached by each node's own Play button, calls
@@ -287,5 +288,69 @@ describe('ProjectGraphView — Theme H facets', () => {
       <Harness items={[a, b, c]} selectedItemId={b.id} facets={{ ...DEFAULT_GRAPH_FACETS, depth: 1 }} />,
     );
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(3); // a, b, c all one hop from b
+  });
+});
+
+describe('ProjectGraphView — blocked status stroke', () => {
+  const STATUS: ForgeProjectField = {
+    id: 'f-status',
+    name: 'Status',
+    dataType: 'single_select',
+    options: [{ id: 'o-rev', name: 'In Review', color: 'PURPLE' }],
+  };
+  const inReview = (item: ForgeProjectItem): ForgeProjectItem => ({
+    ...item,
+    fieldValues: { 'f-status': { fieldId: 'f-status', dataType: 'single_select', optionId: 'o-rev', name: 'In Review' } },
+  });
+  const numberOf = (item: ForgeProjectItem) => (item.content.type === 'issue' ? item.content.number : 0);
+
+  function renderChain() {
+    // blocker ← dependent ← downstream, all In Review, all open.
+    const blocker = inReview(issueItem());
+    const dependent = inReview(withBlockedBy(issueItem(), [{ number: numberOf(blocker), title: '', state: 'open', repo: '' }]));
+    const downstream = inReview(
+      withBlockedBy(issueItem(), [{ number: numberOf(dependent), title: '', state: 'open', repo: '' }]),
+    );
+    const all = [blocker, dependent, downstream];
+    const graph = resolveForgeGraph(all, [STATUS], { boardRepo: 'acme/widgets' });
+    const view = renderGraph(
+      <ProjectGraphView
+        graph={graph}
+        items={all}
+        fields={[STATUS]}
+        projectId="proj1"
+        selectedItemId={null}
+        onSelectItem={() => {}}
+        agentStates={new Map()}
+      />,
+    );
+    const rectOf = (item: ForgeProjectItem) =>
+      view.container.querySelector(`[data-graph-node][data-node-key$="#${numberOf(item)}"] [data-status-border] rect`);
+    return { ...view, blocker, dependent, downstream, rectOf };
+  }
+
+  it('a blocked node keeps its status dash but holds still, at reduced opacity', () => {
+    const { rectOf, blocker, dependent } = renderChain();
+    const open = rectOf(blocker)!;
+    const blocked = rectOf(dependent)!;
+    expect(open.getAttribute('class')).toContain('status-stroke-animated');
+    expect(open.getAttribute('stroke-opacity')).toBe('1');
+    expect(blocked.getAttribute('stroke-dasharray')).toBe(open.getAttribute('stroke-dasharray'));
+    expect(blocked.getAttribute('stroke')).toBe(open.getAttribute('stroke'));
+    expect(blocked.getAttribute('class')).not.toContain('status-stroke-animated');
+    expect(blocked.getAttribute('stroke-opacity')).toBe(String(STATUS_STROKE_BLOCKED_OPACITY));
+  });
+
+  it("the edge into a blocked node is its blocker's own marching stroke; the edge out of it is still and faded", () => {
+    const { container } = renderChain();
+    const edges = [...container.querySelectorAll<SVGPathElement>('path[data-edge-kind="blocks"]')];
+    expect(edges).toHaveLength(2);
+    const marching = edges.filter((e) => e.getAttribute('class')?.includes('dep-edge-animated'));
+    const faded = edges.filter((e) => e.style.strokeOpacity === String(STATUS_STROKE_BLOCKED_OPACITY));
+    // blocker → dependent marches (the blocker is not itself blocked) …
+    expect(marching).toHaveLength(1);
+    // … and dependent → downstream wears the blocked dependent's stroke.
+    expect(faded).toHaveLength(1);
+    expect(faded[0]).not.toBe(marching[0]);
   });
 });

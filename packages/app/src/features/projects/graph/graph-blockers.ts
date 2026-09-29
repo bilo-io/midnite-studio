@@ -39,3 +39,20 @@ export function apiFieldBlockersFor(graph: ForgeGraph, itemId: string): ForgeIss
   }
   return refs;
 }
+
+/**
+ * Every board item the graph calls blocked (`ForgeGraphNode.blocked`: at
+ * least one `blocks` edge whose blocker is not closed). The Board, Graph and
+ * List views all read this one set for their blocked status stroke, so the
+ * three can never disagree about which task is waiting. Foreign nodes carry
+ * no item id and are skipped; an item past the graph's node cap is absent,
+ * which reads as not blocked — a display rule, unlike Auto-mate's own
+ * fail-closed reading in `automate-derive.ts`.
+ */
+export function blockedItemIds(graph: ForgeGraph): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const node of graph.nodes) {
+    if (node.blocked && node.itemId !== '') ids.add(node.itemId);
+  }
+  return ids;
+}

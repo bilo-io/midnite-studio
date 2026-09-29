@@ -33,12 +33,15 @@ import { ItemFilterToolbar } from '../../components/item-filter-toolbar';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { UserAvatar } from '../../components/user-avatar';
+import { ActivityBadgeStack } from '../activity/activity-badge';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
 import { CASCADE_MAX_STEPS } from '../../lib/cascade';
 import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { BoardView } from './board/board-view';
+import { taskGlowClass } from './board/glow-state';
+import { StatusRule } from './board/status-border';
 import { CardPanelStack } from './board/card-panel-stack';
 import { groupableFields, resolveGroupField } from './board/resolve-group-field';
 import { ProjectFieldCell } from './field-editor';
@@ -49,11 +52,12 @@ import {
   type ItemFilterState,
   type ProjectItemFilterState,
 } from './filter';
-import { apiFieldBlockersFor } from './graph/graph-blockers';
+import { apiFieldBlockersFor, blockedItemIds } from './graph/graph-blockers';
 import { DEFAULT_GRAPH_FACETS, isDefaultGraphFacets, type ProjectGraphFacets } from './graph/graph-filter';
-import { useGraphAgentStates } from './graph/use-graph-agent-states';
+import { useGraphAgentStates, type GraphNodeActivity } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
+import { findStatusField, itemStatusStroke } from './status-stroke';
 import {
   useActiveForgeCapability,
   useForgeProjectFields,
@@ -195,6 +199,33 @@ export function ProjectsView() {
   // The dependency graph's `field` layer (Phase 75 Theme H) — a global
   // preference, not per-project, so it lives on its own top-level slice.
   const blockedByFieldName = useUiStore((s) => s.blockedByFieldName);
+  // One dependency graph for every mode, hoisted above the conditional
+  // returns so it can be memoised. Read by `ProjectGraphView` (its own
+  // `graph`), by the selected item's Start-blocking `blockers` (Theme G), and
+  // — through `blockedItemIds` — by all three views' blocked status stroke,
+  // so Board, Graph and List agree on which task is waiting. Reads the
+  // *whole* board (`allItems`, not `filteredItems` — Theme H): a blocker the
+  // shared toolbar filter hid vanishes with the item that named it instead of
+  // resolving as an indistinguishable foreign node, and `graph.truncated`
+  // reflects the real board size rather than whatever the filter left.
+  // `ProjectGraphView` narrows the result to what the filter and this
+  // graph's own facets allow through, via `filterForgeGraph`.
+  const graphItems = itemsQuery.data?.items ?? NO_ITEMS;
+  const graphFields = fieldsQuery.data?.fields ?? NO_FIELDS;
+  const graph = useMemo(
+    () =>
+      resolveForgeGraph(graphItems, graphFields, {
+        // The renderer has no owner/repo string to hand this (adding one
+        // is a new IPC channel, which the phase's own guardrails rule
+        // out); the only effect is that an explicit same-repo
+        // self-reference in a field/body value won't collapse with the
+        // local item it actually names.
+        boardRepo: '',
+        blockedByFieldName,
+      }),
+    [graphItems, graphFields, blockedByFieldName],
+  );
+  const blockedIds = useMemo(() => blockedItemIds(graph), [graph]);
   // Hoisted above every conditional return — a hook cannot be called only on
   // the branch that happens to render Board mode.
   const collapsedColumns = useMemo(() => new Set(view.collapsedColumns), [view.collapsedColumns]);
@@ -320,28 +351,6 @@ export function ProjectsView() {
   };
 
   const groupField = mode === 'board' ? resolveGroupField(allFields, view.groupFieldId) : null;
-  // Only computed while graph mode is actually on screen — same reasoning as
-  // `groupField` above. Reused both for `ProjectGraphView`'s own `graph` prop
-  // and, below, for the selected item's Start-blocking `blockers` (Theme G) —
-  // one derivation, not two call sites disagreeing about the ladder. Reads
-  // the *whole* board (`allItems`, not `filteredItems` — Theme H): a blocker
-  // the shared toolbar filter hid vanishes with the item that named it
-  // instead of resolving as an indistinguishable foreign node, and
-  // `graph.truncated` reflects the real board size rather than whatever the
-  // filter left. `ProjectGraphView` narrows the result to what the filter
-  // and this graph's own facets allow through, via `filterForgeGraph`.
-  const graph =
-    mode === 'graph'
-      ? resolveForgeGraph(allItems, allFields, {
-          // The renderer has no owner/repo string to hand this (adding one
-          // is a new IPC channel, which the phase's own guardrails rule
-          // out); the only effect is that an explicit same-repo
-          // self-reference in a field/body value won't collapse with the
-          // local item it actually names.
-          boardRepo: '',
-          blockedByFieldName,
-        })
-      : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="projects-view">
@@ -596,6 +605,7 @@ export function ProjectsView() {
           items={filteredItems}
           allItems={allItems}
           blockedByFieldName={blockedByFieldName}
+          blockedItemIds={blockedIds}
           fields={allFields}
           groupField={groupField}
           collapsedColumns={collapsedColumns}
@@ -617,7 +627,7 @@ export function ProjectsView() {
           title="No items match"
           body="No items match the current filter."
         />
-      ) : mode === 'graph' && graph ? (
+      ) : mode === 'graph' ? (
         <div className="flex min-h-0 flex-1">
           <ProjectGraphView
             // The whole-board graph, computed above — `items={filteredItems}`
@@ -671,6 +681,8 @@ export function ProjectsView() {
           onSortChange={(fieldId) => setSort(nextSortState(view.sort, fieldId))}
           cascading={cascade.active}
           cascadeStyleFor={cascade.styleFor}
+          blockedItemIds={blockedIds}
+          agentStates={graphAgentStates}
         />
       )}
 
@@ -709,6 +721,11 @@ const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> =
 };
 
 const ROW_HEIGHT = 32;
+
+const NO_ITEMS: ForgeProjectItem[] = [];
+const NO_BLOCKED_ITEMS: ReadonlySet<string> = new Set();
+const NO_AGENT_STATES: ReadonlyMap<string, GraphNodeActivity> = new Map();
+const NO_FIELDS: ForgeProjectField[] = [];
 
 function SortableHeader({
   field,
@@ -763,6 +780,8 @@ function ProjectItemsTable({
   onSortChange,
   cascading,
   cascadeStyleFor,
+  blockedItemIds = NO_BLOCKED_ITEMS,
+  agentStates = NO_AGENT_STATES,
 }: {
   projectId: string;
   items: readonly ForgeProjectItem[];
@@ -773,8 +792,13 @@ function ProjectItemsTable({
   onSortChange: (fieldId: string) => void;
   cascading?: boolean;
   cascadeStyleFor?: (index: number) => CSSProperties;
+  /** `blockedItemIds(graph)` — rows whose status rule holds still and fades. */
+  blockedItemIds?: ReadonlySet<string>;
+  /** The same `useGraphAgentStates` map the graph reads — a row's AI glow. */
+  agentStates?: ReadonlyMap<string, GraphNodeActivity>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const statusField = useMemo(() => findStatusField(fields), [fields]);
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -785,7 +809,7 @@ function ProjectItemsTable({
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="project-items-table">
       <div className="flex shrink-0 border-b border-border bg-muted/30 px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
         <span className="w-6 shrink-0" />
         <span className="min-w-0 flex-1">Title</span>
@@ -806,24 +830,40 @@ function ProjectItemsTable({
             const title = item.content.title;
             const href = item.content.type === 'draft' ? null : item.content.url;
             const isInitialCascade = cascading && virtualRow.index < CASCADE_MAX_STEPS;
+            const statusStroke = itemStatusStroke(item, statusField, blockedItemIds.has(item.id));
+            const rowActivity = agentStates.get(item.id);
+            const glow = rowActivity?.glow ?? 'idle';
+            // Same precedence as a board card: a live glow wins over the
+            // status stroke, and the stroke shows once the row is idle.
+            const showStatusRule = glow === 'idle' && statusStroke !== null;
 
             return (
               <div
                 key={item.id}
                 ref={virtualizer.measureElement}
                 data-index={virtualRow.index}
-                className={`absolute left-0 top-0 flex w-full items-center border-b border-border/60 px-3 text-xs ${
+                data-project-row={item.id}
+                data-status-kind={statusStroke?.kind}
+                data-blocked={statusStroke?.blocked ? '' : undefined}
+                // A glowing row's 3px ring takes the place of 3px of its
+                // padding, so the row's text does not jump when a glow starts.
+                className={`absolute left-0 top-0 flex w-full items-center border-b border-border/60 text-xs ${
                   isInitialCascade ? 'animate-fade-in-up cascade-delay' : ''
-                }`}
+                } ${glow === 'idle' ? 'px-3' : `rounded px-[9px] ${taskGlowClass(glow)}`}`}
                 style={{
                   transform: `translateY(${virtualRow.start}px)`,
                   height: ROW_HEIGHT,
                   ...(isInitialCascade ? cascadeStyleFor?.(virtualRow.index) : undefined),
                 }}
               >
+                {showStatusRule && statusStroke ? <StatusRule stroke={statusStroke} /> : null}
                 <span className="w-6 shrink-0">
                   <Icon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
                 </span>
+                {/* The same agent avatar a card and a graph node wear — the terminal list's own. */}
+                {rowActivity && rowActivity.badges.length > 0 ? (
+                  <ActivityBadgeStack badges={rowActivity.badges} className="mr-1.5 shrink-0" />
+                ) : null}
                 <span className="min-w-0 flex-1 truncate">
                   {href ? <ExternalLink href={href}>{title}</ExternalLink> : title}
                 </span>
