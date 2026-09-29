@@ -32,7 +32,7 @@ const OPTIONS: readonly Option[] = [
   { value: 'time', label: 'Time of day', Icon: LuClock },
 ];
 
-export function ThemeToggle() {
+export function ThemeToggle({ elevated = false }: { elevated?: boolean } = {}) {
   const { preference, resolved, setPreference } = useTheme();
   const [open, setOpen] = useState(false);
   const [placed, setPlaced] = useState({ x: 0, y: 0 });
@@ -59,7 +59,12 @@ export function ThemeToggle() {
 
   // Escape through the shared dismissal stack (Phase 62), at `menu` — the same
   // layer <ContextMenu> takes, because this is the same kind of surface.
-  useDismiss(open, () => setOpen(false), { layer: 'menu' });
+  //
+  // `elevated` is for a trigger that lives INSIDE a `z-dialog` surface (the
+  // setup overlay, Phase 98): a `z-menu` menu would paint under the dialog that
+  // holds its own trigger, and a `menu`-layer Escape would close that dialog
+  // instead of the menu. At `dialog`, the later registration wins the tie.
+  useDismiss(open, () => setOpen(false), { layer: elevated ? 'dialog' : 'menu' });
 
   useEffect(() => {
     if (!open) return;
@@ -111,7 +116,7 @@ export function ThemeToggle() {
               ref={menuRef}
               role="menu"
               aria-label="Theme"
-              className="fixed z-menu min-w-[10rem] animate-fade-in gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
+              className={`fixed ${elevated ? 'z-dialog' : 'z-menu'} min-w-[10rem] animate-fade-in gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg`}
               style={{ left: placed.x, top: placed.y }}
             >
               {OPTIONS.map(({ value, label, Icon }) => (

@@ -2,7 +2,7 @@ import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { WelcomeStep } from './welcome-step';
+import { MachineCheckPage } from './machine-check-page';
 
 /**
  * Phase 90 Theme I: the three rows this step shows used to be literals
@@ -27,17 +27,17 @@ function installHealth(shell: string) {
   };
 }
 
-describe('WelcomeStep', () => {
+describe('MachineCheckPage', () => {
   it('reads the default shell from systemHealth rather than a literal', async () => {
     installHealth('/usr/bin/fish');
-    render(<WelcomeStep />);
+    render(<MachineCheckPage />);
 
     expect(await screen.findByText('/usr/bin/fish')).toBeTruthy();
   });
 
   it('reflects a different shell when the machine reports one', async () => {
     installHealth('/bin/bash');
-    render(<WelcomeStep />);
+    render(<MachineCheckPage />);
 
     expect(await screen.findByText('/bin/bash')).toBeTruthy();
     expect(screen.queryByText('/bin/zsh')).toBeNull();
@@ -45,7 +45,7 @@ describe('WelcomeStep', () => {
 
   it('shows the installed CLI path rather than the bare literal name', async () => {
     installHealth('/bin/zsh');
-    render(<WelcomeStep />);
+    render(<MachineCheckPage />);
 
     expect(await screen.findByText('Installed at /usr/local/bin/midnite-studio')).toBeTruthy();
   });

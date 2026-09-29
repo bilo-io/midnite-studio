@@ -1,24 +1,29 @@
 import type { ComponentType } from 'react';
 
 /**
- * One step of the onboarding wizard (Phase 90 Theme I).
+ * One page of the setup overlay (Phase 98 Theme A), grown out of the old
+ * wizard's `WizardStep` (Phase 90 Theme I).
  *
- * The same flat-array-of-entries shape
- * [`sections/registry.ts`](../../../../website/src/sections/registry.ts) and
- * `AGENT_COMMAND_GROUPS` already use elsewhere in this codebase: a step is
- * added by appending a row to `ONBOARDING_STEPS`, never by editing
- * `onboarding-modal.tsx`'s frame.
+ * The same flat-array-of-entries shape `sections/registry.ts` and
+ * `AGENT_COMMAND_GROUPS` use elsewhere: a page is added by appending a row to
+ * `SETUP_PAGES`, never by editing `setup-overlay.tsx`'s frame.
+ *
+ * There is no `optional` flag any more: every page between the intro and the
+ * finale is optional by rule, so a per-row flag could only ever be `true`.
  */
-export type WizardStep = {
-  /** Stable id — never the array index, since `onboardingSkippedStepIds`
-   *  (`ui-store.ts`) persists it across a reorder. */
+export type SetupPage = {
+  /** Stable id — never the array index, since `setupState.skippedPageIds` and
+   *  `lastPageId` (`ui-store.ts`) persist it across a reorder. */
   id: string;
-  /** The modal's header while this step is showing. */
+  /** The page's short name — the dialog's accessible name and its dot's label. */
   title: string;
+  /** The heading the page shows (and Theme B types out character by character). */
+  titleTyped: string;
   /**
-   * Whether Skip renders for this step. A Skip on a mandatory step is a lie
-   * — see `onboarding-modal.tsx`'s footer for the rule this drives.
+   * Whether Next is enabled. Omitted means always — the usual case, since a
+   * page is optional. A page that cannot sensibly be passed half-done (a form
+   * mid-submit, say) returns `false` until it can.
    */
-  optional: boolean;
+  canAdvance?: () => boolean;
   Component: ComponentType;
 };

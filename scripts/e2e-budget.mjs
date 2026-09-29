@@ -105,7 +105,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 446 -> 448 for Phase 76 Theme C's `csp.spec.ts` (two tests): CSP
 // enforcement and the external-link contract need real `securitypolicyviolation`
 // events and a live document URL — vitest cannot supply either.
-// Raised 448 -> 449 for Phase 90 Theme K's `onboarding-wizard.spec.ts` (one
+// Raised 448 -> 449 for Phase 90 Theme K's `onboarding-wizard.spec.ts` (now
+// `setup-overlay.spec.ts`, rewritten in place by Phase 98 Theme A; still one
 // test): `OnboardingModal` and `FirstRunModal` are both fixed full-screen
 // overlays that mount simultaneously on a fresh profile, and which one is
 // interactive depends on real DOM paint order plus two independent

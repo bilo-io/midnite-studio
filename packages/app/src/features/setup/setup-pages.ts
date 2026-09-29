@@ -1,16 +1,31 @@
-import type { WizardStep } from './wizard-step';
-import { ForgeConnectStep } from './steps/forge-connect-step';
-import { WelcomeStep } from './steps/welcome-step';
+import type { SetupPage } from './setup-page';
+import { ForgeConnectPage } from './pages/forge-connect-page';
+import { MachineCheckPage } from './pages/machine-check-page';
 
 /**
- * The onboarding wizard, top to bottom (Phase 90 Theme I).
+ * The setup overlay's pages, top to bottom (Phase 98 Theme A).
  *
- * A flat, ordered array, on purpose — `wizard-step.ts`'s own doc comment
- * names the two files this shape is copied from. **To add a step:** append a
- * row with its `id`, `title`, `optional` and `Component`; `onboarding-modal.tsx`
- * never changes for a new step, only for a new frame behaviour.
+ * A flat, ordered array, on purpose — `setup-page.ts`'s own doc comment names
+ * the shape. **To add a page:** append a row; `setup-overlay.tsx` never changes
+ * for a new page, only for a new frame behaviour.
+ *
+ * The two rows here are the old wizard's content carried over so that
+ * removing `FirstRunModal` and `OnboardingModal` loses nothing. Themes D–I
+ * replace them with git, forges, accounts, CLI, toolchain and Ollama pages.
+ * `forges` keeps the old wizard's step id, so a skip recorded under the old
+ * modal still means the same page.
  */
-export const ONBOARDING_STEPS: readonly WizardStep[] = [
-  { id: 'welcome', title: 'Welcome to Midnite Studio', optional: false, Component: WelcomeStep },
-  { id: 'forges', title: 'Connect your forges', optional: true, Component: ForgeConnectStep },
+export const SETUP_PAGES: readonly SetupPage[] = [
+  {
+    id: 'machine',
+    title: 'Check your machine',
+    titleTyped: 'Check your machine',
+    Component: MachineCheckPage,
+  },
+  {
+    id: 'forges',
+    title: 'Connect your forges',
+    titleTyped: 'Connect your forges',
+    Component: ForgeConnectPage,
+  },
 ];
