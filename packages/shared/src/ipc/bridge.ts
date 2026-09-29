@@ -1086,6 +1086,17 @@ export type MidniteStudioBridge = {
       rename: (req: In<typeof S.MediaFileRenameRequest>) => Promise<GitOpResult>;
       remove: (req: In<typeof S.MediaFileRemoveRequest>) => Promise<GitOpResult>;
     };
+    /** Images (Theme C): providers + generation, all run in main. */
+    image: {
+      providers: () => Promise<z.infer<typeof S.MediaImageProvidersResponse>>;
+      generate: (
+        req: In<typeof S.MediaImageGenerateRequest>,
+      ) => Promise<z.infer<typeof S.MediaImageGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaImageCancelRequest>) => Promise<GitOpResult>;
+      onProgress: (
+        handler: (event: z.infer<typeof S.MediaImageProgressPayload>) => void,
+      ) => Unsubscribe;
+    };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
     export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;

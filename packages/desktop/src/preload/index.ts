@@ -531,6 +531,12 @@ const bridge: Pick<
       rename: (req) => call(CHANNELS.mediaFileRename, req),
       remove: (req) => call(CHANNELS.mediaFileRemove, req),
     },
+    image: {
+      providers: () => call(CHANNELS.mediaImageProviders),
+      generate: (req) => call(CHANNELS.mediaImageGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaImageCancel, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaImageProgress, handler),
+    },
     reveal: (req) => call(CHANNELS.mediaReveal, req),
     ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
     export: (req) => call(CHANNELS.mediaExport, req),

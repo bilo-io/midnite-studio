@@ -56,6 +56,9 @@ const store = createMediaStore({
   },
 });
 
+/** Shared with `media-image-handlers.ts` (Theme C), which writes generated images through the same jail. */
+export { store as mediaStore };
+
 /** One recursive watcher per repo on `<repo>/.midnite/media`, started lazily. */
 const watchers = new Map<string, FSWatcher>();
 

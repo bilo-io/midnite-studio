@@ -1,4 +1,4 @@
-import { CHANNELS, schemas } from '@midnite/studio-shared';
+import { CHANNELS, schemas, type SecretKey } from '@midnite/studio-shared';
 
 import type { SecretsVault } from '../secrets-vault';
 import { handle } from './handle';
@@ -61,4 +61,13 @@ export function registerSecretsHandlers(): void {
     },
     () => ({ hasKey: false }),
   );
+}
+
+/**
+ * Exposed for `media-image-handlers.ts` (Phase 99 Theme C) — the image
+ * adapters' API keys are read here in main and never cross the bridge.
+ */
+export async function readSecret(key: SecretKey): Promise<string | null> {
+  if (!vault) return null;
+  return vault.get(key);
 }

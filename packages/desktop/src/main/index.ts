@@ -120,6 +120,7 @@ import { createWorkflowRunsStore } from './workflow-runs-store';
 import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
+import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { configureVideo, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
@@ -458,6 +459,7 @@ if (!app.requestSingleInstanceLock()) {
     registerWorkflowHandlers();
     registerVideoHandlers();
     registerMediaHandlers();
+    registerMediaImageHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();

@@ -12,6 +12,8 @@
  */
 import { z } from 'zod';
 
+import type { SecretKey } from './domain/secrets';
+
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
@@ -142,6 +144,172 @@ export const MediaChangedEventSchema = z.object({
   tab: MediaTabSchema,
 });
 export type MediaChangedEvent = z.infer<typeof MediaChangedEventSchema>;
+
+// --- images (Theme C) --------------------------------------------------------
+
+/**
+ * Image-generation providers, in picker order. Generation runs in main
+ * (`main/media/image/`); the renderer only ever names a provider and model.
+ *
+ * `agy` is listed but disabled: this phase's headless spike could not show
+ * Antigravity CLI writing an image non-interactively (see the phase doc's
+ * Headlines), so Gemini is the default and agy carries the reason.
+ */
+export const IMAGE_PROVIDER_IDS = ['gemini', 'openai', 'agy', 'ollama'] as const;
+export const ImageProviderIdSchema = z.enum(IMAGE_PROVIDER_IDS);
+export type ImageProviderId = z.infer<typeof ImageProviderIdSchema>;
+
+export const DEFAULT_IMAGE_PROVIDER: ImageProviderId = 'gemini';
+
+/** Aspect ratios offered by the create panel; each adapter maps them to its own size vocabulary. */
+export const IMAGE_ASPECTS = ['1:1', '3:2', '2:3', '16:9', '9:16'] as const;
+export const ImageAspectSchema = z.enum(IMAGE_ASPECTS);
+export type ImageAspect = z.infer<typeof ImageAspectSchema>;
+
+/** Images per Generate. Every adapter can do four in one request or four sequential ones. */
+export const IMAGE_MAX_COUNT = 4;
+
+export type ImageModelInfo = { id: string; label: string };
+
+export type ImageProviderInfo = {
+  id: ImageProviderId;
+  label: string;
+  /** The vault key this provider needs, or `null` when it needs none. */
+  secretKey: SecretKey | null;
+  /** Static catalogue. Empty for `ollama`, whose image models are discovered from the daemon. */
+  models: readonly ImageModelInfo[];
+  /** Set when the provider can never be picked in this build — shown as the option's tooltip. */
+  disabledReason?: string;
+};
+
+export const AGY_IMAGE_DISABLED_REASON =
+  'Antigravity CLI has no headless image output yet — its print mode returns text only. Use Gemini, which is the same model family.';
+
+export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
+  {
+    id: 'gemini',
+    label: 'Gemini',
+    secretKey: 'media.geminiApiKey',
+    models: [
+      { id: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image' },
+      { id: 'imagen-4.0-generate-001', label: 'Imagen 4' },
+      { id: 'imagen-4.0-fast-generate-001', label: 'Imagen 4 Fast' },
+    ],
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    secretKey: 'media.openaiApiKey',
+    models: [
+      { id: 'gpt-image-1', label: 'GPT Image 1' },
+      { id: 'gpt-image-1-mini', label: 'GPT Image 1 Mini' },
+    ],
+  },
+  {
+    id: 'agy',
+    label: 'Antigravity CLI',
+    secretKey: null,
+    models: [{ id: 'agy-default', label: 'Default' }],
+    disabledReason: AGY_IMAGE_DISABLED_REASON,
+  },
+  { id: 'ollama', label: 'Ollama', secretKey: null, models: [] },
+];
+
+export function imageProviderInfo(id: ImageProviderId): ImageProviderInfo {
+  return IMAGE_PROVIDERS.find((p) => p.id === id)!;
+}
+
+/**
+ * The models a provider offers: its static catalogue, or — for a provider
+ * whose catalogue is discovered (Ollama) — whatever main reported.
+ */
+export function imageModelsFor(
+  id: ImageProviderId,
+  discovered: readonly ImageModelInfo[] = [],
+): readonly ImageModelInfo[] {
+  const info = imageProviderInfo(id);
+  return info.models.length > 0 ? info.models : discovered;
+}
+
+/** What main reports per provider: whether it can run now, why not, and discovered models. */
+export const ImageProviderStatusSchema = z.object({
+  id: ImageProviderIdSchema,
+  available: z.boolean(),
+  reason: z.string().optional(),
+  /** `missing-key` lets the create panel offer "Add key" instead of a bare reason. */
+  missingKey: z.boolean().default(false),
+  models: z.array(z.object({ id: z.string().min(1), label: z.string().min(1) })).default([]),
+});
+export type ImageProviderStatus = z.infer<typeof ImageProviderStatusSchema>;
+
+/** Extensions the Images tab treats as images. */
+export const IMAGE_FILE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif'] as const;
+
+export function isImagePath(path: string): boolean {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  return (IMAGE_FILE_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+/** `a/b/cat.png` → `a/b/cat.json`: the sidecar that sits beside every generated image. */
+export function imageSidecarPath(imagePath: string): string {
+  return imagePath.replace(/\.[^./]+$/, '') + '.json';
+}
+
+/** Written beside each generated image as `<name>.json`. */
+export const ImageSidecarSchema = z.object({
+  version: z.literal(1),
+  /** The image's file name within the project. */
+  file: z.string().min(1),
+  prompt: z.string(),
+  provider: ImageProviderIdSchema,
+  model: z.string().min(1),
+  aspect: ImageAspectSchema,
+  seed: z.number().int().optional(),
+  /** ISO-8601. */
+  createdAt: z.string().min(1),
+});
+export type ImageSidecar = z.infer<typeof ImageSidecarSchema>;
+
+/** `null` when the text is not a valid sidecar — a hand-edited or foreign `.json` is just not shown. */
+export function parseImageSidecar(text: string): ImageSidecar | null {
+  try {
+    const parsed = ImageSidecarSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export const IMAGE_PROMPT_MAX = 4000;
+
+export const ImageGenerateRequestSchema = z.object({
+  /** Minted by the renderer so it can cancel before the invoke resolves. */
+  generationId: z.string().min(1),
+  repoId: z.string().min(1),
+  project: MediaProjectNameSchema,
+  prompt: z.string().trim().min(1).max(IMAGE_PROMPT_MAX),
+  provider: ImageProviderIdSchema,
+  model: z.string().min(1),
+  aspect: ImageAspectSchema.default('1:1'),
+  count: z.number().int().min(1).max(IMAGE_MAX_COUNT).default(1),
+  seed: z.number().int().nonnegative().optional(),
+});
+export type ImageGenerateRequest = z.infer<typeof ImageGenerateRequestSchema>;
+
+export const IMAGE_GENERATE_STATUSES = ['running', 'succeeded', 'failed', 'cancelled'] as const;
+
+/** Pushed on `mstudio:media:image-progress`; `files` grows as each image lands. */
+export const ImageGenerateProgressEventSchema = z.object({
+  generationId: z.string().min(1),
+  repoId: z.string().min(1),
+  project: MediaProjectNameSchema,
+  status: z.enum(IMAGE_GENERATE_STATUSES),
+  completed: z.number().int().nonnegative(),
+  total: z.number().int().positive(),
+  files: z.array(z.string()),
+  error: z.string().optional(),
+});
+export type ImageGenerateProgressEvent = z.infer<typeof ImageGenerateProgressEventSchema>;
 
 // --- export service ----------------------------------------------------------
 
