@@ -46,7 +46,7 @@ function unquote(value: string): string {
  * Anything else — no frontmatter, an unterminated block — yields `null`.
  */
 export function parseSkillFrontmatter(text: string): { name?: string; description?: string } | null {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
   if (lines[0]?.trim() !== '---') return null;
   const end = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
   if (end === -1) return null;

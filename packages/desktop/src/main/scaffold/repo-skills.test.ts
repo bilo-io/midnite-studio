@@ -48,7 +48,7 @@ describe('parseSkillFrontmatter', () => {
   });
 
   it('tolerates CRLF and a BOM', () => {
-    expect(parseSkillFrontmatter('﻿---\r\nname: z\r\ndescription: d\r\n---\r\n')).toEqual({
+    expect(parseSkillFrontmatter('\uFEFF---\r\nname: z\r\ndescription: d\r\n---\r\n')).toEqual({
       name: 'z',
       description: 'd',
     });
