@@ -153,7 +153,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // its container's measured left-edge movement — real layout and
 // `getBoundingClientRect()`, zeros under jsdom. The toggles, the zero-width
 // state and the inspector's auto-collapse/Escape rules are all vitest.
-export const MAX_DECLARED_E2E = 458;
+// Raised 458 -> 459 for the graph's CI column (`graph-ci-column.spec.ts`, 1
+// test): the claim is that a branch's connector line runs UNDER the CI mark,
+// unbroken from the ref chip to the lane gutter, and that the mark paints on
+// top — real `getBoundingClientRect` geometry across three elements and a real
+// `elementFromPoint` stacking check, neither of which jsdom lays out. The DOM
+// structure, aggregation, batching and modal behaviour are all vitest.
+export const MAX_DECLARED_E2E = 459;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

@@ -230,6 +230,15 @@ export const CHANNELS = {
    * paid only when something needs to link to a `.yml`.
    */
   forgeWorkflows: 'mstudio:forge:workflows',
+  /**
+   * CI runs for a batch of commits, keyed by sha — the git graph's CI column.
+   *
+   * Batched rather than one call per commit: the graph asks for the page of
+   * rows actually on screen, and main answers most of a page from one recent
+   * `gh run list` before falling back to per-commit lookups. Read-only, like
+   * every other forge read above.
+   */
+  forgeCommitRuns: 'mstudio:forge:commit-runs',
 
   // --- forge polling (Phase 84 Theme C) -------------------------------------
   // Interest-based: a window subscribes a `{repoId, kind}` pair while a forge

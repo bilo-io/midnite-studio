@@ -72,7 +72,7 @@ describe('checkE2eBudget', () => {
     expect(result.message).toContain('Found 1 wall-clock duration assertion(s)');
   });
 
-  it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport)', () => {
-    expect(MAX_DECLARED_E2E).toBe(458);
+  it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport -> 459 graph CI column connector)', () => {
+    expect(MAX_DECLARED_E2E).toBe(459);
   });
 });

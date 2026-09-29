@@ -4188,6 +4188,55 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   animation: graph-rail-glow 2.4s ease-in-out infinite paused;
 }
 
+/* The git graph's CI column (graph-header.tsx / ci-cell.tsx). One icon wide,
+ * sized from `--col-ci` on the list wrapper so the header, every commit row and
+ * the working-copy/stash pseudo-rows share one grid. `data-graph-ci='off'`
+ * (Settings > Graph > Columns) hides the column in every one of them at once —
+ * a style change, not a re-render of the memoised rows. */
+.graph-ci-col {
+  width: var(--col-ci, 20px);
+}
+
+[data-graph-ci='off'] .graph-ci-col {
+  display: none;
+}
+
+/* Narrow windows. The commit message is the one column the graph exists to be
+ * read by, so it keeps a real minimum width and everything else gives way
+ * first: the BRANCH / TAG column is the only shrinkable fixed column (down to
+ * a chip's worth), and below a 520px graph the CI column drops out entirely.
+ * The shrink is identical in the header, every commit row and the working
+ * copy/stash rows — in each, the ref column is the only item that can shrink
+ * and the fixed columns beside it match — so the grid stays aligned while it
+ * narrows. A container query, not a media query: the graph's width is the
+ * window minus the rail, the repos panel and the detail pane, none of which a
+ * viewport width knows about. */
+[data-graph-ci] {
+  container: graph / inline-size;
+}
+
+.graph-ref-col {
+  flex-shrink: 1;
+  min-width: 64px;
+}
+
+.graph-msg-col {
+  min-width: 96px;
+}
+
+@container graph (max-width: 520px) {
+  .graph-ci-col {
+    display: none;
+  }
+}
+
+/* A running run's spinner in the CI column stops turning while the window is
+ * blurred — the same focus gate the rest of the graph's motion keys on, so a
+ * graph left open behind another app is not animating a mark nobody sees. */
+html[data-window-focused='false'] [data-graph-ci-cell] .animate-spin {
+  animation-play-state: paused;
+}
+
 /* Ref badges on the lit lane. The border/glow pulses in sync with the rail and lane halo. */
 @keyframes graph-badge-glow {
   0%,

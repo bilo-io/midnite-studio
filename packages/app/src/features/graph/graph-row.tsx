@@ -1,4 +1,4 @@
-import type { AgentDefinition, CommitProvenance, GraphRow, Ref } from '@midnite/studio-shared';
+import type { AgentDefinition, CommitCi, CommitProvenance, GraphRow, Ref } from '@midnite/studio-shared';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -6,6 +6,7 @@ import { resolveAgentIcon } from '../../components/icons';
 import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
 import { UserAvatar } from '../../components/user-avatar';
+import { CiCell } from './ci-cell';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
@@ -106,6 +107,14 @@ export type GraphRowProps = {
    * per row would wake thirty components to learn what the list already knows.
    */
   markMode?: ProvenanceMarkMode;
+  /**
+   * This commit's aggregated CI, when it has any — the CI column's mark. The
+   * cell is drawn either way (it carries the lane connector across the column);
+   * only the mark depends on this.
+   */
+  ci?: CommitCi;
+  /** Open the commit's run modal — the CI mark's click. */
+  onOpenCi?: (sha: string) => void;
 };
 
 function GraphRowInner({
@@ -123,6 +132,8 @@ function GraphRowInner({
   sessionName,
   agent,
   markMode = DEFAULT_PROVENANCE_MARK_MODE,
+  ci,
+  onOpenCi,
   onSelect,
   onContextMenu,
   onRefContextMenu,
@@ -245,7 +256,7 @@ function GraphRowInner({
         do being scannable.
       */}
       <div
-        className="flex shrink-0 items-center gap-1 overflow-hidden pl-2"
+        className="graph-ref-col flex items-center gap-1 overflow-hidden pl-2"
         style={{ width: 'var(--col-branch-tag)' }}
       >
         {shown.map((ref) => (
@@ -319,6 +330,27 @@ function GraphRowInner({
           />
         ) : null}
       </div>
+
+      {/*
+        CI, between the chips and the lanes. The leader line above runs
+        THROUGH this cell — see `CiCell` — so a badge still visibly points at
+        its node with the column in between.
+      */}
+      <CiCell
+        sha={row.commit.sha}
+        ci={ci}
+        onOpen={onOpenCi}
+        connector={
+          refs.length > 0
+            ? {
+                color: laneColor(row.colorIdx, theme.palette),
+                opacity: onGlowingLane ? 1 : CONNECTOR_OPACITY,
+                strokeWidth: theme.strokeWidth,
+                glow: onGlowingLane,
+              }
+            : null
+        }
+      />
 
       {/*
         The lane gutter doubles as the commit's drag handle. Dragging from the
@@ -455,7 +487,7 @@ function GraphRowInner({
         the row and nothing was allowed to give.
       */}
       <div
-        className={`relative flex min-w-0 flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
+        className={`graph-msg-col relative flex flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
         } ${recencyTier === 'fresh' ? 'commit-row-shimmer' : ''}`}
       >

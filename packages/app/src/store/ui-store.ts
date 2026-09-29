@@ -1118,6 +1118,14 @@ export type UiState = {
    */
   graphProvenanceMark: ProvenanceMarkMode;
   /**
+   * Show the graph's CI column — one status mark per commit that has workflow
+   * runs, between the branch/tag column and the lanes. On by default: it costs
+   * nothing on a repository with no forge, and the column is one icon wide.
+   * `Settings ▸ Graph ▸ Columns`.
+   */
+  graphShowCi: boolean;
+  setGraphShowCi: (show: boolean) => void;
+  /**
    * Show the pre-image line-number column in a diff.
    *
    * Off by default: the inspector is a side panel, and two monospace gutters
@@ -2031,6 +2039,7 @@ export type PersistedUi = Pick<
   | 'selectedWorktreePath'
   | 'graphDensity'
   | 'graphProvenanceMark'
+  | 'graphShowCi'
   | 'settingsPage'
   | 'commitFileView'
   | 'commitMetaOpen'
@@ -2558,6 +2567,7 @@ export const useUiStore = create<UiState>()(
       graphShaFilter: null,
       graphProvenanceFilter: 'all',
       graphProvenanceMark: DEFAULT_PROVENANCE_MARK_MODE,
+      graphShowCi: true,
       diffShowOldGutter: DIFF_PREF_DEFAULTS.diffShowOldGutter,
       diffLayout: DIFF_PREF_DEFAULTS.diffLayout,
 
@@ -2834,6 +2844,7 @@ export const useUiStore = create<UiState>()(
       setGraphShaFilter: (graphShaFilter) => set({ graphShaFilter }),
       setGraphProvenanceFilter: (graphProvenanceFilter) => set({ graphProvenanceFilter }),
       setGraphProvenanceMark: (graphProvenanceMark) => set({ graphProvenanceMark }),
+      setGraphShowCi: (graphShowCi) => set({ graphShowCi }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
       setDiffLayout: (diffLayout) => set({ diffLayout }),
@@ -2982,6 +2993,7 @@ export const useUiStore = create<UiState>()(
         selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,
         graphProvenanceMark: state.graphProvenanceMark,
+        graphShowCi: state.graphShowCi,
         settingsPage: state.settingsPage,
         commitFileView: state.commitFileView,
         commitMetaOpen: state.commitMetaOpen,

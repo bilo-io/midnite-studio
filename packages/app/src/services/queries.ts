@@ -220,6 +220,14 @@ export const keys = {
     ['repos', repoId, 'forge', 'run-log', runId, full] as const,
   forgeWorkflows: (repoId: string) => ['repos', repoId, 'forge', 'workflows'] as const,
   /**
+   * One page of the git graph's CI column — the runs for a batch of visible
+   * commits. Keyed by the page's shas, which are stable across a restream, so
+   * scrolling back to a page is a cache hit; under the forge prefix so the
+   * forge Refresh drops it with everything else.
+   */
+  forgeCommitRuns: (repoId: string, shas: readonly string[]) =>
+    ['repos', repoId, 'forge', 'commit-runs', shas.join(',')] as const,
+  /**
    * One opened pull request's three payloads.
    *
    * Keyed by PR number under the forge prefix, so the section's Refresh drops
@@ -1239,7 +1247,18 @@ export function useAddProjectItem() {
  * above it, since a re-fetched run list beside a stale job tree is the one
  * combination that would lie.
  */
-export function useForgeRunDetail(repoId: string | null, runId: string | null, enabled: boolean) {
+export function useForgeRunDetail(
+  repoId: string | null,
+  runId: string | null,
+  enabled: boolean,
+  /**
+   * Re-read the tree on this interval, or never (`false`, the default). The
+   * graph's run modal passes one while the run it shows is still moving and
+   * the window is on screen; the Actions page never does — see its own note on
+   * why refresh there is explicit.
+   */
+  refetchInterval: number | false = false,
+) {
   return useQuery<ForgeRunDetailResult>({
     queryKey: keys.forgeRunDetail(repoId ?? '', runId ?? ''),
     queryFn: async () => {
@@ -1249,6 +1268,7 @@ export function useForgeRunDetail(repoId: string | null, runId: string | null, e
     },
     enabled: enabled && repoId !== null && runId !== null,
     staleTime: FORGE_STALE_MS,
+    refetchInterval,
   });
 }
 

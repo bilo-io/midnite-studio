@@ -1,5 +1,6 @@
 import type { StatusResult } from '@midnite/studio-shared';
 
+import { CiSpacer } from './ci-cell';
 import {
   RAIL_WIDTH,
   laneCentre,
@@ -81,7 +82,9 @@ export function UncommittedRow({
     >
 
       {/* Empty BRANCH / TAG cell: nothing points at the working copy. */}
-      <div className="shrink-0 pl-2" style={{ width: 'var(--col-branch-tag)' }} />
+      <div className="graph-ref-col pl-2" style={{ width: 'var(--col-branch-tag)' }} />
+      {/* The CI column's slot — nothing to show, but the grid has to match. */}
+      <CiSpacer />
 
       <span className="flex shrink-0 items-center">
         <svg
@@ -135,7 +138,7 @@ export function UncommittedRow({
         />
       ) : null}
 
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+      <div className="graph-msg-col flex flex-1 items-center gap-2 overflow-hidden">
         <span className="min-w-0 flex-1 truncate italic text-muted-foreground">{label}</span>
       </div>
 

@@ -1497,6 +1497,18 @@ export function buildMockBridge(data: MockFixtures) {
         workflows: data.forge?.workflows ?? [],
         error: forgeError(),
       }),
+      // The graph's CI column: the seeded run list, matched per commit on its
+      // head sha exactly as main's `commit-runs.ts` does.
+      commitRuns: async (req: { shas: string[] }) => ({
+        cli: forgeCli(),
+        runs: Object.fromEntries(
+          req.shas.map((sha) => [
+            sha,
+            (data.forge?.runs ?? []).filter((row) => (row as { headSha?: string }).headSha === sha),
+          ]),
+        ),
+        error: forgeError(),
+      }),
       pullDetail: async (req: { number: number }) => {
         const seeded = data.forge?.pullDetail?.[String(req.number)];
         if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };

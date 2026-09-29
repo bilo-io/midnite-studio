@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 
-import { type ClosedSession, type CommitProvenance } from '@midnite/studio-shared';
+import { type ClosedSession, type CommitCi, type CommitProvenance } from '@midnite/studio-shared';
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
@@ -35,10 +35,12 @@ import {
   laneWidthForGutter,
   minLaneWidth,
 } from './graph-themes';
+import { CiRunModal } from './ci-run-modal';
 import { useRefsBySha } from './ref-badge';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
+import { useCommitCi } from './use-commit-ci';
 import { useActiveAgentWorktreePaths, useActiveAgentWorktreeSessions } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
@@ -78,6 +80,7 @@ export function GraphView() {
   // Coerced rather than read raw, exactly as `graphTheme` is: a mode persisted
   // by a future build falls back to the default instead of rendering nothing.
   const provenanceMarkMode = provenanceMarkModeOf(useUiStore((s) => s.graphProvenanceMark));
+  const showCi = useUiStore((s) => s.graphShowCi);
 
   const { agents } = useAgents();
   const { data: closedSessions } = useSessionHistory();
@@ -372,6 +375,28 @@ export function GraphView() {
     virtualizer.measure();
   }, [theme.rowHeight, virtualizer]);
 
+  /*
+    The CI column: runs for the rows on screen (plus a little overscan), asked
+    for page by page as the viewport settles — never for the whole history.
+    `showCi && visible` is the column's own gate: a hidden column, or a
+    kept-alive graph behind another view, asks for nothing and polls nothing.
+  */
+  const ciBySha = useCommitCi(repoId, rows, rowCount, virtualizer.range, showCi && visible);
+  const ciRef = useRef(ciBySha);
+  ciRef.current = ciBySha;
+  const [ciModal, setCiModal] = useState<{ sha: string; subject: string | null; ci: CommitCi } | null>(null);
+  /*
+    Stable, so the memoised rows are not re-rendered each time a CI page lands.
+    The snapshot taken here is only the fallback: the modal reads the live map
+    while it is open, so a polled run advances in front of the reader.
+  */
+  const onOpenCi = useCallback((sha: string) => {
+    const ci = ciRef.current.get(sha);
+    if (!ci) return;
+    const subject = useGraphStore.getState().rows.find((row) => row.commit.sha === sha)?.commit.subject ?? null;
+    setCiModal({ sha, subject, ci });
+  }, []);
+
   /**
    * The authors to keep at full strength — everyone else is dimmed. `null`
    * means no filter, so nobody dims.
@@ -450,7 +475,11 @@ export function GraphView() {
           lastPointer.current = { clientX: event.clientX, clientY: event.clientY };
         }}
       >
-      <div className="flex min-w-0 flex-1 flex-col" style={graphColumnVars(columns)}>
+      <div
+        className="flex min-w-0 flex-1 flex-col"
+        style={graphColumnVars(columns)}
+        data-graph-ci={showCi ? 'on' : 'off'}
+      >
         {status ? (
           <ConflictBanner status={status} onError={setOpError} onOpenConflict={selectConflict} />
         ) : null}
@@ -572,6 +601,8 @@ export function GraphView() {
                     sessionName={sessionName}
                     agent={agent}
                     markMode={provenanceMarkMode}
+                    ci={showCi ? ciBySha.get(row.commit.sha) : undefined}
+                    onOpenCi={onOpenCi}
                     onSelect={selectCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}
@@ -653,6 +684,15 @@ export function GraphView() {
         </>
       ) : null}
       </div>
+      {ciModal !== null ? (
+        <CiRunModal
+          repoId={repoId}
+          sha={ciModal.sha}
+          subject={ciModal.subject}
+          ci={ciBySha.get(ciModal.sha) ?? ciModal.ci}
+          onClose={() => setCiModal(null)}
+        />
+      ) : null}
     </GraphDndProvider>
   );
 }

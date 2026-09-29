@@ -258,6 +258,10 @@ export type MidniteStudioBridge = {
     workflows: (
       req: In<typeof S.ForgeWorkflowsRequest>,
     ) => Promise<z.infer<typeof S.ForgeWorkflowsResponse>>;
+    /** CI runs for a batch of commits, keyed by sha — the graph's CI column. */
+    commitRuns: (
+      req: In<typeof S.ForgeCommitRunsRequest>,
+    ) => Promise<z.infer<typeof S.ForgeCommitRunsResponse>>;
     /** One PR's metadata — fetched when a pull request is opened, never for a list. */
     pullDetail: (
       req: In<typeof S.ForgePullDetailRequest>,
