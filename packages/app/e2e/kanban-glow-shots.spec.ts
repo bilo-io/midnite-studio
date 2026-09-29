@@ -64,6 +64,7 @@ const todo = (n: number, title: string, optionId: string) => ({
     // Both required in practice — see `kanban.spec.ts`'s note on the defaults.
     body: '',
     labels: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId, name: optionId === 'OPT_todo' ? 'Todo' : 'In progress' },

@@ -54,6 +54,7 @@ const todo = (n: number, title: string, optionId: string) => ({
     assignees: [],
     body: '',
     labels: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: {
