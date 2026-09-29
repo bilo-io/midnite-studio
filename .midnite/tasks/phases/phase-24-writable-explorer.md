@@ -72,6 +72,30 @@ through, so Theme D's "should fall back to the current `useKeybindings` handler 
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Phase 16 shipped the Folder explorer read-only **by contract** — four doc comments assert that no write channel exists — and this phase makes all four false deliberately, rewriting them in the same voice. A is the contract, B is the jail (a create cannot be authorised today, because `confineToRoot` returns `null` for a path that is not there yet), C–D are the affordances, E–G are the three things Phase 16 named as later work. Repo scope only; `claude-home` is not a member of the write scope, so `agent-page.tsx` stays read-only without knowing writes exist.* **[24 · The explorer learns to write](phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phase-23-command-palette.md)** (76% · 42/55) are both closed as DONE with their remainders logged in [`outstanding.md`](../outstanding.md).
+
+**Theme A — The write contract.** ✅ the write contract: four `mstudio:fs:*` write channels on the `GitOpResult` envelope, an `FsVersion` token on the read, and the four "there is deliberately no write channel" comments rewritten rather than left stale (landed 2026-08-28)
+
+**Theme B — The jail learns to write.** ✅ the jail learns to write: `confineParent()`, symlink-final-segment refusal, a `.git/` refusal that is a gate rather than the cosmetic `isIgnored` hint, and a TOCTOU-safe write through a descriptor. `fs-scope-write.ts` sits beside `fs-scope.ts` the way `gh-write.ts` sits beside `gh-cli.ts` (landed 2026-08-28)
+
+**Theme C — Mutations in the tree.** ✅ mutations in the tree: the tree's first `onContextMenu` (plus a hover ellipsis, one shared `openMenu`), a `writable` opt-in prop, inline create/rename validated client-side before the round trip, and delete behind a confirm naming a directory's real file count/size (a new capped `mstudio:fs:dir-stats` walk) and how many are uncommitted (joined off Theme F's own status index). New read-only `mstudio:shell:show-item-in-folder` channel for Reveal. Found and fixed: the e2e mock's `listDir` handed out the live `fsDirs` array by reference, so react-query's structural sharing saw "unchanged" after a mutation and silently never repainted (landed 2026-08-28)
+
+**Theme D — The preview pane becomes an editor.** ✅ the preview pane becomes an editor: CodeMirror 6 (the app's first editor dependency, hand-picked extensions rather than `basicSetup`, code-split behind `React.lazy`), dirty state, a new `file.save` command through the registry, a centralised unsaved-changes guard covering file switch/repo-worktree switch/view switch (Back/Forward included)/window close, and a stale-write banner (Reload / Keep editing) rather than a silent overwrite or discard (landed 2026-08-28, merged locally — no PR/no remote). **Phase 24 is now feature-complete — all seven themes (A–G) have landed.**
+
+**Theme E — Find in files.** ✅ find in files: `git grep -z` in git-engine with a pure parser beside it, one read channel, and a results panel that opens a file at the line via Shiki's own per-line spans. Tracked content only, said out loud (built on `feature/phase-24-e-find-in-files`, not yet merged — no PR/no remote)
+
+**Theme F — Status badges on tree rows.** ✅ status badges on tree rows: a `Map` join on a path convention that already matches byte-for-byte, off a status cache the sidebar has already fetched, with a directory rollup that turned out to need its own literal-ancestor walk rather than `build-change-tree.ts`'s chain-collapsing tree (PR-local, landed 2026-08-28)
+
+**Theme G — fs invalidation, live.** ✅ fs invalidation, live: the fs query keys move into `services/queries.ts` as `keys.fs`/`keys.fsRepo`, the watcher invalidates a repo's whole fs cache on a `worktree` event, and a new `fs-activity.ts` — mirroring `write-queue.ts`'s `onActivity` shape, per-repoId, 150ms settle — suppresses the echo of the app's own fs writes (landed 2026-08-28, merged locally — no PR/no remote). It lives in **`git-engine/src/exec/`**, not `desktop/src/main/`: its consumer `repo-watcher.ts` is in git-engine, and desktop is downstream of it.
+
+**Theme H — Drop the dead CodeMirror dependencies.** ✅ (PR #249) — drop the dead CodeMirror dependencies (S): Phase 64 C swapped the editor for Monaco and left all seven `@codemirror/*` entries in `packages/app/package.json` with **zero importers anywhere in the repo**. One `package.json`, one lockfile, a grep to prove it first and a bundle-report to prove the entry chunk did not move.
+
+**Theme I — The verification gaps that are real.** ✅ (PR #249) — the verification gaps that are real (S): `grep-parser.test.ts` has 2 cases against a Verification line asking for five, and nothing asserts a `kind: 'context'` line despite the fixture being named `grep-z-context`. The cap case moves to `fs-search-handlers.test.ts`, where the cap actually is.
+
+**Theme J — The visual and human passes.** 🔄 (PR #261) — the visual and human passes (S): `phase-24-d/`'s three editor screenshots were regenerated against Monaco via `files-editor.spec.ts`'s existing `MSTUDIO_SHOTS` gate; `-c/-e/-f` confirmed still accurate. Two real-repository passes remain, for a human — Trash restorability, and whether the 150ms `fsSettleMs` window is right.
+
 ## Deliverables
 
 ### A — The write contract (M) — ✅ DONE (2026-08-28)

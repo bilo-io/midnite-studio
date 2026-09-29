@@ -3,6 +3,10 @@
 Typed git reads with heavy unit coverage. No Electron anywhere in this phase.
 See INITIAL_PLAN.md → "IPC contract", "Data model", "Git exec conventions".
 
+## Headlines
+
+**Theme A.** ✅ zod domain/IPC contracts, dugite exec + write queue, NUL-delimited parsers, smoke script
+
 ## Deliverables
 
 - [x] `shared/src/domain/*.ts` — zod schemas + inferred types: `RepoDescriptor`, `Worktree`, `Ref`, `Commit`, `GraphRow`, `StatusEntry`, `StatusResult`, `WatchEvent`, `GitOpResult`

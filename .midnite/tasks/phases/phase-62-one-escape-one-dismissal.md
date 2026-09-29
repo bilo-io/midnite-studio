@@ -83,6 +83,16 @@ ref, and "am I topmost" is not.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Twenty-four hand-rolled Escape handlers, no two alike, and no notion anywhere in the renderer of which overlay is on top — so one Escape really does dismiss two things, by three reachable paths. Builds that notion once as a module-level LIFO stack behind a single `window` listener, and moves the eighteen window-scoped handlers onto it. Also closes the occluder gap that paints four blocking overlays underneath a live `WebContentsView`.* (0% · 0/33) — **Planned, not started.** Twenty-four hand-rolled Escape handlers, no two of which agree, and no notion anywhere in the renderer of which overlay is on top. `stopPropagation()` on a `window` listener does nothing to sibling listeners on the same `window` — that needs `stopImmediatePropagation`, which appears **zero** times in the codebase — so the two overlays that try to be well-behaved are not, and one Escape dismisses two things by three reachable paths (graph selection + context menu; board card + context menu; a toast over any dialog). `palette-store.ts:115` already names the gap out loud: *"the whole nesting question, avoided in one check."* This builds the answer once — a module-level LIFO stack behind a single `window` listener, delivering to the topmost blocking entry — and folds occluder registration into the same call, which fixes the four blocking overlays currently painted underneath a live `WebContentsView`. 33 items, `packages/app` only, no new dependency.
+
+**Theme A — The stack, and the hook that joins it.** ✅ The stack, and the hook that joins it: `components/use-dismiss.ts` in `use-focus-trap.ts`'s shape but ref-free, one `window` listener for the whole app, and a delivery rule — topmost blocking entry, else topmost passive — with `blocking` driving occluder registration too.
+
+**Theme B — The overlays move onto it.** ✅ The overlays move onto it: eighteen window/document handlers across seventeen files, layered `menu`/`popover`/`dialog`/`toast`/`tooltip`/`inline`; `confirm-dialog`, `prompt-dialog` and `palette` gain the occluder pair they never had; `popover` drops a `stopPropagation` that was inert all along.
+
+**Theme C — The element-scoped handlers stop leaking.** ✅ The element-scoped handlers stop leaking: `board-view` and `workflow-canvas` gain the one-line `stopPropagation()` that is the second double-dismiss path, the four input-scoped handlers are audited and deliberately left alone, and `e2e/overlay-stacking.spec.ts` finally asserts the theme it is named after.
+
 ## Deliverables
 
 ### A — The stack, and the hook that joins it (M) — ✅ DONE (PR #170, 2026-09-05)

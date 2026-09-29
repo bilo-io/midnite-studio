@@ -68,6 +68,20 @@ deliberately unlike Phase 90/91's forge-account work, which is solving a differe
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*`bilo-io/midnite-apps` is the confirmed, verified destination — public, `has_issues: true`, already carrying `bug`/`feature` issue-form templates and the `bug`/`enhancement`/ `app: midnite-studio` labels this phase applies, with zero issues filed today. `bilo-io/midnite-studio` (this repo) has a real but private, single-collaborator issue tracker no external reporter can reach. Phase 65 built the report machine end to end and stopped at one `openExternal` call; this phase adds the write, reusing the `gh` CLI delegation every other forge call in this app already uses, and reusing `redactPaths` verbatim rather than a second redaction path.* (94% · 32/34) — **All five themes landed** (2026-09-20). Confirmed, not assumed: two issue boards exist. `bilo-io/midnite-studio` (this repo) carries a real but internal engineering backlog no external user can reach; `bilo-io/midnite-apps` is public, `has_issues: true`, ships issue-form templates and a label set (`bug`, `enhancement`, `app: midnite-studio`, `needs-triage`) built for exactly this. [Phase 65](phase-65-somewhere-for-a-crash-to-go.md) already built the whole machine this phase completes — a redacted diagnostics bundle, a rotating log, a "Copy diagnostics" button — and stopped one function short: `CrashReporting()`'s "Report a bug" was `openExternal(NEW_ISSUE_URL)`, nothing more. This phase adds the missing write. Two verification items remain and are deliberately not closed by an agent: filing a real bug report and a real feature request from a packaged app against the public `bilo-io/midnite-apps` board (a human pass), and observing `/midnite-address-issue`'s Stage 1 digest list a candidate from each board at once (needs the apps board to actually receive traffic first, which Themes A-D are what makes possible). 34 items, five themes, no new dependency.
+
+**Theme A — The fixed target, and the write's odd shape.** ✅ (PR #479) — the fixed target (`bilo-io/midnite-apps`, never the active repo) and `gh-app-issue.ts`'s command construction. The write is a `gh issue create -R bilo-io/midnite-apps` call (`gh-app-issue.ts` — the one write in `forge/` with no `Forge` parameter).
+
+**Theme B — The IPC surface, extending `report`, not inventing `issues`.** ✅ (PR #479) — the IPC surface: `mstudio:report:submit-issue`, extending the existing `report` bridge group.
+
+**Theme C — The composer dialog.** ✅ (PR #480) — the composer dialog: bug/feature toggle, prefilled diagnostics, the "open in browser" fallback unchanged. Wired from both existing "Report a bug" entry points. The write sits behind a composer dialog that prefills title, body and the existing redacted diagnostics block, applies the right labels itself, and falls back to today's exact browser-open behaviour when `gh` is missing or signed out.
+
+**Theme D — Redaction stays the single source, and nothing leaves silently.** ✅ (PR #480) — redaction stays the single path; no new secret pattern, no settings toggle, no telemetry.
+
+**Theme E — The execution skill's gap, and only the gap.** ◻ `/midnite-address-issue` learns to scan both boards and use cross-repo `Fixes owner/repo#N`. Teaches `/midnite-address-issue` to scan both boards and use cross-repo `Fixes bilo-io/midnite-apps#N` syntax (PR #482).
+
 ## Themes
 
 ### A — The fixed target, and the write's odd shape (S) — ✅ DONE (PR #479, 2026-09-20)

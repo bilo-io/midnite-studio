@@ -20,6 +20,22 @@ absent one. No PAT, no secret storage: `gh` already holds the user's credential.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The sidebar stops being a read-mostly tree. A is the spine — B, C and the "View all changes" buttons all read the per-checkout status it fetches; E is the surface D and F open into.* *Open: two manual passes — the packaged-app screenshots (Electron will not start in a non-interactive session) and the `gh`-availability matrix.*
+
+**Theme A — Per-worktree status and the change-count pill.** ✅ per-worktree `git status` via `useQueries`, the accent change-count pill on worktrees, branches and the collapsed repo row
+
+**Theme B — The Changes view filters the tree.** ✅ the Changes view filters the tree to checkouts that have changes, with a visible, reversible toggle
+
+**Theme C — Menus everywhere, danger-themed confirms.** ✅ context menu + hover ellipsis on every actionable node; destructive verbs behind a danger-themed confirm (blast radius for commits, named warnings for everything else)
+
+**Theme D — View all changes.** ✅ "View all changes": a per-file accordion diff of one checkout, lazy per file, expand/collapse all with a stated cap
+
+**Theme E — The workbench tab strip.** ✅ the workbench tab strip; the Changes view becomes a tabbed content area with a permanent working-tree tab
+
+**Theme F — Actions and Reviews via `gh`.** ✅ `mstudio:forge:*` over the user's own `gh` CLI: Actions and Reviews sections, run and PR tabs, and the `ChecksVerdict` producer that `outstanding.md` had been waiting for
+
 ## Deliverables
 
 ### A — Per-worktree status and the change-count pill (M) ✅

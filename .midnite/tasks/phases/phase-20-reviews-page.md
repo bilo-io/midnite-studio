@@ -31,6 +31,28 @@ per the existing rule in [`channels.ts`](../packages/shared/src/ipc/channels.ts)
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Reviews grows from a sidebar-section stub into a full nav-rail view, and diffs finally get syntax colour. A is the shell (same `VIEW_FILTERS` mechanism Actions/Tests already use); B and C are the two read surfaces (list, then detail); D is the highlighting pass shared by every diff surface in the app; E, F and G are the phase's one deliberate write path — approve/request-changes/comment/ merge, kept in a new `gh-write.ts` so `gh-cli.ts`'s "strictly reads" comment stays true.*
+
+**Theme A — Reviews as a nav-rail view.** ✅ Reviews joins the nav rail as a first-class view, reusing the `VIEW_FILTERS` mechanism Actions/Tests already established, hidden for repos with no GitHub remote (landed 2026-08-27)
+
+**Theme B — PR list, filterable across every state.** ✅ PR list filterable across every state (open/draft/merged/closed) plus author and search, not just the open-only list Phase 17 fetches today; the sidebar section and dashboard widget keep asking for open-only via a `state` request param (landed 2026-08-27)
+
+**Theme C — PR detail: files, conversation, checks.** ✅ PR detail grows Files/Conversation/Checks tabs, reusing the existing hunk parser for PR diffs rather than a second parser — plus a `pull-detail` channel for the head sha no listing carries, and Checks matching that sha against the cached run listing rather than costing a third subprocess (landed 2026-08-27)
+
+**Theme D — Syntax-highlighted diffs, unified across every surface.** ✅ syntax highlighting wired into the one shared `DiffView`, reusing Phase 16's already-installed, theme-synced `shiki` highlighter, so Reviews/Changes/Graph render diffs identically; deferred per-row through `requestIdleCallback` and cached module-level so it never competes with the virtualized scroll path (landed 2026-08-27)
+
+**Theme E — Inline diff-line comment threads.** ✅ inline diff-line comment threads as *rows* in the diff, right-side (added/context) lines only for v1 — the phase's highest-unknown piece, and two of its three unknowns turned out to be API facts: threads are readable only over GraphQL (REST has no thread object, no `isResolved` and no node id), and `gh api`'s `-F` type-guesses its variables. A thread that cannot be anchored — outdated, file-level, left-side, or naming a line outside every hunk — renders in a collapsed group above the diff rather than against whichever row carries that number now (landed 2026-08-27)
+
+**Theme F — Review write actions: approve, request changes, comment, merge.** ✅ the phase's one deliberate write path: approve/request-changes/comment/merge, in `gh-write.ts` beside Theme E's three writes, with the primitives both need extracted into a new `gh-shell.ts` so the write module no longer depends on the reader. The merge confirm's blast radius comes from `gh pr view --json commits` rather than a local `rev-list --count` — a PR's head ref usually is not in this checkout, and `rev-list` against a missing ref reads as zero. All of it behind a default-off Settings → Reviews switch that also lists what the app never does (landed 2026-08-27)
+
+**Theme G — Reviewer re-request, draft→ready, re-run checks.** ✅ reviewer re-request off the detail's own `reviewRequests`, Draft → Ready that disappears once flipped, and re-run on the Checks tab — two buttons, the failed-only one present only on a run that failed. Re-run is the one write that evicts a cache: `gh run rerun` adds an attempt to the *same* run id, and main caches a completed run's tree permanently (landed 2026-08-27)
+
+**Follow-up — PR detail integration.** A and B landed against `main` as it stood before Theme C existed; a rebase integration mounted `PrDetail` beside the list — a resizable split matching `ActionsView`'s, with a new `reviews-store.ts` carrying a sidebar-selected PR number into the view (landed 2026-08-27)
+
+**Follow-up — e2e suite green again.** ✅ the Playwright suite is green again on `main` — seventeen specs (sixteen of this phase's, one of Phase 17's) had gone red against a working product because `app:e2e` sits outside the `:test` gate and nothing re-read them after three deliberate decisions moved: a PR now opens on **Overview**, the three review scopes now arrive **folded**, and the repos row grew a **trailing cluster** that broke a geometry proxy. No product code changed; the landing tab is now guarded by one spec instead of thirteen, and four stale screenshots were regenerated (285 passed, 0 failed — was 267/17) (landed 2026-08-27)
+
 ## Deliverables
 
 ### A — Reviews as a nav-rail view (S) ✅ DONE (2026-08-27)

@@ -44,6 +44,24 @@ serialize or unicode11 addon — this phase is about the two addons already load
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*`@xterm/xterm` `^5.5.0` → `6.0.0`, with `addon-fit` `0.11.0` and `addon-webgl` `0.19.0`. PR #242 tried the addons alone and killed the terminal: those addon majors **dropped** their `'@xterm/xterm': ^5.0.0` peer dependency rather than widening it, so pnpm has nothing left to check and the lockfile can no longer catch a mismatch in either direction. #422 stopped Renovate splitting the family again; this phase does the migration, replaces the vanished guard with a test, and cashes the two debts that were parked on "the next xterm bump".*
+
+**Theme A — The bump itself.** ✅ (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the bump: three version lines, one lockfile, and the v6 API delta recorded — a real `xterm.d.ts` diff, not the changelog; nothing touching our eight import sites, `moon run app:typecheck` green with zero source edits
+
+**Theme B — `terminal-view.tsx` and the WebGL addon.** ✅ (PR [#458](https://github.com/bilo-io/midnite-studio/pull/458)) — `terminal-view.tsx`/`xterm-budget.ts`/`terminal-links.ts`/`terminal-font.ts` needed zero source edits; the theme became verification — a new test drives a real `WebglAddon` through a `webglcontextlost` event and its ~3s restoration window, proving `onContextLoss` still fires and the budget's `setRenderer` still flips to `dom`, and `terminal-links.test.ts` gained a real-`Terminal` check for `ILinkProvider`. `MAX_WEBGL_CONTEXTS` confirmed unaffected (it rations Chromium's own context ceiling, which neither xterm package reports)
+
+**Theme C — The DOM-renderer call sites.** ✅ (PR [#457](https://github.com/bilo-io/midnite-studio/pull/457)) — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx` needed zero source edits; added a guard test at each asserting only `FitAddon` is ever loaded, never `WebglAddon`
+
+**Theme D — `ITheme`, and the reach into the theme engine.** ✅ (PR [#509](https://github.com/bilo-io/midnite-studio/pull/509)) — `ITheme` across the theme engine, and the VS Code importer's palette: v6's only delta is four new optional keys, `theme-types.ts`/`vscode-theme-importer.ts` needed zero source edits; new `itheme-conformance.test.ts` reads a real v6 `Terminal`'s own `ThemeService.colors` back out, proving every key our theme engine and the VS Code importer set is the key xterm actually applies
+
+**Theme E — The attach test, replacing the guard v6 removed.** ✅ (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the attach test that replaces the peer dependency v6 removed: traced #242's real failure to `WebglAddon`'s dispose callback reading a `_store` field xterm core 6.0.0 added, reproduced verbatim in jsdom, then encoded deterministically
+
+**Theme F — The two debts parked on this bump.** ✅ (PR [#510](https://github.com/bilo-io/midnite-studio/pull/510)) — the two parked debts, checked against real v6 source and proven with deterministic tests, neither fixed by the bump: the `Viewport`/`RenderService` unmount throw still reproduces (renamed internally from `syncScrollArea` to `_sync`, same `MutableDisposable`-post-dispose defect), re-parked in `outstanding.md` with the v6 verdict; Phase 51's "fractional cell height rounded per row" never existed as described — `WebglRenderer` quantizes cell height to one integer per resize, byte-identical pre- and post-bump, with the real uneven-text symptom already explained by that phase's own Theme C
+
+**Theme G — Verification.** ◻ verification: existing terminal e2e, entry-chunk exclusion, human pass
+
 ## Deliverables
 
 ### A — The bump itself (S)

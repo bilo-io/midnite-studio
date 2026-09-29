@@ -103,6 +103,28 @@ Dependency order: **B** first (everything reads through the client). **A**, **C*
 then run in parallel. **E** needs **C**. **G** needs **E**. **H** needs **B** (per-session env is
 independent and can start at once). **I** needs **E** and **H**.
 
+## Headlines
+
+*Ollama as a toolchain item, a Models hub for local and cloud models, and a per-agent Ollama backend for claude, codex, cline, opencode and copilot.* (79% · 58/73, [PR #540](https://github.com/bilo-io/midnite-studio/pull/540), [PR #541](https://github.com/bilo-io/midnite-studio/pull/541), [PR #542](https://github.com/bilo-io/midnite-studio/pull/542), [PR #547](https://github.com/bilo-io/midnite-studio/pull/547), [PR #548](https://github.com/bilo-io/midnite-studio/pull/548), [PR #549](https://github.com/bilo-io/midnite-studio/pull/549)) — **Planned 2026-09-24, brainstormed with the user. All nine themes landed; the verification items remain, mostly human/packaged-app passes.** Adds Ollama to the toolchain (Health row, daemon probe, install, start), a main-side Ollama client, a Models rail view (installed, ollama.com search scraped and cached, cloud catalogue, streamed pulls) with a rich model-detail modal and a one-click 64k-context variant, and a per-agent "native | Ollama" backend for claude, codex, cline, opencode and copilot — env vars for claude/copilot, `--oss -m` for codex, `ollama launch` for cline/opencode — honoured by every launch path, plus the wand and Plan-with-AI on an Ollama model.
+
+**Theme A — Ollama in the toolchain.** ✅ Ollama row on the Health page: binary + daemon probe, brew install/update, Start Ollama (never stop) ([PR #540](https://github.com/bilo-io/midnite-studio/pull/540)). **Theme A landed** (2026-09-24, PR #540): the Health page row.
+
+**Theme B — Main-side Ollama client and IPC.** ✅ Main-side Ollama client (`tags/show/ps/pull/delete/create/version`), `mstudio:ollama:*` IPC, streamed pull queue ([PR #540](https://github.com/bilo-io/midnite-studio/pull/540)). **Theme B landed** (2026-09-24, PR #540): the foundation client/schemas/IPC.
+
+**Theme C — The Models view.** ✅ Models rail view: Installed tab, pull-by-name, pull queue, daemon-down state, Settings ▸ Ollama (host override + default model) ([PR #541](https://github.com/bilo-io/midnite-studio/pull/541)). **Theme C landed** (2026-09-24, PR #541): the Models rail view (Installed list, pull queue, Settings ▸ Ollama host override + default model).
+
+**Theme D — Discover: library search.** ✅ Discover: main-side ollama.com search scrape + cache, fixture-tested parser, local/cloud filters ([PR #547](https://github.com/bilo-io/midnite-studio/pull/547)). **Theme D landed** (2026-09-24, PR #547): the `ollama.com/search` scraper + Discover tab (debounced search, Local/Cloud scope, capability chips, variant picker).
+
+**Theme E — Model detail modal.** ✅ Model detail modal: stats, capabilities, context, fit-for-agents verdict, Modelfile/template/licence tabs ([PR #548](https://github.com/bilo-io/midnite-studio/pull/548)). **Theme E landed** (2026-09-24, PR #548): the `features/models/model-detail.tsx` modal (stats, capabilities, fit verdict, Modelfile/Template/Parameters/Licence tabs, Delete/Unload, Set-as-default) wired into Theme C's `ModelRow.onOpenDetail` — since rebased onto PR #547 so Discover/Cloud rows for an already-installed model also open the modal (a not-yet-installed row still just shows Pull/Use, a documented follow-up).
+
+**Theme F — Cloud models and account.** ✅ Cloud models: `ollama signin` detection, vault-held `OLLAMA_API_KEY`, cloud catalogue, name normalisation ([PR #547](https://github.com/bilo-io/midnite-studio/pull/547)). **Theme F landed** (2026-09-24, PR #547): the `ollama.apiKey` vault slot + `secrets.has`, the Cloud tab + sign-in detection + Settings ▸ Ollama wiring, and the `:cloud`/`-cloud` naming normaliser.
+
+**Theme G — The context-length fix.** ✅ Context-length fitness check and one-click `<model>-64k` variant ([PR #548](https://github.com/bilo-io/midnite-studio/pull/548)). **Theme G landed** (2026-09-24, PR #548): `agentFitness()`/`effectiveContextLength()`/`deriveNumCtx()`/`deriveEmbeddingLength()` in `shared/src/ollama.ts`; the one-click `<model>-64k` variant; and the same fit warning on Settings ▸ Agent's Ollama picker.
+
+**Theme H — Agents on Ollama.** ✅ Per-session pty env + per-agent backend binding; hybrid launch recipe (env / `--oss` / `ollama launch`) on every launch path ([PR #542](https://github.com/bilo-io/midnite-studio/pull/542)). **Theme H landed** (2026-09-24, PR #542): per-session pty env, `AgentDefinition.backends`, the persisted `{backend, model}` binding, `ollama-launch.ts`'s recipe table + `resolveAgentLaunch()` resolver wired into `start-agent.ts` (terminal/cards/loops/companion), `council-runner.ts` and workflow `executors/agent.ts`, a Settings ▸ Agent backend/model picker, and a session-row `SiOllama` mark. PR #547 also landed Theme H's `useOllamaKey` marker (closing its one open checkbox).
+
+**Theme I — Launch surfaces.** ✅ Per-launch Ollama model override, Launch with… from the modal, wand / Plan-with-AI via `/api/chat` ([PR #549](https://github.com/bilo-io/midnite-studio/pull/549)). **Theme I landed** (2026-09-24, PR #549): `startAgent`'s per-launch `modelOverride` (it wins over `agentBackends` and never stacks a second `--model`), an Ollama group plus fit badge in the card composer's model picker, "Launch with…" in the detail modal, and the wand and Plan with AI on an Ollama model via `/api/chat`, chosen in Settings ▸ Agent ▸ "Headless AI features use". Follow-ups: the loop composer's Ollama group and the not-yet-pulled cloud catalogue in the picker.
+
 ## Deliverables
 
 ### A — Ollama in the toolchain (S) — ✅ DONE (PR #540, 2026-09-24)

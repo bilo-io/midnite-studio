@@ -13,13 +13,15 @@ You are the **Phase Verification Specialist** for **Midnite Studio**. Your respo
 
 ## 🧭 Stage 1 — Phase Discovery
 
-1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)**.
+1. Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — its `## Phases` table only; it is a status table with no prose.
 2. Determine target phase:
    - If an argument is provided (e.g. `24` or `phase-24`), target that specific phase doc in `.midnite/tasks/phases/`.
    - If no argument is provided, scan the index table to find the **oldest non-DONE phase** (i.e. the lowest phase number with status `🔄 WIP` or `◻ TODO`).
 3. Read the targeted phase doc `phase-<N>-*.md` in full:
    - Identify all `- [ ]` open items under `## Deliverables` and `## Verification`.
    - Note any items already marked `- [x]`.
+   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
+   - Its `## Headlines` section (near the top) is the phase's narrative, one paragraph per theme — read it for context on what already landed.
 
 ---
 
@@ -79,6 +81,8 @@ Upon explicit human confirmation:
 1. **Update Phase Document (`phase-<N>-*.md`):**
    - Check off remaining manual verification items (`- [x]`).
    - Ensure deliverable counts are accurate.
+   - In its `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed, in that theme's own paragraph (or a lead-paragraph sentence for phase-wide verification). Narrative goes here, never in the index.
+   - In its `## Headlines` section, flip each theme paragraph's mark to `✅` and add one sentence on what the verification pass confirmed, in that theme's own paragraph (or a lead-paragraph sentence for phase-wide verification). Narrative goes here, never in the index.
 
 2. **Update Index (`.midnite/tasks/_INDEX.md`):**
    - Locate the row for Phase N in the `## Phases` table.
@@ -86,6 +90,8 @@ Upon explicit human confirmation:
    - Update `Done` cell to reflect 100% completion (e.g. `<total>/<total>`).
    - Update `Progress` to full 10-cell bar `██████████` and `%` to `100%`.
    - Clear `🔄 WIP` and `◻ TODO` columns to `—`.
+   - Touch nothing else in the index — the row is the whole edit.
+   - Touch nothing else in the index — the row is the whole edit.
 
 3. **Append to Landed Log (`.midnite/tasks/done.md`):**
    - Append an entry under today's date (at the top of the entry list, immediately below the `# Done — append-only log` comment):

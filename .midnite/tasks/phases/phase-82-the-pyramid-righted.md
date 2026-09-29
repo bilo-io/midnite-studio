@@ -134,6 +134,26 @@ files — so the A share below is if anything understated; `diagnostics`, `files
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*CI is gated by its slowest job — the Playwright suite at 8m31s wall, ~46 runner-minutes — and Phase 56 already spent every infrastructure lever on it. What's left is the suite's shape: 667 browser tests carry work 3,701 jsdom tests do 190× cheaper, a third of the shard budget is self-skipping screenshot specs, and there is no visual-regression layer at all. Plans gating the no-op specs, a `test-support/` unit layer built around an extracted `buildMockBridge`, five migration waves moving ~380 tests to vitest, a locator-cropped `toHaveScreenshot` pixel-diff layer capped at ~100 baselines, splitting the 10×-billed `gate` job by native-module need, a written testing convention with a ratchet script, and a shard re-tune once the suite is smaller. Target: ~4 min total CI wall clock, down from 8m31s.*
+
+**Theme A — Stop paying for no-ops.** ✅ Stop paying for no-ops ([PR #325](https://github.com/bilo-io/midnite-studio/pull/325)): 976→695 declared, shards even at 86-87, worst shard 441s→332s — but 13 unconditional screenshots survive in 7 functional specs, so one item is left open: gate the 11 ungated `*-shots` files, extend `testIgnore` to drop unskippable screenshot specs, re-measure per-shard times
+
+**Theme B — A unit layer worth writing in.** ✅ A unit layer worth writing in: `test-support/`, `buildMockBridge` extracted from the `addInitScript` closure, `renderView`, promoted global stubs, `@testing-library/user-event`
+
+**Theme C — Migration waves.** 🔄 Migration waves: **all five landed** ([#326](https://github.com/bilo-io/midnite-studio/pull/326), [#328](https://github.com/bilo-io/midnite-studio/pull/328), [#333](https://github.com/bilo-io/midnite-studio/pull/333), [#334](https://github.com/bilo-io/midnite-studio/pull/334), [#337](https://github.com/bilo-io/midnite-studio/pull/337), [#338](https://github.com/bilo-io/midnite-studio/pull/338)) — e2e declared **976→465**, `app:test` **→4,065**. Open: a wave 6 for the four *partial*-keep files (`fab-loops`, `browser-pane`, `workflows`, `titlebar-agents`) that need per-test rather than per-file judgment, plus three jsdom traps and two harness gaps to write into `test-support/` guidance
+
+**Theme D — A pixel-diff layer.** ◐ A pixel-diff layer: `playwright.visual.config.ts`, determinism fixes for fonts/motion/RNG, locator-cropped `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })`, a ~100-baseline/3 MB cap, Linux-only `snapshotPathTemplate`
+
+**Theme E — Split the gate.** ✅ Split the gate: measure per-package first, then `gate-node` (ubuntu, 1×) and `gate-native` (macOS, 10×, git-engine + desktop only) ([PR #321](https://github.com/bilo-io/midnite-studio/pull/321)): measured 6m02s→5m41s — the win is billing (~60→~38 min-equiv), not wall clock; `gate-node`'s 261s test step vs the old 264s is what Theme H exists for
+
+**Theme F — Write the convention down, and ratchet it.** ✅ Write the convention down, and ratchet it: `docs/TESTING.md`, the three-file CLAUDE/AGENTS/GEMINI sync, `scripts/e2e-budget.mjs`, `e2e/**` added to `tsconfig.json` ([PR #368](https://github.com/bilo-io/midnite-studio/pull/368))
+
+**Theme G — Re-measure and re-tune the shards.** ◻ Re-measure and re-tune the shards: pick shard count from data once the suite shrinks, record the numbers
+
+**Theme H — Shard the unit suite too.** ✅ shard `app:test` in CI ([PR #327](https://github.com/bilo-io/midnite-studio/pull/327)): `app:test` measured at 173s of gate-node's 244s test content on a real ubuntu runner; 4 shards took the gate lane 345s → 162s; Theme E measured the platform split at 261s of 264s, so the unit suite is the gate's real floor
+
 ## Deliverables
 
 ### A — Stop paying for no-ops (S) ✅ DONE (PRs #325, #328, 2026-09-10) — *~2 min of wall clock, one small PR*

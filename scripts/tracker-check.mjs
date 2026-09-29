@@ -26,6 +26,7 @@ export function isExcludedItem(text) {
  *   totalCount: number,
  *   themes: string[],
  *   duplicateThemes: string[],
+ *   headlineThemes: string[] | null,
  *   refined: string | null
  * }}
  */
@@ -36,9 +37,21 @@ export function parsePhaseDoc(content) {
   const themes = [];
   const seenThemes = new Set();
   const duplicateThemes = [];
+  // The doc's own `## Headlines` section (the per-phase narrative that used to live in
+  // _INDEX.md): one `**Theme X — Name.** …` paragraph per theme. null when the doc has none.
+  let headlineThemes = null;
+  let inHeadlines = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
+
+    if (/^##\s+/.test(line)) {
+      inHeadlines = /^##\s+Headlines\s*$/i.test(line);
+      if (inHeadlines && headlineThemes === null) headlineThemes = [];
+    } else if (inHeadlines) {
+      const hm = line.match(/^\*\*Theme\s+([A-Z])\b/u);
+      if (hm) headlineThemes.push(hm[1].toUpperCase());
+    }
 
     // Check for theme headings: ### A — or ### Theme A — or ## Theme A —
     const themeMatch = line.match(/^#{2,3}\s+(?:Theme\s+)?([A-Z])\s*[-—]/u);
@@ -78,6 +91,7 @@ export function parsePhaseDoc(content) {
     totalCount: doneCount + openCount,
     themes,
     duplicateThemes,
+    headlineThemes,
     refined,
   };
 }
@@ -105,7 +119,8 @@ export function computeProgress(done, total) {
 }
 
 /**
- * Parses _INDEX.md content for phase rows and theme key entries.
+ * Parses _INDEX.md content for phase rows, plus the legacy `## Theme key` entries a tracker
+ * still carries if its headlines have not moved into the phase docs yet.
  * @param {string} content
  * @returns {{
  *   phases: Map<number, {
@@ -334,18 +349,25 @@ export function runTrackerChecks(params = {}) {
       });
     }
 
-    // Rule 5: Theme letters agree
+    // Rule 5: Theme letters agree — the doc's theme headings against its own `## Headlines`
+    // theme paragraphs. A tracker still on the older layout (a `## Theme key` in _INDEX.md,
+    // no Headlines in the doc) is checked against the index instead.
     const docThemeSet =
       parsedDoc.themes.length > 0 ? parsedDoc.themes : ['A'];
-    const keyThemeSet = themeKeys.get(num) ?? ['A'];
+    const fromHeadlines =
+      parsedDoc.headlineThemes !== null && parsedDoc.headlineThemes.length > 0;
+    const keyThemeSet = fromHeadlines
+      ? parsedDoc.headlineThemes
+      : themeKeys.get(num) ?? ['A'];
+    const keySource = fromHeadlines ? 'in headlines' : 'in theme key';
     if (!areSetsEqual(docThemeSet, keyThemeSet)) {
       violations.push({
         phase: num,
         rule: 5,
         ruleName: 'theme-letters',
         expected: `[${[...new Set(docThemeSet)].sort().join(',')}] (from doc)`,
-        actual: `[${[...new Set(keyThemeSet)].sort().join(',')}] (in theme key)`,
-        message: `phase ${num}: rule 5 (theme-letters) — [${[...new Set(docThemeSet)].sort().join(',')}] (from doc) vs [${[...new Set(keyThemeSet)].sort().join(',')}] (in theme key)`,
+        actual: `[${[...new Set(keyThemeSet)].sort().join(',')}] (${keySource})`,
+        message: `phase ${num}: rule 5 (theme-letters) — [${[...new Set(docThemeSet)].sort().join(',')}] (from doc) vs [${[...new Set(keyThemeSet)].sort().join(',')}] (${keySource})`,
       });
     }
 

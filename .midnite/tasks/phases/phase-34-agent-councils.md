@@ -45,6 +45,26 @@ like a silent departure from how every other agent launch behaves.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*A standing panel of AI members answers one prompt in parallel, then a synthesizer distills the results — ported from `~/Dev/midnite`'s mature councils feature as a narrow MVP slice: one format, global scope, a 3-agent member pool, and an explicit auto-send exception justified by members never touching a repo. A is the contract every other theme reads off; B–D are persistence/orchestration/ IPC; E–G are the three UI surfaces; H is reliability (retry/skip).* Landed to local `main` — this repo has no git remote, so no PR link. Two manual passes remain for a human: a real end-to-end run against real `agy`/`codex`/`opencode` installs, and a copy review of the auto-send note. (100% · 34/34) — Landed. Fills the nav/palette-reserved "Councils" slot: a standing panel of AI members answers a prompt in parallel, synthesized into one distilled write-up. MVP scope — one format (brainstorm), global (not per-repo), a 3-agent member pool (`agy`/`codex`/`opencode`), and an explicit auto-send exception to the app's usual type-but-don't-send agent-launch posture. Two manual passes (a real end-to-end run, a copy review) remain for a human.
+
+**Theme A — Shared contracts.** ✅ Shared contracts: `Council`/`CouncilMember`/`CouncilRun` schemas, one-format literal, starter members, IPC channel constants. (2026-09-01, local — no PR/no remote)
+
+**Theme B — Persistence.** ✅ Persistence: a global `councils-store.ts` + run history (`councils-runs-store.ts`, capped at 200 runs), following `agents-store.ts`'s merge-tolerant shape. (2026-09-01)
+
+**Theme C — Run orchestration.** ✅ Run orchestration: parallel one-shot member spawns via `pty-service.ts` directly (not through `terminal-store`), a per-run mutation lock (`withRunLock`) serializing the settle barrier, the auto-send exception, synthesis. Two real bugs found and fixed while testing: a race where two members settling back to back could clobber each other's write, and a missing shell `exit` — the pty is a login shell, not `pty.spawn(command)`, so without `; exit $?` the CLI finishing never actually ends the pty and the settle barrier's exit signal would never fire. (2026-09-01)
+
+**Theme D — IPC bridge.** ✅ IPC bridge: preload methods + main handlers + renderer hooks (`use-council.ts`, `use-council-run.ts`). (2026-09-01)
+
+**Theme E — UI — list & create.** ✅ UI — list & create: fills the `WORK_IN_PROGRESS` councils stub with a real list/create flow. (2026-09-01)
+
+**Theme F — UI — detail & members panel.** ✅ UI — detail & members panel: flat add/remove/edit, synthesizer picker, topic composer with the auto-send note. (2026-09-01)
+
+**Theme G — UI — run view.** ✅ UI — run view: per-member tabs (a plain live-text view over the same `pty.onData` stream `TerminalView` uses, not a full xterm embed — members are output-only, one-shot, no input), synthesis tab, run-thread rail. (2026-09-01)
+
+**Theme H — Retry/skip controls.** ✅ Retry/skip controls for a hung or failed member. (2026-09-01)
+
 ## Deliverables
 
 ### A — Shared contracts (S) — ✅ DONE (2026-09-01)

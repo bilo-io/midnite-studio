@@ -10,6 +10,18 @@ Phase 8 introduced visual drag-and-drop git operations (cherry-pick, simple reba
 
 ---
 
+## Headlines
+
+*Visual drag-and-drop rebase sequence planner (pick, reword, squash, drop, fixup) backed by a custom GIT_SEQUENCE_EDITOR helper binary.* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — `GIT_SEQUENCE_EDITOR` Helper & Wire Contract.** ✅ `GIT_SEQUENCE_EDITOR` helper script, IPC channel schemas, and `git-engine` rebase commands.
+
+**Theme B — Interactive Rebase Sequence Editor Overlay.** ✅ Interactive Rebase Sequence Editor Overlay modal, commit drag-reorder, and action pickers.
+
+**Theme C — Rebase State Controller & Conflict Banner.** ✅ Rebase state controller, paused status banner, and Changes view conflict integration.
+
+**Theme D — Safety Net Backup & One-Click Restore.** ✅ Safety net backup ref creation (`refs/midnite-backup/`), blast-radius modal, and one-click restore.
+
 ## Deliverables
 
 ### Theme A — `GIT_SEQUENCE_EDITOR` Helper & Wire Contract · M

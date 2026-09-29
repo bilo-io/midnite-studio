@@ -58,6 +58,22 @@ alters what `git log` says. "Agent-made" is rendered as a *mark*, never as a jud
 graph does not dim, sort or hide by it unless the user filters. Attribution below the commit
 (which *lines* an agent wrote, in blame) is named in *Not in this phase*.
 
+## Headlines
+
+*The app owns both halves of an agent's work — the session it ran in and the commits it produced — and cannot connect them. Read-side first: trailers agents already write, a pure provenance vocabulary that says* probably *when it is guessing, a mark on the row, a crosswalk from a closed session to its commits and from a commit to its transcript. The write-side fingerprint is last and opt-in.* (81% · 26/32, [PR #456](https://github.com/bilo-io/midnite-studio/pull/456), [PR #460](https://github.com/bilo-io/midnite-studio/pull/460), [PR #459](https://github.com/bilo-io/midnite-studio/pull/459), [PR #465](https://github.com/bilo-io/midnite-studio/pull/465)) — **Themes A, B, C, D, and E landed; F open.** The novelty audit's one phase: agent provenance as a first-class fact in the graph. The log format reads no trailers (`LOG_FORMAT` stops at `%s`) although every agent this app runs already writes `Co-Authored-By:`; the roster knows five agents and none of their signatures; closed sessions carry `agentId`/`repoId`/`createdAt`/`closedAt`, exactly the join a commit needs. Read-side first and works on history that predates the app; line-level blame attribution is the named sequel.
+
+**Theme A — Read the trailers.** ✅ Read the trailers: `Co-Authored-By` and `Midnite-Session` into `LOG_FORMAT` (NUL-delimited, `%x1f` inside) and `CommitSchema`; measured on the 50k fixture. ([PR #456](https://github.com/bilo-io/midnite-studio/pull/456)) Reads `Co-Authored-By`/`Midnite-Session` trailers into `CommitSchema` (NUL-delimited, `%x1f` inside the field).
+
+**Theme B — A provenance vocabulary, pure and in `shared`.** ✅ `classifyProvenance` in `shared`, pure, with an ordered confidence and per-agent `signatures` on the roster; full branch coverage. ([PR #456](https://github.com/bilo-io/midnite-studio/pull/456)) A pure `classifyProvenance` in `shared` with an ordered confidence (`session-trailer` › `co-author` › `author` › `session-window`) that renders *probably* out loud.
+
+**Theme C — The mark on the row.** ✅ The mark on the graph row and in commit detail; an All/Humans/Agents filter that dims, never hides; *probably* in the tooltip for the window join. ([PR #460](https://github.com/bilo-io/midnite-studio/pull/460)) The mark on the graph row, an All/Humans/Agents filter that dims rather than hides, a Provenance line in commit detail.
+
+**Theme D — The crosswalk: sessions ↔ commits.** ✅ Sessions ↔ commits: "N commits" per closed session → the graph narrowed to them → a commit's Provenance line → the archived transcript. ([PR #459](https://github.com/bilo-io/midnite-studio/pull/459)) The sessions ↔ commits crosswalk — "N commits" per closed session, a link from a commit to the transcript that made it.
+
+**Theme E — The write-side fingerprint, opt-in.** ✅ Opt-in write side: `MSTUDIO_SESSION_ID`/`MSTUDIO_AGENT_ID` in agent ptys; a never-clobbering `prepare-commit-msg` hook behind a default-off per-repo switch. ([PR #465](https://github.com/bilo-io/midnite-studio/pull/465)) The opt-in write side (`MSTUDIO_SESSION_ID` in agent ptys, a never-clobbering `prepare-commit-msg` hook behind a default-off switch).
+
+**Theme F — Agent share, on the dashboard.** ◻ An agent-share tile on the dashboard, computed over loaded rows with B.
+
 ## Deliverables
 
 ### A — Read the trailers (M)

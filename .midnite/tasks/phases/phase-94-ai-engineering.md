@@ -195,6 +195,26 @@ fact**, and let the loop, the skill catalogue and the graph all read it.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Four named disciplines — skill, loop, graph and harness engineering — and the app already ships an embryo of each. The grounding found they share one gap: **the feedback edge**. A loop is a sentence (`loopScheduleFragment` composes the cadence into the prompt; nothing in main reads a schedule), the sensor is fully built and unused (`testing/runner.ts` returns a parsed `TestRunResult` and no agent path calls it), four run ledgers disagree and none records an outcome, the three skill mirrors have silently diverged (13 of 23 files, including an unported `cleanup.sh` bug fix), and the 15,570-node knowledge graph is readable by humans only. One slice: make a run a checked, comparable fact, then let the loop, the skill catalogue and the graph read it.*
+
+**Theme A — The run record, in `shared`.** ◻ the run record in `shared`: `AgentRun`, `AgentRunVerdict`, adapters over the four existing ledgers, `AgentCommandId` lifted out of the renderer
+
+**Theme B — The sensor: a checked loop iteration.** ◻ the sensor: a loop iteration verified by the repo's own trusted test suite, through the runner that already exists
+
+**Theme C — The decide: the loop steps out of the prompt.** ◻ the decide: a main-process loop driver owns the cadence, the stop conditions and the failure re-prompt
+
+**Theme D — Runs: one list of what the agents did.** ◻ Runs: four ledgers as one list, in the Sessions view, with the commits each run produced
+
+**Theme E — Skill identity, and the mirror drift gate.** ◻ skill identity and the three-way mirror drift gate (`scripts/skills-sync-check.mjs`, normalised, in CI)
+
+**Theme F — Which skills actually leave the repo green.** ◻ which skills actually leave the repo green: a tally, never a score
+
+**Theme G — The graph an agent can read, and the footprint of a run.** ◻ `knowledge.find` / `knowledge.neighbours` as read-only MCP tools, and a run's footprint on the graph
+
+**Theme H — Verification, tests and the numbers.** ◻ verification, tests, and the two perf numbers a main-process timer owes
+
 ## Deliverables
 
 ### A — The run record, in `shared` (M) — ✅ DONE ([PR #579](https://github.com/bilo-io/midnite-studio/pull/579), 2026-09-26)
