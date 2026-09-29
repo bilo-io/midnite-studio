@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, renderHook, screen } from '@testing-library/react';
+import { act, cleanup, renderHook, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
