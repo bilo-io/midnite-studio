@@ -10,14 +10,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 
-## Headlines
+## Where the detail lives
 
-**Headlines:**
+<!-- This file is status only: scan the table above for ◻ TODO / 🔄 WIP / ✅ DONE and stop there. -->
 
-<!--
-  One bullet per phase, newest-first, mirroring the `## Phases` table above.
-  A short paragraph per phase: what it is, why it exists, and the one or two
-  design decisions worth knowing before opening the phase doc itself. Link
-  each phase name to its `phases/phase-N-*.md` file.
--->
-
+This index is **status only**. Each phase's narrative — what it is, why it exists, what landed —
+lives in the `## Headlines` section at the top of that phase's own doc under [`phases/`](phases/),
+one short paragraph per theme. Read it once you have picked a phase; write to it (never here) when
+a theme lands. Here, only touch the phase's table row.

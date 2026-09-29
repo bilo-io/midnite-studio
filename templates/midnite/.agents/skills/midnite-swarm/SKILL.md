@@ -20,7 +20,7 @@ inherits its own rules (`GEMINI.md` conventions, the `.midnite/tasks/` tracker, 
 the pre-push gate, PR conventions). This skill's own job is narrower: pick *which* phases run, cap
 *how much* each one takes on, launch them in parallel, and keep watch. Read
 [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) yourself in Stage 1 — **Pass 1
-only** (`_INDEX.md`, no `phase-*.md`). Phase docs are Pass 2 inside each spawned `/midnite-create`,
+only** (`_INDEX.md`'s `## Phases` table, which is the whole file; no `phase-*.md`). Phase docs are Pass 2 inside each spawned `/midnite-create`,
 not here. This skill does not get to skip the scan just because it delegates the build.
 
 ## 1 · Scope — a direct question to the human (skip whatever the invocation already answers)
@@ -68,6 +68,10 @@ conversation's context) and must instruct it to:
   Pick themes and design defaults itself (most conventional choice, or whatever the phase doc's own
   *Decisions* section already recommends) and record what it chose and why in the PR body instead
   of asking.
+- Write what landed into each phase doc's own `## Headlines` theme paragraph, never into
+  `_INDEX.md` — the subagent touches only its phase's table row there.
+- Write what landed into each phase doc's own `## Headlines` theme paragraph, never into
+  `_INDEX.md` — the subagent touches only its phase's table row there.
 - Still do Stage 2.7's claim in `_INDEX.md` on `main` before branching, and handle a push race with
   `git pull --rebase origin main`.
 - Use a worktree slug that can't collide with a sibling subagent's, e.g. `.worktrees/p<N>-<letters>`.

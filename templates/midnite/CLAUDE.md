@@ -5,6 +5,13 @@
 **Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table,
 `done.md` is the append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
+**`_INDEX.md` is status only — scan its table, nothing else.** Its `## Phases` table is all a
+session needs to find what is TODO, in flight or done. Each phase's narrative lives in the
+`## Headlines` section at the top of its own `phases/phase-N-*.md`, one short paragraph per theme
+(`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
+theme lands or a phase is refined, verified or created, write the narrative there and touch only
+the phase's *row* in `_INDEX.md`.
+
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
 
 This repo can drive more than one coding agent — **Claude** (`CLAUDE.md`, this file), **Codex**
@@ -84,4 +91,5 @@ someone switches back to a dirty tree on a branch they did not choose.
 
 One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`,
 leave the project's own test/lint/typecheck gate green, append an entry to `.midnite/tasks/done.md`,
-and update the table in `.midnite/tasks/_INDEX.md`.
+update the phase doc's `## Headlines` paragraph for each theme that landed, and update the phase's
+row in the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
