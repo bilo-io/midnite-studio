@@ -86,7 +86,8 @@ function topmost(blocking: boolean): DismissEntry | null {
     if (
       !best ||
       key[0] > bestKey[0] ||
-      (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))
+      (key[0] === bestKey[0] &&
+        (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))
     ) {
       best = entry;
       bestKey = key;
@@ -168,11 +169,7 @@ function syncListener(): void {
  *   may do more than one thing — a menu that closes its submenu first, say
  * @param options  `layer` and `blocking`; see `DismissOptions`
  */
-export function useDismiss(
-  active: boolean,
-  onDismiss: () => void,
-  options?: DismissOptions,
-): void {
+export function useDismiss(active: boolean, onDismiss: () => void, options?: DismissOptions): void {
   const layer = options?.layer ?? 'dialog';
   const blocking = options?.blocking ?? true;
   const occludes = options?.occludes ?? blocking;

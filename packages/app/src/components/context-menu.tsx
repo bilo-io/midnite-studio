@@ -262,7 +262,6 @@ export function ContextMenu({
     setSubmenuIndex(null);
   };
 
-
   /**
    * One icon anywhere in the menu indents every row, so labels still line up
    * under each other where a separator-divided group happens to be iconless.
