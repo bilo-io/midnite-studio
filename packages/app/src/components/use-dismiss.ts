@@ -53,7 +53,19 @@ export type DismissOptions = {
 };
 
 type DismissEntry = {
-  rank: number;
+  /**
+   * Read at keypress time rather than fixed at registration, because a nested
+   * surface's rank is its parent's when that is higher (`use-dismissable.ts`)
+   * and its parent may only be known after it has registered.
+   */
+  rank: () => number;
+  /**
+   * Nesting depth inside a `useDismissable` menu tree; `0` for everything
+   * else. Breaks rank ties ahead of `seq`: React runs a child's effects before
+   * its parent's, so a submenu mounted in the same commit as its menu would
+   * otherwise register *first* and lose Escape to the menu it lives in.
+   */
+  depth: () => number;
   blocking: boolean;
   /** Registration order, so equal ranks resolve to the one that opened last. */
   seq: number;
@@ -64,13 +76,20 @@ const stack: DismissEntry[] = [];
 let nextSeq = 0;
 let listening = false;
 
-/** Topmost = highest layer, then latest registration. */
+/** Topmost = highest layer, then deepest nesting, then latest registration. */
 function topmost(blocking: boolean): DismissEntry | null {
   let best: DismissEntry | null = null;
+  let bestKey: readonly [number, number, number] = [-Infinity, -Infinity, -Infinity];
   for (const entry of stack) {
     if (entry.blocking !== blocking) continue;
-    if (!best || entry.rank > best.rank || (entry.rank === best.rank && entry.seq > best.seq)) {
+    const key = [entry.rank(), entry.depth(), entry.seq] as const;
+    if (
+      !best ||
+      key[0] > bestKey[0] ||
+      (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))
+    ) {
       best = entry;
+      bestKey = key;
     }
   }
   return best;
@@ -169,22 +188,49 @@ export function useDismiss(
 
   useEffect(() => {
     if (!active) return;
-
-    const entry: DismissEntry = {
-      rank: LAYER_ORDER.indexOf(layer),
-      blocking,
-      seq: (nextSeq += 1),
-      dismiss: () => onDismissRef.current(),
-    };
-    stack.push(entry);
-    if (occludes) useUiStore.getState().incrementOccluders();
-    syncListener();
-
-    return () => {
-      const index = stack.indexOf(entry);
-      if (index !== -1) stack.splice(index, 1);
-      if (occludes) useUiStore.getState().decrementOccluders();
-      syncListener();
-    };
+    return registerDismiss({ layer, blocking, occludes, dismiss: () => onDismissRef.current() });
   }, [active, blocking, layer, occludes]);
+}
+
+/**
+ * The imperative half of `useDismiss`: push one entry onto the shared stack
+ * and get back the function that pops it.
+ *
+ * Exported for `use-dismissable.ts`, which cannot know a surface's layer at
+ * render time — a menu opened from inside a popover inherits the popover's
+ * layer, and which popover that is only becomes answerable once the menu has
+ * mounted and can ask what its trigger sits inside. Everything else should
+ * use the hook.
+ */
+export function registerDismiss(options: {
+  /** A function when the layer can change after registering; see `DismissEntry.rank`. */
+  layer: DismissLayer | (() => DismissLayer);
+  blocking: boolean;
+  occludes: boolean;
+  dismiss: () => void;
+  depth?: () => number;
+}): () => void {
+  const { layer } = options;
+  const entry: DismissEntry = {
+    rank: typeof layer === 'function' ? () => layerRank(layer()) : () => layerRank(layer),
+    depth: options.depth ?? (() => 0),
+    blocking: options.blocking,
+    seq: (nextSeq += 1),
+    dismiss: options.dismiss,
+  };
+  stack.push(entry);
+  if (options.occludes) useUiStore.getState().incrementOccluders();
+  syncListener();
+
+  return () => {
+    const index = stack.indexOf(entry);
+    if (index !== -1) stack.splice(index, 1);
+    if (options.occludes) useUiStore.getState().decrementOccluders();
+    syncListener();
+  };
+}
+
+/** A layer's position in the dismissal order — higher wins Escape. */
+export function layerRank(layer: DismissLayer): number {
+  return LAYER_ORDER.indexOf(layer);
 }
