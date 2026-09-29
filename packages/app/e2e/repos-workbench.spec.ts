@@ -180,7 +180,8 @@ test('View all changes opens the graph working-copy panel of per-file accordions
     'aria-expanded',
     'true',
   );
-  await expect(page.getByTestId('change-totals')).toContainText('3 files');
+  // The file list's header and the accordion's both total the checkout.
+  await expect(page.getByTestId('change-totals').first()).toContainText('3 files');
 
   // Closed accordions render no diff — that is the whole performance story of
   // this view, and a spec that never checks it would not notice it regressing.
@@ -202,7 +203,8 @@ test('the working-copy panel totals the checkout without expanding anything', as
 
   // The point of the header total: it is a real sum over all three files while
   // every one of them is still closed and no `git diff` has run.
-  const totals = page.getByTestId('change-totals');
+  // The file list's header and the accordion's both carry one; either will do.
+  const totals = page.getByTestId('change-totals').first();
   await expect(totals).toContainText('3 files');
   await expect(totals).toContainText('+321');
   await expect(totals).toContainText('−3');

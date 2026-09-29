@@ -122,7 +122,7 @@ test.describe('Phase 22 screenshots', () => {
     await installMockBridge(page, data);
     await page.goto('/');
     await page.getByRole('button', { name: /^2 uncommitted changes/ }).click();
-    await page.getByRole('button', { name: 'Stash changes' }).click();
+    await page.getByTestId('working-tree-inline-panel').getByRole('button', { name: 'Stash changes' }).click();
     await page.getByRole('dialog', { name: 'Stash changes' }).waitFor();
     await settle(page, SETTLE_MS);
     await page.screenshot({ path: shotPath(OUT, 'theme-e-changes-stash-prompt.png') });
