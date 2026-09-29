@@ -85,8 +85,9 @@ describe('WorkflowCanvas', () => {
       />,
     );
     await waitFor(() => expect(container.querySelectorAll('[data-node-id]')).toHaveLength(2));
-    expect(container.querySelector('[data-node-id="a"]')?.className).toContain('ring-destructive');
-    expect(container.querySelector('[data-node-id="b"]')?.className).not.toContain('ring-destructive');
+    const ring = (id: string) => container.querySelector(`[data-node-id="${id}"] [data-testid="wf-node-ring"]`) as HTMLElement;
+    expect(ring('a').style.boxShadow).toContain('var(--destructive)');
+    expect(ring('b').style.boxShadow).not.toContain('var(--destructive)');
   });
 
   it('colours a node by its run status rather than by validity', async () => {
