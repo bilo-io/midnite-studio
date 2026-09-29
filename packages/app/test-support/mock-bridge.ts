@@ -679,6 +679,18 @@ export type MockFixtures = {
   media?: {
     files?: Record<string, Record<string, string>>;
     ffmpeg?: { found: true; path: string; version: string | null } | { found: false; reason: string };
+    /**
+     * Theme C: `media.image.providers()`'s answer. Defaults to Gemini ready,
+     * OpenAI missing its key, agy disabled, Ollama without image models.
+     * `generate` writes `count` placeholder files into `image:<project>`.
+     */
+    imageProviders?: Array<{
+      id: 'gemini' | 'openai' | 'agy' | 'ollama';
+      available: boolean;
+      reason?: string;
+      missingKey: boolean;
+      models: { id: string; label: string }[];
+    }>;
   };
   /**
    * Database connections (Phase 61). Absent means an empty list — the
@@ -2952,6 +2964,31 @@ export function buildMockBridge(data: MockFixtures) {
           mediaFiles = { ...mediaFiles, [key]: rest };
           return { ok: true as const };
         },
+      },
+      image: {
+        providers: async () => ({
+          providers: data.media?.imageProviders ?? [
+            { id: 'gemini' as const, available: true, missingKey: false, models: [] },
+            {
+              id: 'openai' as const,
+              available: false,
+              reason: 'Add a OpenAI API key in Settings ▸ Media.',
+              missingKey: true,
+              models: [],
+            },
+            { id: 'agy' as const, available: false, reason: 'disabled', missingKey: false, models: [] },
+            { id: 'ollama' as const, available: false, missingKey: false, models: [] },
+          ],
+        }),
+        generate: async (req: { project: string; count: number; generationId: string }) => {
+          const key = `image:${req.project}`;
+          const files = Array.from({ length: req.count }, (_, i) => `${req.generationId}-${i + 1}.png`);
+          const added = Object.fromEntries(files.map((file) => [file, 'png']));
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), ...added } };
+          return { ok: true as const, value: { files } };
+        },
+        cancel: async () => ({ ok: true as const }),
+        onProgress: unsubscribe,
       },
       reveal: async () => ({ ok: true as const }),
       ffmpegStatus: async () => ({

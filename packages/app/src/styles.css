@@ -5316,3 +5316,98 @@ html[data-motion='reduced'] .wf-edge-live {
 html[data-dismissable-open] [style*='app-region'] {
   -webkit-app-region: no-drag !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * Media ▸ Images (Phase 99 Theme C) — the gallery's leading "+" tile and the
+ * shimmer placeholder for images still generating.
+ *
+ * The tile is a large dashed box whose border, "+" glyph and label all glow on
+ * hover/focus, reusing `.gradient-border--glow`'s violet/blue/pink bloom so it
+ * reads as the same "this is where you create" signal. The glow is colour and
+ * shadow, not movement; only its transition is gated for reduced motion.
+ * ------------------------------------------------------------------------- */
+.media-plus-tile {
+  border: 2px dashed hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card) / 0.4);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.media-plus-tile__icon,
+.media-plus-tile__label {
+  transition:
+    filter 0.18s ease,
+    text-shadow 0.18s ease;
+}
+
+.media-plus-tile:hover,
+.media-plus-tile:focus-visible {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.85);
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.28),
+    0 0 18px -2px rgba(59, 130, 246, 0.4),
+    0 0 32px -6px rgba(236, 72, 153, 0.35);
+}
+
+.media-plus-tile:hover .media-plus-tile__icon,
+.media-plus-tile:focus-visible .media-plus-tile__icon {
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 12px rgba(236, 72, 153, 0.45));
+}
+
+.media-plus-tile:hover .media-plus-tile__label,
+.media-plus-tile:focus-visible .media-plus-tile__label {
+  -webkit-text-stroke: 0.4px rgba(139, 92, 246, 0.9);
+  text-shadow:
+    0 0 8px rgba(139, 92, 246, 0.6),
+    0 0 16px rgba(59, 130, 246, 0.35);
+}
+
+@keyframes media-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.media-shimmer {
+  background: linear-gradient(
+    100deg,
+    hsl(var(--muted) / 0.5) 20%,
+    hsl(var(--muted-foreground) / 0.18) 40%,
+    hsl(var(--muted) / 0.5) 60%
+  );
+  background-size: 200% 100%;
+  animation: media-shimmer 1.6s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .media-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .media-shimmer {
+    animation: none;
+  }
+  html:not([data-motion='full']) .media-plus-tile,
+  html:not([data-motion='full']) .media-plus-tile__icon,
+  html:not([data-motion='full']) .media-plus-tile__label {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .media-shimmer {
+  animation: none;
+}
+
+html[data-motion='reduced'] .media-plus-tile,
+html[data-motion='reduced'] .media-plus-tile__icon,
+html[data-motion='reduced'] .media-plus-tile__label {
+  transition: none;
+}

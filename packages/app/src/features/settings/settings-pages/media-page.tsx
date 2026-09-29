@@ -4,6 +4,7 @@ import { LuAudioLines, LuClapperboard, LuFolderOpen, LuImage, LuSettings2, LuX }
 
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
+import { ImageSettingsSection } from '../../media/image/image-settings';
 import { useFfmpegStatus } from '../../media/use-media';
 import { submitCommand } from '../../terminal/submit-command';
 import { VideoRootSection } from './video-root-section';
@@ -15,7 +16,8 @@ import { VideoRootSection } from './video-root-section';
  * - **General**: ffmpeg status (+ Install, typed into a visible terminal —
  *   never run headless) and the export default folder (`mediaExportDir`).
  * - **Video**: Phase 44's video root, unchanged.
- * - **Images** / **Audio**: placeholders Themes C and E fill with provider,
+ * - **Images** (Theme C): default provider/model and API keys (`ImageSettingsSection`).
+ * - **Audio**: a placeholder Theme E fills with provider,
  *   model and API-key rows.
  */
 export function MediaSettingsPage() {
@@ -31,9 +33,7 @@ export function MediaSettingsPage() {
         <VideoRootSection />
       </Accordion>
       <Accordion title="Images" icon={<LuImage className="h-4 w-4" />}>
-        <p className="p-3 text-xs text-muted-foreground">
-          Image generation providers, default model and API keys will appear here.
-        </p>
+        <ImageSettingsSection />
       </Accordion>
       <Accordion title="Audio" icon={<LuAudioLines className="h-4 w-4" />}>
         <p className="p-3 text-xs text-muted-foreground">
