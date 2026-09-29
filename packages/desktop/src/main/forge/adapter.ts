@@ -63,6 +63,13 @@ export interface ForgeAdapter {
     forge: Forge,
     options: { limit: number; branch?: string; workflow?: string },
   ): Promise<ForgeRunsResult>;
+  /**
+   * Runs against one commit — the graph's CI column's fallback for a sha the
+   * recent `listRuns` page does not reach (`commit-runs.ts`). Optional: a
+   * provider without it still gets a CI column, answered from its recent runs
+   * alone, which covers every commit near the tip of an active branch.
+   */
+  listRunsForCommit?(forge: Forge, sha: string): Promise<ForgeRunsResult>;
   runDetail(forge: Forge, runId: string): Promise<ForgeRunDetailResult>;
   runLog(
     forge: Forge,

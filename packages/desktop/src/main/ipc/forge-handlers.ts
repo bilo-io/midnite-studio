@@ -6,6 +6,7 @@ import {
   schemas,
   type Forge,
   type ForgeCliStatus,
+  type ForgeCommitRunsResult,
   type ForgeIssueCommentsResult,
   type ForgeIssueCreateResult,
   type ForgeIssueDetailResult,
@@ -24,6 +25,7 @@ import {
 } from '@midnite/studio-shared';
 
 import type { ForgeAdapter } from '../forge/adapter';
+import { createCommitRunsService } from '../forge/commit-runs';
 import { activeAccountFor } from '../forge/forge-accounts';
 import { ghStatus } from '../forge/github/gh-shell';
 import { adapterFor } from '../forge/registry';
@@ -112,8 +114,25 @@ export async function resolveAdapter(
   return { forge, adapter };
 }
 
+/**
+ * The graph CI column's batched lookup — one instance for the process, so its
+ * per-sha cache and the shared recent listing outlive any one request. See
+ * `commit-runs.ts` for the passes and TTLs.
+ */
+export const commitRuns = createCommitRunsService({
+  resolve: resolveAdapter,
+  noForge: noForgeStatus,
+});
+
 export function registerForgeHandlers(): void {
   handleBare(CHANNELS.forgeCliStatus, () => ghStatus());
+
+  handle<typeof schemas.ForgeCommitRunsRequest, ForgeCommitRunsResult>(
+    CHANNELS.forgeCommitRuns,
+    schemas.ForgeCommitRunsRequest,
+    (req) => commitRuns.lookup(req.repoId, req.shas),
+    (issue) => ({ cli: noForgeStatus(), runs: {}, error: issue }),
+  );
 
   handle<typeof schemas.ForgeRunsRequest, ForgeRunsResult>(
     CHANNELS.forgeRuns,

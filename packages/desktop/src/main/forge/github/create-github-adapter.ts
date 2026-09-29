@@ -59,6 +59,7 @@ export function createGitHubAdapter(): ForgeAdapter {
     kind: 'github',
 
     listRuns,
+    listRunsForCommit: (forge, sha) => listRuns(forge, { limit: 20, commit: sha }),
     runDetail,
     runLog,
     listWorkflows,

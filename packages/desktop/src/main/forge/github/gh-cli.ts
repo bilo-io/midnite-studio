@@ -100,18 +100,22 @@ const PULL_DETAIL_FIELDS =
 
 export async function listRuns(
   forge: Forge,
-  options: { limit: number; branch?: string; workflow?: string },
+  options: { limit: number; branch?: string; workflow?: string; commit?: string },
 ): Promise<ForgeRunsResult> {
   const cli = await ghStatus();
   if (cli.reason !== 'ready') return { cli, runs: [], error: null };
 
   const branch = options.branch ? ` --branch ${shellQuote(options.branch)}` : '';
+  // `--commit` narrows to runs against one sha — the graph's CI column asks
+  // this for a commit older than the recent listing reaches. The sha is
+  // schema-bounded to hex at the IPC boundary, and quoted here regardless.
+  const commit = options.commit ? ` --commit ${shellQuote(options.commit)}` : '';
   // `--workflow` takes either the file name or the display name; the caller
   // passes whichever it holds, and `gh` resolves it.
   const workflow = options.workflow ? ` --workflow ${shellQuote(options.workflow)}` : '';
   const command =
     `gh run list ${repoFlag(forge)}` +
-    `${branch}${workflow} --limit ${options.limit} --json ${RUN_FIELDS}`;
+    `${branch}${workflow}${commit} --limit ${options.limit} --json ${RUN_FIELDS}`;
 
   const result = await runInShell(command, LIST_TIMEOUT_MS);
   const payload = parseJsonPayload(result.output);
