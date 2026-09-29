@@ -1,12 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-/*
-  By source path, not the package name: under Playwright the package resolves to
-  shared's compiled `dist`, which a spec must not depend on being fresh. The file
-  imports nothing, so reading it directly is safe.
-*/
-import { MIDNITE_INSTALL_COMMAND } from '../../shared/src/install-command';
-
 import { fixtures } from '../test-support/fixtures';
 import { clickRailLink, installMockBridge } from '../test-support/mock-bridge';
 
@@ -476,7 +469,16 @@ test.describe('Setup and Update', () => {
     await update.click();
 
     await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-    await expect.poll(() => ptyInputs(page)).toEqual([`${MIDNITE_INSTALL_COMMAND}\r`]);
+    /*
+      Spelled out rather than imported: under Playwright `@midnite/studio-shared`
+      resolves to shared's compiled `dist` (possibly stale), and its source is
+      loaded as CommonJS, which exposes no named exports. The vitest in
+      `project-actions.test.tsx` is what pins this to `MIDNITE_INSTALL_COMMAND`
+      itself; this spec only proves the row reaches a real pty with it.
+    */
+    await expect
+      .poll(() => ptyInputs(page))
+      .toEqual(['curl -fsSL https://midnite-studio-website.vercel.app/install.sh | sh\r']);
   });
 
   test('Update types and runs the install command on the Midnite Studio checkout', async ({
