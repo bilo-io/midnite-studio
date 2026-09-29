@@ -108,9 +108,9 @@ gains a **Resume setup** leaf for that.
 
 **Theme A — Overlay frame and first-run gate.** ✅ Overlay frame (X, theme picker, dots, Skip), `SETUP_PAGES` registry, one migrated first-run gate, `setup.open` command ([PR #600](https://github.com/bilo-io/midnite-studio/pull/600)). Landed: `features/setup/setup-overlay.tsx` (full-window `z-dialog`, `useDismiss` + `useFocusTrap`, in `occluder-coverage.test.tsx`), a pure `setup-machine.ts` (`intro → page[i] → finale → closed`; ←/→ ignored inside text fields and with modifiers; → on the finale is a no-op), and `setupState` behind a ui-store v27 → v28 migration that retires `onboardedAt`/`showOnboarding`/`onboardingSkippedStepIds`. `FirstRunModal` and `OnboardingModal` are gone; their content survives as two interim pages (`machine`, `forges` — the old step id, so old skips still resolve) until Themes D–I replace them. Skip already records the page and both exits set `dismissedAt`/`lastPageId`, so Theme C only adds the FAB handoff. `ThemeToggle` gained an `elevated` prop (its `z-menu` menu would otherwise paint under the overlay). Settings ▸ Accounts' skipped-forge banner has **Resume setup**. The e2e spec was rewritten in place (`onboarding-wizard.spec.ts` → `setup-overlay.spec.ts`, still one test).
 
-**Theme B — Brand choreography.** ◻ brand choreography: caret + typed gradient "Midnite", FLIP into a fixed title anchor, typed titles + fading bodies, reduced motion
+**Theme B — Brand choreography.** ✅ Caret + typed gradient "Midnite", FLIP into a fixed title anchor, typed titles + fading bodies, reduced motion ([PR #602](https://github.com/bilo-io/midnite-studio/pull/602)). Landed: `features/setup/setup-choreography.ts`. Every sequence is a pure timeline of timed frames, and `playTimeline` drives it with `setTimeout` only (no rAF, nothing left running). Reduced motion is one frame at 0, applied synchronously. The intro types "Midnite" in `font-brand` under a static `.setup-brand-gradient` (`--rainbow-ramp` clipped to text), with the untyped rest laid out invisibly so neither the row nor the gradient shifts. Begin (or →) fades the word, then the mark glides into the frame-owned title anchor via a WAAPI FLIP (`flipKeyframes`/`playGlide`). Opening straight onto a page (resume, deep link) glides it in from the window centre. `useTitleTypewriter` gained an optional `delayMs` so the title waits for the glide. The body and Back/Next fade in (`animate-fade-in`, opacity only) once the title is whole, with the caret parked at its end. Forward moves type; Back and dot jumps are instant. Pages are now top-anchored (`mt-[14vh]`), because a centred column moved the anchor whenever a body faded in. New CSS guards: `.setup-caret` (reuses the allowlisted `caret-blink`, with its animation removed under reduced motion rather than pinned invisible). No allowlist additions.
 
-**Theme C — Skip / X → FAB handoff and resume.** ◻ Skip/X → FAB handoff with a pointing arrow, FAB "Resume setup" leaf
+**Theme C — Skip / X → FAB handoff and resume.** ✅ Skip/X → FAB handoff with a pointing arrow, FAB "Resume setup" leaf ([PR #602](https://github.com/bilo-io/midnite-studio/pull/602)). X, Skip and Escape record their bookkeeping at once, then call `setup-store.holdOpen()`, since `dismissedAt` closes the first-run gate mid-handoff. They then play `handoffTimeline`: content fades and goes `inert` → a stand-in FAB fades in exactly over the real one's rect, with "You can always continue setup from here" and a `LuArrowDownRight` nudging at it (`setup-arrow-nudge`, gated on `data-window-focused` and removed under reduced motion) → after a 2.6s beat, or on any click or a second Escape, the overlay dissolves onto the real FAB. With the FAB hidden (`isFabPanelDocked || isCompanionPanelDocked`, or no measurable `fab-button`), the hint names ⌘K → "Run Setup Wizard" and no arrow shows. Reduced motion drops the fades but keeps the beat. The quick-access menu gains **Resume setup** (`S`, `LuRocket`, before the separator) while `completedAt === null`. It calls `resumeSetup()`, and the frame opens past the intro at `resumePageId`: the first page from `lastPageId` on that is not skipped, falling back to `lastPageId`. It is computed in the frame, so the menu chunk never imports the page registry. The e2e is `setup-fab-handoff.spec.ts`, whose arrow is aimed at the FAB's real `getBoundingClientRect`. The e2e cap went 456 → 457.
 
 **Theme D — Setup catalogue, probes and the install runner.** ◻ shared setup catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row
 
@@ -159,37 +159,37 @@ gains a **Resume setup** leaf for that.
       - page navigation and key handling;
       - the frame renders X, theme toggle, dots and Skip.
 
-### B — Brand choreography (M)
+### B — Brand choreography (M) — ✅ DONE (PR #602, 2026-09-29)
 
-- [ ] **Intro.** `BrandMark` is centred with a blinking caret beside it (reusing `caret-blink`). "Midnite" is
+- [x] **Intro.** `BrandMark` is centred with a blinking caret beside it (reusing `caret-blink`). "Midnite" is
       typed character by character in `font-brand` with the `--rainbow-ramp` gradient clipped to the text.
-- [ ] **Hand-off to the anchor.** The wordmark fades while the mark **translates and scales**
+- [x] **Hand-off to the anchor.** The wordmark fades while the mark **translates and scales**
       (FLIP: measure the anchor slot, then transform) into the title anchor at the left of page 1's title.
-- [ ] **A fixed anchor.** The mark is rendered once by the frame, not by pages, so it never moves
+- [x] **A fixed anchor.** The mark is rendered once by the frame, not by pages, so it never moves
       between pages. It moves only at intro → page 1 and at the last page → finale (Theme J).
-- [ ] **Typed titles and fading bodies.** Each page title types via `useTitleTypewriter`. The body mounts with an
+- [x] **Typed titles and fading bodies.** Each page title types via `useTitleTypewriter`. The body mounts with an
       opacity-only transition after the title completes, and the caret parks at the title's end.
-- [ ] **Reduced motion.** Under `data-motion='reduced'`, every step resolves instantly: the title is shown whole, the body
+- [x] **Reduced motion.** Under `data-motion='reduced'`, every step resolves instantly: the title is shown whole, the body
       appears without a fade, and the mark is placed at the anchor. The new keyframes pass
       `styles-motion-guards.ts`, with no allowlist additions.
-- [ ] Vitest for the choreography sequencer (intro phases, typed-then-reveal ordering,
+- [x] Vitest for the choreography sequencer (intro phases, typed-then-reveal ordering,
       reduced-motion short-circuit), using fake timers.
 
-### C — Skip / X → FAB handoff and resume (S/M)
+### C — Skip / X → FAB handoff and resume (S/M) — ✅ DONE (PR #602, 2026-09-29)
 
-- [ ] **Both X and Skip >** start the handoff:
+- [x] **Both X and Skip >** start the handoff:
       1. the page content fades out;
       2. the hint "You can always continue setup from here" appears near the bottom right;
       3. the FAB fades in (it is kept hidden behind the overlay until now);
       4. an arrow points at it with a **repeating pointing (nudge) animation**;
       5. after a beat, or on any click, the overlay dissolves.
-- [ ] If the FAB is hidden (`fabPanelDocked || companionDocked`), the hint is re-worded to name the
+- [x] If the FAB is hidden (`fabPanelDocked || companionDocked`), the hint is re-worded to name the
       palette command instead, and no arrow is shown.
-- [ ] Skip records the current page in `skippedPageIds`, and both paths set `dismissedAt` and `lastPageId`.
-- [ ] The FAB quick-access menu gains a **Resume setup** leaf while `completedAt === null`. It reopens
+- [x] Skip records the current page in `skippedPageIds`, and both paths set `dismissedAt` and `lastPageId`.
+- [x] The FAB quick-access menu gains a **Resume setup** leaf while `completedAt === null`. It reopens
       at the first page that is neither complete nor skipped, and it skips the intro and plays the
       mark straight into the anchor.
-- [ ] Playwright e2e (needs real layout: the arrow aims at the FAB's `getBoundingClientRect`):
+- [x] Playwright e2e (needs real layout: the arrow aims at the FAB's `getBoundingClientRect`):
       Skip, then the hint and arrow are visible and target the FAB, the overlay is gone, and
       Resume reopens at the right page.
 
