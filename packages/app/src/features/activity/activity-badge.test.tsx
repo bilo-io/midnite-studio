@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useTerminalStore } from '../terminal/terminal-store';
@@ -8,8 +9,8 @@ import type { ActivityGlowBadge } from './use-activity-glow';
 
 afterEach(cleanup);
 
-const agentBadge: ActivityGlowBadge = { sessionId: 's1', kind: 'agent', agentId: 'claude', label: 'claude' };
-const shellBadge: ActivityGlowBadge = { sessionId: 's2', kind: 'shell', agentId: undefined, label: 'Terminal' };
+const agentBadge: ActivityGlowBadge = { sessionId: 's1', kind: 'agent', agentId: 'claude', label: 'claude', status: 'agent' };
+const shellBadge: ActivityGlowBadge = { sessionId: 's2', kind: 'shell', agentId: undefined, label: 'Terminal', status: 'shell' };
 
 describe('ActivityBadgeStack', () => {
   beforeEach(() => {
@@ -30,6 +31,37 @@ describe('ActivityBadgeStack', () => {
     expect(buttons[1]?.getAttribute('data-badge-kind')).toBe('shell');
   });
 
+  it("renders the terminal list's own avatar, in the agent's brand colour, with its arc", () => {
+    const codex = BUILTIN_AGENTS.find((agent) => agent.id === 'codex')!;
+    const { container } = render(
+      <ActivityBadgeStack badges={[{ ...agentBadge, agentId: 'codex', label: 'codex' }]} />,
+    );
+    const mark = container.querySelector('[data-agent-avatar="codex"] svg') as SVGElement;
+    // jsdom normalises a hex colour to rgb(), so compare through the same parser.
+    const expected = document.createElement('span');
+    expected.style.color = codex.accent;
+    expect(mark.style.color).toBe(expected.style.color);
+    const ring = container.querySelector('[data-testid="session-icon-glow"]') as HTMLElement;
+    expect(ring.getAttribute('data-activity-status')).toBe('agent');
+    expect(ring.classList.contains('terminal-agent-glow')).toBe(true);
+    expect(ring.style.getPropertyValue('--agent-accent')).toBe(codex.accent);
+  });
+
+  it("each badge's ring shows its own session's status", () => {
+    const { container } = render(<ActivityBadgeStack badges={[{ ...agentBadge, status: 'waiting' }]} />);
+    expect(container.querySelector('[data-testid="session-icon-glow"]')?.getAttribute('data-activity-status')).toBe(
+      'waiting',
+    );
+  });
+
+  it('a shell badge wears the terminal glyph and the shell ring, never the agent arc', () => {
+    const { container } = render(<ActivityBadgeStack badges={[shellBadge]} />);
+    expect(container.querySelector('[data-agent-avatar="shell"]')).not.toBeNull();
+    const ring = container.querySelector('[data-testid="session-icon-glow"]') as HTMLElement;
+    expect(ring.getAttribute('data-activity-status')).toBe('shell');
+    expect(ring.classList.contains('terminal-agent-glow')).toBe(false);
+  });
+
   it('names the agent/shell as the badge label', () => {
     render(<ActivityBadgeStack badges={[agentBadge]} />);
     expect(screen.getByLabelText('claude')).toBeDefined();
@@ -37,11 +69,11 @@ describe('ActivityBadgeStack', () => {
 
   it('stacks past three, collapsing the rest into a +N chip', () => {
     const badges: ActivityGlowBadge[] = [
-      { sessionId: 's1', kind: 'agent', agentId: 'claude', label: 'claude' },
-      { sessionId: 's2', kind: 'agent', agentId: 'codex', label: 'codex' },
-      { sessionId: 's3', kind: 'shell', agentId: undefined, label: 'Terminal' },
-      { sessionId: 's4', kind: 'shell', agentId: undefined, label: 'Terminal' },
-      { sessionId: 's5', kind: 'shell', agentId: undefined, label: 'Terminal' },
+      { sessionId: 's1', kind: 'agent', agentId: 'claude', label: 'claude', status: 'agent' },
+      { sessionId: 's2', kind: 'agent', agentId: 'codex', label: 'codex', status: 'agent' },
+      { sessionId: 's3', kind: 'shell', agentId: undefined, label: 'Terminal', status: 'shell' },
+      { sessionId: 's4', kind: 'shell', agentId: undefined, label: 'Terminal', status: 'shell' },
+      { sessionId: 's5', kind: 'shell', agentId: undefined, label: 'Terminal', status: 'shell' },
     ];
     render(<ActivityBadgeStack badges={badges} />);
 
@@ -74,7 +106,7 @@ describe('ActivityBadgeStack', () => {
 
     render(
       <div onClick={onParentClick}>
-        <ActivityBadgeStack badges={[{ sessionId: session.id, kind: 'agent', agentId: 'claude', label: 'claude' }]} />
+        <ActivityBadgeStack badges={[{ sessionId: session.id, kind: 'agent', agentId: 'claude', label: 'claude', status: 'agent' }]} />
       </div>,
     );
 

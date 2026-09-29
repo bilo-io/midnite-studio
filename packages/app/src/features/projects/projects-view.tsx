@@ -33,6 +33,7 @@ import { ItemFilterToolbar } from '../../components/item-filter-toolbar';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { UserAvatar } from '../../components/user-avatar';
+import { ActivityBadgeStack } from '../activity/activity-badge';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
@@ -830,7 +831,8 @@ function ProjectItemsTable({
             const href = item.content.type === 'draft' ? null : item.content.url;
             const isInitialCascade = cascading && virtualRow.index < CASCADE_MAX_STEPS;
             const statusStroke = itemStatusStroke(item, statusField, blockedItemIds.has(item.id));
-            const glow = agentStates.get(item.id)?.glow ?? 'idle';
+            const rowActivity = agentStates.get(item.id);
+            const glow = rowActivity?.glow ?? 'idle';
             // Same precedence as a board card: a live glow wins over the
             // status stroke, and the stroke shows once the row is idle.
             const showStatusRule = glow === 'idle' && statusStroke !== null;
@@ -858,6 +860,10 @@ function ProjectItemsTable({
                 <span className="w-6 shrink-0">
                   <Icon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
                 </span>
+                {/* The same agent avatar a card and a graph node wear — the terminal list's own. */}
+                {rowActivity && rowActivity.badges.length > 0 ? (
+                  <ActivityBadgeStack badges={rowActivity.badges} className="mr-1.5 shrink-0" />
+                ) : null}
                 <span className="min-w-0 flex-1 truncate">
                   {href ? <ExternalLink href={href}>{title}</ExternalLink> : title}
                 </span>

@@ -1330,4 +1330,25 @@ describe('List view — status rule, blocked rows and the AI glow', () => {
     // The other rows keep their rules.
     expect(document.querySelector('[data-project-row="item1"] [data-status-border]')).not.toBeNull();
   });
+
+  it("a row with a live agent shows the terminal list's avatar, in the agent's brand colour", async () => {
+    useTerminalStore.getState().openSession({
+      kind: 'agent',
+      agentId: 'claude',
+      title: 'row',
+      cwd: '/repo',
+      repoId: 'repo-1',
+      surface: 'kanban',
+      taskRef: { projectId: 'PVT_1', itemId: 'item3' },
+    });
+    renderWithClient();
+    const el = await rowEl('item3');
+    await waitFor(() => expect(el.querySelector('[data-agent-avatar="claude"]')).not.toBeNull());
+    const ring = el.querySelector('[data-testid="session-icon-glow"]') as HTMLElement;
+    expect(ring.classList.contains('terminal-agent-glow')).toBe(true);
+    // The roster this test's bridge returns (`accent: '#000'`), not the
+    // builtin's: the colour comes from the same roster the terminal list reads.
+    await waitFor(() => expect(ring.style.getPropertyValue('--agent-accent')).toBe('#000'));
+    expect(document.querySelector('[data-project-row="item1"] [data-agent-avatar]')).toBeNull();
+  });
 });

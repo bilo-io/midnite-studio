@@ -1,5 +1,5 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
-import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -196,6 +196,27 @@ describe('TaskCard', () => {
       const card = container.querySelector('.agent-run-glow');
       expect(card).not.toBeNull();
       expect(card?.className).toContain('is-running');
+    });
+
+    it("its agent avatar is the terminal list's, in the agent's brand colour", () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const badge = container.querySelector('[data-testid="activity-badge"]') as HTMLElement;
+      expect(badge.querySelector('[data-agent-avatar="claude"]')).not.toBeNull();
+      const ring = badge.querySelector('[data-testid="session-icon-glow"]') as HTMLElement;
+      expect(ring.classList.contains('terminal-agent-glow')).toBe(true);
+      expect(ring.style.getPropertyValue('--agent-accent')).toBe(
+        BUILTIN_AGENTS.find((agent) => agent.id === 'claude')!.accent,
+      );
     });
 
     it('no glow for an open pane with no session ever launched — plain browsing, not a left-open terminal', () => {

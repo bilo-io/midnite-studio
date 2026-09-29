@@ -42,7 +42,7 @@ describe('useGraphAgentStates', () => {
     const { result } = renderHook(() => useGraphAgentStates(PROJECT_ID));
     expect(result.current.get('item-1')?.glow).toBe('running');
     expect(result.current.get('item-1')?.badges).toEqual([
-      { sessionId: session.id, kind: 'agent', agentId: 'claude', label: 'claude' },
+      { sessionId: session.id, kind: 'agent', agentId: 'claude', label: 'claude', status: 'agent' },
     ]);
   });
 

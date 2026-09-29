@@ -55,6 +55,11 @@ export type ActivityGlowBadge = {
   agentId: string | undefined;
   /** Hover label — the agent id, or `'Terminal'` for a shell. */
   label: string;
+  /**
+   * This session's own status (never `'idle'` — an idle session has no
+   * badge). The avatar's ring shows it, the same as the terminal list's row.
+   */
+  status: ActivityStatus;
 };
 
 export type ActivityGlow = {
@@ -122,6 +127,7 @@ export function resolveActivityGlow(input: ActivityGlowInput): ActivityGlow {
       kind: session.agentId === undefined ? 'shell' : 'agent',
       agentId: session.agentId,
       label: session.agentId ?? 'Terminal',
+      status,
     });
 
     const priority = STATUS_PRIORITY[status] ?? 0;
