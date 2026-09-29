@@ -22,6 +22,24 @@ export type ChecksVerdict = z.infer<typeof ChecksVerdictSchema>;
 const plural = (count: number, word: string): string => (count === 1 ? word : `${word}s`);
 
 /**
+ * The newest run per workflow, from a set of runs against one commit.
+ *
+ * A workflow re-run supersedes its predecessor, and counting both would report
+ * a failure that has since been fixed. Keyed on `run.name` — the same key this
+ * rule has used since Phase 57 — and exported so the graph's CI column
+ * (`commit-ci.ts`) reads a commit's runs through exactly this rule rather than
+ * a second opinion about which run of a workflow counts.
+ */
+export function latestPerWorkflow(runs: readonly ForgeRun[]): ForgeRun[] {
+  const newest = new Map<string, ForgeRun>();
+  for (const run of runs) {
+    const held = newest.get(run.name);
+    if (!held || run.createdAt > held.createdAt) newest.set(run.name, run);
+  }
+  return [...newest.values()];
+}
+
+/**
  * The last GitHub Actions conclusion for a commit, from its workflow runs.
  *
  * Lifted here from `packages/app/src/features/repos/checks-verdict.ts` (Phase
@@ -44,14 +62,7 @@ export function checksVerdict(
   const forSha = runs.filter((run) => run.headSha === headSha);
   if (forSha.length === 0) return undefined;
 
-  // Newest per workflow: a workflow re-run supersedes its predecessor, and
-  // counting both would report a failure that has since been fixed.
-  const newest = new Map<string, ForgeRun>();
-  for (const run of forSha) {
-    const held = newest.get(run.name);
-    if (!held || run.createdAt > held.createdAt) newest.set(run.name, run);
-  }
-  const latest = [...newest.values()];
+  const latest = latestPerWorkflow(forSha);
 
   const failed = latest.filter(
     (run) =>

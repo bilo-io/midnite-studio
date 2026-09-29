@@ -751,6 +751,8 @@ describe('forge schemas', () => {
       // request schema of its own (it is `EVENT_CHANNELS.forgeChanged`, swept
       // by the dedicated describe block below), so only the two subscribe
       // verbs are covered here.
+      // The graph's CI column — runs for a batch of visible commits.
+      forgeCommitRuns: ['ForgeCommitRunsRequest', 'ForgeCommitRunsResponse'],
       forgeSubscribe: ['ForgeSubscribeRequest'],
       forgeUnsubscribe: ['ForgeUnsubscribeRequest'],
       // The account registry (Phase 90 Theme B) — repo-agnostic, machine-wide

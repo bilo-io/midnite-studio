@@ -80,6 +80,9 @@ import {
   ForgeReviewEventSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
+  ForgeCommitRunsResultSchema,
+  CommitShaSchema,
+  COMMIT_RUNS_MAX_SHAS,
   ForgeRunsResultSchema,
   ForgeWorkflowsResultSchema,
   ForgeWriteResultSchema,
@@ -663,6 +666,16 @@ export const ForgeRunLogResponse = ForgeRunLogResultSchema;
 
 export const ForgeWorkflowsRequest = RepoId;
 export const ForgeWorkflowsResponse = ForgeWorkflowsResultSchema;
+
+/**
+ * A batch of commits to read CI for. Full shas only — main splices each into a
+ * `gh run list --commit` line — and bounded so a caller cannot turn one IPC
+ * call into a thousand subprocesses.
+ */
+export const ForgeCommitRunsRequest = RepoId.extend({
+  shas: z.array(CommitShaSchema).min(1).max(COMMIT_RUNS_MAX_SHAS),
+});
+export const ForgeCommitRunsResponse = ForgeCommitRunsResultSchema;
 
 // --- forge polling (Phase 84 Theme C) ---------------------------------------
 
