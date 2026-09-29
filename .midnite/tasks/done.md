@@ -1,6 +1,18 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-30 — Phase 99 Theme C — Images
+
+[PR #609](https://github.com/bilo-io/midnite-studio/pull/609). The Media page's Images tab: provider seam in main, masonry gallery with a glowing "+" tile, lightbox, png/jpeg/webp export. agy spike blocked (permission denial), so Gemini is the default and agy is listed-disabled.
+
+- [x] `ImageProvider` seam (`main/media/image/`): gemini, openai, ollama (image-capable only), agy (disabled); outputs + `<name>.json` sidecars under `.midnite/media/image/<project>/`.
+- [x] Create panel: prompt, provider `IconSelect` (icon on value), dependent model, aspect, count, Generate/Cancel with progress, "Add key" link.
+- [x] Masonry gallery: CSS columns, dashed glowing "+" tile → `openMediaPane`, shimmer placeholders, `content-visibility` past 200, motion-gated.
+- [x] Lightbox: `useDismiss` + `useFocusTrap` (occluder-coverage), ←/→ wrap, n/N, sidecar strip with Re-run / Reveal / Delete.
+- [x] Images-only explorer + "All images in repo" toggle (off by default).
+- [x] Export png / jpeg (quality) / webp through the Theme A export service.
+- [x] Vitest (catalogue, model filtering, reducer, sidecar parsing, lightbox wrap, "+" opens detail) + one e2e spec (masonry, lightbox, glow).
+
 ## 2026-09-29 — Phase 99 Theme A — Media shell, storage and migration
 
 [PR #608](https://github.com/bilo-io/midnite-studio/pull/608). Video Studio becomes the Video tab of a four-tab Media page on one shared frame, with repo-scoped storage and ffmpeg export.

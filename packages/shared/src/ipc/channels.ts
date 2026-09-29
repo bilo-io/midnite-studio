@@ -869,6 +869,11 @@ export const CHANNELS = {
   mediaFileRemove: 'mstudio:media:file-remove',
   /** Reveal a project or file in Finder; `path` omitted reveals the project. */
   mediaReveal: 'mstudio:media:reveal',
+  // Images (Theme C) — generation runs in main through `main/media/image/`;
+  // keys stay in the secrets vault. Progress streams on `mediaImageProgress`.
+  mediaImageProviders: 'mstudio:media:image-providers',
+  mediaImageGenerate: 'mstudio:media:image-generate',
+  mediaImageCancel: 'mstudio:media:image-cancel',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1361,6 +1366,8 @@ export const EVENT_CHANNELS = {
   videoRenderProgress: 'mstudio:video:render-progress',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
+  /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
+  mediaImageProgress: 'mstudio:media:image-progress',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */

@@ -7,5 +7,12 @@
  * the wire only ever carries whether it is set (`secretsHas`), never the
  * value, unlike `finance.twelveData`'s own `secretsGet`.
  */
-export const SECRET_KEYS = ['finance.twelveData', 'ollama.apiKey'] as const;
+export const SECRET_KEYS = [
+  'finance.twelveData',
+  'ollama.apiKey',
+  // Phase 99 Theme C — image-generation API keys, read only by main's
+  // `media/image/` adapters; Settings ▸ Media uses `secretsHas`/`secretsSet`.
+  'media.geminiApiKey',
+  'media.openaiApiKey',
+] as const;
 export type SecretKey = (typeof SECRET_KEYS)[number];

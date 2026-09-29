@@ -174,6 +174,9 @@ import {
 } from '../ollama';
 import {
   FfmpegStatusSchema,
+  ImageGenerateProgressEventSchema,
+  ImageGenerateRequestSchema,
+  ImageProviderStatusSchema,
   MediaChangedEventSchema,
   MediaExportFormatSchema,
   MediaExportOptionsSchema,
@@ -200,6 +203,7 @@ import {
   WorkflowSchema,
 } from '../workflow';
 import { WorkflowTemplateSchema } from '../workflow-templates/types';
+import { SECRET_KEYS } from '../domain/secrets';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -2987,6 +2991,15 @@ export const MediaRevealRequest = z.object({
 });
 export const MediaRevealResponse = GitOpResultSchema;
 
+// Images (Theme C)
+export const MediaImageProvidersResponse = z.object({ providers: z.array(ImageProviderStatusSchema) });
+/** Resolves once every image has landed (or the run failed / was cancelled). */
+export const MediaImageGenerateRequest = ImageGenerateRequestSchema;
+export const MediaImageGenerateResponse = GitOpResultOf(z.object({ files: z.array(z.string()) }));
+export const MediaImageCancelRequest = z.object({ generationId: z.string().min(1) });
+export const MediaImageCancelResponse = GitOpResultSchema;
+export const MediaImageProgressPayload = ImageGenerateProgressEventSchema;
+
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 
 /**
@@ -3816,7 +3829,7 @@ export const CompanionSttTestResponse = GitOpResultOf(
 
 // --- secrets (Phase 76 Theme D) ---------------------------------------------
 
-export const SecretKeySchema = z.enum(['finance.twelveData', 'ollama.apiKey']);
+export const SecretKeySchema = z.enum(SECRET_KEYS);
 
 export const SecretsGetRequest = z.object({ key: SecretKeySchema });
 export const SecretsGetResponse = z.object({ value: z.string().nullable() });

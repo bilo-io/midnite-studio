@@ -142,7 +142,7 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 **Theme B — Docs.** ◻ lazy Tiptap editor over plain `.md`, project accordion, AI edit thread with accept/reject diffs, md/html/pdf export
 
-**Theme C — Images.** ◻ agy headless spike, `ImageProvider` seam + adapters, provider/model `IconSelect`, masonry gallery with glowing "+" tile, lightbox, png/jpeg/webp export
+**Theme C — Images.** ✅ DONE (PR #609, 2026-09-30) — spike ◐. **agy spike: blocked, not disproved** — the unattended swarm session's permission classifier denied the headless launch (`agy -p "<prompt>" --dangerously-skip-permissions --output-format json`), so no argv/exit-code/latency was recorded; `agy` 1.2.12's help shows print mode emits text/json/stream-json only, with no image-output flag, so per the doc's fallback **Gemini is the default** and agy is listed-disabled (`AGY_IMAGE_DISABLED_REASON`). Re-run the spike by hand. Landed: `main/media/image/` seam (`gemini` generateContent/Imagen `:predict`, `openai` gpt-image, `ollama` image-capability models only, `agy` stub) behind `image-service.ts` (vault keys `media.geminiApiKey`/`media.openaiApiKey`, writes image + `<name>.json` sidecar through the media-store jail, progress + cancel); `mstudio:media:image-{providers,generate,cancel,progress}`. Renderer `features/media/image/`: create panel with provider `IconSelect` (icon on value), dependent model, aspect, count, Add-key link; CSS-columns masonry led by the dashed glowing "+" tile (`openMediaPane`), shimmer placeholders, `content-visibility` past 200; portalled lightbox (`useDismiss`+`useFocusTrap`, ←/→ wrap, n/N, sidecar strip with Re-run/Reveal/Delete); images-only explorer + "All images in repo" toggle; png/jpeg/webp export with a quality slider; Settings ▸ Media ▸ Images (defaults in a small persisted store, not ui-store, to avoid B–E migration races). The "+" glow is asserted in `media-images.spec.ts` (computed box-shadow/text-stroke) rather than a Linux visual baseline — no Docker to regenerate baselines here; baseline left open.
 
 **Theme D — Video.** ◻ Video moves into Media, in-repo layout detection with root fallback, "Setup Video" template scaffold, assets/projects/iterations trees, selection detail panel, codec export
 
@@ -258,13 +258,13 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 ### C — Images (L)
 
-- [ ] **Spike first: agy headless image output.**
+- [ ] ◐ PARTIAL **Spike first: agy headless image output.** *(PR #609: not run — the unattended session's permission classifier denied the headless `agy -p` launch; fallback applied: Gemini default, agy listed-disabled. Re-run by hand.)*
   - Prove, or disprove, that Antigravity CLI can take a prompt non-interactively and write a PNG to a
     given path.
   - Record the exact argv, the exit codes, how output is detected, and its latency, in this doc's Headlines.
   - **If it cannot, the default provider becomes Gemini**, with the finding written up. agy stays
     listed, disabled, with a tooltip explaining why.
-- [ ] **`ImageProvider` seam (main).**
+- [x] **`ImageProvider` seam (main).**
   - New `main/media/image/`, with the interface
     `generate({prompt, model, size, count, seed?}) → {files[]}` and progress events.
   - Adapters:
@@ -275,30 +275,30 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
   - Provider and model catalogues live in `shared/src/media.ts`.
   - Outputs are written to `.midnite/media/image/<project>/`, with a sidecar `<name>.json` recording
     the prompt, provider, model, seed and time.
-- [ ] **Right: create panel.**
+- [x] **Right: create panel.**
   - A prompt textarea.
   - A **provider** `IconSelect` that shows the icon both in the list and on the chosen value.
   - A dependent **model** select.
   - Size or aspect, and a count.
   - **Generate** runs with a progress state, and a cancel button.
   - A missing API key shows an inline "Add key" link to Settings ▸ Media.
-- [ ] **Centre: masonry gallery.**
+- [x] **Centre: masonry gallery.**
   - A CSS-columns masonry layout; virtualise it if the image count exceeds ~200.
   - The **first tile is a large dashed "+"**. On hover its border, its "+" icon and its label's text
     stroke all glow (reusing the gradient-glow tokens). Clicking it opens and focuses the right create panel.
   - Tiles for images still generating show a shimmer placeholder until the file lands.
   - Motion is gated by `data-motion` and passes `styles-motion-guards.ts`.
-- [ ] **Lightbox.**
+- [x] **Lightbox.**
   - Opening it on a tile gives a full-window overlay (`useDismiss` + `useFocusTrap`, added to
     `occluder-coverage.test.tsx`).
   - ←/→ step through images, Escape closes it, and the image's number (e.g. 3/40) is shown.
   - A side strip shows the sidecar metadata, with **Re-run prompt**, **Reveal** and **Delete** actions.
-- [ ] **Left: images-only explorer.**
+- [x] **Left: images-only explorer.**
   - Lists projects under `.midnite/media/image/`, showing only image files.
   - Has an **"All images in repo"** toggle, which reads the repo file list filtered by `PreviewKind === 'image'`.
-- [ ] **Export:** png, jpeg (quality slider) or webp via the Theme A export service, for the
+- [x] **Export:** png, jpeg (quality slider) or webp via the Theme A export service, for the
       selected image or the lightbox's current one.
-- [ ] Vitest:
+- [x] Vitest:
   - the provider catalogue, and model filtering per provider;
   - the create-panel reducer;
   - sidecar schema parsing;

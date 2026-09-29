@@ -23,6 +23,7 @@ import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { SetupDialog } from '../features/agent/setup-dialog';
 import { LockScreen } from '../features/screensaver/lock-screen';
 import { ActivityTooltip } from './commit-activity-timeline/activity-tooltip';
+import { Lightbox } from '../features/media/image/lightbox';
 
 import { DialogHost } from './dialog-host';
 import { ToastHost } from './toast-host';
@@ -215,5 +216,24 @@ describe('occluder coverage across overlays', () => {
 
   it('14. LockScreen registers as an occluder', () => {
     assertOccluderLifecycle(() => render(<LockScreen />));
+  });
+
+  it('15. Media Images Lightbox registers as an occluder', () => {
+    assertOccluderLifecycle(() =>
+      render(
+        withProviders(
+          <Lightbox
+            images={[{ key: 'k', project: 'p', path: 'a.png', url: 'mstudio-file://repo/r/a.png' }]}
+            index={0}
+            repoId="r"
+            onIndex={() => {}}
+            onClose={() => {}}
+            onRerun={() => {}}
+            onReveal={() => {}}
+            onDelete={() => {}}
+          />,
+        ),
+      ),
+    );
   });
 });
