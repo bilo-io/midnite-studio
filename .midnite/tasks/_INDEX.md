@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | 🔄 WIP | — | 0/67 | `░░░░░░░░░░` | 0% | A | B C D E F G H I J |
+| [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | 🔄 WIP | — | 8/67 | `█░░░░░░░░░` | 12% | — | B C D E F G H I J |
 | [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | 🔄 WIP | — | 81/91 | `█████████░` | 89% | — | (10 verification items, mostly human/packaged-app passes) |
 | [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 58/73 | `████████░░` | 79% | — | (15 verification items, mostly human/packaged-app passes) |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
