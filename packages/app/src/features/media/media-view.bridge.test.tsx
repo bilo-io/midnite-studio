@@ -84,7 +84,7 @@ describe('repo-scoped tabs', () => {
 
   it('lists projects from the media store in an accordion that remembers its fold', async () => {
     open({ ...fixtures, media: { files: { 'doc:launch': { 'brief.md': '# hi' } } } });
-    expect(await screen.findByText('brief.md')).toBeTruthy();
+    expect(await screen.findByText('brief')).toBeTruthy();
     const header = screen.getByRole('button', { name: /^launch/, expanded: true });
     await act(async () => {
       fireEvent.click(header);
