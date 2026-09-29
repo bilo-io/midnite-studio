@@ -35,6 +35,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // Opens the account switcher's menu (Phase 90 Theme L) — opening a menu is
   // recoverable by definition; the switch itself is a row the user picks.
   'account.switcher.open',
+  // Opens the setup overlay (Phase 98 Theme A). Every install it offers runs
+  // in a visible terminal the user drives, so opening it changes nothing.
+  'setup.open',
   // Opens a browser tab on a port already listening on loopback. Navigation
   // only, and the same class as `browser.toggle` above.
   'browser.openDevServer',
@@ -166,6 +169,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'companion.toggle': 'never',
   'link.toggleTarget': 'direct',
   'account.switcher.open': 'direct',
+  'setup.open': 'direct',
   'browser.openDevServer': 'direct',
   'activity.toggle': 'direct',
   'browser.newTab': 'direct',

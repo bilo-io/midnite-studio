@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
 import { ToastHost } from '../../../components/toast-host';
+import { INITIAL_SETUP_STATE } from '../../../store/setup-state';
 import { useUiStore } from '../../../store/ui-store';
+import { useSetupStore } from '../../setup/setup-store';
 import { AccountsPage, PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './accounts-page';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -346,5 +348,25 @@ describe('AccountsPage', () => {
       await waitFor(() => expect(useUiStore.getState().forgeActiveAccountId).toBe(gitlabAccount.id));
       await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
     });
+  });
+});
+
+describe('AccountsPage — a forge page skipped during setup (Phase 98 Theme A)', () => {
+  afterEach(() => {
+    useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
+    useSetupStore.setState({ requested: false, startPageId: null });
+  });
+
+  it('offers to resume setup at the skipped page, or to forget the skip', async () => {
+    installBridge();
+    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, skippedPageIds: ['forges'] } });
+    render(<AccountsPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume setup' }));
+    expect(useSetupStore.getState()).toMatchObject({ requested: true, startPageId: 'forges' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+    expect(useUiStore.getState().setupState.skippedPageIds).toEqual([]);
+    expect(screen.queryByRole('button', { name: 'Resume setup' })).toBeNull();
   });
 });

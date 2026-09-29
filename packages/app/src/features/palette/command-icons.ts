@@ -39,6 +39,7 @@ import {
   LuSquareTerminal,
   LuTrash2,
   LuUpload,
+  LuWandSparkles,
   LuX,
   LuZap,
   LuZoomIn,
@@ -64,6 +65,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   // other `browser.*` row already wears the globe.
   'link.toggleTarget': LuLink,
   'account.switcher.open': LuArrowRightLeft,
+  'setup.open': LuWandSparkles,
   'browser.openDevServer': LuServer,
   'activity.toggle': LuActivity,
   'browser.newTab': LuGlobe,
