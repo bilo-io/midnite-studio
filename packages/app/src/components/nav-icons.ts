@@ -8,7 +8,7 @@ import {
   LuAudioLines,
   LuBot,
   LuCircleUserRound,
-  LuClapperboard,
+  LuLibrary,
   LuDatabase,
   LuDiff,
   LuDownload,
@@ -92,7 +92,8 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
   workflows: LuWorkflow,
-  video: LuClapperboard,
+  // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.
+  media: LuLibrary,
   // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this
   // view is specifically Ollama's models, and the phase doc's own research
   // already settled on `SiOllama` for it.
@@ -131,7 +132,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   reviews: LuShieldCheck,
   projects: LuSquareKanban,
   workflows: LuWorkflow,
-  video: LuClapperboard,
+  media: LuLibrary,
   ollama: SiOllama,
   gitSafety: LuShieldAlert,
   // A literal trash can, not a third shield glyph: `reviews` already owns

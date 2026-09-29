@@ -233,7 +233,12 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'markdown.presentAsSlides': 'direct',
   'workflow.run': 'confirm',
   // See the docblock above.
+  'view.media': 'never',
   'view.video': 'never',
+  'media.tab.doc': 'never',
+  'media.tab.image': 'never',
+  'media.tab.video': 'never',
+  'media.tab.audio': 'never',
   'view.models': 'never',
   'view.apiClient': 'never',
   'theme.select': 'direct',

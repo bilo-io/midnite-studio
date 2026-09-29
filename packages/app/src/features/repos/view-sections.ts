@@ -225,7 +225,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   history: WORK_IN_PROGRESS,
   councils: WORK_IN_PROGRESS,
   workflows: WORK_IN_PROGRESS,
-  video: WORK_IN_PROGRESS,
+  media: WORK_IN_PROGRESS,
   // A formality the `Record` demands, same reasoning as `database`: an
   // Ollama daemon is not repo-scoped, so this view shows no sidebar section
   // to narrow in the first place (Phase 96 Theme C).

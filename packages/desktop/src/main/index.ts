@@ -119,6 +119,7 @@ import { createWorkflowsStore } from './workflows-store';
 import { createWorkflowRunsStore } from './workflow-runs-store';
 import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
 import { registerVideoHandlers } from './ipc/video-handlers';
+import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureVideo, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
@@ -456,6 +457,7 @@ if (!app.requestSingleInstanceLock()) {
     registerLoopRunsHandlers();
     registerWorkflowHandlers();
     registerVideoHandlers();
+    registerMediaHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
@@ -844,6 +846,7 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     stopAllWatchers();
+    stopMediaWatchers();
     destroyAllBrowserTabs();
     destroyAllApps();
     // A `remotion studio` or an in-flight render surviving the app is a port
@@ -885,6 +888,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     detachAll();
     stopAllWatchers();
+    stopMediaWatchers();
     destroyAllBrowserTabs();
     destroyAllApps();
     // macOS apps conventionally stay alive with no windows; everywhere else,

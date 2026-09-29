@@ -138,7 +138,7 @@ What differs per tab is what fills those slots:
 *The Video view grows into a four-tab Media page (Docs, Images, Video, Audio) on one shared
 three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider seams for generation.*
 
-**Theme A — Media shell, storage and migration.** ◻ `'media'` ViewId, icon tab strip, shared `MediaLayout`, `Accordion`, repo-scoped media store, ffmpeg probe + export service, `video` → `media?tab=video` migration
+**Theme A — Media shell, storage and migration.** ✅ DONE (PR #608, 2026-09-29). `'media'` replaced the `'video'` ViewId (ui-store v29 migrates the persisted `video` entries in navVisibility, sectionFilters and settingsPage, moves the pane widths to the Video tab and opens an existing profile on Media ▸ Video; `/video` and `view.video` resolve to Media). Contract in `shared/src/media.ts`; `mstudio:media:*` channels + `media:changed`/`media:export-progress`. Main: `main/media/media-store.ts` (rejects `..` paths and symlinks at any segment, per-root WriteQueue, deletes go to the Trash, no .gitignore, `largeFile` above 25 MB) and `main/media/export-service.ts` (ffmpeg argv table, progress, cancel, native save dialog). Renderer seams for B–E: `MediaLayout` + `openMediaPane`, `components/accordion/accordion.tsx`, `ExportToolbar`, `features/media/use-media.ts` hooks, and the `TAB_BODY` swap point in `media-view.tsx`. Video still lives in `features/video/` and renders through MediaLayout until Theme D moves it. Settings ▸ Media replaced Settings ▸ Video.
 
 **Theme B — Docs.** ◻ lazy Tiptap editor over plain `.md`, project accordion, AI edit thread with accept/reject diffs, md/html/pdf export
 
@@ -154,35 +154,35 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 ### A — Media shell, storage and migration (M)
 
-- [ ] **ViewId.**
+- [x] **ViewId.**
   - Add `'media'` to `VIEW_IDS` and register `media: { Component: MediaView }` in `view-registry.tsx`.
   - It is repo-scoped, so with no repo open Docs, Images and Audio show an "Open a repo" empty state.
     Video still works through its fallback root (Theme D).
   - Add a rail row with a media glyph (e.g. `LuFilm` or `LuLibrary`) in `nav-icons.ts`.
   - Add a `view.media` command to `COMMANDS`, with no chord.
-- [ ] **Tab state.**
+- [x] **Tab state.**
   - Add a `MediaTab = 'doc' | 'image' | 'video' | 'audio'` enum to a new `packages/shared/src/media.ts`.
   - The ui-store gets `mediaTab`, persisted, plus a per-tab `{explorerWidth, detailWidth}` in
     `LAYOUT_BOUNDS`/`DEFAULT_LAYOUT`.
   - Seed Video's widths from the existing `videoProjectListWidth` and `videoDetailWidth`.
-- [ ] **Tab strip.**
+- [x] **Tab strip.**
   - Icon buttons: Docs `LuFileText`, Images `LuImage`, Video `LuClapperboard`, Audio `LuAudioLines`.
   - Every button has a `Tooltip`, and the **active button also renders its label** inline.
   - It is a `role="tablist"` with arrow-key roving focus.
   - Adds `media.tab.doc|image|video|audio` palette commands.
-- [ ] **`MediaLayout` frame.**
+- [x] **`MediaLayout` frame.**
   - Slots: `toolbar`, `explorer`, `content`, `detail`.
   - Two `ResizeHandle` dividers. Double-click a divider to collapse its pane, and each collapse state is
     remembered per tab.
   - Both side panels can be opened programmatically (Images' "+" tile uses this).
-- [ ] **`Accordion`.** A generic component in `components/accordion/`: several sections, each with a
+- [x] **`Accordion`.** A generic component in `components/accordion/`: several sections, each with a
       header, a count, an actions slot and a persisted open/closed state. It is built on
       `TreeSection` visuals, and Docs, Video and Audio all use it.
-- [ ] **Export toolbar.**
+- [x] **Export toolbar.**
   - Each tab declares its formats as `MediaExportFormat[]` in `shared`.
   - The toolbar renders a split button: **Export** plus a format menu.
   - It is disabled, with a tooltip, while there is nothing selected or ffmpeg is needed but missing.
-- [ ] **Media store (main).**
+- [x] **Media store (main).**
   - New `packages/desktop/src/main/media/media-store.ts`:
     - lists, reads, writes, renames and deletes projects and files under `<repo>/.midnite/media/<tab>/`;
     - confines every path to that root;
@@ -192,27 +192,27 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
   - Every op returns the `GitOpResult`-style `{ok}` envelope and never throws across IPC.
   - A `mediaChanged` event, fed by a watcher on the root.
   - Deleting a project goes to the Trash (Phase 74's seam) behind a confirm naming its file count.
-- [ ] **ffmpeg toolchain.**
+- [x] **ffmpeg toolchain.**
   - A `probeBinary('ffmpeg')` row joins the Video toolchain probe and Settings ▸ Media.
   - The **Install** action types `brew install ffmpeg` into a visible terminal session.
-- [ ] **Export service (main).**
+- [x] **Export service (main).**
   - New `main/media/export-service.ts`: `exportMedia({source, format, dest})` runs ffmpeg with an
     argv array (never a shell string) and streams progress (`mediaExportProgress`).
   - It is cancellable.
   - The destination comes from a native save dialog.
   - Per-format presets live in one table: image png/jpeg/webp, audio mp3/wav/flac, video transcode.
-- [ ] **Migration.**
+- [x] **Migration.**
   - `'video'` leaves the rail.
   - A ui-store version bump rewrites any persisted `'video'` route or tab-group entry to
     `media` + `mediaTab: 'video'`.
   - `view.video` stays as an alias that opens Media on the Video tab.
   - `nav-visibility`, `title-bar-nav`, the palette providers and `view-sections` switch to `'media'`.
-- [ ] **Settings ▸ Media.** It replaces Settings ▸ Video, which redirects to it. Sections:
+- [x] **Settings ▸ Media.** It replaces Settings ▸ Video, which redirects to it. Sections:
   - **General**: ffmpeg status and the export default folder;
   - **Video**: the existing root and toolchain rows;
   - **Images**: default provider/model and API-key rows;
   - **Audio**: the provider placeholder.
-- [ ] Vitest:
+- [x] Vitest:
   - tab-strip roving focus, and the label rendering only on the active tab;
   - layout width persistence;
   - the migration from a v-previous blob holding `'video'`;

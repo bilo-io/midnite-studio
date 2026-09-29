@@ -1,6 +1,23 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-29 — Phase 99 Theme A — Media shell, storage and migration
+
+[PR #608](https://github.com/bilo-io/midnite-studio/pull/608). Video Studio becomes the Video tab of a four-tab Media page on one shared frame, with repo-scoped storage and ffmpeg export.
+
+- [x] `'media'` ViewId + rail row (`LuLibrary`) + chord-free `view.media`; `view.video` alias opens Media ▸ Video.
+- [x] `MediaTab` in `shared/src/media.ts`; persisted `mediaTab`, per-tab explorer/detail widths (`mediaLayoutKeys`), Video's seeded from Phase 44's.
+- [x] Tab strip: icon tabs with tooltips, label on the active tab, `tablist` roving focus; `media.tab.*` palette commands.
+- [x] `MediaLayout` (toolbar/explorer/content/detail), double-click collapse remembered per tab, `openMediaPane`.
+- [x] Generic `Accordion` (`components/accordion/`) on `TreeSection` visuals, persisted fold state.
+- [x] `ExportToolbar` split button driven by `MEDIA_TAB_EXPORT_FORMATS`, disabled with a reason while nothing is selected or ffmpeg is missing.
+- [x] `main/media/media-store.ts` + `mstudio:media:*` channels, `{ok}` envelope, watcher → `mediaChanged`, delete to Trash behind a file-count confirm.
+- [x] ffmpeg probe (Video toolchain + Settings ▸ Media), Install types `brew install ffmpeg` into a visible terminal.
+- [x] `main/media/export-service.ts`: argv array, progress events, cancel, save dialog, one preset table.
+- [x] Migration v29 (video → media everywhere persisted); nav-visibility / title-bar-nav / palette / view-sections on `'media'`.
+- [x] Settings ▸ Media replaces Settings ▸ Video (General / Video / Images / Audio).
+- [x] Vitest: tab strip, layout widths/collapse, v28 migration, media-store confinement (`..`, symlinks), ffmpeg argv per format.
+
 ## 2026-09-29 — Phase 98 Themes B + C — Brand choreography; Skip / X → FAB handoff and resume
 
 [PR #602](https://github.com/bilo-io/midnite-studio/pull/602). The brand mark opens setup and becomes the fixed title anchor, and leaving early now points at the FAB, which gains **Resume setup**.

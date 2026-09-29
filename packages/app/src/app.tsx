@@ -443,7 +443,7 @@ const GIT_NAV_ITEMS: NavItem[] = [
 const AGENT_NAV_ITEMS: NavItem[] = [
   { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
   { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
-  { view: 'video', label: 'Video', icon: VIEW_ICON.video },
+  { view: 'media', label: 'Media', icon: VIEW_ICON.media },
   { view: 'models', label: 'Models', icon: VIEW_ICON.models },
 ];
 

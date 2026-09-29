@@ -493,10 +493,19 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('issues'),
     }),
+    'view.media': withNavVisibility(navVisibility, 'view.media', {
+      enabled: true,
+      run: () => useUiStore.getState().openMedia(),
+    }),
+    // Phase 99 Theme A — kept as an alias: Media, on its Video tab.
     'view.video': withNavVisibility(navVisibility, 'view.video', {
       enabled: true,
-      run: () => useUiStore.getState().setActiveView('video'),
+      run: () => useUiStore.getState().openMedia('video'),
     }),
+    'media.tab.doc': { enabled: true, run: () => useUiStore.getState().openMedia('doc') },
+    'media.tab.image': { enabled: true, run: () => useUiStore.getState().openMedia('image') },
+    'media.tab.video': { enabled: true, run: () => useUiStore.getState().openMedia('video') },
+    'media.tab.audio': { enabled: true, run: () => useUiStore.getState().openMedia('audio') },
     'view.models': withNavVisibility(navVisibility, 'view.models', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('models'),

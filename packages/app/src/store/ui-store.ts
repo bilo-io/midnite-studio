@@ -20,6 +20,8 @@ import {
   type ForgeAccount,
   type LoopModel,
   type LoopSchedule,
+  type MediaTab,
+  MEDIA_TABS,
   type MetricId,
   type PageWindowRole,
   type PanelWindowRole,
@@ -269,7 +271,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'apiClient', label: 'API Client', group: 'tools' },
   { id: 'workflows', label: 'Workflows', group: 'tools' },
   { id: 'projects', label: 'Projects', group: 'tools' },
-  { id: 'video', label: 'Video Studio', group: 'tools' },
+  { id: 'media', label: 'Media', group: 'tools' },
   { id: 'ollama', label: 'Ollama', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'ai' },
   { id: 'companion', label: 'Companion', group: 'ai' },
@@ -355,10 +357,20 @@ export type LayoutSizes = {
   knowledgeFiltersWidth: number;
   /** The Knowledge view's node or community detail panel (Phase 87). */
   knowledgeDetailWidth: number;
-  /** The Video Studio view's project list, left of the studio pane (Phase 44 Theme D). */
-  videoProjectListWidth: number;
-  /** The Video Studio view's project detail, right of the studio pane (Phase 44 Theme D). */
-  videoDetailWidth: number;
+  /**
+   * Media page (Phase 99 Theme A) — each tab's explorer (left) and detail
+   * (right) pane, remembered per tab. The Video pair replaced Phase 44's
+   * `videoProjectListWidth`/`videoDetailWidth` (v29 migration). Read them
+   * through `mediaLayoutKeys(tab)` rather than naming the keys.
+   */
+  mediaDocExplorerWidth: number;
+  mediaDocDetailWidth: number;
+  mediaImageExplorerWidth: number;
+  mediaImageDetailWidth: number;
+  mediaVideoExplorerWidth: number;
+  mediaVideoDetailWidth: number;
+  mediaAudioExplorerWidth: number;
+  mediaAudioDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
   workflowListWidth: number;
   /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
@@ -466,10 +478,17 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   apiBuilderHeight: 260,
   knowledgeFiltersWidth: 288,
   knowledgeDetailWidth: 384,
-  // Matches the project list's old fixed `w-56`.
-  videoProjectListWidth: 224,
-  // Matches the project detail's old fixed `w-80`.
-  videoDetailWidth: 320,
+  // Media (Phase 99 Theme A). Video keeps Phase 44's 224/320 (the old
+  // project list `w-56` and detail `w-80`); the right-hand prompt panels of
+  // Images and Audio want a little more room for their forms.
+  mediaDocExplorerWidth: 240,
+  mediaDocDetailWidth: 340,
+  mediaImageExplorerWidth: 224,
+  mediaImageDetailWidth: 360,
+  mediaVideoExplorerWidth: 224,
+  mediaVideoDetailWidth: 320,
+  mediaAudioExplorerWidth: 224,
+  mediaAudioDetailWidth: 360,
   // Workflows (Phase 43) — list left, inspector / history right.
   workflowListWidth: 224,
   workflowDetailWidth: 320,
@@ -549,8 +568,14 @@ export const LAYOUT_BOUNDS = {
   apiBuilderHeight: { min: 140, max: 640 },
   knowledgeFiltersWidth: { min: 220, max: 500 },
   knowledgeDetailWidth: { min: 280, max: 640 },
-  videoProjectListWidth: { min: 180, max: 480 },
-  videoDetailWidth: { min: 260, max: 600 },
+  mediaDocExplorerWidth: { min: 180, max: 480 },
+  mediaDocDetailWidth: { min: 260, max: 640 },
+  mediaImageExplorerWidth: { min: 180, max: 480 },
+  mediaImageDetailWidth: { min: 260, max: 640 },
+  mediaVideoExplorerWidth: { min: 180, max: 480 },
+  mediaVideoDetailWidth: { min: 260, max: 600 },
+  mediaAudioExplorerWidth: { min: 180, max: 480 },
+  mediaAudioDetailWidth: { min: 260, max: 640 },
   workflowListWidth: { min: 180, max: 480 },
   workflowDetailWidth: { min: 260, max: 600 },
   workflowPaletteWidth: { min: 160, max: 360 },
@@ -1019,6 +1044,24 @@ export type UiState = {
   graphColumns: GraphColumns;
   navMode: NavMode;
   collapsedNavSections: string[];
+  /** Media page (Phase 99 Theme A) — the active tab, persisted. */
+  mediaTab: MediaTab;
+  setMediaTab: (tab: MediaTab) => void;
+  /** Navigate to Media, optionally switching tab — what `view.video`/`media.tab.*` call. */
+  openMedia: (tab?: MediaTab) => void;
+  /** Per-tab collapsed side panes; absent = open. Double-click a divider to toggle. */
+  mediaPaneCollapsed: Partial<Record<MediaTab, Partial<Record<MediaPane, boolean>>>>;
+  setMediaPaneCollapsed: (tab: MediaTab, pane: MediaPane, collapsed: boolean) => void;
+  /** Settings ▸ Media ▸ General — the save dialog's starting folder; `null` = OS default. */
+  mediaExportDir: string | null;
+  setMediaExportDir: (dir: string | null) => void;
+  /**
+   * `Accordion` sections folded shut, by `<accordionId>:<sectionId>` — the
+   * same closed-set inversion as `collapsedNavSections`, so a section added
+   * later starts open with no migration.
+   */
+  collapsedAccordionSections: string[];
+  toggleAccordionSection: (key: string) => void;
   /**
    * Which settings categories the user has folded shut, by `SettingsGroupId`.
    *
@@ -2042,6 +2085,10 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
 export type PersistedUi = Pick<
   UiState,
   | 'layout'
+  | 'mediaTab'
+  | 'mediaPaneCollapsed'
+  | 'mediaExportDir'
+  | 'collapsedAccordionSections'
   | 'graphColumns'
   | 'navMode'
   | 'collapsedNavSections'
@@ -2208,6 +2255,9 @@ export const SESSION_ACTIVE_VIEW_KEY = 'midnite-studio.activeView';
 export function readSessionActiveView(): ViewId {
   try {
     const stored = sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY);
+    // Phase 99 Theme A: `video` became Media's Video tab (the v29 migration
+    // points `mediaTab` there for a persisted blob that still says `video`).
+    if (stored === 'video') return 'media';
     if (stored && (VIEW_IDS as readonly string[]).includes(stored)) return stored as ViewId;
   } catch {
     // Private mode or a disabled-storage policy — starting on Graph is a
@@ -2557,6 +2607,29 @@ export const useUiStore = create<UiState>()(
       graphColumns: DEFAULT_GRAPH_COLUMNS,
       navMode: 'auto',
       collapsedNavSections: [],
+      mediaTab: 'doc',
+      setMediaTab: (mediaTab) => set({ mediaTab }),
+      openMedia: (tab) => {
+        if (tab) set({ mediaTab: tab });
+        get().setActiveView('media');
+      },
+      mediaPaneCollapsed: {},
+      setMediaPaneCollapsed: (tab, pane, collapsed) =>
+        set((state) => ({
+          mediaPaneCollapsed: {
+            ...state.mediaPaneCollapsed,
+            [tab]: { ...state.mediaPaneCollapsed[tab], [pane]: collapsed },
+          },
+        })),
+      mediaExportDir: null,
+      setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
+      collapsedAccordionSections: [],
+      toggleAccordionSection: (key) =>
+        set((state) => ({
+          collapsedAccordionSections: state.collapsedAccordionSections.includes(key)
+            ? state.collapsedAccordionSections.filter((k) => k !== key)
+            : [...state.collapsedAccordionSections, key],
+        })),
       collapsedSettingsGroups: [],
       collapsedRepoSections: {},
       sectionFilters: {},
@@ -3001,9 +3074,13 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 28,
+      version: 29,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
+        mediaTab: state.mediaTab,
+        mediaPaneCollapsed: state.mediaPaneCollapsed,
+        mediaExportDir: state.mediaExportDir,
+        collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
@@ -3393,6 +3470,7 @@ export const useUiStore = create<UiState>()(
           delete state.showOnboarding;
           delete state.onboardingSkippedStepIds;
         }
+        if (version < 29) migrateVideoToMedia(state);
         return state as PersistedUi;
       },
       /**
@@ -3410,6 +3488,10 @@ export const useUiStore = create<UiState>()(
           ...current,
           ...saved,
           layout: { ...current.layout, ...saved.layout },
+          mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
+            ? (saved.mediaTab as MediaTab)
+            : current.mediaTab,
+          mediaPaneCollapsed: { ...current.mediaPaneCollapsed, ...saved.mediaPaneCollapsed },
           setupState: { ...current.setupState, ...saved.setupState },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
@@ -3480,7 +3562,50 @@ export const pathForView = (view: ViewId): string => (view === 'landing' ? '/' :
  * own list means a view cannot be added to `ViewId` and forgotten here.
  */
 export const viewForPath = (path: string): ViewId =>
-  VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph';
+  path === '/video' ? 'media' : (VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph');
+
+/** The two side panes `MediaLayout` can collapse. */
+export type MediaPane = 'explorer' | 'detail';
+
+const MEDIA_LAYOUT_KEYS = {
+  doc: { explorer: 'mediaDocExplorerWidth', detail: 'mediaDocDetailWidth' },
+  image: { explorer: 'mediaImageExplorerWidth', detail: 'mediaImageDetailWidth' },
+  video: { explorer: 'mediaVideoExplorerWidth', detail: 'mediaVideoDetailWidth' },
+  audio: { explorer: 'mediaAudioExplorerWidth', detail: 'mediaAudioDetailWidth' },
+} as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
+
+/** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */
+export const mediaLayoutKeys = (tab: MediaTab): (typeof MEDIA_LAYOUT_KEYS)[MediaTab] => MEDIA_LAYOUT_KEYS[tab];
+
+/**
+ * v28 → v29 (Phase 99 Theme A): the `video` view became Media's Video tab.
+ * Rewrites every persisted `video` view id to `media`, opens an existing
+ * profile's Media on its Video tab, moves Phase 44's two pane widths onto
+ * the Video tab's, and sends Settings ▸ Video to Settings ▸ Media. Mutates
+ * and returns the raw blob; exported for its test.
+ */
+export function migrateVideoToMedia(state: Record<string, unknown>): Record<string, unknown> {
+  const layout = state.layout as Record<string, unknown> | undefined;
+  if (layout) {
+    if (typeof layout.videoProjectListWidth === 'number') layout.mediaVideoExplorerWidth = layout.videoProjectListWidth;
+    if (typeof layout.videoDetailWidth === 'number') layout.mediaVideoDetailWidth = layout.videoDetailWidth;
+    delete layout.videoProjectListWidth;
+    delete layout.videoDetailWidth;
+  }
+  for (const key of ['navVisibility', 'sectionFilters'] as const) {
+    const record = state[key] as Record<string, unknown> | undefined;
+    if (record && typeof record === 'object' && 'video' in record) {
+      record.media = record.video;
+      delete record.video;
+    }
+  }
+  if (state.settingsPage === 'video') state.settingsPage = 'media';
+  if (state.activeView === 'video') state.activeView = 'media';
+  // A pre-Media profile's only media surface was Video Studio, and Video is
+  // the one tab that works without a repo — open Media there, not on Docs.
+  state.mediaTab ??= 'video';
+  return state;
+}
 
 /**
  * Whether the Loops panel is showing DOCKED in this window — open, and not

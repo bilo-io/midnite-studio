@@ -6,6 +6,7 @@ import {
   DEFAULT_AGENT_SKILLS,
   DEFAULT_GRAPH_COLUMNS,
   DEFAULT_LAYOUT,
+  mediaLayoutKeys,
   pathForView,
   readSessionActiveView,
   SESSION_ACTIVE_VIEW_KEY,
@@ -347,21 +348,61 @@ describe('phase 16 store additions', () => {
     expect(saved.state.layout.filesTreeWidth).toBe(260);
   });
 
-  it('gives the Video Studio view persisted, merge-filled project list and detail widths', () => {
+  it('gives every Media tab persisted, merge-filled explorer and detail widths (Phase 99 A)', () => {
     const merged = useUiStore.persist.getOptions().merge?.(
       { layout: { reposWidth: 300 } },
       useUiStore.getState(),
     ) as { layout: Record<string, number> };
-    expect(merged.layout.videoProjectListWidth).toBe(DEFAULT_LAYOUT.videoProjectListWidth);
-    expect(merged.layout.videoDetailWidth).toBe(DEFAULT_LAYOUT.videoDetailWidth);
+    for (const tab of ['doc', 'image', 'video', 'audio'] as const) {
+      const keys = mediaLayoutKeys(tab);
+      expect(merged.layout[keys.explorer]).toBe(DEFAULT_LAYOUT[keys.explorer]);
+      expect(merged.layout[keys.detail]).toBe(DEFAULT_LAYOUT[keys.detail]);
+    }
 
-    useUiStore.getState().setLayout('videoProjectListWidth', 250);
-    useUiStore.getState().setLayout('videoDetailWidth', 350);
+    useUiStore.getState().setLayout('mediaVideoExplorerWidth', 250);
+    useUiStore.getState().setLayout('mediaDocDetailWidth', 350);
     const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: { layout: Record<string, number> };
     };
-    expect(saved.state.layout.videoProjectListWidth).toBe(250);
-    expect(saved.state.layout.videoDetailWidth).toBe(350);
+    expect(saved.state.layout.mediaVideoExplorerWidth).toBe(250);
+    expect(saved.state.layout.mediaDocDetailWidth).toBe(350);
+    // Per tab: the Doc drag did not move Video's detail pane.
+    expect(saved.state.layout.mediaVideoDetailWidth).toBe(DEFAULT_LAYOUT.mediaVideoDetailWidth);
+  });
+
+  it('migrates a v28 blob holding `video` onto Media ▸ Video (Phase 99 A)', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      {
+        layout: { reposWidth: 300, videoProjectListWidth: 260, videoDetailWidth: 400 },
+        navVisibility: { video: false, graph: true },
+        sectionFilters: { video: true },
+        settingsPage: 'video',
+      },
+      28,
+    ) as Record<string, unknown> & { layout: Record<string, number> };
+    expect(migrated.layout.mediaVideoExplorerWidth).toBe(260);
+    expect(migrated.layout.mediaVideoDetailWidth).toBe(400);
+    expect(migrated.layout).not.toHaveProperty('videoProjectListWidth');
+    expect(migrated.navVisibility).toEqual({ media: false, graph: true });
+    expect(migrated.sectionFilters).toEqual({ media: true });
+    expect(migrated.settingsPage).toBe('media');
+    expect(migrated.mediaTab).toBe('video');
+  });
+
+  it('routes a legacy `video` path and session view to Media', () => {
+    expect(viewForPath('/video')).toBe('media');
+    sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, 'video');
+    expect(readSessionActiveView()).toBe('media');
+    sessionStorage.removeItem(SESSION_ACTIVE_VIEW_KEY);
+  });
+
+  it('openMedia switches tab and view; pane collapse is per tab', () => {
+    useUiStore.getState().openMedia('audio');
+    expect(useUiStore.getState().activeView).toBe('media');
+    expect(useUiStore.getState().mediaTab).toBe('audio');
+    useUiStore.getState().setMediaPaneCollapsed('audio', 'detail', true);
+    expect(useUiStore.getState().mediaPaneCollapsed.audio?.detail).toBe(true);
+    expect(useUiStore.getState().mediaPaneCollapsed.doc?.detail).toBeUndefined();
   });
 
   it('does not persist the active view — a launch starts on the graph', () => {

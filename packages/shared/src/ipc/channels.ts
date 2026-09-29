@@ -851,6 +851,30 @@ export const CHANNELS = {
   videoRootGet: 'mstudio:video:root-get',
   videoRootSet: 'mstudio:video:root-set',
 
+  // --- media (Phase 99 Theme A) ----------------------------------------------
+  // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
+  // Every op answers the `GitOpResult` envelope and confines each path to that
+  // root (`main/media/media-store.ts`). Themes B–E build on these, not on the
+  // generic `fs*` channels.
+  mediaProjectList: 'mstudio:media:project-list',
+  mediaProjectCreate: 'mstudio:media:project-create',
+  mediaProjectRename: 'mstudio:media:project-rename',
+  /** To the Trash (`shell.trashItem`), never a permanent delete. */
+  mediaProjectRemove: 'mstudio:media:project-remove',
+  mediaFileList: 'mstudio:media:file-list',
+  mediaFileRead: 'mstudio:media:file-read',
+  mediaFileWrite: 'mstudio:media:file-write',
+  mediaFileRename: 'mstudio:media:file-rename',
+  /** To the Trash, like `mediaProjectRemove`. */
+  mediaFileRemove: 'mstudio:media:file-remove',
+  /** Reveal a project or file in Finder; `path` omitted reveals the project. */
+  mediaReveal: 'mstudio:media:reveal',
+  /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
+  mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
+  /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
+  mediaExport: 'mstudio:media:export',
+  mediaExportCancel: 'mstudio:media:export-cancel',
+
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
   // classifies every entry — it writes nothing. `apply` writes only the exact
@@ -1335,6 +1359,10 @@ export const EVENT_CHANNELS = {
   videoStudioChanged: 'mstudio:video:studio-changed',
   /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */
   videoRenderProgress: 'mstudio:video:render-progress',
+  /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
+  mediaChanged: 'mstudio:media:changed',
+  /** An export advanced — see `MediaExportProgressEventSchema`. */
+  mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */
   optimizerScanProgress: 'mstudio:optimizer:scan-progress',
   /** The system-cache walk advanced — its own event, its own single-flight controller. */

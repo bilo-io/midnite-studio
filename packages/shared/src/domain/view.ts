@@ -53,8 +53,11 @@ export const VIEW_IDS = [
   'history',
   'councils',
   'workflows',
-  'video',
-  // Phase 96 Theme C — global like `video` above: an Ollama daemon and its
+  // Phase 99 Theme A — replaced `video` (Phase 44), which is now Media's
+  // Video tab. A persisted or routed `video` is rewritten to `media` +
+  // `mediaTab: 'video'` (`ui-store.ts`'s v29 migration, `viewForPath`).
+  'media',
+  // Phase 96 Theme C — global like `video` was: an Ollama daemon and its
   // models are not scoped to an open checkout.
   'models',
   'sessions',
@@ -84,7 +87,8 @@ export const SETTINGS_PAGE_IDS = [
   'reviews',
   'projects',
   'workflows',
-  'video',
+  // Phase 99 Theme A — Settings ▸ Media replaced Settings ▸ Video.
+  'media',
   // Phase 96 Theme C — host override + default model; the cloud API key row
   // (Theme F) lives here too, disabled until that theme lands.
   'ollama',

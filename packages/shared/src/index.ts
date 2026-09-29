@@ -22,6 +22,7 @@ export * from './ipc';
 export * from './keybindings';
 export * from './loops';
 export * from './mcp';
+export * from './media';
 export * from './ollama';
 export * from './ollama-launch';
 export * from './perf';

@@ -1,0 +1,124 @@
+import { Accordion } from '@bilo-io/ui';
+import { FFMPEG_INSTALL_COMMAND } from '@midnite/studio-shared';
+import { LuAudioLines, LuClapperboard, LuFolderOpen, LuImage, LuSettings2, LuX } from 'react-icons/lu';
+
+import { bridge } from '../../../services/bridge';
+import { useUiStore } from '../../../store/ui-store';
+import { useFfmpegStatus } from '../../media/use-media';
+import { submitCommand } from '../../terminal/submit-command';
+import { VideoRootSection } from './video-root-section';
+
+/**
+ * Settings ▸ Media (Phase 99 Theme A) — replaced Settings ▸ Video; a
+ * persisted `settingsPage: 'video'` migrates here (ui-store v29).
+ *
+ * - **General**: ffmpeg status (+ Install, typed into a visible terminal —
+ *   never run headless) and the export default folder (`mediaExportDir`).
+ * - **Video**: Phase 44's video root, unchanged.
+ * - **Images** / **Audio**: placeholders Themes C and E fill with provider,
+ *   model and API-key rows.
+ */
+export function MediaSettingsPage() {
+  return (
+    <div className="flex flex-col gap-3">
+      <Accordion title="General" icon={<LuSettings2 className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-4 p-3">
+          <FfmpegRow />
+          <ExportFolderRow />
+        </div>
+      </Accordion>
+      <Accordion title="Video" icon={<LuClapperboard className="h-4 w-4" />} defaultOpen>
+        <VideoRootSection />
+      </Accordion>
+      <Accordion title="Images" icon={<LuImage className="h-4 w-4" />}>
+        <p className="p-3 text-xs text-muted-foreground">
+          Image generation providers, default model and API keys will appear here.
+        </p>
+      </Accordion>
+      <Accordion title="Audio" icon={<LuAudioLines className="h-4 w-4" />}>
+        <p className="p-3 text-xs text-muted-foreground">
+          Audio generation arrives in a later phase. Today, audio is imported.
+        </p>
+      </Accordion>
+    </div>
+  );
+}
+
+function FfmpegRow() {
+  const ffmpeg = useFfmpegStatus();
+  const status = ffmpeg.data;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-foreground">ffmpeg</p>
+      <p className="text-[11px] text-muted-foreground">
+        Every image, video and audio export is transcoded by ffmpeg. It is an external tool — Midnite
+        does not bundle it.
+      </p>
+      <div className="flex items-center gap-2 text-xs">
+        {status?.found ? (
+          <span className="truncate font-mono text-foreground" data-testid="ffmpeg-path">
+            {status.path}
+          </span>
+        ) : (
+          <>
+            <span className="text-muted-foreground">{status ? status.reason : 'Checking…'}</span>
+            <button
+              type="button"
+              onClick={() => submitCommand(FFMPEG_INSTALL_COMMAND, 'ffmpeg install')}
+              className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground hover:bg-accent"
+            >
+              Install
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => void ffmpeg.refetch()}
+          className="rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          Re-check
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExportFolderRow() {
+  const mediaExportDir = useUiStore((s) => s.mediaExportDir);
+  const setMediaExportDir = useUiStore((s) => s.setMediaExportDir);
+
+  const choose = async () => {
+    const path = await bridge()?.repos.pickDirectory();
+    if (path) setMediaExportDir(path);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-foreground">Export folder</p>
+      <p className="text-[11px] text-muted-foreground">Where the export save dialog starts.</p>
+      {mediaExportDir ? (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs">
+          <span className="flex-1 truncate font-mono text-foreground">{mediaExportDir}</span>
+          <button
+            type="button"
+            onClick={() => setMediaExportDir(null)}
+            aria-label="Clear export folder"
+            className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <LuX aria-hidden className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">System default.</p>
+      )}
+      <button
+        type="button"
+        onClick={() => void choose()}
+        className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-accent"
+      >
+        <LuFolderOpen aria-hidden className="h-3.5 w-3.5" />
+        {mediaExportDir ? 'Change folder…' : 'Choose folder…'}
+      </button>
+    </div>
+  );
+}

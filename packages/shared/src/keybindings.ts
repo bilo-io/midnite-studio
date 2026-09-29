@@ -380,7 +380,17 @@ export const COMMANDS = [
    * anywhere.
    */
   { id: 'automate.kill', label: 'Auto-mate Kill Switch', group: 'operation' },
+  /**
+   * Phase 99 Theme A. Chord-free, like the other late views. `view.video`
+   * stays as an alias that opens Media on its Video tab, so a palette search
+   * for "Video" and any muscle memory still lands there.
+   */
+  { id: 'view.media', label: 'Go to Media', group: 'view' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
+  { id: 'media.tab.doc', label: 'Media: Docs', group: 'view' },
+  { id: 'media.tab.image', label: 'Media: Images', group: 'view' },
+  { id: 'media.tab.video', label: 'Media: Video', group: 'view' },
+  { id: 'media.tab.audio', label: 'Media: Audio', group: 'view' },
   /**
    * Phase 96 Theme C. Chord-free, same reasoning as `view.video` right
    * above — reachable from the rail and the palette.

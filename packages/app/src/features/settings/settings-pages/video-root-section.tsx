@@ -13,7 +13,7 @@ const VIDEO_ROOT_KEY = ['video-root'] as const;
  * is a real directory, and typing one by hand is the mistake this page
  * exists to prevent.
  */
-export function VideoSettingsPage() {
+export function VideoRootSection() {
   const client = useQueryClient();
   const root = useQuery({
     queryKey: VIDEO_ROOT_KEY,

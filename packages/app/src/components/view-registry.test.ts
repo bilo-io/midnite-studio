@@ -47,7 +47,7 @@ describe('VIEW_COMPONENT', () => {
         'settings',
         'councils',
         'workflows',
-        'video',
+        'media',
         'models',
         'optimizer',
         'database',
