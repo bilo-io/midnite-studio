@@ -29,30 +29,79 @@ import type { IconComponent } from '../../../components/icon-button';
 export type NodeCategory = 'trigger' | 'action' | 'logic' | 'data' | 'storage';
 
 /**
- * Icon + toolbar label + category per node kind — one table read by the
- * canvas's node view, the node palette (Theme I) and the "add node" toolbar,
+ * The node palette's labelled, collapsible sections, in display order. A
+ * group is what a kind is *for* ("which shelf do I look on"), which is a
+ * different axis from {@link NodeCategory}'s hue — `verify` and `gate` are
+ * both `logic`-tinted, but both also sit under "Control flow" here, while
+ * `http` (an `action` hue) sits under "Actions" beside `script`.
+ *
+ * Declared as a closed list so {@link NODE_KIND_META}'s required `group`
+ * field can only name one of these — a new kind cannot be left ungrouped
+ * (the `Record` over `WorkflowNodeKind` makes the entry itself mandatory, and
+ * the field makes the group mandatory within it). `node-kind-meta.test.ts`
+ * asserts the converse: no group is left empty.
+ */
+export const NODE_GROUPS = [
+  { id: 'triggers', label: 'Triggers' },
+  { id: 'ai', label: 'Agents & AI' },
+  { id: 'control', label: 'Control flow' },
+  { id: 'actions', label: 'Actions' },
+  { id: 'data', label: 'Data & transform' },
+  { id: 'harness', label: 'Harness & notes' },
+] as const;
+export type NodeGroup = (typeof NODE_GROUPS)[number]['id'];
+
+/**
+ * Icon + toolbar label + category + palette group per node kind — one table
+ * read by the canvas's node view, the node palette (Theme I) and the "add node" toolbar,
  * so none of the three can show a different glyph, name or tint for the same
  * kind.
  */
 export const NODE_KIND_META: Record<
   WorkflowNodeKind,
-  { label: string; icon: IconComponent; category: NodeCategory; description: string }
+  {
+    label: string;
+    icon: IconComponent;
+    category: NodeCategory;
+    group: NodeGroup;
+    description: string;
+  }
 > = {
-  http: { label: 'HTTP', icon: LuGlobe, category: 'action', description: 'Call a URL and capture the response.' },
+  http: {
+    label: 'HTTP',
+    icon: LuGlobe,
+    category: 'action',
+    group: 'actions',
+    description: 'Call a URL and capture the response.',
+  },
   transform: {
     label: 'Transform',
     icon: LuShuffle,
     category: 'data',
+    group: 'data',
     description: 'Pick and rename fields from upstream output.',
   },
   condition: {
     label: 'Condition',
     icon: LuGitBranch,
     category: 'logic',
+    group: 'control',
     description: 'Gate everything downstream on a comparison.',
   },
-  delay: { label: 'Delay', icon: LuClock, category: 'action', description: 'Pause the run for a fixed time.' },
-  note: { label: 'Note', icon: LuStickyNote, category: 'storage', description: 'A label on the canvas — never runs.' },
+  delay: {
+    label: 'Delay',
+    icon: LuClock,
+    category: 'action',
+    group: 'control',
+    description: 'Pause the run for a fixed time.',
+  },
+  note: {
+    label: 'Note',
+    icon: LuStickyNote,
+    category: 'storage',
+    group: 'harness',
+    description: 'A label on the canvas — never runs.',
+  },
   /**
    * Phase 95 Theme J. Both take the `action` hue — they run something with a
    * real side effect, exactly like `http`, rather than the unused `trigger`
@@ -63,12 +112,14 @@ export const NODE_KIND_META: Record<
     label: 'Agent',
     icon: LuBot,
     category: 'action',
+    group: 'ai',
     description: 'Run a roster agent in a real terminal session.',
   },
   script: {
     label: 'Script',
     icon: LuSquareTerminal,
     category: 'action',
+    group: 'actions',
     description: 'Run a shell command in a real terminal session.',
   },
   /**
@@ -82,6 +133,7 @@ export const NODE_KIND_META: Record<
     label: 'Join',
     icon: LuMerge,
     category: 'logic',
+    group: 'control',
     description: 'Merge several branches — all, any, or every outcome.',
   },
   /**
@@ -95,6 +147,7 @@ export const NODE_KIND_META: Record<
     label: 'Gate',
     icon: LuShieldCheck,
     category: 'logic',
+    group: 'control',
     description: 'Pause the run for approval — the run panel, the bell, MCP, or a PR comment.',
   },
   /**
@@ -108,6 +161,7 @@ export const NODE_KIND_META: Record<
     label: 'Router',
     icon: LuSplit,
     category: 'logic',
+    group: 'control',
     description: 'Send the run down one of several named cases, or default.',
   },
   /**
@@ -120,7 +174,9 @@ export const NODE_KIND_META: Record<
     label: 'Verify',
     icon: LuBadgeCheck,
     category: 'logic',
-    description: 'Check the upstream result — agent verdict, exit code, test counts or a JSON path.',
+    group: 'control',
+    description:
+      'Check the upstream result — agent verdict, exit code, test counts or a JSON path.',
   },
   /**
    * Phase 97 Theme H. The one kind that finally uses the `trigger` hue —
@@ -133,6 +189,7 @@ export const NODE_KIND_META: Record<
     label: 'Trigger',
     icon: LuTimer,
     category: 'trigger',
+    group: 'triggers',
     description: 'Start the run — manual, on a schedule, or a forge PR event.',
   },
   /**
@@ -144,6 +201,7 @@ export const NODE_KIND_META: Record<
     label: 'State',
     icon: LuDatabase,
     category: 'data',
+    group: 'data',
     description: "Write a value into this run's durable state — set, merge, or append.",
   },
   /**
@@ -156,6 +214,7 @@ export const NODE_KIND_META: Record<
     label: 'Frame',
     icon: LuFrame,
     category: 'storage',
+    group: 'harness',
     description: 'Group nodes under a shared contract, context and policy — the harness, drawn.',
   },
   /**
@@ -170,7 +229,9 @@ export const NODE_KIND_META: Record<
     label: 'Policy',
     icon: LuShieldAlert,
     category: 'logic',
-    description: 'A permission gate — which actions downstream nodes may take, and which need approval.',
+    group: 'harness',
+    description:
+      'A permission gate — which actions downstream nodes may take, and which need approval.',
   },
 };
 
@@ -178,7 +239,9 @@ export const NODE_KIND_META: Record<
 export function nodeSummary(node: WorkflowNode): string {
   switch (node.kind) {
     case 'http':
-      return node.config.url.trim() ? `${node.config.method} ${node.config.url}` : `${node.config.method} (no URL)`;
+      return node.config.url.trim()
+        ? `${node.config.method} ${node.config.url}`
+        : `${node.config.method} (no URL)`;
     case 'transform':
       return node.config.picks.length === 0
         ? 'No fields picked'
@@ -206,7 +269,9 @@ export function nodeSummary(node: WorkflowNode): string {
     case 'verify':
       switch (node.config.check) {
         case 'agent':
-          return node.config.agentId.trim() ? `Agent verdict · ${node.config.agentId}` : 'No agent selected';
+          return node.config.agentId.trim()
+            ? `Agent verdict · ${node.config.agentId}`
+            : 'No agent selected';
         case 'exit-code':
           return node.config.command.trim() ? `Exit code · ${node.config.command}` : 'No command';
         case 'test-counts':
@@ -222,12 +287,18 @@ export function nodeSummary(node: WorkflowNode): string {
       if (node.config.on === 'schedule') return `Schedule · ${node.config.cron}`;
       return `Forge PR · ${node.config.events.join('/')}`;
     case 'state':
-      return node.config.key.trim() ? `${node.config.op} ${node.config.key}` : `${node.config.op} (no key)`;
+      return node.config.key.trim()
+        ? `${node.config.op} ${node.config.key}`
+        : `${node.config.op} (no key)`;
     case 'frame':
       // Membership (`frameId`) lives on the MEMBER node, not here, so this
       // can only describe the frame's own slots, not who's inside it.
-      return node.config.contract.trim() || node.config.context.trim() ? 'Contract set' : 'Empty harness';
+      return node.config.contract.trim() || node.config.context.trim()
+        ? 'Contract set'
+        : 'Empty harness';
     case 'policy':
-      return node.config.allow.length === 0 ? 'Allows nothing' : `Allows ${node.config.allow.length}`;
+      return node.config.allow.length === 0
+        ? 'Allows nothing'
+        : `Allows ${node.config.allow.length}`;
   }
 }

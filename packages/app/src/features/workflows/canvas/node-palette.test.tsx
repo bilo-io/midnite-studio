@@ -1,25 +1,58 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { WORKFLOW_NODE_KINDS } from '@midnite/studio-shared';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { NodePalette } from './node-palette';
+import { NODE_GROUPS, NODE_KIND_META } from './node-kind-meta';
+import { NodePalette, paletteGroups } from './node-palette';
+
+function palette() {
+  return screen.getByRole('region', { name: 'Node types' });
+}
+
+function rows(): Element[] {
+  return Array.from(palette().querySelectorAll('[role="listitem"]'));
+}
+
+function groupToggle(label: string): HTMLElement {
+  return within(palette()).getByRole('button', { name: new RegExp(`^${label}`) });
+}
 
 describe('NodePalette', () => {
   afterEach(() => cleanup());
 
-  it('lists every node kind by default', () => {
+  it('lists every node kind by default, each exactly once', () => {
     render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
-    // 5 from Phase 43's MVP vocabulary, Phase 95 Theme J's `agent`/`script`,
-    // Phase 97 Theme B's `join`, Theme D's `gate`, Theme F's `router`,
-    // Theme E's `verify`, Theme H's `trigger`, Theme G's `state`, and Theme
-    // I's `frame`/`policy`.
-    expect(screen.getByRole('list', { name: 'Node types' }).querySelectorAll('[role="listitem"]')).toHaveLength(15);
+    expect(rows()).toHaveLength(WORKFLOW_NODE_KINDS.length);
+    for (const kind of WORKFLOW_NODE_KINDS) {
+      expect(screen.getAllByLabelText(`Add ${NODE_KIND_META[kind].label} node`)).toHaveLength(1);
+    }
+  });
+
+  it('puts each kind under its own labelled group, in NODE_GROUPS order', () => {
+    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    const lists = within(palette()).getAllByRole('list');
+    expect(lists.map((list) => list.getAttribute('aria-label'))).toEqual(NODE_GROUPS.map((group) => group.label));
+    const control = within(palette()).getByRole('list', { name: 'Control flow' });
+    expect(within(control).getByLabelText('Add Condition node')).not.toBeNull();
+    expect(within(control).queryByLabelText('Add HTTP node')).toBeNull();
+  });
+
+  it('collapses and re-expands a group from its heading', () => {
+    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    const toggle = groupToggle('Control flow');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(toggle);
+    expect(groupToggle('Control flow').getAttribute('aria-expanded')).toBe('false');
+    // Folding one group leaves the others alone.
+    expect(groupToggle('Actions').getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(groupToggle('Control flow'));
+    expect(groupToggle('Control flow').getAttribute('aria-expanded')).toBe('true');
   });
 
   it('filters rows by label as the query changes', () => {
     render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'http' } });
-    const rows = screen.getByRole('list', { name: 'Node types' }).querySelectorAll('[role="listitem"]');
-    expect(rows).toHaveLength(1);
+    expect(rows()).toHaveLength(1);
     expect(screen.getByLabelText('Add HTTP node')).not.toBeNull();
   });
 
@@ -29,10 +62,35 @@ describe('NodePalette', () => {
     expect(screen.getByLabelText('Add Condition node')).not.toBeNull();
   });
 
+  it('searches across groups, dropping groups with no match', () => {
+    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    // "run" hits kinds in several groups (agent, script, trigger, …).
+    fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'run' } });
+    const expected = paletteGroups('run');
+    expect(expected.length).toBeGreaterThan(1);
+    const lists = within(palette()).getAllByRole('list');
+    expect(lists.map((list) => list.getAttribute('aria-label'))).toEqual(expected.map((group) => group.label));
+    expect(rows()).toHaveLength(expected.reduce((sum, group) => sum + group.kinds.length, 0));
+  });
+
+  it('opens a folded group while a query matches inside it, and restores the fold after', () => {
+    render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
+    fireEvent.click(groupToggle('Control flow'));
+    expect(groupToggle('Control flow').getAttribute('aria-expanded')).toBe('false');
+
+    const filter = screen.getByPlaceholderText('Filter nodes…');
+    fireEvent.change(filter, { target: { value: 'router' } });
+    expect(groupToggle('Control flow').getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.change(filter, { target: { value: '' } });
+    expect(groupToggle('Control flow').getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('shows an empty state when nothing matches', () => {
     render(<NodePalette collapsed={false} onToggleCollapsed={() => {}} onAddNode={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText('Filter nodes…'), { target: { value: 'zzz-no-match' } });
     expect(screen.getByText('No node matches this filter.')).not.toBeNull();
+    expect(rows()).toHaveLength(0);
   });
 
   it('calls onAddNode with the clicked kind', () => {
@@ -62,7 +120,7 @@ describe('NodePalette', () => {
   it('collapses to a rail with a single toggle button', () => {
     const onToggleCollapsed = vi.fn();
     render(<NodePalette collapsed onToggleCollapsed={onToggleCollapsed} onAddNode={() => {}} />);
-    expect(screen.queryByRole('list', { name: 'Node types' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Node types' })).toBeNull();
     fireEvent.click(screen.getByLabelText('Show node palette'));
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
   });
