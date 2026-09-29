@@ -127,19 +127,32 @@ test('the panel animates open and shut, the rows below follow it, and the lanes 
     .poll(async () => Math.round((await row(page, 4).boundingBox())!.y))
     .toBe(Math.round(slot.y + slot.height));
 
-  // The lanes under the card sit exactly over the next row's lanes.
-  const under = await laneXs(page, '[data-graph-lane-continuation]');
-  const below = await row(page, 4).evaluate((el) =>
-    [...el.querySelectorAll('svg[data-graph-gutter] line, svg line')]
-      .map((line) => {
-        const box = line.getBoundingClientRect();
-        return Math.round(box.left + box.width / 2);
-      })
-      .filter((x, i, all) => all.indexOf(x) === i)
-      .sort((a, b) => a - b),
-  );
-  expect(under).toHaveLength(2);
-  for (const x of under) expect(below).toContain(x);
+  // The lanes under the card sit exactly over the next row's lanes — at the
+  // full width, and after the window narrows enough that the BRANCH / TAG
+  // column gives up width and the CI column hides (the graph's own container
+  // queries), because the strip under the card shrinks cell for cell with the
+  // rows only if it mirrors their whole grid.
+  for (const width of [1440, 1280, 760]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(async () => {
+        const under = await laneXs(page, '[data-graph-lane-continuation]');
+        const below = await row(page, 4).evaluate((el) =>
+          [...el.querySelectorAll('svg line')]
+            .map((line) => {
+              const box = line.getBoundingClientRect();
+              return Math.round(box.left + box.width / 2);
+            })
+            .filter((x, i, all) => all.indexOf(x) === i),
+        );
+        return under.length === 2 && under.every((x) => below.includes(x));
+      }, { message: `lanes under the panel line up at ${width}px` })
+      .toBe(true);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect
+    .poll(async () => Math.round((await row(page, 4).boundingBox())!.y))
+    .toBe(Math.round((await expander(page).boundingBox())!.y + (await expander(page).boundingBox())!.height));
 
   // Escape collapses it, animated, and the rows close back up.
   await armSampler(page, 400);

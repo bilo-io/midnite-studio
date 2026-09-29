@@ -5,7 +5,8 @@ import type { GraphRow } from '@midnite/studio-shared';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import type { Resizable } from '../../components/resizable/use-resizable';
 import { isReducedMotion } from '../../lib/reduced-motion';
-import { laneCentre, type GraphTheme } from './graph-themes';
+import { CiSpacer } from './ci-cell';
+import { RAIL_WIDTH, laneCentre, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor } from './lane-colors';
 
 /**
@@ -215,10 +216,16 @@ export function InlineSlot({
 }
 
 /**
- * The lanes running under the card, on the same horizontal grid the rows use:
- * an empty BRANCH / TAG cell, then the gutter. Built as a row of the same
- * flex cells rather than from a computed offset, so a column added to the
- * rows is a cell added here and the lanes cannot drift out of line.
+ * The lanes running under the card, on exactly the horizontal grid the rows
+ * use — every cell of a row, in order, with the row's own column classes:
+ * the BRANCH / TAG cell (`.graph-ref-col`, which shrinks), the CI column's
+ * slot (`CiSpacer`, hidden with the column or below the graph's narrow
+ * container width), the gutter, the avatar styles' rail, the message cell
+ * (`.graph-msg-col`) and the trailing column spacers. Mirroring the whole
+ * row rather than computing an offset is what keeps the lanes on the rows'
+ * x at every width: the ref column gives up width as the graph narrows, and
+ * it gives up exactly the same amount here only because every sibling that
+ * competes with it is here too.
  */
 export function LaneContinuation({
   lanes,
@@ -232,27 +239,41 @@ export function LaneContinuation({
   laneWidth: number;
 }) {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 flex gap-2" data-graph-lane-continuation="">
-      <div className="shrink-0" style={{ width: 'var(--col-branch-tag)' }} />
-      <svg width={gutterWidth} height="100%" className="block shrink-0 overflow-visible">
-        {lanes.map(({ lane, colorIdx, dashed }) => {
-          const x = laneCentre(theme, laneWidth, lane);
-          return (
-            <line
-              key={lane}
-              x1={x}
-              y1="0"
-              x2={x}
-              y2="100%"
-              stroke={laneColor(colorIdx, theme.palette)}
-              strokeWidth={theme.strokeWidth}
-              {...(dashed
-                ? { strokeDasharray: `${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}` }
-                : {})}
-            />
-          );
-        })}
-      </svg>
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 flex gap-2 pr-3"
+      data-graph-lane-continuation=""
+    >
+      <div className="graph-ref-col pl-2" style={{ width: 'var(--col-branch-tag)' }} />
+      <CiSpacer />
+      <span className="flex shrink-0">
+        <svg width={gutterWidth} height="100%" className="block shrink-0 overflow-visible">
+          {lanes.map(({ lane, colorIdx, dashed }) => {
+            const x = laneCentre(theme, laneWidth, lane);
+            return (
+              <line
+                key={lane}
+                x1={x}
+                y1="0"
+                x2={x}
+                y2="100%"
+                stroke={laneColor(colorIdx, theme.palette)}
+                strokeWidth={theme.strokeWidth}
+                {...(dashed
+                  ? { strokeDasharray: `${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}` }
+                  : {})}
+              />
+            );
+          })}
+        </svg>
+      </span>
+      {theme.node === 'avatar' ? <span className="shrink-0" style={{ width: RAIL_WIDTH }} /> : null}
+      <div className="graph-msg-col flex-1" />
+      {showsAuthorColumn(theme) ? (
+        <span className="shrink-0" style={{ width: 'var(--col-author)' }} />
+      ) : null}
+      <span className="shrink-0" style={{ width: 'var(--col-date)' }} />
+      <span className="shrink-0" style={{ width: 'var(--col-sha)' }} />
     </div>
   );
 }
