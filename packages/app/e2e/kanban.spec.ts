@@ -570,35 +570,35 @@ test.describe('card-detail panel history (Theme D)', () => {
 });
 
 /**
- * Phase 92 Theme D's fork, proved against the real assembled app rather than
- * the isolated `use-card-play.test.tsx` hook — `board-view.tsx` mounts the
- * one `DialogHost` this menu actually opens through, and only the assembled
- * app can show a click landing on it and the session that follows.
+ * The card's Play button against the real assembled app rather than the
+ * isolated `use-card-play.test.tsx` hook: typing into the detail pane's skill
+ * combobox and pressing the card's own Play is a multi-view flow (detail
+ * pane → board card → terminal panel), and only the assembled app shows the
+ * typed text arriving in the pty's initial input intact.
  */
-test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
-  test('an unset card: Play opens the fallback menu, and one click on an entry both launches and closes it', async ({
+test.describe('Play button — the card skill picker', () => {
+  test('free text typed into the skill combobox is what Play sends, verbatim, with no menu', async ({
     page,
   }) => {
     await openBoard(page, base);
 
+    await page.getByText('Wire the write path').click();
+    const picker = page.getByTestId('card-detail').last().getByRole('combobox', { name: 'Skill' });
+    // Prepopulated for an ad hoc card nobody has chosen a skill for.
+    await expect(picker).toHaveValue('/midnite-create-adhoc');
+    await picker.fill('/midnite-create 98 D');
+    await picker.press('Enter');
+
     const card = page
       .getByText('Wire the write path')
+      .first()
       .locator('xpath=ancestor::*[@data-card-id]');
     await card.getByTestId('card-play-agent').click();
 
-    // Exactly three entries — never the full six-entry `tasks` category.
-    await expect(page.getByRole('menu')).toBeVisible();
-    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Ideate', 'Refine']);
-
-    // One click: no second confirm, no second click needed.
-    await page.getByRole('menuitem', { name: 'Exec' }).click();
-    await expect(page.getByRole('menu')).toHaveCount(0);
-
-    // It launched — a fresh pty came up with the shrunk skill+link prompt,
-    // never the title/assignees/labels/body `composeCardPrompt` would send.
+    expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/42');
+    expect(create.initialInput).toContain("'/midnite-create 98 D https://github.com/bilo-io/midnite-studio/issues/42'");
     expect(create.initialInput).not.toContain('Wire the write path');
 
     // And the terminal panel opened on it — `revealSession`'s own job.

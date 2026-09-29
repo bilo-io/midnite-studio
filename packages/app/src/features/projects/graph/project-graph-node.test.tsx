@@ -248,7 +248,7 @@ describe('ProjectGraphNode', () => {
     expect(headerRow?.contains(avatar)).toBe(true);
   });
 
-  it('renders play button in the bottom right corner and opens the fallback menu with no skill set (Theme D)', () => {
+  it('renders play button in the bottom right corner and launches the default skill with none set', () => {
     const item = issueItem({
       content: {
         type: 'issue',
@@ -278,12 +278,10 @@ describe('ProjectGraphNode', () => {
     fireEvent.click(playBtn);
     // Clicking the play button should stop propagation and not trigger card selection
     expect(onSelect).not.toHaveBeenCalled();
-    // No skill set for this (freshly-minted) item — the pointer-anchored
-    // fallback menu offers exactly Exec, Ideate, Refine, nothing launches yet.
-    expect(screen.getByRole('menuitem', { name: 'Exec' })).toBeDefined();
-    expect(screen.getByRole('menuitem', { name: 'Ideate' })).toBeDefined();
-    expect(screen.getByRole('menuitem', { name: 'Refine' })).toBeDefined();
-    expect(useTerminalStore.getState().sessions).toHaveLength(0);
+    // No skill set for this (freshly-minted) item — Play sends the skill
+    // picker's default (`defaultCardSkill`) directly; there is no menu.
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(useTerminalStore.getState().sessions).toHaveLength(1);
   });
 
   it('starts an agent directly, no menu, once a skill is set for this card (Theme D)', () => {
@@ -296,6 +294,8 @@ describe('ProjectGraphNode', () => {
         assignees: [],
       } as never,
     });
+    // The previous test's Play launched a session of its own now.
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
     useUiStore.setState({ cardSkillByTask: { [`proj-1:${item.id}`]: 'execAdhoc' } });
     const onSelect = vi.fn();
     const { container } = renderNode(

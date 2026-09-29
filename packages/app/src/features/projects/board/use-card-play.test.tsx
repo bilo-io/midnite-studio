@@ -122,9 +122,16 @@ describe('useCardPlay (Phase 92 Theme A)', () => {
     });
   });
 
-  describe('no skill set for this card (Phase 92 Theme D)', () => {
-    it('opens a pointer-anchored menu with exactly Exec, Ideate, Refine — nothing launches yet', () => {
-      const item = issueItem({ id: TASK_REF.itemId, content: { type: 'issue', title: 'Fix it' } as never });
+  describe('no skill set for this card — Play sends the picker\'s default', () => {
+    const URL = 'https://github.com/acme/widgets/issues/1';
+    const launchedInput = () => {
+      const sessions = useTerminalStore.getState().sessions;
+      expect(sessions).toHaveLength(1);
+      return useTerminalStore.getState().pendingInput[sessions[0]!.id]!;
+    };
+
+    it('launches /midnite-create-adhoc for an ad hoc card — no menu, nothing persisted', () => {
+      const item = issueItem({ id: TASK_REF.itemId, content: { type: 'issue', title: 'Fix it', url: URL } as never });
       const { result } = renderHook(
         () => useCardPlay({ item, repoId: 'r1', worktreePath: '/repo', taskRef: TASK_REF, sessionId: undefined }),
         { wrapper },
@@ -132,50 +139,56 @@ describe('useCardPlay (Phase 92 Theme A)', () => {
 
       firePlay(result.current.onPlay);
 
-      const items = screen.getAllByRole('menuitem').map((el) => el.textContent);
-      expect(items).toEqual(['Exec', 'Ideate', 'Refine']);
-      expect(useTerminalStore.getState().sessions).toHaveLength(0);
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(launchedInput()).toContain(`'/midnite-create-adhoc ${URL}'`);
+      expect(useUiStore.getState().cardSkillByTask[TASK_KEY]).toBeUndefined();
     });
 
-    it('selecting a menu entry launches with that skill and persists the choice', () => {
+    it('launches /midnite-create for a card whose title names a phase', () => {
       const item = issueItem({
         id: TASK_REF.itemId,
-        content: { type: 'issue', title: 'Fix it', url: 'https://github.com/acme/widgets/issues/1' } as never,
+        content: { type: 'issue', title: 'Phase 98 Theme D', url: URL } as never,
       });
       const { result } = renderHook(
         () => useCardPlay({ item, repoId: 'r1', worktreePath: '/repo', taskRef: TASK_REF, sessionId: undefined }),
         { wrapper },
       );
-
       firePlay(result.current.onPlay);
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Ideate' }));
-
-      const sessions = useTerminalStore.getState().sessions;
-      expect(sessions).toHaveLength(1);
-      const queued = useTerminalStore.getState().pendingInput[sessions[0]!.id]!;
-      expect(queued).toContain('/midnite-ideate https://github.com/acme/widgets/issues/1');
-      expect(useUiStore.getState().cardSkillByTask[TASK_KEY]).toBe('brainstorm');
+      expect(launchedInput()).toContain(`'/midnite-create ${URL}'`);
     });
 
-    it('a second Play on the same card, after picking, no longer opens the menu', () => {
-      const item = issueItem({ id: TASK_REF.itemId, content: { type: 'issue', title: 'Fix it' } as never });
+    it('uses the most recently used skill on any other card before either default', () => {
+      useUiStore.setState({ cardSkillByTask: { 'proj-1:older': '/midnite-refine', 'proj-1:newer': '/midnite-verify 12' } });
+      const item = issueItem({ id: TASK_REF.itemId, content: { type: 'issue', title: 'Fix it', url: URL } as never });
       const { result } = renderHook(
         () => useCardPlay({ item, repoId: 'r1', worktreePath: '/repo', taskRef: TASK_REF, sessionId: undefined }),
         { wrapper },
       );
-
       firePlay(result.current.onPlay);
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Refine' }));
-      expect(useUiStore.getState().cardSkillByTask[TASK_KEY]).toBe('refine');
-
-      // `useUiStore`'s own subscription re-renders the hook the moment the
-      // store updates — no manual `rerender` needed, the same way a real
-      // `TaskCard`/`ProjectGraphNode` picks the freshly-persisted skill.
-      firePlay(result.current.onPlay);
-
-      expect(screen.queryByRole('menu')).toBeNull();
-      expect(useTerminalStore.getState().sessions).toHaveLength(2);
+      expect(launchedInput()).toContain(`'/midnite-verify 12 ${URL}'`);
     });
+  });
+
+  it("passes the card's free-text skill through verbatim, shell-quoted as one argument", () => {
+    useUiStore.setState({ cardSkillByTask: { [TASK_KEY]: "midnite-create 98 D; echo $HOME 'x'" } });
+    const item = issueItem({
+      id: TASK_REF.itemId,
+      content: { type: 'issue', title: 'Fix it', url: 'https://github.com/acme/widgets/issues/1' } as never,
+    });
+    const { result } = renderHook(
+      () => useCardPlay({ item, repoId: 'r1', worktreePath: '/repo', taskRef: TASK_REF, sessionId: undefined }),
+      { wrapper },
+    );
+
+    firePlay(result.current.onPlay);
+
+    const session = useTerminalStore.getState().sessions[0]!;
+    const queued = useTerminalStore.getState().pendingInput[session.id]!;
+    // Single-quoted, the inner quotes closed-escaped-reopened — `;` and `$HOME`
+    // reach the agent as text, never the shell.
+    expect(queued).toContain(
+      String.raw`'midnite-create 98 D; echo $HOME '\''x'\'' https://github.com/acme/widgets/issues/1'`,
+    );
   });
 
   it('produces a byte-identical startAgent call regardless of which caller supplies the same inputs', () => {
