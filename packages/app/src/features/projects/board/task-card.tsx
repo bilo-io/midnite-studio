@@ -11,6 +11,8 @@ import { closeSessionWithConfirm } from '../../terminal/close-session';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
+import type { StatusStroke } from '../status-stroke';
+import { StatusBorder } from './status-border';
 import { cardGlowStateFromActivity } from './glow-state';
 import { useCardPlay } from './use-card-play';
 import { useCardStatus } from './use-card-status';
@@ -39,6 +41,7 @@ export function TaskCard({
   projectId,
   isOpen = false,
   statusColor,
+  statusStroke = null,
   tabIndex = -1,
   onClick,
 }: {
@@ -61,6 +64,13 @@ export function TaskCard({
    * overlay) or the column carries no colour.
    */
   statusColor?: string;
+  /**
+   * The item's own Status stroke (`itemStatusStroke`): a thicker border in
+   * the status colour, dashed and marching for the statuses the table says.
+   * Replaces the `statusColor` ring while the card is idle; a live glow
+   * still wins over both.
+   */
+  statusStroke?: StatusStroke | null;
   /**
    * Roving tabindex (Phase 52 Theme G): exactly one card on the board is `0`
    * at a time — the board's own single Tab stop — every other card (and the
@@ -113,6 +123,7 @@ export function TaskCard({
   // line (free, from the store, regardless of mount state) otherwise.
   const cardRef = useRef<HTMLDivElement>(null);
   const visible = useCardVisible(cardRef);
+  const showStatusBorder = glow === 'idle' && statusStroke !== null;
 
   const { onPlay } = useCardPlay({
     item,
@@ -155,17 +166,25 @@ export function TaskCard({
           onClick?.();
         }
       }}
-      className={`relative flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
-        glow === 'idle' ? '' : `agent-run-glow is-${glow}`
-      }`}
+      data-status-kind={statusStroke?.kind}
+      className={`relative flex w-full flex-col gap-1.5 rounded bg-background px-2 py-1.5 text-left text-xs ${
+        showStatusBorder
+          ? 'border-2 border-transparent hover:bg-accent/40'
+          : 'border border-border hover:border-foreground/30'
+      } ${glow === 'idle' ? '' : `agent-run-glow is-${glow}`}`}
       // A static ring in the card's own status-pill colour, once idle with
       // nothing else to show — never applied while a real glow class is
       // active above, so it can never fight the ramp/amber ring for the
       // same border. Inline because the colour is board data, not a
       // Tailwind class this stylesheet has ever seen (`CardFieldChips`'
       // own chips make the identical trade).
-      style={glow === 'idle' && activityGlow.ringColor ? { borderColor: activityGlow.ringColor } : undefined}
+      style={
+        glow === 'idle' && !showStatusBorder && activityGlow.ringColor
+          ? { borderColor: activityGlow.ringColor }
+          : undefined
+      }
     >
+      {showStatusBorder && statusStroke ? <StatusBorder stroke={statusStroke} offscreen={!visible} /> : null}
       {activityGlow.badges.length > 0 ? (
         <ActivityBadgeStack badges={activityGlow.badges} className="absolute -right-1 -top-1 z-10" />
       ) : null}

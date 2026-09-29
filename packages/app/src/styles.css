@@ -3719,6 +3719,49 @@ html[data-motion='reduced'] .dep-edge-animated {
   animation: none;
 }
 
+/*
+  Status stroke (ad hoc) — a task's status colour and dash on its card border
+  and on the edge leading out of it to the task it blocks. The pattern per
+  status is `features/projects/status-stroke.ts`'s one table; the colour is
+  the status option's own, set inline. An HTML border cannot animate its
+  dashes, so the card's dashed border is an SVG <rect> over a transparent
+  border (`StatusBorder`), sharing the edge's `dep-edge-dash` keyframe — the
+  two march in step. The edge takes `.dep-edge-animated` itself.
+
+  Gated like every other loop here: paused in a blurred window and while the
+  card is scrolled out of view (`data-offscreen`, from the card's own
+  IntersectionObserver), stopped under reduced motion. The dash pattern
+  stays, so a status still reads with nothing moving.
+*/
+.status-border {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.status-border-rect {
+  fill: none;
+}
+
+.status-stroke-animated {
+  animation: dep-edge-dash 1s linear infinite;
+}
+
+html[data-window-focused='false'] .status-stroke-animated,
+.status-border[data-offscreen] .status-stroke-animated {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .status-stroke-animated {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .status-stroke-animated {
+  animation: none;
+}
+
 /* ---------------------------------------------------------------------------
  * The collapsed FAB's orbiting halo — the panel's inner rim, turned inside out.
  *

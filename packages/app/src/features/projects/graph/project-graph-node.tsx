@@ -11,7 +11,9 @@ import { revealSession } from '../../terminal/reveal-session';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
 import type { CardGlowState } from '../board/glow-state';
+import { StatusBorder } from '../board/status-border';
 import { useCardPlay } from '../board/use-card-play';
+import type { StatusStroke } from '../status-stroke';
 import { FORGE_GRAPH_GEOMETRY, type PositionedNode } from './graph-layout';
 
 /**
@@ -35,6 +37,7 @@ export function ProjectGraphNode({
   item,
   fields,
   glow,
+  statusStroke = null,
   badges = EMPTY_BADGES,
   selected,
   tabIndex = -1,
@@ -48,6 +51,10 @@ export function ProjectGraphNode({
   item: ForgeProjectItem | undefined;
   fields: readonly ForgeProjectField[];
   glow: CardGlowState;
+  /** The item's Status stroke — the same one the edge leading out of this
+   *  node wears (`edgeAppearance`). `null` for a foreign node or an item
+   *  with no Status value, which keep the closed/foreign borders below. */
+  statusStroke?: StatusStroke | null;
   /** The node's live-session identity badge(s) (Phase 95 Theme C) — `useGraphAgentStates`'s own entry, defaulted so every existing caller (every test in this suite included) keeps compiling unchanged. */
   badges?: readonly ActivityGlowBadge[];
   /** Whether this node's detail pane is the one currently open — a visual
@@ -85,15 +92,20 @@ export function ProjectGraphNode({
   const number = titleIsNumberFallback ? null : node.number;
 
   const isClosed = node.state === 'closed';
-  const borderClass = isClosed
-    ? selected
-      ? 'border-[2.5px] border-primary is-closed'
-      : 'border-[2.5px] border-[hsl(var(--dep-done))] is-closed'
-    : selected
-      ? 'border border-primary'
-      : node.foreign
-        ? 'border border-dashed border-muted-foreground/50'
-        : 'border border-border';
+  // Selection still wins (the open node must be findable), and so does a
+  // live glow, which paints its own ring over the border.
+  const showStatusBorder = statusStroke !== null && !selected && glow === 'idle';
+  const borderClass = showStatusBorder
+    ? 'border-2 border-transparent'
+    : isClosed
+      ? selected
+        ? 'border-[2.5px] border-primary is-closed'
+        : 'border-[2.5px] border-[hsl(var(--dep-done))] is-closed'
+      : selected
+        ? 'border border-primary'
+        : node.foreign
+          ? 'border border-dashed border-muted-foreground/50'
+          : 'border border-border';
 
   return (
     <div
@@ -103,6 +115,7 @@ export function ProjectGraphNode({
       data-ready={node.ready ? '' : undefined}
       data-foreign={node.foreign ? '' : undefined}
       data-closed={isClosed ? '' : undefined}
+      data-status-kind={statusStroke?.kind}
       role="button"
       aria-pressed={selected}
       tabIndex={tabIndex}
@@ -134,6 +147,7 @@ export function ProjectGraphNode({
         .filter(Boolean)
         .join(' ')}
     >
+      {showStatusBorder && statusStroke ? <StatusBorder stroke={statusStroke} /> : null}
       {badges.length > 0 ? (
         <ActivityBadgeStack badges={badges} className="absolute -left-1.5 -top-1.5 z-10" />
       ) : null}

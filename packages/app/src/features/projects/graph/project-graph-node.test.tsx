@@ -7,6 +7,7 @@ import { issueItem } from '../__fixtures__/project-item';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import type { PositionedNode } from './graph-layout';
+import { statusStroke } from '../status-stroke';
 import { ProjectGraphNode } from './project-graph-node';
 
 afterEach(cleanup);
@@ -370,5 +371,42 @@ describe('ProjectGraphNode', () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(useTerminalStore.getState().activeId).toBe('sess-active');
     expect(useUiStore.getState().terminalOpen).toBe(true);
+  });
+
+  describe('the status border', () => {
+    const inReview = statusStroke('In Review', 'PURPLE');
+
+    it('wears the status stroke in place of the plain border', () => {
+      const { container } = renderNode(
+        <ProjectGraphNode
+          node={baseNode({ state: 'closed' })}
+          item={issueItem()}
+          fields={[]}
+          glow="idle"
+          statusStroke={inReview}
+          selected={false}
+          onSelect={() => {}}
+        />,
+      );
+      const el = container.querySelector('[data-graph-node]') as HTMLElement;
+      expect(el.dataset.statusKind).toBe('inReview');
+      expect(el.className).toContain('border-2 border-transparent');
+      // The closed border would fight the status stroke for the same edge.
+      expect(el.className).not.toContain('is-closed');
+      const rect = container.querySelector('[data-status-border] rect');
+      expect(rect?.getAttribute('stroke')).toBe(inReview.color);
+      expect(rect?.getAttribute('stroke-dasharray')).toBe(inReview.dashArray);
+    });
+
+    it('selection and a live glow each win over it', () => {
+      const { container, rerender } = renderNode(
+        <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" statusStroke={inReview} selected onSelect={() => {}} />,
+      );
+      expect(container.querySelector('[data-status-border]')).toBeNull();
+      rerender(
+        <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="running" statusStroke={inReview} selected={false} onSelect={() => {}} />,
+      );
+      expect(container.querySelector('[data-status-border]')).toBeNull();
+    });
   });
 });

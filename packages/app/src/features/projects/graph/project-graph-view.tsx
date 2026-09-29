@@ -13,6 +13,7 @@ import {
   zoomAtPointer,
   type Rect,
 } from '../../workflows/canvas/workflow-path';
+import { findStatusField, itemStatusStroke, type StatusStroke } from '../status-stroke';
 import { edgeAppearance } from './edge-appearance';
 import { DEFAULT_GRAPH_FACETS, filterForgeGraph, type ProjectGraphFacets } from './graph-filter';
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
@@ -97,6 +98,17 @@ export function ProjectGraphView({
   useWindowFocusGate(true);
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item] as const)), [items]);
+  // One status stroke per item, read by both the node's border and the edge
+  // leading out of it — computed once here so the two cannot disagree.
+  const statusStrokeById = useMemo(() => {
+    const statusField = findStatusField(fields);
+    const map = new Map<string, StatusStroke>();
+    for (const item of items) {
+      const stroke = itemStatusStroke(item, statusField);
+      if (stroke) map.set(item.id, stroke);
+    }
+    return map;
+  }, [items, fields]);
 
   // `items` is already the shared toolbar's own filtered array (Theme H) —
   // its ids are exactly what "survived the item filter" means, so no second
@@ -293,15 +305,18 @@ export function ProjectGraphView({
               // blocker/dependent pair, the reverse of this edge's own
               // `to`/`from` — see that module's doc comment.
               const sourceGlow = (to.itemId ? agentStates.get(to.itemId) : undefined) ?? idleGraphNodeActivity();
-              const appearance = edgeAppearance(edge, to, from, sourceGlow.glow);
+              const sourceStatus = (to.itemId ? statusStrokeById.get(to.itemId) : undefined) ?? null;
+              const appearance = edgeAppearance(edge, to, from, sourceGlow.glow, sourceStatus);
               return (
                 <path
                   key={`${edge.kind}|${edge.from}|${edge.to}`}
                   data-edge-kind={edge.kind}
                   data-edge-source={edge.source}
                   d={edgePath(start.x, start.y, end.x, end.y)}
+                  data-status-kind={sourceStatus?.kind}
                   className={appearance.className}
                   strokeWidth={appearance.strokeWidth}
+                  style={appearance.style}
                 />
               );
             })}
@@ -316,6 +331,7 @@ export function ProjectGraphView({
                 item={itemById.get(node.itemId)}
                 fields={fields}
                 glow={nodeActivity.glow}
+                statusStroke={(node.itemId ? statusStrokeById.get(node.itemId) : undefined) ?? null}
                 badges={nodeActivity.badges}
                 selected={node.itemId !== '' && node.itemId === selectedItemId}
                 tabIndex={node.key === rovingKey ? 0 : -1}
@@ -364,6 +380,10 @@ function GraphLegend({ projectId }: { projectId: string }) {
       </button>
       {expanded ? (
         <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 pb-2 text-[11px] text-muted-foreground">
+          <LegendRow
+            swatch="border-2 border-dashed border-muted-foreground"
+            label="Status — a blocker's edge wears its status colour and dash, the same as its card's border"
+          />
           <LegendRow swatch="border-solid" style={{ borderColor: 'hsl(var(--dep-done))' }} label="Done — this blocker is closed" />
           <LegendRow swatch="border-dashed" style={{ borderColor: 'hsl(var(--dep-active))' }} label="Active — an agent is working the blocker" />
           <LegendRow swatch="border-dashed" style={{ borderColor: 'hsl(var(--dep-idle))' }} label="Idle — not yet started" />

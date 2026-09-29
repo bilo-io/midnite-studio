@@ -420,12 +420,12 @@ test.describe('kanban card running glow (Theme F)', () => {
     // `TaskCard`'s own root carries `role="button"` and the glow class
     // together — searching by role rather than counting div depth is what
     // stays correct if the card's internal markup ever grows a wrapper.
-    const card = page.getByText('Wire the write path').locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    const card = page.getByText('Wire the write path').locator('xpath=ancestor::*[@data-card-id]');
     await expect(card).toHaveClass(/agent-run-glow/);
     await expect(card).toHaveClass(/is-running/);
 
     // The other, untouched item has no session bound to it — no glow at all.
-    const otherCard = page.getByText('A card nobody touches').locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    const otherCard = page.getByText('A card nobody touches').locator('xpath=ancestor::*[@data-card-id]');
     await expect(otherCard).not.toHaveClass(/agent-run-glow/);
 
     /*
@@ -469,7 +469,7 @@ test.describe('revealing a card session in the terminal', () => {
 
     const card = page
       .getByText('Wire the write path')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await expect(card).toHaveClass(/is-running/);
     await expect(card.getByTestId('card-play-agent')).toHaveCount(0);
     await expect(card.getByTestId('card-stop-agent')).toBeVisible();
@@ -478,7 +478,7 @@ test.describe('revealing a card session in the terminal', () => {
     // The untouched card has no active session, so its button is "Start agent"
     const otherCard = page
       .getByText('A card nobody touches')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await expect(otherCard.getByTestId('card-play-agent')).toHaveAttribute('title', 'Start agent');
 
     // The embedded terminal is open by default (Theme G's `>_` starts
@@ -508,7 +508,7 @@ test.describe('revealing a card session in the terminal', () => {
 
     const card = page
       .getByText('Wire the write path')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await expect(card.locator('.xterm-screen')).toBeVisible();
 
     await card.getByTestId('card-terminal-toggle').click();
@@ -579,7 +579,7 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
 
     const card = page
       .getByText('Wire the write path')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await card.getByTestId('card-play-agent').click();
 
     // Exactly three entries — never the full six-entry `tasks` category.
@@ -612,7 +612,7 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
 
     const otherCard = page
       .getByText('A card nobody touches')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await otherCard.getByTestId('card-play-agent').click();
 
     expect(await page.getByRole('menu').count()).toBe(0);

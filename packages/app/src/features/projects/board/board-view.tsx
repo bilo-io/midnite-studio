@@ -53,6 +53,7 @@ import {
   type BoardColumn,
 } from './board-derive';
 import { fieldOptionColor } from '../field-option-colors';
+import { findStatusField, itemStatusStroke } from '../status-stroke';
 import { TaskCard } from './task-card';
 
 /**
@@ -293,6 +294,9 @@ export function BoardView({
     () => fields.filter((field) => field.id !== groupField?.id),
     [fields, groupField],
   );
+  // Read off the full field list, not `cardFields`: when the board groups by
+  // Status, that field is exactly the one `cardFields` drops.
+  const statusField = useMemo(() => findStatusField(fields), [fields]);
 
   /*
     Roving tabindex (Phase 52 Theme G): one card on the board is `0` — this
@@ -590,6 +594,7 @@ export function BoardView({
                 column={column}
                 columns={columns}
                 fields={cardFields}
+                statusField={statusField}
                 projectId={projectId}
                 selectedItemId={selectedItemId}
                 focusedItemId={focusedItemId}
@@ -635,7 +640,12 @@ export function BoardView({
       <DragOverlay dropAnimation={null}>
         {activeItem ? (
           <div className="w-72 opacity-90">
-            <TaskCard item={activeItem} fields={cardFields} projectId={projectId} />
+            <TaskCard
+              item={activeItem}
+              fields={cardFields}
+              projectId={projectId}
+              statusStroke={itemStatusStroke(activeItem, statusField)}
+            />
           </div>
         ) : null}
       </DragOverlay>
@@ -670,6 +680,7 @@ function BoardColumnView({
   column,
   columns,
   fields,
+  statusField,
   projectId,
   selectedItemId,
   focusedItemId,
@@ -684,6 +695,8 @@ function BoardColumnView({
   /** Every column, for the "Move to ▸" menu — never just this one's siblings. */
   columns: readonly BoardColumn[];
   fields: readonly ForgeProjectField[];
+  /** The board's Status field, for each card's status stroke. */
+  statusField: ForgeProjectField | null;
   projectId: string;
   selectedItemId: string | null;
   /** The roving-tabindex target (Phase 52 Theme G) — the one card on the
@@ -757,6 +770,7 @@ function BoardColumnView({
           column={column}
           columns={columns}
           fields={fields}
+          statusField={statusField}
           projectId={projectId}
           selectedItemId={selectedItemId}
           focusedItemId={focusedItemId}
@@ -773,6 +787,7 @@ function BoardColumnView({
                 key={item.id}
                 item={item}
                 fields={fields}
+                statusField={statusField}
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
                 tabIndex={item.id === focusedItemId ? 0 : -1}
@@ -814,6 +829,7 @@ function BoardColumnView({
 function DraggableCard({
   item,
   fields,
+  statusField,
   projectId,
   isOpen,
   tabIndex,
@@ -826,6 +842,8 @@ function DraggableCard({
 }: {
   item: ForgeProjectItem;
   fields: readonly ForgeProjectField[];
+  /** The board's Status field, for each card's status stroke. */
+  statusField: ForgeProjectField | null;
   projectId: string;
   isOpen: boolean;
   /** Roving tabindex (Phase 52 Theme G) — forwarded to `TaskCard`, the
@@ -912,6 +930,7 @@ function DraggableCard({
         projectId={projectId}
         isOpen={isOpen}
         statusColor={statusColor}
+        statusStroke={itemStatusStroke(item, statusField)}
         tabIndex={tabIndex}
         onClick={onClick}
       />
@@ -931,6 +950,7 @@ function VirtualizedColumnItems({
   column,
   columns,
   fields,
+  statusField,
   projectId,
   selectedItemId,
   focusedItemId,
@@ -942,6 +962,8 @@ function VirtualizedColumnItems({
   column: BoardColumn;
   columns: readonly BoardColumn[];
   fields: readonly ForgeProjectField[];
+  /** The board's Status field, for each card's status stroke. */
+  statusField: ForgeProjectField | null;
   projectId: string;
   selectedItemId: string | null;
   /** See `BoardColumnView`'s own note. **Known gap:** a focused card past the
@@ -983,6 +1005,7 @@ function VirtualizedColumnItems({
               <DraggableCard
                 item={item}
                 fields={fields}
+                statusField={statusField}
                 projectId={projectId}
                 isOpen={item.id === selectedItemId}
                 tabIndex={item.id === focusedItemId ? 0 : -1}

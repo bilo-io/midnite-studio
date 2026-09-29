@@ -1,6 +1,7 @@
 import type { ForgeGraphEdge, ForgeGraphNode } from '@midnite/studio-shared';
 
 import type { CardGlowState } from '../board/glow-state';
+import type { StatusStroke } from '../status-stroke';
 
 /**
  * The dependency graph's edge styling (Phase 75 Theme E) — a pure function
@@ -44,10 +45,21 @@ import type { CardGlowState } from '../board/glow-state';
  * table above decided, because `resolveForgeGraph` only ever mints a `body`
  * edge with `kind: 'blocks'` (the containment layer is API-only), so the
  * two modifiers never have to agree on which wins.
+ *
+ * **Status stroke (ad hoc, over the table above).** When the blocker is a
+ * board item with a Status value, the edge wears that status's colour and
+ * dash, and marches when the status does — the same `StatusStroke` its card
+ * border wears (`status-stroke.ts`), so the two never disagree. The table
+ * above still decides the bloom. A `body` edge keeps its dotted pattern (it
+ * is a guess, and dotted is how the graph says so) and takes only the
+ * colour. A blocker with no status (a foreign node, or an item with no
+ * Status value) falls back to the table above unchanged.
  */
 export interface EdgeAppearance {
   className: string;
   strokeWidth: number;
+  /** Inline paint from a status stroke; absent when the table's own classes paint the edge. */
+  style?: { stroke: string; strokeDasharray?: string };
 }
 
 const CONTAINS: EdgeAppearance = { className: 'dep-edge dep-edge-contains', strokeWidth: 1.5 };
@@ -72,6 +84,7 @@ export function edgeAppearance(
   source: ForgeGraphNode,
   target: ForgeGraphNode,
   sourceGlow: CardGlowState = 'idle',
+  sourceStatus: StatusStroke | null = null,
 ): EdgeAppearance {
   if (edge.kind === 'contains') return CONTAINS;
 
@@ -86,7 +99,23 @@ export function edgeAppearance(
     appearance = IDLE;
   }
 
-  if (edge.source === 'body') {
+  const body = edge.source === 'body';
+
+  if (sourceStatus) {
+    const classes = ['dep-edge', 'dep-edge-status'];
+    if (sourceStatus.animated && !body) classes.push('dep-edge-animated');
+    if (appearance === DONE_BLOOM) classes.push('dep-edge-bloom');
+    if (body) classes.push('dep-edge-body');
+    return {
+      className: classes.join(' '),
+      strokeWidth: sourceStatus.width,
+      style: body
+        ? { stroke: sourceStatus.color }
+        : { stroke: sourceStatus.color, strokeDasharray: sourceStatus.dashArray ?? 'none' },
+    };
+  }
+
+  if (body) {
     appearance = { ...appearance, className: `${appearance.className} dep-edge-body` };
   }
 

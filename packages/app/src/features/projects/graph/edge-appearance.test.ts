@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ForgeGraphEdge, ForgeGraphNode } from '@midnite/studio-shared';
 
+import { statusStroke } from '../status-stroke';
 import { edgeAppearance } from './edge-appearance';
 
 function node(overrides: Partial<ForgeGraphNode> = {}): ForgeGraphNode {
@@ -99,5 +100,42 @@ describe('edgeAppearance', () => {
     const dependent = node({ state: 'closed' });
     const appearance = edgeAppearance(bodyEdge, blocker, dependent);
     expect(appearance.className).toBe('dep-edge dep-edge-done dep-edge-body');
+  });
+});
+
+describe('edgeAppearance — status stroke', () => {
+  const inReview = statusStroke('In Review', 'PURPLE');
+  const done = statusStroke('Done', 'GREEN');
+
+  it('a blocker with a dashed status paints the edge in its colour and dash, marching', () => {
+    const appearance = edgeAppearance(BLOCKS, node(), node(), 'idle', inReview);
+    expect(appearance.className).toBe('dep-edge dep-edge-status dep-edge-animated');
+    expect(appearance.strokeWidth).toBe(inReview.width);
+    expect(appearance.style).toEqual({ stroke: inReview.color, strokeDasharray: inReview.dashArray });
+  });
+
+  it('a solid status is a still, solid edge — dasharray none overrides any class dash', () => {
+    const appearance = edgeAppearance(BLOCKS, node({ state: 'closed' }), node({ state: 'closed' }), 'idle', done);
+    expect(appearance.className).toBe('dep-edge dep-edge-status');
+    expect(appearance.style).toEqual({ stroke: done.color, strokeDasharray: 'none' });
+  });
+
+  it('keeps the bloom the table decided', () => {
+    const appearance = edgeAppearance(BLOCKS, node({ state: 'closed' }), node({ ready: true }), 'idle', done);
+    expect(appearance.className).toContain('dep-edge-bloom');
+  });
+
+  it('a body edge keeps its dotted pattern and takes only the colour', () => {
+    const appearance = edgeAppearance({ ...BLOCKS, source: 'body' }, node(), node(), 'idle', inReview);
+    expect(appearance.className).toBe('dep-edge dep-edge-status dep-edge-body');
+    expect(appearance.style).toEqual({ stroke: inReview.color });
+  });
+
+  it('a contains edge ignores the status', () => {
+    expect(edgeAppearance(CONTAINS, node(), node(), 'idle', inReview).style).toBeUndefined();
+  });
+
+  it('no status falls back to the table unchanged', () => {
+    expect(edgeAppearance(BLOCKS, node(), node(), 'idle', null)).toEqual(edgeAppearance(BLOCKS, node(), node()));
   });
 });
