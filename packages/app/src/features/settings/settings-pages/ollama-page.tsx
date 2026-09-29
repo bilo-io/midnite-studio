@@ -11,7 +11,7 @@ import {
 } from '../../models/use-models';
 import { openExternal } from '../../../services/queries';
 import { DefaultModelRow } from './default-model-row';
-import { submitCommand } from './health-page';
+import { submitCommand } from '../../terminal/submit-command';
 import { InstallModelRow } from './install-model-row';
 
 /**

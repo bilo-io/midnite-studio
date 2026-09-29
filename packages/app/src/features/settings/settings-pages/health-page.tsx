@@ -3,41 +3,13 @@ import { LuStethoscope, LuCheck, LuX, LuPlay } from 'react-icons/lu';
 import { Spinner } from '../../../components/skeleton';
 import type { SystemHealth } from '@midnite/studio-shared';
 import { openExternal } from '../../../services/queries';
-import { useUiStore } from '../../../store/ui-store';
-import { useTerminalStore } from '../../terminal/terminal-store';
+import { submitCommand } from '../../terminal/submit-command';
 import { parseGitVersion } from './git-version';
 import {
   parseToolchainVersion,
   TOOLCHAIN_TOOLS,
   type ToolchainToolId,
 } from './toolchain-version';
-
-/**
- * Spawns a shell in the integrated terminal and submits `command` with a
- * trailing carriage return. Mirrors `agent-page.tsx`'s own `submitCommand` —
- * no shared helper exists yet for two settings pages doing the identical
- * "run this in a pty" thing, so this is a deliberate, small duplication
- * rather than a from-scratch extraction this phase did not ask for.
- *
- * Exported (Phase 96 Theme C) — the Models view's own daemon-down empty
- * state reuses this one "run it in a pty" primitive for its Start Ollama
- * button rather than a third copy.
- */
-export function submitCommand(command: string, title = 'ollama'): void {
-  if (!command) return;
-  const ui = useUiStore.getState();
-  ui.setTerminalOpen(true);
-  const cwd = ui.selectedWorktreePath ?? '.';
-  const repoId = ui.selectedRepoId ?? 'default';
-  const session = useTerminalStore.getState().openSession({
-    kind: 'shell',
-    title,
-    cwd,
-    repoId,
-  });
-  const input = command.endsWith('\r') || command.endsWith('\n') ? command : `${command}\r`;
-  useTerminalStore.getState().queueInput(session.id, input);
-}
 
 /** Bounded re-probe after Install/Update/Start — up to ~15s, since a fresh
  *  `ollama serve` or the app finishing its own launch is not instant. */

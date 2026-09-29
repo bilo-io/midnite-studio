@@ -21,7 +21,7 @@ import { bridge } from '../../services/bridge';
 import { openExternal } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { formatBytes } from '../monitor/format-bytes';
-import { submitCommand } from '../settings/settings-pages/health-page';
+import { submitCommand } from '../terminal/submit-command';
 import { ModelDetailModal } from './model-detail';
 import { PullModelField } from './pull-model-field';
 import { useModelsPullQueueStore, type PullEntry } from './models-pull-queue-store';
