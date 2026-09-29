@@ -1,6 +1,6 @@
 import type { GraphRow } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,6 +23,9 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 beforeEach(() => {
+  // jsdom reports no focus; the poll gate needs a focused window to fetch.
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+  window.dispatchEvent(new Event('focus'));
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   commitRunsFn.mockImplementation(async ({ shas }: { shas: string[] }) => ({
     cli: CLI,
@@ -60,6 +63,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('useCommitCi', () => {
@@ -93,6 +97,30 @@ describe('useCommitCi', () => {
     renderHook(() => useCommitCi('repo', rows, rows.length, { startIndex: 0, endIndex: 20 }, false), { wrapper });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(commitRunsFn).not.toHaveBeenCalled();
+  });
+
+  it('fetches no new page while the window is blurred, and catches up on focus', async () => {
+    const { result, rerender } = renderHook(
+      ({ start }: { start: number }) =>
+        useCommitCi('repo', rows, rows.length, { startIndex: start, endIndex: start + 5 }, true),
+      { wrapper, initialProps: { start: 0 } },
+    );
+    await waitFor(() => expect(result.current.get(shaFor(3))).toBeDefined());
+    expect(commitRunsFn).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+    });
+    // Scroll far down while blurred: the page there is not asked for.
+    rerender({ start: 5_000 });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(commitRunsFn).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    // Rows 4995..5010 straddle two aligned pages.
+    await waitFor(() => expect(commitRunsFn).toHaveBeenCalledTimes(3));
   });
 
   it('draws an empty column when the transport fails — no throw, no error surface', async () => {

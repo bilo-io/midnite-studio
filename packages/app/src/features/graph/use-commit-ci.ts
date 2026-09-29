@@ -51,10 +51,11 @@ function useSettledRange(range: RowRange | null): RowRange | null {
  * own cache is react-query's: a settled page is fresh for {@link CI_STALE_MS}
  * and scrolling back to it is a hit.
  *
- * Polls only a page with a queued or running run, and only while the window
- * is focused, the document visible and the graph on screen — `enabled` is the
- * caller's "the column is showing and the graph is the active view". A blurred
- * window costs nothing, which is what `idle-cpu.mjs --blurred` measures.
+ * Fetches and polls only while the window is focused, the document visible
+ * and the graph on screen — `enabled` is the caller's "the column is showing
+ * and the graph is the active view" — and polls only a page with a queued or
+ * running run. A blurred window costs nothing, which is what
+ * `idle-cpu.mjs --blurred` measures.
  *
  * A repository with no forge, a signed-out `gh`, or an unreachable host all
  * resolve to an answer with no runs, so the column simply stays empty — no
@@ -97,7 +98,15 @@ export function useCommitCi(
           return EMPTY;
         }
       },
-      enabled: enabled && repoId !== null,
+      /*
+        The gate closes the FETCH, not just the poll. A blurred window whose
+        history restreams (a sibling worktree committing, a background fetch)
+        would otherwise ask for every page the new rows shift into — a `gh`
+        spawn per restream on a window nobody is looking at. A disabled query
+        still serves what it already has, so the marks on screen stay; new
+        pages fill in the moment the window is focused again.
+      */
+      enabled: gateOpen && repoId !== null,
       staleTime: CI_STALE_MS,
       refetchInterval: (query: { state: { data: ForgeCommitRunsResult | undefined } }) =>
         ciPollInterval(query.state.data, gateOpen),
