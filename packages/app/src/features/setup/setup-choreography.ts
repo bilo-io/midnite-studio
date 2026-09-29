@@ -35,24 +35,8 @@ export const CHOREO = {
 /** The glide's curve: fast out of the centre, settling softly into the anchor. */
 export const GLIDE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
-/**
- * Whether the overlay's motion should resolve instantly.
- *
- * Both dialects the app honours: `data-motion='reduced'` (Settings ▸
- * Appearance, written on `<html>` by `@bilo-io/shell`) and the OS setting
- * unless the user explicitly asked for full motion — the same pairing every
- * guard in `styles.css` spells as `html[data-motion='reduced']` plus
- * `@media (prefers-reduced-motion: reduce) html:not([data-motion='full'])`.
- */
-export function isReducedMotion(): boolean {
-  const motion = document.documentElement.dataset['motion'];
-  if (motion === 'reduced') return true;
-  if (motion === 'full') return false;
-  return (
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-}
+/** Whether the overlay's motion should resolve instantly — see `lib/reduced-motion.ts`. */
+export { isReducedMotion } from '../../lib/reduced-motion';
 
 /** One step of a timeline: the frame's payload, applied at `at` ms from the start. */
 export type Timed<F> = { at: number; frame: F };
