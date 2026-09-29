@@ -19,6 +19,10 @@ import {
  * suggestion, and on blur — so clicking the card's Play button straight
  * from the input commits first, since the click blurs it.
  *
+ * The list opens in flow, not as an absolute overlay: the detail pane is its
+ * own scroll container, which would clip an overlay at the composer below
+ * it — in flow, it pushes the fields down and the pane scrolls to it.
+ *
  * Escape closes the suggestion list first (through the shared
  * `useDismissable`, so it outranks the panel's own Escape); a second Escape
  * with the list closed reverts an uncommitted draft and falls through.
@@ -162,7 +166,7 @@ export function CardSkillPicker({
           else openList();
           inputRef.current?.focus();
         }}
-        className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         <LuChevronDown aria-hidden className="h-3.5 w-3.5" />
       </button>
@@ -171,7 +175,7 @@ export function CardSkillPicker({
           id={listboxId}
           role="listbox"
           aria-label="Skill suggestions"
-          className="hide-scrollbar absolute left-0 top-full z-menu mt-1 max-h-72 w-full animate-fade-in overflow-y-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg"
+          className="hide-scrollbar mt-1 max-h-72 w-full animate-fade-in overflow-y-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg"
         >
           {groupRuns(shown).map(({ group, start }) => {
             const headingId = `${baseId}-group-${group}`;
@@ -200,7 +204,7 @@ export function CardSkillPicker({
                     >
                       <span className="block truncate font-mono">{suggestion.label}</span>
                       {suggestion.description ? (
-                        <span className="line-clamp-2 block text-[11px] text-muted-foreground">
+                        <span className="line-clamp-2 text-[11px] text-muted-foreground">
                           {suggestion.description}
                         </span>
                       ) : null}
