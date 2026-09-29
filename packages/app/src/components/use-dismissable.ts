@@ -231,9 +231,10 @@ function onFocusIn(event: FocusEvent): void {
 }
 
 function onWindowBlur(event: FocusEvent): void {
-  // `blur` does not bubble, but a capture listener on window would still see
-  // every element's; only the window's own counts.
-  if (event.target !== window) return;
+  // Only the window's own blur counts, not an element's. Tested as "not a
+  // node" rather than `=== window`: under jsdom the dispatched target is the
+  // implementation's window object, not the global the test sees.
+  if (event.target instanceof Node) return;
   for (const root of openRoots()) {
     if (postorder(root).some((node) => node.options.windowBlur)) dismissTree(root, 'window-blur');
   }
@@ -387,7 +388,9 @@ let trackers = 0;
 
 const onTrackPointer = (event: PointerEvent) => {
   if (event.target instanceof Element) {
-    lastInput = { kind: 'pointer', target: event.target, button: event.button };
+    // `?? 0`: jsdom has no `PointerEvent`, so a synthetic one carries no
+    // `button` at all; every real browser sets it.
+    lastInput = { kind: 'pointer', target: event.target, button: event.button ?? 0 };
   }
 };
 const onTrackKey = () => {

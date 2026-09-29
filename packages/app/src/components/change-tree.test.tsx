@@ -43,10 +43,7 @@ describe('ChangeTree', () => {
   const noop = () => {};
 
   it('a collapsed directory hides its files but keeps its rolled-up totals', () => {
-    const nodes = buildChangeTree([
-      file('src/a.ts', 10, 2),
-      file('src/nested/b.ts', 5, 1),
-    ]);
+    const nodes = buildChangeTree([file('src/a.ts', 10, 2), file('src/nested/b.ts', 5, 1)]);
     const { rerender } = render(
       <ChangeTree
         nodes={nodes}
@@ -78,9 +75,7 @@ describe('ChangeTree', () => {
     expect(within(tree).queryByRole('button', { name: 'src/a.ts' })).toBeNull();
     // Still says how much is inside — collapsing must not hide the number
     // you collapsed in order to compare.
-    expect(within(tree).getByRole('button', { name: 'src' }).textContent).toContain(
-      '+15',
-    );
+    expect(within(tree).getByRole('button', { name: 'src' }).textContent).toContain('+15');
   });
 
   it('reports which directory was clicked, letting the caller own collapse state', () => {

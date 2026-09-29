@@ -55,7 +55,12 @@ describe('blocking overlays register as occluders', () => {
   it('PromptDialog counts while mounted', () => {
     const { unmount } = render(
       <PromptDialog
-        request={{ title: 'New branch', label: 'Name', confirmLabel: 'Create', onConfirm: () => {} }}
+        request={{
+          title: 'New branch',
+          label: 'Name',
+          confirmLabel: 'Create',
+          onConfirm: () => {},
+        }}
         onCancel={() => {}}
       />,
     );

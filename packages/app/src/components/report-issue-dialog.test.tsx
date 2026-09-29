@@ -19,7 +19,11 @@ vi.mock('../services/bridge', () => ({
 }));
 
 const READY_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
-const NOT_INSTALLED_CLI = { reason: 'not-installed' as const, binPath: null, hint: 'brew install gh' };
+const NOT_INSTALLED_CLI = {
+  reason: 'not-installed' as const,
+  binPath: null,
+  hint: 'brew install gh',
+};
 
 function renderDialog(onClose: () => void = () => {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -52,7 +56,9 @@ describe('ReportIssueDialog — bug/feature toggle', () => {
     // open/closed default is read off the header's `aria-expanded`, not off
     // whether the block is present in the DOM.
     await screen.findByTestId('report-issue-diagnostics');
-    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
   });
 
   it('switching to Feature swaps the prefill and label, and collapses diagnostics by default', async () => {
@@ -65,7 +71,9 @@ describe('ReportIssueDialog — bug/feature toggle', () => {
     expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('[feat] ');
     expect(screen.getByText("What's the problem?")).not.toBeNull();
     await waitFor(() => expect(bundleFn).toHaveBeenCalled());
-    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
   });
 
   it('does not clobber a title the user already edited when toggling kind', async () => {
@@ -73,10 +81,14 @@ describe('ReportIssueDialog — bug/feature toggle', () => {
     cliStatusFn.mockResolvedValue(READY_CLI);
     renderDialog();
 
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] the sync spinner never stops' } });
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '[bug] the sync spinner never stops' },
+    });
     fireEvent.click(screen.getByRole('radio', { name: 'Feature' }));
 
-    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('[bug] the sync spinner never stops');
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe(
+      '[bug] the sync spinner never stops',
+    );
   });
 });
 
@@ -116,7 +128,9 @@ describe('ReportIssueDialog — submit', () => {
     renderDialog();
 
     await screen.findByTestId('report-issue-diagnostics');
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] the sync spinner never stops' } });
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '[bug] the sync spinner never stops' },
+    });
     fireEvent.change(screen.getByLabelText('What happened?'), {
       target: { value: 'Clicked sync and it spun forever.' },
     });
@@ -131,7 +145,9 @@ describe('ReportIssueDialog — submit', () => {
 
     const link = await screen.findByRole('button', { name: 'View issue' });
     fireEvent.click(link);
-    expect(openExternalFn).toHaveBeenCalledWith({ url: 'https://github.com/bilo-io/midnite-apps/issues/42' });
+    expect(openExternalFn).toHaveBeenCalledWith({
+      url: 'https://github.com/bilo-io/midnite-apps/issues/42',
+    });
   });
 
   it('cannot be submitted with an empty description', async () => {
@@ -160,7 +176,9 @@ describe('ReportIssueDialog — submit', () => {
     fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It broke.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByText('HTTP 403: Resource not accessible by integration')).not.toBeNull();
+    expect(
+      await screen.findByText('HTTP 403: Resource not accessible by integration'),
+    ).not.toBeNull();
   });
 });
 

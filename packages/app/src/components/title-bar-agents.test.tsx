@@ -53,9 +53,7 @@ describe('TitleBarAgents', () => {
     render(<TitleBarAgents />);
 
     const cluster = screen.getByTestId('titlebar-agents');
-    const order = Array.from(cluster.children).map((child) =>
-      child.getAttribute('data-testid'),
-    );
+    const order = Array.from(cluster.children).map((child) => child.getAttribute('data-testid'));
     expect(order).toEqual(['titlebar-agent-count', 'fab-launchers']);
     expect(cluster.nextElementSibling?.getAttribute('data-testid')).toBe('titlebar-agents-sep');
   });
