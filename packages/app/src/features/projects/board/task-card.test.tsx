@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialogHost } from '../../../components/dialog-host';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
+import { statusStroke } from '../status-stroke';
 import { TaskCard } from './task-card';
 
 afterEach(cleanup);
@@ -81,6 +82,71 @@ describe('TaskCard', () => {
     fireEvent.click(screen.getByText('Fix the flaky test'));
 
     expect(onClick).toHaveBeenCalled();
+  });
+
+  describe('the status border', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    });
+
+    it('an In Review card: a thicker border in its colour, dashed and marching', () => {
+      const stroke = statusStroke('In Review', 'PURPLE');
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusColor="#ff0000" statusStroke={stroke} />,
+      );
+      const card = container.querySelector('[data-card-id]') as HTMLElement;
+      expect(card.dataset.statusKind).toBe('inReview');
+      expect(card.className).toContain('border-2');
+      expect(card.className).toContain('border-transparent');
+      // The status stroke replaces the column-colour ring.
+      expect(card.style.borderColor).toBe('');
+      const rect = container.querySelector('[data-status-border] rect') as SVGRectElement;
+      expect(rect.getAttribute('stroke')).toBe(stroke.color);
+      expect(rect.getAttribute('stroke-dasharray')).toBe(stroke.dashArray);
+      expect(rect.getAttribute('class')).toContain('status-stroke-animated');
+    });
+
+    it('a Done card: solid and still', () => {
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Done', 'GREEN')} />,
+      );
+      const rect = container.querySelector('[data-status-border] rect') as SVGRectElement;
+      expect(rect.getAttribute('stroke-dasharray')).toBeNull();
+      expect(rect.getAttribute('class')).not.toContain('status-stroke-animated');
+    });
+
+    it('pauses the march while the card is off-screen', () => {
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Todo', 'GRAY')} />,
+      );
+      // jsdom has no IntersectionObserver, so the card counts as off-screen.
+      expect(container.querySelector('[data-status-border]')?.hasAttribute('data-offscreen')).toBe(true);
+    });
+
+    it('a live glow wins over the status border', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Todo', 'GRAY')} />,
+      );
+      expect(container.querySelector('.agent-run-glow')).not.toBeNull();
+      expect(container.querySelector('[data-status-border]')).toBeNull();
+    });
+
+    it('no status: the plain border and column ring, as before', () => {
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" statusColor="#ff0000" />);
+      const card = container.querySelector('[data-card-id]') as HTMLElement;
+      expect(container.querySelector('[data-status-border]')).toBeNull();
+      expect(card.className).toContain('border-border');
+      expect(card.style.borderColor).toBe('rgb(255, 0, 0)');
+    });
   });
 
   describe('the running glow (Theme F)', () => {
