@@ -174,6 +174,9 @@ import {
   OllamaSettingsSchema,
 } from '../ollama';
 import {
+  AudioImportRequestSchema,
+  AudioProgressEventSchema,
+  AudioProviderStatusSchema,
   FfmpegStatusSchema,
   ImageGenerateProgressEventSchema,
   ImageGenerateRequestSchema,
@@ -3027,6 +3030,15 @@ export const MediaImageGenerateResponse = GitOpResultOf(z.object({ files: z.arra
 export const MediaImageCancelRequest = z.object({ generationId: z.string().min(1) });
 export const MediaImageCancelResponse = GitOpResultSchema;
 export const MediaImageProgressPayload = ImageGenerateProgressEventSchema;
+
+// Audio (Theme E)
+export const MediaAudioProvidersResponse = z.object({ providers: z.array(AudioProviderStatusSchema) });
+/** Resolves once every picked file has landed; a dismissed dialog answers `cancelled`. */
+export const MediaAudioImportRequest = AudioImportRequestSchema;
+export const MediaAudioImportResponse = GitOpResultOf(
+  z.object({ sessionId: z.string().min(1), files: z.array(z.string()) }),
+);
+export const MediaAudioProgressPayload = AudioProgressEventSchema;
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 

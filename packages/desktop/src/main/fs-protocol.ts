@@ -56,6 +56,8 @@ const MIME_BY_EXT: Record<string, string> = {
   wav: 'audio/wav',
   m4a: 'audio/mp4',
   ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
 };
 
 /** After `whenReady`, before the window loads anything that renders media. */

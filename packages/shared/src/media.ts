@@ -311,6 +311,163 @@ export const ImageGenerateProgressEventSchema = z.object({
 });
 export type ImageGenerateProgressEvent = z.infer<typeof ImageGenerateProgressEventSchema>;
 
+// --- audio (Theme E) ---------------------------------------------------------
+
+/**
+ * Audio providers, in picker order. There is no public music-generation API
+ * this phase can build on, so the seam (`main/media/audio/`) ships with one
+ * adapter: `import`, which copies files the user picks in as variants. A later
+ * phase adds a generating provider here and in main — nothing else moves.
+ */
+export const AUDIO_PROVIDER_IDS = ['import'] as const;
+export const AudioProviderIdSchema = z.enum(AUDIO_PROVIDER_IDS);
+export type AudioProviderId = z.infer<typeof AudioProviderIdSchema>;
+
+export const DEFAULT_AUDIO_PROVIDER: AudioProviderId = 'import';
+
+export type AudioProviderInfo = {
+  id: AudioProviderId;
+  label: string;
+  /** False for `import` — Create shows the "later phase" state and offers Import instead. */
+  generates: boolean;
+};
+
+export const AUDIO_PROVIDERS: readonly AudioProviderInfo[] = [{ id: 'import', label: 'Import', generates: false }];
+
+export function audioProviderInfo(id: AudioProviderId): AudioProviderInfo {
+  return AUDIO_PROVIDERS.find((p) => p.id === id)!;
+}
+
+export const AUDIO_GENERATION_UNAVAILABLE = 'Generation arrives in a later phase. Import audio to add variants.';
+
+/** Extensions the Audio tab treats as playable variants (and the import dialog's filter). */
+export const AUDIO_FILE_EXTENSIONS = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'] as const;
+
+export function isAudioPath(path: string): boolean {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  return path.includes('.') && (AUDIO_FILE_EXTENSIONS as readonly string[]).includes(ext);
+}
+
+/** `a/song.mp3` → `a/song.json`, the sidecar beside every variant. */
+export const audioSidecarPath = (audioPath: string): string => audioPath.replace(/\.[^./]+$/, '') + '.json';
+
+/** The project's session history, at `.midnite/media/audio/<project>/project.json`. */
+export const AUDIO_PROJECT_FILE = 'project.json';
+
+export const AUDIO_TITLE_MAX = 120;
+export const AUDIO_STYLE_TAG_MAX = 40;
+export const AUDIO_STYLE_TAGS_MAX = 12;
+export const AUDIO_LYRICS_MAX = 5000;
+export const AUDIO_DURATION_MIN_S = 10;
+export const AUDIO_DURATION_MAX_S = 480;
+export const AUDIO_MAX_VARIANTS = 4;
+/** Section markers the lyrics editor's helpers insert. */
+export const AUDIO_LYRIC_SECTIONS = ['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Outro'] as const;
+
+/** The Suno-style prompt form — what a create (or an import's metadata) records. */
+export const AudioPromptSchema = z.object({
+  title: z.string().trim().max(AUDIO_TITLE_MAX).default(''),
+  style: z
+    .array(z.string().trim().min(1).max(AUDIO_STYLE_TAG_MAX))
+    .max(AUDIO_STYLE_TAGS_MAX)
+    .default([]),
+  lyrics: z.string().max(AUDIO_LYRICS_MAX).default(''),
+  instrumental: z.boolean().default(false),
+  durationS: z.number().int().min(AUDIO_DURATION_MIN_S).max(AUDIO_DURATION_MAX_S).default(120),
+  count: z.number().int().min(1).max(AUDIO_MAX_VARIANTS).default(2),
+});
+export type AudioPrompt = z.infer<typeof AudioPromptSchema>;
+
+/** Written beside each variant as `<name>.json`. `peaks` is filled lazily by the renderer. */
+export const AudioSidecarSchema = z.object({
+  version: z.literal(1),
+  file: z.string().min(1),
+  sessionId: z.string().min(1),
+  provider: AudioProviderIdSchema,
+  title: z.string(),
+  /** Import only: the picked file's own name. */
+  source: z.string().optional(),
+  durationS: z.number().nonnegative().optional(),
+  /** Normalised 0..1 per-bucket peaks, computed once with Web Audio. */
+  peaks: z.array(z.number().min(0).max(1)).max(1024).optional(),
+  createdAt: z.string().min(1),
+});
+export type AudioSidecar = z.infer<typeof AudioSidecarSchema>;
+
+export function parseAudioSidecar(text: string): AudioSidecar | null {
+  try {
+    const parsed = AudioSidecarSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export const AudioSessionSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['create', 'import']),
+  provider: AudioProviderIdSchema,
+  prompt: AudioPromptSchema,
+  /** Variant file names within the project, in landing order. */
+  variants: z.array(z.string().min(1)),
+  createdAt: z.string().min(1),
+});
+export type AudioSession = z.infer<typeof AudioSessionSchema>;
+
+export const AudioProjectFileSchema = z.object({
+  version: z.literal(1),
+  sessions: z.array(AudioSessionSchema),
+});
+export type AudioProjectFile = z.infer<typeof AudioProjectFileSchema>;
+
+/** A missing, hand-broken or foreign `project.json` reads as an empty history — never a crash. */
+export function parseAudioProjectFile(text: string | null | undefined): AudioProjectFile {
+  if (!text) return { version: 1, sessions: [] };
+  try {
+    const parsed = AudioProjectFileSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : { version: 1, sessions: [] };
+  } catch {
+    return { version: 1, sessions: [] };
+  }
+}
+
+export const AudioProviderStatusSchema = z.object({
+  id: AudioProviderIdSchema,
+  available: z.boolean(),
+  generates: z.boolean(),
+  reason: z.string().optional(),
+});
+export type AudioProviderStatus = z.infer<typeof AudioProviderStatusSchema>;
+
+/**
+ * Import: main opens a native multi-select dialog, the `import` adapter copies
+ * each pick into the project, and the service writes a sidecar per variant and
+ * appends one session to `project.json`. A dismissed dialog answers `cancelled`.
+ */
+export const AudioImportRequestSchema = z.object({
+  importId: z.string().min(1),
+  repoId: z.string().min(1),
+  project: MediaProjectNameSchema,
+  prompt: AudioPromptSchema,
+});
+export type AudioImportRequest = z.infer<typeof AudioImportRequestSchema>;
+
+/** Pushed on `mstudio:media:audio-progress`; `files` grows as each variant lands. */
+export const AudioProgressEventSchema = z.object({
+  importId: z.string().min(1),
+  repoId: z.string().min(1),
+  project: MediaProjectNameSchema,
+  status: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
+  completed: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  files: z.array(z.string()),
+  error: z.string().optional(),
+});
+export type AudioProgressEvent = z.infer<typeof AudioProgressEventSchema>;
+
+/** mp3 bitrates offered by the Audio toolbar. */
+export const AUDIO_MP3_BITRATES = [128, 192, 256, 320] as const;
+
 // --- export service ----------------------------------------------------------
 
 /**

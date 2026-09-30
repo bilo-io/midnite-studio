@@ -1103,6 +1103,16 @@ export type MidniteStudioBridge = {
         handler: (event: z.infer<typeof S.MediaImageProgressPayload>) => void,
       ) => Unsubscribe;
     };
+    /** Audio (Theme E): the `AudioProvider` catalogue and Import, all run in main. */
+    audio: {
+      providers: () => Promise<z.infer<typeof S.MediaAudioProvidersResponse>>;
+      import: (
+        req: In<typeof S.MediaAudioImportRequest>,
+      ) => Promise<z.infer<typeof S.MediaAudioImportResponse>>;
+      onProgress: (
+        handler: (event: z.infer<typeof S.MediaAudioProgressPayload>) => void,
+      ) => Unsubscribe;
+    };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
     export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;
