@@ -13,12 +13,8 @@ import { IssueActionBar } from './issue-action-bar';
 import { IssueConversation } from './issue-conversation';
 import { IssueDetailSkeleton } from './issue-skeleton';
 import { LabelChip } from './label-chip';
-<<<<<<< HEAD:packages/app/src/features/issues/issue-detail.tsx
-import { UserAvatar } from '../../components/user-avatar';
-import { ForgeRefLink } from '../../components/forge-ref-link';
-=======
 import { UserAvatar } from '../../../components/user-avatar';
->>>>>>> ce5aaec7 (refactor(app): rename Projects to Tasks, fold the Issues view in (Repo issues source, issue modal, pills)):packages/app/src/features/tasks/issue/issue-detail.tsx
+import { ForgeRefLink } from '../../../components/forge-ref-link';
 
 /**
  * One issue, read in full — one pane, not tabs.

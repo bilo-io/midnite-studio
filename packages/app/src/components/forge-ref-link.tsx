@@ -5,8 +5,8 @@ import { openLinkFromEvent } from '../services/open-in-midnite';
 /**
  * A `#123` PR/issue reference that is a link.
  *
- * Plain click opens the thing in Midnite's own view (PR -> Reviews, issue ->
- * issue detail) via `openLinkFromEvent` with `preferInAppRoute`; Cmd/Ctrl-click
+ * Plain click opens the thing in Midnite (PR -> Reviews, issue -> the app-wide issue
+ * modal) via `openLinkFromEvent` with `preferInAppRoute`; Cmd/Ctrl-click
  * opens the forge URL in the system browser. Both rules live in
  * `resolveDestination`, so this stays a thin wrapper.
  *
