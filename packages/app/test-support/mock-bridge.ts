@@ -3496,6 +3496,12 @@ export function buildMockBridge(data: MockFixtures) {
         })),
       }),
     },
+    // Phase 98 Themes F, I: the global git identity and installed RAM.
+    gitIdentity: {
+      get: async () => ({ ok: true, value: { name: 'Ada Lovelace', email: 'ada@example.com' } }),
+      set: async (req: { name: string; email: string }) => ({ ok: true, value: req }),
+    },
+    systemMemory: async () => ({ totalBytes: 16 * 1024 ** 3 }),
     systemHealth: async () => ({
       git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
       shell: '/bin/zsh',

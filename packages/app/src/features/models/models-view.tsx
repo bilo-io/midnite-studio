@@ -39,7 +39,6 @@ import {
   usePullCancel,
   usePullModel,
   useRefetchModelsOnFocus,
-  useRefetchModelsOnPullDone,
   useUnloadModel,
 } from './use-models';
 
@@ -62,7 +61,6 @@ type ModelsTab = 'installed' | 'discover' | 'cloud';
 export function ModelsView() {
   const status = useOllamaStatus();
   const [tab, setTab] = useState<ModelsTab>('installed');
-  useRefetchModelsOnPullDone();
   useRefetchModelsOnFocus();
 
   if (status.isLoading) {

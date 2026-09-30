@@ -11,6 +11,7 @@ import {
   SiHomebrew,
   SiMoonrepo,
   SiNodedotjs,
+  SiOllama,
   SiPnpm,
 } from 'react-icons/si';
 
@@ -46,6 +47,7 @@ export const SETUP_ICONS: Readonly<Record<string, IconComponent>> = {
   'lu:LuBox': LuBox,
   'lu:LuSearch': LuSearch,
   'lu:LuBraces': LuBraces,
+  'si:SiOllama': SiOllama,
 };
 
 /** A catalogue row's icon, or a neutral box for one missing from the map. */

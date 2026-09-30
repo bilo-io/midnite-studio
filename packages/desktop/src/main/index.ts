@@ -1,7 +1,17 @@
 import { unlinkSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 
-import { EVENT_CHANNELS, CHANNELS, perfEnabled, SetupProbeRequest } from '@midnite/studio-shared';
+import { totalmem } from 'node:os';
+
+import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
+import {
+  EVENT_CHANNELS,
+  CHANNELS,
+  GitIdentitySetRequest,
+  failure,
+  perfEnabled,
+  SetupProbeRequest,
+} from '@midnite/studio-shared';
 import { BrowserWindow, app, session } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
@@ -480,6 +490,14 @@ if (!app.requestSingleInstanceLock()) {
       (req) => probeSetupItems(req.ids),
       () => ({ results: [] }),
     );
+    handleBare(CHANNELS.gitIdentityGet, () => getGlobalGitIdentity());
+    handle(
+      CHANNELS.gitIdentitySet,
+      GitIdentitySetRequest,
+      (req) => setGlobalGitIdentity(req),
+      (issue) => failure(issue),
+    );
+    handleBare(CHANNELS.systemMemory, () => ({ totalBytes: totalmem() }));
     registerOptimizerHandlers(getMainWindow);
     registerTrashHandlers();
     registerPerfHandlers();

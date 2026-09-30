@@ -27,7 +27,9 @@ import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
+import type { GitIdentitySetRequest, GitIdentityGetResponse, GitIdentitySetResponse } from '../git-identity';
 import type { SetupProbeRequest, SetupProbeResponse } from '../setup';
+import type { SystemMemoryResponse } from '../system-memory';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
 
@@ -1307,6 +1309,14 @@ export type MidniteStudioBridge = {
   setup: {
     probe: (req: In<typeof SetupProbeRequest>) => Promise<SetupProbeResponse>;
   };
+
+  /** The global git identity (Phase 98 Theme F) — `git config --global`, `GitOpResult`-wrapped. */
+  gitIdentity: {
+    get: () => Promise<z.infer<typeof GitIdentityGetResponse>>;
+    set: (req: In<typeof GitIdentitySetRequest>) => Promise<z.infer<typeof GitIdentitySetResponse>>;
+  };
+  /** Installed RAM (Phase 98 Theme I). */
+  systemMemory: () => Promise<SystemMemoryResponse>;
 
   /**
    * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull

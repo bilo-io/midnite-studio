@@ -416,6 +416,11 @@ export const CHANNELS = {
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
   /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
   setupProbe: 'mstudio:setup:probe',
+  /** The global git identity, `git config --global user.name/email` (Phase 98 Theme F). */
+  gitIdentityGet: 'mstudio:git-identity:get',
+  gitIdentitySet: 'mstudio:git-identity:set',
+  /** This Mac's installed RAM, for gating model downloads (Phase 98 Theme I). */
+  systemMemory: 'mstudio:system:memory',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */
