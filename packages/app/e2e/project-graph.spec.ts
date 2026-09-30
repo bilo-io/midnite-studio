@@ -153,14 +153,13 @@ test.describe('the dependency graph (Theme D)', () => {
 });
 
 /**
- * Phase 92 Theme D's fork, on this graph-node surface — `ProjectGraphNode`
- * shares the identical `useCardPlay` hook `TaskCard` does (Theme A), and
- * Phase 75 Theme G mounted the same `CardPanelStack`/`DialogHost` tree
- * alongside the canvas, so the fork's own menu and launch reach this surface
- * with no second implementation. `kanban.spec.ts` proves the board half.
+ * The Play button on this graph-node surface — `ProjectGraphNode` shares the
+ * identical `useCardPlay` hook `TaskCard` does (Theme A), so an unset node
+ * launches the skill picker's own default directly. `kanban.spec.ts` proves
+ * the typed-free-text half.
  */
-test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
-  test('an unset node: Play opens the fallback menu, and one click on an entry both launches and closes it', async ({
+test.describe('Play button — the card skill picker', () => {
+  test("an unset node: Play launches the picker's default with no menu, and never selects the node", async ({
     page,
   }) => {
     await openGraph(page);
@@ -168,15 +167,10 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
     const node = page.locator('[data-graph-node]', { hasText: 'Land the write path' });
     await node.getByTestId('graph-node-play-agent').click();
 
-    await expect(page.getByRole('menu')).toBeVisible();
-    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Ideate', 'Refine']);
-
-    await page.getByRole('menuitem', { name: 'Refine' }).click();
-    await expect(page.getByRole('menu')).toHaveCount(0);
-
+    expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-refine https://github.com/bilo-io/midnite-studio/issues/40');
+    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/40');
     expect(create.initialInput).not.toContain('Land the write path');
 
     // The node was never selected by that click — `onPlay`'s own
@@ -186,8 +180,8 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
 
   test('a node with a skill already set in the detail pane: Play never shows a menu', async ({ page }) => {
     // `cardSkillByTask` (Phase 92 Theme C) keyed by `${projectId}:${itemId}`
-    // — seeded here the way `CardDetail`'s own picker (or a previous trip
-    // through the fallback menu) would have persisted it, mirroring
+    // — seeded here as a legacy command id, the shape the pre-combobox
+    // picker persisted, which still resolves to its template. Mirrors
     // `kanban.spec.ts`'s own `cardSkillByTask` seed.
     await page.addInitScript(() => {
       window.localStorage.setItem(

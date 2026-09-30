@@ -2,31 +2,13 @@ import { useCallback } from 'react';
 
 import { BUILTIN_AGENTS, type ForgeProjectItem } from '@midnite/studio-shared';
 
-import { useDialogs } from '../../../components/dialog-host';
-import type { MenuItem } from '../../../components/context-menu';
-import { DEFAULT_AGENT_SKILLS, useUiStore, type AgentCommandId } from '../../../store/ui-store';
-import { AGENT_COMMANDS } from '../../agent/agent-commands';
+import { useUiStore } from '../../../store/ui-store';
 import { resolveSessionAttribution } from '../../terminal/session-attribution';
 import { revealSession } from '../../terminal/reveal-session';
 import { startAgent } from '../../terminal/start-agent';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { composeCardPrompt, composeSkillLaunchPrompt, resolveMostRecentAgentId } from './board-derive';
-
-/**
- * The fallback menu's three entries (Phase 92 Theme D), in menu order.
- *
- * "Exec" resolves to `execAdhoc` (`/midnite-create-adhoc`), not `execBacklog`
- * (`/midnite-create`) — a Projects card is already a specific, identified
- * task, which is `execAdhoc`'s own brief ("build a one-off task described up
- * front"); `execBacklog`'s ("pick up the next unblocked backlog task")
- * presumes a `.midnite/tasks/` phase tracker a GitHub-only repo may not even
- * have. See the phase doc's own Decisions.
- */
-const FALLBACK_MENU_SKILLS: readonly { id: AgentCommandId; label: string }[] = [
-  { id: 'execAdhoc', label: 'Exec' },
-  { id: 'brainstorm', label: 'Ideate' },
-  { id: 'refine', label: 'Refine' },
-];
+import { defaultCardSkill } from './card-skill';
 
 /**
  * The Play button's whole logic (Phase 92 Theme A) — one hook shared by
@@ -36,19 +18,16 @@ const FALLBACK_MENU_SKILLS: readonly { id: AgentCommandId; label: string }[] = [
  * `startAgent`, then `revealSession` — or, if a session is already bound to
  * this card, just reveal it.
  *
- * **Forked on whether a skill is set for this card (Phase 92 Theme D).**
- * `cardSkillByTask[`${projectId}:${itemId}`]` — set from `CardDetail`'s own
- * picker (Theme C), or by a previous trip through this same fallback menu —
- * decides which of two things Play does:
- *  - **Set:** launches immediately with that skill's shrunk prompt (Theme
- *    B's `composeSkillLaunchPrompt`) — the common case once a card has been
- *    used once. No menu, no change in *when* it launches, only in what it
- *    sends.
- *  - **Unset:** opens a pointer-anchored `ContextMenu` with exactly three
- *    entries (Exec / Ideate / Refine). Picking one both launches with
- *    that skill and persists it, so a second Play on the same card skips the
- *    menu from then on — the menu is how an unset card gets its first
- *    choice, not a prompt shown every time.
+ * **Launches with the card's skill text, verbatim.** `CardDetail`'s picker
+ * (`card-skill-picker.tsx`) always holds a value — the card's stored
+ * `cardSkillByTask` entry, else `defaultCardSkill`'s rule (the most recently
+ * used skill on any card, else `/midnite-create-adhoc` for an ad hoc card,
+ * else `/midnite-create`) — and Play resolves the very same value, so what
+ * the picker shows is exactly what gets sent: `<text> <card url>`, one
+ * shell-quoted argument (`startAgent` → `shellQuote`). Free text with args
+ * (`/midnite-create 98 D`) goes through as typed. This retires Phase 92
+ * Theme D's three-entry fallback menu, which only existed to give an unset
+ * card its first choice — there is no unset card any more.
  *
  * **Takes the caller's already-derived `sessionId` rather than re-deriving
  * it** — `TaskCard` gets its via `useCardStatus`, `ProjectGraphNode` via
@@ -80,21 +59,24 @@ export function useCardPlay({
 } {
   const sessions = useTerminalStore((s) => s.sessions);
   const agentSkills = useUiStore((s) => s.agentSkills);
+  const cardSkillByTask = useUiStore((s) => s.cardSkillByTask);
   const taskKey = `${taskRef.projectId}:${taskRef.itemId}`;
-  const skillId = useUiStore((s) => s.cardSkillByTask[taskKey]);
-  const setCardSkill = useUiStore((s) => s.setCardSkill);
-  const dialogs = useDialogs();
 
-  const launchWithSkill = useCallback(
-    (id: AgentCommandId) => {
+  const onPlay = useCallback(
+    (event: { clientX: number; clientY: number; stopPropagation: () => void }) => {
+      event.stopPropagation();
+      if (sessionId !== undefined) {
+        revealSession(sessionId);
+        return;
+      }
       if (!item) return;
 
       const targetCwd = worktreePath ?? '';
-      const skillTemplate = (agentSkills[id] ?? DEFAULT_AGENT_SKILLS[id] ?? '').trim();
+      const skillText = defaultCardSkill({ item, taskKey, cardSkillByTask, agentSkills }).trim();
       const prompt =
-        skillTemplate === ''
+        skillText === ''
           ? composeCardPrompt(item, targetCwd)
-          : composeSkillLaunchPrompt(item, skillTemplate);
+          : composeSkillLaunchPrompt(item, skillText);
       const agentId = resolveMostRecentAgentId(sessions, repoId);
       const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
 
@@ -112,37 +94,7 @@ export function useCardPlay({
       });
       revealSession(session.id);
     },
-    [item, worktreePath, agentSkills, sessions, repoId, taskRef],
-  );
-
-  const onPlay = useCallback(
-    (event: { clientX: number; clientY: number; stopPropagation: () => void }) => {
-      event.stopPropagation();
-      if (sessionId !== undefined) {
-        revealSession(sessionId);
-        return;
-      }
-      if (!item) return;
-
-      if (skillId !== undefined) {
-        launchWithSkill(skillId);
-        return;
-      }
-
-      dialogs.openMenu(
-        { clientX: event.clientX, clientY: event.clientY },
-        FALLBACK_MENU_SKILLS.map(({ id, label }): MenuItem => ({
-          type: 'item',
-          label,
-          icon: AGENT_COMMANDS.find((command) => command.id === id)?.icon,
-          onSelect: () => {
-            setCardSkill(taskKey, id);
-            launchWithSkill(id);
-          },
-        })),
-      );
-    },
-    [sessionId, item, skillId, launchWithSkill, dialogs, setCardSkill, taskKey],
+    [sessionId, item, worktreePath, taskKey, cardSkillByTask, agentSkills, sessions, repoId, taskRef],
   );
 
   return { onPlay };

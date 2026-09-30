@@ -1,35 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { LuPencil, LuX } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
-import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { UserAvatar } from '../../../components/user-avatar';
-import { useActiveForgeCapability } from '../../../services/queries';
-import { AGENT_COMMANDS } from '../../agent/agent-commands';
+import { useActiveForgeCapability, useRepoSkills } from '../../../services/queries';
 import { ExternalLink } from '../../markdown/external-link';
 import { IssueDialog } from '../../issues/issue-dialog';
-import { type AgentCommandId, useUiStore } from '../../../store/ui-store';
+import { useUiStore } from '../../../store/ui-store';
+import { useTerminalStore } from '../../terminal/terminal-store';
+import { resolveMostRecentAgentId } from './board-derive';
+import { buildSkillSuggestions, defaultCardSkill, recentCardSkills } from './card-skill';
+import { CardSkillPicker } from './card-skill-picker';
 import { CardComposer } from './card-composer';
 import { CONTENT_ICON } from './card-chrome';
 import { ProjectFieldCell } from '../field-editor';
-
-/**
- * The real, distinct "Not set" — Theme D's fork on whether a skill is chosen
- * reads `cardSkillByTask[key]`'s absence, so this id (never persisted) is
- * only ever the picker's own placeholder for that absence, translated back
- * to `setCardSkill(key, undefined)` the moment anything else is chosen.
- */
-const NOT_SET_OPTION_ID = '__not-set__';
-
-/** The six task-launching skills (Phase 92 Theme C) — the same catalogue the
- *  fallback menu (Theme D) draws its three from, never a wider one. */
-const SKILL_OPTIONS: readonly IconSelectOption[] = [
-  { id: NOT_SET_OPTION_ID, label: 'Not set' },
-  ...AGENT_COMMANDS.filter((command) => command.category === 'tasks').map(
-    (command): IconSelectOption => ({ id: command.id, label: command.label, icon: command.icon }),
-  ),
-];
 
 /**
  * A card's detail (Phase 41 Theme B): the item's body, assignees and every
@@ -70,8 +55,26 @@ export function CardDetail({
   // Composite key mirrors `useCardPlay`'s own `taskRef` — there is no single
   // id that identifies a task across a possible cross-repo project.
   const taskKey = `${projectId}:${item.id}`;
-  const skillId = useUiStore((state) => state.cardSkillByTask[taskKey]);
+  const cardSkillByTask = useUiStore((state) => state.cardSkillByTask);
+  const agentSkills = useUiStore((state) => state.agentSkills);
   const setCardSkill = useUiStore((state) => state.setCardSkill);
+
+  // The skill picker suggests the open repo's own skills, read from the
+  // convention directory of the agent Play would launch (the same
+  // most-recent-agent rule `useCardPlay` resolves), with the LRU on top.
+  const sessions = useTerminalStore((state) => state.sessions);
+  const launchAgentId = resolveMostRecentAgentId(sessions, repoId);
+  const repoSkills = useRepoSkills(repoId, launchAgentId);
+  const skillSuggestions = useMemo(
+    () =>
+      buildSkillSuggestions({
+        repoSkills: repoSkills.data ?? [],
+        recent: recentCardSkills(cardSkillByTask, agentSkills),
+        agentSkills,
+      }),
+    [repoSkills.data, cardSkillByTask, agentSkills],
+  );
+  const skillText = defaultCardSkill({ item, taskKey, cardSkillByTask, agentSkills });
 
   // Phase 95 Theme E — "Edit issue", the one entry point Theme D's own
   // deferred delete-confirm was written against. `IssueDialog` resolves its
@@ -161,13 +164,10 @@ export function CardDetail({
 
         <div className="mb-3">
           <p className="mb-1 text-[11px] font-medium text-muted-foreground">Skill</p>
-          <IconSelect
-            ariaLabel="Skill"
-            options={SKILL_OPTIONS}
-            value={skillId ?? NOT_SET_OPTION_ID}
-            onChange={(id) =>
-              setCardSkill(taskKey, id === NOT_SET_OPTION_ID ? undefined : (id as AgentCommandId))
-            }
+          <CardSkillPicker
+            value={skillText}
+            suggestions={skillSuggestions}
+            onCommit={(text) => setCardSkill(taskKey, text)}
           />
         </div>
 

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
@@ -43,8 +43,14 @@ const remotesList = vi.fn(async () => [
     forge: { kind: 'github' as const, host: 'github.com', owner: 'acme', repo: 'widgets' },
   },
 ]);
+let repoSkills: { name: string; description: string; source: '.claude' }[] = [];
+const listRepoSkills = vi.fn(async (_req: { repoId: string; agentId?: string }) => ({
+  ok: true as const,
+  value: { skills: repoSkills },
+}));
 vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
+    scaffold: { listRepoSkills },
     forgeProject: { setField },
     forgeAccounts: { capabilities },
     remotes: { list: remotesList },
@@ -64,8 +70,24 @@ function makeUseUiStore() {
       cardSkillByTask: Record<string, string>;
       setCardSkill: typeof setCardSkill;
       primaryAgent: string;
+      agentSkills: Record<string, string>;
     }) => unknown,
-  ) => selector({ forgeWritesEnabled, cardSkillByTask, setCardSkill, primaryAgent: 'claude' });
+  ) =>
+    selector({
+      forgeWritesEnabled,
+      cardSkillByTask,
+      setCardSkill,
+      primaryAgent: 'claude',
+      agentSkills: {
+        execBacklog: '/midnite-create',
+        execAdhoc: '/midnite-create-adhoc',
+        addressIssue: '/midnite-address-issue',
+        brainstorm: '/midnite-ideate',
+        refine: '/midnite-refine',
+        verifyPhase: '/midnite-verify',
+        execSwarm: '/midnite-swarm',
+      },
+    });
   // `Modal`'s own `useDismiss`/`useFocusTrap` read the occluder counter
   // through `useUiStore.getState()` directly (not the hook), which only
   // fires once a dialog this test mounts actually opens — Theme E's
@@ -142,6 +164,8 @@ describe('CardDetail', () => {
   beforeEach(() => {
     setField.mockReset();
     setCardSkill.mockReset();
+    listRepoSkills.mockClear();
+    repoSkills = [];
     forgeWritesEnabled = true;
     cardSkillByTask = {};
     capabilities.mockReset();
@@ -215,62 +239,81 @@ describe('CardDetail', () => {
     expect(start.getAttribute('title')).toBe('Blocked by #199');
   });
 
-  describe('the Skill picker (Phase 92 Theme C)', () => {
-    it('shows "Not set" with no skill chosen', () => {
+  describe('the Skill picker — a combobox over the repo\'s own skills', () => {
+    const MIDNITE = [
+      { name: 'midnite-refine', description: 'Deepen a phase doc.', source: '.claude' as const },
+      { name: 'midnite-create', description: 'Build a phase slice and merge it.', source: '.claude' as const },
+      { name: 'midnite-create-adhoc', description: 'Build a one-off task.', source: '.claude' as const },
+      { name: 'graphify', description: 'Knowledge graph.', source: '.claude' as const },
+    ];
+    const combobox = () => screen.getByRole('combobox', { name: 'Skill' }) as HTMLInputElement;
+
+    it('prepopulates with /midnite-create-adhoc for an ad hoc card nobody has chosen for', () => {
       renderDetail();
-      expect(screen.getByText('Not set')).toBeDefined();
+      expect(combobox().value).toBe('/midnite-create-adhoc');
     });
 
-    it('shows the card’s own already-chosen skill', () => {
-      cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
-      renderDetail();
-      expect(screen.getByText('Ideate')).toBeDefined();
+    it('prepopulates with /midnite-create for a card whose title names a phase', () => {
+      renderDetail(vi.fn(), { item: { ...item, content: { ...item.content, title: 'Phase 98 Theme D' } } as ForgeProjectItem });
+      expect(combobox().value).toBe('/midnite-create');
     });
 
-    it('picking a skill persists it under the composite `projectId:itemId` key', () => {
+    it("shows the card's own stored text, verbatim, and maps a legacy command id to its template", () => {
+      cardSkillByTask = { 'PVT_1:item1': '/midnite-create 98 D' };
       renderDetail();
-
-      fireEvent.mouseDown(screen.getByLabelText('Skill'));
-      fireEvent.click(screen.getByText('Adhoc Task'));
-
-      expect(setCardSkill).toHaveBeenCalledWith('PVT_1:item1', 'execAdhoc');
-    });
-
-    it('"Not set" clears the entry rather than writing an empty string', () => {
-      cardSkillByTask = { 'PVT_1:item1': 'execAdhoc' };
-      renderDetail();
-
-      fireEvent.mouseDown(screen.getByLabelText('Skill'));
-      fireEvent.click(screen.getByText('Not set'));
-
-      expect(setCardSkill).toHaveBeenCalledWith('PVT_1:item1', undefined);
-    });
-
-    it('offers only the six task-launching skills, never the loop/review/release ones', () => {
-      renderDetail();
-
-      fireEvent.mouseDown(screen.getByLabelText('Skill'));
-
-      expect(screen.getByText('Adhoc Task')).toBeDefined();
-      expect(screen.getByText('Backlog Task')).toBeDefined();
-      expect(screen.getByText('Address Issue')).toBeDefined();
-      expect(screen.getByText('Ideate')).toBeDefined();
-      expect(screen.getByText('Refine Plan')).toBeDefined();
-      expect(screen.getByText('Swarm')).toBeDefined();
-      expect(screen.queryByText('PR Review')).toBeNull();
-      expect(screen.queryByText('Loop: Guard')).toBeNull();
-    });
-
-    it("shows each card's own choice independently, keyed by item id", () => {
-      cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
-      renderDetail();
-      expect(screen.getByText('Ideate')).toBeDefined();
+      expect(combobox().value).toBe('/midnite-create 98 D');
       cleanup();
 
-      const otherItem: ForgeProjectItem = { ...item, id: 'item2' };
-      cardSkillByTask = { 'PVT_1:item1': 'brainstorm', 'PVT_1:item2': 'refine' };
-      renderDetail(vi.fn(), { item: otherItem });
-      expect(screen.getByText('Refine Plan')).toBeDefined();
+      cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
+      renderDetail();
+      expect(combobox().value).toBe('/midnite-ideate');
+    });
+
+    it('prepopulates an unchosen card with the most recently used skill on any card', () => {
+      cardSkillByTask = { 'PVT_1:other': '/midnite-refine', 'PVT_1:newest': '/midnite-verify 12' };
+      renderDetail();
+      expect(combobox().value).toBe('/midnite-verify 12');
+    });
+
+    it('asks main for the repo skills and lists the midnite ones first, with descriptions', async () => {
+      repoSkills = MIDNITE;
+      renderDetail();
+      expect(listRepoSkills).toHaveBeenCalledWith({ repoId: 'repo-1', agentId: 'claude' });
+
+      fireEvent.click(combobox());
+      const listbox = await screen.findByRole('listbox', { name: 'Skill suggestions' });
+      await screen.findByText('midnite-create');
+      const groups = [...listbox.querySelectorAll('[role="group"]')].map(
+        (group) => group.querySelector('[role="presentation"]')?.textContent,
+      );
+      expect(groups).toEqual(['Midnite skills', 'Other repo skills']);
+      const options = within(listbox).getAllByRole('option').map((option) => option.querySelector('.font-mono')?.textContent);
+      expect(options).toEqual(['midnite-create', 'midnite-create-adhoc', 'midnite-refine', 'graphify']);
+      expect(screen.getByText('Build a one-off task.')).toBeDefined();
+    });
+
+    it('falls back to the built-in task catalogue when the repo has no midnite skills', async () => {
+      repoSkills = [];
+      renderDetail();
+      fireEvent.click(combobox());
+      expect(await screen.findByText('Adhoc Task')).toBeDefined();
+      expect(screen.getByText('Backlog Task')).toBeDefined();
+      expect(screen.queryByText('PR Review')).toBeNull();
+    });
+
+    it('picking a suggestion persists its /name under the composite key', async () => {
+      repoSkills = MIDNITE;
+      renderDetail();
+      fireEvent.click(combobox());
+      fireEvent.click(await screen.findByText('midnite-refine'));
+      expect(setCardSkill).toHaveBeenCalledWith('PVT_1:item1', '/midnite-refine');
+    });
+
+    it('typed free text is committed verbatim on Enter', () => {
+      renderDetail();
+      fireEvent.change(combobox(), { target: { value: "midnite-create 98 D --note 'it's'" } });
+      fireEvent.keyDown(combobox(), { key: 'Enter' });
+      expect(setCardSkill).toHaveBeenCalledWith('PVT_1:item1', "midnite-create 98 D --note 'it's'");
     });
   });
 

@@ -374,25 +374,15 @@ describe('TaskCard', () => {
       expect(screen.queryByRole('menu')).toBeNull();
     });
 
-    it('opens a fallback menu with exactly Exec, Ideate, Refine when no skill is set (Theme D)', () => {
+    it("launches the picker's default directly when no skill is set — no fallback menu", () => {
       renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       fireEvent.click(screen.getByTestId('card-play-agent'));
 
-      expect(screen.getByRole('menuitem', { name: 'Exec' })).toBeDefined();
-      expect(screen.getByRole('menuitem', { name: 'Ideate' })).toBeDefined();
-      expect(screen.getByRole('menuitem', { name: 'Refine' })).toBeDefined();
-      // No launch until a menu entry is actually picked.
-      expect(useTerminalStore.getState().sessions.length).toBe(0);
-    });
-
-    it('picking a fallback menu entry launches with it and persists the choice (Theme D)', () => {
-      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      fireEvent.click(screen.getByTestId('card-play-agent'));
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Ideate' }));
-
-      expect(useTerminalStore.getState().sessions.length).toBe(1);
+      expect(screen.queryByRole('menu')).toBeNull();
+      const sessions = useTerminalStore.getState().sessions;
+      expect(sessions.length).toBe(1);
+      expect(useTerminalStore.getState().pendingInput[sessions[0]!.id]).toContain('/midnite-create-adhoc');
       expect(useUiStore.getState().terminalOpen).toBe(true);
-      expect(useUiStore.getState().cardSkillByTask['proj1:item1']).toBe('brainstorm');
     });
   });
 

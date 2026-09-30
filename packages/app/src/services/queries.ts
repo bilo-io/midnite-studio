@@ -35,6 +35,7 @@ import type {
   ForgeRunDetailResult,
   ForgeRunLogResult,
   ForgeRunsResult,
+  RepoSkill,
   ForgeSubscriptionKind,
   ForgeWorkflowsResult,
   ForgeWriteResult,
@@ -181,6 +182,8 @@ export const keys = {
    * section's own refresh button.
    */
   forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
+  /** The open checkout's own agent skills — read off disk, not the forge. */
+  repoSkills: (repoId: string, agentId: string) => ['repos', repoId, 'skills', agentId] as const,
   forgeRuns: (repoId: string, branch?: string) =>
     ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
   forgePulls: (repoId: string, limit = 20, state = 'open', scope: ForgePullScope = 'all') =>
@@ -986,6 +989,29 @@ export function useActiveForgeCapability(repoId: string | null) {
   const kind = pickForgeRemote(remotes.data ?? [])?.forge?.kind ?? null;
   const capabilities = useForgeCapabilities(kind ?? 'unknown');
   return { kind, capability: capabilities.data };
+}
+
+const NO_REPO_SKILLS: readonly RepoSkill[] = [];
+
+/**
+ * The open repo's own agent skills (`<.claude|.agents|.codex>/skills/<name>/SKILL.md`),
+ * for the Projects card skill picker. `agentId` is the agent the card would
+ * launch, whose own convention directory wins a name present in several.
+ * A failed read answers an empty list — the picker falls back to its
+ * built-in catalogue rather than surfacing an error for a suggestion list.
+ */
+export function useRepoSkills(repoId: string | null, agentId: string) {
+  return useQuery<readonly RepoSkill[]>({
+    queryKey: keys.repoSkills(repoId ?? '', agentId),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api?.scaffold?.listRepoSkills || !repoId) return NO_REPO_SKILLS;
+      const result = await api.scaffold.listRepoSkills({ repoId, agentId });
+      return result.ok ? result.value.skills : NO_REPO_SKILLS;
+    },
+    enabled: repoId !== null,
+    staleTime: 60_000,
+  });
 }
 
 /**
