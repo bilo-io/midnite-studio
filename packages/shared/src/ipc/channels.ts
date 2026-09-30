@@ -878,6 +878,10 @@ export const CHANNELS = {
   mediaImageProviders: 'mstudio:media:image-providers',
   mediaImageGenerate: 'mstudio:media:image-generate',
   mediaImageCancel: 'mstudio:media:image-cancel',
+  // Audio (Theme E) — the `AudioProvider` seam in `main/media/audio/`; its only
+  // adapter today is Import (native dialog in main). Progress on `mediaAudioProgress`.
+  mediaAudioProviders: 'mstudio:media:audio-providers',
+  mediaAudioImport: 'mstudio:media:audio-import',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1374,6 +1378,8 @@ export const EVENT_CHANNELS = {
   mediaChanged: 'mstudio:media:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
   mediaImageProgress: 'mstudio:media:image-progress',
+  /** An audio import advanced — see `AudioProgressEventSchema`. */
+  mediaAudioProgress: 'mstudio:media:audio-progress',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */

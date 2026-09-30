@@ -142,6 +142,38 @@ export function createMediaStore(deps: MediaStoreDeps) {
 
   const changed = (scope: Scope): void => deps.onChanged?.(scope.repoId, scope.tab);
 
+  async function writeBytes(
+    scope: Scope & { project: string; path: string; data: Buffer },
+  ): Promise<GitOpResult<{ size: number; largeFile: boolean }>> {
+    const root = await tabRoot(scope, true);
+    if (isResult(root)) return failure(root.message);
+    return queue.run(root, async () => {
+      const segments = scope.path.split('/');
+      const name = segments.pop() ?? '';
+      const dir = await dirChain(root, [scope.project, ...segments], true);
+      if (dir === null || !name || name === '.' || name === '..') return failure('Path is not allowed.');
+      const realDir = await realpath(dir);
+      if (!within(await realpath(root), realDir)) return failure('Path is not allowed.');
+      const { data } = scope;
+      let handle;
+      try {
+        handle = await open(
+          join(realDir, name),
+          fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
+        );
+      } catch {
+        return failure('Path is not allowed.');
+      }
+      try {
+        await handle.writeFile(data);
+      } finally {
+        await handle.close();
+      }
+      changed(scope);
+      return ok({ size: data.length, largeFile: data.length > MEDIA_LARGE_FILE_BYTES });
+    });
+  }
+
   return {
     /** Resolve (without creating) a tab's root — for the watcher and Reveal. */
     async rootFor(scope: Scope): Promise<string | null> {
@@ -241,34 +273,11 @@ export function createMediaStore(deps: MediaStoreDeps) {
     async writeFile(
       scope: Scope & { project: string; path: string; content: string; encoding: 'utf8' | 'base64' },
     ): Promise<GitOpResult<{ size: number; largeFile: boolean }>> {
-      const root = await tabRoot(scope, true);
-      if (isResult(root)) return failure(root.message);
-      return queue.run(root, async () => {
-        const segments = scope.path.split('/');
-        const name = segments.pop() ?? '';
-        const dir = await dirChain(root, [scope.project, ...segments], true);
-        if (dir === null || !name || name === '.' || name === '..') return failure('Path is not allowed.');
-        const realDir = await realpath(dir);
-        if (!within(await realpath(root), realDir)) return failure('Path is not allowed.');
-        const data = Buffer.from(scope.content, scope.encoding);
-        let handle;
-        try {
-          handle = await open(
-            join(realDir, name),
-            fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_TRUNC | fsConstants.O_NOFOLLOW,
-          );
-        } catch {
-          return failure('Path is not allowed.');
-        }
-        try {
-          await handle.writeFile(data);
-        } finally {
-          await handle.close();
-        }
-        changed(scope);
-        return ok({ size: data.length, largeFile: data.length > MEDIA_LARGE_FILE_BYTES });
-      });
+      return writeBytes({ ...scope, data: Buffer.from(scope.content, scope.encoding) });
     },
+
+    /** Raw bytes, same jail — Audio's Import copies files in without a base64 round-trip. */
+    writeBytes: (scope: Scope & { project: string; path: string; data: Buffer }) => writeBytes(scope),
 
     async renameFile(scope: Scope & { project: string; path: string; to: string }): Promise<GitOpResult> {
       const root = await tabRoot(scope, false);

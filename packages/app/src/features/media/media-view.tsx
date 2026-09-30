@@ -1,6 +1,7 @@
 import type { MediaTab } from '@midnite/studio-shared';
 
 import { useUiStore } from '../../store/ui-store';
+import { AudioTab } from './audio/audio-tab';
 import { ImageTab } from './image/image-tab';
 import { MediaTabStrip } from './media-tab-strip';
 import { RepoMediaTab } from './repo-media-tab';
@@ -18,7 +19,7 @@ const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   doc: () => <RepoMediaTab tab="doc" />,
   image: () => <ImageTab />,
   video: () => <VideoTab />,
-  audio: () => <RepoMediaTab tab="audio" />,
+  audio: () => <AudioTab />,
 };
 
 export function MediaView() {

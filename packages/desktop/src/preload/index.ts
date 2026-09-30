@@ -539,6 +539,11 @@ const bridge: Pick<
       cancel: (req) => call(CHANNELS.mediaImageCancel, req),
       onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaImageProgress, handler),
     },
+    audio: {
+      providers: () => call(CHANNELS.mediaAudioProviders),
+      import: (req) => call(CHANNELS.mediaAudioImport, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioProgress, handler),
+    },
     reveal: (req) => call(CHANNELS.mediaReveal, req),
     ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
     export: (req) => call(CHANNELS.mediaExport, req),
