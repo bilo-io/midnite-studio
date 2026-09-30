@@ -5,6 +5,7 @@ import type { ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-shared';
 import { openLinkFromEvent } from '../../../services/open-in-midnite';
 import { checksStatus, pullStatus, runStatus, StatusPill } from '../../forge/forge-status';
 import { WidgetState } from '../widget-frame';
+import { runGlow } from './run-glow';
 
 /**
  * The three tiles that read GitHub, sharing one shape.
@@ -213,20 +214,17 @@ export function RunsWidget({
             <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {name}
             </p>
-            <ul className="flex flex-col">
+            <ul className="mt-0.5 flex flex-col gap-1">
               {groupRuns.slice(0, 5).map((run) => (
-                <ForgeListRow
+                <RunListRow
                   key={run.id}
+                  run={run}
                   onOpen={(event) =>
                     openLinkFromEvent(run.url, event, {
                       originRepoId: repoId,
                       preferInAppRoute: true,
                     })
                   }
-                  title={run.headBranch ?? 'detached'}
-                  openLabel="Open run"
-                  meta={<StatusPill status={runStatus(run)} />}
-                  subtitle={new Date(run.createdAt).toLocaleString()}
                 />
               ))}
             </ul>
@@ -234,6 +232,57 @@ export function RunsWidget({
         ))}
       </div>
     </WidgetState>
+  );
+}
+
+/**
+ * A run row wearing its status: the shared activity glow (colour from the
+ * `--activity-*` tokens, pulse focus- and motion-gated by `styles.css`), plus
+ * the `.pill-shimmer` sweep while the run is actually executing. Kept apart
+ * from `ForgeListRow` so the pull and issue tiles stay exactly as they were.
+ */
+export function RunListRow({
+  run,
+  onOpen,
+}: {
+  run: ForgeRun;
+  onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const glow = runGlow(run);
+  return (
+    <li
+      className="activity-glow run-glow overflow-hidden rounded-md"
+      data-activity-status={glow.status}
+    >
+      {glow.shimmer ? (
+        <span
+          aria-hidden
+          data-testid="run-shimmer"
+          className="pill-shimmer pointer-events-none absolute inset-0"
+          style={
+            {
+              background:
+                'linear-gradient(100deg, transparent 38%, color-mix(in srgb, var(--activity-running) 22%, transparent) 50%, transparent 62%)',
+              '--pill-i': 2,
+            } as React.CSSProperties
+          }
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="Open run"
+        className="relative flex w-full min-w-0 items-start gap-1.5 px-1.5 py-1 text-left transition-colors hover:bg-accent/30"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs">{run.headBranch ?? 'detached'}</span>
+          <span className="block truncate text-[10px] text-muted-foreground">
+            {new Date(run.createdAt).toLocaleString()}
+          </span>
+        </span>
+        <StatusPill status={runStatus(run)} />
+      </button>
+    </li>
   );
 }
 
