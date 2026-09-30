@@ -214,7 +214,8 @@ test('the working-copy panel totals the checkout without expanding anything', as
 
   // And each closed row carries its own pair — the whole reason the counts come
   // from the view's numstat rather than from the diff the body would fetch.
-  await expect(page.getByRole('button', { name: /README\.md/ })).toContainText('+300');
+  // The accordion's row (the one disclosure among the README.md buttons).
+  await expect(page.getByRole('button', { name: /README\.md/, expanded: false })).toContainText('+300');
 });
 
 test('the section headings share one height, whether or not they carry an action', async ({
