@@ -55,7 +55,7 @@ function renderOverlay() {
 
 const DONE = '2026-01-01T00:00:00.000Z';
 
-const RESET_REQUESTS = { requested: false, startPageId: null, resume: false };
+const RESET_REQUESTS = { requested: false, startPageId: null, resume: false, aside: false };
 
 beforeEach(() => {
   installBridge();
@@ -129,7 +129,11 @@ describe('SetupOverlay — chrome', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     const dots = [...screen.getByRole('list', { name: 'Setup pages' }).querySelectorAll('button')];
-    expect(dots.map((dot) => dot.getAttribute('data-dot'))).toEqual(['done', 'active']);
+    expect(dots.map((dot) => dot.getAttribute('data-dot'))).toEqual([
+      'done',
+      'active',
+      ...SETUP_PAGES.slice(2).map(() => 'upcoming'),
+    ]);
     expect(dots[1]?.getAttribute('aria-current')).toBe('step');
   });
 
@@ -155,9 +159,11 @@ describe('SetupOverlay — navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('forges');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(stepOf()).toBe('cli');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('finale');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('cli');
   });
 
   it('→ and ← step between pages', () => {
@@ -444,5 +450,23 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
     renderOverlay();
     act(() => useSetupStore.getState().resumeSetup());
     expect(stepOf()).toBe('forges');
+  });
+});
+
+describe('SetupOverlay — stepping aside for the terminal (Theme D)', () => {
+  it('hides the frame, lets go of Escape and the arrows, and offers the way back', () => {
+    renderOverlay();
+    fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
+    act(() => useSetupStore.getState().stepAside());
+    expect(overlay()?.hidden).toBe(true);
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(stepOf()).toBe('machine');
+    expect(useUiStore.getState().setupState.dismissedAt).toBeNull();
+
+    fireEvent.click(screen.getByTestId('setup-return'));
+    expect(overlay()?.hidden).toBe(false);
+    expect(screen.queryByTestId('setup-return')).toBeNull();
+    expect(stepOf()).toBe('machine');
   });
 });

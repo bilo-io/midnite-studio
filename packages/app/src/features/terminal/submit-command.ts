@@ -12,9 +12,13 @@ import { useTerminalStore } from './terminal-store';
  * private copy in `agent-page.tsx`; extracted here once a third, non-settings
  * surface needed it, so a view does not import a settings page to run a
  * command.
+ *
+ * Returns the new session's id (`null` for an empty command) so a caller that
+ * needs to know when the command finishes — the setup overlay's install
+ * runner (Phase 98 Theme D) — can watch that one session.
  */
-export function submitCommand(command: string, title = 'shell'): void {
-  if (!command) return;
+export function submitCommand(command: string, title = 'shell'): string | null {
+  if (!command) return null;
   const ui = useUiStore.getState();
   ui.setTerminalOpen(true);
   const cwd = ui.selectedWorktreePath ?? '.';
@@ -27,4 +31,5 @@ export function submitCommand(command: string, title = 'shell'): void {
   });
   const input = command.endsWith('\r') || command.endsWith('\n') ? command : `${command}\r`;
   useTerminalStore.getState().queueInput(session.id, input);
+  return session.id;
 }
