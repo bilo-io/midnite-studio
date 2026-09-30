@@ -63,7 +63,7 @@ function withNavVisibility(
 // — Councils (Phase 42) and, since Phase 50 Theme D, a board's card detail.
 // `Mod+[`/`Mod+]` stay disabled everywhere else rather than firing a silent
 // no-op through the registry.
-const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'projects']);
+const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'tasks']);
 
 /**
  * The one dispatcher every source reads: the keyboard, the native menu, and
@@ -487,9 +487,10 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('files'),
     }),
+    // Kept as an alias once Issues folded into Tasks: Tasks, on Repo issues.
     'view.issues': withNavVisibility(navVisibility, 'view.issues', {
       enabled: true,
-      run: () => useUiStore.getState().setActiveView('issues'),
+      run: () => useUiStore.getState().openRepoIssues(),
     }),
     'view.media': withNavVisibility(navVisibility, 'view.media', {
       enabled: true,

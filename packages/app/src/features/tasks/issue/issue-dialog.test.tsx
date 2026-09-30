@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DialogHost } from '../../components/dialog-host';
+import { DialogHost } from '../../../components/dialog-host';
 import { IssueDialog } from './issue-dialog';
 
 const issueCreate = vi.fn();
@@ -47,7 +47,7 @@ function capability(overrides: Partial<ForgeCapability['ops']> = {}): ForgeCapab
   };
 }
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
     forge: { issueCreate, issueEdit, issueDelete, issueDetail },
     forgeAccounts: { capabilities },

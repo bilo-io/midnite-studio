@@ -32,7 +32,7 @@ function editKey(row: number, col: number): string {
  * result set is provably one real table's rows (Theme F's PK metadata via
  * `detectEditableTable`).
  *
- * Copies the recipe at `projects-view.tsx:366-372` (fixed `estimateSize`,
+ * Copies the recipe at `tasks-view.tsx:366-372` (fixed `estimateSize`,
  * `overscan: 24`, sticky flex header, absolute rows via `translateY`) rather
  * than any component — there is no generic table component in this repo to
  * reuse (`ProjectItemsTable` is module-local with Projects domain types

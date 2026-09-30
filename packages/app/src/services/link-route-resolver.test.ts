@@ -18,9 +18,9 @@ describe('resolveInAppRoute', () => {
     });
   });
 
-  it('resolves an issue URL to the Issues view', () => {
+  it('resolves an issue URL to the issue modal route', () => {
     expect(resolveInAppRoute('https://github.com/bilo-io/midnite-studio/issues/7')).toEqual({
-      view: 'issues',
+      view: 'issue',
       repoId: 'repo-1',
       issue: 7,
     });

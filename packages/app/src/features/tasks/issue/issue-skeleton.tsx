@@ -1,42 +1,13 @@
-import { LoadingRegion, Skeleton } from '../../components/skeleton';
+import { LoadingRegion, Skeleton } from '../../../components/skeleton';
 
 /**
- * What the Issues view's list and detail panes look like before their fetch
+ * What the issue modal's detail pane looks like before their fetch
  * lands — mirrors `features/reviews/reviews-skeletons.tsx`'s own reasoning:
  * one module, constant (never random) widths, and the exact geometry of the
  * real row/pane so nothing jumps when the content arrives.
  */
 
-const TITLE_WIDTHS = ['68%', '52%', '79%', '45%', '71%', '58%'];
 const PROSE_WIDTHS = ['96%', '88%', '92%', '61%'];
-
-/**
- * The issue list, mid-fetch.
- *
- * Six rows, mirroring `IssueRow`: a status glyph, a title, `#number` hard
- * right, and a dimmer label/author line under it.
- */
-export function IssueListSkeleton() {
-  return (
-    <LoadingRegion label="Loading issues…" className="min-h-0 flex-1 overflow-hidden py-1">
-      <ul className="flex flex-col">
-        {TITLE_WIDTHS.map((width, index) => (
-          <li key={width} className="flex flex-col gap-1 border-l-2 border-transparent px-2 py-1.5">
-            <div className="flex items-center gap-1.5">
-              <Skeleton className="h-3 w-3 shrink-0 rounded-full" />
-              <Skeleton className="h-3 flex-1" style={{ maxWidth: width }} />
-              <Skeleton className="ml-auto h-2.5 w-6" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Skeleton className="h-2.5 rounded-full" style={{ width: index % 2 === 0 ? '18%' : '26%' }} />
-              <Skeleton className="h-2.5 w-16" />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </LoadingRegion>
-  );
-}
 
 /**
  * The whole detail pane, before there is an issue selected or its body has

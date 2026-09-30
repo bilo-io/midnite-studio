@@ -35,7 +35,7 @@ vi.mock('../../services/bridge', () => ({
 import { navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
 import { useBrowserStore } from '../../store/browser-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { useIssueModalStore } from '../../store/issue-modal-store';
 import { useUiStore } from '../../store/ui-store';
 
 const navigate = (
@@ -80,7 +80,7 @@ describe('resolveNavigation — one case per branch', () => {
 
   it('refuses an issue target with no repo open', () => {
     expect(
-      resolveNavigation(navigate({ view: 'issues', issue: 212 }), { ...baseState, repoId: null }),
+      resolveNavigation(navigate({ view: 'tasks', issue: 212 }), { ...baseState, repoId: null }),
     ).toEqual({ kind: 'refused', reason: 'unknown-issue-repo' });
   });
 
@@ -114,9 +114,9 @@ describe('resolveNavigation — one case per branch', () => {
       view: 'settings',
       page: 'companion',
     });
-    expect(resolveNavigation(navigate({ view: 'issues', issue: 212 }), baseState)).toEqual({
+    expect(resolveNavigation(navigate({ view: 'tasks', issue: 212 }), baseState)).toEqual({
       kind: 'view',
-      view: 'issues',
+      view: 'tasks',
       issue: 212,
     });
   });
@@ -170,11 +170,11 @@ describe('navigateCompanion', () => {
     expect(outcome.say).toBe('Settings — Companion.');
   });
 
-  it('selects the issue when a repo is open', async () => {
-    const outcome = await navigateCompanion(navigate({ view: 'issues', issue: 212 }));
-    expect(useUiStore.getState().activeView).toBe('issues');
-    expect(useIssuesStore.getState().selectedIssue['r1']).toBe(212);
-    expect(outcome.say).toBe('Here\'s the Issues.');
+  it('opens the issue modal over Tasks when a repo is open', async () => {
+    const outcome = await navigateCompanion(navigate({ view: 'tasks', issue: 212 }));
+    expect(useUiStore.getState().activeView).toBe('tasks');
+    expect(useIssueModalStore.getState().target).toEqual({ repoId: 'r1', number: 212 });
+    expect(outcome.say).toBe('Here\'s the Tasks.');
   });
 
   it('focuses an already-detached page instead of opening a second copy', async () => {

@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { LuSearch } from 'react-icons/lu';
 
 import {
+  useForgeIssues,
   useForgeProjects,
   useRepoFiles,
   useRepos,
@@ -29,6 +30,7 @@ import {
   createFilesSource,
   createForgeAccountsSource,
   createProjectBoardsSource,
+  createRepoIssuesSource,
   createRefsSource,
   createReposSource,
   createTerminalSource,
@@ -105,6 +107,8 @@ export function Palette() {
   // `enabled: false` — opening the palette must not itself fetch boards; this
   // reads whatever the Projects view has already cached, or nothing.
   const projectsQuery = useForgeProjects(selectedRepoId, false);
+  // Same rule for the Repo issues source's list — Tasks' own key (50, `all`).
+  const issuesQuery = useForgeIssues(selectedRepoId, false, 50, 'all');
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
   // Phase 90 Theme L: "Switch to <login>" rows — the store mirror, so opening
@@ -121,6 +125,7 @@ export function Palette() {
   const worktrees = useMemo(() => worktreesQuery.data ?? [], [worktreesQuery.data]);
   const refs = useMemo(() => refsQuery.data ?? [], [refsQuery.data]);
   const projectBoards = useMemo(() => projectsQuery.data?.projects ?? [], [projectsQuery.data]);
+  const repoIssues = useMemo(() => issuesQuery.data?.issues ?? [], [issuesQuery.data]);
 
   // Head/tip SHA of active worktree or main
   const tipSha = useMemo(() => {
@@ -182,6 +187,7 @@ export function Palette() {
     if (mode === 'all' || mode === 'views') {
       list.push(createViewsSource(close));
       list.push(createProjectBoardsSource(projectBoards, selectedRepoId, close));
+      list.push(createRepoIssuesSource(repoIssues, selectedRepoId, close));
     }
 
     // Repos & Worktrees source
@@ -221,6 +227,7 @@ export function Palette() {
     activeRepo,
     selectedRepoId,
     projectBoards,
+    repoIssues,
     refs,
     handleCheckout,
     handleReveal,

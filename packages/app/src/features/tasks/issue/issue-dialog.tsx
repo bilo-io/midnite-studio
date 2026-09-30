@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { pickForgeRemote } from '@midnite/studio-shared';
+import { pickForgeRemote, type ForgeIssue } from '@midnite/studio-shared';
 
-import { Modal } from '../../components/modal';
-import { WandField } from '../../components/wand-field';
-import { useDialogs } from '../../components/dialog-host';
+import { Modal } from '../../../components/modal';
+import { WandField } from '../../../components/wand-field';
+import { useDialogs } from '../../../components/dialog-host';
 import {
   useActiveForgeCapability,
   useCreateIssue,
@@ -12,8 +12,8 @@ import {
   useEditIssue,
   useForgeIssueDetail,
   useRemotes,
-} from '../../services/queries';
-import { useUiStore } from '../../store/ui-store';
+} from '../../../services/queries';
+import { useUiStore } from '../../../store/ui-store';
 
 /** Create, or edit an existing issue by number. `linkedPrCount` (edit only)
  *  is the blast-radius number for its delete confirm — the card's own
@@ -47,12 +47,15 @@ export function IssueDialog({
   repoId,
   worktreePath,
   mode,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   repoId: string;
   worktreePath?: string | null | undefined;
   mode: IssueDialogMode;
+  /** Create mode only — the issue the forge read back, e.g. for Tasks to add it to the open board. */
+  onCreated?: (issue: ForgeIssue) => void;
 }) {
   const dialogs = useDialogs();
   const { capability } = useActiveForgeCapability(repoId);
@@ -133,7 +136,13 @@ export function IssueDialog({
           assignees: parseList(assignees),
           ...(milestone.trim() ? { milestone: milestone.trim() } : {}),
         },
-        { onSuccess: (result) => result.ok && onClose() },
+        {
+          onSuccess: (result) => {
+            if (!result.ok) return;
+            onCreated?.(result.issue);
+            onClose();
+          },
+        },
       );
     }
   };

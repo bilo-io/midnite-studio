@@ -62,10 +62,8 @@ const loadTestsView = () => import('../features/tests/tests-view');
 const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
 const loadReviewsView = () => import('../features/reviews/reviews-view');
 const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
-const loadIssuesView = () => import('../features/issues/issues-view');
-const IssuesView = lazy(() => loadIssuesView().then((m) => ({ default: m.IssuesView })));
-const loadProjectsView = () => import('../features/projects/projects-view');
-const ProjectsView = lazy(() => loadProjectsView().then((m) => ({ default: m.ProjectsView })));
+const loadTasksView = () => import('../features/tasks/tasks-view');
+const TasksView = lazy(() => loadTasksView().then((m) => ({ default: m.TasksView })));
 const loadHistoryView = () => import('../features/history/history-view');
 const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
 const loadOptimizerPage = () => import('../features/optimizer/optimizer-page');
@@ -166,7 +164,7 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // checkout, so the view stays reachable with no repository selected.
   database: { Component: DatabaseView, global: true },
   // Virtualized table rows cascade via `useCascadeReveal` (Phase 84 Theme K.5).
-  projects: { Component: ProjectsView, cascade: true },
+  tasks: { Component: TasksView, cascade: true },
   // Both keep-alive-eligible (Phase 84 Theme G): the two views a watcher-
   // driven repo re-visits most, and the two whose own state (a streamed row
   // buffer and scroll position; open tabs and a diff scroll position) is
@@ -178,7 +176,6 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   },
   actions: { Component: ActionsView, cascade: true },
   reviews: { Component: ReviewsView, cascade: true },
-  issues: { Component: IssuesView, cascade: true },
   history: { Component: HistoryView },
   // Global, like Settings — a council is not scoped to a repo, so it renders
   // whether or not one is selected/open.

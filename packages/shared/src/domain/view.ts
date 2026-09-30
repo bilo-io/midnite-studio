@@ -44,11 +44,14 @@ export const VIEW_IDS = [
   'optimizer',
   'tests',
   'database',
-  'projects',
+  // Renamed from `projects`, and absorbed the old `issues` view — Tasks hosts
+  // both a forge's Project boards and a built-in "Repo issues" source. A
+  // persisted or routed `projects`/`issues` is rewritten to `tasks`
+  // (`ui-store.ts`'s v31 migration, `viewForPath`).
+  'tasks',
   'graph',
   'actions',
   'reviews',
-  'issues',
   'history',
   'councils',
   'workflows',
@@ -121,6 +124,9 @@ export function parseNavVisibility(raw: unknown): NavVisibility {
   for (const view of VIEW_IDS) {
     if (record[view] === false) out[view] = false;
   }
+  // `projects` was renamed `tasks` — a blob written before that (and not yet
+  // through `ui-store.ts`'s v31 migration) keeps its hidden-Projects choice.
+  if (record.tasks === undefined && record.projects === false) out.tasks = false;
   return out;
 }
 

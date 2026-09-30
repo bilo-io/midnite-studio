@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
-import { ProjectsView } from './projects-view';
+import { TasksView } from './tasks-view';
 
 /**
  * Migrated from `e2e/projects.spec.ts` (Phase 82 Theme C wave 5) — the board
@@ -16,7 +16,7 @@ import { ProjectsView } from './projects-view';
  * their own vitest suite against recorded fixtures (`gh-project.test.ts`,
  * `gh-project-write.test.ts`) — this file is only the assembled view.
  * `forgeWritesEnabled` is set via `renderView`'s `uiState`, the same seam
- * `field-editor.test.tsx`/`projects-view.test.tsx` already flip by hand.
+ * `field-editor.test.tsx`/`tasks-view.test.tsx` already flip by hand.
  *
  * `baseFixtures()` is a function, not a shared constant — a successful
  * `setField` mutates the mock's seeded item's `fieldValues` IN PLACE (see
@@ -110,7 +110,7 @@ async function openBoard(
   data: MockFixtures = baseFixtures(),
   options: { writes?: boolean } = {},
 ): Promise<void> {
-  renderView(<ProjectsView />, {
+  renderView(<TasksView />, {
     fixtures: data,
     uiState: {
       selectedRepoId: 'repo-1',
@@ -128,9 +128,9 @@ async function openBoard(
 
 afterEach(cleanup);
 
-describe('ProjectsView, assembled through the real bridge', () => {
+describe('TasksView, assembled through the real bridge', () => {
   it('picking a board loads its items, and not before', async () => {
-    renderView(<ProjectsView />, {
+    renderView(<TasksView />, {
       fixtures: baseFixtures(),
       uiState: { selectedRepoId: 'repo-1', selectedWorktreePath: MAIN },
     });
@@ -205,7 +205,7 @@ describe('ProjectsView, assembled through the real bridge', () => {
 
   it('a missing project scope renders the exact fix, verbatim and copyable', async () => {
     const fixtures = baseFixtures();
-    renderView(<ProjectsView />, {
+    renderView(<TasksView />, {
       fixtures: {
         ...fixtures,
         forgeProject: { ...fixtures.forgeProject, readKind: 'insufficient-scope', error: 'insufficient scope' },

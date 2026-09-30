@@ -125,7 +125,7 @@ export function deriveLabelCounts<T>(
  * ─── The Projects view's own filter (Phase 52 Theme A) ─────────────────────
  *
  * `ProjectItemFilterState` extends the shared facets with `types`, and
- * `filterProjectItems` below is what `projects-view.tsx` actually calls for
+ * `filterProjectItems` below is what `tasks-view.tsx` actually calls for
  * filtering — a thin ProjectV2-specific layer over the generic primitive
  * above, so nothing outside this file needs to know `ForgeProjectItem.content`
  * is a discriminated union. `selectProjectItem` is exported on its own too:

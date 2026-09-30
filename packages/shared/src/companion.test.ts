@@ -1136,7 +1136,7 @@ const testVocabulary: CompanionVocabulary = {
       label: 'Database',
       keywords: 'database sql connection postgres mysql mariadb mssql query schema table',
     },
-    { id: 'issues', label: 'Issues', keywords: 'issues bugs tracker labels milestones' },
+    { id: 'tasks', label: 'Tasks', keywords: 'tasks issues bugs tracker labels milestones projects board' },
     {
       id: 'apiClient',
       label: 'API Client',
@@ -1170,9 +1170,9 @@ describe('parseIntent — navigate (Theme A, with a vocabulary)', () => {
     ['take me to the graph', { kind: 'navigate', view: 'graph' }],
     ['open the database', { kind: 'navigate', view: 'database' }],
     ['bring up the api client', { kind: 'navigate', view: 'apiClient' }],
-    ['jump to issues', { kind: 'navigate', view: 'issues' }],
-    ['show me issue 212', { kind: 'navigate', view: 'issues', issue: 212 }],
-    ['show me issue #212', { kind: 'navigate', view: 'issues', issue: 212 }],
+    ['jump to issues', { kind: 'navigate', view: 'tasks' }],
+    ['show me issue 212', { kind: 'navigate', view: 'tasks', issue: 212 }],
+    ['show me issue #212', { kind: 'navigate', view: 'tasks', issue: 212 }],
     ['open settings, companion', { kind: 'navigate', view: 'settings', page: 'companion' }],
     ['bring up the settings', { kind: 'navigate', view: 'settings' }],
     [

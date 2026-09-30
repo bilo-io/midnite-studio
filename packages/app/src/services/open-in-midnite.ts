@@ -2,7 +2,7 @@ import { normalizeExternalUrl } from '@midnite/studio-shared';
 
 import { useActionsStore } from '../store/actions-store';
 import { useBrowserStore } from '../store/browser-store';
-import { useIssuesStore } from '../store/issues-store';
+import { openIssueModal } from '../store/issue-modal-store';
 import { useReviewsStore } from '../store/reviews-store';
 import { useUiStore, type LinkTarget } from '../store/ui-store';
 
@@ -208,9 +208,11 @@ export function navigateInAppRoute(route: InAppRoute): void {
     case 'reviews':
       useReviewsStore.getState().selectPull(route.repoId, route.pull);
       break;
-    case 'issues':
-      useIssuesStore.getState().selectIssue(route.repoId, route.issue);
-      break;
+    case 'issue':
+      // An issue opens in the app-wide modal over the current view rather
+      // than navigating anywhere — the Issues page folded into Tasks.
+      openIssueModal({ repoId: route.repoId, number: route.issue });
+      return;
     case 'actions':
       useActionsStore.getState().selectRun(route.repoId, route.runId);
       break;

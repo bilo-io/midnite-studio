@@ -5,10 +5,10 @@
  * an unbounded map any more than one who opens many projects should.
  *
  * A separate module rather than a shared import: `project-view-lru.ts` lives
- * under `features/projects/` (not `board/`) and this map is board-specific,
+ * under `features/tasks/` (not `board/`) and this map is board-specific,
  * so mirroring its generic, dependency-free shape here — same insertion-
  * order-of-a-plain-object trick, same eviction order — keeps this file
- * importable from `ui-store.ts` with nothing else in `features/projects`
+ * importable from `ui-store.ts` with nothing else in `features/tasks`
  * pulled in behind it.
  */
 export const CARD_SKILL_LRU_CAP = 200;

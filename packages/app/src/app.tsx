@@ -121,6 +121,7 @@ import { useActivityPaletteSync } from './features/activity/use-activity-palette
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useCompanionStore } from './store/companion-store';
 import { useFileEditorStore } from './store/file-editor-store';
+import { useIssueModalStore } from './store/issue-modal-store';
 import {
   BROWSER_MAX_SHARE,
   DEFAULT_LAYOUT,
@@ -150,8 +151,29 @@ import {
 */
 const loadSlidesModal = () => import('./features/slides/slides-modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
+const loadIssueModal = () => import('./features/tasks/issue/issue-modal');
+const IssueModalHost = lazy(() => loadIssueModal().then((m) => ({ default: m.IssueModalHost })));
 const loadSetupOverlay = () => import('./features/setup/setup-overlay');
 const SetupOverlay = lazy(() => loadSetupOverlay().then((m) => ({ default: m.SetupOverlay })));
+
+/**
+ * The app-wide issue modal (Tasks, the sidebar, the palette and in-app forge
+ * links all open it through `useIssueModalStore`). Its chunk — markdown
+ * rendering, the action bar — loads only once an issue is actually opened,
+ * the same trade the two overlays above make. Inside `DialogHost`, because
+ * `IssueActionBar`'s confirms go through `useDialogs`.
+ */
+function IssueModalSlot() {
+  const open = useIssueModalStore((s) => s.target !== null);
+  if (!open) return null;
+  return (
+    <ErrorBoundary label="Issue" silent>
+      <Suspense fallback={null}>
+        <IssueModalHost />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
 
 /**
  * A QueryClient tuned for a desktop app talking to its own main process.
@@ -431,8 +453,7 @@ const WORKSPACE_NAV_ITEMS: NavItem[] = [
 ];
 
 const GIT_NAV_ITEMS: NavItem[] = [
-  { view: 'issues', label: 'Issues', icon: VIEW_ICON.issues },
-  { view: 'projects', label: 'Projects', icon: VIEW_ICON.projects },
+  { view: 'tasks', label: 'Tasks', icon: VIEW_ICON.tasks },
   { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
@@ -473,7 +494,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
  * among them) is one array entry, not three call sites to remember to update
  * together.
  */
-const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'projects'];
+const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'tasks'];
 
 /**
  * Which capability matrix field decides each gated view's visibility (Phase
@@ -483,11 +504,12 @@ const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'p
  * `'none'` for one field (Bitbucket's Projects, say) hides only that view
  * rather than all four moving together as one GitHub-shaped unit.
  */
-const FORGE_VIEW_CAPABILITY: Partial<Record<ViewId, keyof ForgeCapability>> = {
-  actions: 'checks',
-  reviews: 'pulls',
-  issues: 'issues',
-  projects: 'projects',
+const FORGE_VIEW_CAPABILITY: Partial<Record<ViewId, readonly (keyof ForgeCapability)[]>> = {
+  actions: ['checks'],
+  reviews: ['pulls'],
+  // Tasks hosts both Project boards and the built-in Repo issues source, so
+  // either capability is enough to show it.
+  tasks: ['issues', 'projects'],
 };
 
 /**
@@ -529,10 +551,10 @@ function useForgeViewAvailability(repoId: string | null): (view: ViewId) => bool
 
   return useCallback(
     (view: ViewId) => {
-      const field = FORGE_VIEW_CAPABILITY[view];
-      if (!field) return true;
+      const fields = FORGE_VIEW_CAPABILITY[view];
+      if (!fields) return true;
       if (kind === null || !capability) return false;
-      return capability[field] !== 'none';
+      return fields.some((field) => capability[field] !== 'none');
     },
     [kind, capability],
   );
@@ -2111,6 +2133,7 @@ export function App() {
                 <SetupOverlay />
               </Suspense>
             </ErrorBoundary>
+            <IssueModalSlot />
           </PaletteHost>
         </ToastHost>
       </DialogHost>

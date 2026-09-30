@@ -83,6 +83,7 @@ export function BoardView({
   selectedItemId,
   onSelectItem,
   cardPanelResizable,
+  readOnlyReason,
 }: {
   projectId: string;
   repoId: string | null;
@@ -95,7 +96,7 @@ export function BoardView({
    * H) rather than in place of it: `items` (the toolbar-filtered set) is
    * what columns render, but Auto-mate's own blocker check must not miss a
    * blocker the toolbar filter hid, the same "reads the whole board" rule
-   * `projects-view.tsx`'s own `graph` derivation already states for exactly
+   * `tasks-view.tsx`'s own `graph` derivation already states for exactly
    * this reason. Optional, defaulting to `items` — every test call site
    * predates Auto-mate and has no reason to care about the distinction.
    */
@@ -122,7 +123,7 @@ export function BoardView({
   /** Idempotent "ensure expanded" — distinct from the toggle: a drag hovering
    *  a collapsed column's rail must only ever open it, never close it. */
   onExpandColumn: (columnId: string) => void;
-  /** Lifted to `ProjectsView` (Phase 75 Theme G) so board mode and graph mode
+  /** Lifted to `TasksView` (Phase 75 Theme G) so board mode and graph mode
    *  share one selection rather than owning two that can disagree across a
    *  mode switch. */
   selectedItemId: string | null;
@@ -130,13 +131,20 @@ export function BoardView({
    *  `onSelectItem` already uses for `Escape`. */
   onSelectItem: (itemId: string | null) => void;
   /**
-   * Same `useResizable` instance `ProjectsView` hands `ProjectGraphView`'s
+   * Same `useResizable` instance `TasksView` hands `ProjectGraphView`'s
    * own `CardPanelStack` mount (Ad hoc) — lifted rather than a second
    * `useResizable` call here, so the width dragged in one mode is exactly
    * the width the other opens with, off the one persisted
    * `layout.projectsCardPanelWidth`.
    */
   cardPanelResizable: Resizable;
+  /**
+   * Set when the source cannot take a column move at all — the Repo issues
+   * source, whose `Status` is an issue's own open/closed state, not a board
+   * field. Folded into the same `writesEnabled` gate as an iteration
+   * grouping, so the card shows the reason rather than a dead drag.
+   */
+  readOnlyReason?: string | undefined;
 }) {
   /**
    * Grouping by an iteration field is read-only (Phase 52 Theme B): its
@@ -147,14 +155,16 @@ export function BoardView({
    * already reads, rather than a second disabled path, so this reuses the
    * existing tested "disabled with a reason" rendering wholesale.
    */
-  const readOnlyGrouping = groupField?.dataType === 'iteration';
+  const readOnlyGrouping = readOnlyReason !== undefined || groupField?.dataType === 'iteration';
   // Same gate the table's own `ProjectFieldCell` reads — a drag is a write
   // like any other, and "gated at the surface, not in the mutation" applies
   // to a gesture exactly as it does to a control: `useDraggable`'s own
   // `disabled` is that surface for a card.
   const forgeWritesEnabled = useUiStore((s) => s.forgeWritesEnabled);
   const writesEnabled = forgeWritesEnabled && !readOnlyGrouping;
-  const disabledReason = readOnlyGrouping
+  const disabledReason = readOnlyReason !== undefined
+    ? readOnlyReason
+    : readOnlyGrouping
     ? `Grouping by "${groupField?.name}" is read-only — an iteration field's write payload differs and iteration writes are out of scope.`
     : !forgeWritesEnabled
       ? 'Enable review actions in Settings → Reviews to move cards'
@@ -406,7 +416,7 @@ export function BoardView({
   if (!groupField) {
     return (
       <EmptyState
-        icon={VIEW_ICON.projects}
+        icon={VIEW_ICON.tasks}
         title="No groupable field"
         body="This project has no single-select or iteration field for the board to group by."
       />
@@ -414,7 +424,7 @@ export function BoardView({
   }
 
   if (items.length === 0) {
-    return <EmptyState icon={VIEW_ICON.projects} title="No items" body="This project has no items yet." />;
+    return <EmptyState icon={VIEW_ICON.tasks} title="No items" body="This project has no items yet." />;
   }
 
   const handleDragStart = (event: DragStartEvent): void => {

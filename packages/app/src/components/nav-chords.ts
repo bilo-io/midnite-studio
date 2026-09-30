@@ -29,7 +29,7 @@ export const VIEW_COMMAND: Partial<Record<ViewId, CommandId>> = {
   files: 'view.files',
   search: 'search.open',
   graph: 'view.graph',
-  issues: 'view.issues',
+  tasks: 'view.issues',
 };
 
 /** The rail tooltip's text for a view, or `undefined` where there is no chord. */

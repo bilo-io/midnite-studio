@@ -8,13 +8,13 @@ import {
   AUTOMATE_CONCURRENCY_MIN,
 } from '@midnite/studio-shared';
 
-import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '../../projects/board/board-derive';
+import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '../../tasks/board/board-derive';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { Field, TextField } from './controls';
 
-/** How the fix is spelled — shown verbatim, matching `MissingScopeState` in `projects-view.tsx`. */
+/** How the fix is spelled — shown verbatim, matching `MissingScopeState` in `tasks-view.tsx`. */
 const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
 
 /**

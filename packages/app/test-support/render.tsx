@@ -22,7 +22,7 @@ import type { MockFixtures } from './mock-bridge';
  * The provider stack every assembled-view unit test needs, in one place.
  *
  * Before this, 62 test files hand-rolled their own `QueryClientProvider`
- * (`projects-view.test.tsx`, `board-view.test.tsx`, …), most wrapping a
+ * (`tasks-view.test.tsx`, `board-view.test.tsx`, …), most wrapping a
  * `DialogHost` too the moment the view under test reaches `useDialogs()` for
  * a menu, a confirm or a prompt — and a few also needed `ThemeProvider`
  * because they mount something that reads `prefers-color-scheme` on mount
@@ -36,7 +36,7 @@ import type { MockFixtures } from './mock-bridge';
  * ```
  *
  * `fixtures` and `uiState` are both optional — a test that drives its own
- * `vi.mock('../../services/bridge', …)` (the pattern `projects-view.test.tsx`
+ * `vi.mock('../../services/bridge', …)` (the pattern `tasks-view.test.tsx`
  * and `transcript-view.test.tsx` use, and this helper does not replace) can
  * still use `renderView` for the provider stack alone and skip both.
  *

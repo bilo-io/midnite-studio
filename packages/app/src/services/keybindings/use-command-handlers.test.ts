@@ -234,7 +234,7 @@ describe('useCommandHandlers — a repo is selected', () => {
 
     // Phase 50 Theme D: the board's own card panel-stack joins Councils as a
     // registrant of `active-panel.ts`.
-    useUiStore.setState({ activeView: 'projects' });
+    useUiStore.setState({ activeView: 'tasks' });
     const { result: projects } = withProviders(seededClient({}));
     expect(projects.current['panel.back'].enabled).toBe(true);
     expect(projects.current['panel.forward'].enabled).toBe(true);

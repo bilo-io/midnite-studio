@@ -206,21 +206,15 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   tests: { sections: ['tests', 'worktrees'], dirtyOnly: false },
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
   /*
-   * Deliberately omits its own `issues` leaf, unlike `actions`/`reviews`
-   * above: this is the one place showing the sidebar's `IssuesSection`
-   * alongside the dedicated view for the same data would be obviously
-   * redundant, so it narrows to Worktrees only while the Issues view is open.
-   * Elsewhere in the app the section is unaffected — still reachable exactly
-   * as it always was.
-   */
-  issues: { sections: ['worktrees'], dirtyOnly: false },
-  /*
-   * Starts at `WORK_IN_PROGRESS`, matching councils — a board picker one
-   * click away from the header is enough for now, and a dedicated `projects`
+   * Starts at `WORK_IN_PROGRESS`, matching councils — a source picker one
+   * click away from the header is enough for now, and a dedicated `tasks`
    * sidebar section is worth adding only if that picker proves insufficient
-   * (see the phase doc's own recommendation).
+   * (see the phase doc's own recommendation). The old Issues view's own
+   * narrowing (Worktrees only, hiding the sidebar's `IssuesSection`) went
+   * with it: the section's rows now open the issue modal rather than
+   * duplicating a page, so there is nothing left for it to be redundant with.
    */
-  projects: WORK_IN_PROGRESS,
+  tasks: WORK_IN_PROGRESS,
   history: WORK_IN_PROGRESS,
   councils: WORK_IN_PROGRESS,
   workflows: WORK_IN_PROGRESS,
@@ -232,7 +226,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
   // No dedicated sidebar section (its collections live under `.midnite/api/`
-  // in the tree, not the sidebar) — same reasoning as `projects` above.
+  // in the tree, not the sidebar) — same reasoning as `tasks` above.
   apiClient: WORK_IN_PROGRESS,
   settings: WORK_IN_PROGRESS,
 };

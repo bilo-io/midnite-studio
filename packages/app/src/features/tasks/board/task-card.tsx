@@ -11,6 +11,7 @@ import { closeSessionWithConfirm } from '../../terminal/close-session';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
+import { IssuePills, useOpenIssue } from '../issue-pills';
 import type { StatusStroke } from '../status-stroke';
 import { StatusBorder } from './status-border';
 import { cardGlowStateFromActivity, taskGlowClass } from './glow-state';
@@ -84,6 +85,7 @@ export function TaskCard({
   const Icon = CONTENT_ICON[item.content.type];
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
+  const openIssue = useOpenIssue(item);
 
   // No board, no session to bind to — falls out of `useCardStatus` as idle.
   const status = useCardStatus(projectId ? { projectId, itemId: item.id } : { projectId: '', itemId: '' });
@@ -206,11 +208,12 @@ export function TaskCard({
 
         {number !== null ? (
           <div className="flex items-center justify-between gap-2 pr-6">
-            <CardNumberRow number={number} href={href} />
+            <CardNumberRow number={number} href={href} onOpen={openIssue} />
           </div>
         ) : null}
 
-        <div className="pr-6">
+        <div className="flex flex-col gap-1 pr-6">
+          <IssuePills item={item} density="card" />
           <CardFieldChips item={item} fields={fields} />
         </div>
 

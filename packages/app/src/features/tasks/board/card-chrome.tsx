@@ -43,9 +43,38 @@ export function CardTitleRow({ icon: Icon, title }: { icon: IconComponent; title
  * `#number`, linked when a URL exists — its own click target, stopped from
  * bubbling to whatever opens the item's detail pane. `null` renders an empty
  * span so a number-less row (a draft) keeps its neighbour's layout.
+ *
+ * `onOpen` (an issue Tasks can resolve to a registered repo, `useOpenIssue`)
+ * turns the number into a button opening the app-wide issue modal instead of
+ * the forge page.
  */
-export function CardNumberRow({ number, href }: { number: number | null; href: string | null }) {
+export function CardNumberRow({
+  number,
+  href,
+  onOpen,
+}: {
+  number: number | null;
+  href: string | null;
+  onOpen?: (() => void) | undefined;
+}) {
   if (number === null) return <span />;
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        data-open-issue={number}
+        aria-label={`Open issue #${number}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen();
+        }}
+        onKeyDown={(event) => event.stopPropagation()}
+        className="rounded text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      >
+        #{number}
+      </button>
+    );
+  }
   return href ? (
     <span onClick={(event) => event.stopPropagation()}>
       <ExternalLink href={href}>

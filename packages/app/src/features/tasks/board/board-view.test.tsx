@@ -22,7 +22,7 @@ beforeAll(() => {
  * state, or owns the selected card (Phase 52 Themes B/D lifted the first
  * two to the caller so they can be persisted; Phase 75 Theme G lifted
  * selection so board mode and graph mode can share it). This is that
- * caller, standing in for `ProjectsView`: it resolves the field the same
+ * caller, standing in for `TasksView`: it resolves the field the same
  * way `resolveGroupField` always does (`Status` by default), keeps collapse
  * state and the selected item exactly the way `BoardView` itself used to,
  * so every pre-existing test below still exercises real behaviour rather
@@ -230,7 +230,7 @@ describe('BoardView', () => {
 
   it('a column past the virtualize threshold switches to the virtualizer without crashing', () => {
     // jsdom reports every element as zero-sized, so the virtualizer itself
-    // renders no rows here (the same limitation `projects-view.test.tsx`
+    // renders no rows here (the same limitation `tasks-view.test.tsx`
     // documents for the table) — this proves the threshold branch mounts
     // cleanly and still reports the true count, not that rows paint.
     const many = Array.from({ length: 60 }, (_, i) => item(`i${i}`, `Task ${i}`, 'todo'));

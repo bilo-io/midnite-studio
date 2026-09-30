@@ -1,13 +1,8 @@
 import type { ForgeIssue } from '@midnite/studio-shared';
 
-/** Most recently updated first — the Issues view's own default order. */
+/** Most recently updated first — the Repo issues source's default order. */
 export function sortByUpdated(issues: readonly ForgeIssue[]): ForgeIssue[] {
   return [...issues].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-/** The issue the list opens on with no explicit selection — the most recently updated one. */
-export function pickInitialIssue(issues: readonly ForgeIssue[]): number | null {
-  return sortByUpdated(issues)[0]?.number ?? null;
 }
 
 /**

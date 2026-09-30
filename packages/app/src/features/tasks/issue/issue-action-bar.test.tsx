@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DialogHost } from '../../components/dialog-host';
-import { useUiStore } from '../../store/ui-store';
+import { DialogHost } from '../../../components/dialog-host';
+import { useUiStore } from '../../../store/ui-store';
 import { IssueActionBar } from './issue-action-bar';
 
 const issueCommentFn = vi.fn();
@@ -12,7 +12,7 @@ const issueSetStateFn = vi.fn();
 const listProjects = vi.fn();
 const addItem = vi.fn();
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
     forge: {
       issueComment: issueCommentFn,

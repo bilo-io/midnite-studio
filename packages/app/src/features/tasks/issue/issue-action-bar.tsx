@@ -3,9 +3,9 @@ import { pickForgeRemote } from '@midnite/studio-shared';
 import { LuCircleCheck, LuKanban, LuMessageSquare, LuRotateCcw } from 'react-icons/lu';
 import { useState, type MouseEvent } from 'react';
 
-import type { MenuItem } from '../../components/context-menu';
-import { useDialogs } from '../../components/dialog-host';
-import { Spinner } from '../../components/skeleton';
+import type { MenuItem } from '../../../components/context-menu';
+import { useDialogs } from '../../../components/dialog-host';
+import { Spinner } from '../../../components/skeleton';
 import {
   useActiveForgeCapability,
   useAddProjectItem,
@@ -13,9 +13,9 @@ import {
   useForgeProjects,
   useRemotes,
   useSetIssueState,
-} from '../../services/queries';
-import { useUiStore } from '../../store/ui-store';
-import { PlanWithAiBar } from '../projects/plan/plan-with-ai-bar';
+} from '../../../services/queries';
+import { useUiStore } from '../../../store/ui-store';
+import { PlanWithAiBar } from '../plan/plan-with-ai-bar';
 
 /**
  * Everything this app can change about an issue, in one row (Phase 54 Theme G).

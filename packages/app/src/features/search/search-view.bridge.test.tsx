@@ -28,7 +28,7 @@ import { SearchView } from './search-view';
  * list is `@tanstack/react-virtual`, and wave 1 left this one behind on a
  * documented, *empirically confirmed* finding: with
  * `HTMLElement.prototype.clientWidth`/`clientHeight` stubbed the same way
- * `projects-view.test.tsx` does, the store correctly received and
+ * `tasks-view.test.tsx` does, the store correctly received and
  * auto-selected the first result, but the virtualized row itself never
  * painted — `getVirtualItems()` stayed empty regardless, because the
  * measurement `@tanstack/react-virtual` actually keys off is a

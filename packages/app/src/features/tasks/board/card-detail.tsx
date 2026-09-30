@@ -6,14 +6,15 @@ import { IconButton } from '../../../components/icon-button';
 import { UserAvatar } from '../../../components/user-avatar';
 import { useActiveForgeCapability, useRepoSkills } from '../../../services/queries';
 import { ExternalLink } from '../../markdown/external-link';
-import { IssueDialog } from '../../issues/issue-dialog';
+import { IssueDialog } from '../issue/issue-dialog';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { resolveMostRecentAgentId } from './board-derive';
 import { buildSkillSuggestions, defaultCardSkill, recentCardSkills } from './card-skill';
 import { CardSkillPicker } from './card-skill-picker';
 import { CardComposer } from './card-composer';
-import { CONTENT_ICON } from './card-chrome';
+import { CardNumberRow, CONTENT_ICON } from './card-chrome';
+import { useOpenIssue } from '../issue-pills';
 import { ProjectFieldCell } from '../field-editor';
 
 /**
@@ -51,6 +52,7 @@ export function CardDetail({
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
   const linkedPrs = item.content.type === 'issue' ? item.content.linkedPrs ?? [] : [];
+  const openIssue = useOpenIssue(item);
 
   // Composite key mirrors `useCardPlay`'s own `taskRef` — there is no single
   // id that identifies a task across a possible cross-repo project.
@@ -100,7 +102,16 @@ export function CardDetail({
           <p className="truncate text-sm font-medium">{item.content.title}</p>
           {item.content.type === 'issue' ? (
             <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span>Issue {href ? <ExternalLink href={href}>#{number}</ExternalLink> : `#${number}`}</span>
+              <span>
+                Issue{' '}
+                {openIssue ? (
+                  <CardNumberRow number={number} href={href} onOpen={openIssue} />
+                ) : href ? (
+                  <ExternalLink href={href}>#{number}</ExternalLink>
+                ) : (
+                  `#${number}`
+                )}
+              </span>
               {linkedPrs.length > 0 ? (
                 <span>
                   · PRs:{' '}

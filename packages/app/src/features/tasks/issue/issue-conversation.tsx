@@ -2,10 +2,10 @@ import type { ForgeComment } from '@midnite/studio-shared';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { ExternalLink } from '../markdown/external-link';
-import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
-import { PresentButton } from '../slides/present-button';
-import { UserAvatar } from '../../components/user-avatar';
+import { ExternalLink } from '../../markdown/external-link';
+import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
+import { PresentButton } from '../../slides/present-button';
+import { UserAvatar } from '../../../components/user-avatar';
 
 /**
  * An issue's comment thread — read-only, the same posture Theme C's own

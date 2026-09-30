@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   LuArrowDown,
   LuArrowUp,
@@ -7,6 +7,7 @@ import {
   LuChevronsUpDown,
   LuCircleDot,
   LuCopy,
+  LuFilePlus2,
   LuGitPullRequest,
   LuKanban,
   LuLayers,
@@ -21,6 +22,7 @@ import {
 import {
   pickForgeRemote,
   resolveForgeGraph,
+  type ForgeIssue,
   type ForgeProjectField,
   type ForgeProjectItem,
 } from '@midnite/studio-shared';
@@ -60,6 +62,8 @@ import { nextSortState, sortItems, type SortState } from './sort';
 import { findStatusField, itemStatusStroke } from './status-stroke';
 import {
   useActiveForgeCapability,
+  useAddProjectItem,
+  useForgeIssues,
   useForgeProjectFields,
   useForgeProjectItems,
   useForgeProjects,
@@ -72,6 +76,15 @@ import { PageDetachMark } from '../../components/page-detach-mark';
 import { submitCommand } from '../terminal/submit-command';
 import { ProjectDialog, type ProjectDialogMode } from './project-dialog';
 import { PlanWithAiBar } from './plan/plan-with-ai-bar';
+import { IssueDialog } from './issue/issue-dialog';
+import { IssuePills, TaskIssueProvider, useOpenIssue } from './issue-pills';
+import {
+  isRepoIssuesSource,
+  REPO_ISSUES_FIELDS,
+  REPO_ISSUES_SOURCE_ID,
+  repoIssuesAsItems,
+} from './repo-issues-source';
+import { useToastStore } from '../../store/toast-store';
 
 const PROJECTS_MODES = ['table', 'board', 'graph'] as const;
 type ProjectsMode = (typeof PROJECTS_MODES)[number];
@@ -83,8 +96,18 @@ function coerceProjectsMode(value: string | undefined): ProjectsMode {
 }
 
 /**
- * The Projects view (Phase 40 Theme D): a board picker above the picked
- * board's items, rendered as a table.
+ * The Tasks view — Projects renamed, with the Issues view folded in. A picker
+ * above the picked source's items, rendered as a table, a board or a graph.
+ * The sources are the forge's own Project boards (still "boards" to the forge
+ * contract — `ForgeProject*`) plus one built-in, always-present **Repo
+ * issues** source (`repo-issues-source.ts`): the repo's issue list, state
+ * `all`, so an issue on no board is still reachable. A repo with no board
+ * picked opens on it. Every issue row, card and node wears the old Issues
+ * list's extra pills (`IssuePills`), and its `#number` opens the app-wide
+ * issue modal (`IssueModalHost`) instead of the forge page.
+ *
+ * Originally the Projects view (Phase 40 Theme D): a board picker above the
+ * picked board's items, rendered as a table.
  *
  * `EmptyWorkspace` and the "no GitHub remote" redirect both happen one layer
  * up, in `app.tsx` — by the time this component ever mounts, a repo is
@@ -104,7 +127,7 @@ function coerceProjectsMode(value: string | undefined): ProjectsMode {
  * every value already client-side on `ForgeProjectItem`, so none of this
  * needs a new IPC channel.
  */
-export function ProjectsView() {
+export function TasksView() {
   const { repoId, worktreePath } = useActiveWorktree();
   const boardByRepo = useUiStore((s) => s.projectBoardByRepo);
   const setProjectBoard = useUiStore((s) => s.setProjectBoard);
@@ -167,6 +190,22 @@ export function ProjectsView() {
     data model, not of any one item in it.
   */
   const { capability } = useActiveForgeCapability(repoId);
+
+  // The Repo issues source, and the issue pills on every other source's
+  // items — the Issues view's own read (`state: 'all'`, 50) and its Phase 84
+  // forge subscription, which moved here with it.
+  const repoIssues = useForgeIssues(repoId, repoId !== null && capability?.issues !== 'none', 50, 'all');
+  useForgeSubscription(repoId, 'issues');
+  const repoIssueRows = repoIssues.data?.issues ?? NO_ISSUES;
+  const issuesByNumber = useMemo(
+    () => new Map<number, ForgeIssue>(repoIssueRows.map((issue) => [issue.number, issue])),
+    [repoIssueRows],
+  );
+  const repoIssueItems = useMemo(() => repoIssuesAsItems(repoIssueRows, repoName), [repoIssueRows, repoName]);
+  const [creatingIssue, setCreatingIssue] = useState(false);
+  const addProjectItem = useAddProjectItem();
+  const addToast = useToastStore((s) => s.addToast);
+
   const repoBoards = boards.filter((b) => b.linkedToRepo);
   const ownerBoards = boards.filter((b) => !b.linkedToRepo);
 
@@ -174,18 +213,21 @@ export function ProjectsView() {
   // than two: `null` is closed, the mode carries which of the two it is.
   const [projectDialogMode, setProjectDialogMode] = useState<ProjectDialogMode | null>(null);
 
-  const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? null) : null;
+  // No board picked yet opens on Repo issues — the one source every repo has.
+  const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? REPO_ISSUES_SOURCE_ID) : null;
+  const onRepoIssues = isRepoIssuesSource(selectedProjectId);
+  /** The picked forge board, or `null` on Repo issues — what every board read and write keys on. */
+  const boardId = onRepoIssues ? null : selectedProjectId;
   const cascade = useCascadeReveal({
     revealKey: `${repoId}:${selectedProjectId ?? ''}`,
   });
   // One subscription for the whole canvas (Theme F) — a hook, so it is
   // called unconditionally here rather than only while `mode === 'graph'`.
   const graphAgentStates = useGraphAgentStates(selectedProjectId ?? '');
-  const boardStillExists =
-    selectedProjectId !== null && boards.some((b) => b.id === selectedProjectId);
+  const boardStillExists = boardId !== null && boards.some((b) => b.id === boardId);
 
-  const fieldsQuery = useForgeProjectFields(selectedProjectId, selectedProjectId !== null);
-  const itemsQuery = useForgeProjectItems(selectedProjectId, selectedProjectId !== null);
+  const fieldsQuery = useForgeProjectFields(boardId, boardId !== null);
+  const itemsQuery = useForgeProjectItems(boardId, boardId !== null);
 
   const view =
     useUiStore((s) => (selectedProjectId ? s.projectViewByProject[selectedProjectId] : undefined)) ??
@@ -210,8 +252,8 @@ export function ProjectsView() {
   // reflects the real board size rather than whatever the filter left.
   // `ProjectGraphView` narrows the result to what the filter and this
   // graph's own facets allow through, via `filterForgeGraph`.
-  const graphItems = itemsQuery.data?.items ?? NO_ITEMS;
-  const graphFields = fieldsQuery.data?.fields ?? NO_FIELDS;
+  const graphItems = onRepoIssues ? repoIssueItems : (itemsQuery.data?.items ?? NO_ITEMS);
+  const graphFields = onRepoIssues ? REPO_ISSUES_FIELDS : (fieldsQuery.data?.fields ?? NO_FIELDS);
   const graph = useMemo(
     () =>
       resolveForgeGraph(graphItems, graphFields, {
@@ -233,82 +275,98 @@ export function ProjectsView() {
   // out of the old private `ProjectsToolbar`, which mounted only once
   // `dataReady` — a component, unlike a plain expression, cannot skip its
   // own hook call on the renders before that.
-  const groupableColumns = useMemo(
-    () => groupableFields(fieldsQuery.data?.fields ?? []),
-    [fieldsQuery.data?.fields],
-  );
+  const groupableColumns = useMemo(() => groupableFields(graphFields), [graphFields]);
   const scopeMissing =
-    projects.data?.kind === 'insufficient-scope' || itemsQuery.data?.kind === 'insufficient-scope';
-
-  if (scopeMissing) return <MissingScopeState />;
+    !onRepoIssues &&
+    (projects.data?.kind === 'insufficient-scope' || itemsQuery.data?.kind === 'insufficient-scope');
+  const [now] = useState(() => Date.now());
+  const issueContext = useMemo(
+    () => ({ issuesByNumber, repoId, repoName, showState: !onRepoIssues, now }),
+    [issuesByNumber, repoId, repoName, onRepoIssues, now],
+  );
 
   /*
-    Error → empty → skeleton → content (`components/skeleton.tsx`), with the
-    transport rung added in Phase 60 Theme C: `projects.data.error` is the
-    envelope's own "gh said no", while `projects.isError` is the call never
-    returning — which fell through to "No projects" and asserted something
-    about the owner's account that this pane had not established.
+    The board-list states below only ever describe the forge's boards, so
+    they replace the body — never the header — and never while Repo issues is
+    showing: the picker must stay reachable, or a missing `project` scope
+    would strand an issue list that needs no such scope at all.
   */
-  if (projects.isError && projects.data === undefined) {
-    return (
-      <EmptyState
-        icon={VIEW_ICON.projects}
-        title="Could not reach the GitHub CLI"
-        body={projects.error instanceof Error ? projects.error.message : String(projects.error)}
-        action={
-          <ReloadProjectsButton
-            command={GH_DIAGNOSE_COMMAND}
-            busy={projects.isFetching}
-            onReload={() => void projects.refetch()}
-          />
-        }
-      />
-    );
+  const boardProblem = onRepoIssues ? null : boardListProblem();
+  function boardListProblem(): ReactNode {
+    if (scopeMissing) return <MissingScopeState />;
+
+    /*
+      Error → empty → skeleton → content (`components/skeleton.tsx`), with the
+      transport rung added in Phase 60 Theme C: `projects.data.error` is the
+      envelope's own "gh said no", while `projects.isError` is the call never
+      returning — which fell through to "No projects" and asserted something
+      about the owner's account that this pane had not established.
+    */
+    if (projects.isError && projects.data === undefined) {
+      return (
+        <EmptyState
+          icon={VIEW_ICON.tasks}
+          title="Could not reach the GitHub CLI"
+          body={projects.error instanceof Error ? projects.error.message : String(projects.error)}
+          action={
+            <ReloadProjectsButton
+              command={GH_DIAGNOSE_COMMAND}
+              busy={projects.isFetching}
+              onReload={() => void projects.refetch()}
+            />
+          }
+        />
+      );
+    }
+
+    if (projects.isLoading) return <BoardPickerSkeleton />;
+
+    if (projects.data?.error) {
+      return (
+        <EmptyState
+          icon={VIEW_ICON.tasks}
+          title="Could not load task boards"
+          body={projects.data.error}
+          action={
+            <ReloadProjectsButton
+              command={SCOPE_FIX_COMMAND}
+              busy={projects.isFetching}
+              onReload={() => void projects.refetch()}
+            />
+          }
+        />
+      );
+    }
+
+    if (boards.length === 0) {
+      return (
+        <EmptyState
+          icon={VIEW_ICON.tasks}
+          title="No task boards"
+          body="This owner has no Project boards, or none this token can see. Repo issues, in the picker above, lists this repository's issues."
+          action={
+            <ReloadProjectsButton
+              command={SCOPE_FIX_COMMAND}
+              busy={projects.isFetching}
+              onReload={() => void projects.refetch()}
+            />
+          }
+        />
+      );
+    }
+    return null;
   }
 
-  if (projects.isLoading) return <BoardPickerSkeleton />;
-
-  if (projects.data?.error) {
-    return (
-      <EmptyState
-        icon={VIEW_ICON.projects}
-        title="Could not load projects"
-        body={projects.data.error}
-        action={
-          <ReloadProjectsButton
-            command={SCOPE_FIX_COMMAND}
-            busy={projects.isFetching}
-            onReload={() => void projects.refetch()}
-          />
-        }
-      />
-    );
-  }
-
-  if (boards.length === 0) {
-    return (
-      <EmptyState
-        icon={VIEW_ICON.projects}
-        title="No projects"
-        body="This owner has no projects, or none this token can see."
-        action={
-          <ReloadProjectsButton
-            command={SCOPE_FIX_COMMAND}
-            busy={projects.isFetching}
-            onReload={() => void projects.refetch()}
-          />
-        }
-      />
-    );
-  }
-
-  const allFields = fieldsQuery.data?.fields ?? [];
-  const allItems = itemsQuery.data?.items ?? [];
+  const allFields = graphFields;
+  const allItems = graphItems;
   const filteredItems = filterProjectItems(allItems, view.filter);
   // Extended (Theme H): a graph facet left non-default is exactly as much a
   // filter as the shared toolbar's own, so it feeds the same indicator.
   const filterActive = !isProjectItemFilterEmpty(view.filter) || !isDefaultGraphFacets(graphFacets);
-  const dataReady = selectedProjectId !== null && !itemsQuery.isLoading && !fieldsQuery.isLoading && !itemsQuery.data?.error;
+  const repoIssuesProblem = onRepoIssues ? repoIssuesProblemText(repoIssues.data, repoIssues.error) : null;
+  const itemsLoading = onRepoIssues ? repoIssues.isLoading : itemsQuery.isLoading || fieldsQuery.isLoading;
+  const itemsError = onRepoIssues ? repoIssuesProblem : (itemsQuery.data?.error ?? null);
+  const dataReady = selectedProjectId !== null && boardProblem === null && !itemsLoading && !itemsError;
 
   const setFilter = (filter: ProjectItemFilterState): void => {
     if (selectedProjectId) setProjectView(selectedProjectId, { filter });
@@ -352,25 +410,50 @@ export function ProjectsView() {
 
   const groupField = mode === 'board' ? resolveGroupField(allFields, view.groupFieldId) : null;
 
+  /** A new issue lands on the open board too, when one is picked — the whole reason to make it from here. */
+  const onIssueCreated = (issue: ForgeIssue): void => {
+    if (boardId === null || issue.id === '') return;
+    addProjectItem.mutate(
+      { projectId: boardId, contentId: issue.id },
+      {
+        onSuccess: (result) => {
+          if (!result.ok) {
+            addToast({
+              status: 'error',
+              message: `Created #${issue.number}, but could not add it to the board: ${
+                result.kind === 'insufficient-scope' ? result.hint : result.message
+              }`,
+            });
+          }
+        },
+      },
+    );
+  };
+
   return (
+    <TaskIssueProvider value={issueContext}>
     <div className="flex h-full min-h-0 flex-col" data-testid="projects-view">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2">
-        <PageDetachMark role="projects" />
-        <h2 className="mr-auto text-sm font-semibold tracking-tight">Projects</h2>
+        <PageDetachMark role="tasks" />
+        <h2 className="mr-auto text-sm font-semibold tracking-tight">Tasks</h2>
 
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>Board</span>
+          <span>Source</span>
           <select
-            aria-label="Project board"
-            value={boardStillExists ? (selectedProjectId ?? '') : ''}
+            aria-label="Task source"
+            value={onRepoIssues ? REPO_ISSUES_SOURCE_ID : boardStillExists ? (selectedProjectId ?? '') : ''}
             onChange={(event) => {
               if (repoId && event.target.value) setProjectBoard(repoId, event.target.value);
             }}
             className="rounded border border-border bg-background px-1.5 py-1 text-xs"
           >
             <option value="" disabled>
-              Pick a board…
+              Pick a task board…
             </option>
+            {/* Always offered, whatever the forge's boards say — see `repo-issues-source.ts`. */}
+            <optgroup label="Built in">
+              <option value={REPO_ISSUES_SOURCE_ID}>Repo issues</option>
+            </optgroup>
             {repoBoards.length > 0 && (
               <optgroup label="This repo">
                 {repoBoards.map((board) => (
@@ -399,14 +482,23 @@ export function ProjectsView() {
             repoId={repoId}
             repoName={repoName}
             worktreePath={worktreePath}
-            origin={{ kind: 'project', capability, defaultProjectId: selectedProjectId }}
+            origin={{ kind: 'project', capability, defaultProjectId: boardId }}
+          />
+        ) : null}
+
+        {repoId !== null && capability?.ops.createIssue ? (
+          <IconButton
+            icon={LuFilePlus2}
+            label={boardId !== null ? 'New issue on this board' : 'New issue'}
+            size="sm"
+            onClick={() => setCreatingIssue(true)}
           />
         ) : null}
 
         {capability?.ops.createProject ? (
           <IconButton
             icon={LuPlus}
-            label="New board"
+            label="New task board"
             size="sm"
             onClick={() => setProjectDialogMode({ kind: 'create' })}
           />
@@ -414,10 +506,10 @@ export function ProjectsView() {
         {boardStillExists && (capability?.ops.editProject || capability?.ops.deleteProject) ? (
           <IconButton
             icon={LuPencil}
-            label="Edit board"
+            label="Edit task board"
             size="sm"
             onClick={() => {
-              const board = boards.find((b) => b.id === selectedProjectId);
+              const board = boards.find((b) => b.id === boardId);
               if (!board) return;
               setProjectDialogMode({
                 kind: 'edit',
@@ -456,7 +548,7 @@ export function ProjectsView() {
         </div>
       </header>
 
-      {capability?.projects === 'partial' ? (
+      {!onRepoIssues && capability?.projects === 'partial' ? (
         <p
           data-testid="projects-partial-capability-note"
           className="shrink-0 border-b border-border bg-muted/30 px-4 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
@@ -473,19 +565,22 @@ export function ProjectsView() {
           select={selectProjectItem}
           filter={view.filter}
           onFilterChange={setSharedFilter}
-          stateOptions={STATE_OPTIONS}
+          stateOptions={onRepoIssues ? ISSUE_STATE_OPTIONS : STATE_OPTIONS}
         >
-          <MultiSelectMenu
-            options={TYPE_OPTIONS}
-            selected={view.filter.types}
-            onChange={(types) => setFilter({ ...view.filter, types: types as ProjectItemFilterState['types'] })}
-            icon={<LuLayers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-            allLabel="All types"
-            searchPlaceholder="Filter type…"
-            emptyLabel="No type matches."
-            label="Filter by item type"
-            summarise={(n) => `${n} types`}
-          />
+          {/* Repo issues holds nothing but issues — a type facet would have one answer. */}
+          {onRepoIssues ? null : (
+            <MultiSelectMenu
+              options={TYPE_OPTIONS}
+              selected={view.filter.types}
+              onChange={(types) => setFilter({ ...view.filter, types: types as ProjectItemFilterState['types'] })}
+              icon={<LuLayers aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+              allLabel="All types"
+              searchPlaceholder="Filter type…"
+              emptyLabel="No type matches."
+              label="Filter by item type"
+              summarise={(n) => `${n} types`}
+            />
+          )}
 
           {/*
             Board-only, but lives here rather than beside the board
@@ -587,18 +682,25 @@ export function ProjectsView() {
         </ItemFilterToolbar>
       ) : null}
 
-      {selectedProjectId === null ? (
+      {boardProblem !== null ? (
+        boardProblem
+      ) : selectedProjectId === null ? (
         <EmptyState
-          icon={VIEW_ICON.projects}
-          title="Pick a board"
-          body="Choose a project board above to see its items."
+          icon={VIEW_ICON.tasks}
+          title="Pick a task board"
+          body="Choose a source above to see its tasks."
         />
-      ) : itemsQuery.isLoading || fieldsQuery.isLoading ? (
+      ) : itemsLoading ? (
         <ItemsSkeleton />
-      ) : itemsQuery.data?.error ? (
-        <EmptyState icon={VIEW_ICON.projects} title="Could not load items" body={itemsQuery.data.error} />
+      ) : itemsError ? (
+        <EmptyState
+          icon={VIEW_ICON.tasks}
+          title={onRepoIssues ? 'Could not load issues' : 'Could not load tasks'}
+          body={itemsError}
+        />
       ) : mode === 'board' ? (
         <BoardView
+          readOnlyReason={onRepoIssues ? REPO_ISSUES_READ_ONLY : undefined}
           projectId={selectedProjectId}
           repoId={repoId}
           worktreePath={worktreePath}
@@ -617,15 +719,15 @@ export function ProjectsView() {
         />
       ) : allItems.length === 0 ? (
         <EmptyState
-          icon={VIEW_ICON.projects}
-          title="No items"
-          body="This board has no items yet."
+          icon={VIEW_ICON.tasks}
+          title={onRepoIssues ? 'No issues' : 'No tasks'}
+          body={onRepoIssues ? 'This repository has no issues yet.' : 'This board has no tasks yet.'}
         />
       ) : filteredItems.length === 0 ? (
         <EmptyState
-          icon={VIEW_ICON.projects}
-          title="No items match"
-          body="No items match the current filter."
+          icon={VIEW_ICON.tasks}
+          title="Nothing matches"
+          body="No tasks match the current filter."
         />
       ) : mode === 'graph' ? (
         <div className="flex min-h-0 flex-1">
@@ -675,7 +777,7 @@ export function ProjectsView() {
           projectId={selectedProjectId}
           items={sortItems(filteredItems, allFields, view.sort)}
           fields={allFields}
-          truncated={itemsQuery.data?.truncated ?? false}
+          truncated={onRepoIssues ? false : (itemsQuery.data?.truncated ?? false)}
           filterActive={filterActive}
           sort={view.sort}
           onSortChange={(fieldId) => setSort(nextSortState(view.sort, fieldId))}
@@ -697,14 +799,48 @@ export function ProjectsView() {
           onCreated={(projectId) => setProjectBoard(repoId, projectId)}
         />
       ) : null}
+
+      {repoId !== null && creatingIssue ? (
+        <IssueDialog
+          open
+          onClose={() => setCreatingIssue(false)}
+          repoId={repoId}
+          worktreePath={worktreePath}
+          mode={{ kind: 'create' }}
+          onCreated={onIssueCreated}
+        />
+      ) : null}
     </div>
+    </TaskIssueProvider>
   );
+}
+
+const REPO_ISSUES_READ_ONLY =
+  "Repo issues are grouped by their state — open an issue's #number to close or reopen it.";
+
+/**
+ * Why the Repo issues source has nothing to show, in the words the Issues
+ * view used for the same three outcomes — or `null` when it has rows.
+ */
+function repoIssuesProblemText(
+  data: { cli?: { reason: string; hint?: string }; disabled?: boolean; error?: string | null } | undefined,
+  error: unknown,
+): string | null {
+  if (data === undefined) return error ? (error instanceof Error ? error.message : String(error)) : null;
+  if (data.cli !== undefined && data.cli.reason !== 'ready') return data.cli.hint || 'The GitHub CLI is unavailable.';
+  if (data.disabled) return 'Issues are turned off for this repository.';
+  return data.error ?? null;
 }
 
 const TYPE_OPTIONS: MultiSelectOption[] = [
   { value: 'issue', label: 'Issues' },
   { value: 'pull', label: 'Pull requests' },
   { value: 'draft', label: 'Drafts' },
+];
+
+const ISSUE_STATE_OPTIONS: MultiSelectOption[] = [
+  { value: 'open', label: 'Open' },
+  { value: 'closed', label: 'Closed' },
 ];
 
 const STATE_OPTIONS: MultiSelectOption[] = [
@@ -723,9 +859,42 @@ const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> =
 const ROW_HEIGHT = 32;
 
 const NO_ITEMS: ForgeProjectItem[] = [];
+const NO_ISSUES: ForgeIssue[] = [];
 const NO_BLOCKED_ITEMS: ReadonlySet<string> = new Set();
 const NO_AGENT_STATES: ReadonlyMap<string, GraphNodeActivity> = new Map();
 const NO_FIELDS: ForgeProjectField[] = [];
+
+/**
+ * A table row's title cell: the title — opening the issue modal for an issue
+ * Tasks can resolve, the forge page otherwise — then the item's issue pills,
+ * clipped by the cell before the title is, since the title is the row's name.
+ * Its own component so `useOpenIssue` is not a hook called inside the
+ * virtualizer's map.
+ */
+function RowTitle({ item, title, href }: { item: ForgeProjectItem; title: string; href: string | null }) {
+  const openIssue = useOpenIssue(item);
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden pr-2">
+      <span className="min-w-0 shrink truncate">
+        {openIssue ? (
+          <button
+            type="button"
+            data-open-issue={item.content.type === 'draft' ? undefined : item.content.number}
+            onClick={openIssue}
+            className="max-w-full truncate text-left hover:underline"
+          >
+            {title}
+          </button>
+        ) : href ? (
+          <ExternalLink href={href}>{title}</ExternalLink>
+        ) : (
+          title
+        )}
+      </span>
+      <IssuePills item={item} density="row" />
+    </span>
+  );
+}
 
 function SortableHeader({
   field,
@@ -864,9 +1033,7 @@ function ProjectItemsTable({
                 {rowActivity && rowActivity.badges.length > 0 ? (
                   <ActivityBadgeStack badges={rowActivity.badges} className="mr-1.5 shrink-0" />
                 ) : null}
-                <span className="min-w-0 flex-1 truncate">
-                  {href ? <ExternalLink href={href}>{title}</ExternalLink> : title}
-                </span>
+                <RowTitle item={item} title={title} href={href} />
                 <span className="flex w-40 shrink-0 items-center gap-1.5 truncate text-muted-foreground">
                   {item.content.assignees.length > 0 ? (
                     <span className="flex -space-x-1 shrink-0">
@@ -999,7 +1166,7 @@ function MissingScopeState() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-      <VIEW_ICON.projects aria-hidden className="h-10 w-10 text-muted-foreground/60" />
+      <VIEW_ICON.tasks aria-hidden className="h-10 w-10 text-muted-foreground/60" />
       <p className="text-sm font-medium">GitHub Projects needs one more permission</p>
       <p className="max-w-sm text-sm text-muted-foreground">
         Your GitHub CLI token is missing the <code>project</code> scope. Run this in a terminal,

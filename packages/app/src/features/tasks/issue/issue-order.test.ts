@@ -1,7 +1,7 @@
 import type { ForgeIssue } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { pickInitialIssue, relativeAge, sortByUpdated } from './issue-order';
+import { relativeAge, sortByUpdated } from './issue-order';
 
 function issue(overrides: Partial<ForgeIssue> = {}): ForgeIssue {
   return {
@@ -34,18 +34,6 @@ describe('sortByUpdated', () => {
     const copy = [...list];
     sortByUpdated(list);
     expect(list).toEqual(copy);
-  });
-});
-
-describe('pickInitialIssue', () => {
-  it('picks the most recently updated issue’s number', () => {
-    const older = issue({ number: 5, updatedAt: '2026-01-01T00:00:00Z' });
-    const newer = issue({ number: 7, updatedAt: '2026-01-05T00:00:00Z' });
-    expect(pickInitialIssue([older, newer])).toBe(7);
-  });
-
-  it('returns null for an empty list', () => {
-    expect(pickInitialIssue([])).toBeNull();
   });
 });
 

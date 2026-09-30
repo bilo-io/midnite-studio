@@ -3,18 +3,22 @@ import { useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { useForgeIssueComments, useForgeIssueDetail } from '../../services/queries';
-import { issueStatus, StatusPill } from '../forge/forge-status';
-import { ExternalLink } from '../markdown/external-link';
-import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
-import { PresentButton } from '../slides/present-button';
-import { useSlidesStore } from '../slides/slides-store';
+import { useForgeIssueComments, useForgeIssueDetail } from '../../../services/queries';
+import { issueStatus, StatusPill } from '../../forge/forge-status';
+import { ExternalLink } from '../../markdown/external-link';
+import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
+import { PresentButton } from '../../slides/present-button';
+import { useSlidesStore } from '../../slides/slides-store';
 import { IssueActionBar } from './issue-action-bar';
 import { IssueConversation } from './issue-conversation';
-import { IssueDetailSkeleton } from './issues-skeletons';
+import { IssueDetailSkeleton } from './issue-skeleton';
 import { LabelChip } from './label-chip';
+<<<<<<< HEAD:packages/app/src/features/issues/issue-detail.tsx
 import { UserAvatar } from '../../components/user-avatar';
 import { ForgeRefLink } from '../../components/forge-ref-link';
+=======
+import { UserAvatar } from '../../../components/user-avatar';
+>>>>>>> ce5aaec7 (refactor(app): rename Projects to Tasks, fold the Issues view in (Repo issues source, issue modal, pills)):packages/app/src/features/tasks/issue/issue-detail.tsx
 
 /**
  * One issue, read in full — one pane, not tabs.
@@ -58,7 +62,7 @@ export function IssueDetail({
 
   return (
     <section aria-label="Issue detail" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-col gap-2 border-b border-border px-4 py-3">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-border py-3 pl-4 pr-10">
         <div className="flex items-center gap-2">
           <StatusPill status={issueStatus(issue)} />
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{issue.title}</h2>

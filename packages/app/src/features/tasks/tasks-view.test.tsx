@@ -7,7 +7,7 @@ import type { Remote } from '@midnite/studio-shared';
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { ProjectsView } from './projects-view';
+import { TasksView } from './tasks-view';
 
 /**
  * jsdom reports a fixed `clientWidth`/`clientHeight` of 0 — needed once
@@ -234,7 +234,7 @@ function renderWithClient() {
     <QueryClientProvider client={queryClient}>
       <ToastHost>
         <DialogHost>
-          <ProjectsView />
+          <TasksView />
         </DialogHost>
       </ToastHost>
     </QueryClientProvider>,
@@ -243,7 +243,7 @@ function renderWithClient() {
 
 const CLI_READY = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 
-describe('ProjectsView', () => {
+describe('TasksView', () => {
   beforeEach(() => {
     list.mockReset();
     fields.mockReset();
@@ -825,11 +825,11 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
       kind: 'ok',
     });
 
-    // Not `renderWithClient()`: this test needs the same `ProjectsView`
+    // Not `renderWithClient()`: this test needs the same `TasksView`
     // instance to persist across the mode flip (its lifted `selectedItemId`
     // is a `useState`), so it drives `render`/`rerender` on a freshly-built
     // tree each time — a *cached* element would let `QueryClientProvider`
-    // bail out on referentially-equal props and never re-render `ProjectsView`
+    // bail out on referentially-equal props and never re-render `TasksView`
     // at all, exactly the trap `board-view.test.tsx`'s own `tree(...)`
     // function (not a plain constant) already avoids.
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -837,7 +837,7 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
       <QueryClientProvider client={queryClient}>
         <ToastHost>
           <DialogHost>
-            <ProjectsView />
+            <TasksView />
           </DialogHost>
         </ToastHost>
       </QueryClientProvider>
@@ -891,14 +891,14 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
     });
 
     // Same `render`/`rerender` reasoning as the test above — the lifted
-    // `cardPanelResizable` is `ProjectsView`'s own state, and this asserts it
+    // `cardPanelResizable` is `TasksView`'s own state, and this asserts it
     // survives a mode flip exactly as the shared `selectedItemId` does.
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const tree = () => (
       <QueryClientProvider client={queryClient}>
         <ToastHost>
           <DialogHost>
-            <ProjectsView />
+            <TasksView />
           </DialogHost>
         </ToastHost>
       </QueryClientProvider>

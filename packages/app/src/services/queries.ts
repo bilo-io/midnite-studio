@@ -980,7 +980,7 @@ export function useForgeCapabilities(kind: ForgeKind) {
  * `useRemotes` + `useForgeCapabilities` — the same two-query pairing
  * `app.tsx`'s `useForgeViewAvailability` already does inline for the nav
  * gate. Factored out here because Phase 90 Theme H's "here's the limit"
- * sentence needs it in two views (`ProjectsView`, `PrDetail`) instead of one,
+ * sentence needs it in two views (`TasksView`, `PrDetail`) instead of one,
  * and `app.tsx`'s own copy stays inline — it answers a different question
  * (a boolean per view) and isn't `capabilitiesFor`'s to touch.
  */
@@ -1102,7 +1102,7 @@ export function useForgeIssueComments(
  *
  * `enabled` carries the same promise every forge read does: a human opened
  * the Projects view. No fetch happens on arrival — the acceptance test this
- * phase ships (`projects-view.test.tsx`) is built on exactly that gate.
+ * phase ships (`tasks-view.test.tsx`) is built on exactly that gate.
  */
 export function useForgeProjects(repoId: string | null, enabled: boolean) {
   return useQuery<ForgeProjectsResult>({
@@ -1153,7 +1153,7 @@ export type ForgeProjectItemsPage = {
  * sequential fetching anyway and this is the one place react-query already
  * owns staleness for the combined result. Capped at
  * `PROJECT_ITEMS_PAGE_CEILING` pages (1 000 items at 100/page) — past it the
- * walk stops and `truncated` is set, which `ProjectsView` renders rather than
+ * walk stops and `truncated` is set, which `TasksView` renders rather than
  * silently dropping the rest of the board.
  */
 export function useForgeProjectItems(projectId: string | null, enabled: boolean) {

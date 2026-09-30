@@ -3,14 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DialogHost } from '../../components/dialog-host';
+import { DialogHost } from '../../../components/dialog-host';
 import { IssueDetail } from './issue-detail';
 
 const issueDetailFn = vi.fn();
 const issueCommentsFn = vi.fn();
 const listProjectsFn = vi.fn();
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('../../../services/bridge', () => ({
   bridge: () => ({
     forge: {
       issueDetail: issueDetailFn,

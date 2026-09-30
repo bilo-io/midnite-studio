@@ -12,7 +12,7 @@ import { bridge } from '../../services/bridge';
 import { useBrowserStore } from '../../store/browser-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { SETTINGS_PAGES, useUiStore } from '../../store/ui-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { openIssueModal } from '../../store/issue-modal-store';
 import { PAGE_ROLE_TITLE } from '../../components/page-detach-mark';
 import { VIEW_LABELS } from '../../services/palette/providers';
 
@@ -213,7 +213,7 @@ export async function navigateCompanion(
       }
 
       if (plan.issue !== undefined && state.repoId !== null) {
-        useIssuesStore.getState().selectIssue(state.repoId, plan.issue);
+        openIssueModal({ repoId: state.repoId, number: plan.issue });
       }
 
       const label = VIEW_LABELS[plan.view];

@@ -362,12 +362,12 @@ export const COMMANDS = [
    */
   { id: 'view.files', label: 'Go to Explorer', group: 'files', chord: 'Mod+Shift+e' },
   /**
-   * Mod+Shift+i navigates to Issues from anywhere — same pattern as
-   * `view.graph`'s Mod+Shift+g and `view.files`'s Mod+Shift+e. `view` rather
-   * than a dedicated group: Issues has no further sub-commands of its own the
-   * way Graph and Files do, so it sits with the other cross-app navigations.
+   * Mod+Shift+i opens Tasks on its built-in "Repo issues" source — the old
+   * Issues view folded into Tasks, and this id stays as the alias for it
+   * (persisted keymaps and the palette's recents still name `view.issues`).
+   * `view` rather than a dedicated group, like `view.graph`/`view.files`.
    */
-  { id: 'view.issues', label: 'Go to Issues', group: 'view', chord: 'Mod+Shift+i' },
+  { id: 'view.issues', label: 'Go to Repo Issues', group: 'view', chord: 'Mod+Shift+i' },
   // Declared, unbound: Phase 23's palette is the surface that gives this a
   // chord-free way to fire. Enabled only while a description-level markdown
   // surface (Files preview, PR/review description) is in view — see

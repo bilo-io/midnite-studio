@@ -11,7 +11,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * `gh-project-write.test.ts`).
  *
  * Phase 82 Theme C wave 5 moved every other test here to
- * `src/features/projects/projects-view.bridge.test.tsx`, mounting
+ * `src/features/tasks/tasks-view.bridge.test.tsx`, mounting
  * `ProjectsView` directly: the board-picker gate, the single-select field's
  * "not optimistic" round trip, a refused write, and the missing-scope state.
  * One smoke test stays here, proving the rail actually reaches this view

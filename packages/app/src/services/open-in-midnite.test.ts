@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useActionsStore } from '../store/actions-store';
 import { useBrowserStore } from '../store/browser-store';
-import { useIssuesStore } from '../store/issues-store';
+import { useIssueModalStore } from '../store/issue-modal-store';
 import { useReviewsStore } from '../store/reviews-store';
 import { useUiStore } from '../store/ui-store';
 
@@ -41,7 +41,7 @@ beforeEach(() => {
   });
   useRepoForgeRegistry.setState({ byForgeKey: {} });
   useReviewsStore.setState({ selectedPull: {}, openGroups: {} });
-  useIssuesStore.setState({ selectedIssue: {} });
+  useIssueModalStore.setState({ target: null });
   useActionsStore.setState({ selectedRun: {}, selectedJob: {}, collapsedWorkflows: {} });
 });
 
@@ -174,11 +174,13 @@ describe('navigateInAppRoute', () => {
     expect(useUiStore.getState().activeView).toBe('reviews');
   });
 
-  it('issues: selects the repo, the issue, and the Issues view', () => {
-    navigateInAppRoute({ view: 'issues', repoId: 'repo-1', issue: 9 });
+  it('issue: selects the repo and opens the issue modal, leaving the view alone', () => {
+    useUiStore.setState({ activeView: 'graph' });
+    navigateInAppRoute({ view: 'issue', repoId: 'repo-1', issue: 9 });
 
-    expect(useIssuesStore.getState().selectedIssue['repo-1']).toBe(9);
-    expect(useUiStore.getState().activeView).toBe('issues');
+    expect(useUiStore.getState().selectedRepoId).toBe('repo-1');
+    expect(useIssueModalStore.getState().target).toEqual({ repoId: 'repo-1', number: 9 });
+    expect(useUiStore.getState().activeView).toBe('graph');
   });
 
   it('actions: selects the repo, the run, and the Actions view', () => {

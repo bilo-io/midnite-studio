@@ -17,7 +17,7 @@ import { useCompanionStore } from '../../store/companion-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { openIssueModal } from '../../store/issue-modal-store';
 import { VIEW_LABELS } from '../../services/palette/providers';
 import { COMMAND_ACCESS } from '../palette/safety';
 import { runCommand } from './command-runtime';
@@ -200,7 +200,7 @@ function resolveNavigateAction(
 
       if (plan.page !== undefined) useUiStore.getState().setSettingsPage(plan.page);
       if (plan.issue !== undefined && state.repoId !== null) {
-        useIssuesStore.getState().selectIssue(state.repoId, plan.issue);
+        openIssueModal({ repoId: state.repoId, number: plan.issue });
       }
 
       // Announced unconditionally — unlike the companion's own spoken

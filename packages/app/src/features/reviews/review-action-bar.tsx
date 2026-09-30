@@ -85,7 +85,7 @@ export function ReviewActionBar({
 
   /*
     "Add to project" (Phase 50 Theme E) reuses exactly the data
-    `projects-view.tsx`'s own board picker reads — the repo's boards and the
+    `tasks-view.tsx`'s own board picker reads — the repo's boards and the
     per-repo `boardByRepo` memory — rather than a second picker component.
     Fetched unconditionally like `list`/`detail` above (not gated behind the
     menu opening): the boards call is one cheap `gh project list`, already

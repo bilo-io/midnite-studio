@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 
 import type { ForgeProjectField, ForgeProjectFieldValue, ForgeProjectWriteResult } from '@midnite/studio-shared';
 
-import { fieldOptionColor } from './field-option-colors';
+import { fieldOptionChipStyle, fieldOptionColor } from './field-option-colors';
+import { isRepoIssuesField } from './repo-issues-source';
 import { useSetProjectItemField } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 
 /**
  * One field's editor (Phase 40 Theme E, extracted for Phase 41 Theme B).
  *
- * Originally built inline in `projects-view.tsx`'s table — Theme E named no
+ * Originally built inline in `tasks-view.tsx`'s table — Theme E named no
  * exported symbol for it, and Phase 41's own doc predicted exactly this:
  * *"Do not assume Phase 40's inline editors are importable … if not, this
  * theme builds them and Phase 40's table should adopt these."* Extracted
@@ -41,6 +42,29 @@ export function ProjectFieldCell({
 
   if (field.dataType === 'iteration') {
     return <span className="truncate text-muted-foreground">{formatFieldValue(value)}</span>;
+  }
+
+  // The Repo issues source's synthetic `Status` (Open/Closed) is no forge
+  // field — there is nothing to write it to. An issue's state changes through
+  // the issue modal's close/reopen instead, so this renders as the pill a
+  // card chip would, never as an editor.
+  if (isRepoIssuesField(field)) {
+    const text = formatFieldValue(value);
+    if (text.length === 0) return null;
+    const option = field.dataType === 'single_select' && value?.dataType === 'single_select'
+      ? field.options.find((o) => o.id === value.optionId)
+      : undefined;
+    const chip = fieldOptionChipStyle(option?.color || text);
+    return (
+      <span
+        data-readonly-field
+        style={{ color: chip.color, backgroundColor: chip.backgroundColor, borderColor: chip.borderColor }}
+        className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+      >
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: chip.color }} />
+        {text}
+      </span>
+    );
   }
 
   const disabled = !writesEnabled || pending;

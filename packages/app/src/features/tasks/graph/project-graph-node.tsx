@@ -10,6 +10,7 @@ import { closeSessionWithConfirm } from '../../terminal/close-session';
 import { revealSession } from '../../terminal/reveal-session';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
+import { IssuePills, useOpenIssue } from '../issue-pills';
 import { taskGlowClass, type CardGlowState } from '../board/glow-state';
 import { StatusBorder } from '../board/status-border';
 import { useCardPlay } from '../board/use-card-play';
@@ -90,6 +91,7 @@ export function ProjectGraphNode({
   const assignees = item?.content.assignees ?? [];
   const href = resolveHref(node, item);
   const number = titleIsNumberFallback ? null : node.number;
+  const openIssue = useOpenIssue(item);
 
   const isClosed = node.state === 'closed';
   // Selection still wins (the open node must be findable), and so does a
@@ -177,11 +179,12 @@ export function ProjectGraphNode({
           <>
             {number !== null ? (
               <div className="flex items-center justify-between gap-2 pr-6">
-                <CardNumberRow number={number} href={href} />
+                <CardNumberRow number={number} href={href} onOpen={openIssue} />
               </div>
             ) : null}
             {item ? (
-              <div className="pr-6">
+              <div className="flex flex-col gap-1 pr-6">
+                <IssuePills item={item} density="node" />
                 <CardFieldChips item={item} fields={fields} />
               </div>
             ) : null}

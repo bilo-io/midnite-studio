@@ -85,10 +85,9 @@ describe('VIEW_COMPONENT', () => {
         'graph',
         'actions',
         'reviews',
-        'issues',
         'files',
         'dashboard',
-        'projects',
+        'tasks',
         'sessions',
       ]),
     );
