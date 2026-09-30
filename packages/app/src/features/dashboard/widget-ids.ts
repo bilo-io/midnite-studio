@@ -50,11 +50,11 @@ export const GRID_MARGIN: [number, number] = [12, 12];
  * top of an otherwise-full board.
  */
 export const DEFAULT_LAYOUT = [
-  { i: 'calendar' as const, x: 0, y: 0, w: 12, h: 6 },
-  { i: 'contributors' as const, x: 0, y: 6, w: 6, h: 8 },
-  { i: 'activity' as const, x: 6, y: 6, w: 6, h: 8 },
-  { i: 'pulls' as const, x: 0, y: 14, w: 4, h: 7 },
-  { i: 'issues' as const, x: 4, y: 14, w: 4, h: 7 },
-  { i: 'runs' as const, x: 8, y: 14, w: 4, h: 7 },
-  { i: 'health' as const, x: 0, y: 21, w: 12, h: 7 },
+  { i: 'calendar' as const, x: 0, y: 0, w: 4, h: 8 },
+  { i: 'contributors' as const, x: 4, y: 0, w: 4, h: 8 },
+  { i: 'activity' as const, x: 8, y: 0, w: 4, h: 8 },
+  { i: 'pulls' as const, x: 0, y: 8, w: 4, h: 7 },
+  { i: 'issues' as const, x: 4, y: 8, w: 4, h: 7 },
+  { i: 'runs' as const, x: 8, y: 8, w: 4, h: 7 },
+  { i: 'health' as const, x: 0, y: 15, w: 12, h: 7 },
 ];

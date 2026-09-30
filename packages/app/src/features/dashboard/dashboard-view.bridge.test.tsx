@@ -211,9 +211,9 @@ describe('DashboardView, assembled through the real bridge', () => {
 
     // Each tile carries a real heading, so the board is navigable by heading
     // rather than being one undifferentiated region of numbers.
-    expect(
-      within(tile('Contributors')).getByRole('heading', { level: 3 }).textContent,
-    ).toBe('Contributors');
+    expect(within(tile('Contributors')).getByRole('heading', { level: 3 }).textContent).toBe(
+      'Contributors',
+    );
   });
 
   it('renders their data, not just their frames', async () => {
