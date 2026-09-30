@@ -1,21 +1,17 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
- * The Issues view, assembled (Phase 54 Theme C).
+ * Tasks' built-in Repo issues source, reached the way the old Issues view was.
  *
- * `issue-list.test.tsx`/`issue-detail.test.tsx` already cover rows, the empty
- * list, the disabled-tracker sentence and the error notice under bare RTL.
- *
- * Phase 82 Theme C wave 5 moved the rest of this file's tests to
- * `src/features/issues/issues-view.bridge.test.tsx`, mounting `IssuesView`
- * directly: the initial-selection default, a row's own body/conversation
- * fetch, the list's labels/state, and the disabled-tracker sentence. **The 1
- * test left here is not about anything inside `IssuesView`** — it is the
- * global command dispatcher and the rail's view routing, which mounting the
- * view alone bypasses entirely.
+ * The Issues view folded into Tasks; what it rendered is covered by vitest
+ * now (`tasks-view.test.tsx`'s Repo issues cases, `issue-modal.test.tsx`,
+ * `issue-pills.test.tsx`). **The 1 test left here is not about anything
+ * inside `TasksView`** — it is the global command dispatcher (`Mod+Shift+i`,
+ * kept as the `view.issues` alias) and the rail's view routing, which
+ * mounting the view alone bypasses entirely.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -86,13 +82,13 @@ const base: MockFixtures = {
   },
 };
 
-const list = (page: Page) => page.getByRole('list', { name: 'Issues' });
-
-test('reaches the view with Mod+Shift+i from anywhere', async ({ page }) => {
+test('Mod+Shift+i opens Tasks on Repo issues from anywhere', async ({ page }) => {
   await installMockBridge(page, base);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 
   await page.keyboard.press('Meta+Shift+i');
-  await expect(list(page)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tasks', exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Task source' })).toHaveValue('midnite:repo-issues');
+  await expect(page.getByText('Graph rows jump on resize')).toBeVisible();
 });
