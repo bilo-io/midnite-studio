@@ -20,6 +20,10 @@ export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   history: 'History',
   optimizer: 'Workspace Optimizer',
   sessions: 'Sessions',
+  councils: 'Councils',
+  workflows: 'Workflows',
+  media: 'Media',
+  models: 'Models',
 };
 
 /**

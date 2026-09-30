@@ -100,7 +100,7 @@ describe('PageDetachMark', () => {
   it('never offers a page the phase deliberately excluded', () => {
     // Duplicate rendering is only safe for a view whose mount has no
     // load-bearing side effects — see `PAGE_WINDOW_ROLES`' own note.
-    for (const excluded of ['settings', 'landing', 'councils', 'workflows', 'media']) {
+    for (const excluded of ['settings', 'landing']) {
       expect(PAGE_WINDOW_ROLES as readonly string[]).not.toContain(excluded);
     }
   });

@@ -62,6 +62,10 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   history: { width: 1180, height: 800 },
   optimizer: { width: 1280, height: 860 },
   sessions: { width: 1180, height: 820 },
+  councils: { width: 1180, height: 820 },
+  workflows: { width: 1400, height: 900 },
+  media: { width: 1280, height: 860 },
+  models: { width: 1080, height: 800 },
 };
 
 /**

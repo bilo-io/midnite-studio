@@ -1,5 +1,6 @@
 import { LuChevronLeft, LuUsers } from 'react-icons/lu';
 
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
 import { PanelStack } from '../../components/panel-stack/panel-stack';
@@ -89,7 +90,10 @@ export function CouncilsView() {
   return (
     <div className="flex h-full min-h-0">
       <div className="flex shrink-0 flex-col border-r border-border" style={{ width: nav.current }}>
-        <PanelHeader history={history} label={label} className="shrink-0 border-b border-border px-2 py-1.5" />
+        <div className="flex shrink-0 items-center gap-1 border-b border-border pl-1.5">
+          <PageDetachMark role="councils" />
+          <PanelHeader history={history} label={label} className="min-w-0 flex-1 px-1 py-1.5" />
+        </div>
         {/*
           The rail's own PanelStack (Phase 42 Theme E) — sharing the same
           `history` the centre pane does, so a run picked here and a council

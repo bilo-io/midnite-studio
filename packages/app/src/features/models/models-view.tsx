@@ -1,4 +1,5 @@
 import type { OllamaModel, OllamaRunningModel, OllamaSearchResultItem } from '@midnite/studio-shared';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { isOllamaCloudModelName, toOllamaCloudModelName } from '@midnite/studio-shared';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
@@ -81,6 +82,7 @@ export function ModelsView() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4">
       <header className="flex items-center gap-2">
+        <PageDetachMark role="models" />
         <SiOllama aria-hidden className="h-5 w-5" />
         <h1 className="text-sm font-semibold">Models</h1>
         <span className="ml-auto text-[11px] text-muted-foreground">
@@ -152,7 +154,10 @@ function DaemonDownState({ onStarted }: { onStarted: () => void }) {
   };
 
   return (
-    <div className="flex h-full items-center justify-center">
+    <div className="relative flex h-full items-center justify-center">
+      <div className="absolute left-3 top-3">
+        <PageDetachMark role="models" />
+      </div>
       <div className="flex flex-col items-center gap-3 text-center">
         <EmptyState
           icon={SiOllama}

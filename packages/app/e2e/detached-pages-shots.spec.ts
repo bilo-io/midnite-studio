@@ -44,9 +44,8 @@ const PAGE_ROLES = [
   'dashboard',
   'search',
   'tests',
-  'projects',
+  'tasks',
   'reviews',
-  'issues',
   'history',
   'optimizer',
 ] as const;
@@ -62,9 +61,8 @@ const TITLE: Record<PageRole, string> = {
   dashboard: 'Dashboard',
   search: 'Search',
   tests: 'Tests',
-  projects: 'Projects',
+  tasks: 'Tasks',
   reviews: 'Reviews',
-  issues: 'Issues',
   history: 'History',
   optimizer: 'Workspace Optimizer',
 };
@@ -78,9 +76,8 @@ const RAIL_LABEL: Record<PageRole, string> = {
   dashboard: 'Dashboard',
   search: 'Search',
   tests: 'Tests',
-  projects: 'Projects',
+  tasks: 'Tasks',
   reviews: 'Reviews',
-  issues: 'Issues',
   history: 'History',
   optimizer: 'Optimizer',
 };
@@ -94,9 +91,8 @@ const PATH: Record<PageRole, string> = {
   dashboard: '/dashboard',
   search: '/search',
   tests: '/tests',
-  projects: '/projects',
+  tasks: '/tasks',
   reviews: '/reviews',
-  issues: '/issues',
   history: '/history',
   optimizer: '/optimizer',
 };
@@ -128,7 +124,7 @@ const run = (id: string, title: string, conclusion: string) => ({
 const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   graph: {},
   /*
-    Theme J's eight. Four of them (`reviews`, `issues`, `projects`, `tests`)
+    Theme J's eight. Four of them (`reviews`, `tasks`, `tests`)
     read the forge, and three of those answer an empty payload with a
     full-pane `EmptyState` that has NO header — so a bare `fixtures` would
     shoot the empty state rather than the control this spec is about. The
@@ -139,15 +135,11 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   history: {},
   optimizer: {},
   tests: {},
-  projects: {
+  tasks: {
     remotes: [REPRODUCIBLE_REMOTE],
     forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
   },
   reviews: {
-    remotes: [REPRODUCIBLE_REMOTE],
-    forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
-  },
-  issues: {
     remotes: [REPRODUCIBLE_REMOTE],
     forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
   },
@@ -192,9 +184,9 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   these lists are about what a SCREENSHOT can get on screen under the shared
   fixtures, which is a narrower question.
 
-  `tests` and `projects` are absent from both: their headers sit behind a data
+  `tests` and `tasks` are absent from both: their headers sit behind a data
   guard — `TestsView` early-returns an `EmptyState` until discovery finds at
-  least one package, `ProjectsView` until the forge returns at least one board
+  least one package, `TasksView` until the forge returns at least one board
   — so with no fixture there is no header to shoot, only the empty state. That
   is the same behaviour `files` and `actions` already have and is not a defect;
   it just means a shot of the mark needs a whole bespoke fixture set, which is
@@ -206,7 +198,7 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   popout renders standalone, so it keeps its `DetachedRoot` shot.
 */
 const STANDALONE_ROLES = PAGE_ROLES.filter(
-  (role) => role !== 'tests' && role !== 'projects',
+  (role) => role !== 'tests' && role !== 'tasks',
 );
 const RAIL_ROLES = STANDALONE_ROLES.filter((role) => role !== 'optimizer');
 
