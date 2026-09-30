@@ -6,6 +6,8 @@ export type CliInstallState = {
   target: string | null;
   managed: boolean;
   version?: string | null;
+  onPath?: boolean;
+  pathExportLine?: string | null;
 };
 
 export function preferredTargets(home: string): string[] {

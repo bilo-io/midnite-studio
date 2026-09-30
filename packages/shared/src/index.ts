@@ -28,6 +28,7 @@ export * from './ollama-launch';
 export * from './perf';
 export * from './process-env';
 export * from './redact';
+export * from './setup';
 export * from './release';
 export * from './terminal';
 export * from './version';

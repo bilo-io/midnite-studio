@@ -414,6 +414,8 @@ export const CHANNELS = {
   updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
+  /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
+  setupProbe: 'mstudio:setup:probe',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */

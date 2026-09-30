@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { app } from 'electron';
 import { CHANNELS } from '@midnite/studio-shared';
 import { handleBare, handleOp } from './handle.js';
-import { preferredTargets, type CliInstallState } from '../cli-path.js';
+import { pathExportLine, preferredTargets, type CliInstallState } from '../cli-path.js';
 import * as S from '@midnite/studio-shared';
 
 function getBundleBinPath(): string {
@@ -12,6 +12,20 @@ function getBundleBinPath(): string {
     return `${process.resourcesPath}/bin/midnite-studio`;
   }
   return `${app.getAppPath()}/resources/bin/midnite-studio`;
+}
+
+/**
+ * Whether `target`'s directory is on PATH (Phase 98 Theme G). `shell-path.ts`
+ * folds the login shell's PATH into `process.env` at boot, so this is the PATH
+ * a new terminal gets — not launchd's bare one a Finder-launched app starts with.
+ */
+export function onPathFields(
+  target: string,
+  path: string | undefined = process.env['PATH'],
+): { onPath: boolean; pathExportLine: string | null } {
+  const dir = dirname(target);
+  const onPath = (path ?? '').split(':').some((entry) => entry.replace(/\/+$/, '') === dir);
+  return { onPath, pathExportLine: onPath ? null : pathExportLine(dir) };
 }
 
 function getCliStatus(): CliInstallState {
@@ -27,6 +41,7 @@ function getCliStatus(): CliInstallState {
           path: target,
           target,
           managed,
+          ...onPathFields(target),
         };
       } catch {
         return {
@@ -34,6 +49,7 @@ function getCliStatus(): CliInstallState {
           path: target,
           target,
           managed: false,
+          ...onPathFields(target),
         };
       }
     }

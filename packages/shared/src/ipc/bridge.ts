@@ -27,6 +27,7 @@ import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
+import type { SetupProbeRequest, SetupProbeResponse } from '../setup';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
 
@@ -1296,6 +1297,16 @@ export type MidniteStudioBridge = {
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
   systemHealthStartSshAgent?: () => Promise<z.infer<typeof S.SystemHealthStartSshAgentResponse>>;
+
+  /**
+   * The setup overlay's catalogue probe (Phase 98 Theme D). Takes catalogue
+   * ids, never binary names — main resolves each id against `SETUP_CATALOGUE`
+   * and drops one it does not know. Installing is not on this bridge at all:
+   * the renderer types a brew line into a visible terminal instead.
+   */
+  setup: {
+    probe: (req: In<typeof SetupProbeRequest>) => Promise<SetupProbeResponse>;
+  };
 
   /**
    * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull

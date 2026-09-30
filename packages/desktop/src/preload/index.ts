@@ -161,6 +161,7 @@ const bridge: Pick<
   | 'update'
   | 'systemHealth'
   | 'systemHealthStartSshAgent'
+  | 'setup'
   | 'ollama'
   | 'optimizer'
   | 'protocol'
@@ -673,6 +674,9 @@ const bridge: Pick<
   },
   systemHealth: () => call(CHANNELS.systemHealth),
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
+  setup: {
+    probe: (req) => call(CHANNELS.setupProbe, req),
+  },
   ollama: {
     status: () => call(CHANNELS.ollamaStatus),
     list: () => call(CHANNELS.ollamaList),
