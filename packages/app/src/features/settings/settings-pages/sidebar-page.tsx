@@ -150,7 +150,7 @@ function SidenavRow({ item }: { item: RailNavItem }) {
       title={`Show ${label} in the sidenav`}
       on={visible}
       onToggle={(_id, next) => setNavViewVisible(view, next)}
-      className="-mx-1.5 min-h-8 !gap-2 !px-1.5 !py-1 !text-xs"
+      className="min-h-8 !gap-2 !px-1.5 !py-1 !text-xs"
     />
   );
 }
@@ -166,31 +166,48 @@ const GROUP_ICON: Record<RailGroupKey, CategoryIcon> = {
 export const RAIL_GROUPS_ACCORDION_ID = 'settings-rail-groups';
 
 function RailDestinations() {
+  /*
+    One bordered container, divided into blocks: the pinned rows, then one
+    block per group. Each block wears a faint foreground tint (a low-alpha
+    token, so it reads on both themes) and every row inside is separated by a
+    hairline. Group children are inset under the header's chevron + icon
+    (`pl-6`) so they nest visibly and line up with each other; the pinned rows
+    have no header, so they sit at the container's plain inset.
+  */
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-col gap-1.5">
+    <div
+      data-testid="rail-destinations"
+      className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-md border border-border/60"
+    >
+      <div className="divide-y divide-border/60 bg-foreground/[0.03] px-1.5">
         {PINNED_NAV_ITEMS.map((item) => (
           <SidenavRow key={item.view} item={item} />
         ))}
       </div>
-      <SectionAccordion
-        id={RAIL_GROUPS_ACCORDION_ID}
-        sections={RAIL_GROUPS.map((group) => {
-          const { Icon, color } = GROUP_ICON[group.key];
-          return {
-            id: group.key,
-            title: group.title,
-            icon: <Icon aria-hidden className="h-4 w-4" style={{ color }} />,
-            children: (
-              <div className="flex flex-col gap-1.5 pb-1">
-                {group.items.map((item) => (
-                  <SidenavRow key={item.view} item={item} />
-                ))}
-              </div>
-            ),
-          };
-        })}
-      />
+      {RAIL_GROUPS.map((group) => {
+        const { Icon, color } = GROUP_ICON[group.key];
+        return (
+          <div key={group.key} data-rail-group={group.key} className="bg-foreground/[0.03] px-1.5">
+            <SectionAccordion
+              id={RAIL_GROUPS_ACCORDION_ID}
+              sections={[
+                {
+                  id: group.key,
+                  title: group.title,
+                  icon: <Icon aria-hidden className="h-4 w-4" style={{ color }} />,
+                  children: (
+                    <div className="ml-4 flex flex-col divide-y divide-border/60 border-t border-border/60 pl-2">
+                      {group.items.map((item) => (
+                        <SidenavRow key={item.view} item={item} />
+                      ))}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
