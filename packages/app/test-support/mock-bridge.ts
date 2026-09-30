@@ -668,6 +668,12 @@ export type MockFixtures = {
    */
   video?: {
     root?: string | null;
+    /**
+     * Phase 99 Theme D — what `root.resolve` answers. Defaults to the
+     * `global` source at `root ?? '/videos'`, so a spec that seeds only
+     * `projects` sees them; `{root: null, source: null}` shows Setup Video.
+     */
+    resolution?: { root: string | null; source: string | null; setupTarget: string | null };
     projects?: Array<{ id: string; [key: string]: unknown }>;
     studioStatus?: Record<string, { state: string; [key: string]: unknown }>;
     toolchain?: Record<string, { node: unknown; npx: unknown; [key: string]: unknown }>;
@@ -2902,6 +2908,15 @@ export function buildMockBridge(data: MockFixtures) {
       root: {
         get: async () => ({ root: data.video?.root ?? null }),
         set: async (req: { root: string | null }) => ({ root: req.root }),
+        resolve: async () => videoResolution,
+      },
+      setup: async () => {
+        videoResolution = {
+          root: '/repo/.midnite/media/video',
+          source: 'repo-media',
+          setupTarget: '/repo/.midnite/media/video',
+        };
+        return { ok: true as const, value: videoResolution };
       },
       onStudioChanged: unsubscribe,
       onRenderProgress: unsubscribe,
@@ -4410,6 +4425,12 @@ export function buildMockBridge(data: MockFixtures) {
     ...(data.video?.studioStatus ?? {}),
   };
   // eslint-disable-next-line no-var
+  var videoResolution: { root: string | null; source: string | null; setupTarget: string | null } =
+    data.video?.resolution ?? {
+      root: data.video?.root ?? '/videos',
+      source: 'global',
+      setupTarget: '/repo/.midnite/media/video',
+    };
   var videoRenders: Record<string, Array<{ id: string; [key: string]: unknown }>> = {
     ...(data.video?.renders ?? {}),
   };

@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useTerminalStore } from '../terminal/terminal-store';
-import { useUiStore } from '../../store/ui-store';
+import { useTerminalStore } from '../../terminal/terminal-store';
+import { useUiStore } from '../../../store/ui-store';
 import { VideoProjectDetail } from './video-project-detail';
 
 const VALID_PROJECT: VideoProject = {

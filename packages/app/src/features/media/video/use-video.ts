@@ -1,14 +1,19 @@
 import type {
   VideoProject,
   VideoRender,
+  VideoRenderOptions,
+  VideoRootResolution,
   VideoStudioStatus,
   VideoToolchain,
 } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { bridge } from '../../services/bridge';
-import { noBridge, reportFailure } from '../../services/bridge-result';
+import { bridge } from '../../../services/bridge';
+import { noBridge, reportFailure } from '../../../services/bridge-result';
+import { useUiStore } from '../../../store/ui-store';
+
+const currentRepoId = (): string | null => useUiStore.getState().selectedRepoId ?? null;
 
 /**
  * Video Studio (Phase 44) — global, not per-repo, so these keys carry no
@@ -22,15 +27,73 @@ const VIDEO_KEYS = {
   studio: (projectId: string) => ['video-studio', projectId] as const,
   renders: (projectId: string) => ['video-renders', projectId] as const,
   toolchain: ['video-toolchain'] as const,
-  files: (projectId: string, area: 'assets' | 'input' | 'output') =>
-    ['video-files', projectId, area] as const,
+  files: (projectId: string, area: VideoFileArea, recursive = false) =>
+    ['video-files', projectId, area, recursive] as const,
+  resolution: (repoId: string | null) => ['video-root-resolution', repoId ?? ''] as const,
 };
 
-/** The configured video root, for building an absolute project `cwd` (Theme F/G). */
+export type VideoFileArea = 'assets' | 'input' | 'output' | 'notes';
+
+/** Every key whose answer depends on which root is in effect. */
+const ROOT_DEPENDENT_KEYS = [
+  ['video-projects'],
+  ['video-files'],
+  ['video-file-content'],
+  ['video-toolchain'],
+  ['video-root'],
+] as const;
+
+/**
+ * Phase 99 Theme D — resolve the Video tab's root for the active repo (in-repo
+ * layout → `<repo>/.midnite/media/video` → the global root). Main adopts the
+ * answer for every other video op, so a change of root invalidates them all.
+ */
+export function useVideoRootResolution(repoId: string | null) {
+  const client = useQueryClient();
+  const query = useQuery<VideoRootResolution>({
+    queryKey: VIDEO_KEYS.resolution(repoId),
+    queryFn: async () =>
+      (await bridge()?.video.root.resolve({ repoId })) ?? { root: null, source: null, setupTarget: null },
+  });
+  const root = query.data?.root ?? null;
+  const [seenRoot, setSeenRoot] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!query.isSuccess || seenRoot === root) return;
+    if (seenRoot !== undefined) {
+      for (const queryKey of ROOT_DEPENDENT_KEYS) void client.invalidateQueries({ queryKey });
+    }
+    setSeenRoot(root);
+  }, [client, query.isSuccess, root, seenRoot]);
+  return query;
+}
+
+/** Setup Video: scaffold `templates/media-video/` into the repo, then adopt it. */
+export function useVideoSetup(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (await bridge()?.video.setup({ repoId: repoId ?? '' })) ?? noBridge<VideoRootResolution>(),
+    onSuccess: (result) => {
+      reportFailure<VideoRootResolution>(result);
+      if (result.ok) client.setQueryData(VIDEO_KEYS.resolution(repoId), result.value);
+    },
+  });
+}
+
+/**
+ * The root every video op runs against, for building an absolute project
+ * `cwd` (Theme F/G). Since Phase 99 Theme D that is the *resolved* root, not
+ * just the global setting — read from the resolution the Video tab keeps.
+ */
 export function useVideoRoot() {
   return useQuery({
     queryKey: ['video-root'] as const,
-    queryFn: async () => (await bridge()?.video.root.get())?.root ?? null,
+    queryFn: async () => {
+      const api = bridge();
+      if (!api) return null;
+      const resolved = await api.video.root.resolve({ repoId: currentRepoId() });
+      return resolved.root;
+    },
   });
 }
 
@@ -166,7 +229,7 @@ export function useVideoRenderProgress(renderId: string | null): number | undefi
 export function useStartVideoRender() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { projectId: string; compositionId: string }) =>
+    mutationFn: async (input: { projectId: string; compositionId: string; options?: VideoRenderOptions }) =>
       (await bridge()?.video.render.start(input)) ?? noBridge<VideoRender>(),
     onSuccess: (result, variables) => {
       reportFailure<VideoRender>(result);
@@ -203,11 +266,12 @@ export function useVideoToolchain(projectId: string | null) {
   });
 }
 
-export function useVideoFiles(projectId: string | null, area: 'assets' | 'input' | 'output') {
+export function useVideoFiles(projectId: string | null, area: VideoFileArea, { recursive = false } = {}) {
   return useQuery({
-    queryKey: VIDEO_KEYS.files(projectId ?? '', area),
+    queryKey: VIDEO_KEYS.files(projectId ?? '', area, recursive),
     queryFn: async () =>
-      (await bridge()?.video.files({ projectId: projectId ?? '', area }))?.entries ?? [],
+      (await bridge()?.video.files({ projectId: projectId ?? '', area, ...(recursive ? { recursive } : {}) }))
+        ?.entries ?? [],
     enabled: projectId !== null,
     initialData: [],
   });
@@ -219,11 +283,11 @@ export function useVideoFiles(projectId: string | null, area: 'assets' | 'input'
  * `reveal()` already uses for the identical OS-shell action elsewhere in the
  * app. Not a mutation: nothing here changes any query's data.
  */
-export function revealVideoFile(projectId: string, area: 'assets' | 'input' | 'output', name: string): void {
+export function revealVideoFile(projectId: string, area: VideoFileArea, name: string): void {
   void bridge()?.video.revealFile({ projectId, area, name });
 }
 
-export function openVideoFile(projectId: string, area: 'assets' | 'input' | 'output', name: string): void {
+export function openVideoFile(projectId: string, area: VideoFileArea, name: string): void {
   void bridge()?.video.openFile({ projectId, area, name });
 }
 
