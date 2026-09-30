@@ -826,7 +826,7 @@ jobs:
       # of the package ships a browser build the package cannot find, and
       # every test fails at `browserType.launch` before a pixel is compared.
       # Bump this and the package together, never one alone.
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
