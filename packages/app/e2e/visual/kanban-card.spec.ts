@@ -104,7 +104,7 @@ async function openBoard(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();

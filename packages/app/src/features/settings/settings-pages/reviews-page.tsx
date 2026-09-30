@@ -39,7 +39,7 @@ export function ReviewsPage() {
       <SettingsSwitchRow
         id="forge-writes-enabled"
         label="Allow Midnite Studio to act on pull requests and issues"
-        description="Whether the Reviews page may approve, request changes, comment, merge, request reviewers, take a pull request out of draft, or re-run checks — and whether the Issues page may comment, close or reopen an issue, or add either to a project. Off until you turn it on. Every action runs through your own `gh` CLI, as you, and is shown before it is sent. Merging additionally asks for confirmation with the number of commits it would land."
+        description="Whether the Reviews page may approve, request changes, comment, merge, request reviewers, take a pull request out of draft, or re-run checks — and whether Tasks may comment, close or reopen an issue, or add either to a board. Off until you turn it on. Every action runs through your own `gh` CLI, as you, and is shown before it is sent. Merging additionally asks for confirmation with the number of commits it would land."
         on={enabled}
         onToggle={(_id, next) => setEnabled(next)}
       />

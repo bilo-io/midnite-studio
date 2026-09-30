@@ -58,7 +58,7 @@
     --browser-insecure: 38 92% 50%;
 
     /* The dependency graph's own edge/node vocabulary
-     * (features/projects/graph/edge-appearance.ts, Phase 75 Theme E) —
+     * (features/tasks/graph/edge-appearance.ts, Phase 75 Theme E) —
      * deliberately its own three tokens rather than `--health-*`: those mean
      * repo health, and a future change to what "warn" looks like should not
      * silently restyle a dependency graph. `--dep-done` borrows `--success`
@@ -3233,7 +3233,7 @@ html[data-motion='reduced'] .agent-run-glow.is-running {
 /*
   Task glow (ad hoc) — the Projects modifier over `.agent-run-glow`, worn by a
   board card, a graph node and a list row alike (`taskGlowClass` in
-  `features/projects/board/glow-state.ts`), so the three views paint one glow.
+  `features/tasks/board/glow-state.ts`), so the three views paint one glow.
   A modifier rather than an edit to `.agent-run-glow` itself, so that ring's
   other wearer (the workflow run-history button) is left exactly as it was.
 
@@ -3831,7 +3831,7 @@ html[data-motion='reduced'] .dep-edge-animated {
 /*
   Status stroke (ad hoc) — a task's status colour and dash on its card border
   and on the edge leading out of it to the task it blocks. The pattern per
-  status is `features/projects/status-stroke.ts`'s one table; the colour is
+  status is `features/tasks/status-stroke.ts`'s one table; the colour is
   the status option's own, set inline. An HTML border cannot animate its
   dashes, so the card's dashed border is an SVG <rect> over a transparent
   border (`StatusBorder`), sharing the edge's `dep-edge-dash` keyframe — the

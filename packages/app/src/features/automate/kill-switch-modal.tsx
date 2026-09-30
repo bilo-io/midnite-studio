@@ -38,7 +38,7 @@ function scopeSentence(scope: KillScope, count: number, automateOffCount: number
   const sessions = `${count} session${count === 1 ? '' : 's'}`;
   const suffix =
     automateOffCount > 0
-      ? ` and turns off Auto-mate for ${automateOffCount === 1 ? 'this project board' : `${automateOffCount} project boards`}.`
+      ? ` and turns off Auto-mate for ${automateOffCount === 1 ? 'this task board' : `${automateOffCount} task boards`}.`
       : '.';
   switch (scope) {
     case 'flow':
@@ -46,7 +46,7 @@ function scopeSentence(scope: KillScope, count: number, automateOffCount: number
         ? `Stops ${sessions} and cancels this workflow run${suffix}`
         : `Stops ${sessions} for this workflow${suffix}`;
     case 'project':
-      return `Stops ${sessions} on this project board${suffix}`;
+      return `Stops ${sessions} on this task board${suffix}`;
     case 'repo':
       return `Stops ${sessions} in this repository${suffix}`;
     case 'forgeUser':
@@ -68,7 +68,7 @@ function scopeUnavailableReason(scope: KillScope, context: KillScopeContext): st
     case 'flow':
       return context.flow === null ? 'No workflow is open' : undefined;
     case 'project':
-      return context.project === null ? 'No project board is open' : undefined;
+      return context.project === null ? 'No task board is open' : undefined;
     case 'repo':
       return context.repo === null ? 'No repository is open' : undefined;
     case 'forgeUser':

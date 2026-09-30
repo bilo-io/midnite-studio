@@ -83,8 +83,8 @@ test('Board mode: the task-detail panel default width, then dragged wider', asyn
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await setReducedMotion(page);
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await page.getByText('Wire up the resizable splitter').click();

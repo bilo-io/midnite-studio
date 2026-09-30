@@ -2482,7 +2482,7 @@ function tryNavigate(
 
     const issueMatch =
       /\bissue\s*#?\s*(\d+)\b/i.exec(remainder) ?? /\bnumber\s+(\d+)\b/i.exec(remainder);
-    if (issueMatch?.[1]) return { kind: 'navigate', view: 'issues', issue: Number(issueMatch[1]) };
+    if (issueMatch?.[1]) return { kind: 'navigate', view: 'tasks', issue: Number(issueMatch[1]) };
 
     if (hasPhrase(remainder, 'settings')) {
       const page = matchingSettingsPage(remainder, vocabulary.settingsPages);

@@ -37,7 +37,7 @@ describe('ProjectsPage — column → skill map (Phase 95 Theme G)', () => {
 
   it('asks the user to open a board first when no project is currently active', () => {
     render(<ProjectsPage />);
-    expect(screen.getByText(/Open a project board first/)).toBeDefined();
+    expect(screen.getByText(/Open a task board first/)).toBeDefined();
     expect(screen.queryByLabelText('Skill for column "in progress"')).toBeNull();
   });
 
@@ -101,7 +101,7 @@ describe('ProjectsPage — Auto-mate concurrency cap (Phase 95 Theme H)', () => 
 
   it('asks the user to open a board first when no project is currently active', () => {
     render(<ProjectsPage />);
-    expect(screen.getByText(/No project board is open yet/)).toBeDefined();
+    expect(screen.getByText(/No task board is open yet/)).toBeDefined();
     expect(screen.queryByLabelText('Auto-mate concurrency cap')).toBeNull();
   });
 

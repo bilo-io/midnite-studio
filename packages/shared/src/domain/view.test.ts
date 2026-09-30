@@ -18,4 +18,9 @@ describe('parseNavVisibility', () => {
       actions: false,
     });
   });
+
+  it('carries a hidden legacy `projects` over to `tasks`, and drops `issues`', () => {
+    expect(parseNavVisibility({ projects: false, issues: false })).toEqual({ tasks: false });
+    expect(parseNavVisibility({ projects: false, tasks: true })).toEqual({});
+  });
 });

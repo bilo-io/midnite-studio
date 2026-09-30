@@ -1,7 +1,7 @@
 import { LuCircleDot, LuTag, LuUsers } from 'react-icons/lu';
 import { useMemo, type ReactNode } from 'react';
 
-import { deriveAssigneeCounts, deriveLabelCounts, type FilterableItem, type ItemFilterState } from '../features/projects/filter';
+import { deriveAssigneeCounts, deriveLabelCounts, type FilterableItem, type ItemFilterState } from '../features/tasks/filter';
 import { FilterInput } from './filter-input';
 import { MultiSelectMenu, type MultiSelectOption } from './multi-select-menu';
 
@@ -18,7 +18,7 @@ function optionsFromCounts(counts: Map<string, number>): MultiSelectOption[] {
 
 /**
  * One filter toolbar over the shared facets (Phase 52 Theme A, lifted out of
- * `projects-view.tsx` in Phase 54 Theme E — that theme's own second
+ * `tasks-view.tsx` in Phase 54 Theme E — that theme's own second
  * consumer, Issues, is what proved this was a pattern and not a one-off).
  *
  * Deliberately ignorant of anything a caller's own item shape carries beyond

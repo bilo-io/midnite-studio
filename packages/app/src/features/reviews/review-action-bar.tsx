@@ -84,8 +84,8 @@ export function ReviewActionBar({
   const markReady = useMarkPullReady(repoId, pull.number);
 
   /*
-    "Add to project" (Phase 50 Theme E) reuses exactly the data
-    `projects-view.tsx`'s own board picker reads — the repo's boards and the
+    "Add to tasks" (Phase 50 Theme E) reuses exactly the data
+    `tasks-view.tsx`'s own board picker reads — the repo's boards and the
     per-repo `boardByRepo` memory — rather than a second picker component.
     Fetched unconditionally like `list`/`detail` above (not gated behind the
     menu opening): the boards call is one cheap `gh project list`, already
@@ -116,7 +116,7 @@ export function ReviewActionBar({
             // Reached only once the button's own `boards.isLoading` gate has
             // already cleared — an empty list at that point is a real "this
             // owner has no boards", never a still-loading one.
-            { label: 'No projects for this repo', disabled: true, onSelect: () => {} },
+            { label: 'No task boards for this repo', disabled: true, onSelect: () => {} },
           ];
     dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
   };
@@ -240,8 +240,8 @@ export function ReviewActionBar({
 
         <ActionButton
           icon={LuKanban}
-          label="Add to project ▸"
-          shortLabel="Add to project"
+          label="Add to tasks ▸"
+          shortLabel="Add to tasks"
           enabled={enabled}
           /*
             `boards.isLoading` only — not `isFetching` — so a background

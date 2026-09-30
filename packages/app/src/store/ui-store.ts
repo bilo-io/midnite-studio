@@ -57,12 +57,13 @@ import {
   DEFAULT_SESSION_DISPOSE_AFTER_MS,
 } from '../features/terminal/session-mount-policy';
 import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco/editor-prefs';
-import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
-import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/projects/graph/graph-filter';
-import { touchProjectView } from '../features/projects/project-view-lru';
-import { touchCardSkill } from '../features/projects/board/card-skill-lru';
-import { columnSkillKey } from '../features/projects/board/board-derive';
-import type { SortState } from '../features/projects/sort';
+import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/tasks/filter';
+import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/tasks/graph/graph-filter';
+import { touchProjectView } from '../features/tasks/project-view-lru';
+import { touchCardSkill } from '../features/tasks/board/card-skill-lru';
+import { columnSkillKey } from '../features/tasks/board/board-derive';
+import type { SortState } from '../features/tasks/sort';
+import { REPO_ISSUES_SOURCE_ID } from '../features/tasks/repo-issues-source';
 import { useFileEditorStore } from './file-editor-store';
 
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
@@ -270,7 +271,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'apiClient', label: 'API Client', group: 'tools' },
   { id: 'workflows', label: 'Workflows', group: 'tools' },
-  { id: 'projects', label: 'Projects', group: 'tools' },
+  { id: 'projects', label: 'Tasks', group: 'tools' },
   { id: 'media', label: 'Media', group: 'tools' },
   { id: 'ollama', label: 'Ollama', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'ai' },
@@ -312,8 +313,6 @@ export type LayoutSizes = {
   testsListWidth: number;
   /** The Reviews view's PR list, left of the PR detail (Phase 20 Theme C). */
   reviewsListWidth: number;
-  /** The Issues view's issue list, left of the issue detail (Phase 54 Theme D). */
-  issuesListWidth: number;
   /** The Sessions view's closed-session list, left of the transcript pane (Phase 67 Theme C). */
   sessionsListWidth: number;
   /** The Notes view's sidenav, left of the editor pane (Phase 86 Theme G). */
@@ -445,10 +444,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // A PR row carries two status pills, a title, a number, a branch and an
   // author — the widest row of any list pane in the app.
   reviewsListWidth: 380,
-  // A status pill, a title, a number, labels and an author — no branch, so
-  // narrower than Reviews' own row.
-  issuesListWidth: 360,
-  // Matches Issues' own row width — a dot, a label, an agent icon and a
+  // Matches the old Issues list's 360px row width — a dot, a label, an agent icon and a
   // duration/age pair is the same footprint as a status pill, title and number.
   sessionsListWidth: 360,
   // A checkbox, a drag handle and a body preview — narrower than Sessions'
@@ -534,7 +530,6 @@ export const LAYOUT_BOUNDS = {
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
-  issuesListWidth: { min: 240, max: 640 },
   sessionsListWidth: { min: 240, max: 640 },
   notesListWidth: { min: 220, max: 560 },
   searchResultsWidth: { min: 280, max: 900 },
@@ -1427,6 +1422,12 @@ export type UiState = {
   projectBoardByRepo: Record<string, string>;
   setProjectBoard: (repoId: string, projectId: string) => void;
   /**
+   * Tasks, on its built-in Repo issues source for the selected repo — what
+   * `view.issues` (Mod+Shift+i) and every other "go to Issues" entry point
+   * became once the Issues view folded into Tasks.
+   */
+  openRepoIssues: () => void;
+  /**
    * Table or board, per repo (Phase 41 Theme A).
    *
    * The board is a *mode* inside the Projects view, not a route — `ViewId`
@@ -2314,6 +2315,8 @@ export function readSessionActiveView(): ViewId {
     if (stored === 'video') return 'media';
     // The Changes view folded into the graph's working-copy panel.
     if (stored === 'changes') return 'graph';
+    // Projects was renamed Tasks, and the Issues view folded into it.
+    if (stored === 'projects' || stored === 'issues') return 'tasks';
     if (stored && (VIEW_IDS as readonly string[]).includes(stored)) return stored as ViewId;
   } catch {
     // Private mode or a disabled-storage policy — starting on Graph is a
@@ -3059,6 +3062,11 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
         })),
+      openRepoIssues: () => {
+        const repoId = get().selectedRepoId;
+        if (repoId !== null) get().setProjectBoard(repoId, REPO_ISSUES_SOURCE_ID);
+        get().setActiveView('tasks');
+      },
       setProjectsMode: (repoId, mode) =>
         set((state) => ({ projectsMode: { ...state.projectsMode, [repoId]: mode } })),
       setProjectView: (projectId, patch) =>
@@ -3123,7 +3131,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 30,
+      version: 31,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3521,6 +3529,7 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 29) migrateVideoToMedia(state);
         if (version < 30) migrateChangesToGraph(state);
+        if (version < 31) migrateIssuesAndProjectsToTasks(state);
         return state as PersistedUi;
       },
       /**
@@ -3612,7 +3621,11 @@ export const pathForView = (view: ViewId): string => (view === 'landing' ? '/' :
  * own list means a view cannot be added to `ViewId` and forgotten here.
  */
 export const viewForPath = (path: string): ViewId =>
-  path === '/video' ? 'media' : (VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph');
+  path === '/video'
+    ? 'media'
+    : path === '/projects' || path === '/issues'
+      ? 'tasks'
+      : (VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph');
 
 /** The two side panes `MediaLayout` can collapse. */
 export type MediaPane = 'explorer' | 'detail';
@@ -3673,6 +3686,31 @@ export function migrateChangesToGraph(state: Record<string, unknown>): Record<st
     if (record && typeof record === 'object') delete record.changes;
   }
   if (state.activeView === 'changes') state.activeView = 'graph';
+  return state;
+}
+
+/**
+ * v30 → v31: Projects was renamed Tasks, and the Issues view folded into it
+ * (Tasks' built-in Repo issues source). Moves every persisted `projects` view
+ * key to `tasks` — a hidden Projects stays a hidden Tasks — and drops the
+ * `issues` view keys and the one pane width only the Issues view used. A
+ * stray `activeView` of either goes to `tasks`. `settingsPage: 'projects'`
+ * is untouched: that page id kept its name (only its label reads "Tasks").
+ * Mutates and returns the raw blob; exported for its test.
+ */
+export function migrateIssuesAndProjectsToTasks(state: Record<string, unknown>): Record<string, unknown> {
+  const layout = state.layout as Record<string, unknown> | undefined;
+  if (layout && typeof layout === 'object') delete layout.issuesListWidth;
+  for (const key of ['navVisibility', 'sectionFilters'] as const) {
+    const record = state[key] as Record<string, unknown> | undefined;
+    if (!record || typeof record !== 'object') continue;
+    if ('projects' in record) {
+      record.tasks ??= record.projects;
+      delete record.projects;
+    }
+    delete record.issues;
+  }
+  if (state.activeView === 'projects' || state.activeView === 'issues') state.activeView = 'tasks';
   return state;
 }
 

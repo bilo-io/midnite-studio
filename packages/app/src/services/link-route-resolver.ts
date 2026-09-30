@@ -12,7 +12,7 @@ import { lookupRepoIdByForge } from './repo-forge-registry';
  */
 export type InAppRoute =
   | { view: 'reviews'; repoId: string; pull: number }
-  | { view: 'issues'; repoId: string; issue: number }
+  | { view: 'issue'; repoId: string; issue: number }
   | { view: 'actions'; repoId: string; runId: string }
   | { view: 'graph'; repoId: string };
 
@@ -37,7 +37,7 @@ const ROUTE_MATCHERS: ReadonlyArray<{
   {
     // GitHub `/issues/123`, GitLab `/-/issues/123`.
     match: (segments) => segments.join('/').match(/^(?:-\/)?issues\/(\d+)/),
-    build: (repoId, match) => ({ view: 'issues', repoId, issue: Number(match[1]) }),
+    build: (repoId, match) => ({ view: 'issue', repoId, issue: Number(match[1]) }),
   },
   {
     // GitHub `/actions/runs/123`, GitLab `/-/pipelines/123`.

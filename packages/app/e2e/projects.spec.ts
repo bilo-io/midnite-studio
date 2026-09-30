@@ -11,7 +11,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * `gh-project-write.test.ts`).
  *
  * Phase 82 Theme C wave 5 moved every other test here to
- * `src/features/projects/projects-view.bridge.test.tsx`, mounting
+ * `src/features/tasks/tasks-view.bridge.test.tsx`, mounting
  * `ProjectsView` directly: the board-picker gate, the single-select field's
  * "not optimistic" round trip, a refused write, and the missing-scope state.
  * One smoke test stays here, proving the rail actually reaches this view
@@ -84,14 +84,14 @@ test('picking a board loads its items, and not before', async ({ page }) => {
   await installMockBridge(page, base);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Projects');
+  await clickRailLink(page, 'Tasks');
 
-  // Nothing loads until a board is picked — the phase doc's own acceptance
-  // test at the query layer, proved here at the assembled-app level too.
-  await expect(page.getByText('Pick a board', { exact: true })).toBeVisible();
+  // Opens on the built-in Repo issues source; no board item loads until a
+  // board is picked, proved here at the assembled-app level too.
+  await expect(page.getByRole('combobox', { name: 'Task source' })).toContainText('Repo issues');
   await expect(page.getByText('Wire the write path')).toHaveCount(0);
 
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await expect(page.getByText('Wire the write path')).toBeVisible();
   // forgeWritesEnabled defaults off, so the cell renders but cannot be edited.
   await expect(page.getByRole('combobox', { name: 'Status' })).toBeDisabled();

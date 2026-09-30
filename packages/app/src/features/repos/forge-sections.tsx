@@ -25,7 +25,7 @@ import {
   useRefreshForge,
 } from '../../services/queries';
 import { useActionsStore } from '../../store/actions-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { openIssueModal } from '../../store/issue-modal-store';
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
 import {
@@ -299,8 +299,6 @@ export function IssuesSection({
   const refresh = useRefreshForge(repoId);
   const dialogs = useDialogs();
   const selectRepo = useUiStore((s) => s.selectRepo);
-  const setActiveView = useUiStore((s) => s.setActiveView);
-  const selectIssue = useIssuesStore((s) => s.selectIssue);
 
   const issues = data?.issues ?? [];
   // Theme K.2 — see `ActionsSection`'s own comment on the identical pattern.
@@ -354,17 +352,14 @@ export function IssuesSection({
           menu={forgeRowMenu(issue.url, 'issue', repoId)}
           dialogs={dialogs}
           /*
-            The Issues view, not a browser tab — the same move Phase 19 made
-            for Actions runs and ReviewsGroup makes for pulls, just below.
-            This row used to be the one exception (a bare `openInMidnite`,
-            Ad hoc click-modifier theme's own find): an issue link has a
-            native view exactly like a run or a pull does, and there is no
-            reason its row alone sent a reader to the forge for it.
+            The issue modal, not a browser tab and not a page — the Issues
+            view folded into Tasks, and an issue now reads in the same modal
+            wherever it is opened from. The repo is still selected, so the
+            modal's action bar and any Plan-with-AI launch act on it.
           */
           onOpen={() => {
             selectRepo(repoId);
-            selectIssue(repoId, issue.number);
-            setActiveView('issues');
+            openIssueModal({ repoId, number: issue.number, seed: issue });
           }}
         />
       ))}

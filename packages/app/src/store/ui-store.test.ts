@@ -1650,4 +1650,22 @@ describe('v24 -> v25 migration (Phase 95 Theme G: columnSkillByProject)', () => 
     // Untouched by this migration.
     expect(useUiStore.getState().primaryAgent).toBe('claude');
   });
+
+  it('migrates a v30 blob: projects -> tasks, issues dropped, routes redirected', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      {
+        layout: { reposWidth: 300, issuesListWidth: 360 },
+        navVisibility: { projects: false, issues: true, graph: true },
+        sectionFilters: { issues: true },
+        activeView: 'issues',
+      },
+      30,
+    ) as Record<string, unknown> & { layout: Record<string, number> };
+    expect(migrated.layout).not.toHaveProperty('issuesListWidth');
+    expect(migrated.navVisibility).toEqual({ tasks: false, graph: true });
+    expect(migrated.sectionFilters).toEqual({});
+    expect(migrated.activeView).toBe('tasks');
+    expect(viewForPath('/issues')).toBe('tasks');
+    expect(viewForPath('/projects')).toBe('tasks');
+  });
 });

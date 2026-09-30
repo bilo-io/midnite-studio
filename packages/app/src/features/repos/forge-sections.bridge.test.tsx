@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
+import { useIssueModalStore } from '../../store/issue-modal-store';
 import { useBrowserStore } from '../../store/browser-store';
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
@@ -86,6 +87,14 @@ afterEach(() => {
 });
 
 describe('IssuesSection, assembled through the real bridge', () => {
+  it('opening a row opens the app-wide issue modal', async () => {
+    openIssues({ cli: { reason: 'ready' }, issues: [issue()] });
+    fireEvent.click(screen.getByRole('button', { name: 'Issues' }));
+    fireEvent.click(await screen.findByText('Graph rows jump on resize'));
+    expect(useIssueModalStore.getState().target).toMatchObject({ number: 42 });
+    useIssueModalStore.setState({ target: null });
+  });
+
   it('lists what gh reports, and each row links out', async () => {
     openIssues({
       cli: { reason: 'ready' },

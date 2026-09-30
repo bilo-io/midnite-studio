@@ -149,8 +149,8 @@ async function openBoard(page: Page, data: MockFixtures, options: { writes?: boo
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();
@@ -417,8 +417,8 @@ test.describe('kanban card running glow (Theme F)', () => {
     });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     // `TaskCard`'s own root carries `role="button"` and the glow class
@@ -467,8 +467,8 @@ test.describe('revealing a card session in the terminal', () => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     const card = page
@@ -506,8 +506,8 @@ test.describe('revealing a card session in the terminal', () => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     const card = page
@@ -527,8 +527,8 @@ test.describe('revealing a card session in the terminal', () => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     await page.getByText('Wire the write path').click();

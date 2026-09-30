@@ -102,8 +102,8 @@ async function openPicker(page: Page, mode: 'light' | 'dark') {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible({ timeout: 30_000 });
   if (mode === 'dark') await setTheme(page, 'dark');
   await setReducedMotion(page);
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await page.getByText(ITEM.content.title).first().click();
   const detail = page.getByTestId('card-detail').last();

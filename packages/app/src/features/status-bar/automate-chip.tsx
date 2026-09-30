@@ -35,7 +35,7 @@ export function AutomateChip() {
     <button
       type="button"
       data-testid="status-segment-automate"
-      onClick={() => useUiStore.getState().setActiveView('projects')}
+      onClick={() => useUiStore.getState().setActiveView('tasks')}
       title={`Auto-mate running on: ${runningProjectIds.join(', ')}`}
       className="flex items-center gap-1 rounded px-1.5 font-medium text-foreground transition-colors hover:bg-accent"
     >

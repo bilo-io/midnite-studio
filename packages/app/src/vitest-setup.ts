@@ -77,10 +77,10 @@ if (typeof document !== 'undefined' && typeof document.queryCommandSupported !==
  * crash, just silently zero rows. That is exactly what kept
  * `search-view.spec.ts`'s "each mode returns and renders its own results" in
  * Playwright (confirmed empirically there before this fix: with
- * `clientWidth`/`clientHeight` stubbed the same way `projects-view.test.tsx`
+ * `clientWidth`/`clientHeight` stubbed the same way `tasks-view.test.tsx`
  * does, the store still received results, but `getVirtualItems()` stayed
  * empty), and it is documented as the same open finding in
- * `projects-view.test.tsx`.
+ * `tasks-view.test.tsx`.
  *
  * The fix needed nothing beyond a firing callback — no separate
  * `offsetWidth`/`getBoundingClientRect` shim. `virtual-core`'s callback

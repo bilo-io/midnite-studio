@@ -60,8 +60,8 @@ export function Deck({ deck, onClose }: { deck: Deck; onClose: () => void }) {
     Escape closes help first, then the deck. That is exactly what the single
     `window` listener achieved by accident, now stated rather than inferred.
   */
-  useDismiss(showHelp, () => setShowHelp(false), { layer: 'inline' });
-  useDismiss(true, onClose, { layer: 'inline' });
+  useDismiss(showHelp, () => setShowHelp(false), { layer: 'dialog' });
+  useDismiss(true, onClose, { layer: 'dialog' });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
