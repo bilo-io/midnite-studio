@@ -360,3 +360,46 @@ describe('readProjectFile', () => {
     expect(await readProjectFile(root, 'p1', 'input')).toBeNull();
   });
 });
+
+describe('nested project ids (Phase 99 Theme D)', () => {
+  it('finds projects at <brand>/<category>/<NNN-name>, with the path as id', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'acme/marketing/001-launch');
+    await writeProject(root, 'acme/marketing/002-teaser');
+    await writeProject(root, 'flat');
+    await mkdir(join(root, 'projects', '_template'), { recursive: true });
+
+    const ids = (await discoverProjects(root)).map((p) => [p.id, p.valid]).sort();
+    expect(ids).toEqual([
+      ['acme/marketing/001-launch', true],
+      ['acme/marketing/002-teaser', true],
+      ['flat', true],
+    ]);
+  });
+
+  it('does not descend into a project, and lists an empty folder as invalid', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'acme/001-a');
+    await mkdir(join(root, 'projects', 'acme', '001-a', 'input', 'nested'), { recursive: true });
+    await mkdir(join(root, 'projects', 'empty'), { recursive: true });
+
+    const projects = await discoverProjects(root);
+    expect(projects.map((p) => p.id).sort()).toEqual(['acme/001-a', 'empty']);
+    expect(projects.find((p) => p.id === 'empty')?.valid).toBe(false);
+  });
+
+  it('refuses a nested project.json whose id does not match its path', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'acme/001-a', { id: '001-a' });
+    const [project] = await discoverProjects(root);
+    expect(project?.valid).toBe(false);
+  });
+
+  it('lists assets recursively with relative paths', async () => {
+    const root = await tempDir();
+    await mkdir(join(root, 'assets', 'logos', 'acme'), { recursive: true });
+    await writeFile(join(root, 'assets', 'logos', 'acme', 'mark.svg'), '<svg/>');
+    const entries = await listAreaFiles(root, 'assets', '-', { recursive: true });
+    expect(entries.map((e) => e.name)).toEqual(['logos', 'logos/acme', 'logos/acme/mark.svg']);
+  });
+});
