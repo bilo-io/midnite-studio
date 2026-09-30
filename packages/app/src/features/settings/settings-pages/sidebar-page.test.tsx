@@ -22,6 +22,18 @@ describe('rail nav definitions', () => {
 });
 
 describe('Settings > Sidebar rail destinations', () => {
+  it('puts the Navigation group above the rail destinations', () => {
+    render(<SidebarPage />);
+    const nav = screen.getByRole('button', { name: /^Navigation/ });
+    const sidenav = screen.getByRole('button', { name: /^Sidenav/ });
+    const lock = screen.getByRole('radio', { name: 'Locked open' });
+    const firstSwitch = screen.getAllByRole('switch')[0]!;
+    const before = Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(nav.compareDocumentPosition(sidenav) & before).toBeTruthy();
+    expect(lock.compareDocumentPosition(firstSwitch) & before).toBeTruthy();
+  });
+
+
   it('lists every group and item with its description and the rail icon', () => {
     const { container } = render(<SidebarPage />);
     for (const group of RAIL_GROUPS) {
