@@ -181,7 +181,7 @@ jobs:
     # a real git binary (the package-boundary rules in CLAUDE.md guarantee it), so
     # there is no macOS behaviour here to validate — unlike `e2e`, `gate-native`
     # and `gate-locale`, which all stay on macOS precisely because there is.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -309,7 +309,7 @@ jobs:
     # conditions those numbers were taken under. Note the comment two paragraphs
     # up already recorded the symptom — "the fourth queued ~108s late" — before
     # the cause was understood.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -447,7 +447,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.cross_platform
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     services:
       postgres:
@@ -819,7 +819,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.cross_platform
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container:
       # Pinned to the image matching the LOCKED `@playwright/test` (1.62.1,
       # and `scripts/visual-regen.mjs`'s own IMAGE): an image one minor ahead
