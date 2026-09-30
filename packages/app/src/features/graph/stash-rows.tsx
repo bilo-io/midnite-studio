@@ -4,7 +4,14 @@ import { LuPackage } from 'react-icons/lu';
 import { useUiStore } from '../../store/ui-store';
 import { toggleRepoSection } from '../repos/view-sections';
 import { CiSpacer } from './ci-cell';
-import { RAIL_WIDTH, laneCentre, nodeExtent, showsAuthorColumn, type GraphTheme } from './graph-themes';
+import { BlankAvatar } from './commit-avatar';
+import {
+  RAIL_WIDTH,
+  laneCentre,
+  nodeExtent,
+  showsAuthorColumn,
+  type GraphTheme,
+} from './graph-themes';
 import { laneColor } from './lane-colors';
 
 /** How many stash entries the graph shows before collapsing into an overflow row. */
@@ -65,9 +72,7 @@ export function StashRows({
           onSelect={() => onSelect(entry.selector)}
         />
       ))}
-      {overflow > 0 ? (
-        <StashOverflowRow repoId={repoId} count={overflow} theme={theme} />
-      ) : null}
+      {overflow > 0 ? <StashOverflowRow repoId={repoId} count={overflow} theme={theme} /> : null}
     </>
   );
 }
@@ -138,15 +143,19 @@ function StashRow({
             strokeWidth={theme.strokeWidth}
             strokeDasharray={`${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}`}
           />
-          <circle
-            cx={nodeX}
-            cy={mid}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={theme.strokeWidth}
-            strokeDasharray={`${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}`}
-          />
+          {theme.node === 'avatar' ? (
+            <BlankAvatar cx={nodeX} cy={mid} size={theme.avatarSize} ringWidth={theme.ringWidth} />
+          ) : (
+            <circle
+              cx={nodeX}
+              cy={mid}
+              r={radius}
+              fill="none"
+              stroke={color}
+              strokeWidth={theme.strokeWidth}
+              strokeDasharray={`${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}`}
+            />
+          )}
         </svg>
       </span>
 

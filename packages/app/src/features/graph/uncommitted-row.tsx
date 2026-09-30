@@ -1,6 +1,7 @@
 import type { StatusResult } from '@midnite/studio-shared';
 
 import { CiSpacer } from './ci-cell';
+import { BlankAvatar } from './commit-avatar';
 import {
   RAIL_WIDTH,
   laneCentre,
@@ -89,7 +90,6 @@ export function UncommittedRow({
       }`}
       style={{ height: theme.rowHeight }}
     >
-
       {/* Empty BRANCH / TAG cell: nothing points at the working copy. */}
       <div className="graph-ref-col pl-2" style={{ width: 'var(--col-branch-tag)' }} />
       {/* The CI column's slot — nothing to show, but the grid has to match. */}
@@ -118,15 +118,19 @@ export function UncommittedRow({
             strokeWidth={theme.strokeWidth}
             strokeDasharray={`${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}`}
           />
-          <circle
-            cx={nodeX}
-            cy={mid}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={theme.strokeWidth}
-            strokeDasharray={`${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}`}
-          />
+          {theme.node === 'avatar' ? (
+            <BlankAvatar cx={nodeX} cy={mid} size={theme.avatarSize} ringWidth={theme.ringWidth} />
+          ) : (
+            <circle
+              cx={nodeX}
+              cy={mid}
+              r={radius}
+              fill="none"
+              stroke={color}
+              strokeWidth={theme.strokeWidth}
+              strokeDasharray={`${theme.strokeWidth * 2} ${theme.strokeWidth * 1.5}`}
+            />
+          )}
         </svg>
       </span>
 
