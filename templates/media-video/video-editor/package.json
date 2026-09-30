@@ -1,0 +1,30 @@
+{
+  "name": "video-editor",
+  "version": "1.0.0",
+  "description": "One Remotion app, one composition folder per project",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@remotion/cli": "4.0.518",
+    "@remotion/tailwind-v4": "4.0.518",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.518",
+    "tailwindcss": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "assets": "node ../scripts/sync-assets.mjs",
+    "predev": "npm run assets",
+    "dev": "remotion studio",
+    "prebuild": "npm run assets",
+    "build": "remotion bundle",
+    "lint": "tsc"
+  },
+  "sideEffects": [
+    "*.css"
+  ]
+}
