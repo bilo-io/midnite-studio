@@ -237,14 +237,7 @@ export function CommitAvatar({
         </g>
       ) : null}
 
-      <circle
-        cx={cx}
-        cy={cy}
-        r={radius}
-        fill="none"
-        stroke={ring}
-        strokeWidth={ringWidth}
-      />
+      <circle cx={cx} cy={cy} r={radius} fill="none" stroke={ring} strokeWidth={ringWidth} />
 
       {showsBadge && AgentIcon ? (
         <g data-testid={isAgent ? 'svg-agent-avatar' : 'svg-mixed-badge'}>
@@ -307,5 +300,43 @@ export function AvatarClipPath({ id, size }: { id: string; size: number }) {
     <clipPath id={id}>
       <circle cx={r} cy={r} r={r} />
     </clipPath>
+  );
+}
+
+/**
+ * An empty stand-in for {@link CommitAvatar}, for rows that have no author — the
+ * stash rows and the working-copy row.
+ *
+ * Same `cx`/`cy`/`size`/`ringWidth` inputs as the real avatar (callers pass the
+ * theme's `avatarSize` and `ringWidth`), so the circle occupies exactly the
+ * space a face would and the dashed lane through it lines up with the solid
+ * lane on the commit rows around it. Opaque backdrop first, for the same
+ * reason the real node has one: the lane passes under it.
+ */
+export function BlankAvatar({
+  cx,
+  cy,
+  size,
+  ringWidth,
+}: {
+  cx: number;
+  cy: number;
+  size: number;
+  ringWidth: number;
+}) {
+  const radius = size / 2;
+  return (
+    <g data-testid="blank-avatar" data-avatar-size={size}>
+      <circle cx={cx} cy={cy} r={radius} fill="hsl(var(--background))" />
+      <circle cx={cx} cy={cy} r={radius} fill="hsl(var(--muted))" />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={radius}
+        fill="none"
+        stroke="hsl(var(--border))"
+        strokeWidth={ringWidth}
+      />
+    </g>
   );
 }
