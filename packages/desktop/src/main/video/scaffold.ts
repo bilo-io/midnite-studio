@@ -56,8 +56,13 @@ export async function scaffoldVideoWorkspace(templateDir: string, dest: string):
     }
     if (entries.length > 0) return failure(`${dest} already exists and is not empty.`);
   }
-  await mkdir(dest, { recursive: true });
-  await cp(templateDir, dest, { recursive: true, errorOnExist: true, force: false });
-  for (const dir of VIDEO_ASSET_DIRS) await mkdir(join(dest, 'assets', dir), { recursive: true });
+  try {
+    await mkdir(dest, { recursive: true });
+    // `dest` is known empty here; `force: false` still never overwrites a file.
+    await cp(templateDir, dest, { recursive: true, force: false });
+    for (const dir of VIDEO_ASSET_DIRS) await mkdir(join(dest, 'assets', dir), { recursive: true });
+  } catch (error) {
+    return failure(error instanceof Error ? error.message : String(error));
+  }
   return ok();
 }
