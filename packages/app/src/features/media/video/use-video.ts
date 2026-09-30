@@ -266,15 +266,22 @@ export function useVideoToolchain(projectId: string | null) {
   });
 }
 
+const NO_FILES: never[] = [];
+
+/**
+ * No `initialData`: the app's global `staleTime: Infinity` treats seeded
+ * initial data as fresh forever, so the listing would never be fetched in the
+ * real app (Phase 99 Theme D found this — jsdom's test client masked it).
+ */
 export function useVideoFiles(projectId: string | null, area: VideoFileArea, { recursive = false } = {}) {
-  return useQuery({
+  const query = useQuery({
     queryKey: VIDEO_KEYS.files(projectId ?? '', area, recursive),
     queryFn: async () =>
       (await bridge()?.video.files({ projectId: projectId ?? '', area, ...(recursive ? { recursive } : {}) }))
         ?.entries ?? [],
     enabled: projectId !== null,
-    initialData: [],
   });
+  return { ...query, data: query.data ?? NO_FILES };
 }
 
 /**
