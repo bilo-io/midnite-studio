@@ -116,6 +116,21 @@ describe('discoverProjects', () => {
     expect(projects[0]!.valid).toBe(false);
   });
 
+  it('treats a project.json with no source as valid — a cut built from shared assets', async () => {
+    const root = await tempDir();
+    const dir = join(root, 'projects', 'midnite', 'marketing', '000-pilot');
+    await mkdir(dir, { recursive: true });
+    const file = {
+      id: 'midnite/marketing/000-pilot',
+      title: 'Pilot',
+      composition: 'MidnitePilot',
+      brief: 'input/BRIEF.md',
+      script: 'EDITORIAL_SCRIPT.md',
+    };
+    await writeFile(join(dir, 'project.json'), JSON.stringify(file), 'utf8');
+    expect(await discoverProjects(root)).toEqual([{ valid: true, ...file }]);
+  });
+
   it("marks a project.json whose own id does not match its folder invalid", async () => {
     const root = await tempDir();
     await writeProject(root, 'folder-name', { id: 'a-different-id' });
