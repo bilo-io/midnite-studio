@@ -343,7 +343,7 @@ export function TasksView() {
         <EmptyState
           icon={VIEW_ICON.tasks}
           title="No task boards"
-          body="This owner has no Project boards, or none this token can see. Repo issues, in the picker above, lists this repository's issues."
+          body="This owner has no task boards, or none this token can see. Repo issues, in the picker above, lists this repository's issues."
           action={
             <ReloadProjectsButton
               command={SCOPE_FIX_COMMAND}
@@ -1167,7 +1167,7 @@ function MissingScopeState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
       <VIEW_ICON.tasks aria-hidden className="h-10 w-10 text-muted-foreground/60" />
-      <p className="text-sm font-medium">GitHub Projects needs one more permission</p>
+      <p className="text-sm font-medium">Tasks needs one more permission</p>
       <p className="max-w-sm text-sm text-muted-foreground">
         Your GitHub CLI token is missing the <code>project</code> scope. Run this in a terminal,
         then reopen this view:
@@ -1204,7 +1204,7 @@ function MissingScopeState() {
  */
 function BoardPickerSkeleton() {
   return (
-    <LoadingRegion label="Asking GitHub for this owner's project boards…" className="flex flex-col gap-3 p-4">
+    <LoadingRegion label="Asking GitHub for this owner's task boards…" className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2">
         {['w-28', 'w-20', 'w-24'].map((width) => (
           <Skeleton key={width} className={`h-6 rounded-full ${width}`} />

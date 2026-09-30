@@ -66,7 +66,7 @@ describe('IssueActionBar — the gate', () => {
     listProjects.mockResolvedValue({ cli: { reason: 'ready', hint: '' }, projects: [], error: null, kind: 'ok' });
     renderBar();
 
-    for (const label of ['Comment', 'Close', 'Add to project']) {
+    for (const label of ['Comment', 'Close', 'Add to tasks']) {
       const button = (await screen.findByRole('button', { name: label })) as HTMLButtonElement;
       expect(button.disabled).toBe(true);
     }
@@ -160,12 +160,12 @@ describe('IssueActionBar — close/reopen', () => {
 /** Reuses the exact pattern `ReviewActionBar`'s own test suite covers (Phase 50 Theme E). */
 describe('IssueActionBar — Add to project (Phase 54 Theme F)', () => {
   async function openAddToProjectMenu() {
-    await screen.findByRole('button', { name: 'Add to project' });
+    await screen.findByRole('button', { name: 'Add to tasks' });
     await waitFor(() => {
-      const button = screen.getByRole('button', { name: 'Add to project' }) as HTMLButtonElement;
+      const button = screen.getByRole('button', { name: 'Add to tasks' }) as HTMLButtonElement;
       expect(button.disabled).toBe(false);
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add to project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to tasks' }));
   }
 
   it('lists the repo boards and adds the issue to the one picked', async () => {
@@ -199,7 +199,7 @@ describe('IssueActionBar — Add to project (Phase 54 Theme F)', () => {
     renderBar();
     await openAddToProjectMenu();
 
-    expect(await screen.findByText('No projects for this repo')).not.toBeNull();
+    expect(await screen.findByText('No task boards for this repo')).not.toBeNull();
     expect(addItem).not.toHaveBeenCalled();
   });
 });

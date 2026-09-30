@@ -118,9 +118,9 @@ async function openBoard(
       ...(options.writes === true ? { forgeWritesEnabled: true } : {}),
     },
   });
-  await screen.findByRole('combobox', { name: 'Project board' });
+  await screen.findByRole('combobox', { name: 'Task source' });
 
-  fireEvent.change(screen.getByRole('combobox', { name: 'Project board' }), {
+  fireEvent.change(screen.getByRole('combobox', { name: 'Task source' }), {
     target: { value: BOARD.id },
   });
   await screen.findByText('Wire the write path');
@@ -134,14 +134,15 @@ describe('TasksView, assembled through the real bridge', () => {
       fixtures: baseFixtures(),
       uiState: { selectedRepoId: 'repo-1', selectedWorktreePath: MAIN },
     });
-    await screen.findByRole('combobox', { name: 'Project board' });
+    await screen.findByRole('combobox', { name: 'Task source' });
 
     // Nothing loads until a board is picked — the phase doc's own acceptance
     // test at the query layer, proved here at the assembled-view level too.
-    expect(screen.getByText('Pick a board…')).toBeTruthy();
+    // The built-in Repo issues source is showing, not a forge board.
+    expect((screen.getByRole('combobox', { name: 'Task source' }) as HTMLSelectElement).selectedOptions[0]?.textContent).toBe('Repo issues');
     expect(screen.queryByText('Wire the write path')).toBeNull();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Project board' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Task source' }), {
       target: { value: BOARD.id },
     });
     expect(await screen.findByText('Wire the write path')).toBeTruthy();
@@ -212,8 +213,11 @@ describe('TasksView, assembled through the real bridge', () => {
       },
       uiState: { selectedRepoId: 'repo-1', selectedWorktreePath: MAIN },
     });
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Task source' }), {
+      target: { value: BOARD.id },
+    });
 
-    expect(await screen.findByText('GitHub Projects needs one more permission')).toBeTruthy();
+    expect(await screen.findByText('Tasks needs one more permission')).toBeTruthy();
     expect(screen.getByText('gh auth refresh -s project')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Copy command' }));
 

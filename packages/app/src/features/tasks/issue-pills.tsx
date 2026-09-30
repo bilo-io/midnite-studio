@@ -41,7 +41,8 @@ export function TaskIssueProvider({ value, children }: { value: TaskIssueContext
 }
 
 function isSameRepo(ctx: TaskIssueContextValue, repo: string): boolean {
-  return repo === '' || (ctx.repoName !== '' && repo.toLowerCase() === ctx.repoName.toLowerCase());
+  if (!repo) return true;
+  return ctx.repoName !== '' && repo.toLowerCase() === ctx.repoName.toLowerCase();
 }
 
 /** `https://host/owner/repo/issues/12` → the registered repo id it names, if any. */

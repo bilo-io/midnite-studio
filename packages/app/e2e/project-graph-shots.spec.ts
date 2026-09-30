@@ -78,8 +78,8 @@ async function openGraph(page: Page, mode: 'light' | 'dark'): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   if (mode === 'dark') await setTheme(page, 'dark');
   await setReducedMotion(page);
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Graph view' }).click();
   await expect(page.getByTestId('project-graph-view')).toBeVisible();
   await page.waitForTimeout(300);
@@ -107,8 +107,8 @@ test('the all-drafts-or-PRs empty state', async ({ page }) => {
   });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Graph view' }).click();
   await expect(page.getByText('Dependencies live on issues. This board has none.')).toBeVisible();
   await page.waitForTimeout(300);

@@ -144,7 +144,8 @@ test('presenting from an Issue detail opens a deck whose cover title is the body
   await installMockBridge(page, issuesFixtures);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Issues');
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('button', { name: 'Bug report', exact: true }).click();
 
   const issueDetail = page.getByRole('region', { name: 'Issue detail' });
   await expect(issueDetail.getByRole('heading', { level: 2 })).toContainText('Bug report');
@@ -164,7 +165,8 @@ test('a conversation comment’s Present button opens a deck without changing ma
   await installMockBridge(page, issuesFixtures);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Issues');
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('button', { name: 'Bug report', exact: true }).click();
 
   const issueDetail = page.getByRole('region', { name: 'Issue detail' });
   await expect(issueDetail.getByRole('heading', { level: 2 })).toContainText('Bug report');

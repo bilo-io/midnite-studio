@@ -69,12 +69,12 @@ function renderBar(overrides: Partial<ForgePull> = {}) {
  * whatever "still loading" said at that instant.
  */
 async function openAddToProjectMenu() {
-  await screen.findByRole('button', { name: 'Add to project' });
+  await screen.findByRole('button', { name: 'Add to tasks' });
   await waitFor(() => {
-    const button = screen.getByRole('button', { name: 'Add to project' }) as HTMLButtonElement;
+    const button = screen.getByRole('button', { name: 'Add to tasks' }) as HTMLButtonElement;
     expect(button.disabled).toBe(false);
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Add to project' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add to tasks' }));
 }
 
 describe('ReviewActionBar — Add to project (Phase 50 Theme E)', () => {
@@ -125,7 +125,7 @@ describe('ReviewActionBar — Add to project (Phase 50 Theme E)', () => {
     renderBar();
     await openAddToProjectMenu();
 
-    expect(await screen.findByText('No projects for this repo')).toBeDefined();
+    expect(await screen.findByText('No task boards for this repo')).toBeDefined();
     expect(addItem).not.toHaveBeenCalled();
   });
 });

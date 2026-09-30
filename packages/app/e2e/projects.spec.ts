@@ -84,14 +84,14 @@ test('picking a board loads its items, and not before', async ({ page }) => {
   await installMockBridge(page, base);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Projects');
+  await clickRailLink(page, 'Tasks');
 
   // Nothing loads until a board is picked — the phase doc's own acceptance
   // test at the query layer, proved here at the assembled-app level too.
   await expect(page.getByText('Pick a board', { exact: true })).toBeVisible();
   await expect(page.getByText('Wire the write path')).toHaveCount(0);
 
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await expect(page.getByText('Wire the write path')).toBeVisible();
   // forgeWritesEnabled defaults off, so the cell renders but cannot be edited.
   await expect(page.getByRole('combobox', { name: 'Status' })).toBeDisabled();

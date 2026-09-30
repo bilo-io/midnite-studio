@@ -112,8 +112,8 @@ async function openBoard(page: Page, mode: 'light' | 'dark'): Promise<void> {
   if (mode === 'dark') await setTheme(page, 'dark');
   // The ramp must be at rest for two runs to be comparable — see the note above.
   await setReducedMotion(page);
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();

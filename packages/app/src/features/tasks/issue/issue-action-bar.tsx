@@ -59,7 +59,7 @@ export function IssueActionBar({
   const { capability } = useActiveForgeCapability(repoId);
 
   /*
-    "Add to project" reuses exactly the data `ReviewActionBar`'s own menu
+    "Add to tasks" reuses exactly the data `ReviewActionBar`'s own menu
     reads — the repo's boards and the per-repo `boardByRepo` memory — rather
     than a second picker component. See that file's identical comment for why
     this is fetched unconditionally rather than gated behind the menu opening.
@@ -83,7 +83,7 @@ export function IssueActionBar({
               addToProject.mutate({ projectId: board.id, contentId: issue.id });
             },
           }))
-        : [{ label: 'No projects for this repo', disabled: true, onSelect: () => {} }];
+        : [{ label: 'No task boards for this repo', disabled: true, onSelect: () => {} }];
     dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
   };
 
@@ -131,8 +131,8 @@ export function IssueActionBar({
 
         <ActionButton
           icon={LuKanban}
-          label="Add to project ▸"
-          shortLabel="Add to project"
+          label="Add to tasks ▸"
+          shortLabel="Add to tasks"
           enabled={enabled}
           // `isLoading`, not `isFetching` — see `ReviewActionBar`'s identical
           // comment on the same gate.

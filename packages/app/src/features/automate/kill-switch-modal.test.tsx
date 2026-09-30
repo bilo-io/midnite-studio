@@ -77,7 +77,7 @@ describe('KillSwitchModal (Phase 95 Theme H)', () => {
     render(<KillSwitchModal />);
 
     expect(
-      screen.getByText('Stops 1 session on this project board and turns off Auto-mate for this project board.'),
+      screen.getByText('Stops 1 session on this task board and turns off Auto-mate for this task board.'),
     ).not.toBeNull();
   });
 

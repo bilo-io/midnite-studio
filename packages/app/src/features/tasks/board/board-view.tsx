@@ -418,13 +418,13 @@ export function BoardView({
       <EmptyState
         icon={VIEW_ICON.tasks}
         title="No groupable field"
-        body="This project has no single-select or iteration field for the board to group by."
+        body="This board has no single-select or iteration field for the board to group by."
       />
     );
   }
 
   if (items.length === 0) {
-    return <EmptyState icon={VIEW_ICON.tasks} title="No items" body="This project has no items yet." />;
+    return <EmptyState icon={VIEW_ICON.tasks} title="No items" body="This board has no items yet." />;
   }
 
   const handleDragStart = (event: DragStartEvent): void => {

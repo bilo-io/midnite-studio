@@ -24,6 +24,7 @@ import { SetupDialog } from '../features/agent/setup-dialog';
 import { LockScreen } from '../features/screensaver/lock-screen';
 import { ActivityTooltip } from './commit-activity-timeline/activity-tooltip';
 import { Lightbox } from '../features/media/image/lightbox';
+import { IssueModal } from '../features/tasks/issue/issue-modal';
 
 import { DialogHost } from './dialog-host';
 import { ToastHost } from './toast-host';
@@ -234,6 +235,12 @@ describe('occluder coverage across overlays', () => {
           />,
         ),
       ),
+    );
+  });
+
+  it('Issue modal registers as an occluder', () => {
+    assertOccluderLifecycle(() =>
+      render(withProviders(<IssueModal target={{ repoId: 'r', number: 1 }} onClose={() => {}} />)),
     );
   });
 });

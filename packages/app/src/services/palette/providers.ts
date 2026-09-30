@@ -73,7 +73,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   tests: 'suites runner unit e2e pass fail',
   reviews: 'prs pull requests review comments',
   // Tasks absorbed Issues and Projects, so it answers to both old names.
-  tasks: 'tasks todo issues bugs tracker labels milestones projects projectsv2 board kanban table fields',
+  tasks: 'tasks issues projects board kanban',
   history: 'reflog journal undo ops history',
   councils: 'agents council teams debate',
   workflows: 'agent workflow pipeline automation',

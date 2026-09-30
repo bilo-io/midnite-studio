@@ -71,7 +71,7 @@ export function sessionsForScope(
 }
 
 /**
- * Which project boards Confirm should flip Auto-mate off for (Phase 95
+ * Which task boards Confirm should flip Auto-mate off for (Phase 95
  * Theme H) — deliberately narrower than "every session this scope kills",
  * because Auto-mate is a per-project-board toggle and the app tracks no
  * project↔repo reverse index beyond `projectBoardByRepo`'s single

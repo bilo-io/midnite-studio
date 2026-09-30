@@ -70,7 +70,7 @@ vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     forgeProject: { list, fields, items, setField },
     // Phase 84 Theme C: `useForgeSubscription('projects')` mounts unconditionally now.
-    forge: { subscribe: vi.fn(), unsubscribe: vi.fn(), onChanged: vi.fn(() => () => {}) },
+    forge: { issues: vi.fn(async () => ({ cli: { reason: 'ready', binPath: '', hint: '' }, issues: [], error: null })), subscribe: vi.fn(), unsubscribe: vi.fn(), onChanged: vi.fn(() => () => {}) },
     // The board picker's repo-vs-org grouping reads this via `useRemotes` —
     // empty by default so existing fixtures below (which set no repo forge)
     // still resolve every board into the "Organization" group unchanged.
@@ -264,7 +264,7 @@ describe('TasksView', () => {
     setCardSkill.mockClear();
   });
 
-  it('issues zero item fetches when no board has been picked', async () => {
+  it('opens on Repo issues and issues zero board item fetches when no board has been picked', async () => {
     list.mockResolvedValue({
       cli: CLI_READY,
       projects: [
@@ -277,7 +277,7 @@ describe('TasksView', () => {
     renderWithClient();
 
     await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText('Pick a board')).toBeDefined();
+    expect(await screen.findByText('No issues')).toBeDefined();
     expect(fields).not.toHaveBeenCalled();
     expect(items).not.toHaveBeenCalled();
   });
@@ -311,16 +311,18 @@ describe('TasksView', () => {
   });
 
   it('shows the no-boards state without ever asking for fields or items', async () => {
+    boardByRepo = { 'repo-1': 'PVT_1' };
     list.mockResolvedValue({ cli: CLI_READY, projects: [], error: null, kind: 'ok' });
 
     renderWithClient();
 
-    expect(await screen.findByText('No projects')).toBeDefined();
-    expect(fields).not.toHaveBeenCalled();
-    expect(items).not.toHaveBeenCalled();
+    expect(await screen.findByText('No task boards')).toBeDefined();
   });
 
   describe('Reload on the board list\'s empty and error states', () => {
+    beforeEach(() => {
+      boardByRepo = { 'repo-1': 'PVT_1' };
+    });
     beforeEach(() => {
       submitCommand.mockReset();
       // Only the interval is faked — react-query and `waitFor` keep their
@@ -335,7 +337,7 @@ describe('TasksView', () => {
       list.mockResolvedValue({ cli: CLI_READY, projects: [], error: null, kind: 'ok' });
 
       renderWithClient();
-      expect(await screen.findByText('No projects')).toBeDefined();
+      expect(await screen.findByText('No task boards')).toBeDefined();
       expect(list).toHaveBeenCalledTimes(1);
 
       fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
@@ -360,7 +362,7 @@ describe('TasksView', () => {
       vi.advanceTimersByTime(5000);
 
       await waitFor(() => expect(list).toHaveBeenCalledTimes(3));
-      expect(await screen.findByText('Pick a board')).toBeDefined();
+      await waitFor(() => expect(screen.queryByText('No task boards')).toBeNull());
       // The button unmounted with the empty state — its interval went with it.
       vi.advanceTimersByTime(60_000);
       expect(list).toHaveBeenCalledTimes(3);
@@ -383,7 +385,7 @@ describe('TasksView', () => {
       list.mockResolvedValue({ cli: CLI_READY, projects: [], error: 'HTTP 401: Bad credentials', kind: 'ok' });
 
       renderWithClient();
-      expect(await screen.findByText('Could not load projects')).toBeDefined();
+      expect(await screen.findByText('Could not load task boards')).toBeDefined();
 
       fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
 
@@ -405,11 +407,12 @@ describe('TasksView', () => {
   });
 
   it('shows the missing-scope state with the exact fix command, verbatim', async () => {
+    boardByRepo = { 'repo-1': 'PVT_1' };
     list.mockResolvedValue({ cli: CLI_READY, projects: [], error: 'missing scope', kind: 'insufficient-scope' });
 
     renderWithClient();
 
-    expect(await screen.findByText('GitHub Projects needs one more permission')).toBeDefined();
+    expect(await screen.findByText('Tasks needs one more permission')).toBeDefined();
     expect(screen.getByText('gh auth refresh -s project')).toBeDefined();
   });
 
@@ -430,7 +433,7 @@ describe('TasksView', () => {
 
     await waitFor(() => expect(items).toHaveBeenCalledWith({ projectId: 'PVT_1' }));
     expect(fields).toHaveBeenCalledWith({ projectId: 'PVT_1' });
-    expect(await screen.findByText('No items')).toBeDefined();
+    expect(await screen.findByText('No tasks')).toBeDefined();
   });
 
   it('clicking Board view persists the mode choice per repo', async () => {
@@ -447,7 +450,7 @@ describe('TasksView', () => {
     items.mockResolvedValue({ cli: CLI_READY, items: [], nextCursor: null, error: null, kind: 'ok' });
 
     renderWithClient();
-    await screen.findByText('No items');
+    await screen.findByText('No tasks');
 
     fireEvent.click(screen.getByRole('button', { name: 'Board view' }));
 
@@ -673,7 +676,7 @@ describe('Phase 75 Theme D — graph mode', () => {
   it('clicking Graph view persists the mode choice per repo', async () => {
     items.mockResolvedValue({ cli: CLI_READY, items: [], nextCursor: null, error: null, kind: 'ok' });
     renderWithClient();
-    await screen.findByText('No items');
+    await screen.findByText('No tasks');
 
     fireEvent.click(screen.getByRole('button', { name: 'Graph view' }));
 
@@ -688,7 +691,7 @@ describe('Phase 75 Theme D — graph mode', () => {
     // 'table' is the only mode whose "no items" path renders through the
     // ProjectItemsTable branch's own empty state — reaching it at all is the
     // proof the bogus value never reached `mode`.
-    expect(await screen.findByText('No items')).toBeDefined();
+    expect(await screen.findByText('No tasks')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Table view' }).getAttribute('aria-pressed')).toBe('true');
   });
 

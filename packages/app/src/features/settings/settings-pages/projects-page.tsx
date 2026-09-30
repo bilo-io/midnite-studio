@@ -23,7 +23,7 @@ const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
  * rediscover either mid-triage.
  *
  * No board picker here: which board a repo remembers is set by picking one in
- * the Projects view itself, one click away — a second control for the same
+ * the Tasks view itself, one click away — a second control for the same
  * state here would be a second place to keep in sync with it.
  */
 export function ProjectsPage() {
@@ -59,7 +59,7 @@ export function ProjectsPage() {
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             ProjectV2 requires the <code>project</code> scope, which <code>gh auth login</code> does
-            not grant by default. If the Projects view shows a missing-permission state, run this in
+            not grant by default. If the Tasks view shows a missing-permission state, run this in
             a terminal and reopen it:
           </p>
           <ScopeFixCommand />
@@ -71,7 +71,7 @@ export function ProjectsPage() {
           <div>
             <p className="text-xs font-medium">Default board</p>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Each repository remembers the last board you picked in the Projects view and opens on
+              Each repository remembers the last board you picked in the Tasks view and opens on
               it next time — set it there, not here.
             </p>
           </div>
@@ -121,7 +121,7 @@ export function ProjectsPage() {
 /**
  * Auto-mate's concurrency cap (Phase 95 Theme H) — 1 to 5, default 1, edited
  * per project for whichever board is open right now, the identical "no
- * picker here, follows the Projects view" rule `ColumnSkillMapSection`
+ * picker here, follows the Tasks view" rule `ColumnSkillMapSection`
  * above already follows. The on/off switch itself lives on the board's own
  * header toggle, not here — a setting a user reaches for mid-task belongs
  * where the task is, the same reasoning `ProjectsPage`'s own docblock gives
@@ -140,7 +140,7 @@ function AutomateCapSection() {
   if (!projectId) {
     return (
       <p className="p-3 text-[11px] leading-relaxed text-muted-foreground">
-        No project board is open yet — like the column → skill map above, the cap is edited per
+        No task board is open yet — like the column → skill map above, the cap is edited per
         project, for whichever board is currently open.
       </p>
     );
@@ -178,9 +178,9 @@ function AutomateCapSection() {
  *
  * **Editable per project, for whichever board is open right now** —
  * `selectedRepoId` → `projectBoardByRepo[repoId]`, the identical "no picker
- * here, follows the Projects view" rule `ProjectsPage`'s own docblock
+ * here, follows the Tasks view" rule `ProjectsPage`'s own docblock
  * already states for the default-board memory just above. Switching boards
- * in the Projects view switches which project's map this section edits, the
+ * in the Tasks view switches which project's map this section edits, the
  * same way it already does for "Default board" and the dependency graph's
  * own facets.
  */
@@ -196,7 +196,7 @@ function ColumnSkillMapSection() {
   if (!projectId) {
     return (
       <p className="p-3 text-[11px] leading-relaxed text-muted-foreground">
-        Open a project board first — like the default board above, this map is edited per project,
+        Open a task board first — like the default board above, this map is edited per project,
         for whichever board is currently open.
       </p>
     );
