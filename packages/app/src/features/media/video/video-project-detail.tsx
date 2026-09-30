@@ -1,12 +1,14 @@
 import { BUILTIN_AGENTS, VIDEO_SKILLS } from '@midnite/studio-shared';
-import { LuFilePen, LuFolderCog, LuPlay, LuX } from 'react-icons/lu';
+import { useState } from 'react';
+import { LuFilePen, LuFolderCog, LuPlay, LuPlus, LuX } from 'react-icons/lu';
 
-import { useUiStore } from '../../store/ui-store';
-import { MarkdownPreview } from '../files/preview/markdown-preview';
-import { startAgent } from '../terminal/start-agent';
-import { useAgents } from '../terminal/use-agents';
-import { useTerminalStore } from '../terminal/terminal-store';
+import { useUiStore } from '../../../store/ui-store';
+import { MarkdownPreview } from '../../files/preview/markdown-preview';
+import { startAgent } from '../../terminal/start-agent';
+import { useAgents } from '../../terminal/use-agents';
+import { useTerminalStore } from '../../terminal/terminal-store';
 import { VideoFileList } from './video-file-list';
+import { VideoRenderDialog } from './video-render-dialog';
 import {
   useCancelVideoRender,
   useStartVideoRender,
@@ -73,6 +75,7 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   const startRender = useStartVideoRender();
   const cancelRender = useCancelVideoRender();
   const toolchain = useVideoToolchain(projectId);
+  const [renderOpen, setRenderOpen] = useState(false);
 
   const valid = project.data?.valid ? project.data : null;
   const brief = useVideoProjectFile(projectId, valid?.brief ?? null);
@@ -122,8 +125,12 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   const syncAssets = () => {
     if (!repoId || !cwd) return;
     useUiStore.getState().setTerminalOpen(true);
-    const session = useTerminalStore.getState().openSession({ kind: 'shell', title: data.title, cwd, repoId });
-    useTerminalStore.getState().queueInput(session.id, 'node ../../scripts/sync-assets.mjs ' + projectId);
+    // Run from the root, not the project folder: a Phase 99 project id is a
+    // path (`brand/category/NNN`), so `../../scripts` no longer reaches it.
+    const session = useTerminalStore
+      .getState()
+      .openSession({ kind: 'shell', title: data.title, cwd: root.data ?? cwd, repoId });
+    useTerminalStore.getState().queueInput(session.id, 'node scripts/sync-assets.mjs ' + projectId);
   };
 
   return (
@@ -207,7 +214,23 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
             <LuPlay aria-hidden className="h-3 w-3" />
             Render
           </button>
+          {/* Phase 99 Theme D — the next free vN, with codec/quality/scale. */}
+          <button
+            type="button"
+            onClick={() => setRenderOpen(true)}
+            disabled={startRender.isPending}
+            className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-50"
+          >
+            <LuPlus aria-hidden className="h-3 w-3" />
+            New iteration
+          </button>
         </div>
+        <VideoRenderDialog
+          open={renderOpen}
+          onClose={() => setRenderOpen(false)}
+          compositionId={data.composition}
+          onRender={(options) => startRender.mutate({ projectId, compositionId: data.composition, options })}
+        />
         {renders.data.length === 0 ? (
           <p className="text-muted-foreground">No renders yet.</p>
         ) : (

@@ -49,6 +49,8 @@ export default tseslint.config(
       '**/coverage/**',
       '**/node_modules/**',
       '**/.moon/cache/**',
+      // Phase 99 Theme D — the Setup Video scaffold, a user's Remotion app, not workspace source.
+      'templates/media-video/**',
     ],
   },
 

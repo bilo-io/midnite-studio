@@ -144,7 +144,7 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 **Theme C — Images.** ✅ DONE (PR #609, 2026-09-30) — spike ◐. **agy spike: blocked, not disproved** — the unattended swarm session's permission classifier denied the headless launch (`agy -p "<prompt>" --dangerously-skip-permissions --output-format json`), so no argv/exit-code/latency was recorded; `agy` 1.2.12's help shows print mode emits text/json/stream-json only, with no image-output flag, so per the doc's fallback **Gemini is the default** and agy is listed-disabled (`AGY_IMAGE_DISABLED_REASON`). Re-run the spike by hand. Landed: `main/media/image/` seam (`gemini` generateContent/Imagen `:predict`, `openai` gpt-image, `ollama` image-capability models only, `agy` stub) behind `image-service.ts` (vault keys `media.geminiApiKey`/`media.openaiApiKey`, writes image + `<name>.json` sidecar through the media-store jail, progress + cancel); `mstudio:media:image-{providers,generate,cancel,progress}`. Renderer `features/media/image/`: create panel with provider `IconSelect` (icon on value), dependent model, aspect, count, Add-key link; CSS-columns masonry led by the dashed glowing "+" tile (`openMediaPane`), shimmer placeholders, `content-visibility` past 200; portalled lightbox (`useDismiss`+`useFocusTrap`, ←/→ wrap, n/N, sidecar strip with Re-run/Reveal/Delete); images-only explorer + "All images in repo" toggle; png/jpeg/webp export with a quality slider; Settings ▸ Media ▸ Images (defaults in a small persisted store, not ui-store, to avoid B–E migration races). The "+" glow is asserted in `media-images.spec.ts` (computed box-shadow/text-stroke) rather than a Linux visual baseline — no Docker to regenerate baselines here; baseline left open.
 
-**Theme D — Video.** ◻ Video moves into Media, in-repo layout detection with root fallback, "Setup Video" template scaffold, assets/projects/iterations trees, selection detail panel, codec export
+**Theme D — Video.** ✅ DONE (PR #613, 2026-09-30). `features/video/` moved to `features/media/video/`; `VideoTab` renders through `MediaLayout` and every `mstudio:video:*` channel keeps its shape. Root resolution (`main/video/root-resolution.ts`): in-repo layout (`video-editor/` + `projects/`) → `<repo>/.midnite/media/video/` → global root. The new `mstudio:video:root-resolve {repoId}` makes main adopt the answer as the *effective* root for every existing op, so no Phase 44 channel grew a `repoId`. The source shows as a toolbar badge. Setup Video (`mstudio:video:setup`) copies the checked-in `templates/media-video/` (a trimmed midnite-videos skeleton with one `ExampleHello` composition, `_template`, an example project, the scripts and both skills; it ships in `extraResources` with the rest of `templates/`), creates empty `assets/*`, runs `npm install` in a visible terminal and selects the example project. Project ids are paths (`brand/category/NNN`), matching midnite-videos' `projects.mjs`. Explorer: Assets (recursive tree) and Projects (folders → project → iterations newest first + `input/`/`notes/`) accordions. Detail switches on selection kind: asset preview with dims/duration/size; project (Phase 44 detail + New iteration); iteration (player, `CHANGELOG.md` entry, Compare with… side by side); file. Studio deep-links `/<composition>`. Iteration media is served over a new `mstudio-file://video/-/…` host confined to the resolved root. Render dialog: h264/vp8/vp9/prores/gif, crf, scale, label (`remotionCodecArgs`). Non-h264 bypasses `scripts/render.mjs`, which hard-codes `.mp4`. Transcode runs through the Theme A export service via a new `video` arm on `MediaExportSource`. Also fixed: `useVideoFiles`' `initialData` never refetched under the global `staleTime: Infinity`. Left: a human pass on the packaged app (real scaffold + install + renders).
 
 **Theme E — Audio.** ◻ Suno-style prompt form, variants/session list, bottom player (skip/shuffle/loop), `AudioProvider` seam (Import only), mp3/wav/flac export
 
@@ -309,17 +309,17 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 ### D — Video (L)
 
-- [ ] **Move it in.**
+- [x] **Move it in.**
   - `features/video/` becomes `features/media/video/`, rendered through `MediaLayout`'s slots. The
     three existing panes map onto explorer, content and detail.
   - The `mstudio:video:*` channels and main services stay as they are.
-- [ ] **Root resolution**, in this order. The chosen source is shown in the toolbar:
+- [x] **Root resolution**, in this order. The chosen source is shown in the toolbar:
   1. the **active repo itself**, if it has the midnite-videos layout (`video-editor/` + `projects/`);
   2. otherwise **`<repo>/.midnite/media/video/`**, if it exists;
   3. otherwise the **global root setting** from Phase 44.
 
   This extends `project-discovery.ts`.
-- [ ] **"Setup Video" empty state.** When none of the three resolves, one CTA scaffolds a trimmed
+- [x] **"Setup Video" empty state.** When none of the three resolves, one CTA scaffolds a trimmed
       midnite-videos skeleton from a new checked-in `templates/media-video/` into
       `<repo>/.midnite/media/video/`:
   - `video-editor/` (the Remotion app with a single example composition);
@@ -329,24 +329,24 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
   - the two `.claude/skills/video-*` skills.
 
   It then runs the package install **in a visible terminal** and opens the new-project flow.
-- [ ] **Left: two accordions.**
+- [x] **Left: two accordions.**
   - **Assets**: a tree of `assets/`, with type icons.
   - **Projects**: a tree of `<brand>/<category>/<NNN-name>`, each project expanding to its
     **iterations** (`output/vN-label.mp4`, newest first) and its `input/` and `notes/` files.
-- [ ] **Right: detail for whatever is selected.**
+- [x] **Right: detail for whatever is selected.**
   - **Asset**: `file-preview.tsx` (image, video or audio), with its dimensions, duration and size.
   - **Project**: the brief as markdown, the editorial script, the two skill buttons (as in Phase 44),
     and **New iteration**, which renders into the next free `vN`.
   - **Iteration**: an inline `<video>` player, its `CHANGELOG.md` entry, and **Compare with…**
     (plays two iterations side by side).
-- [ ] **Centre.** The embedded Remotion Studio, unchanged, now focused on the selected project's
+- [x] **Centre.** The embedded Remotion Studio, unchanged, now focused on the selected project's
       composition. It gains a "Studio not running" state with a Start button.
-- [ ] **Export.**
+- [x] **Export.**
   - A render dialog with codec choice (`h264` mp4, `vp8`/`vp9` webm, `prores`, `gif`), crf/quality
     and resolution scale, run through `remotion render --codec`.
   - A **transcode** option re-encodes an existing iteration through the ffmpeg export service,
     without re-rendering.
-- [ ] Vitest:
+- [x] Vitest:
   - root resolution, one case per source;
   - iteration parsing from `output/` (vN ordering, labels, pinned versions sharing a number);
   - the template manifest (every file the scaffold needs exists in `templates/media-video/`);

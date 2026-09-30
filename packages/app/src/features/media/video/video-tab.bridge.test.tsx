@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fixtures } from '../../../test-support/fixtures';
-import type { MockFixtures } from '../../../test-support/mock-bridge';
-import { renderView } from '../../../test-support/render';
-import { DEFAULT_LAYOUT } from '../../store/ui-store';
-import { VideoView } from './video-view';
+import { fixtures } from '../../../../test-support/fixtures';
+import type { MockFixtures } from '../../../../test-support/mock-bridge';
+import { renderView } from '../../../../test-support/render';
+import { DEFAULT_LAYOUT } from '../../../store/ui-store';
+import { VideoTab } from './video-tab';
 
 /**
  * Migrated from `e2e/video-studio.spec.ts` (Phase 82 Theme C, wave 5).
@@ -28,14 +28,14 @@ import { VideoView } from './video-view';
 const PROJECT = { id: 'showreel', title: 'COP31 showreel', valid: true, composition: 'Main' };
 
 async function open(data: MockFixtures = fixtures): Promise<void> {
-  renderView(<VideoView />, { fixtures: data });
+  renderView(<VideoTab />, { fixtures: data });
   // `VideoProjectList`'s own query settling is the first observable state.
   await screen.findByText(/No projects yet|COP31 showreel/);
 }
 
 afterEach(cleanup);
 
-describe('VideoView, assembled through the real bridge', () => {
+describe('Media ▸ Video, assembled through the real bridge', () => {
   it('no projects yet shows the empty state', async () => {
     await open();
     expect(screen.getByText('No projects yet')).toBeTruthy();
@@ -110,8 +110,8 @@ describe('VideoView, assembled through the real bridge', () => {
 
   it('renders resizable panels with resize handles', async () => {
     await open();
-    const listHandle = screen.getByRole('separator', { name: 'Resize video project list' });
-    const detailHandle = screen.getByRole('separator', { name: 'Resize video project detail' });
+    const listHandle = screen.getByRole('separator', { name: 'Resize video explorer' });
+    const detailHandle = screen.getByRole('separator', { name: 'Resize video detail' });
     expect(listHandle).toBeTruthy();
     expect(detailHandle).toBeTruthy();
 
@@ -121,5 +121,58 @@ describe('VideoView, assembled through the real bridge', () => {
     expect((detailHandle.nextElementSibling as HTMLElement).style.width).toBe(
       `${DEFAULT_LAYOUT.mediaVideoDetailWidth}px`,
     );
+  });
+
+  // --- Phase 99 Theme D -------------------------------------------------------
+
+  it('no resolvable root shows Setup Video, which scaffolds and selects the example project', async () => {
+    renderView(<VideoTab />, {
+      fixtures: { ...fixtures, video: { resolution: { root: null, source: null, setupTarget: '/repo/.midnite/media/video' } } },
+      uiState: { selectedRepoId: 'repo-1' },
+    });
+    expect(await screen.findByRole('heading', { name: 'Set up Video' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Setup Video' }));
+    expect(await screen.findByTestId('video-root-source')).toHaveProperty('dataset.source', 'repo-media');
+  });
+
+  it('the toolbar names where the root resolved from', async () => {
+    await open({
+      ...fixtures,
+      video: { projects: [PROJECT], resolution: { root: '/r', source: 'repo', setupTarget: '/r/.midnite/media/video' } },
+    });
+    expect(screen.getByTestId('video-root-source').textContent).toContain('This repo');
+  });
+
+  it('the detail pane follows the selection kind — project, iteration, asset', async () => {
+    await open({
+      ...fixtures,
+      video: {
+        projects: [PROJECT],
+        files: {
+          'showreel:output': [
+            { name: 'v1-rough.mp4', isDir: false, size: 10, mtimeMs: 1 },
+            { name: 'v2-final.mp4', isDir: false, size: 20, mtimeMs: 2 },
+            { name: 'CHANGELOG.md', isDir: false, size: 5, mtimeMs: 2 },
+          ],
+          '-:assets': [{ name: 'logo.png', isDir: false, size: 2048, mtimeMs: 1 }],
+        },
+        fileContent: { 'showreel:output/CHANGELOG.md': '# log\n\n## v2-final — 2026-09-30\n\n- tightened the intro\n' },
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /COP31 showreel/ }));
+    expect(await screen.findByRole('button', { name: /New iteration/ })).toBeTruthy();
+
+    // Iterations list newest first under the expanded project.
+    const iterations = await screen.findAllByRole('button', { name: /^v\d-/ });
+    expect(iterations.map((b) => b.textContent)).toEqual(['v2-final.mp4', 'v1-rough.mp4']);
+
+    fireEvent.click(iterations[0]!);
+    expect(await screen.findByText('tightened the intro')).toBeTruthy();
+    expect(screen.getByLabelText('Compare with')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /logo\.png/ }));
+    expect(await screen.findByText('assets/logo.png')).toBeTruthy();
+    expect(screen.getByTestId('media-readout').textContent).toContain('2.0 KB');
   });
 });

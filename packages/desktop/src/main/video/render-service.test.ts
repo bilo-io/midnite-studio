@@ -9,6 +9,7 @@ import {
   nextRenderVersion,
   parseRenderProgress,
   queueRender,
+  remotionCodecArgs,
   resetVideoRenderState,
 } from './render-service';
 
@@ -204,5 +205,55 @@ describe('queueRender / cancelRender', () => {
     killAllRenders();
     expect(childA.kill).toHaveBeenCalledTimes(1);
     expect(childB.kill).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('remotionCodecArgs — codec → argv (Phase 99 Theme D)', () => {
+  it('h264 with no knobs adds nothing, so Phase 44 renders are unchanged', () => {
+    expect(remotionCodecArgs(undefined)).toEqual([]);
+    expect(remotionCodecArgs({ codec: 'h264' })).toEqual([]);
+  });
+
+  it.each([
+    [{ codec: 'h264', crf: 18 }, ['--crf=18']],
+    [{ codec: 'vp8', crf: 10 }, ['--codec=vp8', '--crf=10']],
+    [{ codec: 'vp9', crf: 30, scale: 0.5 }, ['--codec=vp9', '--crf=30', '--scale=0.5']],
+    [{ codec: 'prores', crf: 18 }, ['--codec=prores', '--prores-profile=hq']],
+    [{ codec: 'gif', crf: 18, scale: 0.25 }, ['--codec=gif', '--scale=0.25']],
+  ] as const)('%j → %j', (options, argv) => {
+    expect(remotionCodecArgs(options)).toEqual(argv);
+  });
+});
+
+describe('buildRenderCommand with codec options', () => {
+  const base = {
+    rootDir: '/root',
+    appDir: '/root/video-editor',
+    projectId: 'brand/cat/001-x',
+    compositionId: 'X',
+    outputDir: '/root/projects/brand/cat/001-x/output',
+    existingOutputFiles: ['v1.mp4', 'v2-final.webm', 'CHANGELOG.md'],
+  };
+
+  it('h264 still goes through the wrapper, passing knobs through', () => {
+    const t = buildRenderCommand({ ...base, hasWrapper: true, options: { codec: 'h264', crf: 20, label: 'cut' } });
+    expect(t).toEqual({
+      command: 'node',
+      args: ['scripts/render.mjs', 'brand/cat/001-x', 'cut', '--crf=20'],
+      cwd: '/root',
+    });
+  });
+
+  it('a webm codec bypasses the .mp4-only wrapper, into the next free vN', () => {
+    const t = buildRenderCommand({ ...base, hasWrapper: true, options: { codec: 'vp9', label: 'web' } });
+    expect(t.command).toBe('npx');
+    expect(t.cwd).toBe('/root/video-editor');
+    expect(t.args).toEqual([
+      'remotion',
+      'render',
+      'X',
+      '/root/projects/brand/cat/001-x/output/v3-web.webm',
+      '--codec=vp9',
+    ]);
   });
 });

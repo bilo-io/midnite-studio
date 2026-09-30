@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  changelogEntry,
+  parseIterations,
+  studioCompositionUrl,
   VideoCompositionSchema,
   VideoProjectFileSchema,
   VideoProjectSchema,
@@ -187,5 +190,45 @@ describe('push event schemas', () => {
     expect(() =>
       VideoRenderProgressEventSchema.parse({ renderId: 'r1', projectId: 'p1', status: 'rendering', progress: 1.5 }),
     ).toThrow();
+  });
+});
+
+describe('parseIterations (Phase 99 Theme D)', () => {
+  it('orders newest first and skips non-iterations', () => {
+    const its = parseIterations(['v1-smoke.mp4', 'CHANGELOG.md', 'v10-final.mp4', 'v2.mp4', '_stills']);
+    expect(its.map((i) => i.filename)).toEqual(['v10-final.mp4', 'v2.mp4', 'v1-smoke.mp4']);
+    expect(its[1]).toMatchObject({ version: 2, label: null, ext: 'mp4' });
+  });
+
+  it('marks pinned variants sharing one version, unlabelled first', () => {
+    const its = parseIterations(['v3-low.mp4', 'v3-high.mp4', 'v3.mp4', 'v2-a.webm']);
+    expect(its.map((i) => i.filename)).toEqual(['v3.mp4', 'v3-high.mp4', 'v3-low.mp4', 'v2-a.webm']);
+    expect(its.map((i) => i.sharesVersion)).toEqual([true, true, true, false]);
+  });
+
+  it('accepts every codec extension the render dialog produces', () => {
+    expect(parseIterations(['v1.webm', 'v2.mov', 'v3.gif', 'v4.avi']).map((i) => i.ext)).toEqual([
+      'gif',
+      'mov',
+      'webm',
+    ]);
+  });
+});
+
+describe('changelogEntry', () => {
+  const log = '# X — render history\n\n## v1-smoke — 2026-09-01\n\n- first\n\n## v2-scored — 2026-09-02\n\n- music\n';
+  it('returns the section for an iteration', () => {
+    expect(changelogEntry(log, 'v2-scored.mp4')).toBe('## v2-scored — 2026-09-02\n\n- music');
+    expect(changelogEntry(log, 'v1-smoke.mp4')).toBe('## v1-smoke — 2026-09-01\n\n- first');
+  });
+  it('is null when absent', () => {
+    expect(changelogEntry(log, 'v9.mp4')).toBeNull();
+  });
+});
+
+describe('studioCompositionUrl', () => {
+  it('deep-links the composition', () => {
+    expect(studioCompositionUrl('http://localhost:3000/', 'Main')).toBe('http://localhost:3000/Main');
+    expect(studioCompositionUrl('http://localhost:3000', null)).toBe('http://localhost:3000');
   });
 });

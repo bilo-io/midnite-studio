@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useTerminalStore } from '../terminal/terminal-store';
-import { useUiStore } from '../../store/ui-store';
+import { useTerminalStore } from '../../terminal/terminal-store';
+import { useUiStore } from '../../../store/ui-store';
 import { VideoProjectDetail } from './video-project-detail';
 
 const VALID_PROJECT: VideoProject = {
@@ -43,7 +43,11 @@ function installBridge(overrides: { renders?: VideoRender[]; toolchain?: VideoTo
       toolchain: vi.fn().mockResolvedValue({ toolchain: overrides.toolchain ?? TOOLCHAIN_ALL_FOUND }),
       files: vi.fn().mockResolvedValue({ entries: [] }),
       readFile,
-      root: { get: vi.fn().mockResolvedValue({ root: '/videos' }), set: vi.fn() },
+      root: {
+        get: vi.fn().mockResolvedValue({ root: '/videos' }),
+        set: vi.fn(),
+        resolve: vi.fn().mockResolvedValue({ root: '/videos', source: 'global', setupTarget: null }),
+      },
       onStudioChanged: vi.fn(() => () => {}),
       onRenderProgress: vi.fn(() => () => {}),
     } as unknown as MidniteStudioBridge['video'],

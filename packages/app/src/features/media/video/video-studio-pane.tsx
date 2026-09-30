@@ -1,16 +1,21 @@
+import { studioCompositionUrl } from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
 import { LuClapperboard, LuExternalLink, LuOctagonAlert, LuPlay, LuSquare, LuTriangleAlert } from 'react-icons/lu';
 
-import { useBrowserBounds } from '../browser/use-browser-bounds';
-import { EmptyState } from '../../components/empty-state';
-import { Spinner } from '../../components/skeleton';
-import { bridge } from '../../services/bridge';
-import { openInMidnite } from '../../services/open-in-midnite';
+import { useBrowserBounds } from '../../browser/use-browser-bounds';
+import { EmptyState } from '../../../components/empty-state';
+import { Spinner } from '../../../components/skeleton';
+import { bridge } from '../../../services/bridge';
+import { openInMidnite } from '../../../services/open-in-midnite';
 import { useStartVideoStudio, useStopVideoStudio, useVideoStudioStatus, useVideoToolchain } from './use-video';
 
-/** Keyed by project id — one `WebContentsView` per hosted studio, never reused across projects. */
-function studioTabId(projectId: string): string {
-  return `video-studio-${projectId}`;
+/**
+ * Keyed by project id — one `WebContentsView` per hosted studio, never reused
+ * across projects. A Phase 99 project id is a path (`brand/category/NNN`), so
+ * its slashes are flattened out of the tab id.
+ */
+export function studioTabId(projectId: string): string {
+  return `video-studio-${projectId.replaceAll('/', '__')}`;
 }
 
 /**
@@ -20,7 +25,14 @@ function studioTabId(projectId: string): string {
  * `WebContentsView` exactly the way the browser pane hosts a tab — see the
  * phase doc's own settled decision against a second, hand-rolled timeline.
  */
-export function VideoStudioPane({ projectId }: { projectId: string | null }) {
+export function VideoStudioPane({
+  projectId,
+  compositionId = null,
+}: {
+  projectId: string | null;
+  /** Phase 99 Theme D — the Studio opens deep-linked on the selected project's composition. */
+  compositionId?: string | null;
+}) {
   const toolchain = useVideoToolchain(projectId);
   const status = useVideoStudioStatus(projectId);
   const start = useStartVideoStudio();
@@ -39,13 +51,13 @@ export function VideoStudioPane({ projectId }: { projectId: string | null }) {
       createdForUrl.current = null;
       return;
     }
-    const url = status.data.url;
+    const url = studioCompositionUrl(status.data.url, compositionId);
     if (createdForUrl.current === url) return;
     createdForUrl.current = url;
     void bridge()
       ?.browser.create({ tabId: studioTabId(projectId), url })
       .then(() => sync());
-  }, [status.data, projectId, sync]);
+  }, [status.data, projectId, compositionId, sync]);
 
   useEffect(() => {
     if (!projectId) return undefined;

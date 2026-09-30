@@ -1,8 +1,8 @@
 import { LuFolderOpen, LuPlay } from 'react-icons/lu';
 
-import { IconButton } from '../../components/icon-button';
-import { FileIcon, FolderIcon } from '../files/file-icons';
-import { openVideoFile, revealVideoFile, useVideoFiles } from './use-video';
+import { IconButton } from '../../../components/icon-button';
+import { FileIcon, FolderIcon } from '../../files/file-icons';
+import { openVideoFile, revealVideoFile, useVideoFiles, type VideoFileArea } from './use-video';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,7 +32,7 @@ export function VideoFileList({
   emptyLabel,
 }: {
   projectId: string | null;
-  area: 'assets' | 'input' | 'output';
+  area: VideoFileArea;
   emptyLabel: string;
 }) {
   const files = useVideoFiles(projectId, area);

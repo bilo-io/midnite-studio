@@ -1,0 +1,8 @@
+{
+  "id": "<brand>/<category>/NNN-project-name",
+  "title": "Human-readable title",
+  "composition": "CompositionId",
+  "source": "input/<original>.mp4",
+  "brief": "input/BRIEF.md",
+  "script": "EDITORIAL_SCRIPT.md"
+}

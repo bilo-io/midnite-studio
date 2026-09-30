@@ -326,6 +326,19 @@ export const MediaExportSourceSchema = z.discriminatedUnion('kind', [
     project: MediaProjectNameSchema,
     path: MediaRelPathSchema,
   }),
+  /**
+   * Theme D — a rendered iteration under the resolved video root's
+   * `projects/<projectId>/output/`. Main re-resolves and re-confines it
+   * against that root; the renderer never names an absolute path.
+   */
+  z.object({
+    kind: z.literal('video'),
+    projectId: z.string().min(1),
+    name: z
+      .string()
+      .min(1)
+      .regex(/^[^/\\\0]+$/, 'must be one path segment'),
+  }),
 ]);
 export type MediaExportSource = z.infer<typeof MediaExportSourceSchema>;
 

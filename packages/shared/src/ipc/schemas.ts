@@ -196,6 +196,8 @@ import {
   VideoStudioChangedEventSchema,
   VideoStudioStatusSchema,
   VideoToolchainSchema,
+  VideoRenderOptionsSchema,
+  VideoRootResolutionSchema,
 } from '../video';
 import {
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
@@ -2860,6 +2862,8 @@ export const VideoStudioStatusResponse = z.object({ status: VideoStudioStatusSch
 export const VideoRenderStartRequest = z.object({
   projectId: z.string().min(1),
   compositionId: z.string().min(1),
+  /** Phase 99 Theme D's render dialog. Omitted = Phase 44's h264 render through the wrapper. */
+  options: VideoRenderOptionsSchema.optional(),
 });
 export const VideoRenderStartResponse = GitOpResultOf(VideoRenderSchema);
 
@@ -2873,10 +2877,12 @@ export const VideoToolchainRequest = z.object({ projectId: z.string().min(1) });
 export const VideoToolchainResponse = z.object({ toolchain: VideoToolchainSchema });
 
 /** `'assets'` is root-wide; `'input'`/`'output'` are one project's own subfolder. */
-export const VideoFileAreaSchema = z.enum(['assets', 'input', 'output']);
+export const VideoFileAreaSchema = z.enum(['assets', 'input', 'output', 'notes']);
 export const VideoProjectFilesRequest = z.object({
   projectId: z.string().min(1),
   area: VideoFileAreaSchema,
+  /** Phase 99 Theme D's Assets tree: walk subfolders, `name` becomes a `/`-separated relative path. */
+  recursive: z.boolean().optional(),
 });
 export const VideoFileEntrySchema = z.object({
   name: z.string().min(1),
@@ -2919,6 +2925,19 @@ export const VideoFileHandoffResponse = z.object({
 export const VideoRootGetResponse = z.object({ root: z.string().nullable() });
 export const VideoRootSetRequest = z.object({ root: z.string().nullable() });
 export const VideoRootSetResponse = z.object({ root: z.string().nullable() });
+
+/**
+ * Phase 99 Theme D — resolve the Video tab's root for the active repo (in-repo
+ * layout → `<repo>/.midnite/media/video` → the global root) and make it the
+ * root every other `video*` channel reads. The one video request that names a
+ * repo; `null` means no repo is open and only the global root applies.
+ */
+export const VideoRootResolveRequest = z.object({ repoId: z.string().min(1).nullable() });
+export const VideoRootResolveResponse = VideoRootResolutionSchema;
+
+/** Scaffold `templates/media-video/` into `<repo>/.midnite/media/video/` (Setup Video). */
+export const VideoSetupRequest = z.object({ repoId: z.string().min(1) });
+export const VideoSetupResponse = GitOpResultOf(VideoRootResolutionSchema);
 
 /**
  * Re-exported under the `ipc/schemas` namespace so `bridge.ts` can reference

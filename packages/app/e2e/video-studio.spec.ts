@@ -7,12 +7,12 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * Video Studio (Phase 44), assembled.
  *
  * Phase 82 Theme C wave 5 moved the rest of this file's tests to
- * `src/features/video/video-view.bridge.test.tsx`, mounting `VideoView`
+ * `src/features/media/video/video-tab.bridge.test.tsx`, mounting `VideoTab`
  * directly. All 5 of the original tests ported cleanly — none needed real
  * browser behavior — so **this one smoke test is kept behind on its own**,
  * per the migration's own rule to leave at least one representative test per
  * e2e file: it is the cheapest proof that the rail link, the lazy view
- * registry and the assembled `VideoView` still compose in a real browser,
+ * registry and the assembled `VideoTab` still compose in a real browser,
  * which mounting the component directly bypasses entirely.
  */
 

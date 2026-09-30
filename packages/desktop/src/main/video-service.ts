@@ -10,6 +10,8 @@ import {
   type GitOpResult,
   type VideoProject,
   type VideoRender,
+  type VideoRenderOptions,
+  type VideoRootResolution,
   type VideoStudioStatus,
   type VideoToolchain,
 } from '@midnite/studio-shared';
@@ -23,8 +25,11 @@ import {
   readProjectFile,
   removeProject,
   resolveAreaFilePath,
+  type VideoFileArea,
   type VideoFileEntry,
 } from './video/project-discovery';
+import { resolveVideoRoot } from './video/root-resolution';
+import { scaffoldVideoWorkspace } from './video/scaffold';
 import { nullProjectsStore, type ProjectsStore } from './video/projects-store';
 import { probeVideoSkills, probeVideoToolchain } from './video/toolchain';
 import { getStudioStatus, startStudio, stopStudio, stopAllStudios } from './video/studio-service';
@@ -49,12 +54,53 @@ let store: ProjectsStore = nullProjectsStore;
 let getWindowThunk: () => BrowserWindow | null = () => null;
 let videoRoot: string | null = null;
 let rootLoading: Promise<void> | null = null;
+/**
+ * Phase 99 Theme D — the active repo's path, as last reported through
+ * `mstudio:video:root-resolve`. Every op reads `effectiveRoot()`, so the
+ * existing `mstudio:video:*` channels keep their global shape while the Video
+ * tab follows the open repo. `null` = no repo, only the global root applies.
+ */
+let activeRepoPath: string | null = null;
 
 export function configureVideo(nextStore: ProjectsStore, getWindow: () => BrowserWindow | null): void {
   store = nextStore;
   getWindowThunk = getWindow;
   videoRoot = null;
   rootLoading = null;
+  activeRepoPath = null;
+}
+
+/** In-repo layout → `<repo>/.midnite/media/video` → the global setting. */
+export async function currentVideoRootResolution(): Promise<VideoRootResolution> {
+  await ensureRootLoaded();
+  return resolveVideoRoot({ repoPath: activeRepoPath, globalRoot: videoRoot });
+}
+
+/** Adopt `repoPath` as the active repo for resolution, then report where the root landed. */
+export async function resolveVideoRootFor(repoPath: string | null): Promise<VideoRootResolution> {
+  activeRepoPath = repoPath;
+  return currentVideoRootResolution();
+}
+
+/** The root every op runs against — resolved, not just the global setting. */
+export async function effectiveVideoRoot(): Promise<string | null> {
+  return (await currentVideoRootResolution()).root;
+}
+
+/**
+ * Setup Video: scaffold the checked-in template into `<repo>/.midnite/media/video`
+ * and adopt it. The renderer then runs `npm install` in a visible terminal.
+ */
+export async function setupVideoWorkspace(
+  repoPath: string,
+  templateDir: string,
+): Promise<GitOpResult<VideoRootResolution>> {
+  activeRepoPath = repoPath;
+  const target = (await currentVideoRootResolution()).setupTarget;
+  if (!target) return failure('Open a repository first.');
+  const scaffolded = await scaffoldVideoWorkspace(templateDir, target);
+  if (!scaffolded.ok) return scaffolded;
+  return ok(await currentVideoRootResolution());
 }
 
 async function ensureRootLoaded(): Promise<void> {
@@ -80,9 +126,9 @@ function appDirFor(root: string): string {
 }
 
 async function requireRoot(): Promise<GitOpResult<string>> {
-  await ensureRootLoaded();
-  if (!videoRoot) return failure('Configure a video root in Settings first.');
-  return ok(videoRoot);
+  const root = await effectiveVideoRoot();
+  if (!root) return failure('Set up Video for this repo, or configure a video root in Settings.');
+  return ok(root);
 }
 
 function emitStudioChanged(projectId: string, status: VideoStudioStatus): void {
@@ -143,11 +189,12 @@ export async function listVideoOutputFiles(projectId: string) {
 
 export async function listVideoProjectFiles(
   projectId: string,
-  area: 'assets' | 'input' | 'output',
+  area: VideoFileArea,
+  recursive = false,
 ): Promise<VideoFileEntry[]> {
   const root = await requireRoot();
   if (!root.ok) return [];
-  return listAreaFiles(root.value, area, projectId);
+  return listAreaFiles(root.value, area, projectId, { recursive });
 }
 
 export async function readVideoProjectFile(projectId: string, relPath: string): Promise<string | null> {
@@ -158,9 +205,10 @@ export async function readVideoProjectFile(projectId: string, relPath: string): 
 
 type FileHandoffResult = { ok: boolean; message?: string };
 
-async function resolveHandoffPath(
+/** Also the Media export service's `video` source arm (Phase 99 Theme D). */
+export async function resolveHandoffPath(
   projectId: string,
-  area: 'assets' | 'input' | 'output',
+  area: VideoFileArea,
   name: string,
 ): Promise<{ ok: true; path: string } | { ok: false; message: string }> {
   const root = await requireRoot();
@@ -173,7 +221,7 @@ async function resolveHandoffPath(
 /** Reveal a listed file in the OS file manager (Theme E) — read-only, through Electron's `shell`. */
 export async function revealVideoFile(
   projectId: string,
-  area: 'assets' | 'input' | 'output',
+  area: VideoFileArea,
   name: string,
 ): Promise<FileHandoffResult> {
   const resolved = await resolveHandoffPath(projectId, area, name);
@@ -185,7 +233,7 @@ export async function revealVideoFile(
 /** Open a listed file in its OS default app (Theme E) — read-only, through Electron's `shell`. */
 export async function openVideoFile(
   projectId: string,
-  area: 'assets' | 'input' | 'output',
+  area: VideoFileArea,
   name: string,
 ): Promise<FileHandoffResult> {
   const resolved = await resolveHandoffPath(projectId, area, name);
@@ -227,13 +275,16 @@ export function videoStudioStatus(projectId: string): VideoStudioStatus {
 export async function videoRenderStart(
   projectId: string,
   compositionId: string,
+  options?: VideoRenderOptions,
 ): Promise<GitOpResult<VideoRender>> {
   const root = await requireRoot();
   if (!root.ok) return root;
 
   const appDir = appDirFor(root.value);
   const outputDir = join(root.value, 'projects', projectId, 'output');
-  const existingOutputFiles = (await listOutputFiles(root.value, projectId)).map((f) => f.filename);
+  // Every name in output/, not just `vN-label.mp4` — an unlabelled `v2.mp4` or
+  // a webm iteration still holds its version number.
+  const existingOutputFiles = (await listAreaFiles(root.value, 'output', projectId)).map((f) => f.name);
   const target = buildRenderCommand({
     rootDir: root.value,
     appDir,
@@ -242,6 +293,7 @@ export async function videoRenderStart(
     compositionId,
     outputDir,
     existingOutputFiles,
+    ...(options ? { options } : {}),
   });
 
   const renderId = randomUUID();

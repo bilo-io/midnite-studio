@@ -850,6 +850,10 @@ export const CHANNELS = {
   /** The Settings page's own read/write of the one setting Video Studio has. */
   videoRootGet: 'mstudio:video:root-get',
   videoRootSet: 'mstudio:video:root-set',
+  /** Phase 99 Theme D — resolve (and adopt) the Video tab's root for the active repo. */
+  videoRootResolve: 'mstudio:video:root-resolve',
+  /** Phase 99 Theme D — Setup Video: scaffold `templates/media-video/` into the repo. */
+  videoSetup: 'mstudio:video:setup',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.

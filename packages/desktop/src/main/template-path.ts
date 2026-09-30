@@ -27,3 +27,14 @@ export function templateRoot(): string {
   // Unpackaged: dist/bundle/main.js → ../../../../templates/midnite
   return join(__dirname, '..', '..', '..', '..', 'templates', 'midnite');
 }
+
+/**
+ * `templates/media-video/` — Setup Video's scaffold (Phase 99 Theme D). Same
+ * packaged-vs-dev split as `templateRoot()`; the whole `templates/` tree
+ * already ships through `extraResources`.
+ */
+export function mediaVideoTemplateRoot(): string {
+  const packaged = join(process.resourcesPath, 'templates', 'media-video');
+  if (app.isPackaged || existsSync(packaged)) return packaged;
+  return join(__dirname, '..', '..', '..', '..', 'templates', 'media-video');
+}

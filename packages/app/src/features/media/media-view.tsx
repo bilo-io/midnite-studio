@@ -1,11 +1,11 @@
 import type { MediaTab } from '@midnite/studio-shared';
 
 import { useUiStore } from '../../store/ui-store';
-import { VideoView } from '../video/video-view';
 import { ImageTab } from './image/image-tab';
 import { MediaTabStrip } from './media-tab-strip';
 import { RepoMediaTab } from './repo-media-tab';
 import { useMediaChangedInvalidation } from './use-media';
+import { VideoTab } from './video/video-tab';
 
 /**
  * The Media page (Phase 99 Theme A) — Docs, Images, Video and Audio behind
@@ -17,7 +17,7 @@ import { useMediaChangedInvalidation } from './use-media';
 const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   doc: () => <RepoMediaTab tab="doc" />,
   image: () => <ImageTab />,
-  video: () => <VideoView />,
+  video: () => <VideoTab />,
   audio: () => <RepoMediaTab tab="audio" />,
 };
 
