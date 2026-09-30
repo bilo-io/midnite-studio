@@ -146,7 +146,7 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 **Theme D — Video.** ✅ DONE (PR #613, 2026-09-30). `features/video/` moved to `features/media/video/`; `VideoTab` renders through `MediaLayout` and every `mstudio:video:*` channel keeps its shape. Root resolution (`main/video/root-resolution.ts`): in-repo layout (`video-editor/` + `projects/`) → `<repo>/.midnite/media/video/` → global root. The new `mstudio:video:root-resolve {repoId}` makes main adopt the answer as the *effective* root for every existing op, so no Phase 44 channel grew a `repoId`. The source shows as a toolbar badge. Setup Video (`mstudio:video:setup`) copies the checked-in `templates/media-video/` (a trimmed midnite-videos skeleton with one `ExampleHello` composition, `_template`, an example project, the scripts and both skills; it ships in `extraResources` with the rest of `templates/`), creates empty `assets/*`, runs `npm install` in a visible terminal and selects the example project. Project ids are paths (`brand/category/NNN`), matching midnite-videos' `projects.mjs`. Explorer: Assets (recursive tree) and Projects (folders → project → iterations newest first + `input/`/`notes/`) accordions. Detail switches on selection kind: asset preview with dims/duration/size; project (Phase 44 detail + New iteration); iteration (player, `CHANGELOG.md` entry, Compare with… side by side); file. Studio deep-links `/<composition>`. Iteration media is served over a new `mstudio-file://video/-/…` host confined to the resolved root. Render dialog: h264/vp8/vp9/prores/gif, crf, scale, label (`remotionCodecArgs`). Non-h264 bypasses `scripts/render.mjs`, which hard-codes `.mp4`. Transcode runs through the Theme A export service via a new `video` arm on `MediaExportSource`. Also fixed: `useVideoFiles`' `initialData` never refetched under the global `staleTime: Infinity`. Left: a human pass on the packaged app (real scaffold + install + renders).
 
-**Theme E — Audio.** ◻ Suno-style prompt form, variants/session list, bottom player (skip/shuffle/loop), `AudioProvider` seam (Import only), mp3/wav/flac export
+**Theme E — Audio.** ✅ DONE (PR #614, 2026-09-30). Contract in `shared/src/media.ts` (`AudioPromptSchema`, `AudioSidecarSchema` with cached `peaks`/`durationS`, `project.json` session history, `AUDIO_PROVIDERS` = Import only) + `mstudio:media:audio-{providers,import,progress}`. Main `main/media/audio/`: `AudioProvider` seam mirroring `ImageProvider`, the `import` adapter, and `audio-service.ts` (variants + sidecars through the media-store jail via a new `writeBytes`, one session appended to `project.json`); files come from main's own native open dialog, never a renderer path. Renderer `features/media/audio/`: Suno-style prompt form (tag chips, `[Section]` helpers, instrumental, duration, variants, provider `IconSelect`; Create shows the later-phase state, **Import audio…** attaches files); session cards newest first plus an "Unsorted" card for stray files, Web Audio peaks computed once and cached back into the sidecar; bottom player as a zustand store owning one `HTMLAudioElement` (shuffle stable per pass, loop off/all/one, seek, volume, Space outside text fields and buttons), survives Media tab switches and pauses when `activeView` leaves `media`; own projects Accordion (audio-only variant counts, create/rename/delete to Trash) rather than extending the shared `MediaProjectsAccordion`; mp3 (bitrate)/wav/flac export via Theme A. Defaults (provider, duration, variants, mp3 bitrate) in a small persisted store (`mstudio.media.audio-prefs`), not ui-store — Settings ▸ Media ▸ Audio. No screenshots/e2e — vitest + an RTL bridge test cover it; the Verification Audio row still wants a human pass with real files.
 
 ---
 
@@ -355,23 +355,23 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 
 ### E — Audio (L)
 
-- [ ] **Right: Suno-style prompt form.**
+- [x] **Right: Suno-style prompt form.**
   - Fields: title, **style / genre tags**, **lyrics** (a multiline editor with `[Verse]`/`[Chorus]`
     section helpers), an **instrumental** toggle, a duration target and a variant count.
   - A provider `IconSelect` backed by the `AudioProvider` catalogue.
   - With only Import available, **Create** shows a "Generation arrives in a later phase" state, and an
     **Import audio…** action attaches files as variants.
-- [ ] **`AudioProvider` seam (main).**
+- [x] **`AudioProvider` seam (main).**
   - The interface `generate({title, style, lyrics?, instrumental, durationS, count}) → {files[]}`, with
     progress events, mirroring `ImageProvider`.
   - Its **only adapter is `import`**, which copies chosen files in and writes the sidecar.
   - Each project lives at `.midnite/media/audio/<project>/`, holding `project.json` plus variants,
     and each variant has a sidecar `<name>.json`.
-- [ ] **Centre: the session.**
+- [x] **Centre: the session.**
   - The project's prompt history, one card per create or import.
   - Each card lists its **variants**, showing title, duration, a static waveform thumbnail (peaks
     computed once with the Web Audio API and cached in the sidecar), and a play button.
-- [ ] **Bottom player.**
+- [x] **Bottom player.**
   - It docks at the foot of the Audio tab once anything plays.
   - Controls: play/pause, previous/next, **shuffle**, **loop** (off / all / one), a seek bar with
     time, and volume.
@@ -379,11 +379,11 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
   - Space toggles play while focus is outside a text field.
   - It is a single `HTMLAudioElement` held in a store, so switching tabs does not stop playback.
     Leaving Media pauses it.
-- [ ] **Left: projects explorer.** An `Accordion` of projects with variant counts. You can create,
+- [x] **Left: projects explorer.** An `Accordion` of projects with variant counts. You can create,
       rename and delete them (delete goes to the Trash).
-- [ ] **Export:** the selected variant as mp3 (bitrate choice), wav or flac, through the Theme A
+- [x] **Export:** the selected variant as mp3 (bitrate choice), wav or flac, through the Theme A
       export service.
-- [ ] Vitest:
+- [x] Vitest:
   - the player store (shuffle order stays stable within a pass, loop-one repeats, next at the end
     of the queue with loop off stops);
   - the prompt-form schema;

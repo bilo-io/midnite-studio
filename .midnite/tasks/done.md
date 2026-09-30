@@ -1,6 +1,18 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-30 — Phase 99 Theme E — Audio
+
+[PR #614](https://github.com/bilo-io/midnite-studio/pull/614). The Media page's Audio tab: full UI and player, with generation stubbed behind an `AudioProvider` seam whose only adapter is Import.
+
+- [x] Suno-style prompt form: title, style tags, lyrics with `[Verse]`/`[Chorus]` helpers, instrumental, duration, variant count, provider `IconSelect`; Create → "later phase" state, Import audio… attaches files.
+- [x] `AudioProvider` seam (`main/media/audio/`), `import` adapter; `project.json` history + `<name>.json` sidecar per variant under `.midnite/media/audio/<project>/`.
+- [x] Session cards with variants: title, duration, Web Audio waveform peaks cached in the sidecar, play button.
+- [x] Bottom player: play/pause, prev/next, shuffle, loop off/all/one, seek, volume, Space; one `HTMLAudioElement` in a store, survives tab switches, pauses on leaving Media.
+- [x] Projects explorer: Accordion with variant counts; create, rename, delete (Trash).
+- [x] Export mp3 (bitrate) / wav / flac through the Theme A export service.
+- [x] Vitest: player store, prompt-form schema, import adapter sidecar, waveform peak reducer (+ RTL bridge test for the tab).
+
 ## 2026-09-30 — Phase 99 Theme D — Video
 
 [PR #613](https://github.com/bilo-io/midnite-studio/pull/613). Video moves into Media properly: the root follows the open repo, Setup Video scaffolds a Remotion workspace, and the explorer browses assets and projects down to their iterations.
