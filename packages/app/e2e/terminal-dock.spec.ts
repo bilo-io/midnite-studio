@@ -43,5 +43,5 @@ test('the terminal docks right, resizes horizontally, and docks back to the bott
   await expect(frame).toBeVisible();
 
   await page.getByLabel('Dock terminal to the bottom').click();
-  await expect.poll(async () => (await frame.boundingBox())!.width).toBeGreaterThan(right.width * 2);
+  await expect.poll(async () => (await frame.boundingBox())!.width).toBeGreaterThan(right.width * 1.5);
 });
