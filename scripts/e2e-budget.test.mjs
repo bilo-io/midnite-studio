@@ -73,6 +73,6 @@ describe('checkE2eBudget', () => {
   });
 
   it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport -> 459 graph CI column connector -> 461 graph inline panels -> 463 media images masonry + glow -> 461 Changes view removed)', () => {
-    expect(MAX_DECLARED_E2E).toBe(461);
+    expect(MAX_DECLARED_E2E).toBe(462);
   });
 });

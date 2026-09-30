@@ -89,6 +89,7 @@ export const COMMANDS = [
     chord: 'Ctrl+Shift+`',
     scope: 'global',
   },
+  { id: 'terminal.toggleDock', label: 'Dock Terminal to Bottom / Right', group: 'terminal' },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
    * `Mod+w` closes whichever session is selected (with the same "still

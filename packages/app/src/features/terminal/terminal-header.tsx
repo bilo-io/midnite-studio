@@ -10,6 +10,7 @@ import {
   LuTriangleAlert,
   LuX,
 } from 'react-icons/lu';
+import { CgEditFlipH, CgEditFlipV } from 'react-icons/cg';
 
 import {
   usePopoutHeaderActions,
@@ -75,6 +76,7 @@ export function TerminalHeader({
   onNewAgent,
 }: TerminalHeaderProps) {
   const broker = useTerminalStore((s) => s.broker);
+  const dock = useUiStore((s) => s.terminalDock);
   // This exact header renders inside the Terminal popout too (`DetachedRoot`
   // reuses `<TerminalPanel>` verbatim) — the detach button would otherwise
   // advertise "detach me into a window" while already being one.
@@ -106,6 +108,14 @@ export function TerminalHeader({
         // like this file's other `useUiStore.getState()` calls above rather
         // than threaded through `TerminalHeaderProps`.
         onConfigure={(candidate) => useUiStore.getState().focusAgentInSettings(candidate.id)}
+      />
+      <IconButton
+        // The glyph shows where the panel is now. `CgEditFlipH` draws a VERTICAL
+        // divider (right dock); `CgEditFlipV` a HORIZONTAL one (bottom dock).
+        icon={dock === 'right' ? CgEditFlipH : CgEditFlipV}
+        label={dock === 'right' ? 'Dock terminal to the bottom' : 'Dock terminal to the right'}
+        size="sm"
+        onClick={() => useUiStore.getState().toggleTerminalDock()}
       />
       <IconButton
         icon={maximized ? LuChevronDown : LuChevronUp}

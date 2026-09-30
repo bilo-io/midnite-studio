@@ -795,6 +795,8 @@ function Shell() {
    */
   const stackRef = useRef<HTMLDivElement | null>(null);
   const [stackHeight, setStackHeight] = useState(0);
+  // The width matters only to a terminal docked right, which maximizes across it.
+  const [stackWidth, setStackWidth] = useState(0);
   useLayoutEffect(() => {
     const stack = stackRef.current;
     if (!stack) return;
@@ -802,8 +804,12 @@ function Shell() {
     // terminal already maximized draws it full height rather than growing into
     // it — a layout effect runs while the browser still owes us that paint.
     setStackHeight(stack.clientHeight);
+    setStackWidth(stack.clientWidth);
     if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => setStackHeight(stack.clientHeight));
+    const observer = new ResizeObserver(() => {
+      setStackHeight(stack.clientHeight);
+      setStackWidth(stack.clientWidth);
+    });
     observer.observe(stack);
     return () => observer.disconnect();
   }, []);
@@ -823,9 +829,13 @@ function Shell() {
     asks for.
   */
   const viewportWidth = useViewportWidth();
-  const terminalMax = stackHeight
-    ? Math.max(LAYOUT_BOUNDS.terminalHeight.min, stackHeight - TERMINAL_VIEW_RESERVE)
-    : LAYOUT_BOUNDS.terminalHeight.max;
+  const terminalDock = useUiStore((s) => s.terminalDock);
+  const terminalRight = terminalDock === 'right';
+  const terminalBounds = terminalRight ? LAYOUT_BOUNDS.terminalWidth : LAYOUT_BOUNDS.terminalHeight;
+  const stackExtent = terminalRight ? stackWidth : stackHeight;
+  const terminalMax = stackExtent
+    ? Math.max(terminalBounds.min, stackExtent - TERMINAL_VIEW_RESERVE)
+    : terminalBounds.max;
   const fabPanelMax = Math.max(
     LAYOUT_BOUNDS.fabPanelWidth.max,
     Math.round(viewportWidth * FAB_PANEL_MAX_SHARE),
@@ -871,12 +881,14 @@ function Shell() {
    * `edge: 'end'`, the same inversion the right-docked detail pane needs.
    */
   const terminal = useResizable({
-    size: layout.terminalHeight,
-    onSize: (value) => setLayout('terminalHeight', value),
-    initial: DEFAULT_LAYOUT.terminalHeight,
-    axis: 'y',
+    // Docked right the splitter sits on the panel's LEFT edge and it grows
+    // width-wise: same `edge: 'end'` inversion, on the other axis.
+    size: terminalRight ? layout.terminalWidth : layout.terminalHeight,
+    onSize: (value) => setLayout(terminalRight ? 'terminalWidth' : 'terminalHeight', value),
+    initial: terminalRight ? DEFAULT_LAYOUT.terminalWidth : DEFAULT_LAYOUT.terminalHeight,
+    axis: terminalRight ? 'x' : 'y',
     edge: 'end',
-    ...LAYOUT_BOUNDS.terminalHeight,
+    ...terminalBounds,
     max: terminalMax,
     onCollapse: () => setTerminalOpen(false),
     onExpand: () => setTerminalMaximized(true),
@@ -965,7 +977,7 @@ function Shell() {
     exactly where the pointer is.
   */
   const terminalTarget =
-    terminalMaximized || terminal.snap === 'expand' ? stackHeight : terminal.current;
+    terminalMaximized || terminal.snap === 'expand' ? stackExtent : terminal.current;
 
   /*
     What the animated FRAME draws, which is not always what the panel inside it
@@ -997,7 +1009,7 @@ function Shell() {
   const terminalTween = useRevealSize<HTMLDivElement>({
     open: terminalDocked,
     size: terminalFrameSize,
-    axis: 'y',
+    axis: terminalRight ? 'x' : 'y',
     dragging: terminal.dragging,
     /*
       NOT the default `${open}:${size}` key: `terminalTarget` tracks the
@@ -1010,7 +1022,7 @@ function Shell() {
       before this hook existed. `terminalDocked`, not raw `terminalOpen`, so a
       detach/re-dock is its own discrete toggle too, exactly like open/close.
     */
-    animateKey: `${terminalDocked}:${terminalMaximized}`,
+    animateKey: `${terminalDocked}:${terminalMaximized}:${terminalDock}`,
   });
   /*
     The browser gets BOTH reveal primitives, one per layout, because the two
@@ -1146,7 +1158,7 @@ function Shell() {
     makes "a view stays inside its box" true of every view, present and future,
     rather than a property each one has to remember.
   */
-  const viewBoxClassName = `min-h-0 flex-1 overflow-hidden animate-fade-in ${
+  const viewBoxClassName = `min-h-0 min-w-0 flex-1 overflow-hidden animate-fade-in ${
     covering && terminalTween.settled ? 'hidden' : ''
   }`;
 
@@ -1577,7 +1589,10 @@ function Shell() {
               the bar is `shrink-0 h-6` at both positions; if it ever becomes
               flexible, this reasoning stops holding.
             */}
-            <div ref={stackRef} className="flex min-h-0 flex-1 flex-col">
+            <div
+              ref={stackRef}
+              className={`flex min-h-0 min-w-0 flex-1 ${terminalRight ? 'flex-row' : 'flex-col'}`}
+            >
               {/*
                 ONE boundary for all eleven lazy views, not one each — Phase 36
                 Theme C. A view switch suspends in exactly one place; eleven
@@ -1709,7 +1724,11 @@ function Shell() {
               {terminalTween.mounted ? (
                 <>
                   {terminalMaximized ? null : (
-                    <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+                    <ResizeHandle
+                      resizable={terminal}
+                      axis={terminalRight ? 'x' : 'y'}
+                      label="Resize terminal"
+                    />
                   )}
                   <div
                     ref={terminalTween.ref}
@@ -1735,7 +1754,9 @@ function Shell() {
                       a frame behind. This way the shell is told its new size once,
                       at the start, and what moves is only the window onto it.
                     */
-                    className="relative z-10 shrink-0 overflow-hidden border-t border-border bg-background animate-fade-in"
+                    className={`relative z-10 shrink-0 overflow-hidden border-border bg-background animate-fade-in ${
+                      terminalRight ? 'border-l' : 'border-t'
+                    }`}
                     style={terminalTween.style}
                   >
                     {/*
@@ -1745,7 +1766,9 @@ function Shell() {
                       under the pointer for every frame of the animation rather than
                       clipped out of reach halfway through it.
                     */}
-                    <div style={{ height: terminalTarget }}>
+                    <div
+                      style={terminalRight ? { width: terminalTarget, height: '100%' } : { height: terminalTarget }}
+                    >
                       {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
                       {terminalDetached ? null : (
                         <TerminalPanel
