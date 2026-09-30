@@ -3485,6 +3485,17 @@ export function buildMockBridge(data: MockFixtures) {
         error: null,
       }),
     },
+    // Phase 98 Theme D: every catalogue id the fixture profile has — brew and git.
+    setup: {
+      probe: async (req: { ids: string[] }) => ({
+        results: req.ids.map((id) => ({
+          id,
+          installed: id === 'homebrew' || id === 'git',
+          version: id === 'git' ? 'git version 2.45.0' : id === 'homebrew' ? 'Homebrew 4.4.18' : null,
+          path: id === 'git' ? '/usr/bin/git' : id === 'homebrew' ? '/opt/homebrew/bin/brew' : null,
+        })),
+      }),
+    },
     systemHealth: async () => ({
       git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
       shell: '/bin/zsh',
