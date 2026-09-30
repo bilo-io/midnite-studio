@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import type { RepoStats } from '@midnite/studio-shared';
 
 import { formatNumber } from '../../../lib/format-number';
+import { absoluteTime, formatRelativeTime } from '../../../lib/relative-time';
+import { Tooltip } from '../../../components/tooltip';
 import { byCommits } from '../dashboard-derive';
 import { AuthorAvatar } from './author-avatar';
 import { WidgetState } from '../widget-frame';
@@ -90,7 +92,9 @@ export function ContributorsWidget({
                   {person.deletions === null ? '—' : formatNumber(person.deletions)}
                 </td>
                 <td className="py-1 text-right tabular-nums text-muted-foreground">
-                  {relativeDays(person.lastAt)}
+                  <Tooltip label={absoluteTime(person.lastAt)} side="top">
+                    <span>{formatRelativeTime(person.lastAt)}</span>
+                  </Tooltip>
                 </td>
               </tr>
             );
@@ -102,11 +106,8 @@ export function ContributorsWidget({
 }
 
 /**
- * "3d", "5w", "2y" — a width that fits in a table column.
- *
- * Computed against `Date.now()` at render rather than memoised: the board is
- * not a live clock, and a value that is a few minutes stale at this resolution
- * is indistinguishable from a fresh one.
+ * "3d", "5w", "2y" — day-resolution age, for sources that are ages rather than
+ * instants (the health tile). Commit instants use `formatRelativeTime`.
  */
 export function relativeDays(epochSeconds: number): string {
   const days = Math.floor((Date.now() / 1000 - epochSeconds) / 86_400);
