@@ -33,9 +33,9 @@ function walk(nodes: readonly SectionNode[]): SectionKey[] {
 
 describe('filtersByDefault', () => {
   it('narrows the views that ARE a question about a subset', () => {
-    // Changes is about work in progress, Actions about CI, Tests about suites.
-    // A full tree beside any of them answers a different question.
-    for (const view of ['changes', 'actions', 'tests'] as const) {
+    // Actions is about CI, Tests about suites. A full tree beside either
+    // answers a different question.
+    for (const view of ['actions', 'tests'] as const) {
       expect(filtersByDefault(view)).toBe(true);
     }
   });
@@ -74,10 +74,6 @@ describe('VIEW_FILTERS', () => {
     // came to read — being dirty has nothing to do with having runs.
     expect(VIEW_FILTERS.actions.dirtyOnly).toBe(false);
     expect(VIEW_FILTERS.tests.dirtyOnly).toBe(false);
-  });
-
-  it('narrows Changes to dirty checkouts only, as Phase 17 did', () => {
-    expect(VIEW_FILTERS.changes).toEqual({ sections: ['worktrees'], dirtyOnly: true });
   });
 
   it('never lists a section twice', () => {
@@ -125,8 +121,8 @@ describe('filterFor', () => {
 });
 
 describe('view ids', () => {
-  it('lists all twenty-three, the landing page first and Dashboard behind it', () => {
-    expect(VIEW_IDS).toHaveLength(23);
+  it('lists all twenty-two, the landing page first and Dashboard behind it', () => {
+    expect(VIEW_IDS).toHaveLength(22);
     // `landing` is the app's root (`/`) and has no rail row; `dashboard` is
     // still the first rail entry, which is what `NavConfig.pinned` renders.
     expect(VIEW_IDS[0]).toBe('landing');
@@ -154,7 +150,6 @@ describe('view ids', () => {
       tests: false,
       database: false,
       graph: false,
-      changes: false,
       actions: false,
       reviews: false,
       issues: false,

@@ -41,7 +41,7 @@ import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
  * duplicating (`PAGE_WINDOW_ROLES`), so the same view can be live in two
  * windows at once, and the per-view *selection* each one holds is renderer
  * state no relay carried: which run Actions has open, which file the Explorer
- * has open, which tabs the Changes workbench holds. Those three now travel —
+ * has open, which query tabs the Database view holds. Those three now travel —
  * and Phase 67 Theme F adds a fourth, `sessions-store.selectedClosedSessionId`,
  * once Sessions itself joined `PAGE_WINDOW_ROLES`. The history *list* stays
  * out: it lives in main and each window fetches its own copy (Decision 6),
@@ -309,10 +309,10 @@ function pickFiles(state: FilesSlice): FilesSlice {
   return { scopeKey: state.scopeKey, selectedPath: state.selectedPath };
 }
 
-type WorkbenchSlice = { tabs: WorkbenchTab[]; activeTabId: string | null };
+type WorkbenchSlice = { tabs: WorkbenchTab[]; activeQueryTabId: string | null };
 
 function pickWorkbench(state: WorkbenchSlice): WorkbenchSlice {
-  return { tabs: state.tabs, activeTabId: state.activeTabId };
+  return { tabs: state.tabs, activeQueryTabId: state.activeQueryTabId };
 }
 
 /**

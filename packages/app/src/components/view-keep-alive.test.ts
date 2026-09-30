@@ -28,15 +28,15 @@ describe('nextKeptView', () => {
     expect(result).toBe(current);
   });
 
-  it('replaces whatever was kept — at most one, ever (G.4)', () => {
+  it('re-stamps the one kept slot when the kept view is left again — at most one, ever (G.4)', () => {
     const current = { viewId: 'graph', hiddenSince: 1000 } as const;
     const result = nextKeptView({
       activeView: 'files',
-      previousView: 'changes',
+      previousView: 'graph',
       current,
       now: 3000,
     });
-    expect(result).toEqual({ viewId: 'changes', hiddenSince: 3000 });
+    expect(result).toEqual({ viewId: 'graph', hiddenSince: 3000 });
   });
 
   it('clears the slot when returning to the kept view itself', () => {
@@ -76,11 +76,6 @@ describe('isKeptViewStale', () => {
   it('is stale once the TTL elapses', () => {
     const current = { viewId: 'graph', hiddenSince: 0 } as const;
     expect(isKeptViewStale({ current, now: 5 * 60 * 1000 })).toBe(true);
-  });
-
-  it('changes has no row ceiling, so a row count never makes it stale early', () => {
-    const current = { viewId: 'changes', hiddenSince: 0 } as const;
-    expect(isKeptViewStale({ current, now: 1000, rowCount: 999_999 })).toBe(false);
   });
 
   it('is stale immediately once the graph row ceiling is crossed, TTL notwithstanding', () => {

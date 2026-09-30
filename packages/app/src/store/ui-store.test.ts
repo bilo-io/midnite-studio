@@ -157,8 +157,8 @@ describe('navigation guarded by an open, dirty file editor (Phase 24 D)', () => 
 
   it('setActiveView de-maximises the terminal when switching views', () => {
     useUiStore.setState({ terminalMaximized: true, terminalOpen: true });
-    useUiStore.getState().setActiveView('changes');
-    expect(useUiStore.getState().activeView).toBe('changes');
+    useUiStore.getState().setActiveView('actions');
+    expect(useUiStore.getState().activeView).toBe('actions');
     expect(useUiStore.getState().terminalMaximized).toBe(false);
     // Terminal remains open — only the maximised state is cleared.
     expect(useUiStore.getState().terminalOpen).toBe(true);
@@ -213,14 +213,14 @@ describe('phase 19 store additions', () => {
 
   it('keeps each view\'s sidebar narrowing separate', () => {
     // Filtering Actions down to its two sections and wanting the whole tree in
-    // Changes are unrelated decisions; one flag for both would make each undo
+    // Tests are unrelated decisions; one flag for both would make each undo
     // the other.
     useUiStore.getState().setSectionFilter('actions', false);
-    useUiStore.getState().setSectionFilter('changes', true);
+    useUiStore.getState().setSectionFilter('tests', true);
 
     expect(useUiStore.getState().sectionFilters).toEqual({
       actions: false,
-      changes: true,
+      tests: true,
     });
   });
 
@@ -237,7 +237,7 @@ describe('phase 19 store additions', () => {
     // `{}`, not each view's default written out: an absent entry keeps meaning
     // "whatever this view does", so a default that changes later still applies.
     useUiStore.getState().setSectionFilter('actions', false);
-    useUiStore.getState().setSectionFilter('changes', true);
+    useUiStore.getState().setSectionFilter('tests', true);
 
     useUiStore.getState().resetSectionFilters();
 
@@ -394,6 +394,78 @@ describe('phase 16 store additions', () => {
     sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, 'video');
     expect(readSessionActiveView()).toBe('media');
     sessionStorage.removeItem(SESSION_ACTIVE_VIEW_KEY);
+  });
+
+  it('migrates a v29 blob naming the removed Changes view onto the graph', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      {
+        layout: { reposWidth: 300, changesListWidth: 420 },
+        navVisibility: { changes: false, graph: true },
+        sectionFilters: { changes: true, actions: false },
+        activeView: 'changes',
+      },
+      29,
+    ) as Record<string, unknown> & { layout: Record<string, number> };
+    expect(migrated.layout).toEqual({ reposWidth: 300 });
+    expect(migrated.navVisibility).toEqual({ graph: true });
+    expect(migrated.sectionFilters).toEqual({ actions: false });
+    expect(migrated.activeView).toBe('graph');
+  });
+
+  it('routes a legacy `changes` path and session view to the graph', () => {
+    expect(viewForPath('/changes')).toBe('graph');
+    sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, 'changes');
+    expect(readSessionActiveView()).toBe('graph');
+    sessionStorage.removeItem(SESSION_ACTIVE_VIEW_KEY);
+  });
+
+  it('openWorkingCopyInGraph lands on the graph with the working-copy panel expanded', () => {
+    useUiStore.setState({
+      activeView: 'files',
+      viewHistory: ['files'],
+      viewHistoryIndex: 0,
+      graphSelection: { kind: 'commit', sha: 'abc' },
+    });
+    const before = useUiStore.getState().graphWorkingCopyReveal;
+    useUiStore.getState().openWorkingCopyInGraph();
+    const state = useUiStore.getState();
+    expect(state.activeView).toBe('graph');
+    expect(state.graphSelection).toEqual({ kind: 'working-tree' });
+    expect(state.graphWorkingCopyReveal).toBe(before + 1);
+    // A navigation like any other: Back returns to where it came from.
+    expect(state.viewHistory.at(-1)).toBe('graph');
+    useUiStore.getState().goBack();
+    expect(useUiStore.getState().activeView).toBe('files');
+  });
+
+  it('openWorkingCopyInGraph re-requests the reveal when already on the graph', () => {
+    useUiStore.setState({ activeView: 'graph', graphSelection: { kind: 'working-tree' } });
+    const before = useUiStore.getState().graphWorkingCopyReveal;
+    useUiStore.getState().openWorkingCopyInGraph();
+    expect(useUiStore.getState().graphWorkingCopyReveal).toBe(before + 1);
+  });
+
+  it('openWorkingCopyInGraph retargets the repo and checkout it is given', () => {
+    useUiStore.setState({
+      activeView: 'files',
+      selectedRepoId: 'r1',
+      selectedWorktreePath: null,
+      graphRefFilter: ['refs/heads/x'],
+    });
+    useUiStore.getState().openWorkingCopyInGraph({ repoId: 'r2', worktreePath: '/w/feature' });
+    let state = useUiStore.getState();
+    expect(state.selectedRepoId).toBe('r2');
+    expect(state.selectedWorktreePath).toBe('/w/feature');
+    // A repo switch still clears the old repo's ref filter.
+    expect(state.graphRefFilter).toEqual([]);
+    expect(state.graphSelection).toEqual({ kind: 'working-tree' });
+
+    // Same repo: keeps its filters, moves only the checkout.
+    useUiStore.setState({ graphRefFilter: ['refs/heads/y'] });
+    useUiStore.getState().openWorkingCopyInGraph({ repoId: 'r2', worktreePath: '/w/main' });
+    state = useUiStore.getState();
+    expect(state.selectedWorktreePath).toBe('/w/main');
+    expect(state.graphRefFilter).toEqual(['refs/heads/y']);
   });
 
   it('openMedia switches tab and view; pane collapse is per tab', () => {

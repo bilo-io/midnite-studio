@@ -8,7 +8,6 @@ import {
   LuArrowUpFromLine,
   LuCircle,
   LuCircleDot,
-  LuExternalLink,
   LuGitBranchPlus,
   LuGitCommitHorizontal,
   LuGitCompare,
@@ -29,7 +28,6 @@ import { bridge } from '../../services/bridge';
 import { useActiveWorktree, useFetch, useGitOp, usePull, usePush } from '../../services/use-status';
 import { useRemotes } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
 import { syncActions, type SyncAction } from './ref-sync';
 
 /**
@@ -284,21 +282,6 @@ export function useGraphActions(onError: (message: string) => void, refs: readon
       const short = sha.slice(0, 7);
 
       return [
-        {
-          label: 'Open commit in tab',
-          icon: LuExternalLink,
-          onSelect: () => {
-            if (repoId) {
-              useWorkbenchStore.getState().openTab({
-                kind: 'commit',
-                repoId,
-                sha,
-                label: `${short}: ${row.commit.subject}`,
-                ...(worktreePath ? { worktreePath } : {}),
-              });
-            }
-          },
-        },
         {
           label: 'Create branch here…',
 

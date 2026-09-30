@@ -29,7 +29,8 @@ const OUT = '../../docs/screenshots/adhoc-page-detach';
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
 /*
-  The five original page roles plus Theme J's eight. Not read from
+  The original page roles plus Theme J's eight, less `changes` (that view is
+  gone). Not read from
   `PAGE_WINDOW_ROLES` directly: each entry below needs a rail label, a route
   and its own fixture, so the list has to be spelled out anyway — and a role
   added to the shared tuple without a row here should be a visible omission
@@ -38,7 +39,6 @@ test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screensho
 const PAGE_ROLES = [
   'graph',
   'actions',
-  'changes',
   'files',
   'database',
   'dashboard',
@@ -57,7 +57,6 @@ type PageRole = (typeof PAGE_ROLES)[number];
 const TITLE: Record<PageRole, string> = {
   graph: 'Graph',
   actions: 'Actions',
-  changes: 'Changes',
   files: 'File Explorer',
   database: 'DB Explorer',
   dashboard: 'Dashboard',
@@ -74,7 +73,6 @@ const TITLE: Record<PageRole, string> = {
 const RAIL_LABEL: Record<PageRole, string> = {
   graph: 'Graph',
   actions: 'Actions',
-  changes: 'Changes',
   files: 'Explorer',
   database: 'Database',
   dashboard: 'Dashboard',
@@ -91,7 +89,6 @@ const RAIL_LABEL: Record<PageRole, string> = {
 const PATH: Record<PageRole, string> = {
   graph: '/graph',
   actions: '/actions',
-  changes: '/changes',
   files: '/files',
   database: '/database',
   dashboard: '/dashboard',
@@ -130,7 +127,6 @@ const run = (id: string, title: string, conclusion: string) => ({
 
 const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   graph: {},
-  changes: {},
   /*
     Theme J's eight. Four of them (`reviews`, `issues`, `projects`, `tests`)
     read the forge, and three of those answer an empty payload with a
@@ -192,7 +188,7 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
 /*
   Which roles each shot can actually reach, and why the two lists differ.
 
-  Every one of the thirteen marks is unit-tested (`page-detach-mark.test.tsx`);
+  Every one of the twelve marks is unit-tested (`page-detach-mark.test.tsx`);
   these lists are about what a SCREENSHOT can get on screen under the shared
   fixtures, which is a narrower question.
 

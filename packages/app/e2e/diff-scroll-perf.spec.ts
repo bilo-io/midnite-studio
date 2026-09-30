@@ -59,12 +59,14 @@ const bigDiff = {
 };
 
 /**
- * Open the big diff — in the graph's inspector dock by default, or, with
- * `inTab`, in the commit's full-width workbench tab. SPLIT needs the tab: the
- * dock is capped below `DIFF_SPLIT_MIN_WIDTH`, so its split toggle is disabled
- * by design (see `diff-view.spec.ts`'s `openCommitInTab`).
+ * Open the big diff in the graph's inline commit panel. With `inTab` (kept as
+ * the flag's name for the callers' sake), at a desktop-wide window: SPLIT
+ * needs the diff column to clear `DIFF_SPLIT_MIN_WIDTH`, and the full-width
+ * Changes workbench tab that used to provide it is gone with that view (see
+ * `diff-view.spec.ts`'s `openCommitInTab`).
  */
 async function openBigDiff(page: Page, { inTab = false } = {}): Promise<void> {
+  if (inTab) await page.setViewportSize({ width: 1920, height: 1080 });
   const { installMockBridge } = await import('../test-support/mock-bridge');
   await installMockBridge(page, {
     ...fixtures,
@@ -73,19 +75,8 @@ async function openBigDiff(page: Page, { inTab = false } = {}): Promise<void> {
   await page.goto('/');
 
   await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  if (inTab) {
-    await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
-
-    // Hover first: the rail's hover-expand reflow moves a collapsed link out
-    // from under a synthetic click (`diff-view.spec.ts`, `changes-panel.spec.ts`).
-    const link = page.getByRole('link', { name: 'Changes' });
-    await link.hover();
-    await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-    await link.click();
-  }
   // The visible file LIST's row: the graph's inline commit panel also lists
-  // every file in its all-changes accordion, and a kept-alive graph behind the
-  // Changes view still holds its own copy.
+  // every file in its all-changes accordion.
   await page
     .getByTestId('commit-files')
     .filter({ visible: true })

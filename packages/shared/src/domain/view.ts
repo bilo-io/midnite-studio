@@ -46,7 +46,6 @@ export const VIEW_IDS = [
   'database',
   'projects',
   'graph',
-  'changes',
   'actions',
   'reviews',
   'issues',

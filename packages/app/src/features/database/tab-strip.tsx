@@ -1,62 +1,31 @@
 import type { ReactNode } from 'react';
-import {
-  LuDatabase,
-  LuDiff,
-  LuFiles,
-  LuGitCommitHorizontal,
-  LuGitPullRequest,
-  LuPlay,
-  LuPlus,
-  LuX,
-} from 'react-icons/lu';
+import { LuDatabase, LuPlus, LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
-import { Counts } from '../../components/change-tree';
 import { Tooltip } from '../../components/tooltip';
-import { useAllChangesTotals } from '../../services/use-status';
-import type { WorkbenchTab, WorkbenchTabKind } from '../../store/workbench-store';
+import type { WorkbenchTab } from '../../store/workbench-store';
 
 /**
- * The content area's tab bar.
+ * The Database view's query-tab bar.
  *
  * Built rather than taken from `@bilo-io/ui`, whose `Tabs` is a segmented
  * control: it has no close affordance, no overflow behaviour and no notion of
  * a tab that outlives the click that made it. Those three are the whole
  * difference between a toggle and a document tab bar.
  *
- * The first tab is not in `tabs` and cannot be closed. The Changes view always
- * has a working-tree tab following the sidebar's selection — it is the view's
- * home, and a strip you can empty down to nothing is a view with no content.
+ * It used to be the Changes view's workbench strip too, with a permanent
+ * working-tree first tab; that view folded into the git graph.
  */
-// `LuDiff` for both diff tabs, because it is the glyph the nav rail gives the
-// Changes view itself — a tab inside a view should not be wearing a different
-// icon for the same idea. The button that OPENS an all-changes tab is the one
-// exception (`AiOutlineDiff` in the sidebar): it is an action, not the view.
-const KIND_ICON: Record<WorkbenchTabKind, IconComponent> = {
-  'all-changes': LuDiff,
-  run: LuPlay,
-  review: LuGitPullRequest,
-  commit: LuGitCommitHorizontal,
-  query: LuDatabase,
-};
-
 export function TabStrip({
   tabs,
   activeTabId,
-  workingTreeLabel,
   onFocus,
   onClose,
   onNew,
   dirtyTabIds,
 }: {
   tabs: readonly WorkbenchTab[];
-  /** `null` is the permanent working-tree tab. */
   activeTabId: string | null;
-  /**
-   * Absent for a strip with no permanent first tab (the Database view's own
-   * `<TabStrip>` — a database connection has no "working tree" analogue).
-   */
-  workingTreeLabel?: string;
   onFocus: (id: string | null) => void;
   onClose: (id: string) => void;
   /** Renders a trailing `+` button when supplied — the Database strip's "new query tab". */
@@ -71,33 +40,19 @@ export function TabStrip({
       // `overflow-x-auto` rather than a dropdown for the overflow: a horizontal
       // scroll keeps every tab reachable at any count without inventing a
       // second navigation surface for the rare case.
-      // The bottom border lives on the row `Workbench` wraps this in, so the
-      // detach mark beside the strip sits on the same rule rather than beside
-      // one.
       className="flex shrink-0 items-stretch overflow-x-auto bg-card/40"
     >
-      {workingTreeLabel !== undefined ? (
-        <Tab
-          icon={LuDiff}
-          label={workingTreeLabel}
-          title="Working tree — follows the checkout selected in the sidebar"
-          active={activeTabId === null}
-          onFocus={() => onFocus(null)}
-        />
-      ) : null}
       {tabs.map((tab) => (
         <Tab
           key={tab.id}
-          icon={KIND_ICON[tab.kind]}
+          icon={LuDatabase}
           label={tab.label}
           title={tab.label}
           active={activeTabId === tab.id}
           onFocus={() => onFocus(tab.id)}
           onClose={() => onClose(tab.id)}
           stats={
-            tab.kind === 'all-changes' ? (
-              <AllChangesTabStats repoId={tab.repoId} worktreePath={tab.worktreePath} />
-            ) : tab.kind === 'query' && dirtyTabIds?.has(tab.id) ? (
+            dirtyTabIds?.has(tab.id) ? (
               <span aria-label="Unsaved changes" className="h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/70" />
             ) : null
           }
@@ -117,24 +72,6 @@ export function TabStrip({
   );
 }
 
-/**
- * The all-changes tab's own summary — file count and `+n −n` — read off the
- * same status query the view underneath already runs, so this costs no
- * subprocess of its own: TanStack Query dedupes it against the tab body.
- */
-function AllChangesTabStats({ repoId, worktreePath }: { repoId: string; worktreePath: string }) {
-  const totals = useAllChangesTotals({ repoId, worktreePath });
-  if (!totals || totals.fileCount === 0) return null;
-
-  return (
-    <span className="flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
-      <LuFiles aria-hidden className="h-3 w-3" />
-      {totals.fileCount}
-      <Counts insertions={totals.insertions} deletions={totals.deletions} />
-    </span>
-  );
-}
-
 function Tab({
   icon: Icon,
   label,
@@ -149,9 +86,8 @@ function Tab({
   title: string;
   active: boolean;
   onFocus: () => void;
-  /** Absent on the working-tree tab, which has nothing to close to. */
   onClose?: () => void;
-  /** The all-changes tab's file/line summary, rendered ahead of the close button. */
+  /** Rendered ahead of the close button — the dirty dot. */
   stats?: ReactNode;
 }) {
   return (

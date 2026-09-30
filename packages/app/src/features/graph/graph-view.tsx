@@ -400,7 +400,9 @@ export function GraphView() {
   // A callback ref: the column only mounts once history has loaded, after
   // this component's first effects have already run.
   const columnObserver = useRef<ResizeObserver | null>(null);
+  const columnEl = useRef<HTMLDivElement | null>(null);
   const columnRef = useCallback((el: HTMLDivElement | null) => {
+    columnEl.current = el;
     columnObserver.current?.disconnect();
     columnObserver.current = null;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -526,6 +528,28 @@ export function GraphView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedSha, expandedIndex >= 0]);
 
+  /*
+    `openWorkingCopyInGraph` — every former way into the Changes view (Mod+2,
+    the palette, the status bar, a sidebar "View all changes") — asks for the
+    working copy to be brought into view. The row sits above the scroller, so
+    bringing it into view means scrolling history back to its top, where the
+    row belongs, and then the row itself (with its just-expanded panel) into
+    the viewport. A nonce, not a flag: asking twice scrolls twice. Handled
+    once per request, so coming back to a kept-alive graph later does not
+    replay it.
+  */
+  const workingCopyReveal = useUiStore((s) => s.graphWorkingCopyReveal);
+  const handledReveal = useRef(workingCopyReveal);
+  useEffect(() => {
+    if (!visible || handledReveal.current === workingCopyReveal) return;
+    handledReveal.current = workingCopyReveal;
+    // `?.`: jsdom's elements have no `scrollTo`/`scrollIntoView`.
+    scrollRef.current?.scrollTo?.({ top: 0 });
+    columnEl.current
+      ?.querySelector<HTMLElement>('[data-testid="uncommitted-row"]')
+      ?.scrollIntoView?.({ block: 'nearest', behavior: isReducedMotion() ? 'auto' : 'smooth' });
+  }, [visible, workingCopyReveal]);
+
   /**
    * Re-measure when the style changes.
    *
@@ -632,6 +656,23 @@ export function GraphView() {
   }
 
   if (rows.length === 0) {
+    /*
+      An unborn repository with files in it: there is no history to hang the
+      working-copy row on, and no Changes view any more to make the first
+      commit from — so the working-copy panel IS the graph until there is one.
+    */
+    if (!loading && status && status.branch.unborn && status.entries.length > 0) {
+      return (
+        <div className="flex h-full min-h-0 flex-col" data-testid="graph-first-commit">
+          <p className="shrink-0 border-b border-border px-3 py-2 text-xs text-muted-foreground">
+            No commits yet — stage files and make the first one.
+          </p>
+          <div className="min-h-0 flex-1">
+            <WorkingTreeInlinePanel active={visible} />
+          </div>
+        </div>
+      );
+    }
     return (
       <EmptyState
         title={loading ? 'Reading history…' : 'No commits yet'}
@@ -693,7 +734,7 @@ export function GraphView() {
 
         {/*
           The working copy's panel, expanded in place under its row — the
-          Changes view's list, commit box and diff, folded into the graph.
+          working copy's list, commit box and diff, folded into the graph.
           Outside the scroller like the row itself, so it never scrolls away
           from the row it belongs to.
         */}

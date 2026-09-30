@@ -73,7 +73,6 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   tests: GoBeaker,
   database: LuDatabase,
   graph: IoIosGitNetwork,
-  changes: LuDiff,
   // Actions, Reviews and Issues wear GitHub's own Octicons — `play`,
   // `git-pull-request` and `issue-opened` — rather than the nearest
   // Lucide/Font-Awesome match, so the rail reads identically to github.com's

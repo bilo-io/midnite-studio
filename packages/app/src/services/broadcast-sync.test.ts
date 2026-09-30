@@ -288,7 +288,7 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
   beforeEach(() => {
     useActionsStore.setState({ selectedRun: {}, selectedJob: {} });
     useFilesStore.setState({ scopeKey: null, selectedPath: null });
-    useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+    useWorkbenchStore.setState({ tabs: [], activeQueryTabId: null });
     useSessionsStore.setState({ selectedClosedSessionId: null });
   });
 
@@ -337,22 +337,16 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
     });
   });
 
-  it('relays workbench tabs and the active one', () => {
+  it('relays the Database view\'s query tabs and the active one', () => {
     const { relay } = installBridge();
     mount();
 
-    useWorkbenchStore.getState().openTab({
-      kind: 'run',
-      repoId: 'repo-1',
-      runId: '7',
-      label: 'CI #7',
-      url: 'https://github.com/bilo-io/midnite-studio/actions/runs/7',
-    });
+    useWorkbenchStore.getState().openTab({ kind: 'query', connectionId: 'c1', label: 'Query 1', sql: '' });
 
     const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'workbench');
-    const payload = sent.at(-1)?.payload as { tabs: unknown[]; activeTabId: string | null };
+    const payload = sent.at(-1)?.payload as { tabs: unknown[]; activeQueryTabId: string | null };
     expect(payload.tabs).toHaveLength(1);
-    expect(payload.activeTabId).not.toBeNull();
+    expect(payload.activeQueryTabId).toBe('query:c1:Query 1');
   });
 
   /*
@@ -411,7 +405,7 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
       id: 'wb-1',
       origin: 'other-window',
       kind: 'workbench',
-      payload: { tabs: [], activeTabId: null },
+      payload: { tabs: [], activeQueryTabId: null },
     });
     emit({
       id: 'act-1',

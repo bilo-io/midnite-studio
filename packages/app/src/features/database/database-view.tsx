@@ -11,7 +11,7 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore, type WorkbenchTab } from '../../store/workbench-store';
-import { TabStrip } from '../workbench/tab-strip';
+import { TabStrip } from './tab-strip';
 import { ConnectionDialog } from './connection-dialog';
 import { ConnectionTree, previewSql } from './connection-tree';
 import { ConnectionListSkeleton } from './database-skeletons';

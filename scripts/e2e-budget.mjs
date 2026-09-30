@@ -174,7 +174,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // viewport, and the "+" tile's hover glow is a computed `box-shadow` /
 // `-webkit-text-stroke` jsdom never resolves. Stepping, wrap-around, Escape,
 // the reducer, catalogue and sidecar parsing are all vitest.
-export const MAX_DECLARED_E2E = 463;
+// Lowered 463 -> 461 with the standalone Changes view: its workbench tab
+// strip's two specs ("the all-changes tab carries its own totals in the tab
+// bar", "the working-tree tab cannot be closed") went with it.
+export const MAX_DECLARED_E2E = 461;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

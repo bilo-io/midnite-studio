@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,7 +15,6 @@ import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
 import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
 import { useCommandHandlers } from './use-command-handlers';
 
@@ -60,7 +59,6 @@ beforeEach(() => {
     terminalOpen: false,
     fabPanelOpen: false,
   });
-  useWorkbenchStore.setState({ tabs: [], activeTabId: null });
   useFileEditorStore.setState({
     target: null,
     content: '',
@@ -186,18 +184,25 @@ describe('useCommandHandlers — a repo is selected', () => {
     expect(result.current['view.refresh'].enabled).toBe(true);
   });
 
-  it('disables status.commit off the working tree, and enables it on it', () => {
-    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'graph' });
+  it('disables status.commit off the working tree, with a reason that says where it is', () => {
+    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'graph', graphSelection: null });
     const { result: offTree } = withProviders(seededClient({}));
     expect(offTree.current['status.commit'].enabled).toBe(false);
     expect(offTree.current['status.commit'].disabledReason).toBe(
-      'Switch to the working tree to commit',
+      'Open the working copy in the graph to commit',
     );
+  });
 
-    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'changes' });
-    useWorkbenchStore.setState({ activeTabId: null });
-    const { result: onTree } = withProviders(seededClient({}));
-    expect(onTree.current['status.commit'].enabled).toBe(true);
+  it('status.focus (Mod+2) opens the graph with the working-copy panel expanded', () => {
+    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'files', graphSelection: null });
+    const before = useUiStore.getState().graphWorkingCopyReveal;
+    const { result } = withProviders(seededClient({}));
+    act(() => result.current['status.focus'].run());
+    const state = useUiStore.getState();
+    expect(state.activeView).toBe('graph');
+    expect(state.graphSelection).toEqual({ kind: 'working-tree' });
+    // The reveal request is what `openWorkingCopyInGraph` alone bumps.
+    expect(state.graphWorkingCopyReveal).toBe(before + 1);
   });
 
   it("enables status.commit on the graph while its inline working-copy panel is open", () => {
@@ -214,13 +219,6 @@ describe('useCommandHandlers — a repo is selected', () => {
     const { result: commit } = withProviders(seededClient({}));
     expect(commit.current['status.commit'].enabled).toBe(false);
     useUiStore.setState({ graphSelection: null });
-  });
-
-  it('disables status.commit when the Changes view is open on a non-working-tree tab', () => {
-    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'changes' });
-    useWorkbenchStore.setState({ activeTabId: 'some-tab' });
-    const { result } = withProviders(seededClient({}));
-    expect(result.current['status.commit'].enabled).toBe(false);
   });
 
   it('enables panel.back/forward on Councils and Projects, disabled everywhere else', () => {

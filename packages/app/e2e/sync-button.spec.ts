@@ -27,5 +27,6 @@ test('the rail names the file browser Explorer, not Files or Folder', async ({ p
   await expect(page.getByRole('link', { name: 'Explorer' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Files' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Folder' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Changes' })).toBeVisible();
+  // The Changes view folded into the graph's working-copy panel.
+  await expect(page.getByRole('link', { name: 'Changes' })).toHaveCount(0);
 });

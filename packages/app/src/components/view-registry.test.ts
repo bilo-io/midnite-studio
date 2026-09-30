@@ -72,8 +72,9 @@ describe('VIEW_COMPONENT', () => {
    * their own row renderers; Files does the same per directory listing
    * (Theme K.3); Dashboard cascades its tiles (staggered, not literally
    * top-to-bottom — `react-grid-layout` positions by grid coordinate, not
-   * document flow); Changes, Projects and Sessions wire cascade on their
-   * file lists, virtualized table rows, and repo group/session rows (Theme K.5).
+   * document flow); Projects and Sessions wire cascade on their virtualized
+   * table rows and repo group/session rows (Theme K.5). Changes left the set
+   * with its view — its file list now cascades inside the graph's panel.
    * Widening or narrowing this set is a deliberate test change, the same reason
    * the `global` set above is spelled out.
    */
@@ -87,7 +88,6 @@ describe('VIEW_COMPONENT', () => {
         'issues',
         'files',
         'dashboard',
-        'changes',
         'projects',
         'sessions',
       ]),

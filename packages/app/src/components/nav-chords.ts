@@ -24,18 +24,11 @@ import type { ViewId } from '../store/ui-store';
  * `browser.selectTab1` while the browser pane is open — so the rail would be
  * promising a key that sometimes switches a browser tab instead.
  * `view.graph`'s `Mod+Shift+g` has no such carve-out.
- *
- * `changes` is the one entry that cannot follow that rule: `status.focus`
- * (`Mod+2`) is the only chord it has, and it carries the same browser-pane
- * caveat. It is listed anyway — with the pane closed, which is the common
- * case, it does exactly what the row says, and the landing page already
- * teaches it.
- */
+ * */
 export const VIEW_COMMAND: Partial<Record<ViewId, CommandId>> = {
   files: 'view.files',
   search: 'search.open',
   graph: 'view.graph',
-  changes: 'status.focus',
   issues: 'view.issues',
 };
 

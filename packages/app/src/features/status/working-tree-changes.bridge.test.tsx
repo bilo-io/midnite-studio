@@ -6,13 +6,11 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { WorkingTreeInlinePanel } from '../graph/graph-inline-panels';
-import { StatusPanel } from './status-panel';
 
 /**
- * The working tree's shared parts — `working-tree-changes.tsx` — in both of
- * their hosts: the Changes view (`StatusPanel`) and the git graph's inline
- * working-copy panel. Each assertion runs against both, because the whole
- * point of lifting the parts out was that the two cannot drift.
+ * The working tree's parts — `working-tree-changes.tsx` — in their one host,
+ * the git graph's inline working-copy panel. (The standalone Changes view that
+ * used to be the second host is gone.)
  */
 
 const entry = (path: string, staged: string, unstaged: string) => ({
@@ -68,10 +66,6 @@ const DATA: MockFixtures = {
 
 const UI = { selectedRepoId: 'repo-1', selectedWorktreePath: '/tmp/midnite-studio', activeView: 'graph' as const };
 
-const HOSTS = [
-  ['the Changes view', () => <StatusPanel />],
-  ['the graph inline panel', () => <WorkingTreeInlinePanel active onClose={() => {}} />],
-] as const;
 
 afterEach(() => {
   cleanup();
@@ -79,8 +73,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe.each(HOSTS)('the working-tree parts in %s', (_name, host) => {
-  const open = (data: MockFixtures = DATA) => renderView(host(), { fixtures: data, uiState: UI });
+describe('the working-tree parts in the graph inline panel', () => {
+  const open = (data: MockFixtures = DATA) =>
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: data, uiState: UI });
 
   it('lists both sides with their bulk actions, the view toggle and the commit box', async () => {
     open();
@@ -124,27 +119,34 @@ describe.each(HOSTS)('the working-tree parts in %s', (_name, host) => {
     expect(screen.getByRole('button', { name: 'src/one.ts' }).getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('the Commit button wears the gradient treatment, and stays readable when disabled', async () => {
+  it('the Commit button is the brand-gradient button, disabled with nothing staged', async () => {
     open({ ...DATA, statusEntries: [entry('src/one.ts', 'unmodified', 'modified')] });
     await screen.findByRole('heading', { name: 'Changes' });
 
     fireEvent.change(screen.getByPlaceholderText('Commit message'), { target: { value: 'wip' } });
-    const button = await screen.findByTestId('commit-button');
-    expect(button.className).toContain('loop-start-gradient');
-    // Nothing staged: disabled, dimmed — and no glow, because every hover rule
-    // on the class is `:not(:disabled)`.
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-    expect(button.className).toContain('disabled:opacity-50');
+    const button = (await screen.findByTestId('commit-button')) as HTMLButtonElement;
+    expect(button.className).toContain('brand-gradient-button');
+    // Its disabled look (no glow, desaturated fill) keys on `:disabled` in
+    // styles.css rather than on utilities, so the class list is the same in
+    // both states — only the attribute differs.
+    expect(button.disabled).toBe(true);
+    expect(button.className).not.toMatch(/disabled:opacity|loop-start-gradient|text-foreground/);
+  });
+
+  it('enables the brand-gradient Commit once something is staged', async () => {
+    open();
+    await screen.findByRole('heading', { name: 'Staged' });
+
+    fireEvent.change(screen.getByPlaceholderText('Commit message'), { target: { value: 'wip' } });
+    const button = (await screen.findByTestId('commit-button')) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.className).toContain('brand-gradient-button');
+    expect(button.textContent).toBe('Commit 1 file');
   });
 });
 
-describe('what each host shows with nothing picked', () => {
-  it('the Changes view asks for a file', async () => {
-    renderView(<StatusPanel />, { fixtures: DATA, uiState: UI });
-    expect(await screen.findByText('Select a file to see its diff.')).toBeTruthy();
-  });
-
-  it('the graph panel shows every changed file, collapsed', async () => {
+describe('what the panel shows with nothing picked', () => {
+  it('shows every changed file, collapsed', async () => {
     renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
     await screen.findByRole('heading', { name: 'Changes' });
     expect(screen.queryByText('Select a file to see its diff.')).toBeNull();
@@ -153,13 +155,13 @@ describe('what each host shows with nothing picked', () => {
     expect(within(accordion).getAllByRole('button', { expanded: false }).length).toBeGreaterThanOrEqual(3);
   });
 
-  it('shares its draft message with the Changes view', async () => {
+  it('keeps its draft message across the panel closing and reopening', async () => {
     const first = renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
     await screen.findByRole('heading', { name: 'Changes' });
     fireEvent.change(screen.getByPlaceholderText('Commit message'), { target: { value: 'half a thought' } });
     first.unmount();
 
-    renderView(<StatusPanel />, { fixtures: DATA, uiState: UI });
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
     await screen.findByRole('heading', { name: 'Changes' });
     expect((screen.getByPlaceholderText('Commit message') as HTMLTextAreaElement).value).toBe('half a thought');
   });

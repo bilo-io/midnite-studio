@@ -36,7 +36,6 @@ import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { Tooltip } from '../../components/tooltip';
 import { UserAvatar } from '../../components/user-avatar';
-import { useWorkbenchStore } from '../../store/workbench-store';
 
 import { copyText, resolveRevision, useCommitDetail, useRemotes, useSessionHistory } from '../../services/queries';
 import { useSessionsStore } from '../../store/sessions-store';
@@ -115,8 +114,7 @@ export function CommitDetail({
   onClose?: () => void;
   /**
    * `stacked` is the inspector as a narrow column — the header, the file list
-   * and one file's diff one above the other (the Changes workbench's commit
-   * tab). `split` is the git graph's inline panel: the header and the file
+   * and one file's diff one above the other (Search's commit results). `split` is the git graph's inline panel: the header and the file
    * list form a left column and the whole right column is the diff, of one
    * file, a Cmd/Ctrl-click multi-selection, or — with nothing picked — every
    * file. Same state, same parts; only the arrangement differs.
@@ -126,7 +124,6 @@ export function CommitDetail({
   const split = layout === 'split';
   const { data, isLoading } = useCommitDetail(repoId, sha);
   const { data: remotes } = useRemotes(repoId);
-  const openTab = useWorkbenchStore((s) => s.openTab);
   const selectCommit = useUiStore((s) => s.selectCommit);
   const fileView = useUiStore((s) => s.commitFileView);
   const setFileView = useUiStore((s) => s.setCommitFileView);
@@ -394,28 +391,36 @@ export function CommitDetail({
           <LuChevronRight className="h-3 w-3" strokeWidth={2.5} />
         )}
       </button>
-      <button
-        type="button"
-        onClick={() =>
-          openTab({
-            kind: 'commit',
-            repoId,
-            sha: data.sha,
-            label: `${data.sha.slice(0, 7)}: ${data.subject}`,
-          })
-        }
-        title={`Open commit in tab (${data.sha})`}
-        aria-label={`Open commit in tab (${data.sha})`}
-        className="group inline-flex min-w-0 flex-1 items-center gap-1 overflow-hidden font-mono text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <span className="truncate underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
+      {split ? (
+        // Already in the graph, under this commit's own row: nothing to go to.
+        <span
+          title={data.sha}
+          className="min-w-0 flex-1 truncate font-mono text-[11px] leading-tight text-muted-foreground"
+        >
           {data.sha.slice(0, 16)}…
         </span>
-        <LuExternalLink
-          aria-hidden
-          className="h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
-        />
-      </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            // The Changes workbench's commit tab is gone; a commit opens in
+            // place under its row in the graph instead.
+            useUiStore.getState().setActiveView('graph');
+            selectCommit(data.sha);
+          }}
+          title={`Show commit in graph (${data.sha})`}
+          aria-label={`Show commit in graph (${data.sha})`}
+          className="group inline-flex min-w-0 flex-1 items-center gap-1 overflow-hidden font-mono text-[11px] leading-tight text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <span className="truncate underline decoration-muted-foreground/40 underline-offset-2 group-hover:decoration-foreground">
+            {data.sha.slice(0, 16)}…
+          </span>
+          <LuExternalLink
+            aria-hidden
+            className="h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
+          />
+        </button>
+      )}
       <CopySha sha={data.sha} />
       <div className="flex shrink-0 items-center">
         <ViewToggle

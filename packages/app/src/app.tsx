@@ -434,7 +434,6 @@ const GIT_NAV_ITEMS: NavItem[] = [
   { view: 'issues', label: 'Issues', icon: VIEW_ICON.issues },
   { view: 'projects', label: 'Projects', icon: VIEW_ICON.projects },
   { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
-  { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
   { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
   { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
   { view: 'history', label: 'History', icon: VIEW_ICON.history },

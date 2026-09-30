@@ -50,7 +50,7 @@ const HINTS: Partial<Record<CommandId, string>> = {
   'fab.toggle': 'The agent loop console',
   'view.graph': 'Back to the commit graph',
   'graph.focus': 'Put the keyboard in the graph',
-  'status.focus': 'Put the keyboard in Changes',
+  'status.focus': 'Open the working copy in the graph',
   'status.commit': 'Commit what is staged',
   'sync.pull': 'Fetch and integrate',
   'sync.push': 'Publish the current branch',

@@ -69,7 +69,6 @@ function reset() {
   });
   useWorkbenchStore.setState({
     tabs: [],
-    activeTabId: null,
     activeQueryTabId: null,
     dirtyQueryTabIds: new Set(),
   });

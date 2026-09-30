@@ -202,7 +202,6 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
    */
   database: WORK_IN_PROGRESS,
   graph: WORK_IN_PROGRESS,
-  changes: WORK_IN_PROGRESS,
   actions: { sections: ['actions', 'worktrees'], dirtyOnly: false },
   tests: { sections: ['tests', 'worktrees'], dirtyOnly: false },
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
@@ -247,7 +246,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
  * other view starts whole and can be narrowed by hand.
  */
 export const filtersByDefault = (view: ViewId): boolean =>
-  view === 'changes' || view === 'actions' || view === 'tests' || view === 'reviews';
+  view === 'actions' || view === 'tests' || view === 'reviews';
 
 /** The effective filter for a view, given whether it is currently narrowed. */
 export const filterFor = (view: ViewId, filtered: boolean): ViewFilter =>
