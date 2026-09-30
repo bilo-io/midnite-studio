@@ -1,6 +1,7 @@
 import { AvatarClipPath } from './commit-avatar';
 import type { GraphTheme } from './graph-themes';
-import { laneColors } from './lane-colors';
+import { LANE_COLOR_COUNT, laneColors } from './lane-colors';
+import { usePrimaryHsl } from './primary-lane';
 
 /** Stable id for the avatar clip of a given style. */
 export const avatarClipId = (theme: GraphTheme): string => `mstudio-avatar-clip-${theme.id}`;
@@ -16,6 +17,8 @@ export const avatarClipId = (theme: GraphTheme): string => `mstudio-avatar-clip-
  * arrowhead that matches the line it terminates.
  */
 export function GraphDefs({ theme }: { theme: GraphTheme }) {
+  // The last marker is the checked-out lane's, in the live primary colour.
+  usePrimaryHsl();
   return (
     <svg width={0} height={0} aria-hidden className="absolute">
       <defs>
@@ -32,7 +35,7 @@ export function GraphDefs({ theme }: { theme: GraphTheme }) {
           ? laneColors(theme.palette).map((color, index) => (
               <marker
                 key={index}
-                id={`mstudio-arrow-${index}-${theme.id}`}
+                id={`mstudio-arrow-${index === LANE_COLOR_COUNT ? 'head' : index}-${theme.id}`}
                 viewBox="0 0 8 8"
                 refX={7}
                 refY={4}
