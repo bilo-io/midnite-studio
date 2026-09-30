@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_LAYOUT, WIDGET_IDS, isWidgetId } from './widget-ids';
-import { ALL_WIDGETS, availableWidgets, needsChurn, renderableWidgets, WIDGETS } from './widget-registry';
+import {
+  ALL_WIDGETS,
+  availableWidgets,
+  needsChurn,
+  renderableWidgets,
+  WIDGETS,
+} from './widget-registry';
 
 describe('the widget registry', () => {
   it('has a spec for every id, with matching ids', () => {

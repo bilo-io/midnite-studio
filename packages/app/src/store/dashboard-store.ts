@@ -108,6 +108,17 @@ const edit =
     },
   });
 
+/** The default board before the 3+3 rearrangement — see `migrate` below. */
+const V1_DEFAULT_LAYOUT = [
+  { i: 'calendar', x: 0, y: 0, w: 12, h: 6 },
+  { i: 'contributors', x: 0, y: 6, w: 6, h: 8 },
+  { i: 'activity', x: 6, y: 6, w: 6, h: 8 },
+  { i: 'pulls', x: 0, y: 14, w: 4, h: 7 },
+  { i: 'issues', x: 4, y: 14, w: 4, h: 7 },
+  { i: 'runs', x: 8, y: 14, w: 4, h: 7 },
+  { i: 'health', x: 0, y: 21, w: 12, h: 7 },
+];
+
 /**
  * Pre-rename state, adopted before the store hydrates — see
  * `persist-rename.ts` for why this cannot be a zustand `migrate`.
@@ -208,7 +219,24 @@ export const useDashboardStore = create<DashboardState>()(
     }),
     {
       name: 'midnite-studio.dashboard',
-      version: 1,
+      version: 2,
+      /*
+        v1 -> v2: the default board moved the calendar beside contributors and
+        activity. A board whose layout is byte-for-byte the old default was
+        never customised (any edit writes a copy), so it adopts the new one;
+        anything else is a person's choice and is left alone.
+      */
+      migrate: (persisted, version) => {
+        const state = persisted as { boards?: Record<string, DashboardBoard> };
+        if (version < 2 && state?.boards) {
+          for (const board of Object.values(state.boards)) {
+            if (JSON.stringify(board.layout) === JSON.stringify(V1_DEFAULT_LAYOUT)) {
+              board.layout = DEFAULT_LAYOUT;
+            }
+          }
+        }
+        return state as DashboardState;
+      },
       /*
         Boards for repositories that are no longer open are kept.
 

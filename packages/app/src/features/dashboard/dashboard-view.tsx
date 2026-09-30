@@ -109,7 +109,8 @@ export function DashboardView() {
   const resetLayout = useDashboardStore((s) => s.resetLayout);
 
   const { data: remotes } = useRemotes(selectedRepoId);
-  const hasForge = pickForgeRemote(remotes ?? [])?.forge?.kind === 'github';
+  const forge = pickForgeRemote(remotes ?? [])?.forge ?? null;
+  const hasForge = forge?.kind === 'github';
 
   const layoutIds = useMemo(() => board.layout.map((item) => item.i), [board.layout]);
   const specs = useMemo(() => renderableWidgets(layoutIds, hasForge), [layoutIds, hasForge]);
@@ -315,7 +316,12 @@ export function DashboardView() {
               );
             case 'pulls':
               return (
-                <PullsWidget result={pulls.data} isFetching={pulls.isFetching} repoId={repoId} />
+                <PullsWidget
+                  result={pulls.data}
+                  isFetching={pulls.isFetching}
+                  repoId={repoId}
+                  forge={forge}
+                />
               );
             case 'issues':
               return (

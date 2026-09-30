@@ -3513,59 +3513,6 @@ html[data-motion='reduced'] .activity-glow[data-activity-status='running'] {
 }
 
 /* ---------------------------------------------------------------------------
- * Dashboard Recent Workflow Runs rows (`RunListRow`, `run-glow.ts`) — a thin
- * modifier over `.activity-glow` above. `running` keeps that block's own
- * pulse (plus a `.pill-shimmer` sweep in the row); what this adds is a soft
- * steady halo for a finished run, a quiet breathe for a queued one, and a
- * neutral hairline for a cancelled/skipped one, which `idle` would otherwise
- * leave borderless. Colours are the `--activity-*` tokens, never new hexes.
- * -------------------------------------------------------------------------*/
-@keyframes run-glow-queued-breathe {
-  0%,
-  100% {
-    box-shadow: 0 0 2px color-mix(in srgb, var(--activity-queued) 20%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 8px color-mix(in srgb, var(--activity-queued) 45%, transparent);
-  }
-}
-
-.activity-glow.run-glow[data-activity-status='done'] {
-  box-shadow: 0 0 6px color-mix(in srgb, var(--activity-done) 40%, transparent);
-}
-
-.activity-glow.run-glow[data-activity-status='failed'] {
-  box-shadow: 0 0 8px color-mix(in srgb, var(--activity-failed) 50%, transparent);
-}
-
-.activity-glow.run-glow[data-activity-status='waiting'] {
-  box-shadow: 0 0 6px color-mix(in srgb, var(--activity-waiting) 50%, transparent);
-}
-
-.activity-glow.run-glow[data-activity-status='queued'] {
-  border-color: color-mix(in srgb, var(--activity-queued) 60%, transparent);
-  animation: run-glow-queued-breathe 2.4s ease-in-out infinite paused;
-}
-
-html:not([data-window-focused='false']) .activity-glow.run-glow[data-activity-status='queued'] {
-  animation-play-state: running;
-}
-
-.activity-glow.run-glow[data-activity-status='idle'] {
-  border-color: hsl(var(--border) / 0.6);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) .activity-glow.run-glow[data-activity-status='queued'] {
-    animation: none;
-  }
-}
-
-html[data-motion='reduced'] .activity-glow.run-glow[data-activity-status='queued'] {
-  animation: none;
-}
-
-/* ---------------------------------------------------------------------------
  * Round agent icons in the terminal list (`terminal-session-list.tsx`).
  *
  * Orbiting gradient arc with a slightly thicker 2px border and a synchronized

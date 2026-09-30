@@ -81,7 +81,9 @@ export function HealthWidget({
               label="Repo size"
               value={health.sizeBytes === null ? '—' : formatBytes(health.sizeBytes)}
               sublabel={
-                health.looseObjects === null ? undefined : `${formatNumber(health.looseObjects)} loose objects`
+                health.looseObjects === null
+                  ? undefined
+                  : `${formatNumber(health.looseObjects)} loose objects`
               }
             />
             <StatTile label="Local branches" value={formatNumber(health.localBranches)} />
@@ -89,9 +91,7 @@ export function HealthWidget({
             <StatTile label="Tags" value={formatNumber(health.tags)} />
             <StatTile
               label="Oldest un-merged"
-              value={
-                health.oldestUnmergedAt === null ? '—' : relativeDays(health.oldestUnmergedAt)
-              }
+              value={health.oldestUnmergedAt === null ? '—' : relativeDays(health.oldestUnmergedAt)}
               sublabel={health.oldestUnmergedAt === null ? 'nothing un-merged' : undefined}
             />
             <StatTile
