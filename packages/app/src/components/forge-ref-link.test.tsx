@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const openLinkFromEvent = vi.fn();
@@ -12,7 +12,10 @@ import { ForgeRefLink } from './forge-ref-link';
 const URL = 'https://github.com/o/r/pull/12';
 
 describe('ForgeRefLink', () => {
-  beforeEach(() => openLinkFromEvent.mockReset());
+  beforeEach(() => {
+    cleanup();
+    openLinkFromEvent.mockReset();
+  });
 
   it('renders #number and opens in-app on plain click without bubbling', () => {
     const outer = vi.fn();
