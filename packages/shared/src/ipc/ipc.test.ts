@@ -1905,6 +1905,8 @@ describe('video contract', () => {
       videoFileOpen: ['VideoFileHandoffRequest', 'VideoFileHandoffResponse'],
       videoRootGet: ['VideoRootGetResponse'],
       videoRootSet: ['VideoRootSetRequest', 'VideoRootSetResponse'],
+      videoRootResolve: ['VideoRootResolveRequest', 'VideoRootResolveResponse'],
+      videoSetup: ['VideoSetupRequest', 'VideoSetupResponse'],
       videoStudioChanged: ['VideoStudioChangedPayload'],
       videoRenderProgress: ['VideoRenderProgressPayload'],
     };

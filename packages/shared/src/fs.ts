@@ -134,6 +134,21 @@ export const mstudioFileUrl = (
   return `${MSTUDIO_FILE_SCHEME}://${scope}/${encodeURIComponent(repoId ?? '-')}/${segments}${query}`;
 };
 
+/**
+ * A media URL under the Video tab's resolved root (Phase 99 Theme D):
+ * `mstudio-file://video/-/<relPath>`. Not an `FsScope` — the fs channels have
+ * no video scope — so main's protocol handler resolves the `video` host
+ * against whatever root `mstudio:video:root-resolve` last settled on.
+ */
+export const videoFileUrl = (relPath: string, cacheKey?: number): string => {
+  const segments = relPath
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  return `${MSTUDIO_FILE_SCHEME}://video/-/${segments}${cacheKey !== undefined ? `?v=${cacheKey}` : ''}`;
+};
+
 
 /**
  * Build a jailed URL for a file as it exists AT A REVISION, rather than in the

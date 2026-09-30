@@ -513,7 +513,9 @@ const bridge: Pick<
     root: {
       get: () => call(CHANNELS.videoRootGet),
       set: (req) => call(CHANNELS.videoRootSet, req),
+      resolve: (req) => call(CHANNELS.videoRootResolve, req),
     },
+    setup: (req) => call(CHANNELS.videoSetup, req),
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
   },

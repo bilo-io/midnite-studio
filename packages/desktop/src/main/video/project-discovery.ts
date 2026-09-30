@@ -53,25 +53,55 @@ export type VideoOutputFile = { filename: string; iteration: number; label: stri
  * missing file gets — there is nothing else honest to say about it.
  */
 export async function discoverProjects(root: string): Promise<VideoProject[]> {
+  const projects: VideoProject[] = [];
+  await scanProjects(root, '', 0, projects);
+  return projects;
+}
+
+/** Deep enough for `<brand>/<category>/<NNN-name>` plus headroom; never a runaway walk. */
+const MAX_PROJECT_DEPTH = 5;
+
+/**
+ * Phase 99 Theme D: a project **id is a path** under `projects/`, exactly as
+ * midnite-videos' own `scripts/projects.mjs` defines it — any folder holding a
+ * `project.json`, at whatever depth, with recursion stopping at the first
+ * `project.json` (a project's `input/`/`output/` are its contents, not more
+ * projects). A flat Phase 44 root is the depth-one case of the same walk.
+ *
+ * A folder with no `project.json` and no project beneath it is still listed,
+ * `valid: false` — Phase 44's "never a silently skipped folder" — while one
+ * that only groups projects (`<brand>/`, `<category>/`) is not a project.
+ * Dot- and underscore-leading folders (`_template`, `_stills`) never are.
+ * Returns how many entries it added, so a caller can tell a grouping folder
+ * from an empty one.
+ */
+async function scanProjects(root: string, rel: string, depth: number, out: VideoProject[]): Promise<number> {
   let entries;
   try {
-    entries = await readdir(join(root, PROJECTS_DIR), { withFileTypes: true });
+    entries = await readdir(join(root, PROJECTS_DIR, rel), { withFileTypes: true });
   } catch {
-    return [];
+    return 0;
   }
-
-  const projects: VideoProject[] = [];
+  let added = 0;
   for (const entry of entries) {
     // A symlinked directory reports `isDirectory(): false` from `readdir`'s
-    // own `lstat`-shaped Dirent (it reports the symlink's own type, not its
-    // target's) — excluding it here would make a project reached through a
-    // symlink silently vanish instead of being read and refused for
-    // escaping the root, which is what `readProject`'s own `confineToRoot`
-    // call actually catches, via `realpath`, a few lines down.
-    if ((!entry.isDirectory() && !entry.isSymbolicLink()) || entry.name === TEMPLATE_ID) continue;
-    projects.push(await readProject(root, entry.name));
+    // own `lstat`-shaped Dirent — excluding it here would make a project
+    // reached through a symlink silently vanish instead of being read and
+    // refused for escaping the root by `readProject`'s `confineToRoot`.
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+    if (entry.name === TEMPLATE_ID || entry.name.startsWith('.') || entry.name.startsWith('_')) continue;
+    const id = rel ? `${rel}/${entry.name}` : entry.name;
+    if (depth + 1 < MAX_PROJECT_DEPTH && entry.isDirectory() && !existsSync(join(root, PROJECTS_DIR, id, PROJECT_FILE))) {
+      const nested = await scanProjects(root, id, depth + 1, out);
+      if (nested > 0) {
+        added += nested;
+        continue;
+      }
+    }
+    out.push(await readProject(root, id));
+    added += 1;
   }
-  return projects;
+  return added;
 }
 
 export async function getProject(root: string, id: string): Promise<VideoProject | null> {
@@ -89,6 +119,7 @@ export async function getProject(root: string, id: string): Promise<VideoProject
  * human can read — never a crash and never a silently skipped folder.
  */
 async function readProject(root: string, folderName: string): Promise<VideoProject> {
+  // `folderName` is the project id — a `/`-separated path under `projects/`.
   const relJsonPath = join(PROJECTS_DIR, folderName, PROJECT_FILE);
 
   // The pure, no-filesystem-access half first: a `../`-style escape is a
@@ -228,32 +259,45 @@ export type VideoFileEntry = { name: string; isDir: boolean; size: number; mtime
  * `input/` and `output/` are one project's own — never a recursive tree,
  * matching the shallow depth `ekko-videos` projects actually have.
  */
+export type VideoFileArea = 'assets' | 'input' | 'output' | 'notes';
+
+/** Caps the recursive Assets walk (Phase 99 Theme D) — a tree, not an indexer. */
+const MAX_AREA_ENTRIES = 5000;
+const MAX_AREA_DEPTH = 6;
+
 export async function listAreaFiles(
   root: string,
-  area: 'assets' | 'input' | 'output',
+  area: VideoFileArea,
   projectId: string,
+  { recursive = false }: { recursive?: boolean } = {},
 ): Promise<VideoFileEntry[]> {
   const relDir = area === 'assets' ? 'assets' : join(PROJECTS_DIR, projectId, area);
   const dir = await confineToRoot(root, relDir);
   if (dir === null) return [];
 
-  let names: string[];
-  try {
-    names = await readdir(dir);
-  } catch {
-    return [];
-  }
-
   const entries: VideoFileEntry[] = [];
-  for (const name of names) {
-    let info;
+  const walk = async (sub: string, depth: number): Promise<void> => {
+    let names: string[];
     try {
-      info = await stat(join(dir, name));
+      names = await readdir(sub ? join(dir, sub) : dir);
     } catch {
-      continue;
+      return;
     }
-    entries.push({ name, isDir: info.isDirectory(), size: info.size, mtimeMs: info.mtimeMs });
-  }
+    for (const name of names) {
+      if (entries.length >= MAX_AREA_ENTRIES) return;
+      if (recursive && name.startsWith('.')) continue;
+      const rel = sub ? `${sub}/${name}` : name;
+      let info;
+      try {
+        info = await stat(join(dir, rel));
+      } catch {
+        continue;
+      }
+      entries.push({ name: rel, isDir: info.isDirectory(), size: info.size, mtimeMs: info.mtimeMs });
+      if (recursive && info.isDirectory() && depth + 1 < MAX_AREA_DEPTH) await walk(rel, depth + 1);
+    }
+  };
+  await walk('', 0);
   return entries.sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1));
 }
 
@@ -266,7 +310,7 @@ export async function listAreaFiles(
  */
 export async function resolveAreaFilePath(
   root: string,
-  area: 'assets' | 'input' | 'output',
+  area: VideoFileArea,
   projectId: string,
   name: string,
 ): Promise<string | null> {

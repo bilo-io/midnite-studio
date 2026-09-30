@@ -20,6 +20,7 @@ import {
 import { cancelFfmpegExport, isFfmpegFormat, runFfmpegExport } from '../media/export-service';
 import { createMediaStore } from '../media/media-store';
 import { resolveWorkdir } from '../repo-registry';
+import { resolveHandoffPath } from '../video-service';
 import { probeBinary } from '../system-health';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleFromSender } from './handle';
@@ -30,6 +31,11 @@ import { handle, handleBare, handleFromSender } from './handle';
  * this file forwards, wraps every op so a thrown fs error still answers the
  * `GitOpResult` envelope, and fans `mediaChanged` out to every window.
  */
+
+async function resolveVideoExportInput(projectId: string, name: string): Promise<string | null> {
+  const resolved = await resolveHandoffPath(projectId, 'output', name);
+  return resolved.ok ? resolved.path : null;
+}
 
 const CHANGE_DEBOUNCE_MS = 150;
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
@@ -185,10 +191,17 @@ export function registerMediaHandlers(): void {
         if (!isFfmpegFormat(req.format)) return failure(`${req.format} is not an ffmpeg export.`);
         const ffmpeg = await ffmpegStatus();
         if (!ffmpeg.found) return failure(ffmpeg.reason);
-        const input = await store.resolveForRead(req.source);
+        const source = req.source;
+        // Theme D's `video` arm: an iteration under the resolved video root,
+        // re-confined there — never an absolute path from the renderer.
+        const input =
+          source.kind === 'video'
+            ? await resolveVideoExportInput(source.projectId, source.name)
+            : await store.resolveForRead(source);
         if (!input) return failure('Source file not found.');
         const { ext, label } = MEDIA_EXPORT_FORMAT_INFO[req.format];
-        const stem = req.source.path.split('/').pop()?.replace(/\.[^.]+$/, '') ?? 'export';
+        const sourceName = source.kind === 'video' ? source.name : source.path;
+        const stem = sourceName.split('/').pop()?.replace(/\.[^.]+$/, '') ?? 'export';
         const options = {
           defaultPath: join(req.defaultDir ?? '', `${stem}.${ext}`),
           filters: [{ name: label, extensions: [ext] }],

@@ -183,3 +183,137 @@ export const VideoRenderProgressEventSchema = z.object({
   progress: z.number().min(0).max(1).optional(),
 });
 export type VideoRenderProgressEvent = z.infer<typeof VideoRenderProgressEventSchema>;
+
+// --- Phase 99 Theme D: Media ▸ Video -----------------------------------------
+
+/**
+ * Where the Video tab's root came from, in resolution order:
+ * 1. `repo` — the active repo itself has the midnite-videos layout
+ *    (`video-editor/` + `projects/`);
+ * 2. `repo-media` — `<repo>/.midnite/media/video/` exists;
+ * 3. `global` — Phase 44's global root setting.
+ * `null` source means none resolved, and the tab offers Setup Video.
+ */
+export const VIDEO_ROOT_SOURCES = ['repo', 'repo-media', 'global'] as const;
+export const VideoRootSourceSchema = z.enum(VIDEO_ROOT_SOURCES);
+export type VideoRootSource = z.infer<typeof VideoRootSourceSchema>;
+
+export const VideoRootResolutionSchema = z.object({
+  root: z.string().nullable(),
+  source: VideoRootSourceSchema.nullable(),
+  /** `<repo>/.midnite/media/video` for the active repo — where Setup Video scaffolds. `null` with no repo. */
+  setupTarget: z.string().nullable(),
+});
+export type VideoRootResolution = z.infer<typeof VideoRootResolutionSchema>;
+
+/** `.midnite/media/video` — the repo-local video root Setup Video writes. */
+export const VIDEO_REPO_MEDIA_DIR = '.midnite/media/video';
+
+/** The two directories that mark a folder as a midnite-videos workspace. */
+export const VIDEO_LAYOUT_MARKERS = ['video-editor', 'projects'] as const;
+
+/** Remotion `--codec` values the render dialog offers. */
+export const VIDEO_RENDER_CODECS = ['h264', 'vp8', 'vp9', 'prores', 'gif'] as const;
+export const VideoRenderCodecSchema = z.enum(VIDEO_RENDER_CODECS);
+export type VideoRenderCodec = z.infer<typeof VideoRenderCodecSchema>;
+
+export const VIDEO_CODEC_INFO: Record<VideoRenderCodec, { label: string; ext: string; crf: boolean }> = {
+  h264: { label: 'H.264 (mp4)', ext: 'mp4', crf: true },
+  vp8: { label: 'VP8 (webm)', ext: 'webm', crf: true },
+  vp9: { label: 'VP9 (webm)', ext: 'webm', crf: true },
+  prores: { label: 'ProRes (mov)', ext: 'mov', crf: false },
+  gif: { label: 'GIF', ext: 'gif', crf: false },
+};
+
+/** Render-dialog knobs. Every field optional; omitted means Remotion's own default. */
+export const VideoRenderOptionsSchema = z.object({
+  codec: VideoRenderCodecSchema.default('h264'),
+  /** Constant rate factor — lower is better. Ignored by prores/gif. */
+  crf: z.number().int().min(0).max(63).optional(),
+  /** Resolution scale, e.g. 0.5 for half size. */
+  scale: z.number().positive().max(4).optional(),
+  /** Iteration label — `vN-<label>`; letters, digits, dot, dash, underscore. */
+  label: z
+    .string()
+    .regex(/^[\w.-]+$/, 'letters, digits, dot, dash and underscore only')
+    .max(60)
+    .optional(),
+});
+export type VideoRenderOptions = z.infer<typeof VideoRenderOptionsSchema>;
+
+/** Extensions an iteration may carry — one per codec. */
+const ITERATION_PATTERN = /^v(\d+)(?:-([\w.-]+?))?\.(mp4|webm|mov|gif)$/;
+
+/**
+ * One rendered iteration under `<project>/output/`. `sharesVersion` marks a
+ * pinned version (`render.mjs --version v3`) that several variants share, so
+ * the tree can show them as siblings rather than successive cuts.
+ */
+export type VideoIteration = {
+  filename: string;
+  version: number;
+  label: string | null;
+  ext: string;
+  sharesVersion: boolean;
+};
+
+/**
+ * Parse `output/` filenames into iterations, **newest first**: descending
+ * version, then label (unlabelled before labelled) within a version. Anything
+ * that is not `vN[-label].<ext>` — `CHANGELOG.md`, `_stills/` — is skipped.
+ */
+export function parseIterations(filenames: readonly string[]): VideoIteration[] {
+  const parsed: VideoIteration[] = [];
+  for (const filename of filenames) {
+    const match = ITERATION_PATTERN.exec(filename);
+    if (!match) continue;
+    parsed.push({
+      filename,
+      version: Number(match[1]),
+      label: match[2] ?? null,
+      ext: match[3]!,
+      sharesVersion: false,
+    });
+  }
+  const counts = new Map<number, number>();
+  for (const it of parsed) counts.set(it.version, (counts.get(it.version) ?? 0) + 1);
+  for (const it of parsed) it.sharesVersion = (counts.get(it.version) ?? 0) > 1;
+  return parsed.sort(
+    (a, b) =>
+      b.version - a.version ||
+      (a.label === null ? -1 : b.label === null ? 1 : a.label.localeCompare(b.label)),
+  );
+}
+
+/** `v3-high.mp4` → `v3-high`: the heading `render.mjs` writes into `CHANGELOG.md`. */
+export function iterationStem(filename: string): string {
+  return filename.replace(/\.[^.]+$/, '');
+}
+
+/**
+ * The `## <stem> — <date>` section of an `output/CHANGELOG.md` for one
+ * iteration, body included, or `null` when the changelog has no entry for it.
+ */
+export function changelogEntry(changelog: string, filename: string): string | null {
+  const stem = iterationStem(filename);
+  const lines = changelog.split('\n');
+  const start = lines.findIndex((line) => {
+    const heading = /^##\s+(\S+)/.exec(line);
+    return heading?.[1] === stem;
+  });
+  if (start === -1) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i]!)) {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join('\n').trim();
+}
+
+/** Remotion Studio deep-links a composition at `/<compositionId>`. */
+export function studioCompositionUrl(studioUrl: string, compositionId: string | null): string {
+  if (!compositionId) return studioUrl;
+  return `${studioUrl.replace(/\/+$/, '')}/${encodeURIComponent(compositionId)}`;
+}

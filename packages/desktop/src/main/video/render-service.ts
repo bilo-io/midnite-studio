@@ -1,6 +1,11 @@
 import { join } from 'node:path';
 
-import type { VideoRender, VideoRenderProgressEvent } from '@midnite/studio-shared';
+import {
+  VIDEO_CODEC_INFO,
+  type VideoRender,
+  type VideoRenderOptions,
+  type VideoRenderProgressEvent,
+} from '@midnite/studio-shared';
 
 import { firstLine, runProcess, type ProcessSink, type RunProcessDeps, type SpawnFn } from '../process-runner';
 
@@ -37,6 +42,22 @@ export type RenderTarget = { command: string; args: string[]; cwd: string };
  * changelog stub — prefer it. The fallback reconstructs just enough of that
  * convention to produce a sane path when no wrapper exists.
  */
+/**
+ * Phase 99 Theme D's codec → Remotion CLI argv table. `h264` with no knobs
+ * is `[]`, so a Phase 44 render's argv is unchanged. crf is only passed to
+ * codecs that take one (prores and gif reject it).
+ */
+export function remotionCodecArgs(options: Partial<VideoRenderOptions> | undefined): string[] {
+  if (!options) return [];
+  const codec = options.codec ?? 'h264';
+  const args: string[] = [];
+  if (codec !== 'h264') args.push(`--codec=${codec}`);
+  if (codec === 'prores') args.push('--prores-profile=hq');
+  if (options.crf !== undefined && VIDEO_CODEC_INFO[codec].crf) args.push(`--crf=${options.crf}`);
+  if (options.scale !== undefined && options.scale !== 1) args.push(`--scale=${options.scale}`);
+  return args;
+}
+
 export function buildRenderCommand(input: {
   /** Video root — cwd for the project's own `scripts/render.mjs`. */
   rootDir: string;
@@ -50,16 +71,23 @@ export function buildRenderCommand(input: {
   outputDir: string;
   /** Filenames already in `<project>/output/`, for the fallback's version numbering. */
   existingOutputFiles: readonly string[];
+  /** Phase 99 Theme D's render dialog. */
+  options?: Partial<VideoRenderOptions>;
 }): RenderTarget {
-  if (input.hasWrapper) {
-    const args = ['scripts/render.mjs', input.projectId, ...(input.label ? [input.label] : [])];
+  const codec = input.options?.codec ?? 'h264';
+  const label = input.options?.label ?? input.label;
+  const extra = remotionCodecArgs(input.options);
+  // The wrapper hard-codes `.mp4` output, and Remotion refuses a webm/mov/gif
+  // codec into an `.mp4` path — so only h264 goes through it.
+  if (input.hasWrapper && codec === 'h264') {
+    const args = ['scripts/render.mjs', input.projectId, ...(label ? [label] : []), ...extra];
     return { command: 'node', args, cwd: input.rootDir };
   }
   const version = nextRenderVersion(input.existingOutputFiles);
-  const name = `${version}${input.label ? `-${input.label}` : ''}.mp4`;
+  const name = `${version}${label ? `-${label}` : ''}.${VIDEO_CODEC_INFO[codec].ext}`;
   return {
     command: 'npx',
-    args: ['remotion', 'render', input.compositionId, join(input.outputDir, name)],
+    args: ['remotion', 'render', input.compositionId, join(input.outputDir, name), ...extra],
     cwd: input.appDir,
   };
 }

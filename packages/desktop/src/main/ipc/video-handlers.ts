@@ -9,7 +9,9 @@ import {
   openVideoFile,
   readVideoProjectFile,
   removeVideoProject,
+  resolveVideoRootFor,
   revealVideoFile,
+  setupVideoWorkspace,
   setVideoRoot,
   videoRenderCancel,
   videoRenderList,
@@ -19,6 +21,8 @@ import {
   videoStudioStop,
   videoToolchain,
 } from '../video-service';
+import { resolveWorkdir } from '../repo-registry';
+import { mediaVideoTemplateRoot } from '../template-path';
 import { handle, handleBare } from './handle';
 
 /**
@@ -74,7 +78,7 @@ export function registerVideoHandlers(): void {
   handle(
     CHANNELS.videoRenderStart,
     schemas.VideoRenderStartRequest,
-    async ({ projectId, compositionId }) => videoRenderStart(projectId, compositionId),
+    async ({ projectId, compositionId, options }) => videoRenderStart(projectId, compositionId, options),
     (issue) => failure(issue),
   );
 
@@ -112,7 +116,9 @@ export function registerVideoHandlers(): void {
   handle(
     CHANNELS.videoProjectFiles,
     schemas.VideoProjectFilesRequest,
-    async ({ projectId, area }) => ({ entries: await listVideoProjectFiles(projectId, area) }),
+    async ({ projectId, area, recursive }) => ({
+      entries: await listVideoProjectFiles(projectId, area, recursive === true),
+    }),
     () => ({ entries: [] }),
   );
 
@@ -147,5 +153,23 @@ export function registerVideoHandlers(): void {
       return { root };
     },
     () => ({ root: null }),
+  );
+
+  handle(
+    CHANNELS.videoRootResolve,
+    schemas.VideoRootResolveRequest,
+    async ({ repoId }) => resolveVideoRootFor(repoId ? await resolveWorkdir(repoId) : null),
+    () => ({ root: null, source: null, setupTarget: null }),
+  );
+
+  handle(
+    CHANNELS.videoSetup,
+    schemas.VideoSetupRequest,
+    async ({ repoId }) => {
+      const repoPath = await resolveWorkdir(repoId);
+      if (!repoPath) return failure('That repository is not open.');
+      return setupVideoWorkspace(repoPath, mediaVideoTemplateRoot());
+    },
+    (issue) => failure(issue),
   );
 }

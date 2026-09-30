@@ -109,6 +109,18 @@ export function installMgitFileProtocol(): void {
   });
 }
 
+/**
+ * Phase 99 Theme D — the `video` host (`mstudio-file://video/-/<relPath>`)
+ * resolves against the Video tab's resolved root, injected from
+ * `main/index.ts` so this module stays free of the video service. Unset, the
+ * host 404s like any other unknown scope.
+ */
+let videoRootProvider: () => Promise<string | null> = async () => null;
+
+export function setVideoFileRootProvider(provider: () => Promise<string | null>): void {
+  videoRootProvider = provider;
+}
+
 /** Parse + confine. Exported for the jail tests. Fails CLOSED on anything malformed. */
 export async function resolveRequestPath(rawUrl: string): Promise<string | null> {
   // One try around the whole parse: `new URL` throws on garbage and
@@ -134,6 +146,9 @@ export async function resolveRequestPath(rawUrl: string): Promise<string | null>
       };
     } else if (scope === 'claude-home') {
       scopeReq = { scope: 'claude-home' };
+    } else if (scope === 'video') {
+      const videoRoot = await videoRootProvider();
+      return videoRoot ? confineToRoot(videoRoot, relPath) : null;
     } else {
       return null;
     }

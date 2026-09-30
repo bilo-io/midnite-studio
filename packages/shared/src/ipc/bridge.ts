@@ -1048,7 +1048,13 @@ export type MidniteStudioBridge = {
       set: (
         req: In<typeof S.VideoRootSetRequest>,
       ) => Promise<z.infer<typeof S.VideoRootSetResponse>>;
+      /** Phase 99 Theme D — in-repo layout → `.midnite/media/video` → global; adopted by every video op. */
+      resolve: (
+        req: In<typeof S.VideoRootResolveRequest>,
+      ) => Promise<z.infer<typeof S.VideoRootResolveResponse>>;
     };
+    /** Phase 99 Theme D — Setup Video scaffold into `<repo>/.midnite/media/video/`. */
+    setup: (req: In<typeof S.VideoSetupRequest>) => Promise<z.infer<typeof S.VideoSetupResponse>>;
     onStudioChanged: (
       handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void,
     ) => Unsubscribe;

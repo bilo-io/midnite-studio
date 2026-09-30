@@ -121,7 +121,7 @@ import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trig
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
-import { configureVideo, stopAllVideoProcesses } from './video-service';
+import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
 import { configureOllamaSettings } from './ollama/settings-service';
@@ -129,7 +129,7 @@ import { createOllamaSettingsStore } from './ollama/settings-store';
 import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
-import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
+import { installMgitFileProtocol, registerMgitFileScheme, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
 import { createFileSink } from './log-sink';
@@ -613,6 +613,7 @@ if (!app.requestSingleInstanceLock()) {
     const gateApprovalTimer = setInterval(() => void pollWorkflowGateApprovals(), FORGE_POLL_MS);
     gateApprovalTimer.unref();
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
+    setVideoFileRootProvider(effectiveVideoRoot);
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
