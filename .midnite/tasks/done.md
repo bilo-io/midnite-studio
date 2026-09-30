@@ -28,7 +28,7 @@
 
 ## 2026-09-30 — Phase 99 Theme B — Docs
 
-[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). The Media page's Docs tab: a lazy Tiptap editor over plain `.md`, a project accordion, a per-doc AI thread whose edits arrive as accept/reject diff cards, and md/html/pdf export.
+[PR #612](https://github.com/bilo-io/midnite-studio/pull/612). The Media page's Docs tab: a lazy Tiptap editor over plain `.md`, a project accordion, a per-doc AI thread whose edits arrive as accept/reject diff cards, and md/html/pdf export.
 
 - [x] Tiptap v3 editor + `@tiptap/markdown`, lazy chunk (703.8 KB); entry +0.9 KB from the shared contract only.
 - [x] Markdown round-trip fixtures (lossy constructs listed), debounced autosave, external-change reload / conflict banner.
