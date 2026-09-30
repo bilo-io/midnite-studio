@@ -287,6 +287,26 @@ export function SidebarPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      <Accordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
+        <div className="p-3">
+          <Choice<NavMode>
+            label="Side navigation"
+            hint="Lock the nav open or closed, or let it stay collapsed and expand on hover."
+            value={navMode}
+            onChange={setNavMode}
+            options={[
+              ['auto', 'Auto', 'Collapsed; expands on hover'],
+              ['expanded', 'Locked open', 'Always expanded'],
+              [
+                'collapsed',
+                'Locked closed',
+                'Always the icon bar — never expands, items show tooltips',
+              ],
+            ]}
+          />
+        </div>
+      </Accordion>
+
       <Accordion
         title="Sidenav"
         icon={<LuLayoutList className="h-4 w-4" />}
@@ -310,26 +330,6 @@ export function SidebarPage() {
               Show all destinations
             </button>
           </Field>
-        </div>
-      </Accordion>
-
-      <Accordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
-        <div className="p-3">
-          <Choice<NavMode>
-            label="Side navigation"
-            hint="Lock the nav open or closed, or let it stay collapsed and expand on hover."
-            value={navMode}
-            onChange={setNavMode}
-            options={[
-              ['auto', 'Auto', 'Collapsed; expands on hover'],
-              ['expanded', 'Locked open', 'Always expanded'],
-              [
-                'collapsed',
-                'Locked closed',
-                'Always the icon bar — never expands, items show tooltips',
-              ],
-            ]}
-          />
         </div>
       </Accordion>
 
