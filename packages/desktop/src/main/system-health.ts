@@ -20,11 +20,14 @@ const PROBE_TIMEOUT_MS = 4000;
 
 /**
  * Probe a binary on the machine, checking candidate locations first and
- * falling back to `which <binName>` on PATH, then querying `--version`.
+ * falling back to `which <binName>` on PATH, then querying its version
+ * (`--version` unless the caller names another argument — Phase 98 Theme D's
+ * catalogue probe does, for tools like `az version`).
  */
 export async function probeBinary(
   binName: string,
   candidatePaths: string[] = [],
+  versionArg = '--version',
 ): Promise<ToolchainBinary> {
   let binPath: string | null = null;
 
@@ -59,7 +62,7 @@ export async function probeBinary(
 
   // 3. Obtain version string
   try {
-    const { stdout } = await execAsync(`"${binPath}" --version`, { timeout: PROBE_TIMEOUT_MS });
+    const { stdout } = await execAsync(`"${binPath}" ${versionArg}`, { timeout: PROBE_TIMEOUT_MS });
     const version = stdout.trim() || null;
     return { path: binPath, version };
   } catch {

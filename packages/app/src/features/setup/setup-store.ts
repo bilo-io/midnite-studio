@@ -33,6 +33,17 @@ type SetupRequests = {
    * would unmount mid-handoff, before the arrow had pointed at anything.
    */
   holdOpen: () => void;
+  /**
+   * Whether the overlay has stepped aside for the terminal (Phase 98 Theme D).
+   * An install runs in a real, visible terminal session — a sudo prompt or
+   * Homebrew's own "Press RETURN" has to be answerable — and a full-window
+   * overlay would sit on top of it. Aside, the frame stays mounted (the page
+   * keeps watching its install) but hidden, releases its focus trap and
+   * Escape, and leaves a "Return to setup" pill.
+   */
+  aside: boolean;
+  stepAside: () => void;
+  returnToSetup: () => void;
   closeSetup: () => void;
 };
 
@@ -40,8 +51,11 @@ export const useSetupStore = create<SetupRequests>((set) => ({
   requested: false,
   startPageId: null,
   resume: false,
-  openSetup: (startPageId = null) => set({ requested: true, startPageId, resume: false }),
-  resumeSetup: () => set({ requested: true, startPageId: null, resume: true }),
+  openSetup: (startPageId = null) => set({ requested: true, startPageId, resume: false, aside: false }),
+  resumeSetup: () => set({ requested: true, startPageId: null, resume: true, aside: false }),
   holdOpen: () => set({ requested: true }),
-  closeSetup: () => set({ requested: false, startPageId: null, resume: false }),
+  aside: false,
+  stepAside: () => set({ aside: true }),
+  returnToSetup: () => set({ aside: false }),
+  closeSetup: () => set({ requested: false, startPageId: null, resume: false, aside: false }),
 }));

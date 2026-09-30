@@ -385,7 +385,10 @@ html[data-motion='reduced'] .agent-count-text {
  * - `.setup-handoff-arrow` — the arrow pointing at the FAB after X or Skip,
  *   nudging toward it. A loop, so it is paused whenever the window is not
  *   focused and removed under reduced motion; it is only mounted for the few
- *   seconds the handoff lasts. Transform only, a compositor job. */
+ *   seconds the handoff lasts. Transform only, a compositor job.
+ * - `.setup-ready-check` (Theme D) — a status row's ready check, pulsing a
+ *   green box-shadow glow around its circle. A loop like the arrow, gated and
+ *   guarded the same way; reduced motion leaves a still, un-glowing check. */
 .setup-brand-gradient {
   padding: 0.12em 0.15em;
   background-image: linear-gradient(90deg, var(--rainbow-ramp));
@@ -409,19 +412,36 @@ html[data-motion='reduced'] .agent-count-text {
   animation: setup-arrow-nudge 1.1s ease-in-out infinite paused;
 }
 
-html:not([data-window-focused='false']) .setup-handoff-arrow {
+@keyframes setup-ready-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(34 197 94 / 0);
+  }
+  50% {
+    box-shadow: 0 0 10px 2px rgb(34 197 94 / 0.55);
+  }
+}
+
+.setup-ready-check {
+  animation: setup-ready-pulse 1.8s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .setup-handoff-arrow,
+html:not([data-window-focused='false']) .setup-ready-check {
   animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion='full']) .setup-caret,
-  html:not([data-motion='full']) .setup-handoff-arrow {
+  html:not([data-motion='full']) .setup-handoff-arrow,
+  html:not([data-motion='full']) .setup-ready-check {
     animation: none;
   }
 }
 
 html[data-motion='reduced'] .setup-caret,
-html[data-motion='reduced'] .setup-handoff-arrow {
+html[data-motion='reduced'] .setup-handoff-arrow,
+html[data-motion='reduced'] .setup-ready-check {
   animation: none;
 }
 

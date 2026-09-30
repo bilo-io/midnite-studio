@@ -2446,6 +2446,13 @@ export const CliStatusResponse = z.object({
   target: z.string().nullable(),
   managed: z.boolean(),
   version: z.string().nullable().optional(),
+  /**
+   * Whether the install target's directory is on the PATH main resolved from
+   * the login shell (Phase 98 Theme G). Absent when nothing is installed.
+   */
+  onPath: z.boolean().optional(),
+  /** The `export PATH=…` line to add to a shell profile when `onPath` is false. */
+  pathExportLine: z.string().nullable().optional(),
 });
 export type CliStatusResponse = z.infer<typeof CliStatusResponse>;
 export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });

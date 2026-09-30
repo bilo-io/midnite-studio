@@ -1,0 +1,185 @@
+/**
+ * The setup catalogue (Phase 98 Theme D) — every tool the setup overlay can
+ * detect and offer to install, as data.
+ *
+ * One row per tool: how main finds it (`probe`), how the renderer installs it
+ * (`install`, always a Homebrew line typed into a visible terminal — never a
+ * headless install from main), and how a row draws it (`icon`, `brandColor`).
+ * Themes E–I append rows here; the probe, the install runner and the status
+ * row read them without changing.
+ *
+ * The renderer never sends main a binary name. `setupProbe` takes catalogue
+ * **ids**, and main looks the probe up here, so the channel cannot be turned
+ * into "run any binary with any argument". The `bin`/`versionArg`/`paths`
+ * patterns below are the second fence: nothing shell-shaped can be declared.
+ *
+ * Icons are a `react-icons` set plus an export name (`si`/`SiGit`), resolved
+ * in `app` (`features/setup/setup-icons.ts`) — this package imports zod and
+ * nothing else, and a string pair is what lets a static catalogue name a glyph
+ * without shared ever importing React.
+ */
+import { z } from 'zod';
+
+export const SETUP_ITEM_GROUPS = ['core', 'forge-cli', 'agent-cli', 'js', 'containers', 'media'] as const;
+export const SetupItemGroupSchema = z.enum(SETUP_ITEM_GROUPS);
+export type SetupItemGroup = z.infer<typeof SetupItemGroupSchema>;
+
+/** A `react-icons` glyph: its set's import suffix (`react-icons/<set>`) and export name. */
+export const SetupIconRefSchema = z.object({
+  set: z.enum(['lu', 'si']),
+  name: z.string().regex(/^[A-Z][A-Za-z0-9]+$/),
+});
+export type SetupIconRef = z.infer<typeof SetupIconRefSchema>;
+
+/** Exactly one of a formula or a cask — `.strict()` so an object carrying both is rejected, not read as the first. */
+export const SetupBrewInstallSchema = z.union([
+  z.object({ formula: z.string().regex(/^[a-z0-9@+._/-]+$/) }).strict(),
+  z.object({ cask: z.string().regex(/^[a-z0-9@+._/-]+$/) }).strict(),
+]);
+export type SetupBrewInstall = z.infer<typeof SetupBrewInstallSchema>;
+
+export const SetupItemSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  label: z.string().min(1),
+  group: SetupItemGroupSchema,
+  probe: z.object({
+    /** A bare binary name, looked up in `paths` first and then with `which`. */
+    bin: z.string().regex(/^[A-Za-z0-9._-]+$/),
+    /** The one argument that prints a version, e.g. `--version` or `version`. */
+    versionArg: z.string().regex(/^-{0,2}[A-Za-z0-9._=-]+$/),
+    /** Known install locations, checked before `which`; `~/` expands to the home directory in main. */
+    paths: z.array(z.string().regex(/^(~\/|\/)[^\0]*$/)),
+  }),
+  /**
+   * How to install it, or `null` for a tool Homebrew does not install (brew
+   * itself, which bootstraps from its own script). `xcodeClt` marks a tool
+   * Apple's Command Line Tools also provide — git — so a Mac without brew can
+   * still be offered `xcode-select --install`.
+   */
+  install: z
+    .object({
+      brew: SetupBrewInstallSchema,
+      xcodeClt: z.boolean().optional(),
+    })
+    .nullable(),
+  icon: SetupIconRefSchema,
+  /** The tool's brand colour, `#rrggbb`, painted on its icon. */
+  brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+export type SetupItem = z.infer<typeof SetupItemSchema>;
+
+export const SETUP_CATALOGUE: readonly SetupItem[] = [
+  {
+    id: 'homebrew',
+    label: 'Homebrew',
+    group: 'core',
+    probe: { bin: 'brew', versionArg: '--version', paths: ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'] },
+    install: null,
+    icon: { set: 'si', name: 'SiHomebrew' },
+    brandColor: '#FBB040',
+  },
+  {
+    id: 'git',
+    label: 'git',
+    group: 'core',
+    probe: {
+      bin: 'git',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/git', '/usr/local/bin/git', '/usr/bin/git'],
+    },
+    install: { brew: { formula: 'git' }, xcodeClt: true },
+    icon: { set: 'si', name: 'SiGit' },
+    brandColor: '#F05032',
+  },
+];
+
+export function setupItem(id: string): SetupItem | undefined {
+  return SETUP_CATALOGUE.find((item) => item.id === id);
+}
+
+// --- probe channel -------------------------------------------------------------
+
+export const SetupProbeResultSchema = z.object({
+  id: z.string().min(1),
+  installed: z.boolean(),
+  /** The first line the version argument printed, e.g. `git version 2.45.0`. */
+  version: z.string().nullable(),
+  path: z.string().nullable(),
+});
+export type SetupProbeResult = z.infer<typeof SetupProbeResultSchema>;
+
+/** Catalogue ids to probe. An id the catalogue does not know is dropped from the answer, not guessed at. */
+export const SetupProbeRequest = z.object({ ids: z.array(z.string().min(1)).min(1).max(64) });
+export const SetupProbeResponse = z.object({ results: z.array(SetupProbeResultSchema) });
+export type SetupProbeResponse = z.infer<typeof SetupProbeResponse>;
+
+// --- install lines ---------------------------------------------------------------
+
+/** Homebrew's own installer, verbatim from brew.sh. */
+export const HOMEBREW_INSTALL_COMMAND =
+  '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';
+
+/** Apple's Command Line Tools — git without Homebrew. Opens the system's own installer dialog. */
+export const XCODE_CLT_INSTALL_COMMAND = 'xcode-select --install';
+
+/**
+ * One shell line installing every ticked item Homebrew can: formulae first,
+ * then casks, each deduplicated in first-seen order. `null` when none of them
+ * is brew-installable.
+ */
+export function composeBrewInstall(items: readonly SetupItem[]): string | null {
+  const formulae: string[] = [];
+  const casks: string[] = [];
+  for (const item of items) {
+    const brew = item.install?.brew;
+    if (!brew) continue;
+    if ('formula' in brew) {
+      if (!formulae.includes(brew.formula)) formulae.push(brew.formula);
+    } else if (!casks.includes(brew.cask)) {
+      casks.push(brew.cask);
+    }
+  }
+  const lines: string[] = [];
+  if (formulae.length > 0) lines.push(`brew install ${formulae.join(' ')}`);
+  if (casks.length > 0) lines.push(`brew install --cask ${casks.join(' ')}`);
+  return lines.length > 0 ? lines.join(' && ') : null;
+}
+
+export type SetupInstallOption = {
+  id: 'brew' | 'homebrew-bootstrap' | 'xcode-clt';
+  label: string;
+  command: string;
+};
+
+/**
+ * What the install runner can offer for `items`, best first.
+ *
+ * With brew, one brew line. Without it, Homebrew's installer comes before
+ * anything else — and when a ticked item is one the Command Line Tools also
+ * provide (git), `xcode-select --install` is offered beside it.
+ */
+export function planSetupInstall(items: readonly SetupItem[], brewInstalled: boolean): SetupInstallOption[] {
+  const brewLine = composeBrewInstall(items);
+  if (brewInstalled) {
+    return brewLine ? [{ id: 'brew', label: 'Install with Homebrew', command: brewLine }] : [];
+  }
+  const options: SetupInstallOption[] = [];
+  if (brewLine) {
+    options.push({ id: 'homebrew-bootstrap', label: 'Install Homebrew first', command: HOMEBREW_INSTALL_COMMAND });
+  }
+  if (items.some((item) => item.install?.xcodeClt)) {
+    options.push({
+      id: 'xcode-clt',
+      label: "Install Apple's Command Line Tools",
+      command: XCODE_CLT_INSTALL_COMMAND,
+    });
+  }
+  return options;
+}
+
+/** The numeric core of a probed version line — `git version 2.45.0 (Apple Git-154)` → `2.45.0`. */
+export function setupVersionNumber(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const match = /(?:^|[^0-9.])v?(\d+\.\d+(?:\.\d+)?)/.exec(raw);
+  return match?.[1] ?? null;
+}

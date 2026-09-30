@@ -22,9 +22,12 @@ vi.mock('electron', () => ({
 // (`../cli-path.js` from this file's own directory) — stubbed per test so
 // nothing here ever touches a real `/usr/local/bin`.
 const { preferredTargets } = vi.hoisted(() => ({ preferredTargets: vi.fn() }));
-vi.mock('../cli-path.js', () => ({ preferredTargets }));
+vi.mock('../cli-path.js', () => ({
+  preferredTargets,
+  pathExportLine: (dir: string) => `export PATH="${dir}:$PATH"`,
+}));
 
-import { registerCliHandlers } from './cli-handlers';
+import { onPathFields, registerCliHandlers } from './cli-handlers';
 
 // `getCliStatus()` reads the installed symlink with `existsSync`, which
 // follows the link — a dangling symlink (pointing at a bundle path that does
@@ -125,5 +128,32 @@ describe('registerCliHandlers', () => {
     // Never deleted, never overwritten.
     expect(existsSync(target)).toBe(true);
     expect(readlinkSync(target)).toBe(foreignBin);
+  });
+});
+
+describe('onPathFields (Phase 98 Theme G)', () => {
+  it('is on PATH, with no hint, when the target directory is a PATH entry', () => {
+    expect(onPathFields('/usr/local/bin/midnite-studio', '/usr/bin:/usr/local/bin/:/bin')).toEqual({
+      onPath: true,
+      pathExportLine: null,
+    });
+  });
+
+  it('names the export line to add when it is not', () => {
+    expect(onPathFields('/Users/me/.local/bin/midnite-studio', '/usr/bin:/bin')).toEqual({
+      onPath: false,
+      pathExportLine: 'export PATH="/Users/me/.local/bin:$PATH"',
+    });
+    expect(onPathFields('/Users/me/.local/bin/midnite-studio', undefined).onPath).toBe(false);
+  });
+
+  it('rides along on an installed status', async () => {
+    const root = tempDir();
+    preferredTargets.mockReturnValue([join(root, 'bin', 'midnite-studio')]);
+    registerCliHandlers();
+    await invoke(CHANNELS.cliInstall, { target: 'auto' });
+    const status = (await invoke(CHANNELS.cliStatus)) as { onPath?: boolean; pathExportLine?: string | null };
+    expect(status.onPath).toBe(false);
+    expect(status.pathExportLine).toBe(`export PATH="${join(root, 'bin')}:$PATH"`);
   });
 });

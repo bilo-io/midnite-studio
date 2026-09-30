@@ -120,6 +120,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const timers = useRef<{ intro?: ReturnType<typeof setTimeout>; handoff?: () => void }>({});
   const skippedPageIds = useUiStore((s) => s.setupState.skippedPageIds);
+  const aside = useSetupStore((s) => s.aside);
 
   const page = step.kind === 'page' ? SETUP_PAGES[step.index] : undefined;
   const pageCount = SETUP_PAGES.length;
@@ -242,20 +243,23 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   // Escape is the X path — or, once the handoff is showing, "go now".
   // `dialog`, blocking — which also registers the occluder that hides the
   // browser's native view; no `useOccluder` as well.
-  useDismiss(true, () => (handoff ? dissolveNow() : leave(false)));
-  useFocusTrap(containerRef, true);
+  // Stepped aside for the terminal (Theme D), the overlay lets both go: the
+  // terminal needs the keyboard, and Escape there is the shell's.
+  useDismiss(!aside, () => (handoff ? dissolveNow() : leave(false)));
+  useFocusTrap(containerRef, !aside);
 
   // ←/→ step between pages — but never out of a text field, where the arrows
   // move the caret, and never with a modifier held, which is someone else's
   // chord. → on the finale does nothing: finishing is Get started, a click,
   // not a stray arrow. Read through a ref so the listener is installed once.
   const atFinale = step.kind === 'finale';
-  const keysRef = useRef({ next, back, atFinale });
+  const keysRef = useRef({ next, back, atFinale, aside });
   useEffect(() => {
-    keysRef.current = { next, back, atFinale };
+    keysRef.current = { next, back, atFinale, aside };
   });
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (keysRef.current.aside) return;
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
       if (isEditable(event.target)) return;
@@ -284,139 +288,143 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   } as const;
 
   return (
-    <div
-      ref={containerRef}
-      tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
-      aria-label={label}
-      data-testid="setup-overlay"
-      data-step={step.kind === 'page' && page ? page.id : step.kind}
-      data-handoff={handoff?.phase}
-      onClick={handoff ? dissolveNow : undefined}
-      style={{
-        opacity: handoff?.phase === 'dissolving' ? 0 : 1,
-        transition: `opacity ${reduced ? 0 : CHOREO.dissolveMs}ms ease-in-out`,
-      }}
-      className="fixed inset-0 z-dialog flex flex-col bg-background text-foreground outline-none"
-    >
-      <header {...content} className="flex shrink-0 items-center justify-between px-3 pt-3">
-        <IconButton icon={LuX} label="Close setup" onClick={() => leave(false)} />
-        <ThemeToggle elevated />
-      </header>
+    <>
+      {aside ? <ReturnToSetupPill /> : null}
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        hidden={aside}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        data-testid="setup-overlay"
+        data-step={step.kind === 'page' && page ? page.id : step.kind}
+        data-handoff={handoff?.phase}
+        onClick={handoff ? dissolveNow : undefined}
+        style={{
+          opacity: handoff?.phase === 'dissolving' ? 0 : 1,
+          transition: `opacity ${reduced ? 0 : CHOREO.dissolveMs}ms ease-in-out`,
+        }}
+        className={`fixed inset-0 z-dialog ${aside ? 'hidden' : 'flex'} flex-col bg-background text-foreground outline-none`}
+      >
+        <header {...content} className="flex shrink-0 items-center justify-between px-3 pt-3">
+          <IconButton icon={LuX} label="Close setup" onClick={() => leave(false)} />
+          <ThemeToggle elevated />
+        </header>
 
-      <main {...content} className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6">
-        {/*
-          Pages sit at a fixed height from the top rather than centred: a
-          centred column re-centres whenever its body grows, which would move
-          the title anchor as each body faded in and between pages of
-          different lengths. The intro and the finale stand alone, so centre.
-        */}
-        <div
-          className={`flex w-full max-w-xl flex-col gap-6 py-8 ${step.kind === 'page' ? 'mt-[14vh]' : 'my-auto'}`}
-        >
-          {step.kind === 'intro' ? (
-            <Intro
-              instant={arrival.mode === 'instant'}
-              leaving={introLeaving}
-              markRef={introMarkRef}
-              onBegin={next}
-            />
-          ) : null}
-
-          {step.kind === 'page' && page ? (
-            <>
-              <div className="flex items-center gap-3">
-                {/*
-                  The fixed anchor: rendered by the frame, at the same place
-                  in the tree for every page, so it never remounts or moves
-                  between pages — only the glide in (intro, resume) and
-                  Theme J's finale move it.
-                */}
-                <span ref={anchorRef} data-testid="setup-title-anchor" className="shrink-0">
-                  <BrandMark className="h-8 w-8" />
-                </span>
-                <PageTitle
-                  key={page.id}
-                  title={page.titleTyped}
-                  instant={arrival.mode === 'instant'}
-                  delayMs={arrival.glideFrom !== null ? CHOREO.glideMs : 0}
-                  onTyped={() => setTypedFor(page.id)}
-                />
-              </div>
-              {bodyShown ? (
-                <div
-                  key={page.id}
-                  data-testid="setup-page-body"
-                  className={arrival.mode === 'typed' ? 'animate-fade-in' : undefined}
-                  style={arrival.mode === 'typed' ? { animationDuration: '280ms' } : undefined}
-                >
-                  <page.Component />
-                </div>
-              ) : null}
-              {/* Arrives with the body, so the buttons do not sit alone under a title still typing. */}
-              <div
-                className={`flex items-center justify-between gap-2 ${bodyShown && arrival.mode === 'typed' ? 'animate-fade-in' : ''}`}
-                style={{
-                  visibility: bodyShown ? 'visible' : 'hidden',
-                  ...(arrival.mode === 'typed' ? { animationDuration: '280ms' } : {}),
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={back}
-                  className="rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={next}
-                  disabled={!canAdvance}
-                  className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {step.kind === 'finale' ? <Finale onBack={back} onDone={complete} /> : null}
-        </div>
-      </main>
-
-      <footer {...content} className="flex shrink-0 flex-col items-center gap-2 pb-5">
-        <ol aria-label="Setup pages" className="flex items-center gap-2">
-          {SETUP_PAGES.map((row, index) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                aria-label={`${row.title} (page ${index + 1} of ${pageCount})`}
-                aria-current={dots[index] === 'active' ? 'step' : undefined}
-                data-dot={dots[index]}
-                onClick={() => go({ kind: 'page', index }, { mode: 'instant', glideFrom: null })}
-                className={`block h-2 rounded-full transition-all ${DOT_CLASS[dots[index] ?? 'upcoming']}`}
-              />
-            </li>
-          ))}
-        </ol>
-        {step.kind !== 'finale' ? (
-          <button
-            type="button"
-            onClick={() => leave(true)}
-            className="flex items-center gap-0.5 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        <main {...content} className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6">
+          {/*
+            Pages sit at a fixed height from the top rather than centred: a
+            centred column re-centres whenever its body grows, which would move
+            the title anchor as each body faded in and between pages of
+            different lengths. The intro and the finale stand alone, so centre.
+          */}
+          <div
+            className={`flex w-full max-w-xl flex-col gap-6 py-8 ${step.kind === 'page' ? 'mt-[14vh]' : 'my-auto'}`}
           >
-            Skip
-            <LuChevronRight aria-hidden className="h-3.5 w-3.5" />
-          </button>
-        ) : (
-          // Holds Skip's height, so the dots do not drop when it goes.
-          <span aria-hidden className="block h-5" />
-        )}
-      </footer>
+            {step.kind === 'intro' ? (
+              <Intro
+                instant={arrival.mode === 'instant'}
+                leaving={introLeaving}
+                markRef={introMarkRef}
+                onBegin={next}
+              />
+            ) : null}
 
-      {handoff && handoff.phase !== 'fading' ? <HandoffCue target={handoff.target} /> : null}
-    </div>
+            {step.kind === 'page' && page ? (
+              <>
+                <div className="flex items-center gap-3">
+                  {/*
+                    The fixed anchor: rendered by the frame, at the same place
+                    in the tree for every page, so it never remounts or moves
+                    between pages — only the glide in (intro, resume) and
+                    Theme J's finale move it.
+                  */}
+                  <span ref={anchorRef} data-testid="setup-title-anchor" className="shrink-0">
+                    <BrandMark className="h-8 w-8" />
+                  </span>
+                  <PageTitle
+                    key={page.id}
+                    title={page.titleTyped}
+                    instant={arrival.mode === 'instant'}
+                    delayMs={arrival.glideFrom !== null ? CHOREO.glideMs : 0}
+                    onTyped={() => setTypedFor(page.id)}
+                  />
+                </div>
+                {bodyShown ? (
+                  <div
+                    key={page.id}
+                    data-testid="setup-page-body"
+                    className={arrival.mode === 'typed' ? 'animate-fade-in' : undefined}
+                    style={arrival.mode === 'typed' ? { animationDuration: '280ms' } : undefined}
+                  >
+                    <page.Component />
+                  </div>
+                ) : null}
+                {/* Arrives with the body, so the buttons do not sit alone under a title still typing. */}
+                <div
+                  className={`flex items-center justify-between gap-2 ${bodyShown && arrival.mode === 'typed' ? 'animate-fade-in' : ''}`}
+                  style={{
+                    visibility: bodyShown ? 'visible' : 'hidden',
+                    ...(arrival.mode === 'typed' ? { animationDuration: '280ms' } : {}),
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={back}
+                    className="rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={next}
+                    disabled={!canAdvance}
+                    className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {step.kind === 'finale' ? <Finale onBack={back} onDone={complete} /> : null}
+          </div>
+        </main>
+
+        <footer {...content} className="flex shrink-0 flex-col items-center gap-2 pb-5">
+          <ol aria-label="Setup pages" className="flex items-center gap-2">
+            {SETUP_PAGES.map((row, index) => (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  aria-label={`${row.title} (page ${index + 1} of ${pageCount})`}
+                  aria-current={dots[index] === 'active' ? 'step' : undefined}
+                  data-dot={dots[index]}
+                  onClick={() => go({ kind: 'page', index }, { mode: 'instant', glideFrom: null })}
+                  className={`block h-2 rounded-full transition-all ${DOT_CLASS[dots[index] ?? 'upcoming']}`}
+                />
+              </li>
+            ))}
+          </ol>
+          {step.kind !== 'finale' ? (
+            <button
+              type="button"
+              onClick={() => leave(true)}
+              className="flex items-center gap-0.5 rounded px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Skip
+              <LuChevronRight aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            // Holds Skip's height, so the dots do not drop when it goes.
+            <span aria-hidden className="block h-5" />
+          )}
+        </footer>
+
+        {handoff && handoff.phase !== 'fading' ? <HandoffCue target={handoff.target} /> : null}
+      </div>
+    </>
   );
 }
 
@@ -668,4 +676,23 @@ function isEditable(target: EventTarget | null): boolean {
   if (target.isContentEditable) return true;
   const tag = target.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
+/**
+ * The way back while the overlay has stepped aside for an install's terminal
+ * (Theme D). Top-centre, clear of the terminal panel docked below (or beside)
+ * the app.
+ */
+function ReturnToSetupPill() {
+  return (
+    <button
+      type="button"
+      data-testid="setup-return"
+      onClick={() => useSetupStore.getState().returnToSetup()}
+      className="fixed left-1/2 top-3 z-dialog flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-border bg-background/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-lg hover:bg-accent"
+    >
+      <BrandMark className="h-4 w-4" />
+      Return to setup
+    </button>
+  );
 }

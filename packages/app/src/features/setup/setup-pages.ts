@@ -1,6 +1,7 @@
 import type { SetupPage } from './setup-page';
 import { ForgeConnectPage } from './pages/forge-connect-page';
 import { MachineCheckPage } from './pages/machine-check-page';
+import { MidniteCliPage } from './pages/midnite-cli-page';
 
 /**
  * The setup overlay's pages, top to bottom (Phase 98 Theme A).
@@ -13,7 +14,8 @@ import { MachineCheckPage } from './pages/machine-check-page';
  * removing `FirstRunModal` and `OnboardingModal` loses nothing. Themes D–I
  * replace them with git, forges, accounts, CLI, toolchain and Ollama pages.
  * `forges` keeps the old wizard's step id, so a skip recorded under the old
- * modal still means the same page.
+ * modal still means the same page. `cli` is Theme G's page, the first of the
+ * final set to land.
  */
 export const SETUP_PAGES: readonly SetupPage[] = [
   {
@@ -27,5 +29,11 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     title: 'Connect your forges',
     titleTyped: 'Connect your forges',
     Component: ForgeConnectPage,
+  },
+  {
+    id: 'cli',
+    title: 'Midnite CLI',
+    titleTyped: 'Install the Midnite CLI',
+    Component: MidniteCliPage,
   },
 ];
