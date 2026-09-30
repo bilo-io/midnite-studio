@@ -460,7 +460,7 @@ const GIT_NAV_ITEMS: NavItem[] = [
   { view: 'history', label: 'History', icon: VIEW_ICON.history },
 ];
 
-const AGENT_NAV_ITEMS: NavItem[] = [
+export const AGENT_NAV_ITEMS: NavItem[] = [
   { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
   { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
   { view: 'media', label: 'Media', icon: VIEW_ICON.media },

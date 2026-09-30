@@ -55,29 +55,22 @@ export const PAGE_WINDOW_ROLES = [
   'history',
   'optimizer',
   'sessions',
+  'councils',
+  'workflows',
+  'media',
+  'models',
 ] as const satisfies readonly ViewId[];
 
 /*
-  Five `ViewId`s are deliberately absent, and the omissions are the interesting
-  part of this list.
+  `settings` and `landing` are deliberately absent: surfaces nobody wants
+  twice, a preferences pane and the app's front door.
 
-  `settings` and `landing` are surfaces nobody wants twice: a preferences pane
-  and the app's front door.
-
-  `councils`, `workflows` and `video` are excluded for a sharper reason — they
-  are repo-independent, long-running, and mount-heavy. Duplicate rendering is
-  only safe for a view whose mount has no load-bearing side effects, which is
-  exactly the trap `view-registry.tsx` records `BrowserPane` falling into: its
-  mount seeds the first tab and drives its own reveal, so a second instance
-  gets both wrong. Until each of those three is audited against that bar, a
-  second live copy is a bug waiting to be filed rather than a feature.
-
-  `sessions` used to sit in the first group — "a placeholder with no view
-  behind it yet" — and no longer does: Theme E replaced `SessionsPlaceholder`
-  with the real `SessionsView`, and its mount clears the bar the second
-  paragraph sets. It fetches a list and renders it; it seeds nothing and
-  drives no reveal, unlike `BrowserPane`. That audit is what moved it into the
-  array above rather than leaving it here unexamined.
+  `councils`, `workflows`, `media` and `models` (the whole Agents rail
+  section) were once excluded as long-running and mount-heavy. Audited: none
+  seeds state or drives a reveal on mount the way `BrowserPane` does; each
+  fetches over IPC into its own QueryClient, and the only cross-window bits
+  (workflow reveal, councils history) are per-renderer stores that degrade to
+  a fresh view in the popout.
 */
 
 

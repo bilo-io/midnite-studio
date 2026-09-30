@@ -1,4 +1,5 @@
 import type { Workflow, WorkflowTemplate } from '@midnite/studio-shared';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { useRef, useState } from 'react';
 import { LuCopy, LuDownload, LuLayoutTemplate, LuPlus, LuTrash2, LuUpload, LuWorkflow } from 'react-icons/lu';
 
@@ -153,6 +154,7 @@ export function WorkflowList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
+        <PageDetachMark role="workflows" />
         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Workflows</h2>
         <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground/70">{rows.length}</span>
         <IconButton

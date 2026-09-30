@@ -1,5 +1,6 @@
 import type { MediaTab } from '@midnite/studio-shared';
 
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { useUiStore } from '../../store/ui-store';
 import { AudioTab } from './audio/audio-tab';
 import { DocsTab } from './doc/docs-tab';
@@ -31,6 +32,7 @@ export function MediaView() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border px-3">
+        <PageDetachMark role="media" />
         <h1 className="text-sm font-semibold">Media</h1>
         <MediaTabStrip active={tab} onSelect={setTab} />
       </div>
