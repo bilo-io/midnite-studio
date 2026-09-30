@@ -5,7 +5,6 @@ import { AudioTab } from './audio/audio-tab';
 import { DocsTab } from './doc/docs-tab';
 import { ImageTab } from './image/image-tab';
 import { MediaTabStrip } from './media-tab-strip';
-import { RepoMediaTab } from './repo-media-tab';
 import { useMediaChangedInvalidation } from './use-media';
 import { VideoTab } from './video/video-tab';
 
