@@ -187,7 +187,9 @@ test('View all changes opens the graph working-copy panel of per-file accordions
   // this view, and a spec that never checks it would not notice it regressing.
   await expect(page.getByTestId('diff-view')).toHaveCount(0);
 
-  await page.getByRole('button', { name: /a\.ts/ }).click();
+  // The accordion's row — the only `a.ts` button that is a disclosure; the
+  // file list beside it has its own row and hover actions for the same path.
+  await page.getByRole('button', { name: /a\.ts/, expanded: false }).click();
   await expect(page.getByTestId('diff-view')).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Expand all files' }).click();
