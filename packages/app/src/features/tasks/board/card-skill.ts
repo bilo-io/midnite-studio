@@ -61,6 +61,7 @@ const MIDNITE_ORDER = [
   'midnite-refine',
   'midnite-verify',
   'midnite-swarm',
+  'midnite-sitrep',
   'midnite-release-prep',
   'midnite-release-complete',
   'midnite-address-issue',
