@@ -47,4 +47,15 @@ describe('useRefetchModelsOnPullDone', () => {
     expect(useModelsPullQueueStore.getState().pulls['p1']?.done).toBe(true);
     expect(invalidate).toHaveBeenCalled();
   });
+
+  it('does nothing, rather than throwing, on a bridge without an ollama group', () => {
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {};
+    expect(() =>
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <Feed />
+        </QueryClientProvider>,
+      ),
+    ).not.toThrow();
+  });
 });

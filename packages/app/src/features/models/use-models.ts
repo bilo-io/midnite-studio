@@ -192,7 +192,8 @@ export function useRefetchModelsOnPullDone(): void {
   const progress = useModelsPullQueueStore((s) => s.progress);
   useEffect(() => {
     const api = bridge();
-    if (!api) return undefined;
+    // Mounted app-wide now, so a partial bridge (a browser build, a test bridge) must not throw here.
+    if (!api?.ollama?.onPullProgress) return undefined;
     return api.ollama.onPullProgress((event) => {
       progress(event);
       if (event.done) invalidate();
