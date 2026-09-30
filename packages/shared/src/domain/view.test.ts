@@ -10,9 +10,12 @@ describe('parseNavVisibility', () => {
   });
 
   it('keeps only false entries for known views', () => {
-    expect(parseNavVisibility({ graph: false, files: true, changes: false, bogus: false })).toEqual({
+    // `changes` is a removed view now, so it drops like any unknown id.
+    expect(
+      parseNavVisibility({ graph: false, files: true, actions: false, changes: false, bogus: false }),
+    ).toEqual({
       graph: false,
-      changes: false,
+      actions: false,
     });
   });
 });
