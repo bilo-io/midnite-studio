@@ -86,9 +86,9 @@ test('picking a board loads its items, and not before', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await clickRailLink(page, 'Tasks');
 
-  // Nothing loads until a board is picked — the phase doc's own acceptance
-  // test at the query layer, proved here at the assembled-app level too.
-  await expect(page.getByText('Pick a board', { exact: true })).toBeVisible();
+  // Opens on the built-in Repo issues source; no board item loads until a
+  // board is picked, proved here at the assembled-app level too.
+  await expect(page.getByRole('combobox', { name: 'Task source' })).toContainText('Repo issues');
   await expect(page.getByText('Wire the write path')).toHaveCount(0);
 
   await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
