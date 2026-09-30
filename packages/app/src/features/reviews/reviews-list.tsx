@@ -21,6 +21,7 @@ import { PrDetail } from './pr-detail';
 import { REVIEW_GROUPS, type ReviewGroup } from './review-groups';
 import { PrDetailSkeleton, PullListSkeleton } from './reviews-skeletons';
 import { PageDetachMark } from '../../components/page-detach-mark';
+import { ForgeRefLink } from '../../components/forge-ref-link';
 
 const PULLS_PAGE_SIZE = 20;
 /** `ForgeListRequest`'s own zod ceiling — asking past it is a validation error, not a bigger page. */
@@ -250,7 +251,10 @@ export function ReviewsList({ repoId }: { repoId: string }) {
           own copy of the same three groups — both are on screen in this view,
           with the same headings, and the collapsed one is still in the DOM.
         */}
-        <div data-testid="reviews-groups" className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
+        <div
+          data-testid="reviews-groups"
+          className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1"
+        >
           {REVIEW_GROUPS.map((group) => (
             <ReviewGroupSection
               key={group.scope}
@@ -491,7 +495,7 @@ function PullRow({
         {checks ? <StatusPill status={checks} /> : null}
         <span className="truncate">{pull.title}</span>
         <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
-          #{pull.number}
+          <ForgeRefLink url={pull.url} number={pull.number} />
         </span>
       </span>
       <span className="flex w-full min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">

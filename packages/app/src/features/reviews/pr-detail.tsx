@@ -39,6 +39,7 @@ import { PrConversation } from './pr-conversation';
 import { PrFiles } from './pr-files';
 import { PrDetailSkeleton, PrHeaderMetaSkeleton, PrOverviewSkeleton } from './reviews-skeletons';
 import { ReviewActionBar } from './review-action-bar';
+import { ForgeRefLink } from '../../components/forge-ref-link';
 
 /**
  * One pull request, read in the app.
@@ -408,7 +409,10 @@ function PrHeader({
         <StatusPill status={pullStatus(pull)} />
         {checks ? <StatusPill status={checks} /> : null}
         <h2 className="truncate text-sm font-semibold" data-selectable>
-          <span className="text-muted-foreground">#{pull.number}</span> {pull.title}
+          <span className="text-muted-foreground">
+            <ForgeRefLink url={pull.url} number={pull.number} repoId={repoId} />
+          </span>{' '}
+          {pull.title}
         </h2>
         <OpenPreviewButton
           repoId={repoId}
@@ -521,7 +525,10 @@ function OpenPreviewButton({
       className={className}
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
-        dialogs.openMenu({ clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom }, items);
+        dialogs.openMenu(
+          { clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom },
+          items,
+        );
       }}
     />
   );

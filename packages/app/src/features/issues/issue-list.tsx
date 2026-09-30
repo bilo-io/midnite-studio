@@ -7,6 +7,7 @@ import { UserAvatar } from '../../components/user-avatar';
 import { issueStatus, StatusPill } from '../forge/forge-status';
 import { relativeAge, sortByUpdated } from './issue-order';
 import { LabelChip } from './label-chip';
+import { ForgeRefLink } from '../../components/forge-ref-link';
 
 /**
  * The issue list — flat, newest-updated first.
@@ -85,7 +86,7 @@ function IssueRow({
         <StatusPill status={issueStatus(issue)} />
         <span className="truncate">{issue.title}</span>
         <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
-          #{issue.number}
+          <ForgeRefLink url={issue.url} number={issue.number} />
         </span>
       </span>
       <span className="flex w-full min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">

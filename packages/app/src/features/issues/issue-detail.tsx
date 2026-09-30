@@ -14,6 +14,7 @@ import { IssueConversation } from './issue-conversation';
 import { IssueDetailSkeleton } from './issues-skeletons';
 import { LabelChip } from './label-chip';
 import { UserAvatar } from '../../components/user-avatar';
+import { ForgeRefLink } from '../../components/forge-ref-link';
 
 /**
  * One issue, read in full — one pane, not tabs.
@@ -61,7 +62,9 @@ export function IssueDetail({
         <div className="flex items-center gap-2">
           <StatusPill status={issueStatus(issue)} />
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{issue.title}</h2>
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">#{issue.number}</span>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
+            <ForgeRefLink url={issue.url} number={issue.number} />
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {issue.author ? (
@@ -91,7 +94,9 @@ export function IssueDetail({
               <span className="truncate">{issue.assignees.join(', ')}</span>
             </span>
           ) : null}
-          {issue.milestone !== null ? <span className="truncate">{issue.milestone.title}</span> : null}
+          {issue.milestone !== null ? (
+            <span className="truncate">{issue.milestone.title}</span>
+          ) : null}
         </div>
       </div>
 
@@ -114,7 +119,10 @@ export function IssueDetail({
           {body !== null && body.length > 0 ? (
             <div className="px-4 py-3">
               <PresentButton source={{ content: body, label }} className="mb-1" />
-              <div data-selectable className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}>
+              <div
+                data-selectable
+                className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
+              >
                 {/* No `rehype-raw` — an issue body is text somebody else wrote. */}
                 <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
                   {body}
