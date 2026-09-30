@@ -4431,6 +4431,7 @@ export function buildMockBridge(data: MockFixtures) {
       source: 'global',
       setupTarget: '/repo/.midnite/media/video',
     };
+  // eslint-disable-next-line no-var
   var videoRenders: Record<string, Array<{ id: string; [key: string]: unknown }>> = {
     ...(data.video?.renders ?? {}),
   };

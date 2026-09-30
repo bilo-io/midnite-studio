@@ -43,7 +43,11 @@ function installBridge(overrides: { renders?: VideoRender[]; toolchain?: VideoTo
       toolchain: vi.fn().mockResolvedValue({ toolchain: overrides.toolchain ?? TOOLCHAIN_ALL_FOUND }),
       files: vi.fn().mockResolvedValue({ entries: [] }),
       readFile,
-      root: { get: vi.fn().mockResolvedValue({ root: '/videos' }), set: vi.fn() },
+      root: {
+        get: vi.fn().mockResolvedValue({ root: '/videos' }),
+        set: vi.fn(),
+        resolve: vi.fn().mockResolvedValue({ root: '/videos', source: 'global', setupTarget: null }),
+      },
       onStudioChanged: vi.fn(() => () => {}),
       onRenderProgress: vi.fn(() => () => {}),
     } as unknown as MidniteStudioBridge['video'],
