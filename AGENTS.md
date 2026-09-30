@@ -352,15 +352,20 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
-and nothing else above it**, one row per agent or workstream:
+and nothing else above it**, one row per agent or workstream.
+[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the full spec — it gathers the state and
+renders the table:
 
-| Agent | % | ETA | Doing | Notes |
-|-------|---|-----|-------|-------|
-| refine-73 | 45% | ~40m | Stage 3 audit — grounding `confineTree` against the tree | posted the final `confineAllowlist` signature to the board |
+| Task | Progress | ETA | Diff | Status | Notes |
+|---|---|---|---|---|---|
+| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 | posted the final `confineAllowlist` signature to the board |
 
 - **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
-  internal agent id.
-- **A completion percentage in its own column**, always. An unknown percentage is `?`, never a blank.
+  internal agent id — and **always a clickable link** to its PR (or issue, before a PR exists).
+- **A completion percentage in its own column**, always, drawn as a 10-cell progress bar before
+  the number. An unknown percentage is `?`, never a blank.
+- **A diff column** once a PR exists — `🟩 +added 🟥 -deleted 📄 files` — and **an emoji status**
+  (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done; the skill has the full set).
 - **A remaining-time estimate (ETA) in its own column**, always — wall-clock time until that row
   merges or completes, derived from *observed* pace (elapsed time against the % so far, how long
   today's CI runs have actually taken, how many stages remain), never from an agent's own claim.

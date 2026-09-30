@@ -101,7 +101,8 @@ repeat until every subagent's PR is merged) — or invoke the `loop` skill direc
 either mechanism works, don't set up both.
 
 Each tick, post **one table and nothing else above it** — this is `CLAUDE.md`'s own "Sitrep"
-format: one row per subagent, columns `Agent | % | ETA | Doing | Notes`. Percentage is an estimate from
+format, rendered per [`midnite-sitrep`](../midnite-sitrep/SKILL.md): one row per subagent, columns
+`Task | Progress | ETA | Diff | Status | Notes`. Percentage is an estimate from
 observable state (worktree present? uncommitted diff? PR open? CI pending/green? merged?), never
 fabricated from a subagent's own self-report of "done" without checking — see Stage 7. **ETA is the
 remaining wall-clock time to that row's merge**, derived the same way: elapsed time against the %
