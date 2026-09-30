@@ -14,6 +14,19 @@
 - [x] Toolchain page with ticked-and-locked installed rows and Install selected (one brew line).
 - [x] Vitest: grouping, default selection, either-runtime rule, composed line, icon exports.
 
+## 2026-09-30 — Phase 98 Themes F + I — Accounts and git identity; local models with Ollama
+
+[PR #631](https://github.com/bilo-io/midnite-studio/pull/631). Two wizard pages over existing pieces: Phase 90's forge accounts and Phase 96's Ollama client and pull queue.
+
+- [x] `gitIdentityGet`/`gitIdentitySet` channels: global `git config` through git-engine and the write queue, `GitOpResult`-wrapped.
+- [x] Optional `email` on `ForgeAccount`, best-effort from `whoami`.
+- [x] Accounts page: account cards that switch the active account and pre-fill the identity form, plus an add-account flow.
+- [x] Vitest: identity schema and prefill, git-engine integration against a temp `HOME`, the page.
+- [x] Ollama page: education, detect/install/start through Theme D's runner (new `ollama` catalogue row).
+- [x] `systemMemory` channel and the curated model catalogue with fits/tight/too-big badges.
+- [x] Pull-progress subscription lifted from `ModelsView` to `Shell`; background downloads via `ollamaPull`.
+- [x] Vitest: RAM thresholds, catalogue schema, the page, and the store fed with the Models view unmounted.
+
 ## 2026-09-30 — Phase 98 Themes D + G — Setup catalogue, probes and the install runner; Midnite CLI page
 
 [PR #630](https://github.com/bilo-io/midnite-studio/pull/630). The plumbing every remaining setup page needs: a catalogue of tools, an id-keyed probe channel, a brew-in-a-visible-terminal install runner, and one status row. The Midnite CLI page is the first page built on them.
