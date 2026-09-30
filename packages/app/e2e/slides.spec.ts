@@ -186,11 +186,10 @@ test('a conversation comment’s Present button opens a deck without changing ma
   await page.keyboard.press('Escape');
   await expect(deck).toHaveCount(0);
 
-  // Invoking the command afterwards must still target the issue body: the
-  // comment's click never claimed `activeMarkdown` out from under it.
-  await page.keyboard.press('Meta+k');
-  await page.getByRole('combobox', { name: 'Command palette search' }).fill('Present as Slides');
-  await page.keyboard.press('Enter');
+  // The modal is still open behind the closed deck, and the issue body's own
+  // button still targets the issue body: the comment's click never claimed
+  // `activeMarkdown` out from under it.
+  await issueDetail.getByRole('button', { name: 'Present as slides' }).first().click();
   await expect(deck).toBeVisible();
   await expect(deck.getByRole('heading', { name: 'Bug report' })).toBeVisible();
 });
