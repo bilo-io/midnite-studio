@@ -1,6 +1,19 @@
 import type { CSSProperties } from 'react';
 
 import type { PaletteStyle } from './graph-themes';
+import { getPrimaryHsl } from './primary-lane';
+
+/**
+ * Reserved lane index for the checked-out branch's lane. It is outside the
+ * hashed 0..9 range, so no other lane can ever be assigned it — that is what
+ * keeps every other lane off the primary colour. Renderer-only: git-engine
+ * never emits it and the wire schema (non-negative) never carries it.
+ */
+export const HEAD_LANE_IDX = -1;
+
+/** Marker/palette slot for an index: the HEAD lane has its own, others wrap. */
+export const laneSlot = (colorIdx: number): number | 'head' =>
+  colorIdx === HEAD_LANE_IDX ? 'head' : colorIdx % LANE_HUES.length;
 
 /**
  * Lane palette.
@@ -60,6 +73,7 @@ export const laneHsl = (
   colorIdx: number,
   palette: PaletteStyle = 'vivid',
 ): [number, number, number] => {
+  if (colorIdx === HEAD_LANE_IDX) return getPrimaryHsl();
   const [h, s, l] = LANE_HUES[colorIdx % LANE_HUES.length] ?? LANE_HUES[0]!;
   return palette === 'muted'
     ? [h, Math.round(s * MUTED_SATURATION), l + MUTED_LIGHTNESS_SHIFT]
@@ -76,7 +90,7 @@ export const LANE_COLOR_COUNT = LANE_HUES.length;
 
 /** Every colour in a palette — for the `<defs>` block that defines one marker per colour. */
 export const laneColors = (palette: PaletteStyle): string[] =>
-  LANE_HUES.map((_, index) => laneColor(index, palette));
+  [...LANE_HUES.map((_, index) => laneColor(index, palette)), laneColor(HEAD_LANE_IDX, palette)];
 
 /** An HSL triple as sRGB channels in 0–1. */
 const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {

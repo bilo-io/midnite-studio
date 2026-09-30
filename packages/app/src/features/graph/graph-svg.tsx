@@ -10,7 +10,8 @@ import {
   nodeExtent,
   type GraphTheme,
 } from './graph-themes';
-import { LANE_COLOR_COUNT, laneColor, laneVars } from './lane-colors';
+import { laneColor, laneSlot, laneVars } from './lane-colors';
+import { usePrimaryHsl } from './primary-lane';
 import type { ProvenanceMarkMode } from './provenance-display';
 
 /**
@@ -83,6 +84,7 @@ export function GraphSvg({
   /** How the agent mark is drawn — see `provenance-display.ts`. */
   markMode?: ProvenanceMarkMode;
 }) {
+  usePrimaryHsl();
   const mid = theme.rowHeight / 2;
   const lane = (n: number): number => laneCentre(theme, laneWidth, n);
   const nodeX = lane(row.lane);
@@ -117,7 +119,7 @@ export function GraphSvg({
      */
     const arrow =
       withArrow && theme.arrowheads && edge.type === 'branch'
-        ? `url(#mstudio-arrow-${edge.colorIdx % LANE_COLOR_COUNT}-${theme.id})`
+        ? `url(#mstudio-arrow-${laneSlot(edge.colorIdx)}-${theme.id})`
         : undefined;
 
     // The tip stops at the face, not under it.

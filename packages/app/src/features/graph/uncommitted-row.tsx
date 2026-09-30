@@ -9,6 +9,7 @@ import {
   type GraphTheme,
 } from './graph-themes';
 import { laneColor } from './lane-colors';
+import { usePrimaryHsl } from './primary-lane';
 
 /**
  * The working copy, drawn as the row above the first commit.
@@ -60,6 +61,7 @@ export function UncommittedRow({
   const label =
     `${count} uncommitted ${count === 1 ? 'change' : 'changes'}` +
     (conflicted > 0 ? ` — ${conflicted} conflicted` : '');
+  usePrimaryHsl();
   const color = laneColor(colorIdx, theme.palette);
   const mid = theme.rowHeight / 2;
   const nodeX = laneCentre(theme, laneWidth, lane);

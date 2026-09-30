@@ -47,6 +47,7 @@ import { useCommitCi } from './use-commit-ci';
 import { useActiveAgentWorktreePaths, useActiveAgentWorktreeSessions } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
+import { applyHeadLane, findHeadLane } from './head-lane';
 import { resolveProvenanceDetails } from './provenance-mark';
 import { matchesProvenanceFilter } from './provenance-filter';
 
@@ -617,11 +618,21 @@ export function GraphView() {
    * `null` while the selected sha is below the loaded window, which is normal
    * on a large repo mid-stream — nothing glows until its row streams in.
    */
-  const glowColorIdx = useMemo(
-    () => rows.find((row) => row.commit.sha === selectedSha)?.colorIdx ?? null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, rowCount, selectedSha],
+  const headOid = status?.branch.oid ?? null;
+  /**
+   * The checked-out branch's lane, drawn in the user's primary colour. Found
+   * here because git-engine's colours are a hash of history and know nothing of
+   * HEAD; see `head-lane.ts`.
+   */
+  const headLane = useMemo(
+    () => findHeadLane(rows, rowCount, headOid),
+    [rows, rowCount, headOid],
   );
+  const glowColorIdx = useMemo(() => {
+    const index = rows.findIndex((row) => row.commit.sha === selectedSha);
+    return index < 0 ? null : applyHeadLane(rows[index]!, index, headLane).colorIdx;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, rowCount, selectedSha, headLane]);
 
   /**
    * The row HEAD points at, for the working-copy row to sit on top of.
@@ -630,11 +641,10 @@ export function GraphView() {
    * large repo mid-stream; the pseudo-row then falls back to lane 0 rather than
    * disappearing, since the changes it reports are real either way.
    */
-  const headOid = status?.branch.oid ?? null;
   const headRow = useMemo(
-    () => (headOid === null ? undefined : rows.find((row) => row.commit.sha === headOid)),
+    () => (headLane === null ? undefined : applyHeadLane(rows[headLane.from]!, headLane.from, headLane)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [headOid, rows, rowCount],
+    [headLane, rows, rowCount],
   );
 
   /*
@@ -838,7 +848,7 @@ export function GraphView() {
                   }}
                 >
                   <CommitGraphRow
-                    row={row}
+                    row={applyHeadLane(row, item.index, headLane)}
                     refs={refsBySha.get(row.commit.sha) ?? EMPTY_REFS}
                     selected={selectedSha === row.commit.sha}
                     gutterWidth={paintedGutter}

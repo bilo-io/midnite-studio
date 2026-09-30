@@ -11,6 +11,7 @@ import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor, laneVars } from './lane-colors';
+import { usePrimaryHsl } from './primary-lane';
 import {
   DEFAULT_PROVENANCE_MARK_MODE,
   type ProvenanceMarkMode,
@@ -145,6 +146,9 @@ function GraphRowInner({
   isAgentActive,
   agentSessionFor,
 }: GraphRowProps) {
+  // Re-render when the primary colour changes: the checked-out lane wears it.
+  usePrimaryHsl();
+
   // `refs` arrives sorted by importance (HEAD, locals, remotes, tags), so the
   // slice keeps the ref you most need to see and buries the ones you don't.
   const shown = refs.length > REF_CHIP_CAP ? refs.slice(0, REF_CHIP_CAP) : refs;
