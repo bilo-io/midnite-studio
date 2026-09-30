@@ -27,8 +27,12 @@ describe('ForgeSelectPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'GitLab' }));
     fireEvent.click(screen.getByRole('button', { name: 'GitHub' }));
     expect(useUiStore.getState().setupState.forges).toEqual(['github', 'gitlab']);
-    expect(screen.getByRole('button', { name: 'GitHub' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Bitbucket' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: 'GitHub' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Bitbucket' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
   });
 });
 
@@ -40,16 +44,30 @@ describe('ForgeCliPage', () => {
   });
 
   it('draws one row per selected forge and Bitbucket as no-CLI', async () => {
-    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, forges: ['github', 'gitlab', 'bitbucket', 'azure'] } });
+    useUiStore.setState({
+      setupState: { ...INITIAL_SETUP_STATE, forges: ['github', 'gitlab', 'bitbucket', 'azure'] },
+    });
     installSetupBridge(
       { homebrew: 'Homebrew 4', gh: 'gh version 2.60.0' },
-      { forge: { cliStatus: async () => ({ reason: 'not-authenticated', binPath: null, hint: 'gh auth login' }) } },
+      {
+        forge: {
+          cliStatus: async () => ({
+            reason: 'not-authenticated',
+            binPath: null,
+            hint: 'gh auth login',
+          }),
+        },
+      },
     );
     render(<ForgeCliPage />, { wrapper: wrapper() });
     await waitFor(() => expect(screen.getAllByTestId('setup-status-row')).toHaveLength(3));
-    expect(screen.getByTestId('setup-forge-no-cli').textContent).toContain('Token-based, no CLI needed');
+    expect(screen.getByTestId('setup-forge-no-cli').textContent).toContain(
+      'Token-based, no CLI needed',
+    );
     await waitFor(() => expect(screen.getByText(/Not signed in — run gh auth login/)).toBeTruthy());
     expect(screen.getByText('GitLab — GitLab CLI')).toBeTruthy();
-    expect(screen.getByText(/az extension add --name azure-devops|Azure CLI — not installed/)).toBeTruthy();
+    expect(
+      screen.getByText(/az extension add --name azure-devops|Azure CLI — not installed/),
+    ).toBeTruthy();
   });
 });

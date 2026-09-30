@@ -105,9 +105,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   // otherwise change a timeline's shape halfway through playing it.
   const [reduced] = useState(isReducedMotion);
   const [view, setView] = useState<View>(() => {
-    const start = resume
-      ? resumePageId(PAGE_IDS, useUiStore.getState().setupState)
-      : startPageId;
+    const start = resume ? resumePageId(PAGE_IDS, useUiStore.getState().setupState) : startPageId;
     const step = initialStep(start, PAGE_IDS);
     // Opened straight onto a page (a resume, a Settings deep link): no intro,
     // but the mark still arrives from the centre into the anchor.
@@ -149,7 +147,10 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     if (from === null || !anchor) return;
     const origin =
       from === 'centre'
-        ? centredRect(containerRef.current?.getBoundingClientRect() ?? viewportRect(), INTRO_MARK_PX)
+        ? centredRect(
+            containerRef.current?.getBoundingClientRect() ?? viewportRect(),
+            INTRO_MARK_PX,
+          )
         : from;
     playGlide(anchor, origin);
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps -- once per arrival, which `view` identifies
@@ -191,7 +192,9 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   };
 
   const complete = (): void => {
-    useUiStore.getState().updateSetupState({ completedAt: new Date().toISOString(), lastPageId: null });
+    useUiStore
+      .getState()
+      .updateSetupState({ completedAt: new Date().toISOString(), lastPageId: null });
     useSetupStore.getState().closeSetup();
   };
 
@@ -260,21 +263,31 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (keysRef.current.aside) return;
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
       if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
       if (isEditable(event.target)) return;
       event.preventDefault();
       if (event.key === 'ArrowRight') {
         if (!keysRef.current.atFinale) keysRef.current.next();
-      }
-      else keysRef.current.back();
+      } else keysRef.current.back();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const label =
-    step.kind === 'page' && page ? page.title : step.kind === 'finale' ? 'Setup complete' : 'Set up Midnite Studio';
+    step.kind === 'page' && page
+      ? page.title
+      : step.kind === 'finale'
+        ? 'Setup complete'
+        : 'Set up Midnite Studio';
   const dots = dotStates(step, PAGE_IDS, skippedPageIds);
   const bodyShown = page !== undefined && (arrival.mode === 'instant' || typedFor === page.id);
   // The page content, faded out and made inert once the handoff starts.
@@ -312,7 +325,10 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
           <ThemeToggle elevated />
         </header>
 
-        <main {...content} className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6">
+        <main
+          {...content}
+          className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6"
+        >
           {/*
             Pages sit at a fixed height from the top rather than centred: a
             centred column re-centres whenever its body grows, which would move
@@ -470,7 +486,11 @@ function Intro({
   };
 
   return (
-    <div data-testid="setup-intro" data-intro={frame.phase} className="flex flex-col items-center gap-6 text-center">
+    <div
+      data-testid="setup-intro"
+      data-intro={frame.phase}
+      className="flex flex-col items-center gap-6 text-center"
+    >
       <div className="flex items-center gap-4">
         <span ref={markRef} className="shrink-0">
           <BrandMark className="h-16 w-16" />
@@ -606,10 +626,17 @@ function HandoffCue({ target }: { target: RectLike | null }) {
           bottom: root.clientHeight - target.top + gap,
         }}
       >
-        <p role="status" className="whitespace-nowrap text-right text-sm font-medium text-foreground">
+        <p
+          role="status"
+          className="whitespace-nowrap text-right text-sm font-medium text-foreground"
+        >
           You can always continue setup from here
         </p>
-        <span aria-hidden data-testid="setup-handoff-arrow" className="setup-handoff-arrow inline-block text-primary">
+        <span
+          aria-hidden
+          data-testid="setup-handoff-arrow"
+          className="setup-handoff-arrow inline-block text-primary"
+        >
           <LuArrowDownRight className="h-10 w-10" />
         </span>
       </div>

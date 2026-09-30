@@ -4,7 +4,12 @@ import { SiBitbucket, SiGithub, SiGitlab } from 'react-icons/si';
 import type { IconComponent } from '../../../components/icon-button';
 import { useUiStore } from '../../../store/ui-store';
 
-export const SETUP_FORGES: readonly { kind: 'github' | 'gitlab' | 'bitbucket' | 'azure'; label: string; icon: IconComponent; color: string }[] = [
+export const SETUP_FORGES: readonly {
+  kind: 'github' | 'gitlab' | 'bitbucket' | 'azure';
+  label: string;
+  icon: IconComponent;
+  color: string;
+}[] = [
   { kind: 'github', label: 'GitHub', icon: SiGithub, color: '#8B949E' },
   { kind: 'gitlab', label: 'GitLab', icon: SiGitlab, color: '#FC6D26' },
   { kind: 'bitbucket', label: 'Bitbucket', icon: SiBitbucket, color: '#2684FF' },
@@ -28,7 +33,9 @@ export function ForgeSelectPage() {
   const update = useUiStore((s) => s.updateSetupState);
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">Which forges do you use? Pick as many as apply.</p>
+      <p className="text-sm text-muted-foreground">
+        Which forges do you use? Pick as many as apply.
+      </p>
       <div role="group" aria-label="Forges" className="grid grid-cols-2 gap-2">
         {SETUP_FORGES.map(({ kind, label, icon: Icon, color }) => {
           const on = selected.includes(kind);
@@ -39,7 +46,9 @@ export function ForgeSelectPage() {
               aria-pressed={on}
               onClick={() => update({ forges: toggleForge(selected, kind) })}
               className={`flex items-center gap-2 rounded-md border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                on ? 'border-primary bg-primary/10' : 'border-border/60 bg-muted/30 hover:bg-muted/60'
+                on
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border/60 bg-muted/30 hover:bg-muted/60'
               }`}
             >
               <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color }} />

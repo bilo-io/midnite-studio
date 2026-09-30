@@ -30,7 +30,8 @@ describe('toolchainGroups', () => {
 
   it('names only real react-icons exports, with a brand colour each', () => {
     const sets: Record<string, Record<string, unknown>> = { lu: Lu, si: Si };
-    for (const item of SETUP_CATALOGUE) expect(sets[item.icon.set]?.[item.icon.name], item.id).toBeDefined();
+    for (const item of SETUP_CATALOGUE)
+      expect(sets[item.icon.set]?.[item.icon.name], item.id).toBeDefined();
   });
 });
 
@@ -50,7 +51,9 @@ describe('ToolchainPage', () => {
   it('runs one brew line for the ticked tools', async () => {
     installSetupBridge({ homebrew: 'Homebrew 4' });
     render(<ToolchainPage />, { wrapper: wrapper() });
-    await waitFor(() => expect((screen.getByLabelText('Install jq') as HTMLInputElement).disabled).toBe(false));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Install jq') as HTMLInputElement).disabled).toBe(false),
+    );
     fireEvent.click(screen.getByLabelText('Install jq'));
     fireEvent.click(screen.getByLabelText('Install Docker Desktop'));
     fireEvent.click(screen.getByLabelText('Install ripgrep'));

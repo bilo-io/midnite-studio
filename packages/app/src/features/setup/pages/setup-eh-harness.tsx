@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 
 /** Shared bridge mock for the Theme E/H page tests: `setup.probe` answers from a map of id → version (absent = not installed). */
-export function installSetupBridge(versions: Record<string, string>, extra: Record<string, unknown> = {}) {
+export function installSetupBridge(
+  versions: Record<string, string>,
+  extra: Record<string, unknown> = {},
+) {
   const probe = vi.fn(async ({ ids }: { ids: string[] }) => ({
     results: ids.map((id) => ({
       id,
@@ -18,5 +21,7 @@ export function installSetupBridge(versions: Record<string, string>, extra: Reco
 
 export function wrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
 }

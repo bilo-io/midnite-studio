@@ -36,7 +36,8 @@ export function ForgeCliPage() {
   if (forges.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No forge picked yet. Go back to choose one, or skip — Midnite Studio works with plain git remotes too.
+        No forge picked yet. Go back to choose one, or skip — Midnite Studio works with plain git
+        remotes too.
       </p>
     );
   }
@@ -66,7 +67,8 @@ export function ForgeCliPage() {
         }
         const item = setupItem(itemId)!;
         const result = probe.data?.[itemId];
-        const signedOut = kind === 'github' && result?.installed && auth.data?.reason === 'not-authenticated';
+        const signedOut =
+          kind === 'github' && result?.installed && auth.data?.reason === 'not-authenticated';
         const status = setupRowStatus({
           loading: probe.isPending,
           installing: runner.running,

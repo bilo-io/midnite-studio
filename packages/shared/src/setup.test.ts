@@ -40,10 +40,21 @@ describe('SETUP_CATALOGUE', () => {
 
   it('rejects shell-shaped probes and a brew install naming both a formula and a cask', () => {
     const base = item('x', null);
-    expect(SetupItemSchema.safeParse({ ...base, probe: { ...base.probe, bin: 'git; rm -rf ~' } }).success).toBe(false);
-    expect(SetupItemSchema.safeParse({ ...base, probe: { ...base.probe, versionArg: '$(id)' } }).success).toBe(false);
-    expect(SetupItemSchema.safeParse({ ...base, probe: { ...base.probe, paths: ['relative/bin'] } }).success).toBe(false);
-    expect(SetupItemSchema.safeParse({ ...base, install: { brew: { formula: 'a', cask: 'b' } } }).success).toBe(false);
+    expect(
+      SetupItemSchema.safeParse({ ...base, probe: { ...base.probe, bin: 'git; rm -rf ~' } })
+        .success,
+    ).toBe(false);
+    expect(
+      SetupItemSchema.safeParse({ ...base, probe: { ...base.probe, versionArg: '$(id)' } }).success,
+    ).toBe(false);
+    expect(
+      SetupItemSchema.safeParse({ ...base, probe: { ...base.probe, paths: ['relative/bin'] } })
+        .success,
+    ).toBe(false);
+    expect(
+      SetupItemSchema.safeParse({ ...base, install: { brew: { formula: 'a', cask: 'b' } } })
+        .success,
+    ).toBe(false);
     expect(SetupItemSchema.safeParse({ ...base, brandColor: 'orange' }).success).toBe(false);
   });
 });
@@ -53,9 +64,15 @@ describe('setupProbe schemas', () => {
     expect(SetupProbeRequest.safeParse({ ids: ['git'] }).success).toBe(true);
     expect(SetupProbeRequest.safeParse({ ids: [] }).success).toBe(false);
     expect(SetupProbeRequest.safeParse({ ids: [''] }).success).toBe(false);
-    const res = { results: [{ id: 'git', installed: true, version: 'git version 2.45.0', path: '/usr/bin/git' }] };
+    const res = {
+      results: [
+        { id: 'git', installed: true, version: 'git version 2.45.0', path: '/usr/bin/git' },
+      ],
+    };
     expect(SetupProbeResponse.parse(res)).toEqual(res);
-    expect(SetupProbeResponse.safeParse({ results: [{ id: 'git', installed: true }] }).success).toBe(false);
+    expect(
+      SetupProbeResponse.safeParse({ results: [{ id: 'git', installed: true }] }).success,
+    ).toBe(false);
   });
 });
 
@@ -77,7 +94,9 @@ describe('composeBrewInstall', () => {
   });
 
   it('never repeats a package, even across two items naming it', () => {
-    expect(composeBrewInstall([git, git, item('git-too', { brew: { formula: 'git' } })])).toBe('brew install git');
+    expect(composeBrewInstall([git, git, item('git-too', { brew: { formula: 'git' } })])).toBe(
+      'brew install git',
+    );
   });
 
   it('is null when nothing is brew-installable', () => {
@@ -98,7 +117,11 @@ describe('planSetupInstall', () => {
 
   it('offers the Homebrew bootstrap first when brew is missing', () => {
     expect(planSetupInstall([gh], false)).toEqual([
-      { id: 'homebrew-bootstrap', label: 'Install Homebrew first', command: HOMEBREW_INSTALL_COMMAND },
+      {
+        id: 'homebrew-bootstrap',
+        label: 'Install Homebrew first',
+        command: HOMEBREW_INSTALL_COMMAND,
+      },
     ]);
   });
 
@@ -133,7 +156,8 @@ describe('Theme E/H additions', () => {
   it('every catalogue row stays schema-valid with unique ids', () => {
     const ids = SETUP_CATALOGUE.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const row of SETUP_CATALOGUE) expect(SetupItemSchema.safeParse(row).success, row.id).toBe(true);
+    for (const row of SETUP_CATALOGUE)
+      expect(SetupItemSchema.safeParse(row).success, row.id).toBe(true);
   });
 
   it('maps forges to catalogue CLIs, with Bitbucket having none', () => {

@@ -12,16 +12,25 @@ import { resolveSetupIcon } from '../setup-icons';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe, type SetupProbeMap } from '../install-runner';
 
-export const TOOLCHAIN_GROUPS: readonly { group: SetupItemGroup; title: string; hint?: string }[] = [
-  { group: 'agent-cli', title: 'Agent CLIs' },
-  { group: 'js', title: 'JavaScript runtime' },
-  { group: 'containers', title: 'Containers', hint: 'Either one is enough.' },
-  { group: 'media', title: 'Media and misc' },
-];
+export const TOOLCHAIN_GROUPS: readonly { group: SetupItemGroup; title: string; hint?: string }[] =
+  [
+    { group: 'agent-cli', title: 'Agent CLIs' },
+    { group: 'js', title: 'JavaScript runtime' },
+    { group: 'containers', title: 'Containers', hint: 'Either one is enough.' },
+    { group: 'media', title: 'Media and misc' },
+  ];
 
 /** The catalogue rows the page lists, grouped in page order. */
-export function toolchainGroups(): { group: SetupItemGroup; title: string; hint?: string; items: SetupItem[] }[] {
-  return TOOLCHAIN_GROUPS.map((g) => ({ ...g, items: SETUP_CATALOGUE.filter((item) => item.group === g.group) }));
+export function toolchainGroups(): {
+  group: SetupItemGroup;
+  title: string;
+  hint?: string;
+  items: SetupItem[];
+}[] {
+  return TOOLCHAIN_GROUPS.map((g) => ({
+    ...g,
+    items: SETUP_CATALOGUE.filter((item) => item.group === g.group),
+  }));
 }
 
 /**
@@ -61,48 +70,57 @@ export function ToolchainPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Tick what you want installed. Everything runs as one Homebrew command in a terminal you can watch.
+        Tick what you want installed. Everything runs as one Homebrew command in a terminal you can
+        watch.
       </p>
-      {toolchainGroups().map(({ group, title, hint, items }) => (
-        <section key={group} aria-label={title} className="flex flex-col gap-1.5">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {title}
-            {hint ? <span className="ml-2 font-normal normal-case tracking-normal">{hint}</span> : null}
-          </h3>
-          {items.map((item) => {
-            const satisfied = toolchainSatisfied(item, probes);
-            const isPicked = picked.includes(item.id);
-            const status = setupRowStatus({
-              loading: probe.isPending,
-              installing: runner.running && isPicked,
-              installed: probe.isPending ? undefined : satisfied,
-            });
-            return (
-              <SetupStatusRow
-                key={item.id}
-                label={item.label}
-                status={status}
-                icon={resolveSetupIcon(item.icon)}
-                brandColor={item.brandColor}
-                detail={probes[item.id]?.installed ? probes[item.id]?.version : undefined}
-                onRevealTerminal={runner.reveal}
-                leading={
-                  <input
-                    type="checkbox"
-                    aria-label={`Install ${item.label}`}
-                    checked={satisfied || isPicked}
-                    disabled={satisfied || runner.running}
-                    onChange={() =>
-                      setPicked((cur) => (cur.includes(item.id) ? cur.filter((id) => id !== item.id) : [...cur, item.id]))
-                    }
-                    className="h-4 w-4 shrink-0 accent-primary"
-                  />
-                }
-              />
-            );
-          })}
-        </section>
-      ))}
+      <div className="flex max-h-[34vh] flex-col gap-4 overflow-y-auto pr-1">
+        {toolchainGroups().map(({ group, title, hint, items }) => (
+          <section key={group} aria-label={title} className="flex flex-col gap-1.5">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {title}
+              {hint ? (
+                <span className="ml-2 font-normal normal-case tracking-normal">{hint}</span>
+              ) : null}
+            </h3>
+            {items.map((item) => {
+              const satisfied = toolchainSatisfied(item, probes);
+              const isPicked = picked.includes(item.id);
+              const status = setupRowStatus({
+                loading: probe.isPending,
+                installing: runner.running && isPicked,
+                installed: probe.isPending ? undefined : satisfied,
+              });
+              return (
+                <SetupStatusRow
+                  key={item.id}
+                  label={item.label}
+                  status={status}
+                  icon={resolveSetupIcon(item.icon)}
+                  brandColor={item.brandColor}
+                  detail={probes[item.id]?.installed ? probes[item.id]?.version : undefined}
+                  onRevealTerminal={runner.reveal}
+                  leading={
+                    <input
+                      type="checkbox"
+                      aria-label={`Install ${item.label}`}
+                      checked={satisfied || isPicked}
+                      disabled={satisfied || runner.running}
+                      onChange={() =>
+                        setPicked((cur) =>
+                          cur.includes(item.id)
+                            ? cur.filter((id) => id !== item.id)
+                            : [...cur, item.id],
+                        )
+                      }
+                      className="h-4 w-4 shrink-0 accent-primary"
+                    />
+                  }
+                />
+              );
+            })}
+          </section>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {options.length === 0 ? (
           <button

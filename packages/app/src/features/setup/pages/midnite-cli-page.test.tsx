@@ -71,7 +71,10 @@ describe('MidniteCliPage', () => {
   });
 
   it('a failed install says why and stays missing', async () => {
-    installBridge(MISSING, vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'EACCES' }));
+    installBridge(
+      MISSING,
+      vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'EACCES' }),
+    );
     render(<MidniteCliPage />);
     await waitFor(() => expect(rowStatus()).toBe('missing'));
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
@@ -90,6 +93,8 @@ describe('MidniteCliPage', () => {
   it('without a bridge: missing, and Install is disabled', () => {
     render(<MidniteCliPage />);
     expect(rowStatus()).toBe('missing');
-    expect((screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 });

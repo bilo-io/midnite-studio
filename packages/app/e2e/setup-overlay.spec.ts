@@ -30,11 +30,11 @@ test('a fresh profile gets the setup overlay, can walk it, and lands in the app 
   await expect(overlay.getByRole('button', { name: 'Skip' })).toBeFocused();
 
   await overlay.getByRole('button', { name: 'Begin setup' }).click();
-  await expect(overlay).toHaveAttribute('data-step', 'machine');
+  await expect(overlay).toHaveAttribute('data-step', 'git');
   await page.keyboard.press('ArrowRight');
-  await expect(overlay).toHaveAttribute('data-step', 'forges');
+  await expect(overlay).toHaveAttribute('data-step', 'forge-select');
   await overlay.getByRole('button', { name: 'Back' }).click();
-  await expect(overlay).toHaveAttribute('data-step', 'machine');
+  await expect(overlay).toHaveAttribute('data-step', 'git');
 
   await overlay.getByRole('button', { name: 'Skip' }).click();
   await expect(overlay).toHaveCount(0);

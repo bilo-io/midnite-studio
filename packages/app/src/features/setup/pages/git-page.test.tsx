@@ -18,7 +18,9 @@ describe('GitPage', () => {
   it('shows a ready row for a current git', async () => {
     installSetupBridge({ git: 'git version 2.45.0', homebrew: 'Homebrew 4.4.0' });
     render(<GitPage />, { wrapper: wrapper() });
-    await waitFor(() => expect(screen.getByTestId('setup-status-row').dataset.status).toBe('ready'));
+    await waitFor(() =>
+      expect(screen.getByTestId('setup-status-row').dataset.status).toBe('ready'),
+    );
     expect(screen.getByText('git version 2.45.0')).toBeTruthy();
   });
 

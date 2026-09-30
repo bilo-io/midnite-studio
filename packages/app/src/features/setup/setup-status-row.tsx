@@ -92,7 +92,11 @@ function StatusMark({ status }: { status: SetupRowStatus }) {
     // `.setup-ready-check` (styles.css): the green glow pulse, gated on window
     // focus and removed under reduced motion.
     return (
-      <span role="img" aria-label="Ready" className="setup-ready-check flex shrink-0 rounded-full text-green-500">
+      <span
+        role="img"
+        aria-label="Ready"
+        className="setup-ready-check flex shrink-0 rounded-full text-green-500"
+      >
         <LuCircleCheck aria-hidden className="h-5 w-5" />
       </span>
     );

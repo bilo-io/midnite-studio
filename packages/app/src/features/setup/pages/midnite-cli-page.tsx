@@ -80,12 +80,15 @@ export function MidniteCliPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        <code className="font-mono text-foreground">midnite-studio</code> opens Midnite Studio from any shell:
+        <code className="font-mono text-foreground">midnite-studio</code> opens Midnite Studio from
+        any shell:
       </p>
       <ul className="flex flex-col gap-1.5 text-xs">
         {USAGE.map((row) => (
           <li key={row.command} className="flex items-baseline gap-2">
-            <code className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-foreground">{row.command}</code>
+            <code className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-foreground">
+              {row.command}
+            </code>
             <span className="text-muted-foreground">— {row.does}</span>
           </li>
         ))}
@@ -115,12 +118,17 @@ export function MidniteCliPage() {
       ) : null}
 
       {pathHint ? (
-        <div data-testid="setup-cli-path-hint" className="flex flex-col gap-1.5 rounded-md bg-muted/40 p-3 text-xs">
+        <div
+          data-testid="setup-cli-path-hint"
+          className="flex flex-col gap-1.5 rounded-md bg-muted/40 p-3 text-xs"
+        >
           <span className="text-muted-foreground">
             Installed where your shell does not look yet. Add this line to your shell profile (
             <code className="font-mono">~/.zshrc</code>), then open a new terminal:
           </span>
-          <code className="select-all rounded bg-background px-2 py-1 font-mono text-foreground">{pathHint}</code>
+          <code className="select-all rounded bg-background px-2 py-1 font-mono text-foreground">
+            {pathHint}
+          </code>
         </div>
       ) : null}
     </div>

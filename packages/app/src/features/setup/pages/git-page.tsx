@@ -1,4 +1,9 @@
-import { RECOMMENDED_GIT_VERSION, setupItem, setupVersionNumber, versionAtLeast } from '@midnite/studio-shared';
+import {
+  RECOMMENDED_GIT_VERSION,
+  setupItem,
+  setupVersionNumber,
+  versionAtLeast,
+} from '@midnite/studio-shared';
 
 import { resolveSetupIcon } from '../setup-icons';
 import { SetupInstallActions } from '../setup-install-actions';
@@ -26,7 +31,9 @@ export function GitPage() {
   const brewInstalled = probe.data?.homebrew?.installed ?? false;
 
   const number = setupVersionNumber(gitProbe?.version);
-  const current = Boolean(gitProbe?.installed) && (number === null || versionAtLeast(number, RECOMMENDED_GIT_VERSION));
+  const current =
+    Boolean(gitProbe?.installed) &&
+    (number === null || versionAtLeast(number, RECOMMENDED_GIT_VERSION));
   const status = setupRowStatus({
     loading: probe.isPending,
     installing: runner.running,
@@ -41,8 +48,9 @@ export function GitPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        Midnite Studio drives your repositories with the real <code className="font-mono text-foreground">git</code>{' '}
-        on this Mac. Version {RECOMMENDED_GIT_VERSION} or newer is recommended.
+        Midnite Studio drives your repositories with the real{' '}
+        <code className="font-mono text-foreground">git</code> on this Mac. Version{' '}
+        {RECOMMENDED_GIT_VERSION} or newer is recommended.
       </p>
       <SetupStatusRow
         label="git"

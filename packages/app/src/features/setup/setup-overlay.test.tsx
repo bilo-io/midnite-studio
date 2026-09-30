@@ -159,7 +159,8 @@ describe('SetupOverlay — navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('forge-select');
     // Walk to the last registered page (the registry grows by appending rows).
-    for (let i = 2; i < SETUP_PAGES.length; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    for (let i = 2; i < SETUP_PAGES.length; i++)
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('finale');
@@ -189,7 +190,8 @@ describe('SetupOverlay — navigation', () => {
 
   it('→ on the finale does not finish setup — only Get started does', () => {
     renderOverlay();
-    for (let i = 0; i <= SETUP_PAGES.length; i += 1) fireEvent.keyDown(window, { key: 'ArrowRight' });
+    for (let i = 0; i <= SETUP_PAGES.length; i += 1)
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(stepOf()).toBe('finale');
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(stepOf()).toBe('finale');
@@ -198,7 +200,8 @@ describe('SetupOverlay — navigation', () => {
 
   it('Get started on the finale completes setup and closes', () => {
     renderOverlay();
-    for (let i = 0; i <= SETUP_PAGES.length; i += 1) fireEvent.keyDown(window, { key: 'ArrowRight' });
+    for (let i = 0; i <= SETUP_PAGES.length; i += 1)
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
     fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
     expect(useUiStore.getState().setupState.completedAt).not.toBeNull();
     expect(overlay()).toBeNull();
@@ -248,7 +251,9 @@ describe('SetupOverlay — leaving early', () => {
   });
 
   it('Next through a page skipped on an earlier visit clears that skip', () => {
-    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, completedAt: DONE, skippedPageIds: ['forges'] } });
+    useUiStore.setState({
+      setupState: { ...INITIAL_SETUP_STATE, completedAt: DONE, skippedPageIds: ['forges'] },
+    });
     renderOverlay();
     act(() => useSetupStore.getState().openSetup('forges'));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -301,7 +306,9 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     expect(introPhase()).toBe('typing');
     act(() => vi.advanceTimersByTime(CHOREO.introSettleMs));
     expect(introPhase()).toBe('ready');
-    expect(screen.getByRole('button', { name: 'Begin setup' }).parentElement?.style.visibility).toBe('visible');
+    expect(
+      screen.getByRole('button', { name: 'Begin setup' }).parentElement?.style.visibility,
+    ).toBe('visible');
   });
 
   it('Begin fades the word, then the page title types and only then does the body fade in', () => {
@@ -438,7 +445,12 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
 
   it('Resume setup reopens at the first page neither passed nor skipped, past the intro', () => {
     useUiStore.setState({
-      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'git', skippedPageIds: ['git'] },
+      setupState: {
+        ...INITIAL_SETUP_STATE,
+        dismissedAt: DONE,
+        lastPageId: 'git',
+        skippedPageIds: ['git'],
+      },
     });
     renderOverlay();
     expect(overlay()).toBeNull();
@@ -447,7 +459,9 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
   });
 
   it('Resume after X reopens the page X was pressed on', () => {
-    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'forges' } });
+    useUiStore.setState({
+      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'forges' },
+    });
     renderOverlay();
     act(() => useSetupStore.getState().resumeSetup());
     expect(stepOf()).toBe('forges');
