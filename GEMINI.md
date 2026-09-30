@@ -356,12 +356,14 @@ and nothing else above it**, one row per agent or workstream.
 [`midnite-sitrep`](.agents/skills/midnite-sitrep/SKILL.md) is the full spec — it gathers the state and
 renders the table:
 
-| Task | Progress | ETA | Diff | Status | Notes |
-|---|---|---|---|---|---|
-| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 | posted the final `confineAllowlist` signature to the board |
+| Task | Author | Progress | ETA | Diff | Status | Notes |
+|---|---|---|---|---|---|---|
+| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | @bilo-io | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 | posted the final `confineAllowlist` signature to the board |
 
 - **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
   internal agent id — and **always a clickable link** to its PR (or issue, before a PR exists).
+- **An author column**, always — the PR author as `@login`, so a row that is someone else's to move
+  reads as theirs at a glance. `—` before anyone owns it.
 - **A completion percentage in its own column**, always, drawn as a 10-cell progress bar before
   the number. An unknown percentage is `?`, never a blank.
 - **A diff column** once a PR exists — `🟩 +added 🟥 -deleted 📄 files` — and **an emoji status**

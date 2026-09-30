@@ -31,7 +31,7 @@ agent id.
 Fetch every PR in one pass per repo, all calls in one shell invocation:
 
 ```bash
-gh pr view <n> -R <owner>/<repo> --json number,url,title,state,isDraft,mergeable,mergedAt,baseRefName,reviewDecision,additions,deletions,changedFiles,statusCheckRollup
+gh pr view <n> -R <owner>/<repo> --json number,url,title,author,state,isDraft,mergeable,mergedAt,baseRefName,reviewDecision,additions,deletions,changedFiles,statusCheckRollup
 ```
 
 Pass the right account's token in the same command (`GH_TOKEN="$(gh auth token -u <user>)" gh …`)
@@ -44,14 +44,17 @@ ticks, is stalled — mark it ⚠️, whatever it last said.
 
 ## 3 · The table
 
-| Task | Progress | ETA | Diff | Status | Notes |
-|---|---|---|---|---|---|
-| [PR-1 · #1259](https://github.com/org/repo/pull/1259) | `████████░░` 80% | ~2h | 🟩 +1515 🟥 -28 📄 17 | 🟢 Ready · CI 7/7 | tell me before merging — #1261 stacks on it |
-| [PR-3 · #1261](https://github.com/org/repo/pull/1261) | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · stacked on #1259 | — |
-| [TASK-A · #1251](https://github.com/org/repo/issues/1251) | `░░░░░░░░░░` 0% | ? | — | ⏳ Waiting on PR-1 deploy | — |
+| Task | Author | Progress | ETA | Diff | Status | Notes |
+|---|---|---|---|---|---|---|
+| [PR-1 · #1259](https://github.com/org/repo/pull/1259) | @bilo-ekko | `████████░░` 80% | ~2h | 🟩 +1515 🟥 -28 📄 17 | 🟢 Ready · CI 7/7 | tell me before merging — #1261 stacks on it |
+| [PR-3 · #1261](https://github.com/org/repo/pull/1261) | @kurtwarwick-ekko | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · stacked on #1259 | — |
+| [TASK-A · #1251](https://github.com/org/repo/issues/1251) | — | `░░░░░░░░░░` 0% | ? | — | ⏳ Waiting on PR-1 deploy | — |
 
 - **Task** — the row's name, **always a clickable link**: to its PR once one exists, else to its
   issue, else the branch name in code. Link text is `<task> · #<n>`.
+- **Author** — the PR author's login as `@login`, from `author.login`; `dependabot` for a bot. Before
+  a PR exists, whoever the row's work is being built for (the issue's assignee, or the session's own
+  account); `—` when there is no one yet.
 - **Progress** — a 10-cell bar in backticks, then the percentage: `█` × round(% / 10), `░` for the
   rest. Unknown is `░░░░░░░░░░` `?`, never blank. Derive it from observable state, on this scale:
 
