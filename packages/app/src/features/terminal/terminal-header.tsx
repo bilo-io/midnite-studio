@@ -10,7 +10,7 @@ import {
   LuTriangleAlert,
   LuX,
 } from 'react-icons/lu';
-import { RiFlipHorizontalLine, RiFlipVerticalFill } from 'react-icons/ri';
+import { CgEditFlipH, CgEditFlipV } from 'react-icons/cg';
 
 import {
   usePopoutHeaderActions,
@@ -110,9 +110,9 @@ export function TerminalHeader({
         onConfigure={(candidate) => useUiStore.getState().focusAgentInSettings(candidate.id)}
       />
       <IconButton
-        // The glyph shows where the panel is now: the vertical flip while it
-        // stands on the right, the horizontal one while it lies along the bottom.
-        icon={dock === 'right' ? RiFlipVerticalFill : RiFlipHorizontalLine}
+        // The glyph shows where the panel is now. `CgEditFlipH` draws a VERTICAL
+        // divider (right dock); `CgEditFlipV` a HORIZONTAL one (bottom dock).
+        icon={dock === 'right' ? CgEditFlipH : CgEditFlipV}
         label={dock === 'right' ? 'Dock terminal to the bottom' : 'Dock terminal to the right'}
         size="sm"
         onClick={() => useUiStore.getState().toggleTerminalDock()}
