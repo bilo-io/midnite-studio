@@ -155,25 +155,26 @@ describe('SetupOverlay — navigation', () => {
   it('Next and Back walk intro → pages → finale and back', () => {
     renderOverlay();
     fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('forges');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('cli');
+    expect(stepOf()).toBe('forge-select');
+    // Walk to the last registered page (the registry grows by appending rows).
+    for (let i = 2; i < SETUP_PAGES.length; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('finale');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(stepOf()).toBe('cli');
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
   });
 
   it('→ and ← step between pages', () => {
     renderOverlay();
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('forge-select');
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
   });
 
   it('ignores arrows typed into a text field, and arrows with a modifier', async () => {
@@ -230,7 +231,7 @@ describe('SetupOverlay — leaving early', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close setup' }));
     const state = useUiStore.getState().setupState;
     expect(state.skippedPageIds).toEqual([]);
-    expect(state.lastPageId).toBe('machine');
+    expect(state.lastPageId).toBe('git');
     expect(state.dismissedAt).not.toBeNull();
     dismissHandoff();
     expect(overlay()).toBeNull();
@@ -310,26 +311,26 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     // The word fades first; the step has not moved yet.
     expect(stepOf()).toBe('intro');
     act(() => vi.advanceTimersByTime(CHOREO.wordFadeMs));
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     // Held back while the mark glides into the anchor.
     expect(title()).toBe('');
     expect(body()).toBeNull();
     act(() => vi.advanceTimersByTime(CHOREO.glideMs + 60));
     expect(title().length).toBeGreaterThan(0);
-    expect(title()).not.toBe('Check your machine');
+    expect(title()).not.toBe('Get git ready');
     expect(body()).toBeNull();
     act(() => vi.advanceTimersByTime(1000));
-    expect(title()).toBe('Check your machine');
+    expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
     expect(body()?.className).toContain('animate-fade-in');
   });
 
   it('a page-to-page Next types without waiting for a glide; Back is instant', () => {
-    act(() => useSetupStore.getState().openSetup('machine'));
+    act(() => useSetupStore.getState().openSetup('git'));
     renderOverlay();
     act(() => vi.advanceTimersByTime(2000));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('forge-select');
     expect(body()).toBeNull();
     act(() => vi.advanceTimersByTime(60));
     expect(title().length).toBeGreaterThan(0);
@@ -337,7 +338,7 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     expect(body()).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(title()).toBe('Check your machine');
+    expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
   });
 
@@ -372,8 +373,8 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     expect(introPhase()).toBe('ready');
     expect(word()).toBe('Midnite');
     fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
-    expect(stepOf()).toBe('machine');
-    expect(title()).toBe('Check your machine');
+    expect(stepOf()).toBe('git');
+    expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
     expect(body()?.className ?? '').not.toContain('animate-fade-in');
   });
@@ -389,7 +390,7 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
 
   it('Skip points at the FAB with a hint, then any click lets the app back', () => {
     mountFab();
-    act(() => useSetupStore.getState().openSetup('machine'));
+    act(() => useSetupStore.getState().openSetup('git'));
     renderOverlay();
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
 
@@ -437,12 +438,12 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
 
   it('Resume setup reopens at the first page neither passed nor skipped, past the intro', () => {
     useUiStore.setState({
-      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'machine', skippedPageIds: ['machine'] },
+      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'git', skippedPageIds: ['git'] },
     });
     renderOverlay();
     expect(overlay()).toBeNull();
     act(() => useSetupStore.getState().resumeSetup());
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('forge-select');
   });
 
   it('Resume after X reopens the page X was pressed on', () => {
@@ -461,12 +462,12 @@ describe('SetupOverlay — stepping aside for the terminal (Theme D)', () => {
     expect(overlay()?.hidden).toBe(true);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     expect(useUiStore.getState().setupState.dismissedAt).toBeNull();
 
     fireEvent.click(screen.getByTestId('setup-return'));
     expect(overlay()?.hidden).toBe(false);
     expect(screen.queryByTestId('setup-return')).toBeNull();
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
   });
 });

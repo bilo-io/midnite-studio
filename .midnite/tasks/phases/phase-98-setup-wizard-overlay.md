@@ -114,13 +114,13 @@ gains a **Resume setup** leaf for that.
 
 **Theme D — Setup catalogue, probes and the install runner.** ✅ Shared catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row ([PR #630](https://github.com/bilo-io/midnite-studio/pull/630)). Landed: `shared/src/setup.ts` holds `SETUP_CATALOGUE` (zod rows `{id, label, group, probe: {bin, versionArg, paths}, install: {brew: {formula}|{cask}, xcodeClt?} | null, icon: {set, name}, brandColor}`; seeded with `homebrew` and `git`, and Themes E–I append rows). It also holds `composeBrewInstall` (one line: formulae, then `--cask`, each deduplicated) and `planSetupInstall`, which offers a brew line, or with no brew the Homebrew bootstrap script plus `xcode-select --install` for a CLT-provided tool. `setupProbe` takes catalogue **ids**, never binary names: main (`setup-probe.ts`) resolves each against the catalogue, drops unknown ids, and drives `probeBinary` (which gained an optional `versionArg`; `systemHealth` is unchanged). The renderer side is `features/setup/install-runner.ts`: `useSetupProbe` re-probes on window focus, and `useInstallRunner` types the line into a fresh terminal via `submitCommand` (which now returns the session id). The runner counts an install as done once the session's foreground command has run and returned to a bare prompt, or the shell exits, or the tab closes. **Not in the doc, but needed for the "visible terminal" guardrail:** the full-window overlay would cover that terminal, so an install steps the overlay aside (`setup-store.aside`). The overlay stays mounted but hidden, releases its focus trap, Escape and ←/→, and shows a top-centre "Return to setup" pill. `setup-status-row.tsx` has four states (checking / missing / installing with a "Running in terminal" link / ready). Ready is a circle check whose green box-shadow glow (`.setup-ready-check`) is focus-gated and removed under reduced motion, with no allowlist additions. Icons resolve through a static `SETUP_ICONS` map (no whole-set namespace import), and a test asserts each entry is the export it names. The bootstrap/CLT offers exist only in the planner until Theme E's git page draws them.
 
-**Theme E — Git, forge selection and forge CLIs.** ◻ git detect/install, multi-select forge buttons, gh/glab/az CLI rows (Bitbucket no-CLI)
+**Theme E — Git, forge selection and forge CLIs.** ✅ Git, forge-select and forge-CLI pages over Theme D's catalogue, probe, planner and status row (PR #PRNUM). Landed: `GitPage` (version vs `RECOMMENDED_GIT_VERSION`, first renderer of `planSetupInstall`'s brew / Homebrew / Xcode-CLT offers; replaces the interim `machine` page), `ForgeSelectPage` (multi-select, persisted in `setupState.forges`), `ForgeCliPage` (`FORGE_CLI_ITEM` → gh / glab / az rows; `gh` sign-in state from `forge.cliStatus`; Bitbucket "token-based, no CLI needed"). Deferred: probing `az`'s `azure-devops` extension (the row shows the `az extension add` command).
 
 **Theme F — Accounts and git identity.** ◻ account cards (avatar, name, login, email) + `gitIdentityGet/Set` global git identity
 
 **Theme G — Midnite CLI page.** ✅ The `cli` page over `cliStatus`/`cliInstall` ([PR #630](https://github.com/bilo-io/midnite-studio/pull/630)). Appended after `forges` in `SETUP_PAGES` (titled "Install the Midnite CLI"). It explains the three `midnite-studio` shell forms, shows the status in Theme D's row, and its Install button calls `cliInstall({target: 'auto'})`. That install is main's own symlink, so *installing* shows no terminal link. `CliStatusResponse` gained optional `onPath`/`pathExportLine`, computed in `cli-handlers.ts` against the login-shell PATH that `shell-path.ts` folds into `process.env`. An install that fell back to an off-PATH `~/.local/bin` shows the `export PATH=…` line to add. With no bridge (browser build), the row reads *missing* with Install disabled.
 
-**Theme H — Toolchain checklist.** ◻ toolchain checklist (agent CLIs, JS stack, containers, media/misc) with brand-coloured icons
+**Theme H — Toolchain checklist.** ✅ Grouped toolchain page over the catalogue (PR #PRNUM). Landed: 12 catalogue rows (agent CLIs, JS, containers, media) with brand-coloured icons, `ToolchainPage` with ticked-and-locked installed rows, Docker-or-OrbStack satisfying the containers item, and **Install selected** as one `planSetupInstall` line in the visible terminal. `SetupStatusRow` gained a `leading` slot for the checkbox.
 
 **Theme I — Local models with Ollama.** ◻ Ollama page: education, `systemMemory`, RAM-gated curated models, background pulls lifted to app level
 
@@ -214,21 +214,24 @@ gains a **Resume setup** leaf for that.
 - [x] Vitest: catalogue schema round-trip, the probe parser, brew line composition (formula vs
       cask, no duplicates) and status-row states.
 
-### E — Git, forge selection and forge CLIs (M)
+### E — Git, forge selection and forge CLIs (S/M) — ✅ DONE
 
-- [ ] **Git page.**
-      - Detected version (`parseGitVersion`) against a recommended minimum.
-      - Missing or old → **Install git** via brew (or the Xcode CLT fallback), using the Theme D status row.
-      - Present and current → a ready check.
-- [ ] **Forge page.** Multi-select toggle buttons with each forge's icon and name (GitHub, GitLab,
-      Bitbucket, Azure DevOps). They are checked-style and more than one can be selected. The selection persists in `setupState`.
-- [ ] **Forge CLI page.** One Theme D status row per selected forge:
-      - `gh` for GitHub (reusing `ghStatus`, so *not-authenticated* shows a `gh auth login` action);
-      - `glab` for GitLab;
-      - `az` plus the `azure-devops` extension for Azure.
-      - **Bitbucket shows "token-based, no CLI needed"** instead of a spinner.
-- [ ] Add the `glab` and `az` probes to the Theme D catalogue.
-- [ ] Vitest: forge toggles, CLI rows derived from the selection, and Bitbucket's no-CLI state.
+*Rewritten: these are wizard pages over pieces that already exist — Theme D's `SETUP_CATALOGUE`,
+`setupProbe`, `planSetupInstall` and install runner (`install-runner.ts`), its `SetupStatusRow`, and
+Phase 27's `forge.cliStatus` (`ghStatus`). Nothing new on the wire.*
+
+- [x] **Git page** (`pages/git-page.tsx`, replaces the interim `machine` page). Probe via `useSetupProbe`
+      (`git` + `homebrew`), version vs `RECOMMENDED_GIT_VERSION` (`versionAtLeast`), install via
+      `planSetupInstall` — the first renderer of Theme D's brew / Homebrew-bootstrap / Xcode-CLT offers.
+- [x] **Forge page** (`pages/forge-select-page.tsx`). Multi-select toggle buttons, persisted in the new
+      `setupState.forges`.
+- [x] **Forge CLI page** (`pages/forge-cli-page.tsx`). One status row per selected forge via `FORGE_CLI_ITEM`;
+      `gh` reuses `forge.cliStatus` for the signed-out `gh auth login` hint; Bitbucket shows "Token-based,
+      no CLI needed".
+- [x] `gh`, `glab` and `az` rows appended to `SETUP_CATALOGUE`.
+- [x] Vitest: git-page, forge select / CLI rows / Bitbucket (`pages/*.test.tsx`), `setup.test.ts`.
+- ~~Detect `az`'s `azure-devops` extension~~ — `setupProbe` runs one `bin + versionArg` only; the row names
+      the `az extension add` command instead. Deferred.
 
 ### F — Accounts and git identity (M)
 
@@ -255,18 +258,18 @@ gains a **Resume setup** leaf for that.
       - the `pathExportLine` hint when the target is not on `PATH`.
 - [x] Vitest: installed, missing and not-on-PATH states.
 
-### H — Toolchain checklist (M)
+### H — Toolchain checklist (S/M) — ✅ DONE
 
-- [ ] Catalogue entries in four groups:
-      - **Agent CLIs:** claude, codex, gemini.
-      - **JS runtime:** node, pnpm, bun, proto.
-      - **Containers / DB:** Docker or OrbStack (either satisfies the item).
-      - **Media / misc:** ffmpeg, ripgrep, jq.
-- [ ] Each row has a checkbox, then the **tool's brand icon on the left of its name in its brand colour**, a version once
-      detected, and a Theme D status row. Rows that are already installed are checked and disabled.
-- [ ] **Install selected** runs one brew line in the terminal, then re-probes.
-- [ ] Vitest: grouping, default selection (missing items unchecked by default), and every
-      catalogue icon resolving to a defined `react-icons` export (like `icon-names.test.ts`).
+*Rewritten: one page over Theme D's catalogue, probe, runner and status row; the icon resolver
+(`setup-icons.ts`) and its test already guard every icon name.*
+
+- [x] Catalogue rows appended in four groups: claude / codex / gemini, node / pnpm / bun / proto,
+      docker / orbstack, ffmpeg / ripgrep / jq — each with a brand colour (`pages/toolchain-page.tsx`).
+- [x] Containers: either Docker Desktop or OrbStack satisfies the item (`toolchainSatisfied`).
+- [x] Each row: checkbox (`SetupStatusRow`'s new `leading` slot), brand-coloured icon, detected version,
+      status row. Installed rows are ticked and locked; missing ones start unticked.
+- [x] **Install selected** = `planSetupInstall` over the ticked items, run in the terminal, then re-probe.
+- [x] Vitest: grouping, default selection, either-runtime rule, one composed brew line, icon exports resolve.
 
 ### I — Local models with Ollama (M)
 

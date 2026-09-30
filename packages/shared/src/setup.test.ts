@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   composeBrewInstall,
+  FORGE_CLI_ITEM,
+  versionAtLeast,
   HOMEBREW_INSTALL_COMMAND,
   planSetupInstall,
   SETUP_CATALOGUE,
@@ -124,5 +126,26 @@ describe('setupVersionNumber', () => {
   it('is null for nothing parseable', () => {
     expect(setupVersionNumber(null)).toBeNull();
     expect(setupVersionNumber('unknown')).toBeNull();
+  });
+});
+
+describe('Theme E/H additions', () => {
+  it('every catalogue row stays schema-valid with unique ids', () => {
+    const ids = SETUP_CATALOGUE.map((i) => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const row of SETUP_CATALOGUE) expect(SetupItemSchema.safeParse(row).success, row.id).toBe(true);
+  });
+
+  it('maps forges to catalogue CLIs, with Bitbucket having none', () => {
+    expect(FORGE_CLI_ITEM.bitbucket).toBeNull();
+    for (const id of [FORGE_CLI_ITEM.github, FORGE_CLI_ITEM.gitlab, FORGE_CLI_ITEM.azure]) {
+      expect(setupItem(id!)?.group).toBe('forge-cli');
+    }
+  });
+
+  it('compares versions numerically, not lexically', () => {
+    expect(versionAtLeast('2.45.0', '2.30.0')).toBe(true);
+    expect(versionAtLeast('2.9.5', '2.30.0')).toBe(false);
+    expect(versionAtLeast('2.30', '2.30.0')).toBe(true);
   });
 });
