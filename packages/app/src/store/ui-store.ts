@@ -290,6 +290,8 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
 export type LayoutSizes = {
   reposWidth: number;
   terminalHeight: number;
+  /** The terminal's width when docked on the right (`terminalDock: 'right'`). */
+  terminalWidth: number;
   /** The terminal panel's session list, beside the active terminal. */
   terminalListWidth: number;
   detailWidth: number;
@@ -430,6 +432,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // wins, so this moves only the installs that never dragged the panel.
   reposWidth: 312,
   terminalHeight: 288,
+  terminalWidth: 480,
   // Matches the list's old fixed `w-44`, so switching to a drag changes
   // nothing about how the panel looks until someone actually drags it.
   terminalListWidth: 176,
@@ -515,6 +518,7 @@ export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
 export const LAYOUT_BOUNDS = {
   reposWidth: { min: 180, max: 560 },
   terminalHeight: { min: 120, max: 720 },
+  terminalWidth: { min: 280, max: 960 },
   // Up to 560, like the repos sidebar: an agent session's name is a summary
   // of the task it was given ("Git actions dropdown icon buttons"), so this
   // is the one list pane whose rows get longer the more useful they are.
@@ -601,6 +605,9 @@ export const FAB_PANEL_MAX_SHARE = 0.6;
  * answer and is one keystroke away.
  */
 export const BROWSER_MAX_SHARE = 0.8;
+
+/** Where the terminal panel docks: under the view, or as a column to its right. */
+export type TerminalDock = 'bottom' | 'right';
 
 /**
  * The strip of the view a dragged terminal may never cover, in px.
@@ -721,6 +728,8 @@ export type UiState = {
   terminalOpen: boolean;
   /** Terminal fills everything below the title bar, hiding the graph. */
   terminalMaximized: boolean;
+  /** Which edge the whole terminal panel docks to. */
+  terminalDock: TerminalDock;
   /** Which edge of the terminal pane the session list docks to. */
   terminalSidebarSide: TerminalSidebarSide;
   /**
@@ -1257,6 +1266,8 @@ export type UiState = {
   setTerminalMaximized: (maximized: boolean) => void;
   toggleTerminalHalfMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
+  setTerminalDock: (dock: TerminalDock) => void;
+  toggleTerminalDock: () => void;
   toggleTerminalList: () => void;
   toggleBrowser: () => void;
   setBrowserOpen: (open: boolean) => void;
@@ -2134,6 +2145,7 @@ export type PersistedUi = Pick<
   | 'reposOpen'
   | 'terminalOpen'
   | 'terminalMaximized'
+  | 'terminalDock'
   | 'terminalSidebarSide'
   | 'terminalListOpen'
   | 'browserOpen'
@@ -2529,6 +2541,7 @@ export const useUiStore = create<UiState>()(
       reposOpen: true,
       terminalOpen: false,
       terminalMaximized: false,
+      terminalDock: 'bottom',
       terminalSidebarSide: 'right',
       terminalListOpen: true,
       browserOpen: false,
@@ -2805,6 +2818,9 @@ export const useUiStore = create<UiState>()(
           }
           return { terminalMaximized: !state.terminalMaximized };
         }),
+      setTerminalDock: (terminalDock) => set({ terminalDock }),
+      toggleTerminalDock: () =>
+        set((state) => ({ terminalDock: state.terminalDock === 'right' ? 'bottom' : 'right' })),
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
       toggleTerminalList: () =>
         set((state) => ({ terminalListOpen: !state.terminalListOpen })),
@@ -3163,6 +3179,7 @@ export const useUiStore = create<UiState>()(
         reposOpen: state.reposOpen,
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
+        terminalDock: state.terminalDock,
         terminalSidebarSide: state.terminalSidebarSide,
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,

@@ -28,6 +28,7 @@ const reset = () =>
     terminalOpen: false,
     terminalMaximized: false,
     terminalSidebarSide: 'right',
+    terminalDock: 'bottom',
     browserOpen: false,
     browserLayout: 'full',
     browserLauncherOpen: false,
@@ -586,6 +587,24 @@ describe('persistence', () => {
     expect(saved.state.terminalOpen).toBe(true);
     expect(saved.state.terminalMaximized).toBe(true);
     expect(saved.state.terminalSidebarSide).toBe('left');
+  });
+
+  it('docks the terminal at the bottom by default and toggles to the right and back', () => {
+    expect(useUiStore.getState().terminalDock).toBe('bottom');
+    useUiStore.getState().toggleTerminalDock();
+    expect(useUiStore.getState().terminalDock).toBe('right');
+    useUiStore.getState().toggleTerminalDock();
+    expect(useUiStore.getState().terminalDock).toBe('bottom');
+  });
+
+  it('persists the terminal dock and its right-docked width', () => {
+    useUiStore.getState().setTerminalDock('right');
+    useUiStore.getState().setLayout('terminalWidth', 600);
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { terminalDock: string; layout: { terminalWidth: number } };
+    };
+    expect(saved.state.terminalDock).toBe('right');
+    expect(saved.state.layout.terminalWidth).toBe(600);
   });
 
   it('persists a hidden repositories sidebar, so it stays hidden across a restart', () => {

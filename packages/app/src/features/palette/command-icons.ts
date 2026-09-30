@@ -57,6 +57,7 @@ import {
 export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.toggle': LuSquareTerminal,
   'terminal.toggleHalfMaximized': LuSquareTerminal,
+  'terminal.toggleDock': LuSquareTerminal,
   'terminal.focus': LuSquareTerminal,
   'terminal.new': LuSquareTerminal,
   'terminal.close': LuX,

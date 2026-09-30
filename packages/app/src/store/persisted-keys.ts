@@ -182,6 +182,7 @@ export const SESSION_STATE_KEYS = [
   'selectedWorktreePath', // current selection
   'settingsPage', // current selection — which settings page is showing
   'setupState', // setup overlay's first-run gate + skip history — lifecycle, not a setting
+  'terminalDock', // position toggled from the terminal header, not a setting
   'terminalDetached', // runtime popout state, corrected from main's window registry
   'terminalListOpen', // whether a panel is currently showing
   'terminalMaximized', // transient "terminal fills the window" mode

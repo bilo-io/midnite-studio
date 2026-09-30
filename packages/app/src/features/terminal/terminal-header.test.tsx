@@ -1,6 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useUiStore } from '../../store/ui-store';
 import { TerminalHeader } from './terminal-header';
 
 const mocks = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ describe('TerminalHeader', () => {
     mocks.windowRole = 'main';
     mocks.actionsTarget = null;
     mocks.leadingTarget = null;
+    useUiStore.setState({ terminalDock: 'bottom' });
   });
 
   afterEach(cleanup);
@@ -86,5 +88,16 @@ describe('TerminalHeader', () => {
     // Detaching an already-detached window makes no sense — same guard as before.
     expect(screen.queryByLabelText('Detach Terminal into its own window')).toBeNull();
     expect(screen.getByLabelText('Show session list')).toBeDefined();
+  });
+
+  it('offers to dock right while at the bottom, and back to the bottom once on the right', () => {
+    render(<TerminalHeader {...baseProps} />);
+
+    fireEvent.click(screen.getByLabelText('Dock terminal to the right'));
+    expect(useUiStore.getState().terminalDock).toBe('right');
+
+    expect(screen.queryByLabelText('Dock terminal to the right')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Dock terminal to the bottom'));
+    expect(useUiStore.getState().terminalDock).toBe('bottom');
   });
 });

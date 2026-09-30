@@ -186,6 +186,7 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().toggleTerminalHalfMaximized(),
     },
+    'terminal.toggleDock': { enabled: true, run: () => useUiStore.getState().toggleTerminalDock() },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     // Mod+T is an App-Switcher-style HUD now (`TerminalSwitcherOverlay`), the
     // same shape `browser.toggle` uses for Mod+B: a bare tap opens the

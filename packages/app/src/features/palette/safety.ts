@@ -108,6 +108,7 @@ const ID_DISPATCH_OK = new Set<CommandId>([
   'terminal.new',
   'terminal.close',
   'terminal.toggleHalfMaximized',
+  'terminal.toggleDock',
   'browser.newTab',
   'browser.closeTab',
   'browser.nextTab',
@@ -158,6 +159,7 @@ const ID_DISPATCH_OK = new Set<CommandId>([
 export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.toggle': 'direct',
   'terminal.toggleHalfMaximized': 'direct',
+  'terminal.toggleDock': 'direct',
   'terminal.focus': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
