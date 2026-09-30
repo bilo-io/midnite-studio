@@ -25,8 +25,13 @@ export const VideoProjectFileSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   composition: z.string().min(1),
-  /** Relative to the project folder, e.g. `input/original.mp4`. */
-  source: z.string().min(1),
+  /**
+   * Relative to the project folder, e.g. `input/original.mp4`. Optional: a
+   * project cut entirely from shared `assets/` (midnite-videos'
+   * `midnite/marketing/*`) has no original clip, and its `project.json` has
+   * no `source` at all.
+   */
+  source: z.string().min(1).optional(),
   /** Relative to the project folder, e.g. `input/BRIEF.md`. */
   brief: z.string().min(1),
   /** Relative to the project folder, e.g. `EDITORIAL_SCRIPT.md`. */

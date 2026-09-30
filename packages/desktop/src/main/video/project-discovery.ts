@@ -172,6 +172,7 @@ async function readProject(root: string, folderName: string): Promise<VideoProje
     ['brief', result.data.brief],
     ['script', result.data.script],
   ] as const) {
+    if (rel === undefined) continue;
     /*
       `joinWithin`, not `confineToRoot` — these three name files a fresh
       project may not have written yet (a brief not drafted, a source clip
