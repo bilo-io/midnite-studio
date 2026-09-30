@@ -1,6 +1,6 @@
 ---
 name: midnite-sitrep
-description: Post the standing sitrep table for whatever is in flight — swarm subagents, an execution plan's PRs, or a named set of PRs — one row each with a clickable PR link, a progress bar, an ETA, a 🟩/🟥/📄 line diff and an emoji status. Read-only. Use when the user says "sitrep", asks for status or "where are we", or a recurring status tick fires.
+description: Post the standing sitrep table for whatever is in flight — swarm subagents, an execution plan's PRs, or a named set of PRs — one row each with a clickable PR link, a progress bar, an ETA, a 🟩/🟥/📄 line diff and an emoji status. Read-only. Use when the user says "sitrep", asks for status or "where are we", or a recurring status tick fires; also "which can merge / merge order / dependency graph" (adds a merge graph).
 argument-hint: "[optional: PR numbers/URLs, a plan name, or a repo — defaults to what this session has in flight]"
 allowed-tools: Bash, Read, Glob, Grep, ListAgents
 ---
@@ -9,7 +9,7 @@ The one format every status report takes — ad hoc or on a recurring tick — s
 one table against the last at a glance. **Read-only**: this skill changes nothing, posts nothing,
 and messages no one. It reports.
 
-**Conversation style — enforced.** The table is the report. Nothing above it. At most two lines
+**Conversation style — enforced.** The table is the report. Nothing above it. At most two lines (the §6 merge graph, when it applies, is exempt)
 under it: the whole-batch line (below), plus one line only for a decision the user owes or a
 failure the table cannot carry.
 
@@ -106,3 +106,55 @@ Then, only if there is one, a single line naming the decision the user owes.
 On a recurring schedule, each tick is this same table and nothing more. When every row is at
 100% (or the scope the user named is done), post the final table and cancel the recurring job
 that drives the ticks — do not leave it running past the work it was scoped to.
+
+## 6 · Merge graph — on request, or when rows depend on each other
+
+When the user asks which PRs can merge, in what order, or for a dependency graph — or when the rows
+include stacked PRs or plan dependencies — follow the table with a merge graph. This section is
+exempt from the line limit on what goes under the table.
+
+**Derive the edges from external state, not memory:**
+
+- **Hard (`──▶`, must merge first):** `baseRefName` is another PR's branch · the branch has merge
+  commits pulling in another PR's head · `go.mod` / lockfile pins another PR's commit · the PR body
+  or the plan's `Depends on` / `dependsOn` names it.
+- **Soft (`┄┄`, rebase only, order free):** two open PRs change the same files
+  (`gh pr view <n> --json files`). Name the files in parentheses, abbreviated.
+
+**Mark each node:** ✅ can merge now (every hard dependency merged, CI green, no conflict) ·
+⏳ blocked · 🔴 failing or conflicting · 🟣 merged.
+
+**Format** — an `####` heading, one fenced `text` block, then a numbered merge order:
+
+````markdown
+#### 🔀 Merge graph · <plan or scope>
+
+```
+✅ can merge now   ⏳ blocked   ──▶ must merge first   ┄┄ same files (rebase, order free)
+
+<repo>
+  ✅ #130  PR-2   config contract ──┬──▶ ⏳ #139  PR-8   nature gating
+                                    └──▶ ⏳ #140  PR-10  carbon row
+  ✅ #132  PR-3   event contract  ────▶ #140
+  ✅ #131  PR-1   credits on      ┄┄ #130 (types · utils)
+
+<repo> ▸ <repo>
+  ✅ #1263 PR-5   suggested_amounts ──▶ ⏳ #504  PR-6   passthrough
+
+not built
+  TASK-B #129 ──▶ PR-11 #126 ──▶ PR-12 #127 release
+```
+
+**Merge order**
+1. **#130** — re-target #139 and #140 onto `main` first
+2. **#131 · #132** — rebase onto #130
+````
+
+- Group by repo. A cross-repo chain (a pin, a proto consumer) gets its own `<repo> ▸ <repo>` group.
+- A node's full line (`mark #n task label`) appears once; every later mention is the bare `#n`.
+  Labels are three words at most. Align the columns.
+- Fan-out uses `┬ ├ └`. Tasks with no PR yet go in a last `not built` chain.
+- **Merge order:** at most eight numbered lines. PRs that can land together share a line, joined with
+  ` · `. After the `—`, name only the action the merge needs: a re-target, a rebase, a re-pin, a
+  human sign-off. Nothing else.
+- Read-only still applies: the graph names the re-targets and rebases, it never performs them.
