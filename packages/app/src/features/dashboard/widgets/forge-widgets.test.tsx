@@ -1,8 +1,8 @@
-import type { Forge, ForgeKind, ForgePull } from '@midnite/studio-shared';
+import type { Forge, ForgeIssue, ForgeKind, ForgePull, ForgeRun } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { PullsWidget } from './forge-widgets';
+import { IssuesWidget, PullsWidget, RunListRow } from './forge-widgets';
 
 const pull: ForgePull = {
   id: 'PR_1',
@@ -81,5 +81,77 @@ describe('PullsWidget forge mark', () => {
       <PullsWidget result={ready} isFetching={false} repoId="r1" forge={forge('unknown', 'nas')} />,
     );
     expect(container.querySelector('[data-forge]')).toBeNull();
+  });
+});
+
+describe('forge mark colour', () => {
+  it('carries the provider brand colour, not muted grey', () => {
+    render(<PullsWidget result={ready} isFetching={false} repoId="r1" forge={forge('gitlab', 'gitlab.com')} />);
+    const mark = screen.getByRole('img', { name: 'GitLab' });
+    expect(mark.style.getPropertyValue('--brand-light')).toBe('#FC6D26');
+    expect(mark.style.color).toBe('var(--forge-brand)');
+  });
+});
+
+describe('IssuesWidget state icon', () => {
+  const issue = (number: number, state: 'open' | 'closed'): ForgeIssue =>
+    ({
+      number,
+      title: `Issue ${number}`,
+      state,
+      labels: [],
+      author: null,
+      url: `https://example.test/i/${number}`,
+    }) as unknown as ForgeIssue;
+
+  it('marks open and closed issues differently', () => {
+    render(
+      <IssuesWidget
+        result={{
+          cli: { reason: 'ready', hint: '' },
+          issues: [issue(1, 'open'), issue(2, 'closed')],
+          disabled: false,
+          error: null,
+        }}
+        isFetching={false}
+        repoId="r1"
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Open issue' }).dataset.issueState).toBe('open');
+    expect(screen.getByRole('img', { name: 'Closed issue' }).dataset.issueState).toBe('closed');
+  });
+});
+
+describe('RunListRow', () => {
+  const run = (status: string, conclusion: string | null): ForgeRun =>
+    ({
+      id: '1',
+      name: 'CI',
+      status,
+      conclusion,
+      headBranch: 'main',
+      createdAt: '2026-09-30T10:00:00Z',
+      url: 'https://example.test/r/1',
+    }) as unknown as ForgeRun;
+
+  it.each([
+    ['completed', 'success', 'actions-glow-ok'],
+    ['completed', 'failure', 'actions-glow-fail'],
+  ] as const)('reuses the Actions view styling for %s/%s', (status, conclusion, glow) => {
+    render(
+      <ul>
+        <RunListRow run={run(status, conclusion)} onOpen={() => {}} />
+      </ul>,
+    );
+    expect(screen.getByText('main').className).toContain(glow);
+  });
+
+  it('a running row wears the Actions running animation', () => {
+    render(
+      <ul>
+        <RunListRow run={run('in_progress', null)} onOpen={() => {}} />
+      </ul>,
+    );
+    expect(screen.getByRole('button', { name: 'Open run' }).className).toContain('actions-item-running');
   });
 });
