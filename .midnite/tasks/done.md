@@ -1,6 +1,19 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-30 — Phase 99 Theme D — Video
+
+[PR #613](https://github.com/bilo-io/midnite-studio/pull/613). Video moves into Media properly: the root follows the open repo, Setup Video scaffolds a Remotion workspace, and the explorer browses assets and projects down to their iterations.
+
+- [x] `features/video/` → `features/media/video/` through `MediaLayout`; `mstudio:video:*` unchanged.
+- [x] Root resolution: in-repo layout → `.midnite/media/video/` → global root, shown in the toolbar (`mstudio:video:root-resolve`).
+- [x] Setup Video: `templates/media-video/` scaffold, `npm install` in a visible terminal, example project selected.
+- [x] Assets + Projects accordions (nested `brand/category/NNN` ids, iterations newest first, input/notes files).
+- [x] Detail by selection: asset preview/readout, project + New iteration, iteration player + CHANGELOG entry + Compare with….
+- [x] Studio deep-linked on the selected project's composition.
+- [x] Render dialog (codec/crf/scale/label via `remotion render --codec`) and ffmpeg transcode of an iteration (`MediaExportSource` `video` arm).
+- [x] Vitest: root resolution per source, iteration parsing, template manifest, codec → argv, detail-panel switching.
+
 ## 2026-09-30 — Phase 99 Theme C — Images
 
 [PR #609](https://github.com/bilo-io/midnite-studio/pull/609). The Media page's Images tab: provider seam in main, masonry gallery with a glowing "+" tile, lightbox, png/jpeg/webp export. agy spike blocked (permission denial), so Gemini is the default and agy is listed-disabled.
