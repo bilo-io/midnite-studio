@@ -19,7 +19,6 @@ import {
 } from '@bilo-io/shell';
 import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
 import { QueryClient } from '@tanstack/react-query';
-import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
@@ -37,7 +36,13 @@ import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { ErrorBoundary } from './components/error-boundary';
 import { ToastHost } from './components/toast-host';
-import { VIEW_ICON } from './components/nav-icons';
+import {
+  AGENT_NAV_ITEMS,
+  GIT_NAV_ITEMS,
+  PINNED_NAV_ITEMS,
+  WORKSPACE_NAV_ITEMS,
+  type RailNavItem,
+} from './components/nav-groups';
 import { VIEW_COMPONENT } from './components/view-registry';
 import { useKeptAliveView } from './components/view-keep-alive';
 import { navChord } from './components/nav-chords';
@@ -371,7 +376,13 @@ const CONTENT_BOX = {
  * rail's one-noun-per-item pattern; the bare verb "Explore" was rejected for
  * exactly that reason, as the one item that wasn't a noun.
  */
-type NavItem = { view: ViewId; label: string; icon: IconType };
+type NavItem = RailNavItem;
+
+function pinnedItem(view: ViewId): NavItem {
+  const item = PINNED_NAV_ITEMS.find((i) => i.view === view);
+  if (!item) throw new Error(`no pinned rail item for ${view}`);
+  return item;
+}
 
 /**
  * Dashboard, alone, above everything else.
@@ -383,11 +394,7 @@ type NavItem = { view: ViewId; label: string; icon: IconType };
  * way Explorer and Graph are; it is the repository's front page, and grouping
  * it with them would say otherwise.
  */
-const PINNED_ITEM: NavItem = {
-  view: 'dashboard',
-  label: 'Dashboard',
-  icon: VIEW_ICON.dashboard,
-};
+const PINNED_ITEM: NavItem = pinnedItem('dashboard');
 
 /**
  * Notes, pinned directly under Dashboard (Phase 86 Theme E).
@@ -399,11 +406,7 @@ const PINNED_ITEM: NavItem = {
  * between the two rows is `ViewLink`'s job, not this list's — see its header
  * comment for why.
  */
-const NOTES_ITEM: NavItem = {
-  view: 'notes',
-  label: 'Notes',
-  icon: VIEW_ICON.notes,
-};
+const NOTES_ITEM: NavItem = pinnedItem('notes');
 
 /**
  * Knowledge, pinned directly under Notes (Phase 87 Theme C).
@@ -418,11 +421,7 @@ const NOTES_ITEM: NavItem = {
  * *row itself* read as disabled for a repo that exists but has never been
  * graphified.
  */
-const KNOWLEDGE_ITEM: NavItem = {
-  view: 'knowledge',
-  label: 'Knowledge',
-  icon: VIEW_ICON.knowledge,
-};
+const KNOWLEDGE_ITEM: NavItem = pinnedItem('knowledge');
 
 /**
  * Sessions, pinned directly under Knowledge (adhoc sidenav reorder).
@@ -432,41 +431,13 @@ const KNOWLEDGE_ITEM: NavItem = {
  * out of `AGENT_NAV_ITEMS` so the Agents section header does not sit between
  * Knowledge and Sessions.
  */
-const SESSIONS_ITEM: NavItem = {
-  view: 'sessions',
-  label: 'Sessions',
-  icon: VIEW_ICON.sessions,
-};
+const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
 
 /*
   Glyphs come from `components/nav-icons`, shared with the title bar's
   breadcrumbs — including the deliberate second and third icon families for
   Tests and Reviews, whose reasoning lives beside them there.
 */
-const WORKSPACE_NAV_ITEMS: NavItem[] = [
-  { view: 'files', label: 'Explorer', icon: VIEW_ICON.files },
-  { view: 'search', label: 'Search', icon: VIEW_ICON.search },
-  { view: 'optimizer', label: 'Optimizer', icon: VIEW_ICON.optimizer },
-  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
-  { view: 'database', label: 'Database', icon: VIEW_ICON.database },
-  { view: 'apiClient', label: 'API Client', icon: VIEW_ICON.apiClient },
-];
-
-const GIT_NAV_ITEMS: NavItem[] = [
-  { view: 'tasks', label: 'Tasks', icon: VIEW_ICON.tasks },
-  { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
-  { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
-  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
-  { view: 'history', label: 'History', icon: VIEW_ICON.history },
-];
-
-export const AGENT_NAV_ITEMS: NavItem[] = [
-  { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
-  { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
-  { view: 'media', label: 'Media', icon: VIEW_ICON.media },
-  { view: 'models', label: 'Models', icon: VIEW_ICON.models },
-];
-
 /**
  * Every rail item, pinned included — the app's one `ViewId` → label lookup.
  *

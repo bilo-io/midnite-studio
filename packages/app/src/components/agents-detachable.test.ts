@@ -1,7 +1,7 @@
 import { PAGE_WINDOW_ROLES } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_NAV_ITEMS } from '../app';
+import { AGENT_NAV_ITEMS } from './nav-groups';
 import { PAGE_ROLE_TITLE } from './page-detach-mark';
 
 // Source scan (raw imports): rendering all four heavy views here would need a

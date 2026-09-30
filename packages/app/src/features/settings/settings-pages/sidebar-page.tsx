@@ -2,7 +2,20 @@ import { Accordion } from '@bilo-io/ui';
 import { LuFilter, LuLayoutList, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
-import { isNavViewVisible, RAIL_VIEW_IDS } from '../../../components/nav-visibility';
+import { Accordion as SectionAccordion } from '../../../components/accordion/accordion';
+import {
+  AGENTS_CATEGORY_ICON,
+  gitCategoryIcon,
+  WORKSPACE_CATEGORY_ICON,
+  type CategoryIcon,
+} from '../../../components/nav-category-icons';
+import {
+  PINNED_NAV_ITEMS,
+  RAIL_GROUPS,
+  type RailGroupKey,
+  type RailNavItem,
+} from '../../../components/nav-groups';
+import { isNavViewVisible } from '../../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import {
   ALL_SECTIONS,
@@ -122,7 +135,8 @@ function describeNarrowed(view: ViewId): string {
  * `RAIL_VIEW_IDS` entirely, per `nav-visibility.ts`, so they never render as
  * a row a lock would apply to).
  */
-function SidenavRow({ view, label }: { view: ViewId; label: string }) {
+function SidenavRow({ item }: { item: RailNavItem }) {
+  const { view, label, description, icon: Icon } = item;
   const navVisibility = useUiStore((s) => s.navVisibility);
   const setNavViewVisible = useUiStore((s) => s.setNavViewVisible);
   const visible = isNavViewVisible(navVisibility, view);
@@ -131,11 +145,53 @@ function SidenavRow({ view, label }: { view: ViewId; label: string }) {
     <SettingsSwitchRow
       id={view}
       label={label}
+      description={description}
+      icon={<Icon aria-hidden className="h-4 w-4 shrink-0" />}
       title={`Show ${label} in the sidenav`}
       on={visible}
       onToggle={(_id, next) => setNavViewVisible(view, next)}
       className="-mx-1.5 min-h-8 !gap-2 !px-1.5 !py-1 !text-xs"
     />
+  );
+}
+
+/** The rail's category glyphs; Git wears the plain Git mark (no repo here to name a forge). */
+const GROUP_ICON: Record<RailGroupKey, CategoryIcon> = {
+  workspace: WORKSPACE_CATEGORY_ICON,
+  git: gitCategoryIcon(null),
+  agents: AGENTS_CATEGORY_ICON,
+};
+
+/** Accordion id for the persisted fold state — independent of the rail's own `collapsedNavSections`. */
+export const RAIL_GROUPS_ACCORDION_ID = 'settings-rail-groups';
+
+function RailDestinations() {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5">
+        {PINNED_NAV_ITEMS.map((item) => (
+          <SidenavRow key={item.view} item={item} />
+        ))}
+      </div>
+      <SectionAccordion
+        id={RAIL_GROUPS_ACCORDION_ID}
+        sections={RAIL_GROUPS.map((group) => {
+          const { Icon, color } = GROUP_ICON[group.key];
+          return {
+            id: group.key,
+            title: group.title,
+            icon: <Icon aria-hidden className="h-4 w-4" style={{ color }} />,
+            children: (
+              <div className="flex flex-col gap-1.5 pb-1">
+                {group.items.map((item) => (
+                  <SidenavRow key={item.view} item={item} />
+                ))}
+              </div>
+            ),
+          };
+        })}
+      />
+    </div>
   );
 }
 
@@ -225,11 +281,7 @@ export function SidebarPage() {
             label="Rail destinations"
             hint="Show or hide each view in the left rail. Hidden views are not reachable from their keyboard shortcuts either. Settings stays in the rail footer."
           >
-            <div className="flex flex-col gap-1.5">
-              {RAIL_VIEW_IDS.map((view) => (
-                <SidenavRow key={view} view={view} label={VIEW_LABELS[view]} />
-              ))}
-            </div>
+            <RailDestinations />
           </Field>
           <Field label="Reset" hint="Show every rail destination again.">
             <button
