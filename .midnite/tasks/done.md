@@ -26,6 +26,18 @@
 - [x] Render dialog (codec/crf/scale/label via `remotion render --codec`) and ffmpeg transcode of an iteration (`MediaExportSource` `video` arm).
 - [x] Vitest: root resolution per source, iteration parsing, template manifest, codec → argv, detail-panel switching.
 
+## 2026-09-30 — Phase 99 Theme B — Docs
+
+[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). The Media page's Docs tab: a lazy Tiptap editor over plain `.md`, a project accordion, a per-doc AI thread whose edits arrive as accept/reject diff cards, and md/html/pdf export.
+
+- [x] Tiptap v3 editor + `@tiptap/markdown`, lazy chunk (703.8 KB); entry +0.9 KB from the shared contract only.
+- [x] Markdown round-trip fixtures (lossy constructs listed), debounced autosave, external-change reload / conflict banner.
+- [x] `/` slash menu, selection bubble menu with Ask AI, block drag handle, `MARKDOWN_PROSE_CLASSES` styling.
+- [x] Project accordion over `.md` docs with filter, create/rename/delete (thread sidecar follows).
+- [x] AI thread in `<doc>.thread.json`; `runDocEdit` via the generalised `improve-field.ts` runner; selection-or-doc scope; diff card Accept/Reject/Copy; provider/model picker.
+- [x] Export md (raw) / html (standalone, prose CSS inlined) / pdf (hidden `printToPDF`), no ffmpeg.
+- [x] Vitest: round-trip, thread store, session reducer, diff-card accept/reject through `file-write`, export HTML builder, lazy boundary.
+
 ## 2026-09-30 — Phase 99 Theme C — Images
 
 [PR #609](https://github.com/bilo-io/midnite-studio/pull/609). The Media page's Images tab: provider seam in main, masonry gallery with a glowing "+" tile, lightbox, png/jpeg/webp export. agy spike blocked (permission denial), so Gemini is the default and agy is listed-disabled.
