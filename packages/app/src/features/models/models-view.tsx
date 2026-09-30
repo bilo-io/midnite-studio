@@ -154,7 +154,10 @@ function DaemonDownState({ onStarted }: { onStarted: () => void }) {
   };
 
   return (
-    <div className="flex h-full items-center justify-center">
+    <div className="relative flex h-full items-center justify-center">
+      <div className="absolute left-3 top-3">
+        <PageDetachMark role="models" />
+      </div>
       <div className="flex flex-col items-center gap-3 text-center">
         <EmptyState
           icon={SiOllama}
