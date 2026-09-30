@@ -112,13 +112,13 @@ gains a **Resume setup** leaf for that.
 
 **Theme C — Skip / X → FAB handoff and resume.** ✅ Skip/X → FAB handoff with a pointing arrow, FAB "Resume setup" leaf ([PR #602](https://github.com/bilo-io/midnite-studio/pull/602)). X, Skip and Escape record their bookkeeping at once, then call `setup-store.holdOpen()`, since `dismissedAt` closes the first-run gate mid-handoff. They then play `handoffTimeline`: content fades and goes `inert` → a stand-in FAB fades in exactly over the real one's rect, with "You can always continue setup from here" and a `LuArrowDownRight` nudging at it (`setup-arrow-nudge`, gated on `data-window-focused` and removed under reduced motion) → after a 2.6s beat, or on any click or a second Escape, the overlay dissolves onto the real FAB. With the FAB hidden (`isFabPanelDocked || isCompanionPanelDocked`, or no measurable `fab-button`), the hint names ⌘K → "Run Setup Wizard" and no arrow shows. Reduced motion drops the fades but keeps the beat. The quick-access menu gains **Resume setup** (`S`, `LuRocket`, before the separator) while `completedAt === null`. It calls `resumeSetup()`, and the frame opens past the intro at `resumePageId`: the first page from `lastPageId` on that is not skipped, falling back to `lastPageId`. It is computed in the frame, so the menu chunk never imports the page registry. The e2e is `setup-fab-handoff.spec.ts`, whose arrow is aimed at the FAB's real `getBoundingClientRect`. The e2e cap went 456 → 457.
 
-**Theme D — Setup catalogue, probes and the install runner.** ◻ shared setup catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row
+**Theme D — Setup catalogue, probes and the install runner.** ✅ Shared catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row ([PR #630](https://github.com/bilo-io/midnite-studio/pull/630)). Landed: `shared/src/setup.ts` holds `SETUP_CATALOGUE` (zod rows `{id, label, group, probe: {bin, versionArg, paths}, install: {brew: {formula}|{cask}, xcodeClt?} | null, icon: {set, name}, brandColor}`; seeded with `homebrew` and `git`, and Themes E–I append rows). It also holds `composeBrewInstall` (one line: formulae, then `--cask`, each deduplicated) and `planSetupInstall`, which offers a brew line, or with no brew the Homebrew bootstrap script plus `xcode-select --install` for a CLT-provided tool. `setupProbe` takes catalogue **ids**, never binary names: main (`setup-probe.ts`) resolves each against the catalogue, drops unknown ids, and drives `probeBinary` (which gained an optional `versionArg`; `systemHealth` is unchanged). The renderer side is `features/setup/install-runner.ts`: `useSetupProbe` re-probes on window focus, and `useInstallRunner` types the line into a fresh terminal via `submitCommand` (which now returns the session id). The runner counts an install as done once the session's foreground command has run and returned to a bare prompt, or the shell exits, or the tab closes. **Not in the doc, but needed for the "visible terminal" guardrail:** the full-window overlay would cover that terminal, so an install steps the overlay aside (`setup-store.aside`). The overlay stays mounted but hidden, releases its focus trap, Escape and ←/→, and shows a top-centre "Return to setup" pill. `setup-status-row.tsx` has four states (checking / missing / installing with a "Running in terminal" link / ready). Ready is a circle check whose green box-shadow glow (`.setup-ready-check`) is focus-gated and removed under reduced motion, with no allowlist additions. Icons resolve through a static `SETUP_ICONS` map (no whole-set namespace import), and a test asserts each entry is the export it names. The bootstrap/CLT offers exist only in the planner until Theme E's git page draws them.
 
 **Theme E — Git, forge selection and forge CLIs.** ◻ git detect/install, multi-select forge buttons, gh/glab/az CLI rows (Bitbucket no-CLI)
 
 **Theme F — Accounts and git identity.** ◻ account cards (avatar, name, login, email) + `gitIdentityGet/Set` global git identity
 
-**Theme G — Midnite CLI page.** ◻ Midnite CLI page over `cliStatus`/`cliInstall`
+**Theme G — Midnite CLI page.** ✅ The `cli` page over `cliStatus`/`cliInstall` ([PR #630](https://github.com/bilo-io/midnite-studio/pull/630)). Appended after `forges` in `SETUP_PAGES` (titled "Install the Midnite CLI"). It explains the three `midnite-studio` shell forms, shows the status in Theme D's row, and its Install button calls `cliInstall({target: 'auto'})`. That install is main's own symlink, so *installing* shows no terminal link. `CliStatusResponse` gained optional `onPath`/`pathExportLine`, computed in `cli-handlers.ts` against the login-shell PATH that `shell-path.ts` folds into `process.env`. An install that fell back to an off-PATH `~/.local/bin` shows the `export PATH=…` line to add. With no bridge (browser build), the row reads *missing* with Install disabled.
 
 **Theme H — Toolchain checklist.** ◻ toolchain checklist (agent CLIs, JS stack, containers, media/misc) with brand-coloured icons
 
@@ -193,25 +193,25 @@ gains a **Resume setup** leaf for that.
       Skip, then the hint and arrow are visible and target the FAB, the overlay is gone, and
       Resume reopens at the right page.
 
-### D — Setup catalogue, probes and the install runner (M)
+### D — Setup catalogue, probes and the install runner (M) — ✅ DONE (PR #630, 2026-09-30)
 
-- [ ] `shared/src/setup.ts` holds the **setup catalogue**. Each item is
+- [x] `shared/src/setup.ts` holds the **setup catalogue**. Each item is
       `{id, label, group, probe: {bin, versionArg}, install: {brew: formula | cask}, icon, brandColor}`
       and is zod-validated. The icon is a `react-icons` set name plus an export name, e.g. `si`/`SiGithub`, resolved in `app`.
-- [ ] Add a `setupProbe(ids)` channel and schema. `desktop` generalises `system-health.ts`'s
+- [x] Add a `setupProbe(ids)` channel and schema. `desktop` generalises `system-health.ts`'s
       `probeBinary` into a catalogue-driven probe returning `{id, installed, version, path}`.
       Existing `systemHealth` callers are unchanged.
-- [ ] **Install runner (renderer).**
+- [x] **Install runner (renderer).**
       - Compose one `brew install …` / `brew install --cask …` line for the ticked items.
       - Run it in a **visible terminal session** via the existing `submitCommand` path.
       - Re-probe when that command exits and on window focus.
-- [ ] **Homebrew bootstrap.** If brew is missing, offer its official install script (in the terminal)
-      before anything else.
-- [ ] **git fallback.** With no brew, offer `xcode-select --install`.
-- [ ] Shared **status row** component: *checking* (spinner) → *installing* (spinner and a
+- [x] **Homebrew bootstrap.** If brew is missing, offer its official install script (in the terminal)
+      before anything else. *(`planSetupInstall`; Theme E's git page is its first renderer.)*
+- [x] **git fallback.** With no brew, offer `xcode-select --install`.
+- [x] Shared **status row** component: *checking* (spinner) → *installing* (spinner and a
       "running in terminal" link) → *ready*. *Ready* is a circle check that **pulses green, with a
       box-shadow glow around the stroke**, and it is gated and guarded like any loop.
-- [ ] Vitest: catalogue schema round-trip, the probe parser, brew line composition (formula vs
+- [x] Vitest: catalogue schema round-trip, the probe parser, brew line composition (formula vs
       cask, no duplicates) and status-row states.
 
 ### E — Git, forge selection and forge CLIs (M)
@@ -246,14 +246,14 @@ gains a **Resume setup** leaf for that.
       with no account yet.
 - [ ] Vitest: identity schema, merge and de-dupe of vault plus gh accounts, and the email fallback order.
 
-### G — Midnite CLI page (S)
+### G — Midnite CLI page (S) — ✅ DONE (PR #630, 2026-09-30)
 
-- [ ] A page of its own:
+- [x] A page of its own:
       - what `midnite` does from a shell;
       - `cliStatus` shown in a Theme D status row;
       - **Install** calls `cliInstall({target: 'auto'})`;
       - the `pathExportLine` hint when the target is not on `PATH`.
-- [ ] Vitest: installed, missing and not-on-PATH states.
+- [x] Vitest: installed, missing and not-on-PATH states.
 
 ### H — Toolchain checklist (M)
 

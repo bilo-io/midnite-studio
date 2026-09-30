@@ -1,6 +1,20 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-30 — Phase 98 Themes D + G — Setup catalogue, probes and the install runner; Midnite CLI page
+
+[PR #630](https://github.com/bilo-io/midnite-studio/pull/630). The plumbing every remaining setup page needs: a catalogue of tools, an id-keyed probe channel, a brew-in-a-visible-terminal install runner, and one status row. The Midnite CLI page is the first page built on them.
+
+- [x] `shared/src/setup.ts` catalogue: zod rows with probe, brew formula/cask, `react-icons` set+name and brand colour, resolved in `app` through `SETUP_ICONS`.
+- [x] `setupProbe(ids)` channel; main's `setup-probe.ts` drives a generalised `probeBinary` from the catalogue, and `systemHealth` is unchanged.
+- [x] Install runner: `composeBrewInstall` (one line), run via `submitCommand` in a visible terminal, re-probed when the command returns to the prompt and on window focus. The overlay steps aside so the terminal can be seen and typed into.
+- [x] Homebrew bootstrap offered first when brew is missing (`planSetupInstall`).
+- [x] git fallback: `xcode-select --install` offered with no brew.
+- [x] Status row: checking → installing (with a "Running in terminal" link) → ready, with a green glow pulse that is focus-gated and removed under reduced motion.
+- [x] Vitest: catalogue round-trip, probe parser, brew line composition, status-row states.
+- [x] Midnite CLI page: usage, `cliStatus` in the status row, Install → `cliInstall({target: 'auto'})`, and the `pathExportLine` hint when the target is off PATH.
+- [x] Vitest: installed, missing and not-on-PATH states.
+
 ## 2026-09-30 — Phase 99 Theme E — Audio
 
 [PR #614](https://github.com/bilo-io/midnite-studio/pull/614). The Media page's Audio tab: full UI and player, with generation stubbed behind an `AudioProvider` seam whose only adapter is Import.
