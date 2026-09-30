@@ -27,7 +27,10 @@ afterEach(() => {
 });
 
 describe('stepInstallWatch', () => {
-  const at = (command: string | null | undefined, extra: Partial<{ present: boolean; exitCode: number }> = {}) => ({
+  const at = (
+    command: string | null | undefined,
+    extra: Partial<{ present: boolean; exitCode: number }> = {},
+  ) => ({
     present: true,
     command,
     exitCode: undefined,
@@ -87,16 +90,22 @@ describe('useInstallRunner', () => {
 
 describe('useSetupProbe', () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       {children}
     </QueryClientProvider>
   );
 
   it('maps probe rows by id', async () => {
     const probe = vi.fn().mockResolvedValue({
-      results: [{ id: 'git', installed: true, version: 'git version 2.45.0', path: '/usr/bin/git' }],
+      results: [
+        { id: 'git', installed: true, version: 'git version 2.45.0', path: '/usr/bin/git' },
+      ],
     });
-    (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = { setup: { probe } };
+    (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
+      setup: { probe },
+    };
     const { result } = renderHook(() => useSetupProbe(['git']), { wrapper });
     await waitFor(() => expect(result.current.data?.['git']?.installed).toBe(true));
     expect(probe).toHaveBeenCalledWith({ ids: ['git'] });

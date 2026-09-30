@@ -54,7 +54,9 @@ describe('ForgeConnectPage', () => {
 
     const [gitlabToken] = screen.getAllByPlaceholderText('paste a token');
     if (!gitlabToken) throw new Error('expected a non-GitHub token field to render');
-    const gitlabConnect = gitlabToken.closest('form')!.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const gitlabConnect = gitlabToken
+      .closest('form')!
+      .querySelector('button[type="submit"]') as HTMLButtonElement;
     expect(gitlabConnect.disabled).toBe(true);
 
     fireEvent.change(gitlabToken, { target: { value: 'glpat-abc' } });

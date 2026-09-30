@@ -1,7 +1,10 @@
 import type { SetupPage } from './setup-page';
 import { ForgeConnectPage } from './pages/forge-connect-page';
-import { MachineCheckPage } from './pages/machine-check-page';
+import { ForgeCliPage } from './pages/forge-cli-page';
+import { ForgeSelectPage } from './pages/forge-select-page';
+import { GitPage } from './pages/git-page';
 import { MidniteCliPage } from './pages/midnite-cli-page';
+import { ToolchainPage } from './pages/toolchain-page';
 
 /**
  * The setup overlay's pages, top to bottom (Phase 98 Theme A).
@@ -19,10 +22,22 @@ import { MidniteCliPage } from './pages/midnite-cli-page';
  */
 export const SETUP_PAGES: readonly SetupPage[] = [
   {
-    id: 'machine',
-    title: 'Check your machine',
-    titleTyped: 'Check your machine',
-    Component: MachineCheckPage,
+    id: 'git',
+    title: 'Git',
+    titleTyped: 'Get git ready',
+    Component: GitPage,
+  },
+  {
+    id: 'forge-select',
+    title: 'Forges',
+    titleTyped: 'Which forges do you use?',
+    Component: ForgeSelectPage,
+  },
+  {
+    id: 'forge-cli',
+    title: 'Forge CLIs',
+    titleTyped: 'Install your forge tools',
+    Component: ForgeCliPage,
   },
   {
     id: 'forges',
@@ -35,5 +50,11 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     title: 'Midnite CLI',
     titleTyped: 'Install the Midnite CLI',
     Component: MidniteCliPage,
+  },
+  {
+    id: 'toolchain',
+    title: 'Toolchain',
+    titleTyped: 'Set up your toolchain',
+    Component: ToolchainPage,
   },
 ];

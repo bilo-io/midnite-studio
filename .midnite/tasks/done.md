@@ -1,6 +1,19 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-30 — Phase 98 Themes E + H — Git, forge and toolchain wizard pages
+
+[PR #632](https://github.com/bilo-io/midnite-studio/pull/632). Pages over Theme D's catalogue, probe, planner and status row; no new IPC.
+
+- [x] Git page (version vs 2.30.0; first renderer of the brew / Homebrew-bootstrap / Xcode-CLT offers), replacing the interim machine page.
+- [x] Forge multi-select persisted in `setupState.forges`.
+- [x] Forge CLI rows for gh / glab / az (gh sign-in from `forge.cliStatus`); Bitbucket "token-based, no CLI needed".
+- [x] `gh`, `glab`, `az` catalogue rows.
+- [x] Vitest for the git and forge pages.
+- [x] Toolchain catalogue: agent CLIs, JS, containers (Docker or OrbStack), media, with brand-coloured icons.
+- [x] Toolchain page with ticked-and-locked installed rows and Install selected (one brew line).
+- [x] Vitest: grouping, default selection, either-runtime rule, composed line, icon exports.
+
 ## 2026-09-30 — Phase 98 Themes D + G — Setup catalogue, probes and the install runner; Midnite CLI page
 
 [PR #630](https://github.com/bilo-io/midnite-studio/pull/630). The plumbing every remaining setup page needs: a catalogue of tools, an id-keyed probe channel, a brew-in-a-visible-terminal install runner, and one status row. The Midnite CLI page is the first page built on them.

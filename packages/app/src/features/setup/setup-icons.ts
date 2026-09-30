@@ -1,5 +1,18 @@
-import { LuBox } from 'react-icons/lu';
-import { SiGit, SiHomebrew } from 'react-icons/si';
+import { LuBot, LuBox, LuBraces, LuCloud, LuSearch } from 'react-icons/lu';
+import {
+  SiBun,
+  SiClaude,
+  SiDocker,
+  SiFfmpeg,
+  SiGit,
+  SiGithub,
+  SiGitlab,
+  SiGooglegemini,
+  SiHomebrew,
+  SiMoonrepo,
+  SiNodedotjs,
+  SiPnpm,
+} from 'react-icons/si';
 
 import type { SetupIconRef } from '@midnite/studio-shared';
 
@@ -18,6 +31,21 @@ import type { IconComponent } from '../../components/icon-button';
 export const SETUP_ICONS: Readonly<Record<string, IconComponent>> = {
   'si:SiGit': SiGit,
   'si:SiHomebrew': SiHomebrew,
+  'si:SiGithub': SiGithub,
+  'si:SiGitlab': SiGitlab,
+  'si:SiClaude': SiClaude,
+  'si:SiGooglegemini': SiGooglegemini,
+  'si:SiNodedotjs': SiNodedotjs,
+  'si:SiPnpm': SiPnpm,
+  'si:SiBun': SiBun,
+  'si:SiMoonrepo': SiMoonrepo,
+  'si:SiDocker': SiDocker,
+  'si:SiFfmpeg': SiFfmpeg,
+  'lu:LuCloud': LuCloud,
+  'lu:LuBot': LuBot,
+  'lu:LuBox': LuBox,
+  'lu:LuSearch': LuSearch,
+  'lu:LuBraces': LuBraces,
 };
 
 /** A catalogue row's icon, or a neutral box for one missing from the map. */
