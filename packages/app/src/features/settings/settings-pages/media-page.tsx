@@ -4,6 +4,7 @@ import { LuAudioLines, LuClapperboard, LuFolderOpen, LuImage, LuSettings2, LuX }
 
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
+import { AudioSettingsSection } from '../../media/audio/audio-settings';
 import { ImageSettingsSection } from '../../media/image/image-settings';
 import { useFfmpegStatus } from '../../media/use-media';
 import { submitCommand } from '../../terminal/submit-command';
@@ -17,8 +18,7 @@ import { VideoRootSection } from './video-root-section';
  *   never run headless) and the export default folder (`mediaExportDir`).
  * - **Video**: Phase 44's video root, unchanged.
  * - **Images** (Theme C): default provider/model and API keys (`ImageSettingsSection`).
- * - **Audio**: a placeholder Theme E fills with provider,
- *   model and API-key rows.
+ * - **Audio** (Theme E): prompt-form defaults and the MP3 bitrate (`AudioSettingsSection`).
  */
 export function MediaSettingsPage() {
   return (
@@ -36,9 +36,7 @@ export function MediaSettingsPage() {
         <ImageSettingsSection />
       </Accordion>
       <Accordion title="Audio" icon={<LuAudioLines className="h-4 w-4" />}>
-        <p className="p-3 text-xs text-muted-foreground">
-          Audio generation arrives in a later phase. Today, audio is imported.
-        </p>
+        <AudioSettingsSection />
       </Accordion>
     </div>
   );

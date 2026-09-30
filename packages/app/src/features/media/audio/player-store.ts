@@ -163,7 +163,7 @@ export function createPlayerStore(makeAudio: () => AudioLike, random: () => numb
         const state = get();
         if (state.pos < 0) return;
         const el = element();
-        if (el.paused) {
+        if (!state.playing) {
           set({ playing: true });
           void Promise.resolve(el.play()).catch(() => set({ playing: false }));
         } else {

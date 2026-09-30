@@ -3009,6 +3009,47 @@ export function buildMockBridge(data: MockFixtures) {
         cancel: async () => ({ ok: true as const }),
         onProgress: unsubscribe,
       },
+      // Phase 99 Theme E — Import "picks" two files, lands them as variants
+      // with sidecars, and appends one session to project.json.
+      audio: {
+        providers: async () => ({
+          providers: [{ id: 'import' as const, available: true, generates: false }],
+        }),
+        import: async (req: { project: string; importId: string; prompt: { title: string } }) => {
+          const key = `audio:${req.project}`;
+          const sessionId = `sess-${req.importId}`;
+          const files = [1, 2].map((i) => `${req.importId}-${i}.mp3`);
+          const current = { ...(mediaFiles[key] ?? {}) };
+          const history = (() => {
+            try {
+              return JSON.parse(current['project.json'] ?? '') as { version: 1; sessions: unknown[] };
+            } catch {
+              return { version: 1 as const, sessions: [] as unknown[] };
+            }
+          })();
+          for (const file of files) {
+            current[file] = 'mp3';
+            current[file.replace(/\.mp3$/, '.json')] = JSON.stringify({
+              version: 1,
+              file,
+              sessionId,
+              provider: 'import',
+              title: req.prompt.title || file,
+              createdAt: '2026-09-30T12:00:00.000Z',
+            });
+          }
+          current['project.json'] = JSON.stringify({
+            version: 1,
+            sessions: [
+              ...history.sessions,
+              { id: sessionId, kind: 'import', provider: 'import', prompt: req.prompt, variants: files, createdAt: '2026-09-30T12:00:00.000Z' },
+            ],
+          });
+          mediaFiles = { ...mediaFiles, [key]: current };
+          return { ok: true as const, value: { sessionId, files } };
+        },
+        onProgress: unsubscribe,
+      },
       reveal: async () => ({ ok: true as const }),
       ffmpegStatus: async () => ({
         ffmpeg: data.media?.ffmpeg ?? { found: true as const, path: '/opt/homebrew/bin/ffmpeg', version: '7.1' },
