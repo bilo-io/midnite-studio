@@ -4,7 +4,9 @@ import type { Forge, ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-sha
 
 import { GoIssueClosed, GoIssueOpened } from 'react-icons/go';
 
+import { ForgeRefLink } from '../../../components/forge-ref-link';
 import { Tooltip } from '../../../components/tooltip';
+import { UserAvatar } from '../../../components/user-avatar';
 import { openLinkFromEvent } from '../../../services/open-in-midnite';
 import {
   PROVIDER_BRAND_COLOR,
@@ -101,7 +103,13 @@ export function PullsWidget({
             openLabel={`Open pull request #${pull.number}`}
             leading={<ForgeMark forge={forge} />}
             meta={<PullMeta pull={pull} />}
-            subtitle={`#${pull.number} · ${pull.headBranch}${pull.author ? ` · ${pull.author}` : ''}`}
+            subtitle={
+              <>
+                <ForgeRefLink url={pull.url} number={pull.number} repoId={repoId} /> ·{' '}
+                {pull.headBranch}
+                <AuthorBit login={pull.author} />
+              </>
+            }
           />
         ))}
       </ul>
@@ -179,7 +187,12 @@ export function IssuesWidget({
                 ))}
               </span>
             }
-            subtitle={`#${issue.number}${issue.author ? ` · ${issue.author}` : ''}`}
+            subtitle={
+              <>
+                <ForgeRefLink url={issue.url} number={issue.number} repoId={repoId} />
+                <AuthorBit login={issue.author} />
+              </>
+            }
           />
         ))}
       </ul>
@@ -344,6 +357,20 @@ export function IssueMark({ state }: { state: ForgeIssue['state'] }) {
   );
 }
 
+/** ` · <avatar> login`, or nothing when the forge gave no author. */
+function AuthorBit({ login }: { login: string | null }) {
+  if (!login) return null;
+  return (
+    <>
+      {' · '}
+      <span className="inline-flex items-center gap-1 align-middle">
+        <UserAvatar login={login} size={12} withTooltip />
+        {login}
+      </span>
+    </>
+  );
+}
+
 /** The review verdict and, where the PR has any checks at all, their rollup. */
 function PullMeta({ pull }: { pull: ForgePull }) {
   const checks = checksStatus(pull);
@@ -367,7 +394,7 @@ function ForgeListRow({
   onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void;
   openLabel: string;
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   /** Optional mark before the title — the pulls tile's forge icon. */
   leading?: React.ReactNode;
   meta?: React.ReactNode;

@@ -155,3 +155,13 @@ describe('RunListRow', () => {
     expect(screen.getByRole('button', { name: 'Open run' }).className).toContain('actions-item-running');
   });
 });
+
+describe('PR and issue subtitles', () => {
+  it('renders the PR number as a ref link and the author with an avatar', () => {
+    render(<PullsWidget result={ready} isFetching={false} repoId="r1" forge={forge('github', 'github.com')} />);
+    const ref = screen.getByTestId('forge-ref-link');
+    expect(ref.textContent).toBe('#7');
+    expect(ref.getAttribute('role')).toBe('link');
+    expect(screen.getByText('octocat')).toBeTruthy();
+  });
+});
