@@ -550,6 +550,10 @@ const bridge: Pick<
     cancelExport: (req) => call(CHANNELS.mediaExportCancel, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaChanged, handler),
     onExportProgress: (handler) => subscribe(EVENT_CHANNELS.mediaExportProgress, handler),
+    doc: {
+      edit: (req) => call(CHANNELS.mediaDocEdit, req),
+      export: (req) => call(CHANNELS.mediaDocExport, req),
+    },
   },
   loopRuns: {
     list: () => call(CHANNELS.loopRunsList),

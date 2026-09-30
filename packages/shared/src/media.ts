@@ -532,3 +532,58 @@ export type FfmpegStatus = z.infer<typeof FfmpegStatusSchema>;
 
 /** Typed into a visible terminal by the Install action — never run headless. */
 export const FFMPEG_INSTALL_COMMAND = 'brew install ffmpeg';
+
+// --- docs (Theme B) ----------------------------------------------------------
+
+/** A Docs file is a plain markdown file; its AI thread sits beside it. */
+export const DOC_FILE_EXT = '.md';
+
+/** The formats Docs renders itself, without ffmpeg. */
+export const DOC_EXPORT_FORMATS = ['md', 'html', 'pdf'] as const;
+export const DocExportFormatSchema = z.enum(DOC_EXPORT_FORMATS);
+export type DocExportFormat = z.infer<typeof DocExportFormatSchema>;
+
+export function isDocFile(path: string): boolean {
+  return path.toLowerCase().endsWith(DOC_FILE_EXT);
+}
+
+/** `notes/intro.md` → `notes/intro.thread.json` — the doc's own chat sidecar. */
+export function docThreadPath(docPath: string): string {
+  return `${docPath.replace(/\.md$/i, '')}.thread.json`;
+}
+
+/** Whether a Docs edit rewrote the selection or the whole document. */
+export const DocEditScopeSchema = z.enum(['selection', 'doc']);
+export type DocEditScope = z.infer<typeof DocEditScopeSchema>;
+
+/**
+ * An AI edit waiting on the user. `original` is the exact markdown it
+ * replaces — the selection, or the whole doc — so Accept can find it again
+ * in whatever the doc holds by then. Nothing is written until Accept.
+ */
+export const DocProposalSchema = z.object({
+  scope: DocEditScopeSchema,
+  original: z.string(),
+  replacement: z.string(),
+  status: z.enum(['pending', 'accepted', 'rejected']),
+});
+export type DocProposal = z.infer<typeof DocProposalSchema>;
+
+export const DocThreadMessageSchema = z.object({
+  id: z.string().min(1),
+  role: z.enum(['user', 'assistant']),
+  text: z.string(),
+  createdAt: z.number().nonnegative(),
+  /** Assistant turns that produced an edit. */
+  proposal: DocProposalSchema.optional(),
+  /** Assistant turns that failed — the envelope's message. */
+  error: z.string().optional(),
+});
+export type DocThreadMessage = z.infer<typeof DocThreadMessageSchema>;
+
+/** `<doc>.thread.json` — versioned so a later shape can migrate. */
+export const DocThreadSchema = z.object({
+  version: z.literal(1),
+  messages: z.array(DocThreadMessageSchema),
+});
+export type DocThread = z.infer<typeof DocThreadSchema>;

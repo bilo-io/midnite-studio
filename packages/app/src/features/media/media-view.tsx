@@ -2,9 +2,9 @@ import type { MediaTab } from '@midnite/studio-shared';
 
 import { useUiStore } from '../../store/ui-store';
 import { AudioTab } from './audio/audio-tab';
+import { DocsTab } from './doc/docs-tab';
 import { ImageTab } from './image/image-tab';
 import { MediaTabStrip } from './media-tab-strip';
-import { RepoMediaTab } from './repo-media-tab';
 import { useMediaChangedInvalidation } from './use-media';
 import { VideoTab } from './video/video-tab';
 
@@ -16,7 +16,7 @@ import { VideoTab } from './video/video-tab';
  * real tab component. Only the active tab is mounted.
  */
 const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
-  doc: () => <RepoMediaTab tab="doc" />,
+  doc: () => <DocsTab />,
   image: () => <ImageTab />,
   video: () => <VideoTab />,
   audio: () => <AudioTab />,

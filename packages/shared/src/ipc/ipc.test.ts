@@ -1857,6 +1857,8 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
       mediaExport: ['MediaExportRequest', 'MediaExportResponse'],
       mediaExportCancel: ['MediaExportCancelRequest', 'MediaExportCancelResponse'],
+      mediaDocEdit: ['MediaDocEditRequest', 'MediaDocEditResponse'],
+      mediaDocExport: ['MediaDocExportRequest', 'MediaDocExportResponse'],
       mediaChanged: ['MediaChangedPayload'],
       mediaExportProgress: ['MediaExportProgressPayload'],
     };

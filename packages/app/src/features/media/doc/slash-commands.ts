@@ -1,0 +1,138 @@
+import { Extension, type Editor, type Range } from '@tiptap/core';
+import { PluginKey } from '@tiptap/pm/state';
+import Suggestion, { exitSuggestion, type SuggestionKeyDownProps, type SuggestionProps } from '@tiptap/suggestion';
+
+/**
+ * The Docs `/` menu (Phase 99 Theme B). The suggestion plugin finds the
+ * trigger and the query; what to show lives in a tiny external store the
+ * React editor subscribes to, so the menu is ordinary JSX rather than a
+ * `ReactRenderer` portal.
+ */
+export type SlashItem = {
+  id: string;
+  label: string;
+  keywords: string;
+  run: (editor: Editor, range: Range, ctx: SlashContext) => void;
+};
+
+export type SlashContext = { onAskAi: () => void };
+
+const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
+
+export const SLASH_ITEMS: readonly SlashItem[] = [
+  { id: 'h1', label: 'Heading 1', keywords: 'title h1', run: (e, r) => chain(e, r).setNode('heading', { level: 1 }).run() },
+  { id: 'h2', label: 'Heading 2', keywords: 'subtitle h2', run: (e, r) => chain(e, r).setNode('heading', { level: 2 }).run() },
+  { id: 'h3', label: 'Heading 3', keywords: 'h3', run: (e, r) => chain(e, r).setNode('heading', { level: 3 }).run() },
+  { id: 'bullet', label: 'Bulleted list', keywords: 'ul unordered', run: (e, r) => chain(e, r).toggleBulletList().run() },
+  { id: 'ordered', label: 'Numbered list', keywords: 'ol ordered', run: (e, r) => chain(e, r).toggleOrderedList().run() },
+  { id: 'todo', label: 'To-do list', keywords: 'task checkbox', run: (e, r) => chain(e, r).toggleTaskList().run() },
+  { id: 'quote', label: 'Quote', keywords: 'blockquote', run: (e, r) => chain(e, r).toggleBlockquote().run() },
+  { id: 'code', label: 'Code block', keywords: 'pre fence', run: (e, r) => chain(e, r).toggleCodeBlock().run() },
+  {
+    id: 'table',
+    label: 'Table',
+    keywords: 'grid',
+    run: (e, r) => chain(e, r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+  },
+  { id: 'divider', label: 'Divider', keywords: 'hr rule', run: (e, r) => chain(e, r).setHorizontalRule().run() },
+  {
+    id: 'ai',
+    label: 'Ask AI',
+    keywords: 'assistant edit rewrite',
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.onAskAi();
+    },
+  },
+];
+
+export function filterSlashItems(query: string): SlashItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...SLASH_ITEMS];
+  return SLASH_ITEMS.filter((item) => `${item.label} ${item.keywords}`.toLowerCase().includes(q));
+}
+
+// --- the menu's state, outside React ------------------------------------------
+
+export type SlashMenuState = {
+  items: SlashItem[];
+  active: number;
+  rect: DOMRect | null;
+  pick: (item: SlashItem) => void;
+} | null;
+
+export function createSlashStore() {
+  let state: SlashMenuState = null;
+  const listeners = new Set<() => void>();
+  const set = (next: SlashMenuState) => {
+    state = next;
+    for (const l of listeners) l();
+  };
+  return {
+    get: () => state,
+    set,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+export type SlashStore = ReturnType<typeof createSlashStore>;
+
+const SLASH_KEY = new PluginKey('docSlash');
+
+export const SlashCommand = Extension.create<{ store: SlashStore; ctx: SlashContext }>({
+  name: 'slashCommand',
+  addOptions() {
+    return { store: createSlashStore(), ctx: { onAskAi: () => {} } };
+  },
+  addProseMirrorPlugins() {
+    const { store, ctx } = this.options;
+    const open = (props: SuggestionProps<SlashItem, SlashItem>) => {
+      const prev = store.get();
+      store.set({
+        items: props.items,
+        active: Math.min(prev?.active ?? 0, Math.max(0, props.items.length - 1)),
+        rect: props.clientRect?.() ?? null,
+        pick: (item) => props.command(item),
+      });
+    };
+    return [
+      Suggestion<SlashItem, SlashItem>({
+        pluginKey: SLASH_KEY,
+        editor: this.editor,
+        char: '/',
+        startOfLine: false,
+        items: ({ query }) => filterSlashItems(query),
+        command: ({ editor, range, props }) => props.run(editor, range, ctx),
+        render: () => ({
+          onStart: (props) => {
+            store.set(null);
+            open(props);
+          },
+          onUpdate: open,
+          onExit: () => store.set(null),
+          onKeyDown: ({ event, view }: SuggestionKeyDownProps) => {
+            const s = store.get();
+            if (!s || s.items.length === 0) return false;
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              const step = event.key === 'ArrowDown' ? 1 : -1;
+              store.set({ ...s, active: (s.active + step + s.items.length) % s.items.length });
+              return true;
+            }
+            if (event.key === 'Enter' || event.key === 'Tab') {
+              s.pick(s.items[s.active]!);
+              return true;
+            }
+            if (event.key === 'Escape') {
+              exitSuggestion(view, SLASH_KEY);
+              store.set(null);
+              return true;
+            }
+            return false;
+          },
+        }),
+      }),
+    ];
+  },
+});

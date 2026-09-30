@@ -887,6 +887,10 @@ export const CHANNELS = {
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
   mediaExport: 'mstudio:media:export',
   mediaExportCancel: 'mstudio:media:export-cancel',
+  /** Docs (Theme B): run one AI edit headless — returns replacement markdown, writes nothing. */
+  mediaDocEdit: 'mstudio:media:doc-edit',
+  /** Docs (Theme B): save dialog → write md/html, or `printToPDF` the html. No ffmpeg. */
+  mediaDocExport: 'mstudio:media:doc-export',
 
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
