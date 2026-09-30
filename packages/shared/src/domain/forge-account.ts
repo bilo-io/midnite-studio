@@ -87,6 +87,13 @@ export const ForgeAccountSchema = z.object({
   /** `https:`/`http:` only — validated where the account is built, not here;
    *  see `whoami.ts`'s `sanitizeAvatarUrl`. */
   avatarUrl: z.string().nullable(),
+  /**
+   * Best-effort, from the forge's own `whoami` (Phase 98 Theme F): only a
+   * *public* profile email comes back, so `null`/absent is the common case and
+   * the setup wizard falls back to git's own `user.email`. Absent on accounts
+   * stored before this field existed.
+   */
+  email: z.string().nullable().optional(),
   /** Epoch ms. */
   addedAt: z.number(),
   hasToken: z.boolean(),

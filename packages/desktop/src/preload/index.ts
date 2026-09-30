@@ -163,6 +163,8 @@ const bridge: Pick<
   | 'systemHealthStartSshAgent'
   | 'setup'
   | 'ollama'
+  | 'gitIdentity'
+  | 'systemMemory'
   | 'optimizer'
   | 'protocol'
   | 'db'
@@ -677,6 +679,11 @@ const bridge: Pick<
   setup: {
     probe: (req) => call(CHANNELS.setupProbe, req),
   },
+  gitIdentity: {
+    get: () => call(CHANNELS.gitIdentityGet),
+    set: (req) => call(CHANNELS.gitIdentitySet, req),
+  },
+  systemMemory: () => call(CHANNELS.systemMemory),
   ollama: {
     status: () => call(CHANNELS.ollamaStatus),
     list: () => call(CHANNELS.ollamaList),

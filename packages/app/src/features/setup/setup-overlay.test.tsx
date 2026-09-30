@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { INITIAL_SETUP_STATE } from '../../store/setup-state';
 import { useUiStore } from '../../store/ui-store';
 import { CHOREO } from './setup-choreography';
+import { ToastHost } from '../../components/toast-host';
 import { SetupOverlay } from './setup-overlay';
 import { SETUP_PAGES } from './setup-pages';
 import { useSetupStore } from './setup-store';
@@ -47,7 +48,9 @@ function renderOverlay() {
   return render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <SetupOverlay />
+        <ToastHost>
+          <SetupOverlay />
+        </ToastHost>
       </QueryClientProvider>
     </ThemeProvider>,
   );
@@ -155,17 +158,15 @@ describe('SetupOverlay — navigation', () => {
   it('Next and Back walk intro → pages → finale and back', () => {
     renderOverlay();
     fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
-    expect(stepOf()).toBe('git');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('forge-select');
-    // Walk to the last registered page (the registry grows by appending rows).
-    for (let i = 2; i < SETUP_PAGES.length; i++)
-      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+    // Driven by the registry, so appending a page never breaks this walk.
+    SETUP_PAGES.forEach((page, index) => {
+      if (index > 0) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(stepOf()).toBe(page.id);
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('finale');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]?.id);
   });
 
   it('→ and ← step between pages', () => {

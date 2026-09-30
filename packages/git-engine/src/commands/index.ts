@@ -5,6 +5,7 @@ export * from './commit';
 export * from './conflict-hunk';
 export * from './conflict-resolve';
 export * from './diff';
+export * from './git-identity';
 export * from './grep';
 export * from './hooks';
 export * from './ignore';

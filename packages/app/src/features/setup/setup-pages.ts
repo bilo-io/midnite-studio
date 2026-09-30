@@ -1,10 +1,12 @@
 import type { SetupPage } from './setup-page';
+import { AccountsPage } from './pages/accounts-page';
 import { ForgeConnectPage } from './pages/forge-connect-page';
 import { ForgeCliPage } from './pages/forge-cli-page';
 import { ForgeSelectPage } from './pages/forge-select-page';
 import { GitPage } from './pages/git-page';
 import { MidniteCliPage } from './pages/midnite-cli-page';
 import { ToolchainPage } from './pages/toolchain-page';
+import { OllamaPage } from './pages/ollama-page';
 
 /**
  * The setup overlay's pages, top to bottom (Phase 98 Theme A).
@@ -46,6 +48,12 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     Component: ForgeConnectPage,
   },
   {
+    id: 'accounts',
+    title: 'Accounts',
+    titleTyped: 'Choose who you commit as',
+    Component: AccountsPage,
+  },
+  {
     id: 'cli',
     title: 'Midnite CLI',
     titleTyped: 'Install the Midnite CLI',
@@ -56,5 +64,11 @@ export const SETUP_PAGES: readonly SetupPage[] = [
     title: 'Toolchain',
     titleTyped: 'Set up your toolchain',
     Component: ToolchainPage,
+  },
+  {
+    id: 'ollama',
+    title: 'Local models',
+    titleTyped: 'Run models on this Mac',
+    Component: OllamaPage,
   },
 ];

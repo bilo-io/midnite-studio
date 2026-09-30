@@ -141,6 +141,7 @@ import {
   type NavMode,
   type ViewId,
 } from './store/ui-store';
+import { useRefetchModelsOnPullDone } from './features/models/use-models';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -751,6 +752,8 @@ function Shell() {
   // broadcast — see the hook's own doc.
   useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
+  // App level (Phase 98 Theme I): a pull the setup wizard starts must keep reporting after the Models view is left or never opened.
+  useRefetchModelsOnPullDone();
   // Auto-fetch itself runs in main now (Phase 84 Theme B); this only keeps
   // main's mirror of the setting current.
   useSettingsSync();

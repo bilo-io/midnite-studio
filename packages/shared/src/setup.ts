@@ -308,6 +308,19 @@ export const SETUP_CATALOGUE: readonly SetupItem[] = [
     icon: { set: 'lu', name: 'LuBraces' },
     brandColor: '#9A9A9A',
   },
+  {
+    id: 'ollama',
+    label: 'Ollama',
+    group: 'core',
+    probe: {
+      bin: 'ollama',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/ollama', '/usr/local/bin/ollama', '/Applications/Ollama.app/Contents/Resources/ollama'],
+    },
+    install: { brew: { cask: 'ollama-app' } },
+    icon: { set: 'si', name: 'SiOllama' },
+    brandColor: '#8E8E93',
+  },
 ];
 
 /** The container runtimes either of which satisfies the toolchain page's one "containers" item. */
