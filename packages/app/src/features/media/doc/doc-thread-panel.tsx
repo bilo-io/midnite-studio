@@ -2,15 +2,16 @@ import { agentHeadlessArgs, loopModelsFor, type DocThreadMessage, type LoopModel
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LuCheck, LuCopy, LuSparkles, LuX } from 'react-icons/lu';
 
+import { AiComposer, AiThreadFrame, ThinkingIndicator, useComposerMic } from '../../../components/ai-thread';
 import { EmptyState } from '../../../components/empty-state';
 import { resolveAgentIcon } from '../../../components/icons';
 import { IconSelect } from '../../../components/select/icon-select';
 import { useToastStore } from '../../../store/toast-store';
 import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
+import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { applyProposal } from './doc-thread';
 import { lineDiff } from './line-diff';
-import { PromptTextarea } from '../prompt-input';
 import type { DocSession } from './use-doc-session';
 import { useDocThread } from './use-doc-thread';
 import type { DocRef } from './use-doc-session';
@@ -48,6 +49,12 @@ export function DocThreadPanel({
   const [model, setModel] = useState<LoopModel>('default');
   const [prompt, setPrompt] = useState('');
   const input = useRef<HTMLTextAreaElement>(null);
+  const mic = useComposerMic({
+    onTranscript: (text) => {
+      setPrompt((current) => (current.length === 0 ? text : `${current} ${text}`));
+      input.current?.focus();
+    },
+  });
   const list = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -93,7 +100,7 @@ export function DocThreadPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="doc-thread">
+    <AiThreadFrame loading={thread.ask.isPending} className="flex h-full min-h-0 flex-col" testId="doc-thread">
       <div className="flex shrink-0 items-center gap-1.5 border-b border-border p-2">
         <div className="min-w-0 flex-1">
           <IconSelect
@@ -131,7 +138,7 @@ export function DocThreadPanel({
             />
           ))
         )}
-        {thread.ask.isPending ? <p className="px-1 text-xs text-muted-foreground">Thinking…</p> : null}
+        {thread.ask.isPending ? <ThinkingIndicator /> : null}
       </div>
 
       <div className="shrink-0 border-t border-border p-2">
@@ -148,24 +155,22 @@ export function DocThreadPanel({
             </button>
           </div>
         ) : null}
-        <PromptTextarea
-          ref={input}
-          aria-label="Ask AI"
+        <AiComposer
+          textareaRef={input}
+          ariaLabel="Ask AI"
           rows={3}
           value={prompt}
+          onChange={setPrompt}
           placeholder={selection ? 'How should the selection change?' : 'How should the doc change?'}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          className="resize-none"
+          canSend={prompt.trim().length > 0 && !thread.ask.isPending}
+          onSend={send}
+          mic={mic}
+          boxClassName={MEDIA_PROMPT_BOX}
+          testIdPrefix="doc-ask"
         />
         {session.dirty ? <p className="mt-1 text-[10px] text-muted-foreground">Saving…</p> : null}
       </div>
-    </div>
+    </AiThreadFrame>
   );
 }
 

@@ -59,6 +59,7 @@ export function AiComposer({
   sendTooltip,
   testIdPrefix = 'ai-composer',
   className = '',
+  boxClassName = 'gradient-border rounded-md',
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -79,6 +80,8 @@ export function AiComposer({
   sendTooltip?: string;
   testIdPrefix?: string;
   className?: string;
+  /** The gradient-border wrapper around the field (Media pages pass `MEDIA_PROMPT_BOX`). */
+  boxClassName?: string;
 }) {
   const inner = useRef<HTMLTextAreaElement | null>(null);
   const setRef = (el: HTMLTextAreaElement | null) => {
@@ -106,7 +109,7 @@ export function AiComposer({
     <div className={`relative shrink-0 ${className}`} data-testid={`${testIdPrefix}`}>
       {above}
       <div className="flex items-end gap-1.5">
-        <div className={`min-w-0 flex-1 gradient-border rounded-md ${dimmed ? 'opacity-60' : ''}`}>
+        <div className={`min-w-0 flex-1 ${boxClassName} ${dimmed ? 'opacity-60' : ''}`}>
           <textarea
             ref={setRef}
             value={value}
