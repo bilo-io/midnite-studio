@@ -46,8 +46,9 @@ ticks, is stalled — mark it ⚠️, whatever it last said.
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |
 |---|---|---|---|---|---|---|
-| [PR-1 · #1259](https://github.com/org/repo/pull/1259) | @bilo-ekko | `████████░░` 80% | ~2h | 🟩 +1515 🟥 -28 📄 17 | 🟢 Ready · CI 7/7 | tell me before merging — #1261 stacks on it |
-| [PR-3 · #1261](https://github.com/org/repo/pull/1261) | @kurtwarwick-ekko | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · stacked on #1259 | — |
+| [PR-1 · #1259](https://github.com/org/repo/pull/1259) | @bilo-ekko | `████████░░` 80% | ~2h | 🟩 +1515 🟥 -28 📄 17 | 🟢 Ready · CI 7/7 · 🔵 audited | tell me before merging |
+| [PR-3 · #1261](https://github.com/org/repo/pull/1261) | @kurtwarwick-ekko | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · ⛓ #1259 | — |
+| [PR-6 · #1282](https://github.com/org/repo/pull/1282) | @bilo-ekko | `██████░░░░` 60% | ? | 🟩 +325 🟥 -6002 📄 31 | 🚧 Draft · CI 6/6 · ⛓ #1262 · ⏸ held | — |
 | [TASK-A · #1251](https://github.com/org/repo/issues/1251) | — | `░░░░░░░░░░` 0% | ? | — | ⏳ Waiting on PR-1 deploy | — |
 
 - **Task** — the row's name, **always a clickable link**: to its PR once one exists, else to its
@@ -73,7 +74,7 @@ ticks, is stalled — mark it ⚠️, whatever it last said.
   with no basis yet, `done` at 100%. A row waiting on a human (review, merge, deploy) is `?` with
   the reason in Status.
 - **Diff** — `🟩 +<additions> 🟥 -<deletions> 📄 <changedFiles>`, straight from the PR. `—` with no
-  PR. A stacked PR's diff is against its base branch; say "stacked on #n" in Status.
+  PR. A stacked PR's diff is against its base branch, which the `⛓ #n` tag in Status names.
 - **Status** — one emoji, then a few words:
 
   | Emoji | Meaning |
@@ -89,9 +90,19 @@ ticks, is stalled — mark it ⚠️, whatever it last said.
   | 🟣 | merged |
   | ✅ | done — deployed, verified, or merged as the last stage |
 
-  Add the CI count as `CI <passed>/<total>` whenever checks exist.
-- **Notes** — what changed since the last sitrep, what it is blocked on, what it handed another
-  row. Empty is `—`.
+  Add the CI count as `CI <passed>/<total>` whenever checks exist. Then any **state tags** that
+  apply, joined with ` · `. A state is never a note:
+
+  | Tag | Meaning |
+  |---|---|
+  | `⛓ #n` | stacked on #n (its base is that PR's branch) |
+  | `⏸ held` | built on purpose and parked, e.g. a draft waiting on a deploy |
+  | `🔵 audited` | `/midnite-pr-audit` or `/ekko-pr-audit` ran on it this session |
+  | `🚀 deployed` | the merge is live where it needed to be |
+
+- **Notes** — **six words at most**: only what Status cannot carry, meaning news since the last
+  tick, the blocker by name, or an ask ("tell me before merging"). Never restate the status, a tag,
+  the CI count or the diff. Empty is `—`, and most rows should be empty.
 
 ## 4 · Under the table
 

@@ -358,7 +358,7 @@ renders the table:
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |
 |---|---|---|---|---|---|---|
-| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | @bilo-io | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 | posted the final `confineAllowlist` signature to the board |
+| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | @bilo-io | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 · ⛓ #609 | posted `confineAllowlist` to the board |
 
 - **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
   internal agent id — and **always a clickable link** to its PR (or issue, before a PR exists).
@@ -367,15 +367,17 @@ renders the table:
 - **A completion percentage in its own column**, always, drawn as a 10-cell progress bar before
   the number. An unknown percentage is `?`, never a blank.
 - **A diff column** once a PR exists — `🟩 +added 🟥 -deleted 📄 files` — and **an emoji status**
-  (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done; the skill has the full set).
+  (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done; the skill has the full set),
+  followed by any state tags (`⛓ #n` stacked, `⏸ held`, `🔵 audited`, `🚀 deployed`). A state goes
+  in Status, never in Notes.
 - **A remaining-time estimate (ETA) in its own column**, always — wall-clock time until that row
   merges or completes, derived from *observed* pace (elapsed time against the % so far, how long
   today's CI runs have actually taken, how many stages remain), never from an agent's own claim.
   `?` when there is no basis yet, `done` once merged. When more than one row is live, add one line
   under the table with the ETA for the whole batch, since the user's real question is "when is all
   of it done", and rows finishing in parallel do not add.
-- **A notes column**, always — what changed since the last sitrep, what it is blocked on, what it
-  handed another agent. An empty note is `—`.
+- **A notes column**, always, of **six words at most**: news since the last sitrep, the blocker by
+  name, or an ask. It never restates the status. An empty note is `—`, and most rows are empty.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
   something the table cannot carry — a decision needed from the user, or a failure.
 - The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is
