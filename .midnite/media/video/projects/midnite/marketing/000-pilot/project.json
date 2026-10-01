@@ -2,7 +2,6 @@
   "id": "midnite/marketing/000-pilot",
   "title": "Pilot — pipeline smoke test",
   "composition": "MidnitePilot",
-  "source": "input/BRIEF.md",
   "brief": "input/BRIEF.md",
   "script": "EDITORIAL_SCRIPT.md"
 }
