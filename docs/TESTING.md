@@ -84,11 +84,18 @@ To regenerate baselines consistently without OS font divergence, from the repo r
 MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
 ```
 
-`scripts/visual-regen.mjs` refuses without that variable, and runs the exact `docker run` recipe
-documented in `packages/app/playwright.visual.config.ts`'s header — the official
+Append `-- e2e/visual/<name>.spec.ts` to regenerate only some specs. `scripts/visual-regen.mjs`
+refuses without that variable, and runs the `docker run` recipe documented in
+`packages/app/playwright.visual.config.ts`'s header — the official
 `mcr.microsoft.com/playwright:v1.62.1-noble` image, `--ignore-scripts` on the install, and
 `pnpm exec` from `packages/app` rather than `npx` or `moon`. All three of those are load-bearing;
-that header explains why.
+that header explains why. Two more things the script does, both found running it from a real
+checkout on Apple silicon: it runs against a **copy** of the working tree with no `node_modules`
+(mounting the checkout put the host's macOS install in the container, and rollup's Linux native
+binary was never fetched), and it pins **`--platform linux/amd64`**, because CI's `visual` job is
+x86_64 and docker on an arm64 Mac would otherwise rasterise the baselines on a different
+architecture. It needs a running docker (OrbStack or Docker Desktop) and reads
+`GITHUB_PACKAGES_TOKEN`, falling back to `gh auth token`.
 
 The `visual` job in CI is gated behind the `cross-platform` PR label or the `cross_platform`
 `workflow_dispatch` input, so regenerated baselines need one of those to be verified. The

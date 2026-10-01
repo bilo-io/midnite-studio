@@ -38,10 +38,14 @@ import { defineConfig, devices } from '@playwright/test';
  *   MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
  *
  * — opt-in, because macOS (arm64) is the only officially supported platform for now and
- * these Linux baselines (and the `visual` CI lane behind them) are deferred scope. What
- * that task runs, unchanged:
+ * these Linux baselines (and the `visual` CI lane behind them) are deferred scope. Append
+ * `-- <spec paths>` (relative to packages/app) to regenerate only those. The script copies the
+ * working tree (no `node_modules`) to a temp dir, runs the command below there, and copies
+ * `__screenshots__/` back — see its header for why it never mounts the checkout and why it pins
+ * `--platform linux/amd64`. What it runs inside that copy:
  *
- *   docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.62.1-noble bash -c "
+ *   docker run --rm --platform linux/amd64 -e GITHUB_PACKAGES_TOKEN -v "$COPY:/w" -w /w \
+ *     mcr.microsoft.com/playwright:v1.62.1-noble bash -c "
  *     corepack enable && corepack prepare pnpm@9.15.0 --activate &&
  *     pnpm install --frozen-lockfile --ignore-scripts &&
  *     cd packages/app && pnpm exec playwright test --config playwright.visual.config.ts -u"
