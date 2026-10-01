@@ -10,6 +10,7 @@ import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
 import { applyProposal } from './doc-thread';
 import { lineDiff } from './line-diff';
+import { PromptTextarea } from '../prompt-input';
 import type { DocSession } from './use-doc-session';
 import { useDocThread } from './use-doc-thread';
 import type { DocRef } from './use-doc-session';
@@ -147,7 +148,7 @@ export function DocThreadPanel({
             </button>
           </div>
         ) : null}
-        <textarea
+        <PromptTextarea
           ref={input}
           aria-label="Ask AI"
           rows={3}
@@ -160,7 +161,7 @@ export function DocThreadPanel({
               send();
             }
           }}
-          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-ring"
+          className="resize-none"
         />
         {session.dirty ? <p className="mt-1 text-[10px] text-muted-foreground">Saving…</p> : null}
       </div>
