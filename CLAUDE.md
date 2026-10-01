@@ -163,12 +163,16 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
   runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
-  `ubuntu-24.04` purely for the 1x billing rate. **That cost argument is obsolete, not overridden:
-  this repo is public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard
-  GitHub-hosted runners — macOS included — are free on a public repo, so the "10x" those comments
-  repeat is a private-repo figure. `ci.yml`'s header carries the citations; read every "10x"/"1x"
-  in that file as history.
-- **Billing is free on macOS; CONCURRENCY is the scarce thing, and it is capped at 5.** The
+  `ubuntu-24.04` purely for the 1x billing rate. **This repo is private**
+  (`gh api repos/bilo-io/midnite-studio -q .visibility`), so Actions minutes are billed and a
+  macOS minute costs 10x a Linux one — `ci.yml`'s header once called that argument obsolete on
+  the belief that the repo was public, and its "free on a public repo" comments are wrong. The
+  macOS placement stands anyway, on correctness rather than cost: platform behaviour is only
+  validated on the platform. **When the Actions budget runs out**, every job fails in seconds with
+  "The job was not started because an Actions budget is preventing further use" — that is
+  billing, not a code failure, and a rerun will not help; the user decides whether to raise the
+  budget or merge on the local gate (`moon run :typecheck :lint :test`).
+- **CONCURRENCY is the other scarce thing, and it is capped at 5 macOS jobs.** The
   original sweep moved *every* default gate to macOS and tripled wall-clock — 13-14m to 21-42m —
   because it scheduled 15 macOS jobs per run against a hard cap of **5 concurrent macOS jobs**
   (measured: peak simultaneous `macos-14` jobs was exactly 5; in one run 13 of 16 macOS jobs were
