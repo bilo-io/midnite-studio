@@ -318,31 +318,11 @@ function ProjectNodes({
   );
 }
 
-/**
- * The Video tab's explorer (Phase 99 Theme D): two accordions over the
- * resolved root — **Assets** (a tree of `assets/`, type icons) and
- * **Projects** (`<brand>/<category>/<NNN-name>`, each expanding to its
- * iterations newest first, then its `input/` and `notes/` files).
- *
- * Phase 44's error → skeleton → empty → content ladder is kept for the
- * project scan, which reads a directory that can vanish.
- */
-export function VideoExplorer({
-  selection,
-  onSelect,
-}: {
-  selection: VideoSelection | null;
-  onSelect: (selection: VideoSelection | null) => void;
-}) {
-  const projects = useVideoProjects();
+/** Opens the "New video project" prompt; shared by the explorer's + and the empty state's CTA. */
+export function useNewVideoProjectPrompt(onSelect: (selection: VideoSelection | null) => void): () => void {
   const create = useCreateVideoProject();
-  const remove = useRemoveVideoProject();
   const dialogs = useDialogs();
-  const expanded = useExpanded();
-  const all = projects.data ?? [];
-  const byId = new Map(all.map((project) => [project.id, project]));
-
-  const createProject = () => {
+  return () => {
     dialogs.prompt({
       title: 'New video project',
       label: 'Title',
@@ -362,6 +342,32 @@ export function VideoExplorer({
       },
     });
   };
+}
+
+/**
+ * The Video tab's explorer (Phase 99 Theme D): two accordions over the
+ * resolved root — **Assets** (a tree of `assets/`, type icons) and
+ * **Projects** (`<brand>/<category>/<NNN-name>`, each expanding to its
+ * iterations newest first, then its `input/` and `notes/` files).
+ *
+ * Phase 44's error → skeleton → empty → content ladder is kept for the
+ * project scan, which reads a directory that can vanish.
+ */
+export function VideoExplorer({
+  selection,
+  onSelect,
+}: {
+  selection: VideoSelection | null;
+  onSelect: (selection: VideoSelection | null) => void;
+}) {
+  const projects = useVideoProjects();
+  const remove = useRemoveVideoProject();
+  const dialogs = useDialogs();
+  const expanded = useExpanded();
+  const all = projects.data ?? [];
+  const byId = new Map(all.map((project) => [project.id, project]));
+
+  const createProject = useNewVideoProjectPrompt(onSelect);
 
   const menuFor = (id: string, title: string): MenuItem[] => [
     {

@@ -5,9 +5,9 @@ import {
   type VideoRootSource,
 } from '@midnite/studio-shared';
 import { useEffect, useState } from 'react';
-import { LuClapperboard, LuDownload, LuFolderGit2, LuGlobe, LuHardDrive, LuPlay } from 'react-icons/lu';
+import { LuClapperboard, LuDownload, LuPlus, LuFolderGit2, LuGlobe, LuHardDrive, LuPlay } from 'react-icons/lu';
 
-import { EmptyState } from '../../../components/empty-state';
+import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
 import { Tooltip } from '../../../components/tooltip';
 import { useUiStore } from '../../../store/ui-store';
@@ -18,7 +18,7 @@ import { MediaLayout } from '../media-layout';
 import { useFfmpegStatus, useMediaExport } from '../use-media';
 import { useStartVideoRender, useVideoProject, useVideoRootResolution, useVideoSetup } from './use-video';
 import { VideoDetail } from './video-detail';
-import { VideoExplorer } from './video-explorer';
+import { useNewVideoProjectPrompt, VideoExplorer } from './video-explorer';
 import { VideoRenderDialog } from './video-render-dialog';
 import { selectionProjectId, type VideoSelection } from './video-selection';
 import { VideoStudioPane } from './video-studio-pane';
@@ -199,6 +199,7 @@ export function VideoTab() {
     const projectId = selectionProjectId(next);
     if (projectId) setStudioProjectId(projectId);
   };
+  const newProject = useNewVideoProjectPrompt(select);
 
   if (resolution.isPending || !resolution.data) {
     return (
@@ -233,7 +234,12 @@ export function VideoTab() {
             compositionId={studioProject.data?.valid ? studioProject.data.composition : null}
           />
         ) : (
-          <EmptyState icon={LuClapperboard} title="Select a project" body="Pick one on the left." />
+          <EmptyState
+            icon={LuClapperboard}
+            title="Select a project"
+            body="Pick one on the left, or start a new video."
+            action={<EmptyStateButton icon={LuPlus} label="New video project" onClick={newProject} />}
+          />
         )
       }
       detail={<VideoDetail selection={selection} />}

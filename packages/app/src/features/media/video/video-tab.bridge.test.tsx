@@ -108,6 +108,14 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
     expect(await screen.findByText("The studio isn't running.")).toBeTruthy();
   });
 
+  it('the empty state CTA starts a new video project', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'New video project' }));
+    fireEvent.change(await screen.findByPlaceholderText('COP31 showreel'), { target: { value: 'Teaser' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(await screen.findByRole('button', { name: /Teaser/ })).toBeTruthy();
+  });
+
   it('renders resizable panels with resize handles', async () => {
     await open();
     const listHandle = screen.getByRole('separator', { name: 'Resize video explorer' });
