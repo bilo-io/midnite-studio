@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 
 import { collapseFor } from '../../lib/density';
 import { InProgressLiveRegion } from './in-progress';
@@ -174,7 +174,7 @@ function useSeparatorPruning(
   }, []);
 }
 
-export function StatusBar() {
+export function StatusBar({ fab = null }: { fab?: ReactNode } = {}) {
   const leftRef = useRef<HTMLDivElement | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
@@ -256,6 +256,11 @@ export function StatusBar() {
       >
         {renderZone('right')}
         <OverflowPopover items={overflowing} anyCollapsed={overflowing.length > 0} />
+        {fab ? (
+          <span data-testid="status-bar-fab" className="relative flex items-center">
+            {fab}
+          </span>
+        ) : null}
       </div>
     </footer>
   );
