@@ -15,10 +15,10 @@ import type { IconComponent } from '../../../components/icon-button';
 import { AntigravityIcon, CodexIcon } from '../../../components/icons';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { useUiStore } from '../../../store/ui-store';
-import { PromptTextarea } from '../prompt-input';
-import { useComposerMic } from '../../../components/ai-thread';
+import { AiComposer, useComposerMic } from '../../../components/ai-thread';
+import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
-import { VoiceControls } from '../voice/voice-controls';
+import { SpeechToggle } from '../voice/voice-controls';
 import { generateBlockedReason, type CreateAction, type CreateState } from './create-panel-state';
 
 /** One glyph per provider — shown in the list and on the chosen value. */
@@ -89,22 +89,24 @@ export function CreatePanel({
         if (!blocked) onGenerate();
       }}
     >
-      <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+      <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
         Prompt
-        <PromptTextarea
+        <AiComposer
+          ariaLabel="Prompt"
           value={state.prompt}
-          onChange={(event) => dispatch({ type: 'prompt', prompt: event.target.value })}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !blocked) {
-              event.preventDefault();
-              onGenerate();
-            }
-          }}
+          onChange={(prompt) => dispatch({ type: 'prompt', prompt })}
+          onSend={onGenerate}
+          canSend={!blocked}
+          enterToSend={false}
+          sendTooltip={blocked ?? 'Generate (Cmd/Ctrl+Enter)'}
           rows={5}
           placeholder="A lighthouse on a basalt cliff at blue hour, film grain"
-          className="resize-none"
+          mic={mic}
+          trailing={<SpeechToggle voice={voice} />}
+          boxClassName={MEDIA_PROMPT_BOX}
+          testIdPrefix="image-prompt"
         />
-      </label>
+      </div>
 
       <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
         Provider
@@ -178,7 +180,6 @@ export function CreatePanel({
       ) : null}
 
       <div className="mt-auto flex items-center gap-2">
-        <VoiceControls voice={voice} mic={mic} />
         {running ? (
           <button
             type="button"
