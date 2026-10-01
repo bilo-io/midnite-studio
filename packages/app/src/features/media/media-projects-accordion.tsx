@@ -88,6 +88,7 @@ export function MediaProjectsAccordion({
           />
         ) : (
           <Accordion
+            tone="primary"
             id={`media-${tab}-projects`}
             sections={all.map((project) => ({
               id: project.name,
@@ -158,7 +159,7 @@ function ProjectFiles({
               aria-current={active || undefined}
               onClick={() => onSelect({ project, path: file.path })}
               className={`flex w-full items-center gap-1.5 truncate py-1 pl-6 pr-2 text-left text-xs ${
-                active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
               }`}
             >
               <LuFile aria-hidden className="h-3.5 w-3.5 shrink-0" />

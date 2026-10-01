@@ -66,7 +66,7 @@ function Row({
       onContextMenu={onContextMenu}
       aria-selected={selected || undefined}
       style={indent(depth)}
-      className={`flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors hover:bg-accent disabled:opacity-50 ${
+      className={`flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors hover:bg-primary/10 disabled:opacity-50 ${
         selected ? 'bg-accent text-foreground' : 'text-foreground/90'
       }`}
     >
@@ -418,6 +418,7 @@ export function VideoExplorer({
       </div>
       <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
         <Accordion
+          tone="primary"
           id="media-video"
           sections={[
             {
