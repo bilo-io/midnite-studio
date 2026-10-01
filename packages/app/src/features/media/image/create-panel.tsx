@@ -8,7 +8,7 @@ import {
   type ImageProviderStatus,
 } from '@midnite/studio-shared';
 import type { Dispatch } from 'react';
-import { LuKeyRound, LuSparkles, LuSquare } from 'react-icons/lu';
+import { LuKeyRound, LuSquare } from 'react-icons/lu';
 import { SiGooglegemini, SiOllama } from 'react-icons/si';
 
 import type { IconComponent } from '../../../components/icon-button';
@@ -83,123 +83,122 @@ export function CreatePanel({
   return (
     <form
       aria-label="Create image"
-      className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3"
+      className="flex h-full min-h-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         if (!blocked) onGenerate();
       }}
     >
-      <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-        Prompt
-        <AiComposer
-          ariaLabel="Prompt"
-          value={state.prompt}
-          onChange={(prompt) => dispatch({ type: 'prompt', prompt })}
-          onSend={onGenerate}
-          canSend={!blocked}
-          enterToSend={false}
-          sendTooltip={blocked ?? 'Generate (Cmd/Ctrl+Enter)'}
-          rows={5}
-          placeholder="A lighthouse on a basalt cliff at blue hour, film grain"
-          mic={mic}
-          trailing={<SpeechToggle voice={voice} />}
-          boxClassName={MEDIA_PROMPT_BOX}
-          testIdPrefix="image-prompt"
-        />
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+          Provider
+          <IconSelect
+            ariaLabel="Image provider"
+            options={providerOptions(statuses)}
+            value={state.provider}
+            isSearchable={false}
+            menuInPortal
+            onChange={(id) => id && dispatch({ type: 'provider', provider: id as ImageProviderId, discovered: statuses.find((s) => s.id === id)?.models ?? [] })}
+          />
+        </div>
 
-      <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-        Provider
-        <IconSelect
-          ariaLabel="Image provider"
-          options={providerOptions(statuses)}
-          value={state.provider}
-          isSearchable={false}
-          menuInPortal
-          onChange={(id) => id && dispatch({ type: 'provider', provider: id as ImageProviderId, discovered: statuses.find((s) => s.id === id)?.models ?? [] })}
-        />
-      </div>
+        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+          Model
+          <IconSelect
+            ariaLabel="Image model"
+            options={models.map((m) => ({ id: m.id, label: m.label }))}
+            value={state.model}
+            isSearchable={false}
+            menuInPortal
+            onChange={(id) => dispatch({ type: 'model', model: id })}
+          />
+        </div>
 
-      <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-        Model
-        <IconSelect
-          ariaLabel="Image model"
-          options={models.map((m) => ({ id: m.id, label: m.label }))}
-          value={state.model}
-          isSearchable={false}
-          menuInPortal
-          onChange={(id) => dispatch({ type: 'model', model: id })}
-        />
-      </div>
+        <div className="flex gap-2">
+          <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+            Aspect
+            <select
+              value={state.aspect}
+              onChange={(event) => dispatch({ type: 'aspect', aspect: event.target.value as ImageAspect })}
+              className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+            >
+              {IMAGE_ASPECTS.map((aspect) => (
+                <option key={aspect} value={aspect}>
+                  {aspect}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex w-20 flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+            Count
+            <select
+              value={state.count}
+              onChange={(event) => dispatch({ type: 'count', count: Number(event.target.value) })}
+              className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+            >
+              {Array.from({ length: IMAGE_MAX_COUNT }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-      <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Aspect
-          <select
-            value={state.aspect}
-            onChange={(event) => dispatch({ type: 'aspect', aspect: event.target.value as ImageAspect })}
-            className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
-          >
-            {IMAGE_ASPECTS.map((aspect) => (
-              <option key={aspect} value={aspect}>
-                {aspect}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex w-20 flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Count
-          <select
-            value={state.count}
-            onChange={(event) => dispatch({ type: 'count', count: Number(event.target.value) })}
-            className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
-          >
-            {Array.from({ length: IMAGE_MAX_COUNT }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {status?.missingKey ? (
-        <p className="flex items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
-          <LuKeyRound aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">{status.reason}</span>
-          <button type="button" onClick={openSettings} className="font-medium text-primary underline decoration-dotted">
-            Add key
-          </button>
-        </p>
-      ) : null}
-
-      {error ? (
-        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-auto flex items-center gap-2">
-        {running ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-card text-xs text-foreground hover:bg-accent"
-          >
-            <LuSquare aria-hidden className="h-3.5 w-3.5" />
-            Cancel
-          </button>
+        {status?.missingKey ? (
+          <p className="flex items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+            <LuKeyRound aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">{status.reason}</span>
+            <button type="button" onClick={openSettings} className="font-medium text-primary underline decoration-dotted">
+              Add key
+            </button>
+          </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={blocked !== undefined}
-          title={blocked}
-          aria-busy={running || undefined}
-          className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-primary bg-primary/10 text-xs font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <LuSparkles aria-hidden className="h-3.5 w-3.5" />
-          {running ? 'Generating…' : 'Generate'}
-        </button>
+
+        {error ? (
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      {/*
+        The prompt sits at the bottom of the whole panel, like every chat
+        input, under the controls that shape it. Generate is its Send.
+      */}
+      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3">
+        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+          Prompt
+          <AiComposer
+            ariaLabel="Prompt"
+            value={state.prompt}
+            onChange={(prompt) => dispatch({ type: 'prompt', prompt })}
+            onSend={onGenerate}
+            canSend={!blocked}
+            enterToSend={false}
+            sendTooltip={blocked ?? 'Generate (Cmd/Ctrl+Enter)'}
+            sendAriaLabel="Generate"
+            rows={5}
+            placeholder="A lighthouse on a basalt cliff at blue hour, film grain"
+            mic={mic}
+            trailing={<SpeechToggle voice={voice} />}
+            boxClassName={MEDIA_PROMPT_BOX}
+            testIdPrefix="image-prompt"
+          />
+        </div>
+        {/* Generate is the prompt composer's own Send; only Cancel sits beside it. */}
+        {running ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-card text-xs text-foreground hover:bg-accent"
+            >
+              <LuSquare aria-hidden className="h-3.5 w-3.5" />
+              Cancel
+            </button>
+          </div>
+        ) : null}
       </div>
     </form>
   );

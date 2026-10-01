@@ -10,13 +10,13 @@ import {
   type AudioProviderStatus,
 } from '@midnite/studio-shared';
 import { useRef, useState, type Dispatch } from 'react';
-import { LuImport, LuInfo, LuSparkles, LuX } from 'react-icons/lu';
+import { LuImport, LuInfo, LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
-import { AiComposer, useComposerMic } from '../../../components/ai-thread';
+import { AiComposer, AttachMenu, useComposerMic } from '../../../components/ai-thread';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
 import { formatDuration } from './waveform';
@@ -87,67 +87,128 @@ export function PromptForm({
     <form
       ref={formRef}
       aria-label="Create audio"
-      className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3"
+      className="flex h-full min-h-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         if (!generates) setNotice(AUDIO_GENERATION_UNAVAILABLE);
       }}
     >
-      <label className={field}>
-        Title
-        <input
-          value={state.title}
-          onChange={(event) => dispatch({ type: 'title', value: event.target.value })}
-          placeholder="Night drive"
-          className={`h-7 ${input}`}
-        />
-      </label>
-
-      <div className={field}>
-        <span id="audio-style-label">Style</span>
-        <div className={`flex flex-wrap items-center gap-1 px-1.5 py-1 ${MEDIA_PROMPT_BOX}`}>
-          {state.style.map((tag) => (
-            <span key={tag} className="flex items-center gap-0.5 rounded bg-accent px-1.5 py-0.5 text-[11px] text-foreground">
-              {tag}
-              <button
-                type="button"
-                aria-label={`Remove ${tag}`}
-                onClick={() => dispatch({ type: 'removeTag', tag })}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LuX aria-hidden className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        <label className={field}>
+          Title
           <input
-            aria-labelledby="audio-style-label"
-            value={state.tagDraft}
-            onChange={(event) => dispatch({ type: 'tagDraft', value: event.target.value })}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                dispatch({ type: 'addTag' });
-              } else if (event.key === 'Backspace' && state.tagDraft === '' && state.style.length > 0) {
-                dispatch({ type: 'removeTag', tag: state.style.at(-1)! });
-              }
-            }}
-            placeholder={state.style.length === 0 ? 'synthwave, female vocals, 110 bpm' : ''}
-            className="h-5 min-w-[6rem] flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none"
+            value={state.title}
+            onChange={(event) => dispatch({ type: 'title', value: event.target.value })}
+            placeholder="Night drive"
+            className={`h-7 ${input}`}
+          />
+        </label>
+
+        <div className={field}>
+          <span id="audio-style-label">Style</span>
+          <div className={`flex flex-wrap items-center gap-1 px-1.5 py-1 ${MEDIA_PROMPT_BOX}`}>
+            {state.style.map((tag) => (
+              <span key={tag} className="flex items-center gap-0.5 rounded bg-accent px-1.5 py-0.5 text-[11px] text-foreground">
+                {tag}
+                <button
+                  type="button"
+                  aria-label={`Remove ${tag}`}
+                  onClick={() => dispatch({ type: 'removeTag', tag })}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <LuX aria-hidden className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <input
+              aria-labelledby="audio-style-label"
+              value={state.tagDraft}
+              onChange={(event) => dispatch({ type: 'tagDraft', value: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  dispatch({ type: 'addTag' });
+                } else if (event.key === 'Backspace' && state.tagDraft === '' && state.style.length > 0) {
+                  dispatch({ type: 'removeTag', tag: state.style.at(-1)! });
+                }
+              }}
+              placeholder={state.style.length === 0 ? 'synthwave, female vocals, 110 bpm' : ''}
+              className="h-5 min-w-[6rem] flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none"
+            />
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-xs text-foreground">
+          <input
+            type="checkbox"
+            checked={state.instrumental}
+            onChange={(event) => dispatch({ type: 'instrumental', value: event.target.checked })}
+            className="accent-primary"
+          />
+          Instrumental
+        </label>
+
+        <div className="flex gap-2">
+          <label className={`flex-1 ${field}`}>
+            Duration ({formatDuration(state.durationS)})
+            <input
+              type="range"
+              min={AUDIO_DURATION_MIN_S}
+              max={AUDIO_DURATION_MAX_S}
+              step={5}
+              value={state.durationS}
+              onChange={(event) => dispatch({ type: 'duration', value: Number(event.target.value) })}
+              className="accent-primary"
+            />
+          </label>
+          <label className={`w-20 ${field}`}>
+            Variants
+            <select
+              value={state.count}
+              onChange={(event) => dispatch({ type: 'count', value: Number(event.target.value) })}
+              className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
+            >
+              {Array.from({ length: AUDIO_MAX_VARIANTS }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className={field}>
+          Provider
+          <IconSelect
+            ariaLabel="Audio provider"
+            options={audioProviderOptions(statuses)}
+            value={state.provider}
+            isSearchable={false}
+            menuInPortal
+            onChange={(id) => id && dispatch({ type: 'provider', value: id as AudioProviderId })}
           />
         </div>
+
+        {notice ? (
+          <p role="status" className="flex items-start gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+            <LuInfo aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {notice}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
+            {error}
+          </p>
+        ) : null}
+
       </div>
 
-      <label className="flex items-center gap-2 text-xs text-foreground">
-        <input
-          type="checkbox"
-          checked={state.instrumental}
-          onChange={(event) => dispatch({ type: 'instrumental', value: event.target.checked })}
-          className="accent-primary"
-        />
-        Instrumental
-      </label>
-
-      <div className={field}>
+      {/*
+        The lyrics composer is the panel's prompt, so it sits at the bottom of
+        the whole panel like every chat input, below the fields that shape it.
+        Create is its Send; Import lives behind its "+".
+      */}
+      <div className={`shrink-0 border-t border-border/50 p-3 ${field}`}>
         <span id="audio-lyrics-label">Lyrics</span>
         <div role="toolbar" aria-label="Lyric sections" className="flex flex-wrap gap-1">
           {AUDIO_LYRIC_SECTIONS.map((section) => (
@@ -171,89 +232,30 @@ export function PromptForm({
           onSend={() => formRef.current?.requestSubmit()}
           canSend={invalid === undefined}
           enterToSend={false}
-          rows={8}
+          sendAriaLabel="Create"
+          sendTooltip={invalid ?? (generates ? 'Create (Cmd/Ctrl+Enter)' : AUDIO_GENERATION_UNAVAILABLE)}
+          rows={5}
           placeholder={state.instrumental ? 'Instrumental — no lyrics' : '[Verse]\nStreetlights hum…'}
           mic={mic}
+          leading={
+            <AttachMenu
+              testId="audio-attach"
+              options={[
+                {
+                  id: 'import',
+                  label: importing ? 'Importing…' : 'Import audio…',
+                  icon: LuImport,
+                  onSelect: onImport,
+                  disabled: importing || invalid !== undefined,
+                  reason: invalid,
+                },
+              ]}
+            />
+          }
           trailing={<SpeechToggle voice={voice} />}
           boxClassName={MEDIA_PROMPT_BOX}
           testIdPrefix="audio-lyrics"
         />
-      </div>
-
-      <div className="flex gap-2">
-        <label className={`flex-1 ${field}`}>
-          Duration ({formatDuration(state.durationS)})
-          <input
-            type="range"
-            min={AUDIO_DURATION_MIN_S}
-            max={AUDIO_DURATION_MAX_S}
-            step={5}
-            value={state.durationS}
-            onChange={(event) => dispatch({ type: 'duration', value: Number(event.target.value) })}
-            className="accent-primary"
-          />
-        </label>
-        <label className={`w-20 ${field}`}>
-          Variants
-          <select
-            value={state.count}
-            onChange={(event) => dispatch({ type: 'count', value: Number(event.target.value) })}
-            className="h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground"
-          >
-            {Array.from({ length: AUDIO_MAX_VARIANTS }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className={field}>
-        Provider
-        <IconSelect
-          ariaLabel="Audio provider"
-          options={audioProviderOptions(statuses)}
-          value={state.provider}
-          isSearchable={false}
-          menuInPortal
-          onChange={(id) => id && dispatch({ type: 'provider', value: id as AudioProviderId })}
-        />
-      </div>
-
-      {notice ? (
-        <p role="status" className="flex items-start gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
-          <LuInfo aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          {notice}
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-auto flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onImport}
-          disabled={importing || invalid !== undefined}
-          title={invalid}
-          aria-busy={importing || undefined}
-          className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-card text-xs text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <LuImport aria-hidden className="h-3.5 w-3.5" />
-          {importing ? 'Importing…' : 'Import audio…'}
-        </button>
-        <button
-          type="submit"
-          disabled={invalid !== undefined}
-          title={invalid ?? (generates ? undefined : AUDIO_GENERATION_UNAVAILABLE)}
-          className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-primary bg-primary/10 text-xs font-medium text-primary hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <LuSparkles aria-hidden className="h-3.5 w-3.5" />
-          Create
-        </button>
       </div>
     </form>
   );
