@@ -52,8 +52,8 @@ describe('Docs tab', () => {
   it('wears the shared composer gradient border on the Ask AI box', async () => {
     open();
     fireEvent.click(await screen.findByText('intro'));
-    const box = (await screen.findByRole('textbox', { name: 'Ask AI' })).parentElement!;
-    expect(box.className).toContain('gradient-border');
+    const box = (await screen.findByRole('textbox', { name: 'Ask AI' })).closest('.gradient-border')!;
+    expect(box).toBeTruthy();
   });
 
   it('shows an AI edit as a diff card, writing only on Accept', async () => {

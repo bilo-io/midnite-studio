@@ -83,6 +83,28 @@ describe('AiComposer', () => {
     expect(screen.getByTestId('extra')).toBeTruthy();
   });
 
+  it('renders Send and Mic inside the box, in the bottom-left controls group', () => {
+    render(<Harness onSend={() => {}} />);
+    const controls = screen.getByTestId('ai-composer-controls');
+    const box = screen.getByTestId('ai-composer-input').closest('.gradient-border')!;
+    expect(box.contains(controls)).toBe(true);
+    expect(controls.contains(screen.getByTestId('ai-composer-mic'))).toBe(true);
+    expect(controls.contains(screen.getByTestId('ai-composer-send'))).toBe(true);
+    expect(controls.className).toContain('justify-start');
+    // textarea precedes the controls (controls sit below it)
+    expect(screen.getByTestId('ai-composer-input').compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('with enterToSend=false, Enter is a newline and Cmd+Enter sends', () => {
+    const onSend = vi.fn();
+    render(<AiComposer value="x" onChange={() => {}} onSend={onSend} canSend ariaLabel="P" enterToSend={false} />);
+    const box = screen.getByRole('textbox', { name: 'P' });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(onSend).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: 'Enter', metaKey: true });
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
   it('presses the mic through the companion ports when available', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micAvailable: () => true, micPressStart, micPressEnd: vi.fn() });

@@ -33,7 +33,8 @@ function MicMeter({ testId }: { testId: string }) {
 
 /**
  * The shared prompt box of every AI thread: a gradient-bordered, auto-growing
- * textarea with a push-to-talk mic and a send button.
+ * textarea with the push-to-talk mic and send button INSIDE the box, in a
+ * bottom-left row under the text.
  *
  * Slots: `above` (anchored popovers, e.g. slash commands), `leading` (shown
  * before the buttons when the mic is idle — the Companion's speaking meter) and
@@ -49,6 +50,9 @@ export function AiComposer({
   placeholder,
   ariaLabel,
   rows = 1,
+  disabled = false,
+  enterToSend = true,
+  sendAriaLabel = 'Send',
   dimmed = false,
   mic,
   onKeyDown,
@@ -68,6 +72,12 @@ export function AiComposer({
   placeholder?: string;
   ariaLabel: string;
   rows?: number;
+  /** Disable the textarea (Send and Mic stay as the caller dictates). */
+  disabled?: boolean;
+  /** Plain Enter sends (default). `false` makes Enter a newline and Cmd/Ctrl+Enter send. */
+  enterToSend?: boolean;
+  /** Accessible name of the send button, e.g. "Generate". */
+  sendAriaLabel?: string;
   /** Dim the field without blocking typing (a turn is in flight). */
   dimmed?: boolean;
   /** Pass `useComposerMic(...)`; omit to hide the mic button. */
@@ -99,7 +109,7 @@ export function AiComposer({
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     onKeyDown?.(event);
     if (event.defaultPrevented) return;
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && (enterToSend ? !event.shiftKey : event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       if (canSend) onSend();
     }
@@ -108,59 +118,61 @@ export function AiComposer({
   return (
     <div className={`relative shrink-0 ${className}`} data-testid={`${testIdPrefix}`}>
       {above}
-      <div className="flex items-end gap-1.5">
-        <div className={`min-w-0 flex-1 ${boxClassName} ${dimmed ? 'opacity-60' : ''}`}>
+      <div className={`min-w-0 ${boxClassName} ${dimmed ? 'opacity-60' : ''}`}>
+        <div className="flex flex-col rounded-md bg-background">
           <textarea
             ref={setRef}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={handleKeyDown}
             rows={rows}
+            disabled={disabled}
             aria-label={ariaLabel}
             placeholder={placeholder}
             data-testid={`${testIdPrefix}-input`}
-            className={`${GRADIENT_FIELD_CLASSES} block min-h-[28px] resize-none px-2 py-1.5 text-xs leading-relaxed`}
+            className={`${GRADIENT_FIELD_CLASSES} block min-h-[28px] resize-none px-2 py-1.5 text-xs leading-relaxed disabled:opacity-50`}
           />
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
-          {mic?.held ? <MicMeter testId={`${testIdPrefix}-level-meter`} /> : leading}
-          {mic ? (
-            <Tooltip label={mic.available ? (mic.held ? 'Listening — release to send' : 'Hold to talk') : mic.reason}>
+          {/* Controls live INSIDE the box, bottom-left, under the text. */}
+          <div className="flex items-center justify-start gap-0.5 px-1 pb-1" data-testid={`${testIdPrefix}-controls`}>
+            {mic?.held ? <MicMeter testId={`${testIdPrefix}-level-meter`} /> : leading}
+            {mic ? (
+              <Tooltip label={mic.available ? (mic.held ? 'Listening — release to send' : 'Hold to talk') : mic.reason}>
+                <button
+                  type="button"
+                  aria-label="Hold to talk"
+                  aria-disabled={mic.available ? undefined : true}
+                  data-testid={`${testIdPrefix}-mic`}
+                  onPointerDown={mic.pressStart}
+                  className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                    mic.available
+                      ? mic.held
+                        ? 'bg-primary/15 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      : 'cursor-default text-muted-foreground/40'
+                  }`}
+                >
+                  {mic.available ? <LuMic aria-hidden className="h-3.5 w-3.5" /> : <LuMicOff aria-hidden className="h-3.5 w-3.5" />}
+                </button>
+              </Tooltip>
+            ) : null}
+            <Tooltip label={sendTooltip ?? (canSend ? 'Send' : 'Send — type something first')}>
               <button
                 type="button"
-                aria-label="Hold to talk"
-                aria-disabled={mic.available ? undefined : true}
-                data-testid={`${testIdPrefix}-mic`}
-                onPointerDown={mic.pressStart}
+                aria-label={sendAriaLabel}
+                aria-disabled={canSend ? undefined : true}
+                data-testid={`${testIdPrefix}-send`}
+                onClick={() => {
+                  if (canSend) onSend();
+                }}
                 className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-                  mic.available
-                    ? mic.held
-                      ? 'bg-primary/15 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                    : 'cursor-default text-muted-foreground/40'
+                  canSend ? 'text-primary hover:bg-accent hover:text-foreground' : 'cursor-default text-muted-foreground/40'
                 }`}
               >
-                {mic.available ? <LuMic aria-hidden className="h-3.5 w-3.5" /> : <LuMicOff aria-hidden className="h-3.5 w-3.5" />}
+                <LuSendHorizontal aria-hidden className="h-3.5 w-3.5" />
               </button>
             </Tooltip>
-          ) : null}
-          <Tooltip label={sendTooltip ?? (canSend ? 'Send' : 'Send — type something first')}>
-            <button
-              type="button"
-              aria-label="Send"
-              aria-disabled={canSend ? undefined : true}
-              data-testid={`${testIdPrefix}-send`}
-              onClick={() => {
-                if (canSend) onSend();
-              }}
-              className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-                canSend ? 'text-primary hover:bg-accent hover:text-foreground' : 'cursor-default text-muted-foreground/40'
-              }`}
-            >
-              <LuSendHorizontal aria-hidden className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
-          {trailing}
+            {trailing}
+          </div>
         </div>
       </div>
     </div>

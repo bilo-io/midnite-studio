@@ -24,6 +24,11 @@ describe('Media threads carry the voice row', () => {
     expect(screen.getByRole('button', { name: 'Speak replies aloud' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Hold to talk' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Generate/ })).toBeTruthy();
+    // Send + Mic live inside the prompt box, bottom-left
+    const controls = screen.getByTestId('image-prompt-controls');
+    expect(screen.getByTestId('image-prompt-input').closest('.gradient-border')!.contains(controls)).toBe(true);
+    expect(controls.contains(screen.getByTestId('image-prompt-mic'))).toBe(true);
+    expect(controls.contains(screen.getByTestId('image-prompt-send'))).toBe(true);
   });
 
   it('audio prompt form shows the speech toggle and mic', () => {
@@ -39,5 +44,9 @@ describe('Media threads carry the voice row', () => {
     );
     expect(screen.getByRole('button', { name: 'Speak replies aloud' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Hold to talk' })).toBeTruthy();
+    const controls = screen.getByTestId('audio-lyrics-controls');
+    expect(screen.getByTestId('audio-lyrics-input').closest('.gradient-border')!.contains(controls)).toBe(true);
+    expect(controls.contains(screen.getByTestId('audio-lyrics-mic'))).toBe(true);
+    expect(controls.contains(screen.getByTestId('audio-lyrics-send'))).toBe(true);
   });
 });

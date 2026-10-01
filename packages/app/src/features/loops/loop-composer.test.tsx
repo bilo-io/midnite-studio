@@ -320,8 +320,17 @@ describe('LoopComposer — idle', () => {
     expect(start.className).not.toContain('border-border');
 
     const extras = screen.getByPlaceholderText('Extra instructions…');
-    expect(extras.parentElement).toBe(start.parentElement);
+    expect(screen.getByTestId('loop-extras').parentElement).toBe(start.parentElement);
     expect(extras.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('puts Send and Mic inside the extras box, bottom-left', () => {
+    renderComposer();
+    const controls = screen.getByTestId('loop-extras-controls');
+    const box = screen.getByPlaceholderText('Extra instructions…').closest('.gradient-border')!;
+    expect(box.contains(controls)).toBe(true);
+    expect(controls.contains(screen.getByTestId('loop-extras-mic'))).toBe(true);
+    expect(controls.contains(screen.getByTestId('loop-extras-send'))).toBe(true);
   });
 
   it('keeps Stop inline in the running strip rather than full width', () => {

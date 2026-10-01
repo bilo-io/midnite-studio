@@ -15,10 +15,10 @@ import { LuImport, LuInfo, LuSparkles, LuX } from 'react-icons/lu';
 import type { IconComponent } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
-import { MEDIA_PROMPT_BOX, PromptTextarea } from '../prompt-input';
-import { useComposerMic } from '../../../components/ai-thread';
+import { MEDIA_PROMPT_BOX } from '../prompt-input';
+import { AiComposer, useComposerMic } from '../../../components/ai-thread';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
-import { VoiceControls } from '../voice/voice-controls';
+import { SpeechToggle } from '../voice/voice-controls';
 import { formatDuration } from './waveform';
 
 export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { import: LuImport };
@@ -63,6 +63,7 @@ export function PromptForm({
   onImport: () => void;
 }) {
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const voice = useVoiceThread();
   const mic = useComposerMic({ onTranscript: (text) => dispatch({ type: 'lyrics', value: appendDictation(state.lyrics, text) }) });
   const [notice, setNotice] = useState<string | null>(null);
@@ -84,6 +85,7 @@ export function PromptForm({
 
   return (
     <form
+      ref={formRef}
       aria-label="Create audio"
       className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3"
       onSubmit={(event) => {
@@ -160,15 +162,21 @@ export function PromptForm({
             </button>
           ))}
         </div>
-        <PromptTextarea
-          ref={lyricsRef}
-          aria-labelledby="audio-lyrics-label"
+        <AiComposer
+          textareaRef={lyricsRef}
+          ariaLabel="Lyrics"
           value={state.instrumental ? '' : state.lyrics}
           disabled={state.instrumental}
-          onChange={(event) => dispatch({ type: 'lyrics', value: event.target.value })}
+          onChange={(value) => dispatch({ type: 'lyrics', value })}
+          onSend={() => formRef.current?.requestSubmit()}
+          canSend={invalid === undefined}
+          enterToSend={false}
           rows={8}
           placeholder={state.instrumental ? 'Instrumental — no lyrics' : '[Verse]\nStreetlights hum…'}
-          className="resize-y font-mono disabled:opacity-50"
+          mic={mic}
+          trailing={<SpeechToggle voice={voice} />}
+          boxClassName={MEDIA_PROMPT_BOX}
+          testIdPrefix="audio-lyrics"
         />
       </div>
 
@@ -226,7 +234,6 @@ export function PromptForm({
       ) : null}
 
       <div className="mt-auto flex items-center gap-2">
-        <VoiceControls voice={voice} mic={mic} />
         <button
           type="button"
           onClick={onImport}
