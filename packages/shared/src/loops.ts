@@ -638,7 +638,7 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * so persisted `activeFabTab` values keep meaning what they meant.
  *
  * **Guard** runs security sweeps — secret scanning, dependency audits and
- * vulnerability reviews. **Concepts** brainstorms new phase docs. **Develop**
+ * vulnerability reviews. **Ideate** brainstorms new phase docs. **Create**
  * executes the backlog. **Patrol** walks the pull requests. **Medic** treats
  * what is already sick: the dependency bots' PRs and the issue backlog.
  * **Overhaul** is the performance loop — it profiles, measures and fixes.
@@ -735,7 +735,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'innovate',
-    label: 'Concepts',
+    label: 'Ideate',
     icon: 'brain',
     color: 'text-cyan-500',
     agentId: 'claude',
@@ -805,7 +805,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'automate',
-    label: 'Develop',
+    label: 'Create',
     icon: 'bot',
     color: 'text-blue-500',
     agentId: 'claude',

@@ -1649,7 +1649,7 @@ html[data-motion='reduced'] .landing-slide-in {
   --fab-spec-5: 59 130 246; /* 180deg — blue */
 }
 
-/* innovate (Concepts): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
+/* innovate (Ideate): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
 [data-fab-tab='innovate'] {
   --fab-spec-1: 130 171 70; /*  90deg — amber/emerald midpoint */
   --fab-spec-2: 16 185 129; /* 120deg — emerald */
@@ -1658,7 +1658,7 @@ html[data-motion='reduced'] .landing-slide-in {
   --fab-spec-5: 99 111 246; /* 210deg — blue/violet midpoint */
 }
 
-/* automate (Develop): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
+/* automate (Create): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
 [data-fab-tab='automate'] {
   --fab-spec-1: 16 185 129; /* 120deg — emerald */
   --fab-spec-2: 37 157 187; /* 150deg — emerald/blue midpoint */

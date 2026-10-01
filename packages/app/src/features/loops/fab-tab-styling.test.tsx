@@ -76,11 +76,11 @@ describe('FabPanel tab buttons styling and states', () => {
     useUiStore.setState({ activeFabTab: 'automate' });
     render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
 
-    const automateBtn = screen.getByRole('button', { name: 'Develop' });
+    const automateBtn = screen.getByRole('button', { name: 'Create' });
     expect(automateBtn.className).toContain('is-selected');
     expect(automateBtn.getAttribute('data-selected')).toBe('true');
 
-    const innovateBtn = screen.getByRole('button', { name: 'Concepts' });
+    const innovateBtn = screen.getByRole('button', { name: 'Ideate' });
     expect(innovateBtn.className).not.toContain('is-selected');
     expect(innovateBtn.getAttribute('data-selected')).toBe('false');
   });
@@ -144,7 +144,7 @@ describe('FabPanel "Loop" switch', () => {
     expect((shimmer as HTMLElement).style.background).not.toContain('#22c55e');
 
     // A tab whose own switch is untouched keeps its usual colour.
-    const innovateBtn = screen.getByRole('button', { name: 'Concepts' });
+    const innovateBtn = screen.getByRole('button', { name: 'Ideate' });
     expect(innovateBtn.style.backgroundColor).toBe('');
   });
 
@@ -154,7 +154,7 @@ describe('FabPanel "Loop" switch', () => {
 
     // Guard (active) has nothing saved — off.
     expect((screen.getByRole('switch', { name: 'Loop' }) as HTMLInputElement).checked).toBe(false);
-    const automateBtn = screen.getByRole('button', { name: 'Develop' });
+    const automateBtn = screen.getByRole('button', { name: 'Create' });
     expect(automateBtn.style.backgroundColor).toBe('rgb(var(--fab-spec-3))');
 
     // Switching to automate reflects ITS saved state, not guard's.

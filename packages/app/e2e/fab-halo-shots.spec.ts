@@ -68,7 +68,7 @@ for (const mode of ['light', 'dark'] as const) {
     await expect(page.getByTestId('loop-composer-guard').getByTestId('loop-stop')).toBeVisible();
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
-    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
+    for (const tab of ['Guard', 'Ideate', 'Create', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
       await closeFab(page).click(); // close
