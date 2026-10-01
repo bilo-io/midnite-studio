@@ -9,7 +9,13 @@ import { UserAvatar } from '../../components/user-avatar';
 import { CiCell } from './ci-cell';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
-import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
+import {
+  CONNECTOR_OPACITY,
+  RAIL_WIDTH,
+  besideMarkSize,
+  showsAuthorColumn,
+  type GraphTheme,
+} from './graph-themes';
 import { laneColor, laneVars } from './lane-colors';
 import { usePrimaryHsl } from './primary-lane';
 import {
@@ -189,18 +195,7 @@ function GraphRowInner({
     ? getProvenanceTooltip({ provenance, sessionName, agentName: agent?.label })
     : null;
 
-  /**
-   * Diameter of the `beside` slot.
-   *
-   * Scaled off the node it sits next to so it reads as its companion rather
-   * than as a second, unrelated avatar — with a floor, because the smallest
-   * styles would otherwise render an agent logo at nine pixels, which is below
-   * the size any of these marks stay legible at.
-   */
-  const besideSize = Math.max(
-    12,
-    Math.round((theme.node === 'avatar' ? theme.avatarSize : theme.nodeRadius * 2) * 0.7),
-  );
+  const besideSize = besideMarkSize(theme);
 
   return (
     <div

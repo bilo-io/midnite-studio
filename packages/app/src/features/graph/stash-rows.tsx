@@ -7,12 +7,14 @@ import { CiSpacer } from './ci-cell';
 import { BlankAvatar } from './commit-avatar';
 import {
   RAIL_WIDTH,
+  besideMarkSize,
   laneCentre,
   nodeExtent,
   showsAuthorColumn,
   type GraphTheme,
 } from './graph-themes';
 import { laneColor } from './lane-colors';
+import { DEFAULT_PROVENANCE_MARK_MODE, type ProvenanceMarkMode } from './provenance-display';
 
 /** How many stash entries the graph shows before collapsing into an overflow row. */
 const VISIBLE_CAP = 2;
@@ -41,6 +43,7 @@ export function StashRows({
   colorIdx,
   lane,
   selectedSelector,
+  markMode = DEFAULT_PROVENANCE_MARK_MODE,
   onSelect,
 }: {
   repoId: string;
@@ -52,6 +55,8 @@ export function StashRows({
   colorIdx: number;
   lane: number;
   selectedSelector: string | null;
+  /** The graph's provenance-mark mode — `beside` reserves the commit rows' agent slot here too. */
+  markMode?: ProvenanceMarkMode;
   onSelect: (selector: string) => void;
 }) {
   const shown = stashes.slice(0, VISIBLE_CAP);
@@ -69,6 +74,7 @@ export function StashRows({
           colorIdx={colorIdx}
           lane={lane}
           selected={selectedSelector === entry.selector}
+          markMode={markMode}
           onSelect={() => onSelect(entry.selector)}
         />
       ))}
@@ -85,6 +91,7 @@ function StashRow({
   colorIdx,
   lane,
   selected,
+  markMode,
   onSelect,
 }: {
   entry: StashEntry;
@@ -94,6 +101,7 @@ function StashRow({
   colorIdx: number;
   lane: number;
   selected: boolean;
+  markMode: ProvenanceMarkMode;
   onSelect: () => void;
 }) {
   const color = laneColor(colorIdx, theme.palette);
@@ -158,6 +166,16 @@ function StashRow({
           )}
         </svg>
       </span>
+
+      {/* The commit rows' `beside` agent slot, so this dashed rail lines up with their solid one. */}
+      {markMode === 'beside' ? (
+        <span
+          aria-hidden
+          data-testid="stash-provenance-slot"
+          className="shrink-0"
+          style={{ width: besideMarkSize(theme) }}
+        />
+      ) : null}
 
       {theme.node === 'avatar' ? (
         <span
