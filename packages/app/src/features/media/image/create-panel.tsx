@@ -16,6 +16,9 @@ import { AntigravityIcon, CodexIcon } from '../../../components/icons';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { useUiStore } from '../../../store/ui-store';
 import { PromptTextarea } from '../prompt-input';
+import { useComposerMic } from '../../../components/ai-thread';
+import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
+import { VoiceControls } from '../voice/voice-controls';
 import { generateBlockedReason, type CreateAction, type CreateState } from './create-panel-state';
 
 /** One glyph per provider — shown in the list and on the chosen value. */
@@ -65,6 +68,9 @@ export function CreatePanel({
   onGenerate: () => void;
   onCancel: () => void;
 }) {
+  const voice = useVoiceThread();
+  const mic = useComposerMic({ onTranscript: (text) => dispatch({ type: 'prompt', prompt: appendDictation(state.prompt, text) }) });
+  useSpeakOutcome(voice, running, error, 'Your image is ready.');
   const status = statuses.find((s) => s.id === state.provider);
   const models = imageModelsFor(state.provider, status?.models);
   const blocked = generateBlockedReason(state, status, running);
@@ -172,6 +178,7 @@ export function CreatePanel({
       ) : null}
 
       <div className="mt-auto flex items-center gap-2">
+        <VoiceControls voice={voice} mic={mic} />
         {running ? (
           <button
             type="button"
