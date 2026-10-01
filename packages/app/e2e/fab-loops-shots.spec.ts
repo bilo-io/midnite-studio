@@ -120,7 +120,7 @@ test('the waiting notice, in the bell', async ({ page }) => {
   });
 
   await page.getByTestId('notification-bell').click();
-  await expect(page.getByText('Concepts is waiting for input.')).toBeVisible();
+  await expect(page.getByText('Ideate is waiting for input.')).toBeVisible();
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT_FGHI}/waiting-notice.png` });
 });
@@ -139,7 +139,7 @@ for (const mode of ['light', 'dark'] as const) {
     await openFab(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
+    for (const tab of ['Guard', 'Ideate', 'Create', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: shotPath(OUT_P37, `${mode}-${tab.toLowerCase()}.png`) });
@@ -279,7 +279,7 @@ for (const variant of ['before', 'after'] as const) {
     await setReducedMotion(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
+    for (const tab of ['Guard', 'Ideate', 'Create', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
       await panel.screenshot({ path: shotPath(OUT_ARC, `dark-${tab.toLowerCase()}-${variant}.png`) });
