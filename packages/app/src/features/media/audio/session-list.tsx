@@ -139,19 +139,22 @@ function VariantRow({
           />
         </button>
       </div>
-      {open ? <VariantDetails id={detailsId} view={view} /> : null}
+      {open ? <VariantDetails id={detailsId} view={view} variant={variant} /> : null}
     </li>
   );
 }
 
 /** Source, style, lyrics and timestamp — shown only once the row is expanded. */
-function VariantDetails({ id, view }: { id: string; view: AudioSessionView }) {
+function VariantDetails({ id, view, variant }: { id: string; view: AudioSessionView; variant: AudioVariant }) {
   const session = view.session;
   return (
     <dl id={id} className="flex flex-col gap-1 px-12 pb-2.5 text-[11px] text-muted-foreground">
       <div className="flex gap-2">
         <dt className="w-14 shrink-0">Source</dt>
-        <dd className="uppercase tracking-wide">{view.kind}</dd>
+        <dd>
+          <span className="uppercase tracking-wide">{view.kind}</span>
+          {variant.sidecar?.source ? ` · ${variant.sidecar.source}` : ''}
+        </dd>
       </div>
       {session ? (
         <div className="flex gap-2">
