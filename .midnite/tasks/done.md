@@ -1,6 +1,16 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-01 — Phase 98 Theme J — Completion transition and Welcome finale
+
+Reuses Theme B/C choreography (`playTimeline`, `playGlide`, `dissolveTimeline`, `.setup-brand-gradient`); no second animation system.
+
+- [x] Leaving the last page: content dissolves, `.setup-bloom` sweeps from the anchor, dots resolve to filled (`completionTimeline`).
+- [x] Finale "Welcome to [mark] Midnite Studio": mark glides from the anchor into the heading; only "Midnite" wears the brand face and gradient (`Wordmark gradient`).
+- [x] Get started fades the overlay out, then sets `completedAt` (Resume leaf disappears).
+- [x] Reduced motion: static finale, no bloom, no fades.
+- [ ] Linux visual baseline: deferred to docker regen (shots spec landed).
+
 ## 2026-09-30 — Phase 98 Themes E + H — Git, forge and toolchain wizard pages
 
 [PR #632](https://github.com/bilo-io/midnite-studio/pull/632). Pages over Theme D's catalogue, probe, planner and status row; no new IPC.

@@ -235,7 +235,6 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
       const origin = from ?? centredRect(viewportRect(), 0);
       setBloom({ x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 });
     }
-    setBloom({ x: from.left + from.width / 2, y: from.top + from.height / 2 });
     timers.current.completion?.();
     timers.current.completion = playTimeline(completionTimeline(reduced), (phase) => {
       if (phase === 'leaving') setCompletion('leaving');
