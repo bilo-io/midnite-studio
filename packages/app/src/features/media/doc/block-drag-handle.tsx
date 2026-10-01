@@ -101,7 +101,7 @@ export function BlockDragHandle({
         aria-haspopup="menu"
         aria-expanded={menu?.pos === target.pos}
         data-testid="doc-add-block"
-        className="absolute left-0.5 flex w-4 items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+        className="absolute z-10 left-0.5 flex w-4 items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-foreground"
         style={{ top: target.top, height: target.height }}
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
@@ -129,7 +129,7 @@ export function BlockDragHandle({
         draggable
         aria-label="Drag to move block"
         data-testid="doc-drag-handle"
-        className="absolute left-[18px] flex w-5 cursor-grab items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+        className="absolute z-10 left-[18px] flex w-5 cursor-grab items-center justify-center rounded text-muted-foreground/70 hover:bg-accent hover:text-foreground"
         style={{ top: target.top, height: target.height }}
         onDragStart={(event) => {
           const view = editor.view;
