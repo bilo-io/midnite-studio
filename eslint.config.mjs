@@ -51,6 +51,8 @@ export default tseslint.config(
       '**/.moon/cache/**',
       // Phase 99 Theme D — the Setup Video scaffold, a user's Remotion app, not workspace source.
       'templates/media-video/**',
+      // The repo's own video workspace (a copy of midnite-videos) — a Remotion app, not workspace source.
+      '.midnite/media/**',
     ],
   },
 
