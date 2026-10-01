@@ -952,18 +952,26 @@ html[data-motion='reduced'] .gradient-border--glow {
   }
 }
 
-.media-prompt:focus-within {
+.media-prompt {
+  /* Declared paused at rest and flipped to running on focus, the same
+   * play-state gate the other infinite loops use. */
   animation:
-    gradient-border-spin 4s linear infinite,
-    media-prompt-pulse 2s ease-in-out infinite;
+    gradient-border-spin 4s linear infinite paused,
+    media-prompt-pulse 2s ease-in-out infinite paused;
+}
+
+.media-prompt:focus-within {
+  animation-play-state: running, running;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .media-prompt,
   html:not([data-motion='full']) .media-prompt:focus-within {
     animation: none;
   }
 }
 
+html[data-motion='reduced'] .media-prompt,
 html[data-motion='reduced'] .media-prompt:focus-within {
   animation: none;
 }
