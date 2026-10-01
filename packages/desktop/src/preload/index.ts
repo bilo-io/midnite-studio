@@ -294,6 +294,7 @@ const bridge: Pick<
     removeItem: (req) => call(CHANNELS.forgeProjectRemoveItem, req),
   },
   ai: {
+    commitMessage: (req) => call(CHANNELS.aiCommitMessage, req),
     improveField: (req) => call(CHANNELS.aiImproveField, req),
     planBlueprint: (req) => call(CHANNELS.aiPlanBlueprint, req),
   },

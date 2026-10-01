@@ -1952,6 +1952,25 @@ export function useImproveField() {
 }
 
 /**
+ * "Write with AI" on the commit box — a Conventional Commits message from the
+ * staged (else working-tree) diff, drafted in main by the provider's fastest
+ * model. Read-only, so no cache to invalidate.
+ */
+export function useCommitMessageAi() {
+  return useMutation({
+    mutationFn: async (input: {
+      repoId: string;
+      worktreePath?: string;
+      agentId?: string;
+    }): Promise<GitOpResult<{ text: string; source: 'staged' | 'working' }>> => {
+      const api = bridge();
+      if (!api) return { ok: false, kind: 'error', message: '' };
+      return api.ai.commitMessage(withHeadlessAiModel(input));
+    },
+  });
+}
+
+/**
  * Phase 96 Theme I — Settings ▸ Agent ▸ "Headless AI features use". Read at
  * call time rather than threaded through every wand/Plan caller, so one
  * setting reroutes both without touching a dialog.

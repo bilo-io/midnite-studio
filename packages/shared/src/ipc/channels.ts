@@ -346,6 +346,13 @@ export const CHANNELS = {
    */
   aiImproveField: 'mstudio:ai:improve-field',
   /**
+   * "Write with AI" on the commit box — a Conventional Commits message drafted
+   * from the staged diff (or the working-tree diff when nothing is staged) by
+   * the active provider's fastest model. Read-only: main reads a diff and
+   * answers a `GitOpResult`, nothing is staged or committed.
+   */
+  aiCommitMessage: 'mstudio:ai:commit-message',
+  /**
    * Plan with AI (Phase 95 Theme F) — a fast, non-thinking model proposes a
    * project/task/blocked-by blueprint from a free-text prompt, headless,
    * with the same `GitOpResult` posture as `aiImproveField`. `main/ai/plan-
