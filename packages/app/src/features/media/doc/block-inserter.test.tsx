@@ -31,6 +31,22 @@ describe('insertBlockBelow', () => {
     editor.destroy();
   });
 
+  it('inserts H6, a callout and an image below a block', () => {
+    const editor = load('only');
+    insertBlockBelow(editor, 0, item('h6'), ctx);
+    expect(editor.state.doc.child(1).attrs.level).toBe(6);
+    insertBlockBelow(editor, 0, item('callout-tip'), ctx);
+    const quote = editor.state.doc.child(1);
+    expect(quote.type.name).toBe('blockquote');
+    expect(quote.attrs.callout).toBe('tip');
+    insertBlockBelow(editor, 0, item('image'), {
+      ...ctx,
+      promptImage: (insert) => insert('https://example.com/a.png'),
+    });
+    expect(editor.getMarkdown()).toContain('![](https://example.com/a.png)');
+    editor.destroy();
+  });
+
   it('Ask AI opens the assistant instead of inserting a type', () => {
     const editor = load('only');
     const onAskAi = vi.fn();

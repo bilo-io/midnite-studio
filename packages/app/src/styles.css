@@ -5659,3 +5659,92 @@ html:not([data-window-focused='false']) .thinking-dots::after {
 html[data-motion='reduced'] .thinking-dots::after {
   animation: none;
 }
+
+/* Docs editor — code-block syntax tokens, GitHub-style callouts, images
+ * (features/media/doc). lowlight emits highlight.js `hljs-*` classes; raw HSL
+ * triplets here, lifted in `.dark` like every other hue in this file. */
+:root {
+  --hljs-keyword: 330 70% 42%;
+  --hljs-string: 210 80% 36%;
+  --hljs-number: 25 85% 38%;
+  --hljs-title: 265 55% 45%;
+  --hljs-type: 25 85% 38%;
+  --hljs-comment: 215 12% 48%;
+  --hljs-meta: 175 70% 28%;
+  --hljs-addition: 140 60% 30%;
+  --hljs-deletion: 0 70% 45%;
+  --callout-note: 212 80% 48%;
+  --callout-tip: 140 55% 36%;
+  --callout-important: 265 55% 55%;
+  --callout-warning: 38 92% 45%;
+  --callout-caution: 0 72% 52%;
+}
+.dark {
+  --hljs-keyword: 330 80% 72%;
+  --hljs-string: 205 85% 74%;
+  --hljs-number: 30 90% 68%;
+  --hljs-title: 265 80% 78%;
+  --hljs-type: 30 90% 68%;
+  --hljs-comment: 215 12% 58%;
+  --hljs-meta: 175 60% 62%;
+  --hljs-addition: 140 55% 62%;
+  --hljs-deletion: 0 85% 70%;
+  --callout-note: 212 90% 66%;
+  --callout-tip: 140 55% 58%;
+  --callout-important: 265 80% 74%;
+  --callout-warning: 38 95% 58%;
+  --callout-caution: 0 85% 68%;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-section { color: hsl(var(--hljs-keyword)); }
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-attr,
+.hljs-attribute,
+.hljs-selector-attr,
+.hljs-selector-pseudo { color: hsl(var(--hljs-string)); }
+.hljs-number,
+.hljs-bullet,
+.hljs-link { color: hsl(var(--hljs-number)); }
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-function,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class { color: hsl(var(--hljs-title)); }
+.hljs-type,
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-params,
+.hljs-variable,
+.hljs-template-variable { color: hsl(var(--hljs-type)); }
+.hljs-comment,
+.hljs-quote { color: hsl(var(--hljs-comment)); font-style: italic; }
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-tag { color: hsl(var(--hljs-meta)); }
+.hljs-addition { color: hsl(var(--hljs-addition)); }
+.hljs-deletion { color: hsl(var(--hljs-deletion)); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+.ProseMirror .doc-code-block pre { padding-top: 2rem; }
+.ProseMirror img { max-width: 100%; height: auto; border-radius: 6px; margin: 0.5rem 0; }
+.ProseMirror img.ProseMirror-selectednode { outline: 2px solid hsl(var(--primary)); }
+.ProseMirror blockquote[data-callout] { border-left-width: 3px; border-radius: 0 6px 6px 0; padding: 0.25rem 0.75rem; color: inherit; }
+.ProseMirror blockquote[data-callout]::before { content: attr(data-callout); display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.ProseMirror blockquote[data-callout='note'] { border-color: hsl(var(--callout-note)); background: hsl(var(--callout-note) / 0.08); }
+.ProseMirror blockquote[data-callout='note']::before { color: hsl(var(--callout-note)); }
+.ProseMirror blockquote[data-callout='tip'] { border-color: hsl(var(--callout-tip)); background: hsl(var(--callout-tip) / 0.08); }
+.ProseMirror blockquote[data-callout='tip']::before { color: hsl(var(--callout-tip)); }
+.ProseMirror blockquote[data-callout='important'] { border-color: hsl(var(--callout-important)); background: hsl(var(--callout-important) / 0.08); }
+.ProseMirror blockquote[data-callout='important']::before { color: hsl(var(--callout-important)); }
+.ProseMirror blockquote[data-callout='warning'] { border-color: hsl(var(--callout-warning)); background: hsl(var(--callout-warning) / 0.1); }
+.ProseMirror blockquote[data-callout='warning']::before { color: hsl(var(--callout-warning)); }
+.ProseMirror blockquote[data-callout='caution'] { border-color: hsl(var(--callout-caution)); background: hsl(var(--callout-caution) / 0.08); }
+.ProseMirror blockquote[data-callout='caution']::before { color: hsl(var(--callout-caution)); }

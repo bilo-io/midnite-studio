@@ -63,8 +63,12 @@ describe('explorer helpers', () => {
 describe('slash menu', () => {
   it('lists every block type plus Ask AI, filtered by label or keyword', () => {
     expect(filterSlashItems('').map((i) => i.id)).toEqual([
-      'h1', 'h2', 'h3', 'bullet', 'ordered', 'todo', 'quote', 'code', 'table', 'divider', 'ai',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'bullet', 'ordered', 'todo', 'quote',
+      'code', 'callout-note', 'callout-tip', 'callout-important', 'callout-warning',
+      'callout-caution', 'image', 'table', 'divider', 'ai',
     ]);
+    expect(filterSlashItems('admonition')).toHaveLength(5);
+    expect(filterSlashItems('picture').map((i) => i.id)).toEqual(['image']);
     expect(filterSlashItems('task').map((i) => i.id)).toEqual(['todo']);
     expect(filterSlashItems('ai').map((i) => i.id)).toContain('ai');
   });

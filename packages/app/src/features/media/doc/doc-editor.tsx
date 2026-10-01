@@ -9,7 +9,7 @@ import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
 import { BlockDragHandle } from './block-drag-handle';
 import { docExtensions } from './doc-extensions';
 import { normalizeMarkdown } from './doc-thread';
-import { createSlashStore, SlashCommand, type SlashStore } from './slash-commands';
+import { createSlashStore, SlashCommand, type SlashContext, type SlashStore } from './slash-commands';
 
 /**
  * The Docs editor (Phase 99 Theme B) — Tiptap over plain markdown, with a
@@ -51,13 +51,34 @@ export default function DocEditor({ markdown, onChange, onReady, onAskAi }: DocE
   askRef.current = onAskAi;
   const changeRef = useRef(onChange);
   changeRef.current = onChange;
+  const dialogs = useOptionalDialogs();
+  const dialogsRef = useRef(dialogs);
+  dialogsRef.current = dialogs;
+  // One context for the `/` menu and the "+" inserter; read through refs so the
+  // editor (created once) always sees the latest callbacks.
+  const ctx = useMemo<SlashContext>(
+    () => ({
+      onAskAi: () => askRef.current(undefined),
+      promptImage: (insert) =>
+        dialogsRef.current?.prompt({
+          title: 'Image',
+          label: 'Image URL',
+          placeholder: 'https://',
+          confirmLabel: 'Insert',
+          onConfirm: (src) => {
+            if (src.trim() !== '') insert(src.trim());
+          },
+        }),
+    }),
+    [],
+  );
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
 
   const editor = useEditor({
     immediatelyRender: true,
     extensions: [
       ...docExtensions(),
-      SlashCommand.configure({ store, ctx: { onAskAi: () => askRef.current(undefined) } }),
+      SlashCommand.configure({ store, ctx }),
     ],
     content: markdown,
     contentType: 'markdown',
@@ -87,7 +108,7 @@ export default function DocEditor({ markdown, onChange, onReady, onAskAi }: DocE
 
   return (
     <div ref={setScroller} className="relative h-full min-h-0 overflow-auto" data-selectable>
-      <BlockDragHandle editor={editor} container={scroller} ctx={{ onAskAi: () => askRef.current(undefined) }} />
+      <BlockDragHandle editor={editor} container={scroller} ctx={ctx} />
       <EditorContent editor={editor} className="h-full" />
       <SelectionBubble editor={editor} onAskAi={(sel) => askRef.current(sel)} />
       <SlashMenu store={store} />

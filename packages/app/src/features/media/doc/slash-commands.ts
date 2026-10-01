@@ -11,6 +11,15 @@ import {
   LuHeading1,
   LuHeading2,
   LuHeading3,
+  LuHeading4,
+  LuHeading5,
+  LuHeading6,
+  LuImage,
+  LuInfo,
+  LuLightbulb,
+  LuMessageSquareWarning,
+  LuOctagonAlert,
+  LuTriangleAlert,
   LuList,
   LuListChecks,
   LuListOrdered,
@@ -35,7 +44,11 @@ export type SlashItem = {
   run: (editor: Editor, range: Range, ctx: SlashContext) => void;
 };
 
-export type SlashContext = { onAskAi: () => void };
+export type SlashContext = {
+  onAskAi: () => void;
+  /** Asks for an image URL (+ alt text) and hands it back; absent where there is no dialog host. */
+  promptImage?: (insert: (src: string) => void) => void;
+};
 
 const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
 
@@ -60,6 +73,27 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     keywords: 'h3',
     icon: LuHeading3,
     run: (e, r) => chain(e, r).setNode('heading', { level: 3 }).run(),
+  },
+  {
+    id: 'h4',
+    label: 'Heading 4',
+    keywords: 'h4',
+    icon: LuHeading4,
+    run: (e, r) => chain(e, r).setNode('heading', { level: 4 }).run(),
+  },
+  {
+    id: 'h5',
+    label: 'Heading 5',
+    keywords: 'h5',
+    icon: LuHeading5,
+    run: (e, r) => chain(e, r).setNode('heading', { level: 5 }).run(),
+  },
+  {
+    id: 'h6',
+    label: 'Heading 6',
+    keywords: 'h6',
+    icon: LuHeading6,
+    run: (e, r) => chain(e, r).setNode('heading', { level: 6 }).run(),
   },
   {
     id: 'bullet',
@@ -95,6 +129,51 @@ export const SLASH_ITEMS: readonly SlashItem[] = [
     keywords: 'pre fence',
     icon: LuCode,
     run: (e, r) => chain(e, r).toggleCodeBlock().run(),
+  },
+  {
+    id: 'callout-note',
+    label: 'Note callout',
+    keywords: 'callout alert admonition note',
+    icon: LuInfo,
+    run: (e, r) => chain(e, r).wrapIn('blockquote', { callout: 'note' }).run(),
+  },
+  {
+    id: 'callout-tip',
+    label: 'Tip callout',
+    keywords: 'callout alert admonition tip',
+    icon: LuLightbulb,
+    run: (e, r) => chain(e, r).wrapIn('blockquote', { callout: 'tip' }).run(),
+  },
+  {
+    id: 'callout-important',
+    label: 'Important callout',
+    keywords: 'callout alert admonition important',
+    icon: LuMessageSquareWarning,
+    run: (e, r) => chain(e, r).wrapIn('blockquote', { callout: 'important' }).run(),
+  },
+  {
+    id: 'callout-warning',
+    label: 'Warning callout',
+    keywords: 'callout alert admonition warning',
+    icon: LuTriangleAlert,
+    run: (e, r) => chain(e, r).wrapIn('blockquote', { callout: 'warning' }).run(),
+  },
+  {
+    id: 'callout-caution',
+    label: 'Caution callout',
+    keywords: 'callout alert admonition caution',
+    icon: LuOctagonAlert,
+    run: (e, r) => chain(e, r).wrapIn('blockquote', { callout: 'caution' }).run(),
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    keywords: 'picture photo img',
+    icon: LuImage,
+    run: (e, r, ctx) => {
+      chain(e, r).run();
+      ctx.promptImage?.((src) => e.chain().focus().setImage({ src }).run());
+    },
   },
   {
     id: 'table',
