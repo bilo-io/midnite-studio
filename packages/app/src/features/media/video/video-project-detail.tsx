@@ -1,12 +1,14 @@
 import { BUILTIN_AGENTS, VIDEO_SKILLS } from '@midnite/studio-shared';
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { LuFilePen, LuFolderCog, LuPlay, LuPlus, LuX } from 'react-icons/lu';
 
-import { useUiStore } from '../../../store/ui-store';
+import { useUiStore, VIDEO_PANEL_TABS, type VideoPanelTab } from '../../../store/ui-store';
 import { MarkdownPreview } from '../../files/preview/markdown-preview';
 import { startAgent } from '../../terminal/start-agent';
 import { useAgents } from '../../terminal/use-agents';
 import { useTerminalStore } from '../../terminal/terminal-store';
+import { VideoEditThread } from './video-edit-thread';
+import { VideoVersions } from './video-versions';
 import { VideoFileList } from './video-file-list';
 import { VideoRenderDialog } from './video-render-dialog';
 import {
@@ -76,6 +78,8 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   const cancelRender = useCancelVideoRender();
   const toolchain = useVideoToolchain(projectId);
   const [renderOpen, setRenderOpen] = useState(false);
+  const tab = useUiStore((s) => s.mediaVideoPanelTab);
+  const setTab = useUiStore((s) => s.setMediaVideoPanelTab);
 
   const valid = project.data?.valid ? project.data : null;
   const brief = useVideoProjectFile(projectId, valid?.brief ?? null);
@@ -134,9 +138,34 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   };
 
   return (
-    <div className="hide-scrollbar flex h-full min-h-0 flex-col overflow-auto p-3 text-xs">
-      <h2 className="text-sm font-semibold text-foreground">{data.title}</h2>
-      <p className="mt-0.5 text-muted-foreground">{data.composition}</p>
+    <div className="flex h-full min-h-0 flex-col text-xs">
+      <div className="shrink-0 px-3 pt-3">
+        <h2 className="text-sm font-semibold text-foreground">{data.title}</h2>
+        <p className="mt-0.5 text-muted-foreground">{data.composition}</p>
+      </div>
+      <VideoPanelTabs active={tab} onSelect={setTab} />
+      {tab === 'edit' ? (
+        <div role="tabpanel" id="video-panel-edit" aria-labelledby="video-tab-edit" className="min-h-0 flex-1">
+          <VideoEditThread projectId={projectId} title={data.title} cwd={cwd} repoId={repoId} agent={agent} />
+        </div>
+      ) : null}
+      {tab === 'versions' ? (
+        <div
+          role="tabpanel"
+          id="video-panel-versions"
+          aria-labelledby="video-tab-versions"
+          className="hide-scrollbar min-h-0 flex-1 overflow-auto p-3"
+        >
+          <VideoVersions projectId={projectId} />
+        </div>
+      ) : null}
+      {tab === 'brief' ? (
+        <div
+          role="tabpanel"
+          id="video-panel-brief"
+          aria-labelledby="video-tab-brief"
+          className="hide-scrollbar min-h-0 flex-1 overflow-auto p-3"
+        >
 
       <section className="mt-4 space-y-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{agent.label}</h3>
@@ -248,6 +277,54 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
           </div>
         ) : null}
       </section>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const PANEL_TAB_LABEL: Record<VideoPanelTab, string> = { edit: 'Edit', brief: 'Brief', versions: 'Versions' };
+
+/** Edit / Brief / Versions — a WAI-ARIA tablist with roving focus (←/→, Home/End). */
+function VideoPanelTabs({ active, onSelect }: { active: VideoPanelTab; onSelect: (tab: VideoPanelTab) => void }) {
+  const refs = useRef<Partial<Record<VideoPanelTab, HTMLButtonElement | null>>>({});
+  const move = (event: KeyboardEvent<HTMLDivElement>) => {
+    const index = VIDEO_PANEL_TABS.indexOf(active);
+    let next: number | null = null;
+    if (event.key === 'ArrowRight') next = (index + 1) % VIDEO_PANEL_TABS.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + VIDEO_PANEL_TABS.length) % VIDEO_PANEL_TABS.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = VIDEO_PANEL_TABS.length - 1;
+    if (next === null) return;
+    event.preventDefault();
+    const tab = VIDEO_PANEL_TABS[next]!;
+    onSelect(tab);
+    refs.current[tab]?.focus();
+  };
+  return (
+    <div role="tablist" aria-label="Video panel" className="flex shrink-0 items-center gap-1 px-3 pt-2" onKeyDown={move}>
+      {VIDEO_PANEL_TABS.map((tab) => (
+        <button
+          key={tab}
+          ref={(node) => {
+            refs.current[tab] = node;
+          }}
+          type="button"
+          role="tab"
+          id={`video-tab-${tab}`}
+          aria-selected={tab === active}
+          aria-controls={`video-panel-${tab}`}
+          tabIndex={tab === active ? 0 : -1}
+          onClick={() => onSelect(tab)}
+          className={`h-7 rounded-md px-2.5 text-xs transition-colors ${
+            tab === active
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+          }`}
+        >
+          {PANEL_TAB_LABEL[tab]}
+        </button>
+      ))}
     </div>
   );
 }
