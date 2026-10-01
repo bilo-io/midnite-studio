@@ -83,14 +83,16 @@ describe('AiComposer', () => {
     expect(screen.getByTestId('extra')).toBeTruthy();
   });
 
-  it('renders Send and Mic inside the box, in the bottom-left controls group', () => {
+  it('renders Mic bottom-left and Send bottom-right, inside the box', () => {
     render(<Harness onSend={() => {}} />);
     const controls = screen.getByTestId('ai-composer-controls');
     const box = screen.getByTestId('ai-composer-input').closest('.gradient-border')!;
     expect(box.contains(controls)).toBe(true);
     expect(controls.contains(screen.getByTestId('ai-composer-mic'))).toBe(true);
     expect(controls.contains(screen.getByTestId('ai-composer-send'))).toBe(true);
-    expect(controls.className).toContain('justify-start');
+    // Mic first, Send last — the spacer between them pushes Send to the right edge.
+    expect(controls.firstElementChild?.contains(screen.getByTestId('ai-composer-mic'))).toBe(true);
+    expect(controls.lastElementChild?.contains(screen.getByTestId('ai-composer-send'))).toBe(true);
     // textarea precedes the controls (controls sit below it)
     expect(screen.getByTestId('ai-composer-input').compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

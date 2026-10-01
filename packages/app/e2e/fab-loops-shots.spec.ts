@@ -61,7 +61,7 @@ test('a running loop — slim strip, glowing Stop, live dots', async ({ page }) 
   const composer = page.getByTestId('loop-composer-watchdog');
   await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
   await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
-  await composer.getByTestId('loop-start').click();
+  await composer.getByTestId('loop-extras-send').click();
   await expect(composer.getByTestId('loop-stop')).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/loop-running.png` });
@@ -72,7 +72,7 @@ test('run history, expanded', async ({ page }) => {
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
   await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
-  await composer.getByTestId('loop-start').click();
+  await composer.getByTestId('loop-extras-send').click();
   await composer.getByTestId('loop-stop').click();
 
   const history = page.getByTestId('loop-history').nth(2);
@@ -105,7 +105,7 @@ test('Settings — the Loops section', async ({ page }) => {
 test('the waiting notice, in the bell', async ({ page }) => {
   await open(page);
   await openFab(page);
-  await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+  await page.getByTestId('loop-composer-innovate').getByTestId('loop-extras-send').click();
   await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
 
   // Left open deliberately: the shot is more use showing the glowing Stop and
@@ -150,7 +150,7 @@ for (const mode of ['light', 'dark'] as const) {
 test('the collapsed FAB carries the tab arc, and a waiting loop overrides it', async ({ page }) => {
   await open(page);
   await openFab(page, 'Medic');
-  await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
+  await page.getByTestId('loop-composer-medic').getByTestId('loop-extras-send').click();
   await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
 
   await page.getByRole('button', { name: 'Close quick access panel' }).click();
@@ -208,7 +208,7 @@ for (const mode of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Patrol', exact: true }).click();
       const composer = page.getByTestId('loop-composer-watchdog');
       await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
-      await composer.getByTestId('loop-start').click();
+      await composer.getByTestId('loop-extras-send').click();
       await expect(composer.getByTestId('loop-stop')).toBeVisible();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: shotPath(OUT_GLOW, `${mode}-running-${variant}.png`) });

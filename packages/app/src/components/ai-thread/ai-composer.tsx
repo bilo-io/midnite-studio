@@ -33,12 +33,13 @@ function MicMeter({ testId }: { testId: string }) {
 
 /**
  * The shared prompt box of every AI thread: a gradient-bordered, auto-growing
- * textarea with the push-to-talk mic and send button INSIDE the box, in a
- * bottom-left row under the text.
+ * textarea with its controls INSIDE the box, in a row under the text: the
+ * push-to-talk mic bottom-left, Send bottom-right.
  *
  * Slots: `above` (anchored popovers, e.g. slash commands), `leading` (shown
- * before the buttons when the mic is idle — the Companion's speaking meter) and
- * `trailing` (extra controls after Send — e.g. a speech on/off toggle).
+ * before the mic when it is idle — the Companion's speaking meter, an attach
+ * menu) and `trailing` (after the mic, still on the left — e.g. a speech
+ * on/off toggle).
  * `onKeyDown` runs first; if it calls `preventDefault` the composer's own
  * Enter-to-send is skipped.
  */
@@ -132,8 +133,11 @@ export function AiComposer({
             data-testid={`${testIdPrefix}-input`}
             className={`${GRADIENT_FIELD_CLASSES} block min-h-[28px] resize-none px-2 py-1.5 text-xs leading-relaxed disabled:opacity-50`}
           />
-          {/* Controls live INSIDE the box, bottom-left, under the text. */}
-          <div className="flex items-center justify-start gap-0.5 px-1 pb-1" data-testid={`${testIdPrefix}-controls`}>
+          {/*
+            Controls live INSIDE the box, under the text: the mic and any
+            extras (attach, speech toggle) bottom-left, Send alone bottom-right.
+          */}
+          <div className="flex items-center gap-0.5 px-1 pb-1" data-testid={`${testIdPrefix}-controls`}>
             {mic?.held ? <MicMeter testId={`${testIdPrefix}-level-meter`} /> : leading}
             {mic ? (
               <Tooltip label={mic.available ? (mic.held ? 'Listening — release to send' : 'Hold to talk') : mic.reason}>
@@ -155,6 +159,8 @@ export function AiComposer({
                 </button>
               </Tooltip>
             ) : null}
+            {trailing}
+            <span className="flex-1" aria-hidden />
             <Tooltip label={sendTooltip ?? (canSend ? 'Send' : 'Send — type something first')}>
               <button
                 type="button"
@@ -171,7 +177,6 @@ export function AiComposer({
                 <LuSendHorizontal aria-hidden className="h-3.5 w-3.5" />
               </button>
             </Tooltip>
-            {trailing}
           </div>
         </div>
       </div>
