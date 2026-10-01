@@ -1,5 +1,6 @@
 export * from './blame';
 export * from './blob';
+export * from './change-text';
 export * from './clone';
 export * from './commit';
 export * from './conflict-hunk';

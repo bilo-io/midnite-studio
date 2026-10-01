@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 
 import type { StatusEntry } from '@midnite/studio-shared';
 
-import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuUndo2 } from 'react-icons/lu';
+import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuSparkles, LuUndo2 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 
 import {
@@ -15,6 +15,7 @@ import {
 import { ChangeTotals, ChangeTree, Counts, type FileSelectModifiers } from '../../components/change-tree';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { TreeSection } from '../../components/tree-section';
+import { useCommitMessageAi } from '../../services/queries';
 import {
   useActiveWorktree,
   useCommit,
@@ -455,6 +456,12 @@ export function CommitBox({
     if (key) setDraft(key, value);
   };
   const [error, setError] = useState('');
+  // "Write with AI": the text it replaced, kept so one click restores it. The
+  // draft is set programmatically, which the browser's own undo stack never
+  // sees, so Cmd+Z alone could not bring it back.
+  const [undoMessage, setUndoMessage] = useState<string | null>(null);
+  const writeWithAi = useCommitMessageAi();
+  const agentId = useUiStore((s) => s.primaryAgent);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const onCommit = async () => {
@@ -465,6 +472,31 @@ export function CommitBox({
     } else {
       setError(result.kind === 'error' ? result.message : 'The commit conflicted.');
     }
+  };
+
+  const hasChanges = model.entries.length > 0;
+  const onWriteWithAi = () => {
+    if (!repoId || writeWithAi.isPending) return;
+    setError('');
+    const before = message;
+    writeWithAi.mutate(
+      {
+        repoId,
+        ...(target.worktreePath ? { worktreePath: target.worktreePath } : {}),
+        ...(agentId ? { agentId } : {}),
+      },
+      {
+        onSuccess: (result) => {
+          if (result.ok) {
+            setUndoMessage(before.trim().length > 0 ? before : null);
+            setMessage(result.value.text);
+          } else {
+            setError(result.kind === 'error' ? result.message : 'Write with AI could not run.');
+          }
+        },
+        onError: () => setError('Write with AI could not run.'),
+      },
+    );
   };
 
   const canSubmit = !busy && message.trim().length > 0 && staged.length > 0;
@@ -508,7 +540,7 @@ export function CommitBox({
           {error}
         </p>
       ) : null}
-      <div className="gradient-border rounded-md">
+      <div className="gradient-border relative rounded-md">
         <textarea
           ref={textareaRef}
           value={message}
@@ -532,9 +564,33 @@ export function CommitBox({
             top) once the auto-grow effect started setting an exact pixel
             height on the textarea.
           */
-          className="block w-full resize-none overflow-y-auto rounded-md border-0 bg-background px-2 py-1.5 text-sm outline-none"
+          className="block w-full resize-none overflow-y-auto rounded-md border-0 bg-background py-1.5 pl-2 pr-8 text-sm outline-none"
         />
+        <div className="absolute right-1 top-1">
+          <IconButton
+            icon={LuSparkles}
+            label="Write with AI"
+            size="sm"
+            busy={writeWithAi.isPending}
+            disabled={!hasChanges}
+            onClick={onWriteWithAi}
+            data-testid="commit-ai-button"
+          />
+        </div>
       </div>
+      {undoMessage !== null ? (
+        <button
+          type="button"
+          onClick={() => {
+            setMessage(undoMessage);
+            setUndoMessage(null);
+          }}
+          data-testid="commit-ai-undo"
+          className="flex items-center gap-1 self-start text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          <LuUndo2 className="size-3" /> Undo AI message
+        </button>
+      ) : null}
       {message.length > 0 ? (
         /*
           The brand-gradient primary button (`.brand-gradient-button` in

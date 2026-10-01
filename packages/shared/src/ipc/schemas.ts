@@ -1209,6 +1209,21 @@ export const AiImproveFieldRequest = z.object({
  */
 export const AiImproveFieldResponse = GitOpResultOf(z.object({ text: z.string() }));
 
+// --- Write with AI on the commit box: ai:commitMessage ----------------------
+
+/** Same target as `StatusGetRequest` (a repo and optionally one checkout) plus
+ *  the same provider-routing fields the wand carries. */
+export const AiCommitMessageRequest = RepoId.extend({
+  worktreePath: z.string().optional(),
+  agentId: z.string().min(1).optional(),
+  ollamaModel: z.string().min(1).max(200).optional(),
+});
+
+/** `{ok:true, value:{text, source}}`; `{ok:false}` for "no changes", "no CLI", timeout. */
+export const AiCommitMessageResponse = GitOpResultOf(
+  z.object({ text: z.string(), source: z.enum(['staged', 'working']) }),
+);
+
 // --- Plan with AI: ai:planBlueprint (Phase 95 Theme F) ----------------------
 
 /**

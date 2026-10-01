@@ -505,6 +505,10 @@ export type MidniteStudioBridge = {
    * it here rather than under `forge` or `forgeProject` either.
    */
   ai: {
+    /** "Write with AI" on the commit box — read-only, fastest model. */
+    commitMessage: (
+      req: In<typeof S.AiCommitMessageRequest>,
+    ) => Promise<z.infer<typeof S.AiCommitMessageResponse>>;
     improveField: (
       req: In<typeof S.AiImproveFieldRequest>,
     ) => Promise<z.infer<typeof S.AiImproveFieldResponse>>;
