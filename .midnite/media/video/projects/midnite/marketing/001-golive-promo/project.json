@@ -1,0 +1,8 @@
+{
+  "id": "midnite/marketing/001-golive-promo",
+  "title": "Go-live promo — Midnite Studio",
+  "composition": "MidniteGolivePromo",
+  "source": "input/BRIEF.md",
+  "brief": "input/BRIEF.md",
+  "script": "EDITORIAL_SCRIPT.md"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "templates/midnite/golive-promo",
+  "title": "Template — the go-live promo's grammar",
+  "composition": "TemplateGolivePromo",
+  "brief": "input/BRIEF.md",
+  "madeFrom": "projects/midnite/marketing/001-golive-promo"
+}
