@@ -5604,3 +5604,58 @@ html[data-motion='reduced'] .media-plus-tile__icon,
 html[data-motion='reduced'] .media-plus-tile__label {
   transition: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Shared AI thread (components/ai-thread/) — docs, companion and media chats.
+ *
+ * `.ai-thread-frame` wears `.gradient-frame` only while a turn is in flight
+ * (see thread-frame.tsx), so it reserves the same 2.5px border when idle and
+ * the layout never shifts. The arc is pinned to 120deg like the FAB's tabs:
+ * both properties are `inherits: false`, so host and `::before` each need it.
+ * ------------------------------------------------------------------------ */
+.ai-thread-frame {
+  border: 2.5px solid transparent;
+}
+
+.ai-thread-frame,
+.ai-thread-frame::before {
+  --fab-arc-from: -60deg;
+  --fab-arc-to: 60deg;
+}
+
+@keyframes thinking-dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+
+.thinking-dots::after {
+  content: '...';
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: thinking-dots 1.2s steps(1, end) infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-dots::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-dots::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .thinking-dots::after {
+  animation: none;
+}

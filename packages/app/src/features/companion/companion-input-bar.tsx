@@ -2,16 +2,13 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 
-import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
-import { Tooltip } from '../../components/tooltip';
+import { AiComposer, LevelMeterBars, useComposerMic } from '../../components/ai-thread';
 import { useDismissable } from '../../components/use-dismissable';
 import { useCompanionStore } from '../../store/companion-store';
-import { useCompanionSpeakingLevelBars, useMicLevelBars, type LevelBars } from './audio/waveform';
+import { useCompanionSpeakingLevelBars } from './audio/waveform';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 import {
   filterSlashCommands,
@@ -19,35 +16,6 @@ import {
   slashInsertText,
   type SlashCommandItem,
 } from './slash-commands';
-
-/**
- * The mic/companion level meter — nine thin bars, each height-scaled 0..1
- * from {@link LevelBars}. Deliberately not a `<canvas>`: nine `<span>`s with
- * an inline `height` cost nothing to lay out at this size and need no
- * device-pixel-ratio handling, and the "never animate `filter: blur()`"
- * motion rule has nothing to say about a plain height change.
- */
-function LevelMeterBars({ bars, label }: { bars: LevelBars; label: string }) {
-  return (
-    <div
-      role="img"
-      aria-label={label}
-      data-testid="companion-level-meter"
-      className="flex h-4 w-6 shrink-0 items-end justify-center gap-px"
-    >
-      {bars.map((level, index) => (
-        <span
-          key={index}
-          className="w-0.5 rounded-full bg-primary/70"
-          style={{ height: `${Math.max(2, Math.round(level * 16))}px` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** How tall the textarea may grow before it starts scrolling instead. */
-const MAX_TEXTAREA_HEIGHT = 160;
 
 /**
  * The "/" popover's own trigger grammar: the *whole* textarea value is a
@@ -103,7 +71,6 @@ export function CompanionInputBar({
   onInterrupt: () => void;
 }) {
   const [value, setValue] = useState('');
-  const [micHeld, setMicHeld] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -157,21 +124,7 @@ export function CompanionInputBar({
     setValue(insert);
     textareaRef.current?.focus();
   };
-  const micAvailable = useSyncExternalStore(
-    (listener) => companionPorts().onMicAvailabilityChange(listener),
-    () => companionPorts().micAvailable(),
-  );
-  /*
-    A second, independent subscription rather than folding this into
-    `micAvailable` above: the *reason* can change (`checking` → `no-key`, say)
-    without the boolean ever flipping, and each `useSyncExternalStore` call
-    re-renders on its own snapshot alone. One combined snapshot string would
-    work too, but two plain reads say what each is for.
-  */
-  const micUnavailableReason = useSyncExternalStore(
-    (listener) => companionPorts().onMicAvailabilityChange(listener),
-    () => companionPorts().micUnavailableReason(),
-  );
+  const mic = useComposerMic({ onInterrupt });
   /*
     The two level meters (Ad Hoc: companion input + voice improvements) —
     mutually exclusive in practice (a mic press already interrupts any
@@ -181,20 +134,7 @@ export function CompanionInputBar({
     focus and system-TTS-engine fallbacks both already apply.
   */
   const speaking = useCompanionStore((state) => state.state === 'speaking');
-  const micLevels = useMicLevelBars(micHeld);
   const speakingLevels = useCompanionSpeakingLevelBars(speaking);
-
-  /*
-    Autogrow. Reset to `auto` before reading `scrollHeight` — without it the
-    element never shrinks again, because `scrollHeight` of a box with an
-    explicit height is that height.
-  */
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
-  }, [value]);
 
   const send = () => {
     const text = value.trim();
@@ -285,11 +225,9 @@ export function CompanionInputBar({
       mid-sentence would be unusable. `event.repeat` is ignored because a held
       key autorepeats and only the first press starts anything.
     */
-    if (event.key === ' ' && value.length === 0 && micAvailable && !micHeld && !event.repeat) {
+    if (event.key === ' ' && value.length === 0 && mic.available && !mic.held && !event.repeat) {
       event.preventDefault();
-      onInterrupt();
-      setMicHeld(true);
-      companionPorts().micPressStart();
+      mic.pressStart();
       return;
     }
     // Any other keystroke is the user taking the floor.
@@ -315,40 +253,6 @@ export function CompanionInputBar({
     });
     return () => setCompanionPorts({ transcriptSink: () => {} });
   }, []);
-
-  /*
-    Push-to-talk, not click-to-record: the mic is held down for as long as you
-    are speaking, which is the gesture with no "did it hear me stop?" failure
-    mode. `onPointerUp` on the WINDOW rather than the button, because a press
-    that starts on the button and releases anywhere else still has to stop the
-    recorder — otherwise a drag off the button leaves it recording forever.
-  */
-  useEffect(() => {
-    if (!micHeld) return undefined;
-    const release = () => {
-      setMicHeld(false);
-      companionPorts().micPressEnd();
-    };
-    /*
-      Space release too, and on the window for the same reason a pointer
-      release is: a keyup that arrives after focus has moved still has to stop
-      the recorder, or a click away mid-utterance leaves it recording forever.
-    */
-    const keyRelease = (event: KeyboardEvent) => {
-      if (event.key === ' ') release();
-    };
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', release);
-    window.addEventListener('keyup', keyRelease);
-    // A window that loses focus mid-press never sees the release at all.
-    window.addEventListener('blur', release);
-    return () => {
-      window.removeEventListener('pointerup', release);
-      window.removeEventListener('pointercancel', release);
-      window.removeEventListener('keyup', keyRelease);
-      window.removeEventListener('blur', release);
-    };
-  }, [micHeld]);
 
   const canSend = value.trim().length > 0 && !disabled;
 
@@ -418,119 +322,31 @@ export function CompanionInputBar({
           ))}
         </div>
       ) : null}
-      <div className="flex items-end gap-1.5">
-        {/*
-          The same `.gradient-border` treatment as the repos panel's own
-          filter box (`repos-panel.tsx`) — a borderless field with the conic
-          ring living on this wrapper, lighting up on `:focus-within` rather
-          than the field's own `:focus`. `min-w-0` because this sits beside a
-          `shrink-0` button cluster in a flex row and a bare `w-full` on a
-          flex item does not stop it fighting that sibling for space the way
-          it does in a block-level parent.
-
-          Dimmed rather than disabled while `disabled` (the companion is
-          `thinking`): the prop's own contract is "send is refused, typing is
-          not" — a native `disabled` textarea would block the very typing
-          that is still allowed, so the opacity is the only cue, matching the
-          send button's own dimmed-not-dead treatment below.
-        */}
-        <div
-          className={`min-w-0 flex-1 gradient-border rounded-md ${disabled ? 'opacity-60' : ''}`}
-        >
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={onKeyDown}
-            rows={1}
-            aria-label="Message the companion"
-            placeholder="Ask for a task, or say hello…"
-            data-testid="companion-input"
-            className={`${GRADIENT_FIELD_CLASSES} block min-h-[28px] resize-none px-2 py-1.5 text-xs leading-relaxed`}
-          />
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
-          {/*
-            The level meter — mic while held, the companion's own reply
-            while it plays. Rendered inside the same button cluster (not a
-            fourth control) so it never reflows the row when it appears.
-          */}
-          {micHeld ? (
-            <LevelMeterBars bars={micLevels} label="Microphone level" />
-          ) : speaking ? (
-            <LevelMeterBars bars={speakingLevels} label="Companion speaking level" />
-          ) : null}
-          {/*
-            Plain buttons wrapped in `Tooltip` rather than `IconButton`, and
-            only because of the gesture: push-to-talk needs `onPointerDown`,
-            which `IconButtonProps` does not forward (it takes `onClick`
-            alone, deliberately). Both keep `IconButton`'s own convention for
-            an explained disable — `aria-disabled` with the reason on hover,
-            not the native `disabled` attribute, which suppresses pointer
-            events and so silences the tooltip on the one state that most
-            needs explaining.
-          */}
-          <Tooltip
-            label={
-              micAvailable
-                ? micHeld
-                  ? 'Listening — release to send'
-                  : 'Hold to talk'
-                : micUnavailableReason
-            }
-          >
-            <button
-              type="button"
-              aria-label="Hold to talk"
-              aria-disabled={micAvailable ? undefined : true}
-              data-testid="companion-mic"
-              onPointerDown={() => {
-                if (!micAvailable) return;
-                onInterrupt();
-                setMicHeld(true);
-                companionPorts().micPressStart();
-              }}
-              className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-                micAvailable
-                  ? micHeld
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  : 'cursor-default text-muted-foreground/40'
-              }`}
-            >
-              {micAvailable ? (
-                <LuMic aria-hidden className="h-3.5 w-3.5" />
-              ) : (
-                <LuMicOff aria-hidden className="h-3.5 w-3.5" />
-              )}
-            </button>
-          </Tooltip>
-          <Tooltip
-            label={
-              canSend
-                ? 'Send'
-                : value.trim().length === 0
-                  ? 'Send — type something first'
-                  : 'Send — wait for the current turn to finish'
-            }
-          >
-            <button
-              type="button"
-              aria-label="Send"
-              aria-disabled={canSend ? undefined : true}
-              data-testid="companion-send"
-              onClick={send}
-              className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-                canSend
-                  ? 'text-primary hover:bg-accent hover:text-foreground'
-                  : 'cursor-default text-muted-foreground/40'
-              }`}
-            >
-              <LuSendHorizontal aria-hidden className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
+      <AiComposer
+        value={value}
+        onChange={setValue}
+        onSend={send}
+        canSend={canSend}
+        ariaLabel="Message the companion"
+        placeholder="Ask for a task, or say hello…"
+        dimmed={disabled}
+        mic={mic}
+        onKeyDown={onKeyDown}
+        textareaRef={textareaRef}
+        testIdPrefix="companion"
+        sendTooltip={
+          canSend
+            ? 'Send'
+            : value.trim().length === 0
+              ? 'Send — type something first'
+              : 'Send — wait for the current turn to finish'
+        }
+        leading={
+          speaking ? (
+            <LevelMeterBars bars={speakingLevels} label="Companion speaking level" testId="companion-level-meter" />
+          ) : null
+        }
+      />
     </div>
   );
 }

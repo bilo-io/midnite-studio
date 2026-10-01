@@ -23,7 +23,9 @@ import { usePaletteStore } from '../../themes/palette-store';
 import { BUILTIN_PALETTES } from '../../themes/presets';
 import { useThemeImportCommandStore } from '../../themes/theme-import-command-store';
 import type { StudioPalette } from '../../themes/theme-types';
+import { THINKING_STYLES, THINKING_STYLE_LABELS, type ThinkingStyle } from '../../../components/ai-thread/thinking-style';
 import { Choice, Field } from './controls';
+import { useUiStore } from '../../../store/ui-store';
 
 /**
  * The shell's appearance runtime — seven appliers and a 500-line stylesheet
@@ -35,6 +37,8 @@ import { Choice, Field } from './controls';
  */
 export function AppearancePage() {
   const s = useAppearanceStore();
+  const aiThinkingStyle = useUiStore((st) => st.aiThinkingStyle);
+  const setAiThinkingStyle = useUiStore((st) => st.setAiThinkingStyle);
 
   return (
     <div className="flex flex-col gap-3">
@@ -79,6 +83,14 @@ export function AppearancePage() {
               ['full', 'Full'],
               ['reduced', 'Reduced'],
             ]}
+          />
+
+          <Choice<ThinkingStyle>
+            label="AI loading indicator"
+            hint="How the Thinking… line looks in the Companion, Docs and Media chat threads."
+            value={aiThinkingStyle}
+            onChange={setAiThinkingStyle}
+            options={THINKING_STYLES.map((id) => [id, THINKING_STYLE_LABELS[id].label, THINKING_STYLE_LABELS[id].hint])}
           />
 
           <Choice<Density>
