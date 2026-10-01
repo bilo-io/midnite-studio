@@ -1,6 +1,6 @@
 import { docThreadPath, isDocFile, type MediaFileEntry } from '@midnite/studio-shared';
 import { useQueries } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LuFileText, LuFolderOpen, LuPencil, LuPlus, LuSearch, LuTrash2 } from 'react-icons/lu';
 
 import { Accordion } from '../../../components/accordion/accordion';
@@ -8,7 +8,9 @@ import { useDialogs } from '../../../components/dialog-host';
 import { EmptyState } from '../../../components/empty-state';
 import { IconButton } from '../../../components/icon-button';
 import { bridge } from '../../../services/bridge';
+import { useUiStore } from '../../../store/ui-store';
 import type { MediaSelection } from '../media-projects-accordion';
+import { pickInitialDoc } from './last-doc';
 import { MEDIA_KEYS, revealMedia, useMediaMutations, useMediaProjects } from '../use-media';
 
 /**
@@ -45,10 +47,13 @@ export function DocsExplorer({
   repoId,
   selection,
   onSelect,
+  createRequest = 0,
 }: {
   repoId: string;
   selection: MediaSelection | null;
   onSelect: (selection: MediaSelection | null) => void;
+  /** Bumped by the empty state's CTA: opens the "new doc" (or, with no project yet, "new project") prompt. */
+  createRequest?: number;
 }) {
   const projects = useMediaProjects(repoId, 'doc');
   const mutations = useMediaMutations(repoId, 'doc');
@@ -71,6 +76,26 @@ export function DocsExplorer({
   }));
   const shown = filterDocs(withDocs, query);
 
+  // On entry, reopen the last *edited* doc (fallback: newest mtime, then first).
+  // Runs once per mount, after every project's file list has loaded, so a
+  // later deselect (e.g. deleting the open doc) is not fought.
+  const autoSelected = useRef(false);
+  const loaded = !projects.isPending && files.every((q) => !q.isPending);
+  useEffect(() => {
+    if (autoSelected.current || !loaded) return;
+    autoSelected.current = true;
+    if (selection) return;
+    const candidates = all.flatMap((project, i) =>
+      (files[i]?.data ?? [])
+        .filter((f) => isDocFile(f.path))
+        .map((f) => ({ project: project.name, path: f.path, mtimeMs: f.mtimeMs })),
+    );
+    candidates.sort((a, b) => a.project.localeCompare(b.project) || a.path.localeCompare(b.path));
+    const pick = pickInitialDoc(candidates, useUiStore.getState().mediaLastDoc[repoId]);
+    if (pick) onSelect(pick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on first load.
+  }, [loaded]);
+
   // Sidecar ops are best-effort: most docs have no thread yet.
   const sidecar = {
     rename: (project: string, from: string, to: string) =>
@@ -91,6 +116,16 @@ export function DocsExplorer({
           onSuccess: (r) => r.ok && onSelect({ project: name.trim(), path: null }),
         }),
     });
+
+  // The CTA bumps `createRequest`; the handlers are re-created each render, so
+  // the latest ones are held in a ref and run from the effect.
+  const onCreateRequest = useRef<() => void>(() => undefined);
+  const seenRequest = useRef(createRequest);
+  useEffect(() => {
+    if (createRequest === seenRequest.current) return;
+    seenRequest.current = createRequest;
+    onCreateRequest.current();
+  }, [createRequest]);
 
   const renameProject = (project: string) =>
     dialogs.prompt({
@@ -140,6 +175,12 @@ export function DocsExplorer({
         );
       },
     });
+
+  onCreateRequest.current = () => {
+    const target = selection?.project ?? all[0]?.name;
+    if (target) createDoc(target);
+    else createProject();
+  };
 
   const renameDoc = (project: string, path: string) =>
     dialogs.prompt({

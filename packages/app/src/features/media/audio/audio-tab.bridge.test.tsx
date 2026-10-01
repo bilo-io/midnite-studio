@@ -118,4 +118,12 @@ describe('Audio tab', () => {
     fireEvent.keyDown(document.body, { key: ' ' });
     expect(usePlayer.getState().playing).toBe(false);
   });
+
+  it('an empty audio tab offers a CTA that reopens the prompt panel', async () => {
+    useUiStore.setState({ mediaPaneCollapsed: { audio: { detail: true } } });
+    open(fixtures);
+    expect(await screen.findByText('No audio yet')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Write a prompt' }));
+    expect(useUiStore.getState().mediaPaneCollapsed.audio?.detail).toBe(false);
+  });
 });

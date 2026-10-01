@@ -3,7 +3,7 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
-import { MediaLayout } from '../media-layout';
+import { MediaLayout, openMediaPane } from '../media-layout';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { useMediaExport, useMediaProjects } from '../use-media';
 import { AudioProjects } from './audio-projects';
@@ -141,6 +141,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
               loading={sessions.isPending && activeProject !== null}
               selectedKey={selectedKey}
               onSelect={(variant) => setSelectedKey(variant.key)}
+              onCompose={() => openMediaPane('audio', 'detail')}
             />
           }
           detail={

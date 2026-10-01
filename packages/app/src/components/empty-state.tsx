@@ -42,3 +42,28 @@ export function EmptyState({
     </div>
   );
 }
+
+/**
+ * The primary call-to-action under an `EmptyState` — pass as its `action`.
+ * One shared look so every empty page offers the same obvious next step.
+ */
+export function EmptyStateButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon?: IconComponent;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {Icon ? <Icon aria-hidden className="h-3.5 w-3.5" /> : null}
+      {label}
+    </button>
+  );
+}

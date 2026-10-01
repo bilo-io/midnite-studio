@@ -1065,6 +1065,9 @@ export type UiState = {
   setMediaPaneCollapsed: (tab: MediaTab, pane: MediaPane, collapsed: boolean) => void;
   /** Settings ▸ Media ▸ General — the save dialog's starting folder; `null` = OS default. */
   mediaExportDir: string | null;
+  /** The doc most recently *edited* in Media ▸ Docs, per repo — what Docs reopens on entry. */
+  mediaLastDoc: Record<string, { project: string; path: string }>;
+  setMediaLastDoc: (repoId: string, doc: { project: string; path: string }) => void;
   /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
   mediaSpeechOn: boolean;
   setMediaSpeechOn: (on: boolean) => void;
@@ -2134,6 +2137,7 @@ export type PersistedUi = Pick<
   | 'mediaVideoPanelTab'
   | 'mediaPaneCollapsed'
   | 'mediaExportDir'
+  | 'mediaLastDoc'
   | 'mediaSpeechOn'
   | 'collapsedAccordionSections'
   | 'graphColumns'
@@ -2716,6 +2720,13 @@ export const useUiStore = create<UiState>()(
           },
         })),
       mediaExportDir: null,
+      mediaLastDoc: {},
+      setMediaLastDoc: (repoId, doc) =>
+        set((state) => {
+          const prev = state.mediaLastDoc[repoId];
+          if (prev?.project === doc.project && prev.path === doc.path) return state;
+          return { mediaLastDoc: { ...state.mediaLastDoc, [repoId]: doc } };
+        }),
       mediaSpeechOn: false,
       setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
       setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
@@ -3177,6 +3188,7 @@ export const useUiStore = create<UiState>()(
         mediaVideoPanelTab: state.mediaVideoPanelTab,
         mediaPaneCollapsed: state.mediaPaneCollapsed,
         mediaExportDir: state.mediaExportDir,
+        mediaLastDoc: state.mediaLastDoc,
         mediaSpeechOn: state.mediaSpeechOn,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,

@@ -64,4 +64,14 @@ describe('Images tab', () => {
     });
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^Open img-/ })).toHaveLength(1));
   });
+
+  it('an empty gallery offers a Generate image CTA that opens the create panel', async () => {
+    useUiStore.setState({ mediaPaneCollapsed: { image: { detail: true } } });
+    open(fixtures);
+    expect(await screen.findByText('No images yet')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    });
+    expect(useUiStore.getState().mediaPaneCollapsed.image?.detail).toBe(false);
+  });
 });

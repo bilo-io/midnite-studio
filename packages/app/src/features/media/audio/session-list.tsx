@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { LuAudioLines, LuChevronDown, LuPause, LuPlay } from 'react-icons/lu';
+import { LuAudioLines, LuChevronDown, LuPencilLine, LuPause, LuPlay } from 'react-icons/lu';
 
-import { EmptyState } from '../../../components/empty-state';
+import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { currentTrack, usePlayer, type PlayerTrack } from './player-store';
 import { useWaveform, type AudioSessionView, type AudioVariant } from './use-audio';
 import { formatDuration, playedBarCount } from './waveform';
@@ -26,12 +26,15 @@ export function SessionList({
   loading,
   selectedKey,
   onSelect,
+  onCompose,
 }: {
   repoId: string;
   sessions: readonly AudioSessionView[];
   loading: boolean;
   selectedKey: string | null;
   onSelect: (variant: AudioVariant) => void;
+  /** The empty state's CTA — reopen the prompt panel and focus it. */
+  onCompose?: () => void;
 }) {
   if (sessions.length === 0) {
     return (
@@ -39,6 +42,9 @@ export function SessionList({
         icon={LuAudioLines}
         title={loading ? 'Loading…' : 'No audio yet'}
         body={loading ? '' : 'Fill in the prompt on the right, then Import audio… to attach files as variants.'}
+        action={
+          !loading && onCompose ? <EmptyStateButton icon={LuPencilLine} label="Write a prompt" onClick={onCompose} /> : undefined
+        }
       />
     );
   }

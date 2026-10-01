@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
+import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
 import { useUiStore } from '../../../store/ui-store';
 import { MediaView } from '../media-view';
@@ -86,5 +87,38 @@ describe('Docs tab', () => {
     await waitFor(() => expect(screen.getByTestId('doc-diff-card').getAttribute('data-status')).toBe('rejected'));
     expect(await read('intro.md')).toBe(DOC);
     expect(await read('intro.thread.json')).toContain('"status": "rejected"');
+  });
+
+  it('reopens the last edited doc on entry, falling back to the newest, then to none', async () => {
+    const two: MockFixtures = {
+      ...fixtures,
+      media: { files: { 'doc:handbook': { 'alpha.md': '# Alpha\n\nAAA.\n', 'beta.md': '# Beta\n\nBBB.\n' } } },
+    };
+    useUiStore.setState({ mediaLastDoc: { 'repo-1': { project: 'handbook', path: 'beta.md' } } });
+    renderView(<MediaView />, { fixtures: two, uiState: { selectedRepoId: 'repo-1' } });
+    expect((await screen.findByTestId('doc-editor', {}, { timeout: 5000 })).textContent).toContain('BBB.');
+    cleanup();
+
+    // The remembered doc is gone: the first doc (equal mtimes) opens instead.
+    useUiStore.setState({ mediaLastDoc: { 'repo-1': { project: 'handbook', path: 'gone.md' } } });
+    renderView(<MediaView />, { fixtures: two, uiState: { selectedRepoId: 'repo-1' } });
+    expect((await screen.findByTestId('doc-editor', {}, { timeout: 5000 })).textContent).toMatch(/AAA\.|BBB\./);
+  });
+
+  it('selecting a doc does not record it as last edited', async () => {
+    useUiStore.setState({ mediaLastDoc: {} });
+    open();
+    fireEvent.click(await screen.findByText('intro'));
+    await screen.findByTestId('doc-editor', {}, { timeout: 5000 });
+    expect(useUiStore.getState().mediaLastDoc).toEqual({});
+    useUiStore.getState().setMediaLastDoc('repo-1', { project: 'handbook', path: 'intro.md' });
+    expect(useUiStore.getState().mediaLastDoc['repo-1']).toEqual({ project: 'handbook', path: 'intro.md' });
+  });
+
+  it('with no docs, the empty state CTA starts a new project', async () => {
+    renderView(<MediaView />, { fixtures, uiState: { selectedRepoId: 'repo-1' } });
+    await screen.findByText('No projects yet');
+    fireEvent.click(screen.getByRole('button', { name: 'New doc' }));
+    expect(await screen.findByText('New docs project')).toBeTruthy();
   });
 });
