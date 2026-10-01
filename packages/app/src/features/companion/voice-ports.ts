@@ -96,6 +96,25 @@ let localModelState: 'idle' | 'downloading' | 'ready' | 'failed' | null = null;
  */
 let webSpeechSession: WebSpeechSession | null = null;
 
+/**
+ * A one-shot override for where the *next* transcript goes. The companion's own
+ * input bar claims the global `transcriptSink` port; any other composer (docs,
+ * media chats) sets this just before a press so its dictation lands in its own
+ * textarea instead. Cleared on delivery, on a voice error and on `stopAll`.
+ */
+let nextTranscriptSink: ((text: string) => void) | null = null;
+
+export function setNextTranscriptSink(sink: ((text: string) => void) | null): void {
+  nextTranscriptSink = sink;
+}
+
+function deliverTranscript(text: string): void {
+  const sink = nextTranscriptSink;
+  nextTranscriptSink = null;
+  if (sink) sink(text);
+  else companionPorts().transcriptSink(text);
+}
+
 function setMicStatus(next: MicAvailabilityStatus): void {
   if (next === micStatus) return;
   micStatus = next;
@@ -229,6 +248,7 @@ function interrupt(): void {
  * spoken sentence with no written copy is one a user cannot re-read.
  */
 function reportVoiceError(text: string): void {
+  nextTranscriptSink = null;
   useCompanionStore.getState().addTurn({ role: 'companion', text, spoken: true });
   void companionTtsSpeaker.speak(text);
 }
@@ -312,7 +332,7 @@ function startWebSpeech(): void {
       reportVoiceError('I did not catch that. Try again, a little closer to the microphone.');
       return;
     }
-    companionPorts().transcriptSink(result.text);
+    deliverTranscript(result.text);
   });
 
   if (!session) {
@@ -369,7 +389,7 @@ async function finishRecording(): Promise<void> {
     reportVoiceError('I did not catch that. Try again, a little closer to the microphone.');
     return;
   }
-  companionPorts().transcriptSink(result.value.text);
+  deliverTranscript(result.value.text);
 }
 
 /**
@@ -452,6 +472,7 @@ export function watchCompanionSilence(): () => void {
 }
 
 function stopAll(): void {
+  nextTranscriptSink = null;
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
   if (isRecording()) cancelRecording();

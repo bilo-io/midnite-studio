@@ -1,3 +1,4 @@
+import type { ThinkingStyle } from '../components/ai-thread/thinking-style';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -1936,6 +1937,9 @@ export type UiState = {
    */
   companionSttEngine: CompanionSttEngine;
   setCompanionSttEngine: (engine: CompanionSttEngine) => void;
+  /** Loading indicator in every AI thread (docs, companion, media). Settings ▸ Appearance. */
+  aiThinkingStyle: ThinkingStyle;
+  setAiThinkingStyle: (style: ThinkingStyle) => void;
   setCompanionMusicOffer: (offer: boolean) => void;
   /**
    * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
@@ -2237,6 +2241,7 @@ export type PersistedUi = Pick<
   | 'companionVolume'
   | 'companionMicMode'
   | 'companionSttEngine'
+  | 'aiThinkingStyle'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
@@ -2494,6 +2499,8 @@ export const useUiStore = create<UiState>()(
       companionMicMode: 'push',
       setCompanionMicMode: (companionMicMode) => set({ companionMicMode }),
       companionSttEngine: 'server',
+      aiThinkingStyle: 'spinner',
+      setAiThinkingStyle: (aiThinkingStyle) => set({ aiThinkingStyle }),
       setCompanionSttEngine: (companionSttEngine) => set({ companionSttEngine }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
@@ -3274,6 +3281,7 @@ export const useUiStore = create<UiState>()(
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
         companionSttEngine: state.companionSttEngine,
+        aiThinkingStyle: state.aiThinkingStyle,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
