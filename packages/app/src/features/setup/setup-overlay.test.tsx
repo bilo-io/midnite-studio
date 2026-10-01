@@ -486,3 +486,53 @@ describe('SetupOverlay — stepping aside for the terminal (Theme D)', () => {
     expect(stepOf()).toBe('git');
   });
 });
+
+describe('SetupOverlay — completion transition and finale (Theme J)', () => {
+  /** Reaches the last page with reduced motion's instant steps, then flips nothing: callers set motion first. */
+  function toLastPage() {
+    act(() => useSetupStore.getState().openSetup(SETUP_PAGES[SETUP_PAGES.length - 1]!.id));
+    renderOverlay();
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+  }
+
+  it('full motion: leaving the last page blooms and fades first, then the finale arrives', () => {
+    document.documentElement.dataset['motion'] = 'full';
+    vi.useFakeTimers();
+    toLastPage();
+    act(() => vi.advanceTimersByTime(5000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Still on the page while it dissolves; the bloom is out and Next is inert.
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+    expect(screen.getByTestId('setup-bloom')).toBeTruthy();
+    const dots = screen.getAllByRole('button').filter((b) => b.hasAttribute('data-dot'));
+    expect(new Set(dots.map((d) => d.getAttribute('data-dot')))).toEqual(new Set(['done']));
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+    act(() => vi.advanceTimersByTime(CHOREO.completeFadeMs));
+    expect(stepOf()).toBe('finale');
+    expect(screen.getByTestId('setup-finale-mark')).toBeTruthy();
+  });
+
+  it('full motion: Get started fades the overlay out, then records completion', () => {
+    document.documentElement.dataset['motion'] = 'full';
+    vi.useFakeTimers();
+    toLastPage();
+    act(() => vi.advanceTimersByTime(5000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    act(() => vi.advanceTimersByTime(CHOREO.completeFadeMs));
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    expect(overlay()?.style.opacity).toBe('0');
+    expect(useUiStore.getState().setupState.completedAt).toBeNull();
+    act(() => vi.advanceTimersByTime(CHOREO.dissolveMs));
+    expect(useUiStore.getState().setupState.completedAt).not.toBeNull();
+    expect(overlay()).toBeNull();
+  });
+
+  it('reduced motion: the finale is static, with no bloom, in the same render', () => {
+    toLastPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(stepOf()).toBe('finale');
+    expect(screen.queryByTestId('setup-bloom')).toBeNull();
+    expect(screen.getByRole('heading', { name: /Welcome to\s*Midnite\s*Studio/ })).toBeTruthy();
+  });
+});

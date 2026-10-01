@@ -124,7 +124,7 @@ gains a **Resume setup** leaf for that.
 
 **Theme I — Local models with Ollama.** ✅ The `ollama` page, last in `SETUP_PAGES` ([PR #631](https://github.com/bilo-io/midnite-studio/pull/631)). Education text, an Ollama row (new `ollama` catalogue cask) with Start Ollama, and a static curated catalogue (`shared/src/ollama-catalogue.ts`) badged fits / tight / too big against a new `systemMemory` channel (fits at or above `minRamGb`, tight down to 75%). Downloads use the existing `ollamaPull` and pull queue store; `useRefetchModelsOnPullDone` was lifted from `ModelsView` to `Shell`, so pulls keep reporting with the Models view unmounted.
 
-**Theme J — Completion transition and Welcome finale.** ◻ completion transition + "Welcome to [logo] Midnite Studio" finale
+**Theme J — Completion transition and Welcome finale.** ✅ Leaving the last page runs `completionTimeline` (`leaving` then `finale`, one frame under reduced motion): the page title, body and buttons dissolve, a one-shot `.setup-bloom` brand-gradient glow sweeps out from the anchor's centre, and every dot resolves to filled. The finale then plays the existing `playGlide` FLIP from the anchor's rect into its heading, `Welcome to [mark] Midnite Studio`; `Wordmark` gained a `gradient` prop so only "Midnite" wears the gradient. Get started fades the overlay with `dissolveTimeline`, then sets `completedAt` (the FAB's Resume leaf goes). The bloom is a one-shot keyframe guarded in both reduced-motion blocks with no allowlist entry. The Linux visual baseline is deferred to a docker regen; light, dark and reduced-motion shots are under `docs/screenshots/p98-j/`.
 
 ## Deliverables
 
@@ -277,17 +277,18 @@ A wizard page over Phase 96's Ollama pieces and Theme D's runner; the daemon pro
 - [x] **Background downloads**: ticked models go through the existing `ollamaPull`, queued into `useModelsPullQueueStore`. `useRefetchModelsOnPullDone` moved from `ModelsView` to `Shell`, so a pull survives leaving the wizard and the Models page shows it.
 - [x] Vitest: RAM thresholds, catalogue schema, the page, and progress reaching the store with the Models view unmounted.
 
-### J — Completion transition and Welcome finale (S/M)
+### J — Completion transition and Welcome finale (S/M) — ✅ DONE (2026-10-01)
 
-- [ ] **Leaving the last page** starts a completion transition. The page body dissolves, a brand-gradient
+- [x] **Leaving the last page** starts a completion transition. The page body dissolves, a brand-gradient
       bloom/ring sweeps outward from the anchor, and the dots resolve into one filled state.
-- [ ] **Finale.** The heading reads "Welcome to [mark] **Midnite** Studio". The mark leaves the title anchor and
+- [x] **Finale.** The heading reads "Welcome to [mark] **Midnite** Studio". The mark leaves the title anchor and
       **moves into the line** between "to" and the wordmark. Only "Midnite" wears `--font-brand` and the
       gradient, and "Studio" stays in the UI font, mirroring `Wordmark`.
-- [ ] **Get started** sets `completedAt` and fades the overlay out to the app, and the FAB's Resume leaf disappears.
-- [ ] Reduced motion swaps the transition for a static finale, with no bloom.
-- [ ] One Playwright visual baseline of the finale, which needs real fonts and gradient rendering, within the
-      `e2e-budget.mjs` caps.
+- [x] **Get started** sets `completedAt` and fades the overlay out to the app, and the FAB's Resume leaf disappears.
+- [x] Reduced motion swaps the transition for a static finale, with no bloom.
+- [ ] ◐ PARTIAL: one Playwright visual baseline of the finale, which needs real fonts and gradient rendering, within the
+      `e2e-budget.mjs` caps. Shots spec `e2e/p98-j-shots.spec.ts` landed; the `-linux.png` baseline needs
+      `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` (docker).
 
 ---
 
