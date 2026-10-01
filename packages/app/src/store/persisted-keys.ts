@@ -172,6 +172,7 @@ export const SESSION_STATE_KEYS = [
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
   'mediaPaneCollapsed', // side panel open state — disclosure state
   'mediaTab', // current selection — which Media tab is showing
+  'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'projectViewByProject', // last-viewed view per project

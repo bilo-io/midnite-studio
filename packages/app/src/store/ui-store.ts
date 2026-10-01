@@ -1054,6 +1054,9 @@ export type UiState = {
   collapsedNavSections: string[];
   /** Media page (Phase 99 Theme A) — the active tab, persisted. */
   mediaTab: MediaTab;
+  /** Media ▸ Video's right-hand panel tab. */
+  mediaVideoPanelTab: VideoPanelTab;
+  setMediaVideoPanelTab: (tab: VideoPanelTab) => void;
   setMediaTab: (tab: MediaTab) => void;
   /** Navigate to Media, optionally switching tab — what `view.video`/`media.tab.*` call. */
   openMedia: (tab?: MediaTab) => void;
@@ -2120,10 +2123,15 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
  * `keyof PersistedUi` exactly — a key added here and to neither list is then a
  * typecheck failure at the point of adding it, not a silently orphaned one.
  */
+/** Media ▸ Video's right-hand panel tabs. */
+export const VIDEO_PANEL_TABS = ['edit', 'brief', 'versions'] as const;
+export type VideoPanelTab = (typeof VIDEO_PANEL_TABS)[number];
+
 export type PersistedUi = Pick<
   UiState,
   | 'layout'
   | 'mediaTab'
+  | 'mediaVideoPanelTab'
   | 'mediaPaneCollapsed'
   | 'mediaExportDir'
   | 'mediaSpeechOn'
@@ -2692,6 +2700,8 @@ export const useUiStore = create<UiState>()(
       navMode: 'auto',
       collapsedNavSections: [],
       mediaTab: 'doc',
+      mediaVideoPanelTab: 'brief',
+      setMediaVideoPanelTab: (mediaVideoPanelTab) => set({ mediaVideoPanelTab }),
       setMediaTab: (mediaTab) => set({ mediaTab }),
       openMedia: (tab) => {
         if (tab) set({ mediaTab: tab });
@@ -3164,6 +3174,7 @@ export const useUiStore = create<UiState>()(
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
+        mediaVideoPanelTab: state.mediaVideoPanelTab,
         mediaPaneCollapsed: state.mediaPaneCollapsed,
         mediaExportDir: state.mediaExportDir,
         mediaSpeechOn: state.mediaSpeechOn,
@@ -3582,6 +3593,9 @@ export const useUiStore = create<UiState>()(
           mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
             ? (saved.mediaTab as MediaTab)
             : current.mediaTab,
+          mediaVideoPanelTab: (VIDEO_PANEL_TABS as readonly string[]).includes(saved.mediaVideoPanelTab ?? '')
+            ? (saved.mediaVideoPanelTab as VideoPanelTab)
+            : current.mediaVideoPanelTab,
           mediaPaneCollapsed: { ...current.mediaPaneCollapsed, ...saved.mediaPaneCollapsed },
           setupState: { ...current.setupState, ...saved.setupState },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },

@@ -70,6 +70,8 @@ describe('Audio tab', () => {
     open();
     const session = await screen.findByRole('region', { name: 'Night drive' });
     expect(within(session).getByText('Take A')).toBeTruthy();
+    expect(within(session).queryByText('synthwave')).toBeNull();
+    fireEvent.click(within(session).getAllByRole('button', { name: /Show details for/ })[0]!);
     expect(within(session).getByText('synthwave')).toBeTruthy();
     expect(within(session).getAllByTestId('waveform')).toHaveLength(2);
     expect(within(session).getAllByText('1:05')).toHaveLength(2);
