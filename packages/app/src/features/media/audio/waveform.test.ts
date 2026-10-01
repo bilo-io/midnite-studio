@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDuration, reducePeaks } from './waveform';
+import { formatDuration, playedBarCount, reducePeaks } from './waveform';
 
 describe('reducePeaks', () => {
   it('takes the loudest absolute sample per bucket and normalises to the loudest', () => {
@@ -32,5 +32,15 @@ describe('formatDuration', () => {
     expect(formatDuration(125.4)).toBe('2:05');
     expect(formatDuration(0)).toBe('0:00');
     expect(formatDuration(undefined)).toBe('–:––');
+  });
+});
+
+describe('playedBarCount', () => {
+  it('splits bars at the playhead and clamps', () => {
+    expect(playedBarCount(0.5, 96)).toBe(48);
+    expect(playedBarCount(0.999, 10)).toBe(9);
+    expect(playedBarCount(-1, 10)).toBe(0);
+    expect(playedBarCount(2, 10)).toBe(10);
+    expect(playedBarCount(Number.NaN, 10)).toBe(0);
   });
 });
