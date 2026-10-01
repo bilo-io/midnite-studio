@@ -9,7 +9,7 @@ Reuses Theme B/C choreography (`playTimeline`, `playGlide`, `dissolveTimeline`, 
 - [x] Finale "Welcome to [mark] Midnite Studio": mark glides from the anchor into the heading; only "Midnite" wears the brand face and gradient (`Wordmark gradient`).
 - [x] Get started fades the overlay out, then sets `completedAt` (Resume leaf disappears).
 - [x] Reduced motion: static finale, no bloom, no fades.
-- [ ] Linux visual baseline: deferred to docker regen (shots spec landed).
+- [x] Linux visual baseline: `e2e/visual/setup-finale.spec.ts` + `setup-finale-{light,dark}-linux.png`, in a follow-up PR.
 
 ## 2026-09-30 — Phase 98 Themes E + H — Git, forge and toolchain wizard pages
 
