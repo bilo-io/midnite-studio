@@ -462,8 +462,10 @@ describe('loopModelArgs', () => {
       'default',
       'haiku-4-5',
       'sonnet-5',
+      'sonnet-5-5',
       'opus-4-8',
       'opus-5',
+      'opus-5-5',
       'fable-5',
       'fable-5-1',
     ]);
@@ -479,6 +481,8 @@ describe('loopModelArgs', () => {
 
   it('names the previous generations too — a long unattended run may want a known-good one', () => {
     expect(loopModelArgs('claude', 'opus-4-8')).toEqual(['--model', 'claude-opus-4-8']);
+    expect(loopModelArgs('claude', 'opus-5-5')).toEqual(['--model', 'claude-opus-5-5']);
+    expect(loopModelArgs('claude', 'sonnet-5-5')).toEqual(['--model', 'claude-sonnet-5-5']);
     expect(loopModelArgs('claude', 'fable-5-1')).toEqual(['--model', 'claude-fable-5-1']);
   });
 });
