@@ -20,8 +20,9 @@ describe('image provider catalogue (Phase 99 Theme C)', () => {
     expect(imageProviderInfo('gemini').disabledReason).toBeUndefined();
   });
 
-  it('keeps agy listed but disabled with a reason', () => {
-    expect(imageProviderInfo('agy').disabledReason).toMatch(/headless/);
+  it('lists agy as a key-free provider that is never statically disabled', () => {
+    expect(imageProviderInfo('agy').disabledReason).toBeUndefined();
+    expect(imageProviderInfo('agy').secretKey).toBeNull();
   });
 
   it('names only vault keys that exist', () => {
