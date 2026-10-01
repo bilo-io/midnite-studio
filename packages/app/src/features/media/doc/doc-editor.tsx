@@ -87,7 +87,7 @@ export default function DocEditor({ markdown, onChange, onReady, onAskAi }: DocE
 
   return (
     <div ref={setScroller} className="relative h-full min-h-0 overflow-auto" data-selectable>
-      <BlockDragHandle editor={editor} container={scroller} />
+      <BlockDragHandle editor={editor} container={scroller} ctx={{ onAskAi: () => askRef.current(undefined) }} />
       <EditorContent editor={editor} className="h-full" />
       <SelectionBubble editor={editor} onAskAi={(sel) => askRef.current(sel)} />
       <SlashMenu store={store} />

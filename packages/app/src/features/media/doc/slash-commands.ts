@@ -1,6 +1,24 @@
 import { Extension, type Editor, type Range } from '@tiptap/core';
 import { PluginKey } from '@tiptap/pm/state';
-import Suggestion, { exitSuggestion, type SuggestionKeyDownProps, type SuggestionProps } from '@tiptap/suggestion';
+import Suggestion, {
+  exitSuggestion,
+  type SuggestionKeyDownProps,
+  type SuggestionProps,
+} from '@tiptap/suggestion';
+import type { IconType } from 'react-icons';
+import {
+  LuCode,
+  LuHeading1,
+  LuHeading2,
+  LuHeading3,
+  LuList,
+  LuListChecks,
+  LuListOrdered,
+  LuMinus,
+  LuQuote,
+  LuSparkles,
+  LuTable,
+} from 'react-icons/lu';
 
 /**
  * The Docs `/` menu (Phase 99 Theme B). The suggestion plugin finds the
@@ -12,6 +30,8 @@ export type SlashItem = {
   id: string;
   label: string;
   keywords: string;
+  /** Glyph shown by the per-block "+" inserter menu. */
+  icon: IconType;
   run: (editor: Editor, range: Range, ctx: SlashContext) => void;
 };
 
@@ -20,25 +40,81 @@ export type SlashContext = { onAskAi: () => void };
 const chain = (editor: Editor, range: Range) => editor.chain().focus().deleteRange(range);
 
 export const SLASH_ITEMS: readonly SlashItem[] = [
-  { id: 'h1', label: 'Heading 1', keywords: 'title h1', run: (e, r) => chain(e, r).setNode('heading', { level: 1 }).run() },
-  { id: 'h2', label: 'Heading 2', keywords: 'subtitle h2', run: (e, r) => chain(e, r).setNode('heading', { level: 2 }).run() },
-  { id: 'h3', label: 'Heading 3', keywords: 'h3', run: (e, r) => chain(e, r).setNode('heading', { level: 3 }).run() },
-  { id: 'bullet', label: 'Bulleted list', keywords: 'ul unordered', run: (e, r) => chain(e, r).toggleBulletList().run() },
-  { id: 'ordered', label: 'Numbered list', keywords: 'ol ordered', run: (e, r) => chain(e, r).toggleOrderedList().run() },
-  { id: 'todo', label: 'To-do list', keywords: 'task checkbox', run: (e, r) => chain(e, r).toggleTaskList().run() },
-  { id: 'quote', label: 'Quote', keywords: 'blockquote', run: (e, r) => chain(e, r).toggleBlockquote().run() },
-  { id: 'code', label: 'Code block', keywords: 'pre fence', run: (e, r) => chain(e, r).toggleCodeBlock().run() },
+  {
+    id: 'h1',
+    label: 'Heading 1',
+    keywords: 'title h1',
+    icon: LuHeading1,
+    run: (e, r) => chain(e, r).setNode('heading', { level: 1 }).run(),
+  },
+  {
+    id: 'h2',
+    label: 'Heading 2',
+    keywords: 'subtitle h2',
+    icon: LuHeading2,
+    run: (e, r) => chain(e, r).setNode('heading', { level: 2 }).run(),
+  },
+  {
+    id: 'h3',
+    label: 'Heading 3',
+    keywords: 'h3',
+    icon: LuHeading3,
+    run: (e, r) => chain(e, r).setNode('heading', { level: 3 }).run(),
+  },
+  {
+    id: 'bullet',
+    label: 'Bulleted list',
+    keywords: 'ul unordered',
+    icon: LuList,
+    run: (e, r) => chain(e, r).toggleBulletList().run(),
+  },
+  {
+    id: 'ordered',
+    label: 'Numbered list',
+    keywords: 'ol ordered',
+    icon: LuListOrdered,
+    run: (e, r) => chain(e, r).toggleOrderedList().run(),
+  },
+  {
+    id: 'todo',
+    label: 'To-do list',
+    keywords: 'task checkbox',
+    icon: LuListChecks,
+    run: (e, r) => chain(e, r).toggleTaskList().run(),
+  },
+  {
+    id: 'quote',
+    label: 'Quote',
+    keywords: 'blockquote',
+    icon: LuQuote,
+    run: (e, r) => chain(e, r).toggleBlockquote().run(),
+  },
+  {
+    id: 'code',
+    label: 'Code block',
+    keywords: 'pre fence',
+    icon: LuCode,
+    run: (e, r) => chain(e, r).toggleCodeBlock().run(),
+  },
   {
     id: 'table',
     label: 'Table',
     keywords: 'grid',
+    icon: LuTable,
     run: (e, r) => chain(e, r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
   },
-  { id: 'divider', label: 'Divider', keywords: 'hr rule', run: (e, r) => chain(e, r).setHorizontalRule().run() },
+  {
+    id: 'divider',
+    label: 'Divider',
+    keywords: 'hr rule',
+    icon: LuMinus,
+    run: (e, r) => chain(e, r).setHorizontalRule().run(),
+  },
   {
     id: 'ai',
     label: 'Ask AI',
     keywords: 'assistant edit rewrite',
+    icon: LuSparkles,
     run: (e, r, ctx) => {
       chain(e, r).run();
       ctx.onAskAi();
