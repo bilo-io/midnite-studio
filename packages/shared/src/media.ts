@@ -151,9 +151,9 @@ export type MediaChangedEvent = z.infer<typeof MediaChangedEventSchema>;
  * Image-generation providers, in picker order. Generation runs in main
  * (`main/media/image/`); the renderer only ever names a provider and model.
  *
- * `agy` is listed but disabled: this phase's headless spike could not show
- * Antigravity CLI writing an image non-interactively (see the phase doc's
- * Headlines), so Gemini is the default and agy carries the reason.
+ * `agy` (Antigravity CLI) needs no API key: it is a provider in its own right
+ * and also the fallback main routes Gemini/OpenAI requests through when no key
+ * is set (API keys are optional).
  */
 export const IMAGE_PROVIDER_IDS = ['gemini', 'openai', 'agy', 'ollama'] as const;
 export const ImageProviderIdSchema = z.enum(IMAGE_PROVIDER_IDS);
@@ -182,9 +182,6 @@ export type ImageProviderInfo = {
   disabledReason?: string;
 };
 
-export const AGY_IMAGE_DISABLED_REASON =
-  'Antigravity CLI has no headless image output yet — its print mode returns text only. Use Gemini, which is the same model family.';
-
 export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
   {
     id: 'gemini',
@@ -210,7 +207,6 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
     label: 'Antigravity CLI',
     secretKey: null,
     models: [{ id: 'agy-default', label: 'Default' }],
-    disabledReason: AGY_IMAGE_DISABLED_REASON,
   },
   { id: 'ollama', label: 'Ollama', secretKey: null, models: [] },
 ];

@@ -928,6 +928,54 @@ html[data-motion='reduced'] .gradient-border--glow {
   transition: none;
 }
 
+/*
+ * `.media-prompt` — every AI prompt box in Media (image prompt, audio style and
+ * lyrics) wears `.gradient-border`. At rest that is upstream's dim rainbow ring;
+ * on `:focus-within` upstream already brightens it and spins `--gradient-angle`
+ * (registered by @bilo-io/ui's tokens.css via @property), and this adds the
+ * pulse: a box-shadow bloom that breathes while the box has focus. The pulse is
+ * keyed to `:focus-within` only, so nothing animates at rest (idle-CPU).
+ */
+@keyframes media-prompt-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.25),
+      0 0 8px -2px rgba(59, 130, 246, 0.3),
+      0 0 14px -6px rgba(236, 72, 153, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.45),
+      0 0 16px -1px rgba(59, 130, 246, 0.55),
+      0 0 26px -4px rgba(236, 72, 153, 0.45);
+  }
+}
+
+.media-prompt {
+  /* Declared paused at rest and flipped to running on focus, the same
+   * play-state gate the other infinite loops use. */
+  animation:
+    gradient-border-spin 4s linear infinite paused,
+    media-prompt-pulse 2s ease-in-out infinite paused;
+}
+
+.media-prompt:focus-within {
+  animation-play-state: running, running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .media-prompt,
+  html:not([data-motion='full']) .media-prompt:focus-within {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .media-prompt,
+html[data-motion='reduced'] .media-prompt:focus-within {
+  animation: none;
+}
+
 /* ---------------------------------------------------------------------------
  * Browser search bar rotation synchronization.
  *

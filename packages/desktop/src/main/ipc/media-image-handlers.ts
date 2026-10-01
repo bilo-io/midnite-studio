@@ -1,6 +1,6 @@
 import { CHANNELS, EVENT_CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
-import { agyImageProvider } from '../media/image/agy';
+import { agyImageProvider, isAgyInstalled } from '../media/image/agy';
 import { geminiImageProvider } from '../media/image/gemini';
 import { createImageService } from '../media/image/image-service';
 import { createOllamaImageProvider, imageCapableModels } from '../media/image/ollama';
@@ -47,6 +47,7 @@ const service = createImageService({
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaImageProgress, event),
   fetch: (input, init) => fetch(input, init),
   discoverOllamaModels: discoverOllamaImageModels,
+  agyAvailable: isAgyInstalled,
 });
 
 export function registerMediaImageHandlers(): void {

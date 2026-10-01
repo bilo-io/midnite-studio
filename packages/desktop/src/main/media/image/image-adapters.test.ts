@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { agyImageProvider } from './agy';
+import { agyArgs, agyImagePrompt, createAgyImageProvider } from './agy';
 import {
   GEMINI_API_BASE,
   geminiGenerateContentBody,
@@ -153,9 +153,27 @@ describe('ollama adapter', () => {
 });
 
 describe('agy adapter', () => {
-  it('is disabled and says why', async () => {
+  it('builds a print-mode invocation asking for a file in the cwd', () => {
+    expect(agyArgs('x')).toEqual(['-p', 'x', '--mode', 'accept-edits']);
+    expect(agyImagePrompt('a fox', '16:9', 'image.png')).toMatch(/a fox[\s\S]*16:9[\s\S]*image\.png/);
+  });
+
+  it('reads back the image the CLI wrote into its working directory', async () => {
+    const run = vi.fn(async (_args: string[], { cwd }: { cwd: string }) => {
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile(`${cwd}/image.png`, 'bytes');
+    });
+    const d = deps(vi.fn(), null);
+    const images = await createAgyImageProvider(run).generate({ prompt: 'p', model: 'agy-default', aspect: '1:1', count: 2 }, d);
+    expect(images).toHaveLength(2);
+    expect(images[0]).toMatchObject({ mime: 'image/png' });
+    expect(images[0]!.bytes.toString()).toBe('bytes');
+    expect(d.onImage).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a clear error when the CLI produced no image', async () => {
     await expect(
-      agyImageProvider.generate({ prompt: 'p', model: 'agy-default', aspect: '1:1', count: 1 }, deps(vi.fn())),
-    ).rejects.toThrow(/no headless image output/);
+      createAgyImageProvider(async () => undefined).generate({ prompt: 'p', model: 'm', aspect: '1:1', count: 1 }, deps(vi.fn(), null)),
+    ).rejects.toThrow(/without producing an image/);
   });
 });

@@ -37,6 +37,8 @@ export type ImageServiceDeps = {
   fetch: typeof fetch;
   /** Ollama's image-output models; `[]` when the daemon is down or has none. */
   discoverOllamaModels: () => Promise<ImageModelInfo[]>;
+  /** Whether the Antigravity CLI can be launched — the key-free path every keyed provider falls back to. */
+  agyAvailable: () => Promise<boolean>;
   now?: () => Date;
 };
 
@@ -65,6 +67,8 @@ export function imageFileName(base: string, index: number, total: number, mime: 
   return `${base}${total > 1 ? `-${index + 1}` : ''}.${ext}`;
 }
 
+const NO_KEY_NO_AGY = 'Add an API key in Settings ▸ Media, or install the Antigravity CLI (agy).';
+
 export function createImageService(deps: ImageServiceDeps) {
   const running = new Map<string, AbortController>();
   const now = deps.now ?? (() => new Date());
@@ -76,6 +80,11 @@ export function createImageService(deps: ImageServiceDeps) {
         if (info.disabledReason) {
           return { id, available: false, reason: info.disabledReason, missingKey: false, models: [] };
         }
+        if (id === 'agy') {
+          return (await deps.agyAvailable().catch(() => false))
+            ? { id, available: true, missingKey: false, models: [] }
+            : { id, available: false, reason: NO_KEY_NO_AGY, missingKey: false, models: [] };
+        }
         if (id === 'ollama') {
           const models = await deps.discoverOllamaModels().catch(() => []);
           return models.length > 0
@@ -83,13 +92,10 @@ export function createImageService(deps: ImageServiceDeps) {
             : { id, available: false, reason: 'No Ollama models with image output are installed.', missingKey: false, models: [] };
         }
         if (info.secretKey && !(await deps.readKey(info.secretKey))) {
-          return {
-            id,
-            available: false,
-            reason: `Add a ${info.label} API key in Settings ▸ Media.`,
-            missingKey: true,
-            models: [],
-          };
+          // API keys are optional: with no key, generation routes through the agy CLI.
+          return (await deps.agyAvailable().catch(() => false))
+            ? { id, available: true, reason: `No ${info.label} API key — will generate through the Antigravity CLI.`, missingKey: true, models: [] }
+            : { id, available: false, reason: `Add a ${info.label} API key in Settings ▸ Media, or install the Antigravity CLI (agy).`, missingKey: true, models: [] };
         }
         return { id, available: true, missingKey: false, models: [] };
       }),
@@ -100,8 +106,20 @@ export function createImageService(deps: ImageServiceDeps) {
     const info = imageProviderInfo(req.provider);
     if (info.disabledReason) return failure(info.disabledReason);
     if (running.has(req.generationId)) return failure('This generation is already running.');
-    const apiKey = info.secretKey ? await deps.readKey(info.secretKey) : null;
-    if (info.secretKey && !apiKey) return failure(`Add a ${info.label} API key in Settings ▸ Media.`);
+    let apiKey = info.secretKey ? await deps.readKey(info.secretKey) : null;
+    let provider = req.provider;
+    let model = req.model;
+    if (info.secretKey && !apiKey) {
+      // No key: route through the agy CLI, or say plainly that neither exists.
+      if (!(await deps.agyAvailable().catch(() => false))) {
+        return failure(`No ${info.label} API key and the Antigravity CLI (agy) was not found. ${NO_KEY_NO_AGY}`);
+      }
+      provider = 'agy';
+      model = 'agy-default';
+      apiKey = null;
+    } else if (req.provider === 'agy' && !(await deps.agyAvailable().catch(() => false))) {
+      return failure(NO_KEY_NO_AGY);
+    }
 
     const controller = new AbortController();
     running.set(req.generationId, controller);
@@ -129,8 +147,8 @@ export function createImageService(deps: ImageServiceDeps) {
         version: 1,
         file,
         prompt: req.prompt,
-        provider: req.provider,
-        model: req.model,
+        provider,
+        model,
         aspect: req.aspect,
         ...(req.seed !== undefined ? { seed: req.seed + index } : {}),
         createdAt: createdAt.toISOString(),
@@ -145,8 +163,8 @@ export function createImageService(deps: ImageServiceDeps) {
     let chain = Promise.resolve();
     let landed = 0;
     try {
-      await deps.providers[req.provider].generate(
-        { prompt: req.prompt, model: req.model, aspect: req.aspect, count: req.count, seed: req.seed },
+      await deps.providers[provider].generate(
+        { prompt: req.prompt, model, aspect: req.aspect, count: req.count, seed: req.seed },
         {
           fetch: deps.fetch,
           apiKey,
