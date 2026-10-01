@@ -12,6 +12,8 @@ import { useAgents } from '../../terminal/use-agents';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { applyProposal } from './doc-thread';
 import { lineDiff } from './line-diff';
+import { useVoiceThread } from '../voice/use-voice-thread';
+import { SpeechToggle } from '../voice/voice-controls';
 import type { DocSession } from './use-doc-session';
 import { useDocThread } from './use-doc-thread';
 import type { DocRef } from './use-doc-session';
@@ -48,6 +50,7 @@ export function DocThreadPanel({
   const [agentId, setAgentId] = useState(primaryAgent);
   const [model, setModel] = useState<LoopModel>('default');
   const [prompt, setPrompt] = useState('');
+  const voice = useVoiceThread();
   const input = useRef<HTMLTextAreaElement>(null);
   const mic = useComposerMic({
     onTranscript: (text) => {
@@ -63,6 +66,26 @@ export function DocThreadPanel({
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
   }, [thread.messages.length]);
+
+  // Speak each new assistant reply (simplified) — never the replies already there on load.
+  const spokenUpTo = useRef<{ key: string; count: number } | null>(null);
+  const docKey = doc ? `${doc.repoId}:${doc.project}:${doc.path}` : '';
+  useEffect(() => {
+    const count = thread.messages.length;
+    if (spokenUpTo.current === null || spokenUpTo.current.key !== docKey) {
+      spokenUpTo.current = { key: docKey, count };
+      return;
+    }
+    for (const m of thread.messages.slice(spokenUpTo.current.count)) {
+      if (m.role === 'assistant') {
+        voice.speakReply(
+          m.error ?? m.text ?? (m.proposal ? `I have proposed an edit to the ${m.proposal.scope === 'selection' ? 'selection' : 'document'}.` : ''),
+        );
+      }
+    }
+    spokenUpTo.current = { key: docKey, count };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread.messages]);
 
   const headless = useMemo(() => agents.filter((a) => agentHeadlessArgs(a.id) !== null), [agents]);
   const models = loopModelsFor(agentId);
@@ -166,6 +189,7 @@ export function DocThreadPanel({
           onSend={send}
           mic={mic}
           boxClassName={MEDIA_PROMPT_BOX}
+          trailing={<SpeechToggle voice={voice} />}
           testIdPrefix="doc-ask"
         />
         {session.dirty ? <p className="mt-1 text-[10px] text-muted-foreground">Saving…</p> : null}

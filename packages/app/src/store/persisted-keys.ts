@@ -155,6 +155,7 @@ export const SESSION_STATE_KEYS = [
   'activityTimelineOpen', // whether a panel is currently showing
   'browserDetached', // runtime popout state, corrected from main's window registry
   'browserOpen', // whether a panel is currently showing
+  'mediaSpeechOn', // toggled from the Media thread's own composer row, not a settings form
   'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
   'collapsedAccordionSections', // folded Accordion section ids — disclosure state
   'collapsedNavSections', // folded-section ids — disclosure state

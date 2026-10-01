@@ -1062,6 +1062,9 @@ export type UiState = {
   setMediaPaneCollapsed: (tab: MediaTab, pane: MediaPane, collapsed: boolean) => void;
   /** Settings ▸ Media ▸ General — the save dialog's starting folder; `null` = OS default. */
   mediaExportDir: string | null;
+  /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
+  mediaSpeechOn: boolean;
+  setMediaSpeechOn: (on: boolean) => void;
   setMediaExportDir: (dir: string | null) => void;
   /**
    * `Accordion` sections folded shut, by `<accordionId>:<sectionId>` — the
@@ -2123,6 +2126,7 @@ export type PersistedUi = Pick<
   | 'mediaTab'
   | 'mediaPaneCollapsed'
   | 'mediaExportDir'
+  | 'mediaSpeechOn'
   | 'collapsedAccordionSections'
   | 'graphColumns'
   | 'navMode'
@@ -2702,6 +2706,8 @@ export const useUiStore = create<UiState>()(
           },
         })),
       mediaExportDir: null,
+      mediaSpeechOn: false,
+      setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
       setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
       collapsedAccordionSections: [],
       toggleAccordionSection: (key) =>
@@ -3160,6 +3166,7 @@ export const useUiStore = create<UiState>()(
         mediaTab: state.mediaTab,
         mediaPaneCollapsed: state.mediaPaneCollapsed,
         mediaExportDir: state.mediaExportDir,
+        mediaSpeechOn: state.mediaSpeechOn,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
         navMode: state.navMode,

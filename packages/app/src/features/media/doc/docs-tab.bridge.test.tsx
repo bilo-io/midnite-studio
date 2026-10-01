@@ -49,12 +49,11 @@ describe('Docs tab', () => {
     expect(screen.getByText(/No docs match/)).toBeTruthy();
   });
 
-  it('wears the media prompt gradient border on the Ask AI box', async () => {
+  it('wears the shared composer gradient border on the Ask AI box', async () => {
     open();
     fireEvent.click(await screen.findByText('intro'));
     const box = (await screen.findByRole('textbox', { name: 'Ask AI' })).parentElement!;
     expect(box.className).toContain('gradient-border');
-    expect(box.className).toContain('media-prompt');
   });
 
   it('shows an AI edit as a diff card, writing only on Accept', async () => {

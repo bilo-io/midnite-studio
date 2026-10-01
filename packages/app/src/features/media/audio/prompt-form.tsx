@@ -16,6 +16,9 @@ import type { IconComponent } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
 import { MEDIA_PROMPT_BOX, PromptTextarea } from '../prompt-input';
+import { useComposerMic } from '../../../components/ai-thread';
+import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
+import { VoiceControls } from '../voice/voice-controls';
 import { formatDuration } from './waveform';
 
 export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { import: LuImport };
@@ -60,10 +63,14 @@ export function PromptForm({
   onImport: () => void;
 }) {
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
+  const voice = useVoiceThread();
+  const mic = useComposerMic({ onTranscript: (text) => dispatch({ type: 'lyrics', value: appendDictation(state.lyrics, text) }) });
   const [notice, setNotice] = useState<string | null>(null);
   const checked = toPrompt(state);
   const invalid = 'error' in checked ? checked.error : undefined;
   const generates = audioProviderInfo(state.provider).generates;
+
+  useSpeakOutcome(voice, importing, error, 'Your audio is ready.');
 
   const addSection = (section: string) => {
     const el = lyricsRef.current;
@@ -219,6 +226,7 @@ export function PromptForm({
       ) : null}
 
       <div className="mt-auto flex items-center gap-2">
+        <VoiceControls voice={voice} mic={mic} />
         <button
           type="button"
           onClick={onImport}
