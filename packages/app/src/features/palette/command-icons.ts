@@ -2,7 +2,7 @@ import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
 import { GoIssueOpened } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
-import { SiOllama } from 'react-icons/si';
+import { SiMagic, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuArrowRightLeft,
@@ -13,7 +13,6 @@ import {
   LuClapperboard,
   LuFileText,
   LuImage,
-  LuLibrary,
   LuClock,
   LuCommand,
   LuCode,
@@ -128,7 +127,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'palette.files': LuFile,
   'file.save': LuFile,
   'workflow.run': LuPlay,
-  'view.media': LuLibrary,
+  'view.media': SiMagic,
   'view.video': LuClapperboard,
   'media.tab.doc': LuFileText,
   'media.tab.image': LuImage,

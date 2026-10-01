@@ -98,6 +98,7 @@ import { useKnowledgeGraphExists } from './features/knowledge/use-knowledge-grap
 import { SyncActions } from './features/status/sync-actions';
 import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
+import { fabPlacementFor } from './features/status-bar/fab-placement';
 import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
@@ -702,8 +703,13 @@ function Shell() {
     // raced that effect and could leave `--nav-offset` unset (not merely
     // wrong) whenever this one ran last, which is what broke `--nav-offset`
     // for every non-expanded state, hover-expanded included.
-    if (navMode !== 'expanded') return;
-    document.documentElement.style.setProperty('--nav-offset', '13rem');
+    // Collapsed strip is 4rem (shell's 3.5rem + 8px; see the `.w-14` rule in
+    // styles.css). Our effect runs after AppFrame's (child effects first), so
+    // this wins for 'auto'/'collapsed' too.
+    document.documentElement.style.setProperty(
+      '--nav-offset',
+      navMode === 'expanded' ? '13rem' : '4rem',
+    );
   }, [navMode]);
 
   useDefaultSelection();
@@ -1472,6 +1478,57 @@ function Shell() {
    */
   const framed = !windowChrome?.frameless;
 
+  const fabInStatusBar = fabPlacementFor(activeView) === 'statusbar';
+  const fabNode = (
+    <>
+      <FabLoopHalo tab={activeFabTab} />
+      <button
+        ref={fabMorphRef}
+        type="button"
+        onClick={() => {
+          // Detached (Phase 55): the panel already lives in its own
+          // window, so this focuses it rather than opening a second
+          // copy docked here.
+          if (fabDetached) {
+            bridge()?.window.focusRole({ role: 'fab' });
+            return;
+          }
+          captureFabMorphOrigin(fabButtonRef.current);
+          useUiStore.getState().toggleQuickAccess();
+        }}
+        aria-label={
+          fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
+        }
+        title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
+        data-testid="fab-button"
+        data-loops-running={loopsRunning.running ? 'true' : undefined}
+        data-fab-tab={activeFabTab}
+        /*
+          Theme H. A sibling attribute to `data-loop-state`, not a
+          second animation system — the rules live beside that block in
+          `styles.css` and win over it when both are set, because the
+          companion is the thing you are talking to. `undefined` for
+          `off`/`idle` (see `fabCompanionState`) leaves today's look
+          completely untouched, which is the only honest way to say
+          "no rule".
+        */
+        data-companion-state={fabCompanionState(companionState)}
+        /*
+          `relative` is load-bearing: the halo sits at `-z-10` behind this
+          button, and a static box would paint UNDER a negative-z
+          positioned sibling rather than over it — the halo's opaque disc
+          would swallow the brand mark. `.loop-run-glow` happens to set
+          `position: relative` too, but only while a loop runs, which is
+          too load-bearing a coincidence to lean on.
+        */
+        className={`companion-face companion-face--primary relative flex ${fabInStatusBar ? 'h-5 w-5' : 'h-10 w-10'} items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
+      >
+        <BrandMark className="h-full w-full" />
+      </button>
+    </>
+  );
+  const fabHidden = fabPanelDocked || companionDocked;
+
   return (
     <AppFrame
       nav={nav}
@@ -1854,7 +1911,7 @@ function Shell() {
                       goes false (closing or detaching) while this frame's
                       own exit tween is still playing.
                     */
-                    reserveFabSpace={!fabPanelDocked && !companionDocked}
+                    reserveFabSpace={!fabPanelDocked && !companionDocked && !fabInStatusBar}
                   />
                 )}
               </div>
@@ -1901,52 +1958,9 @@ function Shell() {
             `companionEnabled` (above), so a disabled companion never
             suppresses this button.
           */}
-          {!fabPanelDocked && !companionDocked ? (
+          {!fabPanelDocked && !companionDocked && !fabInStatusBar ? (
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
-              <FabLoopHalo tab={activeFabTab} />
-              <button
-                ref={fabMorphRef}
-                type="button"
-                onClick={() => {
-                  // Detached (Phase 55): the panel already lives in its own
-                  // window, so this focuses it rather than opening a second
-                  // copy docked here.
-                  if (fabDetached) {
-                    bridge()?.window.focusRole({ role: 'fab' });
-                    return;
-                  }
-                  captureFabMorphOrigin(fabButtonRef.current);
-                  useUiStore.getState().toggleQuickAccess();
-                }}
-                aria-label={
-                  fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
-                }
-                title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
-                data-testid="fab-button"
-                data-loops-running={loopsRunning.running ? 'true' : undefined}
-                data-fab-tab={activeFabTab}
-                /*
-                  Theme H. A sibling attribute to `data-loop-state`, not a
-                  second animation system — the rules live beside that block in
-                  `styles.css` and win over it when both are set, because the
-                  companion is the thing you are talking to. `undefined` for
-                  `off`/`idle` (see `fabCompanionState`) leaves today's look
-                  completely untouched, which is the only honest way to say
-                  "no rule".
-                */
-                data-companion-state={fabCompanionState(companionState)}
-                /*
-                  `relative` is load-bearing: the halo sits at `-z-10` behind this
-                  button, and a static box would paint UNDER a negative-z
-                  positioned sibling rather than over it — the halo's opaque disc
-                  would swallow the brand mark. `.loop-run-glow` happens to set
-                  `position: relative` too, but only while a loop runs, which is
-                  too load-bearing a coincidence to lean on.
-                */
-                className={`companion-face companion-face--primary relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
-              >
-                <BrandMark className="h-full w-full" />
-              </button>
+              {fabNode}
             </div>
           ) : null}
         </div>
@@ -1957,7 +1971,7 @@ function Shell() {
           keeps the stackHeight reasoning above intact.
         */}
         <CommitActivityPanel slot="bottom" />
-        <StatusBar />
+        <StatusBar fab={fabInStatusBar && !fabHidden ? fabNode : null} />
         {/*
           Eager, not lazy, and for the same reason `BrowserPane` is: this is
           what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch

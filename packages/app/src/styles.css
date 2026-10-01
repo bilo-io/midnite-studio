@@ -577,6 +577,13 @@ aside:has(> nav[aria-label="Views"]).w-64 {
   width: 13rem !important;
 }
 
+/* Collapsed sidenav is 8px wider: 3.5rem -> 4rem. Icons stay centred (the
+ * shell's rows are `items-center`); `--nav-offset` is set to match in app.tsx. */
+aside[aria-label="Views"].w-14,
+aside:has(> nav[aria-label="Views"]).w-14 {
+  width: 4rem !important;
+}
+
 /* ---------------------------------------------------------------------------
  * react-grid-layout, retinted.
  *
