@@ -207,6 +207,7 @@ export function DocsExplorer({
           <p className="px-3 py-2 text-xs text-muted-foreground">No docs match “{query}”.</p>
         ) : (
           <Accordion
+            tone="primary"
             id="media-doc-projects"
             sections={shown.map((project) => ({
               id: project.name,
@@ -246,7 +247,7 @@ export function DocsExplorer({
                             className={`flex w-full items-center gap-1.5 truncate py-1 pl-6 pr-14 text-left text-xs ${
                               active
                                 ? 'bg-accent text-foreground'
-                                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                                : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
                             }`}
                           >
                             <LuFileText aria-hidden className="h-3.5 w-3.5 shrink-0" />
