@@ -124,7 +124,7 @@ gains a **Resume setup** leaf for that.
 
 **Theme I — Local models with Ollama.** ✅ The `ollama` page, last in `SETUP_PAGES` ([PR #631](https://github.com/bilo-io/midnite-studio/pull/631)). Education text, an Ollama row (new `ollama` catalogue cask) with Start Ollama, and a static curated catalogue (`shared/src/ollama-catalogue.ts`) badged fits / tight / too big against a new `systemMemory` channel (fits at or above `minRamGb`, tight down to 75%). Downloads use the existing `ollamaPull` and pull queue store; `useRefetchModelsOnPullDone` was lifted from `ModelsView` to `Shell`, so pulls keep reporting with the Models view unmounted.
 
-**Theme J — Completion transition and Welcome finale.** ✅ Leaving the last page runs `completionTimeline` (`leaving` then `finale`, one frame under reduced motion): the page title, body and buttons dissolve, a one-shot `.setup-bloom` brand-gradient glow sweeps out from the anchor's centre, and every dot resolves to filled. The finale then plays the existing `playGlide` FLIP from the anchor's rect into its heading, `Welcome to [mark] Midnite Studio`; `Wordmark` gained a `gradient` prop so only "Midnite" wears the gradient. Get started fades the overlay with `dissolveTimeline`, then sets `completedAt` (the FAB's Resume leaf goes). The bloom is a one-shot keyframe guarded in both reduced-motion blocks with no allowlist entry. The Linux visual baseline is deferred to a docker regen; light, dark and reduced-motion shots are under `docs/screenshots/p98-j/`.
+**Theme J — Completion transition and Welcome finale.** ✅ Leaving the last page runs `completionTimeline` (`leaving` then `finale`, one frame under reduced motion): the page title, body and buttons dissolve, a one-shot `.setup-bloom` brand-gradient glow sweeps out from the anchor's centre, and every dot resolves to filled. The finale then plays the existing `playGlide` FLIP from the anchor's rect into its heading, `Welcome to [mark] Midnite Studio`; `Wordmark` gained a `gradient` prop so only "Midnite" wears the gradient. Get started fades the overlay with `dissolveTimeline`, then sets `completedAt` (the FAB's Resume leaf goes). The bloom is a one-shot keyframe guarded in both reduced-motion blocks with no allowlist entry. The finale's visual baseline is `e2e/visual/setup-finale.spec.ts` (light + dark `-linux.png`); light, dark and reduced-motion shots are under `docs/screenshots/p98-j/`.
 
 ## Deliverables
 
@@ -286,9 +286,9 @@ A wizard page over Phase 96's Ollama pieces and Theme D's runner; the daemon pro
       gradient, and "Studio" stays in the UI font, mirroring `Wordmark`.
 - [x] **Get started** sets `completedAt` and fades the overlay out to the app, and the FAB's Resume leaf disappears.
 - [x] Reduced motion swaps the transition for a static finale, with no bloom.
-- [ ] ◐ PARTIAL: one Playwright visual baseline of the finale, which needs real fonts and gradient rendering, within the
-      `e2e-budget.mjs` caps. Shots spec `e2e/p98-j-shots.spec.ts` landed; the `-linux.png` baseline needs
-      `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` (docker).
+- [x] One Playwright visual baseline of the finale, which needs real fonts and gradient rendering, within the
+      `e2e-budget.mjs` caps: `e2e/visual/setup-finale.spec.ts` (light + dark, reduced motion from before Begin so
+      the finale is one static frame), with its `-linux.png` pair generated in the pinned Playwright image.
 
 ---
 
