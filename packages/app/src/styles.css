@@ -426,6 +426,32 @@ html[data-motion='reduced'] .agent-count-text {
   animation: setup-ready-pulse 1.8s ease-in-out infinite paused;
 }
 
+/* Theme J — the completion bloom: one brand-gradient glow sweeping out from the
+ * title anchor as the last page is left. A one-shot, not a loop, so it needs no
+ * focus gate; it is not mounted at all under reduced motion, and the guards
+ * below remove it as well so a preference flipped mid-flight cannot strand it. */
+@keyframes setup-bloom {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(48);
+  }
+}
+
+.setup-bloom {
+  background: radial-gradient(
+    circle,
+    rgb(236 72 153 / 0.45) 0%,
+    rgb(59 130 246 / 0.3) 35%,
+    rgb(34 197 94 / 0.12) 55%,
+    transparent 70%
+  );
+  animation: setup-bloom 900ms ease-out forwards;
+}
+
 html:not([data-window-focused='false']) .setup-handoff-arrow,
 html:not([data-window-focused='false']) .setup-ready-check {
   animation-play-state: running;
@@ -433,6 +459,7 @@ html:not([data-window-focused='false']) .setup-ready-check {
 
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion='full']) .setup-caret,
+  html:not([data-motion='full']) .setup-bloom,
   html:not([data-motion='full']) .setup-handoff-arrow,
   html:not([data-motion='full']) .setup-ready-check {
     animation: none;
@@ -440,9 +467,14 @@ html:not([data-window-focused='false']) .setup-ready-check {
 }
 
 html[data-motion='reduced'] .setup-caret,
+html[data-motion='reduced'] .setup-bloom,
 html[data-motion='reduced'] .setup-handoff-arrow,
 html[data-motion='reduced'] .setup-ready-check {
   animation: none;
+}
+
+html[data-motion='reduced'] .setup-bloom {
+  display: none;
 }
 
 /* Battery status-bar segment — below 30% the low tier flashes, getting

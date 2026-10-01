@@ -30,6 +30,10 @@ export const CHOREO = {
   handoffBeatMs: 2600,
   /** Theme C: the overlay dissolving to the app. */
   dissolveMs: 320,
+  /** Theme J: the last page's content dissolving before the finale takes over. */
+  completeFadeMs: 260,
+  /** Theme J: the brand-gradient bloom sweeping out from the anchor (`.setup-bloom` in `styles.css`). */
+  bloomMs: 900,
 } as const;
 
 /** The glide's curve: fast out of the centre, settling softly into the anchor. */
@@ -176,5 +180,23 @@ export function dissolveTimeline(reduced: boolean): Timed<HandoffPhase>[] {
   return [
     { at: 0, frame: 'dissolving' },
     { at: CHOREO.dissolveMs, frame: 'done' },
+  ];
+}
+
+// --- Theme J: the completion transition ----------------------------------------
+
+/**
+ * Where leaving the last page is. `leaving`: the page content dissolves, the
+ * bloom sweeps out from the anchor and the dots resolve. `finale`: the
+ * finale takes over and the mark moves into its heading.
+ */
+export type CompletionPhase = 'leaving' | 'finale';
+
+/** Reduced motion is one frame at 0, already on the finale: a static finale, no bloom. */
+export function completionTimeline(reduced: boolean): Timed<CompletionPhase>[] {
+  if (reduced) return [{ at: 0, frame: 'finale' }];
+  return [
+    { at: 0, frame: 'leaving' },
+    { at: CHOREO.completeFadeMs, frame: 'finale' },
   ];
 }
