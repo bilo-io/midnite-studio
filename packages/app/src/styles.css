@@ -5643,7 +5643,17 @@ html[data-motion='reduced'] .media-plus-tile__label {
   display: inline-block;
   width: 1.2em;
   text-align: left;
-  animation: thinking-dots 1.2s steps(1, end) infinite;
+  animation: thinking-dots 1.2s steps(1, end) infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-dots::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-dots::after {
+    animation: none;
+  }
 }
 
 html[data-motion='reduced'] .thinking-dots::after {
