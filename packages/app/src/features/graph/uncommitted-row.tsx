@@ -4,6 +4,7 @@ import { CiSpacer } from './ci-cell';
 import { BlankAvatar } from './commit-avatar';
 import {
   RAIL_WIDTH,
+  besideMarkSize,
   laneCentre,
   nodeExtent,
   showsAuthorColumn,
@@ -11,6 +12,7 @@ import {
 } from './graph-themes';
 import { laneColor } from './lane-colors';
 import { usePrimaryHsl } from './primary-lane';
+import { DEFAULT_PROVENANCE_MARK_MODE, type ProvenanceMarkMode } from './provenance-display';
 
 /**
  * The working copy, drawn as the row above the first commit.
@@ -42,6 +44,7 @@ export function UncommittedRow({
   colorIdx,
   lane,
   expanded = false,
+  markMode = DEFAULT_PROVENANCE_MARK_MODE,
   onSelect,
 }: {
   status: StatusResult;
@@ -54,6 +57,8 @@ export function UncommittedRow({
   lane: number;
   /** Whether the working copy's inline panel is open under the row. */
   expanded?: boolean;
+  /** The graph's provenance-mark mode — `beside` reserves the commit rows' agent slot here too. */
+  markMode?: ProvenanceMarkMode;
   /** Toggles that inline panel — the working copy's list, commit box and diff. */
   onSelect: () => void;
 }) {
@@ -133,6 +138,20 @@ export function UncommittedRow({
           )}
         </svg>
       </span>
+
+      {/*
+        The `beside` mode's agent-mark slot. Every commit row reserves it, agent
+        or not, so the working copy has to as well — without it the dashed rail
+        sits one slot left of the solid rails under it.
+      */}
+      {markMode === 'beside' ? (
+        <span
+          aria-hidden
+          data-testid="uncommitted-provenance-slot"
+          className="shrink-0"
+          style={{ width: besideMarkSize(theme) }}
+        />
+      ) : null}
 
       {/*
         The rail the avatar styles draw beside every commit — dashed here, and

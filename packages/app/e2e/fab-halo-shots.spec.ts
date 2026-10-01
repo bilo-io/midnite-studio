@@ -64,7 +64,7 @@ for (const mode of ['light', 'dark'] as const) {
 
     await openLoops(page);
     await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
-    await page.getByTestId('loop-composer-guard').getByTestId('loop-start').click();
+    await page.getByTestId('loop-composer-guard').getByTestId('loop-extras-send').click();
     await expect(page.getByTestId('loop-composer-guard').getByTestId('loop-stop')).toBeVisible();
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
 

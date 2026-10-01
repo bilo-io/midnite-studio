@@ -260,13 +260,9 @@ export function LoopComposer({
           </ComposerSection>
 
           {/*
-            One column, not a row: the Start button sits UNDER the field at
-            full width rather than beside it. Beside it, the button was the
-            width of the word "Start" against a field that had already been
-            narrowed to make room — and the panel's one commit action was the
-            smallest target on the surface. Full width also gives its gradient
-            border something to be: a 60px pill wearing a rainbow reads as a
-            decoration, a full-width one reads as the button.
+            Start is the extras composer's own Send — there is no separate
+            Start button under it any more, so the panel has one way to launch
+            a loop rather than two that do the same thing.
           */}
           <div className="flex flex-col gap-2 border-t border-border/50 px-2 py-2">
             {/*
@@ -288,15 +284,6 @@ export function LoopComposer({
               sendTooltip={disabled ? disabledReason : 'Start (Cmd/Ctrl+Enter)'}
               mic={mic}
               testIdPrefix="loop-extras"
-            />
-            <StartStopButton
-              running={false}
-              waiting={false}
-              thinking={false}
-              fullWidth
-              disabled={disabled}
-              disabledReason={disabledReason}
-              onClick={onStart}
             />
           </div>
         </div>

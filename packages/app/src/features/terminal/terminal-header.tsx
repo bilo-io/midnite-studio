@@ -110,9 +110,10 @@ export function TerminalHeader({
         onConfigure={(candidate) => useUiStore.getState().focusAgentInSettings(candidate.id)}
       />
       <IconButton
-        // The glyph shows where the panel is now. `CgEditFlipH` draws a VERTICAL
-        // divider (right dock); `CgEditFlipV` a HORIZONTAL one (bottom dock).
-        icon={dock === 'right' ? CgEditFlipH : CgEditFlipV}
+        // The glyph shows where the click sends the panel, matching the label.
+        // `CgEditFlipH` draws a VERTICAL divider (right dock); `CgEditFlipV` a
+        // HORIZONTAL one (bottom dock).
+        icon={dock === 'right' ? CgEditFlipV : CgEditFlipH}
         label={dock === 'right' ? 'Dock terminal to the bottom' : 'Dock terminal to the right'}
         size="sm"
         onClick={() => useUiStore.getState().toggleTerminalDock()}

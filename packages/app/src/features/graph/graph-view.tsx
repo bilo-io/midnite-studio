@@ -738,6 +738,7 @@ export function GraphView() {
             colorIdx={headRow?.colorIdx ?? 0}
             lane={headRow?.lane ?? 0}
             expanded={workingTreeOpen}
+            markMode={provenanceMarkMode}
             onSelect={() => selectWorkingTree(!workingTreeOpen)}
           />
         ) : null}
@@ -788,6 +789,7 @@ export function GraphView() {
             colorIdx={headRow?.colorIdx ?? 0}
             lane={headRow?.lane ?? 0}
             selectedSelector={graphSelection?.kind === 'stash' ? graphSelection.selector : null}
+            markMode={provenanceMarkMode}
             onSelect={selectStash}
           />
         ) : null}

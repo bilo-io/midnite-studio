@@ -84,8 +84,10 @@ describe('Audio tab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     expect(screen.getByRole('status').textContent).toMatch(/later phase/);
     fireEvent.change(screen.getByPlaceholderText('Night drive'), { target: { value: 'Morning' } });
+    // Import lives behind the lyrics composer's "+" drop-up.
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Import audio…' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Import audio…' }));
     });
     expect(await screen.findByRole('region', { name: 'Morning' })).toBeTruthy();
   });
