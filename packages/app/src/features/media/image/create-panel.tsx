@@ -15,6 +15,7 @@ import type { IconComponent } from '../../../components/icon-button';
 import { AntigravityIcon, CodexIcon } from '../../../components/icons';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { useUiStore } from '../../../store/ui-store';
+import { PromptTextarea } from '../prompt-input';
 import { generateBlockedReason, type CreateAction, type CreateState } from './create-panel-state';
 
 /** One glyph per provider — shown in the list and on the chosen value. */
@@ -84,7 +85,7 @@ export function CreatePanel({
     >
       <label className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
         Prompt
-        <textarea
+        <PromptTextarea
           value={state.prompt}
           onChange={(event) => dispatch({ type: 'prompt', prompt: event.target.value })}
           onKeyDown={(event) => {
@@ -95,7 +96,7 @@ export function CreatePanel({
           }}
           rows={5}
           placeholder="A lighthouse on a basalt cliff at blue hour, film grain"
-          className="resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="resize-none"
         />
       </label>
 

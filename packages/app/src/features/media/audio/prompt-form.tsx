@@ -15,6 +15,7 @@ import { LuImport, LuInfo, LuSparkles, LuX } from 'react-icons/lu';
 import type { IconComponent } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
+import { MEDIA_PROMPT_BOX, PromptTextarea } from '../prompt-input';
 import { formatDuration } from './waveform';
 
 export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { import: LuImport };
@@ -95,7 +96,7 @@ export function PromptForm({
 
       <div className={field}>
         <span id="audio-style-label">Style</span>
-        <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-background px-1.5 py-1">
+        <div className={`flex flex-wrap items-center gap-1 px-1.5 py-1 ${MEDIA_PROMPT_BOX}`}>
           {state.style.map((tag) => (
             <span key={tag} className="flex items-center gap-0.5 rounded bg-accent px-1.5 py-0.5 text-[11px] text-foreground">
               {tag}
@@ -152,7 +153,7 @@ export function PromptForm({
             </button>
           ))}
         </div>
-        <textarea
+        <PromptTextarea
           ref={lyricsRef}
           aria-labelledby="audio-lyrics-label"
           value={state.instrumental ? '' : state.lyrics}
@@ -160,7 +161,7 @@ export function PromptForm({
           onChange={(event) => dispatch({ type: 'lyrics', value: event.target.value })}
           rows={8}
           placeholder={state.instrumental ? 'Instrumental — no lyrics' : '[Verse]\nStreetlights hum…'}
-          className={`resize-y font-mono disabled:opacity-50 ${input}`}
+          className="resize-y font-mono disabled:opacity-50"
         />
       </div>
 
