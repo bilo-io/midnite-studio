@@ -5,6 +5,7 @@ import {
   AUDIO_LYRIC_SECTIONS,
   AUDIO_MAX_VARIANTS,
   AUDIO_PROVIDERS,
+  DEFAULT_AUDIO_PROVIDER,
   audioProviderInfo,
   type AudioProviderId,
   type AudioProviderStatus,
@@ -13,17 +14,16 @@ import { useRef, useState, type Dispatch } from 'react';
 import { LuImport, LuInfo, LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
-import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
-import { AiComposer, AttachMenu, useComposerMic } from '../../../components/ai-thread';
+import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic, type PickerProvider } from '../../../components/ai-thread';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
 import { formatDuration } from './waveform';
 
 export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { import: LuImport };
 
-export function audioProviderOptions(statuses: readonly AudioProviderStatus[]): IconSelectOption[] {
+export function audioPickerProviders(statuses: readonly AudioProviderStatus[]): PickerProvider[] {
   return AUDIO_PROVIDERS.map((p) => {
     const status = statuses.find((s) => s.id === p.id);
     const blocked = status && !status.available ? status.reason : undefined;
@@ -31,8 +31,9 @@ export function audioProviderOptions(statuses: readonly AudioProviderStatus[]): 
       id: p.id,
       label: p.label,
       icon: AUDIO_PROVIDER_ICONS[p.id],
-      ...(p.generates ? {} : { hint: 'Attach files as variants' }),
-      ...(blocked ? { isDisabled: true, disabledReason: blocked } : {}),
+      color: '#A78BFA',
+      recommended: p.id === DEFAULT_AUDIO_PROVIDER,
+      ...(blocked ? { disabled: true, reason: blocked } : {}),
     };
   });
 }
@@ -177,18 +178,6 @@ export function PromptForm({
           </label>
         </div>
 
-        <div className={field}>
-          Provider
-          <IconSelect
-            ariaLabel="Audio provider"
-            options={audioProviderOptions(statuses)}
-            value={state.provider}
-            isSearchable={false}
-            menuInPortal
-            onChange={(id) => id && dispatch({ type: 'provider', value: id as AudioProviderId })}
-          />
-        </div>
-
         {notice ? (
           <p role="status" className="flex items-start gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
             <LuInfo aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -238,7 +227,17 @@ export function PromptForm({
           placeholder={state.instrumental ? 'Instrumental — no lyrics' : '[Verse]\nStreetlights hum…'}
           mic={mic}
           leading={
-            <AttachMenu
+            <>
+              <ProviderModelPicker
+                testId="audio-picker"
+                providers={audioPickerProviders(statuses)}
+                provider={state.provider}
+                onProviderChange={(id) => dispatch({ type: 'provider', value: id as AudioProviderId })}
+                models={[]}
+                model=""
+                onModelChange={() => undefined}
+              />
+              <AttachMenu
               testId="audio-attach"
               options={[
                 {
@@ -250,7 +249,8 @@ export function PromptForm({
                   reason: invalid,
                 },
               ]}
-            />
+              />
+            </>
           }
           trailing={<SpeechToggle voice={voice} />}
           boxClassName={MEDIA_PROMPT_BOX}

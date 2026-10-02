@@ -1,53 +1,16 @@
-import { IMAGE_PROVIDERS, imageModelsFor, type ImageProviderId, type SecretKey } from '@midnite/studio-shared';
+import { IMAGE_PROVIDERS, type SecretKey } from '@midnite/studio-shared';
 import { useState } from 'react';
 import { LuKey, LuLock } from 'react-icons/lu';
 
-import { IconSelect } from '../../../components/select/icon-select';
-import { providerOptions } from './create-panel';
-import { useImagePrefs, useImageProviders, useImageSecretHas, useSetImageSecret } from './use-images';
+import { useImageSecretHas, useSetImageSecret } from './use-images';
 
 /**
- * Settings ▸ Media ▸ Images (Phase 99 Theme C): the create panel's default
- * provider/model, and one API-key row per keyed provider. Keys go straight to
+ * Settings ▸ Media ▸ Images (Phase 99 Theme C): one API-key row per keyed provider. Keys go straight to
  * main's vault; this page only ever learns whether one is set.
  */
 export function ImageSettingsSection() {
-  const prefs = useImagePrefs();
-  const providers = useImageProviders();
-  const statuses = providers.data ?? [];
-  const models = imageModelsFor(prefs.provider, statuses.find((s) => s.id === prefs.provider)?.models);
-
   return (
     <div className="flex flex-col gap-4 p-3">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Default provider
-          <IconSelect
-            ariaLabel="Default image provider"
-            options={providerOptions(statuses)}
-            value={prefs.provider}
-            isSearchable={false}
-            menuInPortal
-            onChange={(id) => {
-              if (!id) return;
-              const provider = id as ImageProviderId;
-              const next = imageModelsFor(provider, statuses.find((s) => s.id === provider)?.models)[0]?.id ?? '';
-              prefs.setDefault(provider, next);
-            }}
-          />
-        </div>
-        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Default model
-          <IconSelect
-            ariaLabel="Default image model"
-            options={models.map((m) => ({ id: m.id, label: m.label }))}
-            value={prefs.model}
-            isSearchable={false}
-            menuInPortal
-            onChange={(id) => id && prefs.setDefault(prefs.provider, id)}
-          />
-        </div>
-      </div>
       {IMAGE_PROVIDERS.filter((p) => p.secretKey).map((p) => (
         <ApiKeyRow key={p.id} label={p.label} secretKey={p.secretKey!} />
       ))}
