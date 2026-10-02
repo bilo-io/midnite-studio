@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { useSlidesStore } from '../../slides/slides-store';
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
+import { MarkdownCode, MarkdownPre } from './markdown-code-block';
 import { resolveMarkdownLinkTarget } from './markdown-links';
 
 /**
@@ -68,7 +69,7 @@ export function MarkdownPreview({
       className={`min-h-0 max-w-none overflow-auto p-4 text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
       data-selectable
     >
-      <Markdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink }}>
+      <Markdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink, code: MarkdownCode, pre: MarkdownPre }}>
         {content}
       </Markdown>
     </div>
