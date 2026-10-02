@@ -584,6 +584,9 @@ export async function pullThreads(
       body: asStringLoose(c['content']),
       createdAt: asString(c['publishedDate']) ?? new Date(0).toISOString(),
       url: '',
+      // The notes payload carries no diff text and no review object.
+      diffHunk: '',
+      reviewId: null,
     }));
 
     threads.push({

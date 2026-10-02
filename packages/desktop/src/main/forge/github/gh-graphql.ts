@@ -67,7 +67,7 @@ const THREADS_QUERY = [
   `reviewThreads(first:${THREAD_PAGE}){`,
   'nodes{',
   'id isResolved isOutdated path line originalLine startLine diffSide subjectType',
-  `comments(first:${REPLY_PAGE}){nodes{id databaseId author{login} body createdAt url}}`,
+  `comments(first:${REPLY_PAGE}){nodes{id databaseId author{login} body createdAt url diffHunk pullRequestReview{databaseId}}}`,
   '}}}}}',
 ].join('');
 
@@ -234,6 +234,8 @@ function parseThreadComments(payload: unknown): Record<string, unknown>[] {
     // ordered thread, and an empty-string fallback would sort it first.
     if (id === null || createdAt === null) continue;
 
+    const reviewDatabaseId = pick(row['pullRequestReview'], 'databaseId');
+
     comments.push({
       id,
       // Stringified because it is an integer that identifies a row, and every
@@ -243,6 +245,10 @@ function parseThreadComments(payload: unknown): Record<string, unknown>[] {
       body: asString(row['body']) ?? '',
       createdAt,
       url: asString(row['url']) ?? '',
+      diffHunk: asString(row['diffHunk']) ?? '',
+      // Stringified to equal the `id` of the `kind:'review'` comment parsePullReviews makes.
+      reviewId:
+        typeof reviewDatabaseId === 'number' ? String(reviewDatabaseId) : null,
     });
   }
   return comments;

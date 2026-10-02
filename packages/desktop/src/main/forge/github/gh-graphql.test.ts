@@ -58,6 +58,8 @@ const thread = (over: Record<string, unknown> = {}): Record<string, unknown> => 
         body: '**nitpick:** the `Retry-After` header is the number of seconds.',
         createdAt: '2026-08-20T10:00:00Z',
         url: 'https://github.com/cli/cli/pull/14200#discussion_r2345678',
+        diffHunk: '@@ -100,3 +100,4 @@ func f() {\n ctx\n+retry()',
+        pullRequestReview: { databaseId: 987_654 },
       },
     ],
   },
@@ -90,7 +92,22 @@ describe('parseReviewThreads', () => {
       // Stringified: every forge id in this contract is a string, for the same
       // 2^53 reason `ForgeRun.id` states.
       databaseId: '2345678',
+      diffHunk: '@@ -100,3 +100,4 @@ func f() {\n ctx\n+retry()',
+      reviewId: '987654',
     });
+  });
+
+  it('defaults diffHunk to empty and reviewId to null when absent', () => {
+    const [parsed] = parseReviewThreads(
+      payload([
+        thread({
+          comments: {
+            nodes: [{ id: 'c', createdAt: '2026-08-20T10:00:00Z', pullRequestReview: null }],
+          },
+        }),
+      ]),
+    );
+    expect(parsed?.comments[0]).toMatchObject({ diffHunk: '', reviewId: null });
   });
 
   it('keeps a multi-comment thread in the order GraphQL returned it', () => {

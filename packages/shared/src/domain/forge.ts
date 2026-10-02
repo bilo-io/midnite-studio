@@ -774,6 +774,21 @@ export const ForgeReviewCommentSchema = z.object({
   body: z.string().default(''),
   createdAt: z.string(),
   url: z.string().default(''),
+  /**
+   * The unified-diff excerpt the comment was written against — GitHub's
+   * `diffHunk`: an `@@ -a,b +c,d @@` header followed by the hunk's lines, ending
+   * at the commented line. It is what lets the Conversation tab show the code a
+   * thread is about without fetching the patch, and it survives the rewrite
+   * that makes a thread outdated. Empty when the forge does not provide one.
+   */
+  diffHunk: z.string().default(''),
+  /**
+   * The REST id of the review submission this comment was posted in, as a
+   * string — the same id a `kind: 'review'` `ForgeComment` carries, so the
+   * Conversation tab can nest a review's threads under its verdict the way
+   * github.com does. Null when the forge has no review object to point at.
+   */
+  reviewId: z.string().nullable().default(null),
 });
 export type ForgeReviewComment = z.infer<typeof ForgeReviewCommentSchema>;
 
