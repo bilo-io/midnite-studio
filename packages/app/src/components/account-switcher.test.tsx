@@ -10,6 +10,7 @@ import {
 } from '../store/ui-store';
 import { AccountSwitcher, AccountSwitcherSlot } from './account-switcher';
 import { openAccountsSettings, useAccountSwitcherStore } from './account-switcher-store';
+import { useSetupStore } from '../features/setup/setup-store';
 import { ToastHost } from './toast-host';
 
 /**
@@ -207,7 +208,11 @@ describe('AccountSwitcher — the menu', () => {
 
     let menu = await openMenu();
     const items = within(menu).getAllByRole('menuitem');
-    expect(items.map((i) => i.textContent)).toEqual(['Add account…', 'Manage accounts…']);
+    expect(items.map((i) => i.textContent)).toEqual([
+      'Add account…',
+      'Manage accounts…',
+      'Setup wizard',
+    ]);
 
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Manage accounts…' }));
     expect(useUiStore.getState().activeView).toBe('settings');
@@ -217,6 +222,23 @@ describe('AccountSwitcher — the menu', () => {
     menu = await openMenu();
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Add account…' }));
     expect(useAccountSwitcherStore.getState().addFormPending).toBe(true);
+  });
+
+  it('Setup wizard sits right after Manage accounts and opens setup, closing the menu', async () => {
+    installBridge();
+    setAccounts([gitlab], gitlab.id);
+    useSetupStore.setState({ requested: false });
+    render(<AccountSwitcher layout="titlebar" />, { wrapper: createWrapper() });
+
+    const menu = await openMenu();
+    const labels = within(menu)
+      .getAllByRole('menuitem')
+      .map((i) => i.textContent);
+    expect(labels.indexOf('Setup wizard')).toBe(labels.indexOf('Manage accounts…') + 1);
+
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Setup wizard' }));
+    expect(useSetupStore.getState().requested).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 
   it('clicking the button while the menu is open closes it', async () => {
