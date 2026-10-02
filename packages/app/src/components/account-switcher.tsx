@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { LuSettings, LuUserPlus, LuWandSparkles } from 'react-icons/lu';
+import { LuSettings, LuUserPlus } from 'react-icons/lu';
 
 import type { ForgeAccount } from '@midnite/studio-shared';
 
@@ -9,7 +9,6 @@ import {
   type SupportedKind,
 } from '../features/settings/settings-pages/accounts-page';
 import { useAccountScopedRepos } from '../features/repos/forge-account-scope';
-import { useSetupStore } from '../features/setup/setup-store';
 import { useForgeAccounts, useRepos, useSwitchForgeAccount } from '../services/queries';
 import { useUiStore, type ForgeSwitcherPlacement } from '../store/ui-store';
 import { openAccountsSettings, useAccountSwitcherStore } from './account-switcher-store';
@@ -309,12 +308,6 @@ function AccountSwitcherMenu({
       label: 'Manage accounts…',
       icon: LuSettings,
       onSelect: () => openAccountsSettings(),
-    });
-    rows.push({
-      id: 'setup-wizard',
-      label: 'Setup wizard',
-      icon: LuWandSparkles,
-      onSelect: () => useSetupStore.getState().openSetup(),
     });
     return rows;
   }, [accounts, activeId, outOfScopeCount, scoping, setScoping, switchAccount]);

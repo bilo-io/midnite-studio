@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2, LuRocket } from 'react-icons/lu';
+import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2, LuRocket, LuWandSparkles } from 'react-icons/lu';
 
 import type { MenuEntry } from '../../components/context-menu';
 import { useDismissable, type TriggerSource } from '../../components/use-dismissable';
@@ -41,9 +41,9 @@ type QuickAccessRow = QuickAccessItem | { type: 'separator' };
  * are store reads, and a module-scope array is evaluated once at import.
  * `firstStop`/`step` below take the rows as an argument for the same reason.
  *
- * Order is `L · C · N · (R) · (S) · —— · I · G`: the companion sits between
- * Loops and Notes, which is where the phase puts it, Repeat and Resume setup
- * appear only while they have something to do, and the two not-yet-built
+ * Order is `L · C · N · (R) · S · —— · I · G`: the companion sits between
+ * Loops and Notes, which is where the phase puts it, Repeat appears only
+ * while it has something to do, S is always present (Resume setup or Setup wizard), and the two not-yet-built
  * leaves stay below the separator.
  */
 function buildRows(options: {
@@ -96,23 +96,31 @@ function buildRows(options: {
   }
 
   /*
-    Resume setup (Phase 98 Theme C) — where X and Skip on the setup overlay
-    say setup can be picked up again, so it is here for exactly as long as
-    setup is unfinished and gone once the finale's Get started sets
-    `completedAt`. Absent rather than disabled afterwards: a finished setup is
-    rerun from the palette (`setup.open`), not "resumed". The overlay works
+    Setup (Phase 98 Theme C) — always present, on the one `S` slot. While setup
+    is unfinished it reads "Resume setup": X and Skip on the setup overlay say
+    setup can be picked up again. Once the finale's Get started sets
+    `completedAt` it becomes "Setup wizard", which reruns setup from the start
+    (the same `openSetup` the palette's `setup.open` calls). The overlay works
     out the page itself (`resumePageId`), which keeps the page registry and
     its components out of this menu's chunk.
   */
-  if (options.setupIncomplete) {
-    rows.push({
-      mnemonic: 'S',
-      label: 'Resume setup',
-      description: 'Pick setup up where you left it',
-      icon: LuRocket,
-      onSelect: () => useSetupStore.getState().resumeSetup(),
-    });
-  }
+  rows.push(
+    options.setupIncomplete
+      ? {
+          mnemonic: 'S',
+          label: 'Resume setup',
+          description: 'Pick setup up where you left it',
+          icon: LuRocket,
+          onSelect: () => useSetupStore.getState().resumeSetup(),
+        }
+      : {
+          mnemonic: 'S',
+          label: 'Setup wizard',
+          description: 'Run setup again',
+          icon: LuWandSparkles,
+          onSelect: () => useSetupStore.getState().openSetup(),
+        },
+  );
 
   rows.push(
     { type: 'separator' },

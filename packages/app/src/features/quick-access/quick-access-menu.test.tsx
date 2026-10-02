@@ -18,7 +18,7 @@ beforeEach(() => {
     // about what the `C` leaf and the companion strip look like on either side
     // of this switch, and a leaked `true` from another suite would flip them.
     companionEnabled: false,
-    // Finished, so the Resume setup leaf (Phase 98 Theme C) is absent and the
+    // Finished, so the S leaf (Phase 98 Theme C) reads "Setup wizard" and the
     // row counts below hold; its own cases set this back to unfinished.
     setupState: { ...INITIAL_SETUP_STATE, completedAt: '2026-01-01T00:00:00.000Z' },
   });
@@ -30,19 +30,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('QuickAccessMenu', () => {
-  it('renders the five rows, in order, behind one separator', () => {
+  it('renders the six rows, in order, behind one separator', () => {
     render(<QuickAccessMenu onClose={() => {}} />);
 
-    // `L · C · N · —— · I · G` (Phase 79 Theme C) — the companion sits between
-    // Loops and Notes. Five, not four: `Repeat` is absent with no companion
-    // turn to repeat, which is the state a fresh store is in.
+    // `L · C · N · S · —— · I · G` (Phase 79 Theme C) — the companion sits
+    // between Loops and Notes. Six, not seven: `Repeat` is absent with no
+    // companion turn to repeat, which is the state a fresh store is in.
     const rows = screen.getAllByRole('menuitem');
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(6);
     expect(rows[0]?.textContent).toContain('Loops');
     expect(rows[1]?.textContent).toContain('Companion');
     expect(rows[2]?.textContent).toContain('Notes');
-    expect(rows[3]?.textContent).toContain('Report Issue');
-    expect(rows[4]?.textContent).toContain('Guided tour');
+    expect(rows[3]?.textContent).toContain('Setup wizard');
+    expect(rows[4]?.textContent).toContain('Report Issue');
+    expect(rows[5]?.textContent).toContain('Guided tour');
 
     expect(screen.getByTestId('quick-access-menu').querySelectorAll('hr')).toHaveLength(1);
   });
@@ -84,10 +85,13 @@ describe('QuickAccessMenu', () => {
     expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-n'));
 
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-s'));
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-i'));
 
     fireEvent.keyDown(menu, { key: 'ArrowUp' });
-    expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-n'));
+    expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-s'));
   });
 
   /*
@@ -212,9 +216,17 @@ describe('QuickAccessMenu', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('drops Resume setup once setup is complete', () => {
-    render(<QuickAccessMenu onClose={() => {}} />);
-    expect(screen.queryByTestId('quick-access-row-s')).toBeNull();
+  it('offers Setup wizard once setup is complete, in the same slot, and it reopens setup', () => {
+    const onClose = vi.fn();
+    render(<QuickAccessMenu onClose={onClose} />);
+
+    expect(screen.queryByText('Resume setup')).toBeNull();
+    expect(screen.getByTestId('quick-access-row-s').textContent).toContain('Setup wizard');
+    expect(screen.getAllByRole('menuitem')[3]?.textContent).toContain('Setup wizard');
+
+    fireEvent.keyDown(screen.getByTestId('quick-access-menu'), { key: 's' });
+    expect(useSetupStore.getState()).toMatchObject({ requested: true, resume: false });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

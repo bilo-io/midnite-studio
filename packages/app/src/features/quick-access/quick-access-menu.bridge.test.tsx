@@ -20,7 +20,7 @@ import { QuickAccessMenu } from './quick-access-menu';
  * **3 of the original 5 stay in Playwright**, all about *reachability* of the
  * component rather than its own behaviour once open — the same "feature gate"
  * distinction `optimizer.spec.ts`'s own remaining tests draw: "the FAB opens
- * the menu with the five rows, in order" needs the real FAB button in
+ * the menu with the six rows, in order" needs the real FAB button in
  * `app.tsx`; "the Meta+L chord opens the same component" needs the real
  * global keybinding dispatcher (`use-keybindings.ts`) rather than this
  * menu's own internal `onKeyDown`; and "L opens the Loops panel" needs
@@ -87,7 +87,7 @@ describe('QuickAccessMenu, assembled through the real bridge', () => {
 
     fireEvent.keyDown(menu(), { key: 'i' });
 
-    // Still up, still showing the same five rows — a disabled row's mnemonic
+    // Still up, still showing the same rows — a disabled row's mnemonic
     // is a no-op with a hint, never a dead end that quietly closes the menu.
     expect(menu()).toBeTruthy();
     expect(within(menu()).getByText('Coming soon')).toBeTruthy();
