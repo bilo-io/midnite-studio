@@ -123,55 +123,65 @@ function VideoToolbar({
   const iteration = selection?.kind === 'iteration' ? selection : null;
 
   return (
-    <>
-      <RootSourceBadge resolution={resolution} />
-      {project.data?.valid ? (
-        <span data-testid="video-toolbar-title" className="min-w-0 truncate text-xs font-semibold text-foreground">
-          {project.data.title}
-        </span>
-      ) : null}
-      {ffmpeg.data && !ffmpeg.data.found ? (
+    <div data-testid="video-toolbar" className="grid min-w-0 flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2">
+      <div data-testid="video-toolbar-left" className="flex min-w-0 items-center gap-2">
+        <RootSourceBadge resolution={resolution} />
+        {ffmpeg.data && !ffmpeg.data.found ? (
+          <button
+            type="button"
+            onClick={() => submitCommand(FFMPEG_INSTALL_COMMAND, 'ffmpeg install')}
+            className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs hover:bg-accent"
+          >
+            <LuDownload aria-hidden className="h-3.5 w-3.5" />
+            Install ffmpeg
+          </button>
+        ) : null}
+      </div>
+      <div data-testid="video-toolbar-centre" className="min-w-0 max-w-[40vw] justify-self-center">
+        {project.data?.valid ? (
+          <span
+            data-testid="video-toolbar-title"
+            title={project.data.title}
+            className="block truncate text-xs font-semibold text-foreground"
+          >
+            {project.data.title}
+          </span>
+        ) : null}
+      </div>
+      <div data-testid="video-toolbar-right" className="flex min-w-0 items-center justify-end gap-2">
+        {projectId && composition ? (
+          <VideoRenderDialog
+            open={renderOpen}
+            onClose={() => setRenderOpen(false)}
+            compositionId={composition}
+            onRender={(options) => startRender.mutate({ projectId, compositionId: composition, options })}
+          />
+        ) : null}
         <button
           type="button"
-          onClick={() => submitCommand(FFMPEG_INSTALL_COMMAND, 'ffmpeg install')}
-          className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs hover:bg-accent"
+          disabled={!projectId || !composition}
+          title={!composition ? 'Select a project to render' : undefined}
+          onClick={() => setRenderOpen(true)}
+          className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <LuDownload aria-hidden className="h-3.5 w-3.5" />
-          Install ffmpeg
+          <LuPlay aria-hidden className="h-3.5 w-3.5" />
+          Render…
         </button>
-      ) : null}
-      {/* Transcode: re-encode the selected iteration through the ffmpeg export service — no re-render. */}
-      <ExportToolbar
-        formats={MEDIA_TAB_EXPORT_FORMATS.video}
-        hasSelection={iteration !== null}
-        busy={exporter.progress?.status === 'running'}
-        onExport={(format) => {
-          if (!iteration) return;
-          exporter.start.mutate({
-            source: { kind: 'video', projectId: iteration.projectId, name: iteration.filename },
-            format,
-          });
-        }}
-      />
-      {projectId && composition ? (
-        <VideoRenderDialog
-          open={renderOpen}
-          onClose={() => setRenderOpen(false)}
-          compositionId={composition}
-          onRender={(options) => startRender.mutate({ projectId, compositionId: composition, options })}
+        {/* Transcode: re-encode the selected iteration through the ffmpeg export service — no re-render. */}
+        <ExportToolbar
+          formats={MEDIA_TAB_EXPORT_FORMATS.video}
+          hasSelection={iteration !== null}
+          busy={exporter.progress?.status === 'running'}
+          onExport={(format) => {
+            if (!iteration) return;
+            exporter.start.mutate({
+              source: { kind: 'video', projectId: iteration.projectId, name: iteration.filename },
+              format,
+            });
+          }}
         />
-      ) : null}
-      <button
-        type="button"
-        disabled={!projectId || !composition}
-        title={!composition ? 'Select a project to render' : undefined}
-        onClick={() => setRenderOpen(true)}
-        className="ml-auto flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <LuPlay aria-hidden className="h-3.5 w-3.5" />
-        Render…
-      </button>
-    </>
+      </div>
+    </div>
   );
 }
 
