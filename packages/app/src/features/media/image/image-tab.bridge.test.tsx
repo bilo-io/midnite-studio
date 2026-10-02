@@ -54,10 +54,11 @@ describe('Images tab', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('shows the provider on the chosen value and generates into the project', async () => {
+  it('shows the composer's picker on the recommended model and generates into the project', async () => {
     open();
     await screen.findByRole('button', { name: 'Open a.png' });
-    expect(screen.getAllByText('Gemini').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Provider: Antigravity CLI' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Model: Gemini 2.5 Flash Image' })).toBeTruthy();
     fireEvent.change(screen.getByPlaceholderText(/lighthouse/), { target: { value: 'a fox' } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Generate$/ }));

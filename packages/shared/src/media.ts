@@ -159,7 +159,7 @@ export const IMAGE_PROVIDER_IDS = ['gemini', 'openai', 'agy', 'ollama'] as const
 export const ImageProviderIdSchema = z.enum(IMAGE_PROVIDER_IDS);
 export type ImageProviderId = z.infer<typeof ImageProviderIdSchema>;
 
-export const DEFAULT_IMAGE_PROVIDER: ImageProviderId = 'gemini';
+export const DEFAULT_IMAGE_PROVIDER: ImageProviderId = 'agy';
 
 /** Aspect ratios offered by the create panel; each adapter maps them to its own size vocabulary. */
 export const IMAGE_ASPECTS = ['1:1', '3:2', '2:3', '16:9', '9:16'] as const;
@@ -206,7 +206,7 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
     id: 'agy',
     label: 'Antigravity CLI',
     secretKey: null,
-    models: [{ id: 'agy-default', label: 'Default' }],
+    models: [{ id: 'agy-default', label: 'Gemini 2.5 Flash Image' }],
   },
   { id: 'ollama', label: 'Ollama', secretKey: null, models: [] },
 ];

@@ -209,6 +209,7 @@ function ImageTabBody({ repoId }: { repoId: string }) {
             error={generation.lastError}
             onGenerate={onGenerate}
             onCancel={generation.cancelAll}
+            onPick={prefs.setDefault}
           />
         }
       />

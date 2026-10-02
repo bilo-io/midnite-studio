@@ -4,12 +4,9 @@ import {
   AUDIO_GENERATION_UNAVAILABLE,
   AUDIO_MAX_VARIANTS,
   AUDIO_MP3_BITRATES,
-  type AudioProviderId,
 } from '@midnite/studio-shared';
 
-import { IconSelect } from '../../../components/select/icon-select';
-import { audioProviderOptions } from './prompt-form';
-import { useAudioPrefs, useAudioProviders } from './use-audio';
+import { useAudioPrefs } from './use-audio';
 import { formatDuration } from './waveform';
 
 const field = 'flex flex-col gap-1 text-[11px] font-medium text-muted-foreground';
@@ -22,22 +19,10 @@ const select = 'h-7 rounded-md border border-border bg-background px-1.5 text-xs
  */
 export function AudioSettingsSection() {
   const prefs = useAudioPrefs();
-  const providers = useAudioProviders();
 
   return (
     <div className="flex flex-col gap-4 p-3">
       <div className="grid grid-cols-2 gap-2">
-        <div className={field}>
-          Default provider
-          <IconSelect
-            ariaLabel="Default audio provider"
-            options={audioProviderOptions(providers.data ?? [])}
-            value={prefs.provider}
-            isSearchable={false}
-            menuInPortal
-            onChange={(id) => id && prefs.set({ provider: id as AudioProviderId })}
-          />
-        </div>
         <label className={field}>
           MP3 export bitrate
           <select

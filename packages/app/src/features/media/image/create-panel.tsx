@@ -1,5 +1,6 @@
 import {
   IMAGE_ASPECTS,
+  DEFAULT_IMAGE_PROVIDER,
   IMAGE_MAX_COUNT,
   IMAGE_PROVIDERS,
   imageModelsFor,
@@ -13,9 +14,9 @@ import { SiGooglegemini, SiOllama } from 'react-icons/si';
 
 import type { IconComponent } from '../../../components/icon-button';
 import { AntigravityIcon, CodexIcon } from '../../../components/icons';
-import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
+import type { PickerProvider } from '../../../components/ai-thread';
 import { useUiStore } from '../../../store/ui-store';
-import { AiComposer, useComposerMic } from '../../../components/ai-thread';
+import { AiComposer, ProviderModelPicker, useComposerMic } from '../../../components/ai-thread';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
@@ -29,11 +30,19 @@ export const IMAGE_PROVIDER_ICONS: Record<ImageProviderId, IconComponent> = {
   ollama: SiOllama,
 };
 
+const IMAGE_PROVIDER_COLORS: Record<ImageProviderId, string> = {
+  gemini: '#8E75B2',
+  openai: '#10A37F',
+  agy: '#4285F4',
+  ollama: '#F5F5F5',
+};
+
 /**
  * Picker rows: every provider, disabled with its reason when it cannot run.
- * Ollama is hidden entirely when it reports no image-output models.
+ * Ollama is hidden entirely when it reports no image-output models. Antigravity
+ * is the recommended default (key-free, Gemini 2.5 Flash Image).
  */
-export function providerOptions(statuses: readonly ImageProviderStatus[]): IconSelectOption[] {
+export function imagePickerProviders(statuses: readonly ImageProviderStatus[]): PickerProvider[] {
   return IMAGE_PROVIDERS.filter((p) => {
     if (p.id !== 'ollama') return true;
     const status = statuses.find((s) => s.id === 'ollama');
@@ -46,7 +55,9 @@ export function providerOptions(statuses: readonly ImageProviderStatus[]): IconS
       id: p.id,
       label: p.label,
       icon: IMAGE_PROVIDER_ICONS[p.id],
-      ...(blocked ? { isDisabled: true, disabledReason: blocked } : {}),
+      color: IMAGE_PROVIDER_COLORS[p.id],
+      ...(p.id === DEFAULT_IMAGE_PROVIDER ? { recommended: true } : {}),
+      ...(blocked ? { disabled: true, reason: blocked } : {}),
     };
   });
 }
@@ -59,6 +70,7 @@ export function CreatePanel({
   error,
   onGenerate,
   onCancel,
+  onPick,
 }: {
   state: CreateState;
   dispatch: Dispatch<CreateAction>;
@@ -67,6 +79,8 @@ export function CreatePanel({
   error: string | null;
   onGenerate: () => void;
   onCancel: () => void;
+  /** Fired after the picker changes provider/model, e.g. to remember it as the default. */
+  onPick?: (provider: ImageProviderId, model: string) => void;
 }) {
   const voice = useVoiceThread();
   const mic = useComposerMic({ onTranscript: (text) => dispatch({ type: 'prompt', prompt: appendDictation(state.prompt, text) }) });
@@ -90,30 +104,6 @@ export function CreatePanel({
       }}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
-        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Provider
-          <IconSelect
-            ariaLabel="Image provider"
-            options={providerOptions(statuses)}
-            value={state.provider}
-            isSearchable={false}
-            menuInPortal
-            onChange={(id) => id && dispatch({ type: 'provider', provider: id as ImageProviderId, discovered: statuses.find((s) => s.id === id)?.models ?? [] })}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
-          Model
-          <IconSelect
-            ariaLabel="Image model"
-            options={models.map((m) => ({ id: m.id, label: m.label }))}
-            value={state.model}
-            isSearchable={false}
-            menuInPortal
-            onChange={(id) => dispatch({ type: 'model', model: id })}
-          />
-        </div>
-
         <div className="flex gap-2">
           <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-muted-foreground">
             Aspect
@@ -181,6 +171,25 @@ export function CreatePanel({
             rows={5}
             placeholder="A lighthouse on a basalt cliff at blue hour, film grain"
             mic={mic}
+            leading={
+              <ProviderModelPicker
+                testId="image-picker"
+                providers={imagePickerProviders(statuses)}
+                provider={state.provider}
+                models={models.map((m) => ({ ...m, ...(m.id === models[0]?.id ? { recommended: true } : {}) }))}
+                model={state.model}
+                onProviderChange={(id) => {
+                  const provider = id as ImageProviderId;
+                  const discovered = statuses.find((s) => s.id === id)?.models ?? [];
+                  dispatch({ type: 'provider', provider, discovered });
+                  onPick?.(provider, imageModelsFor(provider, discovered)[0]?.id ?? '');
+                }}
+                onModelChange={(model) => {
+                  dispatch({ type: 'model', model });
+                  onPick?.(state.provider, model);
+                }}
+              />
+            }
             trailing={<SpeechToggle voice={voice} />}
             boxClassName={MEDIA_PROMPT_BOX}
             testIdPrefix="image-prompt"
