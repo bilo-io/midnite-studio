@@ -151,7 +151,11 @@ describe('the panel layout', () => {
     await screen.findByRole('heading', { name: 'Changes' });
     const closes = screen.getAllByRole('button', { name: 'Close' });
     expect(closes).toHaveLength(1);
-    expect(screen.getByTestId('diff-viewer-header').lastElementChild).toBe(closes[0]);
+    expect(screen.queryByTestId('diff-viewer-header')).toBeNull();
+    const header = closes[0]!.closest('header')!;
+    const kids = Array.from(header.children);
+    expect(kids[kids.length - 1]).toBe(closes[0]);
+    expect(kids.indexOf(screen.getByRole('button', { name: 'Collapse all files' }))).toBeLessThan(kids.length - 1);
     const input = screen.getByPlaceholderText('Commit message');
     const heading = screen.getByRole('heading', { name: 'Changes' });
     expect(heading.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
