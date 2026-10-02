@@ -77,6 +77,9 @@ function fileDiff(): FileDiff {
     insertions: 1,
     deletions: 0,
     contextLines: 3,
+    combined: false,
+    truncated: false,
+    droppedLines: 0,
     hunks: [
       {
         oldStart: 1,
@@ -87,7 +90,7 @@ function fileDiff(): FileDiff {
         lines: [line('ctx', 1, 1, 'one'), line('ctx', 2, 2, 'two'), line('add', null, 3, 'three'), line('ctx', 3, 4, 'four')],
       },
     ],
-  } as FileDiff;
+  };
 }
 
 describe('excerptFromFile', () => {

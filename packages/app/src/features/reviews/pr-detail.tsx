@@ -286,7 +286,7 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             notReady={notReady(comments.data?.cli)}
             threads={threads.data?.threads ?? []}
             // Only when the patch is already cached — never fetched for an excerpt.
-            files={files.data?.files ?? null}
+            files={files.data?.files?.files ?? null}
             onReply={async (input) => (await reply.mutateAsync(input)).ok}
             onResolve={(input) => resolve.mutate(input)}
             busy={busy}

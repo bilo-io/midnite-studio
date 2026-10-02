@@ -75,6 +75,8 @@ function thread(overrides: Partial<ForgeReviewThread> = {}): ForgeReviewThread {
       {
         id: 'c1',
         databaseId: '1',
+        diffHunk: '',
+        reviewId: null,
         author: 'reviewer',
         body: ["let's log a name too:", '', '```suggestion', "  console.log('hi, name');", '```'].join(
           '\n',
