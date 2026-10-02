@@ -34,11 +34,11 @@ import {
   LuStethoscope,
   LuTerminal,
   LuTrash2,
-  LuWorkflow,
 } from 'react-icons/lu';
 
 import type { SettingsPageId, ViewId } from '../store/ui-store';
 import { CirclePileIcon } from './icons/circle-pile-icon';
+import { WorkflowsIcon } from './icons/workflows-icon';
 
 /**
  * One glyph per view, shared by the nav rail (`app.tsx`) and the title bar's
@@ -88,7 +88,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
-  workflows: LuWorkflow,
+  workflows: WorkflowsIcon,
   // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.
   media: SiMagic,
   // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this
@@ -128,7 +128,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
   projects: LuListTodo,
-  workflows: LuWorkflow,
+  workflows: WorkflowsIcon,
   media: SiMagic,
   ollama: SiOllama,
   gitSafety: LuShieldAlert,

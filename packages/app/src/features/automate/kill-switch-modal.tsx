@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LuFolderGit2, LuGlobe, LuSquareKanban, LuUserRound, LuWorkflow } from 'react-icons/lu';
+import { LuFolderGit2, LuGlobe, LuSquareKanban, LuUserRound } from 'react-icons/lu';
 
 import { KILL_SCOPES, KILL_SCOPE_LABEL, type KillScope } from '@midnite/studio-shared';
 
@@ -14,9 +14,10 @@ import {
   sessionsForScope,
   type KillScopeContext,
 } from './kill-scope';
+import { WorkflowsIcon } from '../../components/icons/workflows-icon';
 
 const SCOPE_ICON: Record<KillScope, typeof LuGlobe> = {
-  flow: LuWorkflow,
+  flow: WorkflowsIcon,
   project: LuSquareKanban,
   repo: LuFolderGit2,
   forgeUser: LuUserRound,
