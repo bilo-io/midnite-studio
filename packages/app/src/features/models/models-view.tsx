@@ -13,9 +13,10 @@ import {
   LuX,
 } from 'react-icons/lu';
 import { SiOllama } from 'react-icons/si';
+import { PiPlayFill } from 'react-icons/pi';
 
 import { useDialogs } from '../../components/dialog-host';
-import { EmptyState } from '../../components/empty-state';
+import { EmptyState, EmptyStateButton } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { LoadingRegion, Skeleton, Spinner } from '../../components/skeleton';
 import { bridge } from '../../services/bridge';
@@ -162,15 +163,14 @@ function DaemonDownState({ onStarted }: { onStarted: () => void }) {
           title="Ollama isn't running"
           body="Start the daemon to see installed models, pull new ones, and point an agent at a local model."
         />
-        <button
-          type="button"
+        <EmptyStateButton
+          icon={LuPlay}
+          filledIcon={PiPlayFill}
+          label="Start Ollama"
           onClick={() => void start()}
           disabled={starting}
-          className="flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
-        >
-          {starting ? <Spinner className="h-3.5 w-3.5" /> : <LuPlay className="h-3.5 w-3.5" />}
-          Start Ollama
-        </button>
+          busy={starting ? <Spinner className="h-3.5 w-3.5" /> : undefined}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LuAudioLines, LuChevronDown, LuPencilLine, LuPause, LuPlay } from 'react-icons/lu';
+import { PiPencilLineFill } from 'react-icons/pi';
 
 import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { currentTrack, usePlayer, type PlayerTrack } from './player-store';
@@ -43,7 +44,7 @@ export function SessionList({
         title={loading ? 'Loading…' : 'No audio yet'}
         body={loading ? '' : 'Fill in the prompt on the right, then Import audio… to attach files as variants.'}
         action={
-          !loading && onCompose ? <EmptyStateButton icon={LuPencilLine} label="Write a prompt" onClick={onCompose} /> : undefined
+          !loading && onCompose ? <EmptyStateButton icon={LuPencilLine} filledIcon={PiPencilLineFill} label="Write a prompt" onClick={onCompose} /> : undefined
         }
       />
     );

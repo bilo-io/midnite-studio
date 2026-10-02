@@ -6,6 +6,7 @@ import {
 } from '@midnite/studio-shared';
 import { useEffect, useState } from 'react';
 import { LuClapperboard, LuDownload, LuPlus, LuFolderGit2, LuGlobe, LuHardDrive, LuPlay } from 'react-icons/lu';
+import { PiPlusCircleFill } from 'react-icons/pi';
 
 import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
@@ -238,7 +239,7 @@ export function VideoTab() {
             icon={LuClapperboard}
             title="Select a project"
             body="Pick one on the left, or start a new video."
-            action={<EmptyStateButton icon={LuPlus} label="New video project" onClick={newProject} />}
+            action={<EmptyStateButton icon={LuPlus} filledIcon={PiPlusCircleFill} label="New video project" onClick={newProject} />}
           />
         )
       }
