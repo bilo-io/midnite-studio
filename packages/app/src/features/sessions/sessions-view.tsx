@@ -24,7 +24,6 @@ import {
   LuSearch,
   LuTerminal,
   LuTrash2,
-  LuWorkflow,
   LuX,
 } from 'react-icons/lu';
 
@@ -78,6 +77,7 @@ import {
 } from './session-order';
 import { NO_SESSIONS_EMPTY, SessionListSkeleton } from './sessions-skeletons';
 import { TranscriptView } from './transcript-view';
+import { WorkflowsIcon } from '../../components/icons/workflows-icon';
 
 const REASON_OPTIONS: MultiSelectOption[] = [
   { value: 'closed', label: 'Closed' },
@@ -930,7 +930,7 @@ function WorkflowRunSessionsGroup({
               open ? 'rotate-90' : ''
             }`}
           />
-          <LuWorkflow aria-hidden className="h-3 w-3 shrink-0" />
+          <WorkflowsIcon className="h-3 w-3 shrink-0" />
           <span className="truncate font-semibold uppercase tracking-wide">{title}</span>
           <span className="shrink-0 text-muted-foreground/70">{relativeAge(group.startedAt, Date.now())}</span>
           <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>

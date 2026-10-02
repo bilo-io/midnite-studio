@@ -10,7 +10,7 @@ import {
   type WorkflowNodeStatus,
 } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen, LuWorkflow } from 'react-icons/lu';
+import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen } from 'react-icons/lu';
 
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
@@ -50,6 +50,7 @@ import { useInspectorCollapse } from './use-inspector-collapse';
 import { useSaveWorkflow, useSaveWorkflowTemplate, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
+import { WorkflowsIcon } from '../../components/icons/workflows-icon';
 
 /**
  * The right-hand panel's own navigation (Phase 52 Theme F) — `NodeInspector`
@@ -140,7 +141,7 @@ export function WorkflowsView() {
           />
         ) : (
           <EmptyState
-            icon={LuWorkflow}
+            icon={WorkflowsIcon}
             title="Select a workflow"
             body="Pick one on the left, or create a new one to get started."
           />
