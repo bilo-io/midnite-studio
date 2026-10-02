@@ -31,7 +31,7 @@ import {
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree } from '../../components/change-tree';
-import { DiffPaneFrame } from '../../components/diff-pane-frame';
+import { DIFF_BAR_CLASS, DiffPaneFrame } from '../../components/diff-pane-frame';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -377,7 +377,14 @@ export function CommitDetail({
       the tree/list toggle. Pinned rather than scrolled, because it now also
       carries the control that reveals everything below it.
     */
-    <div className="flex shrink-0 items-center gap-1 py-2 pl-1 pr-2">
+    <div
+      className={
+        layout === 'split'
+          ? `flex items-center gap-1 pl-1 pr-2 ${DIFF_BAR_CLASS}`
+          : 'flex shrink-0 items-center gap-1 py-2 pl-1 pr-2'
+      }
+      data-testid="commit-header-bar"
+    >
       <button
         type="button"
         onClick={toggleMeta}

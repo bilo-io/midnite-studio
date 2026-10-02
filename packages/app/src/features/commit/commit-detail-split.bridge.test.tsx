@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { COMMIT_SHA as SHA, fixtures } from '../../../test-support/fixtures';
+import { DIFF_BAR_CLASS } from '../../components/diff-pane-frame';
 import { renderView } from '../../../test-support/render';
 import { CommitDetail } from './commit-detail';
 
@@ -76,11 +77,43 @@ describe('CommitDetail, split layout', () => {
     await screen.findByTestId('commit-identities');
     const closes = screen.getAllByRole('button', { name: 'Close' });
     expect(closes).toHaveLength(1);
-    const header = screen.getByTestId('diff-viewer-header');
-    expect(header.lastElementChild).toBe(closes[0]);
+    // No bar of its own: Close is the last item of the files/totals header.
+    expect(screen.queryByTestId('diff-viewer-header')).toBeNull();
+    const header = closes[0]!.closest('header')!;
+    const kids = Array.from(header.children);
+    expect(within(header).getByTestId('change-totals')).toBe(kids[0]);
+    expect(kids[kids.length - 1]).toBe(closes[0]);
+    expect(kids.indexOf(screen.getByRole('button', { name: 'Collapse all files' }))).toBeLessThan(kids.length - 1);
     expect(within(screen.getByTestId('commit-left-panel')).queryByRole('button', { name: 'Close' })).toBeNull();
     fireEvent.click(closes[0]!);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a single Close in a minimal header when one file is picked (no files header)', async () => {
+    renderView(<CommitDetail repoId="repo-1" sha={SHA} layout="split" onClose={() => {}} />, {
+      fixtures,
+      uiState: { selectedRepoId: 'repo-1', commitFileView: 'list' },
+    });
+    await screen.findByTestId('commit-identities');
+    fireEvent.click(within(fileList()).getByRole('button', { name: 'packages/desktop/src/main/window.ts' }));
+    await waitFor(() => expect(within(diffPane()).getAllByTestId('diff-view')).toHaveLength(1));
+    const closes = screen.getAllByRole('button', { name: 'Close' });
+    expect(closes).toHaveLength(1);
+    expect(screen.getByTestId('diff-viewer-header').lastElementChild).toBe(closes[0]);
+  });
+
+  it('gives the left commit header and the right files header the same fixed height', async () => {
+    renderView(<CommitDetail repoId="repo-1" sha={SHA} layout="split" onClose={() => {}} />, {
+      fixtures,
+      uiState: { selectedRepoId: 'repo-1', commitFileView: 'list' },
+    });
+    await screen.findByTestId('commit-identities');
+    const left = screen.getByTestId('commit-header-bar');
+    const right = screen.getByRole('button', { name: 'Close' }).closest('header')!;
+    for (const bar of [left, right]) {
+      for (const cls of DIFF_BAR_CLASS.split(' ')) expect(bar.classList.contains(cls)).toBe(true);
+    }
+    expect(DIFF_BAR_CLASS).toContain('h-10');
   });
 
   it('bolds the total line counts and fills the column height', async () => {

@@ -5,6 +5,7 @@ import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
 import { LuChevronsDownUp, LuChevronsUpDown } from 'react-icons/lu';
 
 import { ChangeTotals } from '../../components/change-tree';
+import { DIFF_BAR_CLASS, DiffPaneClose } from '../../components/diff-pane-frame';
 import { IconButton } from '../../components/icon-button';
 import { FileAccordion } from './file-accordion';
 import {
@@ -96,7 +97,7 @@ export function ChangesAccordion({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+      <header className={`flex items-center gap-2 px-3 ${DIFF_BAR_CLASS}`}>
         {leading}
         {/*
           The whole set in one line. Every file below is collapsed by default,
@@ -117,6 +118,7 @@ export function ChangesAccordion({
           size="sm"
           onClick={() => setExpanded(NOTHING_EXPANDED)}
         />
+        <DiffPaneClose />
       </header>
 
       {/*
