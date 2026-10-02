@@ -13,6 +13,7 @@ import {
   type DirNode,
 } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree, Counts, type FileSelectModifiers } from '../../components/change-tree';
+import { DIFF_BAR_CLASS } from '../../components/diff-pane-frame';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { TreeSection } from '../../components/tree-section';
 import { useCommitMessageAi } from '../../services/queries';
@@ -299,18 +300,12 @@ export function WorkingTreeFileList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {status?.inProgress ? (
-        <p className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
-          A {status.inProgress} is in progress.
-        </p>
-      ) : null}
-
       {/*
         The whole checkout in one line, above both sections. The per-section
         headings count their own rows; this is the answer to "how big is what
         I am about to commit" without adding two numbers together.
       */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border py-1 pl-3 pr-2">
+      <div className={`flex items-center gap-2 px-3 ${DIFF_BAR_CLASS}`} data-testid="working-tree-header-bar">
         <ChangeTotals {...total} />
         <IconButton
           icon={AiOutlineDiff}
@@ -334,6 +329,12 @@ export function WorkingTreeFileList({
         <ViewToggle view={fileView} onChange={setFileView} />
         {trailing}
       </div>
+
+      {status?.inProgress ? (
+        <p className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+          A {status.inProgress} is in progress.
+        </p>
+      ) : null}
 
       <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto">
         <TreeSection

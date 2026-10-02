@@ -97,7 +97,7 @@ export function ChangesAccordion({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className={`flex items-center gap-2 px-3 ${DIFF_BAR_CLASS}`}>
+      <header data-testid="changes-accordion-header" className={`flex items-center gap-2 px-3 ${DIFF_BAR_CLASS}`}>
         {leading}
         {/*
           The whole set in one line. Every file below is collapsed by default,
