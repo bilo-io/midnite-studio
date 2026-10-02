@@ -32,6 +32,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pointer cursor for every interactive control. Tailwind v3's preflight already
+ * sets `button, [role="button"] { cursor: pointer }` and `:disabled { cursor: default }`;
+ * this adds the roles/elements it leaves on the default arrow. Base layer, so any
+ * explicit `cursor-*` utility (cursor-default, cursor-grab, cursor-col-resize,
+ * cursor-text) still wins. Disabled / aria-disabled controls are excluded. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='menuitemcheckbox']:not([aria-disabled='true']),
+  [role='menuitemradio']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='treeitem']:not([aria-disabled='true']),
+  [role='switch']:not([aria-disabled='true']),
+  summary,
+  a[href],
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @layer base {
   :root {
     --font-brand: 'Quick Kiss', sans-serif;

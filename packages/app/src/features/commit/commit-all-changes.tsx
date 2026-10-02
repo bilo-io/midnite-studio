@@ -121,7 +121,7 @@ function CommitFileAccordion({
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={bodyId}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
+          className="flex min-w-0 cursor-pointer flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
         >
           <LuChevronRight
             aria-hidden

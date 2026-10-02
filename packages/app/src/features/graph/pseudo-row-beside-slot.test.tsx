@@ -86,4 +86,29 @@ describe('pseudo-row beside slot', () => {
     expect(queryByTestId('uncommitted-provenance-slot')).toBeNull();
     expect(queryByTestId('stash-provenance-slot')).toBeNull();
   });
+
+  it('both pseudo-rows show a pointer cursor', () => {
+    const { getByTestId, container } = render(
+      <>
+        <UncommittedRow
+          status={status}
+          theme={theme}
+          markMode="badge"
+          onSelect={() => {}}
+          {...common}
+        />
+        <StashRows
+          repoId="r"
+          stashes={[stash]}
+          theme={theme}
+          selectedSelector={null}
+          markMode="badge"
+          onSelect={() => {}}
+          {...common}
+        />
+      </>,
+    );
+    expect(getByTestId('uncommitted-row').className).toContain('cursor-pointer');
+    expect(container.querySelector('.cursor-pointer.border-dashed:not([data-testid])')).not.toBeNull();
+  });
 });

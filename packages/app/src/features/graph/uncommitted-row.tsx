@@ -90,7 +90,7 @@ export function UncommittedRow({
       aria-expanded={expanded}
       aria-label={`${label} — ${expanded ? 'hide' : 'show'} the changes`}
       data-testid="uncommitted-row"
-      className={`relative flex w-full shrink-0 cursor-default items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
+      className={`relative flex w-full shrink-0 cursor-pointer items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
         expanded ? 'bg-accent/30' : 'hover:bg-accent/30'
       }`}
       style={{ height: theme.rowHeight }}
