@@ -429,9 +429,13 @@ html[data-motion='reduced'] .agent-count-text {
 
 /* Setup overlay (Phase 98 Themes B and C).
  *
- * - `.setup-brand-gradient` — the intro's typed "Midnite": the same
- *   `--brand-wordmark-ramp` (the cool blue-violet-pink arc of the palette, not the
- *   full-spectrum rainbow the agent count wears), clipped to the glyphs, but still —
+ * - `.setup-brand-gradient` — the intro's typed "Midnite" and the finale's
+ *   `<Wordmark gradient />`: midnite's signature brand sweep, `--brand-gradient`
+ *   from `@bilo-io/shell/appearance.css` (blue → violet → rose, theme-aware via
+ *   `.dark`) — the same gradient the midnite apps paint their own wordmark and
+ *   auth hero with, not the full-spectrum rainbow the agent count wears. The
+ *   palette arc after it is only a fallback should the shell ever stop
+ *   defining the variable. Clipped to the glyphs, but still —
  *   it is colour, not motion, so reduced motion keeps it. The padding is clip
  *   headroom: a script face's ink runs past its advance box, and a
  *   background clipped to text is only painted inside the element's own box.
@@ -446,9 +450,11 @@ html[data-motion='reduced'] .agent-count-text {
  *   green box-shadow glow around its circle. A loop like the arrow, gated and
  *   guarded the same way; reduced motion leaves a still, un-glowing check. */
 .setup-brand-gradient {
-  --brand-wordmark-ramp: var(--rainbow-3), var(--rainbow-4), var(--rainbow-5);
   padding: 0.12em 0.15em;
-  background-image: linear-gradient(90deg, var(--brand-wordmark-ramp));
+  background-image: var(
+    --brand-gradient,
+    linear-gradient(90deg, var(--rainbow-3), var(--rainbow-4), var(--rainbow-5))
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
