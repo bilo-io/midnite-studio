@@ -61,7 +61,7 @@ function installBridge(overrides: { renders?: VideoRender[]; toolchain?: VideoTo
 
 function renderDetail(projectId: string | null = 'p1') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <VideoProjectDetail projectId={projectId} />
     </QueryClientProvider>,
@@ -76,12 +76,14 @@ describe('VideoProjectDetail', () => {
     useTerminalStore.setState({ sessions: [], activeId: null, states: {} });
   });
 
-  it('renders the title, composition, and brief/script content', async () => {
+  it('renders the brief/script content, with the tab strip at the top and no title in the panel', async () => {
     installBridge();
-    renderDetail();
+    const { container } = renderDetail();
 
-    expect(await screen.findByText('COP31 showreel')).toBeDefined();
-    expect(screen.getByText('MyComp')).toBeDefined();
+    expect(screen.queryByText('COP31 showreel')).toBeNull();
+    await screen.findByText('The brief');
+    expect(container.querySelector('h2')).toBeNull();
+    expect((container.firstElementChild as HTMLElement).firstElementChild?.getAttribute('role')).toBe('tablist');
     expect(await screen.findByText('The brief')).toBeDefined();
     expect(await screen.findByText('The script')).toBeDefined();
   });
@@ -90,7 +92,7 @@ describe('VideoProjectDetail', () => {
     installBridge();
     renderDetail();
 
-    await screen.findByText('COP31 showreel');
+    await screen.findByText('The brief');
     expect(screen.getByRole('heading', { level: 3, name: 'Claude' })).toBeDefined();
     expect(screen.getByRole('button', { name: /Write editorial script/ })).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: /Execute editorial script/ })).toHaveProperty('disabled', true);
@@ -102,7 +104,7 @@ describe('VideoProjectDetail', () => {
     useUiStore.setState({ primaryAgent: 'codex' });
     renderDetail();
 
-    await screen.findByText('COP31 showreel');
+    await screen.findByText('The brief');
     expect(screen.getByRole('heading', { level: 3, name: 'Codex' })).toBeDefined();
   });
 
@@ -135,7 +137,7 @@ describe('VideoProjectDetail', () => {
     useUiStore.setState({ selectedRepoId: 'repo1' });
     renderDetail();
 
-    await screen.findByText('COP31 showreel');
+    await screen.findByText('The brief');
     const write = await screen.findByRole('button', { name: /Write editorial script/ });
     await waitFor(() => expect(write).toHaveProperty('disabled', true));
     expect(write.title).toContain('Not found at .claude/skills/video-write-editorial-script/SKILL.md');

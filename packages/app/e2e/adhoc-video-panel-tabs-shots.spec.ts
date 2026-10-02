@@ -33,7 +33,7 @@ test.describe('video panel tabs screenshots', () => {
       await expect(page.getByRole('tab', { name: 'Video', selected: true })).toBeVisible({ timeout: 500 });
     }).toPass({ timeout: 5000 });
     await page.getByRole('button', { name: /Launch film/ }).click();
-    await page.getByRole('tab', { name: 'Edit' }).click();
+    await page.getByRole('tab', { name: 'Edit with AI' }).click();
     await settle(page, 300);
     await page.screenshot({ path: shotPath(OUT, 'edit.png') });
     await page.getByRole('tab', { name: 'Versions' }).click();

@@ -125,16 +125,11 @@ function VideoToolbar({
   return (
     <>
       <RootSourceBadge resolution={resolution} />
-      <button
-        type="button"
-        disabled={!projectId || !composition}
-        title={!composition ? 'Select a project to render' : undefined}
-        onClick={() => setRenderOpen(true)}
-        className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <LuPlay aria-hidden className="h-3.5 w-3.5" />
-        Render…
-      </button>
+      {project.data?.valid ? (
+        <span data-testid="video-toolbar-title" className="min-w-0 truncate text-xs font-semibold text-foreground">
+          {project.data.title}
+        </span>
+      ) : null}
       {ffmpeg.data && !ffmpeg.data.found ? (
         <button
           type="button"
@@ -166,6 +161,16 @@ function VideoToolbar({
           onRender={(options) => startRender.mutate({ projectId, compositionId: composition, options })}
         />
       ) : null}
+      <button
+        type="button"
+        disabled={!projectId || !composition}
+        title={!composition ? 'Select a project to render' : undefined}
+        onClick={() => setRenderOpen(true)}
+        className="ml-auto flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <LuPlay aria-hidden className="h-3.5 w-3.5" />
+        Render…
+      </button>
     </>
   );
 }
