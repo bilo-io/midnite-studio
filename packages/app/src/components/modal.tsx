@@ -1,5 +1,6 @@
 import { ReactNode, RefObject, useEffect, useRef } from 'react';
 
+import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 import { motionMs } from './use-reveal';
@@ -14,6 +15,11 @@ export type ModalProps = {
   align?: 'center' | 'top';
   initialFocusRef?: RefObject<HTMLElement | null>;
   testId?: string;
+  /**
+   * `content` (default) centres in the main content area, clear of the terminal
+   * dock; `window` centres in the whole window, for app-level modals.
+   */
+  scope?: 'content' | 'window';
 };
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -33,7 +39,9 @@ export function Modal({
   align = 'center',
   initialFocusRef,
   testId,
+  scope = 'content',
 }: ModalProps) {
+  const content = useContentOverlay(align);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Trap + focus-on-open + restore-on-close, all in one hook (Phase 68 Theme
@@ -73,8 +81,12 @@ export function Modal({
 
   if (!open) return null;
 
-  const alignClass =
-    align === 'top'
+  const scoped = scope === 'content' && content.overlayStyle !== undefined;
+  const alignClass = scoped
+    ? align === 'top'
+      ? 'items-start justify-center'
+      : 'items-center justify-center'
+    : align === 'top'
       ? 'items-start justify-center p-6 pt-[15vh]'
       : 'items-center justify-center p-6';
 
@@ -94,12 +106,14 @@ export function Modal({
       }}
       style={{
         transitionDuration: `${duration}ms`,
+        ...(scoped ? content.overlayStyle : null),
       }}
     >
       <div
         ref={panelRef}
         tabIndex={-1}
         data-testid={testId}
+        style={scoped && content.panelMaxHeight !== undefined ? { maxHeight: content.panelMaxHeight } : undefined}
         className={`w-full overflow-hidden rounded-lg border border-border bg-popover shadow-xl outline-none ${sizeClass} ${
           variant === 'gradient' ? 'gradient-frame' : ''
         }`}

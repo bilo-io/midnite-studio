@@ -125,6 +125,7 @@ export function NotesModal() {
       variant="gradient"
       align="center"
       testId="notes-modal"
+      scope="window"
       initialFocusRef={composerRef}
     >
       <div className="flex h-[80vh] flex-col">

@@ -34,6 +34,7 @@ import { AppsRailRow } from './features/apps/apps-rail-row';
 import { useAppsSync } from './features/apps/use-apps-sync';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
+import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
 import { ToastHost } from './components/toast-host';
 import {
@@ -1033,6 +1034,14 @@ function Shell() {
     */
     animateKey: `${terminalDocked}:${terminalMaximized}:${terminalDock}`,
   });
+  // Publishes the content area's rect (view stack minus the docked terminal) for
+  // content-scoped modals to centre in; see `store/content-bounds-store.ts`.
+  useContentBoundsSync(stackRef, terminalRight ? 'right' : 'bottom', [
+    terminalTween.mounted,
+    terminalMaximized,
+    terminalDocked,
+    terminalTarget,
+  ]);
   /*
     The browser gets BOTH reveal primitives, one per layout, because the two
     layouts are structurally different panes: full screen is an overlay that

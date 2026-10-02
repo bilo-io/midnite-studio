@@ -182,7 +182,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // terminal is a layout claim (the frame's `getBoundingClientRect` sits beside
 // the view, and a real pointer drag on its left-edge handle resizes it), which
 // jsdom cannot measure. The store and button logic are vitest.
-export const MAX_DECLARED_E2E = 462;
+//
+// Raised 462 -> 464 for `content-modal-bounds.spec.ts` (2 tests): a content-scoped
+// dialog must sit inside the view box, clear of the terminal frame, and win
+// `elementFromPoint` over it. That is real layout and hit-testing; the bounds
+// maths and the Modal scope prop are vitest.
+export const MAX_DECLARED_E2E = 464;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

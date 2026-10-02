@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 
 import { LuTriangleAlert } from 'react-icons/lu';
 
+import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
@@ -171,12 +172,14 @@ export function ConfirmDialog({
   */
   useDismiss(true, onCancel, { layer: 'dialog' });
 
+  const { overlayStyle, panelMaxHeight } = useContentOverlay();
   const radius = request.blastRadius;
   const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];
 
   return (
     <div
-      className="fixed inset-0 z-dialog flex items-center justify-center bg-background/70 p-6"
+      className={`fixed inset-0 z-dialog flex items-center justify-center bg-background/70 ${overlayStyle ? '' : 'p-6'}`}
+      style={overlayStyle}
       role="dialog"
       aria-modal="true"
       aria-label={request.title}
@@ -194,7 +197,8 @@ export function ConfirmDialog({
       <div
         ref={containerRef}
         tabIndex={-1}
-        className={`w-full max-w-md overflow-hidden rounded-lg border bg-popover shadow-xl ${
+        style={panelMaxHeight === undefined ? undefined : { maxHeight: panelMaxHeight }}
+        className={`w-full max-w-md overflow-y-auto rounded-lg border bg-popover shadow-xl ${
           request.danger ? 'border-destructive/60 ring-1 ring-destructive/25' : 'border-border'
         }`}
       >
