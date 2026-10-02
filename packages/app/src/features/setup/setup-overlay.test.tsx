@@ -312,6 +312,13 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     ).toBe('visible');
   });
 
+  it('the intro word wears the brand gradient, not the rainbow', () => {
+    renderOverlay();
+    const el = screen.getByTestId('setup-intro-word');
+    expect(el.className).toContain('setup-brand-gradient');
+    expect(el.className).not.toMatch(/rainbow/);
+  });
+
   it('Begin fades the word, then the page title types and only then does the body fade in', () => {
     renderOverlay();
     act(() => vi.runOnlyPendingTimers());
@@ -556,5 +563,16 @@ describe('SetupOverlay — completion transition and finale (Theme J)', () => {
     expect(stepOf()).toBe('finale');
     expect(screen.queryByTestId('setup-bloom')).toBeNull();
     expect(screen.getByRole('heading', { name: /Welcome to\s*Midnite\s*Studio/ })).toBeTruthy();
+  });
+
+  it('the finale wordmark wears the brand gradient, and Studio does not', () => {
+    toLastPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    const heading = screen.getByRole('heading', { name: /Welcome to\s*Midnite\s*Studio/ });
+    const midnite = screen.getByText('Midnite', { selector: 'span' });
+    expect(heading.contains(midnite)).toBe(true);
+    expect(midnite.className).toContain('setup-brand-gradient');
+    expect(midnite.className).not.toMatch(/rainbow/);
+    expect(screen.getByText('Studio').className).not.toContain('setup-brand-gradient');
   });
 });
