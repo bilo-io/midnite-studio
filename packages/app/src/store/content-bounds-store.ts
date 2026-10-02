@@ -143,7 +143,6 @@ export function useContentBoundsSync(
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stackRef]);
 
   // Deferred a frame: a store write from this effect re-renders the mounted
@@ -152,6 +151,5 @@ export function useContentBoundsSync(
   useEffect(() => {
     const raf = requestAnimationFrame(publish);
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dock, terminalSize]);
 }
