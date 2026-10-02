@@ -39,8 +39,8 @@ export function looksLikeUnifiedDiff(code: string): boolean {
 }
 
 const DIFF_ROW: Record<DiffLineKind, string> = {
-  add: 'bg-success/10 text-foreground',
-  del: 'bg-destructive/10 text-foreground',
+  add: 'bg-success/10 text-success',
+  del: 'bg-destructive/10 text-destructive',
   ctx: 'text-muted-foreground',
   hunk: 'bg-primary/10 text-primary',
   file: 'font-semibold text-foreground',
