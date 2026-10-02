@@ -106,3 +106,19 @@ describe('AccountsPage', () => {
     expect((await screen.findByRole('alert')).textContent).toContain('read-only home');
   });
 });
+
+describe('AccountsPage — brand marks', () => {
+  it('shows a coloured forge mark on the account card and on every Add-account provider', async () => {
+    install([ada]);
+    renderPage();
+    await screen.findByText('Ada Lovelace');
+    const group = screen.getByRole('group', { name: 'Provider' });
+    for (const kind of ['github', 'gitlab', 'bitbucket', 'azure']) {
+      const mark = group.querySelector(`[data-forge-icon="${kind}"]`) as HTMLElement | null;
+      expect(mark, kind).not.toBeNull();
+      expect(mark!.style.getPropertyValue('--brand-light')).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+    // The account card's own mark (the Add-account group holds the other four).
+    expect(screen.getAllByTestId('forge-mark-github').length).toBe(2);
+  });
+});

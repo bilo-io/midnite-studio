@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { LuTerminal } from 'react-icons/lu';
 import { PiDownloadSimple, PiDownloadSimpleFill } from 'react-icons/pi';
 
 import type { CliStatusResponse } from '@midnite/studio-shared';
 
 import { EmptyStateButton } from '../../../components/empty-state';
+import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 
@@ -100,7 +100,8 @@ export function MidniteCliPage() {
       <SetupStatusRow
         label="Midnite CLI"
         status={rowStatus}
-        icon={LuTerminal}
+        icon={MidniteIcon}
+        brandColor="#8B5CF6"
         detail={detail}
         meta={
           status?.installed && status.managed && (status.version ?? status.path) ? (

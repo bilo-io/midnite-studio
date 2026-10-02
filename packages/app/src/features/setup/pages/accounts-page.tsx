@@ -9,11 +9,11 @@ import { UserAvatar } from '../../../components/user-avatar';
 import { useAddForgeAccount, useForgeAccounts, useSwitchForgeAccount } from '../../../services/queries';
 import {
   PROVIDER_HOST,
-  PROVIDER_ICON,
   PROVIDER_LABEL,
   PROVIDER_TOKEN_HINT,
   type SupportedKind,
 } from '../../settings/settings-pages/accounts-page';
+import { ForgeMark } from '../forge-mark';
 import { TextField } from '../../settings/settings-pages/controls';
 
 const KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucket', 'azure'];
@@ -158,7 +158,6 @@ function AccountCard({
   onSelect: () => void;
 }) {
   const kind = account.kind as SupportedKind;
-  const ForgeIcon = PROVIDER_ICON[kind];
   return (
     <button
       type="button"
@@ -175,7 +174,7 @@ function AccountCard({
           @{account.login} · {account.email || 'email not shared'}
         </span>
       </span>
-      {ForgeIcon ? <ForgeIcon aria-label={PROVIDER_LABEL[kind]} className="h-4 w-4 shrink-0 text-muted-foreground" /> : null}
+      <ForgeMark kind={kind} />
       {selected ? <LuCheck aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : null}
     </button>
   );
@@ -207,10 +206,11 @@ function AddAccount() {
             type="button"
             aria-pressed={kind === candidate}
             onClick={() => setKind(candidate)}
-            className={`rounded-md border px-2 py-0.5 text-[11px] ${
+            className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] ${
               kind === candidate ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'
             }`}
           >
+            <ForgeMark kind={candidate} className="h-3 w-3 shrink-0" />
             {PROVIDER_LABEL[candidate]}
           </button>
         ))}

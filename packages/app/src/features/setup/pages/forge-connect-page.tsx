@@ -11,6 +11,7 @@ import {
   PROVIDER_TOKEN_HINT,
   type SupportedKind,
 } from '../../settings/settings-pages/accounts-page';
+import { ForgeMark } from '../forge-mark';
 import { TextField } from '../../settings/settings-pages/controls';
 
 const SUPPORTED_KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucket', 'azure'];
@@ -61,6 +62,7 @@ function ForgeCard({ kind, account }: { kind: SupportedKind; account: ForgeAccou
           src={account.avatarUrl}
           size={20}
         />
+        <ForgeMark kind={kind} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium">{PROVIDER_LABEL[kind]}</p>
           <p className="truncate text-[11px] text-muted-foreground">
@@ -91,7 +93,10 @@ function ForgeCard({ kind, account }: { kind: SupportedKind; account: ForgeAccou
       className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-card/50 px-2.5 py-2"
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium">{PROVIDER_LABEL[kind]}</p>
+        <p className="flex items-center gap-1.5 text-xs font-medium">
+          <ForgeMark kind={kind} />
+          {PROVIDER_LABEL[kind]}
+        </p>
         <button
           type="submit"
           disabled={addAccount.isPending || (kind !== 'github' && token.trim().length === 0)}

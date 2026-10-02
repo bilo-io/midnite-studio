@@ -26,7 +26,7 @@ import { useModelsPullQueueStore } from '../../models/models-pull-queue-store';
 import { useOllamaModels, useOllamaStatus } from '../../models/use-models';
 import { submitCommand } from '../../terminal/submit-command';
 import { useInstallRunner, useSetupProbe } from '../install-runner';
-import { resolveSetupIcon } from '../setup-icons';
+import { resolveSetupItemIcon } from '../setup-icons';
 import { useSetupStore } from '../setup-store';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
@@ -161,7 +161,7 @@ export function OllamaPage() {
       <SetupStatusRow
         label="Ollama"
         status={rowStatus}
-        icon={item ? resolveSetupIcon(item.icon) : undefined}
+        icon={item ? resolveSetupItemIcon(item) : undefined}
         detail={
           rowStatus === 'ready'
             ? daemonUp

@@ -1,6 +1,6 @@
 import { COMMANDS } from '@midnite/studio-shared';
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { LuArrowDownRight, LuChevronRight, LuX } from 'react-icons/lu';
+import { LuArrowDownRight, LuChevronLeft, LuChevronRight, LuX } from 'react-icons/lu';
 import { PiArrowRight, PiArrowRightFill, PiRocketLaunch, PiRocketLaunchFill } from 'react-icons/pi';
 
 import { BrandMark, Wordmark } from '../../components/brand';
@@ -21,11 +21,13 @@ import {
   handoffTimeline,
   introTimeline,
   isReducedMotion,
+  pageEnter,
   playGlide,
   playTimeline,
   type CompletionPhase,
   type HandoffPhase,
   type IntroFrame,
+  type PageDirection,
   type RectLike,
 } from './setup-choreography';
 import {
@@ -61,7 +63,12 @@ const INTRO_MARK_PX = 64;
  *   page, `null` when it stays put (every page-to-page move: the anchor is
  *   the frame's, so it does not move between pages at all).
  */
-type Arrival = { mode: 'typed' | 'instant'; glideFrom: RectLike | 'centre' | null };
+type Arrival = {
+  mode: 'typed' | 'instant';
+  glideFrom: RectLike | 'centre' | null;
+  /** Which way a page-to-page move went, so its content slides in from that side. */
+  direction?: PageDirection;
+};
 type View = { step: SetupStep; arrival: Arrival };
 
 /** Theme C: the handoff under way, and the FAB it points at (`null`: hidden, so no arrow). */
@@ -115,7 +122,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     // Opened straight onto a page (a resume, a Settings deep link): no intro,
     // but the mark still arrives from the centre into the anchor.
     const glideFrom = step.kind === 'page' && !reduced ? 'centre' : null;
-    return { step, arrival: { mode: reduced ? 'instant' : 'typed', glideFrom } };
+    return { step, arrival: { mode: reduced ? 'instant' : 'typed', glideFrom, direction: 'forward' } };
   });
   const { step, arrival } = view;
   const [typedFor, setTypedFor] = useState<string | null>(null);
@@ -264,7 +271,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     setIntroLeaving(true);
     timers.current.intro = setTimeout(() => {
       const rect = introMarkRef.current?.getBoundingClientRect();
-      go(upcoming, { mode: 'typed', glideFrom: rect ? toRect(rect) : null });
+      go(upcoming, { mode: 'typed', glideFrom: rect ? toRect(rect) : null, direction: 'forward' });
     }, CHOREO.wordFadeMs);
   };
 
@@ -287,7 +294,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     // recorded on an earlier visit (Settings ▸ Accounts' "Resume setup" lands
     // back on the page it was recorded for).
     if (page) useUiStore.getState().setSetupPageSkipped(page.id, false);
-    go(upcoming, { mode: 'typed', glideFrom: null });
+    go(upcoming, { mode: 'typed', glideFrom: null, direction: 'forward' });
   };
 
   const back = (): void => {
@@ -295,7 +302,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     setBloom(null);
     const previous = prevStep(step, pageCount);
     if (previous.kind === 'intro') setIntroLeaving(false);
-    go(previous, { mode: 'instant', glideFrom: null });
+    go(previous, { mode: 'instant', glideFrom: null, direction: 'back' });
   };
 
   // Escape is the X path — or, once the handoff is showing, "go now".
@@ -355,6 +362,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     },
     'aria-hidden': completion ? true : undefined,
   } as const;
+  const enter = pageEnter(arrival.direction ?? null, reduced);
   const bodyShown = page !== undefined && (arrival.mode === 'instant' || typedFor === page.id);
   // The page content, faded out and made inert once the handoff starts.
   const content = {
@@ -439,23 +447,21 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
                   <div
                     key={page.id}
                     data-testid="setup-page-body"
-                    className={arrival.mode === 'typed' ? 'animate-fade-in' : undefined}
+                    {...enter}
                     aria-hidden={pageFade['aria-hidden']}
                     inert={completion !== null}
-                    style={{
-                      ...(arrival.mode === 'typed' ? { animationDuration: '280ms' } : {}),
-                      ...pageFade.style,
-                    }}
+                    style={{ ...enter.style, ...pageFade.style }}
                   >
                     <page.Component />
                   </div>
                 ) : null}
                 {/* Arrives with the body, so the buttons do not sit alone under a title still typing. */}
                 <div
-                  className={`flex items-center justify-between gap-2 ${bodyShown && arrival.mode === 'typed' ? 'animate-fade-in' : ''}`}
+                  className={`flex items-center justify-between gap-2 ${bodyShown ? (enter.className ?? '') : ''}`}
+                  data-dir={bodyShown ? enter['data-dir'] : undefined}
                   style={{
                     visibility: bodyShown ? 'visible' : 'hidden',
-                    ...(arrival.mode === 'typed' ? { animationDuration: '280ms' } : {}),
+                    ...(bodyShown ? enter.style : {}),
                     ...pageFade.style,
                   }}
                   inert={completion !== null}
@@ -463,8 +469,9 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
                   <button
                     type="button"
                     onClick={back}
-                    className="rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="flex items-center gap-1 rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
+                    <LuChevronLeft aria-hidden className="h-3.5 w-3.5" />
                     Back
                   </button>
                   <EmptyStateButton
@@ -802,8 +809,9 @@ function Finale({
         <button
           type="button"
           onClick={onBack}
-          className="rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-1 rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
+          <LuChevronLeft aria-hidden className="h-3.5 w-3.5" />
           Back
         </button>
         <EmptyStateButton

@@ -11,7 +11,7 @@ import {
 import { PiDownloadSimple, PiDownloadSimpleFill } from 'react-icons/pi';
 
 import { EmptyStateButton } from '../../../components/empty-state';
-import { resolveSetupIcon } from '../setup-icons';
+import { resolveSetupItemIcon } from '../setup-icons';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe, type SetupProbeMap } from '../install-runner';
@@ -99,7 +99,7 @@ export function ToolchainPage() {
                   key={item.id}
                   label={item.label}
                   status={status}
-                  icon={resolveSetupIcon(item.icon)}
+                  icon={resolveSetupItemIcon(item)}
                   brandColor={item.brandColor}
                   meta={
                     probes[item.id]?.installed && probes[item.id]?.version ? (

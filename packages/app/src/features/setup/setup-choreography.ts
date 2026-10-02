@@ -30,6 +30,8 @@ export const CHOREO = {
   handoffBeatMs: 2600,
   /** Theme C: the overlay dissolving to the app. */
   dissolveMs: 320,
+  /** A page's body and buttons arriving: slide and cross-fade together (`.setup-page-enter` in `styles.css`). */
+  pageEnterMs: 300,
   /** Theme J: the last page's content dissolving before the finale takes over. */
   completeFadeMs: 260,
   /** Theme J: the brand-gradient bloom sweeping out from the anchor (`.setup-bloom` in `styles.css`). */
@@ -38,6 +40,31 @@ export const CHOREO = {
 
 /** The glide's curve: fast out of the centre, settling softly into the anchor. */
 export const GLIDE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+/** The page-to-page curve: a symmetric ease-in-out, so a slide starts and settles softly. */
+export const PAGE_EASING = 'cubic-bezier(0.65, 0, 0.35, 1)';
+
+/** Which way a page moved: Next slides in from the right, Back from the left. */
+export type PageDirection = 'forward' | 'back';
+
+/**
+ * The class and inline vars for a page's body and button row arriving. One
+ * mechanism for both directions: `.setup-page-enter` (`styles.css`) animates
+ * opacity together with a short translate, in the direction `data-dir` names.
+ * Reduced motion gets none — no class, so the page is simply there — and the
+ * stylesheet's own guard fades without sliding should the class ever render.
+ */
+export function pageEnter(
+  direction: PageDirection | null,
+  reduced: boolean,
+): { className?: string; 'data-dir'?: PageDirection; style?: Record<string, string> } {
+  if (reduced || direction === null) return {};
+  return {
+    className: 'setup-page-enter',
+    'data-dir': direction,
+    style: { '--setup-page-ms': `${CHOREO.pageEnterMs}ms`, '--setup-page-ease': PAGE_EASING },
+  };
+}
 
 /** Whether the overlay's motion should resolve instantly — see `lib/reduced-motion.ts`. */
 export { isReducedMotion } from '../../lib/reduced-motion';

@@ -283,6 +283,38 @@ html[data-motion='reduced'] .animate-fade-in-up {
   animation: none;
 }
 
+/*
+ * Setup wizard page transition: a page's body and button row slide in from the
+ * side the move came from (Next from the right, Back from the left) while
+ * cross-fading, on one symmetric ease-in-out curve. Duration and curve arrive
+ * as `--setup-page-ms` / `--setup-page-ease` from `pageEnter()` in
+ * `setup-choreography.ts`; the fallbacks keep the rule honest on its own.
+ * Reduced motion keeps the fade and drops the slide.
+ */
+@keyframes setup-page-in-forward {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes setup-page-in-back {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes setup-page-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.setup-page-enter {
+  animation-duration: var(--setup-page-ms, 300ms);
+  animation-timing-function: var(--setup-page-ease, cubic-bezier(0.65, 0, 0.35, 1));
+  animation-fill-mode: both;
+}
+.setup-page-enter[data-dir='forward'] { animation-name: setup-page-in-forward; }
+.setup-page-enter[data-dir='back'] { animation-name: setup-page-in-back; }
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .setup-page-enter { animation-name: setup-page-fade; }
+}
+html[data-motion='reduced'] .setup-page-enter { animation-name: setup-page-fade; }
+
 /* Live agent count (title bar) — the `{N} agents` readout wears the rainbow
  * ramp as its TEXT, not a ring, and breathes.
  *

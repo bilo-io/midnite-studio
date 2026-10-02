@@ -1,19 +1,16 @@
-import { LuCheck, LuCloud } from 'react-icons/lu';
-import { SiBitbucket, SiGithub, SiGitlab } from 'react-icons/si';
+import { LuCheck } from 'react-icons/lu';
 
-import type { IconComponent } from '../../../components/icon-button';
 import { useUiStore } from '../../../store/ui-store';
+import { ForgeMark } from '../forge-mark';
 
 export const SETUP_FORGES: readonly {
   kind: 'github' | 'gitlab' | 'bitbucket' | 'azure';
   label: string;
-  icon: IconComponent;
-  color: string;
 }[] = [
-  { kind: 'github', label: 'GitHub', icon: SiGithub, color: '#8B949E' },
-  { kind: 'gitlab', label: 'GitLab', icon: SiGitlab, color: '#FC6D26' },
-  { kind: 'bitbucket', label: 'Bitbucket', icon: SiBitbucket, color: '#2684FF' },
-  { kind: 'azure', label: 'Azure DevOps', icon: LuCloud, color: '#0078D4' },
+  { kind: 'github', label: 'GitHub' },
+  { kind: 'gitlab', label: 'GitLab' },
+  { kind: 'bitbucket', label: 'Bitbucket' },
+  { kind: 'azure', label: 'Azure DevOps' },
 ];
 
 /** Toggle `kind` in the persisted selection, keeping the catalogue's order. */
@@ -37,7 +34,7 @@ export function ForgeSelectPage() {
         Which forges do you use? Pick as many as apply.
       </p>
       <div role="group" aria-label="Forges" className="grid grid-cols-2 gap-2">
-        {SETUP_FORGES.map(({ kind, label, icon: Icon, color }) => {
+        {SETUP_FORGES.map(({ kind, label }) => {
           const on = selected.includes(kind);
           return (
             <button
@@ -51,7 +48,7 @@ export function ForgeSelectPage() {
                   : 'border-border/60 bg-muted/30 hover:bg-muted/60'
               }`}
             >
-              <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color }} />
+              <ForgeMark kind={kind} />
               <span className="flex-1">{label}</span>
               {on ? <LuCheck aria-hidden className="h-4 w-4 text-primary" /> : null}
             </button>

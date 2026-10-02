@@ -82,3 +82,17 @@ describe('ForgeConnectPage', () => {
     expect(screen.getByText('Connected')).toBeTruthy();
   });
 });
+
+describe('ForgeConnectPage — brand marks', () => {
+  it('draws each forge icon in its brand colour', async () => {
+    installBridge();
+    render(<ForgeConnectPage />, { wrapper: createWrapper() });
+    await screen.findByText('GitHub');
+    const expected = { github: '#181717', gitlab: '#FC6D26', bitbucket: '#0052CC', azure: '#0078D7' };
+    for (const [kind, light] of Object.entries(expected)) {
+      const mark = screen.getByTestId(`forge-mark-${kind}`);
+      expect(mark.querySelector('svg')).not.toBeNull();
+      expect(mark.style.getPropertyValue('--brand-light')).toBe(light);
+    }
+  });
+});

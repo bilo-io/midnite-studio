@@ -330,7 +330,7 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     act(() => vi.advanceTimersByTime(1000));
     expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
-    expect(body()?.className).toContain('animate-fade-in');
+    expect(body()?.className).toContain('setup-page-enter');
   });
 
   it('a page-to-page Next types without waiting for a glide; Back is instant', () => {
@@ -375,6 +375,28 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     }
   });
 
+  it('Back wears a left chevron and Next is the shared CTA', () => {
+    act(() => useSetupStore.getState().openSetup('git'));
+    renderOverlay();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByRole('button', { name: 'Back' }).querySelector('svg')).not.toBeNull();
+    const next = screen.getByRole('button', { name: 'Next' });
+    expect(next.getAttribute('data-testid')).toBe('empty-state-cta');
+  });
+
+  it('pages slide in from the side they came from: Next from the right, Back from the left', () => {
+    act(() => useSetupStore.getState().openSetup('git'));
+    renderOverlay();
+    act(() => vi.advanceTimersByTime(2000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(body()?.getAttribute('data-dir')).toBe('forward');
+    expect(body()?.className).toContain('setup-page-enter');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(body()?.getAttribute('data-dir')).toBe('back');
+    expect(body()?.className).toContain('setup-page-enter');
+  });
+
   it('reduced motion resolves every step at once', () => {
     document.documentElement.dataset['motion'] = 'reduced';
     renderOverlay();
@@ -384,7 +406,7 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     expect(stepOf()).toBe('git');
     expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
-    expect(body()?.className ?? '').not.toContain('animate-fade-in');
+    expect(body()?.className ?? '').not.toContain('setup-page-enter');
   });
 });
 
