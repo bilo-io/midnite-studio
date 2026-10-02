@@ -347,6 +347,9 @@ function mapReviewComment(raw: RawComment): ForgeReviewComment {
     body: asString(content?.['raw']),
     createdAt: asNullableString(raw['created_on']) ?? '',
     url: htmlUrl(raw),
+    // No diff text and no review object on a Bitbucket comment payload.
+    diffHunk: '',
+    reviewId: null,
   };
 }
 
