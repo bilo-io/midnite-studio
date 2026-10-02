@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { COMMIT_SHA as SHA, fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
@@ -65,5 +65,44 @@ describe('CommitDetail, split layout', () => {
     expect(
       within(list).getByRole('button', { name: '.github/workflows/ci.yml' }).getAttribute('aria-pressed'),
     ).toBe('false');
+  });
+
+  it('has one close button, last in the diff viewer header, and none in the left panel', async () => {
+    const onClose = vi.fn();
+    renderView(<CommitDetail repoId="repo-1" sha={SHA} layout="split" onClose={onClose} />, {
+      fixtures,
+      uiState: { selectedRepoId: 'repo-1', commitFileView: 'list' },
+    });
+    await screen.findByTestId('commit-identities');
+    const closes = screen.getAllByRole('button', { name: 'Close' });
+    expect(closes).toHaveLength(1);
+    const header = screen.getByTestId('diff-viewer-header');
+    expect(header.lastElementChild).toBe(closes[0]);
+    expect(within(screen.getByTestId('commit-left-panel')).queryByRole('button', { name: 'Close' })).toBeNull();
+    fireEvent.click(closes[0]!);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('bolds the total line counts and fills the column height', async () => {
+    open();
+    await screen.findByTestId('commit-identities');
+    const totals = screen.getAllByTestId('change-totals')[0]!;
+    expect(totals.querySelector('.font-bold')).not.toBeNull();
+    expect(screen.getByTestId('commit-left-panel').className).toContain('h-full');
+  });
+
+  it('paints the divider with a gradient between the two lane colours', async () => {
+    renderView(
+      <CommitDetail
+        repoId="repo-1"
+        sha={SHA}
+        layout="split"
+        dividerGradient={{ from: 'rgb(1, 2, 3)', to: 'rgb(4, 5, 6)' }}
+      />,
+      { fixtures, uiState: { selectedRepoId: 'repo-1', commitFileView: 'list' } },
+    );
+    await screen.findByTestId('commit-identities');
+    const rule = document.querySelector('[data-resize-gradient]') as HTMLElement;
+    expect(rule.style.backgroundImage).toContain('linear-gradient(to bottom, rgb(1, 2, 3), rgb(4, 5, 6))');
   });
 });
