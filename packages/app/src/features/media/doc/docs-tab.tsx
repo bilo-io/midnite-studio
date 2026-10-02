@@ -1,6 +1,7 @@
 import { MEDIA_TAB_EXPORT_FORMATS, type DocExportFormat, type MediaExportFormat } from '@midnite/studio-shared';
 import { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { LuFilePlus, LuFileText } from 'react-icons/lu';
+import { PiFilePlusFill } from 'react-icons/pi';
 
 import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { bridge } from '../../../services/bridge';
@@ -113,7 +114,7 @@ export function DocsTab() {
             icon={LuFileText}
             title="No doc open"
             body="Pick a doc on the left, or start a new one."
-            action={<EmptyStateButton icon={LuFilePlus} label="New doc" onClick={() => setCreateRequest((n) => n + 1)} />}
+            action={<EmptyStateButton icon={LuFilePlus} filledIcon={PiFilePlusFill} label="New doc" onClick={() => setCreateRequest((n) => n + 1)} />}
           />
         ) : session.error ? (
           <EmptyState title="Could not open this doc" body={session.error} />

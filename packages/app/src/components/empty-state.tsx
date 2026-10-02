@@ -46,23 +46,57 @@ export function EmptyState({
 /**
  * The primary call-to-action under an `EmptyState` — pass as its `action`.
  * One shared look so every empty page offers the same obvious next step.
+ *
+ * Styled after the Models view's "Start Ollama" button: an outlined primary
+ * tint at rest. On hover (or keyboard focus) it fills with the primary colour,
+ * glows, turns its text and icon white, and swaps `icon` for `filledIcon`
+ * when the glyph has a filled variant — CSS-only, both glyphs are rendered
+ * and `group-hover` picks one, so there is no state to keep in sync.
  */
 export function EmptyStateButton({
   icon: Icon,
+  filledIcon: FilledIcon,
   label,
   onClick,
+  disabled = false,
+  busy,
 }: {
   icon?: IconComponent;
+  /** The filled variant of `icon`, shown while hovered — omit when the glyph has none. */
+  filledIcon?: IconComponent;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
+  /** Replaces the icon while the action is in flight (e.g. a spinner). */
+  busy?: ReactNode;
 }) {
+  const swap = FilledIcon !== undefined && !disabled && busy === undefined;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+      disabled={disabled}
+      data-testid="empty-state-cta"
+      className="group inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-[background-color,color,box-shadow] duration-150 enabled:hover:bg-primary enabled:hover:text-white enabled:hover:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:bg-primary focus-visible:text-white focus-visible:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:outline-none disabled:opacity-50"
     >
-      {Icon ? <Icon aria-hidden className="h-3.5 w-3.5" /> : null}
+      {busy ?? (
+        <>
+          {Icon ? (
+            <Icon
+              aria-hidden
+              data-icon="outline"
+              className={`h-3.5 w-3.5 ${swap ? 'group-hover:hidden group-focus-visible:hidden' : ''}`}
+            />
+          ) : null}
+          {swap ? (
+            <FilledIcon
+              aria-hidden
+              data-icon="filled"
+              className="hidden h-3.5 w-3.5 group-hover:block group-focus-visible:block"
+            />
+          ) : null}
+        </>
+      )}
       {label}
     </button>
   );

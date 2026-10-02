@@ -8,6 +8,7 @@ import {
 } from '@midnite/studio-shared';
 import { useMemo, useReducer, useState } from 'react';
 import { LuImage, LuSparkles } from 'react-icons/lu';
+import { PiSparkleFill } from 'react-icons/pi';
 
 import { useDialogs } from '../../../components/dialog-host';
 import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
@@ -188,7 +189,7 @@ function ImageTabBody({ repoId }: { repoId: string }) {
               icon={LuImage}
               title="No images yet"
               body="Describe what you want in the create panel and generate your first image."
-              action={<EmptyStateButton icon={LuSparkles} label="Generate image" onClick={() => openMediaPane('image', 'detail')} />}
+              action={<EmptyStateButton icon={LuSparkles} filledIcon={PiSparkleFill} label="Generate image" onClick={() => openMediaPane('image', 'detail')} />}
             />
           ) : (
           <MasonryGallery
