@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
-import { DEFAULT_LAYOUT } from '../../../store/ui-store';
+import { DEFAULT_LAYOUT, useUiStore } from '../../../store/ui-store';
 import { VideoTab } from './video-tab';
 
 /**
@@ -201,5 +201,36 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
     fireEvent.click(screen.getByRole('button', { name: /logo\.png/ }));
     expect(await screen.findByText('assets/logo.png')).toBeTruthy();
     expect(screen.getByTestId('media-readout').textContent).toContain('2.0 KB');
+  });
+
+  describe('remembers the last selected project per repo', () => {
+    const OTHER = { id: 'teaser', title: 'Teaser cut', valid: true, composition: 'Main' };
+    const data: MockFixtures = { ...fixtures, video: { projects: [PROJECT, OTHER] } };
+
+    it('records the selection and reselects it on return', async () => {
+      useUiStore.setState({ mediaLastVideoProject: {} });
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
+      await screen.findByText('Teaser cut');
+      fireEvent.click(screen.getByRole('button', { name: /Teaser cut/ }));
+      expect(useUiStore.getState().mediaLastVideoProject['repo-1']).toBe('teaser');
+      cleanup();
+
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
+      expect(await screen.findByText("The studio isn't running.")).toBeTruthy();
+    });
+
+    it('is per repo: another repo starts with nothing selected', async () => {
+      useUiStore.setState({ mediaLastVideoProject: { 'repo-1': 'teaser' } });
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-2' } });
+      await screen.findByText('Teaser cut');
+      expect(screen.getByText('Select a project')).toBeTruthy();
+    });
+
+    it('falls back to nothing selected when the remembered project is gone', async () => {
+      useUiStore.setState({ mediaLastVideoProject: { 'repo-1': 'deleted' } });
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
+      await screen.findByText('Teaser cut');
+      expect(screen.getByText('Select a project')).toBeTruthy();
+    });
   });
 });

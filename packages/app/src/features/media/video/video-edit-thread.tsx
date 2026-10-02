@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { agentHeadlessArgs, loopModelArgs, type LoopModel } from '@midnite/studio-shared';
 import { LuClapperboard } from 'react-icons/lu';
 
 import { AiComposer, AiThreadFrame, ThinkingIndicator, useComposerMic } from '../../../components/ai-thread';
+import { useUiStore } from '../../../store/ui-store';
 import { startAgent } from '../../terminal/start-agent';
+import { useAgents } from '../../terminal/use-agents';
+import { AgentModelPicker } from '../agent-model-picker';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
@@ -16,6 +20,8 @@ export type VideoEditContext = {
   cwd: string | null;
   repoId: string | null;
   agent: { id: string; command: string };
+  /** The composer's model pick; `default` (or absent) adds no `--model` flag. */
+  model?: LoopModel;
 };
 
 /**
@@ -40,6 +46,7 @@ export const terminalVideoEditHandler: VideoEditHandler = async (prompt, ctx) =>
     prompt,
     agentId: ctx.agent.id,
     command: ctx.agent.command,
+    extraArgs: loopModelArgs(ctx.agent.id, ctx.model ?? 'default'),
   });
   return 'Started an editing session in the terminal for this project.';
 };
@@ -67,6 +74,13 @@ export function VideoEditThread({
   const [messages, setMessages] = useState<VideoEditMessage[]>([]);
   const [pending, setPending] = useState(false);
   const [prompt, setPrompt] = useState('');
+  const primaryAgent = useUiStore((s) => s.primaryAgent);
+  const { agents } = useAgents();
+  const [pickedAgentId, setPickedAgentId] = useState<string | null>(null);
+  const [model, setModel] = useState<LoopModel>('default');
+  const headless = useMemo(() => agents.filter((a) => agentHeadlessArgs(a.id) !== null), [agents]);
+  const picked = pickedAgentId ? agents.find((a) => a.id === pickedAgentId) : undefined;
+  const activeAgent = picked ? { id: picked.id, command: picked.command } : agent;
   const voice = useVoiceThread();
   const input = useRef<HTMLTextAreaElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -90,7 +104,7 @@ export function VideoEditThread({
     setMessages((m) => [...m, { id: `u${m.length}`, role: 'user', text }]);
     setPending(true);
     try {
-      const reply = await handler(text, { projectId, title, cwd, repoId, agent });
+      const reply = await handler(text, { projectId, title, cwd, repoId, agent: activeAgent, model });
       setMessages((m) => [...m, { id: `a${m.length}`, role: 'assistant', text: reply }]);
       voice.speakReply(reply);
     } catch (error) {
@@ -143,6 +157,20 @@ export function VideoEditThread({
           onSend={() => void send()}
           mic={mic}
           boxClassName={MEDIA_PROMPT_BOX}
+          leading={
+            <AgentModelPicker
+              testId="video-edit-picker"
+              agents={headless}
+              primaryAgentId={primaryAgent}
+              agentId={activeAgent.id}
+              onAgentChange={(id) => {
+                setPickedAgentId(id);
+                setModel('default');
+              }}
+              model={model}
+              onModelChange={setModel}
+            />
+          }
           trailing={<SpeechToggle voice={voice} />}
           testIdPrefix="video-edit"
         />

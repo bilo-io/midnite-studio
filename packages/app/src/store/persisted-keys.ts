@@ -173,6 +173,7 @@ export const SESSION_STATE_KEYS = [
   'mediaPaneCollapsed', // side panel open state — disclosure state
   'mediaTab', // current selection — which Media tab is showing
   'mediaLastDoc', // current selection — Docs reopens the last edited doc
+  'mediaLastVideoProject', // current selection — Video reselects the last selected project, per repo
   'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo

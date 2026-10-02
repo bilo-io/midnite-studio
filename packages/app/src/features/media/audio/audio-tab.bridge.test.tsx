@@ -92,6 +92,14 @@ describe('Audio tab', () => {
     expect(await screen.findByRole('region', { name: 'Morning' })).toBeTruthy();
   });
 
+  it('offers Import exactly once (the + menu) and shows no provider picker', async () => {
+    open();
+    await screen.findByRole('region', { name: 'Night drive' });
+    expect(screen.queryByTestId('audio-picker')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    expect(screen.getAllByText(/Import/i).filter((el) => el.closest('[role="menuitem"]'))).toHaveLength(1);
+  });
+
   it('plays into the docked player, survives a tab switch, and pauses on leaving Media', async () => {
     open();
     fireEvent.click(await screen.findByRole('button', { name: 'Play Take A' }));

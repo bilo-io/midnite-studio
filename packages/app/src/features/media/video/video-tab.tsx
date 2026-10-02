@@ -4,7 +4,7 @@ import {
   type VideoRootResolution,
   type VideoRootSource,
 } from '@midnite/studio-shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LuClapperboard, LuDownload, LuPlus, LuFolderGit2, LuGlobe, LuHardDrive, LuPlay } from 'react-icons/lu';
 import { PiPlusCircleFill } from 'react-icons/pi';
 
@@ -17,7 +17,8 @@ import { useTerminalStore } from '../../terminal/terminal-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout } from '../media-layout';
 import { useFfmpegStatus, useMediaExport } from '../use-media';
-import { useStartVideoRender, useVideoProject, useVideoRootResolution, useVideoSetup } from './use-video';
+import { pickInitialProject } from './last-project';
+import { useStartVideoRender, useVideoProject, useVideoProjects, useVideoRootResolution, useVideoSetup } from './use-video';
 import { VideoDetail } from './video-detail';
 import { useNewVideoProjectPrompt, VideoExplorer } from './video-explorer';
 import { VideoRenderDialog } from './video-render-dialog';
@@ -210,11 +211,33 @@ export function VideoTab() {
     setStudioProjectId(null);
   }, [root]);
 
+  const projects = useVideoProjects();
+  const lastProject = useUiStore((s) => (repoId ? s.mediaLastVideoProject[repoId] : undefined));
+
   const select = (next: VideoSelection | null) => {
     setSelection(next);
     const projectId = selectionProjectId(next);
-    if (projectId) setStudioProjectId(projectId);
+    if (projectId) {
+      setStudioProjectId(projectId);
+      if (repoId) useUiStore.getState().setMediaLastVideoProject(repoId, projectId);
+    }
   };
+
+  // Reselect this repo's last project on entry — once per root, and only
+  // while nothing has been picked yet.
+  const restoredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!root || !projects.data || restoredFor.current === root) return;
+    restoredFor.current = root;
+    const id = pickInitialProject(
+      projects.data.map((p) => p.id),
+      lastProject,
+    );
+    if (id) {
+      setSelection((current) => current ?? { kind: 'project', projectId: id });
+      setStudioProjectId((current) => current ?? id);
+    }
+  }, [root, projects.data, lastProject]);
   const newProject = useNewVideoProjectPrompt(select);
 
   if (resolution.isPending || !resolution.data) {

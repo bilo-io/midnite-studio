@@ -4,11 +4,10 @@ import { LuCheck, LuCopy, LuSparkles, LuX } from 'react-icons/lu';
 
 import { AiComposer, AiThreadFrame, ThinkingIndicator, useComposerMic } from '../../../components/ai-thread';
 import { EmptyState } from '../../../components/empty-state';
-import { resolveAgentIcon } from '../../../components/icons';
-import { IconSelect } from '../../../components/select/icon-select';
 import { useToastStore } from '../../../store/toast-store';
 import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
+import { AgentModelPicker } from '../agent-model-picker';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { applyProposal } from './doc-thread';
 import { lineDiff } from './line-diff';
@@ -124,28 +123,6 @@ export function DocThreadPanel({
 
   return (
     <AiThreadFrame loading={thread.ask.isPending} className="flex h-full min-h-0 flex-col" testId="doc-thread">
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-border p-2">
-        <div className="min-w-0 flex-1">
-          <IconSelect
-            ariaLabel="Provider"
-            menuInPortal
-            options={headless.map((a) => ({ id: a.id, label: a.label, icon: resolveAgentIcon(a), iconColor: a.accent }))}
-            value={agentId}
-            onChange={setAgentId}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <IconSelect
-            ariaLabel="Model"
-            menuInPortal
-            options={models.map((m) => ({ id: m.id, label: m.label }))}
-            value={models.some((m) => m.id === model) ? model : 'default'}
-            isDisabled={models.length === 1}
-            onChange={(id) => setModel(id as LoopModel)}
-          />
-        </div>
-      </div>
-
       <div ref={list} className="hide-scrollbar min-h-0 flex-1 space-y-2 overflow-auto p-2" role="log" aria-label="AI thread">
         {thread.messages.length === 0 ? (
           <p className="px-1 py-4 text-center text-xs text-muted-foreground">
@@ -189,6 +166,20 @@ export function DocThreadPanel({
           onSend={send}
           mic={mic}
           boxClassName={MEDIA_PROMPT_BOX}
+          leading={
+            <AgentModelPicker
+              testId="doc-ask-picker"
+              agents={headless}
+              primaryAgentId={primaryAgent}
+              agentId={agentId}
+              onAgentChange={(id) => {
+                setAgentId(id);
+                setModel('default');
+              }}
+              model={model}
+              onModelChange={setModel}
+            />
+          }
           trailing={<SpeechToggle voice={voice} />}
           testIdPrefix="doc-ask"
         />

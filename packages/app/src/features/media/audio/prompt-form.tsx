@@ -23,8 +23,13 @@ import { formatDuration } from './waveform';
 
 export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { import: LuImport };
 
+/**
+ * Generation providers only. "Import" is not one — it is an attachment, offered
+ * once, in the composer's "+" menu — so with no generating provider this is
+ * empty and the composer shows no provider picker at all.
+ */
 export function audioPickerProviders(statuses: readonly AudioProviderStatus[]): PickerProvider[] {
-  return AUDIO_PROVIDERS.map((p) => {
+  return AUDIO_PROVIDERS.filter((p) => p.generates).map((p) => {
     const status = statuses.find((s) => s.id === p.id);
     const blocked = status && !status.available ? status.reason : undefined;
     return {
@@ -70,6 +75,7 @@ export function PromptForm({
   const [notice, setNotice] = useState<string | null>(null);
   const checked = toPrompt(state);
   const invalid = 'error' in checked ? checked.error : undefined;
+  const pickerProviders = audioPickerProviders(statuses);
   const generates = audioProviderInfo(state.provider).generates;
 
   useSpeakOutcome(voice, importing, error, 'Your audio is ready.');
@@ -228,15 +234,17 @@ export function PromptForm({
           mic={mic}
           leading={
             <>
-              <ProviderModelPicker
-                testId="audio-picker"
-                providers={audioPickerProviders(statuses)}
-                provider={state.provider}
-                onProviderChange={(id) => dispatch({ type: 'provider', value: id as AudioProviderId })}
-                models={[]}
-                model=""
-                onModelChange={() => undefined}
-              />
+              {pickerProviders.length > 0 ? (
+                <ProviderModelPicker
+                  testId="audio-picker"
+                  providers={pickerProviders}
+                  provider={state.provider}
+                  onProviderChange={(id) => dispatch({ type: 'provider', value: id as AudioProviderId })}
+                  models={[]}
+                  model=""
+                  onModelChange={() => undefined}
+                />
+              ) : null}
               <AttachMenu
               testId="audio-attach"
               options={[

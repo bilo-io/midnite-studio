@@ -1068,6 +1068,9 @@ export type UiState = {
   /** The doc most recently *edited* in Media ▸ Docs, per repo — what Docs reopens on entry. */
   mediaLastDoc: Record<string, { project: string; path: string }>;
   setMediaLastDoc: (repoId: string, doc: { project: string; path: string }) => void;
+  /** The video project most recently selected in Media ▸ Video, per repo — what Video reselects on entry. */
+  mediaLastVideoProject: Record<string, string>;
+  setMediaLastVideoProject: (repoId: string, projectId: string) => void;
   /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
   mediaSpeechOn: boolean;
   setMediaSpeechOn: (on: boolean) => void;
@@ -2138,6 +2141,7 @@ export type PersistedUi = Pick<
   | 'mediaPaneCollapsed'
   | 'mediaExportDir'
   | 'mediaLastDoc'
+  | 'mediaLastVideoProject'
   | 'mediaSpeechOn'
   | 'collapsedAccordionSections'
   | 'graphColumns'
@@ -2727,6 +2731,13 @@ export const useUiStore = create<UiState>()(
           if (prev?.project === doc.project && prev.path === doc.path) return state;
           return { mediaLastDoc: { ...state.mediaLastDoc, [repoId]: doc } };
         }),
+      mediaLastVideoProject: {},
+      setMediaLastVideoProject: (repoId, projectId) =>
+        set((state) =>
+          state.mediaLastVideoProject[repoId] === projectId
+            ? state
+            : { mediaLastVideoProject: { ...state.mediaLastVideoProject, [repoId]: projectId } },
+        ),
       mediaSpeechOn: false,
       setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
       setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
@@ -3189,6 +3200,7 @@ export const useUiStore = create<UiState>()(
         mediaPaneCollapsed: state.mediaPaneCollapsed,
         mediaExportDir: state.mediaExportDir,
         mediaLastDoc: state.mediaLastDoc,
+        mediaLastVideoProject: state.mediaLastVideoProject,
         mediaSpeechOn: state.mediaSpeechOn,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
