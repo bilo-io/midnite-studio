@@ -335,6 +335,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             </>
           ) : kind === 'markdown' && !showSource ? (
             <MarkdownPreview
+              scope={scope}
               content={data.content}
               label={fileName}
               currentRelPath={relPath}

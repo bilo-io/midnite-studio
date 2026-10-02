@@ -6,7 +6,9 @@ import remarkGfm from 'remark-gfm';
 import { useSlidesStore } from '../../slides/slides-store';
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
+import { type FsScopeInput } from '../file-tree';
 import { MarkdownCode, MarkdownPre } from './markdown-code-block';
+import { MarkdownImage } from './markdown-image';
 import { findAnchorTarget, inPageAnchor, resolveMarkdownLinkTarget } from './markdown-links';
 import { useFilesStore } from '../files-store';
 
@@ -26,11 +28,14 @@ import { useFilesStore } from '../files-store';
  * `showSource` off and back on does not flicker the slot empty in between.
  */
 export function MarkdownPreview({
+  scope,
   content,
   label,
   currentRelPath,
   onNavigate,
 }: {
+  /** The tree the file lives in — what relative `![img](…)` srcs resolve within. */
+  scope?: FsScopeInput;
   content: string;
   label?: string;
   currentRelPath?: string;
@@ -108,6 +113,24 @@ export function MarkdownPreview({
     [currentRelPath, onNavigate],
   );
 
+  // Keyed on the scope's fields, not its identity: a fresh `scope` object per
+  // parent render must not remount (and so reload) every image in the doc.
+  const repoId = scope?.scope === 'repo' ? scope.repoId : undefined;
+  const worktreePath = scope?.scope === 'repo' ? scope.worktreePath : undefined;
+  const scopeKind = scope?.scope;
+  const MarkdownImg = useCallback(
+    ({ src, alt, title }: { src?: string; alt?: string; title?: string }) => {
+      const imageScope: FsScopeInput | undefined =
+        scopeKind === 'repo' && repoId !== undefined
+          ? { scope: 'repo', repoId, ...(worktreePath ? { worktreePath } : {}) }
+          : scopeKind === 'claude-home'
+            ? { scope: 'claude-home' }
+            : undefined;
+      return <MarkdownImage src={src} alt={alt} title={title} scope={imageScope} currentRelPath={currentRelPath} />;
+    },
+    [scopeKind, repoId, worktreePath, currentRelPath],
+  );
+
   return (
     <div
       ref={scroller}
@@ -115,7 +138,10 @@ export function MarkdownPreview({
       className={`min-h-0 max-w-none overflow-auto p-4 text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
       data-selectable
     >
-      <Markdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink, code: MarkdownCode, pre: MarkdownPre }}>
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        components={{ a: MarkdownLink, code: MarkdownCode, pre: MarkdownPre, img: MarkdownImg }}
+      >
         {content}
       </Markdown>
     </div>
