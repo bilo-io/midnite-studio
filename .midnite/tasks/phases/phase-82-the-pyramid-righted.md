@@ -271,7 +271,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       again**: `palette`, `companion-thread` and several diff/editor surfaces sit behind lazy
       boundaries. Write the pattern into `test-support/` guidance so it is applied rather than
       rediscovered per wave.
-      ✅ Written into `packages/app/test-support/README.md`, premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
+      ✅ Written into `packages/app/test-support/README.md` trap 4 ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
 - [x] Wave 3 (PR #334): `actions-view` 15→2 · `optimizer` 14→2 · `review-writes` 13→1. e2e declared 619→**582**, `app:test` 3,884→**3,922**. The lazy-chunk warm-up was checked and **not needed**, with a reason: wave 2's trap was `CommitMessage`'s own internal `lazy()` boundary, and none of these three views has one — the outer view registry lazy-loads the *view*, which mounting the component directly bypasses, and `PrDetail`'s `react-markdown` is a plain static import.
 - [x] **A third jsdom trap, found by wave 4 — a component that only mounts on an interaction.**
       `Palette`'s row list is `@tanstack/react-virtual` like `search-view`'s, but unlike an
@@ -302,7 +302,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       ported verbatim onto `getByRole` is a **typecheck** error, not a runtime one —
       `ByRoleOptions` has no `exact` field, that is `getByText`'s — so `vitest run` alone passes
       and only a real `moon run app:typecheck` catches it. It hit 7 files in wave 5.
-      ✅ Written into `packages/app/test-support/README.md`, premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
+      ✅ Written into `packages/app/test-support/README.md` traps 2 and 6, the `exact` premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
 - [x] **A porting hazard wave 3 found, to expect in every remaining wave.** Testing Library's
       `getByRole`/`getByText` default to a **whole-string** match; Playwright's default is
       **substring**. So an assertion ported verbatim from an e2e spec fails with "unable to find
