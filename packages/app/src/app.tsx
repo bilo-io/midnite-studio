@@ -1034,14 +1034,13 @@ function Shell() {
     */
     animateKey: `${terminalDocked}:${terminalMaximized}:${terminalDock}`,
   });
-  // Publishes the content area's rect (view stack minus the docked terminal) for
+  // Publishes the content area's rect (view stack minus the docked terminal's final size) for
   // content-scoped modals to centre in; see `store/content-bounds-store.ts`.
-  useContentBoundsSync(stackRef, terminalRight ? 'right' : 'bottom', [
-    terminalTween.mounted,
-    terminalMaximized,
-    terminalDocked,
-    terminalTarget,
-  ]);
+  useContentBoundsSync(
+    stackRef,
+    terminalRight ? 'right' : 'bottom',
+    terminalDocked && !terminalMaximized ? terminalFrameSize : null,
+  );
   /*
     The browser gets BOTH reveal primitives, one per layout, because the two
     layouts are structurally different panes: full screen is an overlay that

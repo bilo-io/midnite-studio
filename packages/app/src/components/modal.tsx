@@ -41,7 +41,7 @@ export function Modal({
   testId,
   scope = 'content',
 }: ModalProps) {
-  const content = useContentOverlay(align);
+  const content = useContentOverlay(align, open && scope === 'content');
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Trap + focus-on-open + restore-on-close, all in one hook (Phase 68 Theme

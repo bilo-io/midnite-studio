@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import { create } from 'zustand';
 
 /**
@@ -25,21 +25,23 @@ export const useContentBoundsStore = create<ContentBoundsState>((set) => ({
 }));
 
 /**
- * The content rect = the view stack minus the docked terminal. A maximized
- * terminal leaves nothing, so fall back to the whole stack (the modal then
- * floats over the terminal, which sits below the dialog layer).
+ * The content rect = the view stack minus the docked terminal's FINAL size
+ * (`terminalSize`, the layout target rather than the animating frame: reading
+ * the frame per tween frame both churned the store and disturbed the reveal).
+ * Null (closed, detached or maximized, where the terminal covers everything)
+ * means the whole stack; the dialog layer sits above the terminal either way.
  */
 export function computeContentRect(
   stack: Rect,
-  terminal: Rect | null,
+  terminalSize: number | null,
   dock: 'bottom' | 'right',
 ): Rect {
-  if (!terminal || terminal.width <= 0 || terminal.height <= 0) return stack;
+  if (!terminalSize || terminalSize <= 0) return stack;
   if (dock === 'right') {
-    const width = Math.min(stack.width, terminal.left - stack.left);
+    const width = stack.width - terminalSize;
     return width > 0 ? { ...stack, width } : stack;
   }
-  const height = Math.min(stack.height, terminal.top - stack.top);
+  const height = stack.height - terminalSize;
   return height > 0 ? { ...stack, height } : stack;
 }
 
@@ -61,13 +63,26 @@ export function contentOverlayStyle(
   };
 }
 
-/** What a content-scoped dialog reads: the overlay padding and the panel's height cap. */
-export function useContentOverlay(align: 'center' | 'top' = 'center'): {
+const noopSubscribe = () => () => {};
+
+/**
+ * What a content-scoped dialog reads: the overlay padding and the panel's
+ * height cap. `active` is false for a closed or window-scoped `Modal`: it then
+ * does not subscribe, so a bounds change re-renders only dialogs that are
+ * actually on screen.
+ */
+export function useContentOverlay(
+  align: 'center' | 'top' = 'center',
+  active = true,
+): {
   overlayStyle: CSSProperties | undefined;
   panelMaxHeight: number | undefined;
 } {
-  const rect = useContentBoundsStore((s) => s.rect);
-  const viewport = useContentBoundsStore((s) => s.viewport);
+  const state = useSyncExternalStore(
+    active ? useContentBoundsStore.subscribe : noopSubscribe,
+    useContentBoundsStore.getState,
+  );
+  const { rect, viewport } = state;
   return {
     overlayStyle: contentOverlayStyle(rect, viewport, align),
     panelMaxHeight: rect ? Math.max(0, rect.height - MARGIN * 2) : undefined,
@@ -77,42 +92,66 @@ export function useContentOverlay(align: 'center' | 'top' = 'center'): {
 const toRect = (r: DOMRect): Rect => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 
 /**
- * Keeps the store in step with layout. Observes the view stack and the terminal
- * frame (which animates between sizes, so the observer fires per frame) and
- * re-measures on window resize. `deps` are the layout inputs that attach or
- * move those elements (terminal mounted, dock, maximized).
+ * Keeps the store in step with layout: observes the view stack (ResizeObserver,
+ * plus window resize) and re-derives the rect when the terminal's size, dock or
+ * presence changes. `terminalSize` is null unless a terminal is docked and not
+ * maximized.
+ *
+ * The DOM is read ONLY from the observer callback (and window resize), where
+ * layout is already clean. A terminal-size change recomputes from the cached
+ * stack rect without touching the DOM: a `getBoundingClientRect` in an effect
+ * right after the terminal mounts forces a layout between the reveal's "from"
+ * and "to" styles and changes how the tween plays.
  */
 export function useContentBoundsSync(
   stackRef: RefObject<HTMLElement | null>,
   dock: 'bottom' | 'right',
-  deps: readonly unknown[],
+  terminalSize: number | null,
 ): void {
+  const stackRect = useRef<Rect | null>(null);
+  const latest = useRef({ dock, terminalSize });
+  latest.current = { dock, terminalSize };
+
+  const publish = () => {
+    if (!stackRect.current) return;
+    const { dock: d, terminalSize: size } = latest.current;
+    useContentBoundsStore
+      .getState()
+      .set(computeContentRect(stackRect.current, size, d), {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+  };
+
   useEffect(() => {
     const stack = stackRef.current;
     if (!stack) return;
-    const frame = stack.querySelector<HTMLElement>(':scope > [data-terminal-frame]');
     const measure = () => {
-      const rect = computeContentRect(
-        toRect(stack.getBoundingClientRect()),
-        frame ? toRect(frame.getBoundingClientRect()) : null,
-        dock,
-      );
-      useContentBoundsStore
-        .getState()
-        .set(rect, { width: window.innerWidth, height: window.innerHeight });
+      stackRect.current = toRect(stack.getBoundingClientRect());
+      publish();
     };
-    measure();
     window.addEventListener('resize', measure);
     let observer: ResizeObserver | undefined;
     if (typeof ResizeObserver !== 'undefined') {
+      // Fires once on `observe`, which is the initial measurement.
       observer = new ResizeObserver(measure);
       observer.observe(stack);
-      if (frame) observer.observe(frame);
+    } else {
+      measure();
     }
     return () => {
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stackRef, dock, ...deps]);
+  }, [stackRef]);
+
+  // Deferred a frame: a store write from this effect re-renders the mounted
+  // dialogs synchronously inside the terminal's own commit, which shifts when
+  // the reveal's first frame paints.
+  useEffect(() => {
+    const raf = requestAnimationFrame(publish);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dock, terminalSize]);
 }

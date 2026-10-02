@@ -14,16 +14,14 @@ const stack = { left: 100, top: 40, width: 800, height: 600 };
 
 describe('computeContentRect', () => {
   it('removes a bottom-docked terminal from the height', () => {
-    const term = { left: 100, top: 440, width: 800, height: 200 };
-    expect(computeContentRect(stack, term, 'bottom')).toEqual({ ...stack, height: 400 });
+    expect(computeContentRect(stack, 200, 'bottom')).toEqual({ ...stack, height: 400 });
   });
   it('removes a right-docked terminal from the width', () => {
-    const term = { left: 600, top: 40, width: 300, height: 600 };
-    expect(computeContentRect(stack, term, 'right')).toEqual({ ...stack, width: 500 });
+    expect(computeContentRect(stack, 300, 'right')).toEqual({ ...stack, width: 500 });
   });
-  it('falls back to the stack with no terminal or a maximized one', () => {
+  it('falls back to the stack with no terminal or one that fills it', () => {
     expect(computeContentRect(stack, null, 'bottom')).toEqual(stack);
-    expect(computeContentRect(stack, { ...stack }, 'bottom')).toEqual(stack);
+    expect(computeContentRect(stack, 600, 'bottom')).toEqual(stack);
   });
 });
 
@@ -67,10 +65,11 @@ describe('useContentBoundsSync', () => {
     const ref = createRef<HTMLElement>() as { current: HTMLElement | null };
     ref.current = el;
     function Probe() {
-      useContentBoundsSync(ref, 'bottom', []);
+      useContentBoundsSync(ref, 'bottom', null);
       return null;
     }
     render(<Probe />);
+    act(() => trigger());
     expect(useContentBoundsStore.getState().rect?.height).toBe(500);
     height = 320;
     act(() => trigger());
