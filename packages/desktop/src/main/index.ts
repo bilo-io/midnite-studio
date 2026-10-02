@@ -11,8 +11,9 @@ import {
   failure,
   perfEnabled,
   SetupProbeRequest,
+  SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, session } from 'electron';
+import { BrowserWindow, app, session, shell } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -489,6 +490,17 @@ if (!app.requestSingleInstanceLock()) {
       SetupProbeRequest,
       (req) => probeSetupItems(req.ids),
       () => ({ results: [] }),
+    );
+    handle(
+      CHANNELS.setupReveal,
+      SetupRevealRequest,
+      async (req) => {
+        const found = (await probeSetupItems([req.id])).results[0];
+        if (!found?.installed || !found.path) return { ok: false, message: 'tool path unknown' };
+        shell.showItemInFolder(found.path);
+        return { ok: true };
+      },
+      () => ({ ok: false, message: 'invalid request' }),
     );
     handleBare(CHANNELS.gitIdentityGet, () => getGlobalGitIdentity());
     handle(

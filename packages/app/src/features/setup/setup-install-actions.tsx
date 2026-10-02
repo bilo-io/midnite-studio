@@ -1,4 +1,8 @@
+import { PiDownloadSimple, PiDownloadSimpleFill } from 'react-icons/pi';
+
 import { planSetupInstall, setupItem, type SetupItem } from '@midnite/studio-shared';
+
+import { EmptyStateButton } from '../../components/empty-state';
 
 /**
  * The install buttons for a set of catalogue items (Phase 98 Theme D's
@@ -22,21 +26,28 @@ export function SetupInstallActions({
   if (options.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {options.map((option, index) => (
+      {options.map((option, index) =>
+        index === 0 ? (
+          <EmptyStateButton
+            key={option.id}
+            icon={PiDownloadSimple}
+            filledIcon={PiDownloadSimpleFill}
+            label={option.label}
+            disabled={disabled}
+            onClick={() => onRun(option.command, option.label)}
+          />
+        ) : (
         <button
           key={option.id}
           type="button"
           disabled={disabled}
           onClick={() => onRun(option.command, option.label)}
-          className={
-            index === 0
-              ? 'rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50'
-              : 'rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50'
-          }
+          className="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           {option.label}
         </button>
-      ))}
+        ),
+      )}
     </div>
   );
 }

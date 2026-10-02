@@ -38,6 +38,8 @@ export type SetupStatusRowProps = {
   brandColor?: string;
   /** A version once detected, or a line of explanation. */
   detail?: ReactNode;
+  /** Right-aligned value (a `SetupMeta`: version or path), before the status actions. */
+  meta?: ReactNode;
   /** What *missing* offers — the page's install button. */
   action?: ReactNode;
   /** *Installing* only: brings the terminal running it forward. Omitted for an install main does itself. */
@@ -51,6 +53,7 @@ export function SetupStatusRow({
   icon: Icon,
   brandColor,
   detail,
+  meta,
   action,
   onRevealTerminal,
 }: SetupStatusRowProps) {
@@ -68,6 +71,7 @@ export function SetupStatusRow({
         <span className="truncate text-sm font-medium">{label}</span>
         {detail ? <span className="truncate text-xs text-muted-foreground">{detail}</span> : null}
       </div>
+      {meta}
       {status === 'installing' ? (
         onRevealTerminal ? (
           <button

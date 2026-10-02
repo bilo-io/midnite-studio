@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { LuCheck } from 'react-icons/lu';
+import { PiFloppyDisk, PiFloppyDiskFill } from 'react-icons/pi';
 
 import { prefillGitIdentity, GIT_EMAIL_PATTERN, type ForgeAccount, type GitIdentity } from '@midnite/studio-shared';
 
+import { EmptyStateButton } from '../../../components/empty-state';
 import { UserAvatar } from '../../../components/user-avatar';
 import { useAddForgeAccount, useForgeAccounts, useSwitchForgeAccount } from '../../../services/queries';
 import {
@@ -120,13 +122,14 @@ export function AccountsPage() {
           placeholder="ada@example.com"
         />
         <div className="flex items-center gap-2">
-          <button
+          <EmptyStateButton
             type="submit"
+            icon={PiFloppyDisk}
+            filledIcon={PiFloppyDiskFill}
+            label={saving ? 'Saving…' : 'Set as git identity'}
             disabled={!canSave}
-            className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Set as git identity'}
-          </button>
+            onClick={() => undefined}
+          />
           {current && (current.name || current.email) ? (
             <span className="truncate text-[11px] text-muted-foreground">
               Now: {current.name || '(no name)'} &lt;{current.email || 'no email'}&gt;

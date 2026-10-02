@@ -368,6 +368,11 @@ export type SetupProbeResult = z.infer<typeof SetupProbeResultSchema>;
 
 /** Catalogue ids to probe. An id the catalogue does not know is dropped from the answer, not guessed at. */
 export const SetupProbeRequest = z.object({ ids: z.array(z.string().min(1)).min(1).max(64) });
+/** Reveal a catalogue tool's binary in Finder. Id, never a path: main re-resolves it, so the renderer cannot aim the reveal anywhere. */
+export const SetupRevealRequest = z.object({ id: z.string().min(1) });
+export const SetupRevealResponse = z.object({ ok: z.boolean(), message: z.string().optional() });
+export type SetupRevealResponse = z.infer<typeof SetupRevealResponse>;
+
 export const SetupProbeResponse = z.object({ results: z.array(SetupProbeResultSchema) });
 export type SetupProbeResponse = z.infer<typeof SetupProbeResponse>;
 

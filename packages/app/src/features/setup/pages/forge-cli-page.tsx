@@ -5,6 +5,7 @@ import { LuKeyRound } from 'react-icons/lu';
 import { useUiStore } from '../../../store/ui-store';
 import { resolveSetupIcon } from '../setup-icons';
 import { SetupInstallActions } from '../setup-install-actions';
+import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe } from '../install-runner';
 import { SETUP_FORGES } from './forge-select-page';
@@ -79,8 +80,15 @@ export function ForgeCliPage() {
           : signedOut
             ? `Not signed in — run ${auth.data?.hint || 'gh auth login'}`
             : kind === 'azure'
-              ? `${result.version ?? 'installed'} — also needs: az extension add --name azure-devops`
-              : (result.version ?? result.path);
+              ? `Also needs: az extension add --name azure-devops`
+              : undefined;
+        const meta = result?.installed ? (
+          result.version ? (
+            <SetupMeta kind="version" toolId={itemId} label={item.label} version={result.version} />
+          ) : result.path ? (
+            <SetupMeta kind="path" toolId={itemId} label={item.label} path={result.path} />
+          ) : undefined
+        ) : undefined;
         return (
           <SetupStatusRow
             key={kind}
@@ -89,6 +97,7 @@ export function ForgeCliPage() {
             icon={resolveSetupIcon(item.icon)}
             brandColor={item.brandColor}
             detail={detail}
+            meta={meta}
             onRevealTerminal={runner.reveal}
             action={
               <SetupInstallActions

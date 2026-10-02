@@ -8,7 +8,11 @@ import {
   type SetupItemGroup,
 } from '@midnite/studio-shared';
 
+import { PiDownloadSimple, PiDownloadSimpleFill } from 'react-icons/pi';
+
+import { EmptyStateButton } from '../../../components/empty-state';
 import { resolveSetupIcon } from '../setup-icons';
+import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe, type SetupProbeMap } from '../install-runner';
 
@@ -97,7 +101,16 @@ export function ToolchainPage() {
                   status={status}
                   icon={resolveSetupIcon(item.icon)}
                   brandColor={item.brandColor}
-                  detail={probes[item.id]?.installed ? probes[item.id]?.version : undefined}
+                  meta={
+                    probes[item.id]?.installed && probes[item.id]?.version ? (
+                      <SetupMeta
+                        kind="version"
+                        toolId={item.id}
+                        label={item.label}
+                        version={probes[item.id]!.version!}
+                      />
+                    ) : undefined
+                  }
                   onRevealTerminal={runner.reveal}
                   leading={
                     <input
@@ -123,28 +136,35 @@ export function ToolchainPage() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {options.length === 0 ? (
-          <button
-            type="button"
+          <EmptyStateButton
+            icon={PiDownloadSimple}
+            filledIcon={PiDownloadSimpleFill}
+            label="Install selected"
             disabled
-            className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground opacity-50"
-          >
-            Install selected
-          </button>
+            onClick={() => undefined}
+          />
         ) : (
           options.map((option, index) => (
-            <button
-              key={option.id}
-              type="button"
-              disabled={runner.running}
-              onClick={() => runner.run(option.command, 'Toolchain install')}
-              className={
-                index === 0
-                  ? 'rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50'
-                  : 'rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50'
-              }
-            >
-              {index === 0 && option.id === 'brew' ? 'Install selected' : option.label}
-            </button>
+            index === 0 ? (
+              <EmptyStateButton
+                key={option.id}
+                icon={PiDownloadSimple}
+                filledIcon={PiDownloadSimpleFill}
+                label={option.id === 'brew' ? 'Install selected' : option.label}
+                disabled={runner.running}
+                onClick={() => runner.run(option.command, 'Toolchain install')}
+              />
+            ) : (
+              <button
+                key={option.id}
+                type="button"
+                disabled={runner.running}
+                onClick={() => runner.run(option.command, 'Toolchain install')}
+                className="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
+              >
+                {option.label}
+              </button>
+            )
           ))
         )}
       </div>

@@ -60,6 +60,8 @@ export function EmptyStateButton({
   onClick,
   disabled = false,
   busy,
+  type = 'button',
+  className,
 }: {
   icon?: IconComponent;
   /** The filled variant of `icon`, shown while hovered — omit when the glyph has none. */
@@ -69,15 +71,19 @@ export function EmptyStateButton({
   disabled?: boolean;
   /** Replaces the icon while the action is in flight (e.g. a spinner). */
   busy?: ReactNode;
+  /** `submit` for a button inside a `<form>`. */
+  type?: 'button' | 'submit';
+  /** Extra classes appended after the shared look (e.g. a larger padding). */
+  className?: string;
 }) {
   const swap = FilledIcon !== undefined && !disabled && busy === undefined;
   return (
     <button
-      type="button"
+      type={type}
       onClick={onClick}
       disabled={disabled}
       data-testid="empty-state-cta"
-      className="group inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-[background-color,color,box-shadow] duration-150 enabled:hover:bg-primary enabled:hover:text-white enabled:hover:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:bg-primary focus-visible:text-white focus-visible:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:outline-none disabled:opacity-50"
+      className={`group inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-[background-color,color,box-shadow] duration-150 enabled:hover:bg-primary enabled:hover:text-white enabled:hover:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:bg-primary focus-visible:text-white focus-visible:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50${className ? ` ${className}` : ''}`}
     >
       {busy ?? (
         <>

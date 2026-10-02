@@ -1,8 +1,10 @@
 import { COMMANDS } from '@midnite/studio-shared';
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { LuArrowDownRight, LuChevronRight, LuX } from 'react-icons/lu';
+import { PiArrowRight, PiArrowRightFill, PiRocketLaunch, PiRocketLaunchFill } from 'react-icons/pi';
 
 import { BrandMark, Wordmark } from '../../components/brand';
+import { EmptyStateButton } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { ThemeToggle } from '../../components/theme-toggle';
 import { useDismiss } from '../../components/use-dismiss';
@@ -465,14 +467,13 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
                   >
                     Back
                   </button>
-                  <button
-                    type="button"
+                  <EmptyStateButton
+                    icon={PiArrowRight}
+                    filledIcon={PiArrowRightFill}
+                    label="Next"
                     onClick={next}
                     disabled={!canAdvance}
-                    className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next
-                  </button>
+                  />
                 </div>
               </>
             ) : null}
@@ -606,13 +607,12 @@ function Intro({
           A few minutes to get this Mac ready: git, your forges and accounts, and the tools agents
           lean on. Every page is optional.
         </p>
-        <button
-          type="button"
+        <EmptyStateButton
+          icon={PiArrowRight}
+          filledIcon={PiArrowRightFill}
+          label="Begin setup"
           onClick={onBegin}
-          className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Begin setup
-        </button>
+        />
       </div>
     </div>
   );
@@ -806,13 +806,12 @@ function Finale({
         >
           Back
         </button>
-        <button
-          type="button"
+        <EmptyStateButton
+          icon={PiRocketLaunch}
+          filledIcon={PiRocketLaunchFill}
+          label="Get started"
           onClick={onDone}
-          className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Get started
-        </button>
+        />
       </div>
     </div>
   );

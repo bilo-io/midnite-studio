@@ -63,4 +63,34 @@ describe('ToolchainPage', () => {
       'Toolchain install',
     );
   });
+
+  it('draws the primary action as the shared CTA', async () => {
+    installSetupBridge({ homebrew: 'Homebrew 4' });
+    render(<ToolchainPage />, { wrapper: wrapper() });
+    const cta = await screen.findByTestId('empty-state-cta');
+    expect(cta.textContent).toContain('Install selected');
+  });
+
+  it('shows the version in the right-hand slot, not a subtitle, and opens release notes without ticking the row', async () => {
+    const openExternal = vi.fn(async () => ({ ok: true }));
+    installSetupBridge(
+      { homebrew: 'Homebrew 4', node: 'v26.9.0', claude: '2.1.287 (Claude Code)' },
+      { shell: { openExternal } },
+    );
+    render(<ToolchainPage />, { wrapper: wrapper() });
+    const node = await screen.findByRole('button', { name: /Node\.js v26\.9\.0 release notes/ });
+    const row = node.closest('[data-testid="setup-status-row"]')!;
+    expect(row.querySelector('div.flex-col')!.children).toHaveLength(1);
+    const checkbox = screen.getByLabelText('Install Node.js') as HTMLInputElement;
+    const before = checkbox.checked;
+    fireEvent.click(node);
+    expect(openExternal).toHaveBeenCalledWith({ url: 'https://nodejs.org/en/blog/release/v26.9.0' });
+    expect(checkbox.checked).toBe(before);
+    const claude = screen.getByRole('button', { name: /Claude Code 2\.1\.287 release notes/ });
+    expect(claude.textContent).toBe('2.1.287');
+    fireEvent.click(claude);
+    expect(openExternal).toHaveBeenCalledWith({
+      url: 'https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md',
+    });
+  });
 });

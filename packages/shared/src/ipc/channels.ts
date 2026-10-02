@@ -423,6 +423,8 @@ export const CHANNELS = {
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
   /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
   setupProbe: 'mstudio:setup:probe',
+  /** Reveal a probed catalogue tool's binary in Finder, by catalogue id. */
+  setupReveal: 'mstudio:setup:reveal',
   /** The global git identity, `git config --global user.name/email` (Phase 98 Theme F). */
   gitIdentityGet: 'mstudio:git-identity:get',
   gitIdentitySet: 'mstudio:git-identity:set',

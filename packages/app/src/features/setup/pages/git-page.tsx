@@ -7,6 +7,7 @@ import {
 
 import { resolveSetupIcon } from '../setup-icons';
 import { SetupInstallActions } from '../setup-install-actions';
+import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe } from '../install-runner';
 
@@ -42,8 +43,15 @@ export function GitPage() {
   const detail = !gitProbe?.installed
     ? 'Not installed'
     : current
-      ? (gitProbe.version ?? gitProbe.path)
-      : `${gitProbe.version} — older than the recommended ${RECOMMENDED_GIT_VERSION}`;
+      ? undefined
+      : `Older than the recommended ${RECOMMENDED_GIT_VERSION}`;
+  const meta = gitProbe?.installed ? (
+    gitProbe.version ? (
+      <SetupMeta kind="version" toolId="git" label="git" version={gitProbe.version} />
+    ) : gitProbe.path ? (
+      <SetupMeta kind="path" toolId="git" label="git" path={gitProbe.path} />
+    ) : undefined
+  ) : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,6 +66,7 @@ export function GitPage() {
         icon={resolveSetupIcon(git.icon)}
         brandColor={git.brandColor}
         detail={detail}
+        meta={meta}
         onRevealTerminal={runner.reveal}
         action={
           <SetupInstallActions

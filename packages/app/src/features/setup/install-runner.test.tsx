@@ -104,7 +104,7 @@ describe('useSetupProbe', () => {
       ],
     });
     (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
-      setup: { probe },
+      setup: { probe, reveal: vi.fn() },
     };
     const { result } = renderHook(() => useSetupProbe(['git']), { wrapper });
     await waitFor(() => expect(result.current.data?.['git']?.installed).toBe(true));
