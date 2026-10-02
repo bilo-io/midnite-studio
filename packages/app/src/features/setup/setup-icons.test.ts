@@ -29,3 +29,20 @@ describe('SETUP_ICONS', () => {
     expect(resolveSetupIcon({ set: 'si', name: 'SiGit' })).toBe(Si.SiGit);
   });
 });
+
+describe('resolveSetupItemIcon', () => {
+  it('gives every catalogue row a branded glyph, not the generic box fallback', async () => {
+    const { resolveSetupItemIcon } = await import('./setup-icons');
+    for (const item of SETUP_CATALOGUE) {
+      expect(resolveSetupItemIcon(item), item.id).not.toBe(Lu.LuBox);
+    }
+  });
+
+  it('prefers a per-id brand override over the catalogue ref', async () => {
+    const { resolveSetupItemIcon, SETUP_ITEM_ICONS } = await import('./setup-icons');
+    for (const id of ['az', 'codex', 'orbstack', 'ripgrep', 'jq']) {
+      const item = SETUP_CATALOGUE.find((row) => row.id === id)!;
+      expect(resolveSetupItemIcon(item), id).toBe(SETUP_ITEM_ICONS[id]);
+    }
+  });
+});

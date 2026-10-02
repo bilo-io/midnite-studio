@@ -5,7 +5,7 @@ import {
   versionAtLeast,
 } from '@midnite/studio-shared';
 
-import { resolveSetupIcon } from '../setup-icons';
+import { resolveSetupItemIcon } from '../setup-icons';
 import { SetupInstallActions } from '../setup-install-actions';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
@@ -63,7 +63,7 @@ export function GitPage() {
       <SetupStatusRow
         label="git"
         status={status}
-        icon={resolveSetupIcon(git.icon)}
+        icon={resolveSetupItemIcon(git)}
         brandColor={git.brandColor}
         detail={detail}
         meta={meta}
@@ -81,7 +81,7 @@ export function GitPage() {
         <SetupStatusRow
           label="Homebrew"
           status="missing"
-          icon={resolveSetupIcon(brew.icon)}
+          icon={resolveSetupItemIcon(brew)}
           brandColor={brew.brandColor}
           detail="The recommended installer — used for git and the tools on the next pages"
         />

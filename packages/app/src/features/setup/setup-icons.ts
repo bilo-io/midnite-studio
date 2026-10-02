@@ -14,10 +14,13 @@ import {
   SiOllama,
   SiPnpm,
 } from 'react-icons/si';
+import { VscAzureDevops } from 'react-icons/vsc';
 
-import type { SetupIconRef } from '@midnite/studio-shared';
+import type { SetupIconRef, SetupItem } from '@midnite/studio-shared';
 
 import type { IconComponent } from '../../components/icon-button';
+import { CodexIcon } from '../../components/icons/codex-icon';
+import { JqIcon, OrbStackIcon, RipgrepIcon } from '../../components/icons/tool-marks';
 
 /**
  * The glyphs `SETUP_CATALOGUE` names, by `<set>:<export>` (Phase 98 Theme D).
@@ -53,4 +56,23 @@ export const SETUP_ICONS: Readonly<Record<string, IconComponent>> = {
 /** A catalogue row's icon, or a neutral box for one missing from the map. */
 export function resolveSetupIcon(ref: SetupIconRef): IconComponent {
   return SETUP_ICONS[`${ref.set}:${ref.name}`] ?? LuBox;
+}
+
+/**
+ * Per-item overrides for tools whose catalogue ref is a generic Lucide glyph
+ * because `SetupIconRef` only names `lu`/`si` exports: a brand mark `react-icons`
+ * carries under another set (Azure DevOps, `vsc`) or a local SVG. Keyed by
+ * catalogue id; `resolveSetupItemIcon` consults it before the ref.
+ */
+export const SETUP_ITEM_ICONS: Readonly<Record<string, IconComponent>> = {
+  az: VscAzureDevops,
+  codex: CodexIcon,
+  orbstack: OrbStackIcon,
+  ripgrep: RipgrepIcon,
+  jq: JqIcon,
+};
+
+/** A catalogue row's icon: its per-id brand override, else its `icon` ref. */
+export function resolveSetupItemIcon(item: Pick<SetupItem, 'id' | 'icon'>): IconComponent {
+  return SETUP_ITEM_ICONS[item.id] ?? resolveSetupIcon(item.icon);
 }

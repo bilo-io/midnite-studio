@@ -163,3 +163,32 @@ describe('completionTimeline', () => {
     expect(completionTimeline(true)).toEqual([{ at: 0, frame: 'finale' }]);
   });
 });
+
+describe('page transition', () => {
+  it('uses the eased curve and a 280-340ms duration', async () => {
+    const { PAGE_EASING, pageEnter } = await import('./setup-choreography');
+    expect(PAGE_EASING).toBe('cubic-bezier(0.65, 0, 0.35, 1)');
+    expect(CHOREO.pageEnterMs).toBeGreaterThanOrEqual(280);
+    expect(CHOREO.pageEnterMs).toBeLessThanOrEqual(340);
+    const fwd = pageEnter('forward', false);
+    expect(fwd.className).toBe('setup-page-enter');
+    expect(fwd['data-dir']).toBe('forward');
+    expect(fwd.style?.['--setup-page-ease']).toBe(PAGE_EASING);
+    expect(pageEnter('back', false)['data-dir']).toBe('back');
+  });
+
+  it('is absent under reduced motion, and for an arrival with no direction', async () => {
+    const { pageEnter } = await import('./setup-choreography');
+    expect(pageEnter('forward', true)).toEqual({});
+    expect(pageEnter(null, false)).toEqual({});
+  });
+
+  it('is styled as an opacity change plus a slide each way, with a fade-only reduced guard', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(`${process.cwd()}/src/styles.css`, 'utf8');
+    expect(css).toMatch(/@keyframes setup-page-in-forward\s*\{[^}]*opacity: 0;[^}]*translateX\(24px\)/);
+    expect(css).toMatch(/@keyframes setup-page-in-back\s*\{[^}]*opacity: 0;[^}]*translateX\(-24px\)/);
+    expect(css).toContain("html[data-motion='reduced'] .setup-page-enter { animation-name: setup-page-fade; }");
+    expect(css).toContain('cubic-bezier(0.65, 0, 0.35, 1)');
+  });
+});

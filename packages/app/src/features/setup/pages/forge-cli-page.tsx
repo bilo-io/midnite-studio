@@ -3,11 +3,12 @@ import { FORGE_CLI_ITEM, setupItem } from '@midnite/studio-shared';
 import { LuKeyRound } from 'react-icons/lu';
 
 import { useUiStore } from '../../../store/ui-store';
-import { resolveSetupIcon } from '../setup-icons';
+import { resolveSetupItemIcon } from '../setup-icons';
 import { SetupInstallActions } from '../setup-install-actions';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe } from '../install-runner';
+import { ForgeMark } from '../forge-mark';
 import { SETUP_FORGES } from './forge-select-page';
 
 /**
@@ -48,7 +49,7 @@ export function ForgeCliPage() {
       <p className="text-sm text-muted-foreground">
         Each forge&apos;s command-line tool lets Midnite Studio use your existing sign-in.
       </p>
-      {forges.map(({ kind, label, icon: Icon, color }) => {
+      {forges.map(({ kind, label }) => {
         const itemId = FORGE_CLI_ITEM[kind];
         if (!itemId) {
           return (
@@ -58,7 +59,7 @@ export function ForgeCliPage() {
               className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2"
             >
               <LuKeyRound aria-hidden className="h-5 w-5 shrink-0 text-muted-foreground" />
-              <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color }} />
+              <ForgeMark kind={kind} />
               <div className="flex flex-col">
                 <span className="text-sm font-medium">{label}</span>
                 <span className="text-xs text-muted-foreground">Token-based, no CLI needed</span>
@@ -94,7 +95,7 @@ export function ForgeCliPage() {
             key={kind}
             label={`${label} — ${item.label}`}
             status={status}
-            icon={resolveSetupIcon(item.icon)}
+            icon={resolveSetupItemIcon(item)}
             brandColor={item.brandColor}
             detail={detail}
             meta={meta}
