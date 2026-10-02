@@ -187,7 +187,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // dialog must sit inside the view box, clear of the terminal frame, and win
 // `elementFromPoint` over it. That is real layout and hit-testing; the bounds
 // maths and the Modal scope prop are vitest.
-export const MAX_DECLARED_E2E = 464;
+//
+// Raised 464 -> 466 for `diff-header-alignment.spec.ts` (2 tests): header bars
+// across the divider of the working-copy panel and the commit split layout must
+// share top/height/bottom, which is only measurable with real layout
+// (getBoundingClientRect) — jsdom has none.
+export const MAX_DECLARED_E2E = 466;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

@@ -5,6 +5,7 @@ import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useCommitBoxStore } from '../../store/commit-box-store';
+import { DIFF_BAR_CLASS } from '../../components/diff-pane-frame';
 import { WorkingTreeInlinePanel } from '../graph/graph-inline-panels';
 
 /**
@@ -142,6 +143,19 @@ describe('the working-tree parts in the graph inline panel', () => {
     expect(button.disabled).toBe(false);
     expect(button.className).toContain('brand-gradient-button');
     expect(button.textContent).toBe('Commit 1 file');
+  });
+
+  it('gives the left totals header and the right files header the same height token', async () => {
+    open();
+    await screen.findByRole('heading', { name: 'Changes' });
+    fireEvent.click(screen.getByRole('button', { name: 'View all changes' }));
+    const right = await screen.findByTestId('changes-accordion-header');
+    const left = screen.getByTestId('working-tree-header-bar');
+    for (const bar of [left, right]) {
+      for (const cls of DIFF_BAR_CLASS.split(' ')) expect(bar.classList.contains(cls)).toBe(true);
+      expect(bar.classList.contains('items-center')).toBe(true);
+      expect(bar.classList.contains('px-3')).toBe(true);
+    }
   });
 });
 
