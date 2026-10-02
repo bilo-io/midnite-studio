@@ -679,6 +679,7 @@ const bridge: Pick<
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
   setup: {
     probe: (req) => call(CHANNELS.setupProbe, req),
+    reveal: (req) => call(CHANNELS.setupReveal, req),
   },
   gitIdentity: {
     get: () => call(CHANNELS.gitIdentityGet),

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { LuTerminal } from 'react-icons/lu';
+import { PiDownloadSimple, PiDownloadSimpleFill } from 'react-icons/pi';
 
 import type { CliStatusResponse } from '@midnite/studio-shared';
 
+import { EmptyStateButton } from '../../../components/empty-state';
+import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 
 /** What the command does from a shell — the three forms `resources/bin/midnite-studio --help` lists. */
@@ -69,7 +72,7 @@ export function MidniteCliPage() {
     ? 'Available in the desktop app.'
     : status?.installed
       ? status.managed
-        ? (status.version ?? status.path)
+        ? undefined
         : `Installed outside Midnite Studio (${status.path})`
       : rowStatus === 'missing'
         ? 'Not installed'
@@ -99,15 +102,23 @@ export function MidniteCliPage() {
         status={rowStatus}
         icon={LuTerminal}
         detail={detail}
+        meta={
+          status?.installed && status.managed && (status.version ?? status.path) ? (
+            status.version ? (
+              <SetupMeta kind="version" toolId="midnite" label="Midnite CLI" version={status.version} />
+            ) : (
+              <SetupMeta kind="path" toolId="midnite" label="Midnite CLI" path={status.path!} />
+            )
+          ) : undefined
+        }
         action={
-          <button
-            type="button"
+          <EmptyStateButton
+            icon={PiDownloadSimple}
+            filledIcon={PiDownloadSimpleFill}
+            label="Install"
             onClick={() => void install()}
             disabled={!cli}
-            className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Install
-          </button>
+          />
         }
       />
 

@@ -28,7 +28,12 @@ import type { CommandId } from '../keybindings';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
 import type { GitIdentitySetRequest, GitIdentityGetResponse, GitIdentitySetResponse } from '../git-identity';
-import type { SetupProbeRequest, SetupProbeResponse } from '../setup';
+import type {
+  SetupProbeRequest,
+  SetupProbeResponse,
+  SetupRevealRequest,
+  SetupRevealResponse,
+} from '../setup';
 import type { SystemMemoryResponse } from '../system-memory';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
@@ -1312,6 +1317,8 @@ export type MidniteStudioBridge = {
    */
   setup: {
     probe: (req: In<typeof SetupProbeRequest>) => Promise<SetupProbeResponse>;
+    /** Reveal a tool's binary in Finder. A hand-off outcome, never throws. */
+    reveal: (req: In<typeof SetupRevealRequest>) => Promise<SetupRevealResponse>;
   };
 
   /** The global git identity (Phase 98 Theme F) — `git config --global`, `GitOpResult`-wrapped. */

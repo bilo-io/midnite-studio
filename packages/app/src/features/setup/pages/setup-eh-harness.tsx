@@ -15,7 +15,10 @@ export function installSetupBridge(
       path: id in versions ? `/opt/homebrew/bin/${id}` : null,
     })),
   }));
-  (window as unknown as { midniteStudio: unknown }).midniteStudio = { setup: { probe }, ...extra };
+  (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+    setup: { probe, reveal: vi.fn(async () => ({ ok: true })) },
+    ...extra,
+  };
   return probe;
 }
 

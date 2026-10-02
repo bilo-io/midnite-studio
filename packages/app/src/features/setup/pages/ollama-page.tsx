@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LuTriangleAlert } from 'react-icons/lu';
+import {
+  PiDownloadSimple,
+  PiDownloadSimpleFill,
+  PiPlay,
+  PiPlayFill,
+} from 'react-icons/pi';
 
 import {
   OLLAMA_CATALOGUE,
@@ -13,6 +19,7 @@ import {
   type OllamaRamFit,
 } from '@midnite/studio-shared';
 
+import { EmptyStateButton } from '../../../components/empty-state';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { useModelsPullQueueStore } from '../../models/models-pull-queue-store';
@@ -21,6 +28,7 @@ import { submitCommand } from '../../terminal/submit-command';
 import { useInstallRunner, useSetupProbe } from '../install-runner';
 import { resolveSetupIcon } from '../setup-icons';
 import { useSetupStore } from '../setup-store';
+import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 
 const TIER_LABEL: Record<OllamaCatalogueTier, string> = {
@@ -157,25 +165,29 @@ export function OllamaPage() {
         detail={
           rowStatus === 'ready'
             ? daemonUp
-              ? `Running${status.data?.version ? ` · ${status.data.version}` : ''}`
+              ? 'Running'
               : 'Installed, not running'
             : rowStatus === 'missing'
               ? 'Not installed'
               : undefined
+        }
+        meta={
+          rowStatus === 'ready' && daemonUp && status.data?.version ? (
+            <SetupMeta kind="version" toolId="ollama" label="Ollama" version={status.data.version} />
+          ) : undefined
         }
         onRevealTerminal={installer.reveal}
         action={
           rowStatus === 'missing' ? (
             <div className="flex gap-1.5">
               {installPlan.map((option) => (
-                <button
+                <EmptyStateButton
                   key={option.id}
-                  type="button"
+                  icon={PiDownloadSimple}
+                  filledIcon={PiDownloadSimpleFill}
+                  label={option.label}
                   onClick={() => installer.run(option.command, `Setup: ${option.label}`)}
-                  className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                >
-                  {option.label}
-                </button>
+                />
               ))}
             </div>
           ) : null
@@ -183,14 +195,13 @@ export function OllamaPage() {
       />
       {rowStatus === 'ready' && !daemonUp && !status.isLoading ? (
         <div>
-          <button
-            type="button"
+          <EmptyStateButton
+            icon={PiPlay}
+            filledIcon={PiPlayFill}
+            label={starting ? 'Starting…' : 'Start Ollama'}
             disabled={starting}
             onClick={() => void startDaemon()}
-            className="rounded border border-primary bg-primary/10 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
-          >
-            {starting ? 'Starting…' : 'Start Ollama'}
-          </button>
+          />
         </div>
       ) : null}
 
@@ -227,14 +238,13 @@ export function OllamaPage() {
         </p>
       ) : null}
       <div className="flex items-center gap-3">
-        <button
-          type="button"
+        <EmptyStateButton
+          icon={PiDownloadSimple}
+          filledIcon={PiDownloadSimpleFill}
+          label={tickedCount > 0 ? `Download ${tickedCount} model${tickedCount === 1 ? '' : 's'}` : 'Download'}
           disabled={tickedCount === 0 || !daemonUp}
           onClick={() => void download()}
-          className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {tickedCount > 0 ? `Download ${tickedCount} model${tickedCount === 1 ? '' : 's'}` : 'Download'}
-        </button>
+        />
         <span className="text-[11px] text-muted-foreground">
           {daemonUp ? 'Downloads keep going if you move on or close setup.' : 'Start Ollama to download.'}
         </span>
