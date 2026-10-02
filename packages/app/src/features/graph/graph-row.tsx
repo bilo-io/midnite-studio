@@ -210,7 +210,7 @@ function GraphRowInner({
         onSelect(row.commit.sha);
         onContextMenu(event, row);
       }}
-      className={`graph-row relative flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
+      className={`graph-row relative flex cursor-pointer items-center gap-2 pr-3 text-sm transition-colors ${
         selected ? '' : 'hover:bg-accent/30'
       } ${dimmed ? 'opacity-40' : ''} ${
         recencyTier === 'fresh' || recencyTier === 'recent' ? 'commit-row-glow' : ''

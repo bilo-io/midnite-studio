@@ -115,7 +115,7 @@ function StashRow({
       aria-pressed={selected}
       onClick={onSelect}
       aria-label={`Stash: ${entry.message}`}
-      className={`relative flex w-full shrink-0 cursor-default items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
+      className={`relative flex w-full shrink-0 cursor-pointer items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
         selected ? 'bg-accent/40' : 'hover:bg-accent/30'
       }`}
       style={{ height: theme.rowHeight }}
@@ -236,7 +236,7 @@ function StashOverflowRow({
         if (!reposOpen) setReposOpen(true);
         if (closed?.includes('stashes')) toggleRepoSection(repoId, 'stashes');
       }}
-      className="flex w-full shrink-0 cursor-default items-center border-b border-dashed border-border/60 pl-3 pr-3 text-left text-xs italic text-muted-foreground transition-colors hover:bg-accent/30"
+      className="flex w-full shrink-0 cursor-pointer items-center border-b border-dashed border-border/60 pl-3 pr-3 text-left text-xs italic text-muted-foreground transition-colors hover:bg-accent/30"
       style={{ height: theme.rowHeight }}
     >
       +{count} more {count === 1 ? 'stash' : 'stashes'} — see the sidebar
