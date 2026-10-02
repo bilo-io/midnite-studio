@@ -1,9 +1,10 @@
 import { studioCompositionUrl } from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
 import { LuClapperboard, LuExternalLink, LuOctagonAlert, LuPlay, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import { PiPlayFill } from 'react-icons/pi';
 
 import { useBrowserBounds } from '../../browser/use-browser-bounds';
-import { EmptyState } from '../../../components/empty-state';
+import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
 import { bridge } from '../../../services/bridge';
 import { openInMidnite } from '../../../services/open-in-midnite';
@@ -89,15 +90,14 @@ export function VideoStudioPane({
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3">
           <p className="text-sm text-muted-foreground">The studio isn't running.</p>
-          <button
-            type="button"
+          <EmptyStateButton
+            icon={LuPlay}
+            filledIcon={PiPlayFill}
+            label="Start studio"
             onClick={() => start.mutate(projectId)}
             disabled={start.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            <LuPlay aria-hidden className="h-4 w-4" />
-            Start studio
-          </button>
+            busy={start.isPending ? <Spinner className="h-3.5 w-3.5" /> : undefined}
+          />
         </div>
       );
 
