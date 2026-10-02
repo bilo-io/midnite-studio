@@ -296,9 +296,20 @@ function FileRow<T extends ChangedFile>({
  * back the weight the smaller size costs, so the counts still read as the
  * numbers on the row rather than as its faintest text.
  */
-export function Counts({ insertions, deletions }: { insertions: number; deletions: number }) {
+export function Counts({
+  insertions,
+  deletions,
+  bold = false,
+}: {
+  insertions: number;
+  deletions: number;
+  /** The roll-up totals are bold; per-row counts stay `font-medium`. */
+  bold?: boolean;
+}) {
   return (
-    <span className="shrink-0 text-[11px] font-medium tabular-nums">
+    <span
+      className={`shrink-0 text-[11px] tabular-nums ${bold ? 'font-bold' : 'font-medium'}`}
+    >
       <span className={insertions === 0 ? 'text-muted-foreground/50' : 'text-success'}>
         +{formatNumber(insertions)}
       </span>{' '}
@@ -335,8 +346,8 @@ export function ChangeTotals({
       <span className="truncate tabular-nums">
         {formatNumber(fileCount)} {fileCount === 1 ? 'file' : 'files'}
       </span>
-      <span className="shrink-0 font-bold">
-        <Counts insertions={insertions} deletions={deletions} />
+      <span className="shrink-0">
+        <Counts insertions={insertions} deletions={deletions} bold />
       </span>
     </span>
   );

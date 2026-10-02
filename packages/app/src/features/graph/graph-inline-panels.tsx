@@ -1,6 +1,4 @@
-import { LuX } from 'react-icons/lu';
-
-import { IconButton } from '../../components/icon-button';
+import { DiffPaneFrame } from '../../components/diff-pane-frame';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
@@ -24,18 +22,28 @@ export function CommitInlinePanel({
   repoId,
   sha,
   onClose,
+  dividerGradient,
 }: {
   repoId: string;
   sha: string;
   onClose: () => void;
+  dividerGradient?: { from: string; to: string };
 }) {
-  return <CommitDetail repoId={repoId} sha={sha} onClose={onClose} layout="split" />;
+  return (
+    <CommitDetail
+      repoId={repoId}
+      sha={sha}
+      onClose={onClose}
+      layout="split"
+      dividerGradient={dividerGradient}
+    />
+  );
 }
 
 /**
  * The working copy, expanded under the uncommitted-changes row: the Changes
  * view's own parts (`working-tree-changes.tsx`) rearranged — the commit box
- * on top of the left column, where the commit's message sits in the commit
+ * at the bottom of the left column, where the commit's message sits in the commit
  * panel beside it, the Staged/Changes lists under it, the diff on the right.
  *
  * With nothing picked the diff side is every changed file, collapsed: a panel
@@ -48,8 +56,11 @@ export function CommitInlinePanel({
 export function WorkingTreeInlinePanel({
   active,
   onClose,
+  dividerGradient,
 }: {
   active: boolean;
+  /** Lane colours for the divider between the two columns. */
+  dividerGradient?: { from: string; to: string };
   /** Absent where there is nothing to collapse back to — an unborn repo's first commit. */
   onClose?: () => void;
 }) {
@@ -76,15 +87,19 @@ export function WorkingTreeInlinePanel({
         }`}
         style={{ width: listColumn.current }}
       >
-        <CommitBox model={model} active={active} className="border-b border-border" />
-        <WorkingTreeFileList
-          model={model}
-          trailing={onClose ? <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} /> : undefined}
-        />
+        <WorkingTreeFileList model={model} />
+        <CommitBox model={model} active={active} className="border-t border-border" />
       </div>
-      <ResizeHandle resizable={listColumn} axis="x" label="Resize the working-copy file list" />
-      <div className="min-w-0 flex-1">
-        <WorkingTreeDiffPane model={model} />
+      <ResizeHandle
+        resizable={listColumn}
+        axis="x"
+        label="Resize the working-copy file list"
+        gradient={dividerGradient}
+      />
+      <div className="h-full min-w-0 flex-1">
+        <DiffPaneFrame onClose={onClose}>
+          <WorkingTreeDiffPane model={model} />
+        </DiffPaneFrame>
       </div>
     </div>
   );

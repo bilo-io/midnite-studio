@@ -145,6 +145,25 @@ describe('the working-tree parts in the graph inline panel', () => {
   });
 });
 
+describe('the panel layout', () => {
+  it('has one close button, last in the diff header, and the commit box after the file list', async () => {
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
+    await screen.findByRole('heading', { name: 'Changes' });
+    const closes = screen.getAllByRole('button', { name: 'Close' });
+    expect(closes).toHaveLength(1);
+    expect(screen.getByTestId('diff-viewer-header').lastElementChild).toBe(closes[0]);
+    const input = screen.getByPlaceholderText('Commit message');
+    const heading = screen.getByRole('heading', { name: 'Changes' });
+    expect(heading.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('bolds the totals', async () => {
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
+    await screen.findByRole('heading', { name: 'Changes' });
+    expect(screen.getAllByTestId('change-totals')[0]!.querySelector('.font-bold')).not.toBeNull();
+  });
+});
+
 describe('what the panel shows with nothing picked', () => {
   it('shows every changed file, collapsed', async () => {
     renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });

@@ -37,6 +37,7 @@ import {
 import { CiRunModal } from './ci-run-modal';
 import { useRefsBySha } from './ref-badge';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
+import { dividerColors } from './diff-divider';
 import { CommitInlinePanel, WorkingTreeInlinePanel } from './graph-inline-panels';
 import { InlineExpander, InlineSlot, SLOT_INSET, lanesLeaving } from './inline-expansion';
 import { isReducedMotion } from '../../lib/reduced-motion';
@@ -768,6 +769,11 @@ export function GraphView() {
               <WorkingTreeInlinePanel
                 active={visible && workingTreeOpen}
                 onClose={() => selectWorkingTree(false)}
+                dividerGradient={dividerColors(
+                  headRow?.colorIdx ?? 0,
+                  rows[0] ? applyHeadLane(rows[0], 0, headLane).colorIdx : undefined,
+                  theme.palette,
+                )}
               />
             </InlineSlot>
           </InlineExpander>
@@ -900,6 +906,13 @@ export function GraphView() {
                           repoId={repoId}
                           sha={row.commit.sha}
                           onClose={() => selectCommit(null)}
+                          dividerGradient={dividerColors(
+                            applyHeadLane(row, item.index, headLane).colorIdx,
+                            rows[item.index + 1]
+                              ? applyHeadLane(rows[item.index + 1]!, item.index + 1, headLane).colorIdx
+                              : undefined,
+                            theme.palette,
+                          )}
                         />
                       </InlineSlot>
                     </InlineExpander>
