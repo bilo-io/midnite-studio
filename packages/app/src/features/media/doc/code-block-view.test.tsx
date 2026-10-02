@@ -45,3 +45,17 @@ describe('languageOptions', () => {
     expect(languageOptions(['b'], null)).toEqual(['b']);
   });
 });
+
+describe('diff code blocks', () => {
+  it('colours added and removed lines in a ```diff fence', async () => {
+    const { container } = render(<Harness markdown={'```diff\n--- a/x\n+++ b/x\n@@ -1,2 +1,2 @@\n ctx\n-old\n+new\n```'} />);
+    await waitFor(() => expect(container.querySelector('.hljs-addition')?.textContent).toContain('new'));
+    expect(container.querySelector('.hljs-deletion')?.textContent).toContain('old');
+  });
+
+  it('colours an untagged fence that is clearly a unified diff', async () => {
+    const { container } = render(<Harness markdown={'```\n@@ -1,2 +1,2 @@\n ctx\n-old\n+new\n```'} />);
+    await waitFor(() => expect(container.querySelector('.hljs-addition')?.textContent).toContain('new'));
+    expect(container.querySelector('.hljs-deletion')?.textContent).toContain('old');
+  });
+});

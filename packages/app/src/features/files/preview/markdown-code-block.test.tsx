@@ -49,6 +49,8 @@ describe('markdown code blocks', () => {
     expect(kinds).toEqual(['file', 'file', 'hunk', 'ctx', 'del', 'add']);
     expect(container.querySelector('[data-diff-kind="add"]')?.className).toContain('bg-success/10');
     expect(container.querySelector('[data-diff-kind="del"]')?.className).toContain('bg-destructive/10');
+    expect(container.querySelector('[data-diff-kind="add"]')?.className).toContain('text-success');
+    expect(container.querySelector('[data-diff-kind="del"]')?.className).toContain('text-destructive');
     expect(container.querySelector('[data-diff-kind="hunk"]')?.className).toContain('text-primary');
   });
 
