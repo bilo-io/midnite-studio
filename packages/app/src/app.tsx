@@ -1994,6 +1994,7 @@ function Shell() {
         {quickAccessOpen ? (
           <QuickAccessMenu
             trigger={fabButtonRef}
+            anchor={fabInStatusBar ? fabButtonRef : undefined}
             onClose={() => useUiStore.getState().setQuickAccessOpen(false)}
           />
         ) : null}
