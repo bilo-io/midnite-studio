@@ -98,7 +98,7 @@ import { useKnowledgeGraphExists } from './features/knowledge/use-knowledge-grap
 import { SyncActions } from './features/status/sync-actions';
 import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
-import { fabPlacementFor } from './features/status-bar/fab-placement';
+import { fabPlacementFor, useFabPlacementFlip } from './features/status-bar/fab-placement';
 import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
@@ -1478,7 +1478,9 @@ function Shell() {
    */
   const framed = !windowChrome?.frameless;
 
-  const fabInStatusBar = fabPlacementFor(activeView) === 'statusbar';
+  const fabPlacement = fabPlacementFor({ view: activeView, terminalOpen: terminalDocked });
+  const fabInStatusBar = fabPlacement === 'statusbar';
+  useFabPlacementFlip(fabPlacement, fabButtonRef);
   const fabNode = (
     <>
       <FabLoopHalo tab={activeFabTab} />
