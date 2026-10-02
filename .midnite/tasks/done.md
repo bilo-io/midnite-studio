@@ -1,6 +1,16 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-02 — Phase 82 Theme C — e2e-porting traps written into `test-support/`
+
+[PR #680](https://github.com/bilo-io/midnite-studio/pull/680). `packages/app/test-support/README.md` lists six porting traps; `src/test-support-premises.test.tsx` pins the jsdom behaviour behind four of them. Wave 6 is still open.
+
+- [x] Lazy-chunk trap (wave 2): warm a component's own `React.lazy` chunk in `beforeAll`.
+- [x] Interaction-mount trap (wave 4): `await findBy*` for content the interaction mounted; `FiringResizeObserver` fires on a microtask.
+- [x] Disjoint `<mark>` accname (wave 4): jsdom names the row `"T oggle T erminal"`; filter by `textContent`.
+- [x] Two harness gaps (wave 5): `MonacoField`'s module-scope `getMonaco()` (also noted in `module-mocks.ts`), and `getByRole` has no `exact` (pinned with `@ts-expect-error`).
+- [x] Porting hazard (wave 3): whole-string vs substring default matching.
+
 ## 2026-10-01 — Phase 98 Theme J — Completion transition and Welcome finale
 
 Reuses Theme B/C choreography (`playTimeline`, `playGlide`, `dissolveTimeline`, `.setup-brand-gradient`); no second animation system.
