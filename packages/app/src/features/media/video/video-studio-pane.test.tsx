@@ -77,7 +77,10 @@ describe('VideoStudioPane', () => {
     const { start } = installBridge({ state: 'stopped' });
     renderPane('p1');
 
-    fireEvent.click(await screen.findByRole('button', { name: /Start studio/ }));
+    const button = await screen.findByRole('button', { name: /Start studio/ });
+    // The shared empty-state CTA — the same look as Models' Start Ollama.
+    expect(button.getAttribute('data-testid')).toBe('empty-state-cta');
+    fireEvent.click(button);
     await waitFor(() => expect(start).toHaveBeenCalledWith({ projectId: 'p1' }));
   });
 
