@@ -77,6 +77,19 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
+  it('the toolbar shows the title after the root badge, with Render as the last control', async () => {
+    await open({ ...fixtures, video: { projects: [PROJECT] } });
+    fireEvent.click(screen.getByRole('button', { name: /COP31 showreel/ }));
+    const title = await screen.findByTestId('video-toolbar-title');
+    expect(title.textContent).toBe('COP31 showreel');
+    const bar = title.parentElement as HTMLElement;
+    const badge = screen.getByTestId('video-root-source');
+    expect(badge.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const controls = Array.from(bar.querySelectorAll('button'));
+    expect(controls.at(-1)?.textContent).toContain('Render');
+    expect(controls.at(-1)?.className).toContain('ml-auto');
+  });
+
   it('a project missing node/npx shows the toolchain warning', async () => {
     await open({
       ...fixtures,

@@ -1,7 +1,17 @@
 import { BUILTIN_AGENTS, VIDEO_SKILLS } from '@midnite/studio-shared';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { LuFilePen, LuFolderCog, LuPlay, LuPlus, LuX } from 'react-icons/lu';
+import {
+  LuClapperboard,
+  LuFilePen,
+  LuFolderCog,
+  LuPlay,
+  LuPlus,
+  LuScrollText,
+  LuWandSparkles,
+  LuX,
+} from 'react-icons/lu';
 
+import type { IconComponent } from '../../../components/icon-button';
 import { useUiStore, VIDEO_PANEL_TABS, type VideoPanelTab } from '../../../store/ui-store';
 import { MarkdownPreview } from '../../files/preview/markdown-preview';
 import { startAgent } from '../../terminal/start-agent';
@@ -139,10 +149,6 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
 
   return (
     <div className="flex h-full min-h-0 flex-col text-xs">
-      <div className="shrink-0 px-3 pt-3">
-        <h2 className="text-sm font-semibold text-foreground">{data.title}</h2>
-        <p className="mt-0.5 text-muted-foreground">{data.composition}</p>
-      </div>
       <VideoPanelTabs active={tab} onSelect={setTab} />
       {tab === 'edit' ? (
         <div role="tabpanel" id="video-panel-edit" aria-labelledby="video-tab-edit" className="min-h-0 flex-1">
@@ -283,7 +289,12 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   );
 }
 
-const PANEL_TAB_LABEL: Record<VideoPanelTab, string> = { edit: 'Edit', brief: 'Brief', versions: 'Versions' };
+const PANEL_TAB_LABEL: Record<VideoPanelTab, string> = { edit: 'Edit with AI', brief: 'Brief', versions: 'Versions' };
+const PANEL_TAB_ICON: Record<VideoPanelTab, IconComponent> = {
+  edit: LuWandSparkles,
+  brief: LuScrollText,
+  versions: LuClapperboard,
+};
 
 /** Edit / Brief / Versions — a WAI-ARIA tablist with roving focus (←/→, Home/End). */
 function VideoPanelTabs({ active, onSelect }: { active: VideoPanelTab; onSelect: (tab: VideoPanelTab) => void }) {
@@ -316,12 +327,16 @@ function VideoPanelTabs({ active, onSelect }: { active: VideoPanelTab; onSelect:
           aria-controls={`video-panel-${tab}`}
           tabIndex={tab === active ? 0 : -1}
           onClick={() => onSelect(tab)}
-          className={`h-7 rounded-md px-2.5 text-xs transition-colors ${
+          className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors ${
             tab === active
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
           }`}
         >
+          {(() => {
+            const Icon = PANEL_TAB_ICON[tab];
+            return <Icon aria-hidden data-testid={`video-tab-icon-${tab}`} className="h-3.5 w-3.5" />;
+          })()}
           {PANEL_TAB_LABEL[tab]}
         </button>
       ))}

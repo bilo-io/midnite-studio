@@ -63,9 +63,11 @@ describe('Video panel tabs', () => {
     installBridge();
     render(wrap(<VideoProjectDetail projectId="p1" />));
     expect(await screen.findByText('The brief')).toBeTruthy();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Edit', 'Brief', 'Versions']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Edit with AI', 'Brief', 'Versions']);
+    // One icon per tab, in order: wand (AI edit), scroll (brief), clapperboard (versions).
+    for (const id of ['edit', 'brief', 'versions']) expect(screen.getByTestId(`video-tab-icon-${id}`).tagName.toLowerCase()).toBe('svg');
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Edit with AI' }));
     expect(screen.queryByText('The brief')).toBeNull();
     expect(screen.getByRole('log', { name: 'Video edit thread' })).toBeTruthy();
     expect(useUiStore.getState().mediaVideoPanelTab).toBe('edit');
