@@ -63,7 +63,7 @@ function withNavVisibility(
 // — Councils (Phase 42) and, since Phase 50 Theme D, a board's card detail.
 // `Mod+[`/`Mod+]` stay disabled everywhere else rather than firing a silent
 // no-op through the registry.
-const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'tasks']);
+const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'tasks', 'files']);
 
 /**
  * The one dispatcher every source reads: the keyboard, the native menu, and
@@ -601,10 +601,10 @@ export function useCommandHandlers(): CommandRuntime {
     // no-op there anyway.
     'panel.back': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelBack() }
-      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
     'panel.forward': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelForward() }
-      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
   };
 }
 

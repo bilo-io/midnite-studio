@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,7 +7,8 @@ import { useSlidesStore } from '../../slides/slides-store';
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
 import { MarkdownCode, MarkdownPre } from './markdown-code-block';
-import { resolveMarkdownLinkTarget } from './markdown-links';
+import { findAnchorTarget, inPageAnchor, resolveMarkdownLinkTarget } from './markdown-links';
+import { useFilesStore } from '../files-store';
 
 /**
  * Rendered markdown, GFM flavour. The source ⇄ rendered toggle lives in the
@@ -33,8 +34,23 @@ export function MarkdownPreview({
   content: string;
   label?: string;
   currentRelPath?: string;
-  onNavigate?: (relPath: string) => void;
+  onNavigate?: (relPath: string, anchor?: string) => void;
 }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const restore = useFilesStore((s) => s.restore);
+
+  // Apply the scroll target every navigation sets: a heading for `#anchor`, a
+  // remembered offset for Back/Forward, otherwise the top.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    if (restore.anchor) {
+      findAnchorTarget(el, restore.anchor)?.scrollIntoView?.({ block: 'start' });
+    } else {
+      el.scrollTop = restore.scrollTop ?? 0;
+    }
+  }, [restore, content]);
+
   useEffect(() => {
     if (label === undefined) return;
     useSlidesStore.getState().setActiveMarkdown({ content, label });
@@ -43,7 +59,35 @@ export function MarkdownPreview({
 
   const MarkdownLink = useCallback(
     ({ href, children, className }: { href?: string; children?: React.ReactNode; className?: string }) => {
+      const anchor = inPageAnchor(href);
+      if (anchor !== null) {
+        return (
+          <a
+            href={href}
+            className={`text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary ${className ?? ''}`}
+            onClick={(event) => {
+              event.preventDefault();
+              useFilesStore.getState().navigateAnchor(anchor);
+            }}
+          >
+            {children}
+          </a>
+        );
+      }
       const target = resolveMarkdownLinkTarget(href, currentRelPath);
+      if (!target && href && !href.startsWith('#')) {
+        // A relative link that climbs out of the repo root: inert, never an external open.
+        return (
+          <a
+            href={href}
+            title="Outside this repository"
+            className={`cursor-not-allowed text-muted-foreground underline decoration-dotted ${className ?? ''}`}
+            onClick={(event) => event.preventDefault()}
+          >
+            {children}
+          </a>
+        );
+      }
       if (target?.kind === 'internal' && onNavigate) {
         return (
           <a
@@ -52,7 +96,7 @@ export function MarkdownPreview({
             className={`text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary ${className ?? ''}`}
             onClick={(event) => {
               event.preventDefault();
-              onNavigate(target.relPath);
+              onNavigate(target.relPath, target.anchor);
             }}
           >
             {children}
@@ -66,6 +110,8 @@ export function MarkdownPreview({
 
   return (
     <div
+      ref={scroller}
+      onScroll={(event) => useFilesStore.getState().recordScroll(event.currentTarget.scrollTop)}
       className={`min-h-0 max-w-none overflow-auto p-4 text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
       data-selectable
     >

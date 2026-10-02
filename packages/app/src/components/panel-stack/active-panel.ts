@@ -32,7 +32,7 @@ export function activePanelForward(): void {
 }
 
 /** Call from the component that owns the on-screen `panel-stack`. */
-export function useRegisterActivePanel<T>(history: PanelHistory<T>, isActive: boolean): void {
+export function useRegisterActivePanel<T>(history: Pick<PanelHistory<T>, 'back' | 'forward'>, isActive: boolean): void {
   useEffect(() => {
     if (!isActive) return undefined;
     // A fresh object per effect run, so cleanup can check it still owns the
