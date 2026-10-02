@@ -54,8 +54,17 @@ describe('Images tab', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('shows the composer's picker on the recommended model and generates into the project', async () => {
-    open();
+  it('shows the picker in the composer on the recommended model and generates into the project', async () => {
+    open({
+      ...withImages,
+      media: {
+        ...withImages.media,
+        imageProviders: [
+          { id: 'gemini', available: true, missingKey: false, models: [] },
+          { id: 'agy', available: true, missingKey: false, models: [] },
+        ],
+      },
+    });
     await screen.findByRole('button', { name: 'Open a.png' });
     expect(screen.getByRole('button', { name: 'Provider: Antigravity CLI' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Model: Gemini 2.5 Flash Image' })).toBeTruthy();
