@@ -24,7 +24,7 @@ This strategy ensures CI remains fast, trustworthy, and bounded against silent s
 > xterm, canvas, focus order, or paint order — name which, in the spec's own header comment.**
 
 When writing a new test:
-1. **Default to Vitest:** If you are asserting text content, DOM structure, accessible roles/attributes, or store state changes, it belongs in Vitest under `packages/app/src/` using the ergonomics provided in `packages/app/test-support/render.tsx` (`renderView`) and `test-support/mock-bridge.ts` (`buildMockBridge`, `makeFixtures`).
+1. **Default to Vitest:** If you are asserting text content, DOM structure, accessible roles/attributes, or store state changes, it belongs in Vitest under `packages/app/src/` using the ergonomics provided in `packages/app/test-support/render.tsx` (`renderView`) and `test-support/mock-bridge.ts` (`buildMockBridge`, `makeFixtures`). Porting an existing e2e spec? Read the six false-negative traps in [`packages/app/test-support/README.md`](../packages/app/test-support/README.md) first.
 2. **Visual Appearance:** If you are verifying that styling, tokens, or theme palettes look correct, add a component crop test under `packages/app/e2e/visual/`. Never write slow DOM assertions against computed CSS in functional specs for visual-only checks.
 3. **Functional E2E:** If and only if the test exercises real browser primitives that jsdom cannot emulate (e.g., `getBoundingClientRect`, CSS transitions/animations, xterm.js rendering, mouse drag interactions, `<canvas>` manipulations, or focus-trapping overlays), write it as a Playwright functional spec under `packages/app/e2e/`. State explicitly in the file's header comment which browser capability justifies its presence.
 
