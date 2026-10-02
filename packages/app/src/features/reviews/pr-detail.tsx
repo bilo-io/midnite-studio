@@ -112,9 +112,10 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
     );
     return matchPreviewDeploy(text, previewDeployHosts);
   }, [detail?.body, comments.data?.comments, previewDeployHosts]);
-  // Same tab gate as the patch it decorates: threads are only ever drawn on the
-  // Files tab, so a reader who opens a PR onto Checks pays for no GraphQL call.
-  const threads = useForgePullThreads(repoId, number, tab === 'files');
+  // Threads are drawn on the Files tab (inline) and the Conversation tab (nested
+  // under their review), so a reader who opens a PR onto Checks or Overview
+  // pays for no GraphQL call.
+  const threads = useForgePullThreads(repoId, number, tab === 'files' || tab === 'conversation');
   /*
     Phase 90 Theme H's own deferred item, unblocked now that a real adapter
     can report `threadResolution: 'partial'` — Bitbucket has no thread object
@@ -283,6 +284,15 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             isLoading={comments.isLoading}
             error={comments.data?.error ?? null}
             notReady={notReady(comments.data?.cli)}
+            threads={threads.data?.threads ?? []}
+            // Only when the patch is already cached — never fetched for an excerpt.
+            files={files.data?.files ?? null}
+            onReply={async (input) => (await reply.mutateAsync(input)).ok}
+            onResolve={(input) => resolve.mutate(input)}
+            busy={busy}
+            writeError={writeError}
+            partialNote={capability?.threadResolution === 'partial'}
+            onOpenFile={() => setTab('files')}
           />
         ) : (
           <PrChecks
