@@ -25,7 +25,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 52/75 | `███████░░░` | 69% | — | C D G |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 52/75 | `███████░░░` | 69% | C | D G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 50/53 | `█████████░` | 94% | — | — |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 57/67 | `█████████░` | 85% | — | — |
