@@ -6,7 +6,7 @@ import { INITIAL_SETUP_STATE } from '../../store/setup-state';
 import { useUiStore } from '../../store/ui-store';
 import { useSetupStore } from '../setup/setup-store';
 import { resetCompanionPorts, setCompanionPorts } from '../companion/companion-ports';
-import { QuickAccessMenu } from './quick-access-menu';
+import { anchoredMenuPosition, QuickAccessMenu } from './quick-access-menu';
 
 beforeEach(() => {
   useUiStore.setState({
@@ -215,5 +215,42 @@ describe('QuickAccessMenu', () => {
   it('drops Resume setup once setup is complete', () => {
     render(<QuickAccessMenu onClose={() => {}} />);
     expect(screen.queryByTestId('quick-access-row-s')).toBeNull();
+  });
+});
+
+describe('QuickAccessMenu anchoring', () => {
+  it('keeps the floating corner when there is no anchor', () => {
+    render(<QuickAccessMenu onClose={() => {}} />);
+
+    const menu = screen.getByTestId('quick-access-menu');
+    expect(menu.getAttribute('data-anchored')).toBeNull();
+    expect(menu.className).toContain('bottom-24');
+  });
+
+  it('opens directly above an anchor, right edges aligned', () => {
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({
+      top: window.innerHeight - 22,
+      right: window.innerWidth - 12,
+    } as DOMRect);
+
+    render(<QuickAccessMenu onClose={() => {}} anchor={{ current: button }} />);
+
+    const menu = screen.getByTestId('quick-access-menu');
+    expect(menu.getAttribute('data-anchored')).toBe('true');
+    expect(menu.className).not.toContain('bottom-24');
+    expect(menu.style.bottom).toBe('28px');
+    expect(menu.style.right).toBe('12px');
+    button.remove();
+  });
+});
+
+describe('anchoredMenuPosition', () => {
+  it('never sits closer than the edge margin to the viewport', () => {
+    expect(anchoredMenuPosition({ top: 900, right: 1000 }, { width: 1000, height: 800 })).toEqual({
+      bottom: 8,
+      right: 8,
+    });
   });
 });
