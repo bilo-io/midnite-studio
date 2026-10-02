@@ -22,6 +22,7 @@ export * from './install-command';
 export * from './ipc';
 export * from './keybindings';
 export * from './loops';
+export * from './markdown-image';
 export * from './mcp';
 export * from './media';
 export * from './ollama';
