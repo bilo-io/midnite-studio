@@ -47,4 +47,14 @@ describe('schema-derived reference', () => {
     const prompt = buildIterativePrompt({ prompt: 'a chair', hasReference: false, target: { repoPath: '/r', project: 'p', model: 'c.obj' }, maxIterations: 3 });
     expect(prompt).not.toContain('model_get_reference_image');
   });
+
+  it('derives the new kinds, booleans, materials and the modifier stack from the schema', () => {
+    const text = modelSpecReference();
+    for (const word of ['"capsule"', '"roundedBox"', '"tube"', '"loft"', '"mesh"', '"group"', '"instance"', '"parent"', '"op"', '"target"', '"material"', 'Modifiers']) {
+      expect(text).toContain(word);
+    }
+    for (const type of ['bevel', 'subdivide', 'mirror', 'array', 'radialArray', 'twist', 'taper', 'bend']) expect(text).toContain(`- "${type}":`);
+    expect(text).toContain('"subtract"');
+    expect(text).toContain('metalness');
+  });
 });

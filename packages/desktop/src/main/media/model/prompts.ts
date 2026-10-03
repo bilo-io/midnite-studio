@@ -35,8 +35,11 @@ All numbers are plain numbers in metres, colours are "#rrggbb".
 
 Rules:
 - Y is up. Rest the model on the ground: its lowest point at y=0, centred on x=0, z=0.
-- Build with many small parts (usually 6 to 30), give each distinct piece its own colour, and keep proportions realistic.
-- Use only the shapes and fields above.`;
+- Plan first, then build: decide the main masses (body, base, limbs, roof...), then the secondary parts, then the small details. Build with many parts (usually 8 to 40), give each distinct piece its own colour, and keep proportions realistic.
+- Prefer the shape that matches the form: capsule/ellipsoid/roundedBox for soft bodies, lathe for anything round and turned (vases, wheels, bottles), loft for hulls and tapering bodies, tube for pipes, handles and cables, wedge for ramps and roofs.
+- Cut holes and slots with a boolean (a part with "op": "subtract" and a "target") instead of faking them with dark boxes. Repeat identical pieces with an "instance" or a modifier array rather than copying fields.
+- Use "material" for metal, glass or glowing parts. Plain colour is fine everywhere else.
+- Use only the shapes and fields above. Every "parent", "target" and "source" must name a part that exists.`;
 
 export function buildSpecPrompt(input: { prompt: string; imageDescription?: string | undefined }): string {
   const brief = [
@@ -72,7 +75,7 @@ export function buildRepairPrompt(input: { previousReply: string; error: string 
   ].join('\n');
 }
 
-export const DESCRIBE_IMAGE_PROMPT = `Describe the main object in this picture so a 3D modeller could rebuild it from simple shapes (boxes, spheres, cylinders, cones, tori, revolved profiles).
+export const DESCRIBE_IMAGE_PROMPT = `Describe the main object in this picture so a 3D modeller could rebuild it from simple shapes (boxes, rounded boxes, spheres, capsules, cylinders, cones, tori, revolved profiles, lofted hulls, pipes).
 List: what it is; its overall proportions (width : height : depth); each distinct part with its shape, relative size, position and colour (use plain colour words). Ignore the background. Be concrete and brief — under 200 words, no preamble.`;
 
 /**
@@ -101,15 +104,16 @@ export function buildIterativePrompt(input: {
       ? 'A reference picture is attached: call model_get_reference_image and study it — build what you SEE, its proportions and colours, not a generic version of the object.'
       : '',
     '',
-    'Work in this loop:',
-    '1. Call model_get_spec once to read the design format, the limits and the part ids. The model starts as a one-part placeholder: replace it.',
-    `2. Build a first design with model_set_spec (the whole design) — a rough but complete silhouette in correct proportions, at most ${MODEL_MAX_PARTS} parts.`,
-    `3. Call model_render_preview to SEE it (front, side, top and iso views). Compare with the request${input.hasReference ? ' and the reference picture' : ''}: proportions, missing pieces, floating or intersecting parts, colours.`,
-    `4. Refine with model_patch_parts (up to ${MODEL_PATCH_MAX_OPS} add / update / remove ops by part id, applied all or nothing). Use model_set_spec only to start over.`,
-    `5. Repeat 3 and 4. You have ${input.maxIterations} render passes in total; stop early once it looks right. A call that returns "ok": false changed nothing — read its errors and retry.`,
-    '6. Finish by calling model_save. A model that was never saved is lost.',
+    'Work in this loop — plan, then parts, then refine:',
+    '1. Call model_get_spec once to read the design format (shapes, booleans, modifiers, materials), the limits and the part ids. The model starts as a one-part placeholder: replace it.',
+    '2. PLAN in your head before any call: the object\'s overall size in metres, its 3 to 6 main masses, what repeats (use instances/arrays), where holes or cut-outs go (booleans), which parts are metal/glass/glowing (materials). Name every part and give the important ones an "id".',
+    `3. BLOCK OUT with model_set_spec (the whole design): the main masses only, correct proportions and colours, at most ${MODEL_MAX_PARTS} parts. Group related parts under a "group" so a whole assembly can move together.`,
+    `4. Call model_render_preview to SEE it (front, side, top and iso). Compare with the request${input.hasReference ? ' and the reference picture' : ''}: proportions, missing pieces, floating or intersecting parts, colours, silhouettes.`,
+    `5. REFINE with model_patch_parts (up to ${MODEL_PATCH_MAX_OPS} add / update / remove ops by part id, applied all or nothing). Each pass, pick the biggest visible difference and fix it: first proportions and placement, then shape quality (swap a box for a roundedBox, a cylinder for a lathe profile, add a bevel + subdivide modifier), then detail (holes via booleans, trim, handles, small parts), then materials. Use model_set_spec only to start over.`,
+    `6. Repeat 4 and 5. You have ${input.maxIterations} render passes in total; stop early once it looks right. A call that returns "ok": false changed nothing — read its errors and retry.`,
+    '7. Finish by calling model_save. A model that was never saved is lost.',
     '',
-    'Keep the model resting on the ground (lowest point at y=0) and centred on x=0, z=0. Add detail in the later passes: first the big shapes, then the small ones.',
+    'Keep the model resting on the ground (lowest point at y=0) and centred on x=0, z=0. Spend early passes on proportions and later passes on detail; a believable silhouette beats many tiny parts.',
     input.editing ? 'The model already has a design — start from it with model_get_spec rather than replacing it.' : '',
     '',
     'When it is saved, reply with one short sentence describing what you built.',
