@@ -19,7 +19,7 @@ import {
 import { writeFbxBinary } from './fbx-writer';
 import { buildScene } from './mesh';
 import { writeMtl, writeObj } from './obj-writer';
-import { buildRepairPrompt, buildSpecPrompt, DESCRIBE_IMAGE_PROMPT } from './prompts';
+import { buildRepairPrompt, buildSpecPrompt } from './prompts';
 import { parseSpec } from './spec-parse';
 
 /**

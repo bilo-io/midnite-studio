@@ -14206,3 +14206,8 @@ is seeded lazily for fresh and migrated installs alike. Tabs create/rename (doub
 drag-reorder (max 10); a searchable, categorised "Add widget" picker replaces the layout menu.
 New panels: five agent cards plus Clock, Date and Scratchpad; Git panels are offered on any
 dashboard. `midnite-studio.dashboard` persist v2 -> v3 (`migrateDashboardState`, tested).
+
+### Ad hoc — Media ▸ Models (LLM-authored 3D, .obj + .fbx, in-app editor)
+
+A fifth Media tab. Describe an object, or attach a picture of one, and an LLM designs it as a validated list of coloured primitives; main builds the mesh and writes `.obj` + `.mtl` + `.fbx` + a design sidecar into `.midnite/media/model/`. Local Ollama is the default engine (`qwen2.5-coder:7b`; `qwen2.5vl:7b`/`gemma3:4b` read the picture), any headless agent CLI is the alternative. The centre pane is a lazy react-three-fiber + drei editor (select, W/E/R gizmo, solid/wireframe/normals, per-part colour, undo/redo, camera, grid/axes) whose edits save back to the sidecar and export to .obj/.fbx. FBX is a hand-written 7.4 writer (binary default, ASCII too), round-tripped through three's `FBXLoader`. See Phase 99 Theme F.
+
