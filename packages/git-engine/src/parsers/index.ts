@@ -9,3 +9,4 @@ export * from './remote-url';
 export * from './stash-parser';
 export * from './status-parser';
 export * from './worktree-parser';
+export * from './numstat-parser';

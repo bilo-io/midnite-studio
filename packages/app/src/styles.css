@@ -4371,6 +4371,23 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   display: none;
 }
 
+/* The graph's columns menu (columns-menu.tsx). `data-graph-hide` on the same
+ * wrapper lists the optional columns that are switched off; hiding is CSS in
+ * the header, every commit row and the pseudo-rows at once, never a re-render
+ * of the memoised rows. The Diff column is fixed-width and listed here when
+ * off (its default). */
+.graph-diff-col {
+  width: 6.5rem;
+}
+
+[data-graph-hide~='diff'] .graph-diff-col,
+[data-graph-hide~='branchTag'] .graph-ref-col,
+[data-graph-hide~='branchTag'] .graph-ref-col-handle,
+[data-graph-hide~='author'] .graph-col-author,
+[data-graph-hide~='sha'] .graph-col-sha {
+  display: none;
+}
+
 /* Narrow windows. The commit message is the one column the graph exists to be
  * read by, so it keeps a real minimum width and everything else gives way
  * first: the BRANCH / TAG column is the only shrinkable fixed column (down to

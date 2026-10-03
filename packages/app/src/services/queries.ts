@@ -228,6 +228,7 @@ export const keys = {
    * scrolling back to a page is a cache hit; under the forge prefix so the
    * forge Refresh drops it with everything else.
    */
+  commitStats: (repoId: string, shas: readonly string[]) => ['commit-stats', repoId, shas] as const,
   forgeCommitRuns: (repoId: string, shas: readonly string[]) =>
     ['repos', repoId, 'forge', 'commit-runs', shas.join(',')] as const,
   /**

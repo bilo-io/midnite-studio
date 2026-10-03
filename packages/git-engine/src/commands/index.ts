@@ -1,3 +1,4 @@
+export * from './commit-stats';
 export * from './blame';
 export * from './blob';
 export * from './change-review';
