@@ -22,6 +22,7 @@ import {
   useActiveForgeCapability,
   useAddReviewComment,
   useForgePullComments,
+  useForgeRuns,
   useForgePullDetail,
   useForgePullFiles,
   useForgePulls,
@@ -36,6 +37,7 @@ import { ownerRepoFromGithubUrl, resolveGithubImageSrc } from '../markdown/githu
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { PrChecks } from './pr-checks';
 import { PrConversation } from './pr-conversation';
+import { checksCount, conversationCount, filesCount } from './pr-tab-counts';
 import { PrFiles } from './pr-files';
 import { PrDetailSkeleton, PrHeaderMetaSkeleton, PrOverviewSkeleton } from './reviews-skeletons';
 import { ReviewActionBar } from './review-action-bar';
@@ -98,7 +100,12 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   const pull: ForgePull | null = detail?.pull ?? listed;
 
   const files = useForgePullFiles(repoId, number, tab === 'files');
-  const comments = useForgePullComments(repoId, number, tab === 'conversation');
+  /*
+    Comments, threads and runs are fetched whatever the tab: the tab strip's
+    count pills (Conversation, Checks) need them before anyone opens the tab,
+    and all three are cached under the same keys the tabs read.
+  */
+  const comments = useForgePullComments(repoId, number, true);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   /*
     Preview-deployment candidates (Phase 71 Theme D), scanned from whatever
@@ -118,7 +125,8 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   // Threads are drawn on the Files tab (inline) and the Conversation tab (nested
   // under their review), so a reader who opens a PR onto Checks or Overview
   // pays for no GraphQL call.
-  const threads = useForgePullThreads(repoId, number, tab === 'files' || tab === 'conversation');
+  const threads = useForgePullThreads(repoId, number, true);
+  const runs = useForgeRuns(repoId, true, pull?.headBranch ? pull.headBranch : undefined);
   /*
     Phase 90 Theme H's own deferred item, unblocked now that a real adapter
     can report `threadResolution: 'partial'` — Bitbucket has no thread object
@@ -160,6 +168,12 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   }
 
   const checks = checksStatus(pull);
+  const counts: Record<PrTab, number | null> = {
+    overview: null,
+    files: filesCount(detail?.changedFiles ?? null),
+    conversation: conversationCount(comments.data?.comments ?? null, threads.data?.threads ?? null),
+    checks: checksCount(runs.data?.runs ?? null, detail?.headSha ?? null),
+  };
 
   return (
     /*
@@ -211,6 +225,17 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             }`}
           >
             {label}
+            {counts[id] !== null ? (
+              <span
+                data-testid={`pr-tab-count-${id}`}
+                // Decorative: the tab's accessible name stays its label, as every
+                // existing `getByRole('tab', { name })` caller expects.
+                aria-hidden="true"
+                className="ml-1.5 inline-block min-w-[1.25rem] rounded-full bg-muted px-1.5 text-center text-[10px] font-medium leading-4 tabular-nums text-muted-foreground"
+              >
+                {counts[id]}
+              </span>
+            ) : null}
             {/*
               The Checks pill rides the tab itself. A reviewer's first question
               of a PR is whether it is red, and answering it only once the tab
