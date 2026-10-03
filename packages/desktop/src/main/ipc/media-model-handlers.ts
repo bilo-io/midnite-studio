@@ -11,6 +11,7 @@ import {
   MEDIA_EXPORT_FORMAT_INFO,
   ok,
   schemas,
+  type LoopModel,
 } from '@midnite/studio-shared';
 
 import { runHeadlessText, defaultAiImproveFieldDeps } from '../ai/improve-field';
@@ -39,7 +40,7 @@ const ollama: OllamaSeam = {
 
 const engines = {
   ollama,
-  runAgent: async (req: { agentId: string; model: string | undefined; repoId: string; prompt: string }) =>
+  runAgent: async (req: { agentId: string; model: LoopModel | undefined; repoId: string; prompt: string }) =>
     runHeadlessText(
       {
         prompt: req.prompt,

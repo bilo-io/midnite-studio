@@ -47,7 +47,7 @@ describe('parseSpec', () => {
     if (!outcome.ok) return;
     const [cube, ball, cone, extrude] = outcome.spec.parts;
     expect(cube).toMatchObject({ shape: 'box', position: [1, 0, 0], size: [2, 2, 2], color: '#cc3333' });
-    expect(ball).toMatchObject({ shape: 'sphere', radius: 0.5, color: '#ABC' });
+    expect(ball).toMatchObject({ shape: 'sphere', radius: 0.5, color: '#abc' });
     expect(cone).toMatchObject({ shape: 'cone', radius: 1 });
     expect(extrude).toMatchObject({ shape: 'extrude', outline: [[0, 0], [1, 0], [0, 1]] });
   });

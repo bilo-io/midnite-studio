@@ -4,6 +4,7 @@ import {
   modelPullHint,
   ok,
   type GitOpResult,
+  type LoopModel,
   type ModelProviders,
 } from '@midnite/studio-shared';
 
@@ -36,7 +37,7 @@ export type OllamaSeam = {
 export type EngineDeps = {
   ollama: OllamaSeam;
   /** Runs one prompt through a headless agent CLI — `runHeadlessText` in main. */
-  runAgent: (req: { agentId: string; model: string | undefined; repoId: string; prompt: string }) => Promise<GitOpResult<{ text: string }>>;
+  runAgent: (req: { agentId: string; model: LoopModel | undefined; repoId: string; prompt: string }) => Promise<GitOpResult<{ text: string }>>;
 };
 
 const unreachable = (error: unknown): string => {
@@ -79,7 +80,7 @@ const VISION_MISSING =
 export async function discoverVisionModels(ollama: OllamaSeam): Promise<string[]> {
   const tags = await ollama.tags();
   const flags = await Promise.all(
-    tags.map(async (tag) => ({ name: tag.name, vision: (await ollama.capabilities(tag.name).catch(() => [])).includes('vision') })),
+    tags.map(async (tag) => ({ name: tag.name, vision: (await ollama.capabilities(tag.name).catch((): string[] => [])).includes('vision') })),
   );
   const names = flags.filter((f) => f.vision).map((f) => f.name);
   const rank = (name: string): number => {
