@@ -56,7 +56,7 @@ function paintPills(text: string, pills: readonly PillToken[]): ReactNode {
   for (const pill of pills) {
     if (pill.start > at) out.push(text.slice(at, pill.start));
     out.push(
-      <span key={pill.start} className="composer-pill" data-testid="chat-pill" data-kind={pill.kind}>
+      <span key={pill.start} className={`composer-pill composer-pill--${pill.kind}`} data-testid="chat-pill" data-kind={pill.kind}>
         {text.slice(pill.start, pill.end)}
       </span>,
     );

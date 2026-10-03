@@ -314,7 +314,7 @@ describe('/ skills and @ files pickers', () => {
     expect(picker()).toBeNull();
     expect(pills()).toHaveLength(1);
     expect(pills()[0]!.textContent).toBe('/midnite-sitrep');
-    expect(pills()[0]!.className).toContain('composer-pill');
+    expect(pills()[0]!.className).toBe('composer-pill composer-pill--skill');
   });
 
   it('Enter picks instead of sending while the picker is open; Esc closes it', () => {
@@ -363,6 +363,8 @@ describe('/ skills and @ files pickers', () => {
     key('Tab');
     expect(input().value).toBe('look at @src/features/chats/chat-composer.tsx ');
     expect(pills()[0]!.dataset['kind']).toBe('file');
+    // Files are not AI: plain primary, not the brand gradient skills wear.
+    expect(pills()[0]!.className).toBe('composer-pill composer-pill--file');
     key('Enter');
     expect(sent).toEqual(['look at @src/features/chats/chat-composer.tsx ']);
   });

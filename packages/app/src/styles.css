@@ -6001,31 +6001,42 @@ html:not([data-window-focused='false']) .thinking-ring[data-live='true']::after 
 html[data-motion='reduced'] .thinking-ring[data-live='true']::after {
   animation: none;
   opacity: 0;
-=======
+}
+
+/* ---------------------------------------------------------------------------
  * `.composer-pill` — a `/skill` or `@file` token in the Chats composer.
  *
- * The brand gradient (`--rainbow-ramp`, left to right, as `.brand-gradient-button`
- * wears it) twice over: full strength in the 1px border, and seen through an
- * 82% `--background` wash in the padding box, which is what reads as a
- * semi-transparent gradient fill without a second copy of the stops.
+ * Two faces, by what the token is. A skill is AI — it wears the brand
+ * gradient (`--rainbow-ramp`, left to right, as `.brand-gradient-button` does)
+ * twice over: full strength in the 1px border, and seen through an 82%
+ * `--background` wash in the padding box, which reads as a semi-transparent
+ * gradient fill without a second copy of the stops. A file is not — it wears
+ * plain `--primary`: a solid border over a 15% primary fill.
  *
- * It is painted on the textarea's mirror overlay, so it must add NO advance:
- * the 1px border + 1px padding on each side is cancelled by a -2px margin, or
- * every glyph after it would drift from the caret. `box-decoration-break:
- * clone` keeps a pill that wraps closed on both lines.
+ * Both are painted on the textarea's mirror overlay, so neither may add
+ * advance: the 1px border + 1px padding on each side is cancelled by a -2px
+ * margin, or every glyph after it would drift from the caret.
+ * `box-decoration-break: clone` keeps a pill that wraps closed on both lines.
  * ------------------------------------------------------------------------ */
 .composer-pill {
-  --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
   border: 1px solid transparent;
   border-radius: 0.3rem;
   padding: 0 1px;
   margin: 0 -2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.composer-pill--skill {
+  --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
   background-image:
     linear-gradient(hsl(var(--background) / 0.82), hsl(var(--background) / 0.82)),
     var(--brand-gradient);
   background-origin: border-box;
   background-clip: padding-box, border-box;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
->>>>>>> f88f5b24 (feat(chats): / skills and @ files pickers with gradient pills in the composer)
+}
+
+.composer-pill--file {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.15);
 }
