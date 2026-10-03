@@ -211,7 +211,7 @@ describe('chat service: stop', () => {
       io.out(textDelta('partial'));
       // then hang
     });
-    const { service, deps } = setup({ spawn });
+    const { service } = setup({ spawn });
     const chat = await created(service, { mode: 'edit', repoId: 'repo:/work/app' });
     await service.send({ chatId: chat.id, text: 'do a big thing' });
     await sleep(30);
