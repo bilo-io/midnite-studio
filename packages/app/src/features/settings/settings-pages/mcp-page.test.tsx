@@ -51,6 +51,16 @@ describe('McpSettingsPage', () => {
     expect(screen.getByText('/tmp/x.sock')).toBeTruthy();
   });
 
+  it('registers the server as `midnite` and explains how to re-register an old midnite-studio entry', async () => {
+    installBridge({ get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js' }) });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText('claude mcp add midnite -- node /app/mcp-shim.js')).toBeTruthy();
+    const note = screen.getByTestId('mcp-rename-note');
+    expect(note.textContent).toContain('claude mcp remove midnite-studio && claude mcp add midnite');
+    expect(note.textContent).toContain('mcp__midnite__*');
+  });
+
   it('toggling the switch calls mcp.set with the new value', async () => {
     const { set } = installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });

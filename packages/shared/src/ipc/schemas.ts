@@ -2501,6 +2501,15 @@ export const CliStatusResponse = z.object({
   onPath: z.boolean().optional(),
   /** The `export PATH=…` line to add to a shell profile when `onPath` is false. */
   pathExportLine: z.string().nullable().optional(),
+  /** Which command the reported `path` is: the primary `midnite`, or the deprecated `midnite-studio` alias. */
+  command: z.enum(['midnite', 'midnite-studio']).optional(),
+  /** Whether the deprecated `midnite-studio` alias symlink is installed (and ours) beside the primary one. */
+  aliasInstalled: z.boolean().optional(),
+  /**
+   * Why the install is not the plain case — a foreign `midnite` was left alone
+   * and only the alias installed, or an old-name install is awaiting migration.
+   */
+  notice: z.string().nullable().optional(),
 });
 export type CliStatusResponse = z.infer<typeof CliStatusResponse>;
 export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });

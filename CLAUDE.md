@@ -263,6 +263,15 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   label is already on screen, so a bubble repeating it teaches nothing. The map names the command
   that navigates there *unconditionally*: `Mod+1` is shorter than `view.graph`'s `Mod+Shift+g` but
   becomes `browser.selectTab1` while the browser pane is open.
+- **The CLI and the MCP server are both named `midnite`; the old CLI name is a deprecated alias.**
+  The bundled command is `midnite` (`resources/bin/midnite`) and the MCP server registers as `midnite`
+  (`MCP_SERVER_NAME` in `shared/src/media-model-mcp.ts` — the shim's `Server` and every Claude
+  `mcp__midnite__*` allowlist or Codex `mcp_servers.midnite.*` key derive from it, so they cannot drift).
+  `midnite-studio` stays as a forwarding alias for one release (removal is tracked in
+  `outstanding.md`). The original midnite app ships its own `midnite` CLI, so the installer
+  (`main/ipc/cli-handlers.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
+  a foreign one is left untouched, only the alias is installed, and the reason comes back in
+  `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
 - **Public downloads and issues live in
   [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
   private, so nothing a user touches can be served from it — installers, release notes and the

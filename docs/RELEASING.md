@@ -57,7 +57,7 @@ machine with no checkout of this repo:
    `release-feed.yml`, and `feed/latest-mac.yml` committed *after* the Release.
 4. **Install it as a stranger would**, on a machine with no checkout:
    `curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh`
-   — then check no Gatekeeper prompt, that `midnite-studio` works on the CLI, and that it launches
+   — then check no Gatekeeper prompt, that `midnite` works on the CLI (and the deprecated `midnite-studio` alias still forwards to it), and that it launches
    under `env -i` with a bare `PATH`.
 5. **Edit the receiving repo's `midnite-studio/README.md`** to drop its *"No public release yet."*
    banner (and, per *Still open* below, to state that builds are ad-hoc signed).

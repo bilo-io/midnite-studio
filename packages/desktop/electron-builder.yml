@@ -36,10 +36,10 @@ extraResources:
   # owns the branch.
   - from: ../../templates
     to: templates
-  # The CLI wrapper (`midnite-studio` on PATH). `resources/` is only
+  # The CLI wrapper (`midnite` on PATH, plus a deprecated `midnite-studio` alias wrapper). `resources/` is only
   # `directories.buildResources` — a source of build inputs electron-builder
   # never copies into the bundle on its own — so `cli-handlers.ts`'s
-  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite-studio`) has
+  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite`) has
   # pointed at a path that does not exist in every packaged build until now.
   - from: resources/bin
     to: bin

@@ -1,6 +1,6 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import { preferredTargets } from './cli-path';
+import { aliasTargetFor, preferredTargets } from './cli-path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -164,7 +164,7 @@ export async function readSystemHealth(): Promise<SystemHealth> {
   let installed = false;
   let foundPath: string | null = null;
   let foundTarget: string | null = null;
-  for (const t of targets) {
+  for (const t of targets.flatMap((p) => [p, aliasTargetFor(p)])) {
     if (existsSync(t)) {
       installed = true;
       foundPath = t;

@@ -514,3 +514,8 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   four views in whatever state its capability matrix declares — and a live `gh auth switch`
   round-trip observed from a terminal beside the app. No fixture substitutes for either; none of
   the four adapters has been exercised against a real non-GitHub account since Phase 90 began.
+
+- **Remove the deprecated `midnite-studio` CLI alias.** The CLI was renamed to `midnite`; the old command stays
+  installed as a forwarding alias (`resources/bin/midnite-studio`, `LEGACY_CLI_NAME` in `main/cli-path.ts`) for
+  one release — drop it in the release after the one that ships the rename: the wrapper, its `extraResources`
+  coverage in `verify-dist.mjs`/`afterpack.cjs`, the alias leg of `cli-handlers.ts`, and the completion registrations.

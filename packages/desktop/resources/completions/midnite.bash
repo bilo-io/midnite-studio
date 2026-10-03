@@ -1,19 +1,19 @@
-# bash completion for the `midnite-studio` CLI wrapper (Phase 33 Theme B).
+# bash completion for the `midnite` CLI wrapper (also registered for the deprecated `midnite-studio` alias) (Phase 33 Theme B).
 #
 # Completes exactly the grammar the wrapper implements
-# (`resources/bin/midnite-studio`) and nothing else: the subcommands `open`
+# (`resources/bin/midnite`) and nothing else: the subcommands `open`
 # and `clone`, and the flags `--version`/`--help`. `open` completes
 # directories; `clone` completes nothing — there is no way to enumerate
 # remote URLs.
 
-_midnite_studio_completions() {
+_midnite_completions() {
   local cur
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
 
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "open clone --version --help" -- "$cur"))
-    # Also offer directories, matching the wrapper's bare `midnite-studio [path]` form.
+    # Also offer directories, matching the wrapper's bare `midnite [path]` form.
     COMPREPLY+=($(compgen -d -- "$cur"))
     return 0
   fi
@@ -28,4 +28,4 @@ _midnite_studio_completions() {
   esac
 }
 
-complete -F _midnite_studio_completions midnite-studio
+complete -F _midnite_completions midnite midnite-studio

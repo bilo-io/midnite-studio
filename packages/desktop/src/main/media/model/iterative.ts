@@ -1,4 +1,5 @@
 import {
+  MCP_SERVER_NAME,
   MCP_TOOLS,
   MODEL_ITERATIONS_DEFAULT,
   MODEL_MCP_TOOL_IDS,
@@ -29,7 +30,7 @@ import type { ModelTools } from './model-mcp';
  * dispatcher the way a real MCP client would.
  */
 
-export const MODEL_MCP_SERVER_NAME = 'midnite-studio';
+export const MODEL_MCP_SERVER_NAME = MCP_SERVER_NAME;
 /** A run is a conversation of many tool calls; 20 minutes is generous without being open-ended. */
 export const MODEL_ITERATIVE_TIMEOUT_MS = 20 * 60_000;
 /** Hard ceiling on tool calls in one run, whatever the agent does. */
