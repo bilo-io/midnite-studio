@@ -75,6 +75,7 @@ import { registerTrashHandlers } from './ipc/trash-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerRebaseHandlers } from './ipc/rebase-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
+import { registerRepoLogoHandlers } from './ipc/repo-logo-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerHooksHandlers } from './ipc/hooks-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
@@ -404,6 +405,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRemoteHandlers();
     registerHooksHandlers();
     registerClipboardHandlers();
+    registerRepoLogoHandlers();
     registerForgeHandlers();
     registerForgeAccountHandlers();
     registerForgeProjectHandlers();

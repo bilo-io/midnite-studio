@@ -107,6 +107,7 @@ export type MidniteStudioBridge = {
   repos: {
     open: (req: In<typeof S.RepoOpenRequest>) => Promise<z.infer<typeof S.RepoOpenResponse>>;
     list: () => Promise<RepoDescriptor[]>;
+    logo: (req: In<typeof S.RepoLogoRequest>) => Promise<z.infer<typeof S.RepoLogoResponse>>;
     close: (req: In<typeof S.RepoCloseRequest>) => Promise<void>;
     refs: (req: In<typeof S.RepoRefsRequest>) => Promise<Ref[]>;
     worktrees: (req: In<typeof S.RepoWorktreesRequest>) => Promise<Worktree[]>;

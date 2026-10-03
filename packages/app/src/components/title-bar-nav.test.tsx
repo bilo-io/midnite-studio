@@ -50,6 +50,24 @@ describe('TitleBarNav Breadcrumbs', () => {
     expect(repoElement).not.toBeNull();
   });
 
+  it('shows the repo logo before the repo pill, and nothing when there is none', () => {
+    client.setQueryData(keys.repos, [
+      { id: 'repo-1', name: 'my-awesome-repo', path: '/p/my-awesome-repo', worktrees: [] },
+    ]);
+    useUiStore.setState({ selectedRepoId: 'repo-1' });
+
+    client.setQueryData(['repo-logo', 'repo-1'], null);
+    const { unmount } = render(withProviders(<TitleBarNav />, client));
+    expect(screen.queryByTestId('breadcrumb-repo-logo')).toBeNull();
+    unmount();
+
+    client.setQueryData(['repo-logo', 'repo-1'], 'data:image/svg+xml;base64,PHN2Zy8+');
+    render(withProviders(<TitleBarNav />, client));
+    const logo = screen.getByTestId('breadcrumb-repo-logo');
+    const pill = screen.getByText('my-awesome-repo').closest('.breadcrumb-repo-pill') as HTMLElement;
+    expect(logo.compareDocumentPosition(pill) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('renders branch breadcrumb with bold primary color class', () => {
     client.setQueryData(keys.repos, [
       {
