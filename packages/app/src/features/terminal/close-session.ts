@@ -1,6 +1,7 @@
 import type { TerminalSession } from '@midnite/studio-shared';
 
 import type { useDialogs } from '../../components/dialog-host';
+import { terminalPanelElement } from './terminal-panel-element';
 import { sessionPhase, useTerminalStore } from './terminal-store';
 
 /**
@@ -23,6 +24,7 @@ export function closeSessionWithConfirm(
       body: `${command} is still running and will be killed.`,
       confirmLabel: 'Close session',
       danger: true,
+      container: terminalPanelElement(),
       onConfirm: () => useTerminalStore.getState().closeSession(session.id),
     });
   } else {

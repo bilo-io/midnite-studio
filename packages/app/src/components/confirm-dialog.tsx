@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { LuTriangleAlert } from 'react-icons/lu';
 
@@ -133,6 +134,11 @@ export type ConfirmRequest = {
    * same thing here. See `notify` in `dialog-host`.
    */
   hideCancel?: boolean;
+  /**
+   * Render inside this (positioned) element rather than over the window — the
+   * scrim covers only it and the dialog centres in it. See `Modal`'s `container`.
+   */
+  container?: HTMLElement | null;
   onConfirm: () => void;
   /**
    * A third way out, between Cancel and the primary action — Discard beside
@@ -172,13 +178,16 @@ export function ConfirmDialog({
   */
   useDismiss(true, onCancel, { layer: 'dialog' });
 
-  const { overlayStyle, panelMaxHeight } = useContentOverlay();
+  const container = request.container ?? null;
+  const content = useContentOverlay('center', !container);
+  const overlayStyle = container ? undefined : content.overlayStyle;
+  const panelMaxHeight = container ? undefined : content.panelMaxHeight;
   const radius = request.blastRadius;
   const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];
 
-  return (
+  const overlay = (
     <div
-      className={`fixed inset-0 z-dialog flex items-center justify-center bg-background/70 ${overlayStyle ? '' : 'p-6'}`}
+      className={`${container ? 'absolute' : 'fixed'} inset-0 z-dialog flex items-center justify-center bg-background/70 ${overlayStyle ? '' : 'p-6'}`}
       style={overlayStyle}
       role="dialog"
       aria-modal="true"
@@ -318,4 +327,5 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+  return container ? createPortal(overlay, container) : overlay;
 }
