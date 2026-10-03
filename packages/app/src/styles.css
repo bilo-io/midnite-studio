@@ -5912,3 +5912,93 @@ html[data-motion='reduced'] .thinking-dots::after {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Chats' thinking ring (`features/chats/thinking-panel.tsx`).
+ *
+ * A rainbow border with a bright arc travelling round it while a turn is live.
+ * Both are painted by pseudo-elements masked down to a 1.5px ring (the
+ * content box subtracted from the border box), never by a real border, so the
+ * ring can move from the collapsed pill to the expanded panel without
+ * shifting a pixel of layout — that is what keeps the pill's centre on the
+ * provider icon's in both states.
+ *
+ * `::before` is the ramp, dimmed once the turn settles; `::after` is the arc,
+ * a conic comet whose start angle spins. Like every other always-on glow here
+ * it pauses with the window blurred and stops under reduced motion, where the
+ * arc is hidden rather than frozen at an arbitrary angle.
+ * ------------------------------------------------------------------------- */
+@property --thinking-arc-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes thinking-arc-spin {
+  to {
+    --thinking-arc-angle: 360deg;
+  }
+}
+
+.thinking-ring {
+  position: relative;
+}
+
+.thinking-ring::before,
+.thinking-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.thinking-ring::before {
+  background: conic-gradient(from 0deg, var(--rainbow-ramp));
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.thinking-ring::after {
+  background: conic-gradient(
+    from var(--thinking-arc-angle),
+    transparent 0deg,
+    transparent 240deg,
+    hsl(var(--foreground) / 0.15) 290deg,
+    hsl(var(--foreground) / 0.95) 360deg
+  );
+  opacity: 0;
+}
+
+.thinking-ring[data-live='true']::before {
+  opacity: 0.9;
+}
+
+.thinking-ring[data-live='true']::after {
+  opacity: 1;
+  animation: thinking-arc-spin 1.8s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-ring[data-live='true']::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-ring[data-live='true']::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+html[data-motion='reduced'] .thinking-ring[data-live='true']::after {
+  animation: none;
+  opacity: 0;
+}
