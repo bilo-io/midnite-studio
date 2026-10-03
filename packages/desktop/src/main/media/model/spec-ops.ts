@@ -1,15 +1,17 @@
 import {
+  buildSceneChecked,
   MODEL_MAX_PARTS,
   ModelPartSchema,
   ModelSpecSchema,
+  semanticIssues,
   type ModelPart,
   type ModelPatchOp,
   type ModelSpec,
+  sceneBounds,
   type ModelToolIssue,
 } from '@midnite/studio-shared';
 import type { ZodIssue } from 'zod';
 
-import { buildScene, sceneBounds } from './mesh';
 import { normalizeSpec } from './spec-parse';
 
 /**
@@ -62,11 +64,18 @@ export function ensurePartIds(spec: ModelSpec): ModelSpec {
   return { ...spec, parts };
 }
 
+/** Parent / target / instance-source references must resolve — the one cross-part check the schema cannot make. */
+function checkLinks(spec: ModelSpec): EditOutcome {
+  const links = semanticIssues(spec);
+  return links.length > 0 ? { ok: false, errors: links } : { ok: true, spec };
+}
+
 /** A whole design from an agent's open object: aliases forgiven, then the schema judges. */
 export function validateDesign(raw: unknown): EditOutcome {
   if (!isRecord(raw)) return { ok: false, errors: [{ path: '(root)', message: 'The design must be a JSON object with a "parts" array.' }] };
   const parsed = ModelSpecSchema.safeParse(normalizeSpec(raw));
-  return parsed.success ? { ok: true, spec: ensurePartIds(parsed.data) } : { ok: false, errors: issuesFrom(parsed.error.issues) };
+  if (!parsed.success) return { ok: false, errors: issuesFrom(parsed.error.issues) };
+  return checkLinks(ensurePartIds(parsed.data));
 }
 
 /** Apply `ops` in order to a copy of `spec`; any failing op rejects the whole call. */
@@ -122,7 +131,7 @@ export function applyPatchOps(spec: ModelSpec, ops: readonly ModelPatchOp[]): Ed
   if (parts.length > MODEL_MAX_PARTS) {
     return { ok: false, errors: [{ path: 'parts', message: `A design holds at most ${MODEL_MAX_PARTS} parts; these ops would make ${parts.length}.` }] };
   }
-  return { ok: true, spec: { ...spec, parts } };
+  return checkLinks({ ...spec, parts });
 }
 
 type Vec = [number, number, number];
@@ -132,13 +141,18 @@ export function describeEdit(spec: ModelSpec): {
   partCount: number;
   parts: { id: string; name: string; shape: string }[];
   bounds: { min: Vec; max: Vec; size: Vec };
+  triangles: number;
+  warnings?: ModelToolIssue[];
 } {
-  const { min, max } = sceneBounds(buildScene(spec));
+  const built = buildSceneChecked(spec);
+  const { min, max } = sceneBounds(built.parts);
   const round = (v: Vec): Vec => v.map((n) => (Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0)) as Vec;
   const lo = round(min);
   const hi = round(max);
   return {
     partCount: spec.parts.length,
+    triangles: built.stats.triangles,
+    ...(built.issues.length > 0 ? { warnings: built.issues } : {}),
     parts: spec.parts.map((part) => ({ id: part.id ?? '', name: part.name, shape: part.shape })),
     bounds: { min: lo, max: hi, size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]].map((n) => Math.round(n * 1000) / 1000) as Vec },
   };

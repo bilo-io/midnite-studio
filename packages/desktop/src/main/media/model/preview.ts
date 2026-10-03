@@ -5,10 +5,10 @@ import {
   MODEL_PREVIEW_SIZE_MAX,
   MODEL_PREVIEW_SIZE_MIN,
   MODEL_PREVIEW_VIEWS,
+  type MeshPart,
   type ModelPreviewView,
 } from '@midnite/studio-shared';
 
-import type { MeshPart } from './mesh';
 
 /**
  * A small software renderer for `model_render_preview`: the design's meshes
@@ -24,8 +24,9 @@ import type { MeshPart } from './mesh';
  * clock, no randomness), bounded (≤ 768 px per view, 2×2 supersampled), and a
  * vitest can render a model and look at the pixels.
  *
- * Look: flat lambert shading with a head-light plus a key light, per-part
- * colour, a 1 px darker outline wherever the part or the depth changes — which
+ * Look: lambert shading with a head-light plus a key light, per-part colour, and a PBR approximation
+ * (metalness tints a Blinn-Phong highlight and a sky/ground reflection, roughness widens it, emissive adds
+ * glow, opacity blends over what is behind), a 1 px darker outline wherever the part or the depth changes — which
  * is what makes two same-coloured parts readable as two parts.
  */
 
@@ -115,15 +116,38 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
     -forward[2] * 0.6 + up[2] * 0.5 - right[2] * 0.4,
   ]);
 
-  parts.forEach((part, partIndex) => {
+  // Opaque parts first (they write depth), then see-through ones blended over them without writing depth.
+  const order = parts.map((_, i) => i).sort((x, y) => Number(parts[x]!.material.opacity < 1) - Number(parts[y]!.material.opacity < 1) || x - y);
+  const view3: Vec = [-forward[0], -forward[1], -forward[2]];
+  const half = unit([light[0] + view3[0], light[1] + view3[1], light[2] + view3[2]]);
+  for (const partIndex of order) {
+    const part = parts[partIndex]!;
     const { xs, ys, zs } = projected[partIndex]!;
     const base = hexToRgb(part.color);
-    const shade = new Float32Array(xs.length);
+    const { metalness, roughness, opacity } = part.material;
+    const glow = hexToRgb(part.material.emissive).map((c) => c * part.material.emissiveIntensity) as Vec;
+    const shininess = 2 / (roughness * roughness + 0.02);
+    // Dielectrics reflect ~4% white; metals reflect their own colour.
+    const specColor = base.map((c) => (255 * 0.04 * (1 - metalness) + c * metalness) / 255) as Vec;
+    const rgb = new Float32Array(xs.length * 3);
     for (let i = 0; i < xs.length; i += 1) {
       let n: Vec = [part.normals[i * 3]!, part.normals[i * 3 + 1]!, part.normals[i * 3 + 2]!];
       // Face the camera whatever the winding, so an open or inverted mesh is not drawn black.
       if (dot(n, forward) > 0) n = [-n[0], -n[1], -n[2]];
-      shade[i] = 0.3 + 0.7 * Math.max(0, dot(n, light));
+      const diffuse = (0.3 + 0.7 * Math.max(0, dot(n, light))) * (1 - 0.85 * metalness);
+      const spec = Math.pow(Math.max(0, dot(n, half)), shininess) * (1 - roughness * 0.5);
+      // A cheap sky/ground "environment" so a metal reads as reflective rather than dark.
+      const nv = dot(n, view3);
+      const reflectY = 2 * nv * n[1] - view3[1];
+      const env = 0.5 + 0.5 * Math.max(-1, Math.min(1, reflectY));
+      const envRgb: Vec = [90 + 110 * env, 85 + 130 * env, 80 + 155 * env];
+      const envWeight = metalness * (1 - roughness * 0.6);
+      for (let ch = 0; ch < 3; ch += 1) {
+        rgb[i * 3 + ch] = Math.min(
+          255,
+          base[ch]! * diffuse + 255 * spec * specColor[ch]! * 0.7 + envRgb[ch]! * specColor[ch]! * envWeight * 0.8 + glow[ch]!,
+        );
+      }
     }
 
     for (let t = 0; t < part.indices.length; t += 3) {
@@ -154,16 +178,18 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
           const z = w0 * zs[a]! + w1 * zs[b]! + w2 * zs[c]!;
           const at = y * big + x;
           if (z >= depth[at]!) continue;
-          depth[at] = z;
-          ids[at] = partIndex + 1;
-          const k = w0 * shade[a]! + w1 * shade[b]! + w2 * shade[c]!;
-          color[at * 3] = Math.min(255, base[0] * k);
-          color[at * 3 + 1] = Math.min(255, base[1] * k);
-          color[at * 3 + 2] = Math.min(255, base[2] * k);
+          if (opacity >= 1) {
+            depth[at] = z;
+            ids[at] = partIndex + 1;
+          }
+          for (let ch = 0; ch < 3; ch += 1) {
+            const lit = Math.min(255, w0 * rgb[a * 3 + ch]! + w1 * rgb[b * 3 + ch]! + w2 * rgb[c * 3 + ch]!);
+            color[at * 3 + ch] = opacity >= 1 ? lit : color[at * 3 + ch]! * (1 - opacity) + lit * opacity;
+          }
         }
       }
     }
-  });
+  }
 
   // Outline where the part changes or the surface jumps in depth.
   const jump = extent * 0.02;

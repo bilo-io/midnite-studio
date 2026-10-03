@@ -10,7 +10,8 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * What only a real browser can prove, and what these tests do:
  *
  *   - a real WebGL context renders the design and re-renders when state
- *     changes (the canvas pixels differ for selection and for wireframe)
+ *     changes (the canvas pixels differ for selection, wireframe, the
+ *     orthographic Top camera and x-ray)
  *   - real pointer picking: a click on the canvas is ray-cast against the
  *     meshes and selects the part under it
  *   - a real pointer drag orbits the camera, and "Reset camera" restores it
@@ -78,7 +79,18 @@ test('the canvas renders the design and redraws for selection and wireframe', as
 
   await page.getByRole('radio', { name: 'Wireframe' }).click();
   await page.waitForTimeout(300);
-  expect(Buffer.compare(selected, await shot(canvas))).not.toBe(0);
+  const wire = await shot(canvas);
+  expect(Buffer.compare(selected, wire)).not.toBe(0);
+
+  // The orthographic Top view and x-ray are real camera / blend changes: both must repaint.
+  await page.getByRole('radio', { name: 'Solid' }).click();
+  await page.getByRole('radio', { name: 'Top' }).click();
+  await page.waitForTimeout(500);
+  const top = await shot(canvas);
+  expect(Buffer.compare(wire, top)).not.toBe(0);
+  await page.getByRole('button', { name: 'X-ray' }).click();
+  await page.waitForTimeout(300);
+  expect(Buffer.compare(top, await shot(canvas))).not.toBe(0);
 });
 
 test('clicking the model in the canvas picks the part under the pointer', async ({ page }) => {

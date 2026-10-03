@@ -1,4 +1,5 @@
 import {
+  buildScene,
   MCP_CONTENT_KEY,
   MODEL_MAX_PARTS,
   modelSidecarPath,
@@ -15,7 +16,6 @@ import {
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '../../mcp/errors';
-import { buildScene } from './mesh';
 import { renderPreviews } from './preview';
 import { applyPatchOps, describeEdit, ensurePartIds, validateDesign } from './spec-ops';
 import { modelSpecJsonSchema, modelSpecReference } from './spec-reference';

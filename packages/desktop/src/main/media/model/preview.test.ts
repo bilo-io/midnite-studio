@@ -1,6 +1,7 @@
 import { inflateSync } from 'node:zlib';
 
 import {
+  buildScene,
   MODEL_PREVIEW_SIZE_DEFAULT,
   MODEL_PREVIEW_SIZE_MAX,
   MODEL_PREVIEW_SIZE_MIN,
@@ -9,7 +10,6 @@ import {
 } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { buildScene } from './mesh';
 import { clampPreviewSize, encodePng, pngSize, renderPreviews, renderView } from './preview';
 
 /** Decode our own 8-bit RGB, filter-0 PNG back to pixels — enough to look at what was drawn. */

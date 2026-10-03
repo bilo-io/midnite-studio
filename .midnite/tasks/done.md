@@ -14254,3 +14254,7 @@ editor apps over one shared workspace (`projects/`, `assets/`, `scripts/`, the t
 an engine section each); the studio, render, toolchain and root-resolution services, the render dialog and the
 Studio pane are all engine-aware, with install hints for Node 22+ and ffmpeg. Both engines were smoke-tested
 end to end (scaffold, install, studio, render, ffprobe). HyperFrames' own skills are referenced, not vendored.
+
+### Phase 99 Theme I — Models fidelity
+
+One shared geometry kernel (`packages/shared/src/model-geometry`) now builds every model for files, previews and the live editor. The spec gains capsule, roundedBox, wedge, prism, ellipsoid, tube, sweep, loft and mesh shapes, groups and instances, PBR materials, boolean CSG (in-house BSP) and a modifier stack (bevel, subdivide, mirror, arrays, twist, taper, bend); saved designs load unchanged. Export adds glTF/GLB and ASCII FBX, and OBJ/MTL and FBX carry the new materials. Previews render the new kinds and a PBR approximation. The editor gains an outliner with groups and multi-select, snapping, align/distribute/mirror, boolean, modifier and material panels, bundled lighting presets, orthographic views, x-ray, measure, stats, copy/paste and a shortcut help. See Phase 99 Theme H.

@@ -54,7 +54,7 @@ describe('model service', () => {
       ok: true,
       value: {
         primary: 'red-mug-20261003-141502.obj',
-        files: ['red-mug-20261003-141502.json', 'red-mug-20261003-141502.mtl', 'red-mug-20261003-141502.obj', 'red-mug-20261003-141502.fbx'],
+        files: ['red-mug-20261003-141502.json', 'red-mug-20261003-141502.mtl', 'red-mug-20261003-141502.obj', 'red-mug-20261003-141502.fbx', 'red-mug-20261003-141502.glb'],
       },
     });
     expect(written.get('red-mug-20261003-141502.obj')!.toString()).toContain('mtllib red-mug-20261003-141502.mtl');
@@ -195,7 +195,7 @@ describe('save edit', () => {
     const made = await service.generate(request());
     const stem = made.ok ? made.value.primary.replace(/\.obj$/, '') : '';
     const result = await service.saveEdit({ repoId: 'r1', project: 'mugs', path: `${stem}.fbx`, spec: edited });
-    expect(result).toEqual({ ok: true, value: { files: [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`] } });
+    expect(result).toEqual({ ok: true, value: { files: [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`, `${stem}.glb`] } });
     const sidecar = JSON.parse(written.get(`${stem}.json`)!.toString());
     expect(sidecar.prompt).toBe('a red mug');
     expect(sidecar.spec.parts).toHaveLength(1);

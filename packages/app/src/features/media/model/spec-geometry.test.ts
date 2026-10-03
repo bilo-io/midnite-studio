@@ -1,53 +1,46 @@
 import { ModelSpecSchema, type ModelPartInput } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { createPartGeometry, geometryKey } from './spec-geometry';
+import { editorScene, meshGeometry } from './spec-geometry';
 
-const part = (input: ModelPartInput) => ModelSpecSchema.parse({ parts: [input] }).parts[0]!;
-const bounds = (input: ModelPartInput) => {
-  const geometry = createPartGeometry(part(input));
+const spec = (...parts: ModelPartInput[]) => ModelSpecSchema.parse({ parts });
+const boundsOf = (input: ModelPartInput) => {
+  const scene = editorScene(spec(input));
+  const geometry = meshGeometry(scene.parts[0]!);
   geometry.computeBoundingBox();
   const { min, max } = geometry.boundingBox!;
   return { min: min.toArray(), max: max.toArray() };
 };
 const close = (actual: number[], expected: number[]) => actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i]!, 4));
 
-describe('createPartGeometry matches the exported mesh', () => {
-  it('box is centred', () => {
-    const { min, max } = bounds({ shape: 'box', size: [2, 4, 6] });
-    close(min, [-1, -2, -3]);
-    close(max, [1, 2, 3]);
+describe('the editor builds the exported geometry', () => {
+  it('places parts in world space (transform baked in)', () => {
+    const { min, max } = boundsOf({ shape: 'box', size: [2, 4, 6], position: [10, 0, 0] });
+    close(min, [9, -2, -3]);
+    close(max, [11, 2, 3]);
   });
 
-  it('cylinder and cone are centred on their height', () => {
-    close(bounds({ shape: 'cylinder', radiusTop: 1, radiusBottom: 2, height: 3 }).max, [2, 1.5, 2]);
-    close(bounds({ shape: 'cone', radius: 1, height: 2 }).min, [-1, -1, -1]);
+  it('builds the new primitives too', () => {
+    close(boundsOf({ shape: 'capsule', radius: 0.5, height: 1 }).max, [0.5, 1, 0.5]);
+    close(boundsOf({ shape: 'ellipsoid', radii: [1, 2, 3] }).max, [1, 2, 3]);
   });
 
-  it('torus lies flat in x-z like the exported one', () => {
-    const { min, max } = bounds({ shape: 'torus', radius: 2, tube: 0.5 });
-    close(min, [-2.5, -0.5, -2.5]);
-    close(max, [2.5, 0.5, 2.5]);
+  it('reports a boolean as one solid plus an operand ghost, and memoises per spec', () => {
+    const s = spec({ shape: 'box', size: [2, 2, 2] }, { shape: 'sphere', radius: 0.8, position: [1, 1, 1], op: 'subtract' });
+    const scene = editorScene(s);
+    expect(scene.parts.map((p) => p.role)).toEqual(['solid', 'operand']);
+    expect(scene.stats.parts).toBe(1);
+    expect(editorScene(s)).toBe(scene);
   });
 
-  it('lathe revolves the profile about Y', () => {
-    const { min, max } = bounds({ shape: 'lathe', profile: [[0, 0], [1, 0], [0.5, 2]] });
-    close(min, [-1, 0, -1]);
-    close(max, [1, 2, 1]);
+  it('surfaces reference problems as issues', () => {
+    const scene = editorScene(spec({ shape: 'box', size: [1, 1, 1], parent: 'nowhere' }));
+    expect(scene.issues.some((i) => i.path === 'parts[0].parent')).toBe(true);
   });
 
-  it('extrude rises from y=0 over the x-z outline', () => {
-    const { min, max } = bounds({ shape: 'extrude', height: 2, outline: [[0, 0], [3, 0], [3, 1], [0, 1]] });
-    close(min, [0, 0, 0]);
-    close(max, [3, 2, 1]);
-  });
-});
-
-describe('geometryKey', () => {
-  it('ignores transform, colour and name but not shape parameters', () => {
-    const a = part({ shape: 'sphere', radius: 1, color: '#ff0000', name: 'x', position: [1, 2, 3] });
-    const b = part({ shape: 'sphere', radius: 1, color: '#00ff00', name: 'y', scale: [2, 2, 2] });
-    expect(geometryKey(a)).toBe(geometryKey(b));
-    expect(geometryKey(a)).not.toBe(geometryKey(part({ shape: 'sphere', radius: 2 })));
+  it('keeps positions, normals and indices in step', () => {
+    const geometry = meshGeometry(editorScene(spec({ shape: 'sphere', radius: 1 })).parts[0]!);
+    expect(geometry.getAttribute('normal').count).toBe(geometry.getAttribute('position').count);
+    expect(geometry.getIndex()!.count % 3).toBe(0);
   });
 });

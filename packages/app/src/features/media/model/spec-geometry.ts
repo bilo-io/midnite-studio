@@ -1,43 +1,41 @@
-import type { ModelPart } from '@midnite/studio-shared';
-import { BoxGeometry, ConeGeometry, CylinderGeometry, ExtrudeGeometry, LatheGeometry, Shape, SphereGeometry, TorusGeometry, Vector2, type BufferGeometry } from 'three';
+import { buildSceneChecked, sceneStats, semanticIssues, type BuildIssue, type MeshPart, type ModelSpec } from '@midnite/studio-shared';
+import { BufferGeometry, Float32BufferAttribute } from 'three';
 
 /**
- * three.js geometry for one part of a design, in the part's own space (the
- * mesh's position/rotation/scale supply the rest). Mirrors the dimensions of
- * main's mesh builder (`desktop/src/main/media/model/mesh.ts`), which is what
- * `.obj`/`.fbx` are written from: a box is centred, a cylinder is centred on
- * its height, a lathe revolves `[radius, y]` about Y, an extrude rises from
- * y=0 over an `[x, z]` outline.
+ * The editor's geometry **is** the exported geometry: one kernel (`@midnite/studio-shared`
+ * `model-geometry`) builds the world-space meshes that `.obj` / `.fbx` / `.glb` and the PNG
+ * previews are written from, and this file only wraps them as three.js buffers. Booleans,
+ * modifiers, groups and instances are therefore exactly what the files will contain.
  */
-const RADIAL = 32;
+export type EditorScene = {
+  parts: MeshPart[];
+  /** Hard reference problems first, then build warnings (a failed boolean, a capped modifier). */
+  issues: BuildIssue[];
+  stats: { triangles: number; vertices: number; parts: number };
+};
 
-export function createPartGeometry(part: ModelPart): BufferGeometry {
-  switch (part.shape) {
-    case 'box':
-      return new BoxGeometry(part.size[0], part.size[1], part.size[2]);
-    case 'sphere':
-      return new SphereGeometry(part.radius, RADIAL, 20);
-    case 'cylinder':
-      return new CylinderGeometry(part.radiusTop, part.radiusBottom, part.height, RADIAL);
-    case 'cone':
-      return new ConeGeometry(part.radius, part.height, RADIAL);
-    case 'torus':
-      return new TorusGeometry(part.radius, part.tube, 16, RADIAL).rotateX(Math.PI / 2);
-    case 'lathe':
-      return new LatheGeometry(
-        part.profile.map(([radius, y]) => new Vector2(radius, y)),
-        RADIAL,
-      );
-    case 'extrude': {
-      // Shape space is XY; after rotating -90° about X, shape y → world -z and the extrusion (+z) → world +y.
-      const shape = new Shape(part.outline.map(([x, z]) => new Vector2(x, -z)));
-      return new ExtrudeGeometry(shape, { depth: part.height, bevelEnabled: false }).rotateX(-Math.PI / 2);
-    }
-  }
+const cache = new WeakMap<ModelSpec, EditorScene>();
+
+/** Builds (and memoises per spec object) every mesh of a design, boolean operands included. */
+export function editorScene(spec: ModelSpec): EditorScene {
+  const hit = cache.get(spec);
+  if (hit) return hit;
+  const built = buildSceneChecked(spec, { operands: true });
+  const scene: EditorScene = {
+    parts: built.parts,
+    issues: [...semanticIssues(spec), ...built.issues],
+    stats: sceneStats(built.parts.filter((p) => p.role === 'solid')),
+  };
+  cache.set(spec, scene);
+  return scene;
 }
 
-/** The fields that decide a part's geometry — everything but transform, colour and name. */
-export function geometryKey(part: ModelPart): string {
-  const { name: _n, position: _p, rotation: _r, scale: _s, color: _c, ...shape } = part;
-  return JSON.stringify(shape);
+/** A world-space mesh as a three.js geometry (rendered at identity). */
+export function meshGeometry(part: MeshPart): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(part.positions, 3));
+  geometry.setAttribute('normal', new Float32BufferAttribute(part.normals, 3));
+  geometry.setIndex(part.indices);
+  geometry.computeBoundingSphere();
+  return geometry;
 }

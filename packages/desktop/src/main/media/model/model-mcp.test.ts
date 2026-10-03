@@ -34,7 +34,7 @@ describe('model_set_spec', () => {
     const result = await kit.tools.model_set_spec({ ...target(kit, 'crate'), spec: BOX_SPEC });
     expect(result).toMatchObject({ ok: true, model: 'crate-20261003-141502.obj', partCount: 1, parts: [{ id: 'p1', name: 'crate', shape: 'box' }] });
     expect([...kit.files.keys()].sort()).toEqual(
-      ['gen/crate-20261003-141502.fbx', 'gen/crate-20261003-141502.json', 'gen/crate-20261003-141502.mtl', 'gen/crate-20261003-141502.obj'].sort(),
+      ['gen/crate-20261003-141502.fbx', 'gen/crate-20261003-141502.glb', 'gen/crate-20261003-141502.json', 'gen/crate-20261003-141502.mtl', 'gen/crate-20261003-141502.obj'].sort(),
     );
     expect(kit.changed).toHaveLength(1);
     expect(kit.changed[0]).toMatchObject({ project: 'gen', path: 'crate-20261003-141502.obj', saved: true });
@@ -109,11 +109,18 @@ describe('model_patch_parts', () => {
   it('enforces the single part cap', async () => {
     const kit = memoryModelKit();
     const model = await started(kit);
-    const ops = Array.from({ length: MODEL_MAX_PARTS }, (_, i) => ({ op: 'add' as const, part: { name: `n${i}`, shape: 'sphere', radius: 0.1 } }));
-    const first = await kit.tools.model_patch_parts({ ...target(kit, model), ops: ops.slice(0, 60) });
-    const second = await kit.tools.model_patch_parts({ ...target(kit, model), ops: ops.slice(0, 60) });
-    const third = await kit.tools.model_patch_parts({ ...target(kit, model), ops: ops.slice(0, 20) });
-    expect([first.ok, second.ok, third.ok]).toEqual([true, true, false]);
+    const batch = (n: number) => Array.from({ length: n }, (_, i) => ({ op: 'add' as const, part: { name: `n${i}`, shape: 'sphere', radius: 0.1 } }));
+    // The model starts with one placeholder part; fill to the cap in ≤ 60-op calls, then one more call overshoots.
+    const fills: boolean[] = [];
+    let have = 1;
+    while (have + 60 <= MODEL_MAX_PARTS) {
+      fills.push((await kit.tools.model_patch_parts({ ...target(kit, model), ops: batch(60) })).ok);
+      have += 60;
+    }
+    const rest = MODEL_MAX_PARTS - have;
+    const topUp = await kit.tools.model_patch_parts({ ...target(kit, model), ops: batch(rest) });
+    const over = await kit.tools.model_patch_parts({ ...target(kit, model), ops: batch(1) });
+    expect([...fills, topUp.ok, over.ok]).toEqual([...fills.map(() => true), true, false]);
   });
 
   it('serialises parallel calls: each patch sees the design the previous one left', async () => {
@@ -203,7 +210,7 @@ describe('model_save, model_list and model_open', () => {
     await kit.tools.model_patch_parts({ ...target(kit, model), ops: [{ op: 'add', part: { name: 'ball', shape: 'sphere', radius: 0.3 } }] });
     expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).not.toContain('ball');
     const saved = await kit.tools.model_save(target(kit, model));
-    expect(saved).toEqual({ saved: true, files: ['crate-20261003-141502.json', 'crate-20261003-141502.mtl', 'crate-20261003-141502.obj', 'crate-20261003-141502.fbx'] });
+    expect(saved).toEqual({ saved: true, files: ['crate-20261003-141502.json', 'crate-20261003-141502.mtl', 'crate-20261003-141502.obj', 'crate-20261003-141502.fbx', 'crate-20261003-141502.glb'] });
     expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).toContain('ball');
     expect(kit.changed.at(-1)).toMatchObject({ saved: true });
   });

@@ -1,6 +1,8 @@
 import {
   agentIteratesModel,
+  buildScene,
   failure,
+  MEDIA_EXPORT_FORMAT_INFO,
   MODEL_ITERATIONS_DEFAULT,
   modelFileExtension,
   modelSidecarPath,
@@ -18,10 +20,10 @@ import {
   type ModelSpec,
 } from '@midnite/studio-shared';
 
-import { writeFbxBinary } from './fbx-writer';
+import { writeFbxAscii, writeFbxBinary } from './fbx-writer';
+import { writeGlb } from './gltf-writer';
 import { runIterative, type IterativeHost } from './iterative';
 import type { ModelTools } from './model-mcp';
-import { buildScene } from './mesh';
 import { writeMtl, writeObj } from './obj-writer';
 import { buildIterativePrompt, buildRepairPrompt, buildSpecPrompt } from './prompts';
 import { parseSpec } from './spec-parse';
@@ -110,7 +112,27 @@ export const engineLabel = (engine: ModelEngine): string =>
 /** Bytes of one export format for a spec. */
 export function renderModel(spec: ModelSpec, format: ModelExportFormat, stem: string): Buffer {
   const parts = buildScene(spec);
-  return format === 'obj' ? Buffer.from(writeObj(parts, `${stem}.mtl`, spec.name), 'utf8') : writeFbxBinary(parts);
+  switch (format) {
+    case 'obj':
+      return Buffer.from(writeObj(parts, `${stem}.mtl`, spec.name), 'utf8');
+    case 'glb':
+      return writeGlb(parts, spec.name);
+    case 'fbx-ascii':
+      return Buffer.from(writeFbxAscii(parts), 'utf8');
+    case 'fbx':
+      return writeFbxBinary(parts);
+  }
+}
+
+/** The files a saved model keeps beside its sidecar: `.mtl`, `.obj`, `.fbx` (binary) and `.glb`. */
+function renderTrio(spec: ModelSpec, stem: string, mtlName: string): [string, Buffer][] {
+  const parts = buildScene(spec);
+  return [
+    [`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')],
+    [`${stem}.obj`, Buffer.from(writeObj(parts, mtlName, spec.name), 'utf8')],
+    [`${stem}.fbx`, writeFbxBinary(parts)],
+    [`${stem}.glb`, writeGlb(parts, spec.name)],
+  ];
 }
 
 export function createModelService(deps: ModelServiceDeps) {
@@ -198,12 +220,9 @@ export function createModelService(deps: ModelServiceDeps) {
    * the `.mtl`, `.obj` and `.fbx` rendered from its spec. `written` collects each path as it lands.
    */
   async function writeTrio(scope: Scope, stem: string, sidecar: ModelSidecar, written: string[] = []): Promise<GitOpResult<{ files: string[] }>> {
-    const parts = buildScene(sidecar.spec);
     const outputs: [string, Buffer][] = [
       [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
-      [`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')],
-      [`${stem}.obj`, Buffer.from(writeObj(parts, `${stem}.mtl`, sidecar.spec.name), 'utf8')],
-      [`${stem}.fbx`, writeFbxBinary(parts)],
+      ...renderTrio(sidecar.spec, stem, `${stem}.mtl`),
     ];
     for (const [path, data] of outputs) {
       const wrote = await deps.writeBytes({ ...scope, path, data });
@@ -337,7 +356,7 @@ export function createModelService(deps: ModelServiceDeps) {
     if (parsed) {
       // An .obj names its .mtl, so the materials travel with it.
       const extras = req.format === 'obj' ? [{ fileName: `${stem}.mtl`, data: Buffer.from(writeMtl(buildScene(parsed.spec)), 'utf8') }] : [];
-      return ok({ data: renderModel(parsed.spec, req.format, stem), fileName: `${stem}.${req.format}`, extras });
+      return ok({ data: renderModel(parsed.spec, req.format, stem), fileName: `${stem}.${MEDIA_EXPORT_FORMAT_INFO[req.format].ext}`, extras });
     }
     if (modelFileExtension(req.path) === req.format) {
       const own = await deps.readBytes({ ...scope, path: req.path });
@@ -369,13 +388,10 @@ export function createModelService(deps: ModelServiceDeps) {
     const existing = await deps.readBytes({ ...scope, path: `${stem}.json` });
     const previous = existing.ok ? parseModelSidecar(existing.value.toString('utf8')) : null;
     if (!previous) return failure('This model has no saved design to edit.');
-    const parts = buildScene(req.spec);
     const sidecar: ModelSidecar = { ...previous, spec: req.spec };
     const outputs: [string, Buffer][] = [
       [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
-      [`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')],
-      [`${stem}.obj`, Buffer.from(writeObj(parts, `${base}.mtl`, req.spec.name), 'utf8')],
-      [`${stem}.fbx`, writeFbxBinary(parts)],
+      ...renderTrio(req.spec, stem, `${base}.mtl`),
     ];
     const files: string[] = [];
     for (const [path, data] of outputs) {

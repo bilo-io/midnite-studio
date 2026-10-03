@@ -1,4 +1,4 @@
-import { ModelSpecSchema } from '@midnite/studio-shared';
+import { buildScene, ModelSpecSchema, sceneBounds } from '@midnite/studio-shared';
 import { Box3, Group, Mesh, MeshPhongMaterial, type Object3D } from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
@@ -6,7 +6,6 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { describe, expect, it } from 'vitest';
 
 import { writeFbxAscii, writeFbxBinary } from './fbx-writer';
-import { buildScene, sceneBounds } from './mesh';
 import { formatNumber, safeName, uniqueNames, writeMtl, writeObj } from './obj-writer';
 
 const spec = ModelSpecSchema.parse({
