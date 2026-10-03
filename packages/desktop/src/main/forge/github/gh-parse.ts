@@ -674,6 +674,7 @@ export function parsePullList(payload: unknown): ForgePull[] {
       url: asString(row['url']) ?? '',
       mergedAt: asTimestamp(row['mergedAt']),
       closedAt: asTimestamp(row['closedAt']),
+      commentCount: Array.isArray(row['comments']) ? row['comments'].length : 0,
     });
     if (parsed.success && parsed.data.url.length > 0) pulls.push(parsed.data);
   }

@@ -200,6 +200,7 @@ describe('parsePullList', () => {
         url: 'https://github.com/o/r/pull/42',
         mergedAt: null,
         closedAt: null,
+        commentCount: 0,
       },
     ]);
   });
@@ -1126,5 +1127,16 @@ describe('parseMultiFileDiff over what gh actually returns', () => {
     expect(files).toHaveLength(1);
     expect(files[0]?.insertions).toBe(2);
     expect(files[0]?.deletions).toBe(0);
+  });
+});
+
+describe('parsePullList — commentCount', () => {
+  const row = { number: 1, title: 't', state: 'OPEN', url: 'https://x/1', headRefName: 'b' };
+  it('is the length of the comments array', () => {
+    expect(parsePullList([{ ...row, comments: [{}, {}, {}] }])[0]?.commentCount).toBe(3);
+  });
+  it('is 0 when comments is missing or malformed', () => {
+    expect(parsePullList([row])[0]?.commentCount).toBe(0);
+    expect(parsePullList([{ ...row, comments: 'x' }])[0]?.commentCount).toBe(0);
   });
 });

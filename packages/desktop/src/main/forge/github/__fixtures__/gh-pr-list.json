@@ -21,7 +21,11 @@
     "createdAt": "2026-09-10T14:03:21Z",
     "updatedAt": "2026-09-11T09:12:40Z",
     "mergedAt": null,
-    "closedAt": null
+    "closedAt": null,
+    "comments": [
+      { "id": "IC_1", "author": { "login": "octocat" }, "body": "Looks good overall.", "createdAt": "2026-09-10T15:00:00Z" },
+      { "id": "IC_2", "author": { "login": "bilo" }, "body": "Thanks, fixed.", "createdAt": "2026-09-10T16:00:00Z" }
+    ]
   },
   {
     "id": "PR_kwDOJ3xN9M6WabCd",

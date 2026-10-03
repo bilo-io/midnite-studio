@@ -49,7 +49,12 @@ describe('parsePullList — fixture (gh-pr-list.json)', () => {
       url: 'https://github.com/bilo-io/midnite-studio/pull/412',
       mergedAt: null,
       closedAt: null,
+      commentCount: 2,
     });
+  });
+
+  it('counts no comments when the field is absent', () => {
+    expect(pulls[1]?.commentCount).toBe(0);
   });
 
   it('maps a merged PR, carrying its merge and close dates', () => {

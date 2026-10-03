@@ -274,6 +274,7 @@ function mapPull(forge: Forge, raw: AzurePrRow): ForgePull {
     url: `${repoWebUrl(forge)}/pullrequest/${id}`,
     mergedAt: status === 'completed' ? asNullableIso(raw['closedDate']) : null,
     closedAt: status === 'abandoned' ? asNullableIso(raw['closedDate']) : null,
+    commentCount: 0, // Comment threads need a per-PR /threads call the listing does not make.
   };
 }
 

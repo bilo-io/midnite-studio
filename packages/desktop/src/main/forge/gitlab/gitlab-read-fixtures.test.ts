@@ -69,6 +69,7 @@ describe('listPulls — fixture (gitlab-mr-list.json)', () => {
       url: 'https://gitlab.com/midnite/studio/-/merge_requests/214',
       mergedAt: null,
       closedAt: null,
+      commentCount: 0,
     });
 
     expect(result.pulls[1]).toMatchObject({

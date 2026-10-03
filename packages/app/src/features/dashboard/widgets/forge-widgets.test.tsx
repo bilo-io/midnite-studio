@@ -17,6 +17,7 @@ const pull: ForgePull = {
   url: 'https://example.test/pr/7',
   mergedAt: null,
   closedAt: null,
+  commentCount: 0,
 };
 
 const ready = { cli: { reason: 'ready', hint: '' }, pulls: [pull], error: null };

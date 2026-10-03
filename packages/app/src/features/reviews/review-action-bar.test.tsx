@@ -48,6 +48,7 @@ function pull(overrides: Partial<ForgePull> = {}): ForgePull {
     url: 'https://github.com/bilo-io/midnite-studio/pull/12',
     mergedAt: null,
     closedAt: null,
+    commentCount: 0,
     ...overrides,
   };
 }

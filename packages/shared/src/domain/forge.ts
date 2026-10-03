@@ -192,6 +192,13 @@ export const ForgePullSchema = z.object({
   mergedAt: z.string().nullable().default(null),
   /** ISO 8601, or null for a PR that is still open. Set on both closed and merged. */
   closedAt: z.string().nullable().default(null),
+  /**
+   * Conversation comments on the PR, shown on the list row (hidden at 0).
+   * GitHub: issue comments only (`gh pr list --json comments`) — inline review
+   * comments are not in that payload. Other forges: 0 unless the list API
+   * carries a count for free.
+   */
+  commentCount: z.number().int().nonnegative().default(0),
 });
 export type ForgePull = z.infer<typeof ForgePullSchema>;
 
