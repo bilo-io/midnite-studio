@@ -34,9 +34,9 @@ describe('model_* over the global MCP dispatcher', () => {
   it('lets an external session read, list and render with the switch off', async () => {
     setMcpAllowModelsState(true);
     const made = await dispatchMcpCall('model_set_spec', { ...target, spec: BOX_SPEC });
-    expect(made).toMatchObject({ ok: true, value: { ok: true, model: 'crate-20261003-141502.obj' } });
+    expect(made).toMatchObject({ ok: true, value: { ok: true, model: 'crate-20261003-141502/crate-20261003-141502.obj' } });
     setMcpAllowModelsState(false);
-    const model = 'crate-20261003-141502.obj';
+    const model = 'crate-20261003-141502/crate-20261003-141502.obj';
     expect(await dispatchMcpCall('model_list', { repoPath: kit.repoPath })).toMatchObject({ ok: true });
     expect(await dispatchMcpCall('model_get_spec', { ...target, model })).toMatchObject({ ok: true });
     const render = await dispatchMcpCall('model_render_preview', { ...target, model, views: ['top'], size: 128 });
