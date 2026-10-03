@@ -37,6 +37,7 @@ function build(store: ReturnType<typeof createChatStore>, root: string): ChatSer
       return entry ? { id: entry.id, path: entry.path, name: basename(entry.path) } : null;
     },
     emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.chatsEvent, event),
+    // Only emptied now — older builds kept per-turn repo copies here.
     sandboxRoot: join(root, 'sandboxes'),
     scratchRoot: scratchRootOf(root),
     ollamaStream: async (req) =>

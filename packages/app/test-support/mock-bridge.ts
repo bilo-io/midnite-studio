@@ -5348,6 +5348,7 @@ export function buildMockBridge(data: MockFixtures) {
         preview: last ? String(last['text']).replace(/\s+/g, ' ').slice(0, 90) : '',
         running: messages.some((m) => m['status'] === 'streaming'),
         pendingChanges: messages.some((m) => m['changeSet'] && needsReview(m['changeSet'])),
+        worktree: chat['worktree'] ?? null,
       };
     };
 

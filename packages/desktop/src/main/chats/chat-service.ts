@@ -513,6 +513,11 @@ export function createChatService(deps: ChatServiceDeps) {
       if (!created.ok) return created;
       made = { path, branch, repoPath: repo.path };
     }
+    if (chats.get(chat.id) !== chat) {
+      // Deleted while the worktree was being made — take it with the chat.
+      await git.removeAgentWorktree(repo.path, made).catch(() => undefined);
+      return failure('That chat no longer exists.');
+    }
     chat.worktree = made;
     await persist(chat);
     emitChat(chat.id);

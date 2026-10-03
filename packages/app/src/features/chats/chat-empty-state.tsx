@@ -60,7 +60,7 @@ export function ChatEmptyState({
         <p className="mt-1 text-sm text-muted-foreground">
           {engineLabel ? `Talking to ${engineLabel}. ` : ''}
           {hasRepo
-            ? 'In Edit mode it works on a copy of your repository, and you review every change before it lands.'
+            ? 'In Edit mode it works in its own worktree and branch, and you review every change before it lands in yours.'
             : 'Pick a repository below to let it read and change files, or just ask a question.'}
         </p>
         <ul className="mt-5 grid gap-2 text-left sm:grid-cols-2" aria-label="Suggestions">

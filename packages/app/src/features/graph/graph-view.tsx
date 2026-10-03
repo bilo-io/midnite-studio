@@ -48,7 +48,7 @@ import { useGraphStream } from './use-graph-stream';
 import { useCommitCi } from './use-commit-ci';
 import { useCommitStats } from './use-commit-stats';
 import { hiddenColumnTokens } from './column-visibility';
-import { useActiveAgentWorktreePaths, useActiveAgentWorktreeSessions } from './use-agent-worktrees';
+import { useActiveAgentWorktreeSessions } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
 import { applyHeadLane, findHeadLane } from './head-lane';
@@ -271,7 +271,11 @@ export function GraphView() {
     [checkoutRef, currentBranch, report],
   );
 
-  const activeWorktreePaths = useActiveAgentWorktreePaths();
+  // The session behind `isAgentActive(ref)` — a terminal agent or a running
+  // chat. Most rows never ask for the occupant itself (only a ref whose badge
+  // is about to render the avatar does); the glow only needs the key set.
+  const activeAgentSessions = useActiveAgentWorktreeSessions();
+  const activeWorktreePaths = useMemo(() => new Set(activeAgentSessions.keys()), [activeAgentSessions]);
   const isAgentActive = useCallback(
     (ref: (typeof refs)[number]) => {
       if (ref.worktreePath && activeWorktreePaths.has(ref.worktreePath)) {
@@ -282,10 +286,6 @@ export function GraphView() {
     [activeWorktreePaths],
   );
 
-  // The session behind `isAgentActive(ref)` — a separate map rather than
-  // folded into the callback above because most rows never call this one at
-  // all (only a ref whose badge is about to render the avatar does).
-  const activeAgentSessions = useActiveAgentWorktreeSessions();
   const agentSessionFor = useCallback(
     (ref: (typeof refs)[number]) =>
       ref.worktreePath ? activeAgentSessions.get(ref.worktreePath) : undefined,

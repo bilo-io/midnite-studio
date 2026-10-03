@@ -408,7 +408,7 @@ describe('chat service: edit mode and reviewable changes', () => {
     const ctx = setup({
       spawn,
       git: fakeGit({
-        captureChanges: vi.fn(async () => ok(captured.map((f) => (f.path === 'src/a.ts' ? { ...f, patch: fullPatch } : f)))),
+        captureChanges: vi.fn(async () => ok(captured.map((f) => (f.path === 'src/a.ts' ? { ...f, patch: fullPatch } : f)))) as never,
       }),
     });
     const chat = await created(ctx.service, { mode: 'edit', repoId: 'repo:/work/app' });
@@ -487,7 +487,7 @@ describe('chat service: edit mode and reviewable changes', () => {
     });
     const { service } = setup({
       spawn,
-      git: fakeGit({ captureChanges: vi.fn(async () => ok(captured)) }),
+      git: fakeGit({ captureChanges: vi.fn(async () => ok(captured)) as never }),
     });
     const chat = await created(service, { mode: 'edit', repoId: 'repo:/work/app' });
     await service.send({ chatId: chat.id, text: 'go' });

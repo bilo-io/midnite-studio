@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LuGitBranch } from 'react-icons/lu';
 
 import type { Chat, ChatAttachment, ChatMode } from '@midnite/studio-shared';
 
 import { ExplorerNotice } from '../../components/explorer';
 import { useDialogs } from '../../components/dialog-host';
+import { Tooltip } from '../../components/tooltip';
 import { useRepos } from '../../services/queries';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
@@ -209,7 +211,7 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
           files={files}
         />
         <p className="mt-1.5 text-center text-[10px] text-muted-foreground/70">
-          {settings.mode === 'edit' && settings.repoId ? 'Edits happen on a copy — nothing changes in your repository until you accept it.' : 'Agents can make mistakes. Check important output.'}
+          {settings.mode === 'edit' && settings.repoId ? 'Edits happen in this chat’s own worktree — nothing changes in your checkout until you accept it.' : 'Agents can make mistakes. Check important output.'}
         </p>
       </div>
     </div>
@@ -279,11 +281,36 @@ function ChatHeader({ chat, engine, streaming }: { chat: Chat; engine: ChatEngin
         {engine?.label ?? chat.engine}
         {chat.repoName ? ` · ${chat.repoName}` : ''}
       </span>
+      {chat.worktree ? <WorktreeChip chat={chat} worktree={chat.worktree} /> : null}
       {streaming ? (
         <span className="shrink-0 text-muted-foreground" aria-live="polite" data-testid="chat-answering">
           Answering…
         </span>
       ) : null}
     </header>
+  );
+}
+
+/**
+ * The chat's own branch — its worktree is an ordinary one, so a click takes the
+ * graph to it like any other working copy. Inert while the chat's repo is closed.
+ */
+function WorktreeChip({ chat, worktree }: { chat: Chat; worktree: NonNullable<Chat['worktree']> }) {
+  const repoId = chat.repoId;
+  return (
+    <Tooltip label={repoId ? `Open ${worktree.path} in the graph` : worktree.path}>
+      <button
+        type="button"
+        data-testid="chat-worktree"
+        disabled={!repoId}
+        onClick={() => {
+          if (repoId) useUiStore.getState().openWorkingCopyInGraph({ repoId, worktreePath: worktree.path });
+        }}
+        className="flex min-w-0 shrink items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none"
+      >
+        <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
+        <span className="truncate">{worktree.branch}</span>
+      </button>
+    </Tooltip>
   );
 }

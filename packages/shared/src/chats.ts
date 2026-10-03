@@ -20,11 +20,12 @@ export const CHAT_ENGINE_OLLAMA = 'ollama';
 /**
  * What a turn is allowed to do.
  *
- * - `ask` — read-only. The agent runs in the repo itself with the CLI's own
- *   read-only/plan switch, because nothing it does can need reviewing.
- * - `edit` — the agent runs in a throwaway snapshot of the repo; whatever it
- *   changes comes back as a reviewable change set and never touches the real
- *   working tree until the user accepts it.
+ * - `ask` — read-only. The agent runs with the CLI's own read-only/plan switch,
+ *   in the chat's worktree once it has one and in the repo itself before that,
+ *   because nothing it does can need reviewing.
+ * - `edit` — the agent runs in the chat's own linked worktree, on its own
+ *   branch; whatever each turn changes comes back as a reviewable change set
+ *   and never touches the user's checkout until they accept it.
  */
 export const ChatModeSchema = z.enum(['ask', 'edit']);
 export type ChatMode = z.infer<typeof ChatModeSchema>;
@@ -43,7 +44,7 @@ export type ChatHunkStatus = z.infer<typeof ChatHunkStatusSchema>;
 /**
  * `partial` is derived (some hunks accepted, some rejected or still pending);
  * `conflict` is set when applying a decision failed because the working tree
- * moved on since the snapshot.
+ * moved on since the agent's turn.
  */
 export const ChatChangeStatusSchema = z.enum(['pending', 'accepted', 'rejected', 'partial', 'conflict']);
 export type ChatChangeStatus = z.infer<typeof ChatChangeStatusSchema>;
