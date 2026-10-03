@@ -198,7 +198,14 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // selection and view mode, a real pointer click ray-cast against the meshes,
 // and a real drag orbiting the camera. Reducer, undo/redo, the inspector and
 // the save/export bridge calls are all vitest.
-export const MAX_DECLARED_E2E = 469;
+//
+// Raised 469 -> 470 for the Finance dashboard's `finance-dashboard.spec.ts` (1
+// test): a card resized by a real pointer drag on its react-grid-layout handle
+// (real getBoundingClientRect, real pointer capture), the new footprint landing
+// in the persisted board, and the Insights button's hover fill — a CSS ::before
+// opacity that only a real style engine computes. Every other Finance
+// behaviour (cards, portfolio rules, sorting, summary, modals) is vitest.
+export const MAX_DECLARED_E2E = 470;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

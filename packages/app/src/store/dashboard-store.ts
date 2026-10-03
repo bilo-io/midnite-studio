@@ -6,6 +6,7 @@ import type { StatsWindow } from '@midnite/studio-shared';
 import {
   AGENTS_LAYOUT,
   DEFAULT_LAYOUT,
+  FINANCE_LAYOUT,
   NEW_DASHBOARD_LAYOUT,
   WIDGET_DEFAULT_SIZE,
   type WidgetId,
@@ -67,6 +68,8 @@ export type DashboardTab = { id: string; name: string; pinned?: boolean };
 export const GIT_DASHBOARD_ID = 'git';
 /** The second default dashboard; its layout is seeded lazily, see `defaultBoardFor`. */
 export const AGENTS_DASHBOARD_ID = 'agents';
+/** The third default dashboard — market cards, a simulated wallet, charts and news. */
+export const FINANCE_DASHBOARD_ID = 'finance';
 /** Hard ceiling on dashboards, as in midnite. */
 export const MAX_DASHBOARDS = 10;
 const MAX_NAME_LEN = 40;
@@ -74,6 +77,7 @@ const MAX_NAME_LEN = 40;
 export const DEFAULT_TABS: DashboardTab[] = [
   { id: GIT_DASHBOARD_ID, name: 'Git' },
   { id: AGENTS_DASHBOARD_ID, name: 'Agents' },
+  { id: FINANCE_DASHBOARD_ID, name: 'Finance' },
 ];
 
 /**
@@ -125,6 +129,12 @@ export const AGENTS_BOARD: DashboardBoard = {
   window: '90d',
 };
 
+export const FINANCE_BOARD: DashboardBoard = {
+  layout: FINANCE_LAYOUT,
+  authors: [],
+  window: '90d',
+};
+
 export const NEW_DASHBOARD_BOARD: DashboardBoard = {
   layout: NEW_DASHBOARD_LAYOUT,
   authors: [],
@@ -138,6 +148,7 @@ export const NEW_DASHBOARD_BOARD: DashboardBoard = {
  */
 export const defaultBoardFor = (key: string): DashboardBoard => {
   if (key === `dash:${AGENTS_DASHBOARD_ID}`) return AGENTS_BOARD;
+  if (key === `dash:${FINANCE_DASHBOARD_ID}`) return FINANCE_BOARD;
   return key.startsWith('dash:') ? NEW_DASHBOARD_BOARD : DEFAULT_BOARD;
 };
 
@@ -218,6 +229,13 @@ adoptRenamedPersistKey('midnite-studio.dashboard', 'midnite-studio.dashboard');
  * dashboard, untouched (their keys are repo ids, which is what the Git
  * dashboard keeps using); all that is added is the tab list — Git, then the
  * Agents dashboard, whose layout is seeded lazily by `defaultBoardFor`.
+ *
+ * v3 -> v4: the Finance dashboard. Appended to the existing tab list rather
+ * than replacing it — a person's own dashboards, their order, their pins and
+ * which one was active all survive untouched; the new tab simply joins the end
+ * of its zone. Its board, like Agents', is seeded lazily, so nothing is written
+ * for it here. A list that already carries a `finance` tab is left alone, which
+ * keeps the migration idempotent.
  */
 export const migrateDashboardState = (persisted: unknown, version: number): DashboardState => {
   const state = (persisted ?? {}) as Partial<DashboardState>;
@@ -231,6 +249,11 @@ export const migrateDashboardState = (persisted: unknown, version: number): Dash
   if (version < 3) {
     state.tabs = DEFAULT_TABS;
     state.activeId = GIT_DASHBOARD_ID;
+  } else if (version < 4 && Array.isArray(state.tabs)) {
+    const tabs = state.tabs;
+    if (!tabs.some((tab) => tab.id === FINANCE_DASHBOARD_ID)) {
+      state.tabs = canonicalizeTabs([...tabs, { id: FINANCE_DASHBOARD_ID, name: 'Finance' }]);
+    }
   }
   return state as DashboardState;
 };
@@ -394,7 +417,7 @@ export const useDashboardStore = create<DashboardState>()(
     }),
     {
       name: 'midnite-studio.dashboard',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => migrateDashboardState(persisted, version),
       /*
         Boards for repositories that are no longer open are kept.

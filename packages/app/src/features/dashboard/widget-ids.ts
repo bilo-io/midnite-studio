@@ -28,10 +28,30 @@ export const AGENT_WIDGET_IDS = [
   'loop-runs',
 ] as const;
 
+/**
+ * The "Finance" dashboard's set: market cards, a simulated wallet, charts,
+ * a ledger and headlines. All repository-independent (`source: 'none'`).
+ */
+export const FINANCE_WIDGET_IDS = [
+  'fin-bank-cards',
+  'fin-assets',
+  'fin-allocation',
+  'fin-chart',
+  'fin-watchlist',
+  'fin-markets',
+  'fin-transactions',
+  'fin-news',
+] as const;
+
 /** Repository-independent utility cards, ported from midnite's catalogue. */
 export const GENERAL_WIDGET_IDS = ['clock', 'date', 'scratchpad'] as const;
 
-export const WIDGET_IDS = [...GIT_WIDGET_IDS, ...AGENT_WIDGET_IDS, ...GENERAL_WIDGET_IDS] as const;
+export const WIDGET_IDS = [
+  ...GIT_WIDGET_IDS,
+  ...AGENT_WIDGET_IDS,
+  ...FINANCE_WIDGET_IDS,
+  ...GENERAL_WIDGET_IDS,
+] as const;
 
 export type WidgetId = (typeof WIDGET_IDS)[number];
 
@@ -57,6 +77,7 @@ export type WidgetSource = 'stats' | 'forge' | 'both' | 'none';
 export const WIDGET_CATEGORIES = [
   { key: 'git', label: 'Git' },
   { key: 'agents', label: 'Agents & sessions' },
+  { key: 'finance', label: 'Finance' },
   { key: 'datetime', label: 'Date & time' },
   { key: 'productivity', label: 'Productivity' },
 ] as const;
@@ -83,6 +104,14 @@ export const WIDGET_DEFAULT_SIZE: Record<WidgetId, { w: number; h: number }> = {
   'recent-sessions': { w: 4, h: 8 },
   'agent-activity': { w: 6, h: 7 },
   'loop-runs': { w: 6, h: 7 },
+  'fin-bank-cards': { w: 4, h: 9 },
+  'fin-assets': { w: 4, h: 9 },
+  'fin-allocation': { w: 4, h: 9 },
+  'fin-chart': { w: 8, h: 22 },
+  'fin-watchlist': { w: 4, h: 10 },
+  'fin-markets': { w: 4, h: 12 },
+  'fin-transactions': { w: 7, h: 11 },
+  'fin-news': { w: 5, h: 11 },
   clock: { w: 3, h: 5 },
   date: { w: 3, h: 5 },
   scratchpad: { w: 4, h: 7 },
@@ -122,4 +151,20 @@ export const AGENTS_LAYOUT = [
 export const NEW_DASHBOARD_LAYOUT = [
   { i: 'clock' as const, x: 0, y: 0, w: 3, h: 5 },
   { i: 'date' as const, x: 3, y: 0, w: 3, h: 5 },
+];
+
+/**
+ * The "Finance" dashboard's seed: the wallet, holdings and allocation across
+ * the top; the big chart beside the two market lists; the ledger and the news
+ * along the bottom.
+ */
+export const FINANCE_LAYOUT = [
+  { i: 'fin-bank-cards' as const, x: 0, y: 0, w: 4, h: 9 },
+  { i: 'fin-assets' as const, x: 4, y: 0, w: 4, h: 9 },
+  { i: 'fin-allocation' as const, x: 8, y: 0, w: 4, h: 9 },
+  { i: 'fin-chart' as const, x: 0, y: 9, w: 8, h: 22 },
+  { i: 'fin-watchlist' as const, x: 8, y: 9, w: 4, h: 10 },
+  { i: 'fin-markets' as const, x: 8, y: 19, w: 4, h: 12 },
+  { i: 'fin-transactions' as const, x: 0, y: 31, w: 7, h: 11 },
+  { i: 'fin-news' as const, x: 7, y: 31, w: 5, h: 11 },
 ];

@@ -14214,3 +14214,20 @@ A fifth Media tab. Describe an object, or attach a picture of one, and an LLM de
 ### Ad hoc — Media ▸ Models over MCP (Phase 99 Theme G)
 
 Agents now build 3D models iteratively through eight `model_*` MCP tools (list, open, get_spec, set_spec, patch_parts, render_preview, get_reference_image, save) and see their work: previews are rendered in main by a deterministic software rasterizer (front/side/top/iso, <= 768 px PNG) and returned as MCP image content. Claude Code (verified end to end) and Codex run an iterative engine on a private one-model MCP server per run (build, render, compare, refine within an iteration budget, save; clean cancel; one-shot fallback), while Ollama and other CLIs stay one-shot. Edits stream live into the open 3D editor (`model-changed` / `model-open` events) with a pass counter, latest action and Cancel in the input panel. The app's global MCP server answers the same tools for a user's own Claude session, behind a new `Settings > MCP > Let agents edit 3D models` switch (`mcp.json` v4). Tool schemas and the prompt's format reference derive from the shared spec schema; `MODEL_MAX_PARTS` is one constant (128). See Phase 99 Theme G.
+
+### Phase 100 — Finance dashboard (Themes A–F)
+
+A third default dashboard, **Finance**, built on the multiple-dashboards framework. Key-free market
+data is fetched in main only (CNBC and Yahoo for stocks and ETFs, Binance and CoinGecko for crypto,
+open.er-api.com and Frankfurter for FX, Nasdaq and CoinGecko for search), cached on disk with
+per-timescale TTLs and served stale-with-a-hint when a provider is down; every price is stored in USD
+and shown through an hourly-refreshed exchange-rate table in a display currency chosen in the
+dashboard header, beside a global timescale (1D to ALL). The portfolio — fiat balances, holdings,
+a transaction log and the watchlist — is simulated and persisted main-side in
+`userData/finance/portfolio.json`, with its rules as pure shared functions. Eight cards, each an
+ordinary registry widget: bank cards (fan-out stack, deposit/withdraw modals), asset cards, allocation
+donut, Watchlist and Markets (one component), a lazy Lightweight Charts card with search, five chart
+types, a deterministic data-derived summary and an **Insights** breakdown, the transaction table, and
+a news feed with editable feeds and keywords. `midnite-studio.dashboard` persist v3 -> v4 appends the
+tab without touching existing dashboards; every dashboard's tiles now resize from the corners and
+edges, not only the south-east corner. See Phase 100.

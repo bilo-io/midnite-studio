@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { AGENTS_LAYOUT, DEFAULT_LAYOUT } from '../features/dashboard/widget-ids';
+import { AGENTS_LAYOUT, DEFAULT_LAYOUT, FINANCE_LAYOUT } from '../features/dashboard/widget-ids';
 import {
   boardFor,
   boardKeyFor,
   DEFAULT_BOARD,
   DEFAULT_TABS,
+  FINANCE_DASHBOARD_ID,
   GIT_DASHBOARD_ID,
   inReadingOrder,
   MAX_DASHBOARDS,
@@ -202,8 +203,8 @@ describe('multiple dashboards', () => {
   const state = () => useDashboardStore.getState();
   beforeEach(resetTabs);
 
-  it('ships Git and Agents, with Git active', () => {
-    expect(state().tabs.map((t) => t.name)).toEqual(['Git', 'Agents']);
+  it('ships Git, Agents and Finance, with Git active', () => {
+    expect(state().tabs.map((t) => t.name)).toEqual(['Git', 'Agents', 'Finance']);
     expect(state().activeId).toBe(GIT_DASHBOARD_ID);
   });
 
@@ -260,7 +261,7 @@ describe('multiple dashboards', () => {
     state().closeDashboard(GIT_DASHBOARD_ID);
     state().togglePin('agents');
     state().closeDashboard('agents');
-    expect(state().tabs.map((t) => t.id)).toEqual(['git', 'agents']);
+    expect(state().tabs.map((t) => t.id)).toEqual(['git', 'agents', 'finance']);
   });
 
   it('renames with trimming and ignores a blank name', () => {
@@ -274,17 +275,17 @@ describe('multiple dashboards', () => {
     const a = state().addDashboard('A') as string;
     const b = state().addDashboard('B') as string;
     state().togglePin(b);
-    expect(state().tabs.map((t) => t.id)).toEqual(['git', b, 'agents', a]);
+    expect(state().tabs.map((t) => t.id)).toEqual(['git', b, 'agents', 'finance', a]);
     state().togglePin(GIT_DASHBOARD_ID);
     expect(state().tabs[0]?.pinned).toBeUndefined();
   });
 
   it('reorders the non-Git tabs', () => {
-    state().reorderDashboards(['x-unknown', 'agents']);
-    expect(state().tabs.map((t) => t.id)).toEqual(['git', 'agents']);
+    state().reorderDashboards(['x-unknown', 'agents', 'finance']);
+    expect(state().tabs.map((t) => t.id)).toEqual(['git', 'agents', 'finance']);
     const a = state().addDashboard('A') as string;
-    state().reorderDashboards([a, 'agents']);
-    expect(state().tabs.map((t) => t.id)).toEqual(['git', a, 'agents']);
+    state().reorderDashboards([a, 'agents', 'finance']);
+    expect(state().tabs.map((t) => t.id)).toEqual(['git', a, 'agents', 'finance']);
   });
 
   it('Reset layout restores each dashboard’s own seed', () => {
@@ -304,7 +305,7 @@ describe('multiple dashboards', () => {
 describe('migrateDashboardState', () => {
   const customised = [{ i: 'health' as const, x: 0, y: 0, w: 12, h: 9 }];
 
-  it('v2 -> v3 keeps every Git board byte-for-byte and adds Git + Agents', () => {
+  it('v2 -> v4 keeps every Git board byte-for-byte and adds Git + Agents + Finance', () => {
     const boards = { r1: { layout: customised, authors: ['a@x'], window: '30d' as const } };
     const migrated = migrateDashboardState({ boards: structuredClone(boards) }, 2);
     expect(migrated.boards).toEqual(boards);
@@ -336,8 +337,56 @@ describe('migrateDashboardState', () => {
     expect(migrateDashboardState(undefined, 2).tabs).toEqual(DEFAULT_TABS);
   });
 
-  it('does not re-seed tabs for a v3 blob', () => {
+  it('does not re-seed tabs for a v4 blob', () => {
     const tabs = [{ id: 'git', name: 'Git' }];
-    expect(migrateDashboardState({ boards: {}, tabs, activeId: 'git' }, 3).tabs).toBe(tabs);
+    expect(migrateDashboardState({ boards: {}, tabs, activeId: 'git' }, 4).tabs).toBe(tabs);
+  });
+
+  describe('v3 -> v4 (Finance)', () => {
+    const v3 = () => ({
+      boards: {
+        r1: { layout: [{ i: 'health' as const, x: 0, y: 0, w: 12, h: 9 }], authors: [], window: '30d' as const },
+      },
+      tabs: [
+        { id: 'git', name: 'Git' },
+        { id: 'pinned-one', name: 'Mine', pinned: true },
+        { id: 'agents', name: 'Agents' },
+        { id: 'custom-1', name: 'Scratch' },
+      ],
+      activeId: 'custom-1',
+    });
+
+    it('appends Finance to the end of the unpinned zone without touching anything else', () => {
+      const migrated = migrateDashboardState(v3(), 3);
+      expect(migrated.tabs.map((t) => t.id)).toEqual(['git', 'pinned-one', 'agents', 'custom-1', FINANCE_DASHBOARD_ID]);
+      expect(migrated.tabs.find((t) => t.id === 'pinned-one')).toEqual({ id: 'pinned-one', name: 'Mine', pinned: true });
+      expect(migrated.tabs.find((t) => t.id === FINANCE_DASHBOARD_ID)).toEqual({ id: FINANCE_DASHBOARD_ID, name: 'Finance' });
+    });
+
+    it('keeps the active dashboard and every board byte-for-byte', () => {
+      const before = v3();
+      const migrated = migrateDashboardState(structuredClone(before), 3);
+      expect(migrated.activeId).toBe('custom-1');
+      expect(migrated.boards).toEqual(before.boards);
+      expect(migrated.boards['dash:finance']).toBeUndefined();
+    });
+
+    it('seeds the Finance board lazily from FINANCE_LAYOUT', () => {
+      expect(boardFor({}, `dash:${FINANCE_DASHBOARD_ID}`).layout).toBe(FINANCE_LAYOUT);
+    });
+
+    it('is idempotent: a list that already has Finance gains no second one', () => {
+      const once = migrateDashboardState(v3(), 3);
+      const twice = migrateDashboardState(structuredClone(once), 3);
+      expect(twice.tabs.filter((t) => t.id === FINANCE_DASHBOARD_ID)).toHaveLength(1);
+    });
+
+    it('survives a v3 blob with no tab list at all', () => {
+      expect(() => migrateDashboardState({ boards: {} }, 3)).not.toThrow();
+    });
+  });
+
+  it('defaults a fresh install to Git, Agents and Finance', () => {
+    expect(DEFAULT_TABS.map((t) => t.id)).toEqual(['git', 'agents', FINANCE_DASHBOARD_ID]);
   });
 });

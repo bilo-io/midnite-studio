@@ -23,6 +23,8 @@ export * from './ipc';
 export * from './keybindings';
 export * from './loops';
 export * from './markdown-image';
+export * from './markets';
+export * from './markets-portfolio';
 export * from './mcp';
 export * from './media';
 export * from './media-model';

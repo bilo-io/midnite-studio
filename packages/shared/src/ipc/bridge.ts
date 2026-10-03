@@ -999,6 +999,21 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The Finance dashboard's data (key-free, fetched in main, USD-denominated)
+   * and its simulated portfolio. Every op resolves with a `GitOpResult` — a
+   * rate-limited provider or a refused withdrawal is an outcome, not a throw.
+   */
+  markets: {
+    series: (req: In<typeof S.MarketsSeriesRequest>) => Promise<z.infer<typeof S.MarketsSeriesResponse>>;
+    quotes: (req: In<typeof S.MarketsQuotesRequest>) => Promise<z.infer<typeof S.MarketsQuotesResponse>>;
+    search: (req: In<typeof S.MarketsSearchRequest>) => Promise<z.infer<typeof S.MarketsSearchResponse>>;
+    rates: () => Promise<z.infer<typeof S.MarketsRatesResponse>>;
+    portfolio: () => Promise<z.infer<typeof S.MarketsPortfolioResponse>>;
+    apply: (req: In<typeof S.MarketsPortfolioOpRequest>) => Promise<z.infer<typeof S.MarketsPortfolioResponse>>;
+    news: (req: In<typeof S.MarketsNewsRequest>) => Promise<z.infer<typeof S.MarketsNewsResponse>>;
+  };
+
+  /**
    * Video Studio (Phase 44) — global, not per-repo, and this app ships no
    * Remotion dependency anywhere; see `video.ts`. Projects are discovered
    * from disk, not registered, so there is no `save` — only `create` (copy
