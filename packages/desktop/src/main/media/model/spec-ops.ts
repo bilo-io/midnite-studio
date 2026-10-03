@@ -3,6 +3,7 @@ import {
   MODEL_MAX_PARTS,
   ModelPartSchema,
   ModelSpecSchema,
+  semanticIssues,
   type ModelPart,
   type ModelPatchOp,
   type ModelSpec,
@@ -63,11 +64,18 @@ export function ensurePartIds(spec: ModelSpec): ModelSpec {
   return { ...spec, parts };
 }
 
+/** Parent / target / instance-source references must resolve — the one cross-part check the schema cannot make. */
+function checkLinks(spec: ModelSpec): EditOutcome {
+  const links = semanticIssues(spec);
+  return links.length > 0 ? { ok: false, errors: links } : { ok: true, spec };
+}
+
 /** A whole design from an agent's open object: aliases forgiven, then the schema judges. */
 export function validateDesign(raw: unknown): EditOutcome {
   if (!isRecord(raw)) return { ok: false, errors: [{ path: '(root)', message: 'The design must be a JSON object with a "parts" array.' }] };
   const parsed = ModelSpecSchema.safeParse(normalizeSpec(raw));
-  return parsed.success ? { ok: true, spec: ensurePartIds(parsed.data) } : { ok: false, errors: issuesFrom(parsed.error.issues) };
+  if (!parsed.success) return { ok: false, errors: issuesFrom(parsed.error.issues) };
+  return checkLinks(ensurePartIds(parsed.data));
 }
 
 /** Apply `ops` in order to a copy of `spec`; any failing op rejects the whole call. */
@@ -123,7 +131,7 @@ export function applyPatchOps(spec: ModelSpec, ops: readonly ModelPatchOp[]): Ed
   if (parts.length > MODEL_MAX_PARTS) {
     return { ok: false, errors: [{ path: 'parts', message: `A design holds at most ${MODEL_MAX_PARTS} parts; these ops would make ${parts.length}.` }] };
   }
-  return { ok: true, spec: { ...spec, parts } };
+  return checkLinks({ ...spec, parts });
 }
 
 type Vec = [number, number, number];
