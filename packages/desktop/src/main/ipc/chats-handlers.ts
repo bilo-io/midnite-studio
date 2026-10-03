@@ -42,6 +42,8 @@ function build(store: ReturnType<typeof createChatStore>, root: string): ChatSer
           baseUrl: (await getConfiguredOllamaHost()) ?? resolveOllamaBaseUrl(),
           signal: req.signal,
           onDelta: req.onDelta,
+          ...(req.onThinking ? { onThinking: req.onThinking } : {}),
+          ...(req.onUsage ? { onUsage: req.onUsage } : {}),
           timeoutMs: 15_000,
         },
       ),

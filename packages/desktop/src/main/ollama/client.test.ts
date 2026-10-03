@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   ollamaChat,
+  ollamaChatStream,
   ollamaDelete,
   ollamaPs,
   ollamaPull,
@@ -416,5 +417,27 @@ describe('ollamaChat', () => {
     );
     controller.abort();
     await expect(chatPromise).rejects.toThrow(/cancelled/);
+  });
+});
+
+describe('ollamaChatStream', () => {
+  it('splits thinking from content and reports usage from the done chunk', async () => {
+    const { server, origin } = await startThrowawayServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+      res.write(`${JSON.stringify({ message: { role: 'assistant', content: '', thinking: 'Hmm, ' } })}\n`);
+      res.write(`${JSON.stringify({ message: { role: 'assistant', content: '', thinking: 'easy.' } })}\n`);
+      res.write(`${JSON.stringify({ message: { role: 'assistant', content: 'Four.' } })}\n`);
+      res.end(`${JSON.stringify({ message: { role: 'assistant', content: '' }, done: true, prompt_eval_count: 30, eval_count: 12 })}\n`);
+    });
+    activeServer = server;
+    const thinking: string[] = [];
+    const usage: unknown[] = [];
+    const full = await ollamaChatStream(
+      { model: 'qwen3:8b', messages: [{ role: 'user', content: '2+2?' }] },
+      { baseUrl: origin, onDelta: () => {}, onThinking: (t) => thinking.push(t), onUsage: (u) => usage.push(u) },
+    );
+    expect(full).toBe('Four.');
+    expect(thinking.join('')).toBe('Hmm, easy.');
+    expect(usage).toEqual([{ outputTokens: 12, contextTokens: 42 }]);
   });
 });

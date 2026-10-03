@@ -508,7 +508,16 @@ export async function ollamaChat(
  */
 export async function ollamaChatStream(
   req: { model: string; messages: OllamaChatMessage[] },
-  opts: { baseUrl?: string; signal?: AbortSignal; onDelta: (text: string) => void; timeoutMs?: number },
+  opts: {
+    baseUrl?: string;
+    signal?: AbortSignal;
+    onDelta: (text: string) => void;
+    /** A thinking model's reasoning, which Ollama streams in `message.thinking`. */
+    onThinking?: (text: string) => void;
+    /** From the closing `done` chunk: generated tokens, and prompt + generated as the context in use. */
+    onUsage?: (usage: { outputTokens?: number; contextTokens?: number }) => void;
+    timeoutMs?: number;
+  },
 ): Promise<string> {
   const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
   const res = await fetchWithTimeout(
@@ -525,10 +534,23 @@ export async function ollamaChatStream(
   let full = '';
   await consumeNdjson(res.body, (line) => {
     if (typeof line.error === 'string') throw new Error(line.error);
+    const thought = asString(asRecord(line.message)?.thinking);
+    if (thought) opts.onThinking?.(thought);
     const piece = asString(asRecord(line.message)?.content);
     if (piece) {
       full += piece;
       opts.onDelta(piece);
+    }
+    if (line.done === true && opts.onUsage) {
+      const count = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : undefined);
+      const prompt = count(line.prompt_eval_count);
+      const output = count(line.eval_count);
+      if (output !== undefined || prompt !== undefined) {
+        opts.onUsage({
+          ...(output !== undefined ? { outputTokens: output } : {}),
+          ...(prompt !== undefined ? { contextTokens: prompt + (output ?? 0) } : {}),
+        });
+      }
     }
   });
   return full;
