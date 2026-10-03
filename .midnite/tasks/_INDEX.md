@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [101 · Music editor with Tone.js and MIDI agents](phases/phase-101-music-editor.md) | ◻ TODO | — | 0/61 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [100 · Finance dashboard](phases/phase-100-finance-dashboard.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | G | (1 human pass: packaged app with live network) |
 | [99 · Media page](phases/phase-99-media-page.md) | 🔄 WIP | — | 55/71 | `████████░░` | 77% | — | (verification items, mostly human/packaged-app passes; F: on-device Ollama pass; G: real Codex + packaged pass) |
 | [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | 🔄 WIP | — | 55/67 | `████████░░` | 82% | — | Verification (human passes) |
