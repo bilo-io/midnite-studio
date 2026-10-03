@@ -25,6 +25,7 @@ export * from './loops';
 export * from './markdown-image';
 export * from './mcp';
 export * from './media';
+export * from './media-model';
 export * from './ollama';
 export * from './ollama-catalogue';
 export * from './ollama-launch';

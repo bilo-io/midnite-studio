@@ -199,6 +199,13 @@ import {
 } from '../media';
 import { DocExportFormatSchema } from '../media';
 import {
+  ModelExportRequestSchema,
+  ModelGenerateProgressEventSchema,
+  ModelGenerateRequestSchema,
+  ModelGenerateResultSchema,
+  ModelProvidersSchema,
+} from '../media-model';
+import {
   VideoProjectSchema,
   VideoRenderProgressEventSchema,
   VideoRenderSchema,
@@ -3076,6 +3083,18 @@ export const MediaAudioEngineInstallResponse = GitOpResultSchema;
 export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
 export const MediaAudioExpandRequest = AudioExpandRequestSchema;
 export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
+
+// Models (3D)
+export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });
+/** Resolves once the files are written (or the run failed / was cancelled). */
+export const MediaModelGenerateRequest = ModelGenerateRequestSchema;
+export const MediaModelGenerateResponse = GitOpResultOf(ModelGenerateResultSchema);
+export const MediaModelCancelRequest = z.object({ generationId: z.string().min(1) });
+export const MediaModelCancelResponse = GitOpResultSchema;
+/** Native save dialog → one of the two formats; a dismissed dialog answers `cancelled`. */
+export const MediaModelExportRequest = ModelExportRequestSchema;
+export const MediaModelExportResponse = GitOpResultOf(z.object({ dest: z.string() }));
+export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 

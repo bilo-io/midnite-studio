@@ -398,6 +398,7 @@ export const COMMANDS = [
   { id: 'media.tab.image', label: 'Media: Images', group: 'view' },
   { id: 'media.tab.video', label: 'Media: Video', group: 'view' },
   { id: 'media.tab.audio', label: 'Media: Audio', group: 'view' },
+  { id: 'media.tab.model', label: 'Media: Models (3D)', group: 'view' },
   /**
    * Phase 96 Theme C. Chord-free, same reasoning as `view.video` right
    * above — reachable from the rail and the palette.

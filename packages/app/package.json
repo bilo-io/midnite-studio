@@ -57,6 +57,7 @@
     "remark-parse": "^11.0.0",
     "shiki": "^4.4.3",
     "sigma": "^3.0.3",
+    "three": "^0.186.1",
     "unified": "^11.0.5",
     "zod": "^3.23.8",
     "zustand": "^5.0.2"
@@ -69,6 +70,7 @@
     "@types/mdast": "^4.0.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.186.0",
     "@types/unist": "^3.0.3",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",

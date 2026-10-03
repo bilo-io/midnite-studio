@@ -12,6 +12,11 @@ describe('media contract', () => {
     for (const tab of MEDIA_TABS) expect(MEDIA_TAB_EXPORT_FORMATS[tab].length).toBeGreaterThan(0);
   });
 
+  it('keeps the 3D exports on main\'s own writers, never ffmpeg', () => {
+    expect(MEDIA_TAB_EXPORT_FORMATS.model).toEqual(['obj', 'fbx']);
+    expect(MEDIA_TAB_EXPORT_FORMATS.model.every((f) => !MEDIA_EXPORT_FORMAT_INFO[f].needsFfmpeg)).toBe(true);
+  });
+
   it('keeps docs off ffmpeg and every other tab on it', () => {
     expect(MEDIA_TAB_EXPORT_FORMATS.doc.every((f) => !MEDIA_EXPORT_FORMAT_INFO[f].needsFfmpeg)).toBe(true);
     for (const tab of ['image', 'video', 'audio'] as const) {

@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/ui-store';
 import { AudioTab } from './audio/audio-tab';
 import { DocsTab } from './doc/docs-tab';
 import { ImageTab } from './image/image-tab';
+import { ModelTab } from './model/model-tab';
 import { MediaTabStrip } from './media-tab-strip';
 import { useMediaChangedInvalidation } from './use-media';
 import { VideoTab } from './video/video-tab';
@@ -21,6 +22,7 @@ const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   image: () => <ImageTab />,
   video: () => <VideoTab />,
   audio: () => <AudioTab />,
+  model: () => <ModelTab />,
 };
 
 export function MediaView() {

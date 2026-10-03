@@ -904,6 +904,11 @@ export const CHANNELS = {
   mediaAudioEngine: 'mstudio:media:audio-engine',
   mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
   mediaAudioExpand: 'mstudio:media:audio-expand',
+  // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
+  mediaModelProviders: 'mstudio:media:model-providers',
+  mediaModelGenerate: 'mstudio:media:model-generate',
+  mediaModelCancel: 'mstudio:media:model-cancel',
+  mediaModelExport: 'mstudio:media:model-export',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1408,6 +1413,8 @@ export const EVENT_CHANNELS = {
   mediaAudioProgress: 'mstudio:media:audio-progress',
   /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
   mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
+  mediaModelProgress: 'mstudio:media:model-progress',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */

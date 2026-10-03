@@ -241,6 +241,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'media.tab.image': 'never',
   'media.tab.video': 'never',
   'media.tab.audio': 'never',
+  'media.tab.model': 'never',
   'view.models': 'never',
   'view.apiClient': 'never',
   'theme.select': 'direct',

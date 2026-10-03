@@ -1139,6 +1139,20 @@ export type MidniteStudioBridge = {
       /** Ollama prompt expansion — fails soft when the daemon is down. */
       expand: (req: In<typeof S.MediaAudioExpandRequest>) => Promise<z.infer<typeof S.MediaAudioExpandResponse>>;
     };
+    /** Models: LLM-authored 3D (Ollama or an agent CLI), written as .obj/.mtl/.fbx, all in main. */
+    model: {
+      providers: () => Promise<z.infer<typeof S.MediaModelProvidersResponse>>;
+      generate: (
+        req: In<typeof S.MediaModelGenerateRequest>,
+      ) => Promise<z.infer<typeof S.MediaModelGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaModelCancelRequest>) => Promise<GitOpResult>;
+      export: (
+        req: In<typeof S.MediaModelExportRequest>,
+      ) => Promise<z.infer<typeof S.MediaModelExportResponse>>;
+      onProgress: (
+        handler: (event: z.infer<typeof S.MediaModelProgressPayload>) => void,
+      ) => Unsubscribe;
+    };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
     export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;

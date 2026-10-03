@@ -506,6 +506,7 @@ export function useCommandHandlers(): CommandRuntime {
     'media.tab.image': { enabled: true, run: () => useUiStore.getState().openMedia('image') },
     'media.tab.video': { enabled: true, run: () => useUiStore.getState().openMedia('video') },
     'media.tab.audio': { enabled: true, run: () => useUiStore.getState().openMedia('audio') },
+    'media.tab.model': { enabled: true, run: () => useUiStore.getState().openMedia('model') },
     'view.models': withNavVisibility(navVisibility, 'view.models', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('models'),
