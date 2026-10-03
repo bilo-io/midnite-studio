@@ -42,8 +42,12 @@ export const VIDEO_COMMON_TEMPLATE_FILES = [
   'scripts/render.mjs',
   'scripts/sync-assets.mjs',
   'scripts/projects.mjs',
-  '.claude/skills/video-write-editorial-script/SKILL.md',
-  '.claude/skills/video-execute-editorial-script/SKILL.md',
+  '.claude/skills/midnite-media-video-write-editorial-script/SKILL.md',
+  '.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md',
+  '.agents/skills/midnite-media-video-write-editorial-script/SKILL.md',
+  '.agents/skills/midnite-media-video-execute-editorial-script/SKILL.md',
+  '.codex/skills/midnite-media-video-write-editorial-script/SKILL.md',
+  '.codex/skills/midnite-media-video-execute-editorial-script/SKILL.md',
 ] as const;
 
 export const VIDEO_ENGINE_TEMPLATE_FILES: Record<VideoEngine, readonly string[]> = {

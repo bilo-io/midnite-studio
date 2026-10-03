@@ -14275,3 +14275,7 @@ peer's change is applied with `setState`, so only the window that made an edit w
 remembers the window's bounds as for every popout and now also reopens Notes on the next launch if it was
 open at quit (`windows-reopen.json`, `REOPEN_ON_LAUNCH`). `Mod+l` then `N` and `notes.toggle` focus the
 detached window instead of opening the modal.
+
+## Phase 99 Theme K — Media skills (2026-10-03)
+
+Video skills renamed to `midnite-media-video-{write,execute}-editorial-script` across the template, manifest, toolchain, UI and docs, with a non-destructive migration (`main/video/skills-migrate.ts`: stock copies renamed, user-edited ones copied under the new name and the old dir kept). Added thin `midnite-media-{docs-write,image-generate,audio-generate,model-build,video-project}` skills to the repo and `templates/midnite/` mirrors (.claude/.agents/.codex).

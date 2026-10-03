@@ -16,6 +16,7 @@ import {
   VideoToolchainSchema,
   VIDEO_RENDER_STATUSES,
   VIDEO_SKILLS,
+  VIDEO_SKILL_RENAMES,
 } from './video';
 
 describe('VideoProjectFileSchema', () => {
@@ -146,7 +147,7 @@ describe('VideoToolBinarySchema / VideoToolchainSchema', () => {
       node: { found: true as const, path: '/usr/local/bin/node' },
       npx: { found: true as const, path: '/usr/local/bin/npx' },
       skills: {
-        videoWriteScript: { found: true as const, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
+        videoWriteScript: { found: true as const, path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md' },
         videoExecuteScript: { found: false as const, reason: 'not found' },
       },
     };
@@ -166,9 +167,18 @@ describe('VideoToolBinarySchema / VideoToolchainSchema', () => {
 describe('VIDEO_SKILLS', () => {
   it('names the exact two /command invocations the app types into a terminal', () => {
     expect(VIDEO_SKILLS).toEqual({
-      videoWriteScript: '/video-write-editorial-script',
-      videoExecuteScript: '/video-execute-editorial-script',
+      videoWriteScript: '/midnite-media-video-write-editorial-script',
+      videoExecuteScript: '/midnite-media-video-execute-editorial-script',
     });
+  });
+});
+
+describe('VIDEO_SKILL_RENAMES', () => {
+  it('maps each pre-namespace directory to the name VIDEO_SKILLS now invokes', () => {
+    for (const [legacy, next] of Object.entries(VIDEO_SKILL_RENAMES)) {
+      expect(legacy.startsWith('midnite-')).toBe(false);
+      expect(Object.values(VIDEO_SKILLS)).toContain(`/${next}`);
+    }
   });
 });
 

@@ -129,11 +129,11 @@ describe('probeVideoSkills', () => {
 
     expect(result.videoWriteScript).toEqual({
       found: true,
-      path: '/Users/bilo/Dev/ekko-videos/.claude/skills/video-write-editorial-script/SKILL.md',
+      path: '/Users/bilo/Dev/ekko-videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md',
     });
     expect(result.videoExecuteScript).toEqual({
       found: true,
-      path: '/Users/bilo/Dev/ekko-videos/.claude/skills/video-execute-editorial-script/SKILL.md',
+      path: '/Users/bilo/Dev/ekko-videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md',
     });
   });
 
@@ -166,7 +166,7 @@ describe('probeVideoSkills', () => {
     const readFile = vi
       .fn()
       .mockImplementation((path: string) =>
-        path.includes('video-write-editorial-script')
+        path.includes('midnite-media-video-write-editorial-script')
           ? Promise.resolve('# write')
           : Promise.reject(new Error('ENOENT')),
       );

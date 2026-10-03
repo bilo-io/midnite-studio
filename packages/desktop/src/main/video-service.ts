@@ -41,6 +41,7 @@ import {
 import { resolveVideoRoot } from './video/root-resolution';
 import { scaffoldVideoWorkspace } from './video/scaffold';
 import { nullProjectsStore, type ProjectsStore } from './video/projects-store';
+import { migrateVideoSkills } from './video/skills-migrate';
 import { probeVideoSkills, probeVideoToolchain } from './video/toolchain';
 import { getStudioStatus, startStudio, stopStudio, stopAllStudios } from './video/studio-service';
 import { buildRenderCommand, cancelRender, killAllRenders, listRenders, queueRender } from './video/render-service';
@@ -402,6 +403,8 @@ export function videoRenderList(projectId: string): VideoRender[] {
 export async function videoToolchain(): Promise<VideoToolchain> {
   const root = await requireRoot();
   const engine = root.ok ? await readVideoEngine(root.value) : 'remotion';
+  // Bring a root scaffolded before the `midnite-media-video-*` rename forward (never deletes edits).
+  if (root.ok) await migrateVideoSkills(root.value);
   const [toolchain, skills] = await Promise.all([
     probeVideoToolchain(root.ok ? engineAppDir(root.value, engine) : undefined, {}, engine),
     probeVideoSkills(root.ok ? root.value : undefined),

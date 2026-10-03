@@ -1,11 +1,11 @@
 ---
-name: video-execute-editorial-script
-description: Build the composition (Remotion or HyperFrames, per video.config.json) described by an editorial script (from video-write-editorial-script) - trimming source footage, building each section, and sequencing them into the timeline
+name: midnite-media-video-execute-editorial-script
+description: Build the composition (Remotion or HyperFrames, per video.config.json) described by an editorial script (from midnite-media-video-write-editorial-script) - trimming source footage, building each section, and sequencing them into the timeline
 ---
 
 # Execute an editorial script
 
-Use this when an `EDITORIAL_SCRIPT.md` (see `video-write-editorial-script`) already
+Use this when an `EDITORIAL_SCRIPT.md` (see `midnite-media-video-write-editorial-script`) already
 exists and it's time to actually build the composition it describes.
 
 ## Engine — read `video.config.json` first
@@ -35,7 +35,7 @@ headless Chrome and loads GSAP from a CDN, so it needs a network once.
 
 ARGUMENTS: the path to the editorial script, e.g.
 "script: projects/acme/marketing/001-launch/EDITORIAL_SCRIPT.md". If it doesn't exist
-yet, use `video-write-editorial-script` first — don't improvise a plan from the raw brief
+yet, use `midnite-media-video-write-editorial-script` first — don't improvise a plan from the raw brief
 here.
 
 ## Process

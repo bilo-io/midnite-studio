@@ -1,5 +1,5 @@
 ---
-name: video-write-editorial-script
+name: midnite-media-video-write-editorial-script
 description: Turn a video brief into a detailed, execution-ready editorial script markdown file, verified against the actual source video and assets on disk rather than the brief's stated assumptions
 ---
 
@@ -150,4 +150,4 @@ edit correctly from this document alone, without re-reading the brief or re-deri
 anything already verified here.
 
 Don't write any composition code as part of this skill — that's
-`video-execute-editorial-script`. This skill only produces the plan.
+`midnite-media-video-execute-editorial-script`. This skill only produces the plan.
