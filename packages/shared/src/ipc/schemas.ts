@@ -227,6 +227,8 @@ import {
   VideoToolchainSchema,
   VideoRenderOptionsSchema,
   VideoRootResolutionSchema,
+  VideoEngineSchema,
+  VideoEngineStateSchema,
 } from '../video';
 import {
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
@@ -3004,8 +3006,23 @@ export const VideoRootResolveRequest = z.object({ repoId: z.string().min(1).null
 export const VideoRootResolveResponse = VideoRootResolutionSchema;
 
 /** Scaffold `templates/media-video/` into `<repo>/.midnite/media/video/` (Setup Video). */
-export const VideoSetupRequest = z.object({ repoId: z.string().min(1) });
+export const VideoSetupRequest = z.object({
+  repoId: z.string().min(1),
+  /** Phase 99 Theme H — which engine to scaffold; absent = Remotion, as before the choice existed. */
+  engine: VideoEngineSchema.optional(),
+});
 export const VideoSetupResponse = GitOpResultOf(VideoRootResolutionSchema);
+
+/**
+ * Phase 99 Theme H — read / switch a video root's engine. `active` is the root
+ * the Video tab resolved; `global` is Settings ▸ Media's own root, which a
+ * Settings page can address without disturbing the tab's adopted repo.
+ */
+export const VideoEngineTargetSchema = z.enum(['active', 'global']);
+export const VideoEngineGetRequest = z.object({ target: VideoEngineTargetSchema });
+export const VideoEngineGetResponse = VideoEngineStateSchema;
+export const VideoEngineSetRequest = z.object({ target: VideoEngineTargetSchema, engine: VideoEngineSchema });
+export const VideoEngineSetResponse = GitOpResultOf(VideoEngineStateSchema);
 
 /**
  * Re-exported under the `ipc/schemas` namespace so `bridge.ts` can reference

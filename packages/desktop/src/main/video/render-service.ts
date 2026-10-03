@@ -1,7 +1,9 @@
 import { join } from 'node:path';
 
 import {
+  DEFAULT_VIDEO_ENGINE,
   VIDEO_CODEC_INFO,
+  type VideoEngine,
   type VideoRender,
   type VideoRenderOptions,
   type VideoRenderProgressEvent,
@@ -35,7 +37,32 @@ export const RENDER_TIMEOUT_MS = 20 * 60 * 1000;
  *  way `process-runner.ts` caps stderr. */
 const PROGRESS_BUFFER_CAP = 20_000;
 
-export type RenderTarget = { command: string; args: string[]; cwd: string };
+export type RenderTarget = {
+  command: string;
+  args: string[];
+  cwd: string;
+  /** Extra environment for the child — HyperFrames' telemetry opt-out. */
+  env?: Readonly<Record<string, string>>;
+};
+
+/** HyperFrames reports anonymous usage unless told not to; this app never opts a user in. */
+const HYPERFRAMES_ENV = { DO_NOT_TRACK: '1' } as const;
+
+/**
+ * The codec → `hyperframes render` flag table (Theme H). HyperFrames names an
+ * output *format* rather than a codec: mp4 (H.264, its default), webm, mov
+ * (ProRes with alpha) and gif. There is no scale knob — only resolution
+ * presets — so the dialog's scale is Remotion-only and is ignored here.
+ */
+export function hyperframesCodecArgs(options: Partial<VideoRenderOptions> | undefined): string[] {
+  if (!options) return [];
+  const codec = options.codec ?? 'h264';
+  const args: string[] = [];
+  const ext = VIDEO_CODEC_INFO[codec].ext;
+  if (ext !== 'mp4') args.push(`--format=${ext}`);
+  if (options.crf !== undefined && VIDEO_CODEC_INFO[codec].crf) args.push(`--crf=${options.crf}`);
+  return args;
+}
 
 /**
  * The wrapper knows the output convention (`vN-<label>.mp4`) and appends the
@@ -73,9 +100,13 @@ export function buildRenderCommand(input: {
   existingOutputFiles: readonly string[];
   /** Phase 99 Theme D's render dialog. */
   options?: Partial<VideoRenderOptions>;
+  /** Phase 99 Theme H — absent = Remotion, so every pre-engine caller is unchanged. */
+  engine?: VideoEngine;
 }): RenderTarget {
   const codec = input.options?.codec ?? 'h264';
   const label = input.options?.label ?? input.label;
+  const engine = input.engine ?? DEFAULT_VIDEO_ENGINE;
+  if (engine === 'hyperframes') return buildHyperframesRenderCommand(input, codec, label);
   const extra = remotionCodecArgs(input.options);
   // The wrapper hard-codes `.mp4` output, and Remotion refuses a webm/mov/gif
   // codec into an `.mp4` path — so only h264 goes through it.
@@ -89,6 +120,38 @@ export function buildRenderCommand(input: {
     command: 'npx',
     args: ['remotion', 'render', input.compositionId, join(input.outputDir, name), ...extra],
     cwd: input.appDir,
+  };
+}
+
+/**
+ * HyperFrames' render target. The wrapper (`scripts/render.mjs`, which
+ * dispatches on `video.config.json`) handles every format — unlike Remotion's,
+ * whose hard-coded `.mp4` only fits h264 — so it is preferred whenever it
+ * exists. The fallback addresses the project's own directory (`hyperframes
+ * render <dir> -o <file>`): a HyperFrames project *is* a folder, and the
+ * composition id is informational only.
+ */
+function buildHyperframesRenderCommand(
+  input: Parameters<typeof buildRenderCommand>[0],
+  codec: keyof typeof VIDEO_CODEC_INFO,
+  label: string | undefined,
+): RenderTarget {
+  const extra = hyperframesCodecArgs(input.options);
+  if (input.hasWrapper) {
+    return {
+      command: 'node',
+      args: ['scripts/render.mjs', input.projectId, ...(label ? [label] : []), ...extra],
+      cwd: input.rootDir,
+      env: HYPERFRAMES_ENV,
+    };
+  }
+  const version = nextRenderVersion(input.existingOutputFiles);
+  const name = `${version}${label ? `-${label}` : ''}.${VIDEO_CODEC_INFO[codec].ext}`;
+  return {
+    command: 'npx',
+    args: ['hyperframes', 'render', join('projects', input.projectId), '-o', join(input.outputDir, name), ...extra],
+    cwd: input.appDir,
+    env: HYPERFRAMES_ENV,
   };
 }
 
@@ -134,7 +197,8 @@ function stageFraction(buffer: string, workingLabel: string, doneLabel: string):
  * stage has printed its first fraction: a bundling-only buffer is "working",
  * not a number worth a channel push.
  */
-export function parseRenderProgress(buffer: string): number | undefined {
+export function parseRenderProgress(buffer: string, engine: VideoEngine = DEFAULT_VIDEO_ENGINE): number | undefined {
+  if (engine === 'hyperframes') return parseHyperframesProgress(buffer);
   const rendering = stageFraction(buffer, 'Rendering frames', 'Rendered frames');
   if (rendering === undefined) return undefined;
   const stitching =
@@ -144,6 +208,19 @@ export function parseRenderProgress(buffer: string): number | undefined {
     stageFraction(buffer, 'Encoding GIF', 'Encoded GIF');
   const combined = stitching === undefined ? rendering * 0.7 : rendering * 0.7 + stitching * 0.3;
   return Math.min(1, Math.max(0, combined));
+}
+
+/**
+ * HyperFrames prints one overwriting bar per stage — `████░░  35%  Streaming
+ * frame 17/90` — through a pipe too, as `\r`-separated updates. The CLI's own
+ * percentage already spans capture, encode and assembly, so the *last* one in
+ * the buffer is the whole answer. Only a percentage *after a bar* counts — the
+ * CLI's log lines carry unrelated ones (`static-dedup … (34%)`).
+ */
+export function parseHyperframesProgress(buffer: string): number | undefined {
+  let last: number | undefined;
+  for (const match of buffer.matchAll(/[█░]+\s+(\d{1,3})%/g)) last = Number(match[1]);
+  return last === undefined ? undefined : Math.min(1, Math.max(0, last / 100));
 }
 
 function bufferSink(): ProcessSink<string> {
@@ -162,7 +239,13 @@ const queues = new Map<string, string[]>();
 const killers = new Map<string, () => void>();
 const cancelled = new Set<string>();
 
-export type RenderDeps = { spawn?: SpawnFn; now?: () => number; onProgress: (event: VideoRenderProgressEvent) => void };
+export type RenderDeps = {
+  spawn?: SpawnFn;
+  now?: () => number;
+  onProgress: (event: VideoRenderProgressEvent) => void;
+  /** Phase 99 Theme H — absent = Remotion's progress format. */
+  engine?: VideoEngine;
+};
 
 export function listRenders(projectId?: string): VideoRender[] {
   const all = [...records.values()];
@@ -216,13 +299,14 @@ async function runNext(projectId: string, target: RenderTarget, deps: RenderDeps
     timeoutMs: RENDER_TIMEOUT_MS,
     onChunk: (chunk) => {
       progressBuffer = (progressBuffer + chunk).slice(-PROGRESS_BUFFER_CAP);
-      const progress = parseRenderProgress(progressBuffer);
+      const progress = parseRenderProgress(progressBuffer, deps.engine);
       if (progress !== undefined && progress !== lastReported) {
         lastReported = progress;
         deps.onProgress({ renderId, projectId, status: 'rendering', progress });
       }
     },
     onSpawned: (handle) => killers.set(renderId, handle.kill),
+    ...(target.env ? { env: target.env } : {}),
   };
   if (deps.spawn !== undefined) runDeps.spawn = deps.spawn;
   if (deps.now !== undefined) runDeps.now = deps.now;

@@ -25,4 +25,6 @@ projects/<brand>/<category>/NNN-name/
 
 Anything reusable across videos (logos, b-roll, music, fonts) belongs in the
 workspace-level `assets/`, not in `input/`. The matching composition folder is
-`video-editor/src/projects/<same path>/`.
+`video-editor/src/projects/<same path>/` (Remotion) or
+`hyperframes-editor/projects/<same path>/index.html` (HyperFrames) — whichever
+`video.config.json` at the workspace root names.

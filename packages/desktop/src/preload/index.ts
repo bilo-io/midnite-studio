@@ -532,6 +532,10 @@ const bridge: Pick<
       resolve: (req) => call(CHANNELS.videoRootResolve, req),
     },
     setup: (req) => call(CHANNELS.videoSetup, req),
+    engine: {
+      get: (req) => call(CHANNELS.videoEngineGet, req),
+      set: (req) => call(CHANNELS.videoEngineSet, req),
+    },
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
   },

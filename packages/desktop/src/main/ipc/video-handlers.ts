@@ -1,4 +1,4 @@
-import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
+import { CHANNELS, failure, schemas, type VideoRootResolution } from '@midnite/studio-shared';
 
 import {
   createVideoProject,
@@ -16,6 +16,8 @@ import {
   videoRenderCancel,
   videoRenderList,
   videoRenderStart,
+  videoEngineGet,
+  videoEngineSet,
   videoStudioStart,
   videoStudioStatus,
   videoStudioStop,
@@ -159,17 +161,31 @@ export function registerVideoHandlers(): void {
     CHANNELS.videoRootResolve,
     schemas.VideoRootResolveRequest,
     async ({ repoId }) => resolveVideoRootFor(repoId ? await resolveWorkdir(repoId) : null),
-    () => ({ root: null, source: null, setupTarget: null }),
+    (): VideoRootResolution => ({ root: null, source: null, setupTarget: null }),
   );
 
   handle(
     CHANNELS.videoSetup,
     schemas.VideoSetupRequest,
-    async ({ repoId }) => {
+    async ({ repoId, engine }) => {
       const repoPath = await resolveWorkdir(repoId);
       if (!repoPath) return failure('That repository is not open.');
-      return setupVideoWorkspace(repoPath, mediaVideoTemplateRoot());
+      return setupVideoWorkspace(repoPath, mediaVideoTemplateRoot(), engine);
     },
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.videoEngineGet,
+    schemas.VideoEngineGetRequest,
+    async ({ target }) => videoEngineGet(target),
+    () => ({ root: null, engine: 'remotion' as const, needsInstall: false, appDir: null }),
+  );
+
+  handle(
+    CHANNELS.videoEngineSet,
+    schemas.VideoEngineSetRequest,
+    async ({ target, engine }) => videoEngineSet(target, engine, mediaVideoTemplateRoot()),
     (issue) => failure(issue),
   );
 }
