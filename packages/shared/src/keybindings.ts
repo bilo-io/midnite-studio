@@ -405,6 +405,12 @@ export const COMMANDS = [
    */
   { id: 'view.models', label: 'Go to Models', group: 'view' },
   /**
+   * Chats page. Chord-free like `view.models`: `Mod+Shift+c` is DevTools' element
+   * picker and `Mod+c` is copy, so the letter that names the feature is taken, and
+   * a mnemonic that does not name it teaches nothing. Rail and palette reach it.
+   */
+  { id: 'view.chats', label: 'Go to Chats', group: 'view' },
+  /**
    * Phase 66 Theme B. Chord-free like `view.video` above rather than a
    * `Mod+Shift+…` chord (Decision 5): only five of nineteen views wear one,
    * and `keybindings.ts`'s own `Mod+Shift+` space is nearly exhausted.

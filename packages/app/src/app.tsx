@@ -215,7 +215,7 @@ const queryClient = new QueryClient({
  * its min-content size, so once the rail's content is taller than the window
  * the browser shrinks each row it can down to one line box — 36px to 20px.
  *
- * Only the ungrouped rows (Dashboard, Notes, Knowledge, Sessions) actually lost the
+ * Only the ungrouped rows (Dashboard, Notes, Chats, Sessions, Knowledge) actually lost the
  * space, which is why the bug read as "the pinned items have no padding": they
  * are direct children of the scrolling `<nav>`, while every sectioned row sits
  * inside its section's `<Collapse>` grid, which clips rather than compresses.
@@ -413,7 +413,19 @@ const PINNED_ITEM: NavItem = pinnedItem('dashboard');
 const NOTES_ITEM: NavItem = pinnedItem('notes');
 
 /**
- * Knowledge, pinned directly under Notes (Phase 87 Theme C).
+ * Chats, pinned directly under Notes — the order is Notes → Chats → Sessions →
+ * Knowledge.
+ *
+ * A top-level view of the whole app like its neighbours: conversations are
+ * stored app-wide (`chats: { global: true }` in `view-registry.tsx`), each one
+ * remembering the repo it was started in, so it is not a tool scoped to one
+ * checkout section.
+ */
+const CHATS_ITEM: NavItem = pinnedItem('chats');
+
+/**
+ * Knowledge, pinned at the bottom of the pinned group, under Sessions (Phase 87
+ * Theme C put it under Notes; the Chats page moved it below Sessions).
  *
  * `pinned` rather than `WORKSPACE_NAV_ITEMS` for the same reason as
  * `NOTES_ITEM`: it is one of the app's top-level "views of the whole thing",
@@ -428,12 +440,13 @@ const NOTES_ITEM: NavItem = pinnedItem('notes');
 const KNOWLEDGE_ITEM: NavItem = pinnedItem('knowledge');
 
 /**
- * Sessions, pinned directly under Knowledge (adhoc sidenav reorder).
+ * Sessions, pinned directly under Chats (adhoc sidenav reorder, then the Chats
+ * page).
  *
- * Same slot as `KNOWLEDGE_ITEM` and `NOTES_ITEM`: a top-level view of agent
+ * Same slot as `CHATS_ITEM` and `NOTES_ITEM`: a top-level view of agent
  * work across the repo, not a tool scoped to one checkout section. It stays
  * out of `AGENT_NAV_ITEMS` so the Agents section header does not sit between
- * Knowledge and Sessions.
+ * the pinned rows and the sections.
  */
 const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
 
@@ -454,8 +467,9 @@ const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
 export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
   NOTES_ITEM,
-  KNOWLEDGE_ITEM,
+  CHATS_ITEM,
   SESSIONS_ITEM,
+  KNOWLEDGE_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
   ...AGENT_NAV_ITEMS,
@@ -1262,13 +1276,16 @@ function Shell() {
   const nav: NavConfig = useMemo(
     () => ({
       // Ungrouped, above the sections — the shell's own slot for exactly
-      // this. Notes rides directly under Dashboard (Phase 86 Theme E),
-      // Knowledge directly under Notes (Phase 87 Theme C), and Sessions
-      // directly under Knowledge (adhoc sidenav reorder); the hairline
-      // between Dashboard and Notes is `ViewLink`'s job, not this array's.
+      // this. Notes rides directly under Dashboard (Phase 86 Theme E), then
+      // Chats, Sessions and Knowledge in that order (Knowledge was under
+      // Notes from Phase 87 Theme C until the Chats page moved it below
+      // Sessions); the hairline between Dashboard and Notes is `ViewLink`'s
+      // job, not this array's.
       pinned: [
         visibleNavItem(PINNED_ITEM),
         visibleNavItem(NOTES_ITEM),
+        visibleNavItem(CHATS_ITEM),
+        visibleNavItem(SESSIONS_ITEM),
         visibleNavItem(KNOWLEDGE_ITEM)
           ? {
               ...navItem(KNOWLEDGE_ITEM),
@@ -1290,7 +1307,6 @@ function Shell() {
               ),
             }
           : null,
-        visibleNavItem(SESSIONS_ITEM),
       ].filter((item): item is NonNullable<typeof item> => item !== null),
       sections: [
         {

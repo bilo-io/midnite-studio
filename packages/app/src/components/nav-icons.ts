@@ -18,6 +18,7 @@ import {
   LuLayoutDashboard,
   LuLayoutGrid,
   LuLock,
+  LuMessagesSquare,
   LuNotebookPen,
   LuPalette,
   LuPanelLeft,
@@ -63,6 +64,10 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // that reads as "notes" rather than the file/document mark `files` already
   // owns.
   notes: LuNotebookPen,
+  // Chats page — conversations with the roster's agent CLIs. `LuBot` already
+  // belongs to Settings ▸ Agent and the companion, so the thread reads as a
+  // pair of speech bubbles instead.
+  chats: LuMessagesSquare,
   // Phase 87 Theme C — Simple Icons' GrapheneOS mark, not a Lucide graph/node
   // glyph: `graph` (the commit graph) already owns `IoIosGitNetwork`, and one
   // icon per view is the whole point of this map.
