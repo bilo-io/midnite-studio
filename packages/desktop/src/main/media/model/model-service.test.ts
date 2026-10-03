@@ -53,13 +53,13 @@ describe('model service', () => {
     expect(result).toEqual({
       ok: true,
       value: {
-        primary: 'red-mug-20261003-141502.obj',
-        files: ['red-mug-20261003-141502.json', 'red-mug-20261003-141502.mtl', 'red-mug-20261003-141502.obj', 'red-mug-20261003-141502.fbx', 'red-mug-20261003-141502.glb'],
+        primary: 'red-mug-20261003-141502/red-mug-20261003-141502.obj',
+        files: ['json', 'mtl', 'obj', 'fbx', 'glb'].map((ext) => `red-mug-20261003-141502/red-mug-20261003-141502.${ext}`).concat('red-mug-20261003-141502/model.json'),
       },
     });
-    expect(written.get('red-mug-20261003-141502.obj')!.toString()).toContain('mtllib red-mug-20261003-141502.mtl');
-    expect(written.get('red-mug-20261003-141502.fbx')!.subarray(0, 18).toString('latin1')).toBe('Kaydara FBX Binary');
-    const sidecar = JSON.parse(written.get('red-mug-20261003-141502.json')!.toString());
+    expect(written.get('red-mug-20261003-141502/red-mug-20261003-141502.obj')!.toString()).toContain('mtllib red-mug-20261003-141502.mtl');
+    expect(written.get('red-mug-20261003-141502/red-mug-20261003-141502.fbx')!.subarray(0, 18).toString('latin1')).toBe('Kaydara FBX Binary');
+    const sidecar = JSON.parse(written.get('red-mug-20261003-141502/red-mug-20261003-141502.json')!.toString());
     expect(sidecar).toMatchObject({ version: 1, prompt: 'a red mug', engine: 'ollama:qwen2.5-coder:7b' });
     expect(sidecar.spec.parts).toHaveLength(2);
     expect(events.map((e) => e.stage ?? e.status)).toEqual(['generating', 'building', 'writing', 'succeeded']);
@@ -146,20 +146,20 @@ describe('model service', () => {
     const unnamed = JSON.stringify({ parts: [{ shape: 'sphere', radius: 1 }] });
     const { service } = harness([unnamed]);
     const result = await service.generate(request({ prompt: 'A big ball!' }));
-    expect(result).toMatchObject({ ok: true, value: { primary: 'a-big-ball-20261003-141502.obj' } });
+    expect(result).toMatchObject({ ok: true, value: { primary: 'a-big-ball-20261003-141502/a-big-ball-20261003-141502.obj' } });
   });
 
   describe('save as', () => {
     it('rebuilds either format from the sidecar spec, with the mtl riding along', async () => {
       const { service } = harness([GOOD]);
       await service.generate(request());
-      const obj = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502.fbx', format: 'obj' });
+      const obj = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502/red-mug-20261003-141502.fbx', format: 'obj' });
       expect(obj).toMatchObject({ ok: true, value: { fileName: 'red-mug-20261003-141502.obj' } });
       if (obj.ok) {
         expect(obj.value.extras.map((e) => e.fileName)).toEqual(['red-mug-20261003-141502.mtl']);
         expect(obj.value.data.toString()).toContain('o body');
       }
-      const fbx = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502.obj', format: 'fbx' });
+      const fbx = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502/red-mug-20261003-141502.obj', format: 'fbx' });
       expect(fbx).toMatchObject({ ok: true, value: { fileName: 'red-mug-20261003-141502.fbx', extras: [] } });
     });
 
@@ -167,7 +167,7 @@ describe('model service', () => {
       const { service } = harness([GOOD]);
       await service.generate(request());
       const edited = ModelSpecSchema.parse({ name: 'edited', parts: [{ name: 'only', shape: 'sphere', radius: 2 }] });
-      const obj = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502.obj', format: 'obj', spec: edited });
+      const obj = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502/red-mug-20261003-141502.obj', format: 'obj', spec: edited });
       expect(obj.ok && obj.value.data.toString()).toContain('o only');
       expect(obj.ok && obj.value.data.toString()).not.toContain('o body');
     });
@@ -195,12 +195,13 @@ describe('save edit', () => {
     const made = await service.generate(request());
     const stem = made.ok ? made.value.primary.replace(/\.obj$/, '') : '';
     const result = await service.saveEdit({ repoId: 'r1', project: 'mugs', path: `${stem}.fbx`, spec: edited });
-    expect(result).toEqual({ ok: true, value: { files: [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`, `${stem}.glb`] } });
+    const dir = stem.split('/')[0];
+    expect(result).toEqual({ ok: true, value: { files: [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`, `${stem}.glb`, `${dir}/model.json`] } });
     const sidecar = JSON.parse(written.get(`${stem}.json`)!.toString());
     expect(sidecar.prompt).toBe('a red mug');
     expect(sidecar.spec.parts).toHaveLength(1);
     expect(written.get(`${stem}.obj`)!.toString()).toContain('o lid');
-    expect(written.get(`${stem}.obj`)!.toString()).toContain(`mtllib ${stem}.mtl`);
+    expect(written.get(`${stem}.obj`)!.toString()).toContain(`mtllib ${stem.split('/')[1]}.mtl`);
     expect(written.get(`${stem}.mtl`)!.toString()).toContain('Kd 0.066667 0.133333 0.2');
   });
 
