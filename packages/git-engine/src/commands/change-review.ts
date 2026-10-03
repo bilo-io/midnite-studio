@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { copyFile, lstat, mkdir, readlink, rm, symlink } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readlink, rm, symlink, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -176,6 +176,11 @@ export async function snapshotTree(dir: string): Promise<GitOpResult<string>> {
     try {
       const env = { GIT_INDEX_FILE: tempIndex };
       await copyFile(realIndex, tempIndex).catch(() => undefined);
+      // The copy gets a fresh mtime, newer than every entry's, so git would trust the
+      // cached stat of a same-size edit made within the file system's timestamp
+      // granularity ("racily clean") and miss it. Backdating the copy to the epoch
+      // makes every entry racy, so each file is re-hashed — correct, at hashing cost.
+      await utimes(tempIndex, 0, 0).catch(() => undefined);
       let added = await execGit(dir, ['add', '-A'], { write: true, env });
       if (added.exitCode !== 0) {
         // A copied index can be unreadable on its own (a split index keeps its
