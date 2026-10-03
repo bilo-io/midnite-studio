@@ -161,6 +161,7 @@ import {
 } from '../fs';
 import {
   AgentDefinitionSchema,
+  AgentProbeStateSchema,
   AgentStatusSchema,
   SessionActivitySchema,
   TerminalSessionKindSchema,
@@ -1855,6 +1856,14 @@ export const NotesReorderRequest = z.object({
 export const AgentListResponse = z.object({
   agents: z.array(AgentDefinitionSchema),
   status: z.array(AgentStatusSchema).default([]),
+  /** Where the probe stands; absent from an older main reads as `ready`. */
+  probe: AgentProbeStateSchema.default('ready'),
+});
+
+/** Pushed by main whenever the probe starts, answers or fails — and answered by `agentRecheck`. */
+export const AgentStatusEvent = z.object({
+  status: z.array(AgentStatusSchema),
+  probe: AgentProbeStateSchema,
 });
 
 // --- councils (Phase 34) -----------------------------------------------------

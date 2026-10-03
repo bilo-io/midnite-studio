@@ -1090,6 +1090,20 @@ export function buildMockBridge(data: MockFixtures) {
 
   const noop = () => undefined;
   const unsubscribe = () => noop;
+  /** What the mock install probe reports — OpenClaude missing, the rest present. */
+  const AGENT_STATUS = [
+          { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude', version: '2.1.34' },
+      { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor-agent', version: '2026.09.10' },
+      { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy', version: '1.2.2' },
+      { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
+      { id: 'copilot', installed: true, resolvedPath: '/usr/local/bin/copilot', version: '1.0.83' },
+      { id: 'openclaude', installed: false, resolvedPath: null },
+      { id: 'opencode', installed: true, resolvedPath: '/opt/homebrew/bin/opencode', version: '1.18.30' },
+      { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo', version: '7.5.6' },
+      { id: 'aider', installed: true, resolvedPath: '/Users/e2e/.local/bin/aider', version: '0.86.2' },
+      { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline', version: '3.0.60' },
+  ];
+
   const ok = async () => ({ ok: true as const });
 
   /**
@@ -2428,18 +2442,8 @@ export function buildMockBridge(data: MockFixtures) {
             apiKeyEnvVar: 'ANTHROPIC_API_KEY',
           },
         ], data.agentSignatures),
-        status: [
-          { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude', version: '2.1.34' },
-          { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor-agent', version: '2026.09.10' },
-          { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy', version: '1.2.2' },
-          { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
-          { id: 'copilot', installed: true, resolvedPath: '/usr/local/bin/copilot', version: '1.0.83' },
-          { id: 'openclaude', installed: false, resolvedPath: null },
-          { id: 'opencode', installed: true, resolvedPath: '/opt/homebrew/bin/opencode', version: '1.18.30' },
-          { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo', version: '7.5.6' },
-          { id: 'aider', installed: true, resolvedPath: '/Users/e2e/.local/bin/aider', version: '0.86.2' },
-          { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline', version: '3.0.60' },
-        ],
+        status: AGENT_STATUS,
+        probe: 'ready' as const,
       }),
       claudeInfo: async () => ({
         installed: true,
@@ -2449,6 +2453,8 @@ export function buildMockBridge(data: MockFixtures) {
       }),
       claudeUpdate: async () => ({ ok: true as const, exitCode: 0 }),
       onClaudeUpdateData: unsubscribe,
+      recheck: async () => ({ status: AGENT_STATUS, probe: 'ready' as const }),
+      onStatus: unsubscribe,
       revealPath: async () => ({ ok: true }),
     },
     /*

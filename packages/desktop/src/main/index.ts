@@ -68,6 +68,7 @@ import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
 import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
 import { registerOptimizerHandlers } from './ipc/optimizer-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
+import { bindAgentProbeToWindow, startAgentProbeAtBoot } from './agent-probe-runtime';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerTrashHandlers } from './ipc/trash-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
@@ -815,6 +816,15 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
 
+    /*
+      The agent install probe starts here — after `whenReady`, fire and forget,
+      and ahead of the window so it overlaps Chromium's load instead of
+      following it. Not awaited: it must never delay first paint. It waits on
+      the login-shell PATH itself, and every renderer load re-forces it
+      (`bindAgentProbeToWindow`).
+    */
+    loginShellReady.then(() => startAgentProbeAtBoot()).catch(() => undefined);
+
     mainWindow = createWindow();
     bootMark('create-window');
     registerMainWindow(mainWindow);
@@ -828,6 +838,7 @@ if (!app.requestSingleInstanceLock()) {
     // footer nobody can see.
     bindMetricsToWindow(metrics, mainWindow);
     bindRenderProcessGone(mainWindow, defaultLogger);
+    bindAgentProbeToWindow(mainWindow);
 
     if (pendingDeepLink) {
       handleDeepLinkUrl(pendingDeepLink);
@@ -857,6 +868,7 @@ if (!app.requestSingleInstanceLock()) {
         // sampler never pauses again for the rest of the session.
         bindMetricsToWindow(metrics, mainWindow);
         bindRenderProcessGone(mainWindow, defaultLogger);
+        bindAgentProbeToWindow(mainWindow);
       }
     });
   });

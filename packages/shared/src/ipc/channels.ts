@@ -552,6 +552,8 @@ export const CHANNELS = {
   terminalReorder: 'mstudio:terminal:reorder',
   /** Built-in agents merged with the user's `agents.json`. */
   agentList: 'mstudio:agent:list',
+  /** Force an install re-probe (bypasses the TTL); answers with the fresh snapshot. */
+  agentRecheck: 'mstudio:agent:recheck',
   /** Installed Claude CLI: version + install method, probed via a login shell. */
   agentClaudeInfo: 'mstudio:agent:claude-info',
   /** Run the method-matched update command; resolves when it exits. */
@@ -1385,6 +1387,8 @@ export const EVENT_CHANNELS = {
   companionUiRequest: 'mstudio:companion:ui-request',
   /** stdout/stderr chunks from an in-flight Claude CLI update. */
   agentClaudeUpdateData: 'mstudio:agent:claude-update-data',
+  /** The install probe's state or results changed — see `AgentStatusEvent`. */
+  agentStatus: 'mstudio:agent:status',
   /**
    * One reading of CPU/RAM/GPU/disk. A metric the machine cannot report is
    * OMITTED from the payload rather than sent as zero — see MetricSample.

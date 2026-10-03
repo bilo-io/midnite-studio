@@ -771,6 +771,10 @@ export type MidniteStudioBridge = {
   /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */
   agent: {
     list: () => Promise<z.infer<typeof S.AgentListResponse>>;
+    /** Force an install re-probe, bypassing the TTL. Answers with the fresh snapshot. */
+    recheck: () => Promise<z.infer<typeof S.AgentStatusEvent>>;
+    /** The install probe started, answered or failed. */
+    onStatus: (handler: (e: z.infer<typeof S.AgentStatusEvent>) => void) => Unsubscribe;
     /** Installed version + install method; `installed: false` when absent. */
     claudeInfo: () => Promise<z.infer<typeof S.ClaudeInfoResponse>>;
     /** Runs the update to completion; output streams on `onClaudeUpdateData`. */

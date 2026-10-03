@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-03 — Ad hoc — agent install detection at startup and on every reload
+
+Main now probes which agent CLIs are installed right after `whenReady` (fire and forget, after the login-shell PATH is ready, never on the first-paint path) and force-re-probes, bypassing the 30 s TTL, on every renderer `did-finish-load` (Mod+R, Mod+Shift+R, new window). Results are pushed on `mstudio:agent:status` into ONE renderer zustand store (`features/agent/agent-probe-store.ts`) that `useAgents()` reads, so no consumer probes on its own. A distinct `checking` state (picker rows say "checking…", Agents cards say "Checking…") replaces silently assuming installed; a probe that errors or times out is `unknown` (fail-soft: nothing greyed, cards say "Unknown"). The Agents page re-probe button now calls `agent.recheck` (forced). Consumers on the store: `+` picker, title-bar primary agent, switcher overlay, terminal panel/header, Settings agent roster and primary picker, dashboard agent widgets, command handlers; roster-only readers (Sessions, Media Docs/Models/Video pickers, Loops, tasks, graph, palette) read the same hook. Startup cost: `startup-report --runs=5` ready-to-show 423 ms vs 418 ms on main, first-view-rendered 178 ms vs 184 ms (noise).
+
 ## 2026-10-03 — Phase 99 Theme E follow-up — local music generation (ad hoc)
 
 Media ▸ Audio generates music offline with MusicGen-small (ONNX, `utilityProcess`), no API key; optional Ollama prompt expansion (`llama3.2:3b`). [PR #688](https://github.com/bilo-io/midnite-studio/pull/688).

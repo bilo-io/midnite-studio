@@ -162,6 +162,26 @@ describe('buildAgentSections — one agent uninstalled', () => {
   });
 });
 
+describe('buildAgentSections — probe still checking', () => {
+  it('marks an unanswered agent "checking" without greying it', () => {
+    const rows = build({ status: [], probe: 'checking' }).flatMap((s) => s.rows);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.checking).toBe(true);
+      expect(row.unconfigured).toBe(false);
+    }
+  });
+
+  it('does not say checking once answered, nor for an unknown probe', () => {
+    expect(build({ probe: 'ready' }).flatMap((s) => s.rows).some((r) => r.checking)).toBe(false);
+    expect(
+      build({ status: [], probe: 'unknown' })
+        .flatMap((s) => s.rows)
+        .some((r) => r.checking),
+    ).toBe(false);
+  });
+});
+
 describe('buildAgentSections — nothing installed', () => {
   const status: AgentStatus[] = agents.map((a) => ({
     id: a.id,

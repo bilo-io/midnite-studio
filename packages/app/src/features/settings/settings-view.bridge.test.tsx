@@ -209,7 +209,7 @@ describe('SettingsView, assembled through the real bridge', () => {
 
     // Version card, from the mocked login-shell probe.
     expect(await screen.findByText('v2.1.34')).toBeTruthy();
-    expect(screen.getByText('via npm')).toBeTruthy();
+    expect(await screen.findByText('via npm')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Update Claude' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'Uninstall…' }).length).toBeGreaterThanOrEqual(1);
 
