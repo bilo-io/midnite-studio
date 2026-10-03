@@ -4,10 +4,10 @@ import type { AudioPrompt, AudioProviderId } from '@midnite/studio-shared';
  * The `AudioProvider` seam (Phase 99 Theme E), mirroring Theme C's
  * `ImageProvider`: an adapter is only "request in, audio out". The audio
  * service owns the media-store writes, sidecars, `project.json` and progress,
- * so a generating adapter added later (ElevenLabs Music, local MusicGen, …)
+ * so a generating adapter (local MusicGen, ElevenLabs Music, …)
  * plugs in here without touching any of that.
  */
-export type AudioAdapterRequest = Pick<AudioPrompt, 'title' | 'style' | 'lyrics' | 'instrumental' | 'durationS' | 'count'>;
+export type AudioAdapterRequest = Pick<AudioPrompt, 'title' | 'style' | 'lyrics' | 'instrumental' | 'durationS' | 'count' | 'musicPrompt' | 'sections'>;
 
 export type ProducedAudio = {
   bytes: Buffer;
@@ -24,6 +24,8 @@ export type AudioAdapterDeps = {
   readFile: (absPath: string) => Promise<Buffer>;
   /** Called as each variant is produced, so the service can land it before the next. */
   onAudio?: (audio: ProducedAudio) => void;
+  /** Generating providers: what they are doing and how far along the whole run is (0..1). */
+  onProgress?: (progress: { stage: string; fraction: number }) => void;
 };
 
 export interface AudioProvider {
