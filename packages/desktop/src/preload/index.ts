@@ -135,6 +135,7 @@ const bridge: Pick<
   | 'agent'
   | 'council'
   | 'loopRuns'
+  | 'chats'
   | 'workflow'
   | 'demoApi'
   | 'secrets'
