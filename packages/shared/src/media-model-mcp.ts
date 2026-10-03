@@ -131,6 +131,10 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
     partCount: z.number().int().min(0),
     parts: z.array(z.object({ id: z.string(), name: z.string(), shape: z.string() })),
     bounds: z.object({ min: Vec3Out, max: Vec3Out, size: Vec3Out }),
+    /** Triangles in the built model — a budget the agent can watch as it adds detail. */
+    triangles: z.number().int().min(0).optional(),
+    /** Non-fatal build problems (a boolean that failed, a modifier stopped at the triangle cap) — the edit was applied. */
+    warnings: z.array(ModelToolIssueSchema).optional(),
   }),
   z.object({ ok: z.literal(false), errors: z.array(ModelToolIssueSchema) }),
 ]);

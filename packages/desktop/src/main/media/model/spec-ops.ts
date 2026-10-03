@@ -1,5 +1,5 @@
 import {
-  buildScene,
+  buildSceneChecked,
   MODEL_MAX_PARTS,
   ModelPartSchema,
   ModelSpecSchema,
@@ -141,13 +141,18 @@ export function describeEdit(spec: ModelSpec): {
   partCount: number;
   parts: { id: string; name: string; shape: string }[];
   bounds: { min: Vec; max: Vec; size: Vec };
+  triangles: number;
+  warnings?: ModelToolIssue[];
 } {
-  const { min, max } = sceneBounds(buildScene(spec));
+  const built = buildSceneChecked(spec);
+  const { min, max } = sceneBounds(built.parts);
   const round = (v: Vec): Vec => v.map((n) => (Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0)) as Vec;
   const lo = round(min);
   const hi = round(max);
   return {
     partCount: spec.parts.length,
+    triangles: built.stats.triangles,
+    ...(built.issues.length > 0 ? { warnings: built.issues } : {}),
     parts: spec.parts.map((part) => ({ id: part.id ?? '', name: part.name, shape: part.shape })),
     bounds: { min: lo, max: hi, size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]].map((n) => Math.round(n * 1000) / 1000) as Vec },
   };

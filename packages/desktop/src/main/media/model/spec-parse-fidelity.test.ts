@@ -1,7 +1,7 @@
 import { ModelSpecSchema } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { applyPatchOps, validateDesign } from './spec-ops';
+import { applyPatchOps, describeEdit, validateDesign } from './spec-ops';
 import { parseSpec } from './spec-parse';
 
 const parse = (parts: unknown[]) => parseSpec(JSON.stringify({ name: 'x', parts }));
@@ -82,5 +82,22 @@ describe('agent edits check links too', () => {
       { op: 'add', part: { id: 'h', shape: 'cylinder', radiusTop: 0.2, radiusBottom: 0.2, height: 2, op: 'subtract', target: 'b' } },
     ]);
     expect(out.ok && out.spec.parts.map((p) => p.id)).toEqual(['b', 'h']);
+  });
+});
+
+describe('edit reports', () => {
+  it('reports triangles, and warns when a boolean is too heavy to run', () => {
+    const light = describeEdit(ModelSpecSchema.parse({ parts: [{ shape: 'box', size: [1, 1, 1] }] }));
+    expect(light.triangles).toBe(12);
+    expect(light.warnings).toBeUndefined();
+    const heavy = describeEdit(
+      ModelSpecSchema.parse({
+        parts: [
+          { shape: 'sphere', radius: 1, segments: 96 },
+          { shape: 'sphere', radius: 1, segments: 96, position: [0.5, 0, 0], op: 'subtract' },
+        ],
+      }),
+    );
+    expect(heavy.warnings?.[0]?.message).toMatch(/boolean/);
   });
 });
