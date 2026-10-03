@@ -234,6 +234,7 @@ type GitLabMrRow = {
   closed_at?: unknown;
   head_pipeline?: unknown;
   pipeline?: unknown;
+  user_notes_count?: unknown;
 };
 
 function mapPull(raw: GitLabMrRow): ForgePull {
@@ -254,6 +255,7 @@ function mapPull(raw: GitLabMrRow): ForgePull {
     url: asString(raw.web_url) ?? '',
     mergedAt: asString(raw.merged_at),
     closedAt: asString(raw.closed_at),
+    commentCount: Math.max(0, asNumber(raw.user_notes_count) ?? 0),
   };
 }
 

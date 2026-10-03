@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 
 import { Tabs, type TabOption } from '@bilo-io/ui';
 import type { ForgePull, ForgePullScope } from '@midnite/studio-shared';
-import { LuRefreshCw, LuSearch, LuUsers } from 'react-icons/lu';
+import { LuMessageSquare, LuRefreshCw, LuSearch, LuUsers } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
@@ -505,6 +505,16 @@ function PullRow({
             <span>·</span>
             <UserAvatar login={pull.author} size={14} detail="PR author" />
             <span className="truncate">{pull.author}</span>
+          </span>
+        ) : null}
+        {pull.commentCount > 0 ? (
+          <span
+            className="ml-auto inline-flex shrink-0 items-center gap-1 tabular-nums"
+            aria-label={`${pull.commentCount} ${pull.commentCount === 1 ? 'comment' : 'comments'}`}
+            data-testid="pull-comment-count"
+          >
+            <LuMessageSquare className="size-3" aria-hidden />
+            {pull.commentCount}
           </span>
         ) : null}
       </span>

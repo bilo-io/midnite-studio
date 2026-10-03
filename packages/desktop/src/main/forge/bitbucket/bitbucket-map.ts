@@ -126,6 +126,7 @@ export function mapPull(raw: Json): ForgePull {
       raw['state'] === 'DECLINED' || raw['state'] === 'SUPERSEDED'
         ? asNullableString(raw['updated_on'])
         : null,
+    commentCount: Math.max(0, Math.trunc(asNumber(raw['comment_count']) ?? 0)),
   };
 }
 

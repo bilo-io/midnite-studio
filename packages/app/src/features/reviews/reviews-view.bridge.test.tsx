@@ -54,6 +54,7 @@ const pull = (over: Record<string, unknown>) => ({
   author: 'bilo',
   mergedAt: null,
   closedAt: null,
+  commentCount: 0,
   ...over,
   url: `https://github.com/bilo-io/midnite-studio/pull/${String(over['number'])}`,
 });
@@ -73,6 +74,7 @@ const base: MockFixtures = {
         author: 'bilo',
         reviewDecision: 'APPROVED',
         checks: 'passing',
+        commentCount: 3,
       }),
       pull({
         number: 102,
@@ -120,6 +122,19 @@ function openReviews(data: MockFixtures = base): void {
 afterEach(cleanup);
 
 describe('ReviewsList, assembled through the real bridge', () => {
+  it('shows a comment count on a row with comments and nothing on one without', async () => {
+    openReviews();
+    expandGroup();
+    const list = await within(groups()).findByRole('list', { name: 'All Pull Requests' });
+    const rows = within(list).getAllByRole('listitem');
+    const withComments = rows.find((r) => r.textContent?.includes('Add reviews list'));
+    const without = rows.find((r) => r.textContent?.includes('WIP: highlight diffs'));
+    const badge = within(withComments as HTMLElement).getByTestId('pull-comment-count');
+    expect(badge.textContent).toBe('3');
+    expect(badge.getAttribute('aria-label')).toBe('3 comments');
+    expect(within(without as HTMLElement).queryByTestId('pull-comment-count')).toBeNull();
+  });
+
   it('every group starts collapsed, and expanding one is what loads it', async () => {
     openReviews();
 
