@@ -14,12 +14,11 @@ import { useAgents } from '../terminal/use-agents';
  * Engine filter see them: every roster agent that has a headless mode, plus
  * local Ollama.
  *
- * **Where "installed" comes from.** The roster's own install probe
- * (`useAgents().status`, via `agent.list`). A separate change makes a shared,
- * startup-probed store of installed agents; once it lands this hook is the one
- * place to read it from instead. Until then the rule is the roster's own: an
- * agent is unavailable only when the probe RAN and said it is not installed — a
- * probe that did not answer must not disable an agent that is sitting on the PATH.
+ * **Where "installed" comes from.** The shared agent probe store
+ * (`features/agent/agent-probe-store.ts`), read through `useAgents().status` —
+ * main probes at startup and on every reload. An agent is unavailable only when
+ * the probe RAN and said it is not installed; `checking` / `unknown` assume it
+ * works, so a probe that has not answered never disables an agent on the PATH.
  */
 
 export type ChatEngineModel = { id: string; label: string; recommended?: boolean };

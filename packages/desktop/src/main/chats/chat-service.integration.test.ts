@@ -158,15 +158,13 @@ describe('chats against a fake CLI and a real repo', () => {
     await service.send({ chatId: created.value.chat.id, text: 'go' });
     for (let i = 0; i < 100 && !events.some((e) => e.kind === 'delta'); i += 1) await new Promise((r) => setTimeout(r, 20));
 
-    const started = Date.now();
     await service.cancel(created.value.chat.id);
     await service.idle();
 
     const got = (await service.get(created.value.chat.id)) as { value: { chat: Chat } };
     expect(got.value.chat.messages[1]).toMatchObject({ status: 'cancelled', text: 'working' });
     expect(got.value.chat.messages[1]!.changeSet).toBeUndefined();
-    // Killed, not waited out: far under the script's 30 s sleep (a generous bound, not a timing assertion on speed).
-    expect(Date.now() - started).toBeLessThan(15_000);
+    // Reaching here at all proves the kill: the script sleeps 30 s, far past the test timeout.
     expect(existsSync(join(repo.path, 'half-done.txt'))).toBe(false);
     expect(existsSync(join(scratch, 'sandboxes', created.value.chat.id))).toBe(false);
   });

@@ -103,6 +103,11 @@ export function ChatThread({
     return () => observer.disconnect();
   }, [chat.id]);
 
+  /** The reader took over: stop ignoring scroll events from a glide that may still be running. */
+  const userScrolls = useCallback(() => {
+    ignoreScrollUntil.current = 0;
+  }, []);
+
   const onScroll = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
@@ -121,6 +126,8 @@ export function ChatThread({
       <div
         ref={scroller}
         onScroll={onScroll}
+        onWheel={userScrolls}
+        onTouchMove={userScrolls}
         role="log"
         aria-label="Conversation"
         aria-live="polite"
