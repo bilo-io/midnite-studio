@@ -5,6 +5,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { parseableProcessEnv } from '@midnite/studio-shared';
+
 import { listChatFiles, walkFiles } from './chat-files';
 
 const dirs: string[] = [];
@@ -47,7 +49,7 @@ describe('walkFiles (scratch dir)', () => {
 describe('listChatFiles', () => {
   it('lists tracked plus untracked-not-ignored files of a repo', async () => {
     const repo = await temp();
-    const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'ignore' });
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'ignore', env: parseableProcessEnv() });
     git('init', '-q');
     await put(repo, '.gitignore', 'ignored.log\n');
     await put(repo, 'tracked.ts');
