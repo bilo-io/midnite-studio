@@ -1,15 +1,16 @@
 import {
+  buildScene,
   MODEL_MAX_PARTS,
   ModelPartSchema,
   ModelSpecSchema,
   type ModelPart,
   type ModelPatchOp,
   type ModelSpec,
+  sceneBounds,
   type ModelToolIssue,
 } from '@midnite/studio-shared';
 import type { ZodIssue } from 'zod';
 
-import { buildScene, sceneBounds } from './mesh';
 import { normalizeSpec } from './spec-parse';
 
 /**

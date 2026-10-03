@@ -5,10 +5,10 @@ import {
   MODEL_PREVIEW_SIZE_MAX,
   MODEL_PREVIEW_SIZE_MIN,
   MODEL_PREVIEW_VIEWS,
+  type MeshPart,
   type ModelPreviewView,
 } from '@midnite/studio-shared';
 
-import type { MeshPart } from './mesh';
 
 /**
  * A small software renderer for `model_render_preview`: the design's meshes

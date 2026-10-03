@@ -1,10 +1,11 @@
-import { ModelSpecSchema, type ModelPartInput } from '@midnite/studio-shared';
+import { buildScene, ModelSpecSchema, rotationMatrix, sceneBounds, signedVolume, triangulatePolygon, type ModelPartInput } from '@midnite/studio-shared';
 import { Euler, Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
-import { buildPart, buildScene, rotationMatrix, sceneBounds, signedVolume, triangulatePolygon } from './mesh';
 
 const part = (input: ModelPartInput) => ModelSpecSchema.parse({ parts: [input] }).parts[0]!;
+/** One part, built the way main builds a design — the shared kernel is what `.obj`/`.fbx`/`.glb` are written from. */
+const buildPart = (input: ModelPartInput) => buildScene(ModelSpecSchema.parse({ parts: [input] }))[0]!;
 
 const SHAPES: [string, ModelPartInput][] = [
   ['box', { shape: 'box', size: [2, 3, 4] }],

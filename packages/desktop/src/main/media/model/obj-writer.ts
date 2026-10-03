@@ -1,4 +1,4 @@
-import type { MeshPart } from './mesh';
+import type { MeshPart } from '@midnite/studio-shared';
 
 /**
  * Wavefront OBJ + MTL for a built scene. One `o` object per part, one

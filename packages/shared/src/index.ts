@@ -29,6 +29,7 @@ export * from './mcp';
 export * from './media';
 export * from './media-model';
 export * from './media-model-mcp';
+export * from './model-geometry';
 export * from './ollama';
 export * from './ollama-catalogue';
 export * from './ollama-launch';

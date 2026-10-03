@@ -20,34 +20,132 @@ import { MediaProjectNameSchema } from './media';
 // --- the spec an LLM writes ----------------------------------------------------
 
 /**
- * The one part cap — schema, prompts and MCP tools all read it. 128 rather than the original 64:
- * an agent building iteratively adds detail pass by pass and routinely outgrows 64.
+ * The one part cap — schema, prompts and MCP tools all read it. 256 rather than the original 64/128:
+ * groups, instanced copies and the operand parts of a boolean all count, and an agent building
+ * iteratively adds detail pass by pass.
  */
-export const MODEL_MAX_PARTS = 128;
+export const MODEL_MAX_PARTS = 256;
 export const MODEL_NAME_MAX = 60;
 export const MODEL_MAX_DIMENSION = 1000;
 export const MODEL_PROMPT_MAX = 4000;
 /** Raw image bytes the attachment may carry (before base64). */
 export const MODEL_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+/** Most modifiers one part may stack. */
+export const MODEL_MAX_MODIFIERS = 12;
+/** Custom `mesh` parts: vertices and faces an LLM (or a person) may write by hand. */
+export const MODEL_MESH_MAX_VERTICES = 2000;
+export const MODEL_MESH_MAX_FACES = 4000;
+/** Radial detail bounds for round primitives (`segments`). */
+export const MODEL_SEGMENTS_MIN = 3;
+export const MODEL_SEGMENTS_MAX = 96;
+/** Most triangles one built part, and a whole built design, may reach — the guard that keeps a modifier stack bounded. */
+export const MODEL_MAX_PART_TRIANGLES = 60_000;
+export const MODEL_MAX_SCENE_TRIANGLES = 400_000;
 
 const dimension = z.number().finite().positive().max(MODEL_MAX_DIMENSION);
 const coord = z.number().finite().min(-MODEL_MAX_DIMENSION).max(MODEL_MAX_DIMENSION);
 const Vec3Schema = z.tuple([coord, coord, coord]);
+/** A scale component: any non-zero finite number — a negative one mirrors the part across that axis. */
+const scalar = z
+  .number()
+  .finite()
+  .min(-MODEL_MAX_DIMENSION)
+  .max(MODEL_MAX_DIMENSION)
+  .refine((n) => n !== 0, 'must not be 0');
+/** A reference to another part: its `id`, or its `name` when that is unique. */
+const partRef = z.string().trim().min(1).max(MODEL_NAME_MAX);
 
 /** `#rgb` or `#rrggbb`. */
 export const ModelColorSchema = z.string().regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, 'must be a #rrggbb hex colour');
 
+/** PBR surface: metalness/roughness as glTF defines them, an emissive glow, and opacity. */
+export const ModelMaterialSchema = z.object({
+  metalness: z.number().finite().min(0).max(1).optional(),
+  roughness: z.number().finite().min(0).max(1).optional(),
+  emissive: ModelColorSchema.optional(),
+  emissiveIntensity: z.number().finite().min(0).max(10).optional(),
+  opacity: z.number().finite().min(0).max(1).optional(),
+});
+export type ModelMaterial = z.infer<typeof ModelMaterialSchema>;
+
+const axis = z.enum(['x', 'y', 'z']);
+const modifierBase = { enabled: z.boolean().optional() };
+
+/**
+ * A mesh operation applied to a part's own geometry, in order, before its transform. Deformers
+ * (`twist`, `taper`, `bend`) refine the mesh first so a box bends smoothly.
+ */
+export const ModelModifierSchema = z.discriminatedUnion('type', [
+  /** Chamfers every hard edge by `amount` (a distance in the part's own units). */
+  z.object({ ...modifierBase, type: z.literal('bevel'), amount: dimension }),
+  /** Loop subdivision: each level quadruples the triangles and rounds the surface. */
+  z.object({ ...modifierBase, type: z.literal('subdivide'), levels: z.number().int().min(1).max(3).default(1) }),
+  /** Adds a reflected copy across the plane `axis = offset` (in the part's own space). */
+  z.object({
+    ...modifierBase,
+    type: z.literal('mirror'),
+    axis,
+    offset: z.number().finite().min(-MODEL_MAX_DIMENSION).max(MODEL_MAX_DIMENSION).default(0),
+  }),
+  /** `count` copies in total, each shifted by `offset` from the last. */
+  z.object({ ...modifierBase, type: z.literal('array'), count: z.number().int().min(2).max(64), offset: Vec3Schema }),
+  /** `count` copies spun evenly round `axis` through the origin; `radius` first moves the shape out from the axis. */
+  z.object({
+    ...modifierBase,
+    type: z.literal('radialArray'),
+    count: z.number().int().min(2).max(64),
+    axis: axis.default('y'),
+    radius: z.number().finite().min(0).max(MODEL_MAX_DIMENSION).default(0),
+  }),
+  /** Rotates the shape about `axis` by up to `angle` degrees, in proportion to the distance along it. */
+  z.object({ ...modifierBase, type: z.literal('twist'), angle: z.number().finite().min(-3600).max(3600), axis: axis.default('y') }),
+  /** Scales the far end across `axis` to `amount` × (1 = unchanged, 0 = a point), linearly. */
+  z.object({ ...modifierBase, type: z.literal('taper'), amount: z.number().finite().min(0).max(8), axis: axis.default('y') }),
+  /** Bends the shape along `axis` through `angle` degrees. */
+  z.object({ ...modifierBase, type: z.literal('bend'), angle: z.number().finite().min(-340).max(340), axis: axis.default('y') }),
+]);
+export type ModelModifier = z.infer<typeof ModelModifierSchema>;
+export const MODEL_MODIFIER_TYPES = ModelModifierSchema.options.map((o) => o.shape.type.value) as ModelModifier['type'][];
+
+/** How a part combines with its `target`: it is consumed (not drawn on its own) and carves/adds/clips the target. */
+export const MODEL_BOOLEAN_OPS = ['union', 'subtract', 'intersect'] as const;
+export type ModelBooleanOp = (typeof MODEL_BOOLEAN_OPS)[number];
+
+const point3 = Vec3Schema;
+const point2 = z.tuple([coord, coord]);
+
 const partBase = {
-  /** Stable handle for `model_patch_parts`; assigned by main when absent, so a one-shot design needs none. */
+  /** Stable handle for `model_patch_parts`/`parent`/`target`; assigned by main when absent, so a one-shot design needs none. */
   id: z.string().trim().min(1).max(40).optional(),
   name: z.string().trim().min(1).max(MODEL_NAME_MAX).default('part'),
-  /** World position of the part's origin. */
+  /** The part's origin in its parent's space (the world, when it has no parent). */
   position: Vec3Schema.default([0, 0, 0]),
   /** Euler degrees, applied X → Y → Z. */
   rotation: Vec3Schema.default([0, 0, 0]),
-  scale: z.tuple([dimension, dimension, dimension]).default([1, 1, 1]),
+  scale: z.tuple([scalar, scalar, scalar]).default([1, 1, 1]),
   color: ModelColorSchema.default('#b0b0b0'),
+  /** Another part (a `group`) whose transform this one inherits. */
+  parent: partRef.optional(),
+  /** A point in the part's own space that rotation and scale pivot about (and that `position` places). */
+  pivot: Vec3Schema.optional(),
+  material: ModelMaterialSchema.optional(),
+  modifiers: z.array(ModelModifierSchema).max(MODEL_MAX_MODIFIERS).optional(),
+  /** Boolean: this part is consumed by `target` instead of being drawn. */
+  op: z.enum(MODEL_BOOLEAN_OPS).optional(),
+  /** The part a boolean `op` applies to; default: the nearest earlier solid part. */
+  target: partRef.optional(),
+  /** Radial detail of a round shape (default 32). */
+  segments: z.number().int().min(MODEL_SEGMENTS_MIN).max(MODEL_SEGMENTS_MAX).optional(),
+  /** Edges sharper than this many degrees stay hard; softer ones are shaded smooth. */
+  smoothAngle: z.number().finite().min(0).max(180).optional(),
+  /** Left out of every file, preview and render (editor: hidden). */
+  hidden: z.boolean().optional(),
+  /** Editor only: cannot be picked or moved. */
+  locked: z.boolean().optional(),
 };
+
+const ModelSectionSchema = z.object({ y: coord, outline: z.array(point2).min(3).max(32) });
+export type ModelSection = z.infer<typeof ModelSectionSchema>;
 
 /** The shapes a part can be, in prompt order. */
 export const ModelPartSchema = z.discriminatedUnion('shape', [
@@ -75,9 +173,58 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
   z.object({
     ...partBase,
     shape: z.literal('extrude'),
-    outline: z.array(z.tuple([coord, coord])).min(3).max(64),
+    outline: z.array(point2).min(3).max(64),
     height: dimension,
   }),
+  /** A cylinder with hemispherical ends: `height` is the straight middle section, the ends add `radius` each. */
+  z.object({ ...partBase, shape: z.literal('capsule'), radius: dimension, height: z.number().finite().min(0).max(MODEL_MAX_DIMENSION) }),
+  /** A box with rounded edges and corners (`radius` is clamped to half the smallest side). */
+  z.object({ ...partBase, shape: z.literal('roundedBox'), size: z.tuple([dimension, dimension, dimension]), radius: dimension }),
+  /** A ramp: a right triangle (high at -Z, ground level at +Z) extruded along X. */
+  z.object({ ...partBase, shape: z.literal('wedge'), size: z.tuple([dimension, dimension, dimension]) }),
+  /** A regular `sides`-gon prism, axis along Y. */
+  z.object({ ...partBase, shape: z.literal('prism'), radius: dimension, height: dimension, sides: z.number().int().min(3).max(64).default(6) }),
+  /** A sphere stretched to `radii` on each axis. */
+  z.object({ ...partBase, shape: z.literal('ellipsoid'), radii: z.tuple([dimension, dimension, dimension]) }),
+  /** A round pipe along a spline through `path`; the radius runs linearly from `radius` to `radiusEnd`. */
+  z.object({
+    ...partBase,
+    shape: z.literal('tube'),
+    path: z.array(point3).min(2).max(64),
+    radius: dimension,
+    radiusEnd: dimension.optional(),
+    closed: z.boolean().optional(),
+    spline: z.boolean().default(true),
+  }),
+  /** A 2-D `[x, y]` profile swept along `path` (profile x/y span the plane across the path). */
+  z.object({
+    ...partBase,
+    shape: z.literal('sweep'),
+    profile: z.array(point2).min(3).max(32),
+    path: z.array(point3).min(2).max(64),
+    closed: z.boolean().optional(),
+    spline: z.boolean().default(true),
+    /** Scale of the profile at the end of the path (default 1). */
+    scaleEnd: z.number().finite().min(0.01).max(20).optional(),
+    /** Degrees the profile turns over the whole path. */
+    twist: z.number().finite().min(-3600).max(3600).optional(),
+  }),
+  /** Skins through `sections`: each is an `[x, z]` outline at a height `y`; outlines are matched point to point. */
+  z.object({ ...partBase, shape: z.literal('loft'), sections: z.array(ModelSectionSchema).min(2).max(16) }),
+  /** A hand-written mesh: `vertices` and `faces` (3 or 4 vertex indices each, counter-clockwise seen from outside). */
+  z.object({
+    ...partBase,
+    shape: z.literal('mesh'),
+    vertices: z.array(point3).min(3).max(MODEL_MESH_MAX_VERTICES),
+    faces: z
+      .array(z.array(z.number().int().min(0)).min(3).max(4))
+      .min(1)
+      .max(MODEL_MESH_MAX_FACES),
+  }),
+  /** A transform-only node: other parts name it as their `parent`. */
+  z.object({ ...partBase, shape: z.literal('group') }),
+  /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
+  z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),
 ]);
 export type ModelPart = z.infer<typeof ModelPartSchema>;
 

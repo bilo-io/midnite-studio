@@ -1,4 +1,4 @@
-import type { MeshPart } from './mesh';
+import type { MeshPart } from '@midnite/studio-shared';
 import { formatNumber, hexToRgb, materialsOf, uniqueNames } from './obj-writer';
 
 /**

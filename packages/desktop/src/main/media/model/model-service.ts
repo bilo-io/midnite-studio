@@ -1,5 +1,6 @@
 import {
   agentIteratesModel,
+  buildScene,
   failure,
   MODEL_ITERATIONS_DEFAULT,
   modelFileExtension,
@@ -21,7 +22,6 @@ import {
 import { writeFbxBinary } from './fbx-writer';
 import { runIterative, type IterativeHost } from './iterative';
 import type { ModelTools } from './model-mcp';
-import { buildScene } from './mesh';
 import { writeMtl, writeObj } from './obj-writer';
 import { buildIterativePrompt, buildRepairPrompt, buildSpecPrompt } from './prompts';
 import { parseSpec } from './spec-parse';
