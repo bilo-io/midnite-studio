@@ -107,6 +107,22 @@ describe('AiComposer', () => {
     expect(onSend).toHaveBeenCalledTimes(1);
   });
 
+  it('has no Stop button unless it is streaming with an onStop handler', () => {
+    const { rerender } = render(<AiComposer value="x" onChange={() => {}} onSend={() => {}} canSend ariaLabel="P" streaming />);
+    expect(screen.queryByTestId('ai-composer-stop')).toBeNull();
+    rerender(<AiComposer value="x" onChange={() => {}} onSend={() => {}} canSend ariaLabel="P" onStop={() => {}} />);
+    expect(screen.queryByTestId('ai-composer-stop')).toBeNull();
+  });
+
+  it('streaming puts Stop directly left of Send, and Stop calls onStop', () => {
+    const onStop = vi.fn();
+    render(<AiComposer value="x" onChange={() => {}} onSend={() => {}} canSend={false} ariaLabel="P" streaming onStop={onStop} />);
+    const stop = screen.getByTestId('ai-composer-stop');
+    expect(stop.nextElementSibling).toBe(screen.getByTestId('ai-composer-send'));
+    fireEvent.click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it('presses the mic through the companion ports when available', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micAvailable: () => true, micPressStart, micPressEnd: vi.fn() });

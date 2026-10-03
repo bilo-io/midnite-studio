@@ -77,6 +77,9 @@ export function coalesceEvents(events: readonly ChatEvent[]): ChatEvent[] {
   return out;
 }
 
+/** Id prefix of the user message shown optimistically while a send is in flight. */
+export const PENDING_PREFIX = 'pending-';
+
 const upsert = (messages: ChatMessage[], message: ChatMessage): ChatMessage[] => {
   const index = messages.findIndex((m) => m.id === message.id);
   if (index === -1) return [...messages, message];
@@ -111,8 +114,11 @@ export function reduceChatEvent(chats: Record<string, Chat>, event: ChatEvent): 
       messages[index] = { ...current, activity: [...(current.activity ?? []), event.line] };
       return { ...chats, [chat.id]: { ...chat, messages } };
     }
-    case 'message':
-      return { ...chats, [chat.id]: { ...chat, messages: upsert(chat.messages, event.message) } };
+    case 'message': {
+      // The real user message replaces the optimistic one shown at send time.
+      const base = event.message.role === 'user' ? chat.messages.filter((m) => !m.id.startsWith(PENDING_PREFIX)) : chat.messages;
+      return { ...chats, [chat.id]: { ...chat, messages: upsert(base, event.message) } };
+    }
     default:
       return chats;
   }
@@ -239,16 +245,29 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
       set((s) => ({ chats: { ...s.chats, [chatId!]: created.value.chat }, selectedId: chatId }));
       void get().refreshList();
     }
-    // A rewind (edit / retry) drops everything from that message on in main, and the
-    // `message` events that follow only append — so drop it here first too.
-    if (input.fromMessageId !== undefined) {
-      const rewindTo = input.fromMessageId;
-      set((s) => {
-        const chat = s.chats[chatId!];
-        const index = chat?.messages.findIndex((m) => m.id === rewindTo) ?? -1;
-        return chat && index >= 0 ? { chats: { ...s.chats, [chatId!]: { ...chat, messages: chat.messages.slice(0, index) } } } : s;
-      });
-    }
+    // Show the message at once, before the round trip: a rewind (edit / retry) drops everything
+    // from the edited message on in main, and the `message` events that follow only append, so
+    // drop it here first too — and put the new text in its place so the thread never empties
+    // (which would flash the new-chat screen). The real user message, when it arrives, replaces
+    // this one (`reduceChatEvent`).
+    const target = chatId;
+    set((s) => {
+      const chat = s.chats[target];
+      if (!chat) return s;
+      const rewindAt = input.fromMessageId === undefined ? -1 : chat.messages.findIndex((m) => m.id === input.fromMessageId);
+      const kept = rewindAt >= 0 ? chat.messages.slice(0, rewindAt) : chat.messages;
+      const text = (input.text ?? (rewindAt >= 0 ? chat.messages[rewindAt]?.text : '') ?? '').trim();
+      const attachments = input.attachments ?? (rewindAt >= 0 ? chat.messages[rewindAt]?.attachments : undefined);
+      const optimistic: ChatMessage = {
+        id: `${PENDING_PREFIX}${Date.now()}`,
+        role: 'user',
+        text,
+        createdAt: Date.now(),
+        status: 'done',
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      };
+      return { chats: { ...s.chats, [target]: { ...chat, messages: [...kept, optimistic] } } };
+    });
     // No refetch on success: main emits the user and assistant `message` events before it
     // answers, and a fetch racing the first deltas could only lose text.
     const result = await api.chats.send({ chatId, ...input });
