@@ -2109,6 +2109,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   execSwarm: '/midnite-swarm',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
+  prAudit: '/midnite-pr-audit',
   triage: '/midnite-triage',
   releasePrep: '/midnite-release-prep',
   releaseComplete: '/midnite-release-complete',
