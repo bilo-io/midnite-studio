@@ -12,6 +12,7 @@ import { SORT_LABELS, sortRows, type AssetRow, type SortKey } from './finance-ma
 import { ChangeBadge, Sparkline, StaleHint, TONE_TEXT } from './finance-parts';
 import { useFinanceUiStore, type ListId } from './finance-ui-store';
 import { useAssetRows } from './use-asset-rows';
+import { useElementWidth } from './use-element-width';
 import { useDisplayCurrency, useKnownAssets, usePortfolio, usePortfolioOp } from './use-markets';
 
 /**
@@ -47,6 +48,9 @@ export function AssetListWidget({ list }: { list: ListId }) {
   const { rows, loading, stale, fetchedAt, failed, error } = useAssetRows(assets, portfolio);
   const sorted = useMemo(() => sortRows(rows, sort.key, sort.dir), [rows, sort.key, sort.dir]);
   const rate = usdToCurrency(1, currency, rates);
+  const [rootRef, width] = useElementWidth<HTMLDivElement>();
+  // Room for the absolute gain beside the percentage, and the position value under the name.
+  const wide = width >= 440;
 
   if (isLoading || loading) {
     return (
@@ -77,7 +81,7 @@ export function AssetListWidget({ list }: { list: ListId }) {
   };
 
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div ref={rootRef} className="flex min-h-0 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label={`Sort the ${list}`}>
         {SORT_KEYS.map((key) => {
           const active = sort.key === key;
@@ -119,6 +123,7 @@ export function AssetListWidget({ list }: { list: ListId }) {
             rate={rate}
             fromUsd={fromUsd}
             windowLabel={MARKET_TIMESCALE_LABEL[timescale]}
+            wide={wide}
             onToggleWatch={() => toggleWatch(row.asset)}
             onSelect={() => setChartAsset(row.asset)}
           />
@@ -135,6 +140,7 @@ function AssetListRow({
   rate,
   fromUsd,
   windowLabel,
+  wide,
   onToggleWatch,
   onSelect,
 }: {
@@ -144,6 +150,7 @@ function AssetListRow({
   rate: number;
   fromUsd: (usd: number | null) => string;
   windowLabel: string;
+  wide: boolean;
   onToggleWatch: () => void;
   onSelect: () => void;
 }) {
@@ -172,7 +179,7 @@ function AssetListRow({
           <span className="block truncate text-[13px] font-medium">{asset.name}</span>
           <span className="block truncate text-[11px] text-muted-foreground">
             {asset.symbol}
-            {row.valueUsd !== null ? ` · ${fromUsd(row.valueUsd)}` : ''}
+            {wide && row.valueUsd !== null ? ` · ${fromUsd(row.valueUsd)}` : ''}
           </span>
         </span>
       </button>
@@ -186,14 +193,21 @@ function AssetListRow({
         label={`${asset.symbol} over the ${windowLabel}`}
       />
 
-      <div className="w-[7.25rem] shrink-0 text-right leading-tight">
+      <div className={`shrink-0 text-right leading-tight ${wide ? 'w-[9.5rem]' : 'w-[5.25rem]'}`}>
         <p className="truncate text-[13px] tabular-nums">{row.priceUsd === null ? '—' : fromUsd(row.priceUsd)}</p>
         {change ? (
-          <p className={`truncate text-[11px] tabular-nums ${TONE_TEXT[direction]}`} title={`Over the ${windowLabel}`}>
+          <p
+            className={`truncate text-[11px] tabular-nums ${TONE_TEXT[direction]}`}
+            title={`Over the ${windowLabel}: ${change.abs >= 0 ? '+' : '−'}${formatMoney(Math.abs(change.abs * rate), currency)}`}
+          >
             <ChangeBadge
               direction={direction}
               pct={change.pct}
-              abs={`${change.abs >= 0 ? '+' : '−'}${formatMoney(Math.abs(change.abs * rate), currency, { compact: Math.abs(change.abs * rate) >= 100_000 })}`}
+              abs={
+                wide
+                  ? `${change.abs >= 0 ? '+' : '−'}${formatMoney(Math.abs(change.abs * rate), currency, { compact: Math.abs(change.abs * rate) >= 100_000 })}`
+                  : undefined
+              }
             />
           </p>
         ) : (

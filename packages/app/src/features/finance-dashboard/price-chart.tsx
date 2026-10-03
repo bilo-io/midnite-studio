@@ -209,8 +209,20 @@ export default function PriceChart({
     chart.subscribeCrosshairMove(onMove);
 
     return () => {
-      chart.unsubscribeCrosshairMove(onMove);
-      chart.removeSeries(series);
+      /*
+        React runs cleanups in declaration order, and the chart's own effect is
+        declared first — so on unmount (and on StrictMode's mount/unmount/mount
+        in development) the chart is already removed by the time this runs, and
+        the library's `removeSeries` on a removed chart throws "Value is
+        undefined". Nothing is left to clean up in that case, so the throw is
+        swallowed rather than allowed to take the whole dashboard down.
+      */
+      try {
+        chart.unsubscribeCrosshairMove(onMove);
+        chart.removeSeries(series);
+      } catch {
+        // the chart was already disposed
+      }
       if (seriesRef.current === series) seriesRef.current = null;
     };
   }, [data, type, up]);

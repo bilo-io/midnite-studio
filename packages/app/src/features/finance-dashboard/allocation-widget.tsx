@@ -77,7 +77,7 @@ export function AllocationWidget() {
           ) : null}
         </Donut>
 
-        <ul aria-label="Allocation legend" className="flex min-w-[9rem] flex-1 flex-col gap-0.5 text-xs">
+        <ul aria-label="Allocation legend" className="flex min-w-[10rem] flex-1 flex-col gap-0.5 text-xs">
           {slices.map((slice) => (
             <li
               key={slice.id}
@@ -92,8 +92,10 @@ export function AllocationWidget() {
                 <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: slice.color }} />
               )}
               <span className="min-w-0 flex-1 truncate">{slice.label}</span>
-              <span className="tabular-nums text-muted-foreground">{formatPct(slice.share * 100, 1)}</span>
-              <span className="w-20 truncate text-right tabular-nums">{fromUsd(slice.valueUsd)}</span>
+              <span className="shrink-0 text-right leading-tight">
+                <span className="block tabular-nums">{fromUsd(slice.valueUsd)}</span>
+                <span className="block text-[10px] tabular-nums text-muted-foreground">{formatPct(slice.share * 100, 1)}</span>
+              </span>
             </li>
           ))}
         </ul>

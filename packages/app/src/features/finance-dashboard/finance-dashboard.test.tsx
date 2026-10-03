@@ -35,9 +35,19 @@ const NEWS = [
   { title: 'Apple unveils new chip', link: 'https://news.example/aapl', source: 'Tech Daily', origin: 'AAPL', publishedAt: 1_799_998_000_000 },
 ];
 
-const open = (fixtures: MockFixtures = {}) => {
+/** The bridge's unrelated required fixtures, left empty — nothing here touches a repository. */
+const baseFixtures = (markets: MockFixtures['markets'] = {}): MockFixtures => ({
+  commitDetails: {},
+  revisions: {},
+  diffs: {},
+  graphRows: [],
+  statusEntries: [],
+  markets: { news: NEWS, ...markets },
+});
+
+const open = (overrides: { markets?: MockFixtures['markets'] } = {}) => {
   useDashboardStore.setState({ boards: {}, tabs: DEFAULT_TABS, activeId: FINANCE_DASHBOARD_ID });
-  return renderView(<DashboardView />, { fixtures: { markets: { news: NEWS, ...fixtures.markets }, ...fixtures }, uiState: { selectedRepoId: 'repo-1' } });
+  return renderView(<DashboardView />, { fixtures: baseFixtures(overrides.markets), uiState: { selectedRepoId: 'repo-1' } });
 };
 
 const card = (name: string) => screen.findByRole('region', { name });

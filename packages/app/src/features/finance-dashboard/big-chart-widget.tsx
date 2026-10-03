@@ -118,7 +118,7 @@ export function BigChartWidget() {
           <button
             type="button"
             aria-expanded={insightsOpen}
-            aria-controls={insightsId}
+            aria-controls={insightsOpen ? insightsId : undefined}
             onClick={() => setInsightsOpen((open) => !open)}
             className="rainbow-btn inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold"
           >
@@ -203,41 +203,37 @@ export function BigChartWidget() {
         {described.lines.length > 0 ? <SummaryLines lines={described.lines} columns={2} /> : null}
       </section>
 
-      <div
-        id={insightsId}
-        role="region"
-        aria-label="Insights"
-        hidden={!insightsOpen}
-        data-open={insightsOpen}
-        className="flex shrink-0 flex-col gap-2 rounded-md border border-border bg-card p-2.5"
-      >
-        {insightsOpen ? (
-          <>
-            <div className="flex items-center justify-between">
-              <h4 className="flex items-center gap-1.5 text-xs font-semibold">
-                <LuSparkles aria-hidden className="size-3.5" />
-                Insights — {asset.symbol}, {MARKET_TIMESCALE_LABEL[timescale]}
-              </h4>
-              <button
-                type="button"
-                aria-label="Collapse insights"
-                onClick={() => setInsightsOpen(false)}
-                className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <LuChevronUp aria-hidden className="size-4" />
-              </button>
-            </div>
-            {described.insights.length > 0 ? (
-              <SummaryLines lines={described.insights} columns={2} />
-            ) : (
-              <p className="text-xs text-muted-foreground">Not enough data in this timeframe to break down.</p>
-            )}
-            <p className="text-[10px] text-muted-foreground">
-              Worked out from the bars in this timeframe alone — a description of what happened, not a forecast, and no AI.
-            </p>
-          </>
-        ) : null}
-      </div>
+      {insightsOpen ? (
+        <div
+          id={insightsId}
+          role="region"
+          aria-label="Insights"
+          className="flex shrink-0 flex-col gap-2 rounded-md border border-border bg-card p-2.5"
+        >
+          <div className="flex items-center justify-between">
+            <h4 className="flex items-center gap-1.5 text-xs font-semibold">
+              <LuSparkles aria-hidden className="size-3.5" />
+              Insights — {asset.symbol}, {MARKET_TIMESCALE_LABEL[timescale]}
+            </h4>
+            <button
+              type="button"
+              aria-label="Collapse insights"
+              onClick={() => setInsightsOpen(false)}
+              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <LuChevronUp aria-hidden className="size-4" />
+            </button>
+          </div>
+          {described.insights.length > 0 ? (
+            <SummaryLines lines={described.insights} columns={2} />
+          ) : (
+            <p className="text-xs text-muted-foreground">Not enough data in this timeframe to break down.</p>
+          )}
+          <p className="text-[10px] text-muted-foreground">
+            Worked out from the bars in this timeframe alone — a description of what happened, not a forecast, and no AI.
+          </p>
+        </div>
+      ) : null}
 
       <p className="shrink-0 text-[10px] leading-snug text-muted-foreground">
         Charts by{' '}

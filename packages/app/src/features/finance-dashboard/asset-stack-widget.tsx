@@ -24,7 +24,7 @@ import { useDisplayCurrency, usePortfolio } from './use-markets';
  * or loss over that window with a matching arrow — the arrow, the text and the
  * sparkline all take the same tone, so a glance reads one colour per card.
  */
-const CARD_HEIGHT = 84;
+const CARD_HEIGHT = 80;
 
 export function AssetStackWidget() {
   const { data: portfolio, isLoading } = usePortfolio();
@@ -72,7 +72,7 @@ export function AssetStackWidget() {
         items={ordered}
         keyOf={(row) => row.asset.symbol}
         cardHeight={CARD_HEIGHT}
-        peek={26}
+        peek={38}
         renderCard={(row) => (
           <AssetCard row={row} currency={currency} rate={usdToCurrency(1, currency, rates)} fromUsd={fromUsd} timescale={timescale} />
         )}
@@ -103,38 +103,44 @@ function AssetCard({
     <article
       aria-label={`${asset.name} card`}
       data-asset-card={asset.symbol}
-      className="relative flex h-full cursor-pointer select-none items-center gap-3 overflow-hidden rounded-xl border border-border bg-card px-3 shadow-sm"
+      className="relative flex h-full cursor-pointer select-none flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm"
     >
       <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: assetColor(asset.symbol) }} />
-      <AssetIcon symbol={asset.symbol} size={36} />
 
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-sm font-semibold">{asset.name}</p>
-        <p className="truncate text-[11px] text-muted-foreground">
-          {asset.symbol} · {formatQuantity(quantity)} held
+      {/* The strip: the only part of a card that shows when it is stacked behind another. */}
+      <header className="flex h-9 shrink-0 items-center gap-2 pl-3.5 pr-3 pt-1">
+        <AssetIcon symbol={asset.symbol} size={26} />
+        <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-none">
+          {asset.name} <span className="font-normal text-muted-foreground">{asset.symbol}</span>
         </p>
-        <p className="mt-0.5 truncate text-xs tabular-nums">{priceUsd === null ? '—' : fromUsd(priceUsd)}</p>
-      </div>
+        <p className="shrink-0 text-[13px] font-medium tabular-nums leading-none">{priceUsd === null ? '—' : fromUsd(priceUsd)}</p>
+      </header>
 
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <Sparkline
-          values={row.spark}
-          direction={direction}
-          width={84}
-          height={28}
-          label={`${asset.symbol} over the ${MARKET_TIMESCALE_LABEL[timescale]}`}
-        />
-        {change && positionGain !== null ? (
-          <div className="text-right text-[11px] leading-tight">
-            <ChangeBadge
-              direction={direction}
-              pct={change.pct}
-              abs={`${positionGain >= 0 ? '+' : '−'}${formatMoney(Math.abs(positionGain), currency)}`}
-            />
-          </div>
-        ) : (
-          <span className={`text-[11px] ${TONE_TEXT.flat}`}>no data</span>
-        )}
+      <div className="flex min-h-0 flex-1 items-center justify-between gap-2 pb-1.5 pl-3.5 pr-3">
+        <div className="min-w-0 text-[11px] leading-tight text-muted-foreground">
+          <p className="truncate">{formatQuantity(quantity)} held</p>
+          <p className="truncate tabular-nums">{row.valueUsd === null ? '—' : fromUsd(row.valueUsd)}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Sparkline
+            values={row.spark}
+            direction={direction}
+            width={72}
+            height={26}
+            label={`${asset.symbol} over the ${MARKET_TIMESCALE_LABEL[timescale]}`}
+          />
+          {change && positionGain !== null ? (
+            <div className="text-right text-[11px] leading-tight">
+              <ChangeBadge
+                direction={direction}
+                pct={change.pct}
+                abs={`${positionGain >= 0 ? '+' : '−'}${formatMoney(Math.abs(positionGain), currency)}`}
+              />
+            </div>
+          ) : (
+            <span className={`text-[11px] ${TONE_TEXT.flat}`}>no data</span>
+          )}
+        </div>
       </div>
     </article>
   );
