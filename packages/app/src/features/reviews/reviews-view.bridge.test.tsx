@@ -126,9 +126,10 @@ describe('ReviewsList, assembled through the real bridge', () => {
     openReviews();
     expandGroup();
     const list = await within(groups()).findByRole('list', { name: 'All Pull Requests' });
+    fireEvent.click(screen.getByRole('tab', { name: 'All' }));
     const rows = within(list).getAllByRole('listitem');
     const withComments = rows.find((r) => r.textContent?.includes('Add reviews list'));
-    const without = rows.find((r) => r.textContent?.includes('WIP: highlight diffs'));
+    const without = rows.find((r) => !r.textContent?.includes('Add reviews list'));
     const badge = within(withComments as HTMLElement).getByTestId('pull-comment-count');
     expect(badge.textContent).toBe('3');
     expect(badge.getAttribute('aria-label')).toBe('3 comments');
