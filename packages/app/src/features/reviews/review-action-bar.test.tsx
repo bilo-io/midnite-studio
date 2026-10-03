@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgePull } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
@@ -13,6 +13,9 @@ afterEach(() => {
   listProjects.mockReset();
   addItem.mockReset();
 });
+
+const handoff = vi.fn();
+vi.mock('../agent/use-skill-handoff', () => ({ useSkillHandoff: () => handoff }));
 
 const listProjects = vi.fn();
 const addItem = vi.fn();
@@ -120,12 +123,51 @@ describe('ReviewActionBar — Add to project (Phase 50 Theme E)', () => {
   });
 
   it('shows an empty-state row rather than a dead menu when the owner has no boards', async () => {
-    listProjects.mockResolvedValue({ cli: { reason: 'ready', hint: '' }, projects: [], error: null, kind: 'ok' });
+    listProjects.mockResolvedValue({
+      cli: { reason: 'ready', hint: '' },
+      projects: [],
+      error: null,
+      kind: 'ok',
+    });
 
     renderBar();
     await openAddToProjectMenu();
 
     expect(await screen.findByText('No task boards for this repo')).toBeDefined();
     expect(addItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('ReviewActionBar — AI actions', () => {
+  it.each([
+    ['Review with AI', 'prReview'],
+    ['Audit with AI', 'prAudit'],
+    ['Address Feedback with AI', 'prFeedback'],
+  ])('%s hands off %s with the PR url', (name, skillId) => {
+    handoff.mockClear();
+    renderBar();
+    fireEvent.click(screen.getByRole('button', { name }));
+    expect(handoff).toHaveBeenCalledTimes(1);
+    expect(handoff.mock.calls[0]?.[0]).toMatchObject({
+      skillId,
+      repoId: 'repo-1',
+      body: 'https://github.com/bilo-io/midnite-studio/pull/12',
+    });
+  });
+
+  it('groups the three AI buttons apart from the review actions', () => {
+    renderBar();
+    const group = screen.getByRole('group', { name: 'AI actions' });
+    expect(within(group).getAllByRole('button')).toHaveLength(3);
+    expect(group.className).toContain('ml-auto');
+    expect(within(group).queryByRole('button', { name: 'Approve' })).toBeNull();
+  });
+
+  it('stays usable when review writes are off', () => {
+    renderBar();
+    useUiStore.setState({ forgeWritesEnabled: false });
+    expect(
+      (screen.getByRole('button', { name: 'Review with AI' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 });

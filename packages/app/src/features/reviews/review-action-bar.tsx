@@ -5,7 +5,18 @@ import type {
   ForgePullDetail,
   ForgeReviewEvent,
 } from '@midnite/studio-shared';
-import { LuCheck, LuGitMerge, LuKanban, LuMessageSquare, LuSend, LuUserPlus, LuX } from 'react-icons/lu';
+import {
+  LuCheck,
+  LuFileSearch,
+  LuGitMerge,
+  LuKanban,
+  LuMessageSquare,
+  LuMessageSquareReply,
+  LuScanEye,
+  LuSend,
+  LuUserPlus,
+  LuX,
+} from 'react-icons/lu';
 import { useState, type MouseEvent } from 'react';
 
 import type { MenuItem } from '../../components/context-menu';
@@ -16,11 +27,13 @@ import {
   useForgeProjects,
   useMarkPullReady,
   useMergePull,
+  useRepos,
   useRequestReview,
   useReviewPull,
 } from '../../services/queries';
 import { Spinner } from '../../components/skeleton';
-import { useUiStore } from '../../store/ui-store';
+import { useUiStore, type AgentCommandId } from '../../store/ui-store';
+import { useSkillHandoff } from '../agent/use-skill-handoff';
 import { MergeDialog } from './merge-dialog';
 
 /**
@@ -98,6 +111,22 @@ export function ReviewActionBar({
   const setProjectBoard = useUiStore((s) => s.setProjectBoard);
   const addToProject = useAddProjectItem();
   const dialogs = useDialogs();
+
+  // "with AI" group: hands this PR to the configured agent as a typed-not-sent
+  // skill command. Not gated on `forgeWritesEnabled` — nothing is written to
+  // the forge from here; the agent's own session does whatever the user sends.
+  const repos = useRepos();
+  const handoff = useSkillHandoff();
+  const repo = repos.data?.find((r) => r.id === repoId);
+  const askAgent = (skillId: AgentCommandId, title: string) => {
+    handoff({
+      skillId,
+      repoId,
+      ...(repo ? { repo } : {}),
+      body: pull.url.length > 0 ? pull.url : `#${pull.number}`,
+      title: `${title} #${pull.number}`,
+    });
+  };
 
   const openProjectMenu = (event: MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -180,70 +209,71 @@ export function ReviewActionBar({
        it — a margin here as well is what left a visible band of nothing between
        the header rule and the Approve row. */
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {(['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] as const).map((event) => (
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(['APPROVE', 'REQUEST_CHANGES', 'COMMENT'] as const).map((event) => (
+            <ActionButton
+              key={event}
+              icon={
+                event === 'APPROVE' ? LuCheck : event === 'REQUEST_CHANGES' ? LuX : LuMessageSquare
+              }
+              label={EVENT_LABEL[event]}
+              enabled={enabled}
+              disabled={busy}
+              pressed={composing === event}
+              onClick={() => {
+                setComposing((current) => (current === event ? null : event));
+              }}
+            />
+          ))}
+
           <ActionButton
-            key={event}
-            icon={
-              event === 'APPROVE' ? LuCheck : event === 'REQUEST_CHANGES' ? LuX : LuMessageSquare
-            }
-            label={EVENT_LABEL[event]}
+            icon={LuMessageSquare}
+            label="Comment on the conversation"
+            shortLabel="Discuss"
             enabled={enabled}
             disabled={busy}
-            pressed={composing === event}
+            pressed={composing === 'discussion'}
             onClick={() => {
-              setComposing((current) => (current === event ? null : event));
+              setComposing((current) => (current === 'discussion' ? null : 'discussion'));
             }}
           />
-        ))}
 
-        <ActionButton
-          icon={LuMessageSquare}
-          label="Comment on the conversation"
-          shortLabel="Discuss"
-          enabled={enabled}
-          disabled={busy}
-          pressed={composing === 'discussion'}
-          onClick={() => {
-            setComposing((current) => (current === 'discussion' ? null : 'discussion'));
-          }}
-        />
+          <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
 
-        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-
-        {/*
+          {/*
           Draft → Ready appears only on a draft and disappears once flipped,
           rather than staying as a dead toggle: `gh pr ready --undo` exists, but
           offering it would be a second state change with no affordance for
           getting back — see `readyCommand`.
         */}
-        {pull.isDraft ? (
+          {pull.isDraft ? (
+            <ActionButton
+              icon={LuSend}
+              label="Mark ready for review"
+              shortLabel="Ready for review"
+              enabled={enabled}
+              disabled={busy}
+              onClick={() => markReady.mutate()}
+            />
+          ) : null}
+
           <ActionButton
-            icon={LuSend}
-            label="Mark ready for review"
-            shortLabel="Ready for review"
+            icon={LuUserPlus}
+            label="Request a review"
+            shortLabel="Request review"
             enabled={enabled}
             disabled={busy}
-            onClick={() => markReady.mutate()}
+            pressed={requesting}
+            onClick={() => setRequesting((open) => !open)}
           />
-        ) : null}
 
-        <ActionButton
-          icon={LuUserPlus}
-          label="Request a review"
-          shortLabel="Request review"
-          enabled={enabled}
-          disabled={busy}
-          pressed={requesting}
-          onClick={() => setRequesting((open) => !open)}
-        />
-
-        <ActionButton
-          icon={LuKanban}
-          label="Add to tasks ▸"
-          shortLabel="Add to tasks"
-          enabled={enabled}
-          /*
+          <ActionButton
+            icon={LuKanban}
+            label="Add to tasks ▸"
+            shortLabel="Add to tasks"
+            enabled={enabled}
+            /*
             `boards.isLoading` only — not `isFetching` — so a background
             refetch of an already-warm cache never disables this: `isLoading`
             is react-query's own "no data yet" signal, true only for the very
@@ -254,25 +284,48 @@ export function ReviewActionBar({
             "Loading…" placeholder that can never update itself — the menu's
             `items` are a plain array, fixed at open time, not a live view.
           */
-          disabled={busy || boards.isLoading}
-          onClick={openProjectMenu}
-        />
+            disabled={busy || boards.isLoading}
+            onClick={openProjectMenu}
+          />
 
-        <ActionButton
-          icon={LuGitMerge}
-          label="Merge this pull request"
-          shortLabel="Merge"
-          enabled={enabled}
-          disabled={busy}
-          danger
-          onClick={() => setMerging(true)}
-        />
+          <ActionButton
+            icon={LuGitMerge}
+            label="Merge this pull request"
+            shortLabel="Merge"
+            enabled={enabled}
+            disabled={busy}
+            danger
+            onClick={() => setMerging(true)}
+          />
 
-        {!enabled ? (
-          <span className="text-[11px] text-muted-foreground">
-            Review actions are off — turn them on in Settings → Reviews.
-          </span>
-        ) : null}
+          {!enabled ? (
+            <span className="text-[11px] text-muted-foreground">
+              Review actions are off — turn them on in Settings → Reviews.
+            </span>
+          ) : null}
+        </div>
+
+        <div
+          className="ml-auto flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label="AI actions"
+        >
+          <AiButton
+            icon={LuScanEye}
+            label="Review with AI"
+            onClick={() => askAgent('prReview', 'PR Review')}
+          />
+          <AiButton
+            icon={LuFileSearch}
+            label="Audit with AI"
+            onClick={() => askAgent('prAudit', 'PR Audit')}
+          />
+          <AiButton
+            icon={LuMessageSquareReply}
+            label="Address Feedback with AI"
+            onClick={() => askAgent('prFeedback', 'PR Feedback')}
+          />
+        </div>
       </div>
 
       {composing !== null ? (
@@ -387,6 +440,28 @@ export function ReviewActionBar({
         />
       ) : null}
     </div>
+  );
+}
+
+/** Same look as the other "with AI" entry points (`PlanWithAiBar`). */
+function AiButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof LuCheck;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium transition-colors hover:bg-accent"
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </button>
   );
 }
 

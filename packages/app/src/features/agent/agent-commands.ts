@@ -24,6 +24,7 @@ import {
   LuRocket,
   LuRotateCw,
   LuScanEye,
+  LuFileSearch,
   LuScanSearch,
   LuScissors,
   LuShieldCheck,
@@ -188,6 +189,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuMessageSquareReply,
     category: 'reviews',
     hint: 'Address review feedback on your own pull requests.',
+  },
+  {
+    id: 'prAudit',
+    label: 'PR Audit',
+    icon: LuFileSearch,
+    category: 'reviews',
+    hint: 'Audit a pull request against its request, plan and issue.',
   },
   {
     id: 'triage',
