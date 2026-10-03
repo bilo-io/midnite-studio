@@ -1,5 +1,5 @@
 import type { MeshPart } from '@midnite/studio-shared';
-import { formatNumber, hexToRgb, materialsOf, uniqueNames } from './obj-writer';
+import { formatNumber, hexToRgb, materialsOf, phongOf, uniqueNames } from './obj-writer';
 
 /**
  * FBX 7.4 writer — three.js ships an `FBXLoader` but no exporter, so this is
@@ -41,7 +41,7 @@ const MATERIAL_BASE = 3_000_000;
 
 export function buildFbxTree(parts: readonly MeshPart[]): FbxNode[] {
   const names = uniqueNames(parts);
-  const { colors, indexOf } = materialsOf(parts);
+  const { materials, indexOf } = materialsOf(parts);
 
   const header = node('FBXHeaderExtension', [], [
     node('FBXHeaderVersion', [I(1003)]),
@@ -62,10 +62,10 @@ export function buildFbxTree(parts: readonly MeshPart[]): FbxNode[] {
   ]);
   const definitions = node('Definitions', [], [
     node('Version', [I(100)]),
-    node('Count', [I(parts.length * 2 + colors.length)]),
+    node('Count', [I(parts.length * 2 + materials.length)]),
     node('ObjectType', [S('Geometry')], [node('Count', [I(parts.length)])]),
     node('ObjectType', [S('Model')], [node('Count', [I(parts.length)])]),
-    node('ObjectType', [S('Material')], [node('Count', [I(colors.length)])]),
+    node('ObjectType', [S('Material')], [node('Count', [I(materials.length)])]),
   ]);
 
   const objects: FbxNode[] = [];
@@ -121,8 +121,12 @@ export function buildFbxTree(parts: readonly MeshPart[]): FbxNode[] {
     link(MATERIAL_BASE + indexOf[index]!, modelId);
   });
 
-  colors.forEach((color, index) => {
-    const [r, g, b] = hexToRgb(color).map((c) => Number(formatNumber(c)));
+  materials.forEach((entry, index) => {
+    const { kd, ks } = phongOf(entry);
+    const glow = hexToRgb(entry.material.emissive);
+    const [r, g, b] = kd.map((c) => Number(formatNumber(c)));
+    // Blender's importer derives roughness from Shininess as 1 - sqrt(shininess)/10, so write the inverse.
+    const shininess = ((1 - entry.material.roughness) * 10) ** 2;
     objects.push(
       node('Material', [L(MATERIAL_BASE + index), S(`Material::material_${index + 1}`), S('')], [
         node('Version', [I(102)]),
@@ -131,9 +135,14 @@ export function buildFbxTree(parts: readonly MeshPart[]): FbxNode[] {
         node('Properties70', [], [
           p('DiffuseColor', 'Color', '', 'A', D(r!), D(g!), D(b!)),
           p('AmbientColor', 'Color', '', 'A', D(r! * 0.2), D(g! * 0.2), D(b! * 0.2)),
-          p('SpecularColor', 'Color', '', 'A', D(0.2), D(0.2), D(0.2)),
-          p('Shininess', 'Number', '', 'A', D(32)),
-          p('Opacity', 'Number', '', 'A', D(1)),
+          p('SpecularColor', 'Color', '', 'A', D(ks[0]), D(ks[1]), D(ks[2])),
+          p('EmissiveColor', 'Color', '', 'A', D(glow[0]!), D(glow[1]!), D(glow[2]!)),
+          p('EmissiveFactor', 'Number', '', 'A', D(entry.material.emissiveIntensity)),
+          p('Shininess', 'Number', '', 'A', D(shininess)),
+          p('Opacity', 'Number', '', 'A', D(entry.material.opacity)),
+          // FBX's Phong has no metalness; kept as a custom property for pipelines that read it.
+          p('Metalness', 'Number', '', 'A+U', D(entry.material.metalness)),
+          p('Roughness', 'Number', '', 'A+U', D(entry.material.roughness)),
         ]),
       ]),
     );

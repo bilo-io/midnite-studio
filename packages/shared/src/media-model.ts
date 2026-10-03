@@ -431,8 +431,8 @@ export const ModelGenerateResultSchema = z.object({
 });
 export type ModelGenerateResult = z.infer<typeof ModelGenerateResultSchema>;
 
-/** Save-as of a generated model in one of the two formats. */
-export const MODEL_EXPORT_FORMATS = ['obj', 'fbx'] as const;
+/** Save-as of a generated model: glTF (PBR) first, then the Wavefront and Autodesk formats. */
+export const MODEL_EXPORT_FORMATS = ['obj', 'fbx', 'glb', 'fbx-ascii'] as const;
 export const ModelExportFormatSchema = z.enum(MODEL_EXPORT_FORMATS);
 export type ModelExportFormat = z.infer<typeof ModelExportFormatSchema>;
 

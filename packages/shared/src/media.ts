@@ -54,6 +54,8 @@ export const MEDIA_EXPORT_FORMATS = [
   // model (3D) — written by main's own exporters, no ffmpeg
   'obj',
   'fbx',
+  'fbx-ascii',
+  'glb',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -81,7 +83,9 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   wav: { label: 'WAV', ext: 'wav', needsFfmpeg: true },
   flac: { label: 'FLAC', ext: 'flac', needsFfmpeg: true },
   obj: { label: 'Wavefront OBJ', ext: 'obj', needsFfmpeg: false },
-  fbx: { label: 'Autodesk FBX', ext: 'fbx', needsFfmpeg: false },
+  fbx: { label: 'Autodesk FBX (binary)', ext: 'fbx', needsFfmpeg: false },
+  'fbx-ascii': { label: 'Autodesk FBX (ASCII)', ext: 'fbx', needsFfmpeg: false },
+  glb: { label: 'glTF binary (PBR)', ext: 'glb', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
@@ -90,7 +94,7 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   image: ['png', 'jpeg', 'webp'],
   video: ['mp4', 'webm', 'gif', 'prores'],
   audio: ['mp3', 'wav', 'flac'],
-  model: ['obj', 'fbx'],
+  model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
 };
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */

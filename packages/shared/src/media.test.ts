@@ -13,7 +13,7 @@ describe('media contract', () => {
   });
 
   it('keeps the 3D exports on main\'s own writers, never ffmpeg', () => {
-    expect(MEDIA_TAB_EXPORT_FORMATS.model).toEqual(['obj', 'fbx']);
+    expect(MEDIA_TAB_EXPORT_FORMATS.model).toEqual(['obj', 'fbx', 'glb', 'fbx-ascii']);
     expect(MEDIA_TAB_EXPORT_FORMATS.model.every((f) => !MEDIA_EXPORT_FORMAT_INFO[f].needsFfmpeg)).toBe(true);
   });
 

@@ -34,7 +34,7 @@ describe('model_set_spec', () => {
     const result = await kit.tools.model_set_spec({ ...target(kit, 'crate'), spec: BOX_SPEC });
     expect(result).toMatchObject({ ok: true, model: 'crate-20261003-141502.obj', partCount: 1, parts: [{ id: 'p1', name: 'crate', shape: 'box' }] });
     expect([...kit.files.keys()].sort()).toEqual(
-      ['gen/crate-20261003-141502.fbx', 'gen/crate-20261003-141502.json', 'gen/crate-20261003-141502.mtl', 'gen/crate-20261003-141502.obj'].sort(),
+      ['gen/crate-20261003-141502.fbx', 'gen/crate-20261003-141502.glb', 'gen/crate-20261003-141502.json', 'gen/crate-20261003-141502.mtl', 'gen/crate-20261003-141502.obj'].sort(),
     );
     expect(kit.changed).toHaveLength(1);
     expect(kit.changed[0]).toMatchObject({ project: 'gen', path: 'crate-20261003-141502.obj', saved: true });
@@ -210,7 +210,7 @@ describe('model_save, model_list and model_open', () => {
     await kit.tools.model_patch_parts({ ...target(kit, model), ops: [{ op: 'add', part: { name: 'ball', shape: 'sphere', radius: 0.3 } }] });
     expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).not.toContain('ball');
     const saved = await kit.tools.model_save(target(kit, model));
-    expect(saved).toEqual({ saved: true, files: ['crate-20261003-141502.json', 'crate-20261003-141502.mtl', 'crate-20261003-141502.obj', 'crate-20261003-141502.fbx'] });
+    expect(saved).toEqual({ saved: true, files: ['crate-20261003-141502.json', 'crate-20261003-141502.mtl', 'crate-20261003-141502.obj', 'crate-20261003-141502.fbx', 'crate-20261003-141502.glb'] });
     expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).toContain('ball');
     expect(kit.changed.at(-1)).toMatchObject({ saved: true });
   });

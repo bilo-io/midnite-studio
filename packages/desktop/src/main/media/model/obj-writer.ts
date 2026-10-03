@@ -1,4 +1,4 @@
-import type { MeshPart } from '@midnite/studio-shared';
+import type { MeshPart, ResolvedMaterial } from '@midnite/studio-shared';
 
 /**
  * Wavefront OBJ + MTL for a built scene. One `o` object per part, one
@@ -29,18 +29,28 @@ export function uniqueNames(parts: readonly MeshPart[]): string[] {
   });
 }
 
-/** Distinct colours in first-use order, with each part's index into them. */
-export function materialsOf(parts: readonly MeshPart[]): { colors: string[]; indexOf: number[] } {
-  const colors: string[] = [];
+export type SceneMaterial = { color: string; material: ResolvedMaterial };
+
+const materialKey = (part: MeshPart): string => {
+  const m = part.material;
+  return [part.color, m.metalness, m.roughness, m.emissive, m.emissiveIntensity, m.opacity].join('|');
+};
+
+/** Distinct materials (colour + PBR values) in first-use order, with each part's index into them. */
+export function materialsOf(parts: readonly MeshPart[]): { materials: SceneMaterial[]; colors: string[]; indexOf: number[] } {
+  const materials: SceneMaterial[] = [];
+  const seen = new Map<string, number>();
   const indexOf = parts.map((part) => {
-    let index = colors.indexOf(part.color);
-    if (index < 0) {
-      index = colors.length;
-      colors.push(part.color);
+    const key = materialKey(part);
+    let index = seen.get(key);
+    if (index === undefined) {
+      index = materials.length;
+      seen.set(key, index);
+      materials.push({ color: part.color, material: part.material });
     }
     return index;
   });
-  return { colors, indexOf };
+  return { materials, colors: materials.map((m) => m.color), indexOf };
 }
 
 export const hexToRgb = (hex: string): [number, number, number] => [
@@ -51,12 +61,39 @@ export const hexToRgb = (hex: string): [number, number, number] => [
 
 export const materialName = (index: number): string => `material_${index + 1}`;
 
+/**
+ * How the PBR values map onto what a legacy Phong/MTL reader understands: specular colour blends from
+ * a dielectric grey to the base colour with metalness, the exponent falls with roughness. `Pr`/`Pm`/`Ke`
+ * carry the exact values for readers that know them (Blender does).
+ */
+export function phongOf(entry: SceneMaterial): { kd: [number, number, number]; ks: [number, number, number]; ns: number; ke: [number, number, number] } {
+  const kd = hexToRgb(entry.color);
+  const { metalness, roughness, emissive, emissiveIntensity } = entry.material;
+  const ks = kd.map((c) => 0.2 + (c - 0.2) * metalness) as [number, number, number];
+  const ns = Math.max(1, Math.min(1000, Math.round(1000 * (1 - roughness) ** 2.5)));
+  const ke = hexToRgb(emissive).map((c) => Math.min(1, c * emissiveIntensity)) as [number, number, number];
+  return { kd, ks, ns, ke };
+}
+
 export function writeMtl(parts: readonly MeshPart[]): string {
-  const { colors } = materialsOf(parts);
+  const { materials } = materialsOf(parts);
   const lines = ['# Midnite Studio — generated materials'];
-  colors.forEach((color, index) => {
-    const [r, g, b] = hexToRgb(color).map(formatNumber);
-    lines.push('', `newmtl ${materialName(index)}`, `Ka ${r} ${g} ${b}`, `Kd ${r} ${g} ${b}`, 'Ks 0.2 0.2 0.2', 'Ns 32', 'd 1', 'illum 2');
+  materials.forEach((entry, index) => {
+    const { kd, ks, ns, ke } = phongOf(entry);
+    const f = (v: readonly number[]): string => v.map(formatNumber).join(' ');
+    lines.push(
+      '',
+      `newmtl ${materialName(index)}`,
+      `Ka ${f(kd)}`,
+      `Kd ${f(kd)}`,
+      `Ks ${f(ks)}`,
+      `Ke ${f(ke)}`,
+      `Ns ${ns}`,
+      `d ${formatNumber(entry.material.opacity)}`,
+      'illum 2',
+      `Pr ${formatNumber(entry.material.roughness)}`,
+      `Pm ${formatNumber(entry.material.metalness)}`,
+    );
   });
   return lines.join('\n') + '\n';
 }
