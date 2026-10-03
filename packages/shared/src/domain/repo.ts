@@ -37,3 +37,19 @@ export const RepoDescriptorSchema = z.object({
   worktrees: z.array(WorktreeSchema),
 });
 export type RepoDescriptor = z.infer<typeof RepoDescriptorSchema>;
+
+/**
+ * Where a new worktree for `branch` goes: a sibling of the repository, named
+ * `<repo>-<branch>` with `/` flattened. The one placement rule every worktree
+ * the app creates follows — the New Worktree dialog proposes it, and a chat's
+ * own worktree uses it — so they all sit side by side on disk.
+ *
+ * Never nested inside the repo: that would put the worktree in git's own
+ * working tree, where it shows up as an untracked directory in every status.
+ */
+export function siblingWorktreePath(repoPath: string, repoName: string, branch: string): string {
+  const trimmed = repoPath.replace(/[\\/]+$/, '');
+  const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+  const parent = cut >= 0 ? trimmed.slice(0, cut) : '.';
+  return `${parent}/${repoName}-${branch.replaceAll('/', '-')}`;
+}

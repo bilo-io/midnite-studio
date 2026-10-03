@@ -158,6 +158,19 @@ export const ChatEngineSessionSchema = z.object({
 });
 export type ChatEngineSession = z.infer<typeof ChatEngineSessionSchema>;
 
+/**
+ * A chat's own linked worktree: created on its first editing turn (on a new
+ * branch from the repo's HEAD, beside the repo per `siblingWorktreePath`) and
+ * kept for the life of the chat, so the agent's work is an ordinary branch.
+ */
+export const ChatWorktreeSchema = z.object({
+  path: z.string().min(1),
+  branch: z.string().min(1),
+  /** The checkout it was branched from — a repo change on the chat retires it. */
+  repoPath: z.string().min(1),
+});
+export type ChatWorktree = z.infer<typeof ChatWorktreeSchema>;
+
 export const ChatSummarySchema = z.object({
   id: z.string().min(1),
   title: z.string(),
@@ -175,6 +188,8 @@ export const ChatSummarySchema = z.object({
   running: z.boolean(),
   /** A change set is waiting on the user. */
   pendingChanges: z.boolean(),
+  /** The chat's worktree, once an editing turn has made one. Absent on older chats. */
+  worktree: ChatWorktreeSchema.nullable().optional(),
 });
 export type ChatSummary = z.infer<typeof ChatSummarySchema>;
 
@@ -235,6 +250,23 @@ export function chatTitleFromText(text: string): string {
     .find((l) => l.length > 0);
   if (!line) return 'New chat';
   return line.length > 48 ? `${line.slice(0, 47).trimEnd()}…` : line;
+}
+
+/**
+ * A chat worktree's branch: `chat/<title slug>-<first 6 of the id>`. The slug
+ * makes it recognisable in the graph; the id keeps two chats with one title apart.
+ */
+export function chatWorktreeBranch(title: string, chatId: string): string {
+  const slug = title
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+    .replace(/-+$/g, '');
+  const id = chatId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toLowerCase() || 'chat';
+  return `chat/${slug && slug !== 'new-chat' ? `${slug}-` : ''}${id}`;
 }
 
 export const CHAT_DATE_BUCKETS = ['today', 'week', 'month', 'older'] as const;

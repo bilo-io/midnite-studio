@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   chatDateBucket,
   chatTitleFromText,
+  chatWorktreeBranch,
   ChatSchema,
   changeSetNeedsReview,
   deriveChangeSetStatus,
@@ -168,6 +169,21 @@ describe('chat helpers', () => {
     expect(chatTitleFromText('   ')).toBe('New chat');
     expect(chatTitleFromText('x'.repeat(100))).toHaveLength(48);
     expect(chatTitleFromText('x'.repeat(100)).endsWith('…')).toBe(true);
+  });
+
+  it('names a chat worktree branch from its title and id', () => {
+    expect(chatWorktreeBranch('Fix the login bug', 'a1b2c3d4-e5f6')).toBe('chat/fix-the-login-bug-a1b2c3');
+    expect(chatWorktreeBranch('New chat', 'ffeedd00')).toBe('chat/ffeedd');
+    expect(chatWorktreeBranch('Café: ünïcode / slashes!!', 'X-Y-Z-1-2-3')).toBe('chat/cafe-unicode-slashes-xyz123');
+    expect(chatWorktreeBranch('x'.repeat(80), 'abcdef')).toBe(`chat/${'x'.repeat(32)}-abcdef`);
+  });
+
+  it('reads a chat stored before worktrees existed', () => {
+    const parsed = ChatSchema.parse({
+      id: 'c', title: 't', engine: 'claude', model: null, mode: 'edit', repoId: null, repoName: null,
+      pinned: false, createdAt: 1, updatedAt: 1, repoPath: null, messages: [],
+    });
+    expect(parsed.worktree).toBeUndefined();
   });
 
   it('buckets by age', () => {
