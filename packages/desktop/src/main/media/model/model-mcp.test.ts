@@ -32,23 +32,23 @@ describe('model_set_spec', () => {
   it('starts a new model from a bare name: writes the trio, answers with the file and the part ids, and announces it', async () => {
     const kit = memoryModelKit();
     const result = await kit.tools.model_set_spec({ ...target(kit, 'crate'), spec: BOX_SPEC });
-    expect(result).toMatchObject({ ok: true, model: 'crate-20261003-141502.obj', partCount: 1, parts: [{ id: 'p1', name: 'crate', shape: 'box' }] });
+    expect(result).toMatchObject({ ok: true, model: 'crate-20261003-141502/crate-20261003-141502.obj', partCount: 1, parts: [{ id: 'p1', name: 'crate', shape: 'box' }] });
     expect([...kit.files.keys()].sort()).toEqual(
-      ['gen/crate-20261003-141502.fbx', 'gen/crate-20261003-141502.glb', 'gen/crate-20261003-141502.json', 'gen/crate-20261003-141502.mtl', 'gen/crate-20261003-141502.obj'].sort(),
+      ['fbx', 'glb', 'json', 'mtl', 'obj'].map((e) => `gen/crate-20261003-141502/crate-20261003-141502.${e}`).concat('gen/crate-20261003-141502/model.json').sort(),
     );
     expect(kit.changed).toHaveLength(1);
-    expect(kit.changed[0]).toMatchObject({ project: 'gen', path: 'crate-20261003-141502.obj', saved: true });
+    expect(kit.changed[0]).toMatchObject({ project: 'gen', path: 'crate-20261003-141502/crate-20261003-141502.obj', saved: true });
   });
 
   it('replaces the design of an existing model, writing only the sidecar until it is saved', async () => {
     const kit = memoryModelKit();
     const model = await started(kit);
-    const objBefore = kit.files.get('gen/crate-20261003-141502.obj')!;
+    const objBefore = kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.obj')!;
     const next = { ...BOX_SPEC, parts: [...BOX_SPEC.parts, { name: 'lid', shape: 'box', size: [1, 0.1, 1], position: [0, 1.05, 0] }] };
     const result = await kit.tools.model_set_spec({ ...target(kit, model), spec: next });
     expect(result).toMatchObject({ ok: true, partCount: 2, revision: 2 });
     expect(sidecarOf(kit, model).spec.parts).toHaveLength(2);
-    expect(kit.files.get('gen/crate-20261003-141502.obj')).toBe(objBefore);
+    expect(kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.obj')).toBe(objBefore);
     expect(kit.changed.at(-1)).toMatchObject({ saved: false, revision: 2 });
     expect(kit.changed.at(-1)!.spec.parts).toHaveLength(2);
   });
@@ -184,7 +184,7 @@ describe('model_get_reference_image', () => {
     const kit = memoryModelKit();
     const model = await started(kit);
     const sidecar = sidecarOf(kit, model);
-    kit.files.set('gen/crate.ref.png', Buffer.from('PNGBYTES'));
+    kit.files.set('gen/crate-20261003-141502/crate.ref.png', Buffer.from('PNGBYTES'));
     kit.files.set(`gen/${model.replace('.obj', '.json')}`, Buffer.from(JSON.stringify({ ...sidecar, reference: 'crate.ref.png' })));
     const out = (await kit.tools.model_get_reference_image(target(kit, model))) as { _content: { type: string; data?: string; mimeType?: string }[] };
     expect(out._content[1]).toEqual({ type: 'image', data: Buffer.from('PNGBYTES').toString('base64'), mimeType: 'image/png' });
@@ -195,7 +195,7 @@ describe('model_get_reference_image', () => {
     const kit = memoryModelKit({ tools: { shrinkImage: shrink } });
     const model = await started(kit);
     await expect(kit.tools.model_get_reference_image(target(kit, model))).rejects.toMatchObject({ kind: 'not-found' });
-    kit.files.set('gen/big.ref.jpg', Buffer.alloc(REFERENCE_IMAGE_RAW_LIMIT + 1));
+    kit.files.set('gen/crate-20261003-141502/big.ref.jpg', Buffer.alloc(REFERENCE_IMAGE_RAW_LIMIT + 1));
     kit.files.set(`gen/${model.replace('.obj', '.json')}`, Buffer.from(JSON.stringify({ ...sidecarOf(kit, model), reference: 'big.ref.jpg' })));
     const out = (await kit.tools.model_get_reference_image(target(kit, model))) as { _content: { type: string; mimeType?: string }[] };
     expect(shrink).toHaveBeenCalledOnce();
@@ -208,10 +208,10 @@ describe('model_save, model_list and model_open', () => {
     const kit = memoryModelKit();
     const model = await started(kit);
     await kit.tools.model_patch_parts({ ...target(kit, model), ops: [{ op: 'add', part: { name: 'ball', shape: 'sphere', radius: 0.3 } }] });
-    expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).not.toContain('ball');
+    expect(kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.obj')!.toString()).not.toContain('ball');
     const saved = await kit.tools.model_save(target(kit, model));
-    expect(saved).toEqual({ saved: true, files: ['crate-20261003-141502.json', 'crate-20261003-141502.mtl', 'crate-20261003-141502.obj', 'crate-20261003-141502.fbx', 'crate-20261003-141502.glb'] });
-    expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).toContain('ball');
+    expect(saved).toEqual({ saved: true, files: ['json', 'mtl', 'obj', 'fbx', 'glb'].map((e) => `crate-20261003-141502/crate-20261003-141502.${e}`).concat('crate-20261003-141502/model.json') });
+    expect(kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.obj')!.toString()).toContain('ball');
     expect(kit.changed.at(-1)).toMatchObject({ saved: true });
   });
 
@@ -219,7 +219,7 @@ describe('model_save, model_list and model_open', () => {
     const kit = memoryModelKit();
     await started(kit);
     const listed = await kit.tools.model_list({ repoPath: kit.repoPath });
-    expect(listed.projects).toEqual([{ name: 'gen', models: [{ model: 'crate-20261003-141502.obj', name: 'crate', parts: 1, mtimeMs: 1 }] }]);
+    expect(listed.projects).toEqual([{ name: 'gen', models: [{ model: 'crate-20261003-141502/crate-20261003-141502.obj', name: 'crate', parts: 1, mtimeMs: 1 }] }]);
     expect((await kit.tools.model_list({ repoPath: kit.repoPath, project: 'other' })).projects).toEqual([]);
   });
 

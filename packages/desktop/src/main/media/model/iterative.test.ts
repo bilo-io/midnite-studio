@@ -73,7 +73,7 @@ async function setup(script: Script, options: { maxIterations?: number; agent?: 
     engine: 'test',
   });
   if (!created.ok) throw new Error('setup failed');
-  const target = { repoPath: kit.repoPath, project: 'gen', model: 'crate-20261003-141502.obj' };
+  const target = { repoPath: kit.repoPath, project: 'gen', model: 'crate-20261003-141502/crate-20261003-141502.obj' };
   const { host, closed, requests } = fakeHost((ctx) => script({ ...ctx, target }), options.agent === undefined ? CLAUDE : options.agent);
   const controller = new AbortController();
   const progress: { iteration: { n: number; max: number }; action?: string }[] = [];
@@ -140,9 +140,9 @@ describe('runIterative', () => {
       await call('model_set_spec', { ...target, spec: BOX_SPEC });
     });
     expect(await run()).toMatchObject({ kind: 'done', saved: true });
-    const sidecar = parseModelSidecar(kit.files.get('gen/crate-20261003-141502.json')!.toString('utf8'))!;
+    const sidecar = parseModelSidecar(kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.json')!.toString('utf8'))!;
     expect(sidecar.spec.name).toBe('crate');
-    expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).toContain('crate');
+    expect(kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.obj')!.toString()).toContain('crate');
   });
 
   it('cancels cleanly: aborting kills the CLI, the outcome is cancelled, edits so far are saved and the server closes', async () => {
@@ -162,7 +162,7 @@ describe('runIterative', () => {
     expect(await pending).toMatchObject({ kind: 'cancelled', edits: 1 });
     expect(killedSpy).toHaveBeenCalledOnce();
     expect(closed).toHaveBeenCalledOnce();
-    expect(kit.files.get('gen/crate-20261003-141502.obj')!.toString()).toContain('crate');
+    expect(kit.files.get('gen/crate-20261003-141502/crate-20261003-141502.obj')!.toString()).toContain('crate');
   });
 
   it('kills a CLI that was cancelled before it finished spawning', async () => {
@@ -324,14 +324,14 @@ describe('generate with an iterative agent engine', () => {
       await call('model_save', target);
     });
     const result = await service.generate(request());
-    expect(result).toMatchObject({ ok: true, value: { primary: 'a-wooden-crate-20261003-141502.obj' } });
+    expect(result).toMatchObject({ ok: true, value: { primary: 'a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.obj' } });
     expect(requests[0]!.args).toContain('--mcp-config');
     // The first event already names the model, so the tab can show it from the start.
-    expect(events[0]).toMatchObject({ status: 'running', stage: 'iterating', primary: 'a-wooden-crate-20261003-141502.obj', iteration: { n: 0, max: 3 } });
+    expect(events[0]).toMatchObject({ status: 'running', stage: 'iterating', primary: 'a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.obj', iteration: { n: 0, max: 3 } });
     expect(events.some((e) => e.action === 'Rendered a preview (pass 1 of 3)' && e.iteration?.n === 1)).toBe(true);
     expect(events.at(-1)).toMatchObject({ status: 'succeeded' });
     expect(changed.some((e) => e.saved)).toBe(true);
-    expect(files.get('gen/a-wooden-crate-20261003-141502.obj')!.toString()).toContain('crate');
+    expect(files.get('gen/a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.obj')!.toString()).toContain('crate');
   });
 
   it('stores an attached picture beside the design and tells the agent to look at it', async () => {
@@ -339,8 +339,8 @@ describe('generate with an iterative agent engine', () => {
       await call('model_set_spec', { ...target, spec: BOX_SPEC });
     });
     await service.generate(request({ image: { name: 'photo.png', mime: 'image/png', data: Buffer.from('IMG').toString('base64') } }));
-    expect(files.get('gen/a-wooden-crate-20261003-141502.ref.png')!.toString()).toBe('IMG');
-    const sidecar = parseModelSidecar(files.get('gen/a-wooden-crate-20261003-141502.json')!.toString('utf8'))!;
+    expect(files.get('gen/a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.ref.png')!.toString()).toBe('IMG');
+    const sidecar = parseModelSidecar(files.get('gen/a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.json')!.toString('utf8'))!;
     expect(sidecar.reference).toBe('a-wooden-crate-20261003-141502.ref.png');
     expect(requests[0]!.args.find((a) => a.includes('model_get_reference_image') && a.includes('Request'))).toBeTruthy();
   });
@@ -360,8 +360,8 @@ describe('generate with an iterative agent engine', () => {
   it('falls back to the one-shot JSON path, filling the same files, when the agent made no edits', async () => {
     const { service, files, events } = serviceWith(async () => ({ stderr: 'boom' }));
     const result = await service.generate(request());
-    expect(result).toMatchObject({ ok: true, value: { primary: 'a-wooden-crate-20261003-141502.obj' } });
-    const sidecar = parseModelSidecar(files.get('gen/a-wooden-crate-20261003-141502.json')!.toString('utf8'))!;
+    expect(result).toMatchObject({ ok: true, value: { primary: 'a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.obj' } });
+    const sidecar = parseModelSidecar(files.get('gen/a-wooden-crate-20261003-141502/a-wooden-crate-20261003-141502.json')!.toString('utf8'))!;
     expect(sidecar.spec.name).toBe('crate');
     expect(events.some((e) => e.stage === 'generating')).toBe(true);
     // No stray placeholder: one design, one trio.
