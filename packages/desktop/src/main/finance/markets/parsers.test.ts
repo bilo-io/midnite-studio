@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { cleanCandles, downsample, trimToTimescale } from './candles';
-import { isPublicHttpUrl } from './http';
+import { MAX_BODY_CHARS, RateLimitedError, getJson, isPublicHttpUrl } from './http';
 import {
   parseBinanceKlines,
   parseCnbcChart,
@@ -144,5 +144,19 @@ describe('isPublicHttpUrl', () => {
     'not a url',
   ])('refuses %s', (url) => {
     expect(isPublicHttpUrl(url)).toBe(false);
+  });
+});
+
+describe('http seam', () => {
+  const reply = (status: number, body: string) => async () => ({ ok: status >= 200 && status < 300, status, text: async () => body });
+
+  it('turns a 429 into a RateLimitedError the service can back off on', async () => {
+    await expect(getJson(reply(429, ''), 'Yahoo', 'https://x.example')).rejects.toBeInstanceOf(RateLimitedError);
+  });
+
+  it('refuses an oversized body and a non-JSON one, with the provider named', async () => {
+    await expect(getJson(reply(200, 'x'.repeat(MAX_BODY_CHARS + 1)), 'CNBC', 'https://x.example')).rejects.toThrow(/CNBC sent an oversized/);
+    await expect(getJson(reply(200, '<html>'), 'CNBC', 'https://x.example')).rejects.toThrow(/CNBC sent something that was not JSON/);
+    await expect(getJson(reply(503, ''), 'CNBC', 'https://x.example')).rejects.toThrow(/CNBC answered 503/);
   });
 });

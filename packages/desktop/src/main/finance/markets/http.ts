@@ -26,6 +26,9 @@ const BROWSER_UA =
 
 export const REQUEST_TIMEOUT_MS = 12_000;
 
+/** A feed or chart answer larger than this is not one — refuse it rather than hold it in memory. */
+export const MAX_BODY_CHARS = 8_000_000;
+
 export async function getText(
   fetcher: Fetcher,
   provider: string,
@@ -38,7 +41,9 @@ export async function getText(
   });
   if (res.status === 429) throw new RateLimitedError(provider);
   if (!res.ok) throw new Error(`${provider} answered ${res.status}`);
-  return res.text();
+  const body = await res.text();
+  if (body.length > MAX_BODY_CHARS) throw new Error(`${provider} sent an oversized response`);
+  return body;
 }
 
 export async function getJson(fetcher: Fetcher, provider: string, url: string): Promise<unknown> {

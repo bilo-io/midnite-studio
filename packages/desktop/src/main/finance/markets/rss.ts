@@ -31,7 +31,8 @@ function safeFromCodePoint(code: number, fallback: string): string {
 
 /** Text content of the first `<tag>`; CDATA is unwrapped, then entities decoded and tags stripped. */
 function tagText(block: string, tag: string): string | null {
-  const match = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i').exec(block);
+  // `(?<!/)>` keeps a self-closing `<link href="…"/>` from being read as an opening tag.
+  const match = new RegExp(`<${tag}(?:\\s[^>]*?)?(?<!/)>([\\s\\S]*?)</${tag}>`, 'i').exec(block);
   if (!match || match[1] === undefined) return null;
   const raw = match[1].trim();
   const cdata = /^<!\[CDATA\[([\s\S]*?)\]\]>$/.exec(raw);

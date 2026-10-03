@@ -57,6 +57,11 @@ describe('parseFeed', () => {
     expect(item).toMatchObject({ title: 'Ether – steady', link: 'https://example.com/e', source: 'Atom Wire', publishedAt: Date.parse('2026-10-01T08:00:00Z') });
   });
 
+  it('does not read a self-closing Atom link as an opening tag', () => {
+    const xml = '<feed><title>F</title><entry><title>T</title><link rel="self" href="https://x.example/self"/><link rel="alternate" href="https://x.example/real"/></entry><entry><title>U</title><link href="https://x.example/u"/></entry></feed>';
+    expect(parseFeed(xml, 'o', 'f').map((i) => i.link)).toEqual(['https://x.example/real', 'https://x.example/u']);
+  });
+
   it('gives a stable id per link and tolerates garbage', () => {
     expect(parseFeed(RSS, 'a', 'b')[0]?.id).toBe(parseFeed(RSS, 'c', 'd')[0]?.id);
     expect(parseFeed('<html>not a feed</html>', 'a', 'b')).toEqual([]);
