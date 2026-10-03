@@ -1,5 +1,7 @@
 import {
+  agentIteratesModel,
   failure,
+  MODEL_ITERATIONS_DEFAULT,
   modelFileExtension,
   modelSidecarPath,
   ok,
@@ -17,9 +19,11 @@ import {
 } from '@midnite/studio-shared';
 
 import { writeFbxBinary } from './fbx-writer';
+import { runIterative, type IterativeHost } from './iterative';
+import type { ModelTools } from './model-mcp';
 import { buildScene } from './mesh';
 import { writeMtl, writeObj } from './obj-writer';
-import { buildRepairPrompt, buildSpecPrompt } from './prompts';
+import { buildIterativePrompt, buildRepairPrompt, buildSpecPrompt } from './prompts';
 import { parseSpec } from './spec-parse';
 
 /**
@@ -60,6 +64,25 @@ export type ModelServiceDeps = {
   readBytes: (req: Scope & { path: string }) => Promise<GitOpResult<Buffer>>;
   emit: (event: ModelGenerateProgressEvent) => void;
   now?: () => Date;
+  /**
+   * The iterative (MCP) engine: absent in a build or a test that has none, in which case every agent
+   * runs the one-shot JSON path. `tools` is a thunk because the tools are built from this service.
+   */
+  iterative?: {
+    host: IterativeHost;
+    tools: () => ModelTools;
+    /** The repository's path — both where the CLI runs and the `repoPath` its tools are called with. */
+    repoPath: (repoId: string) => Promise<string | null>;
+    modelArgs: (engine: Extract<ModelEngine, { kind: 'agent' }>) => string[];
+  };
+};
+
+const IMAGE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+
+/** What a new iterative model starts as: one small block the agent replaces on its first call. */
+const PLACEHOLDER_SPEC: ModelSpec = {
+  name: 'model',
+  parts: [{ id: 'p1', name: 'placeholder', shape: 'box', size: [0.2, 0.2, 0.2], position: [0, 0.1, 0], rotation: [0, 0, 0], scale: [1, 1, 1], color: '#b0b0b0' }],
 };
 
 /** `"A red fox, at dusk!"` → `a-red-fox-at-dusk`. */
@@ -94,19 +117,121 @@ export function createModelService(deps: ModelServiceDeps) {
   const running = new Map<string, AbortController>();
   const now = deps.now ?? (() => new Date());
 
+  type Progress = (
+    status: ModelGenerateProgressEvent['status'],
+    stage?: ModelGenerateStage,
+    error?: string,
+    extra?: Partial<Pick<ModelGenerateProgressEvent, 'iteration' | 'action' | 'primary'>>,
+  ) => void;
+
+  /**
+   * One iterative run. Either it ends the generation (`result`) or — when the agent never managed to
+   * edit the model — it hands back the stem it created so the one-shot path can fill the same files.
+   */
+  async function iterate(
+    req: ModelGenerateRequest,
+    engine: Extract<ModelEngine, { kind: 'agent' }>,
+    signal: AbortSignal,
+    files: string[],
+    progress: Progress,
+  ): Promise<{ kind: 'result'; result: GitOpResult<ModelGenerateResult> } | { kind: 'fallback'; reuse: { stem: string; reference: string | undefined } | null }> {
+    const iter = deps.iterative!;
+    const repoPath = await iter.repoPath(req.repoId);
+    if (!repoPath) return { kind: 'fallback', reuse: null };
+
+    const createdAt = now();
+    const stem = `${modelSlug(req.prompt || 'reference')}-${modelTimeStamp(createdAt)}`;
+    const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
+    let reference: string | undefined;
+    if (req.image) {
+      reference = `${stem}.ref.${IMAGE_EXT[req.image.mime] ?? 'png'}`;
+      const wrote = await deps.writeBytes({ ...scope, path: reference, data: Buffer.from(req.image.data, 'base64') });
+      if (!wrote.ok) return { kind: 'fallback', reuse: null };
+    }
+    const sidecar: ModelSidecar = {
+      version: 1,
+      name: stem,
+      prompt: req.prompt,
+      engine: `${engineLabel(engine)} (iterative)`,
+      ...(reference ? { reference } : {}),
+      spec: { ...PLACEHOLDER_SPEC, name: req.prompt.slice(0, 60).trim() || 'model' },
+      createdAt: createdAt.toISOString(),
+    };
+    const created = await writeTrio(scope, stem, sidecar, files);
+    if (!created.ok) return { kind: 'fallback', reuse: null };
+    if (reference) files.push(reference);
+
+    const maxIterations = req.maxIterations ?? MODEL_ITERATIONS_DEFAULT;
+    const primary = `${stem}.obj`;
+    const target = { repoPath, project: req.project, model: primary };
+    progress('running', 'iterating', undefined, { iteration: { n: 0, max: maxIterations }, primary });
+
+    const outcome = await runIterative({
+      host: iter.host,
+      tools: iter.tools(),
+      agentId: engine.agentId,
+      modelArgs: iter.modelArgs(engine),
+      prompt: buildIterativePrompt({ prompt: req.prompt, hasReference: reference !== undefined, target, maxIterations }),
+      target,
+      cwd: repoPath,
+      maxIterations,
+      signal,
+      onProgress: (p) => progress('running', 'iterating', undefined, { ...p, primary }),
+    });
+
+    if (outcome.kind === 'cancelled') {
+      progress('cancelled', undefined, undefined, { primary });
+      return { kind: 'result', result: failure('cancelled') };
+    }
+    if (outcome.kind === 'failed') {
+      // Nothing was ever built: the files are still the placeholder, so let the one-shot path fill them.
+      if (outcome.edits === 0) return { kind: 'fallback', reuse: { stem, reference } };
+      progress('failed', undefined, outcome.message, { primary });
+      return { kind: 'result', result: failure(outcome.message) };
+    }
+    progress('succeeded', undefined, undefined, { primary });
+    return { kind: 'result', result: ok({ files: [...files], primary }) };
+  }
+
+  /**
+   * The sidecar first — it is what Save-as rebuilds from, so a half-written run still exports — then
+   * the `.mtl`, `.obj` and `.fbx` rendered from its spec. `written` collects each path as it lands.
+   */
+  async function writeTrio(scope: Scope, stem: string, sidecar: ModelSidecar, written: string[] = []): Promise<GitOpResult<{ files: string[] }>> {
+    const parts = buildScene(sidecar.spec);
+    const outputs: [string, Buffer][] = [
+      [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
+      [`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')],
+      [`${stem}.obj`, Buffer.from(writeObj(parts, `${stem}.mtl`, sidecar.spec.name), 'utf8')],
+      [`${stem}.fbx`, writeFbxBinary(parts)],
+    ];
+    for (const [path, data] of outputs) {
+      const wrote = await deps.writeBytes({ ...scope, path, data });
+      if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
+      written.push(path);
+    }
+    return ok({ files: written });
+  }
+
   async function generate(req: ModelGenerateRequest): Promise<GitOpResult<ModelGenerateResult>> {
     if (running.has(req.generationId)) return failure('This generation is already running.');
     const controller = new AbortController();
     running.set(req.generationId, controller);
     const { signal } = controller;
     const files: string[] = [];
-    const progress = (status: ModelGenerateProgressEvent['status'], stage?: ModelGenerateStage, error?: string) =>
+    const progress = (
+      status: ModelGenerateProgressEvent['status'],
+      stage?: ModelGenerateStage,
+      error?: string,
+      extra: Partial<Pick<ModelGenerateProgressEvent, 'iteration' | 'action' | 'primary'>> = {},
+    ) =>
       deps.emit({
         generationId: req.generationId,
         repoId: req.repoId,
         project: req.project,
         status,
         ...(stage ? { stage } : {}),
+        ...extra,
         files: [...files],
         ...(error ? { error } : {}),
       });
@@ -120,6 +245,14 @@ export function createModelService(deps: ModelServiceDeps) {
     };
 
     try {
+      // An agent CLI that speaks MCP iterates: it builds, renders, looks and refines through the model_* tools.
+      let reuse: { stem: string; reference: string | undefined } | null = null;
+      if (req.engine.kind === 'agent' && req.iterative !== false && agentIteratesModel(req.engine.agentId) && deps.iterative) {
+        const attempt = await iterate(req, req.engine, signal, files, progress);
+        if (attempt.kind === 'result') return attempt.result;
+        reuse = attempt.reuse;
+      }
+
       let imageDescription: string | undefined;
       if (req.image) {
         progress('running', 'describing');
@@ -152,34 +285,22 @@ export function createModelService(deps: ModelServiceDeps) {
 
       progress('running', 'building');
       const createdAt = now();
-      const stem = `${modelSlug(spec.name === 'model' ? req.prompt || 'model' : spec.name)}-${modelTimeStamp(createdAt)}`;
+      const stem = reuse?.stem ?? `${modelSlug(spec.name === 'model' ? req.prompt || 'model' : spec.name)}-${modelTimeStamp(createdAt)}`;
       const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
-      const obj = renderModel(spec, 'obj', stem);
-      const mtl = Buffer.from(writeMtl(buildScene(spec)), 'utf8');
-      const fbx = renderModel(spec, 'fbx', stem);
       const sidecar: ModelSidecar = {
         version: 1,
         name: stem,
         prompt: req.prompt,
         ...(imageDescription ? { imageDescription } : {}),
         engine: engineLabel(req.engine),
+        ...(reuse?.reference ? { reference: reuse.reference } : {}),
         spec,
         createdAt: createdAt.toISOString(),
       };
 
       progress('running', 'writing');
-      // The sidecar goes first: it is what Save-as rebuilds from, so a half-written run still exports.
-      const outputs: [string, Buffer][] = [
-        [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
-        [`${stem}.mtl`, mtl],
-        [`${stem}.obj`, obj],
-        [`${stem}.fbx`, fbx],
-      ];
-      for (const [path, data] of outputs) {
-        const wrote = await deps.writeBytes({ ...scope, path, data });
-        if (!wrote.ok) return fail(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
-        files.push(path);
-      }
+      const wrote = await writeTrio(scope, stem, sidecar, files);
+      if (!wrote.ok) return fail(wrote.kind === 'error' ? wrote.message : 'Could not write the model.');
       progress('succeeded');
       return ok({ files, primary: `${stem}.obj` });
     } catch (error) {
@@ -265,7 +386,18 @@ export function createModelService(deps: ModelServiceDeps) {
     return ok({ files });
   }
 
-  return { generate, cancel, exportBytes, saveEdit };
+  /** A new model from a design: the sidecar plus the trio, so it appears in the explorer at once. */
+  async function createModel(req: { repoId: string; project: string; stem: string; spec: ModelSpec; engine: string }): Promise<GitOpResult<{ primary: string }>> {
+    const sidecar: ModelSidecar = { version: 1, name: req.stem, prompt: '', engine: req.engine, spec: req.spec, createdAt: now().toISOString() };
+    const wrote = await writeTrio({ repoId: req.repoId, tab: 'model', project: req.project }, req.stem, sidecar);
+    return wrote.ok ? ok({ primary: `${req.stem}.obj` }) : wrote;
+  }
+
+  /** Rewrite only the sidecar — cheap enough for an agent's intermediate edits. */
+  const writeSidecar = (req: { repoId: string; project: string; path: string; sidecar: ModelSidecar }): Promise<GitOpResult<unknown>> =>
+    deps.writeBytes({ repoId: req.repoId, tab: 'model', project: req.project, path: req.path, data: Buffer.from(JSON.stringify(req.sidecar, null, 2) + '\n', 'utf8') });
+
+  return { generate, cancel, exportBytes, saveEdit, createModel, writeSidecar };
 }
 
 export type ModelService = ReturnType<typeof createModelService>;

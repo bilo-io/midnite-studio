@@ -878,7 +878,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -3164,6 +3164,15 @@ export function buildMockBridge(data: MockFixtures) {
           return { ok: true as const, value: { files: [sidecarPath] } };
         },
         onProgress: unsubscribe,
+        // Specs fire these through `window.__mockModelEvents` to stand in for an agent editing a model.
+        onChanged: (handler: (event: unknown) => void) => {
+          modelEvents.changed.add(handler);
+          return () => modelEvents.changed.delete(handler);
+        },
+        onOpen: (handler: (event: unknown) => void) => {
+          modelEvents.open.add(handler);
+          return () => modelEvents.open.delete(handler);
+        },
       },
       reveal: async () => ({ ok: true as const }),
       ffmpegStatus: async () => ({
@@ -4320,11 +4329,13 @@ export function buildMockBridge(data: MockFixtures) {
           '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
         allowUi: mcpAllowUi,
         allowGateDecide: mcpAllowGateDecide,
+        allowModels: mcpAllowModels,
       }),
-      set: async (req: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean }) => {
+      set: async (req: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
+        if (req.allowModels !== undefined) mcpAllowModels = req.allowModels;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -4335,6 +4346,7 @@ export function buildMockBridge(data: MockFixtures) {
             '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
           allowUi: mcpAllowUi,
           allowGateDecide: mcpAllowGateDecide,
+          allowModels: mcpAllowModels,
         };
       },
       calls: async () => ({
@@ -4540,6 +4552,16 @@ export function buildMockBridge(data: MockFixtures) {
   // Phase 97 Theme D's third switch — same off-by-default, independent posture.
   // eslint-disable-next-line no-var
   var mcpAllowGateDecide = data.mcp?.allowGateDecide ?? false;
+  // Phase 99 Theme G's fourth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowModels = data.mcp?.allowModels ?? false;
+  // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
+  // eslint-disable-next-line no-var
+  var modelEvents = { changed: new Set<(event: unknown) => void>(), open: new Set<(event: unknown) => void>() };
+  (window as unknown as { __mockModelEvents: unknown }).__mockModelEvents = {
+    changed: (event: unknown) => modelEvents.changed.forEach((handler) => handler(event)),
+    open: (event: unknown) => modelEvents.open.forEach((handler) => handler(event)),
+  };
 
   // Which STT providers a key has been "saved" for in this page's lifetime
   // (Theme F) — mutated by `sttSet`, read by `sttStatus`, so a spec can

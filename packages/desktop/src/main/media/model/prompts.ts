@@ -1,4 +1,6 @@
-import { MODEL_MAX_PARTS } from '@midnite/studio-shared';
+import { MODEL_MAX_PARTS, MODEL_PATCH_MAX_OPS } from '@midnite/studio-shared';
+
+import { modelSpecReference } from './spec-reference';
 
 /**
  * The prompts behind Media ▸ Models. The design asks the LLM for *structure*,
@@ -27,24 +29,14 @@ const EXAMPLE = {
 
 export const SPEC_RULES = `You design 3D models as JSON. Reply with ONE JSON object and nothing else — no prose, no markdown fence.
 
-Schema:
-{ "name": string, "parts": [ part, ... ] }   // 1 to ${MODEL_MAX_PARTS} parts, usually 6 to 30
+${modelSpecReference()}
 
-Every part has: "name" (string), "shape", "position" [x,y,z], optional "rotation" [x,y,z] in degrees, optional "scale" [x,y,z], "color" as "#rrggbb".
-Shapes and their size fields (all numbers positive, in metres):
-- "box": "size" [width(x), height(y), depth(z)]
-- "sphere": "radius"
-- "cylinder": "radiusTop", "radiusBottom", "height"
-- "cone": "radius", "height"
-- "torus": "radius" (ring), "tube" (thickness)
-- "lathe": "profile" [[radius, y], ...] revolved around the Y axis, 2 to 32 points, listed bottom to top — for vases, bottles, chess pieces, lamps
-- "extrude": "outline" [[x, z], ...] (3 to 64 points, a simple polygon), "height" — extruded up from y=0, for walls, signs, L-shapes
+All numbers are plain numbers in metres, colours are "#rrggbb".
 
 Rules:
 - Y is up. Rest the model on the ground: its lowest point at y=0, centred on x=0, z=0.
-- Every part is centred on its own "position" (an extrude starts at its position and rises by "height"; a lathe is drawn from its position upward by its profile's y values).
-- Build with many small parts, give each distinct pieces its own colour, and keep proportions realistic.
-- Use only the shapes above; numbers must be plain numbers.`;
+- Build with many small parts (usually 6 to 30), give each distinct piece its own colour, and keep proportions realistic.
+- Use only the shapes and fields above.`;
 
 export function buildSpecPrompt(input: { prompt: string; imageDescription?: string | undefined }): string {
   const brief = [
@@ -82,3 +74,46 @@ export function buildRepairPrompt(input: { previousReply: string; error: string 
 
 export const DESCRIBE_IMAGE_PROMPT = `Describe the main object in this picture so a 3D modeller could rebuild it from simple shapes (boxes, spheres, cylinders, cones, tori, revolved profiles).
 List: what it is; its overall proportions (width : height : depth); each distinct part with its shape, relative size, position and colour (use plain colour words). Ignore the background. Be concrete and brief — under 200 words, no preamble.`;
+
+/**
+ * The brief for an iterative (MCP) run: the agent holds the model_* tools and
+ * loops build → render → compare → refine → save. The format itself is *not*
+ * pasted here — `model_get_spec` returns the live, schema-derived reference —
+ * so the prompt stays true when the schema grows.
+ */
+export function buildIterativePrompt(input: {
+  prompt: string;
+  hasReference: boolean;
+  /** The target the tools must be called with. */
+  target: { repoPath: string; project: string; model: string };
+  maxIterations: number;
+  /** A starting design already in the model, when it is not a blank placeholder. */
+  editing?: boolean;
+}): string {
+  const target = JSON.stringify(input.target);
+  return [
+    'You are building a 3D model in Midnite Studio with the model_* tools. You have no other tools: do not look for files, do not write code, do not reply with JSON.',
+    '',
+    `Every tool call takes this target: ${target}`,
+    '',
+    input.prompt.trim() ? `Request: ${input.prompt.trim()}` : 'Request: reproduce the attached reference picture.',
+    input.hasReference
+      ? 'A reference picture is attached: call model_get_reference_image and study it — build what you SEE, its proportions and colours, not a generic version of the object.'
+      : '',
+    '',
+    'Work in this loop:',
+    '1. Call model_get_spec once to read the design format, the limits and the part ids. The model starts as a one-part placeholder: replace it.',
+    `2. Build a first design with model_set_spec (the whole design) — a rough but complete silhouette in correct proportions, at most ${MODEL_MAX_PARTS} parts.`,
+    `3. Call model_render_preview to SEE it (front, side, top and iso views). Compare with the request${input.hasReference ? ' and the reference picture' : ''}: proportions, missing pieces, floating or intersecting parts, colours.`,
+    `4. Refine with model_patch_parts (up to ${MODEL_PATCH_MAX_OPS} add / update / remove ops by part id, applied all or nothing). Use model_set_spec only to start over.`,
+    `5. Repeat 3 and 4. You have ${input.maxIterations} render passes in total; stop early once it looks right. A call that returns "ok": false changed nothing — read its errors and retry.`,
+    '6. Finish by calling model_save. A model that was never saved is lost.',
+    '',
+    'Keep the model resting on the ground (lowest point at y=0) and centred on x=0, z=0. Add detail in the later passes: first the big shapes, then the small ones.',
+    input.editing ? 'The model already has a design — start from it with model_get_spec rather than replacing it.' : '',
+    '',
+    'When it is saved, reply with one short sentence describing what you built.',
+  ]
+    .filter((line, index, lines) => line !== '' || lines[index - 1] !== '')
+    .join('\n');
+}

@@ -19,7 +19,15 @@ describe('MCP_TOOLS', () => {
    * `workflow_gate_decide` are the only `readOnly: false` entries —
    * everything else, including `workflow_gates_list`, stays `true`.
    */
-  const writeTools = new Set<McpToolId>(['ui.navigate', 'ui.command', 'workflow_gate_decide']);
+  const writeTools = new Set<McpToolId>([
+    'ui.navigate',
+    'ui.command',
+    'workflow_gate_decide',
+    'model_open',
+    'model_set_spec',
+    'model_patch_parts',
+    'model_save',
+  ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
     for (const id of MCP_TOOL_IDS) {
@@ -108,6 +116,21 @@ describe('MCP_TOOLS', () => {
     'ui.command': { did: 'ran', label: 'Fetch' },
     workflow_gates_list: [],
     workflow_gate_decide: { decided: true },
+    model_list: { projects: [{ name: 'p', models: [{ model: 'a.obj', name: 'a', parts: 2, mtimeMs: 1 }] }] },
+    model_open: { opened: true, model: 'a.obj' },
+    model_get_spec: { spec: {}, revision: 0, schema: {}, reference: '', limits: { maxParts: 128 } },
+    model_set_spec: { ok: false, errors: [{ path: 'parts', message: 'x' }] },
+    model_patch_parts: {
+      ok: true,
+      model: 'a.obj',
+      revision: 1,
+      partCount: 1,
+      parts: [{ id: 'p1', name: 'a', shape: 'box' }],
+      bounds: { min: [0, 0, 0], max: [1, 1, 1], size: [1, 1, 1] },
+    },
+    model_render_preview: { _content: [] },
+    model_get_reference_image: { _content: [] },
+    model_save: { saved: true, files: ['a.obj'] },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -132,6 +155,14 @@ describe('MCP_TOOLS', () => {
       // comment) — neither gate tool extends `McpRepoTarget`.
       workflow_gates_list: {},
       workflow_gate_decide: { runId: 'r1', nodeId: 'n1', decision: 'approved' },
+      model_list: base,
+      model_set_spec: { ...base, project: 'p', model: 'a', spec: { parts: [] } },
+      model_patch_parts: { ...base, project: 'p', model: 'a.obj', ops: [{ op: 'remove', id: 'p1' }] },
+      model_open: { ...base, project: 'p', model: 'a.obj' },
+      model_get_spec: { ...base, project: 'p', model: 'a.obj' },
+      model_render_preview: { ...base, project: 'p', model: 'a.obj' },
+      model_get_reference_image: { ...base, project: 'p', model: 'a.obj' },
+      model_save: { ...base, project: 'p', model: 'a.obj' },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;

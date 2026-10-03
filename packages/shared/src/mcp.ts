@@ -14,6 +14,14 @@ import {
   WindowRoleSchema,
 } from './domain';
 import { isCommandId } from './keybindings';
+import {
+  ModelEditResultSchema,
+  ModelListInputSchema,
+  ModelPatchPartsInputSchema,
+  ModelRenderPreviewInputSchema,
+  ModelSetSpecInputSchema,
+  ModelToolTargetSchema,
+} from './media-model-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -64,7 +72,15 @@ type McpToolEntry = {
     | 'ui.navigate'
     | 'ui.command'
     | 'workflow_gates_list'
-    | 'workflow_gate_decide';
+    | 'workflow_gate_decide'
+    | 'model_list'
+    | 'model_open'
+    | 'model_get_spec'
+    | 'model_set_spec'
+    | 'model_patch_parts'
+    | 'model_render_preview'
+    | 'model_get_reference_image'
+    | 'model_save';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -272,6 +288,99 @@ export const MCP_TOOLS = {
       note: z.string().optional(),
     }),
     output: z.object({ decided: z.literal(true) }),
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Models (Phase 99 Theme G) — build a 3D model iteratively. The three
+   * read tools and the preview render always work once the server is on; the
+   * four that change a model or the window are gated by `Settings ▸ MCP ▸ Let
+   * agents edit 3D models` (`allowModels` on `McpSettings`), off by default.
+   * Every call names the model by `repoPath` + `project` + `model`, and an
+   * edit shows up live in the open Models tab. Full flow: `media-model-mcp.ts`.
+   */
+  model_list: {
+    id: 'model_list',
+    title: 'List 3D models',
+    description:
+      'Lists the Models projects and the 3D models in them with their part counts — use instead of `ls .midnite/media/model`; the `model` path it returns is what every other model tool takes.',
+    input: ModelListInputSchema,
+    output: z.object({
+      projects: z.array(
+        z.object({
+          name: z.string(),
+          models: z.array(z.object({ model: z.string(), name: z.string(), parts: z.number().nullable(), mtimeMs: z.number() })),
+        }),
+      ),
+    }),
+    readOnly: true,
+  },
+  model_open: {
+    id: 'model_open',
+    title: 'Show a model in the Models tab',
+    description:
+      'Opens one model in the Models tab so the user watches edits land live — use after `model_list`; refused unless its own Settings switch is on.',
+    input: ModelToolTargetSchema,
+    output: z.object({ opened: z.literal(true), model: z.string() }),
+    readOnly: false,
+  },
+  model_get_spec: {
+    id: 'model_get_spec',
+    title: 'Read a model’s design and the schema',
+    description:
+      'Returns a model’s design JSON with part ids, plus the schema, limits and primitive reference — use instead of reading the `.json` sidecar; call it first to learn the format.',
+    input: ModelToolTargetSchema,
+    output: z.object({
+      spec: z.unknown(),
+      revision: z.number().int(),
+      schema: z.unknown(),
+      reference: z.string(),
+      limits: z.object({ maxParts: z.number() }),
+    }),
+    readOnly: true,
+  },
+  model_set_spec: {
+    id: 'model_set_spec',
+    title: 'Replace a model’s whole design',
+    description:
+      'Replaces a model’s whole design, or starts a new model when `model` is a bare name — validated, with per-field errors; refused unless its own Settings switch is on.',
+    input: ModelSetSpecInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_patch_parts: {
+    id: 'model_patch_parts',
+    title: 'Add, update or remove parts by id',
+    description:
+      'Patches a model’s parts by id with add, update and remove ops, all or nothing — use instead of rewriting the whole design; refused unless its own Settings switch is on.',
+    input: ModelPatchPartsInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_render_preview: {
+    id: 'model_render_preview',
+    title: 'Render the model from several angles',
+    description:
+      'Renders a model to PNG images from front, side, top and iso cameras so you can see it — use instead of guessing from the JSON; returns image content, at most 768 px each.',
+    input: ModelRenderPreviewInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  model_get_reference_image: {
+    id: 'model_get_reference_image',
+    title: 'Get the user’s reference picture',
+    description:
+      'Returns the picture the user attached to a model as image content — use instead of relying on a text description of it; answers not-found when there is none.',
+    input: ModelToolTargetSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  model_save: {
+    id: 'model_save',
+    title: 'Write the model’s files',
+    description:
+      'Saves a model by writing its `.json`, `.obj`, `.mtl` and `.fbx` files — call it when the design is finished; refused unless its own Settings switch is on.',
+    input: ModelToolTargetSchema,
+    output: z.object({ saved: z.literal(true), files: z.array(z.string()) }),
     readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;

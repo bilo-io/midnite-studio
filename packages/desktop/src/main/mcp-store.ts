@@ -37,7 +37,13 @@ import { join } from 'node:path';
  * already turns into `false` — no separate migration branch needed, exactly
  * Theme F's own precedent for `allowUi`.
  */
-export type McpSettings = { version: 3; enabled: boolean; allowUi: boolean; allowGateDecide: boolean };
+export type McpSettings = {
+  version: 4;
+  enabled: boolean;
+  allowUi: boolean;
+  allowGateDecide: boolean;
+  allowModels: boolean;
+};
 
 export type McpStore = {
   load: () => Promise<McpSettings>;
@@ -47,10 +53,11 @@ export type McpStore = {
 const FILE_NAME = 'mcp.json';
 
 export const DEFAULT_MCP_SETTINGS: McpSettings = {
-  version: 3,
+  version: 4,
   enabled: false,
   allowUi: false,
   allowGateDecide: false,
+  allowModels: false,
 };
 
 export function createMcpStore(directory: string): McpStore {
@@ -79,6 +86,14 @@ export function createMcpStore(directory: string): McpStore {
 }
 
 /**
+
+ * **`version: 4` adds `allowModels`** (Phase 99 Theme G) — a FOURTH switch with the
+ * same off-by-default posture, gating the `model_*` tools that change a model
+ * (`model_set_spec`, `model_patch_parts`, `model_save`) or the window
+ * (`model_open`). The read tools — list, get_spec, render_preview,
+ * get_reference_image — work whenever the server is on. Older files have no
+ * key, which `=== true` already reads as `false`.
+ *
  * Validate without zod: this module is main-only and the shape is four
  * fields, matching `repo-store.ts`'s own reasoning for a hand-rolled guard.
  *
@@ -94,7 +109,8 @@ export function parseStoredSettings(value: unknown): McpSettings {
   const enabled = (value as { enabled?: unknown }).enabled === true;
   const allowUi = (value as { allowUi?: unknown }).allowUi === true;
   const allowGateDecide = (value as { allowGateDecide?: unknown }).allowGateDecide === true;
-  return { version: 3, enabled, allowUi, allowGateDecide };
+  const allowModels = (value as { allowModels?: unknown }).allowModels === true;
+  return { version: 4, enabled, allowUi, allowGateDecide, allowModels };
 }
 
 /** A store that always reports "off" — the fallback before one is configured. */

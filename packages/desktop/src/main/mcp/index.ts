@@ -5,13 +5,15 @@ import { defaultLogger, type Logger } from '../log';
 import { startMcpServer, type McpServerHandle } from './server';
 import {
   getMcpAllowGateDecide,
+  getMcpAllowModels,
   getMcpAllowUi,
   resetMcpAllowUiStateForTests,
   setMcpAllowGateDecideState,
+  setMcpAllowModelsState,
   setMcpAllowUiState,
 } from './ui-gate';
 
-export { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
+export { getMcpAllowGateDecide, getMcpAllowModels, getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -22,7 +24,7 @@ export { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
  * builds alike; `.asar.unpacked` is the one packaged-only wrinkle, since a
  * spawned child process cannot read a file out of the asar archive.
  */
-function mcpShimScriptPath(): string {
+export function mcpShimScriptPath(): string {
   return join(__dirname, 'mcp-shim.js').replace('app.asar', 'app.asar.unpacked');
 }
 
@@ -43,6 +45,8 @@ export type McpStatus = {
   allowUi: boolean;
   /** Phase 97 Theme D's third switch — whether `workflow_gate_decide` may actually decide anything. */
   allowGateDecide: boolean;
+  /** Phase 99 Theme G's fourth switch — whether the `model_*` tools that change a model may actually act. */
+  allowModels: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -84,6 +88,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   enabled = settings.enabled;
   setMcpAllowUiState(settings.allowUi);
   setMcpAllowGateDecideState(settings.allowGateDecide);
+  setMcpAllowModelsState(settings.allowModels);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -109,6 +114,7 @@ export function getMcpStatus(): McpStatus {
     shimPath: mcpShimScriptPath(),
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
   };
 }
 
@@ -126,10 +132,11 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 3,
+    version: 4,
     enabled: next,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
@@ -163,7 +170,13 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 3, enabled, allowUi: next, allowGateDecide: getMcpAllowGateDecide() };
+  const settings: McpSettings = {
+    version: 4,
+    enabled,
+    allowUi: next,
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+  };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowUiState(next);
 
@@ -180,9 +193,38 @@ export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnable
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 3, enabled, allowUi: getMcpAllowUi(), allowGateDecide: next };
+  const settings: McpSettings = {
+    version: 4,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: next,
+    allowModels: getMcpAllowModels(),
+  };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGateDecideState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 99 Theme G's fourth Settings switch. Identical shape to the other
+ * two narrow switches — never starts or stops the socket, only gates whether
+ * the model-changing `model_*` tools act once a call reaches them.
+ */
+export async function setMcpAllowModels(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 4,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: next,
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowModelsState(next);
 
   return { ok: true, status: getMcpStatus() };
 }

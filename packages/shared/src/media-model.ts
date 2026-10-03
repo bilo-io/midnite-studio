@@ -19,7 +19,11 @@ import { MediaProjectNameSchema } from './media';
 
 // --- the spec an LLM writes ----------------------------------------------------
 
-export const MODEL_MAX_PARTS = 64;
+/**
+ * The one part cap — schema, prompts and MCP tools all read it. 128 rather than the original 64:
+ * an agent building iteratively adds detail pass by pass and routinely outgrows 64.
+ */
+export const MODEL_MAX_PARTS = 128;
 export const MODEL_NAME_MAX = 60;
 export const MODEL_MAX_DIMENSION = 1000;
 export const MODEL_PROMPT_MAX = 4000;
@@ -34,6 +38,8 @@ const Vec3Schema = z.tuple([coord, coord, coord]);
 export const ModelColorSchema = z.string().regex(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i, 'must be a #rrggbb hex colour');
 
 const partBase = {
+  /** Stable handle for `model_patch_parts`; assigned by main when absent, so a one-shot design needs none. */
+  id: z.string().trim().min(1).max(40).optional(),
   name: z.string().trim().min(1).max(MODEL_NAME_MAX).default('part'),
   /** World position of the part's origin. */
   position: Vec3Schema.default([0, 0, 0]),
@@ -44,8 +50,6 @@ const partBase = {
 };
 
 /** The shapes a part can be, in prompt order. */
-export const MODEL_SHAPES = ['box', 'sphere', 'cylinder', 'cone', 'torus', 'lathe', 'extrude'] as const;
-
 export const ModelPartSchema = z.discriminatedUnion('shape', [
   z.object({ ...partBase, shape: z.literal('box'), size: z.tuple([dimension, dimension, dimension]) }),
   z.object({ ...partBase, shape: z.literal('sphere'), radius: dimension }),
@@ -76,6 +80,9 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
   }),
 ]);
 export type ModelPart = z.infer<typeof ModelPartSchema>;
+
+/** The shapes a part can be, in prompt order — derived from the union, so a new kind appears here by being added there. */
+export const MODEL_SHAPES = ModelPartSchema.options.map((option) => option.shape.shape.value) as ModelPart['shape'][];
 export type ModelPartInput = z.input<typeof ModelPartSchema>;
 
 export const ModelSpecSchema = z.object({
@@ -112,6 +119,8 @@ export const ModelSidecarSchema = z.object({
   /** What the vision model said about the attached image, when there was one. */
   imageDescription: z.string().optional(),
   engine: z.string().min(1),
+  /** A reference picture kept beside the design (`<stem>.ref.<ext>`) — what `model_get_reference_image` serves. */
+  reference: z.string().min(1).optional(),
   spec: ModelSpecSchema,
   createdAt: z.string().min(1),
 });
@@ -137,6 +146,18 @@ export const ModelEngineSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('agent'), agentId: z.string().min(1), model: LoopModelSchema.optional() }),
 ]);
 export type ModelEngine = z.infer<typeof ModelEngineSchema>;
+
+/** Preview-and-refine passes an iterative run gets by default, and the most a request may ask for. */
+export const MODEL_ITERATIONS_DEFAULT = 5;
+export const MODEL_ITERATIONS_MAX = 12;
+
+/**
+ * Agent CLIs that can run the iterative (MCP) mode — the Midnite MCP server is attached per run
+ * (`--mcp-config` for Claude Code, `-c mcp_servers.*` for Codex). Every other CLI, and Ollama,
+ * keeps the one-shot JSON path.
+ */
+export const MODEL_ITERATIVE_AGENTS = ['claude', 'codex'] as const;
+export const agentIteratesModel = (agentId: string): boolean => (MODEL_ITERATIVE_AGENTS as readonly string[]).includes(agentId);
 
 export type ModelOllamaSuggestion = {
   id: string;
@@ -212,6 +233,10 @@ export const ModelGenerateRequestSchema = z
     /** Ollama vision model that describes `image`; main falls back to a discovered one. */
     visionModel: z.string().min(1).max(200).optional(),
     image: ModelImageAttachmentSchema.optional(),
+    /** Iterative (MCP) runs only: how many preview-and-refine passes the agent gets. */
+    maxIterations: z.number().int().min(1).max(MODEL_ITERATIONS_MAX).optional(),
+    /** `false` forces the one-shot JSON path even for an agent that could iterate. */
+    iterative: z.boolean().optional(),
   })
   .refine((req) => req.prompt.length > 0 || req.image !== undefined, {
     message: 'Describe the model, attach an image, or both.',
@@ -220,7 +245,7 @@ export const ModelGenerateRequestSchema = z
 export type ModelGenerateRequest = z.infer<typeof ModelGenerateRequestSchema>;
 export type ModelGenerateInput = z.input<typeof ModelGenerateRequestSchema>;
 
-export const MODEL_GENERATE_STAGES = ['describing', 'generating', 'repairing', 'building', 'writing'] as const;
+export const MODEL_GENERATE_STAGES = ['describing', 'generating', 'repairing', 'building', 'writing', 'iterating'] as const;
 export const ModelGenerateStageSchema = z.enum(MODEL_GENERATE_STAGES);
 export type ModelGenerateStage = z.infer<typeof ModelGenerateStageSchema>;
 
@@ -230,6 +255,7 @@ export const MODEL_STAGE_LABELS: Record<ModelGenerateStage, string> = {
   repairing: 'Fixing the design…',
   building: 'Building the mesh…',
   writing: 'Writing .obj and .fbx…',
+  iterating: 'Refining with the agent…',
 };
 
 /** Pushed on `mstudio:media:model-progress`. */
@@ -239,6 +265,12 @@ export const ModelGenerateProgressEventSchema = z.object({
   project: MediaProjectNameSchema,
   status: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
   stage: ModelGenerateStageSchema.optional(),
+  /** Iterative runs: which preview-and-refine pass this is, out of the budget. */
+  iteration: z.object({ n: z.number().int().min(0), max: z.number().int().min(1) }).optional(),
+  /** Iterative runs: the latest tool the agent called, in words ("Added 3 parts"). */
+  action: z.string().optional(),
+  /** Iterative runs: the `.obj` the agent is editing, so the editor can follow it live. */
+  primary: z.string().optional(),
   files: z.array(z.string()),
   error: z.string().optional(),
 });

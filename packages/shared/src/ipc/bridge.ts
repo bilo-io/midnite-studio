@@ -1155,6 +1155,12 @@ export type MidniteStudioBridge = {
       onProgress: (
         handler: (event: z.infer<typeof S.MediaModelProgressPayload>) => void,
       ) => Unsubscribe;
+      /** An agent edited a model — the open editor adopts the new design live. */
+      onChanged: (
+        handler: (event: z.infer<typeof S.MediaModelChangedPayload>) => void,
+      ) => Unsubscribe;
+      /** `model_open` asked for a model to be shown. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaModelOpenPayload>) => void) => Unsubscribe;
     };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;

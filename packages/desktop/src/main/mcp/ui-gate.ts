@@ -13,6 +13,7 @@
 
 let allowUi = false;
 let allowGateDecide = false;
+let allowModels = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -34,8 +35,19 @@ export function setMcpAllowGateDecideState(next: boolean): void {
   allowGateDecide = next;
 }
 
+/** Read synchronously by the `model_*` write tools (Phase 99 Theme G) before they touch a model. */
+export function getMcpAllowModels(): boolean {
+  return allowModels;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowModelsState(next: boolean): void {
+  allowModels = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
   allowGateDecide = false;
+  allowModels = false;
 }
