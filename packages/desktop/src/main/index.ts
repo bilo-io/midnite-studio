@@ -35,6 +35,7 @@ import { registerApiClientHandlers } from './ipc/api-client-handlers';
 import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
+import { registerMarketsHandlers } from './ipc/markets-handlers';
 import { configureSecrets, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
 import { createForgeAccountVault } from './forge/forge-account-vault';
@@ -480,6 +481,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDemoApiHandlers();
     registerSecretsHandlers();
     registerFinanceHandlers();
+    registerMarketsHandlers();
     registerApiClientHandlers(getMainWindow);
     registerMcpHandlers();
     registerCompanionHandlers();

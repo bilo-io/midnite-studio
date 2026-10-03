@@ -139,6 +139,7 @@ const bridge: Pick<
   | 'demoApi'
   | 'secrets'
   | 'finance'
+  | 'markets'
   | 'apiClient'
   | 'video'
   | 'media'
@@ -468,6 +469,15 @@ const bridge: Pick<
     search: (req) => call(CHANNELS.financeSearch, req),
     quote: (req) => call(CHANNELS.financeQuote, req),
     history: (req) => call(CHANNELS.financeHistory, req),
+  },
+  markets: {
+    series: (req) => call(CHANNELS.marketsSeries, req),
+    quotes: (req) => call(CHANNELS.marketsQuotes, req),
+    search: (req) => call(CHANNELS.marketsSearch, req),
+    rates: () => call(CHANNELS.marketsRates),
+    portfolio: () => call(CHANNELS.marketsPortfolioGet),
+    apply: (req) => call(CHANNELS.marketsPortfolioApply, req),
+    news: (req) => call(CHANNELS.marketsNews, req),
   },
   apiClient: {
     listCollections: (req) => call(CHANNELS.apiListCollections, req),

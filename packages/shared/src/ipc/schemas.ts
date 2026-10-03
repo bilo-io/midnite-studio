@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
+import {
+  MarketAssetSchema,
+  MarketNewsItemSchema,
+  MarketNewsSourceSchema,
+  MarketPortfolioSchema,
+  MarketQuoteEntrySchema,
+  MarketSeriesEntrySchema,
+  MarketTimescaleSchema,
+} from '../markets';
+import { MarketPortfolioOpSchema } from '../markets-portfolio';
 
 import {
   CompanionAboutUserSchema,
@@ -4026,3 +4036,57 @@ export const FinanceHistoryRequest = z.object({
 export const FinanceSearchResponse = GitOpResultOf(z.array(FinanceSearchResultSchema));
 export const FinanceQuoteResponse = GitOpResultOf(FinanceQuoteSchema);
 export const FinanceHistoryResponse = GitOpResultOf(z.array(FinanceHistoryPointSchema));
+
+// --- markets: the Finance dashboard (key-free, USD-denominated) -----------------
+
+/** Up to this many assets per batch — the catalogue plus a generous watchlist. */
+export const MARKETS_MAX_ASSETS = 80;
+
+/** Candles for a batch of assets over one timescale. USD, keyed by symbol. */
+export const MarketsSeriesRequest = z.object({
+  assets: z.array(MarketAssetSchema).min(1).max(MARKETS_MAX_ASSETS),
+  timescale: MarketTimescaleSchema,
+});
+export const MarketsSeriesResponse = GitOpResultOf(
+  z.object({ series: z.record(MarketSeriesEntrySchema) }),
+);
+
+/** Latest price for a batch of assets, in USD, keyed by symbol. */
+export const MarketsQuotesRequest = z.object({
+  assets: z.array(MarketAssetSchema).min(1).max(MARKETS_MAX_ASSETS),
+});
+export const MarketsQuotesResponse = GitOpResultOf(
+  z.object({ quotes: z.record(MarketQuoteEntrySchema) }),
+);
+
+export const MarketsSearchRequest = z.object({ query: z.string().trim().min(1).max(60) });
+export const MarketsSearchResponse = GitOpResultOf(
+  z.array(MarketAssetSchema.extend({ exchange: z.string().optional() })),
+);
+
+/** The exchange-rate table: units of each currency per one US dollar. */
+export const MarketsRatesResponse = GitOpResultOf(
+  z.object({
+    base: z.literal('USD'),
+    rates: z.record(z.number()),
+    fetchedAt: z.number().nullable(),
+    stale: z.boolean(),
+  }),
+);
+
+export const MarketsPortfolioResponse = GitOpResultOf(MarketPortfolioSchema);
+export const MarketsPortfolioOpRequest = MarketPortfolioOpSchema;
+
+export const MarketsNewsRequest = z.object({
+  sources: z.array(MarketNewsSourceSchema).min(1).max(40),
+  limit: z.number().int().min(1).max(200).default(60),
+});
+export const MarketsNewsResponse = GitOpResultOf(
+  z.object({
+    items: z.array(MarketNewsItemSchema),
+    /** True when some source failed and its cached items were served instead. */
+    stale: z.boolean(),
+    /** Labels of the sources that produced nothing at all. */
+    failed: z.array(z.string()),
+  }),
+);

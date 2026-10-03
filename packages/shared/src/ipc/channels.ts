@@ -1283,6 +1283,24 @@ export const CHANNELS = {
   /** Seven-day history for one asset. */
   financeHistory: 'mstudio:finance:history',
 
+  // --- markets: the Finance dashboard ----------------------------------------
+  // Key-free public data, fetched in main only. Every price is USD; the
+  // renderer converts through `marketsRates`.
+  /** OHLC candles for a batch of assets over one timescale. */
+  marketsSeries: 'mstudio:markets:series',
+  /** Latest USD price for a batch of assets. */
+  marketsQuotes: 'mstudio:markets:quotes',
+  /** Stock/ETF/crypto symbol autocomplete. */
+  marketsSearch: 'mstudio:markets:search',
+  /** The USD-base exchange-rate table, refreshed hourly in main. */
+  marketsRates: 'mstudio:markets:rates',
+  /** The simulated portfolio: balances, holdings, transaction log, watchlist. */
+  marketsPortfolioGet: 'mstudio:markets:portfolio-get',
+  /** Apply one deposit / withdraw / buy / sell / watch to the portfolio. */
+  marketsPortfolioApply: 'mstudio:markets:portfolio-apply',
+  /** Headlines from RSS feeds and Google News searches. */
+  marketsNews: 'mstudio:markets:news',
+
   // --- knowledge (Phase 87) ---------------------------------------------------
   // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
   // app never runs graphify (phase doc, Decision 4) — every channel below only
