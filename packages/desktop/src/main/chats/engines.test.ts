@@ -1,7 +1,7 @@
 import type { AgentDefinition } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { agyParser, buildInvocation, claudeParser, codexParser, plainParser, type ParsedEvent } from './engines';
+import { agyParser, buildInvocation, claudeContextWindow, claudeParser, codexParser, plainParser, type ParsedEvent } from './engines';
 
 const agent = (id: string, extra: Partial<AgentDefinition> = {}): AgentDefinition => ({
   id,
@@ -34,7 +34,7 @@ const CLAUDE_LINES = [
 ];
 
 describe('claudeParser', () => {
-  it('streams text deltas, ignores thinking, reports the session and tool activity', () => {
+  it('streams text deltas, reports the session and tool activity', () => {
     const events = run(claudeParser(), CLAUDE_LINES);
     expect(events.filter((e) => e.type === 'delta')).toEqual([
       { type: 'delta', text: 'Hey' },
@@ -44,6 +44,11 @@ describe('claudeParser', () => {
     expect(events).toContainEqual({ type: 'activity', line: 'Edit /tmp/x/a.ts' });
     // Text already streamed, so the result carries no duplicate copy.
     expect(events[events.length - 1]).toEqual({ type: 'result' });
+  });
+
+  it('streams thinking deltas as thinking, never as reply text', () => {
+    const events = run(claudeParser(), CLAUDE_LINES);
+    expect(events.filter((e) => e.type === 'thinking')).toEqual([{ type: 'thinking', text: 'hmm' }]);
   });
 
   it('is indifferent to where the chunk boundaries fall', () => {
@@ -63,6 +68,38 @@ describe('claudeParser', () => {
 
   it('skips lines that are not JSON and unknown event shapes', () => {
     expect(run(claudeParser(), ['warning: something', '{"type":"brand_new_event","x":1}', '[1,2]'])).toEqual([]);
+  });
+});
+
+// Usage-bearing lines in the shape `claude -p --output-format stream-json --verbose
+// --include-partial-messages` emits: two API calls (a tool round-trip), then the result.
+const CLAUDE_USAGE_LINES = [
+  '{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":4,"cache_creation_input_tokens":1200,"cache_read_input_tokens":18000,"output_tokens":1}}}}',
+  '{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":90}}}',
+  '{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":2,"cache_creation_input_tokens":300,"cache_read_input_tokens":19200,"output_tokens":1}}}}',
+  '{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":40}}}',
+  '{"type":"result","subtype":"success","is_error":false,"result":"ok","session_id":"s","usage":{"input_tokens":6,"output_tokens":131},"modelUsage":{"claude-opus-5-5":{"inputTokens":6,"outputTokens":131,"contextWindow":1000000}}}',
+];
+
+describe('claudeParser usage', () => {
+  const usages = () =>
+    run(claudeParser(), CLAUDE_USAGE_LINES).flatMap((e) => (e.type === 'usage' ? [e.usage] : []));
+
+  it('tracks output across calls and the context of the latest call', () => {
+    const all = usages();
+    expect(all[0]).toEqual({ outputTokens: 1, contextTokens: 19_205, contextWindow: 200_000 });
+    expect(all[1]).toEqual({ outputTokens: 90, contextTokens: 19_294, contextWindow: 200_000 });
+    expect(all[3]).toEqual({ outputTokens: 130, contextTokens: 19_542, contextWindow: 200_000 });
+  });
+
+  it('takes the result total as authoritative and a reported window over the model-id guess', () => {
+    expect(usages().at(-1)).toEqual({ outputTokens: 131, contextTokens: 19_542, contextWindow: 1_000_000 });
+  });
+
+  it('guesses the window from the model id, long-context variant included', () => {
+    expect(claudeContextWindow('claude-sonnet-5')).toBe(200_000);
+    expect(claudeContextWindow('claude-opus-5-5[1m]')).toBe(1_000_000);
+    expect(claudeContextWindow(undefined)).toBeUndefined();
   });
 });
 
@@ -86,6 +123,19 @@ describe('codexParser', () => {
     expect(events.filter((e) => e.type === 'delta')).toEqual([
       { type: 'delta', text: 'First.' },
       { type: 'delta', text: '\n\nSecond.' },
+    ]);
+  });
+
+  it('reads reasoning items as thinking and the turn usage as generated tokens', () => {
+    const events = run(codexParser(), [
+      '{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Planning** the change"}}',
+      '{"type":"item.completed","item":{"id":"item_1","type":"reasoning","text":"Checking tests"}}',
+      '{"type":"turn.completed","usage":{"input_tokens":24763,"cached_input_tokens":24448,"output_tokens":122}}',
+    ]);
+    expect(events).toEqual([
+      { type: 'thinking', text: '**Planning** the change' },
+      { type: 'thinking', text: '\n\nChecking tests' },
+      { type: 'usage', usage: { outputTokens: 122 } },
     ]);
   });
 
