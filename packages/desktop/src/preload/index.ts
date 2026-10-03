@@ -227,6 +227,7 @@ const bridge: Pick<
     commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
     conflictRegions: (req) => call(CHANNELS.conflictRegions, req),
     blobExists: (req) => call(CHANNELS.blobExists, req),
+    commitStats: (req) => call(CHANNELS.commitStats, req),
   },
   remotes: {
     list: (req) => call(CHANNELS.remotesList, req),

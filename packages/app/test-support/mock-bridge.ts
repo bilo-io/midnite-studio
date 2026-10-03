@@ -1535,6 +1535,7 @@ export function buildMockBridge(data: MockFixtures) {
         hunks: data.conflictRegions?.[req.path] ?? [],
         truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
       }),
+      commitStats: async () => ({ stats: {} }),
       blobExists: async (req: { rev: string; path: string }) => ({
         exists: data.blobExists?.[`${req.rev}:${req.path}`] ?? true,
       }),

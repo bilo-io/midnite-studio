@@ -74,6 +74,8 @@ export const CHANNELS = {
    * — the gate on a pull request's "Fetch to compare" button (Phase 26 Theme H).
    */
   blobExists: 'mstudio:blob:exists',
+  /** `+added -deleted` per commit for the graph's Diff column (batched, merges are null). */
+  commitStats: 'mstudio:commit:stats',
 
   // --- remotes -------------------------------------------------------------
   remotesList: 'mstudio:remotes:list',

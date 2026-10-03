@@ -46,6 +46,8 @@ import { useEditableFocus } from '../../lib/use-editable-focus';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 import { useCommitCi } from './use-commit-ci';
+import { useCommitStats } from './use-commit-stats';
+import { hiddenColumnTokens } from './column-visibility';
 import { useActiveAgentWorktreePaths, useActiveAgentWorktreeSessions } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
@@ -88,6 +90,8 @@ export function GraphView() {
   // by a future build falls back to the default instead of rendering nothing.
   const provenanceMarkMode = provenanceMarkModeOf(useUiStore((s) => s.graphProvenanceMark));
   const showCi = useUiStore((s) => s.graphShowCi);
+  const columnVisibility = useUiStore((s) => s.graphColumnVisibility);
+  const showDiff = columnVisibility.diff;
 
   const { agents } = useAgents();
   const { data: closedSessions } = useSessionHistory();
@@ -572,6 +576,8 @@ export function GraphView() {
     kept-alive graph behind another view, asks for nothing and polls nothing.
   */
   const ciBySha = useCommitCi(repoId, rows, rowCount, virtualizer.range, showCi && visible);
+  // The Diff column: only fetched while it is switched on and the graph is the visible view.
+  const diffBySha = useCommitStats(repoId, rows, rowCount, virtualizer.range, showDiff && visible);
   const ciRef = useRef(ciBySha);
   ciRef.current = ciBySha;
   const [ciModal, setCiModal] = useState<{ sha: string; subject: string | null; ci: CommitCi } | null>(null);
@@ -706,6 +712,7 @@ export function GraphView() {
         className="flex min-w-0 flex-1 flex-col"
         style={graphColumnVars(columns)}
         data-graph-ci={showCi ? 'on' : 'off'}
+        data-graph-hide={hiddenColumnTokens(columnVisibility)}
       >
         {status ? (
           <ConflictBanner status={status} onError={setOpError} onOpenConflict={selectConflict} />
@@ -872,6 +879,7 @@ export function GraphView() {
                     agent={agent}
                     markMode={provenanceMarkMode}
                     ci={showCi ? ciBySha.get(row.commit.sha) : undefined}
+                    diffStat={showDiff ? diffBySha.get(row.commit.sha) : undefined}
                     onOpenCi={onOpenCi}
                     onSelect={toggleCommit}
                     onContextMenu={onRowContextMenu}

@@ -168,6 +168,7 @@ export const SESSION_STATE_KEYS = [
   'fabPanelOpen', // whether a panel is currently showing
   'fabSessions', // derived tab → live-session pairing, meaningless without terminals.json
   'favouriteRepoIds', // user-marked favourites, edited in the repos panel, not a setting
+  'graphColumnVisibility', // toggled from the graph header's columns menu, not Settings — like graphColumns' widths, a view-local choice
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
   'mediaPaneCollapsed', // side panel open state — disclosure state

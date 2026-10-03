@@ -67,6 +67,12 @@ import type { SortState } from '../features/tasks/sort';
 import { REPO_ISSUES_SOURCE_ID } from '../features/tasks/repo-issues-source';
 import { useFileEditorStore } from './file-editor-store';
 
+import {
+  DEFAULT_GRAPH_COLUMN_VISIBILITY,
+  normalizeColumnVisibility,
+  withColumnVisible,
+  type GraphColumnVisibility,
+} from '../features/graph/column-visibility';
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
@@ -1071,6 +1077,8 @@ export type UiState = {
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
+  /** Which optional graph columns show (header columns menu). See `features/graph/column-visibility.ts`. */
+  graphColumnVisibility: GraphColumnVisibility;
   navMode: NavMode;
   collapsedNavSections: string[];
   /** Media page (Phase 99 Theme A) — the active tab, persisted. */
@@ -1350,6 +1358,7 @@ export type UiState = {
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
+  setGraphColumnVisible: (column: string, visible: boolean) => void;
   setNavMode: (mode: NavMode) => void;
   toggleSettingsGroup: (key: SettingsGroupId) => void;
   toggleNavSection: (key: string) => void;
@@ -2167,6 +2176,7 @@ export type PersistedUi = Pick<
   | 'mediaSpeechOn'
   | 'collapsedAccordionSections'
   | 'graphColumns'
+  | 'graphColumnVisibility'
   | 'navMode'
   | 'collapsedNavSections'
   | 'collapsedSettingsGroups'
@@ -2727,6 +2737,7 @@ export const useUiStore = create<UiState>()(
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
+      graphColumnVisibility: DEFAULT_GRAPH_COLUMN_VISIBILITY,
       navMode: 'auto',
       collapsedNavSections: [],
       mediaTab: 'doc',
@@ -2982,6 +2993,10 @@ export const useUiStore = create<UiState>()(
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),
+      setGraphColumnVisible: (column, visible) =>
+        set((state) => ({
+          graphColumnVisibility: withColumnVisible(state.graphColumnVisibility, column, visible),
+        })),
       setNavMode: (navMode) => set({ navMode }),
       toggleNavSection: (key) =>
         set((state) => ({
@@ -3226,6 +3241,7 @@ export const useUiStore = create<UiState>()(
         mediaSpeechOn: state.mediaSpeechOn,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
+        graphColumnVisibility: state.graphColumnVisibility,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
         collapsedSettingsGroups: state.collapsedSettingsGroups,
@@ -3645,6 +3661,7 @@ export const useUiStore = create<UiState>()(
           mediaPaneCollapsed: { ...current.mediaPaneCollapsed, ...saved.mediaPaneCollapsed },
           setupState: { ...current.setupState, ...saved.setupState },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
+          graphColumnVisibility: normalizeColumnVisibility(saved.graphColumnVisibility),
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
           navVisibility: parseNavVisibility(saved.navVisibility ?? current.navVisibility),
           /*

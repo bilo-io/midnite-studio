@@ -196,11 +196,12 @@ function StashRow({
         </span>
       </div>
 
+      <span aria-hidden className="graph-diff-col shrink-0" />
       {showsAuthorColumn(theme) ? (
-        <span className="shrink-0" style={{ width: 'var(--col-author)' }} />
+        <span className="graph-col-author shrink-0" style={{ width: 'var(--col-author)' }} />
       ) : null}
       <span className="shrink-0" style={{ width: 'var(--col-date)' }} />
-      <span className="shrink-0" style={{ width: 'var(--col-sha)' }} />
+      <span className="graph-col-sha shrink-0" style={{ width: 'var(--col-sha)' }} />
     </button>
   );
 }

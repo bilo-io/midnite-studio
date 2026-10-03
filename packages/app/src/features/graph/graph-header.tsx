@@ -12,6 +12,7 @@ import {
 import { bridge } from '../../services/bridge';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
 import { CI_COLUMN_WIDTH } from './ci-cell';
+import { ColumnsMenu } from './columns-menu';
 import { RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { ProvenanceFilter } from './provenance-filter';
 import { RefFilter } from './ref-filter';
@@ -194,7 +195,8 @@ export function GraphHeader({
             </button>
           </div>
         )}
-        <span className="ml-auto text-[11px] text-muted-foreground">{theme.label}</span>
+        <span className="ml-auto" />
+        <ColumnsMenu />
       </div>
 
       <div
@@ -213,6 +215,7 @@ export function GraphHeader({
           axis="x"
           gap={HEADER_GAP}
           label="Resize branch and tag column"
+          className="graph-ref-col-handle"
         />
 
         {/*
@@ -262,18 +265,30 @@ export function GraphHeader({
           Commit message
         </span>
 
+        <span role="columnheader" className="graph-diff-col shrink-0 py-1 text-right">
+          Diff
+        </span>
+
         {/* Only where the node is a dot; see `showsAuthorColumn`. */}
         {showsAuthorColumn(theme) ? (
-          <ResizableColumn label="Author" resizable={columns.author} />
+          <ResizableColumn label="Author" resizable={columns.author} colClass="graph-col-author" />
         ) : null}
         <ResizableColumn label="Date" resizable={columns.date} />
-        <ResizableColumn label="SHA" resizable={columns.sha} />
+        <ResizableColumn label="SHA" resizable={columns.sha} colClass="graph-col-sha" />
       </div>
     </div>
   );
 }
 
-function ResizableColumn({ label, resizable }: { label: string; resizable: Resizable }) {
+function ResizableColumn({
+  label,
+  resizable,
+  colClass = '',
+}: {
+  label: string;
+  resizable: Resizable;
+  colClass?: string;
+}) {
   return (
     <>
       <ResizeHandle
@@ -281,10 +296,11 @@ function ResizableColumn({ label, resizable }: { label: string; resizable: Resiz
         axis="x"
         gap={HEADER_GAP}
         label={`Resize ${label} column`}
+        className={colClass}
       />
       <span
         role="columnheader"
-        className="shrink-0 py-1 text-right"
+        className={`${colClass} shrink-0 py-1 text-right`}
         style={{ width: resizable.current }}
       >
         {label}

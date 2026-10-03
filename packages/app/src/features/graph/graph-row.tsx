@@ -1,4 +1,4 @@
-import type { AgentDefinition, CommitCi, CommitProvenance, GraphRow, Ref } from '@midnite/studio-shared';
+import type { AgentDefinition, CommitCi, CommitDiffStat, CommitProvenance, GraphRow, Ref } from '@midnite/studio-shared';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -7,6 +7,7 @@ import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
 import { UserAvatar } from '../../components/user-avatar';
 import { CiCell } from './ci-cell';
+import { DiffStatCell } from './diff-stat-cell';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import {
@@ -120,6 +121,8 @@ export type GraphRowProps = {
    * only the mark depends on this.
    */
   ci?: CommitCi;
+  /** The Diff column's stat; `undefined` while loading or the column is off, `null` for a merge. */
+  diffStat?: CommitDiffStat | null;
   /** Open the commit's run modal — the CI mark's click. */
   onOpenCi?: (sha: string) => void;
 };
@@ -140,6 +143,7 @@ function GraphRowInner({
   agent,
   markMode = DEFAULT_PROVENANCE_MARK_MODE,
   ci,
+  diffStat,
   onOpenCi,
   onSelect,
   onContextMenu,
@@ -495,6 +499,16 @@ function GraphRowInner({
         </span>
       </div>
 
+      {/* The Diff column (off by default): hidden by `data-graph-hide`, filled only while it is on. */}
+      <span
+        className={`graph-diff-col graph-row-ink flex shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums transition-opacity duration-150 ease-in-out ${
+          dimmed ? 'opacity-40' : ''
+        }`}
+        data-testid="diff-cell"
+      >
+        <DiffStatCell stat={diffStat} />
+      </span>
+
       {/*
         Widths arrive as custom properties set on the scroll container, not as
         props. This component is memoised because a streaming log re-renders the
@@ -509,7 +523,7 @@ function GraphRowInner({
       */}
       {showsAuthorColumn(theme) ? (
         <span
-          className={`graph-row-ink flex shrink-0 items-center justify-end gap-1.5 text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+          className={`graph-col-author graph-row-ink flex shrink-0 items-center justify-end gap-1.5 text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
             dimmed ? 'opacity-40' : ''
           }`}
           style={{ width: 'var(--col-author)' }}
@@ -568,7 +582,7 @@ function GraphRowInner({
         {formatDate(row.commit.committerDate, nowMs)}
       </span>
       <span
-        className={`graph-row-ink shrink-0 text-right font-mono text-xs transition-opacity duration-150 ease-in-out ${
+        className={`graph-col-sha graph-row-ink shrink-0 text-right font-mono text-xs transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
         } ${recencyInk}`}
         style={{ width: 'var(--col-sha)' }}

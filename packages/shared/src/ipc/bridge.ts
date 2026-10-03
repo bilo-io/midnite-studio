@@ -190,6 +190,10 @@ export type MidniteStudioBridge = {
     blobExists: (
       req: In<typeof S.BlobExistsRequest>,
     ) => Promise<z.infer<typeof S.BlobExistsResponse>>;
+    /** Diff stat per commit for a page of visible graph rows (the Diff column). */
+    commitStats: (
+      req: In<typeof S.CommitStatsRequest>,
+    ) => Promise<z.infer<typeof S.CommitStatsResponse>>;
   };
 
   /**
