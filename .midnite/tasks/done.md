@@ -14189,3 +14189,13 @@ against a real throwaway repo via `git-engine`'s `TempRepo`. The Settings checkb
 `hooks.status` (live disk state) on every render rather than a remembered preference, so it can
 never drift from a hook a user deleted or replaced by hand. New `mstudio:hooks:status/install/uninstall`
 IPC channels and a `getHooksPath` read added to `git-engine`.
+
+### Ad hoc — multiple dashboards (Git + Agents), add/remove panels
+
+Ported midnite's multi-dashboard model to the Dashboard view. The existing board is now the
+**Git** dashboard (anchor tab, still keyed per repo, so no persisted layout moved); a default
+**Agents** dashboard (agent roster, live sessions, recent sessions, per-agent activity, loop runs)
+is seeded lazily for fresh and migrated installs alike. Tabs create/rename (double-click)/pin/close/
+drag-reorder (max 10); a searchable, categorised "Add widget" picker replaces the layout menu.
+New panels: five agent cards plus Clock, Date and Scratchpad; Git panels are offered on any
+dashboard. `midnite-studio.dashboard` persist v2 -> v3 (`migrateDashboardState`, tested).
