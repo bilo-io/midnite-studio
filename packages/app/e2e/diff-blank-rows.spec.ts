@@ -30,7 +30,7 @@ function makeDiff(path: string, lines: number) {
     newLines: count,
     heading: '@@',
     lines: Array.from({ length: count }, (_, i) => ({
-      kind: i % 5 === 0 ? 'add' : 'context',
+      kind: i % 5 === 0 ? 'add' : 'ctx',
       oldNo: i % 5 === 0 ? null : start + i,
       newNo: start + i,
       text: `${path} line ${start + i} const value = ${i};`,
@@ -79,7 +79,10 @@ async function open(page: Page, fileList: typeof files, lengths: number[]): Prom
     diffs,
   });
   await page.goto('/');
-  await page.getByText('feat(phase-11): package, install and run from /Applications').click();
+  const row = page.getByText('feat(phase-11): package, install and run from /Applications');
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page.getByTestId('commit-files').filter({ visible: true })).toBeVisible();
 }
 
 /** Every probed point inside the scroller must hit content, not blank space. */
@@ -121,11 +124,8 @@ test('stacked accordions never leave a blank band while scrolling and collapsing
     .filter({ visible: true })
     .first()
     .click();
-  const scroller = page
-    .locator('div.overflow-y-auto')
-    .filter({ has: page.locator('section') })
-    .filter({ visible: true })
-    .first();
+  // The accordions' scroller: the parent of the file sections.
+  const scroller = page.locator('section[class*="border-border/60"]:has(> header button[aria-expanded])').first().locator("xpath=ancestor::div[contains(@class,'overflow-y-auto')][1]");
   await expect(scroller.locator('[data-line-kind]').first()).toBeVisible();
 
   const total = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
