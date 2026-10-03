@@ -121,8 +121,8 @@ describe('VideoProjectDetail', () => {
     expect(session.cwd).toBe('/videos/projects/p1');
     // The typed command is the namespaced skill, never the pre-rename `/video-write-…`.
     const typed = JSON.stringify([session, useTerminalStore.getState().pendingInput]);
-    expect(typed).toContain('/midnite-media-video-write-editorial-script');
-    expect(typed).not.toMatch(/\/video-write-editorial-script/);
+    expect(typed).toContain('midnite-media-video-write-editorial-script');
+    expect(typed).not.toMatch(/[/$]video-write-editorial-script/);
   });
 
   it('disables a Claude action whose skill is missing from the video root, with the reason', async () => {
