@@ -706,6 +706,18 @@ export type MockFixtures = {
       missingKey: boolean;
       models: { id: string; label: string }[];
     }>;
+    /**
+     * Models tab: `media.model.providers()`'s answer. Defaults to Ollama
+     * running with a text model and a vision model installed. `generate`
+     * writes the `.json/.mtl/.obj/.fbx` quartet into `model:<project>`.
+     */
+    modelProviders?: {
+      ollama: {
+        available: boolean;
+        reason?: string;
+        models: { id: string; label: string; vision: boolean; embedding?: boolean }[];
+      };
+    };
   };
   /**
    * Database connections (Phase 61). Absent means an empty list — the
@@ -3106,6 +3118,50 @@ export function buildMockBridge(data: MockFixtures) {
           });
           mediaFiles = { ...mediaFiles, [key]: current };
           return { ok: true as const, value: { sessionId, files } };
+        },
+        onProgress: unsubscribe,
+      },
+      model: {
+        providers: async () => ({
+          providers: data.media?.modelProviders ?? {
+            ollama: {
+              available: true,
+              models: [
+                { id: 'qwen2.5-coder:7b', label: 'qwen2.5-coder:7b', vision: false },
+                { id: 'qwen2.5vl:7b', label: 'qwen2.5vl:7b', vision: true },
+              ],
+            },
+          },
+        }),
+        generate: async (req: { project: string; generationId: string; prompt: string }) => {
+          const key = `model:${req.project}`;
+          const stem = `${req.generationId}`;
+          const files = [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`];
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), ...Object.fromEntries(files.map((file) => [file, file.endsWith('.json') ? '{}' : 'x'])) },
+          };
+          return { ok: true as const, value: { files, primary: `${stem}.obj` } };
+        },
+        cancel: async () => ({ ok: true as const }),
+        export: async (req: { path: string; format: string }) => ({
+          ok: true as const,
+          value: { dest: `/tmp/${req.path.replace(/\.[^.]+$/, '')}.${req.format}` },
+        }),
+        saveEdit: async (req: { project: string; path: string; spec: unknown }) => {
+          const key = `model:${req.project}`;
+          const sidecarPath = req.path.replace(/\.[^.]+$/, '.json');
+          let previous: Record<string, unknown> = {};
+          try {
+            previous = JSON.parse(mediaFiles[key]?.[sidecarPath] ?? '{}') as Record<string, unknown>;
+          } catch {
+            previous = {};
+          }
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), [sidecarPath]: JSON.stringify({ ...previous, spec: req.spec }) },
+          };
+          return { ok: true as const, value: { files: [sidecarPath] } };
         },
         onProgress: unsubscribe,
       },

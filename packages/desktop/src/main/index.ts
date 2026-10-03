@@ -134,6 +134,7 @@ import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
+import { registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
@@ -474,6 +475,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaHandlers();
     registerMediaImageHandlers();
     registerMediaAudioHandlers();
+    registerMediaModelHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();

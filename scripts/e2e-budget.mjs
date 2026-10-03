@@ -192,7 +192,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // across the divider of the working-copy panel and the commit split layout must
 // share top/height/bottom, which is only measurable with real layout
 // (getBoundingClientRect) — jsdom has none.
-export const MAX_DECLARED_E2E = 466;
+// Raised 466 -> 469 for Media ▸ Models' `model-editor.spec.ts` (3 tests): the
+// 3D editor is a react-three-fiber WebGL canvas, which jsdom cannot create at
+// all. The tests prove what only a real browser can — pixels that change with
+// selection and view mode, a real pointer click ray-cast against the meshes,
+// and a real drag orbiting the camera. Reducer, undo/redo, the inspector and
+// the save/export bridge calls are all vitest.
+export const MAX_DECLARED_E2E = 469;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

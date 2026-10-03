@@ -17,7 +17,7 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -26,7 +26,7 @@ export type MediaTab = z.infer<typeof MediaTabSchema>;
  * need an open repo. Video resolves its own root (Theme D), falling back to
  * Phase 44's global setting, so it keeps working with no repo open.
  */
-export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio'];
+export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model'];
 
 /** `<repo>/.midnite/media` — joined with the tab id for each tab's root. */
 export const MEDIA_ROOT_DIR = '.midnite/media';
@@ -51,6 +51,9 @@ export const MEDIA_EXPORT_FORMATS = [
   'mp3',
   'wav',
   'flac',
+  // model (3D) — written by main's own exporters, no ffmpeg
+  'obj',
+  'fbx',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -77,6 +80,8 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   mp3: { label: 'MP3', ext: 'mp3', needsFfmpeg: true },
   wav: { label: 'WAV', ext: 'wav', needsFfmpeg: true },
   flac: { label: 'FLAC', ext: 'flac', needsFfmpeg: true },
+  obj: { label: 'Wavefront OBJ', ext: 'obj', needsFfmpeg: false },
+  fbx: { label: 'Autodesk FBX', ext: 'fbx', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
@@ -85,6 +90,7 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   image: ['png', 'jpeg', 'webp'],
   video: ['mp4', 'webm', 'gif', 'prores'],
   audio: ['mp3', 'wav', 'flac'],
+  model: ['obj', 'fbx'],
 };
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */
