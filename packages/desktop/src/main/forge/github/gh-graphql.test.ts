@@ -1,7 +1,14 @@
 import type { Forge } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { describeGraphqlFailure, parseReviewThreads, pullThreads } from './gh-graphql';
+import {
+  describeGraphqlFailure,
+  listPullsWithReviewComments,
+  parseReviewCommentCounts,
+  parseReviewThreads,
+  pullThreads,
+  reviewCommentCountsQuery,
+} from './gh-graphql';
 
 /*
   `runInShell` mocked, the rest of `gh-shell` real — the same arrangement
@@ -324,5 +331,116 @@ describe('pullThreads', () => {
     // comments" for a pull request nothing was able to ask about.
     expect(result.threads).toEqual([]);
     expect(result.error).toMatch(/Could not resolve to a Repository/);
+  });
+});
+
+/**
+ * The Reviews list's inline-comment totals. Payload shape copied from a real
+ * `gh api graphql` answer for `cli/cli#14200` — two threads, of one and two
+ * comments — with a second alias beside it.
+ */
+describe('reviewCommentCountsQuery', () => {
+  it('asks for every number on the page under its own alias, in one query', () => {
+    const query = reviewCommentCountsQuery([14200, 7]);
+
+    expect(query).toContain('p14200:pullRequest(number:14200){');
+    expect(query).toContain('p7:pullRequest(number:7){');
+    expect(query).toContain('reviewThreads(first:100){nodes{comments{totalCount}}}');
+    expect(query).not.toContain('\n');
+  });
+});
+
+describe('parseReviewCommentCounts', () => {
+  const answer = (repository: unknown): string => JSON.stringify({ data: { repository } });
+
+  it('sums the comments in every thread, per pull request', () => {
+    const counts = parseReviewCommentCounts(
+      answer({
+        p14200: {
+          reviewThreads: {
+            nodes: [{ comments: { totalCount: 1 } }, { comments: { totalCount: 2 } }],
+          },
+        },
+        p7: { reviewThreads: { nodes: [] } },
+      }),
+    );
+
+    expect(counts.get(14200)).toBe(3);
+    expect(counts.get(7)).toBe(0);
+  });
+
+  it('leaves out a pull request the query could not resolve', () => {
+    const counts = parseReviewCommentCounts(answer({ p9: null }));
+
+    expect(counts.has(9)).toBe(false);
+  });
+
+  it('answers empty for output that is not JSON at all', () => {
+    expect(parseReviewCommentCounts('Welcome to zsh').size).toBe(0);
+  });
+});
+
+describe('listPullsWithReviewComments', () => {
+  const forge: Forge = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' };
+  const row = (number: number, comments: number) => ({
+    id: `PR_${number}`,
+    number,
+    title: `PR ${number}`,
+    state: 'OPEN',
+    isDraft: false,
+    reviewDecision: '',
+    headRefName: `branch-${number}`,
+    author: { login: 'bilo-io' },
+    url: `https://github.com/bilo-io/midnite-studio/pull/${number}`,
+    statusCheckRollup: [],
+    mergedAt: null,
+    closedAt: null,
+    comments: Array.from({ length: comments }, () => ({})),
+  });
+  const ok = (output: string) => ({ output, stdout: output, stderr: '', exitCode: 0 });
+
+  beforeEach(() => {
+    runInShell.mockReset();
+  });
+
+  it('adds the inline review comments to the issue comments on each row', async () => {
+    runInShell
+      .mockResolvedValueOnce(ok(JSON.stringify([row(1, 2), row(2, 0)])))
+      .mockResolvedValueOnce(
+        ok(
+          JSON.stringify({
+            data: {
+              repository: {
+                p1: { reviewThreads: { nodes: [{ comments: { totalCount: 3 } }] } },
+                p2: { reviewThreads: { nodes: [{ comments: { totalCount: 1 } }] } },
+              },
+            },
+          }),
+        ),
+      );
+
+    const result = await listPullsWithReviewComments(forge, { limit: 20, state: 'open' });
+
+    expect(result.pulls.map((pull) => pull.commentCount)).toEqual([5, 1]);
+    expect(runInShell).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the issue-comment counts when the GraphQL query fails', async () => {
+    runInShell
+      .mockResolvedValueOnce(ok(JSON.stringify([row(1, 2)])))
+      .mockResolvedValueOnce({ output: '{"errors":[]}', stdout: '', stderr: '', exitCode: 1 });
+
+    const result = await listPullsWithReviewComments(forge, { limit: 20, state: 'open' });
+
+    expect(result.error).toBeNull();
+    expect(result.pulls.map((pull) => pull.commentCount)).toEqual([2]);
+  });
+
+  it('skips the query entirely for an empty page', async () => {
+    runInShell.mockResolvedValueOnce(ok('[]'));
+
+    await listPullsWithReviewComments(forge, { limit: 20, state: 'open' });
+
+    expect(runInShell).toHaveBeenCalledTimes(1);
   });
 });

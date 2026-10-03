@@ -194,9 +194,10 @@ export const ForgePullSchema = z.object({
   closedAt: z.string().nullable().default(null),
   /**
    * Conversation comments on the PR, shown on the list row (hidden at 0).
-   * GitHub: issue comments only (`gh pr list --json comments`) — inline review
-   * comments are not in that payload. Other forges: 0 unless the list API
-   * carries a count for free.
+   * GitHub: issue comments (`gh pr list --json comments`) plus inline review
+   * comments, which that payload omits and one batched GraphQL query per page
+   * adds (`gh-graphql.ts`'s `listPullsWithReviewComments`). Other forges: 0
+   * unless the list API carries a count for free.
    */
   commentCount: z.number().int().nonnegative().default(0),
 });

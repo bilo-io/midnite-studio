@@ -1,9 +1,14 @@
 import {
   ForgeReviewThreadSchema,
   type Forge,
+  type ForgePull,
+  type ForgePullScope,
+  type ForgePullsResult,
   type ForgePullThreadsResult,
   type ForgeReviewThread,
 } from '@midnite/studio-shared';
+
+import { listPulls } from './gh-cli';
 
 import {
   apiHostFlag,
@@ -16,12 +21,13 @@ import {
 } from './gh-shell';
 
 /**
- * The one GraphQL read in the app, and why it has to be one.
+ * The app's GraphQL reads, and why they have to be GraphQL.
  *
  * Every other forge read here goes through `gh`'s own REST-backed subcommands,
  * which is the right default: they are stable, they are what `gh` is for, and a
  * `--json` field list is easier to audit than a query document. Inline review
- * threads are the exception, because REST cannot answer the question.
+ * threads are the exception, because REST cannot answer the question — both the
+ * threads themselves and, for the Reviews list, how many comments they hold.
  *
  * `GET pulls/{n}/comments` returns review comments as a **flat list**, chained
  * only by `in_reply_to_id`, and carries no thread object at all — so grouping
@@ -110,6 +116,115 @@ export async function pullThreads(forge: Forge, number: number): Promise<ForgePu
   }
 
   return { cli, threads: parseReviewThreads(result.output), error: null };
+}
+
+/**
+ * A listing page, with each row's `commentCount` widened to include inline
+ * review comments.
+ *
+ * `gh pr list --json comments` carries issue comments only, so a PR whose whole
+ * discussion happened on the diff would show no bubble at all. The inline half
+ * is one aliased GraphQL query for the whole page — not one per row — run only
+ * here, for the Reviews list, rather than inside `gh-cli.ts`'s `listPulls`,
+ * which the poller, the MCP tools and the trigger scheduler also call and
+ * which none of them need counts from.
+ *
+ * Fails soft to the issue-comment counts already on the rows: a count that is
+ * slightly low is a better outcome than a list that failed to load.
+ */
+export async function listPullsWithReviewComments(
+  forge: Forge,
+  options: {
+    limit: number;
+    state: 'open' | 'closed' | 'merged' | 'all';
+    scope?: ForgePullScope;
+  },
+): Promise<ForgePullsResult> {
+  const result = await listPulls(forge, options);
+  if (result.pulls.length === 0) return result;
+
+  const counts = await reviewCommentCounts(
+    forge,
+    result.pulls.map((pull) => pull.number),
+  );
+  if (counts === null) return result;
+  return { ...result, pulls: withReviewComments(result.pulls, counts) };
+}
+
+/**
+ * Inline review comments per pull request number, or null if the query failed.
+ *
+ * Counts every comment in every thread, resolved and outdated included —
+ * GitHub's own list bubble counts them too. `THREAD_PAGE` caps the threads read
+ * per PR, the same cap the detail view's thread reader uses.
+ */
+async function reviewCommentCounts(
+  forge: Forge,
+  numbers: readonly number[],
+): Promise<Map<number, number> | null> {
+  const command =
+    `gh api graphql${apiHostFlag(forge)}` +
+    ` -f query=${shellQuote(reviewCommentCountsQuery(numbers))}` +
+    // `-f` for both, for the same reason `pullThreads` gives.
+    ` -f owner=${shellQuote(forge.owner)}` +
+    ` -f name=${shellQuote(forge.repo)}`;
+
+  const result = await runInShell(command, LIST_TIMEOUT_MS);
+  if (result.exitCode !== 0) return null;
+  return parseReviewCommentCounts(result.output);
+}
+
+/**
+ * One alias per pull request — `p123: pullRequest(number:123){…}` — so a page
+ * of rows costs one round trip. The numbers are spliced in rather than passed
+ * as variables because a variable list cannot fan out into aliases; they come
+ * from `gh`'s own listing and are positive integers by `ForgePullSchema`, so
+ * there is nothing to escape.
+ */
+export function reviewCommentCountsQuery(numbers: readonly number[]): string {
+  const fields = numbers
+    .map(
+      (number) =>
+        `p${number}:pullRequest(number:${number}){` +
+        `reviewThreads(first:${THREAD_PAGE}){nodes{comments{totalCount}}}}`,
+    )
+    .join(' ');
+  return `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){${fields}}}`;
+}
+
+/**
+ * The aliased payload, as number → inline comment total. A PR the query could
+ * not resolve comes back as a null alias and is simply absent from the map.
+ */
+export function parseReviewCommentCounts(output: string): Map<number, number> {
+  const counts = new Map<number, number>();
+  const repository = pick(pick(firstJsonObject(output), 'data'), 'repository');
+  if (typeof repository !== 'object' || repository === null) return counts;
+
+  for (const [alias, pull] of Object.entries(repository)) {
+    const number = Number(alias.slice(1));
+    if (!alias.startsWith('p') || !Number.isInteger(number)) continue;
+    const nodes = pick(pick(pull, 'reviewThreads'), 'nodes');
+    if (!Array.isArray(nodes)) continue;
+    let total = 0;
+    for (const node of nodes) {
+      const count = pick(pick(node, 'comments'), 'totalCount');
+      if (typeof count === 'number' && Number.isInteger(count) && count > 0) total += count;
+    }
+    counts.set(number, total);
+  }
+  return counts;
+}
+
+/** Adds each row's inline total to the issue-comment count it already has. */
+export function withReviewComments(
+  pulls: readonly ForgePull[],
+  counts: ReadonlyMap<number, number>,
+): ForgePull[] {
+  return pulls.map((pull) => {
+    const inline = counts.get(pull.number) ?? 0;
+    return inline === 0 ? pull : { ...pull, commentCount: pull.commentCount + inline };
+  });
 }
 
 /**
