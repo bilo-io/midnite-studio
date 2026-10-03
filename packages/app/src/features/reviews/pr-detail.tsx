@@ -5,7 +5,7 @@ import type {
   ForgeWriteResult,
 } from '@midnite/studio-shared';
 import { LuRocket, LuSquareArrowOutUpRight } from 'react-icons/lu';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -78,6 +78,9 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
     description was always visible before this tab existed.
   */
   const [tab, setTab] = useState<PrTab>('overview');
+  // A path clicked on the Conversation tab, until the Files tab has handled it.
+  const [focusPath, setFocusPath] = useState<string | null>(null);
+  const clearFocusPath = useCallback(() => setFocusPath(null), []);
 
   /*
     The listing is the fallback header, not the source of truth.
@@ -256,6 +259,8 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
               notReady={notReady(files.data?.cli)}
               pullUrl={pull.url}
               threads={threads.data?.threads ?? []}
+              focusPath={focusPath}
+              onFocusHandled={clearFocusPath}
               repoId={repoId}
               baseSha={detail?.baseSha ?? null}
               review={{
@@ -292,7 +297,10 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             busy={busy}
             writeError={writeError}
             partialNote={capability?.threadResolution === 'partial'}
-            onOpenFile={() => setTab('files')}
+            onOpenFile={(path) => {
+              setFocusPath(path);
+              setTab('files');
+            }}
           />
         ) : (
           <PrChecks
