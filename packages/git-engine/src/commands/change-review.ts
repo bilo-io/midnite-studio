@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { copyFile, lstat, mkdir, readlink, rm, symlink } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 import type { FileChangeKind, FileDiff, GitOpResult } from '@midnite/studio-shared';
 import { failure, ok } from '@midnite/studio-shared';
@@ -7,58 +9,50 @@ import { failure, ok } from '@midnite/studio-shared';
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
 import { parseUnifiedDiff } from '../parsers/diff-parser';
-import { gitErrorLine } from './worktree-ops';
+import { deleteBranch } from './refs-ops';
+import { addWorktree, gitErrorLine, removeWorktree } from './worktree-ops';
 
 /**
  * Reviewable agent changes — the engine behind the Chats page's "accept or
  * reject" cards.
  *
- * **The mechanism: a throwaway snapshot, a captured diff, a patch back.**
- * An agent run is pointed at a copy of the repo (`createSnapshot`) that
- * includes the user's uncommitted and untracked state, committed once as a
- * baseline inside the copy's own private `.git`. When the turn ends,
- * `captureChanges` stages whatever the agent did there and reads it back as one
- * patch per file. Nothing reaches the real checkout until the user accepts:
- * `applyFilePatches` then applies exactly the accepted files — or exactly the
- * accepted hunks of a file — as a patch, through the per-repo write queue.
+ * **The mechanism: a linked worktree, a per-turn tree diff, a patch back.**
+ * An editing chat runs its agent in a real `git worktree` of the repo, on its
+ * own branch (`createAgentWorktree`), created on the chat's first editing turn
+ * and kept for the life of the chat. Because it is an ordinary linked
+ * worktree it shows up everywhere a worktree does — the graph, the worktree
+ * list, `git worktree list` — and its branch is something the user can keep
+ * working on like any other. The new worktree is seeded with the checkout's
+ * uncommitted and untracked state, so the agent starts from the working tree
+ * the user is looking at, not merely from HEAD.
  *
- * Why a copy and not a linked worktree: `git worktree add` registers the
- * directory in the real repo's `.git/worktrees`, which would surface in the
- * app's own worktree list and in the user's `git worktree list`, and a
- * worktree starts from a commit, not from the working tree the user is looking
- * at. The copy is engine-agnostic (any CLI that edits files in its cwd works),
- * leaves the real repo's `.git` untouched, and its baseline is the working
- * tree *as the user has it*, so the captured diff is exactly the agent's own.
+ * Each turn is bracketed by `snapshotTree`: the worktree's full state —
+ * commits the agent made, staged and unstaged edits, new untracked files — is
+ * written as a tree object through a throwaway index, never the worktree's own,
+ * so taking it changes nothing the user or the agent can see. `captureChanges`
+ * diffs the tree from the turn's start against the tree at its end and reads it
+ * back as one patch per file. Nothing reaches the user's checkout until they
+ * accept: `applyFilePatches` then applies exactly the accepted files — or
+ * exactly the accepted hunks of a file — as a patch, through the per-repo
+ * write queue.
+ *
+ * (This replaced a private copy of the repo with its own `.git`, rebuilt and
+ * deleted every turn. That kept the user's repo untouched, but it also made
+ * an agent's work invisible to the graph and impossible to continue as a
+ * branch, which is the thing the user actually wanted from it.)
  *
  * It is a convenience boundary, not a security one: a command the agent runs
  * with an absolute path is not confined here.
  */
 
-/** A snapshot larger than this is refused rather than silently filling the disk. */
-export const SNAPSHOT_MAX_BYTES = 750 * 1024 * 1024;
-/** One file larger than this is left out of the copy (it would only bloat every diff). */
-export const SNAPSHOT_MAX_FILE_BYTES = 20 * 1024 * 1024;
+/** One file larger than this is not copied into a new worktree's seed. */
+export const SEED_MAX_FILE_BYTES = 20 * 1024 * 1024;
+/** A tracked-changes diff larger than this is not carried into a new worktree. */
+export const SEED_MAX_PATCH_BYTES = 64 * 1024 * 1024;
 /** A patch bigger than this (all files) is not offered for review. */
 export const CHANGE_PATCH_MAX_BYTES = 8 * 1024 * 1024;
 
-/**
- * Environment for every git call INSIDE a snapshot. The user's global config
- * would otherwise leak in — an LFS filter that is not installed in the copy, a
- * signing key, `core.autocrlf` rewriting bytes between the copy and the diff.
- */
-const SNAPSHOT_ENV = {
-  GIT_CONFIG_GLOBAL: '/dev/null',
-  GIT_CONFIG_NOSYSTEM: '1',
-  GIT_AUTHOR_NAME: 'Midnite Chats',
-  GIT_AUTHOR_EMAIL: 'chats@midnite.invalid',
-  GIT_COMMITTER_NAME: 'Midnite Chats',
-  GIT_COMMITTER_EMAIL: 'chats@midnite.invalid',
-} as const;
-
-const snapshotGit = (dir: string, args: string[], stdin?: string) =>
-  execGit(dir, args, { write: true, env: { ...SNAPSHOT_ENV }, ...(stdin === undefined ? {} : { stdin }) });
-
-export type SnapshotInfo = { dir: string; fileCount: number; bytes: number };
+export type AgentWorktree = { path: string; branch: string };
 
 /** A repo-relative path git could never have produced — never copy it. */
 function unsafeRelPath(rel: string): boolean {
@@ -66,87 +60,132 @@ function unsafeRelPath(rel: string): boolean {
 }
 
 /**
- * Copy the repo's working tree (tracked + untracked, minus ignored) into
- * `destDir` and commit it there as the baseline.
+ * Create a linked worktree at `path` on a NEW branch `branch`, started at the
+ * checkout's HEAD, then seed it with the checkout's uncommitted state.
  *
- * `destDir` is emptied first, so a chat can reuse one stable path every turn —
- * which matters because agent CLIs key their own session store by directory,
- * and `--resume` only finds a session from the directory it was started in.
+ * Seeding is best-effort: `seeded: false` means the worktree is usable but
+ * holds only HEAD (the tracked changes did not apply, or were too large).
  */
-export async function createSnapshot(
+export async function createAgentWorktree(
   repoPath: string,
-  destDir: string,
-  opts: { maxBytes?: number; maxFileBytes?: number } = {},
-): Promise<GitOpResult<SnapshotInfo>> {
-  const maxBytes = opts.maxBytes ?? SNAPSHOT_MAX_BYTES;
-  const maxFileBytes = opts.maxFileBytes ?? SNAPSHOT_MAX_FILE_BYTES;
+  worktree: AgentWorktree,
+  opts: { maxFileBytes?: number } = {},
+): Promise<GitOpResult<AgentWorktree & { seeded: boolean }>> {
+  const head = await execGit(repoPath, ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}']);
+  if (head.exitCode !== 0) return failure('This repository has no commits yet, so a chat cannot branch from it.');
 
-  const listed = await execGit(repoPath, ['ls-files', '-z', '--cached', '--others', '--exclude-standard']);
-  if (listed.exitCode !== 0) {
-    return failure(gitErrorLine(listed.stderr) || 'Could not list the repository files.', listed.stderr);
-  }
-  const paths = [...new Set(listed.stdout.split('\0').filter((p) => p.length > 0))].filter((p) => !unsafeRelPath(p));
-
-  await rm(destDir, { recursive: true, force: true });
-  await mkdir(destDir, { recursive: true });
-
-  let bytes = 0;
-  let fileCount = 0;
-  for (const rel of paths) {
-    const from = join(repoPath, rel);
-    const to = join(destDir, rel);
-    let info;
-    try {
-      info = await lstat(from);
-    } catch {
-      continue; // tracked but deleted in the working tree — absent from the baseline too
-    }
-    if (info.isDirectory()) continue; // a submodule's gitlink
-    if (info.isFile() && info.size > maxFileBytes) continue;
-    bytes += info.size;
-    if (bytes > maxBytes) {
-      await rm(destDir, { recursive: true, force: true });
-      return failure('This repository is too large to run an editing chat on a copy of it.');
-    }
-    await mkdir(dirname(to), { recursive: true });
-    if (info.isSymbolicLink()) await symlink(await readlink(from), to);
-    else await copyFile(from, to);
-    fileCount += 1;
-  }
-
-  const init = await snapshotGit(destDir, ['init', '--quiet', '--initial-branch=main']);
-  if (init.exitCode !== 0) return failure(gitErrorLine(init.stderr) || 'Could not prepare the chat workspace.', init.stderr);
-  for (const [key, value] of [
-    ['core.autocrlf', 'false'],
-    ['core.safecrlf', 'false'],
-    ['core.hooksPath', '/dev/null'],
-    ['commit.gpgsign', 'false'],
-    ['core.quotepath', 'false'],
-  ] as const) {
-    await snapshotGit(destDir, ['config', key, value]);
-  }
-  // Ordinary add honours the copied .gitignore, so an artefact the agent writes
-  // later (node_modules, dist) stays out of the captured diff. A file the user
-  // TRACKS despite matching an ignore rule is forced into the baseline, or the
-  // agent's edits to it would never be seen.
-  const added = await snapshotGit(destDir, ['add', '-A']);
-  if (added.exitCode !== 0) return failure(gitErrorLine(added.stderr) || 'Could not stage the chat workspace.', added.stderr);
-  const tracked = await execGit(repoPath, ['ls-files', '-z', '--cached']);
-  const copied = new Set(paths);
-  const trackedHere = tracked.stdout.split('\0').filter((p) => p.length > 0 && copied.has(p));
-  if (trackedHere.length > 0) {
-    await snapshotGit(destDir, ['add', '-f', '--pathspec-from-file=-', '--pathspec-file-nul'], `${trackedHere.join('\0')}\0`);
-  }
-  const committed = await snapshotGit(destDir, ['commit', '--quiet', '--allow-empty', '--no-verify', '-m', 'snapshot']);
-  if (committed.exitCode !== 0) {
-    return failure(gitErrorLine(committed.stderr) || 'Could not commit the chat workspace.', committed.stderr);
-  }
-  return ok({ dir: destDir, fileCount, bytes });
+  await mkdir(dirname(worktree.path), { recursive: true });
+  const added = await addWorktree(repoPath, { path: worktree.path, branch: worktree.branch, createBranch: true, startPoint: 'HEAD' });
+  if (!added.ok) return added;
+  const seeded = await seedFromCheckout(repoPath, worktree.path, opts.maxFileBytes ?? SEED_MAX_FILE_BYTES);
+  return ok({ ...worktree, seeded });
 }
 
-/** Remove a snapshot directory. Never throws. */
-export async function removeSnapshot(dir: string): Promise<void> {
-  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+/**
+ * Put an existing branch back into a worktree at `path` — the chat's worktree
+ * directory was removed (from the graph, or by hand) but its branch survives.
+ */
+export async function reattachAgentWorktree(repoPath: string, worktree: AgentWorktree): Promise<GitOpResult<AgentWorktree>> {
+  // A directory deleted by hand leaves git's registration behind, which
+  // would make `worktree add` refuse the same path.
+  await writeQueue.run(repoPath, () => execGit(repoPath, ['worktree', 'prune'], { write: true }));
+  await mkdir(dirname(worktree.path), { recursive: true });
+  const added = await addWorktree(repoPath, { path: worktree.path, branch: worktree.branch, createBranch: false });
+  return added.ok ? ok(worktree) : added;
+}
+
+/** Whether `branch` still exists in the repo. */
+export async function branchExists(repoPath: string, branch: string): Promise<boolean> {
+  const res = await execGit(repoPath, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}^{commit}`]);
+  return res.exitCode === 0;
+}
+
+/**
+ * Remove a chat's worktree and, if nothing would be lost, its branch.
+ *
+ * The directory goes with `--force`: uncommitted edits in it are discarded
+ * (the caller has confirmed that). The branch is only ever deleted with a
+ * plain `branch -d`, so one carrying commits that are not merged anywhere is
+ * kept — no commit is ever orphaned — and `branchKept` says so.
+ */
+export async function removeAgentWorktree(
+  repoPath: string,
+  worktree: AgentWorktree,
+): Promise<GitOpResult<{ branchKept: boolean }>> {
+  const removed = await removeWorktree(repoPath, worktree.path, true);
+  if (!removed.ok) {
+    // Already gone from disk: drop git's stale registration instead.
+    await writeQueue.run(repoPath, () => execGit(repoPath, ['worktree', 'prune'], { write: true }));
+    await rm(worktree.path, { recursive: true, force: true }).catch(() => undefined);
+  }
+  if (!(await branchExists(repoPath, worktree.branch))) return ok({ branchKept: false });
+  const deleted = await deleteBranch(repoPath, { name: worktree.branch, force: false });
+  return ok({ branchKept: !deleted.ok });
+}
+
+/**
+ * Carry the checkout's uncommitted state into a fresh worktree: tracked
+ * changes as one patch, untracked (not ignored) files as copies.
+ */
+async function seedFromCheckout(repoPath: string, worktreePath: string, maxFileBytes: number): Promise<boolean> {
+  return writeQueue.run(worktreePath, async () => {
+    let seeded = true;
+    const diff = await execGit(repoPath, ['diff', 'HEAD', '--binary', '--no-color', '--no-ext-diff']);
+    if (diff.exitCode !== 0 || diff.stdout.length > SEED_MAX_PATCH_BYTES) seeded = false;
+    else if (diff.stdout.length > 0) {
+      const applied = await execGit(worktreePath, ['apply', '--whitespace=nowarn', '-'], { write: true, stdin: diff.stdout });
+      if (applied.exitCode !== 0) seeded = false;
+    }
+
+    const listed = await execGit(repoPath, ['ls-files', '-z', '--others', '--exclude-standard']);
+    if (listed.exitCode !== 0) return false;
+    for (const rel of listed.stdout.split('\0')) {
+      if (unsafeRelPath(rel)) continue;
+      const from = join(repoPath, rel);
+      const to = join(worktreePath, rel);
+      try {
+        const info = await lstat(from);
+        if (info.isDirectory()) continue; // a nested repo
+        if (info.isFile() && info.size > maxFileBytes) continue;
+        await mkdir(dirname(to), { recursive: true });
+        if (info.isSymbolicLink()) await symlink(await readlink(from), to);
+        else await copyFile(from, to);
+      } catch {
+        seeded = false;
+      }
+    }
+    return seeded;
+  });
+}
+
+/**
+ * The worktree's whole state — HEAD plus every staged, unstaged and untracked
+ * (not ignored) change — as a tree object id.
+ *
+ * Built in a throwaway copy of the worktree's index, so the real index, HEAD
+ * and files are exactly as they were. Copying the index (rather than starting
+ * empty) keeps the stat cache, so only changed files are re-hashed, and keeps a
+ * file the user tracks despite an ignore rule in the tree.
+ */
+export async function snapshotTree(dir: string): Promise<GitOpResult<string>> {
+  return writeQueue.run(dir, async () => {
+    const located = await execGit(dir, ['rev-parse', '--git-path', 'index']);
+    if (located.exitCode !== 0) return failure(gitErrorLine(located.stderr) || 'Not a git worktree.', located.stderr);
+    const realIndex = resolve(dir, located.stdout.trim());
+    const tempIndex = join(tmpdir(), `midnite-chat-index-${randomUUID()}`);
+    try {
+      await copyFile(realIndex, tempIndex).catch(() => undefined);
+      const env = { GIT_INDEX_FILE: tempIndex };
+      const added = await execGit(dir, ['add', '-A'], { write: true, env });
+      if (added.exitCode !== 0) return failure(gitErrorLine(added.stderr) || 'Could not read the worktree.', added.stderr);
+      const tree = await execGit(dir, ['write-tree'], { write: true, env });
+      if (tree.exitCode !== 0) return failure(gitErrorLine(tree.stderr) || 'Could not read the worktree.', tree.stderr);
+      return ok(tree.stdout.trim());
+    } finally {
+      await rm(tempIndex, { force: true }).catch(() => undefined);
+      await rm(`${tempIndex}.lock`, { force: true }).catch(() => undefined);
+    }
+  });
 }
 
 export type CapturedHunk = {
@@ -216,15 +255,18 @@ function countLines(hunk: string): { insertions: number; deletions: number } {
 }
 
 /**
- * Everything the agent changed in a snapshot, one {@link CapturedFile} per
- * path. Returns `[]` when it changed nothing. Rename detection is on (`-M`),
- * and `--binary` keeps a binary file applyable rather than "differ".
+ * Everything that changed in worktree `dir` since `baseTree` (a
+ * {@link snapshotTree} result), one {@link CapturedFile} per path. Returns
+ * `[]` when nothing changed. Rename detection is on (`-M`), and `--binary`
+ * keeps a binary file applyable rather than "differ".
  */
-export async function captureChanges(snapshotDir: string): Promise<GitOpResult<CapturedFile[]>> {
-  const staged = await snapshotGit(snapshotDir, ['add', '-A']);
-  if (staged.exitCode !== 0) return failure(gitErrorLine(staged.stderr) || 'Could not read the changes.', staged.stderr);
+export async function captureChanges(dir: string, baseTree: string): Promise<GitOpResult<CapturedFile[]>> {
+  const ended = await snapshotTree(dir);
+  if (!ended.ok) return ended;
+  const endTree = ended.value;
+  if (endTree === baseTree) return ok([]);
 
-  const names = await snapshotGit(snapshotDir, ['diff', '--cached', '--name-status', '-z', '-M', '--no-color', 'HEAD']);
+  const names = await execGit(dir, ['diff', '--name-status', '-z', '-M', '--no-color', baseTree, endTree]);
   if (names.exitCode !== 0) return failure(gitErrorLine(names.stderr) || 'Could not read the changes.', names.stderr);
 
   const tokens = names.stdout.split('\0');
@@ -247,18 +289,18 @@ export async function captureChanges(snapshotDir: string): Promise<GitOpResult<C
   for (const entry of entries) {
     if (entry.path === '') continue;
     const pathspec = entry.oldPath ? ['--', entry.oldPath, entry.path] : ['--', entry.path];
-    const res = await execGit(snapshotDir, [
+    const res = await execGit(dir, [
       '--literal-pathspecs',
       'diff',
-      '--cached',
       '--binary',
       '-M',
       '--no-color',
       '--no-ext-diff',
       '-U3',
-      'HEAD',
+      baseTree,
+      endTree,
       ...pathspec,
-    ], { env: { ...SNAPSHOT_ENV } });
+    ]);
     if (res.exitCode !== 0 || res.stdout.length === 0) continue;
     total += res.stdout.length;
     if (total > CHANGE_PATCH_MAX_BYTES) {
