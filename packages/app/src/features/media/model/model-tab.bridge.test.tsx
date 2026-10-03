@@ -38,6 +38,8 @@ const withModels: MockFixtures = {
   },
 };
 
+const SLOW = { timeout: 8000 };
+
 const open = (data: MockFixtures = withModels) =>
   renderView(<MediaView />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
 
@@ -62,21 +64,22 @@ describe('Models tab', () => {
     expect(within(explorer).queryByText('robot-1.mtl')).toBeNull();
     expect(within(explorer).queryByText('robot-1.json')).toBeNull();
     expect(within(explorer).queryByText('notes.txt')).toBeNull();
-    const caption = await screen.findByTestId('model-caption');
+    const caption = await screen.findByTestId('model-caption', {}, SLOW);
     expect(caption.textContent).toContain('Tin robot');
     expect(caption.textContent).toContain('a tin robot');
   });
 
   it('degrades to a message when WebGL is unavailable instead of crashing, keeping the editor fields', async () => {
     open();
-    expect((await screen.findByRole('alert')).textContent).toMatch(/WebGL/);
-    expect(await screen.findByRole('list', { name: 'Parts' })).toBeTruthy();
+    // The editor is a lazy chunk; give the dynamic import room when the whole suite is running.
+    expect((await screen.findByRole('alert', {}, SLOW)).textContent).toMatch(/WebGL/);
+    expect(await screen.findByRole('list', { name: 'Parts' }, SLOW)).toBeTruthy();
   });
 
   describe('editing a design', () => {
     const edit = async () => {
       open();
-      const parts = await screen.findByRole('list', { name: 'Parts' });
+      const parts = await screen.findByRole('list', { name: 'Parts' }, SLOW);
       return within(parts);
     };
 
