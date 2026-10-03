@@ -184,9 +184,17 @@ describe('chats wire contract', () => {
     const names = Object.entries(CHANNELS)
       .filter(([k]) => k.startsWith('chats'))
       .map(([, v]) => v);
-    expect(names.length).toBe(9);
+    expect(names.length).toBe(11);
     expect(new Set(names).size).toBe(names.length);
+    expect(names.every((n) => n.startsWith('mstudio:chats:'))).toBe(true);
     expect(EVENT_CHANNELS.chatsEvent).toBe('mstudio:chats:event');
+  });
+
+  it('defaults the composer picker requests to no repo and no chat', () => {
+    expect(schemas.ChatsSkillsRequest.parse({ engine: 'claude' })).toEqual({ engine: 'claude', repoId: null });
+    expect(schemas.ChatsFilesRequest.parse({})).toEqual({ repoId: null, chatId: null });
+    expect(() => schemas.ChatsSkillsRequest.parse({ engine: '' })).toThrow();
+    expect(schemas.ChatsSkillsResponse.parse({ ok: true, value: { skills: [{ name: 'x', description: '', scope: 'plugin' }] } }).ok).toBe(true);
   });
 
   it('defaults a created chat to edit mode with no model or repo', () => {

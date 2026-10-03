@@ -1,8 +1,11 @@
+import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { CHANNELS, EVENT_CHANNELS, failure, schemas, type GitOpResult } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, failure, ok, schemas, type GitOpResult } from '@midnite/studio-shared';
 
+import { listChatFiles } from '../chats/chat-files';
 import { createChatService, type ChatService } from '../chats/chat-service';
+import { discoverChatSkills } from '../chats/chat-skills';
 import { createChatStore, createMemoryChatStore } from '../chats/chat-store';
 import { ollamaChatStream, resolveOllamaBaseUrl } from '../ollama/client';
 import { getConfiguredOllamaHost } from '../ollama/settings-service';
@@ -22,7 +25,8 @@ import { handle, handleBare } from './handle';
  * `configureNotes`; until then the service runs on an in-memory store.
  */
 
-let service: ChatService = build(createMemoryChatStore(), join('/tmp', 'midnite-chats'));
+let chatsRoot = join('/tmp', 'midnite-chats');
+let service: ChatService = build(createMemoryChatStore(), chatsRoot);
 
 function build(store: ReturnType<typeof createChatStore>, root: string): ChatService {
   return createChatService({
@@ -34,7 +38,7 @@ function build(store: ReturnType<typeof createChatStore>, root: string): ChatSer
     },
     emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.chatsEvent, event),
     sandboxRoot: join(root, 'sandboxes'),
-    scratchRoot: join(root, 'scratch'),
+    scratchRoot: scratchRootOf(root),
     ollamaStream: async (req) =>
       ollamaChatStream(
         { model: req.model, messages: req.messages },
@@ -50,8 +54,18 @@ function build(store: ReturnType<typeof createChatStore>, root: string): ChatSer
   });
 }
 
+function scratchRootOf(root: string): string {
+  return join(root, 'scratch');
+}
+
+/** A chat id that is safe as one path segment — the scratch dir is `<scratchRoot>/<id>`. */
+const SAFE_SEGMENT = /^[A-Za-z0-9][\w.-]*$/;
+
+const repoPathOf = (repoId: string | null): string | null => (repoId ? (getRepo(repoId)?.path ?? null) : null);
+
 export function configureChats(userDataDir: string): void {
-  service = build(createChatStore(userDataDir), join(userDataDir, 'chats'));
+  chatsRoot = join(userDataDir, 'chats');
+  service = build(createChatStore(userDataDir), chatsRoot);
 }
 
 /** Kill any running turn and flush pending writes — app quit. */
@@ -76,4 +90,24 @@ export function registerChatsHandlers(): void {
     invalid,
   );
   handle(CHANNELS.chatsResolveChanges, schemas.ChatsResolveChangesRequest, (req) => service.resolveChanges(req), invalid);
+
+  // The composer's `/` and `@` pickers. Both are suggestion lists: a folder
+  // that cannot be read is an empty list, never a failure the page renders.
+  handle(
+    CHANNELS.chatsSkills,
+    schemas.ChatsSkillsRequest,
+    async (req) => ok({ skills: await discoverChatSkills({ engine: req.engine, repoPath: repoPathOf(req.repoId), home: homedir() }) }),
+    invalid,
+  );
+  handle(
+    CHANNELS.chatsFiles,
+    schemas.ChatsFilesRequest,
+    async (req) => {
+      const repoPath = repoPathOf(req.repoId);
+      const scratchDir =
+        repoPath === null && req.chatId !== null && SAFE_SEGMENT.test(req.chatId) ? join(scratchRootOf(chatsRoot), req.chatId) : null;
+      return ok(await listChatFiles({ repoPath, scratchDir }));
+    },
+    invalid,
+  );
 }

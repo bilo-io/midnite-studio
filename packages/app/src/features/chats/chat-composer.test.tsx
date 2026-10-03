@@ -265,3 +265,128 @@ describe('companion switch', () => {
     expect(screen.getByTestId('chat-companion-toggle').dataset['state']).toBe('hidden');
   });
 });
+
+describe('/ skills and @ files pickers', () => {
+  const SKILLS = [
+    { name: 'code-review', description: 'Review the current diff for correctness bugs.', scope: 'user' as const },
+    { name: 'midnite-sitrep', description: 'Post the standing sitrep table.', scope: 'project' as const },
+    { name: 'sitrep', description: 'Short status.', scope: 'project' as const },
+    ...Array.from({ length: 12 }, (_, i) => ({ name: `zz-extra-${i}`, description: `Extra ${i}`, scope: 'user' as const })),
+  ];
+  const FILES = ['README.md', 'src/app.tsx', 'src/features/chats/chat-composer.tsx', 'docs/chat.md'];
+
+  const typeText = (text: string) => fireEvent.change(input(), { target: { value: text } });
+  const picker = () => screen.queryByTestId('chat-picker');
+  const options = () => screen.queryAllByRole('option');
+  const key = (k: string, extra: Record<string, unknown> = {}) => fireEvent.keyDown(input(), { key: k, ...extra });
+  const pills = () => screen.queryAllByTestId('chat-pill');
+
+  it('"/" opens a picker of at most ten discovered skills, each with its description', () => {
+    render(<Harness skills={SKILLS} files={FILES} />);
+    typeText('/');
+    expect(picker()?.dataset['kind']).toBe('skill');
+    expect(options()).toHaveLength(10);
+    expect(options()[0]!.textContent).toContain('/code-review');
+    expect(options()[0]!.textContent).toContain('Review the current diff');
+    expect(options()[0]!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('matches any substring and highlights it', () => {
+    render(<Harness skills={SKILLS} files={FILES} />);
+    typeText('/SITR');
+    expect(options().map((o) => o.querySelector('.truncate')!.textContent)).toEqual(['/sitrep', '/midnite-sitrep']);
+    expect(within(options()[1]!).getByTestId('chat-picker-match').textContent).toBe('sitr');
+    typeText('/nothing-like-it');
+    expect(options()).toHaveLength(0);
+    expect(screen.getByTestId('chat-picker-empty').textContent).toContain('/nothing-like-it');
+  });
+
+  it('arrows move, Tab inserts the skill as a pill, and the picker closes', () => {
+    render(<Harness skills={SKILLS} files={FILES} />);
+    typeText('/sitr');
+    key('ArrowDown');
+    expect(options()[1]!.getAttribute('aria-selected')).toBe('true');
+    key('ArrowDown');
+    expect(options()[0]!.getAttribute('aria-selected')).toBe('true'); // wraps
+    key('ArrowUp');
+    key('Tab');
+    expect(input().value).toBe('/midnite-sitrep ');
+    expect(picker()).toBeNull();
+    expect(pills()).toHaveLength(1);
+    expect(pills()[0]!.textContent).toBe('/midnite-sitrep');
+    expect(pills()[0]!.className).toBe('composer-pill composer-pill--skill');
+  });
+
+  it('Enter picks instead of sending while the picker is open; Esc closes it', () => {
+    const onSend = vi.fn();
+    render(<Harness skills={SKILLS} files={FILES} onSend={onSend} />);
+    typeText('fix it /code');
+    key('Enter');
+    expect(onSend).not.toHaveBeenCalled();
+    expect(input().value).toBe('fix it /code-review ');
+
+    typeText('fix it /code-review /mid');
+    expect(picker()).not.toBeNull();
+    key('Escape');
+    expect(picker()).toBeNull();
+    key('Enter');
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('Backspace at a pill removes the whole token', () => {
+    render(<Harness skills={SKILLS} files={FILES} initial="/sitrep" />);
+    input().setSelectionRange(7, 7);
+    expect(pills()).toHaveLength(1);
+    key('Backspace');
+    expect(input().value).toBe('');
+    expect(pills()).toHaveLength(0);
+  });
+
+  it('a plain Backspace away from any pill is left to the textarea', () => {
+    render(<Harness skills={SKILLS} files={FILES} initial="/sitrep hi" />);
+    input().setSelectionRange(10, 10);
+    const event = fireEvent.keyDown(input(), { key: 'Backspace' });
+    expect(event).toBe(true); // not default-prevented
+    expect(input().value).toBe('/sitrep hi');
+  });
+
+  it('"@" offers files by substring with the directory as subtitle, and serialises to @path on send', () => {
+    const onSend = vi.fn(() => sent.push(input().value));
+    const sent: string[] = [];
+    render(<Harness skills={SKILLS} files={FILES} onSend={onSend} />);
+    typeText('look at @chat');
+    expect(picker()?.dataset['kind']).toBe('file');
+    const rows = options();
+    expect(rows.map((o) => o.textContent)).toEqual(['chat.mddocs', 'chat-composer.tsxsrc/features/chats']);
+    expect(within(rows[0]!).getAllByTestId('chat-picker-match').map((m) => m.textContent)).toEqual(['chat']);
+    key('ArrowDown');
+    key('Tab');
+    expect(input().value).toBe('look at @src/features/chats/chat-composer.tsx ');
+    expect(pills()[0]!.dataset['kind']).toBe('file');
+    // Files are not AI: plain primary, not the brand gradient skills wear.
+    expect(pills()[0]!.className).toBe('composer-pill composer-pill--file');
+    key('Enter');
+    expect(sent).toEqual(['look at @src/features/chats/chat-composer.tsx ']);
+  });
+
+  it('clicking a row inserts it', () => {
+    render(<Harness skills={SKILLS} files={FILES} />);
+    typeText('@READ');
+    fireEvent.click(options()[0]!);
+    expect(input().value).toBe('@README.md ');
+  });
+
+  it('says so when the engine has no skills at all', () => {
+    render(<Harness files={FILES} />);
+    typeText('/');
+    expect(screen.getByTestId('chat-picker-empty').textContent).toBe('No skills found for Claude Code');
+  });
+
+  it('stays closed for a slash inside a word or a path', () => {
+    render(<Harness skills={SKILLS} files={FILES} />);
+    typeText('and/or');
+    expect(picker()).toBeNull();
+    typeText('/usr/bin');
+    expect(picker()).toBeNull();
+  });
+});

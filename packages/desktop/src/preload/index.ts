@@ -610,6 +610,8 @@ const bridge: Pick<
     cancel: (req) => call(CHANNELS.chatsCancel, req),
     changeDiffs: (req) => call(CHANNELS.chatsChangeDiffs, req),
     resolveChanges: (req) => call(CHANNELS.chatsResolveChanges, req),
+    skills: (req) => call(CHANNELS.chatsSkills, req),
+    files: (req) => call(CHANNELS.chatsFiles, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.chatsEvent, handler),
   },
   fs: {

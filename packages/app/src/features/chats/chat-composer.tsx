@@ -1,6 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 
-import type { ChatAttachment, ChatMode } from '@midnite/studio-shared';
+import type { ChatAttachment, ChatMode, ChatSkill } from '@midnite/studio-shared';
 import { LuFileText, LuPaperclip, LuX } from 'react-icons/lu';
 
 import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic, type PickerProvider } from '../../components/ai-thread';
@@ -8,6 +18,8 @@ import { useToastStore } from '../../store/toast-store';
 import { MEDIA_PROMPT_BOX } from '../media/prompt-input';
 import { ModePicker, NO_REPO_ID, RepoPicker } from './chat-options';
 import { CompanionToggle } from './companion-toggle';
+import { ComposerPicker, fileRows, skillRows } from './composer-picker';
+import { findPills, findTrigger, insertToken, matchFiles, matchSkills, pillAtCaret, removePill, type PillToken } from './composer-tokens';
 import { pickerModel, type ChatEngine } from './use-chat-engines';
 
 /**
@@ -21,9 +33,38 @@ import { pickerModel, type ChatEngine } from './use-chat-engines';
  * that persists to a chat or to the draft. While a reply is streaming the
  * settings freeze — main refuses a mid-answer change, and a picker that looked
  * live but did nothing would be worse than a visibly dim one.
+ *
+ * `/` at the start of a word opens a picker of the agent's discovered skills,
+ * `@` one of the files it can reach (`skills`/`files`, fetched by the page).
+ * Arrows move, Tab or Enter inserts, Esc closes. An inserted `/skill` or
+ * `@path` stays in the text verbatim — that is what the agent receives — and
+ * the field's overlay paints it as a gradient pill; Backspace at a pill
+ * deletes the whole token. See `composer-tokens.ts` for why pills are derived
+ * from the text rather than kept as separate state.
  */
 
 export type ChatSettings = { engine: string | null; model: string | null; mode: ChatMode; repoId: string | null };
+
+const NO_SKILLS: readonly ChatSkill[] = [];
+const NO_FILES: readonly string[] = [];
+
+/** The text with every pill range wrapped — the overlay `AiComposer` paints under the transparent textarea. */
+function paintPills(text: string, pills: readonly PillToken[]): ReactNode {
+  if (pills.length === 0) return text;
+  const out: ReactNode[] = [];
+  let at = 0;
+  for (const pill of pills) {
+    if (pill.start > at) out.push(text.slice(at, pill.start));
+    out.push(
+      <span key={pill.start} className={`composer-pill composer-pill--${pill.kind}`} data-testid="chat-pill" data-kind={pill.kind}>
+        {text.slice(pill.start, pill.end)}
+      </span>,
+    );
+    at = pill.end;
+  }
+  if (at < text.length) out.push(text.slice(at));
+  return out;
+}
 
 const MAX_ATTACHMENT_BYTES = 200_000;
 const MAX_ATTACHMENTS = 10;
@@ -45,6 +86,8 @@ export function ChatComposer({
   onAttachmentsChange,
   focusToken,
   placeholder = 'Message an agent…',
+  skills = NO_SKILLS,
+  files = NO_FILES,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -60,14 +103,112 @@ export function ChatComposer({
   /** Changes whenever the page wants the field focused (new chat, suggestion picked). */
   focusToken: number;
   placeholder?: string;
+  /** What `/` offers — the chat's agent's discovered skills. */
+  skills?: readonly ChatSkill[];
+  /** What `@` offers — relative paths the chat's agent can reach. */
+  files?: readonly string[];
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
-  const files = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     input.current?.focus();
   }, [focusToken]);
+
+  // --- `/` and `@` pickers ----------------------------------------------------
+  const [caret, setCaret] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const [active, setActive] = useState(0);
+  /** The trigger start Esc closed — it stays closed until the caret leaves that word. */
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const pendingCaret = useRef<number | null>(null);
+
+  const skillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills]);
+  const fileSet = useMemo(() => new Set(files), [files]);
+  const pills = useMemo(() => findPills(value, skillNames, fileSet), [value, skillNames, fileSet]);
+
+  const rawTrigger = focused ? findTrigger(value, Math.min(caret, value.length)) : null;
+  const trigger = rawTrigger && rawTrigger.start !== dismissed ? rawTrigger : null;
+  const triggerKind = trigger?.kind ?? null;
+  const triggerQuery = trigger?.query ?? '';
+  const rows = useMemo(() => {
+    if (triggerKind === null) return [];
+    return triggerKind === 'skill' ? skillRows(matchSkills(skills, triggerQuery)) : fileRows(matchFiles(files, triggerQuery));
+  }, [triggerKind, triggerQuery, skills, files]);
+  const activeIndex = rows.length === 0 ? 0 : Math.min(active, rows.length - 1);
+
+  useEffect(() => setActive(0), [triggerKind, trigger?.start, triggerQuery]);
+  useEffect(() => {
+    if (dismissed !== null && rawTrigger?.start !== dismissed) setDismissed(null);
+  }, [dismissed, rawTrigger?.start]);
+
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    const onFocus = () => setFocused(true);
+    const onBlur = () => setFocused(false);
+    if (document.activeElement === el) setFocused(true);
+    el.addEventListener('focus', onFocus);
+    el.addEventListener('blur', onBlur);
+    return () => {
+      el.removeEventListener('focus', onFocus);
+      el.removeEventListener('blur', onBlur);
+    };
+  }, []);
+
+  // Put the caret where a pick or a pill removal left it, once React has written the new value.
+  useLayoutEffect(() => {
+    const at = pendingCaret.current;
+    const el = input.current;
+    if (at === null || !el) return;
+    pendingCaret.current = null;
+    el.setSelectionRange(at, at);
+    setCaret(at);
+  }, [value]);
+
+  const commit = (next: { text: string; caret: number }) => {
+    pendingCaret.current = next.caret;
+    onChange(next.text);
+  };
+
+  const pick = (index: number) => {
+    const row = rows[index];
+    if (!trigger || !row) return;
+    commit(insertToken(value, trigger, `${trigger.kind === 'skill' ? '/' : '@'}${row.key}`));
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (trigger) {
+      const n = rows.length;
+      if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && n > 0) {
+        event.preventDefault();
+        setActive((activeIndex + (event.key === 'ArrowDown' ? 1 : n - 1)) % n);
+        return;
+      }
+      const insertKey = event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey);
+      if (insertKey && n > 0 && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        pick(activeIndex);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setDismissed(trigger.start);
+        return;
+      }
+    }
+    if (event.key === 'Backspace' && !event.altKey && !event.metaKey && !event.ctrlKey) {
+      const el = event.currentTarget;
+      if (el.selectionStart !== el.selectionEnd) return;
+      const pill = pillAtCaret(pills, el.selectionStart);
+      if (!pill) return;
+      event.preventDefault();
+      commit(removePill(value, pill));
+    }
+  };
 
   const mic = useComposerMic({
     onTranscript: (text) => {
@@ -137,7 +278,7 @@ export function ChatComposer({
       }}
       className={`rounded-md ${dragging ? 'ring-2 ring-primary/50' : ''}`}
     >
-      <input ref={files} type="file" multiple hidden onChange={onFilePick} data-testid="chat-file-input" />
+      <input ref={fileInput} type="file" multiple hidden onChange={onFilePick} data-testid="chat-file-input" />
       <AiComposer
         textareaRef={input}
         ariaLabel="Message"
@@ -152,6 +293,9 @@ export function ChatComposer({
         maxTextareaHeight={240}
         mic={mic}
         boxClassName={MEDIA_PROMPT_BOX}
+        onKeyDown={onKeyDown}
+        onCaretChange={setCaret}
+        renderOverlay={(text) => paintPills(text, pills)}
         testIdPrefix="chat-input"
         sendTooltip={
           engine === null
@@ -165,24 +309,45 @@ export function ChatComposer({
                   : 'Send — type something first'
         }
         above={
-          attachments.length > 0 ? (
-            <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="Attached files" data-testid="chat-attachments">
-              {attachments.map((a) => (
-                <li key={a.id} className="flex items-center gap-1 rounded-md border border-border bg-muted/40 py-0.5 pl-1.5 pr-0.5 text-[11px]">
-                  <LuFileText aria-hidden className="h-3 w-3 text-muted-foreground" />
-                  <span className="max-w-[12rem] truncate">{a.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${a.name}`}
-                    onClick={() => onAttachmentsChange(attachments.filter((x) => x.id !== a.id))}
-                    className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    <LuX aria-hidden className="h-3 w-3" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null
+          <>
+            {trigger ? (
+              <ComposerPicker
+                kind={trigger.kind}
+                query={trigger.query}
+                rows={rows}
+                active={activeIndex}
+                onPick={pick}
+                onHover={setActive}
+                emptyReason={
+                  trigger.kind === 'skill'
+                    ? skills.length === 0
+                      ? `No skills found for ${engine?.label ?? 'this engine'}`
+                      : null
+                    : files.length === 0
+                      ? 'No files to mention yet'
+                      : null
+                }
+              />
+            ) : null}
+            {attachments.length > 0 ? (
+              <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="Attached files" data-testid="chat-attachments">
+                {attachments.map((a) => (
+                  <li key={a.id} className="flex items-center gap-1 rounded-md border border-border bg-muted/40 py-0.5 pl-1.5 pr-0.5 text-[11px]">
+                    <LuFileText aria-hidden className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[12rem] truncate">{a.name}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${a.name}`}
+                      onClick={() => onAttachmentsChange(attachments.filter((x) => x.id !== a.id))}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      <LuX aria-hidden className="h-3 w-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
         }
         leading={
           <>
@@ -195,7 +360,7 @@ export function ChatComposer({
                   icon: LuPaperclip,
                   disabled: attachments.length >= MAX_ATTACHMENTS,
                   reason: `At most ${MAX_ATTACHMENTS} files`,
-                  onSelect: () => files.current?.click(),
+                  onSelect: () => fileInput.current?.click(),
                 },
               ]}
             />

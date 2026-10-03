@@ -773,6 +773,10 @@ export type MockFixtures = {
     conflictOn?: string;
     /** Milliseconds between streamed chunks (default 20) — raise it to hold a reply mid-stream. */
     chunkMs?: number;
+    /** What `chats.skills` answers (the composer's `/` picker); a small default set when absent. */
+    skills?: Array<{ name: string; description: string; scope: 'project' | 'user' | 'plugin' }>;
+    /** What `chats.files` answers (the composer's `@` picker); a small default tree when absent. */
+    files?: string[];
   };
   /**
    * Database connections (Phase 61). Absent means an empty list — the
@@ -5602,6 +5606,28 @@ export function buildMockBridge(data: MockFixtures) {
         if (conflicts.length > 0) return { ok: false as const, kind: 'conflict' as const, files: conflicts, op: 'change-apply' as const };
         return { ok: true as const, value: { changeSet: clone(set) } };
       },
+      skills: async (_req: { engine: string; repoId?: string | null }) => ({
+        ok: true as const,
+        value: {
+          skills: clone(
+            cfg.skills ?? [
+              { name: 'midnite-create', description: 'Pick unblocked themes, build them in a worktree, open a PR, drive CI green, merge.', scope: 'project' as const },
+              { name: 'midnite-sitrep', description: 'Post the standing sitrep table for whatever is in flight.', scope: 'project' as const },
+              { name: 'code-review', description: 'Review the current diff for correctness bugs.', scope: 'user' as const },
+              { name: 'vercel:deploy', description: 'Deploy the current project to Vercel.', scope: 'plugin' as const },
+            ],
+          ),
+        },
+      }),
+      files: async (_req: { repoId?: string | null; chatId?: string | null }) => ({
+        ok: true as const,
+        value: {
+          files: clone(
+            cfg.files ?? ['README.md', 'package.json', 'src/app.tsx', 'src/features/chats/chat-composer.tsx', 'src/features/chats/chat-pane.tsx'],
+          ),
+          truncated: false,
+        },
+      }),
       onEvent: (handler: (event: Record<string, unknown>) => void) => {
         handlers.push(handler);
         return () => {

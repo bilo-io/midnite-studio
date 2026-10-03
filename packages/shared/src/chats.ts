@@ -190,6 +190,21 @@ export type Chat = z.infer<typeof ChatSchema>;
 export const StoredChatSchema = z.object({ version: z.literal(1), chat: ChatSchema });
 export type StoredChat = z.infer<typeof StoredChatSchema>;
 
+// --- composer pickers --------------------------------------------------------
+
+/**
+ * One skill the chat's agent can invoke as `/<name>`, discovered main-side by
+ * scanning the skill folders that agent actually loads (the repo's, the
+ * user's, and — for Claude — its installed plugins'). Never a hard-coded list.
+ * `scope` says which of those it came from, for the picker's subtitle.
+ */
+export const ChatSkillSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2_000),
+  scope: z.enum(['project', 'user', 'plugin']),
+});
+export type ChatSkill = z.infer<typeof ChatSkillSchema>;
+
 // --- streaming events --------------------------------------------------------
 
 /**
