@@ -247,6 +247,7 @@ describe('mcp stdio shim', () => {
       const decoder = createFrameDecoder(1024 * 1024);
       socket.on('data', (chunk) => {
         for (const frame of decoder.push(chunk)) {
+          if (frame.type !== 0x00) continue;
           const request = frame.message as unknown as { id: string; tool: string };
           seen.push({ tool: request.tool });
           socket.write(
