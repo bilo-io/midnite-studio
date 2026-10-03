@@ -1,5 +1,7 @@
 import {
   agentHeadlessArgs,
+  agentIteratesModel,
+  MODEL_ITERATIONS_MAX,
   loopModelsFor,
   MODEL_DEFAULT_TEXT_MODEL,
   MODEL_DEFAULT_VISION_MODEL,
@@ -71,7 +73,9 @@ export function ModelPanel({
       ? { kind: 'ollama', model: ollamaModel }
       : { kind: 'agent', agentId: engineId, ...(prefs.agentModel !== 'default' ? { model: prefs.agentModel } : {}) };
 
+  const iterative = engine.kind === 'agent' && agentIteratesModel(engine.agentId);
   const blocked = generateBlockedReason({
+    iterative,
     prompt,
     image,
     running,
@@ -79,9 +83,13 @@ export function ModelPanel({
     providers: providers.data,
   });
 
+  // Say in the picker itself which engines iterate (build, render, look, refine) and which answer once.
   const pickerProviders: PickerProvider[] = [
-    { id: 'ollama', label: 'Ollama (local, free)', icon: SiOllama, color: '#F5F5F5', recommended: true },
-    ...agentPickerProviders(headless, primaryAgent),
+    { id: 'ollama', label: 'Ollama (local, free) · one-shot', icon: SiOllama, color: '#F5F5F5', recommended: true },
+    ...agentPickerProviders(headless, primaryAgent).map((p) => ({
+      ...p,
+      label: `${p.label} · ${agentIteratesModel(p.id) ? 'iterative (MCP)' : 'one-shot'}`,
+    })),
   ];
   const pickerModels =
     engineId === 'ollama'
@@ -110,6 +118,7 @@ export function ModelPanel({
         project,
         prompt: prompt.trim(),
         engine,
+        ...(iterative ? { maxIterations: prefs.maxIterations } : {}),
         ...(image ? { image } : {}),
         ...(image && prefs.visionModel ? { visionModel: prefs.visionModel } : {}),
       },
@@ -130,10 +139,11 @@ export function ModelPanel({
     void attach([...event.dataTransfer.files].find((f) => f.type.startsWith('image/')));
   };
 
-  const stage = generation.pending[0]?.stage;
+  const live = generation.pending[0];
+  const stage = live?.stage;
   const ollamaDown = engineId === 'ollama' && ollama && !ollama.available;
   const noTextModel = engineId === 'ollama' && ollama?.available && installedText.length === 0;
-  const noVision = image && ollama?.available && installedVision.length === 0;
+  const noVision = image && !iterative && ollama?.available && installedVision.length === 0;
 
   return (
     <form
@@ -155,10 +165,45 @@ export function ModelPanel({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Describe an object — or attach a picture of one — and the model designs it from boxes, spheres, cylinders and revolved
+          Describe an object — or attach a picture of one — and the engine designs it from boxes, spheres, cylinders and revolved
           profiles. You get an <span className="font-medium text-foreground">.obj</span> and an{' '}
           <span className="font-medium text-foreground">.fbx</span>.
         </p>
+
+        <div data-testid="model-engine-mode" data-mode={iterative ? 'iterative' : 'one-shot'} className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+          {iterative ? (
+            <>
+              <p>
+                <span className="font-medium text-foreground">Iterative (MCP).</span> The agent builds a first design, renders previews of it,
+                looks at them, and refines — up to the passes below — and you watch it take shape in the editor. With a picture attached it
+                looks at the picture itself.
+              </p>
+              <label className="flex items-center gap-2">
+                Refinement passes
+                <select
+                  aria-label="Refinement passes"
+                  value={prefs.maxIterations}
+                  disabled={running}
+                  onChange={(event) => prefs.set({ maxIterations: Number(event.target.value) })}
+                  className="h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground"
+                >
+                  {Array.from({ length: MODEL_ITERATIONS_MAX }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : (
+            <p>
+              <span className="font-medium text-foreground">One-shot.</span>{' '}
+              {engineId === 'ollama'
+                ? 'The model writes the whole design in one reply, and is asked to fix it if it does not validate.'
+                : 'This agent writes the whole design in one reply — it cannot be attached to Midnite’s MCP tools here. Claude Code and Codex iterate.'}
+            </p>
+          )}
+        </div>
 
         {image ? (
           <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-card/40 p-2" data-testid="model-image">
@@ -178,7 +223,7 @@ export function ModelPanel({
                 <LuX aria-hidden className="h-3.5 w-3.5" />
               </button>
             </div>
-            {installedVision.length > 0 ? (
+            {!iterative && installedVision.length > 0 ? (
               <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 Vision model
                 <select
@@ -197,8 +242,9 @@ export function ModelPanel({
               </label>
             ) : null}
             <p className="text-[11px] text-muted-foreground">
-              A vision model describes the picture, then the engine builds that description. It is not an image-to-3D network, so expect a
-              stylised likeness.
+              {iterative
+                ? 'The agent looks at this picture itself and compares each preview of the model with it.'
+                : 'A vision model describes the picture, then the engine builds that description. It is not an image-to-3D network, so expect a stylised likeness.'}
             </p>
           </div>
         ) : null}
@@ -233,9 +279,21 @@ export function ModelPanel({
           </p>
         ) : null}
         {running && stage ? (
-          <p role="status" data-testid="model-stage" className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Spinner /> {MODEL_STAGE_LABELS[stage]}
-          </p>
+          <div role="status" data-testid="model-stage" className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <p className="flex items-center gap-2">
+              <Spinner /> {MODEL_STAGE_LABELS[stage]}
+              {live?.iteration ? (
+                <span data-testid="model-iteration" className="ml-auto tabular-nums text-foreground">
+                  Pass {live.iteration.n} of {live.iteration.max}
+                </span>
+              ) : null}
+            </p>
+            {live?.action ? (
+              <p data-testid="model-action" className="truncate pl-6" title={live.action}>
+                {live.action}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

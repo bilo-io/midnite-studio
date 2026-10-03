@@ -3163,7 +3163,10 @@ export function buildMockBridge(data: MockFixtures) {
           };
           return { ok: true as const, value: { files: [sidecarPath] } };
         },
-        onProgress: unsubscribe,
+        onProgress: (handler: (event: unknown) => void) => {
+          modelEvents.progress.add(handler);
+          return () => modelEvents.progress.delete(handler);
+        },
         // Specs fire these through `window.__mockModelEvents` to stand in for an agent editing a model.
         onChanged: (handler: (event: unknown) => void) => {
           modelEvents.changed.add(handler);
@@ -4557,8 +4560,13 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowModels = data.mcp?.allowModels ?? false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
-  var modelEvents = { changed: new Set<(event: unknown) => void>(), open: new Set<(event: unknown) => void>() };
+  var modelEvents = {
+    progress: new Set<(event: unknown) => void>(),
+    changed: new Set<(event: unknown) => void>(),
+    open: new Set<(event: unknown) => void>(),
+  };
   (window as unknown as { __mockModelEvents: unknown }).__mockModelEvents = {
+    progress: (event: unknown) => modelEvents.progress.forEach((handler) => handler(event)),
     changed: (event: unknown) => modelEvents.changed.forEach((handler) => handler(event)),
     open: (event: unknown) => modelEvents.open.forEach((handler) => handler(event)),
   };

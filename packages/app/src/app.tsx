@@ -55,6 +55,7 @@ import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
+import { useModelOpenListener } from './features/media/model/use-model-agent-events';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -792,6 +793,8 @@ function Shell() {
   // windowRole guard lives inside the hook itself, not here, since main is
   // the only window `ui-bridge.ts` (main-side) ever targets.
   useCompanionUiRequests();
+  // Media ▸ Models — an agent's `model_open` brings the tab up on that model.
+  useModelOpenListener();
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.

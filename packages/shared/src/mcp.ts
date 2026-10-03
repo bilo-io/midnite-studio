@@ -351,7 +351,7 @@ export const MCP_TOOLS = {
     id: 'model_patch_parts',
     title: 'Add, update or remove parts by id',
     description:
-      'Patches a model’s parts by id with add, update and remove ops, all or nothing — use instead of rewriting the whole design; refused unless its own Settings switch is on.',
+      'Patches a model’s parts by id with add, update and remove ops, all or nothing — use instead of resending the whole design to `model_set_spec`; refused unless its own Settings switch is on.',
     input: ModelPatchPartsInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
@@ -360,7 +360,7 @@ export const MCP_TOOLS = {
     id: 'model_render_preview',
     title: 'Render the model from several angles',
     description:
-      'Renders a model to PNG images from front, side, top and iso cameras so you can see it — use instead of guessing from the JSON; returns image content, at most 768 px each.',
+      'Renders a model to PNG images from front, side, top and iso cameras so you can see it — use instead of judging the `model_get_spec` JSON; returns image content, at most 768 px each.',
     input: ModelRenderPreviewInputSchema,
     output: z.object({ _content: z.array(z.unknown()) }),
     readOnly: true,
@@ -369,7 +369,7 @@ export const MCP_TOOLS = {
     id: 'model_get_reference_image',
     title: 'Get the user’s reference picture',
     description:
-      'Returns the picture the user attached to a model as image content — use instead of relying on a text description of it; answers not-found when there is none.',
+      'Returns the picture the user attached to a model as image content — use instead of a text description of it; answers not-found when there is none, see `model_list`.',
     input: ModelToolTargetSchema,
     output: z.object({ _content: z.array(z.unknown()) }),
     readOnly: true,

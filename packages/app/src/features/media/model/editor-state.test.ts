@@ -121,3 +121,29 @@ describe('tidyVec', () => {
     expect(tidyVec([0.30000000000000004, 1.00004, -0.00001])).toEqual([0.3, 1, -0]);
   });
 });
+
+describe('external edits (an agent over MCP)', () => {
+  const edited = { ...spec, parts: [...spec.parts, { ...spec.parts[0]!, name: 'new' }] };
+  const here = initialEditorState(spec, 'p/a.obj');
+
+  it('adopts the new design as one undoable step, keeping the selection', () => {
+    const next = run({ ...here, selected: 1 }, { type: 'external', spec: edited, source: 'p/a.obj', saved: false });
+    expect(next.spec).toBe(edited);
+    expect(next.selected).toBe(1);
+    expect(isDirty(next)).toBe(true);
+    expect(run(next, { type: 'undo' }).spec).toBe(spec);
+  });
+
+  it('reads as saved when the files already match it', () => {
+    const next = run(here, { type: 'external', spec: edited, source: 'p/a.obj', saved: true });
+    expect(isDirty(next)).toBe(false);
+    expect(canUndo(next)).toBe(true);
+  });
+
+  it('is a no-op for another file, and spends no undo step on an identical design', () => {
+    expect(run(here, { type: 'external', spec: edited, source: 'p/other.obj', saved: false })).toBe(here);
+    const same = run(here, { type: 'external', spec: JSON.parse(JSON.stringify(spec)), source: 'p/a.obj', saved: false });
+    expect(canUndo(same)).toBe(false);
+  });
+});
+

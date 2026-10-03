@@ -78,6 +78,8 @@ export function generateBlockedReason(input: {
   running: boolean;
   engine: EngineChoice;
   providers: ModelProviders | undefined;
+  /** An agent that iterates reads the picture itself, so it needs no Ollama vision model. */
+  iterative?: boolean;
 }): string | undefined {
   if (input.running) return 'Generating…';
   if (input.prompt.trim().length === 0 && !input.image) return 'Describe the model or attach an image.';
@@ -86,7 +88,7 @@ export function generateBlockedReason(input: {
     if (ollama && !ollama.available) return ollama.reason ?? 'Ollama is not running.';
     if (ollama && textModels(ollama.models).length === 0) return `No Ollama model is installed. Run \`ollama pull ${MODEL_DEFAULT_TEXT_MODEL}\`.`;
   }
-  if (input.image && input.providers && !input.providers.ollama.available) {
+  if (input.image && !input.iterative && input.providers && !input.providers.ollama.available) {
     return 'Reading an image needs Ollama (a vision model). Start it, or remove the image.';
   }
   return undefined;

@@ -30,7 +30,9 @@ export type EditorAction =
   | { type: 'duplicate'; index: number }
   | { type: 'undo' }
   | { type: 'redo' }
-  | { type: 'markSaved' };
+  | { type: 'markSaved' }
+  /** An agent edited this model: adopt its design as one undoable step; `saved` when the files match it. */
+  | { type: 'external'; spec: ModelSpec; source: string; saved: boolean };
 
 export const initialEditorState = (spec: ModelSpec, source = ''): EditorState => ({ spec, saved: spec, past: [], future: [], selected: null, source });
 
@@ -112,6 +114,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
     case 'markSaved':
       return { ...state, saved: state.spec };
+    case 'external': {
+      if (state.source !== action.source) return state;
+      const same = JSON.stringify(action.spec) === JSON.stringify(state.spec);
+      const next = same ? state : commit(state, action.spec, state.selected);
+      return action.saved ? { ...next, saved: next.spec } : next;
+    }
   }
 }
 

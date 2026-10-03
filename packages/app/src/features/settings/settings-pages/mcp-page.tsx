@@ -33,6 +33,7 @@ export function McpSettingsPage() {
         shimPath: null,
         allowUi: false,
         allowGateDecide: false,
+        allowModels: false,
       },
   });
 
@@ -65,6 +66,16 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 99 Theme G's fourth switch — as narrow as the other two: it never
+   * touches the socket, only whether the `model_*` tools that change a 3D
+   * model (or open it in the window) act once a call reaches them.
+   */
+  const setAllowModels = useMutation({
+    mutationFn: async (nextAllowModels: boolean) => bridge()?.mcp.set({ allowModels: nextAllowModels }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -79,6 +90,7 @@ export function McpSettingsPage() {
   const running = status.data?.running ?? false;
   const allowUi = status.data?.allowUi ?? false;
   const allowGateDecide = status.data?.allowGateDecide ?? false;
+  const allowModels = status.data?.allowModels ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite-studio -- node ${status.data.shimPath}` : null;
 
   return (
@@ -88,7 +100,7 @@ export function McpSettingsPage() {
           <SettingsSwitchRow
             id="mcp-enabled"
             label="Enable MCP server"
-            description="Serves eight read-only tools (repo, status, graph, diff, branches, pull requests, checks) over a local Unix socket, so an agent started in this app's own terminal can ask instead of shelling out to git/gh. Off by default — turning it on widens this app's attack surface to any process on the machine that can reach the socket."
+            description="Serves read-only tools (repo, status, graph, diff, branches, pull requests, checks, 3D model reads and previews) over a local Unix socket, so an agent started in this app's own terminal can ask instead of shelling out to git/gh. Off by default — turning it on widens this app's attack surface to any process on the machine that can reach the socket."
             on={enabled}
             onToggle={(_id, next) => setEnabled.mutate(next)}
           />
@@ -187,6 +199,31 @@ export function McpSettingsPage() {
           {setAllowGateDecide.data?.error && (
             <div className="text-xs text-destructive">{setAllowGateDecide.data.error}</div>
           )}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit 3D models" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-models"
+            label="Let agents edit 3D models"
+            description="A fourth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the model_* tools that change something: model_set_spec, model_patch_parts, model_save and model_open. Listing models, reading a design, rendering previews and reading a reference picture always work once the server is on. Edits appear live in Media ▸ Models. Generating a model with Claude Code or Codex from the Models tab does not need this switch — it uses its own one-model connection for that run."
+            on={allowModels}
+            onToggle={(_id, next) => setAllowModels.mutate(next)}
+            testId="mcp-allow-models"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowModels.data?.error && <div className="text-xs text-destructive">{setAllowModels.data.error}</div>}
+
+          <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
+            <p className="font-medium text-foreground">Use your own Claude Code session</p>
+            <p>
+              Connect it with the command under "MCP Server" above, then ask it to build a model: it calls model_set_spec to start one,
+              model_render_preview to see it, model_patch_parts to refine, and model_save to finish. Open the Models tab to watch.
+            </p>
+          </div>
         </div>
       </Accordion>
 
