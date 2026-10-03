@@ -29,7 +29,6 @@ import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layou
 import { BrandMark } from '../../components/brand';
 import type { MenuItem } from '../../components/context-menu';
 import { EmptyState } from '../../components/empty-state';
-import { useDialogs } from '../../components/dialog-host';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { MultiSelectMenu } from '../../components/multi-select-menu';
 import { formatNumber } from '../../lib/format-number';
@@ -177,7 +176,6 @@ export function DashboardView() {
   );
 
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const dialogs = useDialogs();
 
   const authorOptions = useMemo(
     () =>
