@@ -857,6 +857,10 @@ export type MidniteStudioBridge = {
     resolveChanges: (
       req: In<typeof S.ChatsResolveChangesRequest>,
     ) => Promise<z.infer<typeof S.ChatsResolveChangesResponse>>;
+    /** Skills for the composer's `/` picker. */
+    skills: (req: In<typeof S.ChatsSkillsRequest>) => Promise<z.infer<typeof S.ChatsSkillsResponse>>;
+    /** Files for the composer's `@` picker. */
+    files: (req: In<typeof S.ChatsFilesRequest>) => Promise<z.infer<typeof S.ChatsFilesResponse>>;
     onEvent: (handler: (event: z.infer<typeof S.ChatsEventPayload>) => void) => Unsubscribe;
   };
 

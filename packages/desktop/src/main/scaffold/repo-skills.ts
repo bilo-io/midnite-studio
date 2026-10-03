@@ -7,7 +7,7 @@ type SkillSource = RepoSkill['source'];
 
 /** A skill name is one path segment a CLI can invoke as `/<name>` — no
  *  whitespace, no slashes, nothing a stray frontmatter line could smuggle in. */
-const SKILL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+export const SKILL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
 
 /** Cap on how much of a SKILL.md is read — the frontmatter is at the top, and
  *  a runaway file should not cost a full read per picker open. */
@@ -75,7 +75,7 @@ export function parseSkillFrontmatter(text: string): { name?: string; descriptio
   };
 }
 
-async function readHead(path: string): Promise<string | null> {
+export async function readSkillHead(path: string): Promise<string | null> {
   try {
     const buffer = await readFile(path);
     return buffer.subarray(0, MAX_HEAD_BYTES).toString('utf8');
@@ -110,7 +110,7 @@ export async function listRepoSkills(
         .map((entry) => entry.name)
         .sort();
       for (const dir of dirs) {
-        const head = await readHead(join(root, dir, 'SKILL.md'));
+        const head = await readSkillHead(join(root, dir, 'SKILL.md'));
         if (head === null) continue;
         const front = parseSkillFrontmatter(head);
         const name = (front?.name ?? dir).trim();

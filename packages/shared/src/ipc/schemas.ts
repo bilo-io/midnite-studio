@@ -8,6 +8,7 @@ import {
   ChatEventSchema,
   ChatModeSchema,
   ChatSchema,
+  ChatSkillSchema,
   ChatSummarySchema,
   DEFAULT_CHAT_MODE,
 } from '../chats';
@@ -3290,6 +3291,22 @@ export const ChatsResolveChangesRequest = z.object({
   decisions: z.array(ChatChangeDecisionSchema).min(1).max(1000),
 });
 export const ChatsResolveChangesResponse = GitOpResultOf(z.object({ changeSet: ChatChangeSetSchema }));
+/** The skills the composer's `/` picker offers for `engine` (and the repo's own, when there is one). */
+export const ChatsSkillsRequest = z.object({
+  engine: z.string().min(1).max(80),
+  repoId: z.string().min(1).nullable().default(null),
+});
+export const ChatsSkillsResponse = GitOpResultOf(z.object({ skills: z.array(ChatSkillSchema) }));
+/**
+ * The files the composer's `@` picker offers: the repo's tracked plus
+ * untracked-not-ignored paths, or the chat's scratch directory when it has no
+ * repo. Relative, `/`-separated; `truncated` when the cap was hit.
+ */
+export const ChatsFilesRequest = z.object({
+  repoId: z.string().min(1).nullable().default(null),
+  chatId: ChatIdSchema.nullable().default(null),
+});
+export const ChatsFilesResponse = GitOpResultOf(z.object({ files: z.array(z.string()), truncated: z.boolean() }));
 export const ChatsEventPayload = ChatEventSchema;
 
 // --- database (Phase 61) -----------------------------------------------------

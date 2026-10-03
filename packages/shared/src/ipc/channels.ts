@@ -956,6 +956,10 @@ export const CHANNELS = {
    * longer applies answers `{ok:false, kind:'conflict'}`.
    */
   chatsResolveChanges: 'mstudio:chats:resolve-changes',
+  /** The skills the chat's agent can run, scanned from its skill folders — the composer's `/` picker. */
+  chatsSkills: 'mstudio:chats:skills',
+  /** The files a chat's agent can reach (repo working tree, or its scratch dir) — the composer's `@` picker. */
+  chatsFiles: 'mstudio:chats:files',
 
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
