@@ -304,4 +304,40 @@ describe('DiffView, assembled through the real bridge', () => {
       expect(rightCell?.textContent).toContain('42');
     });
   });
+
+  it('inline diffs mount every row in flow instead of windowing against the page scroller', async () => {
+    const lines = Array.from({ length: 500 }, (_, n) => ({
+      kind: 'add' as const,
+      oldNo: null,
+      newNo: n + 1,
+      text: `line ${n + 1}`,
+      ranges: [],
+      noNewline: false,
+    }));
+    const bigDiff: FileDiff = {
+      path: 'big.ts',
+      oldPath: null,
+      change: 'modified',
+      binary: false,
+      combined: false,
+      oldMode: null,
+      newMode: null,
+      insertions: 500,
+      deletions: 0,
+      contextLines: 3,
+      truncated: false,
+      droppedLines: 0,
+      hunks: [
+        { oldStart: 1, oldLines: 0, newStart: 1, newLines: 500, heading: '@@ -1,0 +1,500 @@', lines },
+      ],
+    };
+    renderView(
+      <div className="overflow-y-auto">
+        <DiffView diff={bigDiff} inline tooNarrowForSplit={false} />
+      </div>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-view').querySelectorAll('[data-index]').length).toBe(501);
+    });
+  });
 });

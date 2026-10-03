@@ -379,61 +379,19 @@ function InlineDiffBody({
   renderHunkActions?: ((hunkIndex: number) => React.ReactNode) | undefined;
   composer?: { line: number; node: React.ReactNode } | null;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => {
-      if (containerRef.current) {
-        return containerRef.current.closest<HTMLElement>('.overflow-y-auto') ?? null;
-      }
-      return null;
-    },
-    estimateSize: (index) => {
-      const row = rows[index];
-      if (row && 'kind' in row && row.kind === 'thread') return THREAD_ESTIMATE;
-      if (row && 'kind' in row && row.kind === 'composer') return COMPOSER_ESTIMATE;
-      return ROW_HEIGHT;
-    },
-    measureElement: (element) => element.getBoundingClientRect().height,
-    overscan: 24,
-  });
-
-  const virtualItems = virtualizer.getVirtualItems();
 
   return (
-    <div ref={containerRef} className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
+    <div className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
       {diff.combined ? (
         <p className="border-b border-border bg-destructive/10 px-3 py-1.5 font-sans text-[11px] text-muted-foreground">
           This file is unmerged — the content below includes conflict markers.
         </p>
       ) : null}
       <div className="overflow-x-auto">
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {virtualItems.map((virtualRow) => {
-            const index = virtualRow.index;
-            const row = rows[index];
-            if (!row) return null;
-
+        <div className="w-full">
+          {rows.map((row, index) => {
             return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
+              <div key={index} data-index={index}>
                 {'kind' in row && row.kind === 'thread' ? (
                   <div className="w-full">{renderThread?.(row.threads, row.line)}</div>
                 ) : 'kind' in row && row.kind === 'composer' ? (
