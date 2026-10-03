@@ -5,12 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { keys } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
 import { DialogHost } from './dialog-host';
+import { ToastHost } from './toast-host';
 import { PAGE_LABEL_REVEAL_MS, TitleBarNav } from './title-bar-nav';
 
 function withProviders(ui: React.ReactElement, client: QueryClient) {
   return (
     <QueryClientProvider client={client}>
-      <DialogHost>{ui}</DialogHost>
+      <ToastHost>
+        <DialogHost>{ui}</DialogHost>
+      </ToastHost>
     </QueryClientProvider>
   );
 }
@@ -159,6 +162,62 @@ describe('TitleBarNav Breadcrumbs', () => {
       fireEvent.change(box, { target: { value: 'repo-3' } });
       expect(screen.getByRole('menuitem', { name: 'repo-3' })).toBeDefined();
       expect(screen.queryByRole('menuitem', { name: 'repo-4' })).toBeNull();
+    });
+  });
+
+  describe('the branch picker', () => {
+    const ref = (name: string, kind: 'localBranch' | 'remoteBranch', extra = {}) => ({
+      name,
+      fullName: kind === 'localBranch' ? `refs/heads/${name}` : `refs/remotes/${name}`,
+      kind,
+      sha: 'abc',
+      upstream: null,
+      isHead: false,
+      worktreePath: null,
+      ...extra,
+    });
+
+    beforeEach(() => {
+      client.setQueryData(keys.repos, [
+        { id: 'repo-1', name: 'my-awesome-repo', path: '/p', worktrees: [] },
+      ]);
+      client.setQueryData(keys.status('repo-1'), {
+        branch: { head: 'main', detached: false, ahead: 0, behind: 0, upstream: null },
+        entries: [],
+        inProgress: null,
+      });
+      client.setQueryData(keys.refs('repo-1'), [
+        ref('main', 'localBranch', { isHead: true }),
+        ref('dev', 'localBranch'),
+        ref('origin/main', 'remoteBranch'),
+        ref('origin/HEAD', 'remoteBranch'),
+        ref('origin/feature/x', 'remoteBranch'),
+      ]);
+      useUiStore.setState({ selectedRepoId: 'repo-1' });
+    });
+
+    it('lists local branches and remote-only branches, filterable, and checks out by short name', async () => {
+      const checkout = vi.fn().mockResolvedValue({ ok: true });
+      (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+        ops: { checkout },
+        status: { get: vi.fn().mockResolvedValue({ branch: { oid: null } }) },
+      };
+      render(withProviders(<TitleBarNav />, client));
+      fireEvent.click(screen.getByText('main', { selector: 'span' }));
+
+      expect(screen.getByRole('menuitemradio', { name: 'main' })).toBeDefined();
+      expect(screen.getByRole('menuitemradio', { name: 'dev' })).toBeDefined();
+      expect(screen.queryByRole('menuitemradio', { name: 'origin/main' })).toBeNull();
+      expect(screen.queryByRole('menuitemradio', { name: 'origin/HEAD' })).toBeNull();
+
+      fireEvent.change(screen.getByPlaceholderText('Find a branch…'), { target: { value: 'feat' } });
+      expect(screen.queryByRole('menuitemradio', { name: 'dev' })).toBeNull();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('menuitemradio', { name: 'origin/feature/x' }));
+      });
+      expect(checkout).toHaveBeenCalledWith(
+        expect.objectContaining({ repoId: 'repo-1', target: 'feature/x', detach: false }),
+      );
     });
   });
 });
