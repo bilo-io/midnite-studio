@@ -53,8 +53,12 @@ export function ensureAgentProbeSubscription(): void {
   if (subscribed) return;
   const api = bridge();
   if (!api) return;
+  // Partial bridges (specs that stub only what they exercise) may lack the
+  // agent surface entirely; treat that as "no pushes will come".
+  const onStatus = (api.agent as Partial<typeof api.agent> | undefined)?.onStatus;
+  if (!onStatus) return;
   subscribed = true;
-  api.agent.onStatus((event) => useAgentProbeStore.getState().applyPush(event));
+  onStatus((event) => useAgentProbeStore.getState().applyPush(event));
 }
 
 /** Ask main for a fresh probe, bypassing its TTL. The answer arrives as a push too. */
