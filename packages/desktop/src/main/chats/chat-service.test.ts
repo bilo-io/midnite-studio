@@ -54,6 +54,8 @@ function fakeSpawn(plan: (call: Call, io: Io, n: number) => void | Promise<void>
 
 const line = (value: unknown): string => `${JSON.stringify(value)}\n`;
 const textDelta = (text: string) => line({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text } } });
+const thinkingDelta = (thinking: string) =>
+  line({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'thinking_delta', thinking } } });
 const init = (id: string) => line({ type: 'system', subtype: 'init', session_id: id });
 const done = (id: string) => line({ type: 'result', subtype: 'success', is_error: false, result: '', session_id: id });
 
@@ -566,6 +568,53 @@ describe('chat service: edit mode and reviewable changes', () => {
       status: 'error',
       error: 'This repository is too large.',
     });
+  });
+});
+
+describe('chat service: thinking and usage', () => {
+  it('streams thinking apart from the reply, times the burst, and keeps the usage and finish time', async () => {
+    let clock = 1_000;
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(line({ type: 'stream_event', event: { type: 'message_start', message: { model: 'claude-opus-5-5', usage: { input_tokens: 10, cache_read_input_tokens: 990, output_tokens: 1 } } } }));
+      io.out(thinkingDelta('Let me '));
+      io.out(thinkingDelta('think.'));
+      await sleep(5);
+      clock += 4_000;
+      io.out(textDelta('Answer'));
+      io.out(line({ type: 'stream_event', event: { type: 'message_delta', usage: { output_tokens: 50 } } }));
+      io.out(done('s'));
+      io.close(0);
+    });
+    const { service, events } = setup({ spawn, now: () => clock });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'why?' });
+    await service.idle();
+
+    const reply = lastAssistant(((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat);
+    expect(reply).toMatchObject({ text: 'Answer', thinking: 'Let me think.', thinkingMs: 4_000, finishedAt: clock });
+    expect(reply.usage).toEqual({ outputTokens: 50, contextTokens: 1_050, contextWindow: 200_000 });
+
+    const thinking = events.filter((e) => e.kind === 'thinking').map((e) => (e as { text: string }).text);
+    expect(thinking.join('')).toBe('Let me think.');
+    expect(events.filter((e) => e.kind === 'delta').map((e) => (e as { text: string }).text).join('')).toBe('Answer');
+    expect(events.some((e) => e.kind === 'usage')).toBe(true);
+  });
+
+  it('plumbs Ollama thinking and usage through its stream callbacks', async () => {
+    const ollamaStream = vi.fn(
+      async (req: { onDelta: (t: string) => void; onThinking?: (t: string) => void; onUsage?: (u: { outputTokens: number }) => void }) => {
+        req.onThinking?.('hmm');
+        req.onDelta('Hi');
+        req.onUsage?.({ outputTokens: 7 });
+        return 'Hi';
+      },
+    );
+    const { service } = setup({ ollamaStream: ollamaStream as never });
+    const chat = await created(service, { engine: 'ollama', model: 'qwen3:8b' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    const reply = lastAssistant(((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat);
+    expect(reply).toMatchObject({ text: 'Hi', thinking: 'hmm', usage: { outputTokens: 7 } });
   });
 });
 

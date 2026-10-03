@@ -1,4 +1,11 @@
-import { agentHeadlessArgs, loopModelArgs, type AgentDefinition, type ChatMode, type LoopModel } from '@midnite/studio-shared';
+import {
+  agentHeadlessArgs,
+  loopModelArgs,
+  type AgentDefinition,
+  type ChatMode,
+  type ChatUsage,
+  type LoopModel,
+} from '@midnite/studio-shared';
 
 /**
  * How each agent CLI is driven for a chat turn, and how its streamed output is
@@ -19,6 +26,13 @@ import { agentHeadlessArgs, loopModelArgs, type AgentDefinition, type ChatMode, 
  *   with `conversation_id`, `step_update`s whose `text_delta` is the reply, a
  *   final `result`; `--conversation <id>` resumes; `--mode plan` is read-only.
  *
+ *
+ * Reasoning and usage ride along where a CLI exposes them: Claude's
+ * `thinking_delta`s and Codex's `reasoning` items become `thinking` events;
+ * Claude's `message_start`/`message_delta`/`result` usage and Codex's
+ * `turn.completed` usage become `usage` snapshots. Antigravity exposes neither
+ * in a shape we know, so it reports neither.
+ *
  * Every other roster agent with a print mode runs through the generic driver:
  * plain stdout as the reply, no resume — the service replays the transcript.
  * Parsers are lenient on purpose: a line that is not JSON, or an event shape we
@@ -30,6 +44,10 @@ export type ParsedEvent =
   | { type: 'delta'; text: string }
   | { type: 'activity'; line: string }
   | { type: 'session'; id: string }
+  /** A chunk of the model's reasoning. */
+  | { type: 'thinking'; text: string }
+  /** The turn's usage so far — a full snapshot, not an increment. */
+  | { type: 'usage'; usage: ChatUsage }
   /** The CLI's own final answer, used when no delta was streamed. */
   | { type: 'result'; text?: string; error?: string };
 
@@ -90,6 +108,9 @@ const str = (value: unknown): string | undefined => (typeof value === 'string' ?
 const rec = (value: unknown): Record<string, unknown> | undefined =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 
+const int = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
+
 const clip = (text: string, max = 90): string => {
   const one = text.replace(/\s+/g, ' ').trim();
   return one.length > max ? `${one.slice(0, max - 1)}…` : one;
@@ -103,8 +124,76 @@ function claudeToolLine(name: string, input: Record<string, unknown> | undefined
   return target ? `${name} ${clip(target, 70)}` : name;
 }
 
+/**
+ * Claude's window from its model id when the CLI did not report one: the
+ * `[1m]` suffix is the long-context variant, every other current model is 200k.
+ */
+export function claudeContextWindow(model: string | undefined): number | undefined {
+  if (!model) return undefined;
+  return /\[1m\]/i.test(model) ? 1_000_000 : 200_000;
+}
+
+/** Prompt + cache tokens of one Messages API `usage` — what the context holds going in. */
+function promptTokens(usage: Record<string, unknown> | undefined): number | undefined {
+  if (!usage) return undefined;
+  const parts = [usage.input_tokens, usage.cache_creation_input_tokens, usage.cache_read_input_tokens].map(int);
+  return parts.every((p) => p === undefined) ? undefined : parts.reduce<number>((sum, p) => sum + (p ?? 0), 0);
+}
+
+/**
+ * Usage bookkeeping across one Claude turn, which is several Messages API calls
+ * (one per tool round-trip): each `message_start` opens a call with its prompt
+ * size, `message_delta` updates that call's output count, and the totals are the
+ * finished calls plus the current one.
+ */
+function claudeUsageTracker() {
+  let outputDone = 0;
+  let outputCurrent = 0;
+  let prompt: number | undefined;
+  let window: number | undefined;
+  const snapshot = (): ChatUsage => {
+    const usage: ChatUsage = { outputTokens: outputDone + outputCurrent };
+    if (prompt !== undefined) usage.contextTokens = prompt + outputCurrent;
+    if (window !== undefined) usage.contextWindow = window;
+    return usage;
+  };
+  return {
+    start(message: Record<string, unknown> | undefined): ChatUsage {
+      outputDone += outputCurrent;
+      const usage = rec(message?.usage);
+      outputCurrent = int(usage?.output_tokens) ?? 0;
+      prompt = promptTokens(usage) ?? prompt;
+      window ??= claudeContextWindow(str(message?.model));
+      return snapshot();
+    },
+    delta(usage: Record<string, unknown> | undefined): ChatUsage | null {
+      const output = int(usage?.output_tokens);
+      if (output === undefined) return null;
+      outputCurrent = output;
+      return snapshot();
+    },
+    result(event: Record<string, unknown>): ChatUsage | null {
+      const usage = rec(event.usage);
+      const total = int(usage?.output_tokens);
+      // The result's total is authoritative; the last call's own output stays in
+      // the context figure, so only the finished-calls share absorbs the correction.
+      if (total !== undefined) outputDone = Math.max(0, total - outputCurrent);
+      // `modelUsage` keys each model the turn used to its stats, `contextWindow` among
+      // them; a reported size beats the model-id guess.
+      const models = rec(event.modelUsage);
+      const sizes = Object.values(models ?? {})
+        .map((stats) => int(rec(stats)?.contextWindow))
+        .filter((size): size is number => size !== undefined && size > 0);
+      if (sizes.length > 0) window = Math.max(...sizes);
+      if (total === undefined && sizes.length === 0) return null;
+      return snapshot();
+    },
+  };
+}
+
 export function claudeParser(): StreamParser {
   let sawDelta = false;
+  const usage = claudeUsageTracker();
   return lineBuffer((line) => {
     const event = json(line);
     if (!event) return [];
@@ -123,6 +212,14 @@ export function claudeParser(): StreamParser {
             sawDelta = true;
             out.push({ type: 'delta', text });
           }
+        } else if (inner?.type === 'content_block_delta' && delta?.type === 'thinking_delta') {
+          const text = str(delta.thinking);
+          if (text) out.push({ type: 'thinking', text });
+        } else if (inner?.type === 'message_start') {
+          out.push({ type: 'usage', usage: usage.start(rec(inner.message)) });
+        } else if (inner?.type === 'message_delta') {
+          const snap = usage.delta(rec(inner.usage));
+          if (snap) out.push({ type: 'usage', usage: snap });
         }
         break;
       }
@@ -142,6 +239,8 @@ export function claudeParser(): StreamParser {
       }
       case 'result': {
         if (sessionId) out.push({ type: 'session', id: sessionId });
+        const snap = usage.result(event);
+        if (snap) out.push({ type: 'usage', usage: snap });
         const isError = event.is_error === true || (typeof event.subtype === 'string' && event.subtype.startsWith('error'));
         const result = str(event.result);
         if (isError) out.push({ type: 'result', error: result ?? 'The agent reported an error.' });
@@ -159,6 +258,8 @@ export function claudeParser(): StreamParser {
 
 export function codexParser(): StreamParser {
   let messages = 0;
+  let reasoning = 0;
+  let output = 0;
   return lineBuffer((line) => {
     const event = json(line);
     if (!event) return [];
@@ -178,6 +279,12 @@ export function codexParser(): StreamParser {
             out.push({ type: 'delta', text: messages === 0 ? text : `\n\n${text}` });
             messages += 1;
           }
+        } else if (kind === 'reasoning') {
+          const text = str(item?.text);
+          if (text) {
+            out.push({ type: 'thinking', text: reasoning === 0 ? text : `\n\n${text}` });
+            reasoning += 1;
+          }
         } else if (kind === 'command_execution') {
           const command = str(item?.command);
           if (command) out.push({ type: 'activity', line: `Ran ${clip(command, 80)}` });
@@ -190,6 +297,16 @@ export function codexParser(): StreamParser {
         } else if (kind === 'error') {
           const message = str(item?.message);
           if (message) out.push({ type: 'result', error: message });
+        }
+        break;
+      }
+      case 'turn.completed': {
+        // Codex reports no window and sums input across the turn's calls, so only
+        // the generated count is honest to show.
+        const tokens = int(rec(event.usage)?.output_tokens);
+        if (tokens !== undefined) {
+          output += tokens;
+          out.push({ type: 'usage', usage: { outputTokens: output } });
         }
         break;
       }

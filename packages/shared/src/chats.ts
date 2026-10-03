@@ -101,6 +101,24 @@ export const ChatAttachmentSchema = z.object({
 });
 export type ChatAttachment = z.infer<typeof ChatAttachmentSchema>;
 
+/**
+ * Token usage an engine reported for one assistant turn. Every field is
+ * optional because engines report different subsets — the renderer hides
+ * whatever is missing rather than guessing it.
+ *
+ * - `outputTokens` — tokens the model generated this turn (thinking included).
+ * - `contextTokens` — how full the context window is after the latest model
+ *   call (prompt + cache + output).
+ * - `contextWindow` — the model's window size, when the engine or its model id
+ *   tells us.
+ */
+export const ChatUsageSchema = z.object({
+  outputTokens: z.number().int().nonnegative().optional(),
+  contextTokens: z.number().int().nonnegative().optional(),
+  contextWindow: z.number().int().positive().optional(),
+});
+export type ChatUsage = z.infer<typeof ChatUsageSchema>;
+
 export const ChatMessageStatusSchema = z.enum(['streaming', 'done', 'error', 'cancelled']);
 export type ChatMessageStatus = z.infer<typeof ChatMessageStatusSchema>;
 
@@ -118,6 +136,13 @@ export const ChatMessageSchema = z.object({
   engine: z.string().optional(),
   model: z.string().nullable().optional(),
   changeSet: ChatChangeSetSchema.optional(),
+  /** The agent's reasoning, as streamed by engines that expose it. */
+  thinking: z.string().optional(),
+  /** Wall-clock time spent in thinking bursts, for "Thought for 12s". */
+  thinkingMs: z.number().nonnegative().optional(),
+  usage: ChatUsageSchema.optional(),
+  /** When an assistant turn settled — `finishedAt - createdAt` is its elapsed time. */
+  finishedAt: z.number().nonnegative().optional(),
 });
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
@@ -175,6 +200,10 @@ export type StoredChat = z.infer<typeof StoredChatSchema>;
 export const ChatEventSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('delta'), chatId: z.string(), messageId: z.string(), text: z.string() }),
   z.object({ kind: z.literal('activity'), chatId: z.string(), messageId: z.string(), line: z.string() }),
+  /** A chunk of the agent's reasoning, appended to `thinking`. */
+  z.object({ kind: z.literal('thinking'), chatId: z.string(), messageId: z.string(), text: z.string() }),
+  /** The turn's latest usage snapshot — replaces `usage`, never adds to it. */
+  z.object({ kind: z.literal('usage'), chatId: z.string(), messageId: z.string(), usage: ChatUsageSchema }),
   z.object({ kind: z.literal('message'), chatId: z.string(), message: ChatMessageSchema }),
   z.object({ kind: z.literal('chat'), chatId: z.string() }),
   z.object({ kind: z.literal('removed'), chatId: z.string() }),

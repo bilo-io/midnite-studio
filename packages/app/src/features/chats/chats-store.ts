@@ -68,8 +68,16 @@ export function coalesceEvents(events: readonly ChatEvent[]): ChatEvent[] {
   const out: ChatEvent[] = [];
   for (const event of events) {
     const last = out[out.length - 1];
-    if (event.kind === 'delta' && last?.kind === 'delta' && last.chatId === event.chatId && last.messageId === event.messageId) {
+    if (
+      (event.kind === 'delta' || event.kind === 'thinking') &&
+      last?.kind === event.kind &&
+      last.chatId === event.chatId &&
+      last.messageId === event.messageId
+    ) {
       out[out.length - 1] = { ...last, text: last.text + event.text };
+    } else if (event.kind === 'usage' && last?.kind === 'usage' && last.chatId === event.chatId && last.messageId === event.messageId) {
+      // A usage event is a full snapshot, so only the newest of a run matters.
+      out[out.length - 1] = event;
     } else {
       out.push(event);
     }
@@ -106,6 +114,21 @@ export function reduceChatEvent(chats: Record<string, Chat>, event: ChatEvent): 
       messages[index] = { ...messages[index]!, text: messages[index]!.text + event.text };
       return { ...chats, [chat.id]: { ...chat, messages } };
     }
+    case 'thinking': {
+      const index = chat.messages.findIndex((m) => m.id === event.messageId);
+      if (index === -1) return chats;
+      const messages = [...chat.messages];
+      const current = messages[index]!;
+      messages[index] = { ...current, thinking: (current.thinking ?? '') + event.text };
+      return { ...chats, [chat.id]: { ...chat, messages } };
+    }
+    case 'usage': {
+      const index = chat.messages.findIndex((m) => m.id === event.messageId);
+      if (index === -1) return chats;
+      const messages = [...chat.messages];
+      messages[index] = { ...messages[index]!, usage: event.usage };
+      return { ...chats, [chat.id]: { ...chat, messages } };
+    }
     case 'activity': {
       const index = chat.messages.findIndex((m) => m.id === event.messageId);
       if (index === -1) return chats;
@@ -135,7 +158,12 @@ export function mergeStreamed(local: Chat | undefined, fetched: Chat): Chat {
   const messages = fetched.messages.map((m) => {
     if (m.status !== 'streaming') return m;
     const mine = local.messages.find((l) => l.id === m.id);
-    return mine && mine.text.length > m.text.length ? { ...m, text: mine.text } : m;
+    if (!mine) return m;
+    let merged = m;
+    if (mine.text.length > m.text.length) merged = { ...merged, text: mine.text };
+    if ((mine.thinking?.length ?? 0) > (m.thinking?.length ?? 0)) merged = { ...merged, thinking: mine.thinking! };
+    if (mine.usage && !m.usage) merged = { ...merged, usage: mine.usage };
+    return merged;
   });
   return { ...fetched, messages };
 }

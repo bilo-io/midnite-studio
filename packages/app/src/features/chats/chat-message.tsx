@@ -3,11 +3,11 @@ import { memo, useEffect, useRef, useState } from 'react';
 import type { ChatMessage as ChatMessageData } from '@midnite/studio-shared';
 import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
 
-import { ThinkingIndicator } from '../../components/ai-thread';
 import { IconButton } from '../../components/icon-button';
 import { useToastStore } from '../../store/toast-store';
 import { MarkdownBody } from '../markdown/markdown-body';
 import { ChatChangesCard } from './chat-changes-card';
+import { ThinkingPanel } from './thinking-panel';
 import type { ChatEngine } from './use-chat-engines';
 
 /**
@@ -176,6 +176,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       </span>
       <div className="min-w-0 flex-1">
+        <ThinkingPanel message={message} />
         {message.activity && message.activity.length > 0 ? (
           <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="What the agent did" data-testid="chat-activity">
             {message.activity.slice(-8).map((line, i) => (
@@ -191,8 +192,6 @@ export const AssistantMessage = memo(function AssistantMessage({
             <MarkdownBody content={message.text} />
             {streaming ? <span aria-hidden data-testid="chat-caret" className="ml-0.5 inline-block h-4 w-[2px] animate-caret-blink bg-foreground align-text-bottom" /> : null}
           </div>
-        ) : streaming ? (
-          <ThinkingIndicator />
         ) : null}
 
         {message.status === 'error' && message.error ? (

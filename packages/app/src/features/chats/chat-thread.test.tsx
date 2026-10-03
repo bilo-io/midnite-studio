@@ -126,13 +126,16 @@ describe('ChatThread', () => {
     expect(screen.getByText('q')).toBeTruthy();
   });
 
-  it('shows a thinking indicator before the first token, then the text with a caret', () => {
+  it('shows the thinking status for the whole live turn, and the text with a caret once it streams', () => {
     const { rerender } = render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', '', { status: 'streaming' })])} streaming {...props} />);
-    expect(screen.getByTestId('thinking-indicator')).toBeTruthy();
+    expect(screen.getByTestId('thinking-panel')).toBeTruthy();
     expect(screen.queryByTestId('chat-caret')).toBeNull();
     rerender(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'Hel', { status: 'streaming' })])} streaming {...props} />);
-    expect(screen.queryByTestId('thinking-indicator')).toBeNull();
+    expect(screen.getByTestId('thinking-panel')).toBeTruthy();
     expect(screen.getByTestId('chat-caret')).toBeTruthy();
+    // A settled turn with no reasoning and no usage keeps the old, quiet look.
+    rerender(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'Hello')])} streaming={false} {...props} />);
+    expect(screen.queryByTestId('thinking-panel')).toBeNull();
   });
 
   it('shows what the agent did, an error, and a stopped note', () => {

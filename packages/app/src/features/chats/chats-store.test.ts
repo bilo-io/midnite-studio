@@ -48,6 +48,15 @@ describe('reduceChatEvent', () => {
     expect(next.c1!.messages[1]!.activity).toEqual(['Edit a.ts']);
   });
 
+  it('appends thinking and replaces usage on its message', () => {
+    const thought = reduceChatEvent(state, { kind: 'thinking', chatId: 'c1', messageId: 'a', text: 'Hmm' });
+    const more = reduceChatEvent(thought, { kind: 'thinking', chatId: 'c1', messageId: 'a', text: '…' });
+    expect(more.c1!.messages[1]!.thinking).toBe('Hmm…');
+    const used = reduceChatEvent(more, { kind: 'usage', chatId: 'c1', messageId: 'a', usage: { outputTokens: 9 } });
+    const again = reduceChatEvent(used, { kind: 'usage', chatId: 'c1', messageId: 'a', usage: { outputTokens: 20, contextTokens: 900 } });
+    expect(again.c1!.messages[1]!.usage).toEqual({ outputTokens: 20, contextTokens: 900 });
+  });
+
   it('upserts a message by id, and appends an unknown one', () => {
     const replaced = reduceChatEvent(state, { kind: 'message', chatId: 'c1', message: message('a', { text: 'Hello', status: 'done' }) });
     expect(replaced.c1!.messages).toHaveLength(2);
@@ -82,6 +91,17 @@ describe('coalesceEvents', () => {
     expect(coalesceEvents([delta('a', 'He'), delta('a', 'll'), delta('a', 'o')])).toEqual([delta('a', 'Hello')]);
   });
 
+  it('merges runs of thinking, keeps only the newest of a usage run, and never mixes the two with deltas', () => {
+    const think = (text: string): ChatEvent => ({ kind: 'thinking', chatId: 'c1', messageId: 'a', text });
+    const usage = (outputTokens: number): ChatEvent => ({ kind: 'usage', chatId: 'c1', messageId: 'a', usage: { outputTokens } });
+    expect(coalesceEvents([think('a'), think('b'), delta('a', 'x'), usage(1), usage(2), think('c')])).toEqual([
+      think('ab'),
+      delta('a', 'x'),
+      usage(2),
+      think('c'),
+    ]);
+  });
+
   it('keeps messages, chats and non-delta events apart and in order', () => {
     const out = coalesceEvents([delta('a', '1'), delta('b', '2'), { kind: 'chat', chatId: 'c1' }, delta('b', '3')]);
     expect(out).toEqual([delta('a', '1'), delta('b', '2'), { kind: 'chat', chatId: 'c1' }, delta('b', '3')]);
@@ -93,6 +113,12 @@ describe('mergeStreamed / isStreaming', () => {
     const local = chat('c', [message('a', { status: 'streaming', text: 'Hello wor' })]);
     const fetched = chat('c', [message('a', { status: 'streaming', text: 'Hello' })]);
     expect(mergeStreamed(local, fetched).messages[0]!.text).toBe('Hello wor');
+  });
+
+  it('keeps the longer thinking, and live usage the fetched copy has not caught up with', () => {
+    const local = chat('c', [message('a', { status: 'streaming', thinking: 'Let me see', usage: { outputTokens: 4 } })]);
+    const fetched = chat('c', [message('a', { status: 'streaming', thinking: 'Let' })]);
+    expect(mergeStreamed(local, fetched).messages[0]).toMatchObject({ thinking: 'Let me see', usage: { outputTokens: 4 } });
   });
 
   it('takes the fetched copy for a settled message', () => {

@@ -31,6 +31,7 @@ import {
   type ChatMessage,
   type ChatMode,
   type ChatSummary,
+  type ChatUsage,
   type FileDiff,
   type GitOpResult,
 } from '@midnite/studio-shared';
@@ -89,6 +90,8 @@ export type ChatServiceDeps = {
         messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
         signal: AbortSignal;
         onDelta: (text: string) => void;
+        onThinking?: (text: string) => void;
+        onUsage?: (usage: ChatUsage) => void;
       }) => Promise<string>)
     | undefined;
   timeoutMs?: number | undefined;
@@ -405,13 +408,42 @@ export function createChatService(deps: ChatServiceDeps) {
   /** Append streamed text to the assistant message and tell the renderer. */
   const pushDelta = (chat: Chat, message: ChatMessage, text: string): void => {
     if (text.length === 0) return;
+    closeThinking(message);
     message.text += text;
     deps.emit({ kind: 'delta', chatId: chat.id, messageId: message.id, text });
     persistSoon(chat);
   };
 
+  /**
+   * Thinking bursts, timed: a burst opens on its first chunk and closes on the
+   * next thing that is not thinking (text, a tool call, the end of the turn), so
+   * `thinkingMs` is time spent reasoning rather than the whole turn.
+   */
+  const thinkingSince = new Map<string, number>();
+
+  const closeThinking = (message: ChatMessage): void => {
+    const since = thinkingSince.get(message.id);
+    if (since === undefined) return;
+    thinkingSince.delete(message.id);
+    message.thinkingMs = (message.thinkingMs ?? 0) + Math.max(0, now() - since);
+  };
+
+  const pushThinking = (chat: Chat, message: ChatMessage, text: string): void => {
+    if (text.length === 0) return;
+    if (!thinkingSince.has(message.id)) thinkingSince.set(message.id, now());
+    message.thinking = (message.thinking ?? '') + text;
+    deps.emit({ kind: 'thinking', chatId: chat.id, messageId: message.id, text });
+    persistSoon(chat);
+  };
+
+  const pushUsage = (chat: Chat, message: ChatMessage, usage: ChatUsage): void => {
+    message.usage = usage;
+    deps.emit({ kind: 'usage', chatId: chat.id, messageId: message.id, usage });
+  };
+
   const pushActivity = (chat: Chat, message: ChatMessage, line: string): void => {
     const lines = message.activity ?? [];
+    closeThinking(message);
     if (lines.length >= ACTIVITY_CAP || lines[lines.length - 1] === line) return;
     message.activity = [...lines, line];
     deps.emit({ kind: 'activity', chatId: chat.id, messageId: message.id, line });
@@ -473,6 +505,8 @@ export function createChatService(deps: ChatServiceDeps) {
       error = caught instanceof Error ? caught.message : String(caught);
     } finally {
       await git.removeSnapshot(sandbox);
+      closeThinking(assistant);
+      assistant.finishedAt = now();
       if (handle.cancelled) {
         assistant.status = 'cancelled';
       } else if (error) {
@@ -507,6 +541,8 @@ export function createChatService(deps: ChatServiceDeps) {
         messages: buildOllamaMessages(history, user),
         signal: handle.controller.signal,
         onDelta: (text) => pushDelta(chat, assistant, text),
+        onThinking: (text) => pushThinking(chat, assistant, text),
+        onUsage: (usage) => pushUsage(chat, assistant, usage),
       });
       return {};
     } catch (caught) {
@@ -542,18 +578,26 @@ export function createChatService(deps: ChatServiceDeps) {
       let result: TurnResult = {};
       const sink: ProcessSink<null> = {
         push: (chunk) => {
+          // Runs of reply text, and runs of thinking, go out as one event each per chunk.
           let pending = '';
+          let pendingKind: 'delta' | 'thinking' = 'delta';
+          const flush = () => {
+            if (!pending) return;
+            if (pendingKind === 'delta') pushDelta(chat, assistant, pending);
+            else pushThinking(chat, assistant, pending);
+            pending = '';
+          };
           for (const event of invocation.parser.push(chunk)) {
-            if (event.type === 'delta') pending += event.text;
-            else {
-              if (pending) {
-                pushDelta(chat, assistant, pending);
-                pending = '';
-              }
+            if (event.type === 'delta' || event.type === 'thinking') {
+              if (pendingKind !== event.type) flush();
+              pendingKind = event.type;
+              pending += event.text;
+            } else {
+              flush();
               result = absorb(chat, assistant, event, result);
             }
           }
-          if (pending) pushDelta(chat, assistant, pending);
+          flush();
         },
         finish: () => {
           for (const event of invocation.parser.finish()) {
@@ -610,6 +654,12 @@ export function createChatService(deps: ChatServiceDeps) {
         return result;
       case 'session':
         return { ...result, sessionId: event.id };
+      case 'thinking':
+        pushThinking(chat, assistant, event.text);
+        return result;
+      case 'usage':
+        pushUsage(chat, assistant, event.usage);
+        return result;
       case 'result':
         return {
           ...result,
