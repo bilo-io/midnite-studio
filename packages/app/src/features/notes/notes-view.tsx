@@ -5,10 +5,10 @@ import {
   LuEllipsisVertical,
   LuEye,
   LuLightbulb,
-  LuNotebookPen,
   LuTrash2,
   LuZap,
 } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import { EmptyState } from '../../components/empty-state';
 import { PageDetachMark } from '../../components/page-detach-mark';
@@ -228,7 +228,7 @@ export function NotesView() {
   if (!selectedRepoId) {
     return (
       <EmptyState
-        icon={LuNotebookPen}
+        icon={MdOutlineEditNote}
         title="No repository open"
         body="Open a repository to see its notes here, or capture one from anywhere with Mod+L then N."
       />
@@ -294,7 +294,7 @@ export function NotesView() {
         <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto">
           {repoNotes.length === 0 ? (
             <EmptyState
-              icon={LuNotebookPen}
+              icon={MdOutlineEditNote}
               title="Nothing captured yet"
               body="Write the thought you'd otherwise lose."
             />
@@ -343,7 +343,7 @@ export function NotesView() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {selectedNote === null ? (
           <EmptyState
-            icon={LuNotebookPen}
+            icon={MdOutlineEditNote}
             title="Select a note to edit it"
             body="Pick a note from the list on the left to open it here."
           />

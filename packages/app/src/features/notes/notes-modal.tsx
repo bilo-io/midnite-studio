@@ -1,5 +1,6 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { LuEllipsisVertical, LuNotebookPen, LuX } from 'react-icons/lu';
+import { LuEllipsisVertical, LuX } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
@@ -199,13 +200,13 @@ export function NotesModal() {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {!selectedRepoId ? (
             <EmptyState
-              icon={LuNotebookPen}
+              icon={MdOutlineEditNote}
               title="Notes are per-repository"
               body="Open or select a repository in the sidebar to view and capture notes."
             />
           ) : repoNotes.length === 0 ? (
             <EmptyState
-              icon={LuNotebookPen}
+              icon={MdOutlineEditNote}
               title="Nothing captured yet"
               body="Write the thought you'd otherwise lose."
             />

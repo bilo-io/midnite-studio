@@ -27,7 +27,6 @@ import {
   LuLink,
   LuLock,
   LuMessagesSquare,
-  LuNotebookPen,
   LuOctagonX,
   LuPalette,
   LuPanelLeft,
@@ -50,6 +49,7 @@ import {
   LuZoomIn,
   LuZoomOut,
 } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 /**
  * Command icons mapping every CommandId to a react-icons icon.
@@ -65,7 +65,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'repos.toggle': LuPanelLeft,
   'browser.toggle': LuGlobe,
   'fab.toggle': LuPanelRight,
-  'notes.toggle': LuNotebookPen,
+  'notes.toggle': MdOutlineEditNote,
   'companion.toggle': LuBot,
   // A link, not a globe: the command is about WHERE a link goes, and every
   // other `browser.*` row already wears the globe.

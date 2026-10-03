@@ -19,7 +19,6 @@ import {
   LuLayoutGrid,
   LuLock,
   LuMessagesSquare,
-  LuNotebookPen,
   LuPalette,
   LuPanelLeft,
   LuSearch,
@@ -36,6 +35,7 @@ import {
   LuTerminal,
   LuTrash2,
 } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import type { SettingsPageId, ViewId } from '../store/ui-store';
 import { CirclePileIcon } from './icons/circle-pile-icon';
@@ -63,7 +63,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Phase 86 Theme E — pinned directly under Dashboard, so it wears a glyph
   // that reads as "notes" rather than the file/document mark `files` already
   // owns.
-  notes: LuNotebookPen,
+  notes: MdOutlineEditNote,
   // Chats page — conversations with the roster's agent CLIs. `LuBot` already
   // belongs to Settings ▸ Agent and the companion, so the thread reads as a
   // pair of speech bubbles instead.

@@ -11,7 +11,8 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2, LuRocket, LuWandSparkles } from 'react-icons/lu';
+import { LuBug, LuCompass, LuInfinity, LuRepeat2, LuRocket, LuWandSparkles } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import type { MenuEntry } from '../../components/context-menu';
 import { useDismissable, type TriggerSource } from '../../components/use-dismissable';
@@ -74,7 +75,7 @@ function buildRows(options: {
       mnemonic: 'N',
       label: 'Notes',
       description: 'Capture a thought against this repository',
-      icon: LuNotebookPen,
+      icon: MdOutlineEditNote,
       onSelect: () => openNotes(),
     },
   ];
