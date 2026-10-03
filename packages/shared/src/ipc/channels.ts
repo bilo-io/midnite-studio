@@ -925,6 +925,33 @@ export const CHANNELS = {
   /** Docs (Theme B): save dialog → write md/html, or `printToPDF` the html. No ffmpeg. */
   mediaDocExport: 'mstudio:media:doc-export',
 
+  // --- chats (the Chats page) ------------------------------------------------
+  // Conversations with the roster's agent CLIs and local Ollama models, stored
+  // main-side (`<userData>/chats/`). A turn's text streams on
+  // `EVENT_CHANNELS.chatsEvent`; every op here answers a `GitOpResult`.
+  /** Every chat's summary row — filtering and grouping are the renderer's. */
+  chatsList: 'mstudio:chats:list',
+  /** One whole chat, messages and change sets included (patch text excluded). */
+  chatsGet: 'mstudio:chats:get',
+  /** An empty chat with its engine/model/mode/repo — the first send names it. */
+  chatsCreate: 'mstudio:chats:create',
+  /** Rename, pin, or change a chat's engine, model, mode or repo. */
+  chatsUpdate: 'mstudio:chats:update',
+  /** Delete chats (and their sandboxes and stored patches). Cancels a running turn first. */
+  chatsDelete: 'mstudio:chats:delete',
+  /** Start a turn — resolves once it has STARTED; text arrives on `chatsEvent`. */
+  chatsSend: 'mstudio:chats:send',
+  /** Kill the chat's running turn (process group) and settle its message as cancelled. */
+  chatsCancel: 'mstudio:chats:cancel',
+  /** The parsed `FileDiff` of every file in a change set, for the review modal. */
+  chatsChangeDiffs: 'mstudio:chats:change-diffs',
+  /**
+   * Accept or reject files/hunks of a change set. Accepts are applied to the
+   * real checkout as a patch through the per-repo write queue; a patch that no
+   * longer applies answers `{ok:false, kind:'conflict'}`.
+   */
+  chatsResolveChanges: 'mstudio:chats:resolve-changes',
+
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
   // classifies every entry — it writes nothing. `apply` writes only the exact
@@ -1445,6 +1472,8 @@ export const EVENT_CHANNELS = {
   mediaModelChanged: 'mstudio:media:model-changed',
   /** `model_open` asked the window to show a model — see `ModelOpenEventSchema`. */
   mediaModelOpen: 'mstudio:media:model-open',
+  /** A chat turn's text or state advanced — see `ChatEventSchema`. */
+  chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */

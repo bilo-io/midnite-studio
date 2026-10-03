@@ -832,6 +832,30 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Chats — conversations with the roster's agent CLIs and local Ollama models.
+   * Stored and run in main; `send` resolves once the turn has STARTED and its
+   * text arrives on `onEvent`. Changes an agent makes in `edit` mode come back
+   * as a change set the renderer reviews through `changeDiffs` and
+   * `resolveChanges` — nothing lands in the working tree before an accept.
+   */
+  chats: {
+    list: () => Promise<z.infer<typeof S.ChatsListResponse>>;
+    get: (req: In<typeof S.ChatsGetRequest>) => Promise<z.infer<typeof S.ChatsGetResponse>>;
+    create: (req: In<typeof S.ChatsCreateRequest>) => Promise<z.infer<typeof S.ChatsCreateResponse>>;
+    update: (req: In<typeof S.ChatsUpdateRequest>) => Promise<z.infer<typeof S.ChatsUpdateResponse>>;
+    delete: (req: In<typeof S.ChatsDeleteRequest>) => Promise<z.infer<typeof S.ChatsDeleteResponse>>;
+    send: (req: In<typeof S.ChatsSendRequest>) => Promise<z.infer<typeof S.ChatsSendResponse>>;
+    cancel: (req: In<typeof S.ChatsCancelRequest>) => Promise<z.infer<typeof S.ChatsCancelResponse>>;
+    changeDiffs: (
+      req: In<typeof S.ChatsChangeDiffsRequest>,
+    ) => Promise<z.infer<typeof S.ChatsChangeDiffsResponse>>;
+    resolveChanges: (
+      req: In<typeof S.ChatsResolveChangesRequest>,
+    ) => Promise<z.infer<typeof S.ChatsResolveChangesResponse>>;
+    onEvent: (handler: (event: z.infer<typeof S.ChatsEventPayload>) => void) => Unsubscribe;
+  };
+
+  /**
    * Filesystem browsing (Phase 16) plus writes (Phase 24). The four write
    * methods are repo scope only — `claude-home` is not expressible in their
    * request types — and every one resolves to a `GitOpResult`, never rejects.

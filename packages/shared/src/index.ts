@@ -13,6 +13,7 @@ export * from './ai-models';
 export * from './ai-plan-blueprint';
 export * from './ansi';
 export * from './automate';
+export * from './chats';
 export * from './companion';
 export * from './council';
 export * from './domain';

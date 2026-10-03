@@ -2,6 +2,16 @@ import { z } from 'zod';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
 import {
+  ChatAttachmentSchema,
+  ChatChangeDecisionSchema,
+  ChatChangeSetSchema,
+  ChatEventSchema,
+  ChatModeSchema,
+  ChatSchema,
+  ChatSummarySchema,
+  DEFAULT_CHAT_MODE,
+} from '../chats';
+import {
   MarketAssetSchema,
   MarketNewsItemSchema,
   MarketNewsSourceSchema,
@@ -3204,6 +3214,59 @@ export const MediaDocExportResponse = GitOpResultOf(z.object({ dest: z.string() 
 
 export const MediaChangedPayload = MediaChangedEventSchema;
 export const MediaExportProgressPayload = MediaExportProgressEventSchema;
+
+// --- chats (the Chats page) ----------------------------------------------------
+
+const ChatIdSchema = z.string().min(1).max(120);
+
+export const ChatsListResponse = z.object({ chats: z.array(ChatSummarySchema) });
+export const ChatsGetRequest = z.object({ id: ChatIdSchema });
+export const ChatsGetResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
+export const ChatsCreateRequest = z.object({
+  engine: z.string().min(1).max(80),
+  model: z.string().min(1).max(200).nullable().default(null),
+  mode: ChatModeSchema.default(DEFAULT_CHAT_MODE),
+  repoId: z.string().min(1).nullable().default(null),
+});
+export const ChatsCreateResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
+export const ChatsUpdateRequest = z.object({
+  id: ChatIdSchema,
+  title: z.string().trim().min(1).max(200).optional(),
+  pinned: z.boolean().optional(),
+  engine: z.string().min(1).max(80).optional(),
+  model: z.string().min(1).max(200).nullable().optional(),
+  mode: ChatModeSchema.optional(),
+  repoId: z.string().min(1).nullable().optional(),
+});
+export const ChatsUpdateResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
+export const ChatsDeleteRequest = z.object({ ids: z.array(ChatIdSchema).min(1).max(500) });
+export const ChatsDeleteResponse = GitOpResultSchema;
+/**
+ * `fromMessageId` rewinds the thread to that USER message before sending:
+ * everything from it onward is dropped, and `text` (when given) replaces its
+ * content — "edit" is `fromMessageId` + new text, "retry" is `fromMessageId`
+ * alone.
+ */
+export const ChatsSendRequest = z.object({
+  chatId: ChatIdSchema,
+  text: z.string().max(200_000).optional(),
+  attachments: z.array(ChatAttachmentSchema).max(10).optional(),
+  fromMessageId: z.string().min(1).max(120).optional(),
+});
+export const ChatsSendResponse = GitOpResultOf(z.object({ messageId: z.string() }));
+export const ChatsCancelRequest = z.object({ chatId: ChatIdSchema });
+export const ChatsCancelResponse = GitOpResultSchema;
+export const ChatsChangeDiffsRequest = z.object({ chatId: ChatIdSchema, changeSetId: z.string().min(1) });
+export const ChatsChangeDiffsResponse = GitOpResultOf(
+  z.object({ files: z.array(z.object({ path: z.string(), diff: FileDiffSchema })) }),
+);
+export const ChatsResolveChangesRequest = z.object({
+  chatId: ChatIdSchema,
+  changeSetId: z.string().min(1),
+  decisions: z.array(ChatChangeDecisionSchema).min(1).max(1000),
+});
+export const ChatsResolveChangesResponse = GitOpResultOf(z.object({ changeSet: ChatChangeSetSchema }));
+export const ChatsEventPayload = ChatEventSchema;
 
 // --- database (Phase 61) -----------------------------------------------------
 
