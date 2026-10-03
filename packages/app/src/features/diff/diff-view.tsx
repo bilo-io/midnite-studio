@@ -352,7 +352,10 @@ function HunkHeader({
   const expandable = onExpand !== undefined && row.gap !== null && row.gap > 0;
 
   return (
-    <div className="flex w-full items-center gap-2 bg-muted/30 px-2 text-[10px] text-muted-foreground">
+    <div
+      data-testid="diff-hunk"
+      className="flex w-full items-center gap-2 bg-muted/30 px-2 text-[10px] text-muted-foreground"
+    >
       {expandable ? (
         <button
           type="button"
