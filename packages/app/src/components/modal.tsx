@@ -1,4 +1,5 @@
 import { ReactNode, RefObject, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
@@ -20,6 +21,12 @@ export type ModalProps = {
    * dock; `window` centres in the whole window, for app-level modals.
    */
   scope?: 'content' | 'window';
+  /**
+   * Render inside this element instead of at window level: the backdrop covers
+   * only it and the dialog centres in it. The element must be positioned. Takes
+   * precedence over `scope`. Falsy falls back to `scope`.
+   */
+  container?: HTMLElement | null;
 };
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -40,8 +47,9 @@ export function Modal({
   initialFocusRef,
   testId,
   scope = 'content',
+  container,
 }: ModalProps) {
-  const content = useContentOverlay(align, open && scope === 'content');
+  const content = useContentOverlay(align, open && scope === 'content' && !container);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Trap + focus-on-open + restore-on-close, all in one hook (Phase 68 Theme
@@ -81,7 +89,7 @@ export function Modal({
 
   if (!open) return null;
 
-  const scoped = scope === 'content' && content.overlayStyle !== undefined;
+  const scoped = !container && scope === 'content' && content.overlayStyle !== undefined;
   const alignClass = scoped
     ? align === 'top'
       ? 'items-start justify-center'
@@ -93,9 +101,9 @@ export function Modal({
   const sizeClass = SIZE_CLASSES[size];
   const duration = motionMs();
 
-  return (
+  const overlay = (
     <div
-      className={`fixed inset-0 z-dialog flex bg-background/70 ${alignClass}`}
+      className={`${container ? 'absolute' : 'fixed'} inset-0 z-dialog flex bg-background/70 ${alignClass}`}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -122,4 +130,5 @@ export function Modal({
       </div>
     </div>
   );
+  return container ? createPortal(overlay, container) : overlay;
 }

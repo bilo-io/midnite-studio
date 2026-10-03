@@ -25,6 +25,7 @@ import { useUiStore } from '../../store/ui-store';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
 import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from './close-session';
+import { terminalPanelElement } from './terminal-panel-element';
 import {
   inMainPanel,
   isAgentRow,
@@ -315,6 +316,7 @@ function SessionRow({
       label: 'Session name',
       initialValue: name,
       confirmLabel: 'Rename',
+      container: terminalPanelElement(),
       onConfirm: (value) => useTerminalStore.getState().renameSession(session.id, value),
     });
   };
