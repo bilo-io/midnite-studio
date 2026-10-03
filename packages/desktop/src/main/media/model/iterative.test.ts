@@ -63,7 +63,7 @@ function fakeHost(script: Script, agent: ResolvedAgent | null = CLAUDE) {
   return { host, closed, requests };
 }
 
-async function setup(script: Script, options: { maxIterations?: number; agent?: ResolvedAgent | null } = {}) {
+async function setup(script: Script, options: { maxIterations?: number; agent?: ResolvedAgent | null; toolOverrides?: Record<string, unknown> } = {}) {
   const kit = memoryModelKit();
   const created = await kit.service.createModel({
     repoId: 'r1',
@@ -80,7 +80,7 @@ async function setup(script: Script, options: { maxIterations?: number; agent?: 
   const run = () =>
     runIterative({
       host,
-      tools: kit.tools,
+      tools: { ...kit.tools, ...options.toolOverrides } as typeof kit.tools,
       agentId: 'claude',
       modelArgs: ['--model', 'opus'],
       prompt: 'build a crate',
@@ -212,9 +212,14 @@ describe('runIterative', () => {
 
   it('caps the total tool calls whatever the agent does', async () => {
     let last: unknown;
-    const { run } = await setup(async ({ call, target }) => {
-      for (let i = 0; i <= MODEL_ITERATIVE_MAX_CALLS; i += 1) last = await call('model_get_spec', target);
-    });
+    // The budget is a pure counter, so the tool behind it is stubbed: 251 real
+    // spec reads cost ~1.7s idle and blew vitest's 5s default under parallel load.
+    const { run } = await setup(
+      async ({ call, target }) => {
+        for (let i = 0; i <= MODEL_ITERATIVE_MAX_CALLS; i += 1) last = await call('model_get_spec', target);
+      },
+      { toolOverrides: { model_get_spec: async () => ({ ok: true }) } },
+    );
     await run();
     expect(last).toMatchObject({ ok: false, kind: 'refused' });
   });
