@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-03 — Phase 99 Theme E follow-up — local music generation (ad hoc)
+
+Media ▸ Audio generates music offline with MusicGen-small (ONNX, `utilityProcess`), no API key; optional Ollama prompt expansion (`llama3.2:3b`). [PR #688](https://github.com/bilo-io/midnite-studio/pull/688).
+
+- [x] `musicgen` provider, worker, broker, model download with progress, cancel, stitched sections up to 2 min.
+- [x] Enhance with Ollama (fails soft), Settings model picker, engine status card in the prompt form.
+
 ## 2026-10-02 — Phase 82 Theme C — e2e-porting traps written into `test-support/`
 
 [PR #680](https://github.com/bilo-io/midnite-studio/pull/680). `packages/app/test-support/README.md` lists six porting traps; `src/test-support-premises.test.tsx` pins the jsdom behaviour behind four of them. Wave 6 is still open.

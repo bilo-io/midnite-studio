@@ -101,6 +101,7 @@ const outfiles = [
   'mcp-shim',
   'script-runner-worker',
   'companion-tts-worker',
+  'music-worker',
   'knowledge-layout-worker',
 ].map((name) => ({
   entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),

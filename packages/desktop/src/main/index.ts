@@ -132,7 +132,7 @@ import { createWorkflowRunsStore } from './workflow-runs-store';
 import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
-import { registerMediaAudioHandlers } from './ipc/media-audio-handlers';
+import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
@@ -706,6 +706,8 @@ if (!app.requestSingleInstanceLock()) {
       mirroring `inproc-pty.ts`'s `loadNodePty()`.
     */
     configureCompanionTtsBroker(userData);
+    // Media ▸ Audio's local music engine — same lazy-fork shape; weights cache under `userData/audio-models`.
+    configureMusicBroker(userData);
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential
@@ -902,6 +904,7 @@ if (!app.requestSingleInstanceLock()) {
     // The local voice engine's own utilityProcess (Ad Hoc "TTS synthesis
     // blocks the UI") — the identical reasoning, one call below it.
     disposeCompanionTtsBroker();
+    disposeMusicBroker();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

@@ -310,31 +310,57 @@ export type ImageGenerateProgressEvent = z.infer<typeof ImageGenerateProgressEve
 // --- audio (Theme E) ---------------------------------------------------------
 
 /**
- * Audio providers, in picker order. There is no public music-generation API
- * this phase can build on, so the seam (`main/media/audio/`) ships with one
- * adapter: `import`, which copies files the user picks in as variants. A later
- * phase adds a generating provider here and in main — nothing else moves.
+ * Audio providers, in picker order. `musicgen` is the local engine (Meta's
+ * MusicGen-small, run in-process through ONNX — no API key, no Python, no
+ * server); `import` copies files the user picks in as variants. A heavier
+ * engine (ACE-Step behind a local server, say) joins here and in main —
+ * nothing else moves.
  */
-export const AUDIO_PROVIDER_IDS = ['import'] as const;
+export const AUDIO_PROVIDER_IDS = ['musicgen', 'import'] as const;
 export const AudioProviderIdSchema = z.enum(AUDIO_PROVIDER_IDS);
 export type AudioProviderId = z.infer<typeof AudioProviderIdSchema>;
 
-export const DEFAULT_AUDIO_PROVIDER: AudioProviderId = 'import';
+export const DEFAULT_AUDIO_PROVIDER: AudioProviderId = 'musicgen';
 
 export type AudioProviderInfo = {
   id: AudioProviderId;
   label: string;
-  /** False for `import` — Create shows the "later phase" state and offers Import instead. */
+  /** False for `import` — Create is not offered for it, only the attach action. */
   generates: boolean;
 };
 
-export const AUDIO_PROVIDERS: readonly AudioProviderInfo[] = [{ id: 'import', label: 'Import', generates: false }];
+export const AUDIO_PROVIDERS: readonly AudioProviderInfo[] = [
+  { id: 'musicgen', label: 'MusicGen (local)', generates: true },
+  { id: 'import', label: 'Import', generates: false },
+];
 
 export function audioProviderInfo(id: AudioProviderId): AudioProviderInfo {
   return AUDIO_PROVIDERS.find((p) => p.id === id)!;
 }
 
-export const AUDIO_GENERATION_UNAVAILABLE = 'Generation arrives in a later phase. Import audio to add variants.';
+export const AUDIO_GENERATION_UNAVAILABLE = 'Pick a generating provider to create music, or import audio to add variants.';
+
+/**
+ * The local engine's honest limits. MusicGen-small is a ~300M-parameter
+ * instrumental model trained on 30 s clips: no vocals, no lyrics, and anything
+ * longer is rendered as stitched 30 s sections. Weights are CC-BY-NC-4.0.
+ */
+export const AUDIO_LOCAL_SEGMENT_S = 30;
+export const AUDIO_LOCAL_MAX_DURATION_S = 120;
+export const AUDIO_LOCAL_MODEL_ID = 'Xenova/musicgen-small';
+/** Approximate one-time download (q8 text encoder + q8 decoder + fp32 EnCodec). */
+export const AUDIO_LOCAL_MODEL_BYTES = 660_000_000;
+export const AUDIO_LOCAL_MODEL_LICENSE = 'CC-BY-NC-4.0';
+
+/**
+ * Optional prompt expansion through a local Ollama model. Ollama cannot make
+ * audio, but a small instruction model turns "lofi study beat" into the
+ * descriptive caption MusicGen was trained on. 3B-class models fit an 8 GB
+ * Mac (~2-3 GB resident) and run before the audio model loads, never beside it.
+ */
+export const AUDIO_OLLAMA_RECOMMENDED = 'llama3.2:3b';
+/** Tried in order when no model is chosen; the first one installed wins. */
+export const AUDIO_OLLAMA_PREFERRED = ['llama3.2:3b', 'qwen3:4b', 'gemma3:4b', 'qwen3:1.7b', 'llama3.2:1b'] as const;
 
 /** Extensions the Audio tab treats as playable variants (and the import dialog's filter). */
 export const AUDIO_FILE_EXTENSIONS = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'] as const;
@@ -357,6 +383,8 @@ export const AUDIO_LYRICS_MAX = 5000;
 export const AUDIO_DURATION_MIN_S = 10;
 export const AUDIO_DURATION_MAX_S = 480;
 export const AUDIO_MAX_VARIANTS = 4;
+export const AUDIO_MUSIC_PROMPT_MAX = 400;
+export const AUDIO_SECTIONS_MAX = 8;
 /** Section markers the lyrics editor's helpers insert. */
 export const AUDIO_LYRIC_SECTIONS = ['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Outro'] as const;
 
@@ -371,6 +399,10 @@ export const AudioPromptSchema = z.object({
   instrumental: z.boolean().default(false),
   durationS: z.number().int().min(AUDIO_DURATION_MIN_S).max(AUDIO_DURATION_MAX_S).default(120),
   count: z.number().int().min(1).max(AUDIO_MAX_VARIANTS).default(2),
+  /** A hand-written or Ollama-expanded caption sent to the engine in place of one built from `style`. */
+  musicPrompt: z.string().trim().max(AUDIO_MUSIC_PROMPT_MAX).optional(),
+  /** Per-section captions for tracks longer than one segment; sections cycle through them. */
+  sections: z.array(z.string().trim().min(1).max(AUDIO_MUSIC_PROMPT_MAX)).max(AUDIO_SECTIONS_MAX).optional(),
 });
 export type AudioPrompt = z.infer<typeof AudioPromptSchema>;
 
@@ -458,6 +490,10 @@ export const AudioProgressEventSchema = z.object({
   total: z.number().int().nonnegative(),
   files: z.array(z.string()),
   error: z.string().optional(),
+  /** What a generating provider is doing right now ("Rendering section 2 of 4"). */
+  stage: z.string().optional(),
+  /** Overall 0..1 progress of the whole run, when the provider can tell. */
+  fraction: z.number().min(0).max(1).optional(),
 });
 export type AudioProgressEvent = z.infer<typeof AudioProgressEventSchema>;
 
@@ -583,3 +619,59 @@ export const DocThreadSchema = z.object({
   messages: z.array(DocThreadMessageSchema),
 });
 export type DocThread = z.infer<typeof DocThreadSchema>;
+
+// --- audio: local engine, Ollama assist --------------------------------------
+
+/** Generate: same envelope as Import, minus the dialog. Resolves once every variant has landed. */
+export const AudioGenerateRequestSchema = AudioImportRequestSchema.extend({
+  provider: AudioProviderIdSchema.default(DEFAULT_AUDIO_PROVIDER),
+});
+export type AudioGenerateRequest = z.infer<typeof AudioGenerateRequestSchema>;
+
+export const AudioEngineStateSchema = z.enum(['missing', 'downloading', 'ready', 'unavailable']);
+export type AudioEngineState = z.infer<typeof AudioEngineStateSchema>;
+
+/** Whether the local engine and Ollama are usable right now. Never throws; a down daemon is `running: false`. */
+export const AudioEngineStatusSchema = z.object({
+  musicgen: z.object({
+    state: AudioEngineStateSchema,
+    /** Approximate download still ahead of a first run. */
+    downloadBytes: z.number().nonnegative(),
+    reason: z.string().optional(),
+  }),
+  ollama: z.object({
+    running: z.boolean(),
+    models: z.array(z.string()),
+    /** The model Enhance would use: the user's pick, else the first preferred one installed. */
+    model: z.string().nullable(),
+    recommended: z.string(),
+  }),
+});
+export type AudioEngineStatus = z.infer<typeof AudioEngineStatusSchema>;
+
+/** Pushed on `mstudio:media:audio-engine-progress` while the model downloads or loads. */
+export const AudioEngineProgressSchema = z.object({
+  phase: z.enum(['download', 'load', 'ready', 'failed']),
+  fraction: z.number().min(0).max(1),
+  message: z.string().optional(),
+});
+export type AudioEngineProgress = z.infer<typeof AudioEngineProgressSchema>;
+
+/** Enhance: turn the form into a MusicGen caption (and per-section captions) with a local Ollama model. */
+export const AudioExpandRequestSchema = z.object({
+  title: z.string().max(AUDIO_TITLE_MAX).default(''),
+  style: z.array(z.string().max(AUDIO_STYLE_TAG_MAX)).max(AUDIO_STYLE_TAGS_MAX).default([]),
+  lyrics: z.string().max(AUDIO_LYRICS_MAX).default(''),
+  instrumental: z.boolean().default(false),
+  durationS: z.number().int().min(AUDIO_DURATION_MIN_S).max(AUDIO_DURATION_MAX_S).default(120),
+  /** Empty picks automatically. */
+  model: z.string().max(120).default(''),
+});
+export type AudioExpandRequest = z.infer<typeof AudioExpandRequestSchema>;
+
+export const AudioExpandResultSchema = z.object({
+  musicPrompt: z.string().min(1).max(AUDIO_MUSIC_PROMPT_MAX),
+  sections: z.array(z.string().min(1).max(AUDIO_MUSIC_PROMPT_MAX)).max(AUDIO_SECTIONS_MAX),
+  model: z.string(),
+});
+export type AudioExpandResult = z.infer<typeof AudioExpandResultSchema>;

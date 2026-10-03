@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -39,14 +40,21 @@ describe('Media threads carry the voice row', () => {
 
   it('audio prompt form shows the speech toggle and mic', () => {
     render(
+      <QueryClientProvider client={new QueryClient()}>
       <PromptForm
         state={initialPromptForm({ provider: 'import', durationS: 120, count: 2 })}
         dispatch={vi.fn()}
         statuses={[]}
+        engine={null}
         importing={false}
+        generating={false}
+        progress={null}
         error={null}
         onImport={vi.fn()}
-      />,
+        onGenerate={vi.fn()}
+        onCancel={vi.fn()}
+      />
+      </QueryClientProvider>,
     );
     expect(screen.getByRole('button', { name: 'Speak replies aloud' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Hold to talk' })).toBeTruthy();

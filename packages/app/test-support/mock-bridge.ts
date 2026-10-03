@@ -694,6 +694,11 @@ export type MockFixtures = {
      * OpenAI missing its key, agy disabled, Ollama without image models.
      * `generate` writes `count` placeholder files into `image:<project>`.
      */
+    /** Local audio engine + Ollama status (`media.audio.engine()`); defaults to model ready, Ollama up with llama3.2:3b. */
+    audioEngine?: {
+      musicgen: { state: 'missing' | 'downloading' | 'ready' | 'unavailable'; downloadBytes: number; reason?: string };
+      ollama: { running: boolean; models: string[]; model: string | null; recommended: string };
+    };
     imageProviders?: Array<{
       id: 'gemini' | 'openai' | 'agy' | 'ollama';
       available: boolean;
@@ -3013,7 +3018,61 @@ export function buildMockBridge(data: MockFixtures) {
       // with sidecars, and appends one session to project.json.
       audio: {
         providers: async () => ({
-          providers: [{ id: 'import' as const, available: true, generates: false }],
+          providers: [
+            { id: 'musicgen' as const, available: true, generates: true },
+            { id: 'import' as const, available: true, generates: false },
+          ],
+        }),
+        // Local generation: lands `count` placeholder wavs as one `create` session.
+        generate: async (req: { project: string; importId: string; prompt: { title: string; count: number } }) => {
+          const key = `audio:${req.project}`;
+          const sessionId = `sess-${req.importId}`;
+          const files = Array.from({ length: req.prompt.count }, (_, i) => `${req.importId}-${i + 1}.wav`);
+          const current = { ...(mediaFiles[key] ?? {}) };
+          const history = (() => {
+            try {
+              return JSON.parse(current['project.json'] ?? '') as { version: 1; sessions: unknown[] };
+            } catch {
+              return { version: 1 as const, sessions: [] as unknown[] };
+            }
+          })();
+          for (const file of files) {
+            current[file] = 'wav';
+            current[file.replace(/\.wav$/, '.json')] = JSON.stringify({
+              version: 1,
+              file,
+              sessionId,
+              provider: 'musicgen',
+              title: req.prompt.title || file,
+              createdAt: '2026-09-30T12:00:00.000Z',
+            });
+          }
+          current['project.json'] = JSON.stringify({
+            version: 1,
+            sessions: [
+              ...history.sessions,
+              { id: sessionId, kind: 'create', provider: 'musicgen', prompt: req.prompt, variants: files, createdAt: '2026-09-30T12:00:00.000Z' },
+            ],
+          });
+          mediaFiles = { ...mediaFiles, [key]: current };
+          return { ok: true as const, value: { sessionId, files } };
+        },
+        cancel: async () => ({ ok: true as const }),
+        engine: async () => ({
+          engine: data.media?.audioEngine ?? {
+            musicgen: { state: 'ready' as const, downloadBytes: 0 },
+            ollama: { running: true, models: ['llama3.2:3b'], model: 'llama3.2:3b', recommended: 'llama3.2:3b' },
+          },
+        }),
+        installEngine: async () => ({ ok: true as const }),
+        onEngineProgress: unsubscribe,
+        expand: async (req: { title: string; style: string[] }) => ({
+          ok: true as const,
+          value: {
+            musicPrompt: `${req.style.join(', ') || 'ambient'}, warm analog synths, 90 bpm`,
+            sections: ['soft intro', 'full groove'],
+            model: 'llama3.2:3b',
+          },
         }),
         import: async (req: { project: string; importId: string; prompt: { title: string } }) => {
           const key = `audio:${req.project}`;

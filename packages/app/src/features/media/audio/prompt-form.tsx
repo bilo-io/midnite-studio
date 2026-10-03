@@ -2,16 +2,21 @@ import {
   AUDIO_DURATION_MAX_S,
   AUDIO_DURATION_MIN_S,
   AUDIO_GENERATION_UNAVAILABLE,
+  AUDIO_LOCAL_MAX_DURATION_S,
+  AUDIO_LOCAL_MODEL_BYTES,
+  AUDIO_LOCAL_MODEL_LICENSE,
   AUDIO_LYRIC_SECTIONS,
   AUDIO_MAX_VARIANTS,
+  AUDIO_MUSIC_PROMPT_MAX,
   AUDIO_PROVIDERS,
   DEFAULT_AUDIO_PROVIDER,
   audioProviderInfo,
+  type AudioEngineStatus,
   type AudioProviderId,
   type AudioProviderStatus,
 } from '@midnite/studio-shared';
 import { useRef, useState, type Dispatch } from 'react';
-import { LuImport, LuInfo, LuX } from 'react-icons/lu';
+import { LuDownload, LuImport, LuInfo, LuMusic, LuWandSparkles, LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
@@ -19,9 +24,12 @@ import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic, type PickerProvider } from '../../../components/ai-thread';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
+import { useAudioEngineInstall, useAudioPrefs, useExpandPrompt, type PendingImport } from './use-audio';
 import { formatDuration } from './waveform';
 
-export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { import: LuImport };
+export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { musicgen: LuMusic, import: LuImport };
+
+const formatMb = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 
 /**
  * Generation providers only. "Import" is not one — it is an attachment, offered
@@ -49,7 +57,8 @@ const input =
 
 /**
  * Media ▸ Audio's right pane (Phase 99 Theme E): a Suno-style prompt form.
- * With only the Import provider, **Create** answers the "later phase" state
+ * **Create** renders with the selected local provider (MusicGen), **Enhance**
+ * asks a small Ollama model to write the caption MusicGen is conditioned on,
  * and **Import audio…** attaches files as variants, recording this form's
  * title/style/lyrics in the session.
  */
@@ -57,16 +66,26 @@ export function PromptForm({
   state,
   dispatch,
   statuses,
+  engine,
   importing,
+  generating,
+  progress,
   error,
   onImport,
+  onGenerate,
+  onCancel,
 }: {
   state: PromptFormState;
   dispatch: Dispatch<PromptFormAction>;
   statuses: readonly AudioProviderStatus[];
+  engine: AudioEngineStatus | null | undefined;
   importing: boolean;
+  generating: boolean;
+  progress: PendingImport | null;
   error: string | null;
   onImport: () => void;
+  onGenerate: () => void;
+  onCancel: () => void;
 }) {
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -77,8 +96,41 @@ export function PromptForm({
   const invalid = 'error' in checked ? checked.error : undefined;
   const pickerProviders = audioPickerProviders(statuses);
   const generates = audioProviderInfo(state.provider).generates;
+  const local = state.provider === 'musicgen';
+  const modelState = engine?.musicgen.state;
+  const modelReady = !local || modelState === 'ready';
+  const busy = importing || generating;
+  const prefs = useAudioPrefs();
+  const installer = useAudioEngineInstall();
+  const enhancer = useExpandPrompt();
+  const ollama = engine?.ollama;
+  const hasBrief = state.title.trim() !== '' || state.style.length > 0 || state.tagDraft.trim() !== '' || state.lyrics.trim() !== '';
+  const enhanceBlocked = !hasBrief
+    ? 'Add a title, style tags or lyrics first.'
+    : ollama && !ollama.running
+      ? 'Ollama is not running — start it to enhance prompts.'
+      : ollama && !(prefs.ollamaModel || ollama.model)
+        ? `No small Ollama model installed. Run: ollama pull ${ollama.recommended}`
+        : undefined;
+  const createBlocked = invalid ?? (!modelReady ? 'Download the local model first.' : undefined);
 
-  useSpeakOutcome(voice, importing, error, 'Your audio is ready.');
+  useSpeakOutcome(voice, busy, error, 'Your audio is ready.');
+
+  const enhance = () => {
+    const brief = toPrompt(state);
+    const source = 'prompt' in brief ? brief.prompt : state;
+    enhancer.mutate(
+      {
+        title: source.title,
+        style: source.style,
+        lyrics: source.lyrics,
+        instrumental: source.instrumental,
+        durationS: source.durationS,
+        model: prefs.ollamaModel,
+      },
+      { onSuccess: (value) => dispatch({ type: 'expanded', musicPrompt: value.musicPrompt, sections: value.sections }) },
+    );
+  };
 
   const addSection = (section: string) => {
     const el = lyricsRef.current;
@@ -98,9 +150,49 @@ export function PromptForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (!generates) setNotice(AUDIO_GENERATION_UNAVAILABLE);
+        else if (createBlocked === undefined && !busy) onGenerate();
       }}
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        {local ? (
+          <div data-testid="audio-engine" className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-2 text-[11px] text-muted-foreground">
+            {modelState === 'missing' || modelState === 'downloading' ? (
+              <>
+                <p className="text-foreground">
+                  MusicGen runs on this Mac — no account, no API key. It needs a one-time {formatMb(AUDIO_LOCAL_MODEL_BYTES)} download.
+                </p>
+                {installer.install.isPending ? (
+                  <div role="progressbar" aria-label="Downloading model" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((installer.progress?.fraction ?? 0) * 100)} className="h-1.5 overflow-hidden rounded bg-accent">
+                    <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round((installer.progress?.fraction ?? 0) * 100)}%` }} />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => installer.install.mutate()}
+                    className="flex w-fit items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground hover:bg-accent"
+                  >
+                    <LuDownload aria-hidden className="h-3.5 w-3.5" />
+                    Download model
+                  </button>
+                )}
+              </>
+            ) : modelState === 'unavailable' ? (
+              <p role="alert" className="text-destructive">
+                The local engine is unavailable: {engine?.musicgen.reason ?? 'unknown error'}
+              </p>
+            ) : (
+              <p>
+                Instrumental music, up to {formatDuration(AUDIO_LOCAL_MAX_DURATION_S)}, made offline. Lyrics only guide the mood. Model licence {AUDIO_LOCAL_MODEL_LICENSE}: personal use.
+              </p>
+            )}
+            {installer.error ? (
+              <p role="alert" className="text-destructive">
+                {installer.error}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         <label className={field}>
           Title
           <input
@@ -145,6 +237,46 @@ export function PromptForm({
           </div>
         </div>
 
+        {local ? (
+          <div className={field}>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="audio-caption">Caption sent to MusicGen</label>
+              <button
+                type="button"
+                onClick={enhance}
+                disabled={enhanceBlocked !== undefined || enhancer.isPending}
+                title={enhanceBlocked ?? 'Rewrite the brief as a MusicGen caption with a local Ollama model'}
+                className="flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+              >
+                <LuWandSparkles aria-hidden className="h-3 w-3" />
+                {enhancer.isPending ? 'Enhancing…' : 'Enhance with Ollama'}
+              </button>
+            </div>
+            <textarea
+              id="audio-caption"
+              value={state.musicPrompt ?? ''}
+              maxLength={AUDIO_MUSIC_PROMPT_MAX}
+              rows={3}
+              onChange={(event) => dispatch({ type: 'caption', value: event.target.value })}
+              placeholder="Optional. Defaults to your style tags — e.g. lo-fi hip hop, mellow piano, vinyl crackle, 80 bpm"
+              className={`resize-none ${input}`}
+            />
+            {state.sections && state.sections.length > 1 ? (
+              <span className="flex items-center justify-between text-[10px]">
+                {state.sections.length} section captions will shape the arc.
+                <button type="button" onClick={() => dispatch({ type: 'clearCaption' })} className="underline hover:text-foreground">
+                  Clear
+                </button>
+              </span>
+            ) : null}
+            {enhancer.error ? (
+              <span role="alert" className="text-[10px] text-destructive">
+                {enhancer.error.message}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         <label className="flex items-center gap-2 text-xs text-foreground">
           <input
             type="checkbox"
@@ -161,7 +293,7 @@ export function PromptForm({
             <input
               type="range"
               min={AUDIO_DURATION_MIN_S}
-              max={AUDIO_DURATION_MAX_S}
+              max={local ? AUDIO_LOCAL_MAX_DURATION_S : AUDIO_DURATION_MAX_S}
               step={5}
               value={state.durationS}
               onChange={(event) => dispatch({ type: 'duration', value: Number(event.target.value) })}
@@ -184,6 +316,19 @@ export function PromptForm({
           </label>
         </div>
 
+        {generating ? (
+          <div role="status" aria-label="Generation progress" className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-foreground">{progress?.stage ?? 'Starting…'}</span>
+              <button type="button" onClick={onCancel} className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-foreground">
+                Cancel
+              </button>
+            </div>
+            <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((progress?.fraction ?? 0) * 100)} className="h-1.5 overflow-hidden rounded bg-accent">
+              <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round((progress?.fraction ?? 0) * 100)}%` }} />
+            </div>
+          </div>
+        ) : null}
         {notice ? (
           <p role="status" className="flex items-start gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-1.5 text-[11px] text-muted-foreground">
             <LuInfo aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -225,10 +370,10 @@ export function PromptForm({
           disabled={state.instrumental}
           onChange={(value) => dispatch({ type: 'lyrics', value })}
           onSend={() => formRef.current?.requestSubmit()}
-          canSend={invalid === undefined}
+          canSend={createBlocked === undefined && !busy}
           enterToSend={false}
           sendAriaLabel="Create"
-          sendTooltip={invalid ?? (generates ? 'Create (Cmd/Ctrl+Enter)' : AUDIO_GENERATION_UNAVAILABLE)}
+          sendTooltip={createBlocked ?? (generates ? 'Create (Cmd/Ctrl+Enter)' : AUDIO_GENERATION_UNAVAILABLE)}
           rows={5}
           placeholder={state.instrumental ? 'Instrumental — no lyrics' : '[Verse]\nStreetlights hum…'}
           mic={mic}
@@ -253,7 +398,7 @@ export function PromptForm({
                   label: importing ? 'Importing…' : 'Import audio…',
                   icon: LuImport,
                   onSelect: onImport,
-                  disabled: importing || invalid !== undefined,
+                  disabled: busy || invalid !== undefined,
                   reason: invalid,
                 },
               ]}

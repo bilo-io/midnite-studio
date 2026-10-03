@@ -1124,6 +1124,20 @@ export type MidniteStudioBridge = {
       onProgress: (
         handler: (event: z.infer<typeof S.MediaAudioProgressPayload>) => void,
       ) => Unsubscribe;
+      /** Local generation (MusicGen in a utility process); progress arrives on `onProgress`. */
+      generate: (
+        req: In<typeof S.MediaAudioGenerateRequest>,
+      ) => Promise<z.infer<typeof S.MediaAudioGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaAudioCancelRequest>) => Promise<GitOpResult>;
+      /** Is the local model on disk, and is Ollama up (and with which model)? */
+      engine: () => Promise<z.infer<typeof S.MediaAudioEngineResponse>>;
+      /** Download + load the local model; progress arrives on `onEngineProgress`. */
+      installEngine: () => Promise<GitOpResult>;
+      onEngineProgress: (
+        handler: (event: z.infer<typeof S.MediaAudioEngineProgressPayload>) => void,
+      ) => Unsubscribe;
+      /** Ollama prompt expansion — fails soft when the daemon is down. */
+      expand: (req: In<typeof S.MediaAudioExpandRequest>) => Promise<z.infer<typeof S.MediaAudioExpandResponse>>;
     };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;

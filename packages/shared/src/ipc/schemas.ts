@@ -174,6 +174,11 @@ import {
   OllamaSettingsSchema,
 } from '../ollama';
 import {
+  AudioEngineProgressSchema,
+  AudioEngineStatusSchema,
+  AudioExpandRequestSchema,
+  AudioExpandResultSchema,
+  AudioGenerateRequestSchema,
   AudioImportRequestSchema,
   AudioProgressEventSchema,
   AudioProviderStatusSchema,
@@ -3062,6 +3067,15 @@ export const MediaAudioImportResponse = GitOpResultOf(
   z.object({ sessionId: z.string().min(1), files: z.array(z.string()) }),
 );
 export const MediaAudioProgressPayload = AudioProgressEventSchema;
+export const MediaAudioGenerateRequest = AudioGenerateRequestSchema;
+export const MediaAudioGenerateResponse = MediaAudioImportResponse;
+export const MediaAudioCancelRequest = z.object({ importId: z.string().min(1) });
+export const MediaAudioCancelResponse = GitOpResultSchema;
+export const MediaAudioEngineResponse = z.object({ engine: AudioEngineStatusSchema });
+export const MediaAudioEngineInstallResponse = GitOpResultSchema;
+export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
+export const MediaAudioExpandRequest = AudioExpandRequestSchema;
+export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 

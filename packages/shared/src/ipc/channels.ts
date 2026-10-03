@@ -898,6 +898,12 @@ export const CHANNELS = {
   // adapter today is Import (native dialog in main). Progress on `mediaAudioProgress`.
   mediaAudioProviders: 'mstudio:media:audio-providers',
   mediaAudioImport: 'mstudio:media:audio-import',
+  // Local generation (MusicGen in a utilityProcess) and its optional Ollama assist.
+  mediaAudioGenerate: 'mstudio:media:audio-generate',
+  mediaAudioCancel: 'mstudio:media:audio-cancel',
+  mediaAudioEngine: 'mstudio:media:audio-engine',
+  mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
+  mediaAudioExpand: 'mstudio:media:audio-expand',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1400,6 +1406,8 @@ export const EVENT_CHANNELS = {
   mediaImageProgress: 'mstudio:media:image-progress',
   /** An audio import advanced — see `AudioProgressEventSchema`. */
   mediaAudioProgress: 'mstudio:media:audio-progress',
+  /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
+  mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */
