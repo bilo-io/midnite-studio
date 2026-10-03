@@ -237,7 +237,7 @@ describe('sending and streaming', () => {
   });
 
   it('shows Stop left of Send while streaming and kills the reply on click', async () => {
-    await ready({ reply: 'A reply long enough that it is still streaming when we press stop.' });
+    await ready({ reply: 'A reply long enough that it is still streaming when we press stop.', chunkMs: 400 });
     await type('go');
     fireEvent.click(screen.getByTestId('chat-input-send'));
     const stop = await screen.findByRole('button', { name: 'Stop' });

@@ -771,6 +771,8 @@ export type MockFixtures = {
     sendError?: string;
     /** Accepting this path answers a conflict instead of applying. */
     conflictOn?: string;
+    /** Milliseconds between streamed chunks (default 20) — raise it to hold a reply mid-stream. */
+    chunkMs?: number;
   };
   /**
    * Database connections (Phase 61). Absent means an empty list — the
@@ -5510,7 +5512,7 @@ export function buildMockBridge(data: MockFixtures) {
             setTimeout(() => {
               assistant['text'] += chunk;
               emit({ kind: 'delta', chatId: chat['id'], messageId: assistant['id'], text: chunk });
-            }, 20 * (i + 1)),
+            }, (cfg.chunkMs ?? 20) * (i + 1)),
           );
         });
         mine.push(
@@ -5520,7 +5522,7 @@ export function buildMockBridge(data: MockFixtures) {
             chat['updatedAt'] = Date.now();
             emit({ kind: 'message', chatId: chat['id'], message: clone(assistant) });
             emit({ kind: 'chat', chatId: chat['id'] });
-          }, 20 * (chunks.length + 2)),
+          }, (cfg.chunkMs ?? 20) * (chunks.length + 2)),
         );
         return { ok: true as const, value: { messageId: assistant['id'] } };
       },
