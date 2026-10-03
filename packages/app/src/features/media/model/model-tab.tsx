@@ -1,4 +1,4 @@
-import { MEDIA_TAB_EXPORT_FORMATS, isModelPath, modelFileExtension, modelSidecarPath, parseModelSidecar, type MediaExportFormat, type ModelSpec } from '@midnite/studio-shared';
+import { MEDIA_TAB_EXPORT_FORMATS, libraryParent, type ModelLibraryNode, modelFileExtension, modelSidecarPath, parseModelSidecar, type MediaExportFormat, type ModelSpec } from '@midnite/studio-shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useReducer, useState } from 'react';
 import { LuBox, LuSparkles } from 'react-icons/lu';
@@ -10,13 +10,17 @@ import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout, openMediaPane } from '../media-layout';
-import { MediaProjectsAccordion, type MediaSelection } from '../media-projects-accordion';
 import { NoRepoMediaState } from '../repo-media-tab';
-import { MEDIA_KEYS, useMediaFiles, useMediaFileText, useMediaProjects } from '../use-media';
+import { MEDIA_KEYS, useMediaFileText } from '../use-media';
 import { ModelPanel } from './model-panel';
 import { editorReducer, initialEditorState, isDirty } from './editor-state';
 import { LazyModelEditor, LazyModelViewer } from './model-viewer-lazy';
-import { modelFileUrl, mtlPathFor, viewerFormat } from './model-utils';
+import { JsonFileViewer } from './json-viewer';
+import { findNode, joinLibraryPath, splitProjectPath, type ModelSelection } from './library-tree';
+import { resolveCentre, selectionForGenerated } from './model-centre';
+import { ModelExplorer } from './model-explorer';
+import { modelFileUrl, mtlPathFor } from './model-utils';
+import { useModelLibrary } from './use-model-library';
 import type { ModelViewerStats } from './model-viewer';
 import { useModelOpenRequest } from './use-model-agent-events';
 import { useModelExport, useModelGeneration, useModelSaveEdit } from './use-model';
@@ -41,30 +45,39 @@ export function ModelTab() {
 }
 
 function ModelTabBody({ repoId }: { repoId: string }) {
-  const [selection, setSelection] = useState<MediaSelection | null>(null);
+  const [selection, setSelection] = useState<ModelSelection | null>(null);
   const [stats, setStats] = useState<ModelViewerStats | null>(null);
   const exportDir = useUiStore((s) => s.mediaExportDir);
 
-  const projects = useMediaProjects(repoId, 'model');
-  const activeProject = selection?.project ?? projects.data?.[0]?.name ?? null;
-  const files = useMediaFiles(repoId, 'model', activeProject);
+  const library = useModelLibrary(repoId);
+  const tree = library.data ?? [];
   const exporter = useModelExport(repoId, exportDir ?? null);
   const generation = useModelGeneration(repoId);
+
+  // With nothing picked, show the newest model of the first group.
+  const effective: ModelSelection | null = selection ?? newestModel(tree);
+  const centre = resolveCentre(effective, tree);
+  const activeProject = effective ? splitProjectPath(effective.path).project : (tree[0]?.name ?? null);
   const target = activeProject ?? DEFAULT_MODEL_PROJECT;
 
-  // With nothing picked, show the newest model of the active project.
-  const modelFiles = [...(files.data ?? [])].filter((f) => isModelPath(f.path)).sort((a, b) => b.mtimeMs - a.mtimeMs);
-  const selectedPath =
-    selection?.path && isModelPath(selection.path) ? selection.path : (modelFiles.find((f) => f.path.endsWith('.obj')) ?? modelFiles[0])?.path ?? null;
-  const format = selectedPath ? viewerFormat(selectedPath) : null;
-  const sidecar = useMediaFileText(repoId, 'model', activeProject, selectedPath ? modelSidecarPath(selectedPath) : null);
+  // The 3D file the editor or viewer is on, as a path inside its project.
+  const threeD = centre.kind === 'editor' || centre.kind === 'viewer' ? centre : null;
+  const selectedPath = threeD?.path ?? null;
+  const modelProject = threeD?.project ?? null;
+  const format = selectedPath ? (modelFileExtension(selectedPath) ?? null) : null;
+  const sidecar = useMediaFileText(repoId, 'model', modelProject, centre.kind === 'editor' && selectedPath ? modelSidecarPath(selectedPath) : null);
   const design = sidecar.data ? parseModelSidecar(sidecar.data) : null;
-  const hasMtl = selectedPath ? files.data?.some((f) => f.path === mtlPathFor(selectedPath)) === true : false;
+  const siblings = selectedPath && modelProject ? findNode(tree, joinLibraryPath(modelProject, libraryParent(selectedPath))) : null;
+  const hasMtl = selectedPath && siblings?.kind === 'model' ? siblings.files.some((f) => f.name === mtlPathFor(selectedPath).split('/').pop()) : false;
   const generating = generation.pending.length > 0;
+  const openModel = (next: ModelSelection) => {
+    setStats(null);
+    setSelection(next);
+  };
 
   // The design being edited. It reloads when another file is opened, or when the saved sidecar
   // differs from what the editor last saved (a regeneration) — never because of its own Save.
-  const fileKey = activeProject && selectedPath ? `${activeProject}/${selectedPath}` : '';
+  const fileKey = modelProject && selectedPath ? `${modelProject}/${selectedPath}` : '';
   const [editor, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState(PLACEHOLDER_SPEC));
   const saver = useModelSaveEdit(repoId);
   const designSpec = design?.spec ?? null;
@@ -83,7 +96,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   // An iterative run names the model it is editing in its first progress event: show it from the start.
   const livePrimary = generation.pending.find((p) => p.primary);
   useEffect(() => {
-    if (livePrimary?.primary) setSelection({ project: livePrimary.project, path: livePrimary.primary });
+    if (livePrimary?.primary) setSelection(selectionForGenerated(livePrimary.project, livePrimary.primary));
   }, [livePrimary?.generationId, livePrimary?.primary, livePrimary?.project]);
 
   // `model_open` from an agent.
@@ -91,7 +104,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   useEffect(() => {
     if (!openRequest || openRequest.repoId !== repoId) return;
     setStats(null);
-    setSelection({ project: openRequest.project, path: openRequest.path });
+    setSelection(selectionForGenerated(openRequest.project, openRequest.path));
     useModelOpenRequest.getState().clear();
   }, [openRequest, repoId]);
   useEffect(() => {
@@ -105,15 +118,15 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   const sidecarMissing = sidecar.isError || (sidecar.isSuccess && design === null);
 
   const onExport = (exportFormat: MediaExportFormat) => {
-    if (!selectedPath || !activeProject || (exportFormat !== 'obj' && exportFormat !== 'fbx')) return;
+    if (!selectedPath || !modelProject || (exportFormat !== 'obj' && exportFormat !== 'fbx')) return;
     // Unsaved edits export too: the edited spec rides along.
-    exporter.mutate({ project: activeProject, path: selectedPath, format: exportFormat, ...(editing ? { spec: editor.spec } : {}) });
+    exporter.mutate({ project: modelProject, path: selectedPath, format: exportFormat, ...(editing ? { spec: editor.spec } : {}) });
   };
 
   const save = () => {
-    if (!activeProject || !selectedPath) return;
+    if (!modelProject || !selectedPath) return;
     saver.mutate(
-      { project: activeProject, path: selectedPath, spec: editor.spec },
+      { project: modelProject, path: selectedPath, spec: editor.spec },
       { onSuccess: (result) => result.ok && dispatch({ type: 'markSaved' }) },
     );
   };
@@ -125,35 +138,34 @@ function ModelTabBody({ repoId }: { repoId: string }) {
       toolbar={
         <ExportToolbar
           formats={MEDIA_TAB_EXPORT_FORMATS.model}
-          hasSelection={selectedPath !== null && activeProject !== null}
+          hasSelection={selectedPath !== null && modelProject !== null}
           onExport={onExport}
           busy={exporter.isPending}
         />
       }
       explorer={
-        <MediaProjectsAccordion
-          repoId={repoId}
-          tab="model"
-          selection={selectedPath && activeProject ? { project: activeProject, path: selectedPath } : selection}
-          onSelect={(next) => {
-            setStats(null);
-            setSelection(next);
-          }}
-          fileFilter={isModelPath}
-        />
+        <ModelExplorer repoId={repoId} selection={effective} onSelect={openModel} />
       }
       content={
         <div className="relative flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1">
-            {activeProject && selectedPath && format ? (
+            {centre.kind === 'json' ? (
+              <JsonFileViewer key={`${centre.project}/${centre.path}`} repoId={repoId} project={centre.project} path={centre.path} />
+            ) : centre.kind === 'image' ? (
+              <div className="flex h-full items-center justify-center p-4">
+                <img src={modelFileUrl(repoId, centre.project, centre.path)} alt={centre.path} className="max-h-full max-w-full object-contain" />
+              </div>
+            ) : centre.kind === 'unsupported' ? (
+              <EmptyState icon={LuBox} title="No preview" body={`${centre.path} is not a 3D, JSON or image file.`} />
+            ) : modelProject && selectedPath && format ? (
               editing ? (
                 <LazyModelEditor state={editor} dispatch={dispatch} onSave={save} saving={saver.isPending} />
               ) : sidecarMissing ? (
                 <LazyModelViewer
                   key={fileKey}
-                  url={modelFileUrl(repoId, activeProject, selectedPath)}
+                  url={modelFileUrl(repoId, modelProject, selectedPath)}
                   format={format}
-                  mtlUrl={format === 'obj' && hasMtl ? modelFileUrl(repoId, activeProject, mtlPathFor(selectedPath)) : null}
+                  mtlUrl={format === 'obj' && hasMtl ? modelFileUrl(repoId, modelProject, mtlPathFor(selectedPath)) : null}
                   onStats={setStats}
                 />
               ) : (
@@ -213,12 +225,23 @@ function ModelTabBody({ repoId }: { repoId: string }) {
         <ModelPanel
           repoId={repoId}
           project={target}
-          onGenerated={(project, primary) => {
-            setStats(null);
-            setSelection({ project, path: primary });
-          }}
+          onGenerated={(project, primary) => openModel(selectionForGenerated(project, primary))}
         />
       }
     />
   );
+}
+
+/** With nothing picked: the newest model across the tree. */
+function newestModel(tree: readonly ModelLibraryNode[]): ModelSelection | null {
+  let best: { path: string; mtimeMs: number } | null = null;
+  const walk = (nodes: readonly ModelLibraryNode[]) => {
+    for (const node of nodes) {
+      if (node.kind === 'group') walk(node.children);
+      else if (!best || node.mtimeMs > best.mtimeMs) best = { path: node.path, mtimeMs: node.mtimeMs };
+    }
+  };
+  walk(tree);
+  const found = best as { path: string; mtimeMs: number } | null;
+  return found ? { kind: 'model', path: found.path } : null;
 }
