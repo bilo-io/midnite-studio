@@ -757,6 +757,22 @@ export type MockFixtures = {
     };
   };
   /**
+   * The Chats page (`chats.*`). `seed` is a list of whole `Chat` objects
+   * (the persisted shape); absent means no chats. `reply` is the text the fake
+   * agent streams back in three chunks (default "Here is the answer."), and
+   * `changes` makes every reply carry a pending change set with two files, one
+   * of them two hunks — enough to drive the card and the review modal.
+   */
+  chats?: {
+    seed?: Array<Record<string, unknown>>;
+    reply?: string;
+    changes?: boolean;
+    /** Make `send` fail with this message, for the "put the message back" path. */
+    sendError?: string;
+    /** Accepting this path answers a conflict instead of applying. */
+    conflictOn?: string;
+  };
+  /**
    * Database connections (Phase 61). Absent means an empty list — the
    * default "No connections yet" empty state `database-shots.spec.ts` shoots
    * first, before seeding one to shoot the connections list.
@@ -2770,6 +2786,7 @@ export function buildMockBridge(data: MockFixtures) {
       history: async () => ({ ok: true as const, value: [] }),
     },
     markets: createMockMarkets(),
+    chats: createMockChats(),
     loopRuns: {
       list: async () => ({ runs: loopRuns }),
       start: async (req: {
@@ -5250,6 +5267,346 @@ export function buildMockBridge(data: MockFixtures) {
       }
     }
   };
+
+  /**
+   * The `chats` namespace — an in-memory stand-in for `main/chats/`. Self-contained
+   * for the same reason as `createMockMarkets` below: the whole function is
+   * serialised into the page. It keeps the observable contract (a send answers at
+   * once and the reply streams on `onEvent`; a decision updates hunk/file status
+   * and the derived card status; cancel settles the message as cancelled) and
+   * nothing of the real engine.
+   */
+  function createMockChats() {
+    // Loosely typed on purpose: this is a stand-in for main, not the contract.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type MockMessage = Record<string, any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type MockChat = Record<string, any>;
+    const cfg = data.chats ?? {};
+    const store = new Map<string, MockChat>(
+      (cfg.seed ?? []).map((chat) => [chat['id'] as string, JSON.parse(JSON.stringify(chat)) as MockChat]),
+    );
+    const handlers: Array<(event: Record<string, unknown>) => void> = [];
+    const emit = (event: Record<string, unknown>) => {
+      for (const handler of [...handlers]) handler(event);
+    };
+    const timers = new Map<string, ReturnType<typeof setTimeout>[]>();
+    let seq = 0;
+    const id = (prefix: string) => `${prefix}-${++seq}`;
+    const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+    const fileStatus = (file: MockMessage): string => {
+      if (file['conflict'] !== undefined) return 'conflict';
+      const states: string[] = file['hunks'].length > 0 ? file['hunks'].map((h: MockMessage) => h['status']) : [file['fileStatus']];
+      if (states.every((s) => s === 'pending')) return 'pending';
+      if (states.every((s) => s === 'accepted')) return 'accepted';
+      if (states.every((s) => s === 'rejected')) return 'rejected';
+      return 'partial';
+    };
+    const setStatus = (set: MockMessage): void => {
+      const files: MockMessage[] = set['files'];
+      for (const file of files) file['status'] = fileStatus(file);
+      set['status'] = files.some((f) => f['status'] === 'conflict')
+        ? 'conflict'
+        : files.every((f) => f['status'] === 'pending')
+          ? 'pending'
+          : files.every((f) => f['status'] === 'accepted')
+            ? 'accepted'
+            : files.every((f) => f['status'] === 'rejected')
+              ? 'rejected'
+              : 'partial';
+    };
+    const needsReview = (set: MockMessage): boolean =>
+      set['files'].some(
+        (f: MockMessage) =>
+          f['status'] === 'conflict' ||
+          (f['hunks'].length > 0 ? f['hunks'].some((h: MockMessage) => h['status'] === 'pending') : f['fileStatus'] === 'pending'),
+      );
+
+    const summary = (chat: MockChat) => {
+      const messages: MockMessage[] = chat['messages'];
+      const last = [...messages].reverse().find((m) => String(m['text']).trim().length > 0);
+      return {
+        id: chat['id'],
+        title: chat['title'],
+        engine: chat['engine'],
+        model: chat['model'] ?? null,
+        mode: chat['mode'],
+        repoId: chat['repoId'] ?? null,
+        repoName: chat['repoName'] ?? null,
+        pinned: chat['pinned'] === true,
+        createdAt: chat['createdAt'],
+        updatedAt: chat['updatedAt'],
+        messageCount: messages.length,
+        preview: last ? String(last['text']).replace(/\s+/g, ' ').slice(0, 90) : '',
+        running: messages.some((m) => m['status'] === 'streaming'),
+        pendingChanges: messages.some((m) => m['changeSet'] && needsReview(m['changeSet'])),
+      };
+    };
+
+    const mockDiff = (path: string) => ({
+      path,
+      oldPath: null,
+      change: 'modified',
+      binary: false,
+      oldMode: null,
+      newMode: null,
+      insertions: 3,
+      deletions: 2,
+      contextLines: 3,
+      combined: false,
+      truncated: false,
+      droppedLines: 0,
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 4,
+          newStart: 1,
+          newLines: 4,
+          heading: '',
+          lines: [
+            { kind: 'ctx', oldNo: 1, newNo: 1, text: 'export function greet(name: string) {', ranges: [], noNewline: false },
+            { kind: 'del', oldNo: 2, newNo: null, text: "  return 'Hello ' + name;", ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 2, text: '  return `Hello, ${name}!`;', ranges: [], noNewline: false },
+            { kind: 'ctx', oldNo: 3, newNo: 3, text: '}', ranges: [], noNewline: false },
+          ],
+        },
+        {
+          oldStart: 20,
+          oldLines: 4,
+          newStart: 20,
+          newLines: 5,
+          heading: 'export function shout(name: string) {',
+          lines: [
+            { kind: 'ctx', oldNo: 20, newNo: 20, text: '  const text = greet(name);', ranges: [], noNewline: false },
+            { kind: 'del', oldNo: 21, newNo: null, text: '  return text.toUpperCase();', ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 21, text: "  return text.toUpperCase() + '!';", ranges: [], noNewline: false },
+            { kind: 'ctx', oldNo: 22, newNo: 22, text: '}', ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 23, text: "export const DEFAULT_NAME = 'world';", ranges: [], noNewline: false },
+          ],
+        },
+      ],
+    });
+
+    const buildChangeSet = () => {
+      const set: MockMessage = {
+        id: id('cs'),
+        createdAt: Date.now(),
+        status: 'pending',
+        files: [
+          {
+            path: 'src/greeting.ts',
+            oldPath: null,
+            change: 'modified',
+            binary: false,
+            insertions: 3,
+            deletions: 2,
+            preview: ["-  return 'Hello ' + name;", '+  return `Hello, ${name}!`;', '-  return text.toUpperCase();'],
+            hunks: [
+              { header: '@@ -1,4 +1,4 @@', insertions: 1, deletions: 1, status: 'pending' },
+              { header: '@@ -20,4 +20,5 @@', insertions: 2, deletions: 1, status: 'pending' },
+            ],
+            fileStatus: 'pending',
+            status: 'pending',
+          },
+          {
+            path: 'src/config.ts',
+            oldPath: null,
+            change: 'added',
+            binary: false,
+            insertions: 2,
+            deletions: 0,
+            preview: ['+export const GREETING = true;', '+export const LOUD = false;'],
+            hunks: [{ header: '@@ -0,0 +1,2 @@', insertions: 2, deletions: 0, status: 'pending' }],
+            fileStatus: 'pending',
+            status: 'pending',
+          },
+        ],
+      };
+      return set;
+    };
+
+    const err = (message: string) => ({ ok: false as const, kind: 'error' as const, message });
+
+    return {
+      list: async () => ({ chats: [...store.values()].map(summary).sort((a, b) => b.updatedAt - a.updatedAt) }),
+      get: async (req: { id: string }) => {
+        const chat = store.get(req.id);
+        return chat ? { ok: true as const, value: { chat: clone(chat) } } : err('That chat no longer exists.');
+      },
+      create: async (req: { engine: string; model?: string | null; mode?: string; repoId?: string | null }) => {
+        const at = Date.now();
+        const chat: MockChat = {
+          id: id('chat'),
+          title: 'New chat',
+          engine: req.engine,
+          model: req.model ?? null,
+          mode: req.mode ?? 'edit',
+          repoId: req.repoId ?? null,
+          repoName: req.repoId ? String(req.repoId).split('/').pop() : null,
+          repoPath: req.repoId ? String(req.repoId).replace(/^repo:/, '') : null,
+          pinned: false,
+          createdAt: at,
+          updatedAt: at,
+          messages: [],
+          session: null,
+        };
+        store.set(chat['id'], chat);
+        emit({ kind: 'chat', chatId: chat['id'] });
+        return { ok: true as const, value: { chat: clone(chat) } };
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      update: async (req: Record<string, any>) => {
+        const chat = store.get(req['id']);
+        if (!chat) return err('That chat no longer exists.');
+        for (const key of ['title', 'pinned', 'engine', 'model', 'mode', 'repoId']) {
+          if (req[key] !== undefined) chat[key] = req[key];
+        }
+        if (req['repoId'] !== undefined) {
+          chat['repoName'] = req['repoId'] ? String(req['repoId']).split('/').pop() : null;
+          chat['repoPath'] = req['repoId'] ? String(req['repoId']).replace(/^repo:/, '') : null;
+        }
+        emit({ kind: 'chat', chatId: chat['id'] });
+        return { ok: true as const, value: { chat: clone(chat) } };
+      },
+      delete: async (req: { ids: string[] }) => {
+        for (const chatId of req.ids) {
+          for (const t of timers.get(chatId) ?? []) clearTimeout(t);
+          store.delete(chatId);
+          emit({ kind: 'removed', chatId });
+        }
+        return { ok: true as const };
+      },
+      send: async (req: { chatId: string; text?: string; attachments?: unknown[]; fromMessageId?: string }) => {
+        if (cfg.sendError) return err(cfg.sendError);
+        const chat = store.get(req.chatId);
+        if (!chat) return err('That chat no longer exists.');
+        let text = req.text;
+        if (req.fromMessageId !== undefined) {
+          const index = chat['messages'].findIndex((m: MockMessage) => m['id'] === req.fromMessageId);
+          if (index < 0) return err('That message cannot be re-sent.');
+          text = text ?? chat['messages'][index]['text'];
+          chat['messages'].splice(index);
+        }
+        const body = (text ?? '').trim();
+        if (!body) return err('Write a message first.');
+        const at = Date.now();
+        const user: MockMessage = { id: id('u'), role: 'user', text: body, createdAt: at, status: 'done', ...(req.attachments?.length ? { attachments: req.attachments } : {}) };
+        const assistant: MockMessage = { id: id('a'), role: 'assistant', text: '', createdAt: at + 1, status: 'streaming', engine: chat['engine'], model: chat['model'] ?? null };
+        if (chat['title'] === 'New chat') chat['title'] = (body.split('\n')[0] ?? '').slice(0, 48);
+        chat['messages'].push(user, assistant);
+        chat['updatedAt'] = at;
+        emit({ kind: 'message', chatId: chat['id'], message: clone(user) });
+        emit({ kind: 'message', chatId: chat['id'], message: clone(assistant) });
+        emit({ kind: 'chat', chatId: chat['id'] });
+
+        const reply = cfg.reply ?? 'Here is the answer.';
+        const third = Math.ceil(reply.length / 3);
+        const chunks = [reply.slice(0, third), reply.slice(third, third * 2), reply.slice(third * 2)].filter((c) => c.length > 0);
+        const mine: ReturnType<typeof setTimeout>[] = [];
+        timers.set(chat['id'], mine);
+        chunks.forEach((chunk, i) => {
+          mine.push(
+            setTimeout(() => {
+              assistant['text'] += chunk;
+              emit({ kind: 'delta', chatId: chat['id'], messageId: assistant['id'], text: chunk });
+            }, 20 * (i + 1)),
+          );
+        });
+        mine.push(
+          setTimeout(() => {
+            assistant['status'] = 'done';
+            if (cfg.changes && chat['mode'] === 'edit') assistant['changeSet'] = buildChangeSet();
+            chat['updatedAt'] = Date.now();
+            emit({ kind: 'message', chatId: chat['id'], message: clone(assistant) });
+            emit({ kind: 'chat', chatId: chat['id'] });
+          }, 20 * (chunks.length + 2)),
+        );
+        return { ok: true as const, value: { messageId: assistant['id'] } };
+      },
+      cancel: async (req: { chatId: string }) => {
+        const chat = store.get(req.chatId);
+        if (!chat) return { ok: true as const };
+        for (const t of timers.get(req.chatId) ?? []) clearTimeout(t);
+        const streaming = chat['messages'].find((m: MockMessage) => m['status'] === 'streaming');
+        if (streaming) {
+          streaming['status'] = 'cancelled';
+          emit({ kind: 'message', chatId: chat['id'], message: clone(streaming) });
+          emit({ kind: 'chat', chatId: chat['id'] });
+        }
+        return { ok: true as const };
+      },
+      changeDiffs: async (req: { chatId: string; changeSetId: string }) => {
+        const chat = store.get(req.chatId);
+        const set = chat?.['messages'].map((m: MockMessage) => m['changeSet']).find((s: MockMessage | undefined) => s?.['id'] === req.changeSetId);
+        if (!set) return err('Those changes are no longer in the chat.');
+        return {
+          ok: true as const,
+          value: {
+            files: set['files'].map((f: MockMessage) => ({
+              path: f['path'],
+              diff: f['path'] === 'src/config.ts'
+                ? {
+                    ...mockDiff(f['path']),
+                    change: 'added',
+                    insertions: 2,
+                    deletions: 0,
+                    hunks: [
+                      {
+                        oldStart: 0,
+                        oldLines: 0,
+                        newStart: 1,
+                        newLines: 2,
+                        heading: '',
+                        lines: [
+                          { kind: 'add', oldNo: null, newNo: 1, text: 'export const GREETING = true;', ranges: [], noNewline: false },
+                          { kind: 'add', oldNo: null, newNo: 2, text: 'export const LOUD = false;', ranges: [], noNewline: false },
+                        ],
+                      },
+                    ],
+                  }
+                : mockDiff(f['path']),
+            })),
+          },
+        };
+      },
+      resolveChanges: async (req: { chatId: string; changeSetId: string; decisions: Array<{ path: string; action: string; hunks?: number[] }> }) => {
+        const chat = store.get(req.chatId);
+        const message = chat?.['messages'].find((m: MockMessage) => m['changeSet']?.['id'] === req.changeSetId);
+        if (!chat || !message) return err('Those changes are no longer in the chat.');
+        const set: MockMessage = message['changeSet'];
+        const conflicts: string[] = [];
+        for (const decision of req.decisions) {
+          const file = set['files'].find((f: MockMessage) => f['path'] === decision.path);
+          if (!file) continue;
+          if (decision.action === 'accept' && cfg.conflictOn === decision.path) {
+            file['conflict'] = 'Your working tree changed since this edit was made, so it no longer applies.';
+            conflicts.push(decision.path);
+            continue;
+          }
+          delete file['conflict'];
+          const target = decision.action === 'accept' ? 'accepted' : 'rejected';
+          if (file['hunks'].length === 0) {
+            if (file['fileStatus'] === 'pending') file['fileStatus'] = target;
+          } else {
+            file['hunks'].forEach((hunk: MockMessage, index: number) => {
+              if (hunk['status'] === 'pending' && (!decision.hunks || decision.hunks.includes(index))) hunk['status'] = target;
+            });
+          }
+        }
+        setStatus(set);
+        emit({ kind: 'message', chatId: chat['id'], message: clone(message) });
+        if (conflicts.length > 0) return { ok: false as const, kind: 'conflict' as const, files: conflicts, op: 'change-apply' as const };
+        return { ok: true as const, value: { changeSet: clone(set) } };
+      },
+      onEvent: (handler: (event: Record<string, unknown>) => void) => {
+        handlers.push(handler);
+        return () => {
+          handlers.splice(handlers.indexOf(handler), 1);
+        };
+      },
+    };
+  }
 
   /**
    * The `markets` namespace. Self-contained on purpose — this whole function is

@@ -6,7 +6,7 @@ import {
   type ReactNode,
   type Ref,
 } from 'react';
-import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
+import { LuMic, LuMicOff, LuSendHorizontal, LuSquare } from 'react-icons/lu';
 
 import { useMicLevelBars, type LevelBars } from '../../features/companion/audio/waveform';
 import { GRADIENT_FIELD_CLASSES } from '../gradient-field';
@@ -42,6 +42,12 @@ function MicMeter({ testId }: { testId: string }) {
  * on/off toggle).
  * `onKeyDown` runs first; if it calls `preventDefault` the composer's own
  * Enter-to-send is skipped.
+ *
+ * `streaming` + `onStop` (the Chats page): while a response is being written, a
+ * Stop button appears IMMEDIATELY to the left of Send, in the same right-hand
+ * group, so the two read as one control that swaps meaning as a turn starts and
+ * ends. Send stays put (disabled by the caller's `canSend`), which is what keeps
+ * Enter from firing a second turn on top of the first.
  */
 export function AiComposer({
   value,
@@ -62,6 +68,9 @@ export function AiComposer({
   leading,
   trailing,
   sendTooltip,
+  streaming = false,
+  onStop,
+  maxTextareaHeight = MAX_TEXTAREA_HEIGHT,
   testIdPrefix = 'ai-composer',
   className = '',
   boxClassName = 'gradient-border rounded-md',
@@ -89,6 +98,12 @@ export function AiComposer({
   leading?: ReactNode;
   trailing?: ReactNode;
   sendTooltip?: string;
+  /** A response is being written: show Stop immediately left of Send (needs `onStop`). */
+  streaming?: boolean;
+  /** Stop the in-flight response. */
+  onStop?: () => void;
+  /** Tallest the auto-growing field gets before it scrolls. */
+  maxTextareaHeight?: number;
   testIdPrefix?: string;
   className?: string;
   /** The gradient-border wrapper around the field (Media pages pass `MEDIA_PROMPT_BOX`). */
@@ -104,12 +119,14 @@ export function AiComposer({
     const el = inner.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
-  }, [value]);
+    el.style.height = `${Math.min(el.scrollHeight, maxTextareaHeight)}px`;
+  }, [value, maxTextareaHeight]);
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     onKeyDown?.(event);
     if (event.defaultPrevented) return;
+    // Enter that commits an IME composition (Japanese, Chinese, …) is not a send.
+    if (event.nativeEvent.isComposing) return;
     if (event.key === 'Enter' && (enterToSend ? !event.shiftKey : event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       if (canSend) onSend();
@@ -161,6 +178,19 @@ export function AiComposer({
             ) : null}
             {trailing}
             <span className="flex-1" aria-hidden />
+            {streaming && onStop ? (
+              <Tooltip label="Stop generating">
+                <button
+                  type="button"
+                  aria-label="Stop"
+                  data-testid={`${testIdPrefix}-stop`}
+                  onClick={onStop}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <LuSquare aria-hidden className="h-3 w-3 fill-current" />
+                </button>
+              </Tooltip>
+            ) : null}
             <Tooltip label={sendTooltip ?? (canSend ? 'Send' : 'Send — type something first')}>
               <button
                 type="button"

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
-import { Collapse } from '@bilo-io/ui';
 import {
   buildResumeCommand,
   commitsForLiveSession,
@@ -15,13 +14,11 @@ import {
 import {
   LuActivity,
   LuBot,
-  LuChevronRight,
   LuExternalLink,
   LuFilter,
   LuOctagonX,
   LuPlay,
   LuRefreshCw,
-  LuSearch,
   LuTerminal,
   LuTrash2,
   LuX,
@@ -29,6 +26,7 @@ import {
 
 import { resolveAgentIcon } from '../../components/icons';
 import { EmptyState } from '../../components/empty-state';
+import { ExplorerGroup, ExplorerNotice as Notice, ExplorerSearch } from '../../components/explorer';
 import { IconButton } from '../../components/icon-button';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
 import { PageDetachMark } from '../../components/page-detach-mark';
@@ -575,31 +573,13 @@ export function SessionsView({
               title={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
               className="h-3 w-3 shrink-0 accent-primary"
             />
-            <div className="relative min-w-0 flex-1 gradient-border rounded-md">
-              <LuSearch
-                aria-hidden
-                className="pointer-events-none absolute left-2 top-1/2 z-10 h-3 w-3 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search sessions…"
-                aria-label="Search sessions by title or repo"
-                className="block h-7 w-full rounded-md border-0 bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  aria-label="Clear the session search"
-                  title="Clear the session search"
-                  className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <LuX aria-hidden className="h-3 w-3" />
-                </button>
-              ) : null}
-            </div>
+            <ExplorerSearch
+              value={query}
+              onChange={setQuery}
+              placeholder="Search sessions…"
+              ariaLabel="Search sessions by title or repo"
+              clearLabel="Clear the session search"
+            />
           </div>
         ) : null}
 
@@ -914,31 +894,21 @@ function WorkflowRunSessionsGroup({
   };
 
   return (
-    <div className="border-b border-border/40 last:border-b-0">
-      <div className="sticky top-0 z-10 flex h-7 items-center gap-1 bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          aria-expanded={open}
-          aria-controls={bodyId}
-          aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
-        >
-          <LuChevronRight
-            aria-hidden
-            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
-              open ? 'rotate-90' : ''
-            }`}
-          />
-          <WorkflowsIcon className="h-3 w-3 shrink-0" />
-          <span className="truncate font-semibold uppercase tracking-wide">{title}</span>
-          <span className="shrink-0 text-muted-foreground/70">{relativeAge(group.startedAt, Date.now())}</span>
-          <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>
-        </button>
-        <IconButton icon={LuExternalLink} label="Reveal this run in the Workflows view" size="sm" onClick={reveal} />
-        <IconButton icon={LuOctagonX} label="Kill switch for this workflow" size="sm" onClick={kill} />
-      </div>
-      <Collapse open={open} id={bodyId} aria-label={title}>
+    <ExplorerGroup
+      title={title}
+      count={group.sessions.length}
+      open={open}
+      onToggle={onToggleCollapse}
+      bodyId={bodyId}
+      leading={<WorkflowsIcon className="h-3 w-3 shrink-0" />}
+      meta={<span className="shrink-0 text-muted-foreground/70">{relativeAge(group.startedAt, Date.now())}</span>}
+      trailing={
+        <>
+          <IconButton icon={LuExternalLink} label="Reveal this run in the Workflows view" size="sm" onClick={reveal} />
+          <IconButton icon={LuOctagonX} label="Kill switch for this workflow" size="sm" onClick={kill} />
+        </>
+      }
+    >
         {group.sessions.map((record) => (
           <SessionRow
             key={record.id}
@@ -957,8 +927,7 @@ function WorkflowRunSessionsGroup({
             onNavigateToGraph={onNavigateToGraph}
           />
         ))}
-      </Collapse>
-    </div>
+    </ExplorerGroup>
   );
 }
 
@@ -1005,34 +974,15 @@ function RepoSessionsGroup({
   const sessionCascade = useCascadeReveal({ revealKey: `${group.repoId}:${revealCount}` });
 
   return (
-    <div
-      className={`border-b border-border/40 last:border-b-0 ${
-        cascading ? 'animate-fade-in-up cascade-delay' : ''
-      }`}
-      style={groupCascadeStyle}
+    <ExplorerGroup
+      title={group.title}
+      count={group.sessions.length}
+      open={open}
+      onToggle={onToggleCollapse}
+      bodyId={bodyId}
+      className={cascading ? 'animate-fade-in-up cascade-delay' : ''}
+      {...(groupCascadeStyle ? { style: groupCascadeStyle } : {})}
     >
-      <div className="sticky top-0 z-10 flex h-7 items-center bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          aria-expanded={open}
-          aria-controls={bodyId}
-          aria-label={open ? `Collapse ${group.title}` : `Expand ${group.title}`}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
-        >
-          <LuChevronRight
-            aria-hidden
-            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
-              open ? 'rotate-90' : ''
-            }`}
-          />
-          <span className="truncate font-semibold uppercase tracking-wide">
-            {group.title}
-          </span>
-          <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>
-        </button>
-      </div>
-      <Collapse open={open} id={bodyId} aria-label={group.title}>
         {group.sessions.map((record, sessionIndex) => (
           <SessionRow
             key={record.id}
@@ -1053,8 +1003,7 @@ function RepoSessionsGroup({
             onNavigateToGraph={onNavigateToGraph}
           />
         ))}
-      </Collapse>
-    </div>
+    </ExplorerGroup>
   );
 }
 
@@ -1336,22 +1285,3 @@ function SessionRow({
   );
 }
 
-function Notice({
-  children,
-  tone = 'muted',
-}: {
-  children: React.ReactNode;
-  tone?: 'muted' | 'destructive';
-}) {
-  return (
-    <div className="grid min-h-0 flex-1 place-items-center p-8">
-      <p
-        className={`max-w-md text-center text-sm leading-relaxed ${
-          tone === 'destructive' ? 'text-destructive' : 'text-muted-foreground'
-        }`}
-      >
-        {children}
-      </p>
-    </div>
-  );
-}

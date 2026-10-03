@@ -70,6 +70,7 @@ export function DiffView({
   leftThreads,
   onComment,
   renderThread,
+  renderHunkActions,
   composer = null,
   images = null,
   tooNarrowForSplit,
@@ -120,6 +121,12 @@ export function DiffView({
   onComment?: (line: number) => void;
   /** The panel for the threads at one line. */
   renderThread?: (threads: readonly ForgeReviewThread[], line: number) => React.ReactNode;
+  /**
+   * Controls shown at the right end of each `@@` hunk header — the Chats page's
+   * per-hunk accept/reject. Called with the hunk's index in `diff.hunks`. Absent,
+   * nothing extra renders, which is every other caller.
+   */
+  renderHunkActions?: (hunkIndex: number) => React.ReactNode;
   /** The open composer, if any, and the line it belongs to. */
   composer?: { line: number; node: React.ReactNode } | null;
 
@@ -214,6 +221,7 @@ export function DiffView({
         onExpandContext={onExpandContext}
         onComment={onComment}
         renderThread={renderThread}
+        renderHunkActions={renderHunkActions}
         composer={composer}
       />
     );
@@ -253,7 +261,12 @@ export function DiffView({
                 style={{ transform: `translateY(${item.start}px)` }}
               >
                 {row.kind === 'hunk' ? (
-                  <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+                  <HunkHeader
+                    row={row}
+                    onExpand={onExpandContext}
+                    context={diff.contextLines}
+                    actions={renderHunkActions?.(row.hunkIndex)}
+                  />
                 ) : row.kind === 'thread' ? (
                   renderThread?.(row.threads, row.line)
                 ) : row.kind === 'composer' ? (
@@ -318,10 +331,12 @@ function HunkHeader({
   row,
   context,
   onExpand,
+  actions,
 }: {
   row: Extract<DiffRow, { kind: 'hunk' }>;
   context: number;
   onExpand?: (context: number) => void;
+  actions?: React.ReactNode;
 }) {
   const expandable = onExpand !== undefined && row.gap !== null && row.gap > 0;
 
@@ -338,6 +353,7 @@ function HunkHeader({
         </button>
       ) : null}
       <span className="truncate italic opacity-70">{row.heading}</span>
+      {actions !== undefined ? <span className="ml-auto flex shrink-0 items-center gap-1">{actions}</span> : null}
     </div>
   );
 }
@@ -350,6 +366,7 @@ function InlineDiffBody({
   onExpandContext,
   onComment,
   renderThread,
+  renderHunkActions,
   composer,
 }: {
   diff: FileDiff;
@@ -359,6 +376,7 @@ function InlineDiffBody({
   onExpandContext?: (context: number) => void;
   onComment?: (line: number) => void;
   renderThread?: (threads: readonly ForgeReviewThread[], line: number) => React.ReactNode;
+  renderHunkActions?: ((hunkIndex: number) => React.ReactNode) | undefined;
   composer?: { line: number; node: React.ReactNode } | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -422,7 +440,12 @@ function InlineDiffBody({
                   <div className="w-full">{composer?.node}</div>
                 ) : row.kind === 'hunk' ? (
                   <div className="flex w-max min-w-full">
-                    <HunkHeader row={row} onExpand={onExpandContext} context={diff.contextLines} />
+                    <HunkHeader
+                      row={row}
+                      onExpand={onExpandContext}
+                      context={diff.contextLines}
+                      actions={renderHunkActions?.(row.hunkIndex)}
+                    />
                   </div>
                 ) : row.kind === 'split-line' ? (
                   <div className="flex w-full divide-x divide-border">
