@@ -183,9 +183,20 @@ export function DiffView({
   const splitRows = diff && isSplit ? toSplitRows(diff) : [];
   const rows = isSplit ? splitRows : unifiedRows;
 
+  /*
+    Measured sizes are cached by item key, and the default key is the row INDEX.
+    Switching file, layout or context width (or a thread/composer row appearing)
+    re-fills the same indices with different content, so every index the new
+    window had not yet re-measured kept the OLD row's height — offsets drift and
+    rows land on blank space. A key scoped to the row-list's shape drops that
+    cache whenever the shape changes.
+  */
+  const rowsShape = `${diff?.path ?? ''}|${diff?.contextLines ?? 0}|${isSplit ? 's' : 'u'}|${rows.length}|${rows.reduce((n, r) => ('kind' in r && (r.kind === 'thread' || r.kind === 'composer') ? n * 31 + r.line + 1 : n), 7)}`;
+
   const virtualizer = useVirtualizer({
     count: inline ? 0 : rows.length,
     getScrollElement: () => scrollRef.current,
+    getItemKey: (index) => `${rowsShape}:${index}`,
     estimateSize: (index) => {
       const row = rows[index];
       if (row && 'kind' in row && row.kind === 'thread') return THREAD_ESTIMATE;
