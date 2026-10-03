@@ -186,6 +186,7 @@ const bridge: Pick<
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
     list: () => call(CHANNELS.repoList),
+    logo: (req) => call(CHANNELS.repoLogo, req),
     close: (req) => call(CHANNELS.repoClose, req),
     refs: (req) => call(CHANNELS.repoRefs, req),
     worktrees: (req) => call(CHANNELS.repoWorktrees, req),

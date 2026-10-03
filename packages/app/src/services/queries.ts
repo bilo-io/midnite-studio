@@ -404,6 +404,16 @@ export function useRepos() {
   });
 }
 
+/** The repo's favicon/logo data URL, or null. Cached for the session: the finder is deterministic. */
+export function useRepoLogo(repoId: string | undefined) {
+  return useQuery<string | null>({
+    queryKey: ['repo-logo', repoId] as const,
+    queryFn: async () => (await bridge()?.repos.logo({ repoId: repoId as string }))?.dataUrl ?? null,
+    enabled: !!repoId,
+    staleTime: 5 * 60_000,
+  });
+}
+
 /**
  * Apply a new id order to a list, dropping any id the list no longer has an
  * entry for.

@@ -385,6 +385,9 @@ export const CHANNELS = {
    */
   clipboardWriteText: 'mstudio:clipboard:write-text',
 
+  /** Best favicon/logo for a repo as a data URL (≤256 KB), or null. */
+  repoLogo: 'mstudio:repo:logo',
+
   // --- mutating operations -------------------------------------------------
   opCheckout: 'mstudio:op:checkout',
   opBranchCreate: 'mstudio:op:branch-create',

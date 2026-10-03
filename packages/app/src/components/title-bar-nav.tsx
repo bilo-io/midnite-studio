@@ -16,7 +16,7 @@ import {
 import { chordFor, displayChord } from '../features/status-bar/chord-hint';
 import { bridge } from '../services/bridge';
 import { reportFailure } from '../services/bridge-result';
-import { useRefs, useRepos } from '../services/queries';
+import { useRefs, useRepoLogo, useRepos } from '../services/queries';
 import { useStatus, useTargetedGitOp } from '../services/use-status';
 import { SETTINGS_PAGES, useUiStore, type ViewId } from '../store/ui-store';
 import type { MenuItem } from './context-menu';
@@ -337,7 +337,23 @@ function usePageLabelReveal(): boolean {
   return revealed;
 }
 
+/** The repo's own favicon/logo; renders nothing (no gap) when none was found. */
+function RepoLogo({ repoId }: { repoId: string | undefined }) {
+  const { data: dataUrl } = useRepoLogo(repoId);
+  if (!dataUrl) return null;
+  return (
+    <img
+      src={dataUrl}
+      alt=""
+      aria-hidden
+      data-testid="breadcrumb-repo-logo"
+      className="mr-1 h-4 w-4 shrink-0 rounded-sm object-contain"
+    />
+  );
+}
+
 export function Breadcrumbs() {
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const crumbs = useBreadcrumbs();
   const revealed = usePageLabelReveal();
 
@@ -398,6 +414,7 @@ export function Breadcrumbs() {
                 className="h-2.5 w-2.5 shrink-0 text-muted-foreground/60"
               />
             ) : null}
+            {isRepo ? <RepoLogo repoId={selectedRepoId ?? undefined} /> : null}
             {crumb.onSelect ? (
               <button type="button" onClick={crumb.onSelect} className={buttonClass}>
                 {icon}

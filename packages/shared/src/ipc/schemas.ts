@@ -1373,6 +1373,11 @@ export const OpenExternalResponse = z.object({
  */
 export const CLIPBOARD_MAX_LENGTH = 8192;
 
+export const RepoLogoRequest = RepoId;
+
+/** `dataUrl` is null when the repo has no favicon/logo — never an error. */
+export const RepoLogoResponse = z.object({ dataUrl: z.string().nullable() });
+
 export const ClipboardWriteTextRequest = z.object({
   text: z.string().min(1).max(CLIPBOARD_MAX_LENGTH),
 });
