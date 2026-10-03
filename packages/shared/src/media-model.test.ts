@@ -98,3 +98,51 @@ describe('model files', () => {
     expect(parseModelSidecar('not json')).toBeNull();
   });
 });
+
+describe('schema growth is back-compatible (no sidecar version bump)', () => {
+  // A sidecar exactly as Phase 99 Theme F/G wrote it.
+  const legacy = JSON.stringify({
+    version: 1,
+    name: 'mug-20260101-000000',
+    prompt: 'a mug',
+    engine: 'ollama:qwen2.5-coder:7b',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    spec: {
+      name: 'mug',
+      parts: [
+        { name: 'cup', shape: 'cylinder', radiusTop: 0.4, radiusBottom: 0.35, height: 0.8, color: '#cc3333' },
+        { id: 'p2', name: 'handle', shape: 'torus', radius: 0.25, tube: 0.05, position: [0.5, 0.4, 0], rotation: [90, 0, 0], color: '#cc3333' },
+        { name: 'top', shape: 'lathe', profile: [[0, 0], [1, 0], [1, 1]], color: '#fff' },
+      ],
+    },
+  });
+
+  it('loads unchanged and gains no keys it did not have', () => {
+    const sidecar = parseModelSidecar(legacy)!;
+    expect(sidecar).not.toBeNull();
+    for (const part of sidecar.spec.parts) {
+      expect(part).not.toHaveProperty('modifiers');
+      expect(part).not.toHaveProperty('material');
+      expect(part).not.toHaveProperty('op');
+      expect(part).not.toHaveProperty('parent');
+      expect(part.scale).toEqual([1, 1, 1]);
+    }
+    // Re-serialising and re-parsing is a fixed point.
+    expect(parseModelSidecar(JSON.stringify(sidecar))).toEqual(sidecar);
+  });
+
+  it('accepts the new fields and rejects bad ones', () => {
+    const parsed = ModelSpecSchema.safeParse({
+      parts: [
+        { shape: 'box', size: [1, 1, 1], scale: [-1, 1, 1], material: { metalness: 0.5 }, modifiers: [{ type: 'subdivide' }] },
+        { shape: 'tube', path: [[0, 0, 0], [1, 1, 1]], radius: 0.1 },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.parts[0]).toMatchObject({ modifiers: [{ type: 'subdivide', levels: 1 }] });
+    expect(ModelSpecSchema.safeParse({ parts: [{ shape: 'box', size: [1, 1, 1], scale: [0, 1, 1] }] }).success).toBe(false);
+    expect(ModelSpecSchema.safeParse({ parts: [{ shape: 'box', size: [1, 1, 1], material: { metalness: 2 } }] }).success).toBe(false);
+    expect(ModelSpecSchema.safeParse({ parts: [{ shape: 'box', size: [1, 1, 1], modifiers: [{ type: 'explode' }] }] }).success).toBe(false);
+    expect(ModelSpecSchema.safeParse({ parts: [{ shape: 'mesh', vertices: [[0, 0, 0]], faces: [[0, 0, 0]] }] }).success).toBe(false);
+  });
+});
