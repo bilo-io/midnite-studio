@@ -1,7 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
-import { agentStatusWithin } from '../agent-probe';
+import { agentProbe } from '../agent-probe-runtime';
 import { getBrokerStatus } from '../pty-service';
 import {
   forgetTerminal,
@@ -33,15 +33,19 @@ export function registerTerminalHandlers(): void {
     The roster and what this machine has of it, in one answer. `status` may be
     shorter than `agents`, or empty outright — a probe that could not resolve an
     entry omits it rather than calling it missing, and one that has not answered
-    inside `FIRST_ANSWER_MS` ships nothing at all rather than making a file read
-    wait on a login shell. The renderer reads absent as "assume it works", so
-    every one of those degradations costs the menu an explanation and never an
-    item.
+    yet ships `probe: 'checking'` rather than making a file read wait on a login
+    shell. The renderer shows that as "checking…" and never as installed or
+    missing; the answer follows on the `agentStatus` event.
   */
   handleBare(CHANNELS.agentList, async () => {
     const agents = await listAgents();
-    return { agents, status: await agentStatusWithin(agents) };
+    const probe = agentProbe();
+    // A list before anything has probed (tests, a very early renderer) starts
+    // one; it never waits on it — the answer arrives on `agentStatus`.
+    if (!probe.started()) void probe.start();
+    return { agents, ...probe.snapshot() };
   });
+  handleBare(CHANNELS.agentRecheck, () => agentProbe().start({ force: true }));
 
   handleSend(
     CHANNELS.terminalSave,

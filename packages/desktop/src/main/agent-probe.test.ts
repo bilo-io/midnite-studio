@@ -2,7 +2,6 @@ import type { AgentDefinition } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  agentStatusWithin,
   buildProbeScript,
   parseAgentVersion,
   parseProbeOutput,
@@ -278,6 +277,14 @@ describe('probeAgents — cache, TTL and in-flight sharing', () => {
     expect(run).toHaveBeenCalledOnce();
   });
 
+  it('force bypasses a fresh memo', async () => {
+    const run = runner(found(ROSTER));
+    await probeAgents(ROSTER, { run, now: () => 0 });
+    await probeAgents(ROSTER, { run, now: () => 1, force: true });
+
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
   it('re-probes once the TTL has passed', async () => {
     const run = runner(found(ROSTER));
     await probeAgents(ROSTER, { run, now: () => 0 });
@@ -346,43 +353,5 @@ describe('probeAgents — cache, TTL and in-flight sharing', () => {
     const run = runner('');
     expect(await probeAgents([], { run, now: () => 0 })).toEqual([]);
     expect(run).not.toHaveBeenCalled();
-  });
-});
-
-describe('agentStatusWithin', () => {
-  beforeEach(() => resetAgentProbeCache());
-
-  it('returns the probe when it answers in time', async () => {
-    const run = vi.fn(async () => ({ output: frame('claude', '/bin/claude') }));
-
-    expect(await agentStatusWithin([agent('claude')], 500, { run, now: () => 0 })).toEqual([
-      { id: 'claude', installed: true, resolvedPath: '/bin/claude' },
-    ]);
-  });
-
-  /**
-   * The roster is a file read that never needed a shell. Making the whole
-   * response wait on one means the session list's marks stall behind an rc file
-   * that sources nvm — for a fact whose only job is grey-out styling. Absent
-   * status already means "assume installed", so shipping early is correct by
-   * design.
-   */
-  it('ships an empty status rather than waiting on a slow shell', async () => {
-    const run = vi.fn(
-      async () =>
-        new Promise<{ output: string }>((r) =>
-          setTimeout(() => r({ output: frame('claude', '/bin/claude') }), 200),
-        ),
-    );
-
-    expect(await agentStatusWithin([agent('claude')], 10, { run, now: () => 0 })).toEqual([]);
-  });
-
-  it('never rejects when the shell throws', async () => {
-    const run = vi.fn(async () => {
-      throw new Error('no shell');
-    });
-
-    expect(await agentStatusWithin([agent('claude')], 500, { run, now: () => 0 })).toEqual([]);
   });
 });

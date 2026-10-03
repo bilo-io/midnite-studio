@@ -415,6 +415,8 @@ const bridge: Pick<
   },
   agent: {
     list: () => call(CHANNELS.agentList),
+    recheck: () => call(CHANNELS.agentRecheck),
+    onStatus: (handler) => subscribe(EVENT_CHANNELS.agentStatus, handler),
     claudeInfo: () => call(CHANNELS.agentClaudeInfo),
     claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
     onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
