@@ -2319,6 +2319,7 @@ export const WindowRelayMessage = z.object({
     'actions',
     'files',
     'workbench',
+    'notes',
     'sessions',
     /*
       Phase 81 Theme B: a companion running in a popout has no docked view of

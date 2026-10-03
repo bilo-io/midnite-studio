@@ -59,6 +59,7 @@ export const PAGE_WINDOW_ROLES = [
   'workflows',
   'media',
   'models',
+  'notes',
 ] as const satisfies readonly ViewId[];
 
 /*

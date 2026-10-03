@@ -1,3 +1,4 @@
+import { openNotes } from '../notes/notes-window';
 import type { CompanionState } from '@midnite/studio-shared';
 import {
   useEffect,
@@ -74,7 +75,7 @@ function buildRows(options: {
       label: 'Notes',
       description: 'Capture a thought against this repository',
       icon: LuNotebookPen,
-      onSelect: () => useUiStore.getState().setNotesOpen(true),
+      onSelect: () => openNotes(),
     },
   ];
 

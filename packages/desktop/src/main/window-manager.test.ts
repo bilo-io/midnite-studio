@@ -102,12 +102,15 @@ import {
   boundsWithinAnyDisplay,
   broadcastToWindowsOnRepo,
   closeAllPopouts,
+  beginShutdown,
   closePopoutForRedock,
+  configureReopenStore,
   configureWindowsStore,
   createRoleWindow,
   listWindows,
   registerMainWindow,
   relayToOtherWindows,
+  restoreReopenedPopouts,
   resolveRole,
   setWindowRepo,
   windowForRole,
@@ -404,6 +407,63 @@ describe('window-manager (Phase 55)', () => {
       broadcastToWindowsOnRepo('repo-1', 'test:channel', null);
 
       expect(unreportedWin.webContents.send).toHaveBeenCalledWith('test:channel', null);
+    });
+  });
+
+  describe('Notes window reopens on launch', () => {
+    const makeStore = (initial: string[]) => ({
+      load: vi.fn(async () => initial as never),
+      save: vi.fn(async (_roles: readonly string[]) => undefined),
+    });
+    const lastSaved = (store: ReturnType<typeof makeStore>) =>
+      store.save.mock.calls[store.save.mock.calls.length - 1]?.[0];
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    beforeEach(() => {
+      // A fresh main window clears the shutting-down latch `afterEach` set.
+      registerMainWindow(new FakeBrowserWindow({}) as never);
+    });
+
+    it('records the role when the window opens and forgets it when the user closes it', async () => {
+      const store = makeStore([]);
+      configureReopenStore(store);
+      await flush();
+      const win = createRoleWindow('notes', log) as unknown as InstanceType<typeof FakeBrowserWindow>;
+      await flush();
+      expect(lastSaved(store)).toEqual(['notes']);
+      win.close();
+      await flush();
+      expect(lastSaved(store)).toEqual([]);
+    });
+
+    it('keeps the role when the window closes because the app is quitting', async () => {
+      const store = makeStore([]);
+      configureReopenStore(store);
+      await flush();
+      const win = createRoleWindow('notes', log) as unknown as InstanceType<typeof FakeBrowserWindow>;
+      await flush();
+      beginShutdown();
+      win.close();
+      await flush();
+      expect(lastSaved(store)).toEqual(['notes']);
+    });
+
+    it('keeps the role when closeAllPopouts takes it down with the main window', async () => {
+      const store = makeStore([]);
+      configureReopenStore(store);
+      await flush();
+      createRoleWindow('notes', log);
+      closeAllPopouts();
+      await flush();
+      expect(lastSaved(store)).toEqual(['notes']);
+    });
+
+    it('restoreReopenedPopouts reopens only what was saved, and only reopenable roles', async () => {
+      configureReopenStore(makeStore(['notes', 'terminal']));
+      expect(windowForRole('notes')).toBeNull();
+      await restoreReopenedPopouts(log);
+      expect(windowForRole('notes')).not.toBeNull();
+      expect(windowForRole('terminal')).toBeNull();
     });
   });
 });
