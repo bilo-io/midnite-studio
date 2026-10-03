@@ -38,7 +38,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
-import { FaGitAlt } from 'react-icons/fa';
+import { VscTerminalGitBash } from 'react-icons/vsc';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
@@ -418,7 +418,7 @@ export function ReposPanel() {
             two features — the same ambiguity plain "Repos" already had in the
             status bar, which is why the button says "Git Repos" there.
 
-            `FaGitAlt` is the Git logo in Git's own `#F05032`, the same pairing
+            `VscTerminalGitBash` is the Git logo in Git's own `#F05032`, the same pairing
             `IconButton`'s `git` tone uses for the per-repo git menu further down
             this file. It is deliberately not one of lucide's folders: the three
             folder variants in this panel already mean "worktree", "main worktree"
@@ -432,7 +432,7 @@ export function ReposPanel() {
                 aria-hidden
                 className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
               >
-                <FaGitAlt className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+                <VscTerminalGitBash className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
               </span>
               {!isPopout && (
                 <IconButton
@@ -948,7 +948,7 @@ function RepoItem({
         />
 
         <IconButton
-          icon={FaGitAlt}
+          icon={VscTerminalGitBash}
           label={`Git actions for ${repo.name}`}
           size="sm"
           tone="git"
