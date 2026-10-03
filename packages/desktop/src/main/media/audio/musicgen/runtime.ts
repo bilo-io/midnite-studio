@@ -16,8 +16,9 @@ import { MUSICGEN_FRAMES_PER_SECOND } from './prompt';
  * Weights: `Xenova/musicgen-small`, an ONNX export of Meta's MusicGen-small
  * (CC-BY-NC-4.0). q8 text encoder + q8 decoder + fp32 EnCodec decode is the
  * combination the model card documents: ~660 MB on disk, ~2-3 GB resident
- * while rendering, and about real time on an Apple Silicon CPU (measured: 5 s
- * of audio in 4.4 s).
+ * while rendering, and roughly 1-5x slower than real time on an Apple Silicon CPU, depending
+ * on machine load (measured: 5 s of audio in 4.4 s idle; a stitched 40 s track
+ * in 3.5 min on a busy machine).
  */
 type TransformersModule = typeof import('@huggingface/transformers');
 
