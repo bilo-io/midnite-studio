@@ -15,6 +15,9 @@ import type { ComposerMic } from './use-composer-mic';
 
 const MAX_TEXTAREA_HEIGHT = 160;
 
+/** Box metrics shared by the textarea and its optional overlay — they must match to the pixel. */
+const FIELD_METRICS = 'px-2 py-1.5 text-xs leading-relaxed';
+
 /** Nine thin bars scaled 0..1 — the mic / speech level meter. */
 export function LevelMeterBars({ bars, label, testId }: { bars: LevelBars; label: string; testId: string }) {
   return (
@@ -74,6 +77,8 @@ export function AiComposer({
   testIdPrefix = 'ai-composer',
   className = '',
   boxClassName = 'gradient-border rounded-md',
+  renderOverlay,
+  onCaretChange,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -108,8 +113,20 @@ export function AiComposer({
   className?: string;
   /** The gradient-border wrapper around the field (Media pages pass `MEDIA_PROMPT_BOX`). */
   boxClassName?: string;
+  /**
+   * Paint the text through a mirror layer instead of the textarea itself —
+   * the Chats composer's pills. The textarea stays the real, editable field
+   * (caret, selection, IME, undo) with transparent text; this layer sits
+   * behind it with identical metrics and renders `value` however it likes, as
+   * long as it adds no horizontal advance (a pill's padding is cancelled by a
+   * negative margin), or the caret would drift off the painted glyphs.
+   */
+  renderOverlay?: (value: string) => ReactNode;
+  /** Fired when the caret or selection may have moved (key, click, focus). */
+  onCaretChange?: (caret: number) => void;
 }) {
   const inner = useRef<HTMLTextAreaElement | null>(null);
+  const overlay = useRef<HTMLDivElement | null>(null);
   const setRef = (el: HTMLTextAreaElement | null) => {
     inner.current = el;
     if (typeof textareaRef === 'function') textareaRef(el);
@@ -120,7 +137,15 @@ export function AiComposer({
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, maxTextareaHeight)}px`;
+    if (overlay.current) overlay.current.scrollTop = el.scrollTop;
   }, [value, maxTextareaHeight]);
+
+  const syncScroll = () => {
+    if (overlay.current && inner.current) overlay.current.scrollTop = inner.current.scrollTop;
+  };
+  const reportCaret = () => {
+    if (inner.current) onCaretChange?.(inner.current.selectionStart);
+  };
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     onKeyDown?.(event);
@@ -138,18 +163,42 @@ export function AiComposer({
       {above}
       <div className={`min-w-0 ${boxClassName} ${dimmed ? 'opacity-60' : ''}`}>
         <div className="flex flex-col rounded-md bg-background">
-          <textarea
-            ref={setRef}
-            value={value}
-            onChange={(event) => onChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={rows}
-            disabled={disabled}
-            aria-label={ariaLabel}
-            placeholder={placeholder}
-            data-testid={`${testIdPrefix}-input`}
-            className={`${GRADIENT_FIELD_CLASSES} block min-h-[28px] resize-none px-2 py-1.5 text-xs leading-relaxed disabled:opacity-50`}
-          />
+          <div className="relative">
+            {renderOverlay ? (
+              <div
+                ref={overlay}
+                aria-hidden
+                data-testid={`${testIdPrefix}-overlay`}
+                className={`${FIELD_METRICS} pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words text-foreground [scrollbar-gutter:stable]`}
+              >
+                {renderOverlay(value)}
+                {/* A trailing newline in a textarea still takes a line; the mirror needs one too. */}
+                {'\n'}
+              </div>
+            ) : null}
+            <textarea
+              ref={setRef}
+              value={value}
+              onChange={(event) => {
+                onChange(event.target.value);
+                onCaretChange?.(event.target.selectionStart);
+              }}
+              onKeyDown={handleKeyDown}
+              onKeyUp={reportCaret}
+              onClick={reportCaret}
+              onFocus={reportCaret}
+              onSelect={reportCaret}
+              onScroll={renderOverlay ? syncScroll : undefined}
+              rows={rows}
+              disabled={disabled}
+              aria-label={ariaLabel}
+              placeholder={placeholder}
+              data-testid={`${testIdPrefix}-input`}
+              className={`${GRADIENT_FIELD_CLASSES} ${FIELD_METRICS} block min-h-[28px] resize-none disabled:opacity-50 ${
+                renderOverlay ? 'relative !bg-transparent !text-transparent [caret-color:hsl(var(--foreground))] [scrollbar-gutter:stable]' : ''
+              }`}
+            />
+          </div>
           {/*
             Controls live INSIDE the box, under the text: the mic and any
             extras (attach, speech toggle) bottom-left, Send alone bottom-right.

@@ -14,6 +14,7 @@ import { ChatEmptyState } from './chat-empty-state';
 import { ChatThread } from './chat-thread';
 import { isStreaming, useChatsStore } from './chats-store';
 import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
+import { useChatFiles, useChatSkills } from './use-composer-sources';
 
 /**
  * The centre of the Chats page: the thread (or the new-chat screen) over a
@@ -76,6 +77,8 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
     return { engine: engine?.id ?? null, model: draft.model, mode: draft.mode, repoId: draft.repoId };
   }, [chat, draft, engines, primaryAgent]);
   const engine = engines.find((e) => e.id === settings.engine) ?? null;
+  const skills = useChatSkills(settings.engine, settings.repoId);
+  const files = useChatFiles(settings.repoId, chat?.id ?? null);
 
   const onSettingsChange = useCallback(
     (patch: Partial<ChatSettings>) => {
@@ -202,6 +205,8 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
           onAttachmentsChange={setAttachments}
           focusToken={focusToken}
           placeholder={chat ? 'Reply…' : 'Message an agent…'}
+          skills={skills}
+          files={files}
         />
         <p className="mt-1.5 text-center text-[10px] text-muted-foreground/70">
           {settings.mode === 'edit' && settings.repoId ? 'Edits happen on a copy — nothing changes in your repository until you accept it.' : 'Agents can make mistakes. Check important output.'}
