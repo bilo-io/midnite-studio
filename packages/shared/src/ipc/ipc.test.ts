@@ -994,8 +994,10 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         shimPath: null,
         allowUi: false,
         allowGateDecide: false,
+        allowModels: false,
       }).success,
     ).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowUi: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowGateDecide: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({}).success).toBe(true);
@@ -1866,6 +1868,8 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaModelExport: ['MediaModelExportRequest', 'MediaModelExportResponse'],
       mediaModelSaveEdit: ['MediaModelSaveEditRequest', 'MediaModelSaveEditResponse'],
       mediaModelProgress: ['MediaModelProgressPayload'],
+      mediaModelChanged: ['MediaModelChangedPayload'],
+      mediaModelOpen: ['MediaModelOpenPayload'],
       mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
       mediaExport: ['MediaExportRequest', 'MediaExportResponse'],
       mediaExportCancel: ['MediaExportCancelRequest', 'MediaExportCancelResponse'],

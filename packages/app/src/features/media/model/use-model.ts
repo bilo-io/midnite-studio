@@ -1,5 +1,6 @@
 import {
   MODEL_DEFAULT_TEXT_MODEL,
+  MODEL_ITERATIONS_DEFAULT,
   type ModelGenerateInput,
   type ModelGenerateProgressEvent,
   type ModelGenerateResult,
@@ -35,6 +36,8 @@ type ModelPrefs = {
   agentModel: LoopModel;
   /** `''` = the best installed vision model. */
   visionModel: string;
+  /** Preview-and-refine passes an iterative (MCP) agent run gets. */
+  maxIterations: number;
   set: (patch: Partial<Omit<ModelPrefs, 'set'>>) => void;
 };
 
@@ -45,6 +48,7 @@ export const useModelPrefs = create<ModelPrefs>()(
       ollamaModel: MODEL_DEFAULT_TEXT_MODEL,
       agentModel: 'default',
       visionModel: '',
+      maxIterations: MODEL_ITERATIONS_DEFAULT,
       set: (patch) => set(patch),
     }),
     { name: 'mstudio.media.model-prefs', storage: createJSONStorage(() => localStorage), version: 1 },
@@ -59,7 +63,17 @@ export function useModelProviders() {
   });
 }
 
-export type PendingModelGeneration = { generationId: string; project: string; stage: ModelGenerateStage };
+export type PendingModelGeneration = {
+  generationId: string;
+  project: string;
+  stage: ModelGenerateStage;
+  /** Iterative runs: which preview-and-refine pass this is, out of the budget. */
+  iteration?: { n: number; max: number };
+  /** Iterative runs: the latest tool the agent called, in words. */
+  action?: string;
+  /** Iterative runs: the `.obj` being edited, so the tab can follow it live. */
+  primary?: string;
+};
 
 export function useModelGeneration(repoId: string | null) {
   const client = useQueryClient();
@@ -80,6 +94,9 @@ export function useModelGeneration(repoId: string | null) {
             generationId: event.generationId,
             project: event.project,
             stage: event.stage ?? current[event.generationId]?.stage ?? 'generating',
+            iteration: event.iteration ?? current[event.generationId]?.iteration,
+            action: event.action ?? current[event.generationId]?.action,
+            primary: event.primary ?? current[event.generationId]?.primary,
           },
         };
       });

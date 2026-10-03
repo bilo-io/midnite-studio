@@ -45,7 +45,7 @@ const open = (data: MockFixtures = withModels) =>
 
 beforeEach(() => {
   useUiStore.setState({ mediaTab: 'model', mediaPaneCollapsed: {}, collapsedAccordionSections: [], activeView: 'media' });
-  useModelPrefs.setState({ engineId: 'ollama', ollamaModel: 'qwen2.5-coder:7b', agentModel: 'default', visionModel: '' });
+  useModelPrefs.setState({ engineId: 'ollama', ollamaModel: 'qwen2.5-coder:7b', agentModel: 'default', visionModel: '', maxIterations: 5 });
 });
 afterEach(cleanup);
 
@@ -249,3 +249,84 @@ describe('Models tab', () => {
     expect(screen.queryByTestId('model-image')).toBeNull();
   });
 });
+
+/** The mock bridge's stand-in for main pushing events: `window.__mockModelEvents`. */
+const fire = (kind: 'progress' | 'changed' | 'open', event: unknown): void =>
+  (window as unknown as { __mockModelEvents: Record<string, (e: unknown) => void> }).__mockModelEvents[kind]!(event);
+
+const design = (partNames: string[]) => ({
+  name: 'Tin robot',
+  parts: partNames.map((name) => ({ name, shape: 'box', size: [1, 1, 1], position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], color: '#b0b0b0' })),
+});
+
+describe('agents building a model (MCP)', () => {
+  it('says in the picker and the panel which engines iterate and which are one-shot', async () => {
+    open();
+    const mode = await screen.findByTestId('model-engine-mode');
+    expect(mode.getAttribute('data-mode')).toBe('one-shot');
+    expect(mode.textContent).toContain('One-shot');
+    expect(screen.queryByRole('combobox', { name: 'Refinement passes' })).toBeNull();
+
+    // Claude Code can attach MCP: iterative, with a pass budget; a CLI that cannot stays one-shot.
+    act(() => useModelPrefs.setState({ engineId: 'claude' }));
+    await waitFor(() => expect(screen.getByTestId('model-engine-mode').getAttribute('data-mode')).toBe('iterative'));
+    expect(screen.getByTestId('model-engine-mode').textContent).toContain('Iterative (MCP)');
+    const passes = screen.getByRole('combobox', { name: 'Refinement passes' }) as HTMLSelectElement;
+    expect(passes.value).toBe('5');
+    fireEvent.change(passes, { target: { value: '8' } });
+    expect(useModelPrefs.getState().maxIterations).toBe(8);
+    // The picker itself labels each engine, so the choice is made knowing which kind it is.
+    fireEvent.click(screen.getByRole('button', { name: /^Provider:/ }));
+    expect((await screen.findAllByRole('option', { name: /· iterative \(MCP\)/ })).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: /· one-shot/ }).length).toBeGreaterThan(0);
+  });
+
+  it('shows the pass, the latest tool action and a Cancel while an agent runs, and clears when it ends', async () => {
+    open();
+    await screen.findByTestId('model-engine-mode');
+    const base = { generationId: 'g1', repoId: 'repo-1', project: 'robots', files: [] };
+    act(() => fire('progress', { ...base, status: 'running', stage: 'iterating', iteration: { n: 2, max: 5 }, action: 'Patched: added 2 parts (9 parts)', primary: 'robot-1.obj' }));
+    expect((await screen.findByTestId('model-iteration')).textContent).toBe('Pass 2 of 5');
+    expect(screen.getByTestId('model-action').textContent).toBe('Patched: added 2 parts (9 parts)');
+    expect(screen.getByTestId('model-stage').textContent).toContain('Refining with the agent');
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    // The centre says it too, and the run's model is what is being shown.
+    expect(screen.getByTestId('model-generating').textContent).toContain('Pass 2 of 5');
+
+    const cancel = vi.spyOn(window.midniteStudio!.media.model, 'cancel');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(cancel).toHaveBeenCalledWith({ generationId: 'g1' });
+
+    act(() => fire('progress', { ...base, status: 'cancelled' }));
+    await waitFor(() => expect(screen.queryByTestId('model-stage')).toBeNull());
+  });
+
+  it('adopts an agent’s edit in the open editor as it lands, as one undoable step', async () => {
+    open();
+    const parts = await screen.findByRole('list', { name: 'Parts' }, SLOW);
+    expect(within(parts).getAllByRole('button')).toHaveLength(1);
+
+    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1.obj', spec: design(['part', 'head', 'arm']), saved: false, revision: 1 }));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(3));
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: /^Redo/ }));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(3));
+
+    // model_save: the files now match the design, so the editor reads as saved.
+    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1.obj', spec: design(['part', 'head', 'arm']), saved: true, revision: 2 }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy());
+  });
+
+  it('ignores edits to a model that is not the one on screen, and to another repository', async () => {
+    open();
+    await screen.findByRole('list', { name: 'Parts' }, SLOW);
+    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'other.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
+    act(() => fire('changed', { repoId: 'elsewhere', project: 'robots', path: 'robot-1.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
+    expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy();
+  });
+});
+

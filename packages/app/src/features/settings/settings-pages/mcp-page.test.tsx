@@ -88,6 +88,36 @@ describe('McpSettingsPage', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith({ allowGateDecide: true }));
   });
 
+  it('toggling the model-editing switch calls mcp.set with allowModels, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit 3D models' }));
+    expect(((await screen.findByTestId('mcp-allow-models')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowGateDecide: false, allowModels: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit 3D models' }));
+    const checkbox = await screen.findByTestId('mcp-allow-models');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    // The page tells a user how to point their own Claude session at it.
+    expect(screen.getByText(/Use your own Claude Code session/)).toBeTruthy();
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowModels: true }));
+  });
+
+  it('lists the model tools among the registered tools', async () => {
+    installBridge();
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Tools' }));
+    for (const id of ['model_set_spec', 'model_patch_parts', 'model_render_preview']) {
+      expect(await screen.findByText(id)).toBeTruthy();
+    }
+  });
+
   it('renders an empty state with no calls', async () => {
     installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });

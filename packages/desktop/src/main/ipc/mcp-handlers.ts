@@ -1,7 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { getMcpCallLog } from '../mcp/audit';
-import { getMcpStatus, setMcpAllowGateDecide, setMcpAllowUi, setMcpEnabled } from '../mcp';
+import { getMcpStatus, setMcpAllowGateDecide, setMcpAllowModels, setMcpAllowUi, setMcpEnabled } from '../mcp';
 import { handle, handleBare } from './handle';
 
 /**
@@ -27,7 +27,7 @@ export function registerMcpHandlers(): void {
   handle(
     CHANNELS.mcpSet,
     schemas.McpSetRequest,
-    async ({ enabled, allowUi, allowGateDecide }) => {
+    async ({ enabled, allowUi, allowGateDecide, allowModels }) => {
       if (enabled !== undefined) {
         const result = await setMcpEnabled(enabled);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
@@ -38,6 +38,10 @@ export function registerMcpHandlers(): void {
       }
       if (allowGateDecide !== undefined) {
         const result = await setMcpAllowGateDecide(allowGateDecide);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowModels !== undefined) {
+        const result = await setMcpAllowModels(allowModels);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
       }
       return getMcpStatus();

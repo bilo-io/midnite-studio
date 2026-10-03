@@ -1,21 +1,24 @@
 import { MEDIA_TAB_EXPORT_FORMATS, isModelPath, modelFileExtension, modelSidecarPath, parseModelSidecar, type MediaExportFormat, type ModelSpec } from '@midnite/studio-shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useReducer, useState } from 'react';
 import { LuBox, LuSparkles } from 'react-icons/lu';
 import { PiSparkleFill } from 'react-icons/pi';
 
 import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
+import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout, openMediaPane } from '../media-layout';
 import { MediaProjectsAccordion, type MediaSelection } from '../media-projects-accordion';
 import { NoRepoMediaState } from '../repo-media-tab';
-import { useMediaFiles, useMediaFileText, useMediaProjects } from '../use-media';
+import { MEDIA_KEYS, useMediaFiles, useMediaFileText, useMediaProjects } from '../use-media';
 import { ModelPanel } from './model-panel';
 import { editorReducer, initialEditorState, isDirty } from './editor-state';
 import { LazyModelEditor, LazyModelViewer } from './model-viewer-lazy';
 import { modelFileUrl, mtlPathFor, viewerFormat } from './model-utils';
 import type { ModelViewerStats } from './model-viewer';
+import { useModelOpenRequest } from './use-model-agent-events';
 import { useModelExport, useModelGeneration, useModelSaveEdit } from './use-model';
 
 /** Where a Generate lands when the repo has no model project yet. */
@@ -65,6 +68,32 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   const [editor, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState(PLACEHOLDER_SPEC));
   const saver = useModelSaveEdit(repoId);
   const designSpec = design?.spec ?? null;
+
+  // An agent is editing this model (an in-app iterative run, or an MCP session): adopt each edit as it lands.
+  const client = useQueryClient();
+  useEffect(() => {
+    const off = bridge()?.media.model.onChanged((event) => {
+      if (event.repoId !== repoId) return;
+      dispatch({ type: 'external', spec: event.spec, source: `${event.project}/${event.path}`, saved: event.saved });
+      void client.invalidateQueries({ queryKey: MEDIA_KEYS.tab(repoId, 'model') });
+    });
+    return () => off?.();
+  }, [client, repoId]);
+
+  // An iterative run names the model it is editing in its first progress event: show it from the start.
+  const livePrimary = generation.pending.find((p) => p.primary);
+  useEffect(() => {
+    if (livePrimary?.primary) setSelection({ project: livePrimary.project, path: livePrimary.primary });
+  }, [livePrimary?.generationId, livePrimary?.primary, livePrimary?.project]);
+
+  // `model_open` from an agent.
+  const openRequest = useModelOpenRequest((s) => s.request);
+  useEffect(() => {
+    if (!openRequest || openRequest.repoId !== repoId) return;
+    setStats(null);
+    setSelection({ project: openRequest.project, path: openRequest.path });
+    useModelOpenRequest.getState().clear();
+  }, [openRequest, repoId]);
   useEffect(() => {
     if (!designSpec || !fileKey) return;
     if (editor.source === fileKey && JSON.stringify(editor.saved) === JSON.stringify(designSpec)) return;
@@ -171,7 +200,10 @@ function ModelTabBody({ repoId }: { repoId: string }) {
               className="pointer-events-none absolute inset-0 flex items-start justify-center bg-background/40 pt-6 backdrop-blur-[1px]"
             >
               <span className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground shadow">
-                <Spinner /> Designing your model…
+                <Spinner />{' '}
+                {livePrimary?.iteration
+                  ? `Pass ${livePrimary.iteration.n} of ${livePrimary.iteration.max}${livePrimary.action ? ` · ${livePrimary.action}` : ''}`
+                  : 'Designing your model…'}
               </span>
             </div>
           ) : null}

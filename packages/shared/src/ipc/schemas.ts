@@ -206,6 +206,7 @@ import {
   ModelProvidersSchema,
   ModelSaveEditRequestSchema,
 } from '../media-model';
+import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
   VideoProjectSchema,
   VideoRenderProgressEventSchema,
@@ -3099,6 +3100,8 @@ export const MediaModelExportResponse = GitOpResultOf(z.object({ dest: z.string(
 export const MediaModelSaveEditRequest = ModelSaveEditRequestSchema;
 export const MediaModelSaveEditResponse = GitOpResultOf(z.object({ files: z.array(z.string()) }));
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
+export const MediaModelChangedPayload = ModelChangedEventSchema;
+export const MediaModelOpenPayload = ModelOpenEventSchema;
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 
@@ -3596,6 +3599,8 @@ export const McpGetResponse = z.object({
   allowUi: z.boolean(),
   /** Phase 97 Theme D's third switch — whether `workflow_gate_decide` may actually decide anything. */
   allowGateDecide: z.boolean(),
+  /** Phase 99 Theme G's fourth switch — whether the `model_*` tools that change a model may act. */
+  allowModels: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3608,6 +3613,7 @@ export const McpSetRequest = z.object({
   enabled: z.boolean().optional(),
   allowUi: z.boolean().optional(),
   allowGateDecide: z.boolean().optional(),
+  allowModels: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });

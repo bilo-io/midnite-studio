@@ -1416,6 +1416,10 @@ export const EVENT_CHANNELS = {
   mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
   mediaModelProgress: 'mstudio:media:model-progress',
+  /** An agent edited a model (in-app iterative run or an MCP session) — see `ModelChangedEventSchema`. */
+  mediaModelChanged: 'mstudio:media:model-changed',
+  /** `model_open` asked the window to show a model — see `ModelOpenEventSchema`. */
+  mediaModelOpen: 'mstudio:media:model-open',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */

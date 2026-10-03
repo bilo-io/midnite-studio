@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import {
   isMcpToolId,
@@ -14,7 +14,7 @@ import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { defaultLogger, type Logger } from '../log';
 import { isSocketPathTooLong, mcpSocketName } from '../socket-name';
 import { recordMcpCall } from './audit';
-import { dispatchMcpCall } from './dispatch';
+import { dispatchMcpCall, type McpDispatchResult } from './dispatch';
 
 /**
  * The Unix-socket server behind Midnite Studio's MCP tools (Phase 57 Theme
@@ -40,6 +40,13 @@ export type StartMcpServerOptions = {
   buildId: string;
   isPackaged: boolean;
   log?: Logger;
+  /**
+   * A private server (Media ▸ Models' iterative runs): listen here instead of the fingerprinted
+   * default, and answer through `dispatch` instead of the full tool registry. Everything else —
+   * the 0o600 socket, the frame limits, the audit ring — is the same code.
+   */
+  socketPath?: string;
+  dispatch?: (tool: string, input: unknown) => Promise<McpDispatchResult>;
 };
 
 export type StartMcpServerResult = { ok: true; handle: McpServerHandle } | { ok: false; message: string };
@@ -64,8 +71,9 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
   const { userDataDir, appVersion, buildId, isPackaged } = opts;
   const log = opts.log ?? defaultLogger;
 
-  const socketDir = join(userDataDir, 'mcp');
-  const socketPath = join(socketDir, mcpSocketName(appVersion, buildId, isPackaged));
+  const socketPath = opts.socketPath ?? join(userDataDir, 'mcp', mcpSocketName(appVersion, buildId, isPackaged));
+  const socketDir = dirname(socketPath);
+  const dispatch = opts.dispatch ?? dispatchMcpCall;
 
   // Refused outright, never silently not-listening — a Settings page (Theme
   // F) renders this as "path too long for a Unix socket".
@@ -89,7 +97,7 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
     const tool = typeof raw.tool === 'string' ? raw.tool : '';
 
     const startedAt = Date.now();
-    const result = await dispatchMcpCall(tool, raw.input);
+    const result = await dispatch(tool, raw.input);
     const ms = Date.now() - startedAt;
 
     /*

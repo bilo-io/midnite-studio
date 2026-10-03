@@ -17,6 +17,16 @@ import {
   workflowGatesList,
 } from './tools';
 import { McpToolError } from './errors';
+import {
+  modelGetReferenceImage,
+  modelGetSpec,
+  modelList,
+  modelOpen,
+  modelPatchParts,
+  modelRenderPreview,
+  modelSave,
+  modelSetSpec,
+} from './model-tools';
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -39,6 +49,14 @@ export const MCP_HANDLERS: {
   'ui.command': uiCommand,
   workflow_gates_list: workflowGatesList,
   workflow_gate_decide: workflowGateDecide,
+  model_list: modelList,
+  model_open: modelOpen,
+  model_get_spec: modelGetSpec,
+  model_set_spec: modelSetSpec,
+  model_patch_parts: modelPatchParts,
+  model_render_preview: modelRenderPreview,
+  model_get_reference_image: modelGetReferenceImage,
+  model_save: modelSave,
 };
 
 export type McpDispatchResult =
@@ -63,7 +81,7 @@ export async function dispatchMcpCall(tool: string, rawInput: unknown): Promise<
     return {
       ok: false,
       kind: 'error',
-      message: `Invalid input for "${tool}": ${parsed.error.issues.map((issue) => issue.message).join('; ')}`,
+      message: `Invalid input for "${tool}": ${parsed.error.issues.map((issue) => (issue.path.length > 0 ? `${issue.path.join('.')}: ${issue.message}` : issue.message)).join('; ')}`,
     };
   }
 

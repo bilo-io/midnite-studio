@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { dialog } from 'electron';
+import { dialog, nativeImage } from 'electron';
 
 import {
   CHANNELS,
@@ -15,6 +15,10 @@ import {
 } from '@midnite/studio-shared';
 
 import { runHeadlessText, defaultAiImproveFieldDeps } from '../ai/improve-field';
+import { setModelTools } from '../mcp/model-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
+import { createIterativeHost } from '../media/model/iterative-host';
+import { createModelTools } from '../media/model/model-mcp';
 import { createDescribeImage, createLlmCall, probeProviders, MODEL_LLM_TIMEOUT_MS, type OllamaSeam } from '../media/model/engines';
 import { createModelService } from '../media/model/model-service';
 import { ollamaChat, ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '../ollama/client';
@@ -63,7 +67,50 @@ const service = createModelService({
     return read.ok ? ok(Buffer.from(read.value, 'base64')) : read;
   },
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelProgress, event),
+  // Agent CLIs that speak MCP iterate through the model_* tools instead of writing the design once.
+  iterative: {
+    host: createIterativeHost(),
+    tools: () => modelTools,
+    repoPath: async (repoId) => (await resolveWorkdir(repoId)) ?? null,
+    modelArgs: (engine) => (engine.model ? loopModelArgs(engine.agentId, engine.model) : []),
+  },
 });
+
+/** Shrinks a reference picture to fit an MCP response (the response cap is 4 MB, base64 included). */
+async function shrinkImage(data: Buffer, mime: string): Promise<{ data: Buffer; mime: string }> {
+  const image = nativeImage.createFromBuffer(data);
+  const { width, height } = image.getSize();
+  if (width === 0 || height === 0) return { data, mime };
+  const scale = Math.min(1, 1024 / Math.max(width, height));
+  const resized = scale < 1 ? image.resize({ width: Math.round(width * scale), height: Math.round(height * scale) }) : image;
+  return { data: resized.toJPEG(85), mime: 'image/jpeg' };
+}
+
+/**
+ * The `model_*` MCP tools, over the same media store and service as the tab. The app's global MCP
+ * server answers them behind the `allowModels` switch (`mcp/model-tools.ts`); an iterative run
+ * answers them on its own private server.
+ */
+const modelTools = createModelTools({
+  resolveRepo: async (repoPath) => {
+    const resolved = await resolveRegisteredRepo(repoPath);
+    if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id };
+    return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+  },
+  listProjects: (repoId) => mediaStore.listProjects({ repoId, tab: 'model' }),
+  listFiles: (scope) => mediaStore.listFiles(scope),
+  readBytes: async (req) => {
+    const read = await mediaStore.readFile({ ...req, encoding: 'base64' });
+    return read.ok ? ok(Buffer.from(read.value, 'base64')) : read;
+  },
+  saveSpec: (req) => service.saveEdit(req),
+  writeSidecar: (req) => service.writeSidecar(req),
+  createModel: (req) => service.createModel(req),
+  emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelChanged, event),
+  emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelOpen, event),
+  shrinkImage,
+});
+setModelTools(modelTools);
 
 export function registerMediaModelHandlers(): void {
   handleBare(CHANNELS.mediaModelProviders, async () => ({ providers: await probeProviders(ollama) }));

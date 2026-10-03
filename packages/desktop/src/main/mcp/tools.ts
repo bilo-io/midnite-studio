@@ -81,7 +81,7 @@ async function realpathOrNull(path: string): Promise<string | null> {
  * exactly like any other unregistered path, even if some segment of the
  * unresolved string happened to collide with a registered one.
  */
-async function resolveRegisteredRepo(
+export async function resolveRegisteredRepo(
   repoPath: string,
 ): Promise<{ ok: true; repo: RegisteredRepo } | { ok: false; error: McpToolError }> {
   const repoRoot = await resolveRepoRoot(repoPath);

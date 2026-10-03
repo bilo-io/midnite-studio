@@ -561,6 +561,8 @@ const bridge: Pick<
       export: (req) => call(CHANNELS.mediaModelExport, req),
       saveEdit: (req) => call(CHANNELS.mediaModelSaveEdit, req),
       onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaModelChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaModelOpen, handler),
     },
     reveal: (req) => call(CHANNELS.mediaReveal, req),
     ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
