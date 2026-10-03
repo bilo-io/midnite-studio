@@ -306,7 +306,7 @@ function WorktreeChip({ chat, worktree }: { chat: Chat; worktree: NonNullable<Ch
         onClick={() => {
           if (repoId) useUiStore.getState().openWorkingCopyInGraph({ repoId, worktreePath: worktree.path });
         }}
-        className="flex min-w-0 shrink items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none"
+        className="flex min-w-0 max-w-[14rem] shrink items-center gap-1 rounded border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none"
       >
         <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
         <span className="truncate">{worktree.branch}</span>
