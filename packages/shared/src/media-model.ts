@@ -242,7 +242,7 @@ export type ModelSpec = z.infer<typeof ModelSpecSchema>;
 // --- files ---------------------------------------------------------------------
 
 /** What the Models tab lists in its explorer and can load into the viewer. */
-export const MODEL_FILE_EXTENSIONS = ['obj', 'fbx'] as const;
+export const MODEL_FILE_EXTENSIONS = ['obj', 'fbx', 'glb'] as const;
 export type ModelFileExtension = (typeof MODEL_FILE_EXTENSIONS)[number];
 
 export function modelFileExtension(path: string): ModelFileExtension | null {

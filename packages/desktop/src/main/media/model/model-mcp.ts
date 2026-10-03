@@ -106,9 +106,17 @@ export function createModelTools(deps: ModelMcpDeps) {
 
   async function load(target: { repoPath: string; project: string; model: string }): Promise<Loaded> {
     const repoId = await repoIdFor(target.repoPath);
-    const stem = modelStem(target.model);
+    let stem = modelStem(target.model);
     const scope: Scope = { repoId, tab: 'model', project: target.project };
-    const read = await deps.readBytes({ ...scope, path: modelSidecarPath(`${stem}.obj`) });
+    let read = await deps.readBytes({ ...scope, path: modelSidecarPath(`${stem}.obj`) });
+    // A bare name can also be a model's folder (`<stem>/<stem>.json`), the layout every new generation uses.
+    if (!read.ok && !stem.includes('/')) {
+      const inFolder = await deps.readBytes({ ...scope, path: `${stem}/${stem}.json` });
+      if (inFolder.ok) {
+        read = inFolder;
+        stem = `${stem}/${stem}`;
+      }
+    }
     return { repoId, scope, project: target.project, stem, sidecar: read.ok ? parseModelSidecar(read.value.toString('utf8')) : null };
   }
 
@@ -201,7 +209,9 @@ export function createModelTools(deps: ModelMcpDeps) {
     const l = await load(input);
     const sidecar = need(l, input);
     if (!sidecar.reference) throw new McpToolError('not-found', 'No reference picture is attached to this model.');
-    const read = await deps.readBytes({ ...l.scope, path: sidecar.reference });
+    // `reference` is relative to the model's own folder (flat legacy models: to the project, same thing).
+    const dir = l.stem.includes('/') ? `${l.stem.split('/').slice(0, -1).join('/')}/` : '';
+    const read = await deps.readBytes({ ...l.scope, path: `${dir}${sidecar.reference}` });
     if (!read.ok) throw new McpToolError('not-found', 'The reference picture file is missing.');
     let data = read.value;
     let mime = MIME_BY_EXT[sidecar.reference.split('.').pop()?.toLowerCase() ?? ''] ?? 'image/png';
@@ -228,7 +238,7 @@ export function createModelTools(deps: ModelMcpDeps) {
       const stem = `${slugOf(input.model)}-${stamp(now())}`;
       const created = await deps.createModel({ repoId, project: input.project, stem, spec: validated.spec, engine: 'mcp' });
       if (!created.ok) throw new McpToolError('error', created.kind === 'error' ? created.message : 'Could not create the model.');
-      const fresh: Loaded = { ...l, stem, sidecar: null };
+      const fresh: Loaded = { ...l, stem: created.value.primary.replace(/\.obj$/, ''), sidecar: null };
       const revision = bump(keyOf(fresh));
       announce(fresh, validated.spec, true, revision);
       return { ok: true, model: created.value.primary, revision, ...describeEdit(validated.spec) };

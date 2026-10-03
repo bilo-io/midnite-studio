@@ -20,11 +20,12 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 
 import { IconButton } from '../../../components/icon-button';
-import { framingFor } from './model-utils';
+import { framingFor, type ModelViewFormat } from './model-utils';
 
 /**
  * The interactive 3D viewer (Media ▸ Models). Loaded lazily — three.js is
@@ -37,7 +38,7 @@ export type ModelViewerStats = { meshes: number; triangles: number; size: [numbe
 
 type Props = {
   url: string;
-  format: 'obj' | 'fbx';
+  format: ModelViewFormat;
   /** The `.mtl` beside an `.obj`; a missing file just means grey. */
   mtlUrl?: string | null;
   onStats?: (stats: ModelViewerStats | null) => void;
@@ -61,8 +62,12 @@ async function fetchBuffer(url: string): Promise<ArrayBuffer> {
   return response.arrayBuffer();
 }
 
-async function loadModel(url: string, format: 'obj' | 'fbx', mtlUrl: string | null | undefined): Promise<Object3D> {
+async function loadModel(url: string, format: ModelViewFormat, mtlUrl: string | null | undefined): Promise<Object3D> {
   if (format === 'fbx') return new FBXLoader().parse(await fetchBuffer(url), '');
+  if (format === 'glb') {
+    const gltf = await new GLTFLoader().parseAsync(await fetchBuffer(url), '');
+    return gltf.scene;
+  }
   const loader = new OBJLoader();
   if (mtlUrl) {
     try {

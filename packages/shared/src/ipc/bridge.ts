@@ -25,6 +25,7 @@ import type {
 } from '../domain';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
+import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
 import type { GitIdentitySetRequest, GitIdentityGetResponse, GitIdentitySetResponse } from '../git-identity';
@@ -37,6 +38,18 @@ import type {
 import type { SystemMemoryResponse } from '../system-memory';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
+
+/** `mediaModelLibrary`'s `op` union, one typed method per op (all over the same channel). */
+export type ModelLibraryBridge = {
+  list: (req: { repoId: string }) => Promise<GitOpResult<{ tree: ModelLibraryNode[] }>>;
+  /** Move flat outputs into per-model folders; never deletes. Idempotent. */
+  migrate: (req: { repoId: string }) => Promise<GitOpResult<ModelLibraryMigrateResult>>;
+  rename: (req: { repoId: string; path: string; to: string }) => Promise<GitOpResult<{ path: string }>>;
+  move: (req: { repoId: string; path: string; toGroup: string }) => Promise<GitOpResult<{ path: string }>>;
+  delete: (req: { repoId: string; path: string }) => Promise<GitOpResult>;
+  duplicate: (req: { repoId: string; path: string }) => Promise<GitOpResult<{ path: string }>>;
+  newGroup: (req: { repoId: string; parent: string; name: string }) => Promise<GitOpResult<{ path: string }>>;
+};
 
 /**
  * Unsubscribe handle. Every subscription returns one — the renderer's effects
@@ -1209,6 +1222,8 @@ export type MidniteStudioBridge = {
       saveEdit: (
         req: In<typeof S.MediaModelSaveEditRequest>,
       ) => Promise<z.infer<typeof S.MediaModelSaveEditResponse>>;
+      /** Folder/group operations over `.midnite/media/model/` — every one answers a `GitOpResult`. */
+      library: ModelLibraryBridge;
       onProgress: (
         handler: (event: z.infer<typeof S.MediaModelProgressPayload>) => void,
       ) => Unsubscribe;

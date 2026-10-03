@@ -228,6 +228,7 @@ import {
   ModelProvidersSchema,
   ModelSaveEditRequestSchema,
 } from '../media-model';
+import { ModelLibraryNodeSchema, ModelLibraryRequestSchema } from '../media-model-library';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
   VideoProjectSchema,
@@ -3179,6 +3180,16 @@ export const MediaModelExportResponse = GitOpResultOf(z.object({ dest: z.string(
 /** Rewrites the sidecar spec and the obj/mtl/fbx trio from an edited design. */
 export const MediaModelSaveEditRequest = ModelSaveEditRequestSchema;
 export const MediaModelSaveEditResponse = GitOpResultOf(z.object({ files: z.array(z.string()) }));
+/** The library: list / migrate / rename / move / delete / duplicate / newGroup — one channel, an `op` union. */
+export const MediaModelLibraryRequest = ModelLibraryRequestSchema;
+export const MediaModelLibraryResponse = GitOpResultOf(
+  z.object({
+    tree: z.array(ModelLibraryNodeSchema).optional(),
+    path: z.string().optional(),
+    migrated: z.number().int().nonnegative().optional(),
+    skipped: z.number().int().nonnegative().optional(),
+  }),
+);
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
 export const MediaModelOpenPayload = ModelOpenEventSchema;
