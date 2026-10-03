@@ -5,6 +5,7 @@ import {
   LuArrowLeft,
   LuArrowRight,
   LuChevronRight,
+  LuCloud,
   LuFolderGit2,
   LuGitBranch,
   LuGitCommitHorizontal,
@@ -14,8 +15,9 @@ import {
 
 import { chordFor, displayChord } from '../features/status-bar/chord-hint';
 import { bridge } from '../services/bridge';
-import { useRepos } from '../services/queries';
-import { useStatus } from '../services/use-status';
+import { reportFailure } from '../services/bridge-result';
+import { useRefs, useRepos } from '../services/queries';
+import { useStatus, useTargetedGitOp } from '../services/use-status';
 import { SETTINGS_PAGES, useUiStore, type ViewId } from '../store/ui-store';
 import type { MenuItem } from './context-menu';
 import { useDialogs } from './dialog-host';
@@ -154,7 +156,7 @@ type Crumb = {
  * tracks rather than a route. The parts a plain breadcrumb would leave inert
  * act: the repo crumb opens a switcher when more than one repo is open (a
  * sideways jump a strict "ancestor path" breadcrumb couldn't offer), and the
- * branch crumb takes you to the Graph filtered to it.
+ * branch crumb opens a searchable picker that checks a branch out.
  */
 function useBreadcrumbs(): Crumb[] {
   const activeView = useUiStore((s) => s.activeView);
@@ -163,6 +165,61 @@ function useBreadcrumbs(): Crumb[] {
   const { data: repos } = useRepos();
   const { data: status } = useStatus();
   const dialogs = useDialogs();
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
+  const { data: refs } = useRefs(selectedRepoId);
+  const checkout = useTargetedGitOp<{ target: string }>(
+    { repoId: selectedRepoId, ...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {}) },
+    'checkout',
+    (api, args, ctx) => api.ops.checkout({ ...ctx, target: args.target, detach: false }),
+  );
+
+  /**
+   * The branch picker: every local branch, plus each remote-tracking branch
+   * with no local namesake (checking `origin/x` out by its short name makes git
+   * create the tracking branch rather than detach). Same filterable menu as
+   * the repo switcher. The result is the normal `GitOpResult` envelope — a
+   * dirty tree or conflict toasts/banners, it never throws.
+   */
+  const openBranchPicker = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    const all = refs ?? [];
+    const locals = all.filter((r) => r.kind === 'localBranch');
+    const localNames = new Set(locals.map((r) => r.name));
+    const remotes = all.filter(
+      (r) =>
+        r.kind === 'remoteBranch' &&
+        !r.name.endsWith('/HEAD') &&
+        !localNames.has(r.name.slice(r.name.indexOf('/') + 1)),
+    );
+    const pick = (target: string) => () => void checkout.mutateAsync({ target }).then(reportFailure);
+    const items: MenuItem[] = [
+      ...locals.map(
+        (ref): MenuItem => ({
+          label: ref.name,
+          icon: LuGitBranch,
+          checked: ref.isHead,
+          checkKind: 'radio',
+          disabled: !ref.isHead && ref.worktreePath !== null,
+          disabledReason: `Checked out in ${ref.worktreePath} — a branch can only be checked out once.`,
+          onSelect: pick(ref.name),
+        }),
+      ),
+      ...remotes.map(
+        (ref): MenuItem => ({
+          label: ref.name,
+          icon: LuCloud,
+          checked: false,
+          checkKind: 'radio',
+          keywords: 'remote',
+          onSelect: pick(ref.name.slice(ref.name.indexOf('/') + 1)),
+        }),
+      ),
+    ];
+    dialogs.openMenu(event, items, {
+      filterable: true,
+      searchPlaceholder: 'Find a branch…',
+      filterThreshold: 0,
+    });
+  };
 
   const crumbs: Crumb[] = [];
   const repo = repos?.find((r) => r.id === selectedRepoId);
@@ -207,15 +264,11 @@ function useBreadcrumbs(): Crumb[] {
 
     const branch = status?.branch;
     if (branch?.head) {
-      const head = branch.head;
-      crumbs.push({
+            crumbs.push({
         key: 'branch',
-        label: head,
+        label: branch.head,
         icon: LuGitBranch,
-        onSelect: () => {
-          useUiStore.getState().setGraphRefFilter([`refs/heads/${head}`]);
-          useUiStore.getState().setActiveView('graph');
-        },
+        onSelect: openBranchPicker,
       });
     } else if (branch?.detached && branch.oid) {
       // A commit glyph, not the branch one: detached HEAD is precisely the
@@ -224,6 +277,7 @@ function useBreadcrumbs(): Crumb[] {
         key: 'branch',
         label: `${branch.oid.slice(0, 7)} (detached)`,
         icon: LuGitCommitHorizontal,
+        onSelect: openBranchPicker,
       });
     }
   }
