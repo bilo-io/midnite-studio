@@ -102,7 +102,12 @@ export async function readImageAttachment(file: File): Promise<ImageReadResult> 
   if (file.size > MODEL_IMAGE_MAX_BYTES) {
     return { ok: false, error: `That image is ${(file.size / 1024 / 1024).toFixed(1)} MB; the limit is ${MODEL_IMAGE_MAX_BYTES / 1024 / 1024} MB.` };
   }
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const bytes = await new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
   let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return {

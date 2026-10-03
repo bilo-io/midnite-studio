@@ -5,6 +5,7 @@ import {
   type ModelGenerateResult,
   type ModelGenerateStage,
   type ModelProviders,
+  type ModelSpec,
   type LoopModel,
 } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -118,13 +119,27 @@ export function useModelGeneration(repoId: string | null) {
 /** Save-as of one generated model in `.obj` or `.fbx`; a dismissed dialog is not an error. */
 export function useModelExport(repoId: string | null, defaultDir: string | null) {
   return useMutation({
-    mutationFn: async (input: { project: string; path: string; format: 'obj' | 'fbx' }) => {
+    mutationFn: async (input: { project: string; path: string; format: 'obj' | 'fbx'; spec?: ModelSpec }) => {
       if (!repoId) return noBridge<{ dest: string }>();
       const result =
         (await bridge()?.media.model.export({ repoId, ...input, ...(defaultDir ? { defaultDir } : {}) })) ??
         noBridge<{ dest: string }>();
       const dismissed = !result.ok && result.kind === 'error' && result.message === 'cancelled';
       if (!dismissed) reportFailure(result);
+      return result;
+    },
+  });
+}
+
+/** Persist an edited design: rewrites the sidecar and the obj/mtl/fbx trio. */
+export function useModelSaveEdit(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { project: string; path: string; spec: ModelSpec }) => {
+      if (!repoId) return noBridge<{ files: string[] }>();
+      const result = (await bridge()?.media.model.saveEdit({ repoId, ...input })) ?? noBridge<{ files: string[] }>();
+      reportFailure(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: MEDIA_KEYS.tab(repoId, 'model') });
       return result;
     },
   });

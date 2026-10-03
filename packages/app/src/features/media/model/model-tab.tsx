@@ -1,5 +1,5 @@
-import { MEDIA_TAB_EXPORT_FORMATS, isModelPath, modelFileExtension, modelSidecarPath, parseModelSidecar, type MediaExportFormat } from '@midnite/studio-shared';
-import { useState } from 'react';
+import { MEDIA_TAB_EXPORT_FORMATS, isModelPath, modelFileExtension, modelSidecarPath, parseModelSidecar, type MediaExportFormat, type ModelSpec } from '@midnite/studio-shared';
+import { useEffect, useReducer, useState } from 'react';
 import { LuBox, LuSparkles } from 'react-icons/lu';
 import { PiSparkleFill } from 'react-icons/pi';
 
@@ -12,13 +12,17 @@ import { MediaProjectsAccordion, type MediaSelection } from '../media-projects-a
 import { NoRepoMediaState } from '../repo-media-tab';
 import { useMediaFiles, useMediaFileText, useMediaProjects } from '../use-media';
 import { ModelPanel } from './model-panel';
-import { LazyModelViewer } from './model-viewer-lazy';
+import { editorReducer, initialEditorState, isDirty } from './editor-state';
+import { LazyModelEditor, LazyModelViewer } from './model-viewer-lazy';
 import { modelFileUrl, mtlPathFor, viewerFormat } from './model-utils';
 import type { ModelViewerStats } from './model-viewer';
-import { useModelExport, useModelGeneration } from './use-model';
+import { useModelExport, useModelGeneration, useModelSaveEdit } from './use-model';
 
 /** Where a Generate lands when the repo has no model project yet. */
 export const DEFAULT_MODEL_PROJECT = 'generated';
+
+/** Stands in until a design loads; the editor never shows it (`editor.source` gates that). */
+const PLACEHOLDER_SPEC: ModelSpec = { name: 'model', parts: [{ name: 'part', shape: 'sphere', radius: 1, position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], color: '#b0b0b0' }] };
 
 /**
  * Media ▸ Models: an explorer of `.obj`/`.fbx` files on the left, an
@@ -55,9 +59,34 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   const hasMtl = selectedPath ? files.data?.some((f) => f.path === mtlPathFor(selectedPath)) === true : false;
   const generating = generation.pending.length > 0;
 
+  // The design being edited. It reloads when another file is opened, or when the saved sidecar
+  // differs from what the editor last saved (a regeneration) — never because of its own Save.
+  const fileKey = activeProject && selectedPath ? `${activeProject}/${selectedPath}` : '';
+  const [editor, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState(PLACEHOLDER_SPEC));
+  const saver = useModelSaveEdit(repoId);
+  const designSpec = design?.spec ?? null;
+  useEffect(() => {
+    if (!designSpec || !fileKey) return;
+    if (editor.source === fileKey && JSON.stringify(editor.saved) === JSON.stringify(designSpec)) return;
+    if (editor.source === fileKey && isDirty(editor)) return;
+    dispatch({ type: 'load', spec: designSpec, source: fileKey });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on a new design or file only
+  }, [designSpec, fileKey]);
+  const editing = designSpec !== null && editor.source === fileKey;
+  const sidecarMissing = sidecar.isError || (sidecar.isSuccess && design === null);
+
   const onExport = (exportFormat: MediaExportFormat) => {
     if (!selectedPath || !activeProject || (exportFormat !== 'obj' && exportFormat !== 'fbx')) return;
-    exporter.mutate({ project: activeProject, path: selectedPath, format: exportFormat });
+    // Unsaved edits export too: the edited spec rides along.
+    exporter.mutate({ project: activeProject, path: selectedPath, format: exportFormat, ...(editing ? { spec: editor.spec } : {}) });
+  };
+
+  const save = () => {
+    if (!activeProject || !selectedPath) return;
+    saver.mutate(
+      { project: activeProject, path: selectedPath, spec: editor.spec },
+      { onSuccess: (result) => result.ok && dispatch({ type: 'markSaved' }) },
+    );
   };
 
   return (
@@ -88,13 +117,21 @@ function ModelTabBody({ repoId }: { repoId: string }) {
         <div className="relative flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1">
             {activeProject && selectedPath && format ? (
-              <LazyModelViewer
-                key={`${activeProject}/${selectedPath}`}
-                url={modelFileUrl(repoId, activeProject, selectedPath)}
-                format={format}
-                mtlUrl={format === 'obj' && hasMtl ? modelFileUrl(repoId, activeProject, mtlPathFor(selectedPath)) : null}
-                onStats={setStats}
-              />
+              editing ? (
+                <LazyModelEditor state={editor} dispatch={dispatch} onSave={save} saving={saver.isPending} />
+              ) : sidecarMissing ? (
+                <LazyModelViewer
+                  key={fileKey}
+                  url={modelFileUrl(repoId, activeProject, selectedPath)}
+                  format={format}
+                  mtlUrl={format === 'obj' && hasMtl ? modelFileUrl(repoId, activeProject, mtlPathFor(selectedPath)) : null}
+                  onStats={setStats}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Spinner /> Opening model…
+                </div>
+              )
             ) : (
               <EmptyState
                 icon={LuBox}
@@ -106,7 +143,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
               />
             )}
           </div>
-          {selectedPath && (design || stats) ? (
+          {selectedPath && (design || (stats && !editing)) ? (
             <div className="flex shrink-0 flex-col gap-0.5 border-t border-border/50 px-3 py-1.5 text-[11px] text-muted-foreground" data-testid="model-caption">
               {design ? (
                 <p className="truncate" title={design.prompt}>
@@ -115,7 +152,12 @@ function ModelTabBody({ repoId }: { repoId: string }) {
                   <span className="ml-2 text-muted-foreground/70">{design.engine}</span>
                 </p>
               ) : null}
-              {stats ? (
+              {editing ? (
+                <p className="tabular-nums">
+                  {editor.spec.parts.length} {editor.spec.parts.length === 1 ? 'part' : 'parts'}
+                  {isDirty(editor) ? ' · unsaved changes' : ''}
+                </p>
+              ) : stats ? (
                 <p className="tabular-nums">
                   {stats.meshes} {stats.meshes === 1 ? 'mesh' : 'meshes'} · {stats.triangles.toLocaleString()} triangles ·{' '}
                   {stats.size.map((n) => n.toFixed(2)).join(' × ')} ({modelFileExtension(selectedPath)})

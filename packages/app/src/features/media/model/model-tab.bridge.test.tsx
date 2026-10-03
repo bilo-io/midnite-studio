@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
@@ -19,7 +19,7 @@ const sidecar = JSON.stringify({
   name: 'robot-1',
   prompt: 'a tin robot',
   engine: 'ollama:qwen2.5-coder:7b',
-  spec: { name: 'Tin robot', parts: [{ shape: 'box', size: [1, 1, 1] }] },
+  spec: { name: 'Tin robot', parts: [{ name: 'part', shape: 'box', size: [1, 1, 1], position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], color: '#b0b0b0' }] },
   createdAt: '2026-10-03T00:00:00.000Z',
 });
 
@@ -56,7 +56,6 @@ describe('Models tab', () => {
 
   it('lists only model files in the explorer and shows the design caption', async () => {
     open();
-    fireEvent.click(await screen.findByRole('button', { name: /robots/ }));
     const explorer = document.querySelector<HTMLElement>('[data-media-pane="explorer"]')!;
     await waitFor(() => expect(within(explorer).getByText('robot-1.obj')).toBeTruthy());
     expect(within(explorer).getByText('robot-1.fbx')).toBeTruthy();
@@ -68,9 +67,100 @@ describe('Models tab', () => {
     expect(caption.textContent).toContain('a tin robot');
   });
 
-  it('degrades to a message when WebGL is unavailable instead of crashing', async () => {
+  it('degrades to a message when WebGL is unavailable instead of crashing, keeping the editor fields', async () => {
     open();
     expect((await screen.findByRole('alert')).textContent).toMatch(/WebGL/);
+    expect(await screen.findByRole('list', { name: 'Parts' })).toBeTruthy();
+  });
+
+  describe('editing a design', () => {
+    const edit = async () => {
+      open();
+      const parts = await screen.findByRole('list', { name: 'Parts' });
+      return within(parts);
+    };
+
+    it('lists the design parts and edits the selected one, with undo and redo', async () => {
+      const parts = await edit();
+      expect(screen.getByText(/Select a part/)).toBeTruthy();
+      fireEvent.click(parts.getByRole('button', { name: /part/ }));
+      const x = screen.getByRole('spinbutton', { name: 'Position X' }) as HTMLInputElement;
+      fireEvent.change(x, { target: { value: '2.5' } });
+      fireEvent.blur(x);
+      await waitFor(() => expect((screen.getByRole('spinbutton', { name: 'Position X' }) as HTMLInputElement).value).toBe('2.5'));
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
+      expect(screen.getByTestId('model-caption').textContent).toContain('unsaved changes');
+
+      fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
+      await waitFor(() => expect((screen.getByRole('spinbutton', { name: 'Position X' }) as HTMLInputElement).value).toBe('0'));
+      expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: /^Redo/ }));
+      await waitFor(() => expect((screen.getByRole('spinbutton', { name: 'Position X' }) as HTMLInputElement).value).toBe('2.5'));
+    });
+
+    it('supports the editor keyboard: Cmd+Z undoes, Delete removes the selected part', async () => {
+      const parts = await edit();
+      fireEvent.click(parts.getByRole('button', { name: /part/ }));
+      const editor = screen.getByTestId('model-editor');
+      const x = screen.getByRole('spinbutton', { name: 'Position X' }) as HTMLInputElement;
+      fireEvent.change(x, { target: { value: '1' } });
+      fireEvent.blur(x);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy());
+      fireEvent.keyDown(editor, { key: 'z', metaKey: true });
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy());
+    });
+
+    it('recolours a part and saves the edit through the bridge', async () => {
+      const parts = await edit();
+      fireEvent.click(parts.getByRole('button', { name: /part/ }));
+      const colour = screen.getByLabelText('Colour') as HTMLInputElement;
+      colour.value = '#ff0000';
+      fireEvent.change(colour);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy());
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      });
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy());
+    });
+
+    it('duplicates and deletes parts, never leaving the design empty', async () => {
+      const parts = await edit();
+      fireEvent.click(parts.getByRole('button', { name: /part/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Duplicate part' }));
+      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(2));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete part' }));
+      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(1));
+    });
+
+    it('switches transform and view modes', async () => {
+      await edit();
+      fireEvent.click(screen.getByRole('radio', { name: 'Rotate' }));
+      expect(screen.getByRole('radio', { name: 'Rotate' }).getAttribute('aria-checked')).toBe('true');
+      fireEvent.keyDown(screen.getByTestId('model-editor'), { key: 'r' });
+      expect(screen.getByRole('radio', { name: 'Scale' }).getAttribute('aria-checked')).toBe('true');
+      fireEvent.keyDown(screen.getByTestId('model-editor'), { key: 'w' });
+      expect(screen.getByRole('radio', { name: 'Move' }).getAttribute('aria-checked')).toBe('true');
+      fireEvent.click(screen.getByRole('radio', { name: 'Wireframe' }));
+      expect(screen.getByRole('radio', { name: 'Wireframe' }).getAttribute('aria-checked')).toBe('true');
+      fireEvent.click(screen.getByRole('radio', { name: 'Normals' }));
+      expect(screen.getByRole('radio', { name: 'Solid' }).getAttribute('aria-checked')).toBe('false');
+    });
+
+    it('exports through the bridge with the edited spec', async () => {
+      const parts = await edit();
+      fireEvent.click(parts.getByRole('button', { name: /part/ }));
+      const x = screen.getByRole('spinbutton', { name: 'Position X' }) as HTMLInputElement;
+      fireEvent.change(x, { target: { value: '4' } });
+      fireEvent.blur(x);
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy());
+      const exportSpy = vi.spyOn(window.midniteStudio!.media.model, 'export');
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Export Wavefront OBJ' }));
+      });
+      expect(exportSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ format: 'obj', project: 'robots', path: 'robot-1.obj', spec: expect.objectContaining({ parts: [expect.objectContaining({ position: [4, 0, 0] })] }) }),
+      );
+    });
   });
 
   it('an empty tab offers a CTA that reopens the prompt panel', async () => {
@@ -96,10 +186,9 @@ describe('Models tab', () => {
   it('keeps Generate off until there is something to build', async () => {
     open(fixtures);
     await screen.findByText('No 3D models yet');
-    const generate = screen.getByRole('button', { name: 'Generate' }) as HTMLButtonElement;
-    expect(generate.disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.change(screen.getByRole('textbox', { name: 'Description' }), { target: { value: 'a mug' } });
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Generate' }) as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBeNull());
   });
 
   it('explains Ollama being down and how to recover', async () => {

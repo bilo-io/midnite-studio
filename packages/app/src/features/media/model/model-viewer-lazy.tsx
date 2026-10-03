@@ -1,6 +1,7 @@
-import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type Dispatch, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
+import type { EditorAction, EditorState } from './editor-state';
 import type { ModelViewerStats } from './model-viewer';
 
 /**
@@ -9,16 +10,17 @@ import type { ModelViewerStats } from './model-viewer';
  * it is fetched the first time a model is opened.
  */
 const ModelViewer = lazy(() => import('./model-viewer'));
+const ModelEditor = lazy(() => import('./model-editor'));
 
 class ViewerBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
-  state = { error: null as string | null };
+  override state = { error: null as string | null };
   static getDerivedStateFromError(error: unknown) {
     return { error: error instanceof Error ? error.message : 'The 3D viewer failed to load.' };
   }
-  componentDidCatch(_error: Error, _info: ErrorInfo) {
+  override componentDidCatch(_error: Error, _info: ErrorInfo) {
     // Rendered below; nothing else to do.
   }
-  render() {
+  override render() {
     return this.state.error ? (
       <p role="alert" className="p-6 text-center text-xs text-destructive">
         {this.state.error}
@@ -45,6 +47,23 @@ export function LazyModelViewer(props: {
         }
       >
         <ModelViewer {...props} />
+      </Suspense>
+    </ViewerBoundary>
+  );
+}
+
+/** The editable view of a generated design — same lazy chunk story as the read-only viewer. */
+export function LazyModelEditor(props: { state: EditorState; dispatch: Dispatch<EditorAction>; onSave: () => void; saving: boolean }) {
+  return (
+    <ViewerBoundary>
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
+            <Spinner /> Loading 3D editor…
+          </div>
+        }
+      >
+        <ModelEditor {...props} />
       </Suspense>
     </ViewerBoundary>
   );
