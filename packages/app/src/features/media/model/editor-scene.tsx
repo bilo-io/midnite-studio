@@ -343,15 +343,17 @@ function CameraRig({
   const size = useThree((s) => s.size);
   const controls = useThree((s) => s.controls) as { target: Vector3; update: () => void } | null;
   const invalidate = useThree((s) => s.invalidate);
-  const framed = useRef<string | null>(null);
+  const framed = useRef<{ key: string; camera: unknown; controls: unknown } | null>(null);
   const lastTicks = useRef({ resetTick, frameTick, view });
 
   useEffect(() => {
     const forced = lastTicks.current.resetTick !== resetTick || lastTicks.current.frameTick !== frameTick || lastTicks.current.view !== view;
     const selectionFrame = lastTicks.current.frameTick !== frameTick;
     lastTicks.current = { resetTick, frameTick, view };
-    const key = `${designKey}|${view}|${camera.type}`;
-    if (!forced && framed.current === key) return;
+    const key = `${designKey}|${view}`;
+    // A swapped camera (or its freshly built OrbitControls) must be framed again.
+    const same = framed.current?.key === key && framed.current.camera === camera && framed.current.controls === controls;
+    if (!forced && same) return;
     if (!group.current || !controls || size.width === 0) return;
     // The camera swap lands a render after the view changes: wait for the matching camera.
     if ((view === 'perspective') !== (camera.type === 'PerspectiveCamera')) return;
@@ -378,7 +380,7 @@ function CameraRig({
     camera.updateProjectionMatrix();
     controls.target.copy(centre);
     controls.update();
-    framed.current = key;
+    framed.current = { key, camera, controls };
     invalidate();
   }, [resetTick, frameTick, view, controls, camera, size, group, designKey, scene, selectedSet, invalidate]);
   return null;
