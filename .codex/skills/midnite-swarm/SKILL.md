@@ -57,10 +57,13 @@ separate choice to make). Don't invent an option your CLI doesn't have.
 
 ## 4b · Context rotation threshold — a parameter, not a question
 
-Default **300k tokens**. Do not ask; take it from the invocation when it names one
-(`rotate=200k`, "rotate at 400k", `rotate=off`) and otherwise use the default. It is the context
-size at which a subagent is retired and replaced by a fresh one (Stage 6b). `off` disables
-rotation for the batch. Record the value in the shared board so every tick applies the same one.
+Rotation is keyed to the share of each subagent's **context window**, not a fixed token count:
+**start the handoff once its current context reaches 30% of its window, and have the fresh agent
+running before it reaches 40%.** Do not ask; take an override from the invocation when it names
+one (`rotate=25-35%`, `rotate=300k` for an absolute count, `rotate=off` to disable) and otherwise
+use the default band. The window is the subagent model's context size: 1M for the current Opus
+and Sonnet models, 200k for Haiku. When unsure, `window=<N>k` overrides it. Record the resolved
+band on the shared board (e.g. `30–40% of 1M = 300k–400k`) so every tick applies the same numbers.
 
 ## 5 · Launch — one subagent per phase, all in parallel
 
@@ -127,7 +130,8 @@ stalled subagent, whatever it last reported.
 A subagent's context only grows, and past a few hundred thousand tokens it gets slower, costlier
 and sloppier. So on **every sitrep tick**, check each live subagent's current context size with
 whatever the CLI exposes (its transcript's last-turn token usage, a status command, or the
-subagent's own report) and rotate any that is over the Stage 4b threshold (default 300k):
+subagent's own report) and rotate any that has reached the Stage 4b band (default: start at 30% of its window, done by
+40%; one already past 40% goes first, at its very next safe point):
 
 1. **Ask for the handoff** — message it `CONTEXT ROTATION` with what Stage 5's handoff bullet asks
    for, and wait for `HANDOFF READY` (or find the `## HANDOFF` section in its `SCRATCHPAD.md`).
