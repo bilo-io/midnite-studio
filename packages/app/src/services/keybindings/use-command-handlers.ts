@@ -8,6 +8,7 @@ import { activePanelBack, activePanelForward } from '../../components/panel-stac
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { devServerUrl } from '../../features/browser/dev-server';
 import { useDevServer } from '../../features/browser/use-dev-server';
+import { toggleNotes } from '../../features/notes/notes-window';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
@@ -253,7 +254,7 @@ export function useCommandHandlers(): CommandRuntime {
           ? useUiStore.getState().setFabPanelOpen(false)
           : useUiStore.getState().toggleQuickAccess(),
     },
-    'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
+    'notes.toggle': { enabled: true, run: () => toggleNotes() },
     /*
       Phase 79 Theme C. Disabled — with a reason, so the palette row explains
       itself — while the companion is switched off: the panel would render

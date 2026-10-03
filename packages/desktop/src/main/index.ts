@@ -155,9 +155,16 @@ import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
-import { closeAllPopouts, configureWindowsStore, registerMainWindow } from './window-manager';
+import {
+  beginShutdown,
+  closeAllPopouts,
+  configureReopenStore,
+  configureWindowsStore,
+  registerMainWindow,
+  restoreReopenedPopouts,
+} from './window-manager';
 import { registerWindowHandlers } from './ipc/window-handlers';
-import { createWindowsStore } from './windows-store';
+import { createReopenStore, createWindowsStore } from './windows-store';
 import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './forge/gitlab/gitlab-languages';
 
 /**
@@ -605,6 +612,7 @@ if (!app.requestSingleInstanceLock()) {
     // three parallel chains below for data with no reader yet.
     const windowsStore = createWindowsStore(userData);
     void windowsStore.load().then((initial) => configureWindowsStore(windowsStore, initial));
+    configureReopenStore(createReopenStore(userData));
     // Loaded lazily on the first GitLab reachable-repos listing, not here.
     configureGitlabLanguageCache(createGitlabLanguageCacheStore(userData));
     /*
@@ -831,6 +839,8 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow = createWindow();
     bootMark('create-window');
     registerMainWindow(mainWindow);
+    // Detached windows that were open at the last shutdown (Notes) come back.
+    void restoreReopenedPopouts(defaultLogger);
     mainWindow.on('closed', () => {
       // The main window is the app; popouts are satellites of it.
       closeAllPopouts();
@@ -862,6 +872,7 @@ if (!app.requestSingleInstanceLock()) {
       if (BrowserWindow.getAllWindows().length === 0) {
         mainWindow = createWindow();
         registerMainWindow(mainWindow);
+        void restoreReopenedPopouts(defaultLogger);
         mainWindow.on('closed', () => {
           closeAllPopouts();
           mainWindow = null;
@@ -887,6 +898,7 @@ if (!app.requestSingleInstanceLock()) {
   let flushed = false;
   let mcpClosed = false;
   app.on('before-quit', (event) => {
+    beginShutdown();
     /*
       `before-quit` is synchronous and `McpServerHandle.close()` is not
       (Phase 57 Theme B), so `close()` is called fire-and-forget and the

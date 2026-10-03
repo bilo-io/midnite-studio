@@ -20,7 +20,7 @@ import { reparentAppView } from './apps-service';
 import { reparentBrowserTabs } from './browser-service';
 import type { Logger } from './log';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
-import type { WindowBounds, WindowsStore } from './windows-store';
+import type { ReopenStore, WindowBounds, WindowsStore } from './windows-store';
 
 /** Vite's dev server, matching `window.ts`'s own constant. */
 const DEV_SERVER_URL = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
@@ -67,6 +67,7 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   workflows: { width: 1400, height: 900 },
   media: { width: 1280, height: 860 },
   models: { width: 1080, height: 800 },
+  notes: { width: 980, height: 760 },
 };
 
 /**
@@ -108,6 +109,52 @@ export function configureWindowsStore(
 ): void {
   windowsStore = store;
   boundsCache = initial;
+}
+
+/**
+ * Roles that come back on the next launch if they were open when the app last
+ * ran. Narrow on purpose: a panel popout re-docks when the app quits, and a
+ * page popout reopening unasked is a choice made per page, not a default.
+ */
+export const REOPEN_ON_LAUNCH: ReadonlySet<WindowRole> = new Set<WindowRole>(['notes']);
+
+let reopenStore: ReopenStore | null = null;
+let reopenRoles = new Set<WindowRole>();
+let reopenReady: Promise<void> = Promise.resolve();
+/**
+ * True from the moment the app begins quitting (or the main window closes and
+ * takes its popouts with it) until a main window exists again. A popout closed
+ * in that state was not dismissed by the user, so it must stay in the reopen
+ * set.
+ */
+let shuttingDown = false;
+
+/** Called from `before-quit` — popouts closed from here on are shutdown, not dismissal. */
+export function beginShutdown(): void {
+  shuttingDown = true;
+}
+
+/** Wire in the reopen list. Pair with `restoreReopenedPopouts` once a main window exists. */
+export function configureReopenStore(store: ReopenStore): void {
+  reopenStore = store;
+  reopenReady = store.load().then((roles) => {
+    reopenRoles = new Set(roles.filter((role) => REOPEN_ON_LAUNCH.has(role)));
+  });
+}
+
+function persistReopen(): void {
+  const store = reopenStore;
+  if (!store) return;
+  const snapshot = [...reopenRoles];
+  writeChain = writeChain.then(() => store.save(snapshot));
+}
+
+/** Recreate every popout that was open at the last shutdown. */
+export async function restoreReopenedPopouts(log: Logger): Promise<void> {
+  await reopenReady;
+  for (const role of [...reopenRoles]) {
+    if (role !== 'main') createRoleWindow(role, log);
+  }
 }
 
 /**
@@ -219,6 +266,7 @@ export function resolveWindow(sender: WebContents): BrowserWindow | null {
 
 /** Registers the *main* window too, so `resolveRole`/`listWindows` see it. */
 export function registerMainWindow(win: BrowserWindow): void {
+  shuttingDown = false;
   windows.set(win.id, { win, role: 'main', repoId: null });
   win.once('closed', () => {
     windows.delete(win.id);
@@ -334,6 +382,10 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
   });
 
   windows.set(win.id, { win, role, repoId: null });
+  if (REOPEN_ON_LAUNCH.has(role) && !reopenRoles.has(role)) {
+    reopenRoles.add(role);
+    persistReopen();
+  }
   attachWindowChrome(win);
   bindPopoutRenderProcessGone(win, log);
   saveBoundsOnClose(win, role);
@@ -375,6 +427,7 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
 
   win.on('closed', () => {
     windows.delete(win.id);
+    if (REOPEN_ON_LAUNCH.has(role) && !shuttingDown && reopenRoles.delete(role)) persistReopen();
     const reason = pendingCloseReason.get(win.id) ?? 'closed';
     pendingCloseReason.delete(win.id);
     log(`[window] close role=${role} id=${win.id} reason=${reason}`);
@@ -389,6 +442,7 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
 
 /** Every registered popout, main window excluded — for closing on main-window close. */
 export function closeAllPopouts(): void {
+  shuttingDown = true;
   for (const { win, role } of [...windows.values()]) {
     if (role !== 'main' && !win.isDestroyed()) win.close();
   }

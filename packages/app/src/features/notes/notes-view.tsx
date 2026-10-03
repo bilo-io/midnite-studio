@@ -11,6 +11,7 @@ import {
 } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -245,6 +246,7 @@ export function NotesView() {
         {/* Sidenav header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-3 py-2">
           <div className="flex items-center gap-2">
+            <PageDetachMark role="notes" />
             <span className="text-sm font-semibold text-foreground">Notes</span>
             {selectedRepoId && (
               <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">

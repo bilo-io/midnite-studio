@@ -14265,3 +14265,13 @@ end to end (scaffold, install, studio, render, ffprobe). HyperFrames' own skills
 ### Phase 99 Theme I — Models fidelity
 
 One shared geometry kernel (`packages/shared/src/model-geometry`) now builds every model for files, previews and the live editor. The spec gains capsule, roundedBox, wedge, prism, ellipsoid, tube, sweep, loft and mesh shapes, groups and instances, PBR materials, boolean CSG (in-house BSP) and a modifier stack (bevel, subdivide, mirror, arrays, twist, taper, bend); saved designs load unchanged. Export adds glTF/GLB and ASCII FBX, and OBJ/MTL and FBX carry the new materials. Previews render the new kinds and a PBR approximation. The editor gains an outliner with groups and multi-select, snapping, align/distribute/mirror, boolean, modifier and material panels, bundled lighting presets, orthographic views, x-ray, measure, stats, copy/paste and a shortcut help. See Phase 99 Theme H.
+### Ad hoc — Notes is detachable into its own window
+
+Notes joins `PAGE_WINDOW_ROLES`, so the Phase 55 page-popout machinery (`window.detach`/`dock`/`focusRole`,
+`DetachedRoot`, `PageDetachMark`) carries it with no second mechanism: a mark in the Notes sidenav header
+opens it, focuses it, or (inside the window) closes it. Note edits sync between windows through a new
+`notes` kind on `broadcast-sync`, sent as a per-note delta and merged last-writer-wins on `updatedAt`; a
+peer's change is applied with `setState`, so only the window that made an edit writes it to disk. Main
+remembers the window's bounds as for every popout and now also reopens Notes on the next launch if it was
+open at quit (`windows-reopen.json`, `REOPEN_ON_LAUNCH`). `Mod+l` then `N` and `notes.toggle` focus the
+detached window instead of opening the modal.
