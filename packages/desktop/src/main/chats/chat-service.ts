@@ -5,17 +5,21 @@ import { basename, join } from 'node:path';
 
 import {
   applyFilePatches,
+  branchExists,
   buildFilePatch,
   captureChanges,
-  createSnapshot,
+  createAgentWorktree,
   parseUnifiedDiff,
-  removeSnapshot,
+  reattachAgentWorktree,
+  removeAgentWorktree,
+  snapshotTree,
   splitFilePatch,
 } from '@midnite/studio-git-engine';
 import {
   CHAT_ENGINE_OLLAMA,
   changeSetNeedsReview,
   chatTitleFromText,
+  chatWorktreeBranch,
   deriveChangeSetStatus,
   deriveFileStatus,
   failure,
@@ -33,7 +37,9 @@ import {
   type ChatSummary,
   type ChatUsage,
   type FileDiff,
+  type ChatWorktree,
   type GitOpResult,
+  siblingWorktreePath,
 } from '@midnite/studio-shared';
 
 import { runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
@@ -50,17 +56,35 @@ import { buildInvocation, type ParsedEvent } from './engines';
  *
  * **A turn.** `send` appends the user message and an empty streaming assistant
  * message, answers at once, and runs the turn in the background: it picks the
- * working directory (the repo itself for `ask`; a throwaway snapshot of it for
- * `edit`; a scratch directory with no repo), spawns the roster CLI through
- * `runProcess` (the same spawn engine Docs' Ask AI uses) with its streaming
- * output format, feeds each stdout chunk through the engine's parser, and pushes
- * text to the renderer as it arrives. When the process ends, an `edit` turn
- * captures what changed in the snapshot as a change set — and the snapshot is
- * deleted whatever happened.
+ * working directory, spawns the roster CLI through `runProcess` (the same spawn
+ * engine Docs' Ask AI uses) with its streaming output format, feeds each stdout
+ * chunk through the engine's parser, and pushes text to the renderer as it
+ * arrives.
+ *
+ * **The working directory.** An `edit` turn on a repo runs in the chat's own
+ * linked worktree (`ChatWorktree`): made on the chat's first editing turn, on a
+ * `chat/<slug>-<id>` branch from the repo's HEAD, placed beside the repo the way
+ * every app-made worktree is (`siblingWorktreePath`), and reused by every later
+ * turn — CLIs key their sessions by directory, so one stable path is what keeps
+ * `--resume` working. It is an ordinary worktree: the graph, the worktree list
+ * and the user's own `git worktree list` all show it, and its branch is theirs
+ * to keep working on. An `ask` turn runs there too once it exists (same
+ * session, and the agent sees its own earlier edits), otherwise in the repo;
+ * a chat with no repo runs in a scratch directory.
+ *
+ * **Review.** An `edit` turn snapshots the worktree's state as a tree when it
+ * starts and again when it ends (`snapshotTree`, through a throwaway index), and
+ * the difference becomes the turn's change set — accept applies it to the
+ * user's own checkout, reject leaves it on the chat's branch only. A turn that
+ * errors or is stopped still reports what it changed, since those edits stay
+ * in the worktree either way.
+ *
+ * **Deleting a chat** removes its worktree (edits there are discarded — the
+ * delete dialog says so) and its branch only when the branch has no commits of
+ * its own, so no commit is ever orphaned.
  *
  * **Cancel** kills the process group (`runProcess`'s handle) or aborts the
- * Ollama request, settles the message as `cancelled` keeping the text so far,
- * and discards the snapshot without capturing anything.
+ * Ollama request, and settles the message as `cancelled` keeping the text so far.
  */
 
 /** A turn that runs longer than this is killed — a hung CLI must not hold a chat forever. */
@@ -78,7 +102,11 @@ export type ChatServiceDeps = {
   /** Resolves an open repo by id; `null` when it is no longer open. */
   resolveRepo: (repoId: string) => Promise<Repo | null> | Repo | null;
   emit: (event: ChatEvent) => void;
-  /** Each chat's throwaway edit snapshot lives at `<sandboxRoot>/<chatId>`. */
+  /**
+   * Where the old per-turn private copies lived (before chats used worktrees).
+   * Nothing is written here any more; it is only emptied, so a copy left by an
+   * older build does not sit on disk forever.
+   */
   sandboxRoot: string;
   /** The working directory of a chat with no repo: `<scratchRoot>/<chatId>`. */
   scratchRoot: string;
@@ -97,15 +125,20 @@ export type ChatServiceDeps = {
   timeoutMs?: number | undefined;
   now?: () => number;
   newId?: () => string;
-  /** The git-engine seam — injectable so a test need not snapshot a real repo. */
+  /** The git-engine seam — injectable so a test need not make real worktrees. */
   git?: Partial<GitSeam> | undefined;
 };
 
 export type GitSeam = {
-  createSnapshot: typeof createSnapshot;
+  createAgentWorktree: typeof createAgentWorktree;
+  reattachAgentWorktree: typeof reattachAgentWorktree;
+  removeAgentWorktree: typeof removeAgentWorktree;
+  branchExists: typeof branchExists;
+  snapshotTree: typeof snapshotTree;
   captureChanges: typeof captureChanges;
   applyFilePatches: typeof applyFilePatches;
-  removeSnapshot: typeof removeSnapshot;
+  /** Whether a worktree directory is still on disk. */
+  exists: (path: string) => boolean;
 };
 
 type RunHandle = { cancelled: boolean; kill: (() => void) | null; controller: AbortController; assistantId: string };
@@ -134,10 +167,14 @@ export function createChatService(deps: ChatServiceDeps) {
   const now = deps.now ?? Date.now;
   const newId = deps.newId ?? randomUUID;
   const git: GitSeam = {
-    createSnapshot,
+    createAgentWorktree,
+    reattachAgentWorktree,
+    removeAgentWorktree,
+    branchExists,
+    snapshotTree,
     captureChanges,
     applyFilePatches,
-    removeSnapshot,
+    exists: existsSync,
     ...deps.git,
   };
 
@@ -168,6 +205,7 @@ export function createChatService(deps: ChatServiceDeps) {
       preview: last ? oneLine(last.text) : '',
       running: running.has(chat.id),
       pendingChanges: needsReview(chat),
+      worktree: chat.worktree ?? null,
     };
   };
 
@@ -205,7 +243,7 @@ export function createChatService(deps: ChatServiceDeps) {
       }
       chats.set(chat.id, chat);
     }
-    // Sandboxes are per-turn; any left behind belong to a turn that died.
+    // Legacy: older builds ran edit turns in private copies here.
     await rm(deps.sandboxRoot, { recursive: true, force: true }).catch(() => undefined);
   };
 
@@ -299,6 +337,9 @@ export function createChatService(deps: ChatServiceDeps) {
         chat.repoName = repo.name;
         chat.repoPath = repo.path;
       }
+      // The worktree belongs to the old repo. It stays on disk as an ordinary
+      // branch the user can keep or remove from the graph; the chat moves on.
+      chat.worktree = null;
     }
     // Pinning and renaming are bookkeeping; they must not float a chat to the top of "recent".
     if (settings) chat.updatedAt = now();
@@ -320,7 +361,7 @@ export function createChatService(deps: ChatServiceDeps) {
       chats.delete(id);
       await deps.store.removePatches(changeSetIds(chat));
       await deps.store.remove(id);
-      await git.removeSnapshot(join(deps.sandboxRoot, id));
+      if (chat.worktree) await git.removeAgentWorktree(chat.worktree.repoPath, chat.worktree).catch(() => undefined);
       await rm(join(deps.scratchRoot, id), { recursive: true, force: true }).catch(() => undefined);
       deps.emit({ kind: 'removed', chatId: id });
     }
@@ -451,13 +492,39 @@ export function createChatService(deps: ChatServiceDeps) {
 
   type TurnResult = { error?: string; sessionId?: string; finalText?: string; timedOut?: boolean };
 
+  /**
+   * The chat's worktree, made or restored as needed: reused while it is on
+   * disk, put back on its branch if only the directory went, made fresh
+   * otherwise. Persisted on the chat the moment it changes.
+   */
+  async function ensureWorktree(chat: Chat, repo: { path: string; name: string }): Promise<GitOpResult<ChatWorktree>> {
+    const known = chat.worktree && chat.worktree.repoPath === repo.path ? chat.worktree : null;
+    if (known && git.exists(known.path)) return ok(known);
+
+    let made: ChatWorktree | null = null;
+    if (known && (await git.branchExists(repo.path, known.branch))) {
+      const back = await git.reattachAgentWorktree(repo.path, known);
+      if (!back.ok) return back;
+      made = known;
+    } else {
+      const branch = chatWorktreeBranch(chat.title, chat.id);
+      const path = siblingWorktreePath(repo.path, repo.name, branch);
+      const created = await git.createAgentWorktree(repo.path, { path, branch });
+      if (!created.ok) return created;
+      made = { path, branch, repoPath: repo.path };
+    }
+    chat.worktree = made;
+    await persist(chat);
+    emitChat(chat.id);
+    return ok(made);
+  }
+
   async function runTurn(chat: Chat, history: ChatMessage[], user: ChatMessage, assistant: ChatMessage, handle: RunHandle): Promise<void> {
     let changeSet: ChatChangeSet | undefined;
     let error: string | undefined;
     let sessionId: string | undefined;
     let sessionCwd: string | undefined;
     let finalText: string | undefined;
-    const sandbox = join(deps.sandboxRoot, chat.id);
     try {
       if (chat.engine === CHAT_ENGINE_OLLAMA) {
         const out = await runOllama(chat, history, user, assistant, handle);
@@ -465,17 +532,23 @@ export function createChatService(deps: ChatServiceDeps) {
       } else {
         const repo = await repoFor(chat);
         let cwd: string;
-        let inSandbox = false;
+        let baseTree: string | null = null;
         if (repo && chat.mode === 'edit') {
-          const snap = await git.createSnapshot(repo.path, sandbox);
-          if (!snap.ok) {
-            error = snap.kind === 'error' ? snap.message : 'Could not prepare a workspace for this chat.';
+          const worktree = await ensureWorktree(chat, repo);
+          if (!worktree.ok) {
+            error = worktree.kind === 'error' ? worktree.message : 'Could not prepare a worktree for this chat.';
             return;
           }
-          cwd = sandbox;
-          inSandbox = true;
+          cwd = worktree.value.path;
+          const base = await git.snapshotTree(cwd);
+          if (!base.ok) {
+            error = base.kind === 'error' ? base.message : 'Could not read the chat worktree.';
+            return;
+          }
+          baseTree = base.value;
         } else if (repo) {
-          cwd = repo.path;
+          const own = chat.worktree && chat.worktree.repoPath === repo.path && git.exists(chat.worktree.path) ? chat.worktree.path : null;
+          cwd = own ?? repo.path;
         } else {
           cwd = join(deps.scratchRoot, chat.id);
           await mkdir(cwd, { recursive: true });
@@ -488,10 +561,12 @@ export function createChatService(deps: ChatServiceDeps) {
         sessionCwd = cwd;
         finalText = out.finalText;
 
-        if (inSandbox && !handle.cancelled && !error) {
-          const captured = await git.captureChanges(sandbox);
+        // Captured even after an error or a Stop: whatever the agent did is in
+        // the worktree either way, and the next turn's baseline would hide it.
+        if (baseTree !== null && chats.get(chat.id) === chat) {
+          const captured = await git.captureChanges(cwd, baseTree);
           if (!captured.ok) {
-            error = captured.kind === 'error' ? captured.message : 'Could not read the changes.';
+            error = error ?? (captured.kind === 'error' ? captured.message : 'Could not read the changes.');
           } else if (captured.value.length > 0) {
             changeSet = buildChangeSet(newId(), now(), captured.value);
             await deps.store.savePatches(
@@ -504,9 +579,9 @@ export function createChatService(deps: ChatServiceDeps) {
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught);
     } finally {
-      await git.removeSnapshot(sandbox);
       closeThinking(assistant);
       assistant.finishedAt = now();
+      if (changeSet) assistant.changeSet = changeSet;
       if (handle.cancelled) {
         assistant.status = 'cancelled';
       } else if (error) {
@@ -515,7 +590,6 @@ export function createChatService(deps: ChatServiceDeps) {
       } else {
         assistant.status = 'done';
         if (assistant.text.trim().length === 0 && finalText) assistant.text = finalText;
-        if (changeSet) assistant.changeSet = changeSet;
         if (assistant.text.trim().length === 0 && !changeSet) {
           assistant.status = 'error';
           assistant.error = 'The agent answered with nothing.';
@@ -614,7 +688,7 @@ export function createChatService(deps: ChatServiceDeps) {
         ...(deps.spawn ? { spawn: deps.spawn } : {}),
         onSpawned: (spawned) => {
           handle.kill = spawned.kill;
-          // A Stop that landed between "snapshot ready" and "process started".
+          // A Stop that landed between "worktree ready" and "process started".
           if (handle.cancelled) spawned.kill();
         },
       });

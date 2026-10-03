@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SpawnedProcess, SpawnFn } from '../process-runner';
 import { createMemoryChatStore } from './chat-store';
-import { createChatService, type ChatServiceDeps } from './chat-service';
+import { createChatService, type ChatServiceDeps, type GitSeam } from './chat-service';
 
 /**
  * The chat service against a fake CLI: a `SpawnFn` that plays back scripted
@@ -59,6 +59,32 @@ const thinkingDelta = (thinking: string) =>
 const init = (id: string) => line({ type: 'system', subtype: 'init', session_id: id });
 const done = (id: string) => line({ type: 'result', subtype: 'success', is_error: false, result: '', session_id: id });
 
+/** A git seam whose worktrees exist only in a set — `disk` is that set. */
+function fakeGit(over: Partial<GitSeam> = {}): GitSeam & { disk: Set<string> } {
+  const disk = new Set<string>();
+  const seam = {
+    createAgentWorktree: vi.fn(async (_repo: string, wt: { path: string; branch: string }) => {
+      disk.add(wt.path);
+      return ok({ ...wt, seeded: true });
+    }),
+    reattachAgentWorktree: vi.fn(async (_repo: string, wt: { path: string; branch: string }) => {
+      disk.add(wt.path);
+      return ok(wt);
+    }),
+    removeAgentWorktree: vi.fn(async (_repo: string, wt: { path: string }) => {
+      disk.delete(wt.path);
+      return ok({ branchKept: false });
+    }),
+    branchExists: vi.fn(async () => true),
+    snapshotTree: vi.fn(async () => ok('tree-at-start')),
+    captureChanges: vi.fn(async () => ok([])),
+    applyFilePatches: vi.fn(async (_repo: string, patches: readonly { path: string }[]) => patches.map((p) => ({ path: p.path, ok: true as const }))),
+    exists: vi.fn((path: string) => disk.has(path)),
+    ...over,
+  };
+  return Object.assign(seam as unknown as GitSeam, { disk });
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function setup(overrides: Partial<ChatServiceDeps> = {}) {
@@ -71,12 +97,7 @@ function setup(overrides: Partial<ChatServiceDeps> = {}) {
     emit: (e) => events.push(e),
     sandboxRoot: '/sbx',
     scratchRoot: '/tmp/midnite-chats-test-scratch',
-    git: {
-      createSnapshot: vi.fn(async (_repo: string, dest: string) => ok({ dir: dest, fileCount: 1, bytes: 1 })),
-      captureChanges: vi.fn(async () => ok([])),
-      applyFilePatches: vi.fn(async (_repo: string, patches: readonly { path: string }[]) => patches.map((p) => ({ path: p.path, ok: true as const }))),
-      removeSnapshot: vi.fn(async () => undefined),
-    } as never,
+    git: fakeGit(),
     ...overrides,
   };
   const service = createChatService(deps);
@@ -185,7 +206,7 @@ describe('chat service: streaming a turn', () => {
 });
 
 describe('chat service: stop', () => {
-  it('kills the process, keeps the text so far, marks the message cancelled and captures nothing', async () => {
+  it('kills the process, keeps the text so far, marks the message cancelled', async () => {
     const spawn = fakeSpawn(async (_c, io) => {
       io.out(textDelta('partial'));
       // then hang
@@ -203,24 +224,21 @@ describe('chat service: stop', () => {
     const reply = lastAssistant(((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat);
     expect(reply).toMatchObject({ status: 'cancelled', text: 'partial' });
     expect(reply.changeSet).toBeUndefined();
-    expect(deps.git!.captureChanges).not.toHaveBeenCalled();
-    expect(deps.git!.removeSnapshot).toHaveBeenCalled();
     expect(((await service.list())[0]!).running).toBe(false);
   });
 
-  it('a stop that lands while the snapshot is still being made never starts the CLI', async () => {
+  it('a stop that lands while the worktree is still being made never starts the CLI', async () => {
     const spawn = fakeSpawn(async (_c, io) => io.close(0));
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const { service } = setup({
       spawn,
-      git: {
-        createSnapshot: vi.fn(async (_r: string, dest: string) => {
+      git: fakeGit({
+        createAgentWorktree: vi.fn(async (_r: string, wt: { path: string; branch: string }) => {
           await gate;
-          return ok({ dir: dest, fileCount: 0, bytes: 0 });
+          return ok({ ...wt, seeded: true });
         }),
-        removeSnapshot: vi.fn(async () => undefined),
-      } as never,
+      }),
     });
     const chat = await created(service, { mode: 'edit', repoId: 'repo:/work/app' });
     await service.send({ chatId: chat.id, text: 'hi' });
@@ -389,14 +407,9 @@ describe('chat service: edit mode and reviewable changes', () => {
     });
     const ctx = setup({
       spawn,
-      git: {
-        createSnapshot: vi.fn(async (_r: string, dest: string) => ok({ dir: dest, fileCount: 1, bytes: 1 })),
+      git: fakeGit({
         captureChanges: vi.fn(async () => ok(captured.map((f) => (f.path === 'src/a.ts' ? { ...f, patch: fullPatch } : f)))),
-        applyFilePatches: vi.fn(async (_r: string, patches: readonly { path: string }[]) =>
-          patches.map((p) => ({ path: p.path, ok: true as const })),
-        ),
-        removeSnapshot: vi.fn(async () => undefined),
-      } as never,
+      }),
     });
     const chat = await created(ctx.service, { mode: 'edit', repoId: 'repo:/work/app' });
     await ctx.service.send({ chatId: chat.id, text: 'update a.ts' });
@@ -405,22 +418,85 @@ describe('chat service: edit mode and reviewable changes', () => {
     return { ...ctx, chat, message, spawn };
   }
 
-  it('runs the agent in a snapshot of the repo, never in the repo itself', async () => {
-    const { spawn, deps } = await withChanges();
-    expect(deps.git!.createSnapshot).toHaveBeenCalledWith('/work/app', '/sbx/' + spawn.calls[0]!.cwd.split('/').pop());
-    expect(spawn.calls[0]!.cwd.startsWith('/sbx/')).toBe(true);
+  it('runs the agent in a sibling worktree on its own chat branch, never in the repo itself', async () => {
+    const { spawn, deps, chat, events } = await withChanges();
+    const branch = `chat/update-a-ts-${chat.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toLowerCase()}`;
+    const path = `/work/app-${branch.replace('/', '-')}`;
+    expect(deps.git!.createAgentWorktree).toHaveBeenCalledWith('/work/app', { path, branch });
+    expect(spawn.calls[0]!.cwd).toBe(path);
     expect(spawn.calls[0]!.args).toContain('acceptEdits');
-    expect(deps.git!.removeSnapshot).toHaveBeenCalled();
+    expect(deps.git!.captureChanges).toHaveBeenCalledWith(path, 'tree-at-start');
+    const after = ((await deps.store.loadAll()) as Chat[]).find((c) => c.id === chat.id)!;
+    expect(after.worktree).toEqual({ path, branch, repoPath: '/work/app' });
+    expect(events).toContainEqual({ kind: 'chat', chatId: chat.id });
   });
 
-  it('ask mode runs in the repo itself with no snapshot', async () => {
+  it('reuses one worktree for the life of the chat, so the session resumes', async () => {
+    const spawn = fakeSpawn(async (_c, io) => (io.out(init('s1')), io.out(textDelta('x')), io.out(done('s1')), io.close(0)));
+    const git = fakeGit();
+    const { service } = setup({ spawn, git });
+    const chat = await created(service, { mode: 'edit', repoId: 'repo:/work/app' });
+    await service.send({ chatId: chat.id, text: 'first' });
+    await service.idle();
+    await service.send({ chatId: chat.id, text: 'second' });
+    await service.idle();
+    expect(git.createAgentWorktree).toHaveBeenCalledTimes(1);
+    expect(spawn.calls[1]!.cwd).toBe(spawn.calls[0]!.cwd);
+    expect(spawn.calls[1]!.args).toContain('s1');
+  });
+
+  it('puts the branch back in a worktree when only the directory was removed', async () => {
+    const spawn = fakeSpawn(async (_c, io) => (io.out(textDelta('x')), io.close(0)));
+    const git = fakeGit();
+    const { service } = setup({ spawn, git });
+    const chat = await created(service, { mode: 'edit', repoId: 'repo:/work/app' });
+    await service.send({ chatId: chat.id, text: 'first' });
+    await service.idle();
+    git.disk.clear();
+    await service.send({ chatId: chat.id, text: 'second' });
+    await service.idle();
+    expect(git.createAgentWorktree).toHaveBeenCalledTimes(1);
+    expect(git.reattachAgentWorktree).toHaveBeenCalledTimes(1);
+    expect(spawn.calls[1]!.cwd).toBe(spawn.calls[0]!.cwd);
+  });
+
+  it('ask mode runs in the repo itself until the chat has a worktree, then there', async () => {
     const spawn = fakeSpawn(async (_c, io) => (io.out(textDelta('x')), io.close(0)));
     const { service, deps } = setup({ spawn });
     const chat = await created(service, { mode: 'ask', repoId: 'repo:/work/app' });
     await service.send({ chatId: chat.id, text: 'explain' });
     await service.idle();
     expect(spawn.calls[0]!.cwd).toBe('/work/app');
-    expect(deps.git!.createSnapshot).not.toHaveBeenCalled();
+    expect(deps.git!.createAgentWorktree).not.toHaveBeenCalled();
+
+    await service.update({ id: chat.id, mode: 'edit' });
+    await service.send({ chatId: chat.id, text: 'change it' });
+    await service.idle();
+    await service.update({ id: chat.id, mode: 'ask' });
+    await service.send({ chatId: chat.id, text: 'and now?' });
+    await service.idle();
+    expect(spawn.calls[2]!.cwd).toBe(spawn.calls[1]!.cwd);
+    expect(spawn.calls[2]!.cwd).not.toBe('/work/app');
+  });
+
+  it('still reports what a stopped turn changed, since it stays in the worktree', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('partial'));
+      while (!io.killed()) await sleep(2);
+      io.close(null);
+    });
+    const { service } = setup({
+      spawn,
+      git: fakeGit({ captureChanges: vi.fn(async () => ok(captured)) }),
+    });
+    const chat = await created(service, { mode: 'edit', repoId: 'repo:/work/app' });
+    await service.send({ chatId: chat.id, text: 'go' });
+    await sleep(10);
+    await service.cancel(chat.id);
+    await service.idle();
+    const reply = lastAssistant(((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat);
+    expect(reply.status).toBe('cancelled');
+    expect(reply.changeSet?.files.map((f) => f.path)).toEqual(captured.map((f) => f.path));
   });
 
   it('attaches a pending change set to the reply, with previews and counts, and stores the patches', async () => {
@@ -556,17 +632,16 @@ describe('chat service: edit mode and reviewable changes', () => {
 
     const failing = setup({
       spawn,
-      git: {
-        createSnapshot: vi.fn(async () => ({ ok: false as const, kind: 'error' as const, message: 'This repository is too large.' })),
-        removeSnapshot: vi.fn(async () => undefined),
-      } as never,
+      git: fakeGit({
+        createAgentWorktree: vi.fn(async () => ({ ok: false as const, kind: 'error' as const, message: 'This repository has no commits yet.' })),
+      }),
     });
     const c2 = await created(failing.service, { mode: 'edit', repoId: 'repo:/work/app' });
     await failing.service.send({ chatId: c2.id, text: 'hi' });
     await failing.service.idle();
     expect(lastAssistant(((await failing.service.get(c2.id)) as { value: { chat: Chat } }).value.chat)).toMatchObject({
       status: 'error',
-      error: 'This repository is too large.',
+      error: 'This repository has no commits yet.',
     });
   });
 });
@@ -723,7 +798,7 @@ describe('chat service: bookkeeping', () => {
     await busy.service.idle();
   });
 
-  it('deletes chats: cancels a running turn, removes files, patches and the sandbox, and announces it', async () => {
+  it('deletes chats: cancels a running turn, removes files, patches and the worktree, and announces it', async () => {
     const busy = setup({ spawn: fakeSpawn(async () => {}) });
     const chat = await created(busy.service);
     await busy.service.send({ chatId: chat.id, text: 'hi' });
@@ -738,7 +813,14 @@ describe('chat service: bookkeeping', () => {
     expect(busy.store.chats.has(chat.id)).toBe(false);
     expect(busy.store.patches.has('cs1')).toBe(false);
     expect(busy.events).toContainEqual({ kind: 'removed', chatId: chat.id });
-    expect(busy.deps.git!.removeSnapshot).toHaveBeenCalled();
+    expect(busy.deps.git!.removeAgentWorktree).not.toHaveBeenCalled();
+
+    // A chat with a worktree takes it (and its branch, when that orphans nothing) with it.
+    const withTree = await created(busy.service, { mode: 'edit', repoId: 'repo:/work/app' });
+    const wt = { path: '/work/app-chat-x', branch: 'chat/x', repoPath: '/work/app' };
+    ((await busy.service.get(withTree.id)) as { value: { chat: Chat } }).value.chat.worktree = wt;
+    expect(await busy.service.remove([withTree.id])).toEqual({ ok: true });
+    expect(busy.deps.git!.removeAgentWorktree).toHaveBeenCalledWith('/work/app', wt);
   });
 
   it('on load, a message left streaming by a crash is settled as cancelled', async () => {
