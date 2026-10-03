@@ -18,6 +18,7 @@ export function parseCommitNumstat(output: string): Map<string, CommitDiffStat |
   const out = new Map<string, CommitDiffStat | null>();
   // Split only at a marker followed by a sha and NUL, so a path that happens to
   // contain \x01 cannot start a phantom record.
+  // eslint-disable-next-line no-control-regex
   for (const chunk of output.split(/\x01(?=[0-9a-f]{40,64}\0)/)) {
     if (chunk === '') continue;
     const [sha, parents, ...entries] = chunk.split('\0');

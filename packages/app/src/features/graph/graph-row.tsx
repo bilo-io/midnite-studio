@@ -501,7 +501,7 @@ function GraphRowInner({
 
       {/* The Diff column (off by default): hidden by `data-graph-hide`, filled only while it is on. */}
       <span
-        className={`graph-diff-col graph-row-ink flex shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums transition-opacity duration-150 ease-in-out ${
+        className={`graph-diff-col flex shrink-0 items-center justify-end gap-1.5 text-xs tabular-nums transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
         }`}
         data-testid="diff-cell"
