@@ -33,6 +33,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
   notes: 'Notes',
+  chats: 'Chats',
   knowledge: 'Knowledge',
   files: 'Explorer',
   search: 'Search',

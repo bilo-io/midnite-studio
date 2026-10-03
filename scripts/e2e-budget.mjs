@@ -205,7 +205,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // in the persisted board, and the Insights button's hover fill — a CSS ::before
 // opacity that only a real style engine computes. Every other Finance
 // behaviour (cards, portfolio rules, sorting, summary, modals) is vitest.
-export const MAX_DECLARED_E2E = 470;
+//
+// Raised 470 -> 472 for the Chats page's `chats-layout.spec.ts` (2 tests): the composer's centring and
+// pinning (real getBoundingClientRect, and "the document itself never scrolls") and the thread's
+// stick-to-bottom behaviour against real scrollHeight/clientHeight and a real wheel, all of which
+// jsdom reports as 0. The scroll decisions are vitest against faked geometry; everything else on the
+// page (filters, streaming, markdown, Stop, the review card and modal) is vitest too.
+export const MAX_DECLARED_E2E = 472;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

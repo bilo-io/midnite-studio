@@ -46,6 +46,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
   notes: 'Notes',
+  chats: 'Agent Chats',
   knowledge: 'Knowledge',
   files: 'Explorer',
   search: 'Search Everywhere',
@@ -71,6 +72,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',
   notes: 'notes todo capture brainstorm quick capture scratchpad',
+  chats: 'chats chat conversation talk ask assistant prompt thread claude codex gemini ollama',
   // Deliberately NOT the bare word `graph`: the companion's `longestViewMatch`
   // scores candidates by word count and breaks a tie on first-match, and
   // `knowledge` sits at VIEW_IDS[3], ahead of `graph`. A bare `graph` token here
@@ -91,7 +93,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   workflows: 'agent workflow pipeline automation',
   media: 'media docs images video audio studio remotion hyperframes render export ffmpeg',
   models: 'ollama models local cloud pull install download llm',
-  sessions: 'agent session history transcripts',
+  sessions: 'agent session past closed transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',

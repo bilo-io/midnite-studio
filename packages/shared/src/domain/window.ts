@@ -55,6 +55,7 @@ export const PAGE_WINDOW_ROLES = [
   'history',
   'optimizer',
   'sessions',
+  'chats',
   'councils',
   'workflows',
   'media',

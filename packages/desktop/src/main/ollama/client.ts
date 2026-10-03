@@ -498,3 +498,38 @@ export async function ollamaChat(
   if (content === undefined) throw new Error('Ollama /api/chat returned no message content.');
   return content;
 }
+
+/**
+ * `POST /api/chat`, streamed (`stream: true`) — the Chats page's Ollama engine.
+ * `onDelta` gets each piece of the reply as it arrives and the full text comes
+ * back at the end; `opts.signal` aborts mid-stream (Stop). The whole thread goes
+ * in `messages`, which is what makes an Ollama chat multi-turn: the model has no
+ * session of its own to resume.
+ */
+export async function ollamaChatStream(
+  req: { model: string; messages: OllamaChatMessage[] },
+  opts: { baseUrl?: string; signal?: AbortSignal; onDelta: (text: string) => void; timeoutMs?: number },
+): Promise<string> {
+  const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
+  const res = await fetchWithTimeout(
+    `${baseUrl}/api/chat`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: req.model, messages: req.messages, stream: true }),
+    },
+    opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    opts.signal,
+  );
+  if (!res.ok || !res.body) throw new Error(`Ollama /api/chat returned ${res.status} for "${req.model}".`);
+  let full = '';
+  await consumeNdjson(res.body, (line) => {
+    if (typeof line.error === 'string') throw new Error(line.error);
+    const piece = asString(asRecord(line.message)?.content);
+    if (piece) {
+      full += piece;
+      opts.onDelta(piece);
+    }
+  });
+  return full;
+}

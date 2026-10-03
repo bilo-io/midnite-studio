@@ -31,16 +31,22 @@ export const PINNED_NAV_ITEMS: RailNavItem[] = [
     description: 'Markdown notes, kept per repository or globally',
   },
   {
-    view: 'knowledge',
-    label: 'Knowledge',
-    icon: VIEW_ICON.knowledge,
-    description: "Explore the repository's knowledge graph of code and concepts",
+    view: 'chats',
+    label: 'Chats',
+    icon: VIEW_ICON.chats,
+    description: 'Talk to your agents, and review the changes they propose before they land',
   },
   {
     view: 'sessions',
     label: 'Sessions',
     icon: VIEW_ICON.sessions,
     description: 'Every terminal and agent session, live and finished',
+  },
+  {
+    view: 'knowledge',
+    label: 'Knowledge',
+    icon: VIEW_ICON.knowledge,
+    description: "Explore the repository's knowledge graph of code and concepts",
   },
 ];
 

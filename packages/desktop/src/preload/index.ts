@@ -135,6 +135,7 @@ const bridge: Pick<
   | 'agent'
   | 'council'
   | 'loopRuns'
+  | 'chats'
   | 'workflow'
   | 'demoApi'
   | 'secrets'
@@ -596,6 +597,18 @@ const bridge: Pick<
     start: (req) => call(CHANNELS.loopRunsStart, req),
     stop: (req) => call(CHANNELS.loopRunsStop, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.loopRunsChanged, handler),
+  },
+  chats: {
+    list: () => call(CHANNELS.chatsList),
+    get: (req) => call(CHANNELS.chatsGet, req),
+    create: (req) => call(CHANNELS.chatsCreate, req),
+    update: (req) => call(CHANNELS.chatsUpdate, req),
+    delete: (req) => call(CHANNELS.chatsDelete, req),
+    send: (req) => call(CHANNELS.chatsSend, req),
+    cancel: (req) => call(CHANNELS.chatsCancel, req),
+    changeDiffs: (req) => call(CHANNELS.chatsChangeDiffs, req),
+    resolveChanges: (req) => call(CHANNELS.chatsResolveChanges, req),
+    onEvent: (handler) => subscribe(EVENT_CHANNELS.chatsEvent, handler),
   },
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),

@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-03 — Phase 102 — Chats page
+
+New top-level Chats page (rail: Notes, Chats, Sessions, Knowledge). Conversations with Claude Code, Codex, `agy`, other print-mode agents and Ollama, streamed, multi-turn by each CLI's own resume, stored globally under `userData/chats/`. Edit-mode turns run in a throwaway snapshot of the repo; changes come back as a card and a review modal (accept/reject per file and hunk), applied through the per-repo write queue, conflicts as `GitOpResult` `conflict`. [PR #695](https://github.com/bilo-io/midnite-studio/pull/695).
+
+- [x] Nav, wire contract, global per-chat store, engine drivers, change review in the git engine, page UI, companion switch.
+- [ ] Live per-edit approval via `--permission-prompt-tool`; packaged-app pass with the real CLIs.
+
 ## 2026-10-03 — Ad hoc — agent install detection at startup and on every reload
 
 Main now probes which agent CLIs are installed right after `whenReady` (fire and forget, after the login-shell PATH is ready, never on the first-paint path) and force-re-probes, bypassing the 30 s TTL, on every renderer `did-finish-load` (Mod+R, Mod+Shift+R, new window). Results are pushed on `mstudio:agent:status` into ONE renderer zustand store (`features/agent/agent-probe-store.ts`) that `useAgents()` reads, so no consumer probes on its own. A distinct `checking` state (picker rows say "checking…", Agents cards say "Checking…") replaces silently assuming installed; a probe that errors or times out is `unknown` (fail-soft: nothing greyed, cards say "Unknown"). The Agents page re-probe button now calls `agent.recheck` (forced). Consumers on the store: `+` picker, title-bar primary agent, switcher overlay, terminal panel/header, Settings agent roster and primary picker, dashboard agent widgets, command handlers; roster-only readers (Sessions, Media Docs/Models/Video pickers, Loops, tasks, graph, palette) read the same hook. Startup cost: `startup-report --runs=5` ready-to-show 423 ms vs 418 ms on main, first-view-rendered 178 ms vs 184 ms (noise).

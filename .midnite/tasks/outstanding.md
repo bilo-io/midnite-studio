@@ -519,3 +519,5 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   installed as a forwarding alias (`resources/bin/midnite-studio`, `LEGACY_CLI_NAME` in `main/cli-path.ts`) for
   one release — drop it in the release after the one that ships the rename: the wrapper, its `extraResources`
   coverage in `verify-dist.mjs`/`afterpack.cjs`, the alias leg of `cli-handlers.ts`, and the completion registrations.
+
+- **Chats: live per-edit approval for Claude Code.** Edits are reviewed after a turn, from a snapshot. `--permission-prompt-tool` on a tool of the MCP server (`main/mcp/`) would surface each Edit/Write as an approvable card mid-turn. Not built; the snapshot route is engine-agnostic and already keeps the working tree untouched. Also deferred: searching message bodies in the explorer (it searches title, last message and repo), and bulk delete.

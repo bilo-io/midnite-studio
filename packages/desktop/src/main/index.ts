@@ -52,6 +52,7 @@ import { createSttCredentials } from './companion/stt/credentials';
 import { configureUiBridge } from './companion/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
+import { configureChats, disposeChats, registerChatsHandlers } from './ipc/chats-handlers';
 import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
 import { createSessionHistoryStore } from './session-history-store';
 import { createNotesStore } from './notes-store';
@@ -417,6 +418,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDiagHandlers();
     registerSessionsHandlers();
     registerNotesHandlers();
+    registerChatsHandlers();
     registerDbHandlers(getMainWindow);
     registerKnowledgeHandlers();
     registerScaffoldHandlers();
@@ -680,6 +682,7 @@ if (!app.requestSingleInstanceLock()) {
     */
     configureKnowledge(join(userData, 'knowledge-cache'));
     configureNotes(createNotesStore(userData));
+    configureChats(userData);
     /*
       The companion's per-repo "last greeted" mark (Phase 79 Theme B, Decision
       11) — a `companion.json` beside `mcp.json`, wired here beside every other
@@ -905,6 +908,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     }
 
+    disposeChats();
     stopAllWatchers();
     stopMediaWatchers();
     destroyAllBrowserTabs();

@@ -511,6 +511,10 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('models'),
     }),
+    'view.chats': withNavVisibility(navVisibility, 'view.chats', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('chats'),
+    }),
     'view.apiClient': withNavVisibility(navVisibility, 'view.apiClient', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('apiClient'),
