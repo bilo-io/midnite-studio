@@ -114,7 +114,7 @@ describe('needsChurn', () => {
 describe('groupWidgets', () => {
   it('groups by category in picker order', () => {
     const groups = groupWidgets(ALL_WIDGETS, '');
-    expect(groups.map((g) => g.category)).toEqual(['git', 'agents', 'datetime', 'productivity']);
+    expect(groups.map((g) => g.category)).toEqual(['git', 'agents', 'finance', 'datetime', 'productivity']);
     expect(groups.flatMap((g) => g.specs)).toHaveLength(ALL_WIDGETS.length);
   });
 

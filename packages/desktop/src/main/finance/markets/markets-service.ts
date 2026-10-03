@@ -185,9 +185,13 @@ export function createMarketsService(options: MarketsServiceOptions) {
 
   const cacheKey = (asset: MarketAsset, ts: MarketTimescale): string => `series.${asset.symbol.toUpperCase()}.${ts}`;
 
-  async function loadSeries(asset: MarketAsset, timescale: MarketTimescale): Promise<MarketSeriesEntry> {
+  async function loadSeries(
+    asset: MarketAsset,
+    timescale: MarketTimescale,
+    force: boolean,
+  ): Promise<MarketSeriesEntry> {
     const key = cacheKey(asset, timescale);
-    const fresh = await cache.read<MarketCandle[]>(key, SERIES_TTL_MS[timescale]);
+    const fresh = force ? null : await cache.read<MarketCandle[]>(key, SERIES_TTL_MS[timescale]);
     if (fresh) {
       return { candles: fresh.value, fetchedAt: fresh.fetchedAt, stale: false, source: fresh.source };
     }
@@ -220,11 +224,15 @@ export function createMarketsService(options: MarketsServiceOptions) {
   }
 
   /** Concurrent callers for the same series share one fetch. */
-  function getSeries(asset: MarketAsset, timescale: MarketTimescale): Promise<MarketSeriesEntry> {
+  function getSeries(
+    asset: MarketAsset,
+    timescale: MarketTimescale,
+    force = false,
+  ): Promise<MarketSeriesEntry> {
     const key = cacheKey(asset, timescale);
     const running = inflight.get(key);
     if (running) return running;
-    const promise = loadSeries(asset, timescale).finally(() => inflight.delete(key));
+    const promise = loadSeries(asset, timescale, force).finally(() => inflight.delete(key));
     inflight.set(key, promise);
     return promise;
   }
@@ -246,15 +254,19 @@ export function createMarketsService(options: MarketsServiceOptions) {
   async function getSeriesBatch(
     assets: readonly MarketAsset[],
     timescale: MarketTimescale,
+    force = false,
   ): Promise<Record<string, MarketSeriesEntry>> {
     const unique = [...new Map(assets.map((a) => [a.symbol, a])).values()];
-    const entries = await mapLimited(unique, (asset) => getSeries(asset, timescale));
+    const entries = await mapLimited(unique, (asset) => getSeries(asset, timescale, force));
     return Object.fromEntries(unique.map((asset, i) => [asset.symbol, entries[i] as MarketSeriesEntry]));
   }
 
   /** The latest price is the last close of the one-day series — one source of truth for "now". */
-  async function getQuoteBatch(assets: readonly MarketAsset[]): Promise<Record<string, MarketQuoteEntry>> {
-    const series = await getSeriesBatch(assets, '1D');
+  async function getQuoteBatch(
+    assets: readonly MarketAsset[],
+    force = false,
+  ): Promise<Record<string, MarketQuoteEntry>> {
+    const series = await getSeriesBatch(assets, '1D', force);
     return Object.fromEntries(
       Object.entries(series).map(([symbol, entry]) => {
         const last = entry.candles[entry.candles.length - 1];

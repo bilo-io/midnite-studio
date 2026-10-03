@@ -52,6 +52,22 @@ export type PopoutRole =
 
 export type MockFixtures = {
   /**
+   * The Finance dashboard's market data and simulated portfolio (`markets.*`).
+   * Everything is generated in-process from a seeded PRNG — a spec that mounts
+   * the Finance dashboard never reaches a network, and the same symbol always
+   * draws the same chart.
+   */
+  markets?: {
+    /** Cash per currency, in that currency's own units. Default USD 1,000 / EUR 500 / ZAR 10,000. */
+    balances?: Record<string, number>;
+    /** Held assets. Default 0.5 BTC and 10 AAPL. */
+    holdings?: { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf'; quantity: number }[];
+    watchlist?: string[];
+    /** Make every series/quote call answer with an error — the "provider down" path. */
+    down?: boolean;
+    news?: { title: string; link: string; source: string; origin: string; publishedAt: number | null }[];
+  };
+  /**
    * Commit signatures to graft onto the mock agent roster, keyed by `agentId`.
    *
    * The roster below deliberately ships WITHOUT `signatures`, unlike
@@ -2681,6 +2697,7 @@ export function buildMockBridge(data: MockFixtures) {
       quote: async () => ({ ok: true as const, value: { price: 0, currency: 'USD' } }),
       history: async () => ({ ok: true as const, value: [] }),
     },
+    markets: createMockMarkets(),
     loopRuns: {
       list: async () => ({ runs: loopRuns }),
       start: async (req: {
@@ -5059,6 +5076,189 @@ export function buildMockBridge(data: MockFixtures) {
       }
     }
   };
+
+  /**
+   * The `markets` namespace. Self-contained on purpose — this whole function is
+   * serialised into the page, so it can import nothing at runtime, and the
+   * portfolio rules below are a deliberately small copy of the real ones (main
+   * enforces those; the specs only need the same observable behaviour).
+   */
+  function createMockMarkets() {
+    const cfg = data.markets ?? {};
+    const rates: Record<string, number> = { USD: 1, EUR: 0.9, ZAR: 20, GBP: 0.8, JPY: 150 };
+    const basePrice: Record<string, number> = {
+      BTC: 60000,
+      ETH: 3000,
+      SOL: 150,
+      AAPL: 200,
+      MSFT: 400,
+      NVDA: 120,
+      TSLA: 250,
+      SPY: 550,
+    };
+    const catalogue = [
+      ['BTC', 'Bitcoin', 'crypto'],
+      ['ETH', 'Ethereum', 'crypto'],
+      ['SOL', 'Solana', 'crypto'],
+      ['AAPL', 'Apple', 'stock'],
+      ['MSFT', 'Microsoft', 'stock'],
+      ['NVDA', 'NVIDIA', 'stock'],
+      ['TSLA', 'Tesla', 'stock'],
+      ['SPY', 'SPDR S&P 500 ETF', 'etf'],
+    ] as const;
+    let txCounter = 0;
+    const portfolio = {
+      version: 1 as const,
+      balances: { ...(cfg.balances ?? { USD: 1000, EUR: 500, ZAR: 10000 }) } as Record<string, number>,
+      holdings: (cfg.holdings ?? [
+        { symbol: 'BTC', name: 'Bitcoin', kind: 'crypto' as const, quantity: 0.5 },
+        { symbol: 'AAPL', name: 'Apple', kind: 'stock' as const, quantity: 10 },
+      ]).map((h) => ({ ...h })),
+      transactions: [] as Record<string, unknown>[],
+      watchlist: [...(cfg.watchlist ?? ['BTC', 'ETH', 'AAPL'])],
+      extraAssets: [] as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' }[],
+    };
+
+    const rng = (seed: number) => () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const hash = (text: string) => [...text].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7);
+    const spans: Record<string, number> = {
+      '1D': 86400000,
+      '1W': 7 * 86400000,
+      '1M': 30 * 86400000,
+      '3M': 90 * 86400000,
+      '1Y': 365 * 86400000,
+      '5Y': 5 * 365 * 86400000,
+      ALL: 10 * 365 * 86400000,
+    };
+    const NOW = 1_800_000_000_000;
+    const candles = (symbol: string, timescale: string) => {
+      const next = rng(hash(symbol));
+      const count = 60;
+      const step = (spans[timescale] ?? spans['1M']!) / count;
+      let price = (basePrice[symbol] ?? 100) * 0.9;
+      return Array.from({ length: count }, (_, i) => {
+        const open = price;
+        price = Math.max(1, price * (1 + (next() - 0.45) * 0.03));
+        return {
+          t: NOW - (count - i) * step,
+          o: open,
+          h: Math.max(open, price) * 1.005,
+          l: Math.min(open, price) * 0.995,
+          c: price,
+        };
+      });
+    };
+    const priceOf = (symbol: string) => candles(symbol, '1D').at(-1)!.c;
+    const fail = (message: string) => ({ ok: false as const, kind: 'error' as const, message });
+    const cash = (usd: number, currency: string) => usd * (rates[currency] ?? 1);
+
+    return {
+      series: async (req: { assets: { symbol: string }[]; timescale: string }) => ({
+        ok: true as const,
+        value: {
+          series: Object.fromEntries(
+            req.assets.map((a) => [
+              a.symbol,
+              cfg.down
+                ? { candles: [], fetchedAt: null, stale: false, source: null, error: 'Provider down' }
+                : { candles: candles(a.symbol, req.timescale), fetchedAt: NOW, stale: false, source: 'Mock' },
+            ]),
+          ),
+        },
+      }),
+      quotes: async (req: { assets: { symbol: string }[] }) => ({
+        ok: true as const,
+        value: {
+          quotes: Object.fromEntries(
+            req.assets.map((a) => [
+              a.symbol,
+              cfg.down
+                ? { price: null, t: null, stale: false, error: 'Provider down' }
+                : { price: priceOf(a.symbol), t: NOW, stale: false },
+            ]),
+          ),
+        },
+      }),
+      search: async (req: { query: string }) => ({
+        ok: true as const,
+        value: catalogue
+          .filter(([symbol, name]) => `${symbol} ${name}`.toLowerCase().includes(req.query.toLowerCase()))
+          .map(([symbol, name, kind]) => ({ symbol, name, kind })),
+      }),
+      rates: async () => ({ ok: true as const, value: { base: 'USD' as const, rates, fetchedAt: NOW, stale: false } }),
+      portfolio: async () => ({ ok: true as const, value: structuredClone(portfolio) }),
+      apply: async (op: Record<string, unknown>) => {
+        const currency = String(op.currency ?? 'USD');
+        const kind = op.op as string;
+        if (kind === 'addCard') {
+          portfolio.balances[currency] ??= 0;
+        } else if (kind === 'watch') {
+          const asset = op.asset as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' };
+          const has = portfolio.watchlist.includes(asset.symbol);
+          if (op.watched && !has) portfolio.watchlist.push(asset.symbol);
+          if (!op.watched && has) portfolio.watchlist = portfolio.watchlist.filter((s) => s !== asset.symbol);
+        } else if (kind === 'deposit' || kind === 'withdraw') {
+          const amount = Number(op.amount);
+          const balance = portfolio.balances[currency] ?? 0;
+          if (kind === 'withdraw' && amount > balance) return fail('Insufficient balance');
+          portfolio.balances[currency] = Math.round((balance + (kind === 'deposit' ? amount : -amount)) * 100) / 100;
+          portfolio.transactions.push({
+            id: `mock-${++txCounter}`,
+            ts: NOW,
+            type: kind,
+            currency,
+            fiatAmount: amount,
+            valueUsd: amount / (rates[currency] ?? 1),
+          });
+        } else if (kind === 'buy' || kind === 'sell') {
+          const asset = op.asset as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' };
+          const quantity = Number(op.quantity);
+          const price = priceOf(asset.symbol);
+          const fiat = cash(quantity * price, currency);
+          const balance = portfolio.balances[currency] ?? 0;
+          const held = portfolio.holdings.find((h) => h.symbol === asset.symbol);
+          if (kind === 'buy') {
+            if (fiat > balance) return fail(`Insufficient ${currency}`);
+            portfolio.balances[currency] = balance - fiat;
+            if (held) held.quantity += quantity;
+            else portfolio.holdings.push({ ...asset, quantity });
+          } else {
+            if (!held || held.quantity < quantity) return fail('Not enough held');
+            held.quantity -= quantity;
+            portfolio.holdings = portfolio.holdings.filter((h) => h.quantity > 0);
+            portfolio.balances[currency] = balance + fiat;
+          }
+          portfolio.transactions.push({
+            id: `mock-${++txCounter}`,
+            ts: NOW,
+            type: kind,
+            currency,
+            fiatAmount: fiat,
+            symbol: asset.symbol,
+            assetName: asset.name,
+            assetKind: asset.kind,
+            quantity,
+            priceUsd: price,
+            valueUsd: quantity * price,
+          });
+        }
+        return { ok: true as const, value: structuredClone(portfolio) };
+      },
+      news: async () => ({
+        ok: true as const,
+        value: {
+          items: (cfg.news ?? []).map((item, i) => ({ id: `n${i}`, ...item })),
+          stale: false,
+          failed: [] as string[],
+        },
+      }),
+    };
+  }
 
   return bridge;
 }

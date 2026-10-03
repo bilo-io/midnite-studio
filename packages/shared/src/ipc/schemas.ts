@@ -4046,6 +4046,8 @@ export const MARKETS_MAX_ASSETS = 80;
 export const MarketsSeriesRequest = z.object({
   assets: z.array(MarketAssetSchema).min(1).max(MARKETS_MAX_ASSETS),
   timescale: MarketTimescaleSchema,
+  /** Skip the cache's freshness check once — the header's Refresh button. A provider cooldown still applies. */
+  refresh: z.boolean().optional(),
 });
 export const MarketsSeriesResponse = GitOpResultOf(
   z.object({ series: z.record(MarketSeriesEntrySchema) }),
@@ -4054,6 +4056,7 @@ export const MarketsSeriesResponse = GitOpResultOf(
 /** Latest price for a batch of assets, in USD, keyed by symbol. */
 export const MarketsQuotesRequest = z.object({
   assets: z.array(MarketAssetSchema).min(1).max(MARKETS_MAX_ASSETS),
+  refresh: z.boolean().optional(),
 });
 export const MarketsQuotesResponse = GitOpResultOf(
   z.object({ quotes: z.record(MarketQuoteEntrySchema) }),

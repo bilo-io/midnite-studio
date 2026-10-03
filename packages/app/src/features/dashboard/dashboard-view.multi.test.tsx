@@ -86,7 +86,7 @@ describe('the dashboard strip', () => {
   it('adds a dashboard, activates it, and seeds clock and date', async () => {
     open();
     fireEvent.click(screen.getByRole('button', { name: 'Add dashboard' }));
-    expect(tab('Dashboard 3').getAttribute('aria-selected')).toBe('true');
+    expect(tab('Dashboard 4').getAttribute('aria-selected')).toBe('true');
     expect(await screen.findByRole('region', { name: 'Clock' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Date' })).toBeTruthy();
   });

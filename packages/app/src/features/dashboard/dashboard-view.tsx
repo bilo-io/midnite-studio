@@ -9,16 +9,23 @@ import {
   LuCalendar,
   LuCalendarDays,
   LuChartColumn,
+  LuChartCandlestick,
+  LuChartPie,
   LuCircleDot,
   LuClock,
+  LuCoins,
+  LuCreditCard,
   LuGitPullRequest,
   LuHeartPulse,
   LuHistory,
   LuLayoutGrid,
+  LuNewspaper,
   LuPlay,
+  LuReceipt,
   LuRefreshCw,
   LuRepeat,
   LuRotateCcw,
+  LuStar,
   LuStickyNote,
   LuTerminal,
   LuTrash2,
@@ -69,6 +76,14 @@ import { ContributorsWidget } from './widgets/contributors-widget';
 import { IssuesWidget, PullsWidget, RunsWidget } from './widgets/forge-widgets';
 import { HealthWidget } from './widgets/health-widget';
 import { PageDetachMark } from '../../components/page-detach-mark';
+import { AllocationWidget } from '../finance-dashboard/allocation-widget';
+import { AssetListWidget } from '../finance-dashboard/asset-list-widget';
+import { AssetStackWidget } from '../finance-dashboard/asset-stack-widget';
+import { BankCardsWidget } from '../finance-dashboard/bank-cards-widget';
+import { BigChartWidget } from '../finance-dashboard/big-chart-widget';
+import { FinanceHeaderControls } from '../finance-dashboard/finance-header-controls';
+import { NewsWidget } from '../finance-dashboard/news-widget';
+import { TransactionsWidget } from '../finance-dashboard/transactions-widget';
 
 /**
  * The repository's front page.
@@ -114,6 +129,14 @@ const WIDGET_ICON: Record<WidgetId, IconComponent> = {
   'recent-sessions': LuHistory,
   'agent-activity': LuChartColumn,
   'loop-runs': LuRepeat,
+  'fin-bank-cards': LuCreditCard,
+  'fin-assets': LuCoins,
+  'fin-allocation': LuChartPie,
+  'fin-chart': LuChartCandlestick,
+  'fin-watchlist': LuStar,
+  'fin-markets': LuLayoutGrid,
+  'fin-transactions': LuReceipt,
+  'fin-news': LuNewspaper,
   clock: LuClock,
   date: LuCalendarDays,
   scratchpad: LuStickyNote,
@@ -154,6 +177,7 @@ export function DashboardView() {
   // the Agents dashboard, say, never touches git.
   const usesStats = specs.some((spec) => spec.source === 'stats' || spec.source === 'both');
   const usesRepo = usesStats || specs.some((spec) => spec.source === 'forge');
+  const usesFinance = specs.some((spec) => spec.category === 'finance');
   const {
     data: rawStats,
     isFetching: statsFetching,
@@ -254,6 +278,14 @@ export function DashboardView() {
         <PageDetachMark role="dashboard" />
         <h2 className="sr-only">Dashboard</h2>
         <DashboardTabs />
+
+        {/*
+          The Finance cards' global controls (timescale, display currency).
+          Keyed on the cards actually on the board rather than on which
+          dashboard is active, so a custom dashboard that borrowed one still
+          gets them.
+        */}
+        {usesFinance ? <FinanceHeaderControls /> : null}
 
         {usesStats ? (
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -377,6 +409,22 @@ export function DashboardView() {
               return <AgentActivityWidget />;
             case 'loop-runs':
               return <LoopRunsWidget />;
+            case 'fin-bank-cards':
+              return <BankCardsWidget />;
+            case 'fin-assets':
+              return <AssetStackWidget />;
+            case 'fin-allocation':
+              return <AllocationWidget />;
+            case 'fin-chart':
+              return <BigChartWidget />;
+            case 'fin-watchlist':
+              return <AssetListWidget list="watchlist" />;
+            case 'fin-markets':
+              return <AssetListWidget list="markets" />;
+            case 'fin-transactions':
+              return <TransactionsWidget />;
+            case 'fin-news':
+              return <NewsWidget />;
             case 'clock':
               return <ClockWidget />;
             case 'date':
@@ -481,6 +529,15 @@ function Board({
             a drag instead of a click.
           */
           dragConfig={{ handle: `.${DRAG_HANDLE_CLASS}`, cancel: `.${NO_DRAG_CLASS}` }}
+          /*
+            Every card resizes from its corners and edges, not only the
+            south-east corner the library defaults to — a tall chart card is
+            far easier to widen from its left edge than to drag a 20px corner
+            across the board. The north edge is left out on purpose: the
+            header is the drag handle, and a resize strip on top of it would
+            fight the drag. Minimums come from the registry (`minW`/`minH`).
+          */
+          resizeConfig={{ handles: ['se', 'sw', 'e', 'w', 's'] }}
           onLayoutChange={(next) =>
             onLayoutChange(
               next

@@ -46,6 +46,7 @@
     "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "^12.3.0",
     "graphology": "^0.25.4",
+    "lightweight-charts": "^5.2.1",
     "lowlight": "3.3.0",
     "mdast-util-to-string": "^4.0.0",
     "monaco-editor": "0.56.0",

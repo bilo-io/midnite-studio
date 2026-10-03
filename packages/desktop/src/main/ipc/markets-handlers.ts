@@ -47,7 +47,7 @@ export function registerMarketsHandlers(runtime?: MarketsRuntime): void {
     schemas.MarketsSeriesRequest,
     async (req) => {
       try {
-        return ok({ series: await rt.markets.getSeriesBatch(req.assets, req.timescale) });
+        return ok({ series: await rt.markets.getSeriesBatch(req.assets, req.timescale, req.refresh === true) });
       } catch (err) {
         return asFailure(err);
       }
@@ -60,7 +60,7 @@ export function registerMarketsHandlers(runtime?: MarketsRuntime): void {
     schemas.MarketsQuotesRequest,
     async (req) => {
       try {
-        return ok({ quotes: await rt.markets.getQuoteBatch(req.assets) });
+        return ok({ quotes: await rt.markets.getQuoteBatch(req.assets, req.refresh === true) });
       } catch (err) {
         return asFailure(err);
       }

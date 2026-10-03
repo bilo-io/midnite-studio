@@ -5818,3 +5818,80 @@ html[data-motion='reduced'] .thinking-dots::after {
 .ProseMirror blockquote[data-callout='warning']::before { color: hsl(var(--callout-warning)); }
 .ProseMirror blockquote[data-callout='caution'] { border-color: hsl(var(--callout-caution)); background: hsl(var(--callout-caution) / 0.08); }
 .ProseMirror blockquote[data-callout='caution']::before { color: hsl(var(--callout-caution)); }
+
+/* ---------------------------------------------------------------------------
+ * Finance dashboard — the "Insights" button.
+ *
+ * A rainbow gradient border with a soft rainbow glow at rest; on hover (or
+ * keyboard focus) the whole button fills with the rainbow and the glow
+ * strengthens. The border is the usual two-layer background trick — a
+ * card-coloured padding-box over a rainbow border-box — so it follows the
+ * theme's own card colour in light and dark, and needs no mask.
+ *
+ * The hover fill is a ::before whose OPACITY transitions: browsers cannot
+ * animate between two gradients, so cross-fading a second layer is how the fill
+ * eases in. Deliberately no @keyframes — nothing here loops, so nothing needs a
+ * reduced-motion guard beyond the transitions the shell already neutralises.
+ * ------------------------------------------------------------------------- */
+.rainbow-btn {
+  --rainbow: linear-gradient(
+    100deg,
+    #ff4d4d,
+    #ff9f1a,
+    #ffe14d,
+    #3ddc84,
+    #2bb6ff,
+    #6c5ce7,
+    #e056fd,
+    #ff4d4d
+  );
+  position: relative;
+  isolation: isolate;
+  border: 1.5px solid transparent;
+  border-radius: 9999px;
+  color: hsl(var(--foreground));
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    var(--rainbow) border-box;
+  box-shadow:
+    0 0 8px -1px rgb(255 77 77 / 0.35),
+    0 0 12px -2px rgb(43 182 255 / 0.32),
+    0 0 16px -3px rgb(224 86 253 / 0.3);
+  transition:
+    box-shadow 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.rainbow-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--rainbow);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.rainbow-btn:hover,
+.rainbow-btn:focus-visible,
+.rainbow-btn[aria-expanded='true'] {
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  box-shadow:
+    0 0 12px 0 rgb(255 77 77 / 0.55),
+    0 0 18px 0 rgb(43 182 255 / 0.5),
+    0 0 26px 2px rgb(224 86 253 / 0.45);
+}
+
+.rainbow-btn:hover::before,
+.rainbow-btn:focus-visible::before,
+.rainbow-btn[aria-expanded='true']::before {
+  opacity: 1;
+}
+
+.rainbow-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
