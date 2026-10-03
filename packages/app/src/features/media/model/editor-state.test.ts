@@ -127,7 +127,7 @@ describe('external edits (an agent over MCP)', () => {
   const here = initialEditorState(spec, 'p/a.obj');
 
   it('adopts the new design as one undoable step, keeping the selection', () => {
-    const next = run({ ...here, selected: 1 }, { type: 'external', spec: edited, source: 'p/a.obj', saved: false });
+    const next = run({ ...here, selected: 1, selection: [1] },{ type: 'external', spec: edited, source: 'p/a.obj', saved: false });
     expect(next.spec).toBe(edited);
     expect(next.selected).toBe(1);
     expect(isDirty(next)).toBe(true);

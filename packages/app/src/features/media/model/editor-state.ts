@@ -1,15 +1,43 @@
-import type { ModelPart, ModelSpec } from '@midnite/studio-shared';
+import type { Mat4, ModelModifier, ModelPart, ModelSpec } from '@midnite/studio-shared';
+
+import {
+  alignParts,
+  copyParts,
+  distributeParts,
+  duplicateParts,
+  editModifiers,
+  ensureIds,
+  groupParts,
+  mirrorParts,
+  moveIndex,
+  nudgeParts,
+  pasteParts,
+  patchMaterial,
+  patchParts,
+  removeParts,
+  reparent,
+  setAnchor,
+  subtractSelection,
+  topMost,
+  ungroupParts,
+  type AlignMode,
+  type Axis,
+  type ModifierEdit,
+  type PartPatch,
+  type Result,
+} from './spec-edit';
 
 /**
- * The model editor's document state — pure, so undo/redo and selection are
- * unit-tested without a canvas. The document is the `ModelSpec` itself: every
- * edit (a gizmo drag, a colour, a typed number, a delete) is one history step,
- * and Save/Export hand that same spec to main.
+ * The model editor's document state — pure, so undo/redo, selection and every structural edit are
+ * unit-tested without a canvas. The document is the `ModelSpec` itself: every edit (a gizmo drag, a
+ * colour, a typed number, a group, an align) is one history step, and Save/Export hand that same
+ * spec to main. The actual edits live in `spec-edit.ts`; this reducer adds selection, history and
+ * the clipboard.
  */
 export const HISTORY_LIMIT = 100;
 
+export { tidy, tidyVec, type PartPatch } from './spec-edit';
 export type Vec3 = [number, number, number];
-export type PartPatch = Partial<Pick<ModelPart, 'name' | 'color' | 'position' | 'rotation' | 'scale'>>;
 
 export type EditorState = {
   spec: ModelSpec;
@@ -17,112 +45,189 @@ export type EditorState = {
   saved: ModelSpec;
   past: ModelSpec[];
   future: ModelSpec[];
+  /** The primary selection: the last part picked, what the inspector shows. */
   selected: number | null;
+  /** Every selected part, in pick order (the primary is the last). */
+  selection: number[];
   /** Which file the document came from — the editor shows only once this matches the selection. */
   source: string;
+  /** Copied parts (subtrees, roots baked to world space); not part of the history. */
+  clipboard: ModelPart[] | null;
+  pastes: number;
 };
 
 export type EditorAction =
   | { type: 'load'; spec: ModelSpec; source: string }
   | { type: 'select'; index: number | null }
+  | { type: 'selectMany'; indices: number[] }
+  | { type: 'toggleSelect'; index: number }
+  | { type: 'selectAll' }
   | { type: 'patch'; index: number; patch: PartPatch }
-  | { type: 'remove'; index: number }
-  | { type: 'duplicate'; index: number }
+  | { type: 'patchMany'; indices: number[]; patch: PartPatch }
+  | { type: 'material'; indices?: number[]; patch: Record<string, unknown> }
+  | { type: 'remove'; index?: number; indices?: number[] }
+  | { type: 'duplicate'; index?: number; indices?: number[] }
+  | { type: 'group'; indices?: number[] }
+  | { type: 'ungroup'; indices?: number[] }
+  | { type: 'reparent'; index: number; parent: number | null }
+  | { type: 'move'; from: number; to: number }
+  | { type: 'copy' }
+  | { type: 'paste' }
+  | { type: 'align'; axis: Axis; mode: AlignMode }
+  | { type: 'distribute'; axis: Axis }
+  | { type: 'mirror'; axis: Axis; about: 'origin' | 'centre'; copy?: boolean }
+  | { type: 'subtract' }
+  | { type: 'modifier'; index: number; edit: ModifierEdit }
+  | { type: 'addModifier'; index: number; modifier: ModelModifier }
+  | { type: 'nudge'; delta: Vec3 }
+  /** A gizmo drag finished: set each part's world anchor in one step. */
+  | { type: 'transform'; items: { index: number; anchor: Mat4 }[] }
+  | { type: 'showAll' }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'markSaved' }
   /** An agent edited this model: adopt its design as one undoable step; `saved` when the files match it. */
   | { type: 'external'; spec: ModelSpec; source: string; saved: boolean };
 
-export const initialEditorState = (spec: ModelSpec, source = ''): EditorState => ({ spec, saved: spec, past: [], future: [], selected: null, source });
+export const initialEditorState = (spec: ModelSpec, source = ''): EditorState => ({
+  spec,
+  saved: spec,
+  past: [],
+  future: [],
+  selected: null,
+  selection: [],
+  source,
+  clipboard: null,
+  pastes: 0,
+});
 
 export const isDirty = (state: EditorState): boolean => state.spec !== state.saved;
 export const canUndo = (state: EditorState): boolean => state.past.length > 0;
 export const canRedo = (state: EditorState): boolean => state.future.length > 0;
 
-const clampSelection = (selected: number | null, spec: ModelSpec): number | null =>
-  selected === null || spec.parts.length === 0 ? null : Math.min(selected, spec.parts.length - 1);
+const clampList = (list: readonly number[], spec: ModelSpec): number[] => [...new Set(list)].filter((i) => i >= 0 && i < spec.parts.length);
+
+function withSelection(state: EditorState, list: readonly number[], spec: ModelSpec = state.spec): EditorState {
+  const selection = clampList(list, spec);
+  return { ...state, selection, selected: selection.length > 0 ? selection[selection.length - 1]! : null };
+}
 
 /** Push the current spec onto the undo stack and move to `next`. */
-function commit(state: EditorState, next: ModelSpec, selected: number | null): EditorState {
-  return {
-    ...state,
-    spec: next,
-    past: [...state.past, state.spec].slice(-HISTORY_LIMIT),
-    future: [],
-    selected: clampSelection(selected, next),
-  };
+function commit(state: EditorState, next: ModelSpec, selection: readonly number[]): EditorState {
+  return withSelection(
+    { ...state, spec: next, past: [...state.past, state.spec].slice(-HISTORY_LIMIT), future: [] },
+    selection,
+    next,
+  );
 }
 
-const sameVec = (a: readonly number[], b: readonly number[]): boolean => a.length === b.length && a.every((v, i) => v === b[i]);
-
-/** Does a patch change anything? A no-op must not spend an undo step. */
-function changes(part: ModelPart, patch: PartPatch): boolean {
-  return (Object.keys(patch) as (keyof PartPatch)[]).some((key) => {
-    const next = patch[key];
-    const current = part[key];
-    if (next === undefined) return false;
-    return Array.isArray(next) ? !sameVec(next, current as number[]) : next !== current;
-  });
+/** Run an edit on the id-complete spec; a refused or no-op edit leaves the state untouched. */
+function apply(state: EditorState, edit: (spec: ModelSpec) => Result, keepSelection = true): EditorState {
+  const base = ensureIds(state.spec);
+  const result = edit(base);
+  if (!result) return state;
+  return commit(state, result.spec, result.select ?? (keepSelection ? state.selection : []));
 }
+
+const targetsOf = (state: EditorState, explicit?: number[], single?: number): number[] =>
+  explicit ?? (single !== undefined ? [single] : state.selection);
 
 export function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'load':
       return initialEditorState(action.spec, action.source);
     case 'select':
-      return { ...state, selected: action.index === null ? null : clampSelection(action.index, state.spec) };
+      return withSelection(state, action.index === null ? [] : [Math.min(action.index, state.spec.parts.length - 1)]);
+    case 'selectMany':
+      return withSelection(state, action.indices);
+    case 'toggleSelect':
+      return withSelection(
+        state,
+        state.selection.includes(action.index) ? state.selection.filter((i) => i !== action.index) : [...state.selection, action.index],
+      );
+    case 'selectAll':
+      return withSelection(
+        state,
+        state.spec.parts.map((_, i) => i),
+      );
     case 'patch': {
-      const part = state.spec.parts[action.index];
-      if (!part || !changes(part, action.patch)) return state;
-      const parts = state.spec.parts.map((p, i) => (i === action.index ? ({ ...p, ...action.patch } as ModelPart) : p));
-      return commit(state, { ...state.spec, parts }, state.selected);
+      const result = patchParts(state.spec, [action.index], action.patch);
+      return result ? commit(state, result.spec, state.selection) : state;
     }
-    case 'remove': {
-      if (!state.spec.parts[action.index] || state.spec.parts.length <= 1) return state;
-      const parts = state.spec.parts.filter((_, i) => i !== action.index);
-      return commit(state, { ...state.spec, parts }, null);
+    case 'patchMany': {
+      const result = patchParts(state.spec, action.indices, action.patch);
+      return result ? commit(state, result.spec, state.selection) : state;
     }
-    case 'duplicate': {
-      const part = state.spec.parts[action.index];
-      if (!part) return state;
-      const copy: ModelPart = { ...part, name: `${part.name} copy`, position: [part.position[0] + 0.2, part.position[1], part.position[2]] };
-      const parts = [...state.spec.parts.slice(0, action.index + 1), copy, ...state.spec.parts.slice(action.index + 1)];
-      return commit(state, { ...state.spec, parts }, action.index + 1);
+    case 'material':
+      return apply(state, (spec) => patchMaterial(spec, targetsOf(state, action.indices), action.patch));
+    case 'remove':
+      return apply(state, (spec) => removeParts(spec, targetsOf(state, action.indices, action.index)), false);
+    case 'duplicate':
+      return apply(state, (spec) => duplicateParts(spec, targetsOf(state, action.indices, action.index)));
+    case 'group':
+      return apply(state, (spec) => groupParts(spec, targetsOf(state, action.indices)));
+    case 'ungroup':
+      return apply(state, (spec) => ungroupParts(spec, targetsOf(state, action.indices)));
+    case 'reparent':
+      return apply(state, (spec) => reparent(spec, action.index, action.parent));
+    case 'move':
+      return apply(state, (spec) => moveIndex(spec, action.from, action.to));
+    case 'copy': {
+      const clip = copyParts(ensureIds(state.spec), state.selection);
+      return clip ? { ...state, clipboard: clip, pastes: 0 } : state;
+    }
+    case 'paste': {
+      if (!state.clipboard) return state;
+      const times = state.pastes + 1;
+      const next = apply(state, (spec) => pasteParts(spec, state.clipboard!, times));
+      return next === state ? state : { ...next, pastes: times };
+    }
+    case 'align':
+      return apply(state, (spec) => alignParts(spec, state.selection, action.axis, action.mode));
+    case 'distribute':
+      return apply(state, (spec) => distributeParts(spec, state.selection, action.axis));
+    case 'mirror':
+      return apply(state, (spec) => mirrorParts(spec, state.selection, action.axis, action.about, action.copy === true));
+    case 'subtract':
+      return apply(state, (spec) => subtractSelection(spec, state.selection));
+    case 'modifier':
+      return apply(state, (spec) => editModifiers(spec, action.index, action.edit));
+    case 'addModifier':
+      return apply(state, (spec) => editModifiers(spec, action.index, { kind: 'add', modifier: action.modifier }));
+    case 'nudge':
+      return apply(state, (spec) => nudgeParts(spec, state.selection, action.delta));
+    case 'transform':
+      return apply(state, (spec) => {
+        let next = spec;
+        for (const item of action.items) if (next.parts[item.index]) next = setAnchor(next, item.index, item.anchor);
+        return JSON.stringify(next) === JSON.stringify(spec) ? null : { spec: next };
+      });
+    case 'showAll': {
+      const hidden = state.spec.parts.map((p, i) => (p.hidden ? i : -1)).filter((i) => i >= 0);
+      const result = patchParts(state.spec, hidden, { hidden: undefined });
+      return result ? commit(state, result.spec, state.selection) : state;
     }
     case 'undo': {
       const previous = state.past.at(-1);
       if (!previous) return state;
-      return {
-        ...state,
-        spec: previous,
-        past: state.past.slice(0, -1),
-        future: [state.spec, ...state.future],
-        selected: clampSelection(state.selected, previous),
-      };
+      return withSelection({ ...state, spec: previous, past: state.past.slice(0, -1), future: [state.spec, ...state.future] }, state.selection, previous);
     }
     case 'redo': {
       const next = state.future[0];
       if (!next) return state;
-      return {
-        ...state,
-        spec: next,
-        past: [...state.past, state.spec],
-        future: state.future.slice(1),
-        selected: clampSelection(state.selected, next),
-      };
+      return withSelection({ ...state, spec: next, past: [...state.past, state.spec], future: state.future.slice(1) }, state.selection, next);
     }
     case 'markSaved':
       return { ...state, saved: state.spec };
     case 'external': {
       if (state.source !== action.source) return state;
       const same = JSON.stringify(action.spec) === JSON.stringify(state.spec);
-      const next = same ? state : commit(state, action.spec, state.selected);
+      const next = same ? state : commit(state, action.spec, state.selection);
       return action.saved ? { ...next, saved: next.spec } : next;
     }
   }
 }
 
-/** Round a gizmo's float noise (`0.30000000000000004`) away so saved JSON stays readable. */
-export const tidy = (value: number): number => Math.round(value * 10000) / 10000;
-export const tidyVec = (v: readonly number[]): Vec3 => [tidy(v[0]!), tidy(v[1]!), tidy(v[2]!)];
+/** Selected parts that move on their own (a selected parent already carries its selected children). */
+export const movableSelection = (state: EditorState): number[] =>
+  topMost(ensureIds(state.spec), state.selection).filter((i) => !state.spec.parts[i]?.locked);

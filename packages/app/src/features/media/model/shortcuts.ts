@@ -1,0 +1,41 @@
+/** Every editor shortcut, in one place: the in-app help reads this and a test keeps the chords unique. */
+export type Shortcut = { chord: string; label: string; group: 'Tools' | 'Edit' | 'Selection' | 'View' };
+
+export const SHORTCUTS: readonly Shortcut[] = [
+  { chord: 'W', label: 'Move gizmo', group: 'Tools' },
+  { chord: 'E', label: 'Rotate gizmo', group: 'Tools' },
+  { chord: 'R', label: 'Scale gizmo', group: 'Tools' },
+  { chord: 'M', label: 'Measure two points', group: 'Tools' },
+  { chord: 'Shift (drag)', label: 'Toggle snapping while dragging', group: 'Tools' },
+  { chord: '[', label: 'Smaller snap step', group: 'Tools' },
+  { chord: ']', label: 'Larger snap step', group: 'Tools' },
+  { chord: 'Arrows', label: 'Nudge X / Z by the snap step (Shift x10)', group: 'Tools' },
+  { chord: 'PageUp / PageDown', label: 'Nudge up / down', group: 'Tools' },
+  { chord: 'Mod+Z', label: 'Undo', group: 'Edit' },
+  { chord: 'Mod+Shift+Z', label: 'Redo', group: 'Edit' },
+  { chord: 'Mod+Y', label: 'Redo', group: 'Edit' },
+  { chord: 'Mod+S', label: 'Save changes', group: 'Edit' },
+  { chord: 'Mod+C', label: 'Copy', group: 'Edit' },
+  { chord: 'Mod+V', label: 'Paste', group: 'Edit' },
+  { chord: 'Mod+D', label: 'Duplicate', group: 'Edit' },
+  { chord: 'Delete', label: 'Delete selection', group: 'Edit' },
+  { chord: 'Mod+G', label: 'Group selection', group: 'Edit' },
+  { chord: 'Mod+Shift+G', label: 'Ungroup', group: 'Edit' },
+  { chord: 'Mod+A', label: 'Select all', group: 'Selection' },
+  { chord: 'Esc', label: 'Clear selection / measurement', group: 'Selection' },
+  { chord: 'Click', label: 'Select (Shift/Mod+click adds)', group: 'Selection' },
+  { chord: 'H', label: 'Hide / show selection', group: 'Selection' },
+  { chord: 'Shift+H', label: 'Show all hidden parts', group: 'Selection' },
+  { chord: 'L', label: 'Lock / unlock selection', group: 'Selection' },
+  { chord: 'F', label: 'Frame selection', group: 'View' },
+  { chord: '0', label: 'Perspective camera', group: 'View' },
+  { chord: '1', label: 'Front view (orthographic)', group: 'View' },
+  { chord: '2', label: 'Side view (orthographic)', group: 'View' },
+  { chord: '3', label: 'Top view (orthographic)', group: 'View' },
+  { chord: 'X', label: 'Toggle x-ray', group: 'View' },
+  { chord: 'G', label: 'Toggle grid', group: 'View' },
+  { chord: 'Shift+/', label: 'This shortcut list', group: 'View' },
+];
+
+/** Mod is Cmd on macOS, Ctrl elsewhere. */
+export const formatChord = (chord: string, mac: boolean): string => chord.replace(/Mod/g, mac ? 'Cmd' : 'Ctrl');
