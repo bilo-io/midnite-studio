@@ -443,7 +443,12 @@ export async function ollamaPull(
   });
 }
 
-export type OllamaChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+export type OllamaChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  /** Base64 images (no `data:` prefix) for a vision-capable model — Media ▸ Models' reference picture. */
+  images?: string[];
+};
 
 /**
  * `POST /api/chat`, one-shot (`stream: false`) — Theme I's wand and Plan with
@@ -460,7 +465,14 @@ export type OllamaChatMessage = { role: 'system' | 'user' | 'assistant'; content
  * export here; there is just no NDJSON stream to interrupt mid-line.
  */
 export async function ollamaChat(
-  req: { model: string; messages: OllamaChatMessage[] },
+  req: {
+    model: string;
+    messages: OllamaChatMessage[];
+    /** `'json'` constrains decoding to valid JSON — Media ▸ Models' spec writer. */
+    format?: 'json';
+    /** Sampling options, e.g. `{ temperature: 0.2, num_ctx: 8192 }`. */
+    options?: Record<string, number>;
+  },
   opts: { baseUrl?: string; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<string> {
   const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
@@ -469,7 +481,13 @@ export async function ollamaChat(
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: req.model, messages: req.messages, stream: false }),
+      body: JSON.stringify({
+        model: req.model,
+        messages: req.messages,
+        stream: false,
+        ...(req.format ? { format: req.format } : {}),
+        ...(req.options ? { options: req.options } : {}),
+      }),
     },
     opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     opts.signal,

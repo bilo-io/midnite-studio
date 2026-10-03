@@ -335,6 +335,38 @@ describe('ollamaChat', () => {
     });
   });
 
+  it('forwards images, a JSON format constraint and sampling options', async () => {
+    let receivedBody: unknown;
+    const { server, origin } = await startThrowawayServer((req, res) => {
+      let raw = '';
+      req.on('data', (chunk) => (raw += chunk));
+      req.on('end', () => {
+        receivedBody = JSON.parse(raw);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: { role: 'assistant', content: '{}' } }));
+      });
+    });
+    activeServer = server;
+
+    await ollamaChat(
+      {
+        model: 'qwen2.5vl:7b',
+        messages: [{ role: 'user', content: 'what is this', images: ['AAAA'] }],
+        format: 'json',
+        options: { temperature: 0.2 },
+      },
+      { baseUrl: origin },
+    );
+
+    expect(receivedBody).toEqual({
+      model: 'qwen2.5vl:7b',
+      messages: [{ role: 'user', content: 'what is this', images: ['AAAA'] }],
+      stream: false,
+      format: 'json',
+      options: { temperature: 0.2 },
+    });
+  });
+
   it('throws when nothing is listening (daemon down)', async () => {
     await expect(
       ollamaChat(
