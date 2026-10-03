@@ -169,7 +169,7 @@ export function ThinkingPanel({ message }: { message: ChatMessage }) {
       className={`mb-1.5 mt-0.5 ${expanded ? 'thinking-ring rounded-xl' : ''}`}
       data-live={streaming}
     >
-      <div className="flex h-6 items-center gap-2">
+      <div className={`flex h-6 items-center gap-2 ${expanded ? 'pr-2.5' : ''}`}>
         {pill}
         <Metrics message={message} now={now} />
       </div>
