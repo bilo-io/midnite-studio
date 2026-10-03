@@ -12,7 +12,7 @@ import { usePlayer } from './player-store';
 import { PromptForm } from './prompt-form';
 import { initialPromptForm, promptFormReducer, toPrompt } from './prompt-form-state';
 import { SessionList } from './session-list';
-import { useAudioImport, useAudioPrefs, useAudioProviders, useAudioSessions } from './use-audio';
+import { useAudioEngine, useAudioImport, useAudioPrefs, useAudioProviders, useAudioSessions } from './use-audio';
 
 /** Where an Import lands when the repo has no audio project yet. */
 export const DEFAULT_AUDIO_PROJECT = 'imports';
@@ -51,6 +51,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
     project && projects.data?.some((p) => p.name === project) ? project : (projects.data?.[0]?.name ?? null);
   const sessions = useAudioSessions(repoId, activeProject);
   const providers = useAudioProviders();
+  const engine = useAudioEngine();
   const importer = useAudioImport(repoId);
   const exporter = useMediaExport();
   const hasTrack = usePlayer((s) => s.pos >= 0);
@@ -75,6 +76,16 @@ function AudioTabBody({ repoId }: { repoId: string }) {
     const target = activeProject ?? DEFAULT_AUDIO_PROJECT;
     importer.start.mutate(
       { project: target, prompt: checked.prompt },
+      { onSuccess: (result) => result.ok && setProject(target) },
+    );
+  };
+
+  const onGenerate = () => {
+    const checked = toPrompt(form);
+    if ('error' in checked) return;
+    const target = activeProject ?? DEFAULT_AUDIO_PROJECT;
+    importer.generate.mutate(
+      { project: target, prompt: checked.prompt, provider: form.provider },
       { onSuccess: (result) => result.ok && setProject(target) },
     );
   };
@@ -149,9 +160,14 @@ function AudioTabBody({ repoId }: { repoId: string }) {
               state={form}
               dispatch={dispatch}
               statuses={providers.data ?? []}
+              engine={engine.data}
               importing={importer.start.isPending}
+              generating={importer.generate.isPending}
+              progress={importer.pending}
               error={importer.lastError}
               onImport={onImport}
+              onGenerate={onGenerate}
+              onCancel={importer.cancel}
             />
           }
         />

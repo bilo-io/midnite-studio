@@ -43,3 +43,30 @@ describe('prompt form', () => {
     expect(insertLyricSection('a\n\n', 3, 'Bridge').text).toBe('a\n\n[Bridge]\n');
   });
 });
+
+describe('prompt form — local engine', () => {
+  it('clamps the duration when switching to the local provider but leaves other providers alone', () => {
+    const long = promptFormReducer(base(), { type: 'duration', value: 300 });
+    expect(promptFormReducer(long, { type: 'provider', value: 'musicgen' }).durationS).toBe(120);
+    expect(promptFormReducer(long, { type: 'provider', value: 'import' }).durationS).toBe(300);
+  });
+
+  it('carries an expanded caption and section arc into the prompt, and a hand edit drops the arc', () => {
+    let s = promptFormReducer(base(), { type: 'expanded', musicPrompt: 'dark synthwave, 100 bpm', sections: ['intro', 'peak'] });
+    expect(toPrompt(s)).toMatchObject({ prompt: { musicPrompt: 'dark synthwave, 100 bpm', sections: ['intro', 'peak'] } });
+    s = promptFormReducer(s, { type: 'caption', value: 'my own caption' });
+    expect(s.sections).toBeUndefined();
+    expect(toPrompt(s)).toMatchObject({ prompt: { musicPrompt: 'my own caption' } });
+    s = promptFormReducer(s, { type: 'clearCaption' });
+    expect(toPrompt(s)).toMatchObject({ prompt: { musicPrompt: undefined } });
+  });
+
+  it('treats a blank caption as no caption and resets it with the rest of the form', () => {
+    let s = promptFormReducer(base(), { type: 'caption', value: '   ' });
+    expect((toPrompt(s) as { prompt: { musicPrompt?: string } }).prompt.musicPrompt).toBeUndefined();
+    s = promptFormReducer(promptFormReducer(s, { type: 'expanded', musicPrompt: 'x', sections: ['a'] }), { type: 'reset' });
+    expect(s.musicPrompt).toBeUndefined();
+    expect(s.sections).toBeUndefined();
+  });
+});
+

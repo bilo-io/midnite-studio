@@ -14,6 +14,8 @@ let directory = '';
 const cancelled = new Set<string>();
 
 const runtime = createMusicRuntime({
+  // A lazy `require`, not an import: a missing native `onnxruntime-node` must fail soft (see `companion/tts.ts`).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   loadModule: async () => require('@huggingface/transformers') as typeof import('@huggingface/transformers'),
   get directory() {
     return directory;

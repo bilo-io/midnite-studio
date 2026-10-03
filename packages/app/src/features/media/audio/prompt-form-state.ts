@@ -1,4 +1,5 @@
 import {
+  AUDIO_LOCAL_MAX_DURATION_S,
   AUDIO_MAX_VARIANTS,
   AUDIO_STYLE_TAG_MAX,
   AUDIO_STYLE_TAGS_MAX,
@@ -23,6 +24,9 @@ export type PromptFormAction =
   | { type: 'duration'; value: number }
   | { type: 'count'; value: number }
   | { type: 'provider'; value: AudioProviderId }
+  | { type: 'caption'; value: string }
+  | { type: 'expanded'; musicPrompt: string; sections: string[] }
+  | { type: 'clearCaption' }
   | { type: 'reset' };
 
 export function initialPromptForm(defaults: {
@@ -72,9 +76,21 @@ export function promptFormReducer(state: PromptFormState, action: PromptFormActi
     case 'count':
       return { ...state, count: clampInt(action.value, 1, AUDIO_MAX_VARIANTS) };
     case 'provider':
-      return { ...state, provider: action.value };
+      // The local engine renders at most two minutes; keep the slider honest when switching to it.
+      return {
+        ...state,
+        provider: action.value,
+        durationS: action.value === 'musicgen' ? Math.min(state.durationS, AUDIO_LOCAL_MAX_DURATION_S) : state.durationS,
+      };
+    case 'caption':
+      // A hand edit replaces the whole expansion: per-section captions no longer describe it.
+      return { ...state, musicPrompt: action.value, sections: undefined };
+    case 'expanded':
+      return { ...state, musicPrompt: action.musicPrompt, sections: action.sections.length > 0 ? action.sections : undefined };
+    case 'clearCaption':
+      return { ...state, musicPrompt: undefined, sections: undefined };
     case 'reset':
-      return { ...state, title: '', style: [], lyrics: '', tagDraft: '' };
+      return { ...state, title: '', style: [], lyrics: '', tagDraft: '', musicPrompt: undefined, sections: undefined };
   }
 }
 
@@ -90,6 +106,8 @@ export function toPrompt(state: PromptFormState): { prompt: AudioPrompt } | { er
     instrumental: state.instrumental,
     durationS: state.durationS,
     count: state.count,
+    musicPrompt: state.musicPrompt?.trim() ? state.musicPrompt : undefined,
+    sections: state.sections,
   });
   if (parsed.success) return { prompt: parsed.data };
   const issue = parsed.error.issues[0]!;

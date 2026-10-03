@@ -133,17 +133,17 @@ describe('audio service — generating provider', () => {
 
   it('keeps variants that landed when the run is cancelled mid-way, and reports cancelled', async () => {
     let calls = 0;
-    let service!: ReturnType<typeof harness>['service'];
+    const ref: { service?: ReturnType<typeof harness>['service'] } = {};
     const engine: MusicEngine = {
       render: async () => {
         calls += 1;
-        if (calls === 2) service.cancel('gen-1');
+        if (calls === 2) ref.service?.cancel('gen-1');
         return { samples: new Float32Array(32000), sampleRate: 32000 };
       },
     };
     const h = harness({}, engine);
-    service = h.service;
-    const result = await service.generate(generateReq);
+    ref.service = h.service;
+    const result = await h.service.generate(generateReq);
 
     expect(result).toMatchObject({ ok: false, message: 'cancelled' });
     expect(h.events.at(-1)).toMatch(/^cancelled:1\/2/);
