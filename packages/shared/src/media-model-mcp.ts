@@ -11,12 +11,21 @@
  *
  * **Connecting a session of your own.** These are ordinary Midnite MCP tools:
  * enable Settings ▸ MCP, turn on "Let agents edit 3D models", then
- * `claude mcp add midnite-studio -- node <shim path from Settings ▸ MCP>`.
+ * `claude mcp add midnite -- node <shim path from Settings ▸ MCP>`.
  */
 import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelSpecSchema } from './media-model';
+
+/**
+ * The name Midnite Studio's MCP server registers under — what a client's config
+ * keys it by and what Claude Code prefixes every tool with (`mcp__midnite__<tool>`).
+ * One constant for the shim's `Server` and for every allowlist the app builds, so
+ * the two cannot drift apart (a tool allowlisted under another name is silently
+ * denied). Renamed from `midnite-studio` in the CLI/MCP rename.
+ */
+export const MCP_SERVER_NAME = 'midnite';
 
 /** Camera angles a preview can be rendered from. */
 export const MODEL_PREVIEW_VIEWS = ['front', 'side', 'top', 'iso'] as const;

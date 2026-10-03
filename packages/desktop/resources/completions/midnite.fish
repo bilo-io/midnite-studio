@@ -18,7 +18,7 @@ complete -c midnite -n __midnite_no_subcommand -a clone -d 'Clone repository fro
 complete -c midnite -n __midnite_no_subcommand -l version -d 'Print version'
 complete -c midnite -n __midnite_no_subcommand -l help -d 'Print help'
 
-# Bare `midnite-studio [path]` and `midnite open <path>` both complete directories.
+# Bare `midnite [path]` and `midnite open <path>` both complete directories.
 complete -c midnite -n __midnite_no_subcommand -a '(__fish_complete_directories)'
 complete -c midnite -n '__fish_seen_subcommand_from open' -a '(__fish_complete_directories)'
 # `clone <url>` has no completion source — there is no way to enumerate remote URLs.

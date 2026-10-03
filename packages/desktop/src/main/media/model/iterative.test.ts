@@ -247,14 +247,19 @@ describe('buildCliArgs', () => {
     const args = buildCliArgs(CLAUDE, SHIM, 'PROMPT', ['--model', 'opus'])!;
     expect(args.slice(0, 4)).toEqual(['-p', '--model', 'opus', 'PROMPT']);
     const config = JSON.parse(args[args.indexOf('--mcp-config') + 1]!) as { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> };
-    expect(Object.keys(config.mcpServers)).toEqual(['midnite-studio']);
-    expect(config.mcpServers['midnite-studio']).toEqual(SHIM);
+    expect(Object.keys(config.mcpServers)).toEqual(['midnite']);
+    expect(config.mcpServers['midnite']).toEqual(SHIM);
     expect(args).toContain('--strict-mcp-config');
     expect(args[args.indexOf('--tools') + 1]).toBe('');
     expect(args[args.indexOf('--permission-mode') + 1]).toBe('dontAsk');
     const allowed = args.slice(args.indexOf('--allowedTools') + 1);
     expect(allowed).toEqual(allowedClaudeTools());
-    expect(allowed).toEqual(MODEL_MCP_TOOL_IDS.map((id) => `mcp__midnite-studio__${id}`));
+    expect(allowed).toEqual(MODEL_MCP_TOOL_IDS.map((id) => `mcp__midnite__${id}`));
+    // Lockstep: Claude names a tool `mcp__<server>__<tool>`, so every allowlisted tool must carry
+    // the exact server name the config registers — and never the pre-rename one.
+    const server = Object.keys(config.mcpServers)[0]!;
+    expect(allowed.every((t) => t.startsWith(`mcp__${server}__model_`))).toBe(true);
+    expect(allowed.some((t) => t.includes('midnite-studio'))).toBe(false);
     // Variadic flags last, so they cannot swallow the prompt.
     expect(args.indexOf('PROMPT')).toBeLessThan(args.indexOf('--mcp-config'));
   });
@@ -262,9 +267,9 @@ describe('buildCliArgs', () => {
   it('configures Codex through -c overrides and refuses an agent that cannot attach MCP', () => {
     const args = buildCliArgs({ ...CLAUDE, id: 'codex', command: 'codex', headlessArgs: ['exec'] }, SHIM, 'PROMPT', [])!;
     expect(args[0]).toBe('exec');
-    expect(args).toContain('mcp_servers.midnite_studio.command="/App/Midnite"');
-    expect(args).toContain('mcp_servers.midnite_studio.args=["/App/mcp-shim.js", "--socket", "/tmp/r.sock"]');
-    expect(args).toContain('mcp_servers.midnite_studio.env={ ELECTRON_RUN_AS_NODE = "1" }');
+    expect(args).toContain('mcp_servers.midnite.command="/App/Midnite"');
+    expect(args).toContain('mcp_servers.midnite.args=["/App/mcp-shim.js", "--socket", "/tmp/r.sock"]');
+    expect(args).toContain('mcp_servers.midnite.env={ ELECTRON_RUN_AS_NODE = "1" }');
     expect(args.at(-1)).toBe('PROMPT');
     expect(buildCliArgs({ ...CLAUDE, id: 'cursor' }, SHIM, 'PROMPT', [])).toBeNull();
   });

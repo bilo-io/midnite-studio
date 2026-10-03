@@ -8,11 +8,11 @@ import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 
-/** What the command does from a shell — the three forms `resources/bin/midnite-studio --help` lists. */
+/** What the command does from a shell — the three forms `resources/bin/midnite --help` lists. */
 const USAGE: readonly { command: string; does: string }[] = [
-  { command: 'midnite-studio .', does: 'open the repository you are in' },
-  { command: 'midnite-studio open <path>', does: 'open a repository by path' },
-  { command: 'midnite-studio clone <url>', does: 'clone a repository and open it' },
+  { command: 'midnite .', does: 'open the repository you are in' },
+  { command: 'midnite open <path>', does: 'open a repository by path' },
+  { command: 'midnite clone <url>', does: 'clone a repository and open it' },
 ];
 
 /**
@@ -72,7 +72,7 @@ export function MidniteCliPage() {
     ? 'Available in the desktop app.'
     : status?.installed
       ? status.managed
-        ? undefined
+        ? (status.notice ?? undefined)
         : `Installed outside Midnite Studio (${status.path})`
       : rowStatus === 'missing'
         ? 'Not installed'
@@ -83,7 +83,7 @@ export function MidniteCliPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        <code className="font-mono text-foreground">midnite-studio</code> opens Midnite Studio from
+        <code className="font-mono text-foreground">midnite</code> opens Midnite Studio from
         any shell:
       </p>
       <ul className="flex flex-col gap-1.5 text-xs">

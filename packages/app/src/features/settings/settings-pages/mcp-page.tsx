@@ -91,7 +91,7 @@ export function McpSettingsPage() {
   const allowUi = status.data?.allowUi ?? false;
   const allowGateDecide = status.data?.allowGateDecide ?? false;
   const allowModels = status.data?.allowModels ?? false;
-  const shimCommand = status.data?.shimPath ? `claude mcp add midnite-studio -- node ${status.data.shimPath}` : null;
+  const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -141,6 +141,13 @@ export function McpSettingsPage() {
                   <LuCopy aria-hidden className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <p className="text-[11px] text-muted-foreground" data-testid="mcp-rename-note">
+                The server is now named <code className="font-mono">midnite</code> (it was{' '}
+                <code className="font-mono">midnite-studio</code>). A client already registered under the old
+                name keeps working, because the shim path is unchanged. To switch:{' '}
+                <code className="select-all font-mono">claude mcp remove midnite-studio &amp;&amp; claude mcp add midnite -- node &lt;shim&gt;</code>
+                . Allow-listed tools are named <code className="font-mono">mcp__midnite__*</code> after the switch.
+              </p>
               <p className="text-[11px] text-muted-foreground">
                 `codex` and `opencode` have their own MCP config formats — point them at the same socket
                 path above, through their own config.

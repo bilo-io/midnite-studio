@@ -3613,8 +3613,8 @@ export function buildMockBridge(data: MockFixtures) {
         ok: true,
         value: {
           installed: true,
-          path: '/usr/local/bin/midnite-studio',
-          target: '/usr/local/bin/midnite-studio',
+          path: '/usr/local/bin/midnite',
+          target: '/usr/local/bin/midnite',
           managed: true,
         },
       }),

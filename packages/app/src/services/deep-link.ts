@@ -9,7 +9,7 @@ import { useOpenRepo } from './queries';
 /**
  * Subscribes to `mstudio:protocol:deep-link` and enforces the consent gate
  * (Phase 33 Theme C, Decision 5): a repo already in `repos.json` opens
- * silently, because `midnite-studio .` has to stay one gesture, but any other
+ * silently, because `midnite .` has to stay one gesture, but any other
  * path is a *proposal* — main never opens it, and this hook is what actually
  * asks. A deep link is remote-triggerable (any web page can issue one), so
  * adding a repository or acting on a clone URL needs a human's click.

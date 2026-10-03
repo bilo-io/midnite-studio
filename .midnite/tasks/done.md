@@ -4,6 +4,15 @@
 ## 2026-10-03 — Ad hoc — agent install detection at startup and on every reload
 
 Main now probes which agent CLIs are installed right after `whenReady` (fire and forget, after the login-shell PATH is ready, never on the first-paint path) and force-re-probes, bypassing the 30 s TTL, on every renderer `did-finish-load` (Mod+R, Mod+Shift+R, new window). Results are pushed on `mstudio:agent:status` into ONE renderer zustand store (`features/agent/agent-probe-store.ts`) that `useAgents()` reads, so no consumer probes on its own. A distinct `checking` state (picker rows say "checking…", Agents cards say "Checking…") replaces silently assuming installed; a probe that errors or times out is `unknown` (fail-soft: nothing greyed, cards say "Unknown"). The Agents page re-probe button now calls `agent.recheck` (forced). Consumers on the store: `+` picker, title-bar primary agent, switcher overlay, terminal panel/header, Settings agent roster and primary picker, dashboard agent widgets, command handlers; roster-only readers (Sessions, Media Docs/Models/Video pickers, Loops, tasks, graph, palette) read the same hook. Startup cost: `startup-report --runs=5` ready-to-show 423 ms vs 418 ms on main, first-view-rendered 178 ms vs 184 ms (noise).
+## 2026-10-03 — Rename the MCP server and the CLI to `midnite` (ad hoc)
+
+The MCP server registers as `midnite` (was `midnite-studio`) and the CLI command is `midnite`; `midnite-studio` stays as a deprecated CLI alias for one release. The original midnite app also ships a `midnite` CLI, so the installer never overwrites a `midnite` it does not own. PR: see the pull request for `feature/rename-mcp-cli-midnite`.
+
+- [x] MCP: one `MCP_SERVER_NAME` constant (shared) feeds the shim's `Server` and every allowlist (`mcp__midnite__model_*`, Codex `mcp_servers.midnite.*`); Settings ▸ MCP shows `claude mcp add midnite` and the re-register line.
+- [x] CLI: bundled `bin/midnite` plus a `bin/midnite-studio` forwarding wrapper, completions renamed, `verify-dist`/`afterpack` updated.
+- [x] Installer: "owned" = symlink resolves into this bundle (same test for status, install, uninstall); foreign `midnite` (symlink or plain file) is left alone and only the alias is installed, with the reason returned in `CliStatusResponse.notice`; an old-name install migrates to `midnite` + alias.
+- [x] Tests: allowlist lockstep, own/foreign symlink, foreign plain binary, old-name migration, alias install, uninstall.
+- Left as `midnite-studio`: the app name, the `midnite-studio://` protocol, release tags, repo, userData, package scopes.
 
 ## 2026-10-03 — Phase 99 Theme E follow-up — local music generation (ad hoc)
 
