@@ -174,9 +174,16 @@ export async function snapshotTree(dir: string): Promise<GitOpResult<string>> {
     const realIndex = resolve(dir, located.stdout.trim());
     const tempIndex = join(tmpdir(), `midnite-chat-index-${randomUUID()}`);
     try {
-      await copyFile(realIndex, tempIndex).catch(() => undefined);
       const env = { GIT_INDEX_FILE: tempIndex };
-      const added = await execGit(dir, ['add', '-A'], { write: true, env });
+      await copyFile(realIndex, tempIndex).catch(() => undefined);
+      let added = await execGit(dir, ['add', '-A'], { write: true, env });
+      if (added.exitCode !== 0) {
+        // A copied index can be unreadable on its own (a split index keeps its
+        // shared half beside the original). Start from HEAD instead: slower, same tree.
+        await rm(tempIndex, { force: true });
+        await execGit(dir, ['read-tree', 'HEAD'], { write: true, env });
+        added = await execGit(dir, ['add', '-A'], { write: true, env });
+      }
       if (added.exitCode !== 0) return failure(gitErrorLine(added.stderr) || 'Could not read the worktree.', added.stderr);
       const tree = await execGit(dir, ['write-tree'], { write: true, env });
       if (tree.exitCode !== 0) return failure(gitErrorLine(tree.stderr) || 'Could not read the worktree.', tree.stderr);
