@@ -77,7 +77,9 @@ export function WidgetPicker({
                           {spec.description}
                         </span>
                       </span>
-                      {added ? <LuCheck aria-label="On this dashboard" className="mt-0.5 size-3.5" /> : null}
+                      {added ? (
+                        <LuCheck aria-label="On this dashboard" className="mt-0.5 size-3.5" />
+                      ) : null}
                     </button>
                   );
                 })}

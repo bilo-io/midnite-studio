@@ -332,7 +332,8 @@ export const useDashboardStore = create<DashboardState>()(
       tabs: DEFAULT_TABS,
       activeId: GIT_DASHBOARD_ID,
 
-      setActive: (id) => set((state) => (state.tabs.some((t) => t.id === id) ? { activeId: id } : state)),
+      setActive: (id) =>
+        set((state) => (state.tabs.some((t) => t.id === id) ? { activeId: id } : state)),
 
       addDashboard: (name) => {
         if (get().tabs.length >= MAX_DASHBOARDS) return null;
@@ -365,14 +366,20 @@ export const useDashboardStore = create<DashboardState>()(
       renameDashboard: (id, name) => {
         const trimmed = name.trim().slice(0, MAX_NAME_LEN);
         if (!trimmed) return;
-        set((state) => ({ tabs: state.tabs.map((t) => (t.id === id ? { ...t, name: trimmed } : t)) }));
+        set((state) => ({
+          tabs: state.tabs.map((t) => (t.id === id ? { ...t, name: trimmed } : t)),
+        }));
       },
 
       togglePin: (id) =>
         set((state) =>
           id === GIT_DASHBOARD_ID
             ? state
-            : { tabs: canonicalizeTabs(state.tabs.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t))) },
+            : {
+                tabs: canonicalizeTabs(
+                  state.tabs.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)),
+                ),
+              },
         ),
 
       reorderDashboards: (orderedNonGitIds) =>

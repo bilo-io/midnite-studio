@@ -204,8 +204,15 @@ function SortableTab({
   onTogglePin: () => void;
   onClose: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: tab.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: tab.id });
 
   return (
     <div
@@ -257,7 +264,9 @@ function SortableTab({
           onClick={onClose}
           aria-label={`Close ${tab.name}`}
           className={`flex size-4 shrink-0 items-center justify-center rounded-sm transition-colors ${
-            active ? 'hover:bg-primary-foreground/20' : 'hover:bg-destructive/15 hover:text-destructive'
+            active
+              ? 'hover:bg-primary-foreground/20'
+              : 'hover:bg-destructive/15 hover:text-destructive'
           }`}
         >
           <LuX aria-hidden className="size-3" />

@@ -31,11 +31,7 @@ export const AGENT_WIDGET_IDS = [
 /** Repository-independent utility cards, ported from midnite's catalogue. */
 export const GENERAL_WIDGET_IDS = ['clock', 'date', 'scratchpad'] as const;
 
-export const WIDGET_IDS = [
-  ...GIT_WIDGET_IDS,
-  ...AGENT_WIDGET_IDS,
-  ...GENERAL_WIDGET_IDS,
-] as const;
+export const WIDGET_IDS = [...GIT_WIDGET_IDS, ...AGENT_WIDGET_IDS, ...GENERAL_WIDGET_IDS] as const;
 
 export type WidgetId = (typeof WIDGET_IDS)[number];
 

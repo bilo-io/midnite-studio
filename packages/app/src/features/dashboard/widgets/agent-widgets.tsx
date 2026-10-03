@@ -187,7 +187,9 @@ export function AgentActivityWidget() {
       <ul className="flex flex-col gap-2">
         {rows.map((row) => {
           const label =
-            row.agentId === SHELL_KEY ? 'Terminal' : (agentLabelFor(row.agentId, agents) ?? row.agentId);
+            row.agentId === SHELL_KEY
+              ? 'Terminal'
+              : (agentLabelFor(row.agentId, agents) ?? row.agentId);
           const total = row.live + row.closed;
           return (
             <li key={row.agentId} className="text-xs">
@@ -198,7 +200,10 @@ export function AgentActivityWidget() {
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded bg-muted">
-                <div className="h-full rounded bg-primary" style={{ width: `${(total / max) * 100}%` }} />
+                <div
+                  className="h-full rounded bg-primary"
+                  style={{ width: `${(total / max) * 100}%` }}
+                />
               </div>
             </li>
           );
