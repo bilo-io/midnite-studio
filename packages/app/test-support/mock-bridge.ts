@@ -992,6 +992,107 @@ export type MockFixtures = {
   };
 };
 
+/**
+ * The Models library tree, derived from the mock's flat `model:<project>` file maps: a top-level key is a
+ * group; a file under `<folder>/` belongs to that model folder (nested groups: any directory without a
+ * 3D file); loose files are legacy sets.
+ */
+function mockModelTree(files: Record<string, Record<string, string>>): unknown[] {
+  const names = (paths: string[]) => paths.map((name) => ({ name, size: 1, mtimeMs: 1 }));
+  const manifestOf = (text: string | undefined): unknown => {
+    if (!text) return null;
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      return parsed.version === 1 && parsed.agent && parsed.details ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  const has3d = (list: string[]) => list.some((n) => /\.(obj|fbx|glb)$/.test(n));
+  return Object.keys(files)
+    .filter((key) => key.startsWith('model:'))
+    .sort()
+    .map((key) => {
+      const project = key.slice('model:'.length);
+      const entries = Object.entries(files[key] ?? {});
+      const build = (prefix: string, depth: number): unknown[] => {
+        const under = entries.filter(([path]) => path.startsWith(prefix));
+        const direct = under.filter(([path]) => !path.slice(prefix.length).includes('/'));
+        const dirs = [...new Set(under.map(([path]) => path.slice(prefix.length)).filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0]!))];
+        const out: unknown[] = dirs.map((dir) => {
+          const dirPrefix = `${prefix}${dir}/`;
+          const inside = entries.filter(([path]) => path.startsWith(dirPrefix));
+          const directNames = inside.filter(([path]) => !path.slice(dirPrefix.length).includes('/')).map(([path]) => path.slice(dirPrefix.length));
+          const path = `${project}/${dirPrefix}`.replace(/\/$/, '');
+          if (has3d(directNames) || directNames.includes('model.json')) {
+            return {
+              kind: 'model',
+              name: dir,
+              path,
+              manifest: manifestOf(files[key]?.[`${dirPrefix}model.json`]),
+              files: names(directNames),
+              legacy: false,
+              mtimeMs: 1,
+            };
+          }
+          return { kind: 'group', name: dir, path, children: build(dirPrefix, depth + 1), mtimeMs: 1 };
+        });
+        const stems = new Map<string, string[]>();
+        for (const [path] of direct) {
+          const name = path.slice(prefix.length);
+          const stem = name.replace(/\.ref\.[^./]+$/, '').replace(/\.[^./]+$/, '');
+          stems.set(stem, [...(stems.get(stem) ?? []), name]);
+        }
+        for (const [stem, list] of stems) {
+          if (!has3d(list)) continue;
+          out.push({ kind: 'model', name: stem, path: `${project}/${prefix}${stem}`.replace(/\/$/, ''), manifest: null, files: names(list), legacy: true, mtimeMs: 1 });
+        }
+        return out;
+      };
+      return { kind: 'group', name: project, path: project, children: build('', 1), mtimeMs: 1 };
+    });
+}
+
+/** Moves (`to` set), copies (`copy`) or removes (`to === null`) a library path in the mock's file maps. */
+function mockMoveModelPath(
+  files: Record<string, Record<string, string>>,
+  from: string,
+  to: string | null,
+  copy = false,
+): Record<string, Record<string, string>> {
+  const next = { ...files };
+  const [fromProject, ...fromRest] = from.split('/');
+  const fromKey = `model:${fromProject}`;
+  const prefix = fromRest.join('/');
+  const toParts = to === null ? null : to.split('/');
+  if (prefix === '') {
+    // A top-level group.
+    if (to === null) {
+      delete next[fromKey];
+    } else {
+      next[`model:${toParts![0]}`] = files[fromKey] ?? {};
+      if (!copy) delete next[fromKey];
+    }
+    return next;
+  }
+  const source = files[fromKey] ?? {};
+  const kept: Record<string, string> = {};
+  const moved: Record<string, string> = {};
+  for (const [path, content] of Object.entries(source)) {
+    if (path === prefix || path.startsWith(`${prefix}/`)) moved[path] = content;
+    else kept[path] = content;
+  }
+  next[fromKey] = copy ? source : kept;
+  if (toParts) {
+    const toKey = `model:${toParts[0]}`;
+    const toPrefix = toParts.slice(1).join('/');
+    const target = { ...(next[toKey] ?? {}) };
+    for (const [path, content] of Object.entries(moved)) target[toPrefix + path.slice(prefix.length)] = content;
+    next[toKey] = target;
+  }
+  return next;
+}
+
 /*
   The packaged app ships macOS-only (`electron-builder.yml`: `mac` only,
   `moon run desktop:dist` produces an arm64 dmg/zip and nothing else) — so
@@ -3323,7 +3424,7 @@ export function buildMockBridge(data: MockFixtures) {
         generate: async (req: { project: string; generationId: string; prompt: string }) => {
           const key = `model:${req.project}`;
           const stem = `${req.generationId}`;
-          const files = [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`];
+          const files = [`${stem}/${stem}.json`, `${stem}/${stem}.mtl`, `${stem}/${stem}.obj`, `${stem}/${stem}.fbx`, `${stem}/model.json`];
           mediaFiles = {
             ...mediaFiles,
             [key]: {
@@ -3333,7 +3434,36 @@ export function buildMockBridge(data: MockFixtures) {
               ),
             },
           };
-          return { ok: true as const, value: { files, primary: `${stem}.obj` } };
+          return { ok: true as const, value: { files, primary: `${stem}/${stem}.obj` } };
+        },
+        library: {
+          list: async () => ({ ok: true as const, value: { tree: mockModelTree(mediaFiles) } }),
+          migrate: async () => ({ ok: true as const, value: { migrated: 0, skipped: 0 } }),
+          newGroup: async (req: { parent: string; name: string }) => {
+            if (req.parent === '') mediaFiles = { ...mediaFiles, [`model:${req.name}`]: {} };
+            return { ok: true as const, value: { path: req.parent ? `${req.parent}/${req.name}` : req.name } };
+          },
+          rename: async (req: { path: string; to: string }) => {
+            const parent = req.path.split('/').slice(0, -1).join('/');
+            const to = parent ? `${parent}/${req.to}` : req.to;
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, to);
+            return { ok: true as const, value: { path: to } };
+          },
+          move: async (req: { path: string; toGroup: string }) => {
+            const base = req.path.split('/').pop() ?? req.path;
+            const to = req.toGroup ? `${req.toGroup}/${base}` : base;
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, to);
+            return { ok: true as const, value: { path: to } };
+          },
+          delete: async (req: { path: string }) => {
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, null);
+            return { ok: true as const };
+          },
+          duplicate: async (req: { path: string }) => {
+            const to = `${req.path} copy`;
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, to, true);
+            return { ok: true as const, value: { path: to } };
+          },
         },
         cancel: async () => ({ ok: true as const }),
         export: async (req: { path: string; format: string }) => ({

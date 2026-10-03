@@ -151,8 +151,9 @@ export function ModelExplorer({
           : `Moves the model folder and its ${plural(files, 'file')} (exports, design and model.json) to the Trash.`,
       confirmLabel: 'Move to Trash',
       danger: true,
-      blastRadius: { count: files, sample: names.slice(0, 5) },
+      blastRadius: { count: files, sample: [] },
       blastRadiusKind: 'files',
+      warnings: [`${names.slice(0, 5).join(', ')}${names.length > 5 ? ` and ${names.length - 5} more` : ''} will be removed.`],
       onConfirm: () =>
         actions.remove.mutate(
           { path: node.path },
@@ -168,7 +169,7 @@ export function ModelExplorer({
       body: `Moves ${fileName} from "${model.name}" to the Trash.`,
       confirmLabel: 'Move to Trash',
       danger: true,
-      blastRadius: { count: 1, sample: [fileName] },
+      blastRadius: { count: 1, sample: [] },
       blastRadiusKind: 'files',
       onConfirm: () => mediaMutations.removeFile.mutate({ project, path: rest }),
     });
@@ -320,10 +321,15 @@ export function ModelExplorer({
           <Tooltip label={agentTooltip(model)} side="right">
             <button
               type="button"
-              onClick={() => onSelect({ kind: 'model', path: model.path })}
+              onClick={() => {
+                setExpandedModels((current) => new Set(current).add(model.path));
+                onSelect({ kind: 'model', path: model.path });
+              }}
               className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left"
             >
-              <Mark aria-hidden className="h-3.5 w-3.5 shrink-0" data-testid="provider-icon" data-provider={model.manifest?.agent.provider ?? 'unknown'} />
+              <span className="inline-flex shrink-0" data-testid="provider-icon" data-provider={model.manifest?.agent.provider ?? 'unknown'}>
+                <Mark aria-hidden className="h-3.5 w-3.5" />
+              </span>
               <span className="truncate">{model.name}</span>
             </button>
           </Tooltip>
