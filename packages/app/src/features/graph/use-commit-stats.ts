@@ -44,7 +44,7 @@ export function useCommitStats(
         const api = bridge();
         if (!api || repoId === null) return {};
         try {
-          return (await api.commitStats({ repoId, shas })).stats;
+          return (await api.status.commitStats({ repoId, shas })).stats;
         } catch {
           return {};
         }
