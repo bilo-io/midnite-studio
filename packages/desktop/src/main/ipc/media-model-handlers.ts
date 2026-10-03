@@ -85,6 +85,18 @@ export function registerMediaModelHandlers(): void {
     ({ generationId }) => service.cancel(generationId),
     (issue) => failure(issue),
   );
+  handle(
+    CHANNELS.mediaModelSaveEdit,
+    schemas.MediaModelSaveEditRequest,
+    async (req) => {
+      try {
+        return await service.saveEdit(req);
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : String(error));
+      }
+    },
+    (issue) => failure(issue),
+  );
   handleFromSender(
     CHANNELS.mediaModelExport,
     schemas.MediaModelExportRequest,

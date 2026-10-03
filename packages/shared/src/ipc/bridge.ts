@@ -1149,6 +1149,9 @@ export type MidniteStudioBridge = {
       export: (
         req: In<typeof S.MediaModelExportRequest>,
       ) => Promise<z.infer<typeof S.MediaModelExportResponse>>;
+      saveEdit: (
+        req: In<typeof S.MediaModelSaveEditRequest>,
+      ) => Promise<z.infer<typeof S.MediaModelSaveEditResponse>>;
       onProgress: (
         handler: (event: z.infer<typeof S.MediaModelProgressPayload>) => void,
       ) => Unsubscribe;

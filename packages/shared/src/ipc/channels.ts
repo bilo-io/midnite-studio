@@ -909,6 +909,7 @@ export const CHANNELS = {
   mediaModelGenerate: 'mstudio:media:model-generate',
   mediaModelCancel: 'mstudio:media:model-cancel',
   mediaModelExport: 'mstudio:media:model-export',
+  mediaModelSaveEdit: 'mstudio:media:model-save-edit',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */

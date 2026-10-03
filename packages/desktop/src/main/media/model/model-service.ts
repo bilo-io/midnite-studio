@@ -206,11 +206,13 @@ export function createModelService(deps: ModelServiceDeps) {
     project: string;
     path: string;
     format: ModelExportFormat;
+    /** An edited design that overrides the saved sidecar's. */
+    spec?: ModelSpec | undefined;
   }): Promise<GitOpResult<{ data: Buffer; fileName: string; extras: { fileName: string; data: Buffer }[] }>> {
     const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
     const stem = (req.path.split('/').pop() ?? 'model').replace(/\.[^.]+$/, '');
-    const sidecar = await deps.readBytes({ ...scope, path: modelSidecarPath(req.path) });
-    const parsed = sidecar.ok ? parseModelSidecar(sidecar.value.toString('utf8')) : null;
+    const sidecar = req.spec ? null : await deps.readBytes({ ...scope, path: modelSidecarPath(req.path) });
+    const parsed = req.spec ? { spec: req.spec } : sidecar?.ok ? parseModelSidecar(sidecar.value.toString('utf8')) : null;
     if (parsed) {
       // An .obj names its .mtl, so the materials travel with it.
       const extras = req.format === 'obj' ? [{ fileName: `${stem}.mtl`, data: Buffer.from(writeMtl(buildScene(parsed.spec)), 'utf8') }] : [];
@@ -229,7 +231,41 @@ export function createModelService(deps: ModelServiceDeps) {
     return failure(`This model has no saved design to convert, so it can only be saved as .${modelFileExtension(req.path) ?? 'obj'}.`);
   }
 
-  return { generate, cancel, exportBytes };
+  /**
+   * Persist an edited design in place: the sidecar keeps its prompt and engine
+   * and takes the new spec; the obj/mtl/fbx trio is rebuilt under the same
+   * names so the explorer and any other tool see the edit.
+   */
+  async function saveEdit(req: {
+    repoId: string;
+    project: string;
+    path: string;
+    spec: ModelSpec;
+  }): Promise<GitOpResult<{ files: string[] }>> {
+    const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
+    const stem = req.path.replace(/\.[^./]+$/, '');
+    const base = stem.split('/').pop() ?? stem;
+    const existing = await deps.readBytes({ ...scope, path: `${stem}.json` });
+    const previous = existing.ok ? parseModelSidecar(existing.value.toString('utf8')) : null;
+    if (!previous) return failure('This model has no saved design to edit.');
+    const parts = buildScene(req.spec);
+    const sidecar: ModelSidecar = { ...previous, spec: req.spec };
+    const outputs: [string, Buffer][] = [
+      [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
+      [`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')],
+      [`${stem}.obj`, Buffer.from(writeObj(parts, `${base}.mtl`, req.spec.name), 'utf8')],
+      [`${stem}.fbx`, writeFbxBinary(parts)],
+    ];
+    const files: string[] = [];
+    for (const [path, data] of outputs) {
+      const wrote = await deps.writeBytes({ ...scope, path, data });
+      if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
+      files.push(path);
+    }
+    return ok({ files });
+  }
+
+  return { generate, cancel, exportBytes, saveEdit };
 }
 
 export type ModelService = ReturnType<typeof createModelService>;

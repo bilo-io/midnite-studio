@@ -204,6 +204,7 @@ import {
   ModelGenerateRequestSchema,
   ModelGenerateResultSchema,
   ModelProvidersSchema,
+  ModelSaveEditRequestSchema,
 } from '../media-model';
 import {
   VideoProjectSchema,
@@ -3094,6 +3095,9 @@ export const MediaModelCancelResponse = GitOpResultSchema;
 /** Native save dialog → one of the two formats; a dismissed dialog answers `cancelled`. */
 export const MediaModelExportRequest = ModelExportRequestSchema;
 export const MediaModelExportResponse = GitOpResultOf(z.object({ dest: z.string() }));
+/** Rewrites the sidecar spec and the obj/mtl/fbx trio from an edited design. */
+export const MediaModelSaveEditRequest = ModelSaveEditRequestSchema;
+export const MediaModelSaveEditResponse = GitOpResultOf(z.object({ files: z.array(z.string()) }));
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });

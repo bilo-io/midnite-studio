@@ -264,5 +264,19 @@ export const ModelExportRequestSchema = z.object({
   path: z.string().min(1).max(512),
   format: ModelExportFormatSchema,
   defaultDir: z.string().min(1).optional(),
+  /** The edited design to export instead of the saved sidecar's — unsaved edits export too. */
+  spec: ModelSpecSchema.optional(),
 });
 export type ModelExportRequest = z.infer<typeof ModelExportRequestSchema>;
+
+/**
+ * Persist an edited design: rewrites the sidecar's spec and re-renders the
+ * `.obj`/`.mtl`/`.fbx` trio beside it under the same names.
+ */
+export const ModelSaveEditRequestSchema = z.object({
+  repoId: z.string().min(1),
+  project: MediaProjectNameSchema,
+  path: z.string().min(1).max(512),
+  spec: ModelSpecSchema,
+});
+export type ModelSaveEditRequest = z.infer<typeof ModelSaveEditRequestSchema>;

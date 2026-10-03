@@ -1,5 +1,6 @@
 import type { GitOpResult, ModelGenerateProgressEvent, ModelGenerateRequest } from '@midnite/studio-shared';
 import { failure, ok } from '@midnite/studio-shared';
+import { ModelSpecSchema } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createDescribeImage, createLlmCall, discoverVisionModels, probeProviders, type OllamaSeam } from './engines';
@@ -162,6 +163,15 @@ describe('model service', () => {
       expect(fbx).toMatchObject({ ok: true, value: { fileName: 'red-mug-20261003-141502.fbx', extras: [] } });
     });
 
+    it('exports unsaved edits instead of the saved design', async () => {
+      const { service } = harness([GOOD]);
+      await service.generate(request());
+      const edited = ModelSpecSchema.parse({ name: 'edited', parts: [{ name: 'only', shape: 'sphere', radius: 2 }] });
+      const obj = await service.exportBytes({ repoId: 'r1', project: 'mugs', path: 'red-mug-20261003-141502.obj', format: 'obj', spec: edited });
+      expect(obj.ok && obj.value.data.toString()).toContain('o only');
+      expect(obj.ok && obj.value.data.toString()).not.toContain('o body');
+    });
+
     it('copies a hand-added file in its own format and refuses a conversion it cannot do', async () => {
       const { service, written } = harness([]);
       written.set('stray.obj', Buffer.from('v 0 0 0\n'));
@@ -174,6 +184,44 @@ describe('model service', () => {
         message: expect.stringContaining('no saved design'),
       });
     });
+  });
+});
+
+describe('save edit', () => {
+  const edited = ModelSpecSchema.parse({ name: 'Red Mug', parts: [{ name: 'lid', shape: 'cylinder', radiusTop: 0.04, radiusBottom: 0.04, height: 0.01, color: '#112233' }] });
+
+  it('rewrites the sidecar spec and the whole trio under the same names, keeping the prompt', async () => {
+    const { service, written } = harness([GOOD]);
+    const made = await service.generate(request());
+    const stem = made.ok ? made.value.primary.replace(/\.obj$/, '') : '';
+    const result = await service.saveEdit({ repoId: 'r1', project: 'mugs', path: `${stem}.fbx`, spec: edited });
+    expect(result).toEqual({ ok: true, value: { files: [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`] } });
+    const sidecar = JSON.parse(written.get(`${stem}.json`)!.toString());
+    expect(sidecar.prompt).toBe('a red mug');
+    expect(sidecar.spec.parts).toHaveLength(1);
+    expect(written.get(`${stem}.obj`)!.toString()).toContain('o lid');
+    expect(written.get(`${stem}.obj`)!.toString()).toContain(`mtllib ${stem}.mtl`);
+    expect(written.get(`${stem}.mtl`)!.toString()).toContain('Kd 0.066667 0.133333 0.2');
+  });
+
+  it('refuses a file with no saved design', async () => {
+    const { service, written } = harness([]);
+    written.set('stray.obj', Buffer.from('v 0 0 0'));
+    expect(await service.saveEdit({ repoId: 'r1', project: 'p', path: 'stray.obj', spec: edited })).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('no saved design'),
+    });
+  });
+
+  it('reports a write failure', async () => {
+    const { service } = harness([GOOD]);
+    const made = await service.generate(request());
+    const stem = made.ok ? made.value.primary.replace(/\.obj$/, '') : '';
+    const failing = harness([], {
+      readBytes: async () => ok(Buffer.from(JSON.stringify({ version: 1, name: stem, prompt: '', engine: 'x', spec: edited, createdAt: 'x' }))),
+      writeBytes: async () => failure('Path is not allowed.'),
+    });
+    expect(await failing.service.saveEdit({ repoId: 'r1', project: 'mugs', path: `${stem}.obj`, spec: edited })).toMatchObject({ ok: false, message: 'Path is not allowed.' });
   });
 });
 

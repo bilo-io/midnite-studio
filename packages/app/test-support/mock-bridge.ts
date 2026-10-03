@@ -3148,6 +3148,21 @@ export function buildMockBridge(data: MockFixtures) {
           ok: true as const,
           value: { dest: `/tmp/${req.path.replace(/\.[^.]+$/, '')}.${req.format}` },
         }),
+        saveEdit: async (req: { project: string; path: string; spec: unknown }) => {
+          const key = `model:${req.project}`;
+          const sidecarPath = req.path.replace(/\.[^.]+$/, '.json');
+          let previous: Record<string, unknown> = {};
+          try {
+            previous = JSON.parse(mediaFiles[key]?.[sidecarPath] ?? '{}') as Record<string, unknown>;
+          } catch {
+            previous = {};
+          }
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), [sidecarPath]: JSON.stringify({ ...previous, spec: req.spec }) },
+          };
+          return { ok: true as const, value: { files: [sidecarPath] } };
+        },
         onProgress: unsubscribe,
       },
       reveal: async () => ({ ok: true as const }),

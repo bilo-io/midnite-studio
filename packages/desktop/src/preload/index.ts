@@ -559,6 +559,7 @@ const bridge: Pick<
       generate: (req) => call(CHANNELS.mediaModelGenerate, req),
       cancel: (req) => call(CHANNELS.mediaModelCancel, req),
       export: (req) => call(CHANNELS.mediaModelExport, req),
+      saveEdit: (req) => call(CHANNELS.mediaModelSaveEdit, req),
       onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelProgress, handler),
     },
     reveal: (req) => call(CHANNELS.mediaReveal, req),

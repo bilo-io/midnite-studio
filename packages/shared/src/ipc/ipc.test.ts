@@ -1864,6 +1864,7 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaModelGenerate: ['MediaModelGenerateRequest', 'MediaModelGenerateResponse'],
       mediaModelCancel: ['MediaModelCancelRequest', 'MediaModelCancelResponse'],
       mediaModelExport: ['MediaModelExportRequest', 'MediaModelExportResponse'],
+      mediaModelSaveEdit: ['MediaModelSaveEditRequest', 'MediaModelSaveEditResponse'],
       mediaModelProgress: ['MediaModelProgressPayload'],
       mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
       mediaExport: ['MediaExportRequest', 'MediaExportResponse'],
