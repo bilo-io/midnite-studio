@@ -20,11 +20,12 @@ export const CHAT_ENGINE_OLLAMA = 'ollama';
 /**
  * What a turn is allowed to do.
  *
- * - `ask` — read-only. The agent runs in the repo itself with the CLI's own
- *   read-only/plan switch, because nothing it does can need reviewing.
- * - `edit` — the agent runs in a throwaway snapshot of the repo; whatever it
- *   changes comes back as a reviewable change set and never touches the real
- *   working tree until the user accepts it.
+ * - `ask` — read-only. The agent runs with the CLI's own read-only/plan switch,
+ *   in the chat's worktree once it has one and in the repo itself before that,
+ *   because nothing it does can need reviewing.
+ * - `edit` — the agent runs in the chat's own linked worktree, on its own
+ *   branch; whatever each turn changes comes back as a reviewable change set
+ *   and never touches the user's checkout until they accept it.
  */
 export const ChatModeSchema = z.enum(['ask', 'edit']);
 export type ChatMode = z.infer<typeof ChatModeSchema>;
@@ -43,7 +44,7 @@ export type ChatHunkStatus = z.infer<typeof ChatHunkStatusSchema>;
 /**
  * `partial` is derived (some hunks accepted, some rejected or still pending);
  * `conflict` is set when applying a decision failed because the working tree
- * moved on since the snapshot.
+ * moved on since the agent's turn.
  */
 export const ChatChangeStatusSchema = z.enum(['pending', 'accepted', 'rejected', 'partial', 'conflict']);
 export type ChatChangeStatus = z.infer<typeof ChatChangeStatusSchema>;
@@ -158,6 +159,19 @@ export const ChatEngineSessionSchema = z.object({
 });
 export type ChatEngineSession = z.infer<typeof ChatEngineSessionSchema>;
 
+/**
+ * A chat's own linked worktree: created on its first editing turn (on a new
+ * branch from the repo's HEAD, beside the repo per `siblingWorktreePath`) and
+ * kept for the life of the chat, so the agent's work is an ordinary branch.
+ */
+export const ChatWorktreeSchema = z.object({
+  path: z.string().min(1),
+  branch: z.string().min(1),
+  /** The checkout it was branched from — a repo change on the chat retires it. */
+  repoPath: z.string().min(1),
+});
+export type ChatWorktree = z.infer<typeof ChatWorktreeSchema>;
+
 export const ChatSummarySchema = z.object({
   id: z.string().min(1),
   title: z.string(),
@@ -175,6 +189,8 @@ export const ChatSummarySchema = z.object({
   running: z.boolean(),
   /** A change set is waiting on the user. */
   pendingChanges: z.boolean(),
+  /** The chat's worktree, once an editing turn has made one. Absent on older chats. */
+  worktree: ChatWorktreeSchema.nullable().optional(),
 });
 export type ChatSummary = z.infer<typeof ChatSummarySchema>;
 
@@ -235,6 +251,23 @@ export function chatTitleFromText(text: string): string {
     .find((l) => l.length > 0);
   if (!line) return 'New chat';
   return line.length > 48 ? `${line.slice(0, 47).trimEnd()}…` : line;
+}
+
+/**
+ * A chat worktree's branch: `chat/<title slug>-<first 6 of the id>`. The slug
+ * makes it recognisable in the graph; the id keeps two chats with one title apart.
+ */
+export function chatWorktreeBranch(title: string, chatId: string): string {
+  const slug = title
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+    .replace(/-+$/g, '');
+  const id = chatId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toLowerCase() || 'chat';
+  return `chat/${slug && slug !== 'new-chat' ? `${slug}-` : ''}${id}`;
 }
 
 export const CHAT_DATE_BUCKETS = ['today', 'week', 'month', 'older'] as const;

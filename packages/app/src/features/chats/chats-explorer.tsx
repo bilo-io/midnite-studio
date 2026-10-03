@@ -134,7 +134,14 @@ export function ChatsExplorer({
       blastRadius: null,
       warnings: [
         'The conversation is deleted from disk. This cannot be undone.',
-        ...(chat.pendingChanges ? ['Changes from this chat that you have not accepted will be lost.'] : []),
+        ...(chat.worktree
+          ? [
+              `Its worktree ${chat.worktree.path} is removed, with any edits there you have not accepted or committed.`,
+              `Its branch ${chat.worktree.branch} is deleted only if it has no commits of its own — otherwise it is kept.`,
+            ]
+          : chat.pendingChanges
+            ? ['Changes from this chat that you have not accepted will be lost.']
+            : []),
         ...(chat.running ? ['It is still answering — that will be stopped.'] : []),
       ],
       onConfirm: () => onDelete(chat),

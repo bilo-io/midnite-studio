@@ -241,7 +241,7 @@ export function RefBadge({
   // hover stories (the chip's tooltip names the ref, the avatar's names the
   // session), and nesting one inside the other would fight over the pointer.
   const avatar = agentSession ? (
-    <RefAgentAvatar session={agentSession.session} agentId={agentSession.agentId} />
+    <RefAgentAvatar session={agentSession.session} chat={agentSession.chat} agentId={agentSession.agentId} />
   ) : null;
 
   // Portalled past the cell's `overflow-hidden` and the row's own

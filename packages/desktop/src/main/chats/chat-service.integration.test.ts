@@ -7,26 +7,29 @@ import { TempRepo } from '@midnite/studio-git-engine';
 import type { AgentDefinition, Chat, ChatEvent } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createChatService } from './chat-service';
+import { createChatService, type ChatService } from './chat-service';
 import { createMemoryChatStore } from './chat-store';
 
 /**
  * End to end with a real CLI process and a real repo: a fake `claude` shell
  * script that streams stream-json, edits files in its working directory and
  * exits. Proves the property the whole feature rests on — the agent's edits
- * land in a throwaway copy, the user's working tree is untouched until accept,
- * and an accept applies exactly what was accepted.
+ * land in the chat's own linked worktree on its own branch, the user's working
+ * tree is untouched until accept, and an accept applies exactly what was
+ * accepted.
  */
 describe('chats against a fake CLI and a real repo', () => {
   let repo: TempRepo;
   let scratch: string;
   let cli: string;
+  let services: ChatService[];
 
   beforeEach(async () => {
     repo = await TempRepo.create();
     await repo.commitFile('a.txt', 'one\ntwo\nthree\n', 'add a');
     await repo.writeFile('uncommitted.txt', 'mine\n');
     scratch = await mkdtemp(join(tmpdir(), 'midnite-chats-int-'));
+    services = [];
     cli = join(scratch, 'fake-claude.sh');
     await writeFile(
       cli,
@@ -47,6 +50,11 @@ describe('chats against a fake CLI and a real repo', () => {
   });
 
   afterEach(async () => {
+    // Deleting each chat is what removes its worktree, which sits beside the repo.
+    for (const service of services) {
+      await service.idle();
+      await service.remove((await service.list()).map((c) => c.id));
+    }
     await repo.cleanup();
     await rm(scratch, { recursive: true, force: true });
   });
@@ -62,7 +70,14 @@ describe('chats against a fake CLI and a real repo', () => {
       sandboxRoot: join(scratch, 'sandboxes'),
       scratchRoot: join(scratch, 'scratch'),
     });
+    services.push(service);
     return { service, events };
+  }
+
+  let lastService: ChatService | null = null;
+  async function ctx(chatId: string, service: ChatService | null = lastService): Promise<Chat> {
+    const got = (await service!.get(chatId)) as { value: { chat: Chat } };
+    return got.value.chat;
   }
 
   async function turn() {
@@ -74,6 +89,7 @@ describe('chats against a fake CLI and a real repo', () => {
     await ctx.service.idle();
     const got = (await ctx.service.get(chat.id)) as { value: { chat: Chat } };
     const reply = got.value.chat.messages[1]!;
+    lastService = ctx.service;
     return { ...ctx, chat, reply };
   }
 
@@ -86,14 +102,43 @@ describe('chats against a fake CLI and a real repo', () => {
     expect(await readFile(join(repo.path, 'a.txt'), 'utf8')).toBe('one\ntwo\nthree\n');
     expect(existsSync(join(repo.path, 'created.txt'))).toBe(false);
     expect(await repo.git(['status', '--porcelain'])).toBe(before);
-    expect(existsSync(join(scratch, 'sandboxes', chat.id))).toBe(false);
+
+    // …because they went into the chat's own worktree, on its own branch.
+    const worktree = (await ctx(chat.id)).worktree!;
+    expect(worktree.branch).toMatch(/^chat\/change-two-to-two-and-add-/);
+    expect(await repo.git(['worktree', 'list', '--porcelain'])).toContain(`branch refs/heads/${worktree.branch}`);
+    expect(await readFile(join(worktree.path, 'a.txt'), 'utf8')).toBe('one\nTWO\nthree\n');
+  });
+
+  it("keeps the worktree across turns and reports only each turn's own changes", async () => {
+    const { service, chat } = await turn();
+    const first = (await ctx(chat.id, service)).worktree!;
+    await service.send({ chatId: chat.id, text: 'Do it again' });
+    await service.idle();
+    const after = await ctx(chat.id, service);
+    expect(after.worktree).toEqual(first);
+    // The script makes the same edits, which are already there: nothing new to review.
+    expect(after.messages[3]).toMatchObject({ status: 'done', text: 'Edited two files.' });
+    expect(after.messages[3]!.changeSet).toBeUndefined();
+  });
+
+  it('deleting the chat removes its worktree, and its branch when that orphans nothing', async () => {
+    const { service, chat } = await turn();
+    const worktree = (await ctx(chat.id, service)).worktree!;
+    expect(existsSync(worktree.path)).toBe(true);
+
+    expect(await service.remove([chat.id])).toEqual({ ok: true });
+
+    expect(existsSync(worktree.path)).toBe(false);
+    expect((await repo.git(['worktree', 'list'])).trim().split('\n')).toHaveLength(1);
+    expect(await repo.git(['branch', '--list', worktree.branch])).toBe('');
   });
 
   it('captures only what the agent changed — not the uncommitted state it started from', async () => {
     const { reply } = await turn();
     const set = reply.changeSet!;
     expect(set.status).toBe('pending');
-    // `saw-uncommitted.txt` proves the sandbox held the user's uncommitted file; it is the agent's own new file.
+    // `saw-uncommitted.txt` proves the worktree was seeded with the user's uncommitted file; it is the agent's own new file.
     expect(set.files.map((f) => f.path).sort()).toEqual(['a.txt', 'created.txt', 'saw-uncommitted.txt']);
     expect(set.files.find((f) => f.path === 'a.txt')).toMatchObject({ change: 'modified', insertions: 1, deletions: 1 });
     expect(set.files.find((f) => f.path === 'created.txt')).toMatchObject({ change: 'added' });
@@ -137,7 +182,7 @@ describe('chats against a fake CLI and a real repo', () => {
     expect(after.value.chat.messages[1]!.changeSet!.files.find((f) => f.path === 'a.txt')).toMatchObject({ status: 'conflict' });
   });
 
-  it('Stop kills the real process group and leaves the tree and sandbox clean', async () => {
+  it("Stop kills the real process group, leaves the user's tree clean, and still reports what it did", async () => {
     const slow = join(scratch, 'slow.sh');
     await writeFile(
       slow,
@@ -153,6 +198,7 @@ describe('chats against a fake CLI and a real repo', () => {
       sandboxRoot: join(scratch, 'sandboxes'),
       scratchRoot: join(scratch, 'scratch'),
     });
+    services.push(service);
     const created = await service.create({ engine: 'claude', model: null, mode: 'edit', repoId: 'r' });
     if (!created.ok) throw new Error('create failed');
     await service.send({ chatId: created.value.chat.id, text: 'go' });
@@ -163,9 +209,9 @@ describe('chats against a fake CLI and a real repo', () => {
 
     const got = (await service.get(created.value.chat.id)) as { value: { chat: Chat } };
     expect(got.value.chat.messages[1]).toMatchObject({ status: 'cancelled', text: 'working' });
-    expect(got.value.chat.messages[1]!.changeSet).toBeUndefined();
+    // The half-finished edit stays in the worktree, so it is offered for review rather than hidden.
+    expect(got.value.chat.messages[1]!.changeSet!.files.map((f) => f.path)).toEqual(['half-done.txt']);
     // Reaching here at all proves the kill: the script sleeps 30 s, far past the test timeout.
     expect(existsSync(join(repo.path, 'half-done.txt'))).toBe(false);
-    expect(existsSync(join(scratch, 'sandboxes', created.value.chat.id))).toBe(false);
   });
 });
