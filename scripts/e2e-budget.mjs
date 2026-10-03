@@ -211,7 +211,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // stick-to-bottom behaviour against real scrollHeight/clientHeight and a real wheel, all of which
 // jsdom reports as 0. The scroll decisions are vitest against faked geometry; everything else on the
 // page (filters, streaming, markdown, Stop, the review card and modal) is vitest too.
-export const MAX_DECLARED_E2E = 472;
+//
+// Raised 472 -> 474 for `diff-blank-rows.spec.ts` (2 tests): a diff virtualizer's window offset only
+// goes wrong against real layout and a real scroll (elementFromPoint down the scroller after each
+// scroll step, collapse and file switch); jsdom has no geometry, so the vitest twin only proves rows mount.
+export const MAX_DECLARED_E2E = 474;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
