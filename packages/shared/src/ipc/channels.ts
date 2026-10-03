@@ -872,6 +872,9 @@ export const CHANNELS = {
   videoRootResolve: 'mstudio:video:root-resolve',
   /** Phase 99 Theme D — Setup Video: scaffold `templates/media-video/` into the repo. */
   videoSetup: 'mstudio:video:setup',
+  /** Phase 99 Theme H — read / switch a video root's engine (Remotion | HyperFrames). */
+  videoEngineGet: 'mstudio:video:engine-get',
+  videoEngineSet: 'mstudio:video:engine-set',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.

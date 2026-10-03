@@ -16,7 +16,18 @@
  * Reads the composition id from `projects/<id>/project.json`, syncs the
  * project's assets first, and appends a stub entry to output/CHANGELOG.md
  * (fill in what changed — the changelog is tracked, the mp4s are not).
- * Extra flags after the label are passed through to the Remotion CLI.
+ * Extra flags after the label are passed through to the engine's CLI.
+ *
+ * **Engine dispatch.** `video.config.json` names the engine (absent = Remotion):
+ *
+ *   remotion     `npx remotion render <composition> <out>`   in video-editor/
+ *   hyperframes  `npx hyperframes render projects/<id> -o <out>`   in hyperframes-editor/
+ *
+ * Both write the same `output/vN[-label].<ext>` and the same CHANGELOG stub, so
+ * everything downstream (the Studio explorer, transcode, compare) is engine-blind.
+ * HyperFrames takes `--format=mp4|webm|mov|gif` (the extension follows it), `--crf=N`,
+ * and `--comp <file>` (a composition file inside the project, default index.html);
+ * its `--still <seconds>` writes a snapshot PNG under output/_stills/.
  *
  * Two flags exist for the case where one round produces several cuts to compare —
  * variants of the same edit, not successive versions of it:
@@ -33,10 +44,12 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { APP_DIR, readEngine } from "./engine.mjs";
 import { findProjects } from "./projects.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const EDITOR = join(ROOT, "video-editor");
+const ENGINE = readEngine(ROOT);
+const EDITOR = join(ROOT, APP_DIR[ENGINE]);
 const PROJECTS = join(ROOT, "projects");
 
 const usage = () => {
@@ -70,7 +83,8 @@ const known = findProjects(PROJECTS);
   mistaken for a project with the same id.
 */
 const TEMPLATES = join(ROOT, "templates");
-const templates = findProjects(TEMPLATES).map((t) => `templates/${t}`);
+/* Templates are a Remotion-workspace concept; HyperFrames projects are folders under hyperframes-editor/projects/. */
+const templates = ENGINE === "remotion" ? findProjects(TEMPLATES).map((t) => `templates/${t}`) : [];
 const looksLikeId = rest[0]?.includes("/");
 if (rest[0] !== undefined && looksLikeId && !known.includes(rest[0]) && !templates.includes(rest[0])) {
   console.error(`No such project or template: ${rest[0]}`);
@@ -104,12 +118,13 @@ const takeFlag = (name) => {
   const i = rest.indexOf(name);
   return i === -1 ? null : rest.splice(i, 2)[1];
 };
-const composition = takeFlag("--comp") ?? manifest.composition;
+const compFlag = takeFlag("--comp");
+const composition = compFlag ?? manifest.composition;
 const pinnedVersion = takeFlag("--version");
 const stillIdx = rest.indexOf("--still");
 const stillFrame = stillIdx === -1 ? null : rest.splice(stillIdx, 2)[1];
 
-if (!composition) {
+if (ENGINE === "remotion" && !composition) {
   console.error(`No composition: set "composition" in ${manifestPath}, or pass --comp <id>.`);
   process.exit(1);
 }
@@ -119,12 +134,32 @@ mkdirSync(outDir, { recursive: true });
 
 const run = (cmd, args, cwd) => {
   console.log(`$ ${cmd} ${args.join(" ")}`);
-  const r = spawnSync(cmd, args, { cwd, stdio: "inherit", env: process.env });
+  // HyperFrames reports anonymous usage unless told not to; Midnite Studio never opts a user in.
+  const env = ENGINE === "hyperframes" ? { ...process.env, DO_NOT_TRACK: "1" } : process.env;
+  const r = spawnSync(cmd, args, { cwd, stdio: "inherit", env });
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
 
 /* A template has no input/ of its own to sync; it draws only on the shared assets. */
 run("node", [join(ROOT, "scripts", "sync-assets.mjs"), ...(isTemplate ? [] : [id])], ROOT);
+
+/* HyperFrames: a project is a folder — `projects/<id>/index.html` under the editor app. */
+const hfProject = ENGINE === "hyperframes" ? join("projects", id) : null;
+if (hfProject && !existsSync(join(EDITOR, hfProject, "index.html"))) {
+  console.error(
+    `No HyperFrames composition at ${APP_DIR.hyperframes}/${hfProject.replaceAll("\\", "/")}/index.html — ` +
+      "create it (see /video-execute-editorial-script) or start Studio once from Midnite Studio, which writes a stub.",
+  );
+  process.exit(1);
+}
+
+if (stillFrame !== null && hfProject) {
+  const stills = join(outDir, "_stills");
+  mkdirSync(stills, { recursive: true });
+  run("npx", ["hyperframes", "snapshot", hfProject, "--at", stillFrame, "--no-end", "-o", stills, ...rest], EDITOR);
+  console.log(`\n→ ${stills}`);
+  process.exit(0);
+}
 
 if (stillFrame !== null) {
   const stills = join(outDir, "_stills");
@@ -142,9 +177,20 @@ const next =
     .filter(Boolean)
     .reduce((max, n) => Math.max(max, Number(n)), 0);
 const version = `${pinnedVersion ?? `v${next}`}${label ? `-${label}` : ""}`;
-const out = join(outDir, `${version}.mp4`);
+/* HyperFrames picks the container from --format; the extension has to agree with it. */
+const formatArg = rest.find((a) => a.startsWith("--format="))?.slice("--format=".length) ?? "mp4";
+if (hfProject && !["mp4", "webm", "mov", "gif"].includes(formatArg)) {
+  console.error(`Unsupported --format=${formatArg} — mp4, webm, mov or gif.`);
+  process.exit(1);
+}
+const out = join(outDir, `${version}.${hfProject ? formatArg : "mp4"}`);
 
-run("npx", ["remotion", "render", composition, out, ...rest], EDITOR);
+if (hfProject) {
+  const comp = compFlag ? ["-c", compFlag] : [];
+  run("npx", ["hyperframes", "render", hfProject, "-o", out, ...comp, ...rest], EDITOR);
+} else {
+  run("npx", ["remotion", "render", composition, out, ...rest], EDITOR);
+}
 
 const changelog = join(outDir, "CHANGELOG.md");
 if (!existsSync(changelog)) {

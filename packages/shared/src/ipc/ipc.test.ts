@@ -1928,6 +1928,8 @@ describe('video contract', () => {
       videoRootSet: ['VideoRootSetRequest', 'VideoRootSetResponse'],
       videoRootResolve: ['VideoRootResolveRequest', 'VideoRootResolveResponse'],
       videoSetup: ['VideoSetupRequest', 'VideoSetupResponse'],
+      videoEngineGet: ['VideoEngineGetRequest', 'VideoEngineGetResponse'],
+      videoEngineSet: ['VideoEngineSetRequest', 'VideoEngineSetResponse'],
       videoStudioChanged: ['VideoStudioChangedPayload'],
       videoRenderProgress: ['VideoRenderProgressPayload'],
     };

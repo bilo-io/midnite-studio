@@ -14244,3 +14244,13 @@ types, a deterministic data-derived summary and an **Insights** breakdown, the t
 a news feed with editable feeds and keywords. `midnite-studio.dashboard` persist v3 -> v4 appends the
 tab without touching existing dashboards; every dashboard's tiles now resize from the corners and
 edges, not only the south-east corner. See Phase 100.
+
+### Ad hoc — Media ▸ Video engine: Remotion | HyperFrames (Phase 99 Theme H)
+
+Media ▸ Video gains a second engine, HeyGen's HyperFrames (Apache-2.0), beside Remotion. The choice is made
+at Setup Video, switched later per video root (Video toolbar, Settings ▸ Media), and recorded in the root's
+own `video.config.json`; no file means Remotion, so existing setups are untouched. One template carries both
+editor apps over one shared workspace (`projects/`, `assets/`, `scripts/`, the two editorial skills, now with
+an engine section each); the studio, render, toolchain and root-resolution services, the render dialog and the
+Studio pane are all engine-aware, with install hints for Node 22+ and ffmpeg. Both engines were smoke-tested
+end to end (scaffold, install, studio, render, ffprobe). HyperFrames' own skills are referenced, not vendored.

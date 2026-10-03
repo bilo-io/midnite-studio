@@ -61,11 +61,22 @@ export type MockFixtures = {
     /** Cash per currency, in that currency's own units. Default USD 1,000 / EUR 500 / ZAR 10,000. */
     balances?: Record<string, number>;
     /** Held assets. Default 0.5 BTC and 10 AAPL. */
-    holdings?: { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf'; quantity: number }[];
+    holdings?: {
+      symbol: string;
+      name: string;
+      kind: 'crypto' | 'stock' | 'etf';
+      quantity: number;
+    }[];
     watchlist?: string[];
     /** Make every series/quote call answer with an error — the "provider down" path. */
     down?: boolean;
-    news?: { title: string; link: string; source: string; origin: string; publishedAt: number | null }[];
+    news?: {
+      title: string;
+      link: string;
+      source: string;
+      origin: string;
+      publishedAt: number | null;
+    }[];
   };
   /**
    * Commit signatures to graft onto the mock agent roster, keyed by `agentId`.
@@ -689,7 +700,12 @@ export type MockFixtures = {
      * `global` source at `root ?? '/videos'`, so a spec that seeds only
      * `projects` sees them; `{root: null, source: null}` shows Setup Video.
      */
-    resolution?: { root: string | null; source: string | null; setupTarget: string | null };
+    resolution?: {
+      root: string | null;
+      source: string | null;
+      setupTarget: string | null;
+      engine?: string;
+    };
     projects?: Array<{ id: string; [key: string]: unknown }>;
     studioStatus?: Record<string, { state: string; [key: string]: unknown }>;
     toolchain?: Record<string, { node: unknown; npx: unknown; [key: string]: unknown }>;
@@ -704,7 +720,8 @@ export type MockFixtures = {
    */
   media?: {
     files?: Record<string, Record<string, string>>;
-    ffmpeg?: { found: true; path: string; version: string | null } | { found: false; reason: string };
+    ffmpeg?:
+      { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
      * Theme C: `media.image.providers()`'s answer. Defaults to Gemini ready,
      * OpenAI missing its key, agy disabled, Ollama without image models.
@@ -712,7 +729,11 @@ export type MockFixtures = {
      */
     /** Local audio engine + Ollama status (`media.audio.engine()`); defaults to model ready, Ollama up with llama3.2:3b. */
     audioEngine?: {
-      musicgen: { state: 'missing' | 'downloading' | 'ready' | 'unavailable'; downloadBytes: number; reason?: string };
+      musicgen: {
+        state: 'missing' | 'downloading' | 'ready' | 'unavailable';
+        downloadBytes: number;
+        reason?: string;
+      };
       ollama: { running: boolean; models: string[]; model: string | null; recommended: string };
     };
     imageProviders?: Array<{
@@ -926,8 +947,20 @@ export type MockFixtures = {
    */
   knowledge?: {
     graph?: {
-      nodes: { id: string; label: string; community: number; communityName: string; fileType: string }[];
-      links: { source: string; target: string; relation: string; weight: number; confidence: number }[];
+      nodes: {
+        id: string;
+        label: string;
+        community: number;
+        communityName: string;
+        fileType: string;
+      }[];
+      links: {
+        source: string;
+        target: string;
+        relation: string;
+        weight: number;
+        confidence: number;
+      }[];
       positions: Record<string, { x: number; y: number }>;
       builtAtCommit?: string;
       cached?: boolean;
@@ -1092,16 +1125,36 @@ export function buildMockBridge(data: MockFixtures) {
   const unsubscribe = () => noop;
   /** What the mock install probe reports — OpenClaude missing, the rest present. */
   const AGENT_STATUS = [
-          { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude', version: '2.1.34' },
-      { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor-agent', version: '2026.09.10' },
-      { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy', version: '1.2.2' },
-      { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
-      { id: 'copilot', installed: true, resolvedPath: '/usr/local/bin/copilot', version: '1.0.83' },
-      { id: 'openclaude', installed: false, resolvedPath: null },
-      { id: 'opencode', installed: true, resolvedPath: '/opt/homebrew/bin/opencode', version: '1.18.30' },
-      { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo', version: '7.5.6' },
-      { id: 'aider', installed: true, resolvedPath: '/Users/e2e/.local/bin/aider', version: '0.86.2' },
-      { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline', version: '3.0.60' },
+    {
+      id: 'claude',
+      installed: true,
+      resolvedPath: '/Users/e2e/.local/bin/claude',
+      version: '2.1.34',
+    },
+    {
+      id: 'cursor',
+      installed: true,
+      resolvedPath: '/usr/local/bin/cursor-agent',
+      version: '2026.09.10',
+    },
+    { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy', version: '1.2.2' },
+    { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
+    { id: 'copilot', installed: true, resolvedPath: '/usr/local/bin/copilot', version: '1.0.83' },
+    { id: 'openclaude', installed: false, resolvedPath: null },
+    {
+      id: 'opencode',
+      installed: true,
+      resolvedPath: '/opt/homebrew/bin/opencode',
+      version: '1.18.30',
+    },
+    { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo', version: '7.5.6' },
+    {
+      id: 'aider',
+      installed: true,
+      resolvedPath: '/Users/e2e/.local/bin/aider',
+      version: '0.86.2',
+    },
+    { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline', version: '3.0.60' },
   ];
 
   const ok = async () => ({ ok: true as const });
@@ -1498,155 +1551,157 @@ export function buildMockBridge(data: MockFixtures) {
       */
     forge: {
       ...slowed({
-      cliStatus: async () => forgeCli(),
-      runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
-      pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
-        cli: forgeCli(),
-        pulls:
-          (req.repoId ? data.forge?.pullsByRepo?.[req.repoId] : undefined) ??
-          data.forge?.pullsByScope?.[req.scope ?? 'all'] ??
-          data.forge?.pulls ??
-          [],
-        error: forgeError(),
-      }),
-      issues: async () => ({
-        cli: forgeCli(),
-        issues: data.forge?.issues ?? [],
-        disabled: data.forge?.issuesDisabled === true,
-        error: forgeError(),
-      }),
-      issueDetail: async (req: { number: number }) => {
-        const seeded = data.forge?.issueDetail?.[String(req.number)];
-        if (!seeded) return { cli: forgeCli(), issue: null, error: forgeError() };
-        // The listing row fills the `issue` half, the same "listing first,
-        // detail fills in" split `pullDetail` follows — a spec should not
-        // have to restate an issue it already listed in `issues`.
-        const listed = (data.forge?.issues ?? []).find(
-          (row) => (row as { number?: number }).number === req.number,
-        );
-        return {
+        cliStatus: async () => forgeCli(),
+        runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
+        pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
           cli: forgeCli(),
-          issue: { issue: seeded.issue ?? listed, body: seeded.body ?? '' },
-          error: null,
-        };
-      },
-      issueComments: async (req: { number: number }) => ({
-        cli: forgeCli(),
-        comments: data.forge?.issueComments?.[String(req.number)] ?? [],
-        error: forgeError(),
-      }),
-      runDetail: async (req: { runId: string }) => {
-        const seeded = data.forge?.runDetail?.[req.runId];
-        if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
-        // A run with no seeded `run` half still needs one: the real payload
-        // always carries both, and a spec should not have to restate a run
-        // it already listed above.
-        const listed = (data.forge?.runs ?? []).find(
-          (row) => (row as { id?: string }).id === req.runId,
-        );
-        return {
+          pulls:
+            (req.repoId ? data.forge?.pullsByRepo?.[req.repoId] : undefined) ??
+            data.forge?.pullsByScope?.[req.scope ?? 'all'] ??
+            data.forge?.pulls ??
+            [],
+          error: forgeError(),
+        }),
+        issues: async () => ({
           cli: forgeCli(),
-          detail: { run: seeded.run ?? listed, jobs: seeded.jobs ?? [] },
-          error: null,
-        };
-      },
-      runLog: async (req: { runId: string; full?: boolean }) => {
-        const seeded = data.forge?.runLogs?.[req.runId];
-        // No fixture means a run that has not finished — GitHub serves no log
-        // for one, which is a `pending`, not an error.
-        if (!seeded) return { cli: forgeCli(), log: null, pending: true, error: null };
+          issues: data.forge?.issues ?? [],
+          disabled: data.forge?.issuesDisabled === true,
+          error: forgeError(),
+        }),
+        issueDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.issueDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), issue: null, error: forgeError() };
+          // The listing row fills the `issue` half, the same "listing first,
+          // detail fills in" split `pullDetail` follows — a spec should not
+          // have to restate an issue it already listed in `issues`.
+          const listed = (data.forge?.issues ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            issue: { issue: seeded.issue ?? listed, body: seeded.body ?? '' },
+            error: null,
+          };
+        },
+        issueComments: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          comments: data.forge?.issueComments?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
+        runDetail: async (req: { runId: string }) => {
+          const seeded = data.forge?.runDetail?.[req.runId];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // A run with no seeded `run` half still needs one: the real payload
+          // always carries both, and a spec should not have to restate a run
+          // it already listed above.
+          const listed = (data.forge?.runs ?? []).find(
+            (row) => (row as { id?: string }).id === req.runId,
+          );
+          return {
+            cli: forgeCli(),
+            detail: { run: seeded.run ?? listed, jobs: seeded.jobs ?? [] },
+            error: null,
+          };
+        },
+        runLog: async (req: { runId: string; full?: boolean }) => {
+          const seeded = data.forge?.runLogs?.[req.runId];
+          // No fixture means a run that has not finished — GitHub serves no log
+          // for one, which is a `pending`, not an error.
+          if (!seeded) return { cli: forgeCli(), log: null, pending: true, error: null };
 
-        const whole = req.full === true && seeded.full !== undefined;
-        return {
+          const whole = req.full === true && seeded.full !== undefined;
+          return {
+            cli: forgeCli(),
+            log: {
+              lines: whole ? seeded.full : seeded.lines,
+              truncated: whole ? false : (seeded.truncated ?? false),
+              omittedLines: whole ? 0 : (seeded.omittedLines ?? 0),
+              totalBytes: seeded.totalBytes ?? 0,
+              complete: whole || seeded.truncated !== true,
+            },
+            pending: false,
+            error: null,
+          };
+        },
+        workflows: async () => ({
           cli: forgeCli(),
-          log: {
-            lines: whole ? seeded.full : seeded.lines,
-            truncated: whole ? false : (seeded.truncated ?? false),
-            omittedLines: whole ? 0 : (seeded.omittedLines ?? 0),
-            totalBytes: seeded.totalBytes ?? 0,
-            complete: whole || seeded.truncated !== true,
-          },
-          pending: false,
-          error: null,
-        };
-      },
-      workflows: async () => ({
-        cli: forgeCli(),
-        workflows: data.forge?.workflows ?? [],
-        error: forgeError(),
-      }),
-      // The graph's CI column: the seeded run list, matched per commit on its
-      // head sha exactly as main's `commit-runs.ts` does.
-      commitRuns: async (req: { shas: string[] }) => ({
-        cli: forgeCli(),
-        runs: Object.fromEntries(
-          req.shas.map((sha) => [
-            sha,
-            (data.forge?.runs ?? []).filter((row) => (row as { headSha?: string }).headSha === sha),
-          ]),
-        ),
-        error: forgeError(),
-      }),
-      pullDetail: async (req: { number: number }) => {
-        const seeded = data.forge?.pullDetail?.[String(req.number)];
-        if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
-        // The listing row fills the `pull` half, exactly as the real parser
-        // does — a spec should not have to restate a PR it already listed.
-        const listed = (data.forge?.pulls ?? []).find(
-          (row) => (row as { number?: number }).number === req.number,
-        );
-        return {
+          workflows: data.forge?.workflows ?? [],
+          error: forgeError(),
+        }),
+        // The graph's CI column: the seeded run list, matched per commit on its
+        // head sha exactly as main's `commit-runs.ts` does.
+        commitRuns: async (req: { shas: string[] }) => ({
           cli: forgeCli(),
-          detail: {
-            pull: seeded['pull'] ?? listed,
-            body: seeded['body'] ?? '',
-            headSha: seeded['headSha'] ?? null,
-            // Phase 26 Theme H — the base sha the image diff and "Fetch to
-            // compare" (`use-base-blob-exists.ts`) both key off.
-            baseSha: seeded['baseSha'] ?? null,
-            baseBranch: seeded['baseBranch'] ?? '',
-            additions: seeded['additions'] ?? 0,
-            deletions: seeded['deletions'] ?? 0,
-            changedFiles: seeded['changedFiles'] ?? 0,
-            createdAt: seeded['createdAt'] ?? null,
-            updatedAt: seeded['updatedAt'] ?? null,
-            mergeable: seeded['mergeable'] ?? null,
-            // Phase 20 F's blast radius, and G's reviewer suggestions.
-            commitCount: seeded['commitCount'] ?? 0,
-            commits: seeded['commits'] ?? [],
-            reviewRequests: seeded['reviewRequests'] ?? [],
-          },
-          error: null,
-        };
-      },
-      pullFiles: async (req: { number: number }) => {
-        const seeded = data.forge?.pullFiles?.[String(req.number)];
-        // No fixture is "no diff to show", not an empty one: `files: []`
-        // would render "this pull request changes no files" as a fact.
-        if (!seeded) return { cli: forgeCli(), files: null, error: forgeError() };
-        return {
+          runs: Object.fromEntries(
+            req.shas.map((sha) => [
+              sha,
+              (data.forge?.runs ?? []).filter(
+                (row) => (row as { headSha?: string }).headSha === sha,
+              ),
+            ]),
+          ),
+          error: forgeError(),
+        }),
+        pullDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.pullDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // The listing row fills the `pull` half, exactly as the real parser
+          // does — a spec should not have to restate a PR it already listed.
+          const listed = (data.forge?.pulls ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            detail: {
+              pull: seeded['pull'] ?? listed,
+              body: seeded['body'] ?? '',
+              headSha: seeded['headSha'] ?? null,
+              // Phase 26 Theme H — the base sha the image diff and "Fetch to
+              // compare" (`use-base-blob-exists.ts`) both key off.
+              baseSha: seeded['baseSha'] ?? null,
+              baseBranch: seeded['baseBranch'] ?? '',
+              additions: seeded['additions'] ?? 0,
+              deletions: seeded['deletions'] ?? 0,
+              changedFiles: seeded['changedFiles'] ?? 0,
+              createdAt: seeded['createdAt'] ?? null,
+              updatedAt: seeded['updatedAt'] ?? null,
+              mergeable: seeded['mergeable'] ?? null,
+              // Phase 20 F's blast radius, and G's reviewer suggestions.
+              commitCount: seeded['commitCount'] ?? 0,
+              commits: seeded['commits'] ?? [],
+              reviewRequests: seeded['reviewRequests'] ?? [],
+            },
+            error: null,
+          };
+        },
+        pullFiles: async (req: { number: number }) => {
+          const seeded = data.forge?.pullFiles?.[String(req.number)];
+          // No fixture is "no diff to show", not an empty one: `files: []`
+          // would render "this pull request changes no files" as a fact.
+          if (!seeded) return { cli: forgeCli(), files: null, error: forgeError() };
+          return {
+            cli: forgeCli(),
+            files: {
+              files: seeded.files ?? [],
+              truncated: seeded.truncated ?? false,
+              omittedFiles: seeded.omittedFiles ?? 0,
+              totalBytes: seeded.totalBytes ?? 0,
+            },
+            error: null,
+          };
+        },
+        pullComments: async (req: { number: number }) => ({
           cli: forgeCli(),
-          files: {
-            files: seeded.files ?? [],
-            truncated: seeded.truncated ?? false,
-            omittedFiles: seeded.omittedFiles ?? 0,
-            totalBytes: seeded.totalBytes ?? 0,
-          },
-          error: null,
-        };
-      },
-      pullComments: async (req: { number: number }) => ({
-        cli: forgeCli(),
-        comments: data.forge?.pullComments?.[String(req.number)] ?? [],
-        error: forgeError(),
-      }),
-      pullThreads: async (req: { number: number }) => ({
-        cli: forgeCli(),
-        threads: data.forge?.pullThreads?.[String(req.number)] ?? [],
-        error: forgeError(),
-      }),
+          comments: data.forge?.pullComments?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
+        pullThreads: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          threads: data.forge?.pullThreads?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
 
-      /*
+        /*
           The writes.
 
           They mutate `data.forge.pullThreads` in the page's own copy of the
@@ -1661,72 +1716,72 @@ export function buildMockBridge(data: MockFixtures) {
           with the head sha and a position — which no amount of re-reading the
           list can show.
         */
-      reviewComment: async (req: Record<string, unknown>) => {
-        recordWrite('reviewComment', req);
-        if (writeError() !== null) return writeResult(false);
-        const key = String(req['number']);
-        const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
-        threads.push({
-          id: `PRRT_new_${String(threads.length + 1)}`,
-          path: req['path'],
-          line: req['line'],
-          originalLine: req['line'],
-          startLine: null,
-          side: 'RIGHT',
-          resolved: false,
-          outdated: false,
-          fileLevel: false,
-          comments: [
-            {
-              id: `PRRC_new_${String(threads.length + 1)}`,
-              databaseId: String(9000 + threads.length),
+        reviewComment: async (req: Record<string, unknown>) => {
+          recordWrite('reviewComment', req);
+          if (writeError() !== null) return writeResult(false);
+          const key = String(req['number']);
+          const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
+          threads.push({
+            id: `PRRT_new_${String(threads.length + 1)}`,
+            path: req['path'],
+            line: req['line'],
+            originalLine: req['line'],
+            startLine: null,
+            side: 'RIGHT',
+            resolved: false,
+            outdated: false,
+            fileLevel: false,
+            comments: [
+              {
+                id: `PRRC_new_${String(threads.length + 1)}`,
+                databaseId: String(9000 + threads.length),
+                author: 'you',
+                body: req['body'],
+                createdAt: '2026-08-27T12:00:00Z',
+                url: '',
+              },
+            ],
+          });
+          if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
+          return writeResult(true);
+        },
+        reviewReply: async (req: Record<string, unknown>) => {
+          recordWrite('reviewReply', req);
+          if (writeError() !== null) return writeResult(false);
+          const key = String(req['number']);
+          const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
+          for (const thread of threads) {
+            const comments = (thread['comments'] ?? []) as Record<string, unknown>[];
+            // The reply goes into whichever thread owns the target comment —
+            // the same lookup the real endpoint does by `comment_id`.
+            if (!comments.some((c) => c['databaseId'] === req['commentId'])) continue;
+            comments.push({
+              id: `PRRC_reply_${String(comments.length + 1)}`,
+              databaseId: String(9500 + comments.length),
               author: 'you',
               body: req['body'],
-              createdAt: '2026-08-27T12:00:00Z',
+              createdAt: '2026-08-27T12:05:00Z',
               url: '',
-            },
-          ],
-        });
-        if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
-        return writeResult(true);
-      },
-      reviewReply: async (req: Record<string, unknown>) => {
-        recordWrite('reviewReply', req);
-        if (writeError() !== null) return writeResult(false);
-        const key = String(req['number']);
-        const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
-        for (const thread of threads) {
-          const comments = (thread['comments'] ?? []) as Record<string, unknown>[];
-          // The reply goes into whichever thread owns the target comment —
-          // the same lookup the real endpoint does by `comment_id`.
-          if (!comments.some((c) => c['databaseId'] === req['commentId'])) continue;
-          comments.push({
-            id: `PRRC_reply_${String(comments.length + 1)}`,
-            databaseId: String(9500 + comments.length),
-            author: 'you',
-            body: req['body'],
-            createdAt: '2026-08-27T12:05:00Z',
-            url: '',
-          });
-          thread['comments'] = comments;
-          break;
-        }
-        if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
-        return writeResult(true);
-      },
-      resolveThread: async (req: Record<string, unknown>) => {
-        recordWrite('resolveThread', req);
-        if (writeError() !== null) return writeResult(false);
-        // Not repo-scoped in the request — a node id identifies the thread
-        // globally — so every seeded PR is searched, exactly as GraphQL does.
-        for (const threads of Object.values(data.forge?.pullThreads ?? {})) {
-          for (const thread of threads as Record<string, unknown>[]) {
-            if (thread['id'] === req['threadId']) thread['resolved'] = req['resolved'];
+            });
+            thread['comments'] = comments;
+            break;
           }
-        }
-        return writeResult(true);
-      },
-      /*
+          if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
+          return writeResult(true);
+        },
+        resolveThread: async (req: Record<string, unknown>) => {
+          recordWrite('resolveThread', req);
+          if (writeError() !== null) return writeResult(false);
+          // Not repo-scoped in the request — a node id identifies the thread
+          // globally — so every seeded PR is searched, exactly as GraphQL does.
+          for (const threads of Object.values(data.forge?.pullThreads ?? {})) {
+            for (const thread of threads as Record<string, unknown>[]) {
+              if (thread['id'] === req['threadId']) thread['resolved'] = req['resolved'];
+            }
+          }
+          return writeResult(true);
+        },
+        /*
           Themes F and G — the verdict, the merge and the nudges.
 
           Deliberately thinner than Theme E's three above: those mutate the
@@ -1736,39 +1791,39 @@ export function buildMockBridge(data: MockFixtures) {
           REQUEST — that the app sent the verb the user chose, with the body they
           typed — plus how the UI behaves on refusal. Both are what these serve.
         */
-      pullReview: async (req: Record<string, unknown>) => {
-        recordWrite('pullReview', req);
-        return writeResult(writeError() === null);
-      },
-      pullComment: async (req: Record<string, unknown>) => {
-        recordWrite('pullComment', req);
-        return writeResult(writeError() === null);
-      },
-      pullMerge: async (req: Record<string, unknown>) => {
-        recordWrite('pullMerge', req);
-        return writeResult(writeError() === null);
-      },
-      pullRequestReview: async (req: Record<string, unknown>) => {
-        recordWrite('pullRequestReview', req);
-        return writeResult(writeError() === null);
-      },
-      pullReady: async (req: Record<string, unknown>) => {
-        recordWrite('pullReady', req);
-        return writeResult(writeError() === null);
-      },
-      runRerun: async (req: Record<string, unknown>) => {
-        recordWrite('runRerun', req);
-        return writeResult(writeError() === null);
-      },
-      /** Phase 54 Theme G — the two issue writes, and only two. */
-      issueComment: async (req: Record<string, unknown>) => {
-        recordWrite('issueComment', req);
-        return writeResult(writeError() === null);
-      },
-      issueSetState: async (req: Record<string, unknown>) => {
-        recordWrite('issueSetState', req);
-        return writeResult(writeError() === null);
-      },
+        pullReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullComment: async (req: Record<string, unknown>) => {
+          recordWrite('pullComment', req);
+          return writeResult(writeError() === null);
+        },
+        pullMerge: async (req: Record<string, unknown>) => {
+          recordWrite('pullMerge', req);
+          return writeResult(writeError() === null);
+        },
+        pullRequestReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullRequestReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullReady: async (req: Record<string, unknown>) => {
+          recordWrite('pullReady', req);
+          return writeResult(writeError() === null);
+        },
+        runRerun: async (req: Record<string, unknown>) => {
+          recordWrite('runRerun', req);
+          return writeResult(writeError() === null);
+        },
+        /** Phase 54 Theme G — the two issue writes, and only two. */
+        issueComment: async (req: Record<string, unknown>) => {
+          recordWrite('issueComment', req);
+          return writeResult(writeError() === null);
+        },
+        issueSetState: async (req: Record<string, unknown>) => {
+          recordWrite('issueSetState', req);
+          return writeResult(writeError() === null);
+        },
       }),
       // Phase 84 Theme C — interest-based polling. One-way `send`s, not
       // `invoke`s, so left outside `slowed()`'s async-wrapping (which would
@@ -2259,9 +2314,7 @@ export function buildMockBridge(data: MockFixtures) {
     },
     notes: {
       list: async (req?: { repoId?: string }) => {
-        const filtered = req?.repoId
-          ? notes.filter((n) => n.repoId === req.repoId)
-          : notes;
+        const filtered = req?.repoId ? notes.filter((n) => n.repoId === req.repoId) : notes;
         return { notes: [...filtered] };
       },
       save: (req: { note: Note }) => {
@@ -2284,7 +2337,9 @@ export function buildMockBridge(data: MockFixtures) {
         const byId = new Map(currentRepoNotes.map((n) => [n.id, n]));
         const rest = currentRepoNotes
           .filter((n) => !namedSet.has(n.id))
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0));
+          .sort(
+            (a, b) => (a.order ?? 0) - (b.order ?? 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0),
+          );
         const reordered: Note[] = [];
         [...req.noteIds, ...rest.map((n) => n.id)].forEach((id, index) => {
           const note = byId.get(id);
@@ -2303,145 +2358,148 @@ export function buildMockBridge(data: MockFixtures) {
           exactly one of the menu builder's four cases.
         */
       list: async () => ({
-        agents: graftSignatures([
-          {
-            id: 'claude',
-            label: 'Claude',
-            command: 'claude',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#D97757',
-            install: 'curl -fsSL https://claude.ai/install.sh | bash',
-            update: 'claude update',
-            uninstall: 'npm rm -g @anthropic-ai/claude-code',
-            docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
-            apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-          },
-          {
-            id: 'cursor',
-            label: 'Cursor',
-            command: 'cursor-agent',
-            args: [],
-            resume: ['--continue'],
-            accent: '#0066FF',
-            icon: 'SiCursor',
-            install: 'curl https://cursor.com/install -fsS | bash',
-            update: 'curl https://cursor.com/install -fsS | bash',
-            uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
-            docsUrl: 'https://docs.cursor.com',
-            apiKeyEnvVar: 'CURSOR_API_KEY',
-          },
-          {
-            id: 'agy',
-            label: 'Antigravity',
-            command: 'agy',
-            args: [],
-            accent: '#4285F4',
-            icon: 'antigravity',
-            install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
-            update: 'agy update',
-            uninstall: 'rm -f ~/.local/bin/agy',
-            docsUrl: 'https://github.com/google-deepmind/antigravity',
-            apiKeyEnvVar: 'GEMINI_API_KEY',
-          },
-          {
-            id: 'codex',
-            label: 'Codex',
-            command: 'codex',
-            args: [],
-            resume: ['resume', '--last'],
-            backends: ['ollama'],
-            accent: '#10A37F',
-            install: 'npm i -g @openai/codex',
-            update: 'npm update -g @openai/codex',
-            uninstall: 'npm rm -g @openai/codex',
-            docsUrl: 'https://github.com/openai/codex',
-            apiKeyEnvVar: 'OPENAI_API_KEY',
-          },
-          {
-            id: 'copilot',
-            label: 'Copilot',
-            command: 'copilot',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#6E40C9',
-            icon: 'SiGithubcopilot',
-            install: 'npm i -g @github/copilot',
-            update: 'npm update -g @github/copilot',
-            uninstall: 'npm rm -g @github/copilot',
-            docsUrl: 'https://docs.github.com/en/copilot',
-            apiKeyEnvVar: 'GITHUB_TOKEN',
-          },
-          {
-            id: 'openclaude',
-            label: 'OpenClaude',
-            command: 'openclaude',
-            args: [],
-            accent: '#8B5CF6',
-            install: 'npm i -g @gitlawb/openclaude',
-            update: 'npm update -g @gitlawb/openclaude',
-            uninstall: 'npm rm -g @gitlawb/openclaude',
-            docsUrl: 'https://github.com/openclaude/openclaude',
-            apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-          },
-          {
-            id: 'opencode',
-            label: 'OpenCode',
-            command: 'opencode',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#03B000',
-            install: 'npm i -g opencode-ai',
-            update: 'npm update -g opencode-ai',
-            uninstall: 'npm rm -g opencode-ai',
-            docsUrl: 'https://github.com/opencode/opencode',
-            apiKeyEnvVar: 'OPENAI_API_KEY',
-          },
-          {
-            id: 'kilo',
-            label: 'Kilo Code',
-            command: 'kilo',
-            args: [],
-            resume: ['--continue'],
-            accent: '#FF5500',
-            install: 'npm i -g @kilocode/cli',
-            update: 'npm update -g @kilocode/cli',
-            uninstall: 'npm rm -g @kilocode/cli',
-            docsUrl: 'https://github.com/kilo-code/kilo',
-            apiKeyEnvVar: 'KILO_API_KEY',
-          },
-          {
-            id: 'aider',
-            label: 'Aider',
-            command: 'aider',
-            args: [],
-            resume: ['--restore-chat-history'],
-            accent: '#D93838',
-            install: 'pip install aider-chat',
-            update: 'pip install --upgrade aider-chat',
-            uninstall: 'pip uninstall -y aider-chat',
-            docsUrl: 'https://aider.chat/docs',
-            apiKeyEnvVar: 'OPENAI_API_KEY',
-          },
-          {
-            id: 'cline',
-            label: 'Cline',
-            command: 'cline',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#5F52FF',
-            icon: 'SiCline',
-            install: 'npm i -g cline',
-            update: 'npm update -g cline',
-            uninstall: 'npm rm -g cline',
-            docsUrl: 'https://github.com/cline/cline',
-            apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-          },
-        ], data.agentSignatures),
+        agents: graftSignatures(
+          [
+            {
+              id: 'claude',
+              label: 'Claude',
+              command: 'claude',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#D97757',
+              install: 'curl -fsSL https://claude.ai/install.sh | bash',
+              update: 'claude update',
+              uninstall: 'npm rm -g @anthropic-ai/claude-code',
+              docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
+              apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+            },
+            {
+              id: 'cursor',
+              label: 'Cursor',
+              command: 'cursor-agent',
+              args: [],
+              resume: ['--continue'],
+              accent: '#0066FF',
+              icon: 'SiCursor',
+              install: 'curl https://cursor.com/install -fsS | bash',
+              update: 'curl https://cursor.com/install -fsS | bash',
+              uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
+              docsUrl: 'https://docs.cursor.com',
+              apiKeyEnvVar: 'CURSOR_API_KEY',
+            },
+            {
+              id: 'agy',
+              label: 'Antigravity',
+              command: 'agy',
+              args: [],
+              accent: '#4285F4',
+              icon: 'antigravity',
+              install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+              update: 'agy update',
+              uninstall: 'rm -f ~/.local/bin/agy',
+              docsUrl: 'https://github.com/google-deepmind/antigravity',
+              apiKeyEnvVar: 'GEMINI_API_KEY',
+            },
+            {
+              id: 'codex',
+              label: 'Codex',
+              command: 'codex',
+              args: [],
+              resume: ['resume', '--last'],
+              backends: ['ollama'],
+              accent: '#10A37F',
+              install: 'npm i -g @openai/codex',
+              update: 'npm update -g @openai/codex',
+              uninstall: 'npm rm -g @openai/codex',
+              docsUrl: 'https://github.com/openai/codex',
+              apiKeyEnvVar: 'OPENAI_API_KEY',
+            },
+            {
+              id: 'copilot',
+              label: 'Copilot',
+              command: 'copilot',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#6E40C9',
+              icon: 'SiGithubcopilot',
+              install: 'npm i -g @github/copilot',
+              update: 'npm update -g @github/copilot',
+              uninstall: 'npm rm -g @github/copilot',
+              docsUrl: 'https://docs.github.com/en/copilot',
+              apiKeyEnvVar: 'GITHUB_TOKEN',
+            },
+            {
+              id: 'openclaude',
+              label: 'OpenClaude',
+              command: 'openclaude',
+              args: [],
+              accent: '#8B5CF6',
+              install: 'npm i -g @gitlawb/openclaude',
+              update: 'npm update -g @gitlawb/openclaude',
+              uninstall: 'npm rm -g @gitlawb/openclaude',
+              docsUrl: 'https://github.com/openclaude/openclaude',
+              apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+            },
+            {
+              id: 'opencode',
+              label: 'OpenCode',
+              command: 'opencode',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#03B000',
+              install: 'npm i -g opencode-ai',
+              update: 'npm update -g opencode-ai',
+              uninstall: 'npm rm -g opencode-ai',
+              docsUrl: 'https://github.com/opencode/opencode',
+              apiKeyEnvVar: 'OPENAI_API_KEY',
+            },
+            {
+              id: 'kilo',
+              label: 'Kilo Code',
+              command: 'kilo',
+              args: [],
+              resume: ['--continue'],
+              accent: '#FF5500',
+              install: 'npm i -g @kilocode/cli',
+              update: 'npm update -g @kilocode/cli',
+              uninstall: 'npm rm -g @kilocode/cli',
+              docsUrl: 'https://github.com/kilo-code/kilo',
+              apiKeyEnvVar: 'KILO_API_KEY',
+            },
+            {
+              id: 'aider',
+              label: 'Aider',
+              command: 'aider',
+              args: [],
+              resume: ['--restore-chat-history'],
+              accent: '#D93838',
+              install: 'pip install aider-chat',
+              update: 'pip install --upgrade aider-chat',
+              uninstall: 'pip uninstall -y aider-chat',
+              docsUrl: 'https://aider.chat/docs',
+              apiKeyEnvVar: 'OPENAI_API_KEY',
+            },
+            {
+              id: 'cline',
+              label: 'Cline',
+              command: 'cline',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#5F52FF',
+              icon: 'SiCline',
+              install: 'npm i -g cline',
+              update: 'npm update -g cline',
+              uninstall: 'npm rm -g cline',
+              docsUrl: 'https://github.com/cline/cline',
+              apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+            },
+          ],
+          data.agentSignatures,
+        ),
         status: AGENT_STATUS,
         probe: 'ready' as const,
       }),
@@ -2651,12 +2709,20 @@ export function buildMockBridge(data: MockFixtures) {
       // Phase 97 Theme D — mutates the matching node in place, exactly like
       // the real engine's settle, so a fixture that seeds a `waiting` gate
       // node can assert the run panel's decide round trip end to end.
-      gateDecide: async (req: { runId: string; nodeId: string; decision: 'approved' | 'rejected'; note?: string }) => {
+      gateDecide: async (req: {
+        runId: string;
+        nodeId: string;
+        decision: 'approved' | 'rejected';
+        note?: string;
+      }) => {
         const run = workflowRuns.find((r) => r.id === req.runId);
-        const node = (run?.nodes as Array<{ nodeId: string; status: string; settledPort?: string; output?: unknown }> | undefined)?.find(
-          (n) => n.nodeId === req.nodeId,
-        );
-        if (!run || !node) return { ok: false as const, kind: 'error' as const, message: 'Gate not found.' };
+        const node = (
+          run?.nodes as
+            | Array<{ nodeId: string; status: string; settledPort?: string; output?: unknown }>
+            | undefined
+        )?.find((n) => n.nodeId === req.nodeId);
+        if (!run || !node)
+          return { ok: false as const, kind: 'error' as const, message: 'Gate not found.' };
         node.status = 'succeeded';
         node.settledPort = req.decision;
         node.output = { decision: req.decision, note: req.note ?? null, decidedBy: 'panel' };
@@ -2845,7 +2911,10 @@ export function buildMockBridge(data: MockFixtures) {
       // flow. Empty/false by default so an unrelated spec exercising a
       // cloud-model session (`use-terminal-ipc.ts`) sees "signed out, no
       // key" and falls back to the local daemon exactly as before.
-      search: async () => ({ ok: true as const, value: { items: [], stale: false, updatedAt: '' } }),
+      search: async () => ({
+        ok: true as const,
+        value: { items: [], stale: false, updatedAt: '' },
+      }),
       cloudList: async () => ({ ok: true as const, value: { models: [] } }),
       signInStatus: async () => ({ signedIn: false }),
     },
@@ -2950,13 +3019,37 @@ export function buildMockBridge(data: MockFixtures) {
         set: async (req: { root: string | null }) => ({ root: req.root }),
         resolve: async () => videoResolution,
       },
-      setup: async () => {
+      setup: async (req: { engine?: string }) => {
         videoResolution = {
           root: '/repo/.midnite/media/video',
           source: 'repo-media',
           setupTarget: '/repo/.midnite/media/video',
+          engine: req.engine ?? 'remotion',
         };
         return { ok: true as const, value: videoResolution };
+      },
+      // Phase 99 Theme H — the engine switch; HyperFrames reports a pending install, like a first visit.
+      engine: {
+        get: async () => ({
+          root: videoResolution.root,
+          engine: videoResolution.engine ?? 'remotion',
+          needsInstall: false,
+          appDir: videoResolution.root ? `${videoResolution.root}/video-editor` : null,
+        }),
+        set: async (req: { engine: string }) => {
+          videoResolution = { ...videoResolution, engine: req.engine };
+          return {
+            ok: true as const,
+            value: {
+              root: videoResolution.root,
+              engine: req.engine,
+              needsInstall: req.engine === 'hyperframes',
+              appDir: videoResolution.root
+                ? `${videoResolution.root}/${req.engine === 'hyperframes' ? 'hyperframes-editor' : 'video-editor'}`
+                : null,
+            },
+          };
+        },
       },
       onStudioChanged: unsubscribe,
       onRenderProgress: unsubscribe,
@@ -2976,7 +3069,8 @@ export function buildMockBridge(data: MockFixtures) {
         }),
         create: async (req: { tab: string; project: string }) => {
           const key = `${req.tab}:${req.project}`;
-          if (mediaFiles[key]) return { ok: false as const, kind: 'error' as const, message: 'exists' };
+          if (mediaFiles[key])
+            return { ok: false as const, kind: 'error' as const, message: 'exists' };
           mediaFiles = { ...mediaFiles, [key]: {} };
           return { ok: true as const, value: { name: req.project, fileCount: 0, mtimeMs: 1 } };
         },
@@ -2994,11 +3088,13 @@ export function buildMockBridge(data: MockFixtures) {
       file: {
         list: async (req: { tab: string; project: string }) => ({
           ok: true as const,
-          value: Object.entries(mediaFiles[`${req.tab}:${req.project}`] ?? {}).map(([path, content]) => ({
-            path,
-            size: content.length,
-            mtimeMs: 1,
-          })),
+          value: Object.entries(mediaFiles[`${req.tab}:${req.project}`] ?? {}).map(
+            ([path, content]) => ({
+              path,
+              size: content.length,
+              mtimeMs: 1,
+            }),
+          ),
         }),
         read: async (req: { tab: string; project: string; path: string }) => {
           const content = mediaFiles[`${req.tab}:${req.project}`]?.[req.path];
@@ -3008,7 +3104,10 @@ export function buildMockBridge(data: MockFixtures) {
         },
         write: async (req: { tab: string; project: string; path: string; content: string }) => {
           const key = `${req.tab}:${req.project}`;
-          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [req.path]: req.content } };
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), [req.path]: req.content },
+          };
           return { ok: true as const, value: { size: req.content.length, largeFile: false } };
         },
         rename: async (req: { tab: string; project: string; path: string; to: string }) => {
@@ -3035,13 +3134,22 @@ export function buildMockBridge(data: MockFixtures) {
               missingKey: true,
               models: [],
             },
-            { id: 'agy' as const, available: false, reason: 'disabled', missingKey: false, models: [] },
+            {
+              id: 'agy' as const,
+              available: false,
+              reason: 'disabled',
+              missingKey: false,
+              models: [],
+            },
             { id: 'ollama' as const, available: false, missingKey: false, models: [] },
           ],
         }),
         generate: async (req: { project: string; count: number; generationId: string }) => {
           const key = `image:${req.project}`;
-          const files = Array.from({ length: req.count }, (_, i) => `${req.generationId}-${i + 1}.png`);
+          const files = Array.from(
+            { length: req.count },
+            (_, i) => `${req.generationId}-${i + 1}.png`,
+          );
           const added = Object.fromEntries(files.map((file) => [file, 'png']));
           mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), ...added } };
           return { ok: true as const, value: { files } };
@@ -3059,14 +3167,24 @@ export function buildMockBridge(data: MockFixtures) {
           ],
         }),
         // Local generation: lands `count` placeholder wavs as one `create` session.
-        generate: async (req: { project: string; importId: string; prompt: { title: string; count: number } }) => {
+        generate: async (req: {
+          project: string;
+          importId: string;
+          prompt: { title: string; count: number };
+        }) => {
           const key = `audio:${req.project}`;
           const sessionId = `sess-${req.importId}`;
-          const files = Array.from({ length: req.prompt.count }, (_, i) => `${req.importId}-${i + 1}.wav`);
+          const files = Array.from(
+            { length: req.prompt.count },
+            (_, i) => `${req.importId}-${i + 1}.wav`,
+          );
           const current = { ...(mediaFiles[key] ?? {}) };
           const history = (() => {
             try {
-              return JSON.parse(current['project.json'] ?? '') as { version: 1; sessions: unknown[] };
+              return JSON.parse(current['project.json'] ?? '') as {
+                version: 1;
+                sessions: unknown[];
+              };
             } catch {
               return { version: 1 as const, sessions: [] as unknown[] };
             }
@@ -3086,7 +3204,14 @@ export function buildMockBridge(data: MockFixtures) {
             version: 1,
             sessions: [
               ...history.sessions,
-              { id: sessionId, kind: 'create', provider: 'musicgen', prompt: req.prompt, variants: files, createdAt: '2026-09-30T12:00:00.000Z' },
+              {
+                id: sessionId,
+                kind: 'create',
+                provider: 'musicgen',
+                prompt: req.prompt,
+                variants: files,
+                createdAt: '2026-09-30T12:00:00.000Z',
+              },
             ],
           });
           mediaFiles = { ...mediaFiles, [key]: current };
@@ -3096,7 +3221,12 @@ export function buildMockBridge(data: MockFixtures) {
         engine: async () => ({
           engine: data.media?.audioEngine ?? {
             musicgen: { state: 'ready' as const, downloadBytes: 0 },
-            ollama: { running: true, models: ['llama3.2:3b'], model: 'llama3.2:3b', recommended: 'llama3.2:3b' },
+            ollama: {
+              running: true,
+              models: ['llama3.2:3b'],
+              model: 'llama3.2:3b',
+              recommended: 'llama3.2:3b',
+            },
           },
         }),
         installEngine: async () => ({ ok: true as const }),
@@ -3116,7 +3246,10 @@ export function buildMockBridge(data: MockFixtures) {
           const current = { ...(mediaFiles[key] ?? {}) };
           const history = (() => {
             try {
-              return JSON.parse(current['project.json'] ?? '') as { version: 1; sessions: unknown[] };
+              return JSON.parse(current['project.json'] ?? '') as {
+                version: 1;
+                sessions: unknown[];
+              };
             } catch {
               return { version: 1 as const, sessions: [] as unknown[] };
             }
@@ -3136,7 +3269,14 @@ export function buildMockBridge(data: MockFixtures) {
             version: 1,
             sessions: [
               ...history.sessions,
-              { id: sessionId, kind: 'import', provider: 'import', prompt: req.prompt, variants: files, createdAt: '2026-09-30T12:00:00.000Z' },
+              {
+                id: sessionId,
+                kind: 'import',
+                provider: 'import',
+                prompt: req.prompt,
+                variants: files,
+                createdAt: '2026-09-30T12:00:00.000Z',
+              },
             ],
           });
           mediaFiles = { ...mediaFiles, [key]: current };
@@ -3162,7 +3302,12 @@ export function buildMockBridge(data: MockFixtures) {
           const files = [`${stem}.json`, `${stem}.mtl`, `${stem}.obj`, `${stem}.fbx`];
           mediaFiles = {
             ...mediaFiles,
-            [key]: { ...(mediaFiles[key] ?? {}), ...Object.fromEntries(files.map((file) => [file, file.endsWith('.json') ? '{}' : 'x'])) },
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              ...Object.fromEntries(
+                files.map((file) => [file, file.endsWith('.json') ? '{}' : 'x']),
+              ),
+            },
           };
           return { ok: true as const, value: { files, primary: `${stem}.obj` } };
         },
@@ -3176,13 +3321,19 @@ export function buildMockBridge(data: MockFixtures) {
           const sidecarPath = req.path.replace(/\.[^.]+$/, '.json');
           let previous: Record<string, unknown> = {};
           try {
-            previous = JSON.parse(mediaFiles[key]?.[sidecarPath] ?? '{}') as Record<string, unknown>;
+            previous = JSON.parse(mediaFiles[key]?.[sidecarPath] ?? '{}') as Record<
+              string,
+              unknown
+            >;
           } catch {
             previous = {};
           }
           mediaFiles = {
             ...mediaFiles,
-            [key]: { ...(mediaFiles[key] ?? {}), [sidecarPath]: JSON.stringify({ ...previous, spec: req.spec }) },
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              [sidecarPath]: JSON.stringify({ ...previous, spec: req.spec }),
+            },
           };
           return { ok: true as const, value: { files: [sidecarPath] } };
         },
@@ -3202,7 +3353,11 @@ export function buildMockBridge(data: MockFixtures) {
       },
       reveal: async () => ({ ok: true as const }),
       ffmpegStatus: async () => ({
-        ffmpeg: data.media?.ffmpeg ?? { found: true as const, path: '/opt/homebrew/bin/ffmpeg', version: '7.1' },
+        ffmpeg: data.media?.ffmpeg ?? {
+          found: true as const,
+          path: '/opt/homebrew/bin/ffmpeg',
+          version: '7.1',
+        },
       }),
       export: async () => ({ ok: true as const, value: { dest: '/tmp/export.out' } }),
       cancelExport: async () => ({ ok: true as const }),
@@ -3211,7 +3366,9 @@ export function buildMockBridge(data: MockFixtures) {
       doc: {
         edit: async (req: { selection?: string; markdown: string; prompt: string }) => ({
           ok: true as const,
-          value: { replacement: `${(req.selection ?? req.markdown).trim()}\n\n_Edited: ${req.prompt}_\n` },
+          value: {
+            replacement: `${(req.selection ?? req.markdown).trim()}\n\n_Edited: ${req.prompt}_\n`,
+          },
         }),
         export: async (req: { name: string; format: string }) => ({
           ok: true as const,
@@ -3571,7 +3728,8 @@ export function buildMockBridge(data: MockFixtures) {
     sync: {
       onStatus: (handler: (e: SyncStatusEvent) => void) => {
         syncStatusHandlers.push(handler as (e: unknown) => void);
-        return () => syncStatusHandlers.splice(syncStatusHandlers.indexOf(handler as (e: unknown) => void), 1);
+        return () =>
+          syncStatusHandlers.splice(syncStatusHandlers.indexOf(handler as (e: unknown) => void), 1);
       },
     },
     window: {
@@ -3641,7 +3799,8 @@ export function buildMockBridge(data: MockFixtures) {
         results: req.ids.map((id) => ({
           id,
           installed: id === 'homebrew' || id === 'git',
-          version: id === 'git' ? 'git version 2.45.0' : id === 'homebrew' ? 'Homebrew 4.4.18' : null,
+          version:
+            id === 'git' ? 'git version 2.45.0' : id === 'homebrew' ? 'Homebrew 4.4.18' : null,
           path: id === 'git' ? '/usr/bin/git' : id === 'homebrew' ? '/opt/homebrew/bin/brew' : null,
         })),
       }),
@@ -4357,7 +4516,12 @@ export function buildMockBridge(data: MockFixtures) {
         allowGateDecide: mcpAllowGateDecide,
         allowModels: mcpAllowModels,
       }),
-      set: async (req: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean }) => {
+      set: async (req: {
+        enabled?: boolean;
+        allowUi?: boolean;
+        allowGateDecide?: boolean;
+        allowModels?: boolean;
+      }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
@@ -4661,12 +4825,16 @@ export function buildMockBridge(data: MockFixtures) {
     ...(data.video?.studioStatus ?? {}),
   };
   // eslint-disable-next-line no-var
-  var videoResolution: { root: string | null; source: string | null; setupTarget: string | null } =
-    data.video?.resolution ?? {
-      root: data.video?.root ?? '/videos',
-      source: 'global',
-      setupTarget: '/repo/.midnite/media/video',
-    };
+  var videoResolution: {
+    root: string | null;
+    source: string | null;
+    setupTarget: string | null;
+    engine?: string;
+  } = data.video?.resolution ?? {
+    root: data.video?.root ?? '/videos',
+    source: 'global',
+    setupTarget: '/repo/.midnite/media/video',
+  };
   // eslint-disable-next-line no-var
   var videoRenders: Record<string, Array<{ id: string; [key: string]: unknown }>> = {
     ...(data.video?.renders ?? {}),
@@ -5010,22 +5178,22 @@ export function buildMockBridge(data: MockFixtures) {
   (window as unknown as { __mstudioBrowserStopCalls: unknown }).__mstudioBrowserStopCalls = () => [
     ...browserStopCalls,
   ];
-  (window as unknown as { __mstudioBrowserKeepAwakeCalls: unknown }).__mstudioBrowserKeepAwakeCalls =
-    () => [...browserKeepAwakeCalls];
-  (window as unknown as { __mstudioBrowserDiscardMsCalls: unknown }).__mstudioBrowserDiscardMsCalls =
-    () => [...browserDiscardMsCalls];
+  (
+    window as unknown as { __mstudioBrowserKeepAwakeCalls: unknown }
+  ).__mstudioBrowserKeepAwakeCalls = () => [...browserKeepAwakeCalls];
+  (
+    window as unknown as { __mstudioBrowserDiscardMsCalls: unknown }
+  ).__mstudioBrowserDiscardMsCalls = () => [...browserDiscardMsCalls];
   (window as unknown as { __mstudioAppsEnableCalls: unknown }).__mstudioAppsEnableCalls = () => [
     ...appsEnableCalls,
   ];
   (window as unknown as { __mstudioAppsDisableCalls: unknown }).__mstudioAppsDisableCalls = () => [
     ...appsDisableCalls,
   ];
-  (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls = () => [
-    ...appsActivateCalls,
-  ];
-  (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls = () => [
-    ...settingsSyncCalls,
-  ];
+  (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls =
+    () => [...appsActivateCalls];
+  (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls =
+    () => [...settingsSyncCalls];
   (window as unknown as { __mstudioEmitSyncStatus: unknown }).__mstudioEmitSyncStatus = (
     event: SyncStatusEvent,
   ) => {
@@ -5115,11 +5283,16 @@ export function buildMockBridge(data: MockFixtures) {
     let txCounter = 0;
     const portfolio = {
       version: 1 as const,
-      balances: { ...(cfg.balances ?? { USD: 1000, EUR: 500, ZAR: 10000 }) } as Record<string, number>,
-      holdings: (cfg.holdings ?? [
-        { symbol: 'BTC', name: 'Bitcoin', kind: 'crypto' as const, quantity: 0.5 },
-        { symbol: 'AAPL', name: 'Apple', kind: 'stock' as const, quantity: 10 },
-      ]).map((h) => ({ ...h })),
+      balances: { ...(cfg.balances ?? { USD: 1000, EUR: 500, ZAR: 10000 }) } as Record<
+        string,
+        number
+      >,
+      holdings: (
+        cfg.holdings ?? [
+          { symbol: 'BTC', name: 'Bitcoin', kind: 'crypto' as const, quantity: 0.5 },
+          { symbol: 'AAPL', name: 'Apple', kind: 'stock' as const, quantity: 10 },
+        ]
+      ).map((h) => ({ ...h })),
       transactions: [] as Record<string, unknown>[],
       watchlist: [...(cfg.watchlist ?? ['BTC', 'ETH', 'AAPL'])],
       extraAssets: [] as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' }[],
@@ -5171,8 +5344,19 @@ export function buildMockBridge(data: MockFixtures) {
             req.assets.map((a) => [
               a.symbol,
               cfg.down
-                ? { candles: [], fetchedAt: null, stale: false, source: null, error: 'Provider down' }
-                : { candles: candles(a.symbol, req.timescale), fetchedAt: NOW, stale: false, source: 'Mock' },
+                ? {
+                    candles: [],
+                    fetchedAt: null,
+                    stale: false,
+                    source: null,
+                    error: 'Provider down',
+                  }
+                : {
+                    candles: candles(a.symbol, req.timescale),
+                    fetchedAt: NOW,
+                    stale: false,
+                    source: 'Mock',
+                  },
             ]),
           ),
         },
@@ -5193,10 +5377,15 @@ export function buildMockBridge(data: MockFixtures) {
       search: async (req: { query: string }) => ({
         ok: true as const,
         value: catalogue
-          .filter(([symbol, name]) => `${symbol} ${name}`.toLowerCase().includes(req.query.toLowerCase()))
+          .filter(([symbol, name]) =>
+            `${symbol} ${name}`.toLowerCase().includes(req.query.toLowerCase()),
+          )
           .map(([symbol, name, kind]) => ({ symbol, name, kind })),
       }),
-      rates: async () => ({ ok: true as const, value: { base: 'USD' as const, rates, fetchedAt: NOW, stale: false } }),
+      rates: async () => ({
+        ok: true as const,
+        value: { base: 'USD' as const, rates, fetchedAt: NOW, stale: false },
+      }),
       portfolio: async () => ({ ok: true as const, value: structuredClone(portfolio) }),
       apply: async (op: Record<string, unknown>) => {
         const currency = String(op.currency ?? 'USD');
@@ -5204,15 +5393,21 @@ export function buildMockBridge(data: MockFixtures) {
         if (kind === 'addCard') {
           portfolio.balances[currency] ??= 0;
         } else if (kind === 'watch') {
-          const asset = op.asset as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' };
+          const asset = op.asset as {
+            symbol: string;
+            name: string;
+            kind: 'crypto' | 'stock' | 'etf';
+          };
           const has = portfolio.watchlist.includes(asset.symbol);
           if (op.watched && !has) portfolio.watchlist.push(asset.symbol);
-          if (!op.watched && has) portfolio.watchlist = portfolio.watchlist.filter((s) => s !== asset.symbol);
+          if (!op.watched && has)
+            portfolio.watchlist = portfolio.watchlist.filter((s) => s !== asset.symbol);
         } else if (kind === 'deposit' || kind === 'withdraw') {
           const amount = Number(op.amount);
           const balance = portfolio.balances[currency] ?? 0;
           if (kind === 'withdraw' && amount > balance) return fail('Insufficient balance');
-          portfolio.balances[currency] = Math.round((balance + (kind === 'deposit' ? amount : -amount)) * 100) / 100;
+          portfolio.balances[currency] =
+            Math.round((balance + (kind === 'deposit' ? amount : -amount)) * 100) / 100;
           portfolio.transactions.push({
             id: `mock-${++txCounter}`,
             ts: NOW,
@@ -5222,7 +5417,11 @@ export function buildMockBridge(data: MockFixtures) {
             valueUsd: amount / (rates[currency] ?? 1),
           });
         } else if (kind === 'buy' || kind === 'sell') {
-          const asset = op.asset as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' };
+          const asset = op.asset as {
+            symbol: string;
+            name: string;
+            kind: 'crypto' | 'stock' | 'etf';
+          };
           const quantity = Number(op.quantity);
           const price = priceOf(asset.symbol);
           const fiat = cash(quantity * price, currency);

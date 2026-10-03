@@ -8,7 +8,27 @@ description: Turn a video brief into a detailed, execution-ready editorial scrip
 Use this when someone hands you a brief (a markdown doc, a Notion/Google Doc dump, an
 email, whatever form it takes) describing a video to make — either an edit to an existing
 one or a piece built from scratch — and you need to turn it into a precise,
-execution-ready plan before writing any Remotion code.
+execution-ready plan before writing any composition code.
+
+## Engine
+
+This workspace renders with **Remotion** or **HyperFrames**; `video.config.json` at the
+repo root names which (`{ "engine": "remotion" | "hyperframes" }`, absent = Remotion).
+**Read it first.** The plan itself is engine-neutral — timestamps, frame numbers, copy,
+assets, pixel coordinates — and only two things in it depend on the engine:
+
+- **How assets are referenced** (the *Asset inventory* below). Remotion:
+  `staticFile("logos/agents/claude-white.svg")` for shared media and
+  `projectFile("<project-id>")("x.mp4")` for the project's own. HyperFrames:
+  `assets/logos/agents/claude-white.svg` and `assets/input/x.mp4`, relative to the
+  composition's `index.html`.
+- **The unit of time.** Remotion counts frames at the composition's `fps`. HyperFrames
+  addresses seconds (`data-start`, `data-duration`). Keep both columns in the timeline
+  map and state the fps, so the same plan builds under either engine.
+
+For HyperFrames the upstream skills (`/hyperframes`, `/hyperframes-core`, …) are the
+authority on its composition contract; if they are not installed, ask the user to run
+`npx hyperframes skills update` in a terminal. Do not guess its `data-*` rules.
 
 ARGUMENTS: the project folder, e.g. "project: projects/acme/marketing/001-launch" —
 the brief is `<project>/input/BRIEF.md`, the source video (if this edit has one) is the
@@ -56,8 +76,8 @@ differences with the human.
      (`ffmpeg -af volumedetect -f null -`) before assuming there's narration or music to
      work with. A present-but-silent track is common.
    - If the brief references spoken phrases and there IS real audio, transcribe it (see
-     the `remotion-captions` skill's transcription flow) to get exact timestamps rather
-     than guessing. If transcription comes back empty/blank, the messaging is probably
+     the `remotion-captions` skill's transcription flow, or `npx hyperframes transcribe`
+     under HyperFrames) to get exact timestamps rather than guessing. If transcription comes back empty/blank, the messaging is probably
      on-screen text, not narration — switch to frame inspection instead.
 
    For a video built from scratch there is no source to probe; skip to step 6 and spend
@@ -115,9 +135,8 @@ inside it) containing:
 - **Source video ground truth** — verified specs, audio status, anything that contradicts
   what the brief assumes. (Omit for a from-scratch build, and say so.)
 - **Asset inventory** — resolved, verified on-disk paths for everything needed, marking
-  each as shared (`assets/…`, referenced in code as
-  `staticFile("logos/agents/claude-white.svg")`) or project-specific (`<project>/input/…`,
-  referenced as `projectFile`/`<name>File("x.mp4")`)
+  each as shared (`assets/…`) or project-specific (`<project>/input/…`), with the
+  engine's reference form (see **Engine** above)
 - **Full timeline map** — a table of beats with real timestamps AND frame numbers (state
   the fps used for conversion), flagging replace-vs-insert points explicitly
 - **Per-section build specs** — copy, timing, animation, assets, exact pixel coordinates

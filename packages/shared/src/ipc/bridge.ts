@@ -1086,6 +1086,11 @@ export type MidniteStudioBridge = {
     };
     /** Phase 99 Theme D — Setup Video scaffold into `<repo>/.midnite/media/video/`. */
     setup: (req: In<typeof S.VideoSetupRequest>) => Promise<z.infer<typeof S.VideoSetupResponse>>;
+    /** Phase 99 Theme H — the video root's engine (Remotion | HyperFrames): read it, or switch it. */
+    engine: {
+      get: (req: In<typeof S.VideoEngineGetRequest>) => Promise<z.infer<typeof S.VideoEngineGetResponse>>;
+      set: (req: In<typeof S.VideoEngineSetRequest>) => Promise<z.infer<typeof S.VideoEngineSetResponse>>;
+    };
     onStudioChanged: (
       handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void,
     ) => Unsubscribe;

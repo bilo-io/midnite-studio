@@ -1,4 +1,6 @@
 import type {
+  VideoEngine,
+  VideoEngineState,
   VideoProject,
   VideoRender,
   VideoRenderOptions,
@@ -53,7 +55,11 @@ export function useVideoRootResolution(repoId: string | null) {
   const query = useQuery<VideoRootResolution>({
     queryKey: VIDEO_KEYS.resolution(repoId),
     queryFn: async () =>
-      (await bridge()?.video.root.resolve({ repoId })) ?? { root: null, source: null, setupTarget: null },
+      (await bridge()?.video.root.resolve({ repoId })) ?? {
+        root: null,
+        source: null,
+        setupTarget: null,
+      },
   });
   const root = query.data?.root ?? null;
   const [seenRoot, setSeenRoot] = useState<string | null | undefined>(undefined);
@@ -67,15 +73,57 @@ export function useVideoRootResolution(repoId: string | null) {
   return query;
 }
 
-/** Setup Video: scaffold `templates/media-video/` into the repo, then adopt it. */
+/**
+ * Setup Video: scaffold `templates/media-video/` into the repo, then adopt it.
+ * `engine` (Phase 99 Theme H) is the picker's choice; left out it is Remotion.
+ */
 export function useVideoSetup(repoId: string | null) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async () =>
-      (await bridge()?.video.setup({ repoId: repoId ?? '' })) ?? noBridge<VideoRootResolution>(),
+    mutationFn: async (engine?: VideoEngine) =>
+      (await bridge()?.video.setup({ repoId: repoId ?? '', ...(engine ? { engine } : {}) })) ??
+      noBridge<VideoRootResolution>(),
     onSuccess: (result) => {
       reportFailure<VideoRootResolution>(result);
       if (result.ok) client.setQueryData(VIDEO_KEYS.resolution(repoId), result.value);
+    },
+  });
+}
+
+const NO_ENGINE_STATE: VideoEngineState = {
+  root: null,
+  engine: 'remotion',
+  needsInstall: false,
+  appDir: null,
+};
+
+/** Every cached answer an engine switch can change — the toolchain, studios and the resolution itself. */
+const ENGINE_DEPENDENT_KEYS = [
+  ['video-toolchain'],
+  ['video-studio'],
+  ['video-root-resolution'],
+  ['video-engine'],
+] as const;
+
+/** Phase 99 Theme H — one root's engine (`active` = the Video tab's, `global` = Settings ▸ Media's). */
+export function useVideoEngine(target: 'active' | 'global') {
+  return useQuery<VideoEngineState>({
+    queryKey: ['video-engine', target] as const,
+    queryFn: async () => (await bridge()?.video.engine.get({ target })) ?? NO_ENGINE_STATE,
+  });
+}
+
+/** Switch a root's engine; the result says whether the new editor app still needs `npm install`. */
+export function useSetVideoEngine(target: 'active' | 'global') {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (engine: VideoEngine) =>
+      (await bridge()?.video.engine.set({ target, engine })) ?? noBridge<VideoEngineState>(),
+    onSuccess: (result) => {
+      reportFailure<VideoEngineState>(result);
+      if (result.ok) {
+        for (const queryKey of ENGINE_DEPENDENT_KEYS) void client.invalidateQueries({ queryKey });
+      }
     },
   });
 }
@@ -127,7 +175,8 @@ export function useCreateVideoProject() {
 export function useRemoveVideoProject() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => (await bridge()?.video.project.remove({ id })) ?? noBridge<void>(),
+    mutationFn: async (id: string) =>
+      (await bridge()?.video.project.remove({ id })) ?? noBridge<void>(),
     onSuccess: (result) => {
       reportFailure<void>(result);
       if (result.ok) void client.invalidateQueries({ queryKey: VIDEO_KEYS.projects });
@@ -152,7 +201,9 @@ export function useVideoStudioStatus(projectId: string | null) {
   return useQuery<VideoStudioStatus>({
     queryKey: VIDEO_KEYS.studio(projectId ?? ''),
     queryFn: async () =>
-      (await bridge()?.video.studio.status({ projectId: projectId ?? '' }))?.status ?? { state: 'stopped' },
+      (await bridge()?.video.studio.status({ projectId: projectId ?? '' }))?.status ?? {
+        state: 'stopped',
+      },
     enabled: projectId !== null,
     initialData: { state: 'stopped' },
   });
@@ -189,8 +240,12 @@ function useVideoRenderEvents(): void {
     const api = bridge();
     if (!api) return undefined;
     return api.video.onRenderProgress((event) => {
-      client.setQueryData<VideoRender[] | undefined>(VIDEO_KEYS.renders(event.projectId), (renders) =>
-        renders?.map((render) => (render.id === event.renderId ? { ...render, status: event.status } : render)),
+      client.setQueryData<VideoRender[] | undefined>(
+        VIDEO_KEYS.renders(event.projectId),
+        (renders) =>
+          renders?.map((render) =>
+            render.id === event.renderId ? { ...render, status: event.status } : render,
+          ),
       );
     });
   }, [client]);
@@ -200,7 +255,8 @@ export function useVideoRenders(projectId: string | null) {
   useVideoRenderEvents();
   return useQuery<VideoRender[]>({
     queryKey: VIDEO_KEYS.renders(projectId ?? ''),
-    queryFn: async () => (await bridge()?.video.render.list({ projectId: projectId ?? '' }))?.renders ?? [],
+    queryFn: async () =>
+      (await bridge()?.video.render.list({ projectId: projectId ?? '' }))?.renders ?? [],
     enabled: projectId !== null,
     initialData: [],
   });
@@ -229,11 +285,15 @@ export function useVideoRenderProgress(renderId: string | null): number | undefi
 export function useStartVideoRender() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { projectId: string; compositionId: string; options?: VideoRenderOptions }) =>
-      (await bridge()?.video.render.start(input)) ?? noBridge<VideoRender>(),
+    mutationFn: async (input: {
+      projectId: string;
+      compositionId: string;
+      options?: VideoRenderOptions;
+    }) => (await bridge()?.video.render.start(input)) ?? noBridge<VideoRender>(),
     onSuccess: (result, variables) => {
       reportFailure<VideoRender>(result);
-      if (result.ok) void client.invalidateQueries({ queryKey: VIDEO_KEYS.renders(variables.projectId) });
+      if (result.ok)
+        void client.invalidateQueries({ queryKey: VIDEO_KEYS.renders(variables.projectId) });
     },
   });
 }
@@ -245,7 +305,8 @@ export function useCancelVideoRender() {
       (await bridge()?.video.render.cancel({ renderId: input.renderId })) ?? noBridge<void>(),
     onSuccess: (result, variables) => {
       reportFailure<void>(result);
-      if (result.ok) void client.invalidateQueries({ queryKey: VIDEO_KEYS.renders(variables.projectId) });
+      if (result.ok)
+        void client.invalidateQueries({ queryKey: VIDEO_KEYS.renders(variables.projectId) });
     },
   });
 }
@@ -273,12 +334,21 @@ const NO_FILES: never[] = [];
  * initial data as fresh forever, so the listing would never be fetched in the
  * real app (Phase 99 Theme D found this — jsdom's test client masked it).
  */
-export function useVideoFiles(projectId: string | null, area: VideoFileArea, { recursive = false } = {}) {
+export function useVideoFiles(
+  projectId: string | null,
+  area: VideoFileArea,
+  { recursive = false } = {},
+) {
   const query = useQuery({
     queryKey: VIDEO_KEYS.files(projectId ?? '', area, recursive),
     queryFn: async () =>
-      (await bridge()?.video.files({ projectId: projectId ?? '', area, ...(recursive ? { recursive } : {}) }))
-        ?.entries ?? [],
+      (
+        await bridge()?.video.files({
+          projectId: projectId ?? '',
+          area,
+          ...(recursive ? { recursive } : {}),
+        })
+      )?.entries ?? [],
     enabled: projectId !== null,
   });
   return { ...query, data: query.data ?? NO_FILES };
@@ -303,7 +373,8 @@ export function useVideoProjectFile(projectId: string | null, relPath: string | 
   return useQuery<string | null>({
     queryKey: ['video-file-content', projectId ?? '', relPath ?? ''],
     queryFn: async () =>
-      (await bridge()?.video.readFile({ projectId: projectId ?? '', relPath: relPath ?? '' }))?.content ?? null,
+      (await bridge()?.video.readFile({ projectId: projectId ?? '', relPath: relPath ?? '' }))
+        ?.content ?? null,
     enabled: projectId !== null && relPath !== null,
   });
 }

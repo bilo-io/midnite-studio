@@ -12,14 +12,26 @@ import type {
 } from '@midnite/studio-shared';
 import { COMMANDS } from '@midnite/studio-shared';
 import { GoIssueOpened } from 'react-icons/go';
-import { LuArrowRightLeft, LuFile, LuFolder, LuGitBranch, LuGitCommitHorizontal, LuSquareTerminal, LuTag } from 'react-icons/lu';
+import {
+  LuArrowRightLeft,
+  LuFile,
+  LuFolder,
+  LuGitBranch,
+  LuGitCommitHorizontal,
+  LuSquareTerminal,
+  LuTag,
+} from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';
 import { SETTINGS_PAGE_ICON, VIEW_ICON } from '../../components/nav-icons';
 import { COMMAND_ICONS } from '../../features/palette/command-icons';
 import { isPaletteSafe } from '../../features/palette/safety';
 import { startAgent } from '../../features/terminal/start-agent';
-import { agentLabelFor, sessionLabel, useTerminalStore } from '../../features/terminal/terminal-store';
+import {
+  agentLabelFor,
+  sessionLabel,
+  useTerminalStore,
+} from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import { isNavViewVisible } from '../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
@@ -77,14 +89,13 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   history: 'reflog journal undo ops history',
   councils: 'agents council teams debate',
   workflows: 'agent workflow pipeline automation',
-  media: 'media docs images video audio studio remotion render export ffmpeg',
+  media: 'media docs images video audio studio remotion hyperframes render export ffmpeg',
   models: 'ollama models local cloud pull install download llm',
   sessions: 'agent session history transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };
-
 
 /**
  * Commands the palette OMITS while disabled, rather than greying out.
@@ -119,17 +130,13 @@ const COMMAND_GROUP_LABELS: Record<CommandGroup, string> = {
   window: 'Window',
 };
 
-export function createCommandSource(
-  runtime: CommandRuntime,
-  onSelect: () => void,
-): PaletteSource {
+export function createCommandSource(runtime: CommandRuntime, onSelect: () => void): PaletteSource {
   return {
     key: 'commands',
     items: () => {
       const safeCommands = COMMANDS.filter(
         (cmd) =>
-          isPaletteSafe(cmd.id) &&
-          !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
+          isPaletteSafe(cmd.id) && !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
       );
 
       const items: PaletteItem[] = [];
@@ -230,20 +237,18 @@ export function createProjectBoardsSource(
       };
       return [
         repoIssues,
-        ...boards.map(
-          (board): PaletteItem => ({
-            id: `project-board:${board.id}`,
-            label: board.title,
-            group: 'Task boards',
-            icon: VIEW_ICON.tasks,
-            keywords: 'task board project kanban',
-            run: () => {
-              onSelect();
-              useUiStore.getState().setActiveView('tasks');
-              useUiStore.getState().setProjectBoard(repoId, board.id);
-            },
-          }),
-        ),
+        ...boards.map((board): PaletteItem => ({
+          id: `project-board:${board.id}`,
+          label: board.title,
+          group: 'Task boards',
+          icon: VIEW_ICON.tasks,
+          keywords: 'task board project kanban',
+          run: () => {
+            onSelect();
+            useUiStore.getState().setActiveView('tasks');
+            useUiStore.getState().setProjectBoard(repoId, board.id);
+          },
+        })),
       ];
     },
   };
@@ -265,19 +270,17 @@ export function createRepoIssuesSource(
     key: 'repo-issues',
     items: () => {
       if (repoId === null) return [];
-      return issues.map(
-        (issue): PaletteItem => ({
-          id: `repo-issue:${issue.number}`,
-          label: `#${issue.number} ${issue.title}`,
-          group: 'Issues',
-          icon: GoIssueOpened,
-          keywords: `issue ${issue.state} ${issue.labels.map((label) => label.name).join(' ')}`,
-          run: () => {
-            onSelect();
-            openIssueModal({ repoId, number: issue.number, seed: issue });
-          },
-        }),
-      );
+      return issues.map((issue): PaletteItem => ({
+        id: `repo-issue:${issue.number}`,
+        label: `#${issue.number} ${issue.title}`,
+        group: 'Issues',
+        icon: GoIssueOpened,
+        keywords: `issue ${issue.state} ${issue.labels.map((label) => label.name).join(' ')}`,
+        run: () => {
+          onSelect();
+          openIssueModal({ repoId, number: issue.number, seed: issue });
+        },
+      }));
     },
   };
 }
@@ -305,20 +308,18 @@ export function createForgeAccountsSource(
     items: () =>
       accounts
         .filter((account) => account.id !== activeId)
-        .map(
-          (account): PaletteItem => ({
-            id: `forge-account:${account.id}`,
-            label: `Switch to ${account.login} (${account.kind})`,
-            group: 'Accounts',
-            icon: LuArrowRightLeft,
-            detail: account.host,
-            keywords: `account identity forge ${account.displayName ?? ''} ${account.host}`,
-            run: () => {
-              onSelect();
-              onSwitch(account.id);
-            },
-          }),
-        ),
+        .map((account): PaletteItem => ({
+          id: `forge-account:${account.id}`,
+          label: `Switch to ${account.login} (${account.kind})`,
+          group: 'Accounts',
+          icon: LuArrowRightLeft,
+          detail: account.host,
+          keywords: `account identity forge ${account.displayName ?? ''} ${account.host}`,
+          run: () => {
+            onSelect();
+            onSwitch(account.id);
+          },
+        })),
   };
 }
 
@@ -499,10 +500,7 @@ export function createRefsSource(
   };
 }
 
-export function createFilesSource(
-  files: string[],
-  onSelect: () => void,
-): PaletteSource {
+export function createFilesSource(files: string[], onSelect: () => void): PaletteSource {
   return {
     key: 'files',
     items: () => {
@@ -543,4 +541,3 @@ export function createFilesSource(
     },
   };
 }
-
