@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildToolchainProbeScript,
+  parseHyperframesVersion,
   parseRemotionVersion,
   parseToolchainProbeOutput,
   probeVideoSkills,
@@ -49,7 +50,9 @@ describe('parseToolchainProbeOutput', () => {
   });
 
   it('reads past an rc-file banner printed before the real answer', () => {
-    const output = frame('node', 'Welcome to fish\n/opt/homebrew/bin/node') + frame('npx', '/opt/homebrew/bin/npx');
+    const output =
+      frame('node', 'Welcome to fish\n/opt/homebrew/bin/node') +
+      frame('npx', '/opt/homebrew/bin/npx');
     const result = parseToolchainProbeOutput(output);
     expect(result.node).toEqual({ found: true, path: '/opt/homebrew/bin/node' });
   });
@@ -149,17 +152,100 @@ describe('probeVideoSkills', () => {
     const result = await probeVideoSkills(undefined, { readFile });
 
     expect(readFile).not.toHaveBeenCalled();
-    expect(result.videoWriteScript).toEqual({ found: false, reason: 'Configure a video root in Settings first.' });
-    expect(result.videoExecuteScript).toEqual({ found: false, reason: 'Configure a video root in Settings first.' });
+    expect(result.videoWriteScript).toEqual({
+      found: false,
+      reason: 'Configure a video root in Settings first.',
+    });
+    expect(result.videoExecuteScript).toEqual({
+      found: false,
+      reason: 'Configure a video root in Settings first.',
+    });
   });
 
   it('checks each skill against its own directory name, not a shared path', async () => {
-    const readFile = vi.fn().mockImplementation((path: string) =>
-      path.includes('video-write-editorial-script') ? Promise.resolve('# write') : Promise.reject(new Error('ENOENT')),
-    );
+    const readFile = vi
+      .fn()
+      .mockImplementation((path: string) =>
+        path.includes('video-write-editorial-script')
+          ? Promise.resolve('# write')
+          : Promise.reject(new Error('ENOENT')),
+      );
     const result = await probeVideoSkills('/videos', { readFile });
 
     expect(result.videoWriteScript.found).toBe(true);
     expect(result.videoExecuteScript.found).toBe(false);
+  });
+});
+
+describe('HyperFrames toolchain (Phase 99 Theme H)', () => {
+  const output =
+    frame('node', '/opt/homebrew/bin/node') +
+    frame('npx', '/opt/homebrew/bin/npx') +
+    frame('ffmpeg', '/opt/homebrew/bin/ffmpeg') +
+    frame('nodeversion', '22.12.0');
+
+  it('probes the node version in the same shell command', () => {
+    expect(buildToolchainProbeScript()).toContain('node -p process.versions.node');
+  });
+
+  it('reads the node version, and omits it when the frame is missing or junk', () => {
+    expect(parseToolchainProbeOutput(output).nodeVersion).toBe('22.12.0');
+    expect(parseToolchainProbeOutput(frame('node', '/n')).nodeVersion).toBeUndefined();
+    expect(
+      parseToolchainProbeOutput(frame('nodeversion', 'command not found')).nodeVersion,
+    ).toBeUndefined();
+  });
+
+  it('reports a missing ffmpeg as not found — HyperFrames cannot render without it', () => {
+    const result = parseToolchainProbeOutput(
+      frame('node', '/n') + frame('npx', '/x') + frame('ffmpeg', ''),
+    );
+    expect(result.ffmpeg).toEqual({ found: false, reason: 'ffmpeg was not found on PATH.' });
+  });
+
+  it('parses the pinned hyperframes dependency', () => {
+    expect(parseHyperframesVersion('{"devDependencies":{"hyperframes":"0.8.114"}}')).toBe(
+      '0.8.114',
+    );
+    expect(
+      parseHyperframesVersion(
+        '{"dependencies":{"hyperframes":"0.9.0"},"devDependencies":{"hyperframes":"0.1.0"}}',
+      ),
+    ).toBe('0.9.0');
+    expect(parseHyperframesVersion('{"dependencies":{"remotion":"4"}}')).toBeUndefined();
+    expect(parseHyperframesVersion('nope')).toBeUndefined();
+  });
+
+  it('stamps the engine and reads hyperframesVersion from the HyperFrames app, not remotionVersion', async () => {
+    const run = vi.fn().mockResolvedValue({ output });
+    const readFile = vi
+      .fn()
+      .mockResolvedValue('{"devDependencies":{"hyperframes":"0.8.114","remotion":"4.0.1"}}');
+    const result = await probeVideoToolchain(
+      '/repo/hyperframes-editor',
+      { run, readFile },
+      'hyperframes',
+    );
+    expect(result).toMatchObject({
+      engine: 'hyperframes',
+      hyperframesVersion: '0.8.114',
+      nodeVersion: '22.12.0',
+    });
+    expect(result.remotionVersion).toBeUndefined();
+    expect(readFile).toHaveBeenCalledWith('/repo/hyperframes-editor/package.json');
+  });
+
+  it('answers a Remotion probe exactly as before: no engine stamp', async () => {
+    const run = vi.fn().mockResolvedValue({ output });
+    const result = await probeVideoToolchain(undefined, { run });
+    expect(result.engine).toBeUndefined();
+    expect(result.hyperframesVersion).toBeUndefined();
+  });
+
+  it('shares one cached machine probe across engines', async () => {
+    const run = vi.fn().mockResolvedValue({ output });
+    await probeVideoToolchain(undefined, { run }, 'remotion');
+    await probeVideoToolchain(undefined, { run }, 'hyperframes');
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

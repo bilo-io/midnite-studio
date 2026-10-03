@@ -52,7 +52,12 @@ export function engineNeedsInstall(root: string, engine: VideoEngine): boolean {
 
 export function engineState(root: string | null, engine: VideoEngine): VideoEngineState {
   if (!root) return { root: null, engine, needsInstall: false, appDir: null };
-  return { root, engine, needsInstall: engineNeedsInstall(root, engine), appDir: engineAppDir(root, engine) };
+  return {
+    root,
+    engine,
+    needsInstall: engineNeedsInstall(root, engine),
+    appDir: engineAppDir(root, engine),
+  };
 }
 
 /** Every engine's editor app directory *except* `engine`'s — what a scaffold leaves out. */
@@ -80,7 +85,9 @@ export async function switchVideoEngine(
     if (!existsSync(appDir)) {
       const source = join(templateDir, appDirName);
       if (!existsSync(source)) {
-        return failure(`The ${VIDEO_ENGINE_INFO[engine].label} template is missing from this build (${source}).`);
+        return failure(
+          `The ${VIDEO_ENGINE_INFO[engine].label} template is missing from this build (${source}).`,
+        );
       }
       await cp(source, appDir, { recursive: true, force: false });
     }
@@ -109,6 +116,8 @@ const escapeHtml = (text: string): string =>
 /** A minimal, valid composition (title card, 5s) — enough for Studio to open and for an agent to build on. */
 export function hyperframesStubComposition(compositionId: string, title: string): string {
   const id = escapeHtml(compositionId);
+  // In a <script>, HTML escaping is wrong; a JSON string with `<` escaped cannot close the tag.
+  const jsId = JSON.stringify(compositionId).replace(/</g, '\\u003c');
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -129,7 +138,7 @@ export function hyperframesStubComposition(compositionId: string, title: string)
     <script>
       const tl = gsap.timeline({ paused: true });
       tl.fromTo("#title", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0);
-      window.__timelines["${id}"] = tl;
+      window.__timelines[${jsId}] = tl;
       tl.seek(0);
     </script>
   </body>
@@ -154,7 +163,10 @@ export async function ensureHyperframesComposition(
   if (!existsSync(entry)) {
     try {
       await mkdir(dir, { recursive: true });
-      await writeFile(entry, hyperframesStubComposition(compositionId, title), { encoding: 'utf8', flag: 'wx' });
+      await writeFile(entry, hyperframesStubComposition(compositionId, title), {
+        encoding: 'utf8',
+        flag: 'wx',
+      });
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }

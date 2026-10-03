@@ -13,6 +13,8 @@
  */
 import { z } from 'zod';
 
+import { FFMPEG_INSTALL_COMMAND } from './media';
+
 // --- project (file format, portable in both directions) --------------------
 
 /**
@@ -73,7 +75,13 @@ export type VideoComposition = z.infer<typeof VideoCompositionSchema>;
 // --- renders -------------------------------------------------------------
 
 /** Mirrors the council/workflow run-status shape: five states, not a boolean. */
-export const VIDEO_RENDER_STATUSES = ['queued', 'rendering', 'succeeded', 'failed', 'cancelled'] as const;
+export const VIDEO_RENDER_STATUSES = [
+  'queued',
+  'rendering',
+  'succeeded',
+  'failed',
+  'cancelled',
+] as const;
 export const VideoRenderStatusSchema = z.enum(VIDEO_RENDER_STATUSES);
 export type VideoRenderStatus = z.infer<typeof VideoRenderStatusSchema>;
 
@@ -146,14 +154,17 @@ export const VIDEO_ENGINE_INFO: Record<
     label: 'HyperFrames',
     appDir: 'hyperframes-editor',
     studioLabel: 'HyperFrames Studio',
-    blurb: 'HTML + GSAP compositions (HeyGen, Apache-2.0). Needs Node 22+ and ffmpeg; Chrome is fetched on first render.',
+    blurb:
+      'HTML + GSAP compositions (HeyGen, Apache-2.0). Needs Node 22+ and ffmpeg; Chrome is fetched on first render.',
   },
 };
 
 /** The root-level file that records the engine — absent means {@link DEFAULT_VIDEO_ENGINE}. */
 export const VIDEO_CONFIG_FILE = 'video.config.json';
 
-export const VideoConfigSchema = z.object({ engine: VideoEngineSchema.default(DEFAULT_VIDEO_ENGINE) });
+export const VideoConfigSchema = z.object({
+  engine: VideoEngineSchema.default(DEFAULT_VIDEO_ENGINE),
+});
 export type VideoConfig = z.infer<typeof VideoConfigSchema>;
 
 /**
@@ -176,7 +187,9 @@ export function serializeVideoConfig(config: VideoConfig): string {
 }
 
 /** The engine a (possibly pre-engine) resolution or toolchain reports. */
-export function videoEngineOf(value: { engine?: VideoEngine | undefined } | null | undefined): VideoEngine {
+export function videoEngineOf(
+  value: { engine?: VideoEngine | undefined } | null | undefined,
+): VideoEngine {
   return value?.engine ?? DEFAULT_VIDEO_ENGINE;
 }
 
@@ -308,7 +321,10 @@ export const VIDEO_RENDER_CODECS = ['h264', 'vp8', 'vp9', 'prores', 'gif'] as co
 export const VideoRenderCodecSchema = z.enum(VIDEO_RENDER_CODECS);
 export type VideoRenderCodec = z.infer<typeof VideoRenderCodecSchema>;
 
-export const VIDEO_CODEC_INFO: Record<VideoRenderCodec, { label: string; ext: string; crf: boolean }> = {
+export const VIDEO_CODEC_INFO: Record<
+  VideoRenderCodec,
+  { label: string; ext: string; crf: boolean }
+> = {
   h264: { label: 'H.264 (mp4)', ext: 'mp4', crf: true },
   vp8: { label: 'VP8 (webm)', ext: 'webm', crf: true },
   vp9: { label: 'VP9 (webm)', ext: 'webm', crf: true },
@@ -418,7 +434,11 @@ export function studioCompositionUrl(
 }
 
 /** One unmet requirement of the active engine, with the command that fixes it when there is one. */
-export type VideoEngineIssue = { id: 'node' | 'npx' | 'node-version' | 'ffmpeg'; message: string; command?: string };
+export type VideoEngineIssue = {
+  id: 'node' | 'npx' | 'node-version' | 'ffmpeg';
+  message: string;
+  command?: string;
+};
 
 /**
  * What the active engine needs that this machine lacks — pure over the
@@ -439,15 +459,14 @@ export function videoEngineIssues(
     if (toolchain.node.found && Number.isFinite(major) && major < HYPERFRAMES_MIN_NODE_MAJOR) {
       issues.push({
         id: 'node-version',
-        message: `HyperFrames needs Node ${HYPERFRAMES_MIN_NODE_MAJOR}+ (found ${toolchain.nodeVersion}).`,
-        command: 'proto use',
+        message: `HyperFrames needs Node ${HYPERFRAMES_MIN_NODE_MAJOR}+ (found ${toolchain.nodeVersion}) — install a newer Node (nodejs.org, nvm, or brew install node).`,
       });
     }
     if (toolchain.ffmpeg && !toolchain.ffmpeg.found) {
       issues.push({
         id: 'ffmpeg',
         message: 'HyperFrames renders through ffmpeg, which was not found on PATH.',
-        command: 'brew install ffmpeg',
+        command: FFMPEG_INSTALL_COMMAND,
       });
     }
   }

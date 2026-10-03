@@ -1,6 +1,18 @@
-import { studioCompositionUrl } from '@midnite/studio-shared';
+import {
+  VIDEO_ENGINE_INFO,
+  studioCompositionUrl,
+  videoEngineIssues,
+  videoEngineOf,
+} from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
-import { LuClapperboard, LuExternalLink, LuOctagonAlert, LuPlay, LuSquare, LuTriangleAlert } from 'react-icons/lu';
+import {
+  LuClapperboard,
+  LuExternalLink,
+  LuOctagonAlert,
+  LuPlay,
+  LuSquare,
+  LuTriangleAlert,
+} from 'react-icons/lu';
 import { PiPlayFill } from 'react-icons/pi';
 
 import { useBrowserBounds } from '../../browser/use-browser-bounds';
@@ -8,7 +20,13 @@ import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
 import { bridge } from '../../../services/bridge';
 import { openInMidnite } from '../../../services/open-in-midnite';
-import { useStartVideoStudio, useStopVideoStudio, useVideoStudioStatus, useVideoToolchain } from './use-video';
+import { submitCommand } from '../../terminal/submit-command';
+import {
+  useStartVideoStudio,
+  useStopVideoStudio,
+  useVideoStudioStatus,
+  useVideoToolchain,
+} from './use-video';
 
 /**
  * Keyed by project id — one `WebContentsView` per hosted studio, never reused
@@ -22,9 +40,11 @@ export function studioTabId(projectId: string): string {
 /**
  * The centre pane (Phase 44 Theme D) — five rendered states: no toolchain, a
  * Start button, a starting spinner, the hosted studio, and a failure with its
- * stderr. `remotion studio` is a localhost dev server, hosted in a
- * `WebContentsView` exactly the way the browser pane hosts a tab — see the
- * phase doc's own settled decision against a second, hand-rolled timeline.
+ * stderr. `remotion studio` (or, since Phase 99 Theme H, `hyperframes preview`)
+ * is a localhost dev server, hosted in a `WebContentsView` exactly the way the
+ * browser pane hosts a tab — see the phase doc's own settled decision against a
+ * second, hand-rolled timeline. The missing-requirement state is engine-aware:
+ * HyperFrames also needs Node 22+ and ffmpeg, each with an install hint.
  */
 export function VideoStudioPane({
   projectId,
@@ -35,6 +55,8 @@ export function VideoStudioPane({
   compositionId?: string | null;
 }) {
   const toolchain = useVideoToolchain(projectId);
+  const engine = videoEngineOf(toolchain.data);
+  const studioLabel = VIDEO_ENGINE_INFO[engine].studioLabel;
   const status = useVideoStudioStatus(projectId);
   const start = useStartVideoStudio();
   const stop = useStopVideoStudio();
@@ -52,13 +74,13 @@ export function VideoStudioPane({
       createdForUrl.current = null;
       return;
     }
-    const url = studioCompositionUrl(status.data.url, compositionId);
+    const url = studioCompositionUrl(status.data.url, compositionId, engine);
     if (createdForUrl.current === url) return;
     createdForUrl.current = url;
     void bridge()
       ?.browser.create({ tabId: studioTabId(projectId), url })
       .then(() => sync());
-  }, [status.data, projectId, compositionId, sync]);
+  }, [status.data, projectId, compositionId, engine, sync]);
 
   useEffect(() => {
     if (!projectId) return undefined;
@@ -69,17 +91,40 @@ export function VideoStudioPane({
   }, [projectId]);
 
   if (!projectId) {
-    return <EmptyState icon={LuClapperboard} title="Select a project" body="Pick one on the left." />;
+    return (
+      <EmptyState icon={LuClapperboard} title="Select a project" body="Pick one on the left." />
+    );
   }
 
-  const node = toolchain.data?.node;
-  const npx = toolchain.data?.npx;
-  if ((node && !node.found) || (npx && !npx.found)) {
+  const issues = toolchain.data ? videoEngineIssues(engine, toolchain.data) : [];
+  if (issues.length > 0) {
+    const nodeMissing = issues.some((issue) => issue.id === 'node' || issue.id === 'npx');
     return (
       <EmptyState
         icon={LuTriangleAlert}
-        title="node/npx not found"
-        body={node && !node.found ? node.reason : npx && !npx.found ? npx.reason : undefined}
+        title={
+          nodeMissing
+            ? 'node/npx not found'
+            : `${VIDEO_ENGINE_INFO[engine].label} needs a few things`
+        }
+        body={issues.map((issue) => issue.message).join(' ')}
+        action={
+          <div className="flex flex-wrap justify-center gap-2" data-testid="video-engine-issues">
+            {issues
+              .filter((issue) => issue.command)
+              .map((issue) => (
+                <EmptyStateButton
+                  key={issue.id}
+                  icon={LuPlay}
+                  filledIcon={PiPlayFill}
+                  label={`Run ${issue.command}`}
+                  onClick={() =>
+                    submitCommand(issue.command!, `${VIDEO_ENGINE_INFO[engine].label} setup`)
+                  }
+                />
+              ))}
+          </div>
+        }
       />
     );
   }
@@ -121,7 +166,7 @@ export function VideoStudioPane({
               // embedded pane, regardless of the stored link-target preference.
               onClick={() => openInMidnite(currentStatus.url, { target: 'in-app' })}
               className="flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-accent"
-              title="Open Remotion Studio in browser pane"
+              title={`Open ${studioLabel} in browser pane`}
             >
               <LuExternalLink aria-hidden className="h-3 w-3" />
               Open in tab

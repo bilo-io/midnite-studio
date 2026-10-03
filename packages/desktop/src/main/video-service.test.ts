@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -45,11 +45,12 @@ vi.mock('electron', () => ({
   shell: { showItemInFolder: showItemInFolderMock, openPath: openPathMock },
 }));
 
-import { startStudio, stopStudio } from './video/studio-service';
+import { startStudio, stopAllStudios, stopStudio } from './video/studio-service';
 import { buildRenderCommand, queueRender } from './video/render-service';
 import {
   configureVideo,
   createVideoProject,
+  currentVideoRootResolution,
   getVideoRoot,
   listVideoProjects,
   openVideoFile,
@@ -57,9 +58,15 @@ import {
   removeVideoProject,
   revealVideoFile,
   setVideoRoot,
+  videoEngineGet,
+  videoEngineSet,
   videoRenderStart,
   videoStudioStart,
 } from './video-service';
+import { readVideoEngine } from './video/engine';
+import { scaffoldVideoWorkspace } from './video/scaffold';
+
+const TEMPLATE = join(__dirname, '..', '..', '..', '..', 'templates', 'media-video');
 
 let dirs: string[] = [];
 const tempDir = async (): Promise<string> => {
@@ -151,7 +158,11 @@ describe('videoRenderStart', () => {
     const result = await videoRenderStart('p1', 'MyComp');
     expect(result.ok).toBe(true);
     expect(buildRenderCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ hasWrapper: true, rootDir: root, appDir: join(root, 'video-editor') }),
+      expect.objectContaining({
+        hasWrapper: true,
+        rootDir: root,
+        appDir: join(root, 'video-editor'),
+      }),
     );
   });
 
@@ -207,7 +218,7 @@ describe('revealVideoFile / openVideoFile (Theme E)', () => {
     expect(openPathMock).not.toHaveBeenCalled();
   });
 
-  it('surfaces shell.openPath\'s own error string rather than reporting success', async () => {
+  it("surfaces shell.openPath's own error string rather than reporting success", async () => {
     const root = await realpath(await tempDir());
     const outputDir = join(root, 'projects', 'p1', 'output');
     await mkdir(outputDir, { recursive: true });
@@ -223,5 +234,122 @@ describe('revealVideoFile / openVideoFile (Theme E)', () => {
     const revealed = await revealVideoFile('p1', 'output', 'v1-cut.mp4');
     expect(revealed.ok).toBe(false);
     expect(showItemInFolderMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('engine choice (Phase 99 Theme H)', () => {
+  /** A real scaffolded root — the service reads `video.config.json` off disk. */
+  const scaffolded = async (engine: 'remotion' | 'hyperframes'): Promise<string> => {
+    const root = join(await tempDir(), 'video');
+    expect((await scaffoldVideoWorkspace(TEMPLATE, root, engine)).ok).toBe(true);
+    return root;
+  };
+
+  it('resolves a root with no config as Remotion, so existing setups are untouched', async () => {
+    const root = await tempDir();
+    await mkdir(join(root, 'projects'), { recursive: true });
+    await setVideoRoot(root);
+    expect(await currentVideoRootResolution()).toMatchObject({ root, engine: 'remotion' });
+    expect(await videoEngineGet('global')).toMatchObject({ root, engine: 'remotion' });
+  });
+
+  it('reports no engine state without a root', async () => {
+    expect(await videoEngineGet('active')).toEqual({
+      root: null,
+      engine: 'remotion',
+      needsInstall: false,
+      appDir: null,
+    });
+    expect((await videoEngineSet('active', 'hyperframes', TEMPLATE)).ok).toBe(false);
+  });
+
+  it('switches the engine, persists it, adds the app, and stops the engine-specific studios', async () => {
+    const root = await scaffolded('remotion');
+    await setVideoRoot(root);
+    const result = await videoEngineSet('global', 'hyperframes', TEMPLATE);
+    expect(result).toMatchObject({
+      ok: true,
+      value: { engine: 'hyperframes', needsInstall: true },
+    });
+    expect(stopAllStudios).toHaveBeenCalled();
+    expect(await readVideoEngine(root)).toBe('hyperframes');
+    expect((await currentVideoRootResolution()).engine).toBe('hyperframes');
+  });
+
+  it('runs the HyperFrames studio from hyperframes-editor with the engine named', async () => {
+    const root = await scaffolded('hyperframes');
+    await mkdir(join(root, 'hyperframes-editor', 'node_modules'), { recursive: true });
+    await setVideoRoot(root);
+    vi.mocked(startStudio).mockImplementation((_projectId, _cwd, deps) => {
+      deps.onStatus('example/000-hello', { state: 'starting' });
+    });
+
+    const result = await videoStudioStart('example/000-hello');
+    expect(result.ok).toBe(true);
+    expect(startStudio).toHaveBeenCalledWith(
+      'example/000-hello',
+      join(root, 'hyperframes-editor'),
+      expect.objectContaining({ engine: 'hyperframes' }),
+    );
+  });
+
+  it('refuses a HyperFrames studio or render before `npm install`, naming the fix, without spawning', async () => {
+    const root = await scaffolded('hyperframes');
+    await setVideoRoot(root);
+    const studio = await videoStudioStart('example/000-hello');
+    expect(studio).toMatchObject({ ok: false });
+    expect(JSON.stringify(studio)).toContain('npm install');
+    expect(startStudio).not.toHaveBeenCalled();
+    const render = await videoRenderStart('example/000-hello', 'ExampleHello');
+    expect(render.ok).toBe(false);
+    expect(queueRender).not.toHaveBeenCalled();
+  });
+
+  it('writes a composition stub for a project that has none, then starts its studio', async () => {
+    const root = await scaffolded('hyperframes');
+    await mkdir(join(root, 'hyperframes-editor', 'node_modules'), { recursive: true });
+    await mkdir(join(root, 'projects', 'acme', '001-new'), { recursive: true });
+    await writeFile(
+      join(root, 'projects', 'acme', '001-new', 'project.json'),
+      JSON.stringify({
+        id: 'acme/001-new',
+        title: 'New',
+        composition: 'AcmeNew',
+        brief: 'input/BRIEF.md',
+        script: 'EDITORIAL_SCRIPT.md',
+      }),
+    );
+    await setVideoRoot(root);
+    vi.mocked(startStudio).mockImplementation((_p, _c, deps) =>
+      deps.onStatus('acme/001-new', { state: 'starting' }),
+    );
+
+    expect((await videoStudioStart('acme/001-new')).ok).toBe(true);
+    const html = await readFile(
+      join(root, 'hyperframes-editor', 'projects', 'acme', '001-new', 'index.html'),
+      'utf8',
+    );
+    expect(html).toContain('data-composition-id="AcmeNew"');
+  });
+
+  it('builds the HyperFrames render target against the editor app', async () => {
+    const root = await scaffolded('hyperframes');
+    await mkdir(join(root, 'hyperframes-editor', 'node_modules'), { recursive: true });
+    await setVideoRoot(root);
+
+    expect(
+      (await videoRenderStart('example/000-hello', 'ExampleHello', { codec: 'vp9', crf: 30 })).ok,
+    ).toBe(true);
+    expect(buildRenderCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        engine: 'hyperframes',
+        hasWrapper: true,
+        appDir: join(root, 'hyperframes-editor'),
+      }),
+    );
+    expect(queueRender).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ engine: 'hyperframes' }),
+    );
   });
 });

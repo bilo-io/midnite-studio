@@ -61,7 +61,6 @@ export const VIDEO_ENGINE_TEMPLATE_FILES: Record<VideoEngine, readonly string[]>
   ],
   hyperframes: [
     'hyperframes-editor/package.json',
-    'hyperframes-editor/hyperframes.json',
     'hyperframes-editor/.gitignore',
     'hyperframes-editor/projects/example/000-hello/index.html',
   ],
