@@ -64,7 +64,7 @@ export type EditorAction =
   | { type: 'selectAll' }
   | { type: 'patch'; index: number; patch: PartPatch }
   | { type: 'patchMany'; indices: number[]; patch: PartPatch }
-  | { type: 'material'; indices?: number[]; patch: Record<string, unknown> }
+  | { type: 'material'; indices?: number[]; patch: Record<string, unknown>; color?: string }
   | { type: 'remove'; index?: number; indices?: number[] }
   | { type: 'duplicate'; index?: number; indices?: number[] }
   | { type: 'group'; indices?: number[] }
@@ -159,7 +159,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return result ? commit(state, result.spec, state.selection) : state;
     }
     case 'material':
-      return apply(state, (spec) => patchMaterial(spec, targetsOf(state, action.indices), action.patch));
+      return apply(state, (spec) => {
+        const indices = targetsOf(state, action.indices);
+        const material = patchMaterial(spec, indices, action.patch);
+        const tinted = action.color ? patchParts(material?.spec ?? spec, indices, { color: action.color }) : null;
+        return tinted ?? material;
+      });
     case 'remove':
       return apply(state, (spec) => removeParts(spec, targetsOf(state, action.indices, action.index)), false);
     case 'duplicate':

@@ -130,9 +130,9 @@ describe('Models tab', () => {
       const parts = await edit();
       fireEvent.click(parts.getByRole('button', { name: /part/ }));
       fireEvent.click(screen.getByRole('button', { name: 'Duplicate part' }));
-      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(2));
+      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(2));
       fireEvent.click(screen.getByRole('button', { name: 'Delete part' }));
-      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(1));
+      await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(1));
     });
 
     it('switches transform and view modes', async () => {
@@ -304,16 +304,16 @@ describe('agents building a model (MCP)', () => {
   it('adopts an agent’s edit in the open editor as it lands, as one undoable step', async () => {
     open();
     const parts = await screen.findByRole('list', { name: 'Parts' }, SLOW);
-    expect(within(parts).getAllByRole('button')).toHaveLength(1);
+    expect(within(parts).getAllByRole('listitem')).toHaveLength(1);
 
     act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1.obj', spec: design(['part', 'head', 'arm']), saved: false, revision: 1 }));
-    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(3));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(3));
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /^Undo/ }));
-    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(1));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(1));
     fireEvent.click(screen.getByRole('button', { name: /^Redo/ }));
-    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(3));
+    await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(3));
 
     // model_save: the files now match the design, so the editor reads as saved.
     act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1.obj', spec: design(['part', 'head', 'arm']), saved: true, revision: 2 }));
@@ -325,7 +325,7 @@ describe('agents building a model (MCP)', () => {
     await screen.findByRole('list', { name: 'Parts' }, SLOW);
     act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'other.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
     act(() => fire('changed', { repoId: 'elsewhere', project: 'robots', path: 'robot-1.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
-    expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('button')).toHaveLength(1);
+    expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy();
   });
 });
