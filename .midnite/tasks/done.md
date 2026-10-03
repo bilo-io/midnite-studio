@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-03 — Phase 99 Theme E follow-up — local music generation (ad hoc)
 
-Media ▸ Audio generates music offline with MusicGen-small (ONNX, `utilityProcess`), no API key; optional Ollama prompt expansion (`llama3.2:3b`). PR link added at merge.
+Media ▸ Audio generates music offline with MusicGen-small (ONNX, `utilityProcess`), no API key; optional Ollama prompt expansion (`llama3.2:3b`). [PR #688](https://github.com/bilo-io/midnite-studio/pull/688).
 
 - [x] `musicgen` provider, worker, broker, model download with progress, cancel, stitched sections up to 2 min.
 - [x] Enhance with Ollama (fails soft), Settings model picker, engine status card in the prompt form.
