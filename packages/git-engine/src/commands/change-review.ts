@@ -178,9 +178,9 @@ export async function snapshotTree(dir: string): Promise<GitOpResult<string>> {
       await copyFile(realIndex, tempIndex).catch(() => undefined);
       // The copy gets a fresh mtime, newer than every entry's, so git would trust the
       // cached stat of a same-size edit made within the file system's timestamp
-      // granularity ("racily clean") and miss it. Backdating the copy to the epoch
+      // granularity ("racily clean") and miss it. Backdating the copy to 2000-01-01
       // makes every entry racy, so each file is re-hashed — correct, at hashing cost.
-      await utimes(tempIndex, 0, 0).catch(() => undefined);
+      await utimes(tempIndex, 946684800, 946684800).catch(() => undefined);
       let added = await execGit(dir, ['add', '-A'], { write: true, env });
       if (added.exitCode !== 0) {
         // A copied index can be unreadable on its own (a split index keeps its
