@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FileDiff } from '@midnite/studio-shared';
 
@@ -331,6 +331,18 @@ describe('DiffView, assembled through the real bridge', () => {
         { oldStart: 1, oldLines: 0, newStart: 1, newLines: 300, heading: '@@ -1,0 +1,300 @@', lines },
       ],
     };
+    // Everything "near the viewport": every slab mounts, none is windowed by offset maths.
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(private cb: (entries: { isIntersecting: boolean }[]) => void) {}
+        observe() {
+          this.cb([{ isIntersecting: true }]);
+        }
+        disconnect() {}
+        unobserve() {}
+      },
+    );
     renderView(
       <div className="overflow-y-auto">
         <DiffView diff={bigDiff} inline tooNarrowForSplit={false} />
@@ -339,5 +351,6 @@ describe('DiffView, assembled through the real bridge', () => {
     await waitFor(() => {
       expect(screen.getByTestId('diff-view').querySelectorAll('[data-index]').length).toBe(301);
     });
+    vi.unstubAllGlobals();
   }, 30_000);
 });

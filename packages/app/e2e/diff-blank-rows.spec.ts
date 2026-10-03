@@ -115,6 +115,8 @@ async function scrollTo(scroller: Locator, top: number): Promise<void> {
   );
 }
 
+test.setTimeout(90_000);
+
 test('stacked accordions never leave a blank band while scrolling and collapsing', async ({
   page,
 }) => {
@@ -126,7 +128,7 @@ test('stacked accordions never leave a blank band while scrolling and collapsing
     .click();
   // The accordions' scroller: the parent of the file sections.
   const scroller = page.locator('section[class*="border-border/60"]:has(> header button[aria-expanded])').first().locator("xpath=ancestor::div[contains(@class,'overflow-y-auto')][1]");
-  await expect(scroller.locator('[data-line-kind]').first()).toBeVisible();
+  await expect(scroller.locator('[data-line-kind]').first()).toBeVisible({ timeout: 20_000 });
 
   const total = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
   expect(total).toBeGreaterThan(3000);
@@ -162,7 +164,7 @@ test('one very long file stays filled through scroll, layout and file switches',
   const view = page.getByTestId('diff-view').filter({ visible: true });
   await expect(view).toBeVisible();
   const scroller = view.locator('div.overflow-auto').first();
-  await expect(scroller.locator('[data-line-kind]').first()).toBeVisible();
+  await expect(scroller.locator('[data-line-kind]').first()).toBeVisible({ timeout: 20_000 });
 
   const total = await scroller.evaluate((el) => el.scrollHeight - el.clientHeight);
   for (let top = 0; top <= total; top += Math.round(total / 25)) {

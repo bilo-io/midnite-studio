@@ -1,12 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  type FileDiff,
-  type ForgeReviewThread,
-  type SplitDiffRow,
-} from '@midnite/studio-shared';
+import { type FileDiff, type ForgeReviewThread, type SplitDiffRow } from '@midnite/studio-shared';
 
 import { useTheme } from '@bilo-io/ui/theme';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useUiStore } from '../../store/ui-store';
 import { formatNumber } from '../../lib/format-number';
@@ -16,7 +12,6 @@ import { describeEmptyDiff } from './describe-empty';
 import { DiffCell } from './diff-cell';
 import { DiffToolbar } from './diff-toolbar';
 import {
-
   canSplit,
   nextContext,
   toDiffRows,
@@ -28,10 +23,6 @@ import {
 import { ImageDiff } from './image-diff';
 import type { ImageDiffSources } from './image-sources';
 import { useTooNarrowForSplit } from './use-diff-split-width';
-
-
-
-
 
 /**
  * The one diff renderer. Both the working-tree pane and the commit inspector
@@ -75,7 +66,6 @@ export function DiffView({
   images = null,
   tooNarrowForSplit,
 }: {
-
   diff: FileDiff | undefined;
   isLoading?: boolean;
   /**
@@ -155,7 +145,6 @@ export function DiffView({
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const diffLayoutPref = useUiStore((s) => s.diffLayout);
-
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const { resolved } = useTheme();
@@ -238,19 +227,20 @@ export function DiffView({
     );
   }
 
-
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="diff-view">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-2 py-1">
-        <DiffToolbar diff={diff} onExpandContext={onExpandContext} tooNarrowForSplit={paneTooNarrow} />
+        <DiffToolbar
+          diff={diff}
+          onExpandContext={onExpandContext}
+          tooNarrowForSplit={paneTooNarrow}
+        />
       </div>
-
 
       {diff.combined ? (
         <p className="shrink-0 border-b border-border bg-destructive/10 px-3 py-1.5 text-[11px] text-muted-foreground">
-          This file is unmerged. git shows a combined diff against every parent —
-          the content below includes conflict markers, and the original line
-          numbers are the first parent&rsquo;s.
+          This file is unmerged. git shows a combined diff against every parent — the content below
+          includes conflict markers, and the original line numbers are the first parent&rsquo;s.
         </p>
       ) : null}
 
@@ -329,7 +319,6 @@ export function DiffView({
       </div>
     </div>
   );
-
 }
 
 /**
@@ -367,7 +356,73 @@ function HunkHeader({
         </button>
       ) : null}
       <span className="truncate italic opacity-70">{row.heading}</span>
-      {actions !== undefined ? <span className="ml-auto flex shrink-0 items-center gap-1">{actions}</span> : null}
+      {actions !== undefined ? (
+        <span className="ml-auto flex shrink-0 items-center gap-1">{actions}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Rows per lazily-mounted slab of an inline (stacked-accordion) diff. */
+const INLINE_CHUNK_ROWS = 100;
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * A slab of rows mounted only while it is near the viewport.
+ *
+ * Inline diffs live in the PAGE's scroll flow (a stack of accordions), where a
+ * margin-less virtualizer computes the wrong window and leaves blank bands, but
+ * mounting every row of twenty 4000-line files takes tens of seconds. So the rows
+ * stay in normal flow and each slab swaps to a placeholder of its last MEASURED
+ * height when far off-screen. Placement is decided by the browser's own
+ * IntersectionObserver against the real position, so there is no offset maths to
+ * drift; the placeholder height is the real one, so nothing below it moves.
+ * Without IntersectionObserver (jsdom) every slab is simply mounted.
+ */
+function LazyChunk({
+  children,
+  estimate,
+  initiallyShown,
+}: {
+  children: React.ReactNode;
+  estimate: number;
+  initiallyShown: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const height = useRef(estimate);
+  const supported = typeof IntersectionObserver !== 'undefined';
+  const [shown, setShown] = useState(initiallyShown || !supported);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !supported) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        if (entry.isIntersecting) setShown(true);
+        else {
+          if (el.dataset.shown === '1') height.current = el.offsetHeight;
+          setShown(false);
+        }
+      },
+      { rootMargin: '1500px 0px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [supported]);
+
+  return (
+    <div
+      ref={ref}
+      data-shown={shown ? '1' : '0'}
+      style={shown ? undefined : { height: height.current }}
+    >
+      {shown ? children : null}
     </div>
   );
 }
@@ -393,7 +448,6 @@ function InlineDiffBody({
   renderHunkActions?: ((hunkIndex: number) => React.ReactNode) | undefined;
   composer?: { line: number; node: React.ReactNode } | null;
 }) {
-
   return (
     <div className="font-mono text-[11px] leading-[18px]" data-testid="diff-view">
       {diff.combined ? (
@@ -403,72 +457,78 @@ function InlineDiffBody({
       ) : null}
       <div className="overflow-x-auto">
         <div className="w-full">
-          {rows.map((row, index) => {
-            return (
-              <div key={index} data-index={index}>
-                {'kind' in row && row.kind === 'thread' ? (
-                  <div className="w-full">{renderThread?.(row.threads, row.line)}</div>
-                ) : 'kind' in row && row.kind === 'composer' ? (
-                  <div className="w-full">{composer?.node}</div>
-                ) : row.kind === 'hunk' ? (
-                  <div className="flex w-max min-w-full">
-                    <HunkHeader
-                      row={row}
-                      onExpand={onExpandContext}
-                      context={diff.contextLines}
-                      actions={renderHunkActions?.(row.hunkIndex)}
-                    />
+          {chunk(rows, INLINE_CHUNK_ROWS).map((group, chunkIndex) => (
+            <LazyChunk
+              key={chunkIndex}
+              estimate={group.length * ROW_HEIGHT}
+              initiallyShown={chunkIndex === 0}
+            >
+              {group.map((row, offset) => {
+                const index = chunkIndex * INLINE_CHUNK_ROWS + offset;
+                return (
+                  <div key={index} data-index={index}>
+                    {'kind' in row && row.kind === 'thread' ? (
+                      <div className="w-full">{renderThread?.(row.threads, row.line)}</div>
+                    ) : 'kind' in row && row.kind === 'composer' ? (
+                      <div className="w-full">{composer?.node}</div>
+                    ) : row.kind === 'hunk' ? (
+                      <div className="flex w-max min-w-full">
+                        <HunkHeader
+                          row={row}
+                          onExpand={onExpandContext}
+                          context={diff.contextLines}
+                          actions={renderHunkActions?.(row.hunkIndex)}
+                        />
+                      </div>
+                    ) : row.kind === 'split-line' ? (
+                      <div className="flex w-full divide-x divide-border">
+                        <div className="w-1/2 min-w-0">
+                          <DiffCell
+                            cell={row.left}
+                            side="left"
+                            showGutter
+                            path={diff.path}
+                            dark={dark}
+                          />
+                        </div>
+                        <div className="w-1/2 min-w-0">
+                          <DiffCell
+                            cell={row.right}
+                            side="right"
+                            showGutter
+                            path={diff.path}
+                            dark={dark}
+                            onComment={onComment}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex w-max min-w-full">
+                        <DiffCell
+                          cell={{ line: row.line, type: row.line.kind }}
+                          side="right"
+                          showGutter
+                          secondaryLineNo={showOldGutter ? row.line.oldNo : undefined}
+                          path={diff.path}
+                          dark={dark}
+                          onComment={onComment}
+                        />
+                      </div>
+                    )}
                   </div>
-                ) : row.kind === 'split-line' ? (
-                  <div className="flex w-full divide-x divide-border">
-                    <div className="w-1/2 min-w-0">
-                      <DiffCell
-                        cell={row.left}
-                        side="left"
-                        showGutter
-                        path={diff.path}
-                        dark={dark}
-                      />
-                    </div>
-                    <div className="w-1/2 min-w-0">
-                      <DiffCell
-                        cell={row.right}
-                        side="right"
-                        showGutter
-                        path={diff.path}
-                        dark={dark}
-                        onComment={onComment}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex w-max min-w-full">
-                    <DiffCell
-                      cell={{ line: row.line, type: row.line.kind }}
-                      side="right"
-                      showGutter
-                      secondaryLineNo={showOldGutter ? row.line.oldNo : undefined}
-                      path={diff.path}
-                      dark={dark}
-                      onComment={onComment}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </LazyChunk>
+          ))}
         </div>
       </div>
 
       {diff.truncated ? (
         <p className="border-t border-border px-3 py-2 font-sans text-[11px] text-muted-foreground">
-          {formatNumber(diff.droppedLines)} more lines not shown — this diff was capped to
-          keep the panel responsive.
+          {formatNumber(diff.droppedLines)} more lines not shown — this diff was capped to keep the
+          panel responsive.
         </p>
       ) : null}
     </div>
   );
 }
-
-
-
