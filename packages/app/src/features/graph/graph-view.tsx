@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
+import { LuGitBranch, LuGitCommitHorizontal, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 
 import { type ClosedSession, type CommitCi, type CommitProvenance } from '@midnite/studio-shared';
 import { useDialogs } from '../../components/dialog-host';
@@ -23,6 +23,7 @@ import { countLocalBranches } from './branch-count';
 import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
+import { StatPill } from '../../components/stat-pill';
 import { CommitGraphRow, formatDate, RECENCY_WINDOW_MS } from './graph-row';
 import { formatNumber } from '../../lib/format-number';
 import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
@@ -932,20 +933,26 @@ export function GraphView() {
         <footer className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5 tabular-nums">
             <LuGitCommitVertical aria-hidden className="h-3 w-3 shrink-0" />
-            {formatNumber(rows.length)} commits
+            <StatPill>{formatNumber(rows.length)}</StatPill> commits
           </span>
           <span className="flex items-center gap-1.5 tabular-nums">
             <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
-            {formatNumber(branchCount)} branches
+            <StatPill>{formatNumber(branchCount)}</StatPill> branches
           </span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
           <span className="ml-auto flex items-center gap-3">
             <span className="flex items-center gap-1.5 tabular-nums">
               <LuUsers aria-hidden className="h-3 w-3 shrink-0" />
-              {formatNumber(authorCount)} authors
+              <StatPill>{formatNumber(authorCount)}</StatPill> authors
             </span>
-            {firstCommit !== null ? <span>first commit {formatDate(firstCommit)}</span> : null}
+            {firstCommit !== null ? (
+              <span className="flex items-center gap-1.5">
+                <StatPill>1st</StatPill> commit
+                <LuGitCommitHorizontal aria-hidden className="h-3 w-3 shrink-0" />
+                <StatPill>{formatDate(firstCommit)}</StatPill>
+              </span>
+            ) : null}
           </span>
         </footer>
       </div>
