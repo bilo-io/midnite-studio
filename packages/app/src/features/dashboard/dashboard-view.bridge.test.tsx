@@ -175,9 +175,10 @@ const base: MockFixtures = {
 /** A widget's tile — every one is a landmark named after its title. */
 const tile = (name: string) => screen.getByRole('region', { name });
 
-const boardMenu = async (): Promise<void> => {
-  fireEvent.click(screen.getByRole('button', { name: 'Widgets and layout' }));
-  await screen.findByRole('menu');
+/** Open the add-widget picker and hand back its dialog. */
+const picker = async (): Promise<HTMLElement> => {
+  fireEvent.click(screen.getByRole('button', { name: 'Add widget' }));
+  return screen.findByRole('dialog', { name: 'Add widget' });
 };
 
 const open = async (data: MockFixtures = base) => {
@@ -248,8 +249,8 @@ describe('DashboardView, assembled through the real bridge', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove widget' }));
     expect(screen.queryByRole('region', { name: 'Repo health' })).toBeNull();
 
-    await boardMenu();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Repo health' }));
+    const dialog = await picker();
+    fireEvent.click(within(dialog).getByRole('button', { name: /Repo health/ }));
     expect(await screen.findByRole('region', { name: 'Repo health' })).toBeTruthy();
   });
 
@@ -263,8 +264,7 @@ describe('DashboardView, assembled through the real bridge', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove widget' }));
     expect(screen.queryByRole('region', { name: 'Open issues' })).toBeNull();
 
-    await boardMenu();
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Reset layout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset layout' }));
     expect(await screen.findByRole('region', { name: 'Open issues' })).toBeTruthy();
   });
 
@@ -278,12 +278,11 @@ describe('DashboardView, assembled through the real bridge', () => {
     expect(screen.queryByRole('region', { name: 'Latest workflow runs' })).toBeNull();
     expect(await screen.findByRole('region', { name: 'Commit calendar' })).toBeTruthy();
 
-    await boardMenu();
-    const menu = screen.getByRole('menu');
-    expect(within(menu).queryByRole('menuitem', { name: /Open pull requests/ })).toBeNull();
-    expect(within(menu).queryByRole('menuitem', { name: /Open issues/ })).toBeNull();
-    expect(within(menu).queryByRole('menuitem', { name: /Latest workflow runs/ })).toBeNull();
-    expect(within(menu).getByRole('menuitem', { name: /Commit calendar/ })).toBeTruthy();
+    const menu = await picker();
+    expect(within(menu).queryByRole('button', { name: /Open pull requests/ })).toBeNull();
+    expect(within(menu).queryByRole('button', { name: /Open issues/ })).toBeNull();
+    expect(within(menu).queryByRole('button', { name: /Latest workflow runs/ })).toBeNull();
+    expect(within(menu).getByRole('button', { name: /Commit calendar/ })).toBeTruthy();
   });
 
   it('the author filter scopes the whole board at once', async () => {
