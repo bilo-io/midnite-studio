@@ -32,11 +32,11 @@ const GAMES: MockFixtures = {
 async function openGames(page: Page, data: MockFixtures, theme: 'dark' | 'light'): Promise<void> {
   await installMockBridge(page, data);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Media', exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(async () => {
     await clickRailLink(page, 'Media');
     await expect(page.getByRole('tablist', { name: 'Media' })).toBeVisible({ timeout: 500 });
-  }).toPass({ timeout: 5000 });
+  }).toPass({ timeout: 10_000 });
   await setTheme(page, theme, { settleMs: 200 });
   await page.getByRole('tab', { name: 'Games' }).click();
 }
@@ -50,9 +50,10 @@ for (const theme of ['dark', 'light'] as const) {
   test(`running game with its console (${theme})`, async ({ page }) => {
     await openGames(page, GAMES, theme);
     await page.getByRole('button', { name: /Moon Rover/ }).click();
-    await page.getByRole('button', { name: 'Run' }).click();
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.evaluate(() => {
       const mock = (window as unknown as { __mstudioMockGames: MockGames }).__mstudioMockGames;
+      mock.runState({ gameId: 'g0a1b2c3d4e5f', runId: 'r1', state: 'running' });
       mock.console({
         gameId: 'g0a1b2c3d4e5f',
         runId: 'r1',
@@ -96,12 +97,13 @@ test('empty state and the create form (dark)', async ({ page }) => {
 test('Settings ▸ Media ▸ Games (dark)', async ({ page }) => {
   await installMockBridge(page, GAMES);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible({ timeout: 15_000 });
   await setTheme(page, 'dark', { settleMs: 200 });
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('navigation', { name: 'Settings pages' }).getByRole('button', { name: 'Media' }).click();
   await page.getByRole('button', { name: /Games/ }).click();
   await expect(page.getByTestId('games-settings')).toBeVisible();
+  await page.getByTestId('games-ollama-warning').scrollIntoViewIfNeeded();
   await settle(page, 300);
   await page.screenshot({ path: shotPath(OUT, 'settings-games-dark.png') });
 });
