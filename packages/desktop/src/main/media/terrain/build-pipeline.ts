@@ -4,6 +4,10 @@ import { join } from 'node:path';
 import {
   buildHeightfield,
   chunkLayout,
+  erode,
+  fbmField,
+  ridgedField,
+  type Heightfield,
   chunksPerSide,
   chunkVerts,
   heightfieldStats,
@@ -33,6 +37,7 @@ export function plannedStages(spec: TerrainSpec): TerrainBuildStage[] {
   const stages: TerrainBuildStage[] = [];
   if (spec.inputs.heightmap) stages.push('decode');
   stages.push('heightfield');
+  if (!spec.inputs.heightmap && spec.noise && spec.noise.erosion.iterations > 0) stages.push('erosion');
   stages.push('write');
   return stages;
 }
@@ -47,30 +52,16 @@ export async function runTerrainBuild(
   const started = now();
   const { spec } = job;
   const heightmap = spec.inputs.heightmap;
-  if (!heightmap) throw new TerrainBuildError('Noise terrains are not available yet — attach a heightmap.');
+  if (!heightmap && !spec.noise) throw new TerrainBuildError('Nothing to shape the ground from — attach a heightmap or choose noise.');
   const warnings: string[] = [];
+  let field: Heightfield;
 
-  onProgress('decode', 0);
-  const bytes = await readFile(join(job.dir, heightmap.file)).catch(() => {
-    throw new TerrainBuildError('The heightmap file is missing — attach it again.');
-  });
-  const decoded = decodePng(bytes);
-  if (!decoded.ok) throw new TerrainBuildError(decoded.message);
-  const { image } = decoded;
-  const height = toHeightSamples(image);
-  warnings.push(...height.warnings);
-  if (isNonSquare(image.width, image.height)) warnings.push(NON_SQUARE_WARNING);
-  onProgress('decode', 1);
-
-  onProgress('heightfield', 0);
-  const field = buildHeightfield(height.samples, image.width, image.height, {
-    resolution: spec.resolution,
-    worldSize: spec.worldSize,
-    heightRange: spec.heightRange,
-    preSmooth: spec.preSmooth,
-  });
+  if (heightmap) {
+    field = await heightfieldFromImage(job, heightmap.file, warnings, onProgress);
+  } else {
+    field = noiseHeightfield(spec, onProgress);
+  }
   const stats = heightfieldStats(field);
-  onProgress('heightfield', 1);
 
   onProgress('write', 0);
   const out = join(job.dir, job.outDir);
@@ -103,4 +94,60 @@ export async function runTerrainBuild(
     histogram: stats.histogram,
     warnings,
   };
+}
+
+async function heightfieldFromImage(
+  job: BuildJob,
+  file: string,
+  warnings: string[],
+  onProgress: (stage: TerrainBuildStage, fraction: number) => void,
+): Promise<Heightfield> {
+  const { spec } = job;
+  onProgress('decode', 0);
+  const bytes = await readFile(join(job.dir, file)).catch(() => {
+    throw new TerrainBuildError('The heightmap file is missing — attach it again.');
+  });
+  const decoded = decodePng(bytes);
+  if (!decoded.ok) throw new TerrainBuildError(decoded.message);
+  const { image } = decoded;
+  const height = toHeightSamples(image);
+  warnings.push(...height.warnings);
+  if (isNonSquare(image.width, image.height)) warnings.push(NON_SQUARE_WARNING);
+  onProgress('decode', 1);
+
+  onProgress('heightfield', 0);
+  const field = buildHeightfield(height.samples, image.width, image.height, {
+    resolution: spec.resolution,
+    worldSize: spec.worldSize,
+    heightRange: spec.heightRange,
+    preSmooth: spec.preSmooth,
+  });
+  onProgress('heightfield', 1);
+  return field;
+}
+
+/** No heightmap: fBm or ridged noise from the spec's seed, optionally eroded, mapped onto the height range. */
+function noiseHeightfield(spec: TerrainSpec, onProgress: (stage: TerrainBuildStage, fraction: number) => void): Heightfield {
+  const noise = spec.noise!;
+  onProgress('heightfield', 0);
+  const params = { seed: noise.seed, octaves: noise.octaves, frequency: noise.frequency, persistence: noise.persistence, lacunarity: noise.lacunarity, island: noise.island };
+  let grid = noise.kind === 'ridged' ? ridgedField(spec.resolution, params) : fbmField(spec.resolution, params);
+  onProgress('heightfield', 1);
+  if (noise.erosion.iterations > 0) {
+    onProgress('erosion', 0);
+    grid = erode(grid, spec.resolution, { iterations: noise.erosion.iterations, seed: noise.seed }, (f) => onProgress('erosion', f)).heights;
+    // Erosion moves mass around, so stretch the result back over the full range.
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < grid.length; i += 1) {
+      min = Math.min(min, grid[i]!);
+      max = Math.max(max, grid[i]!);
+    }
+    const span = max - min;
+    if (span > 0) for (let i = 0; i < grid.length; i += 1) grid[i] = (grid[i]! - min) / span;
+  }
+  const [lo, hi] = spec.heightRange;
+  const heights = new Float32Array(grid.length);
+  for (let i = 0; i < grid.length; i += 1) heights[i] = lo + Math.min(1, Math.max(0, grid[i]!)) * (hi - lo);
+  return { resolution: spec.resolution, worldSize: spec.worldSize, heights };
 }

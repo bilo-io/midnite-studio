@@ -35,7 +35,7 @@ async function discoverOllamaImageModels() {
   return imageCapableModels(shown);
 }
 
-const service = createImageService({
+export const imageService = createImageService({
   providers: {
     gemini: geminiImageProvider,
     openai: openaiImageProvider,
@@ -51,13 +51,13 @@ const service = createImageService({
 });
 
 export function registerMediaImageHandlers(): void {
-  handleBare(CHANNELS.mediaImageProviders, async () => ({ providers: await service.providerStatuses() }));
+  handleBare(CHANNELS.mediaImageProviders, async () => ({ providers: await imageService.providerStatuses() }));
   handle(
     CHANNELS.mediaImageGenerate,
     schemas.MediaImageGenerateRequest,
     async (req) => {
       try {
-        return await service.generate(req);
+        return await imageService.generate(req);
       } catch (error) {
         return failure(error instanceof Error ? error.message : String(error));
       }
@@ -67,7 +67,7 @@ export function registerMediaImageHandlers(): void {
   handle(
     CHANNELS.mediaImageCancel,
     schemas.MediaImageCancelRequest,
-    ({ generationId }) => service.cancel(generationId),
+    ({ generationId }) => imageService.cancel(generationId),
     (issue) => failure(issue),
   );
 }

@@ -7,6 +7,7 @@ import { createTerrainBroker, terrainWorkerScriptPath, type TerrainWorkerHandle 
 import { createTerrainService, notAvailableYet } from '../media/terrain/terrain-service';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle } from './handle';
+import { imageService } from './media-image-handlers';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
@@ -41,6 +42,16 @@ const service = createTerrainService({
     const scale = maxSide / side;
     const resized = image.resize({ width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), quality: 'best' });
     return { png: resized.toPNG(), downscaledFrom: { width, height } };
+  },
+  // A prompted heightmap is generated into the Images tab (reusable there), then read back as bytes.
+  generateImage: async (req) => {
+    const generated = await imageService.generate({ ...req, aspect: '1:1', count: 1 });
+    if (!generated.ok) return generated;
+    const file = generated.value.files[0];
+    if (!file) return failure('The image provider returned no image.');
+    const read = await mediaStore.readFile({ repoId: req.repoId, tab: 'image', project: req.project, path: file, encoding: 'base64' });
+    if (!read.ok) return read;
+    return { ok: true, value: { bytes: Buffer.from(read.value, 'base64'), name: file } };
   },
   broker,
   onChanged: (repoId) => notifyMediaChanged(repoId, 'terrain'),

@@ -68,5 +68,26 @@ describe('runTerrainBuild', () => {
 
   it('plans the stages a spec has work for', () => {
     expect(plannedStages(specFor(2, 2, 16))).toEqual(['decode', 'heightfield', 'write']);
+    const noisy = parseTerrainSpec({ noise: { seed: 1, erosion: { iterations: 100 } } });
+    expect(plannedStages(noisy)).toEqual(['heightfield', 'erosion', 'write']);
+    expect(plannedStages(parseTerrainSpec({ noise: { seed: 1, erosion: { iterations: 0 } } }))).toEqual(['heightfield', 'write']);
+  });
+
+  it('builds a noise terrain with no heightmap, reproducibly from its seed', async () => {
+    const spec = parseTerrainSpec({ resolution: 129, worldSize: 500, heightRange: [10, 90], noise: { seed: 5, octaves: 4, erosion: { iterations: 200 } } });
+    const stages: TerrainBuildStage[] = [];
+    const a = await runTerrainBuild({ dir, outDir: 'a', spec }, (s) => stages.push(s));
+    const b = await runTerrainBuild({ dir, outDir: 'b', spec });
+    expect(new Set(stages)).toEqual(new Set(['heightfield', 'erosion', 'write']));
+    expect(a.minHeight).toBeCloseTo(10, 3);
+    expect(a.maxHeight).toBeCloseTo(90, 3);
+    expect(a.warnings).toEqual([]);
+    const [fa, fb] = await Promise.all([readFile(join(dir, 'a', 'heights.f32')), readFile(join(dir, 'b', 'heights.f32'))]);
+    expect(fa.equals(fb)).toBe(true);
+    expect(b.vertexCount).toBe(129 * 129);
+  });
+
+  it('refuses a spec with neither a heightmap nor noise', async () => {
+    await expect(runTerrainBuild({ dir, outDir: 'x', spec: parseTerrainSpec({}) })).rejects.toThrow('Nothing to shape the ground from');
   });
 });
