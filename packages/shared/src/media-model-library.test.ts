@@ -1,14 +1,23 @@
 import { describe, expect, it } from 'vitest';
 
-import { ModelSpecSchema, type ModelSidecar } from './media-model';
+import { type ModelSidecar, type ModelSpec, ModelSpecSchema } from './media-model';
 import {
   agentFromEngine,
   buildModelManifest,
   computeModelDetails,
   isWithinLibraryPath,
   ModelLibraryRequestSchema,
+  modelRigSummary,
   parseModelManifest,
 } from './media-model-library';
+import { autoRig, RIG_EXAMPLE_BIPED } from './model-geometry';
+
+const autoRigged = (base: ModelSpec): ModelSpec => ({
+  ...base,
+  anatomy: 'biped',
+  rig: autoRig(base, 'biped')!,
+  animations: [{ name: 'walk', kind: 'walk' }],
+});
 
 const spec = ModelSpecSchema.parse({
   name: 'Crate',
@@ -72,14 +81,28 @@ describe('model.json', () => {
     });
   });
 
-  it('a re-save keeps the author, label, creation time and fields this build does not know (rig, anatomy, animations)', () => {
+  it('a re-save keeps the author, label, creation time and fields this build does not know', () => {
     const first = buildModelManifest({ sidecar, stem: 'crate-1', author: { name: 'Bilo' }, now: new Date('2026-10-03T11:00:00.000Z') });
-    const richer = { ...first, name: 'My crate', rig: { bones: 3 }, animations: [{ name: 'idle' }], anatomy: { parts: [] }, future: 1 };
+    const richer = { ...first, name: 'My crate', future: 1 };
     const parsed = parseModelManifest(JSON.stringify(richer))!;
     const again = buildModelManifest({ sidecar, stem: 'crate-1', author: { name: 'Someone else' }, now: new Date('2026-10-04T00:00:00.000Z'), previous: parsed });
-    expect(again).toMatchObject({ name: 'My crate', author: { name: 'Bilo' }, rig: { bones: 3 }, animations: [{ name: 'idle' }], anatomy: { parts: [] }, future: 1 });
+    expect(again).toMatchObject({ name: 'My crate', author: { name: 'Bilo' }, future: 1 });
     expect(again.createdAt).toBe('2026-10-03T10:00:00.000Z');
     expect(again.updatedAt).toBe('2026-10-04T00:00:00.000Z');
+  });
+
+  it('summarises the rig from the design, and drops a stale summary once the rig is gone', () => {
+    const rigged = autoRigged(RIG_EXAMPLE_BIPED);
+    const manifest = buildModelManifest({ sidecar: { ...sidecar, spec: rigged }, stem: 'bot', author: { name: 'Bilo' }, now: new Date('2026-10-03T11:00:00.000Z') });
+    expect(manifest.anatomy).toBe('biped');
+    expect(manifest.rig).toMatchObject({ bones: rigged.rig!.bones.length, facing: '+z' });
+    expect(manifest.animations).toEqual([{ name: 'walk', kind: 'walk', duration: 1.1, loop: true }]);
+    expect(modelRigSummary(rigged).animations).toEqual(manifest.animations);
+    const stale = parseModelManifest(JSON.stringify({ ...manifest, rig: { bones: 99 } }))!;
+    const plain = buildModelManifest({ sidecar, stem: 'crate-1', author: { name: 'Bilo' }, now: new Date('2026-10-04T00:00:00.000Z'), previous: stale });
+    expect(plain.anatomy).toBeUndefined();
+    expect(plain.rig).toBeUndefined();
+    expect(plain.animations).toBeUndefined();
   });
 
   it('rejects text that is not a manifest', () => {

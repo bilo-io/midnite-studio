@@ -16,6 +16,7 @@
 import { z } from 'zod';
 
 import { type ModelSidecar, type ModelSpec } from './media-model';
+import { type ModelAnatomy, type ModelClipKind, type ModelFacing, clipTiming } from './media-model-rig';
 import { buildScene, sceneBounds, sceneStats } from './model-geometry';
 
 export const MODEL_MANIFEST_FILE = 'model.json';
@@ -88,7 +89,8 @@ export const ModelManifestSchema = z
     }),
     createdAt: z.string().min(1),
     updatedAt: z.string().min(1).optional(),
-    // Reserved for rigging and animation (a later phase). Opaque on purpose: nothing reads them yet.
+    // Rigging and animation, summarised from the design (`modelRigSummary`). Read loosely: an older
+    // manifest may hold anything here, and the design file stays the source of truth.
     anatomy: z.unknown().optional(),
     rig: z.unknown().optional(),
     animations: z.unknown().optional(),
@@ -146,6 +148,31 @@ export function computeModelDetails(spec: ModelSpec): ModelDetails {
   };
 }
 
+/** What `model.json` says about a design's rig: enough for a listing, never enough to rebuild it. */
+export type ModelRigSummary = {
+  anatomy?: ModelAnatomy;
+  rig?: { bones: number; facing: ModelFacing; bound: number };
+  animations?: { name: string; kind: ModelClipKind; duration: number; loop: boolean }[];
+};
+
+export function modelRigSummary(spec: ModelSpec): ModelRigSummary {
+  const round = (n: number): number => Math.round(n * 1000) / 1000;
+  return {
+    ...(spec.anatomy && spec.anatomy !== 'static' ? { anatomy: spec.anatomy } : {}),
+    ...(spec.rig && spec.rig.bones.length > 0
+      ? { rig: { bones: spec.rig.bones.length, facing: spec.rig.facing ?? '+z', bound: Object.keys(spec.rig.bind ?? {}).length } }
+      : {}),
+    ...(spec.animations && spec.animations.length > 0
+      ? {
+          animations: spec.animations.map((clip) => {
+            const timing = clipTiming(clip);
+            return { name: clip.name, kind: clip.kind, duration: round(timing.duration), loop: timing.loop };
+          }),
+        }
+      : {}),
+  };
+}
+
 /**
  * The manifest for a sidecar. `previous` keeps what an earlier manifest knew and this build does not
  * (author, creation time, a renamed label, future `rig`/`anatomy`/`animations`), so a re-save never drops it.
@@ -170,8 +197,14 @@ export function buildModelManifest(input: {
   const fbx = file('fbx');
   const glb = file('glb');
   const label = sidecar.spec.name !== 'model' ? sidecar.spec.name : sidecar.prompt.slice(0, 60).trim() || sidecar.spec.name;
+  // The rig slots always follow the design, so a removed rig does not linger from `previous`.
+  const kept: Record<string, unknown> = { ...(previous ?? {}) };
+  delete kept.anatomy;
+  delete kept.rig;
+  delete kept.animations;
   return {
-    ...(previous ?? {}),
+    ...kept,
+    ...modelRigSummary(sidecar.spec),
     version: 1,
     name: previous?.name ?? label,
     agent: previous?.agent ?? agentFromEngine(sidecar.engine),
