@@ -82,6 +82,7 @@ import { ThemeToggle } from './components/theme-toggle';
 import { AccountSwitcherSlot } from './components/account-switcher';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
+import { TitleBarOllama } from './components/title-bar-ollama';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
 import { TitleBarBattery } from './features/battery/battery-titlebar';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
@@ -1444,6 +1445,7 @@ function Shell() {
       */}
       <TitleBarPrimaryAgent />
       <TitleBarAgents />
+      <TitleBarOllama />
       <TitleBarStatus />
       <TitleBarBattery />
       {/*
