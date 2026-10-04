@@ -75,7 +75,7 @@ import {
 } from './session-order';
 import { NO_SESSIONS_EMPTY, SessionListSkeleton } from './sessions-skeletons';
 import { TranscriptView } from './transcript-view';
-import { WorkflowsIcon } from '../../components/icons/workflows-icon';
+import { VIEW_ICON } from '../../components/nav-icons';
 
 const REASON_OPTIONS: MultiSelectOption[] = [
   { value: 'closed', label: 'Closed' },
@@ -900,7 +900,7 @@ function WorkflowRunSessionsGroup({
       open={open}
       onToggle={onToggleCollapse}
       bodyId={bodyId}
-      leading={<WorkflowsIcon className="h-3 w-3 shrink-0" />}
+      leading={<VIEW_ICON.workflows className="h-3 w-3 shrink-0" />}
       meta={<span className="shrink-0 text-muted-foreground/70">{relativeAge(group.startedAt, Date.now())}</span>}
       trailing={
         <>

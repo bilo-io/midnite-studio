@@ -17,7 +17,7 @@ import {
   LuFile,
   LuFolder,
   LuGitBranch,
-  LuGitCommitHorizontal,
+  LuGitCommitVertical,
   LuSquareTerminal,
   LuTag,
 } from 'react-icons/lu';
@@ -487,7 +487,7 @@ export function createRefsSource(
           id: `ref:reveal:${ref.fullName}`,
           label: `Reveal in Graph: ${ref.name}`,
           group,
-          icon: LuGitCommitHorizontal,
+          icon: LuGitCommitVertical,
           detail: `Commit ${ref.sha.slice(0, 7)}`,
           keywords: `reveal find graph commit ${ref.name}`,
           run: () => {

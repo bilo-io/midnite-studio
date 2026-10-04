@@ -13,7 +13,7 @@ import {
   LuDownload,
   LuFolderTree,
   LuGauge,
-  LuGitCommitHorizontal,
+  LuGitCommitVertical,
   LuHistory,
   LuHouse,
   LuLayoutDashboard,
@@ -40,7 +40,6 @@ import { MdOutlineEditNote } from 'react-icons/md';
 
 import type { SettingsPageId, ViewId } from '../store/ui-store';
 import { CirclePileIcon } from './icons/circle-pile-icon';
-import { WorkflowsIcon } from './icons/workflows-icon';
 
 /**
  * One glyph per view, shared by the nav rail (`app.tsx`) and the title bar's
@@ -70,16 +69,16 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // pair of speech bubbles instead.
   chats: LuMessagesSquare,
   // Phase 87 Theme C — Simple Icons' GrapheneOS mark, not a Lucide graph/node
-  // glyph: `graph` (the commit graph) already owns `IoIosGitNetwork`, and one
-  // icon per view is the whole point of this map.
+  // glyph: `workflows` (Graphs) owns `IoIosGitNetwork`, and one icon per view
+  // is the whole point of this map.
   knowledge: SiGrapheneos,
   files: LuFolderTree,
   search: LuSearch,
   tests: GoBeaker,
   database: LuDatabase,
-  // Git ▸ Timeline wears the commit glyph; the old commit-graph mark
+  // Git ▸ Timeline wears the vertical commit glyph; the old commit-graph mark
   // (IoIosGitNetwork) moved to `workflows`, now labelled Graphs.
-  graph: LuGitCommitHorizontal,
+  graph: LuGitCommitVertical,
   // Actions and Reviews wear GitHub's own Octicons — `play` and
   // `git-pull-request` — rather than the nearest
   // Lucide/Font-Awesome match, so the rail reads identically to github.com's
@@ -125,7 +124,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // (Phase 95 Theme B), so a "shine" mark reads truer than a heartbeat.
   activity: LuSparkles,
   privacy: LuShield,
-  graph: IoIosGitNetwork,
+  graph: LuGitCommitVertical,
   diff: LuDiff,
   sidebar: LuPanelLeft,
   search: LuSearch,
@@ -136,7 +135,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
   projects: LuListTodo,
-  workflows: WorkflowsIcon,
+  workflows: IoIosGitNetwork,
   media: SiMagic,
   ollama: SiOllama,
   gitSafety: LuShieldAlert,

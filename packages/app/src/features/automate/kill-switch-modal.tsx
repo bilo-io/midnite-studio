@@ -14,10 +14,10 @@ import {
   sessionsForScope,
   type KillScopeContext,
 } from './kill-scope';
-import { WorkflowsIcon } from '../../components/icons/workflows-icon';
+import { VIEW_ICON } from '../../components/nav-icons';
 
 const SCOPE_ICON: Record<KillScope, typeof LuGlobe> = {
-  flow: WorkflowsIcon,
+  flow: VIEW_ICON.workflows,
   project: LuSquareKanban,
   repo: LuFolderGit2,
   forgeUser: LuUserRound,

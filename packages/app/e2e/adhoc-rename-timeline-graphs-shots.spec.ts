@@ -32,5 +32,11 @@ test.describe('rail rename screenshots', () => {
     await page.mouse.move(900, 500);
     await settle(page, 800);
     await page.screenshot({ path: shotPath(OUT, 'graphs.png') });
+
+    // Command palette listing the Timeline and Graphs rows with their icons.
+    await page.keyboard.press('Meta+k');
+    await page.keyboard.type('Go to');
+    await settle(page, 800);
+    await page.screenshot({ path: shotPath(OUT, 'palette.png') });
   });
 });
