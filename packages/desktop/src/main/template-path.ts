@@ -38,3 +38,13 @@ export function mediaVideoTemplateRoot(): string {
   if (app.isPackaged || existsSync(packaged)) return packaged;
   return join(__dirname, '..', '..', '..', '..', 'templates', 'media-video');
 }
+
+/**
+ * `templates/media-game/` — the files every new game repo starts from (Phase
+ * 107 Theme A). Same packaged-vs-dev split as the others.
+ */
+export function mediaGameTemplateRoot(): string {
+  const packaged = join(process.resourcesPath, 'templates', 'media-game');
+  if (app.isPackaged || existsSync(packaged)) return packaged;
+  return join(__dirname, '..', '..', '..', '..', 'templates', 'media-game');
+}
