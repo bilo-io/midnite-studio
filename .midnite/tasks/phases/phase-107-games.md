@@ -139,7 +139,7 @@ the part models already do well. Seeing the result is the part they cannot do, a
 phase builds: kits and starters to extend, a sandbox to run in, and a play-test loop the agent drives
 over MCP. Planned 2026-10-04; refined x1 the same day, which pinned the runner's session, scheme, CSP
 and capture mechanics, the template layout and ids, every MCP tool, and resolved all four opens plus
-sixteen new decisions.
+fourteen new decisions.
 
 **Theme A — Game repos, the Games tab and settings.** ◻ Not started. Lands first. `initRepo` and
 `isInsideWorkTree` in git-engine; `games-settings.json` with a `~/Midnite Games` default; `'game'` in

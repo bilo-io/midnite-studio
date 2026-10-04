@@ -95,7 +95,7 @@ models are good at single pictures and bad at consistent frame grids. This phase
 three generation methods behind one normalisation pipeline, an animation previewer, and environments
 that autotile. Planned 2026-10-04; refined x1 the same day, which pinned every schema, channel, file
 format and test, corrected two stale claims (no provider takes a reference image; Phaser neither
-autotiles nor reads external tilesets), and resolved all four opens plus fourteen new decisions.
+autotiles nor reads external tilesets), and resolved all three opens plus fifteen new decisions.
 
 **Theme A — Sprites tab, specs and library.** ◻ Not started. Lands first. `'sprite'` joins `MEDIA_TABS`
 (repo-scoped, `LuPersonStanding`); `sprite.json` is a `kind`-discriminated spec in a new

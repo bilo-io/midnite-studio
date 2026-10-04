@@ -127,7 +127,7 @@ _A terrain from up to three pictures, and the contract the games phases load it 
 and 107 need a ground to stand on: an open world, a third-person arena, or an isometric map rendered
 down to tiles. Every input is optional, so a terrain can start from noise and a prompt, or from real
 survey imagery. Planned 2026-10-04; refined x1 the same day, which pinned every channel, schema field,
-file and test name and resolved all four opens plus eleven new decisions.
+file and test name and resolved all four opens plus thirteen new decisions.
 
 **Theme A — Terrain tab, spec and library.** ◻ Not started. Lands first. `'terrain'` joins `MEDIA_TABS`
 (repo-scoped, `LuMountain`), `TerrainSpecSchema` (`version: 1`) lives in a new `shared/src/media-terrain.ts`
