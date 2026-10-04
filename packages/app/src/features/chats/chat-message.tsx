@@ -151,6 +151,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   onOpenChanges,
   onResolveAll,
   resolving,
+  docked = false,
 }: {
   message: ChatMessageData;
   engine: ChatEngine | undefined;
@@ -160,6 +161,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   onOpenChanges: (changeSetId: string) => void;
   onResolveAll: (changeSetId: string, action: 'accept' | 'reject') => void;
   resolving: boolean;
+  docked?: boolean;
 }) {
   const streaming = message.status === 'streaming';
   const Icon = engine?.icon;
@@ -170,13 +172,13 @@ export const AssistantMessage = memo(function AssistantMessage({
     <article className="group flex gap-3" data-testid="chat-message-assistant" data-message-id={message.id} data-status={message.status} aria-label={label}>
       <span
         aria-hidden
-        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40"
+        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 ${docked ? 'invisible' : ''}`}
         {...(engine?.accent ? { style: { color: engine.accent } } : {})}
       >
         {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       </span>
       <div className="min-w-0 flex-1">
-        <ThinkingPanel message={message} />
+        {!docked && <ThinkingPanel message={message} />}
         {message.activity && message.activity.length > 0 ? (
           <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="What the agent did" data-testid="chat-activity">
             {message.activity.slice(-8).map((line, i) => (
