@@ -149,7 +149,7 @@ import { createOllamaSettingsStore } from './ollama/settings-store';
 import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
-import { installMgitFileProtocol, registerMgitFileScheme, setVideoFileRootProvider } from './fs-protocol';
+import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
 import { createFileSink } from './log-sink';
@@ -160,6 +160,7 @@ import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
 import {
   beginShutdown,
+  broadcastToAllWindows,
   closeAllPopouts,
   configureReopenStore,
   configureWindowsStore,
@@ -167,6 +168,11 @@ import {
   restoreReopenedPopouts,
 } from './window-manager';
 import { registerWindowHandlers } from './ipc/window-handlers';
+import { registerGamesHandlers } from './ipc/games-handlers';
+import { createGameRunner } from './games/game-runner';
+import { createGameService } from './games/game-service';
+import { createGamesSettingsStore } from './games/games-settings-store';
+import { mediaGameTemplateRoot } from './template-path';
 import { createReopenStore, createWindowsStore } from './windows-store';
 import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './forge/gitlab/gitlab-languages';
 
@@ -180,6 +186,9 @@ import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './
 
 let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
+
+/** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
+let gameService: ReturnType<typeof createGameService> | null = null;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -367,7 +376,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   // Chromium fixes the privileged-scheme list at startup — must precede ready.
-  registerMgitFileScheme();
+  registerPrivilegedSchemes();
 
   void app.whenReady().then(async () => {
     bootMark('when-ready');
@@ -674,6 +683,27 @@ if (!app.requestSingleInstanceLock()) {
     gateApprovalTimer.unref();
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
     setVideoFileRootProvider(effectiveVideoRoot);
+    // Media ▸ Games (Phase 107): one service over the runner, the settings
+    // file and the repo registry. Registering a game repo is the same path
+    // `repoClone` takes — `openRepo`, then reconcile the watchers.
+    const gameRunner = createGameRunner({ getWindow: getMainWindow, log: defaultLogger, send: broadcastToAllWindows });
+    gameService = createGameService({
+      settings: createGamesSettingsStore(userData),
+      runner: gameRunner,
+      templateDir: mediaGameTemplateRoot(),
+      registerRepo: async (path) => {
+        const opened = await openRepo(path);
+        if (!opened.ok) return { ok: false, kind: 'error', message: opened.message };
+        const repos = (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path }));
+        await reconcileWatchers(repos);
+        reconcileFetchScheduler(repos);
+        return { ok: true };
+      },
+      listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+    });
+    registerGamesHandlers(gameService);
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
@@ -936,6 +966,8 @@ if (!app.requestSingleInstanceLock()) {
     // leak / an orphaned headless Chrome the user cannot see — Theme C's own
     // doc names this exact wiring as its one open item, owned by Theme H.
     stopAllVideoProcesses();
+    // Every running game is a renderer process of its own.
+    gameService?.stopAll();
     // The pm.* script runner's utilityProcess (Phase 70 Theme B) — same
     // reasoning as the two calls below: nothing in it is worth flushing,
     // only worth not leaving behind.

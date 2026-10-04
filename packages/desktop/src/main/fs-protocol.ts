@@ -5,6 +5,7 @@ import { net, protocol } from 'electron';
 import { readBlob } from '@midnite/studio-git-engine';
 import {
   isMarkdownImagePath,
+  MSTUDIO_GAME_SCHEME,
   isSafeBlobRev,
   MSTUDIO_BLOB_MAX_BYTES,
   MSTUDIO_FILE_SCHEME,
@@ -34,11 +35,23 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
 
 /**
  * Must run before `app.whenReady` — Chromium fixes the scheme list at startup.
- * `stream` lets `<video>` seek; `supportFetchAPI` lets the renderer fetch it.
+ *
+ * **One call, both schemes.** Electron keeps only the last
+ * `registerSchemesAsPrivileged` list, so a second call from the games runner
+ * would silently unregister `mstudio-file`. `mstudio-file`: `stream` lets
+ * `<video>` seek, `supportFetchAPI` lets the renderer fetch it. `mstudio-game`
+ * (Phase 107 Theme B) is `standard` so a game gets a real origin
+ * (`mstudio-game://<gameId>`) for ES modules and `localStorage`, `secure` so it
+ * counts as a secure context, and `corsEnabled` for module requests. Only a
+ * run's own session ever handles it — see `game-protocol.ts`.
  */
-export function registerMgitFileScheme(): void {
+export function registerPrivilegedSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     { scheme: MSTUDIO_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } },
+    {
+      scheme: MSTUDIO_GAME_SCHEME,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+    },
   ]);
 }
 

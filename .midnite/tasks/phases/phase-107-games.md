@@ -141,15 +141,21 @@ over MCP. Planned 2026-10-04; refined x1 the same day, which pinned the runner's
 and capture mechanics, the template layout and ids, every MCP tool, and resolved all four opens plus
 fourteen new decisions.
 
-**Theme A — Game repos, the Games tab and settings.** ◻ Not started. Lands first. `initRepo` and
-`isInsideWorkTree` in git-engine; `games-settings.json` with a `~/Midnite Games` default; `'game'` in
-`MEDIA_TABS` (not repo-scoped, `LuGamepad2`); `GameManifestSchema` v1; creation composes a starter,
-vendors engines, seeds skills, inits and registers through `openRepo`.
+**Theme A — Game repos, the Games tab and settings.** ✅ Landed. `initRepo`, `isInsideWorkTree` and `workTreeTop` in
+git-engine; `games-settings.json` (default `~/Midnite Games`, validated with the three literal messages); `'game'` in
+`MEDIA_TABS` (not repo-scoped, `LuGamepad2`); `GameManifestSchema` v1 with a non-throwing `parseGameManifest`; creation
+copies a **blank** scaffold from `templates/media-game/common/`, writes the manifest, inits, and registers through
+`openRepo` (starters, vendored engines and skills arrive with Themes C and G to L; any other starter id is refused).
+The Games tab lists game repos with no repo open, and Settings ▸ Media ▸ Games carries the location, engine, network
+and squash settings and the Ollama warning.
 
-**Theme B — The sandboxed runner.** ◻ Not started. Lands with A. One `WebContentsView` per running
-game on a fresh `game-<runId>` partition, a privileged `mstudio-game://<gameId>/` scheme handled only
-on that session with CSP set on every response, a denied-by-default policy, console capture through
-`console-message` + the CDP debugger, `fs.watch` hot reload, and a toolbar.
+**Theme B — The sandboxed runner.** 🔄 Mostly landed; **Pop out** (the `game` window role, `reparentGameView`) and the
+real-Chromium e2e are still open. One `WebContentsView` per run on an in-memory `game-<gameId>-<runId>` partition
+(`persist:game-<id>` with `keepSaveData`), no preload; `mstudio-game://<gameId>/` registered by
+`registerPrivilegedSchemes()` alongside `mstudio-file` and handled only on that session, with traversal, symlink,
+dotfile and wrong-host refusals, CSP and `nosniff` on every response, `onBeforeRequest` blocking, a four-permission
+policy, a navigation lock, a 2000-entry console ring buffer fed by `console-message` and the CDP debugger, `fs.watch`
+hot reload, a three-run cap and a toolbar. Tested in vitest with fakes for the view and session.
 
 **Theme C — No-build runtime, vendored engines and kit versions.** ◻ Not started. Lands with A. Phaser
 3 (exact pin), three, Rapier compat and recast-navigation are exact-pinned desktop devDependencies
@@ -224,7 +230,7 @@ hostile-game e2e, screenshots and three human passes.
 
 ## A — Game repos, the Games tab and settings (M)
 
-- [ ] `initRepo` in a new `git-engine/src/commands/init.ts`: `git init -b main`, then an initial commit of the scaffold through the write queue, with NUL-safe argv and `--end-of-options` where applicable. A `GitOpResult` envelope, no throws. Vitest in a temp dir
+- [x] `initRepo` in a new `git-engine/src/commands/init.ts`: `git init -b main`, then an initial commit of the scaffold through the write queue, with NUL-safe argv and `--end-of-options` where applicable. A `GitOpResult` envelope, no throws. Vitest in a temp dir
   - Signature: `initRepo(dir: string, opts: { message: string; author?: { name: string; email: string } }): Promise<GitOpResult<{ head: string }>>`.
     Steps inside `writeQueue.run(dir, …)`: `execGit(dir, ['init', '--initial-branch=main', '--', '.'], { write: true })`,
     `stagePaths(dir, ['.'])`, then `execGit(dir, ['commit', '--no-verify', '-m', message], { write: true })`
@@ -233,7 +239,7 @@ hostile-game e2e, screenshots and three human passes.
     No identity configured anywhere → the commit's own failure message is returned verbatim.
   - Also `isInsideWorkTree(path): Promise<boolean>` (`git -C <path> rev-parse --is-inside-work-tree`,
     `false` on any error) in the same file. Both exported through `commands/index.ts`.
-- [ ] **Games location setting** under **Settings ▸ Media ▸ Games** ([`media-page.tsx`](../../../packages/app/src/features/settings/settings-pages/media-page.tsx)). Default `~/Midnite Games`, configurable (user, 2026-10-04), created on first use, validated (writable, not inside another repo's working tree). Also on that page: default engine, default network policy (off), and the Ollama warning text
+- [x] **Games location setting** under **Settings ▸ Media ▸ Games** ([`media-page.tsx`](../../../packages/app/src/features/settings/settings-pages/media-page.tsx)). Default `~/Midnite Games`, configurable (user, 2026-10-04), created on first use, validated (writable, not inside another repo's working tree). Also on that page: default engine, default network policy (off), and the Ollama warning text
   - **Resolved: stored in main, like `videoRoot`** (Decision 5). `main/games/games-settings-store.ts`
     writes `<userData>/games-settings.json` = `{ version: 1, gamesRoot: string | null, defaultEngine: 'phaser' | 'three', defaultNetwork: 'off' | 'on', squashRunCommits: boolean }`
     (`null` means the default `join(os.homedir(), 'Midnite Games')`). Channels
@@ -249,12 +255,12 @@ hostile-game e2e, screenshots and three human passes.
     three.js), a network select (Off / On, help text _"Games can't reach the internet unless you allow
     it per game."_), the **Squash each run into one commit** switch (M), and the Ollama warning shown as
     read-only text (the same constant `GAMES_OLLAMA_WARNING` M uses).
-- [ ] `'game'` added to `MEDIA_TABS` (label **Games**, `react-icons/lu` gamepad glyph), with every `Record<MediaTab, …>` filled in, `MEDIA_LAYOUT_KEYS` plus two width keys, and deliberately **not** in `REPO_SCOPED_MEDIA_TABS`
+- [x] `'game'` added to `MEDIA_TABS` (label **Games**, `react-icons/lu` gamepad glyph), with every `Record<MediaTab, …>` filled in, `MEDIA_LAYOUT_KEYS` plus two width keys, and deliberately **not** in `REPO_SCOPED_MEDIA_TABS`
   - `MEDIA_TAB_META.game = { label: 'Games', icon: LuGamepad2 }`; `TAB_BODY.game = () => <GameTab />`;
     `MEDIA_TAB_EXPORT_FORMATS.game = ['game-html', 'game-zip', 'game-folder']` (P adds the ids);
     `mediaGameExplorerWidth` (240, `{180, 480}`) and `mediaGameDetailWidth` (380, `{300, 680}`); persist
     `version` stays `31`.
-- [ ] **Game manifest** `midnite-game.json`, with `GameManifestSchema` in a new `shared/src/media-game.ts`:
+- [x] **Game manifest** `midnite-game.json`, with `GameManifestSchema` in a new `shared/src/media-game.ts`:
   - `name`, `engine` (`phaser` or `three`)
   - `dimension` (`2d` or `3d`), `perspective`, `genre`
   - `cameraPresets`
@@ -270,7 +276,7 @@ hostile-game e2e, screenshots and three human passes.
     with `.passthrough()` so agents may add keys. `GameAssetProvenanceSchema = { name, kind: 'terrain' | 'sprite' | 'tileset' | 'map' | 'background' | 'model' | 'image' | 'audio', path, source: { tab: MediaTab, repoId: string | null, path: string }, sha256, importedAt }`.
   - `parseGameManifest(value)` returns a typed result `{ ok: true; manifest } | { ok: false; issues: { path, message }[] }`
     and never throws — an agent may have hand-edited the file.
-- [ ] Creating a game:
+- [x] Creating a game:
   1. pick a starter (G, H, I, J or K), a name and a folder (defaults to the location setting)
   2. copy the starter, write the manifest, vendor engines (C), seed `templates/media-game/` (skills plus `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` stubs carrying the game repo's own conventions, and a `.gitignore`)
   3. `initRepo`, then register with the app's repo list through the same path clone uses (`openRepo`)
@@ -283,7 +289,7 @@ hostile-game e2e, screenshots and three human passes.
     temp dir and returns the step's message; a failure after the rename leaves the folder (no destructive
     cleanup of a folder the user can see) and says so.
   - `gameId = 'g' + sha1(realpath(path)).slice(0, 12)` (stable across runs; the runner's host name).
-- [ ] **Games tab**: the explorer lists game repos found under the location plus any registered repo carrying a `midnite-game.json`. Centre is the runner (B), right is the create/iterate panel (M). **Open in Timeline** jumps to the repo's git graph
+- [x] **Games tab**: the explorer lists game repos found under the location plus any registered repo carrying a `midnite-game.json`. Centre is the runner (B), right is the create/iterate panel (M). **Open in Timeline** jumps to the repo's git graph
   - `gamesList: 'mstudio:games:list'` → `{ games: { gameId, name, path, engine, dimension, starter, dirty: boolean, valid: boolean }[] }`:
     direct children of `gamesRoot` containing `midnite-game.json` plus registry repos whose root has one,
     deduped by realpath. An invalid manifest lists with a `LuTriangleAlert` and the first issue as tooltip.
@@ -291,7 +297,7 @@ hostile-game e2e, screenshots and three human passes.
     **New game** button opens the gallery (K) in the right column. Empty state: _"No games yet. Create one
     from a starter."_ with the button.
   - **Open in Timeline** selects the repo (`selectedRepoId`) and switches to the Timeline view.
-- [ ] `mstudio:media:game-*` IPC channels and schemas in `shared`
+- [x] `mstudio:media:game-*` IPC channels and schemas in `shared`
   - **Correction (x1):** games are not repo-media; their channels use the `mstudio:games:` prefix like
     `mstudio:video:` does. `CHANNELS`: `gamesSettingsGet`, `gamesSettingsSet`, `gamesList`,
     `gamesCreate`, `gamesGetManifest`, `gamesSetManifest`, `gamesRun`, `gamesStop`, `gamesReload`,
@@ -303,14 +309,14 @@ hostile-game e2e, screenshots and three human passes.
   - Bridge `games.{ settings, list, create, manifest, run, stop, reload, setBounds, setVisible, toolbar, logs, agent, undoTurn, assets, playtest, export, kitUpgrade, on* }`;
     handlers in `main/ipc/games-handlers.ts` (`registerGamesHandlers()`), over one `createGameService` in
     `main/games/game-service.ts`.
-- [ ] Vitest: `initRepo` creates a repo with one commit, the manifest round-trips, an existing folder is refused, the location validation rules hold, and the explorer lists seeded game repos via the mock bridge
+- [x] Vitest: `initRepo` creates a repo with one commit, the manifest round-trips, an existing folder is refused, the location validation rules hold, and the explorer lists seeded game repos via the mock bridge
   - `git-engine/src/commands/init.test.ts` (`rev-list --count HEAD` is 1; branch is `main`; a second
     `initRepo` is refused; `isInsideWorkTree` true inside a `TempRepo`, false in `tmpdir()`);
     `shared/src/media-game.test.ts` (round trip, `parseGameManifest` issues not throws);
     `desktop/src/main/games/games-root.test.ts` (the three messages);
     `desktop/src/main/games/game-scaffold.test.ts` (non-empty folder refused; temp dir removed on failure);
     `app/src/features/media/game/game-tab.bridge.test.tsx` (two seeded games listed; works with no repo selected).
-- [ ] `GameService` is the one implementation IPC and MCP call
+- [x] `GameService` is the one implementation IPC and MCP call
   - `createGameService(deps: { settings; runner: GameRunner; agentHost: IterativeHost; llmCall: LlmCall; mediaStore; log })`;
     `games-handlers.ts` and `game-mcp.ts` are thin adapters. Main logs one line per run and per agent turn
     (`game run <gameId> run=<runId> stopped|crashed:<reason> ms=<n>`, `game turn <gameId> agent=<id> files=<n> commit=<sha|none>`).
@@ -320,7 +326,7 @@ hostile-game e2e, screenshots and three human passes.
 AI-written JavaScript runs isolated from `window.midniteStudio`. It is never in an iframe in the main
 renderer, because that shares a process with the bridge.
 
-- [ ] `main/games/game-runner.ts`, modelled on `apps-service.ts`:
+- [x] `main/games/game-runner.ts`, modelled on `apps-service.ts`:
   - a `WebContentsView` with `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false` and **no preload**
   - a **non-persistent** partition `game-<id>`, so each run starts with clean storage; a per-game "keep save data" toggle switches it to `persist:game-<id>`
   - `createGameRunner({ getWindow, log })` → `{ run(game): Promise<GitOpResult<{ runId }>>, stop(gameId), reload(gameId), setBounds(gameId, bounds), setVisible(gameId, visible), view(gameId) }`.
@@ -332,7 +338,7 @@ renderer, because that shares a process with the bridge.
   - **Resolved: partition per run, not per game** (Decision 3, closes the original open): the default
     partition is `game-<gameId>-<runId>` (no `persist:` prefix → in-memory, and a new `runId` per run
     means Restart truly starts clean); `keepSaveData: true` in the manifest uses `persist:game-<gameId>`.
-- [ ] Custom scheme `mstudio-game://<id>/` registered **only on that partition's session**, serving files from that repo only, with media-store-style guards (reject `..`, symlinks at any segment and dotfiles under `.git`) and correct MIME types including `.wasm`
+- [x] Custom scheme `mstudio-game://<id>/` registered **only on that partition's session**, serving files from that repo only, with media-store-style guards (reject `..`, symlinks at any segment and dotfiles under `.git`) and correct MIME types including `.wasm`
   - Registration: `registerMgitFileScheme()` becomes `registerPrivilegedSchemes()` and registers both
     schemes in one `protocol.registerSchemesAsPrivileged` call — `mstudio-game` with
     `{ standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true }`
@@ -346,7 +352,7 @@ renderer, because that shares a process with the bridge.
     `index.html` inside it. Bytes via `net.fetch(pathToFileURL(target), { bypassCustomProtocolHandlers: true })`.
     `GAME_MIME_BY_EXT` adds `.wasm → application/wasm`, `.mjs/.js → text/javascript`, `.glb → model/gltf-binary`,
     `.json`, `.tmj/.tsj → application/json`, `.png`, `.jpg`, `.webp`, `.ogg`, `.mp3`, `.wav`.
-- [ ] **CSP** injected on every response: `default-src 'self' mstudio-game:`, `script-src` allowing `'wasm-unsafe-eval'` for Rapier, and no remote origins. With `network: on`, `connect-src` and `img-src` open to https only. `session.webRequest` blocks everything else
+- [x] **CSP** injected on every response: `default-src 'self' mstudio-game:`, `script-src` allowing `'wasm-unsafe-eval'` for Rapier, and no remote origins. With `network: on`, `connect-src` and `img-src` open to https only. `session.webRequest` blocks everything else
   - **Resolved: the CSP header is set by the protocol handler on every `Response`** (Decision 6) —
     `webRequest.onHeadersReceived` does not reliably see custom-protocol responses.
     `gameCsp(network)` in `game-protocol.ts`: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'`,
@@ -354,7 +360,7 @@ renderer, because that shares a process with the bridge.
     `X-Content-Type-Options: nosniff` on every response.
   - `ses.webRequest.onBeforeRequest`: cancel every URL whose scheme is not `mstudio-game:`, `data:`,
     `blob:` or `devtools:` — plus `https:` when `network: 'on'`. `http:` is always cancelled.
-- [ ] Policy:
+- [x] Policy:
   - navigation locked to the game's origin
   - `window.open` denied
   - permissions denied except fullscreen, pointer lock, gamepad and audio autoplay
@@ -369,7 +375,7 @@ renderer, because that shares a process with the bridge.
     deny all, matching Phase 91 Theme E's `denyAllDevices`.
   - `before-input-event`: DevTools chords (`Mod+Alt+I`, `F12`) are swallowed; DevTools opens only via the
     toolbar's `openDevTools({ mode: 'detach' })`.
-- [ ] **Console and error capture without a preload**: `webContents` `console-message`, plus a `webContents.debugger` attach for `Runtime.exceptionThrown`, `unhandledrejection` and `render-process-gone`. Kept in a capped ring buffer per run, and shown in a console drawer under the viewport
+- [x] **Console and error capture without a preload**: `webContents` `console-message`, plus a `webContents.debugger` attach for `Runtime.exceptionThrown`, `unhandledrejection` and `render-process-gone`. Kept in a capped ring buffer per run, and shown in a console drawer under the viewport
   - `GameLogEntry = { seq: number, at: number, level: 'log' | 'info' | 'warn' | 'error' | 'exception' | 'crash', text: string (≤ 4 KB, truncated with "…"), source?: string, line?: number }`.
     `console-message` maps Chromium levels; `debugger.attach('1.3')` + `Runtime.enable` turns
     `Runtime.exceptionThrown` (which covers uncaught errors and unhandled rejections) into `exception`
@@ -380,12 +386,13 @@ renderer, because that shares a process with the bridge.
     `game_logs({ since })` is a cursor. Entries reach the renderer batched every 250 ms on `gamesConsole`.
   - Drawer `GameConsoleDrawer`: level filter chips, a **Clear** button (clears the view, not the buffer),
     auto-scroll unless the user scrolled up, `role="log"` with `aria-live="polite"` for errors only.
-- [ ] **Hot reload**: a watcher on the repo (excluding `.git`, `vendor/` and `node_modules`), debounced, reloads the view. A manual Reload, Restart (new partition) and Stop
+- [x] **Hot reload**: a watcher on the repo (excluding `.git`, `vendor/` and `node_modules`), debounced, reloads the view. A manual Reload, Restart (new partition) and Stop
   - `fs.watch(root, { recursive: true })` (macOS supports recursive), events under `.git/`, `vendor/`,
     `node_modules/`, `playtests/results/` ignored; debounced 200 ms; reload = `webContents.reloadIgnoringCache()`.
     A burst of agent writes therefore reloads once. The watcher closes on Stop.
   - Reload keeps the partition; Restart = stop + run (new `runId`, new partition); Stop destroys the view.
 - [ ] Runner toolbar: play/pause (with the kit's hook, E/F), restart, a resolution preset (16:9 at 720p/1080p, or fit), mute, an fps/frame-time overlay, a DevTools toggle, and **Pop out** into its own window (Phase 55 detachable panels)
+  - **Partly landed (Phase 107 A + B PR):** play/pause (kit hook), restart, stop, resolution, mute, overlay and DevTools shipped; **Pop out** (the `game` window role and `reparentGameView`) is still open.
   - `GameRunnerToolbar` (`game-runner-toolbar.tsx`), `IconButton`s with tooltips: Play/Pause (`LuPlay`/`LuPause`;
     calls `__midnite.pause()`/`resume()` via `executeJavaScript`; disabled with _"This game has no pause
     hook."_ when the hook is missing), Restart (`LuRotateCcw`), Stop (`LuSquare`), Resolution select
@@ -400,12 +407,13 @@ renderer, because that shares a process with the bridge.
   - Empty / loading / error in the centre: no game selected → _"Pick a game, or create one."_; selected
     but stopped → a **Run** button; starting → `Spinner` _"Starting…"_; crashed → _"The game crashed
     (<reason>). See the console."_ with **Restart**.
-- [ ] The view is hidden and throttled when the tab is hidden or the window is blurred (Phase 84 visibility gates). A stopped game holds no renderer process
+- [x] The view is hidden and throttled when the tab is hidden or the window is blurred (Phase 84 visibility gates). A stopped game holds no renderer process
   - The renderer sends `gamesSetVisible(gameId, false)` when the Games tab unmounts or `usePageVisible()`
     is false; main calls `view.setVisible(false)` and `webContents.setBackgroundThrottling(true)`. On
     window blur the view stays visible but throttled. Stop calls `webContents.close()` and drops the view,
     so no renderer process remains (asserted via `webContents.getAllWebContents()` in the e2e).
 - [ ] Vitest (desktop, with fakes for `WebContentsView` and session): the scheme refuses traversal, symlinks and `.git`; the CSP header is present on every response; network is blocked when off; and the ring buffer is capped. An e2e boots a starter and reads its console, naming "real Chromium process and canvas" in the spec header
+  - **Partly landed:** all the vitest halves shipped; the real-Chromium `game-runner.spec.ts` e2e is deferred to Theme Q (it needs a starter that boots an engine).
   - `desktop/src/main/games/game-protocol.test.ts` (temp dir fixture: `../x`, `%2e%2e/x`, a symlinked
     file, `.git/config`, `.env` → 404; wrong host → 404; `.wasm` MIME; CSP and `nosniff` on 200 and 404);
     `game-runner.test.ts` (fake view/session: partition names per run and with `keepSaveData`;
@@ -414,7 +422,7 @@ renderer, because that shares a process with the bridge.
     `ring-buffer.test.ts` (capacity 2000, `since` cursor).
   - `packages/app/e2e/game-runner.spec.ts` (header: "real Chromium process and canvas"): runs the
     `platformer` base and reads a `console.log('midnite-ready')` the kit prints at boot.
-- [ ] Privileged-scheme registration covers both schemes and is tested
+- [x] Privileged-scheme registration covers both schemes and is tested
   - `desktop/src/main/fs-protocol.test.ts` (existing, extended): `registerPrivilegedSchemes()` makes one
     `registerSchemesAsPrivileged` call containing `mstudio-file` and `mstudio-game` with the privileges above.
 

@@ -714,6 +714,32 @@ export type MockFixtures = {
     renders?: Record<string, Array<{ id: string; [key: string]: unknown }>>;
   };
   /**
+   * Media ▸ Games (Phase 107 Themes A + B). `list` seeds the explorer; `settings` the Settings page.
+   * `create`/`run`/`stop` mutate an in-memory copy. Run state and console output are pushed from a spec
+   * through `window.__mstudioMockGames.runState(...)` / `.console(...)`, which the mock installs.
+   */
+  games?: {
+    list?: Array<{
+      gameId: string;
+      name: string;
+      path: string;
+      engine?: 'phaser' | 'three' | null;
+      dimension?: '2d' | '3d' | null;
+      starter?: string | null;
+      dirty?: boolean;
+      valid?: boolean;
+      issue?: string | null;
+    }>;
+    settings?: {
+      gamesRoot?: string | null;
+      defaultEngine?: 'phaser' | 'three';
+      defaultNetwork?: 'off' | 'on';
+      squashRunCommits?: boolean;
+    };
+    resolvedRoot?: string;
+    rootProblem?: string | null;
+  };
+  /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
    * path → text content; a project with no files is `{}`. `ffmpeg` defaults to
    * found. Writes and removes mutate an in-memory copy, like `video.projects`.
@@ -3189,6 +3215,96 @@ export function buildMockBridge(data: MockFixtures) {
       onStudioChanged: unsubscribe,
       onRenderProgress: unsubscribe,
     },
+    games: {
+      settings: {
+        get: async () => ({
+          settings: gamesSettings,
+          resolvedRoot:
+            data.games?.resolvedRoot ?? (gamesSettings.gamesRoot as string | null) ?? '/Users/test/Midnite Games',
+          rootProblem: data.games?.rootProblem ?? null,
+        }),
+        set: async (patch: Record<string, unknown>) => {
+          gamesSettings = { ...gamesSettings, ...patch };
+          return {
+            ok: true as const,
+            value: {
+              settings: gamesSettings,
+              resolvedRoot:
+                data.games?.resolvedRoot ?? (gamesSettings.gamesRoot as string | null) ?? '/Users/test/Midnite Games',
+              rootProblem: null,
+            },
+          };
+        },
+      },
+      list: async () => ({ games: gamesList }),
+      create: async (req: { name: string; engine: string; perspective: string }) => {
+        const slug = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
+        const gameId = `g${String(gamesList.length + 1).padStart(12, '0')}`;
+        const path = `${data.games?.resolvedRoot ?? '/Users/test/Midnite Games'}/${slug}`;
+        gamesList = [
+          ...gamesList,
+          {
+            gameId,
+            name: req.name,
+            path,
+            engine: req.engine,
+            dimension: req.engine === 'phaser' ? '2d' : '3d',
+            starter: 'blank',
+            dirty: false,
+            valid: true,
+            issue: null,
+          },
+        ];
+        gamesChangedHandlers.forEach((h) => h({ reason: 'created' }));
+        return { ok: true as const, value: { path, gameId } };
+      },
+      manifest: {
+        get: async () => ({ manifest: null, issues: [] }),
+        set: async () => ({ ok: true as const }),
+      },
+      run: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'run', ...req });
+        const runId = `r${gamesCalls.length}`;
+        gamesRunStateHandlers.forEach((h) => h({ gameId: req.gameId, runId, state: 'starting' }));
+        gamesRunStateHandlers.forEach((h) => h({ gameId: req.gameId, runId, state: 'running' }));
+        return { ok: true as const, value: { runId } };
+      },
+      stop: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'stop', ...req });
+        gamesRunStateHandlers.forEach((h) => h({ gameId: req.gameId, runId: 'r0', state: 'stopped' }));
+        return { ok: true as const };
+      },
+      reload: async () => ({ ok: true as const }),
+      setBounds: (req: Record<string, unknown>) => {
+        gamesCalls.push({ call: 'setBounds', ...req });
+      },
+      setVisible: (req: Record<string, unknown>) => {
+        gamesCalls.push({ call: 'setVisible', ...req });
+      },
+      toolbar: async (req: Record<string, unknown>) => {
+        gamesCalls.push({ call: 'toolbar', ...req });
+        return { ok: true as const };
+      },
+      logs: async () => ({ runId: null, entries: [] }),
+      onChanged: (handler: (event: unknown) => void) => {
+        gamesChangedHandlers.push(handler);
+        return () => {
+          gamesChangedHandlers = gamesChangedHandlers.filter((h) => h !== handler);
+        };
+      },
+      onRunState: (handler: (event: unknown) => void) => {
+        gamesRunStateHandlers.push(handler);
+        return () => {
+          gamesRunStateHandlers = gamesRunStateHandlers.filter((h) => h !== handler);
+        };
+      },
+      onConsole: (handler: (event: unknown) => void) => {
+        gamesConsoleHandlers.push(handler);
+        return () => {
+          gamesConsoleHandlers = gamesConsoleHandlers.filter((h) => h !== handler);
+        };
+      },
+    },
     media: {
       project: {
         list: async (req: { tab: string }) => ({
@@ -5135,6 +5251,40 @@ export function buildMockBridge(data: MockFixtures) {
   var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
   // eslint-disable-next-line no-var
   var councilRunCounter = 0;
+  // --- games (Phase 107) ------------------------------------------------------
+  // eslint-disable-next-line no-var
+  var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
+    engine: 'phaser',
+    dimension: '2d',
+    starter: 'blank',
+    dirty: false,
+    valid: true,
+    issue: null,
+    ...g,
+  }));
+  // eslint-disable-next-line no-var
+  var gamesSettings: Record<string, unknown> = {
+    version: 1,
+    gamesRoot: null,
+    defaultEngine: 'phaser',
+    defaultNetwork: 'off',
+    squashRunCommits: false,
+    ...(data.games?.settings ?? {}),
+  };
+  /** Every `games.run`/`stop`/`toolbar`/`setBounds`/`setVisible` call — the spec's assertion surface. */
+  // eslint-disable-next-line no-var
+  var gamesCalls: Array<Record<string, unknown>> = [];
+  // eslint-disable-next-line no-var
+  var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesConsoleHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesChangedHandlers: Array<(event: unknown) => void> = [];
+  (window as unknown as { __mstudioMockGames: unknown }).__mstudioMockGames = {
+    calls: gamesCalls,
+    runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
+    console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
+  };
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // eslint-disable-next-line no-var
   var mediaFiles: Record<string, Record<string, string>> = { ...(data.media?.files ?? {}) };

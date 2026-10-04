@@ -12,6 +12,7 @@ export * from './git-identity';
 export * from './grep';
 export * from './hooks';
 export * from './ignore';
+export * from './init';
 export * from './list-files';
 export * from './log';
 export * from './rebase';

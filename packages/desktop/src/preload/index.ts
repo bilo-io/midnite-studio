@@ -143,6 +143,7 @@ const bridge: Pick<
   | 'markets'
   | 'apiClient'
   | 'video'
+  | 'games'
   | 'media'
   | 'fs'
   | 'stats'
@@ -541,6 +542,29 @@ const bridge: Pick<
     },
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
+  },
+  games: {
+    settings: {
+      get: () => call(CHANNELS.gamesSettingsGet),
+      set: (req) => call(CHANNELS.gamesSettingsSet, req),
+    },
+    list: () => call(CHANNELS.gamesList),
+    create: (req) => call(CHANNELS.gamesCreate, req),
+    manifest: {
+      get: (req) => call(CHANNELS.gamesGetManifest, req),
+      set: (req) => call(CHANNELS.gamesSetManifest, req),
+    },
+    run: (req) => call(CHANNELS.gamesRun, req),
+    stop: (req) => call(CHANNELS.gamesStop, req),
+    reload: (req) => call(CHANNELS.gamesReload, req),
+    // One-way, like `apps.setBounds` — fires every resize frame.
+    setBounds: (req) => ipcRenderer.send(CHANNELS.gamesSetBounds, req),
+    setVisible: (req) => ipcRenderer.send(CHANNELS.gamesSetVisible, req),
+    toolbar: (req) => call(CHANNELS.gamesToolbar, req),
+    logs: (req) => call(CHANNELS.gamesLogs, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.gamesChanged, handler),
+    onRunState: (handler) => subscribe(EVENT_CHANNELS.gamesRunState, handler),
+    onConsole: (handler) => subscribe(EVENT_CHANNELS.gamesConsole, handler),
   },
   media: {
     project: {

@@ -881,6 +881,24 @@ export const CHANNELS = {
   videoEngineGet: 'mstudio:video:engine-get',
   videoEngineSet: 'mstudio:video:engine-set',
 
+  // --- games (Phase 107) -----------------------------------------------------
+  // Games are not repo media — each is its own git repo — so they take the
+  // `mstudio:games:` prefix, as Video takes `mstudio:video:`. Themes A (repos,
+  // settings) and B (runner) own these; later themes append their channels.
+  gamesSettingsGet: 'mstudio:games:settings-get',
+  gamesSettingsSet: 'mstudio:games:settings-set',
+  gamesList: 'mstudio:games:list',
+  gamesCreate: 'mstudio:games:create',
+  gamesGetManifest: 'mstudio:games:get-manifest',
+  gamesSetManifest: 'mstudio:games:set-manifest',
+  gamesRun: 'mstudio:games:run',
+  gamesStop: 'mstudio:games:stop',
+  gamesReload: 'mstudio:games:reload',
+  gamesSetBounds: 'mstudio:games:set-bounds',
+  gamesSetVisible: 'mstudio:games:set-visible',
+  gamesToolbar: 'mstudio:games:toolbar',
+  gamesLogs: 'mstudio:games:logs',
+
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
   // Every op answers the `GitOpResult` envelope and confines each path to that
@@ -1484,6 +1502,12 @@ export const EVENT_CHANNELS = {
   videoStudioChanged: 'mstudio:video:studio-changed',
   /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */
   videoRenderProgress: 'mstudio:video:render-progress',
+  /** The games on disk changed — see `GamesChangedPayload`. */
+  gamesChanged: 'mstudio:games:changed',
+  /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
+  gamesRunState: 'mstudio:games:run-state',
+  /** A batch of a run's console entries — see `GameConsolePayload`. */
+  gamesConsole: 'mstudio:games:console',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
