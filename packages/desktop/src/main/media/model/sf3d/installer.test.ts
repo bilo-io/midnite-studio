@@ -114,9 +114,9 @@ describe('SF3D installer', () => {
   });
 
   it('cancels mid-file, keeps the partial, and resumes it with a Range request that still verifies', async () => {
-    let installer!: ReturnType<typeof make>;
-    const hub = fakeHub({ onChunk: (path, sent) => path === 'b.bin' && sent === 4000 && installer.cancel() });
-    installer = make(hub);
+    const ref = {} as { installer: ReturnType<typeof make> };
+    const hub = fakeHub({ onChunk: (path, sent) => path === 'b.bin' && sent === 4000 && ref.installer.cancel() });
+    const installer = (ref.installer = make(hub));
     await installer.consent(accept);
     const events: Sf3dInstallProgress[] = [];
     expect(await installer.install((p) => events.push(p))).toEqual({ ok: false, kind: 'error', message: 'cancelled' });
@@ -194,12 +194,12 @@ describe('SF3D installer', () => {
   });
 
   it('uninstall stops a running install first', async () => {
-    let installer!: ReturnType<typeof make>;
+    const ref = {} as { installer: ReturnType<typeof make> };
     let uninstalling: Promise<unknown> | null = null;
     const hub = fakeHub({ onChunk: (path, sent) => {
-      if (path === 'onnx/a.onnx' && sent === 1000 && !uninstalling) uninstalling = installer.uninstall();
+      if (path === 'onnx/a.onnx' && sent === 1000 && !uninstalling) uninstalling = ref.installer.uninstall();
     } });
-    installer = make(hub);
+    const installer = (ref.installer = make(hub));
     await installer.consent(accept);
     const install = installer.install(() => undefined);
     expect(await install).toMatchObject({ ok: false, message: 'cancelled' });
