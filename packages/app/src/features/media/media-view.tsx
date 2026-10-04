@@ -36,7 +36,9 @@ export function MediaView() {
       <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border px-3">
         <PageDetachMark role="media" />
         <h1 className="text-sm font-semibold">Media</h1>
-        <MediaTabStrip active={tab} onSelect={setTab} />
+        <div className="ml-auto shrink-0">
+          <MediaTabStrip active={tab} onSelect={setTab} />
+        </div>
       </div>
       <div className="min-h-0 flex-1">
         <Body />
