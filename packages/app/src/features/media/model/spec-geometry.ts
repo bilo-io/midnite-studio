@@ -1,4 +1,4 @@
-import { buildSceneChecked, sceneStats, semanticIssues, validateRig, type BuildIssue, type MeshPart, type ModelSpec } from '@midnite/studio-shared';
+import { buildSceneChecked, modelAssetEpoch, sceneStats, semanticIssues, validateRig, type BuildIssue, type MeshPart, type ModelSpec } from '@midnite/studio-shared';
 import { BufferGeometry, Float32BufferAttribute } from 'three';
 
 /**
@@ -14,19 +14,23 @@ export type EditorScene = {
   stats: { triangles: number; vertices: number; parts: number };
 };
 
-const cache = new WeakMap<ModelSpec, EditorScene>();
+const cache = new WeakMap<ModelSpec, { epoch: number; scene: EditorScene }>();
 
-/** Builds (and memoises per spec object) every mesh of a design, boolean operands included. */
+/**
+ * Builds (and memoises per spec object) every mesh of a design, boolean operands included. The memo
+ * also keys on the asset registry's epoch, so an imported mesh that finishes loading is drawn.
+ */
 export function editorScene(spec: ModelSpec): EditorScene {
+  const epoch = modelAssetEpoch();
   const hit = cache.get(spec);
-  if (hit) return hit;
+  if (hit && hit.epoch === epoch) return hit.scene;
   const built = buildSceneChecked(spec, { operands: true });
   const scene: EditorScene = {
     parts: built.parts,
     issues: [...semanticIssues(spec), ...validateRig(spec), ...built.issues],
     stats: sceneStats(built.parts.filter((p) => p.role === 'solid')),
   };
-  cache.set(spec, scene);
+  cache.set(spec, { epoch, scene });
   return scene;
 }
 
@@ -35,6 +39,7 @@ export function meshGeometry(part: MeshPart): BufferGeometry {
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(part.positions, 3));
   geometry.setAttribute('normal', new Float32BufferAttribute(part.normals, 3));
+  if (part.uvs && part.uvs.length === (part.positions.length / 3) * 2) geometry.setAttribute('uv', new Float32BufferAttribute(part.uvs, 2));
   geometry.setIndex(part.indices);
   geometry.computeBoundingSphere();
   return geometry;

@@ -9,6 +9,7 @@ import { movableSelection, type EditorAction, type EditorState } from './editor-
 import type { LightingPreset } from './lighting';
 import { boundsOf, centreOf, distanceBetween, formatSize, orthoZoom, sizeOf, VIEW_DIRECTIONS, VIEW_PLANE, type CameraView } from './scene-bounds';
 import { effectiveStep, type SnapSettings } from './snap';
+import { assetTexture } from './model-assets';
 import { editorScene, meshGeometry, type EditorScene } from './spec-geometry';
 import { anchorWorld, withDescendants } from './spec-edit';
 import { framingFor } from './model-utils';
@@ -156,6 +157,9 @@ function PartMesh({
   const ghost = part.role === 'operand';
   const m = part.material;
   const see = xray || m.opacity < 1;
+  // An imported mesh draws with its baked texture; the image decodes once and then asks for a frame.
+  const invalidate = useThree((s) => s.invalidate);
+  const map = useMemo(() => (part.texture && part.uvs ? assetTexture(part.texture, () => invalidate()) : null), [part.texture, part.uvs, invalidate]);
   return (
     <mesh
       ref={ref}
@@ -173,6 +177,8 @@ function PartMesh({
         <meshNormalMaterial transparent={xray} opacity={xray ? 0.4 : 1} depthWrite={!xray} />
       ) : (
         <meshStandardMaterial
+          key={map ? 'textured' : 'flat'}
+          map={map}
           color={part.color}
           roughness={m.roughness}
           metalness={m.metalness}

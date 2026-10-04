@@ -1,0 +1,90 @@
+import {
+  missingModelAssets,
+  modelAsset,
+  modelAssetEpoch,
+  modelAssetHash,
+  modelAssetPath,
+  type ModelSpec,
+  parseGlbMesh,
+  registerModelAsset,
+  subscribeModelAssets,
+} from '@midnite/studio-shared';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { SRGBColorSpace, Texture } from 'three';
+
+import { modelFileUrl } from './model-utils';
+
+/**
+ * The editor's side of imported meshes (`asset` parts, Phase 103 Theme J): fetch each `.glb` a design
+ * names from its folder (`mstudio-file://`), check it against the part's hash, parse it and register it
+ * with the kernel, which then builds it like any other part. `useModelAssetEpoch` re-renders whoever
+ * builds the scene once a mesh lands, and `assetTexture` turns a registered image into a three texture.
+ */
+
+/** Hashes already asked for, so a missing file is fetched once rather than on every render. */
+const requested = new Set<string>();
+
+export async function loadAsset(url: string, hash: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return `HTTP ${response.status}`;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (modelAssetHash(bytes) !== hash) return 'the file changed since it was imported';
+    registerModelAsset(hash, parseGlbMesh(bytes));
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+/** Loads the imported meshes of `spec` (its folder is `dir` inside `project`); answers the problems seen. */
+export function useModelAssets(repoId: string, project: string | null, dir: string, spec: Pick<ModelSpec, 'parts'> | null): string[] {
+  const [problems, setProblems] = useState<string[]>([]);
+  useEffect(() => {
+    if (!project || !spec) return;
+    const missing = missingModelAssets(spec).filter((part) => !requested.has(part.hash));
+    if (missing.length === 0) return;
+    let live = true;
+    for (const part of missing) {
+      requested.add(part.hash);
+      void loadAsset(modelFileUrl(repoId, project, modelAssetPath(dir, part.src)), part.hash).then((problem) => {
+        if (problem === null) return;
+        requested.delete(part.hash);
+        if (live) setProblems((list) => [...list, `${part.src}: ${problem}`]);
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, [repoId, project, dir, spec]);
+  return problems;
+}
+
+/** Changes whenever a mesh is registered — a dependency for anything that builds the scene. */
+export const useModelAssetEpoch = (): number => useSyncExternalStore(subscribeModelAssets, modelAssetEpoch, modelAssetEpoch);
+
+const textures = new Map<string, Texture>();
+
+/**
+ * The texture of a registered asset, decoded once per hash. The image arrives asynchronously, so the
+ * texture is returned at once and fills in; `onReady` lets the caller ask for a redraw.
+ */
+export function assetTexture(hash: string, onReady?: () => void): Texture | null {
+  const hit = textures.get(hash);
+  if (hit) return hit;
+  const image = modelAsset(hash)?.texture;
+  if (!image || typeof createImageBitmap !== 'function') return null;
+  const texture = new Texture();
+  // glTF's uv origin is the image's top-left: no flip, as three's GLTFLoader does.
+  texture.flipY = false;
+  texture.colorSpace = SRGBColorSpace;
+  textures.set(hash, texture);
+  void createImageBitmap(new Blob([image.data as BlobPart], { type: image.mime }), { imageOrientation: 'none' })
+    .then((bitmap) => {
+      texture.image = bitmap;
+      texture.needsUpdate = true;
+      onReady?.();
+    })
+    .catch(() => textures.delete(hash));
+  return texture;
+}

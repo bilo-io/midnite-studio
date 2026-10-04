@@ -14,6 +14,7 @@ import { NoRepoMediaState } from '../repo-media-tab';
 import { MEDIA_KEYS, useMediaFileText } from '../use-media';
 import { ModelPanel } from './model-panel';
 import { editorReducer, initialEditorState, isDirty } from './editor-state';
+import { useModelAssets } from './model-assets';
 import { LazyModelEditor, LazyModelViewer } from './model-viewer-lazy';
 import { JsonFileViewer } from './json-viewer';
 import { collectModels, findNode, joinLibraryPath, splitProjectPath, type ModelSelection } from './library-tree';
@@ -118,6 +119,8 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   const editing = designSpec !== null && editor.source === fileKey;
   const editorShown =
     editing && centre.kind !== 'json' && centre.kind !== 'image' && centre.kind !== 'unsupported' && !!modelProject && !!selectedPath && !!format;
+  // Imported meshes (SF3D results) are drawn from the `.glb` beside the design: fetch and register them.
+  useModelAssets(repoId, modelProject, selectedPath ? libraryParent(selectedPath) : '', editing ? editor.spec : designSpec);
 
   // Rigged models with clips (their model.json says so) are what the Animation tab can copy clips from.
   const retargetSources = useMemo<RetargetSource[]>(() => {

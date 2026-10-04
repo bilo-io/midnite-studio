@@ -31,6 +31,7 @@ import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
 import { boundsOf, distanceBetween, formatSize, sizeOf, type CameraView } from './scene-bounds';
 import { ShortcutHelp } from './shortcut-help';
 import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
+import { useModelAssetEpoch } from './model-assets';
 import { editorScene } from './spec-geometry';
 import { withDescendants } from './spec-edit';
 import { ViewportWidgets } from './viewport-widgets';
@@ -98,7 +99,10 @@ export default function ModelEditor({
   const [warningsOpen, setWarningsOpen] = useState(false);
   const webgl = useMemo(canUseWebGL, []);
   const { spec, selection } = state;
-  const scene = useMemo(() => editorScene(spec), [spec]);
+  // An imported mesh (an SF3D result) that finishes loading changes the epoch, and the scene rebuilds.
+  const assetEpoch = useModelAssetEpoch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the epoch is the registry's version, read inside editorScene
+  const scene = useMemo(() => editorScene(spec), [spec, assetEpoch]);
   const lighting = lightingById(lightingId);
 
   // Rig, pose and playback (view state only — never in the design or its history).

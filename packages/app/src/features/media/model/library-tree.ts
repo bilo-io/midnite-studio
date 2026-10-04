@@ -61,7 +61,8 @@ export function primaryFile(model: ModelLibraryModel): string | null {
   const declared = model.manifest?.files.obj;
   if (declared && names.includes(declared)) return declared;
   for (const ext of THREE_D) {
-    const found = names.find((n) => fileExt(n) === ext && !n.includes('.ref.'));
+    // Not the reference picture, and not an imported mesh — the design's own exports are what opens.
+    const found = names.find((n) => fileExt(n) === ext && !n.includes('.ref.') && !n.endsWith('.asset.glb'));
     if (found) return found;
   }
   return null;
