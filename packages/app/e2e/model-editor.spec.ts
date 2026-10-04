@@ -110,9 +110,10 @@ test('dragging orbits the camera and Reset camera brings it back', async ({ page
   const canvas = await openEditor(page);
   const home = await shot(canvas);
   const box = (await canvas.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + 12);
+  // Start in the upper-left area: the floating widgets own the top-centre.
+  await page.mouse.move(box.x + box.width * 0.2, box.y + 100);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 160, box.y + 60, { steps: 8 });
+  await page.mouse.move(box.x + box.width * 0.2 + 160, box.y + 140, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(300);
   expect(Buffer.compare(home, await shot(canvas))).not.toBe(0);
