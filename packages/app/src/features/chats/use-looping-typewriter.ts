@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Continuously types and erases text in a loop with a typewriter effect.
@@ -36,7 +36,7 @@ export function useLoopingTypewriter(
       return;
     }
 
-    let animationPhase: 'typing' | 'holding' | 'erasing' | 'pausing' = 'typing';
+    let _animationPhase: 'typing' | 'holding' | 'erasing' | 'pausing' = 'typing';
     let charIndex = 0;
 
     const cleanup = () => {
@@ -45,7 +45,7 @@ export function useLoopingTypewriter(
     };
 
     const startTyping = () => {
-      animationPhase = 'typing';
+      _animationPhase = 'typing';
       charIndex = 0;
       const perChar = charDelayMs ?? Math.max(16, Math.min(42, Math.round(720 / text.length)));
 
@@ -56,11 +56,11 @@ export function useLoopingTypewriter(
         if (charIndex >= text.length) {
           if (intervalRef.current) clearInterval(intervalRef.current);
           intervalRef.current = null;
-          animationPhase = 'holding';
+          _animationPhase = 'holding';
 
           // Hold the full text
           timeoutRef.current = setTimeout(() => {
-            animationPhase = 'erasing';
+            _animationPhase = 'erasing';
             startErasing();
           }, holdMs);
         }
@@ -68,7 +68,7 @@ export function useLoopingTypewriter(
     };
 
     const startErasing = () => {
-      animationPhase = 'erasing';
+      _animationPhase = 'erasing';
       charIndex = text.length;
       const perChar = charDelayMs ?? Math.max(16, Math.min(42, Math.round(720 / text.length)));
 
@@ -79,7 +79,7 @@ export function useLoopingTypewriter(
         if (charIndex <= 0) {
           if (intervalRef.current) clearInterval(intervalRef.current);
           intervalRef.current = null;
-          animationPhase = 'pausing';
+          _animationPhase = 'pausing';
 
           // Pause before restarting
           timeoutRef.current = setTimeout(() => {
