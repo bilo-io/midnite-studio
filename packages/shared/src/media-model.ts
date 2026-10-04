@@ -302,8 +302,8 @@ export const ModelEngineSchema = z.discriminatedUnion('kind', [
 export type ModelEngine = z.infer<typeof ModelEngineSchema>;
 
 /** Preview-and-refine passes an iterative run gets by default, and the most a request may ask for. */
-export const MODEL_ITERATIONS_DEFAULT = 5;
-export const MODEL_ITERATIONS_MAX = 12;
+export const MODEL_ITERATIONS_DEFAULT = 10;
+export const MODEL_ITERATIONS_MAX = 100;
 
 /**
  * Agent CLIs that can run the iterative (MCP) mode — the Midnite MCP server is attached per run

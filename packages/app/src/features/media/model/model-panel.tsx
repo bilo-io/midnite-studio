@@ -225,19 +225,18 @@ function ProceduralPanel({
               </p>
               <label className="flex items-center gap-2">
                 Refinement passes
-                <select
+                <input
+                  type="range"
                   aria-label="Refinement passes"
+                  min={1}
+                  max={MODEL_ITERATIONS_MAX}
+                  step={1}
                   value={prefs.maxIterations}
                   disabled={running}
                   onChange={(event) => prefs.set({ maxIterations: Number(event.target.value) })}
-                  className="h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground"
-                >
-                  {Array.from({ length: MODEL_ITERATIONS_MAX }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                  className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+                />
+                <span className="tabular-nums w-7 text-right text-[11px] text-foreground">{prefs.maxIterations}</span>
               </label>
             </>
           ) : (
