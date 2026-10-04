@@ -35,8 +35,12 @@ test.describe('rail rename screenshots', () => {
 
     // Command palette listing the Timeline and Graphs rows with their icons.
     await page.keyboard.press('Meta+k');
-    await page.keyboard.type('Go to');
+    await page.keyboard.type('Timeline');
     await settle(page, 800);
-    await page.screenshot({ path: shotPath(OUT, 'palette.png') });
+    await page.screenshot({ path: shotPath(OUT, 'palette-timeline.png') });
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.type('Graphs');
+    await settle(page, 800);
+    await page.screenshot({ path: shotPath(OUT, 'palette-graphs.png') });
   });
 });
