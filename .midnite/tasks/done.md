@@ -14341,3 +14341,16 @@ build leaves the previous one. Cancel kills the worker; a newer build of the sam
 centre shows the build's stats until Theme D's viewport lands. Tested in vitest: spec defaults and rejection, the codec
 (bit-exact 16-bit, five filters, three literal refusals), resample/normals/LOD crack-freedom, the broker, the service and a
 real build into a temp folder, and the tab through the mock bridge. No viewport, noise, satellite or road handling yet.
+
+
+### Phase 107 Themes A + B — Game repos, the Games tab and the sandboxed runner (2026-10-04)
+
+Media gains a **Games** tab. A game is its own git repo under `~/Midnite Games` (configurable in Settings ▸ Media ▸ Games,
+validated outside any other repo): `initRepo` is the app's first production `git init`, creation copies a blank scaffold,
+writes `midnite-game.json` and registers the repo like a clone. The runner puts each run in a sandboxed `WebContentsView`
+(no preload, in-memory partition per run) served from a privileged `mstudio-game://` scheme handled only on that session,
+with a CSP and `nosniff` on every response, request blocking, a four-permission policy, a navigation lock, console and
+exception capture over `console-message` and the CDP debugger, hot reload and a toolbar. Thirteen `mstudio:games:*`
+channels and three events carry it. Tested in vitest (init, manifest, root validation, scaffold, scheme refusals, runner
+with fakes, ring buffer, privileged-scheme call, the tab and settings through the mock bridge). Not built: Pop out, the
+real-Chromium e2e, starters, vendored engines and the agent loop (later themes). No real game has been run in Electron yet.
