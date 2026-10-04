@@ -77,18 +77,21 @@ test('the canvas renders the design and redraws for selection and wireframe', as
   const selected = await shot(canvas);
   expect(Buffer.compare(solid, selected)).not.toBe(0);
 
-  await page.getByRole('radio', { name: 'Wireframe' }).click();
+  await page.getByRole('button', { name: /^Shading:/ }).click();
+  await page.getByRole('option', { name: 'Wireframe' }).click();
   await page.waitForTimeout(300);
   const wire = await shot(canvas);
   expect(Buffer.compare(selected, wire)).not.toBe(0);
 
   // The orthographic Top view and x-ray are real camera / blend changes: both must repaint.
-  await page.getByRole('radio', { name: 'Solid' }).click();
-  await page.getByRole('radio', { name: 'Top' }).click();
+  await page.getByRole('button', { name: /^Shading:/ }).click();
+  await page.getByRole('option', { name: 'Solid' }).click();
+  await page.getByRole('button', { name: /^Projection:/ }).click();
+  await page.getByRole('option', { name: 'Top' }).click();
   await page.waitForTimeout(500);
   const top = await shot(canvas);
   expect(Buffer.compare(wire, top)).not.toBe(0);
-  await page.getByRole('button', { name: 'X-ray' }).click();
+  await page.getByRole('button', { name: /^X-ray/ }).click();
   await page.waitForTimeout(300);
   expect(Buffer.compare(top, await shot(canvas))).not.toBe(0);
 });
@@ -107,9 +110,10 @@ test('dragging orbits the camera and Reset camera brings it back', async ({ page
   const canvas = await openEditor(page);
   const home = await shot(canvas);
   const box = (await canvas.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + 12);
+  // Start in the upper-left area: the floating widgets own the top-centre.
+  await page.mouse.move(box.x + box.width * 0.2, box.y + 100);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 160, box.y + 60, { steps: 8 });
+  await page.mouse.move(box.x + box.width * 0.2 + 160, box.y + 140, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(300);
   expect(Buffer.compare(home, await shot(canvas))).not.toBe(0);

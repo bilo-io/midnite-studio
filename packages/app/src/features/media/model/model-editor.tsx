@@ -3,21 +3,21 @@ import { useEffect, useMemo, useState, type Dispatch, type KeyboardEvent } from 
 import {
   LuAxis3D,
   LuCircleHelp,
-  LuGrid3X3,
-  LuMove3D,
+  LuBox,
+  LuScanEye,
+  LuEye,
+  LuGrid2X2,
   LuRedo2,
-  LuRotate3D,
   LuRotateCcw,
   LuRuler,
   LuSave,
-  LuScale3D,
   LuScan,
   LuSquareDashed,
   LuUndo2,
 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
-import { Tooltip } from '../../../components/tooltip';
+import { IconSelect, type IconSelectOption } from '../../../components/icon-select';
 import { resolveKey, type UiCommand } from './editor-keys';
 import { canRedo, canUndo, isDirty, type EditorAction, type EditorState } from './editor-state';
 import { EditorScene, type MeasurePoints, type ShadeMode, type TransformMode } from './editor-scene';
@@ -25,9 +25,10 @@ import { DEFAULT_LIGHTING, LIGHTING_PRESETS, lightingById } from './lighting';
 import { ModelInspector } from './model-inspector';
 import { boundsOf, distanceBetween, formatSize, sizeOf, type CameraView } from './scene-bounds';
 import { ShortcutHelp } from './shortcut-help';
-import { ANGLE_STEPS, DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
+import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
 import { editorScene } from './spec-geometry';
 import { withDescendants } from './spec-edit';
+import { ViewportWidgets } from './viewport-widgets';
 
 /**
  * The Models tab's 3D editor (lazy chunk): react-three-fiber + drei. The geometry it draws is the
@@ -36,21 +37,16 @@ import { withDescendants } from './spec-edit';
  *
  * The canvas draws on demand (`frameloop="demand"`): an idle editor is idle.
  */
-const MODES: { id: TransformMode; key: string; label: string; icon: typeof LuMove3D }[] = [
-  { id: 'translate', key: 'W', label: 'Move', icon: LuMove3D },
-  { id: 'rotate', key: 'E', label: 'Rotate', icon: LuRotate3D },
-  { id: 'scale', key: 'R', label: 'Scale', icon: LuScale3D },
+const SHADES: IconSelectOption[] = [
+  { value: 'solid', label: 'Solid', icon: LuBox, description: 'Solid shading with materials' },
+  { value: 'wireframe', label: 'Wireframe', icon: LuGrid2X2, description: 'Show mesh wireframe edges' },
+  { value: 'normals', label: 'Normals', icon: LuAxis3D, description: 'Visualize surface normals' },
 ];
-const SHADES: { id: ShadeMode; label: string }[] = [
-  { id: 'solid', label: 'Solid' },
-  { id: 'wireframe', label: 'Wireframe' },
-  { id: 'normals', label: 'Normals' },
-];
-const CAMERAS: { id: CameraView; key: string; label: string }[] = [
-  { id: 'perspective', key: '0', label: 'Perspective' },
-  { id: 'front', key: '1', label: 'Front' },
-  { id: 'side', key: '2', label: 'Side' },
-  { id: 'top', key: '3', label: 'Top' },
+const CAMERAS: IconSelectOption[] = [
+  { value: 'perspective', label: 'Perspective', icon: LuEye, description: 'Camera projection: perspective keeps depth' },
+  { value: 'front', label: 'Front', icon: LuSquareDashed, description: 'Front orthographic view (1)' },
+  { value: 'side', label: 'Side', icon: LuSquareDashed, description: 'Side orthographic view (2)' },
+  { value: 'top', label: 'Top', icon: LuSquareDashed, description: 'Top orthographic view (3)' },
 ];
 
 export const canUseWebGL = (): boolean => {
@@ -62,7 +58,6 @@ export const canUseWebGL = (): boolean => {
   }
 };
 
-const RADIO = (on: boolean) => `h-6 rounded-md px-1.5 text-[11px] ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`;
 const SELECT = 'h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground';
 
 export default function ModelEditor({
@@ -168,58 +163,24 @@ export default function ModelEditor({
   return (
     <div className="flex h-full min-h-0 flex-col outline-none" tabIndex={0} onKeyDown={onKeyDown} data-testid="model-editor" aria-label="3D editor">
       <div role="toolbar" aria-label="Editor tools" className="flex min-h-9 shrink-0 flex-wrap items-center gap-1 border-b border-border/60 px-2 py-1">
-        <div role="radiogroup" aria-label="Transform mode" className="flex items-center gap-0.5">
-          {MODES.map(({ id, key, label, icon: Icon }) => (
-            <Tooltip key={id} label={`${label} (${key})`}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === id}
-                aria-label={label}
-                onClick={() => setMode(id)}
-                className={`flex h-6 w-6 items-center justify-center rounded-md ${mode === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}
-              >
-                <Icon aria-hidden className="h-3.5 w-3.5" />
-              </button>
-            </Tooltip>
-          ))}
-        </div>
-        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          Snap
-          <select aria-label="Grid snap" value={snap.grid} onChange={(e) => setSnap((s) => ({ ...s, grid: Number(e.target.value) }))} className={SELECT}>
-            {GRID_STEPS.map((s) => (
-              <option key={s} value={s}>
-                {s === 0 ? 'Off' : `${s} m`}
-              </option>
-            ))}
-          </select>
-          <select aria-label="Angle snap" value={snap.angle} onChange={(e) => setSnap((s) => ({ ...s, angle: Number(e.target.value) }))} className={SELECT}>
-            {ANGLE_STEPS.map((s) => (
-              <option key={s} value={s}>
-                {s === 0 ? 'Off' : `${s}°`}
-              </option>
-            ))}
-          </select>
-        </label>
+        <IconSelect
+          options={SHADES}
+          value={shade}
+          onChange={(value) => setShade(value as ShadeMode)}
+          icon={LuBox}
+          label="Shading"
+          description="Choose rendering mode"
+        />
+        <IconButton icon={LuScanEye} label="X-ray (X)" size="sm" aria-pressed={xray} onClick={() => setXray((on) => !on)} />
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-        <div role="radiogroup" aria-label="View mode" className="flex items-center gap-0.5">
-          {SHADES.map(({ id, label }) => (
-            <button key={id} type="button" role="radio" aria-checked={shade === id} onClick={() => setShade(id)} className={RADIO(shade === id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <button type="button" aria-pressed={xray} onClick={() => setXray((on) => !on)} className={RADIO(xray)} title="X-ray (X)">
-          X-ray
-        </button>
-        <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-        <div role="radiogroup" aria-label="Camera" className="flex items-center gap-0.5">
-          {CAMERAS.map(({ id, key, label }) => (
-            <button key={id} type="button" role="radio" aria-checked={camera === id} title={`${label} (${key})`} onClick={() => setCamera(id)} className={RADIO(camera === id)}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <IconSelect
+          options={CAMERAS}
+          value={camera}
+          onChange={(value) => setCamera(value as CameraView)}
+          icon={LuEye}
+          label="Projection"
+          description="Camera projection mode"
+        />
         <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
           Light
           <select aria-label="Lighting" value={lightingId} onChange={(e) => setLightingId(e.target.value)} className={SELECT}>
@@ -231,9 +192,6 @@ export default function ModelEditor({
           </select>
         </label>
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-        <IconButton icon={LuGrid3X3} label={grid ? 'Hide grid' : 'Show grid'} size="sm" onClick={() => setGrid((on) => !on)} />
-        <IconButton icon={LuAxis3D} label={axes ? 'Hide axes' : 'Show axes'} size="sm" onClick={() => setAxes((on) => !on)} />
-        <IconButton icon={LuSquareDashed} label={dimensions ? 'Hide dimensions' : 'Show dimensions'} size="sm" aria-pressed={dimensions} onClick={() => setDimensions((on) => !on)} />
         <IconButton icon={LuRuler} label={measure ? 'Stop measuring' : 'Measure (M)'} size="sm" aria-pressed={measure} onClick={() => runUi('measure')} />
         <IconButton icon={LuScan} label="Frame selection (F)" size="sm" onClick={() => setFrameTick((n) => n + 1)} />
         <IconButton icon={LuRotateCcw} label="Reset camera" size="sm" onClick={() => setResetTick((n) => n + 1)} />
@@ -287,6 +245,18 @@ export default function ModelEditor({
             The 3D viewport needs WebGL, which is unavailable here. You can still edit parts with the fields below.
           </p>
         )}
+        <ViewportWidgets
+          mode={mode}
+          onModeChange={setMode}
+          snap={snap}
+          onSnapChange={setSnap}
+          grid={grid}
+          onGridToggle={() => setGrid((on) => !on)}
+          axes={axes}
+          onAxesToggle={() => setAxes((on) => !on)}
+          dimensions={dimensions}
+          onDimensionsToggle={() => setDimensions((on) => !on)}
+        />
         <div className="pointer-events-none absolute bottom-1 left-2 flex flex-col gap-0.5 text-[10px] tabular-nums text-muted-foreground" data-testid="model-stats">
           <span>
             {scene.stats.parts} {scene.stats.parts === 1 ? 'mesh' : 'meshes'} · {scene.stats.triangles.toLocaleString()} tris · {scene.stats.vertices.toLocaleString()} verts

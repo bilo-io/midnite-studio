@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS, shotPath } from './shots-helper';
 
-/** Media ▸ Models screenshots for the PR. Run with `MSTUDIO_SHOTS=1`. */
-const OUT = '../../docs/screenshots/adhoc-media-models';
+/** Media ▸ Models compact toolbar screenshots for the PR. Run with `MSTUDIO_SHOTS=1`. */
+const OUT = '../../docs/screenshots/adhoc-models-toolbar-compact';
 const part = (name: string, extra: Record<string, unknown>) => ({
   name,
   position: [0, 0, 0],
@@ -39,14 +39,16 @@ const DATA: MockFixtures = {
   media: { files: { 'model:robots': { 'tin-robot.obj': 'o x', 'tin-robot.mtl': 'x', 'tin-robot.fbx': 'x', 'tin-robot.json': sidecar } } },
 };
 
-test.describe('media models screenshots', () => {
+test.describe('media models toolbar compact screenshots', () => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
   test.use({ viewport: SHOT_VIEWPORTS.wide });
 
-  test('editor', async ({ page }) => {
+  test('compact toolbar and widgets', async ({ page }) => {
+    test.setTimeout(120_000);
     await installMockBridge(page, DATA);
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible({ timeout: 90_000 });
+
+    await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible({ timeout: 120_000 });
     await expect(async () => {
       await clickRailLink(page, 'Media');
       await page.getByRole('tab', { name: 'Models' }).click();
@@ -54,35 +56,30 @@ test.describe('media models screenshots', () => {
     }).toPass({ timeout: 5000 });
     await expect(page.getByTestId('model-canvas')).toBeVisible({ timeout: 30_000 });
     await settle(page, 800);
-    await page.screenshot({ path: shotPath(OUT, 'models-editor.png') });
+    const toolbar = page.getByRole('toolbar', { name: 'Editor tools' });
+    await expect(toolbar).toBeVisible();
+    await page.screenshot({ path: shotPath(OUT, 'toolbar.png') });
 
-    // Screenshot of compact toolbar with IconSelect dropdowns
-    await settle(page, 400);
-    await page.screenshot({ path: shotPath(OUT, 'models-toolbar.png') });
-
-    // Select a part
-    await page.getByRole('list', { name: 'Parts' }).getByRole('button', { name: /head/ }).click();
-    await settle(page, 500);
-    await page.screenshot({ path: shotPath(OUT, 'models-selected.png') });
-
-    // Open shading dropdown and screenshot it
-    const shadingButton = page.getByRole('button', { name: /^Shading:/ });
-    await shadingButton.click();
-    await expect(page.getByRole('listbox', { name: /Shading/i })).toBeVisible();
+    // Shading dropdown open
+    await page.getByRole('button', { name: /^Shading:/ }).click();
+    await expect(page.getByRole('listbox', { name: 'Shading' })).toBeVisible();
     await settle(page, 300);
-    await page.screenshot({ path: shotPath(OUT, 'models-shading-dropdown.png') });
-
-    // Select Wireframe from dropdown
+    await page.screenshot({ path: shotPath(OUT, 'shading-dropdown.png') });
     await page.getByRole('option', { name: 'Wireframe' }).click();
-    await settle(page, 400);
-    await page.screenshot({ path: shotPath(OUT, 'models-wireframe.png') });
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(900, 500);
 
-    // Open shading dropdown again and select Normals
-    const shadingButton2 = page.getByRole('button', { name: /^Shading:/ });
-    await shadingButton2.click();
-    await expect(page.getByRole('listbox', { name: /Shading/i })).toBeVisible();
-    await page.getByRole('option', { name: 'Normals' }).click();
-    await settle(page, 400);
-    await page.screenshot({ path: shotPath(OUT, 'models-normals.png') });
+    // Tooltip: label plus subtitle
+    await page.getByRole('button', { name: /^Projection:/ }).hover();
+    await expect(page.getByText('Camera projection mode')).toBeVisible({ timeout: 5000 });
+    await page.screenshot({ path: shotPath(OUT, 'tooltip.png') });
+
+    // Floating widgets, docked top centre of the viewport
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(900, 500);
+    await expect(page.getByText('Camera projection mode')).toBeHidden();
+    await expect(page.getByRole('radiogroup', { name: 'Transform mode' })).toBeVisible();
+    await settle(page, 300);
+    await page.screenshot({ path: shotPath(OUT, 'viewport-widgets.png') });
   });
 });
