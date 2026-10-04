@@ -210,6 +210,7 @@ function FlyControls({ active, element, speed }: { active: boolean; element: HTM
   const look = useRef({ yaw: 0, pitch: 0 });
   useEffect(() => {
     if (!active || !element) return;
+    const pressed = keys.current;
     const euler = new Euler().setFromQuaternion(camera.quaternion, 'YXZ');
     look.current = { yaw: euler.y, pitch: euler.x };
     const down = (e: KeyboardEvent) => keys.current.add(e.key.toLowerCase());
@@ -226,7 +227,7 @@ function FlyControls({ active, element, speed }: { active: boolean; element: HTM
       element.removeEventListener('keydown', down);
       element.removeEventListener('keyup', up);
       element.removeEventListener('pointermove', move);
-      keys.current.clear();
+      pressed.clear();
     };
   }, [active, element, camera]);
   useFrame((_, delta) => {

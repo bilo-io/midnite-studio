@@ -66,7 +66,7 @@ export function TerrainPanel({
     // With nothing to shape the ground from yet there is nothing to re-bake; Generate asks when the time comes.
     if (spec.inputs.heightmap || spec.noise || 'noise' in patch) await generate();
   };
-  const useNoise = async () => {
+  const chooseNoise = async () => {
     setAsking(false);
     await commit({ noise: { kind: 'fbm', seed: Math.floor(Math.random() * 2 ** 31) } });
   };
@@ -171,7 +171,7 @@ export function TerrainPanel({
       {children}
       <NoHeightmapDialog
         open={asking}
-        onUseNoise={() => void useNoise()}
+        onUseNoise={() => void chooseNoise()}
         onUpload={() => {
           setAsking(false);
           setPickerSignal((n) => n + 1);

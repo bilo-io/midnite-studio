@@ -57,7 +57,7 @@ describe('NoHeightmapDialog', () => {
     const build = vi.spyOn(api(), 'build');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Use noise' }));
     await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
-    const patch = (setSpec.mock.calls[0]![0] as { patch: { noise: { kind: string; seed: number } } }).patch;
+    const patch = (setSpec.mock.calls[0]![0] as unknown as { patch: { noise: { kind: string; seed: number } } }).patch;
     expect(patch.noise.kind).toBe('fbm');
     expect(Number.isInteger(patch.noise.seed)).toBe(true);
     await waitFor(() => expect(build).toHaveBeenCalledTimes(1));
