@@ -63,7 +63,7 @@ const engines = {
 };
 
 /** Who `model.json` names as the author: the global git identity, else the OS user. */
-async function modelAuthor(): Promise<{ name: string; email?: string }> {
+export async function modelAuthor(): Promise<{ name: string; email?: string }> {
   const identity = await getGlobalGitIdentity();
   if (identity.ok && identity.value.name) return { name: identity.value.name, ...(identity.value.email ? { email: identity.value.email } : {}) };
   return { name: userInfo().username || 'unknown' };

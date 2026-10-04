@@ -31,6 +31,7 @@ describe('MCP_TOOLS', () => {
     'model_patch_animations',
     'model_retarget',
     'model_save',
+    'model_generate_sf3d',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -135,6 +136,15 @@ describe('MCP_TOOLS', () => {
     model_render_preview: { _content: [] },
     model_get_reference_image: { _content: [] },
     model_save: { saved: true, files: ['a.obj'] },
+    model_sf3d_status: {
+      state: 'not-installed',
+      installed: false,
+      consentCurrent: false,
+      licence: { name: 'Stability AI Community License', url: 'https://x', revenueLimitUsd: 1_000_000 },
+      downloadBytes: 1,
+      bytesOnDisk: 0,
+    },
+    model_generate_sf3d: { started: true, generationId: 'g1' },
     model_get_rig: { anatomy: 'static', facing: null, falloff: null, bones: [], bindings: [], animations: [], table: [], clipKinds: [], issues: [] },
     model_auto_rig: { ok: false, errors: [{ path: 'anatomy', message: 'x' }] },
     model_patch_rig: { ok: false, errors: [{ path: 'rig', message: 'x' }] },
@@ -172,6 +182,8 @@ describe('MCP_TOOLS', () => {
       model_render_preview: { ...base, project: 'p', model: 'a.obj' },
       model_get_reference_image: { ...base, project: 'p', model: 'a.obj' },
       model_save: { ...base, project: 'p', model: 'a.obj' },
+      model_sf3d_status: {},
+      model_generate_sf3d: { ...base, project: 'p', imagePath: 'mug.png' },
       model_get_rig: { ...base, project: 'p', model: 'a.obj' },
       model_auto_rig: { ...base, project: 'p', model: 'a.obj', anatomy: 'biped' },
       model_patch_rig: { ...base, project: 'p', model: 'a.obj', ops: [{ op: 'falloff', value: 0.5 }] },

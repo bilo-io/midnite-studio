@@ -229,6 +229,7 @@ import {
   ModelSaveEditRequestSchema,
 } from '../media-model';
 import { ModelLibraryNodeSchema, ModelLibraryRequestSchema } from '../media-model-library';
+import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
   VideoProjectSchema,
@@ -3193,6 +3194,13 @@ export const MediaModelLibraryResponse = GitOpResultOf(
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
 export const MediaModelOpenPayload = ModelOpenEventSchema;
+/**
+ * SF3D, the opt-in Tier 1 (Phase 103 Theme J): status / consent / install / cancel / uninstall /
+ * generate — one channel, an `op` union, every answer a `GitOpResult`.
+ */
+export const MediaModelSf3dRequest = Sf3dRequestSchema;
+export const MediaModelSf3dResponse = z.union([GitOpResultOf(z.union([Sf3dStatusSchema, Sf3dGenerateResultSchema])), GitOpResultSchema]);
+export const MediaModelSf3dProgressPayload = Sf3dProgressEventSchema;
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 

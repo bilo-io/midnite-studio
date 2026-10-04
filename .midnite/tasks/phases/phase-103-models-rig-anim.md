@@ -78,7 +78,7 @@ this phase apply to it too.
 
 **Theme I — Export: skin and animation in `.glb`.** ✅ Joint nodes with local TRS, skinned primitives (`JOINTS_0`/`WEIGHTS_0`), one skin with translation-only inverse binds, and one animation per clip (rotation per bone, translation where a bone moves). `gltf-skin.test.ts` re-imports through `GLTFLoader` and checks that three's `AnimationMixer` poses vertices where the kernel does. A part named like a bone (`head`) is written as `head_mesh` so bone names stay canonical. FBX skin stays deferred.
 
-**Theme J — Tier 1, local neural image-to-3D (SF3D).** ◻ TODO — approved by the user 2026-10-04 as opt-in, consent-gated, installed into `<userData>`, ONNX/WebGPU port preferred over a Python venv, licence shown at consent, gated-weights token in the secrets vault. Follows the non-neural PR on its own branch.
+**Theme J — Tier 1, local neural image-to-3D (SF3D).** 🔄 Built, not yet run end to end against the real weights. Media ▸ Models gains a tier switch (Procedural / SF3D). SF3D runs on the community ONNX port `needle-tools/SF3D-webgpu` (not gated, pinned at revision `56d2f58`) through the `onnxruntime-node` the app already bundles via `@huggingface/transformers` — no Python, no new runtime dependency — in its own `sf3d-worker` utility process. Nothing downloads before the consent dialog shows the Stability AI Community License verbatim and its US$1M revenue line, and the user ticks both boxes; then `installer.ts` downloads ~1.73 GB into `<userData>/sf3d/`, resumes with HTTP `Range` after a cancel, checks every file's sha256 against the pinned `assets-manifest.json` (hashing the bytes already on disk first), and an uninstall removes the weights, the partial downloads and the consent. An optional Hugging Face token lives in the secrets vault (`media.huggingFaceToken`). Post-processing is our TypeScript: marching tetrahedra over SF3D's tet grid with `tanh` vertex offsets, a pair-packed UV atlas baked through SF3D's colour MLP on the triplane, a PNG encoder and a textured `.glb`, written to `<group>/<model>/` with `model.json` (`agent.provider: 'sf3d'`). `model_sf3d_status` and `model_generate_sf3d` expose it over MCP (start-and-poll, behind the models switch, refused until installed). Every op answers the `GitOpResult` envelope; a cancel kills the worker. All of it is tested in vitest with a mocked inference session. **Open:** a real run against the weights, which also settles the guessed pieces (`isosurface_threshold` 10, the tokenizer's `c2w`/`intrinsic_normed` shapes, fp32 inputs, an sRGB colour head); there is no background removal, so a cut-out picture works best; the result joins as a `.glb` model, not yet as a riggable asset part.
 
 **Theme K — Tier 2, hosted image/text-to-3D.** ⏳ Deferred by the user's decision (2026-10-04): Meshy/Tripo stay a plan, not built in this phase.
 
@@ -221,12 +221,17 @@ from `model-editor.tsx` at a few points; nothing is added to the top toolbar.
 **Approved by the user, 2026-10-04: SF3D as the opt-in Tier 1.** Built as a follow-up PR on its own
 branch, after the non-neural themes land. Constraints the user set:
 
-- [ ] Installed only on explicit consent, into `<userData>`; nothing in the bundle, nothing downloaded at startup
-- [ ] Runtime: the community ONNX/WebGPU port (no Python); a `uv`-managed Python venv with PyTorch MPS only if the port is unusable, with the reason recorded in the PR
-- [ ] The consent step shows the Stability AI Community Licence text and its US$1M annual-revenue condition
-- [ ] Gated weights: the Hugging Face token goes through the secrets vault, never a plaintext store
-- [ ] Every op (install, generate, uninstall) answers the `GitOpResult` envelope, with progress, cancel and a clean uninstall
+- [x] Installed only on explicit consent, into `<userData>`; nothing in the bundle, nothing downloaded at startup
+- [x] Runtime: the community ONNX/WebGPU port (no Python); a `uv`-managed Python venv with PyTorch MPS only if the port is unusable, with the reason recorded in the PR
+- [x] The consent step shows the Stability AI Community Licence text and its US$1M annual-revenue condition
+- [x] Gated weights: the Hugging Face token goes through the secrets vault, never a plaintext store
+- [x] Every op (install, generate, uninstall) answers the `GitOpResult` envelope, with progress, cancel and a clean uninstall
+- [x] Post-processing in TypeScript: marching tetrahedra, vertex offsets, UV atlas, colour-MLP texture bake, textured `.glb`, written to the library layout with `model.json` (`agent.provider: 'sf3d'`)
+- [x] `model_sf3d_status` and `model_generate_sf3d` MCP tools, gated on install and the models switch
+- [x] Tier choice, consent dialog, install progress, cancel, uninstall and Generate in Media ▸ Models; screenshots in `docs/screenshots/phase-103-sf3d/`
+- [ ] A real end-to-end run against the downloaded weights (no CI or test run has the 1.7 GB of weights)
 - [ ] Engine behind the existing engine seam; output imported as an asset part that rigs and animates like any other part
+- [ ] Text prompt → image → SF3D, chaining the Images tab (⏳ deferred)
 - [ ] TripoSR (MIT) as the alternative for users above the revenue line (⏳ deferred)
 - [ ] TRELLIS.2 "max quality" on 24 GB+ Macs (⏳ deferred)
 - [ ] Hunyuan3D-2mini behind a territory acknowledgement (⏳ deferred)

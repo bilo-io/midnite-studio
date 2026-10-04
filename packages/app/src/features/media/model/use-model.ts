@@ -30,7 +30,11 @@ export const MODEL_KEYS = { providers: ['media-model-providers'] as const };
  * tiny persisted store, like Images' prefs, so Media tabs landing in parallel
  * never race on the `ui-store` migrations.
  */
+/** Phase 103: `procedural` (Tier 0, the LLM-designed parts) or `sf3d` (Tier 1, local neural image-to-3D). */
+export type ModelTier = 'procedural' | 'sf3d';
+
 type ModelPrefs = {
+  tier: ModelTier;
   engineId: string;
   ollamaModel: string;
   agentModel: LoopModel;
@@ -44,6 +48,7 @@ type ModelPrefs = {
 export const useModelPrefs = create<ModelPrefs>()(
   persist(
     (set) => ({
+      tier: 'procedural',
       engineId: 'ollama',
       ollamaModel: MODEL_DEFAULT_TEXT_MODEL,
       agentModel: 'default',

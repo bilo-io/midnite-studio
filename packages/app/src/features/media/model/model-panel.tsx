@@ -26,7 +26,8 @@ import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
 import { generateBlockedReason, pickOllamaModel, readImageAttachment, textModels, visionModels } from './model-utils';
-import { useModelGeneration, useModelPrefs, useModelProviders } from './use-model';
+import { Sf3dPanel } from './sf3d-panel';
+import { useModelGeneration, useModelPrefs, useModelProviders, type ModelTier } from './use-model';
 
 /**
  * The right-hand panel of Media ▸ Models: the prompt box (with its engine
@@ -34,15 +35,59 @@ import { useModelGeneration, useModelPrefs, useModelProviders } from './use-mode
  * panel), what the vision model will do with that picture, and the live stage
  * of a running generation. Generation itself runs in main.
  */
-export function ModelPanel({
+export function ModelPanel(props: {
+  repoId: string;
+  /** The project a generation lands in. */
+  project: string;
+  /** Fired with the new project/file once a run succeeds. */
+  onGenerated: (project: string, primary: string) => void;
+}) {
+  const tier = useModelPrefs((s) => s.tier);
+  const setPrefs = useModelPrefs((s) => s.set);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <TierSwitch tier={tier} onChange={(next) => setPrefs({ tier: next })} />
+      <div className="flex min-h-0 flex-1 flex-col">{tier === 'sf3d' ? <Sf3dPanel {...props} /> : <ProceduralPanel {...props} />}</div>
+    </div>
+  );
+}
+
+/**
+ * The fidelity tier (Phase 103): Tier 0 is the LLM-authored, procedural design the editor rigs and
+ * animates; Tier 1 is SF3D, an opt-in local neural network that returns a textured mesh.
+ */
+function TierSwitch({ tier, onChange }: { tier: ModelTier; onChange: (tier: ModelTier) => void }) {
+  const options: { id: ModelTier; label: string; hint: string }[] = [
+    { id: 'procedural', label: 'Procedural', hint: 'Tier 0 — an LLM designs editable parts; riggable, no download' },
+    { id: 'sf3d', label: 'SF3D · image → 3D', hint: 'Tier 1 — a local neural network returns a textured mesh; opt-in download' },
+  ];
+  return (
+    <div role="radiogroup" aria-label="Model engine tier" data-testid="model-tier" className="flex shrink-0 gap-1 border-b border-border/50 p-2">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          role="radio"
+          aria-checked={tier === option.id}
+          title={option.hint}
+          data-testid={`model-tier-${option.id}`}
+          onClick={() => onChange(option.id)}
+          className="h-7 flex-1 rounded-md border border-transparent px-2 text-[11px] text-muted-foreground hover:bg-accent aria-checked:border-border aria-checked:bg-card aria-checked:font-medium aria-checked:text-foreground"
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ProceduralPanel({
   repoId,
   project,
   onGenerated,
 }: {
   repoId: string;
-  /** The project a generation lands in. */
   project: string;
-  /** Fired with the new project/file once a run succeeds. */
   onGenerated: (project: string, primary: string) => void;
 }) {
   const [prompt, setPrompt] = useState('');

@@ -26,6 +26,7 @@ import type {
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
+import type { Sf3dGenerateRequest, Sf3dGenerateResult, Sf3dProgressEvent, Sf3dStatus } from '../media-model-sf3d';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
 import type { GitIdentitySetRequest, GitIdentityGetResponse, GitIdentitySetResponse } from '../git-identity';
@@ -49,6 +50,20 @@ export type ModelLibraryBridge = {
   delete: (req: { repoId: string; path: string }) => Promise<GitOpResult>;
   duplicate: (req: { repoId: string; path: string }) => Promise<GitOpResult<{ path: string }>>;
   newGroup: (req: { repoId: string; parent: string; name: string }) => Promise<GitOpResult<{ path: string }>>;
+};
+
+/** `mediaModelSf3d`'s `op` union, one typed method per op (Phase 103 Theme J). */
+export type Sf3dBridge = {
+  status: () => Promise<GitOpResult<Sf3dStatus>>;
+  consent: (req: { licenceSha256: string; revenueAcknowledged: true }) => Promise<GitOpResult<Sf3dStatus>>;
+  revokeConsent: () => Promise<GitOpResult<Sf3dStatus>>;
+  /** Resolves when the install ends (verified, failed or cancelled); progress arrives on `onProgress`. */
+  install: () => Promise<GitOpResult<Sf3dStatus>>;
+  cancelInstall: () => Promise<GitOpResult>;
+  uninstall: () => Promise<GitOpResult<Sf3dStatus>>;
+  generate: (req: Sf3dGenerateRequest) => Promise<GitOpResult<Sf3dGenerateResult>>;
+  cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
+  onProgress: (handler: (event: Sf3dProgressEvent) => void) => Unsubscribe;
 };
 
 /**
@@ -1224,6 +1239,8 @@ export type MidniteStudioBridge = {
       ) => Promise<z.infer<typeof S.MediaModelSaveEditResponse>>;
       /** Folder/group operations over `.midnite/media/model/` — every one answers a `GitOpResult`. */
       library: ModelLibraryBridge;
+      /** SF3D, the opt-in local image-to-3D tier. */
+      sf3d: Sf3dBridge;
       onProgress: (
         handler: (event: z.infer<typeof S.MediaModelProgressPayload>) => void,
       ) => Unsubscribe;

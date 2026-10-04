@@ -29,6 +29,8 @@ import {
   modelPatchRig,
   modelRenderPreview,
   modelRetarget,
+  modelSf3dStatus,
+  modelGenerateSf3d,
   modelSave,
   modelSetSpec,
 } from './model-tools';
@@ -67,6 +69,8 @@ export const MCP_HANDLERS: {
   model_patch_animations: modelPatchAnimations,
   model_retarget: modelRetarget,
   model_save: modelSave,
+  model_sf3d_status: modelSf3dStatus,
+  model_generate_sf3d: modelGenerateSf3d,
 };
 
 export type McpDispatchResult =

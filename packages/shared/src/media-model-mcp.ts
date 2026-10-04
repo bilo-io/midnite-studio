@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelSpecSchema } from './media-model';
+import { SF3D_GENERATE_STAGES, SF3D_STATES } from './media-model-sf3d';
 import {
   MODEL_RIG_PATCH_MAX_OPS,
   ModelAnatomySchema,
@@ -78,6 +79,52 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_retarget',
   'model_save',
 ];
+
+/**
+ * SF3D over MCP (Phase 103 Theme J). Deliberately *not* in `MODEL_MCP_TOOL_IDS`: those are the
+ * design-editing tools an in-app iterative run is handed, and SF3D is a separate engine that needs
+ * the user's own licence consent and install first — an agent can ask for a generation, never
+ * install. `model_generate_sf3d` starts a run and returns at once (a CPU run outlasts the shim's
+ * 60 s call timeout); `model_sf3d_status` reports the install and that run's progress.
+ */
+/** The SF3D tools — `model_*` by name, but outside the iterative design loop's `MODEL_MCP_TOOL_IDS`. */
+export const SF3D_MCP_TOOL_IDS = ['model_sf3d_status', 'model_generate_sf3d'] as const;
+
+export const ModelSf3dStatusInputSchema = z.object({
+  /** A `model_generate_sf3d` run to report on. */
+  generationId: z.string().min(1).max(200).optional(),
+});
+export const ModelSf3dStatusResultSchema = z.object({
+  state: z.enum(SF3D_STATES),
+  installed: z.boolean(),
+  consentCurrent: z.boolean(),
+  licence: z.object({ name: z.string(), url: z.string(), revenueLimitUsd: z.number() }),
+  downloadBytes: z.number(),
+  bytesOnDisk: z.number(),
+  /** What to tell the user when SF3D is not ready. */
+  hint: z.string().optional(),
+  generation: z
+    .object({
+      generationId: z.string(),
+      project: z.string(),
+      status: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
+      stage: z.enum(SF3D_GENERATE_STAGES).optional(),
+      fraction: z.number().optional(),
+      error: z.string().optional(),
+      /** Project-relative `.glb`, once it succeeded — pass it to `model_open`. */
+      primary: z.string().optional(),
+    })
+    .optional(),
+});
+export const ModelGenerateSf3dInputSchema = z.object({
+  repoPath: z.string().min(1),
+  project: MediaProjectNameSchema,
+  /** A PNG/JPEG/WebP of one object — absolute, or relative to `repoPath`; must sit inside the repository. A transparent background works best. */
+  imagePath: z.string().min(1).max(1024),
+  name: z.string().trim().min(1).max(80).optional(),
+  textureSize: z.union([z.literal(512), z.literal(1024), z.literal(2048)]).optional(),
+});
+export const ModelGenerateSf3dResultSchema = z.object({ started: z.literal(true), generationId: z.string() });
 
 /** The exact refusal the write tools answer with while `McpSettings.allowModels` is off. */
 export const MODELS_OFF_MESSAGE = 'Model editing is off — Settings ▸ MCP ▸ Let agents edit 3D models';

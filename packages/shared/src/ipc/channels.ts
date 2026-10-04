@@ -922,6 +922,8 @@ export const CHANNELS = {
   mediaModelSaveEdit: 'mstudio:media:model-save-edit',
   /** The Models library (folders, groups, model.json) — see `ModelLibraryRequestSchema`. */
   mediaModelLibrary: 'mstudio:media:model-library',
+  /** SF3D, the opt-in local image-to-3D tier — see `Sf3dRequestSchema`. Progress on `mediaModelSf3dProgress`. */
+  mediaModelSf3d: 'mstudio:media:model-sf3d',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1483,6 +1485,8 @@ export const EVENT_CHANNELS = {
   mediaModelChanged: 'mstudio:media:model-changed',
   /** `model_open` asked the window to show a model — see `ModelOpenEventSchema`. */
   mediaModelOpen: 'mstudio:media:model-open',
+  /** The SF3D install or a generation advanced — see `Sf3dProgressEventSchema`. */
+  mediaModelSf3dProgress: 'mstudio:media:model-sf3d-progress',
   /** A chat turn's text or state advanced — see `ChatEventSchema`. */
   chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */

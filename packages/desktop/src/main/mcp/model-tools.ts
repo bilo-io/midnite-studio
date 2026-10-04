@@ -1,6 +1,7 @@
 import { MODELS_OFF_MESSAGE, type McpToolInput, type McpToolOutput } from '@midnite/studio-shared';
 
 import type { ModelTools } from '../media/model/model-mcp';
+import type { Sf3dMcpTools } from '../media/model/sf3d/sf3d-mcp';
 import { McpToolError } from './errors';
 import { getMcpAllowModels } from './ui-gate';
 
@@ -73,4 +74,27 @@ export const modelPatchParts = async (input: McpToolInput<'model_patch_parts'>):
 export const modelSave = async (input: McpToolInput<'model_save'>): Promise<McpToolOutput<'model_save'>> => {
   allowed();
   return tools().model_save(input);
+};
+
+/**
+ * SF3D (Phase 103 Theme J): bound by `ipc/media-model-sf3d-handlers.ts`. The status answers whenever
+ * the server is on; starting a generation writes files, so it sits behind the same switch as the
+ * other write tools — and the service itself refuses until the user has consented and installed.
+ */
+let sf3d: Sf3dMcpTools | null = null;
+
+export function setSf3dTools(tools: Sf3dMcpTools | null): void {
+  sf3d = tools;
+}
+
+function sf3dTools(): Sf3dMcpTools {
+  if (!sf3d) throw new McpToolError('error', 'SF3D is not ready yet.');
+  return sf3d;
+}
+
+export const modelSf3dStatus = async (input: McpToolInput<'model_sf3d_status'>): Promise<McpToolOutput<'model_sf3d_status'>> =>
+  sf3dTools().model_sf3d_status(input);
+export const modelGenerateSf3d = async (input: McpToolInput<'model_generate_sf3d'>): Promise<McpToolOutput<'model_generate_sf3d'>> => {
+  allowed();
+  return sf3dTools().model_generate_sf3d(input);
 };
