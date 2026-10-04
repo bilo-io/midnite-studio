@@ -102,7 +102,7 @@ async function openCanvas(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await expect(async () => {
     await clickRailLink(page, 'Graphs');
-    await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
+    await expect(page.getByRole('button', { name: 'New graph' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
   await page.getByText('Every edge kind').first().click();
   await page.locator('[data-node-id="n6"]').waitFor();
@@ -117,7 +117,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.waitForTimeout(SETTLE_MS);
     await prepareForVisualCapture(page);
 
-    await expect(page.getByRole('application', { name: 'Workflow canvas' })).toHaveScreenshot(
+    await expect(page.getByRole('application', { name: 'Graph canvas' })).toHaveScreenshot(
       `workflows-canvas-edge-kinds-${theme}.png`,
     );
   });

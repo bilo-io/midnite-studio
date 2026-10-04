@@ -131,7 +131,7 @@ export function WorkflowsView() {
       >
         <WorkflowList selectedId={selectedId} onSelect={setSelectedId} />
       </div>
-      <ResizeHandle resizable={list} axis="x" label="Resize workflows list" />
+      <ResizeHandle resizable={list} axis="x" label="Resize graphs list" />
       <div className="min-h-0 min-w-0 flex-1">
         {selected ? (
           <WorkflowEditor
@@ -142,7 +142,7 @@ export function WorkflowsView() {
         ) : (
           <EmptyState
             icon={VIEW_ICON.workflows}
-            title="Select a workflow"
+            title="Select a graph"
             body="Pick one on the left, or create a new one to get started."
           />
         )}
@@ -537,7 +537,7 @@ function WorkflowEditor({
           />
         </div>
 
-        {inspector.collapsed ? null : <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />}
+        {inspector.collapsed ? null : <ResizeHandle resizable={detail} axis="x" label="Resize graph detail" />}
         {/*
           Collapsed is zero width — no rail, no border, no gutter — so the
           canvas takes the whole row; the show/hide toggle lives in the

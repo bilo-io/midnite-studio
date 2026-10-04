@@ -28,7 +28,7 @@ test.describe('rail rename screenshots', () => {
     await page.screenshot({ path: shotPath(OUT, 'timeline.png') });
 
     await clickRailLink(page, 'Graphs');
-    await expect(page.getByText('No workflows yet').or(page.getByText('Select a workflow')).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('No graphs yet').or(page.getByText('Select a graph')).first()).toBeVisible({ timeout: 30_000 });
     await page.mouse.move(900, 500);
     await settle(page, 800);
     await page.screenshot({ path: shotPath(OUT, 'graphs.png') });

@@ -22,9 +22,9 @@ async function open(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await expect(async () => {
     await clickRailLink(page, 'Graphs');
-    await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
+    await expect(page.getByRole('button', { name: 'New graph' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
-  await page.getByRole('button', { name: 'New workflow' }).click();
+  await page.getByRole('button', { name: 'New graph' }).click();
   await expect(page.getByRole('region', { name: 'Node types' })).toBeVisible();
 }
 

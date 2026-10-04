@@ -90,7 +90,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   tasks: 'tasks issues projects board kanban',
   history: 'reflog journal undo ops history',
   councils: 'agents council teams debate',
-  workflows: 'agent workflow pipeline automation',
+  workflows: 'agent graph workflow pipeline automation',
   media: 'media docs images video audio studio remotion hyperframes render export ffmpeg',
   models: 'ollama models local cloud pull install download llm',
   sessions: 'agent session past closed transcripts',
