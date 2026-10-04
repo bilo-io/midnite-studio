@@ -388,6 +388,8 @@ export type LayoutSizes = {
   mediaAudioDetailWidth: number;
   mediaModelExplorerWidth: number;
   mediaModelDetailWidth: number;
+  mediaTerrainExplorerWidth: number;
+  mediaTerrainDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
   workflowListWidth: number;
   /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
@@ -508,6 +510,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaAudioDetailWidth: 360,
   mediaModelExplorerWidth: 224,
   mediaModelDetailWidth: 360,
+  mediaTerrainExplorerWidth: 224,
+  mediaTerrainDetailWidth: 360,
   // Workflows (Phase 43) — list left, inspector / history right.
   workflowListWidth: 224,
   workflowDetailWidth: 320,
@@ -600,6 +604,8 @@ export const LAYOUT_BOUNDS = {
   mediaAudioDetailWidth: { min: 260, max: 640 },
   mediaModelExplorerWidth: { min: 180, max: 480 },
   mediaModelDetailWidth: { min: 260, max: 640 },
+  mediaTerrainExplorerWidth: { min: 180, max: 480 },
+  mediaTerrainDetailWidth: { min: 260, max: 640 },
   workflowListWidth: { min: 180, max: 480 },
   workflowDetailWidth: { min: 260, max: 600 },
   workflowPaletteWidth: { min: 160, max: 360 },
@@ -3745,6 +3751,7 @@ const MEDIA_LAYOUT_KEYS = {
   video: { explorer: 'mediaVideoExplorerWidth', detail: 'mediaVideoDetailWidth' },
   audio: { explorer: 'mediaAudioExplorerWidth', detail: 'mediaAudioDetailWidth' },
   model: { explorer: 'mediaModelExplorerWidth', detail: 'mediaModelDetailWidth' },
+  terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
 } as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
 
 /** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */
