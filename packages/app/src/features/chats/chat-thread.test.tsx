@@ -155,6 +155,102 @@ describe('ChatThread', () => {
     expect(screen.getByRole('alert').textContent).toContain('boom');
   });
 
+  describe('docking live turn', () => {
+    it('renders the live message in the dock, not inline', () => {
+      render(
+        <ChatThread
+          chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'live text', { status: 'streaming' })])}
+          streaming
+          {...props}
+        />
+      );
+      // Inline: there's only the user message, not the assistant
+      const articles = screen.getAllByRole('article');
+      expect(articles).toHaveLength(1);
+      expect(articles[0]!.getAttribute('data-testid')).toBe('chat-message-user');
+
+      // Dock: thinking panel is visible (proves dock is rendered)
+      expect(screen.getByTestId('thinking-panel')).toBeTruthy();
+
+      // Verify no duplicate: only one assistant message exists
+      expect(screen.getAllByTestId('chat-message-assistant')).toHaveLength(1);
+    });
+
+    it('finishes a turn and removes it from the dock, makes it appear inline', () => {
+      const { rerender } = render(
+        <ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'done', { status: 'streaming' })])} streaming {...props} />
+      );
+      // While streaming: dock is visible (thinking panel present)
+      expect(screen.getByTestId('thinking-panel')).toBeTruthy();
+
+      // Finish the turn
+      rerender(
+        <ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'done', { status: 'done', thinking: 'hmm', thinkingMs: 1000, finishedAt: 2000 })])} streaming={false} {...props} />
+      );
+
+      // Now the assistant message is inline
+      const articles = screen.getAllByRole('article');
+      expect(articles).toHaveLength(2);
+      expect(articles[1]!.getAttribute('data-testid')).toBe('chat-message-assistant');
+
+      // And the dock should be gone (no thinking panel for a settled turn with no reasoning)
+      expect(screen.queryByTestId('thinking-panel')).toBeNull();
+    });
+
+    it('keeps the thinking panel in the dock while streaming even before text appears', () => {
+      render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', '', { status: 'streaming' })])} streaming {...props} />);
+      // Thinking panel should be visible (in the dock, awaiting text)
+      expect(screen.getByTestId('thinking-panel')).toBeTruthy();
+
+      // Still not in the inline messages
+      const articles = screen.getAllByRole('article');
+      expect(articles).toHaveLength(1);
+    });
+
+    it('shows the icon for inline finished turns, but invisible for docked live ones', () => {
+      const { rerender } = render(
+        <ChatThread
+          chat={chat([
+            m('u', 'user', 'q'),
+            m('a1', 'assistant', 'first', { status: 'done' }),
+            m('a2', 'assistant', 'live', { status: 'streaming' }),
+          ])}
+          streaming
+          {...props}
+        />
+      );
+
+      const assistantMessages = screen.getAllByTestId('chat-message-assistant');
+      // First (finished) should show icon
+      const firstIcon = within(assistantMessages[0]!).getByRole('img', { hidden: true });
+      expect(firstIcon.parentElement?.className).not.toContain('invisible');
+
+      // Live is in the dock; verify no duplicate
+      expect(assistantMessages).toHaveLength(1);
+
+      // After finishing, dock becomes inline and icon becomes invisible
+      rerender(
+        <ChatThread
+          chat={chat([
+            m('u', 'user', 'q'),
+            m('a1', 'assistant', 'first', { status: 'done' }),
+            m('a2', 'assistant', 'live done', { status: 'done', thinking: 'x', thinkingMs: 100, finishedAt: 2000 }),
+          ])}
+          streaming={false}
+          {...props}
+        />
+      );
+
+      const finishedMessages = screen.getAllByTestId('chat-message-assistant');
+      expect(finishedMessages).toHaveLength(2);
+      // Now both have visible icons (docked=false for all inline messages)
+      const icons = finishedMessages.map((msg) => within(msg).getByRole('img', { hidden: true }));
+      icons.forEach((icon) => {
+        expect(icon.parentElement?.className).not.toContain('invisible');
+      });
+    });
+  });
+
   describe('scroll pinning', () => {
     it('shows "Jump to latest" once the reader scrolls away, and jumping smooth-scrolls to the end', () => {
       render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'r')])} streaming={false} {...props} />);
