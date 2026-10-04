@@ -555,7 +555,7 @@ function WorkflowCanvasInner({
       <div
         ref={containerRef}
         role="application"
-        aria-label="Workflow canvas"
+        aria-label="Graph canvas"
         tabIndex={0}
         onKeyDown={onKeyDown}
         onDrop={handleDrop}

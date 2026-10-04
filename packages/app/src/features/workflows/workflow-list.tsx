@@ -91,7 +91,7 @@ export function WorkflowList({
   const deleteTemplate = (template: WorkflowTemplate) => {
     dialogs.confirm({
       title: `Delete the template "${template.title}"?`,
-      body: 'Workflows already made from it are not affected.',
+      body: 'Graphs already made from it are not affected.',
       confirmLabel: 'Delete',
       danger: true,
       blastRadius: null,
@@ -156,17 +156,17 @@ export function WorkflowList({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
         <PageDetachMark role="workflows" />
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Workflows</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Graphs</h2>
         <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground/70">{rows.length}</span>
         <IconButton
           icon={LuUpload}
-          label="Import workflow"
+          label="Import graph"
           size="sm"
           className="ml-auto"
           onClick={() => fileInputRef.current?.click()}
         />
         <IconButton icon={LuLayoutTemplate} label="New from template" size="sm" onClick={() => setGalleryOpen(true)} />
-        <IconButton icon={LuPlus} label="New workflow" size="sm" onClick={createNewWorkflow} />
+        <IconButton icon={LuPlus} label="New graph" size="sm" onClick={createNewWorkflow} />
         <input
           ref={fileInputRef}
           type="file"
@@ -190,7 +190,7 @@ export function WorkflowList({
 
       {all.length > 0 ? (
         <div className="shrink-0 border-b border-border px-2 py-1.5">
-          <FilterInput value={query} onChange={setQuery} placeholder="Filter workflows…" />
+          <FilterInput value={query} onChange={setQuery} placeholder="Filter graphs…" />
         </div>
       ) : null}
 
@@ -198,9 +198,9 @@ export function WorkflowList({
         {workflows.isLoading ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
         ) : all.length === 0 ? (
-          <EmptyState icon={VIEW_ICON.workflows} title="No workflows yet" body="Create one to get started." />
+          <EmptyState icon={VIEW_ICON.workflows} title="No graphs yet" body="Create one to get started." />
         ) : rows.length === 0 ? (
-          <EmptyState icon={VIEW_ICON.workflows} title="No matches" body="No workflow name matches this filter." />
+          <EmptyState icon={VIEW_ICON.workflows} title="No matches" body="No graph name matches this filter." />
         ) : (
           rows.map((workflow) => (
             <button

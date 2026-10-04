@@ -377,7 +377,7 @@ export const COMMANDS = [
   // Declared, unbound: like `sync.fetch`, chord-free by choice rather than by
   // exhaustion — a run action does not need a global chord, and the canvas's
   // own Run button (Theme F) is already one click away once the view is open.
-  { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
+  { id: 'workflow.run', label: 'Run Graph', group: 'view' },
   /**
    * Phase 95 Theme H. Chord-free, like `op.abort`/`op.continue` above — a
    * kill switch is reached often enough to want a palette row and rarely

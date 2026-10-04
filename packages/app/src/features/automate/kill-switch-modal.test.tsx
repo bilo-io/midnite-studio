@@ -137,7 +137,7 @@ describe('KillSwitchModal (Phase 95 Theme H)', () => {
     useUiStore.setState({ killSwitchOpen: true, killSwitchFlowWorkflowId: 'wf-1', killSwitchFlowRunId: 'run-1' });
     render(<KillSwitchModal />);
 
-    expect(screen.getByText('Stops 0 sessions and cancels this workflow run.')).not.toBeNull();
+    expect(screen.getByText('Stops 0 sessions and cancels this graph run.')).not.toBeNull();
     expect((screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));

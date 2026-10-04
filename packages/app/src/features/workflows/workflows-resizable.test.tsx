@@ -65,11 +65,21 @@ describe('WorkflowsView resizable panels', () => {
     delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
   });
 
+  it('words the header, filter placeholder and empty state as Graphs, not Workflows', async () => {
+    installBridge();
+    renderView();
+
+    expect(screen.getByRole('heading', { name: 'Graphs' })).toBeDefined();
+    expect(await screen.findByText('Select a graph')).toBeDefined();
+    expect(screen.getByText('Pick one on the left, or create a new one to get started.')).toBeDefined();
+    expect(screen.queryByText(/workflow/i)).toBeNull();
+  });
+
   it('renders the workflow list resize handle and responds to keyboard nudge, store updates, and reset', async () => {
     installBridge();
     renderView();
 
-    const listHandle = screen.getByRole('separator', { name: 'Resize workflows list' });
+    const listHandle = screen.getByRole('separator', { name: 'Resize graphs list' });
     expect(listHandle).toBeDefined();
 
     // Default width is 224px
@@ -101,10 +111,10 @@ describe('WorkflowsView resizable panels', () => {
     await screen.findByText('Inspector');
     // Nothing is selected on load, so the inspector starts collapsed with
     // no resize handle; open it by hand to reach one.
-    expect(screen.queryByRole('separator', { name: 'Resize workflow detail' })).toBeNull();
+    expect(screen.queryByRole('separator', { name: 'Resize graph detail' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show inspector' }));
 
-    const detailHandle = screen.getByRole('separator', { name: 'Resize workflow detail' });
+    const detailHandle = screen.getByRole('separator', { name: 'Resize graph detail' });
     expect(detailHandle).toBeDefined();
 
     // Default width is 320px

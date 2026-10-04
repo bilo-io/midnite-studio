@@ -2398,7 +2398,7 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
       // insertion/edit order, not canvas position, so there is no principled
       // way to say which one the user meant to keep.
       issues.push({
-        message: `"${node.label}" — only one trigger node is allowed per workflow.`,
+        message: `"${node.label}" — only one trigger node is allowed per graph.`,
         nodeId: node.id,
       });
     }
@@ -2562,7 +2562,7 @@ export function validateWorkflow(workflow: Workflow): WorkflowIssue[] {
   }
 
   if (workflow.nodes.every((node) => node.kind === 'note' || node.kind === 'frame')) {
-    issues.push({ message: 'This workflow has nothing to run.' });
+    issues.push({ message: 'This graph has nothing to run.' });
   }
 
   return issues;

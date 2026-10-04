@@ -62,13 +62,13 @@ describe('WorkflowList', () => {
   it('shows the empty state with no workflows', async () => {
     installBridge();
     renderList();
-    expect(await screen.findByText('No workflows yet')).toBeDefined();
+    expect(await screen.findByText('No graphs yet')).toBeDefined();
   });
 
   it('hides its own scrollbar chrome — a narrow rail, not primary content', async () => {
     installBridge();
     renderList();
-    await screen.findByText('No workflows yet');
+    await screen.findByText('No graphs yet');
     expect(document.querySelector('.min-h-0.flex-1.overflow-auto')?.className).toContain(
       'hide-scrollbar',
     );
@@ -85,9 +85,9 @@ describe('WorkflowList', () => {
   it('creates a new workflow and selects it', async () => {
     const { save } = installBridge();
     const { onSelect } = renderList();
-    await screen.findByText('No workflows yet');
+    await screen.findByText('No graphs yet');
 
-    fireEvent.click(screen.getByLabelText('New workflow'));
+    fireEvent.click(screen.getByLabelText('New graph'));
 
     await waitFor(() => expect(save).toHaveBeenCalled());
     const saved = save.mock.calls[0]![0].workflow as Workflow;
@@ -109,7 +109,7 @@ describe('WorkflowList', () => {
   it('imports a workflow file, saving it with fresh ids', async () => {
     const { save } = installBridge();
     const { onSelect } = renderList();
-    await screen.findByText('No workflows yet');
+    await screen.findByText('No graphs yet');
 
     const file = new File([JSON.stringify(workflow({ name: 'Imported' }))], 'workflow.json', {
       type: 'application/json',
@@ -127,7 +127,7 @@ describe('WorkflowList', () => {
   it('reports a bad import file without saving anything', async () => {
     const { save } = installBridge();
     renderList();
-    await screen.findByText('No workflows yet');
+    await screen.findByText('No graphs yet');
 
     const file = new File(['not json'], 'workflow.json', { type: 'application/json' });
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -155,7 +155,7 @@ describe('WorkflowList', () => {
       renderList();
       await screen.findByText('Fetch and log');
 
-      fireEvent.change(screen.getByPlaceholderText('Filter workflows…'), { target: { value: 'FETCH' } });
+      fireEvent.change(screen.getByPlaceholderText('Filter graphs…'), { target: { value: 'FETCH' } });
 
       expect(screen.getByText('Fetch and log')).toBeDefined();
       expect(screen.queryByText('Second')).toBeNull();
@@ -166,17 +166,17 @@ describe('WorkflowList', () => {
       renderList();
       await screen.findByText('Fetch and log');
 
-      fireEvent.change(screen.getByPlaceholderText('Filter workflows…'), { target: { value: 'nope' } });
+      fireEvent.change(screen.getByPlaceholderText('Filter graphs…'), { target: { value: 'nope' } });
 
       expect(await screen.findByText('No matches')).toBeDefined();
-      expect(screen.queryByText('No workflows yet')).toBeNull();
+      expect(screen.queryByText('No graphs yet')).toBeNull();
     });
 
     it('does not render the filter input at all with no workflows to filter', async () => {
       installBridge();
       renderList();
-      await screen.findByText('No workflows yet');
-      expect(screen.queryByPlaceholderText('Filter workflows…')).toBeNull();
+      await screen.findByText('No graphs yet');
+      expect(screen.queryByPlaceholderText('Filter graphs…')).toBeNull();
     });
   });
 });

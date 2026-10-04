@@ -127,7 +127,7 @@ export function createNode(kind: WorkflowNodeKind, x: number, y: number): Workfl
 export function createEmptyWorkflow(now: number): Workflow {
   return {
     id: crypto.randomUUID(),
-    name: 'Untitled workflow',
+    name: 'Untitled graph',
     nodes: [],
     edges: [],
     createdAt: now,
@@ -195,7 +195,7 @@ export function parseImportedWorkflow(raw: string, now: number): ImportWorkflowR
 
   const result = WorkflowSchema.safeParse(json);
   if (!result.success) {
-    return { ok: false, error: result.error.issues[0]?.message ?? 'Not a valid workflow.' };
+    return { ok: false, error: result.error.issues[0]?.message ?? 'Not a valid graph.' };
   }
 
   return { ok: true, workflow: cloneWorkflowWithFreshIds(result.data, now) };

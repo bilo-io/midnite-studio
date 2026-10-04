@@ -88,7 +88,7 @@ async function open(page: Page, theme: 'light' | 'dark'): Promise<void> {
   await setTheme(page, theme);
   await expect(async () => {
     await page.getByRole('link', { name: 'Workflows', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
+    await expect(page.getByRole('button', { name: 'New graph' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
   await page.getByText('Fetch, branch, retry').first().click();
   await page.locator('.react-flow__edge').first().waitFor({ state: 'attached' });
@@ -102,7 +102,7 @@ test.describe('workflow canvas styling screenshots', () => {
   for (const theme of ['light', 'dark'] as const) {
     test(`edges (${theme})`, async ({ page }) => {
       await open(page, theme);
-      await page.getByRole('application', { name: 'Workflow canvas' }).screenshot({
+      await page.getByRole('application', { name: 'Graph canvas' }).screenshot({
         path: shotPath(OUT, `edges-${theme}-${VARIANT}.png`),
       });
     });
