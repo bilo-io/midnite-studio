@@ -115,7 +115,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on a new design or file only
   }, [designSpec, fileKey]);
   const editing = designSpec !== null && editor.source === fileKey;
-  const sidecarMissing = sidecar.isError || (sidecar.isSuccess && design === null);
+  const sidecarMissing = centre.kind === 'viewer' || sidecar.isError || (sidecar.isSuccess && design === null);
 
   const onExport = (exportFormat: MediaExportFormat) => {
     if (!selectedPath || !modelProject || (exportFormat !== 'obj' && exportFormat !== 'fbx')) return;
@@ -148,7 +148,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
       }
       content={
         <div className="relative flex h-full min-h-0 flex-col">
-          <div className="min-h-0 flex-1">
+          <div className="relative min-h-0 flex-1">
             {centre.kind === 'json' ? (
               <JsonFileViewer key={`${centre.project}/${centre.path}`} repoId={repoId} project={centre.project} path={centre.path} />
             ) : centre.kind === 'image' ? (

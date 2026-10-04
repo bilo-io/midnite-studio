@@ -34,8 +34,8 @@ export function JsonFileViewer({ repoId, project, path }: { repoId: string; proj
   }
   const text = prettyJson(file.data);
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="json-viewer">
-      <div className="h-full min-h-0 flex-1">
+    <div className="absolute inset-0 flex min-h-0 flex-col" data-testid="json-viewer">
+      <div className="flex min-h-0 flex-1 flex-col">
         <Suspense
           fallback={
             <pre className="h-full overflow-auto p-3 font-mono text-xs" data-testid="json-viewer-fallback">
@@ -43,7 +43,7 @@ export function JsonFileViewer({ repoId, project, path }: { repoId: string; proj
             </pre>
           }
         >
-          <MonacoField value={text} onChange={() => undefined} language="json" height="100%" readOnly />
+          <MonacoField value={text} onChange={() => undefined} language="json" readOnly />
         </Suspense>
       </div>
     </div>
