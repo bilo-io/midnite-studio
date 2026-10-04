@@ -3568,6 +3568,7 @@ export function buildMockBridge(data: MockFixtures) {
         },
       },
       terrain: (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a loose stand-in for the spec JSON
         type Spec = Record<string, any>;
         const readSpec = (group: string, terrain: string): Spec | null => {
           const raw = mediaFiles[`terrain:${group}`]?.[`${terrain}/terrain.json`];

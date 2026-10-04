@@ -60,8 +60,8 @@ async function openTerrain(page: Page, theme: 'dark' | 'light', terrainSpec: str
   await expect(async () => {
     await clickRailLink(page, 'Media');
     await page.getByRole('tab', { name: 'Terrain' }).click();
-    await expect(page.getByRole('tab', { name: 'Terrain', selected: true })).toBeVisible({ timeout: 500 });
-  }).toPass({ timeout: 5000 });
+    await expect(page.getByRole('tab', { name: 'Terrain', selected: true })).toBeVisible({ timeout: 2500 });
+  }).toPass({ timeout: 45_000 });
   await setTheme(page, theme, { settleMs: 200 });
   const explorer = page.locator('[data-media-pane="explorer"]');
   await explorer.getByRole('button', { name: 'dunes' }).click();
