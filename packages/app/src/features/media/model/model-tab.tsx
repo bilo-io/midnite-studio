@@ -9,7 +9,7 @@ import { Spinner } from '../../../components/skeleton';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
-import { MediaLayout, openMediaPane } from '../media-layout';
+import { MediaLayout, MediaPaneToggles, openMediaPane } from '../media-layout';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { MEDIA_KEYS, useMediaFileText } from '../use-media';
 import { ModelPanel } from './model-panel';
@@ -116,6 +116,8 @@ function ModelTabBody({ repoId }: { repoId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on a new design or file only
   }, [designSpec, fileKey]);
   const editing = designSpec !== null && editor.source === fileKey;
+  const editorShown =
+    editing && centre.kind !== 'json' && centre.kind !== 'image' && centre.kind !== 'unsupported' && !!modelProject && !!selectedPath && !!format;
 
   // Rigged models with clips (their model.json says so) are what the Animation tab can copy clips from.
   const retargetSources = useMemo<RetargetSource[]>(() => {
@@ -158,6 +160,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
     <MediaLayout
       tab="model"
       detailLabel="Resize prompt panel"
+      floatingToggles={false}
       toolbar={
         <ExportToolbar
           formats={MEDIA_TAB_EXPORT_FORMATS.model}
@@ -171,6 +174,8 @@ function ModelTabBody({ repoId }: { repoId: string }) {
       }
       content={
         <div className="relative flex h-full min-h-0 flex-col">
+          {/* The editor draws these itself, in its canvas under its tool row; every other centre needs them here. */}
+          {editorShown ? null : <MediaPaneToggles tab="model" hasDetail />}
           <div className="relative min-h-0 flex-1">
             {centre.kind === 'json' ? (
               <JsonFileViewer key={`${centre.project}/${centre.path}`} repoId={repoId} project={centre.project} path={centre.path} />
