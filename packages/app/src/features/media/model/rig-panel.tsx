@@ -233,6 +233,28 @@ function BoneFields({
   return (
     <div className="flex flex-col gap-1.5" role="group" aria-label={`Bone ${bone.name}`}>
       <p className={SECTION}>{bone.name}</p>
+      {view.pose ? (
+        clip ? (
+          <div className="flex flex-col gap-1.5 rounded-md border border-primary/30 p-1.5" data-testid="pose-key">
+            <p className={SECTION}>
+              Pose — {clip.name} at {keyTime}s
+            </p>
+            <VecRow
+              label="Rotate °"
+              value={keyRotation}
+              step={5}
+              onCommit={(rotation) =>
+                dispatch({ type: 'clips', ops: [{ op: 'setKeys', name: clip.name, keys: [{ bone: bone.name, time: keyTime, rotation: rotation.map(round) as [number, number, number] }] }] })
+              }
+            />
+            <button type="button" className={toggleClass(false)} onClick={() => dispatch({ type: 'clips', ops: [{ op: 'clearKeys', name: clip.name, bone: bone.name }] })}>
+              Clear {bone.name} keys
+            </button>
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">Pick a clip on the timeline (or add one in the Animation tab) to key this bone.</p>
+        )
+      ) : null}
       <VecRow label="Head" value={bone.head} step={0.01} onCommit={(head) => set({ head })} />
       <VecRow label="Tail" value={bone.tail} step={0.01} onCommit={(tail) => set({ tail })} />
       {bone.parent !== null || table.find((t) => t.name === bone.name)?.parent ? (
@@ -266,28 +288,6 @@ function BoneFields({
           Deselect
         </button>
       </div>
-      {view.pose ? (
-        clip ? (
-          <div className="flex flex-col gap-1.5 rounded-md border border-primary/30 p-1.5" data-testid="pose-key">
-            <p className={SECTION}>
-              Pose — {clip.name} at {keyTime}s
-            </p>
-            <VecRow
-              label="Rotate °"
-              value={keyRotation}
-              step={5}
-              onCommit={(rotation) =>
-                dispatch({ type: 'clips', ops: [{ op: 'setKeys', name: clip.name, keys: [{ bone: bone.name, time: keyTime, rotation: rotation.map(round) as [number, number, number] }] }] })
-              }
-            />
-            <button type="button" className={toggleClass(false)} onClick={() => dispatch({ type: 'clips', ops: [{ op: 'clearKeys', name: clip.name, bone: bone.name }] })}>
-              Clear {bone.name} keys
-            </button>
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">Pick a clip on the timeline (or add one in the Animation tab) to key this bone.</p>
-        )
-      ) : null}
     </div>
   );
 }

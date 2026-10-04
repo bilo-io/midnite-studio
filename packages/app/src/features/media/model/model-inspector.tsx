@@ -70,7 +70,7 @@ export function ModelInspector({
             </button>
           ))}
           <span className="ml-auto" />
-          <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />
+          {rig && DESIGN_TABS.has(tab) ? null : <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />}
         </div>
         {rig && DESIGN_TABS.has(tab) ? (
           <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : 'Animation'}>
