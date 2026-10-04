@@ -14327,3 +14327,17 @@ each vertex by distance to the bone segments (top 4, normalised) and the skinned
 UVs. The SF3D engine sits behind the existing engine seam. Tested in vitest on a synthetic textured figure.
 No real SF3D output was produced and the rigged `.glb` has not been checked in Blender or a game engine; both
 remain human items beside the real-weights run.
+
+### Phase 105 Themes A + B — Terrain tab, spec, image decode and the heightfield build (2026-10-04)
+
+Media gains a sixth tab, **Terrain**. A terrain is a folder under `.midnite/media/terrain/<group>/<terrain>/` holding
+`terrain.json` (the spec and the last build's stats), the attached images and a disposable `build/`. Up to three
+optional images attach as bytes (heightmap, satellite, roads mask); JPEG and WebP become PNG once, at attach, and a
+16-bit PNG heightmap is read by a new `node:zlib` codec that keeps all 65 536 steps. Generate runs in a `terrain-worker`
+utility process: it decodes the heightmap, resamples it onto a 129 to 4097 grid in metres, cuts it into 65/129-vertex
+chunks with four LODs and writes `heights.f32` and `chunks.json`, which main swaps in atomically so a cancelled or failed
+build leaves the previous one. Cancel kills the worker; a newer build of the same terrain supersedes the older. Nine
+`terrain-*` channels carry it (`paint`, `road-key` and `export` answer "not available yet" until F, H and I). The
+centre shows the build's stats until Theme D's viewport lands. Tested in vitest: spec defaults and rejection, the codec
+(bit-exact 16-bit, five filters, three literal refusals), resample/normals/LOD crack-freedom, the broker, the service and a
+real build into a temp folder, and the tab through the mock bridge. No viewport, noise, satellite or road handling yet.

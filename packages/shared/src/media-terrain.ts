@@ -289,7 +289,8 @@ export const TerrainSetSpecRequestSchema = TerrainTargetSchema.extend({
 });
 export type TerrainSetSpecRequest = z.infer<typeof TerrainSetSpecRequestSchema>;
 
-const Bytes = z.union([z.instanceof(ArrayBuffer), z.instanceof(Uint8Array)]);
+/** Raw image bytes: structured-cloned across IPC, so main sees an `ArrayBuffer` or a `Uint8Array`. */
+const Bytes = z.custom<ArrayBuffer | Uint8Array>((value) => value instanceof ArrayBuffer || value instanceof Uint8Array, 'expected image bytes');
 export const TerrainSetInputRequestSchema = z.union([
   TerrainTargetSchema.extend({ slot: z.enum(TERRAIN_INPUT_SLOTS), bytes: Bytes, name: z.string().max(255) }),
   TerrainTargetSchema.extend({ slot: z.enum(TERRAIN_INPUT_SLOTS), remove: z.literal(true) }),

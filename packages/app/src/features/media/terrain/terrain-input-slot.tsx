@@ -1,6 +1,6 @@
 import { MEDIA_ROOT_DIR, mstudioFileUrl, type TerrainInputRef, type TerrainInputSlot as Slot } from '@midnite/studio-shared';
 import { useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
-import { LuImagePlus, LuX } from 'react-icons/lu';
+import { LuImage, LuImagePlus, LuX } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
 
@@ -40,6 +40,7 @@ export function TerrainInputSlot({
   const picker = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
   const { label, hint } = SLOT_COPY[slot];
 
   const take = (file: File | undefined) => {
@@ -88,7 +89,13 @@ export function TerrainInputSlot({
             onKeyDown={onKeyDown}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
           >
-            {thumb ? <img src={thumb} alt="" className="h-16 w-16 shrink-0 rounded border border-border bg-muted object-cover" /> : null}
+            {thumb && !thumbFailed ? (
+              <img src={thumb} alt="" onError={() => setThumbFailed(true)} className="h-16 w-16 shrink-0 rounded border border-border bg-muted object-cover" />
+            ) : (
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-border bg-muted text-muted-foreground">
+                <LuImage aria-hidden className="h-5 w-5" />
+              </span>
+            )}
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-xs">{input.sourceName}</span>
               <span className="text-[11px] tabular-nums text-muted-foreground">

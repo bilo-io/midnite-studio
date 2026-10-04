@@ -62,7 +62,7 @@ function makeService(broker: FakeBroker, extra: Partial<TerrainServiceDeps> = {}
       const abs = join(root, project, path);
       await mkdir(dirname(abs), { recursive: true });
       await writeFile(abs, data);
-      return { ok: true };
+      return { ok: true, value: undefined };
     },
     trash: async (abs) => {
       await rm(abs, { recursive: true, force: true });

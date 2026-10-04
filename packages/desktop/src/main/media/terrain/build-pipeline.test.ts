@@ -34,7 +34,8 @@ describe('runTerrainBuild', () => {
     const progress: Array<[TerrainBuildStage, number]> = [];
     const stats = await runTerrainBuild({ dir, outDir: 'out', spec: specFor(n, n, 16) }, (s, f) => progress.push([s, f]));
 
-    const heights = new Float32Array(await readFile(join(dir, 'out', 'heights.f32')).then((b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)));
+    const raw = await readFile(join(dir, 'out', 'heights.f32'));
+    const heights = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer);
     expect(heights).toHaveLength(129 * 129);
     expect(heights[0]).toBeCloseTo(0, 3);
     expect(heights[128]).toBeCloseTo(100, 3);
