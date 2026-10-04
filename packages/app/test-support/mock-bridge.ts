@@ -720,6 +720,8 @@ export type MockFixtures = {
    */
   media?: {
     files?: Record<string, Record<string, string>>;
+    /** SF3D (Phase 103 Theme J): the starting install state; `licenceSha256` = consent already given. */
+    sf3d?: { state?: 'not-installed' | 'installed'; licenceSha256?: string; hold?: boolean; holdFraction?: number };
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
@@ -3493,6 +3495,58 @@ export function buildMockBridge(data: MockFixtures) {
           };
           return { ok: true as const, value: { files: [sidecarPath] } };
         },
+        sf3d: {
+          status: async () => ({ ok: true as const, value: { ...sf3dState } }),
+          consent: async (req: { licenceSha256: string }) => {
+            sf3dState = { ...sf3dState, consent: { licenceSha256: req.licenceSha256, acceptedAt: '2026-10-04T12:00:00.000Z', revenueAcknowledged: true } };
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          revokeConsent: async () => {
+            sf3dState = { ...sf3dState, consent: null };
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          install: async () => {
+            const emit = (progress: Record<string, unknown>) => sf3dListeners.forEach((handler) => handler({ kind: 'install', progress }));
+            const total = sf3dState.totalBytes;
+            if (data.media?.sf3d?.hold) {
+              sf3dState = { ...sf3dState, state: 'installing' };
+              const fraction = data.media.sf3d.holdFraction ?? 0.42;
+              emit({ phase: 'download', file: 'onnx/backbone_fp16.onnx', receivedBytes: Math.round(total * fraction), totalBytes: total, fraction });
+              return new Promise((resolve) => {
+                sf3dCancelHeld = () => {
+                  sf3dState = { ...sf3dState, state: 'not-installed', bytesOnDisk: Math.round(total * fraction) };
+                  emit({ phase: 'cancelled', receivedBytes: Math.round(total * fraction), totalBytes: total, fraction });
+                  resolve({ ok: false as const, kind: 'error' as const, message: 'cancelled' });
+                };
+              });
+            }
+            emit({ phase: 'download', file: 'onnx/backbone_fp16.onnx', receivedBytes: total / 2, totalBytes: total, fraction: 0.5 });
+            sf3dState = { ...sf3dState, state: 'installed', bytesOnDisk: total };
+            emit({ phase: 'ready', receivedBytes: total, totalBytes: total, fraction: 1 });
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          cancelInstall: async () => {
+            sf3dCancelHeld?.();
+            sf3dCancelHeld = null;
+            return { ok: true as const };
+          },
+          uninstall: async () => {
+            sf3dState = { ...sf3dState, state: 'not-installed', consent: null, bytesOnDisk: 0 };
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          generate: async (req: { project: string; generationId: string; image: { name: string } }) => {
+            const stem = req.image.name.replace(/\.[^.]+$/, '');
+            const files = [`${stem}/${stem}.glb`, `${stem}/${stem}.ref.png`, `${stem}/model.json`];
+            const key = `model:${req.project}`;
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), ...Object.fromEntries(files.map((f) => [f, f.endsWith('.json') ? '{}' : 'x'])) } };
+            return { ok: true as const, value: { files, primary: files[0]!, vertices: 3000, triangles: 1000 } };
+          },
+          cancelGenerate: async () => ({ ok: true as const }),
+          onProgress: (handler: (event: unknown) => void) => {
+            sf3dListeners.add(handler);
+            return () => sf3dListeners.delete(handler);
+          },
+        },
         onProgress: (handler: (event: unknown) => void) => {
           modelEvents.progress.add(handler);
           return () => modelEvents.progress.delete(handler);
@@ -4913,6 +4967,21 @@ export function buildMockBridge(data: MockFixtures) {
     changed: (event: unknown) => modelEvents.changed.forEach((handler) => handler(event)),
     open: (event: unknown) => modelEvents.open.forEach((handler) => handler(event)),
   };
+  // Phase 103 Theme J: SF3D's install state machine, in memory. `hold` keeps an install running at
+  // `holdFraction` until `cancelInstall` (what a screenshot of the progress needs).
+  // eslint-disable-next-line no-var
+  var sf3dState = {
+    state: data.media?.sf3d?.state ?? 'not-installed',
+    consent: data.media?.sf3d?.licenceSha256
+      ? { licenceSha256: data.media.sf3d.licenceSha256, acceptedAt: '2026-10-04T12:00:00.000Z', revenueAcknowledged: true as const }
+      : null,
+    bytesOnDisk: data.media?.sf3d?.state === 'installed' ? 1_730_000_000 : 0,
+    totalBytes: 1_730_000_000,
+  } as { state: string; consent: { licenceSha256: string; acceptedAt: string; revenueAcknowledged: true } | null; bytesOnDisk: number; totalBytes: number };
+  // eslint-disable-next-line no-var
+  var sf3dListeners = new Set<(event: unknown) => void>();
+  // eslint-disable-next-line no-var
+  var sf3dCancelHeld: (() => void) | null = null;
 
   // Which STT providers a key has been "saved" for in this page's lifetime
   // (Theme F) — mutated by `sttSet`, read by `sttStatus`, so a spec can
