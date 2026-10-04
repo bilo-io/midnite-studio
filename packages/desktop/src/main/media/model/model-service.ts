@@ -25,7 +25,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { writeFbxAscii, writeFbxBinary } from './fbx-writer';
-import { writeGlb } from './gltf-writer';
+import { gltfRigging, writeGlb } from './gltf-writer';
 import { runIterative, type IterativeHost } from './iterative';
 import type { ModelTools } from './model-mcp';
 import { writeMtl, writeObj } from './obj-writer';
@@ -122,7 +122,7 @@ export function renderModel(spec: ModelSpec, format: ModelExportFormat, stem: st
     case 'obj':
       return Buffer.from(writeObj(parts, `${stem}.mtl`, spec.name), 'utf8');
     case 'glb':
-      return writeGlb(parts, spec.name);
+      return writeGlb(parts, spec.name, gltfRigging(spec, parts));
     case 'fbx-ascii':
       return Buffer.from(writeFbxAscii(parts), 'utf8');
     case 'fbx':
@@ -137,7 +137,7 @@ function renderTrio(spec: ModelSpec, stem: string, mtlName: string): [string, Bu
     [`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')],
     [`${stem}.obj`, Buffer.from(writeObj(parts, mtlName, spec.name), 'utf8')],
     [`${stem}.fbx`, writeFbxBinary(parts)],
-    [`${stem}.glb`, writeGlb(parts, spec.name)],
+    [`${stem}.glb`, writeGlb(parts, spec.name, gltfRigging(spec, parts))],
   ];
 }
 
