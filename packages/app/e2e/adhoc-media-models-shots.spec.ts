@@ -55,13 +55,33 @@ test.describe('media models screenshots', () => {
     await expect(page.getByTestId('model-canvas')).toBeVisible({ timeout: 30_000 });
     await settle(page, 800);
     await page.screenshot({ path: shotPath(OUT, 'models-editor.png') });
+
+    // Screenshot of compact toolbar with IconSelect dropdowns
+    await settle(page, 400);
+    await page.screenshot({ path: shotPath(OUT, 'models-toolbar.png') });
+
+    // Select a part
     await page.getByRole('list', { name: 'Parts' }).getByRole('button', { name: /head/ }).click();
     await settle(page, 500);
     await page.screenshot({ path: shotPath(OUT, 'models-selected.png') });
-    await page.getByRole('radio', { name: 'Wireframe' }).click();
+
+    // Open shading dropdown and screenshot it
+    const shadingButton = page.getByRole('button', { name: /Solid/ });
+    await shadingButton.click();
+    await expect(page.getByRole('listbox', { name: /Shading/i })).toBeVisible();
+    await settle(page, 300);
+    await page.screenshot({ path: shotPath(OUT, 'models-shading-dropdown.png') });
+
+    // Select Wireframe from dropdown
+    await page.getByRole('option', { name: 'Wireframe' }).click();
     await settle(page, 400);
     await page.screenshot({ path: shotPath(OUT, 'models-wireframe.png') });
-    await page.getByRole('radio', { name: 'Normals' }).click();
+
+    // Open shading dropdown again and select Normals
+    const shadingButton2 = page.getByRole('button', { name: /Wireframe/ });
+    await shadingButton2.click();
+    await expect(page.getByRole('listbox', { name: /Shading/i })).toBeVisible();
+    await page.getByRole('option', { name: 'Normals' }).click();
     await settle(page, 400);
     await page.screenshot({ path: shotPath(OUT, 'models-normals.png') });
   });
