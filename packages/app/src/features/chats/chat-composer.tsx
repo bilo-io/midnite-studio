@@ -282,7 +282,7 @@ export function ChatComposer({
       <AiComposer
         textareaRef={input}
         ariaLabel="Message"
-        rows={1}
+        rows={2}
         value={value}
         onChange={onChange}
         placeholder={placeholder}

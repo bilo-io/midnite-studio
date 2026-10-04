@@ -192,7 +192,7 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   // px-16: symmetric clearance so the floating launcher (bottom-right, 40px) never covers Send.
   const composer = (
     <div className="shrink-0 px-16 pb-4 pt-1">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-2xl">
         <ChatComposer
           value={text}
           onChange={setText}
