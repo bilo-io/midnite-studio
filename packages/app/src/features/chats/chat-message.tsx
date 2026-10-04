@@ -178,7 +178,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       </span>
       <div className="min-w-0 flex-1">
-        {!docked && <ThinkingPanel message={message} />}
+        <ThinkingPanel message={message} />
         {message.activity && message.activity.length > 0 ? (
           <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="What the agent did" data-testid="chat-activity">
             {message.activity.slice(-8).map((line, i) => (
