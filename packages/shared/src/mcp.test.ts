@@ -32,6 +32,13 @@ describe('MCP_TOOLS', () => {
     'model_retarget',
     'model_save',
     'model_generate_sf3d',
+    'game_create',
+    'game_open',
+    'game_set_manifest',
+    'game_run',
+    'game_stop',
+    'game_reload',
+    'game_input',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -150,6 +157,18 @@ describe('MCP_TOOLS', () => {
     model_patch_rig: { ok: false, errors: [{ path: 'rig', message: 'x' }] },
     model_patch_animations: { ok: false, errors: [{ path: 'animations', message: 'x' }] },
     model_retarget: { ok: false, errors: [{ path: 'from', message: 'x' }] },
+    game_list: { games: [] },
+    game_create: { path: '/g/x', gameId: 'g1' },
+    game_open: { opened: true, gameId: 'g1' },
+    game_get_manifest: { gameId: 'g1', manifest: null, issues: [{ path: '(root)', message: 'x' }] },
+    game_set_manifest: { ok: true, gameId: 'g1' },
+    game_run: { gameId: 'g1', runId: 'r1' },
+    game_stop: { ok: true, gameId: 'g1' },
+    game_reload: { ok: true, gameId: 'g1' },
+    game_screenshot: { _content: [] },
+    game_logs: { entries: [], next: 0 },
+    game_input: { sent: 0 },
+    game_state: { state: { score: 1 } },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -189,6 +208,18 @@ describe('MCP_TOOLS', () => {
       model_patch_rig: { ...base, project: 'p', model: 'a.obj', ops: [{ op: 'falloff', value: 0.5 }] },
       model_patch_animations: { ...base, project: 'p', model: 'a.obj', ops: [{ op: 'remove', name: 'walk' }] },
       model_retarget: { ...base, project: 'p', model: 'a.obj', from: { model: 'b.obj' } },
+      game_list: {},
+      game_create: { name: 'Demo', engine: 'phaser', perspective: 'top-down' },
+      game_open: { game: 'g1' },
+      game_get_manifest: { game: 'g1' },
+      game_set_manifest: { game: 'g1', patch: { network: 'off' } },
+      game_run: { game: 'g1' },
+      game_stop: { game: 'g1' },
+      game_reload: { game: 'g1' },
+      game_screenshot: { game: 'g1' },
+      game_logs: { game: 'g1' },
+      game_input: { game: 'g1', events: [] },
+      game_state: { game: 'g1' },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;

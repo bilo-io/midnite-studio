@@ -32,6 +32,11 @@ export const GAME_LOG_TEXT_MAX = 4096;
 /** The renderer receives console entries batched at this interval. */
 export const GAME_CONSOLE_BATCH_MS = 250;
 
+/** `game_state` caps the page's answer here; larger is an error, never truncated. */
+export const GAME_STATE_MAX_BYTES = 256 * 1024;
+/** `game_state` refuses a value nested deeper than this. */
+export const GAME_STATE_MAX_DEPTH = 32;
+
 /** Shown in Settings ▸ Media ▸ Games, and over MCP and in the iterate panel once agents land. */
 export const GAMES_OLLAMA_WARNING =
   'Local Ollama models are much weaker at writing whole games than a roster agent CLI. Expect small, focused edits to work and large rewrites to break — and review every change before you play it.';
@@ -328,3 +333,27 @@ export const GameLogsResponse = z.object({
 /** Pushed when the set of games on disk changes (create, remove, manifest edit). */
 export const GamesChangedSchema = z.object({ reason: z.enum(['created', 'manifest', 'removed']) });
 export type GamesChangedEvent = z.infer<typeof GamesChangedSchema>;
+
+// --- play-test state (Theme D) ---------------------------------------------------
+
+/**
+ * What the kit's `window.__midnite.getState()` returns. Untrusted data from the
+ * page: the shape is open (`.passthrough()`) because each genre reports its own
+ * keys; Theme E tightens the common ones.
+ */
+export const GameStateSchema = z.object({}).passthrough();
+export type GameState = z.infer<typeof GameStateSchema>;
+
+/** Nesting depth of a JSON value (a scalar is 0). Iterative, so a hostile value cannot overflow the stack. */
+export function jsonDepth(value: unknown): number {
+  let max = 0;
+  const stack: Array<[unknown, number]> = [[value, 0]];
+  while (stack.length > 0) {
+    const [current, depth] = stack.pop() as [unknown, number];
+    if (depth > max) max = depth;
+    if (typeof current === 'object' && current !== null) {
+      for (const child of Array.isArray(current) ? current : Object.values(current)) stack.push([child, depth + 1]);
+    }
+  }
+  return max;
+}

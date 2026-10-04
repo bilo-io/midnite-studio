@@ -995,9 +995,11 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         allowUi: false,
         allowGateDecide: false,
         allowModels: false,
+        allowGames: false,
       }).success,
     ).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowGames: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowUi: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowGateDecide: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({}).success).toBe(true);

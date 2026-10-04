@@ -3826,6 +3826,8 @@ export const McpGetResponse = z.object({
   allowGateDecide: z.boolean(),
   /** Phase 99 Theme G's fourth switch — whether the `model_*` tools that change a model may act. */
   allowModels: z.boolean(),
+  /** Phase 107 Theme D's fifth switch — whether the `game_*` tools that create, run or drive a game may act. */
+  allowGames: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3839,6 +3841,7 @@ export const McpSetRequest = z.object({
   allowUi: z.boolean().optional(),
   allowGateDecide: z.boolean().optional(),
   allowModels: z.boolean().optional(),
+  allowGames: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
