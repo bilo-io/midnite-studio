@@ -16,6 +16,7 @@ import { z } from 'zod';
 
 import { LoopModelSchema } from './loops';
 import { MediaProjectNameSchema } from './media';
+import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
 
 // --- the spec an LLM writes ----------------------------------------------------
 
@@ -236,6 +237,12 @@ export const ModelSpecSchema = z.object({
   name: z.string().trim().min(1).max(MODEL_NAME_MAX).default('model'),
   description: z.string().max(500).optional(),
   parts: z.array(ModelPartSchema).min(1).max(MODEL_MAX_PARTS),
+  /** What kind of thing this is — picks the bone table and the clip presets (`media-model-rig.ts`). Absent = static. */
+  anatomy: ModelAnatomySchema.optional(),
+  /** Bones (named from the anatomy's table), part bindings and the skin-weight falloff. */
+  rig: ModelRigSchema.optional(),
+  /** Clips: a generated motion kind plus parameters and additive keys; exported as glTF animations. */
+  animations: z.array(ModelClipSchema).max(MODEL_MAX_CLIPS).optional(),
 });
 export type ModelSpec = z.infer<typeof ModelSpecSchema>;
 

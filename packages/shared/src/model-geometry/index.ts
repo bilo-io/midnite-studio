@@ -49,3 +49,28 @@ export {
   type PartIndex,
   type ResolvedMaterial,
 } from './scene';
+export * from './quat';
+export {
+  autoRig,
+  facingBasis,
+  partAncestry,
+  resolveRig,
+  validateRig,
+  type Basis,
+  type ResolvedRig,
+  type RigBone,
+} from './rig';
+export {
+  boneLocal,
+  boneWorldMatrices,
+  computeSkin,
+  MAX_INFLUENCES,
+  partBindings,
+  restPose,
+  skinMatrices,
+  skinParts,
+  type BonePose,
+  type PartSkin,
+  type Pose,
+} from './skin';
+export { bakeClip, boneNamesFor, CLIP_BAKE_FPS, retargetClips, samplePose, type BakedClip } from './clips';
