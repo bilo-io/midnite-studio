@@ -233,7 +233,7 @@ function splitAsset(part: CanonPart, anatomy: ModelAnatomy): CanonPart[] {
       const row = band(pts, y(t), 0.01 * H);
       if (row.length === 0) continue;
       const nearest = Math.min(...row.map((q) => Math.abs(q[0] - cx)));
-      if (nearest > 0.025 * H) gapSeen = true;
+      if (nearest > 0.012 * H) gapSeen = true;
       else if (gapSeen) {
         crotch = y(t);
         break;
@@ -259,7 +259,8 @@ function splitAsset(part: CanonPart, anatomy: ModelAnatomy): CanonPart[] {
         .map((q) => sign * (q[0] - cx))
         .filter((d) => d > 0)
         .sort((a, b) => a - b);
-      for (let i = 1; i < row.length; i += 1) if (row[i]! - row[i - 1]! > 0.02 * H) return row[i - 1]! + 0.005 * H;
+      // A gap inside the trunk's core is just sparse vertices; the torso's side is past 5% of the height.
+      for (let i = 1; i < row.length; i += 1) if (row[i]! - row[i - 1]! > 0.03 * H && row[i - 1]! > 0.05 * H) return row[i - 1]! + 0.005 * H;
       return Infinity;
     };
     const reach = { left: armFrom(1), right: armFrom(-1) };
