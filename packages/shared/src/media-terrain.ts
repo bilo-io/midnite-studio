@@ -59,6 +59,8 @@ export const TERRAIN_BUILD_FILES = ['heights.f32', 'chunks.json'] as const;
 
 export const TERRAIN_SHADING_MODES = ['shaded', 'wireframe', 'height', 'slope', 'landcover', 'splat', 'roads'] as const;
 
+export type TerrainShadingMode = (typeof TERRAIN_SHADING_MODES)[number];
+
 /** The prompt wrapped around a user's description when a heightmap is generated (Theme C). */
 export const TERRAIN_HEIGHTMAP_PROMPT = (user: string): string =>
   `A top-down greyscale heightmap of ${user}. Pure greyscale, no colour, no text, no shading, no border; white is the highest ground and black the lowest; square.`;

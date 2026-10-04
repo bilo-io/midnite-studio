@@ -12,6 +12,8 @@ import { MediaView } from '../media-view';
  * in the strip, the explorer lists one row per `terrain.json`, a selected terrain shows its three
  * optional inputs, and Generate with no height source reports it rather than guessing.
  */
+vi.mock('./terrain-viewer-lazy', () => ({ LazyTerrainViewer: () => <div data-testid="viewer-stub" /> }));
+
 const spec = (extra: Record<string, unknown> = {}) =>
   JSON.stringify({ version: 1, name: 'dunes', inputs: {}, resolution: 513, worldSize: 1024, heightRange: [0, 200], ...extra });
 
@@ -118,15 +120,15 @@ describe('Terrain tab', () => {
     await waitFor(() => expect(within(panel).queryByRole('button', { name: 'Remove heightmap' })).toBeNull());
   });
 
-  it('Generate with no heightmap and no noise reports it instead of building', async () => {
+  it('Generate with no heightmap and no noise asks the question instead of building', async () => {
     open();
     fireEvent.click(await within(explorer()).findByRole('button', { name: 'dunes' }));
     const panel = await screen.findByTestId('terrain-panel');
     fireEvent.click(within(panel).getByRole('button', { name: 'Generate' }));
-    expect(await within(panel).findByText(/No heightmap attached/)).toBeTruthy();
+    expect(await screen.findByRole('alertdialog')).toBeTruthy();
   });
 
-  it('Generate with a heightmap builds and the centre shows the stats', async () => {
+  it('Generate with a heightmap builds and the viewport and stats appear', async () => {
     open(seeded(spec({ inputs: { heightmap: input } })));
     fireEvent.click(await within(explorer()).findByRole('button', { name: 'dunes' }));
     const panel = await screen.findByTestId('terrain-panel');
@@ -134,8 +136,9 @@ describe('Terrain tab', () => {
     fireEvent.click(await within(panel).findByRole('button', { name: 'Generate' }));
     await waitFor(() => expect(build).toHaveBeenCalledTimes(1));
     expect(build.mock.calls[0]![0]).toMatchObject({ terrain: 'dunes-20261004-120000', buildId: expect.any(String) });
-    const summary = await screen.findByTestId('terrain-summary');
-    expect(within(summary).getByText('263,169')).toBeTruthy();
+    const readout = await screen.findByTestId('terrain-stats');
+    expect(within(readout).getByText('263,169')).toBeTruthy();
+    expect(await screen.findByTestId('viewer-stub')).toBeTruthy();
   });
 
   it('committing a resolution saves it to the spec', async () => {

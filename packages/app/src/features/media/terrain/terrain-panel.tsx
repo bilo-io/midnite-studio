@@ -1,10 +1,12 @@
 import { TERRAIN_BUILD_STAGES, TERRAIN_INPUT_SLOTS, TERRAIN_RESOLUTIONS, type TerrainSpec } from '@midnite/studio-shared';
-import { useState } from 'react';
-import { LuGrid3X3, LuSquare } from 'react-icons/lu';
+import { useState, type ReactNode } from 'react';
+import { LuDices, LuGrid3X3, LuSquare } from 'react-icons/lu';
 
+import { IconButton } from '../../../components/icon-button';
 import { IconSelect } from '../../../components/icon-select';
 import { Spinner } from '../../../components/skeleton';
 import { NumberField } from '../model/fields';
+import { HeightmapPromptDialog, NoHeightmapDialog } from './no-heightmap-dialog';
 import { TerrainInputSlot } from './terrain-input-slot';
 import { useTerrainActions, useTerrainProgress, type BuildOutcome, type TerrainRef } from './use-terrain';
 
@@ -29,16 +31,46 @@ const STAGE_LABEL: Record<(typeof TERRAIN_BUILD_STAGES)[number], string> = {
  * Generate (which becomes Cancel while a build runs). Whether there is anything to build from is
  * main's call: `terrain-build` answers `needs-height-source` and the panel just reports it.
  */
-export function TerrainPanel({ repoId, terrainRef, spec }: { repoId: string; terrainRef: TerrainRef; spec: TerrainSpec }) {
+export function TerrainPanel({
+  repoId,
+  terrainRef,
+  spec,
+  children,
+}: {
+  repoId: string;
+  terrainRef: TerrainRef;
+  spec: TerrainSpec;
+  /** Rendered under Generate: the stats readout. */
+  children?: ReactNode;
+}) {
   const actions = useTerrainActions(repoId, terrainRef);
   const progress = useTerrainProgress(actions.buildId);
   const [outcome, setOutcome] = useState<BuildOutcome | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [prompting, setPrompting] = useState(false);
+  const [promptBusy, setPromptBusy] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [pickerSignal, setPickerSignal] = useState(0);
   const revision = spec.updatedAt ?? '';
 
   const generate = async () => {
     setOutcome(null);
-    setOutcome(await actions.generate());
+    const result = await actions.generate();
+    // Main decides whether there is anything to build from; the dialog just asks the question it answered.
+    if (result.kind === 'needs-height-source') setAsking(true);
+    else setOutcome(result);
   };
+  /** A parameter change saves the spec and re-bakes; commits happen on blur or Enter, never per keystroke. */
+  const commit = async (patch: Record<string, unknown>) => {
+    await actions.setSpec(patch);
+    // With nothing to shape the ground from yet there is nothing to re-bake; Generate asks when the time comes.
+    if (spec.inputs.heightmap || spec.noise || 'noise' in patch) await generate();
+  };
+  const useNoise = async () => {
+    setAsking(false);
+    await commit({ noise: { kind: 'fbm', seed: Math.floor(Math.random() * 2 ** 31) } });
+  };
+  const noise = spec.noise;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3" data-testid="terrain-panel">
@@ -56,6 +88,7 @@ export function TerrainPanel({ repoId, terrainRef, spec }: { repoId: string; ter
             revision={revision}
             onAttach={(s, file) => void actions.attach(s, file)}
             onRemove={(s) => void actions.remove(s)}
+            openPickerSignal={slot === 'heightmap' ? pickerSignal : 0}
           />
         ))}
       </div>
@@ -69,27 +102,35 @@ export function TerrainPanel({ repoId, terrainRef, spec }: { repoId: string; ter
             icon={LuGrid3X3}
             label="Resolution"
             description="Vertices per side of the heightfield."
-            onChange={(next) => void actions.setSpec({ resolution: Number(next) })}
+            onChange={(next) => void commit({ resolution: Number(next) })}
           />
         </div>
-        <MetresRow label="World size" value={spec.worldSize} min={16} max={65_536} onCommit={(worldSize) => void actions.setSpec({ worldSize })} />
+        <MetresRow label="World size" value={spec.worldSize} min={16} max={65_536} onCommit={(worldSize) => void commit({ worldSize })} />
         <div className="flex items-center gap-1.5">
           <span className="w-20 shrink-0 text-[11px] text-muted-foreground">Height range</span>
           <NumberField
             label="Height minimum"
             value={spec.heightRange[0]}
             step={1}
-            onCommit={(min) => min !== undefined && min < spec.heightRange[1] && void actions.setSpec({ heightRange: [min, spec.heightRange[1]] })}
+            onCommit={(min) => min !== undefined && min < spec.heightRange[1] && void commit({ heightRange: [min, spec.heightRange[1]] })}
           />
           <NumberField
             label="Height maximum"
             value={spec.heightRange[1]}
             step={1}
-            onCommit={(max) => max !== undefined && max > spec.heightRange[0] && void actions.setSpec({ heightRange: [spec.heightRange[0], max] })}
+            onCommit={(max) => max !== undefined && max > spec.heightRange[0] && void commit({ heightRange: [spec.heightRange[0], max] })}
           />
           <span className="text-[11px] text-muted-foreground">m</span>
         </div>
       </div>
+
+      {noise ? (
+        <div className="flex items-center gap-1.5">
+          <span className="w-20 shrink-0 text-[11px] text-muted-foreground">Seed</span>
+          <NumberField label="Seed" value={noise.seed} step={1} min={0} integer onCommit={(seed) => seed !== undefined && void commit({ noise: { ...noise, seed } })} />
+          <IconButton icon={LuDices} label="Re-roll seed" size="sm" onClick={() => void commit({ noise: { ...noise, seed: Math.floor(Math.random() * 2 ** 31) } })} />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-2">
         {actions.building ? (
@@ -121,17 +162,41 @@ export function TerrainPanel({ repoId, terrainRef, spec }: { repoId: string; ter
             </div>
           </div>
         ) : null}
-        {outcome?.kind === 'needs-height-source' ? (
-          <p role="status" className="text-[11px] text-amber-600 dark:text-amber-400">
-            No heightmap attached. Attach one above, then Generate.
-          </p>
-        ) : null}
         {outcome?.kind === 'failed' ? (
           <p role="alert" className="text-[11px] text-destructive">
             {outcome.message}
           </p>
         ) : null}
       </div>
+      {children}
+      <NoHeightmapDialog
+        open={asking}
+        onUseNoise={() => void useNoise()}
+        onUpload={() => {
+          setAsking(false);
+          setPickerSignal((n) => n + 1);
+        }}
+        onPrompt={() => {
+          setAsking(false);
+          setPromptError(null);
+          setPrompting(true);
+        }}
+        onCancel={() => setAsking(false)}
+      />
+      <HeightmapPromptDialog
+        open={prompting}
+        busy={promptBusy}
+        error={promptError}
+        onCancel={() => setPrompting(false)}
+        onSubmit={async (req) => {
+          setPromptBusy(true);
+          setPromptError(null);
+          const result = await actions.attachFromPrompt(req);
+          setPromptBusy(false);
+          if (result.ok) setPrompting(false);
+          else setPromptError(result.kind === 'error' ? result.message : 'Could not generate a heightmap.');
+        }}
+      />
     </div>
   );
 }
