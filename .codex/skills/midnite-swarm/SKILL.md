@@ -124,6 +124,10 @@ rebase → merge → teardown). `?` until there is a basis, `done` once merged. 
 line gives the ETA for the whole batch — parallel rows do not add, a later wave does. Bake the ETA
 column into the cron/loop prompt so every tick carries it.
 
+**The Diff column MUST ALWAYS use `🟩 +<added> 🟥 -<deleted> 📄 <files>`** (straight from the PR, or
+during local development in worktrees before a PR opens, derived from `git diff --shortstat`, or `—`
+when empty). Plain text or code block formats like `+X/-Y` or `0/0` are forbidden.
+
 **Read the scratchpads before writing the table.** The **Done** and **Next** lines in
 `.worktrees/*/SCRATCHPAD.md` are the cheapest ground truth in the swarm — written by the worker,
 sitting on disk, surviving its death — and they are what turns a `Doing` cell from "building" into
