@@ -50,7 +50,7 @@ import { useInspectorCollapse } from './use-inspector-collapse';
 import { useSaveWorkflow, useSaveWorkflowTemplate, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
-import { WorkflowsIcon } from '../../components/icons/workflows-icon';
+import { VIEW_ICON } from '../../components/nav-icons';
 
 /**
  * The right-hand panel's own navigation (Phase 52 Theme F) — `NodeInspector`
@@ -141,7 +141,7 @@ export function WorkflowsView() {
           />
         ) : (
           <EmptyState
-            icon={WorkflowsIcon}
+            icon={VIEW_ICON.workflows}
             title="Select a workflow"
             body="Pick one on the left, or create a new one to get started."
           />

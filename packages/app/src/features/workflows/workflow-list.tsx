@@ -25,7 +25,7 @@ import {
   parseImportedWorkflow,
   workflowFromTemplate,
 } from './workflow-io';
-import { WorkflowsIcon } from '../../components/icons/workflows-icon';
+import { VIEW_ICON } from '../../components/nav-icons';
 
 /**
  * The workflow list (Phase 43 Theme H) — `workflows-view.tsx`'s left rail,
@@ -198,9 +198,9 @@ export function WorkflowList({
         {workflows.isLoading ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
         ) : all.length === 0 ? (
-          <EmptyState icon={WorkflowsIcon} title="No workflows yet" body="Create one to get started." />
+          <EmptyState icon={VIEW_ICON.workflows} title="No workflows yet" body="Create one to get started." />
         ) : rows.length === 0 ? (
-          <EmptyState icon={WorkflowsIcon} title="No matches" body="No workflow name matches this filter." />
+          <EmptyState icon={VIEW_ICON.workflows} title="No matches" body="No workflow name matches this filter." />
         ) : (
           rows.map((workflow) => (
             <button

@@ -48,7 +48,7 @@ const HINTS: Partial<Record<CommandId, string>> = {
   'terminal.toggle': 'The integrated shell, on any platform',
   'browser.toggle': 'The embedded browser pane',
   'fab.toggle': 'The agent loop console',
-  'view.graph': 'Back to the commit graph',
+  'view.graph': 'Back to the commit timeline',
   'graph.focus': 'Put the keyboard in the graph',
   'status.focus': 'Open the working copy in the graph',
   'status.commit': 'Commit what is staged',

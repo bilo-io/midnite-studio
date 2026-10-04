@@ -101,7 +101,7 @@ async function openCanvas(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await expect(async () => {
-    await clickRailLink(page, 'Workflows');
+    await clickRailLink(page, 'Graphs');
     await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
   await page.getByText('Every edge kind').first().click();

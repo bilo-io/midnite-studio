@@ -34,7 +34,7 @@ describe('PageDetachMark', () => {
   it('opens a popout for the page when none is open', () => {
     render(<PageDetachMark role="graph" />);
 
-    fireEvent.click(screen.getByLabelText('Detach Graph into its own window'));
+    fireEvent.click(screen.getByLabelText('Detach Timeline into its own window'));
     expect(mocks.detach).toHaveBeenCalledWith({ role: 'graph' });
   });
 
@@ -48,8 +48,8 @@ describe('PageDetachMark', () => {
     useUiStore.setState({ detachedPages: ['graph'] });
     render(<PageDetachMark role="graph" />);
 
-    expect(screen.queryByLabelText('Detach Graph into its own window')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Focus the detached Graph window'));
+    expect(screen.queryByLabelText('Detach Timeline into its own window')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Focus the detached Timeline window'));
     expect(mocks.focusRole).toHaveBeenCalledWith({ role: 'graph' });
     expect(mocks.detach).not.toHaveBeenCalled();
   });
@@ -66,13 +66,13 @@ describe('PageDetachMark', () => {
   /*
     A page popout hosts exactly one page, so a mark for a DIFFERENT page inside
     it must still be the ordinary detach control — otherwise the Changes window
-    would offer to close itself from the Graph's mark.
+    would offer to close itself from the Timeline's mark.
   */
   it('keeps the ordinary detach affordance for other pages inside a popout', () => {
     mocks.windowRole = 'files';
     render(<PageDetachMark role="graph" />);
 
-    expect(screen.getByLabelText('Detach Graph into its own window')).toBeDefined();
+    expect(screen.getByLabelText('Detach Timeline into its own window')).toBeDefined();
   });
 
   /*

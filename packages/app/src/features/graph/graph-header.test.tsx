@@ -75,15 +75,15 @@ describe('GraphHeader', () => {
   it('shows its own detach mark when docked in the main window', () => {
     render(<Harness />);
 
-    expect(screen.getByLabelText('Detach Graph into its own window')).toBeDefined();
+    expect(screen.getByLabelText('Detach Timeline into its own window')).toBeDefined();
   });
 
   it('hides its own detach mark once popped out — the merged title bar mark already docks it', () => {
     mocks.windowRole = 'graph';
     render(<Harness />);
 
-    expect(screen.queryByLabelText('Detach Graph into its own window')).toBeNull();
+    expect(screen.queryByLabelText('Detach Timeline into its own window')).toBeNull();
     expect(screen.queryByLabelText('Close the Graph window')).toBeNull();
-    expect(screen.queryByLabelText('Focus the detached Graph window')).toBeNull();
+    expect(screen.queryByLabelText('Focus the detached Timeline window')).toBeNull();
   });
 });

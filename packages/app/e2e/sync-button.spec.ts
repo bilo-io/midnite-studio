@@ -19,7 +19,7 @@ const base: MockFixtures = { ...fixtures, statusEntries: [] };
 const open = async (page: Page, data: MockFixtures = base): Promise<void> => {
   await installMockBridge(page, data);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Graph' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Timeline' })).toBeVisible();
 };
 
 test('the rail names the file browser Explorer, not Files or Folder', async ({ page }) => {

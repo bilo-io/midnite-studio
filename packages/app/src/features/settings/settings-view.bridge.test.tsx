@@ -120,10 +120,10 @@ describe('SettingsView, assembled through the real bridge', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Sidebar' })).toBeTruthy();
 
-    const graphToggle = screen.getByRole('switch', { name: 'Graph' }) as HTMLInputElement;
+    const graphToggle = screen.getByRole('switch', { name: 'Timeline' }) as HTMLInputElement;
     const graphRow = graphToggle.closest('label') as HTMLLabelElement;
     // The row's label/icon wrapper — `SettingsSwitchRow`'s text-opacity span.
-    const graphLabelWrap = () => within(graphRow).getByText('Graph').parentElement?.parentElement;
+    const graphLabelWrap = () => within(graphRow).getByText('Timeline').parentElement?.parentElement;
     expect(graphToggle.checked).toBe(true);
     // Enabled rows read at full opacity.
     expect(graphLabelWrap()?.className).toContain('text-foreground');
@@ -137,7 +137,7 @@ describe('SettingsView, assembled through the real bridge', () => {
 
     // Clicking anywhere else on the row — the label wraps the switch, so the
     // click lands once on the one focusable control, not twice.
-    fireEvent.click(within(graphRow).getByText('Graph'));
+    fireEvent.click(within(graphRow).getByText('Timeline'));
     expect(graphToggle.checked).toBe(true);
     expect(useUiStore.getState().navVisibility).toEqual({});
     expect(graphLabelWrap()?.className).toContain('text-foreground');
@@ -174,7 +174,7 @@ describe('SettingsView, assembled through the real bridge', () => {
     expect(
       actions.querySelector('[role="radio"][aria-checked="true"]')?.textContent,
     ).toBe('Narrowed');
-    const graph = screen.getByRole('radiogroup', { name: 'Graph' });
+    const graph = screen.getByRole('radiogroup', { name: 'Timeline' });
     expect(graph.querySelector('[role="radio"][aria-checked="true"]')?.textContent).toBe(
       'Everything',
     );
