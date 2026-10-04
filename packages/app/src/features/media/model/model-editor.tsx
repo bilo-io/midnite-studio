@@ -6,13 +6,10 @@ import {
   LuCube,
   LuEye,
   LuGrid3X3,
-  LuMove3D,
   LuRedo2,
-  LuRotate3D,
   LuRotateCcw,
   LuRuler,
   LuSave,
-  LuScale3D,
   LuScan,
   LuSquareDashed,
   LuUndo2,
@@ -40,11 +37,6 @@ import { ViewportWidgets } from './viewport-widgets';
  *
  * The canvas draws on demand (`frameloop="demand"`): an idle editor is idle.
  */
-const MODES: { id: TransformMode; key: string; label: string; icon: typeof LuMove3D }[] = [
-  { id: 'translate', key: 'W', label: 'Move', icon: LuMove3D },
-  { id: 'rotate', key: 'E', label: 'Rotate', icon: LuRotate3D },
-  { id: 'scale', key: 'R', label: 'Scale', icon: LuScale3D },
-];
 const SHADES: IconSelectOption[] = [
   { value: 'solid', label: 'Solid', icon: LuCube, description: 'Solid shading with materials' },
   { value: 'wireframe', label: 'Wireframe', icon: LuGrid3X3, description: 'Show mesh wireframe edges' },
@@ -67,7 +59,6 @@ export const canUseWebGL = (): boolean => {
 };
 
 const RADIO = (on: boolean) => `h-6 rounded-md px-1.5 text-[11px] ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`;
-const SELECT = 'h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground';
 
 export default function ModelEditor({
   state,
