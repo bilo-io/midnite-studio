@@ -139,6 +139,7 @@ import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { registerMediaModelHandlers } from './ipc/media-model-handlers';
+import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
@@ -491,6 +492,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaAudioHandlers();
     registerMediaModelHandlers();
     registerMediaModelSf3dHandlers();
+    registerMediaTerrainHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
@@ -943,6 +945,7 @@ if (!app.requestSingleInstanceLock()) {
     disposeCompanionTtsBroker();
     disposeMusicBroker();
     disposeSf3d();
+    disposeTerrainBroker();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

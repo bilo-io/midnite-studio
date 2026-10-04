@@ -1,5 +1,5 @@
 import type { MediaTab } from '@midnite/studio-shared';
-import { LuAudioLines, LuBox, LuClapperboard, LuFileText, LuImage } from 'react-icons/lu';
+import { LuAudioLines, LuBox, LuClapperboard, LuFileText, LuImage, LuMountain } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
 
@@ -10,6 +10,7 @@ export const MEDIA_TAB_META: Record<MediaTab, { label: string; icon: IconCompone
   video: { label: 'Video', icon: LuClapperboard },
   audio: { label: 'Audio', icon: LuAudioLines },
   model: { label: 'Models', icon: LuBox },
+  terrain: { label: 'Terrain', icon: LuMountain },
 };
 
 export const mediaTabId = (tab: MediaTab): string => `media-tab-${tab}`;

@@ -129,16 +129,27 @@ down to tiles. Every input is optional, so a terrain can start from noise and a 
 survey imagery. Planned 2026-10-04; refined x1 the same day, which pinned every channel, schema field,
 file and test name and resolved all four opens plus thirteen new decisions.
 
-**Theme A — Terrain tab, spec and library.** ◻ Not started. Lands first. `'terrain'` joins `MEDIA_TABS`
-(repo-scoped, `LuMountain`), `TerrainSpecSchema` (`version: 1`) lives in a new `shared/src/media-terrain.ts`
-with every field defaulted, a terrain is the folder `.midnite/media/terrain/<group>/<terrain>/`, the
-explorer is `MediaProjectsAccordion` filtered to `terrain.json`, and eleven named
-`mstudio:media:terrain-*` channels plus three events carry it.
+**Theme A — Terrain tab, spec and library.** ✅ Landed with B. `'terrain'` is the sixth Media tab (repo-scoped,
+`LuMountain`, `mediaTerrain{Explorer,Detail}Width`), `TerrainSpecSchema` (`version: 1`, passthrough, every field
+defaulted) lives in `shared/src/media-terrain.ts` with the stats, build-result, chunk-file and IPC schemas, and a
+terrain is the folder `.midnite/media/terrain/<group>/<terrain>/` whose `terrain.json` also carries `lastBuild`. Nine
+`mstudio:media:terrain-*` channels and three events carry it; `terrain-paint`, `-road-key` and `-export` are registered
+now and answer `Terrain building is not available yet.` until F, H and I land. The explorer is the shared projects
+accordion filtered to `terrain.json` (two additive props, `fileLabel` and `onFileContextMenu`, give a row the folder's
+name and a Rename / Duplicate / Delete menu); the panel has the three optional slots, resolution, extent and height range,
+and Generate / Cancel. The centre column is a stats summary until Theme D's viewport replaces it.
 
-**Theme B — Image decode and the heightfield kernel.** ◻ Not started. Lands with A. A `node:zlib` PNG
-codec in `main/media/png/png-codec.ts` (16-bit preserving), JPEG/WebP transcoded to PNG once at
-attach, a pure-TS heightfield and chunk/LOD kernel in `shared/src/terrain/`, and a `terrain-worker`
-utility process on the `sf3d-broker.ts` shape that writes `build/` atomically and is cancelled by kill.
+**Theme B — Image decode and the heightfield kernel.** ✅ Landed with A. `main/media/png/png-codec.ts` is a `node:zlib`
+PNG codec (greyscale, RGB, RGBA, palette; 8 and 16 bit; all five filters; interlaced, 1/2/4-bit and damaged files refused
+with the doc's literal messages) that keeps a 16-bit heightmap's 65 536 steps; `sf3d/png.ts` re-exports its encoder
+unchanged. JPEG and WebP are transcoded to PNG once, at attach, through `nativeImage`, and an 8-bit image above 8192 px is
+downscaled there with a warning. The pure-TS kernel in `shared/src/terrain/` (`raster`, `heightfield`, `chunks`) does
+Rec. 709 luminance, Catmull-Rom resampling, Gaussian pre-smooth, normals, 16-bin stats, 65/129-vertex chunks, four LODs
+with outward-wound skirts, and `selectLod`. `terrain-worker` is a utility process on the `sf3d-broker.ts` shape
+(`terrain-broker.ts`): one lane, latest build per terrain wins, cancel kills the child, a crash settles every pending build,
+and the worker writes `.build-tmp-<id>/` that main swaps over `build/` only on success. Stages today: `decode`,
+`heightfield`, `write` (`heights.f32`, `chunks.json`). A spec with only noise answers "Noise terrains are not available
+yet" until Theme C.
 
 **Theme C — No heightmap: warn, then noise or upload.** ◻ Not started. `terrain-build` answers
 `{status: 'needs-height-source'}` instead of guessing; the dialog offers noise, upload or a prompt;
@@ -197,7 +208,7 @@ an `MSTUDIO_SHOTS` spec, a three.js manifest-load test, and two human passes.
 The sixth Media tab, in the same three-column frame (`MediaLayout` in
 [`media-layout.tsx`](../../../packages/app/src/features/media/media-layout.tsx)) as the others.
 
-- [ ] `'terrain'` added to `MEDIA_TABS`. Fill every `Record<MediaTab, …>` the compiler flags (`MEDIA_TAB_EXPORT_FORMATS`, `MEDIA_TAB_META` with a `react-icons/lu` mountain glyph, `TAB_BODY`), plus `MEDIA_LAYOUT_KEYS` and its two `LayoutSizes` width keys. Make a deliberate call on `REPO_SCOPED_MEDIA_TABS` (rec: repo-scoped, like Models) and record it here
+- [x] `'terrain'` added to `MEDIA_TABS`. Fill every `Record<MediaTab, …>` the compiler flags (`MEDIA_TAB_EXPORT_FORMATS`, `MEDIA_TAB_META` with a `react-icons/lu` mountain glyph, `TAB_BODY`), plus `MEDIA_LAYOUT_KEYS` and its two `LayoutSizes` width keys. Make a deliberate call on `REPO_SCOPED_MEDIA_TABS` (rec: repo-scoped, like Models) and record it here
   - `MEDIA_TABS` becomes `['doc', 'image', 'video', 'audio', 'model', 'terrain']` (appended, so existing
     tab order and `mediaTabId`/`mediaPanelId` ids are unchanged).
   - **Resolved: repo-scoped.** `REPO_SCOPED_MEDIA_TABS` becomes `['doc', 'image', 'audio', 'model', 'terrain']`
@@ -213,7 +224,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
     `mediaTerrainDetailWidth` (default 360, bounds `{min: 260, max: 640}`) in `DEFAULT_LAYOUT` and
     `LAYOUT_BOUNDS`, mirroring the Models keys; `MEDIA_LAYOUT_KEYS.terrain = { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' }`.
     Persist `version` stays `31` (the `layout` merge default-fills new keys).
-- [ ] `TerrainSpecSchema` in a new `shared/src/media-terrain.ts`:
+- [x] `TerrainSpecSchema` in a new `shared/src/media-terrain.ts`:
   - `inputs`: `heightmap`, `satellite` and `roads`, each an optional file ref inside the terrain folder
     - `TerrainInputRefSchema = z.object({ file: z.string().regex(/^inputs\/(heightmap|satellite|roads)\.png$/), sourceName: z.string().max(255), width: z.number().int().positive(), height: z.number().int().positive(), bitDepth: z.union([z.literal(8), z.literal(16)]) })`.
       The file is always the transcoded PNG (Decision 4); `sourceName` keeps the original filename for display.
@@ -243,7 +254,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
       `parseTerrainSpec(value: unknown): TerrainSpec` returns the defaulted spec and never throws on a
       missing optional field (it throws only on a wrong `version`).
     - `textureSize: 1024 | 2048 | 4096 | 8192` (default `2048`, Theme E) and `name: z.string().max(120)` are also top level.
-- [ ] Library layout `.midnite/media/terrain/<group>/<terrain>/`:
+- [x] Library layout `.midnite/media/terrain/<group>/<terrain>/`:
   - `terrain.json` (the spec, source of truth)
   - `inputs/` (copied images, never referenced in place)
   - `build/` (generated heightfield, maps and chunks; disposable and rebuildable)
@@ -259,7 +270,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
     `DEFAULT_TERRAIN_PROJECT = 'terrains'`.
   - `build/` contents are fixed by Theme B/E/F/G/H (listed in `TERRAIN_BUILD_FILES` in
     `media-terrain.ts`, so I and the tests read one list).
-- [ ] Create panel (right column): three labelled attach slots, **Heightmap**, **Satellite** and **Roads mask**. Each has a one-line explanation of what it does, a thumbnail and a remove button, and accepts drag and drop. All three are visibly optional. Below them sit resolution, world size, height range and a Generate button
+- [x] Create panel (right column): three labelled attach slots, **Heightmap**, **Satellite** and **Roads mask**. Each has a one-line explanation of what it does, a thumbnail and a remove button, and accepts drag and drop. All three are visibly optional. Below them sit resolution, world size, height range and a Generate button
   - Component `TerrainPanel` in `app/features/media/terrain/terrain-panel.tsx`; each slot is
     `TerrainInputSlot({ slot, input, onAttach, onRemove })` in `terrain-input-slot.tsx`.
   - Copy, verbatim: Heightmap — _"Greyscale image: brighter is higher. Optional."_; Satellite —
@@ -278,7 +289,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
     Generate is disabled while a build for this terrain is in flight and becomes **Cancel** (Theme B).
   - Keyboard: every slot is a focusable `button` (Enter/Space opens the picker; Delete on a filled slot
     removes it). Focus order: slots top to bottom, then the fields, then Generate.
-- [ ] Explorer (left column) reuses `media-projects-accordion.tsx` for groups and terrains
+- [x] Explorer (left column) reuses `media-projects-accordion.tsx` for groups and terrains
   - `MediaProjectsAccordion({ repoId, tab: 'terrain', selection, onSelect, fileFilter })` with
     `fileFilter = (path) => /^[^/]+\/terrain\.json$/.test(path)` (Decision 6), so a project (group) lists
     one row per terrain folder. The row label is the folder's spec `name` when loaded, else the folder name.
@@ -286,7 +297,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
     the row context menu offers **Rename**, **Duplicate** and **Delete** (`op: 'rename' | 'duplicate' | 'delete'`);
     Delete moves the folder to the Trash through `media-store` and asks first with the folder name.
   - Empty state copy: _"No terrains yet. Create one, or ask an agent to with `terrain_set_spec`."_
-- [ ] `mstudio:media:terrain-*` IPC channels and payload schemas in `shared`, with `GitOpResult` envelopes and `media:changed` on writes
+- [x] `mstudio:media:terrain-*` IPC channels and payload schemas in `shared`, with `GitOpResult` envelopes and `media:changed` on writes
   - In `CHANNELS` ([`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), beside the
     `mediaModel*` block): `mediaTerrainLibrary: 'mstudio:media:terrain-library'` (op-union
     `create | rename | duplicate | delete`, the `ModelLibraryRequestSchema` pattern),
@@ -306,14 +317,14 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
     `registerMediaModelHandlers()`.
   - Every write calls `notifyMediaChanged(repoId, 'terrain')` and broadcasts `mediaTerrainChanged`.
     A failure is `{ok: false, kind: 'error', message}` with the literal messages listed per theme; nothing throws.
-- [ ] Vitest: schema defaults and round trip, an old or minimal spec parses, the tab appears in the strip, and the explorer lists a seeded terrain via the mock bridge
+- [x] Vitest: schema defaults and round trip, an old or minimal spec parses, the tab appears in the strip, and the explorer lists a seeded terrain via the mock bridge
   - `shared/src/media-terrain.test.ts`: `parseTerrainSpec({})` equals `TERRAIN_SPEC_DEFAULTS`; a full spec
     round-trips through `JSON.stringify`/parse unchanged; a `resolution: 500` is rejected; `heightRange: [5, 5]` is rejected.
   - `app/src/features/media/terrain/terrain-tab.bridge.test.tsx`: `renderView(<MediaView />, { fixtures, uiState: { selectedRepoId: 'repo-1', mediaTab: 'terrain' } })`
     with `media.files['terrain:terrains'] = { 'dunes-20261004-120000/terrain.json': … }` shows a tab named
     **Terrain** and one explorer row **dunes**; with no repo it shows `NoRepoMediaState`.
   - `mock-bridge.ts` learns `media.terrain.*` (returns the seeded spec; `build` resolves `{status: 'built'}`).
-- [ ] `TerrainStatsSchema` and `TerrainBuildResultSchema` in `media-terrain.ts`, shared by the panel, the viewer, the build channel and MCP
+- [x] `TerrainStatsSchema` and `TerrainBuildResultSchema` in `media-terrain.ts`, shared by the panel, the viewer, the build channel and MCP
   - `TerrainStats = { resolution, worldSize, vertexCount, triangleCount (LOD 0), chunkCount, lodCount, buildMs, minHeight, maxHeight, histogram: number[16], classPercent?: Record<TerrainClass, number>, roadCount?, roadLengthM?, buildingCount?, foliageCount?, warnings: string[] }`.
   - `TerrainBuildResult = { status: 'built', stats: TerrainStats } | { status: 'needs-height-source' }`, carried as `GitOpResult<TerrainBuildResult>`.
   - Vitest in `media-terrain.test.ts`: both arms parse; an unknown `status` is rejected.
@@ -323,7 +334,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
 From an image to a grid of heights to meshes a renderer can stream. Re-tagged **M/L → L** by the x1
 refinement: the codec, the worker and the kernel are three separable PRs.
 
-- [ ] **PNG and JPEG decode in desktop main** that keeps 16-bit greyscale. There is no production PNG decoder in the tree today (only tests inflate PNGs), and Electron's `nativeImage` is 8-bit BGRA, which would quantise a 16-bit heightmap to 256 steps. Write a small decoder on `node:zlib` (greyscale, RGB and RGBA at 8 and 16 bits, palette, all five filter types; refuse interlaced with a readable error). JPEG and WebP go through `nativeImage`, since they are 8-bit anyway. The output is a plain `{width, height, channels, bitDepth, data}` passed to the kernel
+- [x] **PNG and JPEG decode in desktop main** that keeps 16-bit greyscale. There is no production PNG decoder in the tree today (only tests inflate PNGs), and Electron's `nativeImage` is 8-bit BGRA, which would quantise a 16-bit heightmap to 256 steps. Write a small decoder on `node:zlib` (greyscale, RGB and RGBA at 8 and 16 bits, palette, all five filter types; refuse interlaced with a readable error). JPEG and WebP go through `nativeImage`, since they are 8-bit anyway. The output is a plain `{width, height, channels, bitDepth, data}` passed to the kernel
   - File: new `packages/desktop/src/main/media/png/png-codec.ts` (no `electron` import, so it runs in the
     utility process and under bare vitest). Exports:
     - `decodePng(bytes: Uint8Array): { ok: true; image: RasterImage } | { ok: false; message: string }`
@@ -346,14 +357,14 @@ refinement: the codec, the worker and the kernel are three separable PRs.
     8-bit source above the side cap is downscaled at attach (`nativeImage.resize`, `quality: 'best'`) with
     the warning _"Downscaled from W×H to the 8192 px limit."_; a 16-bit PNG above it is refused
     (_"16-bit heightmaps larger than 8192 px are not supported."_) because `nativeImage` would quantise it.
-- [ ] RGB heightmaps are reduced to luminance, with a warning that an 8-bit source will terrace. The 8-bit terrace is visibly softened by an optional pre-smooth
+- [x] RGB heightmaps are reduced to luminance, with a warning that an 8-bit source will terrace. The 8-bit terrace is visibly softened by an optional pre-smooth
   - `toHeightSamples(image: RasterImage): { samples: Float32Array; warnings: string[] }` in
     `shared/src/terrain/raster.ts`: grey is used as-is; RGB/RGBA use Rec. 709 luma
     `0.2126 R + 0.7152 G + 0.0722 B`; alpha is ignored. Output is normalised to `[0, 1]`.
   - An 8-bit source adds _"8-bit heightmap: expect visible terracing. Pre-smooth is on."_ to
     `stats.warnings`, and the spec's `preSmooth` (new field, `0–4` px Gaussian sigma, default `1` for
     8-bit sources and `0` for 16-bit, decided at attach) is applied before resampling.
-- [ ] Kernel `shared/src/terrain/heightfield.ts`: bicubic resample to the chosen 2ⁿ+1 grid, map to `heightRange`, optional Gaussian smoothing, edge clamp, central-difference normals, and min, max and histogram stats
+- [x] Kernel `shared/src/terrain/heightfield.ts`: bicubic resample to the chosen 2ⁿ+1 grid, map to `heightRange`, optional Gaussian smoothing, edge clamp, central-difference normals, and min, max and histogram stats
   - Exports: `type Heightfield = { resolution: number; worldSize: number; heights: Float32Array }`
     (row-major, `heights[z * resolution + x]`, metres); `resampleBicubic(src: Float32Array, srcW, srcH, res): Float32Array`
     (Catmull-Rom kernel, a = −0.5, edge-clamped; a non-square source is stretched to square and adds
@@ -361,7 +372,7 @@ refinement: the codec, the worker and the kernel are three separable PRs.
     `gaussianBlur(h: Float32Array, res, sigma): Float32Array` (separable, radius `ceil(3σ)`);
     `heightfieldNormals(f: Heightfield): Float32Array` (central differences, one-sided at edges,
     normalised); `heightfieldStats(f): { min, max, histogram: number[] }` (16 equal bins).
-- [ ] **Chunking and LOD**: split into 65- or 129-vertex chunks (chosen from the resolution), build 3–4 LOD levels per chunk with skirts to hide cracks, and compute bounds per chunk. Pure TS on typed arrays
+- [x] **Chunking and LOD**: split into 65- or 129-vertex chunks (chosen from the resolution), build 3–4 LOD levels per chunk with skirts to hide cracks, and compute bounds per chunk. Pure TS on typed arrays
   - `shared/src/terrain/chunks.ts`. **Rule:** `chunkVerts(resolution) = resolution <= 1025 ? 65 : 129`;
     chunks overlap by one vertex so `chunksPerSide = (resolution − 1) / (chunkVerts − 1)`; `lodCount = 4`
     (vertex step `1, 2, 4, 8`).
@@ -372,7 +383,7 @@ refinement: the codec, the worker and the kernel are three separable PRs.
     so mixed-LOD neighbours never show a gap.
   - LOD selection (used by D and by Phase 107's kit via the manifest): `selectLod(distance, chunkWorldSize)`
     returns `0` below `1.5 ×`, `1` below `3 ×`, `2` below `6 ×`, else `3` chunk widths. Exported so both read one rule.
-- [ ] Building runs in a worker (desktop utility process or renderer Web Worker; decide here and record why), so a 4097² build never blocks a frame. Progress goes out on `mstudio:media:terrain-progress`, and a run can be cancelled
+- [x] Building runs in a worker (desktop utility process or renderer Web Worker; decide here and record why), so a 4097² build never blocks a frame. Progress goes out on `mstudio:media:terrain-progress`, and a run can be cancelled
   - **Resolved: a desktop utility process** (Decision 2) on the `sf3d-broker.ts` shape: new
     `packages/desktop/src/terrain-worker/index.ts` (entry), `main/media/terrain/terrain-broker.ts`
     (`createTerrainBroker({ spawn }): TerrainBroker`, `terrainWorkerScriptPath(dirname)`),
@@ -397,7 +408,7 @@ refinement: the codec, the worker and the kernel are three separable PRs.
     of memory). Try a lower resolution."_
   - Observability: main logs one line per build through the existing log seam —
     `terrain build <terrain> res=<n> stages=<list> ms=<n> ok|cancelled|failed:<message>` — and nothing per stage.
-- [ ] Vitest: a 16-bit PNG fixture decodes to exact values, an 8-bit RGB decodes to luminance, an interlaced PNG is refused with a readable error, resampling is exact on grid points, normals of a plane and a cone are correct, and LOD chunks share edge heights (no cracks)
+- [x] Vitest: a 16-bit PNG fixture decodes to exact values, an 8-bit RGB decodes to luminance, an interlaced PNG is refused with a readable error, resampling is exact on grid points, normals of a plane and a cone are correct, and LOD chunks share edge heights (no cracks)
   - `desktop/src/main/media/png/png-codec.test.ts`: fixtures are built in-test with `encodePngGrey16`
     and a hand-written interlaced IHDR; `decodePng(encodePngGrey16(d, 3, 2))` returns `d` bit-exactly;
     all five filter types decode a fixture row each; the three refusal messages match literally.

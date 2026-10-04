@@ -23,12 +23,18 @@ export function MediaProjectsAccordion({
   selection,
   onSelect,
   fileFilter,
+  fileLabel,
+  onFileContextMenu,
 }: {
   repoId: string;
   tab: MediaTab;
   selection: MediaSelection | null;
   onSelect: (selection: MediaSelection) => void;
   fileFilter?: (path: string) => boolean;
+  /** What a row shows instead of its path (Terrain: the folder's name, not `<folder>/terrain.json`). */
+  fileLabel?: (path: string) => string;
+  /** A right-click on a file row. */
+  onFileContextMenu?: (event: React.MouseEvent, project: string, path: string) => void;
 }) {
   const projects = useMediaProjects(repoId, tab);
   const mutations = useMediaMutations(repoId, tab);
@@ -118,6 +124,8 @@ export function MediaProjectsAccordion({
                   selection={selection}
                   onSelect={onSelect}
                   {...(fileFilter ? { fileFilter } : {})}
+                  {...(fileLabel ? { fileLabel } : {})}
+                  {...(onFileContextMenu ? { onFileContextMenu } : {})}
                 />
               ),
             }))}
@@ -135,6 +143,8 @@ function ProjectFiles({
   selection,
   onSelect,
   fileFilter,
+  fileLabel,
+  onFileContextMenu,
 }: {
   repoId: string;
   tab: MediaTab;
@@ -142,6 +152,8 @@ function ProjectFiles({
   selection: MediaSelection | null;
   onSelect: (selection: MediaSelection) => void;
   fileFilter?: (path: string) => boolean;
+  fileLabel?: (path: string) => string;
+  onFileContextMenu?: (event: React.MouseEvent, project: string, path: string) => void;
 }) {
   const files = useMediaFiles(repoId, tab, project);
   const shown = (files.data ?? []).filter((f) => !fileFilter || fileFilter(f.path));
@@ -158,12 +170,13 @@ function ProjectFiles({
               type="button"
               aria-current={active || undefined}
               onClick={() => onSelect({ project, path: file.path })}
+              onContextMenu={onFileContextMenu ? (event) => onFileContextMenu(event, project, file.path) : undefined}
               className={`flex w-full items-center gap-1.5 truncate py-1 pl-6 pr-2 text-left text-xs ${
                 active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
               }`}
             >
               <LuFile aria-hidden className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{file.path}</span>
+              <span className="truncate">{fileLabel ? fileLabel(file.path) : file.path}</span>
             </button>
           </li>
         );

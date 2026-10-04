@@ -757,6 +757,12 @@ export type MockFixtures = {
         models: { id: string; label: string; vision: boolean; embedding?: boolean }[];
       };
     };
+    /**
+     * Terrain tab: `media.terrain.*`. Terrains live in `files['terrain:<group>']` as
+     * `<terrain>/terrain.json`. `build` answers `needs-height-source` when the spec has neither a
+     * heightmap nor noise, else `built` with `stats` (default: a 513² terrain).
+     */
+    terrain?: { stats?: Record<string, unknown> };
   };
   /**
    * The Chats page (`chats.*`). `seed` is a list of whole `Chat` objects
@@ -3561,6 +3567,100 @@ export function buildMockBridge(data: MockFixtures) {
           return () => modelEvents.open.delete(handler);
         },
       },
+      terrain: (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a loose stand-in for the spec JSON
+        type Spec = Record<string, any>;
+        const readSpec = (group: string, terrain: string): Spec | null => {
+          const raw = mediaFiles[`terrain:${group}`]?.[`${terrain}/terrain.json`];
+          return raw ? (JSON.parse(raw) as Spec) : null;
+        };
+        const writeSpec = (group: string, terrain: string, spec: Spec) => {
+          const key = `terrain:${group}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${terrain}/terrain.json`]: JSON.stringify(spec) } };
+        };
+        const missing = { ok: false as const, kind: 'error' as const, message: 'Terrain not found.' };
+        const defaults = {
+          version: 1, name: 'Terrain', inputs: {}, resolution: 513, worldSize: 1024, heightRange: [0, 200], preSmooth: 0,
+          alignment: { roads: 'satellite' }, textureSize: 2048,
+        };
+        const stats = data.media?.terrain?.stats ?? {
+          resolution: 513, worldSize: 1024, vertexCount: 263169, triangleCount: 524288, chunkCount: 64, lodCount: 4,
+          buildMs: 420, minHeight: 0, maxHeight: 200, histogram: new Array(16).fill(100), warnings: [],
+        };
+        const listeners = { progress: new Set<(e: unknown) => void>(), changed: new Set<(e: unknown) => void>(), open: new Set<(e: unknown) => void>() };
+        return {
+          library: async (req: Spec) => {
+            if (req.op === 'create') {
+              const project = req.project ?? 'terrains';
+              const terrain = `${String(req.name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-20261004-120000`;
+              writeSpec(project, terrain, { ...defaults, name: req.name });
+              return { ok: true as const, value: { project, terrain } };
+            }
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            if (req.op === 'delete') {
+              const key = `terrain:${req.project}`;
+              const { [`${req.terrain}/terrain.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+              return { ok: true as const, value: {} };
+            }
+            const terrain = req.op === 'rename' ? `${String(req.to).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-20261004-120000` : `${req.terrain}-copy`;
+            writeSpec(req.project, terrain, { ...spec, name: req.op === 'rename' ? req.to : `${spec.name} copy` });
+            if (req.op === 'rename') {
+              const key = `terrain:${req.project}`;
+              const { [`${req.terrain}/terrain.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+            }
+            return { ok: true as const, value: { project: req.project, terrain } };
+          },
+          get: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            return spec ? { ok: true as const, value: { spec: { ...defaults, ...spec }, built: Boolean(spec.lastBuild) } } : missing;
+          },
+          setSpec: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            const next = { ...defaults, ...spec, ...req.patch };
+            writeSpec(req.project, req.terrain, next);
+            return { ok: true as const, value: { spec: next } };
+          },
+          setInput: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            if (req.remove) {
+              const { [req.slot]: _gone, ...inputs } = spec.inputs ?? {};
+              writeSpec(req.project, req.terrain, { ...spec, inputs });
+              return { ok: true as const, value: { warnings: [] } };
+            }
+            const input = { file: `inputs/${req.slot}.png`, sourceName: req.name, width: 512, height: 512, bitDepth: 16 };
+            writeSpec(req.project, req.terrain, { ...spec, inputs: { ...(spec.inputs ?? {}), [req.slot]: input } });
+            return { ok: true as const, value: { input, warnings: [] } };
+          },
+          build: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            if (!spec.inputs?.heightmap && !spec.noise) return { ok: true as const, value: { status: 'needs-height-source' as const } };
+            writeSpec(req.project, req.terrain, { ...spec, lastBuild: { at: '2026-10-04T12:00:00.000Z', buildMs: 420, stats } });
+            return { ok: true as const, value: { status: 'built' as const, stats } };
+          },
+          cancel: async () => ({ ok: true as const }),
+          paint: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          roadKey: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          onProgress: (handler: (event: unknown) => void) => {
+            listeners.progress.add(handler);
+            return () => listeners.progress.delete(handler);
+          },
+          onChanged: (handler: (event: unknown) => void) => {
+            listeners.changed.add(handler);
+            return () => listeners.changed.delete(handler);
+          },
+          onOpen: (handler: (event: unknown) => void) => {
+            listeners.open.add(handler);
+            return () => listeners.open.delete(handler);
+          },
+        };
+      })(),
       reveal: async () => ({ ok: true as const }),
       ffmpegStatus: async () => ({
         ffmpeg: data.media?.ffmpeg ?? {

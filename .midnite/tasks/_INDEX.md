@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [107 · Games](phases/phase-107-games.md) | ◻ TODO | x1 | 0/90 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L M N O P Q |
 | [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | ◻ TODO | x1 | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L |
-| [105 · Terrain](phases/phase-105-terrain.md) | ◻ TODO | x1 | 0/72 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
+| [105 · Terrain](phases/phase-105-terrain.md) | 🔄 WIP | x1 | 14/72 | `██░░░░░░░░` | 19% | — | C D E F G H I J K |
 | [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
 | [103 · Models: fidelity, rigging and animation](phases/phase-103-models-rig-anim.md) | 🔄 WIP | — | 60/62 | `██████████` | 97% | J, L | — |
 | [102 · Chats page](phases/phase-102-chats-page.md) | 🔄 WIP | — | 24/26 | `█████████░` | 92% | — | (D: live per-edit approval; F: packaged-app pass against the real CLIs) |

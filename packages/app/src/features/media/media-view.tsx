@@ -6,6 +6,7 @@ import { AudioTab } from './audio/audio-tab';
 import { DocsTab } from './doc/docs-tab';
 import { ImageTab } from './image/image-tab';
 import { ModelTab } from './model/model-tab';
+import { TerrainTab } from './terrain/terrain-tab';
 import { MediaTabStrip } from './media-tab-strip';
 import { useMediaChangedInvalidation } from './use-media';
 import { VideoTab } from './video/video-tab';
@@ -23,6 +24,7 @@ const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   video: () => <VideoTab />,
   audio: () => <AudioTab />,
   model: () => <ModelTab />,
+  terrain: () => <TerrainTab />,
 };
 
 export function MediaView() {

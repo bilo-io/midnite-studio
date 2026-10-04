@@ -17,7 +17,7 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -26,7 +26,7 @@ export type MediaTab = z.infer<typeof MediaTabSchema>;
  * need an open repo. Video resolves its own root (Theme D), falling back to
  * Phase 44's global setting, so it keeps working with no repo open.
  */
-export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model'];
+export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model', 'terrain'];
 
 /** `<repo>/.midnite/media` — joined with the tab id for each tab's root. */
 export const MEDIA_ROOT_DIR = '.midnite/media';
@@ -95,6 +95,8 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   video: ['mp4', 'webm', 'gif', 'prores'],
   audio: ['mp3', 'wav', 'flac'],
   model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
+  // Theme I (Phase 105) puts `terrain-pack` first; until then a terrain exports as one glb.
+  terrain: ['glb'],
 };
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */
