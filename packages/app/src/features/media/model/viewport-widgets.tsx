@@ -1,8 +1,8 @@
 import { LuAxis3D, LuGrid3X3, LuMove3D, LuRotate3D, LuScale3D, LuSquareDashed } from 'react-icons/lu';
 import { IconButton } from '../../../components/icon-button';
 import { Tooltip } from '../../../components/tooltip';
-import type { SnapSettings, TransformMode } from './editor-state';
-import { ANGLE_STEPS, GRID_STEPS } from './snap';
+import type { TransformMode } from './editor-scene';
+import { ANGLE_STEPS, GRID_STEPS, type SnapSettings } from './snap';
 
 /**
  * Floating viewport widgets docked at the top-center of the 3D canvas.

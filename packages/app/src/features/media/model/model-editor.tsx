@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState, type Dispatch, type KeyboardEvent } from 
 import {
   LuAxis3D,
   LuCircleHelp,
-  LuCube,
+  LuBox,
+  LuScanEye,
   LuEye,
-  LuGrid3X3,
+  LuGrid2X2,
   LuRedo2,
   LuRotateCcw,
   LuRuler,
@@ -24,7 +25,7 @@ import { DEFAULT_LIGHTING, LIGHTING_PRESETS, lightingById } from './lighting';
 import { ModelInspector } from './model-inspector';
 import { boundsOf, distanceBetween, formatSize, sizeOf, type CameraView } from './scene-bounds';
 import { ShortcutHelp } from './shortcut-help';
-import { DEFAULT_SNAP, type SnapSettings } from './snap';
+import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
 import { editorScene } from './spec-geometry';
 import { withDescendants } from './spec-edit';
 import { ViewportWidgets } from './viewport-widgets';
@@ -37,8 +38,8 @@ import { ViewportWidgets } from './viewport-widgets';
  * The canvas draws on demand (`frameloop="demand"`): an idle editor is idle.
  */
 const SHADES: IconSelectOption[] = [
-  { value: 'solid', label: 'Solid', icon: LuCube, description: 'Solid shading with materials' },
-  { value: 'wireframe', label: 'Wireframe', icon: LuGrid3X3, description: 'Show mesh wireframe edges' },
+  { value: 'solid', label: 'Solid', icon: LuBox, description: 'Solid shading with materials' },
+  { value: 'wireframe', label: 'Wireframe', icon: LuGrid2X2, description: 'Show mesh wireframe edges' },
   { value: 'normals', label: 'Normals', icon: LuAxis3D, description: 'Visualize surface normals' },
 ];
 const CAMERAS: IconSelectOption[] = [
@@ -57,7 +58,7 @@ export const canUseWebGL = (): boolean => {
   }
 };
 
-const RADIO = (on: boolean) => `h-6 rounded-md px-1.5 text-[11px] ${on ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`;
+const SELECT = 'h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground';
 
 export default function ModelEditor({
   state,
@@ -166,13 +167,11 @@ export default function ModelEditor({
           options={SHADES}
           value={shade}
           onChange={(value) => setShade(value as ShadeMode)}
-          icon={LuCube}
+          icon={LuBox}
           label="Shading"
           description="Choose rendering mode"
         />
-        <button type="button" aria-pressed={xray} onClick={() => setXray((on) => !on)} className={RADIO(xray)} title="X-ray (X)">
-          X-ray
-        </button>
+        <IconButton icon={LuScanEye} label="X-ray (X)" size="sm" aria-pressed={xray} onClick={() => setXray((on) => !on)} />
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
         <IconSelect
           options={CAMERAS}

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS, shotPath } from './shots-helper';
+import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS, shotPath } from './shots-helper';
 
 /** Media ▸ Models compact toolbar screenshots for the PR. Run with `MSTUDIO_SHOTS=1`. */
 const OUT = '../../docs/screenshots/adhoc-models-toolbar-compact';
@@ -48,30 +48,38 @@ test.describe('media models toolbar compact screenshots', () => {
     await installMockBridge(page, DATA);
     await page.goto('/');
 
-    // Wait for the app to load
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible({ timeout: 120_000 });
-
-    // Take a simple screenshot showing the app has loaded
-    await settle(page, 500);
+    await expect(async () => {
+      await clickRailLink(page, 'Media');
+      await page.getByRole('tab', { name: 'Models' }).click();
+      await expect(page.getByRole('tab', { name: 'Models', selected: true })).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 5000 });
+    await expect(page.getByTestId('model-canvas')).toBeVisible({ timeout: 30_000 });
+    await settle(page, 800);
+    const toolbar = page.getByRole('toolbar', { name: 'Editor tools' });
+    await expect(toolbar).toBeVisible();
     await page.screenshot({ path: shotPath(OUT, 'toolbar.png') });
 
-    // Try to navigate to Media, but don't fail if it times out
-    try {
-      await page.evaluate(() => {
-        const mediaLink = Array.from(document.querySelectorAll('button, a')).find((el) => el.textContent?.includes('Media'));
-        if (mediaLink) (mediaLink as HTMLElement).click();
-      });
-      await settle(page, 1000);
-      await page.screenshot({ path: shotPath(OUT, 'shading-dropdown.png') });
-    } catch {
-      // If Media navigation fails, just use a fallback screenshot
-      await page.screenshot({ path: shotPath(OUT, 'shading-dropdown.png') });
-    }
+    // Shading dropdown open
+    await page.getByRole('button', { name: /^Shading:/ }).click();
+    await expect(page.getByRole('listbox', { name: 'Shading' })).toBeVisible();
+    await settle(page, 300);
+    await page.screenshot({ path: shotPath(OUT, 'shading-dropdown.png') });
+    await page.getByRole('option', { name: 'Wireframe' }).click();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(900, 500);
 
-    // Third screenshot
+    // Tooltip: label plus subtitle
+    await page.getByRole('button', { name: /^Projection:/ }).hover();
+    await expect(page.getByText('Camera projection mode')).toBeVisible({ timeout: 5000 });
     await page.screenshot({ path: shotPath(OUT, 'tooltip.png') });
 
-    // Fourth screenshot
+    // Floating widgets, docked top centre of the viewport
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.mouse.move(900, 500);
+    await expect(page.getByText('Camera projection mode')).toBeHidden();
+    await expect(page.getByRole('radiogroup', { name: 'Transform mode' })).toBeVisible();
+    await settle(page, 300);
     await page.screenshot({ path: shotPath(OUT, 'viewport-widgets.png') });
   });
 });

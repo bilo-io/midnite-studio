@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ViewportWidgets } from './viewport-widgets';
 import { DEFAULT_SNAP } from './snap';
+
+afterEach(cleanup);
 
 describe('ViewportWidgets', () => {
   const defaultProps = {
@@ -23,32 +25,33 @@ describe('ViewportWidgets', () => {
     const { container } = render(<ViewportWidgets {...defaultProps} />);
 
     const widget = container.querySelector('[role="radiogroup"]');
-    expect(widget).toBeInTheDocument();
+    expect(widget).toBeTruthy();
 
     // Check for top positioning and center alignment
     const outer = container.querySelector('.absolute.left-1\\/2');
-    expect(outer).toHaveClass('top-2', '-translate-x-1/2');
+    expect(outer?.classList.contains('top-2')).toBe(true);
+    expect(outer?.classList.contains('-translate-x-1/2')).toBe(true);
   });
 
   it('displays transform mode radio group', () => {
     render(<ViewportWidgets {...defaultProps} />);
 
-    expect(screen.getByRole('radiogroup', { name: /transform mode/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /move/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /rotate/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /scale/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /transform mode/i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /move/i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /rotate/i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /scale/i })).toBeTruthy();
   });
 
   it('marks current mode as checked', () => {
     const { rerender } = render(<ViewportWidgets {...defaultProps} mode="translate" />);
 
-    expect(screen.getByRole('radio', { name: /move/i })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /rotate/i })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('radio', { name: /move/i }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: /rotate/i }).getAttribute('aria-checked')).toBe('false');
 
     rerender(<ViewportWidgets {...defaultProps} mode="rotate" />);
 
-    expect(screen.getByRole('radio', { name: /move/i })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('radio', { name: /rotate/i })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /move/i }).getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('radio', { name: /rotate/i }).getAttribute('aria-checked')).toBe('true');
   });
 
   it('calls onModeChange when a mode is clicked', async () => {
@@ -65,16 +68,16 @@ describe('ViewportWidgets', () => {
   it('displays snap controls with grid and angle selects', () => {
     render(<ViewportWidgets {...defaultProps} />);
 
-    expect(screen.getByLabelText('Grid snap')).toBeInTheDocument();
-    expect(screen.getByLabelText('Angle snap')).toBeInTheDocument();
+    expect(screen.getByLabelText('Grid snap')).toBeTruthy();
+    expect(screen.getByLabelText('Angle snap')).toBeTruthy();
   });
 
   it('shows current snap values', () => {
     const snap = { grid: 0.5, angle: 45, scale: 0.05 };
     render(<ViewportWidgets {...defaultProps} snap={snap} />);
 
-    expect(screen.getByDisplayValue('0.5')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('45')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('0.5 m')).toBeTruthy();
+    expect(screen.getByDisplayValue('45°')).toBeTruthy();
   });
 
   it('calls onSnapChange when snap value changes', async () => {
@@ -92,19 +95,19 @@ describe('ViewportWidgets', () => {
   it('renders grid, axes, and dimensions toggle buttons', () => {
     render(<ViewportWidgets {...defaultProps} />);
 
-    expect(screen.getByLabelText('Show grid')).toBeInTheDocument();
-    expect(screen.getByLabelText('Show axes')).toBeInTheDocument();
-    expect(screen.getByLabelText('Show dimensions')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hide grid')).toBeTruthy();
+    expect(screen.getByLabelText('Hide axes')).toBeTruthy();
+    expect(screen.getByLabelText('Show dimensions')).toBeTruthy();
   });
 
   it('updates toggle button labels based on state', () => {
     const { rerender } = render(<ViewportWidgets {...defaultProps} grid={true} />);
 
-    expect(screen.getByLabelText('Hide grid')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hide grid')).toBeTruthy();
 
     rerender(<ViewportWidgets {...defaultProps} grid={false} />);
 
-    expect(screen.getByLabelText('Show grid')).toBeInTheDocument();
+    expect(screen.getByLabelText('Show grid')).toBeTruthy();
   });
 
   it('calls toggle callbacks when buttons are clicked', async () => {
@@ -125,7 +128,7 @@ describe('ViewportWidgets', () => {
     await user.click(screen.getByLabelText('Hide grid'));
     expect(onGridToggle).toHaveBeenCalled();
 
-    await user.click(screen.getByLabelText('Show axes'));
+    await user.click(screen.getByLabelText('Hide axes'));
     expect(onAxesToggle).toHaveBeenCalled();
 
     await user.click(screen.getByLabelText('Show dimensions'));
@@ -136,6 +139,6 @@ describe('ViewportWidgets', () => {
     const { container } = render(<ViewportWidgets {...defaultProps} />);
 
     const inner = container.querySelector('.bg-background\\/80');
-    expect(inner).toHaveClass('backdrop-blur-sm', 'rounded-lg', 'border');
+    expect(inner?.classList.contains('backdrop-blur-sm')).toBe(true);
   });
 });

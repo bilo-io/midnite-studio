@@ -44,7 +44,6 @@ export function IconSelect({
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const id = useId();
   const menuId = useId();
 
   const selectedOption = options.find((o) => o.value === value);
@@ -81,11 +80,11 @@ export function IconSelect({
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-haspopup="listbox"
-          aria-labelledby={id}
+          aria-label={`${label}: ${selectedOption?.label ?? 'none'}`}
           className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-1.5 text-xs text-foreground hover:bg-accent/60 hover:text-foreground transition-colors"
         >
           <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          <span id={id} className="max-w-[6rem] truncate text-left">
+          <span className="max-w-[6rem] truncate text-left">
             {selectedOption?.label ?? 'Select'}
           </span>
           <LuChevronDown

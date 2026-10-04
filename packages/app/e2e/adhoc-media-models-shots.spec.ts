@@ -66,7 +66,7 @@ test.describe('media models screenshots', () => {
     await page.screenshot({ path: shotPath(OUT, 'models-selected.png') });
 
     // Open shading dropdown and screenshot it
-    const shadingButton = page.getByRole('button', { name: /Solid/ });
+    const shadingButton = page.getByRole('button', { name: /^Shading:/ });
     await shadingButton.click();
     await expect(page.getByRole('listbox', { name: /Shading/i })).toBeVisible();
     await settle(page, 300);
@@ -78,7 +78,7 @@ test.describe('media models screenshots', () => {
     await page.screenshot({ path: shotPath(OUT, 'models-wireframe.png') });
 
     // Open shading dropdown again and select Normals
-    const shadingButton2 = page.getByRole('button', { name: /Wireframe/ });
+    const shadingButton2 = page.getByRole('button', { name: /^Shading:/ });
     await shadingButton2.click();
     await expect(page.getByRole('listbox', { name: /Shading/i })).toBeVisible();
     await page.getByRole('option', { name: 'Normals' }).click();

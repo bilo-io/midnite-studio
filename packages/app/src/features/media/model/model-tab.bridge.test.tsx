@@ -158,10 +158,14 @@ describe('Models tab', () => {
       expect(screen.getByRole('radio', { name: 'Scale' }).getAttribute('aria-checked')).toBe('true');
       fireEvent.keyDown(screen.getByTestId('model-editor'), { key: 'w' });
       expect(screen.getByRole('radio', { name: 'Move' }).getAttribute('aria-checked')).toBe('true');
-      fireEvent.click(screen.getByRole('radio', { name: 'Wireframe' }));
-      expect(screen.getByRole('radio', { name: 'Wireframe' }).getAttribute('aria-checked')).toBe('true');
-      fireEvent.click(screen.getByRole('radio', { name: 'Normals' }));
-      expect(screen.getByRole('radio', { name: 'Solid' }).getAttribute('aria-checked')).toBe('false');
+      const shading = () => screen.getByRole('button', { name: /^Shading:/ });
+      expect(shading().getAttribute('aria-label')).toBe('Shading: Solid');
+      fireEvent.click(shading());
+      fireEvent.click(screen.getByRole('option', { name: 'Wireframe' }));
+      expect(shading().getAttribute('aria-label')).toBe('Shading: Wireframe');
+      fireEvent.click(shading());
+      fireEvent.click(screen.getByRole('option', { name: 'Normals' }));
+      expect(shading().getAttribute('aria-label')).toBe('Shading: Normals');
     });
 
     it('exports through the bridge with the edited spec', async () => {

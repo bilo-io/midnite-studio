@@ -77,18 +77,21 @@ test('the canvas renders the design and redraws for selection and wireframe', as
   const selected = await shot(canvas);
   expect(Buffer.compare(solid, selected)).not.toBe(0);
 
-  await page.getByRole('radio', { name: 'Wireframe' }).click();
+  await page.getByRole('button', { name: /^Shading:/ }).click();
+  await page.getByRole('option', { name: 'Wireframe' }).click();
   await page.waitForTimeout(300);
   const wire = await shot(canvas);
   expect(Buffer.compare(selected, wire)).not.toBe(0);
 
   // The orthographic Top view and x-ray are real camera / blend changes: both must repaint.
-  await page.getByRole('radio', { name: 'Solid' }).click();
-  await page.getByRole('radio', { name: 'Top' }).click();
+  await page.getByRole('button', { name: /^Shading:/ }).click();
+  await page.getByRole('option', { name: 'Solid' }).click();
+  await page.getByRole('button', { name: /^Projection:/ }).click();
+  await page.getByRole('option', { name: 'Top' }).click();
   await page.waitForTimeout(500);
   const top = await shot(canvas);
   expect(Buffer.compare(wire, top)).not.toBe(0);
-  await page.getByRole('button', { name: 'X-ray' }).click();
+  await page.getByRole('button', { name: /^X-ray/ }).click();
   await page.waitForTimeout(300);
   expect(Buffer.compare(top, await shot(canvas))).not.toBe(0);
 });

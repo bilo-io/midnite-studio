@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LuEye, LuEyeOff, LuGrid } from 'react-icons/lu';
-import { describe, expect, it, vi } from 'vitest';
+import { LuBox, LuEye, LuEyeOff } from 'react-icons/lu';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { IconSelect, type IconSelectOption } from './icon-select';
 
@@ -21,10 +21,12 @@ const mockOptions: IconSelectOption[] = [
   {
     value: 'isometric',
     label: 'Isometric',
-    icon: LuGrid,
+    icon: LuBox,
     description: 'Camera projection: isometric view',
   },
 ];
+
+afterEach(cleanup);
 
 describe('IconSelect', () => {
   it('displays the selected option text', () => {
@@ -38,7 +40,7 @@ describe('IconSelect', () => {
       />,
     );
 
-    expect(screen.getByText('Perspective')).toBeInTheDocument();
+    expect(screen.getByText('Perspective')).toBeTruthy();
   });
 
   it('shows tooltip with label and description on hover', async () => {
@@ -60,8 +62,8 @@ describe('IconSelect', () => {
     // Tooltip should appear after delay
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    expect(screen.getByText('Projection')).toBeInTheDocument();
-    expect(screen.getByText('Choose camera projection')).toBeInTheDocument();
+    expect(screen.getByText('Projection')).toBeTruthy();
+    expect(screen.getByText('Choose camera projection')).toBeTruthy();
   });
 
   it('opens dropdown when clicked', async () => {
@@ -76,12 +78,12 @@ describe('IconSelect', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { hidden: true });
+    const button = screen.getByRole('button');
     await user.click(button);
 
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /perspective/i })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /orthographic/i })).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    expect(screen.getByRole('option', { name: /perspective/i })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /orthographic/i })).toBeTruthy();
   });
 
   it('calls onChange and closes when option is selected', async () => {
@@ -98,7 +100,7 @@ describe('IconSelect', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { hidden: true });
+    const button = screen.getByRole('button');
     await user.click(button);
 
     const orthographicOption = screen.getByRole('option', { name: /orthographic/i });
@@ -107,7 +109,7 @@ describe('IconSelect', () => {
     expect(onChange).toHaveBeenCalledWith('orthographic');
 
     // Menu should be closed
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('marks selected option with aria-selected', async () => {
@@ -122,14 +124,14 @@ describe('IconSelect', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { hidden: true });
+    const button = screen.getByRole('button');
     await user.click(button);
 
     const orthographicOption = screen.getByRole('option', { name: /orthographic/i });
     const perspectiveOption = screen.getByRole('option', { name: /perspective/i });
 
-    expect(orthographicOption).toHaveAttribute('aria-selected', 'true');
-    expect(perspectiveOption).toHaveAttribute('aria-selected', 'false');
+    expect(orthographicOption.getAttribute('aria-selected')).toBe('true');
+    expect(perspectiveOption.getAttribute('aria-selected')).toBe('false');
   });
 
   it('closes dropdown on outside click', async () => {
@@ -147,16 +149,16 @@ describe('IconSelect', () => {
       </div>,
     );
 
-    const button = screen.getByRole('button', { hidden: true });
+    const button = screen.getByRole('button');
     await user.click(button);
 
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeTruthy();
 
     await user.click(screen.getByTestId('outside'));
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 
   it('toggles menu on repeated clicks', async () => {
@@ -171,15 +173,15 @@ describe('IconSelect', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { hidden: true });
+    const button = screen.getByRole('button');
 
     await user.click(button);
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeTruthy();
 
     await user.click(button);
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).toBeNull();
 
     await user.click(button);
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeTruthy();
   });
 });
