@@ -40,10 +40,8 @@ export function LockScreenWidgets({ topCentre }: { topCentre?: ReactNode } = {})
       <LockScreenSlotIsland slot="bottom-left">
         <LockScreenFintechWidget />
       </LockScreenSlotIsland>
-      {/* Battery stacks above the system monitor in the same corner (Theme B) — both
-          are machine vitals, and the slot's own gap is what keeps them apart. */}
+      {/* System monitor in bottom-right corner. */}
       <LockScreenSlotIsland slot="bottom-right">
-        <LockScreenBatteryWidget />
         <LockScreenSysmonWidget />
       </LockScreenSlotIsland>
       <LockScreenSlotIsland slot="top-centre">
@@ -94,7 +92,7 @@ export function LockScreenWeatherWidget() {
 }
 
 /**
- * Battery, bottom right (Phase 46 Theme B) — pure reuse of `features/battery/`.
+ * Battery, top right beside time — pure reuse of `features/battery/`.
  * No new IPC, no new sampling, no new schema: `BatteryReadingSchema` is
  * already an optional field on the metrics sample, exactly as the status
  * bar's own `BatterySegment` reads it.
@@ -120,13 +118,13 @@ export function LockScreenBatteryWidget() {
   return (
     <div
       data-testid="lock-battery-widget"
-      className="flex min-w-[280px] items-center rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
+      className="flex h-9 items-center"
     >
       <div
-        className={`flex items-center gap-2.5 font-mono text-2xl font-bold tabular-nums ${textClass} ${flashClass}`}
+        className={`flex items-center gap-2 font-mono text-3xl font-semibold tabular-nums tracking-tight ${textClass} ${flashClass}`}
         style={glowStyle}
       >
-        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-7 w-7 text-primary" />
+        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-7 w-7" />
         {battery?.isCharging ? <LuBatteryCharging className="h-6 w-6" /> : null}
         <span>{rounded}%</span>
       </div>
