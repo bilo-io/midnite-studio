@@ -234,10 +234,20 @@ export type VideoToolBinary = z.infer<typeof VideoToolBinarySchema>;
  * `video-project-detail.tsx`'s own comment for why.
  */
 export const VIDEO_SKILLS = {
-  videoWriteScript: '/video-write-editorial-script',
-  videoExecuteScript: '/video-execute-editorial-script',
+  videoWriteScript: '/midnite-media-video-write-editorial-script',
+  videoExecuteScript: '/midnite-media-video-execute-editorial-script',
 } as const;
 export type VideoSkillId = keyof typeof VIDEO_SKILLS;
+
+/**
+ * The pre-namespace directory name of each editorial skill → its
+ * `midnite-media-video-*` name (Phase 99 Theme J). Only the migration of an
+ * already-scaffolded video root reads this; nothing else may reference the old names.
+ */
+export const VIDEO_SKILL_RENAMES: Readonly<Record<string, string>> = {
+  'video-write-editorial-script': 'midnite-media-video-write-editorial-script',
+  'video-execute-editorial-script': 'midnite-media-video-execute-editorial-script',
+};
 
 /**
  * `node`/`npx`, resolved through the existing login-shell probe (Theme C) —

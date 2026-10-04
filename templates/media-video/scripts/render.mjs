@@ -148,7 +148,7 @@ const hfProject = ENGINE === "hyperframes" ? join("projects", id) : null;
 if (hfProject && !existsSync(join(EDITOR, hfProject, "index.html"))) {
   console.error(
     `No HyperFrames composition at ${APP_DIR.hyperframes}/${hfProject.replaceAll("\\", "/")}/index.html — ` +
-      "create it (see /video-execute-editorial-script) or start Studio once from Midnite Studio, which writes a stub.",
+      "create it (see /midnite-media-video-execute-editorial-script) or start Studio once from Midnite Studio, which writes a stub.",
   );
   process.exit(1);
 }

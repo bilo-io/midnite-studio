@@ -19,8 +19,8 @@ const FOUND_TOOLCHAIN: VideoToolchain = {
   node: { found: true, path: '/usr/bin/node' },
   npx: { found: true, path: '/usr/bin/npx' },
   skills: {
-    videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
-    videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+    videoWriteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md' },
+    videoExecuteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md' },
   },
 };
 

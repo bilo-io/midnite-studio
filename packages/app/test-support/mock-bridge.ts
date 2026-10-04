@@ -3021,11 +3021,11 @@ export function buildMockBridge(data: MockFixtures) {
           skills: {
             videoWriteScript: {
               found: true,
-              path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md',
+              path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md',
             },
             videoExecuteScript: {
               found: true,
-              path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md',
+              path: '/videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md',
             },
           },
         },

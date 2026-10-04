@@ -21,8 +21,8 @@ const TOOLCHAIN_ALL_FOUND: VideoToolchain = {
   node: { found: true, path: '/usr/local/bin/node' },
   npx: { found: true, path: '/usr/local/bin/npx' },
   skills: {
-    videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
-    videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+    videoWriteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md' },
+    videoExecuteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md' },
   },
 };
 
@@ -119,6 +119,10 @@ describe('VideoProjectDetail', () => {
     const session = useTerminalStore.getState().sessions[0]!;
     expect(session.repoId).toBe('repo1');
     expect(session.cwd).toBe('/videos/projects/p1');
+    // The typed command is the namespaced skill, never the pre-rename `/video-write-…`.
+    const typed = JSON.stringify([session, useTerminalStore.getState().pendingInput]);
+    expect(typed).toContain('midnite-media-video-write-editorial-script');
+    expect(typed).not.toMatch(/[/$]video-write-editorial-script/);
   });
 
   it('disables a Claude action whose skill is missing from the video root, with the reason', async () => {
@@ -129,7 +133,7 @@ describe('VideoProjectDetail', () => {
           ...TOOLCHAIN_ALL_FOUND.skills,
           videoWriteScript: {
             found: false,
-            reason: 'Not found at .claude/skills/video-write-editorial-script/SKILL.md in this video root.',
+            reason: 'Not found at .claude/skills/midnite-media-video-write-editorial-script/SKILL.md in this video root.',
           },
         },
       },
@@ -140,7 +144,7 @@ describe('VideoProjectDetail', () => {
     await screen.findByText('The brief');
     const write = await screen.findByRole('button', { name: /Write editorial script/ });
     await waitFor(() => expect(write).toHaveProperty('disabled', true));
-    expect(write.title).toContain('Not found at .claude/skills/video-write-editorial-script/SKILL.md');
+    expect(write.title).toContain('Not found at .claude/skills/midnite-media-video-write-editorial-script/SKILL.md');
     // The other action's own skill is still found — not collaterally blocked.
     expect(screen.getByRole('button', { name: /Execute editorial script/ })).toHaveProperty('disabled', false);
   });

@@ -11,7 +11,7 @@ or Settings ▸ Media. A workspace with no `video.config.json` is Remotion.
 ```
 .
 ├── video.config.json      { "engine": "remotion" | "hyperframes" }
-├── .claude/skills/        /video-write-editorial-script (brief → plan), /video-execute-editorial-script (plan → code)
+├── .claude/skills/        /midnite-media-video-write-editorial-script (brief → plan), /midnite-media-video-execute-editorial-script (plan → code)
 ├── assets/{audio,fonts,images,logos,video}/   shared, reusable media
 ├── projects/_template/    copy this to start a video
 ├── projects/example/000-hello/                the worked example (composition `ExampleHello`)

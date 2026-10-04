@@ -79,11 +79,25 @@ describe('templates/media-video manifest (Phase 99 Theme D, Theme H)', () => {
   });
 
   it('carries both editorial skills with an engine section for each engine', () => {
-    for (const skill of ['video-write-editorial-script', 'video-execute-editorial-script']) {
+    for (const skill of ['midnite-media-video-write-editorial-script', 'midnite-media-video-execute-editorial-script']) {
       const text = readFileSync(join(TEMPLATE, '.claude', 'skills', skill, 'SKILL.md'), 'utf8');
       expect(text).toContain('video.config.json');
       expect(text).toContain('HyperFrames');
       expect(text).toContain('Remotion');
+    }
+  });
+});
+
+describe('namespaced editorial skills (Phase 99 Theme J)', () => {
+  it('ships both skills under midnite-media-video-* in every convention dir, and no legacy name', () => {
+    for (const dir of ['.claude', '.agents', '.codex']) {
+      for (const fn of ['write', 'execute']) {
+        const name = `midnite-media-video-${fn}-editorial-script`;
+        expect(VIDEO_COMMON_TEMPLATE_FILES).toContain(`${dir}/skills/${name}/SKILL.md`);
+        const text = readFileSync(join(TEMPLATE, dir, 'skills', name, 'SKILL.md'), 'utf8');
+        expect(text).toContain(`name: ${name}`);
+      }
+      expect(existsSync(join(TEMPLATE, dir, 'skills', 'video-write-editorial-script'))).toBe(false);
     }
   });
 });
