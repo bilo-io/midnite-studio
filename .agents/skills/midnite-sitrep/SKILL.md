@@ -37,10 +37,10 @@ gh pr view <n> -R <owner>/<repo> --json number,url,title,author,state,isDraft,me
 Pass the right account's token in the same command (`GH_TOKEN="$(gh auth token -u <user>)" gh …`)
 when the repo's owner is not the active `gh` account — never `gh auth switch`.
 
-For a row with no PR yet, the evidence is the worktree: does it exist, is there a diff, and what
-do the **Done** / **Next** lines in `.worktrees/*/SCRATCHPAD.md` say (when the repo keeps
-scratchpads). A subagent reporting "done" with no PR, or a **Next** line that has not moved in two
-ticks, is stalled — mark it ⚠️, whatever it last said.
+For a row with no PR yet, the evidence is the worktree: does it exist, is there a diff (measure with
+`git diff --shortstat` against the base branch, e.g. `main`), and what do the **Done** / **Next** lines
+in `.worktrees/*/SCRATCHPAD.md` say (when the repo keeps scratchpads). A subagent reporting "done" with
+no PR, or a **Next** line that has not moved in two ticks, is stalled — mark it ⚠️, whatever it last said.
 
 ## 3 · The table
 
@@ -49,6 +49,7 @@ ticks, is stalled — mark it ⚠️, whatever it last said.
 | [PR-1 · #1259](https://github.com/org/repo/pull/1259) | @bilo-ekko | `████████░░` 80% | ~2h | 🟩 +1515 🟥 -28 📄 17 | 🟢 Ready · CI 7/7 · 🔵 audited | tell me before merging |
 | [PR-3 · #1261](https://github.com/org/repo/pull/1261) | @kurtwarwick-ekko | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · ⛓ #1259 | — |
 | [PR-6 · #1282](https://github.com/org/repo/pull/1282) | @bilo-ekko | `██████░░░░` 60% | ? | 🟩 +325 🟥 -6002 📄 31 | 🚧 Draft · CI 6/6 · ⛓ #1262 · ⏸ held | — |
+| [TASK-B · #1252](https://github.com/org/repo/issues/1252) | @bilo-ekko | `████░░░░░░` 40% | ~45m | 🟩 +48 🟥 -12 📄 3 | 🚧 building | — |
 | [TASK-A · #1251](https://github.com/org/repo/issues/1251) | — | `░░░░░░░░░░` 0% | ? | — | ⏳ Waiting on PR-1 deploy | — |
 
 - **Task** — the row's name, **always a clickable link**: to its PR once one exists, else to its
@@ -73,8 +74,11 @@ ticks, is stalled — mark it ⚠️, whatever it last said.
   the % so far, this session's real CI durations, stages left) — never an agent's own claim. `?`
   with no basis yet, `done` at 100%. A row waiting on a human (review, merge, deploy) is `?` with
   the reason in Status.
-- **Diff** — `🟩 +<additions> 🟥 -<deletions> 📄 <changedFiles>`, straight from the PR. `—` with no
-  PR. A stacked PR's diff is against its base branch, which the `⛓ #n` tag in Status names.
+- **Diff** — MUST ALWAYS use `🟩 +<additions> 🟥 -<deletions> 📄 <changedFiles>`. Derived straight
+  from the PR, or during local development in worktrees before a PR opens, derived from
+  `git diff --shortstat` (against the base branch, e.g. `main`), or `—` when empty. Plain text or code
+  block formats like `+X/-Y` or `0/0` are strictly forbidden. A stacked PR's diff is against its base
+  branch, which the `⛓ #n` tag in Status names.
 - **Status** — one emoji, then a few words:
 
   | Emoji | Meaning |

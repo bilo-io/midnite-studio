@@ -379,10 +379,12 @@ renders the table:
   reads as theirs at a glance. `—` before anyone owns it.
 - **A completion percentage in its own column**, always, drawn as a 10-cell progress bar before
   the number. An unknown percentage is `?`, never a blank.
-- **A diff column** once a PR exists — `🟩 +added 🟥 -deleted 📄 files` — and **an emoji status**
-  (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done; the skill has the full set),
-  followed by any state tags (`⛓ #n` stacked, `⏸ held`, `🔵 audited`, `🚀 deployed`). A state goes
-  in Status, never in Notes.
+- **A diff column, always** — MUST ALWAYS use `🟩 +<added> 🟥 -<deleted> 📄 <files>` (straight from the
+  PR, or during local development in worktrees before a PR opens, derived from `git diff --shortstat`,
+  or `—` when empty). Plain text or code block formats like `+X/-Y` or `0/0` are forbidden.
+- **An emoji status**, always — (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done;
+  the skill has the full set), followed by any state tags (`⛓ #n` stacked, `⏸ held`, `🔵 audited`,
+  `🚀 deployed`). A state goes in Status, never in Notes.
 - **A remaining-time estimate (ETA) in its own column**, always — wall-clock time until that row
   merges or completes, derived from *observed* pace (elapsed time against the % so far, how long
   today's CI runs have actually taken, how many stages remain), never from an agent's own claim.
