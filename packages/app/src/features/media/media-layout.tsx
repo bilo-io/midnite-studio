@@ -1,6 +1,8 @@
 import type { MediaTab } from '@midnite/studio-shared';
 import type { ReactNode } from 'react';
+import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen } from 'react-icons/lu';
 
+import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable, type Resizable } from '../../components/resizable/use-resizable';
 import {
@@ -35,7 +37,18 @@ export type MediaLayoutProps = {
   /** Accessible names for the two dividers. */
   explorerLabel?: string;
   detailLabel?: string;
+  /** Noun for the floating toggle buttons: "Show explorer" / "Hide composer". */
+  explorerName?: string;
+  detailName?: string;
+  /**
+   * Tailwind `top-*` class for the floating toggles. Default sits just under the toolbar; a tab whose content
+   * opens with its own tool row (Models' editor toolbar) passes a larger inset to clear it.
+   */
+  toggleTop?: string;
 };
+
+const FLOATING_TOGGLE =
+  'pointer-events-auto rounded-md border border-border bg-background/70 shadow-sm backdrop-blur-sm';
 
 export function MediaLayout({
   tab,
@@ -45,6 +58,9 @@ export function MediaLayout({
   detail,
   explorerLabel = 'Resize explorer',
   detailLabel = 'Resize detail',
+  explorerName = 'explorer',
+  detailName = 'composer',
+  toggleTop = 'top-2',
 }: MediaLayoutProps) {
   const keys = mediaLayoutKeys(tab);
   const layout = useUiStore((s) => s.layout);
@@ -111,8 +127,36 @@ export function MediaLayout({
           axis="x"
           label={explorerLabel}
         />
-        <div data-media-pane="content" className="min-h-0 min-w-0 flex-1">
-          {content}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <div data-media-pane="content" className="h-full min-h-0 min-w-0">
+            {content}
+          </div>
+          {/* Floating side-panel toggles, as Workflows' toolbar has — pinned just under the toolbar so a
+              collapsed pane can always be reopened. The wrapper ignores the pointer; only the buttons take it. */}
+          <div className={`pointer-events-none absolute inset-x-2 ${toggleTop} z-20 flex items-start justify-between`}>
+            <span className={FLOATING_TOGGLE}>
+              <IconButton
+                icon={explorerCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
+                label={explorerCollapsed ? `Show ${explorerName}` : `Hide ${explorerName}`}
+                size="sm"
+                tooltipSide="bottom"
+                aria-expanded={!explorerCollapsed}
+                onClick={() => setCollapsed(tab, 'explorer', !explorerCollapsed)}
+              />
+            </span>
+            {detail !== undefined ? (
+              <span className={FLOATING_TOGGLE}>
+                <IconButton
+                  icon={detailCollapsed ? LuPanelRightOpen : LuPanelRightClose}
+                  label={detailCollapsed ? `Show ${detailName}` : `Hide ${detailName}`}
+                  size="sm"
+                  tooltipSide="bottom"
+                  aria-expanded={!detailCollapsed}
+                  onClick={() => setCollapsed(tab, 'detail', !detailCollapsed)}
+                />
+              </span>
+            ) : null}
+          </div>
         </div>
         {detail !== undefined ? (
           <>

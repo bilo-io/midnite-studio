@@ -158,6 +158,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
     <MediaLayout
       tab="model"
       detailLabel="Resize prompt panel"
+      toggleTop="top-11"
       toolbar={
         <ExportToolbar
           formats={MEDIA_TAB_EXPORT_FORMATS.model}
