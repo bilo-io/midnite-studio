@@ -1,14 +1,18 @@
 import {
   agentIteratesModel,
+  buildModelManifest,
   buildScene,
   failure,
   MEDIA_EXPORT_FORMAT_INFO,
   MODEL_ITERATIONS_DEFAULT,
   modelFileExtension,
+  MODEL_MANIFEST_FILE,
   modelSidecarPath,
   ok,
+  parseModelManifest,
   parseModelSidecar,
   type GitOpResult,
+  type ModelAuthor,
   type ModelEngine,
   type ModelExportFormat,
   type ModelGenerateProgressEvent,
@@ -66,6 +70,8 @@ export type ModelServiceDeps = {
   readBytes: (req: Scope & { path: string }) => Promise<GitOpResult<Buffer>>;
   emit: (event: ModelGenerateProgressEvent) => void;
   now?: () => Date;
+  /** Who `model.json` names as the author; absent in a test, which then gets `unknown`. */
+  author?: () => Promise<ModelAuthor>;
   /**
    * The iterative (MCP) engine: absent in a build or a test that has none, in which case every agent
    * runs the one-shot JSON path. `tools` is a thunk because the tools are built from this service.
@@ -166,8 +172,9 @@ export function createModelService(deps: ModelServiceDeps) {
     const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
     let reference: string | undefined;
     if (req.image) {
+      // Relative to the model's own folder, so the folder can be renamed or moved whole.
       reference = `${stem}.ref.${IMAGE_EXT[req.image.mime] ?? 'png'}`;
-      const wrote = await deps.writeBytes({ ...scope, path: reference, data: Buffer.from(req.image.data, 'base64') });
+      const wrote = await deps.writeBytes({ ...scope, path: `${stem}/${reference}`, data: Buffer.from(req.image.data, 'base64') });
       if (!wrote.ok) return { kind: 'fallback', reuse: null };
     }
     const sidecar: ModelSidecar = {
@@ -181,10 +188,10 @@ export function createModelService(deps: ModelServiceDeps) {
     };
     const created = await writeTrio(scope, stem, sidecar, files);
     if (!created.ok) return { kind: 'fallback', reuse: null };
-    if (reference) files.push(reference);
+    if (reference) files.push(`${stem}/${reference}`);
 
     const maxIterations = req.maxIterations ?? MODEL_ITERATIONS_DEFAULT;
-    const primary = `${stem}.obj`;
+    const primary = `${stem}/${stem}.obj`;
     const target = { repoPath, project: req.project, model: primary };
     progress('running', 'iterating', undefined, { iteration: { n: 0, max: maxIterations }, primary });
 
@@ -216,20 +223,37 @@ export function createModelService(deps: ModelServiceDeps) {
   }
 
   /**
-   * The sidecar first — it is what Save-as rebuilds from, so a half-written run still exports — then
-   * the `.mtl`, `.obj` and `.fbx` rendered from its spec. `written` collects each path as it lands.
+   * One model's folder: the design sidecar first — it is what Save-as rebuilds from, so a half-written
+   * run still exports — then the `.mtl`, `.obj`, `.fbx` and `.glb` rendered from its spec, then
+   * `model.json`. Every path is `<stem>/<file>`; `written` collects each as it lands.
    */
   async function writeTrio(scope: Scope, stem: string, sidecar: ModelSidecar, written: string[] = []): Promise<GitOpResult<{ files: string[] }>> {
     const outputs: [string, Buffer][] = [
       [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
       ...renderTrio(sidecar.spec, stem, `${stem}.mtl`),
     ];
-    for (const [path, data] of outputs) {
+    for (const [name, data] of outputs) {
+      const path = `${stem}/${name}`;
       const wrote = await deps.writeBytes({ ...scope, path, data });
       if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
       written.push(path);
     }
+    const manifest = await writeManifest(scope, `${stem}/${stem}`, sidecar, null);
+    if (!manifest.ok) return failure(manifest.kind === 'error' ? manifest.message : 'Could not write model.json.');
+    written.push(`${stem}/${MODEL_MANIFEST_FILE}`);
     return ok({ files: written });
+  }
+
+  /**
+   * `model.json` for the model whose files are `<modelPath>.*` (no extension). A re-save passes the
+   * previous manifest so its author, creation time, label and any future fields survive.
+   */
+  async function writeManifest(scope: Scope, modelPath: string, sidecar: ModelSidecar, previous: ReturnType<typeof parseModelManifest>): Promise<GitOpResult<unknown>> {
+    const dir = modelPath.split('/').slice(0, -1).join('/');
+    const stem = modelPath.split('/').pop() ?? modelPath;
+    const author = previous ? previous.author : await (deps.author?.() ?? Promise.resolve({ name: 'unknown' }));
+    const manifest = buildModelManifest({ sidecar, stem, author, now: now(), previous, present: [`${stem}.json`, `${stem}.obj`, `${stem}.fbx`, `${stem}.glb`] });
+    return deps.writeBytes({ ...scope, path: `${dir}/${MODEL_MANIFEST_FILE}`, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n', 'utf8') });
   }
 
   async function generate(req: ModelGenerateRequest): Promise<GitOpResult<ModelGenerateResult>> {
@@ -321,7 +345,7 @@ export function createModelService(deps: ModelServiceDeps) {
       const wrote = await writeTrio(scope, stem, sidecar, files);
       if (!wrote.ok) return fail(wrote.kind === 'error' ? wrote.message : 'Could not write the model.');
       progress('succeeded');
-      return ok({ files, primary: `${stem}.obj` });
+      return ok({ files, primary: `${stem}/${stem}.obj` });
     } catch (error) {
       return fail(error instanceof Error ? error.message : String(error));
     } finally {
@@ -399,6 +423,14 @@ export function createModelService(deps: ModelServiceDeps) {
       if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
       files.push(path);
     }
+    // A model in a folder keeps its `model.json` current (counts, bounds, materials); a flat legacy one has none.
+    if (stem.includes('/')) {
+      const dir = stem.split('/').slice(0, -1).join('/');
+      const priorText = await deps.readBytes({ ...scope, path: `${dir}/${MODEL_MANIFEST_FILE}` });
+      const prior = priorText.ok ? parseModelManifest(priorText.value.toString('utf8')) : null;
+      const manifest = await writeManifest(scope, stem, sidecar, prior);
+      if (manifest.ok) files.push(`${dir}/${MODEL_MANIFEST_FILE}`);
+    }
     return ok({ files });
   }
 
@@ -406,7 +438,7 @@ export function createModelService(deps: ModelServiceDeps) {
   async function createModel(req: { repoId: string; project: string; stem: string; spec: ModelSpec; engine: string }): Promise<GitOpResult<{ primary: string }>> {
     const sidecar: ModelSidecar = { version: 1, name: req.stem, prompt: '', engine: req.engine, spec: req.spec, createdAt: now().toISOString() };
     const wrote = await writeTrio({ repoId: req.repoId, tab: 'model', project: req.project }, req.stem, sidecar);
-    return wrote.ok ? ok({ primary: `${req.stem}.obj` }) : wrote;
+    return wrote.ok ? ok({ primary: `${req.stem}/${req.stem}.obj` }) : wrote;
   }
 
   /** Rewrite only the sidecar — cheap enough for an agent's intermediate edits. */

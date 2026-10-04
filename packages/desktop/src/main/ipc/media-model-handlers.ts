@@ -1,7 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { dialog, nativeImage } from 'electron';
+import { userInfo } from 'node:os';
+
+import { dialog, nativeImage, shell } from 'electron';
+import { getGlobalGitIdentity } from '@midnite/studio-git-engine';
 
 import {
   CHANNELS,
@@ -26,7 +29,8 @@ import { getConfiguredOllamaHost } from '../ollama/settings-service';
 import { resolveWorkdir } from '../repo-registry';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleFromSender } from './handle';
-import { mediaStore } from './media-handlers';
+import { createModelLibrary } from '../media/model/model-library';
+import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
  * Media ▸ Models — LLM-authored 3D (`main/media/model/`). The engine is a local
@@ -58,7 +62,15 @@ const engines = {
     ),
 };
 
+/** Who `model.json` names as the author: the global git identity, else the OS user. */
+async function modelAuthor(): Promise<{ name: string; email?: string }> {
+  const identity = await getGlobalGitIdentity();
+  if (identity.ok && identity.value.name) return { name: identity.value.name, ...(identity.value.email ? { email: identity.value.email } : {}) };
+  return { name: userInfo().username || 'unknown' };
+}
+
 const service = createModelService({
+  author: modelAuthor,
   llm: createLlmCall(engines),
   describeImage: createDescribeImage(engines),
   writeBytes: (req) => mediaStore.writeBytes(req),
@@ -112,7 +124,42 @@ const modelTools = createModelTools({
 });
 setModelTools(modelTools);
 
+const library = createModelLibrary({
+  rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'model' }),
+  createGroup: (repoId, name) => mediaStore.createProject({ repoId, tab: 'model', project: name }),
+  trash: (absPath) => shell.trashItem(absPath),
+  onChanged: (repoId) => notifyMediaChanged(repoId, 'model'),
+  author: modelAuthor,
+});
+
 export function registerMediaModelHandlers(): void {
+  handle(
+    CHANNELS.mediaModelLibrary,
+    schemas.MediaModelLibraryRequest,
+    async (req) => {
+      try {
+        switch (req.op) {
+          case 'list':
+            return await library.list(req.repoId);
+          case 'migrate':
+            return await library.migrate(req.repoId);
+          case 'rename':
+            return await library.rename(req);
+          case 'move':
+            return await library.move(req);
+          case 'delete':
+            return await library.delete(req);
+          case 'duplicate':
+            return await library.duplicate(req);
+          case 'newGroup':
+            return await library.newGroup(req);
+        }
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : String(error));
+      }
+    },
+    (issue) => failure(issue),
+  );
   handleBare(CHANNELS.mediaModelProviders, async () => ({ providers: await probeProviders(ollama) }));
   handle(
     CHANNELS.mediaModelGenerate,

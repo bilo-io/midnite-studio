@@ -18,7 +18,10 @@ export const modelFileUrl = (repoId: string, project: string, path: string): str
 /** `a/robot.obj` → `a/robot.mtl`, the materials file an OBJ names. */
 export const mtlPathFor = (objPath: string): string => objPath.replace(/\.[^./]+$/, '.mtl');
 
-export const viewerFormat = (path: string): 'obj' | 'fbx' | null => modelFileExtension(path);
+/** The formats the read-only viewer loads. */
+export type ModelViewFormat = 'obj' | 'fbx' | 'glb';
+
+export const viewerFormat = (path: string): ModelViewFormat | null => modelFileExtension(path);
 
 /**
  * Where to put a perspective camera so a bounding box fills the view: back

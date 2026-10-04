@@ -215,7 +215,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 472 -> 474 for `diff-blank-rows.spec.ts` (2 tests): a diff virtualizer's window offset only
 // goes wrong against real layout and a real scroll (elementFromPoint down the scroller after each
 // scroll step, collapse and file switch); jsdom has no geometry, so the vitest twin only proves rows mount.
-export const MAX_DECLARED_E2E = 474;
+//
+// Raised 474 -> 475 for Media > Models' `model-explorer.spec.ts` (1 test): the explorer's drag-and-drop
+// move rides a native DataTransfer drag, which jsdom cannot fire; everything else is vitest.
+export const MAX_DECLARED_E2E = 475;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

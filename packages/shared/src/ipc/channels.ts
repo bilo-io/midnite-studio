@@ -920,6 +920,8 @@ export const CHANNELS = {
   mediaModelCancel: 'mstudio:media:model-cancel',
   mediaModelExport: 'mstudio:media:model-export',
   mediaModelSaveEdit: 'mstudio:media:model-save-edit',
+  /** The Models library (folders, groups, model.json) — see `ModelLibraryRequestSchema`. */
+  mediaModelLibrary: 'mstudio:media:model-library',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */

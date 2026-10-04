@@ -2,6 +2,7 @@ import { Component, type Dispatch, lazy, Suspense, type ErrorInfo, type ReactNod
 
 import { Spinner } from '../../../components/skeleton';
 import type { EditorAction, EditorState } from './editor-state';
+import type { ModelViewFormat } from './model-utils';
 import type { ModelViewerStats } from './model-viewer';
 
 /**
@@ -33,7 +34,7 @@ class ViewerBoundary extends Component<{ children: ReactNode }, { error: string 
 
 export function LazyModelViewer(props: {
   url: string;
-  format: 'obj' | 'fbx';
+  format: ModelViewFormat;
   mtlUrl?: string | null;
   onStats?: (stats: ModelViewerStats | null) => void;
 }) {

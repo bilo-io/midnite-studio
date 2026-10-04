@@ -124,7 +124,9 @@ export function MediaLayout({
             <div
               data-media-pane="detail"
               data-collapsed={detailCollapsed || undefined}
-              className="flex h-full shrink-0 flex-col overflow-hidden border-l border-border"
+              // `rainbow-panel` (styles.css): the shared rotating-rainbow border + inner glow arc every
+              // Media composer wears. It reads `data-collapsed` to stop animating while hidden.
+              className="rainbow-panel flex h-full shrink-0 flex-col overflow-hidden"
               style={{ width: paneWidth(detailResizable, detailCollapsed) }}
               {...(detailCollapsed ? { inert: true, 'aria-hidden': true } : {})}
             >

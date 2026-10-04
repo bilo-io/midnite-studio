@@ -1867,6 +1867,7 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaModelCancel: ['MediaModelCancelRequest', 'MediaModelCancelResponse'],
       mediaModelExport: ['MediaModelExportRequest', 'MediaModelExportResponse'],
       mediaModelSaveEdit: ['MediaModelSaveEditRequest', 'MediaModelSaveEditResponse'],
+      mediaModelLibrary: ['MediaModelLibraryRequest', 'MediaModelLibraryResponse'],
       mediaModelProgress: ['MediaModelProgressPayload'],
       mediaModelChanged: ['MediaModelChangedPayload'],
       mediaModelOpen: ['MediaModelOpenPayload'],

@@ -23,16 +23,27 @@ const sidecar = JSON.stringify({
   createdAt: '2026-10-03T00:00:00.000Z',
 });
 
+const manifest = JSON.stringify({
+  version: 1,
+  name: 'Tin robot',
+  agent: { provider: 'ollama', model: 'qwen2.5-coder:7b' },
+  author: { name: 'Bilo' },
+  prompt: 'a tin robot',
+  details: { vertices: 24, polygons: 12, parts: 1, bounds: { min: [0, 0, 0], max: [1, 1, 1], size: [1, 1, 1] }, materials: [] },
+  files: { design: 'robot-1.json', obj: 'robot-1.obj' },
+  createdAt: '2026-10-03T00:00:00.000Z',
+});
+
 const withModels: MockFixtures = {
   ...fixtures,
   media: {
     files: {
       'model:robots': {
-        'robot-1.obj': 'o x',
-        'robot-1.mtl': 'newmtl a',
-        'robot-1.fbx': 'fbx',
-        'robot-1.json': sidecar,
-        'notes.txt': 'hi',
+        'robot-1/robot-1.obj': 'o x',
+        'robot-1/robot-1.mtl': 'newmtl a',
+        'robot-1/robot-1.fbx': 'fbx',
+        'robot-1/robot-1.json': sidecar,
+        'robot-1/model.json': manifest,
       },
     },
   },
@@ -56,14 +67,18 @@ describe('Models tab', () => {
     expect(screen.getByTestId('media-tab-label').textContent).toBe('Models');
   });
 
-  it('lists only model files in the explorer and shows the design caption', async () => {
+  it('lists groups and one folder per generation, wearing the provider icon from model.json', async () => {
     open();
     const explorer = document.querySelector<HTMLElement>('[data-media-pane="explorer"]')!;
-    await waitFor(() => expect(within(explorer).getByText('robot-1.obj')).toBeTruthy());
-    expect(within(explorer).getByText('robot-1.fbx')).toBeTruthy();
-    expect(within(explorer).queryByText('robot-1.mtl')).toBeNull();
-    expect(within(explorer).queryByText('robot-1.json')).toBeNull();
-    expect(within(explorer).queryByText('notes.txt')).toBeNull();
+    await waitFor(() => expect(within(explorer).getByTestId('model-group').getAttribute('data-path')).toBe('robots'));
+    const row = await within(explorer).findByTestId('model-row');
+    expect(row.getAttribute('data-path')).toBe('robots/robot-1');
+    expect(within(row).getByTestId('provider-icon').getAttribute('data-provider')).toBe('ollama');
+    // Expanding lists the exports and model.json; the .mtl is plumbing and stays out.
+    fireEvent.click(within(row).getByRole('button', { name: 'Expand robot-1' }));
+    const files = within(explorer).getAllByTestId('model-file-row').map((el) => el.textContent);
+    expect(files).toEqual(expect.arrayContaining(['robot-1.obj', 'robot-1.fbx', 'robot-1.json', 'model.json']));
+    expect(files).not.toContain('robot-1.mtl');
     const caption = await screen.findByTestId('model-caption', {}, SLOW);
     expect(caption.textContent).toContain('Tin robot');
     expect(caption.textContent).toContain('a tin robot');
@@ -161,7 +176,7 @@ describe('Models tab', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Export Wavefront OBJ' }));
       });
       expect(exportSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ format: 'obj', project: 'robots', path: 'robot-1.obj', spec: expect.objectContaining({ parts: [expect.objectContaining({ position: [4, 0, 0] })] }) }),
+        expect.objectContaining({ format: 'obj', project: 'robots', path: 'robot-1/robot-1.obj', spec: expect.objectContaining({ parts: [expect.objectContaining({ position: [4, 0, 0] })] }) }),
       );
     });
   });
@@ -182,8 +197,8 @@ describe('Models tab', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
     });
     const explorer = document.querySelector<HTMLElement>('[data-media-pane="explorer"]')!;
-    await waitFor(() => expect(within(explorer).getAllByText(/\.obj$/)).toHaveLength(1));
-    expect(within(explorer).getAllByText(/\.fbx$/)).toHaveLength(1);
+    await waitFor(() => expect(within(explorer).getAllByTestId('model-row')).toHaveLength(1));
+    expect(within(explorer).getByTestId('model-row').getAttribute('data-path')).toMatch(/^generated\/model-/);
   });
 
   it('keeps Generate off until there is something to build', async () => {
@@ -285,7 +300,7 @@ describe('agents building a model (MCP)', () => {
     open();
     await screen.findByTestId('model-engine-mode');
     const base = { generationId: 'g1', repoId: 'repo-1', project: 'robots', files: [] };
-    act(() => fire('progress', { ...base, status: 'running', stage: 'iterating', iteration: { n: 2, max: 5 }, action: 'Patched: added 2 parts (9 parts)', primary: 'robot-1.obj' }));
+    act(() => fire('progress', { ...base, status: 'running', stage: 'iterating', iteration: { n: 2, max: 5 }, action: 'Patched: added 2 parts (9 parts)', primary: 'robot-1/robot-1.obj' }));
     expect((await screen.findByTestId('model-iteration')).textContent).toBe('Pass 2 of 5');
     expect(screen.getByTestId('model-action').textContent).toBe('Patched: added 2 parts (9 parts)');
     expect(screen.getByTestId('model-stage').textContent).toContain('Refining with the agent');
@@ -306,7 +321,7 @@ describe('agents building a model (MCP)', () => {
     const parts = await screen.findByRole('list', { name: 'Parts' }, SLOW);
     expect(within(parts).getAllByRole('listitem')).toHaveLength(1);
 
-    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1.obj', spec: design(['part', 'head', 'arm']), saved: false, revision: 1 }));
+    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1/robot-1.obj', spec: design(['part', 'head', 'arm']), saved: false, revision: 1 }));
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(3));
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
 
@@ -316,7 +331,7 @@ describe('agents building a model (MCP)', () => {
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(3));
 
     // model_save: the files now match the design, so the editor reads as saved.
-    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1.obj', spec: design(['part', 'head', 'arm']), saved: true, revision: 2 }));
+    act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'robot-1/robot-1.obj', spec: design(['part', 'head', 'arm']), saved: true, revision: 2 }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy());
   });
 
@@ -324,7 +339,7 @@ describe('agents building a model (MCP)', () => {
     open();
     await screen.findByRole('list', { name: 'Parts' }, SLOW);
     act(() => fire('changed', { repoId: 'repo-1', project: 'robots', path: 'other.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
-    act(() => fire('changed', { repoId: 'elsewhere', project: 'robots', path: 'robot-1.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
+    act(() => fire('changed', { repoId: 'elsewhere', project: 'robots', path: 'robot-1/robot-1.obj', spec: design(['a', 'b']), saved: false, revision: 1 }));
     expect(within(screen.getByRole('list', { name: 'Parts' })).getAllByRole('listitem')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Saved' })).toBeTruthy();
   });
