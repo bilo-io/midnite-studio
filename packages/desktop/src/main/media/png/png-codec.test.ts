@@ -2,7 +2,7 @@ import { deflateSync } from 'node:zlib';
 
 import { describe, expect, it } from 'vitest';
 
-import { crc32, decodePng, encodePngGrey16, encodePngRgba8, PNG_DAMAGED, PNG_INTERLACED, PNG_LOW_BIT_DEPTH } from './png-codec';
+import { crc32, decodePng, encodePngGrey8, encodePngGrey16, encodePngRgba8, PNG_DAMAGED, PNG_INTERLACED, PNG_LOW_BIT_DEPTH } from './png-codec';
 import { encodePng } from '../model/sf3d/png';
 
 const SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -45,6 +45,13 @@ describe('decodePng', () => {
     const rgba = Uint8Array.from([1, 2, 3, 4, 250, 251, 252, 253]);
     expect(Array.from(decoded(encodePngRgba8(rgba, 2, 1)).data)).toEqual(Array.from(rgba));
     expect(Array.from(decoded(encodePng(rgba, 2, 1)).data)).toEqual(Array.from(rgba));
+  });
+
+  it('round-trips an 8-bit greyscale PNG bit-exactly', () => {
+    const data = Uint8Array.from([0, 50, 128, 200, 255, 10]);
+    const image = decoded(encodePngGrey8(data, 3, 2));
+    expect(image).toMatchObject({ width: 3, height: 2, channels: 1, bitDepth: 8 });
+    expect(Array.from(image.data)).toEqual(Array.from(data));
   });
 
   it('decodes each of the five filter types', () => {

@@ -118,6 +118,46 @@ export function createDescribeImage(deps: EngineDeps): DescribeImageCall {
   };
 }
 
+export type VisionCall = (req: {
+  images: string[];
+  prompt: string;
+  visionModel?: string;
+  json?: boolean;
+  signal?: AbortSignal;
+}) => Promise<GitOpResult<{ text: string; model: string }>>;
+
+export function createVisionCall(deps: EngineDeps): VisionCall {
+  return async ({ images, prompt, visionModel, json, signal }) => {
+    let model = visionModel;
+    if (!model) {
+      try {
+        model = (await discoverVisionModels(deps.ollama))[0];
+      } catch (error) {
+        return failure(unreachable(error));
+      }
+      if (!model) return failure(VISION_MISSING);
+    }
+    try {
+      const text = await deps.ollama.chat(
+        {
+          model,
+          messages: [{ role: 'user', content: prompt, images }],
+          format: json ? 'json' : undefined,
+          options: { temperature: 0.2 },
+        },
+        { timeoutMs: MODEL_VISION_TIMEOUT_MS, signal: signal ?? new AbortController().signal },
+      );
+      return text.trim() ? ok({ text: text.trim(), model }) : failure(`${model} could not process the vision request.`);
+    } catch (error) {
+      const message = unreachable(error);
+      return failure(
+        /not found|404/i.test(message) ? `${model} is not installed. Run \`${modelPullHint(model)}\` first.` : message,
+      );
+    }
+  };
+}
+
+
 /** What the engine picker needs: whether Ollama answers, and what is installed. */
 export async function probeProviders(ollama: OllamaSeam): Promise<ModelProviders> {
   let tags: { name: string }[];

@@ -33,9 +33,8 @@ export type TerrainInputSlot = (typeof TERRAIN_INPUT_SLOTS)[number];
 export const TERRAIN_INPUT_MAX_BYTES = 256 * 1024 * 1024;
 export const TERRAIN_INPUT_MAX_SIDE = 8192;
 
-/** The land-cover classes Theme F fills in; the stats carry a percentage for each. */
-export const TERRAIN_CLASSES = ['vegetation', 'bare', 'water', 'road', 'building'] as const;
-export type TerrainClass = (typeof TERRAIN_CLASSES)[number];
+import { TERRAIN_CLASSES, type TerrainClass } from './terrain/classes';
+export { TERRAIN_CLASSES, type TerrainClass };
 
 /** The pipeline stages, in order. A stage with no inputs is skipped without a progress event. */
 export const TERRAIN_BUILD_STAGES = [
@@ -55,7 +54,14 @@ export type TerrainBuildStage = (typeof TERRAIN_BUILD_STAGES)[number];
 export const TerrainBuildStageSchema = z.enum(TERRAIN_BUILD_STAGES);
 
 /** What `build/` holds. Later themes append to this one list, so export and the tests read it once. */
-export const TERRAIN_BUILD_FILES = ['heights.f32', 'chunks.json'] as const;
+export const TERRAIN_BUILD_FILES = [
+  'heights.f32',
+  'chunks.json',
+  'drape.png',
+  'landcover.png',
+  'landcover.json',
+  'splat.png',
+] as const;
 
 export const TERRAIN_SHADING_MODES = ['shaded', 'wireframe', 'height', 'slope', 'landcover', 'splat', 'roads'] as const;
 
@@ -180,6 +186,7 @@ export const TerrainSpecSchema = z
         rockSlopeDeg: z.number().default(35),
       })
       .default({}),
+    snowLineM: z.number().optional(),
     foliage: z
       .object({
         seed: z.number().int().min(0).default(1),
@@ -322,8 +329,16 @@ export type TerrainBuildRequest = z.infer<typeof TerrainBuildRequestSchema>;
 
 export const TerrainCancelRequestSchema = z.object({ buildId: z.string().min(1) });
 
-/** Themes F, H and I own these three; until they land each answers {@link TERRAIN_NOT_AVAILABLE}. */
-export const TerrainPaintRequestSchema = TerrainTargetSchema.passthrough();
+/** Theme F: paint-correction override on landcover. Class 0 is erase. */
+export const TerrainPaintRequestSchema = TerrainTargetSchema.extend({
+  /** Class value: 0 is erase (no override), 1..8 is (class index + 1). */
+  cls: z.number().int().min(0).max(8),
+  radiusPx: z.number().positive(),
+  points: z.array(z.tuple([z.number(), z.number()])).min(1),
+});
+export type TerrainPaintRequest = z.infer<typeof TerrainPaintRequestSchema>;
+
+/** Themes H and I own these two; until they land each answers {@link TERRAIN_NOT_AVAILABLE}. */
 export const TerrainRoadKeyRequestSchema = TerrainTargetSchema.passthrough();
 export const TerrainExportRequestSchema = TerrainTargetSchema.passthrough();
 

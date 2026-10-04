@@ -1,7 +1,19 @@
-import { MEDIA_ROOT_DIR, mstudioFileUrl, TerrainChunksFileSchema, chunkMesh, chunkWorldSize, type Heightfield, type TerrainChunksFile } from '@midnite/studio-shared';
-import { OrbitControls } from '@react-three/drei';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DEFAULT_ALIGNMENT,
+  MEDIA_ROOT_DIR,
+  mstudioFileUrl,
+  TERRAIN_CLASSES,
+  TERRAIN_CLASS_COLOURS,
+  TerrainChunksFileSchema,
+  chunkMesh,
+  chunkWorldSize,
+  type Heightfield,
+  type TerrainAlignment,
+  type TerrainChunksFile,
+} from '@midnite/studio-shared';
+import { OrbitControls, TransformControls } from '@react-three/drei';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BufferAttribute,
   BufferGeometry,
@@ -24,20 +36,26 @@ import { Spinner } from '../../../components/skeleton';
 import { usePageVisible } from '../../../lib/use-page-visible';
 import { useWindowFocused } from '../../../lib/use-window-focus';
 import { CHUNK_MESH_BUDGET, lodToRender, nextChunksToMesh } from './chunk-stream';
+import { ClassBrushPalette, type BrushState } from './class-brush';
+import { createSplatMaterial } from './splat-material';
 import type { TerrainViewerProps } from './terrain-viewer-lazy';
+import { useTerrainActions } from './use-terrain';
 
 /**
- * The terrain viewport (Phase 105 Theme D), a lazy chunk. It reads the build's files rather than an
+ * The terrain viewport (Phase 105 Themes D, E, F), a lazy chunk. It reads the build's files rather than an
  * IPC payload (`build/heights.f32` and `build/chunks.json` over `mstudio-file://`) and meshes the
  * chunks itself with the shared kernel, at most {@link CHUNK_MESH_BUDGET} per frame, nearest first.
- * The frame loop runs only while the document is visible and the window is focused.
+ *
+ * Theme E adds satellite drape rendering and interactive alignment with TransformControls and onion skin.
+ * Theme F adds land-cover classification shading, splat material blending with distance fade, and class brush painting.
  */
 export const HEIGHT_RAMP = ['#1d3557', '#457b9d', '#a8dadc', '#f1faee', '#e9c46a', '#8d6e63', '#ffffff'] as const;
 const SLOPE_RAMP_MAX_DEG = 60;
 const AZIMUTH = (135 * Math.PI) / 180;
 
 /** Sun elevation in radians for a time of day in hours: `sin(π (t − 6) / 12)`, never below 2°. */
-export const sunElevation = (hours: number): number => Math.max((2 * Math.PI) / 180, Math.asin(Math.max(0, Math.sin((Math.PI * (hours - 6)) / 12))));
+export const sunElevation = (hours: number): number =>
+  Math.max((2 * Math.PI) / 180, Math.asin(Math.max(0, Math.sin((Math.PI * (hours - 6)) / 12))));
 
 const canUseWebGL = (): boolean => {
   try {
@@ -95,6 +113,52 @@ function mapMaterial(url: string): MeshBasicMaterial {
   const map = new TextureLoader().load(url);
   map.magFilter = NearestFilter;
   return new MeshBasicMaterial({ map, side: DoubleSide });
+}
+
+function drapeMaterial(url: string): MeshStandardMaterial {
+  const map = new TextureLoader().load(url);
+  map.generateMipmaps = true;
+  map.anisotropy = 16;
+  return new MeshStandardMaterial({ map, roughness: 0.95, side: DoubleSide });
+}
+
+function landcoverMaterial(url: string): ShaderMaterial {
+  const map = new TextureLoader().load(url);
+  map.magFilter = NearestFilter;
+  map.minFilter = NearestFilter;
+  const colours = TERRAIN_CLASSES.map((cls) => new Color(TERRAIN_CLASS_COLOURS[cls]));
+  return new ShaderMaterial({
+    uniforms: {
+      uMap: { value: map },
+      uColours: { value: colours },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform vec3 uColours[8];
+      varying vec2 vUv;
+      void main() {
+        float val = texture2D(uMap, vUv).r;
+        int idx = int(val * 255.0 + 0.5);
+        vec3 col = uColours[0];
+        if (idx == 1) col = uColours[1];
+        else if (idx == 2) col = uColours[2];
+        else if (idx == 3) col = uColours[3];
+        else if (idx == 4) col = uColours[4];
+        else if (idx == 5) col = uColours[5];
+        else if (idx == 6) col = uColours[6];
+        else if (idx == 7) col = uColours[7];
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: DoubleSide,
+  });
 }
 
 /** Meshes a loaded build into a group of chunk meshes, a few per frame. */
@@ -156,7 +220,19 @@ class ChunkStreamer {
   }
 }
 
-function Terrain({ loaded, material }: { loaded: Loaded; material: Material }) {
+function Terrain({
+  loaded,
+  material,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  loaded: Loaded;
+  material: Material;
+  onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerUp?: (e: ThreeEvent<PointerEvent>) => void;
+}) {
   const { camera } = useThree();
   const root = useRef<Group>(null);
   const live = useRef<ChunkStreamer | null>(null);
@@ -200,7 +276,15 @@ function Terrain({ loaded, material }: { loaded: Loaded; material: Material }) {
       old.current = null;
     }
   });
-  return <group ref={root} />;
+
+  return (
+    <group
+      ref={root}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    />
+  );
 }
 
 /** F toggles fly mode: WASD, Q/E down/up, Shift ×4, drag to look. Keys are read on the viewport element only. */
@@ -263,7 +347,109 @@ function FrameSampler({ onFrameMs }: { onFrameMs: (ms: number) => void }) {
   return null;
 }
 
-export default function TerrainViewer({ repoId, project, terrain, spec, built, shading, timeOfDay, onFrameMs }: TerrainViewerProps) {
+/** Translucent quad of the satellite image positioned and manipulated over the height ramp for alignment. */
+function OnionSkinQuad({
+  url,
+  size,
+  height,
+  alignment,
+  opacity,
+  onChange,
+  onDragStateChange,
+}: {
+  url: string;
+  size: number;
+  height: number;
+  alignment?: TerrainAlignment;
+  opacity: number;
+  onChange: (align: TerrainAlignment) => void;
+  onDragStateChange: (dragging: boolean) => void;
+}) {
+  const align = alignment ?? DEFAULT_ALIGNMENT;
+  const [ox, oz] = align.offset ?? [0, 0];
+  const [sx, sz] = align.scale ?? [1, 1];
+  const rotDeg = align.rotationDeg ?? 0;
+
+  const groupRef = useRef<Group>(null);
+  const texture = useMemo(() => {
+    const tex = new TextureLoader().load(url);
+    tex.generateMipmaps = true;
+    return tex;
+  }, [url]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  useEffect(() => {
+    const g = groupRef.current;
+    if (!g) return;
+    g.position.set(ox * size, height + 2, oz * size);
+    g.scale.set(sx, 1, sz);
+    g.rotation.set(0, -((rotDeg * Math.PI) / 180), 0);
+  }, [ox, oz, sx, sz, rotDeg, size, height]);
+
+  return (
+    <>
+      <group
+        ref={groupRef}
+        position={[ox * size, height + 2, oz * size]}
+        scale={[sx, 1, sz]}
+        rotation={[0, -((rotDeg * Math.PI) / 180), 0]}
+      >
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[size, size]} />
+          <meshBasicMaterial
+            map={texture}
+            transparent
+            opacity={opacity}
+            depthWrite={false}
+            side={DoubleSide}
+          />
+        </mesh>
+      </group>
+      {groupRef.current ? (
+        <TransformControls
+          object={groupRef.current}
+          mode="translate"
+          showY={false}
+          showX
+          showZ
+          onMouseDown={() => onDragStateChange(true)}
+          onMouseUp={() => {
+            onDragStateChange(false);
+            const g = groupRef.current;
+            if (!g) return;
+            const newOx = g.position.x / size;
+            const newOz = g.position.z / size;
+            const newSx = g.scale.x;
+            const newSz = g.scale.z;
+            const newRotDeg = -Math.round((g.rotation.y * 180) / Math.PI);
+            onChange({
+              offset: [newOx, newOz],
+              scale: [newSx, newSz],
+              rotationDeg: newRotDeg,
+            });
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export default function TerrainViewer({
+  repoId,
+  project,
+  terrain,
+  spec,
+  built,
+  shading,
+  timeOfDay,
+  onFrameMs,
+  align: propAlign,
+  brushActive: propBrushActive,
+  onBrushActiveChange: propOnBrushActiveChange,
+  onCommitSpec,
+  onPaint,
+}: TerrainViewerProps) {
   const visible = usePageVisible();
   const focused = useWindowFocused();
   const webgl = useMemo(canUseWebGL, []);
@@ -271,6 +457,27 @@ export default function TerrainViewer({ repoId, project, terrain, spec, built, s
   const [error, setError] = useState<string | null>(null);
   const [fly, setFly] = useState(false);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
+
+  const actions = useTerrainActions(repoId, useMemo(() => ({ project, terrain }), [project, terrain]));
+
+  const align = propAlign ?? false;
+
+  const [internalBrushActive, setInternalBrushActive] = useState(false);
+  const brushActive = propBrushActive ?? internalBrushActive;
+  const setBrushActive = propOnBrushActiveChange ?? setInternalBrushActive;
+
+  const [brushState, setBrushState] = useState<BrushState>({
+    active: false,
+    selectedCls: 1, // tree
+    radiusPx: 16,
+  });
+
+  const [onionOpacity, setOnionOpacity] = useState(0.5);
+  const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
+
+  const isPainting = useRef(false);
+  const strokePoints = useRef<[number, number][]>([]);
+
   const version = spec.lastBuild?.at ?? '0';
   const base = mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/terrain/${project}/${terrain}/build`);
 
@@ -288,15 +495,78 @@ export default function TerrainViewer({ repoId, project, terrain, spec, built, s
     };
   }, [base, version, built]);
 
-  const mapUrl = shading === 'landcover' ? 'landcover.png' : shading === 'splat' ? 'splat.png' : shading === 'roads' ? 'roads-mask.png' : null;
+  const mapUrl = shading === 'roads' ? 'roads-mask.png' : null;
+
   const material = useMemo<Material>(() => {
     const range = loaded?.chunks.heightRange ?? spec.heightRange;
+    if (align) return debugMaterial('height', range);
     if (shading === 'height' || shading === 'slope') return debugMaterial(shading, range);
+    if (shading === 'landcover') return landcoverMaterial(`${base}/landcover.png?v=${encodeURIComponent(version)}`);
+    if (shading === 'splat') {
+      const splatMap = new TextureLoader().load(`${base}/splat.png?v=${encodeURIComponent(version)}`);
+      const drapeMap = spec.inputs.satellite ? new TextureLoader().load(`${base}/drape.png?v=${encodeURIComponent(version)}`) : null;
+      const grassAlbedo = new TextureLoader().load(`${base}/materials/grass/albedo.png`);
+      const rockAlbedo = new TextureLoader().load(`${base}/materials/rock/albedo.png`);
+      const dirtAlbedo = new TextureLoader().load(`${base}/materials/dirt/albedo.png`);
+      const snowAlbedo = new TextureLoader().load(`${base}/materials/snow/albedo.png`);
+      return createSplatMaterial({
+        splatMap,
+        drapeMap,
+        grassAlbedo,
+        rockAlbedo,
+        dirtAlbedo,
+        snowAlbedo,
+        worldSize: loaded?.chunks.worldSize ?? spec.worldSize,
+      });
+    }
     if (mapUrl) return mapMaterial(`${base}/${mapUrl}?v=${encodeURIComponent(version)}`);
     if (shading === 'wireframe') return new MeshBasicMaterial({ color: '#6f8a5a', wireframe: true, side: DoubleSide });
-    return new MeshStandardMaterial({ color: '#6f8a5a', roughness: 0.95, side: DoubleSide });
-  }, [shading, mapUrl, base, version, loaded, spec.heightRange]);
+    if (spec.inputs.satellite) return drapeMaterial(`${base}/drape.png?v=${encodeURIComponent(version)}`);
+    return new MeshStandardMaterial({ color: '#7a8f5a', roughness: 0.95, side: DoubleSide });
+  }, [align, shading, mapUrl, base, version, loaded, spec.heightRange, spec.worldSize, spec.inputs.satellite]);
+
   useEffect(() => () => material.dispose(), [material]);
+
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (!brushActive || e.button !== 0 || !e.uv) return;
+    e.stopPropagation();
+    isPainting.current = true;
+    strokePoints.current = [[e.uv.x, e.uv.y]];
+  };
+
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+    if (!isPainting.current || !e.uv) return;
+    e.stopPropagation();
+    strokePoints.current.push([e.uv.x, e.uv.y]);
+  };
+
+  const handlePointerUp = useCallback(
+    (e?: ThreeEvent<PointerEvent>) => {
+      if (!isPainting.current) return;
+      e?.stopPropagation();
+      isPainting.current = false;
+      if (strokePoints.current.length > 0) {
+        const pts = strokePoints.current;
+        strokePoints.current = [];
+        const req = {
+          cls: brushState.selectedCls,
+          radiusPx: brushState.radiusPx,
+          points: pts,
+        };
+        if (onPaint) onPaint(req);
+        else void actions.paint(req);
+      }
+    },
+    [brushState.selectedCls, brushState.radiusPx, onPaint, actions],
+  );
+
+  useEffect(() => {
+    const handleGlobalUp = () => {
+      if (isPainting.current) handlePointerUp();
+    };
+    window.addEventListener('pointerup', handleGlobalUp);
+    return () => window.removeEventListener('pointerup', handleGlobalUp);
+  }, [handlePointerUp]);
 
   if (!webgl) return <p className="p-6 text-center text-xs text-muted-foreground">3D view needs WebGL, which is not available here.</p>;
   if (error) {
@@ -320,15 +590,21 @@ export default function TerrainViewer({ repoId, project, terrain, spec, built, s
   const sun: [number, number, number] = [Math.cos(el) * Math.sin(AZIMUTH) * size, Math.sin(el) * size, Math.cos(el) * Math.cos(AZIMUTH) * size];
   const lit = shading === 'shaded';
 
+  const satelliteInput = spec.inputs.satellite;
+  const satelliteUrl = satelliteInput ? mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/terrain/${project}/${terrain}/${satelliteInput.file}`) : null;
+
   return (
     <div
       ref={setElement}
       tabIndex={0}
-      aria-label="Terrain viewport. Press F to toggle fly mode."
+      aria-label="Terrain viewport. Press F to toggle fly mode, B to toggle paint brush."
       data-testid="terrain-viewport"
-      className="relative h-full w-full outline-none"
+      className="relative h-full w-full outline-none select-none"
       onKeyDown={(event) => {
-        if (event.key.toLowerCase() === 'f' && !event.metaKey && !event.ctrlKey) setFly((v) => !v);
+        if (event.metaKey || event.ctrlKey) return;
+        const key = event.key.toLowerCase();
+        if (key === 'f') setFly((v) => !v);
+        if (key === 'b' && spec.inputs.satellite) setBrushActive(!brushActive);
       }}
     >
       <Canvas
@@ -342,18 +618,71 @@ export default function TerrainViewer({ repoId, project, terrain, spec, built, s
             <directionalLight position={sun} intensity={2.2} color={new Color('#fff4e0')} />
           </>
         ) : null}
-        <Terrain loaded={loaded} material={material} />
+        <Terrain
+          loaded={loaded}
+          material={material}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        />
         {spec.seaLevel !== undefined ? (
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, spec.seaLevel, 0]}>
             <planeGeometry args={[size * 1.2, size * 1.2]} />
             <meshStandardMaterial color="#2a6f97" transparent opacity={0.7} />
           </mesh>
         ) : null}
-        <OrbitControls enabled={!fly} target={[0, (lo + hi) / 2, 0]} makeDefault />
+        {align && satelliteUrl ? (
+          <OnionSkinQuad
+            url={satelliteUrl}
+            size={size}
+            height={hi}
+            alignment={spec.alignment?.satellite}
+            opacity={onionOpacity}
+            onChange={(nextAlign) => {
+              const patch = { alignment: { ...spec.alignment, satellite: nextAlign } };
+              if (onCommitSpec) onCommitSpec(patch);
+              else void actions.setSpec(patch);
+            }}
+            onDragStateChange={setIsDraggingGizmo}
+          />
+        ) : null}
+        <OrbitControls enabled={!fly && !isDraggingGizmo && !brushActive} target={[0, (lo + hi) / 2, 0]} makeDefault />
         <FlyControls active={fly} element={element} speed={size * 0.1} />
         {onFrameMs ? <FrameSampler onFrameMs={onFrameMs} /> : null}
       </Canvas>
-      {fly ? <p className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/80 px-2 py-0.5 text-[11px] text-muted-foreground">Fly mode · WASD, Q/E, Shift, drag to look · F to leave</p> : null}
+
+      {/* Onion skin controls HUD */}
+      {align && satelliteUrl ? (
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md border border-border/80 bg-background/90 px-3 py-1.5 shadow-md backdrop-blur text-xs">
+          <span className="font-medium text-foreground">Onion skin</span>
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            Opacity: {Math.round(onionOpacity * 100)}%
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={onionOpacity}
+              onChange={(e) => setOnionOpacity(Number(e.target.value))}
+              className="h-1.5 w-20 accent-primary cursor-pointer"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {/* Class brush palette HUD */}
+      {brushActive ? (
+        <ClassBrushPalette
+          brush={{ ...brushState, active: true }}
+          onChange={(patch) => setBrushState((prev) => ({ ...prev, ...patch }))}
+        />
+      ) : null}
+
+      {fly ? (
+        <p className="pointer-events-none absolute bottom-2 left-2 rounded bg-background/80 px-2 py-0.5 text-[11px] text-muted-foreground">
+          Fly mode · WASD, Q/E, Shift, drag to look · F to leave
+        </p>
+      ) : null}
     </div>
   );
 }

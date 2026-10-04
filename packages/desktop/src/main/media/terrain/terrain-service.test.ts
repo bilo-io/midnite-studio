@@ -45,6 +45,11 @@ function fakeBroker(result: () => TerrainRunResult | Promise<TerrainRunResult>):
       if (outcome.ok) {
         await mkdir(join(request.dir, request.outDir), { recursive: true });
         await writeFile(join(request.dir, request.outDir, 'heights.f32'), Buffer.alloc(4));
+        const overridePath = join(request.dir, 'overrides', 'landcover.png');
+        if (await stat(overridePath).then(() => true, () => false)) {
+          const overBuf = await readFile(overridePath);
+          await writeFile(join(request.dir, request.outDir, 'landcover.png'), overBuf);
+        }
         onProgress?.('write', 1);
       }
       return outcome;
@@ -298,6 +303,38 @@ describe('build', () => {
     const { service } = makeService(broker);
     expect(service.cancel('abc')).toEqual({ ok: true });
     expect(broker.cancel).toHaveBeenCalledWith('abc');
+  });
+
+  it('a paint stroke writes overrides/landcover.png, a full rebuild keeps it, and painted texels win in landcover.png', async () => {
+    const broker = fakeBroker(() => ({ ok: true, stats }));
+    const { service } = makeService(broker);
+    const target = await createTerrain(service);
+    await service.setInput(attach(target, heightmap16()));
+    const satRgba = new Uint8Array(16 * 16 * 4).fill(100);
+    await service.setInput({ ...target, slot: 'satellite', bytes: encodePngRgba8(satRgba, 16, 16), name: 'sat.png' });
+    await service.build(target);
+
+    // Call paint
+    const paintRes = await service.paint({
+      ...target,
+      cls: 3, // override value 3
+      radiusPx: 5,
+      points: [[0.5, 0.5]],
+    });
+    expect(paintRes.ok).toBe(true);
+
+    const dir = join(root, target.project, target.terrain);
+    const overrideFile = join(dir, 'overrides', 'landcover.png');
+    expect(await stat(overrideFile).then(() => true, () => false)).toBe(true);
+
+    // Full rebuild keeps the override file
+    await service.build(target);
+    expect(await stat(overrideFile).then(() => true, () => false)).toBe(true);
+
+    const landcoverFile = join(dir, 'build', 'landcover.png');
+    expect(await stat(landcoverFile).then(() => true, () => false)).toBe(true);
+    const landcoverBuf = await readFile(landcoverFile);
+    expect(landcoverBuf.length).toBeGreaterThan(0);
   });
 });
 

@@ -222,3 +222,19 @@ export function encodePngRgba8(data: Uint8Array, width: number, height: number):
     width * 4,
   );
 }
+
+/** An 8-bit greyscale PNG (filter 0 rows, one IDAT) — used for masks and index maps. */
+export function encodePngGrey8(data: Uint8Array, width: number, height: number): Buffer {
+  if (data.length !== width * height) throw new Error(`Expected ${width * height} samples, got ${data.length}.`);
+  return encode(
+    width,
+    height,
+    8,
+    0,
+    (y, row) => {
+      row.set(data.subarray(y * width, (y + 1) * width));
+    },
+    width,
+  );
+}
+

@@ -90,4 +90,42 @@ describe('runTerrainBuild', () => {
   it('refuses a spec with neither a heightmap nor noise', async () => {
     await expect(runTerrainBuild({ dir, outDir: 'x', spec: parseTerrainSpec({}) })).rejects.toThrow('Nothing to shape the ground from');
   });
+
+  it('writes drape.png, landcover.png, landcover.json and splat.png when satellite image is present', async () => {
+    const n = 8;
+    const data = new Uint16Array(n * n).fill(32768);
+    await writeFile(join(dir, 'inputs', 'heightmap.png'), encodePngGrey16(data, n, n));
+
+    const satRgba = new Uint8Array(16 * 16 * 4).fill(128);
+    await writeFile(join(dir, 'inputs', 'satellite.png'), encodePngRgba8(satRgba, 16, 16));
+
+    const spec = specFor(n, n, 16, {
+      inputs: {
+        heightmap: { file: 'inputs/heightmap.png', sourceName: 'h.png', width: n, height: n, bitDepth: 16 },
+        satellite: { file: 'inputs/satellite.png', sourceName: 'sat.png', width: 16, height: 16, bitDepth: 8 },
+      },
+      textureSize: 1024,
+    });
+
+    const stages: TerrainBuildStage[] = [];
+    const stats = await runTerrainBuild({ dir, outDir: 'out', spec }, (s) => stages.push(s));
+
+    expect(stages).toEqual(expect.arrayContaining(['drape', 'landcover', 'splat']));
+    expect(stats.classPercent).toBeDefined();
+
+    const drapeBuf = await readFile(join(dir, 'out', 'drape.png'));
+    expect(drapeBuf.length).toBeGreaterThan(0);
+
+    const landcoverBuf = await readFile(join(dir, 'out', 'landcover.png'));
+    expect(landcoverBuf.length).toBeGreaterThan(0);
+
+    const landcoverJson = JSON.parse(await readFile(join(dir, 'out', 'landcover.json'), 'utf8'));
+    expect(landcoverJson).toHaveProperty('classes');
+    expect(landcoverJson).toHaveProperty('colours');
+    expect(landcoverJson).toHaveProperty('percent');
+
+    const splatBuf = await readFile(join(dir, 'out', 'splat.png'));
+    expect(splatBuf.length).toBeGreaterThan(0);
+  }, 15_000);
 });
+
