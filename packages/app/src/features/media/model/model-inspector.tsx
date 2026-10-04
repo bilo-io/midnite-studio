@@ -5,26 +5,46 @@ import { LuCopy, LuTrash2 } from 'react-icons/lu';
 import { IconButton } from '../../../components/icon-button';
 import { ArrangeBar } from './arrange-bar';
 import { BooleanPanel } from './boolean-panel';
+import { ClipPanel, type RetargetSource } from './clip-panel';
 import type { EditorAction, EditorState } from './editor-state';
 import { ColorField, NumberField, SECTION, SelectField, TextField, VecRow } from './fields';
 import { MaterialPanel } from './material-panel';
 import { ModifierPanel } from './modifier-panel';
 import { Outliner } from './outliner-panel';
+import { RigPanel } from './rig-panel';
+import type { RigModel } from './rig-pose';
+import type { RigView, UpdateRigView } from './rig-view';
+import type { EditorScene } from './spec-geometry';
 
 /**
  * The editor's dock: the outliner on the left, and on the right tabs for the selected part —
  * Properties (name, transform, dimensions, parent), Material, Boolean and Modifiers. With several
- * parts selected it shows the arrange tools and edits material for all of them.
+ * parts selected it shows the arrange tools and edits material for all of them. Rig and Animation
+ * are about the whole design, so they show whatever is selected.
  */
-const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers'] as const;
+const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Rig', 'Animation'] as const;
 type Tab = (typeof TABS)[number];
+const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Rig', 'Animation']);
+
+/** What the Rig and Animation tabs share with the viewport and the timeline. */
+export type InspectorRig = { view: RigView; onView: UpdateRigView; model: RigModel | null; scene: EditorScene; sources?: readonly RetargetSource[] };
 
 /** Keys every part has: not shown as shape dimensions. */
 const BASE_KEYS = new Set([
   'id', 'name', 'shape', 'position', 'rotation', 'scale', 'color', 'parent', 'pivot', 'material', 'modifiers', 'op', 'target', 'segments', 'smoothAngle', 'hidden', 'locked', 'source',
 ]);
 
-export function ModelInspector({ state, dispatch, issues }: { state: EditorState; dispatch: Dispatch<EditorAction>; issues: readonly BuildIssue[] }) {
+export function ModelInspector({
+  state,
+  dispatch,
+  issues,
+  rig,
+}: {
+  state: EditorState;
+  dispatch: Dispatch<EditorAction>;
+  issues: readonly BuildIssue[];
+  rig?: InspectorRig;
+}) {
   const [tab, setTab] = useState<Tab>('Properties');
   const { spec, selected, selection } = state;
   const part = selected !== null ? spec.parts[selected] : undefined;
@@ -37,7 +57,7 @@ export function ModelInspector({ state, dispatch, issues }: { state: EditorState
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div role="tablist" aria-label="Part panels" className="flex shrink-0 items-center gap-0.5 border-b border-border/60 px-1.5 py-1">
-          {TABS.map((name) => (
+          {TABS.filter((name) => rig || !DESIGN_TABS.has(name)).map((name) => (
             <button
               key={name}
               type="button"
@@ -50,9 +70,17 @@ export function ModelInspector({ state, dispatch, issues }: { state: EditorState
             </button>
           ))}
           <span className="ml-auto" />
-          <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />
+          {rig && DESIGN_TABS.has(tab) ? null : <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />}
         </div>
-        {part && selected !== null ? (
+        {rig && DESIGN_TABS.has(tab) ? (
+          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : 'Animation'}>
+            {tab === 'Rig' ? (
+              <RigPanel state={state} dispatch={dispatch} view={rig.view} onView={rig.onView} model={rig.model} scene={rig.scene} />
+            ) : (
+              <ClipPanel state={state} dispatch={dispatch} view={rig.view} onView={rig.onView} {...(rig.sources ? { sources: rig.sources } : {})} />
+            )}
+          </div>
+        ) : part && selected !== null ? (
           <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={`Properties of ${part.name}`}>
             {selection.length > 1 ? (
               <p className="mb-2 flex items-center gap-2 text-muted-foreground">

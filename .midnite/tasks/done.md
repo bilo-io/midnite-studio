@@ -14283,3 +14283,20 @@ Video skills renamed to `midnite-media-video-{write,execute}-editorial-script` a
 ### Phase 99 Theme J — Models explorer, model.json and the rainbow composer
 
 Every Models generation now lives in its own folder (exports, the editable design and a new `model.json` recording agent and model, author, prompt, image attachment, vertex/polygon/part counts, bounds, materials and timestamps; schema in `shared`, open to future `anatomy`/`rig`/`animations`). Flat outputs are read as before and migrated into folders by renames only, never losing a file. The explorer shows tinted group accordions and per-model rows with the provider icon and a tooltip naming the model, supports drag-and-drop moves, and has context menus everywhere (rename, duplicate, move, new group, reveal, copy path, delete behind a confirm that lists what is lost). The centre pane switches between the 3D editor, a JSON viewer, the read-only 3D viewer (now including `.glb`) and an image view. Every Media composer panel gets a rotating rainbow border and an inner glow arc that stop under reduced motion and when the window is blurred or the pane is collapsed.
+
+### Phase 103 Themes B–I — Models rigging and animation (2026-10-04)
+
+A design can now be rigged and animated. `ModelSpec` gains optional `anatomy`, `rig` and `animations`, so
+saved designs load unchanged, and `shared/src/media-model-rig.ts` is the single source of truth for bone
+names: VRM 1.0 humanoid plus `root` for bipeds, a quadruped table with tails, and `wheel_FL`-style vehicle
+names, with Mixamo/Unreal/Rigify/Unity aliases. The kernel auto-rigs from part names and positions, skins
+with a part-aware envelope (`falloff` 0 = rigid), and generates ten biped, three quadruped and six vehicle
+clips as kind plus parameters with additive keys, baked at 30 fps and retargetable by canonical name. One
+set of edit ops (`model-geometry/rig-ops.ts`) backs both the editor and five new MCP tools (`model_get_rig`,
+`model_auto_rig`, `model_patch_rig`, `model_patch_animations`, `model_retarget`); `model_render_preview`
+renders a pose. The editor gains Rig and Animation inspector tabs (anatomy, Auto-rig, bone outliner, weight
+view, pose-mode keying, clip parameters, retarget from the library), a skeleton overlay with pickable joints,
+and a timeline that plays only while playing. `.glb` exports a skin with joints and one animation per clip,
+checked by re-importing through `GLTFLoader` and comparing three's posed vertices with the kernel's.
+`model.json` summarises anatomy, bone count and clips. Deferred: bone rename, FBX skin, and the SF3D tier
+(approved, its own PR next).

@@ -1,4 +1,16 @@
-import type { MeshPart } from '@midnite/studio-shared';
+import {
+  type BakedClip,
+  bakeClip,
+  boneLocal,
+  computeSkin,
+  MAX_INFLUENCES,
+  type MeshPart,
+  type ModelSpec,
+  type PartSkin,
+  qIdentity,
+  type ResolvedRig,
+  resolveRig,
+} from '@midnite/studio-shared';
 
 import { hexToRgb, materialsOf, uniqueNames } from './obj-writer';
 
@@ -26,25 +38,50 @@ type Json = Record<string, unknown>;
 
 export type GltfBuild = { json: Json; bin: Buffer };
 
-/** The glTF document and its binary payload — separate so a test can read the JSON directly. */
-export function buildGltf(parts: readonly MeshPart[], title = 'model'): GltfBuild {
-  const names = uniqueNames(parts);
+/** A rigged design's skeleton, per-part skins (same order as the parts) and clips baked at 30 fps. */
+export type GltfRigging = { rig: ResolvedRig; skins: readonly PartSkin[]; clips: readonly BakedClip[] };
+
+/** The rigging a design exports with, or `null` for a static one (which then exports exactly as before). */
+export function gltfRigging(spec: ModelSpec, parts: readonly MeshPart[]): GltfRigging | null {
+  const rig = resolveRig(spec);
+  if (!rig || rig.bones.length === 0) return null;
+  return { rig, skins: computeSkin(spec, rig, parts), clips: (spec.animations ?? []).map((clip) => bakeClip(rig, clip)) };
+}
+
+/**
+ * The glTF document and its binary payload — separate so a test can read the JSON directly.
+ *
+ * With `rigging`, the bones become joint nodes (local TRS, so the hierarchy is the rig's), every part
+ * a skinned primitive (`JOINTS_0`/`WEIGHTS_0`) bound to one shared skin, and every clip a glTF
+ * animation: a rotation channel per bone and a translation channel for each bone that moves.
+ */
+export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null): GltfBuild {
+  // Bone names are the contract retargeting reads, so a part that shares one ("head") yields its name.
+  const boneNames = new Set(rigging?.rig.bones.map((b) => b.name) ?? []);
+  const names = uniqueNames(parts).map((n) => (boneNames.has(n) ? `${n}_mesh` : n));
   const { materials, indexOf } = materialsOf(parts);
   const chunks: Buffer[] = [];
   let length = 0;
   const bufferViews: Json[] = [];
   const accessors: Json[] = [];
 
-  const addView = (data: Buffer, target: number): number => {
+  const addView = (data: Buffer, target?: number): number => {
     const padded = Buffer.concat([data, Buffer.alloc((4 - (data.length % 4)) % 4)]);
-    bufferViews.push({ buffer: 0, byteOffset: length, byteLength: data.length, target });
+    bufferViews.push({ buffer: 0, byteOffset: length, byteLength: data.length, ...(target ? { target } : {}) });
     chunks.push(padded);
     length += padded.length;
     return bufferViews.length - 1;
   };
 
+  const floats = (values: readonly number[]): Buffer => {
+    const out = Buffer.alloc(values.length * 4);
+    values.forEach((v, i) => out.writeFloatLE(v, i * 4));
+    return out;
+  };
+
   const meshes: Json[] = [];
   const nodes: Json[] = [];
+  const meshNodes: number[] = [];
   parts.forEach((part, index) => {
     if (part.indices.length === 0) return;
     const vertexCount = part.positions.length / 3;
@@ -71,12 +108,74 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model'): GltfBuil
     const indexAccessor = accessors.length;
     accessors.push({ bufferView: addView(indices, ELEMENT_ARRAY_BUFFER), componentType: wide ? UNSIGNED_INT : UNSIGNED_SHORT, count: part.indices.length, type: 'SCALAR' });
 
+    const attributes: Json = { POSITION: positionAccessor, NORMAL: normalAccessor };
+    const skin = rigging?.skins[index];
+    if (skin) {
+      const joints = Buffer.alloc(vertexCount * MAX_INFLUENCES * 2);
+      skin.joints.forEach((j, i) => joints.writeUInt16LE(j, i * 2));
+      attributes.JOINTS_0 = accessors.length;
+      accessors.push({ bufferView: addView(joints, ARRAY_BUFFER), componentType: UNSIGNED_SHORT, count: vertexCount, type: 'VEC4' });
+      attributes.WEIGHTS_0 = accessors.length;
+      accessors.push({ bufferView: addView(floats(skin.weights), ARRAY_BUFFER), componentType: FLOAT, count: vertexCount, type: 'VEC4' });
+    }
+
     meshes.push({
       name: names[index],
-      primitives: [{ attributes: { POSITION: positionAccessor, NORMAL: normalAccessor }, indices: indexAccessor, material: indexOf[index], mode: 4 }],
+      primitives: [{ attributes, indices: indexAccessor, material: indexOf[index], mode: 4 }],
     });
-    nodes.push({ name: names[index], mesh: meshes.length - 1 });
+    nodes.push({ name: names[index], mesh: meshes.length - 1, ...(skin ? { skin: 0 } : {}) });
+    meshNodes.push(nodes.length - 1);
   });
+
+  const sceneNodes = [...meshNodes];
+  let skins: Json[] | undefined;
+  let animations: Json[] | undefined;
+  if (rigging) {
+    const { rig } = rigging;
+    const jointBase = nodes.length;
+    rig.bones.forEach((bone, i) => {
+      const local = boneLocal(rig, i, { rotation: qIdentity(), translation: [0, 0, 0] });
+      const children = rig.children[i]!.map((c) => jointBase + c);
+      nodes.push({ name: bone.name, translation: local.translation.map(round), ...(children.length > 0 ? { children } : {}) });
+      if (bone.parent === null) sceneNodes.push(jointBase + i);
+    });
+    const joints = rig.bones.map((_, i) => jointBase + i);
+    // Inverse bind = translation(-head); glTF matrices are column-major, so the offset sits in the last column.
+    const inverseBind = rig.bones.flatMap((b) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -b.head[0], -b.head[1], -b.head[2], 1]);
+    const ibm = accessors.length;
+    accessors.push({ bufferView: addView(floats(inverseBind)), componentType: FLOAT, count: rig.bones.length, type: 'MAT4' });
+    const rootJoint = rig.bones.findIndex((b) => b.parent === null);
+    skins = [{ name: 'skeleton', joints, inverseBindMatrices: ibm, ...(rootJoint >= 0 ? { skeleton: jointBase + rootJoint } : {}) }];
+
+    animations = rigging.clips.map((clip) => {
+      const samplers: Json[] = [];
+      const channels: Json[] = [];
+      const input = accessors.length;
+      accessors.push({
+        bufferView: addView(floats(clip.times)),
+        componentType: FLOAT,
+        count: clip.times.length,
+        type: 'SCALAR',
+        min: [clip.times[0] ?? 0],
+        max: [clip.times[clip.times.length - 1] ?? 0],
+      });
+      const channel = (node: number, path: 'rotation' | 'translation', values: number[], type: 'VEC4' | 'VEC3'): void => {
+        const output = accessors.length;
+        accessors.push({ bufferView: addView(floats(values)), componentType: FLOAT, count: clip.times.length, type });
+        samplers.push({ input, output, interpolation: 'LINEAR' });
+        channels.push({ sampler: samplers.length - 1, target: { node, path } });
+      };
+      rig.bones.forEach((_, i) => {
+        channel(jointBase + i, 'rotation', clip.rotations[i]!.flat(), 'VEC4');
+        const moves = clip.translations[i]!.some((t) => t[0] !== 0 || t[1] !== 0 || t[2] !== 0);
+        if (moves) {
+          const values = clip.rotations[i]!.flatMap((rotation, f) => boneLocal(rig, i, { rotation, translation: clip.translations[i]![f]! }).translation);
+          channel(jointBase + i, 'translation', values, 'VEC3');
+        }
+      });
+      return { name: clip.name, samplers, channels, extras: { loop: clip.loop } };
+    });
+  }
 
   const usesEmissiveStrength = materials.some((m) => m.material.emissive !== '#000000' && m.material.emissiveIntensity > 1);
   const gltfMaterials = materials.map((entry, index) => {
@@ -100,9 +199,11 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model'): GltfBuil
   const json: Json = {
     asset: { version: '2.0', generator: 'Midnite Studio', extras: { title } },
     scene: 0,
-    scenes: [{ name: title, nodes: nodes.map((_, i) => i) }],
+    scenes: [{ name: title, nodes: sceneNodes }],
     nodes,
     meshes,
+    ...(skins ? { skins } : {}),
+    ...(animations && animations.length > 0 ? { animations } : {}),
     materials: gltfMaterials,
     accessors,
     bufferViews,
@@ -113,8 +214,8 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model'): GltfBuil
 }
 
 /** The `.glb` container: header, a space-padded JSON chunk, a zero-padded BIN chunk. */
-export function writeGlb(parts: readonly MeshPart[], title = 'model'): Buffer {
-  const { json, bin } = buildGltf(parts, title);
+export function writeGlb(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null): Buffer {
+  const { json, bin } = buildGltf(parts, title, rigging);
   const jsonText = Buffer.from(JSON.stringify(json), 'utf8');
   const jsonChunk = Buffer.concat([jsonText, Buffer.alloc((4 - (jsonText.length % 4)) % 4, 0x20)]);
   const binChunk = Buffer.concat([bin, Buffer.alloc((4 - (bin.length % 4)) % 4)]);

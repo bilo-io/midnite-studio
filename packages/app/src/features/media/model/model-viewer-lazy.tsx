@@ -1,3 +1,4 @@
+import type { RetargetSource } from './clip-panel';
 import { Component, type Dispatch, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
@@ -54,7 +55,13 @@ export function LazyModelViewer(props: {
 }
 
 /** The editable view of a generated design — same lazy chunk story as the read-only viewer. */
-export function LazyModelEditor(props: { state: EditorState; dispatch: Dispatch<EditorAction>; onSave: () => void; saving: boolean }) {
+export function LazyModelEditor(props: {
+  state: EditorState;
+  dispatch: Dispatch<EditorAction>;
+  onSave: () => void;
+  saving: boolean;
+  retargetSources?: readonly RetargetSource[];
+}) {
   return (
     <ViewerBoundary>
       <Suspense

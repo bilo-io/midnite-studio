@@ -9,6 +9,7 @@ import {
   type ModelSpec,
   sceneBounds,
   type ModelToolIssue,
+  validateRig,
 } from '@midnite/studio-shared';
 import type { ZodIssue } from 'zod';
 
@@ -143,8 +144,10 @@ export function describeEdit(spec: ModelSpec): {
   bounds: { min: Vec; max: Vec; size: Vec };
   triangles: number;
   warnings?: ModelToolIssue[];
+  rig?: { anatomy: string; bones: number; clips: string[] };
 } {
   const built = buildSceneChecked(spec);
+  const warnings = [...built.issues, ...validateRig(spec)];
   const { min, max } = sceneBounds(built.parts);
   const round = (v: Vec): Vec => v.map((n) => (Number.isFinite(n) ? Math.round(n * 1000) / 1000 : 0)) as Vec;
   const lo = round(min);
@@ -152,7 +155,10 @@ export function describeEdit(spec: ModelSpec): {
   return {
     partCount: spec.parts.length,
     triangles: built.stats.triangles,
-    ...(built.issues.length > 0 ? { warnings: built.issues } : {}),
+    ...(warnings.length > 0 ? { warnings } : {}),
+    ...(spec.anatomy && spec.anatomy !== 'static'
+      ? { rig: { anatomy: spec.anatomy, bones: spec.rig?.bones.length ?? 0, clips: (spec.animations ?? []).map((c) => c.name) } }
+      : {}),
     parts: spec.parts.map((part) => ({ id: part.id ?? '', name: part.name, shape: part.shape })),
     bounds: { min: lo, max: hi, size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]].map((n) => Math.round(n * 1000) / 1000) as Vec },
   };

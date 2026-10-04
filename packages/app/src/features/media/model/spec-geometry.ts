@@ -1,4 +1,4 @@
-import { buildSceneChecked, sceneStats, semanticIssues, type BuildIssue, type MeshPart, type ModelSpec } from '@midnite/studio-shared';
+import { buildSceneChecked, sceneStats, semanticIssues, validateRig, type BuildIssue, type MeshPart, type ModelSpec } from '@midnite/studio-shared';
 import { BufferGeometry, Float32BufferAttribute } from 'three';
 
 /**
@@ -9,7 +9,7 @@ import { BufferGeometry, Float32BufferAttribute } from 'three';
  */
 export type EditorScene = {
   parts: MeshPart[];
-  /** Hard reference problems first, then build warnings (a failed boolean, a capped modifier). */
+  /** Hard reference problems first, then rig problems, then build warnings (a failed boolean, a capped modifier). */
   issues: BuildIssue[];
   stats: { triangles: number; vertices: number; parts: number };
 };
@@ -23,7 +23,7 @@ export function editorScene(spec: ModelSpec): EditorScene {
   const built = buildSceneChecked(spec, { operands: true });
   const scene: EditorScene = {
     parts: built.parts,
-    issues: [...semanticIssues(spec), ...built.issues],
+    issues: [...semanticIssues(spec), ...validateRig(spec), ...built.issues],
     stats: sceneStats(built.parts.filter((p) => p.role === 'solid')),
   };
   cache.set(spec, scene);

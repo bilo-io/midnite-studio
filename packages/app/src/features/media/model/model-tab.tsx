@@ -1,6 +1,6 @@
 import { MEDIA_TAB_EXPORT_FORMATS, libraryParent, type ModelLibraryNode, modelFileExtension, modelSidecarPath, parseModelSidecar, type MediaExportFormat, type ModelSpec } from '@midnite/studio-shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { LuBox, LuSparkles } from 'react-icons/lu';
 import { PiSparkleFill } from 'react-icons/pi';
 
@@ -16,7 +16,8 @@ import { ModelPanel } from './model-panel';
 import { editorReducer, initialEditorState, isDirty } from './editor-state';
 import { LazyModelEditor, LazyModelViewer } from './model-viewer-lazy';
 import { JsonFileViewer } from './json-viewer';
-import { findNode, joinLibraryPath, splitProjectPath, type ModelSelection } from './library-tree';
+import { collectModels, findNode, joinLibraryPath, splitProjectPath, type ModelSelection } from './library-tree';
+import type { RetargetSource } from './clip-panel';
 import { resolveCentre, selectionForGenerated } from './model-centre';
 import { ModelExplorer } from './model-explorer';
 import { modelFileUrl, mtlPathFor } from './model-utils';
@@ -115,6 +116,28 @@ function ModelTabBody({ repoId }: { repoId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on a new design or file only
   }, [designSpec, fileKey]);
   const editing = designSpec !== null && editor.source === fileKey;
+
+  // Rigged models with clips (their model.json says so) are what the Animation tab can copy clips from.
+  const retargetSources = useMemo<RetargetSource[]>(() => {
+    const out: RetargetSource[] = [];
+    for (const model of (library.data ?? []).flatMap((node) => collectModels(node))) {
+      const clips = model.manifest?.animations;
+      const design = model.manifest?.files.design;
+      if (!Array.isArray(clips) || clips.length === 0 || !design) continue;
+      const { project, rest } = splitProjectPath(model.path);
+      const path = joinLibraryPath(rest, design);
+      if (`${project}/${path}` === `${modelProject}/${selectedPath ? modelSidecarPath(selectedPath) : ''}`) continue;
+      out.push({
+        key: `${project}/${path}`,
+        label: model.manifest?.name ?? model.name,
+        load: async () => {
+          const read = await bridge()?.media.file.read({ repoId, tab: 'model', project, path });
+          return read?.ok ? (parseModelSidecar(read.value)?.spec ?? null) : null;
+        },
+      });
+    }
+    return out;
+  }, [library.data, repoId, modelProject, selectedPath]);
   const sidecarMissing = centre.kind === 'viewer' || sidecar.isError || (sidecar.isSuccess && design === null);
 
   const onExport = (exportFormat: MediaExportFormat) => {
@@ -159,7 +182,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
               <EmptyState icon={LuBox} title="No preview" body={`${centre.path} is not a 3D, JSON or image file.`} />
             ) : modelProject && selectedPath && format ? (
               editing ? (
-                <LazyModelEditor state={editor} dispatch={dispatch} onSave={save} saving={saver.isPending} />
+                <LazyModelEditor state={editor} dispatch={dispatch} onSave={save} saving={saver.isPending} retargetSources={retargetSources} />
               ) : sidecarMissing ? (
                 <LazyModelViewer
                   key={fileKey}
