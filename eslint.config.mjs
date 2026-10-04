@@ -53,6 +53,9 @@ export default tseslint.config(
       'templates/media-video/**',
       // The repo's own video workspace (a copy of midnite-videos) — a Remotion app, not workspace source.
       '.midnite/media/**',
+      // Phase 107 — vendored game engine runtimes and templates, not workspace source.
+      'packages/desktop/resources/game-engines/**',
+      'templates/media-game/**',
     ],
   },
 

@@ -18,6 +18,20 @@ import {
 } from './tools';
 import { McpToolError } from './errors';
 import {
+  gameCreate,
+  gameGetManifest,
+  gameInput,
+  gameList,
+  gameLogs,
+  gameOpen,
+  gameReload,
+  gameRun,
+  gameScreenshot,
+  gameSetManifest,
+  gameState,
+  gameStop,
+} from './game-tools';
+import {
   modelAutoRig,
   modelGetReferenceImage,
   modelGetRig,
@@ -71,6 +85,18 @@ export const MCP_HANDLERS: {
   model_save: modelSave,
   model_sf3d_status: modelSf3dStatus,
   model_generate_sf3d: modelGenerateSf3d,
+  game_list: gameList,
+  game_create: gameCreate,
+  game_open: gameOpen,
+  game_get_manifest: gameGetManifest,
+  game_set_manifest: gameSetManifest,
+  game_run: gameRun,
+  game_stop: gameStop,
+  game_reload: gameReload,
+  game_screenshot: gameScreenshot,
+  game_logs: gameLogs,
+  game_input: gameInput,
+  game_state: gameState,
 };
 
 export type McpDispatchResult =

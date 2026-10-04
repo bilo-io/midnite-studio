@@ -1186,7 +1186,10 @@ export type MidniteStudioBridge = {
     setVisible: (req: In<typeof S.GamesSetVisibleRequest>) => void;
     toolbar: (req: In<typeof S.GamesToolbarRequest>) => Promise<GitOpResult>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
+    kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
     onChanged: (handler: (event: z.infer<typeof S.GamesChangedPayload>) => void) => Unsubscribe;
+    /** An agent's `game_open` asked the window to show a game. */
+    onOpen: (handler: (event: z.infer<typeof S.GamesOpenPayload>) => void) => Unsubscribe;
     onRunState: (handler: (event: z.infer<typeof S.GamesRunStatePayload>) => void) => Unsubscribe;
     onConsole: (handler: (event: z.infer<typeof S.GamesConsolePayload>) => void) => Unsubscribe;
   };

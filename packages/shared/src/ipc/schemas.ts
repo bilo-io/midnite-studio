@@ -233,6 +233,7 @@ import {
   GameRunResult as GameRunResultSchema,
   GameRunStatePayload as GameRunStatePayloadSchema,
   GamesChangedSchema,
+  GamesOpenEventSchema,
   GamesListSchema,
   GamesSettingsReadSchema,
   GamesSettingsPatchSchema,
@@ -4335,5 +4336,9 @@ export const GamesToolbarRequest = GameToolbarRequestSchema;
 export const GamesLogsRequest = GameLogsRequestSchema;
 export const GamesLogsResponse = GameLogsResponseSchema;
 export const GamesChangedPayload = GamesChangedSchema;
+export const GamesOpenPayload = GamesOpenEventSchema;
 export const GamesRunStatePayload = GameRunStatePayloadSchema;
 export const GamesConsolePayload = GameConsolePayloadSchema;
+export const GamesKitUpgradeRequest = GameIdRequestSchema;
+export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
+export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);

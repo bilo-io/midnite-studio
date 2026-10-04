@@ -8,6 +8,18 @@
       html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; }
       canvas { display: block; width: 100%; height: 100%; }
     </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "phaser": "./vendor/phaser/phaser.esm.js",
+          "three": "./vendor/three/three.module.js",
+          "three/addons/": "./vendor/three/addons/",
+          "@dimforge/rapier3d-compat": "./vendor/rapier/rapier.mjs",
+          "recast-navigation": "./vendor/recast/index.mjs",
+          "kit/": "./kit/"
+        }
+      }
+    </script>
   </head>
   <body>
     <canvas id="game"></canvas>

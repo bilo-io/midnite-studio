@@ -34,6 +34,7 @@ export function McpSettingsPage() {
         allowUi: false,
         allowGateDecide: false,
         allowModels: false,
+        allowGames: false,
       },
   });
 
@@ -76,6 +77,15 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 107 Theme D's fifth switch — gates the game_* tools that create, run
+   * or drive games in the runner. Off by default.
+   */
+  const setAllowGames = useMutation({
+    mutationFn: async (nextAllowGames: boolean) => bridge()?.mcp.set({ allowGames: nextAllowGames }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -91,6 +101,7 @@ export function McpSettingsPage() {
   const allowUi = status.data?.allowUi ?? false;
   const allowGateDecide = status.data?.allowGateDecide ?? false;
   const allowModels = status.data?.allowModels ?? false;
+  const allowGames = status.data?.allowGames ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
@@ -231,6 +242,23 @@ export function McpSettingsPage() {
               model_render_preview to see it, model_patch_parts to refine, and model_save to finish. Open the Models tab to watch.
             </p>
           </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents run and edit games" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-games"
+            label="Let agents run and edit games"
+            description="Agents can create game repos, run their code in a sandbox, and send input to them."
+            on={allowGames}
+            onToggle={(_id, next) => setAllowGames.mutate(next)}
+            testId="mcp-allow-games"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowGames.data?.error && <div className="text-xs text-destructive">{setAllowGames.data.error}</div>}
         </div>
       </Accordion>
 

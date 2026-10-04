@@ -119,11 +119,39 @@ describe('McpSettingsPage', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith({ allowModels: true }));
   });
 
+  it('toggling the games switch calls mcp.set with allowGames, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents run and edit games' }));
+    expect(((await screen.findByTestId('mcp-allow-games')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowGames: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents run and edit games' }));
+    const checkbox = await screen.findByTestId('mcp-allow-games');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowGames: true }));
+  });
+
   it('lists the model tools among the registered tools', async () => {
     installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });
     fireEvent.click(await screen.findByRole('button', { name: 'Tools' }));
     for (const id of ['model_set_spec', 'model_patch_parts', 'model_render_preview']) {
+      expect(await screen.findByText(id)).toBeTruthy();
+    }
+  });
+
+  it('lists the game tools among the registered tools', async () => {
+    installBridge();
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Tools' }));
+    for (const id of ['game_list', 'game_create', 'game_screenshot', 'game_state', 'game_input']) {
       expect(await screen.findByText(id)).toBeTruthy();
     }
   });

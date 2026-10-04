@@ -5,15 +5,17 @@ import { defaultLogger, type Logger } from '../log';
 import { startMcpServer, type McpServerHandle } from './server';
 import {
   getMcpAllowGateDecide,
+  getMcpAllowGames,
   getMcpAllowModels,
   getMcpAllowUi,
   resetMcpAllowUiStateForTests,
   setMcpAllowGateDecideState,
+  setMcpAllowGamesState,
   setMcpAllowModelsState,
   setMcpAllowUiState,
 } from './ui-gate';
 
-export { getMcpAllowGateDecide, getMcpAllowModels, getMcpAllowUi } from './ui-gate';
+export { getMcpAllowGames, getMcpAllowGateDecide, getMcpAllowModels, getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -47,6 +49,8 @@ export type McpStatus = {
   allowGateDecide: boolean;
   /** Phase 99 Theme G's fourth switch — whether the `model_*` tools that change a model may actually act. */
   allowModels: boolean;
+  /** Phase 107 Theme D's fifth switch — whether the `game_*` tools that create, run or drive a game may act. */
+  allowGames: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -89,6 +93,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   setMcpAllowUiState(settings.allowUi);
   setMcpAllowGateDecideState(settings.allowGateDecide);
   setMcpAllowModelsState(settings.allowModels);
+  setMcpAllowGamesState(settings.allowGames);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -115,6 +120,7 @@ export function getMcpStatus(): McpStatus {
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
   };
 }
 
@@ -132,11 +138,12 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 4,
+    version: 5,
     enabled: next,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
@@ -171,11 +178,12 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 4,
+    version: 5,
     enabled,
     allowUi: next,
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowUiState(next);
@@ -194,11 +202,12 @@ export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnable
   }
 
   const settings: McpSettings = {
-    version: 4,
+    version: 5,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: next,
     allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGateDecideState(next);
@@ -217,14 +226,39 @@ export async function setMcpAllowModels(next: boolean): Promise<SetMcpEnabledRes
   }
 
   const settings: McpSettings = {
-    version: 4,
+    version: 5,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: next,
+    allowGames: getMcpAllowGames(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowModelsState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 107 Theme D's fifth Settings switch. Same shape as the others — never
+ * starts or stops the socket, only gates whether the `game_*` tools that
+ * create, run or drive a game act once a call reaches them.
+ */
+export async function setMcpAllowGames(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 5,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: next,
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowGamesState(next);
 
   return { ok: true, status: getMcpStatus() };
 }

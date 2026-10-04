@@ -971,7 +971,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -3286,10 +3286,17 @@ export function buildMockBridge(data: MockFixtures) {
         return { ok: true as const };
       },
       logs: async () => ({ runId: null, entries: [] }),
+      kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
       onChanged: (handler: (event: unknown) => void) => {
         gamesChangedHandlers.push(handler);
         return () => {
           gamesChangedHandlers = gamesChangedHandlers.filter((h) => h !== handler);
+        };
+      },
+      onOpen: (handler: (event: unknown) => void) => {
+        gamesOpenHandlers.push(handler);
+        return () => {
+          gamesOpenHandlers = gamesOpenHandlers.filter((h) => h !== handler);
         };
       },
       onRunState: (handler: (event: unknown) => void) => {
@@ -4941,17 +4948,20 @@ export function buildMockBridge(data: MockFixtures) {
         allowUi: mcpAllowUi,
         allowGateDecide: mcpAllowGateDecide,
         allowModels: mcpAllowModels,
+        allowGames: mcpAllowGames,
       }),
       set: async (req: {
         enabled?: boolean;
         allowUi?: boolean;
         allowGateDecide?: boolean;
         allowModels?: boolean;
+        allowGames?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
         if (req.allowModels !== undefined) mcpAllowModels = req.allowModels;
+        if (req.allowGames !== undefined) mcpAllowGames = req.allowGames;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -4963,6 +4973,7 @@ export function buildMockBridge(data: MockFixtures) {
           allowUi: mcpAllowUi,
           allowGateDecide: mcpAllowGateDecide,
           allowModels: mcpAllowModels,
+          allowGames: mcpAllowGames,
         };
       },
       calls: async () => ({
@@ -5171,6 +5182,9 @@ export function buildMockBridge(data: MockFixtures) {
   // Phase 99 Theme G's fourth switch — same off-by-default posture.
   // eslint-disable-next-line no-var
   var mcpAllowModels = data.mcp?.allowModels ?? false;
+  // Phase 107 Theme D's fifth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowGames = data.mcp?.allowGames ?? false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {
@@ -5280,10 +5294,13 @@ export function buildMockBridge(data: MockFixtures) {
   var gamesConsoleHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
   var gamesChangedHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesOpenHandlers: Array<(event: unknown) => void> = [];
   (window as unknown as { __mstudioMockGames: unknown }).__mstudioMockGames = {
     calls: gamesCalls,
     runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
     console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
+    open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),
   };
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // eslint-disable-next-line no-var

@@ -157,14 +157,18 @@ dotfile and wrong-host refusals, CSP and `nosniff` on every response, `onBeforeR
 policy, a navigation lock, a 2000-entry console ring buffer fed by `console-message` and the CDP debugger, `fs.watch`
 hot reload, a three-run cap and a toolbar. Tested in vitest with fakes for the view and session.
 
-**Theme C — No-build runtime, vendored engines and kit versions.** ◻ Not started. Lands with A. Phaser
-3 (exact pin), three, Rapier compat and recast-navigation are exact-pinned desktop devDependencies
-copied to a git-ignored `resources/game-engines/` at bundle time; import maps; `// @ts-check` + vendored
-`.d.ts`; kit upgrades land on a branch.
+**Theme C — No-build runtime, vendored engines and kit versions.** ✅ Landed. Exact-pinned
+`phaser@3.90.0`, `three@0.186.1`, `@dimforge/rapier3d-compat@0.21.0` and `recast-navigation@0.43.1`
+in desktop devDependencies vendored into `resources/game-engines/` at bundle time by
+`scripts/vendor-game-engines.mjs`; import maps in `index.html` filtered per 2D/3D engine; `jsconfig.json`
+with `// @ts-check` for editor typing without a build; kit versioning with `GAME_KIT_VERSION = '0.1.0'`,
+`kit-hash.json` integrity test, and branch-based `gamesKitUpgrade` IPC; licences documented in `docs/MEDIA_GAMES.md`.
 
-**Theme D — MCP plumbing: the minimum play-test loop.** ◻ Not started. Twelve `game_*` tools behind
-`allowGames`; `game_state` treats the page's answer as size-capped untrusted JSON; file edits stay with
-the agent's own tools.
+**Theme D — MCP plumbing: the minimum play-test loop.** ✅ Landed. Twelve `game_*` tools (`game_list`,
+`game_create`, `game_open`, `game_get_manifest`, `game_set_manifest`, `game_run`, `game_stop`, `game_reload`,
+`game_screenshot`, `game_logs`, `game_input`, `game_state`) behind `allowGames` MCP consent switch in
+Settings ▸ MCP; untrusted `game_state` capped at 256 KB with depth validation; burst screenshot capture and
+sequenced input via `sendInputEvent`; covered by comprehensive vitest suites.
 
 **Theme E — Phaser kit and the 2D perspective presets.** ◻ Not started. `kit/core/` (engine-free,
 vitest) plus `kit/phaser/`; the `window.__midnite` hook contract (`GameStateSchema`); four presets
@@ -428,13 +432,13 @@ renderer, because that shares a process with the bridge.
 
 ## C — No-build runtime, vendored engines and kit versions (M)
 
-- [ ] Each repo's `index.html` loads `src/main.js` as an ES module through an **import map** pointing at `vendor/` (`phaser`, `three`, `three/addons/`, `@dimforge/rapier3d-compat`) and `kit/`
+- [x] Each repo's `index.html` loads `src/main.js` as an ES module through an **import map** pointing at `vendor/` (`phaser`, `three`, `three/addons/`, `@dimforge/rapier3d-compat`) and `kit/`
   - `templates/media-game/common/index.html` holds `<script type="importmap">` with exactly:
     `phaser → ./vendor/phaser/phaser.esm.js`, `three → ./vendor/three/three.module.js`,
     `three/addons/ → ./vendor/three/addons/`, `@dimforge/rapier3d-compat → ./vendor/rapier/rapier.mjs`,
     `recast-navigation → ./vendor/recast/index.mjs`, `kit/ → ./kit/`. A 2D repo omits the three/rapier/recast
     entries; a 3D repo omits phaser (written by `composeStarter` from the engine).
-- [ ] Engines are app resources (`resources/game-engines/<engine>@<version>/` with their LICENSE files), copied into `vendor/` at creation. Exact versions are pinned and recorded in the manifest. Phaser's major version (v3 or v4) is decided and recorded here; verify each engine's licence and record it in `docs/`
+- [x] Engines are app resources (`resources/game-engines/<engine>@<version>/` with their LICENSE files), copied into `vendor/` at creation. Exact versions are pinned and recorded in the manifest. Phaser's major version (v3 or v4) is decided and recorded here; verify each engine's licence and record it in `docs/`
   - **Resolved: Phaser 3, latest 3.x, exact-pinned** (Decision 1, closes the original open): agents
     write the code, their corpus is overwhelmingly Phaser 3, and Phase 106's formats target Phaser 3's
     `load.atlas`/`load.aseprite`/`load.tilemapTiledJSON`. Phase 106's dev-only `phaser` uses the same pin.
@@ -450,11 +454,11 @@ renderer, because that shares a process with the bridge.
   - Licences recorded in a new `docs/MEDIA_GAMES.md` (`## Engine licences`: Phaser MIT, three MIT,
     Rapier Apache-2.0, recast-navigation-js MIT with Recast's zlib licence), checked against each
     package's `LICENSE` when pinned.
-- [ ] **Types without a build**: vendored `.d.ts` files plus `// @ts-check` and JSDoc in the kits and starters, and a `jsconfig.json`, so agents and editors get types with no compile step
+- [x] **Types without a build**: vendored `.d.ts` files plus `// @ts-check` and JSDoc in the kits and starters, and a `jsconfig.json`, so agents and editors get types with no compile step
   - `jsconfig.json` = `{ compilerOptions: { checkJs: true, module: 'esnext', moduleResolution: 'bundler', target: 'es2022', paths: { phaser: ['./vendor/phaser/types/phaser.d.ts'], three: ['./vendor/three/types/index.d.ts'], … } }, include: ['src', 'kit'] }`.
   - **Resolved: no CI typecheck of the kit** (Decision 8): types are an editor/agent aid; correctness of
     `kit/core/` is enforced by vitest, of `kit/phaser|three/` by the e2e smoke runs.
-- [ ] **Kit versioning**: the kit lives in the repo (`kit/`), stamped with `kitVersion`. **Upgrade kit** writes the new kit on a branch and opens it as a diff in the app; the user (or agent) merges it. The kit is never silently overwritten
+- [x] **Kit versioning**: the kit lives in the repo (`kit/`), stamped with `kitVersion`. **Upgrade kit** writes the new kit on a branch and opens it as a diff in the app; the user (or agent) merges it. The kit is never silently overwritten
   - `GAME_KIT_VERSION` (semver) in `shared/src/media-game.ts`, bumped whenever `templates/media-game/kit/`
     changes (a vitest hashes the kit tree against `kit-hash.json` and fails if the hash changed without a
     version bump). The Games tab shows **Upgrade kit to <v>** when the manifest's `kitVersion` is older.
@@ -462,7 +466,7 @@ renderer, because that shares a process with the bridge.
     creates branch `kit-upgrade/<v>` from HEAD via the write queue, replaces `kit/` and the engine subset
     of `vendor/`, sets `kitVersion`/`vendored`, commits `Upgrade kit to <v>`, switches back to the previous
     branch, and opens the Timeline on the new branch. Merging is the user's (or agent's) git action.
-- [ ] Vitest: the import map resolves every vendored entry, a fresh repo's files match the starter plus the vendor set, and an upgrade produces a branch with only `kit/` and the manifest changed
+- [x] Vitest: the import map resolves every vendored entry, a fresh repo's files match the starter plus the vendor set, and an upgrade produces a branch with only `kit/` and the manifest changed
   - `desktop/src/main/games/vendor.test.ts`, `game-scaffold.test.ts` (fresh repo file list = compose
     output ∪ vendor set ∪ seeded skills), `kit-upgrade.test.ts` (on a `TempRepo`: the branch's diff
     touches only `kit/`, `vendor/` and `midnite-game.json`; dirty tree refused); `kit-hash.test.ts`.
@@ -471,7 +475,7 @@ renderer, because that shares a process with the bridge.
 
 Lands early so every later theme is built with the agent able to play.
 
-- [ ] `shared/src/media-game-mcp.ts` tool family, spread into `MCP_TOOLS`:
+- [x] `shared/src/media-game-mcp.ts` tool family, spread into `MCP_TOOLS`:
   - `game_list`, `game_create` (from a starter id) and `game_open`
   - `game_get_manifest` and `game_set_manifest` (zod-validated)
   - `game_run`, `game_stop` and `game_reload`
@@ -498,7 +502,7 @@ Lands early so every later theme is built with the agent able to play.
     result _"getState() returned more than 256 KB."_), `JSON.parse`d, and validated with
     `GameStateSchema` (passthrough; depth ≤ 32 checked by `jsonDepth`). Cyclic objects throw inside the page
     and come back as `__error`. The value is returned as data, never evaluated.
-- [ ] Handlers in `main/games/game-mcp.ts`. A `main/mcp/game-tools.ts` gate behind **Settings ▸ MCP ▸ Let agents run and edit games** (default off), with `dispatch.ts` entries and slow-tool timeouts for run, screenshot bursts and input sequences
+- [x] Handlers in `main/games/game-mcp.ts`. A `main/mcp/game-tools.ts` gate behind **Settings ▸ MCP ▸ Let agents run and edit games** (default off), with `dispatch.ts` entries and slow-tool timeouts for run, screenshot bursts and input sequences
   - `allowGames` on `McpSettings` (version +1, `=== true` read), `McpSetRequest`, `setMcpAllowGames`,
     `ui-gate.ts` getters, `Accordion title="Let agents run and edit games"` + `SettingsSwitchRow id="mcp-allow-games"`
     in `mcp-page.tsx`. The help text under the switch: _"Agents can create game repos, run their code in a
@@ -506,10 +510,10 @@ Lands early so every later theme is built with the agent able to play.
   - Shim: `isGameSlowToolId(name) ? { timeoutMs: GAME_CALL_TIMEOUT_MS }` with `GAME_CALL_TIMEOUT_MS = 120_000`.
   - Over MCP a game is addressed by `gameId` or absolute path; a path outside `gamesRoot` and not a
     registered repo is refused (_"That folder is not a Midnite game."_).
-- [ ] File edits are **not** MCP tools. The agent edits the repo with its own tools, and the tools only see, play and configure
+- [x] File edits are **not** MCP tools. The agent edits the repo with its own tools, and the tools only see, play and configure
   - `game_set_manifest` is the only write to a repo file over MCP, and it validates with
     `GameManifestSchema` and refuses changes to `vendored` and `kitVersion` (those move only via C's upgrade).
-- [ ] Vitest: schemas derive from zod, tools are refused when the switch is off, a hostile `getState` (huge, cyclic or non-JSON) comes back as a bounded error result, and input sequences are converted to the right `sendInputEvent` calls
+- [x] Vitest: schemas derive from zod, tools are refused when the switch is off, a hostile `getState` (huge, cyclic or non-JSON) comes back as a bounded error result, and input sequences are converted to the right `sendInputEvent` calls
   - `desktop/src/main/games/game-mcp.test.ts` with a fake `webContents`: `executeJavaScript` resolving
     300 KB, `{__error}`, `'not json'`, and a 40-deep object each yield a bounded `{ ok: false }` result;
     a keyDown/keyUp pair at t=0/50 becomes two `sendInputEvent` calls in order (fake timers); every write

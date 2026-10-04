@@ -14,6 +14,7 @@
 let allowUi = false;
 let allowGateDecide = false;
 let allowModels = false;
+let allowGames = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -45,9 +46,20 @@ export function setMcpAllowModelsState(next: boolean): void {
   allowModels = next;
 }
 
+/** Read synchronously by the `game_*` write tools (Phase 107 Theme D) before they create, run or drive a game. */
+export function getMcpAllowGames(): boolean {
+  return allowGames;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowGamesState(next: boolean): void {
+  allowGames = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
   allowGateDecide = false;
   allowModels = false;
+  allowGames = false;
 }

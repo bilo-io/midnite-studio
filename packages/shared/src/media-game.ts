@@ -41,6 +41,17 @@ export const GAME_STATE_MAX_DEPTH = 32;
 export const GAMES_OLLAMA_WARNING =
   'Local Ollama models are much weaker at writing whole games than a roster agent CLI. Expect small, focused edits to work and large rewrites to break — and review every change before you play it.';
 
+/** The exact-pinned engine versions vendored into game repositories (Phase 107 Theme C). */
+export const GAME_ENGINE_VERSIONS = {
+  phaser: '3.90.0',
+  three: '0.186.1',
+  rapier: '0.21.0',
+  recast: '0.43.1',
+} as const;
+
+/** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
+export const GAME_KIT_VERSION = '0.1.0';
+
 // --- enums -------------------------------------------------------------------
 
 export const GAME_ENGINES = ['phaser', 'three'] as const;
@@ -283,6 +294,7 @@ export const GameRunStatePayload = z.object({
 export type GameRunStatePayload = z.infer<typeof GameRunStatePayload>;
 
 export const GAME_LOG_LEVELS = ['log', 'info', 'warn', 'error', 'exception', 'crash'] as const;
+export type GameLogLevel = (typeof GAME_LOG_LEVELS)[number];
 export const GameLogEntrySchema = z.object({
   seq: z.number().int().nonnegative(),
   at: z.number(),
@@ -357,3 +369,7 @@ export function jsonDepth(value: unknown): number {
   }
   return max;
 }
+
+/** Pushed on `mstudio:games:open` when an agent's `game_open` asks the window to show a game. */
+export const GamesOpenEventSchema = z.object({ gameId: z.string().min(1) });
+export type GamesOpenEvent = z.infer<typeof GamesOpenEventSchema>;

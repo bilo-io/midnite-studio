@@ -75,3 +75,6 @@ graphify-out/
 # `.midnite/api/.gitignore` into the repository the app is opened on.
 .midnite/api/**/*.local.json
 .aider*
+
+# Vendored game engines (Phase 107 Theme C) — generated at bundle time
+packages/desktop/resources/game-engines/
