@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
@@ -8,7 +9,10 @@ import { CHANNELS, EVENT_CHANNELS, failure, schemas, type Sf3dRequest, type Sf3d
 import { createSf3dInstaller } from '../media/model/sf3d/installer';
 import type { RgbaImage } from '../media/model/sf3d/prepare-image';
 import { createSf3dBroker, sf3dWorkerScriptPath, type Sf3dBroker, type Sf3dWorkerHandle } from '../media/model/sf3d/sf3d-broker';
+import { createSf3dMcpTools } from '../media/model/sf3d/sf3d-mcp';
 import { createSf3dService, type Sf3dService } from '../media/model/sf3d/sf3d-service';
+import { setSf3dTools } from '../mcp/model-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle } from './handle';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
@@ -23,6 +27,9 @@ import { readSecret } from './secrets-handlers';
 let service: Sf3dService | null = null;
 let broker: Sf3dBroker | null = null;
 let runtime: boolean | null = null;
+/** The latest event per generation, for `model_sf3d_status` — capped so a long session cannot grow it. */
+const generations = new Map<string, Extract<Sf3dProgressEvent, { kind: 'generate' }>>();
+const GENERATIONS_KEPT = 50;
 
 /** Whether `onnxruntime-node` resolves through `@huggingface/transformers` — checked once, lazily, never loaded here. */
 function runtimeAvailable(): boolean {
@@ -68,15 +75,33 @@ export function configureSf3d(userData: string): void {
     writeBytes: (req) => mediaStore.writeBytes(req),
     emit: (event: Sf3dProgressEvent) => {
       broadcastToAllWindows(EVENT_CHANNELS.mediaModelSf3dProgress, event);
+      if (event.kind === 'generate') {
+        generations.delete(event.generationId);
+        generations.set(event.generationId, event);
+        if (generations.size > GENERATIONS_KEPT) generations.delete(generations.keys().next().value!);
+      }
       if (event.kind === 'generate' && event.status === 'succeeded') notifyMediaChanged(event.repoId, 'model');
     },
     disposeEngine: () => engine.dispose(),
     author: modelAuthor,
     runtimeAvailable,
   });
+  setSf3dTools(
+    createSf3dMcpTools({
+      handle: (req) => handleSf3d(req),
+      resolveRepo: async (repoPath) => {
+        const resolved = await resolveRegisteredRepo(repoPath);
+        if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id };
+        return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+      },
+      readFile: (path) => readFile(path),
+      generation: (id) => generations.get(id),
+    }),
+  );
 }
 
 export function disposeSf3d(): void {
+  setSf3dTools(null);
   broker?.dispose();
 }
 

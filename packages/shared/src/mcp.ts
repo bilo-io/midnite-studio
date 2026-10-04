@@ -26,6 +26,10 @@ import {
   ModelRetargetInputSchema,
   ModelSetSpecInputSchema,
   ModelToolTargetSchema,
+  ModelGenerateSf3dInputSchema,
+  ModelGenerateSf3dResultSchema,
+  ModelSf3dStatusInputSchema,
+  ModelSf3dStatusResultSchema,
 } from './media-model-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
@@ -90,7 +94,9 @@ type McpToolEntry = {
     | 'model_patch_rig'
     | 'model_patch_animations'
     | 'model_retarget'
-    | 'model_save';
+    | 'model_save'
+    | 'model_sf3d_status'
+    | 'model_generate_sf3d';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -436,6 +442,24 @@ export const MCP_TOOLS = {
       'Saves a model by writing its `.json`, `.obj`, `.mtl` and `.fbx` files — call it when the design is finished; refused unless its own Settings switch is on.',
     input: ModelToolTargetSchema,
     output: z.object({ saved: z.literal(true), files: z.array(z.string()) }),
+    readOnly: false,
+  },
+  model_sf3d_status: {
+    id: 'model_sf3d_status',
+    title: 'SF3D install and run status',
+    description:
+      'Reports whether the local SF3D image-to-3D engine is installed and how a `model_generate_sf3d` run is going — call it before generating and to poll a run until it has a `.glb`.',
+    input: ModelSf3dStatusInputSchema,
+    output: ModelSf3dStatusResultSchema,
+    readOnly: true,
+  },
+  model_generate_sf3d: {
+    id: 'model_generate_sf3d',
+    title: 'Image to textured 3D model (SF3D)',
+    description:
+      'Starts a local SF3D run that turns a picture of one object into a textured `.glb` in Media ▸ Models; poll `model_sf3d_status`; refused unless SF3D is installed and its own Settings switch is on.',
+    input: ModelGenerateSf3dInputSchema,
+    output: ModelGenerateSf3dResultSchema,
     readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;

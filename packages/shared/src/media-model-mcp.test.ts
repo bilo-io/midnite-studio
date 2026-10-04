@@ -5,6 +5,7 @@ import {
   MODEL_ITERATIONS_MAX,
   MODEL_MAX_PARTS,
   MODEL_MCP_TOOL_IDS,
+  SF3D_MCP_TOOL_IDS,
   MODEL_MCP_WRITE_TOOL_IDS,
   MODEL_PREVIEW_VIEWS,
   MODEL_SHAPES,
@@ -36,7 +37,11 @@ describe('model MCP contract', () => {
 
   it('registers exactly the model tool ids, and the write ones are the non-read-only ones', () => {
     const registered = Object.keys(MCP_TOOLS).filter((id) => id.startsWith('model_'));
-    expect(registered.sort()).toEqual([...MODEL_MCP_TOOL_IDS].sort());
+    // The SF3D engine's two tools are `model_*` by name but stay out of the iterative design loop.
+    expect(registered.filter((id) => !(SF3D_MCP_TOOL_IDS as readonly string[]).includes(id)).sort()).toEqual([...MODEL_MCP_TOOL_IDS].sort());
+    expect(SF3D_MCP_TOOL_IDS.every((id) => registered.includes(id))).toBe(true);
+    expect(MCP_TOOLS.model_sf3d_status.readOnly).toBe(true);
+    expect(MCP_TOOLS.model_generate_sf3d.readOnly).toBe(false);
     expect(MODEL_MCP_WRITE_TOOL_IDS.slice().sort()).toEqual(MODEL_MCP_TOOL_IDS.filter((id) => !MCP_TOOLS[id].readOnly).sort());
   });
 
