@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
-import { useTerminalStore } from '../terminal/terminal-store';
+import { useTerminalStore } from './terminal-store';
 import { noteText, ReattachedNote } from './reattached-note';
 
 describe('noteText', () => {

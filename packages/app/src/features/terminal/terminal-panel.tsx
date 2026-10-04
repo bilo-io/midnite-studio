@@ -11,6 +11,7 @@ import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
+import { ReattachedNote } from './reattached-note';
 import { useAgents } from './use-agents';
 import { YieldedToSessionsPage } from './yielded-to-sessions-page';
 
@@ -240,6 +241,8 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
           ) : null}
         </div>
       </div>
+
+      <ReattachedNote />
     </div>
   );
 }
