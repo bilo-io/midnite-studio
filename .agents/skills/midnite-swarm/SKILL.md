@@ -93,6 +93,12 @@ conversation's context) and must instruct it to:
   failing test touches files the PR changed; if not, treat it as a pre-existing flake, re-run the
   failed job once, and re-check before escalating.
 - **Commits carry no attribution trailer.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop. PR bodies follow whatever the parent session uses.
+- **Open visual PRs with their screenshots already in the body.** Capture them with the worker
+  skill's Playwright screenshot stage, commit them under `docs/screenshots/<slice>/` with
+  commit-pinned raw URLs, and embed them in the body `gh pr create` is called with. Never add
+  them after the PR is open. On the first sitrep tick after a visual PR opens, the orchestrator
+  checks its body for images. If there are none, Notes says `no screenshots` and the worker is
+  sent back to add them before CI finishes.
 - **Obey the context-rotation handoff.** When the orchestrator sends `CONTEXT ROTATION`, stop at the
   next safe point (start nothing new), commit and push everything (a `wip:` commit if mid-change),
   write a `## HANDOFF (read first)` section at the top of its `SCRATCHPAD.md` (goal, decisions and

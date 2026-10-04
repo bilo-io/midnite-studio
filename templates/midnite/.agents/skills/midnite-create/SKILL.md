@@ -133,6 +133,11 @@ All green before pushing — never push red.
 
 ## 7 · Open the PR (draft) + report it
 - Push branch; `gh pr create --draft --base main`.
+- **Screenshots go in when the PR is created, not afterwards.** For any visual change, commit and
+  push the PNGs first, then run `gh pr create` with a body that already embeds them, so a reviewer
+  sees the change the moment the PR exists. Never open a visual PR without them and promise
+  images later. If a shot genuinely can't be captured (packaged-only, needs hardware), the body
+  says which one is missing and why.
 - **PR title:** for a single-theme batch, `<conventional-commit-title> [<size> · <time>]` as before. For a multi-theme batch, name the lead theme and note the rest: `<conventional-commit-title> + N more [<combined size> · <combined time>]`.
 - **PR body:** succinct *why* (not a wall of what) · **one link per phase doc + section** touched by the batch (anchor = lower-cased heading, spaces→`-`, punctuation stripped), each with its phase/item id · **embedded screenshots** for any visual change · the `🤖 Generated with [Claude Code]` trailer. To embed shots: commit the PNGs on the branch under `docs/screenshots/<slice>/` and reference them with **commit-pinned** raw URLs (`https://github.com/<owner>/<repo>/raw/<sha>/docs/screenshots/...`) so they survive a squash-merge + branch delete.
 - **Report in this thread when posted:** the PR URL · a 3–5 **bullet** summary of what was done · the line diff in a ` ```diff ` fenced block (`gh pr diff <n> --patch`, trimmed to the meaningful hunks) · the screenshots again if the change was visual.
