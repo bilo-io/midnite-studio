@@ -207,13 +207,10 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
           attachments={attachments}
           onAttachmentsChange={setAttachments}
           focusToken={focusToken}
-          placeholder={chat ? ‘Reply...’ : ‘Message an agent...’}
+          placeholder={chat ? 'Reply…' : 'Message an agent…'}
           skills={skills}
           files={files}
         />
-        <p className="mt-1.5 text-center text-[10px] text-muted-foreground/70">
-          Agents can make mistakes. Check important output.
-        </p>
       </div>
     </div>
   );

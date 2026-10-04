@@ -151,7 +151,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   onOpenChanges,
   onResolveAll,
   resolving,
-  docked = false,
 }: {
   message: ChatMessageData;
   engine: ChatEngine | undefined;
@@ -161,7 +160,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   onOpenChanges: (changeSetId: string) => void;
   onResolveAll: (changeSetId: string, action: 'accept' | 'reject') => void;
   resolving: boolean;
-  docked?: boolean;
 }) {
   const streaming = message.status === 'streaming';
   const Icon = engine?.icon;
@@ -172,7 +170,7 @@ export const AssistantMessage = memo(function AssistantMessage({
     <article className="group flex gap-3" data-testid="chat-message-assistant" data-message-id={message.id} data-status={message.status} aria-label={label}>
       <span
         aria-hidden
-        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 ${docked ? 'invisible' : ''}`}
+        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40"
         {...(engine?.accent ? { style: { color: engine.accent } } : {})}
       >
         {Icon ? <Icon className="h-3.5 w-3.5" /> : null}

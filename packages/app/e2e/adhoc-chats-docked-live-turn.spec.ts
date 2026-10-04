@@ -42,6 +42,10 @@ const chat = {
       finishedAt: NOW - 114_500,
       usage: { outputTokens: 84, contextTokens: 12_300, contextWindow: 200_000 },
     },
+    ...[1, 2, 3, 4].flatMap((i) => [
+      { id: `fu${i}`, role: 'user', text: `Earlier question ${i}: tell me more about Paris landmarks.`, createdAt: NOW - 100_000 + i, status: 'done' },
+      { id: `fa${i}`, role: 'assistant', text: `Earlier answer ${i}: the Louvre, the Eiffel Tower and Notre-Dame are among the best known landmarks in the city.`, createdAt: NOW - 99_000 + i, status: 'done', engine: 'claude' },
+    ]),
     { id: 'u2', role: 'user', text: 'What is its population?', createdAt: NOW - 20_000, status: 'done' },
     {
       id: 'a2',
@@ -72,63 +76,40 @@ async function open(page: Page): Promise<void> {
 
 test('thread and composer edges aligned', async ({ page }) => {
   await open(page);
-  const thread = page.getByRole('log', { name: 'Conversation' });
+  const column = page.getByTestId('chat-thread').locator('> div > div');
+  const dock = page.getByTestId('chat-dock').locator('> div');
   const composer = page.getByTestId('chat-composer');
-
-  // Verify edges are aligned by checking left and right margins
-  const threadBox = await thread.boundingBox();
-  const composerBox = await composer.boundingBox();
-
-  expect(threadBox).toBeTruthy();
-  expect(composerBox).toBeTruthy();
-  if (threadBox && composerBox) {
-    // Both should have the same left edge (within 1px tolerance)
-    expect(Math.abs(threadBox.x - composerBox.x)).toBeLessThan(2);
+  const [c, d, k] = [await column.boundingBox(), await dock.boundingBox(), await composer.boundingBox()];
+  expect(c && d && k).toBeTruthy();
+  for (const box of [c!, d!]) {
+    expect(Math.abs(box.x - k!.x)).toBeLessThan(1.5);
+    expect(Math.abs(box.width - k!.width)).toBeLessThan(1.5);
   }
-
-  await page.waitForTimeout(300);
   await page.screenshot({ path: shotPath(OUT, 'thread-composer-aligned') });
 });
 
 test('live turn docked above composer while thread scrolled up', async ({ page }) => {
   await open(page);
-
-  // Scroll the thread to the top to simulate reading an earlier message
-  const thread = page.getByRole('log', { name: 'Conversation' });
-  await thread.evaluate((el) => {
+  await page.getByTestId('chat-thread').evaluate((el) => {
     el.scrollTop = 0;
   });
-
   await page.waitForTimeout(300);
-
-  // The dock with live thinking should still be visible above the composer
-  await expect(page.getByTestId('thinking-panel')).toBeVisible();
-
+  const dock = page.getByTestId('chat-dock');
+  await expect(dock.getByTestId('thinking-panel')).toBeVisible();
+  const [d, k] = [await dock.boundingBox(), await page.getByTestId('chat-composer').boundingBox()];
+  expect(d!.y + d!.height).toBeLessThanOrEqual(k!.y + 1);
+  await expect(page.getByTestId('chat-thread').getByText(/second-largest city/)).toHaveCount(0);
   await page.screenshot({ path: shotPath(OUT, 'live-turn-docked-scrolled') });
 });
 
 test("finished turn's inline record with footnote gone", async ({ page }) => {
   await open(page);
-
-  // Navigate to the first message to show a finished turn's inline record
-  const thread = page.getByRole('log', { name: 'Conversation' });
-  await thread.evaluate((el) => {
+  await page.getByTestId('chat-thread').evaluate((el) => {
     el.scrollTop = 0;
   });
-
   await page.waitForTimeout(300);
-
-  // Check that the "Agents can make mistakes" footnote appears but not the edit mode one
-  const footnote = page.getByText('Agents can make mistakes. Check important output.');
-  await expect(footnote).toBeVisible();
-
-  // Make sure the "Edits happen" text is NOT there
-  const editsFootnote = page.getByText(/Edits happen in this chat's own worktree/);
-  await expect(editsFootnote).not.toBeVisible();
-
-  // Take screenshot of the finished turn with its inline record
-  const firstAssistantMessage = page.locator('[data-message-id="a1"]');
-  await expect(firstAssistantMessage).toBeVisible();
-
+  await expect(page.getByText(/Edits happen in this chat/)).toHaveCount(0);
+  await expect(page.getByText('Agents can make mistakes. Check important output.')).toHaveCount(0);
+  await expect(page.locator('[data-message-id="a1"]')).toBeVisible();
   await page.screenshot({ path: shotPath(OUT, 'finished-turn-inline-record') });
 });

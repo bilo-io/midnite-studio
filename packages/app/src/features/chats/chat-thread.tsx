@@ -4,7 +4,7 @@ import type { Chat } from '@midnite/studio-shared';
 import { LuArrowDown } from 'react-icons/lu';
 
 import { AssistantMessage, UserMessage } from './chat-message';
-import { CHAT_COLUMN } from './chat-column';
+import { CHAT_COLUMN, CHAT_GUTTER } from './chat-column';
 import type { ChatEngine } from './use-chat-engines';
 
 /**
@@ -153,7 +153,8 @@ export function ChatThread({
         data-testid="chat-thread"
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        <div className={`${CHAT_COLUMN} flex flex-col gap-6 px-4 py-6`}>
+        <div className={`${CHAT_GUTTER} py-6`}>
+         <div className={`${CHAT_COLUMN} flex flex-col gap-6`}>
           {messages.map((message) => {
             // Skip the live message in the inline view; it's docked below.
             if (isLastStreaming && message.id === lastMessage?.id) return null;
@@ -170,14 +171,15 @@ export function ChatThread({
                 onOpenChanges={onOpenChanges}
                 onResolveAll={onResolveAll}
                 resolving={message.changeSet?.id === resolvingChangeSetId}
-                docked={false}
               />
             );
           })}
+         </div>
         </div>
       </div>
       {liveMessage ? (
-        <div ref={dock} className={`shrink-0 ${CHAT_COLUMN} px-4 py-6`}>
+        <div ref={dock} className={`max-h-[55%] shrink-0 overflow-y-auto ${CHAT_GUTTER} pb-3 pt-3`} data-testid="chat-dock">
+         <div className={CHAT_COLUMN}>
           <AssistantMessage
             message={liveMessage}
             engine={engineById(liveMessage.engine)}
@@ -187,8 +189,8 @@ export function ChatThread({
             onOpenChanges={onOpenChanges}
             onResolveAll={onResolveAll}
             resolving={liveMessage.changeSet?.id === resolvingChangeSetId}
-            docked={true}
           />
+         </div>
         </div>
       ) : null}
       {away ? (
