@@ -81,4 +81,12 @@ export function registerGamesHandlers(service: GameService): void {
     ({ gameId, since }) => service.logs(gameId, since),
     () => ({ runId: null, entries: [] }),
   );
+
+  handle(
+    CHANNELS.gamesKitUpgrade,
+    schemas.GamesKitUpgradeRequest,
+    ({ gameId }) => service.kitUpgrade(gameId),
+    (issue) => failure(issue),
+  );
 }
+

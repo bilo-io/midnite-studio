@@ -15,6 +15,23 @@ import {
 } from './domain';
 import { isCommandId } from './keybindings';
 import {
+  GameCreateInputSchema,
+  GameCreateOutputSchema,
+  GameGetManifestOutputSchema,
+  GameInputInputSchema,
+  GameInputOutputSchema,
+  GameListOutputSchema,
+  GameLogsInputSchema,
+  GameLogsOutputSchema,
+  GameOkOutputSchema,
+  GameOpenOutputSchema,
+  GameRunOutputSchema,
+  GameScreenshotInputSchema,
+  GameSetManifestInputSchema,
+  GameStateOutputSchema,
+  GameToolTargetSchema,
+} from './media-game-mcp';
+import {
   ModelAutoRigInputSchema,
   ModelEditResultSchema,
   ModelGetRigResultSchema,
@@ -96,7 +113,19 @@ type McpToolEntry = {
     | 'model_retarget'
     | 'model_save'
     | 'model_sf3d_status'
-    | 'model_generate_sf3d';
+    | 'model_generate_sf3d'
+    | 'game_list'
+    | 'game_create'
+    | 'game_open'
+    | 'game_get_manifest'
+    | 'game_set_manifest'
+    | 'game_run'
+    | 'game_stop'
+    | 'game_reload'
+    | 'game_screenshot'
+    | 'game_logs'
+    | 'game_input'
+    | 'game_state';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -461,6 +490,120 @@ export const MCP_TOOLS = {
     input: ModelGenerateSf3dInputSchema,
     output: ModelGenerateSf3dResultSchema,
     readOnly: false,
+  },
+  /*
+   * Media ▸ Games (Phase 107 Theme D) — play-test a game the agent is writing.
+   * The read tools work whenever the server is on; everything that creates a
+   * game, runs its code or sends it input is gated by `Settings ▸ MCP ▸ Let
+   * agents run and edit games` (`allowGames`), off by default. A game is
+   * addressed by `gameId` or its absolute path. File edits are not tools: the
+   * agent edits the repo with its own tools. Schemas: `media-game-mcp.ts`.
+   */
+  game_list: {
+    id: 'game_list',
+    title: 'List games',
+    description:
+      'Lists the game repos Midnite Studio knows with their engine and starter — use instead of `find ~ -name midnite-game.json`; the `gameId` it returns is what every other game tool takes.',
+    input: z.object({}),
+    output: GameListOutputSchema,
+    readOnly: true,
+  },
+  game_create: {
+    id: 'game_create',
+    title: 'Create a game from a starter',
+    description:
+      'Creates a game repo from a starter, with its own git history — use instead of `git init` plus copying a template; refused unless its own Settings switch is on.',
+    input: GameCreateInputSchema,
+    output: GameCreateOutputSchema,
+    readOnly: false,
+  },
+  game_open: {
+    id: 'game_open',
+    title: 'Show a game in the Games tab',
+    description:
+      'Opens one game in the Games tab so the user watches it run — use after `game_list`; refused unless its own Settings switch is on.',
+    input: GameToolTargetSchema,
+    output: GameOpenOutputSchema,
+    readOnly: false,
+  },
+  game_get_manifest: {
+    id: 'game_get_manifest',
+    title: 'Read a game’s manifest',
+    description:
+      'Reads a game’s `midnite-game.json` as validated JSON with any issues — use instead of `cat midnite-game.json`.',
+    input: GameToolTargetSchema,
+    output: GameGetManifestOutputSchema,
+    readOnly: true,
+  },
+  game_set_manifest: {
+    id: 'game_set_manifest',
+    title: 'Patch a game’s manifest',
+    description:
+      'Merges a patch into `midnite-game.json` after validating it, never touching `vendored` or `kitVersion` — use instead of editing the file by hand; refused unless its own Settings switch is on.',
+    input: GameSetManifestInputSchema,
+    output: GameOkOutputSchema,
+    readOnly: false,
+  },
+  game_run: {
+    id: 'game_run',
+    title: 'Run a game in the sandbox',
+    description:
+      'Runs a game in the isolated runner and waits until it starts — use instead of `npx serve` plus a browser; refused unless its own Settings switch is on.',
+    input: GameToolTargetSchema,
+    output: GameRunOutputSchema,
+    readOnly: false,
+  },
+  game_stop: {
+    id: 'game_stop',
+    title: 'Stop a running game',
+    description: 'Stops a running game and frees its renderer — use instead of `kill` on a dev server; refused unless its own Settings switch is on.',
+    input: GameToolTargetSchema,
+    output: GameOkOutputSchema,
+    readOnly: false,
+  },
+  game_reload: {
+    id: 'game_reload',
+    title: 'Reload a running game',
+    description: 'Reloads a running game from disk after an edit — use instead of a browser `F5`; refused unless its own Settings switch is on.',
+    input: GameToolTargetSchema,
+    output: GameOkOutputSchema,
+    readOnly: false,
+  },
+  game_screenshot: {
+    id: 'game_screenshot',
+    title: 'Screenshot a running game',
+    description:
+      'Captures one frame or a burst of frames of a running game as images — use instead of `screencapture` on the window; returns image content.',
+    input: GameScreenshotInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  game_logs: {
+    id: 'game_logs',
+    title: 'Read a game’s console',
+    description:
+      'Reads a running game’s console output and errors since a cursor — use instead of `tail -f` on a dev server log; pass the returned `next` as `since`.',
+    input: GameLogsInputSchema,
+    output: GameLogsOutputSchema,
+    readOnly: true,
+  },
+  game_input: {
+    id: 'game_input',
+    title: 'Send input to a game',
+    description:
+      'Sends timed key, pointer and gamepad events to a running game — use instead of `osascript` keystrokes; refused unless its own Settings switch is on.',
+    input: GameInputInputSchema,
+    output: GameInputOutputSchema,
+    readOnly: false,
+  },
+  game_state: {
+    id: 'game_state',
+    title: 'Read a game’s state',
+    description:
+      'Reads the state a running game reports through `window.__midnite.getState()` as size-capped JSON — use instead of guessing from a screenshot.',
+    input: GameToolTargetSchema,
+    output: GameStateOutputSchema,
+    readOnly: true,
   },
 } satisfies Record<string, McpToolEntry>;
 

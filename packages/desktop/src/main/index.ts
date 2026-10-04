@@ -170,7 +170,9 @@ import {
 import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerGamesHandlers } from './ipc/games-handlers';
 import { createGameRunner } from './games/game-runner';
+import { createGameMcpTools } from './games/game-mcp';
 import { createGameService } from './games/game-service';
+import { setGameTools } from './mcp/game-tools';
 import { createGamesSettingsStore } from './games/games-settings-store';
 import { mediaGameTemplateRoot } from './template-path';
 import { createReopenStore, createWindowsStore } from './windows-store';
@@ -704,6 +706,9 @@ if (!app.requestSingleInstanceLock()) {
       log: defaultLogger,
     });
     registerGamesHandlers(gameService);
+    // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.
+    const mcpGameService = gameService;
+    setGameTools(createGameMcpTools({ service: mcpGameService, webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null }));
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));

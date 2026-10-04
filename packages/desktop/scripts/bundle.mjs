@@ -39,8 +39,13 @@ import { rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { vendorGameEngines } from '../../../scripts/vendor-game-engines.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
+
+// Phase 107 Theme C: vendor game engines into resources/game-engines at bundle time.
+await vendorGameEngines();
 
 /**
  * Sourcemaps are opt-in (Phase 36 Theme C). `dist/` was 70 MB, ~54 MB of it

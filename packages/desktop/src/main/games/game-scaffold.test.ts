@@ -13,6 +13,8 @@ import { listGames } from './game-list';
 // The real template, straight from the repo (vitest runs with cwd packages/desktop) — what a dev build would copy.
 const TEMPLATE_DIR = join(process.cwd(), '..', '..', 'templates', 'media-game');
 
+vi.setConfig({ testTimeout: 20_000 });
+
 let parent: string;
 const registerRepo = vi.fn(async () => ({ ok: true as const }));
 
@@ -48,10 +50,23 @@ describe('createGame', () => {
     const manifest = parseGameManifest(JSON.parse(await readFile(join(path, GAME_MANIFEST_FILE), 'utf8')));
     expect(manifest.ok).toBe(true);
     if (manifest.ok) {
-      expect(manifest.manifest).toMatchObject({ name: 'Moon Rover', engine: 'phaser', dimension: '2d', network: 'off', starter: 'blank' });
+      expect(manifest.manifest).toMatchObject({
+        name: 'Moon Rover',
+        engine: 'phaser',
+        dimension: '2d',
+        network: 'off',
+        starter: 'blank',
+        kitVersion: '0.1.0',
+        vendored: { phaser: '3.90.0' },
+      });
     }
     expect(await readFile(join(path, 'index.html'), 'utf8')).toContain('<title>Moon Rover</title>');
+    expect(await readFile(join(path, 'index.html'), 'utf8')).toContain('"phaser": "./vendor/phaser/phaser.esm.js"');
+    expect(await readFile(join(path, 'index.html'), 'utf8')).not.toContain('"three"');
     expect(await readFile(join(path, 'AGENTS.md'), 'utf8')).toContain('# Moon Rover');
+    expect(await readFile(join(path, 'jsconfig.json'), 'utf8')).toContain('compilerOptions');
+    expect(await readFile(join(path, 'vendor', 'phaser', 'phaser.esm.js'), 'utf8')).toBeTruthy();
+    expect(await readFile(join(path, 'kit', 'core', 'hook.js'), 'utf8')).toBeTruthy();
 
     const count = await execGit(path, ['rev-list', '--count', 'HEAD']);
     expect(count.stdout.trim()).toBe('1');

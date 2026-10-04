@@ -5,6 +5,7 @@ import { basename, join } from 'node:path';
 import { initRepo } from '@midnite/studio-git-engine';
 import {
   failure,
+  GAME_KIT_VERSION,
   GAME_MANIFEST_FILE,
   gameSlug,
   GameCreateRequestSchema,
@@ -16,11 +17,12 @@ import {
 } from '@midnite/studio-shared';
 
 import { validateGamesRoot } from './games-root';
+import { vendorEngines } from './vendor';
 
 /** The only starter available until Phase 107's kits and genre starters land. */
 export const BLANK_STARTER = 'blank';
 /** The kit version stamped into a new manifest. */
-export const INITIAL_KIT_VERSION = '0.1.0';
+export const INITIAL_KIT_VERSION = GAME_KIT_VERSION;
 
 /** `g` + the first 12 hex of sha1(realpath) — stable across runs; the runner's host name. */
 export async function gameIdForPath(path: string): Promise<string> {
@@ -42,13 +44,19 @@ export type CreateGameDeps = {
   registerRepo: (path: string) => Promise<GitOpResult>;
   /** Defaults applied when the request leaves them out. */
   defaultNetwork: 'off' | 'on';
+  /** Path to resources/game-engines. Defaults to gameEnginesDir(). */
+  enginesDir?: string;
 };
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** The manifest a fresh game starts with. */
-export function initialManifest(req: ReturnType<typeof GameCreateRequestSchema.parse>, network: 'off' | 'on'): GameManifest {
+export function initialManifest(
+  req: ReturnType<typeof GameCreateRequestSchema.parse>,
+  network: 'off' | 'on',
+  vendored: Record<string, string> = {},
+): GameManifest {
   return {
     version: 1,
     name: req.name,
@@ -59,8 +67,8 @@ export function initialManifest(req: ReturnType<typeof GameCreateRequestSchema.p
     starter: req.starter,
     cameraPresets: [],
     entry: 'index.html',
-    kitVersion: INITIAL_KIT_VERSION,
-    vendored: {},
+    kitVersion: GAME_KIT_VERSION,
+    vendored,
     assets: [],
     network,
     deterministic: false,
@@ -105,7 +113,8 @@ export async function createGame(
   const temp = join(parent, `.${basename(target)}.creating-${randomBytes(4).toString('hex')}`);
   try {
     await composeBlank(deps.templateDir, temp, req.name);
-    const manifest = initialManifest(req, req.network ?? deps.defaultNetwork);
+    const vendored = await vendorEngines(req.engine, temp, deps.enginesDir);
+    const manifest = initialManifest(req, req.network ?? deps.defaultNetwork, vendored);
     await writeFile(join(temp, GAME_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
     await rm(target, { recursive: true, force: true }); // an empty folder is fine to replace
     await rename(temp, target);
@@ -139,6 +148,13 @@ async function composeBlank(templateDir: string, dest: string, name: string): Pr
     throw new Error(`The game template is missing from this build (${templateDir}).`);
   }
   await cp(common, dest, { recursive: true, force: false });
+  const kit = join(templateDir, 'kit');
+  try {
+    await stat(kit);
+    await cp(kit, join(dest, 'kit'), { recursive: true, force: false });
+  } catch {
+    // kit directory may not exist in some minimal test fixtures
+  }
   for (const file of await textFilesToFill(dest)) {
     const path = join(dest, file);
     const raw = await readFile(path, 'utf8');

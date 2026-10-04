@@ -53,3 +53,33 @@ describe('templateRoot', () => {
     expect(templateRoot()).toBe(join(process.resourcesPath, 'templates', 'midnite'));
   });
 });
+
+describe('gameEnginesDir', () => {
+  it('resolves under process.resourcesPath when packaged', async () => {
+    electronApp.isPackaged = true;
+
+    const { gameEnginesDir } = await import('./template-path');
+    expect(gameEnginesDir()).toBe(join(process.resourcesPath, 'game-engines'));
+  });
+
+  it('resolves to packages/desktop/resources/game-engines when unpackaged', async () => {
+    electronApp.isPackaged = false;
+    existsSyncMock.mockReturnValue(false);
+
+    const { gameEnginesDir } = await import('./template-path');
+    expect(gameEnginesDir()).toBe(
+      join(__dirname, '..', '..', '..', '..', 'packages', 'desktop', 'resources', 'game-engines'),
+    );
+  });
+
+  it('respects MSTUDIO_GAME_ENGINES_DIR env override', async () => {
+    vi.stubEnv('MSTUDIO_GAME_ENGINES_DIR', '/custom/engines');
+    try {
+      const { gameEnginesDir } = await import('./template-path');
+      expect(gameEnginesDir()).toBe('/custom/engines');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+

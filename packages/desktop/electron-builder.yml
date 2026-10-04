@@ -56,6 +56,9 @@ extraResources:
   # package's own mirror of `template-path.ts`'s dev-vs-packaged split.
   - from: src/main/hooks/prepare-commit-msg.sh
     to: hooks/prepare-commit-msg.sh
+  # Vendored game engines (Phase 107 Theme C) — copied into game repos at creation time.
+  - from: resources/game-engines
+    to: game-engines
 
 asar: true
 asarUnpack:

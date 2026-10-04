@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve as resolvePath } from 'node:path';
 
 import {
   EVENT_CHANNELS,
@@ -26,12 +26,15 @@ import { createGame } from './game-scaffold';
 import type { GameRunner, ToolbarAction } from './game-runner';
 import { effectiveGamesRoot, validateGamesRoot } from './games-root';
 import type { GamesSettingsStore } from './games-settings-store';
+import { upgradeKit } from './kit-upgrade';
 
 export type GameServiceDeps = {
   settings: GamesSettingsStore;
   runner: GameRunner;
   /** `templates/media-game/`. */
   templateDir: string;
+  /** `resources/game-engines/`. */
+  enginesDir?: string;
   /** Register a new repo with the app's repo list and reconcile its watchers. */
   registerRepo: (path: string) => Promise<GitOpResult>;
   /** Paths of every repo the app has registered. */
@@ -74,7 +77,25 @@ export function createGameService(deps: GameServiceDeps) {
     return parsed.ok ? { manifest: parsed.manifest, issues: [] } : { manifest: null, issues: parsed.issues };
   }
 
+  /**
+   * A game by `gameId` or absolute path (the MCP addressing). A path outside the
+   * games location that is not a registered repo is not a game: it never reaches
+   * the filesystem beyond the listing.
+   */
+  async function resolve(target: string): Promise<GameSummary | null> {
+    const { root } = await read();
+    const games = await listGames(root, await deps.listRepoPaths());
+    if (!isAbsolute(target)) return games.find((game) => game.gameId === target) ?? null;
+    const wanted = resolvePath(target);
+    return games.find((game) => resolvePath(game.path) === wanted) ?? null;
+  }
+
   return {
+    resolve,
+    view: (gameId: string) => deps.runner.view(gameId),
+    isRunning: (gameId: string): boolean => deps.runner.isRunning(gameId),
+    emit: (channel: string, payload: unknown): void => deps.send(channel, payload),
+
     settings: {
       get: settingsRead,
 
@@ -99,6 +120,7 @@ export function createGameService(deps: GameServiceDeps) {
       const { settings, root } = await read();
       const result = await createGame(req, {
         templateDir: deps.templateDir,
+        enginesDir: deps.enginesDir,
         gamesRoot: root,
         defaultNetwork: settings.defaultNetwork,
         registerRepo: deps.registerRepo,
@@ -167,6 +189,21 @@ export function createGameService(deps: GameServiceDeps) {
       deps.runner.toolbar(gameId, action, value),
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
+    async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {
+      const game = await find(gameId);
+      if (!game) return failure('That game was not found.');
+      const result = await upgradeKit(game.path, {
+        templateDir: deps.templateDir,
+        enginesDir: deps.enginesDir,
+        onBranchOpened: () => {
+          deps.send(EVENT_CHANNELS.gamesChanged, { reason: 'manifest' });
+        },
+      });
+      if (result.ok) {
+        deps.log.info(`game kit upgraded ${gameId} branch=${result.value.branch}`);
+      }
+      return result;
+    },
     stopAll: (): void => deps.runner.stopAll(),
   };
 }

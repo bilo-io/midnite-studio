@@ -1,7 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { getMcpCallLog } from '../mcp/audit';
-import { getMcpStatus, setMcpAllowGateDecide, setMcpAllowModels, setMcpAllowUi, setMcpEnabled } from '../mcp';
+import { getMcpStatus, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowModels, setMcpAllowUi, setMcpEnabled } from '../mcp';
 import { handle, handleBare } from './handle';
 
 /**
@@ -27,7 +27,7 @@ export function registerMcpHandlers(): void {
   handle(
     CHANNELS.mcpSet,
     schemas.McpSetRequest,
-    async ({ enabled, allowUi, allowGateDecide, allowModels }) => {
+    async ({ enabled, allowUi, allowGateDecide, allowModels, allowGames }) => {
       if (enabled !== undefined) {
         const result = await setMcpEnabled(enabled);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
@@ -42,6 +42,10 @@ export function registerMcpHandlers(): void {
       }
       if (allowModels !== undefined) {
         const result = await setMcpAllowModels(allowModels);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowGames !== undefined) {
+        const result = await setMcpAllowGames(allowGames);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
       }
       return getMcpStatus();
