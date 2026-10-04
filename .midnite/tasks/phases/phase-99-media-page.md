@@ -540,3 +540,7 @@ three-pane frame, with repo-scoped storage, ffmpeg-backed export and provider se
 - [x] Rename the video skills everywhere; migrate scaffolded roots without deleting user edits.
 - [x] Five thin per-page skills in `.claude`/`.agents`/`.codex` and `templates/midnite/`.
 - [x] Tests: manifest, toolchain, migration (incl. user-edited), UI labels.
+
+### J — Models explorer, model.json and the rainbow composer
+
+- [x] **Explorer, `model.json`, migration, viewers and rainbow panel** (PR #704): folder per generation, shared manifest schema, safe migration of flat outputs, context menus and drag-and-drop, 3D editor / JSON / obj-fbx-glb centre, shared `.rainbow-panel` frame.
