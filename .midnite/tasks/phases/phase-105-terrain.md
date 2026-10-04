@@ -70,8 +70,9 @@ scope, not an afterthought.
 >   in `IMAGE_PROVIDER_IDS`) is how a heightmap is generated from a prompt.
 > - **Engines.** [`main/media/model/engines.ts`](../../../packages/desktop/src/main/media/model/engines.ts).
 >   `createLlmCall` (Ollama or a roster agent) takes **no image input**; the vision call is the separate
->   `createDescribeImage(deps)` (Ollama, `images: [data]`) with `discoverVisionModels`. The optional
->   land-cover vision pass uses `createDescribeImage`.
+>   `createDescribeImage(deps)` (Ollama, one image, the fixed `DESCRIBE_IMAGE_PROMPT` — it takes **no
+>   custom prompt**) with `discoverVisionModels`. The optional land-cover vision pass therefore adds a
+>   sibling `createVisionCall` beside it (Theme F), which Phase 106's consistency check reuses.
 > - **File URLs.** `mstudioFileUrl(scope, repoId, relPath)` in [`shared/src/fs.ts`](../../../packages/shared/src/fs.ts)
 >   (L122) builds the jailed `mstudio-file://repo/<repoId>/<relPath>` URL that
 >   [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts) serves on the default session.
@@ -231,7 +232,7 @@ The sixth Media tab, in the same three-column frame (`MediaLayout` in
     - `TerrainAlignmentSchema = { offset: [x, z] in terrain units (−1..1 of worldSize, default [0, 0]), scale: [sx, sz] (0.1–10, default [1, 1]), rotationDeg: −180..180 (0) }`;
       `alignment: { satellite?: TerrainAlignment, roads?: TerrainAlignment | 'satellite' }` with `roads` defaulting to `'satellite'` (follow the satellite).
   - `classes`: land-cover overrides
-    - `{ vision: { enabled: boolean (false), model?: string }, k: 4–12 (8), exgThreshold: number (0.05), rockSlopeDeg: number (35) }`. Paint corrections live in `build/landcover-overrides.png`, not the spec (Theme F).
+    - `{ vision: { enabled: boolean (false), model?: string }, k: 4–12 (8), exgThreshold: number (0.05), rockSlopeDeg: number (35) }`. Paint corrections live in `overrides/landcover.png`, not the spec (Theme F, Decision 16).
   - `foliage` and `buildings`: params
     - `foliage: { seed, treeDensity (per 100 m², 0–50, 4), grassDensity (0–200, 30), slopeLimitDeg (35), scale: [min, max] ([0.8, 1.3]), margin m (2), assets?: Partial<Record<'tree'|'grass', string[]>> }` (asset ids: built-in names or Models library paths).
     - `buildings: { seed, height: [min, max] m ([4, 18]), scaleByArea: boolean (true), minAreaM2 (20), snapToleranceDeg (12), flattenBlendM (3) }`.
@@ -565,14 +566,20 @@ The satellite image tells the app *what* is where, not just what colour it is.
   - **Resolved: deterministic first, vision optional** (Decision 8, closes the original open). The
     heuristics always run and are the result unless the vision pass relabels.
 - [ ] Optional vision pass: send cluster swatches plus a downscaled image to a vision model (Ollama vision or a roster agent via `engines.ts`) to relabel clusters. Off by default, with a toggle and an engine picker in the panel. The heuristics stay the baseline, so the result never depends on a model
-  - **Resolved: Ollama vision only, through `createDescribeImage`** (Decision 9). `createLlmCall` has no
-    image input, so a roster agent is not offered for this pass. The picker lists `discoverVisionModels()`;
+  - **Resolved: Ollama vision only, through a new `createVisionCall`** (Decision 9). `createLlmCall` has no
+    image input, so a roster agent is not offered for this pass; `createDescribeImage` has a fixed prompt,
+    so it cannot ask for JSON. `engines.ts` gains
+    `createVisionCall(deps: EngineDeps): VisionCall` with
+    `VisionCall = (req: { images: string[] /* base64 PNG, no data: prefix */; prompt: string; visionModel?: string; json?: boolean; signal: AbortSignal }) => Promise<GitOpResult<{ text: string; model: string }>>`,
+    implemented exactly like `createDescribeImage` (same `discoverVisionModels()[0]` default, same
+    not-installed message, `MODEL_VISION_TIMEOUT_MS`) but passing `prompt`, all `images`, and
+    `format: 'json'` when `json`. `createDescribeImage` is untouched. The picker lists `discoverVisionModels()`;
     with none installed the toggle is disabled with _"Install an Ollama vision model (e.g. llava) to
     enable this."_
   - Request: one 512² downscale of the drape plus a 4×N swatch strip of cluster prototypes, prompt
     asking for a JSON object `{ "<clusterIndex>": "<class>" }`; the reply is parsed with zod
     (`TerrainRelabelSchema = z.record(z.string().regex(/^\d+$/), z.enum(TERRAIN_CLASSES))`). A reply that
-    fails to parse, names an unknown cluster, or times out (60 s) is ignored and
+    fails to parse, names an unknown cluster, or times out (`MODEL_VISION_TIMEOUT_MS`) is ignored and
     _"Vision relabel skipped: <reason>."_ joins `stats.warnings`; the heuristic labels stand.
   - The relabel runs in main (not the worker), between the worker's `landcover` and `splat` stages, by
     splitting the build into two worker calls when `classes.vision.enabled`.
@@ -618,7 +625,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
     `snowLine − 10` and 1 above `snowLine`.
   - `desktop/src/main/media/terrain/terrain-service.test.ts`: a paint stroke writes `overrides/landcover.png`,
     a full rebuild keeps it, and painted texels win in `landcover.png`.
-  - `desktop/src/main/media/terrain/vision-relabel.test.ts`: a stub `DescribeImageCall` returning bad JSON
+  - `desktop/src/main/media/terrain/vision-relabel.test.ts`: a stub `VisionCall` returning bad JSON
     leaves the heuristic labels and adds the warning.
 
 ## G — Foliage and buildings from the land cover (L)
@@ -901,8 +908,8 @@ What leaves the app, and the contract Phase 107 reads.
 | Schemas (new) | `shared/src/media-terrain.ts` (spec, stats, build result, files, manifest, IPC payloads, `TERRAIN_*` constants), `shared/src/media-terrain-mcp.ts` (ids, inputs, outputs, messages) |
 | Schemas (edited) | [`shared/src/media.ts`](../../../packages/shared/src/media.ts) (`MEDIA_TABS`, `REPO_SCOPED_MEDIA_TABS`, `MEDIA_EXPORT_FORMATS`, `MEDIA_EXPORT_FORMAT_INFO`, `MEDIA_TAB_EXPORT_FORMATS`); [`shared/src/mcp.ts`](../../../packages/shared/src/mcp.ts) (`McpToolEntry.id`, ten inline entries); [`shared/src/mcp.test.ts`](../../../packages/shared/src/mcp.test.ts) (`writeTools`); [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts); [`shared/src/ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) (`allowTerrains`); [`shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts); [`shared/src/index.ts`](../../../packages/shared/src/index.ts) |
 | Main (new) | `desktop/src/main/media/png/png-codec.ts`; `desktop/src/main/media/terrain/`: `terrain-service.ts`, `terrain-broker.ts`, `worker-protocol.ts`, `terrain-export.ts`, `terrain-preview.ts`, `terrain-mcp.ts`, `vision-relabel.ts`, `materials-path.ts`; `desktop/src/terrain-worker/index.ts`; `desktop/src/main/ipc/media-terrain-handlers.ts`; `desktop/src/main/mcp/terrain-tools.ts` |
-| Main (edited) | [`media/model/gltf-writer.ts`](../../../packages/desktop/src/main/media/model/gltf-writer.ts) (`instancing` param); [`media/model/sf3d/png.ts`](../../../packages/desktop/src/main/media/model/sf3d/png.ts) (re-export from `png-codec.ts`); [`main/mcp/dispatch.ts`](../../../packages/desktop/src/main/mcp/dispatch.ts); [`main/mcp/ui-gate.ts`](../../../packages/desktop/src/main/mcp/ui-gate.ts); [`main/mcp/index.ts`](../../../packages/desktop/src/main/mcp/index.ts); [`main/mcp-store.ts`](../../../packages/desktop/src/main/mcp-store.ts); [`ipc/mcp-handlers.ts`](../../../packages/desktop/src/main/ipc/mcp-handlers.ts); [`mcp-shim/index.ts`](../../../packages/desktop/src/mcp-shim/index.ts) and [`mcp-shim/client.ts`](../../../packages/desktop/src/mcp-shim/client.ts); [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts); [`scripts/bundle.mjs`](../../../packages/desktop/scripts/bundle.mjs) (`terrain-worker`); [`electron-builder.yml`](../../../packages/desktop/electron-builder.yml) (`terrain-materials`); `main/index.ts` (register handlers) |
-| Main (**unchanged**, load-bearing) | [`media/model/preview.ts`](../../../packages/desktop/src/main/media/model/preview.ts) (`renderView`, `clampPreviewSize` reused); [`media/media-store.ts`](../../../packages/desktop/src/main/media/media-store.ts); [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts); [`media/image/image-service.ts`](../../../packages/desktop/src/main/media/image/image-service.ts); [`media/model/engines.ts`](../../../packages/desktop/src/main/media/model/engines.ts) (`createDescribeImage`) |
+| Main (edited) | [`media/model/engines.ts`](../../../packages/desktop/src/main/media/model/engines.ts) (`createVisionCall`, `VisionCall`); [`media/model/gltf-writer.ts`](../../../packages/desktop/src/main/media/model/gltf-writer.ts) (`instancing` param); [`media/model/sf3d/png.ts`](../../../packages/desktop/src/main/media/model/sf3d/png.ts) (re-export from `png-codec.ts`); [`main/mcp/dispatch.ts`](../../../packages/desktop/src/main/mcp/dispatch.ts); [`main/mcp/ui-gate.ts`](../../../packages/desktop/src/main/mcp/ui-gate.ts); [`main/mcp/index.ts`](../../../packages/desktop/src/main/mcp/index.ts); [`main/mcp-store.ts`](../../../packages/desktop/src/main/mcp-store.ts); [`ipc/mcp-handlers.ts`](../../../packages/desktop/src/main/ipc/mcp-handlers.ts); [`mcp-shim/index.ts`](../../../packages/desktop/src/mcp-shim/index.ts) and [`mcp-shim/client.ts`](../../../packages/desktop/src/mcp-shim/client.ts); [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts); [`scripts/bundle.mjs`](../../../packages/desktop/scripts/bundle.mjs) (`terrain-worker`); [`electron-builder.yml`](../../../packages/desktop/electron-builder.yml) (`terrain-materials`); `main/index.ts` (register handlers) |
+| Main (**unchanged**, load-bearing) | [`media/model/preview.ts`](../../../packages/desktop/src/main/media/model/preview.ts) (`renderView`, `clampPreviewSize` reused); [`media/media-store.ts`](../../../packages/desktop/src/main/media/media-store.ts); [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts); [`media/image/image-service.ts`](../../../packages/desktop/src/main/media/image/image-service.ts) |
 | Renderer (new) | `app/src/features/media/terrain/`: `terrain-tab.tsx`, `terrain-panel.tsx`, `terrain-input-slot.tsx`, `no-heightmap-dialog.tsx`, `terrain-viewer-lazy.tsx`, `terrain-viewer.tsx`, `chunk-stream.ts`, `splat-material.ts`, `class-brush.tsx`, `alignment-controls.tsx`, `terrain-stats-readout.tsx`, `use-terrain.ts`, plus `*.test.tsx`/`*.bridge.test.tsx` |
 | Renderer (edited) | [`media-tabs.ts`](../../../packages/app/src/features/media/media-tabs.ts), [`media-view.tsx`](../../../packages/app/src/features/media/media-view.tsx), [`store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) (`LayoutSizes`, `DEFAULT_LAYOUT`, `LAYOUT_BOUNDS`, `MEDIA_LAYOUT_KEYS`), [`mcp-page.tsx`](../../../packages/app/src/features/settings/settings-pages/mcp-page.tsx), [`test-support/mock-bridge.ts`](../../../packages/app/test-support/mock-bridge.ts), `components/icons/icon-names.test.ts` |
 | Renderer (**unchanged**, load-bearing) | [`media-projects-accordion.tsx`](../../../packages/app/src/features/media/media-projects-accordion.tsx) (`fileFilter`), [`export-toolbar.tsx`](../../../packages/app/src/features/media/export-toolbar.tsx), [`components/icon-select.tsx`](../../../packages/app/src/components/icon-select.tsx), [`lib/use-page-visible.ts`](../../../packages/app/src/lib/use-page-visible.ts), [`lib/use-window-focus.ts`](../../../packages/app/src/lib/use-window-focus.ts) |
@@ -993,9 +1000,12 @@ recommended option. Each entry lists the options that were on the sheet.
 8. **Resolved — the classifier is deterministic first, vision optional** (was open). Options:
    heuristics + k-means baseline with an optional relabel `[recommended · L]` · vision-first
    `[scope+ · M]`. Picked the baseline: reproducible, offline, testable with fixtures.
-9. **Resolved — the vision relabel is Ollama-only via `createDescribeImage`.** Options: Ollama only
-   `[recommended · S]` · extend `LlmCall` with `images` so roster agents can relabel `[scope+ · M]`.
-   Picked Ollama: the image-capable call already exists; widening `LlmCall` touches every Models engine.
+9. **Resolved — the vision relabel is Ollama-only, via a new `createVisionCall`.** Options: a
+   `createVisionCall` sibling of `createDescribeImage` taking a prompt and several images
+   `[recommended · S]` · extend `LlmCall` with `images` so roster agents can relabel `[scope+ · M]` ·
+   add an optional `prompt` to `DescribeImageCall` `[minimal · XS]`. Picked the sibling: Ollama's chat
+   already takes images, the Models describe flow stays byte-for-byte unchanged, and widening `LlmCall`
+   touches every Models engine.
 10. **Resolved — foliage goes into the glb as `EXT_mesh_gpu_instancing`** (was open). Options: add an
     optional `instancing` parameter to `buildGltf` `[recommended · M]` · separate nodes per instance
     `[simplicity · S]` · omit foliage from the glb `[minimal · XS]`. Picked instancing: 200 000 separate
