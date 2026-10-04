@@ -92,7 +92,7 @@ describe('an SF3D-style mesh imported as an asset part', () => {
     clearModelAssets();
     expect(buildSceneChecked(sidecar.spec).issues[0]!.message).toMatch(/not loaded/);
     // Any model_* tool loads the file beside the design before it builds.
-    const spec = await kit.tools.model_get_spec(target);
+    const spec = (await kit.tools.model_get_spec(target)) as { spec: { parts: { shape: string }[] } };
     expect(spec.spec.parts[0]!.shape).toBe('asset');
     expect(buildSceneChecked(sidecar.spec).issues).toEqual([]);
   });
