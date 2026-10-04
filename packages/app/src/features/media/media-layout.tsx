@@ -40,15 +40,60 @@ export type MediaLayoutProps = {
   /** Noun for the floating toggle buttons: "Show explorer" / "Hide composer". */
   explorerName?: string;
   detailName?: string;
-  /**
-   * Tailwind `top-*` class for the floating toggles. Default sits just under the toolbar; a tab whose content
-   * opens with its own tool row (Models' editor toolbar) passes a larger inset to clear it.
-   */
-  toggleTop?: string;
+  /** Models draws the toggles itself, inside its canvas, below its own editor toolbar. */
+  floatingToggles?: boolean;
 };
 
 const FLOATING_TOGGLE =
   'pointer-events-auto rounded-md border border-border bg-background/70 shadow-sm backdrop-blur-sm';
+
+/**
+ * Floating side-panel toggles, as Workflows' toolbar has — pinned to the top corners of the nearest
+ * `relative` ancestor so a collapsed pane can always be reopened. The wrapper ignores the pointer; only
+ * the buttons take it. State is the per-tab `mediaPaneCollapsed`, shared with the divider gestures.
+ */
+export function MediaPaneToggles({
+  tab,
+  hasDetail,
+  explorerName = 'explorer',
+  detailName = 'composer',
+}: {
+  tab: MediaTab;
+  hasDetail: boolean;
+  explorerName?: string;
+  detailName?: string;
+}) {
+  const collapsed = useUiStore((s) => s.mediaPaneCollapsed[tab]);
+  const setCollapsed = useUiStore((s) => s.setMediaPaneCollapsed);
+  const explorerCollapsed = collapsed?.explorer === true;
+  const detailCollapsed = collapsed?.detail === true;
+  return (
+    <div className="pointer-events-none absolute inset-x-2 top-2 z-20 flex items-start justify-between">
+      <span className={FLOATING_TOGGLE}>
+        <IconButton
+          icon={explorerCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
+          label={explorerCollapsed ? `Show ${explorerName}` : `Hide ${explorerName}`}
+          size="sm"
+          tooltipSide="bottom"
+          aria-expanded={!explorerCollapsed}
+          onClick={() => setCollapsed(tab, 'explorer', !explorerCollapsed)}
+        />
+      </span>
+      {hasDetail ? (
+        <span className={FLOATING_TOGGLE}>
+          <IconButton
+            icon={detailCollapsed ? LuPanelRightOpen : LuPanelRightClose}
+            label={detailCollapsed ? `Show ${detailName}` : `Hide ${detailName}`}
+            size="sm"
+            tooltipSide="bottom"
+            aria-expanded={!detailCollapsed}
+            onClick={() => setCollapsed(tab, 'detail', !detailCollapsed)}
+          />
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 export function MediaLayout({
   tab,
@@ -60,7 +105,7 @@ export function MediaLayout({
   detailLabel = 'Resize detail',
   explorerName = 'explorer',
   detailName = 'composer',
-  toggleTop = 'top-2',
+  floatingToggles = true,
 }: MediaLayoutProps) {
   const keys = mediaLayoutKeys(tab);
   const layout = useUiStore((s) => s.layout);
@@ -131,32 +176,9 @@ export function MediaLayout({
           <div data-media-pane="content" className="h-full min-h-0 min-w-0">
             {content}
           </div>
-          {/* Floating side-panel toggles, as Workflows' toolbar has — pinned just under the toolbar so a
-              collapsed pane can always be reopened. The wrapper ignores the pointer; only the buttons take it. */}
-          <div className={`pointer-events-none absolute inset-x-2 ${toggleTop} z-20 flex items-start justify-between`}>
-            <span className={FLOATING_TOGGLE}>
-              <IconButton
-                icon={explorerCollapsed ? LuPanelLeftOpen : LuPanelLeftClose}
-                label={explorerCollapsed ? `Show ${explorerName}` : `Hide ${explorerName}`}
-                size="sm"
-                tooltipSide="bottom"
-                aria-expanded={!explorerCollapsed}
-                onClick={() => setCollapsed(tab, 'explorer', !explorerCollapsed)}
-              />
-            </span>
-            {detail !== undefined ? (
-              <span className={FLOATING_TOGGLE}>
-                <IconButton
-                  icon={detailCollapsed ? LuPanelRightOpen : LuPanelRightClose}
-                  label={detailCollapsed ? `Show ${detailName}` : `Hide ${detailName}`}
-                  size="sm"
-                  tooltipSide="bottom"
-                  aria-expanded={!detailCollapsed}
-                  onClick={() => setCollapsed(tab, 'detail', !detailCollapsed)}
-                />
-              </span>
-            ) : null}
-          </div>
+          {floatingToggles ? (
+            <MediaPaneToggles tab={tab} hasDetail={detail !== undefined} explorerName={explorerName} detailName={detailName} />
+          ) : null}
         </div>
         {detail !== undefined ? (
           <>

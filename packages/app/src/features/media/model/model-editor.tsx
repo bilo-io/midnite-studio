@@ -34,6 +34,7 @@ import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
 import { editorScene } from './spec-geometry';
 import { withDescendants } from './spec-edit';
 import { ViewportWidgets } from './viewport-widgets';
+import { MediaPaneToggles } from '../media-layout';
 
 /**
  * The Models tab's 3D editor (lazy chunk): react-three-fiber + drei. The geometry it draws is the
@@ -265,6 +266,7 @@ export default function ModelEditor({
             The 3D viewport needs WebGL, which is unavailable here. You can still edit parts with the fields below.
           </p>
         )}
+        <MediaPaneToggles tab="model" hasDetail />
         <ViewportWidgets
           mode={mode}
           onModeChange={setMode}
@@ -289,7 +291,7 @@ export default function ModelEditor({
           ) : null}
         </div>
         {errors.length > 0 ? (
-          <div className="absolute left-2 top-2 max-w-[70%] text-[11px]">
+          <div className="absolute left-2 top-12 max-w-[70%] text-[11px]">
             <button
               type="button"
               onClick={() => setWarningsOpen((on) => !on)}
