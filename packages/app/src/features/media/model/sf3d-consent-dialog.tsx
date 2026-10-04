@@ -9,6 +9,7 @@ import {
   SF3D_REVISION,
 } from '@midnite/studio-shared';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LuDownload, LuTriangleAlert } from 'react-icons/lu';
 
 import { Modal } from '../../../components/modal';
@@ -35,9 +36,12 @@ export function Sf3dConsentDialog({
   const [revenue, setRevenue] = useState(false);
   const limit = `US$${SF3D_REVENUE_LIMIT_USD.toLocaleString('en-US')}`;
 
-  return (
+  // Portalled to <body>: the composer pane is its own stacking context, which would put the
+  // neighbouring panes' borders on top of an inline dialog.
+  return createPortal(
     <Modal open={open} onClose={onClose} title={SF3D_LICENCE_NAME} size="lg" testId="sf3d-consent">
-      <div className="flex flex-col gap-3 text-xs">
+      <div className="flex max-h-[inherit] flex-col gap-3 p-4 text-xs">
+        <h2 className="text-sm font-semibold text-foreground">Set up SF3D — {SF3D_LICENCE_NAME}</h2>
         <p
           role="note"
           data-testid="sf3d-revenue-note"
@@ -58,7 +62,7 @@ export function Sf3dConsentDialog({
         <pre
           data-testid="sf3d-licence-text"
           tabIndex={0}
-          className="max-h-[42vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground"
+          className="min-h-[120px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground"
         >
           {SF3D_LICENCE_TEXT}
         </pre>
@@ -88,6 +92,7 @@ export function Sf3dConsentDialog({
           </button>
         </div>
       </div>
-    </Modal>
+    </Modal>,
+    document.body,
   );
 }

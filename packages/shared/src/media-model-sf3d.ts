@@ -17,7 +17,6 @@ import { MediaProjectNameSchema } from './media';
 import { ModelImageAttachmentSchema } from './media-model';
 import { SF3D_LICENCE_SHA256 } from './media-model-sf3d-licence';
 
-export { SF3D_LICENCE_SHA256, SF3D_LICENCE_TEXT } from './media-model-sf3d-licence';
 
 /** The Hugging Face repository of the ONNX port (not gated). */
 export const SF3D_REPO = 'needle-tools/SF3D-webgpu';

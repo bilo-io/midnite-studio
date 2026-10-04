@@ -14300,3 +14300,18 @@ and a timeline that plays only while playing. `.glb` exports a skin with joints 
 checked by re-importing through `GLTFLoader` and comparing three's posed vertices with the kernel's.
 `model.json` summarises anatomy, bone count and clips. Deferred: bone rename, FBX skin, and the SF3D tier
 (approved, its own PR next).
+
+### Phase 103 Theme J — SF3D, the opt-in local image-to-3D tier (2026-10-04)
+
+Media ▸ Models gains a tier switch: Procedural (the LLM-designed parts) or SF3D (Stable Fast 3D), a neural
+network that turns a picture of one object into a textured `.glb`. It is opt-in end to end: nothing ships in
+the bundle and nothing downloads until a consent dialog has shown the Stability AI Community License verbatim
+and its US$1M annual-revenue line and the user has ticked both boxes. The install then fetches the community
+ONNX port (`needle-tools/SF3D-webgpu`, ~1.73 GB, pinned revision) into `<userData>/sf3d/`, resumes after a
+cancel with HTTP `Range`, verifies every file's sha256 against the pinned `assets-manifest.json`, and an
+uninstall removes the weights, the partials and the consent. Inference runs on the `onnxruntime-node` the app
+already bundles, in a new `sf3d-worker` utility process (no Python); marching tetrahedra, vertex offsets, a
+UV atlas, the colour-MLP texture bake, a PNG encoder and the textured `.glb` are TypeScript. Results land as
+`<group>/<model>/` with `model.json` naming `agent.provider: 'sf3d'`. `model_sf3d_status` and
+`model_generate_sf3d` expose it over MCP. Every op answers `GitOpResult`. Tested in vitest with a mocked
+inference session; a real run against the weights has not happened yet and is the open item.

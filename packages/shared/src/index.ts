@@ -33,6 +33,7 @@ export * from './media-model-library';
 export * from './media-model-mcp';
 export * from './media-model-rig';
 export * from './media-model-sf3d';
+export * from './media-model-sf3d-licence';
 export * from './model-geometry';
 export * from './ollama';
 export * from './ollama-catalogue';
