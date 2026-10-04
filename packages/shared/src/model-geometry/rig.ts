@@ -181,7 +181,123 @@ export function validateRig(spec: ModelSpec): BuildIssue[] {
 
 type CanonPart = { name: string; shape: ModelPart['shape']; points: Vec3[]; centroid: Vec3; min: Vec3; max: Vec3 };
 
-function canonParts(spec: ModelSpec, basis: Basis): { parts: CanonPart[]; min: Vec3; max: Vec3 } {
+function canonPart(name: string, shape: ModelPart['shape'], points: Vec3[]): CanonPart {
+  const min: Vec3 = [Infinity, Infinity, Infinity];
+  const max: Vec3 = [-Infinity, -Infinity, -Infinity];
+  let sum: Vec3 = [0, 0, 0];
+  for (const c of points) {
+    sum = v3.add(sum, c);
+    for (let k = 0; k < 3; k += 1) {
+      min[k] = Math.min(min[k]!, c[k]!);
+      max[k] = Math.max(max[k]!, c[k]!);
+    }
+  }
+  return { name, shape, points, centroid: v3.scale(sum, 1 / Math.max(1, points.length)), min, max };
+}
+
+/** Points within `half` of height `y`. */
+const band = (points: readonly Vec3[], y: number, half: number): Vec3[] => points.filter((q) => Math.abs(q[1] - y) <= half);
+
+/**
+ * One imported mesh holds the whole body, so the name and position rules below have nothing to read.
+ * This splits its vertices into the pseudo-parts those rules expect — `head`, `torso`, `left arm`,
+ * `right leg`… for a biped; `leg`s, `head` and `body` for a quadruped; `wheel`s and `body` for a
+ * vehicle — from the mesh's own proportions, so the skeleton is fitted to its bounds and silhouette:
+ *
+ * - **crotch:** the top of the gap between the legs — the lowest height at which vertices close to the
+ *   centre line reappear after a run of heights where none are (proportional fallback: 47%);
+ * - **neck:** the narrowest band between 75% and 93% of the height, when it is clearly narrower than
+ *   the chest (fallback: 87%);
+ * - **arms:** vertices beside the torso past the first gap across a mid-chest band — so arms held away
+ *   from the body are found, and arms pressed against it fall back to the proportional placement.
+ */
+function splitAsset(part: CanonPart, anatomy: ModelAnatomy): CanonPart[] {
+  const pts = part.points;
+  if (pts.length === 0) return [part];
+  const { min, max } = part;
+  const H = Math.max(1e-6, max[1] - min[1]);
+  const cx = (min[0] + max[0]) / 2;
+  const cz = (min[2] + max[2]) / 2;
+  const y = (t: number): number => min[1] + t * H;
+  const named = (name: string, keep: (q: Vec3) => boolean): CanonPart | null => {
+    const chosen = pts.filter(keep);
+    return chosen.length > 0 ? canonPart(name, 'asset', chosen) : null;
+  };
+  const present = (list: (CanonPart | null)[]): CanonPart[] => list.filter((p): p is CanonPart => p !== null);
+
+  if (anatomy === 'biped') {
+    // Crotch: scanning up, a run of bands with nothing near the centre line, then the trunk closes it.
+    let crotch = y(0.47);
+    let gapSeen = false;
+    for (let t = 0.08; t <= 0.65; t += 0.01) {
+      const row = band(pts, y(t), 0.01 * H);
+      if (row.length === 0) continue;
+      const nearest = Math.min(...row.map((q) => Math.abs(q[0] - cx)));
+      if (nearest > 0.025 * H) gapSeen = true;
+      else if (gapSeen) {
+        crotch = y(t);
+        break;
+      }
+    }
+    crotch = clamp(crotch, y(0.3), y(0.6));
+    // Neck: the narrowest band near the top, if it is clearly narrower than the chest.
+    const width = (t: number): number => {
+      const row = band(pts, y(t), 0.01 * H);
+      return row.length === 0 ? Infinity : Math.max(...row.map((q) => q[0])) - Math.min(...row.map((q) => q[0]));
+    };
+    let headBottom = y(0.87);
+    let narrow = { t: 0.87, w: Infinity };
+    for (let t = 0.75; t <= 0.93; t += 0.01) {
+      const w = width(t);
+      if (w < narrow.w) narrow = { t, w };
+    }
+    const chestT = (crotch - min[1]) / H + 0.6 * (narrow.t - (crotch - min[1]) / H);
+    if (Number.isFinite(narrow.w) && narrow.w < 0.7 * width(chestT)) headBottom = y(narrow.t + 0.01);
+    // Arms: past the first gap in a mid-chest band, per side.
+    const armFrom = (sign: 1 | -1): number => {
+      const row = band(pts, y(chestT), 0.03 * H)
+        .map((q) => sign * (q[0] - cx))
+        .filter((d) => d > 0)
+        .sort((a, b) => a - b);
+      for (let i = 1; i < row.length; i += 1) if (row[i]! - row[i - 1]! > 0.02 * H) return row[i - 1]! + 0.005 * H;
+      return Infinity;
+    };
+    const reach = { left: armFrom(1), right: armFrom(-1) };
+    const side = (q: Vec3): 'left' | 'right' => (q[0] >= cx ? 'left' : 'right');
+    const isHead = (q: Vec3): boolean => q[1] >= headBottom;
+    const isLeg = (q: Vec3): boolean => q[1] < crotch;
+    const isArm = (q: Vec3): boolean => !isHead(q) && q[1] > crotch + 0.02 * H && Math.abs(q[0] - cx) > reach[side(q)];
+    return present([
+      named('head', isHead),
+      named('torso', (q) => !isHead(q) && !isLeg(q) && !isArm(q)),
+      named('left arm', (q) => isArm(q) && side(q) === 'left'),
+      named('right arm', (q) => isArm(q) && side(q) === 'right'),
+      named('left leg', (q) => isLeg(q) && side(q) === 'left'),
+      named('right leg', (q) => isLeg(q) && side(q) === 'right'),
+    ]);
+  }
+
+  const W = Math.max(1e-6, max[0] - min[0]);
+  const len = Math.max(1e-6, max[2] - min[2]);
+  const corner = (q: Vec3): Corner => cornerOf(q, cx, cz);
+  if (anatomy === 'quadruped') {
+    const isLeg = (q: Vec3): boolean => q[1] < y(0.35);
+    const isHead = (q: Vec3): boolean => !isLeg(q) && q[2] > cz + 0.3 * len && q[1] > y(0.5);
+    return present([
+      ...(['FL', 'FR', 'RL', 'RR'] as const).map((c) => named(`leg ${c}`, (q) => isLeg(q) && corner(q) === c)),
+      named('head', isHead),
+      named('body', (q) => !isLeg(q) && !isHead(q)),
+    ]);
+  }
+  // Vehicle: the low, outer corners are where the wheels are.
+  const isWheel = (q: Vec3): boolean => q[1] < y(0.4) && Math.abs(q[0] - cx) > 0.25 * W && Math.abs(q[2] - cz) > 0.2 * len;
+  return present([
+    ...(['FL', 'FR', 'RL', 'RR'] as const).map((c) => named(`wheel ${c}`, (q) => isWheel(q) && corner(q) === c)),
+    named('body', (q) => !isWheel(q)),
+  ]);
+}
+
+function canonParts(spec: ModelSpec, basis: Basis, anatomy?: ModelAnatomy): { parts: CanonPart[]; min: Vec3; max: Vec3 } {
   const built = buildScene(spec);
   const min: Vec3 = [Infinity, Infinity, Infinity];
   const max: Vec3 = [-Infinity, -Infinity, -Infinity];
@@ -205,6 +321,10 @@ function canonParts(spec: ModelSpec, basis: Basis): { parts: CanonPart[]; min: V
     return { name: source.name.toLowerCase(), shape: source.shape, points, centroid: v3.scale(sum, 1 / Math.max(1, points.length)), min: pmin, max: pmax };
   });
   if (!Number.isFinite(min[0])) return { parts: [], min: [0, 0, 0], max: [1, 1, 1] };
+  if (anatomy && anatomy !== 'static') {
+    const split = parts.flatMap((part, i) => (built[i]!.imported ? splitAsset(part, anatomy) : [part]));
+    return { parts: split, min, max };
+  }
   return { parts, min, max };
 }
 
@@ -430,7 +550,7 @@ export function autoRig(spec: ModelSpec, anatomy: ModelAnatomy, facing?: ModelFa
   if (anatomy === 'static') return null;
   const face = facing ?? spec.rig?.facing ?? guessFacing(spec, anatomy);
   const basis = facingBasis(face);
-  const { parts, min, max } = canonParts({ ...spec, rig: undefined, animations: undefined }, basis);
+  const { parts, min, max } = canonParts({ ...spec, rig: undefined, animations: undefined }, basis, anatomy);
   const placed = anatomy === 'biped' ? bipedBones(parts, min, max) : anatomy === 'vehicle' ? vehicleBones(parts, min, max) : quadrupedBones(parts, min, max);
   const bones: ModelBone[] = placed.map((p) => ({ name: p.name, head: round4(fromCanon(basis, p.head)), tail: round4(fromCanon(basis, p.tail)) }));
   return {

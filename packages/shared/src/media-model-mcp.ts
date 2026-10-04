@@ -111,7 +111,10 @@ export const ModelSf3dStatusResultSchema = z.object({
       stage: z.enum(SF3D_GENERATE_STAGES).optional(),
       fraction: z.number().optional(),
       error: z.string().optional(),
-      /** Project-relative `.glb`, once it succeeded — pass it to `model_open`. */
+      /**
+       * Project-relative model, once it succeeded — a design with one imported `asset` part, so it takes
+       * `model_open`, `model_auto_rig`, `model_patch_animations` and every other `model_*` tool as it is.
+       */
       primary: z.string().optional(),
     })
     .optional(),

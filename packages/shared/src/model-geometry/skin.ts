@@ -24,6 +24,10 @@ import { partAncestry, type ResolvedRig } from './rig';
  *    `falloff: 0` is rigid skinning. Vehicles are always rigid (a tyre must not smear into its strut).
  *
  * At most 4 influences per vertex, normalised to sum to 1.
+ *
+ * **Imported meshes (`asset` parts) are weighted per vertex instead** — see {@link assetSkin}. One
+ * SF3D mesh is the whole body, so "bind the part to one bone and its chain" would make the entire
+ * figure follow `hips`. An asset part that `rig.bind` names explicitly keeps the envelope above.
  */
 
 export const MAX_INFLUENCES = 4;
@@ -117,10 +121,77 @@ function regionOf(rig: ResolvedRig, bone: number): number[] {
   return out;
 }
 
+/**
+ * Per-vertex weights for one dense imported mesh: **distance-to-bone-segment falloff, normalised, at
+ * most 4 influences.** For each vertex every bone's segment distance `d` is measured (`root` is left
+ * out — it carries the whole figure through root motion and sits on the ground between the feet, where
+ * it would steal the soles); the nearest bone, at `d0`, gets weight 1, and any other bone within a band
+ * of `falloff × the nearest bone's length` past it gets `(1 - (d - d0) / band)²`, so a vertex near a
+ * joint blends the two bones meeting there and a vertex mid-limb follows its limb alone. The four
+ * strongest are kept and divided by their sum.
+ *
+ * Chosen over bone heat (Baran & Popović) for the same reasons the envelope was: no sparse solve per
+ * bone, deterministic, and the same code runs in main, the editor and vitest. Its known weakness is a
+ * limb held close to the body — an arm vertex nearer a hip bone than to its own forearm follows the
+ * hip. Holding the arms away from the body (an A- or T-pose picture) avoids it. `falloff: 0` and
+ * vehicles are rigid: each vertex follows its single nearest bone.
+ */
+export function assetSkin(rig: ResolvedRig, positions: readonly number[]): PartSkin {
+  const usable = rig.bones.map((_, i) => i).filter((i) => v3.len(v3.sub(rig.bones[i]!.tail, rig.bones[i]!.head)) > 1e-6);
+  const candidates = usable.filter((i) => rig.bones[i]!.name !== 'root').length > 0 ? usable.filter((i) => rig.bones[i]!.name !== 'root') : usable.length > 0 ? usable : [0];
+  const rigid = rig.anatomy === 'vehicle' || rig.falloff <= 0;
+  const count = positions.length / 3;
+  const joints = new Array<number>(count * MAX_INFLUENCES).fill(0);
+  const weights = new Array<number>(count * MAX_INFLUENCES).fill(0);
+  const lengths = rig.bones.map((b) => v3.len(v3.sub(b.tail, b.head)));
+  const votes = new Array<number>(rig.bones.length).fill(0);
+  const distances = new Array<number>(candidates.length);
+  for (let v = 0; v < count; v += 1) {
+    const p: Vec3 = [positions[v * 3]!, positions[v * 3 + 1]!, positions[v * 3 + 2]!];
+    let nearest = 0;
+    for (let c = 0; c < candidates.length; c += 1) {
+      const b = rig.bones[candidates[c]!]!;
+      distances[c] = segmentDistance(p, b.head, b.tail).distance;
+      if (distances[c]! < distances[nearest]! - 1e-12) nearest = c;
+    }
+    const d0 = distances[nearest]!;
+    const influences: [number, number][] = [];
+    if (rigid) influences.push([candidates[nearest]!, 1]);
+    else {
+      const width = Math.max(1e-6, rig.falloff * (lengths[candidates[nearest]!] || 1));
+      for (let c = 0; c < candidates.length; c += 1) {
+        const over = (distances[c]! - d0) / width;
+        if (over < 1) influences.push([candidates[c]!, (1 - over) ** 2]);
+      }
+    }
+    influences.sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    const kept = influences.slice(0, MAX_INFLUENCES);
+    const total = kept.reduce((sum, [, w]) => sum + w, 0) || 1;
+    kept.forEach(([j, w], k) => {
+      joints[v * MAX_INFLUENCES + k] = j;
+      weights[v * MAX_INFLUENCES + k] = w / total;
+    });
+    votes[candidates[nearest]!] = votes[candidates[nearest]!]! + 1;
+  }
+  // The "bound" bone of a whole-body mesh is the one most of it follows — what the inspector shows.
+  const bone = votes.reduce((best, n, i) => (n > votes[best]! ? i : best), candidates[0]!);
+  return { joints, weights, bone };
+}
+
+/** Whether `rig.bind` names this part (or a group above it) explicitly. */
+function explicitlyBound(spec: ModelSpec, part: MeshPart): boolean {
+  const bind = spec.rig?.bind;
+  if (!bind) return false;
+  const index = indexParts(spec.parts);
+  const named = new Set(Object.keys(bind).map((ref) => resolveRef(index, ref)).filter((i): i is number => i !== null));
+  return partAncestry(spec.parts, part.sourceIndex).some((i) => named.has(i));
+}
+
 export function computeSkin(spec: ModelSpec, rig: ResolvedRig, parts: readonly MeshPart[]): PartSkin[] {
   const bound = partBindings(spec, rig, parts);
   const rigid = rig.anatomy === 'vehicle' || rig.falloff <= 0;
   return parts.map((part, pi) => {
+    if (part.imported && !explicitlyBound(spec, part)) return assetSkin(rig, part.positions);
     const bone = bound[pi]!;
     const region = regionOf(rig, bone);
     const count = part.positions.length / 3;

@@ -555,6 +555,8 @@ export function buildLocalMesh(part: ModelPart): RawMesh | null {
     }
     case 'group':
     case 'instance':
+    // Imported geometry comes from the asset registry (`scene.ts` `buildPartLocal`), never from here.
+    case 'asset':
       return null;
   }
 }

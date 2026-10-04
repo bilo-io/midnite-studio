@@ -145,6 +145,14 @@ const partBase = {
   locked: z.boolean().optional(),
 };
 
+/** A file beside the design: one or more relative segments, no `..`, ending `.glb`. */
+export const ModelAssetSrcSchema = z
+  .string()
+  .min(5)
+  .max(200)
+  .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.glb$/i, 'must be a relative .glb path')
+  .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
+
 const ModelSectionSchema = z.object({ y: coord, outline: z.array(point2).min(3).max(32) });
 export type ModelSection = z.infer<typeof ModelSectionSchema>;
 
@@ -224,6 +232,23 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
   }),
   /** A transform-only node: other parts name it as their `parent`. */
   z.object({ ...partBase, shape: z.literal('group') }),
+  /**
+   * An imported mesh — an SF3D result or a dropped-in `.glb` — whose geometry, UVs and texture live in
+   * `src`, a `.glb` beside the design in the model's folder. The kernel resolves it by `hash` through its
+   * asset registry (`model-geometry/assets.ts`); main and the editor load the file before building.
+   * Imported, never hand-written: it moves, rotates, scales, hides and rigs like any other part.
+   */
+  z.object({
+    ...partBase,
+    shape: z.literal('asset'),
+    /** The `.glb` file, relative to the model's folder (`mug-20261004.asset.glb`). */
+    src: ModelAssetSrcSchema,
+    /** Content hash of `src` (`modelAssetHash`) — the registry key, so a changed file is never mistaken for this one. */
+    hash: z.string().regex(/^[0-9a-f]{8,64}$/, 'must be a lower-case hex hash'),
+    /** Counts at import time, for listings that do not load the file. */
+    vertices: z.number().int().nonnegative().optional(),
+    triangles: z.number().int().nonnegative().optional(),
+  }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),
 ]);
@@ -231,6 +256,11 @@ export type ModelPart = z.infer<typeof ModelPartSchema>;
 
 /** The shapes a part can be, in prompt order — derived from the union, so a new kind appears here by being added there. */
 export const MODEL_SHAPES = ModelPartSchema.options.map((option) => option.shape.shape.value) as ModelPart['shape'][];
+/** Shapes that are imported, never written by hand or offered in an "add part" menu. */
+export const MODEL_IMPORTED_SHAPES: readonly ModelPart['shape'][] = ['asset'];
+/** The shapes a person or an LLM may author. */
+export const MODEL_AUTHORED_SHAPES = MODEL_SHAPES.filter((shape) => !MODEL_IMPORTED_SHAPES.includes(shape));
+export type ModelAssetPart = Extract<ModelPart, { shape: 'asset' }>;
 export type ModelPartInput = z.input<typeof ModelPartSchema>;
 
 export const ModelSpecSchema = z.object({
@@ -298,6 +328,12 @@ export function parseModelSidecar(text: string): ModelSidecar | null {
 export const ModelEngineSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('ollama'), model: z.string().min(1).max(200) }),
   z.object({ kind: z.literal('agent'), agentId: z.string().min(1), model: LoopModelSchema.optional() }),
+  /**
+   * Tier 1, local image-to-3D (Phase 103 Theme J): SF3D turns the attached picture into a textured mesh,
+   * which lands as a design with one `asset` part — editable, riggable and exportable like any other.
+   * Needs the user's licence consent and install first (`media-model-sf3d.ts`).
+   */
+  z.object({ kind: z.literal('sf3d'), textureSize: z.union([z.literal(512), z.literal(1024), z.literal(2048)]).optional() }),
 ]);
 export type ModelEngine = z.infer<typeof ModelEngineSchema>;
 
@@ -395,6 +431,10 @@ export const ModelGenerateRequestSchema = z
   .refine((req) => req.prompt.length > 0 || req.image !== undefined, {
     message: 'Describe the model, attach an image, or both.',
     path: ['prompt'],
+  })
+  .refine((req) => req.engine.kind !== 'sf3d' || req.image !== undefined, {
+    message: 'SF3D turns a picture into a model — attach one.',
+    path: ['image'],
   });
 export type ModelGenerateRequest = z.infer<typeof ModelGenerateRequestSchema>;
 export type ModelGenerateInput = z.input<typeof ModelGenerateRequestSchema>;
