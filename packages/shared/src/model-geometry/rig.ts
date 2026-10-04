@@ -220,7 +220,7 @@ function nameSide(name: string): 'left' | 'right' | null {
 
 const ARM_RE = /arm|hand|fist|glove|elbow|wrist|shoulder|finger|claw/;
 const LEG_RE = /leg|thigh|shin|calf|knee|foot|feet|shoe|boot|ankle|toe/;
-const HEAD_RE = /head|skull|face|helmet|hat|hair|eye|ear|nose|mouth|jaw/;
+const HEAD_RE = /\b(head|skull|face|helmet|hat|hair|eyes?|ears?|nose|mouth|jaw|visor|antenna)\b/;
 
 type Placed = { name: string; head: Vec3; tail: Vec3 };
 
@@ -231,15 +231,12 @@ function bipedBones(parts: CanonPart[], min: Vec3, max: Vec3): Placed[] {
   const y = (t: number): number => min[1] + t * H;
 
   // Head: a part named like one, else the top 13%.
-  const headParts = parts.filter((p) => HEAD_RE.test(p.name) && !/hand|headlight/.test(p.name));
+  const headParts = parts.filter((p) => HEAD_RE.test(p.name));
   const headBottom = headParts.length > 0 ? clamp(Math.min(...headParts.map((p) => p.min[1])), y(0.55), y(0.95)) : y(0.87);
 
-  // Crotch: the lowest point of anything near the centre line, above the feet.
-  let crotch = Infinity;
-  for (const p of parts) {
-    if (ARM_RE.test(p.name)) continue;
-    for (const q of p.points) if (Math.abs(q[0] - cx) < 0.035 * H && q[1] > y(0.15)) crotch = Math.min(crotch, q[1]);
-  }
+  // Crotch: the lowest point of the trunk — parts that straddle the centre line and are not limbs.
+  const trunk = parts.filter((p) => !ARM_RE.test(p.name) && !LEG_RE.test(p.name) && !HEAD_RE.test(p.name) && p.min[0] < cx && p.max[0] > cx && p.max[1] > y(0.3));
+  const crotch = trunk.length > 0 ? Math.min(...trunk.map((p) => p.min[1])) : Infinity;
   const crotchY = Number.isFinite(crotch) ? clamp(crotch, y(0.3), y(0.6)) : y(0.47);
   const hipsY = crotchY + 0.04 * H;
   const neckY = headBottom - 0.03 * H;

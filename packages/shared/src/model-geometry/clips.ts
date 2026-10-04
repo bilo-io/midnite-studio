@@ -313,8 +313,8 @@ function makeVehicle(duration: number, inPlace: boolean): Record<string, (b: Pos
   };
   return {
     idle(b, u, amp) {
-      b.move('body', 0, 0.004 * amp * Math.sin(TAU * 12 * u));
-      b.turn('body', 'forward', 0.3 * amp * Math.sin(TAU * 6 * u));
+      b.move('body', 0, 0.004 * amp * Math.sin(TAU * 11 * u));
+      b.turn('body', 'forward', 0.3 * amp * Math.sin(TAU * 5 * u));
     },
     drive(b, u, amp) {
       const d = loopingDistance(b, 8 * amp, duration, u);
