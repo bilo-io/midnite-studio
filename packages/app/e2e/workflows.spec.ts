@@ -313,7 +313,7 @@ test('the "Run Graph" palette command runs the currently open workflow', async (
   await page.waitForTimeout(600);
 
   await page.keyboard.press('Meta+k');
-  await page.getByRole('combobox', { name: 'Command palette search' }).fill('run workflow');
+  await page.getByRole('combobox', { name: 'Command palette search' }).fill('run graph');
   await page.keyboard.press('Enter');
 
   await page.getByRole('button', { name: 'Run history' }).click();
