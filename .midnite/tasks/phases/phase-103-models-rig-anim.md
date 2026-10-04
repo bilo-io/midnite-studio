@@ -44,8 +44,9 @@ does three things to it:
 
 ## Headlines
 
-**Theme A — Fidelity tiers and the research.** 🔄 The research is done (below); Tier 0 stays the
-default, Tiers 1 and 2 are proposals awaiting the user's approval. **Tier 0, procedural (today):** the
+**Theme A — Fidelity tiers and the research.** ✅ The research is done (below) and the user decided
+(2026-10-04): Tier 0 stays the default, SF3D is approved as the opt-in Tier 1 (Theme J), Tier 2 and the
+heavier local models stay as plans. **Tier 0, procedural (today):** the
 kernel's primitives, booleans, modifiers and PBR materials, authored by an LLM and refined through the
 MCP render-look-patch loop. Deterministic, editable, riggable by construction (parts map to bones), no
 download. Ceiling: hard-surface props, stylised characters and vehicles; no sculpted organic surfaces
@@ -77,9 +78,9 @@ this phase apply to it too.
 
 **Theme I — Export: skin and animation in `.glb`.** ◻ TODO.
 
-**Theme J — Tier 1, local neural image-to-3D.** ◻ TODO — blocked on the user's approval.
+**Theme J — Tier 1, local neural image-to-3D (SF3D).** ◻ TODO — approved by the user 2026-10-04 as opt-in, consent-gated, installed into `<userData>`, ONNX/WebGPU port preferred over a Python venv, licence shown at consent, gated-weights token in the secrets vault. Follows the non-neural PR on its own branch.
 
-**Theme K — Tier 2, hosted image/text-to-3D.** ◻ TODO — blocked on the user's approval.
+**Theme K — Tier 2, hosted image/text-to-3D.** ⏳ Deferred by the user's decision (2026-10-04): Meshy/Tripo stay a plan, not built in this phase.
 
 **Theme L — Verification.** ◻ TODO.
 
@@ -87,7 +88,7 @@ this phase apply to it too.
 
 - [x] Compare TripoSR, SF3D, SPAR3D, Hunyuan3D-2mini, TRELLIS.2 and hosted APIs on licence, weights, memory, Apple Silicon support, quality and speed
 - [x] Tiered route proposed: 0 procedural, 1 local neural, 2 hosted
-- [ ] The user's decision on Tier 1 and Tier 2 recorded here
+- [x] The user's decision on Tier 1 and Tier 2 recorded here (2026-10-04: SF3D approved as opt-in Tier 1; Tier 2, TRELLIS.2 and Hunyuan stay as checklist items, not built now)
 
 ### The lightest route to high-fidelity 3D on Apple Silicon
 
@@ -198,21 +199,27 @@ from `model-editor.tsx` at a few points; nothing is added to the top toolbar.
 - [ ] `.obj` stays static; unrigged designs export exactly as before
 - [ ] `.fbx` skin deformers and animation stacks (⏳ deferred)
 
-## J — Tier 1, local neural image-to-3D
+## J — Tier 1, local neural image-to-3D (SF3D)
 
-Blocked on the user's approval of a dependency and a weights download.
+**Approved by the user, 2026-10-04: SF3D as the opt-in Tier 1.** Built as a follow-up PR on its own
+branch, after the non-neural themes land. Constraints the user set:
 
-- [ ] Approved model and runtime recorded here
-- [ ] Consent-gated install into `<userData>`, with size and licence shown before download
-- [ ] Engine behind the existing engine seam; output imported as an asset part
-- [ ] Imported meshes rig and animate like any other part
+- [ ] Installed only on explicit consent, into `<userData>`; nothing in the bundle, nothing downloaded at startup
+- [ ] Runtime: the community ONNX/WebGPU port (no Python); a `uv`-managed Python venv with PyTorch MPS only if the port is unusable, with the reason recorded in the PR
+- [ ] The consent step shows the Stability AI Community Licence text and its US$1M annual-revenue condition
+- [ ] Gated weights: the Hugging Face token goes through the secrets vault, never a plaintext store
+- [ ] Every op (install, generate, uninstall) answers the `GitOpResult` envelope, with progress, cancel and a clean uninstall
+- [ ] Engine behind the existing engine seam; output imported as an asset part that rigs and animates like any other part
+- [ ] TripoSR (MIT) as the alternative for users above the revenue line (⏳ deferred)
+- [ ] TRELLIS.2 "max quality" on 24 GB+ Macs (⏳ deferred)
+- [ ] Hunyuan3D-2mini behind a territory acknowledgement (⏳ deferred)
 
 ## K — Tier 2, hosted image/text-to-3D
 
-Blocked on the user's approval.
+Not built in this phase (the user's decision, 2026-10-04); kept as the plan.
 
-- [ ] Provider(s) chosen; API keys in the secrets vault
-- [ ] Engine behind the same seam, with a clear "sends your prompt off-device" notice
+- [ ] Meshy and Tripo engines, API keys in the secrets vault (⏳ deferred)
+- [ ] A clear "sends your prompt off-device" notice (⏳ deferred)
 
 ## L — Verification
 
@@ -235,4 +242,8 @@ Blocked on the user's approval.
   rigid limbs with smooth joints, which suits the parts the LLM writes.
 - **Clips are procedural plus additive keys.** A clip stores its kind and parameters, not thousands of
   keyframes; pose-mode edits are additive keys on top. Exports bake it.
+- **SF3D approved as opt-in Tier 1 (user, 2026-10-04).** Consent-gated install into `<userData>`,
+  ONNX/WebGPU port first, Python/MPS only with a recorded reason, licence and its US$1M condition shown
+  at consent, gated-weights token in the secrets vault, `GitOpResult` everywhere with progress, cancel
+  and uninstall. Sequenced after the non-neural PR. Meshy/Tripo, TRELLIS.2 and Hunyuan are not built.
 - **Neural meshes join as an asset part** (open: a capped `mesh` part cannot hold 400k vertices).
