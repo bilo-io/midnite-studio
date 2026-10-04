@@ -1,4 +1,4 @@
-import { ModelManifestSchema, SF3D_LICENCE_SHA256, type Sf3dProgressEvent, type Sf3dStatus } from '@midnite/studio-shared';
+import { SF3D_LICENCE_SHA256, type Sf3dProgressEvent, type Sf3dStatus } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Sf3dInstaller } from './installer';
@@ -213,7 +213,7 @@ describe('SF3D service', () => {
     totalBytes: 10,
   };
   function setup(status: Sf3dStatus = installed, overrides: Partial<Sf3dServiceDeps> = {}) {
-    const writes: { path: string; data: Buffer }[] = [];
+    const imports: Parameters<Sf3dServiceDeps['importAsset']>[0][] = [];
     const events: Sf3dProgressEvent[] = [];
     const installer = {
       status: vi.fn(async () => status),
@@ -233,36 +233,39 @@ describe('SF3D service', () => {
       installer,
       run,
       decodeImage: () => ({ data: new Uint8Array(4).fill(255), width: 1, height: 1 }),
-      writeBytes: async (r) => {
-        writes.push({ path: r.path, data: r.data });
-        return { ok: true, value: undefined };
+      importAsset: async (r) => {
+        imports.push(r);
+        const files = [`${r.stem}/${r.stem}.asset.glb`, `${r.stem}/${r.reference!.file}`, `${r.stem}/${r.stem}.json`, `${r.stem}/model.json`];
+        return { ok: true, value: { files, primary: `${r.stem}/${r.stem}.obj` } };
       },
       emit: (e) => events.push(e),
       disposeEngine,
-      author: async () => ({ name: 'Bilo' }),
       now: () => new Date(2026, 9, 4, 12, 0, 0),
       ...overrides,
     });
-    return { service, writes, events, run, installer, disposeEngine };
+    return { service, imports, events, run, installer, disposeEngine };
   }
   const image = { name: 'mug.png', mime: 'image/png' as const, data: Buffer.from('png').toString('base64') };
   const generate = { op: 'generate' as const, generationId: 'g1', repoId: 'r', project: 'props', image };
 
-  it('writes the glb, the reference picture and a model.json naming sf3d into the library layout', async () => {
-    const { service, writes, events } = setup();
+  it('hands the glb, the reference picture and its SF3D details to the asset import, and answers its design', async () => {
+    const { service, imports, events } = setup();
     const result = await service.handle(generate);
-    expect(result).toEqual({ ok: true, value: { files: ['mug-20261004-120000/mug-20261004-120000.glb', 'mug-20261004-120000/mug-20261004-120000.ref.png', 'mug-20261004-120000/model.json'], primary: 'mug-20261004-120000/mug-20261004-120000.glb', vertices: 30, triangles: 10 } });
-    const manifest = ModelManifestSchema.parse(JSON.parse(writes[2]!.data.toString('utf8')));
-    expect(manifest).toMatchObject({
-      name: 'mug',
-      agent: { provider: 'sf3d', model: 'stabilityai/stable-fast-3d' },
-      author: { name: 'Bilo' },
-      attachment: { file: 'mug-20261004-120000.ref.png' },
-      files: { glb: 'mug-20261004-120000.glb' },
-      details: { vertices: 30, polygons: 10, parts: 1, bounds: { size: [0.8, 0.4, 0.6] } },
+    const stem = 'mug-20261004-120000';
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        files: [`${stem}/${stem}.asset.glb`, `${stem}/${stem}.ref.png`, `${stem}/${stem}.json`, `${stem}/model.json`],
+        primary: `${stem}/${stem}.obj`,
+        vertices: 30,
+        triangles: 10,
+      },
     });
-    expect((manifest as Record<string, unknown>)['sf3d']).toMatchObject({ revision: expect.any(String), textureSize: 1024 });
-    expect(writes[1]!.data.toString()).toBe('png');
+    expect(imports).toHaveLength(1);
+    expect(imports[0]).toMatchObject({ repoId: 'r', project: 'props', stem, name: 'mug', engine: 'sf3d', prompt: 'Image to 3D: mug.png', reference: { file: `${stem}.ref.png` } });
+    expect([...imports[0]!.glb]).toEqual([7, 7]);
+    expect(imports[0]!.reference!.data.toString()).toBe('png');
+    expect(imports[0]!.extra).toMatchObject({ sf3d: { revision: expect.any(String), textureSize: 1024 } });
     expect(events.map((e) => (e.kind === 'generate' ? `${e.status}:${e.stage ?? ''}` : 'install'))).toEqual([
       'running:preparing',
       'running:backbone',
@@ -289,7 +292,7 @@ describe('SF3D service', () => {
 
   it('cancels a running generation into a cancelled event, with nothing written', async () => {
     let release!: () => void;
-    const { service, writes, events } = setup(installed, {
+    const { service, imports, events } = setup(installed, {
       run: (_req, opts) =>
         new Promise((_resolve, reject) => {
           opts.signal.addEventListener('abort', () => reject(new Error('cancelled')));
@@ -300,7 +303,7 @@ describe('SF3D service', () => {
     await vi.waitFor(() => expect(release).toBeDefined());
     expect(await service.handle({ op: 'cancelGenerate', generationId: 'g1' })).toEqual({ ok: true, value: undefined });
     expect(await running).toEqual({ ok: false, kind: 'error', message: 'cancelled' });
-    expect(writes).toEqual([]);
+    expect(imports).toEqual([]);
     expect(events.at(-1)).toMatchObject({ kind: 'generate', status: 'cancelled' });
     expect(await service.handle({ op: 'cancelGenerate', generationId: 'nope' })).toMatchObject({ ok: false });
   });
