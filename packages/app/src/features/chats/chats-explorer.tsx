@@ -21,6 +21,7 @@ import {
   type ChatFilters,
   type PinnedFacet,
 } from './chats-filter';
+import { useLoopingTypewriter } from './use-looping-typewriter';
 import type { ChatEngine } from './use-chat-engines';
 
 /**
@@ -68,6 +69,7 @@ export function ChatsExplorer({
   const dialogs = useDialogs();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const now = Date.now();
+  const loadingText = useLoopingTypewriter('Loading chats…');
 
   const visible = useMemo(() => filterChats(chats, filters, now), [chats, filters, now]);
   const groups = useMemo(() => groupChats(visible), [visible]);
@@ -224,7 +226,7 @@ export function ChatsExplorer({
         <ExplorerNotice tone="destructive">The chats could not be loaded.</ExplorerNotice>
       ) : status === 'idle' || status === 'loading' ? (
         <div className="p-3 text-xs text-muted-foreground" data-testid="chats-loading">
-          Loading chats…
+          {loadingText}
         </div>
       ) : chats.length === 0 ? (
         <EmptyState icon={LuMessageSquarePlus} title="No chats yet" body="Start one — it is saved here, and you can come back to it any time." />
