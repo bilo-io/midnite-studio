@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Sf3dInstaller } from './installer';
 import { cubeTetGrid } from './marching-tets';
-import { createOrtInference, toFloat32, type OrtModule } from './ort-inference';
+import { createOrtInference, toFloat32, type OrtModule, type OrtSession } from './ort-inference';
 import { fitTextureSize, runSf3dPipeline, SF3D_DEFAULTS, sf3dToGltf, type Sf3dInference } from './pipeline';
 import { createSf3dBroker, type Sf3dWorkerHandle } from './sf3d-broker';
 import { createSf3dService, type Sf3dServiceDeps } from './sf3d-service';
@@ -118,7 +118,7 @@ describe('onnxruntime-node seam', () => {
         create: async (path) => ({
           inputNames: path.includes('tokenizer') ? inputs : path.includes('decoder') ? ['triplane', 'positions'] : ['image_tokens'],
           outputNames: path.includes('decoder') ? ['density', 'vertex_offset'] : ['out'],
-          run: async (f) => {
+          run: async (f: Record<string, unknown>) => {
             feeds.push(f);
             if (path.includes('decoder')) {
               const n = ((f['positions'] as { dims: number[] }).dims[1])!;
@@ -127,7 +127,7 @@ describe('onnxruntime-node seam', () => {
             // fp16 1.0 = 0x3c00
             return { out: { type: 'float16', data: Uint16Array.from([0x3c00, 0xc000]), dims: [2] } };
           },
-        }),
+        }) as unknown as OrtSession,
       },
     };
     return { ort, feeds };

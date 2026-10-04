@@ -9,7 +9,7 @@ import {
   SF3D_REVISION,
   SF3D_UPSTREAM_MODEL,
   type GitOpResult,
-  type MediaModelSf3dRequest,
+  type Sf3dRequest,
   type ModelAuthor,
   type ModelManifest,
   type Sf3dGenerateRequest,
@@ -177,7 +177,7 @@ export function createSf3dService(deps: Sf3dServiceDeps) {
   }
 
   /** The one dispatcher behind `mediaModelSf3d` (and the MCP tools). Never throws. */
-  async function handle(req: MediaModelSf3dRequest): Promise<GitOpResult<unknown>> {
+  async function handle(req: Sf3dRequest): Promise<GitOpResult<unknown> | GitOpResult> {
     try {
       switch (req.op) {
         case 'status':

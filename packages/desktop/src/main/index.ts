@@ -139,6 +139,7 @@ import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { registerMediaModelHandlers } from './ipc/media-model-handlers';
+import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
@@ -489,6 +490,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaImageHandlers();
     registerMediaAudioHandlers();
     registerMediaModelHandlers();
+    registerMediaModelSf3dHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
@@ -726,6 +728,7 @@ if (!app.requestSingleInstanceLock()) {
     configureCompanionTtsBroker(userData);
     // Media ▸ Audio's local music engine — same lazy-fork shape; weights cache under `userData/audio-models`.
     configureMusicBroker(userData);
+    configureSf3d(userData);
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential
@@ -939,6 +942,7 @@ if (!app.requestSingleInstanceLock()) {
     // blocks the UI") — the identical reasoning, one call below it.
     disposeCompanionTtsBroker();
     disposeMusicBroker();
+    disposeSf3d();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

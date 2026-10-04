@@ -8,7 +8,7 @@
  * `assets-manifest.json`. Inference runs on the `onnxruntime-node` the app already bundles, in a
  * utility process; meshing, the UV atlas, the texture bake and the `.glb` are our TypeScript.
  *
- * One IPC channel carries every op (`MediaModelSf3dRequestSchema`), each answering the `GitOpResult`
+ * One IPC channel carries every op (`Sf3dRequestSchema`), each answering the `GitOpResult`
  * envelope; progress for both the install and a generation arrives on one event channel.
  */
 import { z } from 'zod';
@@ -128,7 +128,7 @@ export const Sf3dGenerateRequestSchema = z.object({
 });
 export type Sf3dGenerateRequest = z.infer<typeof Sf3dGenerateRequestSchema>;
 
-export const MediaModelSf3dRequestSchema = z.discriminatedUnion('op', [
+export const Sf3dRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('status') }),
   z.object({ op: z.literal('consent'), licenceSha256: z.string(), revenueAcknowledged: z.literal(true) }),
   z.object({ op: z.literal('revokeConsent') }),
@@ -138,7 +138,7 @@ export const MediaModelSf3dRequestSchema = z.discriminatedUnion('op', [
   Sf3dGenerateRequestSchema.extend({ op: z.literal('generate') }),
   z.object({ op: z.literal('cancelGenerate'), generationId: z.string().min(1) }),
 ]);
-export type MediaModelSf3dRequest = z.infer<typeof MediaModelSf3dRequestSchema>;
+export type Sf3dRequest = z.infer<typeof Sf3dRequestSchema>;
 
 export const SF3D_GENERATE_STAGES = ['preparing', 'loading', 'tokenizing', 'backbone', 'decoding', 'meshing', 'texturing', 'writing'] as const;
 export type Sf3dGenerateStage = (typeof SF3D_GENERATE_STAGES)[number];

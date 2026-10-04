@@ -1871,6 +1871,8 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaModelProgress: ['MediaModelProgressPayload'],
       mediaModelChanged: ['MediaModelChangedPayload'],
       mediaModelOpen: ['MediaModelOpenPayload'],
+      mediaModelSf3d: ['MediaModelSf3dRequest', 'MediaModelSf3dResponse'],
+      mediaModelSf3dProgress: ['MediaModelSf3dProgressPayload'],
       mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
       mediaExport: ['MediaExportRequest', 'MediaExportResponse'],
       mediaExportCancel: ['MediaExportCancelRequest', 'MediaExportCancelResponse'],
