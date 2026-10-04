@@ -17,6 +17,13 @@ import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelSpecSchema } from './media-model';
+import {
+  MODEL_RIG_PATCH_MAX_OPS,
+  ModelAnatomySchema,
+  ModelClipOpSchema,
+  ModelFacingSchema,
+  ModelRigOpSchema,
+} from './media-model-rig';
 
 /**
  * The name Midnite Studio's MCP server registers under — what a client's config
@@ -49,6 +56,11 @@ export const MODEL_MCP_TOOL_IDS = [
   'model_patch_parts',
   'model_render_preview',
   'model_get_reference_image',
+  'model_get_rig',
+  'model_auto_rig',
+  'model_patch_rig',
+  'model_patch_animations',
+  'model_retarget',
   'model_save',
 ] as const;
 export type ModelMcpToolId = (typeof MODEL_MCP_TOOL_IDS)[number];
@@ -60,6 +72,10 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_open',
   'model_set_spec',
   'model_patch_parts',
+  'model_auto_rig',
+  'model_patch_rig',
+  'model_patch_animations',
+  'model_retarget',
   'model_save',
 ];
 
@@ -108,6 +124,41 @@ export const ModelPatchPartsInputSchema = ModelToolTargetSchema.extend({
 export const ModelRenderPreviewInputSchema = ModelToolTargetSchema.extend({
   views: z.array(ModelPreviewViewSchema).min(1).max(MODEL_PREVIEW_VIEWS.length).optional(),
   size: z.number().int().min(MODEL_PREVIEW_SIZE_MIN).max(MODEL_PREVIEW_SIZE_MAX).optional(),
+  /** Render the rigged model posed: a clip by name, at `time` seconds into it. */
+  pose: z.object({ clip: z.string().min(1).max(40), time: z.number().finite().min(0).max(60) }).optional(),
+});
+
+export const ModelAutoRigInputSchema = ModelToolTargetSchema.extend({
+  /** `static` removes the rig and the clips. */
+  anatomy: ModelAnatomySchema,
+  /** Which way the model faces; guessed from its shape when absent. */
+  facing: ModelFacingSchema.optional(),
+});
+export const ModelPatchRigInputSchema = ModelToolTargetSchema.extend({
+  ops: z.array(ModelRigOpSchema).min(1).max(MODEL_RIG_PATCH_MAX_OPS),
+});
+export const ModelPatchAnimationsInputSchema = ModelToolTargetSchema.extend({
+  ops: z.array(ModelClipOpSchema).min(1).max(MODEL_RIG_PATCH_MAX_OPS),
+});
+export const ModelRetargetInputSchema = ModelToolTargetSchema.extend({
+  /** The model to copy clips from — same repository; `project` defaults to this model's. */
+  from: z.object({ project: MediaProjectNameSchema.optional(), model: z.string().min(1).max(512) }),
+  /** Replace clips of the same name instead of adding `<name> 2`. */
+  replace: z.boolean().optional(),
+});
+
+/** `model_get_rig` answer: the rig as the kernel resolves it, the anatomy's table and what is wrong. */
+export const ModelGetRigResultSchema = z.object({
+  anatomy: ModelAnatomySchema,
+  facing: ModelFacingSchema.nullable(),
+  falloff: z.number().nullable(),
+  bones: z.array(z.object({ name: z.string(), parent: z.string().nullable(), head: z.array(z.number()), tail: z.array(z.number()) })),
+  /** Every built part and the bone it moves with (`bound` = set by hand, not chosen automatically). */
+  bindings: z.array(z.object({ part: z.string(), bone: z.string(), bound: z.boolean() })),
+  animations: z.array(z.unknown()),
+  table: z.array(z.object({ name: z.string(), parent: z.string().nullable(), required: z.boolean() })),
+  clipKinds: z.array(z.string()),
+  issues: z.array(z.object({ path: z.string(), message: z.string() })),
 });
 
 /** One problem with a design or an op — a path into it and a sentence a model can act on. */
@@ -135,6 +186,10 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
     triangles: z.number().int().min(0).optional(),
     /** Non-fatal build problems (a boolean that failed, a modifier stopped at the triangle cap) — the edit was applied. */
     warnings: z.array(ModelToolIssueSchema).optional(),
+    /** A rigged design's anatomy, bone count and clip names. */
+    rig: z.object({ anatomy: z.string(), bones: z.number().int().min(0), clips: z.array(z.string()) }).optional(),
+    /** Clips `model_retarget` could not copy (a kind this anatomy has no use for). */
+    skipped: z.array(z.string()).optional(),
   }),
   z.object({ ok: z.literal(false), errors: z.array(ModelToolIssueSchema) }),
 ]);

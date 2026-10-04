@@ -1,6 +1,20 @@
 import {
+  applyClipOps,
+  applyRigOps,
   buildScene,
+  computeSkin,
+  copyClips,
   MCP_CONTENT_KEY,
+  MODEL_BONE_TABLE,
+  MODEL_CLIP_PRESETS,
+  partBindings,
+  resolveRig,
+  type RigEditOutcome,
+  samplePose,
+  setAnatomy,
+  skinMatrices,
+  skinParts,
+  validateRig,
   MODEL_MAX_PARTS,
   modelSidecarPath,
   parseModelSidecar,
@@ -191,11 +205,23 @@ export function createModelTools(deps: ModelMcpDeps) {
     const l = await load(input);
     const sidecar = need(l, input);
     const spec = ensurePartIds(sidecar.spec);
-    const rendered = renderPreviews(buildScene(spec), { views: input.views, size: input.size });
+    let parts = buildScene(spec);
+    let posed = '';
+    if (input.pose) {
+      const rig = resolveRig(spec);
+      if (!rig) throw new McpToolError('not-found', 'This model has no rig to pose — call model_auto_rig first.');
+      const clip = spec.animations?.find((c) => c.name === input.pose!.clip);
+      if (!clip) {
+        throw new McpToolError('not-found', `No clip is named "${input.pose.clip}". Clips: ${(spec.animations ?? []).map((c) => c.name).join(', ') || '(none)'}.`);
+      }
+      parts = skinParts(parts, computeSkin(spec, rig, parts), skinMatrices(rig, samplePose(rig, clip, input.pose.time)));
+      posed = ` Posed: "${clip.name}" at ${input.pose.time}s.`;
+    }
+    const rendered = renderPreviews(parts, { views: input.views, size: input.size });
     const info = describeEdit(spec);
     const content: McpContentBlock[] = [
       text(
-        `${spec.name}: ${info.partCount} parts, ${info.bounds.size.join(' x ')} m (x y z), lowest point y=${info.bounds.min[1]}. ` +
+        `${spec.name}: ${info.partCount} parts, ${info.bounds.size.join(' x ')} m (x y z), lowest point y=${info.bounds.min[1]}.${posed} ` +
           `Views: ${rendered.map((r) => r.view).join(', ')}. Front looks along -Z (x to the right); side looks along -X; top looks down (front at the bottom); iso from front-right-above.`,
       ),
     ];
@@ -222,7 +248,64 @@ export function createModelTools(deps: ModelMcpDeps) {
     return { [MCP_CONTENT_KEY]: [text('Reference picture attached by the user.'), { type: 'image', data: data.toString('base64'), mimeType: mime }] };
   }
 
+  async function modelGetRig(input: McpToolInput<'model_get_rig'>): Promise<McpToolOutput<'model_get_rig'>> {
+    const l = await load(input);
+    const spec = ensurePartIds(need(l, input).spec);
+    const anatomy = spec.anatomy ?? 'static';
+    const rig = resolveRig(spec);
+    const parts = buildScene(spec);
+    const bound = new Set(Object.keys(spec.rig?.bind ?? {}));
+    const bindings = rig
+      ? partBindings(spec, rig, parts).map((bone, i) => {
+          const part = parts[i]!;
+          const source = spec.parts.find((p) => p.name === part.name);
+          return { part: part.name, bone: rig.bones[bone]!.name, bound: bound.has(part.name) || (source?.id !== undefined && bound.has(source.id)) };
+        })
+      : [];
+    return {
+      anatomy,
+      facing: rig?.facing ?? spec.rig?.facing ?? null,
+      falloff: rig?.falloff ?? null,
+      bones: (rig?.bones ?? []).map((b) => ({ name: b.name, parent: b.parent === null ? null : rig!.bones[b.parent]!.name, head: b.head, tail: b.tail })),
+      bindings,
+      animations: spec.animations ?? [],
+      table: MODEL_BONE_TABLE[anatomy].map((t) => ({ name: t.name, parent: t.parent, required: t.required })),
+      clipKinds: anatomy === 'static' ? [] : [...MODEL_CLIP_PRESETS[anatomy], 'custom'],
+      issues: validateRig(spec),
+    };
+  }
+
   // --- writes ----------------------------------------------------------------
+
+  /** Read-modify-write a model's design through one of the kernel's rig edits. */
+  async function editRig<T extends { repoPath: string; project: string; model: string }>(
+    input: T,
+    edit: (spec: ModelSpec) => RigEditOutcome | Promise<RigEditOutcome>,
+  ): Promise<McpToolOutput<'model_patch_rig'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const out = await edit(ensurePartIds(sidecar.spec));
+      if (!out.ok) return { ok: false, errors: out.errors };
+      const written = await writeEdit(fresh, sidecar, out.spec);
+      const skipped = (out as { skipped?: string[] }).skipped;
+      return written.ok && skipped ? { ...written, skipped } : written;
+    });
+  }
+
+  const modelAutoRig = (input: McpToolInput<'model_auto_rig'>): Promise<McpToolOutput<'model_auto_rig'>> =>
+    editRig(input, (spec) => setAnatomy(spec, input.anatomy, input.facing));
+  const modelPatchRig = (input: McpToolInput<'model_patch_rig'>): Promise<McpToolOutput<'model_patch_rig'>> =>
+    editRig(input, (spec) => applyRigOps(spec, input.ops));
+  const modelPatchAnimations = (input: McpToolInput<'model_patch_animations'>): Promise<McpToolOutput<'model_patch_animations'>> =>
+    editRig(input, (spec) => applyClipOps(spec, input.ops));
+
+  async function modelRetarget(input: McpToolInput<'model_retarget'>): Promise<McpToolOutput<'model_retarget'>> {
+    const fromTarget = { repoPath: input.repoPath, project: input.from.project ?? input.project, model: input.from.model };
+    const source = need(await load(fromTarget), fromTarget);
+    return editRig(input, (spec) => copyClips(source.spec, spec, input.replace ?? false));
+  }
 
   async function modelSetSpec(input: McpToolInput<'model_set_spec'>): Promise<McpToolOutput<'model_set_spec'>> {
     const validated = validateDesign(input.spec);
@@ -283,6 +366,11 @@ export function createModelTools(deps: ModelMcpDeps) {
     model_patch_parts: modelPatchParts,
     model_render_preview: modelRenderPreview,
     model_get_reference_image: modelGetReferenceImage,
+    model_get_rig: modelGetRig,
+    model_auto_rig: modelAutoRig,
+    model_patch_rig: modelPatchRig,
+    model_patch_animations: modelPatchAnimations,
+    model_retarget: modelRetarget,
     model_save: modelSave,
   };
 }

@@ -24,7 +24,9 @@ describe('tool registry', () => {
   it('registers every model tool with a zod input and the readOnly flag its kind calls for', () => {
     for (const id of MODEL_MCP_TOOL_IDS) expect(MCP_TOOLS[id].id).toBe(id);
     const writes = MODEL_MCP_TOOL_IDS.filter((id) => !MCP_TOOLS[id].readOnly);
-    expect(writes.sort()).toEqual(['model_open', 'model_patch_parts', 'model_save', 'model_set_spec']);
+    expect(writes.sort()).toEqual(
+      ['model_auto_rig', 'model_open', 'model_patch_animations', 'model_patch_parts', 'model_patch_rig', 'model_retarget', 'model_save', 'model_set_spec'],
+    );
   });
 });
 

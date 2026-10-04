@@ -75,3 +75,4 @@ export {
 } from './skin';
 export { bakeClip, boneNamesFor, CLIP_BAKE_FPS, retargetClips, samplePose, type BakedClip } from './clips';
 export { RIG_EXAMPLE_BIPED, RIG_EXAMPLE_QUADRUPED, RIG_EXAMPLE_VEHICLE } from './rig-examples';
+export { applyClipOps, applyRigOps, copyClips, setAnatomy, type RigEditIssue, type RigEditOutcome } from './rig-ops';

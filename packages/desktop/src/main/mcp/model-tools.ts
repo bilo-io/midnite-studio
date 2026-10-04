@@ -8,7 +8,7 @@ import { getMcpAllowModels } from './ui-gate';
  * The `model_*` tools as the app's global MCP server answers them (Phase 99
  * Theme G): the same implementations an in-app iterative run uses
  * (`media/model/model-mcp.ts`), wrapped in the consent model every other
- * state-changing tool has. The four that change a model or the window refuse
+ * state-changing tool has. The tools that change a model or the window refuse
  * with a named reason while `Settings ▸ MCP ▸ Let agents edit 3D models` is
  * off; the read tools and the preview render answer whenever the server is on.
  *
@@ -40,6 +40,24 @@ export const modelGetReferenceImage = async (
   input: McpToolInput<'model_get_reference_image'>,
 ): Promise<McpToolOutput<'model_get_reference_image'>> => tools().model_get_reference_image(input);
 
+export const modelGetRig = async (input: McpToolInput<'model_get_rig'>): Promise<McpToolOutput<'model_get_rig'>> => tools().model_get_rig(input);
+
+export const modelAutoRig = async (input: McpToolInput<'model_auto_rig'>): Promise<McpToolOutput<'model_auto_rig'>> => {
+  allowed();
+  return tools().model_auto_rig(input);
+};
+export const modelPatchRig = async (input: McpToolInput<'model_patch_rig'>): Promise<McpToolOutput<'model_patch_rig'>> => {
+  allowed();
+  return tools().model_patch_rig(input);
+};
+export const modelPatchAnimations = async (input: McpToolInput<'model_patch_animations'>): Promise<McpToolOutput<'model_patch_animations'>> => {
+  allowed();
+  return tools().model_patch_animations(input);
+};
+export const modelRetarget = async (input: McpToolInput<'model_retarget'>): Promise<McpToolOutput<'model_retarget'>> => {
+  allowed();
+  return tools().model_retarget(input);
+};
 export const modelOpen = async (input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> => {
   allowed();
   return tools().model_open(input);

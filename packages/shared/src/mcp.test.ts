@@ -26,6 +26,10 @@ describe('MCP_TOOLS', () => {
     'model_open',
     'model_set_spec',
     'model_patch_parts',
+    'model_auto_rig',
+    'model_patch_rig',
+    'model_patch_animations',
+    'model_retarget',
     'model_save',
   ]);
 
@@ -131,6 +135,11 @@ describe('MCP_TOOLS', () => {
     model_render_preview: { _content: [] },
     model_get_reference_image: { _content: [] },
     model_save: { saved: true, files: ['a.obj'] },
+    model_get_rig: { anatomy: 'static', facing: null, falloff: null, bones: [], bindings: [], animations: [], table: [], clipKinds: [], issues: [] },
+    model_auto_rig: { ok: false, errors: [{ path: 'anatomy', message: 'x' }] },
+    model_patch_rig: { ok: false, errors: [{ path: 'rig', message: 'x' }] },
+    model_patch_animations: { ok: false, errors: [{ path: 'animations', message: 'x' }] },
+    model_retarget: { ok: false, errors: [{ path: 'from', message: 'x' }] },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -163,6 +172,11 @@ describe('MCP_TOOLS', () => {
       model_render_preview: { ...base, project: 'p', model: 'a.obj' },
       model_get_reference_image: { ...base, project: 'p', model: 'a.obj' },
       model_save: { ...base, project: 'p', model: 'a.obj' },
+      model_get_rig: { ...base, project: 'p', model: 'a.obj' },
+      model_auto_rig: { ...base, project: 'p', model: 'a.obj', anatomy: 'biped' },
+      model_patch_rig: { ...base, project: 'p', model: 'a.obj', ops: [{ op: 'falloff', value: 0.5 }] },
+      model_patch_animations: { ...base, project: 'p', model: 'a.obj', ops: [{ op: 'remove', name: 'walk' }] },
+      model_retarget: { ...base, project: 'p', model: 'a.obj', from: { model: 'b.obj' } },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;

@@ -322,3 +322,37 @@ export function clipTiming(clip: ModelClip): { duration: number; loop: boolean }
   const base = MODEL_CLIP_DEFAULTS[clip.kind];
   return { duration: (clip.duration ?? base.duration) / (clip.speed ?? 1), loop: clip.loop ?? base.loop };
 }
+
+// --- edits ------------------------------------------------------------------------------------
+
+/** Most ops one rig or clip patch may carry — the editor's single gestures and an agent's batch alike. */
+export const MODEL_RIG_PATCH_MAX_OPS = 64;
+
+const BoneName = z.string().trim().min(1).max(MODEL_BONE_NAME_MAX);
+
+/** One edit to a design's rig — what `model_patch_rig` takes and the editor's rig panel dispatches. */
+export const ModelRigOpSchema = z.discriminatedUnion('op', [
+  /** Add the bone, or move/re-parent it; omitted fields keep their value (a new bone needs head and tail). */
+  z.object({ op: z.literal('setBone'), name: BoneName, head: Vec3.optional(), tail: Vec3.optional(), parent: BoneName.nullable().optional() }),
+  z.object({ op: z.literal('removeBone'), name: BoneName }),
+  /** Bind a part (id or unique name) to a bone; `null` returns it to the automatic choice. */
+  z.object({ op: z.literal('bind'), part: z.string().min(1).max(60), bone: BoneName.nullable() }),
+  z.object({ op: z.literal('falloff'), value: z.number().finite().min(0).max(1) }),
+  z.object({ op: z.literal('facing'), value: ModelFacingSchema }),
+]);
+export type ModelRigOp = z.infer<typeof ModelRigOpSchema>;
+
+const OpenFields = z.record(z.string(), z.unknown());
+
+/** One edit to a design's clips — what `model_patch_animations` takes and the clip panel dispatches. */
+export const ModelClipOpSchema = z.discriminatedUnion('op', [
+  /** A whole clip, as `ModelClipSchema` describes; a missing name defaults to the kind. */
+  z.object({ op: z.literal('add'), clip: OpenFields }),
+  /** Fields merged over the named clip (`null` clears one back to its default), then re-validated. */
+  z.object({ op: z.literal('update'), name: BoneName, fields: OpenFields }),
+  z.object({ op: z.literal('remove'), name: BoneName }),
+  /** Add (or replace, same bone and time) additive keys on a clip. */
+  z.object({ op: z.literal('setKeys'), name: BoneName, keys: z.array(ModelClipKeySchema).min(1).max(MODEL_MAX_CLIP_KEYS) }),
+  z.object({ op: z.literal('clearKeys'), name: BoneName, bone: BoneName.optional() }),
+]);
+export type ModelClipOp = z.infer<typeof ModelClipOpSchema>;

@@ -15,10 +15,15 @@ import {
 } from './domain';
 import { isCommandId } from './keybindings';
 import {
+  ModelAutoRigInputSchema,
   ModelEditResultSchema,
+  ModelGetRigResultSchema,
   ModelListInputSchema,
+  ModelPatchAnimationsInputSchema,
   ModelPatchPartsInputSchema,
+  ModelPatchRigInputSchema,
   ModelRenderPreviewInputSchema,
+  ModelRetargetInputSchema,
   ModelSetSpecInputSchema,
   ModelToolTargetSchema,
 } from './media-model-mcp';
@@ -80,6 +85,11 @@ type McpToolEntry = {
     | 'model_patch_parts'
     | 'model_render_preview'
     | 'model_get_reference_image'
+    | 'model_get_rig'
+    | 'model_auto_rig'
+    | 'model_patch_rig'
+    | 'model_patch_animations'
+    | 'model_retarget'
     | 'model_save';
   title: string;
   /**
@@ -293,7 +303,7 @@ export const MCP_TOOLS = {
   /*
    * Media ▸ Models (Phase 99 Theme G) — build a 3D model iteratively. The three
    * read tools and the preview render always work once the server is on; the
-   * four that change a model or the window are gated by `Settings ▸ MCP ▸ Let
+   * tools that change a model or the window are gated by `Settings ▸ MCP ▸ Let
    * agents edit 3D models` (`allowModels` on `McpSettings`), off by default.
    * Every call names the model by `repoPath` + `project` + `model`, and an
    * edit shows up live in the open Models tab. Full flow: `media-model-mcp.ts`.
@@ -360,7 +370,7 @@ export const MCP_TOOLS = {
     id: 'model_render_preview',
     title: 'Render the model from several angles',
     description:
-      'Renders a model to PNG images from front, side, top and iso cameras so you can see it — use instead of judging the `model_get_spec` JSON; returns image content, at most 768 px each.',
+      'Renders a model to PNG images from front, side, top and iso cameras, posed mid-clip if asked — use instead of judging the `model_get_spec` JSON; returns image content, at most 768 px each.',
     input: ModelRenderPreviewInputSchema,
     output: z.object({ _content: z.array(z.unknown()) }),
     readOnly: true,
@@ -373,6 +383,51 @@ export const MCP_TOOLS = {
     input: ModelToolTargetSchema,
     output: z.object({ _content: z.array(z.unknown()) }),
     readOnly: true,
+  },
+  model_get_rig: {
+    id: 'model_get_rig',
+    title: 'Read a model’s rig and clips',
+    description:
+      'Returns a model’s anatomy, bones, part bindings, clips, the anatomy’s bone table and any rig problems — use instead of reading `rig` out of `model_get_spec` by hand.',
+    input: ModelToolTargetSchema,
+    output: ModelGetRigResultSchema,
+    readOnly: true,
+  },
+  model_auto_rig: {
+    id: 'model_auto_rig',
+    title: 'Set the anatomy and place a rig',
+    description:
+      'Sets a model’s anatomy (biped, quadruped, vehicle or static) and places a fresh rig from its parts — use instead of writing bones into `model_set_spec`; refused unless its own Settings switch is on.',
+    input: ModelAutoRigInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_patch_rig: {
+    id: 'model_patch_rig',
+    title: 'Move, add or remove bones and bindings',
+    description:
+      'Patches a model’s bones, part bindings, facing and skin falloff, validated all or nothing — use after `model_auto_rig` to correct it; refused unless its own Settings switch is on.',
+    input: ModelPatchRigInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_patch_animations: {
+    id: 'model_patch_animations',
+    title: 'Add, change or remove animation clips',
+    description:
+      'Adds, updates, removes and keys a rigged model’s animation clips by name, all or nothing — use instead of resending `animations` to `model_set_spec`; refused unless its own Settings switch is on.',
+    input: ModelPatchAnimationsInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_retarget: {
+    id: 'model_retarget',
+    title: 'Copy clips from another model',
+    description:
+      'Copies another rigged model’s clips onto this one by canonical bone name — use instead of re-adding them with `model_patch_animations`; refused unless its own Settings switch is on.',
+    input: ModelRetargetInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
   },
   model_save: {
     id: 'model_save',

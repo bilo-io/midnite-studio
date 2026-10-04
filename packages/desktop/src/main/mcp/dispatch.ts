@@ -18,12 +18,17 @@ import {
 } from './tools';
 import { McpToolError } from './errors';
 import {
+  modelAutoRig,
   modelGetReferenceImage,
+  modelGetRig,
   modelGetSpec,
   modelList,
   modelOpen,
+  modelPatchAnimations,
   modelPatchParts,
+  modelPatchRig,
   modelRenderPreview,
+  modelRetarget,
   modelSave,
   modelSetSpec,
 } from './model-tools';
@@ -56,6 +61,11 @@ export const MCP_HANDLERS: {
   model_patch_parts: modelPatchParts,
   model_render_preview: modelRenderPreview,
   model_get_reference_image: modelGetReferenceImage,
+  model_get_rig: modelGetRig,
+  model_auto_rig: modelAutoRig,
+  model_patch_rig: modelPatchRig,
+  model_patch_animations: modelPatchAnimations,
+  model_retarget: modelRetarget,
   model_save: modelSave,
 };
 
