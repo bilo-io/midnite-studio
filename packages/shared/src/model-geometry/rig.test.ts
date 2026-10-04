@@ -128,6 +128,70 @@ describe('auto-rig', () => {
   it('a static anatomy has no rig', () => {
     expect(autoRig(RIG_EXAMPLE_BIPED, 'static')).toBeNull();
   });
+
+  it('prevents auto-rig arm bones from crossing over body on models with mirrored or instanced arms', () => {
+    // Model with right arm group instanced on the left with negative X scale, and generic part names.
+    const nonArmParts = RIG_EXAMPLE_BIPED.parts.filter((p) => !/arm|hand/.test(p.name));
+    const instancedArmSpec = ModelSpecSchema.parse({
+      name: 'instanced-arms-biped',
+      parts: [
+        ...nonArmParts,
+        { id: 'armR', name: 'right arm', shape: 'group', position: [0, 0, 0] },
+        { name: 'deltoid', shape: 'sphere', radius: 0.08, segments: 8, position: [-0.28, 1.39, 0], parent: 'armR' },
+        { name: 'upper arm', shape: 'capsule', radius: 0.05, height: 0.2, segments: 8, position: [-0.3, 1.23, 0], parent: 'armR' },
+        { name: 'forearm', shape: 'capsule', radius: 0.04, height: 0.2, segments: 8, position: [-0.35, 0.95, 0], parent: 'armR' },
+        { name: 'hand', shape: 'sphere', radius: 0.05, segments: 8, position: [-0.38, 0.75, 0], parent: 'armR' },
+        { name: 'left arm', shape: 'instance', source: 'armR', scale: [-1, 1, 1], position: [0, 0, 0] },
+      ],
+    });
+    const rig = autoRig(instancedArmSpec, 'biped')!;
+    expect(rig).not.toBeNull();
+    const armBoneNames = ['Shoulder', 'UpperArm', 'LowerArm', 'Hand'];
+    for (const suffix of armBoneNames) {
+      const leftBone = rig.bones.find((b) => b.name === `left${suffix}`)!;
+      const rightBone = rig.bones.find((b) => b.name === `right${suffix}`)!;
+      expect(leftBone, `left${suffix}`).toBeDefined();
+      expect(rightBone, `right${suffix}`).toBeDefined();
+      // Left arm bones strictly on the +X side.
+      expect(leftBone.head[0], `left${suffix} head X`).toBeGreaterThan(0);
+      expect(leftBone.tail[0], `left${suffix} tail X`).toBeGreaterThan(0);
+      // Right arm bones strictly on the -X side.
+      expect(rightBone.head[0], `right${suffix} head X`).toBeLessThan(0);
+      expect(rightBone.tail[0], `right${suffix} tail X`).toBeLessThan(0);
+    }
+  });
+
+  it('prevents auto-rig arm bones from crossing over body with generic arm names on both sides', () => {
+    // Both sides have parts with generic names (no 'left' or 'right' in part names).
+    const nonArmParts = RIG_EXAMPLE_BIPED.parts.filter((p) => !/arm|hand/.test(p.name));
+    const genericArmSpec = ModelSpecSchema.parse({
+      name: 'generic-arms-biped',
+      parts: [
+        ...nonArmParts,
+        { name: 'upper arm', shape: 'capsule', radius: 0.05, height: 0.2, segments: 8, position: [0.3, 1.27, 0] },
+        { name: 'forearm', shape: 'capsule', radius: 0.04, height: 0.2, segments: 8, position: [0.35, 0.98, 0] },
+        { name: 'hand', shape: 'sphere', radius: 0.05, segments: 8, position: [0.38, 0.78, 0] },
+        { name: 'upper arm', shape: 'capsule', radius: 0.05, height: 0.2, segments: 8, position: [-0.3, 1.27, 0] },
+        { name: 'forearm', shape: 'capsule', radius: 0.04, height: 0.2, segments: 8, position: [-0.35, 0.98, 0] },
+        { name: 'hand', shape: 'sphere', radius: 0.05, segments: 8, position: [-0.38, 0.78, 0] },
+      ],
+    });
+    const rig = autoRig(genericArmSpec, 'biped')!;
+    expect(rig).not.toBeNull();
+    const armBoneNames = ['Shoulder', 'UpperArm', 'LowerArm', 'Hand'];
+    for (const suffix of armBoneNames) {
+      const leftBone = rig.bones.find((b) => b.name === `left${suffix}`)!;
+      const rightBone = rig.bones.find((b) => b.name === `right${suffix}`)!;
+      expect(leftBone, `left${suffix}`).toBeDefined();
+      expect(rightBone, `right${suffix}`).toBeDefined();
+      // Left arm bones strictly on the +X side.
+      expect(leftBone.head[0], `left${suffix} head X`).toBeGreaterThan(0);
+      expect(leftBone.tail[0], `left${suffix} tail X`).toBeGreaterThan(0);
+      // Right arm bones strictly on the -X side.
+      expect(rightBone.head[0], `right${suffix} head X`).toBeLessThan(0);
+      expect(rightBone.tail[0], `right${suffix} tail X`).toBeLessThan(0);
+    }
+  });
 });
 
 describe('validateRig', () => {
