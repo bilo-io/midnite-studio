@@ -339,7 +339,7 @@ function nameSide(name: string): 'left' | 'right' | null {
   return null;
 }
 
-const ARM_RE = /arm|hand|fist|glove|elbow|wrist|shoulder|finger|claw/;
+const ARM_RE = /arm|hand|fist|glove|elbow|wrist|shoulder|finger|claw|bicep|tricep|deltoid/;
 const LEG_RE = /leg|thigh|shin|calf|knee|foot|feet|shoe|boot|ankle|toe/;
 const HEAD_RE = /\b(head|skull|face|helmet|hat|hair|eyes?|ears?|nose|mouth|jaw|visor|antenna)\b/;
 
@@ -376,14 +376,25 @@ function bipedBones(parts: CanonPart[], min: Vec3, max: Vec3): Placed[] {
 
   for (const side of ['left', 'right'] as const) {
     const sign = side === 'left' ? 1 : -1;
-    const onSide = (p: CanonPart): boolean => (nameSide(p.name) ?? (p.centroid[0] - cx >= 0 ? 'left' : 'right')) === side;
+    const onSide = (p: CanonPart): boolean => {
+      const named = nameSide(p.name);
+      if (named !== null && Math.abs(p.centroid[0] - cx) > 0.005 * H) {
+        const physical = p.centroid[0] > cx ? 'left' : 'right';
+        if (physical !== named) return physical === side;
+      }
+      return (named ?? (p.centroid[0] - cx >= 0 ? 'left' : 'right')) === side;
+    };
 
     // Arms: parts named like arms, else narrow parts beside the torso above the hips.
-    let armPts = parts.filter((p) => ARM_RE.test(p.name) && onSide(p)).flatMap((p) => p.points);
+    let armPts = parts
+      .filter((p) => ARM_RE.test(p.name) && onSide(p))
+      .flatMap((p) => p.points)
+      .filter((q) => sign * (q[0] - cx) > 0);
     if (armPts.length === 0) {
       armPts = parts
         .filter((p) => !HEAD_RE.test(p.name) && !LEG_RE.test(p.name) && onSide(p) && Math.abs(p.centroid[0] - cx) > 0.12 * H && p.centroid[1] > crotchY - 0.1 * H)
-        .flatMap((p) => p.points);
+        .flatMap((p) => p.points)
+        .filter((q) => sign * (q[0] - cx) > 0);
     }
     const shoulderTarget: Vec3 = [cx + sign * 0.12 * H, neckY - 0.06 * H, cz];
     let shoulder: Vec3 = shoulderTarget;
@@ -404,9 +415,15 @@ function bipedBones(parts: CanonPart[], min: Vec3, max: Vec3): Placed[] {
     );
 
     // Legs: parts named like legs, else anything below the crotch on this side.
-    let legPts = parts.filter((p) => LEG_RE.test(p.name) && onSide(p)).flatMap((p) => p.points);
+    let legPts = parts
+      .filter((p) => LEG_RE.test(p.name) && onSide(p))
+      .flatMap((p) => p.points)
+      .filter((q) => sign * (q[0] - cx) > 0);
     if (legPts.length === 0) {
-      legPts = parts.filter((p) => !ARM_RE.test(p.name) && p.centroid[1] < crotchY && onSide(p)).flatMap((p) => p.points);
+      legPts = parts
+        .filter((p) => !ARM_RE.test(p.name) && p.centroid[1] < crotchY && onSide(p))
+        .flatMap((p) => p.points)
+        .filter((q) => sign * (q[0] - cx) > 0);
     }
     legPts = legPts.filter((q) => sign * (q[0] - cx) > 0);
     const topBand = legPts.filter((q) => q[1] > crotchY - 0.15 * H);
