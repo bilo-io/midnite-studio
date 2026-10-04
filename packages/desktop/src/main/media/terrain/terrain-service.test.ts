@@ -208,6 +208,29 @@ describe('setInput', () => {
   });
 });
 
+describe('prompted heightmap', () => {
+  it('generates through the Images service with the wrapped prompt, then attaches it like an upload', async () => {
+    const generateImage = vi.fn(async () => ({ ok: true as const, value: { bytes: heightmap16(), name: 'dunes-1.png' } }));
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })), { generateImage });
+    const target = await createTerrain(service);
+    const result = await service.setInput({ ...target, slot: 'heightmap', prompt: 'rolling dunes', provider: 'agy', model: 'agy-default' });
+    expect(generateImage).toHaveBeenCalledWith(
+      expect.objectContaining({ repoId: 'r', project: 'terrain-heightmaps', provider: 'agy', model: 'agy-default', prompt: expect.stringContaining('top-down greyscale heightmap of rolling dunes') }),
+    );
+    expect(result.ok && result.value.input).toMatchObject({ file: 'inputs/heightmap.png', sourceName: 'dunes-1.png', bitDepth: 16 });
+  });
+
+  it('passes a provider failure through and attaches nothing', async () => {
+    const generateImage = vi.fn(async () => ({ ok: false as const, kind: 'error' as const, message: 'No key' }));
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })), { generateImage });
+    const target = await createTerrain(service);
+    const result = await service.setInput({ ...target, slot: 'heightmap', prompt: 'x', provider: 'openai', model: 'm' });
+    expect(result).toMatchObject({ ok: false, message: 'No key' });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.heightmap).toBeUndefined();
+  });
+});
+
 describe('build', () => {
   it('answers needs-height-source without ever starting the worker', async () => {
     const broker = fakeBroker(() => ({ ok: true, stats }));
@@ -216,6 +239,17 @@ describe('build', () => {
     const result = await service.build(target);
     expect(result).toEqual({ ok: true, value: { status: 'needs-height-source' } });
     expect(broker.build).not.toHaveBeenCalled();
+  });
+
+  it('builds a noise terrain with no heightmap once noise params are saved', async () => {
+    const broker = fakeBroker(() => ({ ok: true, stats }));
+    const { service } = makeService(broker);
+    const target = await createTerrain(service);
+    expect(await service.build(target)).toEqual({ ok: true, value: { status: 'needs-height-source' } });
+    const set = await service.setSpec({ ...target, patch: { noise: { kind: 'ridged', seed: 9 } } });
+    expect(set.ok && set.value.spec.noise).toMatchObject({ kind: 'ridged', seed: 9, octaves: 6 });
+    expect(await service.build(target)).toEqual({ ok: true, value: { status: 'built', stats } });
+    expect(broker.build).toHaveBeenCalledTimes(1);
   });
 
   it('builds, swaps build/ in, records lastBuild and announces the change', async () => {

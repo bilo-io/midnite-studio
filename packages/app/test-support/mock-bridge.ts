@@ -3748,7 +3748,7 @@ export function buildMockBridge(data: MockFixtures) {
               writeSpec(req.project, req.terrain, { ...spec, inputs });
               return { ok: true as const, value: { warnings: [] } };
             }
-            const input = { file: `inputs/${req.slot}.png`, sourceName: req.name, width: 512, height: 512, bitDepth: 16 };
+            const input = { file: `inputs/${req.slot}.png`, sourceName: req.name ?? 'generated.png', width: 512, height: 512, bitDepth: 16 };
             writeSpec(req.project, req.terrain, { ...spec, inputs: { ...(spec.inputs ?? {}), [req.slot]: input } });
             return { ok: true as const, value: { input, warnings: [] } };
           },

@@ -10,6 +10,8 @@ import {
   ok,
   parseTerrainSpec,
   TERRAIN_BUILD_CANCELLED,
+  TERRAIN_HEIGHTMAP_IMAGE_PROJECT,
+  TERRAIN_HEIGHTMAP_PROMPT,
   TERRAIN_INPUT_MAX_BYTES,
   TERRAIN_INPUT_MAX_SIDE,
   TERRAIN_NOT_AVAILABLE,
@@ -17,6 +19,7 @@ import {
   terrainSlug,
   terrainTimeStamp,
   type GitOpResult,
+  type ImageProviderId,
   type TerrainBuildRequest,
   type TerrainBuildResult,
   type TerrainBuildStage,
@@ -60,6 +63,11 @@ export type TerrainServiceDeps = {
    * `nativeImage`, so main injects them. `null` when the bytes are not an image.
    */
   toPng: (bytes: Uint8Array, opts: { maxSide: number }) => Promise<{ png: Buffer; downscaledFrom?: { width: number; height: number } } | null>;
+  /**
+   * Generates a heightmap picture through the Images service (into the Images tab's
+   * `terrain-heightmaps` project) and returns its bytes. Absent: prompted heightmaps are refused.
+   */
+  generateImage?: (req: { generationId: string; repoId: string; project: string; prompt: string; provider: ImageProviderId; model: string }) => Promise<GitOpResult<{ bytes: Uint8Array; name: string }>>;
   broker: TerrainBroker;
   onChanged: (repoId: string) => void;
   emitProgress: (event: TerrainProgressEvent) => void;
@@ -284,7 +292,23 @@ export function createTerrainService(deps: TerrainServiceDeps) {
         return ok({ warnings: [] });
       }
 
-      const bytes = req.bytes instanceof Uint8Array ? req.bytes : new Uint8Array(req.bytes);
+      let upload: { bytes: Uint8Array | ArrayBuffer; name: string };
+      if ('prompt' in req) {
+        if (!deps.generateImage) return failure('Generating a heightmap is not available.');
+        const generated = await deps.generateImage({
+          generationId: `terrain-${randomUUID()}`,
+          repoId: req.repoId,
+          project: TERRAIN_HEIGHTMAP_IMAGE_PROJECT,
+          prompt: TERRAIN_HEIGHTMAP_PROMPT(req.prompt),
+          provider: req.provider,
+          model: req.model,
+        });
+        if (!generated.ok) return generated;
+        upload = generated.value;
+      } else {
+        upload = req;
+      }
+      const bytes = upload.bytes instanceof Uint8Array ? upload.bytes : new Uint8Array(upload.bytes);
       if (bytes.byteLength === 0) return failure(`The ${label} is empty.`);
       if (bytes.byteLength > TERRAIN_INPUT_MAX_BYTES) return failure(`The ${label} is larger than ${TERRAIN_INPUT_MAX_BYTES / 1024 / 1024} MB.`);
 
@@ -315,7 +339,7 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       }
       if (!decoded?.ok) return failure(decoded ? decoded.message : NOT_AN_IMAGE);
       const { width, height, bitDepth } = decoded.image;
-      const input: TerrainInputRef = { file, sourceName: req.name.slice(0, 255), width, height, bitDepth };
+      const input: TerrainInputRef = { file, sourceName: upload.name.slice(0, 255), width, height, bitDepth };
 
       const written = await deps.writeBytes({ repoId: req.repoId, project: req.project, path: `${req.terrain}/${file}`, data: Buffer.from(png) });
       if (!written.ok) return written;
@@ -353,9 +377,6 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       const spec = current.value;
       // The one rule UI and MCP share: nothing to shape the ground from means ask, never guess.
       if (needsHeightSource(spec)) return ok({ status: 'needs-height-source' });
-      // Noise terrains are Theme C's; a spec that has only noise cannot be built yet.
-      if (!spec.inputs.heightmap) return failure('Noise terrains are not available yet — attach a heightmap.');
-
       resolution = spec.resolution;
       stages = plannedStages(spec);
       const buildId = req.buildId ?? randomUUID();

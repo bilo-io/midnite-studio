@@ -14354,3 +14354,15 @@ exception capture over `console-message` and the CDP debugger, hot reload and a 
 channels and three events carry it. Tested in vitest (init, manifest, root validation, scaffold, scheme refusals, runner
 with fakes, ring buffer, privileged-scheme call, the tab and settings through the mock bridge). Not built: Pop out, the
 real-Chromium e2e, starters, vendored engines and the agent loop (later themes). No real game has been run in Electron yet.
+
+### Phase 105 Themes C + D — No-heightmap choice, noise terrains and the 3D viewport (2026-10-04)
+
+A terrain with no heightmap now asks instead of guessing: the build answers `needs-height-source` and a dialog offers noise,
+an upload or a heightmap generated from a prompt through the Images service. Noise terrains are seeded fBm or ridged
+multifractal with an optional island falloff and bounded particle erosion (new pure-TS `noise.ts` and `erosion.ts` in
+`shared/src/terrain/`), built by the existing worker with `heightfield` and `erosion` stages. The centre column is now a lazy
+React Three Fiber viewport that streams chunks from `build/heights.f32` (at most four meshes a frame, nearest first, coarser
+LOD as fallback) with orbit and fly cameras, a sun slider, a water plane and shaded/wireframe/height/slope shading, plus a
+stats readout with a live frame time; parameter commits re-bake. Tested in vitest (noise determinism, erosion mass
+conservation and clamp, noise build and prompt-attach in the service, the dialog, shading modes and re-bake through the mock
+bridge, chunk-stream rules). Not built: land cover, splat and road shading maps (Themes E, F, H), and the packaged perf numbers (K).

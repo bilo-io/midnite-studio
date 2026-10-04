@@ -13,6 +13,8 @@ export type IconSelectOption = {
   icon: IconComponent;
   /** Subtitle shown in the tooltip */
   description?: string;
+  /** Shown but not choosable; `description` doubles as the reason. */
+  disabled?: boolean;
 };
 
 /**
@@ -105,17 +107,20 @@ export function IconSelect({
           id={menuId}
           className="absolute left-0 top-full z-menu mt-1 min-w-max animate-fade-in overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
         >
-          {options.map(({ value: optionValue, label: optionLabel, icon: OptionIcon }) => (
+          {options.map(({ value: optionValue, label: optionLabel, icon: OptionIcon, disabled, description: optionDescription }) => (
             <button
               key={optionValue}
               type="button"
               role="option"
               aria-selected={value === optionValue}
+              aria-disabled={disabled || undefined}
+              disabled={disabled}
+              title={disabled ? optionDescription : undefined}
               onClick={() => {
                 onChange(optionValue);
                 setOpen(false);
               }}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors ${
+              className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 value === optionValue
                   ? 'bg-accent text-accent-foreground'
                   : 'text-popover-foreground hover:bg-accent/60'
@@ -123,6 +128,7 @@ export function IconSelect({
             >
               <OptionIcon aria-hidden className="h-3.5 w-3.5 shrink-0" />
               <span>{optionLabel}</span>
+              {disabled && optionDescription ? <span className="text-[10px] text-muted-foreground">{optionDescription}</span> : null}
             </button>
           ))}
         </div>

@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 import { GitOpResultOf, GitOpResultSchema } from './domain/result';
 import { ModelLibraryNameSchema } from './media-model-library';
-import { MediaProjectNameSchema } from './media';
+import { ImageProviderIdSchema, MediaProjectNameSchema } from './media';
 
 // --- constants ---------------------------------------------------------------
 
@@ -59,9 +59,14 @@ export const TERRAIN_BUILD_FILES = ['heights.f32', 'chunks.json'] as const;
 
 export const TERRAIN_SHADING_MODES = ['shaded', 'wireframe', 'height', 'slope', 'landcover', 'splat', 'roads'] as const;
 
+export type TerrainShadingMode = (typeof TERRAIN_SHADING_MODES)[number];
+
 /** The prompt wrapped around a user's description when a heightmap is generated (Theme C). */
 export const TERRAIN_HEIGHTMAP_PROMPT = (user: string): string =>
   `A top-down greyscale heightmap of ${user}. Pure greyscale, no colour, no text, no shading, no border; white is the highest ground and black the lowest; square.`;
+
+/** The Images project a prompted heightmap is generated into before it is copied into the terrain. */
+export const TERRAIN_HEIGHTMAP_IMAGE_PROJECT = 'terrain-heightmaps';
 
 export const TERRAIN_NOT_AVAILABLE = 'Terrain building is not available yet.';
 export const TERRAIN_BUILD_CANCELLED = 'Build cancelled.';
@@ -294,6 +299,13 @@ const Bytes = z.custom<ArrayBuffer | Uint8Array>((value) => value instanceof Arr
 export const TerrainSetInputRequestSchema = z.union([
   TerrainTargetSchema.extend({ slot: z.enum(TERRAIN_INPUT_SLOTS), bytes: Bytes, name: z.string().max(255) }),
   TerrainTargetSchema.extend({ slot: z.enum(TERRAIN_INPUT_SLOTS), remove: z.literal(true) }),
+  /** Theme C: generate the heightmap from a prompt (through the Images service), then attach it like an upload. */
+  TerrainTargetSchema.extend({
+    slot: z.literal('heightmap'),
+    prompt: z.string().trim().min(1).max(1000),
+    provider: ImageProviderIdSchema,
+    model: z.string().min(1),
+  }),
 ]);
 export type TerrainSetInputRequest = z.infer<typeof TerrainSetInputRequestSchema>;
 export const TerrainSetInputResultSchema = z.object({

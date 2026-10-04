@@ -1,4 +1,4 @@
-import type { TerrainBuildResult, TerrainGetResult, TerrainInputSlot, TerrainProgressEvent } from '@midnite/studio-shared';
+import type { ImageProviderId, TerrainBuildResult, TerrainGetResult, TerrainInputSlot, TerrainProgressEvent } from '@midnite/studio-shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -86,6 +86,19 @@ export function useTerrainActions(repoId: string, ref: TerrainRef) {
     [invalidate, repoId, ref],
   );
 
+  /** Generates the heightmap picture from a prompt in main (through the Images service), then attaches it. */
+  const attachFromPrompt = useCallback(
+    async (req: { prompt: string; provider: ImageProviderId; model: string }) => {
+      const api = bridge()?.media.terrain;
+      if (!api) return noBridge<never>();
+      const result = await api.setInput({ repoId, ...ref, slot: 'heightmap', ...req });
+      if (!result.ok) reportFailure(result);
+      await invalidate();
+      return result;
+    },
+    [invalidate, repoId, ref],
+  );
+
   const remove = useCallback(
     async (slot: TerrainInputSlot) => {
       const api = bridge()?.media.terrain;
@@ -120,5 +133,5 @@ export function useTerrainActions(repoId: string, ref: TerrainRef) {
     if (buildId) await bridge()?.media.terrain.cancel({ buildId });
   }, [buildId]);
 
-  return { buildId, building: buildId !== null, setSpec, attach, remove, generate, cancel };
+  return { buildId, building: buildId !== null, setSpec, attach, attachFromPrompt, remove, generate, cancel };
 }
