@@ -27,6 +27,8 @@ export type ModalProps = {
    * precedence over `scope`. Falsy falls back to `scope`.
    */
   container?: HTMLElement | null;
+  /** `alertdialog` for a question that needs an answer (default `dialog`). */
+  role?: 'dialog' | 'alertdialog';
 };
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -48,6 +50,7 @@ export function Modal({
   testId,
   scope = 'content',
   container,
+  role = 'dialog',
 }: ModalProps) {
   const content = useContentOverlay(align, open && scope === 'content' && !container);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -104,7 +107,7 @@ export function Modal({
   const overlay = (
     <div
       className={`${container ? 'absolute' : 'fixed'} inset-0 z-dialog flex bg-background/70 ${alignClass}`}
-      role="dialog"
+      role={role}
       aria-modal="true"
       aria-label={title}
       onClick={(event) => {

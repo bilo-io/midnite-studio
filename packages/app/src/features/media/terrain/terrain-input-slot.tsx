@@ -1,5 +1,5 @@
 import { MEDIA_ROOT_DIR, mstudioFileUrl, type TerrainInputRef, type TerrainInputSlot as Slot } from '@midnite/studio-shared';
-import { useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { LuImage, LuImagePlus, LuX } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
@@ -26,6 +26,7 @@ export function TerrainInputSlot({
   revision,
   onAttach,
   onRemove,
+  openPickerSignal = 0,
 }: {
   slot: Slot;
   input: TerrainInputRef | undefined;
@@ -36,12 +37,17 @@ export function TerrainInputSlot({
   revision: string;
   onAttach: (slot: Slot, file: File) => void;
   onRemove: (slot: Slot) => void;
+  /** Bumping this opens the file picker (the no-heightmap dialog's Upload). */
+  openPickerSignal?: number;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const { label, hint } = SLOT_COPY[slot];
+  useEffect(() => {
+    if (openPickerSignal > 0) picker.current?.click();
+  }, [openPickerSignal]);
 
   const take = (file: File | undefined) => {
     if (!file) return;
