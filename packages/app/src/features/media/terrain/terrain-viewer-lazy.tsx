@@ -21,6 +21,12 @@ export type TerrainViewerProps = {
   timeOfDay: number;
   /** p50 frame time in ms over the last 120 frames. */
   onFrameMs?: (ms: number) => void;
+  align?: boolean;
+  onAlignChange?: (align: boolean) => void;
+  brushActive?: boolean;
+  onBrushActiveChange?: (active: boolean) => void;
+  onCommitSpec?: (patch: Record<string, unknown>) => void;
+  onPaint?: (req: { cls: number; radiusPx: number; points: [number, number][] }) => void;
 };
 
 class ViewerBoundary extends Component<{ children: ReactNode }, { error: string | null }> {

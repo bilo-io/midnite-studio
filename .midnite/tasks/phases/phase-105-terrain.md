@@ -169,14 +169,9 @@ a rebuilt terrain in one frame. Orbit controls, **F** for fly mode (WASD, Q/E, S
 spec and re-bake; the stats readout shows counts, build time, height span, warnings and a live p50 Frame row. The frame loop
 stops when the page is hidden or the window blurred.
 
-**Theme E — Satellite: drape and alignment.** ◻ Not started. `TerrainAlignment` (offset, scale,
-rotation) per image, an onion-skin overlay, and a drape texture resampled in the worker to a chosen
-1K–8K power of two.
+**Theme E — Satellite: drape and alignment.** ✅ Landed. The satellite image is resampled in the worker's `drape` stage into `build/drape.png` (RGBA8, 1K–8K) through `TerrainAlignment` (offset, scale, rotation about centre). In the viewer, shaded mode displays it as `map`, and an Align toggle (`LuMove`) provides an onion-skin quad overlay over the height ramp with opacity control and `TransformControls` handles (X/Z move, Y rotate, X/Z scale) committing to the spec on release. Roads can mirror satellite alignment (`alignment.roads === 'satellite'`).
 
-**Theme F — Satellite: land-cover classification and splat materials.** ◻ Not started. A deterministic
-classifier (ExG, k-means in Lab, slope, sea level, rectilinearity), an Ollama-only optional vision
-relabel, a paint-correction override PNG that survives re-classify, `splat.png`, and four CC0 tiled
-materials.
+**Theme F — Satellite: land-cover classification and splat materials.** ✅ Landed. Pure TS deterministic classifier in `shared/src/terrain/classify.ts` (ExG and variance for trees/grass, slope for rock, flat sub-sea-level for water, Lab k-means for roads/buildings/bare ground) producing `build/landcover.png` and `landcover.json`. Optional Ollama vision relabeling pass (`createVisionCall`). Interactive painting via `ClassBrushPalette` (key **B** / `LuBrush`, 1–64px radius, erase + 8 classes) saving overrides to `overrides/landcover.png` and re-baking. `generateSplatMap` outputs `build/splat.png` with 4-way material weights (grass, rock, dirt, snow with `snowLineM`), and four CC0 tiled PBR materials (`resources/terrain-materials/`) blended via custom `createSplatMaterial` shader fading to drape with distance.
 
 **Theme G — Foliage and buildings from the land cover.** ◻ Not started. Seeded Poisson-disk scatter
 with exclusions, five built-in foliage designs as Models specs, footprints by morphology + contour +
@@ -540,11 +535,11 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
 
 ## E — Satellite: drape and alignment (M)
 
-- [ ] The satellite image is draped as the albedo texture, top-down, in the terrain's UV space
+- [x] The satellite image is draped as the albedo texture, top-down, in the terrain's UV space
   - The worker's `drape` stage writes `build/drape.png` (RGBA8, `textureSize²`) by resampling
     `inputs/satellite.png` through the alignment transform (bilinear; outside the image is `#000000` with
     alpha 0). The viewer's `shaded` mode uses it as `map` when present, else a flat `#7a8f5a`.
-- [ ] Alignment: offset, scale and rotation, set with handles in the viewer and fields in the panel, plus an onion-skin overlay of the satellite against the height ramp to line them up. Stored on the spec per image. The roads mask (H) gets the same alignment control, defaulting to the satellite's
+- [x] Alignment: offset, scale and rotation, set with handles in the viewer and fields in the panel, plus an onion-skin overlay of the satellite against the height ramp to line them up. Stored on the spec per image. The roads mask (H) gets the same alignment control, defaulting to the satellite's
   - Kernel: `shared/src/terrain/align.ts` — `alignmentMatrix(a: TerrainAlignment): Mat3` (scale, then
     rotate about the centre, then offset) and `terrainToImageUv(u, v, a)`, `imageUvToTerrain(u, v, a)`.
   - Panel: an **Alignment** section per attached image (Satellite, Roads) with Offset X/Z, Scale X/Z
@@ -553,11 +548,11 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
   - Viewer: an **Align** toggle (`LuMove`) shows a translucent quad of the image over the `height` ramp
     with an opacity slider (onion skin, default 0.5), plus drei `TransformControls` restricted to X/Z move,
     Y rotate and X/Z scale; releasing a handle writes the spec once (not per drag frame).
-- [ ] Texture resolution is chosen independently of mesh resolution (1K to 8K). Larger sources are downsampled in main, with mipmaps generated on load
+- [x] Texture resolution is chosen independently of mesh resolution (1K to 8K). Larger sources are downsampled in main, with mipmaps generated on load
   - `spec.textureSize` (`1024 | 2048 | 4096 | 8192`, default 2048) selects `drape.png`'s size; the resample
     happens in the worker (`drape` stage). The viewer loads it with `generateMipmaps = true` and
     `anisotropy = gl.capabilities.getMaxAnisotropy()`.
-- [ ] Vitest: the alignment transform maps the image corners to the expected terrain coordinates, and a rotated alignment round-trips
+- [x] Vitest: the alignment transform maps the image corners to the expected terrain coordinates, and a rotated alignment round-trips
   - `shared/src/terrain/align.test.ts`: identity maps corners to corners; offset `[0.5, 0]` shifts by
     half the world; `rotationDeg: 90` sends `(1, 0)` to `(0, 1)` about the centre;
     `imageUvToTerrain(terrainToImageUv(p))` is within 1e-9 of `p` for 100 random alignments.
@@ -566,11 +561,11 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
 
 The satellite image tells the app *what* is where, not just what colour it is.
 
-- [ ] Classes: `water`, `tree`, `grass`, `bare` (soil, sand), `rock`, `road`, `building`, `other`. The list lives in the kernel, with a colour per class for the debug view
+- [x] Classes: `water`, `tree`, `grass`, `bare` (soil, sand), `rock`, `road`, `building`, `other`. The list lives in the kernel, with a colour per class for the debug view
   - `TERRAIN_CLASSES = ['water', 'tree', 'grass', 'bare', 'rock', 'road', 'building', 'other'] as const`
     (index = the value in `landcover.png`) and `TERRAIN_CLASS_COLOURS` (`#3a7bd5`, `#2d6a4f`, `#95d5b2`,
     `#d4a373`, `#8d99ae`, `#343a40`, `#e63946`, `#adb5bd`) in `shared/src/terrain/classes.ts`.
-- [ ] Classifier in `shared/src/terrain/classify.ts`, deterministic and pure TS:
+- [x] Classifier in `shared/src/terrain/classify.ts`, deterministic and pure TS:
   - excess-green index (ExG = 2G − R − B) for vegetation, split into tree and grass by local texture variance
   - k-means in CIE Lab for the remaining clusters
   - slope from the heightfield to separate rock from bare ground
@@ -586,7 +581,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
     (`rectangularity ≥ 0.75`, area ≥ `buildings.minAreaM2`) → building, warm low-chroma → bare, else other.
   - **Resolved: deterministic first, vision optional** (Decision 8, closes the original open). The
     heuristics always run and are the result unless the vision pass relabels.
-- [ ] Optional vision pass: send cluster swatches plus a downscaled image to a vision model (Ollama vision or a roster agent via `engines.ts`) to relabel clusters. Off by default, with a toggle and an engine picker in the panel. The heuristics stay the baseline, so the result never depends on a model
+- [x] Optional vision pass: send cluster swatches plus a downscaled image to a vision model (Ollama vision or a roster agent via `engines.ts`) to relabel clusters. Off by default, with a toggle and an engine picker in the panel. The heuristics stay the baseline, so the result never depends on a model
   - **Resolved: Ollama vision only, through a new `createVisionCall`** (Decision 9). `createLlmCall` has no
     image input, so a roster agent is not offered for this pass; `createDescribeImage` has a fixed prompt,
     so it cannot ask for JSON. `engines.ts` gains
@@ -604,7 +599,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
     _"Vision relabel skipped: <reason>."_ joins `stats.warnings`; the heuristic labels stand.
   - The relabel runs in main (not the worker), between the worker's `landcover` and `splat` stages, by
     splitting the build into two worker calls when `classes.vision.enabled`.
-- [ ] **Correction by painting**: a class brush in the viewer to fix misclassified areas. Corrections are stored as an override layer (`build/landcover-overrides.png`) so a re-classify keeps them
+- [x] **Correction by painting**: a class brush in the viewer to fix misclassified areas. Corrections are stored as an override layer (`build/landcover-overrides.png`) so a re-classify keeps them
   - **Correction (x1):** the override layer must not live in `build/` (which a build replaces wholesale).
     It is `overrides/landcover.png` (8-bit grey, value = class index + 1, 0 = no override) at the
     classifier's resolution.
@@ -614,7 +609,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
     main rasterises it into the override PNG under the WriteQueue and re-runs only the `landcover` →
     `splat` → `foliage` → `buildings` stages. **Erase** is class `0`. Undo is out of scope (the brush can
     repaint).
-- [ ] Outputs:
+- [x] Outputs:
   - `build/landcover.png`, an index map, plus a legend JSON
   - `build/splat.png`, RGBA weights for up to four tiled materials per layer, from land cover + slope + height
   - `build/landcover.json` is the legend: `{ classes: TERRAIN_CLASSES, colours: TERRAIN_CLASS_COLOURS, percent: Record<TerrainClass, number> }`.
@@ -622,7 +617,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
     `grass`/`tree`, dirt from `bare`/`road`/`building`, rock = `smoothstep(rockSlopeDeg − 10, rockSlopeDeg, slope)`,
     snow = `smoothstep(snowLine − 10 m, snowLine, height)` with `snowLine = heightRange[1] − 0.15 × span`
     (new optional spec field `snowLineM`), then normalised to sum to 1 (`water` texels are all-dirt).
-- [ ] A splat shader in the viewer blends tiled PBR materials (grass, rock, dirt/sand, snow above a height) close to the camera and fades to the satellite drape with distance. Built-in CC0 material tiles ship as app resources, with their licences recorded
+- [x] A splat shader in the viewer blends tiled PBR materials (grass, rock, dirt/sand, snow above a height) close to the camera and fades to the satellite drape with distance. Built-in CC0 material tiles ship as app resources, with their licences recorded
   - `app/features/media/terrain/splat-material.ts`: a `MeshStandardMaterial` with `onBeforeCompile`
     injecting the four-layer blend; tiles repeat every 8 m; the blend fades to `drape.png` between 150 m
     and 400 m from the camera (no drape → tiles everywhere).
@@ -635,10 +630,10 @@ The satellite image tells the app *what* is where, not just what colour it is.
   - The `splat` stage copies the tiles into the terrain's `build/materials/` (≈ 2 MB), so the viewer loads
     them through the existing `mstudio-file://repo/…` scope, the export reads the same files, and
     `fs-protocol.ts` needs no new scope.
-- [ ] If a roads mask is also attached, the `road` class from the satellite is shown as a cross-check against H, never merged automatically
+- [x] If a roads mask is also attached, the `road` class from the satellite is shown as a cross-check against H, never merged automatically
   - In `roads` shading mode, satellite `road` texels draw as a 50 % magenta overlay over H's mask; the
     stats show `roadAgreement` (IoU of the two, 0–1). Nothing changes H's graph.
-- [ ] Vitest: synthetic fixtures (painted patches of known colour) classify to their classes, the overrides survive a re-classify, splat weights sum to 1, and the snow line follows the height threshold
+- [x] Vitest: synthetic fixtures (painted patches of known colour) classify to their classes, the overrides survive a re-classify, splat weights sum to 1, and the snow line follows the height threshold
   - `shared/src/terrain/classify.test.ts`: a 64² fixture of four patches (`#2d6a4f` on noise, `#95d5b2` flat,
     `#3a7bd5` below sea level, `#8d99ae` on a 45° slope) classifies ≥ 95 % to tree/grass/water/rock; the same
     seed gives identical output.

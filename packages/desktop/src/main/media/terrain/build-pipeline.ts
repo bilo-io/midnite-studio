@@ -1,34 +1,47 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
   buildHeightfield,
   chunkLayout,
-  erode,
-  fbmField,
-  ridgedField,
-  type Heightfield,
+  classify,
   chunksPerSide,
   chunkVerts,
+  erode,
+  fbmField,
+  generateSplatMap,
   heightfieldStats,
   isNonSquare,
   NON_SQUARE_WARNING,
+  ridgedField,
+  TERRAIN_CLASSES,
+  TERRAIN_CLASS_COLOURS,
   TERRAIN_LOD_COUNT,
+  terrainToImageUv,
   toHeightSamples,
+  type Heightfield,
+  type RasterImage,
+  type TerrainAlignment,
   type TerrainBuildStage,
   type TerrainChunksFile,
+  type TerrainClass,
   type TerrainSpec,
   type TerrainStats,
 } from '@midnite/studio-shared';
 
-import { decodePng } from '../png/png-codec';
+import { decodePng, encodePngGrey8, encodePngRgba8 } from '../png/png-codec';
+import { terrainMaterialsDir } from './materials-path';
 
 /**
  * The terrain build, as a plain async function — the `terrain-worker` utility process runs it, and so
- * does vitest. Theme B's stages: `decode` (the heightmap PNG), `heightfield` (resample, map to
- * metres) and `write` (`heights.f32`, `chunks.json`). Later themes add their stages to the same run.
- *
- * Nothing here is cancellable from inside: the loops are synchronous. A cancel kills the process.
+ * does vitest. Stages:
+ * - `decode`: decode heightmap PNG
+ * - `heightfield`: resample to 2^n+1, map to metres
+ * - `erosion`: optional hydraulic erosion on noise terrains
+ * - `drape`: resample satellite image into drape.png
+ * - `landcover`: classify satellite drape into landcover.png + landcover.json
+ * - `splat`: compute splat weights into splat.png and copy material tiles
+ * - `write`: write heights.f32 and chunks.json
  */
 export type BuildJob = { dir: string; outDir: string; spec: TerrainSpec };
 
@@ -38,6 +51,11 @@ export function plannedStages(spec: TerrainSpec): TerrainBuildStage[] {
   if (spec.inputs.heightmap) stages.push('decode');
   stages.push('heightfield');
   if (!spec.inputs.heightmap && spec.noise && spec.noise.erosion.iterations > 0) stages.push('erosion');
+  if (spec.inputs.satellite) {
+    stages.push('drape');
+    stages.push('landcover');
+    stages.push('splat');
+  }
   stages.push('write');
   return stages;
 }
@@ -63,10 +81,96 @@ export async function runTerrainBuild(
   }
   const stats = heightfieldStats(field);
 
-  onProgress('write', 0);
   const out = join(job.dir, job.outDir);
   await rm(out, { recursive: true, force: true });
   await mkdir(out, { recursive: true });
+
+  let classPercent: Record<TerrainClass, number> | undefined;
+
+  // Theme E & F: Satellite drape, land-cover classification and splat materials
+  if (spec.inputs.satellite) {
+    onProgress('drape', 0);
+    const satPath = join(job.dir, spec.inputs.satellite.file);
+    const satBytes = await readFile(satPath).catch(() => {
+      throw new TerrainBuildError('The satellite image file is missing — attach it again.');
+    });
+    const satDecoded = decodePng(satBytes);
+    if (!satDecoded.ok) throw new TerrainBuildError(satDecoded.message);
+
+    const alignment: TerrainAlignment = spec.alignment.satellite ?? {
+      offset: [0, 0],
+      scale: [1, 1],
+      rotationDeg: 0,
+    };
+    const drapeRes = spec.textureSize;
+    const { rgba: drapeRgba, raster: drapeRaster } = resampleDrape(satDecoded.image, drapeRes, alignment);
+    await writeFile(join(out, 'drape.png'), encodePngRgba8(drapeRgba, drapeRes, drapeRes));
+    onProgress('drape', 1);
+
+    onProgress('landcover', 0);
+    // Downsample drape to 2048 if larger for classification
+    const classifyRes = Math.min(drapeRes, 2048);
+    const classifyRaster =
+      classifyRes === drapeRes ? drapeRaster : downscaleRaster(drapeRaster, classifyRes);
+
+    // Check for overrides layer
+    let overrides: Uint8Array | undefined;
+    const overridePath = join(job.dir, 'overrides', 'landcover.png');
+    const overrideBytes = await readFile(overridePath).catch(() => null);
+    if (overrideBytes) {
+      const dec = decodePng(overrideBytes);
+      if (dec.ok && dec.image.width === classifyRes && dec.image.height === classifyRes) {
+        overrides = dec.image.data instanceof Uint8Array ? dec.image.data : new Uint8Array(dec.image.data.buffer);
+      }
+    }
+
+    const { classes } = classify(classifyRaster, field, {
+      k: spec.classes.k,
+      exgThreshold: spec.classes.exgThreshold,
+      rockSlopeDeg: spec.classes.rockSlopeDeg,
+      seaLevel: spec.seaLevel,
+      seed: spec.noise?.seed ?? 1,
+      overrides,
+    });
+
+    await writeFile(join(out, 'landcover.png'), encodePngGrey8(classes, classifyRes, classifyRes));
+
+    // Calculate class percentages
+    const counts = new Uint32Array(TERRAIN_CLASSES.length);
+    for (let i = 0; i < classes.length; i += 1) {
+      const c = classes[i]!;
+      if (c < TERRAIN_CLASSES.length) counts[c] = (counts[c] ?? 0) + 1;
+    }
+    classPercent = {} as Record<TerrainClass, number>;
+    for (let i = 0; i < TERRAIN_CLASSES.length; i += 1) {
+      const cName = TERRAIN_CLASSES[i]!;
+      classPercent[cName] = Math.round((counts[i]! / classes.length) * 1000) / 10;
+    }
+
+    const landcoverLegend = {
+      classes: TERRAIN_CLASSES,
+      colours: TERRAIN_CLASS_COLOURS,
+      percent: classPercent,
+    };
+    await writeFile(join(out, 'landcover.json'), JSON.stringify(landcoverLegend, null, 2));
+    onProgress('landcover', 1);
+
+    onProgress('splat', 0);
+    const splatRgba = generateSplatMap(classes, classifyRes, field, drapeRes, {
+      rockSlopeDeg: spec.classes.rockSlopeDeg,
+      heightRange: spec.heightRange,
+      snowLineM: spec.snowLineM,
+    });
+    await writeFile(join(out, 'splat.png'), encodePngRgba8(splatRgba, drapeRes, drapeRes));
+
+    // Copy CC0 material tiles to out/materials/
+    const materialsSrc = terrainMaterialsDir();
+    const materialsDest = join(out, 'materials');
+    await cp(materialsSrc, materialsDest, { recursive: true }).catch(() => undefined);
+    onProgress('splat', 1);
+  }
+
+  onProgress('write', 0);
   await writeFile(join(out, 'heights.f32'), Buffer.from(field.heights.buffer, field.heights.byteOffset, field.heights.byteLength));
   const chunks = chunkLayout(field);
   const chunksFile: TerrainChunksFile = {
@@ -92,6 +196,7 @@ export async function runTerrainBuild(
     minHeight: stats.min,
     maxHeight: stats.max,
     histogram: stats.histogram,
+    classPercent,
     warnings,
   };
 }
@@ -150,4 +255,105 @@ function noiseHeightfield(spec: TerrainSpec, onProgress: (stage: TerrainBuildSta
   const heights = new Float32Array(grid.length);
   for (let i = 0; i < grid.length; i += 1) heights[i] = lo + Math.min(1, Math.max(0, grid[i]!)) * (hi - lo);
   return { resolution: spec.resolution, worldSize: spec.worldSize, heights };
+}
+
+/** Resamples a satellite image into the terrain drape texture via bilinear interpolation. */
+function resampleDrape(
+  satImage: RasterImage,
+  outSize: number,
+  alignment: TerrainAlignment,
+): { rgba: Uint8Array; raster: RasterImage } {
+  const outRgba = new Uint8Array(outSize * outSize * 4);
+  const srcW = satImage.width;
+  const srcH = satImage.height;
+  const srcCh = satImage.channels;
+  const srcData = satImage.data instanceof Uint8Array ? satImage.data : new Uint8Array(satImage.data.buffer);
+
+  for (let y = 0; y < outSize; y += 1) {
+    const v = (y + 0.5) / outSize;
+    for (let x = 0; x < outSize; x += 1) {
+      const u = (x + 0.5) / outSize;
+      const [imgU, imgV] = terrainToImageUv(u, v, alignment);
+
+      const outIdx = (y * outSize + x) * 4;
+      if (imgU < 0 || imgU > 1 || imgV < 0 || imgV > 1) {
+        outRgba[outIdx] = 0;
+        outRgba[outIdx + 1] = 0;
+        outRgba[outIdx + 2] = 0;
+        outRgba[outIdx + 3] = 0;
+        continue;
+      }
+
+      const px = imgU * (srcW - 1);
+      const py = imgV * (srcH - 1);
+      const x0 = Math.floor(px);
+      const y0 = Math.floor(py);
+      const x1 = Math.min(srcW - 1, x0 + 1);
+      const y1 = Math.min(srcH - 1, y0 + 1);
+      const tx = px - x0;
+      const ty = py - y0;
+
+      const idx00 = (y0 * srcW + x0) * srcCh;
+      const idx10 = (y0 * srcW + x1) * srcCh;
+      const idx01 = (y1 * srcW + x0) * srcCh;
+      const idx11 = (y1 * srcW + x1) * srcCh;
+
+      const bilerp = (offset: number) => {
+        const v00 = srcData[idx00 + offset]!;
+        const v10 = srcData[idx10 + offset]!;
+        const v01 = srcData[idx01 + offset]!;
+        const v11 = srcData[idx11 + offset]!;
+        return Math.round((1 - ty) * ((1 - tx) * v00 + tx * v10) + ty * ((1 - tx) * v01 + tx * v11));
+      };
+
+      const r = bilerp(0);
+      const g = srcCh >= 2 ? bilerp(1) : r;
+      const b = srcCh >= 3 ? bilerp(2) : r;
+      const a = srcCh >= 4 ? bilerp(3) : 255;
+
+      outRgba[outIdx] = r;
+      outRgba[outIdx + 1] = g;
+      outRgba[outIdx + 2] = b;
+      outRgba[outIdx + 3] = a;
+    }
+  }
+
+  return {
+    rgba: outRgba,
+    raster: {
+      width: outSize,
+      height: outSize,
+      channels: 4,
+      bitDepth: 8,
+      data: outRgba,
+    },
+  };
+}
+
+/** Downsamples an RGBA raster image by box averaging to targetSize x targetSize. */
+function downscaleRaster(src: RasterImage, targetSize: number): RasterImage {
+  const data = src.data instanceof Uint8Array ? src.data : new Uint8Array(src.data.buffer);
+  const out = new Uint8Array(targetSize * targetSize * 4);
+  const scale = src.width / targetSize;
+
+  for (let y = 0; y < targetSize; y += 1) {
+    const srcY = Math.min(src.height - 1, Math.floor(y * scale));
+    for (let x = 0; x < targetSize; x += 1) {
+      const srcX = Math.min(src.width - 1, Math.floor(x * scale));
+      const srcIdx = (srcY * src.width + srcX) * 4;
+      const outIdx = (y * targetSize + x) * 4;
+      out[outIdx] = data[srcIdx]!;
+      out[outIdx + 1] = data[srcIdx + 1]!;
+      out[outIdx + 2] = data[srcIdx + 2]!;
+      out[outIdx + 3] = data[srcIdx + 3]!;
+    }
+  }
+
+  return {
+    width: targetSize,
+    height: targetSize,
+    channels: 4,
+    bitDepth: 8,
+    data: out,
+  };
 }

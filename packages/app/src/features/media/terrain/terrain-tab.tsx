@@ -1,6 +1,6 @@
 import { TERRAIN_SHADING_MODES, type TerrainSpec } from '@midnite/studio-shared';
 import { useMemo, useState } from 'react';
-import { LuEye, LuGrid2X2, LuLayers, LuMountain, LuRoute, LuSun, LuTrendingUp } from 'react-icons/lu';
+import { LuBrush, LuEye, LuGrid2X2, LuLayers, LuMountain, LuMove, LuRoute, LuSun, LuTrendingUp } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
 import { IconSelect, type IconSelectOption } from '../../../components/icon-select';
@@ -117,6 +117,9 @@ function TerrainViewport({
   onTimeOfDay: (hours: number) => void;
   onFrameMs: (ms: number) => void;
 }) {
+  const [align, setAlign] = useState(false);
+  const [brushActive, setBrushActive] = useState(false);
+
   if (!built || !spec.lastBuild) {
     return (
       <EmptyState icon={MEDIA_TAB_META.terrain.icon} title={spec.name} body="Nothing built yet. Attach images or choose noise, then Generate." />
@@ -145,6 +148,34 @@ function TerrainViewport({
           />
           <span className="w-9 tabular-nums">{`${String(Math.floor(timeOfDay)).padStart(2, '0')}:${String(Math.round((timeOfDay % 1) * 60)).padStart(2, '0')}`}</span>
         </label>
+        {spec.inputs.satellite ? (
+          <div className="flex items-center gap-1 border-l border-border/50 pl-2">
+            <button
+              type="button"
+              title="Align satellite image"
+              aria-label="Align satellite image"
+              onClick={() => setAlign((v) => !v)}
+              className={`flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium transition-colors ${
+                align ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <LuMove className="h-3.5 w-3.5" />
+              Align
+            </button>
+            <button
+              type="button"
+              title="Paint class (B)"
+              aria-label="Paint class (B)"
+              onClick={() => setBrushActive((v) => !v)}
+              className={`flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium transition-colors ${
+                brushActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <LuBrush className="h-3.5 w-3.5" />
+              Brush
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1">
         <LazyTerrainViewer
@@ -156,6 +187,10 @@ function TerrainViewport({
           shading={shading}
           timeOfDay={timeOfDay}
           onFrameMs={onFrameMs}
+          align={align}
+          onAlignChange={setAlign}
+          brushActive={brushActive}
+          onBrushActiveChange={setBrushActive}
         />
       </div>
     </div>

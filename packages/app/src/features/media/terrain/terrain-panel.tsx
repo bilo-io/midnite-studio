@@ -1,4 +1,4 @@
-import { TERRAIN_BUILD_STAGES, TERRAIN_INPUT_SLOTS, TERRAIN_RESOLUTIONS, type TerrainSpec } from '@midnite/studio-shared';
+import { TERRAIN_BUILD_STAGES, TERRAIN_INPUT_SLOTS, TERRAIN_RESOLUTIONS, TERRAIN_TEXTURE_SIZES, type TerrainSpec } from '@midnite/studio-shared';
 import { useState, type ReactNode } from 'react';
 import { LuDices, LuGrid3X3, LuSquare } from 'react-icons/lu';
 
@@ -6,11 +6,13 @@ import { IconButton } from '../../../components/icon-button';
 import { IconSelect } from '../../../components/icon-select';
 import { Spinner } from '../../../components/skeleton';
 import { NumberField } from '../model/fields';
+import { AlignmentControls } from './alignment-controls';
 import { HeightmapPromptDialog, NoHeightmapDialog } from './no-heightmap-dialog';
 import { TerrainInputSlot } from './terrain-input-slot';
 import { useTerrainActions, useTerrainProgress, type BuildOutcome, type TerrainRef } from './use-terrain';
 
 const RESOLUTION_OPTIONS = TERRAIN_RESOLUTIONS.map((n) => ({ value: String(n), label: `${n} × ${n}`, icon: LuGrid3X3 }));
+const TEXTURE_OPTIONS = TERRAIN_TEXTURE_SIZES.map((n) => ({ value: String(n), label: `${n} × ${n}`, icon: LuGrid3X3 }));
 
 const STAGE_LABEL: Record<(typeof TERRAIN_BUILD_STAGES)[number], string> = {
   decode: 'Reading images',
@@ -124,8 +126,67 @@ export function TerrainPanel({
         </div>
       </div>
 
+      {spec.inputs.satellite ? (
+        <div className="flex items-center gap-2 border-t border-border pt-3">
+          <span className="w-20 shrink-0 text-[11px] text-muted-foreground">Texture size</span>
+          <IconSelect
+            options={TEXTURE_OPTIONS}
+            value={String(spec.textureSize)}
+            icon={LuGrid3X3}
+            label="Texture size"
+            description="Resolution of the drape and splat maps."
+            onChange={(next) => void commit({ textureSize: Number(next) })}
+          />
+        </div>
+      ) : null}
+
+      {spec.inputs.satellite || spec.inputs.roads ? (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          {spec.inputs.satellite ? (
+            <AlignmentControls
+              label="Satellite"
+              alignment={spec.alignment?.satellite}
+              onChange={(next) => void commit({ alignment: { ...spec.alignment, satellite: next === 'satellite' ? undefined : next } })}
+            />
+          ) : null}
+          {spec.inputs.roads ? (
+            <AlignmentControls
+              label="Roads"
+              isRoads
+              alignment={spec.alignment?.roads}
+              satelliteAlignment={spec.alignment?.satellite}
+              onChange={(next) => void commit({ alignment: { ...spec.alignment, roads: next } })}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {spec.inputs.satellite ? (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-foreground">Vision Relabel</span>
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={spec.classes?.vision?.enabled ?? false}
+                onChange={(e) =>
+                  void commit({
+                    classes: {
+                      ...spec.classes,
+                      vision: { ...spec.classes?.vision, enabled: e.target.checked },
+                    },
+                  })
+                }
+                className="h-3.5 w-3.5 rounded border-border"
+              />
+              Enable Ollama vision
+            </label>
+          </div>
+        </div>
+      ) : null}
+
       {noise ? (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 border-t border-border pt-3">
           <span className="w-20 shrink-0 text-[11px] text-muted-foreground">Seed</span>
           <NumberField label="Seed" value={noise.seed} step={1} min={0} integer onCommit={(seed) => seed !== undefined && void commit({ noise: { ...noise, seed } })} />
           <IconButton icon={LuDices} label="Re-roll seed" size="sm" onClick={() => void commit({ noise: { ...noise, seed: Math.floor(Math.random() * 2 ** 31) } })} />

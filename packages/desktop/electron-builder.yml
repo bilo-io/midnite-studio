@@ -59,6 +59,9 @@ extraResources:
   # Vendored game engines (Phase 107 Theme C) — copied into game repos at creation time.
   - from: resources/game-engines
     to: game-engines
+  # Terrain materials (Phase 105 Theme F) — CC0 tiled materials for splat blending.
+  - from: resources/terrain-materials
+    to: terrain-materials
 
 asar: true
 asarUnpack:

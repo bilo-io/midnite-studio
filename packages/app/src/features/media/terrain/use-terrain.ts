@@ -133,5 +133,17 @@ export function useTerrainActions(repoId: string, ref: TerrainRef) {
     if (buildId) await bridge()?.media.terrain.cancel({ buildId });
   }, [buildId]);
 
-  return { buildId, building: buildId !== null, setSpec, attach, attachFromPrompt, remove, generate, cancel };
+  const paint = useCallback(
+    async (req: { cls: number; radiusPx: number; points: [number, number][] }) => {
+      const api = bridge()?.media.terrain;
+      if (!api) return noBridge<never>();
+      const result = await api.paint({ repoId, ...ref, ...req });
+      reportFailure(result);
+      await invalidate();
+      return result;
+    },
+    [invalidate, repoId, ref],
+  );
+
+  return { buildId, building: buildId !== null, setSpec, attach, attachFromPrompt, remove, generate, cancel, paint };
 }

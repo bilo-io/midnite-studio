@@ -68,7 +68,7 @@ export function registerMediaTerrainHandlers(): void {
   handle(CHANNELS.mediaTerrainSetInput, schemas.MediaTerrainSetInputRequest, (req) => service.setInput(req), invalid);
   handle(CHANNELS.mediaTerrainBuild, schemas.MediaTerrainBuildRequest, (req) => service.build(req), invalid);
   handle(CHANNELS.mediaTerrainCancel, schemas.MediaTerrainCancelRequest, ({ buildId }) => service.cancel(buildId), invalid);
-  handle(CHANNELS.mediaTerrainPaint, schemas.MediaTerrainPaintRequest, () => notAvailableYet(), invalid);
+  handle(CHANNELS.mediaTerrainPaint, schemas.MediaTerrainPaintRequest, (req) => service.paint(req), invalid);
   handle(CHANNELS.mediaTerrainRoadKey, schemas.MediaTerrainRoadKeyRequest, () => notAvailableYet(), invalid);
   handle(CHANNELS.mediaTerrainExport, schemas.MediaTerrainExportRequest, () => notAvailableYet(), invalid);
 }

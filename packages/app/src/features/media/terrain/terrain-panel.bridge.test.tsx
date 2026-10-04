@@ -12,8 +12,14 @@ import { MediaView } from '../media-view';
  * canvas is replaced by a stub that exposes the props it was given, as `model-tab.bridge.test.tsx` does.
  */
 vi.mock('./terrain-viewer-lazy', () => ({
-  LazyTerrainViewer: (props: { shading: string; timeOfDay: number }) => (
-    <div data-testid="viewer-stub" data-shading={props.shading} data-time={props.timeOfDay} />
+  LazyTerrainViewer: (props: { shading: string; timeOfDay: number; align?: boolean; brushActive?: boolean }) => (
+    <div
+      data-testid="viewer-stub"
+      data-shading={props.shading}
+      data-time={props.timeOfDay}
+      data-align={props.align ? 'true' : 'false'}
+      data-brush={props.brushActive ? 'true' : 'false'}
+    />
   ),
 }));
 
@@ -88,16 +94,52 @@ describe('shading modes', () => {
     expect(roads.textContent).toContain('Needs a roads mask');
   });
 
-  it('enables land cover once a satellite image is attached', async () => {
+  it('enables land cover and splat once a satellite image is attached', async () => {
     await open(spec({ inputs: { heightmap: input, satellite: { ...input, file: 'inputs/satellite.png' } } }));
     fireEvent.click(await screen.findByRole('button', { name: /Shading: Shaded/ }));
     expect((await screen.findByRole('option', { name: /Land cover/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('option', { name: /Splat/ }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('align and brush toolbar buttons toggle viewer modes', async () => {
+    await open(spec({ inputs: { heightmap: input, satellite: { ...input, file: 'inputs/satellite.png' } } }));
+    const stub = screen.getByTestId('viewer-stub');
+    expect(stub.getAttribute('data-align')).toBe('false');
+    expect(stub.getAttribute('data-brush')).toBe('false');
+
+    const alignBtn = screen.getByRole('button', { name: /Align satellite image/ });
+    fireEvent.click(alignBtn);
+    expect(stub.getAttribute('data-align')).toBe('true');
+
+    const brushBtn = screen.getByRole('button', { name: /Paint class/ });
+    fireEvent.click(brushBtn);
+    expect(stub.getAttribute('data-brush')).toBe('true');
   });
 
   it('the time-of-day slider drives the viewer', async () => {
     await open();
     fireEvent.change(await screen.findByRole('slider', { name: 'Time of day' }), { target: { value: '18' } });
     expect(screen.getByTestId('viewer-stub').getAttribute('data-time')).toBe('18');
+  });
+});
+
+describe('alignment controls', () => {
+  it('satellite alignment offset commits to spec', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, satellite: { ...input, file: 'inputs/satellite.png' } } }));
+    const setSpec = vi.spyOn(window.midniteStudio!.media.terrain, 'setSpec');
+    const ox = within(panel).getByRole('spinbutton', { name: 'Offset X' });
+    fireEvent.change(ox, { target: { value: '0.2' } });
+    fireEvent.blur(ox);
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({
+      patch: {
+        alignment: {
+          satellite: {
+            offset: [0.2, 0],
+          },
+        },
+      },
+    });
   });
 });
 

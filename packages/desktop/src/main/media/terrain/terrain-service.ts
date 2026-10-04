@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { cp, readFile, rename, rm, stat } from 'node:fs/promises';
+import { cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { WriteQueue } from '@midnite/studio-git-engine';
@@ -29,6 +29,7 @@ import {
   type TerrainInputSlot,
   type TerrainLibraryRequest,
   type TerrainLibraryResult,
+  type TerrainPaintRequest,
   type TerrainProgressEvent,
   type TerrainSetInputRequest,
   type TerrainSetInputResult,
@@ -38,7 +39,8 @@ import {
 } from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin } from '../../fs-scope';
-import { decodePng } from '../png/png-codec';
+import { decodePng, encodePngGrey8 } from '../png/png-codec';
+import type { VisionCall } from '../model/engines';
 import { plannedStages } from './build-pipeline';
 import type { TerrainBroker } from './terrain-broker';
 
@@ -69,6 +71,7 @@ export type TerrainServiceDeps = {
    */
   generateImage?: (req: { generationId: string; repoId: string; project: string; prompt: string; provider: ImageProviderId; model: string }) => Promise<GitOpResult<{ bytes: Uint8Array; name: string }>>;
   broker: TerrainBroker;
+  visionCall?: VisionCall;
   onChanged: (repoId: string) => void;
   emitProgress: (event: TerrainProgressEvent) => void;
   emitChanged: (event: TerrainChangedEvent) => void;
@@ -410,12 +413,97 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     }
   }
 
+  async function paint(req: TerrainPaintRequest): Promise<GitOpResult> {
+    try {
+      const located = await locate(req);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      const current = await readSpec(dir);
+      if (!current.ok) return current;
+      const spec = current.value;
+
+      const res = Math.min(spec.textureSize, 2048);
+      const overrideDir = join(dir, 'overrides');
+      await mkdir(overrideDir, { recursive: true });
+      const overridePath = join(overrideDir, 'landcover.png');
+
+      let data = new Uint8Array(res * res);
+      const existing = await readFile(overridePath).catch(() => null);
+      if (existing) {
+        const dec = decodePng(existing);
+        if (dec.ok && dec.image.width === res && dec.image.height === res) {
+          data = new Uint8Array(dec.image.data);
+        }
+      }
+
+      rasterizeStroke(data, res, req.points, req.radiusPx, req.cls);
+      await writeFile(overridePath, encodePngGrey8(data, res, res));
+
+      const buildDir = join(dir, 'build');
+      const heightsPath = join(buildDir, 'heights.f32');
+      if (await exists(heightsPath) && spec.inputs.satellite) {
+        await build({ repoId: req.repoId, project: req.project, terrain: req.terrain });
+      } else {
+        announce(req);
+      }
+
+      return ok();
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   function cancel(buildId: string): GitOpResult {
     deps.broker.cancel(buildId);
     return ok();
   }
 
-  return { library, get, setSpec, setInput, build, cancel };
+  return { library, get, setSpec, setInput, build, cancel, paint };
+}
+
+function rasterizeStroke(
+  data: Uint8Array,
+  res: number,
+  points: [number, number][],
+  radiusPx: number,
+  cls: number,
+): void {
+  const rSq = radiusPx * radiusPx;
+
+  const drawCircle = (cx: number, cy: number) => {
+    const xMin = Math.max(0, Math.floor(cx - radiusPx));
+    const xMax = Math.min(res - 1, Math.ceil(cx + radiusPx));
+    const yMin = Math.max(0, Math.floor(cy - radiusPx));
+    const yMax = Math.min(res - 1, Math.ceil(cy + radiusPx));
+    for (let y = yMin; y <= yMax; y += 1) {
+      const dy = y - cy;
+      for (let x = xMin; x <= xMax; x += 1) {
+        const dx = x - cx;
+        if (dx * dx + dy * dy <= rSq) {
+          data[y * res + x] = cls;
+        }
+      }
+    }
+  };
+
+  for (let i = 0; i < points.length; i += 1) {
+    const [u, v] = points[i]!;
+    const px = u * res;
+    const py = v * res;
+    drawCircle(px, py);
+
+    if (i > 0) {
+      const [pU, pV] = points[i - 1]!;
+      const prevX = pU * res;
+      const prevY = pV * res;
+      const dist = Math.hypot(px - prevX, py - prevY);
+      const steps = Math.ceil(dist / Math.max(1, radiusPx / 2));
+      for (let s = 1; s < steps; s += 1) {
+        const t = s / steps;
+        drawCircle(prevX + t * (px - prevX), prevY + t * (py - prevY));
+      }
+    }
+  }
 }
 
 export type TerrainService = ReturnType<typeof createTerrainService>;
