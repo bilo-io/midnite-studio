@@ -91,7 +91,7 @@ export function TitleBarOllama() {
   const handleStop = useCallback(async () => {
     setBusy('stop');
     try {
-      submitCommand('osascript -e \'quit app "Ollama"\' 2>/dev/null; pkill -f ollama', 'Stop Ollama');
+      submitCommand('osascript -e \'quit app "Ollama"\' 2>/dev/null; pkill -x ollama', 'Stop Ollama');
       for (let attempt = 0; attempt < 5; attempt += 1) {
         if (!mountedRef.current) break;
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -167,15 +167,18 @@ export function TitleBarOllama() {
                   data-testid="titlebar-ollama-dot"
                   className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]"
                 />
-                <span
-                  aria-hidden
-                  data-testid="titlebar-ollama-shimmer"
-                  className="pill-shimmer pointer-events-none absolute inset-0 rounded-md"
-                  style={{
-                    background:
-                      'linear-gradient(100deg, transparent 20%, rgba(16, 185, 129, 0.4) 50%, transparent 80%)',
-                  }}
-                />
+                {/* Clipped on its own wrapper: the sweep translates ±160%, and
+                    the status dot above must still overhang the corner. */}
+                <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-md">
+                  <span
+                    data-testid="titlebar-ollama-shimmer"
+                    className="pill-shimmer absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(100deg, transparent 20%, rgba(16, 185, 129, 0.4) 50%, transparent 80%)',
+                    }}
+                  />
+                </span>
               </>
             ) : (
               <span
