@@ -56,7 +56,7 @@ const open = (data: MockFixtures = withModels) =>
 
 beforeEach(() => {
   useUiStore.setState({ mediaTab: 'model', mediaPaneCollapsed: {}, collapsedAccordionSections: [], activeView: 'media' });
-  useModelPrefs.setState({ engineId: 'ollama', ollamaModel: 'qwen2.5-coder:7b', agentModel: 'default', visionModel: '', maxIterations: 5 });
+  useModelPrefs.setState({ engineId: 'ollama', ollamaModel: 'qwen2.5-coder:7b', agentModel: 'default', visionModel: '', maxIterations: 10 });
 });
 afterEach(cleanup);
 
@@ -284,14 +284,14 @@ describe('agents building a model (MCP)', () => {
     const mode = await screen.findByTestId('model-engine-mode');
     expect(mode.getAttribute('data-mode')).toBe('one-shot');
     expect(mode.textContent).toContain('One-shot');
-    expect(screen.queryByRole('combobox', { name: 'Refinement passes' })).toBeNull();
+    expect(screen.queryByRole('slider', { name: 'Refinement passes' })).toBeNull();
 
     // Claude Code can attach MCP: iterative, with a pass budget; a CLI that cannot stays one-shot.
     act(() => useModelPrefs.setState({ engineId: 'claude' }));
     await waitFor(() => expect(screen.getByTestId('model-engine-mode').getAttribute('data-mode')).toBe('iterative'));
     expect(screen.getByTestId('model-engine-mode').textContent).toContain('Iterative (MCP)');
-    const passes = screen.getByRole('combobox', { name: 'Refinement passes' }) as HTMLSelectElement;
-    expect(passes.value).toBe('5');
+    const passes = screen.getByRole('slider', { name: 'Refinement passes' }) as HTMLInputElement;
+    expect(passes.value).toBe('10');
     fireEvent.change(passes, { target: { value: '8' } });
     expect(useModelPrefs.getState().maxIterations).toBe(8);
     // The picker itself labels each engine, so the choice is made knowing which kind it is.
