@@ -62,27 +62,27 @@ vault):** Meshy and Tripo (both also auto-rig and animate humanoids), Rodin, fal
 TRELLIS. A neural mesh enters the design as an imported asset part, so the rig, clips and exports in
 this phase apply to it too.
 
-**Theme B — Anatomy and the bone table.** ◻ TODO.
+**Theme B — Anatomy and the bone table.** ✅ `media-model-rig.ts` holds the anatomies, the biped (VRM 1.0 + `root`), quadruped and vehicle tables with aliases and `canonicalBoneName()`; `ModelSpec` gains optional `anatomy`/`rig`/`animations`, so old sidecars load unchanged; `model.json` now summarises anatomy, bone count and clips from the design (`modelRigSummary`), and a stale summary is dropped when the rig goes.
 
-**Theme C — Auto-rig.** ◻ TODO.
+**Theme C — Auto-rig.** ✅ `autoRig()` places bones per anatomy in a canonical facing frame from part names and positions; `rig.bind` overrides are kept; `validateRig()` answers `{path, message}` issues the editor's warnings and the MCP tools both show.
 
-**Theme D — Skin weights.** ◻ TODO.
+**Theme D — Skin weights.** ✅ A part-aware envelope (`computeSkin`): each part follows its bone, that bone's parent and its in-line children, blended across joints by `falloff` (0 = rigid), at most four influences; vehicles stay rigid. `skinParts` is the one CPU skinning the editor, pose previews and tests use.
 
-**Theme E — Procedural clips.** ◻ TODO.
+**Theme E — Procedural clips.** ✅ Ten biped, three quadruped and six vehicle clips are generated from kind plus parameters with additive keys on top (`samplePose`), baked at 30 fps (`bakeClip`) and retargeted by canonical name with root motion scaled by leg length (`retargetClips`). The quadruped set, first marked deferred, landed with the rest.
 
-**Theme F — Editor: rig, pose and weights.** ◻ TODO.
+**Theme F — Editor: rig, pose and weights.** ✅ The inspector's Rig tab: anatomy, facing and Auto-rig, a bone outliner, head/tail/parent fields, add and remove bones, falloff, binding the selected part, a weight view (Blender's blue→red ramp) and pose mode, which keys the picked bone's rotation into the timeline's clip at the playhead. The skeleton is drawn over the model and its joints are pickable. Every edit is one reducer step through the shared `rig-ops.ts`. Renaming a bone is deferred.
 
-**Theme G — Editor: clips and timeline.** ◻ TODO.
+**Theme G — Editor: clips and timeline.** ✅ The Animation tab adds clips from the anatomy's presets (or `custom`), edits name, duration, speed, intensity, loop and in-place, and copies clips from any rigged model whose `model.json` lists clips. A timeline under the viewport plays, scrubs, loops and changes speed; its animation-frame loop exists only while playing.
 
-**Theme H — MCP tools.** ◻ TODO.
+**Theme H — MCP tools.** ✅ `model_get_rig`, `model_auto_rig`, `model_patch_rig`, `model_patch_animations` and `model_retarget` (the four writes behind `allowModels`), and `model_render_preview` takes a `pose`. Edit results carry a rig summary and rig warnings. The editor and the tools share one implementation (`shared/src/model-geometry/rig-ops.ts`).
 
-**Theme I — Export: skin and animation in `.glb`.** ◻ TODO.
+**Theme I — Export: skin and animation in `.glb`.** ✅ Joint nodes with local TRS, skinned primitives (`JOINTS_0`/`WEIGHTS_0`), one skin with translation-only inverse binds, and one animation per clip (rotation per bone, translation where a bone moves). `gltf-skin.test.ts` re-imports through `GLTFLoader` and checks that three's `AnimationMixer` poses vertices where the kernel does. A part named like a bone (`head`) is written as `head_mesh` so bone names stay canonical. FBX skin stays deferred.
 
 **Theme J — Tier 1, local neural image-to-3D (SF3D).** ◻ TODO — approved by the user 2026-10-04 as opt-in, consent-gated, installed into `<userData>`, ONNX/WebGPU port preferred over a Python venv, licence shown at consent, gated-weights token in the secrets vault. Follows the non-neural PR on its own branch.
 
 **Theme K — Tier 2, hosted image/text-to-3D.** ⏳ Deferred by the user's decision (2026-10-04): Meshy/Tripo stay a plan, not built in this phase.
 
-**Theme L — Verification.** ◻ TODO.
+**Theme L — Verification.** 🔄 Gate green; kernel, rig-ops, MCP, editor and glb re-import tests in vitest; screenshots in `docs/screenshots/phase-103-models-rig-anim/`. Open: a human pass opening a rigged, animated `.glb` in Blender and a game engine.
 
 ## A — Fidelity tiers and the research
 
@@ -129,74 +129,91 @@ TRELLIS and SF3D. Pay per model, needs a network and an account, sends the promp
 The single source of truth for bone names, in `shared/src/media-model-rig.ts`: a `const` table plus a zod
 schema, so later agents and tools can traverse a rig by name.
 
-- [ ] `MODEL_ANATOMIES` (`static`, `biped`, `quadruped`, `vehicle`) and `ModelAnatomySchema`
-- [ ] Biped bone table: VRM 1.0 / Unity humanoid names (`root`, `hips`, `spine`, `chest`, `upperChest`, `neck`, `head`, `leftShoulder`, `leftUpperArm`, `leftLowerArm`, `leftHand`, `leftUpperLeg`, `leftLowerLeg`, `leftFoot`, `leftToes` and the right side), each with parent, required flag and mirror
-- [ ] Vehicle bone table: `root`, `body`, `steering`, `suspension_FL/FR/RL/RR`, `wheel_FL/FR/RL/RR`
-- [ ] Quadruped bone table (`root`, `hips`, `spine`, `chest`, `neck`, `head`, `tail1..3`, `leftFrontUpperLeg`… `rightHindFoot`)
-- [ ] Aliases for retargeting (Mixamo `mixamorig:*`, Unreal `pelvis`/`spine_01`/`thigh_l`, Blender Rigify) and `canonicalBoneName()`
-- [ ] Optional `anatomy`, `rig` and `animations` on `ModelSpecSchema`; old sidecars load unchanged
-- [ ] `model.json` summary in its reserved slots (anatomy, bone count, clip names)
-- [ ] Bone table documented in `docs/MEDIA_MODELS.md`
+- [x] `MODEL_ANATOMIES` (`static`, `biped`, `quadruped`, `vehicle`) and `ModelAnatomySchema`
+- [x] Biped bone table: VRM 1.0 / Unity humanoid names (`root`, `hips`, `spine`, `chest`, `upperChest`, `neck`, `head`, `leftShoulder`, `leftUpperArm`, `leftLowerArm`, `leftHand`, `leftUpperLeg`, `leftLowerLeg`, `leftFoot`, `leftToes` and the right side), each with parent, required flag and mirror
+- [x] Vehicle bone table: `root`, `body`, `steering`, `suspension_FL/FR/RL/RR`, `wheel_FL/FR/RL/RR`
+- [x] Quadruped bone table (`root`, `hips`, `spine`, `chest`, `neck`, `head`, `tail1..3`, `leftFrontUpperLeg`… `rightHindFoot`)
+- [x] Aliases for retargeting (Mixamo `mixamorig:*`, Unreal `pelvis`/`spine_01`/`thigh_l`, Blender Rigify) and `canonicalBoneName()`
+- [x] Optional `anatomy`, `rig` and `animations` on `ModelSpecSchema`; old sidecars load unchanged
+- [x] `model.json` summary in its reserved slots (anatomy, bone count, clip names)
+- [x] Bone table documented — in [The bone table](#the-bone-table) below; `shared/src/media-model-rig.ts` stays the source of truth (`docs/MEDIA_MODELS.md` is not in the tree)
+
+### The bone table
+
+`MODEL_BONE_TABLE` in `shared/src/media-model-rig.ts` is the single source of truth; a rig may use only
+its anatomy's names, and `canonicalBoneName()` maps the aliases (Mixamo `mixamorig:*`, Unreal
+`pelvis`/`spine_01`/`thigh_l`, Rigify `thigh.L`, Unity `LeftUpperLeg`) onto them.
+
+| Anatomy | Bones (parent first) |
+|---|---|
+| biped | `root` › `hips` › `spine` › `chest` › `upperChest` › `neck` › `head`; per side (`left`/`right`, +X is the character's left facing +Z): `Shoulder` › `UpperArm` › `LowerArm` › `Hand`, and `UpperLeg` › `LowerLeg` › `Foot` › `Toes` under `hips` |
+| quadruped | `root` › `hips` › `spine` › `chest` › `neck` › `head`; `tail1` › `tail2` › `tail3` under `hips`; per leg (`leftFront`, `rightFront`, `leftHind`, `rightHind`): `UpperLeg` › `LowerLeg` › `Foot` |
+| vehicle | `root` › `body` › `steering`; per corner (`FL`, `FR`, `RL`, `RR`): `suspension_XX` › `wheel_XX` under `body` |
+
+Required bones (auto-rig always places them, `validateRig` reports them missing) are the spine chain,
+the limbs down to hands and feet, and for vehicles `root`, `body` and the four wheels; `upperChest`,
+`neck`, shoulders, toes, tails and `steering` are optional.
 
 ## C — Auto-rig
 
-- [ ] `autoRig(spec, anatomy)` in the kernel: places bones from the built scene's bounds and part names/positions
-- [ ] Biped: hips at the pelvis, spine chain to the head, arms and legs found per side, symmetric
-- [ ] Vehicle: wheels found from round parts near the ground, quadrant-named; body and steering from the rest
-- [ ] Quadruped: four legs from the lowest parts, spine along the long axis, tail if present
-- [ ] Part-to-bone binding (`rig.bind`), auto-assigned and overridable per part
-- [ ] `validateRig()`: unknown or duplicate names, missing required bones, cycles, as `{path, message}` issues
+- [x] `autoRig(spec, anatomy)` in the kernel: places bones from the built scene's bounds and part names/positions
+- [x] Biped: hips at the pelvis, spine chain to the head, arms and legs found per side, symmetric
+- [x] Vehicle: wheels found from round parts near the ground, quadrant-named; body and steering from the rest
+- [x] Quadruped: four legs from the lowest parts, spine along the long axis, tail if present
+- [x] Part-to-bone binding (`rig.bind`), auto-assigned and overridable per part
+- [x] `validateRig()`: unknown or duplicate names, missing required bones, cycles, as `{path, message}` issues
 
 ## D — Skin weights
 
-- [ ] Method decided and documented: part-aware envelope — distance-to-bone-segment falloff, limited to the part's bound bone and its parent and children, smoothed across joints, at most 4 influences, normalised
-- [ ] `computeSkinWeights(parts, rig)` in the kernel, deterministic
-- [ ] Per-rig `falloff` control (rigid at 0)
-- [ ] `skinScene(parts, rig, pose)`: CPU linear-blend skinning shared by editor, previews and tests
+- [x] Method decided and documented: part-aware envelope — distance-to-bone-segment falloff, limited to the part's bound bone and its parent and children, smoothed across joints, at most 4 influences, normalised
+- [x] `computeSkin(spec, rig, parts)` in the kernel (`skin.ts`), deterministic
+- [x] Per-rig `falloff` control (rigid at 0)
+- [x] `skinParts(parts, skins, skinMatrices(rig, pose))`: CPU linear-blend skinning shared by editor, previews and tests
 
 ## E — Procedural clips
 
-- [ ] Clip schema: `{name, kind, duration?, loop?, speed?, intensity?, inPlace?, keys?}` with additive per-bone keys
-- [ ] `samplePose(rig, clip, t)` and `bakeClip(rig, clip, fps)` in the kernel
-- [ ] Biped: idle, walk, run, getHit, fallAndGetUp, die, jump, doubleJump, dodge, dash
-- [ ] Vehicle: idle, drive, turnLeft, turnRight, brake, suspensionBounce
-- [ ] Quadruped: idle, walk, run (⏳ deferred)
-- [ ] `retargetClips(fromRig, toRig, clips)` by canonical name, with root-motion scaled by leg length
+- [x] Clip schema: `{name, kind, duration?, loop?, speed?, intensity?, inPlace?, keys?}` with additive per-bone keys
+- [x] `samplePose(rig, clip, t)` and `bakeClip(rig, clip, fps)` in the kernel
+- [x] Biped: idle, walk, run, getHit, fallAndGetUp, die, jump, doubleJump, dodge, dash
+- [x] Vehicle: idle, drive, turnLeft, turnRight, brake, suspensionBounce
+- [x] Quadruped: idle, walk, run
+- [x] `retargetClips(fromRig, toRig, clips)` by canonical name, with root-motion scaled by leg length
 
 ## F — Editor: rig, pose and weights
 
 New controls live in their own panels (`rig-panel.tsx`, `pose`/`weights` view toggles in it), mounted
 from `model-editor.tsx` at a few points; nothing is added to the top toolbar.
 
-- [ ] Anatomy dropdown and Auto-rig button
-- [ ] Bone outliner (tree, select, rename within the table, parent) and bone fields (head, tail)
-- [ ] Bones drawn in the viewport, selectable
-- [ ] Pose mode: rotate the selected bone, key it into the current clip at the playhead
-- [ ] Weight view: vertices tinted by the selected bone's weight; falloff slider; per-part bone binding
-- [ ] Undoable through the existing editor reducer
+- [x] Anatomy dropdown and Auto-rig button
+- [x] Bone outliner (tree, select, parent, add from the table, remove) and bone fields (head, tail)
+- [ ] Rename a bone to another name in the table (⏳ deferred)
+- [x] Bones drawn in the viewport, selectable
+- [x] Pose mode: rotate the selected bone, key it into the current clip at the playhead
+- [x] Weight view: vertices tinted by the selected bone's weight; falloff slider; per-part bone binding
+- [x] Undoable through the existing editor reducer
 
 ## G — Editor: clips and timeline
 
-- [ ] Clip list: add from the anatomy's presets, remove, rename, parameters (duration, speed, intensity, loop, in place)
-- [ ] Timeline: play / pause, scrub, loop, speed; frames drawn only while playing
-- [ ] Retarget: copy clips from another model in the library
+- [x] Clip list: add from the anatomy's presets, remove, rename, parameters (duration, speed, intensity, loop, in place)
+- [x] Timeline: play / pause, scrub, loop, speed; frames drawn only while playing
+- [x] Retarget: copy clips from another model in the library
 
 ## H — MCP tools
 
-- [ ] `model_get_rig` (anatomy, bones, bindings, clips and the bone table for the anatomy)
-- [ ] `model_auto_rig` (set anatomy and rig)
-- [ ] `model_patch_rig` (bone and binding edits, validated, structured errors)
-- [ ] `model_patch_animations` (add / update / remove clips and keys)
-- [ ] `model_retarget` (copy clips from another model)
-- [ ] `model_render_preview` renders a pose (`clip` + `time`)
-- [ ] Write tools behind `allowModels`; prompts and `model_get_spec` pick the new fields up from the schema
+- [x] `model_get_rig` (anatomy, bones, bindings, clips and the bone table for the anatomy)
+- [x] `model_auto_rig` (set anatomy and rig)
+- [x] `model_patch_rig` (bone and binding edits, validated, structured errors)
+- [x] `model_patch_animations` (add / update / remove clips and keys)
+- [x] `model_retarget` (copy clips from another model)
+- [x] `model_render_preview` renders a pose (`clip` + `time`)
+- [x] Write tools behind `allowModels`; prompts and `model_get_spec` pick the new fields up from the schema
 
 ## I — Export: skin and animation in `.glb`
 
-- [ ] Joint nodes in hierarchy, skinned primitives with `JOINTS_0`/`WEIGHTS_0`, `inverseBindMatrices`
-- [ ] One glTF animation per clip, baked at 30 fps (rotation and root/hips translation)
-- [ ] Vitest re-imports the exported `.glb` through `GLTFLoader`: `SkinnedMesh`, bone names, clip names and track counts
-- [ ] `.obj` stays static; unrigged designs export exactly as before
+- [x] Joint nodes in hierarchy, skinned primitives with `JOINTS_0`/`WEIGHTS_0`, `inverseBindMatrices`
+- [x] One glTF animation per clip, baked at 30 fps (rotation and root/hips translation)
+- [x] Vitest re-imports the exported `.glb` through `GLTFLoader`: `SkinnedMesh`, bone names, clip names and track counts
+- [x] `.obj` stays static; unrigged designs export exactly as before
 - [ ] `.fbx` skin deformers and animation stacks (⏳ deferred)
 
 ## J — Tier 1, local neural image-to-3D (SF3D)
@@ -223,10 +240,10 @@ Not built in this phase (the user's decision, 2026-10-04); kept as the plan.
 
 ## L — Verification
 
-- [ ] `moon run :typecheck :lint :test` green
-- [ ] Kernel tests: bone table, auto-rig per anatomy, weights sum to 1, every clip samples finite poses, retarget
-- [ ] glb re-import test with skin and animations
-- [ ] Screenshots of the anatomy picker, bone outliner, pose/weights view and timeline
+- [x] `moon run :typecheck :lint :test` green
+- [x] Kernel tests: bone table, auto-rig per anatomy, weights sum to 1, every clip samples finite poses, retarget
+- [x] glb re-import test with skin and animations
+- [x] Screenshots of the anatomy picker, bone outliner, pose/weights view and timeline
 - [ ] Human pass: a rigged, animated glb opened in Blender and a game engine
 
 ## Decisions / open questions

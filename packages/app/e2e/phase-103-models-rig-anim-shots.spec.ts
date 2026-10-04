@@ -1,11 +1,13 @@
-import shared from '@midnite/studio-shared';
+import * as sharedModule from '@midnite/studio-shared';
 import { expect, type Page, test } from '@playwright/test';
 
 import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, shotPath } from './shots-helper';
 
 /** Phase 103 — Media ▸ Models rigging and animation screenshots for the PR. Run with `MSTUDIO_SHOTS=1`. */
 const OUT = '../../docs/screenshots/phase-103-models-rig-anim';
-// The shared package is CommonJS; its `export *` re-exports are invisible to named ESM imports here.
+// Under Playwright the shared package loads as CommonJS, whose `export *` re-exports are invisible to
+// named ESM imports; they are all on its default export. Typecheck reads the source, which has none.
+const shared = (sharedModule as unknown as { default?: typeof sharedModule }).default ?? sharedModule;
 const { autoRig, RIG_EXAMPLE_BIPED } = shared;
 const spec = {
   ...RIG_EXAMPLE_BIPED,

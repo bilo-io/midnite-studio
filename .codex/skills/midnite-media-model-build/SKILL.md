@@ -28,12 +28,19 @@ The user must enable Settings ▸ MCP and "Let agents edit 3D models".
 | `model_get_spec` | the live spec **and its schema** — fetch before writing |
 | `model_set_spec` | create or replace a whole design |
 | `model_patch_parts` | small edits, up to 64 ops per call |
-| `model_render_preview` | views `front`, `side`, `top`, `iso`; 128–768 px |
+| `model_render_preview` | views `front`, `side`, `top`, `iso`; 128–768 px; `pose: {clip, time}` renders a rigged model mid-clip |
 | `model_get_reference_image` | the user's reference picture, if any |
 | `model_save` | write the obj/mtl/fbx/json trio so the editor is clean |
 | `model_open` | show a model in the app window |
+| `model_get_rig` | anatomy, bones, part bindings, clips, the bone-name table and any rig problems |
+| `model_auto_rig` | set `anatomy` (`biped`, `quadruped`, `vehicle`, `static`) and place a rig from the parts |
+| `model_patch_rig` | move/add/remove bones, bind parts to bones, facing, skin `falloff` |
+| `model_patch_animations` | add/update/remove clips by name; `setKeys` for additive pose keys |
+| `model_retarget` | copy another rigged model's clips by canonical bone name |
 
 Loop: `model_get_spec` (schema), `model_set_spec`, `model_render_preview` and actually look, `model_patch_parts`, repeat, `model_save`. Never invent part fields — the schema from `model_get_spec` is authoritative. Applied or rejected-with-reasons comes back on every write.
+
+Rig and animate after the shape is right: `model_auto_rig`, check `model_get_rig` (fix with `model_patch_rig`), add clips from the anatomy's kinds with `model_patch_animations`, then `model_render_preview` with a `pose` to look. Bone names come only from the table `model_get_rig` returns; the `.glb` carries the skin and one animation per clip.
 
 ## Conventions
 
