@@ -1,4 +1,18 @@
-import type { Mat4, ModelModifier, ModelPart, ModelSpec } from '@midnite/studio-shared';
+import {
+  applyClipOps,
+  applyRigOps,
+  copyClips,
+  setAnatomy,
+  type Mat4,
+  type ModelAnatomy,
+  type ModelClipOp,
+  type ModelFacing,
+  type ModelModifier,
+  type ModelPart,
+  type ModelRigOp,
+  type ModelSpec,
+  type RigEditOutcome,
+} from '@midnite/studio-shared';
 
 import {
   alignParts,
@@ -83,6 +97,14 @@ export type EditorAction =
   /** A gizmo drag finished: set each part's world anchor in one step. */
   | { type: 'transform'; items: { index: number; anchor: Mat4 }[] }
   | { type: 'showAll' }
+  /** Set the anatomy and place a fresh rig (`static` removes rig and clips) — the Rig tab's Auto-rig. */
+  | { type: 'anatomy'; anatomy: ModelAnatomy; facing?: ModelFacing }
+  /** Bone, binding, facing and falloff edits (the shared `applyRigOps`). */
+  | { type: 'rig'; ops: ModelRigOp[] }
+  /** Clip and pose-key edits (the shared `applyClipOps`). */
+  | { type: 'clips'; ops: ModelClipOp[] }
+  /** Copy another model's clips onto this rig. */
+  | { type: 'retarget'; from: ModelSpec; replace?: boolean }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'markSaved' }
@@ -127,6 +149,13 @@ function apply(state: EditorState, edit: (spec: ModelSpec) => Result, keepSelect
   const result = edit(base);
   if (!result) return state;
   return commit(state, result.spec, result.select ?? (keepSelection ? state.selection : []));
+}
+
+/** A kernel rig edit as one history step; a refused or no-op edit leaves the state untouched. */
+function applyRig(state: EditorState, edit: (spec: ModelSpec) => RigEditOutcome): EditorState {
+  const out = edit(ensureIds(state.spec));
+  if (!out.ok || JSON.stringify(out.spec) === JSON.stringify(state.spec)) return state;
+  return commit(state, out.spec, state.selection);
 }
 
 const targetsOf = (state: EditorState, explicit?: number[], single?: number): number[] =>
@@ -212,6 +241,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const result = patchParts(state.spec, hidden, { hidden: undefined });
       return result ? commit(state, result.spec, state.selection) : state;
     }
+    case 'anatomy':
+      return applyRig(state, (spec) => setAnatomy(spec, action.anatomy, action.facing));
+    case 'rig':
+      return applyRig(state, (spec) => applyRigOps(spec, action.ops));
+    case 'clips':
+      return applyRig(state, (spec) => applyClipOps(spec, action.ops));
+    case 'retarget':
+      return applyRig(state, (spec) => copyClips(action.from, spec, action.replace === true));
     case 'undo': {
       const previous = state.past.at(-1);
       if (!previous) return state;

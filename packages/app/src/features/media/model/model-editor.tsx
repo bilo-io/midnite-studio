@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { useEffect, useMemo, useState, type Dispatch, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type KeyboardEvent } from 'react';
 import {
   LuAxis3D,
   LuCircleHelp,
@@ -18,11 +18,16 @@ import {
 
 import { IconButton } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/icon-select';
+import type { RetargetSource } from './clip-panel';
+import { ClipTimeline } from './clip-timeline';
 import { resolveKey, type UiCommand } from './editor-keys';
 import { canRedo, canUndo, isDirty, type EditorAction, type EditorState } from './editor-state';
 import { EditorScene, type MeasurePoints, type ShadeMode, type TransformMode } from './editor-scene';
 import { DEFAULT_LIGHTING, LIGHTING_PRESETS, lightingById } from './lighting';
 import { ModelInspector } from './model-inspector';
+import { RigOverlay } from './rig-overlay';
+import { clipNamed, poseAt, posedScene, rigModel } from './rig-pose';
+import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
 import { boundsOf, distanceBetween, formatSize, sizeOf, type CameraView } from './scene-bounds';
 import { ShortcutHelp } from './shortcut-help';
 import { DEFAULT_SNAP, GRID_STEPS, stepAlong, type SnapSettings } from './snap';
@@ -65,11 +70,14 @@ export default function ModelEditor({
   dispatch,
   onSave,
   saving,
+  retargetSources,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
   onSave: () => void;
   saving: boolean;
+  /** Other rigged models in the library, for the Animation tab's Retarget. */
+  retargetSources?: readonly RetargetSource[];
 }) {
   const [mode, setMode] = useState<TransformMode>('translate');
   const [shade, setShade] = useState<ShadeMode>('solid');
@@ -91,6 +99,17 @@ export default function ModelEditor({
   const { spec, selection } = state;
   const scene = useMemo(() => editorScene(spec), [spec]);
   const lighting = lightingById(lightingId);
+
+  // Rig, pose and playback (view state only — never in the design or its history).
+  const [rigView, setRigView] = useState<RigView>(INITIAL_RIG_VIEW);
+  const onRigView = useCallback((patch: Partial<RigView>) => setRigView((v) => ({ ...v, ...patch })), []);
+  const rigged = useMemo(() => rigModel(spec, scene), [spec, scene]);
+  const clip = clipNamed(spec, rigView.clip);
+  useEffect(() => {
+    if (rigView.clip !== null && !clip) onRigView({ clip: null, time: 0, playing: false });
+  }, [rigView.clip, clip, onRigView]);
+  const pose = useMemo(() => (rigged ? poseAt(rigged, clip, rigView.time) : null), [rigged, clip, rigView.time]);
+  const display = useMemo(() => (rigged && pose && clip ? posedScene(scene, rigged, pose) : scene), [scene, rigged, pose, clip]);
 
   // Shift flips snapping while it is held (the gizmo reads this).
   useEffect(() => {
@@ -222,7 +241,7 @@ export default function ModelEditor({
             <EditorScene
               state={state}
               dispatch={dispatch}
-              scene={scene}
+              scene={display}
               mode={mode}
               shade={shade}
               xray={xray}
@@ -239,6 +258,7 @@ export default function ModelEditor({
               measurePoints={points}
               onMeasurePoint={(p) => setPoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))}
             />
+            {rigged && pose ? <RigOverlay model={rigged} scene={display} pose={pose} view={rigView} onView={onRigView} /> : null}
           </Canvas>
         ) : (
           <p role="alert" className="flex h-full items-center justify-center p-6 text-center text-xs text-muted-foreground">
@@ -292,7 +312,13 @@ export default function ModelEditor({
         {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
       </div>
 
-      <ModelInspector state={state} dispatch={dispatch} issues={errors} />
+      {rigged && (spec.animations?.length ?? 0) > 0 ? <ClipTimeline spec={spec} view={rigView} onView={onRigView} /> : null}
+      <ModelInspector
+        state={state}
+        dispatch={dispatch}
+        issues={errors}
+        rig={{ view: rigView, onView: onRigView, model: rigged, scene, ...(retargetSources ? { sources: retargetSources } : {}) }}
+      />
     </div>
   );
 }
