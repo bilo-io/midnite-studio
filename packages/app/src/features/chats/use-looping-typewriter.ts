@@ -26,7 +26,7 @@ export function useLoopingTypewriter(
   } = {},
 ) {
   const { charDelayMs, holdMs = 500, pauseMs = 200 } = options;
-  const [displayed, setDisplayed] = useState(text);
+  const [displayed, setDisplayed] = useState(() => (prefersReducedMotion() || !text ? text : ''));
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
