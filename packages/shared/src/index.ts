@@ -28,6 +28,7 @@ export * from './markets';
 export * from './markets-portfolio';
 export * from './mcp';
 export * from './media';
+export * from './media-game';
 export * from './media-model';
 export * from './media-model-library';
 export * from './media-model-mcp';

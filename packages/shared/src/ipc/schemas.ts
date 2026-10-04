@@ -221,6 +221,25 @@ import {
 } from '../media';
 import { DocExportFormatSchema } from '../media';
 import {
+  GameBoundsRequest as GameBoundsRequestSchema,
+  GameConsolePayload as GameConsolePayloadSchema,
+  GameCreateRequestSchema,
+  GameCreateResultSchema,
+  GameIdRequest as GameIdRequestSchema,
+  GameLogsRequest as GameLogsRequestSchema,
+  GameLogsResponse as GameLogsResponseSchema,
+  GameManifestGetResponse as GameManifestGetResponseSchema,
+  GameManifestSetRequest as GameManifestSetRequestSchema,
+  GameRunResult as GameRunResultSchema,
+  GameRunStatePayload as GameRunStatePayloadSchema,
+  GamesChangedSchema,
+  GamesListSchema,
+  GamesSettingsReadSchema,
+  GamesSettingsPatchSchema,
+  GameToolbarRequest as GameToolbarRequestSchema,
+  GameVisibleRequest as GameVisibleRequestSchema,
+} from '../media-game';
+import {
   ModelExportRequestSchema,
   ModelGenerateProgressEventSchema,
   ModelGenerateRequestSchema,
@@ -4289,3 +4308,29 @@ export const MarketsNewsResponse = GitOpResultOf(
     failed: z.array(z.string()),
   }),
 );
+
+// --- games (Phase 107 Themes A + B) -------------------------------------------
+// The shapes live in `../media-game`; these aliases give each channel its
+// request/response name in the `schemas` namespace, as every other domain does.
+
+export const GamesSettingsGetResponse = GamesSettingsReadSchema;
+export const GamesSettingsSetRequest = GamesSettingsPatchSchema;
+export const GamesSettingsSetResponse = GitOpResultOf(GamesSettingsReadSchema);
+export const GamesListResponse = GamesListSchema;
+export const GamesCreateRequest = GameCreateRequestSchema;
+export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
+export const GamesGetManifestRequest = GameIdRequestSchema;
+export const GamesGetManifestResponse = GameManifestGetResponseSchema;
+export const GamesSetManifestRequest = GameManifestSetRequestSchema;
+export const GamesRunRequest = GameIdRequestSchema;
+export const GamesRunResponse = GitOpResultOf(GameRunResultSchema);
+export const GamesStopRequest = GameIdRequestSchema;
+export const GamesReloadRequest = GameIdRequestSchema;
+export const GamesSetBoundsRequest = GameBoundsRequestSchema;
+export const GamesSetVisibleRequest = GameVisibleRequestSchema;
+export const GamesToolbarRequest = GameToolbarRequestSchema;
+export const GamesLogsRequest = GameLogsRequestSchema;
+export const GamesLogsResponse = GameLogsResponseSchema;
+export const GamesChangedPayload = GamesChangedSchema;
+export const GamesRunStatePayload = GameRunStatePayloadSchema;
+export const GamesConsolePayload = GameConsolePayloadSchema;

@@ -17,14 +17,15 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain', 'game'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
 /**
  * The tabs whose storage lives under `.midnite/media/<tab>/` and therefore
  * need an open repo. Video resolves its own root (Theme D), falling back to
- * Phase 44's global setting, so it keeps working with no repo open.
+ * Phase 44's global setting, so it keeps working with no repo open; Games (Phase 107) likewise resolves its
+ * own root (the games location setting).
  */
 export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model', 'terrain'];
 
@@ -56,6 +57,10 @@ export const MEDIA_EXPORT_FORMATS = [
   'fbx',
   'fbx-ascii',
   'glb',
+  // game (Phase 107) — written by main's own exporters, no ffmpeg
+  'game-html',
+  'game-zip',
+  'game-folder',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -86,6 +91,9 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   fbx: { label: 'Autodesk FBX (binary)', ext: 'fbx', needsFfmpeg: false },
   'fbx-ascii': { label: 'Autodesk FBX (ASCII)', ext: 'fbx', needsFfmpeg: false },
   glb: { label: 'glTF binary (PBR)', ext: 'glb', needsFfmpeg: false },
+  'game-html': { label: 'Single HTML file', ext: 'html', needsFfmpeg: false },
+  'game-zip': { label: 'Zip archive', ext: 'zip', needsFfmpeg: false },
+  'game-folder': { label: 'Static folder', ext: '', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
@@ -97,6 +105,7 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
   // Theme I (Phase 105) puts `terrain-pack` first; until then a terrain exports as one glb.
   terrain: ['glb'],
+  game: ['game-html', 'game-zip', 'game-folder'],
 };
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */

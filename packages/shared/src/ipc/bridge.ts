@@ -1161,6 +1161,37 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Media ▸ Games (Phase 107 Themes A + B) — game repos, the games location
+   * setting and the sandboxed runner. Global, not per-repo: a game is its own
+   * git repo. Ops answer `GitOpResult` envelopes; runner state and console
+   * output arrive on the `on*` subscriptions.
+   */
+  games: {
+    settings: {
+      get: () => Promise<z.infer<typeof S.GamesSettingsGetResponse>>;
+      set: (req: In<typeof S.GamesSettingsSetRequest>) => Promise<z.infer<typeof S.GamesSettingsSetResponse>>;
+    };
+    list: () => Promise<z.infer<typeof S.GamesListResponse>>;
+    create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
+    manifest: {
+      get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
+      set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;
+    };
+    run: (req: In<typeof S.GamesRunRequest>) => Promise<z.infer<typeof S.GamesRunResponse>>;
+    stop: (req: In<typeof S.GamesStopRequest>) => Promise<GitOpResult>;
+    reload: (req: In<typeof S.GamesReloadRequest>) => Promise<GitOpResult>;
+    /** One-way: the centre column's measured rect, in CSS pixels. */
+    setBounds: (req: In<typeof S.GamesSetBoundsRequest>) => void;
+    /** One-way: hide / show the runner's native view. */
+    setVisible: (req: In<typeof S.GamesSetVisibleRequest>) => void;
+    toolbar: (req: In<typeof S.GamesToolbarRequest>) => Promise<GitOpResult>;
+    logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
+    onChanged: (handler: (event: z.infer<typeof S.GamesChangedPayload>) => void) => Unsubscribe;
+    onRunState: (handler: (event: z.infer<typeof S.GamesRunStatePayload>) => void) => Unsubscribe;
+    onConsole: (handler: (event: z.infer<typeof S.GamesConsolePayload>) => void) => Unsubscribe;
+  };
+
+  /**
    * Media page (Phase 99 Theme A) — the repo-scoped media store under
    * `<repo>/.midnite/media/<tab>/`, the ffmpeg probe and the export service.
    * Every op answers a `GitOpResult` envelope.
