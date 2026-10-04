@@ -14,6 +14,7 @@ import { ChatChangesModal } from './chat-changes-modal';
 import { ChatComposer, type ChatSettings } from './chat-composer';
 import { ChatEmptyState } from './chat-empty-state';
 import { ChatThread } from './chat-thread';
+import { CHAT_COLUMN, CHAT_GUTTER } from './chat-column';
 import { isStreaming, useChatsStore } from './chats-store';
 import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
 import { useChatFiles, useChatSkills } from './use-composer-sources';
@@ -189,10 +190,10 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
     [selectedId],
   );
 
-  // px-16: symmetric clearance so the floating launcher (bottom-right, 40px) never covers Send.
+  // CHAT_GUTTER: symmetric clearance so the floating launcher (bottom-right, 40px) never covers Send.
   const composer = (
-    <div className="shrink-0 px-16 pb-4 pt-1">
-      <div className="mx-auto w-full max-w-2xl">
+    <div className={`shrink-0 ${CHAT_GUTTER} pb-4 pt-1`}>
+      <div className={CHAT_COLUMN}>
         <ChatComposer
           value={text}
           onChange={setText}
@@ -210,9 +211,6 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
           skills={skills}
           files={files}
         />
-        <p className="mt-1.5 text-center text-[10px] text-muted-foreground/70">
-          {settings.mode === 'edit' && settings.repoId ? 'Edits happen in this chat’s own worktree — nothing changes in your checkout until you accept it.' : 'Agents can make mistakes. Check important output.'}
-        </p>
       </div>
     </div>
   );

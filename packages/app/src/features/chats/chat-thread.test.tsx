@@ -155,6 +155,55 @@ describe('ChatThread', () => {
     expect(screen.getByRole('alert').textContent).toContain('boom');
   });
 
+  describe('docking the live turn', () => {
+    const live = (text = 'live text') => chat([m('u', 'user', 'q'), m('a1', 'assistant', 'earlier', { status: 'done' }), m('u2', 'user', 'q2'), m('a', 'assistant', text, { status: 'streaming' })]);
+
+    it('renders the live turn in the dock, not inline', () => {
+      render(<ChatThread chat={live()} streaming {...props} />);
+      const dock = screen.getByTestId('chat-dock');
+      const thread = screen.getByTestId('chat-thread');
+      expect(within(dock).getByTestId('thinking-panel')).toBeTruthy();
+      expect(within(dock).getByText('live text')).toBeTruthy();
+      expect(within(thread).queryByText('live text')).toBeNull();
+      expect(thread.contains(dock)).toBe(false);
+      // The finished turn keeps its inline record.
+      expect(within(thread).getByText('earlier')).toBeTruthy();
+    });
+
+    it('never duplicates the live turn', () => {
+      render(<ChatThread chat={live()} streaming {...props} />);
+      expect(screen.getAllByText('live text')).toHaveLength(1);
+      expect(screen.getAllByTestId('thinking-panel')).toHaveLength(1);
+    });
+
+    it('docks a streaming turn before any text arrives', () => {
+      render(<ChatThread chat={live('')} streaming {...props} />);
+      expect(within(screen.getByTestId('chat-dock')).getByTestId('thinking-panel')).toBeTruthy();
+    });
+
+    it('moves the turn inline and removes the dock once it finishes', () => {
+      const { rerender } = render(<ChatThread chat={live()} streaming {...props} />);
+      rerender(
+        <ChatThread
+          chat={chat([m('u', 'user', 'q'), m('a1', 'assistant', 'earlier'), m('u2', 'user', 'q2'), m('a', 'assistant', 'live text', { status: 'done' })])}
+          streaming={false}
+          {...props}
+        />,
+      );
+      expect(screen.queryByTestId('chat-dock')).toBeNull();
+      expect(within(screen.getByTestId('chat-thread')).getByText('live text')).toBeTruthy();
+      expect(screen.getAllByText('live text')).toHaveLength(1);
+    });
+
+    it('has no dock when nothing is streaming, and shares the composer column', () => {
+      render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'r')])} streaming={false} {...props} />);
+      expect(screen.queryByTestId('chat-dock')).toBeNull();
+      const column = screen.getByTestId('chat-thread').firstElementChild!.firstElementChild!;
+      expect(column.className).toContain('max-w-2xl');
+      expect(screen.getByTestId('chat-thread').firstElementChild!.className).toContain('px-16');
+    });
+  });
+
   describe('scroll pinning', () => {
     it('shows "Jump to latest" once the reader scrolls away, and jumping smooth-scrolls to the end', () => {
       render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'r')])} streaming={false} {...props} />);

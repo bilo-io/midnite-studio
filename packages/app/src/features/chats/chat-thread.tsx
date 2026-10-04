@@ -4,6 +4,7 @@ import type { Chat } from '@midnite/studio-shared';
 import { LuArrowDown } from 'react-icons/lu';
 
 import { AssistantMessage, UserMessage } from './chat-message';
+import { CHAT_COLUMN, CHAT_GUTTER } from './chat-column';
 import type { ChatEngine } from './use-chat-engines';
 
 /**
@@ -119,10 +120,26 @@ export function ChatThread({
 
   const editable = !streaming;
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
+  const lastMessage = messages[messages.length - 1];
+  const isLastStreaming = streaming && lastMessage?.role === 'assistant';
+  const liveMessage = isLastStreaming ? lastMessage : null;
   const engineById = (id: string | undefined) => engines.find((e) => e.id === (id ?? chat.engine));
+  const dock = useRef<HTMLDivElement>(null);
+
+  // Re-pin to bottom when the dock appears or resizes, if stuck.
+  useLayoutEffect(() => {
+    const dockEl = dock.current;
+    const scrollerEl = scroller.current;
+    if (!dockEl || !scrollerEl || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => {
+      if (stuck.current) scrollToBottom(scrollerEl, false);
+    });
+    observer.observe(dockEl);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative min-h-0 flex-1 flex flex-col">
       <div
         ref={scroller}
         onScroll={onScroll}
@@ -134,11 +151,14 @@ export function ChatThread({
         aria-relevant="additions"
         aria-busy={streaming}
         data-testid="chat-thread"
-        className="h-full overflow-y-auto"
+        className="min-h-0 flex-1 overflow-y-auto"
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
-          {messages.map((message) =>
-            message.role === 'user' ? (
+        <div className={`${CHAT_GUTTER} py-6`}>
+         <div className={`${CHAT_COLUMN} flex flex-col gap-6`}>
+          {messages.map((message) => {
+            // Skip the live message in the inline view; it's docked below.
+            if (isLastStreaming && message.id === lastMessage?.id) return null;
+            return message.role === 'user' ? (
               <UserMessage key={message.id} message={message} canEdit={editable} onEdit={onEdit} />
             ) : (
               <AssistantMessage
@@ -152,10 +172,27 @@ export function ChatThread({
                 onResolveAll={onResolveAll}
                 resolving={message.changeSet?.id === resolvingChangeSetId}
               />
-            ),
-          )}
+            );
+          })}
+         </div>
         </div>
       </div>
+      {liveMessage ? (
+        <div ref={dock} className={`max-h-[55%] shrink-0 overflow-y-auto ${CHAT_GUTTER} pb-3 pt-3`} data-testid="chat-dock">
+         <div className={CHAT_COLUMN}>
+          <AssistantMessage
+            message={liveMessage}
+            engine={engineById(liveMessage.engine)}
+            isLast={true}
+            canRetry={false}
+            onRetry={onRetry}
+            onOpenChanges={onOpenChanges}
+            onResolveAll={onResolveAll}
+            resolving={liveMessage.changeSet?.id === resolvingChangeSetId}
+          />
+         </div>
+        </div>
+      ) : null}
       {away ? (
         <button
           type="button"
