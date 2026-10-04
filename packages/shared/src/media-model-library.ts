@@ -16,6 +16,7 @@
 import { z } from 'zod';
 
 import { type ModelSidecar, type ModelSpec } from './media-model';
+import { SF3D_PROVIDER, SF3D_UPSTREAM_MODEL } from './media-model-sf3d';
 import { type ModelAnatomy, type ModelClipKind, type ModelFacing, clipTiming } from './media-model-rig';
 import { buildScene, sceneBounds, sceneStats } from './model-geometry';
 
@@ -86,6 +87,8 @@ export const ModelManifestSchema = z
       obj: z.string().optional(),
       fbx: z.string().optional(),
       glb: z.string().optional(),
+      /** The imported mesh an `asset` part draws (an SF3D result's `<stem>.asset.glb`). */
+      asset: z.string().optional(),
     }),
     createdAt: z.string().min(1),
     updatedAt: z.string().min(1).optional(),
@@ -107,10 +110,11 @@ export function parseModelManifest(text: string): ModelManifest | null {
   }
 }
 
-/** `ollama:qwen2.5-coder:7b` / `agent:claude:sonnet-5 (iterative)` / `mcp` → structured. */
+/** `ollama:qwen2.5-coder:7b` / `agent:claude:sonnet-5 (iterative)` / `sf3d` / `mcp` → structured. */
 export function agentFromEngine(engine: string): ModelAgent {
   const iterative = / \(iterative\)$/.test(engine);
   const label = engine.replace(/ \(iterative\)$/, '');
+  if (label === SF3D_PROVIDER) return { provider: SF3D_PROVIDER, model: SF3D_UPSTREAM_MODEL };
   if (label.startsWith('ollama:')) return { provider: 'ollama', model: label.slice('ollama:'.length) };
   if (label.startsWith('agent:')) {
     const [agentId, ...rest] = label.slice('agent:'.length).split(':');
@@ -196,6 +200,7 @@ export function buildModelManifest(input: {
   const obj = file('obj');
   const fbx = file('fbx');
   const glb = file('glb');
+  const asset = sidecar.spec.parts.find((part) => part.shape === 'asset');
   const label = sidecar.spec.name !== 'model' ? sidecar.spec.name : sidecar.prompt.slice(0, 60).trim() || sidecar.spec.name;
   // The rig slots always follow the design, so a removed rig does not linger from `previous`.
   const kept: Record<string, unknown> = { ...(previous ?? {}) };
@@ -214,7 +219,7 @@ export function buildModelManifest(input: {
       ? { attachment: { file: sidecar.reference, ...(sidecar.imageDescription ? { description: sidecar.imageDescription } : {}) } }
       : {}),
     details: computeModelDetails(sidecar.spec),
-    files: { ...(design ? { design } : {}), ...(obj ? { obj } : {}), ...(fbx ? { fbx } : {}), ...(glb ? { glb } : {}) },
+    files: { ...(design ? { design } : {}), ...(obj ? { obj } : {}), ...(fbx ? { fbx } : {}), ...(glb ? { glb } : {}), ...(asset?.shape === 'asset' ? { asset: asset.src } : {}) },
     createdAt: previous?.createdAt ?? sidecar.createdAt,
     updatedAt: input.now.toISOString(),
   };

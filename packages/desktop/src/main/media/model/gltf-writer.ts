@@ -5,6 +5,7 @@ import {
   computeSkin,
   MAX_INFLUENCES,
   type MeshPart,
+  modelAsset,
   type ModelSpec,
   type PartSkin,
   qIdentity,
@@ -23,6 +24,9 @@ import { hexToRgb, materialsOf, uniqueNames } from './obj-writer';
  * One node + mesh + primitive per part, geometry already in world space (like the OBJ/FBX), Y up,
  * right-handed, metres — exactly glTF's convention. Colours are sRGB in the design and **linear** in
  * glTF, so they are converted. `gltf-writer.test.ts` round-trips through three's `GLTFLoader`.
+ *
+ * An imported `asset` part (an SF3D result) keeps its texture: its uvs go out as `TEXCOORD_0` and its
+ * registered image as a `baseColorTexture`, embedded in the binary chunk, on a material of its own.
  */
 
 const srgbToLinear = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -79,6 +83,32 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     return out;
   };
 
+  // Textured parts: one image, texture and material per distinct (texture, tint, surface).
+  const images: Json[] = [];
+  const textures: Json[] = [];
+  const texturedMaterials: { color: string; material: MeshPart['material']; texture: number }[] = [];
+  const imageOf = new Map<string, number>();
+  const texturedKey = new Map<string, number>();
+  const materialFor = (part: MeshPart, index: number): number => {
+    const image = part.texture ? modelAsset(part.texture)?.texture : undefined;
+    if (!image || !part.uvs) return indexOf[index]!;
+    let texture = imageOf.get(part.texture!);
+    if (texture === undefined) {
+      images.push({ bufferView: addView(Buffer.from(image.data)), mimeType: image.mime });
+      textures.push({ source: images.length - 1, sampler: 0 });
+      texture = textures.length - 1;
+      imageOf.set(part.texture!, texture);
+    }
+    const key = [texture, part.color, part.material.metalness, part.material.roughness, part.material.opacity, part.material.emissive, part.material.emissiveIntensity].join('|');
+    let at = texturedKey.get(key);
+    if (at === undefined) {
+      texturedMaterials.push({ color: part.color, material: part.material, texture });
+      at = materials.length + texturedMaterials.length - 1;
+      texturedKey.set(key, at);
+    }
+    return at;
+  };
+
   const meshes: Json[] = [];
   const nodes: Json[] = [];
   const meshNodes: number[] = [];
@@ -109,6 +139,10 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     accessors.push({ bufferView: addView(indices, ELEMENT_ARRAY_BUFFER), componentType: wide ? UNSIGNED_INT : UNSIGNED_SHORT, count: part.indices.length, type: 'SCALAR' });
 
     const attributes: Json = { POSITION: positionAccessor, NORMAL: normalAccessor };
+    if (part.uvs && part.uvs.length === vertexCount * 2) {
+      attributes.TEXCOORD_0 = accessors.length;
+      accessors.push({ bufferView: addView(floats(part.uvs), ARRAY_BUFFER), componentType: FLOAT, count: vertexCount, type: 'VEC2' });
+    }
     const skin = rigging?.skins[index];
     if (skin) {
       const joints = Buffer.alloc(vertexCount * MAX_INFLUENCES * 2);
@@ -121,7 +155,7 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
 
     meshes.push({
       name: names[index],
-      primitives: [{ attributes, indices: indexAccessor, material: indexOf[index], mode: 4 }],
+      primitives: [{ attributes, indices: indexAccessor, material: materialFor(part, index), mode: 4 }],
     });
     nodes.push({ name: names[index], mesh: meshes.length - 1, ...(skin ? { skin: 0 } : {}) });
     meshNodes.push(nodes.length - 1);
@@ -177,8 +211,9 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     });
   }
 
-  const usesEmissiveStrength = materials.some((m) => m.material.emissive !== '#000000' && m.material.emissiveIntensity > 1);
-  const gltfMaterials = materials.map((entry, index) => {
+  const allMaterials: { color: string; material: MeshPart['material']; texture?: number }[] = [...materials, ...texturedMaterials];
+  const usesEmissiveStrength = allMaterials.some((m) => m.material.emissive !== '#000000' && m.material.emissiveIntensity > 1);
+  const gltfMaterials = allMaterials.map((entry, index) => {
     const [r, g, b] = hexToRgb(entry.color).map(srgbToLinear);
     const { metalness, roughness, opacity, emissive, emissiveIntensity } = entry.material;
     const glow = hexToRgb(emissive).map(srgbToLinear);
@@ -187,6 +222,7 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
       pbrMetallicRoughness: { baseColorFactor: [round(r!), round(g!), round(b!), round(opacity)], metallicFactor: round(metalness), roughnessFactor: round(roughness) },
       doubleSided: false,
     };
+    if (entry.texture !== undefined) (material.pbrMetallicRoughness as Json).baseColorTexture = { index: entry.texture };
     if (opacity < 1) material.alphaMode = 'BLEND';
     if (emissive !== '#000000') {
       const scale = Math.min(1, emissiveIntensity);
@@ -205,6 +241,7 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     ...(skins ? { skins } : {}),
     ...(animations && animations.length > 0 ? { animations } : {}),
     materials: gltfMaterials,
+    ...(textures.length > 0 ? { textures, images, samplers: [{ magFilter: 9729, minFilter: 9987, wrapS: 33071, wrapT: 33071 }] } : {}),
     accessors,
     bufferViews,
     buffers: [{ byteLength: length }],

@@ -5,6 +5,7 @@ import {
   type ModelPart,
   type ModelSpec,
 } from '../media-model';
+import { modelAsset } from './assets';
 import { csg, CSG_MAX_TRIANGLES } from './csg';
 import { composeLocal, identity, multiply, type Mat4 } from './math';
 import { applyModifiers } from './modifiers';
@@ -70,6 +71,12 @@ export type MeshPart = {
   sourceIndex: number;
   /** `operand`: a boolean tool, built only when asked for (the editor shows it as a ghost). */
   role: 'solid' | 'operand';
+  /** Built from an imported `asset` part: one dense mesh, skinned per vertex rather than per part. */
+  imported?: boolean;
+  /** uv pairs, one per position — an imported `asset` part's texture coordinates. */
+  uvs?: number[];
+  /** The asset hash whose registered texture this part is drawn with (`modelAsset(texture).texture`). */
+  texture?: string;
 };
 
 export type BuildIssue = { path: string; message: string };
@@ -189,9 +196,11 @@ export function semanticIssues(spec: ModelSpec): BuildIssue[] {
     check('parent', part.parent);
     const target = check('target', part.target);
     if (part.op && !isLeafShape(part)) issues.push({ path: `${at}.op`, message: `A ${part.shape} cannot be a boolean operand — give "op" to a solid part.` });
+    if (part.op && part.shape === 'asset') issues.push({ path: `${at}.op`, message: 'An imported asset cannot be a boolean operand — its texture would not survive the cut.' });
     if (target !== null && target !== i) {
       const t = parts[target]!;
       if (!isLeafShape(t) || t.op) issues.push({ path: `${at}.target`, message: `"${t.name}" is not a solid part a boolean can apply to.` });
+      else if (t.shape === 'asset') issues.push({ path: `${at}.target`, message: `"${t.name}" is an imported asset — booleans cannot cut it.` });
     }
     if (part.shape === 'instance') {
       const source = check('source', part.source);
@@ -227,8 +236,27 @@ const SUBDIVIDED_ANGLE = 75;
 const MODIFIED_ANGLE = 35;
 const BOOLEAN_ANGLE = 30;
 
+export type LocalPart = { mesh: RawMesh; issues: string[]; uvs?: number[]; texture?: string };
+
+/**
+ * An `asset` part's mesh from the registry, as the file has it — modifiers are not applied (they would
+ * re-tessellate and lose the texture's coordinates). Unregistered: no geometry and an issue saying so.
+ */
+function buildAssetLocal(part: Extract<ModelPart, { shape: 'asset' }>): LocalPart {
+  const asset = modelAsset(part.hash);
+  if (!asset) return { mesh: { positions: [], normals: [], indices: [] }, issues: [`Imported mesh "${part.src}" is not loaded — the file is missing or has changed since it was imported.`] };
+  const issues = (part.modifiers ?? []).some((m) => m.enabled !== false) ? ['Modifiers do not apply to an imported mesh; they were skipped.'] : [];
+  return {
+    mesh: { positions: asset.positions, normals: asset.normals, indices: asset.indices },
+    issues,
+    ...(asset.uvs ? { uvs: asset.uvs } : {}),
+    ...(asset.texture ? { texture: part.hash } : {}),
+  };
+}
+
 /** A part's own mesh in its own space: shape → modifiers → normals. `null` for group/instance. */
-export function buildPartLocal(part: ModelPart): { mesh: RawMesh; issues: string[] } | null {
+export function buildPartLocal(part: ModelPart): LocalPart | null {
+  if (part.shape === 'asset') return buildAssetLocal(part);
   const raw = buildLocalMesh(part);
   if (!raw) return null;
   const active = (part.modifiers ?? []).filter((m) => m.enabled !== false);
@@ -269,15 +297,16 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
     return false;
   });
 
-  const localCache = new Map<number, { mesh: RawMesh; issues: string[] } | null>();
-  const local = (geometry: number): RawMesh | null => {
+  const localCache = new Map<number, LocalPart | null>();
+  const localPart = (geometry: number): LocalPart | null => {
     if (!localCache.has(geometry)) {
       const built = buildPartLocal(parts[geometry]!);
       localCache.set(geometry, built);
       built?.issues.forEach((message) => issues.push({ path: `parts[${geometry}]`, message }));
     }
-    return localCache.get(geometry)?.mesh ?? null;
+    return localCache.get(geometry) ?? null;
   };
+  const local = (geometry: number): RawMesh | null => localPart(geometry)?.mesh ?? null;
 
   const draws: Draw[] = [];
   const tools: number[] = [];
@@ -313,7 +342,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       }
       return;
     }
-    if (part.op) {
+    if (part.op && part.shape !== 'asset') {
       tools.push(i);
       return;
     }
@@ -364,7 +393,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
     const mine = toolsOf.get(draw.owner);
     let mesh = worldMesh(draw);
     if (!mesh || mesh.indices.length === 0) continue;
-    if (mine && draw.owner === draw.geometry) {
+    if (mine && draw.owner === draw.geometry && draw.part.shape !== 'asset') {
       let soup: Soup = soupOf(mesh);
       for (const t of mine) {
         const tool = parts[t]!;
@@ -381,7 +410,9 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       }
       mesh = dropDegenerate(smoothNormals(soup, draw.part.smoothAngle ?? BOOLEAN_ANGLE));
     }
-    if (triangleCount(mesh) > MODEL_MAX_PART_TRIANGLES) {
+    // An imported mesh is as dense as it was made; the per-part cap guards modifier stacks, not files.
+    const imported = draw.part.shape === 'asset' ? localPart(draw.geometry) : null;
+    if (!imported && triangleCount(mesh) > MODEL_MAX_PART_TRIANGLES) {
       issues.push({ path: `parts[${draw.owner}]`, message: `Part has ${triangleCount(mesh)} triangles; the limit is ${MODEL_MAX_PART_TRIANGLES}.` });
     }
     push({
@@ -393,6 +424,10 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       indices: mesh.indices,
       sourceIndex: draw.owner,
       role: 'solid',
+      ...(imported ? { imported: true } : {}),
+      // `transformMesh` keeps vertex order, so the file's uvs still line up.
+      ...(imported?.uvs ? { uvs: imported.uvs } : {}),
+      ...(imported?.texture ? { texture: imported.texture } : {}),
     });
   }
 

@@ -14315,3 +14315,15 @@ UV atlas, the colour-MLP texture bake, a PNG encoder and the textured `.glb` are
 `<group>/<model>/` with `model.json` naming `agent.provider: 'sf3d'`. `model_sf3d_status` and
 `model_generate_sf3d` expose it over MCP. Every op answers `GitOpResult`. Tested in vitest with a mocked
 inference session; a real run against the weights has not happened yet and is the open item.
+
+### Phase 103 Theme J — SF3D output as a riggable asset part (2026-10-04)
+
+An SF3D result is no longer a dead `.glb`. `ModelService.importAsset` writes it as `<stem>/<stem>.asset.glb` with
+a sidecar holding one `asset` part (relative `.glb` path plus a content hash), so geometry beyond the 2000-vertex
+`mesh` cap stays out of the JSON. A content-keyed registry loads the glb in main (service, MCP) and the renderer,
+where the editor draws it with its baked texture. Auto-rig splits an imported mesh into pseudo-parts (head,
+torso, arms, legs; quadruped legs; vehicle wheels) so the existing bone rules apply unchanged, skinning weights
+each vertex by distance to the bone segments (top 4, normalised) and the skinned `.glb` keeps its texture and
+UVs. The SF3D engine sits behind the existing engine seam. Tested in vitest on a synthetic textured figure.
+No real SF3D output was produced and the rigged `.glb` has not been checked in Blender or a game engine; both
+remain human items beside the real-weights run.

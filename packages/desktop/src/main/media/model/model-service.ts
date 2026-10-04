@@ -22,7 +22,15 @@ import {
   type ModelImageAttachment,
   type ModelSidecar,
   type ModelSpec,
+  modelAssetBounds,
+  modelAssetHash,
+  parseGlbMesh,
+  registerModelAsset,
+  type Sf3dGenerateRequest,
+  type Sf3dGenerateResult,
 } from '@midnite/studio-shared';
+
+import { asBytes, designDir, loadModelAssets } from './model-assets';
 
 import { writeFbxAscii, writeFbxBinary } from './fbx-writer';
 import { gltfRigging, writeGlb } from './gltf-writer';
@@ -83,6 +91,15 @@ export type ModelServiceDeps = {
     repoPath: (repoId: string) => Promise<string | null>;
     modelArgs: (engine: Extract<ModelEngine, { kind: 'agent' }>) => string[];
   };
+  /**
+   * The SF3D engine (Phase 103 Theme J) — the sf3d service's own consent-, install- and cancel-aware
+   * generate, which writes its result back through `importAsset` below. Absent in a test or a build
+   * without it, where an `sf3d` engine request is refused.
+   */
+  sf3d?: {
+    generate: (req: Sf3dGenerateRequest) => Promise<GitOpResult<Sf3dGenerateResult>>;
+    cancel: (generationId: string) => GitOpResult | Promise<GitOpResult>;
+  };
 };
 
 const IMAGE_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -113,7 +130,12 @@ export function modelTimeStamp(date: Date): string {
 }
 
 export const engineLabel = (engine: ModelEngine): string =>
-  engine.kind === 'ollama' ? `ollama:${engine.model}` : `agent:${engine.agentId}${engine.model ? `:${engine.model}` : ''}`;
+  engine.kind === 'ollama' ? `ollama:${engine.model}` : engine.kind === 'sf3d' ? 'sf3d' : `agent:${engine.agentId}${engine.model ? `:${engine.model}` : ''}`;
+
+/** The imported mesh an asset design draws, beside it in its folder: `<stem>.asset.glb`. */
+export const assetFileName = (stem: string): string => `${stem}.asset.glb`;
+
+const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
 /** Bytes of one export format for a spec. */
 export function renderModel(spec: ModelSpec, format: ModelExportFormat, stem: string): Buffer {
@@ -227,7 +249,14 @@ export function createModelService(deps: ModelServiceDeps) {
    * run still exports — then the `.mtl`, `.obj`, `.fbx` and `.glb` rendered from its spec, then
    * `model.json`. Every path is `<stem>/<file>`; `written` collects each as it lands.
    */
-  async function writeTrio(scope: Scope, stem: string, sidecar: ModelSidecar, written: string[] = []): Promise<GitOpResult<{ files: string[] }>> {
+  async function writeTrio(
+    scope: Scope,
+    stem: string,
+    sidecar: ModelSidecar,
+    written: string[] = [],
+    extra: Record<string, unknown> = {},
+  ): Promise<GitOpResult<{ files: string[] }>> {
+    await loadModelAssets(deps.readBytes, scope, stem, sidecar.spec);
     const outputs: [string, Buffer][] = [
       [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
       ...renderTrio(sidecar.spec, stem, `${stem}.mtl`),
@@ -238,7 +267,7 @@ export function createModelService(deps: ModelServiceDeps) {
       if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
       written.push(path);
     }
-    const manifest = await writeManifest(scope, `${stem}/${stem}`, sidecar, null);
+    const manifest = await writeManifest(scope, `${stem}/${stem}`, sidecar, null, extra);
     if (!manifest.ok) return failure(manifest.kind === 'error' ? manifest.message : 'Could not write model.json.');
     written.push(`${stem}/${MODEL_MANIFEST_FILE}`);
     return ok({ files: written });
@@ -248,11 +277,18 @@ export function createModelService(deps: ModelServiceDeps) {
    * `model.json` for the model whose files are `<modelPath>.*` (no extension). A re-save passes the
    * previous manifest so its author, creation time, label and any future fields survive.
    */
-  async function writeManifest(scope: Scope, modelPath: string, sidecar: ModelSidecar, previous: ReturnType<typeof parseModelManifest>): Promise<GitOpResult<unknown>> {
+  async function writeManifest(
+    scope: Scope,
+    modelPath: string,
+    sidecar: ModelSidecar,
+    previous: ReturnType<typeof parseModelManifest>,
+    extra: Record<string, unknown> = {},
+  ): Promise<GitOpResult<unknown>> {
     const dir = modelPath.split('/').slice(0, -1).join('/');
     const stem = modelPath.split('/').pop() ?? modelPath;
     const author = previous ? previous.author : await (deps.author?.() ?? Promise.resolve({ name: 'unknown' }));
-    const manifest = buildModelManifest({ sidecar, stem, author, now: now(), previous, present: [`${stem}.json`, `${stem}.obj`, `${stem}.fbx`, `${stem}.glb`] });
+    await loadModelAssets(deps.readBytes, scope, dir, sidecar.spec);
+    const manifest = { ...extra, ...buildModelManifest({ sidecar, stem, author, now: now(), previous, present: [`${stem}.json`, `${stem}.obj`, `${stem}.fbx`, `${stem}.glb`] }) };
     return deps.writeBytes({ ...scope, path: `${dir}/${MODEL_MANIFEST_FILE}`, data: Buffer.from(JSON.stringify(manifest, null, 2) + '\n', 'utf8') });
   }
 
@@ -288,6 +324,7 @@ export function createModelService(deps: ModelServiceDeps) {
     };
 
     try {
+      if (req.engine.kind === 'sf3d') return await viaSf3d(req, req.engine, files, progress, fail);
       // An agent CLI that speaks MCP iterates: it builds, renders, looks and refines through the model_* tools.
       let reuse: { stem: string; reference: string | undefined } | null = null;
       if (req.engine.kind === 'agent' && req.iterative !== false && agentIteratesModel(req.engine.agentId) && deps.iterative) {
@@ -353,6 +390,121 @@ export function createModelService(deps: ModelServiceDeps) {
     }
   }
 
+  /**
+   * The SF3D engine behind the same request, progress and result as the LLM engines: the sf3d service
+   * runs the picture through the network and hands the mesh to `importAsset`, so what lands is a design
+   * with one `asset` part — opened by the editor, exported, rigged and animated like any other.
+   */
+  async function viaSf3d(
+    req: ModelGenerateRequest,
+    engine: Extract<ModelEngine, { kind: 'sf3d' }>,
+    files: string[],
+    progress: Progress,
+    fail: (message: string) => GitOpResult<ModelGenerateResult>,
+  ): Promise<GitOpResult<ModelGenerateResult>> {
+    if (!deps.sf3d) return fail('SF3D is not available in this build.');
+    if (!req.image) return fail('SF3D turns a picture into a model — attach one.');
+    progress('running', 'building');
+    const sf3d = deps.sf3d;
+    const signal = running.get(req.generationId)?.signal;
+    const onAbort = () => void sf3d.cancel(req.generationId);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      const result = await sf3d.generate({
+        generationId: req.generationId,
+        repoId: req.repoId,
+        project: req.project,
+        image: req.image,
+        ...(req.prompt ? { name: req.prompt.slice(0, 80) } : {}),
+        ...(engine.textureSize ? { textureSize: engine.textureSize } : {}),
+      });
+      if (!result.ok) return fail(result.kind === 'error' ? result.message : 'SF3D could not build the model.');
+      files.push(...result.value.files);
+      progress('succeeded', undefined, undefined, { primary: result.value.primary });
+      return ok({ files: result.value.files, primary: result.value.primary });
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
+  }
+
+  /**
+   * A new model from an imported mesh (an SF3D result): the `.glb` lands as `<stem>/<stem>.asset.glb`, a
+   * design with one `asset` part pointing at it — stood on the ground and centred, white so the texture
+   * shows as baked — then the usual sidecar, exports and `model.json` (with `extra` merged in, e.g. SF3D's
+   * revision and texture size). The returned `primary` is the `.obj`, as for every other engine.
+   */
+  async function importAsset(req: {
+    repoId: string;
+    project: string;
+    stem: string;
+    /** The label the design and the explorer show. */
+    name: string;
+    prompt: string;
+    /** `engineLabel` of whoever made it (`sf3d`). */
+    engine: string;
+    glb: Buffer;
+    /** The picture it came from, kept beside it as `<stem>.ref.<ext>`. */
+    reference?: { file: string; data: Buffer };
+    imageDescription?: string;
+    extra?: Record<string, unknown>;
+    createdAt?: Date;
+  }): Promise<GitOpResult<{ files: string[]; primary: string; spec: ModelSpec; vertices: number; triangles: number }>> {
+    const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
+    const bytes = asBytes(req.glb);
+    let mesh: ReturnType<typeof parseGlbMesh>;
+    try {
+      mesh = parseGlbMesh(bytes);
+    } catch (error) {
+      return failure(`The imported mesh could not be read: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const hash = modelAssetHash(bytes);
+    registerModelAsset(hash, mesh);
+    const src = assetFileName(req.stem);
+    const files: string[] = [];
+    const writes: [string, Buffer][] = [[`${req.stem}/${src}`, req.glb]];
+    if (req.reference) writes.push([`${req.stem}/${req.reference.file}`, req.reference.data]);
+    for (const [path, data] of writes) {
+      const wrote = await deps.writeBytes({ ...scope, path, data });
+      if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
+      files.push(path);
+    }
+    const { min, max } = modelAssetBounds(mesh);
+    const vertices = mesh.positions.length / 3;
+    const triangles = mesh.indices.length / 3;
+    const spec: ModelSpec = {
+      name: req.name.slice(0, 60).trim() || 'model',
+      parts: [
+        {
+          id: 'p1',
+          name: 'mesh',
+          shape: 'asset',
+          src,
+          hash,
+          vertices,
+          triangles,
+          position: [round4(-(min[0] + max[0]) / 2), round4(-min[1]), round4(-(min[2] + max[2]) / 2)],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          color: '#ffffff',
+          material: { metalness: mesh.material.metalness, roughness: mesh.material.roughness },
+        },
+      ],
+    };
+    const sidecar: ModelSidecar = {
+      version: 1,
+      name: req.stem,
+      prompt: req.prompt,
+      ...(req.imageDescription ? { imageDescription: req.imageDescription } : {}),
+      engine: req.engine,
+      ...(req.reference ? { reference: req.reference.file } : {}),
+      spec,
+      createdAt: (req.createdAt ?? now()).toISOString(),
+    };
+    const wrote = await writeTrio(scope, req.stem, sidecar, files, req.extra ?? {});
+    if (!wrote.ok) return wrote;
+    return ok({ files, primary: `${req.stem}/${req.stem}.obj`, spec, vertices, triangles });
+  }
+
   function cancel(generationId: string): GitOpResult {
     const controller = running.get(generationId);
     if (!controller) return failure('Nothing to cancel.');
@@ -378,6 +530,7 @@ export function createModelService(deps: ModelServiceDeps) {
     const sidecar = req.spec ? null : await deps.readBytes({ ...scope, path: modelSidecarPath(req.path) });
     const parsed = req.spec ? { spec: req.spec } : sidecar?.ok ? parseModelSidecar(sidecar.value.toString('utf8')) : null;
     if (parsed) {
+      await loadModelAssets(deps.readBytes, scope, designDir(req.path), parsed.spec);
       // An .obj names its .mtl, so the materials travel with it.
       const extras = req.format === 'obj' ? [{ fileName: `${stem}.mtl`, data: Buffer.from(writeMtl(buildScene(parsed.spec)), 'utf8') }] : [];
       return ok({ data: renderModel(parsed.spec, req.format, stem), fileName: `${stem}.${MEDIA_EXPORT_FORMAT_INFO[req.format].ext}`, extras });
@@ -412,6 +565,7 @@ export function createModelService(deps: ModelServiceDeps) {
     const existing = await deps.readBytes({ ...scope, path: `${stem}.json` });
     const previous = existing.ok ? parseModelSidecar(existing.value.toString('utf8')) : null;
     if (!previous) return failure('This model has no saved design to edit.');
+    await loadModelAssets(deps.readBytes, scope, designDir(req.path), req.spec);
     const sidecar: ModelSidecar = { ...previous, spec: req.spec };
     const outputs: [string, Buffer][] = [
       [`${stem}.json`, Buffer.from(JSON.stringify(sidecar, null, 2) + '\n', 'utf8')],
@@ -445,7 +599,7 @@ export function createModelService(deps: ModelServiceDeps) {
   const writeSidecar = (req: { repoId: string; project: string; path: string; sidecar: ModelSidecar }): Promise<GitOpResult<unknown>> =>
     deps.writeBytes({ repoId: req.repoId, tab: 'model', project: req.project, path: req.path, data: Buffer.from(JSON.stringify(req.sidecar, null, 2) + '\n', 'utf8') });
 
-  return { generate, cancel, exportBytes, saveEdit, createModel, writeSidecar };
+  return { generate, cancel, exportBytes, saveEdit, createModel, writeSidecar, importAsset };
 }
 
 export type ModelService = ReturnType<typeof createModelService>;

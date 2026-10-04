@@ -17,6 +17,7 @@ import {
   LuLayers,
   LuLock,
   LuLockOpen,
+  LuPackage,
   LuPill,
   LuShapes,
   LuSpline,
@@ -48,6 +49,7 @@ const SHAPE_ICONS: Record<ModelPart['shape'], IconComponent> = {
   sweep: LuWaypoints,
   loft: LuShapes,
   mesh: LuGrid3X3,
+  asset: LuPackage,
   group: LuFolder,
   instance: LuCopy,
 };

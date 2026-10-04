@@ -49,6 +49,7 @@ const SHAPE_HINTS: Record<string, string> = {
   loft: 'sections each have y and an [x, z] outline; outlines blend point to point, so keep corners in the same order (hulls, fuselages, bottles)',
   mesh: 'hand-written triangles/quads: vertices [[x,y,z]...] and faces of 3-4 vertex indices, counter-clockwise seen from outside',
   group: 'draws nothing; other parts name it (id or name) as their "parent" to move, rotate and scale together',
+  asset: 'an imported mesh (an SF3D result or a dropped-in .glb) drawn from the file named by src — never write one yourself; move, rotate, scale, recolour (tints the texture), hide, bind and rig it like any other part',
   instance: 'draws a copy of the part or group named by source, at this part\'s own transform and parent — repeat legs, wheels, windows',
 };
 

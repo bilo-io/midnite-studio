@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { nativeImage, utilityProcess } from 'electron';
 
-import { CHANNELS, EVENT_CHANNELS, failure, schemas, type Sf3dRequest, type Sf3dProgressEvent } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, failure, schemas, type GitOpResult, type Sf3dGenerateResult, type Sf3dRequest, type Sf3dProgressEvent } from '@midnite/studio-shared';
 
 import { createSf3dInstaller } from '../media/model/sf3d/installer';
 import type { RgbaImage } from '../media/model/sf3d/prepare-image';
@@ -15,8 +15,8 @@ import { setSf3dTools } from '../mcp/model-tools';
 import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle } from './handle';
-import { mediaStore, notifyMediaChanged } from './media-handlers';
-import { modelAuthor } from './media-model-handlers';
+import { notifyMediaChanged } from './media-handlers';
+import { importModelAsset, setSf3dEngine } from './media-model-handlers';
 import { readSecret } from './secrets-handlers';
 
 /**
@@ -72,7 +72,7 @@ export function configureSf3d(userData: string): void {
     installer: createSf3dInstaller({ directory: join(userData, 'sf3d'), readToken: () => readSecret('media.huggingFaceToken') }),
     run: (req, opts) => engine.run(req, opts),
     decodeImage: (data) => decodeImage(data),
-    writeBytes: (req) => mediaStore.writeBytes(req),
+    importAsset: (req) => importModelAsset(req),
     emit: (event: Sf3dProgressEvent) => {
       broadcastToAllWindows(EVENT_CHANNELS.mediaModelSf3dProgress, event);
       if (event.kind === 'generate') {
@@ -83,8 +83,12 @@ export function configureSf3d(userData: string): void {
       if (event.kind === 'generate' && event.status === 'succeeded') notifyMediaChanged(event.repoId, 'model');
     },
     disposeEngine: () => engine.dispose(),
-    author: modelAuthor,
     runtimeAvailable,
+  });
+  // SF3D behind the Models engine seam: `mediaModelGenerate` with `engine: { kind: 'sf3d' }` lands here.
+  setSf3dEngine({
+    generate: async (req) => (await handleSf3d({ op: 'generate', ...req })) as GitOpResult<Sf3dGenerateResult>,
+    cancel: (generationId) => handleSf3d({ op: 'cancelGenerate', generationId }),
   });
   setSf3dTools(
     createSf3dMcpTools({
@@ -102,6 +106,7 @@ export function configureSf3d(userData: string): void {
 
 export function disposeSf3d(): void {
   setSf3dTools(null);
+  setSf3dEngine(null);
   broker?.dispose();
 }
 

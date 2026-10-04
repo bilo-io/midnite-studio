@@ -54,6 +54,8 @@ export function createLlmCall(deps: EngineDeps): LlmCall {
     if (engine.kind === 'agent') {
       return deps.runAgent({ agentId: engine.agentId, model: engine.model, repoId, prompt });
     }
+    // SF3D is not a language model: `ModelService.generate` routes it to the sf3d service before any prompt is written.
+    if (engine.kind === 'sf3d') return failure('SF3D writes no design text — it is routed to the image-to-3D engine.');
     try {
       const text = await deps.ollama.chat(
         {

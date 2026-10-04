@@ -14,7 +14,10 @@ import {
   MEDIA_EXPORT_FORMAT_INFO,
   ok,
   schemas,
+  type GitOpResult,
   type LoopModel,
+  type Sf3dGenerateRequest,
+  type Sf3dGenerateResult,
 } from '@midnite/studio-shared';
 
 import { runHeadlessText, defaultAiImproveFieldDeps } from '../ai/improve-field';
@@ -69,7 +72,24 @@ export async function modelAuthor(): Promise<{ name: string; email?: string }> {
   return { name: userInfo().username || 'unknown' };
 }
 
+/**
+ * The SF3D engine, set once `configureSf3d` has built its service (`media-model-sf3d-handlers.ts`) —
+ * a late binding rather than an import, because that module imports this one.
+ */
+type Sf3dEngine = {
+  generate: (req: Sf3dGenerateRequest) => Promise<GitOpResult<Sf3dGenerateResult>>;
+  cancel: (generationId: string) => Promise<GitOpResult>;
+};
+let sf3dEngine: Sf3dEngine | null = null;
+export function setSf3dEngine(engine: Sf3dEngine | null): void {
+  sf3dEngine = engine;
+}
+
 const service = createModelService({
+  sf3d: {
+    generate: (req) => (sf3dEngine ? sf3dEngine.generate(req) : Promise.resolve(failure('SF3D is still starting up; try again in a moment.'))),
+    cancel: (generationId) => (sf3dEngine ? sf3dEngine.cancel(generationId) : failure('Nothing to cancel.')),
+  },
   author: modelAuthor,
   llm: createLlmCall(engines),
   describeImage: createDescribeImage(engines),
@@ -123,6 +143,9 @@ const modelTools = createModelTools({
   shrinkImage,
 });
 setModelTools(modelTools);
+
+/** An imported mesh (an SF3D result) as a design in the library — `ModelService.importAsset`. */
+export const importModelAsset: typeof service.importAsset = (req) => service.importAsset(req);
 
 const library = createModelLibrary({
   rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'model' }),

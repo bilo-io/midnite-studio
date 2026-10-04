@@ -30,6 +30,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '../../mcp/errors';
+import { designDir, loadModelAssets } from './model-assets';
 import { renderPreviews } from './preview';
 import { applyPatchOps, describeEdit, ensurePartIds, validateDesign } from './spec-ops';
 import { modelSpecJsonSchema, modelSpecReference } from './spec-reference';
@@ -74,7 +75,7 @@ export const REFERENCE_IMAGE_RAW_LIMIT = 2 * 1024 * 1024;
 /** Models listed per call — a project of thousands is not a thing a prompt can hold. */
 const LIST_LIMIT = 200;
 
-const MODEL_EXT = /\.(obj|mtl|fbx|json)$/i;
+const MODEL_EXT = /\.(obj|mtl|fbx|glb|json)$/i;
 /** `chair-2026.obj` → `chair-2026`. A bare name (no known extension) stays as it is. */
 export const modelStem = (model: string): string => model.replace(MODEL_EXT, '');
 const MIME_BY_EXT: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
@@ -131,7 +132,10 @@ export function createModelTools(deps: ModelMcpDeps) {
         stem = `${stem}/${stem}`;
       }
     }
-    return { repoId, scope, project: target.project, stem, sidecar: read.ok ? parseModelSidecar(read.value.toString('utf8')) : null };
+    const sidecar = read.ok ? parseModelSidecar(read.value.toString('utf8')) : null;
+    // An imported mesh (an SF3D result) is drawn from the file beside the design: load it before any build.
+    if (sidecar) await loadModelAssets(deps.readBytes, scope, designDir(stem), sidecar.spec);
+    return { repoId, scope, project: target.project, stem, sidecar };
   }
 
   const need = (loaded: Loaded, target: { project: string; model: string }): ModelSidecar => {

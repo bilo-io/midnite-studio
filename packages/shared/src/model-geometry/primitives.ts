@@ -553,8 +553,10 @@ export function buildLocalMesh(part: ModelPart): RawMesh | null {
       const smooth = smoothNormals(soup, part.smoothAngle ?? SOUP_SMOOTH_ANGLE);
       return dropDegenerate(isClosed(smooth) ? orient(smooth) : smooth);
     }
+    // Imported geometry (`asset`) comes from the asset registry (`scene.ts` `buildPartLocal`), never from here.
     case 'group':
     case 'instance':
+    case 'asset':
       return null;
   }
 }

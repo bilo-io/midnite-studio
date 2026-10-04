@@ -45,11 +45,28 @@ export {
   type BuildIssue,
   type BuildOptions,
   type BuildResult,
+  type LocalPart,
   type MeshPart,
   type PartIndex,
   type ResolvedMaterial,
 } from './scene';
 export * from './quat';
+export {
+  clearModelAssets,
+  hasModelAsset,
+  MODEL_ASSET_CACHE_LIMIT,
+  missingModelAssets,
+  modelAsset,
+  modelAssetBounds,
+  modelAssetEpoch,
+  modelAssetHash,
+  modelAssetPath,
+  parseGlbMesh,
+  registerModelAsset,
+  subscribeModelAssets,
+  type ModelAssetMesh,
+  type ModelAssetTexture,
+} from './assets';
 export {
   autoRig,
   facingBasis,
@@ -61,6 +78,7 @@ export {
   type RigBone,
 } from './rig';
 export {
+  assetSkin,
   boneLocal,
   boneWorldMatrices,
   computeSkin,
