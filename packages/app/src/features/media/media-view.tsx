@@ -4,6 +4,7 @@ import { PageDetachMark } from '../../components/page-detach-mark';
 import { useUiStore } from '../../store/ui-store';
 import { AudioTab } from './audio/audio-tab';
 import { DocsTab } from './doc/docs-tab';
+import { GameTab } from './game/game-tab';
 import { ImageTab } from './image/image-tab';
 import { ModelTab } from './model/model-tab';
 import { TerrainTab } from './terrain/terrain-tab';
@@ -25,6 +26,7 @@ const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   audio: () => <AudioTab />,
   model: () => <ModelTab />,
   terrain: () => <TerrainTab />,
+  game: () => <GameTab />,
 };
 
 export function MediaView() {
