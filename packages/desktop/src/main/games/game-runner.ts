@@ -228,11 +228,13 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
 
   function lockDown(run: Run): void {
     const wc = run.view.webContents;
-    const origin = `${MSTUDIO_GAME_SCHEME}://${run.game.gameId}`;
     const guard = (details: { url: string; preventDefault: () => void }): void => {
       let allowed = false;
       try {
-        allowed = new URL(details.url).origin === origin;
+        // Scheme + host, not `.origin`: a non-special scheme's `.origin` is
+        // "null" in any URL parser that has not been told it is standard.
+        const url = new URL(details.url);
+        allowed = url.protocol === `${MSTUDIO_GAME_SCHEME}:` && url.hostname === run.game.gameId;
       } catch {
         allowed = false;
       }

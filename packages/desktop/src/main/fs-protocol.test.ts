@@ -8,7 +8,7 @@ import { protocol, session } from 'electron';
 
 import { mstudioImageUrl } from '@midnite/studio-shared';
 
-import { installMgitFileProtocol, resolveBlobRequest, resolveRequestPath } from './fs-protocol';
+import { installMgitFileProtocol, registerPrivilegedSchemes, resolveBlobRequest, resolveRequestPath } from './fs-protocol';
 
 // The module reaches for `electron` at import time; nothing under test here
 // touches it, so a stub keeps this a plain unit test.
@@ -141,5 +141,26 @@ describe('resolveRequestPath — markdown images (?as=image)', () => {
     await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'docs/nope.png'))).resolves.toBeNull();
     resolveWorkdir.mockResolvedValueOnce(null);
     await expect(resolveRequestPath(mstudioImageUrl('repo', 'gone', 'logo.svg'))).resolves.toBeNull();
+  });
+});
+
+describe('registerPrivilegedSchemes', () => {
+  it('registers mstudio-file and mstudio-game in ONE call, because Electron keeps only the last list', () => {
+    const register = vi.mocked(protocol.registerSchemesAsPrivileged);
+    register.mockClear();
+    registerPrivilegedSchemes();
+
+    expect(register).toHaveBeenCalledTimes(1);
+    const schemes = register.mock.calls[0]![0];
+    expect(schemes.map((entry) => entry.scheme)).toEqual(['mstudio-file', 'mstudio-game']);
+    expect(schemes[1]!.privileges).toEqual({
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+    });
+    // The pre-existing scheme keeps exactly the privileges it always had.
+    expect(schemes[0]!.privileges).toEqual({ stream: true, supportFetchAPI: true });
   });
 });
