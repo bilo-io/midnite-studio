@@ -151,13 +151,23 @@ and the worker writes `.build-tmp-<id>/` that main swaps over `build/` only on s
 `heightfield`, `write` (`heights.f32`, `chunks.json`). A spec with only noise answers "Noise terrains are not available
 yet" until Theme C.
 
-**Theme C — No heightmap: warn, then noise or upload.** ◻ Not started. `terrain-build` answers
-`{status: 'needs-height-source'}` instead of guessing; the dialog offers noise, upload or a prompt;
-fBm, ridged and particle erosion are seeded and bounded.
+**Theme C — No heightmap: warn, then noise or upload.** ✅ Landed with D. `terrain-build` answers `needs-height-source` and
+the panel opens `NoHeightmapDialog` (alertdialog, focus on **Use noise**, no remembered default); **Use noise** saves a seeded
+fBm block and re-runs, **Upload heightmap…** opens the Heightmap slot's picker, and **Generate from a prompt** takes a prompt
+plus the Images tab's provider and model pickers. `setInput` gained a `{slot: 'heightmap', prompt, provider, model}` arm: main
+generates through `image-service.ts` into the Images `terrain-heightmaps` project and attaches the picture like an upload. The
+kernel gained `shared/src/terrain/noise.ts` (mulberry32, simplex, fBm, ridged, island falloff) and `erosion.ts` (droplet model,
+500 000 cap, sediment conserved), and the worker builds a noise terrain through `heightfield` and `erosion` stages. A Seed field
+with a re-roll button appears whenever the spec has noise.
 
-**Theme D — Viewer and parameter panel.** ◻ Not started. A lazy R3F viewport that fetches
-`build/heights.f32` over `mstudio-file://`, meshes chunks in the renderer with the shared kernel under
-a per-frame budget, picks LOD by distance, and stops its frame loop when hidden or blurred.
+**Theme D — Viewer and parameter panel.** ✅ Landed with C. The centre column is a lazy R3F viewport that fetches
+`build/heights.f32` and `build/chunks.json` over `mstudio-file://` (`?v=` the build's `lastBuild.at`), meshes chunks with the
+shared kernel at most four per frame nearest-first (`chunk-stream.ts`), draws the next-coarser cached LOD meanwhile, and swaps
+a rebuilt terrain in one frame. Orbit controls, **F** for fly mode (WASD, Q/E, Shift, drag), a time-of-day sun, a water plane at
+`seaLevel`, and a shading `IconSelect` (shaded, wireframe, height ramp, slope; land cover, splat and road mask are disabled with
+"Needs a satellite image" / "Needs a roads mask"). Resolution, world size and height range commit on blur or Enter, save the
+spec and re-bake; the stats readout shows counts, build time, height span, warnings and a live p50 Frame row. The frame loop
+stops when the page is hidden or the window blurred.
 
 **Theme E — Satellite: drape and alignment.** ◻ Not started. `TerrainAlignment` (offset, scale,
 rotation) per image, an onion-skin overlay, and a drape texture resampled in the worker to a chosen
@@ -426,7 +436,7 @@ refinement: the codec, the worker and the kernel are three separable PRs.
 
 Missing a heightmap is a question, not a silent default (user, 2026-10-04).
 
-- [ ] Generate with no heightmap attached shows a **warning dialog**: _"No heightmap attached — generate the shape from noise, or upload one?"_ It offers **Use noise**, **Upload heightmap…** and Cancel. There is no remembered default; it asks every time until a heightmap or noise params are saved on the spec
+- [x] Generate with no heightmap attached shows a **warning dialog**: _"No heightmap attached — generate the shape from noise, or upload one?"_ It offers **Use noise**, **Upload heightmap…** and Cancel. There is no remembered default; it asks every time until a heightmap or noise params are saved on the spec
   - Trigger: the dialog opens when `media.terrain.build` answers `{ok: true, value: {status: 'needs-height-source'}}`
     — the renderer never pre-decides, so UI and MCP share one rule (main's `needsHeightSource(spec)`:
     `!spec.inputs.heightmap && !spec.noise`).
@@ -435,7 +445,7 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
   - **Use noise** saves `noise: { kind: 'fbm', seed: <random 0–2³¹>, …defaults }` via `setSpec`, then
     re-runs Generate. **Upload heightmap…** opens the Heightmap slot's file picker (Decision 5's path) and
     offers **Generate from a prompt** as a second button. Cancel does nothing.
-- [ ] Noise generator in the kernel:
+- [x] Noise generator in the kernel:
   - fBm and ridged multifractal
   - seed, octaves, frequency, persistence and lacunarity
   - a radial island falloff toggle
@@ -448,7 +458,7 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
     — droplet model (inertia 0.05, capacity 4, deposition 0.3, erosion 0.3, evaporation 0.01, gravity 4,
     max lifetime 30 steps, brush radius 3). `iterations` is hard-capped at `500_000`; the worker emits
     `erosion` progress every 5 %.
-- [ ] **Upload** opens the heightmap slot's file picker. It also offers **Generate one from a prompt** through `image-service.ts`, asking for a top-down greyscale height map, then decoding and normalising the result like any upload
+- [x] **Upload** opens the heightmap slot's file picker. It also offers **Generate one from a prompt** through `image-service.ts`, asking for a top-down greyscale height map, then decoding and normalising the result like any upload
   - **Resolved: generate into the Images tab, then copy** (Decision 7). `terrain-set-input` with
     `{ slot: 'heightmap', prompt, provider, model }` calls `imageService.generate({ generationId, repoId, project: 'terrain-heightmaps', prompt: TERRAIN_HEIGHTMAP_PROMPT(prompt), provider, model, aspect: '1:1', count: 1 })`,
     then attaches `files[0]` exactly as an upload. The generated picture stays visible in Images.
@@ -457,10 +467,10 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
     black the lowest; square."_
   - The prompt dialog shows the provider and model pickers from the Images tab's own components; a
     provider with no key shows its `providerStatuses` reason and is disabled.
-- [ ] The noise params live on the spec, so a noise terrain is reproducible from its seed
+- [x] The noise params live on the spec, so a noise terrain is reproducible from its seed
   - A **Seed** number field with an `LuDices` "re-roll" `IconButton` appears in the panel whenever
     `spec.noise` is set; changing it re-runs Generate.
-- [ ] Vitest: the same seed gives the same field, erosion conserves sediment mass within tolerance, and Generate with no heightmap and no noise params returns the "needs a choice" result rather than building
+- [x] Vitest: the same seed gives the same field, erosion conserves sediment mass within tolerance, and Generate with no heightmap and no noise params returns the "needs a choice" result rather than building
   - `shared/src/terrain/noise.test.ts`: two `fbmField` calls with seed 7 are byte-identical; seeds 7 and 8 differ.
   - `shared/src/terrain/erosion.test.ts`: `|eroded − deposited| / eroded < 0.01` on a 129² fBm field
     with 10 000 iterations; `iterations: 1_000_000` is clamped to 500 000.
@@ -471,7 +481,7 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
 
 ## D — Viewer and parameter panel (M)
 
-- [ ] R3F viewport (centre column), lazily loaded like `model-viewer-lazy.tsx`, rendering the B chunks with distance-based LOD selection
+- [x] R3F viewport (centre column), lazily loaded like `model-viewer-lazy.tsx`, rendering the B chunks with distance-based LOD selection
   - `app/features/media/terrain/terrain-viewer-lazy.tsx` exports `LazyTerrainViewer(props)` wrapping
     `lazy(() => import('./terrain-viewer'))` in the same `ViewerBoundary` + `Suspense` pair.
   - **Resolved: the viewer reads build files, not IPC payloads** (Decision 3). It fetches
@@ -485,7 +495,7 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
     position; frustum culling uses `TerrainChunkInfo.centre/radius`.
   - Loading state: a centred `Spinner` with _"Loading terrain…"_ until `chunks.json` resolves; before any
     build the centre shows _"Nothing built yet. Attach images or choose noise, then Generate."_
-- [ ] Orbit and fly camera, a sun direction and time-of-day slider, and a water plane at `seaLevel`
+- [x] Orbit and fly camera, a sun direction and time-of-day slider, and a water plane at `seaLevel`
   - Camera: `OrbitControls` (drei) by default; **F** toggles fly mode (WASD + mouse-drag look, Shift ×4
     speed, Q/E down/up) while the canvas has focus. Keys are handled on the canvas element only; no
     `COMMANDS` entry (scope guardrail).
@@ -494,7 +504,7 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
     the spec (it is a viewing aid), kept in component state.
   - Water: a `planeGeometry` of `worldSize × 1.2` at `y = seaLevel`, `meshStandardMaterial` colour
     `#2a6f97`, opacity 0.7; absent when `seaLevel` is unset.
-- [ ] Debug shading modes in a compact `IconSelect`: shaded, wireframe, height ramp, slope, land cover (F), splat (F) and road mask (H)
+- [x] Debug shading modes in a compact `IconSelect`: shaded, wireframe, height ramp, slope, land cover (F), splat (F) and road mask (H)
   - `TERRAIN_SHADING_MODES = ['shaded', 'wireframe', 'height', 'slope', 'landcover', 'splat', 'roads'] as const`
     in `media-terrain.ts`; `IconSelect` from `components/icon-select.tsx` (the one `model-editor.tsx` uses).
     A mode whose map does not exist yet is shown disabled with the description _"Needs a satellite image"_ /
@@ -504,27 +514,27 @@ Missing a heightmap is a question, not a silent default (user, 2026-10-04).
   - The ramp colours are fixed hex stops (`#1d3557 → #457b9d → #a8dadc → #f1faee → #e9c46a → #8d6e63 → #ffffff`)
     so the debug views read the same in light and dark themes; the canvas background follows the app
     theme's `--background` token.
-- [ ] Changing the resolution, world size or height range re-bakes in the worker and swaps chunks without a blank frame
+- [x] Changing the resolution, world size or height range re-bakes in the worker and swaps chunks without a blank frame
   - Changing any of them saves the spec and starts a build; the viewer keeps rendering the current
     `heights.f32` until `mediaTerrainChanged` arrives with a new `revision`, then fetches the new files
     (URL carries `?v=<revision>` to defeat caching) and swaps the chunk cache in one frame.
   - Number fields commit on blur or Enter, not per keystroke (no build storm).
-- [ ] Stats readout: vertex and triangle counts, chunk count, build time, and the min and max height
+- [x] Stats readout: vertex and triangle counts, chunk count, build time, and the min and max height
   - `TerrainStatsReadout({ stats })` in the detail column renders `TerrainStats` fields as a two-column
     `dl`, plus a live **Frame** row: p50 frame time in ms over the last 120 frames, measured in a
     `useFrame` sampler (this is the number K records). `stats.warnings` render as a bulleted
     `text-amber-600 dark:text-amber-400` list under it.
-- [ ] The viewport idles when the window is blurred or the tab is hidden (the Phase 84 visibility gates)
+- [x] The viewport idles when the window is blurred or the tab is hidden (the Phase 84 visibility gates)
   - `<Canvas frameloop={visible && focused ? 'always' : 'never'}>` with `visible = usePageVisible()`
     ([`lib/use-page-visible.ts`](../../../packages/app/src/lib/use-page-visible.ts)) and
     `focused = useWindowFocused()` ([`lib/use-window-focus.ts`](../../../packages/app/src/lib/use-window-focus.ts));
     `'always'` (not `'demand'`) because LOD and fly mode need per-frame updates.
-- [ ] Vitest via the mock bridge: shading mode switching, re-bake on parameter change, and the stats readout
+- [x] Vitest via the mock bridge: shading mode switching, re-bake on parameter change, and the stats readout
   - `app/src/features/media/terrain/terrain-panel.bridge.test.tsx`: choosing `slope` in the shading
     `IconSelect` updates the viewer prop; committing Resolution 1025 calls `setSpec` then `build`; the
     readout shows `vertexCount` from the mocked stats; `landcover` is disabled without a satellite input.
     (The R3F canvas itself is mocked out in jsdom, as `model-tab.bridge.test.tsx` does.)
-- [ ] `TerrainViewer` frame-loop and streaming rules are unit-tested without WebGL
+- [x] `TerrainViewer` frame-loop and streaming rules are unit-tested without WebGL
   - `app/src/features/media/terrain/chunk-stream.ts` holds the pure queue (`nextChunksToMesh(camera, chunks, cache, budget = 4)`);
     `chunk-stream.test.ts` asserts nearest-first order, the budget cap, and coarser-LOD fallback.
 
