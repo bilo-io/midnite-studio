@@ -98,9 +98,9 @@ export const GIT_NAV_ITEMS: RailNavItem[] = [
   },
   {
     view: 'graph',
-    label: 'Graph',
+    label: 'Timeline',
     icon: VIEW_ICON.graph,
-    description: 'Commit graph, branches and worktrees',
+    description: 'Commit timeline, branches and worktrees',
   },
   {
     view: 'actions',
@@ -131,7 +131,7 @@ export const AGENT_NAV_ITEMS: RailNavItem[] = [
   },
   {
     view: 'workflows',
-    label: 'Workflows',
+    label: 'Graphs',
     icon: VIEW_ICON.workflows,
     description: 'Build and run node-based automations',
   },

@@ -114,7 +114,7 @@ describe('TitleBarNav Breadcrumbs', () => {
     it('is revealed on arrival and folded away after PAGE_LABEL_REVEAL_MS', () => {
       render(withProviders(<TitleBarNav />, client));
 
-      const label = screen.getByText('Graph');
+      const label = screen.getByText('Timeline');
       expect(label.className).toContain('breadcrumb-page-label');
       expect(label.dataset.revealed).toBe('true');
 
@@ -124,7 +124,7 @@ describe('TitleBarNav Breadcrumbs', () => {
 
       // Still in the accessibility tree — only its width is gone, which is what
       // lets hover bring it back without a re-render.
-      expect(screen.getByText('Graph').dataset.revealed).toBe('false');
+      expect(screen.getByText('Timeline').dataset.revealed).toBe('false');
     });
 
     it('re-reveals the label when the view changes', () => {
@@ -132,7 +132,7 @@ describe('TitleBarNav Breadcrumbs', () => {
       act(() => {
         vi.advanceTimersByTime(PAGE_LABEL_REVEAL_MS);
       });
-      expect(screen.getByText('Graph').dataset.revealed).toBe('false');
+      expect(screen.getByText('Timeline').dataset.revealed).toBe('false');
 
       act(() => {
         useUiStore.setState({ activeView: 'actions' });

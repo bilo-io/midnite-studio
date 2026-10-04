@@ -30,7 +30,7 @@ async function open(page: Page, data: MockFixtures = fixtures): Promise<void> {
   // Same pre-existing first-nav-click flakiness `councils.spec.ts` documents
   // (reproduces identically on this link) — retry rather than chase the race.
   await expect(async () => {
-    await clickRailLink(page, 'Workflows');
+    await clickRailLink(page, 'Graphs');
     await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 }

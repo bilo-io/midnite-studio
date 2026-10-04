@@ -321,7 +321,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   const reset = page.getByRole('button', { name: 'Reset' });
   await expect(reset).toHaveCount(1);
 
-  await clickRailLink(page, 'Graph');
+  await clickRailLink(page, 'Timeline');
   await openMidniteMenu(page);
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
@@ -337,7 +337,7 @@ test('switching the primary agent in Settings changes which binary and prefix th
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
   await page.getByRole('button', { name: 'Codex' }).click();
 
-  await clickRailLink(page, 'Graph');
+  await clickRailLink(page, 'Timeline');
   await openMidniteMenu(page);
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 

@@ -1,14 +1,13 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { VIEW_ICON, SETTINGS_PAGE_ICON } from '../nav-icons';
+import { SETTINGS_PAGE_ICON } from '../nav-icons';
 import { stepPath, WorkflowsIcon } from './workflows-icon';
 
 afterEach(cleanup);
 
 describe('WorkflowsIcon', () => {
-  it('is the Workflows mark in the rail and on its settings page', () => {
-    expect(VIEW_ICON.workflows).toBe(WorkflowsIcon);
+  it('is the Workflows mark on its settings page (the rail Graphs entry wears the former graph glyph)', () => {
     expect(SETTINGS_PAGE_ICON.workflows).toBe(WorkflowsIcon);
   });
 

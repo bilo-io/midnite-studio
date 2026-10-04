@@ -13,6 +13,7 @@ import {
   LuDownload,
   LuFolderTree,
   LuGauge,
+  LuGitCommitHorizontal,
   LuHistory,
   LuHouse,
   LuLayoutDashboard,
@@ -76,7 +77,9 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   search: LuSearch,
   tests: GoBeaker,
   database: LuDatabase,
-  graph: IoIosGitNetwork,
+  // Git ▸ Timeline wears the commit glyph; the old commit-graph mark
+  // (IoIosGitNetwork) moved to `workflows`, now labelled Graphs.
+  graph: LuGitCommitHorizontal,
   // Actions and Reviews wear GitHub's own Octicons — `play` and
   // `git-pull-request` — rather than the nearest
   // Lucide/Font-Awesome match, so the rail reads identically to github.com's
@@ -93,7 +96,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
-  workflows: WorkflowsIcon,
+  workflows: IoIosGitNetwork,
   // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.
   media: SiMagic,
   // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this

@@ -54,7 +54,7 @@ type PageRole = (typeof PAGE_ROLES)[number];
 
 /** The name the mark's own tooltip and label use, per `PAGE_ROLE_TITLE`. */
 const TITLE: Record<PageRole, string> = {
-  graph: 'Graph',
+  graph: 'Timeline',
   actions: 'Actions',
   files: 'File Explorer',
   database: 'DB Explorer',
@@ -69,7 +69,7 @@ const TITLE: Record<PageRole, string> = {
 
 /** The rail row each page is reached by in the main window. */
 const RAIL_LABEL: Record<PageRole, string> = {
-  graph: 'Graph',
+  graph: 'Timeline',
   actions: 'Actions',
   files: 'Explorer',
   database: 'Database',

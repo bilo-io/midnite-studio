@@ -325,7 +325,7 @@ export const COMMANDS = [
    * `repos.toggle`: you rarely need this while mid-command with the terminal
    * focused, and it must not conflict with the terminal's own Ctrl+G binding.
    */
-  { id: 'view.graph', label: 'Go to Graph', group: 'graph', chord: 'Mod+Shift+g' },
+  { id: 'view.graph', label: 'Go to Timeline', group: 'graph', chord: 'Mod+Shift+g' },
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
   /**
    * Kept as `status.focus` (a persisted keymap override names the id) and
