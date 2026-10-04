@@ -229,6 +229,21 @@ import {
   ModelSaveEditRequestSchema,
 } from '../media-model';
 import { ModelLibraryNodeSchema, ModelLibraryRequestSchema } from '../media-model-library';
+import {
+  TerrainBuildRequestSchema,
+  TerrainCancelRequestSchema,
+  TerrainChangedEventSchema,
+  TerrainExportRequestSchema,
+  TerrainOpenEventSchema,
+  TerrainPaintRequestSchema,
+  TerrainProgressEventSchema,
+  TerrainResultSchemas,
+  TerrainRoadKeyRequestSchema,
+  TerrainSetInputRequestSchema,
+  TerrainSetSpecRequestSchema,
+  TerrainTargetSchema,
+  TerrainLibraryRequestSchema,
+} from '../media-terrain';
 import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
@@ -3191,6 +3206,29 @@ export const MediaModelLibraryResponse = GitOpResultOf(
     skipped: z.number().int().nonnegative().optional(),
   }),
 );
+// Terrain (Phase 105)
+export const MediaTerrainLibraryRequest = TerrainLibraryRequestSchema;
+export const MediaTerrainLibraryResponse = TerrainResultSchemas.library;
+export const MediaTerrainGetRequest = TerrainTargetSchema;
+export const MediaTerrainGetResponse = TerrainResultSchemas.get;
+export const MediaTerrainSetSpecRequest = TerrainSetSpecRequestSchema;
+export const MediaTerrainSetSpecResponse = TerrainResultSchemas.setSpec;
+export const MediaTerrainSetInputRequest = TerrainSetInputRequestSchema;
+export const MediaTerrainSetInputResponse = TerrainResultSchemas.setInput;
+/** Resolves when the build ends: `built`, `needs-height-source`, or a failure (a cancel is `Build cancelled.`). */
+export const MediaTerrainBuildRequest = TerrainBuildRequestSchema;
+export const MediaTerrainBuildResponse = TerrainResultSchemas.build;
+export const MediaTerrainCancelRequest = TerrainCancelRequestSchema;
+export const MediaTerrainCancelResponse = TerrainResultSchemas.generic;
+export const MediaTerrainPaintRequest = TerrainPaintRequestSchema;
+export const MediaTerrainPaintResponse = TerrainResultSchemas.generic;
+export const MediaTerrainRoadKeyRequest = TerrainRoadKeyRequestSchema;
+export const MediaTerrainRoadKeyResponse = TerrainResultSchemas.generic;
+export const MediaTerrainExportRequest = TerrainExportRequestSchema;
+export const MediaTerrainExportResponse = TerrainResultSchemas.generic;
+export const MediaTerrainProgressPayload = TerrainProgressEventSchema;
+export const MediaTerrainChangedPayload = TerrainChangedEventSchema;
+export const MediaTerrainOpenPayload = TerrainOpenEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
 export const MediaModelOpenPayload = ModelOpenEventSchema;

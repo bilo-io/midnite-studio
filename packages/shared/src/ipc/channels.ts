@@ -924,6 +924,19 @@ export const CHANNELS = {
   mediaModelLibrary: 'mstudio:media:model-library',
   /** SF3D, the opt-in local image-to-3D tier — see `Sf3dRequestSchema`. Progress on `mediaModelSf3dProgress`. */
   mediaModelSf3d: 'mstudio:media:model-sf3d',
+  // Terrain (`main/media/terrain/`, Phase 105): library ops, spec, inputs, build. Progress on `mediaTerrainProgress`.
+  mediaTerrainLibrary: 'mstudio:media:terrain-library',
+  mediaTerrainGet: 'mstudio:media:terrain-get',
+  mediaTerrainSetSpec: 'mstudio:media:terrain-set-spec',
+  mediaTerrainSetInput: 'mstudio:media:terrain-set-input',
+  mediaTerrainBuild: 'mstudio:media:terrain-build',
+  mediaTerrainCancel: 'mstudio:media:terrain-cancel',
+  /** Theme F — the land-cover paint override. Answers "not available yet" until it lands. */
+  mediaTerrainPaint: 'mstudio:media:terrain-paint',
+  /** Theme H — pick the roads colour key. Answers "not available yet" until it lands. */
+  mediaTerrainRoadKey: 'mstudio:media:terrain-road-key',
+  /** Theme I — the terrain pack. Answers "not available yet" until it lands. */
+  mediaTerrainExport: 'mstudio:media:terrain-export',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1487,6 +1500,12 @@ export const EVENT_CHANNELS = {
   mediaModelOpen: 'mstudio:media:model-open',
   /** The SF3D install or a generation advanced — see `Sf3dProgressEventSchema`. */
   mediaModelSf3dProgress: 'mstudio:media:model-sf3d-progress',
+  /** A terrain build advanced — see `TerrainProgressEventSchema`. */
+  mediaTerrainProgress: 'mstudio:media:terrain-progress',
+  /** A terrain's spec or build changed (revision bump) — see `TerrainChangedEventSchema`. */
+  mediaTerrainChanged: 'mstudio:media:terrain-changed',
+  /** `terrain_open` (Theme J) asked the window to show a terrain — see `TerrainOpenEventSchema`. */
+  mediaTerrainOpen: 'mstudio:media:terrain-open',
   /** A chat turn's text or state advanced — see `ChatEventSchema`. */
   chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */

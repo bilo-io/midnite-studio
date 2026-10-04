@@ -1251,6 +1251,24 @@ export type MidniteStudioBridge = {
       /** `model_open` asked for a model to be shown. */
       onOpen: (handler: (event: z.infer<typeof S.MediaModelOpenPayload>) => void) => Unsubscribe;
     };
+    /** Terrain (Phase 105): a heightfield from up to three optional images, built in a utility process. */
+    terrain: {
+      library: (req: In<typeof S.MediaTerrainLibraryRequest>) => Promise<z.infer<typeof S.MediaTerrainLibraryResponse>>;
+      get: (req: In<typeof S.MediaTerrainGetRequest>) => Promise<z.infer<typeof S.MediaTerrainGetResponse>>;
+      setSpec: (req: In<typeof S.MediaTerrainSetSpecRequest>) => Promise<z.infer<typeof S.MediaTerrainSetSpecResponse>>;
+      /** Attach (as bytes — the renderer never names a path) or remove one of the three images. */
+      setInput: (req: In<typeof S.MediaTerrainSetInputRequest>) => Promise<z.infer<typeof S.MediaTerrainSetInputResponse>>;
+      /** Resolves when the build ends; progress arrives on `onProgress`. */
+      build: (req: In<typeof S.MediaTerrainBuildRequest>) => Promise<z.infer<typeof S.MediaTerrainBuildResponse>>;
+      cancel: (req: In<typeof S.MediaTerrainCancelRequest>) => Promise<GitOpResult>;
+      paint: (req: In<typeof S.MediaTerrainPaintRequest>) => Promise<GitOpResult>;
+      roadKey: (req: In<typeof S.MediaTerrainRoadKeyRequest>) => Promise<GitOpResult>;
+      export: (req: In<typeof S.MediaTerrainExportRequest>) => Promise<GitOpResult>;
+      onProgress: (handler: (event: z.infer<typeof S.MediaTerrainProgressPayload>) => void) => Unsubscribe;
+      onChanged: (handler: (event: z.infer<typeof S.MediaTerrainChangedPayload>) => void) => Unsubscribe;
+      /** `terrain_open` asked for a terrain to be shown. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaTerrainOpenPayload>) => void) => Unsubscribe;
+    };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
     export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;
