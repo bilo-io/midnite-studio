@@ -17,7 +17,6 @@ import {
 
 import { IconButton } from '../../../components/icon-button';
 import { IconSelect, type IconSelectOption } from '../../../components/icon-select';
-import { Tooltip } from '../../../components/tooltip';
 import { resolveKey, type UiCommand } from './editor-keys';
 import { canRedo, canUndo, isDirty, type EditorAction, type EditorState } from './editor-state';
 import { EditorScene, type MeasurePoints, type ShadeMode, type TransformMode } from './editor-scene';

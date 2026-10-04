@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { LuChevronDown } from 'react-icons/lu';
 
 import type { IconComponent } from './icon-button';

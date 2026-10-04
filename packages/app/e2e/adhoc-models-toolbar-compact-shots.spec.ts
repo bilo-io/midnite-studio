@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS, shotPath } from './shots-helper';
+import { fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS, shotPath } from './shots-helper';
 
 /** Media ▸ Models compact toolbar screenshots for the PR. Run with `MSTUDIO_SHOTS=1`. */
 const OUT = '../../docs/screenshots/adhoc-models-toolbar-compact';
