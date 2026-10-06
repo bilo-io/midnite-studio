@@ -71,6 +71,21 @@ export const ModelAttachmentSchema = z.object({
 });
 export type ModelAttachment = z.infer<typeof ModelAttachmentSchema>;
 
+/**
+ * What `model.json` says about a design's sculpt meshes (Phase 104): enough for a listing badge and a
+ * tooltip without opening the binaries. Summed over every `sculpt` part.
+ */
+export const ModelSculptSummarySchema = z.object({
+  parts: z.number().int().nonnegative(),
+  vertices: z.number().int().nonnegative(),
+  faces: z.number().int().nonnegative(),
+  /** The deepest multires level any sculpt part holds. */
+  multiresLevel: z.number().int().nonnegative(),
+  /** Whether any sculpt part carries painted or baked textures (Themes F/G; always false until then). */
+  hasTextures: z.boolean(),
+});
+export type ModelSculptSummary = z.infer<typeof ModelSculptSummarySchema>;
+
 export const ModelManifestSchema = z
   .object({
     version: z.literal(1),
@@ -89,7 +104,11 @@ export const ModelManifestSchema = z
       glb: z.string().optional(),
       /** The imported mesh an `asset` part draws (an SF3D result's `<stem>.asset.glb`). */
       asset: z.string().optional(),
+      /** The binary the first `sculpt` part draws (`<stem>.mesh.bin`). */
+      mesh: z.string().optional(),
     }),
+    /** Sculpt meshes, summarised from the design (`modelSculptSummary`); absent for a primitives-only design. */
+    sculpt: ModelSculptSummarySchema.optional(),
     createdAt: z.string().min(1),
     updatedAt: z.string().min(1).optional(),
     // Rigging and animation, summarised from the design (`modelRigSummary`). Read loosely: an older
@@ -177,6 +196,19 @@ export function modelRigSummary(spec: ModelSpec): ModelRigSummary {
   };
 }
 
+/** The `sculpt` slot of `model.json`, or `null` when the design has no sculpt part. */
+export function modelSculptSummary(spec: ModelSpec): ModelSculptSummary | null {
+  const sculpts = spec.parts.filter((part) => part.shape === 'sculpt');
+  if (sculpts.length === 0) return null;
+  return {
+    parts: sculpts.length,
+    vertices: sculpts.reduce((sum, part) => sum + (part.vertices ?? 0), 0),
+    faces: sculpts.reduce((sum, part) => sum + (part.triangles ?? 0), 0),
+    multiresLevel: Math.max(...sculpts.map((part) => part.multiresLevel ?? 0)),
+    hasTextures: false,
+  };
+}
+
 /**
  * The manifest for a sidecar. `previous` keeps what an earlier manifest knew and this build does not
  * (author, creation time, a renamed label, future `rig`/`anatomy`/`animations`), so a re-save never drops it.
@@ -201,12 +233,15 @@ export function buildModelManifest(input: {
   const fbx = file('fbx');
   const glb = file('glb');
   const asset = sidecar.spec.parts.find((part) => part.shape === 'asset');
+  const mesh = sidecar.spec.parts.find((part) => part.shape === 'sculpt');
+  const sculpt = modelSculptSummary(sidecar.spec);
   const label = sidecar.spec.name !== 'model' ? sidecar.spec.name : sidecar.prompt.slice(0, 60).trim() || sidecar.spec.name;
   // The rig slots always follow the design, so a removed rig does not linger from `previous`.
   const kept: Record<string, unknown> = { ...(previous ?? {}) };
   delete kept.anatomy;
   delete kept.rig;
   delete kept.animations;
+  delete kept.sculpt;
   return {
     ...kept,
     ...modelRigSummary(sidecar.spec),
@@ -219,7 +254,8 @@ export function buildModelManifest(input: {
       ? { attachment: { file: sidecar.reference, ...(sidecar.imageDescription ? { description: sidecar.imageDescription } : {}) } }
       : {}),
     details: computeModelDetails(sidecar.spec),
-    files: { ...(design ? { design } : {}), ...(obj ? { obj } : {}), ...(fbx ? { fbx } : {}), ...(glb ? { glb } : {}), ...(asset?.shape === 'asset' ? { asset: asset.src } : {}) },
+    files: { ...(design ? { design } : {}), ...(obj ? { obj } : {}), ...(fbx ? { fbx } : {}), ...(glb ? { glb } : {}), ...(asset?.shape === 'asset' ? { asset: asset.src } : {}), ...(mesh?.shape === 'sculpt' ? { mesh: mesh.src } : {}) },
+    ...(sculpt ? { sculpt } : {}),
     createdAt: previous?.createdAt ?? sidecar.createdAt,
     updatedAt: input.now.toISOString(),
   };
