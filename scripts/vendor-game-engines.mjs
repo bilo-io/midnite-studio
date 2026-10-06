@@ -48,7 +48,9 @@ export async function vendorGameEngines(destDir = defaultEnginesDir) {
   const threeDest = join(destDir, `three@${ENGINE_VERSIONS.three}`);
   await rm(threeDest, { recursive: true, force: true });
   await mkdir(threeDest, { recursive: true });
+  // three.module.js (r16x+) imports its shared core from a sibling `./three.core.js`.
   await cp(join(threeRoot, 'build', 'three.module.js'), join(threeDest, 'three.module.js'));
+  await cp(join(threeRoot, 'build', 'three.core.js'), join(threeDest, 'three.core.js'));
   await cp(join(threeRoot, 'examples', 'jsm'), join(threeDest, 'addons'), { recursive: true });
   await cp(join(threeRoot, 'LICENSE'), join(threeDest, 'LICENSE'));
   await cp(typesThreeRoot, join(threeDest, 'types'), { recursive: true });

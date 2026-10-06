@@ -21,15 +21,26 @@ export function createInput(bindings, options = {}) {
   const keys = new Set();
   /** @type {Set<'left' | 'right'>} */
   const buttons = new Set();
+  // Presses since the last sample: a tap shorter than one fixed step still counts once.
+  /** @type {Set<string>} */
+  const tapped = new Set();
   let lookX = 0;
   let lookY = 0;
 
   /** @param {Event} e */
-  const onKeyDown = (e) => keys.add(domKeyName(/** @type {KeyboardEvent} */ (e).code));
+  const onKeyDown = (e) => {
+    const name = domKeyName(/** @type {KeyboardEvent} */ (e).code);
+    keys.add(name);
+    tapped.add(`key:${name}`);
+  };
   /** @param {Event} e */
   const onKeyUp = (e) => keys.delete(domKeyName(/** @type {KeyboardEvent} */ (e).code));
   /** @param {Event} e */
-  const onMouseDown = (e) => buttons.add(/** @type {MouseEvent} */ (e).button === 2 ? 'right' : 'left');
+  const onMouseDown = (e) => {
+    const button = /** @type {MouseEvent} */ (e).button === 2 ? 'right' : 'left';
+    buttons.add(button);
+    tapped.add(`pointer:${button}`);
+  };
   /** @param {Event} e */
   const onMouseUp = (e) => buttons.delete(/** @type {MouseEvent} */ (e).button === 2 ? 'right' : 'left');
   /** @param {Event} e */
@@ -56,13 +67,18 @@ export function createInput(bindings, options = {}) {
   const pad = () => (typeof navigator.getGamepads === 'function' ? navigator.getGamepads().find(Boolean) ?? null : null);
 
   const map = createInputMap(bindings, {
-    isKeyDown: (name) => keys.has(name),
+    isKeyDown: (name) => keys.has(name) || tapped.has(`key:${name}`),
     isGamepadDown: (button) => pad()?.buttons[button]?.pressed ?? false,
-    isPointerDown: (button) => buttons.has(button),
+    isPointerDown: (button) => buttons.has(button) || tapped.has(`pointer:${button}`),
   });
 
   return {
     ...map,
+    /** Sample every action; call once per fixed step, before game logic. */
+    update() {
+      map.update();
+      tapped.clear();
+    },
     /**
      * Mouse-look since the last call, in pixels, plus the right stick
      * (scaled to roughly match) — the camera rigs drain this once per frame.

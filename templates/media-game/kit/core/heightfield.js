@@ -50,17 +50,22 @@ export function createHeightfield(samples, info) {
     heightRange: [min, max],
     heights,
     cell,
-    /** Bilinear height in metres at world `(x, z)`; clamped to the edge outside the terrain. */
+    /**
+     * Height in metres at world `(x, z)`, clamped to the edge outside the
+     * terrain. Each cell is split into two triangles along the diagonal from
+     * `(i + 1, j)` to `(i, j + 1)` — the same split as Rapier's heightfield
+     * collider, so a character placed at `heightAt` stands exactly on it.
+     */
     heightAt(x, z) {
       const fx = Math.min(last, Math.max(0, (x + half) / cell));
       const fz = Math.min(last, Math.max(0, (z + half) / cell));
       const i = Math.min(last - 1, Math.floor(fx));
       const j = Math.min(last - 1, Math.floor(fz));
-      const tx = fx - i;
-      const tz = fz - j;
-      const top = at(i, j) * (1 - tx) + at(i + 1, j) * tx;
-      const bottom = at(i, j + 1) * (1 - tx) + at(i + 1, j + 1) * tx;
-      return top * (1 - tz) + bottom * tz;
+      const u = fx - i;
+      const v = fz - j;
+      if (u + v <= 1) return at(i, j) + u * (at(i + 1, j) - at(i, j)) + v * (at(i, j + 1) - at(i, j));
+      const h11 = at(i + 1, j + 1);
+      return h11 + (1 - u) * (at(i, j + 1) - h11) + (1 - v) * (at(i + 1, j) - h11);
     },
   };
 }
