@@ -413,7 +413,7 @@ renderer, because that shares a process with the bridge.
     is false; main calls `view.setVisible(false)` and `webContents.setBackgroundThrottling(true)`. On
     window blur the view stays visible but throttled. Stop calls `webContents.close()` and drops the view,
     so no renderer process remains (asserted via `webContents.getAllWebContents()` in the e2e).
-- [~] Vitest (desktop, with fakes for `WebContentsView` and session): the scheme refuses traversal, symlinks and `.git`; the CSP header is present on every response; network is blocked when off; and the ring buffer is capped. An e2e boots a starter and reads its console, naming "real Chromium process and canvas" in the spec header
+- [ ] Vitest (desktop, with fakes for `WebContentsView` and session): the scheme refuses traversal, symlinks and `.git`; the CSP header is present on every response; network is blocked when off; and the ring buffer is capped. An e2e boots a starter and reads its console, naming "real Chromium process and canvas" in the spec header
   - **Partly landed:** all the vitest halves shipped; the real-Chromium `game-runner.spec.ts` e2e is deferred to Theme Q (it needs a starter that boots an engine).
   - `desktop/src/main/games/game-protocol.test.ts` (temp dir fixture: `../x`, `%2e%2e/x`, a symlinked
     file, `.git/config`, `.env` → 404; wrong host → 404; `.wasm` MIME; CSP and `nosniff` on 200 and 404);
