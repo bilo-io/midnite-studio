@@ -38,6 +38,7 @@ import { useWindowFocused } from '../../../lib/use-window-focus';
 import { CHUNK_MESH_BUDGET, lodToRender, nextChunksToMesh } from './chunk-stream';
 import { ClassBrushPalette, type BrushState } from './class-brush';
 import { createSplatMaterial } from './splat-material';
+import { TerrainLayers } from './terrain-layers';
 import type { TerrainViewerProps } from './terrain-viewer-lazy';
 import { useTerrainActions } from './use-terrain';
 
@@ -48,6 +49,7 @@ import { useTerrainActions } from './use-terrain';
  *
  * Theme E adds satellite drape rendering and interactive alignment with TransformControls and onion skin.
  * Theme F adds land-cover classification shading, splat material blending with distance fade, and class brush painting.
+ * Themes G + H add the road, building and foliage layers (`terrain-layers.tsx`), meshed from the build's JSON.
  */
 export const HEIGHT_RAMP = ['#1d3557', '#457b9d', '#a8dadc', '#f1faee', '#e9c46a', '#8d6e63', '#ffffff'] as const;
 const SLOPE_RAMP_MAX_DEG = 60;
@@ -109,21 +111,32 @@ function debugMaterial(mode: 'height' | 'slope', heightRange: readonly [number, 
   });
 }
 
+/**
+ * A raster from `build/`, written with image row = +z (`pixelToWorld`). Chunk UVs run v = gz / (res − 1),
+ * so the image must not be flipped: three's default `flipY` would mirror every drape, mask and land-cover
+ * map in z against the heightfield — and against roads.json, buildings.json and foliage.json (G + H).
+ */
+function buildTexture(url: string) {
+  const texture = new TextureLoader().load(url);
+  texture.flipY = false;
+  return texture;
+}
+
 function mapMaterial(url: string): MeshBasicMaterial {
-  const map = new TextureLoader().load(url);
+  const map = buildTexture(url);
   map.magFilter = NearestFilter;
   return new MeshBasicMaterial({ map, side: DoubleSide });
 }
 
 function drapeMaterial(url: string): MeshStandardMaterial {
-  const map = new TextureLoader().load(url);
+  const map = buildTexture(url);
   map.generateMipmaps = true;
   map.anisotropy = 16;
   return new MeshStandardMaterial({ map, roughness: 0.95, side: DoubleSide });
 }
 
 function landcoverMaterial(url: string): ShaderMaterial {
-  const map = new TextureLoader().load(url);
+  const map = buildTexture(url);
   map.magFilter = NearestFilter;
   map.minFilter = NearestFilter;
   const colours = TERRAIN_CLASSES.map((cls) => new Color(TERRAIN_CLASS_COLOURS[cls]));
@@ -503,8 +516,8 @@ export default function TerrainViewer({
     if (shading === 'height' || shading === 'slope') return debugMaterial(shading, range);
     if (shading === 'landcover') return landcoverMaterial(`${base}/landcover.png?v=${encodeURIComponent(version)}`);
     if (shading === 'splat') {
-      const splatMap = new TextureLoader().load(`${base}/splat.png?v=${encodeURIComponent(version)}`);
-      const drapeMap = spec.inputs.satellite ? new TextureLoader().load(`${base}/drape.png?v=${encodeURIComponent(version)}`) : null;
+      const splatMap = buildTexture(`${base}/splat.png?v=${encodeURIComponent(version)}`);
+      const drapeMap = spec.inputs.satellite ? buildTexture(`${base}/drape.png?v=${encodeURIComponent(version)}`) : null;
       const grassAlbedo = new TextureLoader().load(`${base}/materials/grass/albedo.png`);
       const rockAlbedo = new TextureLoader().load(`${base}/materials/rock/albedo.png`);
       const dirtAlbedo = new TextureLoader().load(`${base}/materials/dirt/albedo.png`);
@@ -589,6 +602,13 @@ export default function TerrainViewer({
   const el = sunElevation(timeOfDay);
   const sun: [number, number, number] = [Math.cos(el) * Math.sin(AZIMUTH) * size, Math.sin(el) * size, Math.cos(el) * Math.cos(AZIMUTH) * size];
   const lit = shading === 'shaded';
+  // Theme G + H layers: all of them over the shaded modes, the road network alone over the road mask.
+  const layerShow =
+    shading === 'shaded' || shading === 'splat' || shading === 'wireframe'
+      ? { roads: true, buildings: true, foliage: true }
+      : shading === 'roads'
+        ? { roads: true, buildings: false, foliage: false }
+        : null;
 
   const satelliteInput = spec.inputs.satellite;
   const satelliteUrl = satelliteInput ? mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/terrain/${project}/${terrain}/${satelliteInput.file}`) : null;
@@ -630,6 +650,9 @@ export default function TerrainViewer({
             <planeGeometry args={[size * 1.2, size * 1.2]} />
             <meshStandardMaterial color="#2a6f97" transparent opacity={0.7} />
           </mesh>
+        ) : null}
+        {!align && layerShow ? (
+          <TerrainLayers base={base} version={version} field={loaded.field} chunksPerSide={loaded.chunks.chunksPerSide} show={layerShow} />
         ) : null}
         {align && satelliteUrl ? (
           <OnionSkinQuad

@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { TERRAIN_BUILD_CANCELLED, TERRAIN_NOT_AVAILABLE, type TerrainStats } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { encodePngGrey16, encodePngRgba8 } from '../png/png-codec';
+import { decodePng, encodePngGrey16, encodePngRgba8 } from '../png/png-codec';
 import { createTerrainService, NOT_AN_IMAGE, notAvailableYet, type TerrainServiceDeps } from './terrain-service';
 import type { TerrainBroker, TerrainRunResult } from './terrain-broker';
 
@@ -335,6 +335,39 @@ describe('build', () => {
     expect(await stat(landcoverFile).then(() => true, () => false)).toBe(true);
     const landcoverBuf = await readFile(landcoverFile);
     expect(landcoverBuf.length).toBeGreaterThan(0);
+  });
+});
+
+describe('roadKey (Theme H)', () => {
+  /** 32² RGBA: a cyan band over rows 12–19 on black. */
+  const roadsPng = () => {
+    const data = new Uint8Array(32 * 32 * 4);
+    for (let y = 0; y < 32; y += 1) for (let x = 0; x < 32; x += 1) data.set(y >= 12 && y < 20 ? [0, 255, 255, 255] : [0, 0, 0, 255], (y * 32 + x) * 4);
+    return encodePngRgba8(data, 32, 32);
+  };
+
+  it('refuses without a roads mask', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    expect(await service.roadKey(target)).toEqual({ ok: false, kind: 'error', message: 'Attach a roads mask first.' });
+  });
+
+  it('previews the keyed mask at 512², detecting cyan, and picks a colour under the eyedropper', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    await service.setInput(attach(target, roadsPng(), 'roads'));
+    const keyed = await service.roadKey({ ...target, tolerance: 0.2 });
+    if (!keyed.ok) throw new Error(keyed.kind === 'error' ? keyed.message : keyed.kind);
+    expect(keyed.value.colour).toBe('#00ffff');
+    expect(keyed.value.detected).toBe('#00ffff');
+    const png = decodePng(Buffer.from(keyed.value.pngBase64, 'base64'));
+    if (!png.ok) throw new Error(png.message);
+    expect([png.image.width, png.image.height]).toEqual([512, 512]);
+    expect(png.image.data[256 * 512 + 10]).toBe(255); // the band, at mid-height
+    expect(png.image.data[10]).toBe(0);
+
+    const picked = await service.roadKey({ ...target, pick: [0.5, 0.05] });
+    expect(picked.ok && picked.value.colour).toBe('#000000');
   });
 });
 

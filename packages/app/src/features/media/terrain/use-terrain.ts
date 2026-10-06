@@ -1,4 +1,4 @@
-import type { ImageProviderId, TerrainBuildResult, TerrainGetResult, TerrainInputSlot, TerrainProgressEvent } from '@midnite/studio-shared';
+import type { ImageProviderId, TerrainBuildResult, TerrainGetResult, TerrainInputSlot, TerrainProgressEvent, TerrainRoadKeyResult } from '@midnite/studio-shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -145,5 +145,16 @@ export function useTerrainActions(repoId: string, ref: TerrainRef) {
     [invalidate, repoId, ref],
   );
 
-  return { buildId, building: buildId !== null, setSpec, attach, attachFromPrompt, remove, generate, cancel, paint };
+  /** Theme H: a live roads-mask preview (or, with `pick`, the eyedropper). Failures stay quiet — it is a preview. */
+  const roadKey = useCallback(
+    async (req: { colour?: string; tolerance?: number; pick?: [number, number] }): Promise<TerrainRoadKeyResult | null> => {
+      const api = bridge()?.media.terrain;
+      if (!api) return null;
+      const result = await api.roadKey({ repoId, ...ref, ...req });
+      return result.ok ? result.value : null;
+    },
+    [repoId, ref],
+  );
+
+  return { buildId, building: buildId !== null, setSpec, attach, attachFromPrompt, remove, generate, cancel, paint, roadKey };
 }
