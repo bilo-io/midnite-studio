@@ -33,7 +33,7 @@ describe('rts/astar.js', () => {
     // Straight along the top (4) then down the right edge (4): the diagonal through the
     // wall block is not allowed, so 8 orthogonal steps is optimal.
     expect(pathCost(path)).toBeCloseTo(8, 9);
-    for (const c of path) expect(GRID[c.y][c.x]).toBe(0);
+    for (const c of path) expect(GRID[c.y]![c.x]).toBe(0);
   });
 
   it('cuts corners only when both neighbours are open', async () => {
@@ -62,8 +62,8 @@ describe('rts/flow-field.js', () => {
     const { astar, pathCost } = await load('rts/astar.js');
     const field = flowField(GRID, { x: 4, y: 4 });
     for (let y = 0; y < GRID.length; y += 1) {
-      for (let x = 0; x < GRID[0].length; x += 1) {
-        if (GRID[y][x] === 1 || (x === 4 && y === 4)) continue;
+      for (let x = 0; x < GRID[0]!.length; x += 1) {
+        if (GRID[y]![x] === 1 || (x === 4 && y === 4)) continue;
         const d = field.dir[y][x];
         expect(d, `${x},${y}`).not.toBeNull();
         expect(field.cost[y + d.y][x + d.x]).toBeLessThan(field.cost[y][x]);
@@ -159,7 +159,7 @@ describe('arpg/loot.js', () => {
     const { createRng } = await loadCore('rng.js');
     const rng = createRng(1);
     const counts: Record<string, number> = { common: 0, magic: 0, rare: 0, unique: 0 };
-    for (let i = 0; i < 10_000; i += 1) counts[rollLoot(DEFAULT_TABLE, () => rng.next()).rarity] += 1;
+    for (let i = 0; i < 10_000; i += 1) counts[rollLoot(DEFAULT_TABLE, () => rng.next()).rarity]! += 1;
     for (const [rarity, weight] of Object.entries(RARITY_WEIGHTS) as [string, number][]) {
       expect(Math.abs((counts[rarity] ?? 0) / 100 - weight), rarity).toBeLessThanOrEqual(1);
     }
