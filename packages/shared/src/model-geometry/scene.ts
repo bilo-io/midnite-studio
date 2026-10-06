@@ -4,6 +4,8 @@ import {
   type ModelMaterial,
   type ModelPart,
   type ModelSpec,
+  isMeshFilePart,
+  type ModelMeshFilePart,
 } from '../media-model';
 import { modelAsset } from './assets';
 import { csg, CSG_MAX_TRIANGLES } from './csg';
@@ -197,10 +199,12 @@ export function semanticIssues(spec: ModelSpec): BuildIssue[] {
     const target = check('target', part.target);
     if (part.op && !isLeafShape(part)) issues.push({ path: `${at}.op`, message: `A ${part.shape} cannot be a boolean operand — give "op" to a solid part.` });
     if (part.op && part.shape === 'asset') issues.push({ path: `${at}.op`, message: 'An imported asset cannot be a boolean operand — its texture would not survive the cut.' });
+    if (part.op && part.shape === 'sculpt') issues.push({ path: `${at}.op`, message: 'A sculpt mesh cannot be a boolean operand — sculpted detail would not survive the cut.' });
     if (target !== null && target !== i) {
       const t = parts[target]!;
       if (!isLeafShape(t) || t.op) issues.push({ path: `${at}.target`, message: `"${t.name}" is not a solid part a boolean can apply to.` });
       else if (t.shape === 'asset') issues.push({ path: `${at}.target`, message: `"${t.name}" is an imported asset — booleans cannot cut it.` });
+      else if (t.shape === 'sculpt') issues.push({ path: `${at}.target`, message: `"${t.name}" is a sculpt mesh — booleans cannot cut it.` });
     }
     if (part.shape === 'instance') {
       const source = check('source', part.source);
@@ -242,10 +246,11 @@ export type LocalPart = { mesh: RawMesh; issues: string[]; uvs?: number[]; textu
  * An `asset` part's mesh from the registry, as the file has it — modifiers are not applied (they would
  * re-tessellate and lose the texture's coordinates). Unregistered: no geometry and an issue saying so.
  */
-function buildAssetLocal(part: Extract<ModelPart, { shape: 'asset' }>): LocalPart {
+function buildAssetLocal(part: ModelMeshFilePart): LocalPart {
   const asset = modelAsset(part.hash);
-  if (!asset) return { mesh: { positions: [], normals: [], indices: [] }, issues: [`Imported mesh "${part.src}" is not loaded — the file is missing or has changed since it was imported.`] };
-  const issues = (part.modifiers ?? []).some((m) => m.enabled !== false) ? ['Modifiers do not apply to an imported mesh; they were skipped.'] : [];
+  const what = part.shape === 'sculpt' ? 'Sculpt mesh' : 'Imported mesh';
+  if (!asset) return { mesh: { positions: [], normals: [], indices: [] }, issues: [`${what} "${part.src}" is not loaded — the file is missing or has changed since it was ${part.shape === 'sculpt' ? 'saved' : 'imported'}.`] };
+  const issues = (part.modifiers ?? []).some((m) => m.enabled !== false) ? [`Modifiers do not apply to ${part.shape === 'sculpt' ? 'a sculpt' : 'an imported'} mesh; they were skipped.`] : [];
   return {
     mesh: { positions: asset.positions, normals: asset.normals, indices: asset.indices },
     issues,
@@ -256,7 +261,7 @@ function buildAssetLocal(part: Extract<ModelPart, { shape: 'asset' }>): LocalPar
 
 /** A part's own mesh in its own space: shape → modifiers → normals. `null` for group/instance. */
 export function buildPartLocal(part: ModelPart): LocalPart | null {
-  if (part.shape === 'asset') return buildAssetLocal(part);
+  if (isMeshFilePart(part)) return buildAssetLocal(part);
   const raw = buildLocalMesh(part);
   if (!raw) return null;
   const active = (part.modifiers ?? []).filter((m) => m.enabled !== false);
@@ -342,7 +347,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       }
       return;
     }
-    if (part.op && part.shape !== 'asset') {
+    if (part.op && !isMeshFilePart(part)) {
       tools.push(i);
       return;
     }
@@ -393,7 +398,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
     const mine = toolsOf.get(draw.owner);
     let mesh = worldMesh(draw);
     if (!mesh || mesh.indices.length === 0) continue;
-    if (mine && draw.owner === draw.geometry && draw.part.shape !== 'asset') {
+    if (mine && draw.owner === draw.geometry && !isMeshFilePart(draw.part)) {
       let soup: Soup = soupOf(mesh);
       for (const t of mine) {
         const tool = parts[t]!;
@@ -411,7 +416,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       mesh = dropDegenerate(smoothNormals(soup, draw.part.smoothAngle ?? BOOLEAN_ANGLE));
     }
     // An imported mesh is as dense as it was made; the per-part cap guards modifier stacks, not files.
-    const imported = draw.part.shape === 'asset' ? localPart(draw.geometry) : null;
+    const imported = isMeshFilePart(draw.part) ? localPart(draw.geometry) : null;
     if (!imported && triangleCount(mesh) > MODEL_MAX_PART_TRIANGLES) {
       issues.push({ path: `parts[${draw.owner}]`, message: `Part has ${triangleCount(mesh)} triangles; the limit is ${MODEL_MAX_PART_TRIANGLES}.` });
     }

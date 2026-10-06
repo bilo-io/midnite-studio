@@ -945,6 +945,8 @@ export const CHANNELS = {
   mediaModelSaveEdit: 'mstudio:media:model-save-edit',
   /** The Models library (folders, groups, model.json) — see `ModelLibraryRequestSchema`. */
   mediaModelLibrary: 'mstudio:media:model-library',
+  /** Sculpt meshes (Phase 104 Theme A) — `ModelMeshRequestSchema`'s `op` union over `.mesh.bin` + `.ops.jsonl`. */
+  mediaModelMesh: 'mstudio:media:model-mesh',
   /** SF3D, the opt-in local image-to-3D tier — see `Sf3dRequestSchema`. Progress on `mediaModelSf3dProgress`. */
   mediaModelSf3d: 'mstudio:media:model-sf3d',
   // Terrain (`main/media/terrain/`, Phase 105): library ops, spec, inputs, build. Progress on `mediaTerrainProgress`.

@@ -55,7 +55,9 @@ export {
   clearModelAssets,
   hasModelAsset,
   MODEL_ASSET_CACHE_LIMIT,
+  meshBinToAsset,
   missingModelAssets,
+  missingSculptMeshes,
   modelAsset,
   modelAssetBounds,
   modelAssetEpoch,
@@ -63,6 +65,7 @@ export {
   modelAssetPath,
   parseGlbMesh,
   registerModelAsset,
+  registerSculptMesh,
   subscribeModelAssets,
   type ModelAssetMesh,
   type ModelAssetTexture,
@@ -94,3 +97,4 @@ export {
 export { bakeClip, boneNamesFor, CLIP_BAKE_FPS, retargetClips, samplePose, type BakedClip } from './clips';
 export { RIG_EXAMPLE_BIPED, RIG_EXAMPLE_QUADRUPED, RIG_EXAMPLE_VEHICLE } from './rig-examples';
 export { applyClipOps, applyRigOps, copyClips, setAnatomy, type RigEditIssue, type RigEditOutcome } from './rig-ops';
+export * from './mesh';

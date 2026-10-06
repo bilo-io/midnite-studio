@@ -8,6 +8,12 @@ Six playable perspective base starters, the perspective × genre validity matrix
 - [x] Bases: platformer, top-down, isometric, raycaster, first person, third person (five cameras), each with a smoke replay and `ASSETS.md`.
 - [x] `GAME_TEMPLATE_MATRIX`, `starterId`/`isValidStarter`, `composeStarter`, `GameGallery` with refusal reasons and camera picker; vitest across all of it.
 - [ ] Real-Chromium `game-starters.spec.ts` (Theme Q); genre cells (Themes H-J).
+## 2026-10-06 — Phase 104 Theme A — Mesh core and storage
+
+Sculpt-mesh foundation: `EditableMesh` with CSR adjacency and dirty-region normals, a refittable triangle BVH, the versioned and checksummed `.mesh.bin`, the capped `.ops.jsonl` op log, an optional `sculpt` part on `ModelSpecSchema`, the `mstudio:media:model-mesh` channel in main, a `model.json` sculpt summary, and a renderer Web Worker that owns the live mesh and posts transferable deltas the display uploads with `addUpdateRange`. PR: see the pull request.
+
+- [x] EditableMesh, BVH, sculpt part, `.mesh.bin`, op log, sculpt worker, partial attribute updates, `model.json` summary, vitest.
+- [ ] Brushes (D), conversion (B), MCP tools (E); a 1M-vertex sculpt still hits the 400k scene-triangle cap through `buildScene`.
 
 ## 2026-10-06 — Phase 106 Themes A + C — Sprites tab, method picker
 

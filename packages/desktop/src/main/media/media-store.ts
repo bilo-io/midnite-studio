@@ -270,6 +270,19 @@ export function createMediaStore(deps: MediaStoreDeps) {
       }
     },
 
+    /** Raw bytes, no base64 round-trip — a sculpt mesh is tens of megabytes. */
+    async readBytes(scope: Scope & { project: string; path: string }): Promise<GitOpResult<Buffer>> {
+      const root = await tabRoot(scope, false);
+      if (isResult(root)) return failure('File not found.');
+      const target = await confineToRoot(root, `${scope.project}/${scope.path}`);
+      if (target === null) return failure('File not found.');
+      try {
+        return ok(await readFile(target));
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : String(error));
+      }
+    },
+
     async writeFile(
       scope: Scope & { project: string; path: string; content: string; encoding: 'utf8' | 'base64' },
     ): Promise<GitOpResult<{ size: number; largeFile: boolean }>> {

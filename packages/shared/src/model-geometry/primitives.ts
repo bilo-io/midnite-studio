@@ -557,6 +557,7 @@ export function buildLocalMesh(part: ModelPart): RawMesh | null {
     case 'group':
     case 'instance':
     case 'asset':
+    case 'sculpt':
       return null;
   }
 }

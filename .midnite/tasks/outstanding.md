@@ -538,3 +538,16 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **`game-starters.spec.ts` (real Chromium) for the six bases and for `rts@isometric` / `rpg@first-person`** moves to Theme Q. The bases were verified by hand in SwiftShader Chromium; a committed spec needs Q's e2e budget raise.
 - **Gallery thumbnails are glyphs, not PNGs.** The plan's `templates/media-game/thumbnails/<id>.png` plus a `gamesThumbnail` channel was not built; revisit once the genres have something worth a picture.
 - **`playtests/smoke.json` is a provisional shape** (`input` / `assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`); Theme O defines the real replay schema and should migrate the six files.
+## Phase 104 · Theme A — mesh core and storage
+
+- **The scene triangle cap still applies to sculpt parts.** `buildScene` stops at
+  `MODEL_MAX_SCENE_TRIANGLES` (400k) for every part, imported or sculpted, so a ~1M-vertex sculpt is
+  dropped from exports, previews and the editor's ordinary scene. Theme D's sculpt mode draws from the
+  worker's own `BufferGeometry` (`sculpt-display.ts`) and does not need it, but the exporters and
+  previews do: raise or exempt the cap for `sculpt` parts when Theme F's decimate lands, so a dense
+  sculpt exports at its decimated resolution rather than not at all.
+- **Embedded `.glb` storage was not built.** The phase allowed `<stem>.mesh.bin` *or* an embedded
+  `.glb`; only `.mesh.bin` exists. Revisit only if Theme F/G's textures want to live in one file.
+- **The worker's `displace` request is a placeholder.** It pushes vertices along their normals with a
+  smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
+  replaces it.
