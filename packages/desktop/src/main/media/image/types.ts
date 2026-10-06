@@ -12,6 +12,11 @@ export type ImageAdapterRequest = {
   aspect: ImageAspect;
   count: number;
   seed?: number | undefined;
+  /**
+   * Ask for a real transparent background (Phase 106 Theme B). Only OpenAI honours it; every other
+   * adapter ignores it and the sprite pipeline keys a chroma background instead.
+   */
+  transparent?: boolean | undefined;
 };
 
 export type GeneratedImage = { bytes: Buffer; mime: string };

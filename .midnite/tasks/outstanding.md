@@ -532,6 +532,12 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   model's geometry at build time and in the viewer (`terrain-layers.tsx`), and the picker itself in the
   panel's Foliage section (`terrain-feature-sections.tsx`).
 
+- **Phase 106 Theme B — `transparent` stops at the adapter seam.** `ImageAdapterRequest.transparent`
+  and OpenAI's `background: 'transparent'` landed with the frame pipeline, but `ImageGenerateRequest`
+  (the Images tab's wire request) has no such field and `image-service.ts` never sets it. The sprite
+  frame sources (Themes D/F) call the adapter with it set; the Images tab gets a "transparent
+  background" toggle only if someone asks for one.
+
 ## Phase 107 · Themes G + K — deferred pieces
 
 - **Genre cells are not creatable yet.** `GAME_GENRES_AVAILABLE` in `shared/src/media-game-templates.ts` is empty; Themes H-J add `templates/media-game/genres/<genre>/` and list each genre there. Until then every genre cell in the gallery reads "Not available yet", and `compose.test.ts` loops over only the six bases (it picks up genre ids as they become available).

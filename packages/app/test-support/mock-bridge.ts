@@ -3854,7 +3854,7 @@ export function buildMockBridge(data: MockFixtures) {
             if (!spec) return missing;
             // The real service parses through the zod schema; the mock fills the defaults the UI reads.
             const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
-            return { ok: true as const, value: { spec: filled, frames: { version: 1, frames: {} }, report: filled.lastReport ?? null } };
+            return { ok: true as const, value: { spec: filled, frames: { version: 1, frames: {}, referenceHeights: {} }, report: filled.lastReport ?? null } };
           },
           setSpec: async (req: Spec) => {
             const spec = read(req.group, req.asset);

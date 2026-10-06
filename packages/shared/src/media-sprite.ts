@@ -201,7 +201,11 @@ export function spriteGroupOf(spec: Pick<SpriteAssetSpec, 'kind'> & { category?:
 
 // --- frames file -------------------------------------------------------------
 
-export const SPRITE_BADGES = ['low-score', 'off-anchor', 'bad-key', 'duplicate', 'failed'] as const;
+/**
+ * Frame badges. `empty`, `clipped`, `height` and `drift` come from the frame pipeline (Theme B);
+ * `inconsistent`/`unchecked` from the consistency check (D); `grid` from one-shot slicing (F).
+ */
+export const SPRITE_BADGES = ['empty', 'clipped', 'height', 'drift', 'inconsistent', 'unchecked', 'grid'] as const;
 export const SpriteBadgeSchema = z.enum(SPRITE_BADGES);
 export type SpriteBadge = z.infer<typeof SpriteBadgeSchema>;
 
@@ -218,6 +222,11 @@ export const SpriteFramesFileSchema = z.object({
   version: z.literal(1).default(1),
   /** Keyed `<clip>/<dir>/<n>`. */
   frames: z.record(SpriteFrameMetaSchema).default({}),
+  /**
+   * Per direction, the alpha-bounds height (source pixels) of the reference frame that set the sheet's
+   * scale (Theme B). Kept so regenerating one clip scales it exactly like the frames already on disk.
+   */
+  referenceHeights: z.record(z.number().positive()).default({}),
 });
 export type SpriteFramesFile = z.infer<typeof SpriteFramesFileSchema>;
 
