@@ -25,6 +25,7 @@ import { canRedo, canUndo, isDirty, type EditorAction, type EditorState } from '
 import { EditorScene, type MeasurePoints, type ShadeMode, type TransformMode } from './editor-scene';
 import { DEFAULT_LIGHTING, LIGHTING_PRESETS, lightingById } from './lighting';
 import { ModelInspector } from './model-inspector';
+import type { ConvertFn } from './mesh-panel';
 import { RigOverlay } from './rig-overlay';
 import { clipNamed, poseAt, posedScene, rigModel } from './rig-pose';
 import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
@@ -73,6 +74,7 @@ export default function ModelEditor({
   onSave,
   saving,
   retargetSources,
+  onConvert,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
@@ -80,6 +82,8 @@ export default function ModelEditor({
   saving: boolean;
   /** Other rigged models in the library, for the Animation tab's Retarget. */
   retargetSources?: readonly RetargetSource[];
+  /** Voxel-remeshes the design's primitives into a `sculpt` part (Phase 104 Theme B). */
+  onConvert?: ConvertFn;
 }) {
   const [mode, setMode] = useState<TransformMode>('translate');
   const [shade, setShade] = useState<ShadeMode>('solid');
@@ -323,6 +327,7 @@ export default function ModelEditor({
         state={state}
         dispatch={dispatch}
         issues={errors}
+        {...(onConvert ? { onConvert } : {})}
         rig={{ view: rigView, onView: onRigView, model: rigged, scene, ...(retargetSources ? { sources: retargetSources } : {}) }}
       />
     </div>

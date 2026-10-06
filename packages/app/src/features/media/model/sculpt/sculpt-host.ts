@@ -1,4 +1,4 @@
-import { Bvh, decodeMeshBin, EditableMesh, encodeMeshBin } from '@midnite/studio-shared';
+import { Bvh, decodeMeshBin, EditableMesh, encodeMeshBin, voxelRemesh } from '@midnite/studio-shared';
 
 import type { SculptRequest, SculptResponse } from './sculpt-protocol';
 
@@ -66,6 +66,14 @@ export function createSculptHost(post: Post): (message: SculptRequest) => void {
           if (!mesh) return fail(message.id, 'No sculpt mesh is loaded.');
           const bytes = encodeMeshBin({ positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, multiresLevel, ...(groups ? { groups } : {}) });
           post({ type: 'serialized', id: message.id, bytes: bytes.buffer as ArrayBuffer, vertices: mesh.vertexCount, triangles: mesh.faceCount }, [bytes.buffer as ArrayBuffer]);
+          return;
+        }
+        case 'remesh': {
+          const out = voxelRemesh({ positions: message.positions, indices: message.indices, groups: message.groups }, message.options);
+          post(
+            { type: 'remeshed', id: message.id, positions: out.positions, indices: out.indices, groups: out.groups, voxelSize: out.voxelSize, coarsened: out.coarsened },
+            [out.positions.buffer, out.indices.buffer, out.groups.buffer],
+          );
           return;
         }
         case 'dispose':

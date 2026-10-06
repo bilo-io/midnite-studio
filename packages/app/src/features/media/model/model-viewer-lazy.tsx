@@ -1,4 +1,5 @@
 import type { RetargetSource } from './clip-panel';
+import type { ConvertFn } from './mesh-panel';
 import { Component, type Dispatch, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
@@ -61,6 +62,7 @@ export function LazyModelEditor(props: {
   onSave: () => void;
   saving: boolean;
   retargetSources?: readonly RetargetSource[];
+  onConvert?: ConvertFn;
 }) {
   return (
     <ViewerBoundary>

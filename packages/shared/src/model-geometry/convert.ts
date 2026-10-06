@@ -3,7 +3,7 @@ import { modelAssetHash } from './assets';
 import { EditableMesh } from './mesh/editable-mesh';
 import { encodeMeshBin, MESH_GROUP_NONE } from './mesh/mesh-bin';
 import type { ModelOpEntry } from './mesh/ops-log';
-import { RemeshError, voxelRemesh, type RemeshOptions } from './mesh/voxel-remesh';
+import { RemeshError, voxelRemesh, type RemeshOptions, type RemeshResult } from './mesh/voxel-remesh';
 import { buildSceneChecked, descendantIndices, indexParts, resolveRef } from './scene';
 
 /**
@@ -62,7 +62,19 @@ const uniqueName = (parts: readonly ModelPart[], base: string): string => {
   }
 };
 
-export function convertToSculptMesh(input: ModelSpec, options: ConvertOptions = {}): ConvertResult {
+/** Everything a conversion needs before the (expensive) remesh: the merged world-space soup and what to hide afterwards. */
+export type ConversionPlan = {
+  /** The design with an id on every part. */
+  spec: ModelSpec;
+  /** World-space triangles of the chosen parts, merged. */
+  soup: { positions: Float64Array; indices: Uint32Array; groups: Uint16Array };
+  groupTable: ConvertGroup[];
+  sourceIds: string[];
+  warnings: string[];
+};
+
+/** Resolves the selection and merges the kernel's scene into one soup — cheap, so the caller can do it anywhere; the remesh is {@link voxelRemesh}. */
+export function planConversion(input: ModelSpec, options: Pick<ConvertOptions, 'parts'> = {}): { ok: true; plan: ConversionPlan } | { ok: false; error: string } {
   // Give every part an id first, so sources can be named and hidden by id.
   const used = new Set<string>();
   const parts = input.parts.map((part) => {
@@ -103,7 +115,7 @@ export function convertToSculptMesh(input: ModelSpec, options: ConvertOptions = 
   }
   const positions = new Float64Array(vertexTotal);
   const indices = new Uint32Array(indexTotal);
-  const triGroups = new Uint16Array(indexTotal / 3);
+  const groups = new Uint16Array(indexTotal / 3);
   let vAt = 0;
   let iAt = 0;
   for (const p of solid) {
@@ -111,26 +123,16 @@ export function convertToSculptMesh(input: ModelSpec, options: ConvertOptions = 
     if (group === undefined) {
       group = groupTable.length;
       groupOf.set(p.sourceIndex, group);
-      const source = parts[p.sourceIndex]!;
-      groupTable.push({ name: source.name, color: p.color });
+      groupTable.push({ name: parts[p.sourceIndex]!.name, color: p.color });
     }
     const base = vAt / 3;
     positions.set(p.positions, vAt);
     for (let i = 0; i < p.indices.length; i += 1) indices[iAt + i] = base + p.indices[i]!;
-    triGroups.fill(group, iAt / 3, (iAt + p.indices.length) / 3);
+    groups.fill(group, iAt / 3, (iAt + p.indices.length) / 3);
     vAt += p.positions.length;
     iAt += p.indices.length;
   }
   if (groupTable.length >= MESH_GROUP_NONE) return { ok: false, error: 'Too many parts to keep as vertex groups.' };
-
-  let remeshed;
-  try {
-    remeshed = voxelRemesh({ positions, indices, groups: triGroups }, options);
-  } catch (error) {
-    if (error instanceof RemeshError) return { ok: false, error: error.message };
-    throw error;
-  }
-  if (remeshed.coarsened) warnings.push(`The voxel size was raised to ${remeshed.voxelSize.toFixed(4)} to keep the grid within its cap; the mesh is coarser than asked.`);
   if (spec.rig && (spec.rig.bones?.length ?? 0) > 0) warnings.push('The design is rigged: the converted mesh is skinned by nearest bone, so re-check the weights (explicit `rig.bind` entries applied to the primitives).');
 
   // Hide every part the mesh stands in for, including boolean tools that were consumed by a selected part.
@@ -141,18 +143,37 @@ export function convertToSculptMesh(input: ModelSpec, options: ConvertOptions = 
     if (target !== null && selected.has(target)) sourceSet.add(i);
   });
   const sourceIds = [...sourceSet].sort((a, b) => a - b).map((i) => parts[i]!.id!);
+  return { ok: true, plan: { spec, soup: { positions, indices, groups }, groupTable, sourceIds, warnings } };
+}
+
+/** The plan plus its remeshed surface, as one {@link ConvertResult}. */
+export function finishConversion(plan: ConversionPlan, remeshed: Pick<RemeshResult, 'positions' | 'indices' | 'groups' | 'voxelSize' | 'coarsened'>): Extract<ConvertResult, { ok: true }> {
+  const warnings = [...plan.warnings];
+  if (remeshed.coarsened) warnings.push(`The voxel size was raised to ${remeshed.voxelSize.toFixed(4)} to keep the grid within its cap; the mesh is coarser than asked.`);
   return {
     ok: true,
-    spec,
+    spec: plan.spec,
     positions: remeshed.positions,
     indices: remeshed.indices,
     groups: remeshed.groups,
-    groupTable,
-    sourceIds,
+    groupTable: plan.groupTable,
+    sourceIds: plan.sourceIds,
     voxelSize: remeshed.voxelSize,
     coarsened: remeshed.coarsened,
     warnings,
   };
+}
+
+/** Plan, remesh and finish in one synchronous call (main, tests); the editor runs the remesh in a worker instead. */
+export function convertToSculptMesh(input: ModelSpec, options: ConvertOptions = {}): ConvertResult {
+  const planned = planConversion(input, options);
+  if (!planned.ok) return planned;
+  try {
+    return finishConversion(planned.plan, voxelRemesh(planned.plan.soup, options));
+  } catch (error) {
+    if (error instanceof RemeshError) return { ok: false, error: error.message };
+    throw error;
+  }
 }
 
 export type ConvertedFile = { src: string; hash: string; vertices: number; triangles: number };
