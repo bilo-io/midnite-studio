@@ -7,6 +7,13 @@ Convert a design (or a selection) to one watertight `sculpt` part: a voxel remes
 
 - [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
 
+## 2026-10-06 — Phase 107 Themes G + K — Perspective bases and the template gallery
+
+Six playable perspective base starters, the perspective × genre validity matrix, `composeStarter`, and the create panel's gallery. Genre cells render as not-yet-available until Themes H-J. PR: see the pull request.
+
+- [x] Bases: platformer, top-down, isometric, raycaster, first person, third person (five cameras), each with a smoke replay and `ASSETS.md`.
+- [x] `GAME_TEMPLATE_MATRIX`, `starterId`/`isValidStarter`, `composeStarter`, `GameGallery` with refusal reasons and camera picker; vitest across all of it.
+- [ ] Real-Chromium `game-starters.spec.ts` (Theme Q); genre cells (Themes H-J).
 ## 2026-10-06 — Phase 104 Theme A — Mesh core and storage
 
 Sculpt-mesh foundation: `EditableMesh` with CSR adjacency and dirty-region normals, a refittable triangle BVH, the versioned and checksummed `.mesh.bin`, the capped `.ops.jsonl` op log, an optional `sculpt` part on `ModelSpecSchema`, the `mstudio:media:model-mesh` channel in main, a `model.json` sculpt summary, and a renderer Web Worker that owns the live mesh and posts transferable deltas the display uploads with `addUpdateRange`. PR: see the pull request.

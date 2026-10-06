@@ -187,8 +187,7 @@ copy, so every 3D game 404'd. `GAME_KIT_VERSION` is 0.3.0. Tested in `kit-core-t
 Rapier heightfield checked against `heightAt`) and smoke-tested in SwiftShader Chromium on a synthetic terrain pack (third
 person, first person, camera cycling, driving, the nav path); rendering e2e stays with Theme Q.
 
-**Theme G — Perspective base starters.** ◻ Not started. Six bases under `templates/media-game/bases/`,
-each with a smoke replay and CC0 art listed in `ASSETS.md`.
+**Theme G — Perspective base starters.** ✅ Landed. Six bases under `templates/media-game/bases/` (`platformer`, `top-down`, `isometric`, `raycaster`, `first-person`, `third-person`), each a minimal playable level on the Theme E/F kit: a player, one hazard or enemy, placeholder art drawn in code (so `ASSETS.md` is an empty table and `assets/index.json` an empty index, ready for the asset bridge), a `src/genre/index.js` seam a genre module replaces, and `playtests/smoke.json`. The 3D arena is a Rapier ground, three boxes, a ramp and a door that opens on `interact`; animation states are reported in `getState()` until a Models asset supplies clips. All six verified in real Chromium. Tested through `compose.test.ts`.
 
 **Theme H — 2D genre starters.** ◻ Not started. FPS, RTS, ARPG, top-down crime as genre modules with
 named engine-free systems under `kit/core/genre/`.
@@ -199,9 +198,7 @@ fighter's `versus` camera is a sixth rig, outside the five third-person presets.
 **Theme J — 3D genre starters, part two: RPG, character action, open world.** ◻ Not started. Open world
 lands last, on a fixture Phase 105 terrain, routing on `roads.json`.
 
-**Theme K — Template gallery: the perspective × genre matrix.** ◻ Not started. `GAME_TEMPLATE_MATRIX`
-in `shared/src/media-game-templates.ts` is the validity table; `composeStarter` writes one copy of each
-system; the gallery disables invalid cells with their reason.
+**Theme K — Template gallery: the perspective × genre matrix.** ✅ Landed, genre cells pending H-J. `GAME_TEMPLATE_MATRIX`, `starterId`, `parseStarterId`, `isValidStarter` (the matrix's refusal reasons) and `isStarterAvailable` live in `shared/src/media-game-templates.ts`. `composeStarter` (`main/games/compose.ts`) writes `common/` + `kit/core` + the one engine's kit + the base + the genre module when present, then `src/game.config.js`; `createGame` calls it for any non-blank starter and records the chosen cameras in `cameraPresets`. The create panel is now `GameGallery`: a 2D/3D toggle, genres down, perspectives across, a No-genre row for the bases, disabled cells with their reason, roving-tabindex arrow keys and the five camera checkboxes on third person. Every genre cell currently reads "Not available yet".
 
 **Theme L — Genre recipe skills and the build skill.** ◻ Not started. Eleven skills under
 `templates/media-game/skills/`, seeded into each repo's three skill dirs and mirrored into the app
@@ -629,24 +626,26 @@ Lands early so every later theme is built with the agent able to play.
 
 ## G — Perspective base starters (M)
 
+> **Landed (PR #TBD).** The e2e half of the last item (`game-starters.spec.ts`) moves to Theme Q: all six bases were booted in SwiftShader Chromium (kit-vendored engines, `__midnite.step(180)` under held input) and moved as the smoke replay asserts, but a committed spec waits for Q's e2e budget raise. The replay's shape (`playtests/smoke.json`: `input`/`assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`) is Theme O's to finalise; 3D bases assert `position[2]` decreasing, because forward is -z.
+
 One minimal, playable starter per perspective. These are the bases the genres and the gallery compose
 on.
 
-- [ ] 2D: **platformer**, **top-down**, **isometric** and **2.5D raycaster**. Each has a test level, a player, one enemy or obstacle, and placeholder art
+- [x] 2D: **platformer**, **top-down**, **isometric** and **2.5D raycaster**. Each has a test level, a player, one enemy or obstacle, and placeholder art
   - `templates/media-game/bases/{platformer,top-down,isometric,raycaster}/` each with `src/main.js`,
     `src/scenes/level.js`, `src/game.config.js`, `assets/` and `assets/index.json`; ids
     `GAME_PERSPECTIVES_2D = ['platformer', 'top-down', 'isometric', 'raycaster']`.
-- [ ] 3D: **first person** and **third person**, the latter with all five cameras. Each has a test arena, a player with animation states, and one interactable
+- [x] 3D: **first person** and **third person**, the latter with all five cameras. Each has a test arena, a player with animation states, and one interactable
   - `bases/{first-person,third-person}/`; ids `GAME_PERSPECTIVES_3D = ['first-person', 'third-person']`.
     The arena is a flat Rapier ground + 3 boxes + a ramp; the interactable is a door that opens on `interact`.
-- [ ] Placeholder art and audio are CC0 or generated in-house, with their licences recorded in the starter's `ASSETS.md`. Every starter swaps cleanly to Phase 105/106/Models assets through N
+- [x] Placeholder art and audio are CC0 or generated in-house, with their licences recorded in the starter's `ASSETS.md`. Every starter swaps cleanly to Phase 105/106/Models assets through N
   - `ASSETS.md` is a table (`File · Source URL · Licence · Author`); a vitest asserts every file under
     `assets/` (except `index.json`) has a row. Starters reference art only through `assets/index.json`
     names (`kit/core/asset-index.js` `assetUrl(name)`), which is what makes N's swap a data change.
-- [ ] Each starter ships a **smoke play-test script** (an O replay) that walks it for a few seconds and checks `getState()`
+- [x] Each starter ships a **smoke play-test script** (an O replay) that walks it for a few seconds and checks `getState()`
   - `playtests/smoke.json` = 180 frames of `right` (2D) or `forward` (3D) input, asserting at frame 180
     that `$.player.position[0]` increased and `$.scene` is `level`.
-- [ ] Vitest: every starter's file set resolves every import through its import map, and its manifest validates. An e2e boots each starter and passes its smoke script
+- [x] Vitest: every starter's file set resolves every import through its import map, and its manifest validates. An e2e boots each starter and passes its smoke script
   - `desktop/src/main/games/starters.test.ts`: for each base, `composeStarter` output is scanned with a
     static import scanner (`scanImports(js)`: `import … from '…'` and `import('…')` string literals)
     and every specifier resolves via the import map to an existing file; the manifest parses; `ASSETS.md`
@@ -725,9 +724,11 @@ on.
 
 ## K — Template gallery: the perspective × genre matrix (M)
 
+> **Landed (PR #TBD).** Genre cells ship as *not available yet* until Themes H-J add `templates/media-game/genres/<genre>/` and list the genre in `GAME_GENRES_AVAILABLE`; `composeStarter` and the gallery pick it up with no further change. Differences from the plan: the genre id stays `crime` (shipped in Theme A's `GAME_GENRES`), not `topdown-crime`; cells show a per-perspective glyph rather than a PNG, so `gamesThumbnail` was not added; the e2e for `rts@isometric` / `rpg@first-person` waits on H/J and Theme Q.
+
 Every valid combination instantiates and runs, composed from the kits rather than copied.
 
-- [ ] A **validity table** in `shared/src/media-game-templates.ts` (recommended; adjust in this theme):
+- [x] A **validity table** in `shared/src/media-game-templates.ts` (recommended; adjust in this theme):
 
   | Genre | Native perspective | Also offered |
   |---|---|---|
@@ -751,20 +752,20 @@ Every valid combination instantiates and runs, composed from the kits rather tha
   - `starterId(perspective, genre | null)` = `perspective` or `${genre}@${perspective}`;
     `isValidStarter(id): { ok: true } | { ok: false; reason: string }` with reasons like
     _"Fighters use the versus camera only."_ and _"The FPS genre needs the raycaster."_
-- [ ] **Composition**: a combination is the perspective base (G) plus the genre's systems module (H/I/J) plus a preset config. It is generated at creation from the kit and genre modules, so there is one copy of each system and no per-combination fork
+- [x] **Composition**: a combination is the perspective base (G) plus the genre's systems module (H/I/J) plus a preset config. It is generated at creation from the kit and genre modules, so there is one copy of each system and no per-combination fork
   - `composeStarter(id, dest): Promise<GitOpResult<{ files: string[] }>>` in `main/games/compose.ts`:
     copy `common/` → `kit/core/` + `kit/<engine>/` (and `kit/core/genre/<genre>/` only) → `bases/<perspective>/`
     → `genres/<genre>/` (genre files win on conflict, except `src/main.js`, which the genre extends via
     `src/genre/index.js` imported by the base) → write `src/game.config.js` (`export default { perspective, genre, cameras }`)
     and `index.html`'s import map for the engine. A genre that declares `requires: ['nav']` gets `kit/three/nav.js`.
-- [ ] **Gallery UI** in the create panel: a 2D/3D toggle, perspective and genre grids, invalid cells disabled with the reason, a thumbnail and one-line pitch per cell, and the camera preset picker for third person
+- [x] **Gallery UI** in the create panel: a 2D/3D toggle, perspective and genre grids, invalid cells disabled with the reason, a thumbnail and one-line pitch per cell, and the camera preset picker for third person
   - `GameGallery` (`game-gallery.tsx`): a 2D/3D segmented control, then a grid with genres as rows and
     perspectives as columns plus a "No genre" row (the bases). Each cell is a `button` with the pitch and a
     thumbnail from `templates/media-game/thumbnails/<starterId>.png` (served to the renderer through a new
     `gamesThumbnail(starterId)` channel returning base64; invalid cells have `aria-disabled` and the reason
     as tooltip). Arrow keys move between cells (grid roving tabindex), Enter picks. Third-person cells show
     the five camera checkboxes (all on).
-- [ ] Vitest: every valid cell composes to a file set whose imports resolve and whose manifest validates, and invalid cells are refused with the reason. An e2e boots one non-native combination per dimension (for example isometric RTS, first-person RPG)
+- [x] Vitest: every valid cell composes to a file set whose imports resolve and whose manifest validates, and invalid cells are refused with the reason. An e2e boots one non-native combination per dimension (for example isometric RTS, first-person RPG)
   - `desktop/src/main/games/compose.test.ts` loops over every valid id (import scan + manifest parse) and
     over `fighter@first-person`, `fps@top-down` (refused with their reasons);
     `shared/src/media-game-templates.test.ts` (table shape); e2e `game-starters.spec.ts` adds
