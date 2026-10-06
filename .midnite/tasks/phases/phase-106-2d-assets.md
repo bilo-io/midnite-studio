@@ -102,7 +102,7 @@ autotiles nor reads external tilesets), and resolved all three opens plus fiftee
 `shared/src/media-sprite.ts`; assets live under five fixed kind folders; ten `mstudio:media:sprite-*`
 channels carry it, with generation as cancellable jobs.
 
-**Theme B — Frame pipeline: background removal, alignment, pixel-art mode.** ✅ Landed (PR #PRNUM).
+**Theme B — Frame pipeline: background removal, alignment, pixel-art mode.** ✅ Landed (PR #747).
 Pure-TS kernels in `shared/src/sprite/` (`image`, `key`, `align`, `quantise`, `outline`, `validate`);
 `main/media/sprite/frame-pipeline.ts` decodes, keys (skipped when a provider returned alpha),
 normalises onto the anchor at one sheet-wide scale per direction, writes each frame at once and yields

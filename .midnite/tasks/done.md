@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-06 — Phase 106 Theme B — Sprite frame pipeline
 
-Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM).
+Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #747](https://github.com/bilo-io/midnite-studio/pull/747).
 
 - [x] Background removal, normalisation, pixel-art mode, validation report, kernels in shared + pipeline in main, vitest.
 - [ ] No frame source calls `submitFrame` yet (Themes D/E/F); badges are first shown by G's frame strip.
