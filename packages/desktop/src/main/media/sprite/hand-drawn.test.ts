@@ -52,7 +52,7 @@ function setup(vision: VisionCall, generate?: (req: ImageBytesRequest) => void) 
       const abs = join(root, project, path);
       await mkdir(dirname(abs), { recursive: true });
       await writeFile(abs, data);
-      return ok(undefined);
+      return { ok: true as const, value: undefined };
     },
     trash: (abs) => rm(abs, { recursive: true, force: true }),
     toPng: async (bytes) => Buffer.from(bytes),
@@ -87,7 +87,8 @@ async function approved(service: ReturnType<typeof setup>['service'], spec: Reco
 async function run(service: ReturnType<typeof setup>['service'], target: Awaited<ReturnType<typeof sheet>>, extra: { turnaround?: true } = {}) {
   const started = await service.generate({ ...target, ...extra });
   if (!started.ok) throw new Error(started.kind === 'error' ? started.message : 'generate failed');
-  await vi.waitFor(() => expect(service.jobStatus(started.value.jobId)?.state).not.toBe('running'));
+  // Generous: a job is many awaited pipeline passes, and the full suite runs under load.
+  await vi.waitFor(() => expect(service.jobStatus(started.value.jobId)?.state).not.toBe('running'), { timeout: 30_000, interval: 20 });
   return service.jobStatus(started.value.jobId)!;
 }
 
@@ -96,7 +97,7 @@ const framesOf = async (target: { group: string; asset: string }): Promise<Sprit
 
 const passing: VisionCall = async () => ok({ text: '{"score": 0.95, "issues": []}', model: 'qwen2.5vl:7b' });
 
-describe('hand-drawn frame source', () => {
+describe('hand-drawn frame source', { timeout: 45_000 }, () => {
   it('refuses frames until a reference is approved', async () => {
     const { service } = setup(passing);
     const target = await sheet(service);

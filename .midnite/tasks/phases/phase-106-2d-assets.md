@@ -116,9 +116,20 @@ doc's seven. `anchorNudge` is metadata applied where frames are composed (G), no
 returns `{method, reason}` from a fixed table; one-shot is only ever a checkbox; clip presets per
 perspective are data.
 
-**Theme D — Hand-drawn: reference-locked frame generation.** ◻ Not started. Gemini and OpenAI learn
-reference images (`supportsReference` on the catalogue); a turnaround is approved then locked; pose
-tables drive one prompt per frame; an Ollama vision score re-rolls up to a budget and flags the rest.
+**Theme D — Hand-drawn: reference-locked frame generation.** ✅ Landed (PR pending number). The image
+seam takes reference images: `supportsReference` on the catalogue (Gemini's `gemini-*-image` and
+OpenAI only), `references`/`transparent` on `ImageAdapterRequest` and `ImageGenerateRequestSchema`
+(paths resolved through the media store), Gemini `inline_data` parts, OpenAI `/v1/images/edits`
+multipart, and `imageService.generateImage` for bytes without a file — which never falls back to the
+key-less agy route when a reference is attached. `main/media/sprite/hand-drawn.ts` is the frame
+source: a `generate({turnaround: true})` job draws the 3:2 turnaround as the unapproved reference;
+`setReference({approve})` locks it (and `frames: 'mark'` badges existing frames `unchecked`); frame
+jobs are refused until then (`handDrawnPreflight`). Prompts come from `shared/src/sprite/pose-tables.ts`;
+each direction's reference frame goes first, then two requests in flight. The vision check scores the
+raw candidate before the B pass, re-rolls up to the budget and keeps the best, flagging `inconsistent`
+with `issues`; no vision model keeps frames `unchecked` and the job's final event says why. Side
+sheets submit the `e` bytes again as `w` with `flipped: true` (G applies the flip). The tab gains a
+reference card (Approve / Regenerate / Attach, Keep or Mark all for re-roll) and a flagged-frames list.
 
 **Theme E — Rendered from a Models character.** ◻ Not started. A root-level lazy
 `SpriteRenderHost` renders with three into an offscreen target at 4×, posts frames to main in
@@ -359,7 +370,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
 
 ## D — Hand-drawn: reference-locked frame generation (L)
 
-- [ ] Step 1, **reference**: generate a character turnaround (front, side, back) or attach one. The user approves it, and the approved reference is locked onto the spec
+- [x] Step 1, **reference**: generate a character turnaround (front, side, back) or attach one. The user approves it, and the approved reference is locked onto the spec
   - **Generate turnaround** sends `SPRITE_TURNAROUND_PROMPT(spec)` (one image, aspect `3:2`, transparent
     or chroma per B) and writes `reference/turnaround.png`; **Attach** takes a PNG/JPEG/WebP through the
     same bytes path as Phase 105's slots (`media.sprite.setReference({…target, bytes, name})`).
@@ -367,7 +378,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     `reference.approved = true` and copies it to `reference/reference.png`. Step 2's Generate is disabled
     until approved (tooltip _"Approve a reference first."_). Changing the reference after frames exist asks
     _"Frames were made from the old reference. Keep them?"_ (**Keep** / **Mark all for re-roll**).
-- [ ] Step 2, **per clip, per frame**: prompts built from a pose table. Built-in pose tables cover each preset clip (for example, the walk cycle's contact, down, passing and up key poses, mirrored for the second half). Each frame is generated with the locked reference attached, through `image-service.ts`, then sent through B
+- [x] Step 2, **per clip, per frame**: prompts built from a pose table. Built-in pose tables cover each preset clip (for example, the walk cycle's contact, down, passing and up key poses, mirrored for the second half). Each frame is generated with the locked reference attached, through `image-service.ts`, then sent through B
   - `shared/src/sprite/pose-tables.ts`: `SPRITE_POSE_TABLES: Record<presetClipName, string[]>` with one
     pose phrase per preset frame (walk = `contact (left foot forward)`, `down`, `passing`, `up`, then the
     mirrored four); `framePrompt(spec, clip, dir, i): string` composes style + perspective + direction +
@@ -376,7 +387,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     `frame <i+1> of <n> of a <clip> animation`.
   - Generation order: clip by clip, direction by direction, frame by frame, 2 requests in flight; each
     result goes straight through `processFrame` and is visible in the strip as it lands.
-- [ ] Providers without reference-image input are disabled for this method, with the reason. The chosen provider and model are recorded on the spec
+- [x] Providers without reference-image input are disabled for this method, with the reason. The chosen provider and model are recorded on the spec
   - **Resolved: add reference images to the image seam** (Decision 5). `ImageAdapterRequest` gains
     `references?: { bytes: Buffer; mime: string }[]` (≤ 4); `ImageProviderInfo` gains
     `supportsReference: boolean`; `ImageGenerateRequestSchema` gains `references?: string[]` (paths inside
@@ -387,7 +398,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     `supportsReference: false`.
   - The picker shows unsupported providers disabled with _"<Provider> can't use a reference image, so
     frames would not match. Pick Gemini or OpenAI."_ The chosen `provider` and `model` are written to the spec.
-- [ ] **Consistency check**: a vision model (via `engines.ts`) scores each frame against the reference (same outfit, palette, proportions). Frames under the threshold are re-rolled up to a budget, and the remaining failures are flagged, never silently kept
+- [x] **Consistency check**: a vision model (via `engines.ts`) scores each frame against the reference (same outfit, palette, proportions). Frames under the threshold are re-rolled up to a budget, and the remaining failures are flagged, never silently kept
   - `createVisionCall` with `images: [reference, frame]`, `json: true`, and `SPRITE_CONSISTENCY_PROMPT`
     asking for `{"score": 0..1, "issues": string[]}` (parsed by `SpriteConsistencySchema`). Score <
     `consistency.threshold` → re-roll that frame, up to `rerollBudget` times per frame; still failing →
@@ -397,18 +408,18 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     shows the install hint. A frame is never silently treated as consistent.
   - The check runs in `stage: 'checking'` after each frame's B pass; it can be switched off per sheet
     (`consistency.enabled`, default true when a vision model exists).
-- [ ] Mirroring: for side views, generate one facing and mirror it, with an option to generate both when the design is asymmetric
+- [x] Mirroring: for side views, generate one facing and mirror it, with an option to generate both when the design is asymmetric
   - Side sheets with 1 direction generate only `e`; **Mirror for the west facing** (default on) writes
     `w` frames as horizontal flips with `source: 'mirrored'` and adds `w` to the export's directions.
     **My character is asymmetric** turns mirroring off and generates `w` with the same pose table.
-- [ ] Vitest with a stub provider: the pose table expands to the right prompts per frame, re-roll stops at the budget, and failing frames carry their badge into the strip
+- [x] Vitest with a stub provider: the pose table expands to the right prompts per frame, re-roll stops at the budget, and failing frames carry their badge into the strip
   - `desktop/src/main/media/sprite/hand-drawn.test.ts` with a stub `ImageProvider` and stub `VisionCall`:
     a walk clip yields 8 prompts containing the eight pose phrases in order; a vision stub always scoring 0.2
     with budget 2 makes exactly 3 requests for that frame and leaves `inconsistent`; a failing vision call
     leaves `unchecked`; mirroring writes 8 `w` frames with `flipped: true`.
   - `desktop/src/main/media/image/image-adapters.test.ts` (existing, extended): with references, OpenAI posts multipart to `/v1/images/edits` and Gemini adds `inline_data` parts.
 
-- [ ] The image seam takes reference images and transparency
+- [x] The image seam takes reference images and transparency
   - The `ImageAdapterRequest`/`ImageProviderInfo`/`ImageGenerateRequestSchema` changes in item 3 and Theme
     B's `transparent` land together in one PR, before any D frame generation, with `IMAGE_PROVIDERS` set to
     `supportsReference: true` for `gemini` and `openai`, `false` for `agy` and `ollama`.
