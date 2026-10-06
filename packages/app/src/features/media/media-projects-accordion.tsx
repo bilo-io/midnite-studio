@@ -1,11 +1,13 @@
 import type { MediaTab } from '@midnite/studio-shared';
+import { useQueries } from '@tanstack/react-query';
 import { LuFile, LuFolderOpen, LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { Accordion } from '../../components/accordion/accordion';
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
-import { revealMedia, useMediaFiles, useMediaMutations, useMediaProjects } from './use-media';
+import { bridge } from '../../services/bridge';
+import { MEDIA_KEYS, revealMedia, useMediaFiles, useMediaMutations, useMediaProjects } from './use-media';
 import { MEDIA_TAB_META } from './media-tabs';
 
 export type MediaSelection = { project: string; path: string | null };
@@ -25,6 +27,7 @@ export function MediaProjectsAccordion({
   fileFilter,
   fileLabel,
   onFileContextMenu,
+  fixedProjects,
 }: {
   repoId: string;
   tab: MediaTab;
@@ -35,6 +38,11 @@ export function MediaProjectsAccordion({
   fileLabel?: (path: string) => string;
   /** A right-click on a file row. */
   onFileContextMenu?: (event: React.MouseEvent, project: string, path: string) => void;
+  /**
+   * A tab whose projects are a fixed set (Sprites: five groups). They are always listed, even when
+   * the folder does not exist yet, and users cannot create or delete one.
+   */
+  fixedProjects?: ReadonlyArray<{ name: string; title: string }>;
 }) {
   const projects = useMediaProjects(repoId, tab);
   const mutations = useMediaMutations(repoId, tab);
@@ -74,19 +82,41 @@ export function MediaProjectsAccordion({
       onConfirm: () => mutations.removeProject.mutate(project),
     });
 
-  const all = projects.data ?? [];
+  const existing = projects.data ?? [];
+  const all = fixedProjects
+    ? fixedProjects.map((fixed) => existing.find((p) => p.name === fixed.name) ?? { name: fixed.name, fileCount: 0, mtimeMs: 0 })
+    : existing;
+  // A fixed group's count is its rows after the filter (assets), not every file under it. Same query
+  // key as `ProjectFiles`, so the two share one fetch.
+  const counts = useQueries({
+    queries: (fixedProjects ?? []).map((fixed) => ({
+      queryKey: MEDIA_KEYS.files(repoId, tab, fixed.name),
+      enabled: existing.some((p) => p.name === fixed.name),
+      queryFn: async () => {
+        const result = await bridge()?.media.file.list({ repoId, tab, project: fixed.name });
+        if (!result?.ok) throw new Error('Could not list files.');
+        return result.value;
+      },
+    })),
+  });
+  const countOf = (name: string, raw: number): number => {
+    const index = fixedProjects?.findIndex((f) => f.name === name) ?? -1;
+    const data = index >= 0 ? counts[index]?.data : undefined;
+    return data ? data.filter((f) => !fileFilter || fileFilter(f.path)).length : fixedProjects ? 0 : raw;
+  };
+  const titleOf = (name: string): string => fixedProjects?.find((f) => f.name === name)?.title ?? name;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Projects</h2>
-        <span className="tabular-nums text-[11px] text-muted-foreground/70">{all.length}</span>
-        <IconButton icon={LuPlus} label="New project" size="sm" className="ml-auto" onClick={create} />
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{fixedProjects ? 'Library' : 'Projects'}</h2>
+        {fixedProjects ? null : <span className="tabular-nums text-[11px] text-muted-foreground/70">{all.length}</span>}
+        {fixedProjects ? null : <IconButton icon={LuPlus} label="New project" size="sm" className="ml-auto" onClick={create} />}
       </div>
       <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
         {projects.isError ? (
           <EmptyState title="Could not read the media folder" body={String(projects.error)} />
-        ) : all.length === 0 && !projects.isPending ? (
+        ) : all.length === 0 && !projects.isPending && !fixedProjects ? (
           <EmptyState
             icon={MEDIA_TAB_META[tab].icon}
             title="No projects yet"
@@ -98,9 +128,9 @@ export function MediaProjectsAccordion({
             id={`media-${tab}-projects`}
             sections={all.map((project) => ({
               id: project.name,
-              title: project.name,
-              count: project.fileCount,
-              actions: (
+              title: titleOf(project.name),
+              count: countOf(project.name, project.fileCount),
+              actions: fixedProjects ? undefined : (
                 <span className="flex items-center">
                   <IconButton
                     icon={LuFolderOpen}
@@ -116,7 +146,9 @@ export function MediaProjectsAccordion({
                   />
                 </span>
               ),
-              children: (
+              children: fixedProjects && !existing.some((p) => p.name === project.name) ? (
+                <p className="px-6 py-1 text-[11px] text-muted-foreground">Empty</p>
+              ) : (
                 <ProjectFiles
                   repoId={repoId}
                   tab={tab}
