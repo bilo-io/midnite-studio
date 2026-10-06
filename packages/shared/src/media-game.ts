@@ -273,6 +273,8 @@ export const GameCreateRequestSchema = z.object({
   /** Parent folder; defaults to the games location setting. */
   folder: z.string().min(1).optional(),
   network: GameNetworkSchema.optional(),
+  /** Third-person cameras the cycle is limited to; empty or omitted = all five. */
+  cameras: z.array(GameCameraIdSchema).max(5).optional(),
 });
 export type GameCreateRequest = z.input<typeof GameCreateRequestSchema>;
 
