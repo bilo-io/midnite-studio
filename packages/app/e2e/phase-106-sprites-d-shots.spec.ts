@@ -108,9 +108,10 @@ async function paintReference(page: Page): Promise<void> {
 test('hand-drawn create options, reference-blind providers disabled (dark)', async ({ page }) => {
   await openSprites(page, 'dark');
   const panel = page.getByTestId('sprite-create-panel');
-  await panel.getByLabel('Name').fill('Knight');
+  await panel.getByLabel('Name', { exact: true }).fill('Knight');
   await expect(panel.getByTestId('hand-drawn-options')).toBeVisible();
-  await panel.getByTestId('sprite-picker').getByRole('button').first().click();
+  await panel.getByTestId('sprite-picker-provider').click();
+  await expect(page.getByTestId('sprite-picker-provider-panel')).toBeVisible();
   await settle(page, 400);
   await page.screenshot({ path: shotPath(OUT, 'sprites-hand-drawn-create-dark.png') });
 });
