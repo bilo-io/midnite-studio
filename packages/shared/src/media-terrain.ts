@@ -61,6 +61,10 @@ export const TERRAIN_BUILD_FILES = [
   'landcover.png',
   'landcover.json',
   'splat.png',
+  'roads-mask.png',
+  'roads.json',
+  'foliage.json',
+  'buildings.json',
 ] as const;
 
 export const TERRAIN_SHADING_MODES = ['shaded', 'wireframe', 'height', 'slope', 'landcover', 'splat', 'roads'] as const;
@@ -129,6 +133,7 @@ export const TerrainStatsSchema = z.object({
   classPercent: z.record(z.enum(TERRAIN_CLASSES), z.number()).optional(),
   roadCount: z.number().int().nonnegative().optional(),
   roadLengthM: z.number().nonnegative().optional(),
+  roadAgreement: z.number().min(0).max(1).optional(),
   buildingCount: z.number().int().nonnegative().optional(),
   foliageCount: z.number().int().nonnegative().optional(),
   warnings: z.array(z.string()),
@@ -338,8 +343,19 @@ export const TerrainPaintRequestSchema = TerrainTargetSchema.extend({
 });
 export type TerrainPaintRequest = z.infer<typeof TerrainPaintRequestSchema>;
 
-/** Themes H and I own these two; until they land each answers {@link TERRAIN_NOT_AVAILABLE}. */
-export const TerrainRoadKeyRequestSchema = TerrainTargetSchema.passthrough();
+/** Theme H: preview road mask extraction without full build. */
+export const TerrainRoadKeyRequestSchema = TerrainTargetSchema.extend({
+  colour: Hex.optional(),
+  tolerance: z.number().min(0).max(1).default(0.25),
+});
+export type TerrainRoadKeyRequest = z.infer<typeof TerrainRoadKeyRequestSchema>;
+
+export const TerrainRoadKeyResultSchema = z.object({
+  pngBase64: z.string(),
+});
+export type TerrainRoadKeyResult = z.infer<typeof TerrainRoadKeyResultSchema>;
+
+/** Theme I owns export; until it lands it answers {@link TERRAIN_NOT_AVAILABLE}. */
 export const TerrainExportRequestSchema = TerrainTargetSchema.passthrough();
 
 export const TerrainProgressEventSchema = z.object({
@@ -367,6 +383,7 @@ export const TerrainResultSchemas = {
   setSpec: GitOpResultOf(z.object({ spec: TerrainSpecSchema })),
   setInput: GitOpResultOf(TerrainSetInputResultSchema),
   build: GitOpResultOf(TerrainBuildResultSchema),
+  roadKey: GitOpResultOf(TerrainRoadKeyResultSchema),
   generic: GitOpResultSchema,
 } as const;
 
@@ -392,3 +409,54 @@ export const TerrainChunksFileSchema = z.object({
   ),
 });
 export type TerrainChunksFile = z.infer<typeof TerrainChunksFileSchema>;
+
+/** `build/foliage.json`: scattered instances for instanced rendering and export (Theme G). */
+export const TerrainFoliageFileSchema = z.object({
+  version: z.literal(1).default(1),
+  assets: z.array(z.string()),
+  /** [assetIndex, x, y, z, yawRad, scale] in world metres */
+  instances: z.array(z.tuple([z.number(), z.number(), z.number(), z.number(), z.number(), z.number()])),
+});
+export type TerrainFoliageFile = z.infer<typeof TerrainFoliageFileSchema>;
+
+/** Individual building extracted from the land cover (Theme G). */
+export const TerrainBuildingSchema = z.object({
+  polygon: z.array(z.tuple([z.number(), z.number()])),
+  baseY: z.number(),
+  height: z.number(),
+});
+export type TerrainBuilding = z.infer<typeof TerrainBuildingSchema>;
+
+/** `build/buildings.json`: footprint polygons and extrusion heights (Theme G). */
+export const TerrainBuildingsFileSchema = z.object({
+  version: z.literal(1).default(1),
+  buildings: z.array(TerrainBuildingSchema),
+});
+export type TerrainBuildingsFile = z.infer<typeof TerrainBuildingsFileSchema>;
+
+export const TerrainRoadNodeSchema = z.object({
+  id: z.number().int().nonnegative(),
+  p: z.tuple([z.number(), z.number(), z.number()]),
+  degree: z.number().int().nonnegative(),
+});
+export type TerrainRoadNode = z.infer<typeof TerrainRoadNodeSchema>;
+
+export const TerrainRoadEdgeSchema = z.object({
+  id: z.number().int().nonnegative(),
+  a: z.number().int().nonnegative(),
+  b: z.number().int().nonnegative(),
+  points: z.array(z.tuple([z.number(), z.number(), z.number()])),
+  widthM: z.number().positive(),
+  kind: z.enum(['path', 'street', 'avenue']),
+  lengthM: z.number().nonnegative(),
+});
+export type TerrainRoadEdge = z.infer<typeof TerrainRoadEdgeSchema>;
+
+/** `build/roads.json`: road graph with centerlines, widths, elevations, junctions (Theme H). */
+export const TerrainRoadsFileSchema = z.object({
+  version: z.literal(1).default(1),
+  nodes: z.array(TerrainRoadNodeSchema),
+  edges: z.array(TerrainRoadEdgeSchema),
+});
+export type TerrainRoadsFile = z.infer<typeof TerrainRoadsFileSchema>;
+
