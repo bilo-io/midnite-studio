@@ -22,10 +22,12 @@ import { useState, type MouseEvent } from 'react';
 
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
+import { Popover } from '../../components/popover';
 import {
   useAddProjectItem,
   useCommentPull,
   useForgeProjects,
+  useForgePullComments,
   useMarkPullReady,
   useMergePull,
   useRepos,
@@ -36,6 +38,9 @@ import { Spinner } from '../../components/skeleton';
 import { useUiStore, type AgentCommandId } from '../../store/ui-store';
 import { useSkillHandoff } from '../agent/use-skill-handoff';
 import { MergeDialog } from './merge-dialog';
+import { ReviewerAvatars } from './reviewer-avatars';
+import { ReviewerPickerDropdown } from './reviewer-picker-popover';
+import { resolveAssignedReviewers, resolveReviewerCandidates } from './reviewer-status';
 
 /**
  * Everything this app can change about a pull request, in one row.
@@ -90,12 +95,44 @@ export function ReviewActionBar({
   const [merging, setMerging] = useState(false);
   const [reviewers, setReviewers] = useState('');
   const [requesting, setRequesting] = useState(false);
+  const [pendingLogin, setPendingLogin] = useState<string | null>(null);
 
   const review = useReviewPull(repoId, pull.number);
   const comment = useCommentPull(repoId, pull.number);
   const merge = useMergePull(repoId, pull.number);
   const requestReview = useRequestReview(repoId, pull.number);
   const markReady = useMarkPullReady(repoId, pull.number);
+  const comments = useForgePullComments(repoId, pull.number, true);
+
+  const assignedReviewers = resolveAssignedReviewers(
+    detail?.reviewRequests,
+    comments.data?.comments,
+    pull.author,
+  );
+  const candidateReviewers = resolveReviewerCandidates(
+    detail?.reviewRequests,
+    comments.data?.comments,
+    pull.author,
+  );
+
+  const handleRequestReviewers = (logins: string[]) => {
+    if (logins.length === 1 && logins[0]) {
+      setPendingLogin(logins[0]);
+    }
+    requestReview.mutate(
+      { reviewers: logins },
+      {
+        onSettled: () => {
+          setPendingLogin(null);
+        },
+        onSuccess: (result) => {
+          if (result.ok) {
+            setReviewers('');
+          }
+        },
+      },
+    );
+  };
 
   /*
     "Add to tasks" (Phase 50 Theme E) reuses exactly the data
@@ -268,15 +305,53 @@ export function ReviewActionBar({
             />
           ) : null}
 
-          <ActionButton
-            variant="requestReview"
-            icon={LuUserPlus}
-            label="Request a review"
-            shortLabel="Request review"
+          <Popover
+            open={requesting}
+            onOpenChange={setRequesting}
+            side="bottom"
+            align="start"
+            label="Request review"
+            title={
+              enabled
+                ? 'Request a review'
+                : 'Request a review — enable review actions in Settings → Reviews'
+            }
+            disabled={!enabled || busy}
+            panelClassName="w-72 p-0"
+            triggerClassName={`group inline-flex h-7 shrink-0 items-center justify-center rounded-md border px-2 text-[11px] font-medium transition-all duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
+              requesting
+                ? ACTION_BUTTON_STYLES.requestReview.pressed
+                : 'border-border bg-transparent text-muted-foreground'
+            } ${ACTION_BUTTON_STYLES.requestReview.hover}`}
+            trigger={
+              <>
+                <LuUserPlus
+                  className="h-3.5 w-3.5 shrink-0 transition-transform duration-150"
+                  aria-hidden
+                />
+                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-150 ease-out group-hover:ml-1.5 group-hover:max-w-48 group-hover:opacity-100 group-focus-visible:ml-1.5 group-focus-visible:max-w-48 group-focus-visible:opacity-100">
+                  Request review
+                </span>
+              </>
+            }
+          >
+            <ReviewerPickerDropdown
+              candidates={candidateReviewers}
+              search={reviewers}
+              onSearchChange={setReviewers}
+              pending={requestReview.isPending}
+              pendingLogin={pendingLogin}
+              onSelectReviewer={(login) => handleRequestReviewers([login])}
+              onRequestTyped={(logins) => handleRequestReviewers(logins)}
+            />
+          </Popover>
+
+          <ReviewerAvatars
+            reviewers={assignedReviewers}
+            onReRequest={(login) => handleRequestReviewers([login])}
+            reRequestingLogin={pendingLogin}
+            busy={busy}
             enabled={enabled}
-            disabled={busy}
-            pressed={requesting}
-            onClick={() => setRequesting((open) => !open)}
           />
 
           <ActionButton
@@ -404,26 +479,6 @@ export function ReviewActionBar({
         </div>
       ) : null}
 
-      {requesting ? (
-        <ReviewerPicker
-          suggested={detail?.reviewRequests ?? []}
-          value={reviewers}
-          onChange={setReviewers}
-          pending={requestReview.isPending}
-          onSubmit={(logins) => {
-            requestReview.mutate(
-              { reviewers: logins },
-              {
-                onSuccess: (result) => {
-                  if (!result.ok) return;
-                  setRequesting(false);
-                  setReviewers('');
-                },
-              },
-            );
-          }}
-        />
-      ) : null}
 
       {problem !== null ? (
         <p role="alert" className="text-[11px] leading-relaxed text-destructive">
@@ -561,90 +616,6 @@ function AiButton({
   );
 }
 
-/**
- * Ask for reviews, by login.
- *
- * The suggestions are `reviewRequests` — whoever has been asked and has not
- * answered — because "re-request" is the common case and GitHub has no separate
- * verb for it: adding a reviewer who is already requested re-asks them. Beyond
- * that it is a free-text field, which is what the phase doc settled on rather
- * than spending a `gh api` call on a collaborator listing for a picker that is
- * usually one name long.
- */
-function ReviewerPicker({
-  suggested,
-  value,
-  onChange,
-  pending,
-  onSubmit,
-}: {
-  suggested: string[];
-  value: string;
-  onChange: (value: string) => void;
-  pending: boolean;
-  onSubmit: (logins: string[]) => void;
-}) {
-  // Commas or spaces, because a user typing two names will use one of them and
-  // guessing which is a worse experience than accepting both.
-  const typed = value
-    .split(/[\s,]+/)
-    .map((login) => login.trim())
-    .filter((login) => login.length > 0);
-
-  return (
-    <div className="flex flex-col gap-1.5 rounded border border-border bg-muted/30 p-2">
-      {suggested.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground">Awaiting review:</span>
-          {suggested.map((login) => (
-            <button
-              key={login}
-              type="button"
-              disabled={pending}
-              onClick={() => onSubmit([login])}
-              /*
-                An explicit label, because the content is a bare login and a
-                bare login does not say what clicking it does. `title` alone
-                would not fix that: content wins over `title` for the accessible
-                name, so a screen reader would announce "ana, button".
-              */
-              aria-label={`Re-request a review from ${login}`}
-              title={`Re-request a review from ${login}`}
-              className="rounded-full border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-accent disabled:opacity-40"
-            >
-              {login}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="GitHub usernames, comma separated"
-          aria-label="GitHub usernames to request a review from"
-          className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
-        />
-        <button
-          type="button"
-          disabled={pending || typed.length === 0}
-          onClick={() => onSubmit(typed)}
-          className="inline-flex items-center gap-1.5 rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {pending ? (
-            <>
-              <Spinner className="size-3 border-primary-foreground/30 border-r-primary-foreground border-t-primary-foreground" />
-              Requesting…
-            </>
-          ) : (
-            'Request'
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /**
  * One button, and the reason it is not clickable when it is not.
