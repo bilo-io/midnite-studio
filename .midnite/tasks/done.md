@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 104 Theme C — SDF modelling
+
+Organic forms as signed-distance trees: a recursive schema (seven primitives, smooth union/subtract/intersect, displace/twist/bend/round/shell/mirror, edits by name), a compiled evaluator with bounds and a Lipschitz bound, an octree-pruned bake through surface nets with per-primitive vertex groups, a `sculpt` part that keeps its tree (and an op log that opens with it), an editor SDF tab with a node tree, live low-resolution preview and bake on release, and the `model_sdf_set` / `model_sdf_patch` / `model_sdf_bake` MCP tools. PR: see the pull request.
+
+- [x] SDF node schema, kernel evaluator with pruning, surface-nets isosurface into a sculpt part whose op log starts with its tree, SDF tree panel, three MCP tools, vitest (primitive distances, smooth-union continuity, closed sphere at the analytic radius, sparse = dense, modifiers, groups, MCP, panel).
+
 ## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
 
 Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
