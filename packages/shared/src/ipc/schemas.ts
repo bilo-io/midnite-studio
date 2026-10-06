@@ -266,6 +266,20 @@ import {
   TerrainTargetSchema,
   TerrainLibraryRequestSchema,
 } from '../media-terrain';
+import {
+  SpriteCancelRequestSchema,
+  SpriteChangedEventSchema,
+  SpriteExportRequestSchema,
+  SpriteGenerateRequestSchema,
+  SpriteLibraryRequestSchema,
+  SpriteOpenEventSchema,
+  SpritePatchFramesRequestSchema,
+  SpriteProgressEventSchema,
+  SpriteResultSchemas,
+  SpriteSetReferenceRequestSchema,
+  SpriteSetSpecRequestSchema,
+  SpriteTargetSchema,
+} from '../media-sprite';
 import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
@@ -3251,6 +3265,27 @@ export const MediaTerrainExportResponse = TerrainResultSchemas.generic;
 export const MediaTerrainProgressPayload = TerrainProgressEventSchema;
 export const MediaTerrainChangedPayload = TerrainChangedEventSchema;
 export const MediaTerrainOpenPayload = TerrainOpenEventSchema;
+
+// Sprites (Phase 106)
+export const MediaSpriteLibraryRequest = SpriteLibraryRequestSchema;
+export const MediaSpriteLibraryResponse = SpriteResultSchemas.library;
+export const MediaSpriteGetRequest = SpriteTargetSchema;
+export const MediaSpriteGetResponse = SpriteResultSchemas.get;
+export const MediaSpriteSetSpecRequest = SpriteSetSpecRequestSchema;
+export const MediaSpriteSetSpecResponse = SpriteResultSchemas.setSpec;
+export const MediaSpriteSetReferenceRequest = SpriteSetReferenceRequestSchema;
+export const MediaSpriteSetReferenceResponse = SpriteResultSchemas.generic;
+export const MediaSpriteGenerateRequest = SpriteGenerateRequestSchema;
+export const MediaSpriteGenerateResponse = SpriteResultSchemas.generate;
+export const MediaSpriteCancelRequest = SpriteCancelRequestSchema;
+export const MediaSpriteCancelResponse = SpriteResultSchemas.generic;
+export const MediaSpritePatchFramesRequest = SpritePatchFramesRequestSchema;
+export const MediaSpritePatchFramesResponse = SpriteResultSchemas.generic;
+export const MediaSpriteExportRequest = SpriteExportRequestSchema;
+export const MediaSpriteExportResponse = SpriteResultSchemas.generic;
+export const MediaSpriteProgressPayload = SpriteProgressEventSchema;
+export const MediaSpriteChangedPayload = SpriteChangedEventSchema;
+export const MediaSpriteOpenPayload = SpriteOpenEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
 export const MediaModelOpenPayload = ModelOpenEventSchema;
