@@ -789,6 +789,8 @@ export type MockFixtures = {
      * Terrain tab: `media.terrain.*`. Terrains live in `files['terrain:<group>']` as
      * `<terrain>/terrain.json`. `build` answers `needs-height-source` when the spec has neither a
      * heightmap nor noise, else `built` with `stats` (default: a 513² terrain).
+     *
+     * Sprites: `media.sprite.*`; assets live in `files['sprite:<group>']` as `<asset>/sprite.json`.
      */
     terrain?: { stats?: Record<string, unknown> };
   };
@@ -3797,6 +3799,82 @@ export function buildMockBridge(data: MockFixtures) {
             },
           }),
           export: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          onProgress: (handler: (event: unknown) => void) => {
+            listeners.progress.add(handler);
+            return () => listeners.progress.delete(handler);
+          },
+          onChanged: (handler: (event: unknown) => void) => {
+            listeners.changed.add(handler);
+            return () => listeners.changed.delete(handler);
+          },
+          onOpen: (handler: (event: unknown) => void) => {
+            listeners.open.add(handler);
+            return () => listeners.open.delete(handler);
+          },
+        };
+      })(),
+      sprite: (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a loose stand-in for the spec JSON
+        type Spec = Record<string, any>;
+        const slug = (text: string) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sprite';
+        const groupOf = (spec: Spec) =>
+          spec.kind === 'sheet' ? (spec.category === 'object' ? 'objects' : 'characters') : spec.kind === 'prop-sheet' ? 'objects' : ({ tileset: 'tilesets', background: 'backgrounds', map: 'maps' } as Record<string, string>)[spec.kind as string];
+        const read = (group: string, asset: string): Spec | null => {
+          const raw = mediaFiles[`sprite:${group}`]?.[`${asset}/sprite.json`];
+          return raw ? (JSON.parse(raw) as Spec) : null;
+        };
+        const write = (group: string, asset: string, spec: Spec) => {
+          const key = `sprite:${group}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${asset}/sprite.json`]: JSON.stringify(spec) } };
+        };
+        const missing = { ok: false as const, kind: 'error' as const, message: 'Sprite not found.' };
+        const listeners = { progress: new Set<(e: unknown) => void>(), changed: new Set<(e: unknown) => void>(), open: new Set<(e: unknown) => void>() };
+        return {
+          library: async (req: Spec) => {
+            if (req.op === 'create') {
+              const group = groupOf(req.spec);
+              const asset = `${slug(req.spec.name)}-20261004-120000`;
+              write(group as string, asset, { version: 1, ...req.spec });
+              return { ok: true as const, value: { group, asset } };
+            }
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            if (req.op === 'delete') {
+              const key = `sprite:${req.group}`;
+              const { [`${req.asset}/sprite.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+              return { ok: true as const, value: {} };
+            }
+            const asset = req.op === 'rename' ? `${slug(req.to)}-20261004-120000` : `${req.asset}-copy`;
+            write(req.group, asset, { ...spec, name: req.op === 'rename' ? req.to : `${spec.name} copy` });
+            return { ok: true as const, value: { group: req.group, asset } };
+          },
+          get: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            // The real service parses through the zod schema; the mock fills the defaults the UI reads.
+            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
+            return { ok: true as const, value: { spec: filled, frames: { version: 1, frames: {} }, report: filled.lastReport ?? null } };
+          },
+          setSpec: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const next = { ...spec, ...req.patch, kind: spec.kind };
+            write(req.group, req.asset, next);
+            return { ok: true as const, value: { spec: next } };
+          },
+          setReference: async () => ({ ok: true as const }),
+          generate: async (req: Spec) => {
+            if (!read(req.group, req.asset)) return missing;
+            const jobId = `job-${Date.now()}`;
+            for (const [step, done] of [[0, 1], [10, 2]] as const) {
+              setTimeout(() => listeners.progress.forEach((h) => h({ jobId, done, total: 2, stage: 'generating' })), step);
+            }
+            return { ok: true as const, value: { jobId } };
+          },
+          cancel: async () => ({ ok: true as const }),
+          patchFrames: async () => ({ ok: true as const }),
+          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'This sprite operation is not available yet.' }),
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);
             return () => listeners.progress.delete(handler);

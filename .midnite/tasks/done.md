@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 106 Themes A + C — Sprites tab, method picker
+
+New Media ▸ Sprites tab: `sprite.json` spec (`media-sprite.ts`), five-group library explorer, Sheet/Environment create panel, `mstudio:media:sprite-*` channels and `SpriteService`, plus the pure `recommendSpriteMethod` and per-perspective clip presets. PR: see the pull request.
+
+- [x] Tab, schemas, library, create panel, IPC, method picker, recommendation, presets, vitest.
+- [ ] Generation needs Theme B/D (fails with `SPRITE_FRAME_SOURCES_PENDING`); render and export channels (E/G) and MCP exposure of `SpriteService` still open.
+
 ## 2026-10-06 — Phase 107 Themes B + E — Pop out and the Phaser kit
 
 Pop out a running game into its own window (`game` role), plus the Phaser kit, core modules and four 2D perspective presets (platformer, top-down, isometric, raycaster). PR: see the pull request.

@@ -139,6 +139,7 @@ import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { registerMediaModelHandlers } from './ipc/media-model-handlers';
+import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
@@ -506,6 +507,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaModelHandlers();
     registerMediaModelSf3dHandlers();
     registerMediaTerrainHandlers();
+    registerMediaSpriteHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();

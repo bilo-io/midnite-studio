@@ -97,7 +97,7 @@ that autotile. Planned 2026-10-04; refined x1 the same day, which pinned every s
 format and test, corrected two stale claims (no provider takes a reference image; Phaser neither
 autotiles nor reads external tilesets), and resolved all three opens plus fifteen new decisions.
 
-**Theme A — Sprites tab, specs and library.** ◻ Not started. Lands first. `'sprite'` joins `MEDIA_TABS`
+**Theme A — Sprites tab, specs and library.** ✅ Landed (PR pending number; MCP exposure of `SpriteService` and the render/export channels left to E/G). Lands first. `'sprite'` joins `MEDIA_TABS`
 (repo-scoped, `LuPersonStanding`); `sprite.json` is a `kind`-discriminated spec in a new
 `shared/src/media-sprite.ts`; assets live under five fixed kind folders; ten `mstudio:media:sprite-*`
 channels carry it, with generation as cancellable jobs.
@@ -107,7 +107,7 @@ A. Pure-TS keying, bounds, anchor, quantise, outline and validation in `shared/s
 one frame at a time (yielding between frames); OpenAI is asked for real transparency, everything else
 for a magenta or green chroma background.
 
-**Theme C — Method picker and the recommendation.** ◻ Not started. `recommendSpriteMethod(spec)`
+**Theme C — Method picker and the recommendation.** ✅ Landed with A. `recommendSpriteMethod(spec)`
 returns `{method, reason}` from a fixed table; one-shot is only ever a checkbox; clip presets per
 perspective are data.
 
@@ -159,7 +159,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
 
 ## A — Sprites tab, specs and library (M)
 
-- [ ] `'sprite'` added to `MEDIA_TABS`, labelled **Sprites**, with every `Record<MediaTab, …>` the compiler flags filled in (`MEDIA_TAB_META` with a `react-icons/lu` glyph, `TAB_BODY`, `MEDIA_TAB_EXPORT_FORMATS`), `MEDIA_LAYOUT_KEYS` plus two `LayoutSizes` keys, and listed in `REPO_SCOPED_MEDIA_TABS`
+- [x] `'sprite'` added to `MEDIA_TABS`, labelled **Sprites**, with every `Record<MediaTab, …>` the compiler flags filled in (`MEDIA_TAB_META` with a `react-icons/lu` glyph, `TAB_BODY`, `MEDIA_TAB_EXPORT_FORMATS`), `MEDIA_LAYOUT_KEYS` plus two `LayoutSizes` keys, and listed in `REPO_SCOPED_MEDIA_TABS`
   - Appended after `'terrain'` (or after `'model'` if 105 has not landed): `[…, 'terrain', 'sprite']`.
   - `MEDIA_TAB_META.sprite = { label: 'Sprites', icon: LuPersonStanding }` (add the name to
     `components/icons/icon-names.test.ts`).
@@ -169,7 +169,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     (380, `{280, 680}` — the forms are wider than Models'); `MEDIA_LAYOUT_KEYS.sprite` names them.
     Persist `version` stays `31` (the `layout` merge default-fills new keys).
   - `REPO_SCOPED_MEDIA_TABS` gains `'sprite'`; with no repo the tab shows `NoRepoMediaState({tab: 'sprite'})`.
-- [ ] Schemas in a new `shared/src/media-sprite.ts`:
+- [x] Schemas in a new `shared/src/media-sprite.ts`:
   - `SpriteSheetSpecSchema`:
     - `name`, `style` (`pixel`, `hand-drawn`, `painterly`, `flat`)
     - `targetPerspective` (`side`, `top-down`, `isometric`, `front`)
@@ -194,7 +194,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
       are declared here with their theme's fields so A's union is complete from the first PR.
   - Directions are named: `SPRITE_DIRECTIONS = { 1: [<facing>], 4: ['s', 'w', 'n', 'e'], 8: ['s', 'sw', 'w', 'nw', 'n', 'ne', 'e', 'se'] }`
     where a 1-direction sheet's facing is `'e'` for `side` and `'s'` otherwise (`spriteDirections(spec)` returns the list).
-- [ ] Library layout `.midnite/media/sprite/<group>/<asset>/`:
+- [x] Library layout `.midnite/media/sprite/<group>/<asset>/`:
   - `sprite.json` (spec, source of truth)
   - `reference/`
   - `frames/<clip>/<dir>/<n>.png` (normalised frames, the editable truth)
@@ -211,7 +211,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     **Correction (x1):** there is no separate library manifest; like `model.json`, `sprite.json` carries
     `createdAt`, `updatedAt` and a `lastReport?: { frames, failing, at }` summary the explorer reads.
   - Asset folder name: `${spriteSlug(name)}-${YYYYMMDD-HHMMSS}` (`spriteSlug` imitates `modelSlug`).
-- [ ] Create panel with two modes, **Sheet** and **Environment**, which swap the form below the shared prompt input (`prompt-input.tsx`)
+- [x] Create panel with two modes, **Sheet** and **Environment**, which swap the form below the shared prompt input (`prompt-input.tsx`)
   - `SpriteCreatePanel` in `sprite-create-panel.tsx`: a two-option segmented control (**Sheet** ·
     **Environment**, `role="radiogroup"`, arrow keys move between them) above a `PromptTextarea`
     (`prompt-input.tsx`, with `MEDIA_PROMPT_BOX`). The mode is remembered per session in component state,
@@ -221,7 +221,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     provider picker (`ProviderModelPicker`), and **Generate**.
   - Environment form: a kind selector (**Tileset** · **Isometric tiles** · **Parallax background** ·
     **Prop sheet** · **Map**), each swapping in its theme's fields (H, I, J).
-- [ ] `mstudio:media:sprite-*` IPC channels with `GitOpResult` envelopes and progress events. Generation is cancellable
+- [x] `mstudio:media:sprite-*` IPC channels with `GitOpResult` envelopes and progress events. Generation is cancellable
   - `CHANNELS`: `mediaSpriteLibrary: 'mstudio:media:sprite-library'` (op-union `create | rename | duplicate | delete`),
     `mediaSpriteGet: 'mstudio:media:sprite-get'` → `{ spec, frames: SpriteFramesFile, report }`,
     `mediaSpriteSetSpec: 'mstudio:media:sprite-set-spec'`, `mediaSpriteSetReference: 'mstudio:media:sprite-set-reference'`,
@@ -242,7 +242,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     latest-wins: a job may be minutes of paid API calls). Jobs of different assets run concurrently, each
     limited to 2 in-flight image requests. Cancel aborts the in-flight requests through the image
     service's `AbortSignal`, keeps every frame already written, and ends the job with `cancelled`.
-- [ ] Vitest: schema defaults and round trip, the tab registers, and the explorer groups seeded assets via the mock bridge
+- [x] Vitest: schema defaults and round trip, the tab registers, and the explorer groups seeded assets via the mock bridge
   - `shared/src/media-sprite.test.ts`: `SpriteAssetSpecSchema.parse({ kind: 'sheet', name: 'hero' })`
     fills every default; each kind round-trips; a clip name `Walk!` is rejected; `spriteDirections` for
     `side`/1 is `['e']` and for 8 is the eight names in order.
@@ -321,7 +321,7 @@ What makes a sheet *precise*, whichever method produced the frames.
 
 All three methods are always available. The form *recommends* one (user, 2026-10-04).
 
-- [ ] Method selector in the Sheet form: **Hand-drawn**, **Rendered from 3D** and **One-shot sheet**. The recommended method carries a "Recommended" badge and a one-line reason:
+- [x] Method selector in the Sheet form: **Hand-drawn**, **Rendered from 3D** and **One-shot sheet**. The recommended method carries a "Recommended" badge and a one-line reason:
   - **Hand-drawn**: `side` perspective (platformers, side-scrollers), or `hand-drawn`/`painterly` style
   - **Rendered from 3D**: `top-down` or `isometric` with 4 or 8 directions, or when a rigged Models asset is attached
   - **One-shot sheet** is never auto-recommended. It is a **Try generating the whole sheet in one image** checkbox, which switches the method when ticked
@@ -332,7 +332,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     cards; unticking restores the previous card.
   - **Rendered from 3D** with no rigged Models asset attached shows **Attach a rigged model…** instead of
     Generate.
-- [ ] The recommendation is a pure function in `shared` (`recommendSpriteMethod(spec)`), so the UI, MCP and skill agree
+- [x] The recommendation is a pure function in `shared` (`recommendSpriteMethod(spec)`), so the UI, MCP and skill agree
   - `shared/src/sprite/recommend.ts`: `recommendSpriteMethod(spec): { method: 'hand-drawn' | 'rendered'; reason: string }`.
     Rules, first match wins: a `reference.kind === 'model'` → rendered, _"A rigged model is attached:
     rendering keeps every direction consistent."_; perspective `top-down`/`isometric` with directions
@@ -340,13 +340,13 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     guarantees it."_; perspective `side` → hand-drawn, _"Side-scrollers need one facing; hand-drawn frames
     look best."_; style `hand-drawn`/`painterly` → hand-drawn, _"Painterly styles come out best drawn
     frame by frame."_; otherwise hand-drawn, _"Hand-drawn is the general default."_
-- [ ] Clip presets per perspective (side: idle, walk, run, jump, fall, attack, hurt, die; top-down and isometric: idle, walk, attack and die, per direction) with frame counts and fps, editable
+- [x] Clip presets per perspective (side: idle, walk, run, jump, fall, attack, hurt, die; top-down and isometric: idle, walk, attack and die, per direction) with frame counts and fps, editable
   - `SPRITE_CLIP_PRESETS` in `shared/src/sprite/presets.ts`: side — idle 4@6 loop, walk 8@10 loop,
     run 8@12 loop, jump 4@10 once, fall 2@8 loop, attack 6@12 once, hurt 2@8 once, die 6@8 once;
     top-down/isometric — idle 4@6, walk 8@10, attack 6@12 once, die 6@8 once; front — idle 4@6, walk 8@10.
     Changing perspective replaces clips only if the user has not edited them (a `clipsEdited` flag in form
     state), otherwise asks _"Replace your clips with the <perspective> preset?"_.
-- [ ] Vitest: the recommendation table, and preset clips per perspective
+- [x] Vitest: the recommendation table, and preset clips per perspective
   - `shared/src/sprite/recommend.test.ts`: one case per rule plus precedence (model attached + side →
     rendered); `presets.test.ts`: frame counts above.
   - `app/src/features/media/sprite/sprite-method-picker.test.tsx`: the badge sits on the card

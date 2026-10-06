@@ -960,6 +960,16 @@ export const CHANNELS = {
   mediaTerrainRoadKey: 'mstudio:media:terrain-road-key',
   /** Theme I — the terrain pack. Answers "not available yet" until it lands. */
   mediaTerrainExport: 'mstudio:media:terrain-export',
+  // Sprites (`main/media/sprite/`, Phase 106): library ops, spec, reference, generation jobs. Progress on `mediaSpriteProgress`.
+  mediaSpriteLibrary: 'mstudio:media:sprite-library',
+  mediaSpriteGet: 'mstudio:media:sprite-get',
+  mediaSpriteSetSpec: 'mstudio:media:sprite-set-spec',
+  mediaSpriteSetReference: 'mstudio:media:sprite-set-reference',
+  mediaSpriteGenerate: 'mstudio:media:sprite-generate',
+  mediaSpriteCancel: 'mstudio:media:sprite-cancel',
+  mediaSpritePatchFrames: 'mstudio:media:sprite-patch-frames',
+  /** Theme G — the sprite pack. Answers "not available yet" until it lands. */
+  mediaSpriteExport: 'mstudio:media:sprite-export',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1539,6 +1549,12 @@ export const EVENT_CHANNELS = {
   mediaTerrainChanged: 'mstudio:media:terrain-changed',
   /** `terrain_open` (Theme J) asked the window to show a terrain — see `TerrainOpenEventSchema`. */
   mediaTerrainOpen: 'mstudio:media:terrain-open',
+  /** A sprite job advanced — see `SpriteProgressEventSchema`. */
+  mediaSpriteProgress: 'mstudio:media:sprite-progress',
+  /** A sprite asset's spec, frames or job state changed (revision bump) — see `SpriteChangedEventSchema`. */
+  mediaSpriteChanged: 'mstudio:media:sprite-changed',
+  /** `sprite_open` (Theme K) asked the window to show an asset — see `SpriteOpenEventSchema`. */
+  mediaSpriteOpen: 'mstudio:media:sprite-open',
   /** A chat turn's text or state advanced — see `ChatEventSchema`. */
   chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */

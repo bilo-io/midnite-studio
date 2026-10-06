@@ -1309,6 +1309,23 @@ export type MidniteStudioBridge = {
       /** `terrain_open` asked for a terrain to be shown. */
       onOpen: (handler: (event: z.infer<typeof S.MediaTerrainOpenPayload>) => void) => Unsubscribe;
     };
+    /** Sprites (Phase 106): precise 2D assets, generated as cancellable jobs. */
+    sprite: {
+      library: (req: In<typeof S.MediaSpriteLibraryRequest>) => Promise<z.infer<typeof S.MediaSpriteLibraryResponse>>;
+      get: (req: In<typeof S.MediaSpriteGetRequest>) => Promise<z.infer<typeof S.MediaSpriteGetResponse>>;
+      setSpec: (req: In<typeof S.MediaSpriteSetSpecRequest>) => Promise<z.infer<typeof S.MediaSpriteSetSpecResponse>>;
+      /** Attach a reference image (as bytes), point at a Models asset, or remove it. */
+      setReference: (req: In<typeof S.MediaSpriteSetReferenceRequest>) => Promise<GitOpResult>;
+      /** Starts a job and resolves with its id at once; progress arrives on `onProgress`. */
+      generate: (req: In<typeof S.MediaSpriteGenerateRequest>) => Promise<z.infer<typeof S.MediaSpriteGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaSpriteCancelRequest>) => Promise<GitOpResult>;
+      patchFrames: (req: In<typeof S.MediaSpritePatchFramesRequest>) => Promise<GitOpResult>;
+      export: (req: In<typeof S.MediaSpriteExportRequest>) => Promise<GitOpResult>;
+      onProgress: (handler: (event: z.infer<typeof S.MediaSpriteProgressPayload>) => void) => Unsubscribe;
+      onChanged: (handler: (event: z.infer<typeof S.MediaSpriteChangedPayload>) => void) => Unsubscribe;
+      /** `sprite_open` asked for an asset to be shown. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaSpriteOpenPayload>) => void) => Unsubscribe;
+    };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
     export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;

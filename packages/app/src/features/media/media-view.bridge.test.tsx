@@ -24,10 +24,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('MediaTabStrip', () => {
-  it('renders seven icon tabs and the label only on the active one', () => {
+  it('renders eight icon tabs and the label only on the active one', () => {
     open();
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Docs', 'Images', 'Video', 'Audio', 'Models', 'Terrain', 'Games']);
+    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Docs', 'Images', 'Video', 'Audio', 'Models', 'Terrain', 'Sprites', 'Games']);
     expect(screen.getAllByTestId('media-tab-label')).toHaveLength(1);
     expect(within(tabs[0]!).getByTestId('media-tab-label').textContent).toBe('Docs');
     expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
