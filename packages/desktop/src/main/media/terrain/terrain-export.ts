@@ -52,7 +52,7 @@ const ROAD_RGB = '#3a3a3d';
 const MAX_BAKE = 2048;
 const MATERIAL_NAMES = ['grass', 'rock', 'dirt', 'snow'] as const;
 
-type Built = {
+export type Built = {
   dir: string;
   build: string;
   field: Heightfield;
@@ -74,7 +74,7 @@ async function readJson<T>(path: string, parse: (v: unknown) => T): Promise<T | 
   return text === null ? null : parse(JSON.parse(text));
 }
 
-async function load(dir: string): Promise<GitOpResult<Built>> {
+export async function loadBuilt(dir: string): Promise<GitOpResult<Built>> {
   const build = join(dir, 'build');
   const chunks = await readJson(join(build, 'chunks.json'), (v) => TerrainChunksFileSchema.parse(v));
   const raw = await readFile(join(build, 'heights.f32')).catch(() => null);
@@ -95,7 +95,7 @@ async function load(dir: string): Promise<GitOpResult<Built>> {
 
 const flat = (v: ArrayLike<number>): number[] => Array.from(v);
 
-function meshPart(name: string, color: string, positions: ArrayLike<number>, normals: ArrayLike<number>, indices: ArrayLike<number>, uvs?: ArrayLike<number>, texture?: string): MeshPart {
+export function terrainMeshPart(name: string, color: string, positions: ArrayLike<number>, normals: ArrayLike<number>, indices: ArrayLike<number>, uvs?: ArrayLike<number>, texture?: string): MeshPart {
   return {
     name,
     color,
@@ -116,7 +116,7 @@ function chunkParts(b: Built, heightRange: readonly [number, number], lod: numbe
   for (let cz = 0; cz < b.chunksPerSide; cz += 1) {
     for (let cx = 0; cx < b.chunksPerSide; cx += 1) {
       const m = chunkMesh(b.field, cx, cz, lod, heightRange);
-      parts.push(meshPart(`chunk_${cx}_${cz}`, texture ? '#ffffff' : TERRAIN_RGB, m.positions, m.normals, m.indices, texture ? m.uvs : undefined, texture));
+      parts.push(terrainMeshPart(`chunk_${cx}_${cz}`, texture ? '#ffffff' : TERRAIN_RGB, m.positions, m.normals, m.indices, texture ? m.uvs : undefined, texture));
     }
   }
   return parts;
@@ -135,7 +135,7 @@ function mergedRoads(b: Built): MeshPart | null {
     normals.push(...flat(p.normals));
     for (const i of p.indices) indices.push(i + base);
   }
-  return meshPart('roads', ROAD_RGB, positions, normals, indices);
+  return terrainMeshPart('roads', ROAD_RGB, positions, normals, indices);
 }
 
 const toHex = (rgb: readonly number[]): string => `#${rgb.map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`;
@@ -143,7 +143,7 @@ const toHex = (rgb: readonly number[]): string => `#${rgb.map((c) => Math.round(
 function mergedBuildings(b: Built): MeshPart | null {
   if (!b.buildings || b.buildings.buildings.length === 0) return null;
   const m = buildingsMesh(b.buildings.buildings);
-  return meshPart('buildings', toHex(BUILDING_WALL_RGB), m.positions, m.normals, m.indices);
+  return terrainMeshPart('buildings', toHex(BUILDING_WALL_RGB), m.positions, m.normals, m.indices);
 }
 
 /** Foliage instances grouped per asset. Only built-in designs can be drawn; others are named in `skipped`. */
@@ -170,7 +170,7 @@ function foliageInstancing(b: Built): { instancing: GltfInstancing; assets: stri
       rotations.set([0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)], i * 4);
       scales.set([scale, scale, scale], i * 3);
     });
-    meshes.push({ part: meshPart(asset, '#ffffff', geo.positions, geo.normals, geo.indices), translations, rotations, scales, colors: geo.colors });
+    meshes.push({ part: terrainMeshPart(asset, '#ffffff', geo.positions, geo.normals, geo.indices), translations, rotations, scales, colors: geo.colors });
     assets.push(asset);
   });
   return { instancing: { meshes }, assets, skipped };
@@ -224,7 +224,7 @@ async function bakeSplat(b: Built, size: number): Promise<Uint8Array | null> {
   return encodePngRgba8(out, size, size);
 }
 
-async function textureFor(b: Built, spec: TerrainSpec, mode: TerrainExportOptions['texture']): Promise<string | undefined> {
+async function textureFor(b: Built, spec: TerrainSpec, mode: ExportOptions['texture']): Promise<string | undefined> {
   if (mode === 'none') return undefined;
   if (mode === 'drape') {
     const bytes = await readFile(join(b.build, 'drape.png')).catch(() => null);
@@ -254,12 +254,14 @@ async function dirBytes(path: string): Promise<number> {
   return total;
 }
 
-export type ExportTerrainArgs = { dir: string; spec: TerrainSpec; options: TerrainExportOptions };
+/** What to write and where; the target (`repoId`/`project`/`terrain`) is the caller's business. */
+export type ExportOptions = Omit<TerrainExportOptions, 'repoId' | 'project' | 'terrain'>;
+export type ExportTerrainArgs = { dir: string; spec: TerrainSpec; options: ExportOptions };
 
 /** Writes the glb or the pack; answers where it went and how big it is. */
 export async function exportTerrain({ dir, spec, options }: ExportTerrainArgs): Promise<GitOpResult<TerrainExportResult>> {
   try {
-    const loaded = await load(dir);
+    const loaded = await loadBuilt(dir);
     if (!loaded.ok) return loaded;
     const b = loaded.value;
     const name = terrainSlug(spec.name) || 'terrain';
@@ -348,7 +350,7 @@ async function writePack(out: string, b: Built, spec: TerrainSpec, name: string,
     const g = foliageGeometry(design);
     await mkdir(join(out, 'foliage'), { recursive: true });
     const instancing: GltfInstancing = {
-      meshes: [{ part: meshPart(asset, '#ffffff', g.positions, g.normals, g.indices), translations: new Float32Array(3), rotations: Float32Array.of(0, 0, 0, 1), scales: Float32Array.of(1, 1, 1), colors: g.colors }],
+      meshes: [{ part: terrainMeshPart(asset, '#ffffff', g.positions, g.normals, g.indices), translations: new Float32Array(3), rotations: Float32Array.of(0, 0, 0, 1), scales: Float32Array.of(1, 1, 1), colors: g.colors }],
     };
     await writeFile(join(out, 'foliage', `${asset}.glb`), writeGlb([], asset, null, instancing));
     foliageAssets.push({ name: asset, glb: `foliage/${asset}.glb` });

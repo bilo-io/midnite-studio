@@ -3,7 +3,10 @@ import { nativeImage, shell, utilityProcess } from 'electron';
 import { CHANNELS, EVENT_CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
+import { setTerrainTools } from '../mcp/terrain-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
 import { createTerrainBroker, terrainWorkerScriptPath, type TerrainWorkerHandle } from '../media/terrain/terrain-broker';
+import { createTerrainTools } from '../media/terrain/terrain-mcp';
 import { createTerrainService } from '../media/terrain/terrain-service';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle } from './handle';
@@ -56,6 +59,25 @@ const service = createTerrainService({
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaTerrainChanged, event),
   log: (line) => defaultLogger.info(line),
 });
+
+/**
+ * The `terrain_*` MCP tools, over the same service as the tab. The app's global MCP server answers
+ * them behind the `allowTerrains` switch (`mcp/terrain-tools.ts`); `terrain_open` is broadcast to
+ * every window, which the Terrain tab answers by selecting that terrain.
+ */
+setTerrainTools(
+  createTerrainTools({
+    service,
+    resolveRepo: async (repoPath) => {
+      const resolved = await resolveRegisteredRepo(repoPath);
+      if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id, repoRoot: resolved.repo.repoRoot };
+      return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+    },
+    listProjects: (repoId) => mediaStore.listProjects({ repoId, tab: 'terrain' }),
+    listFiles: (scope) => mediaStore.listFiles(scope),
+    emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaTerrainOpen, event),
+  }),
+);
 
 export function registerMediaTerrainHandlers(): void {
   const invalid = (issue: string) => failure(issue);

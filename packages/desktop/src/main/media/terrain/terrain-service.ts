@@ -509,7 +509,13 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     return queue.run(dir, () => exportTerrain({ dir, spec: spec.value, options: req }));
   }
 
-  return { library, get, setSpec, setInput, build, cancel, paint, roadKey, export: exportPack };
+  /** The terrain's folder, for the callers that read its files directly (the MCP preview and export). */
+  async function dirOf(target: Pick<TerrainTarget, 'repoId' | 'project' | 'terrain'>): Promise<GitOpResult<string>> {
+    const located = await locate(target);
+    return located.ok ? ok(located.value.dir) : located;
+  }
+
+  return { library, get, setSpec, setInput, build, cancel, paint, roadKey, export: exportPack, dirOf };
 }
 
 /** Nearest-neighbour resample of any raster to a `size`² one with the same channels. */

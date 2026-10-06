@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
@@ -7,6 +7,7 @@ import { renderView } from '../../../../test-support/render';
 import { useToastStore } from '../../../store/toast-store';
 import { useUiStore } from '../../../store/ui-store';
 import { MediaView } from '../media-view';
+import { useTerrainOpenRequest } from './use-terrain-agent-events';
 
 /**
  * Media ▸ Terrain through the mock bridge (vitest/jsdom is enough: no WebGL, no layout). The tab is
@@ -176,5 +177,13 @@ describe('Terrain tab', () => {
     fireEvent.click(await within(explorer()).findByRole('button', { name: 'dunes' }));
     await screen.findByTestId('terrain-panel');
     expect((screen.getByRole('button', { name: /Export Terrain pack/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('terrain_open from an agent selects that terrain', async () => {
+    open();
+    await within(explorer()).findByRole('button', { name: 'dunes' });
+    act(() => useTerrainOpenRequest.getState().open({ repoId: 'repo-1', project: 'terrains', terrain: 'dunes-20261004-120000' }));
+    expect(await screen.findByTestId('terrain-panel')).toBeTruthy();
+    expect(useTerrainOpenRequest.getState().request).toBeNull();
   });
 });
