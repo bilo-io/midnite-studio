@@ -74,3 +74,44 @@ export function createClock(options = {}) {
     },
   };
 }
+
+/**
+ * The three.js kit's fixed-timestep accumulator: feed it real frame time and
+ * it says how many `1/hz` steps to simulate, plus `alpha`, the leftover
+ * fraction of a step to interpolate rendering by. At most `maxSteps` per frame
+ * (a stall drops the excess rather than spiralling), so `advance(1000)` at
+ * 60 Hz is 5 steps, not 60.
+ * @param {number} [hz]
+ * @param {number} [maxSteps]
+ */
+export function createFixedStep(hz = 60, maxSteps = 5) {
+  const stepMs = 1000 / hz;
+  let accumulator = 0;
+  return {
+    stepMs,
+    /** Seconds per step — what physics and game logic integrate with. */
+    dt: 1 / hz,
+    get alpha() {
+      return accumulator / stepMs;
+    },
+    /**
+     * @param {number} dtMs real elapsed time since the last frame
+     * @returns {{ steps: number, alpha: number }}
+     */
+    advance(dtMs) {
+      if (dtMs > 0) accumulator += dtMs;
+      // Rounding guard: 3 × 16.666… must count as 3 steps, not 2 and a sliver.
+      let steps = Math.floor(accumulator / stepMs + 1e-9);
+      accumulator = Math.max(0, accumulator - steps * stepMs);
+      if (accumulator < 1e-6) accumulator = 0;
+      if (steps > maxSteps) {
+        steps = maxSteps;
+        accumulator = 0;
+      }
+      return { steps, alpha: accumulator / stepMs };
+    },
+    reset() {
+      accumulator = 0;
+    },
+  };
+}
