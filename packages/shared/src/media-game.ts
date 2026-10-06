@@ -50,7 +50,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.2.0';
+export const GAME_KIT_VERSION = '0.3.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -102,6 +102,18 @@ export const GAME_CAMERA_IDS = [
 ] as const;
 export const GameCameraIdSchema = z.enum(GAME_CAMERA_IDS);
 export type GameCameraId = z.infer<typeof GameCameraIdSchema>;
+
+/**
+ * Each third-person camera's offset `[x, y, z]` in metres from the player's head-height pivot
+ * (+x right, +y up, +z behind). The kit's `kit/core/cameras.js` carries the same table.
+ */
+export const GAME_CAMERA_OFFSETS: Readonly<Record<GameCameraId, readonly [number, number, number]>> = {
+  'over-shoulder-left': [-0.7, 0.2, 2.4],
+  'over-shoulder-right': [0.7, 0.2, 2.4],
+  behind: [0, 0.4, 4.0],
+  'further-behind': [0, 1.2, 7.0],
+  'much-further-behind': [0, 3.0, 12.0],
+};
 
 export const GameNetworkSchema = z.enum(['off', 'on']);
 export type GameNetwork = z.infer<typeof GameNetworkSchema>;

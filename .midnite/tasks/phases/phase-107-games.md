@@ -171,9 +171,21 @@ sequenced input via `sendInputEvent`; covered by comprehensive vitest suites.
 
 **Theme E — Phaser kit and the 2D perspective presets.** ✅ Landed. Engine-free `kit/core/` (rng, clock, iso, raycast, anim-names, input-map, jump, tiled-objects, asset-index, save, hook, preset-defaults) covered by `kit-core.test.ts`, plus `kit/phaser/` (boot, scenes, input, camera, animator, tiled, hud, audio) and the platformer, top-down, isometric and DDA raycaster presets, all smoke-tested in real Chromium. `window.__midnite` is installed by `hook.js`; `KitGameStateSchema` is the kit's required contract while `GameStateSchema` types the same fields as optional so a hand-written game may report anything. `GAME_KIT_VERSION` is 0.2.0.
 
-**Theme F — three.js kit, physics and the camera rigs.** ◻ Not started. A fixed-timestep loop, a
-Rapier character controller, the Phase 105 terrain loader (heightfield collider from the 16-bit PNG),
-five named third-person cameras with numeric offsets, a raycast vehicle, and an optional navmesh.
+**Theme F — three.js kit, physics and the camera rigs.** ✅ Landed. Engine-free `kit/core/` additions —
+`createFixedStep(hz, maxSteps = 5)` in `clock.js`, `cameras.js` (the five presets with the doc's offsets, `springArmDistance`,
+`relaxArm`, lock-on, versus, head bob, camera-relative movement), `lod.js` (Phase 105's `selectLod` constants),
+`terrain-manifest.js` (a plain-JS mirror of `TerrainManifestSchema`, version 1 only), `png16.js` (16-bit PNG via
+`DecompressionStream`), `heightfield.js` (whose `heightAt` uses the same cell diagonal as Rapier's heightfield, and whose
+`toRapierHeights` transposes the z-major PNG into Rapier's column order), `clip-names.js`, `vehicle.js`, `road-ribbon.js`,
+`nav-policy.js` and `dom-keys.js` — plus `kit/three/{loop,input,physics,character,gltf,animator,terrain,hud,audio,cameras,vehicle,nav}.js`.
+The terrain loader falls back to one mesh built from the heightfield when a pack lists no chunk glbs. The camera ids stay
+the ones shared already shipped in Theme A's manifest schema (`over-shoulder-left/right`, `behind`, `further-behind`,
+`much-further-behind`), not the doc's `shoulder-left` spellings, so existing manifests stay valid; `GAME_CAMERA_OFFSETS`
+joins them in shared. The vehicle's engine force is 3000 (Rapier applies it as a raw impulse, so it has to carry a 1200 kg
+chassis). Fixes a Theme C bug: three r186's `three.module.js` imports `./three.core.js`, which the vendoring script did not
+copy, so every 3D game 404'd. `GAME_KIT_VERSION` is 0.3.0. Tested in `kit-core-three.test.ts` (22 tests, including a real
+Rapier heightfield checked against `heightAt`) and smoke-tested in SwiftShader Chromium on a synthetic terrain pack (third
+person, first person, camera cycling, driving, the nav path); rendering e2e stays with Theme Q.
 
 **Theme G — Perspective base starters.** ◻ Not started. Six bases under `templates/media-game/bases/`,
 each with a smoke replay and CC0 art listed in `ASSETS.md`.
@@ -564,7 +576,7 @@ Lands early so every later theme is built with the agent able to play.
 
 ## F — three.js kit, physics and the camera rigs (L)
 
-- [ ] `kit/` modules for three.js:
+- [x] `kit/` modules for three.js:
   - a fixed-timestep game loop with interpolation
   - input mapping
   - **Rapier** world, with a kinematic character controller (slopes, steps, ground snap)
@@ -590,7 +602,7 @@ Lands early so every later theme is built with the agent able to play.
     `DecompressionStream('deflate')`; `createImageBitmap` would quantise to 8 bits), instances foliage
     per asset (`InstancedMesh`), extrudes `buildings.json` polygons, and exposes
     `terrain.roads` (`{ nodes, edges }`) and `terrain.heightAt(x, z)`.
-- [ ] **Camera rigs**:
+- [x] **Camera rigs**:
   - **first person**: mouse-look with pointer lock, head bob, FOV setting
   - **third person, five presets** (user, 2026-10-04): **over the shoulder left**, **over the shoulder right**, **directly behind**, **further behind** and **much further behind**, cycled by one action and switchable in game
   - all third-person presets use a spring arm (raycast to avoid clipping into walls), with lock-on support for I's fighter and soulslike
@@ -602,14 +614,14 @@ Lands early so every later theme is built with the agent able to play.
   - Spring arm: `springArmDistance(desired, hitDistance, margin = 0.2)` in `kit/core/cameras.js`; lerps
     back out at 4 m/s. Lock-on: `chooseLockTarget(player, forward, candidates, maxDist = 20, maxAngle = 60°)`.
   - The fighter's **versus** camera (`'versus'`) is a sixth rig in `cameras.js`, outside the cycle.
-- [ ] A raycast **vehicle controller** on Rapier (wheels, suspension, enter and exit) for the open world and top-down-crime 3D variants
+- [x] A raycast **vehicle controller** on Rapier (wheels, suspension, enter and exit) for the open world and top-down-crime 3D variants
   - `vehicle.js` on `world.createVehicleController(chassis)` (Rapier's `DynamicRayCastVehicleController`),
     4 wheels; enter/exit with the `interact` action within 2.5 m of a door point.
-- [ ] Navigation: a navmesh via `recast-navigation-js` vendored like the engines (verify the licence in C), behind a kit module so starters that do not need it do not load it
+- [x] Navigation: a navmesh via `recast-navigation-js` vendored like the engines (verify the licence in C), behind a kit module so starters that do not need it do not load it
   - `nav.js` is imported dynamically (`await import('kit/three/nav.js')`) only by starters whose
     manifest genre is `shooter`, `rpg`, `soulslike` or `open-world`; it builds a navmesh from tagged
     walkable meshes and exposes `findPath(from, to)`.
-- [ ] Vitest (engine-free maths): spring-arm distance under occlusion, preset offsets for each of the five cameras, fixed-timestep accumulation, and manifest parsing against a Phase 105 fixture. Rendering is covered by e2e
+- [x] Vitest (engine-free maths): spring-arm distance under occlusion, preset offsets for each of the five cameras, fixed-timestep accumulation, and manifest parsing against a Phase 105 fixture. Rendering is covered by e2e
   - In `kit-core.test.ts`: the five offsets equal the table; `springArmDistance(4, 1.5)` is 1.3;
     `createFixedStep(60).advance(50)` gives 3 steps and alpha 0; `advance(1000)` is capped at 5;
     `terrain-manifest.js` accepts Phase 105's committed fixture manifest and rejects `version: 2`;
