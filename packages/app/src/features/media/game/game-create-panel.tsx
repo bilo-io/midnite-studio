@@ -1,55 +1,57 @@
 import {
-  GAME_PERSPECTIVES,
+  GAME_CAMERA_IDS,
+  parseStarterId,
+  starterId,
+  type GameCameraId,
+  type GameDimension,
   type GameEngine,
   type GamePerspective,
 } from '@midnite/studio-shared';
 import { useState } from 'react';
 
-import { SelectField } from '../../../components/form/select-field';
 import { Spinner } from '../../../components/skeleton';
+import { GameGallery, perspectivesOf } from './game-gallery';
 import { useCreateGame, useGamesSettings } from './use-games';
-
-const ENGINE_OPTIONS: readonly { value: GameEngine; label: string }[] = [
-  { value: 'phaser', label: 'Phaser (2D)' },
-  { value: 'three', label: 'three.js + Rapier (3D)' },
-];
-
-const PERSPECTIVE_LABEL: Record<GamePerspective, string> = {
-  platformer: 'Platformer',
-  'top-down': 'Top-down',
-  isometric: 'Isometric',
-  raycaster: '2.5D raycaster',
-  'first-person': 'First person',
-  'third-person': 'Third person',
-};
-
-const TWO_D: readonly GamePerspective[] = ['platformer', 'top-down', 'isometric', 'raycaster'];
 
 /** The perspectives an engine can start from. */
 export const perspectivesFor = (engine: GameEngine): readonly GamePerspective[] =>
-  engine === 'phaser' ? TWO_D : GAME_PERSPECTIVES.filter((p) => !TWO_D.includes(p));
+  perspectivesOf(engine === 'phaser' ? '2d' : '3d');
 
 /**
- * New-game form (Phase 107 Theme A). Creates a repo from the blank scaffold —
- * the genre starters and the perspective × genre gallery arrive with the later
- * themes and replace this panel's body, not its place in the tab.
+ * New-game form: a name, then the perspective × genre gallery (Phase 107
+ * Theme K). The starter id carries both choices; the engine follows the
+ * dimension. Genre cells whose module has not landed are shown, disabled.
  */
 export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => void }) {
   const settings = useGamesSettings();
   const create = useCreateGame();
   const [name, setName] = useState('');
-  const [engine, setEngine] = useState<GameEngine | null>(null);
-  const [perspective, setPerspective] = useState<GamePerspective | null>(null);
+  const [dimension, setDimension] = useState<GameDimension | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [cameras, setCameras] = useState<readonly GameCameraId[]>(GAME_CAMERA_IDS);
 
-  const chosenEngine = engine ?? settings.data?.settings.defaultEngine ?? 'phaser';
-  const options = perspectivesFor(chosenEngine);
-  const chosenPerspective = perspective && options.includes(perspective) ? perspective : options[0]!;
+  const defaultDimension: GameDimension = settings.data?.settings.defaultEngine === 'three' ? '3d' : '2d';
+  const chosenDimension = dimension ?? defaultDimension;
+  const firstBase = perspectivesOf(chosenDimension)[0]!;
+  const parsedPick = picked === null ? null : parseStarterId(picked);
+  const pickFits = parsedPick !== null && perspectivesOf(chosenDimension).includes(parsedPick.perspective);
+  const starter = pickFits ? picked! : starterId(firstBase);
+  const { perspective, genre } = pickFits ? parsedPick : { perspective: firstBase, genre: null };
+  const engine: GameEngine = chosenDimension === '2d' ? 'phaser' : 'three';
   const valid = name.trim().length > 0;
 
   const submit = () => {
     if (!valid) return;
     create.mutate(
-      { name: name.trim(), engine: chosenEngine, perspective: chosenPerspective },
+      {
+        name: name.trim(),
+        engine,
+        perspective,
+        genre,
+        starter,
+        // All five on is the default, which the manifest stores as an empty list.
+        ...(perspective === 'third-person' && cameras.length < GAME_CAMERA_IDS.length ? { cameras: [...cameras] } : {}),
+      },
       {
         onSuccess: (result) => {
           if (result.ok) {
@@ -74,7 +76,7 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         <h2 className="text-sm font-semibold">New game</h2>
         <p className="text-[11px] text-muted-foreground">
           A game is its own git repository
-          {settings.data ? ` in ${settings.data.resolvedRoot}` : ''}, written by an agent against {chosenEngine === 'phaser' ? 'Phaser' : 'three.js'}.
+          {settings.data ? ` in ${settings.data.resolvedRoot}` : ''}, written by an agent against {engine === 'phaser' ? 'Phaser' : 'three.js'}.
         </p>
       </div>
       <label className="flex flex-col gap-1 text-xs font-medium">
@@ -87,22 +89,14 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
           className="rounded-md border border-input bg-background px-2 py-1 text-xs font-normal outline-none focus:ring-1 focus:ring-ring"
         />
       </label>
-      <div className="flex flex-col gap-1 text-xs font-medium">
-        Engine
-        <SelectField<GameEngine> label="Engine" value={chosenEngine} onChange={setEngine} options={ENGINE_OPTIONS} />
-      </div>
-      <div className="flex flex-col gap-1 text-xs font-medium">
-        Perspective
-        <SelectField<GamePerspective>
-          label="Perspective"
-          value={chosenPerspective}
-          onChange={setPerspective}
-          options={options.map((value) => ({ value, label: PERSPECTIVE_LABEL[value] }))}
-        />
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        Starts from a blank scaffold. Genre starters arrive in a later update.
-      </p>
+      <GameGallery
+        dimension={chosenDimension}
+        onDimension={setDimension}
+        value={starter}
+        onChange={setPicked}
+        cameras={cameras}
+        onCameras={setCameras}
+      />
       <button
         type="submit"
         disabled={!valid || create.isPending}
