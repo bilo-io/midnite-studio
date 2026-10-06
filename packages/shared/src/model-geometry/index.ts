@@ -1,4 +1,14 @@
 export * from './math';
+export {
+  applyConversion,
+  convertToSculptMesh,
+  revertSculptToParts,
+  sculptSourceIds,
+  type ConvertGroup,
+  type ConvertOptions,
+  type ConvertResult,
+  type ConvertedFile,
+} from './convert';
 export { csg, CSG_MAX_TRIANGLES, type CsgOutcome } from './csg';
 export {
   applyModifiers,
