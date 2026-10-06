@@ -48,6 +48,22 @@ import {
   ModelSf3dStatusInputSchema,
   ModelSf3dStatusResultSchema,
 } from './media-model-mcp';
+import {
+  TerrainMcpBuildResultSchema,
+  TerrainEditResultSchema,
+  TerrainExportInputSchema,
+  TerrainExportOutputSchema,
+  TerrainGetSpecResultSchema,
+  TerrainGetStatsResultSchema,
+  TerrainListInputSchema,
+  TerrainListResultSchema,
+  TerrainOpenResultSchema,
+  TerrainRenderPreviewInputSchema,
+  TerrainSetInputInputSchema,
+  TerrainMcpSetInputResultSchema,
+  TerrainSetSpecInputSchema,
+  TerrainToolTargetSchema,
+} from './media-terrain-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -125,7 +141,16 @@ type McpToolEntry = {
     | 'game_screenshot'
     | 'game_logs'
     | 'game_input'
-    | 'game_state';
+    | 'game_state'
+    | 'terrain_list'
+    | 'terrain_open'
+    | 'terrain_get_spec'
+    | 'terrain_set_spec'
+    | 'terrain_set_input'
+    | 'terrain_build'
+    | 'terrain_render_preview'
+    | 'terrain_get_stats'
+    | 'terrain_export';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -604,6 +629,95 @@ export const MCP_TOOLS = {
     input: GameToolTargetSchema,
     output: GameStateOutputSchema,
     readOnly: true,
+  },
+  /*
+   * Media ▸ Terrain (Phase 105 Theme J) — shape a terrain iteratively: pick a height source, build,
+   * look at the pictures, adjust, export. The read tools and the preview render work whenever the
+   * server is on; everything that changes a terrain, runs a build or writes an export is gated by
+   * `Settings ▸ MCP ▸ Let agents edit terrains` (`allowTerrains`), off by default. A terrain is
+   * addressed by `repoPath` + `project` + `terrain` (`terrain_list` returns them). Schemas:
+   * `media-terrain-mcp.ts`.
+   */
+  terrain_list: {
+    id: 'terrain_list',
+    title: 'List terrains',
+    description:
+      'Lists the Terrain projects and the terrains in them with whether each is built — use instead of `ls .midnite/media/terrain`; the `terrain` name it returns is what every other terrain tool takes.',
+    input: TerrainListInputSchema,
+    output: TerrainListResultSchema,
+    readOnly: true,
+  },
+  terrain_open: {
+    id: 'terrain_open',
+    title: 'Show a terrain in the Terrain tab',
+    description:
+      'Opens one terrain in the Terrain tab so the user watches builds land live — use after `terrain_list`; refused unless its own Settings switch is on.',
+    input: TerrainToolTargetSchema,
+    output: TerrainOpenResultSchema,
+    readOnly: false,
+  },
+  terrain_get_spec: {
+    id: 'terrain_get_spec',
+    title: 'Read a terrain’s spec and the schema',
+    description:
+      'Returns a terrain’s spec with its JSON schema and limits — use instead of reading `terrain.json`; call it first to learn the fields and which of the three inputs are attached.',
+    input: TerrainToolTargetSchema,
+    output: TerrainGetSpecResultSchema,
+    readOnly: true,
+  },
+  terrain_set_spec: {
+    id: 'terrain_set_spec',
+    title: 'Change a terrain’s spec',
+    description:
+      'Merges a partial spec (resolution, worldSize, heightRange, noise, foliage, roads, …) over the stored one — use instead of editing `terrain.json`; invalid fields come back as errors, nothing changes.',
+    input: TerrainSetSpecInputSchema,
+    output: TerrainEditResultSchema,
+    readOnly: false,
+  },
+  terrain_set_input: {
+    id: 'terrain_set_input',
+    title: 'Attach or remove a terrain input image',
+    description:
+      'Attaches a heightmap, satellite or roads image from a repo path, or paints the heightmap from a prompt — use instead of copying a file into the terrain’s `inputs` folder; paths outside the repo are refused.',
+    input: TerrainSetInputInputSchema,
+    output: TerrainMcpSetInputResultSchema,
+    readOnly: false,
+  },
+  terrain_build: {
+    id: 'terrain_build',
+    title: 'Build a terrain',
+    description:
+      'Builds the heightfield, satellite maps, roads, foliage and buildings from the spec — use instead of a `node` generator script; with no heightmap and no noise it asks you to choose, never guessing.',
+    input: TerrainToolTargetSchema,
+    output: TerrainMcpBuildResultSchema,
+    readOnly: false,
+  },
+  terrain_render_preview: {
+    id: 'terrain_render_preview',
+    title: 'Render the terrain from named views',
+    description:
+      'Renders a built terrain to PNG images from top, oblique, horizon, landcover and roads views — use instead of judging `terrain_get_stats` numbers; returns image content, at most 768 px each.',
+    input: TerrainRenderPreviewInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  terrain_get_stats: {
+    id: 'terrain_get_stats',
+    title: 'Read a terrain’s build statistics',
+    description:
+      'Returns the last build’s heights, land-cover percentages, road count and length and building count — use instead of parsing `terrain.json`; answers built false when there is no build.',
+    input: TerrainToolTargetSchema,
+    output: TerrainGetStatsResultSchema,
+    readOnly: true,
+  },
+  terrain_export: {
+    id: 'terrain_export',
+    title: 'Export a terrain',
+    description:
+      'Writes the terrain pack folder (manifest, heightfield, chunk glbs, maps) or one glb inside the repo — use instead of copying files out of `build`; an existing pack is never overwritten.',
+    input: TerrainExportInputSchema,
+    output: TerrainExportOutputSchema,
+    readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;
 

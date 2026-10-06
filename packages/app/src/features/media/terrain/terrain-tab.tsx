@@ -1,5 +1,5 @@
 import { TERRAIN_SHADING_MODES, type TerrainSpec } from '@midnite/studio-shared';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LuBrush, LuEye, LuGrid2X2, LuLayers, LuMountain, LuMove, LuRoute, LuSun, LuTrendingUp } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
@@ -11,11 +11,13 @@ import { MediaLayout } from '../media-layout';
 import type { MediaSelection } from '../media-projects-accordion';
 import { MEDIA_TAB_META } from '../media-tabs';
 import { NoRepoMediaState } from '../repo-media-tab';
+import { TerrainExportBar } from './terrain-export-bar';
 import { TerrainExplorer, terrainOfPath } from './terrain-explorer';
 import { TerrainPanel } from './terrain-panel';
 import { SHADING_LABEL, shadingNeeds, type ShadingMode } from './terrain-shading';
 import { TerrainStatsReadout } from './terrain-stats-readout';
 import { LazyTerrainViewer } from './terrain-viewer-lazy';
+import { useTerrainOpenRequest } from './use-terrain-agent-events';
 import { useTerrain, useTerrainChangedInvalidation, type TerrainRef } from './use-terrain';
 
 /**
@@ -34,6 +36,13 @@ export function TerrainTab() {
 function TerrainTabBody({ repoId }: { repoId: string }) {
   const [selection, setSelection] = useState<MediaSelection | null>(null);
   useTerrainChangedInvalidation(repoId);
+  // `terrain_open` from an agent.
+  const openRequest = useTerrainOpenRequest((s) => s.request);
+  useEffect(() => {
+    if (!openRequest || openRequest.repoId !== repoId) return;
+    setSelection({ project: openRequest.project, path: `${openRequest.terrain}/terrain.json` });
+    useTerrainOpenRequest.getState().clear();
+  }, [openRequest, repoId]);
   const ref = useMemo<TerrainRef | null>(
     () => (selection?.path ? { project: selection.project, terrain: terrainOfPath(selection.path) } : null),
     [selection],
@@ -70,6 +79,7 @@ function TerrainTabBody({ repoId }: { repoId: string }) {
       tab="terrain"
       explorerName="terrains"
       detailName="inputs"
+      toolbar={<TerrainExportBar repoId={repoId} terrainRef={ref} built={terrain.data?.built ?? false} />}
       explorer={<TerrainExplorer repoId={repoId} selection={selection} onSelect={setSelection} />}
       content={centre}
       detail={

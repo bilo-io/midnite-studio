@@ -63,6 +63,7 @@ export const MEDIA_EXPORT_FORMATS = [
   'game-folder',
   // sprites (Phase 106) — a pack is a folder of PNG atlas + JSON, written by main
   'sprite-pack',
+  'terrain-pack',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -93,6 +94,7 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   fbx: { label: 'Autodesk FBX (binary)', ext: 'fbx', needsFfmpeg: false },
   'fbx-ascii': { label: 'Autodesk FBX (ASCII)', ext: 'fbx', needsFfmpeg: false },
   glb: { label: 'glTF binary (PBR)', ext: 'glb', needsFfmpeg: false },
+  'terrain-pack': { label: 'Terrain pack (folder)', ext: '', needsFfmpeg: false },
   'game-html': { label: 'Single HTML file', ext: 'html', needsFfmpeg: false },
   'game-zip': { label: 'Zip archive', ext: 'zip', needsFfmpeg: false },
   'game-folder': { label: 'Static folder', ext: '', needsFfmpeg: false },
@@ -106,8 +108,8 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   video: ['mp4', 'webm', 'gif', 'prores'],
   audio: ['mp3', 'wav', 'flac'],
   model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
-  // Theme I (Phase 105) puts `terrain-pack` first; until then a terrain exports as one glb.
-  terrain: ['glb'],
+  // The pack (a folder, not a zip: Phase 105 Decision 13) is the default; the glb is one file for a DCC tool.
+  terrain: ['terrain-pack', 'glb'],
   // Theme G (Phase 106) writes the pack; until then the tab's export answers "not available yet".
   sprite: ['sprite-pack'],
   game: ['game-html', 'game-zip', 'game-folder'],

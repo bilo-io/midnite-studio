@@ -138,6 +138,25 @@ describe('McpSettingsPage', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith({ allowGames: true }));
   });
 
+  it('toggling the terrains switch calls mcp.set with allowTerrains, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit terrains' }));
+    expect(((await screen.findByTestId('mcp-allow-terrains')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowTerrains: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit terrains' }));
+    const checkbox = await screen.findByTestId('mcp-allow-terrains');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowTerrains: true }));
+  });
+
   it('lists the model tools among the registered tools', async () => {
     installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });

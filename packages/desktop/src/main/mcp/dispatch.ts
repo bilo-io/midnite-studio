@@ -48,6 +48,17 @@ import {
   modelSave,
   modelSetSpec,
 } from './model-tools';
+import {
+  terrainBuild,
+  terrainExport,
+  terrainGetSpec,
+  terrainGetStats,
+  terrainList,
+  terrainOpen,
+  terrainRenderPreview,
+  terrainSetInput,
+  terrainSetSpec,
+} from './terrain-tools';
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -97,6 +108,15 @@ export const MCP_HANDLERS: {
   game_logs: gameLogs,
   game_input: gameInput,
   game_state: gameState,
+  terrain_list: terrainList,
+  terrain_open: terrainOpen,
+  terrain_get_spec: terrainGetSpec,
+  terrain_set_spec: terrainSetSpec,
+  terrain_set_input: terrainSetInput,
+  terrain_build: terrainBuild,
+  terrain_render_preview: terrainRenderPreview,
+  terrain_get_stats: terrainGetStats,
+  terrain_export: terrainExport,
 };
 
 export type McpDispatchResult =
