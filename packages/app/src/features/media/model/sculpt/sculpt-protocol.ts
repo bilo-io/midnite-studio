@@ -6,7 +6,7 @@
  * arrays — the worker never posts the whole mesh after `load`, only {@link SculptDelta}s for the vertex
  * range a stroke changed, which the display copies in and re-uploads with `addUpdateRange`.
  */
-import type { MeshDelta } from '@midnite/studio-shared';
+import type { MeshDelta, RemeshOptions } from '@midnite/studio-shared';
 
 export type Vec3 = [number, number, number];
 
@@ -20,6 +20,11 @@ export type SculptRequest =
   | { type: 'displace'; id: number; center: Vec3; radius: number; amount: number }
   | { type: 'raycast'; id: number; origin: Vec3; dir: Vec3 }
   | { type: 'serialize'; id: number }
+  /**
+   * Voxel remesh of a triangle soup (Theme B's conversion). Needs no loaded mesh: it is a pure function
+   * of its input, run here so a few hundred ms of distance field never blocks the editor.
+   */
+  | { type: 'remesh'; id: number; positions: Float64Array; indices: Uint32Array; groups: Uint16Array; options: RemeshOptions }
   | { type: 'dispose'; id: number };
 
 export type SculptLoaded = {
@@ -39,5 +44,6 @@ export type SculptResponse =
   | { type: 'delta'; id: number; delta: SculptDelta | null; moved: number }
   | { type: 'hit'; id: number; hit: { point: Vec3; triangle: number; distance: number } | null }
   | { type: 'serialized'; id: number; bytes: ArrayBuffer; vertices: number; triangles: number }
+  | { type: 'remeshed'; id: number; positions: Float32Array; indices: Uint32Array; groups: Uint16Array; voxelSize: number; coarsened: boolean }
   | { type: 'disposed'; id: number }
   | { type: 'error'; id: number; message: string };

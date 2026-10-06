@@ -8,6 +8,12 @@ FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with 
 - [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
 - [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
 
+
+## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
+
+Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
+
+- [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
 ## 2026-10-06 — Phase 106 Theme B — Sprite frame pipeline
 
 Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #747](https://github.com/bilo-io/midnite-studio/pull/747).

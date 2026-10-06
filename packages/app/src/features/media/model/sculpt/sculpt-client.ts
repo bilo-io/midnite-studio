@@ -1,3 +1,5 @@
+import type { RemeshOptions } from '@midnite/studio-shared';
+
 import type { SculptLoaded, SculptRequest, SculptResponse, Vec3 } from './sculpt-protocol';
 
 /**
@@ -59,6 +61,11 @@ export class SculptSession {
   async serialize(): Promise<{ bytes: Uint8Array; vertices: number; triangles: number }> {
     const reply = await this.request<'serialized'>({ type: 'serialize' });
     return { bytes: new Uint8Array(reply.bytes), vertices: reply.vertices, triangles: reply.triangles };
+  }
+
+  /** Voxel remesh in the worker; the input buffers are transferred. */
+  async remesh(soup: { positions: Float64Array; indices: Uint32Array; groups: Uint16Array }, options: RemeshOptions): Promise<Extract<SculptResponse, { type: 'remeshed' }>> {
+    return this.request<'remeshed'>({ type: 'remesh', ...soup, options }, [soup.positions.buffer, soup.indices.buffer, soup.groups.buffer]);
   }
 
   onDelta(listener: (response: Extract<SculptResponse, { type: 'delta' }>) => void): () => void {

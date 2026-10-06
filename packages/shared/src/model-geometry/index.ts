@@ -1,4 +1,21 @@
 export * from './math';
+export {
+  applyConversion,
+  convertOpEntry,
+  convertToSculptMesh,
+  encodeConverted,
+  finishConversion,
+  freshPartId,
+  nextSculptPartId,
+  planConversion,
+  revertSculptToParts,
+  sculptSourceIds,
+  type ConversionPlan,
+  type ConvertGroup,
+  type ConvertOptions,
+  type ConvertResult,
+  type ConvertedFile,
+} from './convert';
 export { csg, CSG_MAX_TRIANGLES, type CsgOutcome } from './csg';
 export {
   applyModifiers,

@@ -564,3 +564,17 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **Placeholder art only.** Units, enemies, cars and pickups are coloured shapes; the genre modules read no `assets/` yet, so they await the asset bridge.
 - **Levels are Tiled-shaped but built in code** (`fps/levels.js`, `crime/city.js`), not loaded from a `.tmj`. Swapping in a Maps-tab export uses the same `tiledObjects` calls.
 - **RTS has no building construction**, only unit production and gathering; the ARPG has no tooltips or drag-and-drop inventory (digit keys equip). Locked-door and rocket paths in the FPS are reviewed, not driven by a test.
+
+## Phase 104 · Theme B — primitives to mesh
+
+- **No mesh smoothing or feature preservation on conversion.** Surface nets rounds hard edges and
+  corners by up to about a voxel; a box converted at low detail comes back with softened edges. Dual
+  contouring (already deferred in Theme C's notes) or a sharp-edge snap pass would keep them.
+- **Rigged designs are skinned by nearest bone after conversion.** The new part is one dense mesh with
+  no bone binding of its own; explicit `rig.bind` entries on the hidden primitives are not carried
+  over. Theme F's weight transfer is the proper answer.
+- **Conversion is synchronous in main for MCP.** `model_convert_to_mesh` runs the remesh on main's
+  thread (bounded by the 16M-node grid cap and the 1M-vertex target ceiling). A very fine request can
+  stall main for seconds; moving it to a utility process is only worth doing if that is observed.
+- **Vertex groups are stored but not yet shown or editable.** They are read back by nothing in the
+  editor beyond the Mesh tab's list; Theme G's paint layers and material assignment are the consumer.
