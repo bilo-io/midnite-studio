@@ -521,3 +521,13 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   coverage in `verify-dist.mjs`/`afterpack.cjs`, the alias leg of `cli-handlers.ts`, and the completion registrations.
 
 - **Chats: live per-edit approval for Claude Code.** Edits are reviewed after a turn, from a snapshot. `--permission-prompt-tool` on a tool of the MCP server (`main/mcp/`) would surface each Edit/Write as an approvable card mid-turn. Not built; the snapshot route is engine-agnostic and already keeps the working tree untouched. Also deferred: searching message bodies in the explorer (it searches title, last message and repo), and bulk delete.
+
+## Phase 105 · Theme G — foliage assets from the Models library
+
+- **"Add from Models…" per foliage class.** Theme G landed the five built-in designs and per-class
+  toggles over them, but not the picker over `media.model.library.list` that would store a Models
+  library path in `spec.foliage.assets`. The build already accepts such an id and falls back to the
+  built-in defaults with a warning (`resolveFoliageAssets` in `desktop/src/main/media/terrain/build-pipeline.ts`),
+  and the viewer falls back to `bush` geometry for an unknown id. What is missing is loading a library
+  model's geometry at build time and in the viewer (`terrain-layers.tsx`), and the picker itself in the
+  panel's Foliage section (`terrain-feature-sections.tsx`).
