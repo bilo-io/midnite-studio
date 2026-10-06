@@ -141,9 +141,9 @@ describe('ReviewActionBar — Add to project (Phase 50 Theme E)', () => {
 
 describe('ReviewActionBar — AI actions', () => {
   it.each([
-    ['Review with AI', 'prReview'],
-    ['Audit with AI', 'prAudit'],
-    ['Address Feedback with AI', 'prFeedback'],
+    ['Review', 'prReview'],
+    ['Audit', 'prAudit'],
+    ['Address Feedback', 'prFeedback'],
   ])('%s hands off %s with the PR url', (name, skillId) => {
     handoff.mockClear();
     renderBar();
@@ -168,7 +168,7 @@ describe('ReviewActionBar — AI actions', () => {
     renderBar();
     useUiStore.setState({ forgeWritesEnabled: false });
     expect(
-      (screen.getByRole('button', { name: 'Review with AI' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Review' }) as HTMLButtonElement).disabled,
     ).toBe(false);
   });
 });
