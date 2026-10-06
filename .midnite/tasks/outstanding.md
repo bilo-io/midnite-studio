@@ -575,6 +575,14 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
   replaces it.
 
+## Phase 107 · Theme I — deferred pieces
+
+- **The per-genre e2e smoke run is not committed**, as for H: `game-starters.spec.ts` and `gamesPlaytest` arrive with Themes O and Q. Shooter, fighter and soulslike were driven by hand in SwiftShader Chromium; each ships a provisional `playtests/smoke.json` (`$.shooter`, `$.fighter`, `$.souls`) for Theme O to migrate.
+- **Placeholder bodies only.** Fighters are posed primitives, enemies and the boss are capsules, and the third-person avatar is a stand-in; none read `assets/` or drive `kit/three/animator.js` clips yet — that is the asset bridge's (Theme N).
+- **Fighter scope trimmed to a starter:** one shared move list for both fighters, no throws, wall splats, rage or character select; the CPU has one difficulty in the starter (`normal`; `easy`/`hard` exist in `cpu.js`). The versus camera keeps Theme F's framing constants rather than the doc's `1.2 × separation`.
+- **Shooter AI is cover-lite:** enemies hold, advance and break line of sight when hurt, with no flanking, squads or suppression; the pistol/launcher swap and ammo pickups are reviewed, not driven by a test. Aim-down-sights is not implemented.
+- **Soulslike has one bonfire and one boss**; no estus, souls currency, parry or backstab. Hollows chase in straight lines rather than on the navmesh.
+
 ## Phase 107 · Theme H — deferred pieces
 
 - **The per-genre e2e smoke run is not committed.** `game-starters.spec.ts` and `gamesPlaytest` do not exist yet (Themes O and Q). The four 2D genres were booted in real Chromium by hand, and each ships a provisional `playtests/smoke.json` (genre state is under `$.rts`, `$.arpg`, `$.crime`, `$.fps`) for Theme O to migrate.

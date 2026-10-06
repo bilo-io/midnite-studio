@@ -191,8 +191,7 @@ person, first person, camera cycling, driving, the nav path); rendering e2e stay
 
 **Theme H — 2D genre starters.** ✅ Landed. FPS (`fps@raycaster`), RTS (`rts@top-down`/`isometric`), ARPG (`arpg@isometric`/`top-down`) and top-down crime (`crime@top-down`/`isometric`) in `templates/media-game/genres/<genre>/`, each replacing the base's `src/genre/index.js` seam, with `GAME_GENRES_AVAILABLE` flipped so their gallery cells are creatable. Engine-free systems sit in `kit/core/genre/{fps,rts,arpg,crime}/` (weapon table and sight; A*, flow field, selection, economy, fog, scripted AI; loot, inventory, dungeon; wanted reducer and `car2dStep`) and are covered by `kit-genres.test.ts`. RTS/ARPG/crime simulate in tile units and draw through the new `kit/phaser/world2d.js`, so one module runs top-down and isometric. Levels are Tiled-shaped maps built in code (`levels.js`, `city.js`). `composeStarter` copies only the chosen genre's `kit/core/genre/<g>/` plus any a `genre.json` lists in `kitGenres` (ARPG and crime reuse RTS's A*). The raycaster rig now exposes `map`, `sprites`, `pos`, `isSolid` and `openDoor`. Kit is 0.4.0. Also fixed a Theme G bug: `boot()` left the page's empty `<canvas id="game">` over Phaser's own canvas, so every starter showed a black screen. All seven starters were booted in real Chromium.
 
-**Theme I — 3D genre starters, part one: shooter, fighter, soulslike.** ◻ Not started. Same shape; the
-fighter's `versus` camera is a sixth rig, outside the five third-person presets.
+**Theme I — 3D genre starters, part one: shooter, fighter, soulslike.** ✅ Landed. Shooter (`shooter@first-person`/`third-person`), fighter (`fighter@third-person`) and soulslike (`soulslike@third-person`) in `templates/media-game/genres/<genre>/`, with `GAME_GENRES_AVAILABLE` flipped so their gallery cells are creatable. Engine-free systems sit in `kit/core/genre/{shooter,fighter,soulslike}/` (arsenal with magazines, reloads, fire rate and recoil, `spreadCone`/`spreadDirection`, `pickCover` over occluder rects; frame data counted from 1 so a 10/3/15 move is active on 10–12, string cancel windows, combo damage scaling, hit/hurt boxes and `resolveHit`, a round/timer reducer, a seeded CPU; the stamina economy and `bossPhase`/`bossChooseAttack`) and are covered by `kit-genres-3d.test.ts` (a separate file from H's so J can append without conflicts). The souls folder is `soulslike`, the genre id, so `composeStarter` copies it with no `genre.json`. Shooter and soulslike replace only `src/genre/index.js` on the shared arena; both 3D bases gained an optional `intent(wish, dt, frame)` seam a genre uses to reshape the step's movement (roll, rooted attacks), and the third-person base now draws a stand-in avatar. The fighter ships its own `src/scenes/level.js` — a dojo, two primitive fighters, no Rapier — on the kit's `versus` rig; the gallery hides the camera picker for it and says why. Shooter enemies path on the recast navmesh (straight-line fallback if it fails to build) and break line of sight when hurt; `kit/three/damage-numbers.js` is new and shared. Kit is 0.5.0. All four starters were booted in SwiftShader Chromium and driven through `__midnite` (fire, reload, launcher-into-juggle, roll i-frames, lock-on).
 
 **Theme J — 3D genre starters, part two: RPG, character action, open world.** ◻ Not started. Open world
 lands last, on a fixture Phase 105 terrain, routing on `roads.json`.
@@ -681,18 +680,20 @@ on.
 
 ## I — 3D genre starters, part one: shooter, fighter, soulslike (L)
 
-- [ ] **Shooter**: first- and third-person (camera presets switchable), hitscan and projectile weapons, recoil and spread, ammo and reload, AI enemies on the navmesh with cover-lite (seek line-of-sight breakers), and damage numbers
+> **Landed (PR #TBD).** As with H, the per-starter e2e smoke run waits for Theme O's replay runner and Theme Q's budget raise: each starter ships a provisional `playtests/smoke.json` (genre state under `$.shooter`, `$.fighter`, `$.souls`; 3D forward is -z) and was driven by hand in SwiftShader Chromium. Differences from the plan: the soulslike's engine-free folder is `kit/core/genre/soulslike/` (the genre id), not `souls/`; the versus camera keeps Theme F's framing (`max(4, 0.9 × separation + 2)`), not `max(4, 1.2 × separation)`; the engine-free tests live in `kit-genres-3d.test.ts`.
+
+- [x] **Shooter**: first- and third-person (camera presets switchable), hitscan and projectile weapons, recoil and spread, ammo and reload, AI enemies on the navmesh with cover-lite (seek line-of-sight breakers), and damage numbers
   - `genres/shooter/`; engine-free `kit/core/genre/shooter/{weapons.js,spread.js,cover.js}`
     (`spreadCone(base, recoil, moving)`; `pickCover(enemy, player, coverPoints)` = nearest point with no
     line of sight to the player).
-- [ ] **Fighter** (Tekken-style): two fighters on a 3D lane with sidestep, a dedicated **versus camera** (it frames both fighters; neither first nor third person), move lists with frame data (startup, active, recovery), hit and hurt boxes, combos and juggles, blocking, a round and timer system, and a CPU opponent
+- [x] **Fighter** (Tekken-style): two fighters on a 3D lane with sidestep, a dedicated **versus camera** (it frames both fighters; neither first nor third person), move lists with frame data (startup, active, recovery), hit and hurt boxes, combos and juggles, blocking, a round and timer system, and a CPU opponent
   - `genres/fighter/`; engine-free `kit/core/genre/fighter/{frame-data.js,hitboxes.js,rounds.js,cpu.js}`;
     a move is `{ name, input, startup, active, recovery, damage, onHit, onBlock, launcher? }` at 60 fps;
     the versus camera frames the midpoint at a distance `max(4, 1.2 × separation)`.
-- [ ] **Soulslike**: stamina, lock-on, dodge roll with invulnerability frames, light and heavy attacks, checkpoint bonfires (respawn and reset enemies), and a boss with a phase-based pattern
+- [x] **Soulslike**: stamina, lock-on, dodge roll with invulnerability frames, light and heavy attacks, checkpoint bonfires (respawn and reset enemies), and a boss with a phase-based pattern
   - Engine-free `kit/core/genre/souls/{stamina.js,boss.js}`: stamina max 100, regen 25/s after 0.8 s,
     roll 20 with i-frames 0.1–0.4 s, light 15, heavy 30; `bossPhase(hpFraction)` switches at 0.66 and 0.33.
-- [ ] Vitest for engine-free systems: frame-data timing, the stamina economy, the lock-on target choice, and boss phase transitions. An e2e smoke run per starter
+- [x] Vitest for engine-free systems: frame-data timing, the stamina economy, the lock-on target choice, and boss phase transitions. An e2e smoke run per starter
   - In `kit-genres.test.ts`: a 10/3/15 move is active exactly on frames 10–12; stamina never goes
     negative and regen waits 0.8 s; `chooseLockTarget` picks the nearest within the cone; boss phases flip
     at 66 % and 33 %.

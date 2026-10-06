@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme I — 3D genre starters, part one
+
+Shooter (first or third person), fighter (versus camera) and soulslike as genre modules over the Theme G 3D bases, with engine-free systems under `kit/core/genre/{shooter,fighter,soulslike}/` and a shared `kit/three/damage-numbers.js`. `GAME_GENRES_AVAILABLE` lists the three, so their gallery cells are creatable; the fighter's cell swaps the camera picker for a versus-camera note. The 3D bases gained a movement `intent` seam and the third-person base a stand-in avatar. Kit 0.5.0. PR: see the pull request.
+
+- [x] Shooter, fighter, soulslike starters, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+
 ## 2026-10-06 — Phase 107 Theme H — 2D genre starters
 
 FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with named engine-free systems under `kit/core/genre/` and a shared `kit/phaser/world2d.js` so RTS, ARPG and crime run top-down and isometric from one module. `GAME_GENRES_AVAILABLE` lists the four, so their gallery cells are creatable. `composeStarter` ships only the chosen genre's systems. Kit 0.4.0; `boot()` no longer leaves a blank canvas over the game.
