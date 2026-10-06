@@ -208,6 +208,11 @@ export type ImageProviderInfo = {
   models: readonly ImageModelInfo[];
   /** Set when the provider can never be picked in this build — shown as the option's tooltip. */
   disabledReason?: string;
+  /**
+   * Whether the adapter can attach reference images (Phase 106 Theme D, Decision 5): Gemini sends them
+   * as `inline_data` parts (`gemini-*-image` models only), OpenAI switches to `/v1/images/edits`.
+   */
+  supportsReference: boolean;
 };
 
 export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
@@ -220,6 +225,7 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
       { id: 'imagen-4.0-generate-001', label: 'Imagen 4' },
       { id: 'imagen-4.0-fast-generate-001', label: 'Imagen 4 Fast' },
     ],
+    supportsReference: true,
   },
   {
     id: 'openai',
@@ -229,15 +235,30 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
       { id: 'gpt-image-1', label: 'GPT Image 1' },
       { id: 'gpt-image-1-mini', label: 'GPT Image 1 Mini' },
     ],
+    supportsReference: true,
   },
   {
     id: 'agy',
     label: 'Antigravity CLI',
     secretKey: null,
     models: [{ id: 'agy-default', label: 'Gemini 2.5 Flash Image' }],
+    supportsReference: false,
   },
-  { id: 'ollama', label: 'Ollama', secretKey: null, models: [] },
+  { id: 'ollama', label: 'Ollama', secretKey: null, models: [], supportsReference: false },
 ];
+
+/** At most this many reference images ride along with one request. */
+export const IMAGE_MAX_REFERENCES = 4;
+
+/** Gemini's Imagen models answer `:predict`, which takes no reference image. */
+export function imageModelSupportsReference(provider: ImageProviderId, model: string): boolean {
+  if (!imageProviderInfo(provider).supportsReference) return false;
+  return !(provider === 'gemini' && model.startsWith('imagen-'));
+}
+
+/** Why a provider cannot draw reference-locked frames — the picker's tooltip and the job's refusal. */
+export const imageReferenceUnsupportedReason = (label: string): string =>
+  `${label} can't use a reference image, so frames would not match. Pick Gemini or OpenAI.`;
 
 export function imageProviderInfo(id: ImageProviderId): ImageProviderInfo {
   return IMAGE_PROVIDERS.find((p) => p.id === id)!;
@@ -317,6 +338,13 @@ export const ImageGenerateRequestSchema = z.object({
   aspect: ImageAspectSchema.default('1:1'),
   count: z.number().int().min(1).max(IMAGE_MAX_COUNT).default(1),
   seed: z.number().int().nonnegative().optional(),
+  /**
+   * Reference images (Phase 106 Theme D): paths inside the same repo's `.midnite/media/`
+   * (`<tab>/<project>/<path>`), confined by the media store. Only providers with `supportsReference`.
+   */
+  references: z.array(z.string().min(1).max(1024)).max(IMAGE_MAX_REFERENCES).optional(),
+  /** Ask for a real transparent background where the provider can return one (OpenAI). */
+  transparent: z.boolean().optional(),
 });
 export type ImageGenerateRequest = z.infer<typeof ImageGenerateRequestSchema>;
 

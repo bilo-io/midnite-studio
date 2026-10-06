@@ -53,6 +53,11 @@ export const SPRITE_NOT_AVAILABLE = 'This sprite operation is not available yet.
 export const SPRITE_FRAME_SOURCES_PENDING =
   'Frame generation for this method has not landed yet (Phase 106 Themes D, E and F).';
 export const SPRITE_NEEDS_MODEL = 'Attach a rigged model before rendering from 3D.';
+/** Hand-drawn (Theme D): frames are only ever drawn against a locked, approved reference. */
+export const SPRITE_APPROVE_FIRST = 'Approve a reference first.';
+export const SPRITE_NO_REFERENCE = 'Generate or attach a reference first.';
+/** Asked when a new reference is approved over frames drawn from the old one. */
+export const SPRITE_REFERENCE_CHANGED = 'Frames were made from the old reference. Keep them?';
 
 // --- spec --------------------------------------------------------------------
 
@@ -118,10 +123,20 @@ export const SpriteSheetSpecSchema = z.object({
   reference: SpriteReferenceSchema.optional(),
   /** Theme E's render settings; declared loose so the theme can tighten it. */
   render: z.record(z.unknown()).optional(),
-  /** Theme D. */
+  /** Theme D: the vision check of every frame against the locked reference. */
   consistency: z
-    .object({ threshold: z.number().min(0).max(1).default(0.7), rerollBudget: z.number().int().min(0).max(5).default(2) })
+    .object({
+      threshold: z.number().min(0).max(1).default(0.7),
+      rerollBudget: z.number().int().min(0).max(5).default(2),
+      /** Off: frames are not checked (and carry no consistency badge — the user chose it). */
+      enabled: z.boolean().default(true),
+    })
     .default({}),
+  /**
+   * Theme D: a 1-direction side sheet draws only `e` and writes `w` as its mirror (`source: 'mirrored'`,
+   * `flipped: true`). Off ("My character is asymmetric") draws `w` with the same pose table instead.
+   */
+  mirror: z.boolean().default(true),
 });
 export type SpriteSheetSpec = z.infer<typeof SpriteSheetSpecSchema>;
 
@@ -215,6 +230,8 @@ export const SpriteFrameMetaSchema = z.object({
   source: z.enum(['generated', 'rendered', 'sliced', 'mirrored']).default('generated'),
   badges: z.array(SpriteBadgeSchema).default([]),
   score: z.number().min(0).max(1).optional(),
+  /** What the consistency check found wrong (Theme D) — the `inconsistent` badge's tooltip. */
+  issues: z.array(z.string().max(300)).max(8).optional(),
 });
 export type SpriteFrameMeta = z.infer<typeof SpriteFrameMetaSchema>;
 
@@ -302,12 +319,19 @@ export const SpriteSetReferenceRequestSchema = z.union([
   SpriteTargetSchema.extend({ bytes: Bytes, name: z.string().max(255) }),
   SpriteTargetSchema.extend({ model: z.object({ project: z.string().min(1), path: z.string().min(1) }) }),
   SpriteTargetSchema.extend({ remove: z.literal(true) }),
+  /**
+   * Locks the current reference image (Theme D). When frames exist, `frames` answers
+   * {@link SPRITE_REFERENCE_CHANGED}: `keep` leaves them, `mark` badges every one `unchecked` for re-roll.
+   */
+  SpriteTargetSchema.extend({ approve: z.literal(true), frames: z.enum(['keep', 'mark']).default('keep') }),
 ]);
 export type SpriteSetReferenceRequest = z.infer<typeof SpriteSetReferenceRequestSchema>;
 
 export const SpriteGenerateRequestSchema = SpriteTargetSchema.extend({
   /** Only these clips (a re-generate); absent: every clip. */
   clips: z.array(z.string()).optional(),
+  /** Hand-drawn step 1: draw a turnaround (front, side, back) as the unapproved reference instead of frames. */
+  turnaround: z.literal(true).optional(),
 });
 export type SpriteGenerateRequest = z.infer<typeof SpriteGenerateRequestSchema>;
 

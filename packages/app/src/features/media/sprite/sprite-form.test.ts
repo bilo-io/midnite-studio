@@ -7,9 +7,12 @@ import {
   formRecommendation,
   initialEnvForm,
   initialSheetForm,
+  mirrorApplies,
   needsRig,
+  providerBlockedFor,
   sheetBlockedReason,
   sheetFormToSpec,
+  withReferenceProvider,
 } from './sprite-form';
 
 const form = () => ({ ...initialSheetForm('gemini', 'm'), name: 'Knight', prompt: 'a knight' });
@@ -41,6 +44,28 @@ describe('sheet form', () => {
     expect(needsRig(attached)).toBe(false);
     expect(formRecommendation({ ...form(), rig: attached.rig }).method).toBe('rendered');
     expect(sheetFormToSpec(attached).reference).toEqual({ kind: 'model', project: 'characters', path: 'knight' });
+  });
+});
+
+describe('hand-drawn (Phase 106 Theme D)', () => {
+  it('disables reference-blind providers with the reason, only for hand-drawn', () => {
+    expect(providerBlockedFor('hand-drawn', 'agy')).toBe("Antigravity CLI can't use a reference image, so frames would not match. Pick Gemini or OpenAI.");
+    expect(providerBlockedFor('hand-drawn', 'openai')).toBeNull();
+    expect(providerBlockedFor('one-shot', 'agy')).toBeNull();
+  });
+
+  it('moves a hand-drawn form off a provider or model that cannot take a reference', () => {
+    expect(withReferenceProvider({ ...form(), provider: 'agy', model: 'agy-default' })).toMatchObject({ provider: 'gemini', model: 'gemini-2.5-flash-image' });
+    expect(withReferenceProvider({ ...form(), provider: 'gemini', model: 'imagen-4.0-generate-001' }).model).toBe('gemini-2.5-flash-image');
+    expect(withReferenceProvider({ ...form(), method: 'one-shot', provider: 'agy', model: 'agy-default' }).provider).toBe('agy');
+    expect(sheetBlockedReason({ ...form(), provider: 'gemini', model: 'imagen-4.0-generate-001' })).toMatch(/Imagen can't use a reference image/);
+  });
+
+  it('writes the consistency switch and mirroring into the spec', () => {
+    const spec = SpriteAssetSpecSchema.parse(sheetFormToSpec({ ...form(), checkConsistency: false, asymmetric: true }));
+    expect(spec).toMatchObject({ consistency: { enabled: false }, mirror: false });
+    expect(mirrorApplies(form())).toBe(true);
+    expect(mirrorApplies({ ...form(), directions: 4 })).toBe(false);
   });
 });
 

@@ -14,6 +14,14 @@ FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with 
 Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
 
 - [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
+
+## 2026-10-06 — Phase 106 Theme D — Hand-drawn, reference-locked frames
+
+The image seam takes reference images (Gemini `inline_data`, OpenAI `/v1/images/edits`; `supportsReference` on the catalogue) and `transparent` end to end, and `main/media/sprite/hand-drawn.ts` draws a sheet frame by frame against an approved turnaround: pose-table prompts, two requests in flight, an Ollama vision consistency check with re-rolls and `inconsistent`/`unchecked` badges, and mirrored west facings. The Sprites tab gains the reference card and a flagged-frames list. PR: see the pull request.
+
+- [x] Turnaround + approve/lock, pose tables and per-frame prompts, reference-capable providers only, consistency check with re-roll budget, mirroring, image seam references + transparency, vitest.
+- [ ] Per-frame re-roll and the flip at composition belong to G's frame strip and packer; the Images tab has no UI for references or transparency.
+
 ## 2026-10-06 — Phase 106 Theme B — Sprite frame pipeline
 
 Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #747](https://github.com/bilo-io/midnite-studio/pull/747).
