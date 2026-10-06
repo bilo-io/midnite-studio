@@ -1303,7 +1303,7 @@ export type MidniteStudioBridge = {
       paint: (req: In<typeof S.MediaTerrainPaintRequest>) => Promise<GitOpResult>;
       /** Theme H: a live roads-mask preview (and eyedropper) without a build. */
       roadKey: (req: In<typeof S.MediaTerrainRoadKeyRequest>) => Promise<z.infer<typeof S.MediaTerrainRoadKeyResponse>>;
-      export: (req: In<typeof S.MediaTerrainExportRequest>) => Promise<GitOpResult>;
+      export: (req: In<typeof S.MediaTerrainExportRequest>) => Promise<z.infer<typeof S.MediaTerrainExportResponse>>;
       onProgress: (handler: (event: z.infer<typeof S.MediaTerrainProgressPayload>) => void) => Unsubscribe;
       onChanged: (handler: (event: z.infer<typeof S.MediaTerrainChangedPayload>) => void) => Unsubscribe;
       /** `terrain_open` asked for a terrain to be shown. */
