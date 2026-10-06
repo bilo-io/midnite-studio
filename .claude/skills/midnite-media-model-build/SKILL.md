@@ -37,10 +37,13 @@ The user must enable Settings ▸ MCP and "Let agents edit 3D models".
 | `model_patch_rig` | move/add/remove bones, bind parts to bones, facing, skin `falloff` |
 | `model_patch_animations` | add/update/remove clips by name; `setKeys` for additive pose keys |
 | `model_retarget` | copy another rigged model's clips by canonical bone name |
+| `model_convert_to_mesh` | turn the primitives (or the named `parts`) into one watertight `sculpt` mesh by voxel remesh (`voxelSize` or `targetVertices`); each source part stays as a vertex group and the primitives stay hidden in the design |
 
 Loop: `model_get_spec` (schema), `model_set_spec`, `model_render_preview` and actually look, `model_patch_parts`, repeat, `model_save`. Never invent part fields — the schema from `model_get_spec` is authoritative. Applied or rejected-with-reasons comes back on every write.
 
 Rig and animate after the shape is right: `model_auto_rig`, check `model_get_rig` (fix with `model_patch_rig`), add clips from the anatomy's kinds with `model_patch_animations`, then `model_render_preview` with a `pose` to look. Bone names come only from the table `model_get_rig` returns; the `.glb` carries the skin and one animation per clip.
+
+A `sculpt` part is a dense mesh in a `.mesh.bin` beside the design, never hand-written: it only comes from `model_convert_to_mesh`. Convert once the form is right (booleans and modifiers are baked in), then rig and animate as usual; the converted mesh is skinned per vertex by nearest bone. To go back, remove the sculpt part and un-hide the primitives listed in its `sources`.
 
 ## Conventions
 

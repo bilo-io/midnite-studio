@@ -25,7 +25,7 @@ describe('tool registry', () => {
     for (const id of MODEL_MCP_TOOL_IDS) expect(MCP_TOOLS[id].id).toBe(id);
     const writes = MODEL_MCP_TOOL_IDS.filter((id) => !MCP_TOOLS[id].readOnly);
     expect(writes.sort()).toEqual(
-      ['model_auto_rig', 'model_open', 'model_patch_animations', 'model_patch_parts', 'model_patch_rig', 'model_retarget', 'model_save', 'model_set_spec'],
+      ['model_auto_rig', 'model_open', 'model_patch_animations', 'model_patch_parts', 'model_patch_rig', 'model_retarget', 'model_convert_to_mesh', 'model_save', 'model_set_spec'].sort(),
     );
   });
 });

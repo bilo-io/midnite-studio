@@ -9,6 +9,7 @@ export {
   MESH_BIN_MAX_TRIANGLES,
   MESH_BIN_MAX_VERTICES,
   MESH_BIN_VERSION,
+  MESH_GROUP_NONE,
   MeshBinError,
   readMeshBinHeader,
   sculptMeshSrcFor,
@@ -27,3 +28,16 @@ export {
   type ModelOpEntry,
   type ModelOpKind,
 } from './ops-log';
+export { surfaceNets, type FieldGrid, type SurfaceNetsResult } from './surface-nets';
+export {
+  pointTriangleDistSq,
+  REMESH_DEFAULT_TARGET_VERTICES,
+  REMESH_MAX_CELLS,
+  REMESH_MAX_TARGET_VERTICES,
+  REMESH_MIN_VOXEL,
+  RemeshError,
+  voxelRemesh,
+  type RemeshOptions,
+  type RemeshResult,
+  type RemeshSource,
+} from './voxel-remesh';

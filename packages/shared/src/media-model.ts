@@ -278,6 +278,13 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
     triangles: z.number().int().nonnegative().optional(),
     /** The multires level the file holds (0 = the base mesh). */
     multiresLevel: z.number().int().min(0).max(MODEL_SCULPT_MAX_LEVEL).optional(),
+    /**
+     * Ids of the primitive parts this mesh was converted from (Theme B). They stay in the design, hidden,
+     * so "revert to parts" and undo can bring them back.
+     */
+    sources: z.array(z.string().trim().min(1).max(40)).max(MODEL_MAX_PARTS).optional(),
+    /** The vertex groups the file's per-vertex group indices name: one per converted source part, keeping its colour. */
+    groups: z.array(z.object({ name: z.string().trim().min(1).max(MODEL_NAME_MAX), color: ModelColorSchema })).max(256).optional(),
   }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),

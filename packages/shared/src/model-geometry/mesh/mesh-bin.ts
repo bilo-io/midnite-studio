@@ -9,7 +9,7 @@
  * |-------:|-----:|----------------------------------------------------|
  * |      0 |    8 | magic `MSMESH\0\0`                                  |
  * |      8 |    2 | format version ({@link MESH_BIN_VERSION})          |
- * |     10 |    2 | flags (reserved, 0)                                 |
+ * |     10 |    2 | flags: bit 0 = vertex groups follow the indices      |
  * |     12 |    4 | vertex count                                        |
  * |     16 |    4 | triangle count                                      |
  * |     20 |    1 | multires level (0 = base)                           |
@@ -17,6 +17,7 @@
  * |     24 |    4 | payload byte length                                 |
  * |     28 |    4 | CRC-32 of the payload                               |
  * |     32 |    … | positions f32×3n · normals f32×3n · indices u32×3f  |
+ * |      … |  2n  | (flag bit 0 only) vertex group u16×n, 0xffff = none  |
  *
  * Encoding is deterministic, so decode → encode reproduces the file byte for byte. Decoding refuses a
  * wrong magic, a version it does not know (older or newer), a size mismatch and a checksum mismatch,
@@ -35,7 +36,13 @@ export type MeshBin = {
   normals: Float32Array;
   indices: Uint32Array;
   multiresLevel: number;
+  /** One group index per vertex into the part's `groups` table (`MESH_GROUP_NONE` = ungrouped) — what a conversion keeps of each source part's material. */
+  groups?: Uint16Array;
 };
+
+/** The "no group" value in {@link MeshBin.groups}. */
+export const MESH_GROUP_NONE = 0xffff;
+const FLAG_GROUPS = 1;
 
 export class MeshBinError extends Error {
   override readonly name = 'MeshBinError';
@@ -109,12 +116,13 @@ export function encodeMeshBin(mesh: MeshBin): Uint8Array {
   }
   const level = Math.trunc(mesh.multiresLevel);
   if (level < 0 || level > 255) throw new MeshBinError('The multires level must be 0–255.');
-  const payload = vertices * 24 + triangles * 12;
+  if (mesh.groups && mesh.groups.length !== vertices) throw new MeshBinError('A mesh needs one vertex group entry per vertex.');
+  const payload = vertices * 24 + triangles * 12 + (mesh.groups ? vertices * 2 : 0);
   const out = new Uint8Array(MESH_BIN_HEADER_BYTES + payload);
   const view = new DataView(out.buffer);
   for (let i = 0; i < 8; i += 1) out[i] = MESH_BIN_MAGIC.charCodeAt(i);
   view.setUint16(8, MESH_BIN_VERSION, true);
-  view.setUint16(10, 0, true);
+  view.setUint16(10, mesh.groups ? FLAG_GROUPS : 0, true);
   view.setUint32(12, vertices, true);
   view.setUint32(16, triangles, true);
   out[20] = level;
@@ -125,12 +133,14 @@ export function encodeMeshBin(mesh: MeshBin): Uint8Array {
   writeArray(out, at, mesh.normals);
   at += vertices * 12;
   writeArray(out, at, mesh.indices);
+  at += triangles * 12;
+  if (mesh.groups) for (let i = 0; i < vertices; i += 1) view.setUint16(at + i * 2, mesh.groups[i]!, true);
   view.setUint32(28, crc32(out.subarray(MESH_BIN_HEADER_BYTES)), true);
   return out;
 }
 
 /** The counts a header claims, without reading the payload — for listings. Throws {@link MeshBinError}. */
-export function readMeshBinHeader(bytes: Uint8Array): { version: number; vertices: number; triangles: number; multiresLevel: number; payloadBytes: number; checksum: number } {
+export function readMeshBinHeader(bytes: Uint8Array): { version: number; flags: number; vertices: number; triangles: number; multiresLevel: number; payloadBytes: number; checksum: number } {
   if (bytes.byteLength < MESH_BIN_HEADER_BYTES) throw new MeshBinError('This is not a sculpt mesh file: it is shorter than the header.');
   for (let i = 0; i < 8; i += 1) {
     if (bytes[i] !== MESH_BIN_MAGIC.charCodeAt(i)) throw new MeshBinError('This is not a sculpt mesh file (the header does not start with MSMESH).');
@@ -141,6 +151,7 @@ export function readMeshBinHeader(bytes: Uint8Array): { version: number; vertice
   if (version > MESH_BIN_VERSION) throw new MeshBinError(`This sculpt mesh uses format version ${version}, written by a newer Midnite Studio — update to open it.`);
   return {
     version,
+    flags: view.getUint16(10, true),
     vertices: view.getUint32(12, true),
     triangles: view.getUint32(16, true),
     multiresLevel: bytes[20]!,
@@ -154,7 +165,9 @@ export function decodeMeshBin(bytes: Uint8Array): MeshBin {
   const header = readMeshBinHeader(bytes);
   const { vertices, triangles } = header;
   if (vertices > MESH_BIN_MAX_VERTICES || triangles > MESH_BIN_MAX_TRIANGLES) throw new MeshBinError('The sculpt mesh header claims more geometry than a sculpt mesh may hold — the file is corrupt.');
-  const payload = vertices * 24 + triangles * 12;
+  if ((header.flags & ~FLAG_GROUPS) !== 0) throw new MeshBinError('This sculpt mesh sets format flags this build does not know — update to open it.');
+  const hasGroups = (header.flags & FLAG_GROUPS) !== 0;
+  const payload = vertices * 24 + triangles * 12 + (hasGroups ? vertices * 2 : 0);
   if (header.payloadBytes !== payload) throw new MeshBinError('The sculpt mesh header does not match its own counts — the file is corrupt.');
   if (bytes.byteLength !== MESH_BIN_HEADER_BYTES + payload) {
     throw new MeshBinError(`The sculpt mesh is ${bytes.byteLength} bytes but its header says ${MESH_BIN_HEADER_BYTES + payload} — the file is truncated or padded.`);
@@ -169,7 +182,14 @@ export function decodeMeshBin(bytes: Uint8Array): MeshBin {
   for (let i = 0; i < indices.length; i += 1) {
     if (indices[i]! >= vertices) throw new MeshBinError(`The sculpt mesh's triangle ${Math.floor(i / 3)} uses vertex ${indices[i]}, but it has only ${vertices} — the file is corrupt.`);
   }
-  return { positions, normals, indices, multiresLevel: header.multiresLevel };
+  at += triangles * 12;
+  let groups: Uint16Array | undefined;
+  if (hasGroups) {
+    groups = new Uint16Array(vertices);
+    const view = new DataView(bytes.buffer, bytes.byteOffset + at, vertices * 2);
+    for (let i = 0; i < vertices; i += 1) groups[i] = view.getUint16(i * 2, true);
+  }
+  return { positions, normals, indices, multiresLevel: header.multiresLevel, ...(groups ? { groups } : {}) };
 }
 
 /** The file a design's sculpt mesh is saved to: `<stem>.mesh.bin`, or `<stem>.<partId>.mesh.bin` when a design holds several. */
