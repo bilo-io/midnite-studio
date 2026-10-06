@@ -186,3 +186,18 @@ export function versusCamera(a, b) {
     target,
   };
 }
+
+/**
+ * A move vector from input (`x` right, `y` down-the-screen = backwards, as
+ * `input.vector()` gives it) turned into a world-space ground direction for a
+ * view at `yaw` — "forward" is wherever the camera looks.
+ * @param {{ x: number, y: number }} move
+ * @param {number} yaw
+ * @returns {[number, number]} `[x, z]`
+ */
+export function moveRelativeToYaw(move, yaw) {
+  const s = Math.sin(yaw);
+  const c = Math.cos(yaw);
+  // right = (c, −s), forward = (−s, −c); world = right·x − forward·y
+  return [c * move.x + s * move.y, -s * move.x + c * move.y];
+}
