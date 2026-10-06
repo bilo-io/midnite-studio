@@ -105,10 +105,11 @@ export const GAME_TEMPLATE_MATRIX: Readonly<Record<GameGenre, GameTemplateCell>>
 };
 
 /**
- * Genres whose systems module has landed (Themes H-J). Empty until then: the
- * gallery shows every genre cell, but only the bases are creatable.
+ * Genres whose systems module has landed. Theme H added the four 2D genres; Themes
+ * I and J add the 3D ones. The gallery shows every genre cell, but only the
+ * available ones are creatable.
  */
-export const GAME_GENRES_AVAILABLE: readonly GameGenre[] = [];
+export const GAME_GENRES_AVAILABLE: readonly GameGenre[] = ['fps', 'rts', 'arpg', 'crime'];
 
 export const GAME_GENRE_UNAVAILABLE_REASON = 'Not available yet: this genre arrives in a later update.';
 

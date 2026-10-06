@@ -308,3 +308,57 @@ describe('fps/weapon-table.js and sight.js', () => {
     expect(canSee({ x: 0.5, y: 1.5, angle: 0 }, { x: 5.5, y: 1.5 }, wide, { range: 3 })).toBe(false);
   });
 });
+
+describe('genres/fps level (Tiled-shaped)', () => {
+  const levels = pathToFileURL(resolve(__dirname, '../../../../../templates/media-game/genres/fps/src/genre/levels.js')).href;
+
+  it('is rectangular, spawns on floor and every object is reachable through its doors', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JS module
+    const { levelMap, wallGrid, levelObjects, LEVEL_ASCII } = (await import(levels)) as any;
+    const map = levelMap();
+    const grid: number[][] = wallGrid(map);
+    expect(new Set(LEVEL_ASCII.map((r: string) => r.length)).size).toBe(1);
+    const objects = levelObjects(map) as { name: string; type: string; x: number; y: number }[];
+    const spawn = objects.find((o) => o.type === 'spawn')!;
+    expect(grid[Math.floor(spawn.y)]![Math.floor(spawn.x)]).toBe(0);
+    // Doors (9) and both locked doors (3, 5) count as passable: the keys sit on the near side.
+    const seen = new Set<string>();
+    const stack = [[Math.floor(spawn.x), Math.floor(spawn.y)]] as [number, number][];
+    while (stack.length) {
+      const [x, y] = stack.pop()!;
+      if (seen.has(`${x},${y}`) || ![0, 9, 3, 5].includes(grid[y]?.[x] ?? 1)) continue;
+      seen.add(`${x},${y}`);
+      stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    }
+    for (const o of objects) {
+      expect(grid[Math.floor(o.y)]![Math.floor(o.x)], o.name).toBe(0);
+      expect(seen.has(`${Math.floor(o.x)},${Math.floor(o.y)}`), `${o.name} reachable`).toBe(true);
+    }
+    expect(objects.filter((o) => o.type === 'enemy').length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('the red key is reachable without opening the red door, the violet key without the violet one', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JS module
+    const { levelMap, wallGrid, levelObjects } = (await import(levels)) as any;
+    const map = levelMap();
+    const grid: number[][] = wallGrid(map);
+    const objects = levelObjects(map) as { name: string; type: string; x: number; y: number }[];
+    const spawn = objects.find((o) => o.type === 'spawn')!;
+    const reach = (passable: number[]): Set<string> => {
+      const seen = new Set<string>();
+      const stack = [[Math.floor(spawn.x), Math.floor(spawn.y)]] as [number, number][];
+      while (stack.length) {
+        const [x, y] = stack.pop()!;
+        if (seen.has(`${x},${y}`) || !passable.includes(grid[y]?.[x] ?? 1)) continue;
+        seen.add(`${x},${y}`);
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+      return seen;
+    };
+    const at = (name: string) => objects.find((o) => o.name === name)!;
+    const cell = (o: { x: number; y: number }) => `${Math.floor(o.x)},${Math.floor(o.y)}`;
+    expect(reach([0, 9]).has(cell(at('red-key')))).toBe(true);
+    expect(reach([0, 9]).has(cell(at('violet-key')))).toBe(false);
+    expect(reach([0, 9, 3]).has(cell(at('violet-key')))).toBe(true);
+  });
+});

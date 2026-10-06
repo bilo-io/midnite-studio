@@ -53,8 +53,14 @@ describe('scanImports', () => {
 vi.setConfig({ testTimeout: 20_000 });
 
 describe('composeStarter', () => {
-  it('covers the six perspective bases', () => {
-    expect(available).toEqual(['platformer', 'top-down', 'isometric', 'raycaster', 'first-person', 'third-person']);
+  it('covers the six perspective bases and the 2D genre starters', () => {
+    expect(available).toEqual([
+      'platformer', 'top-down', 'isometric', 'raycaster', 'first-person', 'third-person',
+      'fps@raycaster',
+      'rts@top-down', 'rts@isometric',
+      'arpg@isometric', 'arpg@top-down',
+      'crime@top-down', 'crime@isometric',
+    ]);
   });
 
   it.each(available)('%s composes to a file set whose imports all resolve', async (id) => {
@@ -106,7 +112,35 @@ describe('composeStarter', () => {
       ok: false,
       message: 'The FPS genre needs the raycaster.',
     });
-    expect(await composeStarter('rts@isometric', dest, { templateDir: TEMPLATE_DIR, name: 'x' })).toMatchObject({ ok: false });
+    expect(await composeStarter('shooter@first-person', dest, { templateDir: TEMPLATE_DIR, name: 'x' })).toMatchObject({ ok: false });
+  });
+
+  it('a genre starter carries only its own engine-free systems (and those it declares)', async () => {
+    const compose = async (id: string): Promise<string[]> => {
+      const out = await mkdtemp(join(tmpdir(), 'midnite-compose-genre-'));
+      try {
+        const result = await composeStarter(id, out, { templateDir: TEMPLATE_DIR, name: 'G' });
+        expect(result.ok, id).toBe(true);
+        return (result as { value: { files: string[] } }).value.files;
+      } finally {
+        await rm(out, { recursive: true, force: true });
+      }
+    };
+    const genresIn = (files: string[]): string[] => [...new Set(files.filter((f) => f.startsWith('kit/core/genre/')).map((f) => f.split('/')[3]!))].sort();
+    expect(genresIn(await compose('top-down'))).toEqual([]);
+    expect(genresIn(await compose('fps@raycaster'))).toEqual(['fps']);
+    expect(genresIn(await compose('rts@isometric'))).toEqual(['rts']);
+    expect(genresIn(await compose('arpg@top-down'))).toEqual(['arpg', 'rts']);
+    expect(genresIn(await compose('crime@isometric'))).toEqual(['crime', 'rts']);
+    expect(await compose('crime@top-down')).not.toContain('genre.json');
+  });
+
+  it.each(available.filter((id) => id.includes('@')))('%s replaces the base genre seam and writes the genre into game.config.js', async (id) => {
+    await composeStarter(id, dest, { templateDir: TEMPLATE_DIR, name: 'Moon Rover' });
+    const seam = await readFile(join(dest, 'src/genre/index.js'), 'utf8');
+    expect(seam).not.toContain('A genre\'s systems module replaces this file');
+    expect(seam).toContain('export function installGenre');
+    expect(await readFile(join(dest, 'src/game.config.js'), 'utf8')).toContain(`"genre":"${parseStarterId(id)!.genre}"`);
   });
 
   it('fills the game name and stamps a valid manifest through createGame', async () => {
