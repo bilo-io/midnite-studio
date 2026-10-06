@@ -198,14 +198,18 @@ release, and width scale. The viewer draws the network over the shaded modes and
 rasters now load with `flipY = false`, so drape, land cover, splat and the road mask register with the
 world-space layers (they had been mirrored in z since Theme E).
 
-**Theme I — Export and the game-engine manifest.** ◻ Not started. `gltf-writer.ts` learns
+**Theme I — Export and the game-engine manifest.** ✅ `gltf-writer.ts` learns
 `EXT_mesh_gpu_instancing`; `terrain-pack` is a folder (not a zip) holding the 16-bit heightfield, one
 glb per LOD, the maps and the data files; `TerrainManifestSchema` (`version: 1`) is the contract
-Phase 107 reads.
+Phase 107 reads. `terrain-export.ts` writes it (default dest `<terrain>/export`, an existing pack is
+refused, never overwritten); the Terrain toolbar carries glb options (LOD, texture, foliage, roads,
+buildings) and a split export button.
 
-**Theme J — Terrain over MCP, and the skill.** ◻ Not started. Ten `terrain_*` tools, gated by a new
-`allowTerrains` switch (`mcp.json` version bump), a 5-minute shim timeout for build and export,
-repo-confined input paths, and a `midnite-media-terrain-build` skill in six copies.
+**Theme J — Terrain over MCP, and the skill.** ✅ Nine `terrain_*` tools (the plan said ten but listed
+nine), gated by a new `allowTerrains` switch (`mcp.json` v6; Settings ▸ MCP ▸ Let agents edit terrains),
+a 5-minute shim timeout for slow tools, repo-confined input and export paths, a software-rendered
+five-view preview, and a `midnite-media-terrain-build` skill in six copies pinned by
+`scripts/skill-copies.test.mjs`.
 
 **Theme K — Verification.** ◻ Not started. The gate, packaged perf numbers read off the Stats readout,
 an `MSTUDIO_SHOTS` spec, a three.js manifest-load test, and two human passes.
@@ -757,7 +761,7 @@ The roads image is a mask: light roads on a dark background, **often cyan** (use
 
 What leaves the app, and the contract Phase 107 reads.
 
-- [ ] **`.glb` export** through the existing `gltf-writer.ts`: chunk meshes at a chosen LOD, the drape or a baked splat texture, road meshes, building meshes, and foliage as separate nodes (or `EXT_mesh_gpu_instancing` if the writer can support it cleanly; decide here). Re-imports through three's `GLTFLoader` in vitest
+- [x] **`.glb` export** through the existing `gltf-writer.ts`: chunk meshes at a chosen LOD, the drape or a baked splat texture, road meshes, building meshes, and foliage as separate nodes (or `EXT_mesh_gpu_instancing` if the writer can support it cleanly; decide here). Re-imports through three's `GLTFLoader` in vitest
   - **Resolved: `EXT_mesh_gpu_instancing`** (Decision 10, closes the original open). `buildGltf` gains a
     fourth optional parameter `instancing: GltfInstancing | null = null` with
     `GltfInstancing = { meshes: { part: MeshPart; translations: Float32Array; rotations: Float32Array; scales: Float32Array }[] }`;
@@ -770,10 +774,10 @@ What leaves the app, and the contract Phase 107 reads.
     on `MeshPart.texture` exactly as Models textures are.
   - Export options (detail column, shown when the format is `glb`): LOD `0–3` (default 1), Texture
     `drape | splat-bake | none`, Include foliage / roads / buildings (all on).
-- [ ] **Raw export for engines**: `heightfield.png` (16-bit greyscale) plus `heightfield.json` (resolution, world size, height range), so a Rapier heightfield collider is built from exact data rather than from the mesh
+- [x] **Raw export for engines**: `heightfield.png` (16-bit greyscale) plus `heightfield.json` (resolution, world size, height range), so a Rapier heightfield collider is built from exact data rather than from the mesh
   - `heightfield.png` is `encodePngGrey16` of `round((h − min) / (max − min) × 65535)`;
     `heightfield.json` = `{ version: 1, resolution, worldSize, heightRange: [min, max], rowMajor: 'z', origin: 'centre' }`.
-- [ ] **`terrain.manifest.json`**, versioned with a zod schema in `shared/src/media-terrain.ts` (`TerrainManifestSchema`). It lists:
+- [x] **`terrain.manifest.json`**, versioned with a zod schema in `shared/src/media-terrain.ts` (`TerrainManifestSchema`). It lists:
   - the heightfield
   - the chunk files and their LODs
   - the splat and land-cover maps with their legend
@@ -789,7 +793,7 @@ What leaves the app, and the contract Phase 107 reads.
   - Chunk files: one glb per LOD (`chunks/lod0.glb` … `lod3.glb`), each with one node per chunk named
     `chunk_<cx>_<cz>` (Decision 12): Phase 107 streams by node, and 4 files beat 4 096.
   - Built-in foliage designs are exported once each as `foliage/<name>.glb` so the kit can instance them.
-- [ ] `MEDIA_TAB_EXPORT_FORMATS` lists `glb` and `terrain-pack` (the manifest folder, zipped) for the tab, and `ExportToolbar` offers both
+- [x] `MEDIA_TAB_EXPORT_FORMATS` lists `glb` and `terrain-pack` (the manifest folder, zipped) for the tab, and `ExportToolbar` offers both
   - **Resolved: `terrain-pack` is a folder, not a zip** (Decision 13). There is no zip writer in
     production code; Phase 107's asset bridge copies a folder; and a folder is what a human opens in a
     file browser. `MEDIA_EXPORT_FORMATS` gains `'terrain-pack'` and `MEDIA_EXPORT_FORMAT_INFO['terrain-pack'] = { label: 'Terrain pack (folder)', ext: '', needsFfmpeg: false }`;
@@ -800,7 +804,7 @@ What leaves the app, and the contract Phase 107 reads.
     `<dest>/<terrain>.glb`, same rule.
   - `terrain-export` returns `GitOpResult<{ path: string; bytes: number }>`; the toolbar shows a toast with
     **Reveal** (`media.reveal`).
-- [ ] Vitest: the manifest validates, every path it lists exists, the heightfield PNG round-trips through the B decoder bit-exactly, and the glb re-imports with the expected node count
+- [x] Vitest: the manifest validates, every path it lists exists, the heightfield PNG round-trips through the B decoder bit-exactly, and the glb re-imports with the expected node count
   - `desktop/src/main/media/terrain/terrain-export.test.ts` against a 129² fixture terrain built in a temp
     dir: `TerrainManifestSchema.parse` succeeds; every listed path `existsSync`; `decodePng(heightfield.png)`
     equals the quantised heights; `new GLTFLoader().parseAsync(ab(glb), '')` (the `export-fidelity.test.ts`
@@ -814,7 +818,7 @@ What leaves the app, and the contract Phase 107 reads.
 
 ## J — Terrain over MCP, and the skill (M)
 
-- [ ] `shared/src/media-terrain-mcp.ts` tool family, spread into `MCP_TOOLS`:
+- [x] `shared/src/media-terrain-mcp.ts` tool family, spread into `MCP_TOOLS`:
   - `terrain_list`, `terrain_open` and `terrain_get_spec`
   - `terrain_set_spec`, validated by zod; failures come back as results
   - `terrain_set_input`: attach a heightmap, satellite or roads image by path, or generate the heightmap from a prompt
@@ -841,7 +845,7 @@ What leaves the app, and the contract Phase 107 reads.
     New file `main/media/terrain/terrain-preview.ts`; sizes clamp with `clampPreviewSize`.
   - `terrain_get_stats` returns `TerrainStats` from `terrain.json`'s `lastBuild`; with no build it answers
     `{ built: false }`.
-- [ ] Handlers in `main/media/terrain/terrain-mcp.ts`. A `main/mcp/terrain-tools.ts` binder and gate, keyed off a new **Settings ▸ MCP ▸ Let agents edit terrains** switch (default off, like models), with entries in `dispatch.ts` and the slow-tool predicate in the shim for build and preview
+- [x] Handlers in `main/media/terrain/terrain-mcp.ts`. A `main/mcp/terrain-tools.ts` binder and gate, keyed off a new **Settings ▸ MCP ▸ Let agents edit terrains** switch (default off, like models), with entries in `dispatch.ts` and the slow-tool predicate in the shim for build and preview
   - `terrain-mcp.ts` exports `createTerrainTools(deps: TerrainMcpDeps)` with
     `deps = { service: TerrainService; emitChanged; emitOpen: (e: TerrainOpenEvent) => void; resolveRepoPath }`;
     `terrain-tools.ts` exports `setTerrainTools(tools | null)` and one wrapper per tool; write wrappers call
@@ -862,9 +866,9 @@ What leaves the app, and the contract Phase 107 reads.
     against the target repo, refuses symlink escapes and anything but `.png/.jpg/.jpeg/.webp`, and answers
     `McpToolError('refused', 'Input images must be inside the repository.')` otherwise — an agent cannot copy
     an arbitrary file from disk into the repo.
-- [ ] The no-heightmap rule holds over MCP too: `terrain_build` with neither a heightmap nor noise params returns a result telling the agent to choose (it never silently picks noise)
+- [x] The no-heightmap rule holds over MCP too: `terrain_build` with neither a heightmap nor noise params returns a result telling the agent to choose (it never silently picks noise)
   - Output arm `{ status: 'needs-height-source', message: 'No heightmap and no noise settings. Call terrain_set_input with a heightmap, or terrain_set_spec with a noise block, then build again.' }`.
-- [ ] Skill `midnite-media-terrain-build` in all copies (`.claude/`, `.agents/`, `.codex/`, `templates/midnite/{.claude,.agents}/`). It covers the inputs, the build → preview → adjust loop, and the export contract
+- [x] Skill `midnite-media-terrain-build` in all copies (`.claude/`, `.agents/`, `.codex/`, `templates/midnite/{.claude,.agents}/`). It covers the inputs, the build → preview → adjust loop, and the export contract
   - **Correction (x1):** six byte-identical copies, as `midnite-media-model-build` has:
     `.claude/skills/`, `.agents/skills/`, `.codex/skills/`, and `templates/midnite/{.claude,.agents,.codex}/skills/`,
     each `midnite-media-terrain-build/SKILL.md`. Sections: front matter (`name`, `description`), Inputs (the
@@ -873,14 +877,14 @@ What leaves the app, and the contract Phase 107 reads.
     and the switch name to ask the user for.
   - A new vitest `scripts/skill-copies.test.mjs` asserts every `midnite-media-*-build` skill's copies are
     byte-identical (none exists today); Phases 106 and 107 extend the same list.
-- [ ] Vitest: tool schemas derive from the zod specs, write tools are refused when the switch is off, invalid input comes back as a validation result, and a full set_input → build → preview → export round trip works against a fixture
+- [x] Vitest: tool schemas derive from the zod specs, write tools are refused when the switch is off, invalid input comes back as a validation result, and a full set_input → build → preview → export round trip works against a fixture
   - `shared/src/mcp.test.ts` (existing): the new entries pass the description rule and the minimal-value parse.
   - `desktop/src/main/media/terrain/terrain-mcp.test.ts`: with `setMcpAllowTerrainsState(false)` every
     write tool answers `[refused] Terrain editing is off …`; `terrain_set_spec({ resolution: 500 })` answers
     `{ ok: false, errors: [{ path: 'resolution', … }] }`; a `../outside.png` path is refused; the round trip on
     a 129² noise terrain produces a pack whose manifest validates and a preview with five image blocks.
   - `desktop/src/main/mcp-store.test.ts`: a `version: 4` file loads with `allowTerrains: false`.
-- [ ] `TerrainService` is the one implementation both IPC and MCP call
+- [x] `TerrainService` is the one implementation both IPC and MCP call
   - `main/media/terrain/terrain-service.ts` exports `createTerrainService(deps: { store: MediaStore; broker: TerrainBroker; imageService; describeImage; log })`
     with `get`, `setSpec`, `setInput`, `build`, `cancel`, `paint`, `roadKey`, `export`, `library`. IPC
     handlers and `terrain-mcp.ts` are thin adapters over it, so the needs-height-source rule, the

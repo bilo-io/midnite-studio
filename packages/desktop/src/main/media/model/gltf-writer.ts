@@ -40,6 +40,14 @@ const UNSIGNED_INT = 5125;
 
 type Json = Record<string, unknown>;
 
+/**
+ * `EXT_mesh_gpu_instancing` (Phase 105 Theme I): one node per entry, drawn once per instance. `colors`
+ * (rgb floats, one per vertex) go out as `COLOR_0`, so a multi-coloured design shares one primitive.
+ */
+export type GltfInstancing = {
+  meshes: { part: MeshPart; translations: Float32Array; rotations: Float32Array; scales: Float32Array; colors?: Float32Array }[];
+};
+
 export type GltfBuild = { json: Json; bin: Buffer };
 
 /** A rigged design's skeleton, per-part skins (same order as the parts) and clips baked at 30 fps. */
@@ -59,7 +67,15 @@ export function gltfRigging(spec: ModelSpec, parts: readonly MeshPart[]): GltfRi
  * a skinned primitive (`JOINTS_0`/`WEIGHTS_0`) bound to one shared skin, and every clip a glTF
  * animation: a rotation channel per bone and a translation channel for each bone that moves.
  */
-export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null): GltfBuild {
+export function buildGltf(
+  basePartsIn: readonly MeshPart[],
+  title = 'model',
+  rigging: GltfRigging | null = null,
+  instancing: GltfInstancing | null = null,
+): GltfBuild {
+  // Instanced meshes ride after the plain parts, so the material and name tables are shared; `null` leaves `parts === basePartsIn`.
+  const baseCount = basePartsIn.length;
+  const parts: readonly MeshPart[] = instancing && instancing.meshes.length > 0 ? [...basePartsIn, ...instancing.meshes.map((m) => m.part)] : basePartsIn;
   // Bone names are the contract retargeting reads, so a part that shares one ("head") yields its name.
   const boneNames = new Set(rigging?.rig.bones.map((b) => b.name) ?? []);
   const names = uniqueNames(parts).map((n) => (boneNames.has(n) ? `${n}_mesh` : n));
@@ -153,11 +169,30 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
       accessors.push({ bufferView: addView(floats(skin.weights), ARRAY_BUFFER), componentType: FLOAT, count: vertexCount, type: 'VEC4' });
     }
 
+    const instanced = index >= baseCount ? instancing!.meshes[index - baseCount]! : null;
+    if (instanced?.colors && instanced.colors.length === vertexCount * 3) {
+      attributes.COLOR_0 = accessors.length;
+      accessors.push({ bufferView: addView(floats(Array.from(instanced.colors)), ARRAY_BUFFER), componentType: FLOAT, count: vertexCount, type: 'VEC3' });
+    }
+    let instanceExtension: Json | undefined;
+    if (instanced) {
+      const count = instanced.translations.length / 3;
+      const attr = (data: Float32Array, type: 'VEC3' | 'VEC4'): number => {
+        accessors.push({ bufferView: addView(floats(Array.from(data))), componentType: FLOAT, count, type });
+        return accessors.length - 1;
+      };
+      instanceExtension = {
+        EXT_mesh_gpu_instancing: {
+          attributes: { TRANSLATION: attr(instanced.translations, 'VEC3'), ROTATION: attr(instanced.rotations, 'VEC4'), SCALE: attr(instanced.scales, 'VEC3') },
+        },
+      };
+    }
+
     meshes.push({
       name: names[index],
       primitives: [{ attributes, indices: indexAccessor, material: materialFor(part, index), mode: 4 }],
     });
-    nodes.push({ name: names[index], mesh: meshes.length - 1, ...(skin ? { skin: 0 } : {}) });
+    nodes.push({ name: names[index], mesh: meshes.length - 1, ...(skin ? { skin: 0 } : {}), ...(instanceExtension ? { extensions: instanceExtension } : {}) });
     meshNodes.push(nodes.length - 1);
   });
 
@@ -246,13 +281,14 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     bufferViews,
     buffers: [{ byteLength: length }],
   };
-  if (usesEmissiveStrength) json.extensionsUsed = ['KHR_materials_emissive_strength'];
+  const used = [...(usesEmissiveStrength ? ['KHR_materials_emissive_strength'] : []), ...(instancing && instancing.meshes.length > 0 ? ['EXT_mesh_gpu_instancing'] : [])];
+  if (used.length > 0) json.extensionsUsed = used;
   return { json, bin: Buffer.concat(chunks) };
 }
 
 /** The `.glb` container: header, a space-padded JSON chunk, a zero-padded BIN chunk. */
-export function writeGlb(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null): Buffer {
-  const { json, bin } = buildGltf(parts, title, rigging);
+export function writeGlb(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null, instancing: GltfInstancing | null = null): Buffer {
+  const { json, bin } = buildGltf(parts, title, rigging, instancing);
   const jsonText = Buffer.from(JSON.stringify(json), 'utf8');
   const jsonChunk = Buffer.concat([jsonText, Buffer.alloc((4 - (jsonText.length % 4)) % 4, 0x20)]);
   const binChunk = Buffer.concat([bin, Buffer.alloc((4 - (bin.length % 4)) % 4)]);

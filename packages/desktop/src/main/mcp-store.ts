@@ -38,12 +38,13 @@ import { join } from 'node:path';
  * Theme F's own precedent for `allowUi`.
  */
 export type McpSettings = {
-  version: 5;
+  version: 6;
   enabled: boolean;
   allowUi: boolean;
   allowGateDecide: boolean;
   allowModels: boolean;
   allowGames: boolean;
+  allowTerrains: boolean;
 };
 
 export type McpStore = {
@@ -54,12 +55,13 @@ export type McpStore = {
 const FILE_NAME = 'mcp.json';
 
 export const DEFAULT_MCP_SETTINGS: McpSettings = {
-  version: 5,
+  version: 6,
   enabled: false,
   allowUi: false,
   allowGateDecide: false,
   allowModels: false,
   allowGames: false,
+  allowTerrains: false,
 };
 
 export function createMcpStore(directory: string): McpStore {
@@ -100,6 +102,11 @@ export function createMcpStore(directory: string): McpStore {
  * gating the `game_*` tools that create a game, run its code or send it input. The read
  * tools (list, get_manifest, logs, screenshot, state) answer whenever the server is on.
  *
+ * **`version: 6` adds `allowTerrains`** (Phase 105 Theme J) — a SIXTH switch, same posture,
+ * gating the `terrain_*` tools that change a terrain, run a build or write an export. The read
+ * tools (list, get_spec, render_preview, get_stats) answer whenever the server is on. Older
+ * files have no key, which `=== true` already reads as `false`.
+ *
  * Validate without zod: this module is main-only and the shape is four
  * fields, matching `repo-store.ts`'s own reasoning for a hand-rolled guard.
  *
@@ -117,7 +124,8 @@ export function parseStoredSettings(value: unknown): McpSettings {
   const allowGateDecide = (value as { allowGateDecide?: unknown }).allowGateDecide === true;
   const allowModels = (value as { allowModels?: unknown }).allowModels === true;
   const allowGames = (value as { allowGames?: unknown }).allowGames === true;
-  return { version: 5, enabled, allowUi, allowGateDecide, allowModels, allowGames };
+  const allowTerrains = (value as { allowTerrains?: unknown }).allowTerrains === true;
+  return { version: 6, enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains };
 }
 
 /** A store that always reports "off" — the fallback before one is configured. */
