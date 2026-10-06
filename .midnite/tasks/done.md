@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 107 Theme H — 2D genre starters
+
+FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with named engine-free systems under `kit/core/genre/` and a shared `kit/phaser/world2d.js` so RTS, ARPG and crime run top-down and isometric from one module. `GAME_GENRES_AVAILABLE` lists the four, so their gallery cells are creatable. `composeStarter` ships only the chosen genre's systems. Kit 0.4.0; `boot()` no longer leaves a blank canvas over the game.
+
+- [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+
+
 ## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
 
 Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.

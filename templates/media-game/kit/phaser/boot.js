@@ -29,6 +29,10 @@ const STEP_MS = 1000 / 60;
  * }} options
  */
 export function boot(options) {
+  // `index.html` ships an empty `<canvas id="game">` for hand-written games. Phaser appends its own
+  // canvas, which would land below that one and leave the page showing the empty canvas, so drop it
+  // unless the game asked for a specific canvas or parent.
+  if (!options.canvas && !options.parent && typeof document !== 'undefined') document.getElementById('game')?.remove();
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     width: options.width ?? 960,

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "seed": 1,
+  "frames": 180,
+  "input": [{ "frame": 0, "action": "right", "pressed": true }],
+  "assert": [
+    { "frame": 180, "path": "$.scene", "equals": "level" },
+    { "frame": 180, "path": "$.player.position[0]", "increasedFromFrame": 0 },
+    { "frame": 180, "path": "$.crime.wanted", "equals": 0 }
+  ]
+}

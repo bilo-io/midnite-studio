@@ -189,8 +189,7 @@ person, first person, camera cycling, driving, the nav path); rendering e2e stay
 
 **Theme G — Perspective base starters.** ✅ Landed. Six bases under `templates/media-game/bases/` (`platformer`, `top-down`, `isometric`, `raycaster`, `first-person`, `third-person`), each a minimal playable level on the Theme E/F kit: a player, one hazard or enemy, placeholder art drawn in code (so `ASSETS.md` is an empty table and `assets/index.json` an empty index, ready for the asset bridge), a `src/genre/index.js` seam a genre module replaces, and `playtests/smoke.json`. The 3D arena is a Rapier ground, three boxes, a ramp and a door that opens on `interact`; animation states are reported in `getState()` until a Models asset supplies clips. All six verified in real Chromium. Tested through `compose.test.ts`.
 
-**Theme H — 2D genre starters.** ◻ Not started. FPS, RTS, ARPG, top-down crime as genre modules with
-named engine-free systems under `kit/core/genre/`.
+**Theme H — 2D genre starters.** ✅ Landed. FPS (`fps@raycaster`), RTS (`rts@top-down`/`isometric`), ARPG (`arpg@isometric`/`top-down`) and top-down crime (`crime@top-down`/`isometric`) in `templates/media-game/genres/<genre>/`, each replacing the base's `src/genre/index.js` seam, with `GAME_GENRES_AVAILABLE` flipped so their gallery cells are creatable. Engine-free systems sit in `kit/core/genre/{fps,rts,arpg,crime}/` (weapon table and sight; A*, flow field, selection, economy, fog, scripted AI; loot, inventory, dungeon; wanted reducer and `car2dStep`) and are covered by `kit-genres.test.ts`. RTS/ARPG/crime simulate in tile units and draw through the new `kit/phaser/world2d.js`, so one module runs top-down and isometric. Levels are Tiled-shaped maps built in code (`levels.js`, `city.js`). `composeStarter` copies only the chosen genre's `kit/core/genre/<g>/` plus any a `genre.json` lists in `kitGenres` (ARPG and crime reuse RTS's A*). The raycaster rig now exposes `map`, `sprites`, `pos`, `isSolid` and `openDoor`. Kit is 0.4.0. Also fixed a Theme G bug: `boot()` left the page's empty `<canvas id="game">` over Phaser's own canvas, so every starter showed a black screen. All seven starters were booted in real Chromium.
 
 **Theme I — 3D genre starters, part one: shooter, fighter, soulslike.** ◻ Not started. Same shape; the
 fighter's `versus` camera is a sixth rig, outside the five third-person presets.
@@ -655,10 +654,10 @@ on.
 
 ## H — 2D genre starters (L)
 
-- [ ] **FPS** (raycaster): weapon switching, hitscan and projectile weapons, enemies with sight and chase, pickups (health, ammo, keys), keyed doors, and levels from Tiled
+- [x] **FPS** (raycaster): weapon switching, hitscan and projectile weapons, enemies with sight and chase, pickups (health, ammo, keys), keyed doors, and levels from Tiled
   - `templates/media-game/genres/fps/` (systems in `src/genre/`: `weapons.js`, `enemies.js`, `pickups.js`, `doors.js`);
     the engine-free parts (`weapon-table.js`, `sight.js`) live in `kit/core/genre/fps/`.
-- [ ] **RTS** (StarCraft-style, top-down or isometric):
+- [x] **RTS** (StarCraft-style, top-down or isometric):
   - box and click selection, control groups
   - A* pathing on the tile grid, with flow fields for group moves
   - resource gathering, a build queue, unit production
@@ -666,15 +665,15 @@ on.
   - Engine-free: `kit/core/genre/rts/{astar.js,flow-field.js,selection.js,economy.js,fog.js,ai.js}` —
     `astar(grid, from, to)` (8-neighbour, octile heuristic), `flowField(grid, goal)`,
     `selectInBox(units, rect)`, `fogUpdate(visibility, units, radius)`.
-- [ ] **ARPG** (Diablo-style, isometric): click-to-move, a skills hotbar, health and mana, loot tables with rarity, inventory and equipment, and a procedural dungeon of connected rooms
+- [x] **ARPG** (Diablo-style, isometric): click-to-move, a skills hotbar, health and mana, loot tables with rarity, inventory and equipment, and a procedural dungeon of connected rooms
   - Engine-free: `kit/core/genre/arpg/{loot.js,inventory.js,dungeon.js}` — `rollLoot(table, rng)`
     (rarities common/magic/rare/unique at 70/22/7/1 %), `generateDungeon(seed, rooms = 12)` returns rooms +
     corridors guaranteed connected.
-- [ ] **Top-down crime** (original GTA): enter and exit vehicles, top-down car handling, pedestrians on paths, a wanted level with pursuing police, and a city from a Tiled map
+- [x] **Top-down crime** (original GTA): enter and exit vehicles, top-down car handling, pedestrians on paths, a wanted level with pursuing police, and a city from a Tiled map
   - Engine-free: `kit/core/genre/crime/{wanted.js,car2d.js}` — `wantedReducer(state, event)` (levels
     0–5; crimes raise, 30 s unseen decays one level), `car2dStep(state, input, dt)`. J's open world imports
     the same `wanted.js`.
-- [ ] Vitest for the engine-free systems: A* and flow fields, loot rolls with a seed, the wanted-level state machine, and RTS selection maths. An e2e smoke run per starter
+- [x] Vitest for the engine-free systems: A* and flow fields, loot rolls with a seed, the wanted-level state machine, and RTS selection maths. An e2e smoke run per starter
   - `desktop/src/main/games/kit-genres.test.ts` (A* finds the known shortest path on a fixture grid and
     returns `null` when walled; the flow field points downhill everywhere; 10 000 loot rolls with seed 1
     land within ±1 % of the rarity weights; wanted 3 decays to 2 after 30 s unseen); the e2e

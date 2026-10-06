@@ -1,5 +1,5 @@
 import { cp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import {
   dimensionOf,
@@ -13,6 +13,9 @@ import {
 
 /** Where a genre's systems module lives, relative to `templates/media-game/`. */
 const genreDir = (genre: string): string => join('genres', genre);
+
+/** A genre's optional manifest: `{ kitGenres: string[] }`, extra `kit/core/genre/<name>/` folders it imports. */
+const GENRE_MANIFEST = 'genre.json';
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -61,13 +64,35 @@ export async function composeStarter(
   }
 
   await cp(common, dest, { recursive: true, force: true });
-  await cp(join(templateDir, 'kit', 'core'), join(dest, 'kit', 'core'), { recursive: true });
+  // The genre's own engine-free systems (`kit/core/genre/<genre>/`) and any it declares in
+  // `genre.json` (`kitGenres`, e.g. ARPG pathing on RTS's A*); never another genre's.
+  const genreSource = parsed.genre === null ? null : join(templateDir, genreDir(parsed.genre));
+  const kitGenres = new Set<string>(parsed.genre === null ? [] : [parsed.genre]);
+  if (genreSource !== null && (await exists(join(genreSource, GENRE_MANIFEST)))) {
+    try {
+      const declared = JSON.parse(await readFile(join(genreSource, GENRE_MANIFEST), 'utf8')) as { kitGenres?: unknown };
+      if (Array.isArray(declared.kitGenres)) for (const g of declared.kitGenres) if (typeof g === 'string' && /^[a-z0-9-]+$/.test(g)) kitGenres.add(g);
+    } catch {
+      return failure(`The ${parsed.genre} genre's ${GENRE_MANIFEST} is not valid JSON.`);
+    }
+  }
+  const coreDir = join(templateDir, 'kit', 'core');
+  await cp(coreDir, join(dest, 'kit', 'core'), {
+    recursive: true,
+    filter: (src) => {
+      const parts = relative(coreDir, src).split(sep);
+      if (parts[0] !== 'genre') return true;
+      return parts.length === 1 ? kitGenres.size > 0 : kitGenres.has(parts[1] ?? '');
+    },
+  });
   await cp(join(templateDir, 'kit', engineDir), join(dest, 'kit', engineDir), { recursive: true });
   await cp(base, dest, { recursive: true, force: true });
 
   if (parsed.genre !== null) {
     const genre = join(templateDir, genreDir(parsed.genre));
-    if (await exists(genre)) await cp(genre, dest, { recursive: true, force: true });
+    if (await exists(genre)) {
+      await cp(genre, dest, { recursive: true, force: true, filter: (src) => relative(genre, src) !== GENRE_MANIFEST });
+    }
   }
 
   const config = { perspective: parsed.perspective, genre: parsed.genre, cameras: [...(options.cameras ?? [])] };
