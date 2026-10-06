@@ -94,7 +94,7 @@ async function openTerrain(page: Page, built = true): Promise<void> {
     const roads = { version: 1, nodes, edges };
 
     // Buildings: a block of houses beside the street.
-    const buildings = [];
+    const buildings: { polygon: number[][]; baseY: number; height: number }[] = [];
     for (let i = 0; i < 4; i += 1) {
       for (let j = 0; j < 3; j += 1) {
         const x0 = -110 + j * 22;
