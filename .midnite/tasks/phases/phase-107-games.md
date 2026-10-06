@@ -149,8 +149,7 @@ copies a **blank** scaffold from `templates/media-game/common/`, writes the mani
 The Games tab lists game repos with no repo open, and Settings ▸ Media ▸ Games carries the location, engine, network
 and squash settings and the Ollama warning.
 
-**Theme B — The sandboxed runner.** 🔄 Mostly landed; **Pop out** (the `game` window role, `reparentGameView`) and the
-real-Chromium e2e are still open. One `WebContentsView` per run on an in-memory `game-<gameId>-<runId>` partition
+**Theme B — The sandboxed runner.** ✅ Landed, bar the real-Chromium e2e, which moves to Theme Q. **Pop out** ships as a games IPC (`gamesPopOut`, `gamesPopped`, `gamesPopState`) over a `game` window role: one popped game at a time, runs of a popped game start in the popout, and closing it docks the view back to main. One `WebContentsView` per run on an in-memory `game-<gameId>-<runId>` partition
 (`persist:game-<id>` with `keepSaveData`), no preload; `mstudio-game://<gameId>/` registered by
 `registerPrivilegedSchemes()` alongside `mstudio-file` and handled only on that session, with traversal, symlink,
 dotfile and wrong-host refusals, CSP and `nosniff` on every response, `onBeforeRequest` blocking, a four-permission
@@ -170,9 +169,7 @@ with `// @ts-check` for editor typing without a build; kit versioning with `GAME
 Settings ▸ MCP; untrusted `game_state` capped at 256 KB with depth validation; burst screenshot capture and
 sequenced input via `sendInputEvent`; covered by comprehensive vitest suites.
 
-**Theme E — Phaser kit and the 2D perspective presets.** ◻ Not started. `kit/core/` (engine-free,
-vitest) plus `kit/phaser/`; the `window.__midnite` hook contract (`GameStateSchema`); four presets
-including a DDA raycaster.
+**Theme E — Phaser kit and the 2D perspective presets.** ✅ Landed. Engine-free `kit/core/` (rng, clock, iso, raycast, anim-names, input-map, jump, tiled-objects, asset-index, save, hook, preset-defaults) covered by `kit-core.test.ts`, plus `kit/phaser/` (boot, scenes, input, camera, animator, tiled, hud, audio) and the platformer, top-down, isometric and DDA raycaster presets, all smoke-tested in real Chromium. `window.__midnite` is installed by `hook.js`; `KitGameStateSchema` is the kit's required contract while `GameStateSchema` types the same fields as optional so a hand-written game may report anything. `GAME_KIT_VERSION` is 0.2.0.
 
 **Theme F — three.js kit, physics and the camera rigs.** ◻ Not started. A fixed-timestep loop, a
 Rapier character controller, the Phase 105 terrain loader (heightfield collider from the 16-bit PNG),
@@ -395,7 +392,7 @@ renderer, because that shares a process with the bridge.
     `node_modules/`, `playtests/results/` ignored; debounced 200 ms; reload = `webContents.reloadIgnoringCache()`.
     A burst of agent writes therefore reloads once. The watcher closes on Stop.
   - Reload keeps the partition; Restart = stop + run (new `runId`, new partition); Stop destroys the view.
-- [ ] Runner toolbar: play/pause (with the kit's hook, E/F), restart, a resolution preset (16:9 at 720p/1080p, or fit), mute, an fps/frame-time overlay, a DevTools toggle, and **Pop out** into its own window (Phase 55 detachable panels)
+- [x] Runner toolbar: play/pause (with the kit's hook, E/F), restart, a resolution preset (16:9 at 720p/1080p, or fit), mute, an fps/frame-time overlay, a DevTools toggle, and **Pop out** into its own window (Phase 55 detachable panels)
   - **Partly landed (Phase 107 A + B PR):** play/pause (kit hook), restart, stop, resolution, mute, overlay and DevTools shipped; **Pop out** (the `game` window role and `reparentGameView`) is still open.
   - `GameRunnerToolbar` (`game-runner-toolbar.tsx`), `IconButton`s with tooltips: Play/Pause (`LuPlay`/`LuPause`;
     calls `__midnite.pause()`/`resume()` via `executeJavaScript`; disabled with _"This game has no pause
@@ -416,7 +413,7 @@ renderer, because that shares a process with the bridge.
     is false; main calls `view.setVisible(false)` and `webContents.setBackgroundThrottling(true)`. On
     window blur the view stays visible but throttled. Stop calls `webContents.close()` and drops the view,
     so no renderer process remains (asserted via `webContents.getAllWebContents()` in the e2e).
-- [ ] Vitest (desktop, with fakes for `WebContentsView` and session): the scheme refuses traversal, symlinks and `.git`; the CSP header is present on every response; network is blocked when off; and the ring buffer is capped. An e2e boots a starter and reads its console, naming "real Chromium process and canvas" in the spec header
+- [~] Vitest (desktop, with fakes for `WebContentsView` and session): the scheme refuses traversal, symlinks and `.git`; the CSP header is present on every response; network is blocked when off; and the ring buffer is capped. An e2e boots a starter and reads its console, naming "real Chromium process and canvas" in the spec header
   - **Partly landed:** all the vitest halves shipped; the real-Chromium `game-runner.spec.ts` e2e is deferred to Theme Q (it needs a starter that boots an engine).
   - `desktop/src/main/games/game-protocol.test.ts` (temp dir fixture: `../x`, `%2e%2e/x`, a symlinked
     file, `.git/config`, `.env` → 404; wrong host → 404; `.wasm` MIME; CSP and `nosniff` on 200 and 404);
@@ -521,7 +518,7 @@ Lands early so every later theme is built with the agent able to play.
 
 ## E — Phaser kit and the 2D perspective presets (L)
 
-- [ ] `kit/` modules for Phaser:
+- [x] `kit/` modules for Phaser:
   - boot and scene manager
   - input mapping (keyboard, gamepad, pointer → named actions)
   - camera follow with a deadzone, and screen shake
@@ -544,11 +541,11 @@ Lands early so every later theme is built with the agent able to play.
     → `{ isDown(action), justPressed(action), axis(neg, pos) }`; default bindings per preset.
   - `save.js` saves under `localStorage['midnite:<gameName>:<slot>']` (only persisted when the run's
     partition is `persist:`; the HUD says _"Saves last until Stop"_ otherwise).
-- [ ] **Debug hook contract** `window.__midnite`, shared with F: `getState()`, `pause()`, `step(n)`, `setSeed(n)` and `version`. Each starter fills `getState()` with what matters (player position, health, score, scene)
+- [x] **Debug hook contract** `window.__midnite`, shared with F: `getState()`, `pause()`, `step(n)`, `setSeed(n)` and `version`. Each starter fills `getState()` with what matters (player position, health, score, scene)
   - `kit/core/hook.js` `installHook(impl)` defines `window.__midnite = { version: 1, getState, pause, resume, step, setSeed, setOverlay, input: { gamepad }, replay: { load, play, stop } }`
     (O fills `replay`). `GameStateSchema` (shared) = `{ version: 1, scene: string, frame: number, time: number, player?: { position: number[] /* 2 or 3 */, health?: number }, score?: number }`
     + passthrough. The kit prints `console.log('midnite-ready')` once the first scene starts.
-- [ ] **Presets**, each a kit module plus a config:
+- [x] **Presets**, each a kit module plus a config:
   - **platformer**: arcade physics, coyote time, jump buffer, variable jump height, one-way platforms
   - **top-down**: 8-direction movement, facing
   - **isometric**: iso projection, depth sorting, tile picking under the pointer
@@ -559,7 +556,7 @@ Lands early so every later theme is built with the agent able to play.
     jump cut ×0.5; raycaster: 320×200 internal resolution scaled up, FOV 66°).
   - `iso.js`: `isoToScreen(x, y, tileW, tileH)`, `screenToIso(px, py, …)`, `isoDepth(x, y)`;
     `raycast.js`: `castRay(map, pos, dir) → { distance, side, cellX, cellY, wallX }` (DDA).
-- [ ] Vitest (kit logic is engine-free where possible): input mapping, iso projection and picking, raycaster DDA hits and distances, animator naming from a 106 atlas fixture. Boot and draw are covered by e2e only
+- [x] Vitest (kit logic is engine-free where possible): input mapping, iso projection and picking, raycaster DDA hits and distances, animator naming from a 106 atlas fixture. Boot and draw are covered by e2e only
   - `desktop/src/main/games/kit-core.test.ts` imports `templates/media-game/kit/core/*.js` directly:
     `screenToIso(isoToScreen(p))` round-trips; a ray down an 8-cell corridor hits at distance 7.5 ± 1e-9;
     `animName('hero', 'walk', [1, 1])` picks `se` on an 8-direction atlas fixture and `e` on a 4-direction

@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 107 Themes B + E — Pop out and the Phaser kit
+
+Pop out a running game into its own window (`game` role), plus the Phaser kit, core modules and four 2D perspective presets (platformer, top-down, isometric, raycaster). PR: see the pull request.
+
+- [x] Pop out: `gamesPopOut`/`gamesPopped`/`gamesPopState`, dock on close, placeholder in the host.
+- [x] Phaser kit, `window.__midnite` hook, kit-core vitest, kit 0.2.0.
+- [ ] Real-Chromium game-runner e2e (Theme Q).
+
 ## 2026-10-03 — Phase 102 — Chats page
 
 New top-level Chats page (rail: Notes, Chats, Sessions, Knowledge). Conversations with Claude Code, Codex, `agy`, other print-mode agents and Ollama, streamed, multi-turn by each CLI's own resume, stored globally under `userData/chats/`. Edit-mode turns run in a throwaway snapshot of the repo; changes come back as a card and a review modal (accept/reject per file and hunk), applied through the per-repo write queue, conflicts as `GitOpResult` `conflict`. [PR #695](https://github.com/bilo-io/midnite-studio/pull/695).
