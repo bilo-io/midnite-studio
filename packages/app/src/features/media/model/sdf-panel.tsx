@@ -17,7 +17,7 @@ import {
   type SdfTree,
 } from '@midnite/studio-shared';
 import { useEffect, useRef, useState, type Dispatch } from 'react';
-import { LuArrowDown, LuArrowUp, LuCornerUpLeft, LuPlus, LuShapes, LuTrash2 } from 'react-icons/lu';
+import { LuArrowDown, LuArrowUp, LuCornerUpLeft, LuShapes, LuTrash2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
 import type { EditorAction, EditorState, Vec3 } from './editor-state';
@@ -49,7 +49,10 @@ const PRIMITIVE_DEFAULTS: Record<(typeof SDF_PRIMITIVE_KINDS)[number], Record<st
   cone: { radius: 0.15, height: 0.3 },
   cylinder: { radius: 0.1, height: 0.3 },
 };
-const WRAP_DEFAULTS: Record<(typeof SDF_OPERATOR_KINDS)[number] | (typeof SDF_MODIFIER_KINDS)[number], Record<string, unknown>> = {
+const WRAP_DEFAULTS: Record<
+  (typeof SDF_OPERATOR_KINDS)[number] | (typeof SDF_MODIFIER_KINDS)[number],
+  Record<string, unknown>
+> = {
   union: { k: 0.05 },
   subtract: { k: 0.02 },
   intersect: {},
@@ -61,7 +64,14 @@ const WRAP_DEFAULTS: Record<(typeof SDF_OPERATOR_KINDS)[number] | (typeof SDF_MO
   mirror: { axis: 'x' },
 };
 
-type Param = { key: string; label: string; kind: 'number' | 'vec3' | 'axis'; step: number; min?: number; integer?: boolean };
+type Param = {
+  key: string;
+  label: string;
+  kind: 'number' | 'vec3' | 'axis';
+  step: number;
+  min?: number;
+  integer?: boolean;
+};
 const PARAMS: Record<SdfKind, Param[]> = {
   sphere: [{ key: 'radius', label: 'Radius', kind: 'number', step: 0.01, min: 0.001 }],
   ellipsoid: [{ key: 'radii', label: 'Radii', kind: 'vec3', step: 0.01, min: 0.001 }],
@@ -102,7 +112,9 @@ const PARAMS: Record<SdfKind, Param[]> = {
 };
 
 /** Each node with its depth and its parent's name (`undefined` for a root), depth first. */
-function flatten(tree: SdfTree): { node: SdfNode; depth: number; parent: string | undefined; index: number }[] {
+function flatten(
+  tree: SdfTree,
+): { node: SdfNode; depth: number; parent: string | undefined; index: number }[] {
   const rows: { node: SdfNode; depth: number; parent: string | undefined; index: number }[] = [];
   const visit = (nodes: readonly SdfNode[], depth: number, parent: string | undefined) =>
     nodes.forEach((node, index) => {
@@ -155,7 +167,10 @@ export function SdfPanel({
       setMessage({ kind: 'error', text: outcome.error });
       return false;
     }
-    setMessage({ kind: 'ok', text: `Baked ${outcome.vertices.toLocaleString()} vertices at ${outcome.resolution}³ — ${Math.round(outcome.evaluatedShare * 100)}% of the grid evaluated.` });
+    setMessage({
+      kind: 'ok',
+      text: `Baked ${outcome.vertices.toLocaleString()} vertices at ${outcome.resolution}³ — ${Math.round(outcome.evaluatedShare * 100)}% of the grid evaluated.`,
+    });
     return true;
   };
 
@@ -166,15 +181,18 @@ export function SdfPanel({
     const outcome = await baker.commit({ spec, ...request });
     setBusy(false);
     onPreview(null);
-    if (report(outcome) && outcome.ok) dispatch({ type: 'sdf', spec: outcome.spec, index: outcome.index });
+    if (report(outcome) && outcome.ok)
+      dispatch({ type: 'sdf', spec: outcome.spec, index: outcome.index });
   };
 
-  const commitTree = (next: SdfTree) => void bake({ tree: next, index: selected, resolution: Number(resolution) });
+  const commitTree = (next: SdfTree) =>
+    void bake({ tree: next, index: selected, resolution: Number(resolution) });
 
   const edit = (ops: SdfOp[], select?: string | null) => {
     if (!tree) return;
     const out = applySdfOps(tree, ops);
-    if (!out.ok) return setMessage({ kind: 'error', text: out.errors.map((e) => e.message).join(' ') });
+    if (!out.ok)
+      return setMessage({ kind: 'error', text: out.errors.map((e) => e.message).join(' ') });
     if (select !== undefined) setNodeName(select);
     commitTree(out.tree);
   };
@@ -182,22 +200,36 @@ export function SdfPanel({
   const preview = async (next: SdfTree) => {
     previewSeq.current += 1;
     const seq = previewSeq.current;
-    const outcome = await baker.preview({ spec, tree: next, index: selected, resolution: SDF_RESOLUTION_PREVIEW });
+    const outcome = await baker.preview({
+      spec,
+      tree: next,
+      index: selected,
+      resolution: SDF_RESOLUTION_PREVIEW,
+    });
     if (seq === previewSeq.current && outcome.ok) onPreview(outcome.spec);
   };
 
   if (!tree || selected === null) {
-    const sdfParts = spec.parts.flatMap((p, i) => (p.shape === 'sculpt' && p.sdf ? [{ name: p.name, index: i }] : []));
+    const sdfParts = spec.parts.flatMap((p, i) =>
+      p.shape === 'sculpt' && p.sdf ? [{ name: p.name, index: i }] : [],
+    );
     return (
       <div className="flex flex-col gap-2" role="group" aria-label="SDF">
         <p className="text-[11px] text-muted-foreground">
-          Block out organic forms — heads, creatures, folds — as signed-distance shapes: primitives joined by smooth booleans and bent by modifiers. The result is a sculpt mesh you can keep editing as a tree.
+          Block out organic forms — heads, creatures, folds — as signed-distance shapes: primitives
+          joined by smooth booleans and bent by modifiers. The result is a sculpt mesh you can keep
+          editing as a tree.
         </p>
         {sdfParts.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             Edit
             {sdfParts.map((p) => (
-              <button key={p.index} type="button" onClick={() => dispatch({ type: 'select', index: p.index })} className="h-6 rounded-md border border-border bg-card px-2 text-foreground hover:bg-accent">
+              <button
+                key={p.index}
+                type="button"
+                onClick={() => dispatch({ type: 'select', index: p.index })}
+                className="h-6 rounded-md border border-border bg-card px-2 text-foreground hover:bg-accent"
+              >
                 {p.name}
               </button>
             ))}
@@ -206,7 +238,14 @@ export function SdfPanel({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void bake({ tree: DEFAULT_SDF_TREE, index: null, resolution: SDF_RESOLUTION_DEFAULT, name: 'sdf shape' })}
+          onClick={() =>
+            void bake({
+              tree: DEFAULT_SDF_TREE,
+              index: null,
+              resolution: SDF_RESOLUTION_DEFAULT,
+              name: 'sdf shape',
+            })
+          }
           className="flex h-6 w-fit items-center gap-1 rounded-md border border-border bg-card px-2 text-[11px] text-foreground hover:bg-accent disabled:opacity-50"
         >
           <LuShapes aria-hidden className="h-3.5 w-3.5" />
@@ -218,13 +257,29 @@ export function SdfPanel({
   }
 
   const row = rows.find((r) => r.node.name === nodeName);
-  const siblings = row ? (row.parent ? (findSdfNode(tree, row.parent) as Extract<SdfNode, { children: SdfNode[] }>).children : tree.nodes) : [];
+  const siblings = row
+    ? row.parent
+      ? (findSdfNode(tree, row.parent) as Extract<SdfNode, { children: SdfNode[] }>).children
+      : tree.nodes
+    : [];
   const addNode = (kind: (typeof SDF_PRIMITIVE_KINDS)[number]) => {
     const name = freshName(tree, kind);
     const fresh = { kind, name, ...PRIMITIVE_DEFAULTS[kind] } as SdfNode;
     // Into the selected operator, or beside the selected node, or at the end of the roots.
-    if (node && isSdfContainer(node) && !isSdfModifier(node)) return edit([{ op: 'add', node: fresh, parent: node.name }], name);
-    if (row) return edit([{ op: 'add', node: fresh, ...(row.parent ? { parent: row.parent } : {}), index: row.index + 1 }], name);
+    if (node && isSdfContainer(node) && !isSdfModifier(node))
+      return edit([{ op: 'add', node: fresh, parent: node.name }], name);
+    if (row)
+      return edit(
+        [
+          {
+            op: 'add',
+            node: fresh,
+            ...(row.parent ? { parent: row.parent } : {}),
+            index: row.index + 1,
+          },
+        ],
+        name,
+      );
     return edit([{ op: 'add', node: fresh }], name);
   };
   const wrap = (kind: keyof typeof WRAP_DEFAULTS) => {
@@ -236,85 +291,171 @@ export function SdfPanel({
     if (!row) return;
     const index = row.index + delta;
     if (index < 0 || index >= siblings.length) return;
-    edit([{ op: 'move', name: row.node.name, ...(row.parent ? { parent: row.parent } : {}), index }]);
+    edit([
+      { op: 'move', name: row.node.name, ...(row.parent ? { parent: row.parent } : {}), index },
+    ]);
   };
   const outdent = () => {
     if (!row?.parent) return;
     const parentRow = rows.find((r) => r.node.name === row.parent)!;
-    edit([{ op: 'move', name: row.node.name, ...(parentRow.parent ? { parent: parentRow.parent } : {}), index: parentRow.index + 1 }]);
+    edit([
+      {
+        op: 'move',
+        name: row.node.name,
+        ...(parentRow.parent ? { parent: parentRow.parent } : {}),
+        index: parentRow.index + 1,
+      },
+    ]);
   };
-  const update = (set: Record<string, unknown>) => nodeName && edit([{ op: 'update', name: nodeName, set }], typeof set.name === 'string' ? set.name : undefined);
+  const update = (set: Record<string, unknown>) =>
+    nodeName &&
+    edit(
+      [{ op: 'update', name: nodeName, set }],
+      typeof set.name === 'string' ? set.name : undefined,
+    );
 
   return (
     <div className="flex min-h-0 gap-3" role="group" aria-label="SDF">
-      <div className="flex w-56 shrink-0 flex-col gap-1.5">
-        <div className="flex items-center gap-1">
-          <p className={`${SECTION} mr-auto`}>SDF tree · {sdfPart!.name}</p>
-          <IconButton icon={LuArrowUp} label="Move node up" size="sm" disabled={!row || row.index === 0 || busy} onClick={() => moveBy(-1)} />
-          <IconButton icon={LuArrowDown} label="Move node down" size="sm" disabled={!row || row.index >= siblings.length - 1 || busy} onClick={() => moveBy(1)} />
-          <IconButton icon={LuCornerUpLeft} label="Move node out of its parent" size="sm" disabled={!row?.parent || busy} onClick={outdent} />
-          <IconButton icon={LuTrash2} label="Remove node" size="sm" tone="danger" disabled={!row || rows.length <= 1 || busy} onClick={() => edit([{ op: 'remove', name: row!.node.name }], null)} />
-        </div>
-        <ul role="tree" aria-label="SDF nodes" className="hide-scrollbar max-h-32 overflow-auto rounded-md border border-border/70 bg-background/40 py-0.5">
-          {rows.map((r) => (
-            <li key={r.node.name} role="treeitem" aria-selected={r.node.name === nodeName} aria-level={r.depth + 1}>
-              <button
-                type="button"
-                onClick={() => setNodeName(r.node.name === nodeName ? null : r.node.name)}
-                style={{ paddingLeft: 6 + r.depth * 12 }}
-                className={`flex h-5 w-full items-center gap-1.5 pr-1.5 text-left text-[11px] ${r.node.name === nodeName ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'}`}
-              >
-                <span className="truncate text-foreground">{r.node.name}</span>
-                <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{r.node.kind}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="flex items-center gap-1">
-          <LuPlus aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <select aria-label="Add primitive" value="" disabled={busy} onChange={(e) => e.target.value && addNode(e.target.value as (typeof SDF_PRIMITIVE_KINDS)[number])} className={`${FIELD} min-w-0 flex-1`}>
-            <option value="">Add primitive…</option>
-            {SDF_PRIMITIVE_KINDS.map((kind) => (
-              <option key={kind} value={kind}>
-                {kind}
-              </option>
-            ))}
-          </select>
-          <select aria-label="Wrap node" value="" disabled={!node || busy} onChange={(e) => e.target.value && wrap(e.target.value as keyof typeof WRAP_DEFAULTS)} className={`${FIELD} min-w-0 flex-1`}>
-            <option value="">Wrap in…</option>
-            {[...SDF_OPERATOR_KINDS, ...SDF_MODIFIER_KINDS].map((kind) => (
-              <option key={kind} value={kind}>
-                {kind}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        {node ? (
-          <NodeFields key={node.name} node={node} update={update} preview={(set) => void preview(applyOrSame(tree, node.name, set))} />
-        ) : (
-          <>
-            <p className="text-[11px] text-muted-foreground">Pick a node to edit it. The roots are joined by a union; blend softens the seams between them.</p>
-            <BlendSlider label="Root blend" value={tree.blend ?? 0} onPreview={(k) => void preview(applyOps(tree, [{ op: 'blend', k }]))} onCommit={(k) => edit([{ op: 'blend', k }])} />
-          </>
-        )}
-        <div className="mt-auto flex flex-wrap items-center gap-2">
-          <SelectField label="Bake detail" value={resolution} options={RESOLUTIONS} onChange={setResolution} />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => commitTree(tree)}
-            className="flex h-6 items-center gap-1 rounded-md border border-border bg-card px-2 text-[11px] text-foreground hover:bg-accent disabled:opacity-50"
+      {/* One bake at a time: an edit made while one runs would start from the tree before it. */}
+      <fieldset disabled={busy} aria-busy={busy} className="contents">
+        <div className="flex w-44 shrink-0 flex-col gap-1.5">
+          <p className={`${SECTION} truncate`} title={sdfPart!.name}>
+            SDF tree · {sdfPart!.name}
+          </p>
+          <ul
+            role="tree"
+            aria-label="SDF nodes"
+            className="hide-scrollbar max-h-24 min-h-10 overflow-auto rounded-md border border-border/70 bg-background/40 py-0.5"
           >
-            {busy ? 'Baking…' : 'Bake'}
-          </button>
-          <span className="text-[11px] text-muted-foreground">
-            {sdfPart!.vertices?.toLocaleString() ?? '?'} vertices at {sdfPart!.sdf!.resolution}³
-          </span>
+            {rows.map((r) => (
+              <li
+                key={r.node.name}
+                role="treeitem"
+                aria-selected={r.node.name === nodeName}
+                aria-level={r.depth + 1}
+              >
+                <button
+                  type="button"
+                  onClick={() => setNodeName(r.node.name === nodeName ? null : r.node.name)}
+                  style={{ paddingLeft: 6 + r.depth * 12 }}
+                  className={`flex h-5 w-full items-center gap-1.5 pr-1.5 text-left text-[11px] ${r.node.name === nodeName ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'}`}
+                >
+                  <span className="truncate text-foreground">{r.node.name}</span>
+                  <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                    {r.node.kind}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center gap-0.5">
+            <IconButton
+              icon={LuArrowUp}
+              label="Move node up"
+              size="sm"
+              disabled={!row || row.index === 0 || busy}
+              onClick={() => moveBy(-1)}
+            />
+            <IconButton
+              icon={LuArrowDown}
+              label="Move node down"
+              size="sm"
+              disabled={!row || row.index >= siblings.length - 1 || busy}
+              onClick={() => moveBy(1)}
+            />
+            <IconButton
+              icon={LuCornerUpLeft}
+              label="Move node out of its parent"
+              size="sm"
+              disabled={!row?.parent || busy}
+              onClick={outdent}
+            />
+            <IconButton
+              icon={LuTrash2}
+              label="Remove node"
+              size="sm"
+              tone="danger"
+              disabled={!row || rows.length <= 1 || busy}
+              onClick={() => edit([{ op: 'remove', name: row!.node.name }], null)}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <select
+              aria-label="Add primitive"
+              value=""
+              disabled={busy}
+              onChange={(e) =>
+                e.target.value && addNode(e.target.value as (typeof SDF_PRIMITIVE_KINDS)[number])
+              }
+              className={`${FIELD} min-w-0 flex-1`}
+            >
+              <option value="">Add…</option>
+              {SDF_PRIMITIVE_KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {kind}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Wrap node"
+              value=""
+              disabled={!node || busy}
+              onChange={(e) => e.target.value && wrap(e.target.value as keyof typeof WRAP_DEFAULTS)}
+              className={`${FIELD} min-w-0 flex-1`}
+            >
+              <option value="">Wrap in…</option>
+              {[...SDF_OPERATOR_KINDS, ...SDF_MODIFIER_KINDS].map((kind) => (
+                <option key={kind} value={kind}>
+                  {kind}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <Status message={message} />
-      </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {node ? (
+            <NodeFields
+              key={node.name}
+              node={node}
+              update={update}
+              preview={(set) => void preview(applyOrSame(tree, node.name, set))}
+            />
+          ) : (
+            <>
+              <p className="text-[11px] text-muted-foreground">
+                Pick a node to edit it. The roots are joined by a union; blend softens the seams
+                between them.
+              </p>
+              <BlendSlider
+                label="Root blend"
+                value={tree.blend ?? 0}
+                onPreview={(k) => void preview(applyOps(tree, [{ op: 'blend', k }]))}
+                onCommit={(k) => edit([{ op: 'blend', k }])}
+              />
+            </>
+          )}
+          <div className="mt-auto flex flex-wrap items-center gap-2">
+            <SelectField
+              label="Bake detail"
+              value={resolution}
+              options={RESOLUTIONS}
+              onChange={setResolution}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => commitTree(tree)}
+              className="flex h-6 items-center gap-1 rounded-md border border-border bg-card px-2 text-[11px] text-foreground hover:bg-accent disabled:opacity-50"
+            >
+              {busy ? 'Baking…' : 'Bake'}
+            </button>
+            <span className="text-[11px] text-muted-foreground">
+              {sdfPart!.vertices?.toLocaleString() ?? '?'} vertices at {sdfPart!.sdf!.resolution}³
+            </span>
+          </div>
+          <Status message={message} />
+        </div>
+      </fieldset>
     </div>
   );
 }
@@ -323,19 +464,33 @@ const applyOps = (tree: SdfTree, ops: SdfOp[]): SdfTree => {
   const out = applySdfOps(tree, ops);
   return out.ok ? out.tree : tree;
 };
-const applyOrSame = (tree: SdfTree, name: string, set: Record<string, unknown>): SdfTree => applyOps(tree, [{ op: 'update', name, set }]);
+const applyOrSame = (tree: SdfTree, name: string, set: Record<string, unknown>): SdfTree =>
+  applyOps(tree, [{ op: 'update', name, set }]);
 
 function Status({ message }: { message: { kind: 'ok' | 'error'; text: string } | null }) {
   if (!message) return null;
   return (
-    <p role={message.kind === 'error' ? 'alert' : 'status'} className={`text-[11px] ${message.kind === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>
+    <p
+      role={message.kind === 'error' ? 'alert' : 'status'}
+      className={`text-[11px] ${message.kind === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}
+    >
       {message.text}
     </p>
   );
 }
 
 /** A blend radius: previews while dragged, bakes on release. */
-function BlendSlider({ label, value, onPreview, onCommit }: { label: string; value: number; onPreview: (k: number) => void; onCommit: (k: number) => void }) {
+function BlendSlider({
+  label,
+  value,
+  onPreview,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  onPreview: (k: number) => void;
+  onCommit: (k: number) => void;
+}) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const release = () => draft !== value && onCommit(draft);
@@ -359,32 +514,71 @@ function BlendSlider({ label, value, onPreview, onCommit }: { label: string; val
         onBlur={release}
         className="h-1 min-w-0 flex-1 accent-primary"
       />
-      <NumberField label={label} value={value} step={0.005} min={0} max={10} onCommit={(k) => k !== undefined && onCommit(k)} />
+      <NumberField
+        label={label}
+        value={value}
+        step={0.005}
+        min={0}
+        max={10}
+        onCommit={(k) => k !== undefined && onCommit(k)}
+      />
     </div>
   );
 }
 
-function NodeFields({ node, update, preview }: { node: SdfNode; update: (set: Record<string, unknown>) => void; preview: (set: Record<string, unknown>) => void }) {
+function NodeFields({
+  node,
+  update,
+  preview,
+}: {
+  node: SdfNode;
+  update: (set: Record<string, unknown>) => void;
+  preview: (set: Record<string, unknown>) => void;
+}) {
   const record = node as Record<string, unknown>;
   return (
     <div className="flex flex-col gap-1.5" aria-label={`SDF node ${node.name}`} role="group">
       <div className="flex items-center gap-2">
         <TextField label="Name" value={node.name} onCommit={(name) => update({ name })} />
-        <span className="text-[11px] text-muted-foreground">{node.kind}</span>
-        <ColorField label="Colour" value={node.color ?? '#b0b0b0'} onCommit={(color) => update({ color })} />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="mr-auto rounded bg-muted px-1.5 text-[10px] text-muted-foreground">
+          {node.kind}
+        </span>
+        <ColorField
+          label="Colour"
+          value={node.color ?? '#b0b0b0'}
+          onCommit={(color) => update({ color })}
+        />
       </div>
       {'k' in record || (SDF_OPERATOR_KINDS as readonly string[]).includes(node.kind) ? (
-        <BlendSlider label="Blend k" value={(record.k as number | undefined) ?? 0} onPreview={(k) => preview({ k })} onCommit={(k) => update({ k })} />
+        <BlendSlider
+          label="Blend k"
+          value={(record.k as number | undefined) ?? 0}
+          onPreview={(k) => preview({ k })}
+          onCommit={(k) => update({ k })}
+        />
       ) : null}
       {PARAMS[node.kind].map((param) =>
         param.kind === 'vec3' ? (
-          <VecRow key={param.key} label={param.label} value={(record[param.key] as Vec3 | undefined) ?? [0, 0, 0]} step={param.step} {...(param.min !== undefined ? { min: param.min } : {})} onCommit={(v) => update({ [param.key]: v })} />
+          <VecRow
+            key={param.key}
+            label={param.label}
+            value={(record[param.key] as Vec3 | undefined) ?? [0, 0, 0]}
+            step={param.step}
+            {...(param.min !== undefined ? { min: param.min } : {})}
+            onCommit={(v) => update({ [param.key]: v })}
+          />
         ) : param.kind === 'axis' ? (
           <SelectField
             key={param.key}
             label={param.label}
             value={(record[param.key] as 'x' | 'y' | 'z') ?? 'x'}
-            options={[{ value: 'x', label: 'X' }, { value: 'y', label: 'Y' }, { value: 'z', label: 'Z' }]}
+            options={[
+              { value: 'x', label: 'X' },
+              { value: 'y', label: 'Y' },
+              { value: 'z', label: 'Z' },
+            ]}
             onChange={(axis) => update({ [param.key]: axis })}
           />
         ) : (
@@ -401,11 +595,27 @@ function NodeFields({ node, update, preview }: { node: SdfNode; update: (set: Re
           </label>
         ),
       )}
-      <VecRow label="Position" value={node.position ?? [0, 0, 0]} step={0.01} onCommit={(position) => update({ position })} />
-      <VecRow label="Rotation" value={node.rotation ?? [0, 0, 0]} step={5} onCommit={(rotation) => update({ rotation })} />
+      <VecRow
+        label="Position"
+        value={node.position ?? [0, 0, 0]}
+        step={0.01}
+        onCommit={(position) => update({ position })}
+      />
+      <VecRow
+        label="Rotation"
+        value={node.rotation ?? [0, 0, 0]}
+        step={5}
+        onCommit={(rotation) => update({ rotation })}
+      />
       <label className="flex items-center gap-1.5">
         <span className="w-16 shrink-0 text-[11px] text-muted-foreground">Scale</span>
-        <NumberField label="Scale" value={node.scale ?? 1} step={0.05} min={0.001} onCommit={(scale) => update({ scale: scale ?? null })} />
+        <NumberField
+          label="Scale"
+          value={node.scale ?? 1}
+          step={0.05}
+          min={0.001}
+          onCommit={(scale) => update({ scale: scale ?? null })}
+        />
       </label>
     </div>
   );
