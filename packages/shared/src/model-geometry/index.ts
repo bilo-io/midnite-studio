@@ -1,7 +1,11 @@
 export * from './math';
 export {
   applyConversion,
+  convertOpEntry,
   convertToSculptMesh,
+  encodeConverted,
+  freshPartId,
+  nextSculptPartId,
   revertSculptToParts,
   sculptSourceIds,
   type ConvertGroup,

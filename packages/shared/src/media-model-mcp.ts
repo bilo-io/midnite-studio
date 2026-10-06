@@ -62,6 +62,7 @@ export const MODEL_MCP_TOOL_IDS = [
   'model_patch_rig',
   'model_patch_animations',
   'model_retarget',
+  'model_convert_to_mesh',
   'model_save',
 ] as const;
 export type ModelMcpToolId = (typeof MODEL_MCP_TOOL_IDS)[number];
@@ -77,6 +78,7 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_patch_rig',
   'model_patch_animations',
   'model_retarget',
+  'model_convert_to_mesh',
   'model_save',
 ];
 
@@ -197,6 +199,17 @@ export const ModelRetargetInputSchema = ModelToolTargetSchema.extend({
   replace: z.boolean().optional(),
 });
 
+/** Most voxels' worth of detail a conversion may ask for: about this many vertices on the new surface. */
+export const MODEL_CONVERT_MAX_VERTICES = 1_000_000;
+export const ModelConvertToMeshInputSchema = ModelToolTargetSchema.extend({
+  /** Part ids or names to convert (a group takes its descendants); omitted converts every visible part. */
+  parts: z.array(z.string().min(1).max(60)).min(1).max(64).optional(),
+  /** Voxel edge in model units — wins over `targetVertices`. */
+  voxelSize: z.number().finite().min(0.0001).max(10).optional(),
+  /** About how many vertices the new surface should have (default 20 000). */
+  targetVertices: z.number().int().min(100).max(MODEL_CONVERT_MAX_VERTICES).optional(),
+});
+
 /** `model_get_rig` answer: the rig as the kernel resolves it, the anatomy's table and what is wrong. */
 export const ModelGetRigResultSchema = z.object({
   anatomy: ModelAnatomySchema,
@@ -240,6 +253,19 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
     rig: z.object({ anatomy: z.string(), bones: z.number().int().min(0), clips: z.array(z.string()) }).optional(),
     /** Clips `model_retarget` could not copy (a kind this anatomy has no use for). */
     skipped: z.array(z.string()).optional(),
+    /** `model_convert_to_mesh`: the sculpt part that now stands in for the converted primitives. */
+    converted: z
+      .object({
+        id: z.string(),
+        src: z.string(),
+        vertices: z.number().int().min(0),
+        triangles: z.number().int().min(0),
+        voxelSize: z.number(),
+        /** Ids of the primitives that were hidden (recoverable by un-hiding them or removing the sculpt part). */
+        sources: z.array(z.string()),
+        groups: z.array(z.string()),
+      })
+      .optional(),
   }),
   z.object({ ok: z.literal(false), errors: z.array(ModelToolIssueSchema) }),
 ]);

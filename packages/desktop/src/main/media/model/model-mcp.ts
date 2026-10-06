@@ -1,5 +1,14 @@
 import {
   applyClipOps,
+  applyConversion,
+  convertOpEntry,
+  convertToSculptMesh,
+  encodeConverted,
+  nextSculptPartId,
+  registerSculptMesh,
+  sculptMeshSrcFor,
+  type ModelMeshRequest,
+  type ModelMeshResult,
   applyRigOps,
   buildScene,
   computeSkin,
@@ -61,6 +70,8 @@ export type ModelMcpDeps = {
   saveSpec: (req: { repoId: string; project: string; path: string; spec: ModelSpec }) => Promise<GitOpResult<{ files: string[] }>>;
   /** Rewrite only the sidecar — an agent's intermediate edits, cheap enough to do per call. */
   writeSidecar: (req: Scope & { path: string; sidecar: ModelSidecar }) => Promise<GitOpResult<unknown>>;
+  /** Save a sculpt mesh (`.mesh.bin` plus its op-log entries) beside the design — `sculpt-store`'s `write` op. */
+  writeMesh: (req: Extract<ModelMeshRequest, { op: 'write' }>) => Promise<GitOpResult<ModelMeshResult>>;
   /** Start a new model: sidecar plus the trio, so it shows up in the explorer. */
   createModel: (req: { repoId: string; project: string; stem: string; spec: ModelSpec; engine: string }) => Promise<GitOpResult<{ primary: string }>>;
   emitChanged: (event: ModelChangedEvent) => void;
@@ -344,6 +355,49 @@ export function createModelTools(deps: ModelMcpDeps) {
     });
   }
 
+  async function modelConvertToMesh(input: McpToolInput<'model_convert_to_mesh'>): Promise<McpToolOutput<'model_convert_to_mesh'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const converted = convertToSculptMesh(sidecar.spec, { parts: input.parts, voxelSize: input.voxelSize, targetVertices: input.targetVertices });
+      if (!converted.ok) return { ok: false, errors: [{ path: input.parts ? 'parts' : '(root)', message: converted.error }] };
+      const { bytes, file } = encodeConverted(converted);
+      const partId = nextSculptPartId(converted);
+      const dir = designDir(fresh.stem);
+      const base = fresh.stem.split('/').pop()!;
+      const src = sculptMeshSrcFor(base, partId);
+      const wrote = await deps.writeMesh({
+        op: 'write',
+        repoId: fresh.repoId,
+        project: fresh.project,
+        dir,
+        src,
+        data: bytes,
+        ops: [convertOpEntry(converted, file.hash, 'agent', now().toISOString())],
+      });
+      if (!wrote.ok) throw new McpToolError('error', wrote.kind === 'error' ? wrote.message : 'Could not write the sculpt mesh.');
+      // Draw it from here on: the registry is what `describeEdit` and every preview build from.
+      registerSculptMesh(file.hash, bytes);
+      const { spec } = applyConversion(converted, { src, ...file }, { id: partId });
+      const written = await writeEdit(fresh, sidecar, spec);
+      if (!written.ok) return written;
+      return {
+        ...written,
+        warnings: [...(written.warnings ?? []), ...converted.warnings.map((message) => ({ path: 'parts', message }))],
+        converted: {
+          id: partId,
+          src,
+          vertices: file.vertices,
+          triangles: file.triangles,
+          voxelSize: Number(converted.voxelSize.toFixed(5)),
+          sources: converted.sourceIds,
+          groups: converted.groupTable.map((g) => g.name),
+        },
+      };
+    });
+  }
+
   async function modelOpen(input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> {
     const l = await load(input);
     need(l, input);
@@ -375,6 +429,7 @@ export function createModelTools(deps: ModelMcpDeps) {
     model_patch_rig: modelPatchRig,
     model_patch_animations: modelPatchAnimations,
     model_retarget: modelRetarget,
+    model_convert_to_mesh: modelConvertToMesh,
     model_save: modelSave,
   };
 }

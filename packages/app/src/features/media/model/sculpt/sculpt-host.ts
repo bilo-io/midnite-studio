@@ -16,6 +16,8 @@ export function createSculptHost(post: Post): (message: SculptRequest) => void {
   let mesh: EditableMesh | null = null;
   let bvh: Bvh | null = null;
   let multiresLevel = 0;
+  /** Vertex groups travel with the mesh through load → serialize (brushes never change topology in Theme B). */
+  let groups: Uint16Array | undefined;
 
   const fail = (id: number, message: string): void => post({ type: 'error', id, message });
 
@@ -27,6 +29,7 @@ export function createSculptHost(post: Post): (message: SculptRequest) => void {
           mesh = new EditableMesh(decoded);
           bvh = new Bvh(mesh.positions, mesh.indices);
           multiresLevel = decoded.multiresLevel;
+          groups = decoded.groups;
           const positions = mesh.positions.slice();
           const normals = mesh.normals.slice();
           const indices = mesh.indices.slice();
@@ -61,13 +64,14 @@ export function createSculptHost(post: Post): (message: SculptRequest) => void {
         }
         case 'serialize': {
           if (!mesh) return fail(message.id, 'No sculpt mesh is loaded.');
-          const bytes = encodeMeshBin({ positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, multiresLevel });
+          const bytes = encodeMeshBin({ positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, multiresLevel, ...(groups ? { groups } : {}) });
           post({ type: 'serialized', id: message.id, bytes: bytes.buffer as ArrayBuffer, vertices: mesh.vertexCount, triangles: mesh.faceCount }, [bytes.buffer as ArrayBuffer]);
           return;
         }
         case 'dispose':
           mesh = null;
           bvh = null;
+          groups = undefined;
           post({ type: 'disposed', id: message.id });
           return;
       }

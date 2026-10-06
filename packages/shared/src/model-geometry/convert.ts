@@ -1,5 +1,8 @@
 import { MODEL_MAX_PARTS, MODEL_NAME_MAX, type ModelPart, type ModelSculptPart, type ModelSpec } from '../media-model';
-import { MESH_GROUP_NONE } from './mesh/mesh-bin';
+import { modelAssetHash } from './assets';
+import { EditableMesh } from './mesh/editable-mesh';
+import { encodeMeshBin, MESH_GROUP_NONE } from './mesh/mesh-bin';
+import type { ModelOpEntry } from './mesh/ops-log';
 import { RemeshError, voxelRemesh, type RemeshOptions } from './mesh/voxel-remesh';
 import { buildSceneChecked, descendantIndices, indexParts, resolveRef } from './scene';
 
@@ -39,6 +42,11 @@ export type ConvertResult =
   | { ok: false; error: string };
 
 /** Smallest unused `p<N>` id, as the rest of the tooling assigns them. */
+/** Smallest unused `p<N>` id, as the rest of the tooling assigns them. */
+export function freshPartId(used: ReadonlySet<string>): string {
+  return freshId(used);
+}
+
 function freshId(used: ReadonlySet<string>): string {
   let n = used.size + 1;
   while (used.has(`p${n}`)) n += 1;
@@ -156,18 +164,18 @@ export const sculptSourceIds = (spec: ModelSpec): Set<string> => new Set(spec.pa
  * The design after a conversion: the converted parts hidden, and one `sculpt` part, at the world origin
  * (its mesh is already in world space), appended. Its colour is the largest group's.
  */
-export function applyConversion(result: Extract<ConvertResult, { ok: true }>, file: ConvertedFile, name?: string): { spec: ModelSpec; partId: string } {
+export function applyConversion(result: Extract<ConvertResult, { ok: true }>, file: ConvertedFile, options: { name?: string; id?: string } = {}): { spec: ModelSpec; partId: string } {
   const { spec } = result;
   const hide = new Set(result.sourceIds);
   const ids = new Set(spec.parts.map((p) => p.id!));
-  const partId = freshId(ids);
+  const partId = options.id ?? freshId(ids);
   const counts = new Array<number>(result.groupTable.length).fill(0);
   for (const g of result.groups) if (g !== MESH_GROUP_NONE) counts[g] = counts[g]! + 1;
   const largest = counts.indexOf(Math.max(...counts));
   const sculpt: ModelSculptPart = {
     shape: 'sculpt',
     id: partId,
-    name: uniqueName(spec.parts, name ?? `${spec.name} mesh`),
+    name: uniqueName(spec.parts, options.name ?? `${spec.name} mesh`),
     position: [0, 0, 0],
     rotation: [0, 0, 0],
     scale: [1, 1, 1],
@@ -199,4 +207,25 @@ export function revertSculptToParts(spec: ModelSpec, id: string): ModelSpec | nu
       return rest as ModelPart;
     });
   return { ...spec, parts };
+}
+
+/** The id the converted part will get — known before the file is named, since the file name carries it. */
+export const nextSculptPartId = (result: Extract<ConvertResult, { ok: true }>): string => freshId(new Set(result.spec.parts.map((p) => p.id!)));
+
+/** The `.mesh.bin` bytes of a conversion (normals computed, vertex groups kept) with the values its part records. */
+export function encodeConverted(result: Extract<ConvertResult, { ok: true }>): { bytes: Uint8Array; file: Omit<ConvertedFile, 'src'> } {
+  const mesh = new EditableMesh({ positions: result.positions, indices: result.indices });
+  const bytes = encodeMeshBin({ positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, multiresLevel: 0, groups: result.groups });
+  return { bytes, file: { hash: modelAssetHash(bytes), vertices: mesh.vertexCount, triangles: mesh.faceCount } };
+}
+
+/** The op-log line a conversion leaves beside its mesh. */
+export function convertOpEntry(result: Extract<ConvertResult, { ok: true }>, hash: string, by: 'user' | 'agent', at = new Date().toISOString()): ModelOpEntry {
+  return {
+    kind: 'convert',
+    at,
+    by,
+    hash,
+    data: { voxelSize: Number(result.voxelSize.toFixed(5)), sources: result.sourceIds, groups: result.groupTable.map((g) => g.name) },
+  };
 }

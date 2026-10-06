@@ -41,6 +41,7 @@ import {
   ModelPatchRigInputSchema,
   ModelRenderPreviewInputSchema,
   ModelRetargetInputSchema,
+  ModelConvertToMeshInputSchema,
   ModelSetSpecInputSchema,
   ModelToolTargetSchema,
   ModelGenerateSf3dInputSchema,
@@ -127,6 +128,7 @@ type McpToolEntry = {
     | 'model_patch_rig'
     | 'model_patch_animations'
     | 'model_retarget'
+    | 'model_convert_to_mesh'
     | 'model_save'
     | 'model_sf3d_status'
     | 'model_generate_sf3d'
@@ -486,6 +488,15 @@ export const MCP_TOOLS = {
     description:
       'Copies another rigged model’s clips onto this one by canonical bone name — use instead of re-adding them with `model_patch_animations`; refused unless its own Settings switch is on.',
     input: ModelRetargetInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_convert_to_mesh: {
+    id: 'model_convert_to_mesh',
+    title: 'Convert primitives to a sculpt mesh',
+    description:
+      'Turns a design’s primitives (all of them, or the named `parts`) into one watertight, sculptable mesh — booleans and modifiers applied, each source part kept as a vertex group — by voxel remesh at `voxelSize` or about `targetVertices`. The primitives stay in the design, hidden, so remove the new sculpt part and un-hide them to go back; refused unless its own Settings switch is on.',
+    input: ModelConvertToMeshInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
   },
