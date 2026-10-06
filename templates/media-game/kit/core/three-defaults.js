@@ -38,8 +38,10 @@ export const CHARACTER_DEFAULTS = {
 export const VEHICLE_DEFAULTS = {
   chassis: { halfExtents: [0.9, 0.4, 2.0], mass: 1200 },
   wheel: { radius: 0.38, suspensionRest: 0.35, suspensionStiffness: 28, frictionSlip: 1.6, maxTravel: 0.25 },
-  engineForce: 60,
-  brakeForce: 1.2,
+  // Rapier applies engine force as a raw impulse per step (not mass-scaled),
+  // so it has to carry the 1200 kg chassis: ~2.5 m/s² flat-out, ~20 m/s in 8 s.
+  engineForce: 3000,
+  brakeForce: 40,
   maxSteerDeg: 32,
   enterDistance: 2.5,
 };
