@@ -26,6 +26,7 @@ const TWO_GAMES: MockFixtures = {
 
 type MockGames = {
   calls: Array<Record<string, unknown>>;
+  popState: (event: { gameId: string | null }) => void;
   runState: (event: unknown) => void;
   console: (event: unknown) => void;
 };
@@ -33,7 +34,7 @@ const mockGames = (): MockGames => (window as unknown as { __mstudioMockGames: M
 
 afterEach(() => {
   cleanup();
-  useGameRunStore.setState({ runs: {}, logs: {}, clearedAt: {} });
+  useGameRunStore.setState({ runs: {}, logs: {}, clearedAt: {}, popped: null });
   useUiStore.setState({ selectedRepoId: null });
 });
 
@@ -146,5 +147,35 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'DevTools' }));
     await waitFor(() => expect(mockGames().calls).toContainEqual(expect.objectContaining({ call: 'toolbar', action: 'devtools' })));
+  });
+
+  it('pops a game out: the centre says where it went, and stops driving the native view', async () => {
+    renderView(<GameTab />, { fixtures: TWO_GAMES });
+    fireEvent.click(await screen.findByRole('button', { name: /Moon Rover/ }));
+    act(() => mockGames().runState({ gameId: 'g000000000001', runId: 'r1', state: 'running' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pop out' }));
+    await waitFor(() => expect(mockGames().calls).toContainEqual({ call: 'popOut', gameId: 'g000000000001' }));
+    expect(await screen.findByText('This game is playing in its own window.')).toBeTruthy();
+    expect(screen.queryByTestId('game-stage')).toBeNull();
+    // Pressing it again focuses the popout instead.
+    expect(screen.getByRole('button', { name: 'Show game window' })).toBeTruthy();
+
+    // Popped out, the main window must not hide or move the popout's view.
+    const before = mockGames().calls.length;
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(mockGames().calls.slice(before).filter((c) => c['call'] === 'setVisible' || c['call'] === 'setBounds')).toEqual([]);
+
+    // Docked again (the popout closed): the stage comes back and re-shows the view.
+    act(() => mockGames().popState({ gameId: null }));
+    expect(await screen.findByTestId('game-stage')).toBeTruthy();
+    await waitFor(() =>
+      expect(mockGames().calls.slice(before)).toContainEqual({ call: 'setVisible', gameId: 'g000000000001', visible: true }),
+    );
+  });
+
+  it('learns which game is popped out at mount', async () => {
+    renderView(<GameTab />, { fixtures: { ...TWO_GAMES, games: { ...TWO_GAMES.games, popped: 'g000000000001' } } });
+    await waitFor(() => expect(useGameRunStore.getState().popped).toBe('g000000000001'));
   });
 });

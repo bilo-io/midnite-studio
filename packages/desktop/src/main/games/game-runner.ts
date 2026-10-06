@@ -14,6 +14,7 @@ import {
   type GameLogEntry,
   type GameNetwork,
   type GameRunState,
+  type GameRunStatePayload,
   type GitOpResult,
 } from '@midnite/studio-shared';
 
@@ -63,6 +64,14 @@ export type GameRunner = {
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };
   view(gameId: string): WebContentsView | null;
   isRunning(gameId: string): boolean;
+  /** The current run's lifecycle state, or `null` when the game is not running. */
+  runState(gameId: string): GameRunStatePayload | null;
+  /**
+   * Host a game in `win` instead of the main window (Pop out, Theme B) — or back
+   * in the main window with `null`. A live view moves now; a later run of the
+   * same game starts in the same host, so Restart from a popout stays in it.
+   */
+  reparent(gameId: string, win: BrowserWindow | null, opts: { visible: boolean }): void;
 };
 
 export type ToolbarAction = 'pause' | 'resume' | 'mute' | 'unmute' | 'devtools' | 'overlay';
@@ -144,6 +153,14 @@ const HOOK_CALL = (method: string, arg = ''): string =>
 export function createGameRunner(deps: GameRunnerDeps): GameRunner {
   const runs = new Map<string, Run>();
   const lastBounds = new Map<string, BrowserBounds>();
+  /** A game hosted outside the main window (its popout). */
+  const hosts = new Map<string, BrowserWindow>();
+
+  const hostFor = (gameId: string): BrowserWindow | null => {
+    const host = hosts.get(gameId);
+    if (host && !host.isDestroyed()) return host;
+    return deps.getWindow();
+  };
 
   const emitState = (run: Run, state: GameRunState, reason?: string): void => {
     run.state = state;
@@ -317,7 +334,7 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
       if (runs.size >= GAMES_MAX_RUNNING) {
         return failure(`Stop a running game first (${GAMES_MAX_RUNNING} are running).`);
       }
-      const win = deps.getWindow();
+      const win = hostFor(game.gameId);
       if (!win || win.isDestroyed()) return failure('There is no window to run the game in.');
 
       const runId = `r${randomBytes(4).toString('hex')}`;
@@ -438,6 +455,35 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
 
     view: (gameId) => runs.get(gameId)?.view ?? null,
     isRunning: (gameId) => runs.has(gameId),
+
+    runState(gameId) {
+      const run = runs.get(gameId);
+      if (!run) return null;
+      return {
+        gameId,
+        runId: run.runId,
+        state: run.state,
+        ...(run.crashReason === null ? {} : { reason: run.crashReason }),
+      };
+    },
+
+    reparent(gameId, win, opts) {
+      if (win) hosts.set(gameId, win);
+      else hosts.delete(gameId);
+      const run = runs.get(gameId);
+      if (!run) return;
+      const next = hostFor(gameId);
+      if (!next || next.isDestroyed()) return;
+      if (run.win !== next) {
+        if (!run.win.isDestroyed()) run.win.contentView.removeChildView(run.view);
+        next.contentView.addChildView(run.view);
+        run.win = next;
+      }
+      if (!run.view.webContents.isDestroyed()) {
+        run.view.setVisible(opts.visible);
+        run.view.webContents.setBackgroundThrottling(true);
+      }
+    },
   };
 }
 

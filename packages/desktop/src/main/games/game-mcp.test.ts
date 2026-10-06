@@ -169,6 +169,12 @@ describe('game_* over the global MCP dispatcher', () => {
 
     it('returns a valid object as data', async () => {
       expect(await state(JSON.stringify({ score: 3, entities: [{ x: 1 }] }))).toEqual({ ok: true, value: { state: { score: 3, entities: [{ x: 1 }] } } });
+      // Theme E: the kit's common keys are typed when present.
+      expect(await state(JSON.stringify({ version: 1, scene: 'level-1', frame: 4, time: 66, player: { position: [1, 2] } }))).toMatchObject({ ok: true });
+      expect(await state(JSON.stringify({ player: { position: ['x', 2] } }))).toMatchObject({
+        ok: false,
+        message: expect.stringContaining('getState() returned a bad player.position.0'),
+      });
     });
 
     it('bounds a 300 KB answer', async () => {

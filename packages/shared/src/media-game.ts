@@ -50,7 +50,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.1.0';
+export const GAME_KIT_VERSION = '0.2.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -348,13 +348,48 @@ export type GamesChangedEvent = z.infer<typeof GamesChangedSchema>;
 
 // --- play-test state (Theme D) ---------------------------------------------------
 
+/** The player block every kit preset reports: a 2D or 3D position, and health when the genre has it. */
+export const GamePlayerStateSchema = z
+  .object({
+    position: z.array(z.number()).min(2).max(3),
+    health: z.number().optional(),
+  })
+  .passthrough();
+
 /**
- * What the kit's `window.__midnite.getState()` returns. Untrusted data from the
- * page: the shape is open (`.passthrough()`) because each genre reports its own
- * keys; Theme E tightens the common ones.
+ * What a game's `window.__midnite.getState()` returns, as `game_state` accepts
+ * it. Untrusted data from the page. Theme E tightens the common keys: each one
+ * is optional (a hand-written game with no kit reports whatever it likes), but
+ * when present it must have the kit's type, so an agent can rely on
+ * `state.player.position` being numbers whenever it exists. Everything else
+ * passes through — each genre reports its own keys.
  */
-export const GameStateSchema = z.object({}).passthrough();
+export const GameStateSchema = z
+  .object({
+    version: z.literal(1).optional(),
+    scene: z.string().optional(),
+    frame: z.number().int().nonnegative().optional(),
+    time: z.number().nonnegative().optional(),
+    player: GamePlayerStateSchema.optional(),
+    score: z.number().optional(),
+  })
+  .passthrough();
 export type GameState = z.infer<typeof GameStateSchema>;
+
+/**
+ * The kit's own contract (`kit/core/hook.js`, Theme E): what every kit-built
+ * game's `getState()` reports at minimum. `kit-core.test.ts` holds the kit to it.
+ */
+export const KitGameStateSchema = GameStateSchema.extend({
+  version: z.literal(1),
+  scene: z.string(),
+  frame: z.number().int().nonnegative(),
+  time: z.number().nonnegative(),
+});
+export type KitGameState = z.infer<typeof KitGameStateSchema>;
+
+/** `window.__midnite.version` — bumped when the hook's shape changes. */
+export const GAME_HOOK_VERSION = 1;
 
 /** Nesting depth of a JSON value (a scalar is 0). Iterative, so a hostile value cannot overflow the stack. */
 export function jsonDepth(value: unknown): number {
@@ -373,3 +408,22 @@ export function jsonDepth(value: unknown): number {
 /** Pushed on `mstudio:games:open` when an agent's `game_open` asks the window to show a game. */
 export const GamesOpenEventSchema = z.object({ gameId: z.string().min(1) });
 export type GamesOpenEvent = z.infer<typeof GamesOpenEventSchema>;
+
+// --- pop out (Theme B) ------------------------------------------------------------
+
+/**
+ * Which game the `game` popout window hosts, or `null` when none is popped out.
+ * There is one `game` window role, so at most one game is popped out at a time —
+ * popping a second docks the first. Answered by `gamesPopped` and pushed on
+ * `gamesPopState` whenever it changes, to every window.
+ */
+export const GamePopStateSchema = z.object({ gameId: z.string().min(1).nullable() });
+export type GamePopState = z.infer<typeof GamePopStateSchema>;
+
+/**
+ * `gamesPopped`'s answer: the popped game plus its current run, so the popout's
+ * own renderer — a fresh process that missed every earlier `gamesRunState` push —
+ * knows at once whether to show the stage or a Run button.
+ */
+export const GamePoppedResponseSchema = GamePopStateSchema.extend({ run: GameRunStatePayload.nullable() });
+export type GamePoppedResponse = z.infer<typeof GamePoppedResponseSchema>;

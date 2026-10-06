@@ -50,6 +50,8 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   'apps-spotify': { width: 1180, height: 800 },
   'apps-google-calendar': { width: 1180, height: 800 },
   'apps-youtube': { width: 1280, height: 860 },
+  // A popped-out game (Phase 107 Theme B): 720p of stage plus the toolbar.
+  game: { width: 1300, height: 820 },
   graph: { width: 1280, height: 860 },
   actions: { width: 1180, height: 800 },
   files: { width: 1180, height: 820 },

@@ -738,6 +738,8 @@ export type MockFixtures = {
     };
     resolvedRoot?: string;
     rootProblem?: string | null;
+    /** The game the `game` popout hosts at boot (Theme B Pop out). */
+    popped?: string | null;
   };
   /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
@@ -3287,6 +3289,19 @@ export function buildMockBridge(data: MockFixtures) {
       },
       logs: async () => ({ runId: null, entries: [] }),
       kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
+      popOut: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'popOut', ...req });
+        gamesPopped = req.gameId;
+        gamesPopStateHandlers.forEach((h) => h({ gameId: req.gameId }));
+        return { ok: true as const };
+      },
+      popped: async () => ({ gameId: gamesPopped, run: null }),
+      onPopState: (handler: (event: unknown) => void) => {
+        gamesPopStateHandlers.push(handler);
+        return () => {
+          gamesPopStateHandlers = gamesPopStateHandlers.filter((h) => h !== handler);
+        };
+      },
       onChanged: (handler: (event: unknown) => void) => {
         gamesChangedHandlers.push(handler);
         return () => {
@@ -5296,8 +5311,17 @@ export function buildMockBridge(data: MockFixtures) {
   var gamesChangedHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
   var gamesOpenHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesPopStateHandlers: Array<(event: unknown) => void> = [];
+  /** The popped-out game (Theme B Pop out), seeded by `games.popped` and moved by `popOut`. */
+  // eslint-disable-next-line no-var
+  var gamesPopped: string | null = data.games?.popped ?? null;
   (window as unknown as { __mstudioMockGames: unknown }).__mstudioMockGames = {
     calls: gamesCalls,
+    popState: (event: { gameId: string | null }) => {
+      gamesPopped = event.gameId;
+      gamesPopStateHandlers.forEach((h) => h(event));
+    },
     runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
     console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
     open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),

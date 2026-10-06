@@ -899,6 +899,10 @@ export const CHANNELS = {
   gamesToolbar: 'mstudio:games:toolbar',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Move a game's runner view into the `game` popout window (Theme B). */
+  gamesPopOut: 'mstudio:games:pop-out',
+  /** Which game the `game` popout hosts, if any. */
+  gamesPopped: 'mstudio:games:popped',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
@@ -1511,6 +1515,8 @@ export const EVENT_CHANNELS = {
   gamesConsole: 'mstudio:games:console',
   /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */
   gamesOpen: 'mstudio:games:open',
+  /** The popped-out game changed — see `GamesPopStatePayload`. */
+  gamesPopState: 'mstudio:games:pop-state',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */

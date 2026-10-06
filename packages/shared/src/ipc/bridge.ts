@@ -1187,6 +1187,11 @@ export type MidniteStudioBridge = {
     toolbar: (req: In<typeof S.GamesToolbarRequest>) => Promise<GitOpResult>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
+    /** Move a game's runner into the `game` popout window; closing that window docks it back. */
+    popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
+    /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */
+    popped: () => Promise<z.infer<typeof S.GamesPoppedResponse>>;
+    onPopState: (handler: (event: z.infer<typeof S.GamesPopStatePayload>) => void) => Unsubscribe;
     onChanged: (handler: (event: z.infer<typeof S.GamesChangedPayload>) => void) => Unsubscribe;
     /** An agent's `game_open` asked the window to show a game. */
     onOpen: (handler: (event: z.infer<typeof S.GamesOpenPayload>) => void) => Unsubscribe;
