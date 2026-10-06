@@ -160,7 +160,14 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     const error = (parsed as { __error?: unknown }).__error;
     if (typeof error === 'string') throw new McpToolError('error', clip(`getState() threw: ${error}`));
     const valid = GameStateSchema.safeParse(parsed);
-    if (!valid.success) throw new McpToolError('error', 'getState() must return an object.');
+    if (!valid.success) {
+      const issue = valid.error.issues[0];
+      const where = issue && issue.path.length > 0 ? issue.path.join('.') : '';
+      throw new McpToolError(
+        'error',
+        where ? clip(`getState() returned a bad ${where}: ${issue?.message ?? 'invalid'}.`) : 'getState() must return an object.',
+      );
+    }
     return valid.data;
   }
 

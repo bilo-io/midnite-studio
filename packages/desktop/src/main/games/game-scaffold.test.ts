@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { execGit } from '@midnite/studio-git-engine';
-import { GAME_MANIFEST_FILE, parseGameManifest } from '@midnite/studio-shared';
+import { GAME_KIT_VERSION, GAME_MANIFEST_FILE, parseGameManifest } from '@midnite/studio-shared';
 
 import { createGame, gameIdForPath } from './game-scaffold';
 import { listGames } from './game-list';
@@ -56,7 +56,7 @@ describe('createGame', () => {
         dimension: '2d',
         network: 'off',
         starter: 'blank',
-        kitVersion: '0.1.0',
+        kitVersion: GAME_KIT_VERSION,
         vendored: { phaser: '3.90.0' },
       });
     }
