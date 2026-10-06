@@ -1,7 +1,8 @@
 import {
   clipsMatchPreset,
-  DEFAULT_IMAGE_PROVIDER,
   imageModelsFor,
+  MODEL_SUGGESTED_VISION,
+  modelPullHint,
   presetClips,
   SPRITE_LOOPS,
   SPRITE_PERSPECTIVES,
@@ -30,7 +31,12 @@ import {
   formRecommendation,
   initialEnvForm,
   initialSheetForm,
+  mirrorApplies,
   needsRig,
+  providerBlockedFor,
+  referenceCapable,
+  SPRITE_DEFAULT_PROVIDER,
+  withReferenceProvider,
   sheetBlockedReason,
   sheetFormToSpec,
   type EnvForm,
@@ -56,7 +62,12 @@ function withRecommendation(form: SheetForm): SheetForm {
   return form.methodChosen || form.method === 'one-shot' ? form : { ...form, method: formRecommendation(form).method };
 }
 
+/** Every change also keeps a hand-drawn form on a provider that can take a reference image. */
 function sheetReducer(form: SheetForm, action: SheetAction): SheetForm {
+  return withReferenceProvider(applySheetAction(form, action));
+}
+
+function applySheetAction(form: SheetForm, action: SheetAction): SheetForm {
   switch (action.type) {
     case 'patch':
       return withRecommendation({ ...form, ...action.patch });
@@ -98,8 +109,8 @@ export function SpriteCreatePanel({
   const statuses = useImageProviders().data ?? [];
   const actions = useSpriteActions(repoId);
   const dialogs = useDialogs();
-  const defaultModel = imageModelsFor(DEFAULT_IMAGE_PROVIDER)[0]?.id ?? '';
-  const [sheet, dispatch] = useReducer(sheetReducer, undefined, () => initialSheetForm(DEFAULT_IMAGE_PROVIDER, defaultModel));
+  const defaultModel = imageModelsFor(SPRITE_DEFAULT_PROVIDER).find((m) => referenceCapable(SPRITE_DEFAULT_PROVIDER, m.id))?.id ?? '';
+  const [sheet, dispatch] = useReducer(sheetReducer, undefined, () => initialSheetForm(SPRITE_DEFAULT_PROVIDER, defaultModel));
   const [env, setEnv] = useState<EnvForm>(initialEnvForm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +127,8 @@ export function SpriteCreatePanel({
       if (!created.ok || !created.value.group || !created.value.asset) return;
       const ref = { group: created.value.group, asset: created.value.asset };
       onCreated(ref.group, ref.asset);
-      const started = await actions.generate(ref);
+      // Hand-drawn starts at step 1: a turnaround the user approves before any frame is drawn.
+      const started = await actions.generate(ref, sheet.method === 'hand-drawn' ? { turnaround: true } : {});
       if (started.ok) onJob(ref, started.value.jobId);
       else setError(started.kind === 'error' ? started.message : 'Could not start generation.');
     } finally {
@@ -147,7 +159,12 @@ export function SpriteCreatePanel({
       },
     });
 
-  const models = imageModelsFor(sheet.provider, statuses.find((s) => s.id === sheet.provider)?.models);
+  const handDrawn = sheet.method === 'hand-drawn';
+  const models = imageModelsFor(sheet.provider, statuses.find((s) => s.id === sheet.provider)?.models).filter((m) => !handDrawn || referenceCapable(sheet.provider, m.id));
+  const pickerProviders = imagePickerProviders(statuses).map((p) => {
+    const blocked = providerBlockedFor(sheet.method, p.id as ImageProviderId);
+    return blocked && !p.disabled ? { ...p, disabled: true, reason: blocked } : p;
+  });
 
   const setPerspective = (perspective: SpritePerspective) => {
     const unedited = !sheet.clipsEdited || clipsMatchPreset(sheet.clips, sheet.perspective);
@@ -222,7 +239,7 @@ export function SpriteCreatePanel({
           <div className="flex items-center gap-2">
             <ProviderModelPicker
               testId="sprite-picker"
-              providers={imagePickerProviders(statuses)}
+              providers={pickerProviders}
               provider={sheet.provider}
               models={models.map((m) => ({ ...m, ...(m.id === models[0]?.id ? { recommended: true } : {}) }))}
               model={sheet.model}
@@ -245,7 +262,7 @@ export function SpriteCreatePanel({
                 className="ml-auto flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
               >
                 {busy ? <Spinner /> : null}
-                Generate
+                {handDrawn ? 'Generate reference' : 'Generate'}
               </button>
             )}
           </div>
@@ -357,6 +374,7 @@ function SheetFields({
             {form.rig ? 'Change the attached model…' : 'Attach a rigged model…'}
           </button>
         ) : null}
+        {form.method === 'hand-drawn' ? <HandDrawnOptions form={form} patch={patch} /> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -379,6 +397,34 @@ function SheetFields({
         ))}
       </div>
     </>
+  );
+}
+
+/** Hand-drawn's own switches: the consistency check, and mirroring for side sheets. */
+function HandDrawnOptions({ form, patch }: { form: SheetForm; patch: (p: Partial<SheetForm>) => void }) {
+  const vision = MODEL_SUGGESTED_VISION[0]!.id;
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2" data-testid="hand-drawn-options">
+      <p className="text-[11px] text-muted-foreground">Generate draws a character turnaround first. Approve it, and every frame is drawn against it.</p>
+      <label className="flex items-center gap-1.5 text-[11px] text-foreground">
+        <input type="checkbox" checked={form.checkConsistency} onChange={(e) => patch({ checkConsistency: e.target.checked })} className="accent-[hsl(var(--primary))]" />
+        Check consistency
+      </label>
+      <p className="pl-5 text-[10px] text-muted-foreground">
+        A local Ollama vision model scores each frame against the reference and re-rolls the ones that drift. Without one (<code>{modelPullHint(vision)}</code>), frames are kept and marked unchecked.
+      </p>
+      {mirrorApplies(form) ? (
+        <>
+          <label className="flex items-center gap-1.5 text-[11px] text-foreground">
+            <input type="checkbox" checked={form.asymmetric} onChange={(e) => patch({ asymmetric: e.target.checked })} className="accent-[hsl(var(--primary))]" />
+            My character is asymmetric
+          </label>
+          <p className="pl-5 text-[10px] text-muted-foreground">
+            {form.asymmetric ? 'The west facing is drawn too, from the same poses.' : 'The west facing is the east frames mirrored — no extra requests.'}
+          </p>
+        </>
+      ) : null}
+    </div>
   );
 }
 

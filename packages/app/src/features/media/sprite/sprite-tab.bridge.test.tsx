@@ -57,7 +57,8 @@ describe('Sprites tab', () => {
     fireEvent.click(await within(explorer()).findByRole('button', { name: 'hero' }));
     const overview = await screen.findByTestId('sprite-overview');
     expect(within(overview).getByRole('table', { name: 'Clips' })).toBeTruthy();
-    expect(within(overview).getByRole('button', { name: 'Generate' })).toBeTruthy();
+    // Hand-drawn draws frames only once a reference is approved (Theme D).
+    expect(within(overview).getByRole('button', { name: 'Generate frames' })).toBeTruthy();
   });
 
   it('swaps the create form between Sheet and Environment', async () => {
