@@ -11,6 +11,7 @@ import { MediaLayout } from '../media-layout';
 import type { MediaSelection } from '../media-projects-accordion';
 import { MEDIA_TAB_META } from '../media-tabs';
 import { NoRepoMediaState } from '../repo-media-tab';
+import { TerrainExportBar } from './terrain-export-bar';
 import { TerrainExplorer, terrainOfPath } from './terrain-explorer';
 import { TerrainPanel } from './terrain-panel';
 import { SHADING_LABEL, shadingNeeds, type ShadingMode } from './terrain-shading';
@@ -70,6 +71,7 @@ function TerrainTabBody({ repoId }: { repoId: string }) {
       tab="terrain"
       explorerName="terrains"
       detailName="inputs"
+      toolbar={<TerrainExportBar repoId={repoId} terrainRef={ref} built={terrain.data?.built ?? false} />}
       explorer={<TerrainExplorer repoId={repoId} selection={selection} onSelect={setSelection} />}
       content={centre}
       detail={

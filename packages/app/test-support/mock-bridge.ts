@@ -3798,7 +3798,7 @@ export function buildMockBridge(data: MockFixtures) {
               detected: '#00ffff',
             },
           }),
-          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          export: async (req: { terrain: string; format: string; dest: string }) => ({ ok: true as const, value: { path: `${req.dest}/${req.terrain}.${req.format === 'glb' ? 'glb' : 'terrain'}`, bytes: 1024 } }),
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);
             return () => listeners.progress.delete(handler);
