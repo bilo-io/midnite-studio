@@ -493,10 +493,6 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         if (end === 'done') end = `failed:${error instanceof Error ? error.message : String(error)}`;
       }
     }
-    running.delete(job.key);
-    job.status.state = end === 'done' ? 'done' : end === 'cancelled' ? 'cancelled' : 'failed';
-    if (end === 'cancelled') job.status.message = SPRITE_JOB_CANCELLED;
-    else if (end.startsWith('failed:')) job.status.message = end.slice('failed:'.length);
     if (frames > 0) {
       const all = await readFrames(dir);
       const entries = Object.values(all.frames);
@@ -504,6 +500,11 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         spec: { ...current, lastReport: { frames: entries.length, failing: entries.filter((f) => f.badges.length > 0).length, at: now().toISOString() } } as SpriteAssetSpec,
       }));
     }
+    // The job reads as finished only once everything it wrote (frames, badges, report) is on disk.
+    running.delete(job.key);
+    job.status.state = end === 'done' ? 'done' : end === 'cancelled' ? 'cancelled' : 'failed';
+    if (end === 'cancelled') job.status.message = SPRITE_JOB_CANCELLED;
+    else if (end.startsWith('failed:')) job.status.message = end.slice('failed:'.length);
     deps.emitProgress({
       jobId: job.id,
       done: job.status.done,

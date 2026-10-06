@@ -531,3 +531,9 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   and the viewer falls back to `bush` geometry for an unknown id. What is missing is loading a library
   model's geometry at build time and in the viewer (`terrain-layers.tsx`), and the picker itself in the
   panel's Foliage section (`terrain-feature-sections.tsx`).
+
+- **Phase 106 Theme B — `transparent` stops at the adapter seam.** `ImageAdapterRequest.transparent`
+  and OpenAI's `background: 'transparent'` landed with the frame pipeline, but `ImageGenerateRequest`
+  (the Images tab's wire request) has no such field and `image-service.ts` never sets it. The sprite
+  frame sources (Themes D/F) call the adapter with it set; the Images tab gets a "transparent
+  background" toggle only if someone asks for one.
