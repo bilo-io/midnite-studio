@@ -201,7 +201,11 @@ export function spriteGroupOf(spec: Pick<SpriteAssetSpec, 'kind'> & { category?:
 
 // --- frames file -------------------------------------------------------------
 
-export const SPRITE_BADGES = ['low-score', 'off-anchor', 'bad-key', 'duplicate', 'failed'] as const;
+/**
+ * Frame badges. `empty`, `clipped`, `height` and `drift` come from the frame pipeline (Theme B);
+ * `inconsistent`/`unchecked` from the consistency check (D); `grid` from one-shot slicing (F).
+ */
+export const SPRITE_BADGES = ['empty', 'clipped', 'height', 'drift', 'inconsistent', 'unchecked', 'grid'] as const;
 export const SpriteBadgeSchema = z.enum(SPRITE_BADGES);
 export type SpriteBadge = z.infer<typeof SpriteBadgeSchema>;
 
