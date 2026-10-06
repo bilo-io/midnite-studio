@@ -40,9 +40,10 @@ describe('conformRoads', () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('Road 0');
     const original = slope();
-    for (let i = 0; i < field.heights.length; i += 1) {
-      expect(Math.abs(field.heights[i]! - original.heights[i]!)).toBeLessThanOrEqual(0.1 + 1e-5);
-    }
+    // One assertion over the whole field: an expect per vertex is what made this test slow under load.
+    let worst = 0;
+    for (let i = 0; i < field.heights.length; i += 1) worst = Math.max(worst, Math.abs(field.heights[i]! - original.heights[i]!));
+    expect(worst).toBeLessThanOrEqual(0.1 + 1e-5);
   });
 });
 
