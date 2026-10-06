@@ -14,6 +14,9 @@ type State = {
   logs: Record<string, GameLogEntry[]>;
   /** `seq` the user cleared the view at; entries at or below it are hidden. */
   clearedAt: Record<string, number>;
+  /** The game the `game` popout window hosts (Theme B), or `null`. */
+  popped: string | null;
+  setPopped: (gameId: string | null) => void;
   applyRunState: (payload: GameRunStatePayload) => void;
   appendLogs: (gameId: string, runId: string, entries: GameLogEntry[]) => void;
   clear: (gameId: string) => void;
@@ -23,6 +26,8 @@ export const useGameRunStore = create<State>((set) => ({
   runs: {},
   logs: {},
   clearedAt: {},
+  popped: null,
+  setPopped: (gameId) => set({ popped: gameId }),
   applyRunState: ({ gameId, runId, state, reason }) =>
     set((current) => {
       // A new run starts a new console.

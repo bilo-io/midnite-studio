@@ -13,6 +13,7 @@ import {
   type GameLogEntry,
   type GameManifest,
   type GameManifestIssue,
+  type GamePoppedResponse,
   type GameSummary,
   type GamesSettings,
   type GamesSettingsPatch,
@@ -23,6 +24,7 @@ import {
 import type { Logger } from '../log';
 import { listGames } from './game-list';
 import { createGame } from './game-scaffold';
+import type { GamePopout } from './game-popout';
 import type { GameRunner, ToolbarAction } from './game-runner';
 import { effectiveGamesRoot, validateGamesRoot } from './games-root';
 import type { GamesSettingsStore } from './games-settings-store';
@@ -42,6 +44,8 @@ export type GameServiceDeps = {
   /** Push an event to the renderer(s). */
   send: (channel: string, payload: unknown) => void;
   log: Logger;
+  /** Pop out (Theme B). Absent in tests that never pop a game out. */
+  popout?: GamePopout;
 };
 
 /**
@@ -205,6 +209,13 @@ export function createGameService(deps: GameServiceDeps) {
       return result;
     },
     stopAll: (): void => deps.runner.stopAll(),
+
+    async popOut(gameId: string): Promise<GitOpResult> {
+      if (!deps.popout) return failure('Pop out is not available.');
+      if (!(await find(gameId))) return failure('That game was not found.');
+      return deps.popout.popOut(gameId);
+    },
+    popped: (): GamePoppedResponse => deps.popout?.popped() ?? { gameId: null, run: null },
   };
 }
 

@@ -54,6 +54,7 @@ const baseState: NavigationState = {
     'apps-spotify': false,
     'apps-google-calendar': false,
     'apps-youtube': false,
+    game: false,
   },
   locked: false,
   repoId: 'r1',

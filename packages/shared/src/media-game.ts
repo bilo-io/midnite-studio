@@ -373,3 +373,22 @@ export function jsonDepth(value: unknown): number {
 /** Pushed on `mstudio:games:open` when an agent's `game_open` asks the window to show a game. */
 export const GamesOpenEventSchema = z.object({ gameId: z.string().min(1) });
 export type GamesOpenEvent = z.infer<typeof GamesOpenEventSchema>;
+
+// --- pop out (Theme B) ------------------------------------------------------------
+
+/**
+ * Which game the `game` popout window hosts, or `null` when none is popped out.
+ * There is one `game` window role, so at most one game is popped out at a time —
+ * popping a second docks the first. Answered by `gamesPopped` and pushed on
+ * `gamesPopState` whenever it changes, to every window.
+ */
+export const GamePopStateSchema = z.object({ gameId: z.string().min(1).nullable() });
+export type GamePopState = z.infer<typeof GamePopStateSchema>;
+
+/**
+ * `gamesPopped`'s answer: the popped game plus its current run, so the popout's
+ * own renderer — a fresh process that missed every earlier `gamesRunState` push —
+ * knows at once whether to show the stage or a Run button.
+ */
+export const GamePoppedResponseSchema = GamePopStateSchema.extend({ run: GameRunStatePayload.nullable() });
+export type GamePoppedResponse = z.infer<typeof GamePoppedResponseSchema>;

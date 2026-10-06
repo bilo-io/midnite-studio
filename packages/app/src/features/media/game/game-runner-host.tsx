@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { LuGamepad2, LuPlay, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
+import { LuAppWindow, LuGamepad2, LuPanelBottomClose, LuPlay, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
@@ -32,8 +32,12 @@ export function letterbox(
  * Keeps one game's native `WebContentsView` laid over the stage div, hidden
  * while a dialog or menu is open (the occluder counter — the same rule the
  * embedded browser follows) and while the Games tab is not on screen.
+ *
+ * `hosted` is false while the game is popped out of this window (Theme B): the
+ * popout's own host owns its bounds and visibility then, so this one sends
+ * nothing — not even the hide on unmount, which would blank the popout.
  */
-function useGameBounds(gameId: string | null, live: boolean, resolution: GameResolution) {
+function useGameBounds(gameId: string | null, live: boolean, resolution: GameResolution, hosted: boolean) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const occluders = useUiStore((s) => s.occluders);
@@ -56,15 +60,18 @@ function useGameBounds(gameId: string | null, live: boolean, resolution: GameRes
     return () => observer.disconnect();
   }, [measure]);
 
+  const hostedRef = useRef(hosted);
+  hostedRef.current = hosted;
+
   const push = useCallback(() => {
-    if (!gameId) return;
+    if (!gameId || !hosted) return;
     bridge()?.games.setVisible({ gameId, visible });
     if (!visible) return;
     const el = stageRef.current;
     if (!el) return;
     const bounds = boundsFromRect(el.getBoundingClientRect());
     if (bounds) bridge()?.games.setBounds({ gameId, bounds });
-  }, [gameId, visible]);
+  }, [gameId, visible, hosted]);
 
   useLayoutEffect(() => {
     push();
@@ -75,7 +82,7 @@ function useGameBounds(gameId: string | null, live: boolean, resolution: GameRes
   // Leaving the tab hides the view; it keeps running, throttled.
   useEffect(
     () => () => {
-      if (gameId) bridge()?.games.setVisible({ gameId, visible: false });
+      if (gameId && hostedRef.current) bridge()?.games.setVisible({ gameId, visible: false });
     },
     [gameId],
   );
@@ -90,17 +97,54 @@ function useGameBounds(gameId: string | null, live: boolean, resolution: GameRes
 export function GameRunnerHost({
   gameId,
   resolution,
+  inPopout = false,
 }: {
   gameId: string | null;
   resolution: GameResolution;
+  /** Rendered by the `game` popout window itself, which always hosts its game. */
+  inPopout?: boolean;
 }) {
   const info = useGameRunStore((s) => (gameId ? s.runs[gameId] : undefined));
+  const popped = useGameRunStore((s) => s.popped);
   const run = useRunGame();
   const live = isLive(info?.state);
-  const { containerRef, stageRef, stage } = useGameBounds(gameId, live, resolution);
+  const poppedHere = !inPopout && gameId !== null && popped === gameId;
+  const { containerRef, stageRef, stage } = useGameBounds(gameId, live, resolution, !poppedHere);
 
   if (!gameId) {
-    return <EmptyState icon={LuGamepad2} title="Pick a game, or create one." />;
+    return (
+      <EmptyState
+        icon={LuGamepad2}
+        title={inPopout ? 'No game is popped out.' : 'Pick a game, or create one.'}
+      />
+    );
+  }
+
+  if (poppedHere) {
+    return (
+      <div data-testid="game-runner-host" className="flex h-full w-full flex-col items-center justify-center gap-3 bg-black/40 p-6 text-center">
+        <LuAppWindow aria-hidden className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm">This game is playing in its own window.</p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => bridge()?.window.focusRole({ role: 'game' })}
+            className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <LuAppWindow aria-hidden className="h-3.5 w-3.5" />
+            Show window
+          </button>
+          <button
+            type="button"
+            onClick={() => bridge()?.window.dock({ role: 'game' })}
+            className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <LuPanelBottomClose aria-hidden className="h-3.5 w-3.5" />
+            Bring it back
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const crashed = info?.state === 'crashed';

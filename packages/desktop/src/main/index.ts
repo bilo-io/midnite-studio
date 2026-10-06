@@ -164,6 +164,7 @@ import {
   closeAllPopouts,
   configureReopenStore,
   configureWindowsStore,
+  createRoleWindow,
   registerMainWindow,
   restoreReopenedPopouts,
 } from './window-manager';
@@ -171,6 +172,7 @@ import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerGamesHandlers } from './ipc/games-handlers';
 import { createGameRunner } from './games/game-runner';
 import { createGameMcpTools } from './games/game-mcp';
+import { createGamePopout } from './games/game-popout';
 import { createGameService } from './games/game-service';
 import { setGameTools } from './mcp/game-tools';
 import { createGamesSettingsStore } from './games/games-settings-store';
@@ -704,6 +706,13 @@ if (!app.requestSingleInstanceLock()) {
       listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
       send: broadcastToAllWindows,
       log: defaultLogger,
+      // Pop out (Theme B): the `game` role window hosts one game's view.
+      popout: createGamePopout({
+        runner: gameRunner,
+        openWindow: () => createRoleWindow('game', defaultLogger),
+        send: broadcastToAllWindows,
+        log: defaultLogger,
+      }),
     });
     registerGamesHandlers(gameService);
     // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.

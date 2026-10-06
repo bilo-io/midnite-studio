@@ -82,6 +82,9 @@ export function registerGamesHandlers(service: GameService): void {
     () => ({ runId: null, entries: [] }),
   );
 
+  handle(CHANNELS.gamesPopOut, schemas.GamesPopOutRequest, ({ gameId }) => service.popOut(gameId), (issue) => failure(issue));
+  handleBare(CHANNELS.gamesPopped, () => service.popped());
+
   handle(
     CHANNELS.gamesKitUpgrade,
     schemas.GamesKitUpgradeRequest,

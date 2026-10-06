@@ -373,6 +373,37 @@ describe('createGameRunner', () => {
     expect(runner.reload('ga').ok).toBe(true);
     expect(viewOf('ga').webContents.reloadIgnoringCache).toHaveBeenCalled();
   });
+
+  it('pops a live view out to another window and docks it back hidden (Pop out)', async () => {
+    await runner.run(game('ga'));
+    const view = viewOf('ga');
+    const popout = fakeWindow();
+
+    runner.reparent('ga', popout, { visible: true });
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(view);
+    expect(view.visible).toBe(true);
+
+    runner.reparent('ga', null, { visible: false });
+    expect(popout.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(win.contentView.addChildView).toHaveBeenLastCalledWith(view);
+    expect(view.visible).toBe(false);
+  });
+
+  it('starts a popped-out game in its popout, so Restart stays there', async () => {
+    const popout = fakeWindow();
+    runner.reparent('ga', popout, { visible: true }); // not running yet: only remembered
+    await runner.run(game('ga'));
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(viewOf('ga'));
+    expect(win.contentView.addChildView).not.toHaveBeenCalled();
+  });
+
+  it('reports the current run state for a fresh renderer, and null once stopped', async () => {
+    const result = await runner.run(game('ga'));
+    expect(runner.runState('ga')).toEqual({ gameId: 'ga', runId: result.ok ? result.value.runId : '', state: 'starting' });
+    runner.stop('ga');
+    expect(runner.runState('ga')).toBeNull();
+  });
 });
 
 describe('isReloadTrigger', () => {
