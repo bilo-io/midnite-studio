@@ -54,8 +54,8 @@ describe('convertToSculptMesh', () => {
     expect(watertight(out.positions, out.indices)).toBe(true);
     const got = signedVolume(Array.from(out.positions), Array.from(out.indices));
     expect(Math.abs(got - volume) / volume).toBeLessThan(0.05);
-    const a = bounds({ positions: sourceParts[0]!.positions, indices: sourceParts[0]!.indices } as never);
-    const b = bounds({ positions: Array.from(out.positions), indices: Array.from(out.indices) } as never);
+    const a = bounds(sourceParts[0]!.positions);
+    const b = bounds(Array.from(out.positions));
     for (let k = 0; k < 3; k += 1) {
       expect(Math.abs(b.min[k]! - a.min[k]!)).toBeLessThan(out.voxelSize * 1.5);
       expect(Math.abs(b.max[k]! - a.max[k]!)).toBeLessThan(out.voxelSize * 1.5);

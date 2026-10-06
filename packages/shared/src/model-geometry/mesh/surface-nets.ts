@@ -7,6 +7,7 @@
  * quad edge is shared by the quads around the neighbouring edge, so a field that is outside all along
  * the grid's border yields a closed mesh. Quads are split along their shorter diagonal. Triangles
  * wind counter-clockwise seen from outside, where outside is the positive side of the field.
+ * The field is edited in place where its signs alternate across a grid face (see `resolveAmbiguousFaces`).
  */
 
 export type FieldGrid = {
@@ -35,8 +36,49 @@ const EDGES: readonly (readonly [number, number])[] = [
   [0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7],
 ];
 
+/**
+ * A grid face whose corners alternate inside/outside would give the mesh an edge shared by four
+ * triangles. Each such face is resolved by pulling the nearer of its two outside corners just inside,
+ * which joins the inside pair; the field is edited in place and passes repeat until none is left.
+ */
+function resolveAmbiguousFaces(grid: FieldGrid): void {
+  const [nx, ny, nz] = grid.dims;
+  const { values, voxel } = grid;
+  const node = (i: number, j: number, k: number): number => i + nx * (j + ny * k);
+  const strides = [1, nx, nx * ny];
+  for (let pass = 0; pass < 8; pass += 1) {
+    let changed = false;
+    for (let k = 0; k < nz - 1; k += 1) {
+      for (let j = 0; j < ny - 1; j += 1) {
+        for (let i = 0; i < nx - 1; i += 1) {
+          const base = node(i, j, k);
+          for (let axis = 0; axis < 3; axis += 1) {
+            // The face spanned by the two axes other than `axis`, anchored at this node.
+            const u = strides[(axis + 1) % 3]!;
+            const w = strides[(axis + 2) % 3]!;
+            if ((axis === 0 && (j > ny - 2 || k > nz - 2)) || (axis === 1 && (k > nz - 2 || i > nx - 2)) || (axis === 2 && (i > nx - 2 || j > ny - 2))) continue;
+            const a = base;
+            const b = base + u;
+            const c = base + u + w;
+            const d = base + w;
+            const ia = values[a]! < 0;
+            if (ia !== (values[c]! < 0) || ia === (values[b]! < 0) || (values[b]! < 0) !== (values[d]! < 0)) continue;
+            // a,c share one sign and b,d the other: pull the outside corner nearest the surface in.
+            const outside = ia ? [b, d] : [a, c];
+            const pick = Math.abs(values[outside[0]!]!) <= Math.abs(values[outside[1]!]!) ? outside[0]! : outside[1]!;
+            values[pick] = -1e-4 * voxel;
+            changed = true;
+          }
+        }
+      }
+    }
+    if (!changed) return;
+  }
+}
+
 export function surfaceNets(grid: FieldGrid): SurfaceNetsResult {
   const [nx, ny, nz] = grid.dims;
+  resolveAmbiguousFaces(grid);
   const { values, voxel, origin } = grid;
   const node = (i: number, j: number, k: number): number => i + nx * (j + ny * k);
   const cellId = new Int32Array(Math.max(0, (nx - 1) * (ny - 1) * (nz - 1))).fill(-1);
