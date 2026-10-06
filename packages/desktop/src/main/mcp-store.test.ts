@@ -22,42 +22,42 @@ afterEach(async () => {
 describe('createMcpStore', () => {
   it('loads disabled on a fresh directory', async () => {
     expect(await createMcpStore(await tempDir()).load()).toEqual({
-      version: 5,
+      version: 6,
       enabled: false,
       allowUi: false,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   it('round-trips the enabled flag, allowUi and allowGateDecide together', async () => {
     const store = createMcpStore(await tempDir());
-    await store.save({ version: 5, enabled: true, allowUi: true, allowGateDecide: true, allowModels: false, allowGames: false });
-    expect(await store.load()).toEqual({ version: 5, enabled: true, allowUi: true, allowGateDecide: true, allowModels: false, allowGames: false });
+    await store.save({ version: 6, enabled: true, allowUi: true, allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false });
+    expect(await store.load()).toEqual({ version: 6, enabled: true, allowUi: true, allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false });
   });
 
   it('loads disabled from a corrupt file rather than failing boot', async () => {
     const dir = await tempDir();
     await writeFile(join(dir, 'mcp.json'), '{ not json', 'utf8');
     expect(await createMcpStore(dir).load()).toEqual({
-      version: 5,
+      version: 6,
       enabled: false,
       allowUi: false,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   it('swallows a write to an unwritable directory', async () => {
     const store = createMcpStore('/proc/definitely-not-writable');
     await expect(
-      store.save({ version: 5, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false }),
+      store.save({ version: 6, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false }),
     ).resolves.toBeUndefined();
   });
 
   it('writes a versioned document', async () => {
     const dir = await tempDir();
-    await createMcpStore(dir).save({ version: 5, enabled: true, allowUi: false, allowGateDecide: true, allowModels: false, allowGames: false });
+    await createMcpStore(dir).save({ version: 6, enabled: true, allowUi: false, allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false });
     const raw: unknown = JSON.parse(await readFile(join(dir, 'mcp.json'), 'utf8'));
-    expect(raw).toEqual({ version: 5, enabled: true, allowUi: false, allowGateDecide: true, allowModels: false, allowGames: false });
+    expect(raw).toEqual({ version: 6, enabled: true, allowUi: false, allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false });
   });
 
   /** Phase 81 Theme F's own acceptance condition. */
@@ -65,78 +65,83 @@ describe('createMcpStore', () => {
     const dir = await tempDir();
     await writeFile(join(dir, 'mcp.json'), JSON.stringify({ version: 1, enabled: true }), 'utf8');
     expect(await createMcpStore(dir).load()).toEqual({
-      version: 5,
+      version: 6,
       enabled: true,
       allowUi: false,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   /** Phase 97 Theme D's own acceptance condition. */
   it('reading a version-4 file (no allowGames key) migrates to allowGames: false', () => {
     expect(parseStoredSettings({ version: 4, enabled: true, allowUi: true, allowGateDecide: true, allowModels: true })).toEqual({
-      version: 5, enabled: true, allowUi: true, allowGateDecide: true, allowModels: true, allowGames: false,
+      version: 6, enabled: true, allowUi: true, allowGateDecide: true, allowModels: true, allowGames: false, allowTerrains: false,
     });
-    expect(parseStoredSettings({ version: 5, enabled: true, allowGames: true }).allowGames).toBe(true);
+    expect(parseStoredSettings({ version: 6, enabled: true, allowGames: true }).allowGames).toBe(true);
+  });
+
+  it('reading a version-5 file (no allowTerrains key) loads with allowTerrains: false', () => {
+    expect(parseStoredSettings({ version: 5, enabled: true, allowGames: true })).toMatchObject({ version: 6, allowGames: true, allowTerrains: false });
+    expect(parseStoredSettings({ version: 6, enabled: true, allowTerrains: true }).allowTerrains).toBe(true);
   });
 
   it('reading a version-2 file (allowUi, no allowGateDecide key at all) migrates to allowGateDecide: false, allowModels: false', async () => {
     const dir = await tempDir();
     await writeFile(join(dir, 'mcp.json'), JSON.stringify({ version: 2, enabled: true, allowUi: true }), 'utf8');
     expect(await createMcpStore(dir).load()).toEqual({
-      version: 5,
+      version: 6,
       enabled: true,
       allowUi: true,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 });
 
 describe('parseStoredSettings', () => {
   it('defaults to disabled for anything malformed', () => {
-    expect(parseStoredSettings(null)).toEqual({ version: 5, enabled: false, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false });
-    expect(parseStoredSettings([])).toEqual({ version: 5, enabled: false, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false });
+    expect(parseStoredSettings(null)).toEqual({ version: 6, enabled: false, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false });
+    expect(parseStoredSettings([])).toEqual({ version: 6, enabled: false, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false });
     expect(parseStoredSettings({ enabled: 'yes' })).toEqual({
-      version: 5,
+      version: 6,
       enabled: false,
       allowUi: false,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   it('reads a real enabled flag', () => {
-    expect(parseStoredSettings({ version: 5, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false })).toEqual({
-      version: 5,
+    expect(parseStoredSettings({ version: 6, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false })).toEqual({
+      version: 6,
       enabled: true,
       allowUi: false,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   it('reads real allowUi and allowGateDecide flags', () => {
-    expect(parseStoredSettings({ version: 5, enabled: true, allowUi: true, allowGateDecide: true, allowModels: false, allowGames: false })).toEqual({
-      version: 5,
+    expect(parseStoredSettings({ version: 6, enabled: true, allowUi: true, allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false })).toEqual({
+      version: 6,
       enabled: true,
       allowUi: true,
-      allowGateDecide: true, allowModels: false, allowGames: false,
+      allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   it('migrates a version-1 object (no allowUi/allowGateDecide keys at all) to both false', () => {
     expect(parseStoredSettings({ version: 1, enabled: true })).toEqual({
-      version: 5,
+      version: 6,
       enabled: true,
       allowUi: false,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 
   it('migrates a version-2 object (allowUi, no allowGateDecide key at all) to allowGateDecide: false, allowModels: false', () => {
     expect(parseStoredSettings({ version: 2, enabled: true, allowUi: true })).toEqual({
-      version: 5,
+      version: 6,
       enabled: true,
       allowUi: true,
-      allowGateDecide: false, allowModels: false, allowGames: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false,
     });
   });
 });

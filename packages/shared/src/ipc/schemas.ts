@@ -3866,6 +3866,8 @@ export const McpGetResponse = z.object({
   allowModels: z.boolean(),
   /** Phase 107 Theme D's fifth switch — whether the `game_*` tools that create, run or drive a game may act. */
   allowGames: z.boolean(),
+  /** Phase 105 Theme J's sixth switch — whether the `terrain_*` tools that change a terrain, build or export may act. */
+  allowTerrains: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3880,6 +3882,7 @@ export const McpSetRequest = z.object({
   allowGateDecide: z.boolean().optional(),
   allowModels: z.boolean().optional(),
   allowGames: z.boolean().optional(),
+  allowTerrains: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });

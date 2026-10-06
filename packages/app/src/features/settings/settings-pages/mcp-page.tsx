@@ -35,6 +35,7 @@ export function McpSettingsPage() {
         allowGateDecide: false,
         allowModels: false,
         allowGames: false,
+        allowTerrains: false,
       },
   });
 
@@ -86,6 +87,15 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 105 Theme J's sixth switch — gates the terrain_* tools that change a terrain, run a
+   * build or write an export. Off by default.
+   */
+  const setAllowTerrains = useMutation({
+    mutationFn: async (nextAllowTerrains: boolean) => bridge()?.mcp.set({ allowTerrains: nextAllowTerrains }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -102,6 +112,7 @@ export function McpSettingsPage() {
   const allowGateDecide = status.data?.allowGateDecide ?? false;
   const allowModels = status.data?.allowModels ?? false;
   const allowGames = status.data?.allowGames ?? false;
+  const allowTerrains = status.data?.allowTerrains ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
@@ -242,6 +253,23 @@ export function McpSettingsPage() {
               model_render_preview to see it, model_patch_parts to refine, and model_save to finish. Open the Models tab to watch.
             </p>
           </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit terrains" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-terrains"
+            label="Let agents edit terrains"
+            description="A sixth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the terrain_* tools that change something: terrain_open, terrain_set_spec, terrain_set_input, terrain_build and terrain_export. Listing terrains, reading a spec, rendering previews and reading the stats always work once the server is on. Edits appear live in Media ▸ Terrain. Input images must sit inside the repository."
+            on={allowTerrains}
+            onToggle={(_id, next) => setAllowTerrains.mutate(next)}
+            testId="mcp-allow-terrains"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowTerrains.data?.error && <div className="text-xs text-destructive">{setAllowTerrains.data.error}</div>}
         </div>
       </Accordion>
 
