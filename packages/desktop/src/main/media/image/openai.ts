@@ -17,8 +17,9 @@ export const OPENAI_SIZE: Record<ImageAspect, string> = {
   '9:16': '1024x1536',
 };
 
-export function openaiRequestBody(prompt: string, model: string, aspect: ImageAspect, count: number) {
-  return { model, prompt, n: count, size: OPENAI_SIZE[aspect], output_format: 'png' };
+/** With `transparent`, gpt-image returns real alpha (`background: 'transparent'` needs PNG output). */
+export function openaiRequestBody(prompt: string, model: string, aspect: ImageAspect, count: number, transparent = false) {
+  return { model, prompt, n: count, size: OPENAI_SIZE[aspect], output_format: 'png', ...(transparent ? { background: 'transparent' } : {}) };
 }
 
 type ImagesResponse = { data?: { b64_json?: string }[] };
@@ -38,7 +39,7 @@ export const openaiImageProvider: ImageProvider = {
     const res = await deps.fetch(OPENAI_IMAGES_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${deps.apiKey}` },
-      body: JSON.stringify(openaiRequestBody(req.prompt, req.model, req.aspect, req.count)),
+      body: JSON.stringify(openaiRequestBody(req.prompt, req.model, req.aspect, req.count, req.transparent === true)),
       signal: deps.signal,
     });
     if (!res.ok) throw await responseError('OpenAI', res);

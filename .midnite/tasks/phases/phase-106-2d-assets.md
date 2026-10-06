@@ -102,10 +102,15 @@ autotiles nor reads external tilesets), and resolved all three opens plus fiftee
 `shared/src/media-sprite.ts`; assets live under five fixed kind folders; ten `mstudio:media:sprite-*`
 channels carry it, with generation as cancellable jobs.
 
-**Theme B — Frame pipeline: background removal, alignment, pixel-art mode.** ◻ Not started. Lands with
-A. Pure-TS keying, bounds, anchor, quantise, outline and validation in `shared/src/sprite/`, run in main
-one frame at a time (yielding between frames); OpenAI is asked for real transparency, everything else
-for a magenta or green chroma background.
+**Theme B — Frame pipeline: background removal, alignment, pixel-art mode.** ✅ Landed (PR #747).
+Pure-TS kernels in `shared/src/sprite/` (`image`, `key`, `align`, `quantise`, `outline`, `validate`);
+`main/media/sprite/frame-pipeline.ts` decodes, keys (skipped when a provider returned alpha),
+normalises onto the anchor at one sheet-wide scale per direction, writes each frame at once and yields
+between frames, then runs the pixel palette/outline pass and the badges. Frame sources hand raw bytes to
+`SpriteJobContext.submitFrame`; `frames.json` gains `referenceHeights` so a re-generated clip scales like
+the rest. OpenAI's adapter sends `background: 'transparent'` when `ImageAdapterRequest.transparent` is
+set; `spriteBackgroundRequest` gives every other provider the chroma clause. `SPRITE_BADGES` is now the
+doc's seven. `anchorNudge` is metadata applied where frames are composed (G), not baked in.
 
 **Theme C — Method picker and the recommendation.** ✅ Landed with A. `recommendSpriteMethod(spec)`
 returns `{method, reason}` from a fixed table; one-shot is only ever a checkbox; clip presets per
@@ -264,7 +269,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
 
 What makes a sheet *precise*, whichever method produced the frames.
 
-- [ ] **Background removal**:
+- [x] **Background removal**:
   - use the provider's alpha when it returns one
   - otherwise generation asks for a flat chroma background (magenta `#ff00ff`, or green if the subject is magenta) and the pipeline keys it out with despill and a 1px edge clean-up
   - **Resolved per provider** (Decision 6): `ImageAdapterRequest` gains `transparent?: boolean`; the
@@ -278,7 +283,7 @@ What makes a sheet *precise*, whichever method produced the frames.
     and `tolerance + softness`), despill by clamping the chroma's dominant channels to the max of the other
     two on semi-transparent pixels, then a 1 px erode of alpha < 0.5 edges.
   - A frame that arrives with any alpha < 255 pixel skips keying (the provider's alpha wins).
-- [ ] **Normalisation per frame**: crop to the alpha bounds, scale so the character's height matches the clip's reference height (taken from the first idle frame), and place on the shared anchor:
+- [x] **Normalisation per frame**: crop to the alpha bounds, scale so the character's height matches the clip's reference height (taken from the first idle frame), and place on the shared anchor:
   - horizontal centroid of the lower body band
   - baseline at the lowest opaque row
 
@@ -290,27 +295,27 @@ What makes a sheet *precise*, whichever method produced the frames.
     first clip. Scaling uses area averaging when shrinking and nearest-neighbour in pixel mode.
   - The anchor point (`anchor.x × w`, `anchor.y × h`) receives the band centroid and the baseline;
     `anchorNudge` from `frames.json` is added after.
-- [ ] **Pixel-art mode**: nearest-neighbour downscale to the frame size, palette quantisation (median cut, or a fixed palette from the spec), optional 1px outline, and no anti-aliased edges
+- [x] **Pixel-art mode**: nearest-neighbour downscale to the frame size, palette quantisation (median cut, or a fixed palette from the spec), optional 1px outline, and no anti-aliased edges
   - `shared/src/sprite/quantise.ts` `medianCut(pixels, size)` and `mapToPalette(img, palette)` (nearest in
     Lab); `shared/src/sprite/outline.ts` `outline1px(img, colour = darkest palette colour)`. Alpha is
     thresholded at 128 in pixel mode (no partial alpha).
   - The sheet palette is computed once over all approved frames (not per frame), so colours do not drift
     between frames, and stored back into `spec.palette.colours`.
-- [ ] **Validation report** per frame: empty frame, subject touching the frame edge (clipped), height outside tolerance of the clip median, and anchor drift above N px. Shown in G's frame strip as badges, and returned over MCP
+- [x] **Validation report** per frame: empty frame, subject touching the frame edge (clipped), height outside tolerance of the clip median, and anchor drift above N px. Shown in G's frame strip as badges, and returned over MCP
   - `shared/src/sprite/validate.ts` `validateFrames(frames, spec): Record<frameKey, SpriteBadge[]>` with
     `SpriteBadge = 'empty' | 'clipped' | 'height' | 'drift' | 'inconsistent' | 'unchecked' | 'grid'`:
     `empty` < 1 % opaque; `clipped` any opaque pixel on the outer row/column before normalisation;
     `height` bounds height outside ±12 % of the clip median; `drift` centroid more than
     `max(2, 0.04 × frameWidth)` px from the anchor after normalisation. `inconsistent`/`unchecked` come
     from D, `grid` from F.
-- [ ] Pure TS in `shared/src/sprite/` (keying, bounds, centroid, quantise, outline) over RGBA typed arrays. Decode and encode in main
+- [x] Pure TS in `shared/src/sprite/` (keying, bounds, centroid, quantise, outline) over RGBA typed arrays. Decode and encode in main
   - `RgbaImage = { width, height, data: Uint8ClampedArray }` in `shared/src/sprite/image.ts`.
   - **Resolved: the pipeline runs in main, one frame at a time** (Decision 7) —
     `processFrame(bytes, spec, ctx)` in `main/media/sprite/frame-pipeline.ts`: `nativeImage` transcodes
     JPEG/WebP to PNG, `decodePng` → `RgbaImage`, the shared kernels, `encodePngRgba8` → `frames/…png` via
     `mediaStore.writeBytes`. Between frames it `await`s `setImmediate`, so a 512-frame render never holds
     the main loop for more than one frame's work (≈ 2 ms at 128²).
-- [ ] Vitest: a keyed magenta fixture has a clean alpha with no fringe, two frames with offset subjects align to the same anchor, quantisation respects the palette size, and each validation rule fires on its fixture
+- [x] Vitest: a keyed magenta fixture has a clean alpha with no fringe, two frames with offset subjects align to the same anchor, quantisation respects the palette size, and each validation rule fires on its fixture
   - `shared/src/sprite/key.test.ts`: a red disc on `#ff00ff` keys to alpha 0 outside, 255 inside, and no
     pixel with alpha > 0 has G < R − 0.3 (no magenta fringe); `chooseChroma('a pink dragon')` is green.
   - `align.test.ts`: two discs offset by (7, 3) px normalise to identical images.

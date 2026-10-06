@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { SPRITE_FRAME_SOURCES_PENDING, SPRITE_JOB_BUSY, SPRITE_NEEDS_MODEL, type SpriteAssetSpec, type SpriteSheetSpec } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { decodePng, encodePngRgba8 } from '../png/png-codec';
 import { createSpriteService, NOT_AN_IMAGE, type SpriteJobRunner, type SpriteServiceDeps } from './sprite-service';
 
 let repo: string;
@@ -186,6 +187,42 @@ describe('generate', () => {
     const { service } = make();
     const target = await createHero(service, { method: 'rendered' });
     expect(await service.generate(target)).toMatchObject({ ok: false, message: SPRITE_NEEDS_MODEL });
+  });
+});
+
+describe('submitFrame (the frame pipeline)', () => {
+  function pngOn(fg: [number, number, number], h: number): Uint8Array {
+    const size = 48;
+    const data = new Uint8Array(size * size * 4);
+    for (let y = 0; y < size; y += 1)
+      for (let x = 0; x < size; x += 1) {
+        const inside = x >= 16 && x < 28 && y >= 44 - h && y < 44;
+        data.set(inside ? [...fg, 255] : [255, 0, 255, 255], (y * size + x) * 4);
+      }
+    return encodePngRgba8(data, size, size);
+  }
+
+  it('normalises frames, badges them and stores the reference height and pixel palette', async () => {
+    const runJob: SpriteJobRunner = async (ctx) => {
+      await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 0, bytes: pngOn([200, 40, 40], 30), meta: { source: 'rendered' } });
+      await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 1, bytes: pngOn([200, 40, 40], 30) });
+      await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 2, bytes: pngOn([40, 40, 200], 15) });
+    };
+    const { service } = make({ runJob });
+    const target = await createHero(service, { style: 'pixel', frameSize: [32, 32], palette: { size: 4 } });
+    const job = await service.generate(target);
+    if (!job.ok) throw new Error('no job');
+    await vi.waitFor(() => expect(service.jobStatus(job.value.jobId)?.state).toBe('done'));
+    const got = await service.get(target);
+    if (!got.ok) throw new Error('get failed');
+    expect(got.value.frames.referenceHeights).toEqual({ e: 30 });
+    expect(got.value.frames.frames['idle/e/000']).toMatchObject({ source: 'rendered', badges: [] });
+    expect(got.value.frames.frames['idle/e/002']?.badges).toEqual(['height']);
+    expect(got.value.report).toMatchObject({ frames: 3, failing: 1 });
+    const spec = got.value.spec as SpriteSheetSpec;
+    expect(spec.palette && 'colours' in spec.palette && spec.palette.colours.length).toBeGreaterThanOrEqual(2);
+    const frame = decodePng(await readFile(join(root, target.group, target.asset, 'frames', 'idle', 'e', '000.png')));
+    expect(frame.ok && [frame.image.width, frame.image.height]).toEqual([32, 32]);
   });
 });
 

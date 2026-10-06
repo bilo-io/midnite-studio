@@ -110,6 +110,11 @@ describe('openai adapter', () => {
     expect(openaiRequestBody('p', 'gpt-image-1', '2:3', 1).size).toBe('1024x1536');
   });
 
+  it('asks for a transparent background only when the request does', () => {
+    expect(openaiRequestBody('p', 'gpt-image-1', '1:1', 1)).not.toHaveProperty('background');
+    expect(openaiRequestBody('p', 'gpt-image-1', '1:1', 1, true)).toMatchObject({ background: 'transparent', output_format: 'png' });
+  });
+
   it('sends a bearer key and reads data[].b64_json', async () => {
     const fetchMock = vi.fn(async () => json({ data: [{ b64_json: PNG_B64 }] }));
     const images = await openaiImageProvider.generate(
