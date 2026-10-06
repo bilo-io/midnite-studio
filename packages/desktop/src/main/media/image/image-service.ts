@@ -1,9 +1,12 @@
 import {
   failure,
+  imageModelSupportsReference,
   imageProviderInfo,
+  imageReferenceUnsupportedReason,
   IMAGE_PROVIDER_IDS,
   ok,
   type GitOpResult,
+  type ImageAspect,
   type ImageGenerateProgressEvent,
   type ImageGenerateRequest,
   type ImageModelInfo,
@@ -39,7 +42,23 @@ export type ImageServiceDeps = {
   discoverOllamaModels: () => Promise<ImageModelInfo[]>;
   /** Whether the Antigravity CLI can be launched — the key-free path every keyed provider falls back to. */
   agyAvailable: () => Promise<boolean>;
+  /**
+   * Reads a reference image named by `ImageGenerateRequest.references` — a path inside the repo's
+   * `.midnite/media/`, confined by the media store. Absent: requests with references are refused.
+   */
+  readReference?: (repoId: string, path: string) => Promise<GitOpResult<GeneratedImage>>;
   now?: () => Date;
+};
+
+/** One image as bytes, not written anywhere — what the sprite frame sources draw with (Phase 106 Theme D). */
+export type ImageBytesRequest = {
+  provider: ImageProviderId;
+  model: string;
+  prompt: string;
+  aspect: ImageAspect;
+  transparent?: boolean | undefined;
+  references?: readonly GeneratedImage[] | undefined;
+  signal: AbortSignal;
 };
 
 /** `"A red fox, at dusk!"` → `a-red-fox-at-dusk`, capped so file names stay readable. */
@@ -102,24 +121,43 @@ export function createImageService(deps: ImageServiceDeps) {
     );
   }
 
-  async function generate(req: ImageGenerateRequest): Promise<GitOpResult<{ files: string[] }>> {
-    const info = imageProviderInfo(req.provider);
+  type Route = { provider: ImageProviderId; model: string; apiKey: string | null };
+
+  /**
+   * Which adapter runs a request, with which key. No key routes through the agy CLI — except with
+   * reference images, which the CLI cannot take, so that is refused with the fix instead.
+   */
+  async function route(requested: ImageProviderId, requestedModel: string, withReferences: boolean): Promise<GitOpResult<Route>> {
+    const info = imageProviderInfo(requested);
     if (info.disabledReason) return failure(info.disabledReason);
-    if (running.has(req.generationId)) return failure('This generation is already running.');
-    let apiKey = info.secretKey ? await deps.readKey(info.secretKey) : null;
-    let provider = req.provider;
-    let model = req.model;
+    if (withReferences && !imageModelSupportsReference(requested, requestedModel)) {
+      return failure(imageReferenceUnsupportedReason(requested === 'gemini' ? 'Imagen' : info.label));
+    }
+    const apiKey = info.secretKey ? await deps.readKey(info.secretKey) : null;
     if (info.secretKey && !apiKey) {
+      if (withReferences) return failure(`A reference image needs the ${info.label} API — add a ${info.label} API key in Settings ▸ Media.`);
       // No key: route through the agy CLI, or say plainly that neither exists.
       if (!(await deps.agyAvailable().catch(() => false))) {
         return failure(`No ${info.label} API key and the Antigravity CLI (agy) was not found. ${NO_KEY_NO_AGY}`);
       }
-      provider = 'agy';
-      model = 'agy-default';
-      apiKey = null;
-    } else if (req.provider === 'agy' && !(await deps.agyAvailable().catch(() => false))) {
-      return failure(NO_KEY_NO_AGY);
+      return ok({ provider: 'agy', model: 'agy-default', apiKey: null });
     }
+    if (requested === 'agy' && !(await deps.agyAvailable().catch(() => false))) return failure(NO_KEY_NO_AGY);
+    return ok({ provider: requested, model: requestedModel, apiKey });
+  }
+
+  async function generate(req: ImageGenerateRequest): Promise<GitOpResult<{ files: string[] }>> {
+    if (running.has(req.generationId)) return failure('This generation is already running.');
+    const references: GeneratedImage[] = [];
+    for (const path of req.references ?? []) {
+      if (!deps.readReference) return failure('Reference images are not available here.');
+      const read = await deps.readReference(req.repoId, path);
+      if (!read.ok) return read;
+      references.push(read.value);
+    }
+    const routed = await route(req.provider, req.model, references.length > 0);
+    if (!routed.ok) return routed;
+    const { provider, model, apiKey } = routed.value;
 
     const controller = new AbortController();
     running.set(req.generationId, controller);
@@ -164,7 +202,15 @@ export function createImageService(deps: ImageServiceDeps) {
     let landed = 0;
     try {
       await deps.providers[provider].generate(
-        { prompt: req.prompt, model, aspect: req.aspect, count: req.count, seed: req.seed },
+        {
+          prompt: req.prompt,
+          model,
+          aspect: req.aspect,
+          count: req.count,
+          seed: req.seed,
+          ...(req.transparent ? { transparent: true } : {}),
+          ...(references.length > 0 ? { references } : {}),
+        },
         {
           fetch: deps.fetch,
           apiKey,
@@ -192,6 +238,33 @@ export function createImageService(deps: ImageServiceDeps) {
     }
   }
 
+  /**
+   * One image as bytes, through the same key routing as {@link generate} but with no file, sidecar or
+   * progress event: the caller (a sprite job) owns where the result goes and how it is cancelled.
+   */
+  async function generateImage(req: ImageBytesRequest): Promise<GitOpResult<GeneratedImage>> {
+    const routed = await route(req.provider, req.model, (req.references?.length ?? 0) > 0);
+    if (!routed.ok) return routed;
+    const { provider, model, apiKey } = routed.value;
+    try {
+      const [image] = await deps.providers[provider].generate(
+        {
+          prompt: req.prompt,
+          model,
+          aspect: req.aspect,
+          count: 1,
+          ...(req.transparent ? { transparent: true } : {}),
+          ...(req.references?.length ? { references: req.references } : {}),
+        },
+        { fetch: deps.fetch, apiKey, signal: req.signal },
+      );
+      return image ? ok(image) : failure(`${imageProviderInfo(provider).label} returned no image.`);
+    } catch (error) {
+      if (req.signal.aborted) return failure('cancelled');
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   function cancel(generationId: string): GitOpResult {
     const controller = running.get(generationId);
     if (!controller) return failure('Nothing to cancel.');
@@ -199,7 +272,7 @@ export function createImageService(deps: ImageServiceDeps) {
     return ok();
   }
 
-  return { generate, cancel, providerStatuses };
+  return { generate, generateImage, cancel, providerStatuses };
 }
 
 export type ImageService = ReturnType<typeof createImageService>;

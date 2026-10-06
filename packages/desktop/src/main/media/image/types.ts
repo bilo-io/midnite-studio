@@ -17,6 +17,12 @@ export type ImageAdapterRequest = {
    * adapter ignores it and the sprite pipeline keys a chroma background instead.
    */
   transparent?: boolean | undefined;
+  /**
+   * Reference images the result must match (Phase 106 Theme D, at most `IMAGE_MAX_REFERENCES`). Only
+   * adapters whose catalogue entry has `supportsReference` read them; the image service refuses the
+   * rest before any request.
+   */
+  references?: readonly GeneratedImage[] | undefined;
 };
 
 export type GeneratedImage = { bytes: Buffer; mime: string };

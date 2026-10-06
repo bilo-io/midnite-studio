@@ -13,6 +13,7 @@ import {
   SPRITE_JOB_BUSY,
   SPRITE_JOB_CANCELLED,
   SPRITE_NEEDS_MODEL,
+  SPRITE_NO_REFERENCE,
   SPRITE_NOT_AVAILABLE,
   SPRITE_SPEC_FILE,
   SPRITE_PIPELINE_BADGES,
@@ -77,6 +78,17 @@ export type SpriteJobContext = {
    * ({@link spriteReferenceFrame}) of each direction first — it sets that direction's scale.
    */
   submitFrame: (frame: { clip: string; dir: string; n: number; bytes: Uint8Array; meta?: Partial<SpriteFrameMeta> }) => Promise<SpriteFrameMeasure>;
+  /** Hand-drawn step 1 (Theme D): this job draws the turnaround reference, not frames. */
+  turnaround: boolean;
+  /**
+   * Stores a new, **unapproved** reference image (any image format): `reference/reference.png`, plus
+   * `reference/turnaround.png` when it is a generated turnaround.
+   */
+  writeReference: (bytes: Uint8Array, opts?: { turnaround?: boolean }) => Promise<void>;
+  /** Counts one paid image request, for the job's log line. */
+  countRequest: () => void;
+  /** A line the job's final event carries even when it ends `done` (e.g. "Consistency not checked: …"). */
+  note: (message: string) => void;
 };
 export type SpriteJobRunner = (ctx: SpriteJobContext) => Promise<void>;
 
@@ -88,6 +100,8 @@ export type SpriteServiceDeps = {
   /** Any image → PNG (Electron's `nativeImage`); `null` when the bytes are not an image. */
   toPng: (bytes: Uint8Array) => Promise<Buffer | null>;
   runJob?: SpriteJobRunner;
+  /** Refuses a job up front (method-specific: hand-drawn needs an approved reference). `null` lets it run. */
+  preflight?: (spec: SpriteAssetSpec, req: SpriteGenerateRequest) => string | null;
   onChanged: (repoId: string) => void;
   emitProgress: (event: SpriteProgressEvent) => void;
   emitChanged: (event: SpriteChangedEvent) => void;
@@ -307,6 +321,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       const { dir } = located.value;
       const file = 'reference/reference.png' as const;
 
+      if ('approve' in req) return await approveReference(req, dir);
       let png: Buffer | null = null;
       if ('bytes' in req) {
         png = await deps.toPng(req.bytes instanceof Uint8Array ? req.bytes : new Uint8Array(req.bytes));
@@ -329,6 +344,26 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  /** Locks the current reference image; optionally marks every existing frame `unchecked` for re-roll. */
+  async function approveReference(req: SpriteTarget & { frames: 'keep' | 'mark' }, dir: string): Promise<GitOpResult> {
+    if (running.has(keyOf(req))) return failure(SPRITE_JOB_BUSY);
+    if (!(await exists(join(dir, 'reference/reference.png')))) return failure(SPRITE_NO_REFERENCE);
+    const updated = await updateSpec(req, dir, (spec) => {
+      if (spec.kind !== 'sheet') return { fail: failure('Only a sprite sheet has a reference.') };
+      if (spec.reference?.kind !== 'image') return { fail: failure(SPRITE_NO_REFERENCE) };
+      return { spec: { ...spec, reference: { ...spec.reference, approved: true } } };
+    });
+    if (!updated.ok) return updated;
+    if (req.frames === 'mark') {
+      const marked = await writeFrameMeta(req, dir, (file) => {
+        for (const meta of Object.values(file.frames)) if (!meta.badges.includes('unchecked')) meta.badges = [...meta.badges, 'unchecked'];
+      });
+      if (!marked.ok) return marked;
+    }
+    announce(req);
+    return ok();
   }
 
   // --- frames --------------------------------------------------------------------
@@ -380,7 +415,10 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       const { dir } = located.value;
       const spec = await readSpec(dir);
       if (!spec.ok) return spec;
-      if (spec.value.kind === 'sheet' && spec.value.method === 'rendered' && spec.value.reference?.kind !== 'model') return failure(SPRITE_NEEDS_MODEL);
+      if (!req.turnaround && spec.value.kind === 'sheet' && spec.value.method === 'rendered' && spec.value.reference?.kind !== 'model') return failure(SPRITE_NEEDS_MODEL);
+      if (req.turnaround && spec.value.kind !== 'sheet') return failure('Only a sprite sheet has a reference.');
+      const refused = deps.preflight?.(spec.value, req) ?? null;
+      if (refused) return failure(refused);
       if (running.has(key)) return failure(SPRITE_JOB_BUSY);
 
       const job: Job = {
@@ -392,7 +430,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       job.status.jobId = job.id;
       jobs.set(job.id, job);
       running.set(key, job);
-      void runJob(job, { repoId: req.repoId, group: req.group, asset: req.asset }, dir, spec.value, req.clips);
+      void runJob(job, { repoId: req.repoId, group: req.group, asset: req.asset }, dir, spec.value, req.clips, req.turnaround === true);
       return ok({ jobId: job.id });
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
@@ -417,9 +455,11 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     }
   }
 
-  async function runJob(job: Job, target: SpriteTarget, dir: string, spec: SpriteAssetSpec, clips: readonly string[] | undefined): Promise<void> {
+  async function runJob(job: Job, target: SpriteTarget, dir: string, spec: SpriteAssetSpec, clips: readonly string[] | undefined, turnaround: boolean): Promise<void> {
     const started = Date.now();
     let frames = 0;
+    let requests = 0;
+    const notes: string[] = [];
     let end: 'done' | 'cancelled' | `failed:${string}` = 'done';
     const progress: SpriteJobContext['progress'] = (event) => {
       job.status.done = event.done;
@@ -476,6 +516,25 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         clips,
         progress,
         writeFrame,
+        turnaround,
+        countRequest: () => {
+          requests += 1;
+        },
+        note: (message) => {
+          if (!notes.includes(message)) notes.push(message);
+        },
+        writeReference: async (bytes, opts) => {
+          const png = await deps.toPng(bytes);
+          if (!png) throw new Error(NOT_AN_IMAGE);
+          for (const path of opts?.turnaround ? ['reference/turnaround.png', 'reference/reference.png'] : ['reference/reference.png']) {
+            const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${path}`, data: png });
+            if (!written.ok) throw new Error(written.kind === 'error' ? written.message : 'Could not write the reference.');
+          }
+          const updated = await updateSpec(target, dir, (current) =>
+            current.kind === 'sheet' ? { spec: { ...current, reference: { kind: 'image', file: 'reference/reference.png', approved: false } } } : { fail: failure('Only a sprite sheet has a reference.') },
+          );
+          if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the reference.');
+        },
         submitFrame: async ({ clip, dir: direction, n, bytes, meta }) => {
           const p = await pipelineFor();
           if (meta) pending.set(spriteFrameKey(clip, direction, n), meta);
@@ -505,6 +564,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     job.status.state = end === 'done' ? 'done' : end === 'cancelled' ? 'cancelled' : 'failed';
     if (end === 'cancelled') job.status.message = SPRITE_JOB_CANCELLED;
     else if (end.startsWith('failed:')) job.status.message = end.slice('failed:'.length);
+    else if (notes.length > 0) job.status.message = notes.join(' ');
     deps.emitProgress({
       jobId: job.id,
       done: job.status.done,
@@ -513,7 +573,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       state: job.status.state as 'done' | 'cancelled' | 'failed',
       ...(job.status.message ? { message: job.status.message } : {}),
     });
-    deps.log(`sprite job ${target.asset} method=${spec.kind === 'sheet' ? spec.method : spec.kind} frames=${frames} requests=${frames} ms=${Date.now() - started} ${end}`);
+    deps.log(`sprite job ${target.asset} method=${spec.kind === 'sheet' ? spec.method : spec.kind} frames=${frames} requests=${requests || frames} ms=${Date.now() - started} ${end}`);
     announce(target);
   }
 

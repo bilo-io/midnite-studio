@@ -1,4 +1,4 @@
-import { CHANNELS, EVENT_CHANNELS, failure, schemas } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, failure, MediaTabSchema, ok, schemas } from '@midnite/studio-shared';
 
 import { agyImageProvider, isAgyInstalled } from '../media/image/agy';
 import { geminiImageProvider } from '../media/image/gemini';
@@ -48,6 +48,16 @@ export const imageService = createImageService({
   fetch: (input, init) => fetch(input, init),
   discoverOllamaModels: discoverOllamaImageModels,
   agyAvailable: isAgyInstalled,
+  readReference: async (repoId, path) => {
+    // `<tab>/<project>/<path…>` inside the repo's `.midnite/media/`, confined by the media store.
+    const [tab, project, ...rest] = path.split('/');
+    const parsedTab = MediaTabSchema.safeParse(tab);
+    if (!parsedTab.success || !project || rest.length === 0) return failure(`Reference ${path} is not a media file.`);
+    const read = await mediaStore.readBytes({ repoId, tab: parsedTab.data, project, path: rest.join('/') });
+    if (!read.ok) return read;
+    const ext = path.split('.').pop()?.toLowerCase();
+    return ok({ bytes: read.value, mime: ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png' });
+  },
 });
 
 export function registerMediaImageHandlers(): void {

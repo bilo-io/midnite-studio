@@ -2,6 +2,7 @@ export * from './align';
 export * from './image';
 export * from './key';
 export * from './outline';
+export * from './pose-tables';
 export * from './presets';
 export * from './quantise';
 export * from './recommend';
