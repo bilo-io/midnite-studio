@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Heightfield } from './heightfield';
-import { FOLIAGE_CAPPED_WARNING, scatterFoliage, TERRAIN_FOLIAGE_MAX } from './scatter';
+import { FOLIAGE_CAPPED_WARNING, reseatFoliage, scatterFoliage, TERRAIN_FOLIAGE_MAX } from './scatter';
 
 function makeFlatField(res = 33, worldSize = 100, height = 10): Heightfield {
   return {
@@ -126,5 +126,47 @@ describe('scatterFoliage', () => {
 
     expect(r1.instances.length).toEqual(r2.instances.length);
     expect(r1.instances).toEqual(r2.instances);
+  });
+
+  const OPTS = { seed: 7, treeDensity: 10, grassDensity: 0, slopeLimitDeg: 35, scale: [1, 1] as [number, number], margin: 0 };
+
+  it('reaches every small disjoint patch of its class', () => {
+    const res = 128;
+    const landcover = new Uint8Array(res * res).fill(4); // rock
+    const patches: [number, number][] = [[10, 10], [100, 20], [60, 64], [20, 110], [110, 110]];
+    for (const [px, py] of patches) {
+      for (let y = py; y < py + 6; y += 1) for (let x = px; x < px + 6; x += 1) landcover[y * res + x] = 1;
+    }
+    const result = scatterFoliage(landcover, res, makeFlatField(65, 512), OPTS);
+    for (const [px, py] of patches) {
+      const hit = result.instances.some(([, x, , z]) => {
+        const lx = Math.floor((x / 512 + 0.5) * res);
+        const lz = Math.floor((z / 512 + 0.5) * res);
+        return lx >= px && lx < px + 6 && lz >= py && lz < py + 6;
+      });
+      expect(hit).toBe(true);
+    }
+  });
+
+  it('keeps out of an extra exclusion mask (the roads mask)', () => {
+    const res = 32;
+    const landcover = new Uint8Array(res * res).fill(1);
+    const exclude = new Uint8Array(res * res);
+    for (let i = 0; i < res * res; i += 1) if (i % res < 16) exclude[i] = 1;
+    const result = scatterFoliage(landcover, res, makeFlatField(33, 100), OPTS, exclude);
+    expect(result.instances.length).toBeGreaterThan(0);
+    for (const [, x] of result.instances) expect(x).toBeGreaterThanOrEqual(0);
+  });
+
+  it('caps the count and warns', () => {
+    const res = 64;
+    const result = scatterFoliage(new Uint8Array(res * res).fill(2), res, makeFlatField(65, 4096), { ...OPTS, treeDensity: 0, grassDensity: 200 });
+    expect(result.instances.length).toBeLessThanOrEqual(TERRAIN_FOLIAGE_MAX);
+    expect(result.warnings).toContain(FOLIAGE_CAPPED_WARNING);
+  });
+
+  it('re-seats instances on a changed field', () => {
+    const [moved] = reseatFoliage([[0, 1, 99, 2, 0.5, 1]], makeFlatField(33, 100, 42));
+    expect(moved).toEqual([0, 1, 42, 2, 0.5, 1]);
   });
 });

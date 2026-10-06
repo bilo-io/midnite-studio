@@ -2,7 +2,13 @@ import type { TerrainSpec } from '../media-terrain';
 import type { Heightfield } from './heightfield';
 import { createRng } from './noise';
 import { distanceTransform } from './morphology';
+import { TERRAIN_CLASS_INDICES } from './classes';
+import { sampleHeight } from './field-sample';
 import { DEFAULT_FOLIAGE_ASSETS } from './foliage-designs';
+
+const TREE = TERRAIN_CLASS_INDICES.tree;
+const GRASS = TERRAIN_CLASS_INDICES.grass;
+const EXCLUDED = new Set([TERRAIN_CLASS_INDICES.water, TERRAIN_CLASS_INDICES.road, TERRAIN_CLASS_INDICES.building]);
 
 export const TERRAIN_FOLIAGE_MAX = 200_000;
 export const FOLIAGE_CAPPED_WARNING = 'Foliage capped at 200 000 instances.';
@@ -17,8 +23,8 @@ export type FoliageScatterResult = {
 /**
  * Poisson-disk foliage scatter driven by land-cover classification (Phase 105 Theme G).
  *
- * Places trees on `tree` (class 1) and grass/bushes on `grass` (class 2) using Bridson's algorithm.
- * Kept out of roads (5), buildings (6), water (0) with a safety margin in metres, and slopes steeper
+ * Places trees on `tree` and grass/bushes on `grass` using Bridson's algorithm.
+ * Kept out of `road`, `building` and `water` (plus any `exclude` mask) with a safety margin in metres, and slopes steeper
  * than `slopeLimitDeg`.
  */
 export function scatterFoliage(
@@ -26,6 +32,8 @@ export function scatterFoliage(
   lcRes: number,
   field: Heightfield,
   opts: TerrainSpec['foliage'],
+  /** Extra exclusion at the land cover's resolution (non-zero = keep out), e.g. the roads mask (Theme H). */
+  exclude?: Uint8Array,
 ): FoliageScatterResult {
   const warnings: string[] = [];
   const rng = createRng(opts.seed ?? 1);
@@ -61,8 +69,8 @@ export function scatterFoliage(
   const totalPixels = lcRes * lcRes;
   for (let i = 0; i < totalPixels; i += 1) {
     const cls = landcover[i]!;
-    if (cls === 1) treePixels += 1;
-    else if (cls === 2) grassPixels += 1;
+    if (cls === TREE) treePixels += 1;
+    else if (cls === GRASS) grassPixels += 1;
   }
 
   let treeDensity = opts.treeDensity; // per 100 m^2
@@ -80,12 +88,10 @@ export function scatterFoliage(
     warnings.push(FOLIAGE_CAPPED_WARNING);
   }
 
-  // Precompute exclusion distance transform:
-  // Exclusion classes: 0 (water), 5 (road), 6 (building)
+  // Distance (in land-cover pixels) to the nearest water, road or building texel, or `exclude` pixel.
   const nonExclusion = new Uint8Array(totalPixels);
   for (let i = 0; i < totalPixels; i += 1) {
-    const c = landcover[i]!;
-    nonExclusion[i] = c === 0 || c === 5 || c === 6 ? 0 : 1;
+    nonExclusion[i] = EXCLUDED.has(landcover[i]!) || (exclude !== undefined && exclude[i]! > 0) ? 0 : 1;
   }
   const exclusionDt = distanceTransform(nonExclusion, lcRes, lcRes);
   const pxSizeM = worldSize / lcRes;
@@ -171,8 +177,9 @@ export function scatterFoliage(
       const lcIdx = lz * lcRes + lx;
 
       if (landcover[lcIdx] !== targetClass) return false;
+      // Zero is *on* an excluded texel, which margin 0 must still refuse.
       const distToExclusionM = exclusionDt[lcIdx]! * pxSizeM;
-      if (distToExclusionM < marginM) return false;
+      if (distToExclusionM === 0 || distToExclusionM < marginM) return false;
 
       // Check slope
       const { slopeDeg } = sampleElevationAndSlope(cx, cz);
@@ -217,12 +224,16 @@ export function scatterFoliage(
       instances.push([assetIdx, x, y, z, yaw, scale]);
     };
 
-    // Attempt multiple random seeds across the map to cover disjoint clusters
-    const maxSeedAttempts = Math.min(500, Math.max(20, Math.round(density * 20)));
+    // Seed from random texels *of this class* (not random map points), so every disjoint patch — a
+    // copse, a lawn — gets a chance to start a Bridson front however small a share of the map it is.
+    const classPixels: number[] = [];
+    for (let i = 0; i < totalPixels; i += 1) if (landcover[i] === targetClass) classPixels.push(i);
+    const maxSeedAttempts = Math.min(classPixels.length, 4000);
     for (let s = 0; s < maxSeedAttempts; s += 1) {
       if (instances.length >= TERRAIN_FOLIAGE_MAX) break;
-      const initX = (rng() - 0.5) * worldSize;
-      const initZ = (rng() - 0.5) * worldSize;
+      const px = classPixels[Math.floor(rng() * classPixels.length)]!;
+      const initX = (((px % lcRes) + rng()) / lcRes - 0.5) * worldSize;
+      const initZ = ((Math.floor(px / lcRes) + rng()) / lcRes - 0.5) * worldSize;
       if (isCandidateValid(initX, initZ)) {
         addPoint(initX, initZ);
         // Expand from this point using Bridson
@@ -256,15 +267,20 @@ export function scatterFoliage(
     }
   };
 
-  // Scatter trees (class 1)
-  scatterClass(1, treeDensity, treeIndices);
-
-  // Scatter grass (class 2)
-  scatterClass(2, grassDensity, grassIndices);
+  scatterClass(TREE, treeDensity, treeIndices);
+  scatterClass(GRASS, grassDensity, grassIndices);
 
   if (instances.length >= TERRAIN_FOLIAGE_MAX && !warnings.includes(FOLIAGE_CAPPED_WARNING)) {
     warnings.push(FOLIAGE_CAPPED_WARNING);
   }
 
   return { assets, instances, warnings };
+}
+
+/** Re-seats every instance on the field's surface — the buildings stage flattens after the scatter runs. */
+export function reseatFoliage(
+  instances: FoliageScatterResult['instances'],
+  field: Heightfield,
+): FoliageScatterResult['instances'] {
+  return instances.map(([asset, x, , z, yaw, scale]) => [asset, x, sampleHeight(field, x, z), z, yaw, scale]);
 }

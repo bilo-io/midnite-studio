@@ -1,5 +1,7 @@
 import type { TerrainBuilding, TerrainSpec } from '../media-terrain';
 import type { Heightfield } from './heightfield';
+import { TERRAIN_CLASS_INDICES } from './classes';
+import { sampleHeight } from './field-sample';
 import { morphClose, morphOpen } from './morphology';
 import { createRng } from './noise';
 
@@ -12,7 +14,7 @@ export type FootprintExtractionResult = {
  * Extracts vector building footprints from the `building` land-cover class (Phase 105 Theme G).
  *
  * Pipeline:
- * 1. Binary mask of building class (6).
+ * 1. Binary mask of the `building` class.
  * 2. 3×3 open then close morphology.
  * 3. Moore-neighbor contour tracing for outer boundaries.
  * 4. Douglas-Peucker simplification (ε = 1 px).
@@ -30,10 +32,9 @@ export function extractFootprints(
   const warnings: string[] = [];
   const rng = createRng(opts.seed ?? 1);
 
-  // 1. Extract building class mask (class 6 is 'building')
   const mask = new Uint8Array(lcRes * lcRes);
   for (let i = 0; i < mask.length; i += 1) {
-    if (landcover[i] === 6) mask[i] = 1;
+    if (landcover[i] === TERRAIN_CLASS_INDICES.building) mask[i] = 1;
   }
 
   // 2. 3×3 open then close
@@ -65,11 +66,12 @@ export function extractFootprints(
     const snapped = snapRightAngles(simplified, snapToleranceRad);
     if (snapped.length < 3) continue;
 
-    // Convert pixel coordinates to world metres (origin at center)
+    // Pixel centres to world metres (terrain centred on the origin), wound with a positive (x, z) area.
     const polygon: [number, number][] = snapped.map(([px, py]) => [
-      (px / lcRes - 0.5) * worldSize,
-      (py / lcRes - 0.5) * worldSize,
+      ((px + 0.5) / lcRes - 0.5) * worldSize,
+      ((py + 0.5) / lcRes - 0.5) * worldSize,
     ]);
+    if (signedArea(polygon) < 0) polygon.reverse();
 
     // 6. Area filter
     const areaM2 = polygonArea(polygon);
@@ -101,10 +103,18 @@ export function extractFootprints(
 
 /** Moore-neighbor outer boundary tracing for all foreground regions in a binary mask. */
 export function traceContours(
-  mask: Uint8Array,
-  w: number,
-  h: number,
+  source: Uint8Array,
+  sw: number,
+  sh: number,
 ): [number, number][][] {
+  // Trace on a copy padded by one background pixel, so a region touching the border still has a
+  // background pixel to its left and a closed outline; coordinates are shifted back at the end.
+  const w = sw + 2;
+  const h = sh + 2;
+  const mask = new Uint8Array(w * h);
+  for (let y = 0; y < sh; y += 1) {
+    for (let x = 0; x < sw; x += 1) mask[(y + 1) * w + x + 1] = source[y * sw + x]! > 0 ? 1 : 0;
+  }
   const visited = new Uint8Array(w * h);
   const contours: [number, number][][] = [];
 
@@ -174,7 +184,7 @@ export function traceContours(
         floodFillInterior(mask, visited, w, h, x, y);
 
         if (ring.length >= 3) {
-          contours.push(ring);
+          contours.push(ring.map(([px, py]) => [px - 1, py - 1]));
         }
       }
     }
@@ -198,7 +208,7 @@ function floodFillInterior(
     const idx = cy * w + cx;
     visited[idx] = 1;
 
-    const neighbors = [
+    const neighbors: [number, number][] = [
       [cx + 1, cy],
       [cx - 1, cy],
       [cx, cy + 1],
@@ -407,9 +417,9 @@ export function snapRightAngles(
 
   const mergedRot = mergeCollinear(notchSnapped, toleranceRad);
 
-  // If quadrilateral with 4 corners, fit exact rectangle
+  // A quadrilateral whose corners are all within tolerance of 90° becomes the exact rectangle.
   let resRot = mergedRot;
-  if (mergedRot.length === 4) {
+  if (mergedRot.length === 4 && cornersNearRight(mergedRot, toleranceRad)) {
     resRot = [
       [minX, minY],
       [maxX, minY],
@@ -441,25 +451,29 @@ export function polygonArea(polygon: [number, number][]): number {
   return Math.abs(area) / 2;
 }
 
-/** Samples bilinear elevation from heightfield */
-function sampleHeight(field: Heightfield, wx: number, wz: number): number {
-  const { resolution, worldSize, heights } = field;
-  const u = (wx + worldSize / 2) / worldSize;
-  const v = (wz + worldSize / 2) / worldSize;
-  const gx = Math.max(0, Math.min(resolution - 1, u * (resolution - 1)));
-  const gz = Math.max(0, Math.min(resolution - 1, v * (resolution - 1)));
+/** Shoelace signed area: positive when (x, z) winds counter-clockwise in the maths sense. */
+export function signedArea(polygon: [number, number][]): number {
+  let area = 0;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const [x1, y1] = polygon[i]!;
+    const [x2, y2] = polygon[(i + 1) % polygon.length]!;
+    area += x1 * y2 - x2 * y1;
+  }
+  return area / 2;
+}
 
-  const x0 = Math.floor(gx);
-  const z0 = Math.floor(gz);
-  const x1 = Math.min(resolution - 1, x0 + 1);
-  const z1 = Math.min(resolution - 1, z0 + 1);
-  const fx = gx - x0;
-  const fz = gz - z0;
-
-  const h00 = heights[z0 * resolution + x0]!;
-  const h10 = heights[z0 * resolution + x1]!;
-  const h01 = heights[z1 * resolution + x0]!;
-  const h11 = heights[z1 * resolution + x1]!;
-
-  return (1 - fx) * (1 - fz) * h00 + fx * (1 - fz) * h10 + (1 - fx) * fz * h01 + fx * fz * h11;
+/** Every interior angle is within `toleranceRad` of a right angle. */
+function cornersNearRight(polygon: [number, number][], toleranceRad: number): boolean {
+  const n = polygon.length;
+  for (let i = 0; i < n; i += 1) {
+    const [px, py] = polygon[(i - 1 + n) % n]!;
+    const [cx, cy] = polygon[i]!;
+    const [nx, ny] = polygon[(i + 1) % n]!;
+    const a = Math.atan2(py - cy, px - cx);
+    const b = Math.atan2(ny - cy, nx - cx);
+    let d = Math.abs(a - b) % (2 * Math.PI);
+    if (d > Math.PI) d = 2 * Math.PI - d;
+    if (Math.abs(d - Math.PI / 2) > toleranceRad) return false;
+  }
+  return true;
 }

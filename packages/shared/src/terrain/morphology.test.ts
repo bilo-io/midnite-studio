@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { dilate, distanceTransform, erode, filterComponents, morphClose, morphOpen } from './morphology';
+import { dilateMask, distanceTransform, erodeMask, filterComponents, morphClose, morphOpen } from './morphology';
 
 describe('morphology', () => {
   it('dilates a single pixel to a 3x3 square', () => {
     const mask = new Uint8Array(25); // 5x5
     mask[2 * 5 + 2] = 1; // centre
-    const dilated = dilate(mask, 5, 5);
+    const dilated = dilateMask(mask, 5, 5);
     for (let y = 0; y < 5; y += 1) {
       for (let x = 0; x < 5; x += 1) {
         const inBox = Math.abs(x - 2) <= 1 && Math.abs(y - 2) <= 1;
@@ -22,7 +22,7 @@ describe('morphology', () => {
         mask[y * 5 + x] = 1;
       }
     }
-    const eroded = erode(mask, 5, 5);
+    const eroded = erodeMask(mask, 5, 5);
     expect(eroded[2 * 5 + 2]).toBe(1);
     let count = 0;
     for (let i = 0; i < 25; i += 1) count += eroded[i]!;

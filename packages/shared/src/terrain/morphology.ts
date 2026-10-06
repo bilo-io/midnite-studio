@@ -9,7 +9,7 @@
  */
 
 /** Binary 3×3 dilation (radius 1). Foreground is any non-zero value, output is 1 / 0. */
-export function dilate(mask: Uint8Array, w: number, h: number, radius = 1): Uint8Array {
+export function dilateMask(mask: Uint8Array, w: number, h: number, radius = 1): Uint8Array {
   if (radius <= 0) return new Uint8Array(mask);
   let current = mask;
   for (let r = 0; r < radius; r += 1) {
@@ -39,7 +39,7 @@ export function dilate(mask: Uint8Array, w: number, h: number, radius = 1): Uint
 }
 
 /** Binary 3×3 erosion (radius 1). Foreground is any non-zero value, output is 1 / 0. */
-export function erode(mask: Uint8Array, w: number, h: number, radius = 1): Uint8Array {
+export function erodeMask(mask: Uint8Array, w: number, h: number, radius = 1): Uint8Array {
   if (radius <= 0) return new Uint8Array(mask);
   let current = mask;
   for (let r = 0; r < radius; r += 1) {
@@ -72,12 +72,12 @@ export function erode(mask: Uint8Array, w: number, h: number, radius = 1): Uint8
 
 /** Morphological close: dilate then erode (bridges gaps). */
 export function morphClose(mask: Uint8Array, w: number, h: number, radius = 1): Uint8Array {
-  return erode(dilate(mask, w, h, radius), w, h, radius);
+  return erodeMask(dilateMask(mask, w, h, radius), w, h, radius);
 }
 
 /** Morphological open: erode then dilate (removes specks/noise). */
 export function morphOpen(mask: Uint8Array, w: number, h: number, radius = 1): Uint8Array {
-  return dilate(erode(mask, w, h, radius), w, h, radius);
+  return dilateMask(erodeMask(mask, w, h, radius), w, h, radius);
 }
 
 /**

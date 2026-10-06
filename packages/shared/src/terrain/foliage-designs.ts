@@ -1,4 +1,5 @@
 import { ModelSpecSchema, type ModelSpec } from '../media-model';
+import { buildScene } from '../model-geometry/scene';
 
 /**
  * Built-in low-poly foliage and detail designs (Phase 105 Theme G).
@@ -240,3 +241,36 @@ export const DEFAULT_FOLIAGE_ASSETS: Record<'tree' | 'grass', string[]> = {
   tree: ['pine', 'broadleaf', 'birch'],
   grass: ['grass-clump', 'bush'],
 };
+
+/** The built-in design behind a foliage asset id, or `undefined` for a Models library path. */
+export const builtInFoliageDesign = (asset: string): ModelSpec | undefined =>
+  Object.prototype.hasOwnProperty.call(BUILT_IN_FOLIAGE_DESIGNS, asset) ? BUILT_IN_FOLIAGE_DESIGNS[asset] : undefined;
+
+export type FoliageGeometry = { positions: Float32Array; normals: Float32Array; colors: Float32Array; indices: Uint32Array };
+
+/**
+ * A design's parts merged into one vertex-coloured geometry — what one `InstancedMesh` (and, in
+ * Theme I, one instanced glTF mesh) draws per asset.
+ */
+export function foliageGeometry(spec: ModelSpec): FoliageGeometry {
+  const parts = buildScene(spec).filter((part) => part.role === 'solid');
+  const vertexCount = parts.reduce((n, part) => n + part.positions.length / 3, 0);
+  const indexCount = parts.reduce((n, part) => n + part.indices.length, 0);
+  const positions = new Float32Array(vertexCount * 3);
+  const normals = new Float32Array(vertexCount * 3);
+  const colors = new Float32Array(vertexCount * 3);
+  const indices = new Uint32Array(indexCount);
+  let v = 0;
+  let k = 0;
+  for (const part of parts) {
+    const n = parseInt(part.color.slice(1), 16);
+    const rgb = [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+    positions.set(part.positions, v * 3);
+    normals.set(part.normals, v * 3);
+    for (let i = 0; i < part.positions.length / 3; i += 1) colors.set(rgb, (v + i) * 3);
+    for (let i = 0; i < part.indices.length; i += 1) indices[k + i] = part.indices[i]! + v;
+    v += part.positions.length / 3;
+    k += part.indices.length;
+  }
+  return { positions, normals, colors, indices };
+}
