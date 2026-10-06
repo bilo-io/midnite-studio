@@ -19,7 +19,7 @@ import {
   LuLayoutDashboard,
   LuLayoutGrid,
   LuLock,
-  LuMessagesSquare,
+  LuMessageSquare,
   LuPalette,
   LuPanelLeft,
   LuSearch,
@@ -66,8 +66,8 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   notes: MdOutlineEditNote,
   // Chats page — conversations with the roster's agent CLIs. `LuBot` already
   // belongs to Settings ▸ Agent and the companion, so the thread reads as a
-  // pair of speech bubbles instead.
-  chats: LuMessagesSquare,
+  // speech bubble instead.
+  chats: LuMessageSquare,
   // Phase 87 Theme C — Simple Icons' GrapheneOS mark, not a Lucide graph/node
   // glyph: `workflows` (Graphs) owns `IoIosGitNetwork`, and one icon per view
   // is the whole point of this map.
