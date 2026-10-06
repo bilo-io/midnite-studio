@@ -595,3 +595,24 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   stall main for seconds; moving it to a utility process is only worth doing if that is observed.
 - **Vertex groups are stored but not yet shown or editable.** They are read back by nothing in the
   editor beyond the Mesh tab's list; Theme G's paint layers and material assignment are the consumer.
+
+## Phase 104 · Theme C — SDF modelling
+
+- **Theme D must end the SDF history.** A sculpt part keeps `sdf: { tree, resolution }` until the first
+  brush stroke; nothing strokes yet, so nothing drops it. When Theme D's first stroke lands on a part with
+  `sdf`, remove the field (the op log keeps the tree) so `model_sdf_patch`/`model_sdf_bake` and the SDF
+  tab refuse instead of baking over the sculpted detail.
+- **Superseded SDF bakes are not cleaned up.** Every bake writes its own content-named
+  `<stem>.<part>.<hash8>.mesh.bin` (plus op log) so undo stays safe; files no saved design references
+  pile up beside the model. Sweep unreferenced `.mesh.bin` files on save (or on model close).
+- **Pruning uses one Lipschitz bound for the whole tree.** An eccentric ellipsoid or a strong
+  `displace` raises it for every block, thickening the evaluated shell (a 256³ head + displaced
+  ellipsoid evaluates ~50 % of its nodes; a plain sphere < 30 %). Per-node bounds, or interval
+  arithmetic per block, would prune each region by its own bound.
+- **MCP bakes run synchronously in main**, like Theme B's conversion (~1.8 s at 256³). Move to a utility
+  process only if it is observed to stall the app.
+- **`model_sdf_set` needs an existing design.** The mesh file has to live in the design's folder, which
+  `createModel` decides; the tool asks the agent to start one with `model_set_spec` first.
+- **Only blend sliders preview live.** Typed fields bake at full resolution on commit; a drag-to-scrub
+  number field would extend the 40³ preview to every parameter.
+

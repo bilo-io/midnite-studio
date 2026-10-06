@@ -1,4 +1,4 @@
-import type { RemeshOptions } from '@midnite/studio-shared';
+import type { RemeshOptions, SdfTree } from '@midnite/studio-shared';
 
 import type { SculptLoaded, SculptRequest, SculptResponse, Vec3 } from './sculpt-protocol';
 
@@ -66,6 +66,11 @@ export class SculptSession {
   /** Voxel remesh in the worker; the input buffers are transferred. */
   async remesh(soup: { positions: Float64Array; indices: Uint32Array; groups: Uint16Array }, options: RemeshOptions): Promise<Extract<SculptResponse, { type: 'remeshed' }>> {
     return this.request<'remeshed'>({ type: 'remesh', ...soup, options }, [soup.positions.buffer, soup.indices.buffer, soup.groups.buffer]);
+  }
+
+  /** Bakes a signed-distance tree in the worker (Theme C). */
+  async sdfBake(tree: SdfTree, resolution: number): Promise<Extract<SculptResponse, { type: 'sdfBaked' }>> {
+    return this.request<'sdfBaked'>({ type: 'sdfBake', tree, resolution });
   }
 
   onDelta(listener: (response: Extract<SculptResponse, { type: 'delta' }>) => void): () => void {

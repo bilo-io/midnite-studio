@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { LoopModelSchema } from './loops';
 import { MediaProjectNameSchema } from './media';
 import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
+import { ModelSculptSdfSchema } from './media-model-sdf';
 
 // --- the spec an LLM writes ----------------------------------------------------
 
@@ -285,6 +286,11 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
     sources: z.array(z.string().trim().min(1).max(40)).max(MODEL_MAX_PARTS).optional(),
     /** The vertex groups the file's per-vertex group indices name: one per converted source part, keeping its colour. */
     groups: z.array(z.object({ name: z.string().trim().min(1).max(MODEL_NAME_MAX), color: ModelColorSchema })).max(256).optional(),
+    /**
+     * The signed-distance tree this mesh was baked from (Theme C) and the bake's resolution. Present until
+     * the first brush stroke, so the shape can still be edited and re-baked from the tree.
+     */
+    sdf: ModelSculptSdfSchema.optional(),
   }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),

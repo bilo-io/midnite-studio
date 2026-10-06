@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 104 Theme C — SDF modelling
+
+Organic forms as signed-distance trees: a recursive schema (seven primitives, smooth union/subtract/intersect, displace/twist/bend/round/shell/mirror, edits by name), a compiled evaluator with bounds and a Lipschitz bound, an octree-pruned bake through surface nets with per-primitive vertex groups, a `sculpt` part that keeps its tree (and an op log that opens with it), an editor SDF tab with a node tree, live low-resolution preview and bake on release, and the `model_sdf_set` / `model_sdf_patch` / `model_sdf_bake` MCP tools. PR: see the pull request.
+
+- [x] SDF node schema, kernel evaluator with pruning, surface-nets isosurface into a sculpt part whose op log starts with its tree, SDF tree panel, three MCP tools, vitest (primitive distances, smooth-union continuity, closed sphere at the analytic radius, sparse = dense, modifiers, groups, MCP, panel).
+
 ## 2026-10-06 — Phase 107 Theme H — 2D genre starters
 
 FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with named engine-free systems under `kit/core/genre/` and a shared `kit/phaser/world2d.js` so RTS, ARPG and crime run top-down and isometric from one module. `GAME_GENRES_AVAILABLE` lists the four, so their gallery cells are creatable. `composeStarter` ships only the chosen genre's systems. Kit 0.4.0; `boot()` no longer leaves a blank canvas over the game.

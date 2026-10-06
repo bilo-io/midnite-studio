@@ -1,5 +1,6 @@
 import type { RetargetSource } from './clip-panel';
 import type { ConvertFn } from './mesh-panel';
+import type { SdfBaker } from './sculpt/use-sdf';
 import { Component, type Dispatch, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
@@ -63,6 +64,7 @@ export function LazyModelEditor(props: {
   saving: boolean;
   retargetSources?: readonly RetargetSource[];
   onConvert?: ConvertFn;
+  sdfBaker?: SdfBaker;
 }) {
   return (
     <ViewerBoundary>

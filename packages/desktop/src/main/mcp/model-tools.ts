@@ -63,6 +63,18 @@ export const modelConvertToMesh = async (input: McpToolInput<'model_convert_to_m
   allowed();
   return tools().model_convert_to_mesh(input);
 };
+export const modelSdfSet = async (input: McpToolInput<'model_sdf_set'>): Promise<McpToolOutput<'model_sdf_set'>> => {
+  allowed();
+  return tools().model_sdf_set(input);
+};
+export const modelSdfPatch = async (input: McpToolInput<'model_sdf_patch'>): Promise<McpToolOutput<'model_sdf_patch'>> => {
+  allowed();
+  return tools().model_sdf_patch(input);
+};
+export const modelSdfBake = async (input: McpToolInput<'model_sdf_bake'>): Promise<McpToolOutput<'model_sdf_bake'>> => {
+  allowed();
+  return tools().model_sdf_bake(input);
+};
 export const modelOpen = async (input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> => {
   allowed();
   return tools().model_open(input);

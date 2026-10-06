@@ -7,6 +7,21 @@ import {
   nextSculptPartId,
   registerSculptMesh,
   sculptMeshSrcFor,
+  applySdfBake,
+  applySdfOps,
+  bakeSdf,
+  encodeSdfBake,
+  findSdfPart,
+  SdfBakeError,
+  SdfOpSchema,
+  sdfMeshSrcFor,
+  sdfNodeNames,
+  sdfOpEntry,
+  sdfTargetId,
+  SdfTreeSchema,
+  SDF_RESOLUTION_DEFAULT,
+  withPartIds,
+  type SdfTree,
   type ModelMeshRequest,
   type ModelMeshResult,
   applyRigOps,
@@ -398,6 +413,115 @@ export function createModelTools(deps: ModelMcpDeps) {
     });
   }
 
+  // --- SDF modelling (Phase 104 Theme C) -------------------------------------
+
+  type SdfOutput = McpToolOutput<'model_sdf_set'>;
+  type SdfLoaded = Awaited<ReturnType<typeof load>>;
+
+  /** Bakes `tree`, writes the mesh and its op log, and lands the part (`index` replaces, `null` adds). */
+  async function bakeAndApply(fresh: SdfLoaded, sidecar: ModelSidecar, spec: ModelSpec, tree: SdfTree, index: number | null, resolution: number, name?: string): Promise<SdfOutput> {
+    let bake;
+    try {
+      bake = bakeSdf(tree, { resolution });
+    } catch (error) {
+      if (error instanceof SdfBakeError) return { ok: false, errors: [{ path: 'tree', message: error.message }] };
+      throw error;
+    }
+    const encoded = encodeSdfBake(bake);
+    const id = sdfTargetId(spec, index);
+    const base = fresh.stem.split('/').pop()!;
+    const src = sdfMeshSrcFor(base, id, encoded.hash);
+    const wrote = await deps.writeMesh({
+      op: 'write',
+      repoId: fresh.repoId,
+      project: fresh.project,
+      dir: designDir(fresh.stem),
+      src,
+      data: encoded.bytes,
+      ops: [sdfOpEntry(tree, bake, encoded.hash, 'agent', now().toISOString())],
+    });
+    if (!wrote.ok) throw new McpToolError('error', wrote.kind === 'error' ? wrote.message : 'Could not write the SDF mesh.');
+    registerSculptMesh(encoded.hash, encoded.bytes);
+    const file = { src, hash: encoded.hash, vertices: encoded.vertices, triangles: encoded.triangles };
+    const applied = applySdfBake(spec, { tree, bake, file, index, id, ...(name ? { name } : {}) });
+    const written = await writeEdit(fresh, sidecar, applied.spec);
+    if (!written.ok) return written;
+    const nodes = bake.dims[0] * bake.dims[1] * bake.dims[2];
+    return {
+      ...written,
+      sdf: {
+        id,
+        src,
+        vertices: file.vertices,
+        triangles: file.triangles,
+        resolution: bake.resolution,
+        voxelSize: Number(bake.voxelSize.toFixed(5)),
+        nodes: sdfNodeNames(tree),
+        evaluatedShare: Number(Math.min(1, bake.evaluated / nodes).toFixed(3)),
+      },
+    };
+  }
+
+  const treeIssues = (error: { issues: { path: (string | number)[]; message: string }[] }, prefix: string) =>
+    error.issues.map((issue) => ({ path: [prefix, ...issue.path].join('.'), message: issue.message }));
+
+  async function modelSdfSet(input: McpToolInput<'model_sdf_set'>): Promise<McpToolOutput<'model_sdf_set'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      if (!fresh.sidecar) {
+        throw new McpToolError('not-found', `No model "${input.model}" with a saved design in project "${input.project}". Start one with model_set_spec (any placeholder part), then add the SDF shape.`);
+      }
+      const sidecar = fresh.sidecar;
+      const parsed = SdfTreeSchema.safeParse(input.tree);
+      if (!parsed.success) return { ok: false, errors: treeIssues(parsed.error, 'tree') };
+      const spec = withPartIds(sidecar.spec);
+      let index: number | null = null;
+      if (input.part !== undefined) {
+        const found = findSdfPart(spec, input.part);
+        if (!found.ok) return { ok: false, errors: [{ path: 'part', message: found.error }] };
+        index = found.index;
+      }
+      return bakeAndApply(fresh, sidecar, spec, parsed.data, index, input.resolution ?? SDF_RESOLUTION_DEFAULT, input.name);
+    });
+  }
+
+  async function modelSdfPatch(input: McpToolInput<'model_sdf_patch'>): Promise<McpToolOutput<'model_sdf_patch'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const spec = withPartIds(sidecar.spec);
+      const found = findSdfPart(spec, input.part);
+      if (!found.ok) return { ok: false, errors: [{ path: 'part', message: found.error }] };
+      const part = spec.parts[found.index]!;
+      if (part.shape !== 'sculpt' || !part.sdf) return { ok: false, errors: [{ path: 'part', message: 'Not an SDF part.' }] };
+      const ops = [];
+      for (const [i, raw] of input.ops.entries()) {
+        const op = SdfOpSchema.safeParse(raw);
+        if (!op.success) return { ok: false, errors: treeIssues(op.error, `ops.${i}`).map((e) => ({ ...e, opIndex: i })) };
+        ops.push(op.data);
+      }
+      const edited = applySdfOps(part.sdf.tree, ops);
+      if (!edited.ok) return { ok: false, errors: edited.errors };
+      return bakeAndApply(fresh, sidecar, spec, edited.tree, found.index, input.resolution ?? part.sdf.resolution);
+    });
+  }
+
+  async function modelSdfBake(input: McpToolInput<'model_sdf_bake'>): Promise<McpToolOutput<'model_sdf_bake'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const spec = withPartIds(sidecar.spec);
+      const found = findSdfPart(spec, input.part);
+      if (!found.ok) return { ok: false, errors: [{ path: 'part', message: found.error }] };
+      const part = spec.parts[found.index]!;
+      if (part.shape !== 'sculpt' || !part.sdf) return { ok: false, errors: [{ path: 'part', message: 'Not an SDF part.' }] };
+      return bakeAndApply(fresh, sidecar, spec, part.sdf.tree, found.index, input.resolution);
+    });
+  }
+
   async function modelOpen(input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> {
     const l = await load(input);
     need(l, input);
@@ -430,6 +554,9 @@ export function createModelTools(deps: ModelMcpDeps) {
     model_patch_animations: modelPatchAnimations,
     model_retarget: modelRetarget,
     model_convert_to_mesh: modelConvertToMesh,
+    model_sdf_set: modelSdfSet,
+    model_sdf_patch: modelSdfPatch,
+    model_sdf_bake: modelSdfBake,
     model_save: modelSave,
   };
 }
