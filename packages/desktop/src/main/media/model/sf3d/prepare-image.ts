@@ -4,6 +4,7 @@
  * background remover here: a picture with transparency is cropped to its alpha, an opaque one is
  * fitted whole (so a cut-out PNG gives SF3D's intended input, and a photo gives its background too).
  */
+import { alphaBounds } from '@midnite/studio-shared';
 
 export const SF3D_INPUT_SIZE = 512;
 export const SF3D_FOREGROUND_RATIO = 0.85;
@@ -11,19 +12,8 @@ const BACKGROUND = 0.5;
 
 export type RgbaImage = { data: Uint8Array; width: number; height: number };
 
-/** The bounding box of texels with alpha above `threshold`, or null when there are none. */
-export function alphaBounds(image: RgbaImage, threshold = 8): { x0: number; y0: number; x1: number; y1: number } | null {
-  let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
-  for (let y = 0; y < image.height; y += 1)
-    for (let x = 0; x < image.width; x += 1)
-      if (image.data[(y * image.width + x) * 4 + 3]! > threshold) {
-        if (x < x0) x0 = x;
-        if (y < y0) y0 = y;
-        if (x > x1) x1 = x;
-        if (y > y1) y1 = y;
-      }
-  return x1 < 0 ? null : { x0, y0, x1: x1 + 1, y1: y1 + 1 };
-}
+/** Moved to the shared sprite kernel (Phase 106 Theme B); re-exported for SF3D's callers. */
+export { alphaBounds };
 
 const hasTransparency = (image: RgbaImage): boolean => {
   for (let i = 3; i < image.data.length; i += 4) if (image.data[i]! < 250) return true;

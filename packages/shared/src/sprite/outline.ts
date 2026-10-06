@@ -1,11 +1,11 @@
-import { cloneRgba, hexToRgb, rgbToLab, type RgbaImage } from './image';
+import { cloneRgba, hexToRgb, labOf, type RgbaImage } from './image';
 
 /** The palette colour with the lowest L* — the outline colour in pixel mode. */
 export function darkestColour(palette: readonly string[]): string {
   let best = '#000000';
   let bestL = Infinity;
   for (const hex of palette) {
-    const l = rgbToLab(hexToRgb(hex))[0];
+    const l = labOf(hexToRgb(hex))[0];
     if (l < bestL) {
       bestL = l;
       best = hex;

@@ -4,7 +4,7 @@ import { normaliseFrame } from './align';
 import { rectOn } from './test-fixtures';
 import { measureFrame, validateFrames } from './validate';
 
-const spec = { frameSize: [64, 64] as const, anchor: { x: 0.5, y: 1 } };
+const spec = { frameSize: [64, 64] as [number, number], anchor: { x: 0.5, y: 1 } };
 
 function measure(source: ReturnType<typeof rectOn>, nudge: readonly [number, number] = [0, 0], referenceHeight = 20) {
   const { image } = normaliseFrame(source, { ...spec, referenceHeight, nudge });

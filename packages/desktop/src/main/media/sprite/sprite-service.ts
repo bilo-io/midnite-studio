@@ -15,6 +15,7 @@ import {
   SPRITE_NEEDS_MODEL,
   SPRITE_NOT_AVAILABLE,
   SPRITE_SPEC_FILE,
+  SPRITE_PIPELINE_BADGES,
   SpriteFramesFileSchema,
   spriteFrameKey,
   spriteFramePath,
@@ -23,8 +24,10 @@ import {
   spriteTimeStamp,
   type GitOpResult,
   type SpriteAssetSpec,
+  type SpriteBadge,
   type SpriteChangedEvent,
   type SpriteFrameMeta,
+  type SpriteFrameMeasure,
   type SpriteFramesFile,
   type SpriteGenerateRequest,
   type SpriteGetResult,
@@ -40,6 +43,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin } from '../../fs-scope';
+import { createFramePipeline, type FramePipeline } from './frame-pipeline';
 
 /**
  * Media ▸ Sprites' operations (`sprite.json`, the reference, frame metadata, generation jobs).
@@ -67,6 +71,12 @@ export type SpriteJobContext = {
   progress: (event: Omit<SpriteProgressEvent, 'jobId'>) => void;
   /** Writes a normalised frame PNG and its metadata. */
   writeFrame: (frame: { clip: string; dir: string; n: number; png: Buffer; meta?: Partial<SpriteFrameMeta> }) => Promise<void>;
+  /**
+   * A raw generated or rendered frame (PNG, JPEG or WebP) through the frame pipeline (Theme B): keyed,
+   * normalised onto the anchor and written. Sheets only. Submit the reference frame
+   * ({@link spriteReferenceFrame}) of each direction first — it sets that direction's scale.
+   */
+  submitFrame: (frame: { clip: string; dir: string; n: number; bytes: Uint8Array; meta?: Partial<SpriteFrameMeta> }) => Promise<SpriteFrameMeasure>;
 };
 export type SpriteJobRunner = (ctx: SpriteJobContext) => Promise<void>;
 
@@ -389,6 +399,24 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     }
   }
 
+  /** The sheet pass: palette (pixel mode), validation badges and the reference heights. */
+  async function finishPipeline(target: SpriteTarget, dir: string, pipeline: FramePipeline): Promise<void> {
+    if (pipeline.count === 0) return;
+    const result = await pipeline.finish();
+    const owned = new Set<SpriteBadge>(SPRITE_PIPELINE_BADGES);
+    await writeFrameMeta(target, dir, (file) => {
+      file.referenceHeights = result.referenceHeights;
+      for (const [key, badges] of Object.entries(result.badges)) {
+        const meta = file.frames[key];
+        if (meta) meta.badges = [...meta.badges.filter((b) => !owned.has(b)), ...badges];
+      }
+    });
+    if (result.palette) {
+      const colours = result.palette;
+      await updateSpec(target, dir, (current) => (current.kind === 'sheet' && colours.length >= 2 ? { spec: { ...current, palette: { colours } } } : { spec: current }));
+    }
+  }
+
   async function runJob(job: Job, target: SpriteTarget, dir: string, spec: SpriteAssetSpec, clips: readonly string[] | undefined): Promise<void> {
     const started = Date.now();
     let frames = 0;
@@ -398,6 +426,44 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       job.status.total = event.total;
       deps.emitProgress({ jobId: job.id, ...event });
     };
+    const writeFrame: SpriteJobContext['writeFrame'] = async ({ clip, dir: direction, n, png, meta }) => {
+      const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${spriteFramePath(clip, direction, n)}`, data: png });
+      if (!written.ok) throw new Error(written.kind === 'error' ? written.message : 'Could not write a frame.');
+      await writeFrameMeta(target, dir, (file) => {
+        file.frames[spriteFrameKey(clip, direction, n)] = { anchorNudge: [0, 0], flipped: false, source: 'generated', badges: [], ...meta };
+      });
+      frames += 1;
+    };
+    let pipeline: FramePipeline | null = null;
+    const pipelineFor = async (): Promise<FramePipeline> => {
+      if (spec.kind !== 'sheet') throw new Error('Only a sprite sheet has frames to normalise.');
+      if (!pipeline) {
+        const { referenceHeights } = await readFrames(dir);
+        const seen = new Set<string>();
+        pipeline = createFramePipeline(
+          spec,
+          {
+            toPng: deps.toPng,
+            readFrame: (clip, direction, n) => readFile(join(dir, spriteFramePath(clip, direction, n))).catch(() => null),
+            writeFrame: async ({ clip, dir: direction, n, png }) => {
+              const key = spriteFrameKey(clip, direction, n);
+              if (seen.has(key)) {
+                // The palette pass rewrites the image only; the metadata is already on disk.
+                const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${spriteFramePath(clip, direction, n)}`, data: png });
+                if (!written.ok) throw new Error(written.kind === 'error' ? written.message : 'Could not write a frame.');
+                return;
+              }
+              seen.add(key);
+              const meta = pending.get(key);
+              await writeFrame({ clip, dir: direction, n, png, ...(meta ? { meta } : {}) });
+            },
+          },
+          { referenceHeights },
+        );
+      }
+      return pipeline;
+    };
+    const pending = new Map<string, Partial<SpriteFrameMeta>>();
     try {
       const runner = deps.runJob;
       if (!runner) throw new Error(SPRITE_FRAME_SOURCES_PENDING);
@@ -409,18 +475,23 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         signal: job.controller.signal,
         clips,
         progress,
-        writeFrame: async ({ clip, dir: direction, n, png, meta }) => {
-          const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${spriteFramePath(clip, direction, n)}`, data: png });
-          if (!written.ok) throw new Error(written.kind === 'error' ? written.message : 'Could not write a frame.');
-          await writeFrameMeta(target, dir, (file) => {
-            file.frames[spriteFrameKey(clip, direction, n)] = { anchorNudge: [0, 0], flipped: false, source: 'generated', badges: [], ...meta };
-          });
-          frames += 1;
+        writeFrame,
+        submitFrame: async ({ clip, dir: direction, n, bytes, meta }) => {
+          const p = await pipelineFor();
+          if (meta) pending.set(spriteFrameKey(clip, direction, n), meta);
+          return p.process({ clip, dir: direction, n, bytes });
         },
       });
       if (job.controller.signal.aborted) end = 'cancelled';
     } catch (error) {
       end = job.controller.signal.aborted ? 'cancelled' : `failed:${error instanceof Error ? error.message : String(error)}`;
+    }
+    if (pipeline) {
+      try {
+        await finishPipeline(target, dir, pipeline);
+      } catch (error) {
+        if (end === 'done') end = `failed:${error instanceof Error ? error.message : String(error)}`;
+      }
     }
     running.delete(job.key);
     job.status.state = end === 'done' ? 'done' : end === 'cancelled' ? 'cancelled' : 'failed';

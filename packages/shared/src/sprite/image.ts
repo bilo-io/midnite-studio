@@ -1,4 +1,8 @@
+import { hexToRgb } from '../terrain/classes';
+import { rgbToLab } from '../terrain/classify';
 import type { RasterImage } from '../terrain/raster';
+
+export { hexToRgb };
 
 /**
  * The frame pipeline's picture: 8-bit RGBA, row-major, straight (not premultiplied) alpha. Pure typed
@@ -64,33 +68,16 @@ export function thresholdAlpha(img: RgbaImage, cut = 128): RgbaImage {
   return out;
 }
 
-export function hexToRgb(hex: string): Rgb {
-  const n = Number.parseInt(hex.replace('#', ''), 16);
-  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
-}
-
 export function rgbToHex([r, g, b]: Rgb): string {
   return `#${[r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** sRGB (0–255) → CIE L*a*b* (D65). */
-export function rgbToLab([r, g, b]: Rgb): Rgb {
-  const lin = (c: number) => {
-    const v = c / 255;
-    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  };
-  const R = lin(r), G = lin(g), B = lin(b);
-  const x = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
-  const y = R * 0.2126 + G * 0.7152 + B * 0.0722;
-  const z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
-  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
-  const fx = f(x), fy = f(y), fz = f(z);
-  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
-}
+/** sRGB (0–255) → CIE L*a*b* (D65), via the terrain kernel's converter. */
+export const labOf = ([r, g, b]: Rgb): Rgb => rgbToLab(r / 255, g / 255, b / 255);
 
 /** CIE76 ΔE between two sRGB colours. */
 export function deltaE(a: Rgb, b: Rgb): number {
-  const la = rgbToLab(a);
-  const lb = rgbToLab(b);
+  const la = labOf(a);
+  const lb = labOf(b);
   return Math.hypot(la[0] - lb[0], la[1] - lb[1], la[2] - lb[2]);
 }

@@ -222,6 +222,11 @@ export const SpriteFramesFileSchema = z.object({
   version: z.literal(1).default(1),
   /** Keyed `<clip>/<dir>/<n>`. */
   frames: z.record(SpriteFrameMetaSchema).default({}),
+  /**
+   * Per direction, the alpha-bounds height (source pixels) of the reference frame that set the sheet's
+   * scale (Theme B). Kept so regenerating one clip scales it exactly like the frames already on disk.
+   */
+  referenceHeights: z.record(z.number().positive()).default({}),
 });
 export type SpriteFramesFile = z.infer<typeof SpriteFramesFileSchema>;
 

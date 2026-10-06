@@ -1,4 +1,4 @@
-import { cloneRgba, hexToRgb, rgbToHex, rgbToLab, type Rgb, type RgbaImage } from './image';
+import { cloneRgba, hexToRgb, rgbToHex, labOf, type Rgb, type RgbaImage } from './image';
 
 /**
  * Pixel-art palettes. {@link medianCut} builds one palette over every frame of a sheet (so colours do
@@ -66,7 +66,7 @@ function isList(value: ArrayLike<number> | readonly ArrayLike<number>[]): value 
 export function mapToPalette(img: RgbaImage, palette: readonly string[]): RgbaImage {
   const out = cloneRgba(img);
   if (palette.length === 0) return out;
-  const entries = palette.map((hex) => ({ rgb: hexToRgb(hex), lab: rgbToLab(hexToRgb(hex)) }));
+  const entries = palette.map((hex) => ({ rgb: hexToRgb(hex), lab: labOf(hexToRgb(hex)) }));
   const cache = new Map<number, Rgb>();
   const d = out.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -74,7 +74,7 @@ export function mapToPalette(img: RgbaImage, palette: readonly string[]): RgbaIm
     const key = (d[i]! << 16) | (d[i + 1]! << 8) | d[i + 2]!;
     let hit = cache.get(key);
     if (!hit) {
-      const lab = rgbToLab([d[i]!, d[i + 1]!, d[i + 2]!]);
+      const lab = labOf([d[i]!, d[i + 1]!, d[i + 2]!]);
       let bestD = Infinity;
       for (const e of entries) {
         const dist = (lab[0] - e.lab[0]) ** 2 + (lab[1] - e.lab[1]) ** 2 + (lab[2] - e.lab[2]) ** 2;
