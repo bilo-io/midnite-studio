@@ -8,7 +8,7 @@
  * prints `midnite-ready` once the first scene has run a frame.
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 import { HOOK_VERSION, installHook, markReady } from '../core/hook.js';
 import { rng } from '../core/rng.js';
@@ -46,6 +46,8 @@ export function boot(options) {
 
   let paused = false;
   let manualTime = 0;
+  // Phaser's loop counts only frames it ran itself; steps taken while paused add to it.
+  let manualFrames = 0;
 
   const activeScene = () => game.scene.getScenes(true)[0] ?? null;
 
@@ -55,8 +57,8 @@ export function boot(options) {
       return {
         version: HOOK_VERSION,
         scene: scene?.scene.key ?? 'boot',
-        frame: game.loop.frame,
-        time: Math.max(0, Math.round(game.loop.time)),
+        frame: game.loop.frame + manualFrames,
+        time: Math.max(0, Math.round(paused ? manualTime : game.loop.time)),
         ...(scene?.kitState?.() ?? {}),
       };
     },
@@ -79,6 +81,7 @@ export function boot(options) {
       }
       for (let i = 0; i < Math.max(0, Math.floor(n)); i += 1) {
         manualTime += STEP_MS;
+        manualFrames += 1;
         game.step(manualTime, STEP_MS);
       }
     },

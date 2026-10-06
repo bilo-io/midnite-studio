@@ -7,7 +7,7 @@
  * the player moves in grid space (so movement keys go along the grid axes).
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 import { isoDepth, isoToScreen, pickTile } from '../../core/iso.js';
 import { presetConfig } from '../../core/preset-defaults.js';

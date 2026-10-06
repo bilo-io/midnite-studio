@@ -7,7 +7,7 @@
  * return their player's position). `switchScene` fades between scenes.
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 export class KitScene extends Phaser.Scene {
   /** @param {string} key */

@@ -6,7 +6,7 @@
  * pointer, and samples once per scene update so `justPressed` is per frame.
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 import { createInputMap } from '../core/input-map.js';
 

@@ -4,7 +4,7 @@
  * fps/frame-time overlay the runner toolbar toggles (`setOverlay`).
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 import { EPHEMERAL_SAVE_NOTICE } from '../core/save.js';
 

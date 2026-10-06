@@ -7,7 +7,7 @@
  * size. Walls are textured from a tile image when one is given (Phase 106 tiles,
  * one tile per wall id), flat-shaded otherwise; billboard sprites are depth-
  * tested against each column's wall distance; door cells slide open; a minimap
- * sits in the corner.
+ * sits in the bottom-left corner.
  */
 
 import { castRay, castRays, projectSprite } from '../../core/raycast.js';
@@ -127,17 +127,19 @@ export function createRaycaster(scene, config) {
 
   function drawMinimap() {
     const cell = 3;
+    // Bottom-left, clear of the HUD's top-left score and health lines.
+    const top = H - 4 - map.length * cell;
     ctx.globalAlpha = 0.75;
     for (let y = 0; y < map.length; y += 1) {
       const row = map[y] ?? [];
       for (let x = 0; x < row.length; x += 1) {
         const value = row[x] ?? 0;
         ctx.fillStyle = value === 0 ? '#111' : value === cfg.doorCell ? '#a07040' : '#bbb';
-        ctx.fillRect(4 + x * cell, 4 + y * cell, cell, cell);
+        ctx.fillRect(4 + x * cell, top + y * cell, cell, cell);
       }
     }
     ctx.fillStyle = '#6ea8ff';
-    ctx.fillRect(4 + pos.x * cell - 1, 4 + pos.y * cell - 1, 2, 2);
+    ctx.fillRect(4 + pos.x * cell - 1, top + pos.y * cell - 1, 2, 2);
     ctx.globalAlpha = 1;
   }
 
