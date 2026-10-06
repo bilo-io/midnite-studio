@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ModelSpecSchema, type ModelSpec } from '../../media-model';
 import { applyConversion, convertToSculptMesh, revertSculptToParts } from '../convert';
@@ -8,6 +8,9 @@ import { decodeMeshBin, encodeMeshBin, MESH_GROUP_NONE } from './mesh-bin';
 import { EditableMesh } from './editable-mesh';
 import { surfaceNets } from './surface-nets';
 import { pointTriangleDistSq, RemeshError, voxelRemesh } from './voxel-remesh';
+
+// Remeshes cost hundreds of ms alone; leave headroom for a loaded gate.
+vi.setConfig({ testTimeout: 30_000 });
 
 const spec = (parts: unknown[]): ModelSpec => ModelSpecSchema.parse({ name: 'test', parts });
 
