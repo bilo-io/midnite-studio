@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative } from 'node:path';
 
 import {
@@ -90,7 +90,8 @@ export function createTerrainTools(deps: TerrainMcpDeps) {
   async function repoFor(repoPath: string): Promise<{ repoId: string; repoRoot: string }> {
     const resolved = await deps.resolveRepo(repoPath);
     if (!resolved.ok) throw new McpToolError(resolved.kind, resolved.message);
-    return resolved;
+    // Real path: the media jail answers in real paths, so a symlinked checkout must compare like with like.
+    return { repoId: resolved.repoId, repoRoot: await realpath(resolved.repoRoot).catch(() => resolved.repoRoot) };
   }
 
   /** A target resolved to ids and the terrain's folder; a terrain that is not there is a not-found, never a throw from deeper in. */
