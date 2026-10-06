@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 107 Theme H — 2D genre starters
+
+FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with named engine-free systems under `kit/core/genre/` and a shared `kit/phaser/world2d.js` so RTS, ARPG and crime run top-down and isometric from one module. `GAME_GENRES_AVAILABLE` lists the four, so their gallery cells are creatable. `composeStarter` ships only the chosen genre's systems. Kit 0.4.0; `boot()` no longer leaves a blank canvas over the game.
+
+- [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+
 ## 2026-10-06 — Phase 106 Theme B — Sprite frame pipeline
 
 Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #747](https://github.com/bilo-io/midnite-studio/pull/747).
