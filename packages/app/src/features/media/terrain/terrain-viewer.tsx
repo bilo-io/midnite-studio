@@ -111,21 +111,32 @@ function debugMaterial(mode: 'height' | 'slope', heightRange: readonly [number, 
   });
 }
 
+/**
+ * A raster from `build/`, written with image row = +z (`pixelToWorld`). Chunk UVs run v = gz / (res − 1),
+ * so the image must not be flipped: three's default `flipY` would mirror every drape, mask and land-cover
+ * map in z against the heightfield — and against roads.json, buildings.json and foliage.json (G + H).
+ */
+function buildTexture(url: string) {
+  const texture = new TextureLoader().load(url);
+  texture.flipY = false;
+  return texture;
+}
+
 function mapMaterial(url: string): MeshBasicMaterial {
-  const map = new TextureLoader().load(url);
+  const map = buildTexture(url);
   map.magFilter = NearestFilter;
   return new MeshBasicMaterial({ map, side: DoubleSide });
 }
 
 function drapeMaterial(url: string): MeshStandardMaterial {
-  const map = new TextureLoader().load(url);
+  const map = buildTexture(url);
   map.generateMipmaps = true;
   map.anisotropy = 16;
   return new MeshStandardMaterial({ map, roughness: 0.95, side: DoubleSide });
 }
 
 function landcoverMaterial(url: string): ShaderMaterial {
-  const map = new TextureLoader().load(url);
+  const map = buildTexture(url);
   map.magFilter = NearestFilter;
   map.minFilter = NearestFilter;
   const colours = TERRAIN_CLASSES.map((cls) => new Color(TERRAIN_CLASS_COLOURS[cls]));
@@ -505,8 +516,8 @@ export default function TerrainViewer({
     if (shading === 'height' || shading === 'slope') return debugMaterial(shading, range);
     if (shading === 'landcover') return landcoverMaterial(`${base}/landcover.png?v=${encodeURIComponent(version)}`);
     if (shading === 'splat') {
-      const splatMap = new TextureLoader().load(`${base}/splat.png?v=${encodeURIComponent(version)}`);
-      const drapeMap = spec.inputs.satellite ? new TextureLoader().load(`${base}/drape.png?v=${encodeURIComponent(version)}`) : null;
+      const splatMap = buildTexture(`${base}/splat.png?v=${encodeURIComponent(version)}`);
+      const drapeMap = spec.inputs.satellite ? buildTexture(`${base}/drape.png?v=${encodeURIComponent(version)}`) : null;
       const grassAlbedo = new TextureLoader().load(`${base}/materials/grass/albedo.png`);
       const rockAlbedo = new TextureLoader().load(`${base}/materials/rock/albedo.png`);
       const dirtAlbedo = new TextureLoader().load(`${base}/materials/dirt/albedo.png`);
