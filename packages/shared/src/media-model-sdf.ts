@@ -84,7 +84,7 @@ export type SdfModifier =
 export type SdfNode = SdfPrimitive | SdfOperator | SdfModifier;
 
 const vec3Len = z.tuple([len, len, len]);
-const children = z.lazy(() => z.array(SdfNodeSchema).min(1).max(32));
+const children = z.lazy(() => z.array(SdfNodeSchema).min(1, 'an operator needs at least 1 child; remove the operator instead').max(32));
 const child = z.lazy(() => z.array(SdfNodeSchema).length(1, 'a modifier wraps exactly one node'));
 
 export const SdfNodeSchema: z.ZodType<SdfNode> = z.lazy(() =>

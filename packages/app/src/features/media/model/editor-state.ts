@@ -110,6 +110,8 @@ export type EditorAction =
   | { type: 'convert'; spec: ModelSpec; partId: string }
   /** Theme B: drop the `sculpt` part at `index` and un-hide the primitives it was converted from. */
   | { type: 'revertSculpt'; index: number }
+  /** Theme C: adopt the design an SDF bake produced (a new or re-baked `sculpt` part at `index`) as one undo step, and select it. */
+  | { type: 'sdf'; spec: ModelSpec; index: number }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'markSaved' }
@@ -258,6 +260,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const at = action.spec.parts.findIndex((p) => p.id === action.partId);
       return commit(state, action.spec, at >= 0 ? [at] : []);
     }
+    case 'sdf':
+      return commit(state, action.spec, action.spec.parts[action.index] ? [action.index] : []);
     case 'revertSculpt': {
       const id = state.spec.parts[action.index]?.id;
       const reverted = id ? revertSculptToParts(state.spec, id) : null;

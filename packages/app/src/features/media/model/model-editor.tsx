@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber';
+import type { ModelSpec } from '@midnite/studio-shared';
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type KeyboardEvent } from 'react';
 import {
   LuAxis3D,
@@ -26,6 +27,7 @@ import { EditorScene, type MeasurePoints, type ShadeMode, type TransformMode } f
 import { DEFAULT_LIGHTING, LIGHTING_PRESETS, lightingById } from './lighting';
 import { ModelInspector } from './model-inspector';
 import type { ConvertFn } from './mesh-panel';
+import type { SdfBaker } from './sculpt/use-sdf';
 import { RigOverlay } from './rig-overlay';
 import { clipNamed, poseAt, posedScene, rigModel } from './rig-pose';
 import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
@@ -75,6 +77,7 @@ export default function ModelEditor({
   saving,
   retargetSources,
   onConvert,
+  sdfBaker,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
@@ -84,6 +87,8 @@ export default function ModelEditor({
   retargetSources?: readonly RetargetSource[];
   /** Voxel-remeshes the design's primitives into a `sculpt` part (Phase 104 Theme B). */
   onConvert?: ConvertFn;
+  /** Bakes signed-distance trees into sculpt parts (Phase 104 Theme C); the SDF tab shows only with it. */
+  sdfBaker?: SdfBaker;
 }) {
   const [mode, setMode] = useState<TransformMode>('translate');
   const [shade, setShade] = useState<ShadeMode>('solid');
@@ -105,8 +110,12 @@ export default function ModelEditor({
   const { spec, selection } = state;
   // An imported mesh (an SF3D result) that finishes loading changes the epoch, and the scene rebuilds.
   const assetEpoch = useModelAssetEpoch();
+  // A live SDF preview (Theme C) is drawn instead of the design while a blend slider is dragged — viewport only, never history.
+  const [sdfPreview, setSdfPreview] = useState<ModelSpec | null>(null);
+  useEffect(() => setSdfPreview(null), [spec]);
+  const shown = sdfPreview ?? spec;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the epoch is the registry's version, read inside editorScene
-  const scene = useMemo(() => editorScene(spec), [spec, assetEpoch]);
+  const scene = useMemo(() => editorScene(shown), [shown, assetEpoch]);
   const lighting = lightingById(lightingId);
 
   // Rig, pose and playback (view state only — never in the design or its history).
@@ -328,6 +337,7 @@ export default function ModelEditor({
         dispatch={dispatch}
         issues={errors}
         {...(onConvert ? { onConvert } : {})}
+        {...(sdfBaker ? { sdf: { baker: sdfBaker, onPreview: setSdfPreview } } : {})}
         rig={{ view: rigView, onView: onRigView, model: rigged, scene, ...(retargetSources ? { sources: retargetSources } : {}) }}
       />
     </div>
