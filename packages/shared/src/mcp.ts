@@ -510,7 +510,7 @@ export const MCP_TOOLS = {
     id: 'model_sdf_set',
     title: 'Set an SDF shape',
     description:
-      'Blocks out an organic form as a signed-distance tree (primitives, smooth booleans, modifiers) and bakes it into a sculpt part; refused unless its own Settings switch is on.',
+      'Blocks out an organic form as a signed-distance `tree` (primitives, smooth booleans, modifiers) baked into a sculpt part — use instead of stacking primitives; refused unless its own Settings switch is on.',
     input: ModelSdfSetInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
@@ -519,7 +519,7 @@ export const MCP_TOOLS = {
     id: 'model_sdf_patch',
     title: 'Edit an SDF shape',
     description:
-      'Adds, updates, moves, wraps or removes an SDF part’s nodes by name and re-bakes it — use instead of resending the tree; refused unless its own Settings switch is on.',
+      'Adds, updates, moves, wraps or removes an SDF part’s nodes by name and re-bakes it — use instead of resending the tree to `model_sdf_set`; refused unless its own Settings switch is on.',
     input: ModelSdfPatchInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
@@ -528,7 +528,7 @@ export const MCP_TOOLS = {
     id: 'model_sdf_bake',
     title: 'Re-bake an SDF shape',
     description:
-      'Re-bakes an SDF part’s tree at another resolution (16–256), e.g. finer once the form is right; refused unless its own Settings switch is on.',
+      'Rebakes an SDF part’s tree at another `resolution` (16–256), finer once the form is right — use instead of resending it to `model_sdf_set`; refused unless its own Settings switch is on.',
     input: ModelSdfBakeInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
