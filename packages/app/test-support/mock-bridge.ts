@@ -975,7 +975,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -3798,7 +3798,7 @@ export function buildMockBridge(data: MockFixtures) {
               detected: '#00ffff',
             },
           }),
-          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          export: async (req: { terrain: string; format: string; dest: string }) => ({ ok: true as const, value: { path: `${req.dest}/${req.terrain}.${req.format === 'glb' ? 'glb' : 'terrain'}`, bytes: 1024 } }),
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);
             return () => listeners.progress.delete(handler);
@@ -5054,6 +5054,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowGateDecide: mcpAllowGateDecide,
         allowModels: mcpAllowModels,
         allowGames: mcpAllowGames,
+        allowTerrains: mcpAllowTerrains,
       }),
       set: async (req: {
         enabled?: boolean;
@@ -5061,12 +5062,14 @@ export function buildMockBridge(data: MockFixtures) {
         allowGateDecide?: boolean;
         allowModels?: boolean;
         allowGames?: boolean;
+        allowTerrains?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
         if (req.allowModels !== undefined) mcpAllowModels = req.allowModels;
         if (req.allowGames !== undefined) mcpAllowGames = req.allowGames;
+        if (req.allowTerrains !== undefined) mcpAllowTerrains = req.allowTerrains;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -5079,6 +5082,7 @@ export function buildMockBridge(data: MockFixtures) {
           allowGateDecide: mcpAllowGateDecide,
           allowModels: mcpAllowModels,
           allowGames: mcpAllowGames,
+          allowTerrains: mcpAllowTerrains,
         };
       },
       calls: async () => ({
@@ -5290,6 +5294,9 @@ export function buildMockBridge(data: MockFixtures) {
   // Phase 107 Theme D's fifth switch — same off-by-default posture.
   // eslint-disable-next-line no-var
   var mcpAllowGames = data.mcp?.allowGames ?? false;
+  // Phase 105 Theme J's sixth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowTerrains = data.mcp?.allowTerrains ?? false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {

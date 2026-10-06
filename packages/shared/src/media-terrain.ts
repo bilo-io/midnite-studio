@@ -368,8 +368,76 @@ export const TerrainRoadKeyResultSchema = z.object({
 });
 export type TerrainRoadKeyResult = z.infer<typeof TerrainRoadKeyResultSchema>;
 
-/** Theme I owns export; until it lands it answers {@link TERRAIN_NOT_AVAILABLE}. */
-export const TerrainExportRequestSchema = TerrainTargetSchema.passthrough();
+// --- export (Theme I) -----------------------------------------------------------
+
+export const TERRAIN_EXPORT_FORMATS = ['terrain-pack', 'glb'] as const;
+export const TERRAIN_EXPORT_TEXTURES = ['drape', 'splat-bake', 'none'] as const;
+export type TerrainExportTexture = (typeof TERRAIN_EXPORT_TEXTURES)[number];
+
+/** Export options; `dest` is the folder the pack or glb is written into (the toolbar picks it). */
+export const TerrainExportRequestSchema = TerrainTargetSchema.extend({
+  format: z.enum(TERRAIN_EXPORT_FORMATS).default('terrain-pack'),
+  dest: z.string().min(1),
+  /** The glb's chunk LOD, 0 (finest) to 3. */
+  lod: z.number().int().min(0).max(3).default(1),
+  texture: z.enum(TERRAIN_EXPORT_TEXTURES).default('drape'),
+  foliage: z.boolean().default(true),
+  roads: z.boolean().default(true),
+  buildings: z.boolean().default(true),
+});
+export type TerrainExportRequest = z.input<typeof TerrainExportRequestSchema>;
+export type TerrainExportOptions = z.output<typeof TerrainExportRequestSchema>;
+export const TerrainExportResultSchema = z.object({ path: z.string(), bytes: z.number().int().nonnegative() });
+export type TerrainExportResult = z.infer<typeof TerrainExportResultSchema>;
+
+export const TERRAIN_MANIFEST_FILE = 'terrain.manifest.json';
+export const terrainExistsMessage = (name: string): string => `${name} already exists in that folder.`;
+
+const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
+const RelPath = z.string().min(1);
+const MaterialTile = z.object({ albedo: RelPath, normal: RelPath });
+
+/**
+ * `terrain.manifest.json` — the contract Phase 107's three.js kit loads. Every path is relative to the
+ * manifest's own folder. `version` bumps only on a breaking change; readers ignore unknown keys.
+ */
+export const TerrainManifestSchema = z.object({
+  version: z.literal(1),
+  name: z.string(),
+  generator: z.literal('midnite-studio'),
+  worldSize: z.number().positive(),
+  heightRange: z.tuple([z.number(), z.number()]),
+  bounds: z.object({ min: Vec3, max: Vec3 }),
+  heightfield: z.object({ png: RelPath, json: RelPath }),
+  chunks: z.object({
+    verts: z.number().int().positive(),
+    perSide: z.number().int().positive(),
+    lods: z.array(z.object({ lod: z.number().int().min(0).max(3), glb: RelPath })),
+  }),
+  maps: z.object({
+    drape: RelPath.optional(),
+    splat: RelPath.optional(),
+    landcover: RelPath.optional(),
+    landcoverLegend: RelPath.optional(),
+  }),
+  materials: z.object({ grass: MaterialTile, rock: MaterialTile, dirt: MaterialTile, snow: MaterialTile }).optional(),
+  foliage: RelPath.optional(),
+  buildings: RelPath.optional(),
+  roads: RelPath.optional(),
+  foliageAssets: z.array(z.object({ name: z.string(), glb: RelPath })).optional(),
+});
+export type TerrainManifest = z.infer<typeof TerrainManifestSchema>;
+
+/** `heightfield.json`: what a physics heightfield collider needs beside `heightfield.png`. */
+export const TerrainHeightfieldJsonSchema = z.object({
+  version: z.literal(1),
+  resolution: z.number().int().positive(),
+  worldSize: z.number().positive(),
+  heightRange: z.tuple([z.number(), z.number()]),
+  rowMajor: z.literal('z'),
+  origin: z.literal('centre'),
+});
+export type TerrainHeightfieldJson = z.infer<typeof TerrainHeightfieldJsonSchema>;
 
 export const TerrainProgressEventSchema = z.object({
   buildId: z.string(),
@@ -397,6 +465,7 @@ export const TerrainResultSchemas = {
   setInput: GitOpResultOf(TerrainSetInputResultSchema),
   build: GitOpResultOf(TerrainBuildResultSchema),
   roadKey: GitOpResultOf(TerrainRoadKeyResultSchema),
+  export: GitOpResultOf(TerrainExportResultSchema),
   generic: GitOpResultSchema,
 } as const;
 

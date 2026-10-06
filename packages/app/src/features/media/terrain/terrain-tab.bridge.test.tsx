@@ -1,11 +1,13 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
+import { useToastStore } from '../../../store/toast-store';
 import { useUiStore } from '../../../store/ui-store';
 import { MediaView } from '../media-view';
+import { useTerrainOpenRequest } from './use-terrain-agent-events';
 
 /**
  * Media ▸ Terrain through the mock bridge (vitest/jsdom is enough: no WebGL, no layout). The tab is
@@ -151,5 +153,37 @@ describe('Terrain tab', () => {
     fireEvent.blur(world);
     await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
     expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { worldSize: 2048 } });
+  });
+
+  it('exports the pack to a picked folder and toasts the path', async () => {
+    open({ ...seeded(spec({ inputs: { heightmap: input } })), pickDirectoryResult: '/tmp/out' });
+    fireEvent.click(await within(explorer()).findByRole('button', { name: 'dunes' }));
+    const panel = await screen.findByTestId('terrain-panel');
+    fireEvent.click(await within(panel).findByRole('button', { name: 'Generate' }));
+    await screen.findByTestId('viewer-stub');
+    const exportCall = vi.spyOn(window.midniteStudio!.media.terrain, 'export');
+    fireEvent.click(screen.getByRole('button', { name: /Export Terrain pack/ }));
+    await waitFor(() => expect(exportCall).toHaveBeenCalledTimes(1));
+    expect(exportCall.mock.calls[0]![0]).toMatchObject({ format: 'terrain-pack', dest: '/tmp/out', lod: 1, texture: 'drape', foliage: true });
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts).toContainEqual(
+        expect.objectContaining({ message: 'Exported to /tmp/out/dunes-20261004-120000.terrain', status: 'success', action: expect.objectContaining({ label: 'Reveal' }) }),
+      ),
+    );
+  });
+
+  it('keeps Export disabled until the terrain is built', async () => {
+    open();
+    fireEvent.click(await within(explorer()).findByRole('button', { name: 'dunes' }));
+    await screen.findByTestId('terrain-panel');
+    expect((screen.getByRole('button', { name: /Export Terrain pack/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('terrain_open from an agent selects that terrain', async () => {
+    open();
+    await within(explorer()).findByRole('button', { name: 'dunes' });
+    act(() => useTerrainOpenRequest.getState().open({ repoId: 'repo-1', project: 'terrains', terrain: 'dunes-20261004-120000' }));
+    expect(await screen.findByTestId('terrain-panel')).toBeTruthy();
+    expect(useTerrainOpenRequest.getState().request).toBeNull();
   });
 });
