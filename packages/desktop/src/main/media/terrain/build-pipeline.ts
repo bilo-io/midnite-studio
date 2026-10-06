@@ -6,6 +6,20 @@ import {
   chunkLayout,
   classify,
   chunksPerSide,
+  conformRoads,
+  detectRoadColour,
+  edgeWidth,
+  extractFootprints,
+  extractRoadMask,
+  flattenFootprints,
+  maskIoU,
+  reseatFoliage,
+  roadGraphFromMask,
+  scatterFoliage,
+  TERRAIN_CLASS_INDICES,
+  builtInFoliageDesign,
+  DEFAULT_FOLIAGE_ASSETS,
+  toRoadsFile,
   chunkVerts,
   erode,
   fbmField,
@@ -23,8 +37,10 @@ import {
   type RasterImage,
   type TerrainAlignment,
   type TerrainBuildStage,
+  type TerrainBuildingsFile,
   type TerrainChunksFile,
   type TerrainClass,
+  type TerrainFoliageFile,
   type TerrainSpec,
   type TerrainStats,
 } from '@midnite/studio-shared';
@@ -41,6 +57,10 @@ import { terrainMaterialsDir } from './materials-path';
  * - `drape`: resample satellite image into drape.png
  * - `landcover`: classify satellite drape into landcover.png + landcover.json
  * - `splat`: compute splat weights into splat.png and copy material tiles
+ * - `roads`: key the roads mask, skeletonise it into a graph (roads-mask.png)
+ * - `conform`: flatten the field along the roads, then write roads.json off the conformed ground
+ * - `foliage`: Poisson-disk scatter on the tree / grass classes (foliage.json)
+ * - `buildings`: footprints from the building class, flattened under (buildings.json)
  * - `write`: write heights.f32 and chunks.json
  */
 export type BuildJob = { dir: string; outDir: string; spec: TerrainSpec };
@@ -55,6 +75,14 @@ export function plannedStages(spec: TerrainSpec): TerrainBuildStage[] {
     stages.push('drape');
     stages.push('landcover');
     stages.push('splat');
+  }
+  if (spec.inputs.roads) {
+    stages.push('roads');
+    stages.push('conform');
+  }
+  if (spec.inputs.satellite) {
+    stages.push('foliage');
+    stages.push('buildings');
   }
   stages.push('write');
   return stages;
@@ -79,13 +107,13 @@ export async function runTerrainBuild(
   } else {
     field = noiseHeightfield(spec, onProgress);
   }
-  const stats = heightfieldStats(field);
-
   const out = join(job.dir, job.outDir);
   await rm(out, { recursive: true, force: true });
   await mkdir(out, { recursive: true });
 
   let classPercent: Record<TerrainClass, number> | undefined;
+  /** The land cover, kept for the foliage and buildings stages. */
+  let landcover: { classes: Uint8Array; res: number } | undefined;
 
   // Theme E & F: Satellite drape, land-cover classification and splat materials
   if (spec.inputs.satellite) {
@@ -134,6 +162,7 @@ export async function runTerrainBuild(
     });
 
     await writeFile(join(out, 'landcover.png'), encodePngGrey8(classes, classifyRes, classifyRes));
+    landcover = { classes, res: classifyRes };
 
     // Calculate class percentages
     const counts = new Uint32Array(TERRAIN_CLASSES.length);
@@ -170,6 +199,82 @@ export async function runTerrainBuild(
     onProgress('splat', 1);
   }
 
+  // Theme H: roads, then the conform under them.
+  let roadStats: Pick<TerrainStats, 'roadCount' | 'roadLengthM' | 'roadAgreement'> = {};
+  /** The cleaned roads mask at the land cover's resolution, so foliage keeps off the roads too. */
+  let roadsOnLandcover: Uint8Array | undefined;
+  if (spec.inputs.roads) {
+    onProgress('roads', 0);
+    const bytes = await readFile(join(job.dir, spec.inputs.roads.file)).catch(() => {
+      throw new TerrainBuildError('The roads mask file is missing — attach it again.');
+    });
+    const decoded = decodePng(bytes);
+    if (!decoded.ok) throw new TerrainBuildError(decoded.message);
+    const roadsAlignment = spec.alignment.roads === 'satellite' ? (spec.alignment.satellite ?? IDENTITY_ALIGNMENT) : spec.alignment.roads;
+    const roadsRes = Math.min(spec.textureSize, 2048);
+    const colour = spec.roads.colour ?? detectRoadColour(decoded.image).colour;
+    const { raster } = resampleDrape(decoded.image, roadsRes, roadsAlignment);
+    const { graph, mask, mPerPx } = roadGraphFromMask(extractRoadMask(raster, colour, spec.roads.tolerance), roadsRes, {
+      worldSize: spec.worldSize,
+      spurMinM: spec.roads.spurMinM,
+      widthClampM: spec.roads.widthClampM,
+    });
+    const preview = new Uint8Array(mask.length);
+    for (let i = 0; i < mask.length; i += 1) preview[i] = mask[i] ? 255 : 0;
+    await writeFile(join(out, 'roads-mask.png'), encodePngGrey8(preview, roadsRes, roadsRes));
+    if (graph.edges.length === 0) warnings.push('No roads found in the roads mask — check the road colour and tolerance.');
+    onProgress('roads', 1);
+
+    onProgress('conform', 0);
+    const widthOpts = { mPerPx, widthScale: spec.roads.widthScale, widthClampM: spec.roads.widthClampM };
+    const conformed = conformRoads(
+      field,
+      graph.edges.map((e) => ({ id: e.id, path: e.path, widthM: edgeWidth(e, widthOpts) })),
+      { blendM: spec.roads.blendM, maxCutFillM: spec.roads.maxCutFillM },
+    );
+    field = conformed.field;
+    warnings.push(...conformed.warnings);
+    const roadsFile = toRoadsFile(graph, field, widthOpts);
+    await writeFile(join(out, 'roads.json'), JSON.stringify(roadsFile));
+    roadStats = {
+      roadCount: roadsFile.edges.length,
+      roadLengthM: Math.round(roadsFile.edges.reduce((sum, e) => sum + e.lengthM, 0)),
+    };
+    if (landcover) {
+      roadsOnLandcover = resampleMask(mask, roadsRes, landcover.res);
+      const satelliteRoads = landcover.classes.map((c) => (c === TERRAIN_CLASS_INDICES.road ? 1 : 0));
+      roadStats.roadAgreement = Math.round(maskIoU(satelliteRoads, roadsOnLandcover) * 1000) / 1000;
+    }
+    onProgress('conform', 1);
+  }
+
+  // Theme G: foliage and buildings, both read off the land cover.
+  let foliageCount: number | undefined;
+  let buildingCount: number | undefined;
+  if (landcover) {
+    onProgress('foliage', 0);
+    const foliageOpts = { ...spec.foliage, assets: resolveFoliageAssets(spec.foliage.assets, warnings) };
+    const scattered = scatterFoliage(landcover.classes, landcover.res, field, foliageOpts, roadsOnLandcover);
+    warnings.push(...scattered.warnings);
+    onProgress('foliage', 1);
+
+    onProgress('buildings', 0);
+    const footprints = extractFootprints(landcover.classes, landcover.res, spec.worldSize, field, spec.buildings);
+    warnings.push(...footprints.warnings);
+    // Buildings flatten after the roads, so a building never re-tilts a road.
+    const flattened = flattenFootprints(field, footprints.buildings, spec.buildings.flattenBlendM);
+    field = flattened.field;
+    const buildingsFile: TerrainBuildingsFile = { version: 1, buildings: flattened.buildings };
+    await writeFile(join(out, 'buildings.json'), JSON.stringify(buildingsFile));
+    // The flatten moved ground near the footprints: sit every plant back on it.
+    const foliageFile: TerrainFoliageFile = { version: 1, assets: scattered.assets, instances: roundInstances(reseatFoliage(scattered.instances, field)) };
+    await writeFile(join(out, 'foliage.json'), JSON.stringify(foliageFile));
+    foliageCount = foliageFile.instances.length;
+    buildingCount = buildingsFile.buildings.length;
+    onProgress('buildings', 1);
+  }
+
+  const stats = heightfieldStats(field);
   onProgress('write', 0);
   await writeFile(join(out, 'heights.f32'), Buffer.from(field.heights.buffer, field.heights.byteOffset, field.heights.byteLength));
   const chunks = chunkLayout(field);
@@ -197,8 +302,49 @@ export async function runTerrainBuild(
     maxHeight: stats.max,
     histogram: stats.histogram,
     classPercent,
+    ...roadStats,
+    buildingCount,
+    foliageCount,
     warnings,
   };
+}
+
+const IDENTITY_ALIGNMENT: TerrainAlignment = { offset: [0, 0], scale: [1, 1], rotationDeg: 0 };
+
+/**
+ * Built-in designs pass; anything else (a Models library path) is not loadable by the build yet,
+ * so it falls back to the class's built-in defaults with a warning.
+ */
+function resolveFoliageAssets(
+  assets: TerrainSpec['foliage']['assets'],
+  warnings: string[],
+): Record<'tree' | 'grass', string[]> {
+  const resolved = { ...DEFAULT_FOLIAGE_ASSETS };
+  for (const cls of ['tree', 'grass'] as const) {
+    const wanted = assets?.[cls];
+    if (!wanted || wanted.length === 0) continue;
+    const known = wanted.filter((id) => builtInFoliageDesign(id));
+    for (const id of wanted) if (!builtInFoliageDesign(id)) warnings.push(`Foliage asset "${id}" is not available; using the built-in ${cls} designs.`);
+    resolved[cls] = known.length > 0 ? known : DEFAULT_FOLIAGE_ASSETS[cls];
+  }
+  return resolved;
+}
+
+/** Centimetre positions and milliradian yaw keep 200 000 instances compact on disk. */
+function roundInstances(instances: TerrainFoliageFile['instances']): TerrainFoliageFile['instances'] {
+  const r = (v: number, k: number): number => Math.round(v * k) / k;
+  return instances.map(([a, x, y, z, yaw, scale]) => [a, r(x, 100), r(y, 100), r(z, 100), r(yaw, 1000), r(scale, 1000)]);
+}
+
+/** Nearest-neighbour resize of a square binary mask. */
+function resampleMask(mask: Uint8Array, from: number, to: number): Uint8Array {
+  if (from === to) return mask;
+  const out = new Uint8Array(to * to);
+  for (let y = 0; y < to; y += 1) {
+    const sy = Math.min(from - 1, Math.floor(((y + 0.5) * from) / to));
+    for (let x = 0; x < to; x += 1) out[y * to + x] = mask[sy * from + Math.min(from - 1, Math.floor(((x + 0.5) * from) / to))]!;
+  }
+  return out;
 }
 
 async function heightfieldFromImage(

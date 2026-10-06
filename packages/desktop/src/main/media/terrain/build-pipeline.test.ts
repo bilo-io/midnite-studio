@@ -2,10 +2,18 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { parseTerrainSpec, TerrainChunksFileSchema, type TerrainBuildStage } from '@midnite/studio-shared';
+import {
+  parseTerrainSpec,
+  TERRAIN_CLASS_INDICES,
+  TerrainBuildingsFileSchema,
+  TerrainChunksFileSchema,
+  TerrainFoliageFileSchema,
+  TerrainRoadsFileSchema,
+  type TerrainBuildStage,
+} from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { encodePngGrey16, encodePngRgba8 } from '../png/png-codec';
+import { encodePngGrey16, encodePngGrey8, encodePngRgba8 } from '../png/png-codec';
 import { plannedStages, runTerrainBuild } from './build-pipeline';
 
 let dir: string;
@@ -71,6 +79,12 @@ describe('runTerrainBuild', () => {
     const noisy = parseTerrainSpec({ noise: { seed: 1, erosion: { iterations: 100 } } });
     expect(plannedStages(noisy)).toEqual(['heightfield', 'erosion', 'write']);
     expect(plannedStages(parseTerrainSpec({ noise: { seed: 1, erosion: { iterations: 0 } } }))).toEqual(['heightfield', 'write']);
+    const roads = { file: 'inputs/roads.png', sourceName: 'r.png', width: 4, height: 4, bitDepth: 8 };
+    const satellite = { file: 'inputs/satellite.png', sourceName: 's.png', width: 4, height: 4, bitDepth: 8 };
+    expect(plannedStages(parseTerrainSpec({ noise: { seed: 1, erosion: { iterations: 0 } }, inputs: { roads } }))).toEqual(['heightfield', 'roads', 'conform', 'write']);
+    expect(plannedStages(parseTerrainSpec({ noise: { seed: 1, erosion: { iterations: 0 } }, inputs: { roads, satellite } }))).toEqual([
+      'heightfield', 'drape', 'landcover', 'splat', 'roads', 'conform', 'foliage', 'buildings', 'write',
+    ]);
   });
 
   it('builds a noise terrain with no heightmap, reproducibly from its seed', async () => {
@@ -127,5 +141,61 @@ describe('runTerrainBuild', () => {
     const splatBuf = await readFile(join(dir, 'out', 'splat.png'));
     expect(splatBuf.length).toBeGreaterThan(0);
   }, 15_000);
-});
 
+  it('traces roads, scatters foliage off them and raises a building (Themes G + H)', async () => {
+    const n = 8;
+    await writeFile(join(dir, 'inputs', 'heightmap.png'), encodePngGrey16(new Uint16Array(n * n).fill(32768), n, n));
+    await writeFile(join(dir, 'inputs', 'satellite.png'), encodePngRgba8(new Uint8Array(16 * 16 * 4).fill(128), 16, 16));
+    // A cyan road across the middle of a 256² mask: 4 px → ~16 m at 1000 m / 1024 px.
+    const roads = new Uint8Array(256 * 256 * 4);
+    for (let y = 0; y < 256; y += 1) {
+      for (let x = 0; x < 256; x += 1) roads.set(y >= 126 && y < 130 && x >= 8 && x < 248 ? [0, 255, 255, 255] : [0, 0, 0, 255], (y * 256 + x) * 4);
+    }
+    await writeFile(join(dir, 'inputs', 'roads.png'), encodePngRgba8(roads, 256, 256));
+    // The class brush's override layer decides the land cover: grass everywhere, one 40 px building.
+    const res = 1024;
+    const overrides = new Uint8Array(res * res).fill(TERRAIN_CLASS_INDICES.grass + 1);
+    for (let y = 200; y < 240; y += 1) for (let x = 200; x < 240; x += 1) overrides[y * res + x] = TERRAIN_CLASS_INDICES.building + 1;
+    await mkdir(join(dir, 'overrides'));
+    await writeFile(join(dir, 'overrides', 'landcover.png'), encodePngGrey8(overrides, res, res));
+
+    const spec = specFor(n, n, 16, {
+      inputs: {
+        heightmap: { file: 'inputs/heightmap.png', sourceName: 'h.png', width: n, height: n, bitDepth: 16 },
+        satellite: { file: 'inputs/satellite.png', sourceName: 's.png', width: 16, height: 16, bitDepth: 8 },
+        roads: { file: 'inputs/roads.png', sourceName: 'r.png', width: 256, height: 256, bitDepth: 8 },
+      },
+      textureSize: 1024,
+      foliage: { treeDensity: 0, grassDensity: 0.5, margin: 2 },
+    });
+    const stages: TerrainBuildStage[] = [];
+    const stats = await runTerrainBuild({ dir, outDir: 'out', spec }, (s) => stages.push(s));
+    expect(stages).toEqual(expect.arrayContaining(['roads', 'conform', 'foliage', 'buildings']));
+
+    const read = async (f: string): Promise<unknown> => JSON.parse(await readFile(join(dir, 'out', f), 'utf8'));
+    const roadsFile = TerrainRoadsFileSchema.parse(await read('roads.json'));
+    expect(roadsFile.edges).toHaveLength(1);
+    const road = roadsFile.edges[0]!;
+    expect(road.widthM).toBeGreaterThan(12);
+    expect(road.widthM).toBeLessThan(20);
+    expect(road.kind).toBe('avenue');
+    expect(road.lengthM).toBeGreaterThan(800);
+
+    const foliage = TerrainFoliageFileSchema.parse(await read('foliage.json'));
+    expect(foliage.assets).toEqual(['pine', 'broadleaf', 'birch', 'grass-clump', 'bush']);
+    expect(foliage.instances.every(([asset]) => asset >= 3)).toBe(true);
+    expect(foliage.instances.length).toBeGreaterThan(100);
+    // Nothing grows on the road (centre z ≈ 0, half-width ~8 m, margin 2 m; it ends near |x| = 470 m).
+    for (const [, x, , z] of foliage.instances) if (Math.abs(x) < 450) expect(Math.abs(z)).toBeGreaterThan(8);
+
+    const buildings = TerrainBuildingsFileSchema.parse(await read('buildings.json'));
+    expect(buildings.buildings).toHaveLength(1);
+    expect(buildings.buildings[0]!.polygon).toHaveLength(4);
+    expect(buildings.buildings[0]!.baseY).toBeCloseTo(50, 0);
+
+    expect(stats).toMatchObject({ roadCount: 1, buildingCount: 1, foliageCount: foliage.instances.length });
+    expect(stats.roadLengthM).toBeGreaterThan(800);
+    expect(stats.roadAgreement).toBe(0);
+    expect((await readFile(join(dir, 'out', 'roads-mask.png'))).length).toBeGreaterThan(0);
+  }, 60_000);
+});

@@ -343,15 +343,28 @@ export const TerrainPaintRequestSchema = TerrainTargetSchema.extend({
 });
 export type TerrainPaintRequest = z.infer<typeof TerrainPaintRequestSchema>;
 
-/** Theme H: preview road mask extraction without full build. */
+/**
+ * Theme H: key the roads image without a build — the panel's live preview while the tolerance slider
+ * moves, and its eyedropper (`pick`, an image UV with a top-left origin, samples the colour there).
+ * Without `colour` or `pick`, the spec's colour (else the detected one) is used.
+ */
 export const TerrainRoadKeyRequestSchema = TerrainTargetSchema.extend({
   colour: Hex.optional(),
-  tolerance: z.number().min(0).max(1).default(0.25),
+  tolerance: z.number().min(0).max(1).optional(),
+  pick: z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]).optional(),
 });
 export type TerrainRoadKeyRequest = z.infer<typeof TerrainRoadKeyRequestSchema>;
 
+/** Side of the `roadKey` preview mask, pixels. */
+export const TERRAIN_ROAD_PREVIEW_SIZE = 512;
+
 export const TerrainRoadKeyResultSchema = z.object({
+  /** A {@link TERRAIN_ROAD_PREVIEW_SIZE}² greyscale PNG (white = road), base64 without a `data:` prefix. */
   pngBase64: z.string(),
+  /** The colour keyed on; `null` is the luminance fallback (no dominant hue). */
+  colour: Hex.nullable(),
+  /** What auto-detection found, so the panel can offer it back after a manual pick. */
+  detected: Hex.nullable(),
 });
 export type TerrainRoadKeyResult = z.infer<typeof TerrainRoadKeyResultSchema>;
 

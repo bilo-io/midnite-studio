@@ -3783,7 +3783,15 @@ export function buildMockBridge(data: MockFixtures) {
           },
           cancel: async () => ({ ok: true as const }),
           paint: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
-          roadKey: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          // A 1×1 black PNG: enough for the panel's preview <img> and the eyedropper round trip.
+          roadKey: async (req: { pick?: [number, number]; colour?: string }) => ({
+            ok: true as const,
+            value: {
+              pngBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==',
+              colour: req.pick ? '#00fefe' : (req.colour ?? '#00ffff'),
+              detected: '#00ffff',
+            },
+          }),
           export: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);

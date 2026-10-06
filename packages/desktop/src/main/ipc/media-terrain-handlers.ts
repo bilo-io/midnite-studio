@@ -15,7 +15,7 @@ import { mediaStore, notifyMediaChanged } from './media-handlers';
  * `terrain-worker`, a utility process, so a 4097² terrain never blocks a frame; everything here is
  * the thin Electron-bound shell around `main/media/terrain/terrain-service.ts`.
  *
- * `paint` (Theme F), `roadKey` (Theme H) and `export` (Theme I) are registered now and answer
+ * `export` (Theme I) is registered now and answers
  * "not available yet" — a half landing must never hang the renderer on an unregistered channel.
  */
 const broker = createTerrainBroker({
@@ -69,6 +69,6 @@ export function registerMediaTerrainHandlers(): void {
   handle(CHANNELS.mediaTerrainBuild, schemas.MediaTerrainBuildRequest, (req) => service.build(req), invalid);
   handle(CHANNELS.mediaTerrainCancel, schemas.MediaTerrainCancelRequest, ({ buildId }) => service.cancel(buildId), invalid);
   handle(CHANNELS.mediaTerrainPaint, schemas.MediaTerrainPaintRequest, (req) => service.paint(req), invalid);
-  handle(CHANNELS.mediaTerrainRoadKey, schemas.MediaTerrainRoadKeyRequest, () => notAvailableYet(), invalid);
+  handle(CHANNELS.mediaTerrainRoadKey, schemas.MediaTerrainRoadKeyRequest, (req) => service.roadKey(req), invalid);
   handle(CHANNELS.mediaTerrainExport, schemas.MediaTerrainExportRequest, () => notAvailableYet(), invalid);
 }
