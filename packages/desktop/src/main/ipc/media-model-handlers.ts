@@ -33,6 +33,7 @@ import { resolveWorkdir } from '../repo-registry';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleFromSender } from './handle';
 import { createModelLibrary } from '../media/model/model-library';
+import { createSculptStore } from '../media/model/sculpt-store';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
@@ -155,7 +156,25 @@ const library = createModelLibrary({
   author: modelAuthor,
 });
 
+/** Sculpt mesh binaries and their op logs (Phase 104 Theme A), inside the media store's jail. */
+const sculptStore = createSculptStore({
+  readBytes: (req) => mediaStore.readBytes(req),
+  writeBytes: (req) => mediaStore.writeBytes(req),
+});
+
 export function registerMediaModelHandlers(): void {
+  handle(
+    CHANNELS.mediaModelMesh,
+    schemas.MediaModelMeshRequest,
+    async (req) => {
+      try {
+        return await sculptStore.handle(req);
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : String(error));
+      }
+    },
+    (issue) => failure(issue),
+  );
   handle(
     CHANNELS.mediaModelLibrary,
     schemas.MediaModelLibraryRequest,

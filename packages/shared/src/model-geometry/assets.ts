@@ -1,4 +1,5 @@
-import type { ModelAssetPart, ModelSpec } from '../media-model';
+import type { ModelAssetPart, ModelSculptPart, ModelSpec } from '../media-model';
+import { decodeMeshBin, type MeshBin } from './mesh/mesh-bin';
 
 /**
  * Imported meshes — the geometry behind a design's `asset` parts (Phase 103 Theme J: an SF3D result,
@@ -110,6 +111,38 @@ export function missingModelAssets(spec: Pick<ModelSpec, 'parts'>): ModelAssetPa
     out.push(part);
   }
   return out;
+}
+
+/** The sculpt parts of a design whose `.mesh.bin` is not registered yet (Phase 104) — the sibling of {@link missingModelAssets}. */
+export function missingSculptMeshes(spec: Pick<ModelSpec, 'parts'>): ModelSculptPart[] {
+  const seen = new Set<string>();
+  const out: ModelSculptPart[] = [];
+  for (const part of spec.parts) {
+    if (part.shape !== 'sculpt' || registry.has(part.hash) || seen.has(part.hash)) continue;
+    seen.add(part.hash);
+    out.push(part);
+  }
+  return out;
+}
+
+/**
+ * A decoded sculpt mesh as a registry entry, so `buildScene` draws it the way it draws an imported
+ * asset. No uvs or texture yet (Theme F/G add them); the part's own colour and material apply.
+ */
+export function meshBinToAsset(mesh: Pick<MeshBin, 'positions' | 'normals' | 'indices'>): ModelAssetMesh {
+  return {
+    positions: Array.from(mesh.positions),
+    normals: Array.from(mesh.normals),
+    indices: Array.from(mesh.indices),
+    uvs: null,
+    texture: null,
+    material: { color: '#b0b0b0', metalness: 0, roughness: 0.6 },
+  };
+}
+
+/** Decodes `.mesh.bin` bytes and registers them under their content hash. Throws `MeshBinError` on a bad file. */
+export function registerSculptMesh(hash: string, bytes: Uint8Array): void {
+  registerModelAsset(hash, meshBinToAsset(decodeMeshBin(bytes)));
 }
 
 /** `dir` + `src` → the asset file's path inside the media project (`dir` is the design's folder, `''` for flat). */

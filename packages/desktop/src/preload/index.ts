@@ -617,6 +617,12 @@ const bridge: Pick<
         duplicate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'duplicate', ...req }),
         newGroup: (req) => call(CHANNELS.mediaModelLibrary, { op: 'newGroup', ...req }),
       },
+      mesh: {
+        read: (req) => call(CHANNELS.mediaModelMesh, { op: 'read', ...req }),
+        write: (req) => call(CHANNELS.mediaModelMesh, { op: 'write', ...req }),
+        appendOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'appendOps', ...req }),
+        readOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'readOps', ...req }),
+      },
       sf3d: {
         status: () => call(CHANNELS.mediaModelSf3d, { op: 'status' }),
         consent: (req) => call(CHANNELS.mediaModelSf3d, { op: 'consent', ...req }),

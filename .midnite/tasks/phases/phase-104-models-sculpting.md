@@ -82,7 +82,7 @@ This phase gives Models the full fidelity stack:
 
 ## Headlines
 
-**Theme A — Mesh core and storage.** ◻ Not started. Lands first, alone.
+**Theme A — Mesh core and storage.** ✅ Landed alone, as planned. The kernel gained `model-geometry/mesh/`: `EditableMesh` (typed-array positions/normals/indices, CSR vertex→face adjacency, a dirty set so only the one-ring of moved vertices gets new normals, and `takeDelta()` for the changed vertex range), a flat-array `Bvh` (quickselect median split, `refit()` after a stroke, ray and sphere queries), the versioned `.mesh.bin` (32-byte header, CRC-32, byte-stable round trip, readable refusals for a foreign, truncated, corrupt, older or newer file) and the capped, rotating `.ops.jsonl` op log. `ModelSpecSchema` has an optional `sculpt` part (`src` + content `hash` + counts + `multiresLevel`) resolved through the same hash registry as `asset`, skinned per vertex, never a boolean operand; old sidecars parse unchanged. Main reads and writes both files through a new `mstudio:media:model-mesh` `op` channel inside the media store's jail, refusing bytes that do not decode, and `model.json` gains a `sculpt` summary plus `files.mesh`. **Decision: the sculpt worker is a renderer Web Worker** (`app/features/media/model/sculpt/`, inlined `?worker&inline` like Monaco's), because a per-dab IPC hop to a utility process would cost more than the dab; only saves cross to main. Deltas travel as transferable typed arrays and the display patches its `BufferAttribute`s with `addUpdateRange`. Storage is `.mesh.bin` only — the embedded-`.glb` alternative was not built. A `displace` request stands in for brushes until Theme D. No visible UI yet beyond the inspector's sculpt-part line.
 
 **Theme B — Primitives → mesh.** ◻ Not started. Lands with or straight after A.
 
@@ -112,15 +112,15 @@ This phase gives Models the full fidelity stack:
 
 A first-class editable mesh that can hold about 1M vertices without stalling the renderer.
 
-- [ ] `EditableMesh` in `shared/src/model-geometry/mesh/`: typed-array positions, normals and indices, with vertex→face adjacency and a dirty-region set, so normals are recomputed only where something changed
-- [ ] BVH over triangles (build, refit after a stroke, ray and sphere queries) for brush hits and raycasts
-- [ ] A `sculpt` part kind on `ModelSpecSchema`: optional and backward-compatible, referencing a binary mesh file beside the sidecar (it is not inlined in JSON), with its transform, material and rig binding like any other part
-- [ ] Binary mesh storage: `<model>/<stem>.mesh.bin` (or embedded `.glb`) with a versioned header and a checksum. Read and write in desktop main through the model library, behind a `GitOpResult` IPC envelope
-- [ ] An operation log beside it (`<stem>.ops.jsonl`): compact entries for SDF edits, strokes, remesh and subdivide, used for undo across reloads and as a replayable history the agent can read. Capped and rotated
-- [ ] A sculpt worker (desktop utility process or renderer Web Worker; decide in A and record why) that owns the live `EditableMesh`. The renderer gets transferable typed-array deltas for the changed vertex ranges
-- [ ] three.js display that updates only the changed `BufferAttribute` ranges (`addUpdateRange`), never a full re-upload per stroke
-- [ ] `model.json` summary: vertex and face counts, multires level, has-textures
-- [ ] Vitest: adjacency correct on closed and open meshes, BVH ray hits match brute force, binary round trip is byte-stable, a corrupt or old header is refused with a readable error, old sidecars still parse
+- [x] `EditableMesh` in `shared/src/model-geometry/mesh/`: typed-array positions, normals and indices, with vertex→face adjacency and a dirty-region set, so normals are recomputed only where something changed
+- [x] BVH over triangles (build, refit after a stroke, ray and sphere queries) for brush hits and raycasts
+- [x] A `sculpt` part kind on `ModelSpecSchema`: optional and backward-compatible, referencing a binary mesh file beside the sidecar (it is not inlined in JSON), with its transform, material and rig binding like any other part
+- [x] Binary mesh storage: `<model>/<stem>.mesh.bin` (or embedded `.glb`) with a versioned header and a checksum. Read and write in desktop main through the model library, behind a `GitOpResult` IPC envelope
+- [x] An operation log beside it (`<stem>.ops.jsonl`): compact entries for SDF edits, strokes, remesh and subdivide, used for undo across reloads and as a replayable history the agent can read. Capped and rotated
+- [x] A sculpt worker (desktop utility process or renderer Web Worker; decide in A and record why) that owns the live `EditableMesh`. The renderer gets transferable typed-array deltas for the changed vertex ranges
+- [x] three.js display that updates only the changed `BufferAttribute` ranges (`addUpdateRange`), never a full re-upload per stroke
+- [x] `model.json` summary: vertex and face counts, multires level, has-textures
+- [x] Vitest: adjacency correct on closed and open meshes, BVH ray hits match brute force, binary round trip is byte-stable, a corrupt or old header is refused with a readable error, old sidecars still parse
 
 ## B — Primitives → mesh (S/M)
 
