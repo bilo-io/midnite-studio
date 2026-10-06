@@ -153,6 +153,17 @@ export const ModelAssetSrcSchema = z
   .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.glb$/i, 'must be a relative .glb path')
   .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
 
+/** A sculpt mesh file beside the design: relative segments, no `..`, ending `.mesh.bin` (Phase 104). */
+export const ModelSculptSrcSchema = z
+  .string()
+  .min(10)
+  .max(200)
+  .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.mesh\.bin$/i, 'must be a relative .mesh.bin path')
+  .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
+
+/** Deepest multires level a sculpt part records (each level quadruples the faces). */
+export const MODEL_SCULPT_MAX_LEVEL = 8;
+
 const ModelSectionSchema = z.object({ y: coord, outline: z.array(point2).min(3).max(32) });
 export type ModelSection = z.infer<typeof ModelSectionSchema>;
 
@@ -249,6 +260,25 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
     vertices: z.number().int().nonnegative().optional(),
     triangles: z.number().int().nonnegative().optional(),
   }),
+  /**
+   * A sculpted mesh (Phase 104): an editable, dense mesh whose vertices live in `src`, a versioned
+   * binary beside the design (`model-geometry/mesh/mesh-bin.ts`), never inlined in JSON. Resolved by
+   * `hash` through the same registry as `asset`; made by converting parts or baking an SDF, never
+   * hand-written. Transform, material, visibility and rig binding work as on any other part.
+   */
+  z.object({
+    ...partBase,
+    shape: z.literal('sculpt'),
+    /** The `.mesh.bin` file, relative to the model's folder (`head.mesh.bin`). */
+    src: ModelSculptSrcSchema,
+    /** Content hash of `src` (`modelAssetHash`), so a changed file is never mistaken for this one. */
+    hash: z.string().regex(/^[0-9a-f]{8,64}$/, 'must be a lower-case hex hash'),
+    /** Counts at the last save, for listings that do not load the file. */
+    vertices: z.number().int().nonnegative().optional(),
+    triangles: z.number().int().nonnegative().optional(),
+    /** The multires level the file holds (0 = the base mesh). */
+    multiresLevel: z.number().int().min(0).max(MODEL_SCULPT_MAX_LEVEL).optional(),
+  }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),
 ]);
@@ -257,10 +287,14 @@ export type ModelPart = z.infer<typeof ModelPartSchema>;
 /** The shapes a part can be, in prompt order — derived from the union, so a new kind appears here by being added there. */
 export const MODEL_SHAPES = ModelPartSchema.options.map((option) => option.shape.shape.value) as ModelPart['shape'][];
 /** Shapes that are imported, never written by hand or offered in an "add part" menu. */
-export const MODEL_IMPORTED_SHAPES: readonly ModelPart['shape'][] = ['asset'];
+export const MODEL_IMPORTED_SHAPES: readonly ModelPart['shape'][] = ['asset', 'sculpt'];
 /** The shapes a person or an LLM may author. */
 export const MODEL_AUTHORED_SHAPES = MODEL_SHAPES.filter((shape) => !MODEL_IMPORTED_SHAPES.includes(shape));
 export type ModelAssetPart = Extract<ModelPart, { shape: 'asset' }>;
+export type ModelSculptPart = Extract<ModelPart, { shape: 'sculpt' }>;
+/** Parts whose geometry is a file beside the design, resolved by content hash. */
+export type ModelMeshFilePart = ModelAssetPart | ModelSculptPart;
+export const isMeshFilePart = (part: ModelPart): part is ModelMeshFilePart => part.shape === 'asset' || part.shape === 'sculpt';
 export type ModelPartInput = z.input<typeof ModelPartSchema>;
 
 export const ModelSpecSchema = z.object({

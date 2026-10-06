@@ -8,6 +8,13 @@ Background keying (chroma with despill, or the provider's own alpha), per-direct
 - [x] Background removal, normalisation, pixel-art mode, validation report, kernels in shared + pipeline in main, vitest.
 - [ ] No frame source calls `submitFrame` yet (Themes D/E/F); badges are first shown by G's frame strip.
 
+## 2026-10-06 — Phase 104 Theme A — Mesh core and storage
+
+Sculpt-mesh foundation: `EditableMesh` with CSR adjacency and dirty-region normals, a refittable triangle BVH, the versioned and checksummed `.mesh.bin`, the capped `.ops.jsonl` op log, an optional `sculpt` part on `ModelSpecSchema`, the `mstudio:media:model-mesh` channel in main, a `model.json` sculpt summary, and a renderer Web Worker that owns the live mesh and posts transferable deltas the display uploads with `addUpdateRange`. PR: see the pull request.
+
+- [x] EditableMesh, BVH, sculpt part, `.mesh.bin`, op log, sculpt worker, partial attribute updates, `model.json` summary, vitest.
+- [ ] Brushes (D), conversion (B), MCP tools (E); a 1M-vertex sculpt still hits the 400k scene-triangle cap through `buildScene`.
+
 ## 2026-10-06 — Phase 106 Themes A + C — Sprites tab, method picker
 
 New Media ▸ Sprites tab: `sprite.json` spec (`media-sprite.ts`), five-group library explorer, Sheet/Environment create panel, `mstudio:media:sprite-*` channels and `SpriteService`, plus the pure `recommendSpriteMethod` and per-perspective clip presets. PR: see the pull request.

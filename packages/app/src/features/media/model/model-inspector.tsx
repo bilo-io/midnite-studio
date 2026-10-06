@@ -111,7 +111,7 @@ function Properties({ state, part, index, dispatch }: { state: EditorState; part
   const patch = (p: Record<string, unknown>) => (selection.length > 1 ? dispatch({ type: 'patchMany', indices: selection, patch: p }) : dispatch({ type: 'patch', index, patch: p }));
   const record = part as Record<string, unknown>;
   // An imported mesh's counts describe the file, they are not dimensions to edit.
-  const numericKeys = part.shape === 'asset' ? [] : Object.keys(record).filter((k) => !BASE_KEYS.has(k) && typeof record[k] === 'number');
+  const numericKeys = part.shape === 'asset' || part.shape === 'sculpt' ? [] : Object.keys(record).filter((k) => !BASE_KEYS.has(k) && typeof record[k] === 'number');
   const vecKeys = Object.keys(record).filter(
     (k) => !BASE_KEYS.has(k) && Array.isArray(record[k]) && (record[k] as unknown[]).length === 3 && (record[k] as unknown[]).every((n) => typeof n === 'number'),
   );
@@ -154,17 +154,18 @@ function Properties({ state, part, index, dispatch }: { state: EditorState; part
           />
         </label>
       ))}
-      {part.shape === 'asset' ? (
+      {part.shape === 'asset' || part.shape === 'sculpt' ? (
         <>
-          <p className={SECTION}>imported mesh</p>
-          <p className="text-[11px] text-muted-foreground" data-testid="asset-part-info">
+          <p className={SECTION}>{part.shape === 'sculpt' ? 'sculpt mesh' : 'imported mesh'}</p>
+          <p className="text-[11px] text-muted-foreground" data-testid={part.shape === 'sculpt' ? 'sculpt-part-info' : 'asset-part-info'}>
             <span className="font-mono text-foreground">{part.src}</span>
             {part.vertices !== undefined ? ` · ${part.vertices.toLocaleString()} verts` : ''}
             {part.triangles !== undefined ? ` · ${part.triangles.toLocaleString()} tris` : ''}
+            {part.shape === 'sculpt' && part.multiresLevel ? ` · multires ${part.multiresLevel}` : ''}
           </p>
         </>
       ) : null}
-      {part.shape !== 'group' && part.shape !== 'asset' ? (
+      {part.shape !== 'group' && part.shape !== 'asset' && part.shape !== 'sculpt' ? (
         <div className="flex gap-3">
           <label className="flex flex-1 items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="w-16 shrink-0">Segments</span>

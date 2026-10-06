@@ -537,3 +537,17 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   (the Images tab's wire request) has no such field and `image-service.ts` never sets it. The sprite
   frame sources (Themes D/F) call the adapter with it set; the Images tab gets a "transparent
   background" toggle only if someone asks for one.
+
+## Phase 104 · Theme A — mesh core and storage
+
+- **The scene triangle cap still applies to sculpt parts.** `buildScene` stops at
+  `MODEL_MAX_SCENE_TRIANGLES` (400k) for every part, imported or sculpted, so a ~1M-vertex sculpt is
+  dropped from exports, previews and the editor's ordinary scene. Theme D's sculpt mode draws from the
+  worker's own `BufferGeometry` (`sculpt-display.ts`) and does not need it, but the exporters and
+  previews do: raise or exempt the cap for `sculpt` parts when Theme F's decimate lands, so a dense
+  sculpt exports at its decimated resolution rather than not at all.
+- **Embedded `.glb` storage was not built.** The phase allowed `<stem>.mesh.bin` *or* an embedded
+  `.glb`; only `.mesh.bin` exists. Revisit only if Theme F/G's textures want to live in one file.
+- **The worker's `displace` request is a placeholder.** It pushes vertices along their normals with a
+  smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
+  replaces it.

@@ -26,6 +26,8 @@ import type {
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
+import type { ModelMeshResult } from '../media-model-mesh';
+import type { ModelOpEntry } from '../model-geometry/mesh/ops-log';
 import type { Sf3dGenerateRequest, Sf3dGenerateResult, Sf3dProgressEvent, Sf3dStatus } from '../media-model-sf3d';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
@@ -51,6 +53,15 @@ export type ModelLibraryBridge = {
   duplicate: (req: { repoId: string; path: string }) => Promise<GitOpResult<{ path: string }>>;
   newGroup: (req: { repoId: string; parent: string; name: string }) => Promise<GitOpResult<{ path: string }>>;
 };
+
+/** `mediaModelMesh`'s `op` union (Phase 104 Theme A): sculpt mesh files and their op log. */
+export type ModelMeshBridge = {
+  read: (req: ModelMeshScope) => Promise<GitOpResult<ModelMeshResult>>;
+  write: (req: ModelMeshScope & { data: Uint8Array; ops?: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
+  appendOps: (req: ModelMeshScope & { ops: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
+  readOps: (req: ModelMeshScope & { limit?: number }) => Promise<GitOpResult<ModelMeshResult>>;
+};
+type ModelMeshScope = { repoId: string; project: string; dir: string; src: string };
 
 /** `mediaModelSf3d`'s `op` union, one typed method per op (Phase 103 Theme J). */
 export type Sf3dBridge = {
@@ -1278,6 +1289,8 @@ export type MidniteStudioBridge = {
       ) => Promise<z.infer<typeof S.MediaModelSaveEditResponse>>;
       /** Folder/group operations over `.midnite/media/model/` — every one answers a `GitOpResult`. */
       library: ModelLibraryBridge;
+      /** Sculpt mesh binaries and op logs (Phase 104). */
+      mesh: ModelMeshBridge;
       /** SF3D, the opt-in local image-to-3D tier. */
       sf3d: Sf3dBridge;
       onProgress: (
