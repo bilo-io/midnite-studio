@@ -357,7 +357,7 @@ describe('roadKey (Theme H)', () => {
     const target = await createTerrain(service);
     await service.setInput(attach(target, roadsPng(), 'roads'));
     const keyed = await service.roadKey({ ...target, tolerance: 0.2 });
-    if (!keyed.ok) throw new Error(keyed.message);
+    if (!keyed.ok) throw new Error(keyed.kind === 'error' ? keyed.message : keyed.kind);
     expect(keyed.value.colour).toBe('#00ffff');
     expect(keyed.value.detected).toBe('#00ffff');
     const png = decodePng(Buffer.from(keyed.value.pngBase64, 'base64'));
