@@ -1,5 +1,6 @@
 import {
   GAME_CAMERA_IDS,
+  GAME_TEMPLATE_MATRIX,
   parseStarterId,
   starterId,
   type GameCameraId,
@@ -50,7 +51,9 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         genre,
         starter,
         // All five on is the default, which the manifest stores as an empty list.
-        ...(perspective === 'third-person' && cameras.length < GAME_CAMERA_IDS.length ? { cameras: [...cameras] } : {}),
+        ...(perspective === 'third-person' && !(genre !== null && GAME_TEMPLATE_MATRIX[genre].versus) && cameras.length < GAME_CAMERA_IDS.length
+          ? { cameras: [...cameras] }
+          : {}),
       },
       {
         onSuccess: (result) => {
