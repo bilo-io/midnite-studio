@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 107 Themes G + K — Perspective bases and the template gallery
+
+Six playable perspective base starters, the perspective × genre validity matrix, `composeStarter`, and the create panel's gallery. Genre cells render as not-yet-available until Themes H-J. PR: see the pull request.
+
+- [x] Bases: platformer, top-down, isometric, raycaster, first person, third person (five cameras), each with a smoke replay and `ASSETS.md`.
+- [x] `GAME_TEMPLATE_MATRIX`, `starterId`/`isValidStarter`, `composeStarter`, `GameGallery` with refusal reasons and camera picker; vitest across all of it.
+- [ ] Real-Chromium `game-starters.spec.ts` (Theme Q); genre cells (Themes H-J).
+
 ## 2026-10-06 — Phase 106 Themes A + C — Sprites tab, method picker
 
 New Media ▸ Sprites tab: `sprite.json` spec (`media-sprite.ts`), five-group library explorer, Sheet/Environment create panel, `mstudio:media:sprite-*` channels and `SpriteService`, plus the pure `recommendSpriteMethod` and per-perspective clip presets. PR: see the pull request.

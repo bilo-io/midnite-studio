@@ -531,3 +531,10 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   and the viewer falls back to `bush` geometry for an unknown id. What is missing is loading a library
   model's geometry at build time and in the viewer (`terrain-layers.tsx`), and the picker itself in the
   panel's Foliage section (`terrain-feature-sections.tsx`).
+
+## Phase 107 · Themes G + K — deferred pieces
+
+- **Genre cells are not creatable yet.** `GAME_GENRES_AVAILABLE` in `shared/src/media-game-templates.ts` is empty; Themes H-J add `templates/media-game/genres/<genre>/` and list each genre there. Until then every genre cell in the gallery reads "Not available yet", and `compose.test.ts` loops over only the six bases (it picks up genre ids as they become available).
+- **`game-starters.spec.ts` (real Chromium) for the six bases and for `rts@isometric` / `rpg@first-person`** moves to Theme Q. The bases were verified by hand in SwiftShader Chromium; a committed spec needs Q's e2e budget raise.
+- **Gallery thumbnails are glyphs, not PNGs.** The plan's `templates/media-game/thumbnails/<id>.png` plus a `gamesThumbnail` channel was not built; revisit once the genres have something worth a picture.
+- **`playtests/smoke.json` is a provisional shape** (`input` / `assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`); Theme O defines the real replay schema and should migrate the six files.

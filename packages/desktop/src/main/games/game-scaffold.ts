@@ -131,7 +131,7 @@ export async function createGame(
         name: req.name,
         ...(req.cameras ? { cameras: req.cameras } : {}),
       });
-      if (!composed.ok) throw new Error(composed.message);
+      if (!composed.ok) throw new Error(composed.kind === 'error' ? composed.message : 'Could not compose the starter.');
     }
     const vendored = await vendorEngines(req.engine, temp, deps.enginesDir);
     const manifest = initialManifest(req, req.network ?? deps.defaultNetwork, vendored);
