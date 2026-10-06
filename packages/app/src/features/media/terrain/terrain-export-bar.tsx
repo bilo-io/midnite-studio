@@ -8,7 +8,7 @@ import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import type { TerrainRef } from './use-terrain';
 
-const TEXTURE_LABEL: Record<TerrainExportTexture, string> = { drape: 'Drape', 'splat-bake': 'Splat bake', none: 'None' };
+const TEXTURE_LABEL: Record<TerrainExportTexture, string> = { drape: 'Drape', 'splat-bake': 'Baked splat', none: 'None' };
 
 /**
  * The Terrain tab's export controls (Phase 105 Theme I): the shared split button with the pack
