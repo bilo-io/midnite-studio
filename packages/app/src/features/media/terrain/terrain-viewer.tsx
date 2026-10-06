@@ -38,6 +38,7 @@ import { useWindowFocused } from '../../../lib/use-window-focus';
 import { CHUNK_MESH_BUDGET, lodToRender, nextChunksToMesh } from './chunk-stream';
 import { ClassBrushPalette, type BrushState } from './class-brush';
 import { createSplatMaterial } from './splat-material';
+import { TerrainLayers } from './terrain-layers';
 import type { TerrainViewerProps } from './terrain-viewer-lazy';
 import { useTerrainActions } from './use-terrain';
 
@@ -48,6 +49,7 @@ import { useTerrainActions } from './use-terrain';
  *
  * Theme E adds satellite drape rendering and interactive alignment with TransformControls and onion skin.
  * Theme F adds land-cover classification shading, splat material blending with distance fade, and class brush painting.
+ * Themes G + H add the road, building and foliage layers (`terrain-layers.tsx`), meshed from the build's JSON.
  */
 export const HEIGHT_RAMP = ['#1d3557', '#457b9d', '#a8dadc', '#f1faee', '#e9c46a', '#8d6e63', '#ffffff'] as const;
 const SLOPE_RAMP_MAX_DEG = 60;
@@ -589,6 +591,13 @@ export default function TerrainViewer({
   const el = sunElevation(timeOfDay);
   const sun: [number, number, number] = [Math.cos(el) * Math.sin(AZIMUTH) * size, Math.sin(el) * size, Math.cos(el) * Math.cos(AZIMUTH) * size];
   const lit = shading === 'shaded';
+  // Theme G + H layers: all of them over the shaded modes, the road network alone over the road mask.
+  const layerShow =
+    shading === 'shaded' || shading === 'splat' || shading === 'wireframe'
+      ? { roads: true, buildings: true, foliage: true }
+      : shading === 'roads'
+        ? { roads: true, buildings: false, foliage: false }
+        : null;
 
   const satelliteInput = spec.inputs.satellite;
   const satelliteUrl = satelliteInput ? mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/terrain/${project}/${terrain}/${satelliteInput.file}`) : null;
@@ -630,6 +639,9 @@ export default function TerrainViewer({
             <planeGeometry args={[size * 1.2, size * 1.2]} />
             <meshStandardMaterial color="#2a6f97" transparent opacity={0.7} />
           </mesh>
+        ) : null}
+        {!align && layerShow ? (
+          <TerrainLayers base={base} version={version} field={loaded.field} chunksPerSide={loaded.chunks.chunksPerSide} show={layerShow} />
         ) : null}
         {align && satelliteUrl ? (
           <OnionSkinQuad

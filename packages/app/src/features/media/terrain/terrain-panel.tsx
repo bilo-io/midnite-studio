@@ -8,6 +8,7 @@ import { Spinner } from '../../../components/skeleton';
 import { NumberField } from '../model/fields';
 import { AlignmentControls } from './alignment-controls';
 import { HeightmapPromptDialog, NoHeightmapDialog } from './no-heightmap-dialog';
+import { BuildingsSection, FoliageSection, RoadsSection } from './terrain-feature-sections';
 import { TerrainInputSlot } from './terrain-input-slot';
 import { useTerrainActions, useTerrainProgress, type BuildOutcome, type TerrainRef } from './use-terrain';
 
@@ -161,6 +162,10 @@ export function TerrainPanel({
         </div>
       ) : null}
 
+      {spec.inputs.roads ? (
+        <RoadsSection repoId={repoId} terrainRef={terrainRef} spec={spec} commit={(patch) => void commit(patch)} roadKey={actions.roadKey} />
+      ) : null}
+
       {spec.inputs.satellite ? (
         <div className="flex flex-col gap-2 border-t border-border pt-3">
           <div className="flex items-center justify-between">
@@ -183,6 +188,13 @@ export function TerrainPanel({
             </label>
           </div>
         </div>
+      ) : null}
+
+      {spec.inputs.satellite ? (
+        <>
+          <FoliageSection spec={spec} commit={(patch) => void commit(patch)} />
+          <BuildingsSection spec={spec} commit={(patch) => void commit(patch)} />
+        </>
       ) : null}
 
       {noise ? (

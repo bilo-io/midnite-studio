@@ -191,3 +191,72 @@ describe('stats readout', () => {
     expect(screen.queryByTestId('terrain-stats')).toBeNull();
   });
 });
+
+describe('roads, foliage and buildings sections (Phase 105 G + H)', () => {
+  const roadsInput = { ...input, file: 'inputs/roads.png' };
+  const satelliteInput = { ...input, file: 'inputs/satellite.png' };
+
+  it('the Roads section only appears with a roads mask, and shows the detected colour as Auto', async () => {
+    let panel = await open();
+    expect(within(panel).queryByTestId('terrain-roads-section')).toBeNull();
+    cleanup();
+    panel = await open(spec({ inputs: { heightmap: input, roads: roadsInput } }));
+    const section = await within(panel).findByTestId('terrain-roads-section');
+    expect(await within(section).findByText('Auto · #00ffff')).toBeTruthy();
+    expect(within(section).getByRole('img', { name: 'Roads image' }).getAttribute('src')).toContain('inputs/roads.png');
+  });
+
+  it('the eyedropper samples the clicked point and commits the colour', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, roads: roadsInput } }));
+    const api = window.midniteStudio!.media.terrain;
+    const roadKey = vi.spyOn(api, 'roadKey');
+    const setSpec = vi.spyOn(api, 'setSpec');
+    const section = await within(panel).findByTestId('terrain-roads-section');
+    const pipette = within(section).getByRole('button', { name: 'Pick the road colour from the image' });
+    fireEvent.click(pipette);
+    expect(within(section).getByRole('button', { name: 'Cancel colour pick' }).getAttribute('aria-pressed')).toBe('true');
+    const image = within(section).getByRole('img', { name: 'Roads image' });
+    image.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.click(image, { clientX: 50, clientY: 75 });
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(roadKey.mock.calls.map((c) => c[0].pick).filter(Boolean)).toEqual([[0.25, 0.75]]);
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { roads: { colour: '#00fefe', tolerance: 0.25 } } });
+  });
+
+  it('dragging the tolerance previews through roadKey (debounced) and commits on release', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, roads: roadsInput } }));
+    const api = window.midniteStudio!.media.terrain;
+    const section = await within(panel).findByTestId('terrain-roads-section');
+    await within(section).findByRole('img', { name: 'Road mask preview' });
+    const roadKey = vi.spyOn(api, 'roadKey');
+    const setSpec = vi.spyOn(api, 'setSpec');
+    const slider = within(section).getByRole('slider', { name: 'Road colour tolerance' });
+    fireEvent.change(slider, { target: { value: '0.4' } });
+    fireEvent.change(slider, { target: { value: '0.5' } });
+    expect(setSpec).not.toHaveBeenCalled();
+    await waitFor(() => expect(roadKey).toHaveBeenCalledTimes(1));
+    expect(roadKey.mock.calls[0]![0]).toMatchObject({ tolerance: 0.5 });
+    expect(within(section).getByRole('img', { name: 'Road mask preview' }).getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+    fireEvent.pointerUp(slider);
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { roads: { tolerance: 0.5 } } });
+  });
+
+  it('foliage asset toggles and building heights commit to the spec', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, satellite: satelliteInput } }));
+    const setSpec = vi.spyOn(window.midniteStudio!.media.terrain, 'setSpec');
+    const foliage = within(panel).getByTestId('terrain-foliage-section');
+    const trees = within(foliage).getByRole('group', { name: 'Tree assets' });
+    expect(within(trees).getByRole('button', { name: 'pine' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(trees).getByRole('button', { name: 'pine' }));
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { foliage: { assets: { tree: ['broadleaf', 'birch'], grass: ['grass-clump', 'bush'] } } } });
+
+    const buildings = within(panel).getByTestId('terrain-buildings-section');
+    const max = within(buildings).getByRole('spinbutton', { name: 'Building height maximum' });
+    fireEvent.change(max, { target: { value: '30' } });
+    fireEvent.blur(max);
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(2));
+    expect(setSpec.mock.calls[1]![0]).toMatchObject({ patch: { buildings: { height: [4, 30] } } });
+  });
+});

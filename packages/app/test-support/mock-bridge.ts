@@ -3720,6 +3720,10 @@ export function buildMockBridge(data: MockFixtures) {
         const defaults = {
           version: 1, name: 'Terrain', inputs: {}, resolution: 513, worldSize: 1024, heightRange: [0, 200], preSmooth: 0,
           alignment: { roads: 'satellite' }, textureSize: 2048,
+          // Phase 105 G + H: the schema's own defaults, inlined (this file is serialised into the page).
+          foliage: { seed: 1, treeDensity: 4, grassDensity: 30, slopeLimitDeg: 35, scale: [0.8, 1.3], margin: 2 },
+          buildings: { seed: 1, height: [4, 18], scaleByArea: true, minAreaM2: 20, snapToleranceDeg: 12, flattenBlendM: 3 },
+          roads: { tolerance: 0.25, widthScale: 1, widthClampM: [2, 30], blendM: 6, maxCutFillM: 4, spurMinM: 8 },
         };
         const stats = data.media?.terrain?.stats ?? {
           resolution: 513, worldSize: 1024, vertexCount: 263169, triangleCount: 524288, chunkCount: 64, lodCount: 4,
