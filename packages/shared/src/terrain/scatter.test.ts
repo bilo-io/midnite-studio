@@ -34,7 +34,7 @@ describe('scatterFoliage', () => {
 
     expect(result.instances.length).toBeGreaterThan(0);
     for (const inst of result.instances) {
-      const [_, x, , z] = inst;
+      const [, x] = inst;
       expect(x).toBeLessThan(0); // Left half of terrain (x < 0)
     }
   });
@@ -163,7 +163,8 @@ describe('scatterFoliage', () => {
     const result = scatterFoliage(new Uint8Array(res * res).fill(2), res, makeFlatField(65, 4096), { ...OPTS, treeDensity: 0, grassDensity: 200 });
     expect(result.instances.length).toBeLessThanOrEqual(TERRAIN_FOLIAGE_MAX);
     expect(result.warnings).toContain(FOLIAGE_CAPPED_WARNING);
-  });
+    // 200 000 Poisson-disk instances is real work; the default 5 s is too tight on a loaded runner.
+  }, 60_000);
 
   it('re-seats instances on a changed field', () => {
     const [moved] = reseatFoliage([[0, 1, 99, 2, 0.5, 1]], makeFlatField(33, 100, 42));

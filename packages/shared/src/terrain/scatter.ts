@@ -99,49 +99,28 @@ export function scatterFoliage(
 
   const instances: [number, number, number, number, number, number][] = [];
 
-  // Helper for elevation and slope
-  const sampleElevationAndSlope = (
-    x: number,
-    z: number,
-  ): { y: number; slopeDeg: number } => {
-    const u = (x + worldSize / 2) / worldSize;
-    const v = (z + worldSize / 2) / worldSize;
-    const res = field.resolution;
-    const gx = Math.max(0, Math.min(res - 1, u * (res - 1)));
-    const gz = Math.max(0, Math.min(res - 1, v * (res - 1)));
-
+  const res = field.resolution;
+  const cellM = worldSize / (res - 1);
+  /** Squared gradient magnitude (rise over run) at a world point, from central differences on the grid. */
+  const gradientSq = (x: number, z: number): number => {
+    const gx = Math.max(0, Math.min(res - 1, ((x + worldSize / 2) / worldSize) * (res - 1)));
+    const gz = Math.max(0, Math.min(res - 1, ((z + worldSize / 2) / worldSize) * (res - 1)));
     const x0 = Math.floor(gx);
     const z0 = Math.floor(gz);
-    const x1 = Math.min(res - 1, x0 + 1);
-    const z1 = Math.min(res - 1, z0 + 1);
-    const fx = gx - x0;
-    const fz = gz - z0;
-
-    const h00 = field.heights[z0 * res + x0]!;
-    const h10 = field.heights[z0 * res + x1]!;
-    const h01 = field.heights[z1 * res + x0]!;
-    const h11 = field.heights[z1 * res + x1]!;
-
-    const y = (1 - fx) * (1 - fz) * h00 + fx * (1 - fz) * h10 + (1 - fx) * fz * h01 + fx * fz * h11;
-
-    // Slope from central differences
     const xm = Math.max(0, x0 - 1);
-    const xp = Math.min(res - 1, x1 + 1);
+    const xp = Math.min(res - 1, x0 + 2);
     const zm = Math.max(0, z0 - 1);
-    const zp = Math.min(res - 1, z1 + 1);
-    const cellM = worldSize / (res - 1);
+    const zp = Math.min(res - 1, z0 + 2);
     const dhx = (field.heights[z0 * res + xp]! - field.heights[z0 * res + xm]!) / (Math.max(1, xp - xm) * cellM);
     const dhz = (field.heights[zp * res + x0]! - field.heights[zm * res + x0]!) / (Math.max(1, zp - zm) * cellM);
-
-    const slopeRad = Math.atan(Math.hypot(dhx, dhz));
-    const slopeDeg = (slopeRad * 180) / Math.PI;
-
-    return { y, slopeDeg };
+    return dhx * dhx + dhz * dhz;
   };
 
   const scaleMin = opts.scale[0];
   const scaleMax = opts.scale[1];
+  // Compare gradients against tan(limit) rather than taking atan per candidate; ≥ 90° is no limit at all.
   const slopeLimitDeg = opts.slopeLimitDeg;
+  const maxGradientSq = slopeLimitDeg >= 90 ? Infinity : Math.tan((Math.max(0, slopeLimitDeg) * Math.PI) / 180) ** 2;
 
   // Run Poisson-disk scatter for a given class
   const scatterClass = (
@@ -181,11 +160,7 @@ export function scatterFoliage(
       const distToExclusionM = exclusionDt[lcIdx]! * pxSizeM;
       if (distToExclusionM === 0 || distToExclusionM < marginM) return false;
 
-      // Check slope
-      const { slopeDeg } = sampleElevationAndSlope(cx, cz);
-      if (slopeDeg > slopeLimitDeg) return false;
-
-      // Check distance against neighbors in grid
+      // Check distance against neighbours in the grid (cheap) before the slope (not)
       const gx = getGridCoord(cx);
       const gz = getGridCoord(cz);
       const rSq = r * r;
@@ -205,7 +180,7 @@ export function scatterFoliage(
           }
         }
       }
-      return true;
+      return gradientSq(cx, cz) <= maxGradientSq;
     };
 
     const addPoint = (x: number, z: number) => {
@@ -217,7 +192,7 @@ export function scatterFoliage(
       const gz = getGridCoord(z);
       grid[gz * gridDim + gx] = ptIdx;
 
-      const { y } = sampleElevationAndSlope(x, z);
+      const y = sampleHeight(field, x, z);
       const yaw = rng() * Math.PI * 2;
       const scale = scaleMin + rng() * (scaleMax - scaleMin);
       const assetIdx = assetPool[Math.floor(rng() * assetPool.length)]!;

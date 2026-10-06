@@ -134,7 +134,6 @@ export function traceContours(
 
         const startX = cx;
         const startY = cy;
-        let startEnterDir = enterDir;
 
         ring.push([cx, cy]);
         visited[cy * w + cx] = 1;
