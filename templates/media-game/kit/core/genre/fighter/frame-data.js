@@ -36,7 +36,7 @@ export const MOVES = [
   { name: 'mid-kick', input: 'n+rk', startup: 15, active: 4, recovery: 24, damage: 16, onHit: 4, onBlock: -9, level: 'mid', reach: 1.3 },
   { name: 'low-kick', input: 'd+lk', startup: 14, active: 3, recovery: 22, damage: 9, onHit: 2, onBlock: -12, level: 'low', reach: 1.2 },
   { name: 'step-kick', input: 'f+lk', startup: 16, active: 4, recovery: 20, damage: 15, onHit: 6, onBlock: -6, level: 'mid', reach: 1.4 },
-  { name: 'uppercut', input: 'df+rp', startup: 15, active: 4, recovery: 30, damage: 15, onHit: 0, onBlock: -14, level: 'mid', reach: 1.0, launcher: true },
+  { name: 'uppercut', input: 'df+rp', startup: 15, active: 4, recovery: 18, damage: 15, onHit: 0, onBlock: -14, level: 'mid', reach: 1.0, launcher: true },
 ];
 
 /** @param {Move} move frames from the input to the end of recovery */

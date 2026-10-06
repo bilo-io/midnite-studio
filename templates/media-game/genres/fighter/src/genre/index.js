@@ -184,13 +184,16 @@ export function installGenre(scene, ctx) {
           foe.guarding = false;
           foe.stun = stunFrames(move, frame, false);
           foe.flash = 6;
-          if (move.launcher || airborne(foe)) {
+          const juggled = airborne(foe);
+          if (move.launcher || juggled) {
+            // A launcher pops a grounded fighter up; any hit on an airborne one keeps it up (a juggle).
             foe.launched = true;
-            foe.vy = move.launcher && !airborne(foe) ? LAUNCH_VY : Math.max(foe.vy, JUGGLE_VY);
+            foe.vy = juggled ? Math.max(foe.vy, JUGGLE_VY) : LAUNCH_VY;
           }
-          // Knock back along the lane.
-          foe.position[0] += a.x * 0.25;
-          foe.position[2] += a.z * 0.25;
+          // Knock back along the lane; less in the air, so a juggle can carry on.
+          const knock = juggled ? 0.08 : 0.25;
+          foe.position[0] += a.x * knock;
+          foe.position[2] += a.z * knock;
           match = matchReducer(match, { type: 'damage', target: foe === p1 ? 0 : 1, amount: damage });
           numbers.spawn([foe.position[0], foe.y + 1.9, foe.position[2]], foe.combo > 1 ? `${damage} ×${foe.combo}` : damage, { kind: foe.combo > 1 || move.launcher ? 'crit' : 'hit' });
           lastHit = { attacker: f.name, move: move.name, result, damage, combo: foe.combo };

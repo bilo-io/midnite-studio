@@ -339,6 +339,7 @@ export function installGenre(scene, ctx) {
           wave,
           enemies: enemies.map((e) => ({ hp: e.hp, mode: e.mode, position: e.position.map((v) => Number(v.toFixed(2))) })),
           nav: nav !== null,
+          view: { yaw: Number(rig.yaw.toFixed(4)), pitch: Number(rig.pitch.toFixed(4)) },
           damageNumbers: numbers.count,
         },
       };

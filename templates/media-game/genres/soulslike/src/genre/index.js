@@ -69,7 +69,7 @@ export function installGenre(scene, ctx) {
   const { character, rig, hud, input } = ctx;
   const extra = createInput(SOULS_BINDINGS);
   const numbers = createDamageNumbers({ camera: rig.camera });
-  hud.hint('WASD move · SPACE roll · click/J light · K heavy · Q lock-on · E rest at the bonfire · C camera');
+  hud.hint('WASD move · SPACE roll · J light · K heavy · Q lock-on · E rest · C camera');
 
   // --- the bonfire ---------------------------------------------------------------
   const bonfire = new THREE.Group();
