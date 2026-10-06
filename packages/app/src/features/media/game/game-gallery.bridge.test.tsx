@@ -38,15 +38,23 @@ describe('GameGallery', () => {
     expect(fps.getAttribute('title')).toBe('The FPS genre needs the raycaster.');
   });
 
-  it('shows a valid genre cell as not available yet, and leaves it unselectable', async () => {
+  it('makes the 2D genre cells selectable, and keeps the 3D genres not available yet', async () => {
     renderView(<GameTab />, { fixtures });
     await screen.findByRole('grid');
+    for (const name of ['FPS, 2.5D raycaster', 'RTS, Top-down', 'RTS, Isometric', 'ARPG, Isometric', 'Top-down crime, Top-down']) {
+      expect(cell(name).getAttribute('aria-disabled'), name).toBe('false');
+    }
     const rts = cell('RTS, Isometric');
-    expect(rts.getAttribute('aria-disabled')).toBe('true');
-    expect(rts.getAttribute('title')).toMatch(/Not available yet/);
     fireEvent.click(rts);
-    expect(rts.getAttribute('aria-pressed')).toBe('false');
-  });
+    expect(rts.getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(screen.getByRole('radio', { name: '3D' }));
+    const shooter = cell('Shooter, First person');
+    expect(shooter.getAttribute('aria-disabled')).toBe('true');
+    expect(shooter.getAttribute('title')).toMatch(/Not available yet/);
+    fireEvent.click(shooter);
+    expect(shooter.getAttribute('aria-pressed')).toBe('false');
+  }, 20_000);
 
   it('picks a base, and the 3D toggle shows the camera checkboxes for third person', async () => {
     renderView(<GameTab />, { fixtures });

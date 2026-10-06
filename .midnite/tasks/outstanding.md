@@ -575,6 +575,13 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
   replaces it.
 
+## Phase 107 · Theme H — deferred pieces
+
+- **The per-genre e2e smoke run is not committed.** `game-starters.spec.ts` and `gamesPlaytest` do not exist yet (Themes O and Q). The four 2D genres were booted in real Chromium by hand, and each ships a provisional `playtests/smoke.json` (genre state is under `$.rts`, `$.arpg`, `$.crime`, `$.fps`) for Theme O to migrate.
+- **Placeholder art only.** Units, enemies, cars and pickups are coloured shapes; the genre modules read no `assets/` yet, so they await the asset bridge.
+- **Levels are Tiled-shaped but built in code** (`fps/levels.js`, `crime/city.js`), not loaded from a `.tmj`. Swapping in a Maps-tab export uses the same `tiledObjects` calls.
+- **RTS has no building construction**, only unit production and gathering; the ARPG has no tooltips or drag-and-drop inventory (digit keys equip). Locked-door and rocket paths in the FPS are reviewed, not driven by a test.
+
 ## Phase 104 · Theme B — primitives to mesh
 
 - **No mesh smoothing or feature preservation on conversion.** Surface nets rounds hard edges and

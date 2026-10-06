@@ -49,9 +49,11 @@ describe('starter ids', () => {
     expect(isValidStarter('fps@top-down')).toEqual({ ok: false, reason: 'The FPS genre needs the raycaster.' });
     expect(isValidStarter('shooter@isometric').ok).toBe(false);
   });
-  it('only bases are available until the genre modules land', () => {
+  it('the bases and the 2D genres are available; the 3D genres wait for their modules', () => {
     expect(isStarterAvailable('platformer')).toEqual({ ok: true });
-    expect(isStarterAvailable('rts@isometric').ok).toBe(false);
+    expect(isStarterAvailable('rts@isometric')).toEqual({ ok: true });
+    expect(isStarterAvailable('crime@top-down')).toEqual({ ok: true });
+    expect(isStarterAvailable('shooter@first-person').ok).toBe(false);
     expect(isStarterAvailable('fps@top-down')).toEqual({ ok: false, reason: 'The FPS genre needs the raycaster.' });
   });
 });

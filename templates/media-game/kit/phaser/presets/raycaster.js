@@ -152,6 +152,23 @@ export function createRaycaster(scene, config) {
   return {
     image,
     input,
+    /** The live map (rows of cells). A genre may rewrite it in place — walls, doors, a whole level. */
+    map,
+    /** The live billboard list; push, remove or move entries and the next frame draws them. */
+    sprites,
+    /** The player's position in cells (mutate to teleport). */
+    pos,
+    get angle() {
+      return angle;
+    },
+    setAngle(/** @type {number} */ next) {
+      angle = next;
+    },
+    isSolid,
+    /** Whether the door cell is open enough to walk through. */
+    isDoorOpen: (/** @type {number} */ x, /** @type {number} */ y) => (doors.get(doorKey(x, y)) ?? 0) >= 0.9,
+    /** Start opening the door at a cell. */
+    openDoor: (/** @type {number} */ x, /** @type {number} */ y) => opening.add(doorKey(x, y)),
     update(/** @type {number} */ _time, /** @type {number} */ delta) {
       const dt = delta / 1000;
       angle += input.axis('turnLeft', 'turnRight') * cfg.turnSpeed * dt;
