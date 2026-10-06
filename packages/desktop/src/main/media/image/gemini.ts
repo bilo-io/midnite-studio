@@ -23,11 +23,15 @@ export const IMAGEN_ASPECT: Record<ImageAspect, string> = {
   '9:16': '9:16',
 };
 
+export const GEMINI_IMAGEN_NO_REFERENCE = "Imagen can't use a reference image. Pick Gemini 2.5 Flash Image.";
+
 export const isImagenModel = (model: string): boolean => model.startsWith('imagen-');
 
-export function geminiGenerateContentBody(prompt: string, aspect: ImageAspect, seed?: number) {
+/** References ride as `inline_data` parts before the text part, so the prompt can say "the reference image". */
+export function geminiGenerateContentBody(prompt: string, aspect: ImageAspect, seed?: number, references: readonly GeneratedImage[] = []) {
+  const images = references.map((r) => ({ inline_data: { mime_type: r.mime, data: r.bytes.toString('base64') } }));
   return {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    contents: [{ role: 'user', parts: [...images, { text: prompt }] }],
     generationConfig: {
       responseModalities: ['IMAGE'],
       imageConfig: { aspectRatio: aspect },
@@ -92,6 +96,7 @@ export const geminiImageProvider: ImageProvider = {
     const model = encodeURIComponent(req.model);
 
     if (isImagenModel(req.model)) {
+      if (req.references?.length) throw new ImageProviderError(GEMINI_IMAGEN_NO_REFERENCE);
       const res = await deps.fetch(`${GEMINI_API_BASE}/models/${model}:predict`, {
         method: 'POST',
         headers,
@@ -110,7 +115,7 @@ export const geminiImageProvider: ImageProvider = {
       const res = await deps.fetch(`${GEMINI_API_BASE}/models/${model}:generateContent`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(geminiGenerateContentBody(req.prompt, req.aspect, seed)),
+        body: JSON.stringify(geminiGenerateContentBody(req.prompt, req.aspect, seed, req.references)),
         signal: deps.signal,
       });
       if (!res.ok) throw await responseError('Gemini', res);

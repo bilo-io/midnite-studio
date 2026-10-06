@@ -3854,7 +3854,9 @@ export function buildMockBridge(data: MockFixtures) {
             if (!spec) return missing;
             // The real service parses through the zod schema; the mock fills the defaults the UI reads.
             const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
-            return { ok: true as const, value: { spec: filled, frames: { version: 1, frames: {}, referenceHeights: {} }, report: filled.lastReport ?? null } };
+            const framesRaw = mediaFiles[`sprite:${req.group}`]?.[`${req.asset}/frames/frames.json`];
+            const frames = framesRaw ? { version: 1, referenceHeights: {}, ...(JSON.parse(framesRaw) as Spec) } : { version: 1, frames: {}, referenceHeights: {} };
+            return { ok: true as const, value: { spec: filled, frames, report: filled.lastReport ?? null } };
           },
           setSpec: async (req: Spec) => {
             const spec = read(req.group, req.asset);
@@ -3863,9 +3865,28 @@ export function buildMockBridge(data: MockFixtures) {
             write(req.group, req.asset, next);
             return { ok: true as const, value: { spec: next } };
           },
-          setReference: async () => ({ ok: true as const }),
+          // Hand-drawn (Phase 106 Theme D): an attached image is unapproved until `approve` locks it.
+          setReference: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            if ('approve' in req) {
+              if (spec.reference?.kind !== 'image') return { ok: false as const, kind: 'error' as const, message: 'Generate or attach a reference first.' };
+              write(req.group, req.asset, { ...spec, reference: { ...spec.reference, approved: true } });
+            } else if ('remove' in req) {
+              const { reference: _gone, ...rest } = spec;
+              write(req.group, req.asset, rest);
+            } else if ('model' in req) {
+              write(req.group, req.asset, { ...spec, reference: { kind: 'model', ...req.model } });
+            } else {
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
+            }
+            listeners.changed.forEach((h) => h({ repoId: req.repoId, group: req.group, asset: req.asset, revision: Date.now() }));
+            return { ok: true as const };
+          },
           generate: async (req: Spec) => {
-            if (!read(req.group, req.asset)) return missing;
+            const current = read(req.group, req.asset);
+            if (!current) return missing;
+            if (req.turnaround) write(req.group, req.asset, { ...current, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
             const jobId = `job-${Date.now()}`;
             for (const [step, done] of [[0, 1], [10, 2]] as const) {
               setTimeout(() => listeners.progress.forEach((h) => h({ jobId, done, total: 2, stage: 'generating' })), step);

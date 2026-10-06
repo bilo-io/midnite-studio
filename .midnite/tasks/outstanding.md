@@ -532,11 +532,28 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   model's geometry at build time and in the viewer (`terrain-layers.tsx`), and the picker itself in the
   panel's Foliage section (`terrain-feature-sections.tsx`).
 
-- **Phase 106 Theme B — `transparent` stops at the adapter seam.** `ImageAdapterRequest.transparent`
-  and OpenAI's `background: 'transparent'` landed with the frame pipeline, but `ImageGenerateRequest`
-  (the Images tab's wire request) has no such field and `image-service.ts` never sets it. The sprite
-  frame sources (Themes D/F) call the adapter with it set; the Images tab gets a "transparent
-  background" toggle only if someone asks for one.
+- ~~**Phase 106 Theme B — `transparent` stops at the adapter seam.**~~ Resolved by Theme D:
+  `ImageGenerateRequestSchema` carries `transparent` (and `references`), and `image-service.ts` passes
+  both to the adapter. The Images tab still has no toggle for either — add one only if someone asks.
+
+## Phase 106 · Theme D — hand-drawn, deferred pieces
+
+- **Mirrored west frames are unflipped pixels with `flipped: true`.** The hand-drawn source submits the
+  east bytes again as `w` (`source: 'mirrored'`), so the flip is composition metadata like
+  `anchorNudge`. Theme G's previewer and packer must apply `flipped` and include `w` in the export's
+  directions; until then a raw `frames/<clip>/w/` folder faces east.
+- **Per-frame re-roll and delete live in G's frame strip.** D's flagged-frames list in the overview is
+  read-only; a re-roll today is `generate({clips})` for whole clips.
+- **The consistency check scores the raw candidate, before the B pass** (so only the best attempt is
+  normalised and written). If the keyed/normalised frame turns out to score differently, move the check
+  after `submitFrame` and re-submit the winner.
+- **The "Check consistency" hint is static.** The form names the suggested Ollama vision model rather
+  than probing which are installed; a missing model shows up as the job's "Consistency not checked: …"
+  note and `unchecked` badges.
+- **The turnaround is stored as returned, chroma background included**, and sent as the reference that
+  way. Keying it before storing would make the card prettier; it has not mattered to the providers.
+- **`nearestAspect` lives in `shared/src/sprite/pose-tables.ts`.** Theme F's one-shot sizing should
+  import it rather than add a second one.
 
 ## Phase 107 · Themes G + K — deferred pieces
 

@@ -1,4 +1,8 @@
 import {
+  imageModelSupportsReference,
+  imageModelsFor,
+  imageProviderInfo,
+  imageReferenceUnsupportedReason,
   presetClips,
   recommendSpriteMethod,
   SPRITE_NEEDS_MODEL,
@@ -29,7 +33,40 @@ export type SheetForm = {
   model: string;
   /** A Models asset (`<project>`, `<path>`), for rendering from 3D. */
   rig?: { project: string; path: string };
+  /** Hand-drawn: score each frame against the reference with a local vision model. */
+  checkConsistency: boolean;
+  /** Hand-drawn side sheets: "My character is asymmetric" — draw the west facing instead of mirroring. */
+  asymmetric: boolean;
 };
+
+/** Hand-drawn frames are drawn against a reference image, so they start on a provider that can take one. */
+export const SPRITE_DEFAULT_PROVIDER: ImageProviderId = 'gemini';
+
+/** Whether a provider (and model) can draw reference-locked hand-drawn frames. */
+export const referenceCapable = (provider: ImageProviderId, model: string): boolean => imageModelSupportsReference(provider, model);
+
+/**
+ * With the hand-drawn method, a provider or model that cannot take a reference is swapped for the
+ * first one that can — the picker shows the others disabled with the reason.
+ */
+export function withReferenceProvider(form: SheetForm): SheetForm {
+  if (form.method !== 'hand-drawn' || referenceCapable(form.provider, form.model)) return form;
+  if (imageProviderInfo(form.provider).supportsReference) {
+    const model = imageModelsFor(form.provider).find((m) => referenceCapable(form.provider, m.id));
+    if (model) return { ...form, model: model.id };
+  }
+  return { ...form, provider: SPRITE_DEFAULT_PROVIDER, model: imageModelsFor(SPRITE_DEFAULT_PROVIDER).find((m) => referenceCapable(SPRITE_DEFAULT_PROVIDER, m.id))?.id ?? '' };
+}
+
+/** The picker's reason a provider is disabled for the current method, or `null`. */
+export function providerBlockedFor(method: SpriteMethod, provider: ImageProviderId): string | null {
+  if (method !== 'hand-drawn' || imageProviderInfo(provider).supportsReference) return null;
+  return imageReferenceUnsupportedReason(imageProviderInfo(provider).label);
+}
+
+/** A 1-direction side sheet mirrors east into west; the asymmetric toggle only applies there. */
+export const mirrorApplies = (form: Pick<SheetForm, 'perspective' | 'directions' | 'method'>): boolean =>
+  form.method === 'hand-drawn' && form.perspective === 'side' && form.directions === 1;
 
 export const FRAME_SIZE_PRESETS = [16, 32, 48, 64, 96, 128] as const;
 
@@ -48,6 +85,8 @@ export function initialSheetForm(provider: ImageProviderId, model: string): Shee
     clipsEdited: false,
     provider,
     model,
+    checkConsistency: true,
+    asymmetric: false,
   };
 }
 
@@ -76,6 +115,8 @@ export function sheetFormToSpec(form: SheetForm): Record<string, unknown> {
     provider: form.provider,
     ...(form.model ? { model: form.model } : {}),
     ...(form.rig ? { reference: { kind: 'model', project: form.rig.project, path: form.rig.path } } : {}),
+    consistency: { enabled: form.checkConsistency },
+    mirror: !form.asymmetric,
   };
 }
 
@@ -86,6 +127,9 @@ export function sheetBlockedReason(form: SheetForm): string | null {
   if (form.clips.some((c) => !/^[a-z][a-z0-9-]{0,31}$/.test(c.name))) return 'Clip names are lower-case letters, digits and dashes.';
   if (new Set(form.clips.map((c) => c.name)).size !== form.clips.length) return 'Clip names must be unique.';
   if (form.method !== 'rendered' && form.prompt.trim().length === 0) return 'Describe what to draw.';
+  if (form.method === 'hand-drawn' && !referenceCapable(form.provider, form.model)) {
+    return imageReferenceUnsupportedReason(form.provider === 'gemini' ? 'Imagen' : imageProviderInfo(form.provider).label);
+  }
   return null;
 }
 

@@ -1,8 +1,10 @@
 import {
+  handDrawnBlocker,
   SPRITE_GROUP_IDS,
   spriteDirections,
   spriteFolderLabel,
   type SpriteAssetSpec,
+  type SpriteFramesFile,
   type SpriteGroupId,
   type SpriteProgressEvent,
 } from '@midnite/studio-shared';
@@ -17,6 +19,7 @@ import { MEDIA_TAB_META } from '../media-tabs';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { SpriteCreatePanel } from './sprite-create-panel';
 import { SpriteExplorer, spriteOfPath } from './sprite-explorer';
+import { SpriteFlaggedFrames, SpriteReferenceCard, type ReferenceChange } from './sprite-reference-card';
 import { useSprite, useSpriteActions, useSpriteChangedInvalidation, useSpriteProgress, type SpriteRef } from './use-sprite';
 
 /**
@@ -66,16 +69,30 @@ function SpriteTabBody({ repoId }: { repoId: string }) {
   ) : (
     <SpriteOverview
       spec={sprite.data.spec}
-      frameCount={Object.keys(sprite.data.frames.frames).length}
+      frames={sprite.data.frames}
       event={event}
       running={running}
-      onGenerate={async () => {
-        const result = await actions.generate(ref);
+      onGenerate={async (opts) => {
+        const result = await actions.generate(ref, opts);
         if (result.ok) setJobs((current) => ({ ...current, [refKey]: result.value.jobId }));
         else return result.kind === 'error' ? result.message : 'Could not start generation.';
         return null;
       }}
       onCancel={() => (jobId ? void actions.cancel(jobId) : undefined)}
+      reference={(spec, generate) => (
+        <SpriteReferenceCard
+          repoId={repoId}
+          target={ref}
+          spec={spec}
+          frameCount={Object.keys(sprite.data.frames.frames).length}
+          busy={running}
+          onTurnaround={generate}
+          onChange={async (change: ReferenceChange) => {
+            const result = await actions.setReference(ref, change);
+            return result.ok ? null : result.kind === 'error' ? result.message : 'Could not update the reference.';
+          }}
+        />
+      )}
     />
   );
 
@@ -99,22 +116,34 @@ function SpriteTabBody({ repoId }: { repoId: string }) {
 
 function SpriteOverview({
   spec,
-  frameCount,
+  frames,
   event,
   running,
   onGenerate,
   onCancel,
+  reference,
 }: {
   spec: SpriteAssetSpec;
-  frameCount: number;
+  frames: SpriteFramesFile;
   event: SpriteProgressEvent | undefined;
   running: boolean;
-  onGenerate: () => Promise<string | null>;
+  onGenerate: (opts?: { turnaround?: true }) => Promise<string | null>;
   onCancel: () => void;
+  /** The hand-drawn reference card; given the sheet and a "draw a turnaround" action. */
+  reference: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>, generateTurnaround: () => void) => React.ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
   const rows = specRows(spec);
+  const frameCount = Object.keys(frames.frames).length;
   const outcome = event?.state === 'failed' || event?.state === 'cancelled' ? event.message : null;
+  // A job that ended `done` can still carry a note, e.g. "Consistency not checked: …".
+  const note = event?.state === 'done' ? event.message : undefined;
+  const handDrawn = spec.kind === 'sheet' && spec.method === 'hand-drawn';
+  const blocked = handDrawn ? handDrawnBlocker(spec) : null;
+  const start = (opts?: { turnaround?: true }) => {
+    setError(null);
+    void onGenerate(opts).then(setError);
+  };
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-4" data-testid="sprite-overview">
       <div className="flex items-center gap-2">
@@ -134,13 +163,12 @@ function SpriteOverview({
             ) : (
               <button
                 type="button"
-                onClick={() => {
-                  setError(null);
-                  void onGenerate().then(setError);
-                }}
-                className="h-7 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground"
+                disabled={blocked !== null}
+                title={blocked ?? 'Generate'}
+                onClick={() => start()}
+                className="h-7 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
               >
-                Generate
+                {handDrawn ? 'Generate frames' : 'Generate'}
               </button>
             )}
           </div>
@@ -151,7 +179,13 @@ function SpriteOverview({
           {error ?? outcome}
         </p>
       ) : null}
+      {note ? (
+        <p role="status" className="rounded-md border border-border bg-muted/50 px-2 py-1.5 text-[11px] text-muted-foreground">
+          {note}
+        </p>
+      ) : null}
       {spec.prompt ? <p className="text-xs text-muted-foreground">{spec.prompt}</p> : null}
+      {spec.kind === 'sheet' && handDrawn ? reference(spec, () => start({ turnaround: true })) : null}
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
@@ -165,6 +199,7 @@ function SpriteOverview({
           {spec.lastReport ? ` (${spec.lastReport.failing} failing)` : ''}
         </dd>
       </dl>
+      <SpriteFlaggedFrames frames={frames} />
       {spec.kind === 'sheet' ? (
         <table className="w-full text-left text-xs" aria-label="Clips">
           <thead className="text-[11px] text-muted-foreground">

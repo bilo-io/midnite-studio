@@ -50,7 +50,8 @@ const ollama: OllamaSeam = {
   capabilities: async (model) => (await ollamaShow(model, { baseUrl: await ollamaBaseUrl(), timeoutMs: 1500 })).capabilities ?? [],
 };
 
-const engines = {
+/** Ollama + agent engines; also the vision model the sprite consistency check uses (Phase 106 Theme D). */
+export const engines = {
   ollama,
   runAgent: async (req: { agentId: string; model: LoopModel | undefined; repoId: string; prompt: string }) =>
     runHeadlessText(
