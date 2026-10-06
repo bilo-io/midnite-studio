@@ -10,7 +10,7 @@ export const MEDIA_TAB_META: Record<MediaTab, { label: string; icon: IconCompone
   video: { label: 'Video', icon: LuClapperboard },
   audio: { label: 'Audio', icon: LuAudioLines },
   model: { label: 'Models', icon: LuBox },
-  terrain: { label: 'Terrain', icon: LuMountain, LuPersonStanding },
+  terrain: { label: 'Terrain', icon: LuMountain },
   sprite: { label: 'Sprites', icon: LuPersonStanding },
   game: { label: 'Games', icon: LuGamepad2 },
 };

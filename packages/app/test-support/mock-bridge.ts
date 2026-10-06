@@ -3834,7 +3834,7 @@ export function buildMockBridge(data: MockFixtures) {
             if (req.op === 'create') {
               const group = groupOf(req.spec);
               const asset = `${slug(req.spec.name)}-20261004-120000`;
-              write(group, asset, { version: 1, ...req.spec });
+              write(group as string, asset, { version: 1, ...req.spec });
               return { ok: true as const, value: { group, asset } };
             }
             const spec = read(req.group, req.asset);
