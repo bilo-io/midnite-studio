@@ -251,6 +251,7 @@ import {
   ModelSaveEditRequestSchema,
 } from '../media-model';
 import { ModelLibraryNodeSchema, ModelLibraryRequestSchema } from '../media-model-library';
+import { ModelMeshRequestSchema, ModelMeshResultSchema } from '../media-model-mesh';
 import {
   TerrainBuildRequestSchema,
   TerrainCancelRequestSchema,
@@ -3242,6 +3243,9 @@ export const MediaModelLibraryResponse = GitOpResultOf(
     skipped: z.number().int().nonnegative().optional(),
   }),
 );
+/** Sculpt meshes (Phase 104): read / write `.mesh.bin`, append / read the op log — one channel, an `op` union. */
+export const MediaModelMeshRequest = ModelMeshRequestSchema;
+export const MediaModelMeshResponse = GitOpResultOf(ModelMeshResultSchema);
 // Terrain (Phase 105)
 export const MediaTerrainLibraryRequest = TerrainLibraryRequestSchema;
 export const MediaTerrainLibraryResponse = TerrainResultSchemas.library;

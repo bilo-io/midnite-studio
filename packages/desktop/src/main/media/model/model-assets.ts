@@ -1,15 +1,17 @@
 import {
   type GitOpResult,
   missingModelAssets,
+  missingSculptMeshes,
   modelAssetHash,
   modelAssetPath,
   type ModelSpec,
   parseGlbMesh,
   registerModelAsset,
+  registerSculptMesh,
 } from '@midnite/studio-shared';
 
 /**
- * Loads the files behind a design's `asset` parts into the kernel's registry, so `buildScene` can draw
+ * Loads the files behind a design's `asset` and `sculpt` parts into the kernel's registry, so `buildScene` can draw
  * them. Main calls it wherever it builds a design read from disk — before an export, a save, a manifest
  * or any `model_*` tool — with `dir`, the design's folder inside the media project (`''` for a flat
  * legacy model). Already-registered meshes cost nothing; a missing, changed or unreadable file is
@@ -41,6 +43,25 @@ export async function loadModelAssets(readBytes: ReadAssetBytes, scope: AssetSco
       registerModelAsset(hash, parseGlbMesh(bytes));
     } catch (error) {
       problems.push(`The imported mesh "${part.src}" could not be read: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  // Sculpt meshes (Phase 104): the same registry, a `.mesh.bin` instead of a `.glb`.
+  for (const part of missingSculptMeshes(spec)) {
+    const read = await readBytes({ ...scope, path: modelAssetPath(dir, part.src) });
+    if (!read.ok) {
+      problems.push(`The sculpt mesh "${part.src}" is missing from the model's folder.`);
+      continue;
+    }
+    const bytes = asBytes(read.value);
+    const hash = modelAssetHash(bytes);
+    if (hash !== part.hash) {
+      problems.push(`The sculpt mesh "${part.src}" has changed since the design was saved (hash ${hash}, the design expects ${part.hash}).`);
+      continue;
+    }
+    try {
+      registerSculptMesh(hash, bytes);
+    } catch (error) {
+      problems.push(`The sculpt mesh "${part.src}" could not be read: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   return problems;

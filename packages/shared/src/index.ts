@@ -31,6 +31,7 @@ export * from './media';
 export * from './media-game';
 export * from './media-model';
 export * from './media-model-library';
+export * from './media-model-mesh';
 export * from './media-game-mcp';
 export * from './media-model-mcp';
 export * from './media-model-rig';
