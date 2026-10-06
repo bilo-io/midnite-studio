@@ -438,7 +438,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       done: job.status.done,
       total: job.status.total,
       stage: 'processing',
-      state: job.status.state === 'running' ? 'done' : job.status.state,
+      state: job.status.state as 'done' | 'cancelled' | 'failed',
       ...(job.status.message ? { message: job.status.message } : {}),
     });
     deps.log(`sprite job ${target.asset} method=${spec.kind === 'sheet' ? spec.method : spec.kind} frames=${frames} requests=${frames} ms=${Date.now() - started} ${end}`);
