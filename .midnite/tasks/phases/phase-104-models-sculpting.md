@@ -84,7 +84,7 @@ This phase gives Models the full fidelity stack:
 
 **Theme A — Mesh core and storage.** ✅ Landed alone, as planned. The kernel gained `model-geometry/mesh/`: `EditableMesh` (typed-array positions/normals/indices, CSR vertex→face adjacency, a dirty set so only the one-ring of moved vertices gets new normals, and `takeDelta()` for the changed vertex range), a flat-array `Bvh` (quickselect median split, `refit()` after a stroke, ray and sphere queries), the versioned `.mesh.bin` (32-byte header, CRC-32, byte-stable round trip, readable refusals for a foreign, truncated, corrupt, older or newer file) and the capped, rotating `.ops.jsonl` op log. `ModelSpecSchema` has an optional `sculpt` part (`src` + content `hash` + counts + `multiresLevel`) resolved through the same hash registry as `asset`, skinned per vertex, never a boolean operand; old sidecars parse unchanged. Main reads and writes both files through a new `mstudio:media:model-mesh` `op` channel inside the media store's jail, refusing bytes that do not decode, and `model.json` gains a `sculpt` summary plus `files.mesh`. **Decision: the sculpt worker is a renderer Web Worker** (`app/features/media/model/sculpt/`, inlined `?worker&inline` like Monaco's), because a per-dab IPC hop to a utility process would cost more than the dab; only saves cross to main. Deltas travel as transferable typed arrays and the display patches its `BufferAttribute`s with `addUpdateRange`. Storage is `.mesh.bin` only — the embedded-`.glb` alternative was not built. A `displace` request stands in for brushes until Theme D. No visible UI yet beyond the inspector's sculpt-part line.
 
-**Theme B — Primitives → mesh.** ◻ Not started. Lands with or straight after A.
+**Theme B — Primitives → mesh.** ✅ Any design becomes sculptable. `model-geometry/mesh/voxel-remesh.ts` builds a narrow-band signed-distance volume from a triangle soup (exact point-to-triangle distance within two voxels, big triangles split first) and signs it with a **winding count along +x rays**, not parity, so overlapping primitives (a head sunk into a torso) read as one solid; `surface-nets.ts` then extracts the zero isosurface (it resolves checkerboard grid faces so every edge is shared by exactly two triangles, and Theme C reuses it for SDF bakes). `convert.ts` plans a conversion from the kernel's own scene (booleans, modifiers and transforms applied; a selection or the whole design), keeps each source part as a **vertex group** (`.mesh.bin` flag bit 0 appends a u16 per vertex; the sculpt part's `groups` table carries name and colour), and applies it as one edit: the primitives stay in the design, hidden, listed in the sculpt part's `sources`, so `revertSculptToParts` and undo bring them back. Resolution is a voxel size or a target vertex count, coarsened (and reported) when the grid would pass 16M nodes. The editor gets a **Mesh** tab (scope, detail, voxel size, Convert, Revert to parts); the remesh runs in the sculpt worker (`remesh` request) and the file is written through `mediaModelMesh` before the design adopts it. `model_convert_to_mesh` does the same over MCP, directly in main. **Decisions:** the remesh result is a fresh mesh in world space at the origin (no transform), so a rigged design converts but is skinned by nearest bone and the tool warns; per-vertex groups live in the binary rather than the sidecar so they survive brush strokes; no Theme-B-specific smoothing pass (surface nets already sits within a voxel of the source).
 
 **Theme C — SDF modelling.** ◻ Not started.
 
@@ -126,11 +126,11 @@ A first-class editable mesh that can hold about 1M vertices without stalling the
 
 Every existing design becomes sculptable.
 
-- [ ] "Convert to sculpt mesh" for a part, a selection or the whole design: kernel CSG result → voxel remesh → one watertight `sculpt` part, keeping material assignment as vertex groups
-- [ ] Voxel remesh in the kernel (signed-distance volume from the source mesh, then isosurface), with a resolution control in voxel size or target vertex count
-- [ ] Convert keeps the original primitives hidden but recoverable, so undo and "revert to parts" work
-- [ ] `model_convert_to_mesh` MCP tool
-- [ ] Vitest: a converted capsule or robot is watertight (every edge shared by two faces), and its volume and bounds stay within tolerance of the source
+- [x] "Convert to sculpt mesh" for a part, a selection or the whole design: kernel CSG result → voxel remesh → one watertight `sculpt` part, keeping material assignment as vertex groups
+- [x] Voxel remesh in the kernel (signed-distance volume from the source mesh, then isosurface), with a resolution control in voxel size or target vertex count
+- [x] Convert keeps the original primitives hidden but recoverable, so undo and "revert to parts" work
+- [x] `model_convert_to_mesh` MCP tool
+- [x] Vitest: a converted capsule or robot is watertight (every edge shared by two faces), and its volume and bounds stay within tolerance of the source
 
 ## C — SDF modelling (M/L)
 

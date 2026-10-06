@@ -495,7 +495,7 @@ export const MCP_TOOLS = {
     id: 'model_convert_to_mesh',
     title: 'Convert primitives to a sculpt mesh',
     description:
-      'Turns a design’s primitives (all of them, or the named `parts`) into one watertight, sculptable mesh — booleans and modifiers applied, each source part kept as a vertex group — by voxel remesh at `voxelSize` or about `targetVertices`. The primitives stay in the design, hidden, so remove the new sculpt part and un-hide them to go back; refused unless its own Settings switch is on.',
+      'Converts a design’s primitives (or the named `parts`) into one watertight sculpt mesh, keeping the primitives hidden; refused unless its own Settings switch is on.',
     input: ModelConvertToMeshInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,

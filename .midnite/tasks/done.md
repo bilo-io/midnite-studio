@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
+
+Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
+
+- [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
+
 ## 2026-10-06 — Phase 104 Theme A — Mesh core and storage
 
 Sculpt-mesh foundation: `EditableMesh` with CSR adjacency and dirty-region normals, a refittable triangle BVH, the versioned and checksummed `.mesh.bin`, the capped `.ops.jsonl` op log, an optional `sculpt` part on `ModelSpecSchema`, the `mstudio:media:model-mesh` channel in main, a `model.json` sculpt summary, and a renderer Web Worker that owns the live mesh and posts transferable deltas the display uploads with `addUpdateRange`. PR: see the pull request.
