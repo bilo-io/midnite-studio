@@ -1,0 +1,421 @@
+import {
+  clipsMatchPreset,
+  DEFAULT_IMAGE_PROVIDER,
+  imageModelsFor,
+  presetClips,
+  SPRITE_LOOPS,
+  SPRITE_PERSPECTIVES,
+  SPRITE_STYLES,
+  type ImageProviderId,
+  type SpriteClip,
+  type SpriteGroupId,
+  type SpriteMethod,
+  type SpritePerspective,
+} from '@midnite/studio-shared';
+import { useReducer, useState, type Dispatch } from 'react';
+import { LuPlus, LuTrash2 } from 'react-icons/lu';
+
+import { ProviderModelPicker } from '../../../components/ai-thread';
+import { useDialogs } from '../../../components/dialog-host';
+import { IconButton } from '../../../components/icon-button';
+import { Spinner } from '../../../components/skeleton';
+import { imagePickerProviders } from '../image/create-panel';
+import { useImageProviders } from '../image/use-images';
+import { PromptTextarea } from '../prompt-input';
+import {
+  ENV_KINDS,
+  envBlockedReason,
+  envFormToSpec,
+  FRAME_SIZE_PRESETS,
+  formRecommendation,
+  initialEnvForm,
+  initialSheetForm,
+  needsRig,
+  sheetBlockedReason,
+  sheetFormToSpec,
+  type EnvForm,
+  type EnvKind,
+  type SheetForm,
+} from './sprite-form';
+import { SpriteMethodPicker } from './sprite-method-picker';
+import { useSpriteActions, type SpriteRef } from './use-sprite';
+
+type Mode = 'sheet' | 'environment';
+
+type SheetAction =
+  | { type: 'patch'; patch: Partial<SheetForm> }
+  | { type: 'perspective'; perspective: SpritePerspective; replaceClips: boolean }
+  | { type: 'method'; method: SpriteMethod }
+  | { type: 'clip'; index: number; patch: Partial<SpriteClip> }
+  | { type: 'addClip' }
+  | { type: 'removeClip'; index: number }
+  | { type: 'replaceClips' };
+
+/** Re-recommends the method until the user picks a card themselves. */
+function withRecommendation(form: SheetForm): SheetForm {
+  return form.methodChosen || form.method === 'one-shot' ? form : { ...form, method: formRecommendation(form).method };
+}
+
+function sheetReducer(form: SheetForm, action: SheetAction): SheetForm {
+  switch (action.type) {
+    case 'patch':
+      return withRecommendation({ ...form, ...action.patch });
+    case 'perspective':
+      return withRecommendation({ ...form, perspective: action.perspective, ...(action.replaceClips ? { clips: presetClips(action.perspective), clipsEdited: false } : {}) });
+    case 'method':
+      return { ...form, method: action.method, methodChosen: action.method !== 'one-shot' ? true : form.methodChosen };
+    case 'clip':
+      return { ...form, clipsEdited: true, clips: form.clips.map((c, i) => (i === action.index ? { ...c, ...action.patch } : c)) };
+    case 'addClip':
+      return { ...form, clipsEdited: true, clips: [...form.clips, { name: `clip-${form.clips.length + 1}`, frames: 4, fps: 8, loop: 'loop' }] };
+    case 'removeClip':
+      return { ...form, clipsEdited: true, clips: form.clips.filter((_, i) => i !== action.index) };
+    case 'replaceClips':
+      return { ...form, clips: presetClips(form.perspective), clipsEdited: false };
+  }
+}
+
+const FIELD = 'h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground';
+const LABEL = 'flex flex-col gap-1 text-[11px] font-medium text-muted-foreground';
+
+/**
+ * The right-hand panel of Media ▸ Sprites: two modes, **Sheet** and **Environment**, swapping the
+ * form beneath one shared prompt box. Sheet's Generate creates the asset and starts its job;
+ * Environment's button creates the asset (generation for those kinds lands with Themes H–J).
+ */
+export function SpriteCreatePanel({
+  repoId,
+  onCreated,
+  onJob,
+}: {
+  repoId: string;
+  /** The asset that was just created, to select it. */
+  onCreated: (group: SpriteGroupId, asset: string) => void;
+  /** A job that was just started for it. */
+  onJob: (ref: SpriteRef, jobId: string) => void;
+}) {
+  const [mode, setMode] = useState<Mode>('sheet');
+  const statuses = useImageProviders().data ?? [];
+  const actions = useSpriteActions(repoId);
+  const dialogs = useDialogs();
+  const defaultModel = imageModelsFor(DEFAULT_IMAGE_PROVIDER)[0]?.id ?? '';
+  const [sheet, dispatch] = useReducer(sheetReducer, undefined, () => initialSheetForm(DEFAULT_IMAGE_PROVIDER, defaultModel));
+  const [env, setEnv] = useState<EnvForm>(initialEnvForm);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const recommendation = formRecommendation(sheet);
+  const sheetBlocked = sheetBlockedReason(sheet);
+  const envBlocked = envBlockedReason(env);
+
+  const createAndGenerate = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await actions.create(sheetFormToSpec(sheet));
+      if (!created.ok || !created.value.group || !created.value.asset) return;
+      const ref = { group: created.value.group, asset: created.value.asset };
+      onCreated(ref.group, ref.asset);
+      const started = await actions.generate(ref);
+      if (started.ok) onJob(ref, started.value.jobId);
+      else setError(started.kind === 'error' ? started.message : 'Could not start generation.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createEnvironment = async () => {
+    setBusy(true);
+    try {
+      const created = await actions.create(envFormToSpec(env));
+      if (created.ok && created.value.group && created.value.asset) onCreated(created.value.group, created.value.asset);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const attachRig = () =>
+    dialogs.prompt({
+      title: 'Attach a rigged model',
+      label: 'Models project / model path',
+      placeholder: 'characters/knight-20261004-120000',
+      confirmLabel: 'Attach',
+      validate: (value) => (/^[^/\s][^\s]*\/[^\s]+$/.test(value.trim()) ? null : 'Use <project>/<model folder>.'),
+      onConfirm: (value) => {
+        const [project, ...rest] = value.trim().split('/');
+        dispatch({ type: 'patch', patch: { rig: { project: project!, path: rest.join('/') } } });
+      },
+    });
+
+  const models = imageModelsFor(sheet.provider, statuses.find((s) => s.id === sheet.provider)?.models);
+
+  const setPerspective = (perspective: SpritePerspective) => {
+    const unedited = !sheet.clipsEdited || clipsMatchPreset(sheet.clips, sheet.perspective);
+    dispatch({ type: 'perspective', perspective, replaceClips: unedited });
+    if (!unedited) {
+      dialogs.confirm({
+        title: `Replace your clips with the ${perspective} preset?`,
+        body: 'Your edited clips will be replaced.',
+        confirmLabel: 'Replace',
+        onConfirm: () => dispatch({ type: 'replaceClips' }),
+      });
+    }
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-testid="sprite-create-panel">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border/50 p-3">
+        <div role="radiogroup" aria-label="Create" className="flex rounded-md border border-border p-0.5">
+          {(['sheet', 'environment'] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={mode === id}
+              tabIndex={mode === id ? 0 : -1}
+              onClick={() => setMode(id)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  setMode(id === 'sheet' ? 'environment' : 'sheet');
+                }
+              }}
+              className={`rounded px-3 py-1 text-xs font-medium ${mode === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {id === 'sheet' ? 'Sheet' : 'Environment'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        {mode === 'sheet' ? (
+          <SheetFields
+            form={sheet}
+            dispatch={dispatch}
+            recommendation={recommendation}
+            onPerspective={setPerspective}
+            attachRig={attachRig}
+          />
+        ) : (
+          <EnvironmentFields form={env} onChange={(patch) => setEnv((current) => ({ ...current, ...patch }))} />
+        )}
+        {error ? (
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3">
+        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+          Prompt
+          <PromptTextarea
+            aria-label="Prompt"
+            rows={4}
+            value={mode === 'sheet' ? sheet.prompt : env.prompt}
+            placeholder={mode === 'sheet' ? 'A knight in plate armour with a red plume' : 'Lush grass with dirt paths'}
+            onChange={(event) => (mode === 'sheet' ? dispatch({ type: 'patch', patch: { prompt: event.target.value } }) : setEnv((c) => ({ ...c, prompt: event.target.value })))}
+          />
+        </div>
+        {mode === 'sheet' ? (
+          <div className="flex items-center gap-2">
+            <ProviderModelPicker
+              testId="sprite-picker"
+              providers={imagePickerProviders(statuses)}
+              provider={sheet.provider}
+              models={models.map((m) => ({ ...m, ...(m.id === models[0]?.id ? { recommended: true } : {}) }))}
+              model={sheet.model}
+              onProviderChange={(id) => {
+                const provider = id as ImageProviderId;
+                dispatch({ type: 'patch', patch: { provider, model: imageModelsFor(provider, statuses.find((s) => s.id === id)?.models)[0]?.id ?? '' } });
+              }}
+              onModelChange={(model) => dispatch({ type: 'patch', patch: { model } })}
+            />
+            {needsRig(sheet) ? (
+              <button type="button" onClick={attachRig} className="ml-auto h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">
+                Attach a rigged model…
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy || sheetBlocked !== null}
+                title={sheetBlocked ?? 'Generate'}
+                onClick={() => void createAndGenerate()}
+                className="ml-auto flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                {busy ? <Spinner /> : null}
+                Generate
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={busy || envBlocked !== null}
+            title={envBlocked ?? 'Create'}
+            onClick={() => void createEnvironment()}
+            className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {busy ? <Spinner /> : null}
+            Create
+          </button>
+        )}
+        {sheet.rig && mode === 'sheet' ? (
+          <p className="text-[11px] text-muted-foreground">
+            Model: {sheet.rig.project}/{sheet.rig.path}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SheetFields({
+  form,
+  dispatch,
+  recommendation,
+  onPerspective,
+  attachRig,
+}: {
+  form: SheetForm;
+  dispatch: Dispatch<SheetAction>;
+  recommendation: ReturnType<typeof formRecommendation>;
+  onPerspective: (perspective: SpritePerspective) => void;
+  attachRig: () => void;
+}) {
+  const patch = (p: Partial<SheetForm>) => dispatch({ type: 'patch', patch: p });
+  return (
+    <>
+      <label className={LABEL}>
+        Name
+        <input aria-label="Name" className={FIELD} value={form.name} placeholder="knight" onChange={(e) => patch({ name: e.target.value })} />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className={LABEL}>
+          Category
+          <select aria-label="Category" className={FIELD} value={form.category} onChange={(e) => patch({ category: e.target.value as SheetForm['category'] })}>
+            <option value="character">Character</option>
+            <option value="object">Object</option>
+          </select>
+        </label>
+        <label className={LABEL}>
+          Style
+          <select aria-label="Style" className={FIELD} value={form.style} onChange={(e) => patch({ style: e.target.value as SheetForm['style'] })}>
+            {SPRITE_STYLES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <label className={LABEL}>
+          Perspective
+          <select aria-label="Perspective" className={FIELD} value={form.perspective} onChange={(e) => onPerspective(e.target.value as SpritePerspective)}>
+            {SPRITE_PERSPECTIVES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <label className={LABEL}>
+          Directions
+          <select aria-label="Directions" className={FIELD} value={form.directions} onChange={(e) => patch({ directions: Number(e.target.value) as SheetForm['directions'] })}>
+            <option value={1}>1</option>
+            <option value={4}>4</option>
+            <option value={8}>8</option>
+          </select>
+        </label>
+      </div>
+      <div className="flex items-end gap-2">
+        <label className={`${LABEL} w-20`}>
+          Width
+          <input aria-label="Frame width" type="number" min={8} max={512} className={FIELD} value={form.frameW} onChange={(e) => patch({ frameW: clampDim(e.target.value) })} />
+        </label>
+        <label className={`${LABEL} w-20`}>
+          Height
+          <input aria-label="Frame height" type="number" min={8} max={512} className={FIELD} value={form.frameH} onChange={(e) => patch({ frameH: clampDim(e.target.value) })} />
+        </label>
+        <div className="flex flex-wrap gap-1 pb-0.5">
+          {FRAME_SIZE_PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              aria-label={`Frame size ${n}`}
+              aria-pressed={form.frameW === n && form.frameH === n}
+              onClick={() => patch({ frameW: n, frameH: n })}
+              className={`rounded border px-1.5 py-0.5 text-[10px] tabular-nums ${form.frameW === n && form.frameH === n ? 'border-primary text-foreground' : 'border-border text-muted-foreground'}`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium text-muted-foreground">Method</span>
+        <SpriteMethodPicker method={form.method} recommended={recommendation} onMethod={(method) => dispatch({ type: 'method', method })} />
+        {form.method === 'rendered' ? (
+          <button type="button" onClick={attachRig} className="w-fit text-[11px] font-medium text-primary underline decoration-dotted">
+            {form.rig ? 'Change the attached model…' : 'Attach a rigged model…'}
+          </button>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center">
+          <span className="text-[11px] font-medium text-muted-foreground">Clips</span>
+          <IconButton icon={LuPlus} label="Add clip" size="sm" className="ml-auto" onClick={() => dispatch({ type: 'addClip' })} />
+        </div>
+        {form.clips.map((clip, index) => (
+          <div key={index} className="flex items-center gap-1" data-testid="clip-row">
+            <input aria-label={`Clip ${index + 1} name`} className={`${FIELD} min-w-0 flex-1`} value={clip.name} onChange={(e) => dispatch({ type: 'clip', index, patch: { name: e.target.value } })} />
+            <input aria-label={`${clip.name} frames`} type="number" min={1} max={64} className={`${FIELD} w-12`} value={clip.frames} onChange={(e) => dispatch({ type: 'clip', index, patch: { frames: clampInt(e.target.value, 1, 64) } })} />
+            <input aria-label={`${clip.name} fps`} type="number" min={1} max={60} className={`${FIELD} w-12`} value={clip.fps} onChange={(e) => dispatch({ type: 'clip', index, patch: { fps: clampInt(e.target.value, 1, 60) } })} />
+            <select aria-label={`${clip.name} loop`} className={`${FIELD} w-[4.5rem]`} value={clip.loop} onChange={(e) => dispatch({ type: 'clip', index, patch: { loop: e.target.value as SpriteClip['loop'] } })}>
+              {SPRITE_LOOPS.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+            <IconButton icon={LuTrash2} label={`Remove ${clip.name}`} size="sm" onClick={() => dispatch({ type: 'removeClip', index })} />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function EnvironmentFields({ form, onChange }: { form: EnvForm; onChange: (patch: Partial<EnvForm>) => void }) {
+  return (
+    <>
+      <label className={LABEL}>
+        Kind
+        <select aria-label="Kind" className={FIELD} value={form.kind} onChange={(e) => onChange({ kind: e.target.value as EnvKind })}>
+          {ENV_KINDS.map((k) => (
+            <option key={k.id} value={k.id}>{k.label}</option>
+          ))}
+        </select>
+      </label>
+      <label className={LABEL}>
+        Name
+        <input aria-label="Name" className={FIELD} value={form.name} placeholder="meadow" onChange={(e) => onChange({ name: e.target.value })} />
+      </label>
+      <label className={LABEL}>
+        Style
+        <select aria-label="Style" className={FIELD} value={form.style} onChange={(e) => onChange({ style: e.target.value as EnvForm['style'] })}>
+          {SPRITE_STYLES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </label>
+      {form.kind === 'tileset' || form.kind === 'isometric' || form.kind === 'map' ? (
+        <label className={LABEL}>
+          Tile size
+          <input aria-label="Tile size" type="number" min={8} max={256} className={FIELD} value={form.tileSize} onChange={(e) => onChange({ tileSize: clampInt(e.target.value, 8, 256) })} />
+        </label>
+      ) : null}
+      <p className="text-[11px] text-muted-foreground">Tileset, background, prop-sheet and map generation arrive with Phase 106 Themes H–J. Creating one now saves its spec.</p>
+    </>
+  );
+}
+
+const clampInt = (raw: string, min: number, max: number): number => Math.min(max, Math.max(min, Math.round(Number(raw)) || min));
+const clampDim = (raw: string): number => clampInt(raw, 8, 512);
+

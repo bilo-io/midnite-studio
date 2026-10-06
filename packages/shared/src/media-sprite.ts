@@ -325,6 +325,10 @@ export const SpriteProgressEventSchema = z.object({
   total: z.number().int().nonnegative(),
   stage: z.enum(SPRITE_PROGRESS_STAGES),
   frame: z.string().optional(),
+  /** Set on a job's final event: how it ended. Absent while it runs. */
+  state: z.enum(['done', 'cancelled', 'failed']).optional(),
+  /** Why a job ended `cancelled` or `failed`. */
+  message: z.string().optional(),
 });
 export type SpriteProgressEvent = z.infer<typeof SpriteProgressEventSchema>;
 
