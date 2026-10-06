@@ -574,3 +574,17 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **The worker's `displace` request is a placeholder.** It pushes vertices along their normals with a
   smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
   replaces it.
+
+## Phase 104 · Theme B — primitives to mesh
+
+- **No mesh smoothing or feature preservation on conversion.** Surface nets rounds hard edges and
+  corners by up to about a voxel; a box converted at low detail comes back with softened edges. Dual
+  contouring (already deferred in Theme C's notes) or a sharp-edge snap pass would keep them.
+- **Rigged designs are skinned by nearest bone after conversion.** The new part is one dense mesh with
+  no bone binding of its own; explicit `rig.bind` entries on the hidden primitives are not carried
+  over. Theme F's weight transfer is the proper answer.
+- **Conversion is synchronous in main for MCP.** `model_convert_to_mesh` runs the remesh on main's
+  thread (bounded by the 16M-node grid cap and the 1M-vertex target ceiling). A very fine request can
+  stall main for seconds; moving it to a utility process is only worth doing if that is observed.
+- **Vertex groups are stored but not yet shown or editable.** They are read back by nothing in the
+  editor beyond the Mesh tab's list; Theme G's paint layers and material assignment are the consumer.

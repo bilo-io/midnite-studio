@@ -125,6 +125,12 @@ async function shrinkImage(data: Buffer, mime: string): Promise<{ data: Buffer; 
  * server answers them behind the `allowModels` switch (`mcp/model-tools.ts`); an iterative run
  * answers them on its own private server.
  */
+/** Sculpt mesh binaries and their op logs (Phase 104 Theme A), inside the media store's jail. */
+const sculptStore = createSculptStore({
+  readBytes: (req) => mediaStore.readBytes(req),
+  writeBytes: (req) => mediaStore.writeBytes(req),
+});
+
 const modelTools = createModelTools({
   resolveRepo: async (repoPath) => {
     const resolved = await resolveRegisteredRepo(repoPath);
@@ -139,6 +145,7 @@ const modelTools = createModelTools({
   },
   saveSpec: (req) => service.saveEdit(req),
   writeSidecar: (req) => service.writeSidecar(req),
+  writeMesh: (req) => sculptStore.handle(req),
   createModel: (req) => service.createModel(req),
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelChanged, event),
   emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelOpen, event),
@@ -155,12 +162,6 @@ const library = createModelLibrary({
   trash: (absPath) => shell.trashItem(absPath),
   onChanged: (repoId) => notifyMediaChanged(repoId, 'model'),
   author: modelAuthor,
-});
-
-/** Sculpt mesh binaries and their op logs (Phase 104 Theme A), inside the media store's jail. */
-const sculptStore = createSculptStore({
-  readBytes: (req) => mediaStore.readBytes(req),
-  writeBytes: (req) => mediaStore.writeBytes(req),
 });
 
 export function registerMediaModelHandlers(): void {

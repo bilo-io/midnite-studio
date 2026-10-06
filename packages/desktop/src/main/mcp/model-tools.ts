@@ -59,6 +59,10 @@ export const modelRetarget = async (input: McpToolInput<'model_retarget'>): Prom
   allowed();
   return tools().model_retarget(input);
 };
+export const modelConvertToMesh = async (input: McpToolInput<'model_convert_to_mesh'>): Promise<McpToolOutput<'model_convert_to_mesh'>> => {
+  allowed();
+  return tools().model_convert_to_mesh(input);
+};
 export const modelOpen = async (input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> => {
   allowed();
   return tools().model_open(input);

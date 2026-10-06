@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
+
+Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
+
+- [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
+
 ## 2026-10-06 — Phase 106 Theme D — Hand-drawn, reference-locked frames
 
 The image seam takes reference images (Gemini `inline_data`, OpenAI `/v1/images/edits`; `supportsReference` on the catalogue) and `transparent` end to end, and `main/media/sprite/hand-drawn.ts` draws a sheet frame by frame against an approved turnaround: pose-table prompts, two requests in flight, an Ollama vision consistency check with re-rolls and `inconsistent`/`unchecked` badges, and mirrored west facings. The Sprites tab gains the reference card and a flagged-frames list. PR: see the pull request.

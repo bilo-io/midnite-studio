@@ -2,6 +2,7 @@ import {
   applyClipOps,
   applyRigOps,
   copyClips,
+  revertSculptToParts,
   setAnatomy,
   type Mat4,
   type ModelAnatomy,
@@ -105,6 +106,10 @@ export type EditorAction =
   | { type: 'clips'; ops: ModelClipOp[] }
   /** Copy another model's clips onto this rig. */
   | { type: 'retarget'; from: ModelSpec; replace?: boolean }
+  /** Theme B: adopt the design a conversion produced (primitives hidden, a `sculpt` part appended) as one undo step, and select the new part. */
+  | { type: 'convert'; spec: ModelSpec; partId: string }
+  /** Theme B: drop the `sculpt` part at `index` and un-hide the primitives it was converted from. */
+  | { type: 'revertSculpt'; index: number }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'markSaved' }
@@ -249,6 +254,15 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return applyRig(state, (spec) => applyClipOps(spec, action.ops));
     case 'retarget':
       return applyRig(state, (spec) => copyClips(action.from, spec, action.replace === true));
+    case 'convert': {
+      const at = action.spec.parts.findIndex((p) => p.id === action.partId);
+      return commit(state, action.spec, at >= 0 ? [at] : []);
+    }
+    case 'revertSculpt': {
+      const id = state.spec.parts[action.index]?.id;
+      const reverted = id ? revertSculptToParts(state.spec, id) : null;
+      return reverted ? commit(state, reverted, []) : state;
+    }
     case 'undo': {
       const previous = state.past.at(-1);
       if (!previous) return state;
