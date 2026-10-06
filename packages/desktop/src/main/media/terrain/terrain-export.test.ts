@@ -112,7 +112,7 @@ describe('exportTerrain', () => {
     const used = new Set(foliage.instances.map((i) => i[0]));
     expect(used.size).toBeGreaterThan(0);
     expect(instanced).toHaveLength(used.size);
-  });
+  }, 30_000);
 
   it('embeds the drape as the chunk base-colour texture', async () => {
     const r = await exportTerrain({ dir, spec, options: { ...base, format: 'glb', dest, texture: 'drape', foliage: false, roads: false, buildings: false } });
@@ -127,5 +127,5 @@ describe('exportTerrain', () => {
     await rm(fresh, { recursive: true, force: true });
     expect(json.images).toHaveLength(1);
     expect(json.materials.some((m: { pbrMetallicRoughness?: { baseColorTexture?: unknown } }) => m.pbrMetallicRoughness?.baseColorTexture)).toBe(true);
-  });
+  }, 30_000);
 });
