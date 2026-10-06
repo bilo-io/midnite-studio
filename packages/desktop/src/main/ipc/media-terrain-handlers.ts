@@ -4,7 +4,7 @@ import { CHANNELS, EVENT_CHANNELS, failure, schemas } from '@midnite/studio-shar
 
 import { defaultLogger } from '../log';
 import { createTerrainBroker, terrainWorkerScriptPath, type TerrainWorkerHandle } from '../media/terrain/terrain-broker';
-import { createTerrainService, notAvailableYet } from '../media/terrain/terrain-service';
+import { createTerrainService } from '../media/terrain/terrain-service';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle } from './handle';
 import { imageService } from './media-image-handlers';
@@ -14,9 +14,6 @@ import { mediaStore, notifyMediaChanged } from './media-handlers';
  * Media ▸ Terrain (Phase 105): a heightfield from up to three optional images. The build runs in
  * `terrain-worker`, a utility process, so a 4097² terrain never blocks a frame; everything here is
  * the thin Electron-bound shell around `main/media/terrain/terrain-service.ts`.
- *
- * `export` (Theme I) is registered now and answers
- * "not available yet" — a half landing must never hang the renderer on an unregistered channel.
  */
 const broker = createTerrainBroker({
   spawn: () => utilityProcess.fork(terrainWorkerScriptPath(), [], { serviceName: 'mstudio-terrain', stdio: 'ignore' }) as TerrainWorkerHandle,
@@ -70,5 +67,5 @@ export function registerMediaTerrainHandlers(): void {
   handle(CHANNELS.mediaTerrainCancel, schemas.MediaTerrainCancelRequest, ({ buildId }) => service.cancel(buildId), invalid);
   handle(CHANNELS.mediaTerrainPaint, schemas.MediaTerrainPaintRequest, (req) => service.paint(req), invalid);
   handle(CHANNELS.mediaTerrainRoadKey, schemas.MediaTerrainRoadKeyRequest, (req) => service.roadKey(req), invalid);
-  handle(CHANNELS.mediaTerrainExport, schemas.MediaTerrainExportRequest, () => notAvailableYet(), invalid);
+  handle(CHANNELS.mediaTerrainExport, schemas.MediaTerrainExportRequest, (req) => service.export(req), invalid);
 }

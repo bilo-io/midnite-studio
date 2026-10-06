@@ -42,6 +42,8 @@ import {
   type TerrainSetInputResult,
   type TerrainSetSpecRequest,
   type TerrainSpec,
+  type TerrainExportOptions,
+  type TerrainExportResult,
   type TerrainTarget,
 } from '@midnite/studio-shared';
 
@@ -49,6 +51,7 @@ import { confineToRoot, joinWithin } from '../../fs-scope';
 import { decodePng, encodePngGrey8 } from '../png/png-codec';
 import type { VisionCall } from '../model/engines';
 import { plannedStages } from './build-pipeline';
+import { exportTerrain } from './terrain-export';
 import type { TerrainBroker } from './terrain-broker';
 
 /**
@@ -496,7 +499,17 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     return ok();
   }
 
-  return { library, get, setSpec, setInput, build, cancel, paint, roadKey };
+  async function exportPack(req: TerrainExportOptions & TerrainTarget): Promise<GitOpResult<TerrainExportResult>> {
+    const located = await locate(req);
+    if (!located.ok) return located;
+    const { dir } = located.value;
+    const spec = await readSpec(dir);
+    if (!spec.ok) return spec;
+    // Serialised with writes to this terrain, so an export never reads a build that is being swapped in.
+    return queue.run(dir, () => exportTerrain({ dir, spec: spec.value, options: req }));
+  }
+
+  return { library, get, setSpec, setInput, build, cancel, paint, roadKey, export: exportPack };
 }
 
 /** Nearest-neighbour resample of any raster to a `size`² one with the same channels. */
@@ -560,9 +573,6 @@ function rasterizeStroke(
 }
 
 export type TerrainService = ReturnType<typeof createTerrainService>;
-
-/** What the handlers answer for the channels whose theme has not landed (export). */
-export const notAvailableYet = (): GitOpResult => failure(TERRAIN_NOT_AVAILABLE);
 
 function firstIssue(error: Error): string {
   const issues = (error as { issues?: Array<{ path: Array<string | number>; message: string }> }).issues;

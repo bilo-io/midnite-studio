@@ -2,11 +2,11 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { TERRAIN_BUILD_CANCELLED, TERRAIN_NOT_AVAILABLE, type TerrainStats } from '@midnite/studio-shared';
+import { TERRAIN_BUILD_CANCELLED, type TerrainStats } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { decodePng, encodePngGrey16, encodePngRgba8 } from '../png/png-codec';
-import { createTerrainService, NOT_AN_IMAGE, notAvailableYet, type TerrainServiceDeps } from './terrain-service';
+import { createTerrainService, NOT_AN_IMAGE, type TerrainServiceDeps } from './terrain-service';
 import type { TerrainBroker, TerrainRunResult } from './terrain-broker';
 
 const stats: TerrainStats = {
@@ -368,12 +368,5 @@ describe('roadKey (Theme H)', () => {
 
     const picked = await service.roadKey({ ...target, pick: [0.5, 0.05] });
     expect(picked.ok && picked.value.colour).toBe('#000000');
-  });
-});
-
-describe('channels whose theme has not landed', () => {
-  it('answers a readable error rather than hanging', () => {
-    expect(notAvailableYet()).toEqual({ ok: false, kind: 'error', message: TERRAIN_NOT_AVAILABLE });
-    expect(TERRAIN_NOT_AVAILABLE).toBe('Terrain building is not available yet.');
   });
 });
