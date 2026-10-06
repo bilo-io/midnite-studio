@@ -39,6 +39,11 @@ describe('MCP_TOOLS', () => {
     'game_stop',
     'game_reload',
     'game_input',
+    'terrain_open',
+    'terrain_set_spec',
+    'terrain_set_input',
+    'terrain_build',
+    'terrain_export',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -169,6 +174,15 @@ describe('MCP_TOOLS', () => {
     game_logs: { entries: [], next: 0 },
     game_input: { sent: 0 },
     game_state: { state: { score: 1 } },
+    terrain_list: { projects: [{ name: 'terrains', terrains: [{ terrain: 'dunes-20261004-120000', name: 'dunes', built: true, resolution: 129, mtimeMs: 1 }] }] },
+    terrain_open: { opened: true, terrain: 'dunes-20261004-120000' },
+    terrain_get_spec: { spec: {}, built: false, schema: {}, hint: 'x' },
+    terrain_set_spec: { ok: false, errors: [{ path: 'resolution', message: 'x' }] },
+    terrain_set_input: { slot: 'heightmap', attached: true, width: 8, height: 8, warnings: [] },
+    terrain_build: { status: 'needs-height-source', message: 'x' },
+    terrain_render_preview: { _content: [] },
+    terrain_get_stats: { built: false },
+    terrain_export: { path: '/r/x.terrain', bytes: 1 },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -220,6 +234,15 @@ describe('MCP_TOOLS', () => {
       game_logs: { game: 'g1' },
       game_input: { game: 'g1', events: [] },
       game_state: { game: 'g1' },
+      terrain_list: base,
+      terrain_open: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
+      terrain_get_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
+      terrain_set_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000', patch: { resolution: 129 } },
+      terrain_set_input: { ...base, project: 'p', terrain: 'dunes-20261004-120000', slot: 'heightmap', path: 'a.png' },
+      terrain_build: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
+      terrain_render_preview: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
+      terrain_get_stats: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
+      terrain_export: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;
