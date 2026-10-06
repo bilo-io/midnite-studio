@@ -42,6 +42,9 @@ import {
   ModelRenderPreviewInputSchema,
   ModelRetargetInputSchema,
   ModelConvertToMeshInputSchema,
+  ModelSdfBakeInputSchema,
+  ModelSdfPatchInputSchema,
+  ModelSdfSetInputSchema,
   ModelSetSpecInputSchema,
   ModelToolTargetSchema,
   ModelGenerateSf3dInputSchema,
@@ -129,6 +132,9 @@ type McpToolEntry = {
     | 'model_patch_animations'
     | 'model_retarget'
     | 'model_convert_to_mesh'
+    | 'model_sdf_set'
+    | 'model_sdf_patch'
+    | 'model_sdf_bake'
     | 'model_save'
     | 'model_sf3d_status'
     | 'model_generate_sf3d'
@@ -497,6 +503,33 @@ export const MCP_TOOLS = {
     description:
       'Converts a design’s primitives (or the named `parts`) into one watertight sculpt mesh, keeping the primitives hidden; refused unless its own Settings switch is on.',
     input: ModelConvertToMeshInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sdf_set: {
+    id: 'model_sdf_set',
+    title: 'Set an SDF shape',
+    description:
+      'Blocks out an organic form as a signed-distance tree (primitives, smooth booleans, modifiers) and bakes it into a sculpt part; refused unless its own Settings switch is on.',
+    input: ModelSdfSetInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sdf_patch: {
+    id: 'model_sdf_patch',
+    title: 'Edit an SDF shape',
+    description:
+      'Adds, updates, moves, wraps or removes an SDF part’s nodes by name and re-bakes it — use instead of resending the tree; refused unless its own Settings switch is on.',
+    input: ModelSdfPatchInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sdf_bake: {
+    id: 'model_sdf_bake',
+    title: 'Re-bake an SDF shape',
+    description:
+      'Re-bakes an SDF part’s tree at another resolution (16–256), e.g. finer once the form is right; refused unless its own Settings switch is on.',
+    input: ModelSdfBakeInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
   },

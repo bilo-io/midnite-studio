@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelSpecSchema } from './media-model';
+import { SDF_RESOLUTION_MAX, SDF_RESOLUTION_MIN } from './media-model-sdf';
 import { SF3D_GENERATE_STAGES, SF3D_STATES } from './media-model-sf3d';
 import {
   MODEL_RIG_PATCH_MAX_OPS,
@@ -63,6 +64,9 @@ export const MODEL_MCP_TOOL_IDS = [
   'model_patch_animations',
   'model_retarget',
   'model_convert_to_mesh',
+  'model_sdf_set',
+  'model_sdf_patch',
+  'model_sdf_bake',
   'model_save',
 ] as const;
 export type ModelMcpToolId = (typeof MODEL_MCP_TOOL_IDS)[number];
@@ -79,6 +83,9 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_patch_animations',
   'model_retarget',
   'model_convert_to_mesh',
+  'model_sdf_set',
+  'model_sdf_patch',
+  'model_sdf_bake',
   'model_save',
 ];
 
@@ -210,6 +217,36 @@ export const ModelConvertToMeshInputSchema = ModelToolTargetSchema.extend({
   targetVertices: z.number().int().min(100).max(MODEL_CONVERT_MAX_VERTICES).optional(),
 });
 
+/**
+ * SDF modelling over MCP (Phase 104 Theme C). Trees and edits arrive as open records and main validates
+ * them against `SdfTreeSchema`/`SdfOpSchema` (`media-model-sdf.ts`), so a bad node comes back as a
+ * result with a path, not a protocol error.
+ */
+const SdfPartRef = z.string().min(1).max(60);
+const SdfResolutionInput = z.number().int().min(SDF_RESOLUTION_MIN).max(SDF_RESOLUTION_MAX);
+export const ModelSdfSetInputSchema = ModelToolTargetSchema.extend({
+  /** `{ nodes: [...], blend? }` — the roots are unioned (smoothly, by `blend`). */
+  tree: z.object({ nodes: z.array(z.record(z.unknown())).min(1).max(32), blend: z.number().optional() }).passthrough(),
+  /** An SDF part (id or name) to replace; omitted adds a new part. */
+  part: SdfPartRef.optional(),
+  /** Name for a new part (default "sdf shape"). */
+  name: z.string().min(1).max(60).optional(),
+  /** Grid resolution along the longest side (default 96). */
+  resolution: SdfResolutionInput.optional(),
+});
+export const ModelSdfPatchInputSchema = ModelToolTargetSchema.extend({
+  /** The SDF part (id or name); may be omitted when the design has exactly one. */
+  part: SdfPartRef.optional(),
+  /** `add`/`update`/`remove`/`move`/`wrap` nodes by name, or `blend` the roots — applied in order, all or nothing. */
+  ops: z.array(z.record(z.unknown())).min(1).max(64),
+  /** Re-bake at this resolution (default: the part's last). */
+  resolution: SdfResolutionInput.optional(),
+});
+export const ModelSdfBakeInputSchema = ModelToolTargetSchema.extend({
+  part: SdfPartRef.optional(),
+  resolution: SdfResolutionInput,
+});
+
 /** `model_get_rig` answer: the rig as the kernel resolves it, the anatomy's table and what is wrong. */
 export const ModelGetRigResultSchema = z.object({
   anatomy: ModelAnatomySchema,
@@ -264,6 +301,21 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
         /** Ids of the primitives that were hidden (recoverable by un-hiding them or removing the sculpt part). */
         sources: z.array(z.string()),
         groups: z.array(z.string()),
+      })
+      .optional(),
+    /** `model_sdf_*`: the SDF part that holds the bake, and how it went. */
+    sdf: z
+      .object({
+        id: z.string(),
+        src: z.string(),
+        vertices: z.number().int().min(0),
+        triangles: z.number().int().min(0),
+        resolution: z.number().int(),
+        voxelSize: z.number(),
+        /** Node names, depth first — what `model_sdf_patch` addresses. */
+        nodes: z.array(z.string()),
+        /** Share of grid nodes the bake actually evaluated (the rest were pruned as far from the surface). */
+        evaluatedShare: z.number(),
       })
       .optional(),
   }),
