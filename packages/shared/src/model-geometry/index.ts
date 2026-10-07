@@ -78,12 +78,19 @@ export {
   type LocalPart,
   type MeshPart,
   type PartIndex,
+  type PartMap,
+  type PartMaps,
   type ResolvedMaterial,
 } from './scene';
 export * from './quat';
 export {
   clearModelAssets,
+  clearModelTextures,
   hasModelAsset,
+  MODEL_TEXTURE_CACHE_LIMIT,
+  missingModelMaps,
+  modelTexture,
+  registerModelTexture,
   MODEL_ASSET_CACHE_LIMIT,
   meshBinToAsset,
   missingModelAssets,

@@ -79,7 +79,15 @@ export type MeshPart = {
   uvs?: number[];
   /** The asset hash whose registered texture this part is drawn with (`modelAsset(texture).texture`). */
   texture?: string;
+  /**
+   * Baked maps of a sculpt part (Theme F): each is the file's name beside the design and the hash its image is
+   * registered under (`modelTexture(hash)`). Needs `uvs`; `ao` is the occlusion map.
+   */
+  maps?: PartMaps;
 };
+
+export type PartMap = { src: string; hash: string };
+export type PartMaps = { normal?: PartMap; ao?: PartMap; curvature?: PartMap; cavity?: PartMap };
 
 export type BuildIssue = { path: string; message: string };
 export type BuildResult = { parts: MeshPart[]; issues: BuildIssue[]; stats: { triangles: number; vertices: number } };
@@ -240,7 +248,7 @@ const SUBDIVIDED_ANGLE = 75;
 const MODIFIED_ANGLE = 35;
 const BOOLEAN_ANGLE = 30;
 
-export type LocalPart = { mesh: RawMesh; issues: string[]; uvs?: number[]; texture?: string };
+export type LocalPart = { mesh: RawMesh; issues: string[]; uvs?: number[]; texture?: string; maps?: PartMaps };
 
 /**
  * An `asset` part's mesh from the registry, as the file has it — modifiers are not applied (they would
@@ -256,6 +264,7 @@ function buildAssetLocal(part: ModelMeshFilePart): LocalPart {
     issues,
     ...(asset.uvs ? { uvs: asset.uvs } : {}),
     ...(asset.texture ? { texture: part.hash } : {}),
+    ...(part.shape === 'sculpt' && part.maps && asset.uvs ? { maps: part.maps } : {}),
   };
 }
 
@@ -433,6 +442,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       // `transformMesh` keeps vertex order, so the file's uvs still line up.
       ...(imported?.uvs ? { uvs: imported.uvs } : {}),
       ...(imported?.texture ? { texture: imported.texture } : {}),
+      ...(imported?.maps ? { maps: imported.maps } : {}),
     });
   }
 

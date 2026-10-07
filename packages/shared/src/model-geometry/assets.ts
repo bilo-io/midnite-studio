@@ -101,6 +101,49 @@ export function clearModelAssets(): void {
   for (const listener of listeners) listener();
 }
 
+// --- baked map textures -------------------------------------------------------------------------
+
+/** Most map textures kept at once (a sculpt part carries up to four 4K PNGs); the least recently used goes first. */
+export const MODEL_TEXTURE_CACHE_LIMIT = 32;
+
+const textureRegistry = new Map<string, ModelAssetTexture>();
+
+/** Make a baked map's encoded image resolvable as `hash` — what the glTF writer reads a part's normal and occlusion maps from. */
+export function registerModelTexture(hash: string, texture: ModelAssetTexture): void {
+  textureRegistry.delete(hash);
+  textureRegistry.set(hash, texture);
+  while (textureRegistry.size > MODEL_TEXTURE_CACHE_LIMIT) textureRegistry.delete(textureRegistry.keys().next().value!);
+}
+
+export function modelTexture(hash: string): ModelAssetTexture | undefined {
+  const hit = textureRegistry.get(hash);
+  if (hit) {
+    textureRegistry.delete(hash);
+    textureRegistry.set(hash, hit);
+  }
+  return hit;
+}
+
+/** Tests only. */
+export function clearModelTextures(): void {
+  textureRegistry.clear();
+}
+
+/** The baked maps of a design's sculpt parts whose images are not registered yet — what a loader must fetch. */
+export function missingModelMaps(spec: Pick<ModelSpec, 'parts'>): { src: string; hash: string }[] {
+  const seen = new Set<string>();
+  const out: { src: string; hash: string }[] = [];
+  for (const part of spec.parts) {
+    if (part.shape !== 'sculpt' || !part.maps) continue;
+    for (const file of [part.maps.normal, part.maps.ao, part.maps.curvature, part.maps.cavity]) {
+      if (!file || textureRegistry.has(file.hash) || seen.has(file.hash)) continue;
+      seen.add(file.hash);
+      out.push(file);
+    }
+  }
+  return out;
+}
+
 /** The asset parts of a design whose meshes are not registered yet — what a loader must fetch. */
 export function missingModelAssets(spec: Pick<ModelSpec, 'parts'>): ModelAssetPart[] {
   const seen = new Set<string>();
@@ -127,14 +170,15 @@ export function missingSculptMeshes(spec: Pick<ModelSpec, 'parts'>): ModelSculpt
 
 /**
  * A decoded sculpt mesh as a registry entry, so `buildScene` draws it the way it draws an imported
- * asset. No uvs or texture yet (Theme F/G add them); the part's own colour and material apply.
+ * asset. Uvs come with an unwrapped mesh (Theme F); the part's own colour and material apply, and its baked maps
+ * are registered separately ({@link registerModelTexture}).
  */
-export function meshBinToAsset(mesh: Pick<MeshBin, 'positions' | 'normals' | 'indices'>): ModelAssetMesh {
+export function meshBinToAsset(mesh: Pick<MeshBin, 'positions' | 'normals' | 'indices'> & { uvs?: Float32Array }): ModelAssetMesh {
   return {
     positions: Array.from(mesh.positions),
     normals: Array.from(mesh.normals),
     indices: Array.from(mesh.indices),
-    uvs: null,
+    uvs: mesh.uvs ? Array.from(mesh.uvs) : null,
     texture: null,
     material: { color: '#b0b0b0', metalness: 0, roughness: 0.6 },
   };

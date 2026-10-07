@@ -29,11 +29,11 @@ export function uniqueNames(parts: readonly MeshPart[]): string[] {
   });
 }
 
-export type SceneMaterial = { color: string; material: ResolvedMaterial };
+export type SceneMaterial = { color: string; material: ResolvedMaterial; maps?: MeshPart['maps'] };
 
 const materialKey = (part: MeshPart): string => {
   const m = part.material;
-  return [part.color, m.metalness, m.roughness, m.emissive, m.emissiveIntensity, m.opacity].join('|');
+  return [part.color, m.metalness, m.roughness, m.emissive, m.emissiveIntensity, m.opacity, part.uvs ? part.maps?.normal?.hash : '', part.uvs ? part.maps?.ao?.hash : ''].join('|');
 };
 
 /** Distinct materials (colour + PBR values) in first-use order, with each part's index into them. */
@@ -46,7 +46,7 @@ export function materialsOf(parts: readonly MeshPart[]): { materials: SceneMater
     if (index === undefined) {
       index = materials.length;
       seen.set(key, index);
-      materials.push({ color: part.color, material: part.material });
+      materials.push({ color: part.color, material: part.material, ...(part.uvs && part.maps ? { maps: part.maps } : {}) });
     }
     return index;
   });
@@ -94,6 +94,9 @@ export function writeMtl(parts: readonly MeshPart[]): string {
       `Pr ${formatNumber(entry.material.roughness)}`,
       `Pm ${formatNumber(entry.material.metalness)}`,
     );
+    // Baked maps sit beside the .obj: the normal map as a bump map, occlusion as the ambient map.
+    if (entry.maps?.normal) lines.push(`map_Bump ${entry.maps.normal.src.split('/').pop()}`);
+    if (entry.maps?.ao) lines.push(`map_Ka ${entry.maps.ao.src.split('/').pop()}`);
   });
   return lines.join('\n') + '\n';
 }
@@ -112,10 +115,15 @@ export function writeObj(parts: readonly MeshPart[], mtlFile: string, title = 'm
     for (let i = 0; i < part.normals.length; i += 3) {
       lines.push(`vn ${formatNumber(part.normals[i]!)} ${formatNumber(part.normals[i + 1]!)} ${formatNumber(part.normals[i + 2]!)}`);
     }
+    // Texture coordinates, one per vertex, when the part is unwrapped. OBJ's v runs up the image, glTF's down.
+    const hasUvs = part.uvs !== undefined && part.uvs.length === (part.positions.length / 3) * 2;
+    if (hasUvs) {
+      for (let i = 0; i < part.uvs!.length; i += 2) lines.push(`vt ${formatNumber(part.uvs![i]!)} ${formatNumber(1 - part.uvs![i + 1]!)}`);
+    }
     for (let i = 0; i < part.indices.length; i += 3) {
       const corner = (k: number): string => {
         const index = part.indices[i + k]! + 1 + offset;
-        return `${index}//${index}`;
+        return hasUvs ? `${index}/${index}/${index}` : `${index}//${index}`;
       };
       lines.push(`f ${corner(0)} ${corner(1)} ${corner(2)}`);
     }

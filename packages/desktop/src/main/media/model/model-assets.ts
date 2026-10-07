@@ -1,12 +1,14 @@
 import {
   type GitOpResult,
   missingModelAssets,
+  missingModelMaps,
   missingSculptMeshes,
   modelAssetHash,
   modelAssetPath,
   type ModelSpec,
   parseGlbMesh,
   registerModelAsset,
+  registerModelTexture,
   registerSculptMesh,
 } from '@midnite/studio-shared';
 
@@ -63,6 +65,21 @@ export async function loadModelAssets(readBytes: ReadAssetBytes, scope: AssetSco
     } catch (error) {
       problems.push(`The sculpt mesh "${part.src}" could not be read: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+  // Baked maps (Phase 104 Theme F): PNG files beside the design, registered by content hash for the exporters.
+  for (const file of missingModelMaps(spec)) {
+    const read = await readBytes({ ...scope, path: modelAssetPath(dir, file.src) });
+    if (!read.ok) {
+      problems.push(`The baked map "${file.src}" is missing from the model's folder.`);
+      continue;
+    }
+    const bytes = asBytes(read.value);
+    const hash = modelAssetHash(bytes);
+    if (hash !== file.hash) {
+      problems.push(`The baked map "${file.src}" has changed since it was baked (hash ${hash}, the design expects ${file.hash}).`);
+      continue;
+    }
+    registerModelTexture(hash, { mime: 'image/png', data: bytes });
   }
   return problems;
 }
