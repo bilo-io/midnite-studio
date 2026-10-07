@@ -1,11 +1,14 @@
-import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
+import { dialog } from 'electron';
+
+import { CHANNELS, failure, gameSlug, MEDIA_EXPORT_FORMAT_INFO, ok, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
 import type { AssetBridge } from '../games/asset-bridge';
 import type { GameAgentService } from '../games/game-agent-service';
+import type { GameExport } from '../games/game-export';
 import type { GameService } from '../games/game-service';
 import type { Playtests } from '../games/playtest';
-import { handle, handleBare, handleSend } from './handle';
+import { handle, handleBare, handleFromSender, handleSend } from './handle';
 
 const warnInvalid = (issue: string): void => {
   defaultLogger.warn(issue);
@@ -21,6 +24,7 @@ export function registerGamesHandlers(
   agents?: GameAgentService,
   assets?: AssetBridge,
   playtests?: Playtests,
+  exporter?: GameExport,
 ): void {
   handleBare(CHANNELS.gamesSettingsGet, () => service.settings.get());
 
@@ -140,6 +144,31 @@ export function registerGamesHandlers(
         try {
           const { passed, runs } = await playtests.run(gameId, names ? { names } : {});
           return ok({ passed, runs });
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
+      (issue) => failure(issue),
+    );
+  }
+
+  // Web export (Theme P): a folder, a zip or one HTML file. A file format with no `dest` asks with the
+  // native save dialog (which asks about replacing, so a picked path may be overwritten); a folder's
+  // `dest` is its parent and an existing `<slug>-web/` is always refused.
+  if (exporter) {
+    handleFromSender(
+      CHANNELS.gamesExport,
+      schemas.GamesExportRequest,
+      async (req, win) => {
+        try {
+          if (req.format === 'game-folder' || req.dest) return await exporter.exportGame(req);
+          const game = await service.resolve(req.gameId);
+          if (!game) return failure('That game was not found.');
+          const { ext, label } = MEDIA_EXPORT_FORMAT_INFO[req.format];
+          const options = { defaultPath: `${gameSlug(game.name)}.${ext}`, filters: [{ name: label, extensions: [ext] }] };
+          const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          if (picked.canceled || !picked.filePath) return failure('cancelled');
+          return await exporter.exportGame({ ...req, dest: picked.filePath, overwrite: true });
         } catch (error) {
           return failure(error instanceof Error ? error.message : String(error));
         }

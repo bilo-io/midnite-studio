@@ -754,6 +754,8 @@ export type MockFixtures = {
      */
     playtests?: GamePlaytestEntry[];
     playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
+    /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
+    exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
   /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
@@ -3378,6 +3380,15 @@ export function buildMockBridge(data: MockFixtures) {
           gamesPlaytests = gamesPlaytests.map((p) => ({ ...p, last: answer.runs.find((r) => r.name === p.name) ?? p.last }));
           return { ok: true as const, value: answer };
         },
+      },
+      // Theme P: web export. Recorded; answers `exportResult` or a success at the chosen (or a dialog) path.
+      export: async (req: { gameId: string; format: string; dest?: string; overwrite?: boolean }) => {
+        gamesCalls.push({ call: 'export', ...req });
+        const answer = data.games?.exportResult;
+        if (answer && !answer.ok) return { ok: false as const, kind: 'error' as const, message: answer.message };
+        const ext = req.format === 'game-html' ? 'html' : req.format === 'game-zip' ? 'zip' : 'web';
+        const path = req.format === 'game-folder' ? `${req.dest ?? '/exports'}/game-web` : (req.dest ?? `/exports/game.${ext}`);
+        return { ok: true as const, value: { path, bytes: 2_048_000, files: 42, warnings: answer?.warnings ?? [] } };
       },
       // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
       assets: {

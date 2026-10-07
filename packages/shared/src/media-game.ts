@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.8.0';
+export const GAME_KIT_VERSION = '0.9.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -797,3 +797,71 @@ export const GamePlaytestRunResultSchema = z.object({
   runs: z.array(GamePlaytestResultSchema),
 });
 export type GamePlaytestRunResult = z.infer<typeof GamePlaytestRunResultSchema>;
+
+// --- web export (Theme P) -----------------------------------------------------
+
+/** Directories and files a web export leaves out: history, agent files, play-tests and dev-only config. */
+export const GAME_EXPORT_EXCLUDE = [
+  '.git/',
+  '.claude/',
+  '.agents/',
+  '.codex/',
+  'playtests/',
+  'node_modules/',
+  'AGENTS.md',
+  'CLAUDE.md',
+  'GEMINI.md',
+  'jsconfig.json',
+  '**/*.d.ts',
+  '.*',
+] as const;
+
+/**
+ * Whether a repo-relative, `/`-separated path is left out of an export: anything under an excluded
+ * directory, a named dev file at the root, a `.d.ts` anywhere, or any dotfile or dot-folder.
+ */
+export function isGameExportExcluded(relPath: string): boolean {
+  const parts = relPath.split('/').filter((p) => p.length > 0);
+  if (parts.length === 0) return false;
+  if (parts.some((p) => p.startsWith('.'))) return true;
+  const dirs = parts.slice(0, -1);
+  if (dirs[0] === 'playtests' || dirs.includes('node_modules')) return true;
+  const last = parts[parts.length - 1]!;
+  if (parts.length === 1 && ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'jsconfig.json'].includes(last)) return true;
+  return last.endsWith('.d.ts');
+}
+
+/** A single-file export larger than this warns: browsers get slow opening a page this big. */
+export const GAME_SINGLE_FILE_WARN_BYTES = 50 * 1024 * 1024;
+/** No zip64: an archive (or any one entry) at or over 4 GB is refused. */
+export const GAME_ZIP_MAX_BYTES = 0xffff_ffff;
+
+export const GAME_EXPORT_FORMATS = ['game-html', 'game-zip', 'game-folder'] as const;
+export const GameExportFormatSchema = z.enum(GAME_EXPORT_FORMATS);
+export type GameExportFormat = z.infer<typeof GameExportFormatSchema>;
+
+export const gameSingleFileWarning = (bytes: number): string =>
+  `This file is ${Math.round(bytes / (1024 * 1024))} MB; browsers may be slow to open it.`;
+export const gameExportExistsMessage = (name: string): string => `${name} already exists in that folder.`;
+
+export const GameExportRequestSchema = z.object({
+  gameId: z.string().min(1),
+  format: GameExportFormatSchema,
+  /**
+   * `game-folder`: the parent folder (the export is `<slug>-web/` inside it, and refuses an existing one).
+   * `game-html` / `game-zip`: the file to write; omitted, main asks with its native save dialog.
+   */
+  dest: z.string().min(1).optional(),
+  /** Replace an existing file at `dest` (the native save dialog has already asked). Never applies to a folder. */
+  overwrite: z.boolean().optional(),
+});
+export type GameExportRequest = z.input<typeof GameExportRequestSchema>;
+
+export const GameExportResultSchema = z.object({
+  path: z.string(),
+  /** Bytes written (the sum of the files for a folder). */
+  bytes: z.number().int().nonnegative(),
+  files: z.number().int().nonnegative(),
+  warnings: z.array(z.string()),
+});
+export type GameExportResult = z.infer<typeof GameExportResultSchema>;

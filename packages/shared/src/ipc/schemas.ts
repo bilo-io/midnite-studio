@@ -233,6 +233,8 @@ import {
   GamePlaytestListSchema,
   GamePlaytestRunRequestSchema,
   GamePlaytestRunResultSchema,
+  GameExportRequestSchema,
+  GameExportResultSchema,
   GameAgentRunRequestSchema,
   GameAgentRunResultSchema,
   GameAgentUndoRequestSchema,
@@ -4418,3 +4420,6 @@ export const GamesPlaytestsRequest = GameIdRequestSchema;
 export const GamesPlaytestsResponse = GitOpResultOf(GamePlaytestListSchema);
 export const GamesPlaytestRunRequest = GamePlaytestRunRequestSchema;
 export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchema);
+// Web export (Theme P).
+export const GamesExportRequest = GameExportRequestSchema;
+export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);

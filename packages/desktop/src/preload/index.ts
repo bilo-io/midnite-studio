@@ -585,6 +585,7 @@ const bridge: Pick<
       list: (req) => call(CHANNELS.gamesPlaytests, req),
       run: (req) => call(CHANNELS.gamesPlaytestRun, req),
     },
+    export: (req) => call(CHANNELS.gamesExport, req),
   },
   media: {
     project: {

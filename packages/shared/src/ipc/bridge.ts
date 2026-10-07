@@ -1236,6 +1236,8 @@ export type MidniteStudioBridge = {
       list: (req: In<typeof S.GamesPlaytestsRequest>) => Promise<z.infer<typeof S.GamesPlaytestsResponse>>;
       run: (req: In<typeof S.GamesPlaytestRunRequest>) => Promise<z.infer<typeof S.GamesPlaytestRunResponse>>;
     };
+    /** Web export (Theme P): a folder, a zip or a single HTML file; never overwrites without being told. */
+    export: (req: In<typeof S.GamesExportRequest>) => Promise<z.infer<typeof S.GamesExportResponse>>;
   };
 
   /**
