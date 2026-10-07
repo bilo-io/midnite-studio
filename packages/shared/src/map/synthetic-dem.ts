@@ -1,4 +1,4 @@
-/** Deterministic synthetic Terrarium tiles for the no-network goldens (test helper). */
+/** Deterministic synthetic Terrarium tiles — fixtures for the no-network goldens (shared and desktop tests). */
 import { encodeTerrarium } from './dem';
 
 export const TILE = 256;

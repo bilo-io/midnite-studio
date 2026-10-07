@@ -1,16 +1,19 @@
 import { join } from 'node:path';
 
-import { app, net } from 'electron';
+import { app, nativeImage, net, utilityProcess } from 'electron';
 
-import { CHANNELS, failure, ok, schemas, type GitOpResult, type MapCacheStatus } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, failure, ok, schemas, type GitOpResult, type MapCacheStatus } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
+import { createCaptureBroker, mapCaptureWorkerScriptPath, type CaptureWorkerHandle } from '../media/map/capture-broker';
+import { createCaptureService } from '../media/map/capture-service';
 import { createTileCache, type TileCache } from '../media/map/tile-cache';
 import { createTileFetcher } from '../media/map/tile-fetch';
 import { createMapService, createMapSettingsStore } from '../media/map/map-service';
 import { installTileProtocol, mapSourceStatuses } from '../media/map/tile-protocol';
+import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare } from './handle';
-import { mediaStore } from './media-handlers';
+import { mediaStore, notifyMediaChanged } from './media-handlers';
 import { readSecret } from './secrets-handlers';
 
 /**
@@ -39,10 +42,13 @@ function tileCache(): Promise<TileCache> {
   return cacheReady;
 }
 
-/** After `whenReady`: answers `mstudio-tile:` on the default session. */
-export function installMapTileProtocol(): void {
+let sharedFetcher: ReturnType<typeof createTileFetcher> | null = null;
+
+/** The one tile fetcher — display (`mstudio-tile:`) and capture share it, so they share the cache and the rate limits. */
+function tileFetcher(): ReturnType<typeof createTileFetcher> {
+  if (sharedFetcher) return sharedFetcher;
   const userAgent = `MidniteStudio/${app.getVersion()} (+https://github.com/bilo-io/midnite-apps)`;
-  // The fetcher takes its cache lazily so installing the protocol never touches disk.
+  // The fetcher takes its cache lazily so creating it never touches disk.
   const lazyCache: TileCache = {
     get: async (key) => (await tileCache()).get(key),
     put: async (key, bytes) => (await tileCache()).put(key, bytes),
@@ -50,19 +56,65 @@ export function installMapTileProtocol(): void {
     clear: async () => (await tileCache()).clear(),
     setCap: async (capMB) => (await tileCache()).setCap(capMB),
   };
-  const fetcher = createTileFetcher({
+  sharedFetcher = createTileFetcher({
     fetch: (url, init) => net.fetch(url, init),
     cache: lazyCache,
     userAgent,
     log: (line) => defaultLogger.info(line),
   });
-  installTileProtocol({ fetcher, readKey: () => readKey(), log: (line) => defaultLogger.info(line) });
+  return sharedFetcher;
 }
+
+/** After `whenReady`: answers `mstudio-tile:` on the default session. */
+export function installMapTileProtocol(): void {
+  installTileProtocol({ fetcher: tileFetcher(), readKey: () => readKey(), log: (line) => defaultLogger.info(line) });
+}
+
+const captureBroker = createCaptureBroker({
+  spawn: () => utilityProcess.fork(mapCaptureWorkerScriptPath(), [], { serviceName: 'mstudio-map-capture', stdio: 'ignore' }) as CaptureWorkerHandle,
+});
+
+/** Ends the capture worker on quit, failing any capture still outstanding. */
+export function disposeMapCaptureBroker(): void {
+  captureBroker.dispose();
+}
+
+export const captureService = createCaptureService({
+  rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'map' }),
+  fetcher: { fetch: (key, url, opts) => tileFetcher().fetch(key, url, opts) },
+  readKey: () => readKey(),
+  // JPEG and WebP: `nativeImage` yields BGRA, which the worker's DEM decode wants as RGBA.
+  nativeDecode: async (bytes) => {
+    const image = nativeImage.createFromBuffer(Buffer.from(bytes));
+    if (image.isEmpty()) return null;
+    const { width, height } = image.getSize();
+    const bgra = image.toBitmap();
+    const rgba = new Uint8Array(bgra.length);
+    for (let i = 0; i < bgra.length; i += 4) {
+      rgba[i] = bgra[i + 2]!;
+      rgba[i + 1] = bgra[i + 1]!;
+      rgba[i + 2] = bgra[i]!;
+      rgba[i + 3] = bgra[i + 3]!;
+    }
+    return { width, height, rgba };
+  },
+  broker: captureBroker,
+  onChanged: (repoId) => notifyMediaChanged(repoId, 'map'),
+  emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMapCaptureProgress, event),
+  log: (line) => defaultLogger.info(line),
+});
 
 export function registerMediaMapHandlers(): void {
   const invalid = (issue: string) => failure(issue);
   handle(CHANNELS.mediaMapGet, schemas.MediaMapGetRequest, (req) => mapService.get(req), invalid);
   handle(CHANNELS.mediaMapSetView, schemas.MediaMapSetViewRequest, (req) => mapService.setView(req), invalid);
+  handle(CHANNELS.mediaMapCapture, schemas.MediaMapCaptureRequest, (req) => captureService.capture(req), invalid);
+  handle(
+    CHANNELS.mediaMapCaptureCancel,
+    schemas.MediaMapCaptureCancelRequest,
+    (req) => ok({ cancelled: captureService.cancel(req.captureId) }),
+    invalid,
+  );
   handleBare(CHANNELS.mediaMapSources, async () => ({ sources: await mapSourceStatuses(() => readKey()) }));
   handle(
     CHANNELS.mediaMapCache,

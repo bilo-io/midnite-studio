@@ -1,4 +1,4 @@
-import { MAP_FRAME_MAX_SIDE_M, MAP_FRAME_MIN_SIDE_M, map as geo, type MapFrame } from '@midnite/studio-shared';
+import { MAP_CAPTURE_MAX_SIDE_M, MAP_CAPTURE_MIN_SIDE_M, map as geo, type MapFrame } from '@midnite/studio-shared';
 
 /** Pure framing helpers for the capture frame (Phase 108 Theme C); no MapLibre in here. */
 
@@ -7,7 +7,7 @@ export type FrameFeatures = { type: 'FeatureCollection'; features: Array<Record<
 
 export const FRAME_RING_PER_SIDE = 16;
 
-export const clampSide = (sideM: number): number => Math.max(MAP_FRAME_MIN_SIDE_M, Math.min(MAP_FRAME_MAX_SIDE_M, sideM));
+export const clampSide = (sideM: number): number => Math.max(MAP_CAPTURE_MIN_SIDE_M, Math.min(MAP_CAPTURE_MAX_SIDE_M, sideM));
 
 /** The square as a projected outline (not a screen rectangle) plus its four corner handles. */
 export function frameFeatures(frame: Pick<MapFrame, 'center' | 'sideM'>): { outline: FrameFeatures; handles: FrameFeatures } {

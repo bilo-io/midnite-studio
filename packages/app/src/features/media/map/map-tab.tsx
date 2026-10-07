@@ -61,7 +61,7 @@ function MapWorkspace({ repoId, project, selection, setSelection }: { repoId: st
 function MapDetail({ repoId, project, framing }: { repoId: string; project: string; framing: Framing }) {
   const map = useMapProject(repoId, project);
   if (!map.data) return <EmptyState title="Nothing to show" body="The view and tile sources appear here." />;
-  return <MapPanel map={map.data.map} project={project} framing={framing} />;
+  return <MapPanel map={map.data.map} project={project} repoId={repoId} framing={framing} />;
 }
 
 function MapCentre({ repoId, project, save, framing }: { repoId: string; project: string; save: (patch: MapProjectPatch) => void; framing: Framing }) {

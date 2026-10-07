@@ -14,7 +14,6 @@
 import { z } from 'zod';
 
 import { GitOpResultOf } from './domain/result';
-import { nativeMPerPx } from './map/mercator';
 import { MediaProjectNameSchema } from './media';
 
 // --- constants ---------------------------------------------------------------
@@ -409,33 +408,3 @@ export const MapResultSchemas = {
   cache: GitOpResultOf(MapCacheStatusSchema),
 } as const;
 export const MapSourcesResponseSchema = z.object({ sources: z.array(MapSourceStatusSchema) });
-
-// --- capture framing (Phase 108 Theme C) ---------------------------------------
-
-export const MAP_FRAME_MIN_SIDE_M = 16;
-export const MAP_FRAME_MAX_SIDE_M = 65_536;
-/** Roads are fetched from Overpass only for frames up to this side (Decision 17). */
-export const MAP_ROADS_MAX_SIDE_M = 25_000;
-
-export type CaptureWarning = { code: 'over-cap' | 'under-min' | 'dem-coarser' | 'roads-skipped'; message: string; blocking: boolean };
-
-/**
- * What is wrong with this frame and output size, with the literal copy the panel shows. Pure: `dem` is the
- * elevation source the capture would read (the keyless default when omitted).
- */
-export function captureWarnings(frame: { center: readonly [number, number]; sideM: number }, size: number, dem: MapSource = mapSource('aws-terrarium')): CaptureWarning[] {
-  const out: CaptureWarning[] = [];
-  if (frame.sideM > MAP_FRAME_MAX_SIDE_M) out.push({ code: 'over-cap', message: "Terrain's largest world is 65.5 km a side.", blocking: true });
-  if (frame.sideM < MAP_FRAME_MIN_SIDE_M) out.push({ code: 'under-min', message: "Terrain's smallest world is 16 m a side.", blocking: true });
-  const mPerPx = frame.sideM / (size - 1);
-  const native = nativeMPerPx(dem.maxZoom, frame.center[1], dem.tileSize);
-  if (mPerPx < native / 2) {
-    out.push({
-      code: 'dem-coarser',
-      message: `The elevation data is ~${Math.round(native)} m/px here; a smaller size gives the same detail.`,
-      blocking: false,
-    });
-  }
-  if (frame.sideM > MAP_ROADS_MAX_SIDE_M) out.push({ code: 'roads-skipped', message: 'Roads are captured for frames up to 25 km a side.', blocking: false });
-  return out;
-}

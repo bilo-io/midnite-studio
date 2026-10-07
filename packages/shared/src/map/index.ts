@@ -6,3 +6,4 @@ export * from './geotiff';
 export * from './heightmap';
 export * from './mercator';
 export * from './resample';
+export * from './synthetic-dem';

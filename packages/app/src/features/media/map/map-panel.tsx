@@ -1,18 +1,18 @@
-import { MAP_SOURCES, TERRAIN_RESOLUTIONS, type MapProjectFile } from '@midnite/studio-shared';
+import { MAP_SOURCES, type MapProjectFile } from '@midnite/studio-shared';
 
+import { MapCaptureSection } from './map-capture-section';
 import { formatMPerPx, formatSide } from './map-frame';
 import { useMapSources } from './use-map';
 import type { useMapFraming } from './use-map-framing';
 
 type Framing = ReturnType<typeof useMapFraming>;
 
-/** The capture form's first half (Theme C): 3D preview, the frame, its readout and warnings. Capture itself is Theme D. */
-function CaptureSection({ framing }: { framing: Framing }) {
-  const { frame, visible, terrain3d, elevation, warnings } = framing;
-  const blocked = warnings.some((w) => w.blocking);
+/** The 3D preview and frame readout (Theme C); the capture form itself is Theme D's `MapCaptureSection`. */
+function FramingSection({ framing }: { framing: Framing }) {
+  const { frame, visible, terrain3d, elevation } = framing;
   return (
-    <section className="space-y-2" aria-label="Capture for Terrain">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Capture for Terrain</h3>
+    <section className="space-y-2" aria-label="3D and frame">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">3D and frame</h3>
       <label className="flex items-center justify-between gap-2">
         <span>3D exaggeration · {terrain3d.exaggeration.toFixed(1)}×</span>
         <input
@@ -26,53 +26,21 @@ function CaptureSection({ framing }: { framing: Framing }) {
         />
       </label>
       {frame && visible ? (
-        <>
-          <label className="flex items-center justify-between gap-2">
-            <span>Output size</span>
-            <select
-              aria-label="Output size"
-              className="rounded border border-border bg-background px-1 py-0.5 font-mono"
-              value={frame.size}
-              onChange={(e) => framing.setFrame({ ...frame, size: Number(e.target.value) as typeof frame.size })}
-            >
-              {TERRAIN_RESOLUTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r} × {r}
-                </option>
-              ))}
-            </select>
-          </label>
-          <dl aria-live="polite" className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono tabular-nums" data-testid="frame-readout">
-            <dt className="text-muted-foreground">Side</dt>
-            <dd>{formatSide(frame.sideM)}</dd>
-            <dt className="text-muted-foreground">Centre</dt>
-            <dd>
-              {frame.center[1].toFixed(5)}, {frame.center[0].toFixed(5)}
-            </dd>
-            <dt className="text-muted-foreground">Resolution</dt>
-            <dd>{formatMPerPx(frame.sideM, frame.size)}</dd>
-            <dt className="text-muted-foreground">Elevation</dt>
-            <dd className="min-w-0 break-words">{elevation ? `${Math.round(elevation.min)}–${Math.round(elevation.max)} m ≈ from preview tiles` : terrain3d.on ? '…' : 'Turn on 3D (T) to sample'}</dd>
-          </dl>
-          {warnings.length > 0 ? (
-            <ul className="space-y-0.5 text-amber-600 dark:text-amber-400" aria-label="Capture warnings">
-              {warnings.map((w) => (
-                <li key={w.code}>{w.message}</li>
-              ))}
-            </ul>
-          ) : null}
-        </>
+        <dl aria-live="polite" className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono tabular-nums" data-testid="frame-readout">
+          <dt className="text-muted-foreground">Side</dt>
+          <dd>{formatSide(frame.sideM)}</dd>
+          <dt className="text-muted-foreground">Centre</dt>
+          <dd>
+            {frame.center[1].toFixed(5)}, {frame.center[0].toFixed(5)}
+          </dd>
+          <dt className="text-muted-foreground">Resolution</dt>
+          <dd>{formatMPerPx(frame.sideM, frame.size)}</dd>
+          <dt className="text-muted-foreground">Elevation</dt>
+          <dd className="min-w-0 break-words">{elevation ? `${Math.round(elevation.min)}–${Math.round(elevation.max)} m ≈ from preview tiles` : terrain3d.on ? '…' : 'Turn on 3D (T) to sample'}</dd>
+        </dl>
       ) : (
         <p className="text-muted-foreground">Press F on the map to frame an area.</p>
       )}
-      <button
-        type="button"
-        disabled
-        title={blocked ? 'Fix the warnings above first' : 'Capture arrives with Phase 108 Theme D'}
-        className="w-full rounded-md border border-border px-2 py-1 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        Capture
-      </button>
     </section>
   );
 }
@@ -81,7 +49,7 @@ function CaptureSection({ framing }: { framing: Framing }) {
  * The detail pane (Phase 108 Theme A): where the map is now and which tile sources are usable. Capture,
  * the frame readout and tool options (Themes C–H) join it here.
  */
-export function MapPanel({ map, project, framing }: { map: MapProjectFile; project: string; framing: Framing }) {
+export function MapPanel({ map, project, repoId, framing }: { map: MapProjectFile; project: string; repoId: string; framing: Framing }) {
   const sources = useMapSources();
   const available = new Map((sources.data ?? []).map((s) => [s.id, s]));
   return (
@@ -101,7 +69,8 @@ export function MapPanel({ map, project, framing }: { map: MapProjectFile; proje
           <dd>{Math.round(map.view.pitch)}°</dd>
         </dl>
       </section>
-      <CaptureSection framing={framing} />
+      <FramingSection framing={framing} />
+      <MapCaptureSection repoId={repoId} project={project} map={map} frame={framing.visible ? framing.frame : null} onFrameChange={framing.setFrame} />
       <section className="space-y-1">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tile sources</h3>
         <ul className="space-y-1" aria-label="Tile sources">

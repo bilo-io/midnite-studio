@@ -1,4 +1,4 @@
-import { captureWarnings, type CaptureWarning, type MapFrame, type MapProjectFile, type MapProjectPatch } from '@midnite/studio-shared';
+import { type MapFrame, type MapProjectFile, type MapProjectPatch } from '@midnite/studio-shared';
 import { useCallback, useMemo, useState } from 'react';
 
 import { defaultFrame, type LonLat } from './map-frame';
@@ -50,7 +50,5 @@ export function useMapFraming(opts: { map: MapProjectFile | undefined; save: (pa
     [visible, frame, setFrame, widthPx],
   );
 
-  const warnings: CaptureWarning[] = useMemo(() => (frame ? captureWarnings(frame, frame.size) : []), [frame]);
-
-  return { terrain3d, setTerrain3d, toggle3d, frame, visible, setFrame, moveFrame, toggleFrame, elevation, setElevation, warnings };
+  return { terrain3d, setTerrain3d, toggle3d, frame, visible, setFrame, moveFrame, toggleFrame, elevation, setElevation };
 }
