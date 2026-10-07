@@ -606,10 +606,7 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 
 ## Phase 104 · Theme C — SDF modelling
 
-- **Theme D must end the SDF history.** A sculpt part keeps `sdf: { tree, resolution }` until the first
-  brush stroke; nothing strokes yet, so nothing drops it. When Theme D's first stroke lands on a part with
-  `sdf`, remove the field (the op log keeps the tree) so `model_sdf_patch`/`model_sdf_bake` and the SDF
-  tab refuse instead of baking over the sculpted detail.
+- ~~**Theme D must end the SDF history.**~~ Done in Theme D: the first `sculptEdit` on a part drops its `sdf`.
 - **Superseded SDF bakes are not cleaned up.** Every bake writes its own content-named
   `<stem>.<part>.<hash8>.mesh.bin` (plus op log) so undo stays safe; files no saved design references
   pile up beside the model. Sweep unreferenced `.mesh.bin` files on save (or on model close).
@@ -624,3 +621,22 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **Only blend sliders preview live.** Typed fields bake at full resolution on commit; a drag-to-scrub
   number field would extend the 40³ preview to every parameter.
 
+## Phase 104 · Theme D — sculpt mode and brushes
+
+- **The multires stack is session-only.** `.mesh.bin` records one level (`multiresLevel`), so after a
+  reload only that level exists and stepping below it is impossible. Persisting the levels (or their
+  details) beside the mesh would keep them across sessions.
+- **No Catmull-Clark.** `.mesh.bin` is triangles only (conversion and SDF bakes produce triangles), so
+  multires is Loop subdivision; Catmull-Clark needs a quad representation first (Theme F's retopology).
+- **Undo across reloads is not built.** The op log records every stroke (brush, radius, strength,
+  symmetry, dabs, vertices moved, max displacement) but not the inverse data, so undo reaches back only
+  to where the mesh was opened; older content-named files stay on disk for the spec history that names them.
+- **Detail is stored in mesh space, not a tangent frame.** A large change at a low level moves high-level
+  detail with it but does not re-orient it.
+- **Masks are session-only** and not written to `.mesh.bin`; Theme G's paint layers are the natural home.
+- **Export and previews use the last flushed mesh** while sculpt mode is open; Done sculpting or Save
+  first. Switching to another model with unflushed strokes discards them, like any unsaved edit.
+- **Topology undo snapshots the whole multires stack**, which at ~1M vertices is tens of MB per step;
+  the 100-record history cap bounds it, but a byte budget would be tighter.
+- **The 250k / 1M-vertex stroke-latency bench is Theme I's.** Strokes were exercised at ~20k vertices
+  in the screenshot run; no packaged-app number is recorded yet.
