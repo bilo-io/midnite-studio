@@ -53,7 +53,9 @@ export function createCaptureRun(input: CaptureRunInput) {
         map.writeGeoTiffFloat32(heights, input.size, { center: input.frame.center, sideM: input.frame.sideM }),
       );
       onProgress(1);
-      return { ok: true, stats: { minM, maxM, files: [...HEIGHTMAP_FILES] } };
+      let wet = 0;
+      for (let k = 0; k < heights.length; k += 1) if (heights[k]! <= 0) wet += 1;
+      return { ok: true, stats: { minM, maxM, seaFraction: heights.length > 0 ? wet / heights.length : 0, files: [...HEIGHTMAP_FILES] } };
     },
   };
 }

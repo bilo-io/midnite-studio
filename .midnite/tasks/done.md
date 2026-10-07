@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain ([#773](https://github.com/bilo-io/midnite-studio/pull/773))
+
+A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps capture section) run the capture, then main calls the terrain service directly — create, attach the heightmap (and satellite, roads mask and captured road graph when the capture carries them), apply the spec (`worldSize`, `heightRange`, `resolution`, `textureSize`, `seaLevel`, `geo`), ask every window to open it and optionally start the build. Terrain's roads stage uses the captured OSM graph when `inputs.roadsGraph` is set (real widths, `cls`/`name` into `roads.json`); a mask-only terrain builds byte-for-byte as before. The Terrain panel shows a "Captured from Maps" row with Show on map.
+
+- [x] F: `TerrainGeoSchema`, `inputs.roadsGraph`, `TerrainRoadEdgeSchema.cls/name`, `MapRoadGraphFileSchema`, `handoffSpec`, `setRoadsGraph` + `terrainService()`, `roadGraphFromCapture`, the pipeline branch, capture-service hand-off, `map-focus.ts`, panel row, vitests (pipeline hash pin, service, capture-service, panel, handoff spec)
+
 ## 2026-10-08 — Phase 108 Theme C — 3D preview and capture framing ([#772](https://github.com/bilo-io/midnite-studio/pull/772))
 
 The Maps tab gains a 3D preview (`setTerrain` over the Terrarium DEM, hillshade, a 1×–3× exaggeration slider, pitch eased to 60) and a capture frame that stays square in metres at any latitude (drag to move, corner handles to resize, 16 m – 65.5 km), with an `aria-live` readout of side, centre, metres/pixel and preview-sampled min/max elevation, a Terrain-resolution size picker, and literal-copy warnings. Keys on the focused map: arrows pan, `+`/`-` zoom, `F` frame, `T` 3D. Capture is disabled until Theme D.

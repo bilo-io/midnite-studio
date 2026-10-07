@@ -47,11 +47,13 @@ export function MapCaptureSection({
   const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) });
   const blocked = warnings.some((w) => w.blocking);
   const running = capture.state.phase === 'running';
+  const start = (extra: { handoff?: boolean; build?: boolean }) =>
+    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], ...extra });
   const z = mapKernel.chooseCaptureZoom(DEM, { center, sideM: Math.min(Math.max(sideM, MAP_CAPTURE_MIN_SIDE_M), MAP_CAPTURE_MAX_SIDE_M) }, size);
 
   return (
-    <section className="space-y-2" aria-label="Capture heightmap" data-testid="map-capture">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Capture heightmap</h3>
+    <section className="space-y-2" aria-label="Capture for Terrain" data-testid="map-capture">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Capture for Terrain</h3>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono tabular-nums">
         <dt className="text-muted-foreground">Centre</dt>
         <dd>
@@ -112,15 +114,37 @@ export function MapCaptureSection({
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          disabled={blocked}
-          title={blocked ? warnings.find((w) => w.blocking)?.message : 'Capture the elevation of this square'}
-          className="w-full rounded bg-primary px-2 py-1 font-medium text-primary-foreground disabled:opacity-50"
-          onClick={() => void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number] })}
-        >
-          Capture heightmap
-        </button>
+        <div className="space-y-1">
+          <button
+            type="button"
+            disabled={blocked}
+            title={blocked ? warnings.find((w) => w.blocking)?.message : 'Capture this square, make a terrain from it and build it'}
+            className="w-full rounded bg-primary px-2 py-1 font-medium text-primary-foreground disabled:opacity-50"
+            onClick={() => start({ handoff: true, build: true })}
+          >
+            Capture and build
+          </button>
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              disabled={blocked}
+              title="Capture and make a terrain, without building it"
+              className="rounded border border-border px-2 py-1 hover:bg-accent disabled:opacity-50"
+              onClick={() => start({ handoff: true })}
+            >
+              Capture only
+            </button>
+            <button
+              type="button"
+              disabled={blocked}
+              title="Write the heightmap files only; no terrain is made"
+              className="rounded border border-border px-2 py-1 hover:bg-accent disabled:opacity-50"
+              onClick={() => start({})}
+            >
+              Capture heightmap
+            </button>
+          </div>
+        </div>
       )}
       {capture.state.phase === 'failed' ? (
         <p role="alert" className="text-[11px] text-destructive">
@@ -133,6 +157,12 @@ export function MapCaptureSection({
           <p className="font-mono tabular-nums text-muted-foreground">
             {Math.round(capture.state.result.capture.heightMinM)} to {Math.round(capture.state.result.capture.heightMaxM)} m · {capture.state.result.capture.mPerPx.toFixed(1)} m/px · z{capture.state.result.capture.demZoom}
           </p>
+          {capture.state.result.terrain ? <p data-testid="capture-terrain">Opened terrain {capture.state.result.terrain.terrain} in the Terrain tab.</p> : null}
+          {capture.state.result.capture.missing.length > 0 ? (
+            <p className="text-muted-foreground">
+              Captured with {capture.state.result.capture.missing.length} missing: {capture.state.result.capture.missing.map((m) => m.slot).join(', ')}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

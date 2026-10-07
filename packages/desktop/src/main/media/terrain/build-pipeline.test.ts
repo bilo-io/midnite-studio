@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,6 +16,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { encodePngGrey16, encodePngGrey8, encodePngRgba8 } from '../png/png-codec';
 import { plannedStages, runTerrainBuild } from './build-pipeline';
+
+const MASK_ONLY_ROADS_SHA256 = '5b302b0b11ee7200a9b3eede361bf4cefbf3f55a0027823505dc71983869edcf';
 
 let dir: string;
 beforeEach(async () => {
@@ -198,4 +201,70 @@ describe('runTerrainBuild', () => {
     expect(stats.roadAgreement).toBe(0);
     expect((await readFile(join(dir, 'out', 'roads-mask.png'))).length).toBeGreaterThan(0);
   }, 60_000);
+
+  describe('captured road graph (Phase 108 Theme F)', () => {
+    const n = 8;
+    const maskSpec = (extra: Record<string, unknown> = {}) =>
+      specFor(n, n, 16, {
+        inputs: {
+          heightmap: { file: 'inputs/heightmap.png', sourceName: 'h.png', width: n, height: n, bitDepth: 16 },
+          satellite: { file: 'inputs/satellite.png', sourceName: 's.png', width: 16, height: 16, bitDepth: 8 },
+          roads: { file: 'inputs/roads.png', sourceName: 'r.png', width: 256, height: 256, bitDepth: 8 },
+          ...extra,
+        },
+        textureSize: 1024,
+        foliage: { treeDensity: 0, grassDensity: 0.5, margin: 2 },
+      });
+    async function seed(): Promise<void> {
+      await writeFile(join(dir, 'inputs', 'heightmap.png'), encodePngGrey16(new Uint16Array(n * n).fill(32768), n, n));
+      await writeFile(join(dir, 'inputs', 'satellite.png'), encodePngRgba8(new Uint8Array(16 * 16 * 4).fill(128), 16, 16));
+      const roads = new Uint8Array(256 * 256 * 4);
+      for (let y = 0; y < 256; y += 1) {
+        for (let x = 0; x < 256; x += 1) roads.set(y >= 126 && y < 130 && x >= 8 && x < 248 ? [0, 255, 255, 255] : [0, 0, 0, 255], (y * 256 + x) * 4);
+      }
+      await writeFile(join(dir, 'inputs', 'roads.png'), encodePngRgba8(roads, 256, 256));
+    }
+
+    it('a mask-only terrain writes the same roads.json bytes as before the graph path existed', async () => {
+      await seed();
+      await runTerrainBuild({ dir, outDir: 'out', spec: maskSpec() }, () => undefined);
+      const raw = await readFile(join(dir, 'out', 'roads.json'), 'utf8');
+      expect(raw).not.toContain('"cls"');
+      expect(raw).not.toContain('"name"');
+      // Pinned from the pre-Theme-F pipeline over this exact fixture.
+      expect(createHash('sha256').update(raw).digest('hex')).toBe(MASK_ONLY_ROADS_SHA256);
+    }, 60_000);
+
+    it('uses the captured graph: widths from widthM, cls and name carried into roads.json', async () => {
+      await seed();
+      const graph = {
+        version: 1,
+        worldSize: 1000,
+        nodes: [
+          { id: 10, p: [-400, 0] },
+          { id: 11, p: [400, 0] },
+        ],
+        edges: [{ id: 5, a: 10, b: 11, points: [[-400, 0], [0, 0], [400, 0]], cls: 'primary', name: 'Main Road', widthM: 14, osmWayId: 42 }],
+      };
+      await writeFile(join(dir, 'inputs', 'roads.graph.json'), JSON.stringify(graph));
+      const spec = maskSpec({ roadsGraph: { file: 'inputs/roads.graph.json', edges: 1 } });
+      const stats = await runTerrainBuild({ dir, outDir: 'out', spec }, () => undefined);
+      const file = TerrainRoadsFileSchema.parse(JSON.parse(await readFile(join(dir, 'out', 'roads.json'), 'utf8')));
+      expect(file.edges).toHaveLength(1);
+      expect(file.edges[0]).toMatchObject({ cls: 'primary', name: 'Main Road', widthM: 14, kind: 'avenue' });
+      expect(file.edges[0]!.lengthM).toBeCloseTo(800, 0);
+      expect(stats.warnings).not.toContain('The captured road graph could not be read — roads come from the mask instead.');
+    }, 60_000);
+
+    it('falls back to the mask, with a warning, when the captured graph is unreadable', async () => {
+      await seed();
+      await writeFile(join(dir, 'inputs', 'roads.graph.json'), '{nope');
+      const spec = maskSpec({ roadsGraph: { file: 'inputs/roads.graph.json', edges: 1 } });
+      const stats = await runTerrainBuild({ dir, outDir: 'out', spec }, () => undefined);
+      expect(stats.warnings.join('\n')).toContain('captured road graph could not be read');
+      const file = TerrainRoadsFileSchema.parse(JSON.parse(await readFile(join(dir, 'out', 'roads.json'), 'utf8')));
+      expect(file.edges).toHaveLength(1);
+      expect(file.edges[0]!.cls).toBeUndefined();
+    }, 60_000);
+  });
 });
