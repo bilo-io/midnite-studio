@@ -214,7 +214,7 @@ request, key, crop and fit it bottom-centre into the cell and export through the
 `anims.json`. The export now writes `<asset>.tileset/`, `.background/` and `.sprite/` for props. The
 kind stays `'prop-sheet'` (the doc's `'props'` would have broken Theme A's union and the asset bridge).
 
-**Theme J — Maps as Tiled `.tmj`.** ✅ Landed (PR pending number). `MapSpecSchema` (8–256 tiles a side;
+**Theme J — Maps as Tiled `.tmj`.** ✅ Landed (PR #765). `MapSpecSchema` (8–256 tiles a side;
 `base`, `regions` rect/ellipse/polygon, `rooms` with an optional floor — else the first walkable terrain
 that is not the base — L-shaped `corridors`, 4-connected `paths`, `objects`, plus `cells` overrides for
 `map_patch`) and a fuller `MapAssetSpec` (`tileset` ref — an old bare folder name still loads — `engine`,
@@ -233,7 +233,7 @@ tileset, size, decorations and the Models tab's engine; `SpriteMapPreview` pans,
 toggles layers and draws the collision overlay from the tiles' own `collision` property. Exports as
 `<asset>.map/`.
 
-**Theme K — Sprites over MCP, and the skill.** ✅ Landed (PR pending number). Eighteen tools in
+**Theme K — Sprites over MCP, and the skill.** ✅ Landed (PR #765). Eighteen tools in
 `media-sprite-mcp.ts` (eleven writes) behind `allowSprites` (`mcp.json` version 7); `sprite-mcp.ts` is a
 thin adapter over `SpriteService`. Every `*_generate` tool takes an existing asset or a `spec` it creates
 first, so no separate create tool is needed; `sprite_generate` also takes `turnaround` and

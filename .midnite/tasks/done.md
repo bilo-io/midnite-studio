@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 106 Themes J + K — Maps as Tiled `.tmj`; sprites over MCP and the skill (PR pending number)
+## 2026-10-07 — Phase 106 Themes J + K — Maps as Tiled `.tmj`; sprites over MCP and the skill ([#765](https://github.com/bilo-io/midnite-studio/pull/765))
 
 **J.** A map is a small `MapSpec` an engine writes from the prompt (Ollama or a roster agent, the Models tab's choice), limited to the chosen tileset's terrains and repaired up to twice, then filled by a pure kernel — rasterised, autotiled with the tileset's own blob or corner rules, decorated by a seeded Poisson-disk scatter of a prop sheet, with a collision layer from the tiles' flags — into a `.tmj` that embeds every tileset (Phaser cannot load external ones) and ships with its images as `<asset>.map/`. Maps can also be imported from Tiled. The Map form picks the tileset, size and decorations; the previewer pans, zooms, toggles layers and overlays collision. **K.** Eighteen MCP tools over the same `SpriteService`, behind a seventh switch (`allowSprites`, off by default): generation is an asynchronous job polled with `sprite_job_status`, every job's worst-case provider requests are capped at 200 up front, validation failures come back as results, and the preview returns contact sheets plus an APNG of a clip. The `midnite-media-sprite-build` skill teaches the method choice, the job loop and the export formats in all six copies.
 
