@@ -765,6 +765,8 @@ export type MockFixtures = {
   media?: {
     files?: Record<string, Record<string, string>>;
     /** SF3D (Phase 103 Theme J): the starting install state; `licenceSha256` = consent already given. */
+    /** Maps (Phase 108): `keySet` makes the MapTiler sources available; the cache readout. */
+    map?: { keySet?: boolean; cacheBytes?: number; cacheCapMB?: number };
     sf3d?: { state?: 'not-installed' | 'installed'; licenceSha256?: string; hold?: boolean; holdFraction?: number };
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
@@ -3888,6 +3890,35 @@ export function buildMockBridge(data: MockFixtures) {
           onOpen: (handler: (event: unknown) => void) => {
             listeners.open.add(handler);
             return () => listeners.open.delete(handler);
+          },
+        };
+      })(),
+      /** Maps (Phase 108): `map.json` per project under `files['map:<project>']`; tiles never load in the mock. */
+      map: (() => {
+        const defaults = { version: 1, view: { center: [18.4241, -33.9249], zoom: 10, bearing: 0, pitch: 0 }, basemap: 'streets', terrain3d: { on: false, exaggeration: 1.5 }, layerOrder: [], layerStyle: {} };
+        let cacheCapMB = data.media?.map?.cacheCapMB ?? 1024;
+        let cacheBytes = data.media?.map?.cacheBytes ?? 312 * 1024 * 1024;
+        return {
+          get: async (req: { project: string }) => {
+            const raw = mediaFiles[`map:${req.project}`]?.['map.json'];
+            return { ok: true as const, value: { map: raw ? { ...defaults, ...JSON.parse(raw) } : defaults } };
+          },
+          setView: async (req: { project: string; patch: Record<string, unknown> }) => {
+            const key = `map:${req.project}`;
+            const current = mediaFiles[key]?.['map.json'] ? JSON.parse(mediaFiles[key]!['map.json']!) : defaults;
+            const next = { ...current, ...req.patch };
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), 'map.json': JSON.stringify(next) } };
+            return { ok: true as const, value: { map: next } };
+          },
+          sources: async () => ({
+            sources: ['aws-terrarium', 'openfreemap', 'openfreemap-relief', 'eox-s2cloudless-2016', 'maptiler-satellite', 'maptiler-terrain-rgb', 'maptiler-streets'].map((id) =>
+              id.startsWith('maptiler') && !data.media?.map?.keySet ? { id, available: false, reason: 'Add a MapTiler key in Settings ▸ Media.' } : { id, available: true },
+            ),
+          }),
+          cache: async (req: { op: string; capMB?: number }) => {
+            if (req.op === 'clear') cacheBytes = 0;
+            if (req.op === 'set-cap' && req.capMB) cacheCapMB = req.capMB;
+            return { ok: true as const, value: { bytes: cacheBytes, tiles: Math.round(cacheBytes / 20_000), capMB: cacheCapMB } };
           },
         };
       })(),

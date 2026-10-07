@@ -24,10 +24,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('MediaTabStrip', () => {
-  it('renders eight icon tabs and the label only on the active one', () => {
+  it('renders nine icon tabs and the label only on the active one', () => {
     open();
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Docs', 'Images', 'Video', 'Audio', 'Models', 'Terrain', 'Sprites', 'Games']);
+    expect(tabs.map((t) => t.getAttribute('aria-label'))).toEqual(['Docs', 'Images', 'Video', 'Audio', 'Models', 'Terrain', 'Sprites', 'Games', 'Maps']);
     expect(screen.getAllByTestId('media-tab-label')).toHaveLength(1);
     expect(within(tabs[0]!).getByTestId('media-tab-label').textContent).toBe('Docs');
     expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
@@ -41,11 +41,11 @@ describe('MediaTabStrip', () => {
     expect(useUiStore.getState().mediaTab).toBe('image');
     expect(document.activeElement?.getAttribute('aria-label')).toBe('Images');
     fireEvent.keyDown(list, { key: 'End' });
-    expect(useUiStore.getState().mediaTab).toBe('game');
+    expect(useUiStore.getState().mediaTab).toBe('map');
     fireEvent.keyDown(list, { key: 'ArrowRight' });
     expect(useUiStore.getState().mediaTab).toBe('doc');
     fireEvent.keyDown(list, { key: 'ArrowLeft' });
-    expect(useUiStore.getState().mediaTab).toBe('game');
+    expect(useUiStore.getState().mediaTab).toBe('map');
     fireEvent.keyDown(list, { key: 'Home' });
     expect(useUiStore.getState().mediaTab).toBe('doc');
     expect(screen.getByTestId('media-tab-label').textContent).toBe('Docs');

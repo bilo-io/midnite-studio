@@ -18,7 +18,7 @@ export function ImageSettingsSection() {
   );
 }
 
-function ApiKeyRow({ label, secretKey }: { label: string; secretKey: SecretKey }) {
+export function ApiKeyRow({ label, secretKey }: { label: string; secretKey: SecretKey }) {
   const has = useImageSecretHas(secretKey);
   const set = useSetImageSecret(secretKey);
   const [value, setValue] = useState('');
