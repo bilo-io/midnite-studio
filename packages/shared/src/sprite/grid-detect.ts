@@ -55,8 +55,8 @@ export function detectGrid(img: RgbaLike): DetectedGrid {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       if (data[(y * width + x) * 4 + 3]! > GRID_ALPHA) {
-        cols[x] += 1;
-        rows[y] += 1;
+        cols[x] = cols[x]! + 1;
+        rows[y] = rows[y]! + 1;
       }
     }
   }
