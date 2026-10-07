@@ -7,6 +7,7 @@ import {
   MODEL_PREVIEW_VIEWS,
   previewCamera,
   type MeshPart,
+  type AimView,
   type ModelPreviewView,
 } from '@midnite/studio-shared';
 
@@ -44,7 +45,7 @@ const unit = (v: Vec): Vec => {
   return [v[0] / len, v[1] / len, v[2] / len];
 };
 
-export type RenderedView = { view: ModelPreviewView; size: number; png: Buffer };
+export type RenderedView = { view: AimView; size: number; png: Buffer };
 
 export const clampPreviewSize = (size: number | undefined): number =>
   Math.min(MODEL_PREVIEW_SIZE_MAX, Math.max(MODEL_PREVIEW_SIZE_MIN, Math.round(size ?? MODEL_PREVIEW_SIZE_DEFAULT)));
@@ -56,7 +57,7 @@ const hexToRgb = (hex: string): Vec => {
 };
 
 /** Rasterise one camera into an RGB buffer of `size × size` pixels. */
-export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, size: number): Uint8Array {
+export function renderView(parts: readonly MeshPart[], view: AimView, size: number): Uint8Array {
   const camera = previewCamera(parts, view, size);
   const big = size * SUPERSAMPLE;
   const color = new Uint8Array(big * big * 3);
@@ -254,7 +255,7 @@ export function encodePng(width: number, height: number, rgb: Uint8Array): Buffe
 /** The requested views of a scene as PNGs, in request order, duplicates dropped. */
 export function renderPreviews(
   parts: readonly MeshPart[],
-  options: { views?: readonly ModelPreviewView[] | undefined; size?: number | undefined } = {},
+  options: { views?: readonly AimView[] | undefined; size?: number | undefined } = {},
 ): RenderedView[] {
   const size = clampPreviewSize(options.size);
   const views = [...new Set(options.views ?? MODEL_PREVIEW_VIEWS)];
