@@ -84,7 +84,9 @@ export async function startLevel() {
       if (input.justPressed('camera-next')) rig.cycle();
       const look = input.takeLook();
       const direction = moveRelativeToYaw(input.move(), rig.yaw);
-      character.move({ direction, run: input.isDown('sprint'), jump: input.justPressed('jump'), face: MODE === 'third-person' }, dt);
+      const wish = { direction, run: input.isDown('sprint'), jump: input.justPressed('jump'), face: MODE === 'third-person' };
+      // A genre may reshape the step's movement (a dodge roll, rooted attacks, facing a lock-on target).
+      character.move(genre.intent ? genre.intent(wish, dt, frame) : wish, dt);
       physics.step();
       enemy.position.x = -3 + Math.sin(frame / 60) * 3;
 

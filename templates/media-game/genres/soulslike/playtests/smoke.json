@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "seed": 1,
+  "frames": 180,
+  "input": [
+    { "frame": 0, "action": "forward", "pressed": true },
+    { "frame": 90, "action": "jump", "pressed": true },
+    { "frame": 92, "action": "jump", "pressed": false }
+  ],
+  "assert": [
+    { "frame": 180, "path": "$.scene", "equals": "level" },
+    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 0 },
+    { "frame": 100, "path": "$.souls.action", "equals": "roll" },
+    { "frame": 100, "path": "$.souls.stamina", "decreasedFromFrame": 0 }
+  ]
+}

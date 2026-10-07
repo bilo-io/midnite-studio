@@ -53,13 +53,16 @@ describe('scanImports', () => {
 vi.setConfig({ testTimeout: 20_000 });
 
 describe('composeStarter', () => {
-  it('covers the six perspective bases and the 2D genre starters', () => {
+  it('covers the six perspective bases, the 2D genre starters and the first 3D ones', () => {
     expect(available).toEqual([
       'platformer', 'top-down', 'isometric', 'raycaster', 'first-person', 'third-person',
       'fps@raycaster',
       'rts@top-down', 'rts@isometric',
       'arpg@isometric', 'arpg@top-down',
       'crime@top-down', 'crime@isometric',
+      'shooter@first-person', 'shooter@third-person',
+      'fighter@third-person',
+      'soulslike@third-person',
     ]);
   });
 
@@ -112,7 +115,7 @@ describe('composeStarter', () => {
       ok: false,
       message: 'The FPS genre needs the raycaster.',
     });
-    expect(await composeStarter('shooter@first-person', dest, { templateDir: TEMPLATE_DIR, name: 'x' })).toMatchObject({ ok: false });
+    expect(await composeStarter('rpg@third-person', dest, { templateDir: TEMPLATE_DIR, name: 'x' })).toMatchObject({ ok: false });
   });
 
   it('a genre starter carries only its own engine-free systems (and those it declares)', async () => {
@@ -133,6 +136,9 @@ describe('composeStarter', () => {
     expect(genresIn(await compose('arpg@top-down'))).toEqual(['arpg', 'rts']);
     expect(genresIn(await compose('crime@isometric'))).toEqual(['crime', 'rts']);
     expect(await compose('crime@top-down')).not.toContain('genre.json');
+    expect(genresIn(await compose('shooter@third-person'))).toEqual(['shooter']);
+    expect(genresIn(await compose('fighter@third-person'))).toEqual(['fighter']);
+    expect(genresIn(await compose('soulslike@third-person'))).toEqual(['soulslike']);
   });
 
   it.each(available.filter((id) => id.includes('@')))('%s replaces the base genre seam and writes the genre into game.config.js', async (id) => {
@@ -141,6 +147,26 @@ describe('composeStarter', () => {
     expect(seam).not.toContain('A genre\'s systems module replaces this file');
     expect(seam).toContain('export function installGenre');
     expect(await readFile(join(dest, 'src/game.config.js'), 'utf8')).toContain(`"genre":"${parseStarterId(id)!.genre}"`);
+  });
+
+  it('the fighter replaces the arena with its versus stage; shooter and soulslike keep the base arena', async () => {
+    const level = async (id: string): Promise<string> => {
+      const out = await mkdtemp(join(tmpdir(), 'midnite-compose-level-'));
+      try {
+        expect((await composeStarter(id, out, { templateDir: TEMPLATE_DIR, name: 'L' })).ok, id).toBe(true);
+        return await readFile(join(out, 'src/scenes/level.js'), 'utf8');
+      } finally {
+        await rm(out, { recursive: true, force: true });
+      }
+    };
+    const fighter = await level('fighter@third-person');
+    expect(fighter).toContain("mode: 'versus'");
+    expect(fighter).not.toContain('initPhysics');
+    for (const id of ['shooter@first-person', 'shooter@third-person', 'soulslike@third-person']) {
+      const base = await level(id);
+      expect(base, id).toContain('genre.intent');
+      expect(base, id).toContain('initPhysics');
+    }
   });
 
   it('fills the game name and stamps a valid manifest through createGame', async () => {

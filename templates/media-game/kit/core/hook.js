@@ -13,7 +13,7 @@
 import { virtualGamepad } from './input-map.js';
 import { rng } from './rng.js';
 
-export const KIT_VERSION = '0.4.0';
+export const KIT_VERSION = '0.5.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 

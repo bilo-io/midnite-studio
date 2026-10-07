@@ -98,8 +98,10 @@ export function GameGallery({ dimension, onDimension, value, onChange, cameras, 
     refs.current.get(cellKey(nr, nc))?.focus();
   };
 
-  const selectedPerspective = value.includes('@') ? value.split('@')[1] : value;
-  const thirdPersonPicked = selectedPerspective === 'third-person';
+  const [selectedGenre, selectedPerspective] = value.includes('@') ? value.split('@') : [null, value];
+  // A versus genre (the fighter) has its own camera, so the third-person cycle does not apply.
+  const versusPicked = selectedGenre != null && GAME_TEMPLATE_MATRIX[selectedGenre as GameGenre]?.versus === true;
+  const thirdPersonPicked = selectedPerspective === 'third-person' && !versusPicked;
 
   return (
     <div className="flex flex-col gap-2" data-testid="game-gallery">
@@ -216,6 +218,11 @@ export function GameGallery({ dimension, onDimension, value, onChange, cameras, 
             </label>
           ))}
         </fieldset>
+      ) : null}
+      {versusPicked ? (
+        <p className="rounded-md border border-input p-2 text-xs text-muted-foreground" data-testid="game-gallery-versus">
+          Versus camera: frames both fighters side-on, outside the five third-person cameras.
+        </p>
       ) : null}
     </div>
   );

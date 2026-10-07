@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "seed": 1,
+  "frames": 180,
+  "input": [
+    { "frame": 0, "action": "forward", "pressed": true },
+    { "frame": 30, "action": "attack", "pressed": true },
+    { "frame": 60, "action": "attack", "pressed": false }
+  ],
+  "assert": [
+    { "frame": 180, "path": "$.scene", "equals": "level" },
+    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 0 },
+    { "frame": 180, "path": "$.shooter.weapon", "equals": "rifle" },
+    { "frame": 180, "path": "$.shooter.mag", "decreasedFromFrame": 0 }
+  ]
+}

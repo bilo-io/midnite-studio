@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme I — 3D genre starters, part one
+
+Shooter (first or third person), fighter (versus camera) and soulslike as genre modules over the Theme G 3D bases, with engine-free systems under `kit/core/genre/{shooter,fighter,soulslike}/` and a shared `kit/three/damage-numbers.js`. `GAME_GENRES_AVAILABLE` lists the three, so their gallery cells are creatable; the fighter's cell swaps the camera picker for a versus-camera note. The 3D bases gained a movement `intent` seam and the third-person base a stand-in avatar. Kit 0.5.0. PR: see the pull request.
+
+- [x] Shooter, fighter, soulslike starters, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
 ## 2026-10-07 — Phase 104 Theme C — SDF modelling
 
 Organic forms as signed-distance trees: a recursive schema (seven primitives, smooth union/subtract/intersect, displace/twist/bend/round/shell/mirror, edits by name), a compiled evaluator with bounds and a Lipschitz bound, an octree-pruned bake through surface nets with per-primitive vertex groups, a `sculpt` part that keeps its tree (and an op log that opens with it), an editor SDF tab with a node tree, live low-resolution preview and bake on release, and the `model_sdf_set` / `model_sdf_patch` / `model_sdf_bake` MCP tools. PR: see the pull request.
