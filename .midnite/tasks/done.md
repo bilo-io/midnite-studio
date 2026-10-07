@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-08 — Phase 108 Theme E — Satellite and roads capture (PR pending)
+## 2026-10-08 — Phase 108 Theme E — Satellite and roads capture ([#775](https://github.com/bilo-io/midnite-studio/pull/775))
 
 A capture now writes the satellite image and the roads beside the heightmap. `satellite.png` is stitched at the zoom matching Terrain's `textureSize` and sampled pixel-centred in the capture worker (EOX Sentinel-2 cloudless 2016 by default, MapTiler with a key, a display-only source refused with its licence reason). Roads come from one Overpass query in main per capture (frames up to 25 km), become `roads.graph.json` in Terrain's centred frame (split at shared nodes, clipped, class and name kept, width by class or lanes) and a cyan-on-black `roads.png` Terrain keys without a hint. A failed layer lands in `capture.json`'s `missing` with a reason and never costs the heightmap; `ATTRIBUTION.txt` covers every source. The capture section gets Satellite and Roads toggles and lists what is missing.
 
