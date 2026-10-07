@@ -177,7 +177,7 @@ function SpriteOverview({
   /** The previewer, frame strip and export (Theme G). */
   animator: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>) => React.ReactNode;
   /** An environment asset's preview and export (Themes H and I). */
-  environment: (spec: Extract<SpriteAssetSpec, { kind: 'tileset' | 'background' | 'prop-sheet' }>) => React.ReactNode;
+  environment: (spec: Extract<SpriteAssetSpec, { kind: 'tileset' | 'background' | 'prop-sheet' | 'map' }>) => React.ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
   const rows = specRows(spec);
@@ -196,7 +196,7 @@ function SpriteOverview({
       <div className="flex items-center gap-2">
         <h2 className="truncate text-sm font-semibold">{spriteFolderLabel(spec.name)}</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{spec.kind}</span>
-        {spec.kind !== 'map' ? (
+        {!(spec.kind === 'map' && spec.imported) ? (
           <div className="ml-auto flex items-center gap-2">
             {running ? (
               <>
@@ -233,7 +233,7 @@ function SpriteOverview({
       ) : null}
       {spec.prompt ? <p className="text-xs text-muted-foreground">{spec.prompt}</p> : null}
       {spec.kind === 'sheet' ? animator(spec) : null}
-      {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' ? environment(spec) : null}
+      {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' || spec.kind === 'map' ? environment(spec) : null}
       {spec.kind === 'sheet' && handDrawn ? reference(spec, () => start({ turnaround: true })) : null}
       {spec.kind === 'sheet' && spec.oneShot ? oneShot(spec) : null}
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
@@ -243,9 +243,9 @@ function SpriteOverview({
             <dd>{value}</dd>
           </div>
         ))}
-        {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' ? (
+        {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' || spec.kind === 'map' ? (
           <>
-            <dt className="text-muted-foreground">{{ tileset: 'Tiles built', background: 'Layers built', 'prop-sheet': 'Props built' }[spec.kind]}</dt>
+            <dt className="text-muted-foreground">{{ tileset: 'Tiles built', background: 'Layers built', 'prop-sheet': 'Props built', map: 'Tiles placed' }[spec.kind]}</dt>
             <dd className="tabular-nums">{spec.lastReport ? `${spec.lastReport.frames}${spec.lastReport.failing ? ` (${spec.lastReport.failing} with warnings)` : ''}` : 'not generated yet'}</dd>
           </>
         ) : (
@@ -325,6 +325,13 @@ function specRows(spec: SpriteAssetSpec): Array<[string, string]> {
     case 'prop-sheet':
       return [['Style', spec.style], ['Cell', `${spec.cell[0]} × ${spec.cell[1]}`], ['Props', spec.props.map((p) => p.name).join(', ') || 'none']];
     case 'map':
-      return [['Style', spec.style], ['Size', `${spec.size[0]} × ${spec.size[1]} tiles`], ['Tile size', String(spec.tileSize)]];
+      if (spec.imported) return [['Source', 'imported .tmj']];
+      return [
+        ['Tileset', spec.tileset ? spriteFolderLabel(spec.tileset.asset) : 'none chosen'],
+        ['Size', spec.mapSpec ? `${spec.mapSpec.width} × ${spec.mapSpec.height} tiles, ${spec.mapSpec.orientation}` : `${spec.size[0]} × ${spec.size[1]} tiles (asked)`],
+        ['Layout', spec.mapSpec ? `${spec.mapSpec.regions.length} regions, ${spec.mapSpec.rooms?.length ?? 0} rooms, ${spec.mapSpec.corridors?.length ?? 0} corridors, ${spec.mapSpec.paths?.length ?? 0} paths, ${spec.mapSpec.objects.length} objects` : 'not laid out yet'],
+        ['Engine', spec.engine ? (spec.engine.kind === 'ollama' ? `Ollama · ${spec.engine.model}` : spec.engine.kind === 'agent' ? spec.engine.agentId : spec.engine.kind) : 'none'],
+        ...(spec.decorations ? ([['Decorations', `${spriteFolderLabel(spec.decorations.props.asset)}, ${Math.round(spec.decorations.density * 100)}%`]] as Array<[string, string]>) : []),
+      ];
   }
 }

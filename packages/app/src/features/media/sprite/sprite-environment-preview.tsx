@@ -3,30 +3,33 @@ import { useState } from 'react';
 
 import { SPRITE_CHECKER } from './sprite-checker';
 import { SpriteExportBar } from './sprite-animator';
+import { SpriteMapPreview } from './sprite-map-preview';
 import type { SpriteRef } from './use-sprite';
 
 /**
  * What an environment asset looks like once its job has run (Phase 106 Themes H and I): the tileset
  * sheet (and its terrain map), the parallax layers with a camera slider that moves each by its scroll
- * factor, or the props — each with the pack export beside them.
+ * factor, the props, or a map (Theme J) — each with the pack export beside them.
  */
-export type SpriteEnvironmentSpec = Extract<SpriteAssetSpec, { kind: 'tileset' | 'background' | 'prop-sheet' }>;
+export type SpriteEnvironmentSpec = Extract<SpriteAssetSpec, { kind: 'tileset' | 'background' | 'prop-sheet' | 'map' }>;
 
 const checker = { ...SPRITE_CHECKER, imageRendering: 'pixelated' as const };
 
 export function SpriteEnvironmentPreview({ repoId, target, spec, version, busy }: { repoId: string; target: SpriteRef; spec: SpriteEnvironmentSpec; version: string; busy: boolean }) {
   const built = spec.lastReport !== undefined;
   const url = (path: string) => `${mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/sprite/${target.group}/${target.asset}/${path}`)}?v=${encodeURIComponent(version)}`;
-  const noun = spec.kind === 'tileset' ? 'tiles' : spec.kind === 'background' ? 'layers' : 'props';
+  const noun = spec.kind === 'tileset' ? 'tiles' : spec.kind === 'background' ? 'layers' : spec.kind === 'map' ? 'map' : 'props';
   return (
     <section aria-label="Preview" className="flex flex-col gap-2" data-testid="sprite-environment-preview">
       <SpriteExportBar repoId={repoId} target={target} hasFrames={built && !busy} busy={busy} noun={noun} />
       {!built ? (
         <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-          {spec.kind === 'tileset' ? 'No tiles yet. Press Generate.' : spec.kind === 'background' ? 'No layers yet. Press Generate.' : 'No props yet. Press Generate.'}
+          {spec.kind === 'tileset' ? 'No tiles yet. Press Generate.' : spec.kind === 'background' ? 'No layers yet. Press Generate.' : spec.kind === 'map' ? 'No map yet. Press Generate.' : 'No props yet. Press Generate.'}
         </p>
       ) : spec.kind === 'tileset' ? (
         <TilesetPreview spec={spec} url={url} />
+      ) : spec.kind === 'map' ? (
+        <SpriteMapPreview url={url} version={version} />
       ) : spec.kind === 'background' ? (
         <ParallaxPreview spec={spec} url={url} />
       ) : (

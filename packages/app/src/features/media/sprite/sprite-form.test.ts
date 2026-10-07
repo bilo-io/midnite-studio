@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SpriteAssetSpecSchema } from '@midnite/studio-shared';
+import { MAP_NEEDS_TILESET, SpriteAssetSpecSchema } from '@midnite/studio-shared';
 
 import {
   envBlockedReason,
@@ -123,8 +123,18 @@ describe('environment form', () => {
     expect(envBlockedReason({ ...form, propsText: 'crate\ncrate: another' })).toBe('Two props are called crate.');
   });
 
-  it('a map is created, not generated', () => {
-    expect(envGenerates('map')).toBe(false);
-    expect(envGenerates('tileset')).toBe(true);
+  it('a map needs a tileset, takes the layout engine and its decorations, and is generated (Theme J)', () => {
+    expect(envGenerates('map')).toBe(true);
+    const form = { ...initialEnvForm(), name: 'Island', kind: 'map' as const };
+    expect(envBlockedReason(form)).toBe(MAP_NEEDS_TILESET);
+    const ready = { ...form, mapTileset: 'meadow-20261004-120000', mapProps: 'crates-20261004-120000', mapDensity: 0.3 };
+    expect(envBlockedReason(ready)).toBeNull();
+    expect(SpriteAssetSpecSchema.parse(envFormToSpec(ready, { kind: 'ollama', model: 'qwen2.5:7b' }))).toMatchObject({
+      kind: 'map',
+      size: [32, 24],
+      tileset: { group: 'tilesets', asset: 'meadow-20261004-120000' },
+      decorations: { props: { group: 'objects', asset: 'crates-20261004-120000' }, density: 0.3 },
+      engine: { kind: 'ollama', model: 'qwen2.5:7b' },
+    });
   });
 });

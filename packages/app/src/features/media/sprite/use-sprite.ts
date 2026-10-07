@@ -78,7 +78,7 @@ export function useSpriteActions(repoId: string) {
   );
 
   /** Starts a job. Failures that are the user's to act on (busy, no model) come back in the result. */
-  const generate = useCallback(async (ref: SpriteRef, opts: { turnaround?: true; clips?: string[]; method?: 'hand-drawn' } = {}) => {
+  const generate = useCallback(async (ref: SpriteRef, opts: { turnaround?: true; clips?: string[]; method?: 'hand-drawn'; layout?: 'keep' } = {}) => {
     const api = bridge()?.media.sprite;
     return api ? api.generate({ repoId, ...ref, ...opts }) : noBridge<never>();
   }, [repoId]);
@@ -114,5 +114,14 @@ export function useSpriteActions(repoId: string) {
     [invalidate, repoId],
   );
 
-  return { create, setSpec, setReference, generate, cancel, patchFrames, invalidate };
+  /** Imports a Tiled `.tmj` as a new map (Theme J); main asks for the file. A cancelled dialog answers `{}`. */
+  const importMap = useCallback(async () => {
+    const api = bridge()?.media.sprite;
+    const result = api ? await api.importMap({ repoId }) : noBridge<never>();
+    reportFailure(result);
+    await invalidate();
+    return result;
+  }, [invalidate, repoId]);
+
+  return { create, setSpec, setReference, generate, cancel, patchFrames, importMap, invalidate };
 }

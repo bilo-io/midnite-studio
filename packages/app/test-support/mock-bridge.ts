@@ -3932,6 +3932,9 @@ export function buildMockBridge(data: MockFixtures) {
             if (!spec) return missing;
             // The real service parses through the zod schema; the mock fills the defaults the UI reads.
             const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, anchor: { x: 0.5, y: 1 }, mirror: true, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, scheme: 'blob47', terrains: [{ id: 'grass', label: 'Grass', prompt: '', collision: 'walkable' }, { id: 'dirt', label: 'Dirt', prompt: '', collision: 'walkable' }], transitions: [{ a: 'grass', b: 'dirt' }], seed: 1 } : {}), ...(spec.kind === 'background' ? { size: [1920, 1080], layers: [{ name: 'sky', prompt: '', scrollFactor: 0 }, { name: 'far', prompt: '', scrollFactor: 0.2 }, { name: 'mid', prompt: '', scrollFactor: 0.5 }, { name: 'near', prompt: '', scrollFactor: 0.8 }] } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
+            // A map's asset refs: the form sends bare folder names, which the schema's preprocess turns into refs.
+            if (filled.kind === 'map' && typeof filled.tileset === 'string') filled.tileset = { group: 'tilesets', asset: filled.tileset };
+            if (filled.kind === 'map' && filled.decorations && typeof filled.decorations.props === 'string') filled.decorations = { ...filled.decorations, props: { group: 'objects', asset: filled.decorations.props } };
             const framesRaw = mediaFiles[`sprite:${req.group}`]?.[`${req.asset}/frames/frames.json`];
             const frames = framesRaw ? { version: 1, referenceHeights: {}, ...(JSON.parse(framesRaw) as Spec) } : { version: 1, frames: {}, referenceHeights: {} };
             return { ok: true as const, value: { spec: filled, frames, report: filled.lastReport ?? null } };
@@ -3969,8 +3972,9 @@ export function buildMockBridge(data: MockFixtures) {
             if (!current) return missing;
             if (req.turnaround) write(req.group, req.asset, { ...current, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
             // An environment job reports what it built (Themes H and I).
-            if (current.kind === 'tileset' || current.kind === 'background' || current.kind === 'prop-sheet') {
-              const count = current.kind === 'tileset' ? 49 : current.kind === 'background' ? (current.layers as unknown[]).length : (current.props as unknown[]).length;
+            if (current.kind === 'tileset' || current.kind === 'background' || current.kind === 'prop-sheet' || current.kind === 'map') {
+              const size = (current.size as [number, number] | undefined) ?? [40, 24];
+              const count = current.kind === 'tileset' ? 49 : current.kind === 'background' ? (current.layers as unknown[]).length : current.kind === 'map' ? size[0] * size[1] : (current.props as unknown[]).length;
               write(req.group, req.asset, { ...current, lastReport: { frames: count, failing: 0, at: '2026-10-07T10:00:00.000Z' } });
             }
             const jobId = `job-${Date.now()}`;
@@ -3988,7 +3992,7 @@ export function buildMockBridge(data: MockFixtures) {
           export: async (req: Spec) => {
             const spec = read(req.group, req.asset);
             if (!spec) return missing;
-            const suffix = ({ tileset: 'tileset', background: 'background' } as Record<string, string>)[spec.kind as string] ?? 'sprite';
+            const suffix = ({ tileset: 'tileset', background: 'background', map: 'map' } as Record<string, string>)[spec.kind as string] ?? 'sprite';
             const path = req.dest ? `${req.dest}/${slug(spec.name)}.${suffix}` : `${req.asset}/export`;
             return { ok: true as const, value: { path, bytes: 2048, frames: 8, pages: 1, warnings: [] } };
           },
@@ -4003,6 +4007,13 @@ export function buildMockBridge(data: MockFixtures) {
           onOpen: (handler: (event: unknown) => void) => {
             listeners.open.add(handler);
             return () => listeners.open.delete(handler);
+          },
+          // Theme J: the dialog is never shown; the import lands a map asset named `imported`.
+          importMap: async (req: Spec) => {
+            const asset = 'imported-20261004-120000';
+            write('maps', asset, { version: 1, kind: 'map', name: 'imported', imported: true, lastReport: { frames: 4, failing: 0, at: '2026-10-07T10:00:00.000Z' } });
+            listeners.changed.forEach((h) => h({ repoId: req.repoId, group: 'maps', asset, revision: Date.now() }));
+            return { ok: true as const, value: { group: 'maps', asset } };
           },
           // Rendered from 3D (Theme E): main never asks the mock window to render.
           onRenderRequest: () => () => undefined,

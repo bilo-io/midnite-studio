@@ -45,6 +45,7 @@ import {
   type SheetForm,
 } from './sprite-form';
 import { EnvironmentFields } from './sprite-environment-form';
+import { useMapEngine } from './map-engine';
 import { SpriteMethodPicker } from './sprite-method-picker';
 import { SpriteRenderedOptions } from './sprite-rendered-options';
 import { riggedModels } from './sprite-rig';
@@ -102,7 +103,8 @@ const LABEL = 'flex flex-col gap-1 text-[11px] font-medium text-muted-foreground
 /**
  * The right-hand panel of Media ▸ Sprites: two modes, **Sheet** and **Environment**, swapping the
  * form beneath one shared prompt box. Sheet's Generate creates the asset and starts its job;
- * Environment's button creates the asset and starts its job (a map is only created until Theme J).
+ * Environment's button creates the asset and starts its job — a map's job asks the Models engine for a
+ * layout (Theme J), and a Tiled `.tmj` can be imported as a map instead.
  */
 export function SpriteCreatePanel({
   repoId,
@@ -128,6 +130,7 @@ export function SpriteCreatePanel({
   const recommendation = formRecommendation(sheet);
   const sheetBlocked = sheetBlockedReason(sheet);
   const envBlocked = envBlockedReason(env);
+  const mapEngine = useMapEngine();
 
   const createAndGenerate = async () => {
     setBusy(true);
@@ -150,7 +153,7 @@ export function SpriteCreatePanel({
     setBusy(true);
     setError(null);
     try {
-      const created = await actions.create(envFormToSpec(env));
+      const created = await actions.create(envFormToSpec(env, env.kind === 'map' ? mapEngine.engine : undefined));
       if (!created.ok || !created.value.group || !created.value.asset) return;
       const ref = { group: created.value.group, asset: created.value.asset };
       onCreated(ref.group, ref.asset);
@@ -226,7 +229,16 @@ export function SpriteCreatePanel({
             riggedLoading={library.isPending && sheet.method === 'rendered'}
           />
         ) : (
-          <EnvironmentFields repoId={repoId} form={env} onChange={(patch) => setEnv((current) => ({ ...current, ...patch }))} />
+          <EnvironmentFields
+            repoId={repoId}
+            form={env}
+            onChange={(patch) => setEnv((current) => ({ ...current, ...patch }))}
+            onImportMap={() =>
+              void actions.importMap().then((result) => {
+                if (result.ok && result.value.group && result.value.asset) onCreated(result.value.group, result.value.asset);
+              })
+            }
+          />
         )}
         {error ? (
           <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
@@ -279,7 +291,7 @@ export function SpriteCreatePanel({
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            {envGenerates(env.kind) && !env.fromTerrain ? (
+            {envGenerates(env.kind) && !env.fromTerrain && env.kind !== 'map' ? (
               <ProviderModelPicker
                 testId="sprite-env-picker"
                 providers={imagePickerProviders(statuses)}

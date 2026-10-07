@@ -12,12 +12,14 @@ import {
   recommendSpriteMethod,
   backgroundBlocker,
   BACKGROUND_SCROLL_DEFAULTS,
+  MAP_NEEDS_TILESET,
   SPRITE_NEEDS_MODEL,
   SpriteAssetSpecSchema,
   spriteSlug,
   tilesetBlocker,
   type BackgroundLayer,
   type ImageProviderId,
+  type ModelEngine,
   type SpriteClip,
   type SpriteMethod,
   type SpritePerspective,
@@ -212,6 +214,13 @@ export type EnvForm = {
   cell: [number, number];
   /** Prop sheet: one prop per line, `name: description` or just a description. */
   propsText: string;
+  /** Map (Theme J): the tileset asset folder it is built from. */
+  mapTileset: string;
+  /** Map: the size the layout engine is asked for, in tiles. */
+  mapSize: [number, number];
+  /** Map: the prop sheet (an `objects` asset) scattered over walkable ground, or `''`. */
+  mapProps: string;
+  mapDensity: number;
 };
 
 export function initialEnvForm(provider: ImageProviderId = SPRITE_DEFAULT_PROVIDER, model?: string): EnvForm {
@@ -231,6 +240,10 @@ export function initialEnvForm(provider: ImageProviderId = SPRITE_DEFAULT_PROVID
     layers: BACKGROUND_SCROLL_DEFAULTS.map((l) => ({ ...l })),
     cell: [64, 64],
     propsText: 'crate: a wooden crate\nbarrel: an oak barrel\nsign: a wooden signpost',
+    mapTileset: '',
+    mapSize: [32, 24],
+    mapProps: '',
+    mapDensity: 0.15,
   };
 }
 
@@ -249,7 +262,8 @@ export function parsePropLines(text: string): SpriteProp[] {
     });
 }
 
-export function envFormToSpec(form: EnvForm): Record<string, unknown> {
+/** The spec the form creates. A map also takes its layout engine (the Models tab's engine choice). */
+export function envFormToSpec(form: EnvForm, engine?: ModelEngine): Record<string, unknown> {
   const common = { name: form.name.trim(), prompt: form.prompt.trim(), style: form.style, provider: form.provider, ...(form.model ? { model: form.model } : {}) };
   switch (form.kind) {
     case 'tileset':
@@ -269,7 +283,14 @@ export function envFormToSpec(form: EnvForm): Record<string, unknown> {
     case 'prop-sheet':
       return { kind: 'prop-sheet', ...common, cell: form.cell, props: parsePropLines(form.propsText) };
     case 'map':
-      return { kind: 'map', ...common, tileSize: form.tileSize };
+      return {
+        kind: 'map',
+        ...common,
+        size: form.mapSize,
+        ...(form.mapTileset ? { tileset: form.mapTileset } : {}),
+        ...(form.mapProps ? { decorations: { props: form.mapProps, density: form.mapDensity } } : {}),
+        ...(engine ? { engine } : {}),
+      };
   }
 }
 
@@ -292,9 +313,10 @@ export function envBlockedReason(form: EnvForm): string | null {
     const dup = props.map((p) => p.name).find((n, i, all) => all.indexOf(n) !== i);
     if (dup) return `Two props are called ${dup}.`;
   }
+  if (form.kind === 'map' && !form.mapTileset) return MAP_NEEDS_TILESET;
   const parsed = SpriteAssetSpecSchema.safeParse(spec);
   return parsed.success ? null : (parsed.error.issues[0]?.message ?? 'Check the form.');
 }
 
-/** Kinds whose Generate runs a job (a map is created only, until Theme J). */
-export const envGenerates = (kind: EnvKind): boolean => kind !== 'map';
+/** Every environment kind's button creates the asset and runs its job (a map lays itself out — Theme J). */
+export const envGenerates = (_kind: EnvKind): boolean => true;
