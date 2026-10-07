@@ -136,6 +136,6 @@ describe('model_unwrap, model_bake, model_export', () => {
     expect(sculpts(kit, model)[1]!.uv).toBeUndefined();
     expect(sculpts(kit, model)[1]!.maps).toBeUndefined();
     const ops = parseOpsLog(kit.files.get(`gen/${model.split('/')[0]}/${sculpts(kit, model)[1]!.src.replace('.mesh.bin', '.ops.jsonl')}`)!.toString('utf8'));
-    expect(ops.entries.some((e) => e.kind === 'decimate')).toBe(true);
+    expect(ops.entries.some((e) => e.kind === 'unwrap')).toBe(true);
   });
 });
