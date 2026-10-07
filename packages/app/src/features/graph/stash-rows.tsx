@@ -197,6 +197,7 @@ function StashRow({
       </div>
 
       <span aria-hidden className="graph-diff-col shrink-0" />
+      <span aria-hidden className="graph-diff-chart-col shrink-0" />
       {showsAuthorColumn(theme) ? (
         <span className="graph-col-author shrink-0" style={{ width: 'var(--col-author)' }} />
       ) : null}

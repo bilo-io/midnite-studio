@@ -18,5 +18,8 @@ export const SECRET_KEYS = [
   // `media/model/sf3d/installer.ts` and sent only as an `Authorization` header. The ONNX port it
   // downloads is not gated today, so it is usually unset.
   'media.huggingFaceToken',
+  // Phase 108 Theme B — an optional MapTiler key unlocking its satellite, Terrain-RGB and styles. Read
+  // only by main's `mstudio-tile:` protocol, which expands it into the upstream URL; never the renderer.
+  'media.mapTilerApiKey',
 ] as const;
 export type SecretKey = (typeof SECRET_KEYS)[number];

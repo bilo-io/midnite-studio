@@ -300,6 +300,13 @@ import {
   SpriteSetSpecRequestSchema,
   SpriteTargetSchema,
 } from '../media-sprite';
+import {
+  MapCacheRequestSchema,
+  MapResultSchemas,
+  MapSetViewRequestSchema,
+  MapSourcesResponseSchema,
+  MapTargetSchema,
+} from '../media-map';
 import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
@@ -3315,6 +3322,15 @@ export const MediaSpriteRenderReadyRequest = SpriteRenderReadyRequestSchema;
 export const MediaSpriteRenderReadyResponse = SpriteResultSchemas.generic;
 export const MediaSpriteRenderFramesRequest = SpriteRenderFramesRequestSchema;
 export const MediaSpriteRenderFramesResponse = SpriteResultSchemas.generic;
+
+// Maps (Phase 108)
+export const MediaMapGetRequest = MapTargetSchema;
+export const MediaMapGetResponse = MapResultSchemas.get;
+export const MediaMapSetViewRequest = MapSetViewRequestSchema;
+export const MediaMapSetViewResponse = MapResultSchemas.setView;
+export const MediaMapSourcesResponse = MapSourcesResponseSchema;
+export const MediaMapCacheRequest = MapCacheRequestSchema;
+export const MediaMapCacheResponse = MapResultSchemas.cache;
 export const MediaSpriteRenderRequestPayload = SpriteRenderRequestEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;

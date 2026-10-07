@@ -392,6 +392,8 @@ export type LayoutSizes = {
   mediaTerrainDetailWidth: number;
   mediaSpriteExplorerWidth: number;
   mediaSpriteDetailWidth: number;
+  mediaMapExplorerWidth: number;
+  mediaMapDetailWidth: number;
   mediaGameExplorerWidth: number;
   mediaGameDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
@@ -518,6 +520,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaTerrainDetailWidth: 360,
   mediaSpriteExplorerWidth: 224,
   mediaSpriteDetailWidth: 380,
+  mediaMapExplorerWidth: 240,
+  mediaMapDetailWidth: 300,
   mediaGameExplorerWidth: 240,
   mediaGameDetailWidth: 380,
   // Workflows (Phase 43) — list left, inspector / history right.
@@ -616,6 +620,8 @@ export const LAYOUT_BOUNDS = {
   mediaTerrainDetailWidth: { min: 260, max: 640 },
   mediaSpriteExplorerWidth: { min: 180, max: 480 },
   mediaSpriteDetailWidth: { min: 280, max: 680 },
+  mediaMapExplorerWidth: { min: 180, max: 480 },
+  mediaMapDetailWidth: { min: 240, max: 520 },
   mediaGameExplorerWidth: { min: 180, max: 480 },
   mediaGameDetailWidth: { min: 300, max: 680 },
   workflowListWidth: { min: 180, max: 480 },
@@ -3766,6 +3772,7 @@ const MEDIA_LAYOUT_KEYS = {
   terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
   sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
   game: { explorer: 'mediaGameExplorerWidth', detail: 'mediaGameDetailWidth' },
+  map: { explorer: 'mediaMapExplorerWidth', detail: 'mediaMapDetailWidth' },
 } as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
 
 /** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */

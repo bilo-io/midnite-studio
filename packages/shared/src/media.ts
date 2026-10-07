@@ -17,7 +17,7 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain', 'sprite', 'game'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain', 'sprite', 'game', 'map'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -27,7 +27,7 @@ export type MediaTab = z.infer<typeof MediaTabSchema>;
  * Phase 44's global setting, so it keeps working with no repo open; Games (Phase 107) likewise resolves its
  * own root (the games location setting).
  */
-export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model', 'terrain', 'sprite'];
+export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model', 'terrain', 'sprite', 'map'];
 
 /** `<repo>/.midnite/media` — joined with the tab id for each tab's root. */
 export const MEDIA_ROOT_DIR = '.midnite/media';
@@ -64,6 +64,9 @@ export const MEDIA_EXPORT_FORMATS = [
   // sprites (Phase 106) — a pack is a folder of PNG atlas + JSON, written by main
   'sprite-pack',
   'terrain-pack',
+  // maps (Phase 108) — the selected GeoJSON layer, written by Theme H
+  'geojson',
+  'kml',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -99,6 +102,8 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   'game-zip': { label: 'Zip archive', ext: 'zip', needsFfmpeg: false },
   'game-folder': { label: 'Static folder', ext: '', needsFfmpeg: false },
   'sprite-pack': { label: 'Sprite pack (folder)', ext: '', needsFfmpeg: false },
+  geojson: { label: 'GeoJSON layer', ext: 'geojson', needsFfmpeg: false },
+  kml: { label: 'KML layer', ext: 'kml', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
@@ -113,6 +118,8 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   // Theme G (Phase 106) writes the pack; until then the tab's export answers "not available yet".
   sprite: ['sprite-pack'],
   game: ['game-html', 'game-zip', 'game-folder'],
+  // Phase 108: the split button exports the selected layer (Theme H).
+  map: ['geojson', 'kml'],
 };
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */
