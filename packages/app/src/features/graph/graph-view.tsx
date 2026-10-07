@@ -92,6 +92,7 @@ export function GraphView() {
   const showCi = useUiStore((s) => s.graphShowCi);
   const columnVisibility = useUiStore((s) => s.graphColumnVisibility);
   const showDiff = columnVisibility.diff;
+  const showDiffChart = columnVisibility.diffChart;
 
   const { agents } = useAgents();
   const { data: closedSessions } = useSessionHistory();
@@ -576,8 +577,8 @@ export function GraphView() {
     kept-alive graph behind another view, asks for nothing and polls nothing.
   */
   const ciBySha = useCommitCi(repoId, rows, rowCount, virtualizer.range, showCi && visible);
-  // The Diff column: only fetched while it is switched on and the graph is the visible view.
-  const diffBySha = useCommitStats(repoId, rows, rowCount, virtualizer.range, showDiff && visible);
+  // The Diff and Diff Chart columns: only fetched while either is switched on and the graph is the visible view.
+  const diffBySha = useCommitStats(repoId, rows, rowCount, virtualizer.range, (showDiff || showDiffChart) && visible);
   const ciRef = useRef(ciBySha);
   ciRef.current = ciBySha;
   const [ciModal, setCiModal] = useState<{ sha: string; subject: string | null; ci: CommitCi } | null>(null);
@@ -664,6 +665,26 @@ export function GraphView() {
   useEffect(() => {
     if (workingTreeOpen && workingTreeGone) selectWorkingTree(false);
   }, [workingTreeOpen, workingTreeGone, selectWorkingTree]);
+
+  /**
+   * The maximum churn lines (additions or deletions) across the visible viewport slice.
+   * Diff Chart bars scale relative to this so relative churn is immediately readable
+   * without scanning the entire commit history.
+   */
+  const maxViewportDiff = useMemo(() => {
+    if (!showDiffChart) return 1;
+    let max = 0;
+    for (const item of virtualizer.getVirtualItems()) {
+      const row = rows[item.index];
+      if (!row) continue;
+      const stat = diffBySha.get(row.commit.sha);
+      if (stat) {
+        if (stat.added > max) max = stat.added;
+        if (stat.deleted > max) max = stat.deleted;
+      }
+    }
+    return max > 0 ? max : 1;
+  }, [showDiffChart, virtualizer, rows, diffBySha]);
 
   if (!repoId) {
     return <EmptyState title="No repository selected" body="Pick one from the sidebar." />;
@@ -879,7 +900,8 @@ export function GraphView() {
                     agent={agent}
                     markMode={provenanceMarkMode}
                     ci={showCi ? ciBySha.get(row.commit.sha) : undefined}
-                    diffStat={showDiff ? diffBySha.get(row.commit.sha) : undefined}
+                    diffStat={showDiff || showDiffChart ? diffBySha.get(row.commit.sha) : undefined}
+                    maxDiffLines={maxViewportDiff}
                     onOpenCi={onOpenCi}
                     onSelect={toggleCommit}
                     onContextMenu={onRowContextMenu}

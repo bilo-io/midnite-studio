@@ -4406,7 +4406,12 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   width: 6.5rem;
 }
 
+.graph-diff-chart-col {
+  width: 6.5rem;
+}
+
 [data-graph-hide~='diff'] .graph-diff-col,
+[data-graph-hide~='diffChart'] .graph-diff-chart-col,
 [data-graph-hide~='branchTag'] .graph-ref-col,
 [data-graph-hide~='branchTag'] .graph-ref-col-handle,
 [data-graph-hide~='author'] .graph-col-author,
