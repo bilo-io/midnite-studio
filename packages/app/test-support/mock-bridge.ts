@@ -3975,8 +3975,17 @@ export function buildMockBridge(data: MockFixtures) {
             return { ok: true as const, value: { jobId } };
           },
           cancel: async () => ({ ok: true as const }),
-          patchFrames: async () => ({ ok: true as const }),
-          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'This sprite operation is not available yet.' }),
+          // Frame-strip edits (Theme G): accepted as-is; a spec spies on the call to see the ops.
+          patchFrames: async (req: Spec) => {
+            const rerolls = (req.ops as Spec[]).some((op) => op.op === 'reroll');
+            return { ok: true as const, value: rerolls ? { jobId: `job-${Date.now()}` } : {} };
+          },
+          export: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const path = req.dest ? `${req.dest}/${slug(spec.name)}.sprite` : `${req.asset}/export`;
+            return { ok: true as const, value: { path, bytes: 2048, frames: 8, pages: 1, warnings: [] } };
+          },
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);
             return () => listeners.progress.delete(handler);

@@ -18,6 +18,7 @@ import { MediaLayout } from '../media-layout';
 import type { MediaSelection } from '../media-projects-accordion';
 import { MEDIA_TAB_META } from '../media-tabs';
 import { NoRepoMediaState } from '../repo-media-tab';
+import { SpriteAnimator } from './sprite-animator';
 import { SpriteCreatePanel } from './sprite-create-panel';
 import { SpriteExplorer, spriteOfPath } from './sprite-explorer';
 import { SpriteOneShotPanel } from './sprite-one-shot-panel';
@@ -30,8 +31,8 @@ import { useSprite, useSpriteActions, useSpriteChangedInvalidation, useSpritePro
  * `.midnite/media/sprite/<group>/` — its `sprite.json` is the source of truth, and generation runs
  * as a cancellable job in main whose progress arrives on `mediaSpriteProgress`.
  *
- * The animation previewer and frame strip land with Theme G; until then the centre is the asset's
- * spec at a glance and its job.
+ * A sheet's centre is its job, the animation previewer with the frame strip and the pack export
+ * (Theme G), then the spec at a glance.
  */
 export function SpriteTab() {
   const repoId = useUiStore((s) => s.selectedRepoId);
@@ -81,6 +82,22 @@ function SpriteTabBody({ repoId }: { repoId: string }) {
         return null;
       }}
       onCancel={() => (jobId ? void actions.cancel(jobId) : undefined)}
+      animator={(spec) => (
+        <SpriteAnimator
+          repoId={repoId}
+          target={ref}
+          spec={spec}
+          file={sprite.data.frames}
+          version={String(sprite.dataUpdatedAt)}
+          busy={running}
+          progress={running && event ? { done: event.done, total: event.total } : null}
+          apply={async (ops) => {
+            const result = await actions.patchFrames(ref, ops);
+            if (result.ok && result.value.jobId) setJobs((current) => ({ ...current, [refKey]: result.value.jobId! }));
+            return result.ok;
+          }}
+        />
+      )}
       oneShot={(spec) => (
         <SpriteOneShotPanel
           repoId={repoId}
@@ -142,6 +159,7 @@ function SpriteOverview({
   onCancel,
   reference,
   oneShot,
+  animator,
 }: {
   spec: SpriteAssetSpec;
   frames: SpriteFramesFile;
@@ -153,6 +171,8 @@ function SpriteOverview({
   reference: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>, generateTurnaround: () => void) => React.ReactNode;
   /** The one-shot grid preview and per-row verdict (Theme F). */
   oneShot: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>) => React.ReactNode;
+  /** The previewer, frame strip and export (Theme G). */
+  animator: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>) => React.ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
   const rows = specRows(spec);
@@ -207,6 +227,7 @@ function SpriteOverview({
         </p>
       ) : null}
       {spec.prompt ? <p className="text-xs text-muted-foreground">{spec.prompt}</p> : null}
+      {spec.kind === 'sheet' ? animator(spec) : null}
       {spec.kind === 'sheet' && handDrawn ? reference(spec, () => start({ turnaround: true })) : null}
       {spec.kind === 'sheet' && spec.oneShot ? oneShot(spec) : null}
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">

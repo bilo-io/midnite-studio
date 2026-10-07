@@ -103,7 +103,7 @@ export function moveRenames(slots: readonly number[], fromN: number, to: number)
 export function invertSpritePatchOp(op: SpritePatchOp, before: SpriteFramesFile): SpritePatchOp | null {
   switch (op.op) {
     case 'nudge':
-      return { op: 'nudge', key: op.key, dx: -op.dx, dy: -op.dy };
+      return { op: 'nudge', key: op.key, dx: -op.dx || 0, dy: -op.dy || 0 };
     case 'flip':
       return { op: 'flip', key: op.key };
     case 'delete':

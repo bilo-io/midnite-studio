@@ -292,6 +292,17 @@ export const SPRITE_BADGES = ['empty', 'clipped', 'height', 'drift', 'inconsiste
 export const SpriteBadgeSchema = z.enum(SPRITE_BADGES);
 export type SpriteBadge = z.infer<typeof SpriteBadgeSchema>;
 
+/** What each badge's rule checks — the frame strip's tooltips (Theme G) and the MCP report. */
+export const SPRITE_BADGE_RULES: Record<SpriteBadge, string> = {
+  empty: 'Empty: less than 1 % of the frame is opaque.',
+  clipped: 'Clipped: the subject touches the edge of the frame.',
+  height: 'Height: more than 12 % off the clip’s median height.',
+  drift: 'Drift: the body sits off the anchor.',
+  inconsistent: 'Inconsistent: the vision check scored it below the threshold against the reference.',
+  unchecked: 'Unchecked: the consistency check did not run for this frame.',
+  grid: 'Grid: its one-shot cell was more than 20 % off the median cell.',
+};
+
 export const SpriteFrameMetaSchema = z.object({
   anchorNudge: z.tuple([z.number().int(), z.number().int()]).default([0, 0]),
   flipped: z.boolean().default(false),
