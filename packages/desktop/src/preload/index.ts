@@ -686,6 +686,12 @@ const bridge: Pick<
       renderReady: (req) => call(CHANNELS.mediaSpriteRenderReady, req),
       renderFrames: (req) => call(CHANNELS.mediaSpriteRenderFrames, req),
     },
+    map: {
+      get: (req) => call(CHANNELS.mediaMapGet, req),
+      setView: (req) => call(CHANNELS.mediaMapSetView, req),
+      sources: () => call(CHANNELS.mediaMapSources),
+      cache: (req) => call(CHANNELS.mediaMapCache, req),
+    },
     reveal: (req) => call(CHANNELS.mediaReveal, req),
     ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
     export: (req) => call(CHANNELS.mediaExport, req),

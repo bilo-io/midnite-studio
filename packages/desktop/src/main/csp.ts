@@ -30,6 +30,7 @@ export function buildCsp(opts: CspBuildOptions): string {
   const connectSrc = [
     "'self'",
     'mstudio-file:',
+    'mstudio-tile:',
     'https://api.open-meteo.com',
     'https://geocoding-api.open-meteo.com',
     'https://ipwho.is',
@@ -45,7 +46,7 @@ export function buildCsp(opts: CspBuildOptions): string {
     "default-src 'self'",
     `script-src ${scriptSrc.join(' ')}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: mstudio-file: https:",
+    "img-src 'self' data: blob: mstudio-file: mstudio-tile: https:",
     "media-src 'self' blob: mstudio-file:",
     "font-src 'self' data:",
     "worker-src 'self' blob: data:",

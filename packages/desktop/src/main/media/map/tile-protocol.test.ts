@@ -36,7 +36,7 @@ describe('mstudio-tile handler', () => {
     const res = await handle('mstudio-tile://maptiler-satellite/3/2/1');
     expect(res.status).toBe(200);
     expect(urls[0]).toContain(KEY);
-    const seen = JSON.stringify([...res.headers.entries()]) + (await res.text()) + logs.join('\n');
+    const seen = JSON.stringify([...(res.headers as unknown as Iterable<[string, string]>)]) + (await res.text()) + logs.join('\n');
     expect(seen).not.toContain(KEY);
   });
 

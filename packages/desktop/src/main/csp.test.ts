@@ -12,7 +12,7 @@ describe('buildCsp', () => {
     const csp = buildCsp({ dev: false });
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'");
-    expect(csp).toContain("img-src 'self' data: blob: mstudio-file: https:");
+    expect(csp).toContain("img-src 'self' data: blob: mstudio-file: mstudio-tile: https:");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
     expect(csp).toContain("worker-src 'self' blob: data:");
     expect(csp).toContain("frame-ancestors 'none'");
@@ -21,6 +21,13 @@ describe('buildCsp', () => {
     expect(csp).toContain('https://ipwho.is');
     expect(csp).not.toContain('api.twelvedata.com');
     expect(csp).not.toContain('api.coingecko.com');
+  });
+
+  it('reaches map tiles only through mstudio-tile:, never a tile host (Phase 108)', () => {
+    const csp = buildCsp({ dev: false });
+    expect(csp).toMatch(/connect-src[^;]*mstudio-tile:/);
+    const connect = csp.split('; ').find((d) => d.startsWith('connect-src'))!;
+    for (const host of ['openfreemap', 'amazonaws', 'eox', 'maptiler']) expect(connect).not.toContain(host);
   });
 
   it('dev policy adds Vite HMR script and websocket origins', () => {

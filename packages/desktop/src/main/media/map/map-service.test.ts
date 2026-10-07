@@ -10,7 +10,7 @@ function memory(initial?: string) {
     readText: async () => (file === undefined ? failure('File not found.') : ok(file)),
     writeText: async ({ content }) => {
       file = content;
-      return ok(undefined);
+      return { ok: true as const };
     },
   });
   return service;
