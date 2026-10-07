@@ -41,6 +41,15 @@ The user must enable Settings ▸ MCP and "Let agents edit 3D models".
 | `model_sdf_set` | block an organic form as a signed-distance `tree` (`{nodes, blend?}`) and bake it into a `sculpt` part (`part` replaces one, `resolution` 16–256, default 96) |
 | `model_sdf_patch` | edit an SDF part's tree by node name — `add` (`node`, `parent?`, `index?`), `update` (`name`, `set`), `remove`, `move`, `wrap` (in an operator/modifier), `blend` — and re-bake |
 | `model_sdf_bake` | re-bake an SDF part at another `resolution` (low while shaping, 192–256 once the form is right) |
+| `model_get_landmarks` | the named points (`top_of_head`, `nose_tip`, `chin`, `left_ear`, `left_hand`, `left_foot`, …) found from the rig and bounds, with any the design's `landmarks` override |
+| `model_sculpt_stroke` | brush a `sculpt` part: `brush` (draw, clay, inflate, smooth, grab, crease, flatten, pinch, mask), `strength`, `radius` (metres), `falloff`, `symmetry`, and exactly one `target` — see below. Returns a thumbnail and `{moved, maxDisplacement}` |
+| `model_mask` | `op` set / grow / shrink / invert / clear; `set` takes a `region` (bone, landmark, group, part) or a screen `lasso`; masked vertices are spared by every stroke |
+| `model_subdivide` / `model_remesh` | add Loop-subdivision levels; or voxel-remesh to even topology (`voxelSize` / `targetVertices`) |
+| `model_sculpt_undo` | step back (or `redo`) through this session's strokes, masks and remeshes, with a thumbnail |
+| `model_decimate` / `model_retopo` | make a low-poly copy (`targetTriangles` / `ratio`, or `targetFaces`), hide the original as the bake source; the rig is kept |
+| `model_unwrap` | UVs: seams by `angle` and `curvature`, charts packed, texel density reported; `clear: true` welds it back so it can be sculpted again |
+| `model_bake` | normal (tangent space), occlusion, curvature and cavity maps from the hidden high-poly part onto the unwrapped low-poly one (`size` 2048 default, 4096 max; try 1024 first) |
+| `model_export` | write `.glb` (PBR, skin, clips, baked maps), `.obj` (+ `.mtl`, uvs, maps) and `.fbx` (uvs) by `formats` |
 
 Loop: `model_get_spec` (schema), `model_set_spec`, `model_render_preview` and actually look, `model_patch_parts`, repeat, `model_save`. Never invent part fields — the schema from `model_get_spec` is authoritative. Applied or rejected-with-reasons comes back on every write.
 
@@ -50,6 +59,10 @@ A `sculpt` part is a dense mesh in a `.mesh.bin` beside the design, never hand-w
 
 
 **SDF block-in** (organic forms — heads, creatures, cloth folds): every node has a unique `name`, optional `position`, `rotation` (Euler degrees), uniform `scale` and `color` (its vertex group's colour, inherited by children). Primitives: `sphere {radius}`, `ellipsoid {radii}`, `capsule {radius, height}` (height = straight section, along Y), `box {size, radius?}` (radius rounds it), `torus {radius, tube}` (ring in XZ), `cone {radius, height}` (apex up), `cylinder {radius, height}`. Operators hold `children` and an optional smooth `k`: `union`, `subtract` (first child minus the rest), `intersect`. Modifiers wrap exactly one child: `displace {amplitude, frequency, octaves?, seed?}`, `twist {angle}` (°/m about Y), `bend {angle}` (°/m along X), `round {radius}`, `shell {thickness}`, `mirror {axis}` (reflects the positive side). Shape at low resolution, look at a preview, patch by name, then `model_sdf_bake` finer. The tree stays on the part until the first brush stroke.
+**Sculpting workflow** (organic forms): block in with `model_sdf_set`/`model_sdf_patch` at low resolution, then `model_render_preview` and look. Sculpt by region first (coarse shaping: `target: {mode:'region', bone:'head'}`, `landmark:'nose_tip'`, `group`, or `along: true` a bone), then refine by pixels on a preview you just looked at (`target: {mode:'screen', view:'front', size:384, points:[[x,y],...]}` — `x,y` are pixels from the picture's top-left, the preview's own camera, so the same pixels hit the same surface; `radiusPixels` sizes the brush in that picture). `world` takes xyz points or a path (snapped to the surface), and `mask` spreads dabs over whatever the mask leaves open. Use `invert` to carve instead of build, `symmetry:{x:true}` to mirror, `model_mask` to protect finished areas, `model_sculpt_undo` to take a stroke back, `model_subdivide` before fine detail and `model_remesh` when strokes stretch the topology. A stroke's answer names how many vertices moved and the largest move: if `moved` is 0 the aim missed or the area is masked. The first stroke drops the SDF tree, so re-baking is no longer possible.
+
+**Mesh pipeline** (a dense sculpt to an engine asset): `model_decimate` (or `model_retopo` for even quad-dominant topology) makes a low-poly copy and hides the sculpt as its bake source; `model_unwrap` the copy; `model_bake` high onto low; `model_export` for `.glb`. A rigged design keeps its skeleton and skin through all of it. An unwrapped mesh cannot be sculpted (its seams are split vertices) — `model_unwrap` with `clear: true` first. Retopology is an even lattice, not flow-aligned; bakes are CPU-bound, so look with `size: 1024` before 2048 or 4096.
+
 ## Conventions
 
 - Do not hand-write `.obj`/`.fbx`; edit the spec only.
