@@ -17,7 +17,7 @@ import { z } from 'zod';
 
 import { GitOpResultOf, GitOpResultSchema } from './domain/result';
 import { ModelLibraryNameSchema } from './media-model-library';
-import { ImageProviderIdSchema } from './media';
+import { ImageAspectSchema, ImageProviderIdSchema } from './media';
 
 // --- constants ---------------------------------------------------------------
 
@@ -55,6 +55,9 @@ export const SPRITE_FRAME_SOURCES_PENDING =
 export const SPRITE_NEEDS_MODEL = 'Attach a rigged model before rendering from 3D.';
 /** Rendered from 3D (Theme E): main asks the open window to render, and fails the job when nothing answers. */
 export const SPRITE_RENDER_NO_WINDOW = 'Rendering from 3D needs the Midnite Studio window open.';
+/** One-shot (Theme F): a grid this large is refused before any request. */
+export const SPRITE_ONE_SHOT_MAX = 8;
+export const SPRITE_ONE_SHOT_TOO_MANY = 'Too many frames for one image — use at most 8 frames and 8 rows, or switch to Hand-drawn.';
 /** How long main waits for a window to acknowledge a render request. */
 export const SPRITE_RENDER_READY_MS = 10_000;
 /** Frames per `mediaSpriteRenderFrames` batch, at most. */
@@ -78,6 +81,38 @@ export const SpriteClipSchema = z.object({
 export type SpriteClip = z.infer<typeof SpriteClipSchema>;
 
 const Dim = z.number().int().min(8).max(512);
+
+// --- one-shot sheet (Theme F) ---------------------------------------------------
+
+/** The grid a one-shot sheet is asked for: one clip × direction per row, one frame per column. */
+export const OneShotGridSchema = z.object({
+  columns: z.number().int().min(1),
+  rows: z.number().int().min(1),
+  cell: z.tuple([z.number().int().min(1), z.number().int().min(1)]),
+  gutter: z.number().int().min(0),
+});
+export type OneShotGrid = z.infer<typeof OneShotGridSchema>;
+
+/** Spans `[start, end)` in pixels. */
+const Span = z.tuple([z.number().int().min(0), z.number().int().min(0)]);
+
+/**
+ * What a one-shot job asked for and what it found — written to `sprite.json` so the verdict and the
+ * grid preview survive a reload. `mismatch` set means nothing was sliced.
+ */
+export const SpriteOneShotSchema = z.object({
+  promptVersion: z.number().int().min(1),
+  grid: OneShotGridSchema,
+  aspect: ImageAspectSchema,
+  /** Row order: which clip and direction each row of the sheet holds. */
+  rows: z.array(z.object({ clip: z.string(), dir: z.string() })).default([]),
+  /** The returned image's real size (cells are laid out in it, not in the requested size). */
+  image: z.object({ width: z.number().int().positive(), height: z.number().int().positive() }).optional(),
+  /** Projection-profile grid detection: content spans per column and per row. */
+  detected: z.object({ columns: z.array(Span), rows: z.array(Span) }).optional(),
+  mismatch: z.string().max(300).optional(),
+});
+export type SpriteOneShot = z.infer<typeof SpriteOneShotSchema>;
 
 // --- render settings (Theme E) -------------------------------------------------
 
@@ -154,6 +189,8 @@ export const SpriteSheetSpecSchema = z.object({
   reference: SpriteReferenceSchema.optional(),
   /** Theme E: how a rendered sheet's camera, shading and supersampling are set. */
   render: SpriteRenderSettingsSchema.optional(),
+  /** Theme F: the last one-shot request — prompt version, grid, aspect and what grid detection found. */
+  oneShot: SpriteOneShotSchema.optional(),
   /** Theme D: the vision check of every frame against the locked reference. */
   consistency: z
     .object({
@@ -355,6 +392,11 @@ export const SpriteSetReferenceRequestSchema = z.union([
    * {@link SPRITE_REFERENCE_CHANGED}: `keep` leaves them, `mark` badges every one `unchecked` for re-roll.
    */
   SpriteTargetSchema.extend({ approve: z.literal(true), frames: z.enum(['keep', 'mark']).default('keep') }),
+  /**
+   * One-shot's hand-off (Theme F): an existing frame becomes the **approved** reference, so a failing
+   * clip can be redrawn with Hand-drawn against it.
+   */
+  SpriteTargetSchema.extend({ fromFrame: z.object({ clip: z.string().min(1), dir: z.string().min(1), n: z.number().int().min(0).max(999) }) }),
 ]);
 export type SpriteSetReferenceRequest = z.infer<typeof SpriteSetReferenceRequestSchema>;
 
@@ -363,6 +405,8 @@ export const SpriteGenerateRequestSchema = SpriteTargetSchema.extend({
   clips: z.array(z.string()).optional(),
   /** Hand-drawn step 1: draw a turnaround (front, side, back) as the unapproved reference instead of frames. */
   turnaround: z.literal(true).optional(),
+  /** Run this job with another method than the spec's — one-shot's "Regenerate this clip with Hand-drawn" (Theme F). */
+  method: z.literal('hand-drawn').optional(),
 });
 export type SpriteGenerateRequest = z.infer<typeof SpriteGenerateRequestSchema>;
 

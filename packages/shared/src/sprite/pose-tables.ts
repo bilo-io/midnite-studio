@@ -59,7 +59,7 @@ export const SPRITE_POSE_TABLES: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** How each direction folder reads in a prompt. */
-const DIRECTION_PHRASES: Readonly<Record<string, string>> = {
+export const DIRECTION_PHRASES: Readonly<Record<string, string>> = {
   e: 'facing right (east)',
   w: 'facing left (west)',
   s: 'facing the viewer (south)',
@@ -70,14 +70,14 @@ const DIRECTION_PHRASES: Readonly<Record<string, string>> = {
   nw: 'facing up-left (north-west), three-quarter back view',
 };
 
-const PERSPECTIVE_PHRASES: Readonly<Record<SpritePerspective, string>> = {
+export const PERSPECTIVE_PHRASES: Readonly<Record<SpritePerspective, string>> = {
   side: 'side view, as in a 2D side-scrolling platformer',
   'top-down': 'top-down view from a steep camera above, as in a top-down action game',
   isometric: 'isometric view (2:1), as in an isometric strategy game',
   front: 'straight-on front view',
 };
 
-const STYLE_PHRASES: Readonly<Record<SpriteSheetSpec['style'], string>> = {
+export const STYLE_PHRASES: Readonly<Record<SpriteSheetSpec['style'], string>> = {
   pixel: 'crisp pixel-art game sprite with a limited palette',
   'hand-drawn': 'hand-drawn 2D game sprite with clean line art',
   painterly: 'painterly 2D game sprite',

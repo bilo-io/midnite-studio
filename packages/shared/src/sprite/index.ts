@@ -9,3 +9,5 @@ export * from './recommend';
 export * from './validate';
 export * from './camera';
 export * from './sampling';
+export * from './grid-detect';
+export * from './one-shot-prompt';
