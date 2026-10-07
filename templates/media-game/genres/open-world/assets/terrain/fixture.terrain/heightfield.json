@@ -4,7 +4,7 @@
   "worldSize": 512,
   "heightRange": [
     0,
-    24
+    12
   ],
   "rowMajor": "z",
   "origin": "centre"

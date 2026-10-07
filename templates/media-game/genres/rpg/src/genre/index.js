@@ -43,7 +43,7 @@ const CHOICES = /** @type {const} */ (['choice-1', 'choice-2', 'choice-3', 'choi
 const DAY_SECONDS = 300;
 const TALK_RANGE = 3;
 const SWING = { duration: 0.45, hitAt: 0.18, reach: 2.4, arcDeg: 100 };
-const WOLF = { hp: 30, speed: 3.2, aggro: 11, reach: 1.5, bite: 6, cooldown: 1.2, xp: 40 };
+const WOLF = { hp: 30, speed: 3.2, aggro: 15, reach: 1.5, bite: 6, cooldown: 1.2, xp: 40 };
 const WOLF_DEN = /** @type {const} */ ([[-18, -24], [-14, -28], [-22, -30]]);
 const HERBS = /** @type {const} */ ([[-20, -8], [-23, -4]]);
 
@@ -133,7 +133,7 @@ export function installGenre(scene, ctx) {
     const mesh = new THREE.Mesh(wolfGeometry, new THREE.MeshStandardMaterial({ color: 0x6f6f78 }));
     mesh.castShadow = true;
     scene.add(mesh);
-    return { mesh, hp: WOLF.hp, position: [x, 0, z], bite: 0, flash: 0 };
+    return { mesh, hp: WOLF.hp, position: [x, 0, z], bite: 0, flash: 0, awake: false };
   });
   const herbs = HERBS.map(([x, z]) => {
     const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), new THREE.MeshStandardMaterial({ color: 0x9cff9c, emissive: 0x2fbf4f, emissiveIntensity: 1.2 }));
@@ -286,7 +286,19 @@ export function installGenre(scene, ctx) {
       }
 
       // --- combat -------------------------------------------------------------------
-      if (!talk && !swing && input.justPressed('attack')) swing = { t: 0, landed: false };
+      if (!talk && !swing && input.justPressed('attack')) {
+        swing = { t: 0, landed: false };
+        // A soft lock: the swing turns to the nearest wolf in reach, so it lands in either camera.
+        const [px, , pz] = character.position;
+        let best = SWING.reach + 0.8;
+        for (const w of wolves) {
+          const d = w.hp > 0 ? Math.hypot((w.position[0] ?? 0) - px, (w.position[2] ?? 0) - pz) : Infinity;
+          if (d < best) {
+            best = d;
+            character.yaw = Math.atan2(-((w.position[0] ?? 0) - px), -((w.position[2] ?? 0) - pz));
+          }
+        }
+      }
       if (swing) {
         swing.t += dt;
         if (!swing.landed && swing.t >= SWING.hitAt) {
@@ -303,7 +315,9 @@ export function installGenre(scene, ctx) {
         const dz = pz - (w.position[2] ?? 0);
         const d = Math.hypot(dx, dz);
         w.bite = Math.max(0, w.bite - dt);
-        if (!talk && d < WOLF.aggro && d > WOLF.reach) {
+        // A pack: one wolf that notices you wakes any packmate within 12 m.
+        if (!w.awake && (d < WOLF.aggro || wolves.some((o) => o.awake && o.hp > 0 && Math.hypot((o.position[0] ?? 0) - (w.position[0] ?? 0), (o.position[2] ?? 0) - (w.position[2] ?? 0)) < 12))) w.awake = true;
+        if (!talk && w.awake && d < 40 && d > WOLF.reach) {
           w.position[0] = (w.position[0] ?? 0) + (dx / d) * WOLF.speed * dt;
           w.position[2] = (w.position[2] ?? 0) + (dz / d) * WOLF.speed * dt;
         } else if (!talk && d <= WOLF.reach && w.bite === 0) {

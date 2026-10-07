@@ -38,7 +38,7 @@ describe('GameGallery', () => {
     expect(fps.getAttribute('title')).toBe('The FPS genre needs the raycaster.');
   });
 
-  it('makes the 2D genre cells selectable, and keeps the unlanded 3D genres not available yet', async () => {
+  it('makes the 2D genre cells selectable', async () => {
     renderView(<GameTab />, { fixtures });
     await screen.findByRole('grid');
     for (const name of ['FPS, 2.5D raycaster', 'RTS, Top-down', 'RTS, Isometric', 'ARPG, Isometric', 'Top-down crime, Top-down']) {
@@ -47,13 +47,21 @@ describe('GameGallery', () => {
     const rts = cell('RTS, Isometric');
     fireEvent.click(rts);
     expect(rts.getAttribute('aria-pressed')).toBe('true');
+  }, 20_000);
 
+  it('makes RPG, character action and open world creatable (Theme J); no genre cell is left waiting', async () => {
+    renderView(<GameTab />, { fixtures });
+    await screen.findByRole('grid');
     fireEvent.click(screen.getByRole('radio', { name: '3D' }));
-    const rpg = cell('RPG, Third person');
-    expect(rpg.getAttribute('aria-disabled')).toBe('true');
-    expect(rpg.getAttribute('title')).toMatch(/Not available yet/);
-    fireEvent.click(rpg);
-    expect(rpg.getAttribute('aria-pressed')).toBe('false');
+    for (const name of ['RPG, Third person', 'RPG, First person', 'Character action, Third person', 'Open world, Third person', 'Open world, First person']) {
+      expect(cell(name).getAttribute('aria-disabled'), name).toBe('false');
+    }
+    expect(cell('Character action, First person').getAttribute('title')).toBe('Character action runs third person only.');
+    expect(screen.getAllByRole('button').some((b) => /Not available yet/.test(b.getAttribute('title') ?? ''))).toBe(false);
+    fireEvent.click(cell('Open world, First person'));
+    expect(cell('Open world, First person').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(cell('RPG, Third person'));
+    expect(screen.getByRole('group', { name: 'Cameras' })).toBeTruthy();
   }, 20_000);
 
   it('makes shooter, fighter and soulslike creatable; the fighter swaps the camera picker for the versus camera', async () => {

@@ -28,7 +28,7 @@ const ACTION_BINDINGS = {
 };
 
 export const PLAYER_SPAWN = /** @type {const} */ ([0, 0.1, 13]);
-const ARENA = { centre: /** @type {const} */ ([0, -4]), radius: 12, gateZ: 7.5 };
+const ARENA = { centre: /** @type {const} */ ([0, -4]), radius: 12, gateZ: 8 };
 const PLAYER_HP = 100;
 const REACH = 2.6;
 const ARC_DEG = 110;
@@ -303,6 +303,18 @@ export function installGenre(scene, ctx) {
       if (step.started) {
         struck = new Set();
         hitMoveAt = frame;
+        // Soft targeting: each new move turns to the nearest enemy within 4.5 m (the lock-on wins when set).
+        if (!rig.lockTarget) {
+          const [px, , pz] = character.position;
+          let best = 4.5;
+          for (const e of enemies) {
+            const d = e.hp > 0 ? Math.hypot((e.p[0] ?? 0) - px, (e.p[2] ?? 0) - pz) : Infinity;
+            if (d < best) {
+              best = d;
+              character.yaw = Math.atan2(-((e.p[0] ?? 0) - px), -((e.p[2] ?? 0) - pz));
+            }
+          }
+        }
       }
       const now = comboNow(combo, frame);
       if (now && now.phase === 'active') strike(now.move);

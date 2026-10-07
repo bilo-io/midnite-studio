@@ -115,7 +115,7 @@ async function buildFixture(dest: string): Promise<string> {
       name: 'fixture',
       resolution: 257,
       worldSize: 512,
-      heightRange: [0, 24],
+      heightRange: [0, 12],
       textureSize: 1024,
       noise: { seed: 7, frequency: 1.5, octaves: 5, erosion: { iterations: 0 } },
       inputs: {

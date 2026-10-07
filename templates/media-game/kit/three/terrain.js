@@ -110,12 +110,19 @@ export async function loadTerrain(manifestUrl, options = {}) {
           const key = `${at.cx},${at.cz}`;
           const chunk = chunks.get(key) ?? { ...at, lods: [null, null, null, null], shown: -1 };
           node.visible = false;
+          node.updateWorldMatrix(true, true);
           node.traverse((o) => {
             const mesh = /** @type {THREE.Mesh} */ (o);
             if (mesh.isMesh) {
               mesh.receiveShadow = true;
               mesh.castShadow = false;
-              if (!manifest.maps.drape && !(/** @type {THREE.MeshStandardMaterial} */ (mesh.material).map)) mesh.material = groundMaterial;
+              const ownMap = (/** @type {THREE.MeshStandardMaterial} */ (mesh.material).map);
+              if (!manifest.maps.drape && !ownMap) mesh.material = groundMaterial;
+              // A pack's chunks carry no UVs; with a drape, project it from above so the ground wears it.
+              if (manifest.maps.drape && !ownMap) {
+                if (!mesh.geometry.getAttribute('uv')) mesh.geometry.setAttribute('uv', drapeUvs(mesh, worldSize));
+                mesh.material = groundMaterial;
+              }
             }
           });
           chunk.lods[lod] = node;
@@ -207,6 +214,25 @@ export async function loadTerrain(manifestUrl, options = {}) {
       }
     },
   };
+}
+
+/**
+ * Planar UVs for a drape over the whole terrain: `u` runs west to east and
+ * `v` north (−z, the image's top row) to south, from each vertex's world
+ * position. The pack's origin is its centre.
+ * @param {THREE.Mesh} mesh (its world matrix up to date)
+ * @param {number} worldSize
+ */
+export function drapeUvs(mesh, worldSize) {
+  const position = mesh.geometry.getAttribute('position');
+  const uv = new Float32Array(position.count * 2);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < position.count; i += 1) {
+    v.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+    uv[i * 2] = v.x / worldSize + 0.5;
+    uv[i * 2 + 1] = 0.5 - v.z / worldSize;
+  }
+  return new THREE.BufferAttribute(uv, 2);
 }
 
 /**

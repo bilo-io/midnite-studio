@@ -53,7 +53,7 @@ describe('scanImports', () => {
 vi.setConfig({ testTimeout: 20_000 });
 
 describe('composeStarter', () => {
-  it('covers the six perspective bases, the 2D genre starters and the first 3D ones', () => {
+  it('covers the six perspective bases and every genre starter', () => {
     expect(available).toEqual([
       'platformer', 'top-down', 'isometric', 'raycaster', 'first-person', 'third-person',
       'fps@raycaster',
@@ -63,6 +63,9 @@ describe('composeStarter', () => {
       'shooter@first-person', 'shooter@third-person',
       'fighter@third-person',
       'soulslike@third-person',
+      'rpg@third-person', 'rpg@first-person',
+      'character-action@third-person',
+      'open-world@third-person', 'open-world@first-person',
     ]);
   });
 
@@ -103,7 +106,12 @@ describe('composeStarter', () => {
     expect(smoke).toMatchObject({ version: 1, frames: 180 });
     expect(smoke.assert).toEqual(expect.arrayContaining([expect.objectContaining({ path: '$.scene', equals: 'level' })]));
     const index = JSON.parse(await readFile(join(dest, 'assets/index.json'), 'utf8'));
-    expect(index).toEqual({ version: 1, assets: [] });
+    // The open world ships its world: a Phase 105 terrain pack, named in the index so the asset bridge can repoint it.
+    expect(index).toEqual(
+      id.startsWith('open-world@')
+        ? { version: 1, assets: [{ kind: 'terrain', name: 'world', path: 'assets/terrain/fixture.terrain' }] }
+        : { version: 1, assets: [] },
+    );
   });
 
   it('refuses invalid and not-yet-available combinations with the reason', async () => {
@@ -115,7 +123,10 @@ describe('composeStarter', () => {
       ok: false,
       message: 'The FPS genre needs the raycaster.',
     });
-    expect(await composeStarter('rpg@third-person', dest, { templateDir: TEMPLATE_DIR, name: 'x' })).toMatchObject({ ok: false });
+    expect(await composeStarter('character-action@first-person', dest, { templateDir: TEMPLATE_DIR, name: 'x' })).toMatchObject({
+      ok: false,
+      message: 'Character action runs third person only.',
+    });
   });
 
   it('a genre starter carries only its own engine-free systems (and those it declares)', async () => {
@@ -139,6 +150,9 @@ describe('composeStarter', () => {
     expect(genresIn(await compose('shooter@third-person'))).toEqual(['shooter']);
     expect(genresIn(await compose('fighter@third-person'))).toEqual(['fighter']);
     expect(genresIn(await compose('soulslike@third-person'))).toEqual(['soulslike']);
+    expect(genresIn(await compose('rpg@first-person'))).toEqual(['arpg', 'rpg']);
+    expect(genresIn(await compose('character-action@third-person'))).toEqual(['character-action']);
+    expect(genresIn(await compose('open-world@third-person'))).toEqual(['crime', 'open-world']);
   });
 
   it.each(available.filter((id) => id.includes('@')))('%s replaces the base genre seam and writes the genre into game.config.js', async (id) => {
@@ -149,7 +163,7 @@ describe('composeStarter', () => {
     expect(await readFile(join(dest, 'src/game.config.js'), 'utf8')).toContain(`"genre":"${parseStarterId(id)!.genre}"`);
   });
 
-  it('the fighter replaces the arena with its versus stage; shooter and soulslike keep the base arena', async () => {
+  it('the fighter, character action and open world bring their own stage; shooter, soulslike and RPG keep the base arena', async () => {
     const level = async (id: string): Promise<string> => {
       const out = await mkdtemp(join(tmpdir(), 'midnite-compose-level-'));
       try {
@@ -162,10 +176,19 @@ describe('composeStarter', () => {
     const fighter = await level('fighter@third-person');
     expect(fighter).toContain("mode: 'versus'");
     expect(fighter).not.toContain('initPhysics');
-    for (const id of ['shooter@first-person', 'shooter@third-person', 'soulslike@third-person']) {
+    for (const id of ['shooter@first-person', 'shooter@third-person', 'soulslike@third-person', 'rpg@third-person', 'rpg@first-person']) {
       const base = await level(id);
       expect(base, id).toContain('genre.intent');
       expect(base, id).toContain('initPhysics');
+      expect(base, id).toContain(id.endsWith('first-person') ? "MODE = 'first-person'" : "MODE = 'third-person'");
+    }
+    const action = await level('character-action@third-person');
+    expect(action).toContain('genre.intent');
+    expect(action).toContain('PLAYER_SPAWN');
+    for (const id of ['open-world@third-person', 'open-world@first-person']) {
+      const world = await level(id);
+      expect(world, id).toContain('loadTerrain');
+      expect(world, id).toContain('createVehicle');
     }
   });
 
