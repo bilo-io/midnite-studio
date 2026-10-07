@@ -1,4 +1,4 @@
-import { MAP_BASEMAP_LABEL, MAP_BASEMAPS, MEDIA_TAB_EXPORT_FORMATS, type MapBasemap, type MapSourceStatus, type MapView } from '@midnite/studio-shared';
+import { activeSatelliteSource, MAP_BASEMAP_LABEL, MAP_BASEMAPS, MEDIA_TAB_EXPORT_FORMATS, type MapBasemap, type MapSourceStatus, type MapView } from '@midnite/studio-shared';
 import { useCallback, useMemo, useState } from 'react';
 
 import { EmptyState } from '../../../components/empty-state';
@@ -63,7 +63,10 @@ function MapCentre({ repoId, project }: { repoId: string; project: string }) {
   const basemap = basemapOverride ?? map.data?.map.basemap ?? 'streets';
   const statuses = sources.data ?? NO_STATUSES;
 
-  const style = useMemo(() => (base.data ? buildMapStyle(basemap, { statuses, base: base.data }) : null), [base.data, basemap, statuses]);
+  // Keyed on the satellite source, not the statuses array: a refetch must not rebuild (and re-apply) the style.
+  const satellite = activeSatelliteSource(statuses);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `satellite` stands in for `statuses`
+  const style = useMemo(() => (base.data ? buildMapStyle(basemap, { statuses, base: base.data }) : null), [base.data, basemap, satellite]);
   const onViewChange = useCallback((view: MapView) => save({ view }), [save]);
   const pick = (next: MapBasemap) => {
     setBasemapOverride(next);
@@ -80,7 +83,7 @@ function MapCentre({ repoId, project }: { repoId: string; project: string }) {
     <div className="relative h-full min-h-0" data-testid="map-view">
       <LazyMapCanvas style={style} view={map.data.map.view} onViewChange={onViewChange} attribution={basemapAttribution(basemap, statuses)} reloadKey={reload}>
         <MapLoadingBar status={status} />
-        <div role="group" aria-label="Basemap" className="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-background/80 text-xs shadow-sm backdrop-blur-sm">
+        <div role="group" aria-label="Basemap" className="absolute right-12 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-background/80 text-xs shadow-sm backdrop-blur-sm">
           {MAP_BASEMAPS.map((b) => (
             <button
               key={b}
@@ -93,7 +96,7 @@ function MapCentre({ repoId, project }: { repoId: string; project: string }) {
             </button>
           ))}
         </div>
-        <div className="pointer-events-none absolute bottom-2 left-2 z-10">
+        <div className="pointer-events-none absolute bottom-2 left-14 z-10">
           <MapErrorChip status={status} />
         </div>
       </LazyMapCanvas>

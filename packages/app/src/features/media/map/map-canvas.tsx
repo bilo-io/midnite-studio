@@ -58,7 +58,7 @@ export default function MapCanvas({ style, view, onViewChange, attribution, relo
     });
     mapRef.current = map;
     map.addControl(new maplibregl.AttributionControl({ compact: false, customAttribution: a }), 'bottom-right');
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-left');
 
     const onMoveEnd = () => onViewChangeRef.current(readView(map));
     // Tile failures are counted, never logged one by one.
@@ -100,7 +100,8 @@ export default function MapCanvas({ style, view, onViewChange, attribution, relo
 
   return (
     <div className="relative h-full w-full" data-testid="map-canvas">
-      <div ref={container} className="absolute inset-0" />
+      {/* maplibre-gl.css gives `.maplibregl-map` position: relative, which would beat an `absolute inset-0` here. */}
+      <div ref={container} className="h-full w-full" />
       {children}
     </div>
   );
