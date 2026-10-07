@@ -192,6 +192,10 @@ export function SculptPanel({
             <input type="checkbox" checked={s.pressure} onChange={(e) => set({ pressure: e.target.checked })} />
             Pen pressure
           </label>
+          <label className="flex items-center gap-1" title="Draw with a clay matcap instead of the material, so forms read under any light">
+            <input type="checkbox" checked={s.matcap} onChange={(e) => set({ matcap: e.target.checked })} />
+            Matcap
+          </label>
         </div>
       </div>
 

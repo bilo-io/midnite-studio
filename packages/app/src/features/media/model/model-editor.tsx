@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber';
 import type { ModelSpec } from '@midnite/studio-shared';
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from 'react';
 import {
   LuAxis3D,
   LuCircleHelp,
@@ -32,6 +32,9 @@ import { sculptWorldMatrix, type SculptIO } from './sculpt/sculpt-controller';
 import { SculptLayer } from './sculpt/sculpt-layer';
 import { useSculpt } from './sculpt/use-sculpt';
 import { specForSave } from './sculpt-panel';
+import { specForPaintSave } from './paint-panel';
+import { PaintLayer } from './paint/paint-layer';
+import { paintIOFrom, usePaint } from './paint/use-paint';
 import { RigOverlay } from './rig-overlay';
 import { clipNamed, poseAt, posedScene, rigModel } from './rig-pose';
 import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
@@ -132,13 +135,30 @@ export default function ModelEditor({
   const sculptIndex = sculpting ? spec.parts.findIndex((p) => p.id === sculptState.partId) : -1;
   const sculptLook = sculptIndex >= 0 ? scene.parts.find((p) => p.sourceIndex === sculptIndex) : undefined;
   const sculptMatrix = useMemo(() => (sculptIndex >= 0 ? sculptWorldMatrix(spec, sculptIndex) : null), [spec, sculptIndex]);
+  // Paint mode (Theme G): the part drawn with its live textures while it is open; it shares the sculpt IO.
+  const paintIO = useMemo(() => paintIOFrom(sculptIO), [sculptIO]);
+  const { controller: paint, snapshot: paintState } = usePaint(paintIO, dispatch, spec);
+  const painting = !!paintState && paintState.status === 'ready';
+  const paintIndex = painting ? spec.parts.findIndex((p) => p.id === paintState.partId) : -1;
+  const paintMatrix = useMemo(() => (paintIndex >= 0 ? sculptWorldMatrix(spec, paintIndex) : null), [spec, paintIndex]);
+  // One brush mode at a time: opening one closes the other (saving it first).
+  const specRef = useRef(spec);
+  specRef.current = spec;
+  useEffect(() => {
+    if (painting && sculpt?.active) void sculpt.exit(specRef.current);
+  }, [painting, sculpt]);
+  useEffect(() => {
+    if (sculpting && paint?.active) void paint.exit(specRef.current);
+  }, [sculpting, paint]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const save = useCallback(async () => {
     setSaveError(null);
     const out = await specForSave(sculpt, state.spec);
     if (!out.ok) return setSaveError(out.error);
-    onSave(out.spec);
-  }, [sculpt, state.spec, onSave]);
+    const painted = await specForPaintSave(paint, out.spec);
+    if (!painted.ok) return setSaveError(painted.error);
+    onSave(painted.spec);
+  }, [sculpt, paint, state.spec, onSave]);
 
   // Rig, pose and playback (view state only — never in the design or its history).
   const [rigView, setRigView] = useState<RigView>(INITIAL_RIG_VIEW);
@@ -150,7 +170,10 @@ export default function ModelEditor({
   }, [rigView.clip, clip, onRigView]);
   const pose = useMemo(() => (rigged ? poseAt(rigged, clip, rigView.time) : null), [rigged, clip, rigView.time]);
   const posed = useMemo(() => (rigged && pose && clip ? posedScene(scene, rigged, pose) : scene), [scene, rigged, pose, clip]);
-  const display = useMemo(() => (sculptIndex >= 0 ? { ...posed, parts: posed.parts.filter((p) => p.sourceIndex !== sculptIndex) } : posed), [posed, sculptIndex]);
+  const display = useMemo(
+    () => (sculptIndex >= 0 || paintIndex >= 0 ? { ...posed, parts: posed.parts.filter((p) => p.sourceIndex !== sculptIndex && p.sourceIndex !== paintIndex) } : posed),
+    [posed, sculptIndex, paintIndex],
+  );
 
   // Shift flips snapping while it is held (the gizmo reads this).
   useEffect(() => {
@@ -196,7 +219,7 @@ export default function ModelEditor({
       case 'help':
         return setHelp((on) => !on);
       case 'save':
-        if (isDirty(state) || sculptState?.unsaved) void save();
+        if (isDirty(state) || sculptState?.unsaved || paintState?.unsaved) void save();
         return;
       case 'sculpt:radius':
       case 'sculpt:strength':
@@ -223,6 +246,11 @@ export default function ModelEditor({
     const outcome = resolveKey({ key: event.key, mod: event.metaKey || event.ctrlKey, shift: event.shiftKey, alt: event.altKey, sculpt: sculpting }, state, snap.grid);
     if (!outcome) return;
     event.preventDefault();
+    // In paint mode, undo and redo walk the painted strokes; the layer stack has the toolbar's buttons.
+    if (painting && paint && outcome.kind === 'dispatch' && (outcome.action.type === 'undo' || outcome.action.type === 'redo')) {
+      if (outcome.action.type === 'undo' && paintState!.undo > 0) return paint.undo();
+      if (outcome.action.type === 'redo' && paintState!.redo > 0) return paint.redo();
+    }
     if (outcome.kind === 'dispatch') dispatch(outcome.action);
     else runUi(outcome.command);
   };
@@ -273,12 +301,12 @@ export default function ModelEditor({
         <IconButton icon={LuCircleHelp} label="Keyboard shortcuts (?)" size="sm" aria-pressed={help} onClick={() => setHelp((on) => !on)} />
         <button
           type="button"
-          disabled={(!isDirty(state) && !sculptState?.unsaved) || saving}
+          disabled={(!isDirty(state) && !sculptState?.unsaved && !paintState?.unsaved) || saving}
           onClick={() => void save()}
           className="ml-auto flex h-6 items-center gap-1 rounded-md border border-border bg-card px-2 text-[11px] text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <LuSave aria-hidden className="h-3.5 w-3.5" />
-          {saving ? 'Saving…' : isDirty(state) || sculptState?.unsaved ? 'Save changes' : 'Saved'}
+          {saving ? 'Saving…' : isDirty(state) || sculptState?.unsaved || paintState?.unsaved ? 'Save changes' : 'Saved'}
         </button>
       </div>
 
@@ -288,7 +316,7 @@ export default function ModelEditor({
             frameloop="demand"
             dpr={[1, 2]}
             gl={{ antialias: true, alpha: true }}
-            onPointerMissed={() => !measure && !sculpting && dispatch({ type: 'select', index: null })}
+            onPointerMissed={() => !measure && !sculpting && !painting && dispatch({ type: 'select', index: null })}
             data-testid="model-canvas"
           >
             <EditorScene
@@ -308,7 +336,7 @@ export default function ModelEditor({
               snap={snap}
               shift={shift}
               measure={measure}
-              sculpting={sculpting}
+              sculpting={sculpting || painting}
               measurePoints={points}
               onMeasurePoint={(p) => setPoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))}
             />
@@ -324,6 +352,7 @@ export default function ModelEditor({
                 xray={xray}
               />
             ) : null}
+            {painting && paint && paintState && paintMatrix ? <PaintLayer controller={paint} snapshot={paintState} spec={spec} toWorld={paintMatrix} wireframe={shade === 'wireframe'} xray={xray} /> : null}
             {rigged && pose ? <RigOverlay model={rigged} scene={display} pose={pose} view={rigView} onView={onRigView} /> : null}
           </Canvas>
         ) : (
@@ -392,6 +421,7 @@ export default function ModelEditor({
         {...(onConvert ? { onConvert } : {})}
         {...(sdfBaker ? { sdf: { baker: sdfBaker, onPreview: setSdfPreview } } : {})}
         {...(sculpt && sculptState ? { sculpt: { controller: sculpt, snapshot: sculptState } } : {})}
+        {...(paint && paintState ? { paint: { controller: paint, snapshot: paintState } } : {})}
         rig={{ view: rigView, onView: onRigView, model: rigged, scene, ...(retargetSources ? { sources: retargetSources } : {}) }}
       />
     </div>

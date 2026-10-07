@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { LoopModelSchema } from './loops';
 import { MediaProjectNameSchema } from './media';
 import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
+import { ModelMapFileSchema, ModelPbrSchema } from './media-model-pbr';
 import { ModelSculptSdfSchema } from './media-model-sdf';
 
 // --- the spec an LLM writes ----------------------------------------------------
@@ -161,19 +162,6 @@ export const ModelSculptSrcSchema = z
   .max(200)
   .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.mesh\.bin$/i, 'must be a relative .mesh.bin path')
   .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
-
-/** A baked map beside the design (Phase 104 Theme F): a relative `.png` path, no `..`. */
-export const ModelMapSrcSchema = z
-  .string()
-  .min(5)
-  .max(200)
-  .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.png$/i, 'must be a relative .png path')
-  .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
-
-/** One baked map file: its name and content hash, so a changed file is never mistaken for it. */
-export const ModelMapFileSchema = z.object({ src: ModelMapSrcSchema, hash: z.string().regex(/^[0-9a-f]{8,64}$/, 'must be a lower-case hex hash') });
-export type ModelMapFile = z.infer<typeof ModelMapFileSchema>;
-export const MODEL_MAP_KINDS = ['normal', 'ao', 'curvature', 'cavity'] as const;
 
 /** Deepest multires level a sculpt part records (each level quadruples the faces). */
 export const MODEL_SCULPT_MAX_LEVEL = 8;
@@ -335,6 +323,11 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
         cavity: ModelMapFileSchema.optional(),
       })
       .optional(),
+    /**
+     * The PBR material and its layer stack (Theme G): fill and paint layers over the part's colour, material and
+     * baked maps, flattened to glTF's texture set. Needs an unwrapped mesh (`uv`).
+     */
+    pbr: ModelPbrSchema.optional(),
   }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),

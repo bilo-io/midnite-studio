@@ -44,10 +44,16 @@ describe('model_* over the global MCP dispatcher', () => {
       ['model_unwrap', base],
       ['model_bake', base],
       ['model_export', base],
+      ['model_material_set', { ...base, preset: 'wood' }],
+      ['model_layer_add', { ...base, kind: 'paint' }],
+      ['model_layer_update', { ...base, layer: 'paint', opacity: 0.5 }],
+      ['model_layer_remove', { ...base, layer: 'paint' }],
+      ['model_paint_stroke', { ...base, brush: 'brush', target: { mode: 'world', points: [[0, 0, 0]] } }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: MODELS_OFF_MESSAGE });
     }
     expect(await dispatchMcpCall('model_get_landmarks', base)).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await dispatchMcpCall('model_layer_list', base)).toMatchObject({ ok: false, kind: 'not-found' });
   });
 
   it('lets an external session read, list and render with the switch off', async () => {

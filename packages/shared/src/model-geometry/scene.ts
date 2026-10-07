@@ -84,10 +84,17 @@ export type MeshPart = {
    * registered under (`modelTexture(hash)`). Needs `uvs`; `ao` is the occlusion map.
    */
   maps?: PartMaps;
+  /**
+   * The flattened PBR set of a painted sculpt part (Theme G): base colour, the packed occlusion/roughness/metalness
+   * image, normal and emissive, each registered by hash like `maps`. Needs `uvs`; it already contains the part's
+   * colour and material and the baked maps, so a renderer uses these instead of them.
+   */
+  pbr?: PartPbr;
 };
 
 export type PartMap = { src: string; hash: string };
 export type PartMaps = { normal?: PartMap; ao?: PartMap; curvature?: PartMap; cavity?: PartMap };
+export type PartPbr = { baseColor?: PartMap; orm?: PartMap; normal?: PartMap; emissive?: PartMap };
 
 export type BuildIssue = { path: string; message: string };
 export type BuildResult = { parts: MeshPart[]; issues: BuildIssue[]; stats: { triangles: number; vertices: number } };
@@ -248,7 +255,7 @@ const SUBDIVIDED_ANGLE = 75;
 const MODIFIED_ANGLE = 35;
 const BOOLEAN_ANGLE = 30;
 
-export type LocalPart = { mesh: RawMesh; issues: string[]; uvs?: number[]; texture?: string; maps?: PartMaps };
+export type LocalPart = { mesh: RawMesh; issues: string[]; uvs?: number[]; texture?: string; maps?: PartMaps; pbr?: PartPbr };
 
 /**
  * An `asset` part's mesh from the registry, as the file has it — modifiers are not applied (they would
@@ -265,6 +272,7 @@ function buildAssetLocal(part: ModelMeshFilePart): LocalPart {
     ...(asset.uvs ? { uvs: asset.uvs } : {}),
     ...(asset.texture ? { texture: part.hash } : {}),
     ...(part.shape === 'sculpt' && part.maps && asset.uvs ? { maps: part.maps } : {}),
+    ...(part.shape === 'sculpt' && part.pbr?.flattened && asset.uvs && Object.keys(part.pbr.flattened).length > 0 ? { pbr: part.pbr.flattened } : {}),
   };
 }
 
@@ -443,6 +451,7 @@ export function buildSceneChecked(spec: ModelSpec, options: BuildOptions = {}): 
       ...(imported?.uvs ? { uvs: imported.uvs } : {}),
       ...(imported?.texture ? { texture: imported.texture } : {}),
       ...(imported?.maps ? { maps: imported.maps } : {}),
+      ...(imported?.pbr ? { pbr: imported.pbr } : {}),
     });
   }
 

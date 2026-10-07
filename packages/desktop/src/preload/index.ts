@@ -638,6 +638,7 @@ const bridge: Pick<
         write: (req) => call(CHANNELS.mediaModelMesh, { op: 'write', ...req }),
         appendOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'appendOps', ...req }),
         readOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'readOps', ...req }),
+        writeTexture: (req) => call(CHANNELS.mediaModelMesh, { op: 'writeTexture', ...req }),
       },
       sf3d: {
         status: () => call(CHANNELS.mediaModelSf3d, { op: 'status' }),

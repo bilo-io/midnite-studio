@@ -11,6 +11,7 @@ import {
   type ModelModifier,
   type ModelPart,
   type ModelRigOp,
+  type ModelPbr,
   type ModelSculptPart,
   type ModelSpec,
   type RigEditOutcome,
@@ -123,6 +124,8 @@ export type EditorAction =
   | { type: 'sculptEdit'; id: string; revision: number; multiresLevel?: number; vertices?: number; triangles?: number }
   /** Theme D: the live sculpt mesh was written to `file`; repoint the part at it without a history step. */
   | { type: 'sculptFlushed'; id: string; file: { src: string; hash: string; vertices: number; triangles: number; multiresLevel: number } }
+  /** Theme G: paint mode wrote its textures; repoint the part's material at them without a history step. */
+  | { type: 'paintFlushed'; id: string; pbr: ModelPbr }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'markSaved' }
@@ -301,6 +304,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (!part || part.shape !== 'sculpt') return state;
       const parts = state.spec.parts.slice();
       parts[at] = withSculptFile(part, action.file);
+      return { ...state, spec: { ...state.spec, parts } };
+    }
+    case 'paintFlushed': {
+      const at = state.spec.parts.findIndex((p) => p.id === action.id);
+      const part = state.spec.parts[at];
+      if (!part || part.shape !== 'sculpt') return state;
+      const parts = state.spec.parts.slice();
+      parts[at] = { ...part, pbr: action.pbr };
       return { ...state, spec: { ...state.spec, parts } };
     }
     case 'undo': {

@@ -16,8 +16,20 @@
 import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
-import { ModelSpecSchema } from './media-model';
-import { AIM_MAX_POINTS, AimViewSchema, BAKE_KINDS, BAKE_SIZE_MAX, BAKE_SIZE_MIN, ModelSculptTargetSchema, SCULPT_BRUSHES, SCULPT_FALLOFFS, SculptSymmetrySchema } from './model-geometry';
+import { ModelColorSchema, ModelSpecSchema } from './media-model';
+import { AIM_MAX_POINTS, AimViewSchema, BAKE_KINDS, BAKE_SIZE_MAX, BAKE_SIZE_MIN, ModelSculptTargetSchema, PAINT_BRUSHES, SCULPT_BRUSHES, SCULPT_FALLOFFS, SculptSymmetrySchema, STAMP_PATTERNS } from './model-geometry';
+import {
+  ModelMapSrcSchema,
+  PAINT_BLEND_MODES,
+  PAINT_TARGETS,
+  PBR_CHANNELS,
+  PBR_PRESETS,
+  PBR_SIZE_MAX,
+  PBR_SIZE_MIN,
+  PbrFillSchema,
+  PbrLayerMaskSchema,
+  PbrNoiseSchema,
+} from './media-model-pbr';
 import { SDF_RESOLUTION_MAX, SDF_RESOLUTION_MIN } from './media-model-sdf';
 import { SF3D_GENERATE_STAGES, SF3D_STATES } from './media-model-sf3d';
 import {
@@ -79,6 +91,12 @@ export const MODEL_MCP_TOOL_IDS = [
   'model_unwrap',
   'model_bake',
   'model_export',
+  'model_layer_list',
+  'model_material_set',
+  'model_layer_add',
+  'model_layer_update',
+  'model_layer_remove',
+  'model_paint_stroke',
   'model_save',
 ] as const;
 export type ModelMcpToolId = (typeof MODEL_MCP_TOOL_IDS)[number];
@@ -108,6 +126,11 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_unwrap',
   'model_bake',
   'model_export',
+  'model_material_set',
+  'model_layer_add',
+  'model_layer_update',
+  'model_layer_remove',
+  'model_paint_stroke',
   'model_save',
 ];
 
@@ -402,6 +425,129 @@ export const ModelExportInputSchema = ModelToolTargetSchema.extend({
 });
 
 /** One landmark: a name and a position in model space. */
+/**
+ * PBR materials and texture painting over MCP (Phase 104 Theme G). A painted sculpt part has a layer stack
+ * (`media-model-pbr.ts`); these tools set its base material or a preset, add, change and remove layers, and paint
+ * a paint layer with a brush aimed exactly like `model_sculpt_stroke`. Every write flattens the stack into the
+ * glTF texture set beside the design. The part must be unwrapped (`model_unwrap`).
+ */
+const LayerRef = z.string().min(1).max(60);
+const pbrSize = z.number().int().min(PBR_SIZE_MIN).max(PBR_SIZE_MAX);
+export const ModelMaterialSetInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** Replace the stack with a preset's layers (and set the part's colour and material from it). */
+  preset: z.enum(PBR_PRESETS).optional(),
+  /** With `preset`: keep the existing paint layers on top. */
+  keepPaint: z.boolean().optional(),
+  /** The base surface under every layer. */
+  color: ModelColorSchema.optional(),
+  roughness: z.number().min(0).max(1).optional(),
+  metalness: z.number().min(0).max(1).optional(),
+  emissive: ModelColorSchema.optional(),
+  emissiveIntensity: z.number().min(0).max(10).optional(),
+  /** Texture edge for every channel, or per channel. */
+  size: pbrSize.optional(),
+  sizes: z.object(Object.fromEntries(PBR_CHANNELS.map((c) => [c, pbrSize.optional()])) as Record<(typeof PBR_CHANNELS)[number], z.ZodOptional<typeof pbrSize>>).optional(),
+  /** Drop the whole layer stack and its textures. */
+  clear: z.boolean().optional(),
+});
+export const ModelLayerAddInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** `fill`: constant channel values (with `fill`); `paint`: pixels painted by `model_paint_stroke`. */
+  kind: z.enum(['fill', 'paint']),
+  name: z.string().trim().min(1).max(60).optional(),
+  fill: PbrFillSchema.optional(),
+  mask: PbrLayerMaskSchema.optional(),
+  blend: z.enum(PAINT_BLEND_MODES).optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  /** Position in the stack, 0 = bottom (default: on top). */
+  index: z.number().int().min(0).max(64).optional(),
+});
+export const ModelLayerUpdateInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** The layer's id or unique name. */
+  layer: LayerRef,
+  name: z.string().trim().min(1).max(60).optional(),
+  hidden: z.boolean().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  blend: z.enum(PAINT_BLEND_MODES).optional(),
+  /** Merged into the fill; `null` removes a value. */
+  fill: z
+    .object({
+      albedo: ModelColorSchema.nullable().optional(),
+      roughness: z.number().min(0).max(1).nullable().optional(),
+      metalness: z.number().min(0).max(1).nullable().optional(),
+      ao: z.number().min(0).max(1).nullable().optional(),
+      emissive: ModelColorSchema.nullable().optional(),
+      noise: PbrNoiseSchema.nullable().optional(),
+    })
+    .optional(),
+  /** Replaces the mask; `null` removes it. */
+  mask: PbrLayerMaskSchema.nullable().optional(),
+  /** Move to this position (0 = bottom). */
+  index: z.number().int().min(0).max(64).optional(),
+});
+export const ModelLayerRemoveInputSchema = ModelToolTargetSchema.extend({ part: SculptPartRef.optional(), layer: LayerRef });
+export const ModelLayerListInputSchema = ModelToolTargetSchema.extend({ part: SculptPartRef.optional() });
+export const ModelPaintStrokeInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** A paint layer (id or name); default the top paint layer, made when there is none. */
+  layer: LayerRef.optional(),
+  /** What to paint (default `albedo`); `mask` paints the layer's own mask. */
+  channel: z.enum(PAINT_TARGETS).optional(),
+  brush: z.enum(PAINT_BRUSHES),
+  /** Colour for `albedo`/`emissive` (default white). */
+  color: ModelColorSchema.optional(),
+  /** 0–1 for `roughness`/`metalness`/`ao`/`mask` (default 1). */
+  value: z.number().min(0).max(1).optional(),
+  /** Tangent-space direction for `normal` (x right, y up, z out; default `[0, 0, 1]`). */
+  normal: z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]).optional(),
+  /** Where to paint; the same target forms as `model_sculpt_stroke`. */
+  target: ModelSculptTargetSchema,
+  /** Dab radius in metres (default 6% of the mesh's diagonal); a screen target may give `radiusPixels`. */
+  radius: z.number().finite().positive().max(100).optional(),
+  /** 0–1 (default 1). */
+  strength: z.number().min(0).max(1).optional(),
+  falloff: z.enum(SCULPT_FALLOFFS).optional(),
+  spacing: z.number().min(0.02).max(2).optional(),
+  frontFacesOnly: z.boolean().optional(),
+  /** Clone: copy from this offset (metres) away on the surface. */
+  cloneOffset: z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]).optional(),
+  /** Stamp: a built-in alpha, or a PNG in the model folder. */
+  stamp: z.union([z.enum(STAMP_PATTERNS), z.object({ image: ModelMapSrcSchema })]).optional(),
+  stampAngle: z.number().finite().min(-360).max(360).optional(),
+  preview: z
+    .union([
+      z.literal(false),
+      z.object({ view: AimViewSchema.optional(), size: z.number().int().min(MODEL_SCULPT_PREVIEW_SIZE_MIN).max(MODEL_SCULPT_PREVIEW_SIZE_MAX).optional() }),
+    ])
+    .optional(),
+});
+const LayerSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(['fill', 'paint']),
+  hidden: z.boolean().optional(),
+  opacity: z.number(),
+  blend: z.string(),
+  /** Channels it touches (a fill's values, a paint layer's painted channels). */
+  channels: z.array(z.string()),
+  mask: z.string().optional(),
+});
+/** `model_layer_list` answer. */
+export const ModelLayerListResultSchema = z.object({
+  part: z.string(),
+  unwrapped: z.boolean(),
+  preset: z.string().optional(),
+  base: z.object({ color: z.string(), roughness: z.number(), metalness: z.number(), emissive: z.string() }),
+  sizes: z.record(z.number()),
+  /** Bottom → top. */
+  layers: z.array(LayerSummarySchema),
+  /** Theme F bakes a mask can use. */
+  bakes: z.array(z.string()),
+  flattened: z.record(z.string()),
+});
+
 export const ModelLandmarksResultSchema = z.object({
   facing: z.string(),
   landmarks: z.array(z.object({ name: z.string(), position: z.tuple([z.number(), z.number(), z.number()]), source: z.enum(['auto', 'user']) })),
@@ -489,6 +635,16 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
         summary: z.record(z.union([z.number(), z.string(), z.boolean(), z.array(z.string())])),
         /** A rigged model: the skeleton is kept and the skin re-derived and checked against the old surface. */
         rig: z.object({ kept: z.boolean(), normalised: z.boolean(), influences: z.number().int(), drift: z.object({ mean: z.number(), max: z.number() }) }).optional(),
+      })
+      .optional(),
+    /** `model_material_set`/`model_layer_*`/`model_paint_stroke`: the part's stack after the call. */
+    material: z
+      .object({
+        part: z.string(),
+        layers: z.array(LayerSummarySchema),
+        /** Texture files written (layer channels and the flattened set). */
+        files: z.array(z.string()),
+        summary: z.record(z.union([z.number(), z.string(), z.boolean()])),
       })
       .optional(),
     /** `model_sdf_*`: the SDF part that holds the bake, and how it went. */

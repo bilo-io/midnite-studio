@@ -29,11 +29,11 @@ export function uniqueNames(parts: readonly MeshPart[]): string[] {
   });
 }
 
-export type SceneMaterial = { color: string; material: ResolvedMaterial; maps?: MeshPart['maps'] };
+export type SceneMaterial = { color: string; material: ResolvedMaterial; maps?: MeshPart['maps']; pbr?: MeshPart['pbr'] };
 
 const materialKey = (part: MeshPart): string => {
   const m = part.material;
-  return [part.color, m.metalness, m.roughness, m.emissive, m.emissiveIntensity, m.opacity, part.uvs ? part.maps?.normal?.hash : '', part.uvs ? part.maps?.ao?.hash : ''].join('|');
+  return [part.color, m.metalness, m.roughness, m.emissive, m.emissiveIntensity, m.opacity, part.uvs ? part.maps?.normal?.hash : '', part.uvs ? part.maps?.ao?.hash : '', part.uvs ? part.pbr?.baseColor?.hash : '', part.uvs ? part.pbr?.normal?.hash : '', part.uvs ? part.pbr?.emissive?.hash : ''].join('|');
 };
 
 /** Distinct materials (colour + PBR values) in first-use order, with each part's index into them. */
@@ -46,7 +46,7 @@ export function materialsOf(parts: readonly MeshPart[]): { materials: SceneMater
     if (index === undefined) {
       index = materials.length;
       seen.set(key, index);
-      materials.push({ color: part.color, material: part.material, ...(part.uvs && part.maps ? { maps: part.maps } : {}) });
+      materials.push({ color: part.color, material: part.material, ...(part.uvs && part.maps ? { maps: part.maps } : {}), ...(part.uvs && part.pbr ? { pbr: part.pbr } : {}) });
     }
     return index;
   });
@@ -94,9 +94,14 @@ export function writeMtl(parts: readonly MeshPart[]): string {
       `Pr ${formatNumber(entry.material.roughness)}`,
       `Pm ${formatNumber(entry.material.metalness)}`,
     );
-    // Baked maps sit beside the .obj: the normal map as a bump map, occlusion as the ambient map.
-    if (entry.maps?.normal) lines.push(`map_Bump ${entry.maps.normal.src.split('/').pop()}`);
-    if (entry.maps?.ao) lines.push(`map_Ka ${entry.maps.ao.src.split('/').pop()}`);
+    // Maps sit beside the .obj: a painted part's flattened colour, normal and glow (Theme G), else the baked
+    // normal map as a bump map and occlusion as the ambient map. MTL has no packed ORM, so that one stays glb-only.
+    const file = (map: { src: string }): string => map.src.split('/').pop()!;
+    if (entry.pbr?.baseColor) lines.push(`map_Kd ${file(entry.pbr.baseColor)}`);
+    const bump = entry.pbr?.normal ?? entry.maps?.normal;
+    if (bump) lines.push(`map_Bump ${file(bump)}`);
+    if (entry.maps?.ao) lines.push(`map_Ka ${file(entry.maps.ao)}`);
+    if (entry.pbr?.emissive) lines.push(`map_Ke ${file(entry.pbr.emissive)}`);
   });
   return lines.join('\n') + '\n';
 }

@@ -129,13 +129,13 @@ export function clearModelTextures(): void {
   textureRegistry.clear();
 }
 
-/** The baked maps of a design's sculpt parts whose images are not registered yet — what a loader must fetch. */
+/** The baked maps and flattened PBR textures of a design's sculpt parts whose images are not registered yet — what a loader must fetch. */
 export function missingModelMaps(spec: Pick<ModelSpec, 'parts'>): { src: string; hash: string }[] {
   const seen = new Set<string>();
   const out: { src: string; hash: string }[] = [];
   for (const part of spec.parts) {
-    if (part.shape !== 'sculpt' || !part.maps) continue;
-    for (const file of [part.maps.normal, part.maps.ao, part.maps.curvature, part.maps.cavity]) {
+    if (part.shape !== 'sculpt' || (!part.maps && !part.pbr?.flattened)) continue;
+    for (const file of [part.maps?.normal, part.maps?.ao, part.maps?.curvature, part.maps?.cavity, ...Object.values(part.pbr?.flattened ?? {})]) {
       if (!file || textureRegistry.has(file.hash) || seen.has(file.hash)) continue;
       seen.add(file.hash);
       out.push(file);

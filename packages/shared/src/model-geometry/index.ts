@@ -80,6 +80,7 @@ export {
   type PartIndex,
   type PartMap,
   type PartMaps,
+  type PartPbr,
   type ResolvedMaterial,
 } from './scene';
 export * from './quat';
@@ -137,3 +138,4 @@ export { applyClipOps, applyRigOps, copyClips, setAnatomy, type RigEditIssue, ty
 export * from './mesh';
 export * from './sdf';
 export * from './sculpt';
+export * from './paint';

@@ -58,6 +58,7 @@ import {
 import { McpToolError } from '../../mcp/errors';
 import { designDir } from './model-assets';
 import type { ModelMcpDeps } from './model-mcp';
+import { createPaintTools } from './paint-tools';
 import { encodePng, renderPreviews } from './preview';
 import { describeEdit } from './spec-ops';
 
@@ -457,7 +458,8 @@ export function createMeshTools(env: MeshToolEnv) {
     const triangles = mesh.indices.length / 3;
     const target = options.replace ? part : { ...part, id: freshPartId(new Set(spec.parts.map((p) => p.id!))), name: uniqueName(spec, options.name ?? `${part.name} low`) };
     const file = await writeMeshFile(l, target, bytes, [{ kind: op.kind, at: env.now().toISOString(), by: 'agent', hash: modelAssetHash(bytes), data: op.data }]);
-    const { maps: _maps, uv: _uv, bakeFrom: _bake, ...rest } = withoutSdf(target);
+    // A new mesh invalidates the uv layout, so the baked maps and the painted material go with it (Theme G).
+    const { maps: _maps, uv: _uv, bakeFrom: _bake, pbr: _pbr, ...rest } = withoutSdf(target);
     const next: ModelSculptPart = {
       ...rest,
       src: file.src,
@@ -653,7 +655,19 @@ export function createMeshTools(env: MeshToolEnv) {
     return okNoWrite(l, sidecar.spec, { pipeline: { op: 'export', part: '', vertices: 0, triangles: describeEdit(sidecar.spec).triangles, summary: { files: exported.value.files, formats } } });
   }
 
+  const paint = createPaintTools(env, {
+    withSculpt,
+    aimContext,
+    aimCamera,
+    defaultRadius,
+    thumbnail,
+    readMesh,
+    okNoWrite,
+    findSculptPart,
+  });
+
   return {
+    ...paint,
     model_get_landmarks: modelGetLandmarks,
     model_sculpt_stroke: modelSculptStroke,
     model_mask: modelMask,

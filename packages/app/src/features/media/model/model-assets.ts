@@ -1,5 +1,8 @@
 import {
   missingModelAssets,
+  missingModelMaps,
+  modelTexture,
+  registerModelTexture,
   missingSculptMeshes,
   modelAsset,
   modelAssetEpoch,
@@ -12,7 +15,7 @@ import {
   subscribeModelAssets,
 } from '@midnite/studio-shared';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { SRGBColorSpace, Texture } from 'three';
+import { NoColorSpace, SRGBColorSpace, Texture } from 'three';
 
 import { modelFileUrl } from './model-utils';
 
@@ -40,14 +43,81 @@ export async function loadAsset(url: string, hash: string, kind: 'asset' | 'scul
   }
 }
 
+/** Fetches a map PNG, checks its hash and registers it; answers the problem, or `null`. */
+async function loadMap(url: string, hash: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return `HTTP ${response.status}`;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (modelAssetHash(bytes) !== hash) return 'the file changed since the design was saved';
+    registerModelTexture(hash, { mime: 'image/png', data: bytes });
+    bumpMaps();
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+let mapEpoch = 0;
+const mapListeners = new Set<() => void>();
+const bumpMaps = (): void => {
+  mapEpoch += 1;
+  for (const listener of mapListeners) listener();
+};
+const subscribeMaps = (listener: () => void): (() => void) => {
+  mapListeners.add(listener);
+  return () => void mapListeners.delete(listener);
+};
+/** Changes whenever a map texture is registered — a dependency for anything that draws them. */
+export const useModelMapEpoch = (): number => useSyncExternalStore(subscribeMaps, () => mapEpoch, () => mapEpoch);
+
+const mapTextures = new Map<string, Texture>();
+
+/**
+ * A registered map (a bake, or a flattened PBR texture) as a three texture, decoded once per hash. Colour maps are
+ * sRGB; normal, ORM and occlusion are data and stay linear. `null` until the file is registered.
+ */
+export function mapTexture(hash: string, srgb: boolean, onReady?: () => void): Texture | null {
+  const key = `${hash}:${srgb ? 's' : 'l'}`;
+  const hit = mapTextures.get(key);
+  if (hit) return hit;
+  const image = modelTexture(hash);
+  if (!image || typeof createImageBitmap !== 'function') return null;
+  const texture = new Texture();
+  texture.flipY = false;
+  texture.colorSpace = srgb ? SRGBColorSpace : NoColorSpace;
+  mapTextures.set(key, texture);
+  void createImageBitmap(new Blob([image.data as BlobPart], { type: image.mime }), { imageOrientation: 'none', premultiplyAlpha: 'none', colorSpaceConversion: 'none' })
+    .then((bitmap) => {
+      texture.image = bitmap;
+      texture.needsUpdate = true;
+      onReady?.();
+    })
+    .catch(() => mapTextures.delete(key));
+  return texture;
+}
+
 /** Loads the imported meshes of `spec` (its folder is `dir` inside `project`); answers the problems seen. */
 export function useModelAssets(repoId: string, project: string | null, dir: string, spec: Pick<ModelSpec, 'parts'> | null): string[] {
   const [problems, setProblems] = useState<string[]>([]);
   useEffect(() => {
     if (!project || !spec) return;
     const missing = [...missingModelAssets(spec), ...missingSculptMeshes(spec)].filter((part) => !requested.has(part.hash));
-    if (missing.length === 0) return;
+    // Baked maps (Theme F) and a painted part's flattened PBR set (Theme G): registered by hash, drawn by `mapTexture`.
+    const maps = missingModelMaps(spec).filter((file) => !requested.has(file.hash));
     let live = true;
+    for (const file of maps) {
+      requested.add(file.hash);
+      void loadMap(modelFileUrl(repoId, project, modelAssetPath(dir, file.src)), file.hash).then((problem) => {
+        if (problem === null) return;
+        requested.delete(file.hash);
+        if (live) setProblems((list) => [...list, `${file.src}: ${problem}`]);
+      });
+    }
+    const stop = () => {
+      live = false;
+    };
+    if (missing.length === 0) return stop;
     for (const part of missing) {
       requested.add(part.hash);
       void loadAsset(modelFileUrl(repoId, project, modelAssetPath(dir, part.src)), part.hash, part.shape).then((problem) => {
@@ -56,9 +126,7 @@ export function useModelAssets(repoId: string, project: string | null, dir: stri
         if (live) setProblems((list) => [...list, `${part.src}: ${problem}`]);
       });
     }
-    return () => {
-      live = false;
-    };
+    return stop;
   }, [repoId, project, dir, spec]);
   return problems;
 }

@@ -1,8 +1,9 @@
-import type { ModelSpec } from '@midnite/studio-shared';
+import { modelAssetPath, type ModelSpec } from '@midnite/studio-shared';
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 
 import { bridge } from '../../../../services/bridge';
 import type { EditorAction } from '../editor-state';
+import { modelFileUrl } from '../model-utils';
 import { startSculptSession } from './sculpt-client';
 import { SculptController, type SculptIO, type SculptSnapshot } from './sculpt-controller';
 
@@ -22,6 +23,15 @@ export function useSculptIO(repoId: string, project: string | null, path: string
       read: (src) => api().read({ repoId, project, dir, src }),
       write: (req) => api().write({ repoId, project, dir, ...req }),
       readOps: (src) => api().readOps({ repoId, project, dir, src }),
+      writeTexture: (src, data) => api().writeTexture({ repoId, project, dir, src, data }),
+      readFile: async (src) => {
+        try {
+          const response = await fetch(modelFileUrl(repoId, project, modelAssetPath(dir, src)));
+          return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+        } catch {
+          return null;
+        }
+      },
     };
   }, [repoId, project, path, dir, stem]);
 }

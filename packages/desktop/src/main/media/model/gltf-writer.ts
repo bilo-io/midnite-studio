@@ -103,7 +103,7 @@ export function buildGltf(
   // Textured parts: one image, texture and material per distinct (texture, tint, surface).
   const images: Json[] = [];
   const textures: Json[] = [];
-  type Surface = { color: string; material: MeshPart['material']; texture?: number; normal?: number; occlusion?: number };
+  type Surface = { color: string; material: MeshPart['material']; texture?: number; normal?: number; occlusion?: number; orm?: number; emissiveMap?: number; painted?: boolean };
   const texturedMaterials: Surface[] = [];
   const imageOf = new Map<string, number>();
   const texturedKey = new Map<string, number>();
@@ -119,6 +119,35 @@ export function buildGltf(
     return at;
   };
   const materialFor = (part: MeshPart, index: number): number => {
+    if (part.uvs && part.pbr) {
+      // A painted sculpt part (Theme G): the flattened set already holds its colour, material and bakes.
+      const tex = (file: { hash: string } | undefined): number | undefined => {
+        const image = file ? modelTexture(file.hash) : undefined;
+        return image ? textureIndex(file!.hash, image) : undefined;
+      };
+      const texture = tex(part.pbr.baseColor);
+      const orm = tex(part.pbr.orm);
+      const normal = tex(part.pbr.normal);
+      const emissiveMap = tex(part.pbr.emissive);
+      if (texture !== undefined || orm !== undefined || normal !== undefined || emissiveMap !== undefined) {
+        const key = ['pbr', texture, orm, normal, emissiveMap, part.material.opacity, part.material.emissiveIntensity].join('|');
+        let at = texturedKey.get(key);
+        if (at === undefined) {
+          texturedMaterials.push({
+            color: '#ffffff',
+            material: part.material,
+            painted: true,
+            ...(texture !== undefined ? { texture } : {}),
+            ...(orm !== undefined ? { orm, occlusion: orm } : {}),
+            ...(normal !== undefined ? { normal } : {}),
+            ...(emissiveMap !== undefined ? { emissiveMap } : {}),
+          });
+          at = materials.length + texturedMaterials.length - 1;
+          texturedKey.set(key, at);
+        }
+        return at;
+      }
+    }
     const base = part.texture ? modelAsset(part.texture)?.texture : undefined;
     const normalImage = part.maps?.normal ? modelTexture(part.maps.normal.hash) : undefined;
     const occlusionImage = part.maps?.ao ? modelTexture(part.maps.ao.hash) : undefined;
@@ -264,7 +293,7 @@ export function buildGltf(
   }
 
   const allMaterials: Surface[] = [...materials, ...texturedMaterials];
-  const usesEmissiveStrength = allMaterials.some((m) => m.material.emissive !== '#000000' && m.material.emissiveIntensity > 1);
+  const usesEmissiveStrength = allMaterials.some((m) => (m.painted ? m.emissiveMap !== undefined : m.material.emissive !== '#000000') && m.material.emissiveIntensity > 1);
   const gltfMaterials = allMaterials.map((entry, index) => {
     const [r, g, b] = hexToRgb(entry.color).map(srgbToLinear);
     const { metalness, roughness, opacity, emissive, emissiveIntensity } = entry.material;
@@ -278,6 +307,21 @@ export function buildGltf(
     if (entry.normal !== undefined) material.normalTexture = { index: entry.normal };
     if (entry.occlusion !== undefined) material.occlusionTexture = { index: entry.occlusion };
     if (opacity < 1) material.alphaMode = 'BLEND';
+    if (entry.painted) {
+      // The ORM image carries roughness (G) and metalness (B) outright, so the factors stay at 1.
+      if (entry.orm !== undefined) {
+        const pbr = material.pbrMetallicRoughness as Json;
+        pbr.metallicRoughnessTexture = { index: entry.orm };
+        pbr.metallicFactor = 1;
+        pbr.roughnessFactor = 1;
+      }
+      if (entry.emissiveMap !== undefined) {
+        material.emissiveTexture = { index: entry.emissiveMap };
+        material.emissiveFactor = [1, 1, 1];
+        if (emissiveIntensity > 1) material.extensions = { KHR_materials_emissive_strength: { emissiveStrength: round(emissiveIntensity) } };
+      }
+      return material;
+    }
     if (emissive !== '#000000') {
       const scale = Math.min(1, emissiveIntensity);
       material.emissiveFactor = glow.map((c) => round(c * scale));

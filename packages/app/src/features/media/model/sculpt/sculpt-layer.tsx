@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { DoubleSide, Matrix4, Quaternion, Raycaster, Vector2, Vector3, type OrthographicCamera, type PerspectiveCamera } from 'three';
 
 import { lazyFollow, pointerPressure, type Point2 } from './lazy';
+import { clayMatcap } from './matcap';
 import { uniformScale, worldPerPixel, type SculptController, type SculptSnapshot } from './sculpt-controller';
 import type { Vec3 } from './sculpt-protocol';
 
@@ -149,16 +150,20 @@ export function SculptLayer({ controller, snapshot, toWorld, color, roughness, m
   return (
     <group matrixAutoUpdate={false} matrix={world} matrixWorldNeedsUpdate>
       <mesh geometry={snapshot.geometry} userData={{ sculpt: snapshot.partId }}>
-        <meshStandardMaterial
-          vertexColors
-          color={color}
-          roughness={roughness}
-          metalness={metalness}
-          wireframe={wireframe}
-          transparent={xray}
-          opacity={xray ? 0.35 : 1}
-          depthWrite={!xray}
-        />
+        {snapshot.settings.matcap ? (
+          <meshMatcapMaterial matcap={clayMatcap()} vertexColors wireframe={wireframe} transparent={xray} opacity={xray ? 0.35 : 1} depthWrite={!xray} />
+        ) : (
+          <meshStandardMaterial
+            vertexColors
+            color={color}
+            roughness={roughness}
+            metalness={metalness}
+            wireframe={wireframe}
+            transparent={xray}
+            opacity={xray ? 0.35 : 1}
+            depthWrite={!xray}
+          />
+        )}
       </mesh>
       {ring && radius > 0 ? (
         <mesh position={ring.at} quaternion={ring.quaternion} renderOrder={10}>
