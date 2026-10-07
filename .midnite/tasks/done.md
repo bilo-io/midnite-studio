@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain (PR_PLACEHOLDER)
+## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain ([#773](https://github.com/bilo-io/midnite-studio/pull/773))
 
 A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps capture section) run the capture, then main calls the terrain service directly — create, attach the heightmap (and satellite, roads mask and captured road graph when the capture carries them), apply the spec (`worldSize`, `heightRange`, `resolution`, `textureSize`, `seaLevel`, `geo`), ask every window to open it and optionally start the build. Terrain's roads stage uses the captured OSM graph when `inputs.roadsGraph` is set (real widths, `cls`/`name` into `roads.json`); a mask-only terrain builds byte-for-byte as before. The Terrain panel shows a "Captured from Maps" row with Show on map.
 
