@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 106 Themes E + F — Rendered from a Models character; one-shot sheet
+
+**E.** A rigged Models character renders into sprite frames in the user's own window: a root-level, lazily loaded `SpriteRenderHost` builds the design with the Models editor's kernel and lights, shoots it through an orthographic camera per direction (compass yaw, `atan(0.5)` isometric) at one sheet-wide scale, supersamples and posts PNG batches that main's render relay feeds through the frame pipeline at scale 1 (10 s acknowledgement or _"Rendering from 3D needs the Midnite Studio window open."_). The Sheet form gains the rigged-model picker, clip mapping with aliases, and camera/shading/outline/supersample. **F.** The one-shot toggle asks for the whole sheet in one image under a versioned prompt, refuses past 8 × 8, detects the returned sheet's real gutters by projection profile and slices only when the grid matches; the overview shows the detected grid over the sheet, a per-row verdict, and hands a failing clip to Hand-drawn with frame 1 as the approved reference.
+
+- [x] E: `camera.ts`, `sampling.ts`, render IPC (`mediaSpriteRenderRequest`/`RenderReady`/`RenderFrames`), `render-relay.ts`, `rendered.ts`, `render-job.ts` + `sprite-render-host.tsx`, `sprite-rendered-options.tsx`, and vitest (`camera.test.ts`, `sampling.test.ts`, `render-relay.test.ts`, `rendered.test.ts`, `sprite-render-host.test.ts`, `sprite-rendered.bridge.test.tsx`) plus the real-WebGL `sprite-render.spec.ts`.
+- [x] F: `one-shot-prompt.ts`, `grid-detect.ts` (`detectGrid`, `oneShotVerdict`), `one-shot.ts`, `setReference({fromFrame})` and `generate({method: 'hand-drawn'})`, `sprite-one-shot-panel.tsx`, and vitest (`one-shot-prompt.test.ts`, `grid-detect.test.ts`, `one-shot.test.ts`, `sprite-one-shot.bridge.test.tsx`).
+
 ## 2026-10-07 — Phase 107 Theme P — Web export ([#760](https://github.com/bilo-io/midnite-studio/pull/760))
 
 A game exports as a static folder, a zip from a small `node:zlib` writer, or one HTML file whose modules are `data:` URLs behind an import map and whose assets resolve through an inlined `assets/index.json`. Exclusions (`.git`, agent files, play-tests, dev config, dotfiles, symlinks) are shared with the folder and zip; a destination is never overwritten without being told; a file over 50 MB warns. Kit 0.9.0 reads `window.__MIDNITE_ASSETS__`. The platformer's own `smoke.json` replay passes in its single-file export opened from `file://`.

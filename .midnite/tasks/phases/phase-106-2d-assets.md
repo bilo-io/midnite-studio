@@ -131,12 +131,42 @@ with `issues`; no vision model keeps frames `unchecked` and the job's final even
 sheets submit the `e` bytes again as `w` with `flipped: true` (G applies the flip). The tab gains a
 reference card (Approve / Regenerate / Attach, Keep or Mark all for re-roll) and a flagged-frames list.
 
-**Theme E — Rendered from a Models character.** ◻ Not started. A root-level lazy
-`SpriteRenderHost` renders with three into an offscreen target at 4×, posts frames to main in
-batches, and is what MCP drives too — no hidden window.
+**Theme E — Rendered from a Models character.** ✅ Landed (PR pending number). `useSpriteRenderHost`
+(`app/features/media/sprite/render/`) is mounted beside the app root's other listeners, acknowledges a
+`mediaSpriteRenderRequest` at once and imports `render-job.ts` (three) lazily: it reads the attached
+design, builds it with the Models editor's own `editorScene`/`rigModel`/`posedScene` and lights, and
+draws each pose at `supersample ×` into a transparent `WebGLRenderer` on an `OffscreenCanvas`, then
+box-downsamples and posts PNG batches of ≤ 32 on `mstudio:media:sprite-render-frames` — each answer
+waits for main to process the batch (the back-pressure), and a refused answer (cancelled) stops it.
+Main's `render-relay.ts` sends to the focused main window (else the first) and fails the job with
+_"Rendering from 3D needs the Midnite Studio window open."_ when nothing acknowledges in 10 s; MCP (K)
+gets the same path. `shared/src/sprite/camera.ts` names directions by screen compass (`s` 0°, `w` 90°,
+`e` 270°) plus a shared `azimuthDeg`, so **every preset's azimuth is 0** (the doc's 90°/45° would have
+turned a 1-direction side sheet's `e` the wrong way) and isometric is `atan(0.5)`; a rig facing other
+than `+z` is turned to match. `orthoFit` keeps one scale over every sampled pose and direction; frames
+enter the pipeline as `source: 'rendered'` — no keying, `scale: 1`, anchored — and each clip's real
+frame count (`round(duration × fps)`) is written back to `sprite.json`. The Sheet form's Rendered card
+gets a rigged-model picker (Models assets whose `model.json` has a rig and animations; the design file
+is the reference path), the clip mapping with `SPRITE_CLIP_ALIASES`, one-click "also on the model"
+clips, and camera / shading (lit, toon, flat) / outline (an inverted hull pushed along normals rather
+than scaled 1.02, so thin limbs keep it) / supersample. `sprite-render.spec.ts` renders a real biped
+in Chromium (e2e cap 475 → 476).
 
-**Theme F — One-shot sheet (form toggle).** ◻ Not started. A versioned prompt, aspect chosen from the
-grid, projection-profile grid detection, and a per-row verdict that can hand one clip to Hand-drawn.
+**Theme F — One-shot sheet (form toggle).** ✅ Landed (PR pending number). `ONE_SHOT_PROMPT_VERSION = 1`
+and `oneShotPrompt` in `shared/src/sprite/one-shot-prompt.ts`: rows are clips × the directions
+Hand-drawn would draw (a mirrored side sheet draws `e` and mirrors `w`), columns the longest clip, cells
+at the frame size with an eighth-width gutter; past 8 × 8 the job is refused before any request, and the
+aspect is `nearestAspect` (D's, imported) of the sheet's size. `main/media/sprite/one-shot.ts` makes one
+request, keeps the answer as `reference/one-shot-sheet.png`, keys it and runs `detectGrid` (projection
+profiles; gutters are near-empty runs ≥ 2 px). A count that differs from the request is written to
+`sprite.json`'s `oneShot.mismatch` and fails the job — nothing is sliced. Otherwise each cell, widened to
+the gutter midpoints, goes through B as `source: 'sliced'`, each direction's reference frame first, with
+`grid` on cells > 20 % off the median span. `oneShotVerdict` derives "row 3, attack: 2 of 6 frames
+clipped" from `oneShot.rows` and the badges, so no extra file is needed. The overview's One-shot card
+draws the detected cells over the sheet and the verdict; a failing row's **Regenerate this clip with
+Hand-drawn** uses a new `setReference({fromFrame})` (frame `000` becomes the approved reference) and
+`generate({clips: [clip], method: 'hand-drawn'})` — a one-job method override; the stored sheet stays
+one-shot. Disabled with D's reason when the provider cannot take a reference.
 
 **Theme G — Atlas packing and the animation previewer.** ◻ Not started. MaxRects with trim, padding
 and extrude; one `atlas.json` that is both a Phaser JSON-hash atlas and an Aseprite JSON (frame
@@ -427,14 +457,14 @@ All three methods are always available. The form *recommends* one (user, 2026-10
 
 ## E — Rendered from a Models character (M/L)
 
-- [ ] Pick a Models asset that has a Phase 103 rig and clips. The clip list maps onto sprite clips (`walk` → `walk`), and unmatched clips are listed
+- [x] Pick a Models asset that has a Phase 103 rig and clips. The clip list maps onto sprite clips (`walk` → `walk`), and unmatched clips are listed
   - **Attach a rigged model…** opens a picker over `media.model.library.list` filtered to manifests with
     `rig` and `animations`; the choice sets `reference: { kind: 'model', project, path }`.
   - Mapping: a sprite clip maps to the model clip of the same name (case-insensitive), else to the first of
     `SPRITE_CLIP_ALIASES` (`run → ['sprint', 'jog']`, `attack → ['punch', 'slash', 'swing']`, `die → ['death']`,
     `hurt → ['hit']`). Unmatched sprite clips list under _"No matching animation: jump, fall"_ and are
     skipped; unmatched model clips can be added as new sprite clips with one click.
-- [ ] Camera presets, orthographic:
+- [x] Camera presets, orthographic:
   - `side`
   - `top-down` (steep, about 60°)
   - `isometric` (2:1, a camera elevation of about 30°)
@@ -445,10 +475,10 @@ All three methods are always available. The form *recommends* one (user, 2026-10
   - `shared/src/sprite/camera.ts` `spriteCameraMatrix(settings, dirIndex, directions): Mat4` (view
     matrix; yaw = `azimuth + dirIndex × 360° / directions`) and `orthoFit(bounds, frameSize)` (fits the
     model's bounds over all sampled frames, so scale is constant across the whole sheet).
-- [ ] Directions 1, 4 or 8 (yaw steps), sampled at the clip's fps
+- [x] Directions 1, 4 or 8 (yaw steps), sampled at the clip's fps
   - Sample times `t_i = i / fps` for `i < frames`, where `frames = round(clipDuration × fps)` overrides
     the preset's count (shown in the form as _"walk: 12 frames at 10 fps from the model's 1.2 s clip"_).
-- [ ] Rendering happens in the renderer with three (`editor-scene.tsx`'s material path) into an offscreen canvas at 2–4× the frame size, then downsampled. Frames are sent to main over IPC for B and storage. Over MCP the render is routed through the open window, the way the Models tools use `emitOpen`; decide here whether a hidden window is needed for headless use, and record why
+- [x] Rendering happens in the renderer with three (`editor-scene.tsx`'s material path) into an offscreen canvas at 2–4× the frame size, then downsampled. Frames are sent to main over IPC for B and storage. Over MCP the render is routed through the open window, the way the Models tools use `emitOpen`; decide here whether a hidden window is needed for headless use, and record why
   - **Resolved: a root-level lazy render host, no hidden window** (Decision 8). `SpriteRenderHost` in
     `app/features/media/sprite/render/sprite-render-host.tsx` is mounted once in the app root (beside the
     other global listeners in `app.tsx`) and imports its three code lazily on the first
@@ -462,14 +492,14 @@ All three methods are always available. The form *recommends* one (user, 2026-10
   - Why not a hidden window: it would load a second full renderer (~300 MB) for a path the user's own
     window already serves; macOS keeps the app alive with zero windows only by explicit quit, which the
     message covers.
-- [ ] Shading presets: lit (matches Models), toon (2–3 band ramp) and flat. Optional outline pass
+- [x] Shading presets: lit (matches Models), toon (2–3 band ramp) and flat. Optional outline pass
   - `lit` = the Models editor's lights; `toon` = `MeshToonMaterial` with a 3-step `gradientMap`
     (`DataTexture` 3×1, `NearestFilter`); `flat` = `MeshBasicMaterial` in each part's colour. Outline = an
     inverted-hull pass (back faces, scaled 1.02, `#000000`) when `outline` is on.
-- [ ] Pixel-art mode from B applies on top. This is the precise path for retro 8-direction sprites
+- [x] Pixel-art mode from B applies on top. This is the precise path for retro 8-direction sprites
   - Rendered frames enter `processFrame` with keying skipped (real alpha) and normalisation's scaling
     disabled (the ortho fit already fixes scale), so only pixel mode, outline and validation apply.
-- [ ] Vitest: the camera matrices for each preset and direction, and clip sampling at fps hits the expected times. A render smoke test runs in e2e only (it needs WebGL), with the browser capability named in the spec header
+- [x] Vitest: the camera matrices for each preset and direction, and clip sampling at fps hits the expected times. A render smoke test runs in e2e only (it needs WebGL), with the browser capability named in the spec header
   - `shared/src/sprite/camera.test.ts`: isometric elevation is 26.565° ± 0.001; direction 2 of 8 is yaw
     +90°; `orthoFit` keeps a 2 m tall model at the same pixel height across all 8 directions.
   - `shared/src/sprite/sampling.test.ts`: a 1.2 s clip at 10 fps samples 12 times at `0, 0.1, … 1.1`.
@@ -482,7 +512,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
 
 A strong system prompt and strict post-processing (user, 2026-10-04).
 
-- [ ] System prompt in `shared/src/sprite/one-shot-prompt.ts`, versioned and unit-tested as text. It specifies:
+- [x] System prompt in `shared/src/sprite/one-shot-prompt.ts`, versioned and unit-tested as text. It specifies:
   - an exact grid (columns × rows, cell size, gutter)
   - one clip per row, in a stated order
   - a flat chroma background
@@ -494,24 +524,24 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     (`oneShot: { promptVersion, grid, aspect }`).
   - A sheet whose grid exceeds 8 columns × 8 rows is refused before any request with _"Too many frames
     for one image — use at most 8 frames and 8 rows, or switch to Hand-drawn."_
-- [ ] Request sizing: the image size is computed from the grid, and the provider's nearest supported size is chosen and recorded
+- [x] Request sizing: the image size is computed from the grid, and the provider's nearest supported size is chosen and recorded
   - The provider takes an aspect, not a size: `nearestAspect(columns × cellW, rows × cellH)` picks the
     `ImageAspect` with the smallest |log(ratio)| difference; the cells are then laid out in the returned
     image's actual pixel size (read from the PNG), not the requested one.
-- [ ] **Grid detection instead of trust**: projection profiles of non-background pixels find the real gutters, and the result is compared with the requested grid. A mismatch is reported, not forced
+- [x] **Grid detection instead of trust**: projection profiles of non-background pixels find the real gutters, and the result is compared with the requested grid. A mismatch is reported, not forced
   - `shared/src/sprite/grid-detect.ts` `detectGrid(img, chroma): { columns: number[][]; rows: number[][] }`
     (runs of near-empty columns/rows ≥ 2 px wide are gutters); a mismatch with the requested counts makes
     the whole sheet's verdict _"Expected 8 × 4 cells, found 7 × 4. Nothing was sliced."_ and every frame
     gets nothing (no forced re-cut).
-- [ ] Slicing, then the same B pipeline (keying, normalisation, validation)
+- [x] Slicing, then the same B pipeline (keying, normalisation, validation)
   - Each detected cell → `processFrame` with `source: 'sliced'`; a cell bigger than ±20 % of the median
     cell gets badge `grid`.
-- [ ] A per-row verdict ("row 3, attack: 2 of 6 frames clipped"), with **Regenerate this clip with Hand-drawn**, which hands the failing clip to D using frame 1 of the sheet as the reference
+- [x] A per-row verdict ("row 3, attack: 2 of 6 frames clipped"), with **Regenerate this clip with Hand-drawn**, which hands the failing clip to D using frame 1 of the sheet as the reference
   - `SpriteOneShotVerdict = { rows: { clip, dir, ok: boolean, summary: string }[] }` rendered as a list
     above the strip; a failing row's button sets `reference` to that row's frame `000` (written to
     `reference/reference.png`, `approved: true`) and starts a D job for that clip only, provided the
     provider `supportsReference` (else the button is disabled with D's reason).
-- [ ] Vitest: grid detection on fixtures with clean, uneven and missing gutters, slicing yields the right cells, and a mismatched grid is reported, not silently re-cut
+- [x] Vitest: grid detection on fixtures with clean, uneven and missing gutters, slicing yields the right cells, and a mismatched grid is reported, not silently re-cut
   - `shared/src/sprite/grid-detect.test.ts` and `one-shot-prompt.test.ts` (the prompt for a 4×2 grid
     contains `4 columns`, `2 rows`, the chroma hex, and `no text`; `nearestAspect(512, 256)` is `16:9`;
     an 8 × 9 grid is refused).

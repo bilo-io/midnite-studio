@@ -555,6 +555,24 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **`nearestAspect` lives in `shared/src/sprite/pose-tables.ts`.** Theme F's one-shot sizing should
   import it rather than add a second one.
 
+## Phase 106 · Themes E + F — deferred pieces
+
+- **A rendered job needs the window it was sent to.** Closing or reloading the main window mid-render
+  leaves the job waiting on frames that never come until it is cancelled; the 10 s timeout only covers
+  the acknowledgement. A heartbeat (or failing the job on the window's `render-process-gone`/reload)
+  would end it on its own.
+- **Textures load asynchronously in the render host.** An imported mesh's baked texture (`assetTexture`)
+  may still be decoding when the first frames are drawn, so early frames can render untextured; await
+  the image before the first pose if it shows up in practice.
+- **Rendered frame counts are rewritten into `sprite.json`, but stale frame files are not removed.** A
+  clip that renders fewer frames than a previous run leaves the old higher-numbered PNGs (and their
+  `frames.json` rows) in place; G's frame strip should prune past `clip.frames`.
+- **One-shot rows with fewer frames than columns are trusted to be empty past the clip's length.** Cells
+  beyond `clip.frames` are not sliced or checked for stray art.
+- **The `grid` badge measures the detected span, not the figure.** A cell whose column or row span is
+  > 20 % off the median is flagged; a figure that is small inside a normal span is caught by B's `height`
+  badge instead.
+
 ## Phase 107 · Themes G + K — deferred pieces
 
 - **Genre cells are not creatable yet.** `GAME_GENRES_AVAILABLE` in `shared/src/media-game-templates.ts` is empty; Themes H-J add `templates/media-game/genres/<genre>/` and list each genre there. Until then every genre cell in the gallery reads "Not available yet", and `compose.test.ts` loops over only the six bases (it picks up genre ids as they become available).
