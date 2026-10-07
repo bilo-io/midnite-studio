@@ -5,7 +5,6 @@ import {
   findPbrLayer,
   flattenPbr,
   hexToUnit,
-  imageFromChannels,
   MCP_CONTENT_KEY,
   modelAssetHash,
   modelAssetPath,
@@ -128,7 +127,7 @@ export function createPaintTools(env: MeshToolEnv, helpers: PaintHelpers) {
     if (!decoded.ok) throw new McpToolError('error', `The texture "${file.src}" could not be read: ${decoded.message}`);
     const { width, height, channels, bitDepth, data } = decoded.image;
     if (bitDepth !== 8 || width !== height) throw new McpToolError('error', `The texture "${file.src}" must be a square 8-bit PNG.`);
-    const image = channels === 4 ? { width, height, data: data as Uint8Array } : imageFromChannels(width, data as Uint8Array, channels === 3 ? 3 : 1);
+    const image = channels === 4 ? { width, height, data: data as Uint8Array } : resizeTo(width, height, data as Uint8Array, channels);
     cacheImage(file.hash, image);
     return image;
   }
@@ -218,9 +217,9 @@ export function createPaintTools(env: MeshToolEnv, helpers: PaintHelpers) {
     }
     pbr.flattened = flattened;
     const landedPart: ModelSculptPart = { ...next, pbr };
-    await deps.writeMesh({ op: 'appendOps', repoId: l.repoId, project: l.project, dir: designDir(l.stem), src: next.src, ops: [{ kind: change.op, at: env.now().toISOString(), by: 'agent', data: change.data }] });
     const landed: ModelSpec = { ...spec, parts: spec.parts.map((p, i) => (i === index ? landedPart : p)) };
     const written = await env.writeEdit(l, sidecar, landed, { keepCameras: true });
+    await deps.writeMesh({ op: 'appendOps', repoId: l.repoId, project: l.project, dir: designDir(l.stem), src: next.src, ops: [{ kind: change.op, at: env.now().toISOString(), by: 'agent', data: change.data }] });
     return { result: { ...written, material: { part: next.id ?? next.name, layers: pbr.layers.map(layerSummary), files, summary: change.summary } }, spec: landed };
   }
 

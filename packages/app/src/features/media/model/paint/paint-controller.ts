@@ -130,6 +130,8 @@ export type PaintSnapshot = {
   busy: string | null;
   /** Whether the flattened normal and emissive maps carry anything. */
   uses: { normal: boolean; emissive: boolean };
+  /** Glow past 1 (the flattened map holds intensity up to 1; the rest is a material factor, as in the glb). */
+  emissiveBoost: number;
 };
 
 const INITIAL: PaintSnapshot = {
@@ -148,6 +150,7 @@ const INITIAL: PaintSnapshot = {
   cloneSource: null,
   busy: null,
   uses: { normal: false, emissive: false },
+  emissiveBoost: 1,
 };
 
 const keyOf = (layerId: string, target: PaintTarget): string => `${layerId}:${target}`;
@@ -182,6 +185,8 @@ export class PaintController {
   private readonly loaded = new Map<string, string>();
   /** Images painted since the last flush. */
   private readonly dirty = new Set<string>();
+  /** Every file hash a key has held this session — an older one named by an undone spec is not reloaded over newer paint. */
+  private readonly lineage = new Map<string, Set<string>>();
   private flat: Record<PbrChannel, PaintImage> | null = null;
   private orm: PaintImage | null = null;
   private history = new PaintHistory();
@@ -285,7 +290,7 @@ export class PaintController {
       for (const [target, file] of Object.entries(layer.maps ?? {})) {
         if (!file) continue;
         const key = keyOf(layer.id, target as PaintTarget);
-        if (this.loaded.get(key) === file.hash || this.dirty.has(key)) continue;
+        if (this.loaded.get(key) === file.hash || this.dirty.has(key) || (this.lineage.get(key)?.has(file.hash) && this.images.has(key))) continue;
         this.images.set(key, await this.image(file));
         this.loaded.set(key, file.hash);
         changed = true;
@@ -361,7 +366,7 @@ export class PaintController {
     const textures = this.snapshot.textures;
     if (textures) for (const t of Object.values(textures)) t.needsUpdate = true;
     const input = this.input();
-    this.set({ epoch: this.snapshot.epoch + 1, uses: { normal: channelInUse(input, 'normal'), emissive: channelInUse(input, 'emissive') } });
+    this.set({ epoch: this.snapshot.epoch + 1, uses: { normal: channelInUse(input, 'normal'), emissive: channelInUse(input, 'emissive') }, emissiveBoost: Math.max(1, this.base.emissiveIntensity) });
   }
 
   /** Brings the session to the part in `spec`: a stack change re-flattens, a new mesh reopens, a removed part closes. */
@@ -373,6 +378,11 @@ export class PaintController {
       return;
     }
     if (found.part.hash !== this.part.hash) {
+      // A new mesh invalidates the pixels; never throw away unsaved paint silently.
+      if (this.dirty.size > 0) {
+        this.set({ error: 'The mesh changed under unsaved paint — save or leave paint mode first.' });
+        return;
+      }
       await this.enter(spec, found.index);
       return;
     }
@@ -444,6 +454,11 @@ export class PaintController {
     const key = keyOf(layerId, s.channel);
     let image = this.images.get(key);
     if (!image || image.width !== size) {
+      // A resized image no longer matches the history's tiles, so its strokes can no longer be undone.
+      if (image) {
+        this.history.clear();
+        this.set(this.historyDepth());
+      }
       image = image ? resizePaintImage(image, size) : createPaintImage(size);
       this.images.set(key, image);
     }
@@ -515,6 +530,7 @@ export class PaintController {
   }
 
   undo(): void {
+    if (this.snapshot.busy) return;
     const keys = this.history.undo((key) => this.images.get(key));
     if (!keys) return;
     for (const key of keys) this.dirty.add(key);
@@ -523,6 +539,7 @@ export class PaintController {
   }
 
   redo(): void {
+    if (this.snapshot.busy) return;
     const keys = this.history.redo((key) => this.images.get(key));
     if (!keys) return;
     for (const key of keys) this.dirty.add(key);
@@ -548,6 +565,7 @@ export class PaintController {
     if (this.snapshot.status !== 'ready' || !this.part || !this.flat || !this.orm) return { ok: true, spec };
     if (this.stroke) this.endStroke();
     await this.sync(spec);
+    if (!this.part || !this.flat || !this.orm) return this.dirty.size > 0 ? { ok: false, error: 'Paint mode closed before its paint could be saved.' } : { ok: true, spec };
     const found = findPart(spec, this.part.id);
     if (!found) return { ok: true, spec };
     const { part, index } = found;
@@ -557,7 +575,8 @@ export class PaintController {
     try {
       const stem = `${this.io.stem}.${part.id}`;
       const pbr: ModelPbr = structuredClone(part.pbr ?? emptyPbr());
-      for (const key of this.dirty) {
+      const keys = [...this.dirty];
+      for (const key of keys) {
         const [layerId, target] = key.split(':') as [string, PaintTarget];
         const layer = pbr.layers.find((l) => l.id === layerId);
         const image = this.images.get(key);
@@ -565,6 +584,9 @@ export class PaintController {
         const file = await this.write((h) => `${stem}.${layerId}-${target}.${h}.png`, image);
         layer.maps = { ...(layer.maps ?? {}), [target]: file };
         this.loaded.set(key, file.hash);
+        const seen = this.lineage.get(key) ?? new Set<string>();
+        seen.add(file.hash);
+        this.lineage.set(key, seen);
       }
       const input = this.input();
       const flattened: NonNullable<ModelPbr['flattened']> = {
@@ -574,7 +596,7 @@ export class PaintController {
       if (channelInUse(input, 'normal')) flattened.normal = await this.write((h) => `${stem}.pbr-normal.${h}.png`, this.flat.normal);
       if (channelInUse(input, 'emissive')) flattened.emissive = await this.write((h) => `${stem}.pbr-emissive.${h}.png`, this.flat.emissive);
       pbr.flattened = flattened;
-      this.dirty.clear();
+      for (const key of keys) this.dirty.delete(key);
       this.pbr = pbr;
       this.savedKey = this.lastKey;
       this.dispatch({ type: 'paintFlushed', id: this.part.id, pbr });
@@ -604,6 +626,7 @@ export class PaintController {
     this.images.clear();
     this.loaded.clear();
     this.dirty.clear();
+    this.lineage.clear();
     this.flat = null;
     this.orm = null;
     this.snapshot.geometry?.dispose();

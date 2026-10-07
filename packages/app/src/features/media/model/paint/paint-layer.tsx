@@ -136,7 +136,7 @@ export function PaintLayer({ controller, snapshot, spec, toWorld, xray, wirefram
           roughness={1}
           metalness={1}
           {...(snapshot.uses.normal ? { normalMap: textures.normal } : {})}
-          {...(snapshot.uses.emissive ? { emissiveMap: textures.emissive, emissive: '#ffffff' } : {})}
+          {...(snapshot.uses.emissive ? { emissiveMap: textures.emissive, emissive: '#ffffff', emissiveIntensity: snapshot.emissiveBoost } : {})}
           wireframe={wireframe}
           transparent={xray}
           opacity={xray ? 0.35 : 1}

@@ -209,7 +209,7 @@ function PartMesh({
           {...(pbr?.normal ? { normalMap: pbr.normal } : {})}
           emissive={pbr?.emissive ? '#ffffff' : m.emissive}
           {...(pbr?.emissive ? { emissiveMap: pbr.emissive } : {})}
-          emissiveIntensity={m.emissiveIntensity}
+          emissiveIntensity={pbr?.emissive ? Math.max(1, m.emissiveIntensity) : m.emissiveIntensity}
           transparent={see}
           opacity={xray ? Math.min(m.opacity, 0.35) : m.opacity}
           depthWrite={!see}
