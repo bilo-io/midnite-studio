@@ -903,6 +903,11 @@ export const CHANNELS = {
   gamesPopOut: 'mstudio:games:pop-out',
   /** Which game the `game` popout hosts, if any. */
   gamesPopped: 'mstudio:games:popped',
+  /** Start an agent (or Ollama) run on a game — commit per changing pass (Theme M). */
+  gamesAgentRun: 'mstudio:games:agent-run',
+  gamesAgentCancel: 'mstudio:games:agent-cancel',
+  /** Undo turn: revert the game's newest agent commit. */
+  gamesAgentUndo: 'mstudio:games:agent-undo',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
@@ -1529,6 +1534,8 @@ export const EVENT_CHANNELS = {
   gamesOpen: 'mstudio:games:open',
   /** The popped-out game changed — see `GamesPopStatePayload`. */
   gamesPopState: 'mstudio:games:pop-state',
+  /** A game agent run advanced — see `GamesAgentProgressPayload`. */
+  gamesAgentProgress: 'mstudio:games:agent-progress',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */

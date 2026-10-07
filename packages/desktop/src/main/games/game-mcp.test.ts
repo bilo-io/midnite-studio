@@ -1,4 +1,4 @@
-import { EVENT_CHANNELS, GAMES_OFF_MESSAGE, MCP_TOOLS, type GameLogEntry, type GameSummary } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, GAMES_OFF_MESSAGE, GAMES_OLLAMA_WARNING, MCP_TOOLS, type GameLogEntry, type GameSummary } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { dispatchMcpCall } from '../mcp/dispatch';
@@ -77,6 +77,20 @@ describe('game_* over the global MCP dispatcher', () => {
     for (const id of ['game_open', 'game_run', 'game_state', 'game_screenshot']) {
       expect(MCP_TOOLS[id as 'game_open'].input.safeParse({}).success, id).toBe(false);
     }
+  });
+
+  it('game_create carries the Ollama warning when the writer is an Ollama engine, and none for an agent', async () => {
+    setup(null);
+    setMcpAllowGamesState(true);
+    const base = { name: 'X', engine: 'phaser', perspective: 'top-down' };
+    expect(await dispatchMcpCall('game_create', { ...base, writer: { kind: 'ollama', model: 'qwen2.5-coder:7b' } })).toEqual({
+      ok: true,
+      value: { path: '/games/new', gameId: 'gnew', warnings: [GAMES_OLLAMA_WARNING] },
+    });
+    expect(await dispatchMcpCall('game_create', { ...base, writer: { kind: 'agent', agentId: 'claude' } })).toEqual({
+      ok: true,
+      value: { path: '/games/new', gameId: 'gnew', warnings: [] },
+    });
   });
 
   it('refuses every write tool with the named reason while the switch is off, touching nothing', async () => {

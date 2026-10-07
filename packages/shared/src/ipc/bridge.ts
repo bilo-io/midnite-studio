@@ -1208,6 +1208,17 @@ export type MidniteStudioBridge = {
     onOpen: (handler: (event: z.infer<typeof S.GamesOpenPayload>) => void) => Unsubscribe;
     onRunState: (handler: (event: z.infer<typeof S.GamesRunStatePayload>) => void) => Unsubscribe;
     onConsole: (handler: (event: z.infer<typeof S.GamesConsolePayload>) => void) => Unsubscribe;
+    /**
+     * Create and iterate (Theme M): an agent CLI (file tools + this game's `game_*` tools, no
+     * shell) or an Ollama model edits the repo; every pass that changed files is one commit.
+     */
+    agent: {
+      run: (req: In<typeof S.GamesAgentRunRequest>) => Promise<z.infer<typeof S.GamesAgentRunResponse>>;
+      cancel: (req: In<typeof S.GamesAgentCancelRequest>) => Promise<GitOpResult>;
+      /** Revert the newest agent commit as a new commit; a conflict is the standard envelope. */
+      undo: (req: In<typeof S.GamesAgentUndoRequest>) => Promise<GitOpResult>;
+      onProgress: (handler: (event: z.infer<typeof S.GamesAgentProgressPayload>) => void) => Unsubscribe;
+    };
   };
 
   /**

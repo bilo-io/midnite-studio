@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { LoopModelSchema } from './loops';
 import { MediaTabSchema } from './media';
 
 // --- constants ---------------------------------------------------------------
@@ -39,7 +40,7 @@ export const GAME_STATE_MAX_DEPTH = 32;
 
 /** Shown in Settings ▸ Media ▸ Games, and over MCP and in the iterate panel once agents land. */
 export const GAMES_OLLAMA_WARNING =
-  'Local Ollama models are much weaker at writing whole games than a roster agent CLI. Expect small, focused edits to work and large rewrites to break — and review every change before you play it.';
+  'Local models struggle to write whole games. Expect better results from small, focused edits; an agent engine is recommended for creating games.';
 
 /** The exact-pinned engine versions vendored into game repositories (Phase 107 Theme C). */
 export const GAME_ENGINE_VERSIONS = {
@@ -441,3 +442,95 @@ export type GamePopState = z.infer<typeof GamePopStateSchema>;
  */
 export const GamePoppedResponseSchema = GamePopStateSchema.extend({ run: GameRunStatePayload.nullable() });
 export type GamePoppedResponse = z.infer<typeof GamePoppedResponseSchema>;
+
+// --- create and iterate (Theme M) ---------------------------------------------
+
+/** Refinement passes a game agent run may ask for: each pass is a full CLI run in the repo, so 20, not Models' 100. */
+export const GAME_PASSES_MAX = 20;
+export const GAME_PASSES_DEFAULT = 3;
+/** The longest prompt a run accepts. */
+export const GAME_PROMPT_MAX = 8000;
+
+/**
+ * Who writes the game: a roster agent CLI that speaks MCP (Claude Code, Codex),
+ * or a local Ollama model, which only ever returns whole `src/` files.
+ */
+export const GameAgentEngineSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('agent'), agentId: z.string().min(1).max(64), model: LoopModelSchema.optional() }),
+  z.object({ kind: z.literal('ollama'), model: z.string().min(1).max(200) }),
+]);
+export type GameAgentEngine = z.infer<typeof GameAgentEngineSchema>;
+
+/** The warnings a run (or `game_create`) carries for an engine: Ollama's, else none. */
+export const gameEngineWarnings = (engine: GameAgentEngine | undefined | null): string[] =>
+  engine?.kind === 'ollama' ? [GAMES_OLLAMA_WARNING] : [];
+
+export const GameAgentRunRequestSchema = z.object({
+  gameId: z.string().min(1),
+  prompt: z.string().trim().min(1).max(GAME_PROMPT_MAX),
+  engine: GameAgentEngineSchema,
+  passes: z.number().int().min(1).max(GAME_PASSES_MAX).default(GAME_PASSES_DEFAULT),
+});
+export type GameAgentRunRequest = z.input<typeof GameAgentRunRequestSchema>;
+export const GameAgentRunResultSchema = z.object({ runId: z.string(), warnings: z.array(z.string()) });
+export type GameAgentRunResult = z.infer<typeof GameAgentRunResultSchema>;
+
+/** Undo turn: revert one agent commit. Only the game's newest commit, and only an agent's, is accepted. */
+export const GameAgentUndoRequestSchema = z.object({ gameId: z.string().min(1), sha: z.string().regex(/^[0-9a-f]{7,64}$/i) });
+export type GameAgentUndoRequest = z.infer<typeof GameAgentUndoRequestSchema>;
+
+/** Every agent commit's subject starts with this, which is how Undo turn recognises one. */
+export const GAME_AGENT_COMMIT_PREFIX = 'agent: ';
+
+export const GameAgentCommitSchema = z.object({ sha: z.string(), files: z.array(z.string()) });
+export type GameAgentCommit = z.infer<typeof GameAgentCommitSchema>;
+
+export const GAME_AGENT_OUTCOMES = ['done', 'cancelled', 'failed'] as const;
+
+/**
+ * `mstudio:games:agent-progress` — one event per step of a run: a pass starting,
+ * a tool the agent called (`action`), a pass's commit, and the run's end.
+ */
+export const GameAgentProgressSchema = z.object({
+  gameId: z.string(),
+  runId: z.string(),
+  pass: z.number().int().nonnegative(),
+  of: z.number().int().positive(),
+  action: z.string().optional(),
+  commit: GameAgentCommitSchema.optional(),
+  finished: z
+    .object({
+      outcome: z.enum(GAME_AGENT_OUTCOMES),
+      message: z.string(),
+      /** The commits the run left (after a squash, the one squashed commit). */
+      commits: z.array(GameAgentCommitSchema),
+    })
+    .optional(),
+});
+export type GameAgentProgress = z.infer<typeof GameAgentProgressSchema>;
+
+/** Ollama's reply: whole-file replacements, under `src/` only. */
+export const GAME_OLLAMA_MAX_FILES = 10;
+export const GAME_OLLAMA_FILE_MAX_BYTES = 200 * 1024;
+/** How much of the repo an Ollama pass is shown. */
+export const GAME_OLLAMA_CONTEXT_MAX_BYTES = 60 * 1024;
+export const GameOllamaEnvelopeSchema = z.object({
+  files: z
+    .array(z.object({ path: z.string().min(1).max(300), content: z.string().max(GAME_OLLAMA_FILE_MAX_BYTES) }))
+    .max(GAME_OLLAMA_MAX_FILES),
+  summary: z.string().max(2000).default(''),
+});
+export type GameOllamaEnvelope = z.infer<typeof GameOllamaEnvelopeSchema>;
+
+/**
+ * Normalises a path an Ollama envelope names, or explains why it is refused:
+ * only `.js`/`.json` files under `src/`, never `..`, `kit/`, `vendor/` or an absolute path.
+ */
+export function checkGameOllamaPath(raw: string): { ok: true; path: string } | { ok: false; message: string } {
+  const refused = { ok: false as const, message: `The model tried to edit ${raw}; only files under src/ can be changed.` };
+  if (raw.includes('\0') || raw.split(/[\\/]/).includes('..')) return refused;
+  const path = raw.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/{2,}/g, '/');
+  if (path.startsWith('/') || /^[a-z]:/i.test(path)) return refused;
+  if (!/^src\/[^\0]+\.(js|json)$/.test(path)) return refused;
+  return { ok: true, path };
+}
