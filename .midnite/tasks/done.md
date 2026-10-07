@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme M — Create and iterate: agents, Ollama and commit-per-turn history
+
+An agent CLI (Claude Code or Codex, held to file tools and this game's `game_*` tools on a private MCP server, no shell) or an Ollama model (whole `src/` files in a validated envelope) edits a game repo in passes; every pass that changed files is one `agent: …` commit, a no-op pass is none, and `squashRunCommits` folds a run into one. Undo turn reverts the newest agent commit with git-engine's new `revertCommit`. The Games tab gains the iterate panel (engine, Ollama warning, passes, Run agent/Cancel), the edit thread, and a first prompt on the create form; `game_create` answers `warnings`.
+
+- [x] Iterate panel, Ollama warning in UI and MCP, agent runs in the repo with progress, commit per turn and Undo turn, Ollama envelopes under `src/` only, and vitest (`game-agent.test.ts`, `revert.test.ts`, `game-iterate-panel.test.tsx`, `media-game.test.ts`, `game-mcp.test.ts`).
+
 ## 2026-10-07 — Phase 107 Theme L — Genre recipe skills and the build skill
 
 Eleven skills under `templates/media-game/skills/` (`midnite-media-game-build` plus one recipe per genre), seeded into each new game's `.claude/`, `.agents/` and `.codex/skills/` by `seedGameSkills`, with the build skill mirrored into the app repo's six skill dirs. Tuning numbers quoted in a skill are checked against the kit by `skills.test.ts`.

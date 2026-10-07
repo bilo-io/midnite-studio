@@ -14,6 +14,7 @@
 import { z } from 'zod';
 
 import {
+  GameAgentEngineSchema,
   GameCreateRequestSchema,
   GameLogEntrySchema,
   GameManifestSchema,
@@ -63,7 +64,13 @@ export const GAMES_OFF_MESSAGE = 'Game running and editing is off â€” Settings â
 /** Which game a call is about: a `gameId` from `game_list`, or the game repo's absolute path. */
 export const GameToolTargetSchema = z.object({ game: z.string().min(1) });
 
-export const GameCreateInputSchema = GameCreateRequestSchema.omit({ folder: true });
+export const GameCreateInputSchema = GameCreateRequestSchema.omit({ folder: true }).extend({
+  /**
+   * The engine that will write the game (Theme M), when the caller knows it. Naming an
+   * Ollama engine creates the game all the same, and adds `GAMES_OLLAMA_WARNING` to `warnings`.
+   */
+  writer: GameAgentEngineSchema.optional(),
+});
 
 export const GameSetManifestInputSchema = GameToolTargetSchema.extend({
   /** Merged over the stored manifest and re-validated; `vendored` and `kitVersion` cannot change this way. */
@@ -107,7 +114,7 @@ export const GameInputInputSchema = GameToolTargetSchema.extend({
 // --- outputs ---------------------------------------------------------------------
 
 export const GameListOutputSchema = z.object({ games: z.array(GameSummarySchema) });
-export const GameCreateOutputSchema = z.object({ path: z.string(), gameId: z.string() });
+export const GameCreateOutputSchema = z.object({ path: z.string(), gameId: z.string(), warnings: z.array(z.string()) });
 export const GameOpenOutputSchema = z.object({ opened: z.literal(true), gameId: z.string() });
 export const GameGetManifestOutputSchema = z.object({
   gameId: z.string(),

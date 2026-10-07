@@ -1,6 +1,7 @@
 import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
+import type { GameAgentService } from '../games/game-agent-service';
 import type { GameService } from '../games/game-service';
 import { handle, handleBare, handleSend } from './handle';
 
@@ -13,7 +14,7 @@ const warnInvalid = (issue: string): void => {
  * `GameService`. `setBounds`/`setVisible` are one-way like `apps.setBounds`: a
  * bounds push fires every resize frame and a round trip would only add latency.
  */
-export function registerGamesHandlers(service: GameService): void {
+export function registerGamesHandlers(service: GameService, agents?: GameAgentService): void {
   handleBare(CHANNELS.gamesSettingsGet, () => service.settings.get());
 
   handle(
@@ -91,5 +92,17 @@ export function registerGamesHandlers(service: GameService): void {
     ({ gameId }) => service.kitUpgrade(gameId),
     (issue) => failure(issue),
   );
+
+  // Create and iterate (Theme M). Absent only in tests that never run an agent.
+  if (agents) {
+    handle(CHANNELS.gamesAgentRun, schemas.GamesAgentRunRequest, (req) => agents.run(req), (issue) => failure(issue));
+    handle(CHANNELS.gamesAgentCancel, schemas.GamesAgentCancelRequest, ({ gameId }) => agents.cancel(gameId), (issue) => failure(issue));
+    handle(
+      CHANNELS.gamesAgentUndo,
+      schemas.GamesAgentUndoRequest,
+      ({ gameId, sha }) => agents.undo(gameId, sha),
+      (issue) => failure(issue),
+    );
+  }
 }
 

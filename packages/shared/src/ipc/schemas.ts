@@ -223,6 +223,10 @@ import { DocExportFormatSchema } from '../media';
 import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
+  GameAgentProgressSchema,
+  GameAgentRunRequestSchema,
+  GameAgentRunResultSchema,
+  GameAgentUndoRequestSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
@@ -4389,3 +4393,8 @@ export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema
 export const GamesPopOutRequest = GameIdRequestSchema;
 export const GamesPoppedResponse = GamePoppedResponseSchema;
 export const GamesPopStatePayload = GamePopStateSchema;
+export const GamesAgentRunRequest = GameAgentRunRequestSchema;
+export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
+export const GamesAgentCancelRequest = GameIdRequestSchema;
+export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
+export const GamesAgentProgressPayload = GameAgentProgressSchema;

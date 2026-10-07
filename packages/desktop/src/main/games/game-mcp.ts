@@ -1,6 +1,7 @@
 import {
   EVENT_CHANNELS,
   GAME_STATE_MAX_BYTES,
+  gameEngineWarnings,
   GAME_STATE_MAX_DEPTH,
   GameStateSchema,
   jsonDepth,
@@ -176,8 +177,9 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       return { games: await deps.service.list() };
     },
 
-    async game_create(input) {
-      return unwrap(await deps.service.create(input));
+    async game_create({ writer, ...input }) {
+      const created = unwrap(await deps.service.create(input));
+      return { ...created, warnings: gameEngineWarnings(writer) };
     },
 
     async game_open({ game }) {

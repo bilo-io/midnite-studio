@@ -570,6 +570,12 @@ const bridge: Pick<
     onOpen: (handler) => subscribe(EVENT_CHANNELS.gamesOpen, handler),
     onRunState: (handler) => subscribe(EVENT_CHANNELS.gamesRunState, handler),
     onConsole: (handler) => subscribe(EVENT_CHANNELS.gamesConsole, handler),
+    agent: {
+      run: (req) => call(CHANNELS.gamesAgentRun, req),
+      cancel: (req) => call(CHANNELS.gamesAgentCancel, req),
+      undo: (req) => call(CHANNELS.gamesAgentUndo, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
+    },
   },
   media: {
     project: {

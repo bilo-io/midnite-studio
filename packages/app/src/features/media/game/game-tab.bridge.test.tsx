@@ -108,7 +108,7 @@ describe('Media ▸ Games, assembled through the real bridge', () => {
         ],
       });
     });
-    const log = await screen.findByRole('log');
+    const log = await screen.findByRole('log', { name: 'Console output' });
     expect(within(log).getByText('midnite-ready')).toBeTruthy();
     expect(within(log).getByText(/TypeError: x is undefined/)).toBeTruthy();
     expect(log.textContent).toContain('src/main.js:7');

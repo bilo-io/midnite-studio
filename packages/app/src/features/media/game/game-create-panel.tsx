@@ -11,7 +11,10 @@ import {
 import { useState } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
+import { PromptTextarea } from '../prompt-input';
+import { useGameAgentStore } from './game-agent-store';
 import { GameGallery, perspectivesOf } from './game-gallery';
+import { GameEngineFields, startGameAgentRun, useGameEngines } from './game-iterate-panel';
 import { useCreateGame, useGamesSettings } from './use-games';
 
 /** The perspectives an engine can start from. */
@@ -30,12 +33,17 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
   const [dimension, setDimension] = useState<GameDimension | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [cameras, setCameras] = useState<readonly GameCameraId[]>(GAME_CAMERA_IDS);
+  const [firstPrompt, setFirstPrompt] = useState('');
+  const { choice } = useGameEngines();
+  const passes = useGameAgentStore((s) => s.passes);
 
-  const defaultDimension: GameDimension = settings.data?.settings.defaultEngine === 'three' ? '3d' : '2d';
+  const defaultDimension: GameDimension =
+    settings.data?.settings.defaultEngine === 'three' ? '3d' : '2d';
   const chosenDimension = dimension ?? defaultDimension;
   const firstBase = perspectivesOf(chosenDimension)[0]!;
   const parsedPick = picked === null ? null : parseStarterId(picked);
-  const pickFits = parsedPick !== null && perspectivesOf(chosenDimension).includes(parsedPick.perspective);
+  const pickFits =
+    parsedPick !== null && perspectivesOf(chosenDimension).includes(parsedPick.perspective);
   const starter = pickFits ? picked! : starterId(firstBase);
   const { perspective, genre } = pickFits ? parsedPick : { perspective: firstBase, genre: null };
   const engine: GameEngine = chosenDimension === '2d' ? 'phaser' : 'three';
@@ -51,7 +59,9 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         genre,
         starter,
         // All five on is the default, which the manifest stores as an empty list.
-        ...(perspective === 'third-person' && !(genre !== null && GAME_TEMPLATE_MATRIX[genre].versus) && cameras.length < GAME_CAMERA_IDS.length
+        ...(perspective === 'third-person' &&
+        !(genre !== null && GAME_TEMPLATE_MATRIX[genre].versus) &&
+        cameras.length < GAME_CAMERA_IDS.length
           ? { cameras: [...cameras] }
           : {}),
       },
@@ -60,6 +70,12 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
           if (result.ok) {
             setName('');
             onCreated(result.value.gameId);
+            // Create and iterate (Theme M): an optional first prompt starts an agent on the new repo.
+            const text = firstPrompt.trim();
+            if (text) {
+              setFirstPrompt('');
+              void startGameAgentRun(result.value.gameId, text, choice, passes);
+            }
           }
         },
       },
@@ -79,7 +95,8 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         <h2 className="text-sm font-semibold">New game</h2>
         <p className="text-[11px] text-muted-foreground">
           A game is its own git repository
-          {settings.data ? ` in ${settings.data.resolvedRoot}` : ''}, written by an agent against {engine === 'phaser' ? 'Phaser' : 'three.js'}.
+          {settings.data ? ` in ${settings.data.resolvedRoot}` : ''}, written by an agent against{' '}
+          {engine === 'phaser' ? 'Phaser' : 'three.js'}.
         </p>
       </div>
       <label className="flex flex-col gap-1 text-xs font-medium">
@@ -100,13 +117,24 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         cameras={cameras}
         onCameras={setCameras}
       />
+      <label className="flex flex-col gap-1 text-xs font-medium">
+        First prompt (optional)
+        <PromptTextarea
+          aria-label="First prompt"
+          rows={3}
+          value={firstPrompt}
+          onChange={(event) => setFirstPrompt(event.target.value)}
+          placeholder="A rover that collects crystals on a moon, avoiding craters"
+        />
+      </label>
+      {firstPrompt.trim() ? <GameEngineFields /> : null}
       <button
         type="submit"
         disabled={!valid || create.isPending}
         className="flex items-center justify-center gap-2 self-start rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
       >
         {create.isPending ? <Spinner className="h-3.5 w-3.5" /> : null}
-        Create game
+        {firstPrompt.trim() ? 'Create and run' : 'Create game'}
       </button>
     </form>
   );

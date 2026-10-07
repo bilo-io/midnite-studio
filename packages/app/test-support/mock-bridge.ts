@@ -3328,6 +3328,29 @@ export function buildMockBridge(data: MockFixtures) {
           gamesConsoleHandlers = gamesConsoleHandlers.filter((h) => h !== handler);
         };
       },
+      // Theme M: runs are recorded; a spec drives progress through `__mstudioMockGames.agentProgress(...)`.
+      agent: {
+        // Warnings stay empty: the panel's own banner is what shows the Ollama warning.
+        run: async (req: { gameId: string }) => {
+          const runId = `ar${gamesCalls.length + 1}`;
+          gamesCalls.push({ call: 'agentRun', runId, ...req });
+          return { ok: true as const, value: { runId, warnings: [] as string[] } };
+        },
+        cancel: async (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'agentCancel', ...req });
+          return { ok: true as const };
+        },
+        undo: async (req: { gameId: string; sha: string }) => {
+          gamesCalls.push({ call: 'agentUndo', ...req });
+          return { ok: true as const };
+        },
+        onProgress: (handler: (event: unknown) => void) => {
+          gamesAgentHandlers.push(handler);
+          return () => {
+            gamesAgentHandlers = gamesAgentHandlers.filter((h) => h !== handler);
+          };
+        },
+      },
     },
     media: {
       project: {
@@ -5431,6 +5454,8 @@ export function buildMockBridge(data: MockFixtures) {
   var gamesOpenHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
   var gamesPopStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesAgentHandlers: Array<(event: unknown) => void> = [];
   /** The popped-out game (Theme B Pop out), seeded by `games.popped` and moved by `popOut`. */
   // eslint-disable-next-line no-var
   var gamesPopped: string | null = data.games?.popped ?? null;
@@ -5443,6 +5468,7 @@ export function buildMockBridge(data: MockFixtures) {
     runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
     console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
     open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),
+    agentProgress: (event: unknown) => gamesAgentHandlers.forEach((h) => h(event)),
   };
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // eslint-disable-next-line no-var
