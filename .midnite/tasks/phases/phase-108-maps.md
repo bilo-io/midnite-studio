@@ -161,12 +161,21 @@ the kernel's azimuthal-equidistant inverse, so it is square in metres at any lat
 whose min/max elevation comes from the already-loaded DEM (`map.queryTerrainElevation`), not a fetch.
 Keys are scoped to the focused canvas and checked against `shared/src/keybindings.ts`.
 
-**Theme D — Heightmap capture.** ◻ Not started. A zod-free, dependency-free kernel in
-`shared/src/map/` (Web-Mercator, tiles, WGS84 geodesy, the local frame, Terrarium/Terrain-RGB
-decode, a GeoTIFF writer); a zoom rule that picks the deepest DEM zoom *useful* for the output
-metres-per-pixel inside a 1 024-tile budget; vertex-centred sampling that matches
-`buildHeightfield`; four outputs plus `capture.json`; fetch + decode in main and resample/encode in a
-`map-capture-worker` utility process, cancellable, with goldens that need no network.
+**Theme D — Heightmap capture.** ✅ Landed (this PR). A zod-free, dependency-free kernel in
+`shared/src/map/` (Web-Mercator and tile maths, Vincenty WGS84 geodesy, the azimuthal-equidistant local
+frame, Terrarium/Terrain-RGB decode with no-data fill, bicubic Catmull-Rom resampling, a hand-written
+GeoTIFF writer) exported as `map`. `chooseCaptureZoom` picks the deepest *useful* DEM zoom inside a
+1 024-tile budget (a 65 km frame at 4097 lands at z13, a 1 km frame at 1025 at z15); sampling is
+vertex-centred to match `buildHeightfield`, with the lattice mapping interpolated so a 4097² grid is not
+16.8 M geodesic calls. `capture-service.ts` fetches through B's shared tile fetcher and cache, streams
+decoded tiles to a `map-capture-worker` utility process (`capture-broker.ts`, killed on cancel) that
+resamples and writes `heightmap.png` (16-bit), `.r32` and `.tif`; main adds `capture.json` and
+`ATTRIBUTION.txt` and renames `captures/.tmp-<id>/` into place, so a cancel leaves nothing. One capture
+at a time; channels `mstudio:media:map-capture|map-capture-cancel` plus a progress event; a "Capture
+heightmap" section in the Maps detail pane (side, output size, warnings, progress, Cancel). Goldens need
+no network: a plane at lat 60 spans 100 m east-west over 10 km (true metres, not Mercator's 200), a frame
+on four tiles' shared corner has no seam. Theme C's draggable frame is not built yet, so the section takes
+its centre from the saved frame or the view; E and F extend the request and result.
 
 **Theme E — Satellite and roads capture.** ◻ Not started. Satellite is stitched at the zoom matching
 Terrain's `textureSize`, reprojected onto the same frame and written as `satellite.png`; JPEG/WebP
@@ -430,7 +439,7 @@ on top of a capture.
 
 ## D — Heightmap capture (L)
 
-- [ ] `shared/src/map/` pure kernel (no electron, vitest-only): Web-Mercator ↔ lat/lon, tile maths, local tangent-plane (ENU) projection centred on the frame so the output square is in true metres (Decision 3).
+- [x] `shared/src/map/` pure kernel (no electron, vitest-only): Web-Mercator ↔ lat/lon, tile maths, local tangent-plane (ENU) projection centred on the frame so the output square is in true metres (Decision 3).
   - Dependency-free TS (shared is zod-only). Files: `mercator.ts` (`lonLatToWorld`, `worldToLonLat`,
     `tileForLonLat(lon, lat, z)`, `tileBounds(z, x, y)`, `nativeMPerPx(z, lat, tileSize)`),
     `geodesy.ts` (WGS84 `inverse(a, b) → { distanceM, azi1, azi2 }` and `direct(p, aziDeg, distM) →
@@ -445,7 +454,7 @@ on top of a capture.
   - *Verified by:* `geodesy.test.ts` — Vincenty's Flinders Peak → Buninyong case gives
     54 972.271 m ± 1 mm; `frame.test.ts` — `toFrame(fromFrame(p))` round-trips within 1 mm across a
     65 km square at lat 0, 45, 60 and −60.
-- [ ] DEM decode: Terrarium (`(R·256 + G + B/256) − 32768`) and Mapbox Terrain-RGB (`−10000 + (R·65536 + G·256 + B)·0.1`), with no-data handling.
+- [x] DEM decode: Terrarium (`(R·256 + G + B/256) − 32768`) and Mapbox Terrain-RGB (`−10000 + (R·65536 + G·256 + B)·0.1`), with no-data handling.
   - `shared/src/map/dem.ts`: `decodeDem(rgba: Uint8Array, encoding: 'terrarium' | 'terrain-rgb'):
     Float32Array` (metres, row-major); a fully transparent pixel (A = 0) is `NaN` (no-data).
   - No-data is filled after stitching by `fillNoData(grid, w, h)` (iterative 4-neighbour mean, up to
@@ -453,7 +462,7 @@ on top of a capture.
     data for most of this area."
   - *Verified by:* `dem.test.ts` — RGB (128, 0, 0) Terrarium → 0 m; (1, 134, 160) Terrain-RGB → 0 m
     (−10000 + 100000·0.1); an A = 0 pixel → `NaN`.
-- [ ] Deepest-zoom selection: fetch the DEM at the deepest zoom the source offers for the area (Terrarium ≈ z15), not the screen zoom; stitch tiles, then bilinear/bicubic resample onto the 2ⁿ+1 grid in the ENU square.
+- [x] Deepest-zoom selection: fetch the DEM at the deepest zoom the source offers for the area (Terrarium ≈ z15), not the screen zoom; stitch tiles, then bilinear/bicubic resample onto the 2ⁿ+1 grid in the ENU square.
   - Rule, in `chooseCaptureZoom(source, frame, size): { z, tiles }` (`shared/src/map/capture-plan.ts`):
     start at `z = source.maxZoom`; step down while `nativeMPerPx(z, lat) < (sideM / (size − 1)) / 2`
     (deeper is wasted) **or** the frame's tile count at `z` exceeds `MAP_CAPTURE_TILE_BUDGET = 1024`;
@@ -464,7 +473,7 @@ on top of a capture.
     **bicubic** (Catmull-Rom, clamped to the 4 neighbours' min/max to stop overshoot).
   - *Verified by:* `capture-plan.test.ts` — the two examples above; a frame whose tile count at the
     budget-limited zoom is ≤ 1024.
-- [ ] Outputs into `.midnite/media/map/<project>/captures/<name>/`: `heightmap.png` (16-bit greyscale, min→0, max→65535), `heightmap.r32` (little-endian float32 metres), `heightmap.tif` (single-band float32 GeoTIFF with the frame's bounds), and `capture.json` (bbox, centre, side metres, metres/px, min/max metres, source ids, zoom, attributions, timestamp).
+- [x] Outputs into `.midnite/media/map/<project>/captures/<name>/`: `heightmap.png` (16-bit greyscale, min→0, max→65535), `heightmap.r32` (little-endian float32 metres), `heightmap.tif` (single-band float32 GeoTIFF with the frame's bounds), and `capture.json` (bbox, centre, side metres, metres/px, min/max metres, source ids, zoom, attributions, timestamp).
   - `<name>` = `slug(place or "lat_lon")-YYYYMMDD-HHMMSS` (the `terrainFolderLabel` suffix shape);
     files are written via `mediaStore.writeBytes({ tab: 'map', … })`, so the jail and the
     `media:changed` broadcast are the store's.
@@ -484,7 +493,7 @@ on top of a capture.
   - *Verified by:* `geotiff.test.ts` parses the written bytes back (tag table) and asserts the
     tiepoint and scale; `capture-service.test.ts` asserts the five files exist and `capture.json`
     parses.
-- [ ] Runs in a worker or utility process with progress events and cancel; a 4097² capture does not block main or the renderer.
+- [x] Runs in a worker or utility process with progress events and cancel; a 4097² capture does not block main or the renderer.
   - Main (`capture-service.ts`) plans tiles, fetches them through `tile-fetch.ts` and decodes them
     (PNG via `decodePng`; JPEG/WebP via `nativeImage.createFromBuffer(…).toBitmap()` → BGRA →
     RGBA), then posts mosaics to `map-capture-worker` (`packages/desktop/src/map-capture-worker/`,
@@ -501,7 +510,7 @@ on top of a capture.
     result lands in the repo it started in.
   - *Verified by:* `capture-service.test.ts` with fake fetcher + in-process broker — cancel during
     `dem` resolves `{ok:false, message:'Capture cancelled.'}` and leaves no `captures/` entry.
-- [ ] Golden tests: a fixture set of Terrarium tiles decodes to known heights; a frame straddling a tile seam has no visible seam; a frame near ±60° latitude keeps true metres.
+- [x] Golden tests (the synthetic Terrarium tiles are generated in code by `shared/src/map/synthetic-dem.ts` rather than committed as `__fixtures__/` binaries — same planes, no binary files in the repo): a fixture set of Terrarium tiles decodes to known heights; a frame straddling a tile seam has no visible seam; a frame near ±60° latitude keeps true metres.
   - Fixtures in `shared/src/map/__fixtures__/`: four synthetic 256² Terrarium PNGs encoding a plane
     `h = 0.01·x_m` (generated by a committed script, decoded with a tiny pure PNG reader in the test
     helper, or stored as raw RGBA `.bin` so shared stays free of a PNG codec).
