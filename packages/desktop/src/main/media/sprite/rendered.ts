@@ -41,6 +41,8 @@ export function createRenderedRunner(relay: Pick<RenderRelay, 'render'>): Sprite
         },
         onFrame: async (frame) => {
           const key = spriteFrameKey(frame.clip, frame.dir, frame.index);
+          // A frame-strip re-roll keeps only the frames it named (the render itself is free).
+          if (ctx.frames && !ctx.frames.includes(key)) return;
           ctx.progress({ done, total, stage: 'processing', frame: key });
           await ctx.submitFrame({ clip: frame.clip, dir: frame.dir, n: frame.index, bytes: Buffer.from(frame.png, 'base64'), meta: { source: 'rendered' } });
           done += 1;

@@ -8,7 +8,7 @@ import { createHandDrawnRunner, handDrawnPreflight } from '../media/sprite/hand-
 import { createOneShotRunner, oneShotPreflight } from '../media/sprite/one-shot';
 import { createRenderRelay } from '../media/sprite/render-relay';
 import { createRenderedRunner } from '../media/sprite/rendered';
-import { createSpriteService, spriteNotAvailableYet, type SpriteJobRunner } from '../media/sprite/sprite-service';
+import { createSpriteService, type SpriteJobRunner } from '../media/sprite/sprite-service';
 import { broadcastToAllWindows, resolveRole, windowForRole } from '../window-manager';
 import { handle } from './handle';
 import { imageService } from './media-image-handlers';
@@ -23,8 +23,8 @@ import { engines } from './media-model-handlers';
  * job, rendered from 3D (Theme E), whose frames come from the focused main window through the render
  * relay, and the one-shot sheet (Theme F). A job's `method` override (one-shot's "Regenerate this clip
  * with Hand-drawn") arrives here already applied to `ctx.spec`.
- * `export` (Theme G) answers "not available yet" — a half landing must never hang the renderer on an
- * unregistered channel.
+ * `export` (Theme G) packs the atlas into the asset's `export/` and, with a destination, a
+ * `<name>.sprite/` folder there.
  */
 const handDrawn = createHandDrawnRunner({ generateImage: (req) => imageService.generateImage(req), visionCall: createVisionCall(engines) });
 
@@ -80,7 +80,7 @@ export function registerMediaSpriteHandlers(): void {
   handle(CHANNELS.mediaSpriteGenerate, schemas.MediaSpriteGenerateRequest, (req) => spriteService.generate(req), invalid);
   handle(CHANNELS.mediaSpriteCancel, schemas.MediaSpriteCancelRequest, ({ jobId }) => spriteService.cancel(jobId), invalid);
   handle(CHANNELS.mediaSpritePatchFrames, schemas.MediaSpritePatchFramesRequest, (req) => spriteService.patchFrames(req), invalid);
-  handle(CHANNELS.mediaSpriteExport, schemas.MediaSpriteExportRequest, () => spriteNotAvailableYet(), invalid);
+  handle(CHANNELS.mediaSpriteExport, schemas.MediaSpriteExportRequest, (req) => spriteService.export(req), invalid);
   handle(CHANNELS.mediaSpriteRenderReady, schemas.MediaSpriteRenderReadyRequest, ({ jobId }) => renderRelay.ready(jobId), invalid);
   handle(CHANNELS.mediaSpriteRenderFrames, schemas.MediaSpriteRenderFramesRequest, (req) => renderRelay.frames(req), invalid);
 }

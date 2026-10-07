@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { cp, readFile, rename, rm, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import { WriteQueue } from '@midnite/studio-git-engine';
 import {
   failure,
+  frameSlots,
+  moveRenames,
   ok,
+  parseSpriteFrameKey,
   parseSpriteSpec,
   presetClips,
   SPRITE_FRAME_SOURCES_PENDING,
@@ -14,19 +17,23 @@ import {
   SPRITE_JOB_CANCELLED,
   SPRITE_NEEDS_MODEL,
   SPRITE_NO_REFERENCE,
-  SPRITE_NOT_AVAILABLE,
   SPRITE_SPEC_FILE,
   SPRITE_PIPELINE_BADGES,
+  SpriteFrameMetaSchema,
   SpriteFramesFileSchema,
+  SpritePackOptionsSchema,
   spriteFrameKey,
   spriteFramePath,
   spriteGroupOf,
   spriteSlug,
   spriteTimeStamp,
+  staleFrameKeys,
   type GitOpResult,
   type SpriteAssetSpec,
   type SpriteBadge,
   type SpriteChangedEvent,
+  type SpriteExportRequest,
+  type SpriteExportResult,
   type SpriteFrameMeta,
   type SpriteFrameMeasure,
   type SpriteFramesFile,
@@ -37,6 +44,8 @@ import {
   type SpriteLibraryRequest,
   type SpriteLibraryResult,
   type SpritePatchFramesRequest,
+  type SpritePatchFramesResult,
+  type SpritePatchOp,
   type SpriteProgressEvent,
   type SpriteSetReferenceRequest,
   type SpriteSetSpecRequest,
@@ -46,6 +55,7 @@ import {
 
 import { confineToRoot, joinWithin } from '../../fs-scope';
 import { createFramePipeline, type FramePipeline } from './frame-pipeline';
+import { exportSprite } from './sprite-export';
 
 /**
  * Media ▸ Sprites' operations (`sprite.json`, the reference, frame metadata, generation jobs).
@@ -70,6 +80,8 @@ export type SpriteJobContext = {
   signal: AbortSignal;
   /** Clips to (re)generate; absent means every clip. */
   clips: readonly string[] | undefined;
+  /** Only these frames (`<clip>/<dir>/<nnn>`, the frame strip's re-roll); absent means every frame of `clips`. */
+  frames: readonly string[] | undefined;
   progress: (event: Omit<SpriteProgressEvent, 'jobId'>) => void;
   /** Writes a normalised frame PNG and its metadata. */
   writeFrame: (frame: { clip: string; dir: string; n: number; png: Buffer; meta?: Partial<SpriteFrameMeta> }) => Promise<void>;
@@ -118,6 +130,10 @@ export type SpriteServiceDeps = {
 };
 
 export const NOT_AN_IMAGE = 'Use a PNG, JPEG or WebP image.';
+/** A one-shot sheet is one image: single frames cannot be redrawn from it. */
+export const ONE_SHOT_NO_FRAME_REROLL = 'A one-shot sheet re-rolls whole clips — use “Regenerate this clip with Hand-drawn”.';
+/** Where a deleted frame waits for its undo (Theme G). */
+export const SPRITE_TRASH_DIR = 'frames/.trash';
 
 type Job = {
   id: string;
@@ -405,29 +421,136 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     });
   }
 
-  async function patchFrames(req: SpritePatchFramesRequest): Promise<GitOpResult> {
+  /**
+   * The frame strip's edits (Theme G), applied in order under the frames lock. `delete` moves the PNG
+   * (and its metadata) to `frames/.trash/` so `restore` can undo it; `move` renames files within one
+   * clip and direction. A `reroll` starts a job for just those frames once the edits are on disk.
+   */
+  async function patchFrames(req: SpritePatchFramesRequest): Promise<GitOpResult<SpritePatchFramesResult>> {
     try {
       const located = await locate(req);
       if (!located.ok) return located;
       const { dir } = located.value;
-      for (const p of req.patches) {
-        if (!(await exists(join(dir, spriteFramePath(p.clip, p.dir, p.n))))) return failure(`Frame ${spriteFrameKey(p.clip, p.dir, p.n)} does not exist.`);
-      }
-      const written = await writeFrameMeta(req, dir, (frames) => {
-        for (const p of req.patches) {
-          const key = spriteFrameKey(p.clip, p.dir, p.n);
-          if (p.delete) {
-            delete frames.frames[key];
-            continue;
+      if (running.has(keyOf(req))) return failure(SPRITE_JOB_BUSY);
+      const edits = req.ops.filter((op) => op.op !== 'reroll');
+      const rerolls = [...new Set(req.ops.flatMap((op) => (op.op === 'reroll' ? op.keys : [])))];
+      if (edits.length > 0) {
+        const applied = await queue.run(`${dir}#frames`, async (): Promise<GitOpResult> => {
+          const file = await readFrames(dir);
+          let outcome: GitOpResult = ok();
+          for (const op of edits) {
+            outcome = await applyFrameOp(dir, file, op);
+            if (!outcome.ok) break;
           }
-          const meta: SpriteFrameMeta = frames.frames[key] ?? { anchorNudge: [0, 0], flipped: false, source: 'generated', badges: [] };
-          frames.frames[key] = { ...meta, ...(p.anchorNudge ? { anchorNudge: p.anchorNudge } : {}), ...(p.flipped !== undefined ? { flipped: p.flipped } : {}) };
+          // Whatever ran is on disk, so the metadata is written even when a later op failed.
+          const written = await deps.writeBytes({ repoId: req.repoId, project: req.group, path: `${req.asset}/${SPRITE_FRAMES_FILE}`, data: json(file) });
+          return outcome.ok ? written : outcome;
+        });
+        announce(req);
+        if (!applied.ok) return applied;
+      }
+      if (rerolls.length === 0) return ok({});
+      const clips = [...new Set(rerolls.map((key) => parseSpriteFrameKey(key)?.clip).filter((c): c is string => !!c))];
+      const started = await generate({ repoId: req.repoId, group: req.group, asset: req.asset, clips, frames: rerolls });
+      return started.ok ? ok({ jobId: started.value.jobId }) : started;
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function applyFrameOp(dir: string, file: SpriteFramesFile, op: Exclude<SpritePatchOp, { op: 'reroll' }>): Promise<GitOpResult> {
+    const parsed = parseSpriteFrameKey(op.key);
+    if (!parsed) return failure(`${op.key} is not a frame.`);
+    const { clip, dir: direction, n } = parsed;
+    const png = (m: number) => join(dir, spriteFramePath(clip, direction, m));
+    const trashed = join(dir, SPRITE_TRASH_DIR, `${op.key}.png`);
+    const trashedMeta = join(dir, SPRITE_TRASH_DIR, `${op.key}.json`);
+    const missing = () => failure(`Frame ${op.key} does not exist.`);
+    const meta = file.frames[op.key];
+    switch (op.op) {
+      case 'nudge': {
+        if (!meta) return missing();
+        const clamp = (v: number) => Math.max(-64, Math.min(64, v));
+        meta.anchorNudge = [clamp(meta.anchorNudge[0] + op.dx), clamp(meta.anchorNudge[1] + op.dy)];
+        return ok();
+      }
+      case 'flip':
+        if (!meta) return missing();
+        meta.flipped = !meta.flipped;
+        return ok();
+      case 'delete': {
+        if (!meta) return missing();
+        await mkdir(dirname(trashed), { recursive: true });
+        await rename(png(n), trashed).catch(() => undefined);
+        await writeFile(trashedMeta, json(meta));
+        delete file.frames[op.key];
+        return ok();
+      }
+      case 'restore': {
+        if (meta) return failure(`Frame ${op.key} already exists.`);
+        if (!(await exists(trashed))) return failure(`Frame ${op.key} is not in the trash any more.`);
+        let restored: SpriteFrameMeta;
+        try {
+          restored = SpriteFrameMetaSchema.parse(JSON.parse(await readFile(trashedMeta, 'utf8')));
+        } catch {
+          restored = SpriteFrameMetaSchema.parse({});
         }
-      });
-      if (!written.ok) return written;
-      for (const p of req.patches) if (p.delete) await rm(join(dir, spriteFramePath(p.clip, p.dir, p.n)), { force: true });
-      announce(req);
-      return ok();
+        await mkdir(dirname(png(n)), { recursive: true });
+        await rename(trashed, png(n));
+        await rm(trashedMeta, { force: true });
+        file.frames[op.key] = restored;
+        return ok();
+      }
+      case 'move': {
+        if (!meta) return missing();
+        const renames = moveRenames(frameSlots(file, clip, direction), n, op.to);
+        // Two passes through temporary names, so no rename lands on a frame still to be moved.
+        const metas = new Map(renames.map(([from]) => [from, file.frames[spriteFrameKey(clip, direction, from)]!]));
+        for (const [from] of renames) await rename(png(from), `${png(from)}.moving`).catch(() => undefined);
+        for (const [from, to] of renames) {
+          await rename(`${png(from)}.moving`, png(to)).catch(() => undefined);
+          file.frames[spriteFrameKey(clip, direction, to)] = metas.get(from)!;
+        }
+        return ok();
+      }
+    }
+  }
+
+  /** Drops frames no clip plays any more (a shorter re-render, a removed clip) — files and metadata. */
+  async function pruneStale(target: SpriteTarget, dir: string, clips: readonly string[] | undefined): Promise<void> {
+    const current = await readSpec(dir);
+    if (!current.ok || current.value.kind !== 'sheet') return;
+    const spec = current.value;
+    let removed: string[] = [];
+    await writeFrameMeta(target, dir, (file) => {
+      removed = staleFrameKeys(spec, file, clips);
+      for (const key of removed) delete file.frames[key];
+    });
+    for (const key of removed) {
+      const parsed = parseSpriteFrameKey(key);
+      if (parsed) await rm(join(dir, spriteFramePath(parsed.clip, parsed.dir, parsed.n)), { force: true });
+    }
+  }
+
+  // --- export (Theme G) ------------------------------------------------------------
+
+  async function exportPack(req: SpriteExportRequest): Promise<GitOpResult<SpriteExportResult>> {
+    try {
+      const located = await locate(req);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      if (running.has(keyOf(req))) return failure(SPRITE_JOB_BUSY);
+      const spec = await readSpec(dir);
+      if (!spec.ok) return spec;
+      const pack = SpritePackOptionsSchema.parse(req.pack ?? {});
+      const result = await queue.run(`${dir}#frames`, async () =>
+        exportSprite({ dir, spec: spec.value, frames: await readFrames(dir), pack, ...(req.dest ? { dest: req.dest } : {}) }),
+      );
+      if (result.ok) {
+        deps.onChanged(req.repoId);
+        deps.log(`sprite export ${req.asset} frames=${result.value.frames} pages=${result.value.pages} bytes=${result.value.bytes}`);
+      }
+      return result;
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }
@@ -448,6 +571,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       const spec = { value: req.method && read.value.kind === 'sheet' ? { ...read.value, method: req.method } : read.value };
       if (!req.turnaround && spec.value.kind === 'sheet' && spec.value.method === 'rendered' && spec.value.reference?.kind !== 'model') return failure(SPRITE_NEEDS_MODEL);
       if (req.turnaround && spec.value.kind !== 'sheet') return failure('Only a sprite sheet has a reference.');
+      if (req.frames && spec.value.kind === 'sheet' && spec.value.method === 'one-shot') return failure(ONE_SHOT_NO_FRAME_REROLL);
       const refused = deps.preflight?.(spec.value, req) ?? null;
       if (refused) return failure(refused);
       if (running.has(key)) return failure(SPRITE_JOB_BUSY);
@@ -461,7 +585,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       job.status.jobId = job.id;
       jobs.set(job.id, job);
       running.set(key, job);
-      void runJob(job, { repoId: req.repoId, group: req.group, asset: req.asset }, dir, spec.value, req.clips, req.turnaround === true);
+      void runJob(job, { repoId: req.repoId, group: req.group, asset: req.asset }, dir, spec.value, { clips: req.clips, frames: req.frames, turnaround: req.turnaround === true });
       return ok({ jobId: job.id });
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
@@ -486,8 +610,16 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     }
   }
 
-  async function runJob(job: Job, target: SpriteTarget, dir: string, spec: SpriteAssetSpec, clips: readonly string[] | undefined, turnaround: boolean): Promise<void> {
+  async function runJob(
+    job: Job,
+    target: SpriteTarget,
+    dir: string,
+    spec: SpriteAssetSpec,
+    { clips, frames: onlyFrames, turnaround }: { clips: readonly string[] | undefined; frames: readonly string[] | undefined; turnaround: boolean },
+  ): Promise<void> {
     const started = Date.now();
+    // Deleted frames wait in the trash for an undo only until the next generation.
+    await rm(join(dir, SPRITE_TRASH_DIR), { recursive: true, force: true }).catch(() => undefined);
     let frames = 0;
     let requests = 0;
     const notes: string[] = [];
@@ -545,6 +677,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         dir,
         signal: job.controller.signal,
         clips,
+        frames: onlyFrames,
         progress,
         writeFrame,
         turnaround,
@@ -591,6 +724,14 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         if (end === 'done') end = `failed:${error instanceof Error ? error.message : String(error)}`;
       }
     }
+    // A clip re-rendered shorter leaves higher-numbered frames behind; nothing plays them, so they go.
+    if (end === 'done' && spec.kind === 'sheet' && !turnaround && !onlyFrames) {
+      try {
+        await pruneStale(target, dir, clips);
+      } catch {
+        /* a frame that will not delete stays out of the previewer and the pack anyway */
+      }
+    }
     if (frames > 0) {
       const all = await readFrames(dir);
       const entries = Object.values(all.frames);
@@ -627,13 +768,10 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     return ok();
   }
 
-  return { library, get, setSpec, setReference, patchFrames, generate, jobStatus, cancel };
+  return { library, get, setSpec, setReference, patchFrames, generate, jobStatus, cancel, export: exportPack };
 }
 
 export type SpriteService = ReturnType<typeof createSpriteService>;
-
-/** What the handler answers for the channels whose theme has not landed (export). */
-export const spriteNotAvailableYet = (): GitOpResult => failure(SPRITE_NOT_AVAILABLE);
 
 function firstIssue(error: unknown): string {
   const issues = (error as { issues?: Array<{ path: Array<string | number>; message: string }> }).issues;
