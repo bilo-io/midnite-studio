@@ -6,6 +6,8 @@ import {
   GameStateSchema,
   jsonDepth,
   MCP_CONTENT_KEY,
+  type GameImportAssetRequest,
+  type GameImportAssetResult,
   type GameInputEvent,
   type GameLogLevel,
   type GameSummary,
@@ -46,6 +48,8 @@ export type GameMcpDeps = {
   service: Pick<GameService, 'resolve' | 'list' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GameWebContents | null;
+  /** The asset bridge's import (Theme N). */
+  importAsset?: (req: GameImportAssetRequest) => Promise<{ ok: true; value: GameImportAssetResult } | { ok: false; kind: string; message?: string }>;
   /** Injected so tests can drive time. */
   sleep?: (ms: number) => Promise<void>;
 };
@@ -63,7 +67,8 @@ export type GameMcpTools = {
     | 'game_screenshot'
     | 'game_logs'
     | 'game_input'
-    | 'game_state']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_state'
+    | 'game_import_asset']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
 /** A hostile `getState` has this long before the call gives up. */
@@ -294,6 +299,13 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       }
       await sleep(GAME_INPUT_SETTLE_MS);
       return { sent: events.length };
+    },
+
+    async game_import_asset({ game, source, name }) {
+      const found = await need(game);
+      if (!deps.importAsset) throw new McpToolError('error', 'The asset bridge is not ready yet.');
+      const imported = unwrap(await deps.importAsset({ gameId: found.gameId, source, ...(name ? { name } : {}) }));
+      return { gameId: found.gameId, ...imported };
     },
 
     async game_state({ game }) {

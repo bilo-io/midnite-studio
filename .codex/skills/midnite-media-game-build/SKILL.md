@@ -47,7 +47,9 @@ Fix, reload, repeat. When a bug is fixed, add a `playtests/<name>.json` that wou
 
 ## Assets
 
-`kit/core/asset-index.js` exports `createAssetIndex(json)` over `assets/index.json` (`{ version: 1, assets: [{ kind, name, path, files? }] }`). Its `get(kind, name)`, `list(kind)` and `url(kind, name, file?)` are the only way to find an asset. Never hard-code a path to a file under `assets/`: web export rewrites assets through the index. Each starter's `ASSETS.md` lists the placeholder art it ships and where it came from; keep it current when you add art.
+`assets/index.json` (`{ version: 1, assets: [{ name, kind, path, entry? }] }`) is the one lookup for assets; `kit/core/asset-index.js` reads it. `loadAssetIndex()` fetches it and `createAssetIndex(json)` wraps it: `assetUrl(name, file?)` is the URL to load by name alone (the asset's `entry` file, such as `terrain.manifest.json` or `atlas.json`, unless you name a `file`; `null` when the name is unknown), `url(kind, name, file?)`, `get(kind, name)`, `byName(name)` and `list(kind)` are the longer forms. Names are unique across kinds. Never hard-code a path under `assets/`: web export rewrites assets through the index.
+
+Bring media in with `game_import_asset` (`{ game, source, name? }`), where `source` is `{ tab: 'terrain' | 'sprite' | 'model' | 'image' | 'audio', repoPath, path }` for an item in a repo's media or `{ packPath }` for a pack folder. It copies the files to `assets/<kind>/<name>/` (or `assets/<kind>/<name>.<ext>` for one file), records the source and a sha256 in the manifest's `assets`, registers it in the index and commits it as `assets: import <name>`. Never copy files into `assets/` by hand: a hand copy has no provenance and no index entry. If a source changes later, the Games tab offers a re-import as its own commit (`assets: re-import <names>`); an agent does not need to do that itself. Each starter's `ASSETS.md` lists the placeholder art it ships and where it came from; keep it current when you add art.
 
 ## Rules
 

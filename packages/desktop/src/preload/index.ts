@@ -576,6 +576,11 @@ const bridge: Pick<
       undo: (req) => call(CHANNELS.gamesAgentUndo, req),
       onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
     },
+    assets: {
+      sources: (req) => call(CHANNELS.gamesAssetSources, req),
+      import: (req) => call(CHANNELS.gamesImportAsset, req),
+      resync: (req) => call(CHANNELS.gamesResync, req),
+    },
   },
   media: {
     project: {

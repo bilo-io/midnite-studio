@@ -175,6 +175,7 @@ import { createGameRunner } from './games/game-runner';
 import { createGameMcpTools } from './games/game-mcp';
 import { createGamePopout } from './games/game-popout';
 import { createGameService } from './games/game-service';
+import { createAssetBridge } from './games/asset-bridge';
 import { createGameAgentService } from './games/game-agent-service';
 import { createIterativeHost } from './media/model/iterative-host';
 import { createLlmCall } from './media/model/engines';
@@ -722,7 +723,20 @@ if (!app.requestSingleInstanceLock()) {
     });
     // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.
     const mcpGameService = gameService;
-    const gameMcpTools = createGameMcpTools({ service: mcpGameService, webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null });
+    // The asset bridge (Theme N): copies media into a game's assets/, one commit per import.
+    const gameAssets = createAssetBridge({
+      resolve: (gameId) => mcpGameService.resolve(gameId),
+      listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+      gamesRoot: async () => (await mcpGameService.settings.get()).resolvedRoot,
+      repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+    });
+    const gameMcpTools = createGameMcpTools({
+      service: mcpGameService,
+      webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null,
+      importAsset: (req) => gameAssets.importAsset(req),
+    });
     setGameTools(gameMcpTools);
     // Create and iterate (Theme M): agent CLIs on a private MCP server, or Ollama, one commit per changing pass.
     const gameLlm = createLlmCall(modelEngines);
@@ -735,7 +749,7 @@ if (!app.requestSingleInstanceLock()) {
       send: broadcastToAllWindows,
       log: defaultLogger,
     });
-    registerGamesHandlers(gameService, gameAgentService);
+    registerGamesHandlers(gameService, gameAgentService, gameAssets);
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));

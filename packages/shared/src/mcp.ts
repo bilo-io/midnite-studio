@@ -18,6 +18,8 @@ import {
   GameCreateInputSchema,
   GameCreateOutputSchema,
   GameGetManifestOutputSchema,
+  GameImportAssetInputSchema,
+  GameImportAssetOutputSchema,
   GameInputInputSchema,
   GameInputOutputSchema,
   GameListOutputSchema,
@@ -150,6 +152,7 @@ type McpToolEntry = {
     | 'game_logs'
     | 'game_input'
     | 'game_state'
+    | 'game_import_asset'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -673,6 +676,15 @@ export const MCP_TOOLS = {
     input: GameToolTargetSchema,
     output: GameStateOutputSchema,
     readOnly: true,
+  },
+  game_import_asset: {
+    id: 'game_import_asset',
+    title: 'Import media into a game',
+    description:
+      'Copies a Terrain, Sprite, Model, Image or Audio item into a game’s `assets/` and registers it in the index — use instead of `cp` into the repo; refused unless its Settings switch is on.',
+    input: GameImportAssetInputSchema,
+    output: GameImportAssetOutputSchema,
+    readOnly: false,
   },
   /*
    * Media ▸ Terrain (Phase 105 Theme J) — shape a terrain iteratively: pick a height source, build,

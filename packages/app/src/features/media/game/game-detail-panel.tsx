@@ -3,6 +3,7 @@ import { LuGitBranch } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
+import { GameAssetsPanel } from './game-assets-panel';
 import { GameIteratePanel } from './game-iterate-panel';
 
 /**
@@ -62,6 +63,7 @@ export function GameDetailPanel({ game }: { game: GameSummary }) {
           <LuGitBranch aria-hidden className="h-3.5 w-3.5" />
           Open in Timeline
         </button>
+        {game.valid ? <GameAssetsPanel game={game} /> : null}
       </div>
       {game.valid ? <GameIteratePanel game={game} /> : null}
     </div>

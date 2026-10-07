@@ -4,12 +4,14 @@
  *
  * `assets/index.json` is the one place a game looks assets up by kind and name
  * (the asset bridge writes it when you import from Terrain, Sprites, Models,
- * Images or Audio). Shape: `{ version: 1, assets: [{ kind, name, path, files? }] }`,
- * `path` relative to the repo root.
+ * Images or Audio). Shape: `{ version: 1, assets: [{ kind, name, path, entry?, files? }] }`,
+ * `path` relative to the repo root, `entry` the file inside `path` that opens the asset
+ * (`terrain.manifest.json`, `atlas.json`, `map.tmj`, ...). The bridge keeps names unique across
+ * kinds, so `assetUrl(name)` needs no kind.
  */
 
 /**
- * @typedef {{ kind: string, name: string, path: string, files?: string[] }} AssetEntry
+ * @typedef {{ kind: string, name: string, path: string, entry?: string, files?: string[] }} AssetEntry
  */
 
 /** @param {unknown} json */
@@ -23,8 +25,15 @@ export function createAssetIndex(json) {
     : [];
   const get = (/** @type {string} */ kind, /** @type {string} */ name) =>
     assets.find((entry) => entry.kind === kind && entry.name === name) ?? null;
+  const byName = (/** @type {string} */ name) => assets.find((entry) => entry.name === name) ?? null;
+  const urlOf = (/** @type {AssetEntry | null} */ entry, /** @type {string | undefined} */ file) => {
+    if (!entry) return null;
+    const base = entry.path.replace(/\/+$/, '');
+    return file ? `./${base}/${file}` : `./${base}`;
+  };
   return {
     get,
+    byName,
     list: (/** @type {string} */ kind) => assets.filter((entry) => entry.kind === kind),
     /**
      * A URL for one file of an asset (`url('sprite', 'hero', 'atlas.json')`), or
@@ -34,10 +43,17 @@ export function createAssetIndex(json) {
      * @param {string} [file]
      */
     url(kind, name, file) {
-      const entry = get(kind, name);
-      if (!entry) return null;
-      const base = entry.path.replace(/\/+$/, '');
-      return file ? `./${base}/${file}` : `./${base}`;
+      return urlOf(get(kind, name), file);
+    },
+    /**
+     * The URL to load an asset by name alone: `file` inside it, else its `entry` file
+     * (a single-file asset's path is already the file), else its folder. `null` when unknown.
+     * @param {string} name
+     * @param {string} [file]
+     */
+    assetUrl(name, file) {
+      const entry = byName(name);
+      return urlOf(entry, file ?? entry?.entry);
     },
   };
 }

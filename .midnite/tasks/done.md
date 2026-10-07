@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme N — Asset bridge
+
+Media is copied into a game repo as `assets/<kind>/<name>/` with provenance (source tab, path, sha256 of the source and the copy) in the manifest and a registration in `assets/index.json`, each import its own `assets: import <name>` commit and each re-sync its own `assets: re-import <names>` commit that never overwrites silently and never deletes for a missing source. Sources are Terrain (exported on the way in), Sprites, Models (.glb), Images and Audio from registered repos, or a pack folder; reached from the Games tab's picker and assets panel, or over MCP with `game_import_asset`. Kit 0.7.0 adds `assetUrl(name)` to the asset index and the build skill documents it.
+
+- [x] `asset-bridge.ts`, `GameAssetIndexSchema` and the import/sources/re-sync IPC, `game_import_asset`, `GameAssetPicker`/`GameAssetsPanel`/explorer badge, kit 0.7.0, build skill copies, and vitest (`asset-bridge.test.ts`, `game-assets-panel.test.tsx`, `game-mcp.test.ts`, `kit-core.test.ts`).
+
 ## 2026-10-07 — Phase 107 Theme M — Create and iterate: agents, Ollama and commit-per-turn history
 
 An agent CLI (Claude Code or Codex, held to file tools and this game's `game_*` tools on a private MCP server, no shell) or an Ollama model (whole `src/` files in a validated envelope) edits a game repo in passes; every pass that changed files is one `agent: …` commit, a no-op pass is none, and `squashRunCommits` folds a run into one. Undo turn reverts the newest agent commit with git-engine's new `revertCommit`. The Games tab gains the iterate panel (engine, Ollama warning, passes, Run agent/Cancel), the edit thread, and a first prompt on the create form; `game_create` answers `warnings`.

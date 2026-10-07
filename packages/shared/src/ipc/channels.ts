@@ -908,6 +908,12 @@ export const CHANNELS = {
   gamesAgentCancel: 'mstudio:games:agent-cancel',
   /** Undo turn: revert the game's newest agent commit. */
   gamesAgentUndo: 'mstudio:games:agent-undo',
+  /** The picker's candidates for one tab, across the registered repos (Theme N). */
+  gamesAssetSources: 'mstudio:games:asset-sources',
+  /** Copy a media item into a game's `assets/` and commit it (Theme N). */
+  gamesImportAsset: 'mstudio:games:import-asset',
+  /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
+  gamesResync: 'mstudio:games:resync',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.

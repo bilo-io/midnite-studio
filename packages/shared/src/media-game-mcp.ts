@@ -15,6 +15,9 @@ import { z } from 'zod';
 
 import {
   GameAgentEngineSchema,
+  GameAssetNameSchema,
+  GameAssetSourceSchema,
+  GameImportAssetResultSchema,
   GameCreateRequestSchema,
   GameLogEntrySchema,
   GameManifestSchema,
@@ -37,6 +40,7 @@ export const GAME_MCP_TOOL_IDS = [
   'game_logs',
   'game_input',
   'game_state',
+  'game_import_asset',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -107,6 +111,12 @@ export const GameInputEventSchema = z.discriminatedUnion('type', [
   z.object({ t: inputTime, type: z.literal('gamepad'), button: z.number().int().min(0).max(16), pressed: z.boolean() }),
 ]);
 export type GameInputEvent = z.infer<typeof GameInputEventSchema>;
+export const GameImportAssetInputSchema = GameToolTargetSchema.extend({
+  /** An item in a registered repo's media store, or a pack folder under a registered repo or the games location. */
+  source: GameAssetSourceSchema,
+  name: GameAssetNameSchema.optional(),
+});
+
 export const GameInputInputSchema = GameToolTargetSchema.extend({
   events: z.array(GameInputEventSchema).max(GAME_INPUT_MAX_EVENTS),
 });
@@ -126,3 +136,4 @@ export const GameRunOutputSchema = z.object({ gameId: z.string(), runId: z.strin
 export const GameLogsOutputSchema = z.object({ entries: z.array(GameLogEntrySchema), next: z.number().int().nonnegative() });
 export const GameInputOutputSchema = z.object({ sent: z.number().int().nonnegative() });
 export const GameStateOutputSchema = z.object({ state: GameStateSchema });
+export const GameImportAssetOutputSchema = GameImportAssetResultSchema.extend({ gameId: z.string() });

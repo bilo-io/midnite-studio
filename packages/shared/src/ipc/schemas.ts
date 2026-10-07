@@ -224,6 +224,12 @@ import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
   GameAgentProgressSchema,
+  GameAssetSourcesRequestSchema,
+  GameAssetSourcesResultSchema,
+  GameImportAssetRequestSchema,
+  GameImportAssetResultSchema,
+  GameResyncRequestSchema,
+  GameResyncResultSchema,
   GameAgentRunRequestSchema,
   GameAgentRunResultSchema,
   GameAgentUndoRequestSchema,
@@ -4398,3 +4404,9 @@ export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
 export const GamesAgentCancelRequest = GameIdRequestSchema;
 export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
 export const GamesAgentProgressPayload = GameAgentProgressSchema;
+export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
+export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
+export const GamesImportAssetRequest = GameImportAssetRequestSchema;
+export const GamesImportAssetResponse = GitOpResultOf(GameImportAssetResultSchema);
+export const GamesResyncRequest = GameResyncRequestSchema;
+export const GamesResyncResponse = GitOpResultOf(GameResyncResultSchema);

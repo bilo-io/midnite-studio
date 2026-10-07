@@ -41,7 +41,10 @@ function fakeWebContents(executeJavaScript: GameWebContents['executeJavaScript']
   };
 }
 
-function setup(wc: GameWebContents | null, opts: { logs?: GameLogEntry[]; manifest?: Record<string, unknown> } = {}) {
+function setup(
+  wc: GameWebContents | null,
+  opts: { logs?: GameLogEntry[]; manifest?: Record<string, unknown>; importAsset?: Parameters<typeof createGameMcpTools>[0]['importAsset'] } = {},
+) {
   const emitted: Array<[string, unknown]> = [];
   const manifestSet = vi.fn(async () => ({ ok: true as const }));
   const tools = createGameMcpTools({
@@ -59,12 +62,38 @@ function setup(wc: GameWebContents | null, opts: { logs?: GameLogEntry[]; manife
       isRunning: () => wc !== null,
     },
     webContents: () => wc,
+    importAsset: opts.importAsset,
   });
   setGameTools(tools);
   return { emitted, manifestSet };
 }
 
 const entry = (seq: number, level: GameLogEntry['level'] = 'log'): GameLogEntry => ({ seq, at: seq, level, text: `line ${seq}` });
+
+describe('game_import_asset', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('imports into the resolved game once the switch is on, and answers the import with the gameId', async () => {
+    const importAsset = vi.fn(async (req: { gameId: string }) => ({
+      ok: true as const,
+      value: { name: 'hero', kind: 'sprite' as const, path: 'assets/sprite/hero', sha256: 'abc', commit: 'sha1', entry: req.gameId && 'atlas.json' },
+    }));
+    setup(null, { importAsset });
+    setMcpAllowGamesState(true);
+    const result = await dispatchMcpCall('game_import_asset', { game: GAME.path, source: { tab: 'sprite', repoPath: '/r', path: 'characters/hero' }, name: 'hero' });
+    expect(result).toMatchObject({ ok: true, value: { gameId: 'gabc', name: 'hero', path: 'assets/sprite/hero', commit: 'sha1' } });
+    expect(importAsset).toHaveBeenCalledWith({ gameId: 'gabc', source: { tab: 'sprite', repoPath: '/r', path: 'characters/hero' }, name: 'hero' });
+  });
+
+  it('answers a failed import with its message, and rejects a bad name or an unknown game', async () => {
+    setup(null, { importAsset: async () => ({ ok: false as const, kind: 'error', message: 'That item was not found.' }) });
+    setMcpAllowGamesState(true);
+    expect(await dispatchMcpCall('game_import_asset', { game: 'gabc', source: { packPath: '/p' } })).toMatchObject({ ok: false, message: 'That item was not found.' });
+    expect(MCP_TOOLS.game_import_asset.input.safeParse({ game: 'gabc', source: { packPath: '/p' }, name: '../x' }).success).toBe(false);
+    expect(await dispatchMcpCall('game_import_asset', { game: 'nope', source: { packPath: '/p' } })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
 
 describe('game_* over the global MCP dispatcher', () => {
   beforeEach(() => resetMcpAllowUiStateForTests());
@@ -104,6 +133,7 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_stop', { game: 'gabc' }],
       ['game_reload', { game: 'gabc' }],
       ['game_input', { game: 'gabc', events: [{ t: 0, type: 'keyDown', key: 'a' }] }],
+      ['game_import_asset', { game: 'gabc', source: { packPath: '/tmp/p' } }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
     }
