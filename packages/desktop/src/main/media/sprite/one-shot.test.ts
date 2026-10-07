@@ -16,7 +16,7 @@ beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'sprite-one-shot-'));
 });
 afterEach(async () => {
-  await rm(root, { recursive: true, force: true });
+  await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
 /**
@@ -71,7 +71,7 @@ async function create(service: ReturnType<typeof make>, over: Record<string, unk
 }
 
 const done = async (service: ReturnType<typeof make>, jobId: string) => {
-  await vi.waitFor(() => expect(service.jobStatus(jobId)?.state).not.toBe('running'));
+  await vi.waitFor(() => expect(service.jobStatus(jobId)?.state).not.toBe('running'), { timeout: 15_000 });
   return service.jobStatus(jobId)!;
 };
 

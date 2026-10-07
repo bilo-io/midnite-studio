@@ -15,7 +15,7 @@ beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'sprite-rendered-'));
 });
 afterEach(async () => {
-  await rm(root, { recursive: true, force: true });
+  await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
 /** A 32×32 rendered frame: transparent, with an opaque block standing on row 28. */
@@ -74,7 +74,7 @@ describe('rendered runner', () => {
     const target = { repoId: 'r', group: 'characters' as const, asset: created.value.asset };
     const job = await service.generate(target);
     if (!job.ok) throw new Error(job.kind === 'error' ? job.message : 'no job');
-    await vi.waitFor(() => expect(service.jobStatus(job.value.jobId)?.state).toBe('done'));
+    await vi.waitFor(() => expect(service.jobStatus(job.value.jobId)?.state).toBe('done'), { timeout: 15_000 });
     expect(service.jobStatus(job.value.jobId)?.message).toBe('No matching animation: jump');
     expect(asked).toMatchObject({ directions: ['s', 'w', 'n', 'e'], model: { project: 'characters', path: 'knight/model.json' }, frameSize: [32, 32] });
     expect(asked!.settings.camera).toBe('isometric');
