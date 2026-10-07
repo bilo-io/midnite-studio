@@ -4,6 +4,8 @@ import { SpriteAssetSpecSchema } from '@midnite/studio-shared';
 import {
   envBlockedReason,
   envFormToSpec,
+  envGenerates,
+  parsePropLines,
   formRecommendation,
   initialEnvForm,
   initialSheetForm,
@@ -76,7 +78,53 @@ describe('environment form', () => {
     expect(kinds.map((k) => k.kind)).toEqual(['tileset', 'tileset', 'background', 'prop-sheet', 'map']);
     expect(kinds[1]).toMatchObject({ projection: 'isometric' });
   });
+
   it('needs a name', () => {
     expect(envBlockedReason(initialEnvForm())).toBe('Name the asset first.');
+  });
+
+  it('starts as a 32 px blob47 grass and dirt tileset', () => {
+    const spec = SpriteAssetSpecSchema.parse(envFormToSpec({ ...initialEnvForm(), name: 'Meadow' }));
+    expect(spec).toMatchObject({ kind: 'tileset', tileSize: 32, scheme: 'blob47', transitions: [{ a: 'grass', b: 'dirt' }] });
+    expect(spec.kind === 'tileset' && spec.terrains.map((t) => t.id)).toEqual(['grass', 'dirt']);
+    expect(envBlockedReason({ ...initialEnvForm(), name: 'Meadow' })).toBeNull();
+  });
+
+  it('refuses a transition to a terrain the tileset lacks', () => {
+    const form = { ...initialEnvForm(), name: 'x', transitions: [{ a: 'grass', b: 'lava' }] };
+    expect(envBlockedReason(form)).toMatch(/lava/);
+  });
+
+  it('renders a terrain instead of drawing bases, and wants one picked', () => {
+    const form = { ...initialEnvForm(), name: 'x', fromTerrain: { project: '', terrain: '', metresPerTile: 4 } };
+    expect(envBlockedReason(form)).toBe('Pick a terrain to render.');
+    const picked = { ...form, fromTerrain: { project: 'terrains', terrain: 'isle-1', metresPerTile: 8 } };
+    expect(envBlockedReason(picked)).toBeNull();
+    expect(envFormToSpec(picked)).toMatchObject({ fromTerrain: { project: 'terrains', terrain: 'isle-1', metresPerTile: 8 } });
+  });
+
+  it('a background carries its layers and size', () => {
+    const spec = SpriteAssetSpecSchema.parse(envFormToSpec({ ...initialEnvForm(), name: 'Dusk', kind: 'background', bgSize: [1280, 720] }));
+    expect(spec).toMatchObject({ kind: 'background', size: [1280, 720] });
+    expect(spec.kind === 'background' && spec.layers.map((l) => l.scrollFactor)).toEqual([0, 0.2, 0.5, 0.8]);
+    const dup = { ...initialEnvForm(), name: 'x', kind: 'background' as const, layers: [...initialEnvForm().layers, { name: 'far', prompt: '', scrollFactor: 0.3 }] };
+    expect(envBlockedReason(dup)).toMatch(/far/);
+  });
+
+  it('a prop sheet reads one prop per line', () => {
+    expect(parsePropLines('crate: a wooden crate\n\n  Big Barrel \n3 coins: gold')).toEqual([
+      { name: 'crate', prompt: 'a wooden crate' },
+      { name: 'big-barrel', prompt: 'Big Barrel' },
+      { name: 'prop-3-coins', prompt: 'gold' },
+    ]);
+    const form = { ...initialEnvForm(), name: 'Camp', kind: 'prop-sheet' as const };
+    expect(SpriteAssetSpecSchema.parse(envFormToSpec(form))).toMatchObject({ kind: 'prop-sheet', props: [{ name: 'crate' }, { name: 'barrel' }, { name: 'sign' }] });
+    expect(envBlockedReason({ ...form, propsText: '  ' })).toBe('Add at least one prop.');
+    expect(envBlockedReason({ ...form, propsText: 'crate\ncrate: another' })).toBe('Two props are called crate.');
+  });
+
+  it('a map is created, not generated', () => {
+    expect(envGenerates('map')).toBe(false);
+    expect(envGenerates('tileset')).toBe(true);
   });
 });

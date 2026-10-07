@@ -20,6 +20,7 @@ import { MEDIA_TAB_META } from '../media-tabs';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { SpriteAnimator } from './sprite-animator';
 import { SpriteCreatePanel } from './sprite-create-panel';
+import { SpriteEnvironmentPreview } from './sprite-environment-preview';
 import { SpriteExplorer, spriteOfPath } from './sprite-explorer';
 import { SpriteOneShotPanel } from './sprite-one-shot-panel';
 import { SpriteFlaggedFrames, SpriteReferenceCard, type ReferenceChange } from './sprite-reference-card';
@@ -98,6 +99,7 @@ function SpriteTabBody({ repoId }: { repoId: string }) {
           }}
         />
       )}
+      environment={(spec) => <SpriteEnvironmentPreview repoId={repoId} target={ref} spec={spec} version={String(sprite.dataUpdatedAt)} busy={running} />}
       oneShot={(spec) => (
         <SpriteOneShotPanel
           repoId={repoId}
@@ -160,6 +162,7 @@ function SpriteOverview({
   reference,
   oneShot,
   animator,
+  environment,
 }: {
   spec: SpriteAssetSpec;
   frames: SpriteFramesFile;
@@ -173,6 +176,8 @@ function SpriteOverview({
   oneShot: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>) => React.ReactNode;
   /** The previewer, frame strip and export (Theme G). */
   animator: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>) => React.ReactNode;
+  /** An environment asset's preview and export (Themes H and I). */
+  environment: (spec: Extract<SpriteAssetSpec, { kind: 'tileset' | 'background' | 'prop-sheet' }>) => React.ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
   const rows = specRows(spec);
@@ -191,7 +196,7 @@ function SpriteOverview({
       <div className="flex items-center gap-2">
         <h2 className="truncate text-sm font-semibold">{spriteFolderLabel(spec.name)}</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{spec.kind}</span>
-        {spec.kind === 'sheet' ? (
+        {spec.kind !== 'map' ? (
           <div className="ml-auto flex items-center gap-2">
             {running ? (
               <>
@@ -228,6 +233,7 @@ function SpriteOverview({
       ) : null}
       {spec.prompt ? <p className="text-xs text-muted-foreground">{spec.prompt}</p> : null}
       {spec.kind === 'sheet' ? animator(spec) : null}
+      {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' ? environment(spec) : null}
       {spec.kind === 'sheet' && handDrawn ? reference(spec, () => start({ turnaround: true })) : null}
       {spec.kind === 'sheet' && spec.oneShot ? oneShot(spec) : null}
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
@@ -237,11 +243,20 @@ function SpriteOverview({
             <dd>{value}</dd>
           </div>
         ))}
-        <dt className="text-muted-foreground">Frames</dt>
-        <dd className="tabular-nums">
-          {frameCount}
-          {spec.lastReport ? ` (${spec.lastReport.failing} failing)` : ''}
-        </dd>
+        {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' ? (
+          <>
+            <dt className="text-muted-foreground">{{ tileset: 'Tiles built', background: 'Layers built', 'prop-sheet': 'Props built' }[spec.kind]}</dt>
+            <dd className="tabular-nums">{spec.lastReport ? `${spec.lastReport.frames}${spec.lastReport.failing ? ` (${spec.lastReport.failing} with warnings)` : ''}` : 'not generated yet'}</dd>
+          </>
+        ) : (
+          <>
+            <dt className="text-muted-foreground">Frames</dt>
+            <dd className="tabular-nums">
+              {frameCount}
+              {spec.lastReport ? ` (${spec.lastReport.failing} failing)` : ''}
+            </dd>
+          </>
+        )}
       </dl>
       <SpriteFlaggedFrames frames={frames} />
       {spec.kind === 'sheet' ? (
@@ -293,11 +308,22 @@ function specRows(spec: SpriteAssetSpec): Array<[string, string]> {
         ...renderRows(spec),
       ];
     case 'tileset':
-      return [['Style', spec.style], ['Projection', spec.projection], ['Tile size', String(spec.tileSize)], ['Autotile', spec.autotile]];
+      return [
+        ['Style', spec.style],
+        ['Projection', spec.projection],
+        ['Tile size', `${spec.tileSize} px`],
+        ...(spec.fromTerrain
+          ? ([['From terrain', `${spec.fromTerrain.project}/${spec.fromTerrain.terrain}, ${spec.fromTerrain.metresPerTile} m per tile`]] as Array<[string, string]>)
+          : ([
+              ['Autotiling', spec.scheme === 'blob47' ? '47-tile blob' : '16-tile corner'],
+              ['Terrains', spec.terrains.map((t) => `${t.label} (${t.collision})`).join(', ')],
+              ['Transitions', spec.transitions.map((t) => `${t.a} → ${t.b}`).join(', ') || 'none'],
+            ] as Array<[string, string]>)),
+      ];
     case 'background':
-      return [['Style', spec.style], ['Size', `${spec.size[0]} × ${spec.size[1]}`], ['Layers', String(spec.layers)]];
+      return [['Style', spec.style], ['Size', `${spec.size[0]} × ${spec.size[1]}`], ['Layers', spec.layers.map((l) => `${l.name} ${l.scrollFactor}`).join(', ')]];
     case 'prop-sheet':
-      return [['Style', spec.style], ['Cell', `${spec.cell[0]} × ${spec.cell[1]}`], ['Props', String(spec.props.length)]];
+      return [['Style', spec.style], ['Cell', `${spec.cell[0]} × ${spec.cell[1]}`], ['Props', spec.props.map((p) => p.name).join(', ') || 'none']];
     case 'map':
       return [['Style', spec.style], ['Size', `${spec.size[0]} × ${spec.size[1]} tiles`], ['Tile size', String(spec.tileSize)]];
   }

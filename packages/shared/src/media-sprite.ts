@@ -208,30 +208,95 @@ export const SpriteSheetSpecSchema = z.object({
 });
 export type SpriteSheetSpec = z.infer<typeof SpriteSheetSpecSchema>;
 
+// --- environment specs (Themes H and I) -------------------------------------------
+
+export const TILESET_COLLISIONS = ['walkable', 'solid', 'water'] as const;
+export type TilesetCollision = (typeof TILESET_COLLISIONS)[number];
+export const TILESET_TILE_SIZES = [16, 32, 48, 64] as const;
+export const TILESET_SCHEMES = ['blob47', 'corner16'] as const;
+export type TilesetScheme = (typeof TILESET_SCHEMES)[number];
+export const TILESET_PROJECTIONS = ['orthogonal', 'isometric'] as const;
+const TerrainId = z.string().regex(/^[a-z][a-z0-9-]*$/, 'lower-case letters, digits and dashes; starts with a letter');
+
+/** One terrain of a tileset: a seamless base tile, generated from `prompt`. */
+export const TilesetTerrainSchema = z.preprocess(
+  (value) => (typeof value === 'string' ? { id: value, label: value } : value),
+  z.object({
+    id: TerrainId,
+    label: z.string().min(1).max(40),
+    prompt: z.string().max(400).default(''),
+    collision: z.enum(TILESET_COLLISIONS).default('walkable'),
+  }),
+);
+export type TilesetTerrain = z.infer<typeof TilesetTerrainSchema>;
+
+/** "Render this Phase 105 terrain into a tile grid" — the terrain-to-tiles source (Theme I). */
+export const TilesetFromTerrainSchema = z.object({
+  project: z.string().min(1),
+  terrain: z.string().min(1),
+  /** World metres one tile covers. */
+  metresPerTile: z.number().min(1).max(16).default(4),
+});
+export type TilesetFromTerrain = z.infer<typeof TilesetFromTerrainSchema>;
+
 export const TilesetSpecSchema = z.object({
   ...base,
   kind: z.literal('tileset'),
-  /** Isometric tiles are a tileset with a diamond projection (Theme I). */
-  projection: z.enum(['orthogonal', 'isometric']).default('orthogonal'),
-  tileSize: z.number().int().min(8).max(256).default(32),
-  autotile: z.enum(['blob47', 'corner16', 'none']).default('blob47'),
-  terrains: z.array(z.string().min(1).max(40)).max(16).default(['grass', 'dirt']),
+  /** Isometric tiles are the orthogonal ones re-projected to a 2:1 diamond (Theme I). */
+  projection: z.enum(TILESET_PROJECTIONS).default('orthogonal'),
+  tileSize: z.union([z.literal(16), z.literal(32), z.literal(48), z.literal(64)]).default(32),
+  terrains: z.array(TilesetTerrainSchema).min(1).max(8).default([
+    { id: 'grass', label: 'Grass', prompt: 'lush grass', collision: 'walkable' },
+    { id: 'dirt', label: 'Dirt', prompt: 'packed dirt', collision: 'walkable' },
+  ]),
+  /** Each pair builds a transition set: `b` painted over `a`. */
+  transitions: z.array(z.object({ a: TerrainId, b: TerrainId })).max(16).default([{ a: 'grass', b: 'dirt' }]),
+  scheme: z.enum(TILESET_SCHEMES).default('blob47'),
+  /** Pixel style: one palette over every terrain (fixed colours, or this many from the tiles). */
+  palette: SpritePaletteSchema.optional(),
+  seed: z.number().int().min(0).max(2_147_483_647).default(1),
+  /** Set: the job renders this terrain into tiles instead of generating terrain bases. */
+  fromTerrain: TilesetFromTerrainSchema.optional(),
 });
 export type TilesetSpec = z.infer<typeof TilesetSpecSchema>;
+
+export const BACKGROUND_SCROLL_DEFAULTS = [
+  { name: 'sky', prompt: 'clear sky with soft clouds', scrollFactor: 0 },
+  { name: 'far', prompt: 'distant mountains', scrollFactor: 0.2 },
+  { name: 'mid', prompt: 'rolling hills and trees', scrollFactor: 0.5 },
+  { name: 'near', prompt: 'foreground bushes and grass', scrollFactor: 0.8 },
+] as const;
+
+export const BackgroundLayerSchema = z.object({
+  name: z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, 'lower-case letters, digits and dashes; starts with a letter; ≤ 32'),
+  prompt: z.string().max(400).default(''),
+  scrollFactor: z.number().min(0).max(1),
+});
+export type BackgroundLayer = z.infer<typeof BackgroundLayerSchema>;
 
 export const BackgroundSpecSchema = z.object({
   ...base,
   kind: z.literal('background'),
-  size: z.tuple([z.number().int().min(64).max(4096), z.number().int().min(64).max(4096)]).default([640, 360]),
-  layers: z.number().int().min(1).max(8).default(3),
+  size: z.tuple([z.number().int().min(64).max(4096), z.number().int().min(64).max(4096)]).default([1920, 1080]),
+  layers: z.array(BackgroundLayerSchema).min(3).max(5).default(BACKGROUND_SCROLL_DEFAULTS.map((l) => ({ ...l }))),
 });
 export type BackgroundSpec = z.infer<typeof BackgroundSpecSchema>;
+
+export const PropSchema = z.preprocess(
+  (value) => (typeof value === 'string' ? { name: spriteSlug(value), prompt: value } : value),
+  z.object({
+    name: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/, 'lower-case letters, digits and dashes; starts with a letter; ≤ 40'),
+    prompt: z.string().max(400).default(''),
+  }),
+);
+export type SpriteProp = z.infer<typeof PropSchema>;
 
 export const PropSheetSpecSchema = z.object({
   ...base,
   kind: z.literal('prop-sheet'),
   cell: z.tuple([Dim, Dim]).default([64, 64]),
-  props: z.array(z.string().min(1).max(60)).max(64).default([]),
+  props: z.array(PropSchema).max(64).default([]),
+  palette: SpritePaletteSchema.optional(),
 });
 export type PropSheetSpec = z.infer<typeof PropSheetSpecSchema>;
 

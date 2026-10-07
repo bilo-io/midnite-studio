@@ -10,13 +10,22 @@ import {
   oneShotRows,
   presetClips,
   recommendSpriteMethod,
+  backgroundBlocker,
+  BACKGROUND_SCROLL_DEFAULTS,
   SPRITE_NEEDS_MODEL,
+  SpriteAssetSpecSchema,
+  spriteSlug,
+  tilesetBlocker,
+  type BackgroundLayer,
   type ImageProviderId,
   type SpriteClip,
   type SpriteMethod,
   type SpritePerspective,
   type SpriteRenderSettings,
+  type SpriteProp,
   type SpriteStyle,
+  type TilesetCollision,
+  type TilesetScheme,
 } from '@midnite/studio-shared';
 
 /** The Sheet form's state. Pure data, so the spec it becomes and the reasons it blocks are testable. */
@@ -170,24 +179,122 @@ export const ENV_KINDS: ReadonlyArray<{ id: EnvKind; label: string }> = [
   { id: 'map', label: 'Map' },
 ];
 
-export type EnvForm = { kind: EnvKind; name: string; prompt: string; style: SpriteStyle; tileSize: number };
+/** One terrain of a tileset form. */
+export type EnvTerrainRow = { id: string; label: string; prompt: string; collision: TilesetCollision };
 
-export const initialEnvForm = (): EnvForm => ({ kind: 'tileset', name: '', prompt: '', style: 'pixel', tileSize: 32 });
+/** Terrains the form offers to add, with the collision each usually wants. */
+export const TERRAIN_PRESETS: ReadonlyArray<EnvTerrainRow> = [
+  { id: 'grass', label: 'Grass', prompt: 'lush grass', collision: 'walkable' },
+  { id: 'dirt', label: 'Dirt', prompt: 'packed dirt', collision: 'walkable' },
+  { id: 'sand', label: 'Sand', prompt: 'dry sand', collision: 'walkable' },
+  { id: 'water', label: 'Water', prompt: 'shallow water with ripples', collision: 'water' },
+  { id: 'stone', label: 'Stone', prompt: 'grey cobblestone', collision: 'solid' },
+  { id: 'snow', label: 'Snow', prompt: 'fresh snow', collision: 'walkable' },
+  { id: 'lava', label: 'Lava', prompt: 'cooling lava rock', collision: 'solid' },
+  { id: 'forest', label: 'Forest floor', prompt: 'leaf litter and moss', collision: 'walkable' },
+];
+
+export type EnvForm = {
+  kind: EnvKind;
+  name: string;
+  prompt: string;
+  style: SpriteStyle;
+  provider: ImageProviderId;
+  model: string;
+  tileSize: number;
+  scheme: TilesetScheme;
+  terrains: EnvTerrainRow[];
+  transitions: Array<{ a: string; b: string }>;
+  /** Tileset only: render a Phase 105 terrain into a tile grid instead of generating terrain tiles. */
+  fromTerrain: { project: string; terrain: string; metresPerTile: number } | null;
+  bgSize: [number, number];
+  layers: BackgroundLayer[];
+  cell: [number, number];
+  /** Prop sheet: one prop per line, `name: description` or just a description. */
+  propsText: string;
+};
+
+export function initialEnvForm(provider: ImageProviderId = SPRITE_DEFAULT_PROVIDER, model?: string): EnvForm {
+  return {
+    kind: 'tileset',
+    name: '',
+    prompt: '',
+    style: 'pixel',
+    provider,
+    model: model ?? imageModelsFor(provider)[0]?.id ?? '',
+    tileSize: 32,
+    scheme: 'blob47',
+    terrains: TERRAIN_PRESETS.slice(0, 2).map((t) => ({ ...t })),
+    transitions: [{ a: 'grass', b: 'dirt' }],
+    fromTerrain: null,
+    bgSize: [1920, 1080],
+    layers: BACKGROUND_SCROLL_DEFAULTS.map((l) => ({ ...l })),
+    cell: [64, 64],
+    propsText: 'crate: a wooden crate\nbarrel: an oak barrel\nsign: a wooden signpost',
+  };
+}
+
+/** `crate: a wooden crate` → `{ name: 'crate', prompt: 'a wooden crate' }`; a bare line names itself. */
+export function parsePropLines(text: string): SpriteProp[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const colon = line.indexOf(':');
+      const head = colon > 0 ? line.slice(0, colon) : line;
+      const prompt = (colon > 0 ? line.slice(colon + 1) : line).trim() || head;
+      const slug = spriteSlug(head);
+      return { name: /^[a-z]/.test(slug) ? slug : `prop-${slug}`, prompt };
+    });
+}
 
 export function envFormToSpec(form: EnvForm): Record<string, unknown> {
-  const common = { name: form.name.trim(), prompt: form.prompt.trim(), style: form.style };
+  const common = { name: form.name.trim(), prompt: form.prompt.trim(), style: form.style, provider: form.provider, ...(form.model ? { model: form.model } : {}) };
   switch (form.kind) {
     case 'tileset':
-      return { kind: 'tileset', ...common, tileSize: form.tileSize };
     case 'isometric':
-      return { kind: 'tileset', ...common, projection: 'isometric', tileSize: form.tileSize };
+      return {
+        kind: 'tileset',
+        ...common,
+        projection: form.kind === 'isometric' ? 'isometric' : 'orthogonal',
+        tileSize: form.tileSize,
+        scheme: form.scheme,
+        terrains: form.terrains,
+        transitions: form.transitions,
+        ...(form.fromTerrain ? { fromTerrain: form.fromTerrain } : {}),
+      };
     case 'background':
-      return { kind: 'background', ...common };
+      return { kind: 'background', ...common, size: form.bgSize, layers: form.layers };
     case 'prop-sheet':
-      return { kind: 'prop-sheet', ...common };
+      return { kind: 'prop-sheet', ...common, cell: form.cell, props: parsePropLines(form.propsText) };
     case 'map':
       return { kind: 'map', ...common, tileSize: form.tileSize };
   }
 }
 
-export const envBlockedReason = (form: EnvForm): string | null => (form.name.trim().length === 0 ? 'Name the asset first.' : null);
+/** Why the environment form cannot create yet, or `null`. */
+export function envBlockedReason(form: EnvForm): string | null {
+  if (form.name.trim().length === 0) return 'Name the asset first.';
+  const spec = envFormToSpec(form);
+  if (form.kind === 'tileset' || form.kind === 'isometric') {
+    if (form.fromTerrain && (!form.fromTerrain.project || !form.fromTerrain.terrain)) return 'Pick a terrain to render.';
+    const blocked = tilesetBlocker({ terrains: form.terrains, transitions: form.transitions, ...(form.fromTerrain ? { fromTerrain: form.fromTerrain } : {}) });
+    if (blocked) return blocked;
+  }
+  if (form.kind === 'background') {
+    const blocked = backgroundBlocker({ layers: form.layers });
+    if (blocked) return blocked;
+  }
+  if (form.kind === 'prop-sheet') {
+    const props = parsePropLines(form.propsText);
+    if (props.length === 0) return 'Add at least one prop.';
+    const dup = props.map((p) => p.name).find((n, i, all) => all.indexOf(n) !== i);
+    if (dup) return `Two props are called ${dup}.`;
+  }
+  const parsed = SpriteAssetSpecSchema.safeParse(spec);
+  return parsed.success ? null : (parsed.error.issues[0]?.message ?? 'Check the form.');
+}
+
+/** Kinds whose Generate runs a job (a map is created only, until Theme J). */
+export const envGenerates = (kind: EnvKind): boolean => kind !== 'map';

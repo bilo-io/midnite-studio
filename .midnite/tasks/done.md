@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 106 Themes H + I — Tilesets with autotiling; isometric tiles, parallax backgrounds and prop sheets ([#764](https://github.com/bilo-io/midnite-studio/pull/764))
+
+A tileset is seam-checked base tiles plus procedurally composited transitions — a 47-tile blob (Tiled `mixed`) or a 16-tile corner set whose touching edges are byte-identical by construction — with collision per tile and a `.tsj` carrying wangsets. The same tiles re-project to 2:1 isometric diamonds and blocks; a Phase 105 terrain cuts into a deduped tile grid plus an embedded-tileset `.tmj`; parallax backgrounds (3–5 x-seamless layers with scroll factors, `background.json`) and prop sheets (one cut-out prop per cell, packed with the sprite packer) generate as jobs and export as `<asset>.tileset/`, `.background/` and `.sprite/`. The Environment form edits terrains, transitions, autotiling, layers and props, and the asset overview previews the sheet, the parallax stage (a camera slider) and the props.
+
+- [x] H: `seamless.ts`, `autotile.ts`, `tiled.ts`, `tileset.ts` (assembly), `env-prompts.ts`, the tileset runner (`desktop/.../sprite/tileset.ts`), `TilesetSpec` terrains/transitions/scheme/seed/palette, and vitest (`seamless.test.ts`, `autotile.test.ts`, `tiled.test.ts`, `tileset.test.ts`, `environment.test.ts`).
+- [x] I: `iso.ts`, `terrain-tiles.ts`, `background.ts`, the background and prop runners (`environment.ts`), `terrain-source.ts`, the three export branches in `sprite-export.ts`, `sprite-environment-form.tsx`, `sprite-environment-preview.tsx`, and vitest (`iso.test.ts`, `terrain-tiles.test.ts`, `background.test.ts`, `terrain-source.test.ts`, `sprite-environment.bridge.test.tsx`, `sprite-form.test.ts`).
+
 ## 2026-10-07 — Phase 106 Theme G — Atlas packing and the animation previewer ([#763](https://github.com/bilo-io/midnite-studio/pull/763))
 
 A sheet's frames pack into one `atlas.json` that is both Phaser's JSON-hash atlas and an Aseprite JSON (MaxRects with trim, padding, extrude, POT pages; a multiatlas without tags past one page) plus Phaser's `anims.json`, written as `<asset>.sprite/` and into the asset's own `export/`. The centre column plays the animation on a 2D canvas (compass, onion skin, checker or solid, pixel zoom, anchor and baseline) over a frame strip whose nudge, flip, delete, move and re-roll are one `patchFrames` call each and undoable; frames past their clip are pruned when a job finishes and never played or packed.

@@ -76,7 +76,7 @@ describe('Sprites tab', () => {
     const panel = await screen.findByTestId('sprite-create-panel');
     fireEvent.click(within(panel).getByRole('radio', { name: 'Environment' }));
     fireEvent.change(within(panel).getByLabelText('Name'), { target: { value: 'meadow' } });
-    fireEvent.click(within(panel).getByRole('button', { name: 'Create' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Generate' }));
     await waitFor(() => expect(within(explorer()).getByRole('button', { name: 'meadow' })).toBeTruthy());
     expect(await screen.findByTestId('sprite-overview')).toBeTruthy();
   });

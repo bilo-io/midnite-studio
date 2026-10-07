@@ -107,6 +107,8 @@ export type SpriteJobContext = {
    * records each clip's real frame count (E), a one-shot sheet its grid and verdict (F).
    */
   updateSheet: (change: (spec: SpriteSheetSpec) => SpriteSheetSpec) => Promise<void>;
+  /** The same for any kind — an environment job (Themes H–J) records its report. */
+  updateAsset: (change: (spec: SpriteAssetSpec) => SpriteAssetSpec) => Promise<void>;
   /** Writes any other file of the asset (asset-relative path), e.g. the one-shot sheet image. */
   writeAssetFile: (path: string, data: Buffer) => Promise<void>;
 };
@@ -702,6 +704,10 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         updateSheet: async (change) => {
           const updated = await updateSpec(target, dir, (current) => (current.kind === 'sheet' ? { spec: change(current) } : { fail: failure('Only a sprite sheet has frames.') }));
           if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the sprite.');
+        },
+        updateAsset: async (change) => {
+          const updated = await updateSpec(target, dir, (current) => ({ spec: change(current) }));
+          if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the asset.');
         },
         writeAssetFile: async (path, data) => {
           const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${path}`, data });

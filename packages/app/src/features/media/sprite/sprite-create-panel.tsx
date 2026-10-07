@@ -25,8 +25,8 @@ import { imagePickerProviders } from '../image/create-panel';
 import { useImageProviders } from '../image/use-images';
 import { PromptTextarea } from '../prompt-input';
 import {
-  ENV_KINDS,
   envBlockedReason,
+  envGenerates,
   formOneShot,
   envFormToSpec,
   FRAME_SIZE_PRESETS,
@@ -42,9 +42,9 @@ import {
   sheetBlockedReason,
   sheetFormToSpec,
   type EnvForm,
-  type EnvKind,
   type SheetForm,
 } from './sprite-form';
+import { EnvironmentFields } from './sprite-environment-form';
 import { SpriteMethodPicker } from './sprite-method-picker';
 import { SpriteRenderedOptions } from './sprite-rendered-options';
 import { riggedModels } from './sprite-rig';
@@ -102,7 +102,7 @@ const LABEL = 'flex flex-col gap-1 text-[11px] font-medium text-muted-foreground
 /**
  * The right-hand panel of Media ▸ Sprites: two modes, **Sheet** and **Environment**, swapping the
  * form beneath one shared prompt box. Sheet's Generate creates the asset and starts its job;
- * Environment's button creates the asset (generation for those kinds lands with Themes H–J).
+ * Environment's button creates the asset and starts its job (a map is only created until Theme J).
  */
 export function SpriteCreatePanel({
   repoId,
@@ -121,7 +121,7 @@ export function SpriteCreatePanel({
   const dialogs = useDialogs();
   const defaultModel = imageModelsFor(SPRITE_DEFAULT_PROVIDER).find((m) => referenceCapable(SPRITE_DEFAULT_PROVIDER, m.id))?.id ?? '';
   const [sheet, dispatch] = useReducer(sheetReducer, undefined, () => initialSheetForm(SPRITE_DEFAULT_PROVIDER, defaultModel));
-  const [env, setEnv] = useState<EnvForm>(initialEnvForm);
+  const [env, setEnv] = useState<EnvForm>(() => initialEnvForm(SPRITE_DEFAULT_PROVIDER, defaultModel));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,9 +148,16 @@ export function SpriteCreatePanel({
 
   const createEnvironment = async () => {
     setBusy(true);
+    setError(null);
     try {
       const created = await actions.create(envFormToSpec(env));
-      if (created.ok && created.value.group && created.value.asset) onCreated(created.value.group, created.value.asset);
+      if (!created.ok || !created.value.group || !created.value.asset) return;
+      const ref = { group: created.value.group, asset: created.value.asset };
+      onCreated(ref.group, ref.asset);
+      if (!envGenerates(env.kind)) return;
+      const started = await actions.generate(ref, {});
+      if (started.ok) onJob(ref, started.value.jobId);
+      else setError(started.kind === 'error' ? started.message : 'Could not start generation.');
     } finally {
       setBusy(false);
     }
@@ -162,6 +169,7 @@ export function SpriteCreatePanel({
   const attachRig = () => document.querySelector<HTMLSelectElement>('[data-testid="sprite-rig-picker"]')?.focus();
 
   const handDrawn = sheet.method === 'hand-drawn';
+  const envModels = imageModelsFor(env.provider, statuses.find((s) => s.id === env.provider)?.models);
   const models = imageModelsFor(sheet.provider, statuses.find((s) => s.id === sheet.provider)?.models).filter((m) => !handDrawn || referenceCapable(sheet.provider, m.id));
   const pickerProviders = imagePickerProviders(statuses).map((p) => {
     const blocked = providerBlockedFor(sheet.method, p.id as ImageProviderId);
@@ -218,7 +226,7 @@ export function SpriteCreatePanel({
             riggedLoading={library.isPending && sheet.method === 'rendered'}
           />
         ) : (
-          <EnvironmentFields form={env} onChange={(patch) => setEnv((current) => ({ ...current, ...patch }))} />
+          <EnvironmentFields repoId={repoId} form={env} onChange={(patch) => setEnv((current) => ({ ...current, ...patch }))} />
         )}
         {error ? (
           <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
@@ -270,18 +278,33 @@ export function SpriteCreatePanel({
             )}
           </div>
         ) : (
-          <button
-            type="button"
-            disabled={busy || envBlocked !== null}
-            title={envBlocked ?? 'Create'}
-            onClick={() => void createEnvironment()}
-            className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
-          >
-            {busy ? <Spinner /> : null}
-            Create
-          </button>
+          <div className="flex items-center gap-2">
+            {envGenerates(env.kind) && !env.fromTerrain ? (
+              <ProviderModelPicker
+                testId="sprite-env-picker"
+                providers={imagePickerProviders(statuses)}
+                provider={env.provider}
+                models={envModels.map((m) => ({ ...m, ...(m.id === envModels[0]?.id ? { recommended: true } : {}) }))}
+                model={env.model}
+                onProviderChange={(id) => {
+                  const provider = id as ImageProviderId;
+                  setEnv((c) => ({ ...c, provider, model: imageModelsFor(provider, statuses.find((s) => s.id === id)?.models)[0]?.id ?? '' }));
+                }}
+                onModelChange={(model) => setEnv((c) => ({ ...c, model }))}
+              />
+            ) : null}
+            <button
+              type="button"
+              disabled={busy || envBlocked !== null}
+              title={envBlocked ?? (envGenerates(env.kind) ? 'Generate' : 'Create')}
+              onClick={() => void createEnvironment()}
+              className="ml-auto flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            >
+              {busy ? <Spinner /> : null}
+              {envGenerates(env.kind) ? 'Generate' : 'Create'}
+            </button>
+          </div>
         )}
-
       </div>
     </div>
   );
@@ -451,40 +474,6 @@ function OneShotOptions({ form }: { form: SheetForm }) {
         </p>
       ) : null}
     </div>
-  );
-}
-
-function EnvironmentFields({ form, onChange }: { form: EnvForm; onChange: (patch: Partial<EnvForm>) => void }) {
-  return (
-    <>
-      <label className={LABEL}>
-        Kind
-        <select aria-label="Kind" className={FIELD} value={form.kind} onChange={(e) => onChange({ kind: e.target.value as EnvKind })}>
-          {ENV_KINDS.map((k) => (
-            <option key={k.id} value={k.id}>{k.label}</option>
-          ))}
-        </select>
-      </label>
-      <label className={LABEL}>
-        Name
-        <input aria-label="Name" className={FIELD} value={form.name} placeholder="meadow" onChange={(e) => onChange({ name: e.target.value })} />
-      </label>
-      <label className={LABEL}>
-        Style
-        <select aria-label="Style" className={FIELD} value={form.style} onChange={(e) => onChange({ style: e.target.value as EnvForm['style'] })}>
-          {SPRITE_STYLES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </label>
-      {form.kind === 'tileset' || form.kind === 'isometric' || form.kind === 'map' ? (
-        <label className={LABEL}>
-          Tile size
-          <input aria-label="Tile size" type="number" min={8} max={256} className={FIELD} value={form.tileSize} onChange={(e) => onChange({ tileSize: clampInt(e.target.value, 8, 256) })} />
-        </label>
-      ) : null}
-      <p className="text-[11px] text-muted-foreground">Tileset, background, prop-sheet and map generation arrive with Phase 106 Themes H–J. Creating one now saves its spec.</p>
-    </>
   );
 }
 
