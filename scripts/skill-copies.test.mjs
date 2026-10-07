@@ -16,6 +16,7 @@ describe('midnite-media-*-build skill copies', () => {
     expect(skills).toContain('midnite-media-terrain-build');
     expect(skills).toContain('midnite-media-model-build');
     expect(skills).toContain('midnite-media-game-build');
+    expect(skills).toContain('midnite-media-sprite-build');
   });
 
   // The game build skill is also seeded into every game repo from templates/media-game/skills/

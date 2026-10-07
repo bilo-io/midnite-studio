@@ -11,6 +11,8 @@ import {
   createRgba,
   MCP_CONTENT_KEY,
   PhaserAtlasJsonSchema,
+  isSpriteMcpToolId,
+  SPRITE_MCP_TOOL_IDS,
   SPRITE_MCP_WRITE_TOOL_IDS,
   SPRITES_OFF_MESSAGE,
   TilesetSpecSchema,
@@ -230,5 +232,14 @@ describe('the sprite MCP tools', () => {
     const preview = await dispatchMcpCall('sprite_render_preview', target);
     if (!preview.ok) throw new Error(preview.message);
     expect((preview.value as Record<string, Array<{ type: string }>>)[MCP_CONTENT_KEY]!.filter((b) => b.type === 'image')).toHaveLength(1);
+  });
+});
+
+describe('the midnite-media-sprite-build skill', () => {
+  it('names only real sprite tools, and every one of them', async () => {
+    const skill = await readFile(join(__dirname, '../../../../../../.claude/skills/midnite-media-sprite-build/SKILL.md'), 'utf8');
+    const named = new Set([...skill.matchAll(/`((?:sprite|tileset|background|map)_[a-z_]+)`/g)].map((m) => m[1]!));
+    for (const token of named) expect(isSpriteMcpToolId(token), `${token} is not a sprite MCP tool`).toBe(true);
+    for (const id of SPRITE_MCP_TOOL_IDS) expect(named.has(id), `${id} is missing from the skill`).toBe(true);
   });
 });
