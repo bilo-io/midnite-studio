@@ -3931,9 +3931,10 @@ export function buildMockBridge(data: MockFixtures) {
             if (req.op === 'set-cap' && req.capMB) cacheCapMB = req.capMB;
             return { ok: true as const, value: { bytes: cacheBytes, tiles: Math.round(cacheBytes / 20_000), capMB: cacheCapMB } };
           },
-          capture: async (req: { center: [number, number]; sideM: number; size: number }) => ({
+          capture: async (req: { center: [number, number]; sideM: number; size: number; handoff?: boolean }) => ({
             ok: true as const,
             value: {
+              ...(req.handoff ? { terrain: { project: 'terrains', terrain: 'cape-town-20260101-000000' } } : {}),
               captureId: 'mock-capture',
               name: 'mock-capture-20260101-000000',
               dir: 'captures/mock-capture-20260101-000000',
