@@ -32,6 +32,15 @@ import {
   GameSetManifestInputSchema,
   GameStateOutputSchema,
   GameToolTargetSchema,
+  GameAssertFrameInputSchema,
+  GameAssertStateInputSchema,
+  GameAssertStateOutputSchema,
+  GameContentOutputSchema,
+  GamePlaytestInputSchema,
+  GameReplayPlayInputSchema,
+  GameReplayPlayOutputSchema,
+  GameReplayRecordInputSchema,
+  GameReplayRecordOutputSchema,
 } from './media-game-mcp';
 import {
   ModelAutoRigInputSchema,
@@ -153,6 +162,11 @@ type McpToolEntry = {
     | 'game_input'
     | 'game_state'
     | 'game_import_asset'
+    | 'game_replay_record'
+    | 'game_replay_play'
+    | 'game_assert_state'
+    | 'game_assert_frame'
+    | 'game_playtest'
     | 'terrain_list'
     | 'terrain_open'
     | 'terrain_get_spec'
@@ -684,6 +698,51 @@ export const MCP_TOOLS = {
       'Copies a Terrain, Sprite, Model, Image or Audio item into a game’s `assets/` and registers it in the index — use instead of `cp` into the repo; refused unless its Settings switch is on.',
     input: GameImportAssetInputSchema,
     output: GameImportAssetOutputSchema,
+    readOnly: false,
+  },
+  game_replay_record: {
+    id: 'game_replay_record',
+    title: 'Record an input replay',
+    description:
+      'Starts recording a playthrough from a deterministic restart, or stops and writes `playtests/replays/<name>.replay.json` — use instead of writing input sequences by hand; refused unless its own Settings switch is on.',
+    input: GameReplayRecordInputSchema,
+    output: GameReplayRecordOutputSchema,
+    readOnly: false,
+  },
+  game_replay_play: {
+    id: 'game_replay_play',
+    title: 'Play an input replay',
+    description:
+      'Restarts the game deterministically and plays a frame-indexed replay at 1× or as fast as possible, answering the final state — use instead of `game_input` with timings; refused unless its own Settings switch is on.',
+    input: GameReplayPlayInputSchema,
+    output: GameReplayPlayOutputSchema,
+    readOnly: false,
+  },
+  game_assert_state: {
+    id: 'game_assert_state',
+    title: 'Assert on a game’s state at a frame',
+    description:
+      'Steps a running game to a frame and checks a JSON path of `getState()` with eq, ne, lt, gt, exists or approx — use instead of reading `game_state` and comparing by eye; refused unless its own Settings switch is on.',
+    input: GameAssertStateInputSchema,
+    output: GameAssertStateOutputSchema,
+    readOnly: false,
+  },
+  game_assert_frame: {
+    id: 'game_assert_frame',
+    title: 'Compare a frame with a baseline',
+    description:
+      'Steps a running game to a frame and diffs it against `playtests/baselines/<name>@<frame>.png` (written when missing) — use instead of comparing screenshots by eye; refused unless its Settings switch is on.',
+    input: GameAssertFrameInputSchema,
+    output: GameContentOutputSchema,
+    readOnly: false,
+  },
+  game_playtest: {
+    id: 'game_playtest',
+    title: 'Run a game’s play-tests',
+    description:
+      'Runs `playtests/*.json` (by name, inline, or all) deterministically, answering pass/fail per assertion with failure screenshots — use instead of a hand-driven play session; refused unless its Settings switch is on.',
+    input: GamePlaytestInputSchema,
+    output: GameContentOutputSchema,
     readOnly: false,
   },
   /*
