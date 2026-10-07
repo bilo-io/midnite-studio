@@ -8,6 +8,7 @@ import { useOccluder } from '../../components/use-occluder';
 import { UserAvatar } from '../../components/user-avatar';
 import { CiCell } from './ci-cell';
 import { DiffStatCell } from './diff-stat-cell';
+import { DiffChartCell } from './diff-chart-cell';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import {
@@ -123,6 +124,8 @@ export type GraphRowProps = {
   ci?: CommitCi;
   /** The Diff column's stat; `undefined` while loading or the column is off, `null` for a merge. */
   diffStat?: CommitDiffStat | null;
+  /** The maximum churn lines in the visible viewport, used to scale Diff Chart bars relatively. */
+  maxDiffLines?: number;
   /** Open the commit's run modal — the CI mark's click. */
   onOpenCi?: (sha: string) => void;
 };
@@ -144,6 +147,7 @@ function GraphRowInner({
   markMode = DEFAULT_PROVENANCE_MARK_MODE,
   ci,
   diffStat,
+  maxDiffLines,
   onOpenCi,
   onSelect,
   onContextMenu,
@@ -507,6 +511,16 @@ function GraphRowInner({
         data-testid="diff-cell"
       >
         <DiffStatCell stat={diffStat} />
+      </span>
+
+      {/* The Diff Chart column (off by default): hidden by `data-graph-hide`, filled only while it is on. */}
+      <span
+        className={`graph-diff-chart-col flex shrink-0 items-center justify-center transition-opacity duration-150 ease-in-out ${
+          dimmed ? 'opacity-40' : ''
+        }`}
+        data-testid="diff-chart-cell"
+      >
+        <DiffChartCell stat={diffStat} maxLines={maxDiffLines ?? 1} />
       </span>
 
       {/*

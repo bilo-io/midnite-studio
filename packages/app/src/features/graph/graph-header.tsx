@@ -269,6 +269,10 @@ export function GraphHeader({
           Diff
         </span>
 
+        <span role="columnheader" className="graph-diff-chart-col shrink-0 py-1 text-center">
+          Diff Chart
+        </span>
+
         {/* Only where the node is a dot; see `showsAuthorColumn`. */}
         {showsAuthorColumn(theme) ? (
           <ResizableColumn label="Author" resizable={columns.author} colClass="graph-col-author" />
