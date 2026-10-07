@@ -50,6 +50,7 @@ export * from './media-sprite-mcp';
 export * from './model-geometry';
 export * from './sprite';
 export * from './terrain';
+export * as map from './map';
 export * from './ollama';
 export * from './ollama-catalogue';
 export * from './ollama-launch';

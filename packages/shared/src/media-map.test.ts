@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   activeSatelliteSource,
+  captureWarnings,
   defaultMapProject,
   expandMapTemplate,
   MAP_SOURCE_IDS,
@@ -111,5 +112,24 @@ describe('rewriteStyleUrls', () => {
     expect(out.glyphs).toBe('mstudio-tile://openfreemap/fonts/{fontstack}/{range}.pbf');
     expect(out.sprite).toBe('mstudio-tile://openfreemap/sprite');
     expect(JSON.stringify(out)).not.toMatch(/https?:/);
+  });
+});
+
+describe('captureWarnings (Phase 108 Theme C)', () => {
+  const at = (sideM: number, lat = 0) => ({ center: [0, lat] as [number, number], sideM });
+  it('is quiet for a sensible frame', () => {
+    expect(captureWarnings(at(10_000), 1025)).toEqual([]);
+  });
+  it('blocks a frame over Terrain\'s 65 536 m cap and under its 16 m floor', () => {
+    expect(captureWarnings(at(70_000), 1025).find((w) => w.code === 'over-cap')).toMatchObject({ blocking: true, message: "Terrain's largest world is 65.5 km a side." });
+    expect(captureWarnings(at(10), 129).find((w) => w.code === 'under-min')).toMatchObject({ blocking: true, message: "Terrain's smallest world is 16 m a side." });
+  });
+  it('warns, without blocking, when the size outruns the DEM', () => {
+    const w = captureWarnings(at(500), 1025).find((x) => x.code === 'dem-coarser');
+    expect(w?.blocking).toBe(false);
+    expect(w?.message).toMatch(/^The elevation data is ~\d+ m\/px here; a smaller size gives the same detail\.$/);
+  });
+  it('notes that roads stop at 25 km, still enabled', () => {
+    expect(captureWarnings(at(30_000), 1025).find((w) => w.code === 'roads-skipped')).toMatchObject({ blocking: false });
   });
 });
