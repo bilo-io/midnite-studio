@@ -7,6 +7,12 @@ A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps
 
 - [x] F: `TerrainGeoSchema`, `inputs.roadsGraph`, `TerrainRoadEdgeSchema.cls/name`, `MapRoadGraphFileSchema`, `handoffSpec`, `setRoadsGraph` + `terrainService()`, `roadGraphFromCapture`, the pipeline branch, capture-service hand-off, `map-focus.ts`, panel row, vitests (pipeline hash pin, service, capture-service, panel, handoff spec)
 
+## 2026-10-08 — Phase 108 Theme C — 3D preview and capture framing ([#772](https://github.com/bilo-io/midnite-studio/pull/772))
+
+The Maps tab gains a 3D preview (`setTerrain` over the Terrarium DEM, hillshade, a 1×–3× exaggeration slider, pitch eased to 60) and a capture frame that stays square in metres at any latitude (drag to move, corner handles to resize, 16 m – 65.5 km), with an `aria-live` readout of side, centre, metres/pixel and preview-sampled min/max elevation, a Terrain-resolution size picker, and literal-copy warnings. Keys on the focused map: arrows pan, `+`/`-` zoom, `F` frame, `T` 3D. Capture is disabled until Theme D.
+
+- [x] C: `MapFrame` in `shared/src/media-map.ts`, `map-frame.ts`, `use-map-framing.ts`, `map-canvas.tsx` (terrain, frame layers, drag, keys), `map-panel.tsx` capture section, vitest (`media-map`, `media-map-frame`, `map-frame`, `map-canvas`, `map-capture-panel`)
+
 ## 2026-10-08 — Phase 108 Theme D — Heightmap capture ([#771](https://github.com/bilo-io/midnite-studio/pull/771))
 
 Frame a square of the real world and capture its elevation: the deepest useful Terrarium zoom within a 1 024-tile budget, stitched, resampled bicubically onto a vertex-centred square in true metres (azimuthal-equidistant local frame, Vincenty WGS84), written as a 16-bit `heightmap.png`, a float32 `heightmap.r32` and a GeoTIFF with the frame's CRS, plus `capture.json` and `ATTRIBUTION.txt`, under `captures/<name>/`. Tiles come through Theme B's shared fetcher and cache; resampling and encoding run in a `map-capture-worker` utility process, cancellable, and a cancel or failure leaves no files.

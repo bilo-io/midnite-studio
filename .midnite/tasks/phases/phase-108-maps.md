@@ -155,11 +155,17 @@ every URL rewritten (unknown sources and their layers dropped), and a Natural Ea
 (`openfreemap-relief`) keeps the rewritten styles' low-zoom layer. Responses carry
 `Access-Control-Allow-Origin: *` because MapLibre's blob worker fetches cross-scheme.
 
-**Theme C — 3D preview and capture framing.** ◻ Not started. The 3D toggle uses MapLibre's
-`setTerrain` over the Terrarium source; the capture frame is drawn as a GeoJSON polygon computed by
-the kernel's azimuthal-equidistant inverse, so it is square in metres at any latitude, with a readout
-whose min/max elevation comes from the already-loaded DEM (`map.queryTerrainElevation`), not a fetch.
-Keys are scoped to the focused canvas and checked against `shared/src/keybindings.ts`.
+**Theme C — 3D preview and capture framing.** ✅ Landed (PR #772). The 3D toggle applies `setTerrain` over a
+`dem` raster-dem source (Terrarium, via `mstudio-tile:`) and a `hillshade-3d` layer, re-applied on every
+`style.load` because a basemap switch wipes them; pitch eases to 60 / 0 only on a real on/off flip. The capture
+frame is a GeoJSON outline from the kernel's `frameRing` (azimuthal-equidistant, so square in metres at any
+latitude) plus four corner handles; the interior drags the centre, a corner resizes about it, clamped to
+16–65 536 m. The readout (side, centre, m/px, elevation) is `aria-live`; its min/max comes from a 9×9
+`queryTerrainElevation` grid divided by the exaggeration, throttled to 250 ms, and only exists while 3D is on.
+The size picker and warnings are Theme D's `captureWarnings` (`media-map-capture.ts`). Keys (arrows, `+`/`-`, `F`, `T`) are bound on the
+focused `role="application"` container, MapLibre's own keyboard handler is off, and keys typed in an input or
+button inside the canvas are ignored. The Capture button is Theme D's, fed by the dragged frame. The pointer-drag e2e is not
+written (needs WebGL + tiles); the frame maths is vitest-covered.
 
 **Theme D — Heightmap capture.** ✅ Landed (this PR). A zod-free, dependency-free kernel in
 `shared/src/map/` (Web-Mercator and tile maths, Vincenty WGS84 geodesy, the azimuthal-equidistant local
@@ -174,8 +180,8 @@ resamples and writes `heightmap.png` (16-bit), `.r32` and `.tif`; main adds `cap
 at a time; channels `mstudio:media:map-capture|map-capture-cancel` plus a progress event; a "Capture
 heightmap" section in the Maps detail pane (side, output size, warnings, progress, Cancel). Goldens need
 no network: a plane at lat 60 spans 100 m east-west over 10 km (true metres, not Mercator's 200), a frame
-on four tiles' shared corner has no seam. Theme C's draggable frame is not built yet, so the section takes
-its centre from the saved frame or the view; E and F extend the request and result.
+on four tiles' shared corner has no seam. Theme C's draggable frame feeds the section (its centre, side and size) once
+shown; with no frame it takes the saved frame or the view; E and F extend the request and result.
 
 **Theme E — Satellite and roads capture.** ◻ Not started. Satellite is stitched at the zoom matching
 Terrain's `textureSize`, reprojected onto the same frame and written as `satellite.png`; JPEG/WebP
@@ -400,7 +406,7 @@ on top of a capture.
 
 ## C — 3D preview and capture framing (S/M)
 
-- [ ] 3D toggle: MapLibre `setTerrain` from the active DEM source + hillshade layer, exaggeration slider (1×–3×), pitch/bearing controls.
+- [x] 3D toggle: MapLibre `setTerrain` from the active DEM source + hillshade layer, exaggeration slider (1×–3×), pitch/bearing controls.
   - Off: `map.setTerrain(null)`, pitch eased to 0. On: `map.setTerrain({ source: 'dem', exaggeration })`
     with a `raster-dem` source (`encoding: 'terrarium'` or `'mapbox'` for Terrain-RGB) and pitch eased
     to 60. Slider step 0.1; value persisted in `map.json` `terrain3d`.
@@ -408,7 +414,7 @@ on top of a capture.
     bearing 0.
   - *Verified by:* `map-canvas.test.tsx` (mocked map) asserts `setTerrain` arguments for on/off;
     screenshot "Maps 3D" in J.
-- [ ] Capture frame overlay: a square that stays square in **metres** (not pixels) as you pan/zoom/tilt, draggable/resizable, with a live readout — side length (m/km), centre lat/lon, min/max elevation sampled, chosen output size and resulting metres-per-pixel.
+- [x] Capture frame overlay: a square that stays square in **metres** (not pixels) as you pan/zoom/tilt, draggable/resizable, with a live readout — side length (m/km), centre lat/lon, min/max elevation sampled, chosen output size and resulting metres-per-pixel.
   - The frame is `{ center: [lon, lat], sideM }`; its outline is `frameRing(center, sideM, 16)` from
     the kernel (16 points per side, via the local frame's inverse), drawn as a GeoJSON `fill` (10 %
     opacity) + `line` layer — so on a tilted map it is a projected square, not a screen rectangle.
@@ -424,7 +430,7 @@ on top of a capture.
   - *Verified by:* `frame.test.ts` (kernel) — `frameRing` at lat 0 and lat 60 has all four sides
     equal to `sideM` within 0.1 % by Vincenty; e2e (pointer drag) moves the frame and the readout
     centre changes.
-- [ ] Output size picker matching Terrain's resolutions (129 … 4097) and a warning when the frame exceeds Terrain's 65 536 m `worldSize` cap or the DEM can't resolve the chosen metres-per-pixel.
+- [x] Output size picker matching Terrain's resolutions (129 … 4097) and a warning when the frame exceeds Terrain's 65 536 m `worldSize` cap or the DEM can't resolve the chosen metres-per-pixel.
   - Options come from `TERRAIN_RESOLUTIONS` (imported, not re-typed).
   - Warnings (amber, below the readout, literal copy): over cap — "Terrain's largest world is 65.5 km
     a side." (Capture disabled); below 16 m — "Terrain's smallest world is 16 m a side." (Capture
@@ -433,7 +439,7 @@ on top of a capture.
     25 km — "Roads are captured for frames up to 25 km a side." (Decision 17).
   - *Verified by:* `capture-warnings.test.ts` over `captureWarnings(frame, size, sources)` — a pure
     function in `shared/src/media-map.ts` returning `{ code, message, blocking }[]`.
-- [ ] Keyboard: arrow keys pan, `+`/`-` zoom, `F` toggles the frame, `T` toggles 3D; all controls reachable and labelled.
+- [x] Keyboard: arrow keys pan, `+`/`-` zoom, `F` toggles the frame, `T` toggles 3D; all controls reachable and labelled.
   - Keys are bound on the focused canvas container (`tabIndex=0`, `role="application"`,
     `aria-label="Map"`), **not** as global chords, so they never collide with `COMMANDS` in
     `shared/src/keybindings.ts` and never fire while typing in the search box. Arrows pan 100 px

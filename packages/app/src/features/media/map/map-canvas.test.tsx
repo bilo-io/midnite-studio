@@ -1,7 +1,8 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const instances: Array<{ remove: ReturnType<typeof vi.fn>; loseContext: ReturnType<typeof vi.fn>; setStyle: ReturnType<typeof vi.fn> }> = [];
+type Fake = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+const instances: Fake[] = [];
 
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
 vi.mock('maplibre-gl', () => {
@@ -9,11 +10,24 @@ vi.mock('maplibre-gl', () => {
     remove = vi.fn();
     loseContext = vi.fn();
     setStyle = vi.fn();
+    setTerrain = vi.fn();
+    easeTo = vi.fn();
+    panBy = vi.fn();
+    zoomIn = vi.fn();
+    zoomOut = vi.fn();
+    addSource = vi.fn();
+    addLayer = vi.fn();
+    getSource = vi.fn();
+    getLayer = vi.fn();
+    isStyleLoaded = vi.fn(() => true);
+    queryTerrainElevation = vi.fn();
+    dragPan = { enable: vi.fn(), disable: vi.fn() };
     constructor() {
-      instances.push(this);
+      instances.push(this as unknown as Fake);
     }
     addControl() {}
     on() {}
+    off() {}
     resize() {}
     areTilesLoaded() {
       return true;
@@ -60,5 +74,52 @@ describe('MapCanvas', () => {
     rerender(<MapCanvas {...props} style={{ version: 8, sources: {}, layers: [{ id: 'a' }] }} />);
     expect(instances).toHaveLength(1);
     expect(instances[0]!.setStyle).toHaveBeenCalledTimes(1);
+  });
+
+  it('turns 3D on with setTerrain over the DEM and eases pitch to 60, and back to 0 when off', () => {
+    const { rerender } = render(<MapCanvas {...props} terrain3d={{ on: false, exaggeration: 1.5 }} />);
+    const map = instances[0]!;
+    expect(map.setTerrain).toHaveBeenLastCalledWith(null);
+    rerender(<MapCanvas {...props} terrain3d={{ on: true, exaggeration: 2.1 }} />);
+    expect(map.setTerrain).toHaveBeenLastCalledWith({ source: 'dem', exaggeration: 2.1 });
+    expect(map.easeTo).toHaveBeenLastCalledWith({ pitch: 60 });
+    rerender(<MapCanvas {...props} terrain3d={{ on: false, exaggeration: 2.1 }} />);
+    expect(map.setTerrain).toHaveBeenLastCalledWith(null);
+    expect(map.easeTo).toHaveBeenLastCalledWith({ pitch: 0 });
+  });
+});
+
+describe('MapCanvas keys (Phase 108 Theme C)', () => {
+  it('pans, zooms and toggles the frame and 3D from the focused container', () => {
+    const onToggleFrame = vi.fn();
+    const onToggle3d = vi.fn();
+    render(<MapCanvas {...props} onToggleFrame={onToggleFrame} onToggle3d={onToggle3d} />);
+    const map = instances[0]!;
+    const root = screen.getByRole('application', { name: 'Map' });
+    fireEvent.keyDown(root, { key: 'ArrowLeft' });
+    expect(map.panBy).toHaveBeenLastCalledWith([-100, 0]);
+    fireEvent.keyDown(root, { key: 'ArrowDown', shiftKey: true });
+    expect(map.panBy).toHaveBeenLastCalledWith([0, 400]);
+    fireEvent.keyDown(root, { key: '+' });
+    fireEvent.keyDown(root, { key: '-' });
+    expect(map.zoomIn).toHaveBeenCalledTimes(1);
+    expect(map.zoomOut).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(root, { key: 'f' });
+    fireEvent.keyDown(root, { key: 'T' });
+    expect(onToggleFrame).toHaveBeenCalledTimes(1);
+    expect(onToggle3d).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores keys typed in a text field inside the canvas', () => {
+    const onToggle3d = vi.fn();
+    render(
+      <MapCanvas {...props} onToggle3d={onToggle3d}>
+        <input aria-label="Search" />
+      </MapCanvas>,
+    );
+    fireEvent.keyDown(screen.getByLabelText('Search'), { key: 't' });
+    fireEvent.keyDown(screen.getByLabelText('Search'), { key: 'ArrowLeft' });
+    expect(onToggle3d).not.toHaveBeenCalled();
+    expect(instances[0]!.panBy).not.toHaveBeenCalled();
   });
 });
