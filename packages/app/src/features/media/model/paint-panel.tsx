@@ -310,43 +310,6 @@ function LayerRow({
       <button type="button" role="radio" aria-checked={active} aria-label={`Paint on ${layer.name}`} onClick={onSelect} className="min-w-0 flex-1 truncate text-left text-[11px] text-foreground">
         {layer.name} <span className="text-muted-foreground">· {layer.kind}</span>
       </button>
-      <input
-        aria-label={`${layer.name} opacity`}
-        type="range"
-        min={0}
-        max={1}
-        step={0.05}
-        defaultValue={layer.opacity ?? 1}
-        key={`${layer.id}-${layer.opacity ?? 1}`}
-        onPointerUp={(e) => onEdit({ opacity: Number((e.target as HTMLInputElement).value) })}
-        onKeyUp={(e) => onEdit({ opacity: Number((e.target as HTMLInputElement).value) })}
-        className="h-1 w-14"
-      />
-      <select aria-label={`${layer.name} blend mode`} value={layer.blend ?? 'normal'} onChange={(e) => onEdit({ blend: e.target.value as (typeof PAINT_BLEND_MODES)[number] })} className={`${FIELD} w-20`}>
-        {PAINT_BLEND_MODES.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label={`${layer.name} mask`}
-        value={maskValue}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (!v) return onEdit({ mask: null });
-          const invert = v.startsWith('!');
-          const source = (invert ? v.slice(1) : v) as 'curvature' | 'cavity' | 'ao' | 'painted';
-          onEdit({ mask: { source, ...(invert ? { invert: true } : {}), ...(source === 'curvature' ? { low: 0.55, high: 0.75 } : source === 'painted' ? {} : { low: 0.4, high: 0.97 }) } });
-        }}
-        className={`${FIELD} w-24`}
-      >
-        {maskOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
       <button type="button" className={ICON_BUTTON} aria-label={`Move ${layer.name} up`} disabled={first} onClick={() => onMove(1)}>
         <LuArrowUp aria-hidden className="h-3.5 w-3.5" />
       </button>
@@ -356,6 +319,45 @@ function LayerRow({
       <button type="button" className={ICON_BUTTON} aria-label={`Delete ${layer.name}`} onClick={onRemove}>
         <LuTrash2 aria-hidden className="h-3.5 w-3.5" />
       </button>
+      <div className="flex basis-full flex-wrap items-center gap-1 pl-6">
+        <input
+          aria-label={`${layer.name} opacity`}
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          defaultValue={layer.opacity ?? 1}
+          key={`${layer.id}-${layer.opacity ?? 1}`}
+          onPointerUp={(e) => onEdit({ opacity: Number((e.target as HTMLInputElement).value) })}
+          onKeyUp={(e) => onEdit({ opacity: Number((e.target as HTMLInputElement).value) })}
+          className="h-1 w-14"
+        />
+        <select aria-label={`${layer.name} blend mode`} value={layer.blend ?? 'normal'} onChange={(e) => onEdit({ blend: e.target.value as (typeof PAINT_BLEND_MODES)[number] })} className={`${FIELD} w-20`}>
+          {PAINT_BLEND_MODES.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={`${layer.name} mask`}
+          value={maskValue}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return onEdit({ mask: null });
+            const invert = v.startsWith('!');
+            const source = (invert ? v.slice(1) : v) as 'curvature' | 'cavity' | 'ao' | 'painted';
+            onEdit({ mask: { source, ...(invert ? { invert: true } : {}), ...(source === 'curvature' ? { low: 0.55, high: 0.75 } : source === 'painted' ? {} : { low: 0.4, high: 0.97 }) } });
+          }}
+          className={`${FIELD} w-24`}
+        >
+          {maskOptions.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
     </li>
   );
 }
