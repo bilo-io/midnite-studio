@@ -80,7 +80,7 @@ export function SpriteAnimator({ repoId, target, spec, file, version, busy, prog
  * The pack export: the Media export folder, else a directory prompt. Main writes `<name>.sprite/`
  * there (refusing to overwrite) and refreshes the asset's own `export/`.
  */
-function SpriteExportBar({ repoId, target, hasFrames, busy }: { repoId: string; target: SpriteRef; hasFrames: boolean; busy: boolean }) {
+export function SpriteExportBar({ repoId, target, hasFrames, busy, noun = 'frames' }: { repoId: string; target: SpriteRef; hasFrames: boolean; busy: boolean; noun?: string }) {
   const exportDir = useUiStore((s) => s.mediaExportDir);
   const [exporting, setExporting] = useState(false);
   const onExport = useCallback(async () => {
@@ -96,7 +96,7 @@ function SpriteExportBar({ repoId, target, hasFrames, busy }: { repoId: string; 
       }
       const warning = result.value.warnings.length > 0 ? ` ${result.value.warnings.join(' ')}` : '';
       useToastStore.getState().addToast({
-        message: `Exported ${result.value.frames} frames to ${result.value.path}.${warning}`,
+        message: `Exported ${result.value.frames} ${noun} to ${result.value.path}.${warning}`,
         status: warning ? 'warning' : 'success',
         action: { label: 'Reveal', onAction: () => void bridge()?.media.reveal({ repoId, tab: 'sprite', project: target.group, path: target.asset }) },
       });
