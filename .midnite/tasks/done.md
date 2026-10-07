@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 104 Theme D — Sculpt mode and brushes
+
+Sculpt mode in the Models editor: a kernel brush set (draw, clay strips, inflate, smooth, grab, crease, flatten, pinch, mask) with falloff presets, spacing, pressure and front-faces-only; X/Y/Z symmetry in local or world space, applied in the kernel; Loop-subdivision multires that keeps detail per level; voxel remesh in sculpt mode; a `SculptDocument` per-stroke history the editor's undo walks through a new part `revision`; a Sculpt tab, a viewport brush layer with lazy mouse, and sculpt-only keys (`F`/`Shift+F`, `[`/`]`, `Mod+I`, `Alt+M`). Edits are written to a content-named `.mesh.bin` on Done or Save.
+
+- [x] Sculpt mode toggle, brushes, brush controls, symmetry, multires, voxel remesh in sculpt mode, per-stroke undo, lazy mouse and pressure, and vitest for each brush, symmetry, multires, history, the worker pipeline, the controller and the Sculpt tab.
 ## 2026-10-07 — Phase 107 Theme I — 3D genre starters, part one
 
 Shooter (first or third person), fighter (versus camera) and soulslike as genre modules over the Theme G 3D bases, with engine-free systems under `kit/core/genre/{shooter,fighter,soulslike}/` and a shared `kit/three/damage-numbers.js`. `GAME_GENRES_AVAILABLE` lists the three, so their gallery cells are creatable; the fighter's cell swaps the camera picker for a versus-camera note. The 3D bases gained a movement `intent` seam and the third-person base a stand-in avatar. Kit 0.5.0. PR: see the pull request.

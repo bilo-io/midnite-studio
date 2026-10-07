@@ -1,0 +1,40 @@
+export {
+  applyDab,
+  captureGrab,
+  DAB_SCALE,
+  falloffWeight,
+  grabDab,
+  SCULPT_BRUSHES,
+  SCULPT_FALLOFFS,
+  SCULPT_SPACING_MAX,
+  SCULPT_SPACING_MIN,
+  SculptBrushSchema,
+  type Dab,
+  type DabRecorder,
+  type DabResult,
+  type GrabCapture,
+  type SculptBrush,
+  type SculptBrushKind,
+  type SculptFalloff,
+  type SculptTarget,
+} from './brush';
+export {
+  buildSubdivision,
+  Multires,
+  MULTIRES_MAX_VERTICES,
+  subdivideGroups,
+  subdivideMask,
+  subdividePositions,
+  type MultiresLevel,
+  type MultiresSnapshot,
+  type SubdivTopology,
+} from './multires';
+export {
+  SCULPT_HISTORY_LIMIT,
+  SculptDocument,
+  type MaskDelta,
+  type SculptSample,
+  type StrokeOptions,
+  type StrokeSummary,
+} from './session';
+export { mirrorDab, mirrorIn, NO_SYMMETRY, SculptSymmetrySchema, symmetryFlips, type MirroredDab, type SculptSymmetry } from './symmetry';

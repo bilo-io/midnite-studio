@@ -2,7 +2,7 @@ import { Edges, GizmoHelper, GizmoViewport, Grid, Html, Line, OrbitControls, Ort
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import type { MeshPart } from '@midnite/studio-shared';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch } from 'react';
-import { Box3, Matrix4, Object3D, PMREMGenerator, Vector3, type Mesh } from 'three';
+import { Box3, Matrix4, MOUSE, Object3D, PMREMGenerator, Vector3, type Mesh } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 import { movableSelection, type EditorAction, type EditorState } from './editor-state';
@@ -38,9 +38,14 @@ export type SceneProps = {
   snap: SnapSettings;
   shift: boolean;
   measure: boolean;
+  /** Sculpt mode (Phase 104 Theme D): left-drag belongs to the brush, so no gizmo, no picking, and orbit moves to the right button. */
+  sculpting?: boolean;
   measurePoints: MeasurePoints;
   onMeasurePoint: (p: [number, number, number]) => void;
 };
+
+/** Sculpt mode's orbit buttons: the left one is the brush's. */
+const SCULPT_MOUSE = { LEFT: null as unknown as MOUSE, MIDDLE: MOUSE.PAN, RIGHT: MOUSE.ROTATE };
 
 /** Everything inside the R3F canvas. */
 export function EditorScene(props: SceneProps) {
@@ -73,6 +78,7 @@ export function EditorScene(props: SceneProps) {
             locked={state.spec.parts[part.sourceIndex]?.locked === true}
             registry={meshes.current}
             onPick={(event, point) => {
+              if (props.sculpting) return;
               if (props.measure) {
                 props.onMeasurePoint(point);
                 return;
@@ -84,10 +90,15 @@ export function EditorScene(props: SceneProps) {
           />
         ))}
       </group>
-      {!props.measure ? <Gizmo {...props} meshes={meshes.current} /> : null}
+      {!props.measure && !props.sculpting ? <Gizmo {...props} meshes={meshes.current} /> : null}
       {props.dimensions ? <Dimensions scene={scene} selection={selectedSet} hasSelection={state.selection.length > 0} /> : null}
       {props.measurePoints.length > 0 ? <MeasureOverlay points={props.measurePoints} /> : null}
-      <OrbitControls makeDefault enableDamping={false} enableRotate={cameraView === 'perspective'} />
+      <OrbitControls
+        makeDefault
+        enableDamping={false}
+        enableRotate={cameraView === 'perspective'}
+        {...(props.sculpting ? { mouseButtons: SCULPT_MOUSE } : {})}
+      />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
       </GizmoHelper>

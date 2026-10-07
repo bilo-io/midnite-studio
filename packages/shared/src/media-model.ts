@@ -280,6 +280,12 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
     /** The multires level the file holds (0 = the base mesh). */
     multiresLevel: z.number().int().min(0).max(MODEL_SCULPT_MAX_LEVEL).optional(),
     /**
+     * How many sculpt edits (brush strokes, mask edits, subdivides, level steps, remeshes) the mesh has had
+     * (Theme D). Each edit is one undo step that bumps it, so undo and redo in the editor say which state the
+     * live mesh must walk to; absent means none yet.
+     */
+    revision: z.number().int().nonnegative().optional(),
+    /**
      * Ids of the primitive parts this mesh was converted from (Theme B). They stay in the design, hidden,
      * so "revert to parts" and undo can bring them back.
      */
