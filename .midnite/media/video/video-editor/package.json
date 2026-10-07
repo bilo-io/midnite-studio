@@ -6,7 +6,7 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
-    "@remotion/cli": "4.0.518",
+    "@remotion/cli": "4.0.534",
     "@remotion/google-fonts": "4.0.518",
     "@remotion/install-whisper-cpp": "4.0.518",
     "@remotion/tailwind-v4": "4.0.518",
