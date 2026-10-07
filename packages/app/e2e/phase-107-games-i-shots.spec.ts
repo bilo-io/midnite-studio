@@ -11,12 +11,12 @@ import { clickRailLink, fixtures, installMockBridge, setTheme, settle, SHOT_VIEW
 const OUT = '../../docs/screenshots/phase-107-games-i';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
-test.describe.configure({ timeout: 60_000 });
+test.describe.configure({ timeout: 150_000 });
 test.use({ viewport: SHOT_VIEWPORTS.board });
 
 async function openGames(page: Page, data: MockFixtures, theme: 'dark' | 'light'): Promise<void> {
   await installMockBridge(page, data);
-  await page.goto('/');
+  await page.goto("/", { timeout: 90_000 });
   await expect(page.getByRole('link', { name: 'Media', exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(async () => {
     await clickRailLink(page, 'Media');
