@@ -30,6 +30,8 @@ The user must enable Settings ▸ MCP and "Let agents edit 3D models".
 | `model_patch_parts` | small edits, up to 64 ops per call |
 | `model_render_preview` | views `front`, `side`, `top`, `iso`; 128–768 px; `pose: {clip, time}` renders a rigged model mid-clip |
 | `model_get_reference_image` | the user's reference picture, if any |
+| `model_set_reference_views` | match the reference picture to the model: `fit: {view, height, bottom?}` segments the picture and registers it to a subject `height` m tall, or give `views` (`scale` px per metre, `offset` of the origin) or `clear` |
+| `model_compare_reference` | silhouette IoU and width-profile scores per matched view, regions too wide/narrow/tall/short, an overlay (red reference only, blue model only), and with `budget` the next stage and when to stop |
 | `model_save` | write the obj/mtl/fbx/json trio so the editor is clean |
 | `model_open` | show a model in the app window |
 | `model_get_rig` | anatomy, bones, part bindings, clips, the bone-name table and any rig problems |
@@ -68,6 +70,8 @@ A `sculpt` part is a dense mesh in a `.mesh.bin` beside the design, never hand-w
 **Mesh pipeline** (a dense sculpt to an engine asset): `model_decimate` (or `model_retopo` for even quad-dominant topology) makes a low-poly copy and hides the sculpt as its bake source; `model_unwrap` the copy; `model_bake` high onto low; `model_export` for `.glb`. A rigged design keeps its skeleton and skin through all of it. An unwrapped mesh cannot be sculpted (its seams are split vertices) — `model_unwrap` with `clear: true` first. Retopology is an even lattice, not flow-aligned; bakes are CPU-bound, so look with `size: 1024` before 2048 or 4096.
 
 **Texture painting** (an unwrapped, baked low-poly part to a textured asset): `model_material_set` with a `preset` for the base look (its fill layers use the curvature and cavity bakes for edge wear and dirt), `model_layer_add` for more, then `model_paint_stroke` for details — aim it like a sculpt stroke, on the preview you just looked at. Every write flattens the stack into the glTF set (base colour, packed occlusion/roughness/metalness, normal, emissive) beside the design, so `model_export` ships it as-is. A painted mask starts empty (the layer is hidden until painted); a bake mask whose bake is missing hides its layer. Decimating, retopologising or re-unwrapping a part drops its material, because the pixels belong to the old UV layout.
+
+**Reference-driven loop** (a picture to a model): `model_get_reference_image`, then `model_set_reference_views` with `fit` and the subject's real height. Block in with `model_sdf_set`, `model_compare_reference` with `budget` set to your pass count, and follow its `loop.stage`: `block-in` (SDF), `convert` (`model_convert_to_mesh`), `region` (strokes on the regions it named, big moves first), `refine` (screen-space strokes). Compare after every pass; the loop ends on its own when the score reaches 0.96, stops improving for two passes, or the budget is spent — then `model_save`. A bad segmentation shows as a wrong overlay: supply a cut-out PNG with transparency.
 
 ## Conventions
 

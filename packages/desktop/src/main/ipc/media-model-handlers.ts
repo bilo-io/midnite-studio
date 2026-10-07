@@ -120,6 +120,22 @@ async function shrinkImage(data: Buffer, mime: string): Promise<{ data: Buffer; 
   return { data: resized.toJPEG(85), mime: 'image/jpeg' };
 }
 
+/** Decodes a JPEG/WebP reference picture to RGBA for `model_compare_reference` (`toBitmap` is BGRA). */
+async function decodeImage(data: Buffer): Promise<{ width: number; height: number; data: Uint8Array } | null> {
+  const image = nativeImage.createFromBuffer(data);
+  const { width, height } = image.getSize();
+  if (width === 0 || height === 0) return null;
+  const bgra = image.toBitmap();
+  const out = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i += 1) {
+    out[i * 4] = bgra[i * 4 + 2]!;
+    out[i * 4 + 1] = bgra[i * 4 + 1]!;
+    out[i * 4 + 2] = bgra[i * 4]!;
+    out[i * 4 + 3] = bgra[i * 4 + 3]!;
+  }
+  return { width, height, data: out };
+}
+
 /**
  * The `model_*` MCP tools, over the same media store and service as the tab. The app's global MCP
  * server answers them behind the `allowModels` switch (`mcp/model-tools.ts`); an iterative run
@@ -152,6 +168,7 @@ const modelTools = createModelTools({
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelChanged, event),
   emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelOpen, event),
   shrinkImage,
+  decodeImage,
 });
 setModelTools(modelTools);
 

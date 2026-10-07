@@ -320,6 +320,17 @@ describe('agents building a model (MCP)', () => {
     await waitFor(() => expect(screen.queryByTestId('model-stage')).toBeNull());
   });
 
+  it('shows the reference match score per pass while a reference-driven run compares', async () => {
+    open();
+    await screen.findByTestId('model-engine-mode');
+    const base = { generationId: 'g2', repoId: 'repo-1', project: 'robots', files: [], status: 'running', stage: 'iterating', iteration: { n: 1, max: 6 }, primary: 'robot-1/robot-1.obj' };
+    act(() => fire('progress', { ...base, action: 'Matched the reference: 0.62', score: { value: 0.62, history: [0.62] } }));
+    expect((await screen.findByTestId('model-score')).textContent).toContain('Reference match 0.62');
+    act(() => fire('progress', { ...base, action: 'Matched the reference: 0.81', score: { value: 0.81, history: [0.62, 0.81] } }));
+    await waitFor(() => expect(screen.getByTestId('model-score').textContent).toContain('0.62 → 0.81'));
+    act(() => fire('progress', { ...base, status: 'cancelled' }));
+  });
+
   it('adopts an agent’s edit in the open editor as it lands, as one undoable step', async () => {
     open();
     const parts = await screen.findByRole('list', { name: 'Parts' }, SLOW);

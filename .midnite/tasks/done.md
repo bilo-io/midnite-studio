@@ -7,6 +7,11 @@ Media gets a ninth tab, Maps: a MapLibre canvas (own lazy chunk) with a Streets 
 
 - [x] A: `shared/src/media-map.ts` + `media.ts` tab/formats, `features/media/map/` (tab, canvas + lazy wrapper, style, states, explorer, panel, hooks, settings), ui-store layout keys, mock bridge, the `maplibre-gl` eslint rule, vitest (`map-style`, `map-states`, `map-canvas`, `use-map`, `map-settings`) and `phase-108-maps-ab-shots.spec.ts`
 - [x] B: `main/media/map/` (`tile-cache`, `tile-fetch`, `tile-protocol`, `map-service`) with their vitests, `media-map-handlers.ts`, preload `media.map`, `mstudio-tile` in `registerPrivilegedSchemes()`, CSP `connect-src`/`img-src`, geojson/kml excluded from ffmpeg export
+## 2026-10-07 — Phase 104 Theme H — Reference-driven agent loop ([#769](https://github.com/bilo-io/midnite-studio/pull/769))
+
+A design can carry matched front, side and top views of a reference picture (`spec.referenceViews`). The kernel scores the model's silhouette against the picture (IoU plus width-profile agreement), names the regions that are too wide, narrow, tall or short, and plans the next pass until the score reaches the target, plateaus or the refinement budget runs out. `model_set_reference_views` and `model_compare_reference` expose it over MCP, iterative runs stream the score, and the model panel shows one "Reference match" line. Tested in vitest (identical silhouettes score 1, a known widening is reported in the right region, the loop stops on plateau).
+
+- [x] H: `media-model-reference.ts`, `model-geometry/reference/`, `reference-tools.ts`, iterative progress score, prompt and six skill copies. Editor alignment UI deferred.
 
 ## 2026-10-07 — Phase 104 Theme G — Texture painting and PBR materials ([#767](https://github.com/bilo-io/midnite-studio/pull/767))
 

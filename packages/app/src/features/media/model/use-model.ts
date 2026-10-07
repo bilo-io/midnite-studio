@@ -74,6 +74,8 @@ export type PendingModelGeneration = {
   stage: ModelGenerateStage;
   /** Iterative runs: which preview-and-refine pass this is, out of the budget. */
   iteration?: { n: number; max: number };
+  /** Iterative runs with a matched reference: the silhouette score per comparison. */
+  score?: { value: number; history: number[] };
   /** Iterative runs: the latest tool the agent called, in words. */
   action?: string;
   /** Iterative runs: the `.obj` being edited, so the tab can follow it live. */
@@ -100,6 +102,7 @@ export function useModelGeneration(repoId: string | null) {
             project: event.project,
             stage: event.stage ?? current[event.generationId]?.stage ?? 'generating',
             iteration: event.iteration ?? current[event.generationId]?.iteration,
+            score: event.score ?? current[event.generationId]?.score,
             action: event.action ?? current[event.generationId]?.action,
             primary: event.primary ?? current[event.generationId]?.primary,
           },

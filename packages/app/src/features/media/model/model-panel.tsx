@@ -332,6 +332,14 @@ function ProceduralPanel({
                 </span>
               ) : null}
             </p>
+            {live?.score ? (
+              <p data-testid="model-score" className="flex items-center gap-2 pl-6 tabular-nums">
+                <span>Reference match {live.score.value.toFixed(2)}</span>
+                <span className="text-foreground" title="Score per pass">
+                  {live.score.history.map((s) => s.toFixed(2)).join(' → ')}
+                </span>
+              </p>
+            ) : null}
             {live?.action ? (
               <p data-testid="model-action" className="truncate pl-6" title={live.action}>
                 {live.action}

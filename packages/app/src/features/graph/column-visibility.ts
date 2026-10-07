@@ -8,16 +8,17 @@
  * persisted flag (`graphShowCi`, also a Settings switch), so it is a menu item
  * but not a key here — one source of truth per column.
  */
-export type ToggleableColumn = 'branchTag' | 'author' | 'sha' | 'diff';
+export type ToggleableColumn = 'branchTag' | 'author' | 'sha' | 'diff' | 'diffChart';
 
 export type GraphColumnVisibility = Record<ToggleableColumn, boolean>;
 
-/** The Diff column is off until asked for: it costs a git call per page of rows. */
+/** The Diff and Diff Chart columns are off until asked for: they cost a git call per page of rows. */
 export const DEFAULT_GRAPH_COLUMN_VISIBILITY: GraphColumnVisibility = {
   branchTag: true,
   author: true,
   sha: true,
   diff: false,
+  diffChart: false,
 };
 
 export type MenuColumn = ToggleableColumn | 'ci' | 'message' | 'date' | 'graph';
@@ -29,6 +30,7 @@ export const GRAPH_COLUMN_MENU: ReadonlyArray<{ id: MenuColumn; label: string; l
   { id: 'graph', label: 'Graph', locked: true },
   { id: 'message', label: 'Commit message', locked: true },
   { id: 'diff', label: 'Diff', locked: false },
+  { id: 'diffChart', label: 'Diff Chart', locked: false },
   { id: 'author', label: 'Author', locked: false },
   { id: 'date', label: 'Date', locked: true },
   { id: 'sha', label: 'SHA', locked: false },
