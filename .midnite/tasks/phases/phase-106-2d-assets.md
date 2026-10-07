@@ -131,7 +131,7 @@ with `issues`; no vision model keeps frames `unchecked` and the job's final even
 sheets submit the `e` bytes again as `w` with `flipped: true` (G applies the flip). The tab gains a
 reference card (Approve / Regenerate / Attach, Keep or Mark all for re-roll) and a flagged-frames list.
 
-**Theme E — Rendered from a Models character.** ✅ Landed (PR pending number). `useSpriteRenderHost`
+**Theme E — Rendered from a Models character.** ✅ Landed (PR #762). `useSpriteRenderHost`
 (`app/features/media/sprite/render/`) is mounted beside the app root's other listeners, acknowledges a
 `mediaSpriteRenderRequest` at once and imports `render-job.ts` (three) lazily: it reads the attached
 design, builds it with the Models editor's own `editorScene`/`rigModel`/`posedScene` and lights, and
@@ -152,7 +152,7 @@ clips, and camera / shading (lit, toon, flat) / outline (an inverted hull pushed
 than scaled 1.02, so thin limbs keep it) / supersample. `sprite-render.spec.ts` renders a real biped
 in Chromium (e2e cap 475 → 476).
 
-**Theme F — One-shot sheet (form toggle).** ✅ Landed (PR pending number). `ONE_SHOT_PROMPT_VERSION = 1`
+**Theme F — One-shot sheet (form toggle).** ✅ Landed (PR #762). `ONE_SHOT_PROMPT_VERSION = 1`
 and `oneShotPrompt` in `shared/src/sprite/one-shot-prompt.ts`: rows are clips × the directions
 Hand-drawn would draw (a mirrored side sheet draws `e` and mirrors `w`), columns the longest clip, cells
 at the frame size with an eighth-width gutter; past 8 × 8 the job is refused before any request, and the

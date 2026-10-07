@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 106 Themes E + F — Rendered from a Models character; one-shot sheet
+## 2026-10-07 — Phase 106 Themes E + F — Rendered from a Models character; one-shot sheet ([#762](https://github.com/bilo-io/midnite-studio/pull/762))
 
 **E.** A rigged Models character renders into sprite frames in the user's own window: a root-level, lazily loaded `SpriteRenderHost` builds the design with the Models editor's kernel and lights, shoots it through an orthographic camera per direction (compass yaw, `atan(0.5)` isometric) at one sheet-wide scale, supersamples and posts PNG batches that main's render relay feeds through the frame pipeline at scale 1 (10 s acknowledgement or _"Rendering from 3D needs the Midnite Studio window open."_). The Sheet form gains the rigged-model picker, clip mapping with aliases, and camera/shading/outline/supersample. **F.** The one-shot toggle asks for the whole sheet in one image under a versioned prompt, refuses past 8 × 8, detects the returned sheet's real gutters by projection profile and slices only when the grid matches; the overview shows the detected grid over the sheet, a per-row verdict, and hands a failing clip to Hand-drawn with frame 1 as the approved reference.
 
