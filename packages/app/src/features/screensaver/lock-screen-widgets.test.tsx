@@ -240,6 +240,37 @@ describe('LockScreenBatteryWidget (Phase 46 Theme B)', () => {
     expect(screen.queryByText('Battery')).toBeNull();
   });
 
+  it('renders left lightning bolt and green shimmer on screensaver widget when charging', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 82, isCharging: true, devices: [] } },
+    });
+    render(<LockScreenBatteryWidget />);
+    const widget = screen.getByTestId('lock-battery-widget');
+    const container = widget.firstElementChild as HTMLElement;
+    expect(container.getAttribute('data-charging')).toBe('true');
+
+    // Left lightning bolt exists and is the first svg
+    const bolt = screen.getByTestId('battery-charging-bolt');
+    expect(bolt).toBeTruthy();
+    const svgs = widget.querySelectorAll('svg');
+    expect(svgs.length).toBeGreaterThanOrEqual(2);
+    expect(svgs[0]).toBe(bolt);
+
+    // Green shimmer exists
+    const shimmer = screen.getByTestId('battery-charging-shimmer');
+    expect(shimmer).toBeTruthy();
+    expect(shimmer.className).toContain('battery-charging-shimmer');
+  });
+
+  it('does not render lightning bolt or shimmer on screensaver widget when not charging', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 82, isCharging: false, devices: [] } },
+    });
+    render(<LockScreenBatteryWidget />);
+    expect(screen.queryByTestId('battery-charging-bolt')).toBeNull();
+    expect(screen.queryByTestId('battery-charging-shimmer')).toBeNull();
+  });
+
   it('falls back to the first connected device when there is no primary percent', () => {
     useMetricsStore.setState({
       latest: {
