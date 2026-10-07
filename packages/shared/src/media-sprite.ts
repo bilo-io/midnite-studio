@@ -252,6 +252,8 @@ export const TilesetSpecSchema = z.object({
   /** Each pair builds a transition set: `b` painted over `a`. */
   transitions: z.array(z.object({ a: TerrainId, b: TerrainId })).max(16).default([{ a: 'grass', b: 'dirt' }]),
   scheme: z.enum(TILESET_SCHEMES).default('blob47'),
+  /** Pixel style: one palette over every terrain (fixed colours, or this many from the tiles). */
+  palette: SpritePaletteSchema.optional(),
   seed: z.number().int().min(0).max(2_147_483_647).default(1),
   /** Set: the job renders this terrain into tiles instead of generating terrain bases. */
   fromTerrain: TilesetFromTerrainSchema.optional(),

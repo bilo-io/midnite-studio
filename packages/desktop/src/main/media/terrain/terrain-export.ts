@@ -191,7 +191,7 @@ function registerTexture(png: Uint8Array): string {
 }
 
 /** A `textureSize²` bake of the splat blend, each material contributing its tile's mean colour. */
-async function bakeSplat(b: Built, size: number): Promise<Uint8Array | null> {
+export async function bakeSplat(b: Pick<Built, 'build'>, size: number): Promise<Uint8Array | null> {
   const splatBytes = await readFile(join(b.build, 'splat.png')).catch(() => null);
   const splat = splatBytes ? decodePng(splatBytes) : null;
   if (!splat?.ok) return null;

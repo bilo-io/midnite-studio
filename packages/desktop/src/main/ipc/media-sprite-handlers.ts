@@ -8,7 +8,10 @@ import { createHandDrawnRunner, handDrawnPreflight } from '../media/sprite/hand-
 import { createOneShotRunner, oneShotPreflight } from '../media/sprite/one-shot';
 import { createRenderRelay } from '../media/sprite/render-relay';
 import { createRenderedRunner } from '../media/sprite/rendered';
+import { backgroundPreflight, createBackgroundRunner, createPropsRunner, propsPreflight } from '../media/sprite/environment';
 import { createSpriteService, type SpriteJobRunner } from '../media/sprite/sprite-service';
+import { readTerrainSource } from '../media/sprite/terrain-source';
+import { createTilesetRunner, tilesetPreflight } from '../media/sprite/tileset';
 import { broadcastToAllWindows, resolveRole, windowForRole } from '../window-manager';
 import { handle } from './handle';
 import { imageService } from './media-image-handlers';
@@ -23,8 +26,9 @@ import { engines } from './media-model-handlers';
  * job, rendered from 3D (Theme E), whose frames come from the focused main window through the render
  * relay, and the one-shot sheet (Theme F). A job's `method` override (one-shot's "Regenerate this clip
  * with Hand-drawn") arrives here already applied to `ctx.spec`.
- * `export` (Theme G) packs the atlas into the asset's `export/` and, with a destination, a
- * `<name>.sprite/` folder there.
+ * Environments (Themes H and I) are frame sources too: tilesets (and terrain-to-tiles), parallax
+ * backgrounds and prop sheets. `export` (Theme G) packs the atlas into the asset's `export/` and, with a
+ * destination, a `<name>.sprite/` (`.tileset/`, `.background/`) folder there.
  */
 const handDrawn = createHandDrawnRunner({ generateImage: (req) => imageService.generateImage(req), visionCall: createVisionCall(engines) });
 
@@ -51,7 +55,20 @@ const toPng = async (bytes: Uint8Array): Promise<Buffer | null> => {
 };
 const oneShot = createOneShotRunner({ generateImage: (req) => imageService.generateImage(req), toPng });
 
+const environment = {
+  generateImage: (req: Parameters<typeof imageService.generateImage>[0]) => imageService.generateImage(req),
+  toPng,
+  readTerrain: async (target: { repoId: string; project: string; terrain: string }) =>
+    readTerrainSource(await mediaStore.rootFor({ repoId: target.repoId, tab: 'terrain' }), target.project, target.terrain),
+};
+const tileset = createTilesetRunner(environment);
+const background = createBackgroundRunner(environment);
+const props = createPropsRunner(environment);
+
 const runJob: SpriteJobRunner = (ctx) => {
+  if (ctx.spec.kind === 'tileset') return tileset(ctx);
+  if (ctx.spec.kind === 'background') return background(ctx);
+  if (ctx.spec.kind === 'prop-sheet') return props(ctx);
   if (ctx.turnaround || (ctx.spec.kind === 'sheet' && ctx.spec.method === 'hand-drawn')) return handDrawn(ctx);
   if (ctx.spec.kind === 'sheet' && ctx.spec.method === 'rendered') return rendered(ctx);
   if (ctx.spec.kind === 'sheet' && ctx.spec.method === 'one-shot') return oneShot(ctx);
@@ -68,7 +85,7 @@ export const spriteService = createSpriteService({
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaSpriteChanged, event),
   log: (line) => defaultLogger.info(line),
   runJob,
-  preflight: (spec, req) => handDrawnPreflight(spec, req) ?? oneShotPreflight(spec, req),
+  preflight: (spec, req) => handDrawnPreflight(spec, req) ?? oneShotPreflight(spec, req) ?? tilesetPreflight(spec, req) ?? backgroundPreflight(spec, req) ?? propsPreflight(spec, req),
 });
 
 export function registerMediaSpriteHandlers(): void {
