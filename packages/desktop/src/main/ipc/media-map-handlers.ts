@@ -14,6 +14,7 @@ import { installTileProtocol, mapSourceStatuses } from '../media/map/tile-protoc
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare } from './handle';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
+import { terrainService } from './media-terrain-handlers';
 import { readSecret } from './secrets-handlers';
 
 /**
@@ -99,6 +100,15 @@ export const captureService = createCaptureService({
     return { width, height, rgba };
   },
   broker: captureBroker,
+  // Theme F: the hand-off calls the terrain service in main, not the renderer IPC chain.
+  terrain: {
+    library: (req) => terrainService().library(req),
+    setInput: (req) => terrainService().setInput(req),
+    setRoadsGraph: (target, graph) => terrainService().setRoadsGraph(target, graph),
+    setSpec: (req) => terrainService().setSpec(req),
+    build: (req) => terrainService().build(req),
+  },
+  emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaTerrainOpen, event),
   onChanged: (repoId) => notifyMediaChanged(repoId, 'map'),
   emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMapCaptureProgress, event),
   log: (line) => defaultLogger.info(line),

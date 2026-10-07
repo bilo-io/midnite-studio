@@ -1,5 +1,6 @@
 import { activeSatelliteSource, MAP_BASEMAP_LABEL, MAP_BASEMAPS, MEDIA_TAB_EXPORT_FORMATS, type MapBasemap, type MapProjectPatch, type MapSourceStatus, type MapView } from '@midnite/studio-shared';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MapToolbar } from './map-toolbar';
 import { MapPlaceSearch } from './map-place-search';
@@ -7,6 +8,7 @@ import { downloadLayer } from './map-layer-export';
 import { useMapDrawing, type MapDrawing } from './use-map-drawing';
 
 import { EmptyState } from '../../../components/empty-state';
+import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout } from '../media-layout';
@@ -16,12 +18,13 @@ import { useMediaProjects } from '../use-media';
 import { Tooltip } from '../../../components/tooltip';
 import type { MapCanvasHandle } from './map-canvas';
 import { LazyMapCanvas } from './map-canvas-lazy';
+import { useMapFocus, zoomForSide } from './map-focus';
 import { MapExplorer, mapProjectOf } from './map-explorer';
 import { MapPanel } from './map-panel';
 import { MapErrorChip, MapLoadingBar, MapLoadingState, MapOfflinePanel, isMapOffline } from './map-states';
 import { basemapAttribution, buildMapStyle } from './map-style';
 import { useMapFraming } from './use-map-framing';
-import { useBaseStyles, useMapProject, useMapSources, useSaveMapView } from './use-map';
+import { mapKey, useBaseStyles, useMapProject, useMapSources, useSaveMapView } from './use-map';
 import { useMapStatus } from './use-map-status';
 
 const NO_STATUSES: readonly MapSourceStatus[] = [];
@@ -41,7 +44,22 @@ function MapTabBody({ repoId }: { repoId: string }) {
   const [selection, setSelection] = useState<MediaSelection | null>(null);
   const projects = useMediaProjects(repoId, 'map');
   const project = mapProjectOf(selection, projects.data);
-  return <MapWorkspace key={`${repoId}/${project}`} repoId={repoId} project={project} selection={selection} setSelection={setSelection} />;
+  // Bumped by "Show on map": remounts the workspace so it re-reads the framed `map.json`.
+  const [focusN, setFocusN] = useState(0);
+  const focus = useMapFocus((s) => s.request);
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!focus) return;
+    useMapFocus.getState().clear();
+    void (async () => {
+      const view = { center: focus.center, zoom: zoomForSide(focus.center[1], focus.sideM), bearing: 0, pitch: 0 };
+      await bridge()?.media.map.setView({ repoId, project: focus.project, patch: { view } });
+      await queryClient.invalidateQueries({ queryKey: mapKey(repoId, focus.project) });
+      setSelection({ project: focus.project, path: null });
+      setFocusN((n) => n + 1);
+    })();
+  }, [focus, repoId, queryClient]);
+  return <MapWorkspace key={`${repoId}/${project}/${focusN}`} repoId={repoId} project={project} selection={selection} setSelection={setSelection} />;
 }
 
 type Framing = ReturnType<typeof useMapFraming>;

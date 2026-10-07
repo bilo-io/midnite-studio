@@ -8,6 +8,7 @@ import {
   detectRoadColour,
   extractRoadMask,
   failure,
+  MapRoadGraphFileSchema,
   pickColour,
   needsHeightSource,
   ok,
@@ -18,10 +19,12 @@ import {
   TERRAIN_INPUT_MAX_BYTES,
   TERRAIN_INPUT_MAX_SIDE,
   TERRAIN_ROAD_PREVIEW_SIZE,
+  TERRAIN_ROADS_GRAPH_FILE,
   TERRAIN_SPEC_FILE,
   terrainSlug,
   terrainTimeStamp,
   type GitOpResult,
+  type MapRoadGraphFile,
   type ImageProviderId,
   type TerrainBuildRequest,
   type TerrainBuildResult,
@@ -296,10 +299,13 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       if ('remove' in req) {
         const updated = await updateSpec(req, dir, (spec) => {
           const { [req.slot]: _gone, ...inputs } = spec.inputs;
+          // The captured graph and its mask are a pair: removing one removes the other.
+          if (req.slot === 'roads') delete inputs.roadsGraph;
           return { spec: { ...spec, inputs } };
         });
         if (!updated.ok) return updated;
         await rm(join(dir, file), { force: true });
+        if (req.slot === 'roads') await rm(join(dir, TERRAIN_ROADS_GRAPH_FILE), { force: true });
         announce(req);
         return ok({ warnings: [] });
       }
@@ -358,7 +364,8 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       const updated = await updateSpec(req, dir, (spec) => ({
         spec: {
           ...spec,
-          inputs: { ...spec.inputs, [req.slot]: input },
+          // A new roads mask replaces the captured graph that described the old one.
+          inputs: req.slot === 'roads' ? { ...withoutGraph(spec.inputs), roads: input } : { ...spec.inputs, [req.slot]: input },
           // A heightmap's pre-smooth is decided here: an 8-bit source terraces, so it is softened by default.
           ...(req.slot === 'heightmap' ? { preSmooth: bitDepth === 8 ? 1 : 0 } : {}),
         },
@@ -367,6 +374,46 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       if (req.slot === 'heightmap' && bitDepth === 8) warnings.push('8-bit heightmap: expect visible terracing. Pre-smooth is on.');
       announce(req);
       return ok({ input, warnings });
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /**
+   * Main-only (no IPC channel): attaches or removes the captured road graph a Maps capture made
+   * (Phase 108 Theme F). Validated, written inside the per-terrain queue, recorded as `inputs.roadsGraph`.
+   */
+  async function setRoadsGraph(target: TerrainTarget, graph: Uint8Array | { remove: true }): Promise<GitOpResult<{ edges: number }>> {
+    try {
+      const located = await locate(target);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      if ('remove' in graph) {
+        const updated = await updateSpec(target, dir, (spec) => ({ spec: { ...spec, inputs: withoutGraph(spec.inputs) } }));
+        if (!updated.ok) return updated;
+        await rm(join(dir, TERRAIN_ROADS_GRAPH_FILE), { force: true });
+        announce(target);
+        return ok({ edges: 0 });
+      }
+      let parsed: MapRoadGraphFile;
+      try {
+        parsed = MapRoadGraphFileSchema.parse(JSON.parse(Buffer.from(graph).toString('utf8')));
+      } catch (error) {
+        return failure(`The road graph is not valid: ${error instanceof Error ? firstIssue(error) : String(error)}`);
+      }
+      const written = await deps.writeBytes({
+        repoId: target.repoId,
+        project: target.project,
+        path: `${target.terrain}/${TERRAIN_ROADS_GRAPH_FILE}`,
+        data: Buffer.from(graph),
+      });
+      if (!written.ok) return written;
+      const updated = await updateSpec(target, dir, (spec) => ({
+        spec: { ...spec, inputs: { ...spec.inputs, roadsGraph: { file: TERRAIN_ROADS_GRAPH_FILE, edges: parsed.edges.length } } },
+      }));
+      if (!updated.ok) return updated;
+      announce(target);
+      return ok({ edges: parsed.edges.length });
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }
@@ -514,10 +561,15 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     return located.ok ? ok(located.value.dir) : located;
   }
 
-  return { library, get, setSpec, setInput, build, cancel, paint, roadKey, export: exportPack, dirOf };
+  return { library, get, setSpec, setInput, setRoadsGraph, build, cancel, paint, roadKey, export: exportPack, dirOf };
 }
 
 /** Nearest-neighbour resample of any raster to a `size`² one with the same channels. */
+function withoutGraph(inputs: TerrainSpec['inputs']): TerrainSpec['inputs'] {
+  const { roadsGraph: _graph, ...rest } = inputs;
+  return rest;
+}
+
 function previewRaster(image: RasterImage, size: number): RasterImage {
   const { width, height, channels } = image;
   const data = image.bitDepth === 16 ? new Uint16Array(size * size * channels) : new Uint8Array(size * size * channels);

@@ -32,8 +32,40 @@ export const MapCaptureRequestSchema = z.object({
   place: z.string().max(80).optional(),
   /** Defaults to AWS Terrarium (the deepest keyless DEM). */
   demSource: MapSourceIdSchema.optional(),
+  /** Theme F: create a Terrain from the capture (main calls the terrain service directly). */
+  handoff: z.boolean().optional(),
+  /** With `handoff`: also start the terrain build ("Capture and build"). */
+  build: z.boolean().optional(),
 });
 export type MapCaptureRequest = z.infer<typeof MapCaptureRequestSchema>;
+
+/** OSM highway classes a capture keeps; `*_link` folds into its parent, foot/cycle ways into `path`. */
+export const MAP_ROAD_CLASSES = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'service', 'track', 'path'] as const;
+export type MapRoadClass = (typeof MAP_ROAD_CLASSES)[number];
+
+/**
+ * `roads.graph.json` (Theme E writes it, Theme F hands it to Terrain): the real OSM road graph in
+ * Terrain's centred frame — `x` east, `z` south, metres.
+ */
+export const MapRoadGraphFileSchema = z.object({
+  version: z.literal(1),
+  worldSize: z.number().positive(),
+  nodes: z.array(z.object({ id: z.number().int().nonnegative(), p: z.tuple([z.number(), z.number()]) })),
+  edges: z.array(
+    z.object({
+      id: z.number().int().nonnegative(),
+      a: z.number().int().nonnegative(),
+      b: z.number().int().nonnegative(),
+      points: z.array(z.tuple([z.number(), z.number()])),
+      cls: z.enum(MAP_ROAD_CLASSES),
+      name: z.string().optional(),
+      lanes: z.number().int().positive().optional(),
+      widthM: z.number().positive(),
+      osmWayId: z.number().int().optional(),
+    }),
+  ),
+});
+export type MapRoadGraphFile = z.infer<typeof MapRoadGraphFileSchema>;
 
 export const MapCaptureCancelRequestSchema = z.object({ captureId: z.string().min(1) });
 
@@ -81,8 +113,53 @@ export const MapCaptureResultSchema = z.object({
   /** Project-relative, e.g. `captures/dunes-20261007-120000`. */
   dir: z.string(),
   capture: MapCaptureFileSchema,
+  /** Set when the request asked for a hand-off and it succeeded. */
+  terrain: z.object({ project: z.string(), terrain: z.string() }).optional(),
 });
 export type MapCaptureResult = z.infer<typeof MapCaptureResultSchema>;
+
+/** The side of the satellite and roads layers (Decision 15): Terrain's `textureSize` for this capture. */
+export function captureTextureSize(size: number): 2048 | 4096 {
+  return size <= 2049 ? 2048 : 4096;
+}
+
+/** Fraction of DEM samples at or below 0 m that makes a frame "contain sea" (≥ 1 %). */
+export const MAP_CAPTURE_SEA_FRACTION = 0.01;
+
+/**
+ * The terrain settings a capture implies (Phase 108 Theme F): world size and height range in metres,
+ * the grid at the output size, the texture size, `seaLevel: 0` when the frame has sea, no pre-smooth
+ * (the heightmap is 16-bit), and a `geo` block recording where it came from. `alignment` stays at
+ * Terrain's identity default, so it is deliberately absent from the patch.
+ */
+export function handoffSpec(
+  capture: MapCaptureFile,
+  origin: { repoId?: string; project: string; name?: string },
+): Record<string, unknown> {
+  const hi = capture.heightMaxM - capture.heightMinM < 0.5 ? capture.heightMinM + 1 : capture.heightMaxM;
+  return {
+    ...(origin.name ? { name: origin.name } : {}),
+    worldSize: capture.sideM,
+    heightRange: [capture.heightMinM, hi],
+    resolution: capture.size,
+    textureSize: captureTextureSize(capture.size),
+    ...(capture.hasSea ? { seaLevel: 0 } : {}),
+    preSmooth: 0,
+    geo: {
+      center: capture.center,
+      bbox: capture.bbox,
+      sideM: capture.sideM,
+      capture: { ...(origin.repoId ? { repoId: origin.repoId } : {}), project: origin.project, name: capture.name },
+      attributions: capture.attributions,
+      capturedAt: capture.capturedAt,
+    },
+  };
+}
+
+/** The terrain's name for a capture: the place, else `"<lat>, <lon>"` at 3 dp. */
+export function captureTerrainName(req: { center: [number, number]; place?: string | undefined }): string {
+  return req.place?.trim() || `${req.center[1].toFixed(3)}, ${req.center[0].toFixed(3)}`;
+}
 
 /** `<slug(place or lat_lon)>-YYYYMMDD-HHMMSS`, the `terrainFolderLabel` suffix shape. */
 export function captureFolderName(

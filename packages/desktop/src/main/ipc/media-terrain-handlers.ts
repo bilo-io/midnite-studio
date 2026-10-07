@@ -60,6 +60,11 @@ const service = createTerrainService({
   log: (line) => defaultLogger.info(line),
 });
 
+/** The one terrain service, for main-side callers (the Maps capture hand-off) that must not round-trip the renderer. */
+export function terrainService(): typeof service {
+  return service;
+}
+
 /**
  * The `terrain_*` MCP tools, over the same service as the tab. The app's global MCP server answers
  * them behind the `allowTerrains` switch (`mcp/terrain-tools.ts`); `terrain_open` is broadcast to

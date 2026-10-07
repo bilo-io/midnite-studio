@@ -14,7 +14,9 @@ import {
   flattenFootprints,
   maskIoU,
   reseatFoliage,
+  roadGraphFromCapture,
   roadGraphFromMask,
+  MapRoadGraphFileSchema,
   scatterFoliage,
   TERRAIN_CLASS_INDICES,
   builtInFoliageDesign,
@@ -214,11 +216,22 @@ export async function runTerrainBuild(
     const roadsRes = Math.min(spec.textureSize, 2048);
     const colour = spec.roads.colour ?? detectRoadColour(decoded.image).colour;
     const { raster } = resampleDrape(decoded.image, roadsRes, roadsAlignment);
-    const { graph, mask, mPerPx } = roadGraphFromMask(extractRoadMask(raster, colour, spec.roads.tolerance), roadsRes, {
+    const fromMask = roadGraphFromMask(extractRoadMask(raster, colour, spec.roads.tolerance), roadsRes, {
       worldSize: spec.worldSize,
       spurMinM: spec.roads.spurMinM,
       widthClampM: spec.roads.widthClampM,
     });
+    const { mask, mPerPx } = fromMask;
+    // A Maps capture's real OSM graph (classes, names, widths) replaces the skeletonised mask; the
+    // mask is still extracted above so foliage keeps off the roads.
+    let graph = fromMask.graph;
+    if (spec.inputs.roadsGraph) {
+      const captured = await readFile(join(job.dir, spec.inputs.roadsGraph.file), 'utf8')
+        .then((text) => MapRoadGraphFileSchema.safeParse(JSON.parse(text)))
+        .catch(() => null);
+      if (captured?.success) graph = roadGraphFromCapture(captured.data);
+      else warnings.push('The captured road graph could not be read — roads come from the mask instead.');
+    }
     const preview = new Uint8Array(mask.length);
     for (let i = 0; i < mask.length; i += 1) preview[i] = mask[i] ? 255 : 0;
     await writeFile(join(out, 'roads-mask.png'), encodePngGrey8(preview, roadsRes, roadsRes));

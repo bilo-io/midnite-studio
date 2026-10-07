@@ -191,12 +191,18 @@ written as `roads.graph.json` (`MapRoadGraphFileSchema`, with `cls`, `name?`, `l
 rasterised as a cyan-on-black `roads.png` that `detectRoadColour` keys without a hint. A failed
 satellite or roads step never loses the heightmap.
 
-**Theme F — Hand-off to Terrain.** ◻ Not started. Main calls the terrain service directly (not the
-renderer IPC chain): `library({op:'create'})` → `setInput` ×3 → a new main-only `setRoadsGraph` →
-`setSpec` (worldSize, heightRange, resolution, textureSize, seaLevel, a validated `geo` block) →
-optional `build` → `mediaTerrainOpen`. Terrain's roads stage takes the captured graph when
-`inputs.roadsGraph` is set — widths from `widthM`, and an optional `cls`/`name` carried through to
-`build/roads.json` — while mask-only terrains build byte-for-byte as before.
+**Theme F — Hand-off to Terrain.** ✅ Landed (this PR). "Capture and build" / "Capture only" in the Maps
+capture section send `handoff`/`build` on the capture request, and main calls the terrain service
+directly (a `terrainService()` getter in `media-terrain-handlers.ts`): `library({op:'create'})` →
+`setInput` per file the capture carries → a main-only `setRoadsGraph` → `setSpec` (`handoffSpec`:
+world size, height range, resolution, `textureSize` 2048/4096, `seaLevel: 0` when ≥ 1 % of samples are
+at or below sea level, `preSmooth: 0`, and an explicit `geo` block) → `mediaTerrainOpen` → an
+un-awaited `build`. Terrain's roads stage takes `inputs.roadsGraph` when set — widths from `widthM`,
+`cls`/`name` carried into `build/roads.json` — and a mask-only terrain's `roads.json` is byte-identical
+(pinned by hash). A new roads mask or removing it drops the graph that went with it. The Terrain panel
+shows "Captured from Maps" with a Show on map button (`map-focus.ts`: opens the project and frames the
+square). Heightmap-only captures hand off today; satellite, roads mask and graph wire in when Theme E
+writes them.
 
 **Theme G — Measure and draw.** ✅ Landed (PR #774). Geodesy is the Theme D kernel plus a new additive
 `shared/src/map/measure.ts` (`geodesicCircle` 128-gon from Vincenty direct, `polygonMeasure` on the local frame,
@@ -206,7 +212,7 @@ Backspace undoes a point, draft vertices drag); a circle takes its radius from a
 1 km, and the radius is editable in the detail pane. Readouts say "geodesic"; units are `mapUnits` in Settings ▸
 Media ▸ Maps. Shift-click selects a second circle for centre-to-centre and gap/overlap (box-zoom is off so the
 click survives). Place search reuses the Open-Meteo geocoder, moved to `features/geo/geocode.ts` (300 ms, two
-characters, eight results, Enter flies to zoom 12) and records the name in `map-place-store.ts` for Theme F.
+characters, eight results, Enter flies to zoom 12) and records the name in `map-place-store.ts`, which names a capture and its terrain while the frame stays near that place (Theme F falls back to lat, lon).
 
 **Theme H — Layers.** ✅ Landed (PR #774). `layers/<name>.geojson`, `MapLayerFileSchema` and `stringifyLayer`
 (stable key order, 7 dp, trailing newline) in `shared/src/media-map.ts`, read and written through the generic
@@ -580,7 +586,7 @@ on top of a capture.
 
 ## F — Hand-off to Terrain (M)
 
-- [ ] "Capture for Terrain" button: runs D + E, then creates a terrain via the existing IPC (`terrain-library {op:'create'}` → `terrain-set-input` ×3 → `terrain-set-spec` → optional `terrain-build`), named after the place or coordinates.
+- [x] "Capture for Terrain" button: runs D + E, then creates a terrain via the existing IPC (`terrain-library {op:'create'}` → `terrain-set-input` ×3 → `terrain-set-spec` → optional `terrain-build`), named after the place or coordinates.
   - **Corrected (Decision 13):** the capture runs in main, so the hand-off calls the terrain **service**
     in main, not the IPC chain: `media-terrain-handlers.ts` exports `terrainService()` (a getter for
     its module-local `service`), and `capture-service.ts` takes it as a dep
@@ -593,14 +599,14 @@ on top of a capture.
     the half-made terrain is left in place (visible, deletable) rather than auto-deleted.
   - *Verified by:* `capture-service.test.ts` with a fake terrain service — calls arrive in that order
     with those arguments; a failing `setSpec` returns `{ok:false, message:/terrain settings/}`.
-- [ ] Spec auto-fill: `worldSize` = frame side in metres, `heightRange` = [min, max] metres, `resolution` = output size, `seaLevel` = 0 when the frame contains sea, `alignment` identity.
+- [x] Spec auto-fill: `worldSize` = frame side in metres, `heightRange` = [min, max] metres, `resolution` = output size, `seaLevel` = 0 when the frame contains sea, `alignment` identity.
   - Also `textureSize` = the satellite side (Decision 15), `name` = the capture name's label, and
     `preSmooth: 0` (the heightmap is 16-bit).
   - `hasSea` = ≥ 1 % of DEM samples ≤ 0 m **and** min < 0; then `seaLevel: 0`. A below-sea-level
     inland basin (Dead Sea) also trips this — accepted; the user clears `seaLevel` in the Terrain panel.
   - *Verified by:* `capture-handoff.test.ts` — `handoffSpec(capture)` (pure) for a sea and a
     mountain fixture.
-- [ ] Terrain gains an optional captured-graph path: when `inputs/roads.graph.json` exists, Terrain uses it instead of re-skeletonising the mask, so road classes, names and widths survive (Phase 105 `road-graph` unchanged for mask-only inputs).
+- [x] Terrain gains an optional captured-graph path: when `inputs/roads.graph.json` exists, Terrain uses it instead of re-skeletonising the mask, so road classes, names and widths survive (Phase 105 `road-graph` unchanged for mask-only inputs).
   - Spec: `inputs` gains `roadsGraph: z.object({ file: z.literal('inputs/roads.graph.json'), edges:
     z.number().int().nonnegative() }).optional()` — additive, `version` stays 1.
   - Service: `setRoadsGraph(target, bytes | { remove: true })` — main-only (no IPC channel), validates
@@ -616,7 +622,7 @@ on top of a capture.
   - *Verified by:* `build-pipeline.test.ts` — a terrain with a captured graph writes `roads.json`
     whose edges carry `cls`; the existing mask-only fixture's `roads.json` is byte-identical before and
     after.
-- [ ] `terrain.json` records a `geo` block (centre, bbox, side metres, capture id, attributions) via the passthrough schema; the Terrain detail pane shows "Captured from Maps" with a link back to the frame.
+- [x] `terrain.json` records a `geo` block (centre, bbox, side metres, capture id, attributions) via the passthrough schema; the Terrain detail pane shows "Captured from Maps" with a link back to the frame.
   - **Decision 16:** an explicit `geo: TerrainGeoSchema.optional()` field, not a passthrough key —
     `{ center: [lon, lat], bbox: [w, s, e, n], sideM, capture: { repoId?, project, name },
     attributions: string[], capturedAt }`.
@@ -627,7 +633,7 @@ on top of a capture.
     under it in small text.
   - *Verified by:* `terrain-panel.bridge.test.tsx` — the row renders for a spec with `geo` and not
     without; clicking it calls `focusMapCapture`.
-- [ ] After hand-off, `mstudio:media:terrain-open` focuses the new terrain in the Terrain tab.
+- [x] After hand-off, `mstudio:media:terrain-open` focuses the new terrain in the Terrain tab.
   - Main broadcasts `EVENT_CHANNELS.mediaTerrainOpen` with `{ repoId, project, terrain }` after
     `setSpec` (before the build finishes), and the Maps tab switches the Media tab to `terrain`; build
     progress then shows on the Terrain tab's existing progress UI.
