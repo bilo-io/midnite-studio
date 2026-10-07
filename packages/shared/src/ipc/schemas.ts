@@ -291,6 +291,9 @@ import {
   SpriteOpenEventSchema,
   SpritePatchFramesRequestSchema,
   SpriteProgressEventSchema,
+  SpriteRenderFramesRequestSchema,
+  SpriteRenderReadyRequestSchema,
+  SpriteRenderRequestEventSchema,
   SpriteResultSchemas,
   SpriteSetReferenceRequestSchema,
   SpriteSetSpecRequestSchema,
@@ -3305,6 +3308,11 @@ export const MediaSpriteExportResponse = SpriteResultSchemas.generic;
 export const MediaSpriteProgressPayload = SpriteProgressEventSchema;
 export const MediaSpriteChangedPayload = SpriteChangedEventSchema;
 export const MediaSpriteOpenPayload = SpriteOpenEventSchema;
+export const MediaSpriteRenderReadyRequest = SpriteRenderReadyRequestSchema;
+export const MediaSpriteRenderReadyResponse = SpriteResultSchemas.generic;
+export const MediaSpriteRenderFramesRequest = SpriteRenderFramesRequestSchema;
+export const MediaSpriteRenderFramesResponse = SpriteResultSchemas.generic;
+export const MediaSpriteRenderRequestPayload = SpriteRenderRequestEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
 export const MediaModelOpenPayload = ModelOpenEventSchema;

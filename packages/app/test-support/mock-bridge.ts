@@ -3955,6 +3955,9 @@ export function buildMockBridge(data: MockFixtures) {
               write(req.group, req.asset, rest);
             } else if ('model' in req) {
               write(req.group, req.asset, { ...spec, reference: { kind: 'model', ...req.model } });
+            } else if ('fromFrame' in req) {
+              // One-shot's hand-off (Theme F): a frame becomes the approved reference.
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: true } });
             } else {
               write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
             }
@@ -3986,6 +3989,10 @@ export function buildMockBridge(data: MockFixtures) {
             listeners.open.add(handler);
             return () => listeners.open.delete(handler);
           },
+          // Rendered from 3D (Theme E): main never asks the mock window to render.
+          onRenderRequest: () => () => undefined,
+          renderReady: async () => ({ ok: true as const }),
+          renderFrames: async () => ({ ok: true as const }),
         };
       })(),
       reveal: async () => ({ ok: true as const }),

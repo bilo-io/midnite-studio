@@ -120,6 +120,8 @@ export type NormaliseOptions = {
   pixel?: boolean;
   /** `anchorNudge` from `frames.json`, added after placement. */
   nudge?: readonly [number, number];
+  /** A fixed scale instead of {@link spriteScale} — rendered frames (Theme E) are already at sheet scale (1). */
+  scale?: number;
 };
 
 export type NormalisedFrame = { image: RgbaImage; scale: number; offset: [number, number] };
@@ -137,7 +139,7 @@ export function normaliseFrame(img: RgbaLike, opts: NormaliseOptions): Normalise
   const box = alphaBounds(img);
   if (!box) return { image: out, scale: 1, offset: [0, 0] };
   const cropped = crop(img, box);
-  const scale = spriteScale(opts);
+  const scale = opts.scale ?? spriteScale(opts);
   const sw = Math.max(1, Math.round(cropped.width * scale));
   const sh = Math.max(1, Math.round(cropped.height * scale));
   const scaled = opts.pixel ? resizeNearest(cropped, sw, sh) : resizeArea(cropped, sw, sh);

@@ -67,16 +67,18 @@ export type ProcessedFrame = {
 export async function processFrame(
   bytes: Uint8Array,
   spec: SpriteSheetSpec,
-  ctx: { toPng: FrameTranscode; referenceHeight?: number | undefined },
+  ctx: { toPng: FrameTranscode; referenceHeight?: number | undefined; rendered?: boolean | undefined },
 ): Promise<ProcessedFrame> {
   const decoded = await decodeFrame(bytes, ctx.toPng);
   const palette = spec.palette && 'colours' in spec.palette ? spec.palette.colours : undefined;
-  const source = hasPartialAlpha(decoded) ? decoded : keyChroma(decoded, chooseChroma(spec.prompt, palette));
+  // A rendered frame (Theme E) has real alpha and is already at the sheet's one scale (the ortho fit):
+  // no keying, no rescale — only anchoring, pixel mode, outline and validation apply.
+  const source = ctx.rendered || hasPartialAlpha(decoded) ? decoded : keyChroma(decoded, chooseChroma(spec.prompt, palette));
   const box = alphaBounds(source);
   const sourceHeight = box ? box.y1 - box.y0 : 0;
   const referenceHeight = ctx.referenceHeight ?? (sourceHeight || spec.frameSize[1]);
   const pixel = isPixelSheet(spec);
-  let { image } = normaliseFrame(source, { frameSize: spec.frameSize, anchor: spec.anchor, referenceHeight, pixel });
+  let { image } = normaliseFrame(source, { frameSize: spec.frameSize, anchor: spec.anchor, referenceHeight, pixel, ...(ctx.rendered ? { scale: 1 } : {}) });
   if (pixel) image = thresholdAlpha(image);
   const measure = measureFrame(source, image, spec);
   if (spec.outline && !pixel) image = outline1px(image);
@@ -91,7 +93,7 @@ export type FramePipelineDeps = {
   yieldNow?: () => Promise<void>;
 };
 
-export type FrameInput = { clip: string; dir: string; n: number; bytes: Uint8Array };
+export type FrameInput = { clip: string; dir: string; n: number; bytes: Uint8Array; rendered?: boolean };
 
 export type FramePipelineResult = {
   /** Pipeline badges for every frame processed in this job. */
@@ -115,7 +117,7 @@ export function createFramePipeline(spec: SpriteSheetSpec, deps: FramePipelineDe
    * scale unless one is already known, so a frame source submits {@link spriteReferenceFrame} first.
    */
   async function process(input: FrameInput): Promise<SpriteFrameMeasure> {
-    const result = await processFrame(input.bytes, spec, { toPng: deps.toPng, referenceHeight: referenceHeights[input.dir] });
+    const result = await processFrame(input.bytes, spec, { toPng: deps.toPng, referenceHeight: referenceHeights[input.dir], rendered: input.rendered });
     if (referenceHeights[input.dir] === undefined && result.sourceHeight > 0) referenceHeights[input.dir] = result.sourceHeight;
     await deps.writeFrame({ clip: input.clip, dir: input.dir, n: input.n, png: encode(result.image) });
     measures[spriteFrameKey(input.clip, input.dir, input.n)] = result.measure;

@@ -988,6 +988,10 @@ export const CHANNELS = {
   mediaSpritePatchFrames: 'mstudio:media:sprite-patch-frames',
   /** Theme G — the sprite pack. Answers "not available yet" until it lands. */
   mediaSpriteExport: 'mstudio:media:sprite-export',
+  /** Theme E — the window answers a `mediaSpriteRenderRequest` (within 10 s, or the job fails). */
+  mediaSpriteRenderReady: 'mstudio:media:sprite-render-ready',
+  /** Theme E — one batch of rendered frames; resolves once main has processed it (the back-pressure). */
+  mediaSpriteRenderFrames: 'mstudio:media:sprite-render-frames',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1575,6 +1579,8 @@ export const EVENT_CHANNELS = {
   mediaSpriteChanged: 'mstudio:media:sprite-changed',
   /** `sprite_open` (Theme K) asked the window to show an asset — see `SpriteOpenEventSchema`. */
   mediaSpriteOpen: 'mstudio:media:sprite-open',
+  /** Main asks the window to render a Models character into frames (Theme E) — see `SpriteRenderRequestEventSchema`. */
+  mediaSpriteRenderRequest: 'mstudio:media:sprite-render-request',
   /** A chat turn's text or state advanced — see `ChatEventSchema`. */
   chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */

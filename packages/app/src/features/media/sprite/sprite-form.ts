@@ -3,6 +3,11 @@ import {
   imageModelsFor,
   imageProviderInfo,
   imageReferenceUnsupportedReason,
+  defaultSpriteCamera,
+  oneShotAspect,
+  oneShotBlocker,
+  oneShotGrid,
+  oneShotRows,
   presetClips,
   recommendSpriteMethod,
   SPRITE_NEEDS_MODEL,
@@ -10,6 +15,7 @@ import {
   type SpriteClip,
   type SpriteMethod,
   type SpritePerspective,
+  type SpriteRenderSettings,
   type SpriteStyle,
 } from '@midnite/studio-shared';
 
@@ -31,8 +37,12 @@ export type SheetForm = {
   clipsEdited: boolean;
   provider: ImageProviderId;
   model: string;
-  /** A Models asset (`<project>`, `<path>`), for rendering from 3D. */
+  /** A Models design (`<project>`, the design file's path inside it), for rendering from 3D. */
   rig?: { project: string; path: string };
+  /** Rendering from 3D: camera, shading, outline and supersampling. `camera` follows the perspective until changed. */
+  render: Omit<SpriteRenderSettings, 'fps'>;
+  /** Set once the user picks a camera themselves, so a perspective change stops moving it. */
+  cameraChosen: boolean;
   /** Hand-drawn: score each frame against the reference with a local vision model. */
   checkConsistency: boolean;
   /** Hand-drawn side sheets: "My character is asymmetric" — draw the west facing instead of mirroring. */
@@ -87,6 +97,8 @@ export function initialSheetForm(provider: ImageProviderId, model: string): Shee
     model,
     checkConsistency: true,
     asymmetric: false,
+    render: { camera: defaultSpriteCamera(base.perspective), elevationDeg: 0, azimuthDeg: 0, shading: 'lit', outline: false, supersample: 4 },
+    cameraChosen: false,
   };
 }
 
@@ -115,9 +127,17 @@ export function sheetFormToSpec(form: SheetForm): Record<string, unknown> {
     provider: form.provider,
     ...(form.model ? { model: form.model } : {}),
     ...(form.rig ? { reference: { kind: 'model', project: form.rig.project, path: form.rig.path } } : {}),
+    ...(form.method === 'rendered' ? { render: form.render } : {}),
     consistency: { enabled: form.checkConsistency },
     mirror: !form.asymmetric,
   };
+}
+
+/** One-shot (Theme F): the grid a form would ask for, its aspect, and why it is refused (`null` when it fits). */
+export function formOneShot(form: Pick<SheetForm, 'clips' | 'directions' | 'perspective' | 'asymmetric' | 'frameW' | 'frameH'>) {
+  const rows = oneShotRows({ clips: form.clips, directions: form.directions, targetPerspective: form.perspective, mirror: !form.asymmetric });
+  const grid = oneShotGrid({ frameSize: [form.frameW, form.frameH] }, rows);
+  return { rows, grid, aspect: oneShotAspect(grid), blocked: oneShotBlocker(grid) };
 }
 
 /** Why Generate cannot run, or `null`. Rendering from 3D with no model swaps the button instead (see `needsRig`). */
@@ -127,6 +147,10 @@ export function sheetBlockedReason(form: SheetForm): string | null {
   if (form.clips.some((c) => !/^[a-z][a-z0-9-]{0,31}$/.test(c.name))) return 'Clip names are lower-case letters, digits and dashes.';
   if (new Set(form.clips.map((c) => c.name)).size !== form.clips.length) return 'Clip names must be unique.';
   if (form.method !== 'rendered' && form.prompt.trim().length === 0) return 'Describe what to draw.';
+  if (form.method === 'one-shot') {
+    const blocked = formOneShot(form).blocked;
+    if (blocked) return blocked;
+  }
   if (form.method === 'hand-drawn' && !referenceCapable(form.provider, form.model)) {
     return imageReferenceUnsupportedReason(form.provider === 'gemini' ? 'Imagen' : imageProviderInfo(form.provider).label);
   }

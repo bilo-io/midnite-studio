@@ -1,5 +1,6 @@
 import {
   handDrawnBlocker,
+  resolveRenderSettings,
   SPRITE_GROUP_IDS,
   spriteDirections,
   spriteFolderLabel,
@@ -19,6 +20,7 @@ import { MEDIA_TAB_META } from '../media-tabs';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { SpriteCreatePanel } from './sprite-create-panel';
 import { SpriteExplorer, spriteOfPath } from './sprite-explorer';
+import { SpriteOneShotPanel } from './sprite-one-shot-panel';
 import { SpriteFlaggedFrames, SpriteReferenceCard, type ReferenceChange } from './sprite-reference-card';
 import { useSprite, useSpriteActions, useSpriteChangedInvalidation, useSpriteProgress, type SpriteRef } from './use-sprite';
 
@@ -79,6 +81,23 @@ function SpriteTabBody({ repoId }: { repoId: string }) {
         return null;
       }}
       onCancel={() => (jobId ? void actions.cancel(jobId) : undefined)}
+      oneShot={(spec) => (
+        <SpriteOneShotPanel
+          repoId={repoId}
+          target={ref}
+          spec={spec}
+          frames={sprite.data.frames}
+          busy={running}
+          onHandOff={async (row) => {
+            const locked = await actions.setReference(ref, { fromFrame: { clip: row.clip, dir: row.dir, n: 0 } });
+            if (!locked.ok) return locked.kind === 'error' ? locked.message : 'Could not set the reference.';
+            const result = await actions.generate(ref, { clips: [row.clip], method: 'hand-drawn' });
+            if (!result.ok) return result.kind === 'error' ? result.message : 'Could not start generation.';
+            setJobs((current) => ({ ...current, [refKey]: result.value.jobId }));
+            return null;
+          }}
+        />
+      )}
       reference={(spec, generate) => (
         <SpriteReferenceCard
           repoId={repoId}
@@ -122,6 +141,7 @@ function SpriteOverview({
   onGenerate,
   onCancel,
   reference,
+  oneShot,
 }: {
   spec: SpriteAssetSpec;
   frames: SpriteFramesFile;
@@ -131,6 +151,8 @@ function SpriteOverview({
   onCancel: () => void;
   /** The hand-drawn reference card; given the sheet and a "draw a turnaround" action. */
   reference: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>, generateTurnaround: () => void) => React.ReactNode;
+  /** The one-shot grid preview and per-row verdict (Theme F). */
+  oneShot: (spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>) => React.ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
   const rows = specRows(spec);
@@ -186,6 +208,7 @@ function SpriteOverview({
       ) : null}
       {spec.prompt ? <p className="text-xs text-muted-foreground">{spec.prompt}</p> : null}
       {spec.kind === 'sheet' && handDrawn ? reference(spec, () => start({ turnaround: true })) : null}
+      {spec.kind === 'sheet' && spec.oneShot ? oneShot(spec) : null}
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
@@ -226,6 +249,17 @@ function SpriteOverview({
   );
 }
 
+/** Rendered from 3D (Theme E): the model and how it is shot. */
+function renderRows(spec: Extract<SpriteAssetSpec, { kind: 'sheet' }>): Array<[string, string]> {
+  if (spec.method !== 'rendered') return [];
+  const r = resolveRenderSettings(spec);
+  return [
+    ['Model', spec.reference?.kind === 'model' ? `${spec.reference.project}/${spec.reference.path}` : 'none attached'],
+    ['Camera', `${r.camera}, ${Math.round(r.elevationDeg * 1000) / 1000}° down${r.azimuthDeg ? `, turned ${r.azimuthDeg}°` : ''}`],
+    ['Shading', `${r.shading}${r.outline ? ' + outline' : ''}, ${r.supersample}× supersampled`],
+  ];
+}
+
 function specRows(spec: SpriteAssetSpec): Array<[string, string]> {
   switch (spec.kind) {
     case 'sheet':
@@ -235,6 +269,7 @@ function specRows(spec: SpriteAssetSpec): Array<[string, string]> {
         ['Frame size', `${spec.frameSize[0]} × ${spec.frameSize[1]}`],
         ['Directions', spriteDirections(spec).length > 1 ? `${spec.directions} (${spriteDirections(spec).join(' ')})` : `1 (${spriteDirections(spec)[0]})`],
         ['Method', spec.method],
+        ...renderRows(spec),
       ];
     case 'tileset':
       return [['Style', spec.style], ['Projection', spec.projection], ['Tile size', String(spec.tileSize)], ['Autotile', spec.autotile]];

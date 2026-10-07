@@ -40,6 +40,7 @@ import {
   type SpriteProgressEvent,
   type SpriteSetReferenceRequest,
   type SpriteSetSpecRequest,
+  type SpriteSheetSpec,
   type SpriteTarget,
 } from '@midnite/studio-shared';
 
@@ -89,6 +90,13 @@ export type SpriteJobContext = {
   countRequest: () => void;
   /** A line the job's final event carries even when it ends `done` (e.g. "Consistency not checked: …"). */
   note: (message: string) => void;
+  /**
+   * Read-modify-writes the sheet's `sprite.json` inside the asset's write queue — a rendered sheet
+   * records each clip's real frame count (E), a one-shot sheet its grid and verdict (F).
+   */
+  updateSheet: (change: (spec: SpriteSheetSpec) => SpriteSheetSpec) => Promise<void>;
+  /** Writes any other file of the asset (asset-relative path), e.g. the one-shot sheet image. */
+  writeAssetFile: (path: string, data: Buffer) => Promise<void>;
 };
 export type SpriteJobRunner = (ctx: SpriteJobContext) => Promise<void>;
 
@@ -322,6 +330,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       const file = 'reference/reference.png' as const;
 
       if ('approve' in req) return await approveReference(req, dir);
+      if ('fromFrame' in req) return await referenceFromFrame(req, dir);
       let png: Buffer | null = null;
       if ('bytes' in req) {
         png = await deps.toPng(req.bytes instanceof Uint8Array ? req.bytes : new Uint8Array(req.bytes));
@@ -362,6 +371,26 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       });
       if (!marked.ok) return marked;
     }
+    announce(req);
+    return ok();
+  }
+
+  /** One-shot's hand-off (Theme F): an existing frame becomes the approved reference image. */
+  async function referenceFromFrame(req: SpriteTarget & { fromFrame: { clip: string; dir: string; n: number } }, dir: string): Promise<GitOpResult> {
+    if (running.has(keyOf(req))) return failure(SPRITE_JOB_BUSY);
+    const { clip, dir: direction, n } = req.fromFrame;
+    let png: Buffer;
+    try {
+      png = await readFile(join(dir, spriteFramePath(clip, direction, n)));
+    } catch {
+      return failure(`Frame ${spriteFrameKey(clip, direction, n)} does not exist.`);
+    }
+    const updated = await updateSpec(req, dir, (spec) =>
+      spec.kind === 'sheet' ? { spec: { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: true } } } : { fail: failure('Only a sprite sheet has a reference.') },
+    );
+    if (!updated.ok) return updated;
+    const written = await deps.writeBytes({ repoId: req.repoId, project: req.group, path: `${req.asset}/reference/reference.png`, data: png });
+    if (!written.ok) return written;
     announce(req);
     return ok();
   }
@@ -413,8 +442,10 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       const key = keyOf(req);
       if (running.has(key)) return failure(SPRITE_JOB_BUSY);
       const { dir } = located.value;
-      const spec = await readSpec(dir);
-      if (!spec.ok) return spec;
+      const read = await readSpec(dir);
+      if (!read.ok) return read;
+      // One-shot's hand-off (Theme F) runs one job with another method; the stored spec keeps its own.
+      const spec = { value: req.method && read.value.kind === 'sheet' ? { ...read.value, method: req.method } : read.value };
       if (!req.turnaround && spec.value.kind === 'sheet' && spec.value.method === 'rendered' && spec.value.reference?.kind !== 'model') return failure(SPRITE_NEEDS_MODEL);
       if (req.turnaround && spec.value.kind !== 'sheet') return failure('Only a sprite sheet has a reference.');
       const refused = deps.preflight?.(spec.value, req) ?? null;
@@ -535,10 +566,18 @@ export function createSpriteService(deps: SpriteServiceDeps) {
           );
           if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the reference.');
         },
+        updateSheet: async (change) => {
+          const updated = await updateSpec(target, dir, (current) => (current.kind === 'sheet' ? { spec: change(current) } : { fail: failure('Only a sprite sheet has frames.') }));
+          if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the sprite.');
+        },
+        writeAssetFile: async (path, data) => {
+          const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${path}`, data });
+          if (!written.ok) throw new Error(written.kind === 'error' ? written.message : `Could not write ${path}.`);
+        },
         submitFrame: async ({ clip, dir: direction, n, bytes, meta }) => {
           const p = await pipelineFor();
           if (meta) pending.set(spriteFrameKey(clip, direction, n), meta);
-          return p.process({ clip, dir: direction, n, bytes });
+          return p.process({ clip, dir: direction, n, bytes, rendered: meta?.source === 'rendered' });
         },
       });
       if (job.controller.signal.aborted) end = 'cancelled';

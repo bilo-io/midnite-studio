@@ -78,14 +78,17 @@ export function useSpriteActions(repoId: string) {
   );
 
   /** Starts a job. Failures that are the user's to act on (busy, no model) come back in the result. */
-  const generate = useCallback(async (ref: SpriteRef, opts: { turnaround?: true; clips?: string[] } = {}) => {
+  const generate = useCallback(async (ref: SpriteRef, opts: { turnaround?: true; clips?: string[]; method?: 'hand-drawn' } = {}) => {
     const api = bridge()?.media.sprite;
     return api ? api.generate({ repoId, ...ref, ...opts }) : noBridge<never>();
   }, [repoId]);
 
   /** Attach an image, approve the current one, or drop it (Theme D's reference card). Failures come back in the result. */
   const setReference = useCallback(
-    async (ref: SpriteRef, change: { bytes: Uint8Array; name: string } | { approve: true; frames: 'keep' | 'mark' } | { remove: true }) => {
+    async (
+      ref: SpriteRef,
+      change: { bytes: Uint8Array; name: string } | { approve: true; frames: 'keep' | 'mark' } | { remove: true } | { fromFrame: { clip: string; dir: string; n: number } },
+    ) => {
       const api = bridge()?.media.sprite;
       const result = api ? await api.setReference({ repoId, ...ref, ...change }) : noBridge<never>();
       await invalidate();

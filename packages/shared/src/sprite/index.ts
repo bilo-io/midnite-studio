@@ -7,3 +7,7 @@ export * from './presets';
 export * from './quantise';
 export * from './recommend';
 export * from './validate';
+export * from './camera';
+export * from './sampling';
+export * from './grid-detect';
+export * from './one-shot-prompt';
