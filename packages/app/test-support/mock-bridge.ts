@@ -5433,7 +5433,8 @@ export function buildMockBridge(data: MockFixtures) {
   // Phase 105 Theme J's sixth switch — same off-by-default posture.
   // eslint-disable-next-line no-var
   var mcpAllowTerrains = data.mcp?.allowTerrains ?? false;
-  var mcpAllowSprites = data.mcp?.allowSprites ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowSprites =data.mcp?.allowSprites ?? false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {
