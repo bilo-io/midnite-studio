@@ -16,6 +16,7 @@ export * from './init';
 export * from './list-files';
 export * from './log';
 export * from './rebase';
+export * from './revert';
 export * from './reflog';
 export * from './refs';
 export * from './refs-ops';
