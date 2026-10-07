@@ -75,6 +75,47 @@ export const modelSdfBake = async (input: McpToolInput<'model_sdf_bake'>): Promi
   allowed();
   return tools().model_sdf_bake(input);
 };
+export const modelGetLandmarks = async (input: McpToolInput<'model_get_landmarks'>): Promise<McpToolOutput<'model_get_landmarks'>> => tools().model_get_landmarks(input);
+export const modelSculptStroke = async (input: McpToolInput<'model_sculpt_stroke'>): Promise<McpToolOutput<'model_sculpt_stroke'>> => {
+  allowed();
+  return tools().model_sculpt_stroke(input);
+};
+export const modelMask = async (input: McpToolInput<'model_mask'>): Promise<McpToolOutput<'model_mask'>> => {
+  allowed();
+  return tools().model_mask(input);
+};
+export const modelSubdivide = async (input: McpToolInput<'model_subdivide'>): Promise<McpToolOutput<'model_subdivide'>> => {
+  allowed();
+  return tools().model_subdivide(input);
+};
+export const modelRemesh = async (input: McpToolInput<'model_remesh'>): Promise<McpToolOutput<'model_remesh'>> => {
+  allowed();
+  return tools().model_remesh(input);
+};
+export const modelSculptUndo = async (input: McpToolInput<'model_sculpt_undo'>): Promise<McpToolOutput<'model_sculpt_undo'>> => {
+  allowed();
+  return tools().model_sculpt_undo(input);
+};
+export const modelDecimate = async (input: McpToolInput<'model_decimate'>): Promise<McpToolOutput<'model_decimate'>> => {
+  allowed();
+  return tools().model_decimate(input);
+};
+export const modelRetopo = async (input: McpToolInput<'model_retopo'>): Promise<McpToolOutput<'model_retopo'>> => {
+  allowed();
+  return tools().model_retopo(input);
+};
+export const modelUnwrap = async (input: McpToolInput<'model_unwrap'>): Promise<McpToolOutput<'model_unwrap'>> => {
+  allowed();
+  return tools().model_unwrap(input);
+};
+export const modelBake = async (input: McpToolInput<'model_bake'>): Promise<McpToolOutput<'model_bake'>> => {
+  allowed();
+  return tools().model_bake(input);
+};
+export const modelExport = async (input: McpToolInput<'model_export'>): Promise<McpToolOutput<'model_export'>> => {
+  allowed();
+  return tools().model_export(input);
+};
 export const modelOpen = async (input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> => {
   allowed();
   return tools().model_open(input);

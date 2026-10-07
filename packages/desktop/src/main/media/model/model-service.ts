@@ -588,6 +588,26 @@ export function createModelService(deps: ModelServiceDeps) {
     return ok({ files });
   }
 
+  /** Writes the chosen formats of a design beside its sidecar (Phase 104 Theme F's `model_export`). */
+  async function exportModel(req: { repoId: string; project: string; path: string; spec: ModelSpec; formats: ('glb' | 'obj' | 'fbx')[] }): Promise<GitOpResult<{ files: string[] }>> {
+    const scope: Scope = { repoId: req.repoId, tab: 'model', project: req.project };
+    const stem = req.path.replace(/\.[^./]+$/, '');
+    const base = stem.split('/').pop() ?? stem;
+    await loadModelAssets(deps.readBytes, scope, designDir(req.path), req.spec);
+    const parts = buildScene(req.spec);
+    const outputs: [string, Buffer][] = [];
+    if (req.formats.includes('obj')) outputs.push([`${stem}.mtl`, Buffer.from(writeMtl(parts), 'utf8')], [`${stem}.obj`, Buffer.from(writeObj(parts, `${base}.mtl`, req.spec.name), 'utf8')]);
+    if (req.formats.includes('fbx')) outputs.push([`${stem}.fbx`, writeFbxBinary(parts)]);
+    if (req.formats.includes('glb')) outputs.push([`${stem}.glb`, writeGlb(parts, req.spec.name, gltfRigging(req.spec, parts))]);
+    const files: string[] = [];
+    for (const [path, data] of outputs) {
+      const wrote = await deps.writeBytes({ ...scope, path, data });
+      if (!wrote.ok) return failure(wrote.kind === 'error' ? wrote.message : `Could not write ${path}.`);
+      files.push(path);
+    }
+    return ok({ files });
+  }
+
   /** A new model from a design: the sidecar plus the trio, so it appears in the explorer at once. */
   async function createModel(req: { repoId: string; project: string; stem: string; spec: ModelSpec; engine: string }): Promise<GitOpResult<{ primary: string }>> {
     const sidecar: ModelSidecar = { version: 1, name: req.stem, prompt: '', engine: req.engine, spec: req.spec, createdAt: now().toISOString() };
@@ -599,7 +619,7 @@ export function createModelService(deps: ModelServiceDeps) {
   const writeSidecar = (req: { repoId: string; project: string; path: string; sidecar: ModelSidecar }): Promise<GitOpResult<unknown>> =>
     deps.writeBytes({ repoId: req.repoId, tab: 'model', project: req.project, path: req.path, data: Buffer.from(JSON.stringify(req.sidecar, null, 2) + '\n', 'utf8') });
 
-  return { generate, cancel, exportBytes, saveEdit, createModel, writeSidecar, importAsset };
+  return { generate, cancel, exportBytes, exportModel, saveEdit, createModel, writeSidecar, importAsset };
 }
 
 export type ModelService = ReturnType<typeof createModelService>;

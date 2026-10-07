@@ -51,11 +51,14 @@ import {
   type ModelOpenEvent,
   type ModelSidecar,
   type ModelSpec,
+  previewCamera,
+  type PreviewCamera,
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '../../mcp/errors';
 import { designDir, loadModelAssets } from './model-assets';
 import { renderPreviews } from './preview';
+import { createMeshTools } from './sculpt-tools';
 import { applyPatchOps, describeEdit, ensurePartIds, validateDesign } from './spec-ops';
 import { modelSpecJsonSchema, modelSpecReference } from './spec-reference';
 
@@ -86,7 +89,11 @@ export type ModelMcpDeps = {
   /** Rewrite only the sidecar — an agent's intermediate edits, cheap enough to do per call. */
   writeSidecar: (req: Scope & { path: string; sidecar: ModelSidecar }) => Promise<GitOpResult<unknown>>;
   /** Save a sculpt mesh (`.mesh.bin` plus its op-log entries) beside the design — `sculpt-store`'s `write` op. */
-  writeMesh: (req: Extract<ModelMeshRequest, { op: 'write' }>) => Promise<GitOpResult<ModelMeshResult>>;
+  writeMesh: (req: ModelMeshRequest) => Promise<GitOpResult<ModelMeshResult>>;
+  /** Write a binary file (a baked map) beside the design. */
+  writeFile?: (req: Scope & { path: string; data: Buffer }) => Promise<GitOpResult<unknown>>;
+  /** Write the chosen export formats (`.glb`, `.obj`+`.mtl`, `.fbx`) for a design. */
+  exportModel?: (req: { repoId: string; project: string; path: string; spec: ModelSpec; formats: ('glb' | 'obj' | 'fbx')[] }) => Promise<GitOpResult<{ files: string[] }>>;
   /** Start a new model: sidecar plus the trio, so it shows up in the explorer. */
   createModel: (req: { repoId: string; project: string; stem: string; spec: ModelSpec; engine: string }) => Promise<GitOpResult<{ primary: string }>>;
   emitChanged: (event: ModelChangedEvent) => void;
@@ -125,6 +132,8 @@ export function createModelTools(deps: ModelMcpDeps) {
   const now = deps.now ?? (() => new Date());
   const revisions = new Map<string, number>();
   const locks = new Map<string, Promise<unknown>>();
+  /** The cameras each model's last previews used, so a stroke aims by the pixels the agent saw. */
+  const cameras = new Map<string, Map<string, PreviewCamera>>();
 
   /** Serialise read-modify-write per model: an agent firing parallel calls must not interleave. */
   function locked<T>(key: string, run: () => Promise<T>): Promise<T> {
@@ -186,10 +195,11 @@ export function createModelTools(deps: ModelMcpDeps) {
     deps.emitChanged({ repoId: l.repoId, project: l.project, path: objPath(l), spec, saved, revision });
   }
 
-  async function writeEdit(l: Loaded, sidecar: ModelSidecar, spec: ModelSpec): Promise<McpToolOutput<'model_set_spec'>> {
+  async function writeEdit(l: Loaded, sidecar: ModelSidecar, spec: ModelSpec, options: { keepCameras?: boolean } = {}): Promise<McpToolOutput<'model_set_spec'>> {
     const wrote = await deps.writeSidecar({ ...l.scope, path: `${l.stem}.json`, sidecar: { ...sidecar, spec } });
     if (!wrote.ok) throw new McpToolError('error', wrote.kind === 'error' ? wrote.message : 'Could not write the design.');
     const revision = bump(keyOf(l));
+    if (!options.keepCameras) cameras.delete(keyOf(l));
     announce(l, spec, false, revision);
     return { ok: true, model: objPath(l), revision, ...describeEdit(spec) };
   }
@@ -248,6 +258,12 @@ export function createModelTools(deps: ModelMcpDeps) {
       posed = ` Posed: "${clip.name}" at ${input.pose.time}s.`;
     }
     const rendered = renderPreviews(parts, { views: input.views, size: input.size });
+    const seen = cameras.get(keyOf(l)) ?? new Map<string, PreviewCamera>();
+    for (const shot of rendered) {
+      const camera = previewCamera(parts, shot.view, shot.size);
+      if (camera) seen.set(shot.view, camera);
+    }
+    cameras.set(keyOf(l), seen);
     const info = describeEdit(spec);
     const content: McpContentBlock[] = [
       text(
@@ -540,7 +556,24 @@ export function createModelTools(deps: ModelMcpDeps) {
     });
   }
 
+  const meshTools = createMeshTools({
+    deps,
+    now,
+    load,
+    need,
+    locked,
+    keyOf,
+    writeEdit: async (l, sidecar, spec, options) => {
+      const out = await writeEdit(l, sidecar, spec, options);
+      if (!out.ok) throw new McpToolError('error', 'Could not write the design.');
+      return out;
+    },
+    cameras: (l) => cameras.get(keyOf(l)) ?? new Map<string, PreviewCamera>(),
+    revision: (l) => revisions.get(keyOf(l)) ?? 0,
+  });
+
   return {
+    ...meshTools,
     model_list: modelList,
     model_open: modelOpen,
     model_get_spec: modelGetSpec,
