@@ -210,6 +210,7 @@ export default function MapCanvas({
       bearing: v.bearing,
       pitch: v.pitch,
       attributionControl: false,
+      boxZoom: false, // Shift-click selects a second feature; Shift-drag box-zoom would swallow it
       keyboard: false, // the wrapper owns the keys (arrows, +/-, F, T) so they never reach a text field
     });
     mapRef.current = map;
