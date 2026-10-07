@@ -100,3 +100,27 @@ describe('the tab', () => {
     expect(REPO_SCOPED_MEDIA_TABS).toContain('sprite');
   });
 });
+
+describe('map asset spec (Theme J)', () => {
+  it('loads an older map whose tileset is a bare folder name', async () => {
+    const { MapAssetSpecSchema } = await import('./media-sprite');
+    const spec = MapAssetSpecSchema.parse({ kind: 'map', name: 'level', tileset: 'meadow-20261004-120000' });
+    expect(spec.tileset).toEqual({ group: 'tilesets', asset: 'meadow-20261004-120000' });
+    expect(spec.seed).toBe(1);
+    expect(spec.mapSpec).toBeUndefined();
+  });
+  it('round-trips a layout, an engine and decorations', async () => {
+    const { MapAssetSpecSchema } = await import('./media-sprite');
+    const input = {
+      kind: 'map',
+      name: 'level',
+      tileset: { group: 'tilesets', asset: 'meadow' },
+      engine: { kind: 'ollama', model: 'qwen2.5:7b' },
+      decorations: { props: { group: 'objects', asset: 'crates' }, density: 0.2 },
+      mapSpec: { width: 16, height: 12, base: 'grass', objects: [{ type: 'spawn', name: 'player', x: 1, y: 1 }] },
+    };
+    const spec = MapAssetSpecSchema.parse(input);
+    expect(MapAssetSpecSchema.parse(JSON.parse(JSON.stringify(spec)))).toEqual(spec);
+    expect(spec.mapSpec?.orientation).toBe('orthogonal');
+  });
+});

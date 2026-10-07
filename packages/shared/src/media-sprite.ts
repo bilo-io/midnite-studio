@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { GitOpResultOf, GitOpResultSchema } from './domain/result';
 import { ModelLibraryNameSchema } from './media-model-library';
 import { ImageAspectSchema, ImageProviderIdSchema } from './media';
+import { ModelEngineSchema } from './media-model';
 
 // --- constants ---------------------------------------------------------------
 
@@ -300,15 +301,87 @@ export const PropSheetSpecSchema = z.object({
 });
 export type PropSheetSpec = z.infer<typeof PropSheetSpecSchema>;
 
+// --- maps (Theme J) ------------------------------------------------------------------
+
+/** A tile coordinate, `[x, y]`, in tile units from the top-left. */
+const MapPointSchema = z.tuple([z.number().int(), z.number().int()]);
+export const MAP_SHAPES = ['rect', 'ellipse', 'polygon'] as const;
+export const MAP_OBJECT_TYPES = ['spawn', 'exit', 'point'] as const;
+export const MAP_ORIENTATIONS = ['orthogonal', 'isometric'] as const;
+export const MAP_MIN_SIDE = 8;
+export const MAP_MAX_SIDE = 256;
+
+/**
+ * The layout an LLM writes for a map (Theme J), in tile units. Rasterised in order — `base`, then
+ * `regions`, `rooms`, `corridors`, `paths` and finally `cells` — later wins.
+ *
+ * - A region's `points`: `rect` is two opposite corners (inclusive), `ellipse` is the centre then the
+ *   two radii, `polygon` is three or more vertices (a cell is in when its centre is).
+ * - A room without a `terrain` is floored with the tileset's first walkable terrain that is not `base`.
+ * - `cells` are single-tile overrides (`map_patch`'s `set`).
+ */
+export const MapSpecSchema = z.object({
+  width: z.number().int().min(MAP_MIN_SIDE).max(MAP_MAX_SIDE),
+  height: z.number().int().min(MAP_MIN_SIDE).max(MAP_MAX_SIDE),
+  orientation: z.enum(MAP_ORIENTATIONS).default('orthogonal'),
+  base: TerrainId,
+  regions: z
+    .array(z.object({ terrain: TerrainId, shape: z.enum(MAP_SHAPES), points: z.array(MapPointSchema).min(2).max(64) }))
+    .max(64)
+    .default([]),
+  rooms: z
+    .array(z.object({ x: z.number().int(), y: z.number().int(), w: z.number().int().min(1), h: z.number().int().min(1), terrain: TerrainId.optional() }))
+    .max(64)
+    .optional(),
+  corridors: z
+    .array(z.object({ from: MapPointSchema, to: MapPointSchema, width: z.number().int().min(1).max(4).default(1), terrain: TerrainId }))
+    .max(64)
+    .optional(),
+  paths: z.array(z.object({ points: z.array(MapPointSchema).min(2).max(64), terrain: TerrainId })).max(32).optional(),
+  objects: z
+    .array(z.object({ type: z.enum(MAP_OBJECT_TYPES), name: z.string().min(1).max(64), x: z.number().int(), y: z.number().int() }))
+    .max(128)
+    .default([]),
+  cells: z.array(z.object({ x: z.number().int(), y: z.number().int(), terrain: TerrainId })).max(4096).optional(),
+});
+export type MapSpec = z.infer<typeof MapSpecSchema>;
+export type MapSpecInput = z.input<typeof MapSpecSchema>;
+
+const AssetRef = <G extends SpriteGroupId>(group: G) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' ? { group, asset: value } : value),
+    z.object({ group: z.literal(group).default(group as never), asset: ModelLibraryNameSchema }),
+  );
+
 export const MapAssetSpecSchema = z.object({
   ...base,
   kind: z.literal('map'),
-  /** The tileset asset folder the map is built from. */
-  tileset: z.string().min(1).optional(),
+  /** The tileset asset the map is built from (an old spec's bare folder name still loads). */
+  tileset: AssetRef('tilesets').optional(),
+  /** The size the layout engine is asked for, in tiles; the layout's own `width`/`height` win. */
   size: z.tuple([z.number().int().min(4).max(512), z.number().int().min(4).max(512)]).default([40, 24]),
+  /** Superseded by the tileset's tile size; kept so older specs load. */
   tileSize: z.number().int().min(8).max(256).default(32),
+  /** The last layout (Theme J), written by the job or by `map_patch`. */
+  mapSpec: MapSpecSchema.optional(),
+  /** Who writes the layout: Ollama or a roster agent, as Models uses. */
+  engine: ModelEngineSchema.optional(),
+  /** Props scattered over walkable ground. */
+  decorations: z.object({ props: AssetRef('objects'), density: z.number().min(0).max(1).default(0.1) }).optional(),
+  seed: z.number().int().min(0).max(2_147_483_647).default(1),
+  /** Imported from a `.tmj`: the file is the map, and there is no layout to regenerate. */
+  imported: z.boolean().optional(),
 });
 export type MapAssetSpec = z.infer<typeof MapAssetSpecSchema>;
+
+/** Map job messages. */
+export const MAP_NEEDS_TILESET = 'Choose a tileset for this map first.';
+export const MAP_NEEDS_ENGINE = 'Choose a layout engine (Ollama or an agent) first.';
+export const MAP_IMPORTED_NO_LAYOUT = 'This map was imported from a .tmj; it has no layout to regenerate.';
+export const MAP_FROM_TERRAIN_TILESET = 'That tileset was cut from a terrain; its map.tmj is already written beside it.';
+export const mapMissingImage = (name: string): string => `This map's tileset image ${name} is missing.`;
+/** Layout repair rounds after the first answer, as Models repairs designs. */
+export const SPRITE_MAP_MAX_REPAIRS = 2;
 
 export const SpriteAssetSpecSchema = z.discriminatedUnion('kind', [
   SpriteSheetSpecSchema,
@@ -485,8 +558,17 @@ export const SpriteGenerateRequestSchema = SpriteTargetSchema.extend({
   method: z.literal('hand-drawn').optional(),
   /** Only these frames (`<clip>/<dir>/<nnn>`) — the frame strip's re-roll (Theme G). */
   frames: z.array(z.string().min(1)).max(64).optional(),
+  /** Map only (Theme J): refill from the stored layout instead of asking the engine for a new one. */
+  layout: z.literal('keep').optional(),
 });
 export type SpriteGenerateRequest = z.infer<typeof SpriteGenerateRequestSchema>;
+
+/**
+ * Imports a Tiled map (Theme J) as a new map asset. `path` is the `.tmj` on disk; absent, main asks
+ * with a file dialog. Tilesets are embedded or a `.tsj` beside the map; their images must exist.
+ */
+export const SpriteImportMapRequestSchema = z.object({ repoId: z.string().min(1), path: z.string().min(1).optional() });
+export type SpriteImportMapRequest = z.infer<typeof SpriteImportMapRequestSchema>;
 
 export const SpriteCancelRequestSchema = z.object({ jobId: z.string().min(1) });
 
