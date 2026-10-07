@@ -11,6 +11,7 @@ import {
 } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { encodePngRgba8 } from '../png/png-codec';
 import { createSculptStore } from './sculpt-store';
 
 /** A tetrahedron — the smallest closed mesh. */
@@ -64,6 +65,18 @@ describe('sculpt store', () => {
     expect(wrote.ok).toBe(false);
     expect(wrote).toMatchObject({ ok: false, message: expect.stringMatching(/checksum/) });
     expect(files.size).toBe(0);
+  });
+
+  it('writes a texture PNG and refuses anything else, or one past the size cap (Phase 104 Theme G)', async () => {
+    const png = encodePngRgba8(new Uint8Array(4 * 4 * 4).fill(200), 4, 4);
+    const wrote = await store().handle(req({ op: 'writeTexture', src: 'bust.p1.paint-albedo.abcd1234.png', data: png }));
+    expect(wrote).toMatchObject({ ok: true, value: { texture: { src: 'bust.p1.paint-albedo.abcd1234.png', hash: modelAssetHash(new Uint8Array(png)), width: 4, height: 4 } } });
+    expect(files.get('heads/bust/bust.p1.paint-albedo.abcd1234.png')!.equals(png)).toBe(true);
+    expect(await store().handle(req({ op: 'writeTexture', src: 'x.png', data: new Uint8Array([1, 2, 3]) }))).toMatchObject({ ok: false, message: expect.stringMatching(/not a PNG/) });
+    const huge = Buffer.from(png);
+    huge.writeUInt32BE(8192, 16);
+    expect(await store().handle(req({ op: 'writeTexture', src: 'x.png', data: huge }))).toMatchObject({ ok: false, message: expect.stringMatching(/4096/) });
+    expect(ModelMeshRequestSchema.safeParse({ ...scope, op: 'writeTexture', src: '../x.png', data: png }).success).toBe(false);
   });
 
   it('answers a corrupt or missing file on read with a readable failure', async () => {

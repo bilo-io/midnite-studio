@@ -6,6 +6,7 @@ import {
   MeshBinError,
   modelAssetHash,
   modelAssetPath,
+  MODEL_TEXTURE_MAX_EDGE,
   ok,
   opsLogPathFor,
   parseOpsLog,
@@ -37,6 +38,13 @@ export type SculptStoreDeps = {
 const toBuffer = (data: ArrayBuffer | Uint8Array): Buffer =>
   data instanceof ArrayBuffer ? Buffer.from(data) : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
 const asBytes = (buffer: Buffer): Uint8Array => new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** A PNG's edge from its IHDR, or `null` when the bytes are not a PNG. */
+function pngEdge(data: Buffer): { width: number; height: number } | null {
+  if (data.length < 24 || PNG_SIGNATURE.some((b, i) => data[i] !== b) || data.toString('ascii', 12, 16) !== 'IHDR') return null;
+  return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
+}
 
 const describe = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -122,6 +130,18 @@ export function createSculptStore(deps: SculptStoreDeps) {
             const logged = await append(req, req.ops);
             return logged.ok ? ok({ rotated: logged.value.rotated }) : logged;
           });
+        case 'writeTexture': {
+          const data = toBuffer(req.data);
+          const size = pngEdge(data);
+          if (!size) return failure(`Refused to save "${req.src}": it is not a PNG.`);
+          if (size.width > MODEL_TEXTURE_MAX_EDGE || size.height > MODEL_TEXTURE_MAX_EDGE) return failure(`Refused to save "${req.src}": textures are at most ${MODEL_TEXTURE_MAX_EDGE} px on a side.`);
+          const path = modelAssetPath(req.dir, req.src);
+          return queue.run(`${req.repoId}\0${req.project}\0${path}`, async () => {
+            const wrote = await deps.writeBytes({ ...scopeOf(req), path, data });
+            if (!wrote.ok) return wrote;
+            return ok({ texture: { src: req.src, hash: modelAssetHash(asBytes(data)), ...size } });
+          });
+        }
         case 'readOps': {
           const { entries, skipped } = parseOpsLog(await readText(scopeOf(req), opsPath(req)));
           return ok({ entries: req.limit ? entries.slice(-req.limit) : entries, skipped });

@@ -8,6 +8,7 @@ export {
   decodeNormal,
   hexToUnit,
   imageFromChannels,
+  resizePaintImage,
   sampleBilinear,
   sampleNearest,
   unitToHex,

@@ -15,7 +15,7 @@ import type { PaintSurface } from './surface';
  *
  * Masks come from a Theme F bake (`curvature` for convex edges — edge wear; `cavity` or `ao` for crevices —
  * dirt) through a smoothstep `low → high`, optionally inverted, or from a mask the layer paints itself
- * (`lerp(1, value, coverage)`, so an unpainted mask shows the whole layer). A mask whose bake is missing hides
+ * (`value × coverage`: an unpainted mask hides the layer, paint reveals it). A mask whose bake is missing hides
  * its layer.
  *
  * Fill noise is evaluated in **object space** (the texel's surface point, from the texel map), so grain and
@@ -133,10 +133,11 @@ function maskValue(input: FlattenInput, layer: PbrLayer, u: number, v: number, p
   if (!mask) return 1;
   let m: number;
   if (mask.source === 'painted') {
+    // Unpainted is hidden: paint reveals the layer, the eraser hides it again.
     const image = input.image(layer.id, 'mask');
-    if (!image) return mask.invert ? 0 : 1;
+    if (!image) return mask.invert ? 1 : 0;
     sampleBilinear(image, u, v, px);
-    m = 1 + (px[0]! - 1) * px[3]!;
+    m = px[0]! * px[3]!;
   } else {
     const bake = input.bakes[mask.source];
     if (!bake) return 0;

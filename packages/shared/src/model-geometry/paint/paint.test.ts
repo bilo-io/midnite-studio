@@ -298,11 +298,14 @@ describe('flattening', () => {
 
   it('masks by a painted mask', () => {
     const mask = createPaintImage(8);
-    mask.data.set([0, 0, 0, 255], 0); // painted black: hidden
+    mask.data.set([255, 255, 255, 255], 0); // painted white: revealed
+    mask.data.set([0, 0, 0, 255], 4); // painted black: hidden
     const layer: PbrLayer = { id: 'm', name: 'M', kind: 'fill', fill: { albedo: '#ffffff' }, mask: { source: 'painted' } };
     const out = flattenChannel(input([layer], { image: (id, c) => (id === 'm' && c === 'mask' ? mask : undefined) }), 'albedo');
-    expect(rgbAt(out, 0, 0)).toEqual([128, 128, 128]);
-    expect(rgbAt(out, 1, 0)).toEqual([255, 255, 255]);
+    expect(rgbAt(out, 0, 0)).toEqual([255, 255, 255]);
+    expect(rgbAt(out, 1, 0)).toEqual([128, 128, 128]);
+    // Unpainted: hidden.
+    expect(rgbAt(out, 2, 0)).toEqual([128, 128, 128]);
   });
 
   it('starts occlusion and normals from the bakes', () => {

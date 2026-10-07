@@ -60,6 +60,8 @@ export type ModelMeshBridge = {
   write: (req: ModelMeshScope & { data: Uint8Array; ops?: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
   appendOps: (req: ModelMeshScope & { ops: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
   readOps: (req: ModelMeshScope & { limit?: number }) => Promise<GitOpResult<ModelMeshResult>>;
+  /** A texture PNG beside the design (Phase 104 Theme G); `src` is a `.png` path. */
+  writeTexture: (req: ModelMeshScope & { data: Uint8Array }) => Promise<GitOpResult<ModelMeshResult>>;
 };
 type ModelMeshScope = { repoId: string; project: string; dir: string; src: string };
 

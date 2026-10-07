@@ -8,7 +8,7 @@ import { z } from 'zod';
  * is either a **fill** (constant channel values, optionally varied by object-space noise) or a **paint** layer
  * (one RGBA PNG per channel it paints, alpha = how much paint is there). A layer can be masked by a Theme F
  * bake (curvature for edge wear, cavity or ambient occlusion for dirt) or by a painted mask, and composes with
- * an opacity and a blend mode.
+ * an opacity and a blend mode. A painted mask starts empty, which hides the layer; painting it reveals.
  *
  * Flattening the stack yields the glTF set: `baseColor`, the packed occlusion/roughness/metalness `orm`
  * (R = occlusion, G = roughness, B = metalness — glTF's own channel order, so `occlusionTexture` and

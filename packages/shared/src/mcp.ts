@@ -47,6 +47,13 @@ import {
   ModelBakeInputSchema,
   ModelDecimateInputSchema,
   ModelExportInputSchema,
+  ModelLayerAddInputSchema,
+  ModelLayerListInputSchema,
+  ModelLayerListResultSchema,
+  ModelLayerRemoveInputSchema,
+  ModelLayerUpdateInputSchema,
+  ModelMaterialSetInputSchema,
+  ModelPaintStrokeInputSchema,
   ModelLandmarksResultSchema,
   ModelMaskInputSchema,
   ModelRemeshInputSchema,
@@ -196,6 +203,12 @@ type McpToolEntry = {
     | 'model_unwrap'
     | 'model_bake'
     | 'model_export'
+    | 'model_layer_list'
+    | 'model_material_set'
+    | 'model_layer_add'
+    | 'model_layer_update'
+    | 'model_layer_remove'
+    | 'model_paint_stroke'
     | 'model_save'
     | 'model_sf3d_status'
     | 'model_generate_sf3d'
@@ -715,6 +728,59 @@ export const MCP_TOOLS = {
       'Writes the model as `.glb` (PBR, skin, clips, baked maps), `.obj` and `.fbx` beside its design, by format — use instead of `model_save` for engine files only; refused unless its own Settings switch is on.',
     input: ModelExportInputSchema,
     output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_list: {
+    id: 'model_layer_list',
+    title: 'Read a sculpt part’s material layers',
+    description:
+      'Returns a sculpt part’s PBR base, texture sizes, layer stack (bottom to top), the bakes masks can use and the flattened files — use before `model_layer_update` or `model_paint_stroke`.',
+    input: ModelLayerListInputSchema,
+    output: ModelLayerListResultSchema,
+    readOnly: true,
+  },
+  model_material_set: {
+    id: 'model_material_set',
+    title: 'Set a sculpt part’s PBR material',
+    description:
+      'Sets an unwrapped sculpt part’s base colour, roughness, metalness, emissive and texture sizes, or applies a preset stack (skin, metal, wood…) — use after `model_unwrap`; refused unless its Settings switch is on.',
+    input: ModelMaterialSetInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_add: {
+    id: 'model_layer_add',
+    title: 'Add a material layer',
+    description:
+      'Adds a fill layer (channel values, noise) or an empty paint layer to a sculpt part’s stack, with a blend mode, opacity and a bake or painted mask — use before `model_paint_stroke`; refused unless its switch is on.',
+    input: ModelLayerAddInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_update: {
+    id: 'model_layer_update',
+    title: 'Change a material layer',
+    description:
+      'Renames, hides, reorders or retunes a layer — opacity, blend mode, fill values, mask — and re-flattens the textures — use instead of `model_layer_remove` plus re-adding; refused unless its Settings switch is on.',
+    input: ModelLayerUpdateInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_remove: {
+    id: 'model_layer_remove',
+    title: 'Remove a material layer',
+    description: 'Removes a layer from a sculpt part’s stack and re-flattens its textures — use instead of hiding it with `model_layer_update` when it is not coming back; refused unless its Settings switch is on.',
+    input: ModelLayerRemoveInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_paint_stroke: {
+    id: 'model_paint_stroke',
+    title: 'Paint a texture with a brush stroke',
+    description:
+      'Paints a paint layer’s colour, roughness, metalness, normal, glow or mask with brush, eraser, fill, smudge, clone or stamp, aimed like `model_sculpt_stroke`, with a thumbnail; refused unless its switch is on.',
+    input: ModelPaintStrokeInputSchema,
+    output: z.union([ModelEditResultSchema, z.object({ _content: z.array(z.unknown()) })]),
     readOnly: false,
   },
   model_save: {

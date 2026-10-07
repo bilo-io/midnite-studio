@@ -142,3 +142,18 @@ export function decodeNormal(r: number, g: number, b: number, out: number[] = [0
   out[2] = z / l;
   return out;
 }
+
+/** `image` resampled (bilinear) to `size` — a layer painted at one resolution, read or painted at another. */
+export function resizePaintImage(image: PaintImage, size: number): PaintImage {
+  if (image.width === size && image.height === size) return image;
+  const out = createPaintImage(size);
+  const px = [0, 0, 0, 0];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      sampleBilinear(image, (x + 0.5) / size, (y + 0.5) / size, px);
+      const at = (y * size + x) * 4;
+      for (let k = 0; k < 4; k += 1) out.data[at + k] = Math.round(px[k]! * 255);
+    }
+  }
+  return out;
+}

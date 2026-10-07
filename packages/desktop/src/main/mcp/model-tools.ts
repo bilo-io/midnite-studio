@@ -116,6 +116,27 @@ export const modelExport = async (input: McpToolInput<'model_export'>): Promise<
   allowed();
   return tools().model_export(input);
 };
+export const modelLayerList = async (input: McpToolInput<'model_layer_list'>): Promise<McpToolOutput<'model_layer_list'>> => tools().model_layer_list(input);
+export const modelMaterialSet = async (input: McpToolInput<'model_material_set'>): Promise<McpToolOutput<'model_material_set'>> => {
+  allowed();
+  return tools().model_material_set(input);
+};
+export const modelLayerAdd = async (input: McpToolInput<'model_layer_add'>): Promise<McpToolOutput<'model_layer_add'>> => {
+  allowed();
+  return tools().model_layer_add(input);
+};
+export const modelLayerUpdate = async (input: McpToolInput<'model_layer_update'>): Promise<McpToolOutput<'model_layer_update'>> => {
+  allowed();
+  return tools().model_layer_update(input);
+};
+export const modelLayerRemove = async (input: McpToolInput<'model_layer_remove'>): Promise<McpToolOutput<'model_layer_remove'>> => {
+  allowed();
+  return tools().model_layer_remove(input);
+};
+export const modelPaintStroke = async (input: McpToolInput<'model_paint_stroke'>): Promise<McpToolOutput<'model_paint_stroke'>> => {
+  allowed();
+  return tools().model_paint_stroke(input);
+};
 export const modelOpen = async (input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> => {
   allowed();
   return tools().model_open(input);

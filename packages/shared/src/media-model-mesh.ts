@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelSculptSrcSchema } from './media-model';
+import { ModelMapSrcSchema, PBR_SIZE_MAX } from './media-model-pbr';
 import { ModelOpEntrySchema, type ModelOpEntry } from './model-geometry/mesh/ops-log';
 
 /** Bytes are structured-cloned across IPC, so main sees an `ArrayBuffer` or a `Uint8Array` (a `Buffer` is one). */
@@ -40,7 +41,14 @@ export const ModelMeshRequestSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('appendOps'), ...scope, ops: z.array(ModelOpEntrySchema).min(1).max(MODEL_MESH_OPS_BATCH_MAX) }),
   /** The newest `limit` entries (default all of the current file), oldest first. */
   z.object({ op: z.literal('readOps'), ...scope, limit: z.number().int().min(1).max(MODEL_MESH_OPS_BATCH_MAX * 4).optional() }),
+  /**
+   * Writes a texture PNG beside the design (Phase 104 Theme G: a paint layer's channel, or the flattened set).
+   * Refused unless the bytes are a PNG no larger than {@link PBR_SIZE_MAX} on a side. Reads go through
+   * `mstudio-file://`, like every other file in the model folder.
+   */
+  z.object({ op: z.literal('writeTexture'), ...scope, src: ModelMapSrcSchema, data: Bytes }),
 ]);
+export const MODEL_TEXTURE_MAX_EDGE = PBR_SIZE_MAX;
 export type ModelMeshRequest = z.infer<typeof ModelMeshRequestSchema>;
 export type ModelMeshOp = ModelMeshRequest['op'];
 
@@ -64,6 +72,8 @@ export const ModelMeshResultSchema = z.object({
   skipped: z.number().int().nonnegative().optional(),
   /** `write`/`appendOps`: the log passed its cap and was rotated to `<stem>.ops.1.jsonl`. */
   rotated: z.boolean().optional(),
+  /** `writeTexture`: what a part records for the file. */
+  texture: z.object({ src: z.string(), hash: z.string(), width: z.number().int(), height: z.number().int() }).optional(),
 });
 export type ModelMeshResult = {
   info?: ModelMeshInfo;
@@ -71,4 +81,5 @@ export type ModelMeshResult = {
   entries?: ModelOpEntry[];
   skipped?: number;
   rotated?: boolean;
+  texture?: { src: string; hash: string; width: number; height: number };
 };

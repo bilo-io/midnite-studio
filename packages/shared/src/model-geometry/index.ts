@@ -80,6 +80,7 @@ export {
   type PartIndex,
   type PartMap,
   type PartMaps,
+  type PartPbr,
   type ResolvedMaterial,
 } from './scene';
 export * from './quat';
