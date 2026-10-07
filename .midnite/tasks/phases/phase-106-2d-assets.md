@@ -185,13 +185,34 @@ pixel zoom, anchor/baseline overlay, focus-scoped keys) and `SpriteFrameStrip` (
 tooltips, roving focus on `,`/`.` since the arrows nudge, `H`/Delete/`R`/`Alt+←/→`, drag reorder,
 `Mod+Z` undo over a ≤ 100 inverse-op session stack), with **Export** to the Media export folder.
 
-**Theme H — Tilesets with autotiling.** ◻ Not started. Seam-checked base tiles, procedural 47-blob
-(Tiled `mixed`) or 16-tile corner (Tiled `corner`) transitions that match by construction, and a
-`.tsj` with wangsets for Tiled editing.
+**Theme H — Tilesets with autotiling.** ✅ Landed (PR #NNN). `seamless.ts` scores a tile's wrapped seam
+against its interior steps (premultiplied, so a transparent layer's silhouette counts) and repairs a
+failure by blending the edge band with the half-shifted copy; a base tile is drawn at 1:1, downsampled
+(nearest in pixel style), repaired, drawn once more if still failing and kept with a `seam` warning.
+`autotile.ts` composites transitions instead of generating them: a blob-47 tile's coverage is a bilinear
+field per quadrant over the centre, the four edge midpoints and the four vertices (a vertex is `b` only
+when all four cells around it are), thresholded after **periodic** noise; the outermost ring is sampled
+on the edge, so the touching columns of every pair that may adjoin are byte-identical (the vitest walks
+all of them, both axes) and an edge beside the surrounding terrain is plain terrain. Corner-16 is the
+same field from four corner values. `tiled.ts` writes the `.tsj` (collision as a string property; one
+`mixed` or `corner` wangset per transition) and the `.tmj` (embedded tileset), each with a zod schema.
+`TilesetSpec` is now terrains `{id, label, prompt, collision}` (2–8), transitions `{a, b}`, `scheme`,
+`seed` and an optional pixel `palette`; the job (`tileset.ts`) writes `terrains/<id>.png`,
+`terrains/seams.json`, `tileset.png` and `tileset.tsj`, and the Environment form edits all of it.
 
-**Theme I — Isometric tiles, parallax backgrounds and prop sheets.** ◻ Not started. Diamond
-re-projection, a Phase 105 terrain rendered to a tile grid plus `.tmj`, x-seamless parallax layers with
-scroll factors, and prop sheets through B and G.
+**Theme I — Isometric tiles, parallax backgrounds and prop sheets.** ✅ Landed (PR #NNN). `iso.ts`
+re-projects a tile onto a 2:1 diamond (its top-left corner lands on the left vertex), draws a block
+with side faces darkened 20 % and 40 % (`size / 2` tall, so a cell is `2·size × 1.5·size` and the
+`.tsj`'s `tileheight` is the block height) and turns a tileset into diamond floors under the same ids
+plus a block per terrain, each tagged `kind`. `terrain-tiles.ts` cuts a Phase 105 terrain's `drape.png`
+(the splat bake when it has none) into `worldSize / metresPerTile` tiles per side, dedupes, takes
+collision from the land-cover class and refuses past 256 × 256 or 4096 distinct tiles; it runs as a job
+on a tileset with `fromTerrain` and writes `map.tmj` beside the tileset (isometric output is flat, and
+says so). Parallax backgrounds draw each layer (all but `sky` keyed to alpha), resize it, hold it to
+`seamScore(img, 'x')` and write `layers/*.png` plus `background.json`; prop sheets draw one prop per
+request, key, crop and fit it bottom-centre into the cell and export through the sprite packer with no
+`anims.json`. The export now writes `<asset>.tileset/`, `.background/` and `.sprite/` for props. The
+kind stays `'prop-sheet'` (the doc's `'props'` would have broken Theme A's union and the asset bridge).
 
 **Theme J — Maps as Tiled `.tmj`.** ◻ Not started. An LLM writes a zod `MapSpec` (two repair rounds);
 the kernel fills, autotiles, scatters and derives collision; the `.tmj` embeds its tilesets because
@@ -639,15 +660,16 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     tilesets + `tileset.png` + `tileset.tsj`), each with a copy of `sprite.json`; an existing folder is
     refused (_"<name> already exists in that folder."_). Destination is `mediaExportDir` or
     `repos.pickDirectory()`, as in Phase 105.
-  - **Landed for sheets (PR #763):** `exportSprite` writes `<asset>.sprite/` and refreshes the asset's own
-    `export/`; tilesets, backgrounds, prop sheets and maps answer _"<Kind> export is not available yet."_
-    until H, I and J add their branches to it (each theme's export item covers its own kind).
+  - **Landed for sheets (PR #763), tilesets, backgrounds and prop sheets (PR #NNN):** `exportSprite` writes
+    `<asset>.sprite/` (a prop sheet's has no `anims.json`), `<asset>.tileset/` (plus `map.tmj` when the
+    tileset was cut from a terrain) and `<asset>.background/`, and refreshes the asset's own `export/`; a map
+    answers _"Map export is not available yet."_ until J adds its branch.
   - Vitest `sprite-export.test.ts`: each kind's folder contains exactly those files and they parse with
     their schemas.
 
 ## H — Tilesets with autotiling (L)
 
-- [ ] **Seamless base tiles** per terrain type (grass, dirt, sand, water, stone…), generated through `image-service.ts` with a "tileable, top-down" prompt. Each passes a seam check (wrap-offset by half, then measure edge difference) and, if needed, a seam repair (blend across the wrapped edge) in `shared/src/sprite/seamless.ts`
+- [x] **Seamless base tiles** per terrain type (grass, dirt, sand, water, stone…), generated through `image-service.ts` with a "tileable, top-down" prompt. Each passes a seam check (wrap-offset by half, then measure edge difference) and, if needed, a seam repair (blend across the wrapped edge) in `shared/src/sprite/seamless.ts`
   - `TilesetSpecSchema`: `kind: 'tileset'`, `name`, `tileSize: 16 | 32 | 48 | 64` (32), `style`, `palette?`,
     `terrains: { id: /^[a-z][a-z0-9-]*$/, label, prompt, collision: 'walkable' | 'solid' | 'water' }[]` (2–8),
     `transitions: { a, b }[]`, `scheme: 'blob47' | 'corner16'` ('blob47'), `seed`.
@@ -656,21 +678,21 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     cross-fades a band of `tileSize / 8` px across the wrapped edge; a tile still failing after repair is
     re-generated once, then kept with a `seam` warning in the report.
   - Generation happens at 256² then downsamples to `tileSize` (pixel mode via B's nearest + palette).
-- [ ] **Transition sets built procedurally, not generated tile by tile.** Between two base tiles, composite masks produce a **47-tile blob** set or a **16-tile Wang corner** set (user picks), with mask edges shaped by noise so borders look natural. This is what makes the set precise: every edge matches by construction
+- [x] **Transition sets built procedurally, not generated tile by tile.** Between two base tiles, composite masks produce a **47-tile blob** set or a **16-tile Wang corner** set (user picks), with mask edges shaped by noise so borders look natural. This is what makes the set precise: every edge matches by construction
   - `shared/src/sprite/autotile.ts`: `BLOB47_MASKS` (the 47 valid 8-neighbour configurations, indexed by
     the standard blob bitmask) and `CORNER16` (4-bit corner index); `transitionMask(config, tileSize, seed)`
     builds an alpha mask whose boundary is displaced by seeded 1-D value noise that is **identical on
     shared edges** (the noise is a function of the edge's world position and the pair, not the tile), so
     neighbours match exactly; `compositeTile(a, b, mask)`.
-- [ ] Tile sizes 16, 32, 48 or 64, pixel-art mode from B, and collision flags per tile (solid, water, walkable)
+- [x] Tile sizes 16, 32, 48 or 64, pixel-art mode from B, and collision flags per tile (solid, water, walkable)
   - A transition tile's collision is the more restrictive of its two terrains (`solid` > `water` > `walkable`).
-- [ ] Export: tileset atlas PNG plus Tiled `.tsj` with **wangsets**, so Tiled and Phaser autotile with it
+- [x] Export: tileset atlas PNG plus Tiled `.tsj` with **wangsets**, so Tiled and Phaser autotile with it
   - **Correction (x1):** Phaser does not autotile at runtime and ignores wangsets; autotiling happens when
     a map is filled (J) and when a human edits in Tiled. The `.tsj` = `{ type: 'tileset', version: '1.10', tiledversion: '1.11.0', name, tilewidth, tileheight, tilecount, columns, image: 'tileset.png', imagewidth, imageheight, margin: 0, spacing: 0, tiles: [{ id, properties: [{ name: 'collision', type: 'string', value }] }], wangsets: [{ name, type: 'mixed' | 'corner', tile: -1, colors: [{ name, color, tile, probability: 1 }], wangtiles: [{ tileid, wangid: number[8] }] }] }`
     — `blob47` is a Tiled `mixed` set, `corner16` a `corner` set.
   - The tileset pack folder is `<asset>.tileset/` (`tileset.png`, `tileset.tsj`, `sprite.json`), exported
     through the same `sprite-pack` format id.
-- [ ] Vitest: every blob or Wang tile's edges match its neighbours in all 47 or 16 configurations, the seam check catches a non-tiling fixture, and the `.tsj` validates against a Tiled fixture
+- [x] Vitest: every blob or Wang tile's edges match its neighbours in all 47 or 16 configurations, the seam check catches a non-tiling fixture, and the `.tsj` validates against a Tiled fixture
   - `shared/src/sprite/autotile.test.ts`: for every pair of configurations that may be adjacent, the
     touching pixel columns/rows are byte-identical; `seamless.test.ts`: a gradient tile fails, a
     wrapped-noise tile passes, `repairSeam` turns the gradient into a pass;
@@ -678,12 +700,12 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
 
 ## I — Isometric tiles, parallax backgrounds and prop sheets (M)
 
-- [ ] **Isometric tiles**: 2:1 diamond floor tiles and wall/cliff blocks, made by re-projecting H's top-down tiles (affine to the diamond) or by generating them with an isometric prompt. Same export as H
+- [x] **Isometric tiles**: 2:1 diamond floor tiles and wall/cliff blocks, made by re-projecting H's top-down tiles (affine to the diamond) or by generating them with an isometric prompt. Same export as H
   - `shared/src/sprite/iso.ts` `toDiamond(tile): RgbaImage` (rotate 45° then scale Y by 0.5, bilinear,
     output `2·size × size`); wall/cliff blocks = the diamond top plus two side faces made from the base tile
     darkened 20 % and 40 %, height `size`. The iso tileset `.tsj` gives each tile a string property
     `kind: 'floor' | 'block'`, and its `tileheight` is the block height so Tiled draws blocks unclipped.
-- [ ] **From a Phase 105 terrain**: render a terrain's splat and drape, top-down or isometric, into a tile grid plus a matching `.tmj` (J), so a 3D terrain becomes a 2D map
+- [x] **From a Phase 105 terrain**: render a terrain's splat and drape, top-down or isometric, into a tile grid plus a matching `.tmj` (J), so a 3D terrain becomes a 2D map
   - Input: a terrain picked from the Terrain tab's explorer (`media.terrain.get`); `terrainToTiles(drape, cols, rows, tileSize)`
     in `shared/src/sprite/terrain-tiles.ts` slices `build/drape.png` (or the splat bake when no drape)
     into `cols × rows` tiles with `cols = rows = round(worldSize / metresPerTile)` (`metresPerTile` 1–16,
@@ -691,16 +713,16 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     references them; `collision` comes from the land-cover class per tile (`water` → water, `building` →
     solid). Isometric output re-projects each tile with `toDiamond` and ignores height (stated in the UI:
     _"Isometric maps from terrain are flat; height is not drawn."_). A grid over 256 × 256 is refused.
-- [ ] **Parallax backgrounds**: 3–5 layers (sky, far, mid, near), each horizontally seamless (the H seam check on the x axis only) with alpha, plus scroll factors in the export JSON
+- [x] **Parallax backgrounds**: 3–5 layers (sky, far, mid, near), each horizontally seamless (the H seam check on the x axis only) with alpha, plus scroll factors in the export JSON
   - `BackgroundSpecSchema`: `kind: 'background'`, `name`, `prompt`, `size: [w, h]` (`[1920, 1080]`),
     `layers: { name, prompt, scrollFactor: 0–1 }[]` (3–5; default sky 0, far 0.2, mid 0.5, near 0.8).
     Layers except `sky` are generated transparent/chroma-keyed; each passes `seamScore(img, 'x')`.
     Export `background.json` = `{ version: 1, size, layers: { image, scrollFactor }[] }`.
-- [ ] **Prop sheets**: a list of props (trees, rocks, crates, barrels, signs) generated one per cell through B, then packed by G
+- [x] **Prop sheets**: a list of props (trees, rocks, crates, barrels, signs) generated one per cell through B, then packed by G
   - `PropSheetSpecSchema`: `kind: 'props'`, `name`, `style`, `cellSize: [w, h]`, `props: { name, prompt }[]` (1–64);
     each prop is one frame `props/<name>/000` through B (no anchor drift rule), packed and exported as a
     G atlas with no `anims.json`.
-- [ ] Vitest: diamond re-projection maps corners correctly, parallax layers wrap seamlessly on x, and the terrain-to-tiles grid size matches the terrain extent
+- [x] Vitest: diamond re-projection maps corners correctly, parallax layers wrap seamlessly on x, and the terrain-to-tiles grid size matches the terrain extent
   - `iso.test.ts`: the tile's top-left corner lands at the diamond's left vertex `(0, size/2)`;
     `terrain-tiles.test.ts`: a 1024 m terrain at 4 m/tile gives 256 × 256; identical tiles dedupe;
     `seamless.test.ts` x-axis case.
