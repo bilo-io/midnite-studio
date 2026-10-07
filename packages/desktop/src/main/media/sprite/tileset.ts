@@ -119,7 +119,6 @@ export function createTilesetRunner(deps: EnvironmentDeps): SpriteJobRunner {
     if (blocked) throw new Error(blocked);
     if (spec.fromTerrain) return fromTerrain(ctx, deps, spec);
 
-    let requests = 0;
     const total = spec.terrains.length + 1;
     const drawn = new Map<string, { image: RgbaImage; seam: Seam }>();
     let done = 0;
@@ -127,10 +126,7 @@ export function createTilesetRunner(deps: EnvironmentDeps): SpriteJobRunner {
     const worker = async (): Promise<void> => {
       for (let terrain = queue.shift(); terrain; terrain = queue.shift()) {
         ctx.progress({ done, total, stage: 'generating', frame: terrain.id });
-        drawn.set(terrain.id, await drawBase(ctx, deps, spec, terrain, () => {
-          requests += 1;
-          ctx.countRequest();
-        }));
+        drawn.set(terrain.id, await drawBase(ctx, deps, spec, terrain, () => ctx.countRequest()));
         done += 1;
       }
     };

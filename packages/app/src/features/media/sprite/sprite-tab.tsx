@@ -245,7 +245,7 @@ function SpriteOverview({
         ))}
         {spec.kind === 'tileset' || spec.kind === 'background' || spec.kind === 'prop-sheet' ? (
           <>
-            <dt className="text-muted-foreground">{{ tileset: 'Tiles', background: 'Layers', 'prop-sheet': 'Props' }[spec.kind]}</dt>
+            <dt className="text-muted-foreground">{{ tileset: 'Tiles built', background: 'Layers built', 'prop-sheet': 'Props built' }[spec.kind]}</dt>
             <dd className="tabular-nums">{spec.lastReport ? `${spec.lastReport.frames}${spec.lastReport.failing ? ` (${spec.lastReport.failing} with warnings)` : ''}` : 'not generated yet'}</dd>
           </>
         ) : (

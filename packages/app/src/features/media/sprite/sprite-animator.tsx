@@ -103,7 +103,7 @@ export function SpriteExportBar({ repoId, target, hasFrames, busy, noun = 'frame
     } finally {
       setExporting(false);
     }
-  }, [exportDir, repoId, target]);
+  }, [exportDir, repoId, target, noun]);
   return (
     <div className="flex items-center justify-end">
       <ExportToolbar formats={MEDIA_TAB_EXPORT_FORMATS.sprite} hasSelection={hasFrames && !busy} onExport={() => void onExport()} busy={exporting} />
