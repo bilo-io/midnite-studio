@@ -1,12 +1,18 @@
 {
   "version": 1,
   "name": "smoke",
-  "seed": 1,
-  "frames": 180,
-  "input": [{ "frame": 0, "action": "right", "pressed": true }],
-  "assert": [
-    { "frame": 180, "path": "$.scene", "equals": "level" },
-    { "frame": 180, "path": "$.player.position[0]", "increasedFromFrame": 0 },
-    { "frame": 180, "path": "$.arpg.rooms", "equals": 12 }
+  "description": "Walk right out of the start room; the dungeon has its twelve rooms.",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "frames": 180,
+    "events": [
+      {"f": 0, "action": "right", "down": true}
+    ]
+  },
+  "asserts": [
+    {"frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level"},
+    {"frame": 180, "kind": "state", "path": "$.player.position[0]", "op": "gt", "value": 59.5},
+    {"frame": 180, "kind": "state", "path": "$.arpg.rooms", "op": "eq", "value": 12}
   ]
 }

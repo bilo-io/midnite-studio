@@ -77,7 +77,7 @@ export function boot(options) {
         version: HOOK_VERSION,
         scene: scene?.scene.key ?? 'boot',
         frame: game.loop.frame + manualFrames,
-        time: Math.max(0, Math.round(paused ? manualTime : game.loop.time)),
+        time: Math.max(0, Math.round(determinism.enabled ? virtualTime : paused ? manualTime : game.loop.time)),
         ...(scene?.kitState?.() ?? {}),
       };
     },

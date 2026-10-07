@@ -1,17 +1,21 @@
 {
   "version": 1,
   "name": "smoke",
-  "seed": 1,
-  "frames": 180,
-  "input": [
-    { "frame": 0, "action": "forward", "pressed": true },
-    { "frame": 90, "action": "jump", "pressed": true },
-    { "frame": 92, "action": "jump", "pressed": false }
-  ],
-  "assert": [
-    { "frame": 180, "path": "$.scene", "equals": "level" },
-    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 0 },
-    { "frame": 100, "path": "$.souls.action", "equals": "roll" },
-    { "frame": 100, "path": "$.souls.stamina", "decreasedFromFrame": 0 }
+  "description": "Walk forward and roll: the roll costs stamina.",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "frames": 180,
+    "events": [
+      {"f": 0, "action": "forward", "down": true},
+      {"f": 90, "action": "jump", "down": true},
+      {"f": 92, "action": "jump", "down": false}
+    ]
+  },
+  "asserts": [
+    {"frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level"},
+    {"frame": 180, "kind": "state", "path": "$.player.position[2]", "op": "lt", "value": 4},
+    {"frame": 100, "kind": "state", "path": "$.souls.action", "op": "eq", "value": "roll"},
+    {"frame": 100, "kind": "state", "path": "$.souls.stamina", "op": "lt", "value": 100}
   ]
 }
