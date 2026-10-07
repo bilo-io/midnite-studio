@@ -101,7 +101,7 @@ export function buildIterativePrompt(input: {
     '',
     input.prompt.trim() ? `Request: ${input.prompt.trim()}` : 'Request: reproduce the attached reference picture.',
     input.hasReference
-      ? 'A reference picture is attached: call model_get_reference_image and study it — build what you SEE, its proportions and colours, not a generic version of the object.'
+      ? `A reference picture is attached: call model_get_reference_image and study it — build what you SEE, its proportions and colours, not a generic version of the object. Then call model_set_reference_views with "fit" (the subject's height in metres) and, after each render pass, model_compare_reference with budget ${input.maxIterations}: it scores the silhouette, names the regions too wide or narrow, and plans the next pass (SDF block-in, convert, region strokes, screen-space refinement) until the score plateaus.`
       : '',
     '',
     'Work in this loop — plan, then parts, then refine:',

@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 104 Theme H — Reference-driven agent loop ([#769](https://github.com/bilo-io/midnite-studio/pull/769))
+
+A design can carry matched front, side and top views of a reference picture (`spec.referenceViews`). The kernel scores the model's silhouette against the picture (IoU plus width-profile agreement), names the regions that are too wide, narrow, tall or short, and plans the next pass until the score reaches the target, plateaus or the refinement budget runs out. `model_set_reference_views` and `model_compare_reference` expose it over MCP, iterative runs stream the score, and the model panel shows one "Reference match" line. Tested in vitest (identical silhouettes score 1, a known widening is reported in the right region, the loop stops on plateau).
+
+- [x] H: `media-model-reference.ts`, `model-geometry/reference/`, `reference-tools.ts`, iterative progress score, prompt and six skill copies. Editor alignment UI deferred.
+
 ## 2026-10-07 — Phase 104 Theme G — Texture painting and PBR materials ([#767](https://github.com/bilo-io/midnite-studio/pull/767))
 
 An unwrapped sculpt part carries a PBR layer stack — fill and paint layers with opacity, eight blend modes and masks from the Theme F bakes or painted by hand — flattened into glTF's base colour, packed ORM, normal and emissive textures beside the design. Paint brushes (brush, eraser, island fill, smudge, clone, stamp) land on uv texels through the BVH with seam bleed, from the editor's new Paint tab (live PBR viewport, presets, layer list, matcap toggle for sculpting) or over MCP (`model_paint_stroke` aimed like a sculpt stroke, `model_material_set`, `model_layer_*`), and `.glb` exports the full set.

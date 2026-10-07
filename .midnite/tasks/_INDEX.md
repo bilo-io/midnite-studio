@@ -12,7 +12,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 81/90 | `█████████░` | 90% | — | Q |
 | [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | 🔄 WIP | x1 | 62/68 | `█████████░` | 91% | — | L |
 | [105 · Terrain](phases/phase-105-terrain.md) | 🔄 WIP | x1 | 64/72 | `█████████░` | 89% | — | K |
-| [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | 🔄 WIP | — | 54/68 | `████████░░` | 79% | — | H I |
+| [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | 🔄 WIP | — | 60/69 | `█████████░` | 87% | — | I |
 | [103 · Models: fidelity, rigging and animation](phases/phase-103-models-rig-anim.md) | 🔄 WIP | — | 60/62 | `██████████` | 97% | J, L | — |
 | [102 · Chats page](phases/phase-102-chats-page.md) | 🔄 WIP | — | 24/26 | `█████████░` | 92% | — | (D: live per-edit approval; F: packaged-app pass against the real CLIs) |
 | [101 · Music editor with Tone.js and MIDI agents](phases/phase-101-music-editor.md) | ◻ TODO | — | 0/61 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |

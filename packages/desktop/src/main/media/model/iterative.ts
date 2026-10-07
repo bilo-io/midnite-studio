@@ -56,6 +56,19 @@ export const MODEL_SCULPT_TOOL_IDS = [
 ] as const;
 const isSculptTool = (tool: string): boolean => (MODEL_SCULPT_TOOL_IDS as readonly string[]).includes(tool);
 
+/** The score a `model_compare_reference` answer carries (its first text block is the JSON summary). */
+function scoreOf(value: unknown): { value: number; history: number[] } | null {
+  const first = (value as { _content?: { type?: string; text?: string }[] } | null)?._content?.[0];
+  if (first?.type !== 'text' || !first.text) return null;
+  try {
+    const parsed = JSON.parse(first.text) as { score?: unknown; history?: unknown };
+    if (typeof parsed.score !== 'number' || !Array.isArray(parsed.history)) return null;
+    return { value: parsed.score, history: parsed.history.filter((n): n is number => typeof n === 'number') };
+  } catch {
+    return null;
+  }
+}
+
 /** Whether a tool's answer reports success: an edit result's `ok`, or the first text block of a content answer. */
 function answeredOk(value: unknown): boolean {
   const direct = value as { ok?: boolean; _content?: { type: string; text?: string }[] };
@@ -103,6 +116,8 @@ export type IterativeHost = {
 export type IterativeProgress = {
   iteration: { n: number; max: number };
   action?: string;
+  /** The latest `model_compare_reference` score and the history of them (Phase 104 Theme H). */
+  score?: { value: number; history: number[] };
 };
 
 export type IterativeOptions = {
@@ -197,7 +212,8 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
   const sculptBudget = Math.max(MODEL_ITERATIVE_SCULPT_CALLS_FLOOR, max * MODEL_ITERATIVE_SCULPT_CALLS_PER_PASS);
   let lastSpecSummary = '';
 
-  const progress = (action?: string): void => opts.onProgress({ iteration: { n: state.renders, max }, ...(action ? { action } : {}) });
+  const progress = (action?: string, score?: IterativeProgress['score']): void =>
+    opts.onProgress({ iteration: { n: state.renders, max }, ...(action ? { action } : {}), ...(score ? { score } : {}) });
 
   /** The one dispatcher a run's private server answers with. */
   const dispatch: ScopedDispatch = async (tool, rawInput) => {
@@ -252,6 +268,10 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
         state.dirty = false;
         progress('Saved the model');
       } else if (tool === 'model_get_reference_image') progress('Looked at the reference picture');
+      else if (tool === 'model_compare_reference') {
+        const score = scoreOf(value);
+        progress(score ? `Matched the reference: ${score.value.toFixed(2)}` : 'Compared with the reference', score ?? undefined);
+      }
       else if (tool === 'model_get_spec') progress('Read the design format');
       else if ((tool === 'model_set_spec' || tool === 'model_patch_parts') && result.ok === false) progress('An edit was rejected — retrying');
       return { ok: true, value };

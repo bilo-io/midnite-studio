@@ -58,7 +58,8 @@ import {
 import { McpToolError } from '../../mcp/errors';
 import { designDir, loadModelAssets } from './model-assets';
 import { renderPreviews } from './preview';
-import { createMeshTools } from './sculpt-tools';
+import { createReferenceTools } from './reference-tools';
+import { createMeshTools, type MeshToolEnv } from './sculpt-tools';
 import { applyPatchOps, describeEdit, ensurePartIds, validateDesign } from './spec-ops';
 import { modelSpecJsonSchema, modelSpecReference } from './spec-reference';
 
@@ -100,6 +101,8 @@ export type ModelMcpDeps = {
   emitOpen: (event: ModelOpenEvent) => void;
   /** Shrink a picture to fit an MCP response (`nativeImage` in production). */
   shrinkImage?: (data: Buffer, mime: string) => Promise<{ data: Buffer; mime: string }>;
+  /** Decode a non-PNG picture (JPEG, WebP…) to RGBA — `nativeImage` in production; PNGs are decoded without it. */
+  decodeImage?: (data: Buffer, mime: string) => Promise<{ width: number; height: number; data: Uint8Array } | null>;
   now?: () => Date;
 };
 
@@ -556,7 +559,7 @@ export function createModelTools(deps: ModelMcpDeps) {
     });
   }
 
-  const meshTools = createMeshTools({
+  const meshEnv: MeshToolEnv = {
     deps,
     now,
     load,
@@ -570,7 +573,8 @@ export function createModelTools(deps: ModelMcpDeps) {
     },
     cameras: (l) => cameras.get(keyOf(l)) ?? new Map<string, PreviewCamera>(),
     revision: (l) => revisions.get(keyOf(l)) ?? 0,
-  });
+  };
+  const meshTools = { ...createMeshTools(meshEnv), ...createReferenceTools(meshEnv) };
 
   return {
     ...meshTools,

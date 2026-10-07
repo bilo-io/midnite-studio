@@ -49,6 +49,8 @@ import {
   ModelExportInputSchema,
   ModelLayerAddInputSchema,
   ModelLayerListInputSchema,
+  ModelSetReferenceViewsInputSchema,
+  ModelCompareReferenceInputSchema,
   ModelLayerListResultSchema,
   ModelLayerRemoveInputSchema,
   ModelLayerUpdateInputSchema,
@@ -183,6 +185,8 @@ type McpToolEntry = {
     | 'model_patch_parts'
     | 'model_render_preview'
     | 'model_get_reference_image'
+    | 'model_set_reference_views'
+    | 'model_compare_reference'
     | 'model_get_rig'
     | 'model_auto_rig'
     | 'model_patch_rig'
@@ -547,6 +551,24 @@ export const MCP_TOOLS = {
     description:
       'Returns the picture the user attached to a model as image content — use instead of a text description of it; answers not-found when there is none, see `model_list`.',
     input: ModelToolTargetSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  model_set_reference_views: {
+    id: 'model_set_reference_views',
+    title: 'Match the reference picture to the model',
+    description:
+      'Saves front/side/top orthographic views (scale, offset) registering the reference picture to the model, or fits one to a given height — use before `model_compare_reference`; refused unless its switch is on.',
+    input: ModelSetReferenceViewsInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_compare_reference: {
+    id: 'model_compare_reference',
+    title: 'Score the model against the reference',
+    description:
+      'Scores the model’s silhouette and width profile against the matched reference views, names regions too wide/narrow/tall/short, draws an overlay and plans the next pass — use after `model_set_reference_views`.',
+    input: ModelCompareReferenceInputSchema,
     output: z.object({ _content: z.array(z.unknown()) }),
     readOnly: true,
   },
