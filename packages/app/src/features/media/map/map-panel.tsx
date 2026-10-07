@@ -1,12 +1,13 @@
 import { MAP_SOURCES, type MapProjectFile } from '@midnite/studio-shared';
 
+import { MapCaptureSection } from './map-capture-section';
 import { useMapSources } from './use-map';
 
 /**
  * The detail pane (Phase 108 Theme A): where the map is now and which tile sources are usable. Capture,
  * the frame readout and tool options (Themes C–H) join it here.
  */
-export function MapPanel({ map, project }: { map: MapProjectFile; project: string }) {
+export function MapPanel({ map, project, repoId }: { map: MapProjectFile; project: string; repoId: string }) {
   const sources = useMapSources();
   const available = new Map((sources.data ?? []).map((s) => [s.id, s]));
   return (
@@ -26,6 +27,7 @@ export function MapPanel({ map, project }: { map: MapProjectFile; project: strin
           <dd>{Math.round(map.view.pitch)}°</dd>
         </dl>
       </section>
+      <MapCaptureSection repoId={repoId} project={project} map={map} />
       <section className="space-y-1">
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tile sources</h3>
         <ul className="space-y-1" aria-label="Tile sources">

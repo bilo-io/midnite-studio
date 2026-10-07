@@ -1,0 +1,34 @@
+import { defaultMapProject } from '@midnite/studio-shared';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { fixtures } from '../../../../test-support/fixtures';
+import { renderView } from '../../../../test-support/render';
+import { MapCaptureSection } from './map-capture-section';
+
+afterEach(cleanup);
+
+describe('MapCaptureSection', () => {
+  it('shows metres/px and the elevation zoom for the frame', () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    expect(screen.getByTestId('capture-mpp').textContent).toBe('4.88');
+    expect(screen.getByTestId('capture-zoom').textContent).toMatch(/^z1[0-5] · \d+ tiles$/);
+  });
+
+  it('disables Capture over the Terrain cap and says why', () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    fireEvent.change(screen.getByLabelText('Capture side in metres'), { target: { value: '70000' } });
+    expect((screen.getByRole('button', { name: 'Capture heightmap' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('status').textContent).toBe("Terrain's largest world is 65.5 km a side.");
+  });
+
+  it('captures through the bridge with a caller-chosen id and shows the result', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    const capture = vi.spyOn(window.midniteStudio!.media.map, 'capture');
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await waitFor(() => expect(capture).toHaveBeenCalled());
+    expect(capture.mock.calls[0]![0]).toMatchObject({ repoId: 'r1', project: 'maps', sideM: 5000, size: 1025, center: [18.4241, -33.9249] });
+    expect(capture.mock.calls[0]![0].captureId).toBeTruthy();
+    expect((await screen.findByTestId('capture-done')).textContent).toContain('captures/mock-capture-20260101-000000');
+  });
+});

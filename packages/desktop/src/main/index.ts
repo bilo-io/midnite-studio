@@ -140,7 +140,7 @@ import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } 
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
-import { installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
+import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
@@ -1048,6 +1048,7 @@ if (!app.requestSingleInstanceLock()) {
     disposeMusicBroker();
     disposeSf3d();
     disposeTerrainBroker();
+    disposeMapCaptureBroker();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

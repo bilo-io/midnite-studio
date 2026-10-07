@@ -1387,6 +1387,10 @@ export type MidniteStudioBridge = {
       setView: (req: In<typeof S.MediaMapSetViewRequest>) => Promise<z.infer<typeof S.MediaMapSetViewResponse>>;
       sources: () => Promise<z.infer<typeof S.MediaMapSourcesResponse>>;
       cache: (req: In<typeof S.MediaMapCacheRequest>) => Promise<z.infer<typeof S.MediaMapCacheResponse>>;
+      /** Theme D: capture a square of the real world as a heightmap (16-bit PNG, `.r32`, GeoTIFF). */
+      capture: (req: In<typeof S.MediaMapCaptureRequest>) => Promise<z.infer<typeof S.MediaMapCaptureResponse>>;
+      captureCancel: (req: In<typeof S.MediaMapCaptureCancelRequest>) => Promise<z.infer<typeof S.MediaMapCaptureCancelResponse>>;
+      onCaptureProgress: (handler: (event: z.infer<typeof S.MediaMapCaptureProgressPayload>) => void) => Unsubscribe;
     };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;

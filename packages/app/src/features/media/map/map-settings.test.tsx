@@ -30,10 +30,10 @@ describe('MapSettingsSection', () => {
 
 describe('MapPanel sources', () => {
   it('flips MapTiler to available once a key exists', async () => {
-    const { unmount } = renderView(<MapPanel map={defaultMapProject()} project="maps" />, { fixtures });
+    const { unmount } = renderView(<MapPanel map={defaultMapProject()} project="maps" repoId="r1" />, { fixtures });
     expect((await screen.findAllByText('Add a MapTiler key in Settings ▸ Media.')).length).toBe(3);
     unmount();
-    renderView(<MapPanel map={defaultMapProject()} project="maps" />, { fixtures: { ...fixtures, media: { map: { keySet: true } } } });
+    renderView(<MapPanel map={defaultMapProject()} project="maps" repoId="r1" />, { fixtures: { ...fixtures, media: { map: { keySet: true } } } });
     await screen.findByText('MapTiler Satellite');
     await waitFor(() => expect(screen.queryByText('Add a MapTiler key in Settings ▸ Media.')).toBeNull());
   });

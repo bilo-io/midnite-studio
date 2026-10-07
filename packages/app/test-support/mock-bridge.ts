@@ -3931,6 +3931,34 @@ export function buildMockBridge(data: MockFixtures) {
             if (req.op === 'set-cap' && req.capMB) cacheCapMB = req.capMB;
             return { ok: true as const, value: { bytes: cacheBytes, tiles: Math.round(cacheBytes / 20_000), capMB: cacheCapMB } };
           },
+          capture: async (req: { center: [number, number]; sideM: number; size: number }) => ({
+            ok: true as const,
+            value: {
+              captureId: 'mock-capture',
+              name: 'mock-capture-20260101-000000',
+              dir: 'captures/mock-capture-20260101-000000',
+              capture: {
+                version: 1 as const,
+                name: 'mock-capture-20260101-000000',
+                center: req.center,
+                sideM: req.sideM,
+                size: req.size,
+                mPerPx: req.sideM / (req.size - 1),
+                bbox: [req.center[0] - 0.01, req.center[1] - 0.01, req.center[0] + 0.01, req.center[1] + 0.01] as [number, number, number, number],
+                heightMinM: 0,
+                heightMaxM: 1085,
+                hasSea: true,
+                sources: { dem: 'aws-terrarium' as const },
+                demZoom: 13,
+                attributions: ['Terrain Tiles: Mapzen, AWS Open Data — see sources list'],
+                files: ['heightmap.png', 'heightmap.r32', 'heightmap.tif', 'capture.json', 'ATTRIBUTION.txt'],
+                missing: [],
+                capturedAt: '2026-01-01T00:00:00.000Z',
+              },
+            },
+          }),
+          captureCancel: async () => ({ ok: true as const, value: { cancelled: true } }),
+          onCaptureProgress: () => () => undefined,
         };
       })(),
       sprite: (() => {
