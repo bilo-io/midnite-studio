@@ -132,7 +132,7 @@ async function buildFixture(dest: string): Promise<string> {
       spec,
       options: { format: 'terrain-pack', dest: out, lod: 0, texture: 'none', foliage: true, roads: true, buildings: true },
     });
-    if (!r.ok) throw new Error(r.message);
+    if (!r.ok) throw new Error(r.kind === 'error' ? r.message : r.kind);
     await rm(dest, { recursive: true, force: true });
     await mkdir(join(dest, '..'), { recursive: true });
     await rename(r.value.path, dest);
