@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 104 Theme G — Texture painting and PBR materials ([#767](https://github.com/bilo-io/midnite-studio/pull/767))
+
+An unwrapped sculpt part carries a PBR layer stack — fill and paint layers with opacity, eight blend modes and masks from the Theme F bakes or painted by hand — flattened into glTF's base colour, packed ORM, normal and emissive textures beside the design. Paint brushes (brush, eraser, island fill, smudge, clone, stamp) land on uv texels through the BVH with seam bleed, from the editor's new Paint tab (live PBR viewport, presets, layer list, matcap toggle for sculpting) or over MCP (`model_paint_stroke` aimed like a sculpt stroke, `model_material_set`, `model_layer_*`), and `.glb` exports the full set.
+
+- [x] G: `media-model-pbr.ts`, `model-geometry/paint/` (surface, brushes, history, flatten, presets, stack), `writeTexture` on the mesh channel, `paint-tools.ts` (six MCP tools) + registry/gating, glTF/MTL texture writers, textured previews, `paint/` (controller, PNG codec, viewport layer, hook), `paint-panel.tsx`, PBR maps in `editor-scene.tsx`, sculpt matcap, the skill ×6, and vitest (`paint.test.ts`, `model-paint-mcp.test.ts`, `sculpt-store.test.ts`, `model-tools.test.ts`, `mcp.test.ts`, `paint-panel.test.tsx`) plus `p104-g-paint-shots.spec.ts`.
+
 ## 2026-10-07 — Phase 104 Themes E + F — Sculpting over MCP; the mesh pipeline ([#766](https://github.com/bilo-io/midnite-studio/pull/766))
 
 **E.** An agent aims a brush by the pixels of a preview it just looked at (the preview's own camera, shared as data), by rig bone, landmark, vertex group or primitive part, by world path, or over whatever the mask leaves open; strokes, masks, subdivide, remesh and undo keep a live document per sculpt part and answer a summary with a thumbnail. **F.** Decimation (quadric collapse, borders and UV seams locked), an LSCM unwrap with packing and a texel-density readout, normal/occlusion/curvature/cavity bakes, an even quad-dominant retopology, skin transfer that proves the rig survives, and `.glb`/`.obj`/`.fbx` export with UVs and baked maps. Skin is derived per vertex, so rigs survive by construction; the sculpt-after-unwrap case is refused.
