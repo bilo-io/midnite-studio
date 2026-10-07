@@ -76,7 +76,7 @@ export function createTileHandler(deps: TileHandlerDeps) {
 
   const log = (source: string, path: string, outcome: string) => deps.log?.(`[map-tile] ${source} ${path} ${outcome}`);
 
-  async function tileJson(source: MapSource, key: string | null, signal?: AbortSignal): Promise<Record<string, unknown> | TileResult> {
+  async function tileJson(source: MapSource, key: string | null, signal?: AbortSignal): Promise<{ json: Record<string, unknown> } | Extract<TileResult, { ok: false }>> {
     const url = expandMapTemplate(source.tileJsonUrl!, { key });
     const result = await deps.fetcher.fetch(`${source.id}/tilejson.json`, url, { cache: !source.requiresKey, ...(signal ? { signal } : {}) });
     if (!result.ok) return result;
@@ -84,7 +84,7 @@ export function createTileHandler(deps: TileHandlerDeps) {
       const json = JSON.parse(new TextDecoder().decode(result.bytes)) as Record<string, unknown>;
       const tiles = json['tiles'];
       if (Array.isArray(tiles) && typeof tiles[0] === 'string') learned.set(source.id, tiles[0]);
-      return json;
+      return { json };
     } catch {
       return { ok: false, status: 502, message: 'Malformed TileJSON.' };
     }
@@ -122,7 +122,7 @@ export function createTileHandler(deps: TileHandlerDeps) {
       let template = source.template ?? learned.get(source.id);
       if (!template && source.tileJsonUrl) {
         const json = await tileJson(source, key, signal);
-        if ('ok' in json && json.ok === false) return finish(json, '');
+        if ('ok' in json) return finish(json, '');
         template = learned.get(source.id);
       }
       if (!template) return empty(404);
@@ -135,9 +135,9 @@ export function createTileHandler(deps: TileHandlerDeps) {
 
     if (path === '/tilejson') {
       if (!source.tileJsonUrl) return empty(404);
-      const json = await tileJson(source, key, signal);
-      if ('ok' in json && json.ok === false) return finish(json, '');
-      const out: Record<string, unknown> = { ...json, tiles: [mapTileUrl(source.id)] };
+      const parsedJson = await tileJson(source, key, signal);
+      if ('ok' in parsedJson) return finish(parsedJson, '');
+      const out: Record<string, unknown> = { ...parsedJson.json, tiles: [mapTileUrl(source.id)] };
       delete out['grids'];
       delete out['data'];
       return respond(JSON.stringify(out), 'application/json');
