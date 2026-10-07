@@ -51,9 +51,10 @@ export function createCaptureBroker(options: { spawn: () => CaptureWorkerHandle 
     return next;
   }
 
-  function begin(
-    start: Omit<Extract<CaptureWorkerIn, { type: 'begin' }>, 'type'>,
-    onProgress: (fraction: number) => void = () => undefined,
+  function open(
+    start: { id: string },
+    message: CaptureWorkerIn,
+    onProgress: (fraction: number) => void,
   ) {
     const worker = ensureChild();
     let resolveDone!: (result: CaptureRunResult) => void;
@@ -71,7 +72,7 @@ export function createCaptureBroker(options: { spawn: () => CaptureWorkerHandle 
       },
     };
     active = entry;
-    worker.postMessage({ type: 'begin', ...start } satisfies CaptureWorkerIn);
+    worker.postMessage(message);
     return {
       addTile(x: number, y: number, width: number, height: number, rgba: Uint8Array): void {
         if (active === entry) worker.postMessage({ type: 'tile', id: start.id, x, y, width, height, rgba } satisfies CaptureWorkerIn);
@@ -91,8 +92,19 @@ export function createCaptureBroker(options: { spawn: () => CaptureWorkerHandle 
     };
   }
 
+  type Begin<T extends CaptureWorkerIn['type']> = Omit<Extract<CaptureWorkerIn, { type: T }>, 'type'>;
+  const noop = () => undefined;
+
   return {
-    begin,
+    /** The heightmap run (Theme D). */
+    begin: (start: Begin<'begin'>, onProgress: (fraction: number) => void = noop) =>
+      open(start, { type: 'begin', ...start }, onProgress),
+    /** The satellite run (Theme E): `addTile`* then `finish`. */
+    beginSatellite: (start: Begin<'begin-satellite'>, onProgress: (fraction: number) => void = noop) =>
+      open(start, { type: 'begin-satellite', ...start }, onProgress),
+    /** The roads run (Theme E): `finish` only. */
+    beginRoads: (start: Begin<'begin-roads'>, onProgress: (fraction: number) => void = noop) =>
+      open(start, { type: 'begin-roads', ...start }, onProgress),
     dispose(): void {
       active?.settle({ ok: false, message: MAP_CAPTURE_WORKER_CRASHED });
       const current = child;

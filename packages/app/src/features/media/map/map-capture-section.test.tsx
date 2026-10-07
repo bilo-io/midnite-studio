@@ -45,4 +45,41 @@ describe('MapCaptureSection', () => {
     expect(capture.mock.calls[1]![0]).toMatchObject({ handoff: true });
     expect(capture.mock.calls[1]![0].build).toBeUndefined();
   });
+
+  it('asks for the satellite and roads by default, and honours the checkboxes', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    const capture = vi.spyOn(window.midniteStudio!.media.map, 'capture');
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(1));
+    expect(capture.mock.calls[0]![0]).toMatchObject({ satellite: true, roads: true });
+    await screen.findByTestId('capture-done');
+    fireEvent.click(screen.getByLabelText('Satellite image'));
+    fireEvent.click(screen.getByLabelText('Roads (OpenStreetMap)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
+    expect(capture.mock.calls[1]![0]).toMatchObject({ satellite: false, roads: false });
+  });
+
+  it('warns that roads are skipped above 25 km only while roads are on, without blocking', () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    fireEvent.change(screen.getByLabelText('Capture side in metres'), { target: { value: '30000' } });
+    expect(screen.getByRole('status').textContent).toBe('Roads are captured for frames up to 25 km a side.');
+    expect((screen.getByRole('button', { name: 'Capture heightmap' }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByLabelText('Roads (OpenStreetMap)'));
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('lists what a capture is missing, with the reason', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    const real = window.midniteStudio!.media.map.capture;
+    vi.spyOn(window.midniteStudio!.media.map, 'capture').mockImplementation(async (req) => {
+      const r = await real(req);
+      if (!r.ok) return r;
+      return { ok: true, value: { ...r.value, capture: { ...r.value.capture, missing: [{ slot: 'roads', reason: 'No roads in this area.' }] } } };
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    const missing = await screen.findByTestId('capture-missing');
+    expect(missing.textContent).toContain('Captured with 1 missing: roads');
+    expect(missing.textContent).toContain('roads: No roads in this area.');
+  });
 });

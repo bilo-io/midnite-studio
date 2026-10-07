@@ -6,6 +6,7 @@ import { CHANNELS, EVENT_CHANNELS, failure, ok, schemas, type GitOpResult, type 
 
 import { defaultLogger } from '../log';
 import { createCaptureBroker, mapCaptureWorkerScriptPath, type CaptureWorkerHandle } from '../media/map/capture-broker';
+import { createOverpassClient, type OverpassDeps } from '../media/map/overpass';
 import { createCaptureService } from '../media/map/capture-service';
 import { createTileCache, type TileCache } from '../media/map/tile-cache';
 import { createTileFetcher } from '../media/map/tile-fetch';
@@ -100,6 +101,12 @@ export const captureService = createCaptureService({
     return { width, height, rgba };
   },
   broker: captureBroker,
+  // Theme E: the one Overpass request a capture makes, from main — never the renderer.
+  overpass: createOverpassClient({
+    fetch: (url, init) => net.fetch(url, init) as unknown as ReturnType<OverpassDeps['fetch']>,
+    userAgent: `MidniteStudio/${app.getVersion()} (+https://github.com/bilo-io/midnite-apps)`,
+    log: (line) => defaultLogger.info(line),
+  }),
   // Theme F: the hand-off calls the terrain service in main, not the renderer IPC chain.
   terrain: {
     library: (req) => terrainService().library(req),

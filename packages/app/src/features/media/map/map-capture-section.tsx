@@ -19,8 +19,8 @@ const formatSide = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 100
 
 /**
  * Capture heightmap (Phase 108 Theme D): the frame's centre is the saved frame (Theme C) or the view
- * centre; the side and the output size are set here. Satellite, roads and the hand-off to Terrain join
- * this section in Themes E and F.
+ * centre; the side and the output size are set here. Theme E adds the satellite and roads layers
+ * (on by default; roads are skipped above 25 km), Theme F the hand-off to Terrain.
  */
 export function MapCaptureSection({
   repoId,
@@ -37,6 +37,8 @@ export function MapCaptureSection({
   onFrameChange?: (frame: MapFrame) => void;
 }) {
   const capture = useMapCapture();
+  const [satellite, setSatellite] = useState(true);
+  const [roads, setRoads] = useState(true);
   const [localSide, setLocalSide] = useState(map.frame?.sideM ?? 5000);
   const [localSize, setLocalSize] = useState<number>(map.frame?.size ?? 1025);
   const center = frame?.center ?? map.frame?.center ?? map.view.center;
@@ -44,11 +46,11 @@ export function MapCaptureSection({
   const size: number = frame ? frame.size : localSize;
   const setSideM = (v: number) => (frame ? onFrameChange?.({ ...frame, sideM: Math.min(MAP_CAPTURE_MAX_SIDE_M, Math.max(MAP_CAPTURE_MIN_SIDE_M, v)) }) : setLocalSide(v));
   const setSize = (v: number) => (frame ? onFrameChange?.({ ...frame, size: v as MapFrame['size'] }) : setLocalSize(v));
-  const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) });
+  const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) }).filter((w) => roads || w.code !== 'roads-skipped');
   const blocked = warnings.some((w) => w.blocking);
   const running = capture.state.phase === 'running';
   const start = (extra: { handoff?: boolean; build?: boolean }) =>
-    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], ...extra });
+    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], satellite, roads, ...extra });
   const z = mapKernel.chooseCaptureZoom(DEM, { center, sideM: Math.min(Math.max(sideM, MAP_CAPTURE_MIN_SIDE_M), MAP_CAPTURE_MAX_SIDE_M) }, size);
 
   return (
@@ -96,6 +98,17 @@ export function MapCaptureSection({
           ))}
         </select>
       </label>
+      <fieldset className="space-y-0.5" disabled={running}>
+        <legend className="sr-only">Layers to capture</legend>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={satellite} onChange={(e) => setSatellite(e.target.checked)} />
+          <span>Satellite image</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={roads} onChange={(e) => setRoads(e.target.checked)} />
+          <span>Roads (OpenStreetMap)</span>
+        </label>
+      </fieldset>
       {warnings.map((w) => (
         <p key={w.code} role="status" className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600 dark:text-amber-400">
           {w.message}
@@ -159,9 +172,18 @@ export function MapCaptureSection({
           </p>
           {capture.state.result.terrain ? <p data-testid="capture-terrain">Opened terrain {capture.state.result.terrain.terrain} in the Terrain tab.</p> : null}
           {capture.state.result.capture.missing.length > 0 ? (
-            <p className="text-muted-foreground">
-              Captured with {capture.state.result.capture.missing.length} missing: {capture.state.result.capture.missing.map((m) => m.slot).join(', ')}
-            </p>
+            <div className="text-muted-foreground" data-testid="capture-missing">
+              <p>
+                Captured with {capture.state.result.capture.missing.length} missing: {capture.state.result.capture.missing.map((m) => m.slot).join(', ')}
+              </p>
+              <ul className="list-disc pl-4">
+                {capture.state.result.capture.missing.map((m) => (
+                  <li key={m.slot}>
+                    {m.slot}: {m.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       ) : null}

@@ -5,5 +5,6 @@ export * from './geodesy';
 export * from './geotiff';
 export * from './heightmap';
 export * from './mercator';
+export * from './osm-roads';
 export * from './resample';
 export * from './synthetic-dem';
