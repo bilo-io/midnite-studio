@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 108 Themes A + B — Maps tab and library; tile sources fetched in main (PR pending)
+## 2026-10-07 — Phase 108 Themes A + B — Maps tab and library; tile sources fetched in main ([#770](https://github.com/bilo-io/midnite-studio/pull/770))
 
 Media gets a ninth tab, Maps: a MapLibre canvas (own lazy chunk) with a Streets / Satellite / Terrain / Dark basemap picker, a per-project `map.json` that restores the last viewport (saved 750 ms after the map settles and on unmount), a projects/layers explorer, a view and tile-source panel, and loading, tiles-failed and offline states. Every tile, style, glyph and sprite byte arrives through a `mstudio-tile://` scheme registered in the single privileged-schemes call: main injects the optional MapTiler key, retries with backoff under a per-host cap, and keeps an LRU disk cache (1 GB default, Settings ▸ Media ▸ Maps slider and confirmed Clear). The CSP gains `mstudio-tile:` and no third-party host.
 
