@@ -328,6 +328,35 @@ export class SculptDocument {
     return { brush: s.brush.brush, dabs: s.dabs, moved: pos.vertices.length, masked: mask.vertices.length, maxDisplacement: s.maxDisplacement };
   }
 
+  /** Ends the current run of dabs without ending the stroke, so the next point starts a fresh dab rather than a line from the last one. */
+  strokeBreak(): void {
+    const s = this.stroke;
+    if (!s) throw new Error('No stroke is in progress.');
+    s.last = null;
+    s.carry = 0;
+  }
+
+  /**
+   * Edits the mask with `change` as one history step (Theme E's region masks, grow and shrink); `false` when it
+   * changed nothing. `change` receives the live mask and a read-only copy of what it was.
+   */
+  editMask(change: (mask: Float32Array, before: Float32Array) => void): boolean {
+    const mask = this.mask;
+    const before = mask.slice();
+    change(mask, before);
+    const rec = new Recorder(1);
+    for (let v = 0; v < mask.length; v += 1) {
+      if (mask[v] === before[v]) continue;
+      rec.add(v, before);
+      this.touchMask(v);
+    }
+    if (rec.size === 0) return false;
+    // `finish` reads the "after" values from the live mask.
+    const m = rec.finish(mask);
+    this.push({ kind: 'stroke', vertices: new Uint32Array(), before: new Float32Array(), after: new Float32Array(), maskVertices: m.vertices, maskBefore: m.before, maskAfter: m.after });
+    return true;
+  }
+
   /** Invert or clear the mask as one history step; `false` when it changed nothing. */
   maskOp(op: 'invert' | 'clear'): boolean {
     const mask = this.mask;

@@ -38,3 +38,27 @@ export {
   type StrokeSummary,
 } from './session';
 export { mirrorDab, mirrorIn, NO_SYMMETRY, SculptSymmetrySchema, symmetryFlips, type MirroredDab, type SculptSymmetry } from './symmetry';
+export {
+  AIM_MAX_DABS,
+  AIM_MAX_POINTS,
+  AimViewSchema,
+  lassoVertices,
+  maskVertices,
+  ModelSculptTargetSchema,
+  pointInLasso,
+  regionVertices,
+  resizeMask,
+  resolveTarget,
+  runAimedStroke,
+  SCREEN_SIZE_DEFAULT,
+  SCREEN_SIZE_MAX,
+  SCREEN_SIZE_MIN,
+  triangleNormal,
+  uniformScale,
+  type AimContext,
+  type AimIssue,
+  type AimPlan,
+  type AimStep,
+  type ModelSculptTarget,
+} from './aim';
+export { detectLandmarks, resolveLandmarks, type Landmark } from './landmarks';
