@@ -1,7 +1,9 @@
 import { activeSatelliteSource, MAP_BASEMAP_LABEL, MAP_BASEMAPS, MEDIA_TAB_EXPORT_FORMATS, type MapBasemap, type MapSourceStatus, type MapView } from '@midnite/studio-shared';
-import { useCallback, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '../../../components/empty-state';
+import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout } from '../media-layout';
@@ -9,11 +11,12 @@ import type { MediaSelection } from '../media-projects-accordion';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { useMediaProjects } from '../use-media';
 import { LazyMapCanvas } from './map-canvas-lazy';
+import { useMapFocus, zoomForSide } from './map-focus';
 import { MapExplorer, mapProjectOf } from './map-explorer';
 import { MapPanel } from './map-panel';
 import { MapErrorChip, MapLoadingBar, MapLoadingState, MapOfflinePanel, isMapOffline } from './map-states';
 import { basemapAttribution, buildMapStyle } from './map-style';
-import { useBaseStyles, useMapProject, useMapSources, useSaveMapView } from './use-map';
+import { mapKey, useBaseStyles, useMapProject, useMapSources, useSaveMapView } from './use-map';
 import { useMapStatus } from './use-map-status';
 
 const NO_STATUSES: readonly MapSourceStatus[] = [];
@@ -33,6 +36,21 @@ function MapTabBody({ repoId }: { repoId: string }) {
   const [selection, setSelection] = useState<MediaSelection | null>(null);
   const projects = useMediaProjects(repoId, 'map');
   const project = mapProjectOf(selection, projects.data);
+  // Bumped by "Show on map": remounts the canvas and panel so they re-read the framed `map.json`.
+  const [focusN, setFocusN] = useState(0);
+  const focus = useMapFocus((s) => s.request);
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!focus) return;
+    useMapFocus.getState().clear();
+    void (async () => {
+      const view = { center: focus.center, zoom: zoomForSide(focus.center[1], focus.sideM), bearing: 0, pitch: 0 };
+      await bridge()?.media.map.setView({ repoId, project: focus.project, patch: { view } });
+      await queryClient.invalidateQueries({ queryKey: mapKey(repoId, focus.project) });
+      setSelection({ project: focus.project, path: null });
+      setFocusN((n) => n + 1);
+    })();
+  }, [focus, repoId, queryClient]);
   return (
     <MediaLayout
       tab="map"
@@ -40,8 +58,8 @@ function MapTabBody({ repoId }: { repoId: string }) {
       detailName="details"
       toolbar={<ExportToolbar formats={MEDIA_TAB_EXPORT_FORMATS.map} hasSelection={false} onExport={() => undefined} />}
       explorer={<MapExplorer repoId={repoId} selection={selection} onSelect={setSelection} />}
-      content={<MapCentre key={`${repoId}/${project}`} repoId={repoId} project={project} />}
-      detail={<MapDetail key={`${repoId}/${project}`} repoId={repoId} project={project} />}
+      content={<MapCentre key={`${repoId}/${project}/${focusN}`} repoId={repoId} project={project} />}
+      detail={<MapDetail key={`${repoId}/${project}/${focusN}`} repoId={repoId} project={project} />}
     />
   );
 }

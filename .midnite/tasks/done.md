@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain (PR_PLACEHOLDER)
+
+A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps capture section) run the capture, then main calls the terrain service directly — create, attach the heightmap (and satellite, roads mask and captured road graph when the capture carries them), apply the spec (`worldSize`, `heightRange`, `resolution`, `textureSize`, `seaLevel`, `geo`), ask every window to open it and optionally start the build. Terrain's roads stage uses the captured OSM graph when `inputs.roadsGraph` is set (real widths, `cls`/`name` into `roads.json`); a mask-only terrain builds byte-for-byte as before. The Terrain panel shows a "Captured from Maps" row with Show on map.
+
+- [x] F: `TerrainGeoSchema`, `inputs.roadsGraph`, `TerrainRoadEdgeSchema.cls/name`, `MapRoadGraphFileSchema`, `handoffSpec`, `setRoadsGraph` + `terrainService()`, `roadGraphFromCapture`, the pipeline branch, capture-service hand-off, `map-focus.ts`, panel row, vitests (pipeline hash pin, service, capture-service, panel, handoff spec)
+
 ## 2026-10-08 — Phase 108 Theme D — Heightmap capture ([#771](https://github.com/bilo-io/midnite-studio/pull/771))
 
 Frame a square of the real world and capture its elevation: the deepest useful Terrarium zoom within a 1 024-tile budget, stitched, resampled bicubically onto a vertex-centred square in true metres (azimuthal-equidistant local frame, Vincenty WGS84), written as a 16-bit `heightmap.png`, a float32 `heightmap.r32` and a GeoTIFF with the frame's CRS, plus `capture.json` and `ATTRIBUTION.txt`, under `captures/<name>/`. Tiles come through Theme B's shared fetcher and cache; resampling and encoding run in a `map-capture-worker` utility process, cancellable, and a cancel or failure leaves no files.

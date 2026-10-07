@@ -5,6 +5,7 @@ import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
 import { useUiStore } from '../../../store/ui-store';
+import { useMapFocus } from '../map/map-focus';
 import { MediaView } from '../media-view';
 
 /**
@@ -258,5 +259,35 @@ describe('roads, foliage and buildings sections (Phase 105 G + H)', () => {
     fireEvent.blur(max);
     await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(2));
     expect(setSpec.mock.calls[1]![0]).toMatchObject({ patch: { buildings: { height: [4, 30] } } });
+  });
+});
+
+describe('captured from Maps (Phase 108 Theme F)', () => {
+  const geo = {
+    center: [18.4, -33.9],
+    bbox: [18.3, -34, 18.5, -33.8],
+    sideM: 8000,
+    capture: { project: 'maps', name: 'cape-20261007-100000' },
+    attributions: ['Terrain Tiles: Mapzen, AWS Open Data'],
+    capturedAt: '2026-10-07T10:00:00.000Z',
+  };
+
+  it('shows the row, attributions and a Show on map button for a capture-made terrain', async () => {
+    await open(spec({ geo }));
+    const row = await screen.findByTestId('terrain-geo');
+    expect(row.textContent).toContain('Captured from Maps · dunes · 8.0 km');
+    expect(row.textContent).toContain('Terrain Tiles: Mapzen, AWS Open Data');
+    // The mounted Maps tab consumes the request at once, so record it as it is posted.
+    const seen: unknown[] = [];
+    const off = useMapFocus.subscribe((state) => state.request && seen.push(state.request));
+    fireEvent.click(within(row).getByRole('button', { name: 'Show on map' }));
+    off();
+    expect(seen[0]).toMatchObject({ project: 'maps', name: 'cape-20261007-100000', center: [18.4, -33.9], sideM: 8000 });
+    expect(useUiStore.getState().mediaTab).toBe('map');
+  });
+
+  it('shows no row for a terrain that was not captured', async () => {
+    await open();
+    expect(screen.queryByTestId('terrain-geo')).toBeNull();
   });
 });

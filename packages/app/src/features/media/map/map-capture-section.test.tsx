@@ -29,6 +29,20 @@ describe('MapCaptureSection', () => {
     await waitFor(() => expect(capture).toHaveBeenCalled());
     expect(capture.mock.calls[0]![0]).toMatchObject({ repoId: 'r1', project: 'maps', sideM: 5000, size: 1025, center: [18.4241, -33.9249] });
     expect(capture.mock.calls[0]![0].captureId).toBeTruthy();
+    expect(capture.mock.calls[0]![0].handoff).toBeUndefined();
     expect((await screen.findByTestId('capture-done')).textContent).toContain('captures/mock-capture-20260101-000000');
+  });
+
+  it('Capture and build hands off with a build; Capture only hands off without one', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    const capture = vi.spyOn(window.midniteStudio!.media.map, 'capture');
+    fireEvent.click(screen.getByRole('button', { name: 'Capture and build' }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(1));
+    expect(capture.mock.calls[0]![0]).toMatchObject({ handoff: true, build: true });
+    await screen.findByTestId('capture-done');
+    fireEvent.click(screen.getByRole('button', { name: 'Capture only' }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
+    expect(capture.mock.calls[1]![0]).toMatchObject({ handoff: true });
+    expect(capture.mock.calls[1]![0].build).toBeUndefined();
   });
 });
