@@ -3332,8 +3332,9 @@ export function buildMockBridge(data: MockFixtures) {
       agent: {
         // Warnings stay empty: the panel's own banner is what shows the Ollama warning.
         run: async (req: { gameId: string }) => {
-          gamesCalls.push({ call: 'agentRun', ...req });
-          return { ok: true as const, value: { runId: `ar${gamesCalls.length}`, warnings: [] as string[] } };
+          const runId = `ar${gamesCalls.length + 1}`;
+          gamesCalls.push({ call: 'agentRun', runId, ...req });
+          return { ok: true as const, value: { runId, warnings: [] as string[] } };
         },
         cancel: async (req: { gameId: string }) => {
           gamesCalls.push({ call: 'agentCancel', ...req });

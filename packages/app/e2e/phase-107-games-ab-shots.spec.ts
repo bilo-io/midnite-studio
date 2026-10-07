@@ -64,7 +64,7 @@ for (const theme of ['dark', 'light'] as const) {
         ],
       });
     });
-    await expect(page.getByRole('log').getByText('midnite-ready')).toBeVisible();
+    await expect(page.getByRole('log', { name: 'Console output' }).getByText('midnite-ready')).toBeVisible();
     await settle(page, 300);
     await page.screenshot({ path: shotPath(OUT, `games-running-${theme}.png`) });
   });

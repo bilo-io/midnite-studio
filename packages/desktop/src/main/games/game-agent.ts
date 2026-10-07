@@ -67,7 +67,12 @@ export type GameAgentGit = {
 export type PassOutcome = { ok: true; summary: string } | { ok: false; message: string };
 
 /** One pass of a writer: edit the files in the repo, answer a sentence about what changed. */
-export type RunPass = (ctx: { pass: number; of: number; signal: AbortSignal; onAction: (action: string) => void }) => Promise<PassOutcome>;
+export type RunPass = (ctx: {
+  pass: number;
+  of: number;
+  signal: AbortSignal;
+  onAction: (action: string) => void;
+}) => Promise<PassOutcome>;
 
 export type GameAgentOutcome = {
   outcome: 'done' | 'cancelled' | 'failed';
@@ -114,13 +119,24 @@ export async function runGameTurns(opts: {
       break;
     }
     opts.onProgress({ pass, of, action: `Pass ${pass} of ${of}` });
-    const result = await opts.runPass({ pass, of, signal, onAction: (action) => opts.onProgress({ pass, of, action }) });
+    const result = await opts.runPass({
+      pass,
+      of,
+      signal,
+      onAction: (action) => opts.onProgress({ pass, of, action }),
+    });
 
     const files = await git.changedFiles(game.path);
     if (files.length > 0) {
       const committed = await git.commitAll(game.path, `${subject} (pass ${pass}/${of})`);
       if (!committed.ok) {
-        stop = { outcome: 'failed', message: committed.kind === 'error' ? `Could not commit pass ${pass}: ${committed.message}` : `Could not commit pass ${pass}.` };
+        stop = {
+          outcome: 'failed',
+          message:
+            committed.kind === 'error'
+              ? `Could not commit pass ${pass}: ${committed.message}`
+              : `Could not commit pass ${pass}.`,
+        };
         break;
       }
       const commit = { sha: committed.value.sha, files };
@@ -144,7 +160,10 @@ export async function runGameTurns(opts: {
   let kept = commits;
   if (opts.squash && commits.length > 1 && base !== null) {
     const squashed = await git.squash(game.path, base, `${subject} (${commits.length} passes)`);
-    if (squashed.ok) kept = [{ sha: squashed.value.sha, files: [...new Set(commits.flatMap((c) => c.files))].sort() }];
+    if (squashed.ok)
+      kept = [
+        { sha: squashed.value.sha, files: [...new Set(commits.flatMap((c) => c.files))].sort() },
+      ];
   }
 
   if (stop) return { ...stop, commits: kept };
@@ -162,7 +181,9 @@ export async function runGameTurns(opts: {
 export const GAME_AGENT_FILE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep'] as const;
 
 /** The `game_*` tools a run's private server answers: everything but creating or opening another game. */
-export const GAME_AGENT_TOOL_IDS: readonly GameMcpToolId[] = GAME_MCP_TOOL_IDS.filter((id) => id !== 'game_create' && id !== 'game_open');
+export const GAME_AGENT_TOOL_IDS: readonly GameMcpToolId[] = GAME_MCP_TOOL_IDS.filter(
+  (id) => id !== 'game_create' && id !== 'game_open',
+);
 
 export const allowedGameClaudeTools = (): string[] => [
   ...GAME_AGENT_FILE_TOOLS,
@@ -185,7 +206,9 @@ export function buildGameCliArgs(
 ): string[] | null {
   const head = [...agent.baseArgs, ...agent.headlessArgs, ...modelArgs];
   if (agent.id === 'claude') {
-    const config = JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: { command: shim.command, args: shim.args, env: shim.env } } });
+    const config = JSON.stringify({
+      mcpServers: { [MCP_SERVER_NAME]: { command: shim.command, args: shim.args, env: shim.env } },
+    });
     return [
       ...head,
       prompt,
@@ -201,7 +224,9 @@ export function buildGameCliArgs(
     ];
   }
   if (agent.id === 'codex') {
-    const env = `{ ${Object.entries(shim.env).map(([k, v]) => `${k} = ${tomlString(v)}`).join(', ')} }`;
+    const env = `{ ${Object.entries(shim.env)
+      .map(([k, v]) => `${k} = ${tomlString(v)}`)
+      .join(', ')} }`;
     const server = `mcp_servers.${MCP_SERVER_NAME.replace(/-/g, '_')}`;
     return [
       ...head,
@@ -222,7 +247,12 @@ export function buildGameCliArgs(
 }
 
 /** The brief for one pass. Pass 1 makes the change; later passes play-test and fix. */
-export function buildGamePassPrompt(req: { prompt: string; game: GameRef; pass: number; of: number }): string {
+export function buildGamePassPrompt(req: {
+  prompt: string;
+  game: GameRef;
+  pass: number;
+  of: number;
+}): string {
   const { game, pass, of } = req;
   return [
     `You are working on a Midnite Studio game: the repository in the current folder (gameId "${game.gameId}").`,
@@ -268,18 +298,33 @@ export function createGameAgentDispatch(opts: {
   const max = opts.maxCalls ?? MODEL_ITERATIVE_MAX_CALLS;
   let calls = 0;
   return async (tool, rawInput) => {
-    if (!isGameMcpToolId(tool) || !GAME_AGENT_TOOL_IDS.includes(tool)) return { ok: false, kind: 'error', message: `Unknown tool: "${tool}"` };
+    if (!isGameMcpToolId(tool) || !GAME_AGENT_TOOL_IDS.includes(tool))
+      return { ok: false, kind: 'error', message: `Unknown tool: "${tool}"` };
     const parsed = MCP_TOOLS[tool].input.safeParse(rawInput);
     if (!parsed.success) {
-      return { ok: false, kind: 'error', message: `Invalid input for "${tool}": ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')}` };
+      return {
+        ok: false,
+        kind: 'error',
+        message: `Invalid input for "${tool}": ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')}`,
+      };
     }
     const input = parsed.data as { game?: string };
     if (tool !== 'game_list' && input.game !== opts.game.gameId && input.game !== opts.game.path) {
-      return { ok: false, kind: 'refused', message: `This run edits one game. Use game "${opts.game.gameId}".` };
+      return {
+        ok: false,
+        kind: 'refused',
+        message: `This run edits one game. Use game "${opts.game.gameId}".`,
+      };
     }
-    if (opts.signal.aborted) return { ok: false, kind: 'refused', message: 'This run was cancelled.' };
+    if (opts.signal.aborted)
+      return { ok: false, kind: 'refused', message: 'This run was cancelled.' };
     calls += 1;
-    if (calls > max) return { ok: false, kind: 'refused', message: 'Tool-call limit reached. Finish this pass now.' };
+    if (calls > max)
+      return {
+        ok: false,
+        kind: 'refused',
+        message: 'Tool-call limit reached. Finish this pass now.',
+      };
     try {
       const handler = opts.tools[tool] as (input: unknown) => Promise<unknown>;
       const value = await handler(parsed.data);
@@ -287,8 +332,13 @@ export function createGameAgentDispatch(opts: {
       if (label) opts.onAction(label);
       return { ok: true, value };
     } catch (error) {
-      if (error instanceof McpToolError) return { ok: false, kind: error.kind, message: error.message };
-      return { ok: false, kind: 'error', message: error instanceof Error ? error.message : String(error) };
+      if (error instanceof McpToolError)
+        return { ok: false, kind: error.kind, message: error.message };
+      return {
+        ok: false,
+        kind: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   };
 }
@@ -310,9 +360,14 @@ export async function runGameAgent(opts: {
 }): Promise<GameAgentOutcome> {
   const { host, game, signal } = opts;
   const agent = await host.resolveAgent(opts.agentId);
-  if (!agent) return { outcome: 'failed', message: `${opts.agentId} is not installed.`, commits: [] };
+  if (!agent)
+    return { outcome: 'failed', message: `${opts.agentId} is not installed.`, commits: [] };
   if (buildGameCliArgs(agent, { command: '', args: [], env: {} }, '', []) === null) {
-    return { outcome: 'failed', message: `${agent.label} cannot be limited to file tools here. Pick Claude Code or Codex, or an Ollama model.`, commits: [] };
+    return {
+      outcome: 'failed',
+      message: `${agent.label} cannot be limited to file tools here. Pick Claude Code or Codex, or an Ollama model.`,
+      commits: [],
+    };
   }
 
   let currentPass = { pass: 1, of: Math.max(1, opts.passes) };
@@ -337,7 +392,12 @@ export async function runGameAgent(opts: {
       onProgress: opts.onProgress,
       runPass: async ({ pass, of }) => {
         currentPass = { pass, of };
-        const args = buildGameCliArgs(agent, shim, buildGamePassPrompt({ prompt: opts.prompt, game, pass, of }), opts.modelArgs)!;
+        const args = buildGameCliArgs(
+          agent,
+          shim,
+          buildGamePassPrompt({ prompt: opts.prompt, game, pass, of }),
+          opts.modelArgs,
+        )!;
         let kill: (() => void) | null = null;
         const onAbort = (): void => kill?.();
         signal.addEventListener('abort', onAbort);
@@ -353,11 +413,20 @@ export async function runGameAgent(opts: {
             },
           });
           if (!result.ok) {
-            return { ok: false, message: result.reason === 'timed-out' ? `${agent.label} took too long on pass ${pass}.` : `Could not run ${agent.label}: ${result.hint}` };
+            return {
+              ok: false,
+              message:
+                result.reason === 'timed-out'
+                  ? `${agent.label} took too long on pass ${pass}.`
+                  : `Could not run ${agent.label}: ${result.hint}`,
+            };
           }
           if (result.exitCode !== 0 && !signal.aborted) {
             const tail = result.stderr.trim().split('\n').slice(-3).join(' ').slice(0, 300);
-            return { ok: false, message: `${agent.label} stopped with an error${tail ? `: ${tail}` : '.'}` };
+            return {
+              ok: false,
+              message: `${agent.label} stopped with an error${tail ? `: ${tail}` : '.'}`,
+            };
           }
           return { ok: true, summary: lastSentence(result.output) };
         } finally {
@@ -373,26 +442,41 @@ export async function runGameAgent(opts: {
 const lastSentence = (output: string): string => {
   const text = output.trim();
   if (!text) return '';
-  const line = text.split('\n').filter((l) => l.trim()).at(-1) ?? '';
+  const line =
+    text
+      .split('\n')
+      .filter((l) => l.trim())
+      .at(-1) ?? '';
   return line.length > 300 ? `${line.slice(0, 299)}…` : line;
 };
 
 // --- Ollama ---------------------------------------------------------------------------
 
 /** One JSON-mode Ollama chat: the prompt in, the reply text out. */
-export type GameOllamaCall = (req: { model: string; prompt: string; signal: AbortSignal }) => Promise<GitOpResult<{ text: string }>>;
+export type GameOllamaCall = (req: {
+  model: string;
+  prompt: string;
+  signal: AbortSignal;
+}) => Promise<GitOpResult<{ text: string }>>;
 
-const TRUNCATED = '\n/* … truncated by Midnite Studio: the file is longer than the context allows */\n';
+const TRUNCATED =
+  '\n/* … truncated by Midnite Studio: the file is longer than the context allows */\n';
 
 /**
  * What an Ollama pass is shown: `midnite-game.json` and `src/**\/*.js`, up to
  * 60 KB. When the files run over, the largest are cut short with a marker
  * rather than dropped, so the model still sees every file exists.
  */
-export async function gatherOllamaContext(root: string, maxBytes = GAME_OLLAMA_CONTEXT_MAX_BYTES): Promise<Array<{ path: string; content: string }>> {
+export async function gatherOllamaContext(
+  root: string,
+  maxBytes = GAME_OLLAMA_CONTEXT_MAX_BYTES,
+): Promise<Array<{ path: string; content: string }>> {
   const files: Array<{ path: string; content: string }> = [];
   try {
-    files.push({ path: GAME_MANIFEST_FILE, content: await readFile(join(root, GAME_MANIFEST_FILE), 'utf8') });
+    files.push({
+      path: GAME_MANIFEST_FILE,
+      content: await readFile(join(root, GAME_MANIFEST_FILE), 'utf8'),
+    });
   } catch {
     // An invalid or missing manifest is still worth editing around.
   }
@@ -407,7 +491,10 @@ export async function gatherOllamaContext(root: string, maxBytes = GAME_OLLAMA_C
       const full = join(dir, entry.name);
       if (entry.isDirectory()) await walk(full);
       else if (entry.isFile() && /\.js$/.test(entry.name)) {
-        files.push({ path: relative(root, full).split(sep).join('/'), content: await readFile(full, 'utf8') });
+        files.push({
+          path: relative(root, full).split(sep).join('/'),
+          content: await readFile(full, 'utf8'),
+        });
       }
     }
   };
@@ -416,7 +503,9 @@ export async function gatherOllamaContext(root: string, maxBytes = GAME_OLLAMA_C
   // Shrink the largest file until everything fits.
   const total = (): number => files.reduce((sum, f) => sum + Buffer.byteLength(f.content), 0);
   while (total() > maxBytes) {
-    const largest = files.reduce((a, b) => (Buffer.byteLength(b.content) > Buffer.byteLength(a.content) ? b : a));
+    const largest = files.reduce((a, b) =>
+      Buffer.byteLength(b.content) > Buffer.byteLength(a.content) ? b : a,
+    );
     const over = total() - maxBytes;
     const keep = Math.max(0, largest.content.length - over - TRUNCATED.length - 64);
     if (keep === 0 && largest.content.endsWith(TRUNCATED)) break;
@@ -425,11 +514,18 @@ export async function gatherOllamaContext(root: string, maxBytes = GAME_OLLAMA_C
   return files;
 }
 
-export function buildOllamaPrompt(req: { prompt: string; pass: number; of: number; files: Array<{ path: string; content: string }> }): string {
+export function buildOllamaPrompt(req: {
+  prompt: string;
+  pass: number;
+  of: number;
+  files: Array<{ path: string; content: string }>;
+}): string {
   return [
     'You are editing a browser game written as plain ES modules (Phaser or three.js, through the kit in kit/, which you cannot change).',
     `The request: ${req.prompt}`,
-    req.pass === 1 ? '' : `This is pass ${req.pass} of ${req.of}: improve on the previous pass, or change nothing if the request is met.`,
+    req.pass === 1
+      ? ''
+      : `This is pass ${req.pass} of ${req.of}: improve on the previous pass, or change nothing if the request is met.`,
     '',
     'Answer with JSON only, in exactly this shape:',
     '{"files":[{"path":"src/...","content":"<the WHOLE new file>"}],"summary":"<one sentence>"}',
@@ -457,11 +553,16 @@ export function extractJson(text: string): unknown {
  * **whole** envelope — nothing is written — so a model that tries to touch
  * `kit/` or `vendor/` leaves the repo exactly as it was.
  */
-export async function applyOllamaEnvelope(root: string, raw: unknown): Promise<GitOpResult<{ files: string[]; summary: string }>> {
+export async function applyOllamaEnvelope(
+  root: string,
+  raw: unknown,
+): Promise<GitOpResult<{ files: string[]; summary: string }>> {
   const parsed = GameOllamaEnvelopeSchema.safeParse(raw);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    return failure(`The model's answer was not a valid edit${first ? ` (${first.path.join('.') || '(root)'}: ${first.message})` : ''}.`);
+    return failure(
+      `The model's answer was not a valid edit${first ? ` (${first.path.join('.') || '(root)'}: ${first.message})` : ''}.`,
+    );
   }
   const writes: Array<{ path: string; content: string }> = [];
   for (const file of parsed.data.files) {
@@ -471,7 +572,8 @@ export async function applyOllamaEnvelope(root: string, raw: unknown): Promise<G
   }
   // A symlinked src/ could point anywhere; refuse to write through one.
   const srcStat = await lstat(join(root, 'src')).catch(() => null);
-  if (srcStat && (srcStat.isSymbolicLink() || !srcStat.isDirectory())) return failure('src/ is not a plain folder, so nothing was written.');
+  if (srcStat && (srcStat.isSymbolicLink() || !srcStat.isDirectory()))
+    return failure('src/ is not a plain folder, so nothing was written.');
   try {
     for (const file of writes) {
       const full = join(root, ...file.path.split('/'));
@@ -479,7 +581,9 @@ export async function applyOllamaEnvelope(root: string, raw: unknown): Promise<G
       await writeFile(full, file.content, 'utf8');
     }
   } catch (error) {
-    return failure(`Could not write the edit: ${error instanceof Error ? error.message : String(error)}`);
+    return failure(
+      `Could not write the edit: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   return ok({ files: writes.map((w) => w.path), summary: parsed.data.summary });
 }
@@ -506,8 +610,16 @@ export async function runGameOllama(opts: {
     runPass: async ({ pass, of, signal, onAction }) => {
       const files = await gatherOllamaContext(opts.game.path);
       onAction(`Asked ${opts.model} for an edit`);
-      const reply = await opts.call({ model: opts.model, prompt: buildOllamaPrompt({ prompt: opts.prompt, pass, of, files }), signal });
-      if (!reply.ok) return { ok: false, message: reply.kind === 'error' ? reply.message : 'The model call failed.' };
+      const reply = await opts.call({
+        model: opts.model,
+        prompt: buildOllamaPrompt({ prompt: opts.prompt, pass, of, files }),
+        signal,
+      });
+      if (!reply.ok)
+        return {
+          ok: false,
+          message: reply.kind === 'error' ? reply.message : 'The model call failed.',
+        };
       let raw: unknown;
       try {
         raw = extractJson(reply.value.text);
@@ -515,7 +627,11 @@ export async function runGameOllama(opts: {
         return { ok: false, message: error instanceof Error ? error.message : String(error) };
       }
       const applied = await applyOllamaEnvelope(opts.game.path, raw);
-      if (!applied.ok) return { ok: false, message: applied.kind === 'error' ? applied.message : 'The edit was refused.' };
+      if (!applied.ok)
+        return {
+          ok: false,
+          message: applied.kind === 'error' ? applied.message : 'The edit was refused.',
+        };
       if (applied.value.files.length > 0) onAction(`Wrote ${applied.value.files.join(', ')}`);
       return { ok: true, summary: applied.value.summary };
     },

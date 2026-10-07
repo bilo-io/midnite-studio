@@ -9,6 +9,7 @@ import { GameDetailPanel } from './game-detail-panel';
 import { GameExplorer } from './game-explorer';
 import { GameRunnerHost, type GameResolution } from './game-runner-host';
 import { GameRunnerToolbar } from './game-runner-toolbar';
+import { useGameAgentEvents } from './game-agent-store';
 import { useGameEvents, useGames } from './use-games';
 
 /**
@@ -19,11 +20,12 @@ import { useGameEvents, useGames } from './use-games';
  * - **Explorer**: game repos, with a **New game** button.
  * - **Centre**: the sandboxed runner (a native view floats over the stage div)
  *   with its console drawer.
- * - **Right**: the create form, or the selected game's details. The
- *   create-and-iterate agent panel replaces it in a later theme.
+ * - **Right**: the create form (with an optional first prompt), or the
+ *   selected game's details over the create-and-iterate agent panel (Theme M).
  */
 export function GameTab() {
   useGameEvents();
+  useGameAgentEvents();
   const games = useGames();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);

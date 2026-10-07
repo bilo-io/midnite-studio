@@ -17,7 +17,13 @@ import {
 
 import type { Logger } from '../log';
 import type { IterativeHost } from '../media/model/iterative';
-import { runGameAgent, runGameOllama, type GameAgentGit, type GameAgentOutcome, type GameOllamaCall } from './game-agent';
+import {
+  runGameAgent,
+  runGameOllama,
+  type GameAgentGit,
+  type GameAgentOutcome,
+  type GameOllamaCall,
+} from './game-agent';
 import type { GameMcpTools } from './game-mcp';
 
 /** The real git seam: git-engine commands, each inside the per-repo write queue. */
@@ -58,7 +64,9 @@ export type GameAgentServiceDeps = {
   ollama: GameOllamaCall;
   git?: GameAgentGit;
   /** For the dirty-tree and in-progress checks; git-engine's `getStatus` by default. */
-  status?: (path: string) => Promise<{ dirty: boolean; inProgress: string | null; head: string | null }>;
+  status?: (
+    path: string,
+  ) => Promise<{ dirty: boolean; inProgress: string | null; head: string | null }>;
   revert?: (path: string, sha: string) => Promise<GitOpResult>;
   send: (channel: string, payload: unknown) => void;
   log: Logger;
@@ -86,7 +94,11 @@ export function createGameAgentService(deps: GameAgentServiceDeps) {
   /** The newest agent commit per game, which is the only one Undo turn accepts. */
   const lastAgentCommit = new Map<string, string>();
 
-  const emit = (gameId: string, runId: string, progress: Omit<GameAgentProgress, 'gameId' | 'runId'>): void => {
+  const emit = (
+    gameId: string,
+    runId: string,
+    progress: Omit<GameAgentProgress, 'gameId' | 'runId'>,
+  ): void => {
     deps.send(EVENT_CHANNELS.gamesAgentProgress, { gameId, runId, ...progress });
   };
 
@@ -96,14 +108,21 @@ export function createGameAgentService(deps: GameAgentServiceDeps) {
     const req = parsed.data;
     const game = await deps.resolve(req.gameId);
     if (!game) return failure('That game was not found.');
-    if (!game.valid) return failure(`midnite-game.json is invalid${game.issue ? `: ${game.issue}` : ''}. Fix it before running an agent.`);
+    if (!game.valid)
+      return failure(
+        `midnite-game.json is invalid${game.issue ? `: ${game.issue}` : ''}. Fix it before running an agent.`,
+      );
     if (running.has(game.gameId)) return failure('An agent is already working on this game.');
     const tools = deps.tools();
     if (req.engine.kind === 'agent' && !tools) return failure('Media ▸ Games is not ready yet.');
 
     const tree = await status(game.path);
-    if (tree.inProgress) return failure(`Finish or abort the ${tree.inProgress} in this game's repo first.`);
-    if (tree.dirty) return failure('This game has uncommitted changes. Commit or discard them first, so the agent’s commits hold only its own edits.');
+    if (tree.inProgress)
+      return failure(`Finish or abort the ${tree.inProgress} in this game's repo first.`);
+    if (tree.dirty)
+      return failure(
+        'This game has uncommitted changes. Commit or discard them first, so the agent’s commits hold only its own edits.',
+      );
 
     const runId = `ga-${randomBytes(4).toString('hex')}`;
     const controller = new AbortController();
@@ -114,7 +133,9 @@ export function createGameAgentService(deps: GameAgentServiceDeps) {
       if (progress.commit) lastAgentCommit.set(game.gameId, progress.commit.sha);
       emit(game.gameId, runId, progress);
     };
-    deps.log.info(`game agent start ${game.gameId} run=${runId} engine=${req.engine.kind} passes=${req.passes}`);
+    deps.log.info(
+      `game agent start ${game.gameId} run=${runId} engine=${req.engine.kind} passes=${req.passes}`,
+    );
 
     const work: Promise<GameAgentOutcome> =
       req.engine.kind === 'agent'
@@ -155,7 +176,9 @@ export function createGameAgentService(deps: GameAgentServiceDeps) {
         if (last) lastAgentCommit.set(game.gameId, last.sha);
         emit(game.gameId, runId, { pass: req.passes, of: req.passes, finished: outcome });
         deps.send(EVENT_CHANNELS.gamesChanged, { reason: 'manifest' });
-        deps.log.info(`game agent ${outcome.outcome} ${game.gameId} run=${runId} commits=${outcome.commits.length}`);
+        deps.log.info(
+          `game agent ${outcome.outcome} ${game.gameId} run=${runId} commits=${outcome.commits.length}`,
+        );
       });
 
     return ok({ runId, warnings: gameEngineWarnings(req.engine) });
@@ -179,11 +202,16 @@ export function createGameAgentService(deps: GameAgentServiceDeps) {
     async undo(gameId: string, sha: string): Promise<GitOpResult> {
       const game = await deps.resolve(gameId);
       if (!game) return failure('That game was not found.');
-      if (running.has(gameId)) return failure('Wait for the agent to finish, or cancel it, before undoing.');
+      if (running.has(gameId))
+        return failure('Wait for the agent to finish, or cancel it, before undoing.');
       const last = lastAgentCommit.get(gameId);
-      if (!last || !last.startsWith(sha.toLowerCase())) return failure('Only the last agent turn can be undone here. Use the Timeline for older commits.');
+      if (!last || !last.startsWith(sha.toLowerCase()))
+        return failure(
+          'Only the last agent turn can be undone here. Use the Timeline for older commits.',
+        );
       const tree = await status(game.path);
-      if (tree.head !== last) return failure('The game has moved on since that turn. Use the Timeline to revert it.');
+      if (tree.head !== last)
+        return failure('The game has moved on since that turn. Use the Timeline to revert it.');
       const result = await revert(game.path, last);
       if (result.ok) {
         lastAgentCommit.delete(gameId);

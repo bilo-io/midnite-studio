@@ -80,6 +80,7 @@ export function GameConsoleDrawer({ gameId }: { gameId: string | null }) {
       <div
         ref={listRef}
         role="log"
+        aria-label="Console output"
         aria-live="off"
         onScroll={(event) => {
           const el = event.currentTarget;
