@@ -140,6 +140,7 @@ import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } 
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
+import { installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
@@ -515,6 +516,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaModelSf3dHandlers();
     registerMediaTerrainHandlers();
     registerMediaSpriteHandlers();
+    registerMediaMapHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
@@ -557,6 +559,7 @@ if (!app.requestSingleInstanceLock()) {
     registerPerfHandlers();
     registerReportHandlers({ log: defaultLogger });
     installMgitFileProtocol();
+    installMapTileProtocol();
     installMenu(getMainWindow);
     bootMark('handlers-registered');
 

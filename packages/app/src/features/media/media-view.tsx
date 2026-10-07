@@ -7,6 +7,7 @@ import { DocsTab } from './doc/docs-tab';
 import { GameTab } from './game/game-tab';
 import { ImageTab } from './image/image-tab';
 import { ModelTab } from './model/model-tab';
+import { MapTab } from './map/map-tab';
 import { SpriteTab } from './sprite/sprite-tab';
 import { TerrainTab } from './terrain/terrain-tab';
 import { MediaTabStrip } from './media-tab-strip';
@@ -29,6 +30,7 @@ const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   terrain: () => <TerrainTab />,
   sprite: () => <SpriteTab />,
   game: () => <GameTab />,
+  map: () => <MapTab />,
 };
 
 export function MediaView() {

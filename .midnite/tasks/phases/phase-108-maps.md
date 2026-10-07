@@ -130,19 +130,30 @@ locations, polygon areas, labelled pins and place search, saved as git-tracked G
 
 ## Headlines
 
-**Theme A — Maps tab and library.** ◻ Not started. `'map'` becomes the ninth Media tab (repo-scoped,
+**Theme A — Maps tab and library.** ✅ Landed (this PR). `'map'` is the ninth Media tab (repo-scoped,
 `LuMap`, export formats `geojson`/`kml`), with `maplibre-gl@^5` in its own lazy chunk behind a
 `map-canvas-lazy.tsx`, a per-project `map.json` (`MapProjectFileSchema`, viewport + basemap + layer
-order) saved through a debounced `mstudio:media:map-set-view`, and three named states — no network,
-tiles failing, and no repo — with literal copy.
+order) saved through a debounced (750 ms, plus once on unmount) `mstudio:media:map-set-view`, and the
+named states — no network, tiles failing and loading, and no repo — with literal copy. Basemaps
+(Streets, Satellite, Terrain, Dark) are composed in `map-style.ts` from OpenFreeMap's Liberty and
+Positron styles, which main serves already rewritten to `mstudio-tile://`. The MapLibre canvas is
+resize-observed and releases its WebGL context on unmount; eslint keeps `maplibre-gl` out of every
+file but `map-canvas.tsx`. The 10× mount/unmount WebGL-context e2e is not written: the vitest
+asserts `remove()` and `loseContext()` on unmount instead.
 
-**Theme B — Tile sources, fetched in main.** ◻ Not started. `MAP_SOURCES` is a typed catalogue in
+**Theme B — Tile sources, fetched in main.** ✅ Landed (this PR). `MAP_SOURCES` is a typed catalogue in
 `shared/src/media-map.ts` (AWS Terrarium DEM, OpenFreeMap vector, EOX Sentinel-2 cloudless 2016
 satellite, and three MapTiler sources behind `media.mapTilerApiKey`). **Every** tile, glyph and
 sprite request goes through a `mstudio-tile://<source>/…` scheme registered in the existing single
 `registerPrivilegedSchemes()` call, so `connect-src` gains one entry and no third-party host;
 `tile-fetch.ts` caps concurrency per host, retries 429/5xx with backoff, and sends a fixed
-`User-Agent`; `tile-cache.ts` is an LRU on disk under `userData/map-tiles/` (1 GB default).
+`User-Agent`; `tile-cache.ts` is an LRU on disk under `userData/map-tiles/` (1 GB default, 256 MB
+steps in Settings ▸ Media ▸ Maps, with a confirmed Clear). The fetcher is generic
+(`fetch(key, url, {signal, cache})`) and the protocol owns URL expansion; keyed TileJSON and styles
+bypass the disk cache so a key never lands on disk. The protocol also serves `/style/<name>` with
+every URL rewritten (unknown sources and their layers dropped), and a Natural Earth relief source
+(`openfreemap-relief`) keeps the rewritten styles' low-zoom layer. Responses carry
+`Access-Control-Allow-Origin: *` because MapLibre's blob worker fetches cross-scheme.
 
 **Theme C — 3D preview and capture framing.** ◻ Not started. The 3D toggle uses MapLibre's
 `setTerrain` over the Terrarium source; the capture frame is drawn as a GeoJSON polygon computed by
@@ -214,7 +225,7 @@ on top of a capture.
 
 ## A — Maps tab and library (M)
 
-- [ ] `'map'` joins `MEDIA_TABS` and `REPO_SCOPED_MEDIA_TABS` in [`shared/src/media.ts`](../../../packages/shared/src/media.ts), with `MEDIA_TAB_EXPORT_FORMATS`, `MEDIA_TAB_META` (`LuMap`), the `media-view.tsx` body and `MEDIA_LAYOUT_KEYS` entries; storage at `.midnite/media/map/<project>/`.
+- [x] `'map'` joins `MEDIA_TABS` and `REPO_SCOPED_MEDIA_TABS` in [`shared/src/media.ts`](../../../packages/shared/src/media.ts), with `MEDIA_TAB_EXPORT_FORMATS`, `MEDIA_TAB_META` (`LuMap`), the `media-view.tsx` body and `MEDIA_LAYOUT_KEYS` entries; storage at `.midnite/media/map/<project>/`.
   - `MEDIA_TABS` appends `'map'` **last** (after `'game'`) so the persisted tab index of every
     existing tab is unchanged; `REPO_SCOPED_MEDIA_TABS` appends `'map'` too.
   - `MEDIA_EXPORT_FORMATS` gains `'geojson'` and `'kml'`, `MEDIA_EXPORT_FORMAT_INFO` gains
@@ -230,7 +241,7 @@ on top of a capture.
   - Default project name `DEFAULT_MAP_PROJECT = 'maps'` (exported from `shared/src/media-map.ts`).
   - *Verified by:* `media-tabs.test`/`media-view.bridge.test.tsx` render the Maps strip entry and body
     with the mock bridge; typecheck proves every `Record<MediaTab, …>` has a `map` arm.
-- [ ] `maplibre-gl` added to `packages/app` and **lazy-loaded with the tab** (its own chunk; `scripts/perf/bundle-report.mjs` shows the entry chunk unchanged).
+- [x] `maplibre-gl` added to `packages/app` and **lazy-loaded with the tab** (its own chunk; `scripts/perf/bundle-report.mjs` shows the entry chunk unchanged).
   - Pin `maplibre-gl@^5` (WebGL2; Electron 33's Chromium supports it). Import it **only** from
     `map-canvas.tsx`; `map-canvas-lazy.tsx` wraps it in `React.lazy(() => import('./map-canvas'))`
     exactly as `terrain-viewer-lazy.tsx` does, with the same `Suspense` fallback component.
@@ -241,7 +252,7 @@ on top of a capture.
     map-canvas.tsx").
   - *Verified by:* `node scripts/perf/bundle-report.mjs --assert` passes with `budgets.json`
     unchanged; the manifest lists a chunk whose name contains `map-canvas`.
-- [ ] `packages/app/src/features/media/map/`: `map-tab.tsx`, `use-map.ts`, `map-explorer.tsx` (projects + layers), `map-canvas.tsx` (MapLibre host, resize-observed, disposed on unmount — no WebGL context leak).
+- [x] `packages/app/src/features/media/map/`: `map-tab.tsx`, `use-map.ts`, `map-explorer.tsx` (projects + layers), `map-canvas.tsx` (MapLibre host, resize-observed, disposed on unmount — no WebGL context leak).
   - `map-tab.tsx` exports `MapTab()`, composing `MediaLayout` (explorer | canvas | detail) like
     `terrain-tab.tsx`; the detail pane is `map-panel.tsx` (capture form, Theme C readout, tool
     options).
@@ -253,7 +264,7 @@ on top of a capture.
   - *Verified by:* a vitest with `maplibre-gl` mocked (`vi.mock`) asserts `remove` is called on
     unmount; an e2e spec (needs real WebGL — named in its header) mounts/unmounts the tab 10× and
     asserts no `WebGL: CONTEXT_LOST_WEBGL: too many active WebGL contexts` console message.
-- [ ] Basemap picker: Streets (OSM vector), Satellite, Terrain (hillshade), Dark; attribution control always visible and correct for the active sources.
+- [x] Basemap picker: Streets (OSM vector), Satellite, Terrain (hillshade), Dark; attribution control always visible and correct for the active sources.
   - `MAP_BASEMAPS = ['streets', 'satellite', 'terrain', 'dark'] as const` in `shared/src/media-map.ts`;
     `buildMapStyle(basemap, sources, opts): StyleSpecification` (pure, in
     `features/media/map/map-style.ts`) returns a style whose every URL is `mstudio-tile://…`.
@@ -267,7 +278,7 @@ on top of a capture.
   - *Verified by:* `map-style.test.ts` — for each basemap, every `sources[*].tiles`/`url`, `glyphs`
     and `sprite` starts with `mstudio-tile://`, and the attribution list equals the catalogue's for
     the sources used.
-- [ ] Last viewport (centre, zoom, bearing, pitch, style) persisted per project in `map.json`; reopening restores it.
+- [x] Last viewport (centre, zoom, bearing, pitch, style) persisted per project in `map.json`; reopening restores it.
   - `MapProjectFileSchema` in `shared/src/media-map.ts`: `{ version: z.literal(1).default(1), view:
     { center: [lon, lat], zoom: 0–22, bearing: −180–180, pitch: 0–85 }, basemap: z.enum(MAP_BASEMAPS),
     terrain3d: { on: boolean, exaggeration: 1–3 }, layerOrder: string[], layerStyle: Record<string,
@@ -282,13 +293,13 @@ on top of a capture.
     writes on every frame.
   - *Verified by:* `map-service.test.ts` — get on an empty project returns defaults; set then get
     round-trips; a hand-corrupted `map.json` returns defaults with `warning: 'map.json is not valid: …'`.
-- [ ] CSP: the default (keyless) tile hosts added to `connect-src` in [`main/csp.ts`](../../../packages/desktop/src/main/csp.ts) with `csp.test.ts` updated; keyed hosts are **not** added (they go through Theme B's protocol).
+- [x] CSP: the default (keyless) tile hosts added to `connect-src` in [`main/csp.ts`](../../../packages/desktop/src/main/csp.ts) with `csp.test.ts` updated; keyed hosts are **not** added (they go through Theme B's protocol).
   - **Corrected by Decision 10:** no tile host is added. `connect-src` and `img-src` each gain exactly
     `mstudio-tile:`; every source — keyless or keyed — is reached through the protocol, so the
     renderer never talks to a tile host directly and one cache serves both display and capture.
   - *Verified by:* `csp.test.ts` asserts `connect-src` contains `mstudio-tile:` and contains **no**
     `openfreemap`, `amazonaws`, `eox` or `maptiler` substring.
-- [ ] Empty, loading and offline states: no network → a clear "Map tiles need a network connection" panel instead of a grey canvas; tile errors counted, not spammed to the console.
+- [x] Empty, loading and offline states: no network → a clear "Map tiles need a network connection" panel instead of a grey canvas; tile errors counted, not spammed to the console.
   - Offline = `navigator.onLine === false` **or** the first style load failing with every tile
     request erroring; the panel reads "Map tiles need a network connection." with a Retry button that
     calls `map.setStyle(buildMapStyle(…))`. Tiles already in the disk cache still draw offline.
@@ -300,7 +311,7 @@ on top of a capture.
 
 ## B — Tile sources, fetched in main (M)
 
-- [ ] `MAP_SOURCES` catalogue in `shared/src/media-map.ts`: id, kind (`dem` | `satellite` | `vector` | `basemap`), URL template, min/max zoom, tile size, encoding (`terrarium` | `terrain-rgb` | `png` | `mvt`), licence, attribution string, `exportable`, `requiresKey?`.
+- [x] `MAP_SOURCES` catalogue in `shared/src/media-map.ts`: id, kind (`dem` | `satellite` | `vector` | `basemap`), URL template, min/max zoom, tile size, encoding (`terrarium` | `terrain-rgb` | `png` | `mvt`), licence, attribution string, `exportable`, `requiresKey?`.
   - `MapSourceSchema` (zod) and `MAP_SOURCES: readonly MapSource[]`; `encoding` also allows `'jpeg'`
     and `'webp'` (EOX serves JPEG, MapTiler Terrain-RGB serves WebP). URL templates use `{z}/{x}/{y}`
     and an optional `{key}`; the template is **only ever expanded in main**.
@@ -308,7 +319,7 @@ on top of a capture.
     with `MapSourceIdSchema = z.enum(MAP_SOURCE_IDS)` first).
   - *Verified by:* `media-map.test.ts` — ids unique; every `requiresKey` source has `{key}` in its
     template; every `exportable: true` source has a non-empty `licence` and `attribution`.
-- [ ] Keyless defaults: AWS Terrain Tiles (Terrarium) for DEM, an OSM-derived vector source for streets/roads, and an exportable open imagery source for satellite (Decision 1).
+- [x] Keyless defaults: AWS Terrain Tiles (Terrarium) for DEM, an OSM-derived vector source for streets/roads, and an exportable open imagery source for satellite (Decision 1).
   - `aws-terrarium`: `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png`,
     z0–15, 256 px, `terrarium`, exportable, attribution "Terrain Tiles: Mapzen, AWS Open Data — see
     sources list".
@@ -319,7 +330,7 @@ on top of a capture.
     z0–14, `jpeg`, CC BY 4.0, exportable, attribution "Sentinel-2 cloudless – https://s2maps.eu by EOX
     IT Services GmbH (Contains modified Copernicus Sentinel data 2016)". The **2016** layer is pinned
     because later EOX vintages are CC BY-NC-SA.
-- [ ] Optional MapTiler key: `media.mapTilerApiKey` in `SECRET_KEYS`, a field on Settings ▸ Media, unlocking MapTiler satellite, Terrain-RGB DEM and styles.
+- [x] Optional MapTiler key: `media.mapTilerApiKey` in `SECRET_KEYS`, a field on Settings ▸ Media, unlocking MapTiler satellite, Terrain-RGB DEM and styles.
   - Three sources, `requiresKey: true`: `maptiler-satellite` (`satellite-v2`, jpeg, z0–20),
     `maptiler-terrain-rgb` (`terrain-rgb-v2`, webp, `terrain-rgb`, z0–14 — **shallower** than
     Terrarium's z15, so it is never the DEM default), `maptiler-streets` (vector, display-only).
@@ -331,7 +342,7 @@ on top of a capture.
     the renderer learns *whether* a key exists, never the key.
   - *Verified by:* `map-settings.test.tsx` — the row calls `secretsSet('media.mapTilerApiKey', …)`
     and the sources list flips `available`.
-- [ ] `mstudio-tile://<source>/<z>/<x>/<y>` protocol in main that injects keys, caches and serves tiles to MapLibre — the key never appears in the renderer, its URLs or its logs.
+- [x] `mstudio-tile://<source>/<z>/<x>/<y>` protocol in main that injects keys, caches and serves tiles to MapLibre — the key never appears in the renderer, its URLs or its logs.
   - `MSTUDIO_TILE_SCHEME = 'mstudio-tile'` is added to the **existing** `registerPrivilegedSchemes()`
     array in `fs-protocol.ts` with `{ standard: true, secure: true, supportFetchAPI: true,
     corsEnabled: true }` — never a second `registerSchemesAsPrivileged` call.
@@ -346,7 +357,7 @@ on top of a capture.
   - *Verified by:* `tile-protocol.test.ts` with a fake fetcher — the upstream URL contains the key,
     the response, its headers and every logged line do not; `fs-protocol.test.ts` asserts the
     privileged list has three schemes in one call.
-- [ ] Main-side tile fetcher `main/media/map/tile-fetch.ts`: concurrency cap, retry with backoff, per-host rate limit, `User-Agent` per provider policy, abortable; returns `GitOpResult`-style envelopes, never throws across IPC.
+- [x] Main-side tile fetcher `main/media/map/tile-fetch.ts`: concurrency cap, retry with backoff, per-host rate limit, `User-Agent` per provider policy, abortable; returns `GitOpResult`-style envelopes, never throws across IPC.
   - `createTileFetcher({ fetch, cache, now, log })` → `{ get(source, z, x, y, signal): Promise<TileResult> }`
     where `TileResult = { ok: true; bytes: Uint8Array; fromCache: boolean } | { ok: false; status:
     number | 'network' | 'aborted'; message: string }`.
@@ -359,7 +370,7 @@ on top of a capture.
   - *Verified by:* `tile-fetch.test.ts` — 7 concurrent gets on one host → ≤ 6 upstream calls in
     flight; a 503×2 then 200 resolves `ok`; an abort mid-retry resolves `{ok:false,status:'aborted'}`;
     two gets for one tile → one upstream call.
-- [ ] Disk cache under userData (`map-tiles/`), LRU-capped (default 1 GB, Settings ▸ Media slider), with a "Clear map cache" action and size readout.
+- [x] Disk cache under userData (`map-tiles/`), LRU-capped (default 1 GB, Settings ▸ Media slider), with a "Clear map cache" action and size readout.
   - `main/media/map/tile-cache.ts`: files at `userData/map-tiles/<source>/<z>/<x>/<y>.<ext>`; an
     in-memory index (path → size, lastUsed) built lazily by one directory walk on first use; a hit
     `utimes` the file; on write, if total > cap, evict oldest-`lastUsed` until total ≤ 90 % of cap.

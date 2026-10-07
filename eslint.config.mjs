@@ -31,6 +31,42 @@ import globals from 'globals';
  * rule set stays dependency-free and the message explains the *why* at the
  * point of failure.
  */
+const APP_PATTERNS = [
+    {
+      group: ['electron', 'electron/*'],
+      message:
+        'The renderer has no node integration. Reach the main process through `window.midniteStudio` (see packages/shared/src/ipc/bridge.ts).',
+    },
+    {
+      group: [
+        '@midnite/studio-git-engine',
+        '@midnite/studio-git-engine/*',
+        '@midnite/studio-db-engine',
+        '@midnite/studio-db-engine/*',
+        '@midnite/studio-knowledge',
+        '@midnite/studio-knowledge/*',
+        '@midnite/studio-desktop',
+        '@midnite/studio-desktop/*',
+      ],
+      message:
+        'The renderer never imports the git/database/knowledge engine directly — all run in the main process. Add an IPC channel in packages/shared/src/ipc instead.',
+    },
+    {
+      group: ['node:*', 'fs', 'path', 'child_process'],
+      message: 'No node builtins in the renderer — contextIsolation is on and nodeIntegration is off.',
+    },
+    {
+      group: ['lucide-react', 'lucide-react/*'],
+      message: 'Phase 36: import icons from react-icons/<set> instead',
+    },
+];
+
+/** Phase 108 Theme A: MapLibre is a lazy chunk — only `map-canvas.tsx` may import it. */
+const MAPLIBRE_LAZY = {
+  group: ['maplibre-gl', 'maplibre-gl/*'],
+  message: 'MapLibre loads lazily — import it only in map-canvas.tsx',
+};
+
 const deny = (patterns) => ({ 'no-restricted-imports': ['error', { patterns }] });
 
 const NO_ELECTRON = {
@@ -140,34 +176,15 @@ export default tseslint.config(
   {
     files: ['packages/app/src/**/*.{ts,tsx}'],
     rules: deny([
-      {
-        group: ['electron', 'electron/*'],
-        message:
-          'The renderer has no node integration. Reach the main process through `window.midniteStudio` (see packages/shared/src/ipc/bridge.ts).',
-      },
-      {
-        group: [
-          '@midnite/studio-git-engine',
-          '@midnite/studio-git-engine/*',
-          '@midnite/studio-db-engine',
-          '@midnite/studio-db-engine/*',
-          '@midnite/studio-knowledge',
-          '@midnite/studio-knowledge/*',
-          '@midnite/studio-desktop',
-          '@midnite/studio-desktop/*',
-        ],
-        message:
-          'The renderer never imports the git/database/knowledge engine directly — all run in the main process. Add an IPC channel in packages/shared/src/ipc instead.',
-      },
-      {
-        group: ['node:*', 'fs', 'path', 'child_process'],
-        message: 'No node builtins in the renderer — contextIsolation is on and nodeIntegration is off.',
-      },
-      {
-        group: ['lucide-react', 'lucide-react/*'],
-        message: 'Phase 36: import icons from react-icons/<set> instead',
-      },
+      ...APP_PATTERNS,
+      MAPLIBRE_LAZY,
     ]),
+  },
+
+  // map-canvas.tsx is the one file allowed to import MapLibre (Phase 108 Theme A).
+  {
+    files: ['packages/app/src/features/media/map/map-canvas.tsx', 'packages/app/src/features/media/map/map-canvas.test.tsx'],
+    rules: deny([...APP_PATTERNS]),
   },
 
   // --- Boundary: website (the public marketing site) --------------------------

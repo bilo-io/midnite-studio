@@ -994,6 +994,15 @@ export const CHANNELS = {
   mediaSpriteRenderReady: 'mstudio:media:sprite-render-ready',
   /** Theme E — one batch of rendered frames; resolves once main has processed it (the back-pressure). */
   mediaSpriteRenderFrames: 'mstudio:media:sprite-render-frames',
+  // Maps (`main/media/map/`, Phase 108): the project file and the tile sources served on `mstudio-tile:`.
+  /** `{repoId, project}` → `map.json` (defaults when missing; defaults + `warning` when corrupt). */
+  mediaMapGet: 'mstudio:media:map-get',
+  /** Shallow-merges a validated patch into `map.json` (the renderer debounces viewport saves). */
+  mediaMapSetView: 'mstudio:media:map-set-view',
+  /** Which sources are usable — a keyed source learns only *whether* its key is set. */
+  mediaMapSources: 'mstudio:media:map-sources',
+  /** The tile cache under userData: `status` / `clear` / `set-cap`. */
+  mediaMapCache: 'mstudio:media:map-cache',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */

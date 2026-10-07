@@ -1381,6 +1381,13 @@ export type MidniteStudioBridge = {
       /** Posts one batch of rendered frames; a failed answer means the job is gone (cancelled) — stop rendering. */
       renderFrames: (req: In<typeof S.MediaSpriteRenderFramesRequest>) => Promise<GitOpResult>;
     };
+    /** Maps (Phase 108): the project file and the tile sources (every tile itself is fetched on `mstudio-tile:`). */
+    map: {
+      get: (req: In<typeof S.MediaMapGetRequest>) => Promise<z.infer<typeof S.MediaMapGetResponse>>;
+      setView: (req: In<typeof S.MediaMapSetViewRequest>) => Promise<z.infer<typeof S.MediaMapSetViewResponse>>;
+      sources: () => Promise<z.infer<typeof S.MediaMapSourcesResponse>>;
+      cache: (req: In<typeof S.MediaMapCacheRequest>) => Promise<z.infer<typeof S.MediaMapCacheResponse>>;
+    };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
     export: (req: In<typeof S.MediaExportRequest>) => Promise<z.infer<typeof S.MediaExportResponse>>;
