@@ -304,7 +304,9 @@ export class SculptController {
     void this.queue(async () => {
       await session.strokeBegin(brush, s.symmetry, s.symmetry.space === 'world' ? opts.toWorld : undefined);
       await this.sendSample(ray);
-    });
+    })
+      .catch((error: unknown) => this.set({ error: error instanceof Error ? error.message : String(error) }))
+      .finally(() => this.drain());
   }
 
   private async sendSample(sample: { origin: Vec3; dir: Vec3; pressure?: number }): Promise<void> {
@@ -323,7 +325,9 @@ export class SculptController {
       return;
     }
     stroke.inFlight = true;
-    void this.queue(() => this.sendSample(ray)).finally(() => this.drain());
+    void this.queue(() => this.sendSample(ray))
+      .catch((error: unknown) => this.set({ error: error instanceof Error ? error.message : String(error) }))
+      .finally(() => this.drain());
   }
 
   private drain(): void {
@@ -343,10 +347,17 @@ export class SculptController {
     const session = this.session;
     const queued = stroke.queued;
     stroke.queued = null;
-    const edit = await this.queue(async () => {
-      if (queued) await this.sendSample(queued);
-      return session.strokeEnd();
-    });
+    let edit: Awaited<ReturnType<SculptSession['strokeEnd']>>;
+    try {
+      edit = await this.queue(async () => {
+        if (queued) await this.sendSample(queued).catch(() => undefined);
+        return session.strokeEnd();
+      });
+    } catch (error) {
+      this.stroke = null;
+      this.set({ error: error instanceof Error ? error.message : String(error) });
+      return null;
+    }
     this.stroke = null;
     this.patch(edit.delta, edit.mask, { lastStroke: edit.summary ?? null });
     if (edit.summary) {

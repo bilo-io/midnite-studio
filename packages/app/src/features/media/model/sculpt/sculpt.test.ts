@@ -239,6 +239,20 @@ describe('SculptController', () => {
     expect(r.controller.getSnapshot()).toMatchObject({ revision: 1, geometryEpoch: 1, unsaved: true });
   });
 
+  it('a mask stroke darkens the vertex colour and moves nothing', async () => {
+    const r = rig();
+    await r.controller.enter(r.state.spec, 0);
+    r.controller.setSettings({ brush: 'mask', strength: 1 });
+    r.controller.beginStroke(DOWN, { radius: 0.3 });
+    r.controller.moveStroke({ origin: [0.1, 1, 0], dir: [0, -1, 0] });
+    const summary = await r.controller.endStroke();
+    expect(summary).toMatchObject({ brush: 'mask', moved: 0 });
+    expect(summary!.masked).toBeGreaterThan(0);
+    const color = r.controller.getSnapshot().geometry!.getAttribute('color') as BufferAttribute;
+    expect(color.getX(5 * 11 + 5)).toBeLessThan(0.5);
+    expect(centreY(r.controller)).toBe(0);
+  });
+
   it('subdivide records the new level and counts on the part', async () => {
     const r = rig();
     await r.controller.enter(r.state.spec, 0);

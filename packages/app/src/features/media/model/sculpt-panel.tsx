@@ -19,7 +19,7 @@ import {
 
 import type { IconComponent } from '../../../components/icon-button';
 import type { EditorAction, EditorState } from './editor-state';
-import { NumberField, SECTION, SelectField, SliderField } from './fields';
+import { FIELD, NumberField, SECTION, SelectField, SliderField } from './fields';
 import type { ConvertFn } from './mesh-panel';
 import { SCREEN_RADIUS_RANGE, WORLD_RADIUS_RANGE, type SculptController, type SculptSettings, type SculptSnapshot } from './sculpt/sculpt-controller';
 import { ensureIds } from './spec-edit';
@@ -123,7 +123,7 @@ export function SculptPanel({
           Sculpting <span className="font-medium text-foreground">{partName}</span> · {snapshot.vertices.toLocaleString()} verts · level {snapshot.level}
           {snapshot.unsaved ? ' · unsaved' : ''}
           {snapshot.busy ? ` · ${snapshot.busy}` : ''}
-          {snapshot.lastStroke ? ` · last stroke moved ${snapshot.lastStroke.moved.toLocaleString()} verts` : ''}
+          {snapshot.lastStroke ? ` · last stroke ${snapshot.lastStroke.brush === 'mask' ? 'masked' : 'moved'} ${(snapshot.lastStroke.brush === 'mask' ? snapshot.lastStroke.masked : snapshot.lastStroke.moved).toLocaleString()} verts` : ''}
         </p>
         <button type="button" className={`${BUTTON} ml-auto`} onClick={() => void exit()}>
           <LuLogOut aria-hidden className="h-3.5 w-3.5" />
@@ -159,20 +159,17 @@ export function SculptPanel({
       <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 md:grid-cols-2">
         <div className="flex items-center gap-1.5">
           <span className="w-24 shrink-0 text-[11px] text-muted-foreground">Radius (F)</span>
-          {s.radiusUnit === 'screen' ? (
-            <NumberField label="Radius" value={s.screenRadius} step={2} min={SCREEN_RADIUS_RANGE[0]} max={SCREEN_RADIUS_RANGE[1]} integer onCommit={(v) => v !== undefined && set({ screenRadius: v })} />
-          ) : (
-            <NumberField label="Radius" value={s.worldRadius} step={0.01} min={WORLD_RADIUS_RANGE[0]} max={WORLD_RADIUS_RANGE[1]} onCommit={(v) => v !== undefined && set({ worldRadius: v })} />
-          )}
-          <SelectField
-            label="Unit"
-            value={s.radiusUnit}
-            options={[
-              { value: 'screen', label: 'px' },
-              { value: 'world', label: 'm' },
-            ]}
-            onChange={(radiusUnit) => set({ radiusUnit })}
-          />
+          <div className="flex w-16 shrink-0">
+            {s.radiusUnit === 'screen' ? (
+              <NumberField label="Radius" value={s.screenRadius} step={2} min={SCREEN_RADIUS_RANGE[0]} max={SCREEN_RADIUS_RANGE[1]} integer onCommit={(v) => v !== undefined && set({ screenRadius: v })} />
+            ) : (
+              <NumberField label="Radius" value={s.worldRadius} step={0.01} min={WORLD_RADIUS_RANGE[0]} max={WORLD_RADIUS_RANGE[1]} onCommit={(v) => v !== undefined && set({ worldRadius: v })} />
+            )}
+          </div>
+          <select aria-label="Radius unit" value={s.radiusUnit} onChange={(e) => set({ radiusUnit: e.target.value as SculptSettings['radiusUnit'] })} className={`${FIELD} w-14 shrink-0`}>
+            <option value="screen">px</option>
+            <option value="world">m</option>
+          </select>
         </div>
         <SliderField label="Strength (Shift+F)" value={s.strength} min={0} max={1} step={0.05} onCommit={(strength) => set({ strength })} />
         <SelectField label="Falloff" value={s.falloff} options={SCULPT_FALLOFFS.map((f) => ({ value: f, label: FALLOFF_LABELS[f] }))} onChange={(falloff) => set({ falloff })} />
@@ -243,7 +240,9 @@ export function SculptPanel({
         <span className="mx-1 h-4 w-px bg-border" aria-hidden />
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           Voxel
-          <NumberField label="Remesh voxel size" value={voxel} placeholder="auto" step={0.005} min={0.001} onCommit={setVoxel} />
+          <span className="flex w-16">
+            <NumberField label="Remesh voxel size" value={voxel} placeholder="auto" step={0.005} min={0.001} onCommit={setVoxel} />
+          </span>
         </label>
         <button
           type="button"
