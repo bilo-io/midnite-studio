@@ -64,6 +64,9 @@ describe('createGame', () => {
     expect(await readFile(join(path, 'index.html'), 'utf8')).toContain('"phaser": "./vendor/phaser/phaser.esm.js"');
     expect(await readFile(join(path, 'index.html'), 'utf8')).not.toContain('"three"');
     expect(await readFile(join(path, 'AGENTS.md'), 'utf8')).toContain('# Moon Rover');
+    for (const dir of ['.claude', '.agents', '.codex']) {
+      expect(await readFile(join(path, dir, 'skills', 'midnite-media-game-build', 'SKILL.md'), 'utf8')).toContain('name: midnite-media-game-build');
+    }
     expect(await readFile(join(path, 'jsconfig.json'), 'utf8')).toContain('compilerOptions');
     expect(await readFile(join(path, 'vendor', 'phaser', 'phaser.esm.js'), 'utf8')).toBeTruthy();
     expect(await readFile(join(path, 'kit', 'core', 'hook.js'), 'utf8')).toBeTruthy();

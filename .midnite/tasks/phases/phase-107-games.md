@@ -197,9 +197,7 @@ person, first person, camera cycling, driving, the nav path); rendering e2e stay
 
 **Theme K — Template gallery: the perspective × genre matrix.** ✅ Landed; every genre cell is creatable since Theme J. `GAME_TEMPLATE_MATRIX`, `starterId`, `parseStarterId`, `isValidStarter` (the matrix's refusal reasons) and `isStarterAvailable` live in `shared/src/media-game-templates.ts`. `composeStarter` (`main/games/compose.ts`) writes `common/` + `kit/core` + the one engine's kit + the base + the genre module when present, then `src/game.config.js`; `createGame` calls it for any non-blank starter and records the chosen cameras in `cameraPresets`. The create panel is now `GameGallery`: a 2D/3D toggle, genres down, perspectives across, a No-genre row for the bases, disabled cells with their reason, roving-tabindex arrow keys and the five camera checkboxes on third person. Every genre cell currently reads "Not available yet".
 
-**Theme L — Genre recipe skills and the build skill.** ◻ Not started. Eleven skills under
-`templates/media-game/skills/`, seeded into each repo's three skill dirs and mirrored into the app
-repo's six.
+**Theme L — Genre recipe skills and the build skill.** ✅ Landed. Eleven skills in `templates/media-game/skills/`: `midnite-media-game-build` (layout, manifest, the `__midnite` hook, the play-test loop through the `game_*` tools, the asset index, the rules) and one recipe per genre (`-fps`, `-rts`, `-arpg`, `-crime`, `-shooter`, `-fighter`, `-soulslike`, `-rpg`, `-character-action`, `-open-world`), each listing the kit files and exports the genre uses, tuning numbers, a build order and a play-test checklist keyed to that genre's `getState()` fields. `seedGameSkills` (`main/games/skills.ts`) copies them into `.claude/`, `.agents/` and `.codex/skills/` of every new game, blank or starter, and the convention stubs point at them. Only the build skill is mirrored into the app repo's six skill dirs; `scripts/skill-copies.test.mjs` pins those and the template source. `skills.test.ts` checks front matter, that every `game_*` token is a real tool, that 33 files are seeded, and that every `` `NAME = number` `` quoted in a skill equals a kit or genre default. The crime recipe is `midnite-media-game-crime` (the genre id), not the `-topdown-crime` the checklist first named. The build skill describes `createAssetIndex(...).url()` rather than `assetUrl(name)`, which does not exist until Theme N.
 
 **Theme M — Create and iterate: agents, Ollama and commit-per-turn history.** ◻ Not started. Agents run
 in the repo through `createIterativeHost` with only file tools and the game's MCP tools (no shell);
@@ -774,7 +772,7 @@ Every valid combination instantiates and runs, composed from the kits rather tha
 
 ## L — Genre recipe skills and the build skill (M)
 
-- [ ] `midnite-media-game-build`: orients an agent in a game repo. It covers:
+- [x] `midnite-media-game-build`: orients an agent in a game repo. It covers:
   - the manifest and kit API
   - the debug hook contract
   - the play-test loop (run → screenshot → logs → input → state, then fix)
@@ -782,16 +780,16 @@ Every valid combination instantiates and runs, composed from the kits rather tha
   - the rules: extend the kit rather than rewrite it, keep `getState()` truthful, never touch `vendor/`
   - Also: load assets only through `assetUrl(name)` (single-file export depends on it, P), keep
     `src/` free of network calls unless `network: 'on'`, and write a `playtests/*.json` for every bug fixed.
-- [ ] One **recipe skill per genre** (10): `midnite-media-game-<genre>`. Each covers the systems that genre needs, their file layout in the kit's terms, tuning values that feel right (jump arcs, stamina costs, frame data, RTS supply curves), and a play-test checklist. These are what lets an agent build a combination no starter covers, or deepen one that exists
+- [x] One **recipe skill per genre** (10): `midnite-media-game-<genre>`. Each covers the systems that genre needs, their file layout in the kit's terms, tuning values that feel right (jump arcs, stamina costs, frame data, RTS supply curves), and a play-test checklist. These are what lets an agent build a combination no starter covers, or deepen one that exists
   - Names use the genre ids: `midnite-media-game-fps`, `-rts`, `-arpg`, `-topdown-crime`, `-shooter`,
     `-fighter`, `-soulslike`, `-rpg`, `-character-action`, `-open-world`. Tuning numbers quoted in a skill
     must equal the kit defaults (a vitest greps each skill for the constants it names and compares).
-- [ ] Skills ship in `templates/media-game/` and are seeded into each repo's `.claude/`, `.agents/` and `.codex/` at creation (the `main/video/scaffold.ts` pattern), and mirrored into the app repo's skill dirs for agents working outside a game repo
+- [x] Skills ship in `templates/media-game/` and are seeded into each repo's `.claude/`, `.agents/` and `.codex/` at creation (the `main/video/scaffold.ts` pattern), and mirrored into the app repo's skill dirs for agents working outside a game repo
   - Source of truth: `templates/media-game/skills/<name>/SKILL.md`; seeding copies to the game repo's
     `.claude/skills/`, `.agents/skills/`, `.codex/skills/`. The app repo mirrors **only**
     `midnite-media-game-build` (six copies, added to `scripts/skill-copies.test.mjs`) — the ten recipes stay
     game-repo-only so the app repo's skill list does not grow by ten (Decision 10).
-- [ ] Vitest: every skill's front matter parses, every tool a skill names exists in `MCP_TOOLS`, and seeding writes all three copies
+- [x] Vitest: every skill's front matter parses, every tool a skill names exists in `MCP_TOOLS`, and seeding writes all three copies
   - `desktop/src/main/games/skills.test.ts`: front matter has `name` = folder and a `description`; every
     `game_[a-z_]+` token in a skill is an `isGameMcpToolId`; seeding a temp repo writes 33 files
     (11 × 3).

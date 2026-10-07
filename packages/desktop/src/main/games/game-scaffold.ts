@@ -21,6 +21,7 @@ import {
 
 import { composeStarter } from './compose';
 import { validateGamesRoot } from './games-root';
+import { seedGameSkills } from './skills';
 import { vendorEngines } from './vendor';
 
 /** The only starter available until Phase 107's kits and genre starters land. */
@@ -133,6 +134,7 @@ export async function createGame(
       });
       if (!composed.ok) throw new Error(composed.kind === 'error' ? composed.message : 'Could not compose the starter.');
     }
+    await seedGameSkills(deps.templateDir, temp);
     const vendored = await vendorEngines(req.engine, temp, deps.enginesDir);
     const manifest = initialManifest(req, req.network ?? deps.defaultNetwork, vendored);
     await writeFile(join(temp, GAME_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');

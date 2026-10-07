@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme L — Genre recipe skills and the build skill
+
+Eleven skills under `templates/media-game/skills/` (`midnite-media-game-build` plus one recipe per genre), seeded into each new game's `.claude/`, `.agents/` and `.codex/skills/` by `seedGameSkills`, with the build skill mirrored into the app repo's six skill dirs. Tuning numbers quoted in a skill are checked against the kit by `skills.test.ts`.
+
+- [x] Build skill and ten recipe skills, seeding, the copies test, and `skills.test.ts`.
+
 ## 2026-10-07 — Phase 107 Theme J — 3D genre starters, part two
 
 RPG (third or first person), character action (third person) and open world (third or first person) as genre modules, with engine-free systems under `kit/core/genre/{rpg,character-action,open-world}/`: quests, dialogue trees, stats and NPC schedules; combo strings with cancel windows, a style meter and arena waves; road-graph routing, traffic, day/night and a land-cover minimap. The open world runs on a committed Phase 105 terrain pack (a plus of roads, built by the real pipeline) and reuses F's cars and the crime starter's wanted level. `GAME_GENRES_AVAILABLE` now lists every genre. `kit/three/terrain.js` drapes UV-less chunks. Kit 0.6.0. PR #755.

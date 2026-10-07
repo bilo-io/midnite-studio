@@ -15,6 +15,15 @@ describe('midnite-media-*-build skill copies', () => {
   it('finds the build skills, the terrain one among them', () => {
     expect(skills).toContain('midnite-media-terrain-build');
     expect(skills).toContain('midnite-media-model-build');
+    expect(skills).toContain('midnite-media-game-build');
+  });
+
+  // The game build skill is also seeded into every game repo from templates/media-game/skills/
+  // (Phase 107 Theme L), which is its source of truth.
+  it('midnite-media-game-build matches its game-repo template source', () => {
+    const reference = readFileSync(join(root, '.claude', 'skills', 'midnite-media-game-build', 'SKILL.md'));
+    const source = join(root, 'templates', 'media-game', 'skills', 'midnite-media-game-build', 'SKILL.md');
+    expect(readFileSync(source).equals(reference), 'templates/media-game/skills copy differs from .claude').toBe(true);
   });
 
   for (const skill of skills) {
