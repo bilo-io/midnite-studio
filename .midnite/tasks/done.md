@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-08 — Phase 108 Theme D — Heightmap capture (PR pending)
+## 2026-10-08 — Phase 108 Theme D — Heightmap capture ([#771](https://github.com/bilo-io/midnite-studio/pull/771))
 
 Frame a square of the real world and capture its elevation: the deepest useful Terrarium zoom within a 1 024-tile budget, stitched, resampled bicubically onto a vertex-centred square in true metres (azimuthal-equidistant local frame, Vincenty WGS84), written as a 16-bit `heightmap.png`, a float32 `heightmap.r32` and a GeoTIFF with the frame's CRS, plus `capture.json` and `ATTRIBUTION.txt`, under `captures/<name>/`. Tiles come through Theme B's shared fetcher and cache; resampling and encoding run in a `map-capture-worker` utility process, cancellable, and a cancel or failure leaves no files.
 
