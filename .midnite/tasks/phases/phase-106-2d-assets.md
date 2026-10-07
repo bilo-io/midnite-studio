@@ -185,7 +185,7 @@ pixel zoom, anchor/baseline overlay, focus-scoped keys) and `SpriteFrameStrip` (
 tooltips, roving focus on `,`/`.` since the arrows nudge, `H`/Delete/`R`/`Alt+←/→`, drag reorder,
 `Mod+Z` undo over a ≤ 100 inverse-op session stack), with **Export** to the Media export folder.
 
-**Theme H — Tilesets with autotiling.** ✅ Landed (PR #NNN). `seamless.ts` scores a tile's wrapped seam
+**Theme H — Tilesets with autotiling.** ✅ Landed (PR #764). `seamless.ts` scores a tile's wrapped seam
 against its interior steps (premultiplied, so a transparent layer's silhouette counts) and repairs a
 failure by blending the edge band with the half-shifted copy; a base tile is drawn at 1:1, downsampled
 (nearest in pixel style), repaired, drawn once more if still failing and kept with a `seam` warning.
@@ -200,7 +200,7 @@ same field from four corner values. `tiled.ts` writes the `.tsj` (collision as a
 `seed` and an optional pixel `palette`; the job (`tileset.ts`) writes `terrains/<id>.png`,
 `terrains/seams.json`, `tileset.png` and `tileset.tsj`, and the Environment form edits all of it.
 
-**Theme I — Isometric tiles, parallax backgrounds and prop sheets.** ✅ Landed (PR #NNN). `iso.ts`
+**Theme I — Isometric tiles, parallax backgrounds and prop sheets.** ✅ Landed (PR #764). `iso.ts`
 re-projects a tile onto a 2:1 diamond (its top-left corner lands on the left vertex), draws a block
 with side faces darkened 20 % and 40 % (`size / 2` tall, so a cell is `2·size × 1.5·size` and the
 `.tsj`'s `tileheight` is the block height) and turns a tileset into diamond floors under the same ids
@@ -660,7 +660,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     tilesets + `tileset.png` + `tileset.tsj`), each with a copy of `sprite.json`; an existing folder is
     refused (_"<name> already exists in that folder."_). Destination is `mediaExportDir` or
     `repos.pickDirectory()`, as in Phase 105.
-  - **Landed for sheets (PR #763), tilesets, backgrounds and prop sheets (PR #NNN):** `exportSprite` writes
+  - **Landed for sheets (PR #763), tilesets, backgrounds and prop sheets (PR #764):** `exportSprite` writes
     `<asset>.sprite/` (a prop sheet's has no `anims.json`), `<asset>.tileset/` (plus `map.tmj` when the
     tileset was cut from a terrain) and `<asset>.background/`, and refreshes the asset's own `export/`; a map
     answers _"Map export is not available yet."_ until J adds its branch.

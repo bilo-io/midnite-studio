@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 106 Themes H + I — Tilesets with autotiling; isometric tiles, parallax backgrounds and prop sheets ([#NNN](https://github.com/bilo-io/midnite-studio/pull/NNN))
+## 2026-10-07 — Phase 106 Themes H + I — Tilesets with autotiling; isometric tiles, parallax backgrounds and prop sheets ([#764](https://github.com/bilo-io/midnite-studio/pull/764))
 
 A tileset is seam-checked base tiles plus procedurally composited transitions — a 47-tile blob (Tiled `mixed`) or a 16-tile corner set whose touching edges are byte-identical by construction — with collision per tile and a `.tsj` carrying wangsets. The same tiles re-project to 2:1 isometric diamonds and blocks; a Phase 105 terrain cuts into a deduped tile grid plus an embedded-tileset `.tmj`; parallax backgrounds (3–5 x-seamless layers with scroll factors, `background.json`) and prop sheets (one cut-out prop per cell, packed with the sprite packer) generate as jobs and export as `<asset>.tileset/`, `.background/` and `.sprite/`. The Environment form edits terrains, transitions, autotiling, layers and props, and the asset overview previews the sheet, the parallax stage (a camera slider) and the props.
 
