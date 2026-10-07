@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "name": "fixture",
+  "generator": "midnite-studio",
+  "worldSize": 512,
+  "heightRange": [
+    0,
+    24
+  ],
+  "bounds": {
+    "min": [
+      -256,
+      0,
+      -256
+    ],
+    "max": [
+      256,
+      24,
+      256
+    ]
+  },
+  "heightfield": {
+    "png": "heightfield.png",
+    "json": "heightfield.json"
+  },
+  "chunks": {
+    "verts": 65,
+    "perSide": 4,
+    "lods": [
+      {
+        "lod": 1,
+        "glb": "chunks/lod1.glb"
+      },
+      {
+        "lod": 2,
+        "glb": "chunks/lod2.glb"
+      },
+      {
+        "lod": 3,
+        "glb": "chunks/lod3.glb"
+      }
+    ]
+  },
+  "maps": {
+    "drape": "maps/drape.png",
+    "landcover": "maps/landcover.png",
+    "landcoverLegend": "maps/landcover.json"
+  },
+  "foliage": "foliage.json",
+  "buildings": "buildings.json",
+  "roads": "roads.json",
+  "foliageAssets": [
+    {
+      "name": "pine",
+      "glb": "foliage/pine.glb"
+    },
+    {
+      "name": "broadleaf",
+      "glb": "foliage/broadleaf.glb"
+    },
+    {
+      "name": "birch",
+      "glb": "foliage/birch.glb"
+    },
+    {
+      "name": "grass-clump",
+      "glb": "foliage/grass-clump.glb"
+    },
+    {
+      "name": "bush",
+      "glb": "foliage/bush.glb"
+    }
+  ]
+}
