@@ -1366,6 +1366,8 @@ export type MidniteStudioBridge = {
       patchFrames: (req: In<typeof S.MediaSpritePatchFramesRequest>) => Promise<z.infer<typeof S.MediaSpritePatchFramesResponse>>;
       /** Packs the atlas into the asset's `export/`, and into `<dest>/<name>.sprite/` when `dest` is set. */
       export: (req: In<typeof S.MediaSpriteExportRequest>) => Promise<z.infer<typeof S.MediaSpriteExportResponse>>;
+      /** Imports a Tiled `.tmj` as a new map asset; with no `path`, main asks with a file dialog (cancel answers `{}`). */
+      importMap: (req: In<typeof S.MediaSpriteImportMapRequest>) => Promise<z.infer<typeof S.MediaSpriteImportMapResponse>>;
       onProgress: (handler: (event: z.infer<typeof S.MediaSpriteProgressPayload>) => void) => Unsubscribe;
       onChanged: (handler: (event: z.infer<typeof S.MediaSpriteChangedPayload>) => void) => Unsubscribe;
       /** `sprite_open` asked for an asset to be shown. */

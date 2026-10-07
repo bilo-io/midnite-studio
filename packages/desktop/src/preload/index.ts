@@ -677,6 +677,7 @@ const bridge: Pick<
       cancel: (req) => call(CHANNELS.mediaSpriteCancel, req),
       patchFrames: (req) => call(CHANNELS.mediaSpritePatchFrames, req),
       export: (req) => call(CHANNELS.mediaSpriteExport, req),
+      importMap: (req) => call(CHANNELS.mediaSpriteImportMap, req),
       onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteProgress, handler),
       onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteChanged, handler),
       onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteOpen, handler),

@@ -1898,6 +1898,7 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaSpriteCancel: ['MediaSpriteCancelRequest', 'MediaSpriteCancelResponse'],
       mediaSpritePatchFrames: ['MediaSpritePatchFramesRequest', 'MediaSpritePatchFramesResponse'],
       mediaSpriteExport: ['MediaSpriteExportRequest', 'MediaSpriteExportResponse'],
+      mediaSpriteImportMap: ['MediaSpriteImportMapRequest', 'MediaSpriteImportMapResponse'],
       mediaSpriteProgress: ['MediaSpriteProgressPayload'],
       mediaSpriteChanged: ['MediaSpriteChangedPayload'],
       mediaSpriteOpen: ['MediaSpriteOpenPayload'],

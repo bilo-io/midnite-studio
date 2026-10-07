@@ -12,6 +12,7 @@ import {
   composeFrame,
   createRgba,
   failure,
+  mapMissingImage,
   ok,
   packRects,
   rgbaFromRaster,
@@ -50,7 +51,7 @@ import { decodePng, encodePngRgba8 } from '../png/png-codec';
  * Every kind packs into its own folder (Themes H and I): a sheet or a prop sheet into `<name>.sprite/`
  * (a prop sheet has no `anims.json`), a tileset into `<name>.tileset/` (`tileset.png`, `tileset.tsj`, and
  * the `map.tmj` of a terrain-sourced one) and a background into `<name>.background/` (`layers/*.png`,
- * `background.json`). Maps add theirs with Theme J.
+ * `background.json`), and a map into `<name>.map/` (`map.tmj` plus the images it names — Theme J).
  */
 export type ExportSpriteArgs = {
   /** Absolute asset folder. */
@@ -69,6 +70,7 @@ type Pack = { files: Map<string, Buffer>; frames: number; pages: number; warning
 
 export const SPRITE_NO_PROPS = 'There are no props to pack yet. Generate some first.';
 export const SPRITE_NO_TILESET = 'There is no tileset to export yet. Generate it first.';
+export const SPRITE_NO_MAP = 'There is no map to export yet. Generate it first.';
 export const SPRITE_NO_LAYERS = 'There are no background layers to export yet. Generate them first.';
 
 const exists = (path: string): Promise<boolean> =>
@@ -94,7 +96,7 @@ export async function buildSpritePack(args: Omit<ExportSpriteArgs, 'dest'>): Pro
     case 'background':
       return buildBackgroundPack(args.dir, spec);
     case 'map':
-      return failure('Map export is not available yet.');
+      return buildMapPack(args.dir);
   }
 }
 
@@ -203,6 +205,31 @@ async function buildBackgroundPack(dir: string, spec: Extract<SpriteAssetSpec, {
   }
   files.set('background.json', json(BackgroundJsonSchema.parse(buildBackgroundJson(spec))));
   return ok({ files, frames: spec.layers.length, pages: 1, warnings: [] });
+}
+
+/**
+ * A map (Theme J): `map.tmj` and every image its embedded tilesets name (`tileset.png`, `collision.png`,
+ * `props.png`, or an imported map's own), plus `tileset.tsj` for Tiled when it is there.
+ */
+async function buildMapPack(dir: string): Promise<GitOpResult<Pack>> {
+  const tmj = await readFile(join(dir, 'map.tmj')).catch(() => null);
+  if (!tmj) return failure(SPRITE_NO_MAP);
+  let map: { width?: number; height?: number; tilesets?: Array<{ image?: unknown }> };
+  try {
+    map = JSON.parse(tmj.toString('utf8')) as typeof map;
+  } catch {
+    return failure('map.tmj is not valid JSON.');
+  }
+  const files = new Map<string, Buffer>([['map.tmj', tmj]]);
+  for (const tileset of map.tilesets ?? []) {
+    if (typeof tileset.image !== 'string' || files.has(tileset.image)) continue;
+    const bytes = await readFile(join(dir, tileset.image)).catch(() => null);
+    if (!bytes) return failure(mapMissingImage(tileset.image));
+    files.set(tileset.image, bytes);
+  }
+  const tsj = await readFile(join(dir, 'tileset.tsj')).catch(() => null);
+  if (tsj) files.set('tileset.tsj', tsj);
+  return ok({ files, frames: (map.width ?? 0) * (map.height ?? 0), pages: 1, warnings: [] });
 }
 
 class PackExistsError extends Error {}
