@@ -22,6 +22,10 @@ vi.mock('maplibre-gl', () => {
     isStyleLoaded = vi.fn(() => true);
     queryTerrainElevation = vi.fn();
     dragPan = { enable: vi.fn(), disable: vi.fn() };
+    doubleClickZoom = { enable: vi.fn(), disable: vi.fn() };
+    flyTo = vi.fn();
+    getStyle = vi.fn(() => ({}));
+    queryRenderedFeatures = vi.fn(() => []);
     constructor() {
       instances.push(this as unknown as Fake);
     }
@@ -33,7 +37,7 @@ vi.mock('maplibre-gl', () => {
       return true;
     }
     getCanvas() {
-      return { getContext: () => ({ getExtension: () => ({ loseContext: this.loseContext }) }) };
+      return { style: {}, getContext: () => ({ getExtension: () => ({ loseContext: this.loseContext }) }) };
     }
   }
   class Control {}
@@ -121,5 +125,36 @@ describe('MapCanvas keys (Phase 108 Theme C)', () => {
     fireEvent.keyDown(screen.getByLabelText('Search'), { key: 'ArrowLeft' });
     expect(onToggle3d).not.toHaveBeenCalled();
     expect(instances[0]!.panBy).not.toHaveBeenCalled();
+  });
+});
+
+describe('MapCanvas tools (Phase 108 Theme G)', () => {
+  it('maps D/C/A/P to tools, Esc/Enter/Backspace to the draft, and leaves F/T alone', () => {
+    const onSelectTool = vi.fn();
+    const onCancelDraft = vi.fn();
+    const onFinishDraft = vi.fn();
+    const onUndoPoint = vi.fn();
+    const onToggleFrame = vi.fn();
+    render(<MapCanvas {...props} onSelectTool={onSelectTool} onCancelDraft={onCancelDraft} onFinishDraft={onFinishDraft} onUndoPoint={onUndoPoint} onToggleFrame={onToggleFrame} />);
+    const root = screen.getByRole('application', { name: 'Map' });
+    for (const key of ['d', 'C', 'a', 'p']) fireEvent.keyDown(root, { key });
+    expect(onSelectTool.mock.calls.map((c) => c[0])).toEqual(['distance', 'circle', 'area', 'pin']);
+    fireEvent.keyDown(root, { key: 'Escape' });
+    fireEvent.keyDown(root, { key: 'Enter' });
+    fireEvent.keyDown(root, { key: 'Backspace' });
+    fireEvent.keyDown(root, { key: 'f' });
+    expect(onCancelDraft).toHaveBeenCalledTimes(1);
+    expect(onFinishDraft).toHaveBeenCalledTimes(1);
+    expect(onUndoPoint).toHaveBeenCalledTimes(1);
+    expect(onToggleFrame).toHaveBeenCalledTimes(1);
+    expect(onSelectTool).toHaveBeenCalledTimes(4);
+  });
+
+  it('a drawing tool owns double-click and shows a crosshair; pan gives them back', () => {
+    const { rerender } = render(<MapCanvas {...props} tool="distance" />);
+    const map = instances[0]!;
+    expect(map.doubleClickZoom.disable).toHaveBeenCalled();
+    rerender(<MapCanvas {...props} tool="pan" />);
+    expect(map.doubleClickZoom.enable).toHaveBeenCalled();
   });
 });

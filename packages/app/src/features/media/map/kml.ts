@@ -1,4 +1,4 @@
-import { emptyLayer, type MapLayerFeature, type MapLayerFile } from '@midnite/studio-shared';
+import { emptyLayer, MapLayerFeatureSchema, type MapLayerFeature, type MapLayerFile } from '@midnite/studio-shared';
 
 import { newFeatureId } from './map-tools';
 
@@ -69,4 +69,48 @@ export function geoJsonToKml(layer: MapLayerFile, name: string): string {
     return `    <Placemark>${head}${body}</Placemark>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>${esc(name)}</name>\n${marks.join('\n')}\n  </Document>\n</kml>\n`;
+}
+
+const KIND_OF = { Point: 'pin', LineString: 'path', Polygon: 'area' } as const;
+
+/**
+ * Any GeoJSON `FeatureCollection` (or lone `Feature`) as a layer: `Point`/`LineString`/`Polygon` features
+ * keep their geometry and get a `kind` from it; a `name`/`title`/`label` property becomes the label and
+ * `description`/`note` the note. Multi-geometries, geometry collections and the like are skipped and counted.
+ */
+export function importGeoJson(source: string): KmlImport | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(source);
+  } catch {
+    return null;
+  }
+  const root = raw as { type?: string; features?: unknown[] };
+  const list = root?.type === 'FeatureCollection' && Array.isArray(root.features) ? root.features : root?.type === 'Feature' ? [root] : null;
+  if (!list) return null;
+  const layer = emptyLayer();
+  let skipped = 0;
+  for (const item of list) {
+    const f = item as { geometry?: { type?: string; coordinates?: unknown }; properties?: Record<string, unknown> | null; id?: string | number };
+    const type = f.geometry?.type as keyof typeof KIND_OF | undefined;
+    const kind = type ? KIND_OF[type] : undefined;
+    const props = f.properties ?? {};
+    const str = (...keys: string[]): string | undefined => {
+      for (const k of keys) if (typeof props[k] === 'string' && props[k]) return props[k] as string;
+      return undefined;
+    };
+    const label = str('label', 'name', 'title');
+    const note = str('note', 'description');
+    const color = typeof props['color'] === 'string' && /^#[0-9a-fA-F]{6}$/.test(props['color']) ? (props['color'] as string) : undefined;
+    const candidate = {
+      type: 'Feature',
+      id: f.id ?? newFeatureId(),
+      geometry: f.geometry,
+      properties: { ...props, kind, ...(label ? { label } : {}), ...(note ? { note } : {}), ...(color ? { color } : {}) },
+    };
+    const ok = kind ? MapLayerFeatureSchema.safeParse(candidate) : null;
+    if (ok?.success) layer.features.push(ok.data);
+    else skipped += 1;
+  }
+  return { layer, skipped };
 }

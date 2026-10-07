@@ -3,7 +3,9 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 
+import { EMPTY_FC, type GeoFC } from './map-layers';
 import { frameFeatures, resizedSide, samplePoints, type LonLat } from './map-frame';
+import type { MapTool } from './map-tools';
 import type { MapStyleSpec } from './map-style';
 import { mapStatusStore } from './use-map-status';
 
@@ -32,16 +34,35 @@ export type MapCanvasProps = {
   onToggleFrame?: () => void;
   onToggle3d?: () => void;
   handleRef?: Ref<MapCanvasHandle>;
+  /** The active measure/draw tool (Theme G); `pan` (or absent) leaves clicks to the map. */
+  tool?: MapTool;
+  /** Every visible layer's features (Theme H), colours folded into `properties`. */
+  drawings?: GeoFC;
+  /** The in-progress shape and its draggable vertices. */
+  draft?: { shape: GeoFC; vertices: GeoFC };
+  onMapClick?: (point: LonLat) => void;
+  onMapDoubleClick?: (point: LonLat) => void;
+  onVertexMove?: (index: number, point: LonLat) => void;
+  /** A click on a drawn feature (`fid`), or on empty map (`null`), while the `pan` tool is active. */
+  onFeatureClick?: (fid: string | null, shift: boolean) => void;
+  onSelectTool?: (tool: MapTool) => void;
+  onCancelDraft?: () => void;
+  onFinishDraft?: () => void;
+  onUndoPoint?: () => void;
   children?: ReactNode;
 };
 
-export type MapCanvasHandle = { resetNorth: () => void };
+export type MapCanvasHandle = { resetNorth: () => void; flyTo: (center: LonLat, zoom: number) => void };
+
+const TOOL_KEYS: Record<string, MapTool> = { d: 'distance', c: 'circle', a: 'area', p: 'pin' };
+const DRAWING_LAYERS = ['drawings-fill', 'drawings-line', 'drawings-pin'];
 
 export const TERRAIN_3D_PITCH = 60;
 const FRAME_SRC = 'capture-frame';
 const HANDLE_SRC = 'capture-frame-handles';
 const ELEVATION_INTERVAL_MS = 250;
 const EMPTY = { type: 'FeatureCollection' as const, features: [] };
+const NO_DRAFT = { shape: EMPTY_FC, vertices: EMPTY_FC };
 
 function readView(map: maplibregl.Map): MapView {
   const c = map.getCenter();
@@ -66,6 +87,17 @@ export default function MapCanvas({
   onToggleFrame,
   onToggle3d,
   handleRef,
+  tool = 'pan',
+  drawings = EMPTY_FC,
+  draft = NO_DRAFT,
+  onMapClick,
+  onMapDoubleClick,
+  onVertexMove,
+  onFeatureClick,
+  onSelectTool,
+  onCancelDraft,
+  onFinishDraft,
+  onUndoPoint,
   children,
 }: MapCanvasProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -73,8 +105,8 @@ export default function MapCanvas({
   const onViewChangeRef = useRef(onViewChange);
   onViewChangeRef.current = onViewChange;
   // Latest props for handlers installed once at creation.
-  const live = useRef({ terrain3d, frame, onFrameChange, onElevation, onToggleFrame, onToggle3d });
-  live.current = { terrain3d, frame, onFrameChange, onElevation, onToggleFrame, onToggle3d };
+  const live = useRef({ terrain3d, frame, onFrameChange, onElevation, onToggleFrame, onToggle3d, tool, drawings, draft, onMapClick, onMapDoubleClick, onVertexMove, onFeatureClick, onSelectTool, onCancelDraft, onFinishDraft, onUndoPoint });
+  live.current = { terrain3d, frame, onFrameChange, onElevation, onToggleFrame, onToggle3d, tool, drawings, draft, onMapClick, onMapDoubleClick, onVertexMove, onFeatureClick, onSelectTool, onCancelDraft, onFinishDraft, onUndoPoint };
   const sampleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hadTerrain = useRef(terrain3d.on);
 
@@ -112,6 +144,7 @@ export default function MapCanvas({
     map.setTerrain(t.on ? { source: 'dem', exaggeration: t.exaggeration } : null);
     const shapes = f ? frameFeatures(f) : { outline: EMPTY, handles: EMPTY };
     const setData = (id: string, data: object) => (map.getSource(id) as maplibregl.GeoJSONSource | undefined)?.setData(data as never);
+    applyDrawings(map);
     if (!map.getSource(FRAME_SRC)) {
       map.addSource(FRAME_SRC, { type: 'geojson', data: shapes.outline as never });
       map.addSource(HANDLE_SRC, { type: 'geojson', data: shapes.handles as never });
@@ -127,6 +160,39 @@ export default function MapCanvas({
       setData(FRAME_SRC, shapes.outline);
       setData(HANDLE_SRC, shapes.handles);
     }
+  };
+  /** The drawings and the draft: three GeoJSON sources, re-added after every `setStyle` like the frame. */
+  const applyDrawings = (map: maplibregl.Map) => {
+    const { drawings: d, draft: dr } = live.current;
+    const setData = (id: string, data: object) => (map.getSource(id) as maplibregl.GeoJSONSource | undefined)?.setData(data as never);
+    if (map.getSource('drawings')) {
+      setData('drawings', d);
+      setData('draft', dr.shape);
+      setData('draft-vertices', dr.vertices);
+      return;
+    }
+    map.addSource('drawings', { type: 'geojson', data: d as never });
+    map.addSource('draft', { type: 'geojson', data: dr.shape as never });
+    map.addSource('draft-vertices', { type: 'geojson', data: dr.vertices as never });
+    const color = ['coalesce', ['get', 'color'], '#3b82f6'] as never;
+    const selected = (on: number, off: number) => ['case', ['==', ['get', 'selected'], 1], on, off] as never;
+    map.addLayer({ id: 'drawings-fill', type: 'fill', source: 'drawings', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': color, 'fill-opacity': selected(0.3, 0.15) } });
+    map.addLayer({ id: 'drawings-line', type: 'line', source: 'drawings', filter: ['!=', ['geometry-type'], 'Point'], paint: { 'line-color': color, 'line-width': selected(4, 2.5) } });
+    map.addLayer({ id: 'drawings-pin', type: 'circle', source: 'drawings', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': selected(9, 7), 'circle-color': color, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } });
+    // Labels need the style's glyph endpoint; a style without one (tests, offline stubs) simply has none.
+    if (map.getStyle().glyphs) {
+      map.addLayer({
+        id: 'drawings-label',
+        type: 'symbol',
+        source: 'drawings',
+        filter: ['!=', ['get', 'label'], ''],
+        layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-anchor': 'top', 'text-offset': [0, 0.9] },
+        paint: { 'text-color': '#111827', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 },
+      });
+    }
+    map.addLayer({ id: 'draft-fill', type: 'fill', source: 'draft', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': '#f59e0b', 'fill-opacity': 0.15 } });
+    map.addLayer({ id: 'draft-line', type: 'line', source: 'draft', paint: { 'line-color': '#f59e0b', 'line-width': 2.5, 'line-dasharray': [2, 1.5] } });
+    map.addLayer({ id: 'draft-vertices', type: 'circle', source: 'draft-vertices', paint: { 'circle-radius': 6, 'circle-color': '#ffffff', 'circle-stroke-color': '#f59e0b', 'circle-stroke-width': 2 } });
   };
   // The creation-time view and style; later changes go through setStyle, never a re-create.
   const initial = useRef({ style, view, attribution });
@@ -169,12 +235,20 @@ export default function MapCanvas({
     let drag: { kind: 'move' | 'resize'; grab: LonLat; origin: LonLat } | null = null;
     const startDrag = (kind: 'move' | 'resize') => (e: maplibregl.MapMouseEvent) => {
       const f = live.current.frame;
-      if (!f || (drag && kind === 'move')) return;
+      if (!f || (drag && kind === 'move') || live.current.tool !== 'pan') return;
       e.preventDefault();
       drag = { kind, grab: [e.lngLat.lng, e.lngLat.lat], origin: f.center };
       map.dragPan.disable();
     };
+    // Draft vertices: drag to adjust; the click that ends the drag must not add a point.
+    let vertex: { index: number; moved: boolean } | null = null;
+    let swallowClick = false;
     const onMove = (e: maplibregl.MapMouseEvent) => {
+      if (vertex) {
+        vertex.moved = true;
+        live.current.onVertexMove?.(vertex.index, [e.lngLat.lng, e.lngLat.lat]);
+        return;
+      }
       const f = live.current.frame;
       if (!drag || !f) return;
       if (drag.kind === 'move') {
@@ -185,6 +259,12 @@ export default function MapCanvas({
       }
     };
     const endDrag = () => {
+      if (vertex) {
+        swallowClick = vertex.moved;
+        vertex = null;
+        map.dragPan.enable();
+        return;
+      }
       if (!drag) return;
       drag = null;
       map.dragPan.enable();
@@ -192,6 +272,30 @@ export default function MapCanvas({
     map.on('style.load', () => applyOverlays(map));
     map.on('mousedown', 'capture-frame-handles', startDrag('resize'));
     map.on('mousedown', 'capture-frame-fill', startDrag('move'));
+    map.on('mousedown', 'draft-vertices', (e) => {
+      const index = e.features?.[0]?.properties?.['index'];
+      if (typeof index !== 'number') return;
+      e.preventDefault();
+      vertex = { index, moved: false };
+      map.dragPan.disable();
+    });
+    map.on('click', (e) => {
+      if (swallowClick) {
+        swallowClick = false;
+        return;
+      }
+      const { tool: t, onMapClick: add, onFeatureClick: pick } = live.current;
+      // The second click of a double-click (`detail` 2) is the finish gesture, not another vertex.
+      if (t !== 'pan') return e.originalEvent.detail >= 2 ? undefined : add?.([e.lngLat.lng, e.lngLat.lat]);
+      const layers = DRAWING_LAYERS.filter((id) => map.getLayer(id));
+      const hit = layers.length ? map.queryRenderedFeatures(e.point, { layers })[0] : undefined;
+      pick?.(typeof hit?.properties?.['fid'] === 'string' ? (hit.properties['fid'] as string) : null, e.originalEvent.shiftKey);
+    });
+    map.on('dblclick', (e) => {
+      if (live.current.tool === 'pan') return;
+      e.preventDefault();
+      live.current.onMapDoubleClick?.([e.lngLat.lng, e.lngLat.lat]);
+    });
     map.on('mousemove', onMove);
     map.on('mouseup', endDrag);
     map.on('idle', sampleElevation);
@@ -209,6 +313,7 @@ export default function MapCanvas({
       mapRef.current = null;
       mapStatusStore.reset();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- created once; handlers read `live`
   }, []);
 
   // A basemap switch or Retry re-applies the style on the same map.
@@ -230,6 +335,7 @@ export default function MapCanvas({
     if (hadTerrain.current !== on) map.easeTo({ pitch: on ? TERRAIN_3D_PITCH : 0 });
     hadTerrain.current = on;
     sampleElevation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `applyOverlays` reads `live`
   }, [on, exaggeration]);
 
   // Frame edits redraw the polygon in place.
@@ -242,9 +348,26 @@ export default function MapCanvas({
     sampleElevation();
   }, [frame]);
 
+  // Drawings and the draft repaint in place; a drawing tool owns double-click and the cursor.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    applyDrawings(map);
+  }, [drawings, draft]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().style.cursor = tool === 'pan' ? '' : 'crosshair';
+    if (tool === 'pan') map.doubleClickZoom.enable();
+    else map.doubleClickZoom.disable();
+  }, [tool]);
+
   useEffect(() => {
     if (!handleRef) return;
-    const handle: MapCanvasHandle = { resetNorth: () => mapRef.current?.easeTo({ bearing: 0 }) };
+    const handle: MapCanvasHandle = {
+      resetNorth: () => mapRef.current?.easeTo({ bearing: 0 }),
+      flyTo: (center, zoom) => mapRef.current?.flyTo({ center, zoom }),
+    };
     if (typeof handleRef === 'function') handleRef(handle);
     else (handleRef as { current: MapCanvasHandle | null }).current = handle;
   }, [handleRef]);
@@ -262,6 +385,10 @@ export default function MapCanvas({
     else if (e.key === '-' || e.key === '_') map.zoomOut();
     else if (e.key === 'f' || e.key === 'F') live.current.onToggleFrame?.();
     else if (e.key === 't' || e.key === 'T') live.current.onToggle3d?.();
+    else if (TOOL_KEYS[e.key.toLowerCase()]) live.current.onSelectTool?.(TOOL_KEYS[e.key.toLowerCase()]!);
+    else if (e.key === 'Escape') live.current.onCancelDraft?.();
+    else if (e.key === 'Enter') live.current.onFinishDraft?.();
+    else if (e.key === 'Backspace') live.current.onUndoPoint?.();
     else return;
     e.preventDefault();
   };

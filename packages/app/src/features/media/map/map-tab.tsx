@@ -1,6 +1,11 @@
 import { activeSatelliteSource, MAP_BASEMAP_LABEL, MAP_BASEMAPS, MEDIA_TAB_EXPORT_FORMATS, type MapBasemap, type MapProjectPatch, type MapSourceStatus, type MapView } from '@midnite/studio-shared';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { MapToolbar } from './map-toolbar';
+import { MapPlaceSearch } from './map-place-search';
+import { downloadLayer } from './map-layer-export';
+import { useMapDrawing, type MapDrawing } from './use-map-drawing';
+
 import { EmptyState } from '../../../components/empty-state';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
@@ -45,26 +50,28 @@ function MapWorkspace({ repoId, project, selection, setSelection }: { repoId: st
   const map = useMapProject(repoId, project);
   const { save } = useSaveMapView(repoId, project);
   const framing = useMapFraming({ map: map.data?.map, save });
+  const drawing = useMapDrawing({ repoId, project, map: map.data?.map, save });
+  const layer = drawing.layers.layers.find((l) => l.name === drawing.layers.active && l.fc);
   return (
     <MediaLayout
       tab="map"
       explorerName="maps"
       detailName="details"
-      toolbar={<ExportToolbar formats={MEDIA_TAB_EXPORT_FORMATS.map} hasSelection={false} onExport={() => undefined} />}
-      explorer={<MapExplorer repoId={repoId} selection={selection} onSelect={setSelection} />}
-      content={<MapCentre repoId={repoId} project={project} save={save} framing={framing} />}
-      detail={<MapDetail repoId={repoId} project={project} framing={framing} />}
+      toolbar={<ExportToolbar formats={MEDIA_TAB_EXPORT_FORMATS.map} hasSelection={Boolean(layer)} onExport={(format) => layer?.fc && downloadLayer(layer.name, layer.fc, format)} />}
+      explorer={<MapExplorer repoId={repoId} selection={selection} onSelect={setSelection} layers={drawing.layers} />}
+      content={<MapCentre repoId={repoId} project={project} save={save} framing={framing} drawing={drawing} />}
+      detail={<MapDetail repoId={repoId} project={project} framing={framing} drawing={drawing} />}
     />
   );
 }
 
-function MapDetail({ repoId, project, framing }: { repoId: string; project: string; framing: Framing }) {
+function MapDetail({ repoId, project, framing, drawing }: { repoId: string; project: string; framing: Framing; drawing: MapDrawing }) {
   const map = useMapProject(repoId, project);
   if (!map.data) return <EmptyState title="Nothing to show" body="The view and tile sources appear here." />;
-  return <MapPanel map={map.data.map} project={project} repoId={repoId} framing={framing} />;
+  return <MapPanel map={map.data.map} project={project} repoId={repoId} framing={framing} drawing={drawing} />;
 }
 
-function MapCentre({ repoId, project, save, framing }: { repoId: string; project: string; save: (patch: MapProjectPatch) => void; framing: Framing }) {
+function MapCentre({ repoId, project, save, framing, drawing }: { repoId: string; project: string; save: (patch: MapProjectPatch) => void; framing: Framing; drawing: MapDrawing }) {
   const map = useMapProject(repoId, project);
   const sources = useMapSources();
   const [reload, setReload] = useState(0);
@@ -110,7 +117,22 @@ function MapCentre({ repoId, project, save, framing }: { repoId: string; project
         onToggleFrame={toggleFrame}
         onToggle3d={framing.toggle3d}
         handleRef={handle}
+        tool={drawing.tool}
+        drawings={drawing.drawings}
+        draft={drawing.draft}
+        onMapClick={drawing.click}
+        onMapDoubleClick={drawing.finish}
+        onVertexMove={drawing.moveVertex}
+        onFeatureClick={drawing.pickFeature}
+        onSelectTool={drawing.selectTool}
+        onCancelDraft={drawing.cancel}
+        onFinishDraft={drawing.finish}
+        onUndoPoint={drawing.undo}
       >
+        <MapToolbar tool={drawing.tool} onSelect={drawing.selectTool} />
+        <div className="absolute left-1/2 top-2 z-10 -translate-x-1/2">
+          <MapPlaceSearch onPick={(center, zoom) => handle.current?.flyTo(center, zoom)} />
+        </div>
         <MapLoadingBar status={status} />
         <div role="group" aria-label="Basemap" className="absolute right-12 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-background/80 text-xs shadow-sm backdrop-blur-sm">
           {MAP_BASEMAPS.map((b) => (

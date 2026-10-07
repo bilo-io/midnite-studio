@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { geoJsonToKml, kmlToGeoJson } from './kml';
+import { geoJsonToKml, importGeoJson, kmlToGeoJson } from './kml';
 
 const FIXTURE = `<?xml version="1.0"?>
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
@@ -27,5 +27,24 @@ describe('kml', () => {
     const out = geoJsonToKml({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [1, 2] }, properties: { kind: 'pin', label: 'A & <B>' } }] }, 'n');
     expect(out).toContain('A &amp; &lt;B&gt;');
     expect(kmlToGeoJson('<kml><oops')).toBeNull();
+  });
+});
+
+describe('importGeoJson', () => {
+  it('accepts plain GeoJSON, derives kinds and labels, and skips multi-geometries', () => {
+    const text = JSON.stringify({
+      type: 'FeatureCollection',
+      features: [
+        { type: 'Feature', geometry: { type: 'Point', coordinates: [1, 2] }, properties: { name: 'Home', description: 'x' } },
+        { type: 'Feature', geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] }, properties: null },
+        { type: 'Feature', geometry: { type: 'MultiPoint', coordinates: [[0, 0]] }, properties: {} },
+      ],
+    });
+    const out = importGeoJson(text)!;
+    expect(out.skipped).toBe(1);
+    expect(out.layer.features.map((f) => f.properties.kind)).toEqual(['pin', 'path']);
+    expect(out.layer.features[0]!.properties).toMatchObject({ label: 'Home', note: 'x' });
+    expect(importGeoJson('not json')).toBeNull();
+    expect(importGeoJson('{"type":"Topology"}')).toBeNull();
   });
 });
