@@ -56,6 +56,7 @@ import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
 import { useModelOpenListener } from './features/media/model/use-model-agent-events';
+import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
 import { useTerrainOpenListener } from './features/media/terrain/use-terrain-agent-events';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
@@ -813,6 +814,8 @@ function Shell() {
   useModelOpenListener();
   // Media ▸ Terrain — an agent's `terrain_open` does the same for a terrain.
   useTerrainOpenListener();
+  // Rendered-from-3D sprite jobs (Phase 106 Theme E): three.js loads only on the first request.
+  useSpriteRenderHost();
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
