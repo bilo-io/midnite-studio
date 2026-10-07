@@ -14,3 +14,8 @@ export * from './one-shot-prompt';
 export * from './pack';
 export * from './atlas';
 export * from './frames';
+export * from './seamless';
+export * from './autotile';
+export * from './tiled';
+export * from './iso';
+export * from './terrain-tiles';

@@ -1,0 +1,231 @@
+import { z } from 'zod';
+
+import type { TilesetCollision, TilesetScheme } from '../media-sprite';
+import { wangId, type TilesetTile } from './autotile';
+
+/**
+ * Tiled JSON (`.tsj` tilesets, `.tmj` maps), format version 1.10, written from Tiled's JSON map
+ * format reference (Phase 106 Themes H–J).
+ *
+ * Phaser does not autotile at runtime and ignores `wangsets`; they exist so a human editing the
+ * tileset in Tiled paints with the right transitions (Decision 12). Phaser cannot load an external
+ * tileset either, so a map embeds its tilesets ({@link embedTileset}) rather than naming a `.tsj`.
+ */
+export const TILED_VERSION = '1.10';
+export const TILED_APP_VERSION = '1.11.0';
+
+const TiledProperty = z.object({ name: z.string(), type: z.enum(['string', 'int', 'float', 'bool']), value: z.union([z.string(), z.number(), z.boolean()]) });
+
+export const TiledWangColorSchema = z.object({
+  name: z.string().min(1),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  tile: z.number().int().min(-1),
+  probability: z.number(),
+});
+
+export const TiledWangSetSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['corner', 'edge', 'mixed']),
+  tile: z.number().int().min(-1),
+  colors: z.array(TiledWangColorSchema).min(1),
+  wangtiles: z.array(z.object({ tileid: z.number().int().min(0), wangid: z.array(z.number().int().min(0)).length(8) })),
+});
+
+/** The tileset fields Tiled and Phaser read (an image-based tileset). */
+export const TiledTilesetFieldsSchema = z.object({
+  columns: z.number().int().min(1),
+  image: z.string().min(1),
+  imageheight: z.number().int().positive(),
+  imagewidth: z.number().int().positive(),
+  margin: z.number().int().min(0),
+  spacing: z.number().int().min(0),
+  name: z.string().min(1),
+  tilecount: z.number().int().min(1),
+  tilewidth: z.number().int().positive(),
+  tileheight: z.number().int().positive(),
+  grid: z.object({ orientation: z.enum(['orthogonal', 'isometric']), width: z.number().int().positive(), height: z.number().int().positive() }).optional(),
+  tiles: z.array(z.object({ id: z.number().int().min(0), properties: z.array(TiledProperty).min(1) })).optional(),
+  wangsets: z.array(TiledWangSetSchema).optional(),
+});
+
+export const TiledTilesetSchema = TiledTilesetFieldsSchema.extend({
+  type: z.literal('tileset'),
+  version: z.string(),
+  tiledversion: z.string(),
+});
+export type TiledTileset = z.infer<typeof TiledTilesetSchema>;
+
+const WANG_COLOURS = ['#4caf50', '#a1887f', '#42a5f5', '#bdbdbd', '#ffca28', '#ef5350', '#ab47bc', '#26c6da'] as const;
+
+const prop = (name: string, value: string) => ({ name, type: 'string' as const, value });
+
+export type TsjInput = {
+  name: string;
+  /** Tiles in id order. `kind` is written as a property when present (isometric floors and blocks). */
+  tiles: ReadonlyArray<Pick<TilesetTile, 'id' | 'collision'> & { kind?: string }>;
+  tileWidth: number;
+  tileHeight: number;
+  columns: number;
+  imageWidth: number;
+  imageHeight: number;
+  scheme: TilesetScheme;
+  /** Terrain ids with a base tile at `baseTile[id]`. */
+  baseTile: Record<string, number>;
+  /** One wangset per transition: the tiles that belong to it, with their configurations. */
+  sets: ReadonlyArray<{ a: string; b: string; tiles: ReadonlyArray<{ id: number; config: number }> }>;
+  isometric?: { gridWidth: number; gridHeight: number };
+};
+
+/** `tileset.tsj`: collision as a string property per tile and one wangset per transition. */
+export function buildTsj(input: TsjInput): TiledTileset {
+  const wangType = input.scheme === 'blob47' ? 'mixed' : 'corner';
+  return {
+    type: 'tileset',
+    version: TILED_VERSION,
+    tiledversion: TILED_APP_VERSION,
+    name: input.name,
+    tilewidth: input.tileWidth,
+    tileheight: input.tileHeight,
+    tilecount: input.tiles.length,
+    columns: input.columns,
+    image: 'tileset.png',
+    imagewidth: input.imageWidth,
+    imageheight: input.imageHeight,
+    margin: 0,
+    spacing: 0,
+    ...(input.isometric ? { grid: { orientation: 'isometric' as const, width: input.isometric.gridWidth, height: input.isometric.gridHeight } } : {}),
+    tiles: input.tiles.map((t) => ({ id: t.id, properties: [prop('collision', t.collision), ...(t.kind ? [prop('kind', t.kind)] : [])] })),
+    wangsets: input.sets.map((set, i) => ({
+      name: `${set.a}-${set.b}`,
+      type: wangType,
+      tile: -1,
+      colors: [set.a, set.b].map((terrain, c) => ({ name: terrain, color: WANG_COLOURS[(i + c) % WANG_COLOURS.length]!, tile: input.baseTile[terrain] ?? -1, probability: 1 })),
+      wangtiles: set.tiles.map((t) => ({ tileid: t.id, wangid: wangId(input.scheme, t.config) })),
+    })),
+  };
+}
+
+// --- maps -----------------------------------------------------------------------
+
+const TiledObjectSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  type: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+  rotation: z.number(),
+  visible: z.boolean(),
+  point: z.boolean().optional(),
+});
+
+const TiledLayerSchema = z.discriminatedUnion('type', [
+  z.object({
+    id: z.number().int().positive(),
+    name: z.string().min(1),
+    type: z.literal('tilelayer'),
+    x: z.number(),
+    y: z.number(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    opacity: z.number(),
+    visible: z.boolean(),
+    data: z.array(z.number().int().min(0)),
+  }),
+  z.object({
+    id: z.number().int().positive(),
+    name: z.string().min(1),
+    type: z.literal('objectgroup'),
+    x: z.number(),
+    y: z.number(),
+    opacity: z.number(),
+    visible: z.boolean(),
+    draworder: z.literal('topdown'),
+    objects: z.array(TiledObjectSchema),
+  }),
+]);
+
+/** A map's tileset entry: an embedded tileset (`firstgid` plus the tileset's own fields). */
+export const TiledMapTilesetSchema = TiledTilesetFieldsSchema.extend({ firstgid: z.number().int().min(1) });
+
+export const TiledMapSchema = z.object({
+  type: z.literal('map'),
+  version: z.string(),
+  tiledversion: z.string(),
+  orientation: z.enum(['orthogonal', 'isometric']),
+  renderorder: z.literal('right-down'),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  tilewidth: z.number().int().positive(),
+  tileheight: z.number().int().positive(),
+  infinite: z.literal(false),
+  nextlayerid: z.number().int().positive(),
+  nextobjectid: z.number().int().positive(),
+  layers: z.array(TiledLayerSchema).min(1),
+  tilesets: z.array(TiledMapTilesetSchema).min(1),
+});
+export type TiledMap = z.infer<typeof TiledMapSchema>;
+
+/** A tileset as a map embeds it: its fields plus `firstgid`. */
+export function embedTileset(tileset: TiledTileset, firstgid = 1): z.infer<typeof TiledMapTilesetSchema> {
+  const { type: _type, version: _version, tiledversion: _tiledversion, ...fields } = tileset;
+  return { firstgid, ...fields };
+}
+
+export type MapObjectInput = { name: string; type: string; x: number; y: number };
+
+/** `map.tmj` with an embedded tileset. `data` is the layer's tile ids (0-based); gids are written +1. */
+export function buildTmj(input: {
+  orientation: 'orthogonal' | 'isometric';
+  width: number;
+  height: number;
+  tileWidth: number;
+  tileHeight: number;
+  tileset: TiledTileset;
+  layers: ReadonlyArray<{ name: string; data: ArrayLike<number> }>;
+  objects?: readonly MapObjectInput[];
+}): TiledMap {
+  const layers: TiledMap['layers'] = input.layers.map((layer, i) => ({
+    id: i + 1,
+    name: layer.name,
+    type: 'tilelayer' as const,
+    x: 0,
+    y: 0,
+    width: input.width,
+    height: input.height,
+    opacity: 1,
+    visible: true,
+    data: Array.from(layer.data, (id) => (id < 0 ? 0 : id + 1)),
+  }));
+  if (input.objects && input.objects.length > 0) {
+    layers.push({
+      id: layers.length + 1,
+      name: 'objects',
+      type: 'objectgroup' as const,
+      x: 0,
+      y: 0,
+      opacity: 1,
+      visible: true,
+      draworder: 'topdown' as const,
+      objects: input.objects.map((o, i) => ({ id: i + 1, name: o.name, type: o.type, x: o.x, y: o.y, width: 0, height: 0, rotation: 0, visible: true, point: true })),
+    });
+  }
+  return {
+    type: 'map',
+    version: TILED_VERSION,
+    tiledversion: TILED_APP_VERSION,
+    orientation: input.orientation,
+    renderorder: 'right-down',
+    width: input.width,
+    height: input.height,
+    tilewidth: input.tileWidth,
+    tileheight: input.tileHeight,
+    infinite: false,
+    nextlayerid: layers.length + 1,
+    nextobjectid: (input.objects?.length ?? 0) + 1,
+    layers,
+    tilesets: [embedTileset(input.tileset)],
+  };
+}
+
