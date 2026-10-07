@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 107 Theme P — Web export ([#PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM))
+## 2026-10-07 — Phase 107 Theme P — Web export ([#760](https://github.com/bilo-io/midnite-studio/pull/760))
 
 A game exports as a static folder, a zip from a small `node:zlib` writer, or one HTML file whose modules are `data:` URLs behind an import map and whose assets resolve through an inlined `assets/index.json`. Exclusions (`.git`, agent files, play-tests, dev config, dotfiles, symlinks) are shared with the folder and zip; a destination is never overwritten without being told; a file over 50 MB warns. Kit 0.9.0 reads `window.__MIDNITE_ASSETS__`. The platformer's own `smoke.json` replay passes in its single-file export opened from `file://`.
 
