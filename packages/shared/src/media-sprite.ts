@@ -9,7 +9,7 @@
  *   reference/           the locked reference image (Theme D)
  *   frames/<clip>/<dir>/<n>.png   normalised frames, the editable truth (`<n>` is zero-padded)
  *   frames/frames.json   per-frame metadata ({@link SpriteFramesFile})
- *   export/              written by Theme G
+ *   export/              the last packed atlas (Theme G): atlas.png, atlas.json, anims.json
  *
  * Every field is defaulted so later themes add fields without breaking an old `sprite.json`.
  */
@@ -407,25 +407,76 @@ export const SpriteGenerateRequestSchema = SpriteTargetSchema.extend({
   turnaround: z.literal(true).optional(),
   /** Run this job with another method than the spec's — one-shot's "Regenerate this clip with Hand-drawn" (Theme F). */
   method: z.literal('hand-drawn').optional(),
+  /** Only these frames (`<clip>/<dir>/<nnn>`) — the frame strip's re-roll (Theme G). */
+  frames: z.array(z.string().min(1)).max(64).optional(),
 });
 export type SpriteGenerateRequest = z.infer<typeof SpriteGenerateRequestSchema>;
 
 export const SpriteCancelRequestSchema = z.object({ jobId: z.string().min(1) });
 
-export const SpriteFramePatchSchema = z.object({
-  clip: z.string().min(1),
-  dir: z.string().min(1),
-  n: z.number().int().min(0).max(999),
-  anchorNudge: z.tuple([z.number().int().min(-64).max(64), z.number().int().min(-64).max(64)]).optional(),
-  flipped: z.boolean().optional(),
-  delete: z.literal(true).optional(),
-});
-export type SpriteFramePatch = z.infer<typeof SpriteFramePatchSchema>;
-export const SpritePatchFramesRequestSchema = SpriteTargetSchema.extend({ patches: z.array(SpriteFramePatchSchema).min(1).max(500) });
-export type SpritePatchFramesRequest = z.infer<typeof SpritePatchFramesRequestSchema>;
+/** A frame key, `<clip>/<dir>/<nnn>`. */
+export const SpriteFrameKeySchema = z.string().regex(/^[a-z][a-z0-9-]{0,31}\/[a-z]{1,2}\/\d{3}$/, 'a frame key is <clip>/<dir>/<nnn>');
 
-/** Theme G owns the pack; until it lands the channel answers {@link SPRITE_NOT_AVAILABLE}. */
-export const SpriteExportRequestSchema = SpriteTargetSchema.passthrough();
+/** Frame-strip edits per call, at most (Theme G). */
+export const SPRITE_PATCH_MAX_OPS = 64;
+
+/**
+ * One frame-strip edit (Theme G). `nudge` moves the frame's content by `dx`/`dy` px (added to its
+ * `anchorNudge`); `flip` toggles `flipped`; `delete` moves the frame to `frames/.trash/` and `restore`
+ * brings it back (delete's undo); `move` reorders it within its clip and direction to position `to`;
+ * `reroll` starts a generation job for just those frames (not undoable — it is a new generation).
+ */
+export const SpritePatchOpSchema = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('nudge'), key: SpriteFrameKeySchema, dx: z.number().int().min(-64).max(64), dy: z.number().int().min(-64).max(64) }),
+  z.object({ op: z.literal('flip'), key: SpriteFrameKeySchema }),
+  z.object({ op: z.literal('delete'), key: SpriteFrameKeySchema }),
+  z.object({ op: z.literal('restore'), key: SpriteFrameKeySchema }),
+  z.object({ op: z.literal('move'), key: SpriteFrameKeySchema, to: z.number().int().min(0).max(63) }),
+  z.object({ op: z.literal('reroll'), keys: z.array(SpriteFrameKeySchema).min(1).max(SPRITE_PATCH_MAX_OPS) }),
+]);
+export type SpritePatchOp = z.infer<typeof SpritePatchOpSchema>;
+export const SpritePatchFramesRequestSchema = SpriteTargetSchema.extend({ ops: z.array(SpritePatchOpSchema).min(1).max(SPRITE_PATCH_MAX_OPS) });
+export type SpritePatchFramesRequest = z.infer<typeof SpritePatchFramesRequestSchema>;
+/** `jobId` is set when the patch held a `reroll`. */
+export const SpritePatchFramesResultSchema = z.object({ jobId: z.string().optional() });
+export type SpritePatchFramesResult = z.infer<typeof SpritePatchFramesResultSchema>;
+
+// --- export (Theme G) ----------------------------------------------------------------
+
+export const SPRITE_PACK_MAX_SIZES = [2048, 4096] as const;
+
+/** How the atlas is packed; every field defaults to the packer's own default. */
+export const SpritePackOptionsSchema = z.object({
+  maxSize: z.union([z.literal(2048), z.literal(4096)]).default(2048),
+  padding: z.number().int().min(0).max(8).default(2),
+  extrude: z.union([z.literal(0), z.literal(1)]).default(1),
+  pot: z.boolean().default(true),
+});
+export type SpritePackOptions = z.infer<typeof SpritePackOptionsSchema>;
+
+/**
+ * Packs the asset. The atlas is always (re)written to the asset's own `export/` folder (what a game's
+ * asset bridge imports); with `dest` it is also written as a `<name>.sprite/` folder there, which is
+ * refused when one already exists.
+ */
+export const SpriteExportRequestSchema = SpriteTargetSchema.extend({
+  dest: z.string().min(1).optional(),
+  pack: SpritePackOptionsSchema.default({}),
+});
+export type SpriteExportRequest = z.input<typeof SpriteExportRequestSchema>;
+export const SpriteExportResultSchema = z.object({
+  /** The pack folder written (`dest`'s, else the asset's `export/`). */
+  path: z.string(),
+  bytes: z.number().int().nonnegative(),
+  frames: z.number().int().nonnegative(),
+  pages: z.number().int().nonnegative(),
+  warnings: z.array(z.string()).default([]),
+});
+export type SpriteExportResult = z.infer<typeof SpriteExportResultSchema>;
+/** Shown when frames overflow one page (Decision 4). */
+export const spriteMultiPageWarning = (pages: number): string => `Split across ${pages} pages; Aseprite tags omitted.`;
+export const spritePackExists = (name: string): string => `${name} already exists in that folder.`;
+export const SPRITE_NO_FRAMES = 'There are no frames to pack yet. Generate some first.';
 
 export const SpriteProgressEventSchema = z.object({
   jobId: z.string(),
@@ -516,5 +567,7 @@ export const SpriteResultSchemas = {
   get: GitOpResultOf(SpriteGetResultSchema),
   setSpec: GitOpResultOf(z.object({ spec: SpriteAssetSpecSchema })),
   generate: GitOpResultOf(z.object({ jobId: z.string() })),
+  patchFrames: GitOpResultOf(SpritePatchFramesResultSchema),
+  export: GitOpResultOf(SpriteExportResultSchema),
   generic: GitOpResultSchema,
 } as const;

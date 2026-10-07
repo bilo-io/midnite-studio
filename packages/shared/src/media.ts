@@ -98,7 +98,7 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   'game-html': { label: 'Single HTML file', ext: 'html', needsFfmpeg: false },
   'game-zip': { label: 'Zip archive', ext: 'zip', needsFfmpeg: false },
   'game-folder': { label: 'Static folder', ext: '', needsFfmpeg: false },
-  'sprite-pack': { label: 'Sprite pack (atlas + JSON)', ext: '', needsFfmpeg: false },
+  'sprite-pack': { label: 'Sprite pack (folder)', ext: '', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
