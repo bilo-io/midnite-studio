@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 104 Themes E + F — Sculpting over MCP; the mesh pipeline (PR_LINK)
+## 2026-10-07 — Phase 104 Themes E + F — Sculpting over MCP; the mesh pipeline ([#766](https://github.com/bilo-io/midnite-studio/pull/766))
 
 **E.** An agent aims a brush by the pixels of a preview it just looked at (the preview's own camera, shared as data), by rig bone, landmark, vertex group or primitive part, by world path, or over whatever the mask leaves open; strokes, masks, subdivide, remesh and undo keep a live document per sculpt part and answer a summary with a thumbnail. **F.** Decimation (quadric collapse, borders and UV seams locked), an LSCM unwrap with packing and a texel-density readout, normal/occlusion/curvature/cavity bakes, an even quad-dominant retopology, skin transfer that proves the rig survives, and `.glb`/`.obj`/`.fbx` export with UVs and baked maps. Skin is derived per vertex, so rigs survive by construction; the sculpt-after-unwrap case is refused.
 
