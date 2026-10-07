@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
   MAP_CAPTURE_BUSY,
   MAP_CAPTURE_CANCELLED,
   captureFolderName,
+  captureTerrainName,
+  handoffSpec,
+  MAP_CAPTURE_SEA_FRACTION,
   expandMapTemplate,
   failure,
   map,
@@ -18,9 +21,12 @@ import {
   type MapCaptureResult,
   type MapCaptureStage,
   type MapSource,
+  type TerrainBuildRequest,
+  type TerrainOpenEvent,
 } from '@midnite/studio-shared';
 
 import { decodePng } from '../png/png-codec';
+import type { TerrainService } from '../terrain/terrain-service';
 import type { CaptureBroker } from './capture-broker';
 
 /**
@@ -52,12 +58,21 @@ export type CaptureServiceDeps = {
   broker: CaptureBroker;
   onChanged: (repoId: string) => void;
   emitProgress: (event: MapCaptureProgressEvent) => void;
+  /**
+   * The Terrain tab's service, called directly (Phase 108 Decision 13) — never the renderer IPC chain,
+   * so a capture started from an MCP tool hands off with the Maps tab closed. Absent: no hand-off.
+   */
+  terrain?: Pick<TerrainService, 'library' | 'setInput' | 'setRoadsGraph' | 'setSpec' | 'build'>;
+  /** Asks every window to select the new terrain (`mediaTerrainOpen`). */
+  emitOpen?: (event: TerrainOpenEvent) => void;
   now?: () => Date;
   newId?: () => string;
   log?: (line: string) => void;
   /** How many tile fetches run at once (the fetcher separately caps per host). */
   fetchConcurrency?: number;
 };
+
+const why = (r: { ok: false; kind: string; message?: string }): string => r.message ?? 'a conflict occurred';
 
 export const DEFAULT_DEM_SOURCE = 'aws-terrarium' as const;
 
@@ -202,7 +217,7 @@ export function createCaptureService(deps: CaptureServiceDeps) {
         bbox: map.frameBBox(req.center, req.sideM),
         heightMinM: encoded.stats.minM,
         heightMaxM: encoded.stats.maxM,
-        hasSea: encoded.stats.minM <= 0,
+        hasSea: encoded.stats.minM < 0 && encoded.stats.seaFraction >= MAP_CAPTURE_SEA_FRACTION,
         sources: { dem: source.id },
         demZoom: plan.z,
         attributions,
@@ -216,14 +231,72 @@ export function createCaptureService(deps: CaptureServiceDeps) {
       await rename(tmpDir, finalDir);
       tmpDir = null;
       deps.onChanged(req.repoId);
+      const result: MapCaptureResult = { captureId, name, dir: `captures/${name}`, capture: file };
+      if (req.handoff) {
+        progress('handoff', 0);
+        const handed = await handoff(req, file, finalDir);
+        if (!handed.ok) return handed;
+        result.terrain = handed.value;
+      }
       progress('handoff', 1);
-      return ok({ captureId, name, dir: `captures/${name}`, capture: file });
+      return ok(result);
     } catch (error) {
       if (tmpDir) await cleanup(tmpDir);
       return failure(abort.signal.aborted ? MAP_CAPTURE_CANCELLED : error instanceof Error ? error.message : String(error));
     } finally {
       running = null;
     }
+  }
+
+  /**
+   * Creates the terrain from a finished capture: library create → inputs → captured road graph →
+   * spec → open (→ build). The capture stays on disk whatever happens; a failing step names itself and
+   * leaves the half-made terrain in place, visible and deletable, rather than deleting it.
+   */
+  async function handoff(
+    req: MapCaptureRequest,
+    file: MapCaptureFile,
+    captureDir: string,
+  ): Promise<GitOpResult<{ project: string; terrain: string }>> {
+    const terrain = deps.terrain;
+    if (!terrain) return failure('Handing off to Terrain is not available.');
+    const read = (name: string): Promise<Uint8Array | null> => readFile(join(captureDir, name)).then((b) => b, () => null);
+    const name = captureTerrainName(req);
+    const created = await terrain.library({ op: 'create', repoId: req.repoId, name });
+    if (!created.ok) return failure(`Could not create the terrain: ${why(created)}`);
+    const target = { repoId: req.repoId, project: created.value.project ?? '', terrain: created.value.terrain ?? '' };
+    if (!target.project || !target.terrain) return failure('Could not create the terrain.');
+
+    const slots = [
+      ['heightmap', 'heightmap.png', 'heightmap'],
+      ['satellite', 'satellite.png', 'satellite image'],
+      ['roads', 'roads.png', 'roads mask'],
+    ] as const;
+    for (const [slot, fileName, label] of slots) {
+      const bytes = await read(fileName);
+      if (!bytes) {
+        if (slot === 'heightmap') return failure(`The capture has no heightmap to hand off (${target.terrain} was left empty).`);
+        continue;
+      }
+      const attached = await terrain.setInput({ ...target, slot, bytes, name: fileName });
+      if (!attached.ok) return failure(`Could not attach the ${label} to the terrain: ${why(attached)}`);
+    }
+    const graph = await read('roads.graph.json');
+    if (graph) {
+      const attached = await terrain.setRoadsGraph(target, graph);
+      if (!attached.ok) return failure(`Could not attach the road graph to the terrain: ${why(attached)}`);
+    }
+    const patch = handoffSpec(file, { repoId: req.repoId, project: req.project, name });
+    const applied = await terrain.setSpec({ ...target, patch });
+    if (!applied.ok) return failure(`Could not apply the terrain settings: ${why(applied)}`);
+
+    deps.emitOpen?.(target);
+    if (req.build) {
+      // Not awaited: the Terrain tab shows its own build progress, and the capture is done.
+      const build: TerrainBuildRequest = target;
+      void terrain.build(build).catch((error: unknown) => log(`map capture hand-off build failed: ${String(error)}`));
+    }
+    return ok({ project: target.project, terrain: target.terrain });
   }
 
   async function cleanup(dir: string): Promise<void> {

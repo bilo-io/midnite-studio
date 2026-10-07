@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MAP_CAPTURE_BUSY, MapCaptureFileSchema, map, type MapCaptureRequest } from '@midnite/studio-shared';
 
 import { encodePngRgba8, decodePng } from '../png/png-codec';
-import { createCaptureBroker, type CaptureWorkerHandle } from './capture-broker';
+import { createCaptureBroker, type CaptureBroker, type CaptureWorkerHandle } from './capture-broker';
 import { createCaptureRun } from './capture-run';
 import { createCaptureService, type CaptureServiceDeps } from './capture-service';
 import type { CaptureWorkerIn, CaptureWorkerOut } from './capture-protocol';
@@ -31,6 +31,17 @@ function inProcessWorker(): CaptureWorkerHandle {
       (listeners[event] as unknown[]).push(listener);
     }) as CaptureWorkerHandle['on'],
     kill: () => listeners.exit.forEach((l) => l(0)),
+  };
+}
+
+/** A broker whose runs also drop extra files into the temp folder, standing in for Theme E's outputs. */
+function wrapBroker(inner: CaptureBroker, extra: (dir: string) => Promise<void>): CaptureBroker {
+  return {
+    ...inner,
+    begin: (input, onProgress) => {
+      const handle = inner.begin(input, onProgress);
+      return { ...handle, finish: async () => (await extra(input.outDir), handle.finish()) };
+    },
   };
 }
 
@@ -165,5 +176,92 @@ describe('capture service', () => {
   it('no repo root is a readable failure', async () => {
     const { service } = make({ rootFor: async () => null });
     expect(await service.capture(REQ)).toMatchObject({ ok: false, message: 'Open a repository to capture into.' });
+  });
+
+  describe('hand-off to Terrain (Phase 108 Theme F)', () => {
+    function fakeTerrain(overrides: Record<string, unknown> = {}) {
+      const calls: string[] = [];
+      const args: Record<string, unknown> = {};
+      const rec =
+        (name: string, value: unknown) =>
+        async (...a: unknown[]) => {
+          calls.push(name);
+          args[name] = a;
+          return value;
+        };
+      const terrain = {
+        library: rec('library', { ok: true, value: { project: 'terrains', terrain: 'test-place-1' } }),
+        setInput: rec('setInput', { ok: true, value: { warnings: [] } }),
+        setRoadsGraph: rec('setRoadsGraph', { ok: true, value: { edges: 1 } }),
+        setSpec: rec('setSpec', { ok: true, value: { spec: {} } }),
+        build: rec('build', { ok: true, value: {} }),
+        ...overrides,
+      } as unknown as NonNullable<CaptureServiceDeps['terrain']>;
+      return { terrain, calls, args };
+    }
+
+    it('creates the terrain, attaches the heightmap, sets the spec and opens it — in that order', async () => {
+      const { terrain, calls, args } = fakeTerrain();
+      const emitOpen = vi.fn();
+      const { service } = make({ terrain, emitOpen });
+      const result = await service.capture({ ...REQ, handoff: true });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // Heightmap only today: satellite/roads/graph activate when Theme E writes them.
+      expect(calls).toEqual(['library', 'setInput', 'setSpec']);
+      expect(args.library).toEqual([{ op: 'create', repoId: 'r1', name: 'Test Place' }]);
+      const input = (args.setInput as Array<{ slot: string; bytes: Uint8Array; name: string }>)[0]!;
+      expect(input).toMatchObject({ repoId: 'r1', project: 'terrains', terrain: 'test-place-1', slot: 'heightmap', name: 'heightmap.png' });
+      expect(input.bytes.length).toBeGreaterThan(0);
+      const spec = (args.setSpec as Array<{ patch: Record<string, unknown> }>)[0]!.patch;
+      expect(spec).toMatchObject({ worldSize: 3000, resolution: 129, textureSize: 2048, preSmooth: 0, name: 'Test Place' });
+      expect(spec.seaLevel).toBeUndefined();
+      expect(emitOpen).toHaveBeenCalledTimes(1);
+      expect(emitOpen).toHaveBeenCalledWith({ repoId: 'r1', project: 'terrains', terrain: 'test-place-1' });
+      expect(result.value.terrain).toEqual({ project: 'terrains', terrain: 'test-place-1' });
+    });
+
+    it('names an unnamed capture after its coordinates and builds only when asked', async () => {
+      const { terrain, calls, args } = fakeTerrain();
+      const { service } = make({ terrain, emitOpen: vi.fn() });
+      const { place: _place, ...noPlace } = REQ;
+      const result = await service.capture({ ...noPlace, handoff: true, build: true });
+      expect(result.ok).toBe(true);
+      expect(calls).toEqual(['library', 'setInput', 'setSpec', 'build']);
+      expect(args.library).toEqual([{ op: 'create', repoId: 'r1', name: '-34.000, 18.400' }]);
+    });
+
+    it('hands over the satellite, roads mask and captured graph when the capture carries them', async () => {
+      const { terrain, calls, args } = fakeTerrain();
+      const withExtras: Partial<CaptureServiceDeps> = {
+        terrain,
+        emitOpen: vi.fn(),
+        broker: wrapBroker(createCaptureBroker({ spawn: inProcessWorker }), async (dir) => {
+          await writeFile(join(dir, 'satellite.png'), new Uint8Array([1]));
+          await writeFile(join(dir, 'roads.png'), new Uint8Array([2]));
+          await writeFile(join(dir, 'roads.graph.json'), '{}');
+        }),
+      };
+      const { service } = make(withExtras);
+      const result = await service.capture({ ...REQ, handoff: true });
+      expect(result.ok).toBe(true);
+      expect(calls).toEqual(['library', 'setInput', 'setInput', 'setInput', 'setRoadsGraph', 'setSpec']);
+      expect((args.setRoadsGraph as unknown[])[1]).toBeInstanceOf(Uint8Array);
+    });
+
+    it('a failing setSpec names the terrain settings, keeps the capture and leaves the terrain', async () => {
+      const { terrain } = fakeTerrain({ setSpec: async () => ({ ok: false, kind: 'error', message: 'heightRange must rise' }) });
+      const { service } = make({ terrain, emitOpen: vi.fn() });
+      const result = await service.capture({ ...REQ, handoff: true });
+      expect(result).toMatchObject({ ok: false, message: expect.stringMatching(/terrain settings/) });
+      expect(await readdir(join(root, 'maps', 'captures'))).toHaveLength(1);
+    });
+
+    it('does not touch Terrain without a hand-off request', async () => {
+      const { terrain, calls } = fakeTerrain();
+      const { service } = make({ terrain });
+      expect((await service.capture(REQ)).ok).toBe(true);
+      expect(calls).toEqual([]);
+    });
   });
 });

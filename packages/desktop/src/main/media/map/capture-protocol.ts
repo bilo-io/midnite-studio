@@ -20,7 +20,13 @@ export type CaptureWorkerIn =
   | { type: 'tile'; id: string; x: number; y: number; width: number; height: number; rgba: Uint8Array }
   | { type: 'finish'; id: string };
 
-export type CaptureStats = { minM: number; maxM: number; files: string[] };
+export type CaptureStats = {
+  minM: number;
+  maxM: number;
+  /** Fraction of samples at or below 0 m — decides `hasSea` in the hand-off. */
+  seaFraction: number;
+  files: string[];
+};
 
 export type CaptureWorkerOut =
   | { type: 'progress'; id: string; fraction: number }
