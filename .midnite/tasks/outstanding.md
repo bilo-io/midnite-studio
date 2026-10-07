@@ -560,7 +560,7 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **Genre cells are not creatable yet.** `GAME_GENRES_AVAILABLE` in `shared/src/media-game-templates.ts` is empty; Themes H-J add `templates/media-game/genres/<genre>/` and list each genre there. Until then every genre cell in the gallery reads "Not available yet", and `compose.test.ts` loops over only the six bases (it picks up genre ids as they become available).
 - **`game-starters.spec.ts` (real Chromium) for the six bases and for `rts@isometric` / `rpg@first-person`** moves to Theme Q. The bases were verified by hand in SwiftShader Chromium; a committed spec needs Q's e2e budget raise.
 - **Gallery thumbnails are glyphs, not PNGs.** The plan's `templates/media-game/thumbnails/<id>.png` plus a `gamesThumbnail` channel was not built; revisit once the genres have something worth a picture.
-- **`playtests/smoke.json` is a provisional shape** (`input` / `assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`); Theme O defines the real replay schema and should migrate the six files.
+- ~~**`playtests/smoke.json` is a provisional shape**~~ — resolved by Theme O: every base and genre smoke file is a `GamePlaytestSchema` play-test now.
 ## Phase 104 · Theme A — mesh core and storage
 
 - **The scene triangle cap still applies to sculpt parts.** `buildScene` stops at
@@ -574,6 +574,15 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **The worker's `displace` request is a placeholder.** It pushes vertices along their normals with a
   smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
   replaces it.
+
+## Phase 107 · Theme O — deferred pieces
+
+- **`game-playtest.spec.ts` (real Chromium) moves to Theme Q**, with the per-starter smoke e2e from G-J and the `MAX_DECLARED_E2E` raise. Every starter passed its migrated `smoke.json` twice, with identical end states, in SwiftShader Chromium through an untracked harness that drives `main/games/playtest.ts` against a Playwright page.
+- **Replays carry actions only.** Mouse-look deltas and pointer positions are not recorded, so a three.js camera turned with the mouse replays as un-turned; a replay of an aim needs an action (or a later `look` event kind).
+- **`new Date()` with no arguments is not virtualised**, only `Date.now()`; `setTimeout`/`setInterval` still run on wall time. Game logic that schedules with timers rather than the kit loop is not deterministic.
+- **The RTS smoke assertion is weak on isometric**: `$.camera.x > 300` holds at the start there (the camera starts at 520), because one smoke file serves both perspectives and the ops have no "changed since frame N". A `changed`/`increasedFrom` op, or per-perspective smoke files, would fix it.
+- **The toolbar has no Record control**; recording is `game_replay_record` over MCP. A 1× `game_replay_play` needs the view visible (a hidden view's animation frames are throttled).
+- **Baselines are per machine.** A frame baseline captured at one device scale (or GPU) differs on another; the diff refuses a size mismatch as fully changed rather than rescaling.
 
 ## Phase 107 · Theme J — deferred pieces
 

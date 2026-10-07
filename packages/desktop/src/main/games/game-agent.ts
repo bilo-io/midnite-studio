@@ -263,7 +263,7 @@ export function buildGamePassPrompt(req: {
     pass === 1
       ? `This is pass 1 of ${of}. Make the change with your file tools, then play-test it.`
       : `This is pass ${pass} of ${of}. Play-test the game, then fix what is wrong or move it closer to the request. If it already does what was asked, make no edits.`,
-    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop.`,
+    `Play-test through the midnite MCP tools, always with game "${game.gameId}": game_run, game_screenshot, game_logs, game_input, game_state, game_reload, game_stop; game_playtest runs playtests/*.json deterministically, and game_replay_play, game_assert_state and game_assert_frame check a replay at a frame.`,
     'Rules: edit only files inside this folder; never edit vendor/ or kit/ (extend the kit from src/); keep getState() truthful; there is no shell, so do not try to run commands.',
     'Finish with one sentence saying what you changed.',
   ].join('\n');
@@ -280,6 +280,11 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_get_manifest: 'Read the manifest',
   game_set_manifest: 'Changed the manifest',
   game_import_asset: 'Imported an asset',
+  game_replay_record: 'Recorded a replay',
+  game_replay_play: 'Played a replay',
+  game_assert_state: 'Checked the game state',
+  game_assert_frame: 'Compared a frame',
+  game_playtest: 'Ran the play-tests',
 };
 
 /**

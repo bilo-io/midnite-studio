@@ -7,6 +7,7 @@ import {
   EVENT_CHANNELS,
   failure,
   GAME_CONSOLE_BATCH_MS,
+  GAME_DETERMINISM_PARAMS,
   GAMES_MAX_RUNNING,
   MSTUDIO_GAME_SCHEME,
   ok,
@@ -43,7 +44,24 @@ export type RunnableGame = {
   network: GameNetwork;
   /** `persist:game-<gameId>` instead of a fresh in-memory partition per run. */
   keepSaveData: boolean;
+  /**
+   * Deterministic mode (Theme O): the kit seeds randomness and runs on a virtual clock.
+   * `paused` starts the loop paused after its first step — how a play-test begins.
+   */
+  determinism?: { seed: number; paused: boolean } | null;
 };
+
+/** The URL a run loads: `index.html`, plus the deterministic-mode query the kit reads before any game module. */
+export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism'>): string {
+  const base = `${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`;
+  if (!game.determinism) return base;
+  const query = new URLSearchParams({
+    [GAME_DETERMINISM_PARAMS.deterministic]: '1',
+    [GAME_DETERMINISM_PARAMS.seed]: String(Math.trunc(game.determinism.seed)),
+    ...(game.determinism.paused ? { [GAME_DETERMINISM_PARAMS.paused]: '1' } : {}),
+  });
+  return `${base}?${query.toString()}`;
+}
 
 export type GameRunnerDeps = {
   /** The window a new run's view attaches to. */
@@ -94,7 +112,8 @@ type Run = {
 
 /** Path segments whose changes never reload the game. */
 const WATCH_IGNORED = ['.git', 'vendor', 'node_modules'];
-const WATCH_IGNORED_PREFIXES = ['playtests/results'];
+// Play-tests write baselines, replays and results while the game runs (Theme O): none of it is game code.
+const WATCH_IGNORED_PREFIXES = ['playtests'];
 export const GAME_RELOAD_DEBOUNCE_MS = 200;
 
 /** Whether a changed path should trigger a hot reload. Pure — tested directly. */
@@ -390,7 +409,7 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
         flush(run);
         emitState(run, 'crashed', description);
       });
-      void view.webContents.loadURL(`${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`).catch(() => undefined);
+      void view.webContents.loadURL(gameEntryUrl(game)).catch(() => undefined);
       return ok({ runId });
     },
 

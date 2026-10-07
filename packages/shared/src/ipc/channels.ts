@@ -914,6 +914,9 @@ export const CHANNELS = {
   gamesImportAsset: 'mstudio:games:import-asset',
   /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
   gamesResync: 'mstudio:games:resync',
+  /** Play-tests (Theme O): list `playtests/*.json`, and run some or all of them. */
+  gamesPlaytests: 'mstudio:games:playtests',
+  gamesPlaytestRun: 'mstudio:games:playtest-run',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.

@@ -17,6 +17,7 @@ import { bridge } from '../../../services/bridge';
 import { useToastStore } from '../../../store/toast-store';
 import { isLive, useGameRunStore } from './game-run-store';
 import type { GameResolution } from './game-runner-host';
+import { PlaytestsMenu } from './playtests-menu';
 import { usePopOutGame, useRunGame, useStopGame } from './use-games';
 
 const RESOLUTIONS: readonly { value: GameResolution; label: string }[] = [
@@ -28,7 +29,7 @@ const RESOLUTIONS: readonly { value: GameResolution; label: string }[] = [
 /**
  * The runner's controls (Phase 107 Theme B): play/pause (the kit's
  * `__midnite` hook), restart, stop, a resolution preset, mute, the fps overlay,
- * DevTools and Pop out. The popout window renders the same bar without Pop out —
+ * DevTools, the Playtests menu (Theme O) and Pop out. The popout window renders the same bar without Pop out —
  * its frame's own Re-dock button is the way back.
  */
 export function GameRunnerToolbar({
@@ -114,6 +115,7 @@ export function GameRunnerToolbar({
         }}
       />
       <IconButton icon={LuBug} label="DevTools" size="sm" disabled={!live} onClick={() => void toolbar('devtools')} />
+      <PlaytestsMenu gameId={gameId} />
       {inPopout ? null : (
         <IconButton
           icon={LuExternalLink}

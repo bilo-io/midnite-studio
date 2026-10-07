@@ -39,6 +39,37 @@ export function createVirtualGamepad() {
 export const virtualGamepad = createVirtualGamepad();
 
 /**
+ * Actions pressed by a replay (`kit/core/replay.js`): every input map reads
+ * them as down, whatever its bindings say, so playback needs no OS input.
+ */
+export function createVirtualActions() {
+  /** @type {Set<string>} */
+  const down = new Set();
+  return {
+    set(/** @type {string} */ action, /** @type {boolean} */ pressed) {
+      if (pressed) down.add(action);
+      else down.delete(action);
+    },
+    isDown: (/** @type {string} */ action) => down.has(action),
+    clear: () => down.clear(),
+  };
+}
+
+/** The kit's one virtual action layer, driven by the replayer. */
+export const virtualActions = createVirtualActions();
+
+/** @type {((action: string, down: boolean) => void) | null} */
+let inputObserver = null;
+
+/**
+ * Called with every action whose sampled state changed — how the replayer records.
+ * @param {((action: string, down: boolean) => void) | null} observer
+ */
+export function setInputObserver(observer) {
+  inputObserver = observer;
+}
+
+/**
  * @param {Bindings} bindings
  * @param {InputSource} source
  */
@@ -52,6 +83,7 @@ export function createInputMap(bindings, source) {
   const read = (action) => {
     const binding = bindings[action];
     if (!binding) return false;
+    if (virtualActions.isDown(action)) return true;
     if (binding.keys?.some((key) => source.isKeyDown(key))) return true;
     if (binding.gamepad?.some((button) => source.isGamepadDown?.(button) || virtualGamepad.isDown(button))) return true;
     if (binding.pointer && source.isPointerDown?.(binding.pointer)) return true;
@@ -64,6 +96,9 @@ export function createInputMap(bindings, source) {
     update() {
       previous = current;
       current = new Map(Object.keys(bindings).map((action) => [action, read(action)]));
+      if (inputObserver) {
+        for (const [action, down] of current) if (down !== (previous.get(action) ?? false)) inputObserver(action, down);
+      }
     },
     isDown: (/** @type {string} */ action) => current.get(action) ?? false,
     /** True on the one update where the action went from up to down. */

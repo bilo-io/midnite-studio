@@ -173,6 +173,7 @@ import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerGamesHandlers } from './ipc/games-handlers';
 import { createGameRunner } from './games/game-runner';
 import { createGameMcpTools } from './games/game-mcp';
+import { createPlaytests } from './games/playtest';
 import { createGamePopout } from './games/game-popout';
 import { createGameService } from './games/game-service';
 import { createAssetBridge } from './games/asset-bridge';
@@ -732,10 +733,22 @@ if (!app.requestSingleInstanceLock()) {
       send: broadcastToAllWindows,
       log: defaultLogger,
     });
+    // Play-test depth (Theme O): deterministic restarts, replays and assertions through the kit hook.
+    const gamePlaytests = createPlaytests({
+      resolve: (target) => mcpGameService.resolve(target),
+      runDeterministic: (gameId, seed) => mcpGameService.run(gameId, { determinism: { seed, paused: true } }),
+      setRunState: (gameId, state) => mcpGameService.toolbar(gameId, state),
+      page: (gameId) => {
+        const wc = gameRunner.view(gameId)?.webContents;
+        if (!wc || wc.isDestroyed()) return null;
+        return { evaluate: (code) => wc.executeJavaScript(code, false), capture: async () => (await wc.capturePage()).toPNG() };
+      },
+    });
     const gameMcpTools = createGameMcpTools({
       service: mcpGameService,
       webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null,
       importAsset: (req) => gameAssets.importAsset(req),
+      playtests: gamePlaytests,
     });
     setGameTools(gameMcpTools);
     // Create and iterate (Theme M): agent CLIs on a private MCP server, or Ollama, one commit per changing pass.
@@ -749,7 +762,7 @@ if (!app.requestSingleInstanceLock()) {
       send: broadcastToAllWindows,
       log: defaultLogger,
     });
-    registerGamesHandlers(gameService, gameAgentService, gameAssets);
+    registerGamesHandlers(gameService, gameAgentService, gameAssets, gamePlaytests);
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));

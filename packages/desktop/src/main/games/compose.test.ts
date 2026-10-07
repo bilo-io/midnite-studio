@@ -11,6 +11,8 @@ import {
   parseGameManifest,
   parseStarterId,
   GAME_MANIFEST_FILE,
+  GamePlaytestSchema,
+  parseJsonPath,
 } from '@midnite/studio-shared';
 
 import { composeStarter, scanImports } from './compose';
@@ -102,9 +104,13 @@ describe('composeStarter', () => {
     const assets = (await listFilesRecursive(join(dest, 'assets'))).filter((f) => f !== 'index.json');
     const doc = await readFile(join(dest, 'ASSETS.md'), 'utf8');
     for (const file of assets) expect(doc, file).toContain(file);
-    const smoke = JSON.parse(await readFile(join(dest, 'playtests/smoke.json'), 'utf8'));
-    expect(smoke).toMatchObject({ version: 1, frames: 180 });
-    expect(smoke.assert).toEqual(expect.arrayContaining([expect.objectContaining({ path: '$.scene', equals: 'level' })]));
+    // Theme O's play-test format: an inline replay plus assertions, valid against the schema the runner uses.
+    const smoke = GamePlaytestSchema.parse(JSON.parse(await readFile(join(dest, 'playtests/smoke.json'), 'utf8')));
+    expect(smoke).toMatchObject({ version: 1, name: 'smoke', replay: { version: 1, seed: 1, frames: 180 } });
+    expect(smoke.asserts).toEqual(expect.arrayContaining([{ frame: 180, kind: 'state', path: '$.scene', op: 'eq', value: 'level' }]));
+    for (const assert of smoke.asserts) {
+      if (assert.kind === 'state') expect(parseJsonPath(assert.path).ok, assert.path).toBe(true);
+    }
     const index = JSON.parse(await readFile(join(dest, 'assets/index.json'), 'utf8'));
     // The open world ships its world: a Phase 105 terrain pack, named in the index so the asset bridge can repoint it.
     expect(index).toEqual(

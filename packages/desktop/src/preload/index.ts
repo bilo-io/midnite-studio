@@ -581,6 +581,10 @@ const bridge: Pick<
       import: (req) => call(CHANNELS.gamesImportAsset, req),
       resync: (req) => call(CHANNELS.gamesResync, req),
     },
+    playtests: {
+      list: (req) => call(CHANNELS.gamesPlaytests, req),
+      run: (req) => call(CHANNELS.gamesPlaytestRun, req),
+    },
   },
   media: {
     project: {

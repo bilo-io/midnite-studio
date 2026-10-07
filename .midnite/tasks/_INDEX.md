@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [108 · Maps](phases/phase-108-maps.md) | ◻ TODO | — | 0/51 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
-| [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 73/90 | `████████░░` | 81% | — | O P Q |
+| [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 78/90 | `█████████░` | 87% | — | P Q |
 | [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | 🔄 WIP | x1 | 23/68 | `███░░░░░░░` | 34% | — | E F G H I J K L |
 | [105 · Terrain](phases/phase-105-terrain.md) | 🔄 WIP | x1 | 64/72 | `█████████░` | 89% | — | K |
 | [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | 🔄 WIP | — | 30/68 | `████░░░░░░` | 44% | — | E F G H I |

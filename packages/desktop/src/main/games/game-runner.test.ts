@@ -4,6 +4,7 @@ import { EVENT_CHANNELS, GAMES_MAX_RUNNING } from '@midnite/studio-shared';
 
 import {
   createGameRunner,
+  gameEntryUrl,
   gamePartition,
   isGamePermissionAllowed,
   isGameRequestAllowed,
@@ -157,6 +158,16 @@ describe('createGameRunner', () => {
     });
     expect(prefs).not.toHaveProperty('preload');
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads index.html, with the deterministic-mode query when the run asks for it (Theme O)', () => {
+    expect(gameEntryUrl({ gameId: 'ga' })).toBe('mstudio-game://ga/index.html');
+    expect(gameEntryUrl({ gameId: 'ga', determinism: { seed: 7, paused: false } })).toBe(
+      'mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=7',
+    );
+    expect(gameEntryUrl({ gameId: 'ga', determinism: { seed: -3, paused: true } })).toBe(
+      'mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=-3&midnite-paused=1',
+    );
   });
 
   it('uses a fresh in-memory partition per run, and a persistent one with keepSaveData', async () => {
@@ -416,7 +427,9 @@ describe('isReloadTrigger', () => {
     ['vendor/phaser/phaser.js', false],
     ['node_modules/x/y.js', false],
     ['playtests/results/run-1.json', false],
-    ['playtests/a.json', true],
+    ['playtests/a.json', false],
+    ['playtests/baselines/smoke@60.png', false],
+    ['playtestsuite.js', true],
   ])('%s -> %s', (path, expected) => {
     expect(isReloadTrigger(path)).toBe(expected);
   });

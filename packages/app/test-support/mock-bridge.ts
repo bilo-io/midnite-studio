@@ -5,6 +5,8 @@ import type {
   ReachableRepo,
   ForgeCapability,
   ForgeKind,
+  GamePlaytestEntry,
+  GamePlaytestResult,
   Note,
   SyncStatusEvent,
   TestPackage,
@@ -746,6 +748,12 @@ export type MockFixtures = {
       Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
     >;
     assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
+    /**
+     * Theme O: `playtests/*.json` as the Playtests menu lists them. A run answers `playtestRun` when
+     * given, else marks every requested valid play-test passed, and saves it as that entry's `last`.
+     */
+    playtests?: GamePlaytestEntry[];
+    playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
   };
   /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
@@ -3357,6 +3365,20 @@ export function buildMockBridge(data: MockFixtures) {
           };
         },
       },
+      // Theme O: play-tests. Listing answers the fixture; a run is recorded and updates each entry's `last`.
+      playtests: {
+        list: async () => ({ ok: true as const, value: { playtests: gamesPlaytests } }),
+        run: async (req: { gameId: string; names?: string[] }) => {
+          gamesCalls.push({ call: 'playtestRun', ...req });
+          const wanted = gamesPlaytests.filter((p) => p.valid && (!req.names || req.names.length === 0 || req.names.includes(p.name)));
+          const answer = data.games?.playtestRun ?? {
+            passed: true,
+            runs: wanted.map((p) => ({ name: p.name, passed: true, ranAt: '2026-10-07T10:00:00.000Z', frames: 180, ms: 900, results: [] })),
+          };
+          gamesPlaytests = gamesPlaytests.map((p) => ({ ...p, last: answer.runs.find((r) => r.name === p.name) ?? p.last }));
+          return { ok: true as const, value: answer };
+        },
+      },
       // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
       assets: {
         sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
@@ -5444,6 +5466,8 @@ export function buildMockBridge(data: MockFixtures) {
   // eslint-disable-next-line no-var
   var councilRunCounter = 0;
   // --- games (Phase 107) ------------------------------------------------------
+  // eslint-disable-next-line no-var
+  var gamesPlaytests: GamePlaytestEntry[] = data.games?.playtests ?? [];
   // eslint-disable-next-line no-var
   var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
     engine: 'phaser',

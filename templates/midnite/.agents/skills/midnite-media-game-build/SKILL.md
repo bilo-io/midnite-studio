@@ -17,7 +17,7 @@ kit/core/            engine-free systems (rng, input-map, cameras, jump, raycast
 kit/core/genre/<g>/  the genre's engine-free systems (only the genre this game uses)
 kit/phaser/ | kit/three/   the one engine's kit (2D games get phaser, 3D get three)
 vendor/              the engine, vendored at creation. Never edit it.
-playtests/*.json     scripted runs (frame-indexed input plus assertions)
+playtests/*.json     play-tests: a replay plus assertions (replays/, baselines/; results/ is git-ignored)
 assets/              imported assets; assets/index.json is the lookup
 ```
 
@@ -29,7 +29,7 @@ assets/              imported assets; assets/index.json is the lookup
 
 ## The debug hook
 
-The kit's `boot()` (phaser) and `startLoop()` (three) install `window.__midnite` through `installHook` in `kit/core/hook.js`, and print `midnite-ready` once. The shape is `version`, `kitVersion`, `getState()`, `pause()`, `resume()`, `step(n)`, `setSeed(seed)`, `setOverlay(on)`, `input.gamepad(button, pressed)`.
+The kit's `boot()` (phaser) and `startLoop()` (three) install `window.__midnite` through `installHook` in `kit/core/hook.js`, and print `midnite-ready` once. The shape is `version`, `kitVersion`, `ready`, `deterministic`, `getState()`, `pause()`, `resume()`, `step(n)`, `setSeed(seed)`, `setOverlay(on)`, `input.gamepad(button, pressed)` and `replay` (`record()`, `stop()`, `load(replay)`, `seek(frame)`, `play(replay, { speed })`, `status()`), which the play-test tools drive.
 
 `getState()` must return plain JSON with at least `{ version: 1, scene, frame, time }`. Add `player: { position, health? }` and `score` when the game has them, and put genre numbers under one key (`rts`, `fps`, `souls`, `action`, `crime`, `openWorld` and so on). Keep it truthful: report what the game really holds, never a constant that happens to pass an assertion.
 
@@ -43,7 +43,41 @@ Run → look → read → act → read state → fix. Use the tools on the midni
 4. `game_input` sends timed events: `keyDown`/`keyUp` with kit key names (`W`, `SPACE`, `SHIFT`, `ESC`, `UP`), `mouseMove`/`mouseDown`/`mouseUp`, or `gamepad` buttons.
 5. `game_state` returns `getState()`. Prove a change with numbers (position moved, ammo fell, wanted level rose), not only a picture.
 
-Fix, reload, repeat. When a bug is fixed, add a `playtests/<name>.json` that would have caught it. The format the starters ship is `{ version, name, seed, frames, input: [{ frame, action, pressed }], assert: [{ frame, path, equals | increasedFromFrame }] }`; read a starter's `playtests/smoke.json` and copy it.
+Fix, reload, repeat. When a bug is fixed, add a `playtests/<name>.json` that would have caught it.
+
+## Play-tests, replays and determinism
+
+A play-test runs in **deterministic mode**: the kit replaces `Math.random` with a seeded generator and `performance.now`/`Date.now` with a virtual clock, and the loop takes exactly one 1/60 s step per frame. The same seed and the same input give the same `getState()` every run, on the same machine (physics engines are not bit-identical across machines). Set `deterministic: true` in the manifest to play that way all the time; a play-test forces it for its own run.
+
+Input is replayed through the kit, frame by frame, never as OS key events. A replay is `{ version: 1, seed, frames, events: [{ f, action, down }] }`: `action` is a kit action name (`left`, `forward`, `jump`, `attack`, ...), and `f` counts steps since the game booted. A play-test starts paused after the first step, so an event at `f: 0` takes effect on step 2.
+
+A play-test is `playtests/<name>.json` (the file name is its `name`):
+
+```json
+{
+  "version": 1,
+  "name": "smoke",
+  "description": "Walk right for three seconds.",
+  "replay": { "version": 1, "seed": 1, "frames": 180, "events": [{ "f": 0, "action": "right", "down": true }] },
+  "asserts": [
+    { "frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level" },
+    { "frame": 180, "kind": "state", "path": "$.player.position[0]", "op": "gt", "value": 300 },
+    { "frame": 180, "kind": "frame", "tolerance": 0.01 }
+  ]
+}
+```
+
+- `replay` is inline, or a path such as `playtests/replays/walk.replay.json`.
+- A `state` assertion reads a JSON path of `getState()` at `frame`: `$`, `.key`, `["key"]` and `[n]` only (no filters). `op` is `eq`, `ne`, `lt`, `gt`, `exists` or `approx` (with `epsilon`).
+- A `frame` assertion compares the picture at `frame` with `playtests/baselines/<baseline or name>@<frame>.png`; a pixel differs when a channel moves by more than 16, and it passes while at most `tolerance` (default 0.01) of pixels differ. A missing baseline is written and reported as `baseline-created`; commit it.
+- Every starter ships `playtests/smoke.json` in this format; copy it.
+
+The tools:
+
+1. `game_playtest` runs `playtests/*.json` (`name` for one, `playtest` inline, or neither for all) and answers pass/fail per assertion, with screenshots of failures; results go to `playtests/results/<name>.json`. The Games tab's **Playtests** menu runs the same thing.
+2. `game_replay_record` with `action: "start"` restarts the game deterministically and records the user's play; `action: "stop", name` writes `playtests/replays/<name>.replay.json`.
+3. `game_replay_play` restarts and plays a replay (`speed: "max"` or `1` to watch), answering the final state.
+4. `game_assert_state` and `game_assert_frame` step the running game forward to a frame and check it there; a frame already passed is an error, so replay first.
 
 ## Assets
 
@@ -58,5 +92,6 @@ Bring media in with `game_import_asset` (`{ game, source, name? }`), where `sour
 - Keep `getState()` truthful and keep the game runnable after every change; commit logical steps.
 - No network calls in `src/` unless `network` is `on` in the manifest. The sandbox blocks them otherwise.
 - No bundler, no `package.json` build step, no npm imports. Imports resolve through the import map in `index.html` (`phaser`, `three`, `three/addons/`, `@dimforge/rapier3d-compat`, `recast-navigation`, `kit/`).
-- Randomness goes through `kit/core/rng.js` (`rng`, `createRng(seed)`), never `Math.random`, so a seed replays.
+- Randomness goes through `kit/core/rng.js` (`rng`, `createRng(seed)`), never `Math.random`, so a seed replays. Deterministic mode seeds `Math.random` too, but on its own stream, and only while the mode is on.
+- Read input through the kit's input map (`createInput` in `kit/phaser/input.js` or `kit/three/input.js`), so replays can press your actions; a raw `keydown` listener is invisible to them.
 - For a genre, load its recipe skill: `midnite-media-game-<genre>` (`fps`, `rts`, `arpg`, `crime`, `shooter`, `fighter`, `soulslike`, `rpg`, `character-action`, `open-world`).

@@ -230,6 +230,9 @@ import {
   GameImportAssetResultSchema,
   GameResyncRequestSchema,
   GameResyncResultSchema,
+  GamePlaytestListSchema,
+  GamePlaytestRunRequestSchema,
+  GamePlaytestRunResultSchema,
   GameAgentRunRequestSchema,
   GameAgentRunResultSchema,
   GameAgentUndoRequestSchema,
@@ -4410,3 +4413,8 @@ export const GamesImportAssetRequest = GameImportAssetRequestSchema;
 export const GamesImportAssetResponse = GitOpResultOf(GameImportAssetResultSchema);
 export const GamesResyncRequest = GameResyncRequestSchema;
 export const GamesResyncResponse = GitOpResultOf(GameResyncResultSchema);
+// Play-tests (Theme O): the runner toolbar's Playtests menu.
+export const GamesPlaytestsRequest = GameIdRequestSchema;
+export const GamesPlaytestsResponse = GitOpResultOf(GamePlaytestListSchema);
+export const GamesPlaytestRunRequest = GamePlaytestRunRequestSchema;
+export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchema);

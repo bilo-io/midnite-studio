@@ -1,21 +1,25 @@
 {
   "version": 1,
   "name": "smoke",
-  "seed": 1,
-  "frames": 180,
-  "input": [
-    { "frame": 0, "action": "forward", "pressed": true },
-    { "frame": 158, "action": "forward", "pressed": false },
-    { "frame": 160, "action": "attack", "pressed": true },
-    { "frame": 161, "action": "attack", "pressed": false },
-    { "frame": 172, "action": "attack", "pressed": true },
-    { "frame": 173, "action": "attack", "pressed": false }
-  ],
-  "assert": [
-    { "frame": 180, "path": "$.scene", "equals": "level" },
-    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 0 },
-    { "frame": 180, "path": "$.action.arena", "equals": "fighting" },
-    { "frame": 178, "path": "$.action.move", "equals": "slash-2" },
-    { "frame": 178, "path": "$.action.chain", "equals": 2 }
+  "description": "Run into the arena and chain two slashes.",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "frames": 180,
+    "events": [
+      {"f": 0, "action": "forward", "down": true},
+      {"f": 158, "action": "forward", "down": false},
+      {"f": 160, "action": "attack", "down": true},
+      {"f": 161, "action": "attack", "down": false},
+      {"f": 172, "action": "attack", "down": true},
+      {"f": 173, "action": "attack", "down": false}
+    ]
+  },
+  "asserts": [
+    {"frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level"},
+    {"frame": 180, "kind": "state", "path": "$.player.position[2]", "op": "lt", "value": 10},
+    {"frame": 180, "kind": "state", "path": "$.action.arena", "op": "eq", "value": "fighting"},
+    {"frame": 178, "kind": "state", "path": "$.action.move", "op": "eq", "value": "slash-2"},
+    {"frame": 178, "kind": "state", "path": "$.action.chain", "op": "eq", "value": 2}
   ]
 }

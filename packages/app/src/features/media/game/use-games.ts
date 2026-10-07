@@ -4,6 +4,8 @@ import type {
   GameCreateRequest,
   GameImportAssetRequest,
   GameImportAssetResult,
+  GamePlaytestEntry,
+  GamePlaytestRunResult,
   GameResyncResult,
   GameSummary,
   GamesSettingsPatch,
@@ -27,6 +29,8 @@ export const GAME_KEYS = {
   /** Theme N: imported assets and whether their sources moved on. */
   assets: (gameId: string) => ['games', 'assets', gameId] as const,
   assetSources: (tab: string) => ['games', 'asset-sources', tab] as const,
+  /** Theme O: `playtests/*.json` with their last results. */
+  playtests: (gameId: string) => ['games', 'playtests', gameId] as const,
 };
 
 export function useGames() {
@@ -188,6 +192,32 @@ export function useReimportAssets() {
       reportFailure(result);
       void client.invalidateQueries({ queryKey: ['games', 'assets'] });
       void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+    },
+  });
+}
+
+/** Theme O: a game's play-tests, each with its last saved result. */
+export function useGamePlaytests(gameId: string | null, enabled = true) {
+  return useQuery<GamePlaytestEntry[]>({
+    queryKey: GAME_KEYS.playtests(gameId ?? ''),
+    enabled: enabled && gameId !== null,
+    queryFn: async () => {
+      if (!gameId) return [];
+      const result = await bridge()?.games.playtests.list({ gameId });
+      return result?.ok ? result.value.playtests : [];
+    },
+  });
+}
+
+/** Run some play-tests (or all, with no names) in deterministic mode. */
+export function useRunPlaytests() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: { gameId: string; names?: string[] }) =>
+      (await bridge()?.games.playtests.run(req)) ?? noBridge<GamePlaytestRunResult>(),
+    onSuccess: (result, req) => {
+      reportFailure(result);
+      void client.invalidateQueries({ queryKey: GAME_KEYS.playtests(req.gameId) });
     },
   });
 }

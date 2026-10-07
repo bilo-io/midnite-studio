@@ -1228,6 +1228,14 @@ export type MidniteStudioBridge = {
       import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
       resync: (req: In<typeof S.GamesResyncRequest>) => Promise<z.infer<typeof S.GamesResyncResponse>>;
     };
+    /**
+     * Play-tests (Theme O): `playtests/*.json` with their last results, and a run of some or
+     * all of them in deterministic mode. The same runner `game_playtest` drives over MCP.
+     */
+    playtests: {
+      list: (req: In<typeof S.GamesPlaytestsRequest>) => Promise<z.infer<typeof S.GamesPlaytestsResponse>>;
+      run: (req: In<typeof S.GamesPlaytestRunRequest>) => Promise<z.infer<typeof S.GamesPlaytestRunResponse>>;
+    };
   };
 
   /**

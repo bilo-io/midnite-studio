@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.7.0';
+export const GAME_KIT_VERSION = '0.8.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -640,3 +640,160 @@ export const GameResyncResultSchema = z.object({
   commit: z.string().nullable(),
 });
 export type GameResyncResult = z.infer<typeof GameResyncResultSchema>;
+
+// --- play-test depth (Theme O) -----------------------------------------------------
+
+/**
+ * Where a game keeps its play-tests: `playtests/<name>.json` (a replay plus
+ * assertions), recorded input at `playtests/replays/<name>.replay.json`, frame
+ * baselines at `playtests/baselines/<name>@<frame>.png`, and the last results
+ * at `playtests/results/<name>.json` (git-ignored by the template).
+ */
+export const GAME_PLAYTESTS_DIR = 'playtests' as const;
+export const GAME_REPLAYS_DIR = 'playtests/replays' as const;
+export const GAME_BASELINES_DIR = 'playtests/baselines' as const;
+export const GAME_RESULTS_DIR = 'playtests/results' as const;
+
+/**
+ * The query the runner adds to `index.html` for a deterministic run, read by
+ * `kit/core/determinism.js` before any game module runs. `paused` starts the
+ * kit loop paused after its first step, so a play-test begins at a known frame.
+ */
+export const GAME_DETERMINISM_PARAMS = {
+  deterministic: 'midnite-deterministic',
+  seed: 'midnite-seed',
+  paused: 'midnite-paused',
+} as const;
+
+/** A replay longer than this (ten minutes at 60 Hz) is refused. */
+export const GAME_REPLAY_MAX_FRAMES = 36_000;
+export const GAME_REPLAY_MAX_EVENTS = 20_000;
+/** A replay or play-test file, or a recording the page answers with, larger than this is refused. */
+export const GAME_REPLAY_MAX_BYTES = 2 * 1024 * 1024;
+export const GAME_PLAYTEST_MAX_ASSERTS = 100;
+
+/** A play-test, replay or baseline name: a file name without its extension. */
+export const GamePlaytestNameSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/, 'use letters, digits, `-` and `_` (at most 64)');
+
+/** One input change: action `action` goes down (or up) before step `f`. Kit action names, never keys. */
+export const GameReplayEventSchema = z.object({
+  f: z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES),
+  action: z.string().min(1).max(64),
+  down: z.boolean(),
+});
+export type GameReplayEvent = z.infer<typeof GameReplayEventSchema>;
+
+/**
+ * `.replay.json`: frame-indexed actions, not wall-clock times, so playback is
+ * frame-exact at 1× or as fast as possible. `f` counts kit steps since the game
+ * booted (the same count `getState().frame` reports); `frames` is where it ends.
+ */
+export const GameReplaySchema = z
+  .object({
+    version: z.literal(1),
+    seed: z.number().int(),
+    frames: z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES),
+    events: z.array(GameReplayEventSchema).max(GAME_REPLAY_MAX_EVENTS),
+  })
+  .refine((replay) => replay.events.every((event) => event.f <= replay.frames), {
+    message: 'every event must be at or before `frames`',
+    path: ['events'],
+  });
+export type GameReplay = z.infer<typeof GameReplaySchema>;
+
+export const GAME_STATE_ASSERT_OPS = ['eq', 'ne', 'lt', 'gt', 'exists', 'approx'] as const;
+export const GameStateAssertOpSchema = z.enum(GAME_STATE_ASSERT_OPS);
+
+const assertFrame = z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES);
+export const GameStateAssertSchema = z.object({
+  frame: assertFrame,
+  kind: z.literal('state'),
+  /** A restricted JSON path: `$`, `.key`, `["key"]`, `[n]` (`shared/src/game/json-path.ts`). */
+  path: z.string().min(1).max(256),
+  op: GameStateAssertOpSchema,
+  value: z.unknown().optional(),
+  /** `approx` only; default 1e-6. */
+  epsilon: z.number().nonnegative().optional(),
+});
+export const GameFrameAssertSchema = z.object({
+  frame: assertFrame,
+  kind: z.literal('frame'),
+  /** Baseline name; the file is `playtests/baselines/<baseline>@<frame>.png`. Defaults to the play-test's name. */
+  baseline: GamePlaytestNameSchema.optional(),
+  /** Largest changed fraction that still passes (default 0.01). */
+  tolerance: z.number().min(0).max(1).optional(),
+});
+export const GamePlaytestAssertSchema = z.discriminatedUnion('kind', [GameStateAssertSchema, GameFrameAssertSchema]);
+export type GamePlaytestAssert = z.infer<typeof GamePlaytestAssertSchema>;
+
+/**
+ * `playtests/<name>.json`: a replay (a path relative to the repo, or inline)
+ * plus assertions at frames. Running one forces deterministic mode.
+ */
+export const GamePlaytestSchema = z.object({
+  version: z.literal(1),
+  name: GamePlaytestNameSchema,
+  description: z.string().max(500).optional(),
+  replay: z.union([z.string().min(1).max(256), GameReplaySchema]),
+  asserts: z.array(GamePlaytestAssertSchema).min(1).max(GAME_PLAYTEST_MAX_ASSERTS),
+});
+export type GamePlaytest = z.infer<typeof GamePlaytestSchema>;
+
+/** `baseline-created` is neither a pass nor a fail: the first run of a frame assertion writes its baseline. */
+export const GAME_ASSERT_STATUSES = ['pass', 'fail', 'baseline-created', 'error'] as const;
+export const GameAssertStatusSchema = z.enum(GAME_ASSERT_STATUSES);
+export type GameAssertStatus = z.infer<typeof GameAssertStatusSchema>;
+
+export const GameAssertResultSchema = z.object({
+  assertIndex: z.number().int().nonnegative(),
+  frame: z.number().int().nonnegative(),
+  kind: z.enum(['state', 'frame']),
+  /** `false` only for `fail` and `error`. */
+  ok: z.boolean(),
+  status: GameAssertStatusSchema,
+  message: z.string(),
+  /** A failure's screenshot, relative to the repo (`playtests/results/…png`). */
+  screenshot: z.string().optional(),
+  /** A failed frame assertion's diff image, relative to the repo. */
+  diff: z.string().optional(),
+  changedFraction: z.number().optional(),
+});
+export type GameAssertResult = z.infer<typeof GameAssertResultSchema>;
+
+export const GamePlaytestResultSchema = z.object({
+  name: z.string(),
+  passed: z.boolean(),
+  ranAt: z.string(),
+  frames: z.number().int().nonnegative(),
+  ms: z.number().nonnegative(),
+  results: z.array(GameAssertResultSchema),
+  /** Set when the play-test could not run at all (bad file, no hook, game crashed). */
+  error: z.string().optional(),
+});
+export type GamePlaytestResult = z.infer<typeof GamePlaytestResultSchema>;
+
+export const GamePlaytestEntrySchema = z.object({
+  name: z.string(),
+  file: z.string(),
+  valid: z.boolean(),
+  issue: z.string().nullable(),
+  /** The last saved result, when there is one. */
+  last: GamePlaytestResultSchema.nullable(),
+});
+export type GamePlaytestEntry = z.infer<typeof GamePlaytestEntrySchema>;
+export const GamePlaytestListSchema = z.object({ playtests: z.array(GamePlaytestEntrySchema) });
+export type GamePlaytestList = z.infer<typeof GamePlaytestListSchema>;
+
+export const GamePlaytestRunRequestSchema = z.object({
+  gameId: z.string().min(1),
+  /** Empty or omitted: every valid play-test (Run all). */
+  names: z.array(GamePlaytestNameSchema).max(100).optional(),
+});
+export type GamePlaytestRunRequest = z.infer<typeof GamePlaytestRunRequestSchema>;
+export const GamePlaytestRunResultSchema = z.object({
+  passed: z.boolean(),
+  runs: z.array(GamePlaytestResultSchema),
+});
+export type GamePlaytestRunResult = z.infer<typeof GamePlaytestRunResultSchema>;
