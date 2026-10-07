@@ -270,7 +270,7 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
       } else if (tool === 'model_get_reference_image') progress('Looked at the reference picture');
       else if (tool === 'model_compare_reference') {
         const score = scoreOf(value);
-        progress(score ? `Matched the reference: ${score.value.toFixed(2)}` : 'Compared with the reference', score);
+        progress(score ? `Matched the reference: ${score.value.toFixed(2)}` : 'Compared with the reference', score ?? undefined);
       }
       else if (tool === 'model_get_spec') progress('Read the design format');
       else if ((tool === 'model_set_spec' || tool === 'model_patch_parts') && result.ok === false) progress('An edit was rejected — retrying');

@@ -29,7 +29,13 @@ const flat = (side: number, grey: number): Uint8Array => {
 };
 
 type Content = { _content: { type: string; text?: string; data?: string }[] };
-const json = (out: unknown) => JSON.parse((out as Content)._content[0]!.text!) as Record<string, never>;
+const json = (out: unknown) => JSON.parse((out as Content)._content[0]!.text!) as {
+  score: number;
+  views: { regions: string[] }[];
+  loop: Record<string, unknown>;
+  history: number[];
+  pass: number;
+} & Record<string, unknown>;
 
 /** A picture of the figure as a dark subject on a light ground, 100 px per metre, origin at the bottom centre. */
 function picture(torso: number): Buffer {
@@ -106,7 +112,7 @@ describe('model_compare_reference', () => {
     const out = await kit.tools.model_compare_reference({ ...target(kit, model), budget: 6 });
     const summary = json(out);
     expect(summary.score).toBeGreaterThan(0.97);
-    expect(summary.views[0].regions).toEqual([]);
+    expect(summary.views[0]!.regions).toEqual([]);
     expect(summary.loop).toMatchObject({ done: true, reason: 'target' });
     expect((out as Content)._content.some((c) => c.type === 'image')).toBe(true);
   });
@@ -117,7 +123,7 @@ describe('model_compare_reference', () => {
     await kit.tools.model_set_reference_views({ ...target(kit, model), fit: { view: 'front', height: 2.6 } });
     const first = json(await kit.tools.model_compare_reference({ ...target(kit, model), budget: 6, overlay: false }));
     expect(first.score).toBeLessThan(0.95);
-    expect(first.views[0].regions[0]).toMatch(/too wide/);
+    expect(first.views[0]!.regions[0]).toMatch(/too wide/);
     expect(first.loop).toMatchObject({ done: false, stage: 'block-in' });
 
     // Narrow the torso to the picture's width: the score rises.
@@ -136,9 +142,9 @@ describe('model_compare_reference', () => {
     const kit = memoryModelKit();
     const model = await setup(kit, 0.6);
     await kit.tools.model_set_reference_views({ ...target(kit, model), fit: { view: 'front', height: 2.6 } });
-    let last: Record<string, never> = {};
+    let last: ReturnType<typeof json> | undefined;
     for (let i = 0; i < 4; i += 1) last = json(await kit.tools.model_compare_reference({ ...target(kit, model), budget: 9, overlay: false }));
-    expect(last.loop).toMatchObject({ done: true, reason: 'plateau' });
+    expect(last?.loop).toMatchObject({ done: true, reason: 'plateau' });
   });
 
   it('refuses until a view is matched, and for a view that is not', async () => {

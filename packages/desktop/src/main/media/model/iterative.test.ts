@@ -77,7 +77,7 @@ async function setup(script: Script, options: { maxIterations?: number; agent?: 
   const target = { repoPath: kit.repoPath, project: 'gen', model: 'crate-20261003-141502/crate-20261003-141502.obj' };
   const { host, closed, requests } = fakeHost((ctx) => script({ ...ctx, target }), options.agent === undefined ? CLAUDE : options.agent);
   const controller = new AbortController();
-  const progress: { iteration: { n: number; max: number }; action?: string }[] = [];
+  const progress: { iteration: { n: number; max: number }; action?: string; score?: { value: number; history: number[] } }[] = [];
   const run = () =>
     runIterative({
       host,
