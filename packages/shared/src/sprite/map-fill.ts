@@ -100,21 +100,26 @@ export function rasteriseMap(spec: MapSpec, terrains: ReadonlyArray<{ id: string
   return grid;
 }
 
-/** Bresenham, both ends included. */
-function line([x0, y0]: readonly [number, number], [x1, y1]: readonly [number, number]): Array<[number, number]> {
+/**
+ * Bresenham, both ends included, **4-connected**: a diagonal step is taken as two orthogonal ones, so a
+ * one-tile path stays one connected strip under autotiling (blob tiles join only across edges).
+ */
+export function line([x0, y0]: readonly [number, number], [x1, y1]: readonly [number, number]): Array<[number, number]> {
   const out: Array<[number, number]> = [];
   const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
   let err = dx + dy, x = x0, y = y0;
-  for (let guard = 0; guard < 4096; guard += 1) {
+  for (let guard = 0; guard < 8192; guard += 1) {
     out.push([x, y]);
     if (x === x1 && y === y1) break;
     const e2 = 2 * err;
-    if (e2 >= dy) {
+    const stepX = e2 >= dy, stepY = e2 <= dx;
+    if (stepX) {
       err += dy;
       x += sx;
     }
-    if (e2 <= dx) {
+    if (stepX && stepY) out.push([x, y]);
+    if (stepY) {
       err += dx;
       y += sy;
     }

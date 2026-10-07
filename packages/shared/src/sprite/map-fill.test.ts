@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MapSpecSchema, TilesetSpecSchema } from '../media-sprite';
 import { BLOB, BLOB47_MASKS, buildTilesetTiles, stackTiles, TILESET_COLUMNS } from './autotile';
 import { createRgba } from './image';
-import { autotileMap, collisionTileset, decorationSpacing, fillMap, mapLayerSizes, rasteriseMap, scatterDecorations, tilesetIndex } from './map-fill';
+import { line, autotileMap, collisionTileset, decorationSpacing, fillMap, mapLayerSizes, rasteriseMap, scatterDecorations, tilesetIndex } from './map-fill';
 import { checkMapSpec, mapSpecIssues } from './map-prompt';
 import { buildTsj, TiledMapSchema } from './tiled';
 
@@ -71,6 +71,15 @@ describe('rasteriseMap', () => {
     expect(at(7, 5)).toBe('water'); // ellipse centre
     expect(at(2, 7)).toBe('water'); // path
     expect(at(9, 0)).toBe('grass'); // cell override
+  });
+});
+
+describe('line', () => {
+  it('is 4-connected, so a diagonal path is one strip', () => {
+    const cells = line([0, 0], [3, 2]);
+    expect(cells[0]).toEqual([0, 0]);
+    expect(cells.at(-1)).toEqual([3, 2]);
+    for (let i = 1; i < cells.length; i += 1) expect(Math.abs(cells[i]![0] - cells[i - 1]![0]) + Math.abs(cells[i]![1] - cells[i - 1]![1])).toBe(1);
   });
 });
 
