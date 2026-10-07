@@ -96,6 +96,29 @@ export const TerrainInputRefSchema = z.object({
 });
 export type TerrainInputRef = z.infer<typeof TerrainInputRefSchema>;
 
+/**
+ * The captured OSM road graph a Maps capture hands over (Phase 108 Theme F). Not a fourth input slot:
+ * `TerrainInputRefSchema.file` is PNG-only, and this is JSON that only a main-side `setRoadsGraph` writes.
+ */
+export const TERRAIN_ROADS_GRAPH_FILE = 'inputs/roads.graph.json' as const;
+export const TerrainRoadsGraphRefSchema = z.object({
+  file: z.literal(TERRAIN_ROADS_GRAPH_FILE),
+  edges: z.number().int().nonnegative(),
+});
+export type TerrainRoadsGraphRef = z.infer<typeof TerrainRoadsGraphRefSchema>;
+
+/** Where a terrain came from, when a Maps capture made it (Phase 108 Decision 16). */
+export const TerrainGeoSchema = z.object({
+  center: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
+  /** `[west, south, east, north]` in degrees. */
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  sideM: z.number().positive(),
+  capture: z.object({ repoId: z.string().optional(), project: z.string(), name: z.string() }),
+  attributions: z.array(z.string()),
+  capturedAt: z.string(),
+});
+export type TerrainGeo = z.infer<typeof TerrainGeoSchema>;
+
 export const TerrainNoiseSchema = z.object({
   kind: z.enum(['fbm', 'ridged']).default('fbm'),
   seed: z.number().int().min(0).default(0),
@@ -156,6 +179,8 @@ export const TerrainSpecSchema = z
         heightmap: TerrainInputRefSchema.optional(),
         satellite: TerrainInputRefSchema.optional(),
         roads: TerrainInputRefSchema.optional(),
+        /** Set only by a Maps capture; pairs with `roads` and is removed with it. */
+        roadsGraph: TerrainRoadsGraphRefSchema.optional(),
       })
       .default({}),
     resolution: z
@@ -224,6 +249,8 @@ export const TerrainSpecSchema = z
         spurMinM: z.number().default(8),
       })
       .default({}),
+    /** Present when a Maps capture made this terrain. */
+    geo: TerrainGeoSchema.optional(),
     createdAt: z.string().optional(),
     updatedAt: z.string().optional(),
     lastBuild: TerrainLastBuildSchema.optional(),
@@ -530,6 +557,9 @@ export const TerrainRoadEdgeSchema = z.object({
   points: z.array(z.tuple([z.number(), z.number(), z.number()])),
   widthM: z.number().positive(),
   kind: z.enum(['path', 'street', 'avenue']),
+  /** The OSM highway class, when the edge came from a Maps capture's road graph. */
+  cls: z.string().optional(),
+  name: z.string().optional(),
   lengthM: z.number().nonnegative(),
 });
 export type TerrainRoadEdge = z.infer<typeof TerrainRoadEdgeSchema>;

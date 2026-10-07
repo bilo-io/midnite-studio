@@ -35,6 +35,34 @@ export const MapCaptureRequestSchema = z.object({
 });
 export type MapCaptureRequest = z.infer<typeof MapCaptureRequestSchema>;
 
+/** OSM highway classes a capture keeps; `*_link` folds into its parent, foot/cycle ways into `path`. */
+export const MAP_ROAD_CLASSES = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'service', 'track', 'path'] as const;
+export type MapRoadClass = (typeof MAP_ROAD_CLASSES)[number];
+
+/**
+ * `roads.graph.json` (Theme E writes it, Theme F hands it to Terrain): the real OSM road graph in
+ * Terrain's centred frame — `x` east, `z` south, metres.
+ */
+export const MapRoadGraphFileSchema = z.object({
+  version: z.literal(1),
+  worldSize: z.number().positive(),
+  nodes: z.array(z.object({ id: z.number().int().nonnegative(), p: z.tuple([z.number(), z.number()]) })),
+  edges: z.array(
+    z.object({
+      id: z.number().int().nonnegative(),
+      a: z.number().int().nonnegative(),
+      b: z.number().int().nonnegative(),
+      points: z.array(z.tuple([z.number(), z.number()])),
+      cls: z.enum(MAP_ROAD_CLASSES),
+      name: z.string().optional(),
+      lanes: z.number().int().positive().optional(),
+      widthM: z.number().positive(),
+      osmWayId: z.number().int().optional(),
+    }),
+  ),
+});
+export type MapRoadGraphFile = z.infer<typeof MapRoadGraphFileSchema>;
+
 export const MapCaptureCancelRequestSchema = z.object({ captureId: z.string().min(1) });
 
 export const MAP_CAPTURE_STAGES = ['plan', 'dem', 'satellite', 'roads', 'encode', 'handoff'] as const;

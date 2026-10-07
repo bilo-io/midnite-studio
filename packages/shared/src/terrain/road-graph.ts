@@ -4,6 +4,7 @@
  * on the origin) together with the distance-transform radii sampled along them, which become the
  * edge's width. Then: prune spurs, merge near-duplicate nodes, fit centripetal Catmull-Rom splines.
  */
+import type { MapRoadGraphFile } from '../media-map-capture';
 import type { TerrainRoadsFile } from '../media-terrain';
 import { pixelToWorld, sampleHeight } from './field-sample';
 import type { Heightfield } from './heightfield';
@@ -20,6 +21,11 @@ export type RoadEdge = {
   path: [number, number][];
   /** Distance to the mask's edge along the centreline, in metres (from the distance transform). */
   radii: number[];
+  /** A captured graph's own width (Phase 108 Theme F); wins over `radii`, which then hold `widthM / 2`. */
+  widthM?: number;
+  /** OSM highway class and name, carried through to `build/roads.json`. */
+  cls?: string;
+  name?: string;
 };
 export type RoadGraph = { nodes: RoadNode[]; edges: RoadEdge[] };
 
@@ -403,6 +409,7 @@ const median = (values: number[]): number => {
  * transform measures to the first background pixel's centre), × `widthScale`, clamped.
  */
 export function edgeWidth(edge: RoadEdge, opts: { mPerPx: number; widthScale: number; widthClampM: readonly [number, number] }): number {
+  if (edge.widthM !== undefined) return Math.min(opts.widthClampM[1], Math.max(opts.widthClampM[0], edge.widthM * opts.widthScale));
   const raw = Math.max(opts.mPerPx, 2 * median(edge.radii) - 0.5 * opts.mPerPx);
   return Math.min(opts.widthClampM[1], Math.max(opts.widthClampM[0], raw * opts.widthScale));
 }
@@ -428,10 +435,39 @@ export function toRoadsFile(
         points: e.path.map(([x, z]) => [round(x), round(sampleHeight(field, x, z)), round(z)] as [number, number, number]),
         widthM,
         kind: roadKind(widthM),
+        ...(e.cls !== undefined ? { cls: e.cls } : {}),
+        ...(e.name !== undefined ? { name: e.name } : {}),
         lengthM: round(pathLength(e.path)),
       };
     }),
   };
+}
+
+/**
+ * A captured road graph (`MapRoadGraphFileSchema`, already in Terrain's centred metres) as the
+ * in-memory graph the conform and `roads.json` stages take. Widths come from `widthM`, so `radii`
+ * hold half of it per point; OSM node ids are renumbered densely and edges with a dangling node dropped.
+ */
+export function roadGraphFromCapture(file: MapRoadGraphFile): RoadGraph {
+  const ids = new Map(file.nodes.map((n, i) => [n.id, i]));
+  const nodes: RoadNode[] = file.nodes.map((n, i) => ({ id: i, x: n.p[0], z: n.p[1] }));
+  const edges: RoadEdge[] = [];
+  for (const e of file.edges) {
+    const a = ids.get(e.a);
+    const b = ids.get(e.b);
+    if (a === undefined || b === undefined || e.points.length < 2) continue;
+    edges.push({
+      id: edges.length,
+      a,
+      b,
+      path: e.points.map(([x, z]) => [x, z] as [number, number]),
+      radii: e.points.map(() => e.widthM / 2),
+      widthM: e.widthM,
+      cls: e.cls,
+      ...(e.name !== undefined ? { name: e.name } : {}),
+    });
+  }
+  return { nodes, edges };
 }
 
 /** Within this distance two graph nodes are one crossing, metres. */
