@@ -22,9 +22,16 @@ export type UiCommand =
   | 'snap:up'
   | 'help'
   | 'save'
-  | 'escape';
+  | 'escape'
+  | 'sculpt:radius'
+  | 'sculpt:strength'
+  | 'sculpt:smaller'
+  | 'sculpt:larger'
+  | 'sculpt:maskInvert'
+  | 'sculpt:maskClear';
 
-export type KeyInput = { key: string; mod: boolean; shift: boolean; alt?: boolean };
+/** `sculpt`: sculpt mode is on (Phase 104 Theme D), where a few keys mean brush things instead. */
+export type KeyInput = { key: string; mod: boolean; shift: boolean; alt?: boolean; sculpt?: boolean };
 
 /**
  * Maps a key press to its outcome. Pure, so the whole shortcut table is unit-tested without a
@@ -36,6 +43,15 @@ export function resolveKey(input: KeyInput, state: EditorState, gridStep: number
   const dispatch = (action: EditorAction): KeyOutcome => ({ kind: 'dispatch', action });
   const ui = (command: UiCommand): KeyOutcome => ({ kind: 'ui', command });
   const has = state.selection.length > 0;
+
+  // Sculpt mode borrows F, [ ], Mod+I and Alt+M; every other key keeps its meaning.
+  if (input.sculpt) {
+    if (!mod && !input.alt && key === 'f') return ui(shift ? 'sculpt:strength' : 'sculpt:radius');
+    if (!mod && !input.alt && key === '[') return ui('sculpt:smaller');
+    if (!mod && !input.alt && key === ']') return ui('sculpt:larger');
+    if (mod && !shift && key === 'i') return ui('sculpt:maskInvert');
+    if (input.alt && !mod && (key === 'm' || input.key === 'µ')) return ui('sculpt:maskClear');
+  }
 
   if (mod) {
     switch (key) {

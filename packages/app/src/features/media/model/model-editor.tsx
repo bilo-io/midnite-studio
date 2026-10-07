@@ -28,6 +28,10 @@ import { DEFAULT_LIGHTING, LIGHTING_PRESETS, lightingById } from './lighting';
 import { ModelInspector } from './model-inspector';
 import type { ConvertFn } from './mesh-panel';
 import type { SdfBaker } from './sculpt/use-sdf';
+import { sculptWorldMatrix, type SculptIO } from './sculpt/sculpt-controller';
+import { SculptLayer } from './sculpt/sculpt-layer';
+import { useSculpt } from './sculpt/use-sculpt';
+import { specForSave } from './sculpt-panel';
 import { RigOverlay } from './rig-overlay';
 import { clipNamed, poseAt, posedScene, rigModel } from './rig-pose';
 import { INITIAL_RIG_VIEW, type RigView } from './rig-view';
@@ -78,10 +82,12 @@ export default function ModelEditor({
   retargetSources,
   onConvert,
   sdfBaker,
+  sculptIO,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
-  onSave: () => void;
+  /** Saves the design — `spec` when given (sculpt mode hands over the spec repointed at its flushed mesh). */
+  onSave: (spec?: ModelSpec) => void;
   saving: boolean;
   /** Other rigged models in the library, for the Animation tab's Retarget. */
   retargetSources?: readonly RetargetSource[];
@@ -89,6 +95,8 @@ export default function ModelEditor({
   onConvert?: ConvertFn;
   /** Bakes signed-distance trees into sculpt parts (Phase 104 Theme C); the SDF tab shows only with it. */
   sdfBaker?: SdfBaker;
+  /** Reads and writes sculpt meshes (Phase 104 Theme D); the Sculpt tab shows only with it. */
+  sculptIO?: SculptIO;
 }) {
   const [mode, setMode] = useState<TransformMode>('translate');
   const [shade, setShade] = useState<ShadeMode>('solid');
@@ -118,6 +126,20 @@ export default function ModelEditor({
   const scene = useMemo(() => editorScene(shown), [shown, assetEpoch]);
   const lighting = lightingById(lightingId);
 
+  // Sculpt mode (Theme D): the worker's mesh replaces the part in the viewport while it is open.
+  const { controller: sculpt, snapshot: sculptState } = useSculpt(sculptIO, dispatch, spec);
+  const sculpting = !!sculptState && sculptState.status === 'ready';
+  const sculptIndex = sculpting ? spec.parts.findIndex((p) => p.id === sculptState.partId) : -1;
+  const sculptLook = sculptIndex >= 0 ? scene.parts.find((p) => p.sourceIndex === sculptIndex) : undefined;
+  const sculptMatrix = useMemo(() => (sculptIndex >= 0 ? sculptWorldMatrix(spec, sculptIndex) : null), [spec, sculptIndex]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const save = useCallback(async () => {
+    setSaveError(null);
+    const out = await specForSave(sculpt, state.spec);
+    if (!out.ok) return setSaveError(out.error);
+    onSave(out.spec);
+  }, [sculpt, state.spec, onSave]);
+
   // Rig, pose and playback (view state only — never in the design or its history).
   const [rigView, setRigView] = useState<RigView>(INITIAL_RIG_VIEW);
   const onRigView = useCallback((patch: Partial<RigView>) => setRigView((v) => ({ ...v, ...patch })), []);
@@ -127,7 +149,8 @@ export default function ModelEditor({
     if (rigView.clip !== null && !clip) onRigView({ clip: null, time: 0, playing: false });
   }, [rigView.clip, clip, onRigView]);
   const pose = useMemo(() => (rigged ? poseAt(rigged, clip, rigView.time) : null), [rigged, clip, rigView.time]);
-  const display = useMemo(() => (rigged && pose && clip ? posedScene(scene, rigged, pose) : scene), [scene, rigged, pose, clip]);
+  const posed = useMemo(() => (rigged && pose && clip ? posedScene(scene, rigged, pose) : scene), [scene, rigged, pose, clip]);
+  const display = useMemo(() => (sculptIndex >= 0 ? { ...posed, parts: posed.parts.filter((p) => p.sourceIndex !== sculptIndex) } : posed), [posed, sculptIndex]);
 
   // Shift flips snapping while it is held (the gizmo reads this).
   useEffect(() => {
@@ -173,9 +196,21 @@ export default function ModelEditor({
       case 'help':
         return setHelp((on) => !on);
       case 'save':
-        if (isDirty(state)) onSave();
+        if (isDirty(state) || sculptState?.unsaved) void save();
         return;
+      case 'sculpt:radius':
+      case 'sculpt:strength':
+        return sculpt?.startAdjust(command === 'sculpt:radius' ? 'radius' : 'strength', sculpt.pointerX);
+      case 'sculpt:smaller':
+        return sculpt?.stepRadius(-1);
+      case 'sculpt:larger':
+        return sculpt?.stepRadius(1);
+      case 'sculpt:maskInvert':
+        return void sculpt?.maskOp('invert');
+      case 'sculpt:maskClear':
+        return void sculpt?.maskOp('clear');
       case 'escape':
+        if (sculptState?.adjust) return sculpt?.endAdjust(true);
         if (help) return setHelp(false);
         if (points.length > 0) return setPoints([]);
         if (measure) return setMeasure(false);
@@ -185,7 +220,7 @@ export default function ModelEditor({
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target instanceof HTMLElement && event.target.closest('input, textarea, select')) return;
-    const outcome = resolveKey({ key: event.key, mod: event.metaKey || event.ctrlKey, shift: event.shiftKey, alt: event.altKey }, state, snap.grid);
+    const outcome = resolveKey({ key: event.key, mod: event.metaKey || event.ctrlKey, shift: event.shiftKey, alt: event.altKey, sculpt: sculpting }, state, snap.grid);
     if (!outcome) return;
     event.preventDefault();
     if (outcome.kind === 'dispatch') dispatch(outcome.action);
@@ -238,12 +273,12 @@ export default function ModelEditor({
         <IconButton icon={LuCircleHelp} label="Keyboard shortcuts (?)" size="sm" aria-pressed={help} onClick={() => setHelp((on) => !on)} />
         <button
           type="button"
-          disabled={!isDirty(state) || saving}
-          onClick={onSave}
+          disabled={(!isDirty(state) && !sculptState?.unsaved) || saving}
+          onClick={() => void save()}
           className="ml-auto flex h-6 items-center gap-1 rounded-md border border-border bg-card px-2 text-[11px] text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <LuSave aria-hidden className="h-3.5 w-3.5" />
-          {saving ? 'Saving…' : isDirty(state) ? 'Save changes' : 'Saved'}
+          {saving ? 'Saving…' : isDirty(state) || sculptState?.unsaved ? 'Save changes' : 'Saved'}
         </button>
       </div>
 
@@ -253,7 +288,7 @@ export default function ModelEditor({
             frameloop="demand"
             dpr={[1, 2]}
             gl={{ antialias: true, alpha: true }}
-            onPointerMissed={() => !measure && dispatch({ type: 'select', index: null })}
+            onPointerMissed={() => !measure && !sculpting && dispatch({ type: 'select', index: null })}
             data-testid="model-canvas"
           >
             <EditorScene
@@ -273,9 +308,22 @@ export default function ModelEditor({
               snap={snap}
               shift={shift}
               measure={measure}
+              sculpting={sculpting}
               measurePoints={points}
               onMeasurePoint={(p) => setPoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))}
             />
+            {sculpting && sculpt && sculptState && sculptMatrix ? (
+              <SculptLayer
+                controller={sculpt}
+                snapshot={sculptState}
+                toWorld={sculptMatrix}
+                color={sculptLook?.color ?? '#b0b0b0'}
+                roughness={sculptLook?.material.roughness ?? 0.6}
+                metalness={sculptLook?.material.metalness ?? 0}
+                wireframe={shade === 'wireframe'}
+                xray={xray}
+              />
+            ) : null}
             {rigged && pose ? <RigOverlay model={rigged} scene={display} pose={pose} view={rigView} onView={onRigView} /> : null}
           </Canvas>
         ) : (
@@ -328,6 +376,11 @@ export default function ModelEditor({
             ) : null}
           </div>
         ) : null}
+        {saveError ? (
+          <p role="alert" className="absolute bottom-6 left-2 rounded-md border border-destructive/50 bg-background/95 px-2 py-0.5 text-[11px] text-destructive shadow">
+            {saveError}
+          </p>
+        ) : null}
         {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
       </div>
 
@@ -338,6 +391,7 @@ export default function ModelEditor({
         issues={errors}
         {...(onConvert ? { onConvert } : {})}
         {...(sdfBaker ? { sdf: { baker: sdfBaker, onPreview: setSdfPreview } } : {})}
+        {...(sculpt && sculptState ? { sculpt: { controller: sculpt, snapshot: sculptState } } : {})}
         rig={{ view: rigView, onView: onRigView, model: rigged, scene, ...(retargetSources ? { sources: retargetSources } : {}) }}
       />
     </div>

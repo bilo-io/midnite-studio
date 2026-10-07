@@ -1,5 +1,5 @@
 /** Every editor shortcut, in one place: the in-app help reads this and a test keeps the chords unique. */
-export type Shortcut = { chord: string; label: string; group: 'Tools' | 'Edit' | 'Selection' | 'View' };
+export type Shortcut = { chord: string; label: string; group: 'Tools' | 'Edit' | 'Selection' | 'View' | 'Sculpt' };
 
 export const SHORTCUTS: readonly Shortcut[] = [
   { chord: 'W', label: 'Move gizmo', group: 'Tools' },
@@ -35,6 +35,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { chord: 'X', label: 'Toggle x-ray', group: 'View' },
   { chord: 'G', label: 'Toggle grid', group: 'View' },
   { chord: 'Shift+/', label: 'This shortcut list', group: 'View' },
+  { chord: 'Left-drag', label: 'Sculpt with the brush (Mod inverts, Shift smooths)', group: 'Sculpt' },
+  { chord: 'Right-drag', label: 'Orbit while sculpting', group: 'Sculpt' },
+  { chord: 'F (sculpt)', label: 'Drag the brush radius, click to set', group: 'Sculpt' },
+  { chord: 'Shift+F (sculpt)', label: 'Drag the brush strength, click to set', group: 'Sculpt' },
+  { chord: '[ / ] (sculpt)', label: 'Smaller / larger brush', group: 'Sculpt' },
+  { chord: 'Mod+I (sculpt)', label: 'Invert the mask', group: 'Sculpt' },
+  { chord: 'Alt+M (sculpt)', label: 'Clear the mask', group: 'Sculpt' },
 ];
 
 /** Mod is Cmd on macOS, Ctrl elsewhere. */

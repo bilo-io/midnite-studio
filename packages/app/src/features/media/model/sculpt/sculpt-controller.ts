@@ -166,6 +166,8 @@ export class SculptController {
   /** The worker queue: every request after the first waits for the one before it to settle. */
   private chain: Promise<unknown> = Promise.resolve();
   private part: { id: string; src: string } | null = null;
+  /** The pointer's last x over the viewport (the layer keeps it current) — where an `F` drag starts. */
+  pointerX = 0;
 
   constructor(
     private readonly start: () => Promise<SculptSession>,
