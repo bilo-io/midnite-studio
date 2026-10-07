@@ -5,6 +5,7 @@ import { CHANNELS, EVENT_CHANNELS, failure, schemas, SPRITE_FRAME_SOURCES_PENDIN
 import { defaultLogger } from '../log';
 import { createVisionCall } from '../media/model/engines';
 import { createHandDrawnRunner, handDrawnPreflight } from '../media/sprite/hand-drawn';
+import { createOneShotRunner, oneShotPreflight } from '../media/sprite/one-shot';
 import { createRenderRelay } from '../media/sprite/render-relay';
 import { createRenderedRunner } from '../media/sprite/rendered';
 import { createSpriteService, spriteNotAvailableYet, type SpriteJobRunner } from '../media/sprite/sprite-service';
@@ -19,8 +20,9 @@ import { engines } from './media-model-handlers';
  * `main/media/sprite/sprite-service.ts`, which is also what MCP will call (Theme K).
  *
  * Frame sources plug in through `runJob`, keyed by method: hand-drawn (Theme D) plus every turnaround
- * job, and rendered from 3D (Theme E), whose frames come from the focused main window through the
- * render relay; one-shot (F) still ends `failed` with a plain message until it lands.
+ * job, rendered from 3D (Theme E), whose frames come from the focused main window through the render
+ * relay, and the one-shot sheet (Theme F). A job's `method` override (one-shot's "Regenerate this clip
+ * with Hand-drawn") arrives here already applied to `ctx.spec`.
  * `export` (Theme G) answers "not available yet" — a half landing must never hang the renderer on an
  * unregistered channel.
  */
@@ -43,9 +45,16 @@ const renderRelay = createRenderRelay({
 });
 const rendered = createRenderedRunner(renderRelay);
 
+const toPng = async (bytes: Uint8Array): Promise<Buffer | null> => {
+  const image = nativeImage.createFromBuffer(Buffer.from(bytes));
+  return image.isEmpty() ? null : image.toPNG();
+};
+const oneShot = createOneShotRunner({ generateImage: (req) => imageService.generateImage(req), toPng });
+
 const runJob: SpriteJobRunner = (ctx) => {
   if (ctx.turnaround || (ctx.spec.kind === 'sheet' && ctx.spec.method === 'hand-drawn')) return handDrawn(ctx);
   if (ctx.spec.kind === 'sheet' && ctx.spec.method === 'rendered') return rendered(ctx);
+  if (ctx.spec.kind === 'sheet' && ctx.spec.method === 'one-shot') return oneShot(ctx);
   return Promise.reject(new Error(SPRITE_FRAME_SOURCES_PENDING));
 };
 
@@ -53,16 +62,13 @@ export const spriteService = createSpriteService({
   rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'sprite' }),
   writeBytes: (req) => mediaStore.writeBytes({ repoId: req.repoId, tab: 'sprite', project: req.project, path: req.path, data: req.data }),
   trash: (absPath) => shell.trashItem(absPath),
-  toPng: async (bytes) => {
-    const image = nativeImage.createFromBuffer(Buffer.from(bytes));
-    return image.isEmpty() ? null : image.toPNG();
-  },
+  toPng,
   onChanged: (repoId) => notifyMediaChanged(repoId, 'sprite'),
   emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaSpriteProgress, event),
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaSpriteChanged, event),
   log: (line) => defaultLogger.info(line),
   runJob,
-  preflight: handDrawnPreflight,
+  preflight: (spec, req) => handDrawnPreflight(spec, req) ?? oneShotPreflight(spec, req),
 });
 
 export function registerMediaSpriteHandlers(): void {
