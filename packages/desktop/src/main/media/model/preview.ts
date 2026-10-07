@@ -5,6 +5,7 @@ import {
   MODEL_PREVIEW_SIZE_MAX,
   MODEL_PREVIEW_SIZE_MIN,
   MODEL_PREVIEW_VIEWS,
+  previewCamera,
   type MeshPart,
   type ModelPreviewView,
 } from '@midnite/studio-shared';
@@ -43,14 +44,6 @@ const unit = (v: Vec): Vec => {
   return [v[0] / len, v[1] / len, v[2] / len];
 };
 
-/** Where each camera looks (forward = camera → model) and which way is up on screen. */
-const CAMERAS: Record<ModelPreviewView, { forward: Vec; up: Vec }> = {
-  front: { forward: [0, 0, -1], up: [0, 1, 0] },
-  side: { forward: [-1, 0, 0], up: [0, 1, 0] },
-  top: { forward: [0, -1, 0], up: [0, 0, -1] },
-  iso: { forward: unit([-1, -0.8, -1]), up: [0, 1, 0] },
-};
-
 export type RenderedView = { view: ModelPreviewView; size: number; png: Buffer };
 
 export const clampPreviewSize = (size: number | undefined): number =>
@@ -64,10 +57,15 @@ const hexToRgb = (hex: string): Vec => {
 
 /** Rasterise one camera into an RGB buffer of `size × size` pixels. */
 export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, size: number): Uint8Array {
-  const { forward, up: upHint } = CAMERAS[view];
-  const right = unit(cross(forward, upHint));
-  const up = cross(right, forward);
+  const camera = previewCamera(parts, view, size);
   const big = size * SUPERSAMPLE;
+  const color = new Uint8Array(big * big * 3);
+  for (let i = 0; i < big * big; i += 1) color.set(BACKGROUND, i * 3);
+  if (!camera) return downsample(color, size);
+  const { forward, right, up, extent } = camera;
+  const scale = camera.scale * SUPERSAMPLE;
+  const offsetX = camera.offsetX * SUPERSAMPLE;
+  const offsetY = camera.offsetY * SUPERSAMPLE;
 
   // Project every vertex once: screen x/y in model units, depth along `forward`.
   const projected = parts.map((part) => {
@@ -83,28 +81,6 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
     }
     return { xs, ys, zs };
   });
-
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (const { xs, ys } of projected) {
-    for (let i = 0; i < xs.length; i += 1) {
-      minX = Math.min(minX, xs[i]!);
-      maxX = Math.max(maxX, xs[i]!);
-      minY = Math.min(minY, ys[i]!);
-      maxY = Math.max(maxY, ys[i]!);
-    }
-  }
-
-  const color = new Uint8Array(big * big * 3);
-  for (let i = 0; i < big * big; i += 1) color.set(BACKGROUND, i * 3);
-  if (!Number.isFinite(minX)) return downsample(color, size);
-
-  const extent = Math.max(maxX - minX, maxY - minY, 1e-6);
-  const scale = (big * 0.86) / extent;
-  const offsetX = big / 2 - ((minX + maxX) / 2) * scale;
-  const offsetY = big / 2 + ((minY + maxY) / 2) * scale;
 
   const depth = new Float32Array(big * big).fill(Infinity);
   const ids = new Uint16Array(big * big);

@@ -17,7 +17,7 @@ export const MODEL_OPS_LOG_CAP = 2000;
 /** One line's ceiling; a stroke with thousands of points is summarised by its caller, not logged raw. */
 export const MODEL_OPS_LINE_MAX = 16 * 1024;
 
-export const MODEL_OP_KINDS = ['convert', 'sdf', 'stroke', 'mask', 'remesh', 'subdivide', 'decimate', 'save'] as const;
+export const MODEL_OP_KINDS = ['convert', 'sdf', 'stroke', 'mask', 'remesh', 'subdivide', 'decimate', 'retopo', 'unwrap', 'bake', 'save'] as const;
 export type ModelOpKind = (typeof MODEL_OP_KINDS)[number];
 
 export const ModelOpEntrySchema = z.object({
