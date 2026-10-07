@@ -1,11 +1,11 @@
-import type { RemeshOptions, SdfTree } from '@midnite/studio-shared';
+import type { Mat4, RemeshOptions, SculptBrush, SculptSymmetry, SdfTree } from '@midnite/studio-shared';
 
 import type { SculptLoaded, SculptRequest, SculptResponse, Vec3 } from './sculpt-protocol';
 
 /**
- * The editor's handle on a sculpt worker (Phase 104 Theme A): request/reply by id over a `Worker`-shaped
- * port, so a test can hand it the host directly. Deltas resolve their request and are also fanned out to
- * `onDelta`, which is where the display applies them.
+ * The editor's handle on a sculpt worker (Phase 104 Themes A and D): request/reply by id over a
+ * `Worker`-shaped port, so a test can hand it the host directly. Edits resolve their request with the
+ * changed ranges; the caller (the sculpt controller) applies them to the display.
  */
 export type SculptPort = {
   postMessage: (message: SculptRequest, transfer: Transferable[]) => void;
@@ -13,18 +13,19 @@ export type SculptPort = {
   terminate: () => void;
 };
 
+export type SculptEdit = Extract<SculptResponse, { type: 'edit' }>;
+export type SculptTopology = Extract<SculptResponse, { type: 'topology' }>;
+
 type Pending = { resolve: (response: SculptResponse) => void; reject: (error: Error) => void };
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 export class SculptSession {
   private next = 1;
   private readonly pending = new Map<number, Pending>();
-  private readonly deltaListeners = new Set<(response: Extract<SculptResponse, { type: 'delta' }>) => void>();
 
   constructor(private readonly port: SculptPort) {
     port.onmessage = (event) => {
       const response = event.data;
-      if (response.type === 'delta') for (const listener of this.deltaListeners) listener(response);
       const waiting = this.pending.get(response.id);
       if (!waiting) return;
       this.pending.delete(response.id);
@@ -42,15 +43,43 @@ export class SculptSession {
     });
   }
 
-  /** Hands the worker a `.mesh.bin` (the buffer is transferred, so the caller's copy is emptied). */
-  async load(bytes: Uint8Array): Promise<SculptLoaded> {
+  /** Hands the worker a `.mesh.bin` (the buffer is transferred, so the caller's copy is emptied); `revision` is the part's. */
+  async load(bytes: Uint8Array, revision = 0): Promise<SculptLoaded> {
     const owned = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
     const buffer = owned.buffer as ArrayBuffer;
-    return (await this.request<'loaded'>({ type: 'load', bytes: buffer }, [buffer])).mesh;
+    return (await this.request<'loaded'>({ type: 'load', bytes: buffer, revision }, [buffer])).mesh;
   }
 
-  async displace(center: Vec3, radius: number, amount: number): Promise<Extract<SculptResponse, { type: 'delta' }>> {
-    return this.request<'delta'>({ type: 'displace', center, radius, amount });
+  async strokeBegin(brush: SculptBrush, symmetry: SculptSymmetry, toWorld?: Mat4): Promise<void> {
+    await this.request<'ok'>({ type: 'strokeBegin', brush, symmetry, ...(toWorld ? { toWorld } : {}) });
+  }
+
+  async strokeTo(origin: Vec3, dir: Vec3, pressure?: number): Promise<SculptEdit> {
+    return this.request<'edit'>({ type: 'strokeTo', origin, dir, ...(pressure !== undefined ? { pressure } : {}) });
+  }
+
+  async strokeEnd(): Promise<SculptEdit> {
+    return this.request<'edit'>({ type: 'strokeEnd' });
+  }
+
+  async mask(op: 'invert' | 'clear'): Promise<SculptEdit> {
+    return this.request<'edit'>({ type: 'mask', op });
+  }
+
+  async subdivide(): Promise<SculptTopology> {
+    return this.request<'topology'>({ type: 'subdivide' });
+  }
+
+  async setLevel(level: number): Promise<SculptTopology> {
+    return this.request<'topology'>({ type: 'level', level });
+  }
+
+  async voxelRemesh(options: RemeshOptions): Promise<SculptTopology> {
+    return this.request<'topology'>({ type: 'voxelRemesh', options });
+  }
+
+  async seek(revision: number): Promise<Extract<SculptResponse, { type: 'sought' }>> {
+    return this.request<'sought'>({ type: 'seek', revision });
   }
 
   async raycast(origin: Vec3, dir: Vec3): Promise<Extract<SculptResponse, { type: 'hit' }>['hit']> {
@@ -58,9 +87,9 @@ export class SculptSession {
   }
 
   /** The live mesh as `.mesh.bin` bytes, ready for `window.midniteStudio.media.model.mesh.write`. */
-  async serialize(): Promise<{ bytes: Uint8Array; vertices: number; triangles: number }> {
+  async serialize(): Promise<{ bytes: Uint8Array; vertices: number; triangles: number; multiresLevel: number; revision: number }> {
     const reply = await this.request<'serialized'>({ type: 'serialize' });
-    return { bytes: new Uint8Array(reply.bytes), vertices: reply.vertices, triangles: reply.triangles };
+    return { bytes: new Uint8Array(reply.bytes), vertices: reply.vertices, triangles: reply.triangles, multiresLevel: reply.multiresLevel, revision: reply.revision };
   }
 
   /** Voxel remesh in the worker; the input buffers are transferred. */
@@ -73,15 +102,9 @@ export class SculptSession {
     return this.request<'sdfBaked'>({ type: 'sdfBake', tree, resolution });
   }
 
-  onDelta(listener: (response: Extract<SculptResponse, { type: 'delta' }>) => void): () => void {
-    this.deltaListeners.add(listener);
-    return () => void this.deltaListeners.delete(listener);
-  }
-
   dispose(): void {
     for (const waiting of this.pending.values()) waiting.reject(new Error('The sculpt session was closed.'));
     this.pending.clear();
-    this.deltaListeners.clear();
     this.port.terminate();
   }
 }
