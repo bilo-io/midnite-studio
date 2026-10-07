@@ -3955,6 +3955,9 @@ export function buildMockBridge(data: MockFixtures) {
               write(req.group, req.asset, rest);
             } else if ('model' in req) {
               write(req.group, req.asset, { ...spec, reference: { kind: 'model', ...req.model } });
+            } else if ('fromFrame' in req) {
+              // One-shot's hand-off (Theme F): a frame becomes the approved reference.
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: true } });
             } else {
               write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
             }

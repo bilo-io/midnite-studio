@@ -15,7 +15,7 @@ test('renders 1 clip × 4 directions of a rigged model into non-empty frames wit
   await installMockBridge(page, fixtures);
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const mod = (await import(/* @vite-ignore */ '/e2e/sprite-render-fixture.ts')) as typeof import('./sprite-render-fixture');
+    const mod = (await import(/* @vite-ignore */ ['/e2e', 'sprite-render-fixture.ts'].join('/'))) as typeof import('./sprite-render-fixture');
     const rendered = await mod.renderFixture();
     const firsts = ['s', 'w', 'n', 'e'].map((dir) => rendered.frames.find((f) => f.dir === dir && f.index === 0));
     return {

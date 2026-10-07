@@ -27,6 +27,7 @@ import { PromptTextarea } from '../prompt-input';
 import {
   ENV_KINDS,
   envBlockedReason,
+  formOneShot,
   envFormToSpec,
   FRAME_SIZE_PRESETS,
   formRecommendation,
@@ -379,6 +380,7 @@ function SheetFields({
           />
         ) : null}
         {form.method === 'hand-drawn' ? <HandDrawnOptions form={form} patch={patch} /> : null}
+        {form.method === 'one-shot' ? <OneShotOptions form={form} /> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -427,6 +429,26 @@ function HandDrawnOptions({ form, patch }: { form: SheetForm; patch: (p: Partial
             {form.asymmetric ? 'The west facing is drawn too, from the same poses.' : 'The west facing is the east frames mirrored — no extra requests.'}
           </p>
         </>
+      ) : null}
+    </div>
+  );
+}
+
+/** One-shot (Theme F): the grid the whole sheet is asked as, and the refusal when it is too large. */
+function OneShotOptions({ form }: { form: SheetForm }) {
+  const { grid, aspect, blocked } = formOneShot(form);
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border/60 p-2" data-testid="one-shot-options">
+      <p className="text-[11px] tabular-nums text-foreground">
+        One image: {grid.columns} {grid.columns === 1 ? 'column' : 'columns'} × {grid.rows} {grid.rows === 1 ? 'row' : 'rows'} of {grid.cell[0]}×{grid.cell[1]} cells, {grid.gutter} px gutters, asked at {aspect}.
+      </p>
+      <p className="text-[10px] text-muted-foreground">
+        One row per clip{form.directions > 1 ? ' and direction' : ''}. The real gutters are detected in what comes back; a sheet whose grid does not match is reported, not sliced, and a failing row can be redrawn with Hand-drawn.
+      </p>
+      {blocked ? (
+        <p role="alert" className="text-[11px] text-destructive">
+          {blocked}
+        </p>
       ) : null}
     </div>
   );

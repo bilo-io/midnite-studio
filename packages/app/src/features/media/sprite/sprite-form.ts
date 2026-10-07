@@ -4,6 +4,10 @@ import {
   imageProviderInfo,
   imageReferenceUnsupportedReason,
   defaultSpriteCamera,
+  oneShotAspect,
+  oneShotBlocker,
+  oneShotGrid,
+  oneShotRows,
   presetClips,
   recommendSpriteMethod,
   SPRITE_NEEDS_MODEL,
@@ -129,6 +133,13 @@ export function sheetFormToSpec(form: SheetForm): Record<string, unknown> {
   };
 }
 
+/** One-shot (Theme F): the grid a form would ask for, its aspect, and why it is refused (`null` when it fits). */
+export function formOneShot(form: Pick<SheetForm, 'clips' | 'directions' | 'perspective' | 'asymmetric' | 'frameW' | 'frameH'>) {
+  const rows = oneShotRows({ clips: form.clips, directions: form.directions, targetPerspective: form.perspective, mirror: !form.asymmetric });
+  const grid = oneShotGrid({ frameSize: [form.frameW, form.frameH] }, rows);
+  return { rows, grid, aspect: oneShotAspect(grid), blocked: oneShotBlocker(grid) };
+}
+
 /** Why Generate cannot run, or `null`. Rendering from 3D with no model swaps the button instead (see `needsRig`). */
 export function sheetBlockedReason(form: SheetForm): string | null {
   if (form.name.trim().length === 0) return 'Name the sprite first.';
@@ -136,6 +147,10 @@ export function sheetBlockedReason(form: SheetForm): string | null {
   if (form.clips.some((c) => !/^[a-z][a-z0-9-]{0,31}$/.test(c.name))) return 'Clip names are lower-case letters, digits and dashes.';
   if (new Set(form.clips.map((c) => c.name)).size !== form.clips.length) return 'Clip names must be unique.';
   if (form.method !== 'rendered' && form.prompt.trim().length === 0) return 'Describe what to draw.';
+  if (form.method === 'one-shot') {
+    const blocked = formOneShot(form).blocked;
+    if (blocked) return blocked;
+  }
   if (form.method === 'hand-drawn' && !referenceCapable(form.provider, form.model)) {
     return imageReferenceUnsupportedReason(form.provider === 'gemini' ? 'Imagen' : imageProviderInfo(form.provider).label);
   }

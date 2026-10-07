@@ -83,7 +83,7 @@ async function contactSheet(page: Page, label: string, over: Record<string, unkn
   await page.waitForLoadState('networkidle');
   const error = await page.evaluate(
     async ({ label, over }) => {
-      const mod = (await import(/* @vite-ignore */ '/e2e/sprite-render-fixture.ts')) as typeof import('./sprite-render-fixture');
+      const mod = (await import(/* @vite-ignore */ ['/e2e', 'sprite-render-fixture.ts'].join('/'))) as typeof import('./sprite-render-fixture');
       const rendered = await mod.renderFixture(over);
       if (rendered.error) return rendered.error;
       const root = document.createElement('div');
