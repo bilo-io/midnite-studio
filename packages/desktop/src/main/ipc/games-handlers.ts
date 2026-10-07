@@ -4,6 +4,7 @@ import { defaultLogger } from '../log';
 import type { AssetBridge } from '../games/asset-bridge';
 import type { GameAgentService } from '../games/game-agent-service';
 import type { GameService } from '../games/game-service';
+import type { Playtests } from '../games/playtest';
 import { handle, handleBare, handleSend } from './handle';
 
 const warnInvalid = (issue: string): void => {
@@ -15,7 +16,12 @@ const warnInvalid = (issue: string): void => {
  * `GameService`. `setBounds`/`setVisible` are one-way like `apps.setBounds`: a
  * bounds push fires every resize frame and a round trip would only add latency.
  */
-export function registerGamesHandlers(service: GameService, agents?: GameAgentService, assets?: AssetBridge): void {
+export function registerGamesHandlers(
+  service: GameService,
+  agents?: GameAgentService,
+  assets?: AssetBridge,
+  playtests?: Playtests,
+): void {
   handleBare(CHANNELS.gamesSettingsGet, () => service.settings.get());
 
   handle(
@@ -111,5 +117,34 @@ export function registerGamesHandlers(service: GameService, agents?: GameAgentSe
     handle(CHANNELS.gamesAssetSources, schemas.GamesAssetSourcesRequest, async ({ tab }) => ok(await assets.sources(tab)), (issue) => failure(issue));
     handle(CHANNELS.gamesImportAsset, schemas.GamesImportAssetRequest, (req) => assets.importAsset(req), (issue) => failure(issue));
     handle(CHANNELS.gamesResync, schemas.GamesResyncRequest, (req) => assets.resync(req), (issue) => failure(issue));
+  }
+
+  // Play-tests (Theme O): the toolbar's Playtests menu. The service throws named errors; they come back as failures.
+  if (playtests) {
+    handle(
+      CHANNELS.gamesPlaytests,
+      schemas.GamesPlaytestsRequest,
+      async ({ gameId }) => {
+        try {
+          return ok({ playtests: await playtests.list(gameId) });
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
+      (issue) => failure(issue),
+    );
+    handle(
+      CHANNELS.gamesPlaytestRun,
+      schemas.GamesPlaytestRunRequest,
+      async ({ gameId, names }) => {
+        try {
+          const { passed, runs } = await playtests.run(gameId, names ? { names } : {});
+          return ok({ passed, runs });
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
+      (issue) => failure(issue),
+    );
   }
 }

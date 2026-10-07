@@ -6,14 +6,17 @@
  * rendering happens once per animation frame with `alpha`, the leftover part of
  * a step, so a renderer can interpolate. `startLoop` installs
  * `window.__midnite` — pause, resume and single-stepping drive this loop — and
- * prints `midnite-ready` after the first rendered frame.
+ * prints `midnite-ready` after the first rendered frame. Each step first calls
+ * `beforeKitStep` (virtual clock, replay input); in deterministic mode every
+ * animation frame is exactly one step, whatever the wall clock says.
  */
 
 import * as THREE from 'three';
 
 import { createFixedStep } from '../core/clock.js';
-import { HOOK_VERSION, installHook, markReady } from '../core/hook.js';
-import { rng } from '../core/rng.js';
+import { determinism } from '../core/determinism.js';
+import { HOOK_VERSION, installHook, markReady, startSeed } from '../core/hook.js';
+import { beforeKitStep } from '../core/replay.js';
 
 /**
  * A renderer sized to its canvas, with shadows and sRGB output.
@@ -67,6 +70,7 @@ export function startLoop(options) {
 
   const simulate = (/** @type {number} */ steps) => {
     for (let i = 0; i < steps; i += 1) {
+      beforeKitStep(fixed.stepMs);
       frame += 1;
       options.update(fixed.dt, frame);
     }
@@ -80,8 +84,10 @@ export function startLoop(options) {
     if (!running) return;
     const elapsed = Math.min(250, now - last);
     last = now;
-    if (!paused) simulate(fixed.advance(elapsed).steps);
-    draw(paused ? 0 : fixed.alpha, elapsed / 1000);
+    if (!paused) simulate(determinism.enabled ? 1 : fixed.advance(elapsed).steps);
+    // Deterministic: no interpolation and a fixed frame time, so a camera smoothed in `render` matches too.
+    if (determinism.enabled) draw(0, fixed.dt);
+    else draw(paused ? 0 : fixed.alpha, elapsed / 1000);
     markReady();
     handle = requestAnimationFrame(tick);
   };
@@ -134,6 +140,6 @@ export function startLoop(options) {
     setSeed: (seed) => options.onSeed?.(seed),
     setOverlay: (on) => options.onOverlay?.(on === true),
   });
-  rng.reseed(1);
+  determinism.reseed(startSeed());
   return loop;
 }

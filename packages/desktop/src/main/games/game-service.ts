@@ -166,7 +166,11 @@ export function createGameService(deps: GameServiceDeps) {
       return ok();
     },
 
-    async run(gameId: string): Promise<GitOpResult<{ runId: string }>> {
+    /**
+     * Run a game. A manifest with `deterministic: true` runs deterministically (seed 1);
+     * `opts.determinism` forces it for this run — what a play-test does.
+     */
+    async run(gameId: string, opts: { determinism?: { seed: number; paused: boolean } } = {}): Promise<GitOpResult<{ runId: string }>> {
       const game = await find(gameId);
       if (!game) return failure('That game was not found.');
       const { manifest, issues } = await readManifest(game.path);
@@ -179,6 +183,7 @@ export function createGameService(deps: GameServiceDeps) {
         root: game.path,
         network: manifest.network,
         keepSaveData: manifest.keepSaveData,
+        determinism: opts.determinism ?? (manifest.deterministic ? { seed: 1, paused: false } : null),
       });
     },
 

@@ -4,16 +4,19 @@
  *
  * Midnite Studio's runner and its `game_*` MCP tools talk to a game only
  * through this object: `game_state` calls `getState()`, the toolbar calls
- * `pause()`/`resume()`/`setOverlay()`, `game_input` presses the virtual gamepad.
+ * `pause()`/`resume()`/`setOverlay()`, `game_input` presses the virtual gamepad,
+ * and the play-test tools drive `replay` (record, load, seek, play) on a
+ * deterministic run (`deterministic` says whether this one is).
  * `getState()` must return plain JSON — at least `{ version: 1, scene, frame,
  * time }`, plus `player: { position, health? }` and `score` when the game has
  * them (`KitGameStateSchema` in the app holds the kit to this).
  */
 
+import { determinism } from './determinism.js';
 import { virtualGamepad } from './input-map.js';
-import { rng } from './rng.js';
+import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.7.0';
+export const KIT_VERSION = '0.8.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 
@@ -43,31 +46,59 @@ export function installHook(impl = {}) {
     pause: () => {},
     resume: () => {},
     step: (/** @type {number} */ _n) => {},
-    setSeed: (/** @type {number} */ seed) => rng.reseed(seed),
+    setSeed: (/** @type {number} */ seed) => determinism.reseed(seed),
     setOverlay: (/** @type {boolean} */ _on) => {},
     input: {
       gamepad: (/** @type {number} */ button, /** @type {boolean} */ pressed) => virtualGamepad.set(button, pressed),
     },
-    // Filled by the play-test theme (input replays).
-    replay: { load: () => false, play: () => false, stop: () => false },
+    /** Whether `midnite-ready` has been printed. */
+    get ready() {
+      return readyLogged;
+    },
+    deterministic: { enabled: determinism.enabled, seed: determinism.seed },
+    replay: {
+      record: () => replayer.record(),
+      stop: () => replayer.stop(),
+      load: (/** @type {unknown} */ replay) => replayer.load(replay),
+      seek: (/** @type {number} */ frame) => replayer.seek(frame),
+      play: (/** @type {unknown} */ replay, /** @type {{ speed?: 1 | 'max' }} */ opts) => replayer.play(replay, opts),
+      status: () => replayer.status(),
+    },
     ...impl,
   };
   if (impl.setSeed) {
     const custom = impl.setSeed;
     hook.setSeed = (seed) => {
-      rng.reseed(seed);
+      determinism.reseed(seed);
       custom(seed);
     };
   }
+  // The replayer drives whatever loop this hook fronts.
+  replayer.attach({
+    step: (n) => hook.step(n),
+    pause: () => hook.pause(),
+    resume: () => hook.resume(),
+  });
+  installed = hook;
   /** @type {Record<string, unknown>} */ (window).__midnite = hook;
   return hook;
 }
 
+/** @type {{ pause: () => void } | null} */
+let installed = null;
 let readyLogged = false;
 
-/** Print `midnite-ready` once — the line the runner's e2e and agents wait for. */
+/**
+ * Print `midnite-ready` once — the line the runner's e2e and agents wait for.
+ * On a play-test run (`midnite-paused=1`) the loop pauses here, after its first
+ * step, so every run of a play-test starts from the same frame.
+ */
 export function markReady() {
   if (readyLogged) return;
   readyLogged = true;
+  if (determinism.startPaused) installed?.pause();
   console.log('midnite-ready');
 }
+
+/** The seed a kit loop starts its random streams from: the run's in deterministic mode, else 1. */
+export const startSeed = () => (determinism.enabled ? determinism.seed : 1);

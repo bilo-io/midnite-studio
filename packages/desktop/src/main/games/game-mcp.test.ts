@@ -43,7 +43,12 @@ function fakeWebContents(executeJavaScript: GameWebContents['executeJavaScript']
 
 function setup(
   wc: GameWebContents | null,
-  opts: { logs?: GameLogEntry[]; manifest?: Record<string, unknown>; importAsset?: Parameters<typeof createGameMcpTools>[0]['importAsset'] } = {},
+  opts: {
+    logs?: GameLogEntry[];
+    manifest?: Record<string, unknown>;
+    importAsset?: Parameters<typeof createGameMcpTools>[0]['importAsset'];
+    playtests?: Parameters<typeof createGameMcpTools>[0]['playtests'];
+  } = {},
 ) {
   const emitted: Array<[string, unknown]> = [];
   const manifestSet = vi.fn(async () => ({ ok: true as const }));
@@ -63,6 +68,7 @@ function setup(
     },
     webContents: () => wc,
     importAsset: opts.importAsset,
+    playtests: opts.playtests,
   });
   setGameTools(tools);
   return { emitted, manifestSet };
@@ -92,6 +98,43 @@ describe('game_import_asset', () => {
     expect(await dispatchMcpCall('game_import_asset', { game: 'gabc', source: { packPath: '/p' } })).toMatchObject({ ok: false, message: 'That item was not found.' });
     expect(MCP_TOOLS.game_import_asset.input.safeParse({ game: 'gabc', source: { packPath: '/p' }, name: '../x' }).success).toBe(false);
     expect(await dispatchMcpCall('game_import_asset', { game: 'nope', source: { packPath: '/p' } })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
+
+describe('play-test tools (Theme O)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('answers game_playtest as a JSON block plus failure images, and game_assert_frame with the frame and its diff', async () => {
+    const playtests = {
+      run: vi.fn(async () => ({ gameId: 'gabc', passed: false, runs: [], failures: [Buffer.from('shot')] })),
+      assertFrame: vi.fn(async () => ({
+        gameId: 'gabc',
+        ok: false,
+        status: 'fail' as const,
+        message: '3.00% of pixels changed',
+        baseline: 'playtests/baselines/end@60.png',
+        changedFraction: 0.03,
+        png: Buffer.from('frame'),
+        diffPng: Buffer.from('diff'),
+      })),
+    } as unknown as NonNullable<Parameters<typeof createGameMcpTools>[0]['playtests']>;
+    setup(fakeWebContents(), { playtests });
+    setMcpAllowGamesState(true);
+    const run = await dispatchMcpCall('game_playtest', { game: 'gabc', name: 'smoke' });
+    expect(playtests.run).toHaveBeenCalledWith('gabc', { names: ['smoke'] });
+    expect(run).toEqual({
+      ok: true,
+      value: {
+        _content: [
+          { type: 'text', text: JSON.stringify({ gameId: 'gabc', passed: false, runs: [] }) },
+          { type: 'image', data: Buffer.from('shot').toString('base64'), mimeType: 'image/png' },
+        ],
+      },
+    });
+    const frame = (await dispatchMcpCall('game_assert_frame', { game: 'gabc', frame: 60, name: 'end' })) as { ok: true; value: { _content: { type: string }[] } };
+    expect(playtests.assertFrame).toHaveBeenCalledWith('gabc', { frame: 60, name: 'end', tolerance: 0.01 });
+    expect(frame.value._content.map((b) => b.type)).toEqual(['text', 'text', 'image', 'text', 'image']);
   });
 });
 
@@ -134,6 +177,11 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_reload', { game: 'gabc' }],
       ['game_input', { game: 'gabc', events: [{ t: 0, type: 'keyDown', key: 'a' }] }],
       ['game_import_asset', { game: 'gabc', source: { packPath: '/tmp/p' } }],
+      ['game_replay_record', { game: 'gabc', action: 'start' }],
+      ['game_replay_play', { game: 'gabc', replay: 'playtests/replays/a.replay.json' }],
+      ['game_assert_state', { game: 'gabc', frame: 1, path: '$.scene', op: 'exists' }],
+      ['game_assert_frame', { game: 'gabc', frame: 1, name: 'start' }],
+      ['game_playtest', { game: 'gabc' }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
     }

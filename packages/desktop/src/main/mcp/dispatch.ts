@@ -30,6 +30,11 @@ import {
   gameSetManifest,
   gameState,
   gameImportAsset,
+  gameReplayRecord,
+  gameReplayPlay,
+  gameAssertState,
+  gameAssertFrame,
+  gamePlaytest,
   gameStop,
 } from './game-tools';
 import {
@@ -118,6 +123,11 @@ export const MCP_HANDLERS: {
   game_input: gameInput,
   game_state: gameState,
   game_import_asset: gameImportAsset,
+  game_replay_record: gameReplayRecord,
+  game_replay_play: gameReplayPlay,
+  game_assert_state: gameAssertState,
+  game_assert_frame: gameAssertFrame,
+  game_playtest: gamePlaytest,
   terrain_list: terrainList,
   terrain_open: terrainOpen,
   terrain_get_spec: terrainGetSpec,

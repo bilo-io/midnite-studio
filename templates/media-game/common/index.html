@@ -23,6 +23,8 @@
   </head>
   <body>
     <canvas id="game"></canvas>
+    <!-- Deterministic mode (Phase 107 Theme O): patches Math.random and the clocks before any game module runs. A no-op otherwise. -->
+    <script type="module" src="./kit/core/determinism.js"></script>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

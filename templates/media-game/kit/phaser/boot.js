@@ -5,13 +5,16 @@
  * `boot()` creates the `Phaser.Game`, installs `window.__midnite` against it
  * (pause/resume/step drive Phaser's own loop; `getState` reports the active
  * scene, the frame count and whatever the scene's `kitState()` adds) and
- * prints `midnite-ready` once the first scene has run a frame.
+ * prints `midnite-ready` once the first scene has run a frame. Every step
+ * first calls `beforeKitStep` (virtual clock, replay input); in deterministic
+ * mode Phaser's own loop runs exactly one 1/60 s step per animation frame.
  */
 
 import * as Phaser from 'phaser';
 
-import { HOOK_VERSION, installHook, markReady } from '../core/hook.js';
-import { rng } from '../core/rng.js';
+import { determinism } from '../core/determinism.js';
+import { HOOK_VERSION, installHook, markReady, startSeed } from '../core/hook.js';
+import { beforeKitStep } from '../core/replay.js';
 
 const STEP_MS = 1000 / 60;
 
@@ -53,6 +56,18 @@ export function boot(options) {
   // Phaser's loop counts only frames it ran itself; steps taken while paused add to it.
   let manualFrames = 0;
 
+  game.events.on(Phaser.Core.Events.PRE_STEP, () => beforeKitStep(STEP_MS));
+  // Deterministic mode: whatever time the browser reports, each loop tick is one fixed step on a
+  // virtual clock. Patched before the loop starts (it binds `game.step` once textures are ready).
+  const realStep = game.step.bind(game);
+  let virtualTime = 0;
+  if (determinism.enabled) {
+    game.step = (_time, _delta) => {
+      virtualTime += STEP_MS;
+      realStep(virtualTime, STEP_MS);
+    };
+  }
+
   const activeScene = () => game.scene.getScenes(true)[0] ?? null;
 
   installHook({
@@ -84,9 +99,15 @@ export function boot(options) {
         game.loop.sleep();
       }
       for (let i = 0; i < Math.max(0, Math.floor(n)); i += 1) {
-        manualTime += STEP_MS;
         manualFrames += 1;
-        game.step(manualTime, STEP_MS);
+        if (determinism.enabled) {
+          virtualTime += STEP_MS;
+          manualTime = virtualTime;
+          realStep(virtualTime, STEP_MS);
+        } else {
+          manualTime += STEP_MS;
+          realStep(manualTime, STEP_MS);
+        }
       }
     },
     setSeed(seed) {
@@ -96,8 +117,9 @@ export function boot(options) {
       game.events.emit('midnite:overlay', on === true);
     },
   });
-  // The kit's own RNG starts from the same default seed every run.
-  rng.reseed(1);
+  // Every random stream starts from the same seed each run: 1, or the run's in deterministic mode.
+  determinism.reseed(startSeed());
+  Phaser.Math.RND.sow([String(startSeed())]);
 
   game.events.once(Phaser.Core.Events.POST_STEP, () => markReady());
   return game;

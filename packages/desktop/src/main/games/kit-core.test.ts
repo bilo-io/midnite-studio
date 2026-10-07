@@ -379,3 +379,160 @@ describe('kit/core/hook.js', () => {
     log.mockRestore();
   });
 });
+
+describe('kit/core/determinism.js (Theme O)', () => {
+  it('reads the runner query, and is off without it', async () => {
+    const { readDeterminismParams } = await load('determinism.js');
+    expect(readDeterminismParams('?midnite-deterministic=1&midnite-seed=42&midnite-paused=1')).toEqual({ enabled: true, seed: 42, paused: true });
+    expect(readDeterminismParams('')).toEqual({ enabled: false, seed: 1, paused: false });
+    expect(readDeterminismParams('?midnite-deterministic=1&midnite-seed=x')).toMatchObject({ enabled: true, seed: 1 });
+  });
+
+  it('patches Math.random, performance.now and Date.now with seeded, virtual values', async () => {
+    const { createDeterminism, VIRTUAL_EPOCH_MS } = await load('determinism.js');
+    const sample = (seed: number) => {
+      const target = { Math: { random: () => 0.5 } as unknown as Math, performance: { now: () => 123 }, Date: { now: () => 456 } };
+      const det = createDeterminism({ enabled: true, seed, paused: false });
+      expect(det.install(target)).toBe(true);
+      expect(det.install(target)).toBe(false);
+      const randoms = [target.Math.random(), target.Math.random(), target.Math.random()];
+      det.advance(1000 / 60);
+      det.advance(1000 / 60);
+      return { randoms, now: target.performance.now(), date: target.Date.now() };
+    };
+    const a = sample(9);
+    expect(sample(9)).toEqual(a);
+    expect(sample(10).randoms).not.toEqual(a.randoms);
+    expect(a.now).toBeCloseTo(2000 / 60, 9);
+    expect(a.date).toBeCloseTo(VIRTUAL_EPOCH_MS + 2000 / 60, 6);
+  });
+
+  it('touches nothing when deterministic mode is off', async () => {
+    const { createDeterminism } = await load('determinism.js');
+    const random = () => 0.25;
+    const target = { Math: { random } as unknown as Math, performance: { now: () => 1 }, Date: { now: () => 2 } };
+    const det = createDeterminism({ enabled: false, seed: 1, paused: false });
+    expect(det.install(target)).toBe(false);
+    det.advance(16);
+    expect(target.Math.random).toBe(random);
+    expect(det.now).toBe(0);
+  });
+});
+
+describe('kit/core/replay.js (Theme O)', () => {
+  afterEach(async () => {
+    vi.useRealTimers();
+    // Hand the input maps back to the page's own replayer.
+    const { replayer } = await load('replay.js');
+    const { setInputObserver, virtualActions } = await load('input-map.js');
+    setInputObserver((action: string, down: boolean) => replayer.observe(action, down));
+    virtualActions.clear();
+  });
+
+  /** A stand-in kit loop: every step runs `beforeStep`, samples an input map, and logs what was down. */
+  async function makeGame() {
+    const { createReplayer } = await load('replay.js');
+    const { createInputMap, setInputObserver, virtualActions: actions } = await load('input-map.js');
+    actions.clear();
+    const replayer = createReplayer({ actions, seed: () => 3, wait: () => Promise.resolve() });
+    setInputObserver((action: string, down: boolean) => replayer.observe(action, down));
+    // Real keys, for recording: held keys read as down unless a replay presses the action instead.
+    const keys = new Set<string>();
+    const map = createInputMap({ right: { keys: ['D'] }, jump: { keys: ['SPACE'] } }, { isKeyDown: (k: string) => keys.has(k) });
+    const trace: string[] = [];
+    let paused = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const stepOnce = () => {
+      replayer.beforeStep();
+      map.update();
+      const down = ['right', 'jump'].filter((a) => map.isDown(a));
+      trace.push(`${replayer.frame}:${down.join('+')}`);
+      if (map.justPressed('jump')) trace.push(`${replayer.frame}:jumped`);
+    };
+    replayer.attach({
+      step: (n: number) => {
+        for (let i = 0; i < n; i += 1) stepOnce();
+      },
+      pause: () => {
+        paused = true;
+        if (timer) clearInterval(timer);
+        timer = null;
+      },
+      resume: () => {
+        paused = false;
+        timer ??= setInterval(() => !paused && stepOnce(), 1000 / 60);
+      },
+    });
+    return { replayer, keys, map, trace, actions };
+  }
+
+  const replay = {
+    version: 1,
+    seed: 3,
+    frames: 30,
+    events: [
+      { f: 0, action: 'right', down: true },
+      { f: 10, action: 'jump', down: true },
+      { f: 12, action: 'jump', down: false },
+      { f: 20, action: 'right', down: false },
+    ],
+  };
+
+  it('plays the same frames at 1× (on a fake clock) as at full speed', async () => {
+    const fast = await makeGame();
+    expect(await fast.replayer.play(replay, { speed: 'max' })).toEqual({ ok: true, frame: 30 });
+
+    vi.useFakeTimers();
+    const slow = await makeGame();
+    const done = slow.replayer.play(replay, { speed: 1 });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await done).toEqual({ ok: true, frame: 30 });
+
+    expect(slow.trace).toEqual(fast.trace);
+    expect(fast.trace).toContain('11:jumped');
+    expect(fast.trace[0]).toBe('1:right');
+    expect(fast.trace.at(-1)).toBe('30:');
+  });
+
+  it('records a playthrough that plays back to the same trace', async () => {
+    const live = await makeGame();
+    expect(live.replayer.record()).toBe(true);
+    live.keys.add('D');
+    live.replayer.seek(5);
+    live.keys.add('SPACE');
+    live.replayer.seek(7);
+    live.keys.delete('SPACE');
+    live.keys.delete('D');
+    live.replayer.seek(12);
+    const recorded = live.replayer.stop();
+    expect(recorded).toEqual({
+      version: 1,
+      seed: 3,
+      frames: 12,
+      events: [
+        { f: 0, action: 'right', down: true },
+        { f: 5, action: 'jump', down: true },
+        { f: 7, action: 'right', down: false },
+        { f: 7, action: 'jump', down: false },
+      ],
+    });
+    // A JSON round trip changes nothing.
+    const replayed = await makeGame();
+    await replayed.replayer.play(JSON.parse(JSON.stringify(recorded)), { speed: 'max' });
+    expect(replayed.trace).toEqual(live.trace);
+  });
+
+  it('load applies input already due, seek refuses the past, and stop releases every action', async () => {
+    const game = await makeGame();
+    game.replayer.seek(4);
+    expect(game.replayer.load(replay)).toBe(true);
+    expect(game.actions.isDown('right')).toBe(true);
+    expect(game.replayer.seek(2)).toMatchObject({ ok: false, frame: 4 });
+    expect(game.replayer.seek(11)).toEqual({ ok: true, frame: 11 });
+    expect(game.trace).toContain('11:jumped');
+    expect(game.replayer.status()).toMatchObject({ frame: 11, playing: true, end: 30 });
+    game.replayer.stop();
+    expect(game.actions.isDown('right')).toBe(false);
+    expect(game.replayer.load({ version: 2 })).toBe(false);
+  });
+});
