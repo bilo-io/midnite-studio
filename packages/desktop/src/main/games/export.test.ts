@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   GAME_SINGLE_FILE_WARN_BYTES,
+  parseableProcessEnv,
   gameSingleFileWarning,
   isGameExportExcluded,
   type GameSummary,
@@ -38,6 +39,10 @@ afterEach(async () => {
   vi.unstubAllEnvs();
   await rm(tmp, { recursive: true, force: true });
 });
+
+/** The system `unzip` — an independent reader for what `writeZip` wrote. */
+const unzip = (args: string[], encoding?: 'utf8'): string & Buffer =>
+  execFileSync('unzip', args, { env: parseableProcessEnv(), ...(encoding ? { encoding } : {}) }) as string & Buffer;
 
 const has = (path: string): Promise<boolean> =>
   stat(path).then(
@@ -81,11 +86,13 @@ describe('writeZip', () => {
     ]);
     const file = join(tmp, 'out.zip');
     await writeFile(file, zip);
-    const listing = execFileSync('unzip', ['-l', file], { encoding: 'utf8' });
-    for (const name of ['index.html', 'src/données.js', 'assets/blob.bin', 'empty.txt']) expect(listing).toContain(name);
-    expect(execFileSync('unzip', ['-tq', file], { encoding: 'utf8' })).toContain('No errors');
-    expect(execFileSync('unzip', ['-p', file, 'index.html'])).toEqual(text);
-    expect(execFileSync('unzip', ['-p', file, 'assets/blob.bin'])).toEqual(random);
+    const listing = unzip(['-l', file], 'utf8');
+    for (const name of ['index.html', 'assets/blob.bin', 'empty.txt']) expect(listing).toContain(name);
+    expect(listing).toContain('4 files');
+    expect(zip.includes(Buffer.from('src/données.js', 'utf8'))).toBe(true); // names are UTF-8 (bit 11), whatever the reader's locale
+    expect(unzip(['-tq', file], 'utf8')).toContain('No errors');
+    expect(unzip(['-p', file, 'index.html'])).toEqual(text);
+    expect(unzip(['-p', file, 'assets/blob.bin'])).toEqual(random);
     expect(zip.length).toBeLessThan(text.length + random.length); // the repeating text was deflated
   });
 
@@ -236,10 +243,10 @@ describe('createGameExport on a composed platformer', () => {
     const dest = join(tmp, 'moon.zip');
     const result = await exporter.exportGame({ gameId: 'g1', format: 'game-zip', dest });
     expect(result.ok, JSON.stringify(result)).toBe(true);
-    const listed = execFileSync('unzip', ['-Z1', dest], { encoding: 'utf8' }).split('\n').filter(Boolean).sort();
+    const listed = unzip(['-Z1', dest], 'utf8').split('\n').filter(Boolean).sort();
     expect(listed).toContain('index.html');
     expect(excludedSomewhere(listed)).toEqual([]);
-    expect(execFileSync('unzip', ['-tq', dest], { encoding: 'utf8' })).toContain('No errors');
+    expect(unzip(['-tq', dest], 'utf8')).toContain('No errors');
 
     const again = await exporter.exportGame({ gameId: 'g1', format: 'game-zip', dest });
     expect(again).toMatchObject({ ok: false, message: 'moon.zip already exists in that folder.' });
