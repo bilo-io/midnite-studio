@@ -56,3 +56,29 @@ describe('map view', () => {
     expect(stepZoom(8, 1)).toBe(8);
   });
 });
+
+describe('renderTiledMap', () => {
+  it('draws each tile bottom-aligned and a dot per object', async () => {
+    const { renderTiledMap } = await import('./map-view');
+    const { createRgba } = await import('./image');
+    const tiles = createRgba(4, 2);
+    // tile 0 (columns 0–1) red, tile 1 (columns 2–3) blue
+    for (let i = 0; i < 8; i += 1) tiles.data.set(i % 4 < 2 ? [255, 0, 0, 255] : [0, 0, 255, 255], i * 4);
+    const m = readTmj({
+      type: 'map',
+      width: 2,
+      height: 1,
+      tilewidth: 2,
+      tileheight: 2,
+      layers: [
+        { type: 'tilelayer', name: 'ground', width: 2, height: 1, data: [1, 2] },
+        { type: 'tilelayer', name: 'collision', visible: false, width: 2, height: 1, data: [1, 1] },
+      ],
+      tilesets: [{ firstgid: 1, name: 't', image: 't.png', tilewidth: 2, tileheight: 2, columns: 2 }],
+    })!;
+    const img = renderTiledMap(m, new Map([['t.png', tiles]]));
+    expect([img.width, img.height]).toEqual([4, 2]);
+    expect(Array.from(img.data.slice(0, 4))).toEqual([255, 0, 0, 255]);
+    expect(Array.from(img.data.slice(8, 12))).toEqual([0, 0, 255, 255]);
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 
-import { cellOrigin, collisionAt, collisionLayer, mapPixelSize, MAP_ZOOMS, readTmj, sourceRect, stepZoom, tileOf, type Tmj, type TmjTileLayer } from './map-view';
+import { cellOrigin, collisionAt, collisionLayer, mapPixelSize, MAP_ZOOMS, readTmj, sourceRect, stepZoom, tileOf, type Tmj, type TmjTileLayer } from '@midnite/studio-shared';
 
 /**
  * A generated or imported map (Phase 106 Theme J) on a 2D canvas: drag to pan, the wheel or `+`/`-` to

@@ -1,7 +1,10 @@
+import { createRgba, type RgbaImage, type RgbaLike } from './image';
+
 /**
- * The map previewer's pure half (Phase 106 Theme J): reading a Tiled `.tmj` loosely (an imported map can
- * carry fields this app never writes), finding which tileset a gid belongs to, and where a cell lands on
- * screen for either orientation. The canvas in `sprite-map-preview.tsx` only draws what these return.
+ * Drawing a Tiled map (Phase 106 Themes J and K): reading a `.tmj` loosely (an imported map can carry
+ * fields this app never writes), finding which tileset a gid belongs to, and where a cell lands for
+ * either orientation. The renderer's canvas (`sprite-map-preview.tsx`) and `sprite_render_preview`'s
+ * {@link renderTiledMap} both draw from these, so the two pictures agree.
  */
 export type TmjTileset = {
   firstgid: number;
@@ -113,3 +116,57 @@ export const stepZoom = (zoom: number, by: 1 | -1): number => {
   const at = i < 0 ? MAP_ZOOMS.length - 1 : i;
   return MAP_ZOOMS[Math.min(MAP_ZOOMS.length - 1, Math.max(0, at + by))]!;
 };
+
+/**
+ * The map as an image — every visible tile layer bottom-aligned to its cell as Tiled draws it, then a dot
+ * per object (spawn green, exit amber, others white). Tiles whose image is missing are skipped.
+ */
+export function renderTiledMap(map: Tmj, images: ReadonlyMap<string, RgbaLike>): RgbaImage {
+  const size = mapPixelSize(map);
+  const lift = Math.max(0, ...map.tilesets.map((t) => t.tileheight - map.tileheight));
+  const out = createRgba(Math.max(1, Math.ceil(size.width)), Math.max(1, Math.ceil(size.height + lift)));
+  const blit = (img: RgbaLike, sx: number, sy: number, w: number, h: number, dx: number, dy: number) => {
+    for (let y = 0; y < h; y += 1) {
+      const ty = Math.round(dy + y);
+      if (ty < 0 || ty >= out.height || sy + y >= img.height) continue;
+      for (let x = 0; x < w; x += 1) {
+        const tx = Math.round(dx + x);
+        if (tx < 0 || tx >= out.width || sx + x >= img.width) continue;
+        const s = ((sy + y) * img.width + sx + x) * 4, d = (ty * out.width + tx) * 4;
+        const a = img.data[s + 3]! / 255;
+        if (a === 0) continue;
+        for (let c = 0; c < 3; c += 1) out.data[d + c] = Math.round(img.data[s + c]! * a + out.data[d + c]! * (1 - a));
+        out.data[d + 3] = Math.round(255 * (a + (out.data[d + 3]! / 255) * (1 - a)));
+      }
+    }
+  };
+  for (const layer of map.layers) {
+    if (!layer.visible) continue;
+    if (layer.type === 'tilelayer') {
+      for (let y = 0; y < layer.height; y += 1)
+        for (let x = 0; x < layer.width; x += 1) {
+          const hit = tileOf(map.tilesets, layer.data[y * layer.width + x] ?? 0);
+          const img = hit ? images.get(hit.tileset.image) : undefined;
+          if (!hit || !img) continue;
+          const src = sourceRect(hit.tileset, hit.local);
+          const o = cellOrigin(map, x, y);
+          blit(img, src.x, src.y, src.w, src.h, o.x, o.y + lift + map.tileheight - src.h);
+        }
+    } else {
+      const r = Math.max(2, Math.round(map.tileheight / 4));
+      for (const o of layer.objects) {
+        const at = map.orientation === 'isometric' ? cellOrigin(map, o.x / map.tileheight - 0.5, o.y / map.tileheight - 0.5) : { x: o.x - map.tilewidth / 2, y: o.y - map.tileheight / 2 };
+        const cx = Math.round(at.x + map.tilewidth / 2), cy = Math.round(at.y + lift + map.tileheight / 2);
+        const kind = o.type ?? o.class;
+        const rgb = kind === 'spawn' ? [34, 197, 94] : kind === 'exit' ? [245, 158, 11] : [229, 231, 235];
+        for (let y = -r; y <= r; y += 1)
+          for (let x = -r; x <= r; x += 1) {
+            if (x * x + y * y > r * r) continue;
+            const tx = cx + x, ty = cy + y;
+            if (tx >= 0 && ty >= 0 && tx < out.width && ty < out.height) out.data.set([rgb[0]!, rgb[1]!, rgb[2]!, 255], (ty * out.width + tx) * 4);
+          }
+      }
+    }
+  }
+  return out;
+}

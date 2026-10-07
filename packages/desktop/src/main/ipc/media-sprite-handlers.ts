@@ -14,6 +14,9 @@ import { readTerrainSource } from '../media/sprite/terrain-source';
 import { createTilesetRunner, tilesetPreflight } from '../media/sprite/tileset';
 import { createMapRunner, mapPreflight } from '../media/sprite/map-generate';
 import { readTmjForImport } from '../media/sprite/map-import';
+import { createSpriteTools } from '../media/sprite/sprite-mcp';
+import { setSpriteTools } from '../mcp/sprite-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows, resolveRole, windowForRole } from '../window-manager';
 import { handle } from './handle';
 import { imageService } from './media-image-handlers';
@@ -91,6 +94,25 @@ export const spriteService = createSpriteService({
   runJob,
   preflight: (spec, req) => handDrawnPreflight(spec, req) ?? oneShotPreflight(spec, req) ?? tilesetPreflight(spec, req) ?? backgroundPreflight(spec, req) ?? propsPreflight(spec, req) ?? mapPreflight(spec, req),
 });
+
+/**
+ * The sprite MCP tools (Theme K), over the same service as the tab. The app's global MCP server answers
+ * them behind the `allowSprites` switch (`mcp/sprite-tools.ts`); `sprite_open` is broadcast to every
+ * window, which the Sprites tab answers by selecting that asset.
+ */
+setSpriteTools(
+  createSpriteTools({
+    service: spriteService,
+    resolveRepo: async (repoPath) => {
+      const resolved = await resolveRegisteredRepo(repoPath);
+      if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id, repoRoot: resolved.repo.repoRoot };
+      return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+    },
+    rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'sprite' }),
+    listFiles: (scope) => mediaStore.listFiles(scope),
+    emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaSpriteOpen, event),
+  }),
+);
 
 export function registerMediaSpriteHandlers(): void {
   const invalid = (issue: string) => failure(issue);

@@ -9,7 +9,7 @@ import {
   type SpriteGroupId,
   type SpriteProgressEvent,
 } from '@midnite/studio-shared';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '../../../components/empty-state';
 import { Spinner } from '../../../components/skeleton';
@@ -24,6 +24,7 @@ import { SpriteEnvironmentPreview } from './sprite-environment-preview';
 import { SpriteExplorer, spriteOfPath } from './sprite-explorer';
 import { SpriteOneShotPanel } from './sprite-one-shot-panel';
 import { SpriteFlaggedFrames, SpriteReferenceCard, type ReferenceChange } from './sprite-reference-card';
+import { useSpriteOpenRequest } from './use-sprite-agent-events';
 import { useSprite, useSpriteActions, useSpriteChangedInvalidation, useSpriteProgress, type SpriteRef } from './use-sprite';
 
 /**
@@ -49,6 +50,13 @@ function SpriteTabBody({ repoId }: { repoId: string }) {
   useSpriteChangedInvalidation(repoId);
   const progress = useSpriteProgress();
   const actions = useSpriteActions(repoId);
+  // `sprite_open` from an agent (Theme K).
+  const openRequest = useSpriteOpenRequest((s) => s.request);
+  useEffect(() => {
+    if (!openRequest || openRequest.repoId !== repoId) return;
+    setSelection({ project: openRequest.group, path: `${openRequest.asset}/sprite.json` });
+    useSpriteOpenRequest.getState().clear();
+  }, [openRequest, repoId]);
 
   const ref = useMemo<SpriteRef | null>(
     () => (selection?.path && isGroup(selection.project) ? { group: selection.project, asset: spriteOfPath(selection.path) } : null),

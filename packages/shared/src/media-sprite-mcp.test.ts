@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { MCP_TOOLS, isMcpToolId } from './mcp';
-import { parseSpriteSpec } from './media-sprite';
+import { parseSpriteSpec, SpriteSheetSpecSchema } from './media-sprite';
 import {
   estimateSpriteRequests,
   isSpriteMcpToolId,
@@ -27,14 +27,14 @@ describe('sprite MCP tool family (Phase 106 Theme K)', () => {
   });
 
   it('estimates the worst case of a job', () => {
-    const sheet = parseSpriteSpec({ kind: 'sheet', name: 'hero', targetPerspective: 'isometric', directions: 8, clips: [{ name: 'walk', frames: 8 }, { name: 'idle', frames: 4 }] });
+    const sheet = SpriteSheetSpecSchema.parse({ kind: 'sheet', name: 'hero', targetPerspective: 'isometric', directions: 8, clips: [{ name: 'walk', frames: 8 }, { name: 'idle', frames: 4 }] });
     // 12 frames × 8 directions × (1 + 2 re-rolls)
     expect(estimateSpriteRequests(sheet)).toBe(288);
     expect(estimateSpriteRequests(sheet, { clips: ['idle'] })).toBe(96);
     expect(estimateSpriteRequests(sheet, { frames: ['walk/s/000'] })).toBe(3);
     expect(estimateSpriteRequests(sheet, { turnaround: true })).toBe(1);
     expect(estimateSpriteRequests({ ...sheet, method: 'rendered' })).toBe(0);
-    const side = parseSpriteSpec({ kind: 'sheet', name: 'h', clips: [{ name: 'run', frames: 6 }], consistency: { enabled: false } });
+    const side = SpriteSheetSpecSchema.parse({ kind: 'sheet', name: 'h', clips: [{ name: 'run', frames: 6 }], consistency: { enabled: false } });
     expect(estimateSpriteRequests(side)).toBe(6);
     expect(estimateSpriteRequests({ ...side, mirror: false } as typeof side)).toBe(12);
     expect(estimateSpriteRequests(parseSpriteSpec({ kind: 'tileset', name: 't' }))).toBe(4);

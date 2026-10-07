@@ -69,6 +69,26 @@ import {
   terrainSetInput,
   terrainSetSpec,
 } from './terrain-tools';
+import {
+  backgroundGenerate,
+  mapGenerate,
+  mapGet,
+  mapPatch,
+  spriteCancel,
+  spriteExport,
+  spriteGenerate,
+  spriteGetReport,
+  spriteGetSpec,
+  spriteJobStatus,
+  spriteList,
+  spriteOpen,
+  spritePatchFrames,
+  spriteRecommendMethod,
+  spriteRegenerateFrames,
+  spriteRenderPreview,
+  spriteSetSpec,
+  tilesetGenerate,
+} from './sprite-tools';
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -137,6 +157,24 @@ export const MCP_HANDLERS: {
   terrain_render_preview: terrainRenderPreview,
   terrain_get_stats: terrainGetStats,
   terrain_export: terrainExport,
+  sprite_list: spriteList,
+  sprite_open: spriteOpen,
+  sprite_get_spec: spriteGetSpec,
+  sprite_set_spec: spriteSetSpec,
+  sprite_recommend_method: spriteRecommendMethod,
+  sprite_generate: spriteGenerate,
+  sprite_regenerate_frames: spriteRegenerateFrames,
+  sprite_patch_frames: spritePatchFrames,
+  sprite_render_preview: spriteRenderPreview,
+  sprite_get_report: spriteGetReport,
+  sprite_job_status: spriteJobStatus,
+  sprite_cancel: spriteCancel,
+  tileset_generate: tilesetGenerate,
+  background_generate: backgroundGenerate,
+  map_generate: mapGenerate,
+  map_get: mapGet,
+  map_patch: mapPatch,
+  sprite_export: spriteExport,
 };
 
 export type McpDispatchResult =
