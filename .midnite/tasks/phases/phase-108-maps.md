@@ -155,7 +155,7 @@ every URL rewritten (unknown sources and their layers dropped), and a Natural Ea
 (`openfreemap-relief`) keeps the rewritten styles' low-zoom layer. Responses carry
 `Access-Control-Allow-Origin: *` because MapLibre's blob worker fetches cross-scheme.
 
-**Theme C — 3D preview and capture framing.** ✅ Landed (PR #TBD). The 3D toggle applies `setTerrain` over a
+**Theme C — 3D preview and capture framing.** ✅ Landed (PR #772). The 3D toggle applies `setTerrain` over a
 `dem` raster-dem source (Terrarium, via `mstudio-tile:`) and a `hillshade-3d` layer, re-applied on every
 `style.load` because a basemap switch wipes them; pitch eases to 60 / 0 only on a real on/off flip. The capture
 frame is a GeoJSON outline from the kernel's `frameRing` (azimuthal-equidistant, so square in metres at any
