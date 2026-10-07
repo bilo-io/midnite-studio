@@ -125,7 +125,7 @@ function MapCentre({ repoId, project, save, framing }: { repoId: string; project
             </button>
           ))}
         </div>
-        <div role="group" aria-label="View" className="absolute left-2 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-background/80 text-xs shadow-sm backdrop-blur-sm">
+        <div role="group" aria-label="View" className="absolute left-12 top-2 z-10 flex overflow-hidden rounded-md border border-border bg-background/80 text-xs shadow-sm backdrop-blur-sm">
           <Tooltip label="Toggle 3D (T)">
             <button type="button" aria-label="Toggle 3D (T)" aria-pressed={framing.terrain3d.on} onClick={framing.toggle3d} className={`px-2 py-1 ${framing.terrain3d.on ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
               3D

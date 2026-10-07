@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-08 — Phase 108 Theme C — 3D preview and capture framing ([#TBD](https://github.com/bilo-io/midnite-studio/pull/TBD))
+
+The Maps tab gains a 3D preview (`setTerrain` over the Terrarium DEM, hillshade, a 1×–3× exaggeration slider, pitch eased to 60) and a capture frame that stays square in metres at any latitude (drag to move, corner handles to resize, 16 m – 65.5 km), with an `aria-live` readout of side, centre, metres/pixel and preview-sampled min/max elevation, a Terrain-resolution size picker, and literal-copy warnings. Keys on the focused map: arrows pan, `+`/`-` zoom, `F` frame, `T` 3D. Capture is disabled until Theme D.
+
+- [x] C: `captureWarnings` + `MapFrame` in `shared/src/media-map.ts`, `map-frame.ts`, `use-map-framing.ts`, `map-canvas.tsx` (terrain, frame layers, drag, keys), `map-panel.tsx` capture section, vitest (`media-map`, `media-map-frame`, `map-frame`, `map-canvas`, `map-capture-panel`)
+
 ## 2026-10-07 — Phase 108 Themes A + B — Maps tab and library; tile sources fetched in main ([#770](https://github.com/bilo-io/midnite-studio/pull/770))
 
 Media gets a ninth tab, Maps: a MapLibre canvas (own lazy chunk) with a Streets / Satellite / Terrain / Dark basemap picker, a per-project `map.json` that restores the last viewport (saved 750 ms after the map settles and on unmount), a projects/layers explorer, a view and tile-source panel, and loading, tiles-failed and offline states. Every tile, style, glyph and sprite byte arrives through a `mstudio-tile://` scheme registered in the single privileged-schemes call: main injects the optional MapTiler key, retries with backoff under a per-host cap, and keeps an LRU disk cache (1 GB default, Settings ▸ Media ▸ Maps slider and confirmed Clear). The CSP gains `mstudio-tile:` and no third-party host.

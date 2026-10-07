@@ -52,7 +52,7 @@ function CaptureSection({ framing }: { framing: Framing }) {
             <dt className="text-muted-foreground">Resolution</dt>
             <dd>{formatMPerPx(frame.sideM, frame.size)}</dd>
             <dt className="text-muted-foreground">Elevation</dt>
-            <dd>{elevation ? `${Math.round(elevation.min)}–${Math.round(elevation.max)} m ≈ from preview tiles` : terrain3d.on ? '…' : 'Turn on 3D (T) to sample'}</dd>
+            <dd className="min-w-0 break-words">{elevation ? `${Math.round(elevation.min)}–${Math.round(elevation.max)} m ≈ from preview tiles` : terrain3d.on ? '…' : 'Turn on 3D (T) to sample'}</dd>
           </dl>
           {warnings.length > 0 ? (
             <ul className="space-y-0.5 text-amber-600 dark:text-amber-400" aria-label="Capture warnings">
