@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 108 Themes A + B — Maps tab and library; tile sources fetched in main (PR pending)
+
+Media gets a ninth tab, Maps: a MapLibre canvas (own lazy chunk) with a Streets / Satellite / Terrain / Dark basemap picker, a per-project `map.json` that restores the last viewport (saved 750 ms after the map settles and on unmount), a projects/layers explorer, a view and tile-source panel, and loading, tiles-failed and offline states. Every tile, style, glyph and sprite byte arrives through a `mstudio-tile://` scheme registered in the single privileged-schemes call: main injects the optional MapTiler key, retries with backoff under a per-host cap, and keeps an LRU disk cache (1 GB default, Settings ▸ Media ▸ Maps slider and confirmed Clear). The CSP gains `mstudio-tile:` and no third-party host.
+
+- [x] A: `shared/src/media-map.ts` + `media.ts` tab/formats, `features/media/map/` (tab, canvas + lazy wrapper, style, states, explorer, panel, hooks, settings), ui-store layout keys, mock bridge, the `maplibre-gl` eslint rule, vitest (`map-style`, `map-states`, `map-canvas`, `use-map`, `map-settings`) and `phase-108-maps-ab-shots.spec.ts`
+- [x] B: `main/media/map/` (`tile-cache`, `tile-fetch`, `tile-protocol`, `map-service`) with their vitests, `media-map-handlers.ts`, preload `media.map`, `mstudio-tile` in `registerPrivilegedSchemes()`, CSP `connect-src`/`img-src`, geojson/kml excluded from ffmpeg export
+
 ## 2026-10-07 — Phase 104 Theme G — Texture painting and PBR materials ([#767](https://github.com/bilo-io/midnite-studio/pull/767))
 
 An unwrapped sculpt part carries a PBR layer stack — fill and paint layers with opacity, eight blend modes and masks from the Theme F bakes or painted by hand — flattened into glTF's base colour, packed ORM, normal and emissive textures beside the design. Paint brushes (brush, eraser, island fill, smudge, clone, stamp) land on uv texels through the BVH with seam bleed, from the editor's new Paint tab (live PBR viewport, presets, layer list, matcap toggle for sculpting) or over MCP (`model_paint_stroke` aimed like a sculpt stroke, `model_material_set`, `model_layer_*`), and `.glb` exports the full set.
