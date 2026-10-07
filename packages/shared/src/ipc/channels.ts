@@ -1003,6 +1003,10 @@ export const CHANNELS = {
   mediaMapSources: 'mstudio:media:map-sources',
   /** The tile cache under userData: `status` / `clear` / `set-cap`. */
   mediaMapCache: 'mstudio:media:map-cache',
+  /** Capture for Terrain (Theme D): resolves with the result when the run ends; one at a time. */
+  mediaMapCapture: 'mstudio:media:map-capture',
+  /** `{captureId}` — aborts the running capture and leaves nothing behind. */
+  mediaMapCaptureCancel: 'mstudio:media:map-capture-cancel',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1584,6 +1588,8 @@ export const EVENT_CHANNELS = {
   mediaTerrainChanged: 'mstudio:media:terrain-changed',
   /** `terrain_open` (Theme J) asked the window to show a terrain — see `TerrainOpenEventSchema`. */
   mediaTerrainOpen: 'mstudio:media:terrain-open',
+  /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
+  mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
   /** A sprite job advanced — see `SpriteProgressEventSchema`. */
   mediaSpriteProgress: 'mstudio:media:sprite-progress',
   /** A sprite asset's spec, frames or job state changed (revision bump) — see `SpriteChangedEventSchema`. */

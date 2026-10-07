@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+import {
+  MapCaptureCancelRequestSchema,
+  MapCaptureProgressEventSchema,
+  MapCaptureRequestSchema,
+  MapCaptureResultSchema,
+} from '../media-map-capture';
+
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
 import {
   ChatAttachmentSchema,
@@ -3331,6 +3338,11 @@ export const MediaMapSetViewResponse = MapResultSchemas.setView;
 export const MediaMapSourcesResponse = MapSourcesResponseSchema;
 export const MediaMapCacheRequest = MapCacheRequestSchema;
 export const MediaMapCacheResponse = MapResultSchemas.cache;
+export const MediaMapCaptureRequest = MapCaptureRequestSchema;
+export const MediaMapCaptureResponse = GitOpResultOf(MapCaptureResultSchema);
+export const MediaMapCaptureCancelRequest = MapCaptureCancelRequestSchema;
+export const MediaMapCaptureCancelResponse = GitOpResultOf(z.object({ cancelled: z.boolean() }));
+export const MediaMapCaptureProgressPayload = MapCaptureProgressEventSchema;
 export const MediaSpriteRenderRequestPayload = SpriteRenderRequestEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;

@@ -86,7 +86,7 @@ describe('capture service', () => {
     expect((await readdir(dir)).sort()).toEqual(['ATTRIBUTION.txt', 'capture.json', 'heightmap.png', 'heightmap.r32', 'heightmap.tif']);
     expect(await readdir(join(root, 'maps', 'captures'))).toEqual([result.value.name]);
     const file = MapCaptureFileSchema.parse(JSON.parse(await readFile(join(dir, 'capture.json'), 'utf8')));
-    expect(file).toMatchObject({ size: 129, demZoom: 15, sources: { dem: 'aws-terrarium' } });
+    expect(file).toMatchObject({ size: 129, demZoom: 13, sources: { dem: 'aws-terrarium' } });
     expect(result.value.name).toBe('test-place-20261007-100000');
     expect(fetched.length).toBeGreaterThan(0);
     expect(onChanged).toHaveBeenCalledWith('r1');

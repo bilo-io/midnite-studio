@@ -109,6 +109,7 @@ const outfiles = [
   'music-worker',
   'sf3d-worker',
   'terrain-worker',
+  'map-capture-worker',
   'knowledge-layout-worker',
 ].map((name) => ({
   entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),

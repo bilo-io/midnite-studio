@@ -49,7 +49,7 @@ function MapTabBody({ repoId }: { repoId: string }) {
 function MapDetail({ repoId, project }: { repoId: string; project: string }) {
   const map = useMapProject(repoId, project);
   if (!map.data) return <EmptyState title="Nothing to show" body="The view and tile sources appear here." />;
-  return <MapPanel map={map.data.map} project={project} />;
+  return <MapPanel map={map.data.map} project={project} repoId={repoId} />;
 }
 
 function MapCentre({ repoId, project }: { repoId: string; project: string }) {
