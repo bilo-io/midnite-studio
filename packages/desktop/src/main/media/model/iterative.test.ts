@@ -12,6 +12,7 @@ import {
   allowedClaudeTools,
   buildCliArgs,
   MODEL_ITERATIVE_MAX_CALLS,
+  MODEL_ITERATIVE_SCULPT_CALLS_FLOOR,
   runIterative,
   type CliRequest,
   type CliResult,
@@ -208,6 +209,26 @@ describe('runIterative', () => {
     });
     expect(await run()).toMatchObject({ kind: 'done', edits: 1 });
     expect(seen[0]).toMatchObject({ ok: true, value: { ok: false, errors: [{ path: 'parts.0.radius' }] } });
+  });
+
+  it('bounds sculpt calls by the refinement slider without spending the render budget', async () => {
+    const results: string[] = [];
+    // Stubbed like the call cap below: the budget is a counter, not a sculpt.
+    const { run } = await setup(
+      async ({ call, target }) => {
+        for (let i = 0; i <= MODEL_ITERATIVE_SCULPT_CALLS_FLOOR; i += 1) {
+          const r = await call('model_sculpt_stroke', { ...target, brush: 'draw', target: { mode: 'world', points: [[0, 0, 0]] } });
+          results.push(r.ok ? 'ok' : `${r.kind}: ${r.message}`);
+        }
+        results.push((await call('model_render_preview', { ...target, views: ['front'], size: 128 })).ok ? 'render ok' : 'render refused');
+      },
+      { maxIterations: 1, toolOverrides: { model_sculpt_stroke: async () => ({ _content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] }) } },
+    );
+    const outcome = await run();
+    expect(results.slice(0, MODEL_ITERATIVE_SCULPT_CALLS_FLOOR).every((r) => r === 'ok')).toBe(true);
+    expect(results[MODEL_ITERATIVE_SCULPT_CALLS_FLOOR]).toMatch(/^refused: Sculpt budget used up/);
+    expect(results.at(-1)).toBe('render ok');
+    expect(outcome).toMatchObject({ kind: 'done', edits: MODEL_ITERATIVE_SCULPT_CALLS_FLOOR });
   });
 
   it('caps the total tool calls whatever the agent does', async () => {

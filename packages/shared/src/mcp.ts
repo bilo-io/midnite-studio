@@ -44,6 +44,17 @@ import {
 } from './media-game-mcp';
 import {
   ModelAutoRigInputSchema,
+  ModelBakeInputSchema,
+  ModelDecimateInputSchema,
+  ModelExportInputSchema,
+  ModelLandmarksResultSchema,
+  ModelMaskInputSchema,
+  ModelRemeshInputSchema,
+  ModelRetopoInputSchema,
+  ModelSculptStrokeInputSchema,
+  ModelSculptUndoInputSchema,
+  ModelSubdivideInputSchema,
+  ModelUnwrapInputSchema,
   ModelEditResultSchema,
   ModelGetRigResultSchema,
   ModelListInputSchema,
@@ -174,6 +185,17 @@ type McpToolEntry = {
     | 'model_sdf_set'
     | 'model_sdf_patch'
     | 'model_sdf_bake'
+    | 'model_get_landmarks'
+    | 'model_sculpt_stroke'
+    | 'model_mask'
+    | 'model_subdivide'
+    | 'model_remesh'
+    | 'model_sculpt_undo'
+    | 'model_decimate'
+    | 'model_retopo'
+    | 'model_unwrap'
+    | 'model_bake'
+    | 'model_export'
     | 'model_save'
     | 'model_sf3d_status'
     | 'model_generate_sf3d'
@@ -593,6 +615,105 @@ export const MCP_TOOLS = {
     description:
       'Rebakes an SDF part’s tree at another `resolution` (16–256), finer once the form is right — use instead of resending it to `model_sdf_set`; refused unless its own Settings switch is on.',
     input: ModelSdfBakeInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_get_landmarks: {
+    id: 'model_get_landmarks',
+    title: 'Read a model’s landmarks',
+    description:
+      'Returns the named points (top_of_head, nose_tip, chin, ears, hands, feet) found on a model, with any the design overrides — use instead of guessing coordinates for a `model_sculpt_stroke` target.',
+    input: ModelToolTargetSchema,
+    output: ModelLandmarksResultSchema,
+    readOnly: true,
+  },
+  model_sculpt_stroke: {
+    id: 'model_sculpt_stroke',
+    title: 'Sculpt with a brush stroke',
+    description:
+      'Sculpts a sculpt part with a brush aimed by preview pixels, a bone, landmark, group, world path or the open mask, with a thumbnail — use after `model_sdf_set`; refused unless its own Settings switch is on.',
+    input: ModelSculptStrokeInputSchema,
+    output: z.union([ModelEditResultSchema, z.object({ _content: z.array(z.unknown()) })]),
+    readOnly: false,
+  },
+  model_mask: {
+    id: 'model_mask',
+    title: 'Mask part of a sculpt',
+    description:
+      'Masks, unmasks, grows, shrinks, inverts or clears a sculpt part’s mask by region or lasso so strokes spare it — use before `model_sculpt_stroke`; refused unless its own Settings switch is on.',
+    input: ModelMaskInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_subdivide: {
+    id: 'model_subdivide',
+    title: 'Subdivide a sculpt',
+    description:
+      'Adds Loop-subdivision levels to a sculpt part so detail can be carved finer, keeping its shape — use instead of `model_remesh` when the topology is already even; refused unless its own Settings switch is on.',
+    input: ModelSubdivideInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_remesh: {
+    id: 'model_remesh',
+    title: 'Voxel-remesh a sculpt',
+    description:
+      'Retessellates a sculpt part into even, watertight topology by `voxelSize` or `targetVertices`, dropping its multires levels — use after heavy strokes stretch it; refused unless its own Settings switch is on.',
+    input: ModelRemeshInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sculpt_undo: {
+    id: 'model_sculpt_undo',
+    title: 'Undo or redo sculpt edits',
+    description:
+      'Steps a sculpt part back (or forward, with `redo`) through this session’s strokes, masks and remeshes, returning a thumbnail — use instead of countering a stroke; refused unless its own Settings switch is on.',
+    input: ModelSculptUndoInputSchema,
+    output: z.union([ModelEditResultSchema, z.object({ _content: z.array(z.unknown()) })]),
+    readOnly: false,
+  },
+  model_decimate: {
+    id: 'model_decimate',
+    title: 'Decimate a sculpt to a low-poly part',
+    description:
+      'Reduces a sculpt part to a target triangle count or ratio by quadric edge collapse, keeping borders and the rig, hiding the original as bake source — use before `model_unwrap`; refused unless its switch is on.',
+    input: ModelDecimateInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_retopo: {
+    id: 'model_retopo',
+    title: 'Retopologise a sculpt to quads',
+    description:
+      'Rebuilds a sculpt part as even, quad-dominant topology near a target face count, hiding the original as bake source — use instead of `model_decimate`; refused unless its own Settings switch is on.',
+    input: ModelRetopoInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_unwrap: {
+    id: 'model_unwrap',
+    title: 'Unwrap a sculpt’s UVs',
+    description:
+      'Unwraps a sculpt part’s UVs with seams by angle and curvature, then packs the charts and reports texel density — use before `model_bake`; refused unless its own Settings switch is on.',
+    input: ModelUnwrapInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_bake: {
+    id: 'model_bake',
+    title: 'Bake maps from a high-poly sculpt',
+    description:
+      'Bakes tangent-space normal, occlusion, curvature and cavity maps from the high-poly sculpt onto an unwrapped low-poly part as PNGs — use after `model_unwrap`; refused unless its own Settings switch is on.',
+    input: ModelBakeInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_export: {
+    id: 'model_export',
+    title: 'Export a model’s files',
+    description:
+      'Writes the model as `.glb` (PBR, skin, clips, baked maps), `.obj` and `.fbx` beside its design, by format — use instead of `model_save` for engine files only; refused unless its own Settings switch is on.',
+    input: ModelExportInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
   },

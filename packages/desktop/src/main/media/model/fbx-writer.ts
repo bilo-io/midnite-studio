@@ -94,6 +94,18 @@ export function buildFbxTree(parts: readonly MeshPart[]): FbxNode[] {
           node('ReferenceInformationType', [S('Direct')]),
           node('Normals', [{ t: 'd', v: part.normals }]),
         ]),
+        ...(part.uvs && part.uvs.length === (part.positions.length / 3) * 2
+          ? [
+              node('LayerElementUV', [I(0)], [
+                node('Version', [I(101)]),
+                node('Name', [S('UVMap')]),
+                node('MappingInformationType', [S('ByVertice')]),
+                node('ReferenceInformationType', [S('Direct')]),
+                // FBX's v runs up the image, glTF's down.
+                node('UV', [{ t: 'd', v: part.uvs.map((v, i) => (i % 2 === 1 ? 1 - v : v)) }]),
+              ]),
+            ]
+          : []),
         node('LayerElementMaterial', [I(0)], [
           node('Version', [I(101)]),
           node('Name', [S('')]),
@@ -104,6 +116,7 @@ export function buildFbxTree(parts: readonly MeshPart[]): FbxNode[] {
         node('Layer', [I(0)], [
           node('Version', [I(100)]),
           node('LayerElement', [], [node('Type', [S('LayerElementNormal')]), node('TypedIndex', [I(0)])]),
+          ...(part.uvs && part.uvs.length === (part.positions.length / 3) * 2 ? [node('LayerElement', [], [node('Type', [S('LayerElementUV')]), node('TypedIndex', [I(0)])])] : []),
           node('LayerElement', [], [node('Type', [S('LayerElementMaterial')]), node('TypedIndex', [I(0)])]),
         ]),
       ]),

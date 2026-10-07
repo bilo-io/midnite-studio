@@ -1,5 +1,5 @@
 export { buildAdjacency, EditableMesh, type MeshArrays, type MeshDelta } from './editable-mesh';
-export { Bvh, intersectTriangle, type RayHit } from './bvh';
+export { Bvh, closestOnTriangle, intersectTriangle, type ClosestHit, type RayHit } from './bvh';
 export {
   crc32,
   decodeMeshBin,
@@ -41,3 +41,28 @@ export {
   type RemeshResult,
   type RemeshSource,
 } from './voxel-remesh';
+export { decimateMesh, type DecimateOptions, type DecimateResult, type DecimateSource } from './decimate';
+export { retopologize, pairQuads, RETOPO_MAX_FACES, RETOPO_MIN_FACES, type RetopoOptions, type RetopoResult } from './retopo';
+export {
+  UNWRAP_DEFAULT_ANGLE,
+  UNWRAP_DEFAULT_CURVATURE,
+  unwrapMesh,
+  weldVertices,
+  type UnwrapOptions,
+  type UnwrapResult,
+  type UnwrapSource,
+} from './uv';
+export {
+  BAKE_KINDS,
+  BAKE_SIZE_DEFAULT,
+  BAKE_SIZE_MAX,
+  BAKE_SIZE_MIN,
+  bakeMaps,
+  vertexCurvature,
+  vertexTangents,
+  type BakeKind,
+  type BakeMesh,
+  type BakeOptions,
+  type BakeResult,
+} from './bake';
+export { skinDrift, skinIsNormalised, SKIN_INFLUENCES, transferSkinWeights, type SkinWeights, type TransferOptions } from './skin-transfer';

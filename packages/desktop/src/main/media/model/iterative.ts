@@ -34,7 +34,40 @@ export const MODEL_MCP_SERVER_NAME = MCP_SERVER_NAME;
 /** A run is a conversation of many tool calls; 20 minutes is generous without being open-ended. */
 export const MODEL_ITERATIVE_TIMEOUT_MS = 20 * 60_000;
 /** Hard ceiling on tool calls in one run, whatever the agent does. */
-export const MODEL_ITERATIVE_MAX_CALLS = 250;
+export const MODEL_ITERATIVE_MAX_CALLS = 400;
+/**
+ * Sculpt and mesh-pipeline calls (Phase 104) are cheap — a stroke is a few milliseconds — so they do not spend the
+ * render budget, but they are bounded by it: a run may make this many per refinement pass (never fewer than the
+ * floor), so the 1–100 slider still sizes the whole run.
+ */
+export const MODEL_ITERATIVE_SCULPT_CALLS_PER_PASS = 12;
+export const MODEL_ITERATIVE_SCULPT_CALLS_FLOOR = 24;
+/** The tools that edit a sculpt mesh or run the mesh pipeline over MCP. */
+export const MODEL_SCULPT_TOOL_IDS = [
+  'model_sculpt_stroke',
+  'model_mask',
+  'model_subdivide',
+  'model_remesh',
+  'model_sculpt_undo',
+  'model_decimate',
+  'model_retopo',
+  'model_unwrap',
+  'model_bake',
+] as const;
+const isSculptTool = (tool: string): boolean => (MODEL_SCULPT_TOOL_IDS as readonly string[]).includes(tool);
+
+/** Whether a tool's answer reports success: an edit result's `ok`, or the first text block of a content answer. */
+function answeredOk(value: unknown): boolean {
+  const direct = value as { ok?: boolean; _content?: { type: string; text?: string }[] };
+  if (direct.ok !== undefined) return direct.ok;
+  const first = direct._content?.find((b) => b.type === 'text')?.text;
+  if (!first) return false;
+  try {
+    return (JSON.parse(first) as { ok?: boolean }).ok === true;
+  } catch {
+    return false;
+  }
+}
 
 export type DispatchResult = { ok: true; value: unknown } | { ok: false; kind: 'error' | 'not-found' | 'refused'; message: string };
 export type ScopedDispatch = (tool: string, input: unknown) => Promise<DispatchResult>;
@@ -160,7 +193,8 @@ function describePatch(ops: readonly ModelPatchOp[]): string {
 export async function runIterative(opts: IterativeOptions): Promise<IterativeOutcome> {
   const { host, tools, target, signal } = opts;
   const max = Math.max(1, opts.maxIterations || MODEL_ITERATIONS_DEFAULT);
-  const state = { edits: 0, renders: 0, calls: 0, saved: false, dirty: false };
+  const state = { edits: 0, renders: 0, calls: 0, sculpts: 0, saved: false, dirty: false };
+  const sculptBudget = Math.max(MODEL_ITERATIVE_SCULPT_CALLS_FLOOR, max * MODEL_ITERATIVE_SCULPT_CALLS_PER_PASS);
   let lastSpecSummary = '';
 
   const progress = (action?: string): void => opts.onProgress({ iteration: { n: state.renders, max }, ...(action ? { action } : {}) });
@@ -180,6 +214,12 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
     if (signal.aborted) return { ok: false, kind: 'refused', message: 'This run was cancelled.' };
     state.calls += 1;
     if (state.calls > MODEL_ITERATIVE_MAX_CALLS) return { ok: false, kind: 'refused', message: 'Tool-call limit reached. Call model_save and finish.' };
+    if (isSculptTool(tool)) {
+      if (state.sculpts >= sculptBudget) {
+        return { ok: false, kind: 'refused', message: `Sculpt budget used up (${sculptBudget} sculpt calls for ${max} refinement pass(es)). Call model_save now to finish.` };
+      }
+      state.sculpts += 1;
+    }
     if (tool === 'model_render_preview') {
       if (state.renders >= max) {
         return { ok: false, kind: 'refused', message: `Render budget used up (${max} of ${max}). Call model_save now to finish.` };
@@ -202,6 +242,10 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
         const ops = (parsed.data as unknown as { ops: ModelPatchOp[] }).ops;
         lastSpecSummary = `${plural(result.partCount ?? 0, 'part')}`;
         progress(`Patched: ${describePatch(ops)} (${lastSpecSummary})`);
+      } else if (isSculptTool(tool) && tool !== 'model_mask' && answeredOk(value)) {
+        state.edits += 1;
+        state.dirty = true;
+        progress(`Sculpting: ${tool.replace('model_', '').replace(/_/g, ' ')}`);
       } else if (tool === 'model_render_preview') progress(`Rendered a preview (pass ${state.renders} of ${max})`);
       else if (tool === 'model_save') {
         state.saved = true;

@@ -68,6 +68,9 @@ export function SculptPanel({
   if (snapshot.status === 'idle' || snapshot.status === 'error' || snapshot.status === 'loading') {
     const sculptParts = spec.parts.flatMap((p, i) => (p.shape === 'sculpt' && !p.hidden ? [{ name: p.name, index: i }] : []));
     const chosen = selected !== null && spec.parts[selected]?.shape === 'sculpt' ? selected : (sculptParts[0]?.index ?? null);
+    const chosenPart = chosen !== null ? spec.parts[chosen] : undefined;
+    // An unwrapped mesh has its seams split into separate vertices; a brush would tear them (Phase 104 Theme F).
+    const unwrapped = chosenPart?.shape === 'sculpt' && chosenPart.uv !== undefined;
     const convertAndSculpt = async () => {
       if (!onConvert) return;
       setConverting(true);
@@ -88,10 +91,15 @@ export function SculptPanel({
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {chosen !== null ? (
-            <button type="button" className={BUTTON} disabled={snapshot.status === 'loading'} onClick={() => void controller.enter(spec, chosen)}>
+            <button type="button" className={BUTTON} disabled={snapshot.status === 'loading' || unwrapped} title={unwrapped ? 'Unwrapped meshes cannot be sculpted — clear the unwrap with model_unwrap first.' : undefined} onClick={() => void controller.enter(spec, chosen)}>
               <LuBrush aria-hidden className="h-3.5 w-3.5" />
               {snapshot.status === 'loading' ? 'Opening…' : `Sculpt ${spec.parts[chosen]?.name ?? 'part'}`}
             </button>
+          ) : null}
+          {unwrapped ? (
+            <p className="text-[11px] text-muted-foreground" data-testid="sculpt-unwrapped-note">
+              This mesh is unwrapped (UVs and baked maps), so its seams cannot be sculpted. Ask the agent to clear the unwrap (`model_unwrap` with `clear`) to sculpt it again.
+            </p>
           ) : null}
           {chosen === null && onConvert ? (
             <button type="button" className={BUTTON} disabled={converting} onClick={() => void convertAndSculpt()}>

@@ -89,8 +89,8 @@ describe('sculpt steps in the reducer', () => {
   });
 });
 
-function Harness({ io }: { io: SculptIO }) {
-  const [state, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState(SPEC));
+function Harness({ io, spec = SPEC }: { io: SculptIO; spec?: ModelSpec }) {
+  const [state, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState(spec));
   const ref = useRef<(a: EditorAction) => void>(dispatch);
   const controller = useMemo(() => new SculptController(startSession, io, (a) => ref.current(a)), [io]);
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
@@ -154,5 +154,13 @@ describe('the Sculpt tab', () => {
     render(<Harness io={io} />);
     fireEvent.click(screen.getByRole('button', { name: 'Sculpt head' }));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('The mesh file is missing.'));
+  });
+
+  it('will not open an unwrapped mesh, and says how to sculpt it again', () => {
+    const unwrapped = { ...SPEC, parts: [{ ...SPEC.parts[0], uv: { charts: 6, density: { mean: 900, min: 700, max: 1100 }, textureSize: 2048, coverage: 0.6 } }] } as unknown as ModelSpec;
+    const io: SculptIO = { stem: 'bust', read: async () => ({ ok: false, kind: 'error', message: 'unused' }), write: async () => ok({}), readOps: async () => ok({ entries: [] }) };
+    render(<Harness io={io} spec={unwrapped} />);
+    expect((screen.getByRole('button', { name: 'Sculpt head' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('sculpt-unwrapped-note').textContent).toContain('model_unwrap');
   });
 });

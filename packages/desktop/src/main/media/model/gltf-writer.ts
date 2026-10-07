@@ -6,6 +6,7 @@ import {
   MAX_INFLUENCES,
   type MeshPart,
   modelAsset,
+  modelTexture,
   type ModelSpec,
   type PartSkin,
   qIdentity,
@@ -102,23 +103,39 @@ export function buildGltf(
   // Textured parts: one image, texture and material per distinct (texture, tint, surface).
   const images: Json[] = [];
   const textures: Json[] = [];
-  const texturedMaterials: { color: string; material: MeshPart['material']; texture: number }[] = [];
+  type Surface = { color: string; material: MeshPart['material']; texture?: number; normal?: number; occlusion?: number };
+  const texturedMaterials: Surface[] = [];
   const imageOf = new Map<string, number>();
   const texturedKey = new Map<string, number>();
-  const materialFor = (part: MeshPart, index: number): number => {
-    const image = part.texture ? modelAsset(part.texture)?.texture : undefined;
-    if (!image || !part.uvs) return indexOf[index]!;
-    let texture = imageOf.get(part.texture!);
-    if (texture === undefined) {
+  /** One glTF texture per distinct image (base colour, normal and occlusion maps share the table). */
+  const textureIndex = (hash: string, image: { mime: string; data: Uint8Array }): number => {
+    let at = imageOf.get(hash);
+    if (at === undefined) {
       images.push({ bufferView: addView(Buffer.from(image.data)), mimeType: image.mime });
       textures.push({ source: images.length - 1, sampler: 0 });
-      texture = textures.length - 1;
-      imageOf.set(part.texture!, texture);
+      at = textures.length - 1;
+      imageOf.set(hash, at);
     }
-    const key = [texture, part.color, part.material.metalness, part.material.roughness, part.material.opacity, part.material.emissive, part.material.emissiveIntensity].join('|');
+    return at;
+  };
+  const materialFor = (part: MeshPart, index: number): number => {
+    const base = part.texture ? modelAsset(part.texture)?.texture : undefined;
+    const normalImage = part.maps?.normal ? modelTexture(part.maps.normal.hash) : undefined;
+    const occlusionImage = part.maps?.ao ? modelTexture(part.maps.ao.hash) : undefined;
+    if (!part.uvs || (!base && !normalImage && !occlusionImage)) return indexOf[index]!;
+    const texture = base ? textureIndex(part.texture!, base) : undefined;
+    const normal = normalImage ? textureIndex(part.maps!.normal!.hash, normalImage) : undefined;
+    const occlusion = occlusionImage ? textureIndex(part.maps!.ao!.hash, occlusionImage) : undefined;
+    const key = [texture, normal, occlusion, part.color, part.material.metalness, part.material.roughness, part.material.opacity, part.material.emissive, part.material.emissiveIntensity].join('|');
     let at = texturedKey.get(key);
     if (at === undefined) {
-      texturedMaterials.push({ color: part.color, material: part.material, texture });
+      texturedMaterials.push({
+        color: part.color,
+        material: part.material,
+        ...(texture !== undefined ? { texture } : {}),
+        ...(normal !== undefined ? { normal } : {}),
+        ...(occlusion !== undefined ? { occlusion } : {}),
+      });
       at = materials.length + texturedMaterials.length - 1;
       texturedKey.set(key, at);
     }
@@ -246,7 +263,7 @@ export function buildGltf(
     });
   }
 
-  const allMaterials: { color: string; material: MeshPart['material']; texture?: number }[] = [...materials, ...texturedMaterials];
+  const allMaterials: Surface[] = [...materials, ...texturedMaterials];
   const usesEmissiveStrength = allMaterials.some((m) => m.material.emissive !== '#000000' && m.material.emissiveIntensity > 1);
   const gltfMaterials = allMaterials.map((entry, index) => {
     const [r, g, b] = hexToRgb(entry.color).map(srgbToLinear);
@@ -258,6 +275,8 @@ export function buildGltf(
       doubleSided: false,
     };
     if (entry.texture !== undefined) (material.pbrMetallicRoughness as Json).baseColorTexture = { index: entry.texture };
+    if (entry.normal !== undefined) material.normalTexture = { index: entry.normal };
+    if (entry.occlusion !== undefined) material.occlusionTexture = { index: entry.occlusion };
     if (opacity < 1) material.alphaMode = 'BLEND';
     if (emissive !== '#000000') {
       const scale = Math.min(1, emissiveIntensity);

@@ -18,6 +18,10 @@
  * |     28 |    4 | CRC-32 of the payload                               |
  * |     32 |    … | positions f32×3n · normals f32×3n · indices u32×3f  |
  * |      … |  2n  | (flag bit 0 only) vertex group u16×n, 0xffff = none  |
+ * |      … |  8n  | (flag bit 1 only, version 2) uv f32×2n               |
+ *
+ * Version 1 is what every file without UVs is written as (so those stay byte-identical); a file with
+ * UVs (Phase 104 Theme F's unwrap) is version 2, which a version-1 build refuses as "newer".
  *
  * Encoding is deterministic, so decode → encode reproduces the file byte for byte. Decoding refuses a
  * wrong magic, a version it does not know (older or newer), a size mismatch and a checksum mismatch,
@@ -25,7 +29,8 @@
  */
 
 export const MESH_BIN_MAGIC = 'MSMESH\0\0';
-export const MESH_BIN_VERSION = 1;
+/** The newest format this build writes and reads; a file with no UVs is still written as version 1. */
+export const MESH_BIN_VERSION = 2;
 export const MESH_BIN_HEADER_BYTES = 32;
 /** Far above the ~1M-vertex target, low enough that a corrupt count cannot ask for gigabytes. */
 export const MESH_BIN_MAX_VERTICES = 4_000_000;
@@ -38,11 +43,14 @@ export type MeshBin = {
   multiresLevel: number;
   /** One group index per vertex into the part's `groups` table (`MESH_GROUP_NONE` = ungrouped) — what a conversion keeps of each source part's material. */
   groups?: Uint16Array;
+  /** One uv pair per vertex (Theme F's unwrap), 0–1 in each axis. Seams are split vertices, so a mesh with uvs has no shared vertex across a seam. */
+  uvs?: Float32Array;
 };
 
 /** The "no group" value in {@link MeshBin.groups}. */
 export const MESH_GROUP_NONE = 0xffff;
 const FLAG_GROUPS = 1;
+const FLAG_UVS = 2;
 
 export class MeshBinError extends Error {
   override readonly name = 'MeshBinError';
@@ -117,12 +125,13 @@ export function encodeMeshBin(mesh: MeshBin): Uint8Array {
   const level = Math.trunc(mesh.multiresLevel);
   if (level < 0 || level > 255) throw new MeshBinError('The multires level must be 0–255.');
   if (mesh.groups && mesh.groups.length !== vertices) throw new MeshBinError('A mesh needs one vertex group entry per vertex.');
-  const payload = vertices * 24 + triangles * 12 + (mesh.groups ? vertices * 2 : 0);
+  if (mesh.uvs && mesh.uvs.length !== vertices * 2) throw new MeshBinError('A mesh needs one uv pair per vertex.');
+  const payload = vertices * 24 + triangles * 12 + (mesh.groups ? vertices * 2 : 0) + (mesh.uvs ? vertices * 8 : 0);
   const out = new Uint8Array(MESH_BIN_HEADER_BYTES + payload);
   const view = new DataView(out.buffer);
   for (let i = 0; i < 8; i += 1) out[i] = MESH_BIN_MAGIC.charCodeAt(i);
-  view.setUint16(8, MESH_BIN_VERSION, true);
-  view.setUint16(10, mesh.groups ? FLAG_GROUPS : 0, true);
+  view.setUint16(8, mesh.uvs ? 2 : 1, true);
+  view.setUint16(10, (mesh.groups ? FLAG_GROUPS : 0) | (mesh.uvs ? FLAG_UVS : 0), true);
   view.setUint32(12, vertices, true);
   view.setUint32(16, triangles, true);
   out[20] = level;
@@ -134,7 +143,11 @@ export function encodeMeshBin(mesh: MeshBin): Uint8Array {
   at += vertices * 12;
   writeArray(out, at, mesh.indices);
   at += triangles * 12;
-  if (mesh.groups) for (let i = 0; i < vertices; i += 1) view.setUint16(at + i * 2, mesh.groups[i]!, true);
+  if (mesh.groups) {
+    for (let i = 0; i < vertices; i += 1) view.setUint16(at + i * 2, mesh.groups[i]!, true);
+    at += vertices * 2;
+  }
+  if (mesh.uvs) for (let i = 0; i < vertices * 2; i += 1) view.setFloat32(at + i * 4, mesh.uvs[i]!, true);
   view.setUint32(28, crc32(out.subarray(MESH_BIN_HEADER_BYTES)), true);
   return out;
 }
@@ -147,7 +160,7 @@ export function readMeshBinHeader(bytes: Uint8Array): { version: number; flags: 
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint16(8, true);
-  if (version < MESH_BIN_VERSION) throw new MeshBinError(`This sculpt mesh uses format version ${version}, which is older than this build can read (${MESH_BIN_VERSION}).`);
+  if (version < 1) throw new MeshBinError(`This sculpt mesh uses format version ${version}, which is older than this build can read (1).`);
   if (version > MESH_BIN_VERSION) throw new MeshBinError(`This sculpt mesh uses format version ${version}, written by a newer Midnite Studio — update to open it.`);
   return {
     version,
@@ -165,9 +178,11 @@ export function decodeMeshBin(bytes: Uint8Array): MeshBin {
   const header = readMeshBinHeader(bytes);
   const { vertices, triangles } = header;
   if (vertices > MESH_BIN_MAX_VERTICES || triangles > MESH_BIN_MAX_TRIANGLES) throw new MeshBinError('The sculpt mesh header claims more geometry than a sculpt mesh may hold — the file is corrupt.');
-  if ((header.flags & ~FLAG_GROUPS) !== 0) throw new MeshBinError('This sculpt mesh sets format flags this build does not know — update to open it.');
+  if ((header.flags & ~(FLAG_GROUPS | FLAG_UVS)) !== 0) throw new MeshBinError('This sculpt mesh sets format flags this build does not know — update to open it.');
   const hasGroups = (header.flags & FLAG_GROUPS) !== 0;
-  const payload = vertices * 24 + triangles * 12 + (hasGroups ? vertices * 2 : 0);
+  const hasUvs = (header.flags & FLAG_UVS) !== 0;
+  if (hasUvs && header.version < 2) throw new MeshBinError('This sculpt mesh claims uvs but is a version 1 file — the file is corrupt.');
+  const payload = vertices * 24 + triangles * 12 + (hasGroups ? vertices * 2 : 0) + (hasUvs ? vertices * 8 : 0);
   if (header.payloadBytes !== payload) throw new MeshBinError('The sculpt mesh header does not match its own counts — the file is corrupt.');
   if (bytes.byteLength !== MESH_BIN_HEADER_BYTES + payload) {
     throw new MeshBinError(`The sculpt mesh is ${bytes.byteLength} bytes but its header says ${MESH_BIN_HEADER_BYTES + payload} — the file is truncated or padded.`);
@@ -188,8 +203,11 @@ export function decodeMeshBin(bytes: Uint8Array): MeshBin {
     groups = new Uint16Array(vertices);
     const view = new DataView(bytes.buffer, bytes.byteOffset + at, vertices * 2);
     for (let i = 0; i < vertices; i += 1) groups[i] = view.getUint16(i * 2, true);
+    at += vertices * 2;
   }
-  return { positions, normals, indices, multiresLevel: header.multiresLevel, ...(groups ? { groups } : {}) };
+  let uvs: Float32Array | undefined;
+  if (hasUvs) uvs = readFloats(bytes, at, vertices * 2);
+  return { positions, normals, indices, multiresLevel: header.multiresLevel, ...(groups ? { groups } : {}), ...(uvs ? { uvs } : {}) };
 }
 
 /** The file a design's sculpt mesh is saved to: `<stem>.mesh.bin`, or `<stem>.<partId>.mesh.bin` when a design holds several. */

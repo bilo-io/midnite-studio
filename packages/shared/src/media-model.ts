@@ -162,6 +162,19 @@ export const ModelSculptSrcSchema = z
   .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.mesh\.bin$/i, 'must be a relative .mesh.bin path')
   .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
 
+/** A baked map beside the design (Phase 104 Theme F): a relative `.png` path, no `..`. */
+export const ModelMapSrcSchema = z
+  .string()
+  .min(5)
+  .max(200)
+  .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.png$/i, 'must be a relative .png path')
+  .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
+
+/** One baked map file: its name and content hash, so a changed file is never mistaken for it. */
+export const ModelMapFileSchema = z.object({ src: ModelMapSrcSchema, hash: z.string().regex(/^[0-9a-f]{8,64}$/, 'must be a lower-case hex hash') });
+export type ModelMapFile = z.infer<typeof ModelMapFileSchema>;
+export const MODEL_MAP_KINDS = ['normal', 'ao', 'curvature', 'cavity'] as const;
+
 /** Deepest multires level a sculpt part records (each level quadruples the faces). */
 export const MODEL_SCULPT_MAX_LEVEL = 8;
 
@@ -297,6 +310,31 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
      * the first brush stroke, so the shape can still be edited and re-baked from the tree.
      */
     sdf: ModelSculptSdfSchema.optional(),
+    /**
+     * The unwrap this mesh carries (Theme F): `.mesh.bin` then holds one uv pair per vertex, with seams as split
+     * vertices — so the mesh can no longer be sculpted without tearing. `model_unwrap` with `clear` welds it back.
+     */
+    uv: z
+      .object({
+        charts: z.number().int().min(1),
+        /** Texels per metre (area-weighted mean and the extremes) at `textureSize`. */
+        density: z.object({ mean: z.number(), min: z.number(), max: z.number() }),
+        textureSize: z.number().int().min(16).max(8192),
+        /** Share of the unit square the charts cover (0–1). */
+        coverage: z.number().min(0).max(1),
+      })
+      .optional(),
+    /** The hidden high-resolution sculpt part (id) a decimate or retopology made this one from — what `model_bake` bakes from by default. */
+    bakeFrom: z.string().trim().min(1).max(40).optional(),
+    /** Maps baked from a higher-resolution mesh onto this one (Theme F); each a `.png` beside the design. */
+    maps: z
+      .object({
+        normal: ModelMapFileSchema.optional(),
+        ao: ModelMapFileSchema.optional(),
+        curvature: ModelMapFileSchema.optional(),
+        cavity: ModelMapFileSchema.optional(),
+      })
+      .optional(),
   }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),
@@ -326,6 +364,8 @@ export const ModelSpecSchema = z.object({
   rig: ModelRigSchema.optional(),
   /** Clips: a generated motion kind plus parameters and additive keys; exported as glTF animations. */
   animations: z.array(ModelClipSchema).max(MODEL_MAX_CLIPS).optional(),
+  /** Named points on the model (`nose_tip`, `leftHand`…), model space — they override the auto-detected landmarks (Phase 104 Theme E). */
+  landmarks: z.record(z.string().trim().min(1).max(40), z.tuple([coord, coord, coord])).optional().refine((l) => !l || Object.keys(l).length <= 64, 'at most 64 landmarks'),
 });
 export type ModelSpec = z.infer<typeof ModelSpecSchema>;
 

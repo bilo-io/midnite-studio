@@ -77,6 +77,11 @@ export function memoryModelKit(overrides: { service?: Partial<ModelServiceDeps>;
     saveSpec: (req) => service.saveEdit(req),
     writeSidecar: (req) => service.writeSidecar(req),
     writeMesh: (req) => sculpt.handle(req),
+    writeFile: async ({ project, path, data }) => {
+      files.set(keyOf(project, path), data);
+      return ok({ size: data.length });
+    },
+    exportModel: (req) => service.exportModel(req),
     createModel: (req) => service.createModel(req),
     emitChanged: (event) => changed.push(event),
     emitOpen: (event) => opened.push(event),

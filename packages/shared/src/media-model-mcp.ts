@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelSpecSchema } from './media-model';
+import { AIM_MAX_POINTS, AimViewSchema, BAKE_KINDS, BAKE_SIZE_MAX, BAKE_SIZE_MIN, ModelSculptTargetSchema, SCULPT_BRUSHES, SCULPT_FALLOFFS, SculptSymmetrySchema } from './model-geometry';
 import { SDF_RESOLUTION_MAX, SDF_RESOLUTION_MIN } from './media-model-sdf';
 import { SF3D_GENERATE_STAGES, SF3D_STATES } from './media-model-sf3d';
 import {
@@ -67,6 +68,17 @@ export const MODEL_MCP_TOOL_IDS = [
   'model_sdf_set',
   'model_sdf_patch',
   'model_sdf_bake',
+  'model_get_landmarks',
+  'model_sculpt_stroke',
+  'model_mask',
+  'model_subdivide',
+  'model_remesh',
+  'model_sculpt_undo',
+  'model_decimate',
+  'model_retopo',
+  'model_unwrap',
+  'model_bake',
+  'model_export',
   'model_save',
 ] as const;
 export type ModelMcpToolId = (typeof MODEL_MCP_TOOL_IDS)[number];
@@ -86,6 +98,16 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_sdf_set',
   'model_sdf_patch',
   'model_sdf_bake',
+  'model_sculpt_stroke',
+  'model_mask',
+  'model_subdivide',
+  'model_remesh',
+  'model_sculpt_undo',
+  'model_decimate',
+  'model_retopo',
+  'model_unwrap',
+  'model_bake',
+  'model_export',
   'model_save',
 ];
 
@@ -247,6 +269,144 @@ export const ModelSdfBakeInputSchema = ModelToolTargetSchema.extend({
   resolution: SdfResolutionInput,
 });
 
+
+/**
+ * Sculpting over MCP (Phase 104 Theme E). A stroke names a brush and *where* — pixels on a preview the agent
+ * looked at, a rig bone, a landmark, a vertex group, world points, or the open area of the mask
+ * (`ModelSculptTargetSchema`, `model-geometry/sculpt/aim.ts`); the kernel resolves it against the live mesh.
+ * Radius, strength, falloff and symmetry are the editor's own. Write tools, like every `model_*` one, answer a
+ * validation failure as a result, never an exception.
+ */
+const SculptPartRef = z.string().min(1).max(60);
+export const MODEL_SCULPT_PREVIEW_SIZE_MIN = 128;
+export const MODEL_SCULPT_PREVIEW_SIZE_MAX = 384;
+export const MODEL_SCULPT_UNDO_MAX = 50;
+export const ModelSculptStrokeInputSchema = ModelToolTargetSchema.extend({
+  /** The sculpt part (id or name); may be omitted when the design has exactly one. */
+  part: SculptPartRef.optional(),
+  brush: z.enum(SCULPT_BRUSHES),
+  /** Where to stroke; exactly one `mode`. */
+  target: ModelSculptTargetSchema,
+  /** Dab radius in metres (default 6% of the mesh's diagonal); a screen target may give `radiusPixels` instead. */
+  radius: z.number().finite().positive().max(100).optional(),
+  /** 0–1 (default 0.5). */
+  strength: z.number().min(0).max(1).optional(),
+  falloff: z.enum(SCULPT_FALLOFFS).optional(),
+  /** Distance between dabs as a fraction of the radius (default 0.1). */
+  spacing: z.number().min(0.02).max(2).optional(),
+  /** The brush's opposite: carve instead of build, deflate, unmask. */
+  invert: z.boolean().optional(),
+  /** Leave surface facing away from the aim alone (default true for a screen target). */
+  frontFacesOnly: z.boolean().optional(),
+  symmetry: SculptSymmetrySchema.partial().optional(),
+  /** The thumbnail returned with the result: which view and how big; `false` for none. */
+  preview: z
+    .union([
+      z.literal(false),
+      z.object({ view: AimViewSchema.optional(), size: z.number().int().min(MODEL_SCULPT_PREVIEW_SIZE_MIN).max(MODEL_SCULPT_PREVIEW_SIZE_MAX).optional() }),
+    ])
+    .optional(),
+});
+export const ModelMaskInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** `set` masks the `region` or `lasso` (or unmasks it, with `value: 0`); `grow`/`shrink` resize the masked area; `invert`/`clear` act on all of it. */
+  op: z.enum(['set', 'grow', 'shrink', 'invert', 'clear']),
+  region: z
+    .object({
+      bone: z.string().min(1).max(40).optional(),
+      landmark: z.string().min(1).max(40).optional(),
+      group: z.string().min(1).max(60).optional(),
+      part: z.string().min(1).max(60).optional(),
+      /** Metres around a landmark (default 6% of the diagonal). */
+      radius: z.number().finite().positive().max(100).optional(),
+    })
+    .optional(),
+  /** Screen-space polygon on a preview view, as pixels; masks the surface it can see. */
+  lasso: z.object({ view: AimViewSchema, points: z.array(z.tuple([z.number().finite(), z.number().finite()])).min(3).max(AIM_MAX_POINTS), size: z.number().int().min(64).max(768).optional() }).optional(),
+  /** 1 masks (default), 0 unmasks. */
+  value: z.union([z.literal(0), z.literal(1)]).optional(),
+  /** Rings to grow or shrink by (default 1). */
+  steps: z.number().int().min(1).max(16).optional(),
+});
+export const ModelSubdivideInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** Loop-subdivision levels to add (default 1; each quadruples the faces). */
+  levels: z.number().int().min(1).max(3).optional(),
+});
+export const ModelRemeshInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  voxelSize: z.number().finite().min(0.0001).max(10).optional(),
+  targetVertices: z.number().int().min(100).max(MODEL_CONVERT_MAX_VERTICES).optional(),
+});
+export const ModelSculptUndoInputSchema = ModelToolTargetSchema.extend({
+  part: SculptPartRef.optional(),
+  /** How many sculpt edits to step back (or forward, with `redo`); default 1. */
+  steps: z.number().int().min(1).max(MODEL_SCULPT_UNDO_MAX).optional(),
+  redo: z.boolean().optional(),
+});
+
+/**
+ * The mesh pipeline over MCP (Phase 104 Theme F): decimate and retopologise a dense sculpt into a low-poly
+ * part (the original stays, hidden, as the bake source), unwrap it, bake maps from the original, and export.
+ */
+const MeshPartRef = SculptPartRef;
+export const MODEL_DECIMATE_MIN_TRIANGLES = 8;
+export const MODEL_RETOPO_MAX_FACES = 200_000;
+export const ModelDecimateInputSchema = ModelToolTargetSchema.extend({
+  part: MeshPartRef.optional(),
+  /** Triangles to end with. */
+  targetTriangles: z.number().int().min(MODEL_DECIMATE_MIN_TRIANGLES).max(2_000_000).optional(),
+  /** Fraction to keep (default 0.5 when neither is given). */
+  ratio: z.number().min(0.005).max(0.99).optional(),
+  /** Keep open edges and UV seams where they are (default true). */
+  lockBorders: z.boolean().optional(),
+  /** Overwrite the part instead of adding a low-poly copy and hiding the original. */
+  replace: z.boolean().optional(),
+  name: z.string().trim().min(1).max(60).optional(),
+});
+export const ModelRetopoInputSchema = ModelToolTargetSchema.extend({
+  part: MeshPartRef.optional(),
+  targetFaces: z.number().int().min(100).max(MODEL_RETOPO_MAX_FACES),
+  replace: z.boolean().optional(),
+  name: z.string().trim().min(1).max(60).optional(),
+});
+export const ModelUnwrapInputSchema = ModelToolTargetSchema.extend({
+  part: MeshPartRef.optional(),
+  /** Largest angle (degrees) a face may lean from its chart's mean normal (default 70). */
+  angle: z.number().min(10).max(90).optional(),
+  /** Largest fold (degrees) a chart may grow across — the curvature seam (default 55). */
+  curvature: z.number().min(10).max(90).optional(),
+  /** Texture edge the density readout and gutters assume (default 2048). */
+  textureSize: z.number().int().min(256).max(BAKE_SIZE_MAX).optional(),
+  /** Drop the part's unwrap and baked maps, welding the seams back, so it can be sculpted again. */
+  clear: z.boolean().optional(),
+});
+export const ModelBakeInputSchema = ModelToolTargetSchema.extend({
+  /** The unwrapped low-poly part to bake onto. */
+  part: MeshPartRef.optional(),
+  /** The high-resolution sculpt part to bake from; default the one `model_decimate`/`model_retopo` hid. */
+  from: MeshPartRef.optional(),
+  /** Which maps (default all four). */
+  maps: z.array(z.enum(BAKE_KINDS as readonly [string, ...string[]])).min(1).max(4).optional(),
+  /** Texture edge in texels (default 2048, up to 4096). */
+  size: z.number().int().min(BAKE_SIZE_MIN).max(BAKE_SIZE_MAX).optional(),
+  /** Occlusion rays per texel (default 12). */
+  aoSamples: z.number().int().min(1).max(64).optional(),
+  /** How far outside the low surface rays start, in metres (default 3% of its diagonal). */
+  cage: z.number().finite().positive().max(100).optional(),
+});
+export const MODEL_MESH_EXPORT_FORMATS = ['glb', 'obj', 'fbx'] as const;
+export const ModelExportInputSchema = ModelToolTargetSchema.extend({
+  /** Which files to write beside the design (default all three): `.glb` carries PBR, skin, clips and baked maps. */
+  formats: z.array(z.enum(MODEL_MESH_EXPORT_FORMATS)).min(1).max(3).optional(),
+});
+
+/** One landmark: a name and a position in model space. */
+export const ModelLandmarksResultSchema = z.object({
+  facing: z.string(),
+  landmarks: z.array(z.object({ name: z.string(), position: z.tuple([z.number(), z.number(), z.number()]), source: z.enum(['auto', 'user']) })),
+});
+
 /** `model_get_rig` answer: the rig as the kernel resolves it, the anatomy's table and what is wrong. */
 export const ModelGetRigResultSchema = z.object({
   anatomy: ModelAnatomySchema,
@@ -301,6 +461,34 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
         /** Ids of the primitives that were hidden (recoverable by un-hiding them or removing the sculpt part). */
         sources: z.array(z.string()),
         groups: z.array(z.string()),
+      })
+      .optional(),
+    /** `model_sculpt_*`, `model_mask`, `model_subdivide`, `model_remesh`: the sculpt part after the edit. */
+    sculpt: z
+      .object({
+        part: z.string(),
+        vertices: z.number().int().min(0),
+        triangles: z.number().int().min(0),
+        level: z.number().int().min(0),
+        /** Sculpt edits so far this session; `model_sculpt_undo` walks it. */
+        revision: z.number().int().min(0),
+        undoable: z.number().int().min(0),
+        redoable: z.number().int().min(0),
+        /** What the call did, in numbers: dabs, vertices moved, the largest move in metres, masked vertices… */
+        summary: z.record(z.union([z.number(), z.string(), z.boolean()])),
+      })
+      .optional(),
+    /** `model_decimate`/`retopo`/`unwrap`/`bake`/`export`: the part it produced and the numbers. */
+    pipeline: z
+      .object({
+        op: z.string(),
+        part: z.string(),
+        vertices: z.number().int().min(0),
+        triangles: z.number().int().min(0),
+        /** Per-op figures: reached target, quad share, texel density, hit rate, files written… */
+        summary: z.record(z.union([z.number(), z.string(), z.boolean(), z.array(z.string())])),
+        /** A rigged model: the skeleton is kept and the skin re-derived and checked against the old surface. */
+        rig: z.object({ kept: z.boolean(), normalised: z.boolean(), influences: z.number().int(), drift: z.object({ mean: z.number(), max: z.number() }) }).optional(),
       })
       .optional(),
     /** `model_sdf_*`: the SDF part that holds the bake, and how it went. */

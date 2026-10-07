@@ -1,5 +1,18 @@
 export * from './math';
 export {
+  AIM_VIEWS,
+  CAMERA_DIRECTIONS,
+  pixelRay,
+  PREVIEW_CAMERA_VIEWS,
+  PREVIEW_FILL,
+  PREVIEW_SUPERSAMPLE,
+  previewCamera,
+  projectPoint,
+  type AimView,
+  type PreviewCamera,
+  type PreviewCameraView,
+} from './camera';
+export {
   applyConversion,
   convertOpEntry,
   convertToSculptMesh,
@@ -65,12 +78,19 @@ export {
   type LocalPart,
   type MeshPart,
   type PartIndex,
+  type PartMap,
+  type PartMaps,
   type ResolvedMaterial,
 } from './scene';
 export * from './quat';
 export {
   clearModelAssets,
+  clearModelTextures,
   hasModelAsset,
+  MODEL_TEXTURE_CACHE_LIMIT,
+  missingModelMaps,
+  modelTexture,
+  registerModelTexture,
   MODEL_ASSET_CACHE_LIMIT,
   meshBinToAsset,
   missingModelAssets,

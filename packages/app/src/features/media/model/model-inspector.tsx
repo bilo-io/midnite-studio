@@ -189,6 +189,8 @@ function Properties({ state, part, index, dispatch }: { state: EditorState; part
             {part.vertices !== undefined ? ` · ${part.vertices.toLocaleString()} verts` : ''}
             {part.triangles !== undefined ? ` · ${part.triangles.toLocaleString()} tris` : ''}
             {part.shape === 'sculpt' && part.multiresLevel ? ` · multires ${part.multiresLevel}` : ''}
+            {part.shape === 'sculpt' && part.uv ? ` · unwrapped (${part.uv.charts} charts, ${part.uv.density.mean} texels/m at ${part.uv.textureSize})` : ''}
+            {part.shape === 'sculpt' && part.maps ? ` · maps: ${Object.keys(part.maps).join(', ')}` : ''}
           </p>
         </>
       ) : null}
