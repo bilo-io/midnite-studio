@@ -48,6 +48,7 @@ describe('MCP_TOOLS', () => {
     'model_layer_add',
     'model_layer_update',
     'model_layer_remove',
+    'model_set_reference_views',
     'model_paint_stroke',
     'model_save',
     'model_generate_sf3d',

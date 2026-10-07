@@ -25,7 +25,7 @@ describe('tool registry', () => {
     for (const id of MODEL_MCP_TOOL_IDS) expect(MCP_TOOLS[id].id).toBe(id);
     const writes = MODEL_MCP_TOOL_IDS.filter((id) => !MCP_TOOLS[id].readOnly);
     expect(writes.sort()).toEqual(
-      ['model_auto_rig', 'model_open', 'model_patch_animations', 'model_patch_parts', 'model_patch_rig', 'model_retarget', 'model_convert_to_mesh', 'model_sdf_set', 'model_sdf_patch', 'model_sdf_bake', 'model_sculpt_stroke', 'model_mask', 'model_subdivide', 'model_remesh', 'model_sculpt_undo', 'model_decimate', 'model_retopo', 'model_unwrap', 'model_bake', 'model_export', 'model_material_set', 'model_layer_add', 'model_layer_update', 'model_layer_remove', 'model_paint_stroke', 'model_save', 'model_set_spec'].sort(),
+      ['model_auto_rig', 'model_open', 'model_patch_animations', 'model_patch_parts', 'model_patch_rig', 'model_retarget', 'model_convert_to_mesh', 'model_sdf_set', 'model_sdf_patch', 'model_sdf_bake', 'model_sculpt_stroke', 'model_mask', 'model_subdivide', 'model_remesh', 'model_sculpt_undo', 'model_decimate', 'model_retopo', 'model_unwrap', 'model_bake', 'model_export', 'model_material_set', 'model_layer_add', 'model_layer_update', 'model_layer_remove', 'model_paint_stroke', 'model_save', 'model_set_spec', 'model_set_reference_views'].sort(),
     );
   });
 });

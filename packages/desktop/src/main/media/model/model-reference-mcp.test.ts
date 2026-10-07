@@ -29,7 +29,7 @@ const flat = (side: number, grey: number): Uint8Array => {
 };
 
 type Content = { _content: { type: string; text?: string; data?: string }[] };
-const json = (out: unknown) => JSON.parse((out as Content)._content[0]!.text!) as Record<string, any>;
+const json = (out: unknown) => JSON.parse((out as Content)._content[0]!.text!) as Record<string, never>;
 
 /** A picture of the figure as a dark subject on a light ground, 100 px per metre, origin at the bottom centre. */
 function picture(torso: number): Buffer {
@@ -136,7 +136,7 @@ describe('model_compare_reference', () => {
     const kit = memoryModelKit();
     const model = await setup(kit, 0.6);
     await kit.tools.model_set_reference_views({ ...target(kit, model), fit: { view: 'front', height: 2.6 } });
-    let last: Record<string, any> = {};
+    let last: Record<string, never> = {};
     for (let i = 0; i < 4; i += 1) last = json(await kit.tools.model_compare_reference({ ...target(kit, model), budget: 9, overlay: false }));
     expect(last.loop).toMatchObject({ done: true, reason: 'plateau' });
   });

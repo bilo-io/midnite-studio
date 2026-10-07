@@ -171,7 +171,7 @@ export function createModelService(deps: ModelServiceDeps) {
     status: ModelGenerateProgressEvent['status'],
     stage?: ModelGenerateStage,
     error?: string,
-    extra?: Partial<Pick<ModelGenerateProgressEvent, 'iteration' | 'action' | 'primary'>>,
+    extra?: Partial<Pick<ModelGenerateProgressEvent, 'iteration' | 'action' | 'primary' | 'score'>>,
   ) => void;
 
   /**

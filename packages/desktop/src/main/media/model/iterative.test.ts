@@ -404,3 +404,27 @@ describe('generate with an iterative agent engine', () => {
     }
   });
 });
+
+describe('runIterative with a matched reference (Phase 104 Theme H)', () => {
+  it('reports the silhouette score of each comparison as progress, without spending a render pass', async () => {
+    const answers = [0.62, 0.81];
+    const compare = vi.fn(async () => {
+      const score = answers.shift()!;
+      return { _content: [{ type: 'text', text: JSON.stringify({ score, history: score === 0.62 ? [0.62] : [0.62, 0.81] }) }] };
+    });
+    const { run, progress } = await setup(
+      async ({ call, target }) => {
+        await call('model_compare_reference', target);
+        await call('model_compare_reference', target);
+      },
+      { toolOverrides: { model_compare_reference: compare } },
+    );
+    const outcome = await run();
+    expect(outcome).toMatchObject({ renders: 0 });
+    const scores = progress.filter((p) => p.score).map((p) => [p.action, p.score]);
+    expect(scores).toEqual([
+      ['Matched the reference: 0.62', { value: 0.62, history: [0.62] }],
+      ['Matched the reference: 0.81', { value: 0.81, history: [0.62, 0.81] }],
+    ]);
+  });
+});

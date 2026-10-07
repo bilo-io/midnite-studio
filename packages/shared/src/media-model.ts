@@ -550,6 +550,8 @@ export const ModelGenerateProgressEventSchema = z.object({
   stage: ModelGenerateStageSchema.optional(),
   /** Iterative runs: which preview-and-refine pass this is, out of the budget. */
   iteration: z.object({ n: z.number().int().min(0), max: z.number().int().min(1) }).optional(),
+  /** Iterative runs with a matched reference: the latest silhouette score (0–1) and every score so far, one per comparison. */
+  score: z.object({ value: z.number().min(0).max(1), history: z.array(z.number().min(0).max(1)).max(200) }).optional(),
   /** Iterative runs: the latest tool the agent called, in words ("Added 3 parts"). */
   action: z.string().optional(),
   /** Iterative runs: the `.obj` the agent is editing, so the editor can follow it live. */
