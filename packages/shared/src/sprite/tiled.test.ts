@@ -16,7 +16,7 @@ function tileset(scheme: 'blob47' | 'corner16') {
     { id: 'water', collision: 'water' as const, image: solid() },
   ];
   const tiles = buildTilesetTiles({ scheme, tileSize: 16, seed: 1, soft: false, bases, transitions: [{ a: 'grass', b: 'water' }] });
-  const sheet = stackTiles(tiles, 16, TILESET_COLUMNS);
+  const sheet = stackTiles(tiles, 16, 16, TILESET_COLUMNS);
   const tsj = buildTsj({
     name: 'meadow',
     tiles,

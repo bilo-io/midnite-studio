@@ -19,3 +19,5 @@ export * from './autotile';
 export * from './tiled';
 export * from './iso';
 export * from './terrain-tiles';
+export * from './env-prompts';
+export * from './tileset';

@@ -229,12 +229,12 @@ export function buildTilesetTiles(opts: {
 }
 
 /** Lays `tiles` out row-major, `columns` across. */
-export function stackTiles(tiles: ReadonlyArray<{ image: RgbaLike }>, tileSize: number, columns: number): { image: RgbaImage; columns: number; rows: number } {
+export function stackTiles(tiles: ReadonlyArray<{ image: RgbaLike }>, cellWidth: number, cellHeight: number, columns: number): { image: RgbaImage; columns: number; rows: number } {
   const cols = Math.max(1, Math.min(columns, tiles.length));
   const rows = Math.max(1, Math.ceil(tiles.length / cols));
-  const image = createRgba(cols * tileSize, rows * tileSize);
+  const image = createRgba(cols * cellWidth, rows * cellHeight);
   tiles.forEach((tile, i) => {
-    const ox = (i % cols) * tileSize, oy = Math.floor(i / cols) * tileSize;
+    const ox = (i % cols) * cellWidth, oy = Math.floor(i / cols) * cellHeight;
     for (let y = 0; y < tile.image.height; y += 1)
       for (let x = 0; x < tile.image.width; x += 1) {
         const s = (y * tile.image.width + x) * 4;

@@ -165,7 +165,7 @@ describe('tiles', () => {
   });
 
   it('stacks tiles row-major', () => {
-    const sheet = stackTiles([{ image: solid(1, 1, 1, 4) }, { image: solid(2, 2, 2, 4) }, { image: solid(3, 3, 3, 4) }], 4, 2);
+    const sheet = stackTiles([{ image: solid(1, 1, 1, 4) }, { image: solid(2, 2, 2, 4) }, { image: solid(3, 3, 3, 4) }], 4, 4, 2);
     expect(sheet).toMatchObject({ columns: 2, rows: 2 });
     expect(sheet.image.width).toBe(8);
     expect(sheet.image.data[(4 * 8 + 0) * 4]).toBe(3);
