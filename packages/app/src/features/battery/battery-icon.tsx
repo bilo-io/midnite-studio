@@ -6,7 +6,7 @@ import type { ComponentProps } from 'react';
  */
 export function BatteryIcon({
   percent = 100,
-  isCharging = false,
+  isCharging: _isCharging = false,
   className = 'h-3.5 w-3.5',
   ...rest
 }: {
@@ -48,17 +48,6 @@ export function BatteryIcon({
         fill="currentColor"
         stroke="none"
       />
-      {/* Charging bolt overlay if charging */}
-      {isCharging && (
-        <path
-          d="M11 6.5L8.5 12h3.5L9.5 17.5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      )}
     </svg>
   );
 }
