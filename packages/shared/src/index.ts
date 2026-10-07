@@ -43,6 +43,7 @@ export * from './media-model-sf3d-licence';
 export * from './media-sprite';
 export * from './media-terrain';
 export * from './media-terrain-mcp';
+export * from './media-sprite-mcp';
 export * from './model-geometry';
 export * from './sprite';
 export * from './terrain';

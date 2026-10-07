@@ -1,7 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { getMcpCallLog } from '../mcp/audit';
-import { getMcpStatus, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowModels, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
+import { getMcpStatus, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowModels, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
 import { handle, handleBare } from './handle';
 
 /**
@@ -27,7 +27,7 @@ export function registerMcpHandlers(): void {
   handle(
     CHANNELS.mcpSet,
     schemas.McpSetRequest,
-    async ({ enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains }) => {
+    async ({ enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites }) => {
       if (enabled !== undefined) {
         const result = await setMcpEnabled(enabled);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
@@ -50,6 +50,10 @@ export function registerMcpHandlers(): void {
       }
       if (allowTerrains !== undefined) {
         const result = await setMcpAllowTerrains(allowTerrains);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowSprites !== undefined) {
+        const result = await setMcpAllowSprites(allowSprites);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
       }
       return getMcpStatus();

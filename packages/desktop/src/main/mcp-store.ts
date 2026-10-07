@@ -38,13 +38,14 @@ import { join } from 'node:path';
  * Theme F's own precedent for `allowUi`.
  */
 export type McpSettings = {
-  version: 6;
+  version: 7;
   enabled: boolean;
   allowUi: boolean;
   allowGateDecide: boolean;
   allowModels: boolean;
   allowGames: boolean;
   allowTerrains: boolean;
+  allowSprites: boolean;
 };
 
 export type McpStore = {
@@ -55,13 +56,14 @@ export type McpStore = {
 const FILE_NAME = 'mcp.json';
 
 export const DEFAULT_MCP_SETTINGS: McpSettings = {
-  version: 6,
+  version: 7,
   enabled: false,
   allowUi: false,
   allowGateDecide: false,
   allowModels: false,
   allowGames: false,
   allowTerrains: false,
+  allowSprites: false,
 };
 
 export function createMcpStore(directory: string): McpStore {
@@ -107,6 +109,11 @@ export function createMcpStore(directory: string): McpStore {
  * tools (list, get_spec, render_preview, get_stats) answer whenever the server is on. Older
  * files have no key, which `=== true` already reads as `false`.
  *
+ * **`version: 7` adds `allowSprites`** (Phase 106 Theme K) — a SEVENTH switch, same posture,
+ * gating the sprite tools that change an asset, start a generation job (a paid image or LLM
+ * request), cancel one or write an export. The read tools (list, get_spec, recommend_method,
+ * job_status, get_report, render_preview, map_get) answer whenever the server is on.
+ *
  * Validate without zod: this module is main-only and the shape is four
  * fields, matching `repo-store.ts`'s own reasoning for a hand-rolled guard.
  *
@@ -125,7 +132,8 @@ export function parseStoredSettings(value: unknown): McpSettings {
   const allowModels = (value as { allowModels?: unknown }).allowModels === true;
   const allowGames = (value as { allowGames?: unknown }).allowGames === true;
   const allowTerrains = (value as { allowTerrains?: unknown }).allowTerrains === true;
-  return { version: 6, enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains };
+  const allowSprites = (value as { allowSprites?: unknown }).allowSprites === true;
+  return { version: 7, enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites };
 }
 
 /** A store that always reports "off" — the fallback before one is configured. */

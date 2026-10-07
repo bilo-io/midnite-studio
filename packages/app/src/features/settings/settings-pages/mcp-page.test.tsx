@@ -157,6 +157,25 @@ describe('McpSettingsPage', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith({ allowTerrains: true }));
   });
 
+  it('toggling the sprites switch calls mcp.set with allowSprites, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit sprites and maps' }));
+    expect(((await screen.findByTestId('mcp-allow-sprites')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowSprites: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit sprites and maps' }));
+    const checkbox = await screen.findByTestId('mcp-allow-sprites');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowSprites: true }));
+  });
+
   it('lists the model tools among the registered tools', async () => {
     installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });
