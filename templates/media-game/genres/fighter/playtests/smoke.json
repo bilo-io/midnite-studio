@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "seed": 1,
+  "frames": 180,
+  "input": [{ "frame": 0, "action": "forward", "pressed": true }],
+  "assert": [
+    { "frame": 180, "path": "$.scene", "equals": "level" },
+    { "frame": 180, "path": "$.camera", "equals": "versus" },
+    { "frame": 180, "path": "$.fighter.phase", "equals": "fight" },
+    { "frame": 180, "path": "$.fighter.timer", "decreasedFromFrame": 0 },
+    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 0 }
+  ]
+}

@@ -66,6 +66,15 @@ export async function startLevel() {
   scene.add(enemy);
 
   const character = createCharacter(physics, { position: [0, 0.1, 6] });
+  // A stand-in body until a Models asset supplies one: a capsule with a visor showing which way it faces.
+  const avatar = new THREE.Group();
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 1.1, 4, 12), new THREE.MeshStandardMaterial({ color: 0x3b82f6 }));
+  torso.position.y = 0.9;
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.2), new THREE.MeshStandardMaterial({ color: 0xe2e8f0 }));
+  visor.position.set(0, 1.45, -0.28);
+  torso.castShadow = visor.castShadow = true;
+  avatar.add(torso, visor);
+  scene.add(avatar);
   const input = createInput(THREE_BINDINGS);
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('game'));
   const rig = createCameraRig({ mode: MODE, physics, exclude: character.collider, allowed: config.cameras, canvas });
@@ -84,7 +93,9 @@ export async function startLevel() {
       if (input.justPressed('camera-next')) rig.cycle();
       const look = input.takeLook();
       const direction = moveRelativeToYaw(input.move(), rig.yaw);
-      character.move({ direction, run: input.isDown('sprint'), jump: input.justPressed('jump'), face: MODE === 'third-person' }, dt);
+      const wish = { direction, run: input.isDown('sprint'), jump: input.justPressed('jump'), face: MODE === 'third-person' };
+      // A genre may reshape the step's movement (a dodge roll, rooted attacks, facing a lock-on target).
+      character.move(genre.intent ? genre.intent(wish, dt, frame) : wish, dt);
       physics.step();
       enemy.position.x = -3 + Math.sin(frame / 60) * 3;
 
@@ -95,6 +106,8 @@ export async function startLevel() {
         doorCollider.setTranslation({ x: 0, y: doorOpen ? 4.5 : 1.5, z: -3 });
       }
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
+      avatar.position.set(...character.position);
+      avatar.rotation.y = character.yaw;
       genre.update(dt, frame);
       hud.set('state', animationState(character));
     },

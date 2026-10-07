@@ -38,7 +38,7 @@ describe('GameGallery', () => {
     expect(fps.getAttribute('title')).toBe('The FPS genre needs the raycaster.');
   });
 
-  it('makes the 2D genre cells selectable, and keeps the 3D genres not available yet', async () => {
+  it('makes the 2D genre cells selectable, and keeps the unlanded 3D genres not available yet', async () => {
     renderView(<GameTab />, { fixtures });
     await screen.findByRole('grid');
     for (const name of ['FPS, 2.5D raycaster', 'RTS, Top-down', 'RTS, Isometric', 'ARPG, Isometric', 'Top-down crime, Top-down']) {
@@ -49,11 +49,28 @@ describe('GameGallery', () => {
     expect(rts.getAttribute('aria-pressed')).toBe('true');
 
     fireEvent.click(screen.getByRole('radio', { name: '3D' }));
-    const shooter = cell('Shooter, First person');
-    expect(shooter.getAttribute('aria-disabled')).toBe('true');
-    expect(shooter.getAttribute('title')).toMatch(/Not available yet/);
-    fireEvent.click(shooter);
-    expect(shooter.getAttribute('aria-pressed')).toBe('false');
+    const rpg = cell('RPG, Third person');
+    expect(rpg.getAttribute('aria-disabled')).toBe('true');
+    expect(rpg.getAttribute('title')).toMatch(/Not available yet/);
+    fireEvent.click(rpg);
+    expect(rpg.getAttribute('aria-pressed')).toBe('false');
+  }, 20_000);
+
+  it('makes shooter, fighter and soulslike creatable; the fighter swaps the camera picker for the versus camera', async () => {
+    renderView(<GameTab />, { fixtures });
+    await screen.findByRole('grid');
+    fireEvent.click(screen.getByRole('radio', { name: '3D' }));
+    for (const name of ['Shooter, First person', 'Shooter, Third person', 'Fighter, Third person', 'Soulslike, Third person']) {
+      expect(cell(name).getAttribute('aria-disabled'), name).toBe('false');
+    }
+    fireEvent.click(cell('Soulslike, Third person'));
+    expect(screen.getByRole('group', { name: 'Cameras' })).toBeTruthy();
+    expect(screen.queryByTestId('game-gallery-versus')).toBeNull();
+
+    fireEvent.click(cell('Fighter, Third person'));
+    expect(cell('Fighter, Third person').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('group', { name: 'Cameras' })).toBeNull();
+    expect(screen.getByTestId('game-gallery-versus').textContent).toMatch(/Versus camera/);
   }, 20_000);
 
   it('picks a base, and the 3D toggle shows the camera checkboxes for third person', async () => {
