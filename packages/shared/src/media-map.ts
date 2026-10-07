@@ -408,3 +408,97 @@ export const MapResultSchemas = {
   cache: GitOpResultOf(MapCacheStatusSchema),
 } as const;
 export const MapSourcesResponseSchema = z.object({ sources: z.array(MapSourceStatusSchema) });
+
+// --- layers (Theme H) --------------------------------------------------------
+
+/** Layers live at `layers/<name>.geojson` inside the project folder. */
+export const MAP_LAYERS_DIR = 'layers';
+export const MAP_LAYER_EXT = '.geojson';
+export const MAP_LAYER_MAX_BYTES = 10 * 1024 * 1024;
+export const DEFAULT_MAP_LAYER = 'drawings';
+export const DEFAULT_MAP_LAYER_COLOR = '#3b82f6';
+export const MAP_LAYER_KINDS = ['pin', 'path', 'circle', 'area'] as const;
+export type MapLayerKind = (typeof MAP_LAYER_KINDS)[number];
+
+/** A layer's name: what the file is called, minus the extension. No separators, so it cannot leave `layers/`. */
+export const MapLayerNameSchema = z
+  .string()
+  .min(1)
+  .max(60)
+  .regex(/^[^/\\\0]+$/, 'No slashes in a layer name.')
+  .refine((n) => n.trim() === n && !n.startsWith('.'), 'No leading dot or edge spaces.');
+export const mapLayerPath = (name: string): string => `${MAP_LAYERS_DIR}/${name}${MAP_LAYER_EXT}`;
+export const mapLayerNameOf = (path: string): string | null => {
+  const m = /^layers\/([^/]+)\.geojson$/.exec(path);
+  return m ? m[1]! : null;
+};
+
+const Position = z.tuple([z.number(), z.number()]).rest(z.number());
+
+const LayerGeometrySchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('Point'), coordinates: Position }),
+  z.object({ type: z.literal('LineString'), coordinates: z.array(Position).min(2) }),
+  z.object({ type: z.literal('Polygon'), coordinates: z.array(z.array(Position).min(4)).min(1) }),
+]);
+
+export const MapLayerFeatureSchema = z.object({
+  type: z.literal('Feature'),
+  id: z.union([z.string(), z.number()]).optional(),
+  geometry: LayerGeometrySchema,
+  properties: z
+    .object({
+      kind: z.enum(MAP_LAYER_KINDS),
+      label: z.string().optional(),
+      note: z.string().optional(),
+      /** Overrides the layer's colour for this feature only. */
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      /** A circle keeps its centre and radius so it re-renders exactly; its geometry is the 128-gon. */
+      center: z.tuple([z.number(), z.number()]).optional(),
+      radiusM: z.number().positive().optional(),
+    })
+    .passthrough(),
+});
+export type MapLayerFeature = z.infer<typeof MapLayerFeatureSchema>;
+
+export const MapLayerFileSchema = z
+  .object({ type: z.literal('FeatureCollection'), features: z.array(MapLayerFeatureSchema) })
+  .passthrough();
+export type MapLayerFile = z.infer<typeof MapLayerFileSchema>;
+
+export const emptyLayer = (): MapLayerFile => ({ type: 'FeatureCollection', features: [] });
+
+/** `null` when the text is not a valid layer. */
+export function parseLayer(text: string): MapLayerFile | null {
+  try {
+    const parsed = MapLayerFileSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+const LEAD_KEYS = ['type', 'id', 'geometry', 'properties'] as const;
+const round7 = (n: number): number => Math.round(n * 1e7) / 1e7;
+const roundCoords = (v: unknown): unknown => (Array.isArray(v) ? v.map((x) => (typeof x === 'number' ? round7(x) : roundCoords(x))) : v);
+
+function sortKeys(value: unknown, key?: string): unknown {
+  if (key === 'coordinates' || key === 'center') return roundCoords(value);
+  if (Array.isArray(value)) return value.map((v) => sortKeys(v));
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).filter((k) => obj[k] !== undefined);
+    const lead = LEAD_KEYS.filter((k) => keys.includes(k));
+    const rest = keys.filter((k) => !(LEAD_KEYS as readonly string[]).includes(k)).sort();
+    return Object.fromEntries([...lead, ...rest].map((k) => [k, sortKeys(obj[k], k)]));
+  }
+  return value;
+}
+
+/**
+ * The one way a layer is written: stable key order (`type`, `id`, `geometry`, `properties`, then
+ * alphabetical) at every level, coordinates rounded to 7 dp, 2-space indent, trailing newline — so a
+ * git diff of a layer shows only what changed.
+ */
+export function stringifyLayer(fc: MapLayerFile): string {
+  return `${JSON.stringify(sortKeys(fc), null, 2)}\n`;
+}
