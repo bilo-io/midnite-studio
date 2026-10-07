@@ -1,5 +1,10 @@
 import type {
+  GameAssetSourceTab,
+  GameAssetSourcesResult,
   GameCreateRequest,
+  GameImportAssetRequest,
+  GameImportAssetResult,
+  GameResyncResult,
   GameSummary,
   GamesSettingsPatch,
   GamesSettingsRead,
@@ -19,6 +24,9 @@ export const GAME_KEYS = {
   list: ['games', 'list'] as const,
   settings: ['games', 'settings'] as const,
   manifest: (gameId: string) => ['games', 'manifest', gameId] as const,
+  /** Theme N: imported assets and whether their sources moved on. */
+  assets: (gameId: string) => ['games', 'assets', gameId] as const,
+  assetSources: (tab: string) => ['games', 'asset-sources', tab] as const,
 };
 
 export function useGames() {
@@ -99,7 +107,15 @@ export function useGameEvents(): void {
     const offs = [
       api.games.onRunState((event) => useGameRunStore.getState().applyRunState(event)),
       api.games.onConsole((event) => useGameRunStore.getState().appendLogs(event.gameId, event.runId, event.entries)),
-      api.games.onChanged(() => void client.invalidateQueries({ queryKey: GAME_KEYS.list })),
+      api.games.onChanged(() => {
+        void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+        void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+      }),
+      // A source in the media store changed: the "N assets changed" badge may need to move.
+      api.media.onChanged(() => {
+        void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+        void client.invalidateQueries({ queryKey: ['games', 'asset-sources'] });
+      }),
       api.games.onPopState((event) => useGameRunStore.getState().setPopped(event.gameId)),
     ];
     // Seed what this renderer missed before it subscribed: which game is popped
@@ -121,4 +137,57 @@ export function useGameEvents(): void {
       for (const off of offs) off();
     };
   }, [client]);
+}
+
+/**
+ * Theme N: a game's imported assets with their sync state (a check, which writes nothing). Refetches on
+ * window focus and on `media:changed`, which is how the explorer's "2 assets changed" badge stays honest.
+ */
+export function useGameAssets(gameId: string, enabled = true) {
+  return useQuery<GameResyncResult | null>({
+    queryKey: GAME_KEYS.assets(gameId),
+    enabled,
+    queryFn: async () => {
+      const result = await bridge()?.games.assets.resync({ gameId, check: true });
+      return result?.ok ? result.value : null;
+    },
+  });
+}
+
+/** The picker's candidates for one tab, across the registered repos. */
+export function useAssetSources(tab: GameAssetSourceTab) {
+  return useQuery<GameAssetSourcesResult>({
+    queryKey: GAME_KEYS.assetSources(tab),
+    queryFn: async () => {
+      const result = await bridge()?.games.assets.sources({ tab });
+      return result?.ok ? result.value : { repos: [] };
+    },
+  });
+}
+
+export function useImportAsset() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: GameImportAssetRequest) =>
+      (await bridge()?.games.assets.import(req)) ?? noBridge<GameImportAssetResult>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+    },
+  });
+}
+
+/** Re-import the changed assets (all of them, or `names`) as one commit. */
+export function useReimportAssets() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: { gameId: string; names?: string[] }) =>
+      (await bridge()?.games.assets.resync(req)) ?? noBridge<GameResyncResult>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      void client.invalidateQueries({ queryKey: ['games', 'assets'] });
+      void client.invalidateQueries({ queryKey: GAME_KEYS.list });
+    },
+  });
 }

@@ -681,7 +681,7 @@ export const MCP_TOOLS = {
     id: 'game_import_asset',
     title: 'Import media into a game',
     description:
-      'Copies a Terrain, Sprites, Models, Images or Audio item (or a pack folder) into the game’s `assets/` with provenance and registers it in `assets/index.json` — use instead of `cp` into the game repo; refused unless its own Settings switch is on.',
+      'Copies a Terrain, Sprite, Model, Image or Audio item into a game’s `assets/` and registers it in the index — use instead of `cp` into the repo; refused unless its Settings switch is on.',
     input: GameImportAssetInputSchema,
     output: GameImportAssetOutputSchema,
     readOnly: false,

@@ -43,6 +43,7 @@ describe('MCP_TOOLS', () => {
     'game_stop',
     'game_reload',
     'game_input',
+    'game_import_asset',
     'terrain_open',
     'terrain_set_spec',
     'terrain_set_input',
