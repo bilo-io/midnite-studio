@@ -575,6 +575,15 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
   replaces it.
 
+## Phase 107 · Theme J — deferred pieces
+
+- **The per-genre e2e smoke run is not committed**, as for H and I: `game-starters.spec.ts` and `gamesPlaytest` arrive with Themes O and Q (the `rpg@first-person` gallery e2e from Theme K waits there too). All five J starters passed their provisional `playtests/smoke.json` (`$.rpg`, `$.action`, `$.openWorld`) in SwiftShader Chromium through an untracked harness; the replay's custom actions (`choice-1`, `heavy`, `launch`) are Theme O's to formalise.
+- **Placeholder bodies only**, as in I: NPCs, wolves, enemies, pedestrians and traffic are primitives; nothing drives `kit/three/animator.js` clips yet (Theme N).
+- **RPG scope trimmed to a starter:** one village on the base arena, two quests, three NPCs; no party, save/load of the quest log, shops beyond one cap, or NPC pathing on the navmesh (they walk straight to their scheduled spot). The bag is listed, not shown as a grid.
+- **Character action:** one ground string, one air string and a launcher; no weapon switching, taunts, dodge-offset or enemy guard. Enemies are boxes with simple wind-ups, and only the wave count, not the arena, varies.
+- **Open world:** traffic and pedestrians are kinematic and drawn on the road graph, not Rapier bodies, so a collision is a proximity check (it raises the wanted level and knocks the pedestrian down) rather than physics; police drive along the roads then straight at you, with no roadblocks, helicopters or line-of-sight occlusion. Day/night drives the sun and sky only (no street or head lights). The fixture pack drops LOD 0, so close chunks show LOD 1.
+- **`kit/three/terrain.js` projects the drape onto UV-less chunks in the kit.** Phase 105's pack export writes chunk glbs without UVs (only the single-glb export carries them); writing UVs into the pack's chunks would let the kit drop that projection.
+
 ## Phase 107 · Theme I — deferred pieces
 
 - **The per-genre e2e smoke run is not committed**, as for H: `game-starters.spec.ts` and `gamesPlaytest` arrive with Themes O and Q. Shooter, fighter and soulslike were driven by hand in SwiftShader Chromium; each ships a provisional `playtests/smoke.json` (`$.shooter`, `$.fighter`, `$.souls`) for Theme O to migrate.

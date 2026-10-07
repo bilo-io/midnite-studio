@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "seed": 1,
+  "frames": 180,
+  "input": [
+    { "frame": 0, "action": "forward", "pressed": true },
+    { "frame": 158, "action": "forward", "pressed": false },
+    { "frame": 160, "action": "attack", "pressed": true },
+    { "frame": 161, "action": "attack", "pressed": false },
+    { "frame": 172, "action": "attack", "pressed": true },
+    { "frame": 173, "action": "attack", "pressed": false }
+  ],
+  "assert": [
+    { "frame": 180, "path": "$.scene", "equals": "level" },
+    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 0 },
+    { "frame": 180, "path": "$.action.arena", "equals": "fighting" },
+    { "frame": 178, "path": "$.action.move", "equals": "slash-2" },
+    { "frame": 178, "path": "$.action.chain", "equals": 2 }
+  ]
+}

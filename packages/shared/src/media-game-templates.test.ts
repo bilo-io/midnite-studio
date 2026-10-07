@@ -49,7 +49,7 @@ describe('starter ids', () => {
     expect(isValidStarter('fps@top-down')).toEqual({ ok: false, reason: 'The FPS genre needs the raycaster.' });
     expect(isValidStarter('shooter@isometric').ok).toBe(false);
   });
-  it('the bases, the 2D genres and shooter/fighter/soulslike are available; the rest wait for their modules', () => {
+  it('the bases and every genre are available (Themes G-J)', () => {
     expect(isStarterAvailable('platformer')).toEqual({ ok: true });
     expect(isStarterAvailable('rts@isometric')).toEqual({ ok: true });
     expect(isStarterAvailable('crime@top-down')).toEqual({ ok: true });
@@ -57,7 +57,12 @@ describe('starter ids', () => {
     expect(isStarterAvailable('shooter@third-person')).toEqual({ ok: true });
     expect(isStarterAvailable('fighter@third-person')).toEqual({ ok: true });
     expect(isStarterAvailable('soulslike@third-person')).toEqual({ ok: true });
-    expect(isStarterAvailable('rpg@third-person').ok).toBe(false);
+    expect(isStarterAvailable('rpg@third-person')).toEqual({ ok: true });
+    expect(isStarterAvailable('rpg@first-person')).toEqual({ ok: true });
+    expect(isStarterAvailable('character-action@third-person')).toEqual({ ok: true });
+    expect(isStarterAvailable('open-world@third-person')).toEqual({ ok: true });
+    expect(isStarterAvailable('open-world@first-person')).toEqual({ ok: true });
+    expect(isStarterAvailable('character-action@first-person')).toEqual({ ok: false, reason: 'Character action runs third person only.' });
     expect(isStarterAvailable('fps@top-down')).toEqual({ ok: false, reason: 'The FPS genre needs the raycaster.' });
   });
 });

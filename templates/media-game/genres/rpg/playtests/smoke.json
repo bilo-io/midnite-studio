@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "seed": 1,
+  "frames": 180,
+  "input": [
+    { "frame": 1, "action": "interact", "pressed": true },
+    { "frame": 3, "action": "interact", "pressed": false },
+    { "frame": 10, "action": "choice-1", "pressed": true },
+    { "frame": 12, "action": "choice-1", "pressed": false },
+    { "frame": 20, "action": "interact", "pressed": true },
+    { "frame": 22, "action": "interact", "pressed": false },
+    { "frame": 30, "action": "interact", "pressed": true },
+    { "frame": 32, "action": "interact", "pressed": false },
+    { "frame": 40, "action": "forward", "pressed": true }
+  ],
+  "assert": [
+    { "frame": 8, "path": "$.rpg.dialogue.with", "equals": "elder" },
+    { "frame": 180, "path": "$.scene", "equals": "level" },
+    { "frame": 180, "path": "$.rpg.quests.wolves", "equals": "active" },
+    { "frame": 180, "path": "$.rpg.dialogue", "equals": null },
+    { "frame": 180, "path": "$.player.position[2]", "decreasedFromFrame": 40 }
+  ]
+}

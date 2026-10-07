@@ -1,0 +1,22 @@
+{
+  "quests": [
+    {
+      "id": "wolves",
+      "title": "The Wolf Problem",
+      "stages": [
+        { "id": "hunt", "text": "Defeat the wolves past the fields", "on": { "type": "defeat", "target": "wolf", "count": 3 } },
+        { "id": "report", "text": "Tell the elder the wolves are dead", "on": { "type": "talk", "target": "elder" } }
+      ],
+      "reward": { "xp": 160, "gold": 50, "item": "iron-sword" }
+    },
+    {
+      "id": "herbs",
+      "title": "Herbs for the Healer",
+      "stages": [
+        { "id": "gather", "text": "Gather glowing herbs", "on": { "type": "collect", "target": "herb", "count": 2 } },
+        { "id": "deliver", "text": "Bring the herbs to the healer", "on": { "type": "talk", "target": "healer" } }
+      ],
+      "reward": { "xp": 80, "item": "leather-vest" }
+    }
+  ]
+}

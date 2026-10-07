@@ -109,7 +109,18 @@ export const GAME_TEMPLATE_MATRIX: Readonly<Record<GameGenre, GameTemplateCell>>
  * I and J add the 3D ones. The gallery shows every genre cell, but only the
  * available ones are creatable.
  */
-export const GAME_GENRES_AVAILABLE: readonly GameGenre[] = ['fps', 'rts', 'arpg', 'crime', 'shooter', 'fighter', 'soulslike'];
+export const GAME_GENRES_AVAILABLE: readonly GameGenre[] = [
+  'fps',
+  'rts',
+  'arpg',
+  'crime',
+  'shooter',
+  'fighter',
+  'soulslike',
+  'rpg',
+  'character-action',
+  'open-world',
+];
 
 export const GAME_GENRE_UNAVAILABLE_REASON = 'Not available yet: this genre arrives in a later update.';
 
