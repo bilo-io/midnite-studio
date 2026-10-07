@@ -40,6 +40,7 @@ import {
   type SpriteProgressEvent,
   type SpriteSetReferenceRequest,
   type SpriteSetSpecRequest,
+  type SpriteSheetSpec,
   type SpriteTarget,
 } from '@midnite/studio-shared';
 
@@ -89,6 +90,13 @@ export type SpriteJobContext = {
   countRequest: () => void;
   /** A line the job's final event carries even when it ends `done` (e.g. "Consistency not checked: …"). */
   note: (message: string) => void;
+  /**
+   * Read-modify-writes the sheet's `sprite.json` inside the asset's write queue — a rendered sheet
+   * records each clip's real frame count (E), a one-shot sheet its grid and verdict (F).
+   */
+  updateSheet: (change: (spec: SpriteSheetSpec) => SpriteSheetSpec) => Promise<void>;
+  /** Writes any other file of the asset (asset-relative path), e.g. the one-shot sheet image. */
+  writeAssetFile: (path: string, data: Buffer) => Promise<void>;
 };
 export type SpriteJobRunner = (ctx: SpriteJobContext) => Promise<void>;
 
@@ -535,10 +543,18 @@ export function createSpriteService(deps: SpriteServiceDeps) {
           );
           if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the reference.');
         },
+        updateSheet: async (change) => {
+          const updated = await updateSpec(target, dir, (current) => (current.kind === 'sheet' ? { spec: change(current) } : { fail: failure('Only a sprite sheet has frames.') }));
+          if (!updated.ok) throw new Error(updated.kind === 'error' ? updated.message : 'Could not update the sprite.');
+        },
+        writeAssetFile: async (path, data) => {
+          const written = await deps.writeBytes({ repoId: target.repoId, project: target.group, path: `${target.asset}/${path}`, data });
+          if (!written.ok) throw new Error(written.kind === 'error' ? written.message : `Could not write ${path}.`);
+        },
         submitFrame: async ({ clip, dir: direction, n, bytes, meta }) => {
           const p = await pipelineFor();
           if (meta) pending.set(spriteFrameKey(clip, direction, n), meta);
-          return p.process({ clip, dir: direction, n, bytes });
+          return p.process({ clip, dir: direction, n, bytes, rendered: meta?.source === 'rendered' });
         },
       });
       if (job.controller.signal.aborted) end = 'cancelled';

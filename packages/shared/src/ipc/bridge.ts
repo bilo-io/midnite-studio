@@ -1368,6 +1368,12 @@ export type MidniteStudioBridge = {
       onChanged: (handler: (event: z.infer<typeof S.MediaSpriteChangedPayload>) => void) => Unsubscribe;
       /** `sprite_open` asked for an asset to be shown. */
       onOpen: (handler: (event: z.infer<typeof S.MediaSpriteOpenPayload>) => void) => Unsubscribe;
+      /** Rendered from 3D (Theme E): main asks this window to render a Models character. */
+      onRenderRequest: (handler: (event: z.infer<typeof S.MediaSpriteRenderRequestPayload>) => void) => Unsubscribe;
+      /** Acknowledges a render request; main fails the job if no window does within 10 s. */
+      renderReady: (req: In<typeof S.MediaSpriteRenderReadyRequest>) => Promise<GitOpResult>;
+      /** Posts one batch of rendered frames; a failed answer means the job is gone (cancelled) — stop rendering. */
+      renderFrames: (req: In<typeof S.MediaSpriteRenderFramesRequest>) => Promise<GitOpResult>;
     };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
