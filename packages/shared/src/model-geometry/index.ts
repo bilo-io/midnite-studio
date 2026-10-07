@@ -137,3 +137,4 @@ export { applyClipOps, applyRigOps, copyClips, setAnatomy, type RigEditIssue, ty
 export * from './mesh';
 export * from './sdf';
 export * from './sculpt';
+export * from './paint';
