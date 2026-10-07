@@ -214,13 +214,38 @@ request, key, crop and fit it bottom-centre into the cell and export through the
 `anims.json`. The export now writes `<asset>.tileset/`, `.background/` and `.sprite/` for props. The
 kind stays `'prop-sheet'` (the doc's `'props'` would have broken Theme A's union and the asset bridge).
 
-**Theme J — Maps as Tiled `.tmj`.** ◻ Not started. An LLM writes a zod `MapSpec` (two repair rounds);
-the kernel fills, autotiles, scatters and derives collision; the `.tmj` embeds its tilesets because
-Phaser cannot load external ones.
+**Theme J — Maps as Tiled `.tmj`.** ✅ Landed (PR #765). `MapSpecSchema` (8–256 tiles a side;
+`base`, `regions` rect/ellipse/polygon, `rooms` with an optional floor — else the first walkable terrain
+that is not the base — L-shaped `corridors`, 4-connected `paths`, `objects`, plus `cells` overrides for
+`map_patch`) and a fuller `MapAssetSpec` (`tileset` ref — an old bare folder name still loads — `engine`,
+`decorations`, `seed`, `imported`). `spriteMapPrompt` gives the engine the tileset's own terrain ids;
+`checkMapSpec`/`mapSpecIssues` reject unknown terrains (`regions[2].terrain: "lava" is not in this tileset
+(…)`), wrong point counts, objects off the map and duplicate names, sent back for `SPRITE_MAP_MAX_REPAIRS
+= 2` rounds. `map-fill.ts` derives tile ids from the `TilesetSpec` alone, autotiles each cell against the
+transition whose `a` is its commonest other neighbour (off-map counts as itself; a full mask is the base
+tile), scatters props by seeded Poisson-disk on walkable cells and builds the four layers — `ground`,
+`decoration`, hidden `collision` (a two-tile `collision` tileset) and `objects` — with every tileset
+embedded. The map's orientation follows the tileset's projection. The job (`map-generate.ts`) copies
+`tileset.png`/`.tsj` beside `map.tmj` with `collision.png` and `props.png`; `layout: 'keep'` refills
+without the engine. `mediaSpriteImportMap` imports a `.tmj` (external `.tsj` embedded, images flattened
+beside it; a missing image, a `.tsx` tileset or an infinite map is refused). The Map form takes a
+tileset, size, decorations and the Models tab's engine; `SpriteMapPreview` pans, zooms in whole steps,
+toggles layers and draws the collision overlay from the tiles' own `collision` property. Exports as
+`<asset>.map/`.
 
-**Theme K — Sprites over MCP, and the skill.** ◻ Not started. Eighteen tools behind a new
-`allowSprites` switch; generation is an asynchronous job polled with `sprite_job_status`; a
-`midnite-media-sprite-build` skill in six copies.
+**Theme K — Sprites over MCP, and the skill.** ✅ Landed (PR #765). Eighteen tools in
+`media-sprite-mcp.ts` (eleven writes) behind `allowSprites` (`mcp.json` version 7); `sprite-mcp.ts` is a
+thin adapter over `SpriteService`. Every `*_generate` tool takes an existing asset or a `spec` it creates
+first, so no separate create tool is needed; `sprite_generate` also takes `turnaround` and
+`approveReference`, the agent's way through hand-drawn's two steps (a reference is otherwise
+protected). Jobs answer `{jobId, requests}` at once; `estimateSpriteRequests` is each job's worst case
+(re-roll budget included; rendered costs 0, a map 3) and a job over `SPRITE_MCP_MAX_REQUESTS = 200` is
+refused before anything is created. `sprite_render_preview` returns contact sheets (≤ 8 columns, on a
+checker, small art enlarged) and an APNG (`png/apng.ts` re-wraps `encodePngRgba8`'s IDAT as `fdAT`), or
+the tileset, layers, props or `renderTiledMap`'s drawing of a map; it alone uses the shim's slow timeout.
+`map_patch` (`set` a ground cell, place an `object`, `refill`) validates, saves and waits for the refill.
+`sprite_open` is answered by a root-level `useSpriteOpenListener`. The `midnite-media-sprite-build`
+skill ships in all six copies, and a vitest keeps its tool names exactly the eighteen.
 
 **Theme L — Verification.** ◻ Not started. The gate, an `MSTUDIO_SHOTS` spec, one Phaser smoke e2e
 against an exact-pinned dev-only `phaser`, and three human passes.
@@ -331,7 +356,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     **Sprites**, the explorer shows the five groups and **hero** under Characters.
   - `mock-bridge.ts` learns `media.sprite.*` (`generate` resolves a `jobId` and emits two progress events).
 
-- [ ] `SpriteService` is the one implementation both IPC and MCP call
+- [x] `SpriteService` is the one implementation both IPC and MCP call
   - `main/media/sprite/sprite-service.ts` exports `createSpriteService(deps: { store: MediaStore; imageService; visionCall: VisionCall; llmCall: LlmCall; renderRelay; log })`
     with `library`, `get`, `setSpec`, `setReference`, `generate`, `jobStatus`, `cancel`, `patchFrames`,
     `renderPreview`, `export`; `media-sprite-handlers.ts` and `sprite-mcp.ts` are thin adapters, so the job
@@ -729,27 +754,27 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
 
 ## J — Maps as Tiled `.tmj` (M)
 
-- [ ] Layout from a prompt: an LLM writes a small `MapSpec` (regions, rooms, corridors, paths, spawn and exit points), limited to the terrain types the chosen tileset has, then validated by zod with a repair round, exactly as the Models pipeline repairs designs
+- [x] Layout from a prompt: an LLM writes a small `MapSpec` (regions, rooms, corridors, paths, spawn and exit points), limited to the terrain types the chosen tileset has, then validated by zod with a repair round, exactly as the Models pipeline repairs designs
   - `MapSpecSchema` in `media-sprite.ts`: `{ width: 8–256, height: 8–256, orientation: 'orthogonal' | 'isometric', base: terrainId, regions: { terrain, shape: 'rect' | 'ellipse' | 'polygon', points: [x, y][] }[], rooms?: { x, y, w, h }[], corridors?: { from: [x, y], to: [x, y], width: 1–4, terrain }[], paths?: { points: [x, y][], terrain }[], objects: { type: 'spawn' | 'exit' | 'point', name, x, y }[] }` (tile units).
     `MapAssetSpecSchema = { kind: 'map', name, prompt, tileset: { group: 'tilesets', asset }, mapSpec?: MapSpec, engine: ModelEngine, decorations?: { props: { group: 'objects', asset }, density: 0–1 } }`.
   - `createLlmCall` with `json: true` and `SPRITE_MAP_PROMPT(prompt, tilesetTerrains)`; parse failures are
     described (`describeIssues`-style, one line per issue) and sent back for up to
     `SPRITE_MAP_MAX_REPAIRS = 2` rounds; a terrain id not in the tileset is an issue
     (`regions[2].terrain: "lava" is not in this tileset (grass, dirt, water)`).
-- [ ] Fill in the kernel: regions → terrain-type grid → autotile with H's blob or Wang rules → decoration scatter → collision layer from tile flags
+- [x] Fill in the kernel: regions → terrain-type grid → autotile with H's blob or Wang rules → decoration scatter → collision layer from tile flags
   - `shared/src/sprite/map-fill.ts` `fillMap(mapSpec, tileset, seed): TiledMap` — rasterise in order
     base, regions, rooms, corridors, paths (later wins); autotile each cell with `BLOB47_MASKS`/`CORNER16`
     from its 8 neighbours; scatter decorations by seeded Poisson-disk on `walkable` cells only.
-- [ ] Orthogonal and isometric maps. Layers: `ground`, `decoration`, `collision`, and an `objects` layer with spawns, exits and named points
+- [x] Orthogonal and isometric maps. Layers: `ground`, `decoration`, `collision`, and an `objects` layer with spawns, exits and named points
   - `.tmj` = `{ type: 'map', version: '1.10', tiledversion: '1.11.0', orientation, renderorder: 'right-down', width, height, tilewidth, tileheight (half the width for isometric), infinite: false, layers: [ground, decoration (tilelayers, CSV data), collision (tilelayer, one tile per flag, `visible: false`), objects (objectgroup)], tilesets: [embedded] }`.
   - **Resolved: tilesets are embedded in the `.tmj`** (Decision 12) — Phaser's `load.tilemapTiledJSON`
     cannot resolve external `.tsj` references; the `.tsj` is also written beside it for Tiled.
-- [ ] Map preview with pan and zoom, a layer toggle and a collision overlay. Existing `.tmj` files can be imported
+- [x] Map preview with pan and zoom, a layer toggle and a collision overlay. Existing `.tmj` files can be imported
   - `SpriteMapPreview` in `sprite-map-preview.tsx`: a 2D canvas, drag to pan, wheel/`+`/`-` to zoom
     (integer zoom for pixel tiles), checkboxes per layer, collision drawn as 40 % red (`solid`) / blue
     (`water`). **Import .tmj…** accepts a map whose tilesets are embedded or whose `.tsj` sits beside it;
     one referencing a missing image is refused with _"This map's tileset image <name> is missing."_
-- [ ] Vitest: autotile fill picks the right tile for each neighbourhood, the collision layer matches the flags, the `.tmj` validates against a Tiled fixture, and a spec naming an unknown terrain type comes back as a validation result
+- [x] Vitest: autotile fill picks the right tile for each neighbourhood, the collision layer matches the flags, the `.tmj` validates against a Tiled fixture, and a spec naming an unknown terrain type comes back as a validation result
   - `shared/src/sprite/map-fill.test.ts` (a 5×5 grass map with a 3×3 water island picks the 9 expected blob
     ids), `tiled.test.ts` (`TiledMapSchema` parses; tilesets are embedded),
     `desktop/src/main/media/sprite/map-generate.test.ts` (a stub `LlmCall` returning `lava` gets one repair
@@ -757,7 +782,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
 
 ## K — Sprites over MCP, and the skill (M)
 
-- [ ] `shared/src/media-sprite-mcp.ts` tool family:
+- [x] `shared/src/media-sprite-mcp.ts` tool family:
   - `sprite_list`, `sprite_open`, `sprite_get_spec` and `sprite_set_spec`
   - `sprite_recommend_method`
   - `sprite_generate`, for a whole sheet or named clips, by method
@@ -786,7 +811,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     see the first frame still get the contact sheet.
   - `map_patch` takes `{ ops: ({ op: 'set'; layer; x; y; terrain } | { op: 'object'; type; name; x; y } | { op: 'refill' })[] }`
     and re-runs the autotile; `map_get` returns the `MapSpec` plus layer sizes (not tile arrays).
-- [ ] Handlers in `main/media/sprite/sprite-mcp.ts`. A `main/mcp/sprite-tools.ts` gate behind **Settings ▸ MCP ▸ Let agents edit sprites and maps** (default off), with `dispatch.ts` entries and slow-tool timeouts for generate and render
+- [x] Handlers in `main/media/sprite/sprite-mcp.ts`. A `main/mcp/sprite-tools.ts` gate behind **Settings ▸ MCP ▸ Let agents edit sprites and maps** (default off), with `dispatch.ts` entries and slow-tool timeouts for generate and render
   - `createSpriteTools(deps)` over the same `SpriteService` the IPC handlers use; `setSpriteTools`; private
     `allowed()` → `getMcpAllowSprites()`. Switch: `allowSprites` on `McpSettings` (version +1, `=== true`
     read), `McpSetRequest`, `setMcpAllowSprites` in `main/mcp/index.ts`, `ui-gate.ts` getters, and an
@@ -796,13 +821,13 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     included); a job that would exceed it is refused up front with the computed count, so an agent cannot
     run up an unbounded API bill.
   - `sprite_set_spec` and `map_patch` validation failures return `{ ok: false, errors: { path, message }[] }`.
-- [ ] Skill `midnite-media-sprite-build` in all copies. It covers method choice (call `sprite_recommend_method` first), the generate → report → re-roll loop, and the export formats Phase 107 consumes
+- [x] Skill `midnite-media-sprite-build` in all copies. It covers method choice (call `sprite_recommend_method` first), the generate → report → re-roll loop, and the export formats Phase 107 consumes
   - Six byte-identical copies (`.claude/`, `.agents/`, `.codex/`, `templates/midnite/{.claude,.agents,.codex}/skills/midnite-media-sprite-build/SKILL.md`),
     added to the list `scripts/skill-copies.test.mjs` (Phase 105 Theme J) checks. Sections: method choice;
     the job loop (`sprite_generate` → poll `sprite_job_status` every ~10 s → `sprite_get_report` →
     `sprite_regenerate_frames` for badged frames → `sprite_render_preview`); environments; export
     (`atlas.json`/`anims.json`/`.tsj`/`.tmj` and what Phase 107's kit reads); the switch to ask for.
-- [ ] Vitest: schemas derive from zod, write tools are refused when the switch is off, a failed validation comes back as a result, and a stub-provider generate → report → export round trip works
+- [x] Vitest: schemas derive from zod, write tools are refused when the switch is off, a failed validation comes back as a result, and a stub-provider generate → report → export round trip works
   - `shared/src/mcp.test.ts` (description rule, minimal parse); `desktop/src/main/media/sprite/sprite-mcp.test.ts`:
     every write tool answers `[refused] Sprite editing is off …` when off; a 300-request job is refused;
     with a stub provider `sprite_generate` → poll until `done` → `sprite_get_report` lists badges →

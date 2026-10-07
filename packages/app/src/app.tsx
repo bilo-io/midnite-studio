@@ -58,6 +58,7 @@ import { useCompanionUiRequests } from './features/companion/ui-requests';
 import { useModelOpenListener } from './features/media/model/use-model-agent-events';
 import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
 import { useTerrainOpenListener } from './features/media/terrain/use-terrain-agent-events';
+import { useSpriteOpenListener } from './features/media/sprite/use-sprite-agent-events';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -814,6 +815,8 @@ function Shell() {
   useModelOpenListener();
   // Media ▸ Terrain — an agent's `terrain_open` does the same for a terrain.
   useTerrainOpenListener();
+  // Media ▸ Sprites — an agent's `sprite_open` does the same for a sprite asset (Phase 106 Theme K).
+  useSpriteOpenListener();
   // Rendered-from-3D sprite jobs (Phase 106 Theme E): three.js loads only on the first request.
   useSpriteRenderHost();
 

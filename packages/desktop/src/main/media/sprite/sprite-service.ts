@@ -93,6 +93,8 @@ export type SpriteJobContext = {
   submitFrame: (frame: { clip: string; dir: string; n: number; bytes: Uint8Array; meta?: Partial<SpriteFrameMeta> }) => Promise<SpriteFrameMeasure>;
   /** Hand-drawn step 1 (Theme D): this job draws the turnaround reference, not frames. */
   turnaround: boolean;
+  /** Map (Theme J): refill from the stored layout rather than asking the engine for a new one. */
+  keepLayout: boolean;
   /**
    * Stores a new, **unapproved** reference image (any image format): `reference/reference.png`, plus
    * `reference/turnaround.png` when it is a generated turnaround.
@@ -587,7 +589,12 @@ export function createSpriteService(deps: SpriteServiceDeps) {
       job.status.jobId = job.id;
       jobs.set(job.id, job);
       running.set(key, job);
-      void runJob(job, { repoId: req.repoId, group: req.group, asset: req.asset }, dir, spec.value, { clips: req.clips, frames: req.frames, turnaround: req.turnaround === true });
+      void runJob(job, { repoId: req.repoId, group: req.group, asset: req.asset }, dir, spec.value, {
+        clips: req.clips,
+        frames: req.frames,
+        turnaround: req.turnaround === true,
+        keepLayout: req.layout === 'keep',
+      });
       return ok({ jobId: job.id });
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
@@ -617,7 +624,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     target: SpriteTarget,
     dir: string,
     spec: SpriteAssetSpec,
-    { clips, frames: onlyFrames, turnaround }: { clips: readonly string[] | undefined; frames: readonly string[] | undefined; turnaround: boolean },
+    { clips, frames: onlyFrames, turnaround, keepLayout }: { clips: readonly string[] | undefined; frames: readonly string[] | undefined; turnaround: boolean; keepLayout: boolean },
   ): Promise<void> {
     const started = Date.now();
     // Deleted frames wait in the trash for an undo only until the next generation.
@@ -683,6 +690,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
         progress,
         writeFrame,
         turnaround,
+        keepLayout,
         countRequest: () => {
           requests += 1;
         },
@@ -763,6 +771,29 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     announce(target);
   }
 
+  // --- import (Theme J) -------------------------------------------------------------
+
+  /** A map read from a `.tmj` (`map-import.ts`) as a new map asset: the spec, `map.tmj` and its images. */
+  async function importMap(req: { repoId: string; name: string; files: ReadonlyMap<string, Buffer>; tiles: number }): Promise<GitOpResult<SpriteLibraryResult>> {
+    try {
+      const created = await library({ op: 'create', repoId: req.repoId, spec: { kind: 'map', name: req.name, imported: true } });
+      if (!created.ok) return created;
+      const target: SpriteTarget = { repoId: req.repoId, group: created.value.group!, asset: created.value.asset! };
+      for (const [path, data] of req.files) {
+        const written = await deps.writeBytes({ repoId: req.repoId, project: target.group, path: `${target.asset}/${path}`, data });
+        if (!written.ok) return written;
+      }
+      const located = await locate(target);
+      if (located.ok) {
+        await updateSpec(target, located.value.dir, (spec) => ({ spec: { ...spec, lastReport: { frames: req.tiles, failing: 0, at: now().toISOString() } } as SpriteAssetSpec }));
+      }
+      announce(target);
+      return ok({ group: target.group, asset: target.asset });
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   function jobStatus(jobId: string): SpriteJobStatus | null {
     return jobs.get(jobId)?.status ?? null;
   }
@@ -774,7 +805,7 @@ export function createSpriteService(deps: SpriteServiceDeps) {
     return ok();
   }
 
-  return { library, get, setSpec, setReference, patchFrames, generate, jobStatus, cancel, export: exportPack };
+  return { library, get, setSpec, setReference, patchFrames, generate, jobStatus, cancel, export: exportPack, importMap };
 }
 
 export type SpriteService = ReturnType<typeof createSpriteService>;

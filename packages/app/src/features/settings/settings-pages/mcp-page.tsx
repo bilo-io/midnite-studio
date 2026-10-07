@@ -36,6 +36,7 @@ export function McpSettingsPage() {
         allowModels: false,
         allowGames: false,
         allowTerrains: false,
+        allowSprites: false,
       },
   });
 
@@ -96,6 +97,15 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a
+   * generation job (paid image or LLM requests) or write an export may act. Off by default.
+   */
+  const setAllowSprites = useMutation({
+    mutationFn: async (nextAllowSprites: boolean) => bridge()?.mcp.set({ allowSprites: nextAllowSprites }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -113,6 +123,7 @@ export function McpSettingsPage() {
   const allowModels = status.data?.allowModels ?? false;
   const allowGames = status.data?.allowGames ?? false;
   const allowTerrains = status.data?.allowTerrains ?? false;
+  const allowSprites = status.data?.allowSprites ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
@@ -270,6 +281,23 @@ export function McpSettingsPage() {
           />
 
           {setAllowTerrains.data?.error && <div className="text-xs text-destructive">{setAllowTerrains.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit sprites and maps" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-sprites"
+            label="Let agents edit sprites and maps"
+            description="A seventh switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the sprite tools that change something or spend: opening and editing assets, generating sheets, tilesets, backgrounds and maps (image and LLM requests, at most 200 per job), patching frames and maps, cancelling and exporting. Listing, reading specs and reports, job status and previews always work once the server is on."
+            on={allowSprites}
+            onToggle={(_id, next) => setAllowSprites.mutate(next)}
+            testId="mcp-allow-sprites"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowSprites.data?.error && <div className="text-xs text-destructive">{setAllowSprites.data.error}</div>}
         </div>
       </Accordion>
 

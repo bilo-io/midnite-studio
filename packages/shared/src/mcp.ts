@@ -79,6 +79,34 @@ import {
   TerrainSetSpecInputSchema,
   TerrainToolTargetSchema,
 } from './media-terrain-mcp';
+import {
+  MapGenerateInputSchema,
+  MapGetResultSchema,
+  MapPatchInputSchema,
+  MapPatchResultSchema,
+  SpriteCancelOutputSchema,
+  SpriteEditResultSchema,
+  SpriteExportInputSchema,
+  SpriteExportOutputSchema,
+  SpriteGenerateInputSchema,
+  SpriteGetReportResultSchema,
+  SpriteGetSpecResultSchema,
+  SpriteJobInputSchema,
+  SpriteJobStartedSchema,
+  SpriteJobStatusOutputSchema,
+  SpriteListInputSchema,
+  SpriteListResultSchema,
+  SpriteOpenResultSchema,
+  SpritePatchFramesInputSchema,
+  SpritePatchFramesOutputSchema,
+  SpriteRecommendInputSchema,
+  SpriteRecommendResultSchema,
+  SpriteRegenerateFramesInputSchema,
+  SpriteRenderPreviewInputSchema,
+  SpriteSetSpecInputSchema,
+  SpriteToolTargetOrSpecSchema,
+  SpriteToolTargetSchema,
+} from './media-sprite-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -175,7 +203,25 @@ type McpToolEntry = {
     | 'terrain_build'
     | 'terrain_render_preview'
     | 'terrain_get_stats'
-    | 'terrain_export';
+    | 'terrain_export'
+    | 'sprite_list'
+    | 'sprite_open'
+    | 'sprite_get_spec'
+    | 'sprite_set_spec'
+    | 'sprite_recommend_method'
+    | 'sprite_generate'
+    | 'sprite_regenerate_frames'
+    | 'sprite_patch_frames'
+    | 'sprite_render_preview'
+    | 'sprite_get_report'
+    | 'sprite_job_status'
+    | 'sprite_cancel'
+    | 'tileset_generate'
+    | 'background_generate'
+    | 'map_generate'
+    | 'map_get'
+    | 'map_patch'
+    | 'sprite_export';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -832,6 +878,176 @@ export const MCP_TOOLS = {
       'Writes the terrain pack folder (manifest, heightfield, chunk glbs, maps) or one glb inside the repo — use instead of copying files out of `build`; an existing pack is never overwritten.',
     input: TerrainExportInputSchema,
     output: TerrainExportOutputSchema,
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Sprites (Phase 106 Theme K) — 2D game assets: choose a method, generate as an asynchronous
+   * job, poll it, read the badges, re-roll, preview the motion, export. Reads and previews work whenever
+   * the server is on; everything that changes an asset, starts or stops a job or writes an export is
+   * gated by `Settings ▸ MCP ▸ Let agents edit sprites and maps` (`allowSprites`), off by default. An
+   * asset is addressed by `repoPath` + `group` + `asset` (`sprite_list` returns them). Schemas:
+   * `media-sprite-mcp.ts`.
+   */
+  sprite_list: {
+    id: 'sprite_list',
+    title: 'List sprite assets',
+    description:
+      'Lists the sprite assets in the five groups (characters, objects, tilesets, backgrounds, maps) with kind and whether built — use instead of `ls .midnite/media/sprite`; the asset names it returns go to every sprite tool.',
+    input: SpriteListInputSchema,
+    output: SpriteListResultSchema,
+    readOnly: true,
+  },
+  sprite_open: {
+    id: 'sprite_open',
+    title: 'Show an asset in the Sprites tab',
+    description:
+      'Opens one sprite asset in the Sprites tab so the user watches jobs land live — use after `sprite_list`; refused unless its own Settings switch is on.',
+    input: SpriteToolTargetSchema,
+    output: SpriteOpenResultSchema,
+    readOnly: false,
+  },
+  sprite_get_spec: {
+    id: 'sprite_get_spec',
+    title: 'Read an asset’s spec and the schema',
+    description:
+      'Returns a sprite asset’s spec with the JSON schema of every kind — use instead of reading `sprite.json`; call it first to learn the fields, limits and what to do next.',
+    input: SpriteToolTargetSchema,
+    output: SpriteGetSpecResultSchema,
+    readOnly: true,
+  },
+  sprite_set_spec: {
+    id: 'sprite_set_spec',
+    title: 'Change an asset’s spec',
+    description:
+      'Merges a partial spec (clips, frameSize, directions, terrains, layers, …) over the stored one — use instead of editing `sprite.json`; invalid fields come back as errors and nothing changes.',
+    input: SpriteSetSpecInputSchema,
+    output: SpriteEditResultSchema,
+    readOnly: false,
+  },
+  sprite_recommend_method: {
+    id: 'sprite_recommend_method',
+    title: 'Recommend a sheet method',
+    description:
+      'Answers which of hand-drawn, rendered-from-3D or one-shot suits a sheet and why — use instead of guessing in `sprite.json`; call it before `sprite_generate`, for a stored asset or a draft spec.',
+    input: SpriteRecommendInputSchema,
+    output: SpriteRecommendResultSchema,
+    readOnly: true,
+  },
+  sprite_generate: {
+    id: 'sprite_generate',
+    title: 'Generate a sprite sheet',
+    description:
+      'Starts a job that draws a sheet’s frames (all clips or named ones), creating the asset from a spec if given — use instead of an image script; returns a jobId at once, poll `sprite_job_status`.',
+    input: SpriteGenerateInputSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  sprite_regenerate_frames: {
+    id: 'sprite_regenerate_frames',
+    title: 'Re-roll frames',
+    description:
+      'Starts a job that redraws only the named frames, such as the badged ones `sprite_get_report` lists — use instead of regenerating the whole sheet; returns a jobId at once.',
+    input: SpriteRegenerateFramesInputSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  sprite_patch_frames: {
+    id: 'sprite_patch_frames',
+    title: 'Edit frames',
+    description:
+      'Reorders, deletes, restores or flips frames and nudges their anchor — use instead of moving PNGs in `frames/`; a reroll op starts a job and returns its jobId.',
+    input: SpritePatchFramesInputSchema,
+    output: SpritePatchFramesOutputSchema,
+    readOnly: false,
+  },
+  sprite_render_preview: {
+    id: 'sprite_render_preview',
+    title: 'Render a contact sheet and an animation',
+    description:
+      'Renders one contact sheet PNG per clip (or the tileset, layers, props or map) and with `animate` one APNG of a clip — use instead of opening `frames/` to judge motion; returns image content.',
+    input: SpriteRenderPreviewInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  sprite_get_report: {
+    id: 'sprite_get_report',
+    title: 'Read the validation badges',
+    description:
+      'Lists the frames the pipeline badged (empty, clipped, height, drift, inconsistent, unchecked, grid) with the rule each broke — use instead of reading `frames/frames.json`; re-roll them next.',
+    input: SpriteToolTargetSchema,
+    output: SpriteGetReportResultSchema,
+    readOnly: true,
+  },
+  sprite_job_status: {
+    id: 'sprite_job_status',
+    title: 'Poll a generation job',
+    description:
+      'Reports a sprite job’s state (running, done, failed, cancelled), progress and message — use instead of `sleep` and listing files; poll about every 10 s until it is no longer running.',
+    input: SpriteJobInputSchema,
+    output: SpriteJobStatusOutputSchema,
+    readOnly: true,
+  },
+  sprite_cancel: {
+    id: 'sprite_cancel',
+    title: 'Cancel a generation job',
+    description:
+      'Cancels a running sprite job, keeping every frame already written — use instead of quitting the app or `kill`; refused unless its Settings switch is on.',
+    input: SpriteJobInputSchema,
+    output: SpriteCancelOutputSchema,
+    readOnly: false,
+  },
+  tileset_generate: {
+    id: 'tileset_generate',
+    title: 'Generate a tileset',
+    description:
+      'Starts a job that draws seamless terrain bases and composites every autotile transition into `tileset.png` and `tileset.tsj`, creating it from a spec if given — use instead of a tiling script; returns a jobId.',
+    input: SpriteToolTargetOrSpecSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  background_generate: {
+    id: 'background_generate',
+    title: 'Generate a parallax background',
+    description:
+      'Starts a job that draws each parallax layer, cuts it out and makes it wrap, writing `background.json`, creating it from a spec if given — use instead of an image script; returns a jobId.',
+    input: SpriteToolTargetOrSpecSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  map_generate: {
+    id: 'map_generate',
+    title: 'Generate a map',
+    description:
+      'Starts a job where the layout engine lays out regions, rooms and paths and autotiles them into `map.tmj`, creating the map from a spec if given — use instead of hand-writing Tiled JSON; returns a jobId.',
+    input: MapGenerateInputSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  map_get: {
+    id: 'map_get',
+    title: 'Read a map',
+    description:
+      'Returns a map’s layout spec, its tileset’s terrains and each layer’s size — use instead of parsing `map.tmj`; tile arrays are never included.',
+    input: SpriteToolTargetSchema,
+    output: MapGetResultSchema,
+    readOnly: true,
+  },
+  map_patch: {
+    id: 'map_patch',
+    title: 'Edit a map',
+    description:
+      'Paints ground cells, adds or moves spawns, exits and points, or refills, then re-autotiles `map.tmj` — use instead of editing the `.tmj`; invalid edits come back as errors and nothing changes.',
+    input: MapPatchInputSchema,
+    output: MapPatchResultSchema,
+    readOnly: false,
+  },
+  sprite_export: {
+    id: 'sprite_export',
+    title: 'Export an asset',
+    description:
+      'Writes the asset’s pack (atlas.json and anims.json, a .tsj, background.json or a .tmj with its images) inside the repo — use instead of copying files out of `export`; an existing pack is never overwritten.',
+    input: SpriteExportInputSchema,
+    output: SpriteExportOutputSchema,
     readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;

@@ -1,9 +1,9 @@
-import { BrowserWindow, nativeImage, shell } from 'electron';
+import { BrowserWindow, dialog, nativeImage, shell } from 'electron';
 
 import { CHANNELS, EVENT_CHANNELS, failure, schemas, SPRITE_FRAME_SOURCES_PENDING } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
-import { createVisionCall } from '../media/model/engines';
+import { createLlmCall, createVisionCall } from '../media/model/engines';
 import { createHandDrawnRunner, handDrawnPreflight } from '../media/sprite/hand-drawn';
 import { createOneShotRunner, oneShotPreflight } from '../media/sprite/one-shot';
 import { createRenderRelay } from '../media/sprite/render-relay';
@@ -12,6 +12,11 @@ import { backgroundPreflight, createBackgroundRunner, createPropsRunner, propsPr
 import { createSpriteService, type SpriteJobRunner } from '../media/sprite/sprite-service';
 import { readTerrainSource } from '../media/sprite/terrain-source';
 import { createTilesetRunner, tilesetPreflight } from '../media/sprite/tileset';
+import { createMapRunner, mapPreflight } from '../media/sprite/map-generate';
+import { readTmjForImport } from '../media/sprite/map-import';
+import { createSpriteTools } from '../media/sprite/sprite-mcp';
+import { setSpriteTools } from '../mcp/sprite-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows, resolveRole, windowForRole } from '../window-manager';
 import { handle } from './handle';
 import { imageService } from './media-image-handlers';
@@ -64,11 +69,13 @@ const environment = {
 const tileset = createTilesetRunner(environment);
 const background = createBackgroundRunner(environment);
 const props = createPropsRunner(environment);
+const map = createMapRunner({ llmCall: createLlmCall(engines) });
 
 const runJob: SpriteJobRunner = (ctx) => {
   if (ctx.spec.kind === 'tileset') return tileset(ctx);
   if (ctx.spec.kind === 'background') return background(ctx);
   if (ctx.spec.kind === 'prop-sheet') return props(ctx);
+  if (ctx.spec.kind === 'map') return map(ctx);
   if (ctx.turnaround || (ctx.spec.kind === 'sheet' && ctx.spec.method === 'hand-drawn')) return handDrawn(ctx);
   if (ctx.spec.kind === 'sheet' && ctx.spec.method === 'rendered') return rendered(ctx);
   if (ctx.spec.kind === 'sheet' && ctx.spec.method === 'one-shot') return oneShot(ctx);
@@ -85,8 +92,27 @@ export const spriteService = createSpriteService({
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaSpriteChanged, event),
   log: (line) => defaultLogger.info(line),
   runJob,
-  preflight: (spec, req) => handDrawnPreflight(spec, req) ?? oneShotPreflight(spec, req) ?? tilesetPreflight(spec, req) ?? backgroundPreflight(spec, req) ?? propsPreflight(spec, req),
+  preflight: (spec, req) => handDrawnPreflight(spec, req) ?? oneShotPreflight(spec, req) ?? tilesetPreflight(spec, req) ?? backgroundPreflight(spec, req) ?? propsPreflight(spec, req) ?? mapPreflight(spec, req),
 });
+
+/**
+ * The sprite MCP tools (Theme K), over the same service as the tab. The app's global MCP server answers
+ * them behind the `allowSprites` switch (`mcp/sprite-tools.ts`); `sprite_open` is broadcast to every
+ * window, which the Sprites tab answers by selecting that asset.
+ */
+setSpriteTools(
+  createSpriteTools({
+    service: spriteService,
+    resolveRepo: async (repoPath) => {
+      const resolved = await resolveRegisteredRepo(repoPath);
+      if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id, repoRoot: resolved.repo.repoRoot };
+      return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+    },
+    rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'sprite' }),
+    listFiles: (scope) => mediaStore.listFiles(scope),
+    emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaSpriteOpen, event),
+  }),
+);
 
 export function registerMediaSpriteHandlers(): void {
   const invalid = (issue: string) => failure(issue);
@@ -98,6 +124,24 @@ export function registerMediaSpriteHandlers(): void {
   handle(CHANNELS.mediaSpriteCancel, schemas.MediaSpriteCancelRequest, ({ jobId }) => spriteService.cancel(jobId), invalid);
   handle(CHANNELS.mediaSpritePatchFrames, schemas.MediaSpritePatchFramesRequest, (req) => spriteService.patchFrames(req), invalid);
   handle(CHANNELS.mediaSpriteExport, schemas.MediaSpriteExportRequest, (req) => spriteService.export(req), invalid);
+  handle(
+    CHANNELS.mediaSpriteImportMap,
+    schemas.MediaSpriteImportMapRequest,
+    async ({ repoId, path }) => {
+      let file = path;
+      if (!file) {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = { title: 'Import a Tiled map', properties: ['openFile' as const], filters: [{ name: 'Tiled map', extensions: ['tmj', 'json'] }] };
+        const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+        if (picked.canceled || !picked.filePaths[0]) return { ok: true as const, value: {} };
+        file = picked.filePaths[0];
+      }
+      const read = await readTmjForImport(file);
+      if (!read.ok) return read;
+      return spriteService.importMap({ repoId, name: read.value.name, files: read.value.files, tiles: read.value.tiles });
+    },
+    invalid,
+  );
   handle(CHANNELS.mediaSpriteRenderReady, schemas.MediaSpriteRenderReadyRequest, ({ jobId }) => renderRelay.ready(jobId), invalid);
   handle(CHANNELS.mediaSpriteRenderFrames, schemas.MediaSpriteRenderFramesRequest, (req) => renderRelay.frames(req), invalid);
 }

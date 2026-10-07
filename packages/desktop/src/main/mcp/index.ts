@@ -7,17 +7,19 @@ import {
   getMcpAllowGateDecide,
   getMcpAllowGames,
   getMcpAllowTerrains,
+  getMcpAllowSprites,
   getMcpAllowModels,
   getMcpAllowUi,
   resetMcpAllowUiStateForTests,
   setMcpAllowGateDecideState,
   setMcpAllowGamesState,
   setMcpAllowTerrainsState,
+  setMcpAllowSpritesState,
   setMcpAllowModelsState,
   setMcpAllowUiState,
 } from './ui-gate';
 
-export { getMcpAllowGames, getMcpAllowGateDecide, getMcpAllowModels, getMcpAllowTerrains, getMcpAllowUi } from './ui-gate';
+export { getMcpAllowGames, getMcpAllowGateDecide, getMcpAllowModels, getMcpAllowSprites, getMcpAllowTerrains, getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -55,6 +57,8 @@ export type McpStatus = {
   allowGames: boolean;
   /** Phase 105 Theme J's sixth switch — whether the `terrain_*` tools that change a terrain, build or export may act. */
   allowTerrains: boolean;
+  /** Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a job or export may act. */
+  allowSprites: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -99,6 +103,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   setMcpAllowModelsState(settings.allowModels);
   setMcpAllowGamesState(settings.allowGames);
   setMcpAllowTerrainsState(settings.allowTerrains);
+  setMcpAllowSpritesState(settings.allowSprites);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -127,6 +132,7 @@ export function getMcpStatus(): McpStatus {
     allowModels: getMcpAllowModels(),
     allowGames: getMcpAllowGames(),
     allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
   };
 }
 
@@ -144,13 +150,14 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 6,
+    version: 7,
     enabled: next,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
     allowGames: getMcpAllowGames(),
     allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
@@ -185,13 +192,14 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 6,
+    version: 7,
     enabled,
     allowUi: next,
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
     allowGames: getMcpAllowGames(),
     allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowUiState(next);
@@ -210,13 +218,14 @@ export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnable
   }
 
   const settings: McpSettings = {
-    version: 6,
+    version: 7,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: next,
     allowModels: getMcpAllowModels(),
     allowGames: getMcpAllowGames(),
     allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGateDecideState(next);
@@ -235,13 +244,14 @@ export async function setMcpAllowModels(next: boolean): Promise<SetMcpEnabledRes
   }
 
   const settings: McpSettings = {
-    version: 6,
+    version: 7,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: next,
     allowGames: getMcpAllowGames(),
     allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowModelsState(next);
@@ -260,13 +270,14 @@ export async function setMcpAllowGames(next: boolean): Promise<SetMcpEnabledResu
   }
 
   const settings: McpSettings = {
-    version: 6,
+    version: 7,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
     allowGames: next,
     allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGamesState(next);
@@ -285,16 +296,43 @@ export async function setMcpAllowTerrains(next: boolean): Promise<SetMcpEnabledR
   }
 
   const settings: McpSettings = {
-    version: 6,
+    version: 7,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
     allowModels: getMcpAllowModels(),
     allowGames: getMcpAllowGames(),
     allowTerrains: next,
+    allowSprites: getMcpAllowSprites(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowTerrainsState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 106 Theme K's seventh Settings switch. Same shape as the others — never
+ * starts or stops the socket, only gates whether the sprite tools that change an
+ * asset, start a generation job or write an export act once a call reaches them.
+ */
+export async function setMcpAllowSprites(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 7,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: next,
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowSpritesState(next);
 
   return { ok: true, status: getMcpStatus() };
 }

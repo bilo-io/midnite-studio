@@ -16,6 +16,7 @@ let allowGateDecide = false;
 let allowModels = false;
 let allowGames = false;
 let allowTerrains = false;
+let allowSprites = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -67,6 +68,16 @@ export function setMcpAllowTerrainsState(next: boolean): void {
   allowTerrains = next;
 }
 
+/** Read synchronously by the sprite write tools (Phase 106 Theme K) before they change an asset, start a job or export. */
+export function getMcpAllowSprites(): boolean {
+  return allowSprites;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowSpritesState(next: boolean): void {
+  allowSprites = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
@@ -74,4 +85,5 @@ export function resetMcpAllowUiStateForTests(): void {
   allowModels = false;
   allowGames = false;
   allowTerrains = false;
+  allowSprites = false;
 }

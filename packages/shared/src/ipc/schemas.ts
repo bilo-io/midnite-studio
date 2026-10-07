@@ -286,6 +286,7 @@ import {
   SpriteCancelRequestSchema,
   SpriteChangedEventSchema,
   SpriteExportRequestSchema,
+  SpriteImportMapRequestSchema,
   SpriteGenerateRequestSchema,
   SpriteLibraryRequestSchema,
   SpriteOpenEventSchema,
@@ -3305,6 +3306,8 @@ export const MediaSpritePatchFramesRequest = SpritePatchFramesRequestSchema;
 export const MediaSpritePatchFramesResponse = SpriteResultSchemas.patchFrames;
 export const MediaSpriteExportRequest = SpriteExportRequestSchema;
 export const MediaSpriteExportResponse = SpriteResultSchemas.export;
+export const MediaSpriteImportMapRequest = SpriteImportMapRequestSchema;
+export const MediaSpriteImportMapResponse = SpriteResultSchemas.library;
 export const MediaSpriteProgressPayload = SpriteProgressEventSchema;
 export const MediaSpriteChangedPayload = SpriteChangedEventSchema;
 export const MediaSpriteOpenPayload = SpriteOpenEventSchema;
@@ -3895,6 +3898,8 @@ export const McpGetResponse = z.object({
   allowGames: z.boolean(),
   /** Phase 105 Theme J's sixth switch — whether the `terrain_*` tools that change a terrain, build or export may act. */
   allowTerrains: z.boolean(),
+  /** Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a job or export may act. */
+  allowSprites: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3910,6 +3915,7 @@ export const McpSetRequest = z.object({
   allowModels: z.boolean().optional(),
   allowGames: z.boolean().optional(),
   allowTerrains: z.boolean().optional(),
+  allowSprites: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });

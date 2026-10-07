@@ -22,3 +22,6 @@ export * from './terrain-tiles';
 export * from './env-prompts';
 export * from './tileset';
 export * from './background';
+export * from './map-fill';
+export * from './map-prompt';
+export * from './map-view';

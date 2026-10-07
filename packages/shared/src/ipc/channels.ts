@@ -988,6 +988,8 @@ export const CHANNELS = {
   mediaSpritePatchFrames: 'mstudio:media:sprite-patch-frames',
   /** Theme G — the sprite pack. Answers "not available yet" until it lands. */
   mediaSpriteExport: 'mstudio:media:sprite-export',
+  /** Theme J — import a Tiled `.tmj` (tilesets embedded or `.tsj` beside it) as a new map asset. */
+  mediaSpriteImportMap: 'mstudio:media:sprite-import-map',
   /** Theme E — the window answers a `mediaSpriteRenderRequest` (within 10 s, or the job fails). */
   mediaSpriteRenderReady: 'mstudio:media:sprite-render-ready',
   /** Theme E — one batch of rendered frames; resolves once main has processed it (the back-pressure). */
