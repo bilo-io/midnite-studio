@@ -13,6 +13,8 @@ import { MeshPanel, type ConvertFn } from './mesh-panel';
 import { ModifierPanel } from './modifier-panel';
 import { Outliner } from './outliner-panel';
 import { RigPanel } from './rig-panel';
+import { PaintPanel } from './paint-panel';
+import type { PaintController, PaintSnapshot } from './paint/paint-controller';
 import { SculptPanel } from './sculpt-panel';
 import { SdfPanel } from './sdf-panel';
 import type { SculptController, SculptSnapshot } from './sculpt/sculpt-controller';
@@ -27,9 +29,9 @@ import type { EditorScene } from './spec-geometry';
  * parts selected it shows the arrange tools and edits material for all of them. Rig and Animation
  * are about the whole design, so they show whatever is selected.
  */
-const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'SDF', 'Sculpt', 'Rig', 'Animation'] as const;
+const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'SDF', 'Sculpt', 'Paint', 'Rig', 'Animation'] as const;
 type Tab = (typeof TABS)[number];
-const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Mesh', 'SDF', 'Sculpt', 'Rig', 'Animation']);
+const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Mesh', 'SDF', 'Sculpt', 'Paint', 'Rig', 'Animation']);
 
 /** What the Rig and Animation tabs share with the viewport and the timeline. */
 export type InspectorRig = { view: RigView; onView: UpdateRigView; model: RigModel | null; scene: EditorScene; sources?: readonly RetargetSource[] };
@@ -47,6 +49,7 @@ export function ModelInspector({
   onConvert,
   sdf,
   sculpt,
+  paint,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
@@ -58,6 +61,8 @@ export function ModelInspector({
   sdf?: { baker: SdfBaker; onPreview: (spec: ModelSpec | null) => void };
   /** Sculpt mode (Phase 104 Theme D): the controller and its state; the Sculpt tab shows only with it. */
   sculpt?: { controller: SculptController; snapshot: SculptSnapshot };
+  /** Paint mode (Phase 104 Theme G): the controller and its state; the Paint tab shows only with it. */
+  paint?: { controller: PaintController; snapshot: PaintSnapshot };
 }) {
   const [tab, setTab] = useState<Tab>('Properties');
   // Entering sculpt mode from anywhere brings its settings up.
@@ -65,10 +70,14 @@ export function ModelInspector({
   useEffect(() => {
     if (sculptOpen) setTab('Sculpt');
   }, [sculptOpen]);
+  const paintOpen = paint?.snapshot.status === 'ready';
+  useEffect(() => {
+    if (paintOpen) setTab('Paint');
+  }, [paintOpen]);
   const { spec, selected, selection } = state;
   const part = selected !== null ? spec.parts[selected] : undefined;
   const hasGroup = selection.some((i) => spec.parts[i]?.shape === 'group');
-  const available = (name: Tab): boolean => (name === 'Mesh' ? !!onConvert : name === 'SDF' ? !!sdf : name === 'Sculpt' ? !!sculpt : name === 'Rig' || name === 'Animation' ? !!rig : true);
+  const available = (name: Tab): boolean => (name === 'Mesh' ? !!onConvert : name === 'SDF' ? !!sdf : name === 'Sculpt' ? !!sculpt : name === 'Paint' ? !!paint : name === 'Rig' || name === 'Animation' ? !!rig : true);
   const designTab = DESIGN_TABS.has(tab) && available(tab);
 
   return (
@@ -94,11 +103,13 @@ export function ModelInspector({
           {designTab ? null : <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />}
         </div>
         {designTab ? (
-          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : tab === 'Mesh' ? 'Mesh tools' : tab === 'SDF' ? 'SDF tools' : tab === 'Sculpt' ? 'Sculpt tools' : 'Animation'}>
+          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : tab === 'Mesh' ? 'Mesh tools' : tab === 'SDF' ? 'SDF tools' : tab === 'Sculpt' ? 'Sculpt tools' : tab === 'Paint' ? 'Paint tools' : 'Animation'}>
             {tab === 'Mesh' && onConvert ? (
               <MeshPanel state={state} dispatch={dispatch} onConvert={onConvert} />
             ) : tab === 'Sculpt' && sculpt ? (
               <SculptPanel state={state} dispatch={dispatch} controller={sculpt.controller} snapshot={sculpt.snapshot} {...(onConvert ? { onConvert } : {})} />
+            ) : tab === 'Paint' && paint ? (
+              <PaintPanel state={state} dispatch={dispatch} controller={paint.controller} snapshot={paint.snapshot} />
             ) : tab === 'SDF' && sdf ? (
               <SdfPanel state={state} dispatch={dispatch} baker={sdf.baker} onPreview={sdf.onPreview} />
             ) : rig && tab === 'Rig' ? (

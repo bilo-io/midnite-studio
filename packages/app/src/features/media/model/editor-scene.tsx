@@ -9,7 +9,7 @@ import { movableSelection, type EditorAction, type EditorState } from './editor-
 import type { LightingPreset } from './lighting';
 import { boundsOf, centreOf, distanceBetween, formatSize, orthoZoom, sizeOf, VIEW_DIRECTIONS, VIEW_PLANE, type CameraView } from './scene-bounds';
 import { effectiveStep, type SnapSettings } from './snap';
-import { assetTexture } from './model-assets';
+import { assetTexture, mapTexture, useModelMapEpoch } from './model-assets';
 import { editorScene, meshGeometry, type EditorScene } from './spec-geometry';
 import { anchorWorld, withDescendants } from './spec-edit';
 import { framingFor } from './model-utils';
@@ -170,7 +170,18 @@ function PartMesh({
   const see = xray || m.opacity < 1;
   // An imported mesh draws with its baked texture; the image decodes once and then asks for a frame.
   const invalidate = useThree((s) => s.invalidate);
-  const map = useMemo(() => (part.texture && part.uvs ? assetTexture(part.texture, () => invalidate()) : null), [part.texture, part.uvs, invalidate]);
+  const mapsEpoch = useModelMapEpoch();
+  // A painted sculpt part (Theme G) draws its flattened PBR set; an unpainted, baked one its normal and occlusion maps.
+  const pbr = useMemo(() => {
+    if (!part.uvs) return null;
+    const tex = (file: { hash: string } | undefined, srgb: boolean) => (file ? mapTexture(file.hash, srgb, () => invalidate()) : null);
+    if (part.pbr) return { map: tex(part.pbr.baseColor, true), orm: tex(part.pbr.orm, false), normal: tex(part.pbr.normal, false), emissive: tex(part.pbr.emissive, true), ao: null };
+    if (part.maps) return { map: null, orm: null, normal: tex(part.maps.normal, false), emissive: null, ao: tex(part.maps.ao, false) };
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the epoch says a map was registered since
+  }, [part.uvs, part.pbr, part.maps, invalidate, mapsEpoch]);
+  const map = useMemo(() => pbr?.map ?? (part.texture && part.uvs ? assetTexture(part.texture, () => invalidate()) : null), [pbr, part.texture, part.uvs, invalidate]);
+  const painted = !!pbr?.orm;
   return (
     <mesh
       ref={ref}
@@ -188,12 +199,16 @@ function PartMesh({
         <meshNormalMaterial transparent={xray} opacity={xray ? 0.4 : 1} depthWrite={!xray} />
       ) : (
         <meshStandardMaterial
-          key={map ? 'textured' : 'flat'}
+          key={`${map ? 'textured' : 'flat'}-${painted}-${!!pbr?.normal}-${!!pbr?.emissive}-${!!pbr?.ao}`}
           map={map}
-          color={part.color}
-          roughness={m.roughness}
-          metalness={m.metalness}
-          emissive={m.emissive}
+          color={painted || pbr?.map ? '#ffffff' : part.color}
+          roughness={painted ? 1 : m.roughness}
+          metalness={painted ? 1 : m.metalness}
+          {...(painted ? { roughnessMap: pbr!.orm, metalnessMap: pbr!.orm, aoMap: pbr!.orm } : {})}
+          {...(pbr?.ao ? { aoMap: pbr.ao } : {})}
+          {...(pbr?.normal ? { normalMap: pbr.normal } : {})}
+          emissive={pbr?.emissive ? '#ffffff' : m.emissive}
+          {...(pbr?.emissive ? { emissiveMap: pbr.emissive } : {})}
           emissiveIntensity={m.emissiveIntensity}
           transparent={see}
           opacity={xray ? Math.min(m.opacity, 0.35) : m.opacity}

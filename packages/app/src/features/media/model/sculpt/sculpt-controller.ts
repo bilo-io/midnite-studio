@@ -47,6 +47,10 @@ export type SculptIO = {
   read: (src: string) => Promise<GitOpResult<ModelMeshResult>>;
   write: (req: { src: string; data: Uint8Array; ops: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
   readOps: (src: string) => Promise<GitOpResult<ModelMeshResult>>;
+  /** Paint mode (Theme G): a texture PNG beside the design. */
+  writeTexture?: (src: string, data: Uint8Array) => Promise<GitOpResult<ModelMeshResult>>;
+  /** Paint mode (Theme G): any file of the model's folder, or `null`. */
+  readFile?: (src: string) => Promise<Uint8Array | null>;
 };
 
 export type SculptSettings = {
@@ -64,6 +68,8 @@ export type SculptSettings = {
   /** Use a tablet's pressure. */
   pressure: boolean;
   symmetry: SculptSymmetry;
+  /** Draw the mesh with a clay matcap instead of its material (Theme G), so forms read under any light. */
+  matcap: boolean;
 };
 
 export const DEFAULT_SCULPT_SETTINGS: SculptSettings = {
@@ -78,6 +84,7 @@ export const DEFAULT_SCULPT_SETTINGS: SculptSettings = {
   lazy: 0,
   pressure: true,
   symmetry: { x: true, y: false, z: false, space: 'local' },
+  matcap: false,
 };
 
 export const SCREEN_RADIUS_RANGE = [4, 400] as const;
