@@ -199,10 +199,7 @@ person, first person, camera cycling, driving, the nav path); rendering e2e stay
 
 **Theme L — Genre recipe skills and the build skill.** ✅ Landed. Eleven skills in `templates/media-game/skills/`: `midnite-media-game-build` (layout, manifest, the `__midnite` hook, the play-test loop through the `game_*` tools, the asset index, the rules) and one recipe per genre (`-fps`, `-rts`, `-arpg`, `-crime`, `-shooter`, `-fighter`, `-soulslike`, `-rpg`, `-character-action`, `-open-world`), each listing the kit files and exports the genre uses, tuning numbers, a build order and a play-test checklist keyed to that genre's `getState()` fields. `seedGameSkills` (`main/games/skills.ts`) copies them into `.claude/`, `.agents/` and `.codex/skills/` of every new game, blank or starter, and the convention stubs point at them. Only the build skill is mirrored into the app repo's six skill dirs; `scripts/skill-copies.test.mjs` pins those and the template source. `skills.test.ts` checks front matter, that every `game_*` token is a real tool, that 33 files are seeded, and that every `` `NAME = number` `` quoted in a skill equals a kit or genre default. The crime recipe is `midnite-media-game-crime` (the genre id), not the `-topdown-crime` the checklist first named. The build skill describes `createAssetIndex(...).url()` rather than `assetUrl(name)`, which does not exist until Theme N.
 
-**Theme M — Create and iterate: agents, Ollama and commit-per-turn history.** ◻ Not started. Agents run
-in the repo through `createIterativeHost` with only file tools and the game's MCP tools (no shell);
-each pass that changes files is one commit; Undo turn is a new `revertCommit`; Ollama returns
-`src/`-only whole files.
+**Theme M — Create and iterate: agents, Ollama and commit-per-turn history.** ✅ Landed. `main/games/game-agent.ts` runs a game in passes: `runGameAgent` starts one private MCP server per run (`createIterativeHost`) whose dispatcher answers only this game's `game_*` tools (not `game_create`/`game_open`), fixed to its `gameId` or path, under `MODEL_ITERATIVE_MAX_CALLS`, and runs the CLI once per pass with the repo as cwd. Claude Code gets `--tools Read,Edit,Write,Glob,Grep`, those plus `mcp__midnite__game_*` in `--allowedTools`, and `--strict-mcp-config`; Codex gets `--sandbox workspace-write` with network off; any other CLI is refused, since it cannot be held to file tools and no shell. `runGameTurns` is the shared commit-per-pass loop: a changing pass is `stagePaths(['.'])` + `commit` with `agent: <prompt, 60 chars> (pass n/N)`, a no-op pass commits nothing, a cancelled or failed pass still commits what it left, and `squashRunCommits` folds a run into one commit with `reset --soft`. Ollama passes (`runGameOllama`) see `midnite-game.json` + `src/**/*.js` up to 60 KB (largest file truncated with a marker), answer a `GameOllamaEnvelopeSchema` (fenced or bare JSON), and one path outside `src/` (`checkGameOllamaPath`) refuses the whole envelope with nothing written. `game-agent-service.ts` holds one run per game, refuses a dirty tree or an in-progress operation (else the user's own edits would land in, and be undone with, an agent commit), streams `gamesAgentProgress`, and implements **Undo turn** with git-engine's new `revertCommit` (`commands/revert.ts`, `revert --no-edit --end-of-options`, conflicts as `conflict('revert')`) — only on the newest agent commit, and only while it is still HEAD. `GAMES_OLLAMA_WARNING` now carries the doc's sentence; `game_create` takes an optional `writer` engine and answers `warnings`. The renderer adds `GameIteratePanel` (engine select with MCP agents then Ollama models, the amber dismissible banner, a 1–20 Passes slider, prompt, Run agent/Cancel) under the selected game's details, `GameEditThread` (actions, per-pass commits with files, squashed/undone marks, Undo turn on the newest), and an optional **First prompt** on the create form that starts a run on the new repo. The console drawer's log is now named "Console output" so the two logs on the tab stay addressable.
 
 **Theme N — Asset bridge.** ◻ Not started. Copies into `assets/<kind>/<name>/` with sha256 provenance,
 `assets/index.json` as the one lookup the kits use, and re-sync as its own commit.
@@ -796,15 +793,15 @@ Every valid combination instantiates and runs, composed from the kits rather tha
 
 ## M — Create and iterate: agents, Ollama and commit-per-turn history (M)
 
-- [ ] Create and iterate panel: a prompt, the gallery (K) when creating, an engine picker (roster agents or Ollama), and a refinement-pass budget (the Models 1–100 slider pattern)
+- [x] Create and iterate panel: a prompt, the gallery (K) when creating, an engine picker (roster agents or Ollama), and a refinement-pass budget (the Models 1–100 slider pattern)
   - `GameIteratePanel` (`game-iterate-panel.tsx`): `PromptTextarea`; an engine select (roster agents from
     the agents list, then Ollama models); **Passes** `<input type="range" min={1} max={GAME_PASSES_MAX = 20}>`
     (aria-label "Refinement passes", the `model-panel.tsx` pattern; 20 not 100 because each pass is a full
     CLI run in a repo); **Run** / **Cancel**.
-- [ ] **Ollama is allowed, with a warning** (user, 2026-10-04). Selecting an Ollama engine shows a non-blocking banner: _"Local models struggle to write whole games. Expect better results from small, focused edits; an agent engine is recommended for creating games."_ The same warning appears in the `game_create` result when an Ollama engine is named over MCP
+- [x] **Ollama is allowed, with a warning** (user, 2026-10-04). Selecting an Ollama engine shows a non-blocking banner: _"Local models struggle to write whole games. Expect better results from small, focused edits; an agent engine is recommended for creating games."_ The same warning appears in the `game_create` result when an Ollama engine is named over MCP
   - `GAMES_OLLAMA_WARNING` (shared) holds the sentence; the banner is `role="status"`, amber, dismissible
     per session. `game_create`'s output carries `warnings: string[]`.
-- [ ] Agent runs execute **in the game repo** via `runAgent`, with the private MCP socket from `iterative-host.ts` exposing D and O's tools, so the agent plays the game it is editing. Progress streams into an edit thread (the `video-edit-thread.tsx` pattern)
+- [x] Agent runs execute **in the game repo** via `runAgent`, with the private MCP socket from `iterative-host.ts` exposing D and O's tools, so the agent plays the game it is editing. Progress streams into an edit thread (the `video-edit-thread.tsx` pattern)
   - **Correction (x1):** there is no `runAgent` in `iterative-host.ts`; the reusable pieces are
     `createIterativeHost()` and the `runIterative` loop shape. New `main/games/game-agent.ts`
     `runGameAgent(opts: { host: IterativeHost; agentId; modelArgs; prompt; game: GameRef; passes; signal; onProgress })`:
@@ -818,7 +815,7 @@ Every valid combination instantiates and runs, composed from the kits rather tha
     (`app/features/media/video/video-edit-thread.tsx`) fed by `gamesAgentProgress`
     (`{ pass, of, action?, commit?: { sha, files } }`); limits per run: `MODEL_ITERATIVE_MAX_CALLS` tool
     calls and `MODEL_ITERATIVE_TIMEOUT_MS` per pass.
-- [ ] **Commit per turn**: each agent turn that changed files is committed through the write queue with a generated message, so the Timeline shows the game's history and **Undo turn** is a revert. Only the scaffold commit is automatic outside agent turns
+- [x] **Commit per turn**: each agent turn that changed files is committed through the write queue with a generated message, so the Timeline shows the game's history and **Undo turn** is a revert. Only the scaffold commit is automatic outside agent turns
   - **Resolved: on by default; a turn is one pass** (Decision 4, closes the original open). After each
     pass: `getStatus` → if anything changed, `stagePaths(path, ['.'])` + `commit({ message: 'agent: <first 60 chars of prompt> (pass n/N)' })`
     via the write queue (no attribution trailers). With `squashRunCommits` (Settings ▸ Media ▸ Games, default
@@ -827,12 +824,12 @@ Every valid combination instantiates and runs, composed from the kits rather tha
     (`commands/revert.ts`, `revert --no-edit --end-of-options <sha>` in the write queue; conflicts →
     `conflict('revert', files)`). Offered on the last agent commit only; a conflict renders the standard
     conflict envelope.
-- [ ] Ollama runs (no CLI to edit files) receive the relevant files and return whole-file replacements in a fenced, zod-validated envelope that main applies. They are limited to files under `src/` and refused for `kit/` and `vendor/`
+- [x] Ollama runs (no CLI to edit files) receive the relevant files and return whole-file replacements in a fenced, zod-validated envelope that main applies. They are limited to files under `src/` and refused for `kit/` and `vendor/`
   - Context: `src/**/*.js` plus `midnite-game.json`, up to 60 KB total (largest files truncated with a
     marker). `createLlmCall({ json: true })`; `GameOllamaEnvelopeSchema = { files: { path: string, content: string }[] (≤ 10, each ≤ 200 KB), summary: string }`.
     A path not matching `^src/[^\0]+\.(js|json)$` after normalisation, or containing `..`, refuses the
     whole envelope (_"The model tried to edit <path>; only files under src/ can be changed."_).
-- [ ] Vitest: an Ollama envelope outside `src/` is refused, commit-per-turn creates one commit per changing turn and none for a no-op turn, and the warning appears for Ollama engines in UI and MCP
+- [x] Vitest: an Ollama envelope outside `src/` is refused, commit-per-turn creates one commit per changing turn and none for a no-op turn, and the warning appears for Ollama engines in UI and MCP
   - `desktop/src/main/games/game-agent.test.ts` (stub `IterativeHost` on a `TempRepo`: 3 passes, one
     no-op → 2 commits; squash → 1; `kit/x.js` and `../x` envelopes refused);
     `git-engine/src/commands/revert.test.ts`; `app/src/features/media/game/game-iterate-panel.test.tsx`

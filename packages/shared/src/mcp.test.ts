@@ -171,7 +171,7 @@ describe('MCP_TOOLS', () => {
     model_sdf_patch: { ok: false, errors: [{ path: 'ops.0', message: 'x' }] },
     model_sdf_bake: { ok: false, errors: [{ path: 'part', message: 'x' }] },
     game_list: { games: [] },
-    game_create: { path: '/g/x', gameId: 'g1' },
+    game_create: { path: '/g/x', gameId: 'g1', warnings: [] },
     game_open: { opened: true, gameId: 'g1' },
     game_get_manifest: { gameId: 'g1', manifest: null, issues: [{ path: '(root)', message: 'x' }] },
     game_set_manifest: { ok: true, gameId: 'g1' },
