@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme J — 3D genre starters, part two
+
+RPG (third or first person), character action (third person) and open world (third or first person) as genre modules, with engine-free systems under `kit/core/genre/{rpg,character-action,open-world}/`: quests, dialogue trees, stats and NPC schedules; combo strings with cancel windows, a style meter and arena waves; road-graph routing, traffic, day/night and a land-cover minimap. The open world runs on a committed Phase 105 terrain pack (a plus of roads, built by the real pipeline) and reuses F's cars and the crime starter's wanted level. `GAME_GENRES_AVAILABLE` now lists every genre. `kit/three/terrain.js` drapes UV-less chunks. Kit 0.6.0. PR: see the pull request.
+
+- [x] RPG, character action, open world starters, the fixture terrain pack, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `open-world-fixture.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
 ## 2026-10-07 — Phase 104 Theme D — Sculpt mode and brushes
 
 Sculpt mode in the Models editor: a kernel brush set (draw, clay strips, inflate, smooth, grab, crease, flatten, pinch, mask) with falloff presets, spacing, pressure and front-faces-only; X/Y/Z symmetry in local or world space, applied in the kernel; Loop-subdivision multires that keeps detail per level; voxel remesh in sculpt mode; a `SculptDocument` per-stroke history the editor's undo walks through a new part `revision`; a Sculpt tab, a viewport brush layer with lazy mouse, and sculpt-only keys (`F`/`Shift+F`, `[`/`]`, `Mod+I`, `Alt+M`). Edits are written to a content-named `.mesh.bin` on Done or Save.
