@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 106 Theme G — Atlas packing and the animation previewer ([#763](https://github.com/bilo-io/midnite-studio/pull/763))
+
+A sheet's frames pack into one `atlas.json` that is both Phaser's JSON-hash atlas and an Aseprite JSON (MaxRects with trim, padding, extrude, POT pages; a multiatlas without tags past one page) plus Phaser's `anims.json`, written as `<asset>.sprite/` and into the asset's own `export/`. The centre column plays the animation on a 2D canvas (compass, onion skin, checker or solid, pixel zoom, anchor and baseline) over a frame strip whose nudge, flip, delete, move and re-roll are one `patchFrames` call each and undoable; frames past their clip are pruned when a job finishes and never played or packed.
+
+- [x] `pack.ts`, `atlas.ts`, `frames.ts`, `SpritePatchOpSchema`/`SpriteExportRequestSchema`, `sprite-export.ts`, the service's `patchFrames`/`export`/stale-frame prune, per-frame re-roll in the hand-drawn and rendered runners, `SpritePreviewer`, `preview-clock.ts`, `SpriteFrameStrip`, `use-sprite-history.ts`, `SpriteAnimator` with the pack export, and vitest (`pack.test.ts`, `atlas.test.ts`, `frames.test.ts`, `sprite-export.test.ts`, `sprite-service.test.ts`, `hand-drawn.test.ts`, `preview-clock.test.ts`, `sprite-frame-strip.test.tsx`, `sprite-animator.bridge.test.tsx`).
+
 ## 2026-10-07 — Phase 106 Themes E + F — Rendered from a Models character; one-shot sheet ([#762](https://github.com/bilo-io/midnite-studio/pull/762))
 
 **E.** A rigged Models character renders into sprite frames in the user's own window: a root-level, lazily loaded `SpriteRenderHost` builds the design with the Models editor's kernel and lights, shoots it through an orthographic camera per direction (compass yaw, `atan(0.5)` isometric) at one sheet-wide scale, supersamples and posts PNG batches that main's render relay feeds through the frame pipeline at scale 1 (10 s acknowledgement or _"Rendering from 3D needs the Midnite Studio window open."_). The Sheet form gains the rigged-model picker, clip mapping with aliases, and camera/shading/outline/supersample. **F.** The one-shot toggle asks for the whole sheet in one image under a versioned prompt, refuses past 8 × 8, detects the returned sheet's real gutters by projection profile and slices only when the grid matches; the overview shows the detected grid over the sheet, a per-row verdict, and hands a failing clip to Hand-drawn with frame 1 as the approved reference.
