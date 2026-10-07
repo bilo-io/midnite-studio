@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { frameRing, inverse } from './index';
+import { frameRing, inverse } from './map';
 
 describe('frameRing (Phase 108 Theme C)', () => {
   for (const lat of [0, 60]) {
