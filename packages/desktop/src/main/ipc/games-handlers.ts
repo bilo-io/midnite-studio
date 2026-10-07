@@ -1,6 +1,7 @@
-import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
+import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
+import type { AssetBridge } from '../games/asset-bridge';
 import type { GameAgentService } from '../games/game-agent-service';
 import type { GameService } from '../games/game-service';
 import { handle, handleBare, handleSend } from './handle';
@@ -14,7 +15,7 @@ const warnInvalid = (issue: string): void => {
  * `GameService`. `setBounds`/`setVisible` are one-way like `apps.setBounds`: a
  * bounds push fires every resize frame and a round trip would only add latency.
  */
-export function registerGamesHandlers(service: GameService, agents?: GameAgentService): void {
+export function registerGamesHandlers(service: GameService, agents?: GameAgentService, assets?: AssetBridge): void {
   handleBare(CHANNELS.gamesSettingsGet, () => service.settings.get());
 
   handle(
@@ -104,5 +105,11 @@ export function registerGamesHandlers(service: GameService, agents?: GameAgentSe
       (issue) => failure(issue),
     );
   }
-}
 
+  // The asset bridge (Theme N).
+  if (assets) {
+    handle(CHANNELS.gamesAssetSources, schemas.GamesAssetSourcesRequest, async ({ tab }) => ok(await assets.sources(tab)), (issue) => failure(issue));
+    handle(CHANNELS.gamesImportAsset, schemas.GamesImportAssetRequest, (req) => assets.importAsset(req), (issue) => failure(issue));
+    handle(CHANNELS.gamesResync, schemas.GamesResyncRequest, (req) => assets.resync(req), (issue) => failure(issue));
+  }
+}

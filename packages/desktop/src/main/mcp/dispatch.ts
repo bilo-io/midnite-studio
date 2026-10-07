@@ -29,6 +29,7 @@ import {
   gameScreenshot,
   gameSetManifest,
   gameState,
+  gameImportAsset,
   gameStop,
 } from './game-tools';
 import {
@@ -116,6 +117,7 @@ export const MCP_HANDLERS: {
   game_logs: gameLogs,
   game_input: gameInput,
   game_state: gameState,
+  game_import_asset: gameImportAsset,
   terrain_list: terrainList,
   terrain_open: terrainOpen,
   terrain_get_spec: terrainGetSpec,

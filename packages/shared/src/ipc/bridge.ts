@@ -1219,6 +1219,15 @@ export type MidniteStudioBridge = {
       undo: (req: In<typeof S.GamesAgentUndoRequest>) => Promise<GitOpResult>;
       onProgress: (handler: (event: z.infer<typeof S.GamesAgentProgressPayload>) => void) => Unsubscribe;
     };
+    /**
+     * The asset bridge (Theme N): copy media into a game's `assets/<kind>/<name>/` with
+     * provenance, and re-import it when the source changes. Each import and re-import is its own commit.
+     */
+    assets: {
+      sources: (req: In<typeof S.GamesAssetSourcesRequest>) => Promise<z.infer<typeof S.GamesAssetSourcesResponse>>;
+      import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
+      resync: (req: In<typeof S.GamesResyncRequest>) => Promise<z.infer<typeof S.GamesResyncResponse>>;
+    };
   };
 
   /**

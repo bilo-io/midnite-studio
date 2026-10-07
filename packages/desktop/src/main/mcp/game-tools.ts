@@ -67,3 +67,7 @@ export const gameInput = async (input: McpToolInput<'game_input'>): Promise<McpT
   allowed();
   return tools().game_input(input);
 };
+export const gameImportAsset = async (input: McpToolInput<'game_import_asset'>): Promise<McpToolOutput<'game_import_asset'>> => {
+  allowed();
+  return tools().game_import_asset(input);
+};

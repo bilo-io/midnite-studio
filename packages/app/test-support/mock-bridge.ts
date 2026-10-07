@@ -740,6 +740,12 @@ export type MockFixtures = {
     rootProblem?: string | null;
     /** The game the `game` popout hosts at boot (Theme B Pop out). */
     popped?: string | null;
+    /** Theme N: picker candidates by tab, and the re-sync answer (`state` per imported asset). */
+    assetSources?: Record<
+      string,
+      Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
+    >;
+    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
   };
   /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
@@ -3349,6 +3355,22 @@ export function buildMockBridge(data: MockFixtures) {
           return () => {
             gamesAgentHandlers = gamesAgentHandlers.filter((h) => h !== handler);
           };
+        },
+      },
+      // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
+      assets: {
+        sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
+        import: async (req: { gameId: string; source: unknown; name?: string }) => {
+          gamesCalls.push({ call: 'assetImport', ...req });
+          const name = req.name ?? 'asset';
+          return { ok: true as const, value: { name, kind: 'sprite' as const, path: `assets/sprite/${name}`, sha256: 'abc', commit: 'a1b2c3d' } };
+        },
+        resync: async (req: { gameId: string; check?: boolean; names?: string[] }) => {
+          gamesCalls.push({ call: 'assetResync', ...req });
+          const assets = data.games?.assetSync ?? [];
+          const changed = assets.filter((a: { state: string }) => a.state === 'changed');
+          const reimported = req.check ? [] : changed.map((a: { name: string }) => a.name);
+          return { ok: true as const, value: { assets, changed: req.check ? changed.length : 0, reimported, commit: req.check || reimported.length === 0 ? null : 'd4e5f6a' } };
         },
       },
     },

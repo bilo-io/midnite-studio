@@ -279,6 +279,7 @@ const ACTION_LABELS: Partial<Record<GameMcpToolId, string>> = {
   game_state: 'Read the game state',
   game_get_manifest: 'Read the manifest',
   game_set_manifest: 'Changed the manifest',
+  game_import_asset: 'Imported an asset',
 };
 
 /**

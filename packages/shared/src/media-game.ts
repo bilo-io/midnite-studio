@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.6.0';
+export const GAME_KIT_VERSION = '0.7.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -139,9 +139,15 @@ export const GameAssetProvenanceSchema = z.object({
   source: z.object({
     tab: MediaTabSchema,
     repoId: z.string().nullable(),
+    /** Relative to `<repoPath>/.midnite/media/<tab>/`, or absolute for a pack folder (no `repoPath`). */
     path: z.string(),
+    /** The repo the asset was picked from (Theme N); absent for a pack folder. */
+    repoPath: z.string().optional(),
   }),
+  /** Of the copy in the game: of the file, or of the sorted `path\0sha256\n` list for a folder. */
   sha256: z.string(),
+  /** Of the source as it was imported, which is what a re-sync compares (a terrain's copy is an export, so differs). */
+  sourceSha256: z.string().optional(),
   importedAt: z.string(),
 });
 export type GameAssetProvenance = z.infer<typeof GameAssetProvenanceSchema>;
@@ -534,3 +540,103 @@ export function checkGameOllamaPath(raw: string): { ok: true; path: string } | {
   if (!/^src\/[^\0]+\.(js|json)$/.test(path)) return refused;
   return { ok: true, path };
 }
+
+// --- asset bridge (Theme N) ----------------------------------------------------------
+
+/** `assets/index.json` — the one lookup the kits use (`kit/core/asset-index.js`). */
+export const GameAssetIndexEntrySchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(GAME_ASSET_KINDS),
+  /** Relative to the repo root, `/`-separated. A folder, or the file itself for a single-file asset. */
+  path: z.string().min(1),
+  /** The file inside a folder asset that opens it: `terrain.manifest.json`, `atlas.json`, `map.tmj`, ... */
+  entry: z.string().optional(),
+});
+export type GameAssetIndexEntry = z.infer<typeof GameAssetIndexEntrySchema>;
+
+export const GameAssetIndexSchema = z.object({
+  version: z.literal(1),
+  assets: z.array(GameAssetIndexEntrySchema).default([]),
+});
+export type GameAssetIndex = z.infer<typeof GameAssetIndexSchema>;
+export const GAME_ASSET_INDEX_FILE = 'assets/index.json';
+
+/** The tabs a game can import from. */
+export const GAME_ASSET_SOURCE_TABS = ['terrain', 'sprite', 'model', 'image', 'audio'] as const;
+export const GameAssetSourceTabSchema = z.enum(GAME_ASSET_SOURCE_TABS);
+export type GameAssetSourceTab = z.infer<typeof GameAssetSourceTabSchema>;
+
+const GAME_ASSET_PATH = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine((p) => !p.includes('\0'), 'must not contain NUL')
+  .refine((p) => !p.startsWith('/'), 'must be relative')
+  .refine((p) => !p.split('/').some((seg) => seg === '..' || seg === ''), 'must not traverse');
+
+/** Where an import comes from: an item in a repo's media store, or a pack folder picked from disk. */
+export const GameAssetSourceSchema = z.union([
+  z.object({ tab: GameAssetSourceTabSchema, repoPath: z.string().min(1), path: GAME_ASSET_PATH }),
+  z.object({ packPath: z.string().min(1) }),
+]);
+export type GameAssetSource = z.infer<typeof GameAssetSourceSchema>;
+
+export const GameAssetNameSchema = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'use letters, digits, dot, dash and underscore');
+
+export const GameImportAssetRequestSchema = z.object({
+  gameId: z.string().min(1),
+  source: GameAssetSourceSchema,
+  name: GameAssetNameSchema.optional(),
+});
+export type GameImportAssetRequest = z.infer<typeof GameImportAssetRequestSchema>;
+
+export const GameImportAssetResultSchema = z.object({
+  name: z.string(),
+  kind: z.enum(GAME_ASSET_KINDS),
+  path: z.string(),
+  entry: z.string().optional(),
+  sha256: z.string(),
+  /** The `assets: import <name>` commit, or `null` when the commit was left out (nothing changed). */
+  commit: z.string().nullable(),
+});
+export type GameImportAssetResult = z.infer<typeof GameImportAssetResultSchema>;
+
+/** Candidates for the picker: one list per registered repo that has media in that tab. */
+export const GameAssetSourcesRequestSchema = z.object({ tab: GameAssetSourceTabSchema });
+export const GameAssetSourceItemSchema = z.object({
+  /** Relative to `<repoPath>/.midnite/media/<tab>/`. */
+  path: z.string(),
+  label: z.string(),
+  kind: z.enum(GAME_ASSET_KINDS),
+  bytes: z.number().int().nonnegative(),
+});
+export type GameAssetSourceItem = z.infer<typeof GameAssetSourceItemSchema>;
+export const GameAssetSourcesResultSchema = z.object({
+  repos: z.array(z.object({ repoPath: z.string(), name: z.string(), items: z.array(GameAssetSourceItemSchema) })),
+});
+export type GameAssetSourcesResult = z.infer<typeof GameAssetSourcesResultSchema>;
+
+/**
+ * Re-sync. `check: true` only reports; without it, `names` (default: every changed one) are
+ * re-imported over their copies in one `assets: re-import <names>` commit.
+ */
+export const GameResyncRequestSchema = z.object({
+  gameId: z.string().min(1),
+  check: z.boolean().default(false),
+  names: z.array(z.string().min(1)).optional(),
+});
+export type GameResyncRequest = z.input<typeof GameResyncRequestSchema>;
+export const GAME_ASSET_SYNC_STATES = ['current', 'changed', 'missing'] as const;
+export const GameResyncResultSchema = z.object({
+  assets: z.array(
+    z.object({ name: z.string(), kind: z.enum(GAME_ASSET_KINDS), state: z.enum(GAME_ASSET_SYNC_STATES), importedAt: z.string() }),
+  ),
+  changed: z.number().int().nonnegative(),
+  reimported: z.array(z.string()),
+  commit: z.string().nullable(),
+});
+export type GameResyncResult = z.infer<typeof GameResyncResultSchema>;

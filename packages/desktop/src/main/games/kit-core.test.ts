@@ -307,6 +307,24 @@ describe('kit/core/save.js and asset-index.js', () => {
     expect(index.url('sprite', 'nobody')).toBeNull();
     expect(index.list('sprite')).toHaveLength(1);
   });
+
+  it('assetUrl resolves by name alone, through the entry file', async () => {
+    const { createAssetIndex } = await load('asset-index.js');
+    const index = createAssetIndex({
+      version: 1,
+      assets: [
+        { kind: 'terrain', name: 'world', path: 'assets/terrain/world.terrain', entry: 'terrain.manifest.json' },
+        { kind: 'image', name: 'logo', path: 'assets/image/logo.png' },
+        { kind: 'model', name: 'rock', path: 'assets/model/rock/', entry: 'rock.glb' },
+      ],
+    });
+    expect(index.assetUrl('world')).toBe('./assets/terrain/world.terrain/terrain.manifest.json');
+    expect(index.assetUrl('world', 'heightfield.json')).toBe('./assets/terrain/world.terrain/heightfield.json');
+    expect(index.assetUrl('logo')).toBe('./assets/image/logo.png');
+    expect(index.assetUrl('rock')).toBe('./assets/model/rock/rock.glb');
+    expect(index.assetUrl('nobody')).toBeNull();
+    expect(index.byName('logo')?.kind).toBe('image');
+  });
 });
 
 describe('kit/core/preset-defaults.js', () => {
