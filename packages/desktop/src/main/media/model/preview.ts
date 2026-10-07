@@ -8,7 +8,6 @@ import {
   previewCamera,
   type MeshPart,
   type AimView,
-  type ModelPreviewView,
 } from '@midnite/studio-shared';
 
 
@@ -39,7 +38,6 @@ const BACKGROUND: Vec = [244, 245, 247];
 const OUTLINE = 0.45;
 
 const dot = (a: Vec, b: Vec): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const unit = (v: Vec): Vec => {
   const len = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / len, v[1] / len, v[2] / len];

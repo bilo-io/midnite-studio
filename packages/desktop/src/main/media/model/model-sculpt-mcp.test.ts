@@ -23,7 +23,7 @@ const sidecar = (kit: Kit, model: string) => parseModelSidecar(kit.files.get(`ge
 const headPart = (kit: Kit, model: string) => sidecar(kit, model).spec.parts.find((p) => p.name === 'head')! as Extract<ReturnType<typeof sidecar>['spec']['parts'][number], { shape: 'sculpt' }>;
 const bin = (kit: Kit, model: string) => decodeMeshBin(new Uint8Array(kit.files.get(`gen/${model.split('/')[0]}/${headPart(kit, model).src}`)!));
 
-function content(out: unknown): { json: Record<string, any>; blocks: McpContentBlock[] } {
+function content(out: unknown): { json: { ok: boolean; sculpt: { summary: Record<string, number | string>; revision: number; undoable: number; redoable: number; triangles: number } }; blocks: McpContentBlock[] } {
   const blocks = (out as { [MCP_CONTENT_KEY]: McpContentBlock[] })[MCP_CONTENT_KEY];
   const first = blocks[0] as { text: string };
   return { json: JSON.parse(first.text), blocks };

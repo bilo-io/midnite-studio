@@ -195,7 +195,6 @@ export async function bakeMaps(options: BakeOptions): Promise<BakeResult> {
 
   const lp = lowMesh.positions;
   const ln = lowMesh.normals;
-  const hp = highMesh.positions;
   const hn = highMesh.normals;
   const hi = highMesh.indices;
   let hits = 0;

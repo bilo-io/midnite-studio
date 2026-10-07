@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { AIM_VIEWS, pixelRay, projectPoint, type AimView, type PreviewCamera } from '../camera';
 import { applyDirection, applyPoint, invert, type Mat4 } from '../math';
 import type { ResolvedRig } from '../rig';
-import { facingBasis } from '../rig';
 import { assetSkin } from '../skin';
 import type { V3, SculptBrush } from './brush';
 import type { SculptDocument } from './session';
