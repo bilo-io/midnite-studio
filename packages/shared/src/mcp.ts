@@ -658,7 +658,7 @@ export const MCP_TOOLS = {
     id: 'model_remesh',
     title: 'Voxel-remesh a sculpt',
     description:
-      'Re-tessellates a sculpt part into even, watertight topology by `voxelSize` or `targetVertices`, dropping its multires levels — use after heavy strokes stretch it; refused unless its own Settings switch is on.',
+      'Retessellates a sculpt part into even, watertight topology by `voxelSize` or `targetVertices`, dropping its multires levels — use after heavy strokes stretch it; refused unless its own Settings switch is on.',
     input: ModelRemeshInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
@@ -676,7 +676,7 @@ export const MCP_TOOLS = {
     id: 'model_decimate',
     title: 'Decimate a sculpt to a low-poly part',
     description:
-      'Reduces a sculpt part to a target triangle count or ratio by quadric edge collapse, keeping borders and the rig, and hides the original as the bake source — use before `model_unwrap`; refused unless its own Settings switch is on.',
+      'Reduces a sculpt part to a target triangle count or ratio by quadric edge collapse, keeping borders and the rig, hiding the original as bake source — use before `model_unwrap`; refused unless its switch is on.',
     input: ModelDecimateInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
@@ -685,7 +685,7 @@ export const MCP_TOOLS = {
     id: 'model_retopo',
     title: 'Retopologise a sculpt to quads',
     description:
-      'Rebuilds a sculpt part as an even, quad-dominant mesh near a target face count and hides the original as the bake source — use instead of `model_decimate` for clean topology; refused unless its own Settings switch is on.',
+      'Rebuilds a sculpt part as even, quad-dominant topology near a target face count, hiding the original as bake source — use instead of `model_decimate`; refused unless its own Settings switch is on.',
     input: ModelRetopoInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
@@ -712,7 +712,7 @@ export const MCP_TOOLS = {
     id: 'model_export',
     title: 'Export a model’s files',
     description:
-      'Writes the model as `.glb` (PBR, skin, clips, baked maps), `.obj` and `.fbx` beside its design, choosing formats — use instead of `model_save` when only the engine files are wanted; refused unless its own Settings switch is on.',
+      'Writes the model as `.glb` (PBR, skin, clips, baked maps), `.obj` and `.fbx` beside its design, by format — use instead of `model_save` for engine files only; refused unless its own Settings switch is on.',
     input: ModelExportInputSchema,
     output: ModelEditResultSchema,
     readOnly: false,
