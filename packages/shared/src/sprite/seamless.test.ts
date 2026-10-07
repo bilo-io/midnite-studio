@@ -88,3 +88,22 @@ describe('ensureSeamless', () => {
     expect(r.passes).toBe(true);
   });
 });
+
+describe('alpha', () => {
+  it('counts a cut in a transparent layer even where the hidden colour matches', () => {
+    // opaque on the left edge only: the layer's silhouette is cut at the wrap
+    const img = createRgba(64, 16);
+    for (let y = 0; y < 16; y += 1) for (let x = 0; x < 64; x += 1) img.data.set([50, 50, 50, x < 8 ? 255 : 0], (y * 64 + x) * 4);
+    expect(seamScore(img, 'x')).toBeGreaterThan(SEAM_PASS);
+    expect(seamPasses(repairSeam(img, 'x'), 'x')).toBe(true);
+  });
+
+  it('ignores the colour hidden under zero alpha', () => {
+    const a = createRgba(32, 8), b = createRgba(32, 8);
+    for (let i = 0; i < 32 * 8; i += 1) {
+      a.data.set([0, 0, 0, 0], i * 4);
+      b.data.set([255, 9, 200, 0], i * 4);
+    }
+    expect(seamScore(a, 'x')).toBe(seamScore(b, 'x'));
+  });
+});

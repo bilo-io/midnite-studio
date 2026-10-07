@@ -14,8 +14,14 @@ export const SEAM_PASS = 1.5;
 
 export type SeamAxes = 'xy' | 'x';
 
-/** The mean absolute RGB difference between pixel `a` and pixel `b` (byte offsets). */
-const diff = (d: ArrayLike<number>, a: number, b: number): number => (Math.abs(d[a]! - d[b]!) + Math.abs(d[a + 1]! - d[b + 1]!) + Math.abs(d[a + 2]! - d[b + 2]!)) / 3;
+/**
+ * The mean absolute difference between pixel `a` and pixel `b` (byte offsets) over premultiplied RGB and
+ * alpha, so a transparent pixel's hidden colour never counts and an opaque tile scores as plain RGB.
+ */
+const diff = (d: ArrayLike<number>, a: number, b: number): number => {
+  const pa = d[a + 3]! / 255, pb = d[b + 3]! / 255;
+  return (Math.abs(d[a]! * pa - d[b]! * pb) + Math.abs(d[a + 1]! * pa - d[b + 1]! * pb) + Math.abs(d[a + 2]! * pa - d[b + 2]! * pb) + Math.abs(d[a + 3]! - d[b + 3]!)) / 4;
+};
 
 /** Sum and count of differences between each pixel and its right (`x`) or lower (`y`) neighbour, wrapped or not. */
 function axisDiffs(img: RgbaLike, axis: 'x' | 'y'): { seam: number; interior: number } {
@@ -76,7 +82,10 @@ export function repairSeam(img: RgbaImage, axes: SeamAxes = 'xy', band = Math.ma
         const sy = axis === 'y' ? (y + (h >> 1)) % h : y;
         const o = (y * w + x) * 4;
         const s = (sy * w + sx) * 4;
-        for (let c = 0; c < 4; c += 1) next.data[o + c] = Math.round(src.data[o + c]! * wt + src.data[s + c]! * (1 - wt));
+        const a1 = src.data[o + 3]! * wt, a2 = src.data[s + 3]! * (1 - wt);
+        const alpha = a1 + a2;
+        next.data[o + 3] = Math.round(alpha);
+        if (alpha > 0) for (let c = 0; c < 3; c += 1) next.data[o + c] = Math.round((src.data[o + c]! * a1 + src.data[s + c]! * a2) / alpha);
       }
     out = next;
   }
