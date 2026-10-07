@@ -204,7 +204,7 @@ describe('submitFrame (the frame pipeline)', () => {
 
   it('normalises frames, badges them and stores the reference height and pixel palette', async () => {
     const runJob: SpriteJobRunner = async (ctx) => {
-      await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 0, bytes: pngOn([200, 40, 40], 30), meta: { source: 'rendered' } });
+      await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 0, bytes: pngOn([200, 40, 40], 30), meta: { source: 'sliced' } });
       await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 1, bytes: pngOn([200, 40, 40], 30) });
       await ctx.submitFrame({ clip: 'idle', dir: 'e', n: 2, bytes: pngOn([40, 40, 200], 15) });
     };
@@ -216,7 +216,7 @@ describe('submitFrame (the frame pipeline)', () => {
     const got = await service.get(target);
     if (!got.ok) throw new Error('get failed');
     expect(got.value.frames.referenceHeights).toEqual({ e: 30 });
-    expect(got.value.frames.frames['idle/e/000']).toMatchObject({ source: 'rendered', badges: [] });
+    expect(got.value.frames.frames['idle/e/000']).toMatchObject({ source: 'sliced', badges: [] });
     expect(got.value.frames.frames['idle/e/002']?.badges).toEqual(['height']);
     expect(got.value.report).toMatchObject({ frames: 3, failing: 1 });
     const spec = got.value.spec as SpriteSheetSpec;

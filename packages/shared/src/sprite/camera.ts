@@ -1,4 +1,6 @@
-import type { SpritePerspective, SpriteRenderSettings, SpriteSheetSpec } from '../media-sprite';
+import type { z } from 'zod';
+
+import type { SpritePerspective, SpriteRenderSettings } from '../media-sprite';
 import { SpriteRenderSettingsSchema } from '../media-sprite';
 import type { Mat4, Vec3 } from '../model-geometry/math';
 
@@ -35,7 +37,7 @@ export function defaultSpriteCamera(perspective: SpritePerspective): SpriteRende
 }
 
 /** The sheet's render settings with defaults filled and a preset's angles applied (custom keeps its own). */
-export function resolveRenderSettings(spec: Pick<SpriteSheetSpec, 'render' | 'targetPerspective'>): SpriteRenderSettings {
+export function resolveRenderSettings(spec: { render?: z.input<typeof SpriteRenderSettingsSchema> | undefined; targetPerspective: SpritePerspective }): SpriteRenderSettings {
   const settings = SpriteRenderSettingsSchema.parse(spec.render ?? { camera: defaultSpriteCamera(spec.targetPerspective) });
   if (settings.camera === 'custom') return settings;
   return { ...settings, ...SPRITE_CAMERA_PRESETS[settings.camera] };
