@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-07 — Phase 107 Theme O — Play-test depth: determinism, input replays and frame assertions
+## 2026-10-07 — Phase 107 Theme O — Play-test depth: determinism, input replays and frame assertions ([#759](https://github.com/bilo-io/midnite-studio/pull/759))
 
 Deterministic mode (seeded `Math.random`, a virtual clock, one fixed step per frame), frame-indexed `.replay.json` pressed through the kit's virtual action layer rather than OS events, restricted JSON-path and frame-diff assertions, and `playtests/*.json` run from the runner toolbar's Playtests menu or over MCP (`game_replay_record`, `game_replay_play`, `game_assert_state`, `game_assert_frame`, `game_playtest`). Every starter's `smoke.json` migrated to the real format and passes twice with identical states in real Chromium. Kit 0.8.0.
 
