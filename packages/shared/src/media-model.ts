@@ -324,6 +324,8 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
         coverage: z.number().min(0).max(1),
       })
       .optional(),
+    /** The hidden high-resolution sculpt part (id) a decimate or retopology made this one from — what `model_bake` bakes from by default. */
+    bakeFrom: z.string().trim().min(1).max(40).optional(),
     /** Maps baked from a higher-resolution mesh onto this one (Theme F); each a `.png` beside the design. */
     maps: z
       .object({
