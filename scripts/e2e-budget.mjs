@@ -218,7 +218,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 //
 // Raised 474 -> 475 for Media > Models' `model-explorer.spec.ts` (1 test): the explorer's drag-and-drop
 // move rides a native DataTransfer drag, which jsdom cannot fire; everything else is vitest.
-export const MAX_DECLARED_E2E = 475;
+//
+// Raised 475 -> 476 for Media > Sprites' `sprite-render.spec.ts` (1 test, Phase 106 Theme E): rendering a
+// rigged model into sprite frames needs real WebGL and OffscreenCanvas, which jsdom has neither of; the
+// camera maths, clip sampling and the main-side render relay are all vitest.
+export const MAX_DECLARED_E2E = 476;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
