@@ -20,7 +20,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { decodePng, encodePngRgba8 } from '../png/png-codec';
-import { exportSprite } from './sprite-export';
+import { exportSprite, SPRITE_NO_MAP } from './sprite-export';
 
 /** An opaque block on a transparent canvas. */
 function rectOn(width: number, height: number, x0: number, y0: number, w: number, h: number) {
@@ -144,8 +144,8 @@ describe('exportSprite', () => {
     expect(PhaserMultiAtlasJsonSchema.safeParse(JSON.parse(await readFile(join(folder, 'atlas.json'), 'utf8'))).success).toBe(true);
   });
 
-  it('refuses a map, whose pack lands with Theme J (tilesets, backgrounds and props are in environment.test.ts)', async () => {
+  it('refuses a map with no map.tmj yet (the map pack itself is in map-generate.test.ts)', async () => {
     const result = await exportSprite({ dir, spec: { kind: 'map', name: 't' } as never, frames: SpriteFramesFileSchema.parse({}), pack });
-    expect(result).toMatchObject({ ok: false, message: 'Map export is not available yet.' });
+    expect(result).toMatchObject({ ok: false, message: SPRITE_NO_MAP });
   });
 });
