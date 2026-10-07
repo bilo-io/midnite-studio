@@ -345,6 +345,7 @@ export const MapFrameSchema = z.object({
   sideM: z.number().min(16).max(65_536),
   size: z.union([z.literal(129), z.literal(257), z.literal(513), z.literal(1025), z.literal(2049), z.literal(4097)]),
 });
+export type MapFrame = z.infer<typeof MapFrameSchema>;
 
 const MapProjectFields = {
   view: MapViewSchema,

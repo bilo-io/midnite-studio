@@ -9,6 +9,8 @@ import { defaultMapProject } from '@midnite/studio-shared';
 
 afterEach(cleanup);
 
+const noFraming = { terrain3d: { on: false, exaggeration: 1.5 }, frame: null, visible: false, elevation: null, warnings: [] } as unknown as Parameters<typeof MapPanel>[0]['framing'];
+
 describe('MapSettingsSection', () => {
   it('saves the MapTiler key through the vault, never anywhere else', async () => {
     renderView(<MapSettingsSection />, { fixtures });
@@ -30,10 +32,10 @@ describe('MapSettingsSection', () => {
 
 describe('MapPanel sources', () => {
   it('flips MapTiler to available once a key exists', async () => {
-    const { unmount } = renderView(<MapPanel map={defaultMapProject()} project="maps" repoId="r1" />, { fixtures });
+    const { unmount } = renderView(<MapPanel map={defaultMapProject()} project="maps" repoId="r1" framing={noFraming} />, { fixtures });
     expect((await screen.findAllByText('Add a MapTiler key in Settings ▸ Media.')).length).toBe(3);
     unmount();
-    renderView(<MapPanel map={defaultMapProject()} project="maps" repoId="r1" />, { fixtures: { ...fixtures, media: { map: { keySet: true } } } });
+    renderView(<MapPanel map={defaultMapProject()} project="maps" repoId="r1" framing={noFraming} />, { fixtures: { ...fixtures, media: { map: { keySet: true } } } });
     await screen.findByText('MapTiler Satellite');
     await waitFor(() => expect(screen.queryByText('Add a MapTiler key in Settings ▸ Media.')).toBeNull());
   });

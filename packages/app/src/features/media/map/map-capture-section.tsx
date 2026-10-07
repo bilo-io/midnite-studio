@@ -5,6 +5,7 @@ import {
   captureWarnings,
   map as mapKernel,
   mapSource,
+  type MapFrame,
   type MapProjectFile,
 } from '@midnite/studio-shared';
 import { useState } from 'react';
@@ -21,11 +22,28 @@ const formatSide = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 100
  * centre; the side and the output size are set here. Satellite, roads and the hand-off to Terrain join
  * this section in Themes E and F.
  */
-export function MapCaptureSection({ repoId, project, map }: { repoId: string; project: string; map: MapProjectFile }) {
+export function MapCaptureSection({
+  repoId,
+  project,
+  map,
+  frame = null,
+  onFrameChange,
+}: {
+  repoId: string;
+  project: string;
+  map: MapProjectFile;
+  /** Theme C's on-map frame, when shown: it then owns the centre, side and size. */
+  frame?: MapFrame | null;
+  onFrameChange?: (frame: MapFrame) => void;
+}) {
   const capture = useMapCapture();
-  const center = map.frame?.center ?? map.view.center;
-  const [sideM, setSideM] = useState(map.frame?.sideM ?? 5000);
-  const [size, setSize] = useState<number>(map.frame?.size ?? 1025);
+  const [localSide, setLocalSide] = useState(map.frame?.sideM ?? 5000);
+  const [localSize, setLocalSize] = useState<number>(map.frame?.size ?? 1025);
+  const center = frame?.center ?? map.frame?.center ?? map.view.center;
+  const sideM = frame ? frame.sideM : localSide;
+  const size: number = frame ? frame.size : localSize;
+  const setSideM = (v: number) => (frame ? onFrameChange?.({ ...frame, sideM: Math.min(MAP_CAPTURE_MAX_SIDE_M, Math.max(MAP_CAPTURE_MIN_SIDE_M, v)) }) : setLocalSide(v));
+  const setSize = (v: number) => (frame ? onFrameChange?.({ ...frame, size: v as MapFrame['size'] }) : setLocalSize(v));
   const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) });
   const blocked = warnings.some((w) => w.blocking);
   const running = capture.state.phase === 'running';
