@@ -11,6 +11,8 @@
 
 const LEAF_SIZE = 8;
 
+export type ClosestHit = { triangle: number; distance: number; point: [number, number, number]; barycentric: [number, number, number] };
+
 export type RayHit = { triangle: number; distance: number; point: [number, number, number]; barycentric: [number, number, number] };
 
 export class Bvh {
@@ -148,6 +150,54 @@ export class Bvh {
     return best;
   }
 
+
+  /** The nearest point on the surface to `p` (within `maxDistance`), with its triangle and barycentric coordinates. */
+  closestPoint(p: readonly [number, number, number], maxDistance = Infinity): ClosestHit | null {
+    if (this.nodeCount === 0) return null;
+    let bestD2 = maxDistance === Infinity ? Infinity : maxDistance * maxDistance;
+    let best: ClosestHit | null = null;
+    const stack: number[] = [0];
+    const pos = this.positions;
+    while (stack.length > 0) {
+      const node = stack.pop()!;
+      if (this.boxDistSq(node * 6, p) > bestD2) continue;
+      const count = this.count[node]!;
+      if (count > 0) {
+        const offset = this.offset[node]!;
+        for (let i = offset; i < offset + count; i += 1) {
+          const t = this.order[i]!;
+          const a = this.indices[t * 3]! * 3;
+          const b = this.indices[t * 3 + 1]! * 3;
+          const c = this.indices[t * 3 + 2]! * 3;
+          const hit = closestOnTriangle(p, [pos[a]!, pos[a + 1]!, pos[a + 2]!], [pos[b]!, pos[b + 1]!, pos[b + 2]!], [pos[c]!, pos[c + 1]!, pos[c + 2]!]);
+          if (hit.d2 < bestD2 || (best === null && hit.d2 <= bestD2)) {
+            bestD2 = hit.d2;
+            best = { triangle: t, distance: Math.sqrt(hit.d2), point: hit.point, barycentric: hit.bary };
+          }
+        }
+      } else {
+        // Nearer child last, so it pops first.
+        const l = node + 1;
+        const r = this.right[node]!;
+        if (this.boxDistSq(l * 6, p) <= this.boxDistSq(r * 6, p)) stack.push(r, l);
+        else stack.push(l, r);
+      }
+    }
+    return best;
+  }
+
+  private boxDistSq(b: number, p: readonly number[]): number {
+    let d2 = 0;
+    for (let k = 0; k < 3; k += 1) {
+      const v = p[k]!;
+      const lo = this.bounds[b + k]!;
+      const hi = this.bounds[b + 3 + k]!;
+      if (v < lo) d2 += (lo - v) ** 2;
+      else if (v > hi) d2 += (v - hi) ** 2;
+    }
+    return d2;
+  }
+
   /** Triangles whose box overlaps the sphere — a conservative brush footprint, sorted. */
   trianglesNearSphere(center: readonly [number, number, number], radius: number): number[] {
     const out: number[] = [];
@@ -273,4 +323,48 @@ export function intersectTriangle(
     point: [origin[0] + dir[0] * distance, origin[1] + dir[1] * distance, origin[2] + dir[2] * distance],
     barycentric: [1 - u - v, u, v],
   };
+}
+
+type P3 = readonly [number, number, number];
+
+/** Closest point on triangle abc to `p` (Ericson §5.1.5), with its barycentric coordinates and squared distance. */
+export function closestOnTriangle(p: P3, a: P3, b: P3, c: P3): { point: [number, number, number]; bary: [number, number, number]; d2: number } {
+  const ab: P3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const ac: P3 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+  const ap: P3 = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
+  const dot = (u: P3, v: P3): number => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const out = (u: number, v: number, w: number) => {
+    const point: [number, number, number] = [u * a[0] + v * b[0] + w * c[0], u * a[1] + v * b[1] + w * c[1], u * a[2] + v * b[2] + w * c[2]];
+    return { point, bary: [u, v, w] as [number, number, number], d2: (p[0] - point[0]) ** 2 + (p[1] - point[1]) ** 2 + (p[2] - point[2]) ** 2 };
+  };
+  const d1 = dot(ab, ap);
+  const d2 = dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) return out(1, 0, 0);
+  const bp: P3 = [p[0] - b[0], p[1] - b[1], p[2] - b[2]];
+  const d3 = dot(ab, bp);
+  const d4 = dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return out(0, 1, 0);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+    const v = d1 / (d1 - d3);
+    return out(1 - v, v, 0);
+  }
+  const cp: P3 = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
+  const d5 = dot(ab, cp);
+  const d6 = dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return out(0, 0, 1);
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+    const w = d2 / (d2 - d6);
+    return out(1 - w, 0, w);
+  }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+    const w = (d4 - d3) / (d4 - d3 + (d5 - d6));
+    return out(0, 1 - w, w);
+  }
+  const denom = 1 / (va + vb + vc);
+  const v = vb * denom;
+  const w = vc * denom;
+  return out(1 - v - w, v, w);
 }
