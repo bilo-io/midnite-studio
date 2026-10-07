@@ -74,7 +74,7 @@ describe('the paint controller', () => {
     expect(snap.status).toBe('ready');
     expect(snap.textures!.baseColor.image.width).toBe(64);
     // Base colour flattened from the part colour.
-    expect(Array.from(snap.textures!.baseColor.image.data.subarray(0, 4))).toEqual([128, 128, 128, 255]);
+    expect(Array.from((snap.textures!.baseColor.image.data as Uint8Array).subarray(0, 4))).toEqual([128, 128, 128, 255]);
 
     controller.setSettings({ color: '#ff0000', radiusUnit: 'world', strength: 1, falloff: 'constant' });
     expect(controller.beginStroke(spec, down, { radius: 0.1 })).toBe(true);
@@ -83,7 +83,7 @@ describe('the paint controller', () => {
     controller.endStroke();
     const layer = controller.layerImage('paint', 'albedo')!;
     expect(alpha(layer.data, 16, 16)).toBe(255);
-    const base = controller.getSnapshot().textures!.baseColor.image.data;
+    const base = controller.getSnapshot().textures!.baseColor.image.data as Uint8Array;
     expect(Array.from(base.subarray((16 * 64 + 16) * 4, (16 * 64 + 16) * 4 + 3))).toEqual([255, 0, 0]);
     expect(controller.getSnapshot()).toMatchObject({ undo: 1, redo: 0, unsaved: true });
 
@@ -120,8 +120,8 @@ describe('the paint controller', () => {
     } as ModelSpec;
     await controller.sync(withFill);
     const snap = controller.getSnapshot();
-    expect(Array.from(snap.textures!.baseColor.image.data.subarray(0, 3))).toEqual([0, 0, 255]);
-    expect(snap.textures!.orm.image.data[1]).toBe(Math.round(0.2 * 255));
+    expect(Array.from((snap.textures!.baseColor.image.data as Uint8Array).subarray(0, 3))).toEqual([0, 0, 255]);
+    expect((snap.textures!.orm.image.data as Uint8Array)[1]).toBe(Math.round(0.2 * 255));
     expect(snap.unsaved).toBe(true);
 
     controller.setSettings({ color: '#00ff00', radiusUnit: 'world', falloff: 'constant', strength: 1 });
