@@ -16,6 +16,7 @@ import { ModelPanel } from './model-panel';
 import { editorReducer, initialEditorState, isDirty } from './editor-state';
 import { useModelAssets } from './model-assets';
 import { useConvertToSculpt } from './sculpt/use-convert';
+import { useSdfBaker } from './sculpt/use-sdf';
 import { LazyModelEditor, LazyModelViewer } from './model-viewer-lazy';
 import { JsonFileViewer } from './json-viewer';
 import { collectModels, findNode, joinLibraryPath, splitProjectPath, type ModelSelection } from './library-tree';
@@ -84,6 +85,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
   const [editor, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState(PLACEHOLDER_SPEC));
   const saver = useModelSaveEdit(repoId);
   const convertToSculpt = useConvertToSculpt(repoId, modelProject, selectedPath ?? null);
+  const sdfBaker = useSdfBaker(repoId, modelProject, selectedPath ?? null);
   const designSpec = design?.spec ?? null;
 
   // An agent is editing this model (an in-app iterative run, or an MCP session): adopt each edit as it lands.
@@ -192,7 +194,7 @@ function ModelTabBody({ repoId }: { repoId: string }) {
               <EmptyState icon={LuBox} title="No preview" body={`${centre.path} is not a 3D, JSON or image file.`} />
             ) : modelProject && selectedPath && format ? (
               editing ? (
-                <LazyModelEditor state={editor} dispatch={dispatch} onSave={save} saving={saver.isPending} retargetSources={retargetSources} {...(convertToSculpt ? { onConvert: convertToSculpt } : {})} />
+                <LazyModelEditor state={editor} dispatch={dispatch} onSave={save} saving={saver.isPending} retargetSources={retargetSources} {...(convertToSculpt ? { onConvert: convertToSculpt } : {})} {...(sdfBaker ? { sdfBaker } : {})} />
               ) : sidecarMissing ? (
                 <LazyModelViewer
                   key={fileKey}

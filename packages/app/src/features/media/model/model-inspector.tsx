@@ -1,4 +1,4 @@
-import { descendantIndices, type BuildIssue, type ModelPart } from '@midnite/studio-shared';
+import { descendantIndices, type BuildIssue, type ModelPart, type ModelSpec } from '@midnite/studio-shared';
 import { useState, type Dispatch } from 'react';
 import { LuCopy, LuTrash2 } from 'react-icons/lu';
 
@@ -13,6 +13,8 @@ import { MeshPanel, type ConvertFn } from './mesh-panel';
 import { ModifierPanel } from './modifier-panel';
 import { Outliner } from './outliner-panel';
 import { RigPanel } from './rig-panel';
+import { SdfPanel } from './sdf-panel';
+import type { SdfBaker } from './sculpt/use-sdf';
 import type { RigModel } from './rig-pose';
 import type { RigView, UpdateRigView } from './rig-view';
 import type { EditorScene } from './spec-geometry';
@@ -23,9 +25,9 @@ import type { EditorScene } from './spec-geometry';
  * parts selected it shows the arrange tools and edits material for all of them. Rig and Animation
  * are about the whole design, so they show whatever is selected.
  */
-const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'Rig', 'Animation'] as const;
+const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'SDF', 'Rig', 'Animation'] as const;
 type Tab = (typeof TABS)[number];
-const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Mesh', 'Rig', 'Animation']);
+const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Mesh', 'SDF', 'Rig', 'Animation']);
 
 /** What the Rig and Animation tabs share with the viewport and the timeline. */
 export type InspectorRig = { view: RigView; onView: UpdateRigView; model: RigModel | null; scene: EditorScene; sources?: readonly RetargetSource[] };
@@ -41,6 +43,7 @@ export function ModelInspector({
   issues,
   rig,
   onConvert,
+  sdf,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
@@ -48,12 +51,14 @@ export function ModelInspector({
   rig?: InspectorRig;
   /** Converts the design's primitives to a sculpt mesh (Phase 104 Theme B); the Mesh tab shows only with it. */
   onConvert?: ConvertFn;
+  /** SDF modelling (Phase 104 Theme C): the baker and the viewport's preview seam; the SDF tab shows only with it. */
+  sdf?: { baker: SdfBaker; onPreview: (spec: ModelSpec | null) => void };
 }) {
   const [tab, setTab] = useState<Tab>('Properties');
   const { spec, selected, selection } = state;
   const part = selected !== null ? spec.parts[selected] : undefined;
   const hasGroup = selection.some((i) => spec.parts[i]?.shape === 'group');
-  const available = (name: Tab): boolean => (name === 'Mesh' ? !!onConvert : name === 'Rig' || name === 'Animation' ? !!rig : true);
+  const available = (name: Tab): boolean => (name === 'Mesh' ? !!onConvert : name === 'SDF' ? !!sdf : name === 'Rig' || name === 'Animation' ? !!rig : true);
   const designTab = DESIGN_TABS.has(tab) && available(tab);
 
   return (
@@ -79,9 +84,11 @@ export function ModelInspector({
           {designTab ? null : <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />}
         </div>
         {designTab ? (
-          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : tab === 'Mesh' ? 'Mesh tools' : 'Animation'}>
+          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : tab === 'Mesh' ? 'Mesh tools' : tab === 'SDF' ? 'SDF tools' : 'Animation'}>
             {tab === 'Mesh' && onConvert ? (
               <MeshPanel state={state} dispatch={dispatch} onConvert={onConvert} />
+            ) : tab === 'SDF' && sdf ? (
+              <SdfPanel state={state} dispatch={dispatch} baker={sdf.baker} onPreview={sdf.onPreview} />
             ) : rig && tab === 'Rig' ? (
               <RigPanel state={state} dispatch={dispatch} view={rig.view} onView={rig.onView} model={rig.model} scene={rig.scene} />
             ) : rig ? (

@@ -1,4 +1,4 @@
-import { Bvh, decodeMeshBin, EditableMesh, encodeMeshBin, voxelRemesh } from '@midnite/studio-shared';
+import { bakeSdf, Bvh, decodeMeshBin, EditableMesh, encodeMeshBin, voxelRemesh } from '@midnite/studio-shared';
 
 import type { SculptRequest, SculptResponse } from './sculpt-protocol';
 
@@ -74,6 +74,12 @@ export function createSculptHost(post: Post): (message: SculptRequest) => void {
             { type: 'remeshed', id: message.id, positions: out.positions, indices: out.indices, groups: out.groups, voxelSize: out.voxelSize, coarsened: out.coarsened },
             [out.positions.buffer, out.indices.buffer, out.groups.buffer],
           );
+          return;
+        }
+        case 'sdfBake': {
+          const out = bakeSdf(message.tree, { resolution: message.resolution });
+          const { positions, indices, groups, ...rest } = out;
+          post({ type: 'sdfBaked', id: message.id, positions, indices, groups, ...rest }, [positions.buffer, indices.buffer, groups.buffer]);
           return;
         }
         case 'dispose':

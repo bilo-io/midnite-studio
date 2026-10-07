@@ -6,7 +6,7 @@
  * arrays — the worker never posts the whole mesh after `load`, only {@link SculptDelta}s for the vertex
  * range a stroke changed, which the display copies in and re-uploads with `addUpdateRange`.
  */
-import type { MeshDelta, RemeshOptions } from '@midnite/studio-shared';
+import type { MeshDelta, RemeshOptions, SdfTree } from '@midnite/studio-shared';
 
 export type Vec3 = [number, number, number];
 
@@ -25,6 +25,8 @@ export type SculptRequest =
    * of its input, run here so a few hundred ms of distance field never blocks the editor.
    */
   | { type: 'remesh'; id: number; positions: Float64Array; indices: Uint32Array; groups: Uint16Array; options: RemeshOptions }
+  /** Bake a signed-distance tree (Theme C) — like `remesh`, a pure function of its input. */
+  | { type: 'sdfBake'; id: number; tree: SdfTree; resolution: number }
   | { type: 'dispose'; id: number };
 
 export type SculptLoaded = {
@@ -45,5 +47,18 @@ export type SculptResponse =
   | { type: 'hit'; id: number; hit: { point: Vec3; triangle: number; distance: number } | null }
   | { type: 'serialized'; id: number; bytes: ArrayBuffer; vertices: number; triangles: number }
   | { type: 'remeshed'; id: number; positions: Float32Array; indices: Uint32Array; groups: Uint16Array; voxelSize: number; coarsened: boolean }
+  | {
+      type: 'sdfBaked';
+      id: number;
+      positions: Float32Array;
+      indices: Uint32Array;
+      groups: Uint16Array;
+      groupTable: { name: string; color: string }[];
+      voxelSize: number;
+      resolution: number;
+      dims: [number, number, number];
+      evaluated: number;
+      skipped: number;
+    }
   | { type: 'disposed'; id: number }
   | { type: 'error'; id: number; message: string };
