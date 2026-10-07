@@ -3986,6 +3986,10 @@ export function buildMockBridge(data: MockFixtures) {
             listeners.open.add(handler);
             return () => listeners.open.delete(handler);
           },
+          // Rendered from 3D (Theme E): main never asks the mock window to render.
+          onRenderRequest: () => () => undefined,
+          renderReady: async () => ({ ok: true as const }),
+          renderFrames: async () => ({ ok: true as const }),
         };
       })(),
       reveal: async () => ({ ok: true as const }),

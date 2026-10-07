@@ -31,6 +31,12 @@ export const SPRITE_CAMERA_PRESETS = {
 /** Compass yaw of each direction name. */
 export const SPRITE_DIRECTION_YAW: Readonly<Record<string, number>> = { s: 0, sw: 45, w: 90, nw: 135, n: 180, ne: 225, e: 270, se: 315 };
 
+/**
+ * Extra yaw for a rig that does not face `+z`: the camera must sit in front of the model's own front
+ * for `s` to face the viewer (`+x` → 90°, `-z` → 180°, `-x` → 270°).
+ */
+export const SPRITE_FACING_YAW: Readonly<Record<string, number>> = { '+z': 0, '+x': 90, '-z': 180, '-x': 270 };
+
 /** The camera a perspective starts on. */
 export function defaultSpriteCamera(perspective: SpritePerspective): SpriteRenderSettings['camera'] {
   return perspective === 'top-down' ? 'top-down' : perspective === 'isometric' ? 'isometric' : 'side';

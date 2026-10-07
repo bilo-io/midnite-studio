@@ -1,5 +1,6 @@
 import {
   clipsMatchPreset,
+  defaultSpriteCamera,
   imageModelsFor,
   MODEL_SUGGESTED_VISION,
   modelPullHint,
@@ -44,7 +45,10 @@ import {
   type SheetForm,
 } from './sprite-form';
 import { SpriteMethodPicker } from './sprite-method-picker';
+import { SpriteRenderedOptions } from './sprite-rendered-options';
+import { riggedModels } from './sprite-rig';
 import { useSpriteActions, type SpriteRef } from './use-sprite';
+import { useModelLibrary } from '../model/use-model-library';
 
 type Mode = 'sheet' | 'environment';
 
@@ -53,7 +57,7 @@ type SheetAction =
   | { type: 'perspective'; perspective: SpritePerspective; replaceClips: boolean }
   | { type: 'method'; method: SpriteMethod }
   | { type: 'clip'; index: number; patch: Partial<SpriteClip> }
-  | { type: 'addClip' }
+  | { type: 'addClip'; clip?: SpriteClip }
   | { type: 'removeClip'; index: number }
   | { type: 'replaceClips' };
 
@@ -72,13 +76,18 @@ function applySheetAction(form: SheetForm, action: SheetAction): SheetForm {
     case 'patch':
       return withRecommendation({ ...form, ...action.patch });
     case 'perspective':
-      return withRecommendation({ ...form, perspective: action.perspective, ...(action.replaceClips ? { clips: presetClips(action.perspective), clipsEdited: false } : {}) });
+      return withRecommendation({
+        ...form,
+        perspective: action.perspective,
+        ...(action.replaceClips ? { clips: presetClips(action.perspective), clipsEdited: false } : {}),
+        ...(form.cameraChosen ? {} : { render: { ...form.render, camera: defaultSpriteCamera(action.perspective) } }),
+      });
     case 'method':
       return { ...form, method: action.method, methodChosen: action.method !== 'one-shot' ? true : form.methodChosen };
     case 'clip':
       return { ...form, clipsEdited: true, clips: form.clips.map((c, i) => (i === action.index ? { ...c, ...action.patch } : c)) };
     case 'addClip':
-      return { ...form, clipsEdited: true, clips: [...form.clips, { name: `clip-${form.clips.length + 1}`, frames: 4, fps: 8, loop: 'loop' }] };
+      return { ...form, clipsEdited: true, clips: [...form.clips, action.clip ?? { name: `clip-${form.clips.length + 1}`, frames: 4, fps: 8, loop: 'loop' }] };
     case 'removeClip':
       return { ...form, clipsEdited: true, clips: form.clips.filter((_, i) => i !== action.index) };
     case 'replaceClips':
@@ -146,18 +155,10 @@ export function SpriteCreatePanel({
     }
   };
 
-  const attachRig = () =>
-    dialogs.prompt({
-      title: 'Attach a rigged model',
-      label: 'Models project / model path',
-      placeholder: 'characters/knight-20261004-120000',
-      confirmLabel: 'Attach',
-      validate: (value) => (/^[^/\s][^\s]*\/[^\s]+$/.test(value.trim()) ? null : 'Use <project>/<model folder>.'),
-      onConfirm: (value) => {
-        const [project, ...rest] = value.trim().split('/');
-        dispatch({ type: 'patch', patch: { rig: { project: project!, path: rest.join('/') } } });
-      },
-    });
+  const library = useModelLibrary(sheet.method === 'rendered' ? repoId : null);
+  const rigged = riggedModels(library.data ?? []);
+  /** Rendering from 3D with no model: the Attach button focuses the model picker in the form. */
+  const attachRig = () => document.querySelector<HTMLSelectElement>('[data-testid="sprite-rig-picker"]')?.focus();
 
   const handDrawn = sheet.method === 'hand-drawn';
   const models = imageModelsFor(sheet.provider, statuses.find((s) => s.id === sheet.provider)?.models).filter((m) => !handDrawn || referenceCapable(sheet.provider, m.id));
@@ -212,7 +213,8 @@ export function SpriteCreatePanel({
             dispatch={dispatch}
             recommendation={recommendation}
             onPerspective={setPerspective}
-            attachRig={attachRig}
+            rigged={rigged}
+            riggedLoading={library.isPending && sheet.method === 'rendered'}
           />
         ) : (
           <EnvironmentFields form={env} onChange={(patch) => setEnv((current) => ({ ...current, ...patch }))} />
@@ -278,11 +280,7 @@ export function SpriteCreatePanel({
             Create
           </button>
         )}
-        {sheet.rig && mode === 'sheet' ? (
-          <p className="text-[11px] text-muted-foreground">
-            Model: {sheet.rig.project}/{sheet.rig.path}
-          </p>
-        ) : null}
+
       </div>
     </div>
   );
@@ -293,13 +291,15 @@ function SheetFields({
   dispatch,
   recommendation,
   onPerspective,
-  attachRig,
+  rigged,
+  riggedLoading,
 }: {
   form: SheetForm;
   dispatch: Dispatch<SheetAction>;
   recommendation: ReturnType<typeof formRecommendation>;
   onPerspective: (perspective: SpritePerspective) => void;
-  attachRig: () => void;
+  rigged: ReturnType<typeof riggedModels>;
+  riggedLoading: boolean;
 }) {
   const patch = (p: Partial<SheetForm>) => dispatch({ type: 'patch', patch: p });
   return (
@@ -370,9 +370,13 @@ function SheetFields({
         <span className="text-[11px] font-medium text-muted-foreground">Method</span>
         <SpriteMethodPicker method={form.method} recommended={recommendation} onMethod={(method) => dispatch({ type: 'method', method })} />
         {form.method === 'rendered' ? (
-          <button type="button" onClick={attachRig} className="w-fit text-[11px] font-medium text-primary underline decoration-dotted">
-            {form.rig ? 'Change the attached model…' : 'Attach a rigged model…'}
-          </button>
+          <SpriteRenderedOptions
+            form={form}
+            rigged={rigged}
+            loading={riggedLoading}
+            onPatch={patch}
+            onAddClip={(clip) => dispatch({ type: 'addClip', clip })}
+          />
         ) : null}
         {form.method === 'hand-drawn' ? <HandDrawnOptions form={form} patch={patch} /> : null}
       </div>

@@ -3,6 +3,7 @@ import {
   imageModelsFor,
   imageProviderInfo,
   imageReferenceUnsupportedReason,
+  defaultSpriteCamera,
   presetClips,
   recommendSpriteMethod,
   SPRITE_NEEDS_MODEL,
@@ -10,6 +11,7 @@ import {
   type SpriteClip,
   type SpriteMethod,
   type SpritePerspective,
+  type SpriteRenderSettings,
   type SpriteStyle,
 } from '@midnite/studio-shared';
 
@@ -31,8 +33,12 @@ export type SheetForm = {
   clipsEdited: boolean;
   provider: ImageProviderId;
   model: string;
-  /** A Models asset (`<project>`, `<path>`), for rendering from 3D. */
+  /** A Models design (`<project>`, the design file's path inside it), for rendering from 3D. */
   rig?: { project: string; path: string };
+  /** Rendering from 3D: camera, shading, outline and supersampling. `camera` follows the perspective until changed. */
+  render: Omit<SpriteRenderSettings, 'fps'>;
+  /** Set once the user picks a camera themselves, so a perspective change stops moving it. */
+  cameraChosen: boolean;
   /** Hand-drawn: score each frame against the reference with a local vision model. */
   checkConsistency: boolean;
   /** Hand-drawn side sheets: "My character is asymmetric" — draw the west facing instead of mirroring. */
@@ -87,6 +93,8 @@ export function initialSheetForm(provider: ImageProviderId, model: string): Shee
     model,
     checkConsistency: true,
     asymmetric: false,
+    render: { camera: defaultSpriteCamera(base.perspective), elevationDeg: 0, azimuthDeg: 0, shading: 'lit', outline: false, supersample: 4 },
+    cameraChosen: false,
   };
 }
 
@@ -115,6 +123,7 @@ export function sheetFormToSpec(form: SheetForm): Record<string, unknown> {
     provider: form.provider,
     ...(form.model ? { model: form.model } : {}),
     ...(form.rig ? { reference: { kind: 'model', project: form.rig.project, path: form.rig.path } } : {}),
+    ...(form.method === 'rendered' ? { render: form.render } : {}),
     consistency: { enabled: form.checkConsistency },
     mirror: !form.asymmetric,
   };

@@ -7,6 +7,7 @@ import {
   parseModelSidecar,
   planRenderedClips,
   resizeArea,
+  SPRITE_FACING_YAW,
   SPRITE_RENDER_BATCH,
   spriteCameraMatrix,
   type GitOpResult,
@@ -63,12 +64,11 @@ export type RenderJobApi = {
   post: (req: SpriteRenderFramesRequest) => Promise<GitOpResult>;
 };
 
-const designPath = (path: string): string => (path.endsWith('.json') ? path : `${path.replace(/\/+$/, '')}/model.json`);
-
 export async function runRenderJob(event: SpriteRenderRequestEvent, api: RenderJobApi): Promise<void> {
   let renderer: WebGLRenderer | null = null;
   try {
-    const path = designPath(event.model.path);
+    // The design file beside the model's exports (`<stem>.json`), as the picker stored it.
+    const path = event.model.path;
     const text = await api.readText({ repoId: event.repoId, project: event.model.project, path });
     const spec = text ? (parseModelSidecar(text)?.spec ?? null) : null;
     if (!spec) throw new Error(`Could not read the model ${event.model.project}/${path}.`);
@@ -84,7 +84,9 @@ export async function runRenderJob(event: SpriteRenderRequestEvent, api: RenderJ
     // Every pose once, for the sheet-wide fit.
     const poses = mapping.plans.map((plan) => plan.times.map((t) => posedScene(scene, rig, poseAt(rig, plan.modelClip, t))));
     const boxes = poses.flat().map((posed) => boundsOf(posed.parts.filter((p) => p.role === 'solid')));
-    const views = Object.fromEntries(event.directions.map((dir) => [dir, spriteCameraMatrix(event.settings, dir)]));
+    // A rig facing other than +z turns every direction so `s` still sees its front.
+    const settings = { ...event.settings, azimuthDeg: event.settings.azimuthDeg + (SPRITE_FACING_YAW[spec.rig?.facing ?? '+z'] ?? 0) };
+    const views = Object.fromEntries(event.directions.map((dir) => [dir, spriteCameraMatrix(settings, dir)]));
     const fit = orthoFit(boxes, views, event.frameSize);
 
     const [fw, fh] = event.frameSize;
