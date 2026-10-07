@@ -11,7 +11,7 @@ import {
  * The single-file web export (Phase 107 Theme P, Decision 14): one `.html` that opens from `file://`
  * with no server and no bundler.
  *
- * - `scanImports` finds every module reachable from the page's module scripts; each is rewritten so
+ * - `scanImportSites` (compose.ts has a string-only twin) finds every module reachable from the page's module scripts; each is rewritten so
  *   its relative and import-mapped specifiers become bare `@game/<path>` specifiers, then becomes a
  *   `data:` URL behind one import map (`@game/<path>` → URL). Bare specifiers resolve through the map
  *   alone, so import cycles never need one URL to contain another.
@@ -72,7 +72,7 @@ const IMPORT_PATTERNS: { re: RegExp; dynamic: boolean }[] = [
 ];
 
 /** Every module specifier a source imports, with its position. Specifiers are literal strings only. */
-export function scanImports(source: string): ImportSite[] {
+export function scanImportSites(source: string): ImportSite[] {
   const sites: ImportSite[] = [];
   for (const { re, dynamic } of IMPORT_PATTERNS) {
     for (const match of source.matchAll(re)) {
@@ -147,7 +147,7 @@ export async function buildSingleFile(indexHtml: string, source: SingleFileSourc
   const key = (path: string): string => `@game/${path}`;
 
   async function rewrite(text: string, importer: string): Promise<string> {
-    const sites = scanImports(text);
+    const sites = scanImportSites(text);
     const queue: string[] = [];
     let out = '';
     let cursor = 0;

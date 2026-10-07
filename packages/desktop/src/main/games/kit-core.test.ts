@@ -325,6 +325,23 @@ describe('kit/core/save.js and asset-index.js', () => {
     expect(index.assetUrl('nobody')).toBeNull();
     expect(index.byName('logo')?.kind).toBe('image');
   });
+
+  it('reads window.__MIDNITE_ASSETS__ in a single-file export: the index without a fetch, data: URLs for inlined files', async () => {
+    const { createAssetIndex, loadAssetIndex } = await load('asset-index.js');
+    const index = { version: 1, assets: [{ kind: 'sprite', name: 'hero', path: 'assets/sprite/hero', entry: 'atlas.json' }, { kind: 'image', name: 'logo', path: 'assets/image/logo.png' }] };
+    vi.stubGlobal('__MIDNITE_ASSETS__', { index, files: { 'assets/sprite/hero/atlas.json': 'data:application/json;base64,e30=', 'assets/image/logo.png': 'data:image/png;base64,AA==' } });
+    try {
+      const fetchFn = vi.fn();
+      const loaded = await loadAssetIndex(fetchFn as never);
+      expect(fetchFn).not.toHaveBeenCalled();
+      expect(loaded.assetUrl('hero')).toBe('data:application/json;base64,e30=');
+      expect(loaded.assetUrl('logo')).toBe('data:image/png;base64,AA==');
+      expect(loaded.assetUrl('hero', 'hero.png')).toBe('./assets/sprite/hero/hero.png'); // not inlined: falls back to the path
+      expect(createAssetIndex(index).url('image', 'logo')).toBe('data:image/png;base64,AA==');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('kit/core/preset-defaults.js', () => {

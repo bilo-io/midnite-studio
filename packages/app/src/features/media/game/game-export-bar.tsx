@@ -3,16 +3,17 @@ import { useState } from 'react';
 
 import { bridge } from '../../../services/bridge';
 import { noBridge, reportFailure } from '../../../services/bridge-result';
-import { useToastStore } from '../../../store/toast-store';
+import { useToasts } from '../../../components/toast-host';
 import { ExportToolbar } from '../export-toolbar';
 
 /**
  * The Games toolbar's export (Phase 107 Theme P): the shared split button with the single HTML file
  * first, then the zip and the static folder. A file format asks for its path with the native save
  * dialog (in main); a folder asks for its parent with the directory picker and main refuses an
- * existing `<name>-web/`. Size warnings come back with the result and ride the toast.
+ * existing `<name>-web/`. The result is a transient toast; size warnings come back with it and get a toast of their own.
  */
 export function GameExportBar({ gameId }: { gameId: string | null }) {
+  const toasts = useToasts();
   const [busy, setBusy] = useState(false);
 
   const onExport = async (format: MediaExportFormat) => {
@@ -32,9 +33,8 @@ export function GameExportBar({ gameId }: { gameId: string | null }) {
         return;
       }
       const { path, warnings } = result.value;
-      const toasts = useToastStore.getState();
-      toasts.addToast({ message: `Exported to ${path}`, status: 'success' });
-      for (const warning of warnings) toasts.addToast({ message: warning, status: 'warning' });
+      toasts.show({ message: `Exported to ${path}` });
+      for (const warning of warnings) toasts.show({ message: warning, danger: true });
     } finally {
       setBusy(false);
     }
