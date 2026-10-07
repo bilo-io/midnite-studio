@@ -174,6 +174,7 @@ import { registerGamesHandlers } from './ipc/games-handlers';
 import { createGameRunner } from './games/game-runner';
 import { createGameMcpTools } from './games/game-mcp';
 import { createPlaytests } from './games/playtest';
+import { createGameExport } from './games/game-export';
 import { createGamePopout } from './games/game-popout';
 import { createGameService } from './games/game-service';
 import { createAssetBridge } from './games/asset-bridge';
@@ -762,7 +763,13 @@ if (!app.requestSingleInstanceLock()) {
       send: broadcastToAllWindows,
       log: defaultLogger,
     });
-    registerGamesHandlers(gameService, gameAgentService, gameAssets, gamePlaytests);
+    registerGamesHandlers(
+      gameService,
+      gameAgentService,
+      gameAssets,
+      gamePlaytests,
+      createGameExport({ resolve: (gameId) => mcpGameService.resolve(gameId) }),
+    );
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));

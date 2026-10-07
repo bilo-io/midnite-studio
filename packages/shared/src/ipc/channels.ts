@@ -917,6 +917,8 @@ export const CHANNELS = {
   /** Play-tests (Theme O): list `playtests/*.json`, and run some or all of them. */
   gamesPlaytests: 'mstudio:games:playtests',
   gamesPlaytestRun: 'mstudio:games:playtest-run',
+  /** Export a game as a folder, a zip or one HTML file (Theme P). */
+  gamesExport: 'mstudio:games:export',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.

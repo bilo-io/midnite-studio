@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-07 — Phase 107 Theme P — Web export ([#760](https://github.com/bilo-io/midnite-studio/pull/760))
+
+A game exports as a static folder, a zip from a small `node:zlib` writer, or one HTML file whose modules are `data:` URLs behind an import map and whose assets resolve through an inlined `assets/index.json`. Exclusions (`.git`, agent files, play-tests, dev config, dotfiles, symlinks) are shared with the folder and zip; a destination is never overwritten without being told; a file over 50 MB warns. Kit 0.9.0 reads `window.__MIDNITE_ASSETS__`. The platformer's own `smoke.json` replay passes in its single-file export opened from `file://`.
+
+- [x] `zip-writer.ts`, `single-file.ts`, `game-export.ts`, the `gamesExport` IPC, `GameExportBar`, kit 0.9.0, and vitest (`export.test.ts`, `game-export-bar.test.tsx`, `kit-core.test.ts`).
+- [ ] `game-export.spec.ts` (real Chromium from `file://`) moves to Theme Q with the e2e budget raise.
+
 ## 2026-10-07 — Phase 107 Theme O — Play-test depth: determinism, input replays and frame assertions ([#759](https://github.com/bilo-io/midnite-studio/pull/759))
 
 Deterministic mode (seeded `Math.random`, a virtual clock, one fixed step per frame), frame-indexed `.replay.json` pressed through the kit's virtual action layer rather than OS events, restricted JSON-path and frame-diff assertions, and `playtests/*.json` run from the runner toolbar's Playtests menu or over MCP (`game_replay_record`, `game_replay_play`, `game_assert_state`, `game_assert_frame`, `game_playtest`). Every starter's `smoke.json` migrated to the real format and passes twice with identical states in real Chromium. Kit 0.8.0.

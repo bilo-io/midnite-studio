@@ -6,6 +6,7 @@ import { MediaLayout } from '../media-layout';
 import { GameConsoleDrawer } from './game-console-drawer';
 import { GameCreatePanel } from './game-create-panel';
 import { GameDetailPanel } from './game-detail-panel';
+import { GameExportBar } from './game-export-bar';
 import { GameExplorer } from './game-explorer';
 import { GameRunnerHost, type GameResolution } from './game-runner-host';
 import { GameRunnerToolbar } from './game-runner-toolbar';
@@ -49,6 +50,7 @@ export function GameTab() {
           <span className="min-w-0 flex-1 truncate text-center text-xs font-semibold" title={selected?.name}>
             {selected?.name ?? ''}
           </span>
+          <GameExportBar gameId={selected?.gameId ?? null} />
         </div>
       }
       explorer={<GameExplorer selectedId={selectedId} onSelect={select} onNew={() => setCreating(true)} />}
