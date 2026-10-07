@@ -3931,7 +3931,7 @@ export function buildMockBridge(data: MockFixtures) {
             const spec = read(req.group, req.asset);
             if (!spec) return missing;
             // The real service parses through the zod schema; the mock fills the defaults the UI reads.
-            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
+            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, anchor: { x: 0.5, y: 1 }, mirror: true, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
             const framesRaw = mediaFiles[`sprite:${req.group}`]?.[`${req.asset}/frames/frames.json`];
             const frames = framesRaw ? { version: 1, referenceHeights: {}, ...(JSON.parse(framesRaw) as Spec) } : { version: 1, frames: {}, referenceHeights: {} };
             return { ok: true as const, value: { spec: filled, frames, report: filled.lastReport ?? null } };
