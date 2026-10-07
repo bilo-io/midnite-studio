@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import { MediaProjectNameSchema } from './media';
 import { ModelColorSchema, ModelSpecSchema } from './media-model';
+import { ReferenceViewNameSchema, ReferenceViewsSchema } from './media-model-reference';
 import { AIM_MAX_POINTS, AimViewSchema, BAKE_KINDS, BAKE_SIZE_MAX, BAKE_SIZE_MIN, ModelSculptTargetSchema, PAINT_BRUSHES, SCULPT_BRUSHES, SCULPT_FALLOFFS, SculptSymmetrySchema, STAMP_PATTERNS } from './model-geometry';
 import {
   ModelMapSrcSchema,
@@ -71,6 +72,8 @@ export const MODEL_MCP_TOOL_IDS = [
   'model_patch_parts',
   'model_render_preview',
   'model_get_reference_image',
+  'model_set_reference_views',
+  'model_compare_reference',
   'model_get_rig',
   'model_auto_rig',
   'model_patch_rig',
@@ -108,6 +111,7 @@ export const MODEL_MCP_WRITE_TOOL_IDS: readonly ModelMcpToolId[] = [
   'model_open',
   'model_set_spec',
   'model_patch_parts',
+  'model_set_reference_views',
   'model_auto_rig',
   'model_patch_rig',
   'model_patch_animations',
@@ -488,6 +492,40 @@ export const ModelLayerUpdateInputSchema = ModelToolTargetSchema.extend({
   index: z.number().int().min(0).max(64).optional(),
 });
 export const ModelLayerRemoveInputSchema = ModelToolTargetSchema.extend({ part: SculptPartRef.optional(), layer: LayerRef });
+/** `model_set_reference_views`: register the reference picture to the model, by hand (`views`) or by fitting (`fit`). */
+export const ModelSetReferenceViewsInputSchema = ModelToolTargetSchema.extend({
+  /** Matched views to save, replacing the design's own. */
+  views: ReferenceViewsSchema.optional(),
+  /** Or: segment the picture for `view` and fit it to a model `height` m tall standing on `bottom` (default 0). */
+  fit: z
+    .object({
+      view: ReferenceViewNameSchema,
+      height: z.number().positive().max(10_000),
+      bottom: z.number().min(-10_000).max(10_000).optional(),
+      /** A picture beside the design; default its reference picture. */
+      image: z.string().min(1).max(200).optional(),
+    })
+    .optional(),
+  /** Remove the matched views. */
+  clear: z.boolean().optional(),
+});
+
+/** `model_compare_reference`: score the model against the matched views and draw the overlay. */
+export const ModelCompareReferenceInputSchema = ModelToolTargetSchema.extend({
+  /** Only these views; default every matched view. */
+  views: z.array(ReferenceViewNameSchema).min(1).max(3).optional(),
+  /** Passes the run may spend in total (the refinement slider); with it the answer plans the next pass. */
+  budget: z.number().int().min(1).max(100).optional(),
+  /** Forget the score history of earlier comparisons (a fresh start). */
+  reset: z.boolean().optional(),
+  /** Per-region width tolerance as a fraction, default 0.12. */
+  tolerance: z.number().min(0.02).max(0.5).optional(),
+  /** Segmentation threshold (colour distance from the background), default 48. */
+  threshold: z.number().min(4).max(300).optional(),
+  /** Return the overlay images (default true). */
+  overlay: z.boolean().optional(),
+});
+
 export const ModelLayerListInputSchema = ModelToolTargetSchema.extend({ part: SculptPartRef.optional() });
 export const ModelPaintStrokeInputSchema = ModelToolTargetSchema.extend({
   part: SculptPartRef.optional(),
@@ -594,6 +632,8 @@ export const ModelEditResultSchema = z.discriminatedUnion('ok', [
     warnings: z.array(ModelToolIssueSchema).optional(),
     /** A rigged design's anatomy, bone count and clip names. */
     rig: z.object({ anatomy: z.string(), bones: z.number().int().min(0), clips: z.array(z.string()) }).optional(),
+    /** `model_set_reference_views`: the matched views now saved on the design. */
+    referenceViews: ReferenceViewsSchema.optional(),
     /** Clips `model_retarget` could not copy (a kind this anatomy has no use for). */
     skipped: z.array(z.string()).optional(),
     /** `model_convert_to_mesh`: the sculpt part that now stands in for the converted primitives. */

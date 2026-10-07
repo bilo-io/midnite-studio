@@ -176,3 +176,9 @@ export const modelGenerateSf3d = async (input: McpToolInput<'model_generate_sf3d
   allowed();
   return sf3dTools().model_generate_sf3d(input);
 };
+export const modelSetReferenceViews = async (input: McpToolInput<'model_set_reference_views'>): Promise<McpToolOutput<'model_set_reference_views'>> => {
+  allowed();
+  return tools().model_set_reference_views(input);
+};
+export const modelCompareReference = async (input: McpToolInput<'model_compare_reference'>): Promise<McpToolOutput<'model_compare_reference'>> =>
+  tools().model_compare_reference(input);

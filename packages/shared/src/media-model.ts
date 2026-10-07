@@ -19,6 +19,7 @@ import { MediaProjectNameSchema } from './media';
 import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
 import { ModelMapFileSchema, ModelPbrSchema } from './media-model-pbr';
 import { ModelSculptSdfSchema } from './media-model-sdf';
+import { ReferenceViewsSchema } from './media-model-reference';
 
 // --- the spec an LLM writes ----------------------------------------------------
 
@@ -359,6 +360,8 @@ export const ModelSpecSchema = z.object({
   animations: z.array(ModelClipSchema).max(MODEL_MAX_CLIPS).optional(),
   /** Named points on the model (`nose_tip`, `leftHand`…), model space — they override the auto-detected landmarks (Phase 104 Theme E). */
   landmarks: z.record(z.string().trim().min(1).max(40), z.tuple([coord, coord, coord])).optional().refine((l) => !l || Object.keys(l).length <= 64, 'at most 64 landmarks'),
+  /** Orthographic front/side/top cameras matched to the reference picture, so `model_compare_reference` can score against it (Phase 104 Theme H). */
+  referenceViews: ReferenceViewsSchema.optional(),
 });
 export type ModelSpec = z.infer<typeof ModelSpecSchema>;
 
