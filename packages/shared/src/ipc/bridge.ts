@@ -1362,8 +1362,10 @@ export type MidniteStudioBridge = {
       /** Starts a job and resolves with its id at once; progress arrives on `onProgress`. */
       generate: (req: In<typeof S.MediaSpriteGenerateRequest>) => Promise<z.infer<typeof S.MediaSpriteGenerateResponse>>;
       cancel: (req: In<typeof S.MediaSpriteCancelRequest>) => Promise<GitOpResult>;
-      patchFrames: (req: In<typeof S.MediaSpritePatchFramesRequest>) => Promise<GitOpResult>;
-      export: (req: In<typeof S.MediaSpriteExportRequest>) => Promise<GitOpResult>;
+      /** Frame-strip edits (Theme G); `jobId` comes back when the patch re-rolled frames. */
+      patchFrames: (req: In<typeof S.MediaSpritePatchFramesRequest>) => Promise<z.infer<typeof S.MediaSpritePatchFramesResponse>>;
+      /** Packs the atlas into the asset's `export/`, and into `<dest>/<name>.sprite/` when `dest` is set. */
+      export: (req: In<typeof S.MediaSpriteExportRequest>) => Promise<z.infer<typeof S.MediaSpriteExportResponse>>;
       onProgress: (handler: (event: z.infer<typeof S.MediaSpriteProgressPayload>) => void) => Unsubscribe;
       onChanged: (handler: (event: z.infer<typeof S.MediaSpriteChangedPayload>) => void) => Unsubscribe;
       /** `sprite_open` asked for an asset to be shown. */

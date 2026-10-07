@@ -168,9 +168,22 @@ Hand-drawn** uses a new `setReference({fromFrame})` (frame `000` becomes the app
 `generate({clips: [clip], method: 'hand-drawn'})` — a one-job method override; the stored sheet stays
 one-shot. Disabled with D's reason when the provider cannot take a reference.
 
-**Theme G — Atlas packing and the animation previewer.** ◻ Not started. MaxRects with trim, padding
-and extrude; one `atlas.json` that is both a Phaser JSON-hash atlas and an Aseprite JSON (frame
-`duration`, `meta.frameTags`), plus a Phaser `anims.json`; a previewer and an undoable frame strip.
+**Theme G — Atlas packing and the animation previewer.** ✅ Landed (PR #763). `shared/src/sprite/pack.ts`
+is MaxRects (best short-side fit, never rotated) with trim, padding, a 1 px extrude, POT pages and
+spill-over; `atlas.ts` writes one `atlas.json` that is Phaser's JSON-hash and an Aseprite JSON at once
+(per-frame `duration`, contiguous `<clip>/<dir>` `frameTags`), Phaser's multiatlas past one page (tags
+dropped, with the warning), and `anims.json` for `AnimationManager.fromJSON`, each with a zod schema.
+`frames.ts` is the one frame-set rule the previewer, strip and packer share: a 1-direction side sheet is
+`e` + `w`, nothing past `clip.frames` plays or packs, holes are skipped. `sprite-export.ts` composes each
+frame (`flipped` about the anchor column, then `anchorNudge`), trims, packs and writes `<asset>.sprite/`
+(refusing an existing one) plus the asset's own `export/`, which 107's asset bridge imports; other kinds
+wait for H–J. `patchFrames` takes `SpritePatchOp[]` (`nudge`, `flip`, `delete` to `frames/.trash/`,
+`restore`, `move` keeping holes, `reroll` as a frames-only job — hand-drawn redraws a mirrored `w` through
+`e`; one-shot refuses); a finished job prunes frames past their clip (E's stale-frame deferral). The
+centre column gains `SpritePreviewer` (2D canvas, `previewClock`, compass, onion skin, checker/solid,
+pixel zoom, anchor/baseline overlay, focus-scoped keys) and `SpriteFrameStrip` (badges with rule
+tooltips, roving focus on `,`/`.` since the arrows nudge, `H`/Delete/`R`/`Alt+←/→`, drag reorder,
+`Mod+Z` undo over a ≤ 100 inverse-op session stack), with **Export** to the Media export folder.
 
 **Theme H — Tilesets with autotiling.** ◻ Not started. Seam-checked base tiles, procedural 47-blob
 (Tiled `mixed`) or 16-tile corner (Tiled `corner`) transitions that match by construction, and a
@@ -548,7 +561,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
 
 ## G — Atlas packing and the animation previewer (M)
 
-- [ ] Packer in `shared/src/sprite/pack.ts`:
+- [x] Packer in `shared/src/sprite/pack.ts`:
   - MaxRects (best short-side fit)
   - trim with `spriteSourceSize`/`sourceSize` offsets
   - padding and 1px extrude against bleeding
@@ -556,7 +569,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - `packRects(rects: { key, w, h }[], opts: { maxSize: 2048 | 4096 (2048), padding: 0–8 (2), extrude: 0 | 1 (1), pot: boolean (true) }): { pages: { w, h, placements: { key, x, y }[] }[] }`.
     Rotation is never used (Phaser's JSON-hash `rotated` stays false).
   - `trimFrame(img)` returns the trimmed image plus `spriteSourceSize`/`sourceSize`.
-- [ ] Export:
+- [x] Export:
   - `atlas.png` plus `atlas.json` in **Phaser JSON-hash** format, with an `anims` section
   - an **Aseprite-style** `frameTags` JSON for the same frames
   - frame names `<clip>/<dir>/<n>`
@@ -578,7 +591,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - Export destination: a `sprite-pack` folder `<dest>/<asset>.sprite/` (`atlas.png`/`atlas.json`/`anims.json`,
     plus `sprite.json` for provenance), same no-overwrite rule as Phase 105's terrain pack.
     `MEDIA_EXPORT_FORMATS` gains `'sprite-pack'` with `MEDIA_EXPORT_FORMAT_INFO['sprite-pack'] = { label: 'Sprite pack (folder)', ext: '', needsFfmpeg: false }`.
-- [ ] **Animation previewer** (centre column):
+- [x] **Animation previewer** (centre column):
   - clip list; play and pause; fps override; `loop`, `once` and `ping-pong`
   - a direction switcher (a compass for 4 or 8 directions)
   - onion skin (previous and next frames)
@@ -596,7 +609,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - Overlays: the anchor as a 5 px cross and the baseline as a 1 px line, both `#ff3b30`.
   - Empty state: _"No frames yet. Pick a method and Generate."_; mid-job, frames appear as they land with
     a `Spinner` + `done / total` from `mediaSpriteProgress`.
-- [ ] **Frame strip** under the player with each frame's B badges, and per-frame re-roll, delete, reorder (drag), nudge the anchor (arrow keys) and flip. All edits are undoable and saved to `frames/`, then re-packed
+- [x] **Frame strip** under the player with each frame's B badges, and per-frame re-roll, delete, reorder (drag), nudge the anchor (arrow keys) and flip. All edits are undoable and saved to `frames/`, then re-packed
   - `SpriteFrameStrip` in `sprite-frame-strip.tsx`: one 64 px thumbnail per frame of the current
     clip/direction with badge pills (`empty`, `clipped`, `height`, `drift`, `inconsistent`, `unchecked`,
     `grid`; each has a tooltip naming the rule). Roving tabindex across thumbnails; on a focused frame:
@@ -609,7 +622,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - Undo/redo: `Mod+Z`/`Mod+Shift+Z` while the strip has focus, from a session-only stack
     (`use-sprite-history.ts`, max 100) of inverse ops; `delete` is undoable because main moves a deleted
     frame to `frames/.trash/` until the asset is closed. Re-roll is not undoable (it is a new generation).
-- [ ] Vitest: the packer never overlaps rects and respects padding and max size, the Phaser JSON validates against a fixture Phaser accepts, the Aseprite tags match the clips, and the previewer steps frames at the given fps with fake timers
+- [x] Vitest: the packer never overlaps rects and respects padding and max size, the Phaser JSON validates against a fixture Phaser accepts, the Aseprite tags match the clips, and the previewer steps frames at the given fps with fake timers
   - `shared/src/sprite/pack.test.ts`: 500 random rects → no overlap incl. padding, every page ≤ maxSize,
     POT dims when `pot`; `atlas.test.ts`: `PhaserAtlasJsonSchema` (zod, written from Phaser's
     `JSONHash` parser fields) and `AsepriteJsonSchema` parse the output; the tags' `from..to` cover exactly
@@ -619,13 +632,16 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - `app/src/features/media/sprite/sprite-frame-strip.test.tsx`: ArrowRight sends a `nudge` op with
     `dx: 1`; `Mod+Z` sends its inverse.
 
-- [ ] `sprite-export` writes the pack folder for every asset kind
+- [x] `sprite-export` writes the pack folder for every asset kind
   - `sprite-export.ts` `exportSprite(asset, dest): GitOpResult<{ path; bytes }>` writes `<asset>.sprite/`
     (sheet/props: `atlas.png`, `atlas.json`, `anims.json`), `<asset>.tileset/` (`tileset.png`, `tileset.tsj`),
     `<asset>.background/` (layer PNGs + `background.json`) or `<asset>.map/` (`map.tmj` with embedded
     tilesets + `tileset.png` + `tileset.tsj`), each with a copy of `sprite.json`; an existing folder is
     refused (_"<name> already exists in that folder."_). Destination is `mediaExportDir` or
     `repos.pickDirectory()`, as in Phase 105.
+  - **Landed for sheets (PR #763):** `exportSprite` writes `<asset>.sprite/` and refreshes the asset's own
+    `export/`; tilesets, backgrounds, prop sheets and maps answer _"<Kind> export is not available yet."_
+    until H, I and J add their branches to it (each theme's export item covers its own kind).
   - Vitest `sprite-export.test.ts`: each kind's folder contains exactly those files and they parse with
     their schemas.
 

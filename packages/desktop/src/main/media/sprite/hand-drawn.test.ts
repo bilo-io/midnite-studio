@@ -171,6 +171,19 @@ describe('hand-drawn frame source', { timeout: 45_000 }, () => {
     expect(frames.referenceHeights).toHaveProperty('w');
   });
 
+  it("re-rolls one mirrored frame through its east source (the frame strip's R)", async () => {
+    const { service, requests } = setup(passing);
+    const target = await approved(service);
+    await run(service, target);
+    requests.length = 0;
+    const patched = await service.patchFrames({ ...target, ops: [{ op: 'reroll', keys: ['walk/w/003'] }] });
+    if (!patched.ok || !patched.value.jobId) throw new Error('no re-roll job');
+    await vi.waitFor(() => expect(service.jobStatus(patched.value.jobId!)?.state).not.toBe('running'), { timeout: 30_000, interval: 20 });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]!.prompt).toContain(SPRITE_POSE_TABLES.walk![3]!);
+    expect(Object.keys((await framesOf(target)).frames)).toHaveLength(16);
+  });
+
   it('draws the west facing too when the character is asymmetric', async () => {
     const { service, requests } = setup(passing);
     const target = await approved(service, { mirror: false });

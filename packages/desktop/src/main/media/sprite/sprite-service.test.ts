@@ -227,23 +227,84 @@ describe('submitFrame (the frame pipeline)', () => {
 });
 
 describe('patchFrames', () => {
-  it('nudges, flips and deletes existing frames only', async () => {
+  async function seeded(over: Partial<SpriteServiceDeps> = {}, n = 3) {
     const runJob: SpriteJobRunner = async (ctx) => {
-      await ctx.writeFrame({ clip: 'idle', dir: 'e', n: 0, png: PNG });
-      await ctx.writeFrame({ clip: 'idle', dir: 'e', n: 1, png: PNG });
+      for (let i = 0; i < n; i += 1) await ctx.writeFrame({ clip: 'idle', dir: 'e', n: i, png: Buffer.from([0x89, i]) });
     };
-    const { service } = make({ runJob });
-    const target = await createHero(service);
-    const job = await service.generate(target);
+    const made = make({ runJob, ...over });
+    const target = await createHero(made.service);
+    const job = await made.service.generate(target);
     if (!job.ok) throw new Error('no job');
-    await vi.waitFor(() => expect(service.jobStatus(job.value.jobId)?.state).toBe('done'));
-    const patched = await service.patchFrames({ ...target, patches: [{ clip: 'idle', dir: 'e', n: 0, anchorNudge: [2, -1], flipped: true }, { clip: 'idle', dir: 'e', n: 1, delete: true }] });
-    expect(patched.ok).toBe(true);
+    await vi.waitFor(() => expect(made.service.jobStatus(job.value.jobId)?.state).toBe('done'));
+    return { ...made, target, dir: join(root, target.group, target.asset) };
+  }
+  const frameMeta = async (service: ReturnType<typeof make>['service'], target: Awaited<ReturnType<typeof createHero>>) => {
     const got = await service.get(target);
-    expect(got.ok && got.value.frames.frames['idle/e/000']).toMatchObject({ anchorNudge: [2, -1], flipped: true });
-    expect(got.ok && got.value.frames.frames['idle/e/001']).toBeUndefined();
-    const missing = await service.patchFrames({ ...target, patches: [{ clip: 'idle', dir: 'e', n: 9, flipped: true }] });
+    if (!got.ok) throw new Error('get failed');
+    return got.value.frames.frames;
+  };
+
+  it('nudges (relative) and flips (toggle) existing frames only', async () => {
+    const { service, target } = await seeded();
+    expect((await service.patchFrames({ ...target, ops: [{ op: 'nudge', key: 'idle/e/000', dx: 2, dy: -1 }, { op: 'nudge', key: 'idle/e/000', dx: 1, dy: 0 }, { op: 'flip', key: 'idle/e/000' }] })).ok).toBe(true);
+    expect((await frameMeta(service, target))['idle/e/000']).toMatchObject({ anchorNudge: [3, -1], flipped: true });
+    const missing = await service.patchFrames({ ...target, ops: [{ op: 'flip', key: 'idle/e/009' }] });
     expect(missing.ok).toBe(false);
+  });
+
+  it('delete moves the frame to the trash and restore brings it back with its metadata', async () => {
+    const { service, target, dir } = await seeded();
+    await service.patchFrames({ ...target, ops: [{ op: 'flip', key: 'idle/e/001' }] });
+    expect((await service.patchFrames({ ...target, ops: [{ op: 'delete', key: 'idle/e/001' }] })).ok).toBe(true);
+    expect((await frameMeta(service, target))['idle/e/001']).toBeUndefined();
+    await expect(stat(join(dir, 'frames/idle/e/001.png'))).rejects.toThrow();
+    await stat(join(dir, 'frames/.trash/idle/e/001.png'));
+    expect((await service.patchFrames({ ...target, ops: [{ op: 'restore', key: 'idle/e/001' }] })).ok).toBe(true);
+    expect((await frameMeta(service, target))['idle/e/001']).toMatchObject({ flipped: true });
+    expect([...(await readFile(join(dir, 'frames/idle/e/001.png')))]).toEqual([0x89, 1]);
+  });
+
+  it('move renames the frames between and keeps each frame its metadata', async () => {
+    const { service, target, dir } = await seeded();
+    await service.patchFrames({ ...target, ops: [{ op: 'flip', key: 'idle/e/000' }] });
+    expect((await service.patchFrames({ ...target, ops: [{ op: 'move', key: 'idle/e/000', to: 2 }] })).ok).toBe(true);
+    const bytes = async (n: number) => [...(await readFile(join(dir, `frames/idle/e/00${n}.png`)))][1];
+    expect([await bytes(0), await bytes(1), await bytes(2)]).toEqual([1, 2, 0]);
+    const meta = await frameMeta(service, target);
+    expect(meta['idle/e/002']!.flipped).toBe(true);
+    expect(meta['idle/e/000']!.flipped).toBe(false);
+  });
+
+  it('a reroll starts a job for just those frames', async () => {
+    const seen: Array<readonly string[] | undefined> = [];
+    const { service, target } = await seeded();
+    // Swap the runner by recreating the service over the same folder.
+    const { service: again } = make({
+      runJob: async (ctx) => {
+        seen.push(ctx.frames);
+      },
+    });
+    const patched = await again.patchFrames({ ...target, ops: [{ op: 'reroll', keys: ['idle/e/001'] }] });
+    expect(patched.ok && patched.value.jobId).toBeTruthy();
+    await vi.waitFor(() => expect(seen).toEqual([['idle/e/001']]));
+    expect(service).toBeDefined();
+  });
+
+  it('refuses edits while the asset is generating', async () => {
+    const hold = gate();
+    const { service, target } = await seeded();
+    const { service: busy } = make({ runJob: () => hold.promise });
+    await busy.generate(target);
+    const refused = await busy.patchFrames({ ...target, ops: [{ op: 'flip', key: 'idle/e/000' }] });
+    expect(refused).toMatchObject({ ok: false, message: SPRITE_JOB_BUSY });
+    hold.release();
+    expect(service).toBeDefined();
+  });
+
+  it('a finished job prunes frames numbered past their clip (a shorter re-render)', async () => {
+    const { service, target, dir } = await seeded({}, 6);
+    expect(Object.keys(await frameMeta(service, target)).sort()).toEqual(['idle/e/000', 'idle/e/001', 'idle/e/002', 'idle/e/003']);
+    await expect(stat(join(dir, 'frames/idle/e/004.png'))).rejects.toThrow();
   });
 });
 

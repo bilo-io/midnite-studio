@@ -3931,7 +3931,7 @@ export function buildMockBridge(data: MockFixtures) {
             const spec = read(req.group, req.asset);
             if (!spec) return missing;
             // The real service parses through the zod schema; the mock fills the defaults the UI reads.
-            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
+            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, anchor: { x: 0.5, y: 1 }, mirror: true, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, autotile: 'blob47' } : {}), ...(spec.kind === 'background' ? { size: [640, 360], layers: 3 } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
             const framesRaw = mediaFiles[`sprite:${req.group}`]?.[`${req.asset}/frames/frames.json`];
             const frames = framesRaw ? { version: 1, referenceHeights: {}, ...(JSON.parse(framesRaw) as Spec) } : { version: 1, frames: {}, referenceHeights: {} };
             return { ok: true as const, value: { spec: filled, frames, report: filled.lastReport ?? null } };
@@ -3975,8 +3975,17 @@ export function buildMockBridge(data: MockFixtures) {
             return { ok: true as const, value: { jobId } };
           },
           cancel: async () => ({ ok: true as const }),
-          patchFrames: async () => ({ ok: true as const }),
-          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'This sprite operation is not available yet.' }),
+          // Frame-strip edits (Theme G): accepted as-is; a spec spies on the call to see the ops.
+          patchFrames: async (req: Spec) => {
+            const rerolls = (req.ops as Spec[]).some((op) => op.op === 'reroll');
+            return { ok: true as const, value: rerolls ? { jobId: `job-${Date.now()}` } : {} };
+          },
+          export: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const path = req.dest ? `${req.dest}/${slug(spec.name)}.sprite` : `${req.asset}/export`;
+            return { ok: true as const, value: { path, bytes: 2048, frames: 8, pages: 1, warnings: [] } };
+          },
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);
             return () => listeners.progress.delete(handler);

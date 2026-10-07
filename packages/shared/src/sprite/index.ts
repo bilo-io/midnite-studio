@@ -11,3 +11,6 @@ export * from './camera';
 export * from './sampling';
 export * from './grid-detect';
 export * from './one-shot-prompt';
+export * from './pack';
+export * from './atlas';
+export * from './frames';

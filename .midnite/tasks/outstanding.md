@@ -538,12 +538,10 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 
 ## Phase 106 · Theme D — hand-drawn, deferred pieces
 
-- **Mirrored west frames are unflipped pixels with `flipped: true`.** The hand-drawn source submits the
-  east bytes again as `w` (`source: 'mirrored'`), so the flip is composition metadata like
-  `anchorNudge`. Theme G's previewer and packer must apply `flipped` and include `w` in the export's
-  directions; until then a raw `frames/<clip>/w/` folder faces east.
-- **Per-frame re-roll and delete live in G's frame strip.** D's flagged-frames list in the overview is
-  read-only; a re-roll today is `generate({clips})` for whole clips.
+- ~~**Mirrored west frames are unflipped pixels with `flipped: true`.**~~ Resolved by Theme G: the previewer,
+  strip and packer compose `flipped` (about the anchor column) and a 1-direction side sheet exports `e` + `w`.
+  A raw `frames/<clip>/w/` folder still faces east — the flag is the truth.
+- ~~**Per-frame re-roll and delete live in G's frame strip.**~~ Resolved by Theme G (`patchFrames` ops).
 - **The consistency check scores the raw candidate, before the B pass** (so only the best attempt is
   normalised and written). If the keyed/normalised frame turns out to score differently, move the check
   after `submitFrame` and re-submit the winner.
@@ -564,14 +562,28 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 - **Textures load asynchronously in the render host.** An imported mesh's baked texture (`assetTexture`)
   may still be decoding when the first frames are drawn, so early frames can render untextured; await
   the image before the first pose if it shows up in practice.
-- **Rendered frame counts are rewritten into `sprite.json`, but stale frame files are not removed.** A
-  clip that renders fewer frames than a previous run leaves the old higher-numbered PNGs (and their
-  `frames.json` rows) in place; G's frame strip should prune past `clip.frames`.
+- ~~**Rendered frame counts are rewritten into `sprite.json`, but stale frame files are not removed.**~~
+  Resolved by Theme G: a finished job prunes frames past `clip.frames` (and of removed clips), and the
+  previewer, strip and packer ignore them regardless.
 - **One-shot rows with fewer frames than columns are trusted to be empty past the clip's length.** Cells
   beyond `clip.frames` are not sliced or checked for stray art.
 - **The `grid` badge measures the detected span, not the figure.** A cell whose column or row span is
   > 20 % off the median is flagged; a figure that is small inside a normal span is caught by B's `height`
   badge instead.
+
+## Phase 106 · Theme G — deferred pieces
+
+- **Only sheets pack.** `exportSprite` answers _"<Kind> export is not available yet."_ for tilesets,
+  backgrounds, prop sheets and maps; Themes H, I and J add their folders (`.tileset/`, `.background/`,
+  `.map/`) to it.
+- **No packing options in the UI.** Export uses 2048 / padding 2 / extrude 1 / POT; `SpriteExportRequest.pack`
+  takes the others (MCP can pass them in Theme K).
+- **The frame trash empties when the next generation starts**, not when the asset is closed (main has no
+  notion of an open asset). An undo past a regeneration answers "not in the trash any more".
+- **Rendered re-rolls render the whole clip** and keep only the named frames; the render is deterministic,
+  so it only matters once render settings change between runs.
+- **No Phaser-in-the-loop check of the atlas yet.** The schemas are written from Phaser's JSONHash and
+  MultiAtlas parsers; Theme L's `phaser-smoke.spec.ts` loads a real pack.
 
 ## Phase 107 · Themes G + K — deferred pieces
 

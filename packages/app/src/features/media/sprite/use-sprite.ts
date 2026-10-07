@@ -1,4 +1,4 @@
-import type { SpriteGetResult, SpriteGroupId, SpriteProgressEvent } from '@midnite/studio-shared';
+import type { SpriteGetResult, SpriteGroupId, SpritePatchOp, SpriteProgressEvent } from '@midnite/studio-shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -102,5 +102,17 @@ export function useSpriteActions(repoId: string) {
     return api ? api.cancel({ jobId }) : noBridge<never>();
   }, []);
 
-  return { create, setSpec, setReference, generate, cancel, invalidate };
+  /** Frame-strip edits (Theme G). Failures are toasted; a re-roll's job id comes back in the result. */
+  const patchFrames = useCallback(
+    async (ref: SpriteRef, ops: SpritePatchOp[]) => {
+      const api = bridge()?.media.sprite;
+      const result = api ? await api.patchFrames({ repoId, ...ref, ops }) : noBridge<never>();
+      reportFailure(result);
+      await invalidate();
+      return result;
+    },
+    [invalidate, repoId],
+  );
+
+  return { create, setSpec, setReference, generate, cancel, patchFrames, invalidate };
 }

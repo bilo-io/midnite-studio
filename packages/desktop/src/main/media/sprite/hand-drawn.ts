@@ -108,7 +108,11 @@ export function createHandDrawnRunner(deps: HandDrawnDeps): SpriteJobRunner {
     const { draw: directions, mirror } = handDrawnDirections(spec);
     const clips = spec.clips.filter((c) => !ctx.clips || ctx.clips.includes(c.name));
     const planned: Planned[] = [];
-    for (const clip of clips) for (const dir of directions) for (let n = 0; n < clip.frames; n += 1) planned.push({ clip, dir, n });
+    // A frame-strip re-roll names frames; a mirrored `w` frame is redrawn through its `e` source.
+    const only = ctx.frames ? new Set(ctx.frames) : null;
+    const wanted = (clip: string, dir: string, n: number) =>
+      !only || only.has(spriteFrameKey(clip, dir, n)) || (mirror[dir] !== undefined && only.has(spriteFrameKey(clip, mirror[dir]!, n)));
+    for (const clip of clips) for (const dir of directions) for (let n = 0; n < clip.frames; n += 1) if (wanted(clip.name, dir, n)) planned.push({ clip, dir, n });
     const total = planned.length * (1 + Object.keys(mirror).length / directions.length);
     let done = 0;
     let checking = spec.consistency.enabled;
