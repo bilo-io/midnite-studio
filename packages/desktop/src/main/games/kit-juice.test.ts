@@ -223,8 +223,8 @@ describe('kit/core/sfx.js', () => {
     expect(Array.from(a)).toEqual(Array.from(fillNoise('white', createRng(3), 512)));
     const roughness = (x: Float32Array) => x.reduce((s, v, i) => (i ? s + Math.abs(v - (x[i - 1] as number)) : s), 0);
     for (const kind of ['white', 'pink', 'brown'] as const) {
-      const n = fillNoise(kind, createRng(3), 2048);
-      expect(Math.max(...Array.from(n).map(Math.abs))).toBeLessThan(2);
+      const n: Float32Array = fillNoise(kind, createRng(3), 2048);
+      expect(Math.max(...Array.from(n, (v: number) => Math.abs(v)))).toBeLessThan(2);
     }
     expect(roughness(fillNoise('brown', createRng(3), 2048))).toBeLessThan(roughness(fillNoise('white', createRng(3), 2048)));
   });
