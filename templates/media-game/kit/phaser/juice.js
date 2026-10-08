@@ -57,15 +57,17 @@ export function ensureParticleTextures(scene) {
  *   sfx?: { play(name: string, opts?: Record<string, unknown>): unknown } | null,
  *   seed?: number,
  *   pxPerUnit?: number,
+ *   sizeScale?: number,
  *   floorY?: number,
  *   depth?: number,
- * }} [options] `pxPerUnit` converts the particle presets' world units to pixels (40 by default); `floorY` makes bouncing chips land on a floor line
+ * }} [options] `pxPerUnit` converts the particle presets' world units to pixels (40 by default) and `sizeScale` fattens the particles for a 2D view (4); `floorY` makes bouncing chips land on a floor line
  */
 export function createJuice(scene, options = {}) {
   ensureParticleTextures(scene);
   const rng = createRng(options.seed ?? 0x1ce);
   const time = createTimeScale();
   const px = options.pxPerUnit ?? 40;
+  const sizeScale = options.sizeScale ?? 4;
   const depth = options.depth ?? 1000;
   /** @type {{ img: Phaser.GameObjects.Image, vx: number, vy: number, age: number, life: number, size: number, gravity: number, drag: number, bounce: number, blend: 'add' | 'normal' }[]} */
   let live = [];
@@ -205,7 +207,7 @@ export function createJuice(scene, options = {}) {
         const img = scene.add.image(x, y, q.soft ? DOT : CHIP).setTint(q.color).setDepth(depth);
         img.setBlendMode(q.blend === 'add' ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL);
         if (live.length > 300) live.shift()?.img.destroy();
-        live.push({ img, vx: q.vx * px, vy: -q.vy * px, age: 0, life: q.life, size: q.size * px, gravity: q.gravity * px, drag: q.drag, bounce: q.bounce, blend: q.blend });
+        live.push({ img, vx: q.vx * px, vy: -q.vy * px, age: 0, life: q.life, size: q.size * px * sizeScale, gravity: q.gravity * px, drag: q.drag, bounce: q.bounce, blend: q.blend });
       }
     },
     /**
@@ -308,7 +310,7 @@ export function applyPostFx(scene, settings) {
     if (scene.sys.game.renderer.type !== Phaser.WEBGL || !cam.postFX) return;
     if (on && !vignette) {
       vignette = cam.postFX.addVignette(0.5, 0.5, 0.92, 0.32);
-      bloom = cam.postFX.addBloom(0xffffff, 1, 1, 0.8, 1.15, 3);
+      bloom = cam.postFX.addBloom(0xffffff, 1, 1, 0.5, 0.45, 3);
     } else if (!on && vignette) {
       cam.postFX.clear();
       vignette = bloom = null;

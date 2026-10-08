@@ -157,7 +157,7 @@ const SAMPLERS = {
     const p = 4;
     const n = fbm(seed, u * p, v * p, { octaves: 5, period: p });
     const crack = Math.abs(fbm(seed + 7, u * 6, v * 6, { octaves: 3, period: 6 }) - 0.5);
-    const groove = crack < 0.025 ? crack / 0.025 : 1;
+    const groove = crack < 0.014 ? 0.55 + (crack / 0.014) * 0.45 : 1;
     const speck = hash2(seed, Math.floor(u * size), Math.floor(v * size)) > 0.97 ? 0.15 : 0;
     return { height: clamp01(n * 0.75 * groove + 0.2 + speck * 0.3), tone: clamp01(n + speck), rough: (n - 0.5) * 0.2 };
   },
@@ -201,10 +201,9 @@ const SAMPLERS = {
     const clump = fbm(seed + 5, u * 5, v * 5, { octaves: 3, period: 5 });
     return { height: clamp01(blades * 0.7 + clump * 0.3), tone: clamp01(clump * 0.6 + blades * 0.5 - 0.1), rough: 0.05 };
   },
-  dirt(seed, u, v, size) {
+  dirt(seed, u, v) {
     const n = fbm(seed, u * 6, v * 6, { octaves: 5, period: 6 });
-    const stone = hash2(seed, Math.floor(u * size * 0.125), Math.floor(v * size * 0.125));
-    const pebble = stone > 0.9 ? (stone - 0.9) * 10 : 0;
+    const pebble = Math.max(0, valueNoise(seed + 9, u * 20, v * 20, 20) - 0.68) * 3.2;
     return { height: clamp01(n * 0.7 + pebble * 0.4), tone: clamp01(n * 0.8 + pebble * 0.3), rough: (n - 0.5) * 0.1 };
   },
   tiles(seed, u, v) {

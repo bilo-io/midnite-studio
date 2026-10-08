@@ -104,11 +104,11 @@ export const flashLevel = (age, duration, ease = 'outQuad') => (age >= duration 
 
 /** @type {Record<string, ParticlePreset>} */
 export const PARTICLE_PRESETS = {
-  spark: { count: [8, 14], speed: [3, 7], life: [0.25, 0.55], size: [0.05, 0.1], gravity: 9, drag: 1.2, spread: 1.1, colors: [0xffe9a8, 0xffb347, 0xff7a3d], blend: 'add', soft: 1, bounce: 0.3 },
+  spark: { count: [8, 14], speed: [3, 7], life: [0.25, 0.55], size: [0.09, 0.18], gravity: 9, drag: 1.2, spread: 1.1, colors: [0xffe9a8, 0xffb347, 0xff7a3d], blend: 'add', soft: 1, bounce: 0.3 },
   dust: { count: [6, 10], speed: [0.6, 1.8], life: [0.4, 0.8], size: [0.25, 0.5], gravity: -0.4, drag: 2.5, spread: 1.5, colors: [0xb8aa94, 0x9a8f7d, 0xcfc4b0], blend: 'normal', soft: 1, up: 0.35 },
   debris: { count: [6, 12], speed: [2, 5.5], life: [0.6, 1.1], size: [0.07, 0.15], gravity: 14, drag: 0.4, spread: 1.3, colors: [0x6b7280, 0x4b5563, 0x8a5a30, 0x9ca3af], blend: 'normal', soft: 0, up: 0.5, bounce: 0.4 },
   muzzle: { count: [5, 8], speed: [2, 6], life: [0.06, 0.14], size: [0.12, 0.3], gravity: 0, drag: 6, spread: 0.45, colors: [0xfff2c2, 0xffc766, 0xff9a3c], blend: 'add', soft: 1 },
-  impact: { count: [10, 16], speed: [2, 6], life: [0.15, 0.4], size: [0.1, 0.26], gravity: 2, drag: 3, spread: 1.4, colors: [0xffffff, 0xffe27a, 0xff8f6b], blend: 'add', soft: 1 },
+  impact: { count: [10, 16], speed: [2, 6], life: [0.15, 0.4], size: [0.14, 0.34], gravity: 2, drag: 3, spread: 1.4, colors: [0xffffff, 0xffe27a, 0xff8f6b], blend: 'add', soft: 1 },
 };
 
 /**
