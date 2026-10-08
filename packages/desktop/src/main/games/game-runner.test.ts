@@ -391,7 +391,7 @@ describe('createGameRunner', () => {
 
     wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify(settings));
     await runner.juice('ga', 'set', { shake: false, volume: 0.4 });
-    const code = String(wc.executeJavaScript.mock.calls.at(-1)?.[0]);
+    const code = String((wc.executeJavaScript.mock.calls.at(-1) as unknown[] | undefined)?.[0]);
     expect(code).toContain('j.set({"shake":false,"volume":0.4})');
 
     wc.executeJavaScript.mockResolvedValueOnce(null);

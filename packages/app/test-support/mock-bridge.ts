@@ -5607,6 +5607,7 @@ export function buildMockBridge(data: MockFixtures) {
   // --- games (Phase 107) ------------------------------------------------------
   // eslint-disable-next-line no-var
   var gamesPlaytests: GamePlaytestEntry[] = data.games?.playtests ?? [];
+  // eslint-disable-next-line no-var
   var gamesJuice = new Map<string, Record<string, unknown>>();
   // eslint-disable-next-line no-var
   var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
