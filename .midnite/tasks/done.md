@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-08 — Phase 108 Themes G + H — Measure and draw; layers ([#774](https://github.com/bilo-io/midnite-studio/pull/774))
+
+Maps gains five tools (pan, distance, radius circle, area, pin) with geodesic readouts, place search over the Open-Meteo geocoder, and drawings saved as git-tracked GeoJSON layers: a layer list with visibility, colour, rename, Trash delete and reorder, `.geojson`/`.kml` import and export, and external-edit pickup. Geodesy is the Theme D Vincenty kernel plus a new `measure.ts`; layers go through the generic media file channels, so no new IPC.
+
+- [x] G: `shared/src/map/measure.ts`, `map-tools.ts` reducer, `map-format.ts`, `map-toolbar.tsx`, `map-place-search.tsx`, `features/geo/geocode.ts`, `mapUnits` in the ui-store and Settings ▸ Media, canvas drawing layers/clicks/keys, `map-drawing-section.tsx`, vitest
+- [x] H: `MapLayerFileSchema` + `stringifyLayer`, `use-map-layers.ts`, `map-layer-list.tsx`, `kml.ts`, `map-layer-export.ts`, vitest, Playwright shots
+
 ## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain ([#773](https://github.com/bilo-io/midnite-studio/pull/773))
 
 A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps capture section) run the capture, then main calls the terrain service directly — create, attach the heightmap (and satellite, roads mask and captured road graph when the capture carries them), apply the spec (`worldSize`, `heightRange`, `resolution`, `textureSize`, `seaLevel`, `geo`), ask every window to open it and optionally start the build. Terrain's roads stage uses the captured OSM graph when `inputs.roadsGraph` is set (real widths, `cls`/`name` into `roads.json`); a mask-only terrain builds byte-for-byte as before. The Terrain panel shows a "Captured from Maps" row with Show on map.

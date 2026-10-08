@@ -1,10 +1,11 @@
 import { defaultMapProject } from '@midnite/studio-shared';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
 import { renderView } from '../../../../test-support/render';
 import { MapCaptureSection } from './map-capture-section';
+import { useMapPlaceStore } from './map-place-store';
 
 afterEach(cleanup);
 
@@ -44,5 +45,20 @@ describe('MapCaptureSection', () => {
     await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
     expect(capture.mock.calls[1]![0]).toMatchObject({ handoff: true });
     expect(capture.mock.calls[1]![0].build).toBeUndefined();
+  });
+
+  it('names the capture after the searched place while the frame is near it, not once it has moved away', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    const capture = vi.spyOn(window.midniteStudio!.media.map, 'capture');
+    act(() => useMapPlaceStore.setState({ place: { name: 'Cape Town, Western Cape', center: [18.42, -33.92] } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(1));
+    expect(capture.mock.calls[0]![0].place).toBe('Cape Town, Western Cape');
+    await screen.findByTestId('capture-done');
+    act(() => useMapPlaceStore.setState({ place: { name: 'Oslo', center: [10.75, 59.91] } }));
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
+    expect(capture.mock.calls[1]![0].place).toBeUndefined();
+    act(() => useMapPlaceStore.setState({ place: null }));
   });
 });

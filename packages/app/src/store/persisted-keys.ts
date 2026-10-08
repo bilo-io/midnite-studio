@@ -24,6 +24,7 @@ import type { PersistedUi } from './ui-store';
  */
 export const PREFERENCE_KEYS = [
   'mediaExportDir', // media-page.tsx
+  'mapUnits', // media-page.tsx (Phase 108 Theme G)
   // Already registered — each has a control in an existing settings page.
   'activityTimeframe', // activity-timeline-settings.tsx
   'activityTimelineAreaLayout', // activity-timeline-settings.tsx

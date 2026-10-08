@@ -10,6 +10,7 @@ import {
 } from '@midnite/studio-shared';
 import { useState } from 'react';
 
+import { useMapPlaceStore } from './map-place-store';
 import { useMapCapture } from './use-map-capture';
 
 const DEM = mapSource('aws-terrarium');
@@ -47,8 +48,11 @@ export function MapCaptureSection({
   const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) });
   const blocked = warnings.some((w) => w.blocking);
   const running = capture.state.phase === 'running';
+  // The last searched place names the capture, but only while the frame is still near it.
+  const lastPlace = useMapPlaceStore((st) => st.place);
+  const place = lastPlace && mapKernel.inverse(lastPlace.center, center).distanceM <= Math.max(sideM, 5000) ? lastPlace.name.slice(0, 80) : undefined;
   const start = (extra: { handoff?: boolean; build?: boolean }) =>
-    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], ...extra });
+    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], ...(place ? { place } : {}), ...extra });
   const z = mapKernel.chooseCaptureZoom(DEM, { center, sideM: Math.min(Math.max(sideM, MAP_CAPTURE_MIN_SIDE_M), MAP_CAPTURE_MAX_SIDE_M) }, size);
 
   return (

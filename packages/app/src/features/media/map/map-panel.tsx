@@ -1,6 +1,8 @@
 import { MAP_SOURCES, type MapProjectFile } from '@midnite/studio-shared';
 
 import { MapCaptureSection } from './map-capture-section';
+import { MapDrawingSection } from './map-drawing-section';
+import type { MapDrawing } from './use-map-drawing';
 import { formatMPerPx, formatSide } from './map-frame';
 import { useMapSources } from './use-map';
 import type { useMapFraming } from './use-map-framing';
@@ -49,7 +51,7 @@ function FramingSection({ framing }: { framing: Framing }) {
  * The detail pane (Phase 108 Theme A): where the map is now and which tile sources are usable. Capture,
  * the frame readout and tool options (Themes C–H) join it here.
  */
-export function MapPanel({ map, project, repoId, framing }: { map: MapProjectFile; project: string; repoId: string; framing: Framing }) {
+export function MapPanel({ map, project, repoId, framing, drawing }: { map: MapProjectFile; project: string; repoId: string; framing: Framing; drawing?: MapDrawing }) {
   const sources = useMapSources();
   const available = new Map((sources.data ?? []).map((s) => [s.id, s]));
   return (
@@ -69,6 +71,7 @@ export function MapPanel({ map, project, repoId, framing }: { map: MapProjectFil
           <dd>{Math.round(map.view.pitch)}°</dd>
         </dl>
       </section>
+      {drawing ? <MapDrawingSection drawing={drawing} /> : null}
       <FramingSection framing={framing} />
       <MapCaptureSection repoId={repoId} project={project} map={map} frame={framing.visible ? framing.frame : null} onFrameChange={framing.setFrame} />
       <section className="space-y-1">

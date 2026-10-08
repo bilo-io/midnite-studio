@@ -1126,6 +1126,9 @@ export type UiState = {
   setMediaLastVideoProject: (repoId: string, projectId: string) => void;
   /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
   mediaSpeechOn: boolean;
+  /** Settings ▸ Media ▸ Maps — how the measure tools print distance and area (Phase 108 Theme G). */
+  mapUnits: 'metric' | 'imperial';
+  setMapUnits: (units: 'metric' | 'imperial') => void;
   setMediaSpeechOn: (on: boolean) => void;
   setMediaExportDir: (dir: string | null) => void;
   /**
@@ -2198,6 +2201,7 @@ export type PersistedUi = Pick<
   | 'mediaLastDoc'
   | 'mediaLastVideoProject'
   | 'mediaSpeechOn'
+  | 'mapUnits'
   | 'collapsedAccordionSections'
   | 'graphColumns'
   | 'graphColumnVisibility'
@@ -2796,6 +2800,8 @@ export const useUiStore = create<UiState>()(
             : { mediaLastVideoProject: { ...state.mediaLastVideoProject, [repoId]: projectId } },
         ),
       mediaSpeechOn: false,
+      mapUnits: 'metric',
+      setMapUnits: (mapUnits) => set({ mapUnits }),
       setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
       setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
       collapsedAccordionSections: [],
@@ -3263,6 +3269,7 @@ export const useUiStore = create<UiState>()(
         mediaLastDoc: state.mediaLastDoc,
         mediaLastVideoProject: state.mediaLastVideoProject,
         mediaSpeechOn: state.mediaSpeechOn,
+        mapUnits: state.mapUnits,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
         graphColumnVisibility: state.graphColumnVisibility,

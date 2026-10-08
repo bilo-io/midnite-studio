@@ -204,16 +204,24 @@ shows "Captured from Maps" with a Show on map button (`map-focus.ts`: opens the 
 square). Heightmap-only captures hand off today; satellite, roads mask and graph wire in when Theme E
 writes them.
 
-**Theme G — Measure and draw.** ◻ Not started. Geodesy is the Theme D kernel (Vincenty inverse/direct
-on WGS84, area by projecting onto the local frame) — no `@turf/*`, because `shared` is zod-only and
-both main (`map_measure`) and the renderer need it. Distance paths, geodesic radius circles (a
-128-vertex polygon from Vincenty direct), polygons with area and perimeter, pins with notes and
-Open-Meteo place search, each a mode of one `MapTool` state machine with Esc to cancel.
+**Theme G — Measure and draw.** ✅ Landed (PR #774). Geodesy is the Theme D kernel plus a new additive
+`shared/src/map/measure.ts` (`geodesicCircle` 128-gon from Vincenty direct, `polygonMeasure` on the local frame,
+refused past 200 km, `pathLegsM`) — no `@turf/*`. The tools are modes of one `mapToolReducer`
+(`pan | distance | circle | area | pin`, keys `D`/`C`/`A`/`P`, Esc cancels, Enter or a double-click finishes,
+Backspace undoes a point, draft vertices drag); a circle takes its radius from a second click, or Enter keeps
+1 km, and the radius is editable in the detail pane. Readouts say "geodesic"; units are `mapUnits` in Settings ▸
+Media ▸ Maps. Shift-click selects a second circle for centre-to-centre and gap/overlap (box-zoom is off so the
+click survives). Place search reuses the Open-Meteo geocoder, moved to `features/geo/geocode.ts` (300 ms, two
+characters, eight results, Enter flies to zoom 12) and records the name in `map-place-store.ts`, which names a capture and its terrain while the frame stays near that place (Theme F falls back to lat, lon).
 
-**Theme H — Layers.** ◻ Not started. Drawings are GeoJSON `FeatureCollection`s in
-`layers/<name>.geojson`, written with a stable key order by `stringifyLayer`, through the generic
-media file channels (no new IPC). KML import/export is a pure DOMParser converter in the renderer;
-external edits are picked up on `mstudio:media:changed`.
+**Theme H — Layers.** ✅ Landed (PR #774). `layers/<name>.geojson`, `MapLayerFileSchema` and `stringifyLayer`
+(stable key order, 7 dp, trailing newline) in `shared/src/media-map.ts`, read and written through the generic
+media file channels with a 500 ms debounce (`use-map-layers.ts`). Visibility, colour and order live in `map.json`;
+the explorer's layer list handles rename, Trash delete (confirmed), drag or Alt+Up/Down reorder, New and Import
+(`.geojson`/`.kml`, 10 MB cap). `kml.ts` converts both ways and counts skipped geometries. The toolbar's split
+button downloads the active layer as GeoJSON or KML. An unparsable file shows an error row, is not drawn and is
+never written over; external edits arrive through `media:changed`. A pin's colour is optional and inherits the
+layer's.
 
 **Theme I — Maps over MCP, and the skill.** ◻ Not started. Four tools — `map_list` and `map_measure`
 (read, ungated) and `map_goto` and `map_capture_terrain` (behind a new `allowMaps` switch,
@@ -633,7 +641,7 @@ on top of a capture.
 
 ## G — Measure and draw (M)
 
-- [ ] Distance tool: click points to build a path; each leg and the running total shown as great-circle distance; drag vertices to adjust; units m/km/mi (Settings ▸ Media).
+- [x] Distance tool: click points to build a path; each leg and the running total shown as great-circle distance; drag vertices to adjust; units m/km/mi (Settings ▸ Media).
   - Tools are modes of one reducer `mapToolReducer(state, action)` (`features/media/map/map-tools.ts`):
     `'pan' | 'distance' | 'circle' | 'area' | 'pin'`; a toolbar of `IconButton`s (`LuRuler`,
     `LuCircleDot`, `LuPentagon`, `LuMapPin`) with keys `D`, `C`, `A`, `P` on the canvas; `Escape`
@@ -642,27 +650,27 @@ on top of a capture.
   - Units `MapUnits = 'metric' | 'imperial'` persisted in `ui-store` (`mapUnits`, default `'metric'`);
     `formatDistance(m, units)` — < 1000 m in m, else km 2 dp; imperial: < 0.1 mi in ft, else mi 2 dp.
   - *Verified by:* `map-tools.test.ts` (reducer transitions) and `format.test.ts`.
-- [ ] Radius circles: drop at a point, set radius by typing or dragging, label and colour; several circles; geodesic (not screen) circles; centre-to-centre distance between selected circles.
+- [x] Radius circles: drop at a point, set radius by typing or dragging, label and colour; several circles; geodesic (not screen) circles; centre-to-centre distance between selected circles.
   - `geodesicCircle(center, radiusM, 128)` = 128 `direct()` points; radius 1 m – 2 000 km; the label
     input and colour swatch live in the detail pane for the selected feature; Shift-click selects a
     second circle and the pane shows "Centre to centre: <d>" and "Gap: <d − r1 − r2>" (negative → "Overlap").
   - *Verified by:* `geodesy.test.ts` — every vertex of a 10 km circle at lat 60 is 10 000 m ± 1 cm
     from the centre.
-- [ ] Areas: polygon tool with area (m²/ha/km²) and perimeter.
+- [x] Areas: polygon tool with area (m²/ha/km²) and perimeter.
   - `polygonArea(ring)` projects the ring onto the local frame at its centroid and uses the shoelace
     formula — exact enough for polygons ≤ 200 km across; larger rings are refused with "Areas up to
     200 km across." Units: < 10 000 m² in m², < 1 km² in ha, else km².
   - *Verified by:* `geodesy.test.ts` — a 1° × 1° quad at the equator ≈ 12 308 km² within 0.5 %.
-- [ ] Pins: labelled markers with notes.
+- [x] Pins: labelled markers with notes.
   - A pin is a `Point` feature `{ properties: { kind: 'pin', label, note?, color } }`; rendered as a
     `symbol` layer (no DOM markers, so 1 000 pins stay cheap); the note edits in the detail pane.
-- [ ] Place search via the Open-Meteo geocoder the app already allows; results fly the map there.
+- [x] Place search via the Open-Meteo geocoder the app already allows; results fly the map there.
   - Reuse `searchLocations(query)` from `features/weather/weather-api.ts` (move it to
     `features/geo/geocode.ts` and re-export from the old path if both callers stay); debounced 300 ms,
     min 2 chars, up to 8 results; `Enter` picks the first; a pick calls `map.flyTo({ center, zoom: 12 })`
     and records the name for the capture name (F). Empty → "No places match."; fetch failure →
     "Place search needs a network connection."
-- [ ] Geodesy from a small, typed dependency (e.g. `@turf/*` modules) or the Theme D kernel — no hand-rolled haversine drift; unit-tested against known distances.
+- [x] Geodesy from a small, typed dependency (e.g. `@turf/*` modules) or the Theme D kernel — no hand-rolled haversine drift; unit-tested against known distances.
   - **Resolved (Decision 18):** the Theme D kernel (`shared/src/map/geodesy.ts`, Vincenty on WGS84) —
     no `@turf/*`, because `shared` is zod-only and both main (`map_measure`) and the renderer need the
     same numbers.
@@ -671,7 +679,7 @@ on top of a capture.
 
 ## H — Layers (S/M)
 
-- [ ] Drawings are features in named layers saved as `.midnite/media/map/<project>/layers/<name>.geojson` (git-tracked, stable key order so diffs are readable).
+- [x] Drawings are features in named layers saved as `.midnite/media/map/<project>/layers/<name>.geojson` (git-tracked, stable key order so diffs are readable).
   - Schema `MapLayerFileSchema` = a GeoJSON `FeatureCollection` whose features are `Point`,
     `LineString` or `Polygon` with `properties.kind ∈ {'pin','path','circle','area'}` (a circle is
     stored as its 128-gon **plus** `properties.center` and `radiusM`, so it re-renders exactly and
@@ -683,19 +691,19 @@ on top of a capture.
   - New drawings go to the selected layer; with none, a layer `drawings` is created.
   - *Verified by:* `layers.test.ts` — `stringifyLayer(parse(stringifyLayer(x))) === stringifyLayer(x)`;
     a key-shuffled input yields the same bytes.
-- [ ] Layer list in the explorer: toggle visibility, rename, recolour, delete (Trash), reorder.
+- [x] Layer list in the explorer: toggle visibility, rename, recolour, delete (Trash), reorder.
   - Rename = `bridge().media.file.rename`; delete = `bridge().media.file.remove` (the store moves it to the Trash), confirmed "Move layer
     '<name>' (N features) to the Trash?"; visibility, colour and order live in `map.json`
     (`layerStyle`, `layerOrder`) so toggling never rewrites the GeoJSON. Reorder by drag
     (`@dnd-kit`, as other explorers do) or `Alt+↑/↓` on the focused row.
-- [ ] Import a `.geojson`/`.kml` file as a layer; export a layer as GeoJSON or KML.
+- [x] Import a `.geojson`/`.kml` file as a layer; export a layer as GeoJSON or KML.
   - `features/media/map/kml.ts`: `kmlToGeoJson(text)` with `DOMParser` (Placemark → Point /
     LineString / Polygon outer ring; `name` → `label`, `description` → `note`; anything else
     skipped and counted) and `geoJsonToKml(fc)`. Import > 10 MB is refused ("Layers up to 10 MB.").
   - Export goes through the tab's split button (`geojson` | `kml`, A) and a native save dialog.
   - *Verified by:* `kml.test.ts` round-trip on a fixture with one of each geometry plus an unsupported
     `MultiGeometry` (reported as skipped: 1).
-- [ ] External edits to a layer file are picked up on `media:changed`.
+- [x] External edits to a layer file are picked up on `media:changed`.
   - The tab invalidates the layer queries on `mstudio:media:changed` for `tab: 'map'`; an
     unparsable file shows the layer row in an error state ("Not valid GeoJSON — fix the file or
     delete the layer.") and is not drawn, never overwritten.
