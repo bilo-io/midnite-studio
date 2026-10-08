@@ -28,6 +28,10 @@ Scripted opponent: a wave of 3 soldiers every 30 s (`createAi(waveSize = 3, wave
 
 Supply curve rule of thumb: the first soldier must be affordable within a minute of play, and the cap must bind (a depot or HQ upgrade) before about eight units, otherwise supply never matters.
 
+## Game feel
+
+`fx.tint('day')` sets the Light2D ambient from a kit sky preset (or an hour, swept per frame), and `fx.ambience('ambience-wind')` is the one background bed (replacing the base's). Blows landed within 0.9 s build a combo: `combo-hit` from the second, every fourth is a `critical` that bites for half again; destroying the enemy HQ plays `quest-complete`. There are no upgrades yet, so no `level-up`; add the trigger where one lands.
+
 ## Build order
 
 1. Grid and terrain; walkable test for every cell.
