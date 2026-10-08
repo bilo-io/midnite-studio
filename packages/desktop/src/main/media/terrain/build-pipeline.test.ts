@@ -267,4 +267,48 @@ describe('runTerrainBuild', () => {
       expect(file.edges[0]!.cls).toBeUndefined();
     }, 60_000);
   });
+
+  describe('captured building footprints', () => {
+    const n = 8;
+    const spec = (inputs: Record<string, unknown> = {}) =>
+      specFor(n, n, 16, {
+        inputs: {
+          heightmap: { file: 'inputs/heightmap.png', sourceName: 'h.png', width: n, height: n, bitDepth: 16 },
+          buildingsFootprints: { file: 'inputs/buildings.footprints.json', count: 2 },
+          ...inputs,
+        },
+      });
+    const footprints = {
+      version: 1,
+      worldSize: 1000,
+      buildings: [
+        { id: 1, polygon: [[-100, -100], [-100, -60], [-60, -60], [-60, -100]], heightM: 25 },
+        { id: 2, polygon: [[100, 100], [100, 140], [140, 140], [140, 100]] },
+      ],
+    };
+
+    it('plans a buildings stage for footprints alone, with no satellite', () => {
+      expect(plannedStages(spec())).toEqual(['decode', 'heightfield', 'buildings', 'write']);
+    });
+
+    it('writes the captured footprints to build/buildings.json with their stated heights', async () => {
+      await writeFile(join(dir, 'inputs', 'heightmap.png'), encodePngGrey16(new Uint16Array(n * n).fill(32768), n, n));
+      await writeFile(join(dir, 'inputs', 'buildings.footprints.json'), JSON.stringify(footprints));
+      const stages: TerrainBuildStage[] = [];
+      const stats = await runTerrainBuild({ dir, outDir: 'out', spec: spec() }, (s) => stages.push(s));
+      const file = TerrainBuildingsFileSchema.parse(JSON.parse(await readFile(join(dir, 'out', 'buildings.json'), 'utf8')));
+      expect(file.buildings).toHaveLength(2);
+      expect(file.buildings[0]!.height).toBe(25);
+      expect(stats.buildingCount).toBe(2);
+      expect(stages).toContain('buildings');
+    }, 60_000);
+
+    it('warns and writes no buildings when the footprints are unreadable and there is no satellite', async () => {
+      await writeFile(join(dir, 'inputs', 'heightmap.png'), encodePngGrey16(new Uint16Array(n * n).fill(32768), n, n));
+      await writeFile(join(dir, 'inputs', 'buildings.footprints.json'), '{nope');
+      const stats = await runTerrainBuild({ dir, outDir: 'out', spec: spec() }, () => undefined);
+      expect(stats.warnings.join('\n')).toContain('captured building footprints could not be read');
+      expect(stats.buildingCount).toBeUndefined();
+    }, 60_000);
+  });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractFootprints } from './footprints';
+import { TerrainSpecSchema } from '../media-terrain';
+import { extractFootprints, footprintsFromCapture, signedArea } from './footprints';
 import type { Heightfield } from './heightfield';
 
 function makeFlatField(res = 65, worldSize = 200, height = 15): Heightfield {
@@ -105,5 +106,49 @@ describe('extractFootprints', () => {
     });
 
     expect(result.buildings.length).toBe(0);
+  });
+});
+
+describe('footprintsFromCapture', () => {
+  const square = (x: number, z: number, s = 10): [number, number][] => [
+    [x, z],
+    [x, z + s],
+    [x + s, z + s],
+    [x + s, z],
+  ];
+  const opts = TerrainSpecSchema.parse({}).buildings;
+  const field = makeFlatField(65, 200, 15);
+
+  it('keeps stated heights, draws the rest from the spec range, and rewinds clockwise rings', () => {
+    const file = {
+      version: 1 as const,
+      worldSize: 200,
+      buildings: [
+        { id: 1, polygon: square(-40, -40), heightM: 30 },
+        { id: 2, polygon: square(10, 10, 20) },
+      ],
+    };
+    const { buildings, warnings } = footprintsFromCapture(file, field, { ...opts, scaleByArea: false });
+    expect(warnings).toEqual([]);
+    expect(buildings).toHaveLength(2);
+    expect(buildings[0]).toMatchObject({ height: 30, baseY: 15 });
+    expect(buildings[1]!.height).toBeGreaterThanOrEqual(opts.height[0]);
+    expect(buildings[1]!.height).toBeLessThanOrEqual(opts.height[1]);
+    for (const b of buildings) expect(signedArea(b.polygon)).toBeGreaterThan(0);
+    expect(footprintsFromCapture(file, field, opts)).toEqual(footprintsFromCapture(file, field, opts));
+  });
+
+  it('skips floating parts and footprints under the minimum area', () => {
+    const file = {
+      version: 1 as const,
+      worldSize: 200,
+      buildings: [
+        { id: 1, polygon: square(0, 0), heightM: 5, minHeightM: 4 },
+        { id: 2, polygon: square(30, 30, 2), heightM: 5 },
+      ],
+    };
+    const out = footprintsFromCapture(file, field, opts);
+    expect(out.buildings).toEqual([]);
+    expect(out.warnings).toEqual(['1 floating building part skipped.']);
   });
 });

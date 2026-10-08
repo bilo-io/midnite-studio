@@ -427,6 +427,30 @@ describe('captured road graph and geo (Phase 108 Theme F)', () => {
     expect(await stat(join(root, target.project, target.terrain, 'inputs', 'roads.graph.json')).then(() => true, () => false)).toBe(false);
   });
 
+  it('setBuildingsFootprints writes the file and records inputs.buildingsFootprints; remove undoes both', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const body = JSON.stringify({ version: 1, worldSize: 100, buildings: [{ id: 1, polygon: [[0, 0], [0, 5], [5, 5]], heightM: 9 }] });
+    expect(await service.setBuildingsFootprints(target, new TextEncoder().encode(body))).toEqual({ ok: true, value: { count: 1 } });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.buildingsFootprints).toEqual({ file: 'inputs/buildings.footprints.json', count: 1 });
+    const dir = join(root, target.project, target.terrain);
+    expect((await stat(join(dir, 'inputs', 'buildings.footprints.json'))).isFile()).toBe(true);
+    expect((await service.setBuildingsFootprints(target, { remove: true })).ok).toBe(true);
+    const after = await service.get(target);
+    expect(after.ok && after.value.spec.inputs.buildingsFootprints).toBeUndefined();
+    expect(await stat(join(dir, 'inputs', 'buildings.footprints.json')).then(() => true, () => false)).toBe(false);
+  });
+
+  it('refuses invalid building footprints without touching the spec', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const bad = await service.setBuildingsFootprints(target, new TextEncoder().encode('{"version":2}'));
+    expect(bad).toMatchObject({ ok: false, message: expect.stringContaining('building footprints are not valid') });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.buildingsFootprints).toBeUndefined();
+  });
+
   it('setSpec stores and validates the geo block', async () => {
     const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
     const target = await createTerrain(service);

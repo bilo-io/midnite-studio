@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MAP_CAPTURE_BUSY, MapCaptureFileSchema, MapRoadGraphFileSchema, map, type MapCaptureRequest } from '@midnite/studio-shared';
+import { MAP_CAPTURE_BUSY, MapBuildingsFileSchema, MapCaptureFileSchema, MapRoadGraphFileSchema, map, type MapCaptureRequest } from '@midnite/studio-shared';
 
 import { encodePngRgba8, decodePng } from '../png/png-codec';
 import { createCaptureBroker, type CaptureBroker, type CaptureWorkerHandle } from './capture-broker';
@@ -43,7 +43,7 @@ function pngTile(z: number, x: number, y: number): Uint8Array {
   return encodePngRgba8(map.syntheticTile(z, x, y, (lon) => plane(lon)), map.TILE, map.TILE);
 }
 
-const REQ: MapCaptureRequest = { repoId: 'r1', project: 'maps', center: [18.4, -34], sideM: 3000, size: 129, place: 'Test Place', satellite: false, roads: false };
+const REQ: MapCaptureRequest = { repoId: 'r1', project: 'maps', center: [18.4, -34], sideM: 3000, size: 129, place: 'Test Place', satellite: false, roads: false, buildings: false };
 
 describe('capture service', () => {
   let root: string;
@@ -191,6 +191,13 @@ describe('capture service', () => {
       },
     });
     const both = { ...REQ, satellite: undefined, roads: undefined };
+    const bldgOsm = (): map.OsmResponse => {
+      const n = (id: number, x: number, z: number) => {
+        const [lon, lat] = map.fromFrame(REQ.center, [x, z]);
+        return { type: 'node' as const, id, lat, lon };
+      };
+      return { elements: [n(1, 0, 0), n(2, 20, 0), n(3, 20, 20), n(4, 0, 20), { type: 'way', id: 7, nodes: [1, 2, 3, 4, 1], tags: { building: 'yes', height: '12 m' } }] };
+    };
 
     it('writes satellite.png at the texture size, the roads mask and graph, and records every source', async () => {
       const fetched: string[] = [];
@@ -219,6 +226,42 @@ describe('capture service', () => {
       expect(query).toHaveBeenCalledTimes(1);
       expect(events.some((e) => e.stage === 'satellite')).toBe(true);
       expect(events.some((e) => e.stage === 'roads')).toBe(true);
+    });
+
+    it('writes buildings.json with heights from a second Overpass query, and records the source', async () => {
+      const query = vi.fn(async (_bbox: unknown, _signal: unknown, kind?: string) => ({ ok: true as const, osm: kind === 'buildings' ? bldgOsm() : osm() }));
+      const { service, events } = make({ fetcher: tiles([]), overpass: { query } });
+      const result = await service.capture({ ...both, satellite: false, buildings: undefined });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const dir = join(root, 'maps', result.value.dir);
+      const file = MapBuildingsFileSchema.parse(JSON.parse(await readFile(join(dir, 'buildings.json'), 'utf8')));
+      expect(file.buildings).toHaveLength(1);
+      expect(file.buildings[0]).toMatchObject({ id: 7, heightM: 12 });
+      expect(result.value.capture.sources.buildings).toBe('overpass');
+      expect(result.value.capture.files).toContain('buildings.json');
+      expect(result.value.capture.missing).toEqual([]);
+      expect(query.mock.calls.map((c) => c[2])).toEqual([undefined, 'buildings']);
+      expect(events.some((e) => e.stage === 'buildings')).toBe(true);
+    });
+
+    it('skips buildings above 10 km, when the area has none, or when Overpass fails, keeping the rest', async () => {
+      const query = vi.fn(async () => ({ ok: true as const, osm: { elements: [] } }));
+      const { service } = make({ fetcher: tiles([]), overpass: { query } });
+      const big = await service.capture({ ...both, satellite: false, roads: false, buildings: undefined, sideM: 12_000, size: 129 });
+      expect(big.ok && big.value.capture.missing).toEqual([{ slot: 'buildings', reason: 'Buildings are captured for frames up to 10 km a side.' }]);
+      expect(query).not.toHaveBeenCalled();
+      const again = make({ fetcher: tiles([]), overpass: { query }, now: () => new Date(Date.UTC(2026, 9, 7, 11, 0, 0)) });
+      const empty = await again.service.capture({ ...both, satellite: false, roads: false, buildings: undefined });
+      expect(empty.ok && empty.value.capture.missing).toEqual([{ slot: 'buildings', reason: 'No buildings in this area.' }]);
+      const failing = make({
+        fetcher: tiles([]),
+        overpass: { query: async () => ({ ok: false as const, reason: 'busy' }) },
+        now: () => new Date(Date.UTC(2026, 9, 7, 12, 0, 0)),
+      });
+      const failed = await failing.service.capture({ ...both, satellite: false, roads: false, buildings: undefined });
+      expect(failed.ok && failed.value.capture.missing).toEqual([{ slot: 'buildings', reason: 'busy' }]);
+      expect(failed.ok && failed.value.capture.files).toContain('heightmap.png');
     });
 
     it('a display-only satellite source makes no fetch and records the licence reason', async () => {
@@ -297,6 +340,7 @@ describe('capture service', () => {
         library: rec('library', { ok: true, value: { project: 'terrains', terrain: 'test-place-1' } }),
         setInput: rec('setInput', { ok: true, value: { warnings: [] } }),
         setRoadsGraph: rec('setRoadsGraph', { ok: true, value: { edges: 1 } }),
+        setBuildingsFootprints: rec('setBuildingsFootprints', { ok: true, value: { count: 1 } }),
         setSpec: rec('setSpec', { ok: true, value: { spec: {} } }),
         build: rec('build', { ok: true, value: {} }),
         ...overrides,
@@ -351,6 +395,18 @@ describe('capture service', () => {
       expect(result.ok).toBe(true);
       expect(calls).toEqual(['library', 'setInput', 'setInput', 'setInput', 'setRoadsGraph', 'setSpec']);
       expect((args.setRoadsGraph as unknown[])[1]).toBeInstanceOf(Uint8Array);
+    });
+
+    it('hands the captured building footprints to Terrain before the spec', async () => {
+      const { terrain, calls, args } = fakeTerrain();
+      const { service } = make({
+        terrain,
+        emitOpen: vi.fn(),
+        broker: wrapBroker(createCaptureBroker({ spawn: inProcessWorker }), async (dir) => writeFile(join(dir, 'buildings.json'), '{}')),
+      });
+      expect((await service.capture({ ...REQ, handoff: true })).ok).toBe(true);
+      expect(calls).toEqual(['library', 'setInput', 'setBuildingsFootprints', 'setSpec']);
+      expect((args.setBuildingsFootprints as unknown[])[1]).toBeInstanceOf(Uint8Array);
     });
 
     it('a failing setSpec names the terrain settings, keeps the capture and leaves the terrain', async () => {

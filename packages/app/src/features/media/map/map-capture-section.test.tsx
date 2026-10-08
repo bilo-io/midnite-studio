@@ -52,13 +52,14 @@ describe('MapCaptureSection', () => {
     const capture = vi.spyOn(window.midniteStudio!.media.map, 'capture');
     fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
     await waitFor(() => expect(capture).toHaveBeenCalledTimes(1));
-    expect(capture.mock.calls[0]![0]).toMatchObject({ satellite: true, roads: true });
+    expect(capture.mock.calls[0]![0]).toMatchObject({ satellite: true, roads: true, buildings: true });
     await screen.findByTestId('capture-done');
     fireEvent.click(screen.getByLabelText('Satellite image'));
     fireEvent.click(screen.getByLabelText('Roads (OpenStreetMap)'));
+    fireEvent.click(screen.getByLabelText('Buildings (OpenStreetMap)'));
     fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
     await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
-    expect(capture.mock.calls[1]![0]).toMatchObject({ satellite: false, roads: false });
+    expect(capture.mock.calls[1]![0]).toMatchObject({ satellite: false, roads: false, buildings: false });
   });
 
   it('warns that roads are skipped above 25 km only while roads are on, without blocking', () => {
