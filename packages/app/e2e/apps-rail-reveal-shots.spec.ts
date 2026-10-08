@@ -1,8 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
-import { seedEnabledApps, seedUiState, settle, shotPath } from './shots-helper';
+import {
+  installMockBridge,
+  type MockFixtures,
+  seedEnabledApps,
+  seedUiState,
+  settle,
+  shotPath,
+} from './shots-helper';
 
 /**
  * Capture set for the bottom-of-rail apps switcher's reveal behaviour — the

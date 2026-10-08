@@ -209,6 +209,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   spec's own header comment. Unit tests must never assert wall-clock bounds
   (`expect(elapsed).toBeLessThan(...)`), which flakes under CI load. `scripts/e2e-budget.mjs`
   enforces the ratchet on declared e2e tests and visual baselines in CI.
+- **Screenshots are taken with the git repos side panel closed, like the terminal — unless the
+  shot is about that panel.** `installMockBridge` from `e2e/shots-helper.ts` seeds
+  `reposOpen: false` for every `*-shots.spec.ts` (merged into `midnite-studio.ui`, never
+  clobbering a spec's own seed); pass `{ reposOpen: true }` to opt a repos-panel shot back in.
+  Visual and functional specs are untouched, so baselines do not move.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,

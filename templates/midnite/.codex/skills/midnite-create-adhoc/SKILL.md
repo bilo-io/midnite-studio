@@ -80,7 +80,7 @@ stage below checks it never got committed.
 - Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte.
 
 ## 5 · Screenshots — whenever the change is visual
-Capture **before/after** with whatever this project's own visual-testing tooling is (a dev server + mocked backend where applicable, or the real app). Save PNGs to a temp dir, show them in this thread, and reuse them in the PR body (Stage 8).
+Capture **before/after** with whatever this project's own visual-testing tooling is (a dev server + mocked backend where applicable, or the real app). Save PNGs to a temp dir, show them in this thread, and reuse them in the PR body (Stage 8). Close side panels the shot is not about (e.g. a repos list, the terminal) before capturing.
 
 ## 6 · Pre-push gate
 Run this project's own full test/lint/typecheck command (from `CLAUDE.md`).

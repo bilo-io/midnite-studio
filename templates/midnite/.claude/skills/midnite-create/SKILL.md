@@ -123,7 +123,7 @@ stage below checks it never got committed.
 - Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte.
 
 ## 5 · Screenshots — whenever the change is visual
-Capture **before/after** with whatever this project's own visual-testing tooling is (a Playwright or similar setup, against a dev server, mocked backend where applicable, or the real app). Save PNGs to a temp dir.
+Capture **before/after** with whatever this project's own visual-testing tooling is (a Playwright or similar setup, against a dev server, mocked backend where applicable, or the real app). Save PNGs to a temp dir. Close side panels the shot is not about (e.g. a repos list, the terminal) before capturing.
 - **Always show them in this thread** when there's a visual change — read the PNGs so they render inline.
 - The same shots go into the PR body (Stage 7).
 
