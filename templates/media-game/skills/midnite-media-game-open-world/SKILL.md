@@ -34,7 +34,7 @@ Keep the world size and road density together: a car crosses a 512 m world in un
 2. A car with enter and exit (`findEnterable`); cameras follow the car.
 3. Traffic and pedestrians from `trafficSpawn`, advanced by `trafficStep`.
 4. Wanted level fed by crimes; police routed with `routeOnRoads` and `routePolyline`.
-5. Day and night: `hourAt` then `skyAt` onto the lights and sky.
+5. Day and night: `hourAt`, then `env.setTimeOfDay(hour)` on the kit's `createEnvironment` (`src/scenes/level.js`; `skyAt` still gives the `night` flag for street lights and the HUD). Rain greys the sky, fog and sun after the call. Sound (kit v0.11.0): `sfx.loop('engine-loop')` while driving with `.set(engineLoopParams(speed, throttle))` for pitch and level, and an `ambience-wind` bed; both stop with the loop.
 6. A minimap from the land-cover classes.
 
 ## Play-test checklist
