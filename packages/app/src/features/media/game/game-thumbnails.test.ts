@@ -18,11 +18,17 @@ describe('game starter thumbnails', () => {
     }
   });
 
+  it('has a thumbnail for every starter', () => {
+    const missing = thumbnailCoverage().filter((c) => c.url === null).map((c) => c.id);
+    expect(missing).toEqual([]);
+    expect(thumbnailCoverage().length).toBe(22);
+  });
+
   it('has no orphan thumbnail files for ids that are not starters', () => {
     const ids = new Set(allStarterIds());
     const withThumb = thumbnailCoverage().filter((c) => c.url !== null);
-    expect(withThumb.length).toBe(15);
     expect(withThumb.every((c) => ids.has(c.id))).toBe(true);
+    expect(withThumb.length).toBe(ids.size);
   });
 
   it('returns null for an unknown id', () => {
