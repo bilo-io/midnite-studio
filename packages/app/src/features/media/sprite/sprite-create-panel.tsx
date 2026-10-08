@@ -17,14 +17,13 @@ import {
 import { useReducer, useState, type Dispatch } from 'react';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 
-import { ProviderModelPicker } from '../../../components/ai-thread';
+import { AiComposer, ProviderModelPicker } from '../../../components/ai-thread';
 import { useDialogs } from '../../../components/dialog-host';
 import { IconButton } from '../../../components/icon-button';
-import { Spinner } from '../../../components/skeleton';
 import { imagePickerProviders } from '../image/create-panel';
 import { useImageProviders } from '../image/use-images';
 import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
-import { PromptTextarea } from '../prompt-input';
+import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import {
   envBlockedReason,
   envGenerates,
@@ -251,73 +250,80 @@ export function SpriteCreatePanel({
       <MediaPanelFooter className="flex flex-col gap-2 border-t border-border/50 p-3">
         <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           Prompt
-          <PromptTextarea
-            aria-label="Prompt"
-            rows={4}
-            value={mode === 'sheet' ? sheet.prompt : env.prompt}
-            placeholder={mode === 'sheet' ? 'A knight in plate armour with a red plume' : 'Lush grass with dirt paths'}
-            onChange={(event) => (mode === 'sheet' ? dispatch({ type: 'patch', patch: { prompt: event.target.value } }) : setEnv((c) => ({ ...c, prompt: event.target.value })))}
-          />
-        </div>
-        {mode === 'sheet' ? (
-          <div className="flex items-center gap-2">
-            <ProviderModelPicker
-              testId="sprite-picker"
-              providers={pickerProviders}
-              provider={sheet.provider}
-              models={models.map((m) => ({ ...m, ...(m.id === models[0]?.id ? { recommended: true } : {}) }))}
-              model={sheet.model}
-              onProviderChange={(id) => {
-                const provider = id as ImageProviderId;
-                dispatch({ type: 'patch', patch: { provider, model: imageModelsFor(provider, statuses.find((s) => s.id === id)?.models)[0]?.id ?? '' } });
+          {mode === 'sheet' ? (
+            <AiComposer
+              ariaLabel="Prompt"
+              value={sheet.prompt}
+              onChange={(prompt) => dispatch({ type: 'patch', patch: { prompt } })}
+              onSend={() => {
+                if (needsRig(sheet)) {
+                  attachRig();
+                } else {
+                  void createAndGenerate();
+                }
               }}
-              onModelChange={(model) => dispatch({ type: 'patch', patch: { model } })}
+              canSend={!busy && (needsRig(sheet) || sheetBlocked === null)}
+              enterToSend={false}
+              sendTooltip={
+                needsRig(sheet)
+                  ? 'Attach a rigged model…'
+                  : (busy ? 'Generating…' : (sheetBlocked ?? (handDrawn ? 'Generate reference (Cmd/Ctrl+Enter)' : 'Generate (Cmd/Ctrl+Enter)')))
+              }
+              sendAriaLabel={needsRig(sheet) ? 'Attach a rigged model…' : handDrawn ? 'Generate reference' : 'Generate'}
+              rows={4}
+              dimmed={busy}
+              placeholder="A knight in plate armour with a red plume"
+              boxClassName={MEDIA_PROMPT_BOX}
+              testIdPrefix="sprite-prompt"
+              leading={
+                <ProviderModelPicker
+                  testId="sprite-picker"
+                  providers={pickerProviders}
+                  provider={sheet.provider}
+                  models={models.map((m) => ({ ...m, ...(m.id === models[0]?.id ? { recommended: true } : {}) }))}
+                  model={sheet.model}
+                  onProviderChange={(id) => {
+                    const provider = id as ImageProviderId;
+                    dispatch({ type: 'patch', patch: { provider, model: imageModelsFor(provider, statuses.find((s) => s.id === id)?.models)[0]?.id ?? '' } });
+                  }}
+                  onModelChange={(model) => dispatch({ type: 'patch', patch: { model } })}
+                />
+              }
             />
-            {needsRig(sheet) ? (
-              <button type="button" onClick={attachRig} className="ml-auto h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">
-                Attach a rigged model…
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={busy || sheetBlocked !== null}
-                title={sheetBlocked ?? 'Generate'}
-                onClick={() => void createAndGenerate()}
-                className="ml-auto flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
-              >
-                {busy ? <Spinner /> : null}
-                {handDrawn ? 'Generate reference' : 'Generate'}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            {envGenerates(env.kind) && !env.fromTerrain && env.kind !== 'map' ? (
-              <ProviderModelPicker
-                testId="sprite-env-picker"
-                providers={imagePickerProviders(statuses)}
-                provider={env.provider}
-                models={envModels.map((m) => ({ ...m, ...(m.id === envModels[0]?.id ? { recommended: true } : {}) }))}
-                model={env.model}
-                onProviderChange={(id) => {
-                  const provider = id as ImageProviderId;
-                  setEnv((c) => ({ ...c, provider, model: imageModelsFor(provider, statuses.find((s) => s.id === id)?.models)[0]?.id ?? '' }));
-                }}
-                onModelChange={(model) => setEnv((c) => ({ ...c, model }))}
-              />
-            ) : null}
-            <button
-              type="button"
-              disabled={busy || envBlocked !== null}
-              title={envBlocked ?? (envGenerates(env.kind) ? 'Generate' : 'Create')}
-              onClick={() => void createEnvironment()}
-              className="ml-auto flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-50"
-            >
-              {busy ? <Spinner /> : null}
-              {envGenerates(env.kind) ? 'Generate' : 'Create'}
-            </button>
-          </div>
-        )}
+          ) : (
+            <AiComposer
+              ariaLabel="Prompt"
+              value={env.prompt}
+              onChange={(prompt) => setEnv((c) => ({ ...c, prompt }))}
+              onSend={() => void createEnvironment()}
+              canSend={!busy && envBlocked === null}
+              enterToSend={false}
+              sendTooltip={busy ? 'Generating…' : (envBlocked ?? (envGenerates(env.kind) ? 'Generate (Cmd/Ctrl+Enter)' : 'Create (Cmd/Ctrl+Enter)'))}
+              sendAriaLabel={envGenerates(env.kind) ? 'Generate' : 'Create'}
+              rows={4}
+              dimmed={busy}
+              placeholder="Lush grass with dirt paths"
+              boxClassName={MEDIA_PROMPT_BOX}
+              testIdPrefix="sprite-env-prompt"
+              leading={
+                envGenerates(env.kind) && !env.fromTerrain && env.kind !== 'map' ? (
+                  <ProviderModelPicker
+                    testId="sprite-env-picker"
+                    providers={imagePickerProviders(statuses)}
+                    provider={env.provider}
+                    models={envModels.map((m) => ({ ...m, ...(m.id === envModels[0]?.id ? { recommended: true } : {}) }))}
+                    model={env.model}
+                    onProviderChange={(id) => {
+                      const provider = id as ImageProviderId;
+                      setEnv((c) => ({ ...c, provider, model: imageModelsFor(provider, statuses.find((s) => s.id === id)?.models)[0]?.id ?? '' }));
+                    }}
+                    onModelChange={(model) => setEnv((c) => ({ ...c, model }))}
+                  />
+                ) : null
+              }
+            />
+          )}
+        </div>
       </MediaPanelFooter>
     </MediaPanelLayout>
   );
