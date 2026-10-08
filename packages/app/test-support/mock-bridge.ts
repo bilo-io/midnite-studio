@@ -3273,6 +3273,7 @@ export function buildMockBridge(data: MockFixtures) {
       },
       list: async () => ({ games: gamesList }),
       create: async (req: { name: string; engine: string; perspective: string }) => {
+        gamesCalls.push({ call: 'create', ...req });
         const slug = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
         const gameId = `g${String(gamesList.length + 1).padStart(12, '0')}`;
         const path = `${data.games?.resolvedRoot ?? '/Users/test/Midnite Games'}/${slug}`;
