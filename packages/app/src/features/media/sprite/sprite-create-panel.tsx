@@ -23,6 +23,7 @@ import { IconButton } from '../../../components/icon-button';
 import { Spinner } from '../../../components/skeleton';
 import { imagePickerProviders } from '../image/create-panel';
 import { useImageProviders } from '../image/use-images';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
 import { PromptTextarea } from '../prompt-input';
 import {
   envBlockedReason,
@@ -193,7 +194,7 @@ export function SpriteCreatePanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="sprite-create-panel">
+    <MediaPanelLayout data-testid="sprite-create-panel">
       <div className="flex shrink-0 items-center gap-2 border-b border-border/50 p-3">
         <div role="radiogroup" aria-label="Create" className="flex rounded-md border border-border p-0.5">
           {(['sheet', 'environment'] as const).map((id) => (
@@ -218,7 +219,7 @@ export function SpriteCreatePanel({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
         {mode === 'sheet' ? (
           <SheetFields
             form={sheet}
@@ -245,9 +246,9 @@ export function SpriteCreatePanel({
             {error}
           </p>
         ) : null}
-      </div>
+      </MediaPanelBody>
 
-      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3">
+      <MediaPanelFooter className="flex flex-col gap-2 border-t border-border/50 p-3">
         <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           Prompt
           <PromptTextarea
@@ -317,8 +318,8 @@ export function SpriteCreatePanel({
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }
 

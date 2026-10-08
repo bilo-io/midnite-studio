@@ -5,6 +5,7 @@ import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { GameAssetsPanel } from './game-assets-panel';
 import { GameIteratePanel } from './game-iterate-panel';
+import { MediaPanelBody, MediaPanelLayout } from '../media-panel-layout';
 
 /**
  * Opens the game's repo in Timeline: registers it with the repo list if the
@@ -28,8 +29,7 @@ export async function openGameInTimeline(game: GameSummary): Promise<void> {
 
 /** The right column when a game is selected: what it is, the way into its history, and the agent panel (Theme M). */
 export function GameDetailPanel({ game }: { game: GameSummary }) {
-  return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="game-detail">
+  const summary = (
       <div className="flex shrink-0 flex-col gap-3 p-3">
         <div>
           <h2 className="truncate text-sm font-semibold" title={game.name}>
@@ -65,7 +65,17 @@ export function GameDetailPanel({ game }: { game: GameSummary }) {
         </button>
         {game.valid ? <GameAssetsPanel game={game} /> : null}
       </div>
-      {game.valid ? <GameIteratePanel game={game} /> : null}
+  );
+  if (!game.valid) {
+    return (
+      <MediaPanelLayout data-testid="game-detail">
+        <MediaPanelBody>{summary}</MediaPanelBody>
+      </MediaPanelLayout>
+    );
+  }
+  return (
+    <div className="h-full min-h-0" data-testid="game-detail">
+      <GameIteratePanel game={game}>{summary}</GameIteratePanel>
     </div>
   );
 }

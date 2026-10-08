@@ -11,6 +11,7 @@ import {
 import { useState } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
 import { PromptTextarea } from '../prompt-input';
 import { useGameAgentStore } from './game-agent-store';
 import { GameGallery, perspectivesOf } from './game-gallery';
@@ -83,14 +84,15 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
   };
 
   return (
-    <form
-      className="flex flex-col gap-3 p-3"
+    <MediaPanelLayout
+      as="form"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
       data-testid="game-create-panel"
     >
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
       <div>
         <h2 className="text-sm font-semibold">New game</h2>
         <p className="text-[11px] text-muted-foreground">
@@ -117,6 +119,8 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         cameras={cameras}
         onCameras={setCameras}
       />
+      </MediaPanelBody>
+      <MediaPanelFooter className="flex flex-col gap-3 border-t border-border/50 p-3">
       <label className="flex flex-col gap-1 text-xs font-medium">
         First prompt (optional)
         <PromptTextarea
@@ -136,6 +140,7 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
         {create.isPending ? <Spinner className="h-3.5 w-3.5" /> : null}
         {firstPrompt.trim() ? 'Create and run' : 'Create game'}
       </button>
-    </form>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }
