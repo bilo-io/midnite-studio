@@ -229,6 +229,12 @@ import {
 } from '../media';
 import { DocExportFormatSchema } from '../media';
 import {
+  GmLoadResultSchema,
+  GmProgramRequestSchema,
+  GmProgressSchema,
+  GmStatusResponseSchema,
+} from '../media-music-gm';
+import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
   GameAgentProgressSchema,
@@ -3255,6 +3261,14 @@ export const MediaAudioEngineInstallResponse = GitOpResultSchema;
 export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
 export const MediaAudioExpandRequest = AudioExpandRequestSchema;
 export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
+
+// General MIDI sample cache (Phase 101 Theme D)
+export const MediaGmStatusResponse = GmStatusResponseSchema;
+export const MediaGmEnsureRequest = GmProgramRequestSchema;
+export const MediaGmEnsureResponse = GitOpResultSchema;
+export const MediaGmLoadRequest = GmProgramRequestSchema;
+export const MediaGmLoadResponse = GitOpResultOf(GmLoadResultSchema);
+export const MediaGmProgressPayload = GmProgressSchema;
 
 // Models (3D)
 export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });

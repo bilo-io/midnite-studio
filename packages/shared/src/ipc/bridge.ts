@@ -1307,6 +1307,16 @@ export type MidniteStudioBridge = {
       ) => Unsubscribe;
       /** Ollama prompt expansion — fails soft when the daemon is down. */
       expand: (req: In<typeof S.MediaAudioExpandRequest>) => Promise<z.infer<typeof S.MediaAudioExpandResponse>>;
+      /** General MIDI instrument samples (Phase 101 Theme D); cached per program under `userData`. */
+      gm: {
+        /** Which programs are already on disk. */
+        status: () => Promise<z.infer<typeof S.MediaGmStatusResponse>>;
+        /** Download one program's samples if missing; progress arrives on `onProgress`. */
+        ensure: (req: In<typeof S.MediaGmEnsureRequest>) => Promise<z.infer<typeof S.MediaGmEnsureResponse>>;
+        /** Read a cached program's samples (base64 MP3 per note); fails if not downloaded. */
+        load: (req: In<typeof S.MediaGmLoadRequest>) => Promise<z.infer<typeof S.MediaGmLoadResponse>>;
+        onProgress: (handler: (event: z.infer<typeof S.MediaGmProgressPayload>) => void) => Unsubscribe;
+      };
     };
     /** Models: LLM-authored 3D (Ollama or an agent CLI), written as .obj/.mtl/.fbx, all in main. */
     model: {

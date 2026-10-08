@@ -787,6 +787,8 @@ export type MockFixtures = {
       };
       ollama: { running: boolean; models: string[]; model: string | null; recommended: string };
     };
+    /** Phase 101 Theme D: GM programs already cached (`media.audio.gm.status()`); defaults to `[0]`. */
+    gmCached?: number[];
     imageProviders?: Array<{
       id: 'gemini' | 'openai' | 'agy' | 'ollama';
       available: boolean;
@@ -3609,6 +3611,15 @@ export function buildMockBridge(data: MockFixtures) {
         }),
         installEngine: async () => ({ ok: true as const }),
         onEngineProgress: unsubscribe,
+        gm: {
+          status: async () => ({ cached: data.media?.gmCached ?? [0] }),
+          ensure: async () => ({ ok: true as const }),
+          load: async (req: { program: number }) => ({
+            ok: true as const,
+            value: { program: req.program, notes: {} as Record<string, string> },
+          }),
+          onProgress: unsubscribe,
+        },
         expand: async (req: { title: string; style: string[] }) => ({
           ok: true as const,
           value: {
