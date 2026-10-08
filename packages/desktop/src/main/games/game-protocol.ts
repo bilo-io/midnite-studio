@@ -1,4 +1,5 @@
-import { lstat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { lstat, readFile } from 'node:fs/promises';
 import { extname, join, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -44,12 +45,16 @@ export const GAME_MIME_BY_EXT: Record<string, string> = {
   '.wav': 'audio/wav',
 };
 
-/** The CSP every response carries. `network: 'on'` opens https for connect, images and media. */
-export function gameCsp(network: GameNetwork): string {
+/**
+ * The CSP every response carries. `network: 'on'` opens https for connect, images and media.
+ * `scriptHashes` are `'sha256-…'` sources for the document's own inline import maps — never
+ * `'unsafe-inline'`, so any other inline script stays blocked.
+ */
+export function gameCsp(network: GameNetwork, scriptHashes: readonly string[] = []): string {
   const remote = network === 'on' ? ' https:' : '';
   return [
     "default-src 'self'",
-    "script-src 'self' 'wasm-unsafe-eval'",
+    ["script-src 'self' 'wasm-unsafe-eval'", ...scriptHashes].join(' '),
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${remote}`,
     `media-src 'self' data: blob:${remote}`,
@@ -62,8 +67,26 @@ export function gameCsp(network: GameNetwork): string {
   ].join('; ');
 }
 
-const baseHeaders = (network: GameNetwork): Record<string, string> => ({
-  'Content-Security-Policy': gameCsp(network),
+/**
+ * CSP hash sources for every inline `<script type="importmap">` in `html`. An import map
+ * cannot be external (Chromium ignores `src` on one), and CSP treats it as an inline
+ * script — so without its hash, every bare `import 'three'` fails to resolve. The
+ * hash is taken per request, so an agent's edit to the map holds on the next reload.
+ */
+export function importMapHashes(html: string): string[] {
+  // The HTML parser folds CRLF and lone CR to LF before it sees the script's text.
+  const source = html.replace(/\r\n?/g, '\n');
+  const pattern = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+  const hashes: string[] = [];
+  for (const [, attrs, body] of source.matchAll(pattern)) {
+    if (!/\btype\s*=\s*["']?importmap["']?(?=[\s>]|$)/i.test(attrs ?? '')) continue;
+    hashes.push(`'sha256-${createHash('sha256').update(body ?? '', 'utf8').digest('base64')}'`);
+  }
+  return [...new Set(hashes)];
+}
+
+const baseHeaders = (network: GameNetwork, scriptHashes: readonly string[] = []): Record<string, string> => ({
+  'Content-Security-Policy': gameCsp(network, scriptHashes),
   'X-Content-Type-Options': 'nosniff',
   // Hot reload: a game's files change under the view constantly.
   'Cache-Control': 'no-store',
@@ -143,8 +166,10 @@ export function gameProtocolHandler(
         bypassCustomProtocolHandlers: true,
         ...(range ? { headers: { range } } : {}),
       });
-      const headers = new Headers(baseHeaders(network));
-      headers.set('Content-Type', GAME_MIME_BY_EXT[extname(file).toLowerCase()] ?? 'application/octet-stream');
+      const contentType = GAME_MIME_BY_EXT[extname(file).toLowerCase()] ?? 'application/octet-stream';
+      const scriptHashes = contentType.startsWith('text/html') ? importMapHashes(await readFile(file, 'utf8')) : [];
+      const headers = new Headers(baseHeaders(network, scriptHashes));
+      headers.set('Content-Type', contentType);
       for (const name of ['content-length', 'content-range', 'accept-ranges']) {
         const value = upstream.headers.get(name);
         if (value !== null) headers.set(name, value);
