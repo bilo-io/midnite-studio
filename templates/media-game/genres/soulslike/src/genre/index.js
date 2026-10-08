@@ -427,7 +427,7 @@ export function installGenre(scene, ctx) {
       ease: 'outCubic',
       onUpdate: (e, t) => {
         arc.rotation.z = Math.PI / 2 + side * (0.95 - 1.9 * e);
-        arcMaterial.opacity = 0.75 * (1 - t);
+        arcMaterial.opacity = 0.55 * (1 - t);
       },
       onComplete: () => {
         arc.visible = false;
