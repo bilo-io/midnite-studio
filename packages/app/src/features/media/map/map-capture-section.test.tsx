@@ -1,13 +1,17 @@
-import { defaultMapProject } from '@midnite/studio-shared';
+import { defaultMapProject, type GitOpResult, type MapCaptureProgressEvent, type MapCaptureResult } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
+import { installMockBridgeJsdom } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
 import { MapCaptureSection } from './map-capture-section';
 import { useMapPlaceStore } from './map-place-store';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('MapCaptureSection', () => {
   it('shows metres/px and the elevation zoom for the frame', () => {
@@ -103,5 +107,198 @@ describe('MapCaptureSection', () => {
     await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
     expect(capture.mock.calls[1]![0].place).toBeUndefined();
     act(() => useMapPlaceStore.setState({ place: null }));
+  });
+
+  it('renders the vertical export layer list with completed checkmarks when done', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await screen.findByTestId('capture-done');
+
+    const layersContainer = screen.getByTestId('map-export-layers');
+    expect(layersContainer).not.toBeNull();
+
+    const dem = screen.getByTestId('layer-export-dem');
+    expect(dem.getAttribute('data-status')).toBe('completed');
+    expect(dem.textContent).toContain('Heightmap (Elevation DEM)');
+    expect(screen.getByTestId('layer-icon-dem').querySelector('svg')?.getAttribute('class')).toContain('text-success');
+
+    const sat = screen.getByTestId('layer-export-satellite');
+    expect(sat.getAttribute('data-status')).toBe('completed');
+    expect(sat.textContent).toContain('Satellite image');
+    expect(screen.getByTestId('layer-icon-satellite').querySelector('svg')?.getAttribute('class')).toContain('text-success');
+
+    const roads = screen.getByTestId('layer-export-roads');
+    expect(roads.getAttribute('data-status')).toBe('completed');
+    expect(roads.textContent).toContain('Roads (OpenStreetMap)');
+    expect(screen.getByTestId('layer-icon-roads').querySelector('svg')?.getAttribute('class')).toContain('text-success');
+
+    const bld = screen.getByTestId('layer-export-buildings');
+    expect(bld.getAttribute('data-status')).toBe('completed');
+    expect(bld.textContent).toContain('Buildings (OpenStreetMap)');
+    expect(screen.getByTestId('layer-icon-buildings').querySelector('svg')?.getAttribute('class')).toContain('text-success');
+  });
+
+  it('reflects layer progress across pending, running, and completed states', async () => {
+    installMockBridgeJsdom(fixtures);
+    let progressHandler!: (event: MapCaptureProgressEvent) => void;
+    window.midniteStudio!.media.map.onCaptureProgress = (handler) => {
+      progressHandler = handler;
+      return () => undefined;
+    };
+
+    let resolveCapture!: (val: GitOpResult<MapCaptureResult>) => void;
+    vi.spyOn(window.midniteStudio!.media.map, 'capture').mockImplementation(
+      (_req) =>
+        new Promise((resolve) => {
+          resolveCapture = (val) => resolve(val);
+        }),
+    );
+
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+
+    // Initially at 'plan' stage
+    expect(screen.getByTestId('layer-export-dem').getAttribute('data-status')).toBe('running');
+    expect(screen.getByTestId('layer-icon-dem').querySelector('svg')?.getAttribute('class')).toContain('animate-spin');
+    expect(screen.getByTestId('layer-export-satellite').getAttribute('data-status')).toBe('pending');
+    expect(screen.getByTestId('layer-icon-satellite').querySelector('svg')?.getAttribute('class')).toContain('text-amber-500');
+    expect(screen.getByTestId('layer-export-roads').getAttribute('data-status')).toBe('pending');
+    expect(screen.getByTestId('layer-icon-roads').querySelector('svg')?.getAttribute('class')).toContain('text-amber-500');
+
+    // Progress to 'satellite' stage
+    const captureCall = vi.mocked(window.midniteStudio!.media.map.capture).mock.calls[0]![0];
+    act(() => {
+      progressHandler?.({ captureId: captureCall.captureId!, stage: 'satellite', fraction: 0.5 });
+    });
+
+    expect(screen.getByTestId('layer-export-dem').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('layer-icon-dem').querySelector('svg')?.getAttribute('class')).toContain('text-success');
+    expect(screen.getByTestId('layer-export-satellite').getAttribute('data-status')).toBe('running');
+    expect(screen.getByTestId('layer-icon-satellite').querySelector('svg')?.getAttribute('class')).toContain('animate-spin');
+    expect(screen.getByTestId('layer-export-roads').getAttribute('data-status')).toBe('pending');
+
+    // Progress to 'roads' stage
+    act(() => {
+      progressHandler?.({ captureId: captureCall.captureId!, stage: 'roads', fraction: 0.5 });
+    });
+
+    expect(screen.getByTestId('layer-export-dem').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('layer-export-satellite').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('layer-icon-satellite').querySelector('svg')?.getAttribute('class')).toContain('text-success');
+    expect(screen.getByTestId('layer-export-roads').getAttribute('data-status')).toBe('running');
+    expect(screen.getByTestId('layer-icon-roads').querySelector('svg')?.getAttribute('class')).toContain('animate-spin');
+
+    // Finish capture
+    act(() => {
+      resolveCapture({
+        ok: true,
+        value: {
+          captureId: captureCall.captureId!,
+          name: 'test-capture',
+          dir: 'captures/test-capture',
+          capture: {
+            version: 1,
+            name: 'test-capture',
+            center: [0, 0],
+            sideM: 5000,
+            size: 1025,
+            mPerPx: 5,
+            bbox: [0, 0, 1, 1],
+            heightMinM: 0,
+            heightMaxM: 100,
+            hasSea: false,
+            sources: { dem: 'aws-terrarium', satellite: 'maptiler-satellite', roads: 'overpass' },
+            demZoom: 12,
+            attributions: [],
+            files: [],
+            missing: [],
+            capturedAt: '2026-01-01',
+          },
+        },
+      });
+    });
+
+    await screen.findByTestId('capture-done');
+    expect(screen.getByTestId('layer-export-dem').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('layer-export-satellite').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('layer-export-roads').getAttribute('data-status')).toBe('completed');
+  });
+
+  it('shows error cross icon when a layer is missing on completion', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    vi.spyOn(window.midniteStudio!.media.map, 'capture').mockResolvedValueOnce({
+      ok: true,
+      value: {
+        captureId: 'test-missing',
+        name: 'test-missing',
+        dir: 'captures/test-missing',
+        capture: {
+          version: 1,
+          name: 'test-missing',
+          center: [0, 0],
+          sideM: 5000,
+          size: 1025,
+          mPerPx: 5,
+          bbox: [0, 0, 1, 1],
+          heightMinM: 0,
+          heightMaxM: 100,
+          hasSea: false,
+          sources: { dem: 'aws-terrarium' },
+          demZoom: 12,
+          attributions: [],
+          files: [],
+          missing: [{ slot: 'roads', reason: 'Overpass query timed out' }],
+          capturedAt: '2026-01-01',
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await screen.findByTestId('capture-done');
+
+    expect(screen.getByTestId('layer-export-dem').getAttribute('data-status')).toBe('completed');
+    expect(screen.getByTestId('layer-export-satellite').getAttribute('data-status')).toBe('completed');
+    const roads = screen.getByTestId('layer-export-roads');
+    expect(roads.getAttribute('data-status')).toBe('error');
+    expect(screen.getByTestId('layer-icon-roads').querySelector('svg')?.getAttribute('class')).toContain('text-destructive');
+  });
+
+  it('excludes unchecked layers from the export list', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    fireEvent.click(screen.getByLabelText('Satellite image'));
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await screen.findByTestId('capture-done');
+
+    expect(screen.getByTestId('layer-export-dem')).not.toBeNull();
+    expect(screen.queryByTestId('layer-export-satellite')).toBeNull();
+    expect(screen.getByTestId('layer-export-roads')).not.toBeNull();
+  });
+
+  it('excludes roads from the export list when roads are skipped (> 25 km)', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    fireEvent.change(screen.getByLabelText('Capture side in metres'), { target: { value: '30000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+    await screen.findByTestId('capture-done');
+
+    expect(screen.getByTestId('layer-export-dem')).not.toBeNull();
+    expect(screen.getByTestId('layer-export-satellite')).not.toBeNull();
+    expect(screen.queryByTestId('layer-export-roads')).toBeNull();
+  });
+
+  it('shows error state when capture fails', async () => {
+    renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
+    vi.spyOn(window.midniteStudio!.media.map, 'capture').mockResolvedValueOnce({
+      ok: false,
+      kind: 'error',
+      message: 'Failed to fetch elevation tiles.',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert').textContent).toBe('Failed to fetch elevation tiles.');
+    expect(screen.getByTestId('layer-export-dem').getAttribute('data-status')).toBe('error');
+    expect(screen.getByTestId('layer-icon-dem').querySelector('svg')?.getAttribute('class')).toContain('text-destructive');
   });
 });
