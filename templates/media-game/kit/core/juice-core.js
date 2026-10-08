@@ -79,8 +79,8 @@ export function createTimeScale() {
     /** @param {number} dt real seconds @returns {number} the dt to simulate */
     scale(dt) {
       const scaled = this.value * dt;
-      stopLeft = Math.max(0, stopLeft - dt);
-      slowLeft = Math.max(0, slowLeft - dt);
+      stopLeft = stopLeft - dt < 1e-9 ? 0 : stopLeft - dt; // 50 ms is exactly three 60 Hz steps; absorb the rounding
+      slowLeft = slowLeft - dt < 1e-9 ? 0 : slowLeft - dt;
       return scaled;
     },
     reset() {

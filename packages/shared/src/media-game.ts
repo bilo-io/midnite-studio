@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.9.0';
+export const GAME_KIT_VERSION = '0.10.0';
 
 // --- enums -------------------------------------------------------------------
 
