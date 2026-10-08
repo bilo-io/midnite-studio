@@ -223,7 +223,7 @@ button downloads the active layer as GeoJSON or KML. An unparsable file shows an
 never written over; external edits arrive through `media:changed`. A pin's colour is optional and inherits the
 layer's.
 
-**Theme I — Maps over MCP, and the skill.** ✅ Landed (PR #PR). Four tools — `map_list` and `map_measure`
+**Theme I — Maps over MCP, and the skill.** ✅ Landed (PR #776). Four tools — `map_list` and `map_measure`
 (read, ungated) and `map_goto` and `map_capture_terrain` (behind the new default-off `allowMaps` switch,
 Settings ▸ MCP ▸ "Let agents capture maps"; `mcp-store` `version: 8`, since Phase 106 K had taken 7) —
 across `shared/src/media-map-mcp.ts`, `main/media/map/map-mcp.ts` and `main/mcp/map-tools.ts`, bound from

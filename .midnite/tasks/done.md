@@ -1,7 +1,7 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
-## 2026-10-08 — Phase 108 Theme I — Maps over MCP, and the skill ([#PR](https://github.com/bilo-io/midnite-studio/pull/PR))
+## 2026-10-08 — Phase 108 Theme I — Maps over MCP, and the skill ([#776](https://github.com/bilo-io/midnite-studio/pull/776))
 
 Agents get four `map_*` tools: `map_list` and `map_measure` always, `map_goto` and `map_capture_terrain` behind a new default-off Settings ▸ MCP "Let agents capture maps" switch (`mcp-store` v8). The capture tool runs the Maps tab's own capture and Terrain hand-off; the skill `midnite-media-map-build` ships in all six copies.
 
