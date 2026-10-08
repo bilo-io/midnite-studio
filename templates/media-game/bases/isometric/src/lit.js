@@ -222,3 +222,16 @@ export function tileTexture(world, scene, key, kind, o = {}) {
 export function blockTexture(world, scene, key, kind, o = {}) {
   return world.iso ? isoBlockTexture(scene, key, kind, o) : bevelledTexture(scene, key, kind, o);
 }
+
+/**
+ * Put a tile or block image on grid cell (x, y) of a `kit/phaser/world2d.js` world: its top-left on top-down, its
+ * diamond's top vertex on isometric. A block (`lift` > 0) is raised that many pixels so it stands on the cell.
+ * @param {Phaser.Scene} scene @param {{ iso: boolean, toScreen(x: number, y: number): { x: number, y: number }, tileWidth: number, tileHeight: number }} world
+ * @param {string} key @param {number} x @param {number} y @param {number} depth @param {number} [lift]
+ */
+export function gridImage(scene, world, key, x, y, depth, lift = 0) {
+  const p = world.toScreen(x, y);
+  const image = scene.add.image(world.iso ? p.x - world.tileWidth / 2 : p.x, p.y - lift, key).setOrigin(0).setDepth(depth);
+  if (!world.iso) image.setDisplaySize(world.tileWidth, world.tileHeight);
+  return image;
+}
