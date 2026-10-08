@@ -36,7 +36,19 @@ export const MOMENTS = {
     sfx: [{ name: 'hit', pitch: 0.6, power: 1.1 }, { name: 'land', pitch: 0.8, power: 0.6 }],
   },
   stagger: { shake: 0.25, squash: [1.18, 0.82], sfx: [{ name: 'block', pitch: 0.55, power: 0.7 }, { name: 'hurt', pitch: 0.7, power: 0.4 }] },
-  roll: { squash: [1.15, 0.7], particles: [{ kind: 'dust', count: 7 }], sfx: [{ name: 'swing', pitch: 0.5, power: 0.9 }, { name: 'footstep', pitch: 0.7, power: 0.7 }] },
+  roll: { squash: [1.15, 0.7], particles: [{ kind: 'dust', count: 7 }], sfx: [{ name: 'roll', power: 0.9 }, { name: 'footstep', pitch: 0.7, power: 0.5 }] },
+  // A blow on a staggered enemy: the heavy-hit feel plus the kit's critical sting.
+  riposte: {
+    shake: 0.45,
+    hitStop: 120,
+    flash: 0.15,
+    flashColor: 0xffe2a0,
+    glow: 0xffe2a0,
+    squash: [1.2, 0.8],
+    textKind: 'crit',
+    particles: [{ kind: 'spark', count: 16, scale: 1.2, colors: [0xffffff, 0xffe2a0, 0xffb347] }, { kind: 'debris', count: 6 }],
+    sfx: [{ name: 'hit', pitch: 0.6, power: 0.9 }, { name: 'critical', power: 0.8 }],
+  },
   'roll-end': { particles: [{ kind: 'dust', count: 4, scale: 0.7 }], sfx: [{ name: 'land', pitch: 1.3, power: 0.45 }] },
   parry: {
     shake: 0.3,
@@ -47,7 +59,7 @@ export const MOMENTS = {
     flashSeconds: 0.22,
     aberration: 0.8,
     particles: [{ kind: 'spark', count: 18, scale: 1.3, colors: [0xffffff, 0xcfe6ff, 0x8fc2ff] }, { kind: 'impact', count: 8, colors: [0xffffff, 0xcfe6ff] }],
-    sfx: [{ name: 'parry', pitch: 0.85, power: 1 }, { name: 'block', pitch: 1.2, power: 0.5 }],
+    sfx: [{ name: 'sword-clash', power: 1 }, { name: 'parry', pitch: 0.85, power: 0.45 }],
   },
   'player-hit': { shake: 0.4, hitStop: 80, flash: 0.28, flashColor: 0x8a0f0f, aberration: 0.9, squash: [1.2, 0.8], particles: [{ kind: 'spark', count: 8, colors: [0xff4d4d, 0x8a0f0f] }], sfx: [{ name: 'hurt', pitch: 0.85, power: 1 }] },
   'player-hit-heavy': {
@@ -84,7 +96,7 @@ export const MOMENTS = {
     flashColor: 0xffb366,
     flashSeconds: 0.9,
     particles: [{ kind: 'spark', count: 24, scale: 1.2, colors: [0xffd9a0, 0xff9a3c, 0xffe9a8] }],
-    sfx: [{ name: 'powerup', pitch: 0.5, power: 0.55 }, { name: 'win', pitch: 0.5, power: 0.3 }],
+    sfx: [{ name: 'heal', pitch: 0.8, power: 0.8 }, { name: 'win', pitch: 0.5, power: 0.25 }],
   },
   'stamina-out': { sfx: [{ name: 'hurt', pitch: 0.55, power: 0.35 }, { name: 'footstep', pitch: 0.5, power: 0.4 }] },
   'stamina-denied': { sfx: [{ name: 'ui-click', pitch: 0.45, power: 0.6 }] },
