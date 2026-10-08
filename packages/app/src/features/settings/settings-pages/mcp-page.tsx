@@ -37,6 +37,7 @@ export function McpSettingsPage() {
         allowGames: false,
         allowTerrains: false,
         allowSprites: false,
+        allowMaps: false,
       },
   });
 
@@ -106,6 +107,15 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 108 Theme I's eighth switch — whether `map_goto` (moves the user's view) and
+   * `map_capture_terrain` (writes files, creates a terrain) may act. Off by default.
+   */
+  const setAllowMaps = useMutation({
+    mutationFn: async (nextAllowMaps: boolean) => bridge()?.mcp.set({ allowMaps: nextAllowMaps }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -124,6 +134,7 @@ export function McpSettingsPage() {
   const allowGames = status.data?.allowGames ?? false;
   const allowTerrains = status.data?.allowTerrains ?? false;
   const allowSprites = status.data?.allowSprites ?? false;
+  const allowMaps = status.data?.allowMaps ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
@@ -298,6 +309,23 @@ export function McpSettingsPage() {
           />
 
           {setAllowSprites.data?.error && <div className="text-xs text-destructive">{setAllowSprites.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents capture maps" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-maps"
+            label="Let agents capture maps"
+            description="An eighth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the two map tools that act: map_goto moves the Maps tab to a place, and map_capture_terrain captures a square of the real world (heightmap, satellite, roads) into a new Terrain, which downloads map tiles. Listing captures and layers and measuring distances always work once the server is on."
+            on={allowMaps}
+            onToggle={(_id, next) => setAllowMaps.mutate(next)}
+            testId="mcp-allow-maps"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowMaps.data?.error && <div className="text-xs text-destructive">{setAllowMaps.data.error}</div>}
         </div>
       </Accordion>
 

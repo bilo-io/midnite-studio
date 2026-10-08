@@ -994,7 +994,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -5260,6 +5260,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowGames: mcpAllowGames,
         allowTerrains: mcpAllowTerrains,
         allowSprites: mcpAllowSprites,
+        allowMaps: mcpAllowMaps,
       }),
       set: async (req: {
         enabled?: boolean;
@@ -5269,6 +5270,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowGames?: boolean;
         allowTerrains?: boolean;
         allowSprites?: boolean;
+        allowMaps?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
@@ -5277,6 +5279,7 @@ export function buildMockBridge(data: MockFixtures) {
         if (req.allowGames !== undefined) mcpAllowGames = req.allowGames;
         if (req.allowTerrains !== undefined) mcpAllowTerrains = req.allowTerrains;
         if (req.allowSprites !== undefined) mcpAllowSprites = req.allowSprites;
+        if (req.allowMaps !== undefined) mcpAllowMaps = req.allowMaps;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -5291,6 +5294,7 @@ export function buildMockBridge(data: MockFixtures) {
           allowGames: mcpAllowGames,
           allowTerrains: mcpAllowTerrains,
           allowSprites: mcpAllowSprites,
+          allowMaps: mcpAllowMaps,
         };
       },
       calls: async () => ({
@@ -5507,6 +5511,7 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowTerrains = data.mcp?.allowTerrains ?? false;
   // eslint-disable-next-line no-var
   var mcpAllowSprites =data.mcp?.allowSprites ?? false;
+  var mcpAllowMaps = data.mcp?.allowMaps ?? false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {
