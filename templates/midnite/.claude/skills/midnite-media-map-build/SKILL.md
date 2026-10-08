@@ -1,11 +1,11 @@
 ---
 name: midnite-media-map-build
-description: Frame a real place in Midnite Studio's Media ▸ Maps page through the map_* tools on the midnite MCP server — find it, measure it, pick a size, capture its heightmap, satellite image and roads, and hand them to a new Terrain. Use when the user wants real-world ground for a game, or distances and areas on a map.
+description: Frame a real place in Midnite Studio's Media ▸ Maps page through the map_* tools on the midnite MCP server — find it, measure it, pick a size, capture its heightmap, satellite image, roads and buildings, and hand them to a new Terrain. Use when the user wants real-world ground for a game, or distances and areas on a map.
 ---
 
 # Media ▸ Maps — frame, capture, hand off
 
-Maps is an interactive slippy map. Its headline job is **Capture for Terrain**: a square of the real world becomes a 16-bit heightmap, a satellite image and a roads layer, handed to a new Terrain with `worldSize` and `heightRange` already set in metres. Never fetch tiles or write heightmaps by hand; call the tools.
+Maps is an interactive slippy map. Its headline job is **Capture for Terrain**: a square of the real world becomes a 16-bit heightmap, a satellite image, a roads layer and building footprints with heights, handed to a new Terrain with `worldSize` and `heightRange` already set in metres. Never fetch tiles or write heightmaps by hand; call the tools.
 
 ## Layout
 
@@ -41,6 +41,7 @@ Coordinates are always `[longitude, latitude]`.
 ## Limits worth knowing
 
 - **Roads are captured for frames up to 25 km a side**; a larger frame still gets its heightmap and satellite image, with roads listed under `missing`.
+- **Buildings are captured for frames up to 10 km a side** (OSM building ways with `height` / `building:levels`; the rest get a height from Terrain's `buildings.height` range). A larger frame lists buildings under `missing`; pass `buildings: false` to skip them. In Terrain they are the same toggleable buildings layer (viewer, `terrain_export`'s `buildings` option) as buildings traced from a satellite image.
 - **Terrain's largest world is 65.5 km** (65 536 m). The tool refuses a larger `sideM`.
 - Only sources marked exportable are captured; display-only sources never feed a capture. Satellite and roads need nothing extra on the keyless sources; MapTiler needs the user's key in Settings ▸ Media, which you never see.
 - A frame that is mostly sea has a flat heightmap; check `hasSea` and the height range before building.
