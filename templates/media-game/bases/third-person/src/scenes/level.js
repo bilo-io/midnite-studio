@@ -8,6 +8,7 @@ import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createAudio } from 'kit/three/audio.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
@@ -38,16 +39,13 @@ const animationState = (character) => {
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0d12);
-  scene.fog = new THREE.Fog(0x0b0d12, 30, 75);
-  scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x2a2f3a, 1.4));
-  const sun = new THREE.DirectionalLight(0xfff1dc, 2.4);
-  sun.position.set(8, 14, 6);
-  sun.castShadow = true;
-  scene.add(sun);
+  // A procedural sky, hemisphere and sun with soft shadows, fog and a baked reflection map (kit/three/environment.js).
+  // Pass `preset: 'dusk'` or `timeOfDay: 18` for another mood.
+  const renderer = createRenderer(/** @type {HTMLCanvasElement} */ (document.getElementById('game')));
+  const env = createEnvironment({ scene, renderer, preset: 'day', fog: [30, 85] });
 
   // Fidelity kit: textures, normal and bump maps are generated in code (no image files). Cached per preset.
-  const materials = createMaterials();
+  const materials = createMaterials({ renderer });
   const physics = await initPhysics();
   physics.addGround(80);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), materials.get('stone', { repeat: repeatFor(80, 80, 4), tint: 0xb4bdd0 }));
@@ -92,7 +90,6 @@ export async function startLevel() {
   hud.crosshair(MODE === 'first-person');
   const genre = installGenre(scene, { physics, character, rig, hud, input });
 
-  const renderer = createRenderer(canvas);
   // Juice kit: settings (on by default, `?juice=off` or `__midnite.juice.off()` to silence), sound, post-processing, effects.
   const settings = createJuiceSettings({ gameName: 'third-person' });
   const audio = createAudio(rig.camera);
@@ -157,6 +154,7 @@ export async function startLevel() {
         audio.sfx.play('door', { position: [0, 1.5, -3] });
       }
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
+      env.follow(character.position);
       avatar.position.set(...character.position);
       avatar.rotation.y = character.yaw;
       genre.update(dt, frame);

@@ -16,6 +16,7 @@ export const THREE_BINDINGS = {
   attack: { keys: ['J'], gamepad: [1], pointer: /** @type {const} */ ('left') },
   'lock-on': { keys: ['Q'], gamepad: [11], pointer: /** @type {const} */ ('right') },
   'camera-next': { keys: ['C'], gamepad: [9] },
+  reload: { keys: ['R'], gamepad: [3] },
   pause: { keys: ['ESC', 'P'], gamepad: [8] },
 };
 
