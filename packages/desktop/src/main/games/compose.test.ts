@@ -169,7 +169,7 @@ describe('composeStarter', () => {
     expect(await readFile(join(dest, 'src/game.config.js'), 'utf8')).toContain(`"genre":"${parseStarterId(id)!.genre}"`);
   });
 
-  it('the fighter, character action and open world bring their own stage; shooter, soulslike and RPG keep the base arena', async () => {
+  it('the fighter, character action, RPG and open world bring their own stage; shooter and soulslike keep the base arena', async () => {
     const level = async (id: string): Promise<string> => {
       const out = await mkdtemp(join(tmpdir(), 'midnite-compose-level-'));
       try {
@@ -182,11 +182,18 @@ describe('composeStarter', () => {
     const fighter = await level('fighter@third-person');
     expect(fighter).toContain("mode: 'versus'");
     expect(fighter).not.toContain('initPhysics');
-    for (const id of ['shooter@first-person', 'shooter@third-person', 'soulslike@third-person', 'rpg@third-person', 'rpg@first-person']) {
+    for (const id of ['shooter@first-person', 'shooter@third-person', 'soulslike@third-person']) {
       const base = await level(id);
       expect(base, id).toContain('genre.intent');
       expect(base, id).toContain('initPhysics');
       expect(base, id).toContain(id.endsWith('first-person') ? "MODE = 'first-person'" : "MODE = 'third-person'");
+    }
+    for (const id of ['rpg@third-person', 'rpg@first-person']) {
+      const village = await level(id);
+      expect(village, id).toContain('genre.intent');
+      expect(village, id).toContain('initPhysics');
+      expect(village, id).toContain('createMaterials');
+      expect(village, id).toContain("config.perspective === 'first-person'");
     }
     const action = await level('character-action@third-person');
     expect(action).toContain('genre.intent');
