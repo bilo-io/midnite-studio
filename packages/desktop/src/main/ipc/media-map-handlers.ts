@@ -116,6 +116,7 @@ export const captureService = createCaptureService({
     library: (req) => terrainService().library(req),
     setInput: (req) => terrainService().setInput(req),
     setRoadsGraph: (target, graph) => terrainService().setRoadsGraph(target, graph),
+    setBuildingsFootprints: (target, data) => terrainService().setBuildingsFootprints(target, data),
     setSpec: (req) => terrainService().setSpec(req),
     build: (req) => terrainService().build(req),
   },

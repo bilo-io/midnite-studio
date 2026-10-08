@@ -12,10 +12,13 @@ export const OVERPASS_MAX_BYTES = 64 * 1024 * 1024;
 export const OVERPASS_DEFAULT_RETRY_S = 10;
 
 /** `bbox` is `[west, south, east, north]`; Overpass wants `(S,W,N,E)`. */
-export function overpassQuery(bbox: readonly [number, number, number, number]): string {
+export type OverpassKind = 'roads' | 'buildings';
+
+export function overpassQuery(bbox: readonly [number, number, number, number], kind: OverpassKind = 'roads'): string {
   const [w, s, e, n] = bbox;
   const box = [s, w, n, e].map((v) => v.toFixed(7)).join(',');
-  return `[out:json][timeout:60];way["highway"~"${map.OSM_HIGHWAY_FILTER}"](${box});(._;>;);out body;`;
+  const filter = kind === 'buildings' ? `way["building"]["building"!="no"]` : `way["highway"~"${map.OSM_HIGHWAY_FILTER}"]`;
+  return `[out:json][timeout:60];${filter}(${box});(._;>;);out body;`;
 }
 
 export type OverpassResponseLike = {
@@ -54,8 +57,8 @@ export function createOverpassClient(deps: OverpassDeps) {
     }
   }
 
-  async function query(bbox: readonly [number, number, number, number], signal: AbortSignal): Promise<OverpassResult> {
-    const body = `data=${encodeURIComponent(overpassQuery(bbox))}`;
+  async function query(bbox: readonly [number, number, number, number], signal: AbortSignal, kind: OverpassKind = 'roads'): Promise<OverpassResult> {
+    const body = `data=${encodeURIComponent(overpassQuery(bbox, kind))}`;
     let attempt = await once(body, signal);
     for (let retried = false; ; retried = true) {
       if (signal.aborted) return { ok: false, reason: 'Capture cancelled.', aborted: true };
@@ -72,10 +75,10 @@ export function createOverpassClient(deps: OverpassDeps) {
       if (res.status === 429 || res.status === 504 || res.status >= 500) return { ok: false, reason: MAP_ROADS_BUSY };
       if (!res.ok) return { ok: false, reason: `OpenStreetMap's Overpass server answered HTTP ${res.status}.` };
       const declared = Number(res.headers.get('content-length'));
-      if (declared > OVERPASS_MAX_BYTES) return { ok: false, reason: 'The roads response was too large (over 64 MB).' };
+      if (declared > OVERPASS_MAX_BYTES) return { ok: false, reason: 'The response was too large (over 64 MB).' };
       try {
         const bytes = await res.arrayBuffer();
-        if (bytes.byteLength > OVERPASS_MAX_BYTES) return { ok: false, reason: 'The roads response was too large (over 64 MB).' };
+        if (bytes.byteLength > OVERPASS_MAX_BYTES) return { ok: false, reason: 'The response was too large (over 64 MB).' };
         return { ok: true, osm: JSON.parse(new TextDecoder().decode(bytes)) as map.OsmResponse };
       } catch {
         if (signal.aborted) return { ok: false, reason: 'Capture cancelled.', aborted: true };

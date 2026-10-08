@@ -14,14 +14,14 @@ import { useMapPlaceStore } from './map-place-store';
 import { useMapCapture } from './use-map-capture';
 
 const DEM = mapSource('aws-terrarium');
-const STAGE_LABEL = { plan: 'Planning', dem: 'Fetching elevation tiles', satellite: 'Satellite', roads: 'Roads', encode: 'Resampling and encoding', handoff: 'Finishing' } as const;
+const STAGE_LABEL = { plan: 'Planning', dem: 'Fetching elevation tiles', satellite: 'Satellite', roads: 'Roads', buildings: 'Buildings', encode: 'Resampling and encoding', handoff: 'Finishing' } as const;
 
 const formatSide = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(2)} km`);
 
 /**
  * Capture heightmap (Phase 108 Theme D): the frame's centre is the saved frame (Theme C) or the view
  * centre; the side and the output size are set here. Theme E adds the satellite and roads layers
- * (on by default; roads are skipped above 25 km), Theme F the hand-off to Terrain.
+ * (on by default; roads are skipped above 25 km), Buildings likewise (above 10 km), Theme F the hand-off to Terrain.
  */
 export function MapCaptureSection({
   repoId,
@@ -40,6 +40,7 @@ export function MapCaptureSection({
   const capture = useMapCapture();
   const [satellite, setSatellite] = useState(true);
   const [roads, setRoads] = useState(true);
+  const [buildings, setBuildings] = useState(true);
   const [localSide, setLocalSide] = useState(map.frame?.sideM ?? 5000);
   const [localSize, setLocalSize] = useState<number>(map.frame?.size ?? 1025);
   const center = frame?.center ?? map.frame?.center ?? map.view.center;
@@ -47,14 +48,14 @@ export function MapCaptureSection({
   const size: number = frame ? frame.size : localSize;
   const setSideM = (v: number) => (frame ? onFrameChange?.({ ...frame, sideM: Math.min(MAP_CAPTURE_MAX_SIDE_M, Math.max(MAP_CAPTURE_MIN_SIDE_M, v)) }) : setLocalSide(v));
   const setSize = (v: number) => (frame ? onFrameChange?.({ ...frame, size: v as MapFrame['size'] }) : setLocalSize(v));
-  const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) }).filter((w) => roads || w.code !== 'roads-skipped');
+  const warnings = captureWarnings({ sideM, center }, size, { nativeMPerPx: mapKernel.nativeMPerPx(DEM.maxZoom, center[1], DEM.tileSize) }).filter((w) => (roads || w.code !== 'roads-skipped') && (buildings || w.code !== 'buildings-skipped'));
   const blocked = warnings.some((w) => w.blocking);
   const running = capture.state.phase === 'running';
   // The last searched place names the capture, but only while the frame is still near it.
   const lastPlace = useMapPlaceStore((st) => st.place);
   const place = lastPlace && mapKernel.inverse(lastPlace.center, center).distanceM <= Math.max(sideM, 5000) ? lastPlace.name.slice(0, 80) : undefined;
   const start = (extra: { handoff?: boolean; build?: boolean }) =>
-    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], satellite, roads, ...(place ? { place } : {}), ...extra });
+    void capture.start({ repoId, project, center, sideM, size: size as (typeof TERRAIN_RESOLUTIONS)[number], satellite, roads, buildings, ...(place ? { place } : {}), ...extra });
   const z = mapKernel.chooseCaptureZoom(DEM, { center, sideM: Math.min(Math.max(sideM, MAP_CAPTURE_MIN_SIDE_M), MAP_CAPTURE_MAX_SIDE_M) }, size);
 
   return (
@@ -111,6 +112,10 @@ export function MapCaptureSection({
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={roads} onChange={(e) => setRoads(e.target.checked)} />
           <span>Roads (OpenStreetMap)</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={buildings} onChange={(e) => setBuildings(e.target.checked)} />
+          <span>Buildings (OpenStreetMap)</span>
         </label>
       </fieldset>
       {warnings.map((w) => (

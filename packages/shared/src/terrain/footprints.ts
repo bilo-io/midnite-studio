@@ -1,3 +1,4 @@
+import type { MapBuildingsFile } from '../media-map-capture';
 import type { TerrainBuilding, TerrainSpec } from '../media-terrain';
 import type { Heightfield } from './heightfield';
 import { TERRAIN_CLASS_INDICES } from './classes';
@@ -98,6 +99,43 @@ export function extractFootprints(
     });
   }
 
+  return { buildings, warnings };
+}
+
+/**
+ * A Maps capture's OSM footprints as terrain buildings: the shapes are real, so there is no tracing.
+ * `heightM` is used as stated; footprints OSM gives no height for get a seeded one from `opts.height`
+ * (scaled by area like the traced ones). Parts that float (`minHeightM`) cannot be extruded from the
+ * ground and are skipped, as are footprints under `minAreaM2`.
+ */
+export function footprintsFromCapture(
+  file: MapBuildingsFile,
+  field: Heightfield,
+  opts: TerrainSpec['buildings'],
+): FootprintExtractionResult {
+  const rng = createRng(opts.seed ?? 1);
+  const [minH, maxH] = opts.height;
+  const buildings: TerrainBuilding[] = [];
+  let floating = 0;
+  for (const b of file.buildings) {
+    if (b.minHeightM !== undefined) {
+      floating += 1;
+      continue;
+    }
+    const polygon: [number, number][] = b.polygon.map(([x, z]) => [x, z]);
+    if (polygon.length < 3) continue;
+    if (signedArea(polygon) < 0) polygon.reverse();
+    const areaM2 = polygonArea(polygon);
+    if (areaM2 < (opts.minAreaM2 ?? 20)) continue;
+    let sumY = 0;
+    for (const [wx, wz] of polygon) sumY += sampleHeight(field, wx, wz);
+    // Always consume one draw, so a stated height does not shift the heights of the rest.
+    const drawn = minH + rng() * (maxH - minH);
+    const areaScale = opts.scaleByArea ? Math.max(0.75, Math.min(1.5, Math.sqrt(areaM2 / 200))) : 1;
+    const height = b.heightM ?? drawn * areaScale;
+    buildings.push({ polygon, baseY: Math.round((sumY / polygon.length) * 100) / 100, height: Math.round(height * 100) / 100 });
+  }
+  const warnings = floating > 0 ? [`${floating} floating building part${floating === 1 ? '' : 's'} skipped.`] : [];
   return { buildings, warnings };
 }
 

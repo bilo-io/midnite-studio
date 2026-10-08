@@ -6,6 +6,9 @@ import {
   MAP_CAPTURE_BUSY,
   MAP_CAPTURE_CANCELLED,
   MAP_KEY_MISSING_REASON,
+  MAP_BUILDINGS_MAX_SIDE_M,
+  MAP_BUILDINGS_NONE,
+  MAP_BUILDINGS_TOO_LARGE,
   MAP_ROADS_MAX_SIDE_M,
   MAP_ROADS_NONE,
   MAP_ROADS_TOO_LARGE,
@@ -71,7 +74,7 @@ export type CaptureServiceDeps = {
    * The Terrain tab's service, called directly (Phase 108 Decision 13) — never the renderer IPC chain,
    * so a capture started from an MCP tool hands off with the Maps tab closed. Absent: no hand-off.
    */
-  terrain?: Pick<TerrainService, 'library' | 'setInput' | 'setRoadsGraph' | 'setSpec' | 'build'>;
+  terrain?: Pick<TerrainService, 'library' | 'setInput' | 'setRoadsGraph' | 'setBuildingsFootprints' | 'setSpec' | 'build'>;
   /** Asks every window to select the new terrain (`mediaTerrainOpen`). */
   emitOpen?: (event: TerrainOpenEvent) => void;
   now?: () => Date;
@@ -184,7 +187,7 @@ export function createCaptureService(deps: CaptureServiceDeps) {
         return failure(MAP_CAPTURE_CANCELLED);
       }
 
-      // --- satellite and roads (a failure here never loses the heightmap) ----------------------------
+      // --- satellite, roads and buildings (a failure here never loses the heightmap) ----------------------------
       const missing: MapCaptureFile['missing'] = [];
       const files = [...encoded.stats.files];
       const attributions = [source.attribution];
@@ -270,6 +273,33 @@ export function createCaptureService(deps: CaptureServiceDeps) {
         if (reason) missing.push({ slot: 'roads', reason });
       }
 
+      if (req.buildings !== false) {
+        let reason: string | null = null;
+        if (req.sideM > MAP_BUILDINGS_MAX_SIDE_M) reason = MAP_BUILDINGS_TOO_LARGE;
+        else if (!deps.overpass) reason = 'Buildings are unavailable.';
+        else {
+          progress('buildings', 0);
+          const got = await deps.overpass.query(map.frameBBox(req.center, req.sideM), abort.signal, 'buildings');
+          if (abort.signal.aborted) {
+            await cleanup(tmpDir);
+            return failure(MAP_CAPTURE_CANCELLED);
+          }
+          if (!got.ok) reason = got.reason;
+          else {
+            const footprints = map.osmToBuildings(got.osm, req.center, req.sideM);
+            if (footprints.buildings.length === 0) reason = MAP_BUILDINGS_NONE;
+            else {
+              await writeFile(join(tmpDir, 'buildings.json'), `${JSON.stringify(footprints)}\n`);
+              files.push('buildings.json');
+              attributions.push(OSM_ATTRIBUTION_TEXT);
+              sources.buildings = 'overpass';
+            }
+          }
+          progress('buildings', 1);
+        }
+        if (reason) missing.push({ slot: 'buildings', reason });
+      }
+
       // --- write the sidecars and move into place ---------------------------------------------------
       const name = captureFolderName({ center: req.center, place: req.place }, now());
       const file: MapCaptureFile = {
@@ -351,6 +381,11 @@ export function createCaptureService(deps: CaptureServiceDeps) {
     if (graph) {
       const attached = await terrain.setRoadsGraph(target, graph);
       if (!attached.ok) return failure(`Could not attach the road graph to the terrain: ${why(attached)}`);
+    }
+    const footprints = await read('buildings.json');
+    if (footprints) {
+      const attached = await terrain.setBuildingsFootprints(target, footprints);
+      if (!attached.ok) return failure(`Could not attach the building footprints to the terrain: ${why(attached)}`);
     }
     const patch = handoffSpec(file, { repoId: req.repoId, project: req.project, name });
     const applied = await terrain.setSpec({ ...target, patch });
