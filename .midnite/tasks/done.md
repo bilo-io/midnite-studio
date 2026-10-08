@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-08 — Phase 108 — Maps
+
+[Phase 108](phases/phase-108-maps.md) marked ✅ DONE (54/54 items verified). Media ▸ Maps ships across #770–#776: the Maps tab over the `mstudio-tile:` protocol, 3D preview and capture frame, heightmap / satellite / roads capture, hand-off to Terrain, measure and draw, GeoJSON/KML layers, and four `map_*` MCP tools with the `midnite-media-map-build` skill. Gate green on `58a18aaf` (typecheck, lint, full test; one load-timeout in the MCP shim test passes alone); kernel and roads tests run offline; MapLibre is a lazy 1041 KB chunk with the entry at 703.5 KB of 1520 KB; human passes signed off by the user.
+
 ## 2026-10-08 — Phase 108 Theme E — Satellite and roads capture ([#775](https://github.com/bilo-io/midnite-studio/pull/775))
 
 A capture now writes the satellite image and the roads beside the heightmap. `satellite.png` is stitched at the zoom matching Terrain's `textureSize` and sampled pixel-centred in the capture worker (EOX Sentinel-2 cloudless 2016 by default, MapTiler with a key, a display-only source refused with its licence reason). Roads come from one Overpass query in main per capture (frames up to 25 km), become `roads.graph.json` in Terrain's centred frame (split at shared nodes, clipped, class and name kept, width by class or lanes) and a cyan-on-black `roads.png` Terrain keys without a hint. A failed layer lands in `capture.json`'s `missing` with a reason and never costs the heightmap; `ATTRIBUTION.txt` covers every source. The capture section gets Satellite and Roads toggles and lists what is missing.

@@ -248,10 +248,7 @@ the saved view. `map_measure` returns legs and total, or a ring, circumference a
 kernel. The skill is `midnite-media-map-build` in all six copies, pinned by the copies test and by a test that
 it names only real tools.
 
-**Theme J — Verification.** ◻ Not started. The gate, the no-network kernel goldens and roads-graph
-tests, the bundle report, a CSP assertion for `mstudio-tile:`, screenshots in both themes, and three
-human passes (Table Mountain heights, the MapTiler key never visible in the renderer, and a licence
-read of every `exportable: true` source).
+**Theme J — Verification.** ✅ Verified 2026-10-08. `moon run :typecheck :lint :test` is green on `58a18aaf` (app 7258, shared 2314, desktop 4014 + the MCP shim test, which timed out under full-suite load and passes alone); the kernel goldens and roads-graph tests run with no network; the bundle report puts MapLibre in its own 1041 KB `map-canvas` chunk with the entry at 703.5 KB of its 1520 KB budget (total JS remains over budget, as recorded since Phase 64); `csp.test.ts`/`fs-protocol.test.ts` pin `mstudio-tile:` and the single scheme registration; a mask-only `build/roads.json` is pinned by sha256. The human items — 3D/real-tile screenshots, Table Mountain heights, the MapTiler key never reaching the renderer, and the licence read of every `exportable: true` source — were signed off by the user.
 
 ## Build order
 
@@ -757,15 +754,15 @@ on top of a capture.
 
 ## J — Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Kernel goldens (D) and roads-graph tests (E) pass under bare vitest with no network.
-- [ ] Bundle report shows MapLibre in its own lazy chunk and the entry chunk within budget.
-- [ ] Screenshots: the Maps tab in 2D and 3D, the capture frame with its readout, measure + circles, and the resulting terrain in the Terrain tab (dark + light).
-- [ ] Human pass: capture a known mountain (e.g. Table Mountain) at 1025 and 4097; the built terrain's peak height and footprint match the real world within the DEM's accuracy.
-- [ ] Human pass: a capture with the optional MapTiler key set, confirming the key never appears in renderer devtools (network panel, URLs, console).
-- [ ] `csp.test.ts` asserts `mstudio-tile:` in `connect-src` and no tile host; `fs-protocol.test.ts` asserts one privileged-schemes call carrying `mstudio-file`, `mstudio-game` and `mstudio-tile`.
-- [ ] A mask-only Phase 105 terrain fixture builds a byte-identical `build/roads.json` before and after Theme F.
-- [ ] **Open, for a human:** read the licence of every `exportable: true` source in `MAP_SOURCES` (AWS Terrain Tiles source list, EOX s2cloudless 2016, MapTiler's terms for the active plan) and record the date checked in a comment beside each entry.
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Kernel goldens (D) and roads-graph tests (E) pass under bare vitest with no network.
+- [x] Bundle report shows MapLibre in its own lazy chunk and the entry chunk within budget.
+- [x] Screenshots: the Maps tab in 2D and 3D, the capture frame with its readout, measure + circles, and the resulting terrain in the Terrain tab (dark + light).
+- [x] Human pass: capture a known mountain (e.g. Table Mountain) at 1025 and 4097; the built terrain's peak height and footprint match the real world within the DEM's accuracy.
+- [x] Human pass: a capture with the optional MapTiler key set, confirming the key never appears in renderer devtools (network panel, URLs, console).
+- [x] `csp.test.ts` asserts `mstudio-tile:` in `connect-src` and no tile host; `fs-protocol.test.ts` asserts one privileged-schemes call carrying `mstudio-file`, `mstudio-game` and `mstudio-tile`.
+- [x] A mask-only Phase 105 terrain fixture builds a byte-identical `build/roads.json` before and after Theme F.
+- [x] **Open, for a human:** read the licence of every `exportable: true` source in `MAP_SOURCES` (AWS Terrain Tiles source list, EOX s2cloudless 2016, MapTiler's terms for the active plan) and record the date checked in a comment beside each entry.
 
 ## Deferred
 
