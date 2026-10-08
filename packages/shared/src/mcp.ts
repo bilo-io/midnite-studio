@@ -127,6 +127,16 @@ import {
   SpriteToolTargetOrSpecSchema,
   SpriteToolTargetSchema,
 } from './media-sprite-mcp';
+import {
+  MapCaptureTerrainInputSchema,
+  MapCaptureTerrainResultSchema,
+  MapGotoInputSchema,
+  MapGotoResultSchema,
+  MapListInputSchema,
+  MapListResultSchema,
+  MapMeasureInputSchema,
+  MapMeasureResultSchema,
+} from './media-map-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -260,7 +270,11 @@ type McpToolEntry = {
     | 'map_generate'
     | 'map_get'
     | 'map_patch'
-    | 'sprite_export';
+    | 'sprite_export'
+    | 'map_list'
+    | 'map_measure'
+    | 'map_goto'
+    | 'map_capture_terrain';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1257,6 +1271,48 @@ export const MCP_TOOLS = {
       'Writes the asset’s pack (atlas.json and anims.json, a .tsj, background.json or a .tmj with its images) inside the repo — use instead of copying files out of `export`; an existing pack is never overwritten.',
     input: SpriteExportInputSchema,
     output: SpriteExportOutputSchema,
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Maps (Phase 108 Theme I). `map_list` and `map_measure` answer whenever the server is on;
+   * `map_goto` (moves the user's view) and `map_capture_terrain` (writes files, creates a terrain) are
+   * gated by `Settings ▸ MCP ▸ Let agents capture maps` (`allowMaps`), off by default. Schemas:
+   * `media-map-mcp.ts`.
+   */
+  map_list: {
+    id: 'map_list',
+    title: 'List map projects, captures and layers',
+    description:
+      'Lists the Maps projects with their terrain captures (centre, side, heights, layers) and GeoJSON layers — use instead of `ls .midnite/media/map`; read-only.',
+    input: MapListInputSchema,
+    output: MapListResultSchema,
+    readOnly: true,
+  },
+  map_measure: {
+    id: 'map_measure',
+    title: 'Measure distances on the map',
+    description:
+      'Measures a path (each leg and the total) or a circle (ring of lon/lat vertices) on the WGS84 ellipsoid — use instead of a hand-rolled `haversine`; read-only.',
+    input: MapMeasureInputSchema,
+    output: MapMeasureResultSchema,
+    readOnly: true,
+  },
+  map_goto: {
+    id: 'map_goto',
+    title: 'Fly the Maps tab to a place',
+    description:
+      'Moves the Maps tab to a place name or lon/lat at a zoom — use instead of telling the user to search; refused unless `Let agents capture maps` is on.',
+    input: MapGotoInputSchema,
+    output: MapGotoResultSchema,
+    readOnly: false,
+  },
+  map_capture_terrain: {
+    id: 'map_capture_terrain',
+    title: 'Capture a map square for Terrain',
+    description:
+      'Captures a square of the real world (heightmap, satellite, roads) into a Terrain — use instead of hand-fetching tiles; then `terrain_build`; refused unless `Let agents capture maps` is on.',
+    input: MapCaptureTerrainInputSchema,
+    output: MapCaptureTerrainResultSchema,
     readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;

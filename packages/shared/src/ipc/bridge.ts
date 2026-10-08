@@ -1391,6 +1391,8 @@ export type MidniteStudioBridge = {
       capture: (req: In<typeof S.MediaMapCaptureRequest>) => Promise<z.infer<typeof S.MediaMapCaptureResponse>>;
       captureCancel: (req: In<typeof S.MediaMapCaptureCancelRequest>) => Promise<z.infer<typeof S.MediaMapCaptureCancelResponse>>;
       onCaptureProgress: (handler: (event: z.infer<typeof S.MediaMapCaptureProgressPayload>) => void) => Unsubscribe;
+      /** `map_goto` asked the map to fly to a place. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaMapOpenPayload>) => void) => Unsubscribe;
     };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;

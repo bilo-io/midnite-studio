@@ -81,6 +81,8 @@ describe('MCP_TOOLS', () => {
     'map_patch',
     'sprite_export',
     'sprite_cancel',
+    'map_goto',
+    'map_capture_terrain',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -267,6 +269,16 @@ describe('MCP_TOOLS', () => {
     map_get: { mapSpec: null, tileset: null, terrains: [], built: false, orientation: null, width: null, height: null, layers: [] },
     map_patch: { ok: false, errors: [{ path: 'ops[0]', message: 'x' }] },
     sprite_export: { path: '/r/x.sprite', bytes: 1, frames: 1, pages: 1, warnings: [] },
+    map_list: { projects: [{ name: 'maps', captures: [], layers: [{ name: 'drawings', features: 2 }] }] },
+    map_measure: { legsM: [1200], totalM: 1200 },
+    map_goto: { opened: true, center: [18.4, -33.9], zoom: 11 },
+    map_capture_terrain: { captureId: 'c1', name: 'table-mountain',
+      capture: {
+        version: 1, name: 'table-mountain', center: [18.4, -33.9], sideM: 4000, size: 513, mPerPx: 7.8, bbox: [18.3, -34, 18.5, -33.8],
+        heightMinM: 0, heightMaxM: 1085, hasSea: true, sources: { dem: 'aws-terrarium' }, demZoom: 12, attributions: [], files: [], missing: [], capturedAt: '2026-10-08T00:00:00Z',
+      },
+      missing: [],
+    },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -348,6 +360,8 @@ describe('MCP_TOOLS', () => {
       game_assert_frame: { game: 'g1', frame: 60, name: 'start' },
       game_playtest: { game: 'g1', name: 'smoke' },
       terrain_list: base,
+      map_measure: { points: [[18.4, -33.9], [18.5, -33.95]] },
+      map_capture_terrain: { ...base, center: [18.4, -33.9], sideM: 4000, size: 513 },
       terrain_open: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_get_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_set_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000', patch: { resolution: 129 } },

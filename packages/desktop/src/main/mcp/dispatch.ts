@@ -108,6 +108,7 @@ import {
   spriteSetSpec,
   tilesetGenerate,
 } from './sprite-tools';
+import { mapCaptureTerrain, mapGoto, mapList, mapMeasure } from './map-tools';
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -213,6 +214,10 @@ export const MCP_HANDLERS: {
   map_get: mapGet,
   map_patch: mapPatch,
   sprite_export: spriteExport,
+  map_list: mapList,
+  map_measure: mapMeasure,
+  map_goto: mapGoto,
+  map_capture_terrain: mapCaptureTerrain,
 };
 
 export type McpDispatchResult =

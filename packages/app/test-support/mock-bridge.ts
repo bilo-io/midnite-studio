@@ -3960,6 +3960,7 @@ export function buildMockBridge(data: MockFixtures) {
           }),
           captureCancel: async () => ({ ok: true as const, value: { cancelled: true } }),
           onCaptureProgress: () => () => undefined,
+          onOpen: () => () => undefined,
         };
       })(),
       sprite: (() => {

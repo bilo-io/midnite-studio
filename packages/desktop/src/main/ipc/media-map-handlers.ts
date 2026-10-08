@@ -5,6 +5,10 @@ import { app, nativeImage, net, utilityProcess } from 'electron';
 import { CHANNELS, EVENT_CHANNELS, failure, ok, schemas, type GitOpResult, type MapCacheStatus } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
+import { geocodePlace } from '../media/map/geocode';
+import { createMapTools } from '../media/map/map-mcp';
+import { setMapTools } from '../mcp/map-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
 import { createCaptureBroker, mapCaptureWorkerScriptPath, type CaptureWorkerHandle } from '../media/map/capture-broker';
 import { createCaptureService } from '../media/map/capture-service';
 import { createTileCache, type TileCache } from '../media/map/tile-cache';
@@ -113,6 +117,28 @@ export const captureService = createCaptureService({
   emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMapCaptureProgress, event),
   log: (line) => defaultLogger.info(line),
 });
+
+/**
+ * The `map_*` MCP tools (Phase 108 Theme I): thin adapters over this file's own services, so
+ * `map_capture_terrain` is the Maps tab's capture — satellite, roads and hand-off included. The write
+ * tools sit behind the `allowMaps` switch (`mcp/map-tools.ts`); `map_goto` is broadcast to every window.
+ */
+setMapTools(
+  createMapTools({
+    resolveRepo: async (repoPath) => {
+      const resolved = await resolveRegisteredRepo(repoPath);
+      if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id };
+      return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+    },
+    listProjects: (repoId) => mediaStore.listProjects({ repoId, tab: 'map' }),
+    listFiles: (scope) => mediaStore.listFiles(scope),
+    readText: (req) => mediaStore.readFile({ repoId: req.repoId, tab: 'map', project: req.project, path: req.path, encoding: 'utf8' }),
+    setView: (req) => mapService.setView(req),
+    capture: (req) => captureService.capture(req),
+    geocode: (query) => geocodePlace(query, (url, init) => net.fetch(url, init)),
+    emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMapOpen, event),
+  }),
+);
 
 export function registerMediaMapHandlers(): void {
   const invalid = (issue: string) => failure(issue);
