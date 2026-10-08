@@ -48,6 +48,8 @@ export function createFx(options) {
   settings.subscribe(applyVolume);
 
   let moments = 0;
+  /** @type {Set<{ stop: () => void, set: (patch: Record<string, number>) => void }>} */
+  const beds = new Set();
   /** @type {string | null} */
   let lastMoment = null;
 
@@ -102,10 +104,34 @@ export function createFx(options) {
     });
   };
 
+  /**
+   * Keep an ambience or engine bed playing (`kit/core/sfx.js` `LOOPING_SFX`). The bed rides the master volume, so it falls silent with
+   * `?juice=off` or a zero volume setting and returns with it; `set({ pitch, volume })` retunes it (an engine from speed). It ends with `shutdown()`.
+   * @param {string} name
+   * @param {{ volume?: number, pitch?: number, power?: number }} [o]
+   */
+  const ambience = (name, o = {}) => {
+    const handle = audio.sfx.loop(name, o);
+    beds.add(handle);
+    return {
+      set: (/** @type {{ volume?: number, pitch?: number, power?: number }} */ patch) => handle.set(patch),
+      stop: () => {
+        handle.stop();
+        beds.delete(handle);
+      },
+    };
+  };
+  /** End every bed; the level calls it from the loop's `stop()` and the page's `pagehide`. */
+  const shutdown = () => {
+    for (const h of beds) h.stop();
+    beds.clear();
+  };
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', shutdown);
+
   extendHook('fx', {
     trigger: (/** @type {string} */ name) => moment(name, { position: [0, 1.4, 0] }),
-    state: () => ({ ...juice.state(), moments, lastMoment, sfx: audio.sfx.played, postfx: postfx.usingComposer }),
+    state: () => ({ ...juice.state(), moments, lastMoment, beds: beds.size, sfx: audio.sfx.played, postfx: postfx.usingComposer }),
   });
 
-  return { settings, materials, audio, sfx: audio.sfx, postfx, juice, moment, pop, get moments() { return moments; }, get lastMoment() { return lastMoment; } };
+  return { settings, materials, audio, sfx: audio.sfx, postfx, juice, moment, pop, ambience, shutdown, get moments() { return moments; }, get lastMoment() { return lastMoment; } };
 }

@@ -17,15 +17,17 @@
  * @type {Record<string, Moment>}
  */
 export const MOMENTS = {
-  'fire-rifle': { shake: 0.07, particles: [{ kind: 'muzzle', count: 6 }], sfx: [{ name: 'shoot', pitch: 1, power: 0.8 }] },
-  'fire-pistol': { shake: 0.11, particles: [{ kind: 'muzzle', count: 5, scale: 0.8 }], sfx: [{ name: 'shoot', pitch: 1.4, power: 0.75 }] },
+  'fire-rifle': { shake: 0.07, particles: [{ kind: 'muzzle', count: 6 }], sfx: [{ name: 'gunshot-rifle', power: 0.85 }] },
+  'fire-pistol': { shake: 0.11, particles: [{ kind: 'muzzle', count: 5, scale: 0.8 }], sfx: [{ name: 'gunshot-pistol', power: 0.8 }] },
+  // No shotgun in the arsenal yet; a weapon table row for one fires this.
+  'fire-shotgun': { shake: 0.3, aberration: 0.2, particles: [{ kind: 'muzzle', count: 10, scale: 1.2 }, { kind: 'dust', count: 4 }], sfx: [{ name: 'gunshot-shotgun', power: 0.95 }] },
   'fire-launcher': {
     shake: 0.4,
     aberration: 0.3,
     particles: [{ kind: 'muzzle', count: 12, scale: 1.4 }, { kind: 'dust', count: 6 }],
-    sfx: [{ name: 'shoot', pitch: 0.45, power: 1 }, { name: 'explosion', pitch: 2.4, power: 0.3 }],
+    sfx: [{ name: 'gunshot-shotgun', pitch: 0.6, power: 1 }, { name: 'explosion', pitch: 2.4, power: 0.3 }],
   },
-  'enemy-fire': { particles: [{ kind: 'muzzle', count: 4, scale: 0.7, colors: [0xffd0b0, 0xff8a5c] }], sfx: [{ name: 'shoot', pitch: 0.72, power: 0.5 }] },
+  'enemy-fire': { particles: [{ kind: 'muzzle', count: 4, scale: 0.7, colors: [0xffd0b0, 0xff8a5c] }], sfx: [{ name: 'gunshot-rifle', pitch: 0.8, power: 0.5 }] },
   'impact-wall': {
     particles: [{ kind: 'impact', count: 8, scale: 0.6 }, { kind: 'debris', count: 5, scale: 0.6 }, { kind: 'dust', count: 3, scale: 0.5 }],
     sfx: [{ name: 'hit', pitch: 2.4, power: 0.28 }],
@@ -38,7 +40,7 @@ export const MOMENTS = {
     glow: 0xffd37a,
     textKind: 'crit',
     particles: [{ kind: 'spark', count: 12, colors: [0xffffff, 0xffd37a, 0xff7a3d] }],
-    sfx: [{ name: 'hit', pitch: 0.8, power: 0.9 }, { name: 'parry', pitch: 1.6, power: 0.18 }],
+    sfx: [{ name: 'hit', pitch: 0.8, power: 0.8 }, { name: 'critical', power: 0.7 }],
   },
   'bullet-whiz': { sfx: [{ name: 'swing', pitch: 2.3, power: 0.22 }] },
   'hit-marker': { aberration: 0.12, sfx: [{ name: 'ui-click', pitch: 1.9, power: 0.55 }] },
@@ -72,10 +74,10 @@ export const MOMENTS = {
     aberration: 1,
     sfx: [{ name: 'death', pitch: 0.8, power: 1 }],
   },
-  'reload-start': { sfx: [{ name: 'ui-click', pitch: 0.6, power: 0.7 }, { name: 'door', pitch: 2.4, power: 0.25 }] },
-  'reload-done': { sfx: [{ name: 'block', pitch: 1.9, power: 0.4 }, { name: 'ui-click', pitch: 1, power: 0.6 }] },
+  'reload-start': { sfx: [{ name: 'reload', power: 0.8 }] },
+  'reload-done': { sfx: [{ name: 'reload', pitch: 1.35, power: 0.5 }, { name: 'block', pitch: 1.9, power: 0.3 }] },
   'weapon-switch': { sfx: [{ name: 'ui-click', pitch: 0.85, power: 0.6 }, { name: 'swing', pitch: 1.8, power: 0.3 }] },
-  'dry-fire': { sfx: [{ name: 'ui-click', pitch: 0.5, power: 0.55 }] },
+  'dry-fire': { sfx: [{ name: 'empty-click', power: 0.7 }] },
   'casing-land': { sfx: [{ name: 'coin', pitch: 1.5, power: 0.1 }] },
   'wave-start': { shake: 0.15, flash: 0.08, flashColor: 0x9ec5ff, sfx: [{ name: 'door', pitch: 0.7, power: 0.7 }, { name: 'powerup', pitch: 0.6, power: 0.3 }] },
   respawn: { flash: 0.35, flashColor: 0xffffff, flashSeconds: 0.5, sfx: [{ name: 'win', pitch: 0.7, power: 0.35 }] },

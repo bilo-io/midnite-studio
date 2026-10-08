@@ -15,6 +15,7 @@ import { moveRelativeToYaw } from 'kit/core/cameras.js';
 import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
@@ -43,18 +44,11 @@ const animationState = (character) => {
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0d1117);
-  scene.fog = new THREE.Fog(0x0d1117, 26, 70);
-  scene.add(new THREE.HemisphereLight(0xbfd6ff, 0x2a2f3a, 1.25));
-  const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
-  sun.position.set(10, 16, 6);
-  sun.castShadow = true;
-  sun.shadow.camera.left = sun.shadow.camera.bottom = -34;
-  sun.shadow.camera.right = sun.shadow.camera.top = 34;
-  scene.add(sun);
 
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('game'));
   const renderer = createRenderer(canvas);
+  // Dusk over the yard: the kit's sky dome, sun, hemisphere light, fog and reflection map in one call (kit/three/environment.js).
+  const env = createEnvironment({ scene, renderer, preset: 'dusk', fog: [26, 70], shadowSize: 34 });
   const input = createInput(THREE_BINDINGS);
   const physics = await initPhysics();
   const character = createCharacter(physics, { position: [0, 0.1, 6] });
@@ -95,7 +89,8 @@ export async function startLevel() {
     scene.add(post, head);
   }
 
-  const enemy = box([1, 1, 1], materials.get('tiles', { repeat: [1, 1], tint: 0xa8383c, normalScale: 0.6 }), [-3, 0.5, 4]);
+  // The patrolling obstacle: a hazard-striped steel crate (procedural metal, a dull amber tint), not a flat red cube.
+  const enemy = box([1, 1, 1], materials.get('metal', { repeat: [1, 1], tint: 0xc9a03a, normalScale: 0.9, metalness: 0.6, roughness: 0.45 }), [-3, 0.5, 4]);
   scene.add(enemy);
 
   /** A stand-in third-person body; first person shows the viewmodel the genre adds instead. */
@@ -119,7 +114,10 @@ export async function startLevel() {
   let stride = 0;
   let hurtCooldown = 0;
 
-  startLoop({
+  // A faint room-tone wind over the yard; it rides the juice volume and ends with the loop.
+  fx.ambience('ambience-wind', { volume: 0.35, power: 0.5 });
+
+  const loop = startLoop({
     renderer,
     scene,
     camera: rig.camera,
@@ -167,6 +165,7 @@ export async function startLevel() {
         sfx.play('door', { position: [0, 1.5, -3] });
       }
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
+      env.follow(character.position);
       avatar.position.set(...character.position);
       avatar.rotation.y = character.yaw;
       genre.update(dt, frame);
@@ -181,4 +180,11 @@ export async function startLevel() {
       ...genre.state(),
     }),
   });
+  // Shutdown ends the wind bed and releases the sky along with the loop.
+  const stopLoop = loop.stop;
+  loop.stop = () => {
+    fx.shutdown();
+    env.dispose();
+    stopLoop();
+  };
 }
