@@ -40,6 +40,9 @@ export function installGenre(scene, ctx) {
   const { juice, lighting } = fx;
   fx.takeOver(ctx.glow);
   ctx.glow.setRadius(world.unit * 9).setIntensity(1.1);
+  // A dusk-dark dungeon with a room tone under it. `ambience` replaces the base's own bed rather than stacking on it.
+  fx.tint('dusk');
+  fx.ambience('ambience-room', { volume: 0.4 });
   const critRng = createRng(0xc417); // its own stream: crits must not shift the loot rolls
   const shadow = shadowTexture(scene);
   const screen = (/** @type {{x:number,y:number}} */ at) => world.toScreen(at.x, at.y);
@@ -72,7 +75,7 @@ export function installGenre(scene, ctx) {
   const open = (/** @type {number} */ x, /** @type {number} */ y) => grid[Math.floor(y)]?.[Math.floor(x)] === 0;
 
   const start = { x: dungeon.rooms[0].x + dungeon.rooms[0].w / 2, y: dungeon.rooms[0].y + dungeon.rooms[0].h / 2 };
-  const player = { x: start.x, y: start.y, hp: 100, maxHp: 100, mana: 50, maxMana: 50, kills: 0, path: /** @type {{x:number,y:number}[]} */ ([]) };
+  const player = { x: start.x, y: start.y, hp: 100, maxHp: 100, mana: 50, maxMana: 50, kills: 0, level: 1, path: /** @type {{x:number,y:number}[]} */ ([]) };
   const body = lighting.lit(scene.add.image(0, 0, domeTexture(scene, 'arpg-hero', { size: 32, color: 0xfbbf24, eyes: true })).setDisplaySize(world.unit * 0.8, world.unit * 0.8));
   const bodyShadow = scene.add.image(0, 0, shadow).setDisplaySize(world.unit * 1.1, world.unit * 0.55);
   let stride = 0;
@@ -102,7 +105,20 @@ export function installGenre(scene, ctx) {
   const hotbar = scene.add.text(12, scene.scale.height - 24, '', { fontFamily: 'monospace', fontSize: '13px', color: '#e6edf3' }).setScrollFactor(0).setDepth(1000);
   scene.cameras.main.startFollow(body, true, 0.12, 0.12);
 
-  const damage = () => 20 + equippedPower(inventory);
+  const damage = () => 20 + equippedPower(inventory) + (player.level - 1) * 2;
+
+  /** A level every four kills: more health, a full heal and the fanfare. */
+  function checkLevel() {
+    const level = 1 + Math.floor(player.kills / 4);
+    if (level <= player.level) return;
+    player.level = level;
+    player.maxHp += 10;
+    player.hp = player.maxHp;
+    const at = screen(player);
+    juice.trigger('level-up', { x: at.x, y: at.y - world.unit * 0.4 });
+    juice.text(at.x, at.y - world.unit, `LEVEL ${level}`, 'heal');
+    fx.ring(at.x, at.y, { radius: world.unit * 2.5, ms: 600, color: 0xfff2b0, squash: world.iso ? 0.5 : 1 });
+  }
 
   function hurt(/** @type {any} */ enemy, /** @type {number} */ amount) {
     // One in six blows crits: bigger number, harder hit-stop. A separate rng stream, so loot rolls are unchanged.
@@ -112,7 +128,7 @@ export function installGenre(scene, ctx) {
     const p = screen(enemy);
     enemy.aggro = true;
     if (enemy.hp > 0) {
-      juice.trigger('hit', { target: enemy.dot, x: p.x, y: p.y - world.unit * 0.3, strength: crit ? 1.3 : 0.7, text: dealt, textKind: crit ? 'crit' : 'hit' });
+      juice.trigger(crit ? 'critical' : 'hit', { target: enemy.dot, x: p.x, y: p.y - world.unit * 0.3, strength: crit ? 1.3 : 0.7, text: dealt, textKind: crit ? 'crit' : 'hit' });
       return;
     }
     juice.trigger('hit', { x: p.x, y: p.y - world.unit * 0.3, strength: 1.4, text: dealt, textKind: 'crit' });
@@ -122,6 +138,7 @@ export function installGenre(scene, ctx) {
     enemy.shadow.destroy();
     enemies.splice(enemies.indexOf(enemy), 1);
     player.kills += 1;
+    checkLevel();
     if (rng.next() < 0.6) {
       const item = rollLoot(DEFAULT_TABLE, () => rng.next());
       const color = /** @type {Record<string, number>} */ (RARITY_COLOR)[item.rarity];
@@ -152,9 +169,15 @@ export function installGenre(scene, ctx) {
       juice.burst('spark', sx, sy, { dir: [facing.x, facing.y], count: 8, scale: 0.8 });
       fx.ring(sx, sy, { radius: world.unit * 1.4, ms: 240, color: 0xfff2b0, squash: world.iso ? 0.5 : 1 });
       juice.squash(body, [1.25, 0.85], { ms: 200 });
-      for (const e of [...enemies]) if (Math.hypot(e.x - player.x, e.y - player.y) < 1.6) hurt(e, damage());
+      let struck = 0;
+      for (const e of [...enemies]) {
+        if (Math.hypot(e.x - player.x, e.y - player.y) >= 1.6) continue;
+        struck += 1;
+        hurt(e, damage());
+      }
+      if (struck > 0) fx.play('sword-clash', { x: here.x, power: 0.8, volume: 0.7 }); // steel on bone, once per swing
     } else if (skill.id === 'fireball') {
-      fx.play('laser', { x: here.x, pitch: 0.7, power: 0.8 });
+      juice.trigger('magic-cast', { x: here.x, y: here.y });
       juice.burst('muzzle', here.x, here.y, { dir: [facing.x, facing.y], scale: 0.8 });
       const aim = world.pointerTile();
       let dx = aim.x - player.x;
@@ -166,7 +189,7 @@ export function installGenre(scene, ctx) {
       const orb = scene.add.image(0, 0, 'kit-juice-dot').setTint(0xff8a2a).setBlendMode(1).setDisplaySize(world.unit * 0.8, world.unit * 0.8);
       shots.push({ x: player.x, y: player.y, vx: dx * 9, vy: dy * 9, life: 1200, dot: orb, light: lighting.add(here.x, here.y, { radius: world.unit * 5, intensity: 1.2, color: 0xff8a2a }), trail: 0 });
     } else if (skill.id === 'nova') {
-      fx.play('explosion', { x: here.x, pitch: 1.3, power: 0.7 });
+      fx.play('magic-cast', { x: here.x, pitch: 0.7, power: 1.2 }); // a deeper, heavier cast than the fireball
       fx.ring(here.x, here.y, { radius: world.unit * 7, ms: 420, color: 0x93c5fd, width: 3, squash: world.iso ? 0.5 : 1 });
       juice.shake(0.3);
       juice.screenFlash(0x93c5fd, 0.18, 220);
@@ -175,9 +198,8 @@ export function installGenre(scene, ctx) {
       scene.tweens.add({ targets: novaRing, scale: world.unit * 0.2, alpha: 0, duration: 350, onComplete: () => novaRing.setVisible(false) });
     } else {
       player.hp = Math.min(player.maxHp, player.hp + 40);
-      fx.play('powerup', { x: here.x, power: 0.7 });
+      juice.trigger('heal', { x: here.x, y: here.y - world.unit * 0.3, text: '+40', textKind: 'heal' });
       juice.burst('spark', here.x, here.y, { colors: [0x6ee7a8, 0xbbf7d0], scale: 1 });
-      juice.text(here.x, here.y - world.unit, '+40', 'heal');
     }
   }
 
@@ -332,7 +354,7 @@ export function installGenre(scene, ctx) {
 
       hud.setScore(player.kills);
       hud.setHealth(Math.round(player.hp), player.maxHp);
-      barText.setText(`MP ${Math.round(player.mana)}/${player.maxMana}   ATK ${damage()}`);
+      barText.setText(`LV ${player.level}   MP ${Math.round(player.mana)}/${player.maxMana}   ATK ${damage()}`);
       hotbar.setText(SKILLS.map((s, i) => `[${i + 1}] ${s.id}${cooldowns[i] > 0 ? ` ${(cooldowns[i] / 1000).toFixed(1)}s` : ''}`).join('   ') + '   [I] bag');
       bagText.setVisible(bagOpen);
       if (bagOpen) {
@@ -344,6 +366,7 @@ export function installGenre(scene, ctx) {
       return {
         player: { position: [Number(player.x.toFixed(3)), Number(player.y.toFixed(3))], health: Math.round(player.hp) },
         arpg: {
+          level: player.level,
           mana: Math.round(player.mana),
           kills: player.kills,
           enemies: enemies.length,

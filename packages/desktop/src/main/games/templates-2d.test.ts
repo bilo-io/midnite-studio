@@ -57,6 +57,89 @@ describe('raycaster shade.js', () => {
   });
 });
 
+describe('raycaster sky (kit v0.11)', () => {
+  it('the sky gradient runs zenith at the top to horizon at the horizon, and clamps', async () => {
+    const { skyGradient } = await load('raycaster/src/shade.js');
+    expect(skyGradient(0, [10, 20, 30], [200, 210, 220])).toEqual([10, 20, 30]);
+    expect(skyGradient(1, [10, 20, 30], [200, 210, 220])).toEqual([200, 210, 220]);
+    expect(skyGradient(2, [10, 20, 30], [200, 210, 220])).toEqual([200, 210, 220]);
+    // eased: the haze gathers low, so the middle is nearer the zenith than the straight average
+    expect(skyGradient(0.5, [0, 0, 0], [100, 100, 100])[0]).toBeLessThan(50);
+  });
+
+  it('stars are a pure hash of bearing and row: replayable, absent by day, sparse at night', async () => {
+    const { starAt } = await load('raycaster/src/shade.js');
+    expect(starAt(12, 7, 0)).toBe(0);
+    expect(starAt(12, 7, 1)).toBe(starAt(12, 7, 1));
+    let lit = 0;
+    for (let bin = 0; bin < 200; bin += 1) for (let row = 0; row < 100; row += 1) if (starAt(bin, row, 1) > 0) lit += 1;
+    expect(lit).toBeGreaterThan(100);
+    expect(lit).toBeLessThan(400); // about 1.2% of 20000
+  });
+
+  it('a bright sky lifts the room ambient and a night sky leaves it dim', async () => {
+    const { skyAmbient } = await load('raycaster/src/shade.js');
+    const { SKY_PRESETS } = await import(pathToFileURL(join(bases, '../kit/core/sky.js')).href);
+    const day = skyAmbient(SKY_PRESETS.day);
+    const night = skyAmbient(SKY_PRESETS.night);
+    expect(day[0] + day[1] + day[2]).toBeGreaterThan(night[0] + night[1] + night[2]);
+    for (const c of [...day, ...night]) expect(c).toBeGreaterThan(0);
+  });
+
+  it('the view opens its ceiling through setSky and only over the cells it is asked to', async () => {
+    const view = await read('raycaster/src/render.js');
+    expect(view).toContain('setSky(');
+    expect(view).toContain('skylit(Math.floor(fx), Math.floor(fy))');
+    const level = await read('raycaster/src/scenes/level.js');
+    expect(level).toContain("setSky('dusk'");
+    expect(level).toContain("ambience('ambience-wind'");
+  });
+});
+
+describe('looping beds in the 2D bases (kit v0.11)', () => {
+  it('fx.js tracks loops, follows the juice settings and ends them with the scene', async () => {
+    const fx = await read('raycaster/src/fx.js');
+    expect(fx).toContain('audio.sfx.loop(');
+    expect(fx).toContain('settings.subscribe(syncLoops)');
+    expect(fx).toContain("scene.events.once('shutdown', stopAll)");
+    expect(fx).toContain("scene.events.once('destroy', stopAll)");
+    expect(fx).toContain('r.enabled && r.volume > 0');
+  });
+
+  it('each base starts one default ambience bed through fx.ambience, so a genre replacing it never doubles up', async () => {
+    expect(await read('raycaster/src/scenes/level.js')).toContain("fx.ambience('ambience-wind'");
+    expect(await read('top-down/src/scenes/level.js')).toContain("fx.ambience('ambience-wind'");
+    expect(await read('isometric/src/scenes/level.js')).toContain("fx.ambience('ambience-room'");
+    for (const file of ['raycaster/src/scenes/level.js', 'top-down/src/scenes/level.js', 'isometric/src/scenes/level.js']) expect(await read(file), file).not.toContain('fx.loop(');
+  });
+
+  it('every sfx and loop name the genres use is a real kit v0.11 preset', async () => {
+    const { SFX_NAMES, LOOPING_SFX } = await import(pathToFileURL(join(bases, '../kit/core/sfx.js')).href);
+    const genres = resolve(bases, '../genres');
+    const used = new Map<string, string[]>([
+      ['fps', ['gunshot-pistol', 'gunshot-shotgun', 'gunshot-rifle', 'reload', 'empty-click', 'heal', 'ambience-room', 'ambience-wind']],
+      ['rts', ['combo-hit', 'critical', 'quest-complete', 'ambience-wind']],
+      ['arpg', ['magic-cast', 'critical', 'heal', 'level-up', 'sword-clash', 'ambience-room']],
+      ['crime', ['gunshot-pistol', 'engine-loop', 'ambience-crowd']],
+    ]);
+    for (const [genre, names] of used) {
+      const source = await readFile(join(genres, genre, 'src/genre/index.js'), 'utf8');
+      for (const name of names) {
+        expect(SFX_NAMES, name).toContain(name);
+        expect(source, `${genre} uses ${name}`).toContain(`'${name}'`);
+      }
+    }
+    expect(LOOPING_SFX).toEqual(expect.arrayContaining(['engine-loop', 'ambience-crowd', 'ambience-wind', 'ambience-room']));
+  });
+
+  it('crime stops the engine on leaving the car and on death; the base fx stops everything on shutdown', async () => {
+    const crime = await readFile(join(bases, '../genres/crime/src/genre/index.js'), 'utf8');
+    expect(crime.match(/stopEngine\(\)/g)?.length).toBeGreaterThanOrEqual(3); // exit, enter-swap, death
+    expect(crime).toContain("fx.loop('engine-loop'");
+    expect(crime).toContain('engine?.set({ pitch');
+  });
+});
+
 describe('isometric lit-math.js', () => {
   it('maps a diamond to texture space, with the corners at the extremes and nothing outside', async () => {
     const { isoUV } = await load('top-down/src/lit-math.js');

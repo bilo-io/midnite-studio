@@ -18,8 +18,9 @@
 
 import { generateTextureData } from 'kit/core/procedural-textures.js';
 import { castRays, projectSprite } from 'kit/core/raycast.js';
+import { SKY_PRESETS, skyAtTime } from 'kit/core/sky.js';
 
-import { bobOffset, falloff, floorRowDistance, packRgb, wallLight } from './shade.js';
+import { bobOffset, falloff, floorRowDistance, packRgb, rgbOf, skyAmbient, skyGradient, starAt, wallLight } from './shade.js';
 
 const TEX = 64;
 const AMBIENT = [0.15, 0.17, 0.23];
@@ -183,6 +184,45 @@ export function createRaycastView(scene, rig, options = {}) {
   let bobAmount = 1;
   let horizon = H / 2;
 
+  // The sky. Off by default (a stone ceiling); `setSky` swaps the ceiling for a gradient, sun glow and stars, over every
+  // cell `skylit` accepts. Walls keep their own light, so a room can open onto the sky without the whole map going outdoors.
+  /** @type {null | { zenith: [number, number, number], horizon: [number, number, number], sun: [number, number, number], stars: number, sunAngle: number, sunLift: number }} */
+  let sky = null;
+  let skylit = (/** @type {number} */ _cx, /** @type {number} */ _cy) => true;
+  let ambient = AMBIENT;
+  let fog = FOG;
+  const rowColor = [0, 0, 0];
+  const columnAngle = new Float64Array(W);
+
+  /** One sky pixel: the row's gradient, a soft sun glow where the sun sits and, at night, stars fixed to the world. */
+  function skyPixel(/** @type {number} */ x, /** @type {number} */ y, /** @type {number[]} */ base) {
+    const s = /** @type {NonNullable<typeof sky>} */ (sky);
+    let r = /** @type {number} */ (base[0]);
+    let g = /** @type {number} */ (base[1]);
+    let b = /** @type {number} */ (base[2]);
+    const sunX = sunScreenX;
+    if (sunX !== null) {
+      const dx = (x - sunX) / (W * 0.16);
+      const dy = (y - horizon * s.sunLift) / (H * 0.2);
+      const glow = Math.exp(-(dx * dx + dy * dy) * 2.2);
+      if (glow > 0.01) {
+        r += (s.sun[0] - r) * glow * 0.85;
+        g += (s.sun[1] - g) * glow * 0.85;
+        b += (s.sun[2] - b) * glow * 0.85;
+      }
+    }
+    if (s.stars > 0.05) {
+      const star = starAt(Math.floor((/** @type {number} */ (columnAngle[x]) * 180) / Math.PI * 2), y >> 1, s.stars);
+      if (star > 0) {
+        r += (255 - r) * star;
+        g += (255 - g) * star;
+        b += (245 - b) * star;
+      }
+    }
+    return packRgb(r, g, b);
+  }
+  let sunScreenX = /** @type {number | null} */ (null);
+
   /** Cast the floor and ceiling rows, lit from the torch. */
   function flats(dirX, dirY, planeX, planeY) {
     const { x: px, y: py } = rig.pos;
@@ -192,6 +232,7 @@ export function createRaycastView(scene, rig, options = {}) {
       if (rowDistance === Infinity) continue;
       const isFloor = y > horizon;
       const mat = isFloor ? floorMat : ceilMat;
+      const skyRow = !isFloor && sky ? skyGradient(y / Math.max(1, horizon), sky.zenith, sky.horizon, rowColor) : null;
       const hz = isFloor ? 0.6 : 0.4;
       const f = fogAmount(rowDistance);
       const stepX = (rowDistance * 2 * planeX) / W;
@@ -199,6 +240,12 @@ export function createRaycastView(scene, rig, options = {}) {
       let fx = px + rowDistance * (dirX - planeX);
       let fy = py + rowDistance * (dirY - planeY);
       for (let x = 0; x < W; x += 1) {
+        if (skyRow && skylit(Math.floor(fx), Math.floor(fy))) {
+          pixels[y * W + x] = skyPixel(x, y, skyRow);
+          fx += stepX;
+          fy += stepY;
+          continue;
+        }
         const tx = ((fx - Math.floor(fx)) * TEX) | 0;
         const ty = ((fy - Math.floor(fy)) * TEX) | 0;
         const ti = ty * TEX + tx;
@@ -211,9 +258,9 @@ export function createRaycastView(scene, rig, options = {}) {
         const lit = Math.max(0, (mat.normal[n] * dx - mat.normal[n + 1] * dy + mat.normal[n + 2] * hz) * inv) * falloff(d2) * GAIN * lamp;
         const a = ti * 4;
         pixels[y * W + x] = packRgb(
-          toFog(mat.albedo[a] * (AMBIENT[0] + lit * TORCH[0]), f, FOG[0]),
-          toFog(mat.albedo[a + 1] * (AMBIENT[1] + lit * TORCH[1]), f, FOG[1]),
-          toFog(mat.albedo[a + 2] * (AMBIENT[2] + lit * TORCH[2]), f, FOG[2]),
+          toFog(mat.albedo[a] * (ambient[0] + lit * TORCH[0]), f, fog[0]),
+          toFog(mat.albedo[a + 1] * (ambient[1] + lit * TORCH[1]), f, fog[1]),
+          toFog(mat.albedo[a + 2] * (ambient[2] + lit * TORCH[2]), f, fog[2]),
         );
         fx += stepX;
         fy += stepY;
@@ -250,9 +297,9 @@ export function createRaycastView(scene, rig, options = {}) {
         const lit = Math.max(0, (mat.normal[n] * lu + mat.normal[n + 1] * lv + mat.normal[n + 2] * ln) / Math.sqrt(d2)) * falloff(d2) * GAIN * lamp * sideDim;
         const a = (ty * TEX + tx) * 4;
         pixels[y * W + column] = packRgb(
-          toFog(mat.albedo[a] * (AMBIENT[0] + lit * TORCH[0]), f, FOG[0]),
-          toFog(mat.albedo[a + 1] * (AMBIENT[1] + lit * TORCH[1]), f, FOG[1]),
-          toFog(mat.albedo[a + 2] * (AMBIENT[2] + lit * TORCH[2]), f, FOG[2]),
+          toFog(mat.albedo[a] * (ambient[0] + lit * TORCH[0]), f, fog[0]),
+          toFog(mat.albedo[a + 1] * (ambient[1] + lit * TORCH[1]), f, fog[1]),
+          toFog(mat.albedo[a + 2] * (ambient[2] + lit * TORCH[2]), f, fog[2]),
         );
       }
     }
@@ -287,9 +334,9 @@ export function createRaycastView(scene, rig, options = {}) {
           const alpha = ((/** @type {Uint8ClampedArray} */ (art.bytes)[i + 3] ?? 0) / 255) * opacity;
           if (alpha < 0.04) continue;
           const bytes = /** @type {Uint8ClampedArray} */ (art.bytes);
-          const r = toFog(Math.min(255, (bytes[i] ?? 0) * dim + flash * 255), f, FOG[0]);
-          const g = toFog(Math.min(255, (bytes[i + 1] ?? 0) * dim + flash * 255), f, FOG[1]);
-          const b = toFog(Math.min(255, (bytes[i + 2] ?? 0) * dim + flash * 255), f, FOG[2]);
+          const r = toFog(Math.min(255, (bytes[i] ?? 0) * dim + flash * 255), f, fog[0]);
+          const g = toFog(Math.min(255, (bytes[i + 1] ?? 0) * dim + flash * 255), f, fog[1]);
+          const b = toFog(Math.min(255, (bytes[i + 2] ?? 0) * dim + flash * 255), f, fog[2]);
           const at = y * W + column;
           if (alpha >= 0.96) pixels[at] = packRgb(r, g, b);
           else {
@@ -332,6 +379,34 @@ export function createRaycastView(scene, rig, options = {}) {
       phase += cells * 5.2;
       bobAmount = scale;
     },
+    /**
+     * Open the ceiling to the sky. `spec` is a `kit/core/sky.js` preset name (`day`, `dawn`, `dusk`, `night`, `overcast`), an
+     * hour 0..24, or `null` to go back to the stone ceiling. `skylit(cellX, cellY)` limits it to some cells (default: all of
+     * them); `light` also lets the sky tint the room: its fog takes the horizon colour and its ambient the sky's bounce.
+     * @param {string | number | null} spec @param {{ skylit?: (cx: number, cy: number) => boolean, light?: boolean }} [o]
+     */
+    setSky(spec, o = {}) {
+      if (spec === null) {
+        sky = null;
+        ambient = AMBIENT;
+        fog = FOG;
+        return null;
+      }
+      const hours = typeof spec === 'number' ? spec : null;
+      const timed = hours === null ? null : skyAtTime(hours);
+      const preset = timed ? timed.preset : SKY_PRESETS[spec] ?? SKY_PRESETS['day'];
+      const p = /** @type {import('kit/core/sky.js').SkyPreset} */ (preset);
+      sky = { zenith: rgbOf(p.zenith), horizon: rgbOf(p.horizon), sun: rgbOf(p.sun), stars: p.stars, sunAngle: timed ? timed.azimuth : Math.PI * 0.25, sunLift: timed ? Math.max(0.2, 1 - timed.elevation) : 0.55 };
+      skylit = o.skylit ?? (() => true);
+      if (o.light) {
+        ambient = skyAmbient(p);
+        fog = rgbOf(p.fog).map((c) => c * 0.8);
+      } else {
+        ambient = AMBIENT;
+        fog = FOG;
+      }
+      return p;
+    },
     /** Where a world point lands in game pixels (960x540), or `null` behind the camera. */
     project(/** @type {number} */ x, /** @type {number} */ y, /** @type {number} */ lift = 0.3) {
       const proj = projectSprite(rig.pos, rig.angle, fov, { x, y }, W);
@@ -348,6 +423,14 @@ export function createRaycastView(scene, rig, options = {}) {
       const planeLength = Math.tan((fov * Math.PI) / 360);
       const planeX = -dirY * planeLength;
       const planeY = dirX * planeLength;
+      if (sky) {
+        // Per-frame sky setup: each column's world bearing (for the stars) and where the sun lands across the view.
+        const half = planeLength;
+        for (let x = 0; x < W; x += 1) columnAngle[x] = rig.angle + Math.atan(((2 * x) / W - 1) * half);
+        let off = sky.sunAngle - rig.angle;
+        off = Math.atan2(Math.sin(off), Math.cos(off));
+        sunScreenX = Math.abs(off) < 1.3 ? W / 2 + (Math.tan(off) / half) * (W / 2) : null;
+      }
       flats(dirX, dirY, planeX, planeY);
       walls3d(dirX, dirY, planeX, planeY);
       billboards();
