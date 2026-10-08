@@ -70,9 +70,9 @@ export async function startLevel() {
   hud.crosshair(MODE === 'first-person');
 
   const renderer = createRenderer(canvas);
-  // A late-afternoon village (16:30, between the kit's day and dusk looks): warm low sun, hazy amber sky and fog.
+  // A late-afternoon village (15:30, just past the kit's day look): warm low sun, hazy amber sky and fog.
   // Dungeon interiors, when a quest adds them, would take `preset: 'overcast'` or a torch-lit fog with the sky dome hidden.
-  const env = createEnvironment({ scene, renderer, timeOfDay: 16.5, fog: [26, 70], shadowSize: 40 });
+  const env = createEnvironment({ scene, renderer, timeOfDay: 15.5, fog: [26, 70], shadowSize: 40 });
   // Juice kit: on by default; `?juice=off` or `__midnite.juice.off()` silences it. Bloom is a touch warmer
   // and stronger than the default so spell glow and torch flames read.
   const settings = createJuiceSettings({ gameName: 'rpg' });

@@ -42,6 +42,11 @@ export async function startLevel() {
   const renderer = createRenderer(canvas);
   // A crimson dusk over the arena: the kit's sky, sun, fog and reflection map (kit/three/environment.js).
   const env = createEnvironment({ scene, renderer, preset: 'dusk', fog: [34, 80], shadowSize: 22 });
+  // Light the arena from behind the camera so its faces read (the default sun sits ahead of it and backlights everything).
+  env.setSun(2.3, 0.8);
+  // The preset's lights are gentler than the arena's old rig; scale them to keep its brightness (the env's own lights, no extras).
+  env.hemi.intensity *= 2.4;
+  env.sun.intensity *= 1.9;
   const physics = await initPhysics();
   physics.addGround(90);
   const character = createCharacter(physics, { position: PLAYER_SPAWN });

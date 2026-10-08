@@ -49,6 +49,11 @@ export async function startLevel() {
   const renderer = createRenderer(canvas);
   // Dusk over the yard: the kit's sky dome, sun, hemisphere light, fog and reflection map in one call (kit/three/environment.js).
   const env = createEnvironment({ scene, renderer, preset: 'dusk', fog: [26, 70], shadowSize: 34 });
+  // Light the arena from behind the camera so its faces read (the default sun sits ahead of it and backlights everything).
+  env.setSun(2.3, 0.8);
+  // The preset's lights are gentler than this yard's old rig; scale them to keep its brightness (the env's own lights, no extras).
+  env.hemi.intensity *= 1.6;
+  env.sun.intensity *= 1.6;
   const input = createInput(THREE_BINDINGS);
   const physics = await initPhysics();
   const character = createCharacter(physics, { position: [0, 0.1, 6] });

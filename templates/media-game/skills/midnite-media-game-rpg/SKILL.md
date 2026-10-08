@@ -36,7 +36,7 @@ Content rules: every quest stage names its trigger; every dialogue node must be 
 
 ## Sky and sound (kit v0.11.0)
 
-The village is `createEnvironment({ timeOfDay: 16.5, ... })` in `src/scenes/level.js` with `env.follow` each frame; a dungeon scene would take `preset: 'overcast'` and a torch-lit fog instead. Sound uses the dedicated presets: `magic-cast` for the firebolt, `level-up` for the level fanfare, `quest-complete` for a finished quest, `heal` for the healer and `critical` on a crit. The village breeze is `sfx.loop('ambience-wind', ...)` (use `ambience-room` for a dungeon); it follows the juice volume and stops with the loop.
+The village is `createEnvironment({ timeOfDay: 15.5, ... })` in `src/scenes/level.js` with `env.follow` each frame; a dungeon scene would take `preset: 'overcast'` and a torch-lit fog instead. Sound uses the dedicated presets: `magic-cast` for the firebolt, `level-up` for the level fanfare, `quest-complete` for a finished quest, `heal` for the healer and `critical` on a crit. The village breeze is `sfx.loop('ambience-wind', ...)` (use `ambience-room` for a dungeon); it follows the juice volume and stops with the loop.
 
 ## Play-test checklist
 

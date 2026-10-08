@@ -32,6 +32,9 @@ export async function startLevel() {
   const renderer = createRenderer(canvas);
   // Dusk over the dojo: the walls are open to the sky, and the lantern posts carry the warm light (kit/three/environment.js).
   const env = createEnvironment({ scene, renderer, preset: 'dusk', fog: [16, 36], shadowSize: 12 });
+  // The preset's lights are gentler than the dojo's old rig; scale them to keep its brightness (the env's own lights, no extras).
+  env.hemi.intensity *= 2.1;
+  env.sun.intensity *= 1.6;
   const input = createInput(FIGHTER_BINDINGS);
   const rig = createCameraRig({ mode: 'versus' });
   const fx = createFx({ gameName: 'fighter', scene, camera: rig.camera, renderer, bloom: { strength: 0.5, radius: 0.65, threshold: 0.8 }, exposure: 1.1 });

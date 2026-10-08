@@ -48,6 +48,11 @@ export async function startLevel() {
   const renderer = createRenderer(canvas);
   // Moonlit: the kit's night sky (stars, cold sun as the moon) with the courtyard's thick fog (kit/three/environment.js).
   const env = createEnvironment({ scene, renderer, preset: 'night', fog: [14, 60], shadowSize: 26 });
+  // Light the arena from behind the camera so its faces read (the default sun sits ahead of it and backlights everything).
+  env.setSun(2.3, 0.95);
+  // The night preset is far darker than this courtyard's old moonlight; scale its lights up (the env's own lights, no extras).
+  env.hemi.intensity *= 3;
+  env.sun.intensity *= 4;
   const input = createInput(THREE_BINDINGS);
   const physics = await initPhysics();
   const character = createCharacter(physics, { position: [0, 0.1, 6] });
