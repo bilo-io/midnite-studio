@@ -136,7 +136,8 @@ export function createTerrainTools(deps: TerrainMcpDeps) {
 
   async function terrain_get_spec(input: McpToolInput<'terrain_get_spec'>): Promise<McpToolOutput<'terrain_get_spec'>> {
     const t = await locate(input);
-    const attached = (['heightmap', 'satellite', 'roads'] as const).filter((slot) => t.spec.inputs[slot]);
+    const attached: string[] = (['heightmap', 'satellite', 'roads'] as const).filter((slot) => t.spec.inputs[slot]);
+    if (t.spec.inputs.buildingsFootprints) attached.push('buildings');
     const hint = needsHeightSource(t.spec)
       ? TERRAIN_NEEDS_HEIGHT_SOURCE_MESSAGE
       : t.built

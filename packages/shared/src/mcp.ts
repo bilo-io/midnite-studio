@@ -1310,7 +1310,7 @@ export const MCP_TOOLS = {
     id: 'map_capture_terrain',
     title: 'Capture a map square for Terrain',
     description:
-      'Captures a square of the real world (heightmap, satellite, roads) into a Terrain — use instead of hand-fetching tiles; then `terrain_build`; refused unless `Let agents capture maps` is on.',
+      'Captures a square of the real world (heightmap, satellite, roads, buildings) into a Terrain — use instead of hand-fetching tiles; then `terrain_build`; refused unless `Let agents capture maps` is on.',
     input: MapCaptureTerrainInputSchema,
     output: MapCaptureTerrainResultSchema,
     readOnly: false,

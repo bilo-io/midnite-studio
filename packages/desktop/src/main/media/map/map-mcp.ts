@@ -82,7 +82,7 @@ export function createMapTools(deps: MapMcpDeps) {
         const parsed = MapCaptureFileSchema.safeParse(json);
         if (!parsed.success) continue;
         const c = parsed.data;
-        const layers = (['heightmap', 'satellite', 'roads'] as const).filter((slot) => c.files.some((f) => f.includes(slot)));
+        const layers = (['heightmap', 'satellite', 'roads', 'buildings'] as const).filter((slot) => c.files.some((f) => f.includes(slot)));
         captures.push({
           name: CAPTURE_JSON.exec(file.path)![1]!,
           center: c.center,
@@ -152,6 +152,7 @@ export function createMapTools(deps: MapMcpDeps) {
       sideM: input.sideM,
       size: input.size,
       ...(input.place !== undefined ? { place: input.place } : {}),
+      ...(input.buildings !== undefined ? { buildings: input.buildings } : {}),
       handoff: input.handoff ?? true,
       build: input.build ?? false,
     });

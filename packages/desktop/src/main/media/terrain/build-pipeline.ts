@@ -10,6 +10,8 @@ import {
   detectRoadColour,
   edgeWidth,
   extractFootprints,
+  footprintsFromCapture,
+  MapBuildingsFileSchema,
   extractRoadMask,
   flattenFootprints,
   maskIoU,
@@ -62,7 +64,7 @@ import { terrainMaterialsDir } from './materials-path';
  * - `roads`: key the roads mask, skeletonise it into a graph (roads-mask.png)
  * - `conform`: flatten the field along the roads, then write roads.json off the conformed ground
  * - `foliage`: Poisson-disk scatter on the tree / grass classes (foliage.json)
- * - `buildings`: footprints from the building class, flattened under (buildings.json)
+ * - `buildings`: footprints (captured OSM ones, else traced from the building class), flattened under (buildings.json)
  * - `write`: write heights.f32 and chunks.json
  */
 export type BuildJob = { dir: string; outDir: string; spec: TerrainSpec };
@@ -82,10 +84,8 @@ export function plannedStages(spec: TerrainSpec): TerrainBuildStage[] {
     stages.push('roads');
     stages.push('conform');
   }
-  if (spec.inputs.satellite) {
-    stages.push('foliage');
-    stages.push('buildings');
-  }
+  if (spec.inputs.satellite) stages.push('foliage');
+  if (spec.inputs.satellite || spec.inputs.buildingsFootprints) stages.push('buildings');
   stages.push('write');
   return stages;
 }
@@ -261,28 +261,42 @@ export async function runTerrainBuild(
     onProgress('conform', 1);
   }
 
-  // Theme G: foliage and buildings, both read off the land cover.
+  // Theme G: foliage off the land cover; buildings from a capture's OSM footprints, else off the land cover.
   let foliageCount: number | undefined;
   let buildingCount: number | undefined;
+  let scattered: ReturnType<typeof scatterFoliage> | undefined;
   if (landcover) {
     onProgress('foliage', 0);
     const foliageOpts = { ...spec.foliage, assets: resolveFoliageAssets(spec.foliage.assets, warnings) };
-    const scattered = scatterFoliage(landcover.classes, landcover.res, field, foliageOpts, roadsOnLandcover);
+    scattered = scatterFoliage(landcover.classes, landcover.res, field, foliageOpts, roadsOnLandcover);
     warnings.push(...scattered.warnings);
     onProgress('foliage', 1);
-
+  }
+  let capturedFootprints: ReturnType<typeof MapBuildingsFileSchema.parse> | null = null;
+  if (spec.inputs.buildingsFootprints) {
+    const read = await readFile(join(job.dir, spec.inputs.buildingsFootprints.file), 'utf8')
+      .then((text) => MapBuildingsFileSchema.safeParse(JSON.parse(text)))
+      .catch(() => null);
+    if (read?.success) capturedFootprints = read.data;
+    else warnings.push('The captured building footprints could not be read — buildings come from the land cover instead.');
+  }
+  if (capturedFootprints || landcover) {
     onProgress('buildings', 0);
-    const footprints = extractFootprints(landcover.classes, landcover.res, spec.worldSize, field, spec.buildings);
+    const footprints = capturedFootprints
+      ? footprintsFromCapture(capturedFootprints, field, spec.buildings)
+      : extractFootprints(landcover!.classes, landcover!.res, spec.worldSize, field, spec.buildings);
     warnings.push(...footprints.warnings);
     // Buildings flatten after the roads, so a building never re-tilts a road.
     const flattened = flattenFootprints(field, footprints.buildings, spec.buildings.flattenBlendM);
     field = flattened.field;
     const buildingsFile: TerrainBuildingsFile = { version: 1, buildings: flattened.buildings };
     await writeFile(join(out, 'buildings.json'), JSON.stringify(buildingsFile));
-    // The flatten moved ground near the footprints: sit every plant back on it.
-    const foliageFile: TerrainFoliageFile = { version: 1, assets: scattered.assets, instances: roundInstances(reseatFoliage(scattered.instances, field)) };
-    await writeFile(join(out, 'foliage.json'), JSON.stringify(foliageFile));
-    foliageCount = foliageFile.instances.length;
+    if (scattered) {
+      // The flatten moved ground near the footprints: sit every plant back on it.
+      const foliageFile: TerrainFoliageFile = { version: 1, assets: scattered.assets, instances: roundInstances(reseatFoliage(scattered.instances, field)) };
+      await writeFile(join(out, 'foliage.json'), JSON.stringify(foliageFile));
+      foliageCount = foliageFile.instances.length;
+    }
     buildingCount = buildingsFile.buildings.length;
     onProgress('buildings', 1);
   }

@@ -107,6 +107,19 @@ export const TerrainRoadsGraphRefSchema = z.object({
 });
 export type TerrainRoadsGraphRef = z.infer<typeof TerrainRoadsGraphRefSchema>;
 
+/**
+ * The captured OSM building footprints a Maps capture hands over. Like the road graph it is JSON, so not
+ * an input slot. When present the build's `buildings` stage uses these (real shapes and heights) in place of
+ * footprints traced from the satellite land cover, and writes the same `build/buildings.json` layer — so
+ * viewer, export and previews treat it exactly like the traced one.
+ */
+export const TERRAIN_BUILDINGS_FOOTPRINTS_FILE = 'inputs/buildings.footprints.json' as const;
+export const TerrainBuildingsFootprintsRefSchema = z.object({
+  file: z.literal(TERRAIN_BUILDINGS_FOOTPRINTS_FILE),
+  count: z.number().int().nonnegative(),
+});
+export type TerrainBuildingsFootprintsRef = z.infer<typeof TerrainBuildingsFootprintsRefSchema>;
+
 /** Where a terrain came from, when a Maps capture made it (Phase 108 Decision 16). */
 export const TerrainGeoSchema = z.object({
   center: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
@@ -181,6 +194,8 @@ export const TerrainSpecSchema = z
         roads: TerrainInputRefSchema.optional(),
         /** Set only by a Maps capture; pairs with `roads` and is removed with it. */
         roadsGraph: TerrainRoadsGraphRefSchema.optional(),
+        /** Set only by a Maps capture: real OSM building footprints with heights. */
+        buildingsFootprints: TerrainBuildingsFootprintsRefSchema.optional(),
       })
       .default({}),
     resolution: z

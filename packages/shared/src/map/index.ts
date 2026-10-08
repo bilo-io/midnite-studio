@@ -9,3 +9,4 @@ export * from './osm-roads';
 export * from './resample';
 export * from './synthetic-dem';
 export * from './measure';
+export * from './osm-buildings';

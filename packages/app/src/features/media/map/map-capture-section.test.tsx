@@ -52,21 +52,27 @@ describe('MapCaptureSection', () => {
     const capture = vi.spyOn(window.midniteStudio!.media.map, 'capture');
     fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
     await waitFor(() => expect(capture).toHaveBeenCalledTimes(1));
-    expect(capture.mock.calls[0]![0]).toMatchObject({ satellite: true, roads: true });
+    expect(capture.mock.calls[0]![0]).toMatchObject({ satellite: true, roads: true, buildings: true });
     await screen.findByTestId('capture-done');
     fireEvent.click(screen.getByLabelText('Satellite image'));
     fireEvent.click(screen.getByLabelText('Roads (OpenStreetMap)'));
+    fireEvent.click(screen.getByLabelText('Buildings (OpenStreetMap)'));
     fireEvent.click(screen.getByRole('button', { name: 'Capture heightmap' }));
     await waitFor(() => expect(capture).toHaveBeenCalledTimes(2));
-    expect(capture.mock.calls[1]![0]).toMatchObject({ satellite: false, roads: false });
+    expect(capture.mock.calls[1]![0]).toMatchObject({ satellite: false, roads: false, buildings: false });
   });
 
-  it('warns that roads are skipped above 25 km only while roads are on, without blocking', () => {
+  it('warns that roads and buildings are skipped on big frames only while each is on, without blocking', () => {
     renderView(<MapCaptureSection repoId="r1" project="maps" map={defaultMapProject()} />, { fixtures });
     fireEvent.change(screen.getByLabelText('Capture side in metres'), { target: { value: '30000' } });
-    expect(screen.getByRole('status').textContent).toBe('Roads are captured for frames up to 25 km a side.');
+    expect(screen.getAllByRole('status').map((w) => w.textContent)).toEqual([
+      'Roads are captured for frames up to 25 km a side.',
+      'Buildings are captured for frames up to 10 km a side.',
+    ]);
     expect((screen.getByRole('button', { name: 'Capture heightmap' }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByLabelText('Roads (OpenStreetMap)'));
+    expect(screen.getByRole('status').textContent).toBe('Buildings are captured for frames up to 10 km a side.');
+    fireEvent.click(screen.getByLabelText('Buildings (OpenStreetMap)'));
     expect(screen.queryByRole('status')).toBeNull();
   });
 
