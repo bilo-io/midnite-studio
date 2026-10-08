@@ -12,7 +12,7 @@ import { SpriteCreatePanel } from './sprite/sprite-create-panel';
 
 /**
  * Structure of the Media detail-panel layout (vitest/jsdom: classes and DOM position only; the real
- * scroll and pin behaviour needs layout and is covered by e2e/adhoc-media-panel-scroll.spec.ts).
+ * scroll and pin behaviour needs layout and is covered by e2e/media-images.spec.ts).
  */
 const GAME: GameSummary = {
   gameId: 'g000000000001',
