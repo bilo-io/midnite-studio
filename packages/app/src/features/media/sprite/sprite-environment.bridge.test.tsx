@@ -122,13 +122,13 @@ describe('Environment form', () => {
     expect(within(panel).queryByTestId('tileset-terrains')).toBeNull();
     const source = within(panel).getByTestId('tileset-terrain-source');
     expect(source.textContent).toContain('Isometric maps from terrain are flat; height is not drawn.');
-    expect(within(panel).getByRole('button', { name: 'Generate' })).toHaveProperty('disabled', true);
+    expect(within(panel).getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBe('true');
     await within(source).findByRole('option', { name: 'terrains' });
     fireEvent.change(within(source).getByLabelText('Terrain group'), { target: { value: 'terrains' } });
     await within(source).findByRole('option', { name: 'isle-1' });
     fireEvent.change(within(source).getByRole('combobox', { name: 'Terrain' }), { target: { value: 'isle-1' } });
     fireEvent.change(within(source).getByLabelText('Metres per tile'), { target: { value: '8' } });
-    expect(within(panel).getByRole('button', { name: 'Generate' })).toHaveProperty('disabled', false);
+    expect(within(panel).getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBeNull();
   }, 30_000);
 
   it('a background lists its layers back to front with their scroll factors', async () => {

@@ -80,7 +80,7 @@ describe('Map form', () => {
     const create = vi.spyOn(api, 'library');
     const generate = vi.spyOn(api, 'generate');
     fireEvent.change(within(panel).getByLabelText('Name'), { target: { value: 'Isle' } });
-    expect(within(panel).getByRole('button', { name: 'Generate' })).toHaveProperty('disabled', true);
+    expect(within(panel).getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBe('true');
     const fields = within(panel).getByTestId('map-fields');
     await within(fields).findByRole('option', { name: 'meadow' });
     fireEvent.change(within(fields).getByLabelText('Tileset'), { target: { value: 'meadow-20261007-120000' } });

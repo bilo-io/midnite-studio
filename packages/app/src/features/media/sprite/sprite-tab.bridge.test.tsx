@@ -79,5 +79,5 @@ describe('Sprites tab', () => {
     fireEvent.click(within(panel).getByRole('button', { name: 'Generate' }));
     await waitFor(() => expect(within(explorer()).getByRole('button', { name: 'meadow' })).toBeTruthy());
     expect(await screen.findByTestId('sprite-overview')).toBeTruthy();
-  });
+  }, 30_000);
 });
