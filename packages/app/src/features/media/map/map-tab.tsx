@@ -59,6 +59,20 @@ function MapTabBody({ repoId }: { repoId: string }) {
       setFocusN((n) => n + 1);
     })();
   }, [focus, repoId, queryClient]);
+  // `map_goto` (Phase 108 Theme I): main has already saved the view to the project's `map.json`, so
+  // refetching and remounting the workspace is all it takes to land there.
+  useEffect(
+    () =>
+      bridge()?.media.map.onOpen((event) => {
+        if (event.repoId !== repoId) return;
+        void (async () => {
+          await queryClient.invalidateQueries({ queryKey: mapKey(repoId, event.project) });
+          setSelection({ project: event.project, path: null });
+          setFocusN((n) => n + 1);
+        })();
+      }),
+    [repoId, queryClient],
+  );
   return <MapWorkspace key={`${repoId}/${project}/${focusN}`} repoId={repoId} project={project} selection={selection} setSelection={setSelection} />;
 }
 

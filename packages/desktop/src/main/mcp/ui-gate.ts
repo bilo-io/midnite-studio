@@ -17,6 +17,7 @@ let allowModels = false;
 let allowGames = false;
 let allowTerrains = false;
 let allowSprites = false;
+let allowMaps = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -78,6 +79,16 @@ export function setMcpAllowSpritesState(next: boolean): void {
   allowSprites = next;
 }
 
+/** Read synchronously by `map_goto` and `map_capture_terrain` (Phase 108 Theme I) before they move the view or capture. */
+export function getMcpAllowMaps(): boolean {
+  return allowMaps;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowMapsState(next: boolean): void {
+  allowMaps = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
@@ -86,4 +97,5 @@ export function resetMcpAllowUiStateForTests(): void {
   allowGames = false;
   allowTerrains = false;
   allowSprites = false;
+  allowMaps = false;
 }

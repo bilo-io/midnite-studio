@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-08 — Phase 108 Theme I — Maps over MCP, and the skill ([#776](https://github.com/bilo-io/midnite-studio/pull/776))
+
+Agents get four `map_*` tools: `map_list` and `map_measure` always, `map_goto` and `map_capture_terrain` behind a new default-off Settings ▸ MCP "Let agents capture maps" switch (`mcp-store` v8). The capture tool runs the Maps tab's own capture and Terrain hand-off; the skill `midnite-media-map-build` ships in all six copies.
+
+- [x] Tools `map_goto`, `map_capture_terrain`, `map_measure`, `map_list` registered with the midnite MCP server (`media-map-mcp.ts`, `map-mcp.ts`, `map-tools.ts`, `mediaMapOpen` event)
+- [x] Settings ▸ MCP "Maps" switch (default off), same gating as Terrain; descriptions ≤ 220 chars; registry, store migration and gate tests
+- [x] `midnite-media-map-build` skill in all six skill dirs, pinned by the skill copies test
+
 ## 2026-10-08 — Phase 108 Themes G + H — Measure and draw; layers ([#774](https://github.com/bilo-io/midnite-studio/pull/774))
 
 Maps gains five tools (pan, distance, radius circle, area, pin) with geodesic readouts, place search over the Open-Meteo geocoder, and drawings saved as git-tracked GeoJSON layers: a layer list with visibility, colour, rename, Trash delete and reorder, `.geojson`/`.kml` import and export, and external-edit pickup. Geodesy is the Theme D Vincenty kernel plus a new `measure.ts`; layers go through the generic media file channels, so no new IPC.

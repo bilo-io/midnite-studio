@@ -694,6 +694,7 @@ const bridge: Pick<
       capture: (req) => call(CHANNELS.mediaMapCapture, req),
       captureCancel: (req) => call(CHANNELS.mediaMapCaptureCancel, req),
       onCaptureProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMapCaptureProgress, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMapOpen, handler),
     },
     reveal: (req) => call(CHANNELS.mediaReveal, req),
     ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),

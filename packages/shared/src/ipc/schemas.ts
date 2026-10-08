@@ -6,6 +6,7 @@ import {
   MapCaptureRequestSchema,
   MapCaptureResultSchema,
 } from '../media-map-capture';
+import { MapOpenEventSchema } from '../media-map-mcp';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
 import {
@@ -3343,6 +3344,7 @@ export const MediaMapCaptureResponse = GitOpResultOf(MapCaptureResultSchema);
 export const MediaMapCaptureCancelRequest = MapCaptureCancelRequestSchema;
 export const MediaMapCaptureCancelResponse = GitOpResultOf(z.object({ cancelled: z.boolean() }));
 export const MediaMapCaptureProgressPayload = MapCaptureProgressEventSchema;
+export const MediaMapOpenPayload = MapOpenEventSchema;
 export const MediaSpriteRenderRequestPayload = SpriteRenderRequestEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
@@ -3928,6 +3930,8 @@ export const McpGetResponse = z.object({
   allowTerrains: z.boolean(),
   /** Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a job or export may act. */
   allowSprites: z.boolean(),
+  /** Phase 108 Theme I's eighth switch — whether `map_goto` and `map_capture_terrain` may move the view or capture a map. */
+  allowMaps: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3944,6 +3948,7 @@ export const McpSetRequest = z.object({
   allowGames: z.boolean().optional(),
   allowTerrains: z.boolean().optional(),
   allowSprites: z.boolean().optional(),
+  allowMaps: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });

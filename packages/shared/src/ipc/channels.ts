@@ -1590,6 +1590,8 @@ export const EVENT_CHANNELS = {
   mediaTerrainOpen: 'mstudio:media:terrain-open',
   /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
   mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
+  /** `map_goto` (Phase 108 Theme I) asked the window to fly the map somewhere — see `MapOpenEventSchema`. */
+  mediaMapOpen: 'mstudio:media:map-open',
   /** A sprite job advanced — see `SpriteProgressEventSchema`. */
   mediaSpriteProgress: 'mstudio:media:sprite-progress',
   /** A sprite asset's spec, frames or job state changed (revision bump) — see `SpriteChangedEventSchema`. */

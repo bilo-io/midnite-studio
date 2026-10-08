@@ -998,6 +998,7 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         allowGames: false,
         allowTerrains: false,
         allowSprites: false,
+        allowMaps: false,
       }).success,
     ).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);
@@ -1912,6 +1913,7 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaMapCapture: ['MediaMapCaptureRequest', 'MediaMapCaptureResponse'],
       mediaMapCaptureCancel: ['MediaMapCaptureCancelRequest', 'MediaMapCaptureCancelResponse'],
       mediaMapCaptureProgress: ['MediaMapCaptureProgressPayload'],
+      mediaMapOpen: ['MediaMapOpenPayload'],
       mediaSpriteRenderRequest: ['MediaSpriteRenderRequestPayload'],
       mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
       mediaExport: ['MediaExportRequest', 'MediaExportResponse'],

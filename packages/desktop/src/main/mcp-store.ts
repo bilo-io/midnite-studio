@@ -38,7 +38,7 @@ import { join } from 'node:path';
  * Theme F's own precedent for `allowUi`.
  */
 export type McpSettings = {
-  version: 7;
+  version: 8;
   enabled: boolean;
   allowUi: boolean;
   allowGateDecide: boolean;
@@ -46,6 +46,7 @@ export type McpSettings = {
   allowGames: boolean;
   allowTerrains: boolean;
   allowSprites: boolean;
+  allowMaps: boolean;
 };
 
 export type McpStore = {
@@ -56,7 +57,7 @@ export type McpStore = {
 const FILE_NAME = 'mcp.json';
 
 export const DEFAULT_MCP_SETTINGS: McpSettings = {
-  version: 7,
+  version: 8,
   enabled: false,
   allowUi: false,
   allowGateDecide: false,
@@ -64,6 +65,7 @@ export const DEFAULT_MCP_SETTINGS: McpSettings = {
   allowGames: false,
   allowTerrains: false,
   allowSprites: false,
+  allowMaps: false,
 };
 
 export function createMcpStore(directory: string): McpStore {
@@ -114,6 +116,11 @@ export function createMcpStore(directory: string): McpStore {
  * request), cancel one or write an export. The read tools (list, get_spec, recommend_method,
  * job_status, get_report, render_preview, map_get) answer whenever the server is on.
  *
+ * **`version: 8` adds `allowMaps`** (Phase 108 Theme I) — an EIGHTH switch, same posture,
+ * gating `map_goto` (moves the user's view) and `map_capture_terrain` (writes files, creates a
+ * terrain). `map_list` and `map_measure` answer whenever the server is on. Older files have no key,
+ * which `=== true` already reads as `false`.
+ *
  * Validate without zod: this module is main-only and the shape is four
  * fields, matching `repo-store.ts`'s own reasoning for a hand-rolled guard.
  *
@@ -133,7 +140,8 @@ export function parseStoredSettings(value: unknown): McpSettings {
   const allowGames = (value as { allowGames?: unknown }).allowGames === true;
   const allowTerrains = (value as { allowTerrains?: unknown }).allowTerrains === true;
   const allowSprites = (value as { allowSprites?: unknown }).allowSprites === true;
-  return { version: 7, enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites };
+  const allowMaps = (value as { allowMaps?: unknown }).allowMaps === true;
+  return { version: 8, enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites, allowMaps };
 }
 
 /** A store that always reports "off" — the fallback before one is configured. */
