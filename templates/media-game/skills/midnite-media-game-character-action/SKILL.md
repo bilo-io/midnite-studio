@@ -44,3 +44,7 @@ Arena: `WAVE_BEAT = 1.5` seconds between waves; the arena is sealed while fighti
 - Repeat one move: the style gain drops each time; vary moves and it climbs.
 - Take a hit: the rank drops. Stand still: the score drains.
 - Enter the arena: `arena` is `fighting`, then `between`, then the next wave, and finally `cleared`.
+
+## Game feel
+
+`src/genre/moments.js` maps every move to a slash arc (`ARCS`, one entry per `COMBO_MOVES` name: a new move needs one), a landed hit to `hit-light`, `hit-heavy`, `launcher`, `juggle` or `slam` (`hitMoment`), and style rank changes to a pop (`rankCall`). The level hands the genre its own frame counter that stops during a hit-stop, so a combo's active window is never skipped. Dash afterimages appear above 5.2 m/s. `?juice=off` silences it.

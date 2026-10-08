@@ -47,3 +47,7 @@ CPU: `CPU_RANGE = 1.35`; `easy` guards `guard = 0.25`, `normal` `guard = 0.55`, 
 - A high move whiffs on a crouching defender.
 - Chain jab into the next string inside the cancel window; press outside it and the extra input is dropped.
 - Take hp to 0: the round ends, wins increment, a new round starts; at 2 wins the match is over.
+
+## Game feel
+
+The fight is frame-counted, so hit-stop and slow motion are applied in `src/scenes/level.js` by feeding the genre fewer or no 1/60 steps (`simSteps`), never by scaling its dt. `src/genre/moments.js` maps a landed blow to `hit-light`, `hit-heavy` or `launcher` (`classifyHit`), a block to `guard`, and the KO to a slow-motion `ko`; the combo counter pops through `comboTier`. A new move needs no code: its damage and `launcher` flag pick the moment. `?juice=off` silences it.

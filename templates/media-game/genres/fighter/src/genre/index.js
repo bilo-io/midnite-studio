@@ -10,6 +10,10 @@
  * (`kit/core/genre/fighter/`: frame data, hit boxes, rounds, the CPU), so a
  * replay plays the same fight. This file applies those rules to two bodies and
  * draws them.
+ *
+ * Game feel (`./fx.js`, `./moments.js`): hit-stop that grows with the blow, an impact frame and a
+ * slow beat on launchers, blue guard sparks, a combo counter that pops harder as it climbs,
+ * a slow-motion KO, footsteps, whoosh and thud sounds, and normal-mapped gis (`./model.js`).
  */
 
 import * as THREE from 'three';
@@ -19,9 +23,9 @@ import { inCancelWindow, matchMove, moveByName, movePhase, MOVES, scaleDamage, s
 import { hitbox, hurtbox, overlaps, resolveHit } from 'kit/core/genre/fighter/hitboxes.js';
 import { createMatch, matchReducer } from 'kit/core/genre/fighter/rounds.js';
 import { rng } from 'kit/core/rng.js';
-import { createDamageNumbers } from 'kit/three/damage-numbers.js';
 
 import { createFighterModel } from './model.js';
+import { classifyHit, comboTier, contactHeight } from './moments.js';
 
 /** Tekken's diamond: U/I are left/right punch, J/K left/right kick. */
 export const FIGHTER_BINDINGS = {
@@ -66,15 +70,21 @@ const CPU_REACTION_FRAMES = 6;
  *   rig: ReturnType<typeof import('kit/three/cameras.js').createCameraRig>,
  *   hud: ReturnType<typeof import('kit/three/hud.js').createHud>,
  *   input: ReturnType<typeof import('kit/three/input.js').createInput>,
+ *   fx: ReturnType<typeof import('./fx.js').createFx>,
  * }} ctx
  */
 export function installGenre(scene, ctx) {
-  const { rig, hud, input } = ctx;
-  const numbers = createDamageNumbers({ camera: rig.camera });
+  const { rig, hud, input, fx } = ctx;
+  const { juice, moment, pop } = fx;
+  let numbersSpawned = 0;
+  const number = (/** @type {number[]} */ at, /** @type {number | string} */ value, /** @type {'hit' | 'crit'} */ kind = 'hit') => {
+    numbersSpawned += 1;
+    juice.text(at, value, kind);
+  };
 
   /** @returns {Fighter} */
   const fighter = (/** @type {'P1' | 'CPU'} */ name, /** @type {number} */ x, /** @type {number} */ color, /** @type {number} */ belt) => {
-    const model = createFighterModel(color, belt);
+    const model = createFighterModel(color, belt, ctx.fx.materials);
     scene.add(model.root);
     return { name, model, position: [x, 0, 0], y: 0, vy: 0, move: null, stun: 0, down: 0, launched: false, guarding: false, crouching: false, walk: 0, combo: 0, flash: 0 };
   };
@@ -118,7 +128,10 @@ export function installGenre(scene, ctx) {
 
   const startMove = (/** @type {Fighter} */ f, /** @type {string} */ direction, /** @type {string} */ button) => {
     const move = matchMove(MOVES, direction, button);
-    if (move) f.move = { move, frame: 0, button, connected: false, queued: null };
+    if (move) {
+      f.move = { move, frame: 0, button, connected: false, queued: null };
+      moment(button === 'lp' || button === 'rp' ? 'swing-punch' : 'swing-kick', { position: [f.position[0], 1.2, f.position[2]] });
+    }
   };
 
   /**
@@ -153,7 +166,9 @@ export function installGenre(scene, ctx) {
     const step = [a.x * c.toward * speed * dt + into[0] * c.side * SIDESTEP * dt, a.z * c.toward * speed * dt + into[1] * c.side * SIDESTEP * dt];
     f.position[0] += step[0] ?? 0;
     f.position[2] += step[1] ?? 0;
+    const before = Math.floor(f.walk / 0.55);
     f.walk += Math.hypot(step[0] ?? 0, step[1] ?? 0);
+    if (Math.floor(f.walk / 0.55) !== before) moment('footstep', { position: [f.position[0], 0.1, f.position[2]] });
   };
 
   /** The ground direction "into the screen" (away from the versus camera), perpendicular to the lane. */
@@ -195,13 +210,25 @@ export function installGenre(scene, ctx) {
           foe.position[0] += a.x * knock;
           foe.position[2] += a.z * knock;
           match = matchReducer(match, { type: 'damage', target: foe === p1 ? 0 : 1, amount: damage });
-          numbers.spawn([foe.position[0], foe.y + 1.9, foe.position[2]], foe.combo > 1 ? `${damage} ×${foe.combo}` : damage, { kind: foe.combo > 1 || move.launcher ? 'crit' : 'hit' });
+          const kind = classifyHit({ damage, launcher: move.launcher === true, juggled });
+          const at = [foe.position[0] - a.x * 0.25, foe.y + contactHeight(move.level, foe.crouching), foe.position[2] - a.z * 0.25];
+          // The sound climbs a little with every hit of a string.
+          moment(kind, { position: at, dir: [a.x, 0.35, a.z], pitch: 1 + Math.min(0.4, foe.combo * 0.04) });
+          if (foe.combo > 1) {
+            moment('combo-hit', { pitch: 1 + foe.combo * 0.08 });
+            const tier = comboTier(foe.combo);
+            // The counter sits on the attacker's side of the screen and pops on every hit.
+            pop(tier.label, { x: foe === p2 ? 17 : 83, y: 30, color: tier.color, size: tier.size, seconds: 0.7 });
+            if (tier.milestone) moment('combo-milestone', { pitch: 0.9 + foe.combo * 0.04 });
+          }
+          number([foe.position[0], foe.y + 1.9, foe.position[2]], foe.combo > 1 ? `${damage} ×${foe.combo}` : damage, foe.combo > 1 || move.launcher ? 'crit' : 'hit');
           lastHit = { attacker: f.name, move: move.name, result, damage, combo: foe.combo };
         } else if (result === 'block') {
           foe.stun = stunFrames(move, frame, true);
           foe.position[0] += a.x * 0.35;
           foe.position[2] += a.z * 0.35;
-          numbers.spawn([foe.position[0], foe.y + 1.9, foe.position[2]], 'BLOCK');
+          moment('guard', { position: [foe.position[0] - a.x * 0.3, foe.y + contactHeight(move.level, foe.crouching), foe.position[2] - a.z * 0.3], dir: [a.x, 0.3, a.z] });
+          number([foe.position[0], foe.y + 1.9, foe.position[2]], 'BLOCK', 'hit');
           lastHit = { attacker: f.name, move: move.name, result, damage: 0, combo: 0 };
         }
       }
@@ -209,6 +236,7 @@ export function installGenre(scene, ctx) {
     if (f.move.queued && phase === 'recovery') {
       const next = moveByName(MOVES, f.move.queued);
       f.move = next ? { move: next, frame: 0, button: f.move.button, connected: false, queued: null } : null;
+      if (next) moment(f.move?.button === 'lp' || f.move?.button === 'rp' ? 'swing-punch' : 'swing-kick', { position: [f.position[0], 1.2, f.position[2]] });
     } else if (phase === 'done') f.move = null;
   };
 
@@ -223,6 +251,7 @@ export function installGenre(scene, ctx) {
           f.launched = false;
           f.down = KNOCKDOWN_FRAMES;
           f.stun = 0;
+          moment('knockdown', { position: [f.position[0], 0.1, f.position[2]] });
         }
       }
     } else if (f.down > 0) {
@@ -290,10 +319,22 @@ export function installGenre(scene, ctx) {
         if (match.phase === 'intro') {
           resetPositions();
           hud.banner(`ROUND ${match.round}`);
-        } else if (match.phase === 'fight') hud.banner(null);
-        else if (match.phase === 'ko') hud.banner('K.O.');
-        else if (match.phase === 'timeout') hud.banner(match.winner === 'draw' ? 'TIME — DRAW' : 'TIME');
-        else if (match.phase === 'over') hud.banner(match.winner === 0 ? 'YOU WIN' : 'YOU LOSE');
+          moment('round-start');
+        } else if (match.phase === 'fight') {
+          hud.banner(null);
+          moment('fight');
+          pop('FIGHT!', { y: 36, size: 64, color: '#ffe08a', seconds: 0.9 });
+        } else if (match.phase === 'ko') {
+          hud.banner('K.O.');
+          moment('ko', { position: [(p1.position[0] + p2.position[0]) / 2, 1.3, (p1.position[2] + p2.position[2]) / 2] });
+          pop('K.O.', { y: 40, size: 96, color: '#ff4d4d', seconds: 1.6 });
+        } else if (match.phase === 'timeout') {
+          hud.banner(match.winner === 'draw' ? 'TIME — DRAW' : 'TIME');
+          moment('time-over');
+        } else if (match.phase === 'over') {
+          hud.banner(match.winner === 0 ? 'YOU WIN' : 'YOU LOSE');
+          moment(match.winner === 0 ? 'match-win' : 'match-lose', { position: [0, 2, 0] });
+        }
         lastPhase = match.phase;
         lastRound = match.round;
       }
@@ -330,7 +371,6 @@ export function installGenre(scene, ctx) {
       constrain();
       pose(p1, p2);
       pose(p2, p1);
-      numbers.update(dt);
 
       const bar = (/** @type {number} */ hp) => '█'.repeat(Math.round((hp / match.options.maxHp) * 14)).padEnd(14, '░');
       hud.set('p1', `P1  ${bar(match.hp[0])}  ${'●'.repeat(match.wins[0])}`);
@@ -363,6 +403,7 @@ export function installGenre(scene, ctx) {
           cpu: describe(p2),
           lastHit,
           longestCombo,
+          fx: { moments: fx.moments, last: fx.lastMoment, numbers: numbersSpawned },
         },
       };
     },

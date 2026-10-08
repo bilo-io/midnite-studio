@@ -9,6 +9,11 @@
  * (`kit/core/genre/shooter/`); this file is the three.js glue. The base owns
  * the arena, the player and the camera; this module adds crates, enemies and
  * the weapons, and reports itself under `getState().shooter`.
+ *
+ * Game feel (`./fx.js`, `./moments.js`, `./effects.js`): muzzle flash and a flash of light,
+ * tracers, bullet-hole decals and impact sparks on the surface that was hit, recoil kick on
+ * the camera and the viewmodel, ejected shell casings, hit markers, a kill confirm with a
+ * short slow motion, rocket trails and a shockwave, and a sound for every action.
  */
 
 import * as THREE from 'three';
@@ -18,10 +23,10 @@ import { spreadCone, spreadDirection } from 'kit/core/genre/shooter/spread.js';
 import { createArsenal, currentWeapon, startReload, switchTo, tickArsenal, tryFire } from 'kit/core/genre/shooter/weapons.js';
 import { needsNav } from 'kit/core/nav-policy.js';
 import { rng } from 'kit/core/rng.js';
-import { createDamageNumbers } from 'kit/three/damage-numbers.js';
 import { createInput } from 'kit/three/input.js';
 
 import config from '../game.config.js';
+import { createShooterEffects } from './effects.js';
 
 /** Extra actions on top of the base's (`attack` is the trigger). */
 const SHOOTER_BINDINGS = {
@@ -46,22 +51,30 @@ const CRATES = /** @type {const} */ ([[-9, -14, 1.2], [9, -14, 1.2], [-3, -18, 1
  *   rig: ReturnType<typeof import('kit/three/cameras.js').createCameraRig>,
  *   hud: ReturnType<typeof import('kit/three/hud.js').createHud>,
  *   input: ReturnType<typeof import('kit/three/input.js').createInput>,
+ *   fx: ReturnType<typeof import('./fx.js').createFx>,
+ *   avatar: THREE.Object3D | null,
  * }} ctx
  */
 export function installGenre(scene, ctx) {
-  const { physics, character, rig, hud, input } = ctx;
+  const { physics, character, rig, hud, input, fx } = ctx;
+  const { juice, moment, pop } = fx;
   const extra = createInput(SHOOTER_BINDINGS);
-  const numbers = createDamageNumbers({ camera: rig.camera });
+  let numbersSpawned = 0;
   hud.crosshair(true);
   hud.hint('WASD move · click/J fire · R reload · X or 1-3 weapon · SHIFT sprint' + (rig.mode === 'third-person' ? ' · C camera' : ''));
 
   // --- cover: crates, plus every tall box already in the arena -----------------
-  const crateMaterial = new THREE.MeshStandardMaterial({ color: 0x6b5a3a });
+  const crateMaterial = fx.materials.get('wood', { repeat: [1, 1], tint: 0xc8b48a, normalScale: 1 });
+  const crateTrim = fx.materials.get('metal', { repeat: [1, 1], tint: 0x8f9bb0 });
   for (const [x, z, half] of CRATES) {
     const crate = new THREE.Mesh(new THREE.BoxGeometry(half * 2, half * 2, half * 2), crateMaterial);
     crate.position.set(x, half, z);
     crate.castShadow = crate.receiveShadow = true;
     scene.add(crate);
+    // Metal straps: a thin band round the middle, so a crate reads as a crate and not a cube.
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(half * 2.06, half * 0.22, half * 2.06), crateTrim);
+    strap.position.y = 0;
+    crate.add(strap);
     physics.addBox([x, half, z], [half, half, half]);
   }
   scene.updateMatrixWorld(true);
@@ -70,7 +83,7 @@ export function installGenre(scene, ctx) {
   /** @type {THREE.Mesh | null} */
   let floor = null;
   scene.traverse((o) => {
-    if (!(o instanceof THREE.Mesh)) return;
+    if (!(o instanceof THREE.Mesh) || o.parent !== scene) return;
     if (o.geometry instanceof THREE.PlaneGeometry) floor = o;
     else if (o.geometry instanceof THREE.BoxGeometry) solids.push(o);
   });
@@ -80,6 +93,7 @@ export function installGenre(scene, ctx) {
     .filter((b) => b.max.y - b.min.y >= 1 && b.min.y < 1.2 && b.max.x - b.min.x < 10)
     .map((b) => ({ minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z }));
   const coverPoints = coverPointsAround(occluders, 0.9);
+  const effects = createShooterEffects({ scene, camera: rig.camera, avatar: ctx.avatar, fx, solids });
 
   // --- navigation: the navmesh when it builds, straight-line steering if not ---
   /** @type {{ findPath: (a: readonly number[], b: readonly number[]) => [number, number, number][] } | null} */
@@ -95,11 +109,13 @@ export function installGenre(scene, ctx) {
   }
 
   // --- enemies -----------------------------------------------------------------
-  const enemyBody = new THREE.CapsuleGeometry(ENEMY.radius, ENEMY.height - ENEMY.radius * 2, 4, 8);
-  /**
+  const enemyBody = new THREE.CapsuleGeometry(ENEMY.radius, ENEMY.height - ENEMY.radius * 2, 4, 10);
+  const enemyArmour = fx.materials.get('tiles', { repeat: [1, 2], tint: 0xe0645f, normalScale: 0.7, roughness: 0.8 });
+  const visorGeometry = new THREE.BoxGeometry(0.46, 0.1, 0.12);
+  const visorMaterial = new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xff9a3c, emissiveIntensity: 2 });  /**
    * @typedef {{
    *   mesh: THREE.Mesh, hp: number, position: [number, number, number], path: [number, number, number][],
-   *   replanIn: number, shotIn: number, hurtAt: number, mode: 'advance' | 'cover' | 'hold', flash: number,
+   *   replanIn: number, shotIn: number, hurtAt: number, mode: 'advance' | 'cover' | 'hold',
    * }} Enemy
    */
   /** @type {Enemy[]} */
@@ -111,10 +127,18 @@ export function installGenre(scene, ctx) {
     const count = Math.min(SPAWNS.length, 2 + wave);
     for (let i = 0; i < count; i += 1) {
       const [x, z] = /** @type {readonly [number, number]} */ (SPAWNS[i]);
-      const mesh = new THREE.Mesh(enemyBody, new THREE.MeshStandardMaterial({ color: 0xd9534f }));
+      const mesh = new THREE.Mesh(enemyBody, enemyArmour);
       mesh.castShadow = true;
+      // A glowing visor on the front (-z), so an enemy shows which way it is looking.
+      const visor = new THREE.Mesh(visorGeometry, visorMaterial);
+      visor.position.set(0, 0.42, -ENEMY.radius + 0.02);
+      mesh.add(visor);
       scene.add(mesh);
-      enemies.push({ mesh, hp: ENEMY.hp, position: [x, 0, z], path: [], replanIn: rng.range(0, 0.5), shotIn: rng.range(0.5, 1.5), hurtAt: -99, mode: 'advance', flash: 0 });
+      enemies.push({ mesh, hp: ENEMY.hp, position: [x, 0, z], path: [], replanIn: rng.range(0, 0.5), shotIn: rng.range(0.5, 1.5), hurtAt: -99, mode: 'advance' });
+    }
+    if (wave > 1) {
+      moment('wave-start');
+      pop(`WAVE ${wave}`, { y: 24, size: 34, color: '#9ec5ff' });
     }
   };
   spawnWave();
@@ -126,11 +150,13 @@ export function installGenre(scene, ctx) {
   let hits = 0;
   /** @type {{ mesh: THREE.Mesh, at: THREE.Vector3, velocity: THREE.Vector3, life: number }[]} */
   const rockets = [];
-  const rocketGeometry = new THREE.SphereGeometry(0.15, 8, 6);
+  const rocketGeometry = new THREE.CapsuleGeometry(0.07, 0.3, 3, 8).rotateX(Math.PI / 2);
   const rocketMaterial = new THREE.MeshBasicMaterial({ color: 0xffa94d });
-  /** @type {{ line: THREE.Line, life: number }[]} */
-  const tracers = [];
-  const tracerMaterial = new THREE.LineBasicMaterial({ color: 0xfff3b0, transparent: true, opacity: 0.8 });
+  let killStreak = 0;
+  let lastKillAt = -99;
+  let wasReloading = false;
+  let lastWeapon = arsenal.current;
+  effects.equip(arsenal.current);
 
   const centre = (/** @type {Enemy} */ e) => new THREE.Vector3(e.position[0], ENEMY.height / 2, e.position[2]);
   const eye = () => {
@@ -148,25 +174,58 @@ export function installGenre(scene, ctx) {
     return t >= 0 ? t : null;
   };
 
-  const damageEnemy = (/** @type {Enemy} */ e, /** @type {number} */ amount, /** @type {THREE.Vector3} */ at) => {
+  /** The kill streak's call-out: a second kill within 2.5 s is a DOUBLE, and so on. */
+  const STREAK = ['', '', 'DOUBLE KILL', 'TRIPLE KILL', 'QUAD KILL', 'RAMPAGE'];
+
+  /** A killed enemy keels over and sinks before it leaves the scene (it is already out of `enemies`). */
+  const topple = (/** @type {Enemy} */ e) => {
+    const mesh = e.mesh;
+    const side = rng.next() < 0.5 ? 1 : -1;
+    juice.tween({
+      duration: 0.55,
+      ease: 'inQuad',
+      onUpdate: (v) => {
+        mesh.rotation.z = side * v * (Math.PI / 2);
+        mesh.position.y = ENEMY.height / 2 - v * (ENEMY.height / 2 - ENEMY.radius);
+      },
+    });
+    juice.tween({ duration: 0.4, delay: 1.2, onUpdate: (v) => mesh.scale.setScalar(1 - v * 0.9), onComplete: () => scene.remove(mesh) });
+  };
+
+  const damageEnemy = (/** @type {Enemy} */ e, /** @type {number} */ amount, /** @type {THREE.Vector3} */ at, /** @type {readonly number[]} */ [dx = 0, dy = 0, dz = 0] = []) => {
     if (e.hp <= 0) return;
     e.hp -= amount;
     e.hurtAt = time;
-    e.flash = 0.12;
     e.replanIn = 0;
     hits += 1;
-    numbers.spawn([at.x, at.y + 0.4, at.z], amount, { kind: amount >= 40 ? 'crit' : 'hit' });
-    if (e.hp <= 0) {
+    const crit = amount >= 40;
+    const kill = e.hp <= 0;
+    const spot = [at.x, at.y, at.z];
+    moment(crit ? 'enemy-crit' : 'enemy-hit', { object: e.mesh, position: spot, dir: [-dx, -dy + 0.4, -dz], text: amount, textKind: crit ? 'crit' : 'hit' });
+    numbersSpawned += 1;
+    effects.hitMarker(kill ? 'kill' : crit ? 'crit' : 'hit');
+    moment('hit-marker');
+    if (kill) {
       player.kills += 1;
-      scene.remove(e.mesh);
+      killStreak = time - lastKillAt < 2.5 ? killStreak + 1 : 1;
+      lastKillAt = time;
+      moment('kill-confirm', { position: centre(e).toArray() });
+      pop(killStreak > 1 ? (STREAK[Math.min(killStreak, STREAK.length - 1)] ?? 'RAMPAGE') : 'KILL', { y: 58, size: killStreak > 1 ? 32 : 22, color: killStreak > 1 ? '#ffd37a' : '#ff6b6b', seconds: 1 });
+      topple(e);
     }
   };
 
   const explode = (/** @type {THREE.Vector3} */ at, /** @type {number} */ damage, /** @type {number} */ radius) => {
     for (const e of enemies) {
       const d = centre(e).distanceTo(at);
-      if (d <= radius) damageEnemy(e, Math.round(damage * (1 - (d / radius) * 0.6)), centre(e));
+      if (d <= radius) damageEnemy(e, Math.round(damage * (1 - (d / radius) * 0.6)), centre(e), [0, 0, 0]);
     }
+    const [px, py, pz] = character.position;
+    const away = Math.hypot(px - at.x, (py ?? 0) - at.y, pz - at.z);
+    moment('explosion', { position: at.toArray(), strength: Math.max(0.3, Math.min(1, 1 - away / 30)) });
+    effects.light(at.toArray(), 70, 0xffa04d);
+    effects.shockwave(at.toArray(), radius);
+    effects.decal([at.x, Math.max(0.02, at.y), at.z], [0, 1, 0]);
   };
 
   const fireWeapon = () => {
@@ -174,6 +233,11 @@ export function installGenre(scene, ctx) {
     if (!result.fired) return;
     shots += 1;
     const w = result.weapon;
+    const gunPoint = effects.muzzlePosition();
+    effects.kick(w.id === 'launcher' ? 1.5 : w.id === 'pistol' ? 0.9 : 0.55);
+    moment(`fire-${w.id}`, { position: gunPoint.toArray(), dir: rig.camera.getWorldDirection(new THREE.Vector3()).toArray() });
+    effects.light(gunPoint.toArray(), w.id === 'launcher' ? 40 : 18);
+    if (w.kind === 'hitscan') effects.eject();
     const origin = rig.camera.getWorldPosition(new THREE.Vector3());
     const aim = rig.camera.getWorldDirection(new THREE.Vector3());
     const cone = spreadCone(w.spreadDeg, arsenal.recoil, character.speed > 0.5);
@@ -181,6 +245,7 @@ export function installGenre(scene, ctx) {
     if (w.kind === 'projectile') {
       const mesh = new THREE.Mesh(rocketGeometry, rocketMaterial);
       const start = origin.clone().addScaledVector(dir, 1.2);
+      mesh.lookAt(start.clone().add(dir));
       mesh.position.copy(start);
       scene.add(mesh);
       rockets.push({ mesh, at: start, velocity: dir.clone().multiplyScalar(w.speed ?? 20), life: 4 });
@@ -199,16 +264,21 @@ export function installGenre(scene, ctx) {
       }
     }
     const end = origin.clone().addScaledVector(dir, nearest);
-    const tracer = new THREE.Line(new THREE.BufferGeometry().setFromPoints([origin.clone().addScaledVector(dir, 0.6), end]), tracerMaterial);
-    scene.add(tracer);
-    tracers.push({ line: tracer, life: 0.05 });
-    if (target) damageEnemy(target, w.damage, end);
+    effects.tracer(gunPoint.toArray(), end.toArray());
+    if (target) damageEnemy(target, w.damage, end, dir.toArray());
+    else if (wall !== null) {
+      // A bullet hole and sparks that fly out along the surface normal.
+      const normal = effects.decal(end.toArray(), dir.clone().negate().toArray());
+      moment(end.y < 0.06 ? 'impact-floor' : 'impact-wall', { position: end.toArray(), dir: normal });
+    }
   };
 
   const respawnPlayer = () => {
+    moment('player-down');
     player.hp = PLAYER_HP;
     player.deaths += 1;
     character.teleport([0, 0.1, 6]);
+    moment('respawn');
     hud.banner('You died — respawned');
     setTimeout(() => hud.banner(null), 1500);
   };
@@ -250,16 +320,26 @@ export function installGenre(scene, ctx) {
     }
     e.mesh.position.set(e.position[0], ENEMY.height / 2, e.position[2]);
     e.mesh.rotation.y = Math.atan2(-(target[0] - e.position[0]), -(target[2] - e.position[2]));
-    e.flash = Math.max(0, e.flash - dt);
-    /** @type {THREE.MeshStandardMaterial} */ (e.mesh.material).emissive.setHex(e.flash > 0 ? 0xffffff : 0x000000);
 
     e.shotIn -= dt;
     if (sees && dist < ENEMY.range && e.mode !== 'cover' && e.shotIn <= 0) {
       e.shotIn = ENEMY.shotEvery + rng.range(0, 0.6);
+      const aimAt = new THREE.Vector3(target[0], target[1] - 0.2, target[2]);
+      const from = new THREE.Vector3(me[0], 1.3, me[2]);
+      const heading = aimAt.clone().sub(from).normalize();
+      const muzzlePoint = from.clone().addScaledVector(heading, 0.6);
+      moment('enemy-fire', { position: muzzlePoint.toArray(), dir: heading.toArray() });
       if (rng.next() < ENEMY.accuracy) {
+        effects.tracer(muzzlePoint.toArray(), aimAt.toArray(), 0xff9a5c, 0.09);
         player.hp -= ENEMY.damage;
         player.hitsTaken += 1;
+        moment('player-hurt');
         if (player.hp <= 0) respawnPlayer();
+      } else {
+        // A miss streaks past: the tracer overshoots and the bullet whizzes.
+        const wide = aimAt.clone().addScaledVector(new THREE.Vector3(-heading.z, 0.2, heading.x), (rng.next() - 0.5) * 3).addScaledVector(heading, 3);
+        effects.tracer(muzzlePoint.toArray(), wide.toArray(), 0xff9a5c, 0.09);
+        moment('bullet-whiz', { position: wide.toArray() });
       }
     }
   };
@@ -275,10 +355,23 @@ export function installGenre(scene, ctx) {
       for (const [action, id] of /** @type {const} */ ([['weapon-1', 'rifle'], ['weapon-2', 'pistol'], ['weapon-3', 'launcher']])) {
         if (extra.justPressed(action)) switchTo(arsenal, id);
       }
+      if (input.justPressed('attack') && arsenal.reloading <= 0 && (arsenal.ammo[arsenal.current]?.mag ?? 1) === 0) moment('dry-fire');
       if (input.isDown('attack')) {
         fireWeapon();
         triggerHeld = true;
       } else triggerHeld = false;
+
+      // Reloads and weapon swaps are heard and seen: the viewmodel dips through a reload.
+      if (arsenal.current !== lastWeapon) {
+        lastWeapon = arsenal.current;
+        effects.equip(arsenal.current);
+        moment('weapon-switch');
+      }
+      const reloadingNow = arsenal.reloading > 0;
+      if (reloadingNow && !wasReloading) moment('reload-start');
+      if (!reloadingNow && wasReloading) moment('reload-done');
+      wasReloading = reloadingNow;
+      effects.reloading(reloadingNow ? 1 - arsenal.reloading / currentWeapon(arsenal).reloadMs : -1);
 
       // Recoil climbs the view; the rig re-aims every step, so this is a pure kick.
       rig.camera.rotation.x += (arsenal.recoil * Math.PI) / 180 / 3;
@@ -300,21 +393,16 @@ export function installGenre(scene, ctx) {
         }
         r.at.addScaledVector(dir, travel);
         r.mesh.position.copy(r.at);
-      }
-      for (let i = tracers.length - 1; i >= 0; i -= 1) {
-        const t = /** @type {(typeof tracers)[number]} */ (tracers[i]);
-        t.life -= dt;
-        if (t.life <= 0) {
-          scene.remove(t.line);
-          t.line.geometry.dispose();
-          tracers.splice(i, 1);
-        }
+        // A smoking, glowing trail, and the rocket lights what it passes.
+        juice.burst('spark', r.at.toArray(), { count: 2, scale: 0.4, colors: [0xffc27a, 0xff8a3d], dir: [-dir.x, -dir.y, -dir.z] });
+        juice.burst('dust', r.at.toArray(), { count: 1, scale: 0.5, dir: [-dir.x, -dir.y, -dir.z] });
+        effects.light(r.at.toArray(), 9, 0xff9a4d);
       }
 
       for (const e of enemies) if (e.hp > 0) enemyStep(e, dt);
       for (let i = enemies.length - 1; i >= 0; i -= 1) if ((enemies[i]?.hp ?? 0) <= 0) enemies.splice(i, 1);
       if (enemies.length === 0) spawnWave();
-      numbers.update(dt);
+      effects.update(dt, character.speed);
 
       const w = currentWeapon(arsenal);
       const slot = arsenal.ammo[arsenal.current] ?? { mag: 0, reserve: 0 };
@@ -340,7 +428,8 @@ export function installGenre(scene, ctx) {
           enemies: enemies.map((e) => ({ hp: e.hp, mode: e.mode, position: e.position.map((v) => Number(v.toFixed(2))) })),
           nav: nav !== null,
           view: { yaw: Number(rig.yaw.toFixed(4)), pitch: Number(rig.pitch.toFixed(4)) },
-          damageNumbers: numbers.count,
+          damageNumbers: numbersSpawned,
+          fx: { moments: fx.moments, last: fx.lastMoment, killStreak, ...effects.counts },
         },
       };
     },
