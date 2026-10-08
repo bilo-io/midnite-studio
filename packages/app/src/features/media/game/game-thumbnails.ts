@@ -2,10 +2,9 @@ import { allStarterIds } from '@midnite/studio-shared';
 
 /**
  * Thumbnails for the starter gallery. Each one is a 240x135 webp downscaled from a
- * screenshot an earlier Phase 107 PR committed under `docs/screenshots/` (the
- * source of each is listed in the adhoc-game-thumbs PR). A starter with no
- * thumbnail (fighter and soulslike have no in-game shot; the RTS one is blank)
- * falls back to the perspective glyph.
+ * live frame of the composed starter itself (chromium + swiftshader, juice on, a few
+ * seconds after its smoke playtest), so every starter has one. A starter with no
+ * thumbnail would fall back to the perspective glyph.
  *
  * File name = starter id with `@` written as `--` (`shooter--first-person.webp`).
  */
