@@ -48,7 +48,7 @@ export async function startLevel() {
   const materials = createMaterials({ renderer });
   const physics = await initPhysics();
   physics.addGround(80);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), materials.get('stone', { repeat: repeatFor(80, 80, 4), tint: 0xb4bdd0 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), materials.get('stone', { repeat: repeatFor(80, 80, 4), tint: 0xdcd8cf }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);

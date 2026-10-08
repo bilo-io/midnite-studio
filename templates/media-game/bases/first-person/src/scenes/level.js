@@ -47,7 +47,7 @@ const animationState = (character) => {
  */
 function createViewmodel(materials) {
   const group = new THREE.Group();
-  const metal = materials.get('metal', { repeat: [1, 0.4], tint: 0x9aa4b5, normalScale: 0.6 });
+  const metal = materials.get('metal', { repeat: [1, 0.4], tint: 0xd0d4dc, normalScale: 0.6, roughness: 0.45 });
   const grip = materials.get('wood', { repeat: [0.3, 0.6] });
   const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.42), metal);
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.028, 0.3, 12), metal);
@@ -57,11 +57,21 @@ function createViewmodel(materials) {
   handle.position.set(0, -0.13, 0.12);
   handle.rotation.x = 0.25;
   group.add(body, barrel, handle);
-  group.position.set(0.24, -0.23, -0.5);
+  group.position.set(0.22, -0.25, -0.55);
+  group.scale.setScalar(0.85);
   // The muzzle flash: an additive star on the barrel tip with a short-lived light.
+  const glow = document.createElement('canvas');
+  glow.width = glow.height = 64;
+  const g = /** @type {CanvasRenderingContext2D} */ (glow.getContext('2d'));
+  const ramp = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  ramp.addColorStop(0, 'rgba(255,255,255,1)');
+  ramp.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+  ramp.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = ramp;
+  g.fillRect(0, 0, 64, 64);
   const flash = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.32, 0.32),
-    new THREE.MeshBasicMaterial({ color: 0xffd58a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
+    new THREE.PlaneGeometry(0.3, 0.3),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glow), color: 0xffd58a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }),
   );
   flash.position.set(0, 0.03, -0.52);
   const light = new THREE.PointLight(0xffb060, 0, 6, 2);
@@ -86,7 +96,7 @@ export async function startLevel() {
   const materials = createMaterials({ renderer });
   const physics = await initPhysics();
   physics.addGround(80);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), materials.get('tiles', { repeat: repeatFor(80, 80, 3), tint: 0xaab4c6 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), materials.get('tiles', { repeat: repeatFor(80, 80, 3), tint: 0xd9d6cf, roughness: 0.9 }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   scene.add(floor);

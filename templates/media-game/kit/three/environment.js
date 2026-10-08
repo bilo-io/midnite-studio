@@ -100,8 +100,7 @@ export function createEnvironment(options) {
   sun.shadow.radius = options.shadowRadius ?? 3;
   sun.shadow.blurSamples = 12;
   scene.add(sun, sun.target);
-  // Soft shadows need a filtered shadow map; PCFSoft is the cheap one that honours `radius` loosely.
-  if (renderer) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // three's PCFShadowMap is already the soft, filtered one (PCFSoftShadowMap was folded into it); `radius` widens the blur.
 
   const fogOption = options.fog ?? true;
   const fog = fogOption === false ? null : new THREE.Fog(0xffffff, Array.isArray(fogOption) ? fogOption[0] : 30, Array.isArray(fogOption) ? fogOption[1] : 90);
