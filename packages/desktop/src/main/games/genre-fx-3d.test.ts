@@ -40,8 +40,15 @@ describe.each(GENRES)('%s moments', (genre) => {
         expect(cue.power ?? 1).toBeLessThanOrEqual(1.5);
       }
       for (const burst of m.particles ?? []) expect(Object.keys(PARTICLE_PRESETS), `${genre}.${name} particles`).toContain(burst.kind);
-      for (const key of ['shake', 'flash', 'aberration']) if (m[key] !== undefined) expect(m[key]).toBeGreaterThan(0), expect(m[key]).toBeLessThanOrEqual(1);
-      if (m.hitStop !== undefined) expect(m.hitStop).toBeGreaterThan(0), expect(m.hitStop).toBeLessThanOrEqual(250);
+      for (const key of ['shake', 'flash', 'aberration']) {
+        if (m[key] === undefined) continue;
+        expect(m[key]).toBeGreaterThan(0);
+        expect(m[key]).toBeLessThanOrEqual(1);
+      }
+      if (m.hitStop !== undefined) {
+        expect(m.hitStop).toBeGreaterThan(0);
+        expect(m.hitStop).toBeLessThanOrEqual(250);
+      }
       if (m.slowMo) {
         expect(m.slowMo).toHaveLength(2);
         expect(m.slowMo[0]).toBeGreaterThan(0);
