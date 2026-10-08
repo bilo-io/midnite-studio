@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { fromFrame } from './frame';
 import { osmToBuildings, parseOsmLength } from './osm-buildings';
-import type { OsmResponse } from './osm-roads';
+import type { OsmElement, OsmResponse } from './osm-roads';
 
 const CENTER: [number, number] = [18.4, -34];
 
-function ring(id: number, pts: [number, number][], tags: Record<string, string>, first = id * 10): OsmResponse['elements'] {
+function ring(id: number, pts: [number, number][], tags: Record<string, string>, first = id * 10): OsmElement[] {
   const nodes = pts.map(([x, z], i) => {
     const [lon, lat] = fromFrame(CENTER, [x, z]);
     return { type: 'node' as const, id: first + i, lat, lon };
@@ -53,12 +53,12 @@ describe('osmToBuildings', () => {
 
   it('drops building=no, unclosed ways, tiny sheds and buildings outside the frame', () => {
     const open = ring(5, sq(0, 0), { building: 'yes' });
-    const way = open!.find((e) => e.type === 'way') as { nodes: number[] };
+    const way = open.find((e) => e.type === 'way') as { nodes: number[] };
     way.nodes.pop();
     const osm: OsmResponse = {
       elements: [
         ...ring(1, sq(0, 0), { building: 'no' }),
-        ...open!,
+        ...open,
         ...ring(3, sq(0, 0, 1), { building: 'shed' }),
         ...ring(4, sq(900, 0), { building: 'yes' }),
         ...ring(6, sq(10, 10), { building: 'yes' }),
