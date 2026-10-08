@@ -1,5 +1,9 @@
-import { AUDIO_MP3_BITRATES, MEDIA_TAB_EXPORT_FORMATS, type MediaExportFormat } from '@midnite/studio-shared';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import {
+  AUDIO_MP3_BITRATES,
+  MEDIA_TAB_EXPORT_FORMATS,
+  type MediaExportFormat,
+} from '@midnite/studio-shared';
+import { lazy, Suspense, useEffect, useMemo, useReducer, useState } from 'react';
 
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
@@ -7,12 +11,24 @@ import { MediaLayout, openMediaPane } from '../media-layout';
 import { NoRepoMediaState } from '../repo-media-tab';
 import { useMediaExport, useMediaProjects } from '../use-media';
 import { AudioProjects } from './audio-projects';
+import { AudioSubTabs } from './audio-sub-tabs';
 import { BottomPlayer } from './bottom-player';
 import { usePlayer } from './player-store';
 import { PromptForm } from './prompt-form';
 import { initialPromptForm, promptFormReducer, toPrompt } from './prompt-form-state';
 import { SessionList } from './session-list';
-import { useAudioEngine, useAudioImport, useAudioPrefs, useAudioProviders, useAudioSessions } from './use-audio';
+import {
+  useAudioEngine,
+  useAudioImport,
+  useAudioPrefs,
+  useAudioProviders,
+  useAudioSessions,
+} from './use-audio';
+
+/** Phase 101: the Editor chunk loads only once its tab opens (Tone.js will hang off it). */
+const EditorTab = lazy(() =>
+  import('../music-editor/editor-tab').then((m) => ({ default: m.EditorTab })),
+);
 
 /** Where an Import lands when the repo has no audio project yet. */
 export const DEFAULT_AUDIO_PROJECT = 'imports';
@@ -34,7 +50,9 @@ export function AudioTab() {
 export function isSpaceTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return true;
   if (target.isContentEditable) return false;
-  return !target.closest('input, textarea, select, button, [role="slider"], [role="textbox"], [contenteditable="true"]');
+  return !target.closest(
+    'input, textarea, select, button, [role="slider"], [role="textbox"], [contenteditable="true"]',
+  );
 }
 
 function AudioTabBody({ repoId }: { repoId: string }) {
@@ -45,10 +63,14 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const [project, setProject] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [bitrate, setBitrate] = useState(prefs.mp3BitrateKbps);
+  const mode = useUiStore((s) => s.audioTabByRepo[repoId]) ?? 'generator';
+  const setAudioTab = useUiStore((s) => s.setAudioTab);
 
   const projects = useMediaProjects(repoId, 'audio');
   const activeProject =
-    project && projects.data?.some((p) => p.name === project) ? project : (projects.data?.[0]?.name ?? null);
+    project && projects.data?.some((p) => p.name === project)
+      ? project
+      : (projects.data?.[0]?.name ?? null);
   const sessions = useAudioSessions(repoId, activeProject);
   const providers = useAudioProviders();
   const engine = useAudioEngine();
@@ -61,7 +83,14 @@ function AudioTabBody({ repoId }: { repoId: string }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== ' ' || event.metaKey || event.ctrlKey || event.altKey || !isSpaceTarget(event.target)) return;
+      if (
+        event.key !== ' ' ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        !isSpaceTarget(event.target)
+      )
+        return;
       if (usePlayer.getState().pos < 0) return;
       event.preventDefault();
       usePlayer.getState().toggle();
@@ -93,7 +122,13 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const onExport = (format: MediaExportFormat) => {
     if (!selected) return;
     exporter.start.mutate({
-      source: { kind: 'media', repoId, tab: 'audio', project: selected.project, path: selected.path },
+      source: {
+        kind: 'media',
+        repoId,
+        tab: 'audio',
+        project: selected.project,
+        path: selected.path,
+      },
       format,
       options: format === 'mp3' ? { bitrateKbps: bitrate } : {},
     });
@@ -107,27 +142,32 @@ function AudioTabBody({ repoId }: { repoId: string }) {
           detailLabel="Resize prompt panel"
           toolbar={
             <>
-              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                MP3 bitrate
-                <select
-                  aria-label="MP3 bitrate"
-                  value={bitrate}
-                  onChange={(event) => setBitrate(Number(event.target.value))}
-                  className="h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground"
-                >
-                  {AUDIO_MP3_BITRATES.map((kbps) => (
-                    <option key={kbps} value={kbps}>
-                      {kbps} kbps
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <ExportToolbar
-                formats={MEDIA_TAB_EXPORT_FORMATS.audio}
-                hasSelection={selected !== null}
-                onExport={onExport}
-                busy={exporter.progress?.status === 'running'}
-              />
+              <AudioSubTabs mode={mode} onChange={(next) => setAudioTab(repoId, next)} />
+              {mode === 'generator' ? (
+                <>
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    MP3 bitrate
+                    <select
+                      aria-label="MP3 bitrate"
+                      value={bitrate}
+                      onChange={(event) => setBitrate(Number(event.target.value))}
+                      className="h-6 rounded-md border border-border bg-background px-1 text-[11px] text-foreground"
+                    >
+                      {AUDIO_MP3_BITRATES.map((kbps) => (
+                        <option key={kbps} value={kbps}>
+                          {kbps} kbps
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <ExportToolbar
+                    formats={MEDIA_TAB_EXPORT_FORMATS.audio}
+                    hasSelection={selected !== null}
+                    onExport={onExport}
+                    busy={exporter.progress?.status === 'running'}
+                  />
+                </>
+              ) : null}
             </>
           }
           explorer={
@@ -146,29 +186,37 @@ function AudioTabBody({ repoId }: { repoId: string }) {
             />
           }
           content={
-            <SessionList
-              repoId={repoId}
-              sessions={sessions.data ?? []}
-              loading={sessions.isPending && activeProject !== null}
-              selectedKey={selectedKey}
-              onSelect={(variant) => setSelectedKey(variant.key)}
-              onCompose={() => openMediaPane('audio', 'detail')}
-            />
+            mode === 'editor' ? (
+              <Suspense fallback={null}>
+                <EditorTab project={activeProject} />
+              </Suspense>
+            ) : (
+              <SessionList
+                repoId={repoId}
+                sessions={sessions.data ?? []}
+                loading={sessions.isPending && activeProject !== null}
+                selectedKey={selectedKey}
+                onSelect={(variant) => setSelectedKey(variant.key)}
+                onCompose={() => openMediaPane('audio', 'detail')}
+              />
+            )
           }
           detail={
-            <PromptForm
-              state={form}
-              dispatch={dispatch}
-              statuses={providers.data ?? []}
-              engine={engine.data}
-              importing={importer.start.isPending}
-              generating={importer.generate.isPending}
-              progress={importer.pending}
-              error={importer.lastError}
-              onImport={onImport}
-              onGenerate={onGenerate}
-              onCancel={importer.cancel}
-            />
+            mode === 'editor' ? undefined : (
+              <PromptForm
+                state={form}
+                dispatch={dispatch}
+                statuses={providers.data ?? []}
+                engine={engine.data}
+                importing={importer.start.isPending}
+                generating={importer.generate.isPending}
+                progress={importer.pending}
+                error={importer.lastError}
+                onImport={onImport}
+                onGenerate={onGenerate}
+                onCancel={importer.cancel}
+              />
+            )
           }
         />
       </div>
