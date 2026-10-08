@@ -43,6 +43,7 @@ export function MediaSettingsPage() {
         <AudioSettingsSection />
       </Accordion>
       <Accordion title="Maps" icon={<LuMap className="h-4 w-4" />}>
+        <MapUnitsRow />
         <MapSettingsSection />
       </Accordion>
       <Accordion title="Games" icon={<LuGamepad2 className="h-4 w-4" />}>
@@ -128,5 +129,25 @@ function ExportFolderRow() {
         {mediaExportDir ? 'Change folder…' : 'Choose folder…'}
       </button>
     </div>
+  );
+}
+
+/** Settings ▸ Media ▸ Maps ▸ Units (Phase 108 Theme G): how the measure tools print distance and area. */
+function MapUnitsRow() {
+  const mapUnits = useUiStore((s) => s.mapUnits);
+  const setMapUnits = useUiStore((s) => s.setMapUnits);
+  return (
+    <label className="flex items-center justify-between gap-3 px-3 pt-3 text-xs text-foreground">
+      <span>Measurement units</span>
+      <select
+        aria-label="Map measurement units"
+        value={mapUnits}
+        onChange={(event) => setMapUnits(event.target.value === 'imperial' ? 'imperial' : 'metric')}
+        className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+      >
+        <option value="metric">Metric (m, km)</option>
+        <option value="imperial">Imperial (ft, mi)</option>
+      </select>
+    </label>
   );
 }

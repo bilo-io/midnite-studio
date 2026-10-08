@@ -6,6 +6,12 @@
 A capture now writes the satellite image and the roads beside the heightmap. `satellite.png` is stitched at the zoom matching Terrain's `textureSize` and sampled pixel-centred in the capture worker (EOX Sentinel-2 cloudless 2016 by default, MapTiler with a key, a display-only source refused with its licence reason). Roads come from one Overpass query in main per capture (frames up to 25 km), become `roads.graph.json` in Terrain's centred frame (split at shared nodes, clipped, class and name kept, width by class or lanes) and a cyan-on-black `roads.png` Terrain keys without a hint. A failed layer lands in `capture.json`'s `missing` with a reason and never costs the heightmap; `ATTRIBUTION.txt` covers every source. The capture section gets Satellite and Roads toggles and lists what is missing.
 
 - [x] E: `osm-roads.ts` (`osmToRoadGraph`, `rasterizeRoads`, class widths), `overpass.ts`, worker satellite/roads runs + `capture-dispatch.ts`, capture-service layers and partial results, `roads-skipped` warning, panel toggles and missing list, vitests (kernel, Overpass client faked, service incl. cancel mid-Overpass, satellite orientation golden)
+## 2026-10-08 — Phase 108 Themes G + H — Measure and draw; layers ([#774](https://github.com/bilo-io/midnite-studio/pull/774))
+
+Maps gains five tools (pan, distance, radius circle, area, pin) with geodesic readouts, place search over the Open-Meteo geocoder, and drawings saved as git-tracked GeoJSON layers: a layer list with visibility, colour, rename, Trash delete and reorder, `.geojson`/`.kml` import and export, and external-edit pickup. Geodesy is the Theme D Vincenty kernel plus a new `measure.ts`; layers go through the generic media file channels, so no new IPC.
+
+- [x] G: `shared/src/map/measure.ts`, `map-tools.ts` reducer, `map-format.ts`, `map-toolbar.tsx`, `map-place-search.tsx`, `features/geo/geocode.ts`, `mapUnits` in the ui-store and Settings ▸ Media, canvas drawing layers/clicks/keys, `map-drawing-section.tsx`, vitest
+- [x] H: `MapLayerFileSchema` + `stringifyLayer`, `use-map-layers.ts`, `map-layer-list.tsx`, `kml.ts`, `map-layer-export.ts`, vitest, Playwright shots
 
 ## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain ([#773](https://github.com/bilo-io/midnite-studio/pull/773))
 
