@@ -95,8 +95,8 @@ describe('groups and naming', () => {
 });
 
 describe('the tab', () => {
-  it('registers after terrain and is repo-scoped', () => {
-    expect(MEDIA_TABS.indexOf('sprite')).toBe(MEDIA_TABS.indexOf('terrain') + 1);
+  it('registers after models and is repo-scoped', () => {
+    expect(MEDIA_TABS.indexOf('sprite')).toBe(MEDIA_TABS.indexOf('model') + 1);
     expect(REPO_SCOPED_MEDIA_TABS).toContain('sprite');
   });
 });

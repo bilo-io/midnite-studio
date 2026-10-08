@@ -17,7 +17,7 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain', 'sprite', 'game', 'map'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model', 'sprite', 'game'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -27,7 +27,7 @@ export type MediaTab = z.infer<typeof MediaTabSchema>;
  * Phase 44's global setting, so it keeps working with no repo open; Games (Phase 107) likewise resolves its
  * own root (the games location setting).
  */
-export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model', 'terrain', 'sprite', 'map'];
+export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'map', 'terrain', 'model', 'sprite'];
 
 /** `<repo>/.midnite/media` — joined with the tab id for each tab's root. */
 export const MEDIA_ROOT_DIR = '.midnite/media';
