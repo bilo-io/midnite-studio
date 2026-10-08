@@ -28,7 +28,14 @@ import { createRng } from './rng.js';
 export const SFX_NAMES = /** @type {const} */ ([
   'jump', 'land', 'footstep', 'shoot', 'laser', 'hit', 'hurt', 'explosion', 'pickup', 'coin', 'powerup',
   'ui-click', 'ui-hover', 'door', 'swing', 'block', 'parry', 'death', 'win',
+  // v0.11.0
+  'reload', 'empty-click', 'dash', 'roll', 'combo-hit', 'critical', 'heal', 'level-up', 'quest-complete',
+  'engine-loop', 'gunshot-pistol', 'gunshot-rifle', 'gunshot-shotgun', 'sword-clash', 'magic-cast',
+  'ambience-crowd', 'ambience-wind', 'ambience-room',
 ]);
+
+/** Presets meant to be looped with `sfx.loop(name)` (long, seamless-ish pads and engine hums). */
+export const LOOPING_SFX = /** @type {const} */ (['engine-loop', 'ambience-crowd', 'ambience-wind', 'ambience-room']);
 
 /** Equal-tempered semitone ratio. @param {number} n */
 const semi = (n) => 2 ** (n / 12);
@@ -112,6 +119,90 @@ const PRESETS = {
   ],
   win: ({ pitch, power }) =>
     [0, 4, 7, 12, 16, 19].map((n, i) => /** @type {Layer} */ ({ kind: 'osc', wave: 'triangle', f: [523 * pitch * semi(n), 523 * pitch * semi(n)], at: i * 0.1, dur: i === 5 ? 0.7 : 0.3, gain: 0.2 * power })),
+  reload: ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.04, gain: 0.35 * power, filter: { type: 'highpass', f: [v(2200, 0.1), 1800] } },
+    { kind: 'osc', wave: 'square', f: [v(180 * pitch, 0.05), 140 * pitch], at: 0, dur: 0.05, gain: 0.14 * power },
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0.22, dur: 0.05, gain: 0.45 * power, filter: { type: 'bandpass', f: [v(1500, 0.1), 900], q: 2 } },
+    { kind: 'osc', wave: 'triangle', f: [v(320 * pitch, 0.05), 160 * pitch], at: 0.22, dur: 0.08, gain: 0.25 * power },
+  ],
+  'empty-click': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.02, gain: 0.3 * power, filter: { type: 'highpass', f: [v(3000, 0.1), 2500] } },
+    { kind: 'osc', wave: 'square', f: [v(900 * pitch, 0.04), 400 * pitch], at: 0, dur: 0.025, gain: 0.1 * power },
+  ],
+  dash: ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.2, gain: 0.32 * power, attack: 0.03, filter: { type: 'bandpass', f: [v(2800 * pitch, 0.1), v(700 * pitch, 0.1)], q: 1.2 } },
+    { kind: 'osc', wave: 'sine', f: [v(300 * pitch, 0.05), 120 * pitch], at: 0, dur: 0.16, gain: 0.15 * power },
+  ],
+  roll: ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0, dur: 0.34, gain: 0.4 * power, attack: 0.05, filter: { type: 'lowpass', f: [v(900 * pitch, 0.1), 250] } },
+    { kind: 'noise', noise: 'pink', f: [0, 0], at: 0.04, dur: 0.22, gain: 0.14 * power, filter: { type: 'bandpass', f: [v(1400, 0.1), 600], q: 0.9 } },
+    { kind: 'osc', wave: 'sine', f: [v(85 * pitch, 0.06), 50], at: 0.26, dur: 0.1, gain: 0.3 * power },
+  ],
+  'combo-hit': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.07, gain: 0.5 * power, filter: { type: 'bandpass', f: [v(1900, 0.1), 700], q: 1.4 } },
+    { kind: 'osc', wave: 'sine', f: [v(260 * pitch, 0.05), 70], at: 0, dur: 0.1, gain: 0.45 * power },
+    { kind: 'osc', wave: 'triangle', f: [v(880 * pitch, 0.03), v(1320 * pitch, 0.03)], at: 0.04, dur: 0.12, gain: 0.16 * power },
+  ],
+  critical: ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.12, gain: 0.6 * power, filter: { type: 'bandpass', f: [v(2400, 0.1), 500], q: 1 } },
+    { kind: 'osc', wave: 'sine', f: [v(180 * pitch, 0.05), 40], at: 0, dur: 0.2, gain: 0.65 * power },
+    { kind: 'osc', wave: 'sawtooth', f: [v(1800 * pitch, 0.03), 900 * pitch], at: 0.02, dur: 0.22, gain: 0.14 * power, filter: { type: 'lowpass', f: [5000, 1500] } },
+    { kind: 'osc', wave: 'sine', f: [v(3200 * pitch, 0.02), 3000 * pitch], at: 0.05, dur: 0.3, gain: 0.1 * power },
+  ],
+  heal: ({ pitch, power }) =>
+    [0, 7, 12, 16].map((n, i) => /** @type {Layer} */ ({ kind: 'osc', wave: 'sine', f: [392 * pitch * semi(n), 392 * pitch * semi(n)], at: i * 0.08, dur: 0.3, gain: 0.18 * power, vibrato: { rate: 6, depth: 3 } })),
+  'level-up': ({ pitch, power }) => [
+    ...[0, 4, 7, 12, 16, 19, 24].map((n, i) => /** @type {Layer} */ ({ kind: 'osc', wave: 'square', f: [330 * pitch * semi(n), 330 * pitch * semi(n)], at: i * 0.075, dur: 0.14, gain: 0.1 * power, filter: { type: 'lowpass', f: [3500, 2000] } })),
+    { kind: 'osc', wave: 'triangle', f: [660 * pitch * semi(12), 660 * pitch * semi(12)], at: 0.55, dur: 0.7, gain: 0.22 * power },
+  ],
+  'quest-complete': ({ pitch, power }) => [
+    ...[0, 7, 12].map((n, i) => /** @type {Layer} */ ({ kind: 'osc', wave: 'triangle', f: [262 * pitch * semi(n), 262 * pitch * semi(n)], at: i * 0.16, dur: 0.4, gain: 0.2 * power })),
+    ...[0, 4, 7, 12].map((n) => /** @type {Layer} */ ({ kind: 'osc', wave: 'triangle', f: [523 * pitch * semi(n), 523 * pitch * semi(n)], at: 0.5, dur: 0.9, gain: 0.14 * power })),
+  ],
+  'engine-loop': ({ v, pitch, power }) => [
+    { kind: 'osc', wave: 'sawtooth', f: [v(62 * pitch, 0.02), v(62 * pitch, 0.02)], at: 0, dur: 0.5, gain: 0.2 * power, attack: 0.02, filter: { type: 'lowpass', f: [420, 420] }, vibrato: { rate: 28, depth: 5 } },
+    { kind: 'osc', wave: 'square', f: [v(124 * pitch, 0.02), v(124 * pitch, 0.02)], at: 0, dur: 0.5, gain: 0.07 * power, attack: 0.02, filter: { type: 'lowpass', f: [600, 600] } },
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0, dur: 0.5, gain: 0.18 * power, attack: 0.02, filter: { type: 'lowpass', f: [300, 300] } },
+  ],
+  'gunshot-pistol': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.1, gain: 0.7 * power, attack: 0.002, filter: { type: 'highpass', f: [v(1100, 0.1), 250] } },
+    { kind: 'osc', wave: 'sawtooth', f: [v(200 * pitch, 0.05), 45], at: 0, dur: 0.1, gain: 0.4 * power, filter: { type: 'lowpass', f: [2200, 350] } },
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0.03, dur: 0.22, gain: 0.25 * power, filter: { type: 'lowpass', f: [900, 150] } },
+  ],
+  'gunshot-rifle': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.16, gain: 0.8 * power, attack: 0.002, filter: { type: 'highpass', f: [v(800, 0.1), 200] } },
+    { kind: 'osc', wave: 'sawtooth', f: [v(150 * pitch, 0.05), 38], at: 0, dur: 0.16, gain: 0.5 * power, filter: { type: 'lowpass', f: [1800, 250] } },
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0.04, dur: 0.45, gain: 0.35 * power, filter: { type: 'lowpass', f: [700, 100] } },
+  ],
+  'gunshot-shotgun': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.22, gain: 0.95 * power, attack: 0.002, filter: { type: 'lowpass', f: [v(5000, 0.1), 400] } },
+    { kind: 'osc', wave: 'sine', f: [v(110 * pitch, 0.05), 28], at: 0, dur: 0.3, gain: 0.8 * power },
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0.05, dur: 0.6, gain: 0.4 * power, filter: { type: 'lowpass', f: [600, 80] } },
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0.42, dur: 0.05, gain: 0.35 * power, filter: { type: 'bandpass', f: [1600, 900], q: 2 } },
+  ],
+  'sword-clash': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'white', f: [0, 0], at: 0, dur: 0.05, gain: 0.55 * power, filter: { type: 'highpass', f: [2500, 2000] } },
+    { kind: 'osc', wave: 'triangle', f: [v(2100 * pitch, 0.03), 2060 * pitch], at: 0, dur: 0.45, gain: 0.2 * power },
+    { kind: 'osc', wave: 'sine', f: [v(3150 * pitch, 0.03), 3120 * pitch], at: 0, dur: 0.35, gain: 0.12 * power },
+    { kind: 'osc', wave: 'sine', f: [v(1480 * pitch, 0.03), 1470 * pitch], at: 0.01, dur: 0.5, gain: 0.14 * power },
+  ],
+  'magic-cast': ({ v, pitch, power }) => [
+    { kind: 'osc', wave: 'sine', f: [v(300 * pitch, 0.04), v(1500 * pitch, 0.04)], at: 0, dur: 0.45, gain: 0.2 * power, attack: 0.15, vibrato: { rate: 11, depth: 25 } },
+    { kind: 'osc', wave: 'triangle', f: [v(450 * pitch, 0.04), v(2250 * pitch, 0.04)], at: 0.05, dur: 0.4, gain: 0.12 * power, attack: 0.15 },
+    { kind: 'noise', noise: 'pink', f: [0, 0], at: 0.3, dur: 0.3, gain: 0.2 * power, filter: { type: 'bandpass', f: [v(3000, 0.1), 1500], q: 2 } },
+  ],
+  'ambience-crowd': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'pink', f: [0, 0], at: 0, dur: 2.5, gain: 0.22 * power, attack: 0.5, filter: { type: 'bandpass', f: [v(700 * pitch, 0.1), v(500 * pitch, 0.1)], q: 0.6 } },
+    { kind: 'noise', noise: 'pink', f: [0, 0], at: 0.2, dur: 2.3, gain: 0.12 * power, attack: 0.6, filter: { type: 'bandpass', f: [v(1400 * pitch, 0.1), v(1000 * pitch, 0.1)], q: 1.5 } },
+  ],
+  'ambience-wind': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'pink', f: [0, 0], at: 0, dur: 3, gain: 0.25 * power, attack: 0.8, filter: { type: 'bandpass', f: [v(300 * pitch, 0.1), v(900 * pitch, 0.1)], q: 1.8 } },
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0, dur: 3, gain: 0.2 * power, attack: 0.8, filter: { type: 'lowpass', f: [400, 250] } },
+  ],
+  'ambience-room': ({ v, pitch, power }) => [
+    { kind: 'noise', noise: 'brown', f: [0, 0], at: 0, dur: 3, gain: 0.16 * power, attack: 0.8, filter: { type: 'lowpass', f: [v(260 * pitch, 0.05), 200] } },
+    { kind: 'osc', wave: 'sine', f: [v(55 * pitch, 0.01), v(55 * pitch, 0.01)], at: 0, dur: 3, gain: 0.08 * power, attack: 0.8 },
+  ],
 };
 
 /**
@@ -379,6 +470,36 @@ export function createSfx(options = {}) {
       };
       voices.push(entry);
       return { stop: entry.stop };
+    },
+    /**
+     * Keep a (long) preset playing until stopped: `engine-loop`, `ambience-*`. Re-triggers just before the previous play ends, so layers overlap into a continuous bed.
+     * `set({ volume, pitch })` changes the following repeats. Returns `{ stop, set }`; a no-op with no audio.
+     * @param {string} name
+     * @param {{ volume?: number, pitch?: number, power?: number, pan?: number, position?: readonly number[] }} [opts]
+     */
+    loop(name, opts = {}) {
+      let cur = { ...opts };
+      let timer = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
+      let stopped = false;
+      let handle = /** @type {{ stop: () => void } | null} */ (null);
+      const dur = buildRecipe(name, { seed: 1 }).duration;
+      const tick = () => {
+        if (stopped) return;
+        handle = api.play(name, cur);
+        timer = setTimeout(tick, Math.max(50, dur * 900));
+      };
+      tick();
+      return {
+        stop() {
+          stopped = true;
+          if (timer) clearTimeout(timer);
+          handle?.stop();
+        },
+        /** @param {{ volume?: number, pitch?: number, power?: number, pan?: number }} patch */
+        set(patch) {
+          cur = { ...cur, ...patch };
+        },
+      };
     },
     dispose() {
       for (const vo of voices) vo.stop();

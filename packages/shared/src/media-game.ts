@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.10.0';
+export const GAME_KIT_VERSION = '0.11.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -351,6 +351,40 @@ export const GameToolbarRequest = z.object({
   gameId: z.string().min(1),
   action: z.enum(GAME_TOOLBAR_ACTIONS),
   value: z.union([z.string(), z.number(), z.boolean()]).optional(),
+});
+
+/**
+ * The kit's per-game juice settings (`kit/core/juice-settings.js`, on `window.__midnite.juice`): what the
+ * runner toolbar's Juice popover reads and writes. `reducedMotion` stays the game's own (it follows the OS).
+ */
+export const GameJuiceSettingsSchema = z.object({
+  enabled: z.boolean(),
+  intensity: z.number().min(0).max(2),
+  shake: z.boolean(),
+  flash: z.boolean(),
+  particles: z.boolean(),
+  postfx: z.boolean(),
+  volume: z.number().min(0).max(1),
+});
+export type GameJuiceSettings = z.infer<typeof GameJuiceSettingsSchema>;
+export const GameJuicePatchSchema = GameJuiceSettingsSchema.partial();
+export type GameJuicePatch = z.infer<typeof GameJuicePatchSchema>;
+/** Mirrors the kit's `DEFAULT_JUICE_SETTINGS`. */
+export const GAME_JUICE_DEFAULTS: GameJuiceSettings = {
+  enabled: true,
+  intensity: 1,
+  shake: true,
+  flash: true,
+  particles: true,
+  postfx: true,
+  volume: 0.8,
+};
+export const GAME_JUICE_ACTIONS = ['get', 'set', 'reset'] as const;
+export const GameJuiceRequest = z.object({
+  gameId: z.string().min(1),
+  action: z.enum(GAME_JUICE_ACTIONS),
+  /** For `set`: the keys to change. */
+  patch: GameJuicePatchSchema.optional(),
 });
 
 export const GameLogsRequest = z.object({

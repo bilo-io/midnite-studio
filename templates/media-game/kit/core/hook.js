@@ -16,7 +16,7 @@ import { determinism } from './determinism.js';
 import { virtualGamepad } from './input-map.js';
 import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.10.0';
+export const KIT_VERSION = '0.11.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 

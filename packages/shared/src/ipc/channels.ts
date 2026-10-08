@@ -897,6 +897,7 @@ export const CHANNELS = {
   gamesSetBounds: 'mstudio:games:set-bounds',
   gamesSetVisible: 'mstudio:games:set-visible',
   gamesToolbar: 'mstudio:games:toolbar',
+  gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
   /** Move a game's runner view into the `game` popout window (Theme B). */

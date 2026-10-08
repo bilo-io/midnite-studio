@@ -263,6 +263,8 @@ import {
   GamesSettingsReadSchema,
   GamesSettingsPatchSchema,
   GameToolbarRequest as GameToolbarRequestSchema,
+  GameJuiceRequest as GameJuiceRequestSchema,
+  GameJuiceSettingsSchema,
   GameVisibleRequest as GameVisibleRequestSchema,
 } from '../media-game';
 import {
@@ -4439,6 +4441,8 @@ export const GamesReloadRequest = GameIdRequestSchema;
 export const GamesSetBoundsRequest = GameBoundsRequestSchema;
 export const GamesSetVisibleRequest = GameVisibleRequestSchema;
 export const GamesToolbarRequest = GameToolbarRequestSchema;
+export const GamesJuiceRequest = GameJuiceRequestSchema;
+export const GamesJuiceResponse = GitOpResultOf(GameJuiceSettingsSchema);
 export const GamesLogsRequest = GameLogsRequestSchema;
 export const GamesLogsResponse = GameLogsResponseSchema;
 export const GamesChangedPayload = GamesChangedSchema;

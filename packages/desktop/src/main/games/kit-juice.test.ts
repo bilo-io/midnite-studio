@@ -180,7 +180,7 @@ describe('kit/core/juice-settings.js', () => {
 
 describe('kit/core/sfx.js', () => {
   it('builds every named preset, with sane layers', async () => {
-    const { SFX_NAMES, buildRecipe } = await load('sfx.js');
+    const { SFX_NAMES, LOOPING_SFX, buildRecipe } = await load('sfx.js');
     for (const name of ['jump', 'land', 'footstep', 'shoot', 'laser', 'hit', 'hurt', 'explosion', 'pickup', 'coin', 'powerup', 'ui-click', 'ui-hover', 'door', 'swing', 'block', 'parry', 'death', 'win']) {
       expect(SFX_NAMES).toContain(name);
     }
@@ -189,7 +189,7 @@ describe('kit/core/sfx.js', () => {
       expect(r.name).toBe(name);
       expect(r.layers.length).toBeGreaterThan(0);
       expect(r.duration).toBeGreaterThan(0);
-      expect(r.duration).toBeLessThan(2);
+      expect(r.duration).toBeLessThan(LOOPING_SFX.includes(name) ? 4 : 2);
       for (const l of r.layers) {
         expect(l.gain).toBeGreaterThan(0);
         expect(l.gain).toBeLessThanOrEqual(1);
@@ -349,5 +349,45 @@ describe('kit/core/juice-core.js', () => {
       if (t.sfx) expect(SFX_NAMES, name).toContain(t.sfx);
       if (t.particles) expect(Object.keys(PARTICLE_PRESETS), name).toContain(t.particles);
     }
+  });
+});
+
+describe('kit v0.11.0 additions', () => {
+  it('every new preset builds a recipe and loops are long enough to bed', async () => {
+    const { SFX_NAMES, LOOPING_SFX, buildRecipe } = await load('sfx.js');
+    for (const name of ['reload', 'empty-click', 'dash', 'roll', 'combo-hit', 'critical', 'heal', 'level-up', 'quest-complete', 'engine-loop', 'gunshot-pistol', 'gunshot-rifle', 'gunshot-shotgun', 'sword-clash', 'magic-cast', 'ambience-crowd', 'ambience-wind', 'ambience-room']) {
+      expect(SFX_NAMES).toContain(name);
+      const r = buildRecipe(name, { seed: 3 });
+      expect(r.layers.length).toBeGreaterThan(0);
+      expect(r.duration).toBeGreaterThan(0);
+      expect(buildRecipe(name, { seed: 3 })).toEqual(r);
+    }
+    for (const name of LOOPING_SFX) expect(buildRecipe(name, { seed: 1 }).duration).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('sfx.loop is a no-op without audio and can be stopped', async () => {
+    const { createSfx } = await load('sfx.js');
+    vi.useFakeTimers();
+    const sfx = createSfx({ autoUnlock: false });
+    const handle = sfx.loop('engine-loop');
+    handle.set({ pitch: 1.2 });
+    vi.advanceTimersByTime(1200);
+    handle.stop();
+    const played = sfx.played;
+    vi.advanceTimersByTime(2000);
+    expect(sfx.played).toBe(played);
+    expect(played).toBeGreaterThan(1);
+    vi.useRealTimers();
+  });
+
+  it('sky presets mix, the sun direction is a unit vector, and time of day walks night to day', async () => {
+    const { SKY_PRESETS, mixColor, sunDirection, skyAtTime } = await load('sky.js');
+    expect(mixColor(0x000000, 0xffffff, 0.5)).toBe(0x808080);
+    const d = sunDirection(1.2, 0.7);
+    expect(Math.hypot(...d)).toBeCloseTo(1, 10);
+    expect(skyAtTime(12).preset.zenith).toBe(SKY_PRESETS.day.zenith);
+    expect(skyAtTime(2).preset.stars).toBe(1);
+    expect(skyAtTime(12).elevation).toBeGreaterThan(skyAtTime(7).elevation);
+    expect(skyAtTime(26).preset).toEqual(skyAtTime(2).preset);
   });
 });

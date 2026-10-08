@@ -9,9 +9,13 @@ import {
   GAME_CONSOLE_BATCH_MS,
   GAME_DETERMINISM_PARAMS,
   GAMES_MAX_RUNNING,
+  GameJuicePatchSchema,
+  GameJuiceSettingsSchema,
   MSTUDIO_GAME_SCHEME,
   ok,
   type BrowserBounds,
+  type GameJuicePatch,
+  type GameJuiceSettings,
   type GameLogEntry,
   type GameNetwork,
   type GameRunState,
@@ -79,6 +83,8 @@ export type GameRunner = {
   setBounds(gameId: string, bounds: BrowserBounds): void;
   setVisible(gameId: string, visible: boolean): void;
   toolbar(gameId: string, action: ToolbarAction, value?: string | number | boolean): Promise<GitOpResult>;
+  /** Read or change the game's juice settings through `window.__midnite.juice` (`get`, `set` a patch, or `reset`). */
+  juice(gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>>;
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };
   view(gameId: string): WebContentsView | null;
   isRunning(gameId: string): boolean;
@@ -464,6 +470,24 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
           const hooked = await exec(run, HOOK_CALL('setOverlay', value === false ? 'false' : 'true'));
           return hooked ? ok() : failure('This game has no overlay hook.');
         }
+      }
+    },
+
+    async juice(gameId, action, patch) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      // The patch is validated (booleans and bounded numbers), so its JSON is a safe literal to splice in.
+      const arg = action === 'set' ? JSON.stringify(GameJuicePatchSchema.parse(patch ?? {})) : '';
+      const method = action === 'get' ? 'get' : action;
+      const code = `(() => { const j = window.__midnite && window.__midnite.juice; if (!j || typeof j.${method} !== 'function') return null; const r = j.${method}(${arg}); return JSON.stringify(typeof r === 'object' && r ? r : j.get()); })()`;
+      try {
+        const raw: unknown = await run.view.webContents.executeJavaScript(code);
+        if (typeof raw !== 'string') return failure('This game has no juice settings.');
+        // The page's answer is untrusted: parse it against the schema, which also drops keys we do not surface.
+        const parsed = GameJuiceSettingsSchema.safeParse(JSON.parse(raw));
+        return parsed.success ? ok(parsed.data) : failure('This game answered with settings Midnite Studio does not understand.');
+      } catch {
+        return failure('Could not reach the game.');
       }
     },
 
