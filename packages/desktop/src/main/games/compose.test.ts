@@ -169,7 +169,7 @@ describe('composeStarter', () => {
     expect(await readFile(join(dest, 'src/game.config.js'), 'utf8')).toContain(`"genre":"${parseStarterId(id)!.genre}"`);
   });
 
-  it('the fighter, character action, RPG and open world bring their own stage; shooter and soulslike keep the base arena', async () => {
+  it('the fighter, character action, shooter, soulslike, RPG and open world bring their own stage', async () => {
     const level = async (id: string): Promise<string> => {
       const out = await mkdtemp(join(tmpdir(), 'midnite-compose-level-'));
       try {
@@ -182,11 +182,12 @@ describe('composeStarter', () => {
     const fighter = await level('fighter@third-person');
     expect(fighter).toContain("mode: 'versus'");
     expect(fighter).not.toContain('initPhysics');
+    // The shooter and soulslike own their level so the fidelity stack exists before the genre installs.
     for (const id of ['shooter@first-person', 'shooter@third-person', 'soulslike@third-person']) {
-      const base = await level(id);
-      expect(base, id).toContain('genre.intent');
-      expect(base, id).toContain('initPhysics');
-      expect(base, id).toContain(id.endsWith('first-person') ? "MODE = 'first-person'" : "MODE = 'third-person'");
+      const own = await level(id);
+      expect(own, id).toContain('genre.intent');
+      expect(own, id).toContain('initPhysics');
+      expect(own, id).toContain('createFx');
     }
     for (const id of ['rpg@third-person', 'rpg@first-person']) {
       const village = await level(id);
