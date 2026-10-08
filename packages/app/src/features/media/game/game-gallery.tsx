@@ -17,6 +17,7 @@ import { useRef } from 'react';
 import { LuBox, LuDoorOpen, LuEye, LuFootprints, LuMap, LuUser } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
+import { thumbnailFor } from './game-thumbnails';
 
 export const PERSPECTIVE_LABEL: Record<GamePerspective, string> = {
   platformer: 'Platformer',
@@ -149,6 +150,7 @@ export function GameGallery({ dimension, onDimension, value, onChange, cameras, 
               const pitch = cell ? cell.pitch : BASE_PITCH[p];
               const reason = available.ok ? null : available.reason;
               const Glyph = GLYPH[p];
+              const thumb = valid.ok ? thumbnailFor(id) : null;
               return (
                 <div key={id} role="gridcell" aria-selected={selected} className="min-w-0">
                   <button
@@ -188,8 +190,15 @@ export function GameGallery({ dimension, onDimension, value, onChange, cameras, 
                             : 'cursor-not-allowed border-transparent bg-muted/30 opacity-40'
                     }`}
                   >
-                    <span className="flex h-8 items-center justify-center rounded bg-muted/60" aria-hidden>
-                      <Glyph className="h-4 w-4" />
+                    <span
+                      className="flex aspect-video w-full items-center justify-center overflow-hidden rounded bg-muted/60"
+                      aria-hidden
+                    >
+                      {thumb ? (
+                        <img src={thumb} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" />
+                      ) : (
+                        <Glyph className="h-5 w-5 text-muted-foreground" />
+                      )}
                     </span>
                     <span className="line-clamp-2 leading-tight text-muted-foreground">{reason ?? pitch}</span>
                   </button>
