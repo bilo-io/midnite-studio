@@ -41,14 +41,13 @@ const POLICE_SPEED = 16;
  *   terrain: Awaited<ReturnType<typeof import('kit/three/terrain.js').loadTerrain>>,
  *   terrainUrl: string,
  *   cars: ReturnType<typeof import('kit/three/vehicle.js').createVehicle>[],
- *   lights: { sun: THREE.DirectionalLight, ambient: THREE.HemisphereLight },
  *   driving: () => ReturnType<typeof import('kit/three/vehicle.js').createVehicle> | null,
  *   playerPosition: () => number[],
  *   bust: () => void,
  * }} ctx
  */
 export function installGenre(scene, ctx) {
-  const { hud, input, terrain, lights, juice, sfx } = ctx;
+  const { hud, input, terrain, juice, sfx } = ctx;
   const roads = terrain.roads;
   const index = indexRoads(roads);
   const rng = createRng(7);
@@ -188,15 +187,8 @@ export function installGenre(scene, ctx) {
 
       // --- day and night ------------------------------------------------------------------
       const hour = hourAt(seconds, DAY_SECONDS, 9);
+      // The sky, sun, fog and hemisphere light are the stage's (`createEnvironment` in `../scenes/level.js`); this reads the hour for the clock and the street lights.
       const sky = skyAt(hour);
-      const [sr = 0, sg = 0, sb = 0] = sky.sky;
-      /** @type {THREE.Color} */ (scene.background).setRGB(sr / 255, sg / 255, sb / 255, THREE.SRGBColorSpace);
-      scene.fog?.color.setRGB(sr / 255, sg / 255, sb / 255, THREE.SRGBColorSpace);
-      lights.sun.intensity = sky.sun;
-      lights.ambient.intensity = sky.ambient;
-      const r = 120;
-      lights.sun.position.set((me[0] ?? 0) + Math.sin(sky.azimuth) * Math.cos(sky.elevation) * r, Math.max(5, Math.sin(sky.elevation) * r), (me[2] ?? 0) + Math.cos(sky.azimuth) * r * 0.4);
-      lights.sun.target.position.set(me[0] ?? 0, me[1] ?? 0, me[2] ?? 0);
 
       // --- traffic and pedestrians ------------------------------------------------------------
       for (const a of agents) {

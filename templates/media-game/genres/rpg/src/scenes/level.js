@@ -15,6 +15,7 @@ import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createAudio } from 'kit/three/audio.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
@@ -36,16 +37,6 @@ const animationState = (character) => {
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  // A late-afternoon village: warm sun, a hazy amber sky.
-  scene.background = new THREE.Color(0x3a3350);
-  scene.fog = new THREE.Fog(0x3a3350, 26, 70);
-  scene.add(new THREE.HemisphereLight(0xcfd8ff, 0x3a3228, 1.0));
-  const sun = new THREE.DirectionalLight(0xffd9a8, 2.0);
-  sun.position.set(-8, 12, 6);
-  sun.castShadow = true;
-  sun.shadow.camera.left = sun.shadow.camera.bottom = -40;
-  sun.shadow.camera.right = sun.shadow.camera.top = 40;
-  scene.add(sun);
 
   const materials = createMaterials();
   const physics = await initPhysics();
@@ -79,6 +70,9 @@ export async function startLevel() {
   hud.crosshair(MODE === 'first-person');
 
   const renderer = createRenderer(canvas);
+  // A late-afternoon village (16:30, between the kit's day and dusk looks): warm low sun, hazy amber sky and fog.
+  // Dungeon interiors, when a quest adds them, would take `preset: 'overcast'` or a torch-lit fog with the sky dome hidden.
+  const env = createEnvironment({ scene, renderer, timeOfDay: 16.5, fog: [26, 70], shadowSize: 40 });
   // Juice kit: on by default; `?juice=off` or `__midnite.juice.off()` silences it. Bloom is a touch warmer
   // and stronger than the default so spell glow and torch flames read.
   const settings = createJuiceSettings({ gameName: 'rpg' });
@@ -99,7 +93,12 @@ export async function startLevel() {
   let airtime = 0;
   let stride = 0;
 
-  startLoop({
+  // A light village breeze under everything; the master volume (juice settings) governs it, and it ends with the loop.
+  const breeze = audio.sfx.loop('ambience-wind', { volume: 0.3, power: 0.45 });
+  const endBreeze = () => breeze.stop();
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', endBreeze);
+
+  const loop = startLoop({
     renderer,
     scene,
     camera: rig.camera,
@@ -132,6 +131,7 @@ export async function startLevel() {
         }
       }
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
+      env.follow(character.position);
       avatar.position.set(...character.position);
       avatar.rotation.y = character.yaw;
       genre.update(dt, frame);
@@ -145,4 +145,10 @@ export async function startLevel() {
       ...genre.state(),
     }),
   });
+  const stopLoop = loop.stop;
+  loop.stop = () => {
+    endBreeze();
+    env.dispose();
+    stopLoop();
+  };
 }
