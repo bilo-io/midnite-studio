@@ -43,6 +43,7 @@ import { loadTerrain } from 'kit/three/terrain.js';
 import { createVehicle, nearestVehicle } from 'kit/three/vehicle.js';
 
 import config from '../game.config.js';
+import { dayLengthSeconds } from '../genre/day-length.js';
 import { createSoundBeds } from '../genre/engine-audio.js';
 import { applyGroundDetail, findGroundMaterial } from '../genre/ground-material.js';
 import { classAt, SURFACES, splatTexture } from '../genre/ground-splat.js';
@@ -66,7 +67,7 @@ const animationState = (character) => {
 
 const wrap = (/** @type {number} */ a) => Math.atan2(Math.sin(a), Math.cos(a));
 /** Seconds in one game day; the genre's clock uses the same, and the sky follows it from here. */
-const DAY_SECONDS = 240;
+const DAY_SECONDS = dayLengthSeconds(config.options?.dayNight);
 
 export async function startLevel() {
   const scene = new THREE.Scene();

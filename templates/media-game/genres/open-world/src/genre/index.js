@@ -16,6 +16,8 @@
 import * as THREE from 'three';
 
 import { createWanted, pursuit, wantedReducer } from 'kit/core/genre/crime/wanted.js';
+import config from '../game.config.js';
+import { dayLengthSeconds } from './day-length.js';
 import { clockText, hourAt, skyAt } from 'kit/core/genre/open-world/daynight.js';
 import { minimapPixels, worldToMinimap } from 'kit/core/genre/open-world/minimap.js';
 import { nearestNode, pointAlong, polylineLength, routeOnRoads, routePolyline } from 'kit/core/genre/open-world/route.js';
@@ -25,7 +27,7 @@ import { resolveTerrainPath } from 'kit/core/terrain-manifest.js';
 import { createRng } from 'kit/core/rng.js';
 
 /** Seconds in one game day; the world wakes at 09:00. */
-const DAY_SECONDS = 240;
+const DAY_SECONDS = dayLengthSeconds(config.options?.dayNight);
 const MINIMAP_PX = 168;
 const SIGHT = 45;
 const POLICE_SPEED = 16;
