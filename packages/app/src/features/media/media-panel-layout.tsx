@@ -19,7 +19,8 @@ import { createElement, forwardRef, type FormEventHandler, type HTMLAttributes, 
  * `as` lets a panel that is a `<form>` (submit handling, drag/drop) keep being one.
  */
 export const MEDIA_PANEL_ROOT = 'flex h-full min-h-0 flex-col';
-export const MEDIA_PANEL_BODY = 'min-h-0 flex-1 overflow-y-auto';
+// `[&>*]:shrink-0`: in a flex-col body a child with its own overflow would otherwise be squashed instead of the body scrolling.
+export const MEDIA_PANEL_BODY = 'min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0';
 export const MEDIA_PANEL_FOOTER = 'shrink-0';
 
 type RootProps = Omit<HTMLAttributes<HTMLElement>, 'onSubmit'> & {
