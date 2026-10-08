@@ -41,10 +41,13 @@ export function useMapFraming(opts: { map: MapProjectFile | undefined; save: (pa
   );
   const moveFrame = useCallback((next: { center: LonLat; sideM: number }) => frame && setFrame({ ...frame, ...next }), [frame, setFrame]);
 
-  /** `F`: the first time, a default frame centred on the view; after that, show/hide the stored one. */
+  /** `F`: toggles the capture frame. When becoming visible, it recentres to the current view. */
   const toggleFrame = useCallback(
     (view: { center: LonLat; zoom: number }) => {
-      if (!visible && !frame) setFrame(defaultFrame(view, widthPx));
+      if (!visible) {
+        if (!frame) setFrame(defaultFrame(view, widthPx));
+        else setFrame({ ...frame, center: view.center });
+      }
       setFrameOn(!visible);
     },
     [visible, frame, setFrame, widthPx],
