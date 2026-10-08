@@ -49,8 +49,8 @@ export class Level extends KitScene {
       return { x: p.x + origin.x, y: p.y + origin.y };
     };
     this.at = at;
-    const floorA = tileTexture({ iso: true }, this, 'floor-a', 'stone', { seed: 3, base: 0x8a93a6, accent: 0xaeb6c6, normalStrength: 1.1 });
-    const floorB = tileTexture({ iso: true }, this, 'floor-b', 'stone', { seed: 8, base: 0x7d869a, accent: 0xa2abbc, normalStrength: 1.1 });
+    const floorA = tileTexture({ iso: true }, this, 'floor-a', 'stone', { seed: 3, base: 0x6a7388, accent: 0x8a93a8, normalStrength: 1.1 });
+    const floorB = tileTexture({ iso: true }, this, 'floor-b', 'stone', { seed: 8, base: 0x5f687c, accent: 0x7f889c, normalStrength: 1.1 });
     const block = blockTexture({ iso: true }, this, 'block', 'brick', { seed: 9, depth: BLOCK_DEPTH });
     const shadow = shadowTexture(this);
     MAP.forEach((row, y) => row.forEach((cell, x) => {
@@ -66,10 +66,10 @@ export class Level extends KitScene {
 
     this.hero = lighting.lit(this.add.image(0, 0, domeTexture(this, 'hero', { size: 32, color: 0x6ea8ff, eyes: true })).setDisplaySize(24, 24));
     this.heroShadow = this.add.image(0, 0, shadow).setDisplaySize(30, 15);
-    this.glow = lighting.add(origin.x, origin.y, { radius: 330, intensity: 1.8 });
+    this.glow = lighting.add(origin.x, origin.y, { radius: 260, intensity: 1.0 });
     this.torches = [[2, 3], [7, 4], [5, 5]].map(([x, y]) => {
       const p = at((x ?? 0) + 0.5, (y ?? 0) + 0.5);
-      return lighting.add(p.x, p.y - 10, { radius: 190, intensity: 1.2, color: 0xff9a4a });
+      return lighting.add(p.x, p.y - 10, { radius: 170, intensity: 0.9, color: 0xff9a4a });
     });
 
     // Collect the gems: a chime, sparks and a "+1".
@@ -106,7 +106,7 @@ export class Level extends KitScene {
     this.hero.setPosition(p.x, p.y - 8).setDepth(isoDepth(px, py, 1));
     this.heroShadow.setPosition(p.x, p.y + 2).setDepth(isoDepth(px, py, 0.4));
     this.glow.setPosition(p.x, p.y - 12);
-    this.torches.forEach((light, i) => light.setIntensity(1.2 * this.fx.flicker(time / 1000, i * 2)));
+    this.torches.forEach((light, i) => light.setIntensity(0.9 * this.fx.flicker(time / 1000, i * 2)));
 
     this.stride += Math.hypot(px - this.last.x, py - this.last.y);
     this.last = { x: px, y: py };
