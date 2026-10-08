@@ -48,6 +48,7 @@ export * from './media-terrain';
 export * from './media-map';
 export * from './media-terrain-mcp';
 export * from './media-sprite-mcp';
+export * from './media-map-mcp';
 export * from './model-geometry';
 export * from './sprite';
 export * from './terrain';

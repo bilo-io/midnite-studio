@@ -236,11 +236,17 @@ button downloads the active layer as GeoJSON or KML. An unparsable file shows an
 never written over; external edits arrive through `media:changed`. A pin's colour is optional and inherits the
 layer's.
 
-**Theme I — Maps over MCP, and the skill.** ◻ Not started. Four tools — `map_list` and `map_measure`
-(read, ungated) and `map_goto` and `map_capture_terrain` (behind a new `allowMaps` switch,
-`mcp-store` `version: 7`) — mirroring the terrain split across `shared/src/media-map-mcp.ts`,
-`main/media/map/map-mcp.ts` and `main/mcp/map-tools.ts`. The skill is `midnite-media-map-build`, so
-the copies test's `-build` regex actually pins it.
+**Theme I — Maps over MCP, and the skill.** ✅ Landed (PR #776). Four tools — `map_list` and `map_measure`
+(read, ungated) and `map_goto` and `map_capture_terrain` (behind the new default-off `allowMaps` switch,
+Settings ▸ MCP ▸ "Let agents capture maps"; `mcp-store` `version: 8`, since Phase 106 K had taken 7) —
+across `shared/src/media-map-mcp.ts`, `main/media/map/map-mcp.ts` and `main/mcp/map-tools.ts`, bound from
+`media-map-handlers.ts`. `map_capture_terrain` calls `captureService.capture` itself, the very path the Maps
+tab's button runs, so satellite and roads arrive with Theme E untouched; it hands off by default and builds only
+on `build: true`. `map_goto` geocodes a place in main (same Open-Meteo geocoder as the search box, injected
+fetch), saves the view to `map.json` and broadcasts `mediaMapOpen`, which the Maps tab answers by remounting on
+the saved view. `map_measure` returns legs and total, or a ring, circumference and area, from the shared
+kernel. The skill is `midnite-media-map-build` in all six copies, pinned by the copies test and by a test that
+it names only real tools.
 
 **Theme J — Verification.** ◻ Not started. The gate, the no-network kernel goldens and roads-graph
 tests, the bundle report, a CSP assertion for `mstudio-tile:`, screenshots in both themes, and three
@@ -723,7 +729,7 @@ on top of a capture.
 
 ## I — Maps over MCP, and the skill (M)
 
-- [ ] Tools `map_goto` (place or lat/lon + zoom), `map_capture_terrain` (centre + side metres + size → capture id and, optionally, a terrain), `map_measure` (points → distances; centre + radius → circle), `map_list` (projects, captures, layers), registered with the midnite MCP server.
+- [x] Tools `map_goto` (place or lat/lon + zoom), `map_capture_terrain` (centre + side metres + size → capture id and, optionally, a terrain), `map_measure` (points → distances; centre + radius → circle), `map_list` (projects, captures, layers), registered with the midnite MCP server.
   - Contracts in new `shared/src/media-map-mcp.ts` and the `McpToolId` union + tool table in
     `shared/src/mcp.ts`; implementations in new `main/media/map/map-mcp.ts`
     (`createMapTools(deps) → MapTools`), wrapper in new `main/mcp/map-tools.ts` (`setMapTools`), bound
@@ -733,7 +739,7 @@ on top of a capture.
     `map_capture_terrain { repoPath, center, sideM, size, build?: boolean }` →
     `{ capture, terrain?, missing }`; `map_measure { points } | { center, radiusM }` →
     `{ legsM, totalM } | { ring }`; `map_list { repoPath }` → projects, captures, layers.
-- [ ] Behind a Settings ▸ MCP "Maps" switch (default off), same gating as the Terrain tools; tool descriptions ≤ 220 chars; the tool-registry test lists them.
+- [x] Behind a Settings ▸ MCP "Maps" switch (default off), same gating as the Terrain tools; tool descriptions ≤ 220 chars; the tool-registry test lists them.
   - Same split as Terrain (Decision 19): `map_list` and `map_measure` answer whenever the server is
     on; `map_goto` and `map_capture_terrain` refuse with `MAPS_OFF_MESSAGE` unless `allowMaps`.
     `ui-gate.ts` gains `getMcpAllowMaps`/`setMcpAllowMaps`; `mcp-store.ts` bumps to `version: 7` with
@@ -742,7 +748,7 @@ on top of a capture.
     maps".
   - *Verified by:* `mcp.test.ts` (description rule), `mcp-store.test.ts` (v6 → v7 migration),
     `gate-tools.test.ts`-style test that `map_capture_terrain` refuses while off.
-- [ ] `midnite-media-map` skill (frame an area, pick a size, capture, hand off, check the build) in all six skill dirs, pinned by the skill copies test.
+- [x] `midnite-media-map` skill (frame an area, pick a size, capture, hand off, check the build) in all six skill dirs, pinned by the skill copies test.
   - **Corrected:** named **`midnite-media-map-build`** — `skill-copies.test.mjs` only discovers
     `^midnite-media-.+-build$`, so `midnite-media-map` would ship unpinned. Add
     `expect(skills).toContain('midnite-media-map-build')` to its first test.

@@ -6,6 +6,14 @@
 A capture now writes the satellite image and the roads beside the heightmap. `satellite.png` is stitched at the zoom matching Terrain's `textureSize` and sampled pixel-centred in the capture worker (EOX Sentinel-2 cloudless 2016 by default, MapTiler with a key, a display-only source refused with its licence reason). Roads come from one Overpass query in main per capture (frames up to 25 km), become `roads.graph.json` in Terrain's centred frame (split at shared nodes, clipped, class and name kept, width by class or lanes) and a cyan-on-black `roads.png` Terrain keys without a hint. A failed layer lands in `capture.json`'s `missing` with a reason and never costs the heightmap; `ATTRIBUTION.txt` covers every source. The capture section gets Satellite and Roads toggles and lists what is missing.
 
 - [x] E: `osm-roads.ts` (`osmToRoadGraph`, `rasterizeRoads`, class widths), `overpass.ts`, worker satellite/roads runs + `capture-dispatch.ts`, capture-service layers and partial results, `roads-skipped` warning, panel toggles and missing list, vitests (kernel, Overpass client faked, service incl. cancel mid-Overpass, satellite orientation golden)
+## 2026-10-08 — Phase 108 Theme I — Maps over MCP, and the skill ([#776](https://github.com/bilo-io/midnite-studio/pull/776))
+
+Agents get four `map_*` tools: `map_list` and `map_measure` always, `map_goto` and `map_capture_terrain` behind a new default-off Settings ▸ MCP "Let agents capture maps" switch (`mcp-store` v8). The capture tool runs the Maps tab's own capture and Terrain hand-off; the skill `midnite-media-map-build` ships in all six copies.
+
+- [x] Tools `map_goto`, `map_capture_terrain`, `map_measure`, `map_list` registered with the midnite MCP server (`media-map-mcp.ts`, `map-mcp.ts`, `map-tools.ts`, `mediaMapOpen` event)
+- [x] Settings ▸ MCP "Maps" switch (default off), same gating as Terrain; descriptions ≤ 220 chars; registry, store migration and gate tests
+- [x] `midnite-media-map-build` skill in all six skill dirs, pinned by the skill copies test
+
 ## 2026-10-08 — Phase 108 Themes G + H — Measure and draw; layers ([#774](https://github.com/bilo-io/midnite-studio/pull/774))
 
 Maps gains five tools (pan, distance, radius circle, area, pin) with geodesic readouts, place search over the Open-Meteo geocoder, and drawings saved as git-tracked GeoJSON layers: a layer list with visibility, colour, rename, Trash delete and reorder, `.geojson`/`.kml` import and export, and external-edit pickup. Geodesy is the Theme D Vincenty kernel plus a new `measure.ts`; layers go through the generic media file channels, so no new IPC.
