@@ -16,7 +16,7 @@ const BOX = 36;
 /** Rain intensity 0..1 at `seconds` into the game: shower weather where the noise rises past 0.6. */
 export const rainAt = (/** @type {number} */ seconds) => {
   const n = valueNoise(41, seconds / 70, 0.5) * 0.7 + valueNoise(43, seconds / 23, 0.5) * 0.3;
-  return Math.min(1, Math.max(0, (n - 0.6) / 0.15));
+  return Math.min(1, Math.max(0, (n - 0.54) / 0.1));
 };
 
 /**
