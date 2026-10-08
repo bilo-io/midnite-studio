@@ -8,3 +8,7 @@ A game made in Midnite Studio. This repository is the game: plain ES modules, no
 - Keep the game runnable after every change. Commit logical steps.
 - Do not add a bundler or a `package.json` build step.
 - Skills for working in this repo are in `.claude/skills`, `.agents/skills` and `.codex/skills`: start with `midnite-media-game-build`, then the recipe for your genre (`midnite-media-game-<genre>`).
+
+## Fidelity and juice kit
+
+The kit ships procedural textures and normal maps, game-feel effects (shake, hit-stop, flashes, squash, particles, post-processing) and synthesized sound effects, all on by default and deterministic. Settings, the API and the worked examples are in the `midnite-media-game-build` skill, section "Fidelity and juice kit"; `src/scenes/level.js` in the third-person and platformer bases shows it wired in. Turn it off for a screenshot with `?juice=off` or `window.__midnite.juice.off()`.

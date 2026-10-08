@@ -16,7 +16,7 @@ import { determinism } from './determinism.js';
 import { virtualGamepad } from './input-map.js';
 import { replayer } from './replay.js';
 
-export const KIT_VERSION = '0.8.0';
+export const KIT_VERSION = '0.10.0';
 /** `window.__midnite.version`; bumped when the hook's shape changes. */
 export const HOOK_VERSION = 1;
 
@@ -30,6 +30,21 @@ export const HOOK_VERSION = 1;
  *   setOverlay?: (on: boolean) => void,
  * }} HookImpl
  */
+
+/** Extra properties other kit modules hang on the hook (`juice`, `fx`); they survive a re-install. @type {Record<string, unknown>} */
+const extensions = {};
+
+/**
+ * Attach `value` as `window.__midnite[key]`, now and on every later `installHook`.
+ * @param {string} key
+ * @param {unknown} value
+ */
+export function extendHook(key, value) {
+  extensions[key] = value;
+  if (typeof window !== 'undefined' && /** @type {Record<string, unknown>} */ (window).__midnite) {
+    /** @type {Record<string, any>} */ (/** @type {any} */ (window).__midnite)[key] = value;
+  }
+}
 
 /**
  * Install (or replace) `window.__midnite`. Anything not provided gets a safe
@@ -64,6 +79,7 @@ export function installHook(impl = {}) {
       play: (/** @type {unknown} */ replay, /** @type {{ speed?: 1 | 'max' }} */ opts) => replayer.play(replay, opts),
       status: () => replayer.status(),
     },
+    ...extensions,
     ...impl,
   };
   if (impl.setSeed) {

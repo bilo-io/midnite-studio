@@ -85,6 +85,31 @@ The tools:
 
 Bring media in with `game_import_asset` (`{ game, source, name? }`), where `source` is `{ tab: 'terrain' | 'sprite' | 'model' | 'image' | 'audio', repoPath, path }` for an item in a repo's media or `{ packPath }` for a pack folder. It copies the files to `assets/<kind>/<name>/` (or `assets/<kind>/<name>.<ext>` for one file), records the source and a sha256 in the manifest's `assets`, registers it in the index and commits it as `assets: import <name>`. Never copy files into `assets/` by hand: a hand copy has no provenance and no index entry. If a source changes later, the Games tab offers a re-import as its own commit (`assets: re-import <names>`); an agent does not need to do that itself. Each starter's `ASSETS.md` lists the placeholder art it ships and where it came from; keep it current when you add art.
 
+## Fidelity and juice kit
+
+Procedural only: no image or audio files and no licences. Surfaces, normal and bump maps are generated in code from a seed, sound effects are synthesized with WebAudio, and every effect runs on the loop's `dt` and the kit rng (a dedicated stream, so it never disturbs gameplay randomness), so a play-test replays it exactly. Juice is **on by default**; `?juice=off` in the URL or `__midnite.juice.off()` silences all of it for pristine, deterministic screenshots.
+
+**Settings** (`kit/core/juice-settings.js`): `createJuiceSettings({ gameName })` returns `{ get, set(patch), resolved(), off(), on(), reset(), subscribe(fn) }`, persisted in the save slot `juice-settings` and mirrored on `window.__midnite.juice`. Keys: `enabled`, `intensity` (0..2, the master), `shake`, `flash`, `particles`, `postfx` (booleans), `volume` (0..1), `reducedMotion` (`auto` | `on` | `off`; `auto` follows `prefers-reduced-motion`, which scales shake to 0.25 and flashes to 0.3 and turns post-processing off). Pass the store as `settings` to the modules below; they read `settings.resolved()` on every use.
+
+**Textures** (`kit/core/procedural-textures.js`): `generateTextureData(kind, { seed, size, base, accent, normalStrength })` is pure and returns `{ height, albedo, normal, roughness, bump }` as RGBA bytes (normal maps are OpenGL: +Y up, what three and Phaser Light2D read); `generateCanvases(kind, opts)` wraps them in canvases. Kinds: `stone`, `brick`, `wood`, `metal`, `grass`, `dirt`, `tiles`; all tile seamlessly. Also `hash2`, `valueNoise`, `fbm`, `heightToNormal`.
+
+**three.js**
+- `kit/three/materials.js`: `createMaterials({ renderer? })` then `.get(kind, { seed, size, repeat: [u, v], tint, normalScale, bumpScale, roughness, metalness })` returns a cached `MeshStandardMaterial` with `map`, `normalMap`, `roughnessMap` and `bumpMap` (three uses the normal map where both exist; the bump map is the fallback). `repeatFor(width, height, tileMetres)` sizes `repeat`.
+- `kit/three/juice.js`: `createJuice({ scene, camera, renderer, settings, sfx, postfx })`. In the loop's `update(realDt)` call `const dt = juice.update(realDt)` first (it returns dt scaled by hit-stop, 0 while frozen; simulate with it), and call `juice.applyCamera()` from the loop's `render` option, after the rig has moved the camera. Methods: `shake(trauma)`, `hitStop(ms)`, `slowMo(scale, seconds)`, `flash(object, { color, duration })`, `squash(object, [sx, sy])`, `tween(opts)`, `burst(kind, position, { dir, scale, count })` (`spark`, `dust`, `debris`, `muzzle`, `impact`), `text(position, amount, kind)` (reuses `damage-numbers.js`), `screenFlash(color, alpha)`, and `trigger(name, { object, position, strength, text })`, which does everything a named moment lists in `TRIGGERS` (`jump`, `land`, `footstep`, `hit`, `hurt`, `pickup`, `shoot`, `explosion`, `death`, `win`).
+- `kit/three/postfx.js`: `createPostFx({ renderer, scene, camera, settings })` gives bloom, vignette, chromatic aberration on `hit(amount)`, ACES tone mapping and sRGB output; with `postfx` off it is a plain render. Wire it with `startLoop({ renderFrame: (dt) => fx.render(dt), onResize: (w, h) => fx.setSize(w, h) })`.
+- `kit/three/audio.js`: `createAudio(camera).sfx` is the synth below, panned by camera pose for `play(name, { position })`.
+
+**Phaser**
+- `kit/phaser/juice.js`: `createJuice(scene, { settings, sfx, floorY })` with the same method names (`update(delta)` returns the sim scale, 0 in a hit-stop, and pauses Arcade physics while frozen; `shake`, `hitStop`, `screenFlash`, `flash(sprite)`, `squash(sprite, [sx, sy])`, `burst(kind, x, y)`, `text(x, y, text)`, `trigger(name, { target, x, y, strength })`). Particles are pooled images on the kit rng, not Phaser emitters, which a replay cannot reproduce.
+- Lighting: `createLighting(scene, { ambient })` returns `{ add(x, y, { radius, color, intensity }), lit(object) }`; `litTexture(scene, key, kind, opts)` registers a procedural albedo plus its normal map, so a `lit()` sprite is shaded by Light2D. `applyPostFx(scene, settings)` adds a vignette and a soft bloom (WebGL only).
+- `kit/phaser/audio.js`: `createAudio(scene).sfx` is the synth below.
+
+**Sound** (`kit/core/sfx.js`): `createSfx({ context?, seed, maxVoices, volume })` returns `{ play(name, { volume, pitch, power, pan, position, variation }), unlock(), setVolume(v), setMuted(on) }`; the context unlocks on the first click or key, and a play before that is a no-op. Presets (`SFX_NAMES`): `jump`, `land`, `footstep`, `shoot`, `laser`, `hit`, `hurt`, `explosion`, `pickup`, `coin`, `powerup`, `ui-click`, `ui-hover`, `door`, `swing`, `block`, `parry`, `death`, `win`. `buildRecipe(name, { seed, pitch, power, variation })` is the pure, seeded recipe; `panFromPosition` is the spatial maths.
+
+**Core helpers**: `kit/core/tween.js` (`EASE`, `createTweens()`), `kit/core/juice-core.js` (`createTrauma`, `createTimeScale`, `PARTICLE_PRESETS`, `spawnParticles`, `TRIGGERS`), and `extendHook(key, value)` in `kit/core/hook.js` to hang your own debug object on `window.__midnite` (the bases publish `__midnite.fx.trigger(name)` so a play-test can fire an effect).
+
+Worked examples: `src/scenes/level.js` in the third-person (three) and platformer (Phaser) bases.
+
 ## Rules
 
 - Extend the kit, do not rewrite it. If a system you need exists under `kit/core/genre/`, import it; if it is nearly right, wrap it in `src/`.

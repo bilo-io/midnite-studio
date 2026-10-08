@@ -39,6 +39,8 @@ export function createRenderer(canvas) {
  *   camera: THREE.PerspectiveCamera | (() => THREE.PerspectiveCamera),
  *   update: (dt: number, frame: number) => void,
  *   render?: (alpha: number, frameDt: number) => void,
+ *   renderFrame?: (frameDt: number) => void,
+ *   onResize?: (width: number, height: number) => void,
  *   state?: () => Record<string, unknown>,
  *   sceneName?: string | (() => string),
  *   hz?: number,
@@ -64,6 +66,7 @@ export function startLoop(options) {
     const camera = cameraOf();
     camera.aspect = w / Math.max(1, h);
     camera.updateProjectionMatrix();
+    options.onResize?.(w, h);
   };
   window.addEventListener('resize', resize);
   resize();
@@ -77,7 +80,9 @@ export function startLoop(options) {
   };
   const draw = (/** @type {number} */ alpha, /** @type {number} */ frameDt) => {
     options.render?.(alpha, frameDt);
-    options.renderer.render(options.scene, cameraOf());
+    // `renderFrame` replaces the plain render: the post-processing composer (`kit/three/postfx.js`) draws here.
+    if (options.renderFrame) options.renderFrame(frameDt);
+    else options.renderer.render(options.scene, cameraOf());
   };
 
   const tick = (/** @type {number} */ now) => {
