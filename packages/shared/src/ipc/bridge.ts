@@ -1318,6 +1318,17 @@ export type MidniteStudioBridge = {
         onProgress: (handler: (event: z.infer<typeof S.MediaGmProgressPayload>) => void) => Unsubscribe;
       };
     };
+    /**
+     * Music editor (Phase 101 Theme B): songs in an Audio project — `<name>.mid` plus the editor's
+     * `<name>.song.json`. `import` opens a native picker in main; every call answers a `GitOpResult`.
+     */
+    music: {
+      list: (req: In<typeof S.MediaMusicListRequest>) => Promise<z.infer<typeof S.MediaMusicListResponse>>;
+      read: (req: In<typeof S.MediaMusicReadRequest>) => Promise<z.infer<typeof S.MediaMusicReadResponse>>;
+      write: (req: In<typeof S.MediaMusicWriteRequest>) => Promise<z.infer<typeof S.MediaMusicWriteResponse>>;
+      import: (req: In<typeof S.MediaMusicImportRequest>) => Promise<z.infer<typeof S.MediaMusicImportResponse>>;
+      delete: (req: In<typeof S.MediaMusicDeleteRequest>) => Promise<z.infer<typeof S.MediaMusicDeleteResponse>>;
+    };
     /** Models: LLM-authored 3D (Ollama or an agent CLI), written as .obj/.mtl/.fbx, all in main. */
     model: {
       providers: () => Promise<z.infer<typeof S.MediaModelProvidersResponse>>;

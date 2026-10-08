@@ -299,6 +299,14 @@ import {
   TerrainLibraryRequestSchema,
 } from '../media-terrain';
 import {
+  MusicDeleteRequestSchema,
+  MusicImportRequestSchema,
+  MusicListRequestSchema,
+  MusicReadRequestSchema,
+  MusicResultSchemas,
+  MusicWriteRequestSchema,
+} from '../media-music';
+import {
   SpriteCancelRequestSchema,
   SpriteChangedEventSchema,
   SpriteExportRequestSchema,
@@ -3269,6 +3277,17 @@ export const MediaGmEnsureResponse = GitOpResultSchema;
 export const MediaGmLoadRequest = GmProgramRequestSchema;
 export const MediaGmLoadResponse = GitOpResultOf(GmLoadResultSchema);
 export const MediaGmProgressPayload = GmProgressSchema;
+// Music editor (Phase 101 Theme B)
+export const MediaMusicListRequest = MusicListRequestSchema;
+export const MediaMusicListResponse = MusicResultSchemas.list;
+export const MediaMusicReadRequest = MusicReadRequestSchema;
+export const MediaMusicReadResponse = MusicResultSchemas.read;
+export const MediaMusicWriteRequest = MusicWriteRequestSchema;
+export const MediaMusicWriteResponse = MusicResultSchemas.write;
+export const MediaMusicImportRequest = MusicImportRequestSchema;
+export const MediaMusicImportResponse = MusicResultSchemas.import;
+export const MediaMusicDeleteRequest = MusicDeleteRequestSchema;
+export const MediaMusicDeleteResponse = MusicResultSchemas.delete;
 
 // Models (3D)
 export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });
