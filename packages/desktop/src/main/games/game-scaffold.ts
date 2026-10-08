@@ -78,6 +78,7 @@ export function initialManifest(
     network,
     deterministic: false,
     keepSaveData: false,
+    ...(req.options ? { options: req.options } : {}),
   };
 }
 
@@ -131,6 +132,7 @@ export async function createGame(
         templateDir: deps.templateDir,
         name: req.name,
         ...(req.cameras ? { cameras: req.cameras } : {}),
+        ...(req.options ? { options: req.options } : {}),
       });
       if (!composed.ok) throw new Error(composed.kind === 'error' ? composed.message : 'Could not compose the starter.');
     }

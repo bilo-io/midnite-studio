@@ -153,6 +153,48 @@ export const GameAssetProvenanceSchema = z.object({
 export type GameAssetProvenance = z.infer<typeof GameAssetProvenanceSchema>;
 
 /**
+ * Fine-tune options from the new-game wizard. They are recorded in
+ * `midnite-game.json` (`options`) and rendered into the agent's first prompt as a
+ * "Requested features" list, so the building agent implements them. A starter
+ * may also read the flags it already supports (open world's day/night clock).
+ */
+export const GAME_DAY_MINUTES_MIN = 2;
+export const GAME_DAY_MINUTES_MAX = 60;
+export const GAME_DAY_MINUTES_DEFAULT = 4;
+
+export const GameDayNightOptionSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** Real-time minutes one full in-game day lasts. */
+  minutesPerDay: z.number().int().min(GAME_DAY_MINUTES_MIN).max(GAME_DAY_MINUTES_MAX).default(GAME_DAY_MINUTES_DEFAULT),
+});
+
+export const GAME_FEATURE_KEYS = [
+  'npcs',
+  'enemies',
+  'bosses',
+  'lawEnforcement',
+  'wanted',
+  'revenge',
+  'missions',
+] as const;
+export type GameFeatureKey = (typeof GAME_FEATURE_KEYS)[number];
+
+export const GameOptionsSchema = z.object({
+  dayNight: GameDayNightOptionSchema.default({ enabled: false, minutesPerDay: GAME_DAY_MINUTES_DEFAULT }),
+  npcs: z.boolean().default(false),
+  enemies: z.boolean().default(false),
+  bosses: z.boolean().default(false),
+  lawEnforcement: z.boolean().default(false),
+  /** Wanted level / bounty system. */
+  wanted: z.boolean().default(false),
+  revenge: z.boolean().default(false),
+  missions: z.boolean().default(false),
+});
+export type GameOptions = z.infer<typeof GameOptionsSchema>;
+export type GameOptionsInput = z.input<typeof GameOptionsSchema>;
+
+
+/**
  * `midnite-game.json`. `.passthrough()` so an agent may add keys of its own;
  * everything the app reads is below.
  */
@@ -183,6 +225,8 @@ export const GameManifestSchema = z
     deterministic: z.boolean().default(false),
     /** Keep localStorage / IndexedDB across runs (`persist:game-<id>` instead of an in-memory partition). */
     keepSaveData: z.boolean().default(false),
+    /** Wizard fine-tune options; absent on games made before the wizard. */
+    options: GameOptionsSchema.optional(),
   })
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
@@ -282,6 +326,8 @@ export const GameCreateRequestSchema = z.object({
   network: GameNetworkSchema.optional(),
   /** Third-person cameras the cycle is limited to; empty or omitted = all five. */
   cameras: z.array(GameCameraIdSchema).max(5).optional(),
+  /** Fine-tune options from the wizard; written to the manifest. */
+  options: GameOptionsSchema.optional(),
 });
 export type GameCreateRequest = z.input<typeof GameCreateRequestSchema>;
 
