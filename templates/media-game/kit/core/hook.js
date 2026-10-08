@@ -31,6 +31,21 @@ export const HOOK_VERSION = 1;
  * }} HookImpl
  */
 
+/** Extra properties other kit modules hang on the hook (`juice`, `fx`); they survive a re-install. @type {Record<string, unknown>} */
+const extensions = {};
+
+/**
+ * Attach `value` as `window.__midnite[key]`, now and on every later `installHook`.
+ * @param {string} key
+ * @param {unknown} value
+ */
+export function extendHook(key, value) {
+  extensions[key] = value;
+  if (typeof window !== 'undefined' && /** @type {Record<string, unknown>} */ (window).__midnite) {
+    /** @type {Record<string, any>} */ (/** @type {any} */ (window).__midnite)[key] = value;
+  }
+}
+
 /**
  * Install (or replace) `window.__midnite`. Anything not provided gets a safe
  * default: `setSeed` reseeds the kit's shared RNG, `input.gamepad` presses the
@@ -64,6 +79,7 @@ export function installHook(impl = {}) {
       play: (/** @type {unknown} */ replay, /** @type {{ speed?: 1 | 'max' }} */ opts) => replayer.play(replay, opts),
       status: () => replayer.status(),
     },
+    ...extensions,
     ...impl,
   };
   if (impl.setSeed) {
