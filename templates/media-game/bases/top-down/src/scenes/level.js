@@ -85,9 +85,10 @@ export class Level extends KitScene {
     const player = this.rig.player;
     this.rig.update(time, delta);
     this.genre.update(time, delta);
-    this.glow.setPosition(player.x, player.y);
+    if (!this.fx.owned) this.glow.setPosition(player.x, player.y);
     this.torch.setIntensity(1.2 * this.fx.flicker(time / 1000));
 
+    if (this.fx.owned) return; // a genre drew its own world over this one
     // Footsteps by distance walked, with a little dust.
     this.stride += Math.hypot(player.x - this.last.x, player.y - this.last.y);
     this.last = { x: player.x, y: player.y };

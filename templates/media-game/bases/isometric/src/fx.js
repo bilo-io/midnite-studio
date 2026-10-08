@@ -31,6 +31,8 @@ export function createFx(scene, options) {
   // behind them some drivers drop the lit layer, so scenes made of many lit tiles ask for 'vignette': a gradient
   // sprite pinned to the screen, no framebuffer, follows the same `postfx` setting.
   const post = options.postfx === false || options.postfx === 'vignette' ? null : applyPostFx(scene, settings);
+  /** @type {Phaser.GameObjects.Image | null} */
+  let vignetteImage = null;
   if (options.postfx === 'vignette') {
     if (!scene.textures.exists('kit-vignette')) {
       const canvas = scene.textures.createCanvas('kit-vignette', 256, 144);
@@ -43,12 +45,25 @@ export function createFx(scene, options) {
       canvas?.refresh();
     }
     const vignette = scene.add.image(0, 0, 'kit-vignette').setOrigin(0).setScrollFactor(0).setDepth(depth - 2).setDisplaySize(scene.scale.width, scene.scale.height);
+    vignetteImage = vignette;
     const sync = () => vignette.setVisible(settings.resolved().postfx);
     settings.subscribe(sync);
     sync();
   }
 
-  return {
+  const api = {
+    /** True once a genre has covered the base's own world (`world.cover()`): the base then stops its own pickups, footsteps and swings. */
+    owned: false,
+    /**
+     * A genre that draws its own world calls this after `world.cover()` (which hides everything the base made, the
+     * vignette included): it brings the vignette back and drops the base's torches, keeping only `keep`, the light that follows the player.
+     * @param {Phaser.GameObjects.Light | null} [keep]
+     */
+    takeOver(keep = null) {
+      api.owned = true;
+      vignetteImage?.setVisible(settings.resolved().postfx);
+      if (lighting) for (const light of [...lighting.lights.lights]) if (light !== keep) lighting.lights.removeLight(light);
+    },
     settings,
     sfx: audio.sfx,
     juice,
@@ -69,4 +84,5 @@ export function createFx(scene, options) {
     /** A soft flicker for a torch or fire: deterministic in `seconds`, no random. @param {number} seconds @param {number} [seed] */
     flicker: (seconds, seed = 0) => 0.9 + 0.1 * Math.sin(seconds * 9 + seed) * Math.sin(seconds * 5.3 + seed * 2.1) + 0.04 * Math.sin(seconds * 23 + seed),
   };
+  return api;
 }

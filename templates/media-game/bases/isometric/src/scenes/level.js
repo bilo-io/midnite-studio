@@ -105,9 +105,10 @@ export class Level extends KitScene {
     const p = this.at(px, py);
     this.hero.setPosition(p.x, p.y - 8).setDepth(isoDepth(px, py, 1));
     this.heroShadow.setPosition(p.x, p.y + 2).setDepth(isoDepth(px, py, 0.4));
-    this.glow.setPosition(p.x, p.y - 12);
+    if (!this.fx.owned) this.glow.setPosition(p.x, p.y - 12);
     this.torches.forEach((light, i) => light.setIntensity(0.9 * this.fx.flicker(time / 1000, i * 2)));
 
+    if (this.fx.owned) return; // a genre drew its own world over this one
     this.stride += Math.hypot(px - this.last.x, py - this.last.y);
     this.last = { x: px, y: py };
     if (this.stride >= STRIDE) {
