@@ -40,7 +40,7 @@ export const MOMENTS = {
     flashSeconds: 0.09,
     aberration: 1,
     particles: [{ kind: 'impact', count: 16, scale: 1.4 }, { kind: 'spark', count: 14, scale: 1.3 }, { kind: 'dust', count: 6 }],
-    sfx: [{ name: 'hit', pitch: 0.55, power: 1.2 }, { name: 'jump', pitch: 0.7, power: 0.5 }, { name: 'explosion', pitch: 2.2, power: 0.25 }],
+    sfx: [{ name: 'hit', pitch: 0.55, power: 1.2 }, { name: 'critical', power: 0.9 }, { name: 'explosion', pitch: 2.2, power: 0.25 }],
   },
   guard: {
     shake: 0.07,
@@ -50,7 +50,7 @@ export const MOMENTS = {
   },
   knockdown: { shake: 0.4, particles: [{ kind: 'dust', count: 12, scale: 1.4 }], sfx: [{ name: 'land', pitch: 0.75, power: 0.9 }] },
   footstep: { sfx: [{ name: 'footstep', pitch: 0.85, power: 0.35 }] },
-  'combo-hit': { sfx: [{ name: 'coin', pitch: 1, power: 0.12 }] },
+  'combo-hit': { sfx: [{ name: 'combo-hit', power: 0.6 }] },
   'combo-milestone': { sfx: [{ name: 'powerup', pitch: 1, power: 0.3 }], flash: 0.1, flashColor: 0xffe08a },
   'round-start': { shake: 0.1, sfx: [{ name: 'door', pitch: 0.55, power: 0.8 }, { name: 'powerup', pitch: 0.6, power: 0.35 }] },
   fight: { flash: 0.18, flashColor: 0xffffff, sfx: [{ name: 'win', pitch: 1.1, power: 0.35 }, { name: 'ui-click', pitch: 0.7, power: 0.6 }] },

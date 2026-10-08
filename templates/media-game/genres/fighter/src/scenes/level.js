@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 
 import { createCameraRig } from 'kit/three/cameras.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
@@ -26,18 +27,11 @@ import { flickerOf, simSteps } from '../genre/moments.js';
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1220);
-  scene.fog = new THREE.Fog(0x1a1220, 16, 36);
-  scene.add(new THREE.HemisphereLight(0xffe2c4, 0x2a1f36, 1.7));
-  const key = new THREE.DirectionalLight(0xfff1dc, 2.6);
-  key.position.set(4, 10, 8);
-  key.castShadow = true;
-  key.shadow.camera.left = key.shadow.camera.bottom = -10;
-  key.shadow.camera.right = key.shadow.camera.top = 10;
-  scene.add(key);
 
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('game'));
   const renderer = createRenderer(canvas);
+  // Dusk over the dojo: the walls are open to the sky, and the lantern posts carry the warm light (kit/three/environment.js).
+  const env = createEnvironment({ scene, renderer, preset: 'dusk', fog: [16, 36], shadowSize: 12 });
   const input = createInput(FIGHTER_BINDINGS);
   const rig = createCameraRig({ mode: 'versus' });
   const fx = createFx({ gameName: 'fighter', scene, camera: rig.camera, renderer, bloom: { strength: 0.5, radius: 0.65, threshold: 0.8 }, exposure: 1.1 });
@@ -91,7 +85,10 @@ export async function startLevel() {
   let simFrame = 0;
   let clock = 0;
 
-  startLoop({
+  // A dojo crowd murmur behind the ring; it rides the juice volume and ends with the loop.
+  fx.ambience('ambience-crowd', { volume: 0.4, power: 0.5 });
+
+  const loop = startLoop({
     renderer,
     scene,
     camera: rig.camera,
@@ -116,4 +113,11 @@ export async function startLevel() {
     },
     state: () => ({ camera: rig.mode, juice: juice.state(), ...genre.state() }),
   });
+  // Shutdown ends the crowd bed and releases the sky along with the loop.
+  const stopLoop = loop.stop;
+  loop.stop = () => {
+    fx.shutdown();
+    env.dispose();
+    stopLoop();
+  };
 }
