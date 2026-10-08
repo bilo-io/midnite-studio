@@ -42,3 +42,7 @@ Pass the kit's seeded `() => rng.next()` to `spreadDirection`, so the same seed 
 - Strafe while firing: the cone is wider than standing still.
 - An enemy behind a wall does not hit you; step into view and it does.
 - Cycle cameras with `C` and confirm aim still follows the crosshair.
+
+## Game feel
+
+The shooter owns its level (`src/scenes/level.js`) so the fidelity kit is up before the genre installs. `src/genre/moments.js` is the table of moments (`fire-rifle`, `impact-wall`, `hit-marker`, `kill-confirm`, `explosion`, `reload-done`, ...); play one with `fx.moment(name, { position, dir, object })`. `src/genre/effects.js` holds the viewmodel and recoil kick, tracers, bullet-hole decals (flush on the surface hit, via `faceNormal`), ejected casings and the hit marker. Add a weapon by adding its `fire-<id>` row. Check `window.__midnite.fx.state()` for `moments` and the last one played; `?juice=off` silences all of it.
