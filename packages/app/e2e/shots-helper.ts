@@ -370,4 +370,4 @@ export function createShotTaker(outDir: string, defaultOptions?: Parameters<Page
   };
 }
 
-export { clickRailLink, fixtures, installMockBridge, type MockFixtures };
+export { clickRailLink, fixtures, type MockFixtures };
