@@ -10,10 +10,23 @@
  */
 
 import { createJuiceSettings } from 'kit/core/juice-settings.js';
+import { mixColor, SKY_PRESETS, skyAtTime } from 'kit/core/sky.js';
 import { createAudio } from 'kit/phaser/audio.js';
 import { applyPostFx, createJuice, createLighting } from 'kit/phaser/juice.js';
 
 const clamp = (/** @type {number} */ v, /** @type {number} */ lo, /** @type {number} */ hi) => Math.max(lo, Math.min(hi, v));
+
+/**
+ * The Light2D ambient colour for a sky preset (`kit/core/sky.js`): the sky and ground bounce light blended, then
+ * dimmed with the preset's hemisphere intensity so night is dark and blue, noon bright, dusk warm.
+ * @param {import('kit/core/sky.js').SkyPreset} preset
+ */
+export function ambientFor(preset) {
+  const base = mixColor(preset.hemiSky, preset.hemiGround, 0.35);
+  const level = 0.4 + 0.5 * clamp((preset.hemiIntensity - 0.55) / 0.75, 0, 1);
+  const channel = (/** @type {number} */ shift) => Math.round(clamp(((base >> shift) & 255) * level, 0, 255));
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0);
+}
 
 /**
  * @param {Phaser.Scene} scene
@@ -51,6 +64,39 @@ export function createFx(scene, options) {
     sync();
   }
 
+  // Looping beds (ambience, engines). Every loop is tracked so it can follow the volume and enabled settings and be
+  // stopped with the scene; `wanted` holds what should be playing, `live` what the audio engine is actually running.
+  /** @type {Set<{ name: string, opts: Record<string, unknown>, live: { stop(): void, set(p: object): void } | null, stopped: boolean }>} */
+  const wanted = new Set();
+  const audible = () => {
+    const r = settings.resolved();
+    return r.enabled && r.volume > 0;
+  };
+  const syncLoops = () => {
+    for (const entry of wanted) {
+      if (entry.stopped) continue;
+      if (audible() && !entry.live) entry.live = audio.sfx.loop(entry.name, entry.opts);
+      else if (!audible() && entry.live) {
+        entry.live.stop();
+        entry.live = null;
+      }
+    }
+  };
+  settings.subscribe(syncLoops);
+  /** @type {{ stop(): void, set(p: object): void } | null} */
+  let bed = null;
+  const stopAll = () => {
+    for (const entry of wanted) {
+      entry.stopped = true;
+      entry.live?.stop();
+      entry.live = null;
+    }
+    wanted.clear();
+    bed = null;
+  };
+  scene.events.once('shutdown', stopAll);
+  scene.events.once('destroy', stopAll);
+
   const api = {
     /** True once a genre has covered the base's own world (`world.cover()`): the base then stops its own pickups, footsteps and swings. */
     owned: false,
@@ -63,6 +109,58 @@ export function createFx(scene, options) {
       api.owned = true;
       vignetteImage?.setVisible(settings.resolved().postfx);
       if (lighting) for (const light of [...lighting.lights.lights]) if (light !== keep) lighting.lights.removeLight(light);
+    },
+    /**
+     * Start a looping sound (`engine-loop`, `ambience-*`). Silent while juice is off or the volume is 0, and ended when the scene shuts down.
+     * `set({ volume, pitch })` retunes it live; `stop()` ends it for good. @param {string} name @param {{ volume?: number, pitch?: number, power?: number }} [opts]
+     */
+    loop(name, opts = {}) {
+      const entry = { name, opts: { ...opts }, live: /** @type {{ stop(): void, set(p: object): void } | null} */ (null), stopped: false };
+      wanted.add(entry);
+      syncLoops();
+      return {
+        stop() {
+          entry.stopped = true;
+          entry.live?.stop();
+          entry.live = null;
+          wanted.delete(entry);
+        },
+        /** @param {{ volume?: number, pitch?: number, power?: number }} patch */
+        set(patch) {
+          entry.opts = { ...entry.opts, ...patch };
+          entry.live?.set(patch);
+        },
+      };
+    },
+    /**
+     * The scene's one ambience bed. Calling it again replaces the previous bed (so a genre overriding the base's default
+     * never doubles up); `null` silences it. A repeat call with the same name only retunes the volume. @param {string | null} name @param {{ volume?: number, pitch?: number }} [opts]
+     */
+    ambience(name, opts = {}) {
+      if (name === api.bedName) {
+        if (name) bed?.set(opts);
+        return;
+      }
+      bed?.stop();
+      bed = name ? api.loop(name, { volume: 0.5, ...opts }) : null;
+      api.bedName = name;
+    },
+    /** Name of the running ambience bed, or null. */
+    bedName: /** @type {string | null} */ (null),
+    /** Stop every loop this scene started. */
+    stopLoops: stopAll,
+    /** Sky colours last set with `tint`. */
+    sky: /** @type {import('kit/core/sky.js').SkyPreset | null} */ (null),
+    /**
+     * Light the scene for a sky preset name (`day`, `dawn`, `dusk`, `night`, `overcast`) or an hour 0..24, through the
+     * kit's sky maths: the Light2D ambient colour follows the preset. Call it per frame to sweep a day; it is cheap and
+     * deterministic. Returns the preset in use. @param {string | number} spec
+     */
+    tint(spec) {
+      const preset = typeof spec === 'number' ? skyAtTime(spec).preset : SKY_PRESETS[spec] ?? SKY_PRESETS['day'];
+      api.sky = /** @type {import('kit/core/sky.js').SkyPreset} */ (preset);
+      lighting?.lights.setAmbientColor(ambientFor(api.sky));
+      return api.sky;
     },
     settings,
     sfx: audio.sfx,

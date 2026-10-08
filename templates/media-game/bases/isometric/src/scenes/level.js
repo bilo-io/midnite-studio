@@ -35,6 +35,9 @@ export class Level extends KitScene {
     // Fidelity kit: Light2D normal-mapped tiles and blocks from generated textures, juice and sound on by default.
     this.fx = createFx(this, { name: 'isometric', ambient: 0xb4bcd6, postfx: 'vignette' });
     const { juice, lighting } = this.fx;
+    // A torch-lit stone court at dusk with a room tone. A genre that takes over calls `fx.tint` / `fx.ambience` itself, which replaces both.
+    this.fx.tint('dusk');
+    this.fx.ambience('ambience-room', { volume: 0.35 });
     this.rig = createIsometric(this, { map: MAP, start: { x: 1, y: 1 } });
     // The preset paints flat diamonds (depth -1) and an ellipse for the player; hide them and draw lit ones in their place.
     for (const child of this.children.list) {

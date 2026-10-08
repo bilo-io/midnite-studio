@@ -39,6 +39,10 @@ export class Level extends KitScene {
     });
     // The preset draws flat walls; this view reads the same map and sprites and paints them textured, normal-mapped and torch-lit.
     this.view = createRaycastView(this, this.rig);
+    // A walled yard open to a dusk sky: the ceiling becomes a gradient with a low sun, the fog and ambient take the sky's
+    // colours, and a wind bed runs under it. A genre that wants a roof calls `view.setSky(null)` and its own `fx.ambience`.
+    this.view.setSky('dusk', { light: true });
+    this.fx.ambience('ambience-wind', { volume: 0.3 });
     this.stride = 0;
     this.last = { x: this.rig.pos.x, y: this.rig.pos.y };
     extendHook('fx', {

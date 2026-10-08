@@ -47,6 +47,9 @@ export function installGenre(scene, ctx) {
   const { fx } = ctx;
   const { juice, lighting } = fx;
   fx.takeOver(null);
+  // Open daylit grass under a steady wind. `ambience` replaces the base's own bed, so the two never stack.
+  fx.tint('day');
+  fx.ambience('ambience-wind', { volume: 0.32 });
   const shadow = shadowTexture(scene);
   const iso = world.iso;
   /** Pixel size of one tile along the grid axis, for sizing sprites on either perspective. */
@@ -112,7 +115,7 @@ export function installGenre(scene, ctx) {
     const dot = lighting.lit(scene.add.image(0, 0, key).setDisplaySize(size, size));
     const dropShadow = scene.add.image(0, 0, shadow).setDisplaySize(size * 1.3, size * 0.65);
     const ring = scene.add.ellipse(0, 0, size * 1.3, size * 0.8).setStrokeStyle(2, 0x4ade80, 0.95).setVisible(false);
-    const unit = { id: nextId++, team, type, x: at.x, y: at.y, hp: KIND[type].hp, radius: KIND[type].radius, path: /** @type {{x:number,y:number}[]} */ ([]), goal: /** @type {any} */ (null), task: /** @type {any} */ (null), carry: 0, dot, dropShadow, ring, hitAt: 0, size };
+    const unit = { id: nextId++, team, type, x: at.x, y: at.y, hp: KIND[type].hp, radius: KIND[type].radius, path: /** @type {{x:number,y:number}[]} */ ([]), goal: /** @type {any} */ (null), task: /** @type {any} */ (null), carry: 0, dot, dropShadow, ring, hitAt: 0, combo: 0, size };
     units.push(unit);
     return unit;
   }
@@ -232,14 +235,24 @@ export function installGenre(scene, ctx) {
       else if (hq) enemyHqHp -= (12 * dtMs) / 1000;
       // A blow lands about twice a second: sparks, a thud, a flash and a number, on whoever is being hit.
       if ((foe || hq) && clock - u.hitAt > 480) {
+        // Blows landed in a row build a combo (the gap is the loop's own clock, so a replay matches): the second and third
+        // ring as combo hits, every fourth is a critical that bites for half again.
+        u.combo = clock - u.hitAt < 900 ? u.combo + 1 : 1;
         u.hitAt = clock;
         const at = foe ?? ENEMY_HOME;
         const p = world.toScreen(at.x, at.y);
-        juice.burst('spark', p.x, p.y, { count: 5, scale: 0.6 });
-        fx.play('hit', { x: p.x, power: 0.55, volume: 0.6 });
-        juice.text(p.x, p.y - tile * 0.6, 6, 'hit');
+        const crit = u.combo % 4 === 0;
+        if (crit) {
+          if (foe) foe.hp -= 6;
+          else enemyHqHp -= 6;
+          juice.trigger('critical', { x: p.x, y: p.y, strength: 0.7, text: 12, textKind: 'crit' });
+        } else {
+          juice.burst('spark', p.x, p.y, { count: 5, scale: 0.6 });
+          fx.play(u.combo >= 2 ? 'combo-hit' : 'hit', { x: p.x, power: 0.55, volume: 0.6 });
+          juice.text(p.x, p.y - tile * 0.6, 6, 'hit');
+        }
         if (foe) juice.flash(foe.dot);
-        else juice.shake(0.08);
+        else if (!crit) juice.shake(0.08);
         if (u.dot.visible) juice.squash(u.dot, [1.2, 0.85], { ms: 160 });
       }
     }
@@ -260,7 +273,7 @@ export function installGenre(scene, ctx) {
       won = true;
       const p = world.toScreen(ENEMY_HOME.x, ENEMY_HOME.y);
       juice.trigger('explosion', { x: p.x, y: p.y, strength: 1.4 });
-      juice.trigger('win', { x: p.x, y: p.y });
+      juice.trigger('quest-complete', { x: p.x, y: p.y });
     }
   }
 

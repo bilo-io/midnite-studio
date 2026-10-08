@@ -25,6 +25,10 @@ Starter hotbar: strike (`cooldown = 400`, free), fireball (`mana = 10`, `cooldow
 
 `rollLoot` takes a function returning a float in [0, 1): pass `() => rng.next()` from `kit/core/rng.js`, never `Math.random`, so a seed gives the same dungeon and drops.
 
+## Game feel
+
+`fx.tint('dusk')` and `fx.ambience('ambience-room')` set the dungeon's light and room tone (the genre's call replaces the base's, so they never stack). Fireball is `magic-cast`, nova a deeper `fx.play('magic-cast')`, a crit swaps `hit` for `critical`, a connecting strike plays `sword-clash`, the potion is `heal`, and a level every four kills (`player.level`, +10 max HP, +2 damage) plays `level-up`.
+
 ## Build order
 
 1. `generateDungeon(seed)`, draw the grid, spawn the player in the first room.

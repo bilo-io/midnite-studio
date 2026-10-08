@@ -22,6 +22,9 @@ export class Level extends KitScene {
     // Fidelity kit: Light2D normal-mapped surfaces from generated textures, juice and sound on by default.
     this.fx = createFx(this, { name: 'top-down', ambient: 0xb4bcd6, postfx: 'vignette' });
     const { juice, lighting } = this.fx;
+    // Early evening over an open yard, with a wind bed. A genre that takes over calls `fx.tint` / `fx.ambience` itself, which replaces both.
+    this.fx.tint('dusk');
+    this.fx.ambience('ambience-wind', { volume: 0.3 });
     const flat = { iso: false };
 
     // Ground: 64 px lit tiles in two variants so the floor does not read as a grid of copies.

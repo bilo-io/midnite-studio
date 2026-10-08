@@ -47,3 +47,43 @@ export const packRgb = (r, g, b) => ((255 << 24) | ((b > 255 ? 255 : b < 0 ? 0 :
 
 /** Vertical camera bob for a walk phase (radians); `amount` is pixels at the screen's internal resolution. @param {number} phase @param {number} amount */
 export const bobOffset = (phase, amount) => Math.sin(phase) * amount;
+
+/** A 0xRRGGBB colour as `[r, g, b]` bytes. @param {number} c @returns {[number, number, number]} */
+export const rgbOf = (c) => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
+
+/**
+ * The sky colour on a ceiling row: `t` 0 at the top of the screen (zenith) to 1 on the horizon, eased so the haze
+ * gathers low and the blue stays deep overhead. Writes into `out` and returns it, so a frame allocates nothing.
+ * @param {number} t @param {readonly number[]} zenith @param {readonly number[]} horizon @param {number[]} [out]
+ */
+export function skyGradient(t, zenith, horizon, out = [0, 0, 0]) {
+  const k = Math.min(1, Math.max(0, t)) ** 1.8;
+  for (let i = 0; i < 3; i += 1) out[i] = /** @type {number} */ (zenith[i]) + (/** @type {number} */ (horizon[i]) - /** @type {number} */ (zenith[i])) * k;
+  return out;
+}
+
+/**
+ * A star at a world-fixed bearing bin and screen row: a pure hash, so the same night sky replays and turning the camera
+ * slides the stars across it. Returns brightness 0..1 (0 for most cells). @param {number} bin @param {number} row @param {number} density 0..1
+ */
+export function starAt(bin, row, density) {
+  if (density <= 0) return 0;
+  let h = (Math.imul(bin | 0, 374761393) + Math.imul(row | 0, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  const r = ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  return r < 0.012 * density ? 0.45 + (r / (0.012 * density)) * 0.55 : 0;
+}
+
+/**
+ * The light a sky pours into the room, as the `[r, g, b]` floats the view adds to its torch term: the preset's sky and
+ * ground bounce light blended, scaled by the hemisphere intensity, so a bright day lifts the walls and a night leaves the torch alone.
+ * @param {{ hemiSky: number, hemiGround: number, hemiIntensity: number }} preset
+ * @returns {[number, number, number]}
+ */
+export function skyAmbient(preset) {
+  const mix = (/** @type {number} */ a, /** @type {number} */ b) => a + (b - a) * 0.35;
+  const sky = rgbOf(preset.hemiSky);
+  const ground = rgbOf(preset.hemiGround);
+  const k = 0.1 + 0.26 * Math.min(1, Math.max(0, (preset.hemiIntensity - 0.55) / 0.75));
+  return [mix(sky[0], ground[0]) / 255 * k, mix(sky[1], ground[1]) / 255 * k, mix(sky[2], ground[2]) / 255 * k];
+}

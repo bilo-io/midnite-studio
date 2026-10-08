@@ -75,6 +75,15 @@ export function installGenre(scene, ctx) {
   const { juice, lighting } = fx;
   fx.takeOver(ctx.glow);
   ctx.glow.setRadius(world.unit * 7).setIntensity(0.9);
+  // A city at dusk with its crowd murmur. `ambience` replaces the base's own bed rather than stacking on it.
+  fx.tint('dusk');
+  fx.ambience('ambience-crowd', { volume: 0.34 });
+  /** The driven car's engine bed: started on entering, retuned from its speed every frame, stopped on leaving. @type {{ stop(): void, set(p: object): void } | null} */
+  let engine = null;
+  const stopEngine = () => {
+    engine?.stop();
+    engine = null;
+  };
   const shadow = shadowTexture(scene);
   const screen = (/** @type {number} */ tx, /** @type {number} */ ty) => world.toScreen(tx, ty);
   /** An image with a soft drop shadow that `place` keeps under it. @param {Phaser.GameObjects.Image} image @param {number} w @param {number} h */
@@ -221,6 +230,7 @@ export function installGenre(scene, ctx) {
       if (input.justPressed('enter')) {
         if (car) {
           player.car = null;
+          stopEngine();
           player.x = car.x / TILE + Math.cos(car.heading + Math.PI / 2) * 1.2;
           player.y = car.y / TILE + Math.sin(car.heading + Math.PI / 2) * 1.2;
           if (blocked(player.x, player.y)) [player.x, player.y] = [car.x / TILE, car.y / TILE];
@@ -229,6 +239,8 @@ export function installGenre(scene, ctx) {
           const near = nearestCar(2.4);
           if (near) {
             player.car = near;
+            stopEngine();
+            engine = fx.loop('engine-loop', { volume: 0.25, pitch: 0.75 });
             fx.play('door', { x: near.sprite.x, power: 0.8 });
             juice.squash(near.sprite, [1.08, 1.15], { ms: 260 });
             if (!near.stolen) {
@@ -241,6 +253,9 @@ export function installGenre(scene, ctx) {
 
       if (car) {
         driveCar(car, { throttle: -v.y, steer: v.x }, dt, CAR_DEFAULTS);
+        // Revs follow speed: an idle growl at a standstill, a scream near the top end.
+        const rev = Math.min(1, carSpeed(car) / CAR_DEFAULTS.maxSpeed);
+        engine?.set({ pitch: 0.75 + rev * 1.1, volume: 0.22 + rev * 0.2 });
         player.x = car.x / TILE;
         player.y = car.y / TILE;
         for (const ped of [...peds]) {
@@ -260,7 +275,7 @@ export function installGenre(scene, ctx) {
           const at = screen(player.x, player.y);
           const flash = lighting.add(at.x, at.y, { radius: world.unit * 5, intensity: 1.6, color: 0xffd28a });
           scene.time.delayedCall(70, () => lighting.lights.removeLight(flash));
-          juice.trigger('shoot', { x: at.x + player.facing.x * 12, y: at.y + player.facing.y * 8 - 6, dir: [player.facing.x, player.facing.y] });
+          juice.trigger('gunshot-pistol', { x: at.x + player.facing.x * 12, y: at.y + player.facing.y * 8 - 6, dir: [player.facing.x, player.facing.y] });
           const target = peds.find((p) => {
             const dx = p.x - player.x;
             const dy = p.y - player.y;
@@ -334,6 +349,7 @@ export function installGenre(scene, ctx) {
         juice.trigger('death', { x: at.x, y: at.y });
         player.hp = 100;
         player.car = null;
+        stopEngine();
         [player.x, player.y] = [home.x, home.y];
         wanted = wantedReducer(wanted, { type: 'clear' });
       }
@@ -390,6 +406,8 @@ export function installGenre(scene, ctx) {
           wanted: wanted.level,
           unseenMs: Math.round(wanted.unseenMs),
           inCar: player.car !== null,
+          engine: engine !== null,
+          ambience: fx.bedName,
           speed: player.car ? Math.round(carSpeed(player.car)) : 0,
           police: police.length,
           pedestrians: peds.length,

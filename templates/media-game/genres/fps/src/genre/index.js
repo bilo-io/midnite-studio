@@ -14,10 +14,11 @@ import { rng } from 'kit/core/rng.js';
 import { createHud } from 'kit/phaser/hud.js';
 import { createInput } from 'kit/phaser/input.js';
 
-import { levelMap, levelObjects, wallGrid } from './levels.js';
+import { levelMap, levelObjects, skylitCells, wallGrid } from './levels.js';
 import { createViewmodel } from './viewmodel.js';
 
 const ENEMY = { hp: 30, speed: 1.6, range: 7, damage: 6, everyMs: 1200 };
+const RELOAD_MS = 850;
 const KEY_FOR_DOOR = { 3: 'red-key', 5: 'violet-key' };
 const PICKUP_KIND = { health: 'health', ammo: 'ammo', 'red-key': 'key', 'violet-key': 'key', shotgun: 'weapon', rocket: 'weapon' };
 const PICKUP_TEXT = { health: '+25 HP', ammo: '+ammo', 'red-key': 'red key', 'violet-key': 'violet key', shotgun: 'shotgun', rocket: 'rocket launcher' };
@@ -38,6 +39,13 @@ export function installGenre(scene, ctx) {
   for (const row of walls) rig.map.push([...row]);
   rig.sprites.length = 0;
 
+  // The east hall is a courtyard under a dusk sky; the rest keeps its stone ceiling. The sound follows: wind out there,
+  // room tone inside. `fx.ambience` replaces the base's own bed, and a repeat call for the same bed does nothing.
+  const underSky = skylitCells();
+  view.setSky('dusk', { skylit: underSky });
+  const bedFor = () => (underSky(Math.floor(rig.pos.x), Math.floor(rig.pos.y)) ? 'ambience-wind' : 'ambience-room');
+  fx.ambience(bedFor(), { volume: 0.32 });
+
   const objects = levelObjects(level);
   const spawn = objects.find((o) => o.type === 'spawn');
   if (spawn) {
@@ -51,6 +59,7 @@ export function installGenre(scene, ctx) {
     fire: { keys: ['F', 'CTRL'], pointer: /** @type {const} */ ('left') },
     weapon1: { keys: ['ONE'] }, weapon2: { keys: ['TWO'] }, weapon3: { keys: ['THREE'] },
     nextWeapon: { keys: ['Q'] },
+    reload: { keys: ['R'] },
   });
   const hud = createHud(scene, {});
   const ammoText = scene.add.text(scene.scale.width / 2, scene.scale.height - 22, '', { fontFamily: 'monospace', fontSize: '14px', color: '#e6edf3' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
@@ -71,6 +80,7 @@ export function installGenre(scene, ctx) {
   /** Dead enemies fold down and fade; they are scenery, not targets. @type {any[]} */
   const corpses = [];
   let lastDry = -1e9;
+  let reloadUntil = -1e9;
   for (const o of objects) {
     if (o.type === 'enemy') {
       const sprite = { x: o.x, y: o.y, color: '#c2564d', kind: 'grunt', scale: 0.8, flash: 0 };
@@ -150,13 +160,14 @@ export function installGenre(scene, ctx) {
   }
 
   function shoot() {
+    if (time < reloadUntil) return; // the weapon is coming back up
     const shot = fire(loadout, time, () => rng.next());
     if (!shot) {
       const w = WEAPONS[loadout.current];
       const dry = w ? ((/** @type {Record<string, number>} */ (loadout.ammo)[w.ammoType] ?? 0) < w.ammoPerShot) : false;
       if (dry && time - lastDry > 450) {
         lastDry = time;
-        fx.play('ui-click', { pitch: 0.55, power: 0.8 });
+        juice.trigger('empty-click', { x: CENTRE.x, y: CENTRE.y });
       }
       return;
     }
@@ -165,8 +176,10 @@ export function installGenre(scene, ctx) {
     const heavy = weapon.id === 'shotgun' ? 1.7 : weapon.id === 'rocket' ? 1.4 : 1;
     viewmodel.fire(heavy);
     view.flash(weapon.id === 'rocket' ? 1.6 : 1.1);
-    juice.trigger('shoot', { x: muzzle.x, y: muzzle.y, dir: [0, -1], strength: heavy });
-    if (weapon.id === 'shotgun') fx.play('explosion', { pitch: 1.7, power: 0.45, volume: 0.6 });
+    // Each weapon has its own report: the pistol's crack and the shotgun's boom from the kit's gunshot presets, the
+    // rocket launcher's whoosh from the generic shot plus a low laser.
+    const report = weapon.id === 'pistol' ? 'gunshot-pistol' : weapon.id === 'shotgun' ? 'gunshot-shotgun' : 'shoot';
+    juice.trigger(report, { x: muzzle.x, y: muzzle.y, dir: [0, -1], strength: heavy });
     if (weapon.id === 'rocket') fx.play('laser', { pitch: 0.5, power: 0.9 });
     if (weapon.kind === 'hitscan') {
       // One effect per enemy per shot, however many pellets landed, so a shotgun blast is one thump, not six.
@@ -233,7 +246,7 @@ export function installGenre(scene, ctx) {
     }
     const text = /** @type {Record<string, string>} */ (PICKUP_TEXT)[p.kind] ?? p.kind;
     const big = p.kind !== 'health' && p.kind !== 'ammo';
-    juice.trigger('pickup', { x: CENTRE.x, y: 400, strength: big ? 1.3 : 1, text, textKind: 'heal' });
+    juice.trigger(p.kind === 'health' ? 'heal' : 'pickup', { x: CENTRE.x, y: 400, strength: big ? 1.3 : 1, text, textKind: 'heal' });
     if (big) fx.play('powerup', { power: 0.8 });
     return true;
   }
@@ -251,7 +264,14 @@ export function installGenre(scene, ctx) {
         viewmodel.setWeapon(loadout.current);
         fx.play('ui-click', { pitch: 1.3, power: 0.7 });
       }
+      if (input.justPressed('reload') && time >= reloadUntil) {
+        // The kit has no magazines here, so a reload is the weapon lowering and coming back: a pause with the sound.
+        reloadUntil = time + RELOAD_MS;
+        viewmodel.setWeapon(loadout.current);
+        juice.trigger('reload', { x: CENTRE.x, y: CENTRE.y });
+      }
       if (input.isDown('fire')) shoot();
+      fx.ambience(bedFor(), { volume: 0.32 });
       if (input.justPressed('use')) tryLockedDoor();
 
       for (const e of [...enemies]) {
@@ -273,7 +293,7 @@ export function installGenre(scene, ctx) {
           e.shotAt = time;
           player.hp = Math.max(0, player.hp - ENEMY.damage);
           e.sprite.flash = 0.08;
-          fx.sfx.play('shoot', { pitch: 0.8, power: 0.7, pan: panOf(e.sprite.x, e.sprite.y) });
+          fx.sfx.play('gunshot-rifle', { pitch: 1.1, power: 0.55, pan: panOf(e.sprite.x, e.sprite.y) }); // the grunts carry rifles
           juice.trigger('hurt', { x: CENTRE.x, y: CENTRE.y, strength: 0.75, text: ENEMY.damage, textKind: 'crit' });
         }
       }
@@ -333,6 +353,8 @@ export function installGenre(scene, ctx) {
         player: { position: rig.state().player.position, health: Math.round(player.hp) },
         fps: {
           weapon: loadout.current,
+          reloading: time < reloadUntil,
+          ambience: fx.bedName,
           owned: [...loadout.owned],
           ammo: { ...loadout.ammo },
           keys: [...player.keys],

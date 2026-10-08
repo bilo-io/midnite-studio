@@ -21,6 +21,10 @@ Car: `accel = 260`, `brake = 420`, `maxSpeed = 320`, `maxReverse = 110`, `turnRa
 
 Wanted: `MAX_WANTED = 5`, `DECAY_MS = 30000` (one level off per 30 s unseen). Crime heat: `pedestrian = 1`, `vehicle = 1`, `police = 2`, `shooting = 1`. `pursuit(level)` sends `min(4, level)` cars at `150 + level * 25` px/s, so police at level one are slower than a player on foot and a car at full speed outruns every level.
 
+## Game feel
+
+`fx.tint('dusk')` and `fx.ambience('ambience-crowd')` set the city's light and murmur. The pistol is `gunshot-pistol`. Getting in a car starts `fx.loop('engine-loop')`; each frame `engine.set({ pitch, volume })` follows speed, and `stopEngine()` ends it on exit, car swap and death. Add any new loop the same way so it is stopped on every path out.
+
 ## Build order
 
 1. City grid and collision; the player on foot with the top-down preset.
