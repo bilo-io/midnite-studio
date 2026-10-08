@@ -67,6 +67,51 @@ describe.each(GENRES)('%s moments', (genre) => {
   });
 });
 
+/** The kit v0.11.0 sfx each genre must reach for, by moment (the dedicated preset, not a pitched older one). */
+const DEDICATED: Record<(typeof GENRES)[number], Record<string, string>> = {
+  shooter: { 'fire-rifle': 'gunshot-rifle', 'fire-pistol': 'gunshot-pistol', 'fire-shotgun': 'gunshot-shotgun', 'reload-start': 'reload', 'dry-fire': 'empty-click', 'enemy-crit': 'critical' },
+  fighter: { 'combo-hit': 'combo-hit', launcher: 'critical' },
+  soulslike: { roll: 'roll', parry: 'sword-clash', 'bonfire-rest': 'heal', riposte: 'critical' },
+  'character-action': { dash: 'dash', 'hit-light': 'combo-hit', juggle: 'combo-hit' },
+};
+
+describe.each(GENRES)('%s kit v0.11 sfx', (genre) => {
+  it('plays the dedicated presets', async () => {
+    const { MOMENTS } = await load(`genres/${genre}/src/genre/moments.js`);
+    for (const [moment, preset] of Object.entries(DEDICATED[genre])) {
+      expect(MOMENTS[moment], `${genre}.${moment}`).toBeDefined();
+      expect(MOMENTS[moment].sfx.map((c: { name: string }) => c.name), `${genre}.${moment}`).toContain(preset);
+    }
+  });
+});
+
+describe('fx.js ambience beds', () => {
+  it('every genre level starts only real looping presets, and stops them on shutdown', async () => {
+    const { LOOPING_SFX } = await load('kit/core/sfx.js');
+    for (const genre of [...GENRES, 'rpg', 'open-world']) {
+      const src = await readFile(join(root, 'genres', genre, 'src/scenes/level.js'), 'utf8');
+      const names = [...src.matchAll(/(?:ambience|loop)\(\s*'([\w-]+)'/g)].map((m) => m[1]);
+      expect(names.length, `${genre} starts a bed`).toBeGreaterThan(0);
+      for (const name of names) expect(LOOPING_SFX, `${genre} loop ${name}`).toContain(name);
+      expect(src, `${genre} stops its beds with the loop`).toMatch(/loop\.stop = /);
+    }
+  });
+});
+
+describe('3D genre sky', () => {
+  it.each([...GENRES, 'rpg', 'open-world'])('%s lights its level with the kit environment, not a hand-rolled sky', async (genre) => {
+    const src = await readFile(join(root, 'genres', genre, 'src/scenes/level.js'), 'utf8');
+    const { SKY_PRESETS } = await load('kit/core/sky.js');
+    expect(src).toContain("from 'kit/three/environment.js'");
+    expect(src).toContain('createEnvironment(');
+    expect(src).not.toMatch(/new THREE\.(DirectionalLight|HemisphereLight|Fog)\(/);
+    expect(src).not.toMatch(/scene\.background = /);
+    const preset = /preset: '(\w+)'/.exec(src)?.[1];
+    if (preset) expect(Object.keys(SKY_PRESETS)).toContain(preset);
+    else expect(src).toMatch(/timeOfDay: /);
+  });
+});
+
 describe('shooter helpers', () => {
   it('faceNormal picks the face a point sits on', async () => {
     const { faceNormal } = await load('genres/shooter/src/genre/moments.js');

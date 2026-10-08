@@ -2,14 +2,15 @@
 /** Pure maths behind the open world's sound beds (`engine-audio.js`), kept apart so a vitest can pin it. */
 
 /**
- * Engine pitch (Hz) and loudness for a car doing `speed` m/s with the throttle at `throttle` (−1..1).
- * A little idle at rest, a rising whine with speed, louder on the throttle.
+ * Pitch and loudness for the kit's `engine-loop` preset while a car does `speed` m/s with the throttle at `throttle` (-1..1):
+ * an idle at rest, a rising whine with speed, louder on the throttle. Feed it to `sfx.loop(...).set({ pitch, volume })`.
  * @param {number} speed
  * @param {number} throttle
  */
-export function engineParams(speed, throttle) {
+export function engineLoopParams(speed, throttle) {
   const v = Math.min(1, Math.abs(speed) / 32);
-  return { frequency: 48 + v * 150 + Math.abs(throttle) * 18, gain: 0.05 + v * 0.07 + Math.abs(throttle) * 0.05, cutoff: 260 + v * 1500 + Math.abs(throttle) * 500 };
+  const t = Math.min(1, Math.abs(throttle));
+  return { pitch: 0.7 + v * 1.1 + t * 0.15, volume: 0.45 + v * 0.3 + t * 0.25 };
 }
 
 /**

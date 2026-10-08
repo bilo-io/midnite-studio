@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 /**
  * The engine-free maths behind the open-world genre's fidelity pass, imported straight from
  * `templates/media-game/genres/open-world/src/genre/`: the land-cover splat (which detail layer each
- * patch of ground wears, and what a footstep sounds like), and the engine and ambience mixes. The
- * three.js parts (ground shader, wind, weather, sky dome) need WebGL and are covered by the PR's screenshots.
+ * patch of ground wears, and what a footstep sounds like), and the engine-loop pitch and the ambience mixes. The
+ * three.js parts (ground shader, wind, weather, environment sky) need WebGL and are covered by the PR's screenshots.
  */
 
 const dir = resolve(__dirname, '../../../../../templates/media-game/genres/open-world/src/genre');
@@ -47,12 +47,26 @@ describe('open-world ground splat', () => {
 
 describe('open-world sound maths', () => {
   it('engine pitch and loudness rise with speed and throttle', async () => {
-    const { engineParams } = await load('sound-math.js');
-    const idle = engineParams(0, 0);
-    const cruise = engineParams(20, 0.5);
-    expect(cruise.frequency).toBeGreaterThan(idle.frequency);
-    expect(cruise.gain).toBeGreaterThan(idle.gain);
-    expect(engineParams(-20, 0).frequency).toBe(engineParams(20, 0).frequency);
+    const { engineLoopParams } = await load('sound-math.js');
+    const idle = engineLoopParams(0, 0);
+    const cruise = engineLoopParams(20, 0.5);
+    expect(cruise.pitch).toBeGreaterThan(idle.pitch);
+    expect(cruise.volume).toBeGreaterThan(idle.volume);
+    expect(engineLoopParams(-20, 0).pitch).toBe(engineLoopParams(20, 0).pitch);
+  });
+
+  it('the engine pitch stays inside the range the kit loop plays well and is a real kit loop', async () => {
+    const { engineLoopParams } = await load('sound-math.js');
+    const kitSfx = await import(pathToFileURL(resolve(dir, '../../../../kit/core/sfx.js')).href);
+    expect(kitSfx.LOOPING_SFX).toContain('engine-loop');
+    expect(kitSfx.LOOPING_SFX).toContain('ambience-wind');
+    for (const [speed, throttle] of [[0, 0], [32, 1], [80, 1]] as const) {
+      const { pitch, volume } = engineLoopParams(speed, throttle);
+      expect(pitch).toBeGreaterThan(0.5);
+      expect(pitch).toBeLessThan(2.2);
+      expect(volume).toBeGreaterThan(0);
+      expect(volume).toBeLessThanOrEqual(1);
+    }
   });
 
   it('the ambience has crickets at night, birds by day and none in the rain', async () => {

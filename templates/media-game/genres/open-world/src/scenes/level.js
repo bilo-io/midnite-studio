@@ -14,15 +14,15 @@
  * route are the genre module, `../genre/index.js`.
  *
  * Fidelity and juice (kit v0.10.0): the ground wears normal-mapped grass, dirt and rock blended by the
- * pack's land cover, foliage sways in a wind, footsteps sound by surface, the car has an engine whose
+ * pack's land cover, foliage sways in a wind, footsteps sound by surface, the car has the kit's `engine-loop` whose
  * pitch follows its speed plus skid dust, tyre screech and crash shake, rain showers roll through,
- * the sky is a day-tinted dome, and a gentle bloom and vignette sit over the frame.
+ * the sky is the kit's environment (v0.11) re-lit by the game clock and greyed by rain, and a gentle bloom and vignette sit over the frame.
  */
 import * as THREE from 'three';
 
 import { loadAssetIndex } from 'kit/core/asset-index.js';
 import { moveRelativeToYaw } from 'kit/core/cameras.js';
-import { hourAt, skyAt } from 'kit/core/genre/open-world/daynight.js';
+import { hourAt } from 'kit/core/genre/open-world/daynight.js';
 import { extendHook } from 'kit/core/hook.js';
 import { createJuiceSettings } from 'kit/core/juice-settings.js';
 import { decodePng16 } from 'kit/core/png16.js';
@@ -32,6 +32,7 @@ import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createAudio } from 'kit/three/audio.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createJuice } from 'kit/three/juice.js';
@@ -46,7 +47,7 @@ import { createSoundBeds } from '../genre/engine-audio.js';
 import { applyGroundDetail, findGroundMaterial } from '../genre/ground-material.js';
 import { classAt, SURFACES, splatTexture } from '../genre/ground-splat.js';
 import { installGenre } from '../genre/index.js';
-import { createSkyDome } from '../genre/sky-dome.js';
+import { ambienceMix, engineLoopParams } from '../genre/sound-math.js';
 import { createWeather } from '../genre/weather.js';
 import { addFoliageWind } from '../genre/wind.js';
 
@@ -69,17 +70,6 @@ const DAY_SECONDS = 240;
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87b5e0);
-  scene.fog = new THREE.Fog(0x87b5e0, 120, 420);
-  const ambient = new THREE.HemisphereLight(0xdfeeff, 0x3a4030, 1.0);
-  scene.add(ambient);
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-  sun.castShadow = true;
-  sun.shadow.camera.left = sun.shadow.camera.bottom = -60;
-  sun.shadow.camera.right = sun.shadow.camera.top = 60;
-  sun.shadow.mapSize.set(2048, 2048);
-  scene.add(sun, sun.target);
-
   const physics = await initPhysics();
   const assets = await loadAssetIndex();
   const relative = assets.url(TERRAIN.kind, TERRAIN.name, TERRAIN.manifest);
@@ -126,6 +116,9 @@ export async function startLevel() {
   });
   /** @type {ReturnType<typeof createVehicle> | null} */
   let driving = null;
+  /** The kit's `engine-loop` while a car is driven; its pitch and level follow the car's speed through `.set`. */
+  /** @type {{ stop: () => void, set: (patch: { volume?: number, pitch?: number }) => void } | null} */
+  let engineBed = null;
   /** The on-foot camera preset, restored on getting out (a car wants the arm further back). */
   let footPreset = /** @type {string | null} */ (null);
 
@@ -141,6 +134,7 @@ export async function startLevel() {
   const enter = (/** @type {ReturnType<typeof createVehicle>} */ car) => {
     driving = car;
     car.enter();
+    engineBed ??= audio.sfx.loop('engine-loop', engineLoopParams(0, 0));
     character.setEnabled(false);
     avatar.visible = false;
     rigOptions.exclude = car.collider;
@@ -153,6 +147,8 @@ export async function startLevel() {
     if (!driving) return;
     const [x = 0, , z = 0] = driving.exit();
     driving = null;
+    engineBed?.stop();
+    engineBed = null;
     character.setEnabled(true);
     character.teleport([x, ground(x, z) + 0.3, z]);
     avatar.visible = MODE === 'third-person';
@@ -163,6 +159,9 @@ export async function startLevel() {
 
   const renderer = createRenderer(canvas);
   renderer.shadowMap.enabled = true;
+  // The kit's sky, sun, hemisphere light and fog (kit/three/environment.js). The game clock drives it through `setTimeOfDay`
+  // each frame below; no reflection bake, because re-baking as the sun moves costs far more than the terrain's materials gain.
+  const env = createEnvironment({ scene, renderer, timeOfDay: hourAt(0, DAY_SECONDS, 9), fog: [120, 420], shadowSize: 60, environmentMap: false });
   // Juice kit: on by default; `?juice=off` or `__midnite.juice.off()` silences it.
   const settings = createJuiceSettings({ gameName: 'open-world' });
   const audio = createAudio(rig.camera);
@@ -176,9 +175,34 @@ export async function startLevel() {
   };
   applyVolume();
   settings.subscribe(applyVolume);
-  const sky = createSkyDome(scene);
   const weather = createWeather(scene, settings);
-  const skyColor = new THREE.Color();
+  // Rain greys the kit's sky, fog and sun; `dress` re-lights by the hour, then applies that tint.
+  const GREY_HORIZON = new THREE.Color(0.55, 0.58, 0.62);
+  const GREY_ZENITH = new THREE.Color(0.4, 0.43, 0.48);
+  const domeUniforms = /** @type {THREE.ShaderMaterial} */ (env.dome.material).uniforms;
+  let dressedHour = -1;
+  let dressedRain = -1;
+  const dress = (/** @type {number} */ hour, /** @type {number} */ rain) => {
+    if (Math.abs(hour - dressedHour) < 0.01 && Math.abs(rain - dressedRain) < 0.01) return;
+    dressedHour = hour;
+    dressedRain = rain;
+    env.setTimeOfDay(hour);
+    domeUniforms['uHorizon'].value.lerp(GREY_HORIZON, rain * 0.7);
+    domeUniforms['uZenith'].value.lerp(GREY_ZENITH, rain * 0.8);
+    domeUniforms['uSunColor'].value.multiplyScalar(1 - rain * 0.8);
+    domeUniforms['uStars'].value *= 1 - rain;
+    env.fog?.color.lerp(GREY_HORIZON, rain * 0.7);
+    /** @type {THREE.Color} */ (scene.background).lerp(GREY_HORIZON, rain * 0.7);
+    env.sun.intensity *= 1 - rain * 0.6;
+  };
+  // A light wind under everything, louder in the rain; it ends with the loop.
+  const windBed = audio.sfx.loop('ambience-wind', { volume: 0.3, power: 0.5 });
+  const endBeds = () => {
+    windBed.stop();
+    engineBed?.stop();
+    engineBed = null;
+  };
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', endBeds);
   extendHook('fx', {
     trigger: (/** @type {string} */ name) => juice.trigger(name, { object: avatar, position: [character.position[0], character.position[1] + 1.2, character.position[2] - 2] }),
     state: () => ({ ...juice.state(), rain: Number(weather.rain.toFixed(3)), windSwayed: wind.count }),
@@ -193,7 +217,6 @@ export async function startLevel() {
     terrain,
     terrainUrl,
     cars,
-    lights: { sun, ambient },
     driving: () => driving,
     /** Where the player is, on foot or at the wheel. */
     playerPosition: () => (driving ? [driving.object.position.x, driving.object.position.y, driving.object.position.z] : [...character.position]),
@@ -213,7 +236,7 @@ export async function startLevel() {
   const velocity = new THREE.Vector3();
   const forward = new THREE.Vector3();
 
-  startLoop({
+  const loop = startLoop({
     renderer,
     scene,
     camera: rig.camera,
@@ -314,13 +337,14 @@ export async function startLevel() {
 
       // --- sky, weather, wind and the sound beds -----------------------------------------------------------------
       const hour = hourAt(seconds, DAY_SECONDS, 9);
-      const skyNow = skyAt(hour);
       weather.update(dt, seconds, rig.camera.position);
-      skyColor.setRGB((skyNow.sky[0] ?? 0) / 255, (skyNow.sky[1] ?? 0) / 255, (skyNow.sky[2] ?? 0) / 255, THREE.SRGBColorSpace);
-      sky.update(skyColor, skyNow, weather.rain, rig.camera.position);
+      dress(hour, weather.rain);
+      env.follow(driving ? driving.object.position : character.position);
+      windBed.set({ volume: 0.2 + ambienceMix(hour, weather.rain).wind * 0.3 });
+      if (driving) engineBed?.set(engineLoopParams(driving.speed, throttleNow));
       const fx = settings.resolved();
       wind.set(seconds, !fx.enabled ? 0 : fx.reducedMotion ? 0.25 : 0.6 + 0.4 * Math.min(1.5, fx.intensity) + weather.rain * 0.8);
-      beds.update(dt, { car: driving ? { speed: driving.speed, throttle: throttleNow } : null, slip, hour, rain: weather.rain });
+      beds.update(dt, { slip, hour, rain: weather.rain });
 
       const near = driving ? null : nearestVehicle(character.position, cars);
       hud.hint(
@@ -344,4 +368,12 @@ export async function startLevel() {
       ...genre.state(),
     }),
   });
+  // Shutdown ends the engine and wind beds and releases the sky along with the loop.
+  const stopLoop = loop.stop;
+  loop.stop = () => {
+    endBeds();
+    beds.dispose();
+    env.dispose();
+    stopLoop();
+  };
 }

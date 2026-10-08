@@ -48,3 +48,5 @@ Arena: `WAVE_BEAT = 1.5` seconds between waves; the arena is sealed while fighti
 ## Game feel
 
 `src/genre/moments.js` maps every move to a slash arc (`ARCS`, one entry per `COMBO_MOVES` name: a new move needs one), a landed hit to `hit-light`, `hit-heavy`, `launcher`, `juggle` or `slam` (`hitMoment`), and style rank changes to a pop (`rankCall`). The level hands the genre its own frame counter that stops during a hit-stop, so a combo's active window is never skipped. Dash afterimages appear above 5.2 m/s. `?juice=off` silences it.
+
+Sky and sound (kit v0.11.0): the arena sits under `createEnvironment({ preset: 'dusk', ... })` with `env.follow` each frame (no lights or `scene.background` beside it). The `dash` moment plays the kit's `dash`, and `hit-light` and `juggle` add `combo-hit` (the juggle's pitch rises with the chain). `fx.ambience('ambience-crowd', ...)` is a distant arena crowd; it follows the juice volume and stops with the loop (`fx.shutdown()`).

@@ -17,8 +17,8 @@
 export const MOMENTS = {
   slash: { sfx: [{ name: 'swing', pitch: 1, power: 0.75 }] },
   'slash-heavy': { shake: 0.08, sfx: [{ name: 'swing', pitch: 0.65, power: 1 }] },
-  dash: { particles: [{ kind: 'dust', count: 6, scale: 0.8 }], sfx: [{ name: 'swing', pitch: 1.6, power: 0.55 }] },
-  'hit-light': { shake: 0.12, hitStop: 45, glow: 0xffffff, particles: [{ kind: 'spark', count: 8, colors: [0xffffff, 0xffe27a, 0xff9a5c] }], sfx: [{ name: 'hit', pitch: 1.15, power: 0.85 }] },
+  dash: { particles: [{ kind: 'dust', count: 6, scale: 0.8 }], sfx: [{ name: 'dash', power: 0.8 }] },
+  'hit-light': { shake: 0.12, hitStop: 45, glow: 0xffffff, particles: [{ kind: 'spark', count: 8, colors: [0xffffff, 0xffe27a, 0xff9a5c] }], sfx: [{ name: 'hit', pitch: 1.15, power: 0.7 }, { name: 'combo-hit', power: 0.5 }] },
   'hit-heavy': {
     shake: 0.35,
     hitStop: 95,
@@ -40,7 +40,7 @@ export const MOMENTS = {
     sfx: [{ name: 'hit', pitch: 0.6, power: 1.1 }, { name: 'jump', pitch: 0.8, power: 0.5 }],
   },
   // Each hit on an airborne enemy: a short freeze that keeps the juggle's rhythm.
-  juggle: { shake: 0.1, hitStop: 40, glow: 0xaee0ff, particles: [{ kind: 'spark', count: 7, colors: [0xaee0ff, 0xffffff, 0x7cc4ff] }], sfx: [{ name: 'hit', pitch: 1.4, power: 0.7 }] },
+  juggle: { shake: 0.1, hitStop: 40, glow: 0xaee0ff, particles: [{ kind: 'spark', count: 7, colors: [0xaee0ff, 0xffffff, 0x7cc4ff] }], sfx: [{ name: 'hit', pitch: 1.4, power: 0.55 }, { name: 'combo-hit', pitch: 1.2, power: 0.65 }] },
   slam: {
     shake: 0.7,
     hitStop: 120,

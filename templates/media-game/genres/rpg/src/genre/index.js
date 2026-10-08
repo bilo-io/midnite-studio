@@ -54,8 +54,8 @@ const CRIT_CHANCE = 0.15;
 /** Torches that flicker: the square, the forge and the wolf den's ruin. */
 const TORCHES = /** @type {const} */ ([[-4, -5], [4, -5], [12, 6], [-16, -21], [-20, -21]]);
 /** Sound-effect arpeggios, as `[delaySeconds, preset, pitch]` over the kit's presets. */
-const FANFARE = /** @type {const} */ ([[0, 'powerup', 1], [0.22, 'pickup', 1.26], [0.4, 'pickup', 1.5], [0.58, 'win', 1]]);
-const STING = /** @type {const} */ ([[0, 'pickup', 1], [0.14, 'pickup', 1.25], [0.28, 'pickup', 1.5], [0.46, 'coin', 1.6]]);
+const FANFARE = /** @type {const} */ ([[0, 'level-up', 1], [0.55, 'win', 1.3]]);
+const STING = /** @type {const} */ ([[0, 'quest-complete', 1]]);
 
 /** Unwrap a validator result, or fail loudly with its message (bad data is the author's bug, shown in the log). */
 const must = (/** @type {{ ok: boolean, value?: any, message?: string }} */ r, /** @type {string} */ what) => {
@@ -273,7 +273,7 @@ export function installGenre(scene, ctx) {
       else if (e.type === 'heal') {
         player.hp = derived(stats, equippedPower(bag)).maxHp;
         juice.burst('spark', lift(character.position, 1), { count: 30, colors: [0x9cff9c, 0xffffff] });
-        sfx.play('powerup', { pitch: 1.3, power: 0.6 });
+        sfx.play('heal', { power: 0.8 });
       }
       else if (e.type === 'buy' && player.gold >= (e.price ?? 0)) {
         player.gold -= e.price ?? 0;
@@ -326,7 +326,10 @@ export function installGenre(scene, ctx) {
     w.flash = 0.12;
     const p = [w.position[0] ?? 0, 1.2, w.position[2] ?? 0];
     juice.trigger('hit', { object: w.mesh, position: p, strength: (crit ? 1.5 : 0.8) * strength, text: crit ? `${damage}!` : damage, textKind: crit ? 'crit' : 'hit' });
-    if (crit) juice.burst('spark', p, { count: 26, colors: [GOLD, 0xffffff] });
+    if (crit) {
+      juice.burst('spark', p, { count: 26, colors: [GOLD, 0xffffff] });
+      sfx.play('critical', { power: 0.7, position: p });
+    }
     if (w.hp <= 0) {
       juice.trigger('death', { position: p, strength: 0.6 });
       scene.remove(w.mesh);
@@ -347,7 +350,7 @@ export function installGenre(scene, ctx) {
     scene.add(mesh, light);
     bolts.push({ mesh, light, p: origin, v: [(f[0] ?? 0) * SPELL.speed, 0, (f[1] ?? 0) * SPELL.speed], travelled: 0 });
     castCooldown = SPELL.cooldown;
-    sfx.play('laser', { pitch: 0.6, power: 1.1, position: origin });
+    sfx.play('magic-cast', { power: 1, position: origin });
     juice.burst('muzzle', origin, { dir: [f[0] ?? 0, 0, f[1] ?? 0], colors: [0xff9a40, 0xffe0a0] });
     juice.shake(0.08);
   };

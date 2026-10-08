@@ -285,9 +285,10 @@ export function installGenre(scene, ctx) {
     const dir = [facing[0] ?? 0, 0.2, facing[1] ?? 0];
     for (const h of hollows) {
       if (h.hp > 0 && inArc(at, facing, h.position, a.reach, a.arcDeg)) {
+        const riposte = h.stagger > 0;
         h.hp -= a.damage;
         const spot = [h.position[0], 1.2, h.position[2]];
-        moment(kind === 'heavy' ? 'hit-heavy' : 'hit-light', { object: h.mesh, position: spot, dir, text: a.damage, textKind: kind === 'heavy' ? 'crit' : 'hit' });
+        moment(riposte ? 'riposte' : kind === 'heavy' ? 'hit-heavy' : 'hit-light', { object: h.mesh, position: spot, dir, text: a.damage, textKind: kind === 'heavy' ? 'crit' : 'hit' });
         numbersSpawned += 1;
         if (h.hp <= 0) {
           moment('enemy-death', { position: spot });

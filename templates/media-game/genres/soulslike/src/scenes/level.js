@@ -15,6 +15,7 @@ import { moveRelativeToYaw } from 'kit/core/cameras.js';
 import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
@@ -42,18 +43,16 @@ const animationState = (character) => {
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0c1220);
-  scene.fog = new THREE.Fog(0x0c1220, 14, 60);
-  scene.add(new THREE.HemisphereLight(0xa9bce6, 0x2a2e3c, 2.1));
-  const moon = new THREE.DirectionalLight(0xb8ccff, 3.4);
-  moon.position.set(-9, 16, -4);
-  moon.castShadow = true;
-  moon.shadow.camera.left = moon.shadow.camera.bottom = -26;
-  moon.shadow.camera.right = moon.shadow.camera.top = 26;
-  scene.add(moon);
 
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('game'));
   const renderer = createRenderer(canvas);
+  // Moonlit: the kit's night sky (stars, cold sun as the moon) with the courtyard's thick fog (kit/three/environment.js).
+  const env = createEnvironment({ scene, renderer, preset: 'night', fog: [14, 60], shadowSize: 26 });
+  // Light the arena from behind the camera so its faces read (the default sun sits ahead of it and backlights everything).
+  env.setSun(2.3, 0.95);
+  // The night preset is far darker than this courtyard's old moonlight; scale its lights up (the env's own lights, no extras).
+  env.hemi.intensity *= 3;
+  env.sun.intensity *= 4;
   const input = createInput(THREE_BINDINGS);
   const physics = await initPhysics();
   const character = createCharacter(physics, { position: [0, 0.1, 6] });
@@ -115,7 +114,10 @@ export async function startLevel() {
   let stride = 0;
   let hurtCooldown = 0;
 
-  startLoop({
+  // A low night wind through the ruins; it rides the juice volume and ends with the loop.
+  fx.ambience('ambience-wind', { volume: 0.4, pitch: 0.8, power: 0.55 });
+
+  const loop = startLoop({
     renderer,
     scene,
     camera: rig.camera,
@@ -162,6 +164,7 @@ export async function startLevel() {
         sfx.play('door', { position: [0, 1.5, -3] });
       }
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
+      env.follow(character.position);
       avatar.position.set(...character.position);
       avatar.rotation.y = character.yaw;
       genre.update(dt, frame);
@@ -176,4 +179,11 @@ export async function startLevel() {
       ...genre.state(),
     }),
   });
+  // Shutdown ends the wind bed and releases the sky along with the loop.
+  const stopLoop = loop.stop;
+  loop.stop = () => {
+    fx.shutdown();
+    env.dispose();
+    stopLoop();
+  };
 }

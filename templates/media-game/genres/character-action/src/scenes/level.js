@@ -18,6 +18,7 @@ import { moveRelativeToYaw } from 'kit/core/cameras.js';
 import { THREE_BINDINGS } from 'kit/core/three-defaults.js';
 import { createCameraRig } from 'kit/three/cameras.js';
 import { createCharacter } from 'kit/three/character.js';
+import { createEnvironment } from 'kit/three/environment.js';
 import { createHud } from 'kit/three/hud.js';
 import { createInput } from 'kit/three/input.js';
 import { createRenderer, startLoop } from 'kit/three/loop.js';
@@ -36,18 +37,16 @@ const animationState = (character) => {
 
 export async function startLevel() {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x24131a);
-  scene.fog = new THREE.Fog(0x24131a, 34, 80);
-  scene.add(new THREE.HemisphereLight(0xffd9c4, 0x3a2430, 1.9));
-  const sun = new THREE.DirectionalLight(0xffc89a, 3.0);
-  sun.position.set(10, 18, 8);
-  sun.castShadow = true;
-  sun.shadow.camera.left = sun.shadow.camera.bottom = -20;
-  sun.shadow.camera.right = sun.shadow.camera.top = 20;
-  scene.add(sun);
 
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('game'));
   const renderer = createRenderer(canvas);
+  // A crimson dusk over the arena: the kit's sky, sun, fog and reflection map (kit/three/environment.js).
+  const env = createEnvironment({ scene, renderer, preset: 'dusk', fog: [34, 80], shadowSize: 22 });
+  // Light the arena from behind the camera so its faces read (the default sun sits ahead of it and backlights everything).
+  env.setSun(2.3, 0.8);
+  // The preset's lights are gentler than the arena's old rig; scale them to keep its brightness (the env's own lights, no extras).
+  env.hemi.intensity *= 2.4;
+  env.sun.intensity *= 1.9;
   const physics = await initPhysics();
   physics.addGround(90);
   const character = createCharacter(physics, { position: PLAYER_SPAWN });
@@ -77,7 +76,10 @@ export async function startLevel() {
   const genre = installGenre(scene, { physics, character, rig, hud, input, avatar, fx });
 
   let simFrame = 0;
-  startLoop({
+  // A distant arena crowd; it rides the juice volume and ends with the loop.
+  fx.ambience('ambience-crowd', { volume: 0.35, power: 0.5 });
+
+  const loop = startLoop({
     renderer,
     scene,
     camera: rig.camera,
@@ -98,6 +100,7 @@ export async function startLevel() {
       character.move(genre.intent ? genre.intent(wish, dt, simFrame) : wish, dt);
       physics.step();
       rig.update(dt, { pivot: character.head(), look, speed: character.speed });
+      env.follow(character.position);
       avatar.position.set(...character.position);
       avatar.rotation.y = character.yaw;
       genre.update(dt, simFrame);
@@ -111,4 +114,11 @@ export async function startLevel() {
       ...genre.state(),
     }),
   });
+  // Shutdown ends the crowd bed and releases the sky along with the loop.
+  const stopLoop = loop.stop;
+  loop.stop = () => {
+    fx.shutdown();
+    env.dispose();
+    stopLoop();
+  };
 }
