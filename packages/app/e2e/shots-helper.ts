@@ -1,7 +1,45 @@
-import { type Locator, type Page, type Route } from '@playwright/test';
+import { test, type Locator, type Page, type Route } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import {
+  clickRailLink,
+  installMockBridge as installBaseMockBridge,
+  type InstallMockBridgeOptions,
+  type MockFixtures,
+} from '../test-support/mock-bridge';
+
+import { isShotsSpecFile, seedReposPanelDefault } from '../test-support/shots-repos-default';
+
+export type ShotsBridgeOptions = InstallMockBridgeOptions & {
+  /** Keep the git repos side panel open. Only for a shot that is about that panel. Default false. */
+  reposOpen?: boolean;
+};
+
+function runningShotsSpec(): boolean {
+  try {
+    return isShotsSpecFile(test.info().file);
+  } catch {
+    return false; // outside a running test
+  }
+}
+
+/**
+ * `installMockBridge` that, when called from a `*-shots.spec.ts`, also starts
+ * with the repos side panel closed (`{ reposOpen: true }` opts back in).
+ * Functional and visual specs also import this module but run unchanged, so
+ * visual baselines never move.
+ */
+export async function installMockBridge(
+  page: Page,
+  data: MockFixtures,
+  options: ShotsBridgeOptions = {},
+): Promise<void> {
+  const { reposOpen, ...bridgeOptions } = options;
+  await installBaseMockBridge(page, data, bridgeOptions);
+  if (reposOpen !== undefined || runningShotsSpec()) {
+    await page.addInitScript(seedReposPanelDefault, reposOpen ?? false);
+  }
+}
 
 /**
  * Shared fixture constants and helpers for the screenshot (shots) e2e suite.

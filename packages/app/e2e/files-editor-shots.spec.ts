@@ -1,7 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
-import { fixtures, REPRODUCIBLE_REMOTE, setReducedMotion, setTheme, shotPath } from './shots-helper';
+import {
+  clickRailLink,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_REMOTE,
+  setReducedMotion,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The Monaco editor in the Files view (Phase 64 Themes A/C) — before/after

@@ -1,8 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { clickRailLink, installMockBridge } from '../test-support/mock-bridge';
-import { shotPath } from './shots-helper';
+import { clickRailLink, installMockBridge, shotPath } from './shots-helper';
 
 /**
  * Chats' thinking panel (ad hoc) — the rainbow ring on the collapsed pill and on

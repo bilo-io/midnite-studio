@@ -123,7 +123,7 @@ stage below checks it never got committed.
 - Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop.
 
 ## 5 · Screenshots — whenever the change is visual
-Capture **before/after with Playwright** against the Vite renderer (`moon run app:dev`, mocked bridge for pure-UI shots) or the real app via `moon run desktop:start`; `pnpm exec playwright install chromium` if the browser is missing. Save PNGs to a temp dir.
+Capture **before/after with Playwright** against the Vite renderer (`moon run app:dev`, mocked bridge for pure-UI shots) or the real app via `moon run desktop:start`; `pnpm exec playwright install chromium` if the browser is missing. Save PNGs to a temp dir. Shots are taken with the git repos side panel closed (the terminal likewise) unless the shot is about it: `e2e/shots-helper.ts`'s `installMockBridge` does this for `*-shots` specs, `{ reposOpen: true }` opts in.
 - **Always show them in this thread** when there's a visual change — read the PNGs so they render inline.
 - The same shots go into the PR body (Stage 7).
 

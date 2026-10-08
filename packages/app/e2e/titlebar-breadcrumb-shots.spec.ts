@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { installMockBridge, type MockFixtures } from './shots-helper';
 
 /**
  * The title bar's left edge, for the PR.
