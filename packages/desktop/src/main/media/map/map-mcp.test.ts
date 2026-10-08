@@ -1,7 +1,10 @@
 // vitest (node): the map MCP tools over stub services — no Electron, no network, no tiles. Covers the
 // gate (through the dispatcher), list, measure, goto (place + point) and that map_capture_terrain
 // drives the very capture the Maps tab calls.
-import { DEFAULT_MAP_PROJECT, MAP_MCP_TOOL_IDS, MAP_MCP_WRITE_TOOL_IDS, MAPS_OFF_MESSAGE, failure, ok, type MapCaptureRequest, type MapOpenEvent } from '@midnite/studio-shared';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+import { DEFAULT_MAP_PROJECT, MAP_MCP_TOOL_IDS, MAP_MCP_WRITE_TOOL_IDS, MAPS_OFF_MESSAGE, isMapMcpToolId, isTerrainMcpToolId, failure, ok, type MapCaptureRequest, type MapOpenEvent } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { dispatchMcpCall } from '../../mcp/dispatch';
@@ -163,5 +166,15 @@ describe('geocodePlace', () => {
   it('is null with no match and throws on a failed lookup', async () => {
     expect(await geocodePlace('zzz', reply({}))).toBeNull();
     await expect(geocodePlace('x', reply({}, 500))).rejects.toThrow(/500/);
+  });
+});
+
+describe('the midnite-media-map-build skill', () => {
+  it('names every map tool, and any other tool it names is a real one', async () => {
+    const skill = await readFile(join(__dirname, '../../../../../../.claude/skills/midnite-media-map-build/SKILL.md'), 'utf8');
+    const named = new Set([...skill.matchAll(/`(map_[a-z_]+)`/g)].map((m) => m[1]!));
+    for (const token of named) expect(isMapMcpToolId(token), `${token} is not a map MCP tool`).toBe(true);
+    for (const id of MAP_MCP_TOOL_IDS) expect(named.has(id), `${id} is missing from the skill`).toBe(true);
+    for (const token of skill.matchAll(/`(terrain_[a-z_]+)`/g)) expect(isTerrainMcpToolId(token[1]!), `${token[1]} is not a terrain tool`).toBe(true);
   });
 });
