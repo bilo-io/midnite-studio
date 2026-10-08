@@ -1198,6 +1198,8 @@ export type MidniteStudioBridge = {
     /** One-way: hide / show the runner's native view. */
     setVisible: (req: In<typeof S.GamesSetVisibleRequest>) => void;
     toolbar: (req: In<typeof S.GamesToolbarRequest>) => Promise<GitOpResult>;
+    /** Read or change the running game's juice settings through its `window.__midnite.juice` hook. */
+    juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */

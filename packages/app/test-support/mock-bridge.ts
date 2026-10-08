@@ -755,6 +755,8 @@ export type MockFixtures = {
      */
     playtests?: GamePlaytestEntry[];
     playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
+    /** The juice settings a game starts with (default: the kit's). */
+    juice?: Record<string, unknown>;
     /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
     exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
@@ -3318,6 +3320,15 @@ export function buildMockBridge(data: MockFixtures) {
         gamesCalls.push({ call: 'toolbar', ...req });
         return { ok: true as const };
       },
+      // Juice settings: a per-game in-memory copy of the kit defaults; `set` merges, `reset` restores.
+      juice: async (req: { gameId: string; action: 'get' | 'set' | 'reset'; patch?: Record<string, unknown> }) => {
+        gamesCalls.push({ call: 'juice', ...req });
+        const defaults = { enabled: true, intensity: 1, shake: true, flash: true, particles: true, postfx: true, volume: 0.8 };
+        const current = gamesJuice.get(req.gameId) ?? data.games?.juice ?? defaults;
+        const next = req.action === 'set' ? { ...current, ...req.patch } : req.action === 'reset' ? defaults : current;
+        gamesJuice.set(req.gameId, next);
+        return { ok: true as const, value: next };
+      },
       logs: async () => ({ runId: null, entries: [] }),
       kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
       popOut: async (req: { gameId: string }) => {
@@ -5596,6 +5607,7 @@ export function buildMockBridge(data: MockFixtures) {
   // --- games (Phase 107) ------------------------------------------------------
   // eslint-disable-next-line no-var
   var gamesPlaytests: GamePlaytestEntry[] = data.games?.playtests ?? [];
+  var gamesJuice = new Map<string, Record<string, unknown>>();
   // eslint-disable-next-line no-var
   var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
     engine: 'phaser',

@@ -561,6 +561,7 @@ const bridge: Pick<
     setBounds: (req) => ipcRenderer.send(CHANNELS.gamesSetBounds, req),
     setVisible: (req) => ipcRenderer.send(CHANNELS.gamesSetVisible, req),
     toolbar: (req) => call(CHANNELS.gamesToolbar, req),
+    juice: (req) => call(CHANNELS.gamesJuice, req),
     logs: (req) => call(CHANNELS.gamesLogs, req),
     kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
     popOut: (req) => call(CHANNELS.gamesPopOut, req),

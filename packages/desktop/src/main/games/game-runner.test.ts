@@ -378,6 +378,30 @@ describe('createGameRunner', () => {
     expect((await runner.toolbar('nope', 'pause')).ok).toBe(false);
   });
 
+  it('reads and patches the juice settings through the game hook, and trusts nothing the page answers', async () => {
+    const settings = { enabled: true, intensity: 1.5, shake: false, flash: true, particles: true, postfx: true, volume: 0.4, reducedMotion: 'auto' };
+    expect(await runner.juice('nope', 'get')).toEqual({ ok: false, kind: 'error', message: 'That game is not running.' });
+    await runner.run(game('ga'));
+    const wc = viewOf('ga').webContents;
+
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify(settings));
+    const read = await runner.juice('ga', 'get');
+    // `reducedMotion` is the game's own and is dropped from what we surface.
+    expect(read).toEqual({ ok: true, value: { enabled: true, intensity: 1.5, shake: false, flash: true, particles: true, postfx: true, volume: 0.4 } });
+
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify(settings));
+    await runner.juice('ga', 'set', { shake: false, volume: 0.4 });
+    const code = String(wc.executeJavaScript.mock.calls.at(-1)?.[0]);
+    expect(code).toContain('j.set({"shake":false,"volume":0.4})');
+
+    wc.executeJavaScript.mockResolvedValueOnce(null);
+    expect((await runner.juice('ga', 'get')).ok).toBe(false);
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify({ enabled: 'yes' }));
+    expect((await runner.juice('ga', 'get')).ok).toBe(false);
+    wc.executeJavaScript.mockRejectedValueOnce(new Error('gone'));
+    expect(await runner.juice('ga', 'reset')).toEqual({ ok: false, kind: 'error', message: 'Could not reach the game.' });
+  });
+
   it('reloads a running game and refuses to reload one that is not running', async () => {
     expect(runner.reload('ga').ok).toBe(false);
     await runner.run(game('ga'));
