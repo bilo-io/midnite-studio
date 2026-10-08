@@ -31,7 +31,7 @@ export function GameEditThread({
   return (
     <div
       ref={list}
-      className="hide-scrollbar min-h-0 flex-1 space-y-2 overflow-auto p-2"
+      className="hide-scrollbar min-h-40 flex-1 space-y-2 overflow-auto p-2"
       role="log"
       aria-label="Game edit thread"
       data-testid="game-edit-thread"

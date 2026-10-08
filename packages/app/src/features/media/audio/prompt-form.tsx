@@ -20,6 +20,7 @@ import { LuDownload, LuImport, LuInfo, LuMusic, LuWandSparkles, LuX } from 'reac
 
 import type { IconComponent } from '../../../components/icon-button';
 import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic, type PickerProvider } from '../../../components/ai-thread';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
@@ -143,17 +144,17 @@ export function PromptForm({
   };
 
   return (
-    <form
+    <MediaPanelLayout
+      as="form"
       ref={formRef}
       aria-label="Create audio"
-      className="flex h-full min-h-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         if (!generates) setNotice(AUDIO_GENERATION_UNAVAILABLE);
         else if (createBlocked === undefined && !busy) onGenerate();
       }}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
         {local ? (
           <div data-testid="audio-engine" className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-card/40 px-2 py-2 text-[11px] text-muted-foreground">
             {modelState === 'missing' || modelState === 'downloading' ? (
@@ -341,14 +342,14 @@ export function PromptForm({
           </p>
         ) : null}
 
-      </div>
+      </MediaPanelBody>
 
       {/*
         The lyrics composer is the panel's prompt, so it sits at the bottom of
         the whole panel like every chat input, below the fields that shape it.
         Create is its Send; Import lives behind its "+".
       */}
-      <div className={`shrink-0 border-t border-border/50 p-3 ${field}`}>
+      <MediaPanelFooter className={`border-t border-border/50 p-3 ${field}`}>
         <span id="audio-lyrics-label">Lyrics</span>
         <div role="toolbar" aria-label="Lyric sections" className="flex flex-wrap gap-1">
           {AUDIO_LYRIC_SECTIONS.map((section) => (
@@ -409,7 +410,7 @@ export function PromptForm({
           boxClassName={MEDIA_PROMPT_BOX}
           testIdPrefix="audio-lyrics"
         />
-      </div>
-    </form>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }

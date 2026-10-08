@@ -22,6 +22,7 @@ import { Spinner } from '../../../components/skeleton';
 import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
 import { agentPickerProviders } from '../agent-model-picker';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
@@ -191,10 +192,11 @@ function ProceduralPanel({
   const noVision = image && !iterative && ollama?.available && installedVision.length === 0;
 
   return (
-    <form
+    <MediaPanelLayout
+      as="form"
       aria-label="Create 3D model"
       data-dragging={dragging || undefined}
-      className="flex h-full min-h-0 flex-col data-[dragging]:bg-primary/5"
+      className="data-[dragging]:bg-primary/5"
       onSubmit={(event) => {
         event.preventDefault();
         onGenerate();
@@ -208,7 +210,7 @@ function ProceduralPanel({
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           Describe an object — or attach a picture of one — and the engine designs it from boxes, spheres, cylinders and revolved
           profiles. You get an <span className="font-medium text-foreground">.obj</span> and an{' '}
@@ -347,9 +349,9 @@ function ProceduralPanel({
             ) : null}
           </div>
         ) : null}
-      </div>
+      </MediaPanelBody>
 
-      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3">
+      <MediaPanelFooter className="flex flex-col gap-2 border-t border-border/50 p-3">
         <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           Description
           <AiComposer
@@ -396,8 +398,8 @@ function ProceduralPanel({
             Cancel
           </button>
         ) : null}
-      </div>
-    </form>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }
 

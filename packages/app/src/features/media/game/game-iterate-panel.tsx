@@ -6,7 +6,7 @@ import {
   type GameAgentEngine,
   type GameSummary,
 } from '@midnite/studio-shared';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { LuPlay, LuSquare, LuTriangleAlert, LuX } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
@@ -14,6 +14,7 @@ import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
 import { textModels } from '../model/model-utils';
 import { useModelProviders } from '../model/use-model';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
 import { PromptTextarea } from '../prompt-input';
 import { useGameAgentStore, type GameEngineChoice } from './game-agent-store';
 import { GameEditThread } from './game-edit-thread';
@@ -184,7 +185,8 @@ export async function startGameAgentRun(
  * then Ollama models), a passes budget, Run/Cancel, and the edit thread. Every
  * pass that changes files is one commit in the game's repo.
  */
-export function GameIteratePanel({ game }: { game: GameSummary }) {
+/** `children` render above the thread inside the scrolling body (the detail panel passes the game summary). */
+export function GameIteratePanel({ game, children }: { game: GameSummary; children?: ReactNode }) {
   const [prompt, setPrompt] = useState('');
   const [undoing, setUndoing] = useState(false);
   const { choice } = useGameEngines();
@@ -226,19 +228,19 @@ export function GameIteratePanel({ game }: { game: GameSummary }) {
   };
 
   return (
-    <section
-      aria-label="Create and iterate"
-      data-testid="game-iterate-panel"
-      className="flex min-h-0 flex-1 flex-col border-t border-border/50"
-    >
-      <GameEditThread
-        entries={entries}
-        running={run}
-        onUndo={(sha) => void onUndo(sha)}
-        undoing={undoing}
-      />
+    <MediaPanelLayout as="section" aria-label="Create and iterate" data-testid="game-iterate-panel">
+      <MediaPanelBody className="flex flex-col">
+        {children ? <div className="shrink-0">{children}</div> : null}
+        <GameEditThread
+          entries={entries}
+          running={run}
+          onUndo={(sha) => void onUndo(sha)}
+          undoing={undoing}
+        />
+      </MediaPanelBody>
+      <MediaPanelFooter className="border-t border-border/50">
       <form
-        className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3"
+        className="flex flex-col gap-2 p-3"
         onSubmit={(event) => {
           event.preventDefault();
           void onRun();
@@ -279,7 +281,8 @@ export function GameIteratePanel({ game }: { game: GameSummary }) {
           </button>
         )}
       </form>
-    </section>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }
 
