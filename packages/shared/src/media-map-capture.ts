@@ -20,6 +20,13 @@ export const MAP_CAPTURE_BUSY = 'A capture is already running.';
 export const MAP_CAPTURE_CANCELLED = 'Capture cancelled.';
 export const MAP_CAPTURE_WORKER_CRASHED = 'The capture worker stopped unexpectedly.';
 
+/** Roads are captured only for frames up to this side (Decision 17); a bigger Overpass bbox times out. */
+export const MAP_ROADS_MAX_SIDE_M = 25_000;
+export const MAP_ROADS_TOO_LARGE = 'Roads are captured for frames up to 25 km a side.';
+export const MAP_ROADS_BUSY = "OpenStreetMap's Overpass server is busy — try again in a minute.";
+export const MAP_ROADS_NONE = 'No roads in this area.';
+export const OSM_ATTRIBUTION_TEXT = '© OpenStreetMap contributors (ODbL) — via the Overpass API';
+
 export const MapCaptureRequestSchema = z.object({
   repoId: z.string().min(1),
   project: MediaProjectNameSchema,
@@ -32,6 +39,12 @@ export const MapCaptureRequestSchema = z.object({
   place: z.string().max(80).optional(),
   /** Defaults to AWS Terrarium (the deepest keyless DEM). */
   demSource: MapSourceIdSchema.optional(),
+  /** Theme E: capture a satellite image at Terrain's texture size. Default on. */
+  satellite: z.boolean().optional(),
+  /** Theme E: capture the OSM road graph and mask (frames up to 25 km a side). Default on. */
+  roads: z.boolean().optional(),
+  /** Defaults to MapTiler when its key is set, else EOX Sentinel-2 cloudless 2016. */
+  satelliteSource: MapSourceIdSchema.optional(),
   /** Theme F: create a Terrain from the capture (main calls the terrain service directly). */
   handoff: z.boolean().optional(),
   /** With `handoff`: also start the terrain build ("Capture and build"). */
@@ -179,7 +192,7 @@ export function captureFolderName(
 }
 
 /** Warnings shown below the frame readout; `blocking` ones disable Capture. */
-export type CaptureWarning = { code: 'over-cap' | 'under-min' | 'dem-coarser'; message: string; blocking: boolean };
+export type CaptureWarning = { code: 'over-cap' | 'under-min' | 'dem-coarser' | 'roads-skipped'; message: string; blocking: boolean };
 
 export function captureWarnings(
   frame: { sideM: number; center: [number, number] },
@@ -198,5 +211,7 @@ export function captureWarnings(
       message: `The elevation data is ~${Math.round(dem.nativeMPerPx)} m/px here; a smaller size gives the same detail.`,
       blocking: false,
     });
+  if (frame.sideM > MAP_ROADS_MAX_SIDE_M && frame.sideM <= MAP_CAPTURE_MAX_SIDE_M)
+    out.push({ code: 'roads-skipped', message: MAP_ROADS_TOO_LARGE, blocking: false });
   return out;
 }

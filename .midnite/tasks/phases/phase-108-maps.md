@@ -183,13 +183,26 @@ no network: a plane at lat 60 spans 100 m east-west over 10 km (true metres, not
 on four tiles' shared corner has no seam. Theme C's draggable frame feeds the section (its centre, side and size) once
 shown; with no frame it takes the saved frame or the view; E and F extend the request and result.
 
-**Theme E — Satellite and roads capture.** ◻ Not started. Satellite is stitched at the zoom matching
-Terrain's `textureSize`, reprojected onto the same frame and written as `satellite.png`; JPEG/WebP
-tiles are decoded in main with `nativeImage`. Roads come from one Overpass query per capture (frames
-≤ 25 km a side), are split at shared OSM nodes, clipped, projected into Terrain's centred metres and
-written as `roads.graph.json` (`MapRoadGraphFileSchema`, with `cls`, `name?`, `lanes?`, `widthM`) and
-rasterised as a cyan-on-black `roads.png` that `detectRoadColour` keys without a hint. A failed
-satellite or roads step never loses the heightmap.
+**Theme E — Satellite and roads capture.** ✅ Landed (this PR). Satellite, roads mask and road graph are
+written beside the heightmap and reach Terrain through F's existing hand-off. The satellite is stitched at
+the zoom matching Terrain's `textureSize` (2048, or 4096 for a 4097 capture; the same 1 024-tile budget),
+sampled **pixel-centred** and bilinearly in the `map-capture-worker` (a new `begin-satellite` run; JPEG/WebP
+tiles are still decoded in main with `nativeImage`) and written as `satellite.png`; the default source is EOX
+Sentinel-2 cloudless 2016, MapTiler when its key is set, and a display-only source records its licence
+reason and fetches nothing. Roads come from **one Overpass query per capture** (`overpass.ts`, via `net.fetch`
+in main — never the renderer; 90 s timeout, 64 MB cap, 429/504 retried once after `Retry-After`) and
+`osmToRoadGraph` (pure, `shared/src/map/osm-roads.ts`): split at shared OSM nodes, clipped to the square,
+projected with `toFrame` into Terrain's centred frame, edges under 1 m dropped, `lanes × 3.5` over the class
+width. The graph is written as `roads.graph.json` (`MapRoadGraphFileSchema`) and rasterised by
+`rasterizeRoads` as a cyan-on-black `roads.png` that `detectRoadColour` keys to `#00ffff` with no hint
+(IoU ≥ 0.98 against its own coverage). Frames over 25 km skip roads with "Roads are captured for frames up to
+25 km a side." — also a non-blocking `captureWarnings` code (`roads-skipped`) shown before capture. Each layer is
+independent: a failed satellite or roads step appends to `capture.json`'s `missing` with a readable reason and
+the heightmap still lands; `ATTRIBUTION.txt` covers every source used. The capture section gains "Satellite
+image" and "Roads (OpenStreetMap)" toggles (both on by default; `MapCaptureRequest.satellite/roads/
+satelliteSource` are optional and default on) and lists each missing layer's reason. The worker's message
+loop is now `capture-dispatch.ts`, shared with the in-process test broker. The Overpass JSON fixture is built
+in the test from `fromFrame` rather than committed, like D's synthetic DEM tiles.
 
 **Theme F — Hand-off to Terrain.** ✅ Landed (this PR). "Capture and build" / "Capture only" in the Maps
 capture section send `handoff`/`build` on the capture request, and main calls the terrain service
@@ -547,7 +560,7 @@ on top of a capture.
 
 ## E — Satellite and roads capture (L)
 
-- [ ] Satellite: stitched at the matching zoom for the chosen metres/px from the selected exportable source, reprojected onto the same ENU square, written as `satellite.png`; refuses non-exportable sources with the licence reason.
+- [x] Satellite: stitched at the matching zoom for the chosen metres/px from the selected exportable source, reprojected onto the same ENU square, written as `satellite.png`; refuses non-exportable sources with the licence reason.
   - Output side = the hand-off `textureSize`: 2048 when `size ≤ 2049`, 4096 for 4097 (Decision 15);
     zoom from `chooseCaptureZoom` with the texture's m/px, same 1024-tile budget.
   - Sampling is **pixel-centred** (`x = −S/2 + (i + 0.5)·S/T`) because Terrain drapes the satellite as
@@ -556,7 +569,7 @@ on top of a capture.
     and no fetch.
   - *Verified by:* `capture-service.test.ts` — an `exportable: false` source makes no fetch call and
     records the reason.
-- [ ] Roads graph: OSM road ways for the frame bbox (Decision 2), clipped and projected to frame metres, written as `roads.graph.json` in Terrain's `roads.json` node/edge shape with `class` (motorway … track), `name?`, `lanes?`, `width` estimated per class.
+- [x] Roads graph: OSM road ways for the frame bbox (Decision 2), clipped and projected to frame metres, written as `roads.graph.json` in Terrain's `roads.json` node/edge shape with `class` (motorway … track), `name?`, `lanes?`, `width` estimated per class.
   - **Corrected:** Terrain's `roads.json` edge has `kind: 'path'|'street'|'avenue'`, not `class`, and
     no name/lanes; so the capture writes its own `MapRoadGraphFileSchema` (`shared/src/media-map.ts`):
     `{ version: 1, worldSize, nodes: { id, p: [x, z] }[], edges: { id, a, b, points: [x, z][], cls:
@@ -576,13 +589,13 @@ on top of a capture.
     dropped.
   - *Verified by:* `osm-roads.test.ts` on a committed Overpass JSON fixture (a T-junction and a way
     leaving the frame) — 4 nodes, 3 edges, the clipped edge ends on `x = S/2`, classes and names kept.
-- [ ] Roads mask: the same graph rasterised to `roads.png` at the output size, light-on-dark with per-class width, matching the hue/luminance key Terrain's mask reader expects.
+- [x] Roads mask: the same graph rasterised to `roads.png` at the output size, light-on-dark with per-class width, matching the hue/luminance key Terrain's mask reader expects.
   - `rasterizeRoads(graph, side): Uint8Array` (pure, `shared/src/map/osm-roads.ts`): thick polylines
     (round caps) at `widthM / mPerPx` px, ≥ 1 px; written as RGBA **cyan `#00FFFF` on black**, at the
     satellite's side (so `alignment.roads = 'satellite'` stays identity).
   - *Verified by:* `osm-roads.test.ts` — `detectRoadColour` on the raster returns `#00ffff`;
     `extractRoadMask` IoU with the raster's own coverage ≥ 0.98.
-- [ ] Partial results are explicit: if satellite or roads fail, the heightmap still lands and `capture.json` lists what is missing and why.
+- [x] Partial results are explicit: if satellite or roads fail, the heightmap still lands and `capture.json` lists what is missing and why.
   - DEM failure fails the capture (nothing written). Satellite/roads failures append to `missing`
     with the user-facing reason ("OpenStreetMap's Overpass server is busy — try again in a minute.",
     "Roads are captured for frames up to 25 km a side.", "No roads in this area.") and the hand-off

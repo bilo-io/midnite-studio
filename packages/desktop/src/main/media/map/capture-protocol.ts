@@ -17,6 +17,10 @@ export type CaptureWorkerIn =
       /** Absolute temporary folder — created by main. */
       outDir: string;
     }
+  /** Theme E: stitch satellite tiles (`tile` messages follow) and write `satellite.png` at `size`². */
+  | { type: 'begin-satellite'; id: string; frame: map.CaptureFrame; size: number; plan: map.TilePlan; outDir: string }
+  /** Theme E: rasterise a road graph into `roads.png` at `size`² and write `roads.graph.json`. */
+  | { type: 'begin-roads'; id: string; graph: map.RoadGraph; size: number; outDir: string }
   | { type: 'tile'; id: string; x: number; y: number; width: number; height: number; rgba: Uint8Array }
   | { type: 'finish'; id: string };
 

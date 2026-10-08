@@ -4,29 +4,20 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MAP_CAPTURE_BUSY, MapCaptureFileSchema, map, type MapCaptureRequest } from '@midnite/studio-shared';
+import { MAP_CAPTURE_BUSY, MapCaptureFileSchema, MapRoadGraphFileSchema, map, type MapCaptureRequest } from '@midnite/studio-shared';
 
 import { encodePngRgba8, decodePng } from '../png/png-codec';
 import { createCaptureBroker, type CaptureBroker, type CaptureWorkerHandle } from './capture-broker';
-import { createCaptureRun } from './capture-run';
+import { createCaptureDispatcher } from './capture-dispatch';
 import { createCaptureService, type CaptureServiceDeps } from './capture-service';
 import type { CaptureWorkerIn, CaptureWorkerOut } from './capture-protocol';
 
-/** A worker that runs `createCaptureRun` in-process, so the broker's real protocol is exercised. */
+/** A worker that runs the real dispatcher in-process, so the broker's real protocol is exercised. */
 function inProcessWorker(): CaptureWorkerHandle {
   const listeners: { message: Array<(m: unknown) => void>; exit: Array<(c: number) => void> } = { message: [], exit: [] };
-  let run: ReturnType<typeof createCaptureRun> | null = null;
-  const reply = (m: CaptureWorkerOut) => queueMicrotask(() => listeners.message.forEach((l) => l(m)));
+  const dispatch = createCaptureDispatcher((m: CaptureWorkerOut) => queueMicrotask(() => listeners.message.forEach((l) => l(m))));
   return {
-    postMessage: (raw) => {
-      const m = raw as CaptureWorkerIn;
-      if (m.type === 'begin') run = createCaptureRun(m);
-      else if (m.type === 'tile') run?.addTile(m.x, m.y, m.rgba, m.width, m.height);
-      else
-        void run?.finish((f) => reply({ type: 'progress', id: m.id, fraction: f })).then((r) =>
-          reply(r.ok ? { type: 'reply', id: m.id, ok: true, stats: r.stats } : { type: 'reply', id: m.id, ok: false, message: r.message }),
-        );
-    },
+    postMessage: (raw) => dispatch(raw as CaptureWorkerIn),
     on: ((event: 'message' | 'exit', listener: never) => {
       (listeners[event] as unknown[]).push(listener);
     }) as CaptureWorkerHandle['on'],
@@ -52,7 +43,7 @@ function pngTile(z: number, x: number, y: number): Uint8Array {
   return encodePngRgba8(map.syntheticTile(z, x, y, (lon) => plane(lon)), map.TILE, map.TILE);
 }
 
-const REQ: MapCaptureRequest = { repoId: 'r1', project: 'maps', center: [18.4, -34], sideM: 3000, size: 129, place: 'Test Place' };
+const REQ: MapCaptureRequest = { repoId: 'r1', project: 'maps', center: [18.4, -34], sideM: 3000, size: 129, place: 'Test Place', satellite: false, roads: false };
 
 describe('capture service', () => {
   let root: string;
@@ -176,6 +167,119 @@ describe('capture service', () => {
   it('no repo root is a readable failure', async () => {
     const { service } = make({ rootFor: async () => null });
     expect(await service.capture(REQ)).toMatchObject({ ok: false, message: 'Open a repository to capture into.' });
+  });
+
+  describe('satellite and roads (Phase 108 Theme E)', () => {
+    const solid = (r: number, g: number, b: number) => {
+      const px = new Uint8Array(map.TILE * map.TILE * 4);
+      for (let i = 0; i < px.length; i += 4) px.set([r, g, b, 255], i);
+      return encodePngRgba8(px, map.TILE, map.TILE);
+    };
+    const osm = (): map.OsmResponse => {
+      const n = (id: number, x: number, z: number) => {
+        const [lon, lat] = map.fromFrame(REQ.center, [x, z]);
+        return { type: 'node' as const, id, lat, lon };
+      };
+      return { elements: [n(1, -1000, 0), n(2, 1000, 0), { type: 'way', id: 9, nodes: [1, 2], tags: { highway: 'primary', name: 'Main' } }] };
+    };
+    const tiles = (fetched: string[]): CaptureServiceDeps['fetcher'] => ({
+      fetch: async (key) => {
+        fetched.push(key);
+        if (key.startsWith('eox')) return { ok: true, bytes: solid(200, 100, 50) };
+        const [, z, x, y] = key.replace(/\.png$/, '').split('/').map(Number) as [number, number, number, number];
+        return { ok: true, bytes: pngTile(z, x, y) };
+      },
+    });
+    const both = { ...REQ, satellite: undefined, roads: undefined };
+
+    it('writes satellite.png at the texture size, the roads mask and graph, and records every source', async () => {
+      const fetched: string[] = [];
+      const query = vi.fn(async () => ({ ok: true as const, osm: osm() }));
+      const { service, events } = make({ fetcher: tiles(fetched), overpass: { query } });
+      const result = await service.capture(both);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const dir = join(root, 'maps', result.value.dir);
+      expect((await readdir(dir)).sort()).toEqual(['ATTRIBUTION.txt', 'capture.json', 'heightmap.png', 'heightmap.r32', 'heightmap.tif', 'roads.graph.json', 'roads.png', 'satellite.png']);
+      const sat = decodePng(await readFile(join(dir, 'satellite.png')));
+      expect(sat.ok && [sat.image.width, sat.image.height]).toEqual([2048, 2048]);
+      if (sat.ok) expect(Array.from((sat.image.data as Uint8Array).subarray(0, 4))).toEqual([200, 100, 50, 255]);
+      const roads = decodePng(await readFile(join(dir, 'roads.png')));
+      expect(roads.ok && roads.image.width).toBe(2048);
+      expect(MapRoadGraphFileSchema.safeParse(JSON.parse(await readFile(join(dir, 'roads.graph.json'), 'utf8'))).success).toBe(true);
+      const file = MapCaptureFileSchema.parse(JSON.parse(await readFile(join(dir, 'capture.json'), 'utf8')));
+      expect(file.sources).toEqual({ dem: 'aws-terrarium', satellite: 'eox-s2cloudless-2016', roads: 'overpass' });
+      expect(file.satelliteZoom).toBeGreaterThan(0);
+      expect(file.missing).toEqual([]);
+      expect(file.files).toEqual(expect.arrayContaining(['satellite.png', 'roads.png', 'roads.graph.json']));
+      const attribution = await readFile(join(dir, 'ATTRIBUTION.txt'), 'utf8');
+      expect(attribution).toMatch(/Mapzen/);
+      expect(attribution).toMatch(/EOX/);
+      expect(attribution).toMatch(/OpenStreetMap contributors/);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(events.some((e) => e.stage === 'satellite')).toBe(true);
+      expect(events.some((e) => e.stage === 'roads')).toBe(true);
+    });
+
+    it('a display-only satellite source makes no fetch and records the licence reason', async () => {
+      const fetched: string[] = [];
+      const { service } = make({ fetcher: tiles(fetched) });
+      const result = await service.capture({ ...both, roads: false, satelliteSource: 'maptiler-streets' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(fetched.every((k) => k.startsWith('aws-terrarium'))).toBe(true);
+      expect(result.value.capture.missing).toEqual([{ slot: 'satellite', reason: expect.stringMatching(/not a satellite source/) }]);
+    });
+
+    it('Overpass failing leaves the heightmap and lists roads as missing', async () => {
+      const query = vi.fn(async () => ({ ok: false as const, reason: "OpenStreetMap's Overpass server is busy — try again in a minute." }));
+      const { service } = make({ fetcher: tiles([]), overpass: { query } });
+      const result = await service.capture({ ...both, satellite: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.capture.missing).toEqual([{ slot: 'roads', reason: expect.stringMatching(/busy/) }]);
+      expect(result.value.capture.files).toContain('heightmap.png');
+      expect(await readdir(join(root, 'maps', result.value.dir))).not.toContain('roads.png');
+    });
+
+    it('a satellite fetch failure keeps the heightmap', async () => {
+      const base = tiles([]);
+      const fetcher: CaptureServiceDeps['fetcher'] = {
+        fetch: async (key, url, opts) => (key.startsWith('eox') ? { ok: false, status: 503, message: 'down' } : base.fetch(key, url, opts)),
+      };
+      const { service } = make({ fetcher });
+      const result = await service.capture({ ...both, roads: false });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.capture.missing).toEqual([{ slot: 'satellite', reason: 'Satellite tiles could not be fetched (HTTP 503).' }]);
+    });
+
+    it('skips roads above 25 km and when the area has none, without calling Overpass', async () => {
+      const query = vi.fn(async () => ({ ok: true as const, osm: { elements: [] } }));
+      const { service } = make({ fetcher: tiles([]), overpass: { query } });
+      const big = await service.capture({ ...both, satellite: false, sideM: 30_000, size: 129 });
+      expect(big.ok && big.value.capture.missing).toEqual([{ slot: 'roads', reason: 'Roads are captured for frames up to 25 km a side.' }]);
+      expect(query).not.toHaveBeenCalled();
+      const again = make({ fetcher: tiles([]), overpass: { query }, now: () => new Date(Date.UTC(2026, 9, 7, 11, 0, 0)) });
+      const empty = await again.service.capture({ ...both, satellite: false });
+      expect(empty.ok && empty.value.capture.missing).toEqual([{ slot: 'roads', reason: 'No roads in this area.' }]);
+    });
+
+    it('cancelling during the Overpass request leaves no captures entry', async () => {
+      let started!: () => void;
+      const hasStarted = new Promise<void>((r) => (started = r));
+      const query = (_bbox: unknown, signal: AbortSignal) =>
+        new Promise<{ ok: false; reason: string; aborted: true }>((resolve) => {
+          started();
+          signal.addEventListener('abort', () => resolve({ ok: false, reason: 'Capture cancelled.', aborted: true }));
+        });
+      const { service } = make({ fetcher: tiles([]), overpass: { query } });
+      const pending = service.capture({ ...both, satellite: false, captureId: 'cap-r' });
+      await hasStarted;
+      expect(service.cancel('cap-r')).toBe(true);
+      expect(await pending).toMatchObject({ ok: false, message: 'Capture cancelled.' });
+      expect(await readdir(join(root, 'maps', 'captures'))).toEqual([]);
+    });
   });
 
   describe('hand-off to Terrain (Phase 108 Theme F)', () => {
