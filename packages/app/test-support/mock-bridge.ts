@@ -5511,6 +5511,7 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowTerrains = data.mcp?.allowTerrains ?? false;
   // eslint-disable-next-line no-var
   var mcpAllowSprites =data.mcp?.allowSprites ?? false;
+  // eslint-disable-next-line no-var
   var mcpAllowMaps = data.mcp?.allowMaps ?? false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
