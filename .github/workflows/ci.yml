@@ -63,7 +63,7 @@ concurrency:
 #   db-integration  GitHub `services:` containers are Docker-based and
 #                   Linux-runner-only. macOS runners have no Docker daemon, so
 #                   this job has no macOS form to move to.
-#   visual          Runs inside `mcr.microsoft.com/playwright:v1.62.1-noble` as
+#   visual          Runs inside `mcr.microsoft.com/playwright:v1.64.0-noble` as
 #                   a job `container:` (Linux-only by construction) and asserts
 #                   against committed `-linux.png` baselines. Moving it to
 #                   macOS means regenerating the whole baseline corpus, which
@@ -821,12 +821,12 @@ jobs:
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
     runs-on: ubuntu-26.04
     container:
-      # Pinned to the image matching the LOCKED `@playwright/test` (1.62.1,
+      # Pinned to the image matching the LOCKED `@playwright/test` (1.64.0,
       # and `scripts/visual-regen.mjs`'s own IMAGE): an image one minor ahead
       # of the package ships a browser build the package cannot find, and
       # every test fails at `browserType.launch` before a pixel is compared.
       # Bump this and the package together, never one alone.
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7

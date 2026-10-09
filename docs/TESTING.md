@@ -86,7 +86,7 @@ MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
 
 `scripts/visual-regen.mjs` refuses without that variable, and runs the exact `docker run` recipe
 documented in `packages/app/playwright.visual.config.ts`'s header — the official
-`mcr.microsoft.com/playwright:v1.62.1-noble` image, `--ignore-scripts` on the install, and
+`mcr.microsoft.com/playwright:v1.64.0-noble` image, `--ignore-scripts` on the install, and
 `pnpm exec` from `packages/app` rather than `npx` or `moon`. All three of those are load-bearing;
 that header explains why.
 
