@@ -39,7 +39,7 @@ const mockHealthData: SystemHealth = {
   git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
   shell: '/bin/zsh',
   sshAgent: { running: true, keys: 2, version: 'OpenSSH 9.6p1' },
-  cli: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true, version: '0.1.0' },
+  cli: { installed: true, path: '/usr/local/bin/midnite', target: '/usr/local/bin/midnite', managed: true, version: '0.1.0' },
   homebrew: { path: '/opt/homebrew/bin/brew', version: 'Homebrew 4.4.18' },
   node: { path: '/opt/homebrew/bin/node', version: 'v22.12.0' },
   pnpm: { path: '/opt/homebrew/bin/pnpm', version: '9.15.0' },
@@ -82,7 +82,7 @@ describe('HealthChecklist', () => {
     expect(screen.getByText('Git binary')).toBeDefined();
     expect(screen.getByText('Default shell')).toBeDefined();
     expect(screen.getByText('SSH Agent')).toBeDefined();
-    expect(screen.getByText('midnite-studio CLI')).toBeDefined();
+    expect(screen.getByText('midnite CLI')).toBeDefined();
 
     // Toolchain checks
     expect(screen.getByText('Homebrew')).toBeDefined();

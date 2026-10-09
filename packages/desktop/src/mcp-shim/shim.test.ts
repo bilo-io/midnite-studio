@@ -1,9 +1,12 @@
 import { spawn } from 'node:child_process';
+import * as net from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { MCP_TOOL_IDS, VIEW_IDS } from '@midnite/studio-shared';
+
+import { createFrameDecoder, encodeJsonFrame } from '../broker/protocol';
 import { build } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -50,14 +53,14 @@ type JsonRpcLine = { id?: number; result?: unknown; error?: unknown };
  */
 function runShim(
   requests: Array<Record<string, unknown>>,
-  opts: { homeDir: string; timeoutMs?: number },
+  opts: { homeDir: string; timeoutMs?: number; args?: string[] },
 ): Promise<{ lines: string[]; parsed: JsonRpcLine[] }> {
   const expectedIds = new Set(
     requests.map((r) => r['id']).filter((id): id is number => typeof id === 'number'),
   );
 
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [bundlePath], {
+    const child = spawn(process.execPath, [bundlePath, ...(opts.args ?? [])], {
       env: { ...process.env, HOME: opts.homeDir, APPDATA: join(opts.homeDir, 'AppData', 'Roaming') },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -146,7 +149,7 @@ describe('mcp stdio shim', () => {
    * this generically; this one pins the count and one tool's JSON schema so
    * a future registry change that silently drops `ui.*` fails here by name.
    */
-  it('lists thirteen tools, with ui.navigate’s view as a JSON-schema enum of VIEW_IDS', async () => {
+  it('lists every registered tool, with ui.navigate’s view as a JSON-schema enum of VIEW_IDS', async () => {
     const home = await mkdtemp(join(tmpdir(), 'mstudio-mcp-shim-home-'));
     try {
       const { parsed } = await runShim(
@@ -164,8 +167,9 @@ describe('mcp stdio shim', () => {
           | { tools?: Array<{ name: string; inputSchema?: { properties?: Record<string, unknown> } }> }
           | undefined
         )?.tools ?? [];
-      // Phase 97 Theme D added two: workflow_gates_list, workflow_gate_decide.
-      expect(tools).toHaveLength(13);
+      expect(tools).toHaveLength(MCP_TOOL_IDS.length);
+      // Phase 99 Theme G: the model_* tools are listed like any other, so an agent can plan around them.
+      expect(tools.map((t) => t.name)).toContain('model_render_preview');
 
       const uiNavigate = tools.find((t) => t.name === 'ui.navigate');
       const viewProperty = uiNavigate?.inputSchema?.properties?.['view'] as { enum?: string[] } | undefined;
@@ -228,4 +232,57 @@ describe('mcp stdio shim', () => {
       await rm(home, { recursive: true, force: true });
     }
   }, 10_000);
+
+  /**
+   * Phase 99 Theme G — a tool that answers with pictures (`model_render_preview`) must reach the
+   * client as MCP image blocks, not as base64 inside a text block; and `--socket` points the shim
+   * at one run's private server instead of the app's global one.
+   */
+  it('hands image content blocks to the client and dials the --socket it was given', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'mstudio-mcp-shim-home-'));
+    const sockDir = await mkdtemp(join(tmpdir(), 'mshim-'));
+    const socketPath = join(sockDir, 's.sock');
+    const seen: Array<{ tool?: string }> = [];
+    const server = net.createServer((socket) => {
+      const decoder = createFrameDecoder(1024 * 1024);
+      socket.on('data', (chunk) => {
+        for (const frame of decoder.push(chunk)) {
+          if (frame.type !== 0x00) continue;
+          const request = frame.message as unknown as { id: string; tool: string };
+          seen.push({ tool: request.tool });
+          socket.write(
+            encodeJsonFrame({
+              id: request.id,
+              ok: true,
+              value: { _content: [{ type: 'text', text: 'front' }, { type: 'image', data: 'aGk=', mimeType: 'image/png' }] },
+            } as never),
+          );
+        }
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(socketPath, resolve));
+    try {
+      const { parsed } = await runShim(
+        [
+          { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } } },
+          { jsonrpc: '2.0', method: 'notifications/initialized' },
+          {
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'tools/call',
+            params: { name: 'model_render_preview', arguments: { repoPath: '/r', project: 'p', model: 'm.obj' } },
+          },
+        ],
+        { homeDir: home, args: ['--socket', socketPath] },
+      );
+      const result = parsed.find((m) => m.id === 2)?.result as { content?: Array<{ type: string; data?: string; mimeType?: string }> } | undefined;
+      expect(seen).toEqual([{ tool: 'model_render_preview' }]);
+      expect(result?.content?.map((c) => c.type)).toEqual(['text', 'image']);
+      expect(result?.content?.[1]).toMatchObject({ data: 'aGk=', mimeType: 'image/png' });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await rm(home, { recursive: true, force: true });
+      await rm(sockDir, { recursive: true, force: true });
+    }
+  }, 15_000);
 });

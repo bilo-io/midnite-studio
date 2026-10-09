@@ -26,6 +26,7 @@ import {
   effectiveContextLength,
   type AgentDefinition,
   type AgentMode,
+  type AgentProbeState,
   type AgentStatus,
   type ClaudeInfo,
   type SkillExecutionMode,
@@ -41,6 +42,7 @@ import { useHookStatus, useRepos, useSetHookInstalled } from '../../../services/
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { loopIcon } from '../../loops/loop-icons';
+import { recheckAgents } from '../../agent/agent-probe-store';
 import { useAgents } from '../../terminal/use-agents';
 import { submitCommand } from '../../terminal/submit-command';
 import { useTerminalStore } from '../../terminal/terminal-store';
@@ -79,6 +81,9 @@ export function AgentPage() {
               label="Re-probe agents"
               size="sm"
               onClick={() => {
+                // Forces main to re-probe (bypassing its TTL); the answer lands in the
+                // shared store, so every picker updates, not just this page.
+                void recheckAgents();
                 void queryClient.invalidateQueries({ queryKey: ['agents'] });
                 void queryClient.invalidateQueries({ queryKey: ['claude-info'] });
               }}
@@ -158,6 +163,7 @@ export function AgentPage() {
 function AgentCard({
   agent,
   status,
+  probe,
   isPrimary,
   onSetPrimary,
   mode,
@@ -168,6 +174,8 @@ function AgentCard({
 }: {
   agent: AgentDefinition;
   status: AgentStatus | undefined;
+  /** Where the shared install probe stands; only meaningful while `status` is absent. */
+  probe: AgentProbeState;
   isPrimary: boolean;
   onSetPrimary: () => void;
   mode: AgentMode;
@@ -180,7 +188,8 @@ function AgentCard({
   const [showKey, setShowKey] = useState(false);
   const Icon = resolveAgentIcon(agent);
   const isInstalled = status?.installed === true;
-  const isChecking = !status;
+  const isChecking = !status && probe === 'checking';
+  const isUnknown = !status && probe !== 'checking';
 
   const runCommand = isInstalled ? (agent.update ?? agent.install) : agent.install;
   const runLabel = isInstalled ? 'Update in Terminal' : 'Install in Terminal';
@@ -201,10 +210,17 @@ function AgentCard({
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
             Checking…
           </span>
+        ) : isUnknown ? (
+          <span
+            title="The install check did not answer for this agent — it may still work."
+            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
+          >
+            Unknown
+          </span>
         ) : isInstalled ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            {status.version ? `v${status.version}` : 'Installed'}
+            {status?.version ? `v${status.version}` : 'Installed'}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-500">
@@ -575,7 +591,7 @@ function HookToggleRow({ repoId, repoName }: { repoId: string; repoName: string 
 const FOCUS_HIGHLIGHT_MS = 2000;
 
 function AgentsRoster() {
-  const { agents, status } = useAgents();
+  const { agents, status, probe } = useAgents();
   const statusById = useMemo(() => new Map(status.map((s) => [s.id, s])), [status]);
   const primaryAgent = useUiStore((s) => s.primaryAgent);
   const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
@@ -611,6 +627,7 @@ function AgentsRoster() {
           key={agent.id}
           agent={agent}
           status={statusById.get(agent.id)}
+          probe={probe}
           isPrimary={agent.id === primaryAgent}
           onSetPrimary={() => setPrimaryAgent(agent.id)}
           mode={agentModes[agent.id] ?? DEFAULT_AGENT_MODE}

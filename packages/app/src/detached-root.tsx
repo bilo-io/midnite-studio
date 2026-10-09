@@ -38,6 +38,11 @@ const CompanionBootstrap = lazy(() =>
   loadCompanionBootstrap().then((m) => ({ default: m.CompanionBootstrap })),
 );
 
+// Its own chunk too: only the `game` popout (Phase 107 Theme B) ever renders it.
+const GamePopoutPane = lazy(() =>
+  import('./features/media/game/game-popout-pane').then((m) => ({ default: m.GamePopoutPane })),
+);
+
 /**
  * How long an unused query stays in a popout's cache after its last observer
  * unmounts (Phase 84 Theme H.3) — an explicit, documented number rather than
@@ -106,6 +111,7 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   'apps-spotify': 'Spotify',
   'apps-google-calendar': 'Google Calendar',
   'apps-youtube': 'YouTube',
+  game: 'Game',
   ...PAGE_ROLE_TITLE,
 };
 
@@ -153,6 +159,16 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
     const appId: AppId =
       role === 'apps-spotify' ? 'spotify' : role === 'apps-google-calendar' ? 'google-calendar' : 'youtube';
     return <AppPane appId={appId} />;
+  }
+
+  if (role === 'game') {
+    // Phase 107 Theme B: `gamesPopOut` moved the game's sandboxed view into
+    // this window before it opened; the pane asks main which game that is.
+    return (
+      <Suspense fallback={<DelayedFallback />}>
+        <GamePopoutPane />
+      </Suspense>
+    );
   }
 
   /*

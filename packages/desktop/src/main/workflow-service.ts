@@ -195,10 +195,10 @@ export async function saveWorkflow(next: Workflow): Promise<Workflow> {
 export async function deleteWorkflow(id: string): Promise<GitOpResult> {
   await ensureWorkflowsLoaded();
   await ensureRunsLoaded();
-  if (!workflows.some((workflow) => workflow.id === id)) return failure('That workflow no longer exists.');
+  if (!workflows.some((workflow) => workflow.id === id)) return failure('That graph no longer exists.');
 
   if (await isWorkflowRunning(id)) {
-    return failure('This workflow is still running. Cancel the run before deleting it.');
+    return failure('This graph is still running. Cancel the run before deleting it.');
   }
 
   workflows = workflows.filter((workflow) => workflow.id !== id);
@@ -261,7 +261,7 @@ export async function runWorkflow(
   triggerPayload?: unknown,
 ): Promise<GitOpResult<WorkflowRun>> {
   const workflow = await getWorkflow(workflowId);
-  if (!workflow) return failure('That workflow no longer exists.');
+  if (!workflow) return failure('That graph no longer exists.');
   await ensureRunsLoaded();
   return startWorkflowRun(workflow, engineDeps(triggerPayload));
 }
@@ -277,7 +277,7 @@ export async function resumeRun(runId: string): Promise<GitOpResult<WorkflowRun>
   const run = runs.find((r) => r.id === runId);
   if (!run) return failure('That run no longer exists.');
   const workflow = await getWorkflow(run.workflowId);
-  if (!workflow) return failure('The workflow this run belongs to no longer exists.');
+  if (!workflow) return failure('The graph this run belongs to no longer exists.');
   return resumeWorkflowRun(workflow, run, engineDeps());
 }
 

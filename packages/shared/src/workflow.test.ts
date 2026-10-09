@@ -290,7 +290,7 @@ describe('validateWorkflow', () => {
         edges: [],
       }),
     );
-    expect(issues).toEqual([{ message: 'This workflow has nothing to run.' }]);
+    expect(issues).toEqual([{ message: 'This graph has nothing to run.' }]);
   });
 
   it('names an edge whose port no longer exists on either end (Theme A)', () => {
@@ -432,11 +432,11 @@ describe('validateWorkflow', () => {
       workflow({ nodes: [trigger('t1', 'Start'), trigger('t2', 'Also start')], edges: [] }),
     );
     expect(two).toContainEqual({
-      message: '"Start" — only one trigger node is allowed per workflow.',
+      message: '"Start" — only one trigger node is allowed per graph.',
       nodeId: 't1',
     });
     expect(two).toContainEqual({
-      message: '"Also start" — only one trigger node is allowed per workflow.',
+      message: '"Also start" — only one trigger node is allowed per graph.',
       nodeId: 't2',
     });
   });
@@ -1374,7 +1374,7 @@ describe('validateWorkflow (Theme I: frame and policy)', () => {
       ],
       edges: [],
     });
-    expect(validateWorkflow(w).some((i) => i.message === 'This workflow has nothing to run.')).toBe(true);
+    expect(validateWorkflow(w).some((i) => i.message === 'This graph has nothing to run.')).toBe(true);
   });
 });
 

@@ -7,12 +7,14 @@ import { CiSpacer } from './ci-cell';
 import { BlankAvatar } from './commit-avatar';
 import {
   RAIL_WIDTH,
+  besideMarkSize,
   laneCentre,
   nodeExtent,
   showsAuthorColumn,
   type GraphTheme,
 } from './graph-themes';
 import { laneColor } from './lane-colors';
+import { DEFAULT_PROVENANCE_MARK_MODE, type ProvenanceMarkMode } from './provenance-display';
 
 /** How many stash entries the graph shows before collapsing into an overflow row. */
 const VISIBLE_CAP = 2;
@@ -41,6 +43,7 @@ export function StashRows({
   colorIdx,
   lane,
   selectedSelector,
+  markMode = DEFAULT_PROVENANCE_MARK_MODE,
   onSelect,
 }: {
   repoId: string;
@@ -52,6 +55,8 @@ export function StashRows({
   colorIdx: number;
   lane: number;
   selectedSelector: string | null;
+  /** The graph's provenance-mark mode — `beside` reserves the commit rows' agent slot here too. */
+  markMode?: ProvenanceMarkMode;
   onSelect: (selector: string) => void;
 }) {
   const shown = stashes.slice(0, VISIBLE_CAP);
@@ -69,6 +74,7 @@ export function StashRows({
           colorIdx={colorIdx}
           lane={lane}
           selected={selectedSelector === entry.selector}
+          markMode={markMode}
           onSelect={() => onSelect(entry.selector)}
         />
       ))}
@@ -85,6 +91,7 @@ function StashRow({
   colorIdx,
   lane,
   selected,
+  markMode,
   onSelect,
 }: {
   entry: StashEntry;
@@ -94,6 +101,7 @@ function StashRow({
   colorIdx: number;
   lane: number;
   selected: boolean;
+  markMode: ProvenanceMarkMode;
   onSelect: () => void;
 }) {
   const color = laneColor(colorIdx, theme.palette);
@@ -107,7 +115,7 @@ function StashRow({
       aria-pressed={selected}
       onClick={onSelect}
       aria-label={`Stash: ${entry.message}`}
-      className={`relative flex w-full shrink-0 cursor-default items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
+      className={`relative flex w-full shrink-0 cursor-pointer items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
         selected ? 'bg-accent/40' : 'hover:bg-accent/30'
       }`}
       style={{ height: theme.rowHeight }}
@@ -159,6 +167,16 @@ function StashRow({
         </svg>
       </span>
 
+      {/* The commit rows' `beside` agent slot, so this dashed rail lines up with their solid one. */}
+      {markMode === 'beside' ? (
+        <span
+          aria-hidden
+          data-testid="stash-provenance-slot"
+          className="shrink-0"
+          style={{ width: besideMarkSize(theme) }}
+        />
+      ) : null}
+
       {theme.node === 'avatar' ? (
         <span
           aria-hidden
@@ -178,11 +196,13 @@ function StashRow({
         </span>
       </div>
 
+      <span aria-hidden className="graph-diff-col shrink-0" />
+      <span aria-hidden className="graph-diff-chart-col shrink-0" />
       {showsAuthorColumn(theme) ? (
-        <span className="shrink-0" style={{ width: 'var(--col-author)' }} />
+        <span className="graph-col-author shrink-0" style={{ width: 'var(--col-author)' }} />
       ) : null}
       <span className="shrink-0" style={{ width: 'var(--col-date)' }} />
-      <span className="shrink-0" style={{ width: 'var(--col-sha)' }} />
+      <span className="graph-col-sha shrink-0" style={{ width: 'var(--col-sha)' }} />
     </button>
   );
 }
@@ -218,7 +238,7 @@ function StashOverflowRow({
         if (!reposOpen) setReposOpen(true);
         if (closed?.includes('stashes')) toggleRepoSection(repoId, 'stashes');
       }}
-      className="flex w-full shrink-0 cursor-default items-center border-b border-dashed border-border/60 pl-3 pr-3 text-left text-xs italic text-muted-foreground transition-colors hover:bg-accent/30"
+      className="flex w-full shrink-0 cursor-pointer items-center border-b border-dashed border-border/60 pl-3 pr-3 text-left text-xs italic text-muted-foreground transition-colors hover:bg-accent/30"
       style={{ height: theme.rowHeight }}
     >
       +{count} more {count === 1 ? 'stash' : 'stashes'} — see the sidebar

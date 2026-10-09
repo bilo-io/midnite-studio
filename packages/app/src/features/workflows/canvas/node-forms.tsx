@@ -378,7 +378,7 @@ export function ScriptForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
           }
         />
       </Field>
-      <Field label="Working directory" hint="Optional — defaults to the OS home directory (workflows are not repo-scoped).">
+      <Field label="Working directory" hint="Optional — defaults to the OS home directory (graphs are not repo-scoped).">
         <TextField label="Working directory" value={config.cwd ?? ''} onChange={(cwd) => update({ cwd: cwd || undefined })} />
       </Field>
       <KeyValueRows
@@ -851,7 +851,7 @@ export function TriggerForm({ node, onChange }: NodeFormProps) {
               onChange={(repoId) => onChange({ ...node, config: { ...config, repoId } })}
             />
           </Field>
-          <Field label="Events" hint="Which PR changes fire this workflow — at least one.">
+          <Field label="Events" hint="Which PR changes fire this graph — at least one.">
             <div className="flex flex-col gap-1">
               {WORKFLOW_TRIGGER_FORGE_PR_EVENTS.map((event) => (
                 <SwitchRow

@@ -410,6 +410,20 @@ export const ROW_GAP = 8;
 export const RAIL_WIDTH = 3;
 
 /**
+ * Diameter of the `beside` provenance slot — the agent mark's own column,
+ * right of the gutter.
+ *
+ * Scaled off the node it sits next to so it reads as its companion rather
+ * than as a second, unrelated avatar — with a floor, because the smallest
+ * styles would otherwise render an agent logo at nine pixels, which is below
+ * the size any of these marks stay legible at. Shared with the pseudo-rows
+ * above the list, which reserve the same width so their dashed rail lines up
+ * with the commits' solid one.
+ */
+export const besideMarkSize = (theme: GraphTheme): number =>
+  Math.max(12, Math.round((theme.node === 'avatar' ? theme.avatarSize : theme.nodeRadius * 2) * 0.7));
+
+/**
  * Opacity of that leader line, against the lane's own colour.
  *
  * Below the lanes deliberately: the connector is an annotation joining a label

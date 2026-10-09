@@ -51,7 +51,8 @@ const data: MockFixtures = {
 };
 
 async function land(page: Page): Promise<void> {
-  await installMockBridge(page, data);
+  // Opted in: the spec toggles the repositories panel shut and open again.
+  await installMockBridge(page, data, { reposOpen: true });
   await page.goto('/');
   await expect(page.getByTestId('status-bar')).toBeVisible();
   await settle(page, 300);

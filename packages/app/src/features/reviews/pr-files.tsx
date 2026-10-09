@@ -1,5 +1,5 @@
 import type { ForgePullFiles, ForgeReviewThread } from '@midnite/studio-shared';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { formatNumber } from '../../lib/format-number';
 import { openLinkFromEvent } from '../../services/open-in-midnite';
@@ -28,6 +28,8 @@ export function PrFiles({
   worktreePath,
   baseSha,
   review,
+  focusPath = null,
+  onFocusHandled,
 }: {
 
   files: ForgePullFiles | null;
@@ -52,6 +54,15 @@ export function PrFiles({
   baseSha?: string | null;
   /** The write half — see `PrFileAccordion`'s own note on `headSha`. */
   review: React.ComponentProps<typeof PrFileAccordion>['review'];
+  /**
+   * A request to bring one file into view — set when a thread's path is clicked
+   * on the Conversation tab. Forces that file open (it may be past the default
+   * three), scrolls to it, then reports back through `onFocusHandled` so the
+   * same path can be requested again. Absent, nothing about the default
+   * open/closed behaviour changes.
+   */
+  focusPath?: string | null;
+  onFocusHandled?: () => void;
 }) {
 
   /*
@@ -63,6 +74,33 @@ export function PrFiles({
     the default is computed at render time and the answer is right immediately.
   */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
+
+  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+  const loadedFiles = files?.files ?? null;
+
+  // Phase 1: force the file open. Phase 2 (below) scrolls once it has rendered open.
+  useEffect(() => {
+    if (focusPath === null || loadedFiles === null) return;
+    const target = loadedFiles.find((f) => f.path === focusPath);
+    if (target !== undefined) {
+      const key = `${target.oldPath ?? ''}→${target.path}`;
+      setToggled((prev) => ({ ...prev, [key]: true }));
+      setPendingScroll(focusPath);
+    }
+    onFocusHandled?.();
+  }, [focusPath, loadedFiles, onFocusHandled]);
+
+  useEffect(() => {
+    if (pendingScroll === null) return;
+    const section = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-file-path]'),
+    ).find((el) => el.dataset['filePath'] === pendingScroll);
+    // Prefer the first thread in the file; fall back to the file's own row.
+    const thread = section?.querySelector<HTMLElement>('[data-testid="comment-thread"]');
+    // `?.`: jsdom's elements have no `scrollIntoView` unless a test stubs it.
+    (thread ?? section)?.scrollIntoView?.({ block: 'center' });
+    setPendingScroll(null);
+  }, [pendingScroll]);
 
   // Before any statement about the diff: whether we were able to ask.
   if (notReady !== null) return <Note>{notReady}</Note>;

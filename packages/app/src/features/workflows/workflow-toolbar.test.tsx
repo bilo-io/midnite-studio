@@ -78,7 +78,7 @@ describe('WorkflowToolbar', () => {
       />,
     );
     fireEvent.click(screen.getByText('My workflow'));
-    const input = screen.getByLabelText('Workflow name') as HTMLInputElement;
+    const input = screen.getByLabelText('Graph name') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'Renamed' } });
     expect(onRename).toHaveBeenCalledWith('Renamed');
   });
@@ -104,7 +104,7 @@ describe('WorkflowToolbar', () => {
     );
     const run = screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement;
     expect(run.disabled).toBe(true);
-    expect(run.getAttribute('title')).toBe('This workflow is disabled.');
+    expect(run.getAttribute('title')).toBe('This graph is disabled.');
 
     fireEvent.click(screen.getByRole('switch', { name: 'Enabled' }));
     expect(onToggleEnabled).toHaveBeenCalledWith(true);

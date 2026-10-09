@@ -4,6 +4,7 @@ import { CiSpacer } from './ci-cell';
 import { BlankAvatar } from './commit-avatar';
 import {
   RAIL_WIDTH,
+  besideMarkSize,
   laneCentre,
   nodeExtent,
   showsAuthorColumn,
@@ -11,6 +12,7 @@ import {
 } from './graph-themes';
 import { laneColor } from './lane-colors';
 import { usePrimaryHsl } from './primary-lane';
+import { DEFAULT_PROVENANCE_MARK_MODE, type ProvenanceMarkMode } from './provenance-display';
 
 /**
  * The working copy, drawn as the row above the first commit.
@@ -42,6 +44,7 @@ export function UncommittedRow({
   colorIdx,
   lane,
   expanded = false,
+  markMode = DEFAULT_PROVENANCE_MARK_MODE,
   onSelect,
 }: {
   status: StatusResult;
@@ -54,6 +57,8 @@ export function UncommittedRow({
   lane: number;
   /** Whether the working copy's inline panel is open under the row. */
   expanded?: boolean;
+  /** The graph's provenance-mark mode — `beside` reserves the commit rows' agent slot here too. */
+  markMode?: ProvenanceMarkMode;
   /** Toggles that inline panel — the working copy's list, commit box and diff. */
   onSelect: () => void;
 }) {
@@ -85,7 +90,7 @@ export function UncommittedRow({
       aria-expanded={expanded}
       aria-label={`${label} — ${expanded ? 'hide' : 'show'} the changes`}
       data-testid="uncommitted-row"
-      className={`relative flex w-full shrink-0 cursor-default items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
+      className={`relative flex w-full shrink-0 cursor-pointer items-center gap-2 border-b border-dashed border-border/60 pr-3 text-left text-sm transition-colors ${
         expanded ? 'bg-accent/30' : 'hover:bg-accent/30'
       }`}
       style={{ height: theme.rowHeight }}
@@ -135,6 +140,20 @@ export function UncommittedRow({
       </span>
 
       {/*
+        The `beside` mode's agent-mark slot. Every commit row reserves it, agent
+        or not, so the working copy has to as well — without it the dashed rail
+        sits one slot left of the solid rails under it.
+      */}
+      {markMode === 'beside' ? (
+        <span
+          aria-hidden
+          data-testid="uncommitted-provenance-slot"
+          className="shrink-0"
+          style={{ width: besideMarkSize(theme) }}
+        />
+      ) : null}
+
+      {/*
         The rail the avatar styles draw beside every commit — dashed here, and
         only where the styles draw one at all, so the row lines up with its
         neighbours instead of shifting the subject column by three pixels.
@@ -161,11 +180,13 @@ export function UncommittedRow({
         line up with the table under it rather than letting the text run to the
         window edge.
       */}
+      <span aria-hidden className="graph-diff-col shrink-0" />
+      <span aria-hidden className="graph-diff-chart-col shrink-0" />
       {showsAuthorColumn(theme) ? (
-        <span className="shrink-0" style={{ width: 'var(--col-author)' }} />
+        <span className="graph-col-author shrink-0" style={{ width: 'var(--col-author)' }} />
       ) : null}
       <span className="shrink-0" style={{ width: 'var(--col-date)' }} />
-      <span className="shrink-0" style={{ width: 'var(--col-sha)' }} />
+      <span className="graph-col-sha shrink-0" style={{ width: 'var(--col-sha)' }} />
     </button>
   );
 }

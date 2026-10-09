@@ -56,7 +56,7 @@ export function WorkflowToolbar({
       <Popover
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        label="Edit workflow details"
+        label="Edit graph details"
         side="bottom"
         align="start"
         trigger={
@@ -69,16 +69,16 @@ export function WorkflowToolbar({
         <div className="flex w-72 flex-col gap-2 p-2.5">
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-muted-foreground">Name</span>
-            <TextField label="Workflow name" value={workflow.name} onChange={onRename} />
+            <TextField label="Graph name" value={workflow.name} onChange={onRename} />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-muted-foreground">Description</span>
             <TextArea
-              label="Workflow description"
+              label="Graph description"
               value={workflow.description ?? ''}
               onChange={onDescriptionChange}
               rows={3}
-              placeholder="What this workflow does…"
+              placeholder="What this graph does…"
             />
           </label>
         </div>
@@ -87,7 +87,7 @@ export function WorkflowToolbar({
       <SwitchRow
         id="workflow-enabled"
         label="Enabled"
-        title={enabled ? 'Disable this workflow — Run stays off until re-enabled.' : 'Re-enable this workflow.'}
+        title={enabled ? 'Disable this graph — Run stays off until re-enabled.' : 'Re-enable this graph.'}
         on={enabled}
         onToggle={(_id, on) => onToggleEnabled(on)}
         className="ml-1 w-auto shrink-0 gap-1.5"
@@ -101,7 +101,7 @@ export function WorkflowToolbar({
       <span className="ml-auto flex shrink-0 items-center gap-1">
         <button
           type="button"
-          title="Save as template — adds this workflow to your templates in the gallery"
+          title="Save as template — adds this graph to your templates in the gallery"
           onClick={onSaveAsTemplate}
           className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
         >
@@ -135,7 +135,7 @@ export function WorkflowToolbar({
           <button
             type="button"
             disabled={Boolean(runDisabledReason) || isRunning || !enabled}
-            title={!enabled ? 'This workflow is disabled.' : runDisabledReason}
+            title={!enabled ? 'This graph is disabled.' : runDisabledReason}
             onClick={onRun}
             className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground transition-opacity disabled:opacity-40"
           >

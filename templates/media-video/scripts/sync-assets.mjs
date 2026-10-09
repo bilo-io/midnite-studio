@@ -1,21 +1,28 @@
 #!/usr/bin/env node
 /**
- * Mirror the repo's asset sources into `video-editor/public/`, which is a
- * generated cache (gitignored) — every binary has exactly one tracked home:
+ * Mirror the repo's asset sources into the editor app, which treats them as a
+ * generated cache (gitignored) — every binary has exactly one tracked home.
+ * Where the mirror lands depends on the engine in `video.config.json`
+ * (absent = Remotion):
  *
- *   assets/<kind>/…                     →  public/<kind>/…         staticFile("logos/acme/mark.svg")
- *   projects/<id>/input/<media>         →  public/projects/<id>/…  projectFile("<id>")("x.mp4")
+ *   Remotion — one mirror, video-editor/public/
+ *     assets/<kind>/…                →  public/<kind>/…             staticFile("logos/acme/mark.svg")
+ *     projects/<id>/input/<media>    →  public/projects/<id>/…      projectFile("<id>")("x.mp4")
+ *
+ *   HyperFrames — one mirror per project, hyperframes-editor/projects/<id>/assets/
+ *     assets/<kind>/…                →  <project>/assets/<kind>/…   <img src="assets/logos/acme/mark.svg">
+ *     projects/<id>/input/<media>    →  <project>/assets/input/…    <video src="assets/input/x.mp4">
  *
  * A project **id is a path**, not a single segment: this repo files videos as
  * `<brand>/<category>/<NNN-name>` (e.g. `acme/marketing/000-example`), so a
  * project is "any directory under projects/ containing a project.json" and its
- * id is its path relative to projects/. That nests straight through into
- * public/projects/<id>/, so `projectFile` needs no special case for depth.
+ * id is its path relative to projects/. That nests straight through into the
+ * mirror, so `projectFile` needs no special case for depth.
  *
  * Usage:
  *   node scripts/sync-assets.mjs                              # shared assets + every project
  *   node scripts/sync-assets.mjs acme/marketing/000-example  # …and more ids
- *   node scripts/sync-assets.mjs --prune                      # also delete stale files in public/
+ *   node scripts/sync-assets.mjs --prune                      # also delete stale files in the mirror
  *
  * Unchanged files (same size + mtime) are skipped, so re-running is cheap.
  */
@@ -23,12 +30,14 @@ import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "no
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { APP_DIR, readEngine } from "./engine.mjs";
 import { SKIP_DIR, findProjects } from "./projects.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const PUBLIC = join(ROOT, "video-editor", "public");
+const ENGINE = readEngine(ROOT);
+const APP = join(ROOT, APP_DIR[ENGINE]);
 
-/** Files that belong in public/ — media and fonts, never docs or metadata. */
+/** Files that belong in a mirror — media and fonts, never docs or metadata. */
 const MEDIA = /\.(mp4|mov|webm|m4v|mp3|wav|m4a|aac|png|jpg|jpeg|webp|avif|gif|svg|woff2?|ttf|otf|json|vtt|srt)$/i;
 
 const args = process.argv.slice(2);
@@ -45,60 +54,80 @@ const walk = (dir) =>
 
 let copied = 0;
 let skipped = 0;
-const wanted = new Set();
 
-const sync = (from, toRel) => {
-  const to = join(PUBLIC, toRel);
-  wanted.add(toRel);
-  const src = statSync(from);
-  if (existsSync(to)) {
-    const dst = statSync(to);
-    if (dst.size === src.size && Math.abs(dst.mtimeMs - src.mtimeMs) < 1000) {
-      skipped++;
-      return;
+/** One mirror: files copied into `dir`, tracked so `--prune` knows what is stale. */
+const makeMirror = (dir) => {
+  const wanted = new Set();
+  const sync = (from, toRel) => {
+    const to = join(dir, toRel);
+    wanted.add(toRel);
+    const src = statSync(from);
+    if (existsSync(to)) {
+      const dst = statSync(to);
+      if (dst.size === src.size && Math.abs(dst.mtimeMs - src.mtimeMs) < 1000) {
+        skipped++;
+        return;
+      }
     }
-  }
-  mkdirSync(dirname(to), { recursive: true });
-  cpSync(from, to, { preserveTimestamps: true });
-  copied++;
-  console.log(`  + ${toRel}`);
+    mkdirSync(dirname(to), { recursive: true });
+    cpSync(from, to, { preserveTimestamps: true });
+    copied++;
+    console.log(`  + ${relative(APP, to)}`);
+  };
+  const pruneStale = () => {
+    if (!prune || !existsSync(dir)) return;
+    const stale = walk(dir)
+      .map((f) => relative(dir, f))
+      .filter((rel) => !wanted.has(rel));
+    for (const rel of stale) {
+      rmSync(join(dir, rel));
+      console.log(`  - ${rel}`);
+    }
+    if (stale.length) console.log(`pruned ${stale.length}`);
+  };
+  return { sync, pruneStale };
 };
 
-// 1. the shared asset library, mirrored as-is
 const assets = join(ROOT, "assets");
-if (existsSync(assets)) {
-  console.log("shared assets/");
-  for (const f of walk(assets)) sync(f, relative(assets, f));
-}
-
-// 2. each project's own input/
 const projectsDir = join(ROOT, "projects");
-const projects = findProjects(projectsDir).filter(
-  (id) => only.length === 0 || only.includes(id),
-);
+const projects = findProjects(projectsDir).filter((id) => only.length === 0 || only.includes(id));
 
 if (only.length && !projects.length) {
   console.error(`No such project(s): ${only.join(", ")}`);
   process.exit(1);
 }
 
-for (const id of projects) {
+const syncShared = (mirror) => {
+  if (!existsSync(assets)) return;
+  console.log("shared assets/");
+  for (const f of walk(assets)) mirror.sync(f, relative(assets, f));
+};
+
+const syncInput = (mirror, id, prefix) => {
   const input = join(projectsDir, id, "input");
-  if (!existsSync(input)) continue;
+  if (!existsSync(input)) return;
   console.log(`projects/${id}/input/`);
-  for (const f of walk(input)) sync(f, join("projects", id, relative(input, f)));
-}
+  for (const f of walk(input)) mirror.sync(f, join(prefix, relative(input, f)));
+};
 
-// 3. optional cleanup of files whose source is gone
-if (prune && existsSync(PUBLIC)) {
-  const stale = walk(PUBLIC)
-    .map((f) => relative(PUBLIC, f))
-    .filter((rel) => !wanted.has(rel));
-  for (const rel of stale) {
-    rmSync(join(PUBLIC, rel));
-    console.log(`  - ${rel}`);
+if (ENGINE === "hyperframes") {
+  // A HyperFrames project is a folder, so each one gets its own mirror — and
+  // only projects that already have a composition folder (index.html).
+  let mirrored = 0;
+  for (const id of projects) {
+    const projectApp = join(APP, "projects", id);
+    if (!existsSync(join(projectApp, "index.html"))) continue;
+    const mirror = makeMirror(join(projectApp, "assets"));
+    syncShared(mirror);
+    syncInput(mirror, id, "input");
+    mirror.pruneStale();
+    mirrored++;
   }
-  if (stale.length) console.log(`pruned ${stale.length}`);
+  console.log(`${copied} copied, ${skipped} up to date → ${APP_DIR[ENGINE]}/projects/*/assets/ (${mirrored} project(s))`);
+} else {
+  const mirror = makeMirror(join(APP, "public"));
+  syncShared(mirror);
+  for (const id of projects) syncInput(mirror, id, join("projects", id));
+  mirror.pruneStale();
+  console.log(`${copied} copied, ${skipped} up to date → video-editor/public/`);
 }
-
-console.log(`${copied} copied, ${skipped} up to date → video-editor/public/`);

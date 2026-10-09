@@ -16,6 +16,7 @@ import { bridge } from '../../services/bridge';
 import { useCompanionStore } from '../../store/companion-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
+import { useGameRunStore } from '../media/game/game-run-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { openIssueModal } from '../../store/issue-modal-store';
 import { VIEW_LABELS } from '../../services/palette/providers';
@@ -84,6 +85,7 @@ const PANEL_ROLES: readonly PanelWindowRole[] = [
   'apps-spotify',
   'apps-google-calendar',
   'apps-youtube',
+  'game',
 ];
 
 async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: true }>['value']> {
@@ -99,6 +101,8 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     'apps-spotify': ui.detachedApps.includes('spotify'),
     'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
     'apps-youtube': ui.detachedApps.includes('youtube'),
+    // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
+    game: useGameRunStore.getState().popped !== null,
   };
   const detached: WindowRole[] = [
     ...ui.detachedPages,
@@ -145,6 +149,8 @@ function resolveNavigateAction(
       'apps-spotify': ui.detachedApps.includes('spotify'),
       'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
       'apps-youtube': ui.detachedApps.includes('youtube'),
+      // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
+      game: useGameRunStore.getState().popped !== null,
     },
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,

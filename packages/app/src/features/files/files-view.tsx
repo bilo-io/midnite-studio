@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { LuFileText, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
+import { LuChevronLeft, LuChevronRight, LuFileText, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
+import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PageDetachMark } from '../../components/page-detach-mark';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
@@ -45,8 +46,37 @@ export function FilesView() {
   const selectedPath = useFilesStore((s) => s.selectedPath);
   const toggleDir = useFilesStore((s) => s.toggleDir);
   const selectFile = useFilesStore((s) => s.selectFile);
-  const revealFile = useFilesStore((s) => s.revealFile);
+  const navigate = useFilesStore((s) => s.navigate);
   const ensureScope = useFilesStore((s) => s.ensureScope);
+  const navBack = useFilesStore((s) => s.back);
+  const navForward = useFilesStore((s) => s.forward);
+  const canGoBack = useFilesStore((s) => s.nav.index > 0);
+  const canGoForward = useFilesStore((s) => s.nav.index < s.nav.entries.length - 1);
+
+  // Back/forward walk the document history. Mod+[ / Mod+] reach it through the
+  // shared panel registry; the mouse's back/forward buttons (3/4) are read
+  // here, only while this view is mounted.
+  const guardedBack = useMemo(
+    () => ({
+      back: () => useFileEditorStore.getState().guardNavigation(navBack),
+      forward: () => useFileEditorStore.getState().guardNavigation(navForward),
+    }),
+    [navBack, navForward],
+  );
+  useRegisterActivePanel(guardedBack, true);
+  useEffect(() => {
+    const onMouseUp = (event: MouseEvent) => {
+      if (event.button === 3) {
+        event.preventDefault();
+        guardedBack.back();
+      } else if (event.button === 4) {
+        event.preventDefault();
+        guardedBack.forward();
+      }
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    return () => window.removeEventListener('mouseup', onMouseUp);
+  }, [guardedBack]);
 
   // The line a search result was opened at — cleared on an ordinary tree
   // click, so browsing away from a search hit never leaves a stale
@@ -145,6 +175,20 @@ export function FilesView() {
       >
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-2">
           <PageDetachMark role="files" />
+          <IconButton
+            icon={LuChevronLeft}
+            label="Back (Mod+[)"
+            size="sm"
+            disabled={!canGoBack}
+            onClick={guardedBack.back}
+          />
+          <IconButton
+            icon={LuChevronRight}
+            label="Forward (Mod+])"
+            size="sm"
+            disabled={!canGoForward}
+            onClick={guardedBack.forward}
+          />
           <span className="truncate text-xs font-semibold tracking-tight">{repoName}</span>
           <span className="ml-auto">
             <IconButton
@@ -225,9 +269,9 @@ export function FilesView() {
           scope={scope}
           relPath={selectedPath}
           targetLine={targetLine ?? undefined}
-          onNavigate={(relPath) =>
+          onNavigate={(relPath, anchor) =>
             useFileEditorStore.getState().guardNavigation(() => {
-              revealFile(relPath);
+              navigate(relPath, anchor ?? null);
               setTargetLine(null);
             })
           }

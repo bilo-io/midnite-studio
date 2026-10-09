@@ -31,11 +31,15 @@ export function setupRowStatus({
 export type SetupStatusRowProps = {
   label: string;
   status: SetupRowStatus;
+  /** Rendered before the status mark — the toolchain page's checkbox. */
+  leading?: ReactNode;
   /** The tool's glyph, drawn in `brandColor` left of its name. */
   icon?: IconComponent;
   brandColor?: string;
   /** A version once detected, or a line of explanation. */
   detail?: ReactNode;
+  /** Right-aligned value (a `SetupMeta`: version or path), before the status actions. */
+  meta?: ReactNode;
   /** What *missing* offers — the page's install button. */
   action?: ReactNode;
   /** *Installing* only: brings the terminal running it forward. Omitted for an install main does itself. */
@@ -45,9 +49,11 @@ export type SetupStatusRowProps = {
 export function SetupStatusRow({
   label,
   status,
+  leading,
   icon: Icon,
   brandColor,
   detail,
+  meta,
   action,
   onRevealTerminal,
 }: SetupStatusRowProps) {
@@ -58,12 +64,14 @@ export function SetupStatusRow({
       data-status={status}
       className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2"
     >
+      {leading}
       <StatusMark status={status} />
       {Icon ? <Icon aria-hidden className="h-4 w-4 shrink-0" style={iconStyle} /> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">{label}</span>
         {detail ? <span className="truncate text-xs text-muted-foreground">{detail}</span> : null}
       </div>
+      {meta}
       {status === 'installing' ? (
         onRevealTerminal ? (
           <button
@@ -88,7 +96,11 @@ function StatusMark({ status }: { status: SetupRowStatus }) {
     // `.setup-ready-check` (styles.css): the green glow pulse, gated on window
     // focus and removed under reduced motion.
     return (
-      <span role="img" aria-label="Ready" className="setup-ready-check flex shrink-0 rounded-full text-green-500">
+      <span
+        role="img"
+        aria-label="Ready"
+        className="setup-ready-check flex shrink-0 rounded-full text-green-500"
+      >
         <LuCircleCheck aria-hidden className="h-5 w-5" />
       </span>
     );

@@ -604,7 +604,8 @@ test.describe('graph themes', () => {
       await repoButton.click();
     }
     await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
-    await expect(page.getByText('GitKraken').first()).toBeVisible();
+    // The header no longer names the style; GitKraken (the last one chosen) is the one with a rail.
+    await expect(page.locator('[data-graph-rail]').first()).toBeVisible();
   });
 
   test('a Gravatar hit paints an image, actually clipped to the node', async ({ page }) => {

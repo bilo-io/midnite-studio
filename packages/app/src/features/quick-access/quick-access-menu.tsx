@@ -1,13 +1,18 @@
+import { openNotes } from '../notes/notes-window';
 import type { CompanionState } from '@midnite/studio-shared';
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { LuBug, LuCompass, LuInfinity, LuNotebookPen, LuRepeat2, LuRocket } from 'react-icons/lu';
+import { LuBug, LuCompass, LuInfinity, LuRepeat2, LuRocket, LuWandSparkles } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import type { MenuEntry } from '../../components/context-menu';
 import { useDismissable, type TriggerSource } from '../../components/use-dismissable';
@@ -38,9 +43,9 @@ type QuickAccessRow = QuickAccessItem | { type: 'separator' };
  * are store reads, and a module-scope array is evaluated once at import.
  * `firstStop`/`step` below take the rows as an argument for the same reason.
  *
- * Order is `L · C · N · (R) · (S) · —— · I · G`: the companion sits between
- * Loops and Notes, which is where the phase puts it, Repeat and Resume setup
- * appear only while they have something to do, and the two not-yet-built
+ * Order is `L · C · N · (R) · S · —— · I · G`: the companion sits between
+ * Loops and Notes, which is where the phase puts it, Repeat appears only
+ * while it has something to do, S is always present (Resume setup or Setup wizard), and the two not-yet-built
  * leaves stay below the separator.
  */
 function buildRows(options: {
@@ -70,8 +75,8 @@ function buildRows(options: {
       mnemonic: 'N',
       label: 'Notes',
       description: 'Capture a thought against this repository',
-      icon: LuNotebookPen,
-      onSelect: () => useUiStore.getState().setNotesOpen(true),
+      icon: MdOutlineEditNote,
+      onSelect: () => openNotes(),
     },
   ];
 
@@ -93,23 +98,31 @@ function buildRows(options: {
   }
 
   /*
-    Resume setup (Phase 98 Theme C) — where X and Skip on the setup overlay
-    say setup can be picked up again, so it is here for exactly as long as
-    setup is unfinished and gone once the finale's Get started sets
-    `completedAt`. Absent rather than disabled afterwards: a finished setup is
-    rerun from the palette (`setup.open`), not "resumed". The overlay works
+    Setup (Phase 98 Theme C) — always present, on the one `S` slot. While setup
+    is unfinished it reads "Resume setup": X and Skip on the setup overlay say
+    setup can be picked up again. Once the finale's Get started sets
+    `completedAt` it becomes "Setup wizard", which reruns setup from the start
+    (the same `openSetup` the palette's `setup.open` calls). The overlay works
     out the page itself (`resumePageId`), which keeps the page registry and
     its components out of this menu's chunk.
   */
-  if (options.setupIncomplete) {
-    rows.push({
-      mnemonic: 'S',
-      label: 'Resume setup',
-      description: 'Pick setup up where you left it',
-      icon: LuRocket,
-      onSelect: () => useSetupStore.getState().resumeSetup(),
-    });
-  }
+  rows.push(
+    options.setupIncomplete
+      ? {
+          mnemonic: 'S',
+          label: 'Resume setup',
+          description: 'Pick setup up where you left it',
+          icon: LuRocket,
+          onSelect: () => useSetupStore.getState().resumeSetup(),
+        }
+      : {
+          mnemonic: 'S',
+          label: 'Setup wizard',
+          description: 'Run setup again',
+          icon: LuWandSparkles,
+          onSelect: () => useSetupStore.getState().openSetup(),
+        },
+  );
 
   rows.push(
     { type: 'separator' },
@@ -134,6 +147,27 @@ function buildRows(options: {
   );
 
   return rows;
+}
+
+/** Gap between the anchor's top edge and the menu's bottom edge, px. */
+const ANCHOR_GAP = 6;
+/** Closest the menu may sit to a viewport edge, px. */
+const EDGE_MARGIN = 8;
+
+/**
+ * Where the menu sits when it is anchored to a trigger — directly above it,
+ * right edges aligned, never closer than `EDGE_MARGIN` to the viewport's
+ * right edge. Expressed as `bottom`/`right` so the menu grows upward from the
+ * trigger whatever its own height turns out to be.
+ */
+export function anchoredMenuPosition(
+  rect: Pick<DOMRect, 'top' | 'right'>,
+  viewport: { width: number; height: number },
+): { bottom: number; right: number } {
+  return {
+    bottom: Math.max(EDGE_MARGIN, viewport.height - rect.top + ANCHOR_GAP),
+    right: Math.max(EDGE_MARGIN, viewport.width - rect.right),
+  };
 }
 
 function isRow(entry: QuickAccessRow): entry is QuickAccessItem {
@@ -200,8 +234,16 @@ function step(
 export function QuickAccessMenu({
   onClose,
   trigger,
+  anchor,
 }: {
   onClose: () => void;
+  /**
+   * The element to open above. Set while the FAB is docked in the status bar
+   * (Media views): the fixed bottom-right corner below sits ~96px above a
+   * 20px button there — over the terminal when it is open — instead of
+   * growing out of it. Unset, the menu keeps the floating FAB's corner.
+   */
+  anchor?: RefObject<HTMLElement | null>;
   /**
    * The FAB button, when the menu came from it. It counts as inside the
    * menu, so a second press on it toggles the menu shut instead of the
@@ -223,6 +265,24 @@ export function QuickAccessMenu({
     () => [...transcript].reverse().find((turn) => turn.role === 'companion') ?? null,
     [transcript],
   );
+
+  const [anchorStyle, setAnchorStyle] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const place = () => {
+      const el = anchor.current;
+      if (!el) return;
+      setAnchorStyle(
+        anchoredMenuPosition(el.getBoundingClientRect(), {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }),
+      );
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [anchor]);
 
   const rows = useMemo(
     () => buildRows({ companionEnabled, canRepeat: lastCompanionTurn !== null, setupIncomplete }),
@@ -317,8 +377,10 @@ export function QuickAccessMenu({
       aria-orientation="vertical"
       tabIndex={-1}
       data-testid="quick-access-menu"
+      data-anchored={anchorStyle ? true : undefined}
       onKeyDown={onKeyDown}
-      className="fixed bottom-24 right-4 z-popover w-64 gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-xl outline-none"
+      style={anchorStyle ?? undefined}
+      className={`fixed ${anchorStyle ? '' : 'bottom-24 right-4'} z-popover w-64 gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-xl outline-none`}
     >
       <CompanionStrip
         enabled={companionEnabled}

@@ -13,6 +13,8 @@ import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { UserAvatar } from '../../components/user-avatar';
 import { CommentComposer } from './comment-composer';
+import { type HunkExcerpt } from './diff-hunk';
+import { HunkExcerptView } from './hunk-excerpt';
 import {
   checkSuggestionApplies,
   expectedRightSideText,
@@ -95,8 +97,21 @@ export function CommentThread({
   );
 }
 
-function Thread({
+/**
+ * Extra chrome for a thread rendered on the Conversation tab — github.com's
+ * card: file path header, the code excerpt, and a full-width Resolve button.
+ * Absent on the Files tab, where the diff row above the thread already says all
+ * of that.
+ */
+export interface ConversationChrome {
+  excerpt: HunkExcerpt | null;
+  /** Jump to the file on the Files tab; omitted when there is nowhere to jump. */
+  onOpenFile?: (path: string) => void;
+}
+
+export function Thread({
   thread,
+  conversation,
   onReply,
   onResolve,
   busy,
@@ -106,6 +121,7 @@ function Thread({
   worktreePath,
 }: {
   thread: ForgeReviewThread;
+  conversation?: ConversationChrome;
   onReply: (input: { commentId: string; body: string }) => Promise<boolean>;
   onResolve: (input: { threadId: string; resolved: boolean }) => void;
   busy: boolean;
@@ -139,6 +155,123 @@ function Thread({
 
   const count = thread.comments.length;
   const first = thread.comments[0];
+
+  if (conversation !== undefined) {
+    return (
+      <div
+        data-testid="conversation-thread"
+        data-resolved={thread.resolved}
+        className="overflow-hidden rounded-md border border-border/60 bg-background/60"
+      >
+        <div className="flex flex-wrap items-center gap-2 bg-muted/30 px-3 py-1.5 text-xs">
+          {conversation.onOpenFile !== undefined ? (
+            <button
+              type="button"
+              onClick={() => conversation.onOpenFile?.(thread.path)}
+              className="min-w-0 truncate font-mono text-[11px] font-medium hover:underline"
+              title="Open in Files"
+            >
+              {thread.path}
+            </button>
+          ) : (
+            <span className="min-w-0 truncate font-mono text-[11px] font-medium">{thread.path}</span>
+          )}
+          {thread.outdated ? (
+            <span className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground">
+              Outdated
+            </span>
+          ) : null}
+          {thread.resolved ? <StatusPill status={RESOLVED_STATUS} /> : null}
+          {thread.resolved ? (
+            <button
+              type="button"
+              onClick={() => setOpen((current) => !current)}
+              aria-expanded={open}
+              className="ml-auto text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              {open ? 'Hide resolved' : 'Show resolved'}
+            </button>
+          ) : null}
+        </div>
+
+        {open ? (
+          <>
+            {conversation.excerpt !== null ? (
+              <HunkExcerptView excerpt={conversation.excerpt} />
+            ) : thread.line !== null || thread.originalLine !== null ? (
+              <p className="border-t border-border/40 px-3 py-1 font-mono text-[11px] text-muted-foreground">
+                {thread.side} L{thread.line ?? thread.originalLine}
+              </p>
+            ) : null}
+            <div className="border-t border-border/40 px-3 py-2">
+              <ol aria-label="Thread comments" className="space-y-3">
+                {thread.comments.map((comment) => (
+                  <li key={comment.id}>
+                    <CommentBody
+                      comment={comment}
+                      thread={thread}
+                      file={file}
+                      repoId={repoId}
+                      worktreePath={worktreePath}
+                    />
+                  </li>
+                ))}
+              </ol>
+              {replying && replyTarget?.databaseId ? (
+                <CommentComposer
+                  label={`Reply to ${first?.author || 'this thread'}`}
+                  submitLabel="Reply"
+                  busy={busy}
+                  error={error}
+                  onCancel={() => setReplying(false)}
+                  onSubmit={(body) => {
+                    const id = replyTarget.databaseId;
+                    if (id === null) return;
+                    void onReply({ commentId: id, body }).then((ok) => {
+                      if (ok) setReplying(false);
+                    });
+                  }}
+                />
+              ) : null}
+              {error !== null && !replying ? (
+                <p className="mt-1.5 text-[11px] text-destructive">{error}</p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+
+        <div className="flex items-center gap-2 border-t border-border/40 bg-muted/20 px-3 py-1.5">
+          {replyTarget !== undefined && !replying ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(true);
+                setReplying(true);
+              }}
+              disabled={busy}
+              className="flex items-center gap-1 rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+            >
+              <LuCornerDownRight aria-hidden className="h-3 w-3" />
+              Reply
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onResolve({ threadId: thread.id, resolved: !thread.resolved })}
+            disabled={busy}
+            className="flex items-center gap-1 rounded border border-border/60 px-2 py-0.5 text-[11px] font-medium hover:bg-accent disabled:opacity-50"
+          >
+            {thread.resolved ? (
+              <LuUndo2 aria-hidden className="h-3 w-3" />
+            ) : (
+              <LuCheck aria-hidden className="h-3 w-3" />
+            )}
+            {thread.resolved ? 'Unresolve conversation' : 'Resolve conversation'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded border border-border/60 bg-background/60">

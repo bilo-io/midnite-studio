@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 
 import { TitleBar } from '@bilo-io/shell';
 import { isPageWindowRole, type WindowRole } from '@midnite/studio-shared';
-import { FaGitAlt } from 'react-icons/fa';
+import { VscTerminalGitBash } from 'react-icons/vsc';
 import { LuSquareArrowDownLeft, LuTerminal } from 'react-icons/lu';
 
 import { TitleBarMidniteMenu } from '../features/agent/title-bar-midnite-menu';
@@ -34,7 +34,7 @@ function isMergedRole(role: WindowRole): role is MergedRole {
 
 const ROLE_ICON: Record<MergedRole, IconComponent> = {
   terminal: LuTerminal,
-  repos: FaGitAlt,
+  repos: VscTerminalGitBash,
   browser: MidniteIcon,
   graph: VIEW_ICON.graph,
 };

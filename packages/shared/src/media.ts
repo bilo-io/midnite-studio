@@ -17,16 +17,17 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model', 'sprite', 'game'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
 /**
  * The tabs whose storage lives under `.midnite/media/<tab>/` and therefore
  * need an open repo. Video resolves its own root (Theme D), falling back to
- * Phase 44's global setting, so it keeps working with no repo open.
+ * Phase 44's global setting, so it keeps working with no repo open; Games (Phase 107) likewise resolves its
+ * own root (the games location setting).
  */
-export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio'];
+export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'map', 'terrain', 'model', 'sprite'];
 
 /** `<repo>/.midnite/media` — joined with the tab id for each tab's root. */
 export const MEDIA_ROOT_DIR = '.midnite/media';
@@ -51,6 +52,23 @@ export const MEDIA_EXPORT_FORMATS = [
   'mp3',
   'wav',
   'flac',
+  // music editor (Phase 101 Theme J) — the song's own interchange file, encoded by main
+  'mid',
+  // model (3D) — written by main's own exporters, no ffmpeg
+  'obj',
+  'fbx',
+  'fbx-ascii',
+  'glb',
+  // game (Phase 107) — written by main's own exporters, no ffmpeg
+  'game-html',
+  'game-zip',
+  'game-folder',
+  // sprites (Phase 106) — a pack is a folder of PNG atlas + JSON, written by main
+  'sprite-pack',
+  'terrain-pack',
+  // maps (Phase 108) — the selected GeoJSON layer, written by Theme H
+  'geojson',
+  'kml',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -75,8 +93,20 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   gif: { label: 'GIF', ext: 'gif', needsFfmpeg: true },
   prores: { label: 'ProRes', ext: 'mov', needsFfmpeg: true },
   mp3: { label: 'MP3', ext: 'mp3', needsFfmpeg: true },
+  mid: { label: 'MIDI', ext: 'mid', needsFfmpeg: false },
   wav: { label: 'WAV', ext: 'wav', needsFfmpeg: true },
   flac: { label: 'FLAC', ext: 'flac', needsFfmpeg: true },
+  obj: { label: 'Wavefront OBJ', ext: 'obj', needsFfmpeg: false },
+  fbx: { label: 'Autodesk FBX (binary)', ext: 'fbx', needsFfmpeg: false },
+  'fbx-ascii': { label: 'Autodesk FBX (ASCII)', ext: 'fbx', needsFfmpeg: false },
+  glb: { label: 'glTF binary (PBR)', ext: 'glb', needsFfmpeg: false },
+  'terrain-pack': { label: 'Terrain pack (folder)', ext: '', needsFfmpeg: false },
+  'game-html': { label: 'Single HTML file', ext: 'html', needsFfmpeg: false },
+  'game-zip': { label: 'Zip archive', ext: 'zip', needsFfmpeg: false },
+  'game-folder': { label: 'Static folder', ext: '', needsFfmpeg: false },
+  'sprite-pack': { label: 'Sprite pack (folder)', ext: '', needsFfmpeg: false },
+  geojson: { label: 'GeoJSON layer', ext: 'geojson', needsFfmpeg: false },
+  kml: { label: 'KML layer', ext: 'kml', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
@@ -85,7 +115,18 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   image: ['png', 'jpeg', 'webp'],
   video: ['mp4', 'webm', 'gif', 'prores'],
   audio: ['mp3', 'wav', 'flac'],
+  model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
+  // The pack (a folder, not a zip: Phase 105 Decision 13) is the default; the glb is one file for a DCC tool.
+  terrain: ['terrain-pack', 'glb'],
+  // Theme G (Phase 106) writes the pack; until then the tab's export answers "not available yet".
+  sprite: ['sprite-pack'],
+  game: ['game-html', 'game-zip', 'game-folder'],
+  // Phase 108: the split button exports the selected layer (Theme H).
+  map: ['geojson', 'kml'],
 };
+
+/** The Audio ▸ Editor's menu (Phase 101 Theme J): the .mid, the offline WAV render, and its MP3. */
+export const MEDIA_AUDIO_EDITOR_EXPORT_FORMATS: readonly MediaExportFormat[] = ['mid', 'wav', 'mp3'];
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */
 export const FFMPEG_EXPORT_FORMATS = MEDIA_EXPORT_FORMATS.filter(
@@ -151,15 +192,15 @@ export type MediaChangedEvent = z.infer<typeof MediaChangedEventSchema>;
  * Image-generation providers, in picker order. Generation runs in main
  * (`main/media/image/`); the renderer only ever names a provider and model.
  *
- * `agy` is listed but disabled: this phase's headless spike could not show
- * Antigravity CLI writing an image non-interactively (see the phase doc's
- * Headlines), so Gemini is the default and agy carries the reason.
+ * `agy` (Antigravity CLI) needs no API key: it is a provider in its own right
+ * and also the fallback main routes Gemini/OpenAI requests through when no key
+ * is set (API keys are optional).
  */
 export const IMAGE_PROVIDER_IDS = ['gemini', 'openai', 'agy', 'ollama'] as const;
 export const ImageProviderIdSchema = z.enum(IMAGE_PROVIDER_IDS);
 export type ImageProviderId = z.infer<typeof ImageProviderIdSchema>;
 
-export const DEFAULT_IMAGE_PROVIDER: ImageProviderId = 'gemini';
+export const DEFAULT_IMAGE_PROVIDER: ImageProviderId = 'agy';
 
 /** Aspect ratios offered by the create panel; each adapter maps them to its own size vocabulary. */
 export const IMAGE_ASPECTS = ['1:1', '3:2', '2:3', '16:9', '9:16'] as const;
@@ -180,10 +221,12 @@ export type ImageProviderInfo = {
   models: readonly ImageModelInfo[];
   /** Set when the provider can never be picked in this build — shown as the option's tooltip. */
   disabledReason?: string;
+  /**
+   * Whether the adapter can attach reference images (Phase 106 Theme D, Decision 5): Gemini sends them
+   * as `inline_data` parts (`gemini-*-image` models only), OpenAI switches to `/v1/images/edits`.
+   */
+  supportsReference: boolean;
 };
-
-export const AGY_IMAGE_DISABLED_REASON =
-  'Antigravity CLI has no headless image output yet — its print mode returns text only. Use Gemini, which is the same model family.';
 
 export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
   {
@@ -195,6 +238,7 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
       { id: 'imagen-4.0-generate-001', label: 'Imagen 4' },
       { id: 'imagen-4.0-fast-generate-001', label: 'Imagen 4 Fast' },
     ],
+    supportsReference: true,
   },
   {
     id: 'openai',
@@ -204,16 +248,30 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
       { id: 'gpt-image-1', label: 'GPT Image 1' },
       { id: 'gpt-image-1-mini', label: 'GPT Image 1 Mini' },
     ],
+    supportsReference: true,
   },
   {
     id: 'agy',
     label: 'Antigravity CLI',
     secretKey: null,
-    models: [{ id: 'agy-default', label: 'Default' }],
-    disabledReason: AGY_IMAGE_DISABLED_REASON,
+    models: [{ id: 'agy-default', label: 'Gemini 2.5 Flash Image' }],
+    supportsReference: false,
   },
-  { id: 'ollama', label: 'Ollama', secretKey: null, models: [] },
+  { id: 'ollama', label: 'Ollama', secretKey: null, models: [], supportsReference: false },
 ];
+
+/** At most this many reference images ride along with one request. */
+export const IMAGE_MAX_REFERENCES = 4;
+
+/** Gemini's Imagen models answer `:predict`, which takes no reference image. */
+export function imageModelSupportsReference(provider: ImageProviderId, model: string): boolean {
+  if (!imageProviderInfo(provider).supportsReference) return false;
+  return !(provider === 'gemini' && model.startsWith('imagen-'));
+}
+
+/** Why a provider cannot draw reference-locked frames — the picker's tooltip and the job's refusal. */
+export const imageReferenceUnsupportedReason = (label: string): string =>
+  `${label} can't use a reference image, so frames would not match. Pick Gemini or OpenAI.`;
 
 export function imageProviderInfo(id: ImageProviderId): ImageProviderInfo {
   return IMAGE_PROVIDERS.find((p) => p.id === id)!;
@@ -293,6 +351,13 @@ export const ImageGenerateRequestSchema = z.object({
   aspect: ImageAspectSchema.default('1:1'),
   count: z.number().int().min(1).max(IMAGE_MAX_COUNT).default(1),
   seed: z.number().int().nonnegative().optional(),
+  /**
+   * Reference images (Phase 106 Theme D): paths inside the same repo's `.midnite/media/`
+   * (`<tab>/<project>/<path>`), confined by the media store. Only providers with `supportsReference`.
+   */
+  references: z.array(z.string().min(1).max(1024)).max(IMAGE_MAX_REFERENCES).optional(),
+  /** Ask for a real transparent background where the provider can return one (OpenAI). */
+  transparent: z.boolean().optional(),
 });
 export type ImageGenerateRequest = z.infer<typeof ImageGenerateRequestSchema>;
 
@@ -314,31 +379,57 @@ export type ImageGenerateProgressEvent = z.infer<typeof ImageGenerateProgressEve
 // --- audio (Theme E) ---------------------------------------------------------
 
 /**
- * Audio providers, in picker order. There is no public music-generation API
- * this phase can build on, so the seam (`main/media/audio/`) ships with one
- * adapter: `import`, which copies files the user picks in as variants. A later
- * phase adds a generating provider here and in main — nothing else moves.
+ * Audio providers, in picker order. `musicgen` is the local engine (Meta's
+ * MusicGen-small, run in-process through ONNX — no API key, no Python, no
+ * server); `import` copies files the user picks in as variants. A heavier
+ * engine (ACE-Step behind a local server, say) joins here and in main —
+ * nothing else moves.
  */
-export const AUDIO_PROVIDER_IDS = ['import'] as const;
+export const AUDIO_PROVIDER_IDS = ['musicgen', 'import'] as const;
 export const AudioProviderIdSchema = z.enum(AUDIO_PROVIDER_IDS);
 export type AudioProviderId = z.infer<typeof AudioProviderIdSchema>;
 
-export const DEFAULT_AUDIO_PROVIDER: AudioProviderId = 'import';
+export const DEFAULT_AUDIO_PROVIDER: AudioProviderId = 'musicgen';
 
 export type AudioProviderInfo = {
   id: AudioProviderId;
   label: string;
-  /** False for `import` — Create shows the "later phase" state and offers Import instead. */
+  /** False for `import` — Create is not offered for it, only the attach action. */
   generates: boolean;
 };
 
-export const AUDIO_PROVIDERS: readonly AudioProviderInfo[] = [{ id: 'import', label: 'Import', generates: false }];
+export const AUDIO_PROVIDERS: readonly AudioProviderInfo[] = [
+  { id: 'musicgen', label: 'MusicGen (local)', generates: true },
+  { id: 'import', label: 'Import', generates: false },
+];
 
 export function audioProviderInfo(id: AudioProviderId): AudioProviderInfo {
   return AUDIO_PROVIDERS.find((p) => p.id === id)!;
 }
 
-export const AUDIO_GENERATION_UNAVAILABLE = 'Generation arrives in a later phase. Import audio to add variants.';
+export const AUDIO_GENERATION_UNAVAILABLE = 'Pick a generating provider to create music, or import audio to add variants.';
+
+/**
+ * The local engine's honest limits. MusicGen-small is a ~300M-parameter
+ * instrumental model trained on 30 s clips: no vocals, no lyrics, and anything
+ * longer is rendered as stitched 30 s sections. Weights are CC-BY-NC-4.0.
+ */
+export const AUDIO_LOCAL_SEGMENT_S = 30;
+export const AUDIO_LOCAL_MAX_DURATION_S = 120;
+export const AUDIO_LOCAL_MODEL_ID = 'Xenova/musicgen-small';
+/** Approximate one-time download (q8 text encoder + q8 decoder + fp32 EnCodec). */
+export const AUDIO_LOCAL_MODEL_BYTES = 660_000_000;
+export const AUDIO_LOCAL_MODEL_LICENSE = 'CC-BY-NC-4.0';
+
+/**
+ * Optional prompt expansion through a local Ollama model. Ollama cannot make
+ * audio, but a small instruction model turns "lofi study beat" into the
+ * descriptive caption MusicGen was trained on. 3B-class models fit an 8 GB
+ * Mac (~2-3 GB resident) and run before the audio model loads, never beside it.
+ */
+export const AUDIO_OLLAMA_RECOMMENDED = 'llama3.2:3b';
+/** Tried in order when no model is chosen; the first one installed wins. */
+export const AUDIO_OLLAMA_PREFERRED = ['llama3.2:3b', 'qwen3:4b', 'gemma3:4b', 'qwen3:1.7b', 'llama3.2:1b'] as const;
 
 /** Extensions the Audio tab treats as playable variants (and the import dialog's filter). */
 export const AUDIO_FILE_EXTENSIONS = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'] as const;
@@ -361,6 +452,8 @@ export const AUDIO_LYRICS_MAX = 5000;
 export const AUDIO_DURATION_MIN_S = 10;
 export const AUDIO_DURATION_MAX_S = 480;
 export const AUDIO_MAX_VARIANTS = 4;
+export const AUDIO_MUSIC_PROMPT_MAX = 400;
+export const AUDIO_SECTIONS_MAX = 8;
 /** Section markers the lyrics editor's helpers insert. */
 export const AUDIO_LYRIC_SECTIONS = ['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Outro'] as const;
 
@@ -375,6 +468,10 @@ export const AudioPromptSchema = z.object({
   instrumental: z.boolean().default(false),
   durationS: z.number().int().min(AUDIO_DURATION_MIN_S).max(AUDIO_DURATION_MAX_S).default(120),
   count: z.number().int().min(1).max(AUDIO_MAX_VARIANTS).default(2),
+  /** A hand-written or Ollama-expanded caption sent to the engine in place of one built from `style`. */
+  musicPrompt: z.string().trim().max(AUDIO_MUSIC_PROMPT_MAX).optional(),
+  /** Per-section captions for tracks longer than one segment; sections cycle through them. */
+  sections: z.array(z.string().trim().min(1).max(AUDIO_MUSIC_PROMPT_MAX)).max(AUDIO_SECTIONS_MAX).optional(),
 });
 export type AudioPrompt = z.infer<typeof AudioPromptSchema>;
 
@@ -391,6 +488,10 @@ export const AudioSidecarSchema = z.object({
   /** Normalised 0..1 per-bucket peaks, computed once with Web Audio. */
   peaks: z.array(z.number().min(0).max(1)).max(1024).optional(),
   createdAt: z.string().min(1),
+  /** Theme K: the editor song this clip was rendered from, so the variant links back to it. */
+  fromSong: z.object({ project: MediaProjectNameSchema, name: z.string().min(1) }).optional(),
+  /** Theme K: the deterministic description derived from that song (MusicGen-melody has no ONNX build). */
+  description: z.string().optional(),
 });
 export type AudioSidecar = z.infer<typeof AudioSidecarSchema>;
 
@@ -462,6 +563,10 @@ export const AudioProgressEventSchema = z.object({
   total: z.number().int().nonnegative(),
   files: z.array(z.string()),
   error: z.string().optional(),
+  /** What a generating provider is doing right now ("Rendering section 2 of 4"). */
+  stage: z.string().optional(),
+  /** Overall 0..1 progress of the whole run, when the provider can tell. */
+  fraction: z.number().min(0).max(1).optional(),
 });
 export type AudioProgressEvent = z.infer<typeof AudioProgressEventSchema>;
 
@@ -587,3 +692,59 @@ export const DocThreadSchema = z.object({
   messages: z.array(DocThreadMessageSchema),
 });
 export type DocThread = z.infer<typeof DocThreadSchema>;
+
+// --- audio: local engine, Ollama assist --------------------------------------
+
+/** Generate: same envelope as Import, minus the dialog. Resolves once every variant has landed. */
+export const AudioGenerateRequestSchema = AudioImportRequestSchema.extend({
+  provider: AudioProviderIdSchema.default(DEFAULT_AUDIO_PROVIDER),
+});
+export type AudioGenerateRequest = z.infer<typeof AudioGenerateRequestSchema>;
+
+export const AudioEngineStateSchema = z.enum(['missing', 'downloading', 'ready', 'unavailable']);
+export type AudioEngineState = z.infer<typeof AudioEngineStateSchema>;
+
+/** Whether the local engine and Ollama are usable right now. Never throws; a down daemon is `running: false`. */
+export const AudioEngineStatusSchema = z.object({
+  musicgen: z.object({
+    state: AudioEngineStateSchema,
+    /** Approximate download still ahead of a first run. */
+    downloadBytes: z.number().nonnegative(),
+    reason: z.string().optional(),
+  }),
+  ollama: z.object({
+    running: z.boolean(),
+    models: z.array(z.string()),
+    /** The model Enhance would use: the user's pick, else the first preferred one installed. */
+    model: z.string().nullable(),
+    recommended: z.string(),
+  }),
+});
+export type AudioEngineStatus = z.infer<typeof AudioEngineStatusSchema>;
+
+/** Pushed on `mstudio:media:audio-engine-progress` while the model downloads or loads. */
+export const AudioEngineProgressSchema = z.object({
+  phase: z.enum(['download', 'load', 'ready', 'failed']),
+  fraction: z.number().min(0).max(1),
+  message: z.string().optional(),
+});
+export type AudioEngineProgress = z.infer<typeof AudioEngineProgressSchema>;
+
+/** Enhance: turn the form into a MusicGen caption (and per-section captions) with a local Ollama model. */
+export const AudioExpandRequestSchema = z.object({
+  title: z.string().max(AUDIO_TITLE_MAX).default(''),
+  style: z.array(z.string().max(AUDIO_STYLE_TAG_MAX)).max(AUDIO_STYLE_TAGS_MAX).default([]),
+  lyrics: z.string().max(AUDIO_LYRICS_MAX).default(''),
+  instrumental: z.boolean().default(false),
+  durationS: z.number().int().min(AUDIO_DURATION_MIN_S).max(AUDIO_DURATION_MAX_S).default(120),
+  /** Empty picks automatically. */
+  model: z.string().max(120).default(''),
+});
+export type AudioExpandRequest = z.infer<typeof AudioExpandRequestSchema>;
+
+export const AudioExpandResultSchema = z.object({
+  musicPrompt: z.string().min(1).max(AUDIO_MUSIC_PROMPT_MAX),
+  sections: z.array(z.string().min(1).max(AUDIO_MUSIC_PROMPT_MAX)).max(AUDIO_SECTIONS_MAX),
+  model: z.string(),
+});
+export type AudioExpandResult = z.infer<typeof AudioExpandResultSchema>;

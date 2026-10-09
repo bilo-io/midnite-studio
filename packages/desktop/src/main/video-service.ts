@@ -8,6 +8,8 @@ import {
   failure,
   ok,
   type GitOpResult,
+  type VideoEngine,
+  type VideoEngineState,
   type VideoProject,
   type VideoRender,
   type VideoRenderOptions,
@@ -28,9 +30,18 @@ import {
   type VideoFileArea,
   type VideoFileEntry,
 } from './video/project-discovery';
+import {
+  engineAppDir,
+  engineNeedsInstall,
+  engineState,
+  ensureHyperframesComposition,
+  readVideoEngine,
+  switchVideoEngine,
+} from './video/engine';
 import { resolveVideoRoot } from './video/root-resolution';
 import { scaffoldVideoWorkspace } from './video/scaffold';
 import { nullProjectsStore, type ProjectsStore } from './video/projects-store';
+import { migrateVideoSkills } from './video/skills-migrate';
 import { probeVideoSkills, probeVideoToolchain } from './video/toolchain';
 import { getStudioStatus, startStudio, stopStudio, stopAllStudios } from './video/studio-service';
 import { buildRenderCommand, cancelRender, killAllRenders, listRenders, queueRender } from './video/render-service';
@@ -41,13 +52,14 @@ import { buildRenderCommand, cancelRender, killAllRenders, listRenders, queueRen
  * mirroring `workflow-service.ts`'s own split: module-level state plus a
  * `getWindow` thunk, configured once from `main/index.ts`.
  *
- * **One Remotion app serves every project.** `~/Dev/ekko-videos` is the
+ * **One editor app serves every project** (Remotion's `video-editor/` or, since
+ * Phase 99 Theme H, HyperFrames' `hyperframes-editor/` — whichever
+ * `video.config.json` names; no config = Remotion). The Remotion layout is: `~/Dev/ekko-videos` is the
  * reference layout this mirrors exactly: `<root>/video-editor` is the single
  * Remotion app (studio and the render fallback both run there), `<root>/
  * projects/<id>/` is one project's own folder, and `<root>/scripts/
  * render.mjs`, when present, is the wrapper `buildRenderCommand` prefers.
  */
-const APP_DIR_NAME = 'video-editor';
 const WRAPPER_REL_PATH = 'scripts/render.mjs';
 
 let store: ProjectsStore = nullProjectsStore;
@@ -70,10 +82,15 @@ export function configureVideo(nextStore: ProjectsStore, getWindow: () => Browse
   activeRepoPath = null;
 }
 
-/** In-repo layout → `<repo>/.midnite/media/video` → the global setting. */
+/**
+ * In-repo layout → `<repo>/.midnite/media/video` → the global setting, plus the
+ * root's engine (Phase 99 Theme H — `video.config.json`, absent = Remotion).
+ */
 export async function currentVideoRootResolution(): Promise<VideoRootResolution> {
   await ensureRootLoaded();
-  return resolveVideoRoot({ repoPath: activeRepoPath, globalRoot: videoRoot });
+  const resolution = resolveVideoRoot({ repoPath: activeRepoPath, globalRoot: videoRoot });
+  if (!resolution.root) return resolution;
+  return { ...resolution, engine: await readVideoEngine(resolution.root) };
 }
 
 /** Adopt `repoPath` as the active repo for resolution, then report where the root landed. */
@@ -94,11 +111,12 @@ export async function effectiveVideoRoot(): Promise<string | null> {
 export async function setupVideoWorkspace(
   repoPath: string,
   templateDir: string,
+  engine: VideoEngine = 'remotion',
 ): Promise<GitOpResult<VideoRootResolution>> {
   activeRepoPath = repoPath;
   const target = (await currentVideoRootResolution()).setupTarget;
   if (!target) return failure('Open a repository first.');
-  const scaffolded = await scaffoldVideoWorkspace(templateDir, target);
+  const scaffolded = await scaffoldVideoWorkspace(templateDir, target, engine);
   if (!scaffolded.ok) return scaffolded;
   return ok(await currentVideoRootResolution());
 }
@@ -121,8 +139,66 @@ export async function setVideoRoot(root: string | null): Promise<void> {
   await store.save({ videoRoot: root });
 }
 
-function appDirFor(root: string): string {
-  return join(root, APP_DIR_NAME);
+/**
+ * Read / switch a root's engine (Phase 99 Theme H). `active` is the root the
+ * Video tab resolved; `global` is Settings ▸ Media's own root, addressed
+ * without re-adopting a repo. Switching copies the engine's editor app in when
+ * the root lacks it, records the choice, and stops running studios — they are
+ * engine-specific processes — leaving the other engine's app on disk.
+ */
+async function engineTargetRoot(target: 'active' | 'global'): Promise<string | null> {
+  if (target === 'global') {
+    await ensureRootLoaded();
+    return videoRoot;
+  }
+  return effectiveVideoRoot();
+}
+
+export async function videoEngineGet(target: 'active' | 'global'): Promise<VideoEngineState> {
+  const root = await engineTargetRoot(target);
+  if (!root) return engineState(null, 'remotion');
+  return engineState(root, await readVideoEngine(root));
+}
+
+export async function videoEngineSet(
+  target: 'active' | 'global',
+  engine: VideoEngine,
+  templateDir: string,
+): Promise<GitOpResult<VideoEngineState>> {
+  const root = await engineTargetRoot(target);
+  if (!root) return failure('Set up Video for this repo, or configure a video root in Settings.');
+  const switched = await switchVideoEngine(templateDir, root, engine);
+  if (switched.ok) stopAllStudios();
+  return switched;
+}
+
+/** The engine's editor app for the root every op runs against. */
+async function requireEngineRoot(): Promise<GitOpResult<{ root: string; engine: VideoEngine; appDir: string }>> {
+  const root = await requireRoot();
+  if (!root.ok) return root;
+  const engine = await readVideoEngine(root.value);
+  return ok({ root: root.value, engine, appDir: engineAppDir(root.value, engine) });
+}
+
+/**
+ * HyperFrames only: its CLI is a dev-dependency of the editor app, and a
+ * project needs its own composition folder. `npx` without the install would go
+ * and download the package silently on every start, so a missing install is
+ * reported instead, with the command that fixes it.
+ */
+async function prepareHyperframesProject(
+  ctx: { root: string; appDir: string },
+  projectId: string,
+): Promise<GitOpResult> {
+  if (engineNeedsInstall(ctx.root, 'hyperframes')) {
+    return failure('HyperFrames is not installed yet — run `npm install` in hyperframes-editor/ first.');
+  }
+  const project = await getProject(ctx.root, projectId);
+  if (!project) return failure('That project does not exist.');
+  const composition = project.valid ? project.composition : projectId;
+  const title = project.valid ? project.title : projectId;
+  const ensured = await ensureHyperframesComposition(ctx.appDir, projectId, composition, title);
+  return ensured.ok ? ok() : ensured;
 }
 
 async function requireRoot(): Promise<GitOpResult<string>> {
@@ -245,11 +321,16 @@ export async function openVideoFile(
 // --- studio --------------------------------------------------------------
 
 export async function videoStudioStart(projectId: string): Promise<GitOpResult<VideoStudioStatus>> {
-  const root = await requireRoot();
-  if (!root.ok) return root;
+  const ctx = await requireEngineRoot();
+  if (!ctx.ok) return ctx;
+  if (ctx.value.engine === 'hyperframes') {
+    const ready = await prepareHyperframesProject(ctx.value, projectId);
+    if (!ready.ok) return ready;
+  }
 
   let captured: VideoStudioStatus | null = null;
-  startStudio(projectId, appDirFor(root.value), {
+  startStudio(projectId, ctx.value.appDir, {
+    engine: ctx.value.engine,
     onStatus: (id, status) => {
       captured ??= status;
       emitStudioChanged(id, status);
@@ -277,27 +358,34 @@ export async function videoRenderStart(
   compositionId: string,
   options?: VideoRenderOptions,
 ): Promise<GitOpResult<VideoRender>> {
-  const root = await requireRoot();
-  if (!root.ok) return root;
-
-  const appDir = appDirFor(root.value);
-  const outputDir = join(root.value, 'projects', projectId, 'output');
+  const ctx = await requireEngineRoot();
+  if (!ctx.ok) return ctx;
+  const { root: rootDir, engine, appDir } = ctx.value;
+  if (engine === 'hyperframes') {
+    const ready = await prepareHyperframesProject(ctx.value, projectId);
+    if (!ready.ok) return ready;
+  }
+  const outputDir = join(rootDir, 'projects', projectId, 'output');
   // Every name in output/, not just `vN-label.mp4` — an unlabelled `v2.mp4` or
   // a webm iteration still holds its version number.
-  const existingOutputFiles = (await listAreaFiles(root.value, 'output', projectId)).map((f) => f.name);
+  const existingOutputFiles = (await listAreaFiles(rootDir, 'output', projectId)).map((f) => f.name);
   const target = buildRenderCommand({
-    rootDir: root.value,
+    rootDir: rootDir,
     appDir,
-    hasWrapper: existsSync(join(root.value, WRAPPER_REL_PATH)),
+    hasWrapper: existsSync(join(rootDir, WRAPPER_REL_PATH)),
     projectId,
     compositionId,
     outputDir,
     existingOutputFiles,
+    engine,
     ...(options ? { options } : {}),
   });
 
   const renderId = randomUUID();
-  const record = queueRender({ renderId, projectId, compositionId, target }, { onProgress: emitRenderProgress });
+  const record = queueRender(
+    { renderId, projectId, compositionId, target },
+    { onProgress: emitRenderProgress, engine },
+  );
   return ok(record);
 }
 
@@ -314,8 +402,11 @@ export function videoRenderList(projectId: string): VideoRender[] {
 
 export async function videoToolchain(): Promise<VideoToolchain> {
   const root = await requireRoot();
+  const engine = root.ok ? await readVideoEngine(root.value) : 'remotion';
+  // Bring a root scaffolded before the `midnite-media-video-*` rename forward (never deletes edits).
+  if (root.ok) await migrateVideoSkills(root.value);
   const [toolchain, skills] = await Promise.all([
-    probeVideoToolchain(root.ok ? appDirFor(root.value) : undefined),
+    probeVideoToolchain(root.ok ? engineAppDir(root.value, engine) : undefined, {}, engine),
     probeVideoSkills(root.ok ? root.value : undefined),
   ]);
   return { ...toolchain, skills };

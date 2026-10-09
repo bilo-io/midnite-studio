@@ -68,6 +68,7 @@ describe('listPulls — fixture (bitbucket-pr-list.json)', () => {
       url: 'https://bitbucket.org/midnite/studio/pull-requests/412',
       mergedAt: null,
       closedAt: null,
+      commentCount: 0,
     });
 
     expect(result.pulls[1]).toMatchObject({

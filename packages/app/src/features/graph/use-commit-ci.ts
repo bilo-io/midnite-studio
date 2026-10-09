@@ -29,7 +29,7 @@ const EMPTY: ForgeCommitRunsResult = {
  * second; asking for each would queue hundreds of batches for rows nobody
  * looked at. Only a range the user actually stopped on is fetched.
  */
-function useSettledRange(range: RowRange | null): RowRange | null {
+export function useSettledRange(range: RowRange | null): RowRange | null {
   const start = range?.startIndex ?? -1;
   const end = range?.endIndex ?? -1;
   const [settled, setSettled] = useState<RowRange | null>(range);

@@ -1,7 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { VIDEO_SKILLS, type VideoToolBinary, type VideoToolchain } from '@midnite/studio-shared';
+import {
+  VIDEO_SKILLS,
+  type VideoEngine,
+  type VideoToolBinary,
+  type VideoToolchain,
+} from '@midnite/studio-shared';
 
 import { parseWhichOutput, runInShell } from '../login-shell';
 
@@ -21,12 +26,16 @@ const END = (name: string): string => `__MSTUDIO_VIDEO_${name}_END__`;
 
 /** One `command -v` per binary, framed so a shell banner cannot be misread as a path. */
 export function buildToolchainProbeScript(): string {
-  return ['node', 'npx', 'ffmpeg']
+  const frames = ['node', 'npx', 'ffmpeg']
     .map(
       (bin) =>
         `printf '\\n%s\\n' ${START(bin)}; command -v ${bin} 2>/dev/null || true; printf '\\n%s\\n' ${END(bin)}`,
-    )
-    .join('; ');
+    );
+  // Phase 99 Theme H — HyperFrames needs Node 22+, so the probe also reports the version.
+  frames.push(
+    `printf '\\n%s\\n' ${START('nodeversion')}; node -p process.versions.node 2>/dev/null || true; printf '\\n%s\\n' ${END('nodeversion')}`,
+  );
+  return frames.join('; ');
 }
 
 function extractFrame(output: string, name: string): string | null {
@@ -55,12 +64,15 @@ export function parseToolchainProbeOutput(output: string): {
   node: VideoToolBinary;
   npx: VideoToolBinary;
   ffmpeg: VideoToolBinary;
+  nodeVersion?: string;
 } {
+  const nodeVersion = extractFrame(output, 'nodeversion')?.trim();
   return {
     node: parseBinary(output, 'node'),
     npx: parseBinary(output, 'npx'),
     // Phase 99 Theme A — the Media export service's required external tool.
     ffmpeg: parseBinary(output, 'ffmpeg'),
+    ...(nodeVersion && /^\d+\.\d+/.test(nodeVersion) ? { nodeVersion } : {}),
   };
 }
 
@@ -74,6 +86,19 @@ export function parseRemotionVersion(packageJsonText: string): string | undefine
       devDependencies?: Record<string, string>;
     };
     return pkg.dependencies?.remotion ?? pkg.devDependencies?.remotion ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The `hyperframes` dependency a HyperFrames editor app pins — same lookup order as Remotion's. */
+export function parseHyperframesVersion(packageJsonText: string): string | undefined {
+  try {
+    const pkg = JSON.parse(packageJsonText) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    return pkg.dependencies?.hyperframes ?? pkg.devDependencies?.hyperframes ?? undefined;
   } catch {
     return undefined;
   }
@@ -117,6 +142,7 @@ let inFlight: Promise<NodeNpxToolchain> | null = null;
 export async function probeVideoToolchain(
   appDir?: string,
   deps: Partial<ToolchainDeps> = {},
+  engine: VideoEngine = 'remotion',
 ): Promise<NodeNpxToolchain> {
   const { run, readFile: read } = { ...REAL, ...deps };
 
@@ -124,8 +150,7 @@ export async function probeVideoToolchain(
     if (!inFlight) {
       inFlight = (async () => {
         const { output } = await run(buildToolchainProbeScript(), PROBE_TIMEOUT_MS);
-        const { node, npx, ffmpeg } = parseToolchainProbeOutput(output);
-        return { node, npx, ffmpeg };
+        return parseToolchainProbeOutput(output);
       })().finally(() => {
         inFlight = null;
       });
@@ -133,12 +158,17 @@ export async function probeVideoToolchain(
     cached = await inFlight;
   }
 
-  if (appDir === undefined) return cached;
+  // `engine` is only stamped when it is not the default, so a Remotion answer
+  // is byte-identical to what this probe returned before the engine existed.
+  const base = engine === 'remotion' ? cached : { ...cached, engine };
+  if (appDir === undefined) return base;
 
-  const remotionVersion = await read(join(appDir, 'package.json'))
-    .then(parseRemotionVersion)
+  const parse = engine === 'hyperframes' ? parseHyperframesVersion : parseRemotionVersion;
+  const version = await read(join(appDir, 'package.json'))
+    .then(parse)
     .catch(() => undefined);
-  return remotionVersion === undefined ? cached : { ...cached, remotionVersion };
+  if (version === undefined) return base;
+  return engine === 'hyperframes' ? { ...base, hyperframesVersion: version } : { ...base, remotionVersion: version };
 }
 
 /** Tests only — production relies on the cache never expiring on its own. */

@@ -103,6 +103,7 @@ export async function addForgeAccount(
     login: identity.login,
     displayName: identity.displayName,
     avatarUrl: identity.avatarUrl,
+    email: identity.email ?? null,
     addedAt: Date.now(),
     hasToken: delegated === null && token !== undefined,
     delegated,

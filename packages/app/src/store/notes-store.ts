@@ -74,6 +74,52 @@ export function migrateV1ToV2(
   return { notes: version < 2 ? seedOrder(notes) : notes };
 }
 
+/**
+ * What one window's change to `notes` looks like to another (Notes popout
+ * sync). A delta rather than the whole record: two windows editing different
+ * notes at once must not have the later broadcast overwrite the earlier edit.
+ */
+export type NotesDelta = { upserts: Note[]; deletedIds: string[] };
+
+/** The notes that were added/changed/removed between two snapshots, by reference. */
+export function diffNotes(prev: Record<string, Note>, next: Record<string, Note>): NotesDelta {
+  const upserts: Note[] = [];
+  const deletedIds: string[] = [];
+  for (const [id, note] of Object.entries(next)) {
+    if (prev[id] !== note) upserts.push(note);
+  }
+  for (const id of Object.keys(prev)) {
+    if (!(id in next)) deletedIds.push(id);
+  }
+  return { upserts, deletedIds };
+}
+
+/**
+ * Merge a peer window's delta into this window's notes. Last-writer-wins per
+ * note on `updatedAt` (ties accept the incoming copy, which is how a pure
+ * reorder — it changes `order` without touching `updatedAt` — still lands).
+ * Returns the same reference when nothing changed.
+ */
+export function applyNotesDelta(
+  current: Record<string, Note>,
+  delta: NotesDelta,
+): Record<string, Note> {
+  let next = current;
+  for (const note of delta.upserts) {
+    const local = next[note.id];
+    if (local && local.updatedAt > note.updatedAt) continue;
+    if (local === note) continue;
+    if (next === current) next = { ...current };
+    next[note.id] = note;
+  }
+  for (const id of delta.deletedIds) {
+    if (!(id in next)) continue;
+    if (next === current) next = { ...current };
+    delete next[id];
+  }
+  return next;
+}
+
 export const NOTES_PERSIST_KEY = 'midnite-studio.notes';
 
 export type MigrationStorage = {

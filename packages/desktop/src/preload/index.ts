@@ -135,12 +135,15 @@ const bridge: Pick<
   | 'agent'
   | 'council'
   | 'loopRuns'
+  | 'chats'
   | 'workflow'
   | 'demoApi'
   | 'secrets'
   | 'finance'
+  | 'markets'
   | 'apiClient'
   | 'video'
+  | 'games'
   | 'media'
   | 'fs'
   | 'stats'
@@ -163,6 +166,8 @@ const bridge: Pick<
   | 'systemHealthStartSshAgent'
   | 'setup'
   | 'ollama'
+  | 'gitIdentity'
+  | 'systemMemory'
   | 'optimizer'
   | 'protocol'
   | 'db'
@@ -182,6 +187,7 @@ const bridge: Pick<
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
     list: () => call(CHANNELS.repoList),
+    logo: (req) => call(CHANNELS.repoLogo, req),
     close: (req) => call(CHANNELS.repoClose, req),
     refs: (req) => call(CHANNELS.repoRefs, req),
     worktrees: (req) => call(CHANNELS.repoWorktrees, req),
@@ -222,6 +228,7 @@ const bridge: Pick<
     commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
     conflictRegions: (req) => call(CHANNELS.conflictRegions, req),
     blobExists: (req) => call(CHANNELS.blobExists, req),
+    commitStats: (req) => call(CHANNELS.commitStats, req),
   },
   remotes: {
     list: (req) => call(CHANNELS.remotesList, req),
@@ -292,6 +299,7 @@ const bridge: Pick<
     removeItem: (req) => call(CHANNELS.forgeProjectRemoveItem, req),
   },
   ai: {
+    commitMessage: (req) => call(CHANNELS.aiCommitMessage, req),
     improveField: (req) => call(CHANNELS.aiImproveField, req),
     planBlueprint: (req) => call(CHANNELS.aiPlanBlueprint, req),
   },
@@ -411,6 +419,8 @@ const bridge: Pick<
   },
   agent: {
     list: () => call(CHANNELS.agentList),
+    recheck: () => call(CHANNELS.agentRecheck),
+    onStatus: (handler) => subscribe(EVENT_CHANNELS.agentStatus, handler),
     claudeInfo: () => call(CHANNELS.agentClaudeInfo),
     claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
     onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
@@ -466,6 +476,15 @@ const bridge: Pick<
     quote: (req) => call(CHANNELS.financeQuote, req),
     history: (req) => call(CHANNELS.financeHistory, req),
   },
+  markets: {
+    series: (req) => call(CHANNELS.marketsSeries, req),
+    quotes: (req) => call(CHANNELS.marketsQuotes, req),
+    search: (req) => call(CHANNELS.marketsSearch, req),
+    rates: () => call(CHANNELS.marketsRates),
+    portfolio: () => call(CHANNELS.marketsPortfolioGet),
+    apply: (req) => call(CHANNELS.marketsPortfolioApply, req),
+    news: (req) => call(CHANNELS.marketsNews, req),
+  },
   apiClient: {
     listCollections: (req) => call(CHANNELS.apiListCollections, req),
     readCollection: (req) => call(CHANNELS.apiReadCollection, req),
@@ -517,8 +536,57 @@ const bridge: Pick<
       resolve: (req) => call(CHANNELS.videoRootResolve, req),
     },
     setup: (req) => call(CHANNELS.videoSetup, req),
+    engine: {
+      get: (req) => call(CHANNELS.videoEngineGet, req),
+      set: (req) => call(CHANNELS.videoEngineSet, req),
+    },
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
+  },
+  games: {
+    settings: {
+      get: () => call(CHANNELS.gamesSettingsGet),
+      set: (req) => call(CHANNELS.gamesSettingsSet, req),
+    },
+    list: () => call(CHANNELS.gamesList),
+    create: (req) => call(CHANNELS.gamesCreate, req),
+    manifest: {
+      get: (req) => call(CHANNELS.gamesGetManifest, req),
+      set: (req) => call(CHANNELS.gamesSetManifest, req),
+    },
+    run: (req) => call(CHANNELS.gamesRun, req),
+    stop: (req) => call(CHANNELS.gamesStop, req),
+    reload: (req) => call(CHANNELS.gamesReload, req),
+    // One-way, like `apps.setBounds` — fires every resize frame.
+    setBounds: (req) => ipcRenderer.send(CHANNELS.gamesSetBounds, req),
+    setVisible: (req) => ipcRenderer.send(CHANNELS.gamesSetVisible, req),
+    toolbar: (req) => call(CHANNELS.gamesToolbar, req),
+    juice: (req) => call(CHANNELS.gamesJuice, req),
+    logs: (req) => call(CHANNELS.gamesLogs, req),
+    kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+    popOut: (req) => call(CHANNELS.gamesPopOut, req),
+    popped: () => call(CHANNELS.gamesPopped),
+    onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.gamesChanged, handler),
+    onOpen: (handler) => subscribe(EVENT_CHANNELS.gamesOpen, handler),
+    onRunState: (handler) => subscribe(EVENT_CHANNELS.gamesRunState, handler),
+    onConsole: (handler) => subscribe(EVENT_CHANNELS.gamesConsole, handler),
+    agent: {
+      run: (req) => call(CHANNELS.gamesAgentRun, req),
+      cancel: (req) => call(CHANNELS.gamesAgentCancel, req),
+      undo: (req) => call(CHANNELS.gamesAgentUndo, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
+    },
+    assets: {
+      sources: (req) => call(CHANNELS.gamesAssetSources, req),
+      import: (req) => call(CHANNELS.gamesImportAsset, req),
+      resync: (req) => call(CHANNELS.gamesResync, req),
+    },
+    playtests: {
+      list: (req) => call(CHANNELS.gamesPlaytests, req),
+      run: (req) => call(CHANNELS.gamesPlaytestRun, req),
+    },
+    export: (req) => call(CHANNELS.gamesExport, req),
   },
   media: {
     project: {
@@ -544,6 +612,117 @@ const bridge: Pick<
       providers: () => call(CHANNELS.mediaAudioProviders),
       import: (req) => call(CHANNELS.mediaAudioImport, req),
       onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioProgress, handler),
+      generate: (req) => call(CHANNELS.mediaAudioGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaAudioCancel, req),
+      engine: () => call(CHANNELS.mediaAudioEngine),
+      installEngine: () => call(CHANNELS.mediaAudioEngineInstall),
+      onEngineProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioEngineProgress, handler),
+      expand: (req) => call(CHANNELS.mediaAudioExpand, req),
+      gm: {
+        status: () => call(CHANNELS.mediaGmStatus),
+        ensure: (req) => call(CHANNELS.mediaGmEnsure, req),
+        load: (req) => call(CHANNELS.mediaGmLoad, req),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaGmProgress, handler),
+      },
+    },
+    music: {
+      list: (req) => call(CHANNELS.mediaMusicList, req),
+      read: (req) => call(CHANNELS.mediaMusicRead, req),
+      write: (req) => call(CHANNELS.mediaMusicWrite, req),
+      import: (req) => call(CHANNELS.mediaMusicImport, req),
+      delete: (req) => call(CHANNELS.mediaMusicDelete, req),
+      export: (req) => call(CHANNELS.mediaMusicExport, req),
+      sendToGenerator: (req) => call(CHANNELS.mediaMusicSendToGenerator, req),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaMusicChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMusicOpen, handler),
+      agent: {
+        run: (req) => call(CHANNELS.mediaMusicAgentRun, req),
+        cancel: (req) => call(CHANNELS.mediaMusicAgentCancel, req),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMusicAgentProgress, handler),
+      },
+      agy: {
+        status: () => call(CHANNELS.mediaMusicAgy, { op: 'status' }),
+        register: (req) => call(CHANNELS.mediaMusicAgy, { op: 'register', ...req }),
+        unregister: () => call(CHANNELS.mediaMusicAgy, { op: 'unregister' }),
+      },
+    },
+    model: {
+      providers: () => call(CHANNELS.mediaModelProviders),
+      generate: (req) => call(CHANNELS.mediaModelGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaModelCancel, req),
+      export: (req) => call(CHANNELS.mediaModelExport, req),
+      saveEdit: (req) => call(CHANNELS.mediaModelSaveEdit, req),
+      library: {
+        list: (req) => call(CHANNELS.mediaModelLibrary, { op: 'list', ...req }),
+        migrate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'migrate', ...req }),
+        rename: (req) => call(CHANNELS.mediaModelLibrary, { op: 'rename', ...req }),
+        move: (req) => call(CHANNELS.mediaModelLibrary, { op: 'move', ...req }),
+        delete: (req) => call(CHANNELS.mediaModelLibrary, { op: 'delete', ...req }),
+        duplicate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'duplicate', ...req }),
+        newGroup: (req) => call(CHANNELS.mediaModelLibrary, { op: 'newGroup', ...req }),
+      },
+      mesh: {
+        read: (req) => call(CHANNELS.mediaModelMesh, { op: 'read', ...req }),
+        write: (req) => call(CHANNELS.mediaModelMesh, { op: 'write', ...req }),
+        appendOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'appendOps', ...req }),
+        readOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'readOps', ...req }),
+        writeTexture: (req) => call(CHANNELS.mediaModelMesh, { op: 'writeTexture', ...req }),
+      },
+      sf3d: {
+        status: () => call(CHANNELS.mediaModelSf3d, { op: 'status' }),
+        consent: (req) => call(CHANNELS.mediaModelSf3d, { op: 'consent', ...req }),
+        revokeConsent: () => call(CHANNELS.mediaModelSf3d, { op: 'revokeConsent' }),
+        install: () => call(CHANNELS.mediaModelSf3d, { op: 'install' }),
+        cancelInstall: () => call(CHANNELS.mediaModelSf3d, { op: 'cancelInstall' }),
+        uninstall: () => call(CHANNELS.mediaModelSf3d, { op: 'uninstall' }),
+        generate: (req) => call(CHANNELS.mediaModelSf3d, { op: 'generate', ...req }),
+        cancelGenerate: (req) => call(CHANNELS.mediaModelSf3d, { op: 'cancelGenerate', ...req }),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelSf3dProgress, handler),
+      },
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaModelChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaModelOpen, handler),
+    },
+    terrain: {
+      library: (req) => call(CHANNELS.mediaTerrainLibrary, req),
+      get: (req) => call(CHANNELS.mediaTerrainGet, req),
+      setSpec: (req) => call(CHANNELS.mediaTerrainSetSpec, req),
+      setInput: (req) => call(CHANNELS.mediaTerrainSetInput, req),
+      build: (req) => call(CHANNELS.mediaTerrainBuild, req),
+      cancel: (req) => call(CHANNELS.mediaTerrainCancel, req),
+      paint: (req) => call(CHANNELS.mediaTerrainPaint, req),
+      roadKey: (req) => call(CHANNELS.mediaTerrainRoadKey, req),
+      export: (req) => call(CHANNELS.mediaTerrainExport, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainOpen, handler),
+    },
+    sprite: {
+      library: (req) => call(CHANNELS.mediaSpriteLibrary, req),
+      get: (req) => call(CHANNELS.mediaSpriteGet, req),
+      setSpec: (req) => call(CHANNELS.mediaSpriteSetSpec, req),
+      setReference: (req) => call(CHANNELS.mediaSpriteSetReference, req),
+      generate: (req) => call(CHANNELS.mediaSpriteGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaSpriteCancel, req),
+      patchFrames: (req) => call(CHANNELS.mediaSpritePatchFrames, req),
+      export: (req) => call(CHANNELS.mediaSpriteExport, req),
+      importMap: (req) => call(CHANNELS.mediaSpriteImportMap, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteOpen, handler),
+      onRenderRequest: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteRenderRequest, handler),
+      renderReady: (req) => call(CHANNELS.mediaSpriteRenderReady, req),
+      renderFrames: (req) => call(CHANNELS.mediaSpriteRenderFrames, req),
+    },
+    map: {
+      get: (req) => call(CHANNELS.mediaMapGet, req),
+      setView: (req) => call(CHANNELS.mediaMapSetView, req),
+      sources: () => call(CHANNELS.mediaMapSources),
+      cache: (req) => call(CHANNELS.mediaMapCache, req),
+      capture: (req) => call(CHANNELS.mediaMapCapture, req),
+      captureCancel: (req) => call(CHANNELS.mediaMapCaptureCancel, req),
+      onCaptureProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMapCaptureProgress, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMapOpen, handler),
     },
     reveal: (req) => call(CHANNELS.mediaReveal, req),
     ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
@@ -561,6 +740,20 @@ const bridge: Pick<
     start: (req) => call(CHANNELS.loopRunsStart, req),
     stop: (req) => call(CHANNELS.loopRunsStop, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.loopRunsChanged, handler),
+  },
+  chats: {
+    list: () => call(CHANNELS.chatsList),
+    get: (req) => call(CHANNELS.chatsGet, req),
+    create: (req) => call(CHANNELS.chatsCreate, req),
+    update: (req) => call(CHANNELS.chatsUpdate, req),
+    delete: (req) => call(CHANNELS.chatsDelete, req),
+    send: (req) => call(CHANNELS.chatsSend, req),
+    cancel: (req) => call(CHANNELS.chatsCancel, req),
+    changeDiffs: (req) => call(CHANNELS.chatsChangeDiffs, req),
+    resolveChanges: (req) => call(CHANNELS.chatsResolveChanges, req),
+    skills: (req) => call(CHANNELS.chatsSkills, req),
+    files: (req) => call(CHANNELS.chatsFiles, req),
+    onEvent: (handler) => subscribe(EVENT_CHANNELS.chatsEvent, handler),
   },
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),
@@ -676,7 +869,13 @@ const bridge: Pick<
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
   setup: {
     probe: (req) => call(CHANNELS.setupProbe, req),
+    reveal: (req) => call(CHANNELS.setupReveal, req),
   },
+  gitIdentity: {
+    get: () => call(CHANNELS.gitIdentityGet),
+    set: (req) => call(CHANNELS.gitIdentitySet, req),
+  },
+  systemMemory: () => call(CHANNELS.systemMemory),
   ollama: {
     status: () => call(CHANNELS.ollamaStatus),
     list: () => call(CHANNELS.ollamaList),

@@ -19,4 +19,11 @@ describe('buildDocHtml', () => {
     const html = buildDocHtml('t', 'hi <script>alert(1)</script>');
     expect(html).not.toContain('<script>alert(1)</script>');
   });
+
+  it('highlights fenced code with hljs token spans, and leaves unknown languages plain', () => {
+    const html = buildDocHtml('t', '```ts\nconst a = 1;\n```\n\n```nonsense-lang\nconst b = 2;\n```');
+    expect(html).toContain('<span class="hljs-keyword">const</span>');
+    expect(html).toContain('const b = 2;');
+    expect(html).not.toMatch(/nonsense-lang[^"]*"><span/);
+  });
 });

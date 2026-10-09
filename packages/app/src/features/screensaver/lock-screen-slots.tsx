@@ -27,9 +27,7 @@ const SLOT_CLASS: Record<LockScreenSlot, string> = {
 };
 
 /**
- * One occupied slot. Multiple children stack vertically in slot order —
- * `bottom-right` is exactly how battery joins the corner above the system
- * monitor widget (Theme B) without either widget knowing the other exists.
+ * One occupied slot. Multiple children stack vertically in slot order.
  */
 export function LockScreenSlotIsland({
   slot,

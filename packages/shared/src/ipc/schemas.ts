@@ -1,6 +1,35 @@
 import { z } from 'zod';
 
+import {
+  MapCaptureCancelRequestSchema,
+  MapCaptureProgressEventSchema,
+  MapCaptureRequestSchema,
+  MapCaptureResultSchema,
+} from '../media-map-capture';
+import { MapOpenEventSchema } from '../media-map-mcp';
+
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
+import {
+  ChatAttachmentSchema,
+  ChatChangeDecisionSchema,
+  ChatChangeSetSchema,
+  ChatEventSchema,
+  ChatModeSchema,
+  ChatSchema,
+  ChatSkillSchema,
+  ChatSummarySchema,
+  DEFAULT_CHAT_MODE,
+} from '../chats';
+import {
+  MarketAssetSchema,
+  MarketNewsItemSchema,
+  MarketNewsSourceSchema,
+  MarketPortfolioSchema,
+  MarketQuoteEntrySchema,
+  MarketSeriesEntrySchema,
+  MarketTimescaleSchema,
+} from '../markets';
+import { MarketPortfolioOpSchema } from '../markets-portfolio';
 
 import {
   CompanionAboutUserSchema,
@@ -151,6 +180,7 @@ import {
 } from '../fs';
 import {
   AgentDefinitionSchema,
+  AgentProbeStateSchema,
   AgentStatusSchema,
   SessionActivitySchema,
   TerminalSessionKindSchema,
@@ -174,6 +204,11 @@ import {
   OllamaSettingsSchema,
 } from '../ollama';
 import {
+  AudioEngineProgressSchema,
+  AudioEngineStatusSchema,
+  AudioExpandRequestSchema,
+  AudioExpandResultSchema,
+  AudioGenerateRequestSchema,
   AudioImportRequestSchema,
   AudioProgressEventSchema,
   AudioProviderStatusSchema,
@@ -194,6 +229,121 @@ import {
 } from '../media';
 import { DocExportFormatSchema } from '../media';
 import {
+  GmLoadResultSchema,
+  GmProgramRequestSchema,
+  GmProgressSchema,
+  GmStatusResponseSchema,
+} from '../media-music-gm';
+import {
+  GameBoundsRequest as GameBoundsRequestSchema,
+  GameConsolePayload as GameConsolePayloadSchema,
+  GameAgentProgressSchema,
+  GameAssetSourcesRequestSchema,
+  GameAssetSourcesResultSchema,
+  GameImportAssetRequestSchema,
+  GameImportAssetResultSchema,
+  GameResyncRequestSchema,
+  GameResyncResultSchema,
+  GamePlaytestListSchema,
+  GamePlaytestRunRequestSchema,
+  GamePlaytestRunResultSchema,
+  GameExportRequestSchema,
+  GameExportResultSchema,
+  GameAgentRunRequestSchema,
+  GameAgentRunResultSchema,
+  GameAgentUndoRequestSchema,
+  GameCreateRequestSchema,
+  GameCreateResultSchema,
+  GameIdRequest as GameIdRequestSchema,
+  GameLogsRequest as GameLogsRequestSchema,
+  GameLogsResponse as GameLogsResponseSchema,
+  GameManifestGetResponse as GameManifestGetResponseSchema,
+  GameManifestSetRequest as GameManifestSetRequestSchema,
+  GameRunResult as GameRunResultSchema,
+  GameRunStatePayload as GameRunStatePayloadSchema,
+  GamePopStateSchema,
+  GamePoppedResponseSchema,
+  GamesChangedSchema,
+  GamesOpenEventSchema,
+  GamesListSchema,
+  GamesSettingsReadSchema,
+  GamesSettingsPatchSchema,
+  GameToolbarRequest as GameToolbarRequestSchema,
+  GameJuiceRequest as GameJuiceRequestSchema,
+  GameJuiceSettingsSchema,
+  GameVisibleRequest as GameVisibleRequestSchema,
+} from '../media-game';
+import {
+  ModelExportRequestSchema,
+  ModelGenerateProgressEventSchema,
+  ModelGenerateRequestSchema,
+  ModelGenerateResultSchema,
+  ModelProvidersSchema,
+  ModelSaveEditRequestSchema,
+} from '../media-model';
+import { ModelLibraryNodeSchema, ModelLibraryRequestSchema } from '../media-model-library';
+import { ModelMeshRequestSchema, ModelMeshResultSchema } from '../media-model-mesh';
+import {
+  TerrainBuildRequestSchema,
+  TerrainCancelRequestSchema,
+  TerrainChangedEventSchema,
+  TerrainExportRequestSchema,
+  TerrainOpenEventSchema,
+  TerrainPaintRequestSchema,
+  TerrainProgressEventSchema,
+  TerrainResultSchemas,
+  TerrainRoadKeyRequestSchema,
+  TerrainSetInputRequestSchema,
+  TerrainSetSpecRequestSchema,
+  TerrainTargetSchema,
+  TerrainLibraryRequestSchema,
+} from '../media-terrain';
+import { MusicExportRequestSchema, MusicExportResultSchemas, MusicSendToGeneratorRequestSchema } from '../media-music-export';
+import {
+  MusicDeleteRequestSchema,
+  MusicImportRequestSchema,
+  MusicListRequestSchema,
+  MusicReadRequestSchema,
+  MusicResultSchemas,
+  MusicWriteRequestSchema,
+} from '../media-music';
+import {
+  MusicAgentCancelRequestSchema,
+  MusicAgentProgressEventSchema,
+  MusicAgentResultSchemas,
+  MusicAgentRunRequestSchema,
+  MusicAgyRegisterRequestSchema,
+  MusicChangedEventSchema,
+  MusicOpenEventSchema,
+} from '../media-music-mcp';
+import {
+  SpriteCancelRequestSchema,
+  SpriteChangedEventSchema,
+  SpriteExportRequestSchema,
+  SpriteImportMapRequestSchema,
+  SpriteGenerateRequestSchema,
+  SpriteLibraryRequestSchema,
+  SpriteOpenEventSchema,
+  SpritePatchFramesRequestSchema,
+  SpriteProgressEventSchema,
+  SpriteRenderFramesRequestSchema,
+  SpriteRenderReadyRequestSchema,
+  SpriteRenderRequestEventSchema,
+  SpriteResultSchemas,
+  SpriteSetReferenceRequestSchema,
+  SpriteSetSpecRequestSchema,
+  SpriteTargetSchema,
+} from '../media-sprite';
+import {
+  MapCacheRequestSchema,
+  MapResultSchemas,
+  MapSetViewRequestSchema,
+  MapSourcesResponseSchema,
+  MapTargetSchema,
+} from '../media-map';
+import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
+import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
+import {
   VideoProjectSchema,
   VideoRenderProgressEventSchema,
   VideoRenderSchema,
@@ -202,6 +352,8 @@ import {
   VideoToolchainSchema,
   VideoRenderOptionsSchema,
   VideoRootResolutionSchema,
+  VideoEngineSchema,
+  VideoEngineStateSchema,
 } from '../video';
 import {
   WORKFLOW_MAX_NODE_TIMEOUT_MS,
@@ -700,6 +852,24 @@ export const ForgeCommitRunsRequest = RepoId.extend({
   shas: z.array(CommitShaSchema).min(1).max(COMMIT_RUNS_MAX_SHAS),
 });
 export const ForgeCommitRunsResponse = ForgeCommitRunsResultSchema;
+
+/**
+ * The graph's Diff column: `+added -deleted` per commit, for a batch of visible
+ * rows. `null` is a merge commit (shown as an em dash). Shas git does not know
+ * are left out of the answer.
+ */
+export const CommitDiffStatSchema = z.object({
+  added: z.number().int().nonnegative(),
+  deleted: z.number().int().nonnegative(),
+  files: z.number().int().nonnegative(),
+});
+export type CommitDiffStat = z.infer<typeof CommitDiffStatSchema>;
+export const CommitStatsRequest = RepoId.extend({
+  shas: z.array(CommitShaSchema).min(1).max(COMMIT_RUNS_MAX_SHAS),
+});
+export const CommitStatsResponse = z.object({
+  stats: z.record(CommitDiffStatSchema.nullable()),
+});
 
 // --- forge polling (Phase 84 Theme C) ---------------------------------------
 
@@ -1209,6 +1379,21 @@ export const AiImproveFieldRequest = z.object({
  */
 export const AiImproveFieldResponse = GitOpResultOf(z.object({ text: z.string() }));
 
+// --- Write with AI on the commit box: ai:commitMessage ----------------------
+
+/** Same target as `StatusGetRequest` (a repo and optionally one checkout) plus
+ *  the same provider-routing fields the wand carries. */
+export const AiCommitMessageRequest = RepoId.extend({
+  worktreePath: z.string().optional(),
+  agentId: z.string().min(1).optional(),
+  ollamaModel: z.string().min(1).max(200).optional(),
+});
+
+/** `{ok:true, value:{text, source}}`; `{ok:false}` for "no changes", "no CLI", timeout. */
+export const AiCommitMessageResponse = GitOpResultOf(
+  z.object({ text: z.string(), source: z.enum(['staged', 'working']) }),
+);
+
 // --- Plan with AI: ai:planBlueprint (Phase 95 Theme F) ----------------------
 
 /**
@@ -1320,6 +1505,11 @@ export const OpenExternalResponse = z.object({
  * frozen window, and nothing this channel legitimately carries is long.
  */
 export const CLIPBOARD_MAX_LENGTH = 8192;
+
+export const RepoLogoRequest = RepoId;
+
+/** `dataUrl` is null when the repo has no favicon/logo — never an error. */
+export const RepoLogoResponse = z.object({ dataUrl: z.string().nullable() });
 
 export const ClipboardWriteTextRequest = z.object({
   text: z.string().min(1).max(CLIPBOARD_MAX_LENGTH),
@@ -1816,6 +2006,14 @@ export const NotesReorderRequest = z.object({
 export const AgentListResponse = z.object({
   agents: z.array(AgentDefinitionSchema),
   status: z.array(AgentStatusSchema).default([]),
+  /** Where the probe stands; absent from an older main reads as `ready`. */
+  probe: AgentProbeStateSchema.default('ready'),
+});
+
+/** Pushed by main whenever the probe starts, answers or fails — and answered by `agentRecheck`. */
+export const AgentStatusEvent = z.object({
+  status: z.array(AgentStatusSchema),
+  probe: AgentProbeStateSchema,
 });
 
 // --- councils (Phase 34) -----------------------------------------------------
@@ -2269,6 +2467,7 @@ export const WindowRelayMessage = z.object({
     'actions',
     'files',
     'workbench',
+    'notes',
     'sessions',
     /*
       Phase 81 Theme B: a companion running in a popout has no docked view of
@@ -2453,6 +2652,15 @@ export const CliStatusResponse = z.object({
   onPath: z.boolean().optional(),
   /** The `export PATH=…` line to add to a shell profile when `onPath` is false. */
   pathExportLine: z.string().nullable().optional(),
+  /** Which command the reported `path` is: the primary `midnite`, or the deprecated `midnite-studio` alias. */
+  command: z.enum(['midnite', 'midnite-studio']).optional(),
+  /** Whether the deprecated `midnite-studio` alias symlink is installed (and ours) beside the primary one. */
+  aliasInstalled: z.boolean().optional(),
+  /**
+   * Why the install is not the plain case — a foreign `midnite` was left alone
+   * and only the alias installed, or an old-name install is awaiting migration.
+   */
+  notice: z.string().nullable().optional(),
 });
 export type CliStatusResponse = z.infer<typeof CliStatusResponse>;
 export const CliInstallRequest = z.object({ target: z.enum(['auto', 'user']).default('auto') });
@@ -2947,8 +3155,23 @@ export const VideoRootResolveRequest = z.object({ repoId: z.string().min(1).null
 export const VideoRootResolveResponse = VideoRootResolutionSchema;
 
 /** Scaffold `templates/media-video/` into `<repo>/.midnite/media/video/` (Setup Video). */
-export const VideoSetupRequest = z.object({ repoId: z.string().min(1) });
+export const VideoSetupRequest = z.object({
+  repoId: z.string().min(1),
+  /** Phase 99 Theme H — which engine to scaffold; absent = Remotion, as before the choice existed. */
+  engine: VideoEngineSchema.optional(),
+});
 export const VideoSetupResponse = GitOpResultOf(VideoRootResolutionSchema);
+
+/**
+ * Phase 99 Theme H — read / switch a video root's engine. `active` is the root
+ * the Video tab resolved; `global` is Settings ▸ Media's own root, which a
+ * Settings page can address without disturbing the tab's adopted repo.
+ */
+export const VideoEngineTargetSchema = z.enum(['active', 'global']);
+export const VideoEngineGetRequest = z.object({ target: VideoEngineTargetSchema });
+export const VideoEngineGetResponse = VideoEngineStateSchema;
+export const VideoEngineSetRequest = z.object({ target: VideoEngineTargetSchema, engine: VideoEngineSchema });
+export const VideoEngineSetResponse = GitOpResultOf(VideoEngineStateSchema);
 
 /**
  * Re-exported under the `ipc/schemas` namespace so `bridge.ts` can reference
@@ -3047,6 +3270,155 @@ export const MediaAudioImportResponse = GitOpResultOf(
   z.object({ sessionId: z.string().min(1), files: z.array(z.string()) }),
 );
 export const MediaAudioProgressPayload = AudioProgressEventSchema;
+export const MediaAudioGenerateRequest = AudioGenerateRequestSchema;
+export const MediaAudioGenerateResponse = MediaAudioImportResponse;
+export const MediaAudioCancelRequest = z.object({ importId: z.string().min(1) });
+export const MediaAudioCancelResponse = GitOpResultSchema;
+export const MediaAudioEngineResponse = z.object({ engine: AudioEngineStatusSchema });
+export const MediaAudioEngineInstallResponse = GitOpResultSchema;
+export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
+export const MediaAudioExpandRequest = AudioExpandRequestSchema;
+export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
+
+// General MIDI sample cache (Phase 101 Theme D)
+export const MediaGmStatusResponse = GmStatusResponseSchema;
+export const MediaGmEnsureRequest = GmProgramRequestSchema;
+export const MediaGmEnsureResponse = GitOpResultSchema;
+export const MediaGmLoadRequest = GmProgramRequestSchema;
+export const MediaGmLoadResponse = GitOpResultOf(GmLoadResultSchema);
+export const MediaGmProgressPayload = GmProgressSchema;
+// Music editor (Phase 101 Theme B)
+export const MediaMusicListRequest = MusicListRequestSchema;
+export const MediaMusicListResponse = MusicResultSchemas.list;
+export const MediaMusicReadRequest = MusicReadRequestSchema;
+export const MediaMusicReadResponse = MusicResultSchemas.read;
+export const MediaMusicWriteRequest = MusicWriteRequestSchema;
+export const MediaMusicWriteResponse = MusicResultSchemas.write;
+export const MediaMusicImportRequest = MusicImportRequestSchema;
+export const MediaMusicImportResponse = MusicResultSchemas.import;
+export const MediaMusicDeleteRequest = MusicDeleteRequestSchema;
+export const MediaMusicDeleteResponse = MusicResultSchemas.delete;
+export const MediaMusicExportRequest = MusicExportRequestSchema;
+export const MediaMusicExportResponse = MusicExportResultSchemas.export;
+export const MediaMusicSendToGeneratorRequest = MusicSendToGeneratorRequestSchema;
+export const MediaMusicSendToGeneratorResponse = MusicExportResultSchemas.sendToGenerator;
+export const MediaMusicChangedPayload = MusicChangedEventSchema;
+export const MediaMusicOpenPayload = MusicOpenEventSchema;
+export const MediaMusicAgentRunRequest = MusicAgentRunRequestSchema;
+export const MediaMusicAgentRunResponse = MusicAgentResultSchemas.run;
+export const MediaMusicAgentCancelRequest = MusicAgentCancelRequestSchema;
+export const MediaMusicAgentCancelResponse = GitOpResultSchema;
+export const MediaMusicAgentProgressPayload = MusicAgentProgressEventSchema;
+/** Antigravity registration (Settings ▸ MCP): one channel, three ops. */
+export const MediaMusicAgyRequest = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('status') }),
+  z.object({ op: z.literal('register'), ...MusicAgyRegisterRequestSchema.shape }),
+  z.object({ op: z.literal('unregister') }),
+]);
+export const MediaMusicAgyResponse = MusicAgentResultSchemas.agyStatus;
+
+// Models (3D)
+export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });
+/** Resolves once the files are written (or the run failed / was cancelled). */
+export const MediaModelGenerateRequest = ModelGenerateRequestSchema;
+export const MediaModelGenerateResponse = GitOpResultOf(ModelGenerateResultSchema);
+export const MediaModelCancelRequest = z.object({ generationId: z.string().min(1) });
+export const MediaModelCancelResponse = GitOpResultSchema;
+/** Native save dialog → one of the two formats; a dismissed dialog answers `cancelled`. */
+export const MediaModelExportRequest = ModelExportRequestSchema;
+export const MediaModelExportResponse = GitOpResultOf(z.object({ dest: z.string() }));
+/** Rewrites the sidecar spec and the obj/mtl/fbx trio from an edited design. */
+export const MediaModelSaveEditRequest = ModelSaveEditRequestSchema;
+export const MediaModelSaveEditResponse = GitOpResultOf(z.object({ files: z.array(z.string()) }));
+/** The library: list / migrate / rename / move / delete / duplicate / newGroup — one channel, an `op` union. */
+export const MediaModelLibraryRequest = ModelLibraryRequestSchema;
+export const MediaModelLibraryResponse = GitOpResultOf(
+  z.object({
+    tree: z.array(ModelLibraryNodeSchema).optional(),
+    path: z.string().optional(),
+    migrated: z.number().int().nonnegative().optional(),
+    skipped: z.number().int().nonnegative().optional(),
+  }),
+);
+/** Sculpt meshes (Phase 104): read / write `.mesh.bin`, append / read the op log — one channel, an `op` union. */
+export const MediaModelMeshRequest = ModelMeshRequestSchema;
+export const MediaModelMeshResponse = GitOpResultOf(ModelMeshResultSchema);
+// Terrain (Phase 105)
+export const MediaTerrainLibraryRequest = TerrainLibraryRequestSchema;
+export const MediaTerrainLibraryResponse = TerrainResultSchemas.library;
+export const MediaTerrainGetRequest = TerrainTargetSchema;
+export const MediaTerrainGetResponse = TerrainResultSchemas.get;
+export const MediaTerrainSetSpecRequest = TerrainSetSpecRequestSchema;
+export const MediaTerrainSetSpecResponse = TerrainResultSchemas.setSpec;
+export const MediaTerrainSetInputRequest = TerrainSetInputRequestSchema;
+export const MediaTerrainSetInputResponse = TerrainResultSchemas.setInput;
+/** Resolves when the build ends: `built`, `needs-height-source`, or a failure (a cancel is `Build cancelled.`). */
+export const MediaTerrainBuildRequest = TerrainBuildRequestSchema;
+export const MediaTerrainBuildResponse = TerrainResultSchemas.build;
+export const MediaTerrainCancelRequest = TerrainCancelRequestSchema;
+export const MediaTerrainCancelResponse = TerrainResultSchemas.generic;
+export const MediaTerrainPaintRequest = TerrainPaintRequestSchema;
+export const MediaTerrainPaintResponse = TerrainResultSchemas.generic;
+export const MediaTerrainRoadKeyRequest = TerrainRoadKeyRequestSchema;
+export const MediaTerrainRoadKeyResponse = TerrainResultSchemas.roadKey;
+export const MediaTerrainExportRequest = TerrainExportRequestSchema;
+export const MediaTerrainExportResponse = TerrainResultSchemas.export;
+export const MediaTerrainProgressPayload = TerrainProgressEventSchema;
+export const MediaTerrainChangedPayload = TerrainChangedEventSchema;
+export const MediaTerrainOpenPayload = TerrainOpenEventSchema;
+
+// Sprites (Phase 106)
+export const MediaSpriteLibraryRequest = SpriteLibraryRequestSchema;
+export const MediaSpriteLibraryResponse = SpriteResultSchemas.library;
+export const MediaSpriteGetRequest = SpriteTargetSchema;
+export const MediaSpriteGetResponse = SpriteResultSchemas.get;
+export const MediaSpriteSetSpecRequest = SpriteSetSpecRequestSchema;
+export const MediaSpriteSetSpecResponse = SpriteResultSchemas.setSpec;
+export const MediaSpriteSetReferenceRequest = SpriteSetReferenceRequestSchema;
+export const MediaSpriteSetReferenceResponse = SpriteResultSchemas.generic;
+export const MediaSpriteGenerateRequest = SpriteGenerateRequestSchema;
+export const MediaSpriteGenerateResponse = SpriteResultSchemas.generate;
+export const MediaSpriteCancelRequest = SpriteCancelRequestSchema;
+export const MediaSpriteCancelResponse = SpriteResultSchemas.generic;
+export const MediaSpritePatchFramesRequest = SpritePatchFramesRequestSchema;
+export const MediaSpritePatchFramesResponse = SpriteResultSchemas.patchFrames;
+export const MediaSpriteExportRequest = SpriteExportRequestSchema;
+export const MediaSpriteExportResponse = SpriteResultSchemas.export;
+export const MediaSpriteImportMapRequest = SpriteImportMapRequestSchema;
+export const MediaSpriteImportMapResponse = SpriteResultSchemas.library;
+export const MediaSpriteProgressPayload = SpriteProgressEventSchema;
+export const MediaSpriteChangedPayload = SpriteChangedEventSchema;
+export const MediaSpriteOpenPayload = SpriteOpenEventSchema;
+export const MediaSpriteRenderReadyRequest = SpriteRenderReadyRequestSchema;
+export const MediaSpriteRenderReadyResponse = SpriteResultSchemas.generic;
+export const MediaSpriteRenderFramesRequest = SpriteRenderFramesRequestSchema;
+export const MediaSpriteRenderFramesResponse = SpriteResultSchemas.generic;
+
+// Maps (Phase 108)
+export const MediaMapGetRequest = MapTargetSchema;
+export const MediaMapGetResponse = MapResultSchemas.get;
+export const MediaMapSetViewRequest = MapSetViewRequestSchema;
+export const MediaMapSetViewResponse = MapResultSchemas.setView;
+export const MediaMapSourcesResponse = MapSourcesResponseSchema;
+export const MediaMapCacheRequest = MapCacheRequestSchema;
+export const MediaMapCacheResponse = MapResultSchemas.cache;
+export const MediaMapCaptureRequest = MapCaptureRequestSchema;
+export const MediaMapCaptureResponse = GitOpResultOf(MapCaptureResultSchema);
+export const MediaMapCaptureCancelRequest = MapCaptureCancelRequestSchema;
+export const MediaMapCaptureCancelResponse = GitOpResultOf(z.object({ cancelled: z.boolean() }));
+export const MediaMapCaptureProgressPayload = MapCaptureProgressEventSchema;
+export const MediaMapOpenPayload = MapOpenEventSchema;
+export const MediaSpriteRenderRequestPayload = SpriteRenderRequestEventSchema;
+export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
+export const MediaModelChangedPayload = ModelChangedEventSchema;
+export const MediaModelOpenPayload = ModelOpenEventSchema;
+/**
+ * SF3D, the opt-in Tier 1 (Phase 103 Theme J): status / consent / install / cancel / uninstall /
+ * generate — one channel, an `op` union, every answer a `GitOpResult`.
+ */
+export const MediaModelSf3dRequest = Sf3dRequestSchema;
+export const MediaModelSf3dResponse = z.union([GitOpResultOf(z.union([Sf3dStatusSchema, Sf3dGenerateResultSchema])), GitOpResultSchema]);
+export const MediaModelSf3dProgressPayload = Sf3dProgressEventSchema;
 
 export const MediaFfmpegStatusResponse = z.object({ ffmpeg: FfmpegStatusSchema });
 
@@ -3104,6 +3476,75 @@ export const MediaDocExportResponse = GitOpResultOf(z.object({ dest: z.string() 
 
 export const MediaChangedPayload = MediaChangedEventSchema;
 export const MediaExportProgressPayload = MediaExportProgressEventSchema;
+
+// --- chats (the Chats page) ----------------------------------------------------
+
+const ChatIdSchema = z.string().min(1).max(120);
+
+export const ChatsListResponse = z.object({ chats: z.array(ChatSummarySchema) });
+export const ChatsGetRequest = z.object({ id: ChatIdSchema });
+export const ChatsGetResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
+export const ChatsCreateRequest = z.object({
+  engine: z.string().min(1).max(80),
+  model: z.string().min(1).max(200).nullable().default(null),
+  mode: ChatModeSchema.default(DEFAULT_CHAT_MODE),
+  repoId: z.string().min(1).nullable().default(null),
+});
+export const ChatsCreateResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
+export const ChatsUpdateRequest = z.object({
+  id: ChatIdSchema,
+  title: z.string().trim().min(1).max(200).optional(),
+  pinned: z.boolean().optional(),
+  engine: z.string().min(1).max(80).optional(),
+  model: z.string().min(1).max(200).nullable().optional(),
+  mode: ChatModeSchema.optional(),
+  repoId: z.string().min(1).nullable().optional(),
+});
+export const ChatsUpdateResponse = GitOpResultOf(z.object({ chat: ChatSchema }));
+export const ChatsDeleteRequest = z.object({ ids: z.array(ChatIdSchema).min(1).max(500) });
+export const ChatsDeleteResponse = GitOpResultSchema;
+/**
+ * `fromMessageId` rewinds the thread to that USER message before sending:
+ * everything from it onward is dropped, and `text` (when given) replaces its
+ * content — "edit" is `fromMessageId` + new text, "retry" is `fromMessageId`
+ * alone.
+ */
+export const ChatsSendRequest = z.object({
+  chatId: ChatIdSchema,
+  text: z.string().max(200_000).optional(),
+  attachments: z.array(ChatAttachmentSchema).max(10).optional(),
+  fromMessageId: z.string().min(1).max(120).optional(),
+});
+export const ChatsSendResponse = GitOpResultOf(z.object({ messageId: z.string() }));
+export const ChatsCancelRequest = z.object({ chatId: ChatIdSchema });
+export const ChatsCancelResponse = GitOpResultSchema;
+export const ChatsChangeDiffsRequest = z.object({ chatId: ChatIdSchema, changeSetId: z.string().min(1) });
+export const ChatsChangeDiffsResponse = GitOpResultOf(
+  z.object({ files: z.array(z.object({ path: z.string(), diff: FileDiffSchema })) }),
+);
+export const ChatsResolveChangesRequest = z.object({
+  chatId: ChatIdSchema,
+  changeSetId: z.string().min(1),
+  decisions: z.array(ChatChangeDecisionSchema).min(1).max(1000),
+});
+export const ChatsResolveChangesResponse = GitOpResultOf(z.object({ changeSet: ChatChangeSetSchema }));
+/** The skills the composer's `/` picker offers for `engine` (and the repo's own, when there is one). */
+export const ChatsSkillsRequest = z.object({
+  engine: z.string().min(1).max(80),
+  repoId: z.string().min(1).nullable().default(null),
+});
+export const ChatsSkillsResponse = GitOpResultOf(z.object({ skills: z.array(ChatSkillSchema) }));
+/**
+ * The files the composer's `@` picker offers: the repo's tracked plus
+ * untracked-not-ignored paths, or the chat's scratch directory when it has no
+ * repo. Relative, `/`-separated; `truncated` when the cap was hit.
+ */
+export const ChatsFilesRequest = z.object({
+  repoId: z.string().min(1).nullable().default(null),
+  chatId: ChatIdSchema.nullable().default(null),
+});
+export const ChatsFilesResponse = GitOpResultOf(z.object({ files: z.array(z.string()), truncated: z.boolean() }));
+export const ChatsEventPayload = ChatEventSchema;
 
 // --- database (Phase 61) -----------------------------------------------------
 
@@ -3544,6 +3985,18 @@ export const McpGetResponse = z.object({
   allowUi: z.boolean(),
   /** Phase 97 Theme D's third switch — whether `workflow_gate_decide` may actually decide anything. */
   allowGateDecide: z.boolean(),
+  /** Phase 99 Theme G's fourth switch — whether the `model_*` tools that change a model may act. */
+  allowModels: z.boolean(),
+  /** Phase 107 Theme D's fifth switch — whether the `game_*` tools that create, run or drive a game may act. */
+  allowGames: z.boolean(),
+  /** Phase 105 Theme J's sixth switch — whether the `terrain_*` tools that change a terrain, build or export may act. */
+  allowTerrains: z.boolean(),
+  /** Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a job or export may act. */
+  allowSprites: z.boolean(),
+  /** Phase 108 Theme I's eighth switch — whether `map_goto` and `map_capture_terrain` may move the view or capture a map. */
+  allowMaps: z.boolean(),
+  /** Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song may act. */
+  allowMusic: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3556,6 +4009,12 @@ export const McpSetRequest = z.object({
   enabled: z.boolean().optional(),
   allowUi: z.boolean().optional(),
   allowGateDecide: z.boolean().optional(),
+  allowModels: z.boolean().optional(),
+  allowGames: z.boolean().optional(),
+  allowTerrains: z.boolean().optional(),
+  allowSprites: z.boolean().optional(),
+  allowMaps: z.boolean().optional(),
+  allowMusic: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
@@ -3968,3 +4427,114 @@ export const FinanceHistoryRequest = z.object({
 export const FinanceSearchResponse = GitOpResultOf(z.array(FinanceSearchResultSchema));
 export const FinanceQuoteResponse = GitOpResultOf(FinanceQuoteSchema);
 export const FinanceHistoryResponse = GitOpResultOf(z.array(FinanceHistoryPointSchema));
+
+// --- markets: the Finance dashboard (key-free, USD-denominated) -----------------
+
+/** Up to this many assets per batch — the catalogue plus a generous watchlist. */
+export const MARKETS_MAX_ASSETS = 80;
+
+/** Candles for a batch of assets over one timescale. USD, keyed by symbol. */
+export const MarketsSeriesRequest = z.object({
+  assets: z.array(MarketAssetSchema).min(1).max(MARKETS_MAX_ASSETS),
+  timescale: MarketTimescaleSchema,
+  /** Skip the cache's freshness check once — the header's Refresh button. A provider cooldown still applies. */
+  refresh: z.boolean().optional(),
+});
+export const MarketsSeriesResponse = GitOpResultOf(
+  z.object({ series: z.record(MarketSeriesEntrySchema) }),
+);
+
+/** Latest price for a batch of assets, in USD, keyed by symbol. */
+export const MarketsQuotesRequest = z.object({
+  assets: z.array(MarketAssetSchema).min(1).max(MARKETS_MAX_ASSETS),
+  refresh: z.boolean().optional(),
+});
+export const MarketsQuotesResponse = GitOpResultOf(
+  z.object({ quotes: z.record(MarketQuoteEntrySchema) }),
+);
+
+export const MarketsSearchRequest = z.object({ query: z.string().trim().min(1).max(60) });
+export const MarketsSearchResponse = GitOpResultOf(
+  z.array(MarketAssetSchema.extend({ exchange: z.string().optional() })),
+);
+
+/** The exchange-rate table: units of each currency per one US dollar. */
+export const MarketsRatesResponse = GitOpResultOf(
+  z.object({
+    base: z.literal('USD'),
+    rates: z.record(z.number()),
+    fetchedAt: z.number().nullable(),
+    stale: z.boolean(),
+  }),
+);
+
+export const MarketsPortfolioResponse = GitOpResultOf(MarketPortfolioSchema);
+export const MarketsPortfolioOpRequest = MarketPortfolioOpSchema;
+
+export const MarketsNewsRequest = z.object({
+  sources: z.array(MarketNewsSourceSchema).min(1).max(40),
+  limit: z.number().int().min(1).max(200).default(60),
+});
+export const MarketsNewsResponse = GitOpResultOf(
+  z.object({
+    items: z.array(MarketNewsItemSchema),
+    /** True when some source failed and its cached items were served instead. */
+    stale: z.boolean(),
+    /** Labels of the sources that produced nothing at all. */
+    failed: z.array(z.string()),
+  }),
+);
+
+// --- games (Phase 107 Themes A + B) -------------------------------------------
+// The shapes live in `../media-game`; these aliases give each channel its
+// request/response name in the `schemas` namespace, as every other domain does.
+
+export const GamesSettingsGetResponse = GamesSettingsReadSchema;
+export const GamesSettingsSetRequest = GamesSettingsPatchSchema;
+export const GamesSettingsSetResponse = GitOpResultOf(GamesSettingsReadSchema);
+export const GamesListResponse = GamesListSchema;
+export const GamesCreateRequest = GameCreateRequestSchema;
+export const GamesCreateResponse = GitOpResultOf(GameCreateResultSchema);
+export const GamesGetManifestRequest = GameIdRequestSchema;
+export const GamesGetManifestResponse = GameManifestGetResponseSchema;
+export const GamesSetManifestRequest = GameManifestSetRequestSchema;
+export const GamesRunRequest = GameIdRequestSchema;
+export const GamesRunResponse = GitOpResultOf(GameRunResultSchema);
+export const GamesStopRequest = GameIdRequestSchema;
+export const GamesReloadRequest = GameIdRequestSchema;
+export const GamesSetBoundsRequest = GameBoundsRequestSchema;
+export const GamesSetVisibleRequest = GameVisibleRequestSchema;
+export const GamesToolbarRequest = GameToolbarRequestSchema;
+export const GamesJuiceRequest = GameJuiceRequestSchema;
+export const GamesJuiceResponse = GitOpResultOf(GameJuiceSettingsSchema);
+export const GamesLogsRequest = GameLogsRequestSchema;
+export const GamesLogsResponse = GameLogsResponseSchema;
+export const GamesChangedPayload = GamesChangedSchema;
+export const GamesOpenPayload = GamesOpenEventSchema;
+export const GamesRunStatePayload = GameRunStatePayloadSchema;
+export const GamesConsolePayload = GameConsolePayloadSchema;
+export const GamesKitUpgradeRequest = GameIdRequestSchema;
+export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
+export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+export const GamesPopOutRequest = GameIdRequestSchema;
+export const GamesPoppedResponse = GamePoppedResponseSchema;
+export const GamesPopStatePayload = GamePopStateSchema;
+export const GamesAgentRunRequest = GameAgentRunRequestSchema;
+export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
+export const GamesAgentCancelRequest = GameIdRequestSchema;
+export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
+export const GamesAgentProgressPayload = GameAgentProgressSchema;
+export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
+export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
+export const GamesImportAssetRequest = GameImportAssetRequestSchema;
+export const GamesImportAssetResponse = GitOpResultOf(GameImportAssetResultSchema);
+export const GamesResyncRequest = GameResyncRequestSchema;
+export const GamesResyncResponse = GitOpResultOf(GameResyncResultSchema);
+// Play-tests (Theme O): the runner toolbar's Playtests menu.
+export const GamesPlaytestsRequest = GameIdRequestSchema;
+export const GamesPlaytestsResponse = GitOpResultOf(GamePlaytestListSchema);
+export const GamesPlaytestRunRequest = GamePlaytestRunRequestSchema;
+export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchema);
+// Web export (Theme P).
+export const GamesExportRequest = GameExportRequestSchema;
+export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);

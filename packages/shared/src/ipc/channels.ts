@@ -74,6 +74,8 @@ export const CHANNELS = {
    * — the gate on a pull request's "Fetch to compare" button (Phase 26 Theme H).
    */
   blobExists: 'mstudio:blob:exists',
+  /** `+added -deleted` per commit for the graph's Diff column (batched, merges are null). */
+  commitStats: 'mstudio:commit:stats',
 
   // --- remotes -------------------------------------------------------------
   remotesList: 'mstudio:remotes:list',
@@ -346,6 +348,13 @@ export const CHANNELS = {
    */
   aiImproveField: 'mstudio:ai:improve-field',
   /**
+   * "Write with AI" on the commit box — a Conventional Commits message drafted
+   * from the staged diff (or the working-tree diff when nothing is staged) by
+   * the active provider's fastest model. Read-only: main reads a diff and
+   * answers a `GitOpResult`, nothing is staged or committed.
+   */
+  aiCommitMessage: 'mstudio:ai:commit-message',
+  /**
    * Plan with AI (Phase 95 Theme F) — a fast, non-thinking model proposes a
    * project/task/blocked-by blueprint from a free-text prompt, headless,
    * with the same `GitOpResult` posture as `aiImproveField`. `main/ai/plan-
@@ -377,6 +386,9 @@ export const CHANNELS = {
    * shape this could take.
    */
   clipboardWriteText: 'mstudio:clipboard:write-text',
+
+  /** Best favicon/logo for a repo as a data URL (≤256 KB), or null. */
+  repoLogo: 'mstudio:repo:logo',
 
   // --- mutating operations -------------------------------------------------
   opCheckout: 'mstudio:op:checkout',
@@ -416,6 +428,13 @@ export const CHANNELS = {
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
   /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
   setupProbe: 'mstudio:setup:probe',
+  /** Reveal a probed catalogue tool's binary in Finder, by catalogue id. */
+  setupReveal: 'mstudio:setup:reveal',
+  /** The global git identity, `git config --global user.name/email` (Phase 98 Theme F). */
+  gitIdentityGet: 'mstudio:git-identity:get',
+  gitIdentitySet: 'mstudio:git-identity:set',
+  /** This Mac's installed RAM, for gating model downloads (Phase 98 Theme I). */
+  systemMemory: 'mstudio:system:memory',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */
@@ -538,6 +557,8 @@ export const CHANNELS = {
   terminalReorder: 'mstudio:terminal:reorder',
   /** Built-in agents merged with the user's `agents.json`. */
   agentList: 'mstudio:agent:list',
+  /** Force an install re-probe (bypasses the TTL); answers with the fresh snapshot. */
+  agentRecheck: 'mstudio:agent:recheck',
   /** Installed Claude CLI: version + install method, probed via a login shell. */
   agentClaudeInfo: 'mstudio:agent:claude-info',
   /** Run the method-matched update command; resolves when it exits. */
@@ -856,6 +877,49 @@ export const CHANNELS = {
   videoRootResolve: 'mstudio:video:root-resolve',
   /** Phase 99 Theme D — Setup Video: scaffold `templates/media-video/` into the repo. */
   videoSetup: 'mstudio:video:setup',
+  /** Phase 99 Theme H — read / switch a video root's engine (Remotion | HyperFrames). */
+  videoEngineGet: 'mstudio:video:engine-get',
+  videoEngineSet: 'mstudio:video:engine-set',
+
+  // --- games (Phase 107) -----------------------------------------------------
+  // Games are not repo media — each is its own git repo — so they take the
+  // `mstudio:games:` prefix, as Video takes `mstudio:video:`. Themes A (repos,
+  // settings) and B (runner) own these; later themes append their channels.
+  gamesSettingsGet: 'mstudio:games:settings-get',
+  gamesSettingsSet: 'mstudio:games:settings-set',
+  gamesList: 'mstudio:games:list',
+  gamesCreate: 'mstudio:games:create',
+  gamesGetManifest: 'mstudio:games:get-manifest',
+  gamesSetManifest: 'mstudio:games:set-manifest',
+  gamesRun: 'mstudio:games:run',
+  gamesStop: 'mstudio:games:stop',
+  gamesReload: 'mstudio:games:reload',
+  gamesSetBounds: 'mstudio:games:set-bounds',
+  gamesSetVisible: 'mstudio:games:set-visible',
+  gamesToolbar: 'mstudio:games:toolbar',
+  gamesJuice: 'mstudio:games:juice',
+  gamesLogs: 'mstudio:games:logs',
+  gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Move a game's runner view into the `game` popout window (Theme B). */
+  gamesPopOut: 'mstudio:games:pop-out',
+  /** Which game the `game` popout hosts, if any. */
+  gamesPopped: 'mstudio:games:popped',
+  /** Start an agent (or Ollama) run on a game — commit per changing pass (Theme M). */
+  gamesAgentRun: 'mstudio:games:agent-run',
+  gamesAgentCancel: 'mstudio:games:agent-cancel',
+  /** Undo turn: revert the game's newest agent commit. */
+  gamesAgentUndo: 'mstudio:games:agent-undo',
+  /** The picker's candidates for one tab, across the registered repos (Theme N). */
+  gamesAssetSources: 'mstudio:games:asset-sources',
+  /** Copy a media item into a game's `assets/` and commit it (Theme N). */
+  gamesImportAsset: 'mstudio:games:import-asset',
+  /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
+  gamesResync: 'mstudio:games:resync',
+  /** Play-tests (Theme O): list `playtests/*.json`, and run some or all of them. */
+  gamesPlaytests: 'mstudio:games:playtests',
+  gamesPlaytestRun: 'mstudio:games:playtest-run',
+  /** Export a game as a folder, a zip or one HTML file (Theme P). */
+  gamesExport: 'mstudio:games:export',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
@@ -884,6 +948,83 @@ export const CHANNELS = {
   // adapter today is Import (native dialog in main). Progress on `mediaAudioProgress`.
   mediaAudioProviders: 'mstudio:media:audio-providers',
   mediaAudioImport: 'mstudio:media:audio-import',
+  // Local generation (MusicGen in a utilityProcess) and its optional Ollama assist.
+  mediaAudioGenerate: 'mstudio:media:audio-generate',
+  mediaAudioCancel: 'mstudio:media:audio-cancel',
+  mediaAudioEngine: 'mstudio:media:audio-engine',
+  mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
+  mediaAudioExpand: 'mstudio:media:audio-expand',
+  // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
+  mediaGmStatus: 'mstudio:media:gm-status',
+  mediaGmEnsure: 'mstudio:media:gm-ensure',
+  mediaGmLoad: 'mstudio:media:gm-load',
+  // Music editor (Phase 101 Theme B): songs are <name>.mid + <name>.song.json inside an Audio project; main owns the MIDI I/O.
+  mediaMusicList: 'mstudio:media:music-list',
+  mediaMusicRead: 'mstudio:media:music-read',
+  mediaMusicWrite: 'mstudio:media:music-write',
+  mediaMusicImport: 'mstudio:media:music-import',
+  mediaMusicDelete: 'mstudio:media:music-delete',
+  // Phase 101 Themes J/K: export a song (.mid/WAV/MP3) and hand a rendered reference to Generator.
+  mediaMusicExport: 'mstudio:media:music-export',
+  mediaMusicSendToGenerator: 'mstudio:media:music-send-to-generator',
+  // Music agents (Phase 101 Theme H): an engine writes or refines a song; Antigravity's MCP registration lives in Settings.
+  mediaMusicAgentRun: 'mstudio:media:music-agent-run',
+  mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',
+  mediaMusicAgy: 'mstudio:media:music-agy',
+  // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
+  mediaModelProviders: 'mstudio:media:model-providers',
+  mediaModelGenerate: 'mstudio:media:model-generate',
+  mediaModelCancel: 'mstudio:media:model-cancel',
+  mediaModelExport: 'mstudio:media:model-export',
+  mediaModelSaveEdit: 'mstudio:media:model-save-edit',
+  /** The Models library (folders, groups, model.json) — see `ModelLibraryRequestSchema`. */
+  mediaModelLibrary: 'mstudio:media:model-library',
+  /** Sculpt meshes (Phase 104 Theme A) — `ModelMeshRequestSchema`'s `op` union over `.mesh.bin` + `.ops.jsonl`. */
+  mediaModelMesh: 'mstudio:media:model-mesh',
+  /** SF3D, the opt-in local image-to-3D tier — see `Sf3dRequestSchema`. Progress on `mediaModelSf3dProgress`. */
+  mediaModelSf3d: 'mstudio:media:model-sf3d',
+  // Terrain (`main/media/terrain/`, Phase 105): library ops, spec, inputs, build. Progress on `mediaTerrainProgress`.
+  mediaTerrainLibrary: 'mstudio:media:terrain-library',
+  mediaTerrainGet: 'mstudio:media:terrain-get',
+  mediaTerrainSetSpec: 'mstudio:media:terrain-set-spec',
+  mediaTerrainSetInput: 'mstudio:media:terrain-set-input',
+  mediaTerrainBuild: 'mstudio:media:terrain-build',
+  mediaTerrainCancel: 'mstudio:media:terrain-cancel',
+  /** Theme F — the land-cover paint override. Answers "not available yet" until it lands. */
+  mediaTerrainPaint: 'mstudio:media:terrain-paint',
+  /** Theme H — pick the roads colour key. Answers "not available yet" until it lands. */
+  mediaTerrainRoadKey: 'mstudio:media:terrain-road-key',
+  /** Theme I — the terrain pack. Answers "not available yet" until it lands. */
+  mediaTerrainExport: 'mstudio:media:terrain-export',
+  // Sprites (`main/media/sprite/`, Phase 106): library ops, spec, reference, generation jobs. Progress on `mediaSpriteProgress`.
+  mediaSpriteLibrary: 'mstudio:media:sprite-library',
+  mediaSpriteGet: 'mstudio:media:sprite-get',
+  mediaSpriteSetSpec: 'mstudio:media:sprite-set-spec',
+  mediaSpriteSetReference: 'mstudio:media:sprite-set-reference',
+  mediaSpriteGenerate: 'mstudio:media:sprite-generate',
+  mediaSpriteCancel: 'mstudio:media:sprite-cancel',
+  mediaSpritePatchFrames: 'mstudio:media:sprite-patch-frames',
+  /** Theme G — the sprite pack. Answers "not available yet" until it lands. */
+  mediaSpriteExport: 'mstudio:media:sprite-export',
+  /** Theme J — import a Tiled `.tmj` (tilesets embedded or `.tsj` beside it) as a new map asset. */
+  mediaSpriteImportMap: 'mstudio:media:sprite-import-map',
+  /** Theme E — the window answers a `mediaSpriteRenderRequest` (within 10 s, or the job fails). */
+  mediaSpriteRenderReady: 'mstudio:media:sprite-render-ready',
+  /** Theme E — one batch of rendered frames; resolves once main has processed it (the back-pressure). */
+  mediaSpriteRenderFrames: 'mstudio:media:sprite-render-frames',
+  // Maps (`main/media/map/`, Phase 108): the project file and the tile sources served on `mstudio-tile:`.
+  /** `{repoId, project}` → `map.json` (defaults when missing; defaults + `warning` when corrupt). */
+  mediaMapGet: 'mstudio:media:map-get',
+  /** Shallow-merges a validated patch into `map.json` (the renderer debounces viewport saves). */
+  mediaMapSetView: 'mstudio:media:map-set-view',
+  /** Which sources are usable — a keyed source learns only *whether* its key is set. */
+  mediaMapSources: 'mstudio:media:map-sources',
+  /** The tile cache under userData: `status` / `clear` / `set-cap`. */
+  mediaMapCache: 'mstudio:media:map-cache',
+  /** Capture for Terrain (Theme D): resolves with the result when the run ends; one at a time. */
+  mediaMapCapture: 'mstudio:media:map-capture',
+  /** `{captureId}` — aborts the running capture and leaves nothing behind. */
+  mediaMapCaptureCancel: 'mstudio:media:map-capture-cancel',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -893,6 +1034,37 @@ export const CHANNELS = {
   mediaDocEdit: 'mstudio:media:doc-edit',
   /** Docs (Theme B): save dialog → write md/html, or `printToPDF` the html. No ffmpeg. */
   mediaDocExport: 'mstudio:media:doc-export',
+
+  // --- chats (the Chats page) ------------------------------------------------
+  // Conversations with the roster's agent CLIs and local Ollama models, stored
+  // main-side (`<userData>/chats/`). A turn's text streams on
+  // `EVENT_CHANNELS.chatsEvent`; every op here answers a `GitOpResult`.
+  /** Every chat's summary row — filtering and grouping are the renderer's. */
+  chatsList: 'mstudio:chats:list',
+  /** One whole chat, messages and change sets included (patch text excluded). */
+  chatsGet: 'mstudio:chats:get',
+  /** An empty chat with its engine/model/mode/repo — the first send names it. */
+  chatsCreate: 'mstudio:chats:create',
+  /** Rename, pin, or change a chat's engine, model, mode or repo. */
+  chatsUpdate: 'mstudio:chats:update',
+  /** Delete chats (and their sandboxes and stored patches). Cancels a running turn first. */
+  chatsDelete: 'mstudio:chats:delete',
+  /** Start a turn — resolves once it has STARTED; text arrives on `chatsEvent`. */
+  chatsSend: 'mstudio:chats:send',
+  /** Kill the chat's running turn (process group) and settle its message as cancelled. */
+  chatsCancel: 'mstudio:chats:cancel',
+  /** The parsed `FileDiff` of every file in a change set, for the review modal. */
+  chatsChangeDiffs: 'mstudio:chats:change-diffs',
+  /**
+   * Accept or reject files/hunks of a change set. Accepts are applied to the
+   * real checkout as a patch through the per-repo write queue; a patch that no
+   * longer applies answers `{ok:false, kind:'conflict'}`.
+   */
+  chatsResolveChanges: 'mstudio:chats:resolve-changes',
+  /** The skills the chat's agent can run, scanned from its skill folders — the composer's `/` picker. */
+  chatsSkills: 'mstudio:chats:skills',
+  /** The files a chat's agent can reach (repo working tree, or its scratch dir) — the composer's `@` picker. */
+  chatsFiles: 'mstudio:chats:files',
 
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
@@ -1257,6 +1429,24 @@ export const CHANNELS = {
   /** Seven-day history for one asset. */
   financeHistory: 'mstudio:finance:history',
 
+  // --- markets: the Finance dashboard ----------------------------------------
+  // Key-free public data, fetched in main only. Every price is USD; the
+  // renderer converts through `marketsRates`.
+  /** OHLC candles for a batch of assets over one timescale. */
+  marketsSeries: 'mstudio:markets:series',
+  /** Latest USD price for a batch of assets. */
+  marketsQuotes: 'mstudio:markets:quotes',
+  /** Stock/ETF/crypto symbol autocomplete. */
+  marketsSearch: 'mstudio:markets:search',
+  /** The USD-base exchange-rate table, refreshed hourly in main. */
+  marketsRates: 'mstudio:markets:rates',
+  /** The simulated portfolio: balances, holdings, transaction log, watchlist. */
+  marketsPortfolioGet: 'mstudio:markets:portfolio-get',
+  /** Apply one deposit / withdraw / buy / sell / watch to the portfolio. */
+  marketsPortfolioApply: 'mstudio:markets:portfolio-apply',
+  /** Headlines from RSS feeds and Google News searches. */
+  marketsNews: 'mstudio:markets:news',
+
   // --- knowledge (Phase 87) ---------------------------------------------------
   // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
   // app never runs graphify (phase doc, Decision 4) — every channel below only
@@ -1341,6 +1531,8 @@ export const EVENT_CHANNELS = {
   companionUiRequest: 'mstudio:companion:ui-request',
   /** stdout/stderr chunks from an in-flight Claude CLI update. */
   agentClaudeUpdateData: 'mstudio:agent:claude-update-data',
+  /** The install probe's state or results changed — see `AgentStatusEvent`. */
+  agentStatus: 'mstudio:agent:status',
   /**
    * One reading of CPU/RAM/GPU/disk. A metric the machine cannot report is
    * OMITTED from the payload rather than sent as zero — see MetricSample.
@@ -1380,12 +1572,62 @@ export const EVENT_CHANNELS = {
   videoStudioChanged: 'mstudio:video:studio-changed',
   /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */
   videoRenderProgress: 'mstudio:video:render-progress',
+  /** The games on disk changed — see `GamesChangedPayload`. */
+  gamesChanged: 'mstudio:games:changed',
+  /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
+  gamesRunState: 'mstudio:games:run-state',
+  /** A batch of a run's console entries — see `GameConsolePayload`. */
+  gamesConsole: 'mstudio:games:console',
+  /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */
+  gamesOpen: 'mstudio:games:open',
+  /** The popped-out game changed — see `GamesPopStatePayload`. */
+  gamesPopState: 'mstudio:games:pop-state',
+  /** A game agent run advanced — see `GamesAgentProgressPayload`. */
+  gamesAgentProgress: 'mstudio:games:agent-progress',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
   mediaImageProgress: 'mstudio:media:image-progress',
   /** An audio import advanced — see `AudioProgressEventSchema`. */
   mediaAudioProgress: 'mstudio:media:audio-progress',
+  /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
+  mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
+  mediaGmProgress: 'mstudio:media:gm-progress',
+  /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
+  mediaModelProgress: 'mstudio:media:model-progress',
+  /** An agent edited a model (in-app iterative run or an MCP session) — see `ModelChangedEventSchema`. */
+  mediaModelChanged: 'mstudio:media:model-changed',
+  /** `model_open` asked the window to show a model — see `ModelOpenEventSchema`. */
+  mediaModelOpen: 'mstudio:media:model-open',
+  /** The SF3D install or a generation advanced — see `Sf3dProgressEventSchema`. */
+  mediaModelSf3dProgress: 'mstudio:media:model-sf3d-progress',
+  /** A terrain build advanced — see `TerrainProgressEventSchema`. */
+  mediaTerrainProgress: 'mstudio:media:terrain-progress',
+  /** A terrain's spec or build changed (revision bump) — see `TerrainChangedEventSchema`. */
+  mediaTerrainChanged: 'mstudio:media:terrain-changed',
+  /** `terrain_open` (Theme J) asked the window to show a terrain — see `TerrainOpenEventSchema`. */
+  mediaTerrainOpen: 'mstudio:media:terrain-open',
+  /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
+  mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
+  /** An agent edited a song (an engine's run or an MCP session) — see `MusicChangedEventSchema`. */
+  mediaMusicChanged: 'mstudio:media:music-changed',
+  /** `music_open` asked the window to show a song — see `MusicOpenEventSchema`. */
+  mediaMusicOpen: 'mstudio:media:music-open',
+  /** A music agent run advanced — see `MusicAgentProgressEventSchema`. */
+  mediaMusicAgentProgress: 'mstudio:media:music-agent-progress',
+  /** `map_goto` (Phase 108 Theme I) asked the window to fly the map somewhere — see `MapOpenEventSchema`. */
+  mediaMapOpen: 'mstudio:media:map-open',
+  /** A sprite job advanced — see `SpriteProgressEventSchema`. */
+  mediaSpriteProgress: 'mstudio:media:sprite-progress',
+  /** A sprite asset's spec, frames or job state changed (revision bump) — see `SpriteChangedEventSchema`. */
+  mediaSpriteChanged: 'mstudio:media:sprite-changed',
+  /** `sprite_open` (Theme K) asked the window to show an asset — see `SpriteOpenEventSchema`. */
+  mediaSpriteOpen: 'mstudio:media:sprite-open',
+  /** Main asks the window to render a Models character into frames (Theme E) — see `SpriteRenderRequestEventSchema`. */
+  mediaSpriteRenderRequest: 'mstudio:media:sprite-render-request',
+  /** A chat turn's text or state advanced — see `ChatEventSchema`. */
+  chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */
   mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */

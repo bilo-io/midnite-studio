@@ -1,8 +1,8 @@
 ---
 name: midnite-swarm
 description: Fan /midnite-create out across several phases (or ad hoc tasks) at once, each in its own background subagent capped to a chosen theme count, then post a recurring sitrep until every subagent has merged.
-argument-hint: "[optional: phases/tasks, themes-per-phase, sitrep interval, model]"
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch, CronCreate, CronDelete, ListAgents, SendMessage
+argument-hint: "[optional: phases/tasks, themes-per-phase, sitrep interval, model, rotate=<P>% of the context window (default 30-40%), window=<N>k]"
+allowed-tools: Bash, Read, Edit, Write, Glob, Grep, AskUserQuestion, TodoWrite, Agent, ToolSearch, CronCreate, CronDelete, ListAgents, SendMessage, TaskStop
 ---
 
 Fan-out orchestration on top of `/midnite-create` for **Midnite Studio** — one subagent per phase,
@@ -59,6 +59,16 @@ for small mechanical phases only). If this session is instead running under Code
 ask the equivalent model/provider choice that CLI itself exposes — do not invent a Claude-specific
 option name for a different CLI.
 
+## 4b · Context rotation threshold — a parameter, not a question
+
+Rotation is keyed to the share of each subagent's **context window**, not a fixed token count:
+**start the handoff once its current context reaches 30% of its window, and have the fresh agent
+running before it reaches 40%.** Do not ask; take an override from the invocation when it names
+one (`rotate=25-35%`, `rotate=300k` for an absolute count, `rotate=off` to disable) and otherwise
+use the default band. The window is the subagent model's context size: 1M for the current Opus
+and Sonnet models, 200k for Haiku. When unsure, `window=<N>k` overrides it. Record the resolved
+band on the shared board (e.g. `30–40% of 1M = 300k–400k`) so every tick applies the same numbers.
+
 ## 5 · Launch — one subagent per phase, all in parallel
 
 For each phase/task in the batch, spawn one background agent (`Agent` tool, `subagent_type:
@@ -74,8 +84,6 @@ message** so they run concurrently, not serially. Each subagent's prompt must be
   of asking.
 - Write what landed into each phase doc's own `## Headlines` theme paragraph, never into
   `_INDEX.md` — the subagent touches only its phase's table row there.
-- Write what landed into each phase doc's own `## Headlines` theme paragraph, never into
-  `_INDEX.md` — the subagent touches only its phase's table row there.
 - Still do Stage 2.7's claim in `_INDEX.md` on `main` before branching, and handle a push race with
   `git pull --rebase origin main`.
 - Use a worktree slug that can't collide with a sibling subagent's, e.g. `.worktrees/p<N>-<letters>`.
@@ -89,6 +97,19 @@ message** so they run concurrently, not serially. Each subagent's prompt must be
   failure, check whether the failing test touches files the PR changed; if not, treat it as a
   pre-existing flake, `gh run rerun <id> --failed` once, and re-watch before escalating.
 - **Commits carry no attribution trailer.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop. PR bodies follow whatever the parent session uses.
+- **Open visual PRs with their screenshots already in the body.** Capture them with the worker
+  skill's Playwright screenshot stage, commit them under `docs/screenshots/<slice>/` with
+  commit-pinned raw URLs, and embed them in the body `gh pr create` is called with. Never add
+  them after the PR is open. On the first sitrep tick after a visual PR opens, the orchestrator
+  checks its body for images. If there are none, Notes says `no screenshots` and the worker is
+  sent back to add them before CI finishes.
+- **Obey the context-rotation handoff.** When the orchestrator sends `CONTEXT ROTATION`, stop at the
+  next safe point (start nothing new), commit and push everything (a `wip:` commit if mid-change),
+  write a `## HANDOFF (read first)` section at the top of its `SCRATCHPAD.md` (goal, decisions and
+  why, done, PR and CI state with any failing job's cause, the exact next steps in order,
+  gotchas, files that matter), reply `HANDOFF READY <worktree path>` and end its turn. It never
+  merges or removes its worktree while handing off. Between rotations it keeps its context lean:
+  tail logs (`gh run view --log-failed | tail -80`), read files by range, never dump whole outputs.
 - Report back its PR URL and what landed vs. what it left open, once merged.
 
 ## 6 · Sitrep — recurring, until every subagent has merged
@@ -111,12 +132,46 @@ rebase → merge → teardown). `?` until there is a basis, `done` once merged. 
 line gives the ETA for the whole batch — parallel rows do not add, a later wave does. Bake the ETA
 column into the cron/loop prompt so every tick carries it.
 
+**The Diff column MUST ALWAYS use `🟩 +<added> 🟥 -<deleted> 📄 <files>`** (straight from the PR, or
+during local development in worktrees before a PR opens, derived from `git diff --shortstat`, or `—`
+when empty). Plain text or code block formats like `+X/-Y` or `0/0` are forbidden.
+
 **Read the scratchpads before writing the table.** The **Done** and **Next** lines in
 `.worktrees/*/SCRATCHPAD.md` are the cheapest ground truth in the swarm — written by the worker,
 sitting on disk, surviving its death — and they are what turns a `Doing` cell from "building" into
 something the human can act on. They are evidence, not a claim: cross-check each against `gh pr`
 state per the next stage, and treat a scratchpad whose **Next** hasn't moved in two ticks as a
 stalled subagent, whatever it last reported.
+
+## 6b · Context rotation — a fresh window past the threshold
+
+A subagent's context only grows, and past a few hundred thousand tokens it gets slower, costlier
+and sloppier. So on **every sitrep tick**, measure each live subagent's current context and rotate
+any that has reached the Stage 4b band (default: start at 30% of its window, done by 40%; one
+already past 40% goes first, at its very next safe point):
+
+1. **Measure** from the tail of its transcript (the `output_file` its launch returned) — never read
+   the whole file. Current context = the last turn's `input_tokens + cache_read_input_tokens +
+   cache_creation_input_tokens`:
+   ```bash
+   tail -n 200 "$OUT" | grep '"usage"' | tail -1 \
+     | jq '(.message.usage // .usage) | (.input_tokens//0)+(.cache_read_input_tokens//0)+(.cache_creation_input_tokens//0)'
+   ```
+2. **Ask for the handoff.** `SendMessage` it `CONTEXT ROTATION` with what Stage 5's handoff bullet
+   asks for. Wait for `HANDOFF READY` (or, if it is parked in a background wait, check its
+   `SCRATCHPAD.md` for the `## HANDOFF` section directly).
+3. **Close it.** `TaskStop` the old subagent once the handoff is on disk and pushed. Its worktree,
+   branch and PR stay exactly as they are.
+4. **Start fresh.** Launch a new subagent **without** worktree isolation, pointed at the *existing*
+   worktree path, whose whole brief is: work only in that worktree; read `CLAUDE.md`, then
+   `SCRATCHPAD.md` starting at `## HANDOFF`; continue from its first next step without redoing
+   finished work; the standing rules (token, no trailers, never merge on red, no `pgrep` wait loops,
+   don't remove the worktree); and the report it owes at the end. It takes the retired agent's
+   concurrency slot — a rotation never counts as an extra agent.
+5. **Note it** on the board (`rotated <task> at <N>k → fresh agent`) and in that row's Notes cell.
+
+Rotate at a safe point, not mid-merge: a subagent whose PR is green and merging may finish first.
+The orchestrator's own window is the harness's job — `/autocompact <N>k` sets its threshold.
 
 ## 7 · Babysitting a stuck subagent
 

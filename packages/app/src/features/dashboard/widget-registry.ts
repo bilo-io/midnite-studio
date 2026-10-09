@@ -1,4 +1,10 @@
-import { WIDGET_IDS, type WidgetId, type WidgetSource } from './widget-ids';
+import {
+  WIDGET_CATEGORIES,
+  WIDGET_IDS,
+  type WidgetCategory,
+  type WidgetId,
+  type WidgetSource,
+} from './widget-ids';
 
 /**
  * One table describing every widget.
@@ -19,6 +25,8 @@ export type WidgetSpec = {
   /** One line, shown in the Add-widget menu. */
   description: string;
   source: WidgetSource;
+  /** Section in the add-widget picker. */
+  category: WidgetCategory;
   /** Smallest useful size, in grid units. Enforced by the grid's own resize. */
   minW: number;
   minH: number;
@@ -30,6 +38,7 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Commit calendar',
     description: 'A day-cell heatmap of commits over the selected window.',
     source: 'stats',
+    category: 'git',
     minW: 4,
     minH: 5,
   },
@@ -38,6 +47,7 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Contributors',
     description: 'Commits, insertions and deletions per author, most recent name.',
     source: 'stats',
+    category: 'git',
     minW: 3,
     minH: 5,
   },
@@ -46,6 +56,7 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Recent activity',
     description: 'The newest commits, filtered by the board author filter.',
     source: 'stats',
+    category: 'git',
     minW: 3,
     minH: 5,
   },
@@ -54,6 +65,7 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Open pull requests',
     description: 'Open PRs with review state and checks. Needs a GitHub remote.',
     source: 'forge',
+    category: 'git',
     minW: 3,
     minH: 4,
   },
@@ -62,6 +74,7 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Open issues',
     description: 'Open issues with labels and age. Needs a GitHub remote.',
     source: 'forge',
+    category: 'git',
     minW: 3,
     minH: 4,
   },
@@ -70,6 +83,7 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Latest workflow runs',
     description: 'Recent CI runs grouped by workflow. Needs a GitHub remote.',
     source: 'forge',
+    category: 'git',
     minW: 3,
     minH: 4,
   },
@@ -78,8 +92,153 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     title: 'Repo health',
     description: 'Branch counts, stale and merged branches, repository size.',
     source: 'stats',
+    category: 'git',
     minW: 4,
     minH: 5,
+  },
+  'agent-roster': {
+    id: 'agent-roster',
+    title: 'Agent roster',
+    description: 'Every agent, whether it is installed, and how many sessions it has running.',
+    source: 'none',
+    category: 'agents',
+    minW: 3,
+    minH: 4,
+  },
+  'live-sessions': {
+    id: 'live-sessions',
+    title: 'Live sessions',
+    description: 'Running and asleep sessions, with what each agent is doing right now.',
+    source: 'none',
+    category: 'agents',
+    minW: 3,
+    minH: 4,
+  },
+  'recent-sessions': {
+    id: 'recent-sessions',
+    title: 'Recent sessions',
+    description: 'The sessions you closed most recently, and how each one ended.',
+    source: 'none',
+    category: 'agents',
+    minW: 3,
+    minH: 4,
+  },
+  'agent-activity': {
+    id: 'agent-activity',
+    title: 'Per-agent activity',
+    description: 'Live and past sessions tallied per agent.',
+    source: 'none',
+    category: 'agents',
+    minW: 3,
+    minH: 4,
+  },
+  'loop-runs': {
+    id: 'loop-runs',
+    title: 'Loop runs',
+    description: 'Running loops and the latest runs from the loop ledger.',
+    source: 'none',
+    category: 'agents',
+    minW: 3,
+    minH: 4,
+  },
+  'fin-bank-cards': {
+    id: 'fin-bank-cards',
+    title: 'Bank cards',
+    description: 'One simulated card per currency — deposit and withdraw, every change logged.',
+    source: 'none',
+    category: 'finance',
+    minW: 3,
+    minH: 6,
+  },
+  'fin-assets': {
+    id: 'fin-assets',
+    title: 'Assets',
+    description: 'A card for each asset you hold, with price, sparkline and gain or loss.',
+    source: 'none',
+    category: 'finance',
+    minW: 3,
+    minH: 6,
+  },
+  'fin-allocation': {
+    id: 'fin-allocation',
+    title: 'Allocation',
+    description: 'Your portfolio as a donut in each asset\u2019s brand colour, with the total.',
+    source: 'none',
+    category: 'finance',
+    minW: 3,
+    minH: 6,
+  },
+  'fin-chart': {
+    id: 'fin-chart',
+    title: 'Chart',
+    description: 'Search any stock or coin; candles, line, area, % change or OHLC, with a plain-language summary.',
+    source: 'none',
+    category: 'finance',
+    minW: 5,
+    minH: 11,
+  },
+  'fin-watchlist': {
+    id: 'fin-watchlist',
+    title: 'Watchlist',
+    description: 'The assets you watch, sortable, with an inline chart on every row.',
+    source: 'none',
+    category: 'finance',
+    minW: 4,
+    minH: 5,
+  },
+  'fin-markets': {
+    id: 'fin-markets',
+    title: 'Markets',
+    description: 'Every other known asset — star one to move it onto your watchlist.',
+    source: 'none',
+    category: 'finance',
+    minW: 4,
+    minH: 5,
+  },
+  'fin-transactions': {
+    id: 'fin-transactions',
+    title: 'Transactions',
+    description: 'Deposits, withdrawals, buys and sells — searchable and sortable.',
+    source: 'none',
+    category: 'finance',
+    minW: 4,
+    minH: 5,
+  },
+  'fin-news': {
+    id: 'fin-news',
+    title: 'Market news',
+    description: 'Headlines for your watchlist from RSS and news searches, with feeds you can edit.',
+    source: 'none',
+    category: 'finance',
+    minW: 3,
+    minH: 5,
+  },
+  clock: {
+    id: 'clock',
+    title: 'Clock',
+    description: 'The current time, to the second.',
+    source: 'none',
+    category: 'datetime',
+    minW: 2,
+    minH: 3,
+  },
+  date: {
+    id: 'date',
+    title: 'Date',
+    description: 'Today\u2019s date and week number.',
+    source: 'none',
+    category: 'datetime',
+    minW: 2,
+    minH: 3,
+  },
+  scratchpad: {
+    id: 'scratchpad',
+    title: 'Scratchpad',
+    description: 'Freeform notes that live on this dashboard.',
+    source: 'none',
+    category: 'productivity',
+    minW: 3,
+    minH: 4,
   },
 };
 
@@ -97,7 +256,7 @@ export const ALL_WIDGETS: readonly WidgetSpec[] = WIDGET_IDS.map((id) => WIDGETS
  * "renders either way" rather than "needs a forge".
  */
 export const isAvailable = (spec: WidgetSpec, hasForge: boolean): boolean =>
-  spec.source === 'stats' || spec.source === 'both' || hasForge;
+  spec.source !== 'forge' || hasForge;
 
 /** Widgets a repo can offer at all — what the Add-widget menu chooses from. */
 export const availableWidgets = (hasForge: boolean): readonly WidgetSpec[] =>
@@ -124,3 +283,25 @@ export const renderableWidgets = (
 /** Whether any renderable widget needs the expensive `--numstat` half. */
 export const needsChurn = (layoutIds: readonly string[]): boolean =>
   layoutIds.includes('contributors');
+
+/**
+ * The add-widget picker's sections: widgets grouped by category in
+ * `WIDGET_CATEGORIES` order, filtered by a case-insensitive match on title and
+ * description (midnite's `groupWidgetCatalog`). Empty groups are dropped, so a
+ * search never leaves a bare heading behind.
+ */
+export const groupWidgets = (
+  specs: readonly WidgetSpec[],
+  query: string,
+): { category: WidgetCategory; label: string; specs: WidgetSpec[] }[] => {
+  const needle = query.trim().toLowerCase();
+  const matches = (spec: WidgetSpec): boolean =>
+    needle === '' ||
+    spec.title.toLowerCase().includes(needle) ||
+    spec.description.toLowerCase().includes(needle);
+  return WIDGET_CATEGORIES.map(({ key, label }) => ({
+    category: key,
+    label,
+    specs: specs.filter((spec) => spec.category === key && matches(spec)),
+  })).filter((group) => group.specs.length > 0);
+};

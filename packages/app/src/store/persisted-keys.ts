@@ -24,6 +24,7 @@ import type { PersistedUi } from './ui-store';
  */
 export const PREFERENCE_KEYS = [
   'mediaExportDir', // media-page.tsx
+  'mapUnits', // media-page.tsx (Phase 108 Theme G)
   // Already registered — each has a control in an existing settings page.
   'activityTimeframe', // activity-timeline-settings.tsx
   'activityTimelineAreaLayout', // activity-timeline-settings.tsx
@@ -136,6 +137,7 @@ export const PREFERENCE_KEYS = [
   // than ahead of them — so neither was ever an orphan.
   'companionVolume', // companion-page.tsx (Voice ▸ Companion volume)
   'companionMicMode', // companion-page.tsx (Microphone ▸ hold or tap)
+  'aiThinkingStyle', // appearance-page.tsx (AI threads ▸ Loading indicator)
   'companionSttEngine', // companion-page.tsx (Microphone ▸ recognition engine, Ad Hoc)
   // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
   // real control already — the Knowledge view's own pill bar
@@ -154,6 +156,7 @@ export const SESSION_STATE_KEYS = [
   'activityTimelineOpen', // whether a panel is currently showing
   'browserDetached', // runtime popout state, corrected from main's window registry
   'browserOpen', // whether a panel is currently showing
+  'mediaSpeechOn', // toggled from the Media thread's own composer row, not a settings form
   'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
   'collapsedAccordionSections', // folded Accordion section ids — disclosure state
   'collapsedNavSections', // folded-section ids — disclosure state
@@ -166,12 +169,17 @@ export const SESSION_STATE_KEYS = [
   'fabPanelOpen', // whether a panel is currently showing
   'fabSessions', // derived tab → live-session pairing, meaningless without terminals.json
   'favouriteRepoIds', // user-marked favourites, edited in the repos panel, not a setting
+  'graphColumnVisibility', // toggled from the graph header's columns menu, not Settings — like graphColumns' widths, a view-local choice
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
   'mediaPaneCollapsed', // side panel open state — disclosure state
   'mediaTab', // current selection — which Media tab is showing
+  'mediaLastDoc', // current selection — Docs reopens the last edited doc
+  'mediaLastVideoProject', // current selection — Video reselects the last selected project, per repo
+  'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
+  'audioTabByRepo', // Media > Audio: Editor or Generator, per repo
   'projectViewByProject', // last-viewed view per project
   'projectsMode', // last-viewed mode per repo
   'repoGroupMembership', // user-created content, edited in the repos panel, not a setting

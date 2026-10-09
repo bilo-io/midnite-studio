@@ -114,17 +114,17 @@ gains a **Resume setup** leaf for that.
 
 **Theme D — Setup catalogue, probes and the install runner.** ✅ Shared catalogue, `setupProbe` channel, brew-in-a-visible-terminal install runner, pulsing-check status row ([PR #630](https://github.com/bilo-io/midnite-studio/pull/630)). Landed: `shared/src/setup.ts` holds `SETUP_CATALOGUE` (zod rows `{id, label, group, probe: {bin, versionArg, paths}, install: {brew: {formula}|{cask}, xcodeClt?} | null, icon: {set, name}, brandColor}`; seeded with `homebrew` and `git`, and Themes E–I append rows). It also holds `composeBrewInstall` (one line: formulae, then `--cask`, each deduplicated) and `planSetupInstall`, which offers a brew line, or with no brew the Homebrew bootstrap script plus `xcode-select --install` for a CLT-provided tool. `setupProbe` takes catalogue **ids**, never binary names: main (`setup-probe.ts`) resolves each against the catalogue, drops unknown ids, and drives `probeBinary` (which gained an optional `versionArg`; `systemHealth` is unchanged). The renderer side is `features/setup/install-runner.ts`: `useSetupProbe` re-probes on window focus, and `useInstallRunner` types the line into a fresh terminal via `submitCommand` (which now returns the session id). The runner counts an install as done once the session's foreground command has run and returned to a bare prompt, or the shell exits, or the tab closes. **Not in the doc, but needed for the "visible terminal" guardrail:** the full-window overlay would cover that terminal, so an install steps the overlay aside (`setup-store.aside`). The overlay stays mounted but hidden, releases its focus trap, Escape and ←/→, and shows a top-centre "Return to setup" pill. `setup-status-row.tsx` has four states (checking / missing / installing with a "Running in terminal" link / ready). Ready is a circle check whose green box-shadow glow (`.setup-ready-check`) is focus-gated and removed under reduced motion, with no allowlist additions. Icons resolve through a static `SETUP_ICONS` map (no whole-set namespace import), and a test asserts each entry is the export it names. The bootstrap/CLT offers exist only in the planner until Theme E's git page draws them.
 
-**Theme E — Git, forge selection and forge CLIs.** ◻ git detect/install, multi-select forge buttons, gh/glab/az CLI rows (Bitbucket no-CLI)
+**Theme E — Git, forge selection and forge CLIs.** ✅ Git, forge-select and forge-CLI pages over Theme D's catalogue, probe, planner and status row (PR #632). Landed: `GitPage` (version vs `RECOMMENDED_GIT_VERSION`, first renderer of `planSetupInstall`'s brew / Homebrew / Xcode-CLT offers; replaces the interim `machine` page), `ForgeSelectPage` (multi-select, persisted in `setupState.forges`), `ForgeCliPage` (`FORGE_CLI_ITEM` → gh / glab / az rows; `gh` sign-in state from `forge.cliStatus`; Bitbucket "token-based, no CLI needed"). Deferred: probing `az`'s `azure-devops` extension (the row shows the `az extension add` command).
 
-**Theme F — Accounts and git identity.** ◻ account cards (avatar, name, login, email) + `gitIdentityGet/Set` global git identity
+**Theme F — Accounts and git identity.** ✅ The `accounts` page over Phase 90's registry, plus the global git identity ([PR #631](https://github.com/bilo-io/midnite-studio/pull/631)). Account cards select and switch the active account (`useSwitchForgeAccount`) and pre-fill a name/email form that writes `git config --global` through new `gitIdentityGet/Set` channels (git-engine, serialised on the write queue under a fixed key, `GitOpResult`). `ForgeAccountSchema` gained an optional `email` from `whoami` (public email only; `/user/emails` is deferred, git config is the fallback). The add-account path reuses `useAddForgeAccount`. Account merge and de-dupe needed no new code: `listForgeAccounts` already returns the `gh`-delegated account beside vaulted ones.
 
 **Theme G — Midnite CLI page.** ✅ The `cli` page over `cliStatus`/`cliInstall` ([PR #630](https://github.com/bilo-io/midnite-studio/pull/630)). Appended after `forges` in `SETUP_PAGES` (titled "Install the Midnite CLI"). It explains the three `midnite-studio` shell forms, shows the status in Theme D's row, and its Install button calls `cliInstall({target: 'auto'})`. That install is main's own symlink, so *installing* shows no terminal link. `CliStatusResponse` gained optional `onPath`/`pathExportLine`, computed in `cli-handlers.ts` against the login-shell PATH that `shell-path.ts` folds into `process.env`. An install that fell back to an off-PATH `~/.local/bin` shows the `export PATH=…` line to add. With no bridge (browser build), the row reads *missing* with Install disabled.
 
-**Theme H — Toolchain checklist.** ◻ toolchain checklist (agent CLIs, JS stack, containers, media/misc) with brand-coloured icons
+**Theme H — Toolchain checklist.** ✅ Grouped toolchain page over the catalogue (PR #632). Landed: 12 catalogue rows (agent CLIs, JS, containers, media) with brand-coloured icons, `ToolchainPage` with ticked-and-locked installed rows, Docker-or-OrbStack satisfying the containers item, and **Install selected** as one `planSetupInstall` line in the visible terminal. `SetupStatusRow` gained a `leading` slot for the checkbox.
 
-**Theme I — Local models with Ollama.** ◻ Ollama page: education, `systemMemory`, RAM-gated curated models, background pulls lifted to app level
+**Theme I — Local models with Ollama.** ✅ The `ollama` page, last in `SETUP_PAGES` ([PR #631](https://github.com/bilo-io/midnite-studio/pull/631)). Education text, an Ollama row (new `ollama` catalogue cask) with Start Ollama, and a static curated catalogue (`shared/src/ollama-catalogue.ts`) badged fits / tight / too big against a new `systemMemory` channel (fits at or above `minRamGb`, tight down to 75%). Downloads use the existing `ollamaPull` and pull queue store; `useRefetchModelsOnPullDone` was lifted from `ModelsView` to `Shell`, so pulls keep reporting with the Models view unmounted.
 
-**Theme J — Completion transition and Welcome finale.** ◻ completion transition + "Welcome to [logo] Midnite Studio" finale
+**Theme J — Completion transition and Welcome finale.** ✅ Leaving the last page runs `completionTimeline` (`leaving` then `finale`, one frame under reduced motion): the page title, body and buttons dissolve, a one-shot `.setup-bloom` brand-gradient glow sweeps out from the anchor's centre, and every dot resolves to filled. The finale then plays the existing `playGlide` FLIP from the anchor's rect into its heading, `Welcome to [mark] Midnite Studio`; `Wordmark` gained a `gradient` prop so only "Midnite" wears the gradient. Get started fades the overlay with `dissolveTimeline`, then sets `completedAt` (the FAB's Resume leaf goes). The bloom is a one-shot keyframe guarded in both reduced-motion blocks with no allowlist entry. The finale's visual baseline is `e2e/visual/setup-finale.spec.ts` (light + dark `-linux.png`); light, dark and reduced-motion shots are under `docs/screenshots/p98-j/`.
 
 ## Deliverables
 
@@ -214,37 +214,35 @@ gains a **Resume setup** leaf for that.
 - [x] Vitest: catalogue schema round-trip, the probe parser, brew line composition (formula vs
       cask, no duplicates) and status-row states.
 
-### E — Git, forge selection and forge CLIs (M)
+### E — Git, forge selection and forge CLIs (S/M) — ✅ DONE
 
-- [ ] **Git page.**
-      - Detected version (`parseGitVersion`) against a recommended minimum.
-      - Missing or old → **Install git** via brew (or the Xcode CLT fallback), using the Theme D status row.
-      - Present and current → a ready check.
-- [ ] **Forge page.** Multi-select toggle buttons with each forge's icon and name (GitHub, GitLab,
-      Bitbucket, Azure DevOps). They are checked-style and more than one can be selected. The selection persists in `setupState`.
-- [ ] **Forge CLI page.** One Theme D status row per selected forge:
-      - `gh` for GitHub (reusing `ghStatus`, so *not-authenticated* shows a `gh auth login` action);
-      - `glab` for GitLab;
-      - `az` plus the `azure-devops` extension for Azure.
-      - **Bitbucket shows "token-based, no CLI needed"** instead of a spinner.
-- [ ] Add the `glab` and `az` probes to the Theme D catalogue.
-- [ ] Vitest: forge toggles, CLI rows derived from the selection, and Bitbucket's no-CLI state.
+*Rewritten: these are wizard pages over pieces that already exist — Theme D's `SETUP_CATALOGUE`,
+`setupProbe`, `planSetupInstall` and install runner (`install-runner.ts`), its `SetupStatusRow`, and
+Phase 27's `forge.cliStatus` (`ghStatus`). Nothing new on the wire.*
 
-### F — Accounts and git identity (M)
+- [x] **Git page** (`pages/git-page.tsx`, replaces the interim `machine` page). Probe via `useSetupProbe`
+      (`git` + `homebrew`), version vs `RECOMMENDED_GIT_VERSION` (`versionAtLeast`), install via
+      `planSetupInstall` — the first renderer of Theme D's brew / Homebrew-bootstrap / Xcode-CLT offers.
+- [x] **Forge page** (`pages/forge-select-page.tsx`). Multi-select toggle buttons, persisted in the new
+      `setupState.forges`.
+- [x] **Forge CLI page** (`pages/forge-cli-page.tsx`). One status row per selected forge via `FORGE_CLI_ITEM`;
+      `gh` reuses `forge.cliStatus` for the signed-out `gh auth login` hint; Bitbucket shows "Token-based,
+      no CLI needed".
+- [x] `gh`, `glab` and `az` rows appended to `SETUP_CATALOGUE`.
+- [x] Vitest: git-page, forge select / CLI rows / Bitbucket (`pages/*.test.tsx`), `setup.test.ts`.
+- ~~Detect `az`'s `azure-devops` extension~~ — `setupProbe` runs one `bin + versionArg` only; the row names
+      the `az extension add` command instead. Deferred.
 
-- [ ] Add `gitIdentityGet` / `gitIdentitySet` channels and schemas: global `user.name` / `user.email`.
-      Reading and writing happen in `desktop` via `git config --global`. This is not the per-repo write queue, because
-      it is a global file rather than a repo. Writes return the `GitOpResult` envelope.
-- [ ] **Account detection.** Merge the vault's accounts (`listForgeAccounts`) with a `gh`-delegated
-      GitHub account discovered from `ghStatus`. Add a best-effort **email** from the forge API where the
-      token's scope allows it (GitHub `/user/emails` needs `user:email`), falling back to the git config email.
-- [ ] **Account cards** show `UserAvatar`, display name, login and email, plus the forge icon. Selecting one
-      sets it active (`switchActiveForgeAccount`) and pre-fills the identity form.
-- [ ] **Identity form.** Name and email are editable and prefilled from the selected account, falling back to the current
-      git config. **Set as git identity** writes them globally.
-- [ ] An **Add account** path reuses the old `ForgeConnectStep` token flow for any selected forge
-      with no account yet.
-- [ ] Vitest: identity schema, merge and de-dupe of vault plus gh accounts, and the email fallback order.
+### F — Accounts and git identity (M) — ✅ DONE (PR #631, 2026-09-30)
+
+A wizard page over Phase 90's account registry (`listForgeAccounts` already merges vaulted accounts with the `gh`-delegated one, so no merge logic is rebuilt) plus one new channel pair.
+
+- [x] `gitIdentityGet` / `gitIdentitySet`: global `user.name` / `user.email` (`shared/src/git-identity.ts`). The commands live in `git-engine/src/commands/git-identity.ts` and write through the `WriteQueue` under a fixed key (`~/.gitconfig.lock` races like an index lock does). Both return the `GitOpResult` envelope.
+- [x] Best-effort **email** on accounts: `ForgeAccountSchema.email` (optional), filled from the forge's own `whoami` (GitHub and GitLab public email). Falls back to git config; `/user/emails` is deferred.
+- [x] **Account cards** (`pages/accounts-page.tsx`): `UserAvatar`, display name, `@login · email`, forge icon. Selecting one calls `useSwitchForgeAccount` (Settings ▸ Accounts' own hook) and pre-fills the form via `prefillGitIdentity`.
+- [x] **Identity form**: editable name and email, **Set as git identity** writes globally; email is validated before the button enables.
+- [x] **Add an account** reuses `useAddForgeAccount` (the forges page's token flow) for any provider.
+- [x] Vitest: identity schema and prefill fallback order, the git-engine integration test against a temp `HOME`, and the page.
 
 ### G — Midnite CLI page (S) — ✅ DONE (PR #630, 2026-09-30)
 
@@ -255,49 +253,42 @@ gains a **Resume setup** leaf for that.
       - the `pathExportLine` hint when the target is not on `PATH`.
 - [x] Vitest: installed, missing and not-on-PATH states.
 
-### H — Toolchain checklist (M)
+### H — Toolchain checklist (S/M) — ✅ DONE
 
-- [ ] Catalogue entries in four groups:
-      - **Agent CLIs:** claude, codex, gemini.
-      - **JS runtime:** node, pnpm, bun, proto.
-      - **Containers / DB:** Docker or OrbStack (either satisfies the item).
-      - **Media / misc:** ffmpeg, ripgrep, jq.
-- [ ] Each row has a checkbox, then the **tool's brand icon on the left of its name in its brand colour**, a version once
-      detected, and a Theme D status row. Rows that are already installed are checked and disabled.
-- [ ] **Install selected** runs one brew line in the terminal, then re-probes.
-- [ ] Vitest: grouping, default selection (missing items unchecked by default), and every
-      catalogue icon resolving to a defined `react-icons` export (like `icon-names.test.ts`).
+*Rewritten: one page over Theme D's catalogue, probe, runner and status row; the icon resolver
+(`setup-icons.ts`) and its test already guard every icon name.*
 
-### I — Local models with Ollama (M)
+- [x] Catalogue rows appended in four groups: claude / codex / gemini, node / pnpm / bun / proto,
+      docker / orbstack, ffmpeg / ripgrep / jq — each with a brand colour (`pages/toolchain-page.tsx`).
+- [x] Containers: either Docker Desktop or OrbStack satisfies the item (`toolchainSatisfied`).
+- [x] Each row: checkbox (`SetupStatusRow`'s new `leading` slot), brand-coloured icon, detected version,
+      status row. Installed rows are ticked and locked; missing ones start unticked.
+- [x] **Install selected** = `planSetupInstall` over the ticked items, run in the terminal, then re-probe.
+- [x] Vitest: grouping, default selection, either-runtime rule, one composed brew line, icon exports resolve.
 
-- [ ] **Educational panel.** What Ollama is (local model runtime and why it matters to agents here), the
-      recommended RAM to start (16 GB comfortable, 8 GB for small models) and a link to the Models page.
-- [ ] Ollama is detected with `ollamaStatus`. If it is missing, `brew install --cask ollama-app` runs through Theme D, and a
-      stopped daemon offers `open -a Ollama`.
-- [ ] Add a `systemMemory` one-shot channel returning `{totalBytes}` (from `os.totalmem()` in `desktop`).
-- [ ] A **curated model catalogue** in `shared`:
-      - small, coder and reasoning tiers, each `{tag, label, sizeBytes, minRamGb, blurb}`;
-      - rows are badged **fits / tight / too big** against this Mac's RAM;
-      - too-big rows can still be ticked, behind a warning.
-- [ ] **Start downloads.** Ticked models call `ollamaPull`. Progress shows inline, and the pull **keeps running
-      when the wizard moves on or closes**.
-- [ ] Lift the pull-progress subscription (`useRefetchModelsOnPullDone` and the
-      `onPullProgress` feed into `useModelsPullQueueStore`) from `models-view.tsx` to app level, so
-      the Models page shows pulls the wizard started.
-- [ ] Vitest: RAM badge thresholds, catalogue schema, and progress reaching the store with the Models
-      view unmounted.
+### I — Local models with Ollama (M) — ✅ DONE (PR #631, 2026-09-30)
 
-### J — Completion transition and Welcome finale (S/M)
+A wizard page over Phase 96's Ollama pieces and Theme D's runner; the daemon probe, `ollamaPull` and the pull queue store are reused as they are.
 
-- [ ] **Leaving the last page** starts a completion transition. The page body dissolves, a brand-gradient
+- [x] **Educational panel** (`pages/ollama-page.tsx`): what Ollama is, 16 GB comfortable and 8 GB for small models, this Mac's actual RAM, and a link to the Models view.
+- [x] **Detect, install, start**: `ollamaStatus` for the daemon and a new `ollama` row in `SETUP_CATALOGUE` (cask `ollama-app`) for the install through Theme D's runner and status row. A stopped daemon offers `open -a Ollama`.
+- [x] `systemMemory` one-shot channel returning `{totalBytes}` (`os.totalmem()` in `desktop`).
+- [x] **Curated catalogue** in `shared/src/ollama-catalogue.ts`: small, coder and reasoning tiers of `{tag, label, sizeBytes, minRamGb, blurb}`. Rows are badged fits / tight / too big by `ollamaRamFit`; too-big rows can still be ticked behind a warning.
+- [x] **Background downloads**: ticked models go through the existing `ollamaPull`, queued into `useModelsPullQueueStore`. `useRefetchModelsOnPullDone` moved from `ModelsView` to `Shell`, so a pull survives leaving the wizard and the Models page shows it.
+- [x] Vitest: RAM thresholds, catalogue schema, the page, and progress reaching the store with the Models view unmounted.
+
+### J — Completion transition and Welcome finale (S/M) — ✅ DONE (2026-10-01)
+
+- [x] **Leaving the last page** starts a completion transition. The page body dissolves, a brand-gradient
       bloom/ring sweeps outward from the anchor, and the dots resolve into one filled state.
-- [ ] **Finale.** The heading reads "Welcome to [mark] **Midnite** Studio". The mark leaves the title anchor and
+- [x] **Finale.** The heading reads "Welcome to [mark] **Midnite** Studio". The mark leaves the title anchor and
       **moves into the line** between "to" and the wordmark. Only "Midnite" wears `--font-brand` and the
       gradient, and "Studio" stays in the UI font, mirroring `Wordmark`.
-- [ ] **Get started** sets `completedAt` and fades the overlay out to the app, and the FAB's Resume leaf disappears.
-- [ ] Reduced motion swaps the transition for a static finale, with no bloom.
-- [ ] One Playwright visual baseline of the finale, which needs real fonts and gradient rendering, within the
-      `e2e-budget.mjs` caps.
+- [x] **Get started** sets `completedAt` and fades the overlay out to the app, and the FAB's Resume leaf disappears.
+- [x] Reduced motion swaps the transition for a static finale, with no bloom.
+- [x] One Playwright visual baseline of the finale, which needs real fonts and gradient rendering, within the
+      `e2e-budget.mjs` caps: `e2e/visual/setup-finale.spec.ts` (light + dark, reduced motion from before Begin so
+      the finale is one static frame), with its `-linux.png` pair generated in the pinned Playwright image.
 
 ---
 

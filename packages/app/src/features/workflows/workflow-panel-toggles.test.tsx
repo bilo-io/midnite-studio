@@ -98,12 +98,12 @@ describe('workflow side-panel toggles', () => {
     const panel = screen.getByTestId('workflow-inspector-panel');
     expect(panel.style.width).toBe('0px');
     expect(panel.hasAttribute('inert')).toBe(true);
-    expect(screen.queryByRole('separator', { name: 'Resize workflow detail' })).toBeNull();
+    expect(screen.queryByRole('separator', { name: 'Resize graph detail' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Show inspector' }));
     expect(panel.style.width).toBe(`${DEFAULT_LAYOUT.workflowDetailWidth}px`);
     expect(screen.getByRole('button', { name: 'Hide inspector' }).getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('separator', { name: 'Resize workflow detail' })).toBeTruthy();
+    expect(screen.getByRole('separator', { name: 'Resize graph detail' })).toBeTruthy();
   });
 
   it('opens the inspector for run history', async () => {

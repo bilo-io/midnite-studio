@@ -431,7 +431,7 @@ test('"take me to the graph" navigates there and names it in the thread', async 
   await submit(page, 'take me to the graph');
 
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
-  await expect(page.getByTestId('companion-thread')).toContainText('Commit Graph');
+  await expect(page.getByTestId('companion-thread')).toContainText('Commit Timeline');
 });
 
 test('"open settings, the companion page" lands on the Companion settings page', async ({ page }) => {

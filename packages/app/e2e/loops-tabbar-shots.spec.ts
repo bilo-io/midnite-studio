@@ -51,7 +51,7 @@ test('the Loops tab bar with a loop running — the active arc overlay', async (
   await open(page);
   await openLoops(page);
 
-  await page.getByTestId('loop-composer-guard').getByTestId('loop-start').click();
+  await page.getByTestId('loop-composer-guard').getByTestId('loop-extras-send').click();
   await expect(page.getByTestId('loop-composer-guard').getByTestId('loop-stop')).toBeVisible();
   await page.waitForTimeout(300);
 

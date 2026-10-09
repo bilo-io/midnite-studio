@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_LAYOUT, WIDGET_IDS, isWidgetId } from './widget-ids';
+import {
+  AGENTS_LAYOUT,
+  DEFAULT_LAYOUT,
+  GIT_WIDGET_IDS,
+  NEW_DASHBOARD_LAYOUT,
+  WIDGET_DEFAULT_SIZE,
+  WIDGET_IDS,
+  isWidgetId,
+} from './widget-ids';
 import {
   ALL_WIDGETS,
   availableWidgets,
   needsChurn,
   renderableWidgets,
+  groupWidgets,
   WIDGETS,
 } from './widget-registry';
 
@@ -17,15 +26,27 @@ describe('the widget registry', () => {
     expect(ALL_WIDGETS).toHaveLength(WIDGET_IDS.length);
   });
 
-  it('places every registered widget on the default board', () => {
-    // A widget in the registry but not in DEFAULT_LAYOUT would be invisible
-    // until someone found it in the Add-widget menu, and Reset layout would
-    // then silently remove it again.
-    expect(DEFAULT_LAYOUT.map((item) => item.i).sort()).toEqual([...WIDGET_IDS].sort());
+  it('places every git widget on the Git dashboard\u2019s default board', () => {
+    // A git widget in the registry but not in DEFAULT_LAYOUT would be invisible
+    // until someone found it in the picker, and Reset layout would then
+    // silently remove it again.
+    expect(DEFAULT_LAYOUT.map((item) => item.i).sort()).toEqual([...GIT_WIDGET_IDS].sort());
+  });
+
+  it('seeds the Agents dashboard with agent cards only', () => {
+    expect(AGENTS_LAYOUT.length).toBeGreaterThan(0);
+    for (const item of AGENTS_LAYOUT) expect(WIDGETS[item.i].category).toBe('agents');
+  });
+
+  it('gives every widget a default size that honours its own minimum', () => {
+    for (const id of WIDGET_IDS) {
+      expect(WIDGET_DEFAULT_SIZE[id].w).toBeGreaterThanOrEqual(WIDGETS[id].minW);
+      expect(WIDGET_DEFAULT_SIZE[id].h).toBeGreaterThanOrEqual(WIDGETS[id].minH);
+    }
   });
 
   it('gives every default tile at least its own minimum size', () => {
-    for (const item of DEFAULT_LAYOUT) {
+    for (const item of [...DEFAULT_LAYOUT, ...AGENTS_LAYOUT, ...NEW_DASHBOARD_LAYOUT]) {
       const spec = WIDGETS[item.i];
       expect(item.w).toBeGreaterThanOrEqual(spec.minW);
       expect(item.h).toBeGreaterThanOrEqual(spec.minH);
@@ -87,5 +108,27 @@ describe('needsChurn', () => {
 
   it('is true once the contributor table is on the board', () => {
     expect(needsChurn(['calendar', 'contributors'])).toBe(true);
+  });
+});
+
+describe('groupWidgets', () => {
+  it('groups by category in picker order', () => {
+    const groups = groupWidgets(ALL_WIDGETS, '');
+    expect(groups.map((g) => g.category)).toEqual(['git', 'agents', 'finance', 'datetime', 'productivity']);
+    expect(groups.flatMap((g) => g.specs)).toHaveLength(ALL_WIDGETS.length);
+  });
+
+  it('filters on title and description, case-insensitively, dropping empty groups', () => {
+    const groups = groupWidgets(ALL_WIDGETS, 'LOOP');
+    expect(groups.map((g) => g.category)).toEqual(['agents']);
+    expect(groups[0]?.specs.map((s) => s.id)).toContain('loop-runs');
+    expect(groupWidgets(ALL_WIDGETS, 'zzzz-nothing')).toEqual([]);
+  });
+
+  it('hides forge widgets from a repo with no forge remote but keeps repo-free ones', () => {
+    const ids = availableWidgets(false).map((s) => s.id);
+    expect(ids).not.toContain('pulls');
+    expect(ids).toContain('live-sessions');
+    expect(ids).toContain('clock');
   });
 });

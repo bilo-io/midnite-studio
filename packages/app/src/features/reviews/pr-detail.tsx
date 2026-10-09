@@ -5,7 +5,7 @@ import type {
   ForgeWriteResult,
 } from '@midnite/studio-shared';
 import { LuRocket, LuSquareArrowOutUpRight } from 'react-icons/lu';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -22,6 +22,7 @@ import {
   useActiveForgeCapability,
   useAddReviewComment,
   useForgePullComments,
+  useForgeRuns,
   useForgePullDetail,
   useForgePullFiles,
   useForgePulls,
@@ -36,6 +37,7 @@ import { ownerRepoFromGithubUrl, resolveGithubImageSrc } from '../markdown/githu
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { PrChecks } from './pr-checks';
 import { PrConversation } from './pr-conversation';
+import { checksCount, conversationCount, filesCount } from './pr-tab-counts';
 import { PrFiles } from './pr-files';
 import { PrDetailSkeleton, PrHeaderMetaSkeleton, PrOverviewSkeleton } from './reviews-skeletons';
 import { ReviewActionBar } from './review-action-bar';
@@ -78,6 +80,9 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
     description was always visible before this tab existed.
   */
   const [tab, setTab] = useState<PrTab>('overview');
+  // A path clicked on the Conversation tab, until the Files tab has handled it.
+  const [focusPath, setFocusPath] = useState<string | null>(null);
+  const clearFocusPath = useCallback(() => setFocusPath(null), []);
 
   /*
     The listing is the fallback header, not the source of truth.
@@ -95,7 +100,12 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   const pull: ForgePull | null = detail?.pull ?? listed;
 
   const files = useForgePullFiles(repoId, number, tab === 'files');
-  const comments = useForgePullComments(repoId, number, tab === 'conversation');
+  /*
+    Comments, threads and runs are fetched whatever the tab: the tab strip's
+    count pills (Conversation, Checks) need them before anyone opens the tab,
+    and all three are cached under the same keys the tabs read.
+  */
+  const comments = useForgePullComments(repoId, number, true);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   /*
     Preview-deployment candidates (Phase 71 Theme D), scanned from whatever
@@ -112,9 +122,11 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
     );
     return matchPreviewDeploy(text, previewDeployHosts);
   }, [detail?.body, comments.data?.comments, previewDeployHosts]);
-  // Same tab gate as the patch it decorates: threads are only ever drawn on the
-  // Files tab, so a reader who opens a PR onto Checks pays for no GraphQL call.
-  const threads = useForgePullThreads(repoId, number, tab === 'files');
+  // Threads are drawn on the Files tab (inline) and the Conversation tab (nested
+  // under their review), so a reader who opens a PR onto Checks or Overview
+  // pays for no GraphQL call.
+  const threads = useForgePullThreads(repoId, number, true);
+  const runs = useForgeRuns(repoId, true, pull?.headBranch ? pull.headBranch : undefined);
   /*
     Phase 90 Theme H's own deferred item, unblocked now that a real adapter
     can report `threadResolution: 'partial'` — Bitbucket has no thread object
@@ -156,6 +168,12 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   }
 
   const checks = checksStatus(pull);
+  const counts: Record<PrTab, number | null> = {
+    overview: null,
+    files: filesCount(detail?.changedFiles ?? null),
+    conversation: conversationCount(comments.data?.comments ?? null, threads.data?.threads ?? null),
+    checks: checksCount(runs.data?.runs ?? null, detail?.headSha ?? null),
+  };
 
   return (
     /*
@@ -207,6 +225,17 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             }`}
           >
             {label}
+            {counts[id] !== null ? (
+              <span
+                data-testid={`pr-tab-count-${id}`}
+                // Decorative: the tab's accessible name stays its label, as every
+                // existing `getByRole('tab', { name })` caller expects.
+                aria-hidden="true"
+                className="ml-1.5 inline-block min-w-[1.25rem] rounded-full bg-muted px-1.5 text-center text-[10px] font-medium leading-4 tabular-nums text-muted-foreground"
+              >
+                {counts[id]}
+              </span>
+            ) : null}
             {/*
               The Checks pill rides the tab itself. A reviewer's first question
               of a PR is whether it is red, and answering it only once the tab
@@ -255,6 +284,8 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
               notReady={notReady(files.data?.cli)}
               pullUrl={pull.url}
               threads={threads.data?.threads ?? []}
+              focusPath={focusPath}
+              onFocusHandled={clearFocusPath}
               repoId={repoId}
               baseSha={detail?.baseSha ?? null}
               review={{
@@ -283,6 +314,18 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             isLoading={comments.isLoading}
             error={comments.data?.error ?? null}
             notReady={notReady(comments.data?.cli)}
+            threads={threads.data?.threads ?? []}
+            // Only when the patch is already cached — never fetched for an excerpt.
+            files={files.data?.files?.files ?? null}
+            onReply={async (input) => (await reply.mutateAsync(input)).ok}
+            onResolve={(input) => resolve.mutate(input)}
+            busy={busy}
+            writeError={writeError}
+            partialNote={capability?.threadResolution === 'partial'}
+            onOpenFile={(path) => {
+              setFocusPath(path);
+              setTab('files');
+            }}
           />
         ) : (
           <PrChecks

@@ -36,10 +36,10 @@ extraResources:
   # owns the branch.
   - from: ../../templates
     to: templates
-  # The CLI wrapper (`midnite-studio` on PATH). `resources/` is only
+  # The CLI wrapper (`midnite` on PATH, plus a deprecated `midnite-studio` alias wrapper). `resources/` is only
   # `directories.buildResources` — a source of build inputs electron-builder
   # never copies into the bundle on its own — so `cli-handlers.ts`'s
-  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite-studio`) has
+  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite`) has
   # pointed at a path that does not exist in every packaged build until now.
   - from: resources/bin
     to: bin
@@ -56,6 +56,12 @@ extraResources:
   # package's own mirror of `template-path.ts`'s dev-vs-packaged split.
   - from: src/main/hooks/prepare-commit-msg.sh
     to: hooks/prepare-commit-msg.sh
+  # Vendored game engines (Phase 107 Theme C) — copied into game repos at creation time.
+  - from: resources/game-engines
+    to: game-engines
+  # Terrain materials (Phase 105 Theme F) — CC0 tiled materials for splat blending.
+  - from: resources/terrain-materials
+    to: terrain-materials
 
 asar: true
 asarUnpack:

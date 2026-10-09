@@ -1,6 +1,6 @@
-import { CHANNELS, EVENT_CHANNELS, failure, schemas } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, failure, MediaTabSchema, ok, schemas } from '@midnite/studio-shared';
 
-import { agyImageProvider } from '../media/image/agy';
+import { agyImageProvider, isAgyInstalled } from '../media/image/agy';
 import { geminiImageProvider } from '../media/image/gemini';
 import { createImageService } from '../media/image/image-service';
 import { createOllamaImageProvider, imageCapableModels } from '../media/image/ollama';
@@ -35,7 +35,7 @@ async function discoverOllamaImageModels() {
   return imageCapableModels(shown);
 }
 
-const service = createImageService({
+export const imageService = createImageService({
   providers: {
     gemini: geminiImageProvider,
     openai: openaiImageProvider,
@@ -47,16 +47,27 @@ const service = createImageService({
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaImageProgress, event),
   fetch: (input, init) => fetch(input, init),
   discoverOllamaModels: discoverOllamaImageModels,
+  agyAvailable: isAgyInstalled,
+  readReference: async (repoId, path) => {
+    // `<tab>/<project>/<path…>` inside the repo's `.midnite/media/`, confined by the media store.
+    const [tab, project, ...rest] = path.split('/');
+    const parsedTab = MediaTabSchema.safeParse(tab);
+    if (!parsedTab.success || !project || rest.length === 0) return failure(`Reference ${path} is not a media file.`);
+    const read = await mediaStore.readBytes({ repoId, tab: parsedTab.data, project, path: rest.join('/') });
+    if (!read.ok) return read;
+    const ext = path.split('.').pop()?.toLowerCase();
+    return ok({ bytes: read.value, mime: ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png' });
+  },
 });
 
 export function registerMediaImageHandlers(): void {
-  handleBare(CHANNELS.mediaImageProviders, async () => ({ providers: await service.providerStatuses() }));
+  handleBare(CHANNELS.mediaImageProviders, async () => ({ providers: await imageService.providerStatuses() }));
   handle(
     CHANNELS.mediaImageGenerate,
     schemas.MediaImageGenerateRequest,
     async (req) => {
       try {
-        return await service.generate(req);
+        return await imageService.generate(req);
       } catch (error) {
         return failure(error instanceof Error ? error.message : String(error));
       }
@@ -66,7 +77,7 @@ export function registerMediaImageHandlers(): void {
   handle(
     CHANNELS.mediaImageCancel,
     schemas.MediaImageCancelRequest,
-    ({ generationId }) => service.cancel(generationId),
+    ({ generationId }) => imageService.cancel(generationId),
     (issue) => failure(issue),
   );
 }

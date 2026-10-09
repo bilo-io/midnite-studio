@@ -55,6 +55,16 @@ Ask which model or provider runs the subagents, using whatever choice your own C
 mechanism actually exposes (a model name, a provider, or "same as this session" if there is no
 separate choice to make). Don't invent an option your CLI doesn't have.
 
+## 4b · Context rotation threshold — a parameter, not a question
+
+Rotation is keyed to the share of each subagent's **context window**, not a fixed token count:
+**start the handoff once its current context reaches 30% of its window, and have the fresh agent
+running before it reaches 40%.** Do not ask; take an override from the invocation when it names
+one (`rotate=25-35%`, `rotate=300k` for an absolute count, `rotate=off` to disable) and otherwise
+use the default band. The window is the subagent model's context size: 1M for the current Opus
+and Sonnet models, 200k for Haiku. When unsure, `window=<N>k` overrides it. Record the resolved
+band on the shared board (e.g. `30–40% of 1M = 300k–400k`) so every tick applies the same numbers.
+
 ## 5 · Launch — one subagent per phase, all in parallel
 
 For each phase/task in the batch, spawn one background agent using your CLI's own
@@ -70,8 +80,6 @@ conversation's context) and must instruct it to:
   of asking.
 - Write what landed into each phase doc's own `## Headlines` theme paragraph, never into
   `_INDEX.md` — the subagent touches only its phase's table row there.
-- Write what landed into each phase doc's own `## Headlines` theme paragraph, never into
-  `_INDEX.md` — the subagent touches only its phase's table row there.
 - Still do Stage 2.7's claim in `_INDEX.md` on `main` before branching, and handle a push race with
   `git pull --rebase origin main`.
 - Use a worktree slug that can't collide with a sibling subagent's, e.g. `.worktrees/p<N>-<letters>`.
@@ -85,6 +93,19 @@ conversation's context) and must instruct it to:
   failing test touches files the PR changed; if not, treat it as a pre-existing flake, re-run the
   failed job once, and re-check before escalating.
 - **Commits carry no attribution trailer.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte. PR bodies follow whatever the parent session uses.
+- **Open visual PRs with their screenshots already in the body.** Capture them with the worker
+  skill's Playwright screenshot stage, commit them under `docs/screenshots/<slice>/` with
+  commit-pinned raw URLs, and embed them in the body `gh pr create` is called with. Never add
+  them after the PR is open. On the first sitrep tick after a visual PR opens, the orchestrator
+  checks its body for images. If there are none, Notes says `no screenshots` and the worker is
+  sent back to add them before CI finishes.
+- **Obey the context-rotation handoff.** When the orchestrator sends `CONTEXT ROTATION`, stop at the
+  next safe point (start nothing new), commit and push everything (a `wip:` commit if mid-change),
+  write a `## HANDOFF (read first)` section at the top of its `SCRATCHPAD.md` (goal, decisions and
+  why, done, PR and CI state with any failing job's cause, the exact next steps in order,
+  gotchas, files that matter), reply `HANDOFF READY <worktree path>` and end its turn. It never
+  merges or removes its worktree while handing off. Between rotations it keeps its context lean:
+  tail logs (`gh run view --log-failed | tail -80`), read files by range, never dump whole outputs.
 - Report back its PR URL and what landed vs. what it left open, once merged.
 
 ## 6 · Sitrep — recurring, until every subagent has merged
@@ -108,6 +129,25 @@ sitting on disk, surviving its death — and they are what turns a `Doing` cell 
 something the human can act on. They are evidence, not a claim: cross-check each against `gh pr`
 state per the next stage, and treat a scratchpad whose **Next** hasn't moved in two ticks as a
 stalled subagent, whatever it last reported.
+
+## 6b · Context rotation — a fresh window past the threshold
+
+A subagent's context only grows, and past a few hundred thousand tokens it gets slower, costlier
+and sloppier. So on **every sitrep tick**, check each live subagent's current context size with
+whatever the CLI exposes (its transcript's last-turn token usage, a status command, or the
+subagent's own report) and rotate any that has reached the Stage 4b band (default: start at 30% of its window, done by
+40%; one already past 40% goes first, at its very next safe point):
+
+1. **Ask for the handoff** — message it `CONTEXT ROTATION` with what Stage 5's handoff bullet asks
+   for, and wait for `HANDOFF READY` (or find the `## HANDOFF` section in its `SCRATCHPAD.md`).
+2. **Close it** once the handoff is on disk and pushed. Its worktree, branch and PR stay as they are.
+3. **Start fresh** — a new subagent pointed at the *existing* worktree path, whose brief is: read
+   the convention file, then `SCRATCHPAD.md` starting at `## HANDOFF`; continue from its first next
+   step without redoing finished work; the standing rules; and the report it owes. It takes the
+   retired agent's slot — a rotation never counts as an extra agent.
+4. **Note it** on the board and in that row's Notes cell.
+
+Rotate at a safe point, not mid-merge: a subagent whose PR is green and merging may finish first.
 
 ## 7 · Babysitting a stuck subagent
 

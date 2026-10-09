@@ -20,7 +20,14 @@
  */
 import { z } from 'zod';
 
-export const SETUP_ITEM_GROUPS = ['core', 'forge-cli', 'agent-cli', 'js', 'containers', 'media'] as const;
+export const SETUP_ITEM_GROUPS = [
+  'core',
+  'forge-cli',
+  'agent-cli',
+  'js',
+  'containers',
+  'media',
+] as const;
 export const SetupItemGroupSchema = z.enum(SETUP_ITEM_GROUPS);
 export type SetupItemGroup = z.infer<typeof SetupItemGroupSchema>;
 
@@ -73,7 +80,11 @@ export const SETUP_CATALOGUE: readonly SetupItem[] = [
     id: 'homebrew',
     label: 'Homebrew',
     group: 'core',
-    probe: { bin: 'brew', versionArg: '--version', paths: ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'] },
+    probe: {
+      bin: 'brew',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'],
+    },
     install: null,
     icon: { set: 'si', name: 'SiHomebrew' },
     brandColor: '#FBB040',
@@ -91,7 +102,254 @@ export const SETUP_CATALOGUE: readonly SetupItem[] = [
     icon: { set: 'si', name: 'SiGit' },
     brandColor: '#F05032',
   },
+  // --- Theme E: forge CLIs ---
+  {
+    id: 'gh',
+    label: 'GitHub CLI',
+    group: 'forge-cli',
+    probe: {
+      bin: 'gh',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/gh', '/usr/local/bin/gh'],
+    },
+    install: { brew: { formula: 'gh' } },
+    icon: { set: 'si', name: 'SiGithub' },
+    brandColor: '#8B949E',
+  },
+  {
+    id: 'glab',
+    label: 'GitLab CLI',
+    group: 'forge-cli',
+    probe: {
+      bin: 'glab',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/glab', '/usr/local/bin/glab'],
+    },
+    install: { brew: { formula: 'glab' } },
+    icon: { set: 'si', name: 'SiGitlab' },
+    brandColor: '#FC6D26',
+  },
+  {
+    id: 'az',
+    label: 'Azure CLI',
+    group: 'forge-cli',
+    probe: {
+      bin: 'az',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/az', '/usr/local/bin/az'],
+    },
+    install: { brew: { formula: 'azure-cli' } },
+    icon: { set: 'lu', name: 'LuCloud' },
+    brandColor: '#0078D4',
+  },
+  // --- Theme H: toolchain ---
+  {
+    id: 'claude',
+    label: 'Claude Code',
+    group: 'agent-cli',
+    probe: {
+      bin: 'claude',
+      versionArg: '--version',
+      paths: [
+        '/opt/homebrew/bin/claude',
+        '/usr/local/bin/claude',
+        '~/.claude/local/claude',
+        '~/.local/bin/claude',
+      ],
+    },
+    install: { brew: { cask: 'claude-code' } },
+    icon: { set: 'si', name: 'SiClaude' },
+    brandColor: '#D97757',
+  },
+  {
+    id: 'codex',
+    label: 'Codex CLI',
+    group: 'agent-cli',
+    probe: {
+      bin: 'codex',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/codex', '/usr/local/bin/codex'],
+    },
+    install: { brew: { formula: 'codex' } },
+    icon: { set: 'lu', name: 'LuBot' },
+    brandColor: '#10A37F',
+  },
+  {
+    id: 'gemini',
+    label: 'Gemini CLI',
+    group: 'agent-cli',
+    probe: {
+      bin: 'gemini',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/gemini', '/usr/local/bin/gemini'],
+    },
+    install: { brew: { formula: 'gemini-cli' } },
+    icon: { set: 'si', name: 'SiGooglegemini' },
+    brandColor: '#4285F4',
+  },
+  {
+    id: 'node',
+    label: 'Node.js',
+    group: 'js',
+    probe: {
+      bin: 'node',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/node', '/usr/local/bin/node'],
+    },
+    install: { brew: { formula: 'node' } },
+    icon: { set: 'si', name: 'SiNodedotjs' },
+    brandColor: '#5FA04E',
+  },
+  {
+    id: 'pnpm',
+    label: 'pnpm',
+    group: 'js',
+    probe: {
+      bin: 'pnpm',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/pnpm', '/usr/local/bin/pnpm'],
+    },
+    install: { brew: { formula: 'pnpm' } },
+    icon: { set: 'si', name: 'SiPnpm' },
+    brandColor: '#F69220',
+  },
+  {
+    id: 'bun',
+    label: 'Bun',
+    group: 'js',
+    probe: {
+      bin: 'bun',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/bun', '/usr/local/bin/bun', '~/.bun/bin/bun'],
+    },
+    install: { brew: { formula: 'bun' } },
+    icon: { set: 'si', name: 'SiBun' },
+    brandColor: '#D9A679',
+  },
+  {
+    id: 'proto',
+    label: 'proto',
+    group: 'js',
+    probe: {
+      bin: 'proto',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/proto', '/usr/local/bin/proto', '~/.proto/bin/proto'],
+    },
+    install: { brew: { formula: 'proto' } },
+    icon: { set: 'si', name: 'SiMoonrepo' },
+    brandColor: '#6F53F3',
+  },
+  {
+    id: 'docker',
+    label: 'Docker Desktop',
+    group: 'containers',
+    probe: {
+      bin: 'docker',
+      versionArg: '--version',
+      paths: [
+        '/opt/homebrew/bin/docker',
+        '/usr/local/bin/docker',
+        '/Applications/Docker.app/Contents/Resources/bin/docker',
+      ],
+    },
+    install: { brew: { cask: 'docker-desktop' } },
+    icon: { set: 'si', name: 'SiDocker' },
+    brandColor: '#2496ED',
+  },
+  {
+    id: 'orbstack',
+    label: 'OrbStack',
+    group: 'containers',
+    probe: {
+      bin: 'orbctl',
+      versionArg: 'version',
+      paths: ['/opt/homebrew/bin/orbctl', '/usr/local/bin/orbctl', '~/.orbstack/bin/orbctl'],
+    },
+    install: { brew: { cask: 'orbstack' } },
+    icon: { set: 'lu', name: 'LuBox' },
+    brandColor: '#0F9BF1',
+  },
+  {
+    id: 'ffmpeg',
+    label: 'ffmpeg',
+    group: 'media',
+    probe: {
+      bin: 'ffmpeg',
+      versionArg: '-version',
+      paths: ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'],
+    },
+    install: { brew: { formula: 'ffmpeg' } },
+    icon: { set: 'si', name: 'SiFfmpeg' },
+    brandColor: '#3DA638',
+  },
+  {
+    id: 'ripgrep',
+    label: 'ripgrep',
+    group: 'media',
+    probe: {
+      bin: 'rg',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/rg', '/usr/local/bin/rg'],
+    },
+    install: { brew: { formula: 'ripgrep' } },
+    icon: { set: 'lu', name: 'LuSearch' },
+    brandColor: '#E5533D',
+  },
+  {
+    id: 'jq',
+    label: 'jq',
+    group: 'media',
+    probe: {
+      bin: 'jq',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/jq', '/usr/local/bin/jq'],
+    },
+    install: { brew: { formula: 'jq' } },
+    icon: { set: 'lu', name: 'LuBraces' },
+    brandColor: '#9A9A9A',
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama',
+    group: 'core',
+    probe: {
+      bin: 'ollama',
+      versionArg: '--version',
+      paths: ['/opt/homebrew/bin/ollama', '/usr/local/bin/ollama', '/Applications/Ollama.app/Contents/Resources/ollama'],
+    },
+    install: { brew: { cask: 'ollama-app' } },
+    icon: { set: 'si', name: 'SiOllama' },
+    brandColor: '#8E8E93',
+  },
 ];
+
+/** The container runtimes either of which satisfies the toolchain page's one "containers" item. */
+export const CONTAINER_RUNTIME_IDS = ['docker', 'orbstack'] as const;
+
+/** Forge → the catalogue CLI it uses; Bitbucket has no official CLI (`null`). Azure also needs the `azure-devops` extension. */
+export const FORGE_CLI_ITEM: Readonly<
+  Record<'github' | 'gitlab' | 'bitbucket' | 'azure', string | null>
+> = {
+  github: 'gh',
+  gitlab: 'glab',
+  bitbucket: null,
+  azure: 'az',
+};
+
+/** The oldest git the app's graph and worktree features are tested against. */
+export const RECOMMENDED_GIT_VERSION = '2.30.0';
+
+/** Whether dotted version `a` is at least `b` — numeric per segment, missing segments read as 0. */
+export function versionAtLeast(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return true;
+}
 
 export function setupItem(id: string): SetupItem | undefined {
   return SETUP_CATALOGUE.find((item) => item.id === id);
@@ -110,6 +368,11 @@ export type SetupProbeResult = z.infer<typeof SetupProbeResultSchema>;
 
 /** Catalogue ids to probe. An id the catalogue does not know is dropped from the answer, not guessed at. */
 export const SetupProbeRequest = z.object({ ids: z.array(z.string().min(1)).min(1).max(64) });
+/** Reveal a catalogue tool's binary in Finder. Id, never a path: main re-resolves it, so the renderer cannot aim the reveal anywhere. */
+export const SetupRevealRequest = z.object({ id: z.string().min(1) });
+export const SetupRevealResponse = z.object({ ok: z.boolean(), message: z.string().optional() });
+export type SetupRevealResponse = z.infer<typeof SetupRevealResponse>;
+
 export const SetupProbeResponse = z.object({ results: z.array(SetupProbeResultSchema) });
 export type SetupProbeResponse = z.infer<typeof SetupProbeResponse>;
 
@@ -158,14 +421,21 @@ export type SetupInstallOption = {
  * anything else — and when a ticked item is one the Command Line Tools also
  * provide (git), `xcode-select --install` is offered beside it.
  */
-export function planSetupInstall(items: readonly SetupItem[], brewInstalled: boolean): SetupInstallOption[] {
+export function planSetupInstall(
+  items: readonly SetupItem[],
+  brewInstalled: boolean,
+): SetupInstallOption[] {
   const brewLine = composeBrewInstall(items);
   if (brewInstalled) {
     return brewLine ? [{ id: 'brew', label: 'Install with Homebrew', command: brewLine }] : [];
   }
   const options: SetupInstallOption[] = [];
   if (brewLine) {
-    options.push({ id: 'homebrew-bootstrap', label: 'Install Homebrew first', command: HOMEBREW_INSTALL_COMMAND });
+    options.push({
+      id: 'homebrew-bootstrap',
+      label: 'Install Homebrew first',
+      command: HOMEBREW_INSTALL_COMMAND,
+    });
   }
   if (items.some((item) => item.install?.xcodeClt)) {
     options.push({

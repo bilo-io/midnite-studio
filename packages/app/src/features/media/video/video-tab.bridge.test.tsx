@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
-import { DEFAULT_LAYOUT } from '../../../store/ui-store';
+import { DEFAULT_LAYOUT, useUiStore } from '../../../store/ui-store';
 import { VideoTab } from './video-tab';
 
 /**
@@ -77,6 +77,25 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
+  it('the toolbar centres the title, badge on the left, Render then Export on the right', async () => {
+    await open({ ...fixtures, video: { projects: [PROJECT] } });
+    fireEvent.click(screen.getByRole('button', { name: /COP31 showreel/ }));
+    const title = await screen.findByTestId('video-toolbar-title');
+    expect(title.textContent).toBe('COP31 showreel');
+    expect(title.getAttribute('title')).toBe('COP31 showreel');
+    expect(screen.getByTestId('video-toolbar-centre').contains(title)).toBe(true);
+    expect(screen.getByTestId('video-toolbar').className).toContain('grid-cols-[1fr_auto_1fr]');
+    expect(screen.getByTestId('video-toolbar-left').contains(screen.getByTestId('video-root-source'))).toBe(true);
+    const right = screen.getByTestId('video-toolbar-right');
+    const controls = Array.from(right.querySelectorAll('button'));
+    const render = controls.findIndex((b) => b.textContent?.includes('Render'));
+    const exportIdx = controls.findIndex((b) => b.getAttribute('aria-label')?.startsWith('Export '));
+    expect(render).toBeGreaterThanOrEqual(0);
+    expect(exportIdx).toBeGreaterThan(render);
+    // the format chevron belongs to Export and is the very last control
+    expect(controls.at(-1)?.getAttribute('aria-label')).toBe('Export format');
+  });
+
   it('a project missing node/npx shows the toolchain warning', async () => {
     await open({
       ...fixtures,
@@ -106,6 +125,14 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
 
     expect(await screen.findByRole('button', { name: /My New Video/ })).toBeTruthy();
     expect(await screen.findByText("The studio isn't running.")).toBeTruthy();
+  });
+
+  it('the empty state CTA starts a new video project', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'New video project' }));
+    fireEvent.change(await screen.findByPlaceholderText('COP31 showreel'), { target: { value: 'Teaser' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(await screen.findByRole('button', { name: /Teaser/ })).toBeTruthy();
   });
 
   it('renders resizable panels with resize handles', async () => {
@@ -174,5 +201,36 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
     fireEvent.click(screen.getByRole('button', { name: /logo\.png/ }));
     expect(await screen.findByText('assets/logo.png')).toBeTruthy();
     expect(screen.getByTestId('media-readout').textContent).toContain('2.0 KB');
+  });
+
+  describe('remembers the last selected project per repo', () => {
+    const OTHER = { id: 'teaser', title: 'Teaser cut', valid: true, composition: 'Main' };
+    const data: MockFixtures = { ...fixtures, video: { projects: [PROJECT, OTHER] } };
+
+    it('records the selection and reselects it on return', async () => {
+      useUiStore.setState({ mediaLastVideoProject: {} });
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
+      await screen.findByText('Teaser cut');
+      fireEvent.click(screen.getByRole('button', { name: /Teaser cut/ }));
+      expect(useUiStore.getState().mediaLastVideoProject['repo-1']).toBe('teaser');
+      cleanup();
+
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
+      expect(await screen.findByText("The studio isn't running.")).toBeTruthy();
+    });
+
+    it('is per repo: another repo starts with nothing selected', async () => {
+      useUiStore.setState({ mediaLastVideoProject: { 'repo-1': 'teaser' } });
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-2' } });
+      await screen.findByText('Teaser cut');
+      expect(screen.getByText('Select a project')).toBeTruthy();
+    });
+
+    it('falls back to nothing selected when the remembered project is gone', async () => {
+      useUiStore.setState({ mediaLastVideoProject: { 'repo-1': 'deleted' } });
+      renderView(<VideoTab />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
+      await screen.findByText('Teaser cut');
+      expect(screen.getByText('Select a project')).toBeTruthy();
+    });
   });
 });

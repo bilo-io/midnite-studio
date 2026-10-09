@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
+import { LuGitBranch, LuGitCommitHorizontal, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 
 import { type ClosedSession, type CommitCi, type CommitProvenance } from '@midnite/studio-shared';
 import { useDialogs } from '../../components/dialog-host';
@@ -23,6 +23,7 @@ import { countLocalBranches } from './branch-count';
 import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
+import { StatPill } from '../../components/stat-pill';
 import { CommitGraphRow, formatDate, RECENCY_WINDOW_MS } from './graph-row';
 import { formatNumber } from '../../lib/format-number';
 import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
@@ -37,6 +38,7 @@ import {
 import { CiRunModal } from './ci-run-modal';
 import { useRefsBySha } from './ref-badge';
 import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
+import { dividerColors } from './diff-divider';
 import { CommitInlinePanel, WorkingTreeInlinePanel } from './graph-inline-panels';
 import { InlineExpander, InlineSlot, SLOT_INSET, lanesLeaving } from './inline-expansion';
 import { isReducedMotion } from '../../lib/reduced-motion';
@@ -44,7 +46,9 @@ import { useEditableFocus } from '../../lib/use-editable-focus';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 import { useCommitCi } from './use-commit-ci';
-import { useActiveAgentWorktreePaths, useActiveAgentWorktreeSessions } from './use-agent-worktrees';
+import { useCommitStats } from './use-commit-stats';
+import { hiddenColumnTokens } from './column-visibility';
+import { useActiveAgentWorktreeSessions } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
 import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
 import { applyHeadLane, findHeadLane } from './head-lane';
@@ -86,6 +90,9 @@ export function GraphView() {
   // by a future build falls back to the default instead of rendering nothing.
   const provenanceMarkMode = provenanceMarkModeOf(useUiStore((s) => s.graphProvenanceMark));
   const showCi = useUiStore((s) => s.graphShowCi);
+  const columnVisibility = useUiStore((s) => s.graphColumnVisibility);
+  const showDiff = columnVisibility.diff;
+  const showDiffChart = columnVisibility.diffChart;
 
   const { agents } = useAgents();
   const { data: closedSessions } = useSessionHistory();
@@ -265,7 +272,11 @@ export function GraphView() {
     [checkoutRef, currentBranch, report],
   );
 
-  const activeWorktreePaths = useActiveAgentWorktreePaths();
+  // The session behind `isAgentActive(ref)` — a terminal agent or a running
+  // chat. Most rows never ask for the occupant itself (only a ref whose badge
+  // is about to render the avatar does); the glow only needs the key set.
+  const activeAgentSessions = useActiveAgentWorktreeSessions();
+  const activeWorktreePaths = useMemo(() => new Set(activeAgentSessions.keys()), [activeAgentSessions]);
   const isAgentActive = useCallback(
     (ref: (typeof refs)[number]) => {
       if (ref.worktreePath && activeWorktreePaths.has(ref.worktreePath)) {
@@ -276,10 +287,6 @@ export function GraphView() {
     [activeWorktreePaths],
   );
 
-  // The session behind `isAgentActive(ref)` — a separate map rather than
-  // folded into the callback above because most rows never call this one at
-  // all (only a ref whose badge is about to render the avatar does).
-  const activeAgentSessions = useActiveAgentWorktreeSessions();
   const agentSessionFor = useCallback(
     (ref: (typeof refs)[number]) =>
       ref.worktreePath ? activeAgentSessions.get(ref.worktreePath) : undefined,
@@ -570,6 +577,8 @@ export function GraphView() {
     kept-alive graph behind another view, asks for nothing and polls nothing.
   */
   const ciBySha = useCommitCi(repoId, rows, rowCount, virtualizer.range, showCi && visible);
+  // The Diff and Diff Chart columns: only fetched while either is switched on and the graph is the visible view.
+  const diffBySha = useCommitStats(repoId, rows, rowCount, virtualizer.range, (showDiff || showDiffChart) && visible);
   const ciRef = useRef(ciBySha);
   ciRef.current = ciBySha;
   const [ciModal, setCiModal] = useState<{ sha: string; subject: string | null; ci: CommitCi } | null>(null);
@@ -657,6 +666,26 @@ export function GraphView() {
     if (workingTreeOpen && workingTreeGone) selectWorkingTree(false);
   }, [workingTreeOpen, workingTreeGone, selectWorkingTree]);
 
+  /**
+   * The maximum churn lines (additions or deletions) across the visible viewport slice.
+   * Diff Chart bars scale relative to this so relative churn is immediately readable
+   * without scanning the entire commit history.
+   */
+  const maxViewportDiff = useMemo(() => {
+    if (!showDiffChart) return 1;
+    let max = 0;
+    for (const item of virtualizer.getVirtualItems()) {
+      const row = rows[item.index];
+      if (!row) continue;
+      const stat = diffBySha.get(row.commit.sha);
+      if (stat) {
+        if (stat.added > max) max = stat.added;
+        if (stat.deleted > max) max = stat.deleted;
+      }
+    }
+    return max > 0 ? max : 1;
+  }, [showDiffChart, virtualizer, rows, diffBySha]);
+
   if (!repoId) {
     return <EmptyState title="No repository selected" body="Pick one from the sidebar." />;
   }
@@ -704,6 +733,7 @@ export function GraphView() {
         className="flex min-w-0 flex-1 flex-col"
         style={graphColumnVars(columns)}
         data-graph-ci={showCi ? 'on' : 'off'}
+        data-graph-hide={hiddenColumnTokens(columnVisibility)}
       >
         {status ? (
           <ConflictBanner status={status} onError={setOpError} onOpenConflict={selectConflict} />
@@ -738,6 +768,7 @@ export function GraphView() {
             colorIdx={headRow?.colorIdx ?? 0}
             lane={headRow?.lane ?? 0}
             expanded={workingTreeOpen}
+            markMode={provenanceMarkMode}
             onSelect={() => selectWorkingTree(!workingTreeOpen)}
           />
         ) : null}
@@ -767,6 +798,11 @@ export function GraphView() {
               <WorkingTreeInlinePanel
                 active={visible && workingTreeOpen}
                 onClose={() => selectWorkingTree(false)}
+                dividerGradient={dividerColors(
+                  headRow?.colorIdx ?? 0,
+                  rows[0] ? applyHeadLane(rows[0], 0, headLane).colorIdx : undefined,
+                  theme.palette,
+                )}
               />
             </InlineSlot>
           </InlineExpander>
@@ -788,6 +824,7 @@ export function GraphView() {
             colorIdx={headRow?.colorIdx ?? 0}
             lane={headRow?.lane ?? 0}
             selectedSelector={graphSelection?.kind === 'stash' ? graphSelection.selector : null}
+            markMode={provenanceMarkMode}
             onSelect={selectStash}
           />
         ) : null}
@@ -863,6 +900,8 @@ export function GraphView() {
                     agent={agent}
                     markMode={provenanceMarkMode}
                     ci={showCi ? ciBySha.get(row.commit.sha) : undefined}
+                    diffStat={showDiff || showDiffChart ? diffBySha.get(row.commit.sha) : undefined}
+                    maxDiffLines={maxViewportDiff}
                     onOpenCi={onOpenCi}
                     onSelect={toggleCommit}
                     onContextMenu={onRowContextMenu}
@@ -898,6 +937,13 @@ export function GraphView() {
                           repoId={repoId}
                           sha={row.commit.sha}
                           onClose={() => selectCommit(null)}
+                          dividerGradient={dividerColors(
+                            applyHeadLane(row, item.index, headLane).colorIdx,
+                            rows[item.index + 1]
+                              ? applyHeadLane(rows[item.index + 1]!, item.index + 1, headLane).colorIdx
+                              : undefined,
+                            theme.palette,
+                          )}
                         />
                       </InlineSlot>
                     </InlineExpander>
@@ -917,20 +963,26 @@ export function GraphView() {
         <footer className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5 tabular-nums">
             <LuGitCommitVertical aria-hidden className="h-3 w-3 shrink-0" />
-            {formatNumber(rows.length)} commits
+            <StatPill>{formatNumber(rows.length)}</StatPill> commits
           </span>
           <span className="flex items-center gap-1.5 tabular-nums">
             <LuGitBranch aria-hidden className="h-3 w-3 shrink-0" />
-            {formatNumber(branchCount)} branches
+            <StatPill>{formatNumber(branchCount)}</StatPill> branches
           </span>
           {loading ? <span>loading…</span> : null}
           {truncated ? <span>history truncated at the row cap</span> : null}
           <span className="ml-auto flex items-center gap-3">
             <span className="flex items-center gap-1.5 tabular-nums">
               <LuUsers aria-hidden className="h-3 w-3 shrink-0" />
-              {formatNumber(authorCount)} authors
+              <StatPill>{formatNumber(authorCount)}</StatPill> authors
             </span>
-            {firstCommit !== null ? <span>first commit {formatDate(firstCommit)}</span> : null}
+            {firstCommit !== null ? (
+              <span className="flex items-center gap-1.5">
+                <StatPill>1st</StatPill> commit
+                <LuGitCommitHorizontal aria-hidden className="h-3 w-3 shrink-0" />
+                <StatPill>{formatDate(firstCommit)}</StatPill>
+              </span>
+            ) : null}
           </span>
         </footer>
       </div>

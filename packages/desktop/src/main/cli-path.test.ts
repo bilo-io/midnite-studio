@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { preferredTargets, pathExportLine } from './cli-path';
+import { aliasTargetFor, preferredTargets, pathExportLine } from './cli-path';
 
 describe('preferredTargets', () => {
   it('tries /usr/local/bin before the user-local fallback', () => {
     expect(preferredTargets('/Users/x')).toEqual([
-      '/usr/local/bin/midnite-studio',
-      '/Users/x/.local/bin/midnite-studio',
+      '/usr/local/bin/midnite',
+      '/Users/x/.local/bin/midnite',
     ]);
+  });
+});
+
+describe('aliasTargetFor', () => {
+  it('puts the deprecated midnite-studio alias beside the primary target', () => {
+    expect(aliasTargetFor('/usr/local/bin/midnite')).toBe('/usr/local/bin/midnite-studio');
+    expect(aliasTargetFor('/Users/x/.local/bin/midnite')).toBe('/Users/x/.local/bin/midnite-studio');
   });
 });
 

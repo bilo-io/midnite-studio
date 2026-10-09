@@ -11,6 +11,7 @@ import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
+import { ReattachedNote } from './reattached-note';
 import { useAgents } from './use-agents';
 import { YieldedToSessionsPage } from './yielded-to-sessions-page';
 
@@ -168,7 +169,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   return (
     // Named for the e2e suite: the panel's own box is what maximizing changes,
     // and its header, its list and its panes are all separately-sized children.
-    <div data-terminal-panel className="flex h-full min-h-0 flex-col bg-background">
+    <div data-terminal-panel className="relative flex h-full min-h-0 flex-col bg-background">
       <TerminalHeader
         path={activeLiveCwd ?? active?.cwd ?? cwd}
         state={activeState}
@@ -240,6 +241,8 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
           ) : null}
         </div>
       </div>
+
+      <ReattachedNote />
     </div>
   );
 }

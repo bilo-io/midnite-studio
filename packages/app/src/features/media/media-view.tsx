@@ -4,7 +4,12 @@ import { PageDetachMark } from '../../components/page-detach-mark';
 import { useUiStore } from '../../store/ui-store';
 import { AudioTab } from './audio/audio-tab';
 import { DocsTab } from './doc/docs-tab';
+import { GameTab } from './game/game-tab';
 import { ImageTab } from './image/image-tab';
+import { ModelTab } from './model/model-tab';
+import { MapTab } from './map/map-tab';
+import { SpriteTab } from './sprite/sprite-tab';
+import { TerrainTab } from './terrain/terrain-tab';
 import { MediaTabStrip } from './media-tab-strip';
 import { useMediaChangedInvalidation } from './use-media';
 import { VideoTab } from './video/video-tab';
@@ -21,6 +26,11 @@ const TAB_BODY: Record<MediaTab, () => React.ReactElement> = {
   image: () => <ImageTab />,
   video: () => <VideoTab />,
   audio: () => <AudioTab />,
+  model: () => <ModelTab />,
+  terrain: () => <TerrainTab />,
+  sprite: () => <SpriteTab />,
+  game: () => <GameTab />,
+  map: () => <MapTab />,
 };
 
 export function MediaView() {
@@ -34,7 +44,9 @@ export function MediaView() {
       <div className="flex h-10 shrink-0 items-center gap-3 border-b border-border px-3">
         <PageDetachMark role="media" />
         <h1 className="text-sm font-semibold">Media</h1>
-        <MediaTabStrip active={tab} onSelect={setTab} />
+        <div className="ml-auto shrink-0">
+          <MediaTabStrip active={tab} onSelect={setTab} />
+        </div>
       </div>
       <div className="min-h-0 flex-1">
         <Body />

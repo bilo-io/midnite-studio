@@ -3,7 +3,16 @@ import { pathToFileURL } from 'node:url';
 import { net, protocol } from 'electron';
 
 import { readBlob } from '@midnite/studio-git-engine';
-import { isSafeBlobRev, MSTUDIO_BLOB_MAX_BYTES, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
+import {
+  isMarkdownImagePath,
+  MSTUDIO_GAME_SCHEME,
+  isSafeBlobRev,
+  MSTUDIO_BLOB_MAX_BYTES,
+  MSTUDIO_FILE_SCHEME,
+  MSTUDIO_TILE_SCHEME,
+  MSTUDIO_IMAGE_ONLY_PARAM,
+  MSTUDIO_IMAGE_ONLY_VALUE,
+} from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from './fs-scope';
 
@@ -27,11 +36,25 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
 
 /**
  * Must run before `app.whenReady` — Chromium fixes the scheme list at startup.
- * `stream` lets `<video>` seek; `supportFetchAPI` lets the renderer fetch it.
+ *
+ * **One call, both schemes.** Electron keeps only the last
+ * `registerSchemesAsPrivileged` list, so a second call from the games runner
+ * would silently unregister `mstudio-file`. `mstudio-file`: `stream` lets
+ * `<video>` seek, `supportFetchAPI` lets the renderer fetch it. `mstudio-game`
+ * (Phase 107 Theme B) is `standard` so a game gets a real origin
+ * (`mstudio-game://<gameId>`) for ES modules and `localStorage`, `secure` so it
+ * counts as a secure context, and `corsEnabled` for module requests. Only a
+ * run's own session ever handles it — see `game-protocol.ts`.
  */
-export function registerMgitFileScheme(): void {
+export function registerPrivilegedSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     { scheme: MSTUDIO_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } },
+    {
+      scheme: MSTUDIO_GAME_SCHEME,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+    },
+    // Phase 108 Theme B: map tiles, served by main/media/map/tile-protocol.ts.
+    { scheme: MSTUDIO_TILE_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   ]);
 }
 
@@ -49,6 +72,9 @@ const MIME_BY_EXT: Record<string, string> = {
   jpeg: 'image/jpeg',
   gif: 'image/gif',
   webp: 'image/webp',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
   mp4: 'video/mp4',
   webm: 'video/webm',
   mov: 'video/quicktime',
@@ -107,6 +133,12 @@ export function installMgitFileProtocol(): void {
       staleness problem a file nobody re-exports mid-session does not have.
     */
     if (mime.startsWith('image/')) headers.set('cache-control', 'no-cache');
+    // An SVG is a document that can carry script. As an `<img>` Chromium never
+    // runs it; this header keeps that true if the URL is ever opened directly.
+    if (mime === 'image/svg+xml') {
+      headers.set('content-security-policy', SVG_DOCUMENT_CSP);
+      headers.set('x-content-type-options', 'nosniff');
+    }
     return new Response(response.body, { status: response.status, headers });
   });
 }
@@ -123,8 +155,34 @@ export function setVideoFileRootProvider(provider: () => Promise<string | null>)
   videoRootProvider = provider;
 }
 
-/** Parse + confine. Exported for the jail tests. Fails CLOSED on anything malformed. */
+/** Script-free policy for an SVG served off disk. Exported for the tests. */
+export const SVG_DOCUMENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+/**
+ * Parse + confine. Exported for the jail tests. Fails CLOSED on anything malformed.
+ *
+ * A request carrying `?as=image` (a markdown preview's `<img>`, see
+ * `mstudioImageUrl`) is narrowed further: both the requested name and the real
+ * path it resolved to must be an image extension, so neither `![x](.env)` nor
+ * an in-repo `logo.png → ../.env` symlink serves anything but an image.
+ */
 export async function resolveRequestPath(rawUrl: string): Promise<string | null> {
+  const target = await resolveConfinedPath(rawUrl);
+  if (target === null) return null;
+  let imageOnly: boolean;
+  let requested: string;
+  try {
+    const url = new URL(rawUrl);
+    imageOnly = url.searchParams.get(MSTUDIO_IMAGE_ONLY_PARAM) === MSTUDIO_IMAGE_ONLY_VALUE;
+    requested = decodeURIComponent(url.pathname);
+  } catch {
+    return null;
+  }
+  if (imageOnly && !(isMarkdownImagePath(requested) && isMarkdownImagePath(target))) return null;
+  return target;
+}
+
+async function resolveConfinedPath(rawUrl: string): Promise<string | null> {
   // One try around the whole parse: `new URL` throws on garbage and
   // `decodeURIComponent` throws on invalid percent-encoding (`%zz`), and a
   // crafted URL must land on the same null as every other jail failure.

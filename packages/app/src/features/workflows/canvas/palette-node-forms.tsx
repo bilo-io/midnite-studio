@@ -506,7 +506,7 @@ export function NotifyForm({ node, onChange, onInterpolatableFocus }: NodeFormPr
           label="Title"
           value={config.title}
           onChange={(title) => update({ title })}
-          placeholder="Workflow finished"
+          placeholder="Graph finished"
           onFocus={interpolatable(onInterpolatableFocus, config.title, (title) => update({ title }))}
         />
       </Field>

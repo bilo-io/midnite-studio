@@ -2,14 +2,17 @@ import { agentHeadlessArgs, loopModelsFor, type DocThreadMessage, type LoopModel
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LuCheck, LuCopy, LuSparkles, LuX } from 'react-icons/lu';
 
+import { AiComposer, AiThreadFrame, ThinkingIndicator, useComposerMic } from '../../../components/ai-thread';
 import { EmptyState } from '../../../components/empty-state';
-import { resolveAgentIcon } from '../../../components/icons';
-import { IconSelect } from '../../../components/select/icon-select';
 import { useToastStore } from '../../../store/toast-store';
 import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
+import { AgentModelPicker } from '../agent-model-picker';
+import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { applyProposal } from './doc-thread';
 import { lineDiff } from './line-diff';
+import { useVoiceThread } from '../voice/use-voice-thread';
+import { SpeechToggle } from '../voice/voice-controls';
 import type { DocSession } from './use-doc-session';
 import { useDocThread } from './use-doc-thread';
 import type { DocRef } from './use-doc-session';
@@ -46,7 +49,14 @@ export function DocThreadPanel({
   const [agentId, setAgentId] = useState(primaryAgent);
   const [model, setModel] = useState<LoopModel>('default');
   const [prompt, setPrompt] = useState('');
+  const voice = useVoiceThread();
   const input = useRef<HTMLTextAreaElement>(null);
+  const mic = useComposerMic({
+    onTranscript: (text) => {
+      setPrompt((current) => (current.length === 0 ? text : `${current} ${text}`));
+      input.current?.focus();
+    },
+  });
   const list = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +65,26 @@ export function DocThreadPanel({
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
   }, [thread.messages.length]);
+
+  // Speak each new assistant reply (simplified) — never the replies already there on load.
+  const spokenUpTo = useRef<{ key: string; count: number } | null>(null);
+  const docKey = doc ? `${doc.repoId}:${doc.project}:${doc.path}` : '';
+  useEffect(() => {
+    const count = thread.messages.length;
+    if (spokenUpTo.current === null || spokenUpTo.current.key !== docKey) {
+      spokenUpTo.current = { key: docKey, count };
+      return;
+    }
+    for (const m of thread.messages.slice(spokenUpTo.current.count)) {
+      if (m.role === 'assistant') {
+        voice.speakReply(
+          m.error ?? m.text ?? (m.proposal ? `I have proposed an edit to the ${m.proposal.scope === 'selection' ? 'selection' : 'document'}.` : ''),
+        );
+      }
+    }
+    spokenUpTo.current = { key: docKey, count };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread.messages]);
 
   const headless = useMemo(() => agents.filter((a) => agentHeadlessArgs(a.id) !== null), [agents]);
   const models = loopModelsFor(agentId);
@@ -92,29 +122,7 @@ export function DocThreadPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="doc-thread">
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-border p-2">
-        <div className="min-w-0 flex-1">
-          <IconSelect
-            ariaLabel="Provider"
-            menuInPortal
-            options={headless.map((a) => ({ id: a.id, label: a.label, icon: resolveAgentIcon(a), iconColor: a.accent }))}
-            value={agentId}
-            onChange={setAgentId}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <IconSelect
-            ariaLabel="Model"
-            menuInPortal
-            options={models.map((m) => ({ id: m.id, label: m.label }))}
-            value={models.some((m) => m.id === model) ? model : 'default'}
-            isDisabled={models.length === 1}
-            onChange={(id) => setModel(id as LoopModel)}
-          />
-        </div>
-      </div>
-
+    <AiThreadFrame loading={thread.ask.isPending} className="flex h-full min-h-0 flex-col" testId="doc-thread">
       <div ref={list} className="hide-scrollbar min-h-0 flex-1 space-y-2 overflow-auto p-2" role="log" aria-label="AI thread">
         {thread.messages.length === 0 ? (
           <p className="px-1 py-4 text-center text-xs text-muted-foreground">
@@ -130,7 +138,7 @@ export function DocThreadPanel({
             />
           ))
         )}
-        {thread.ask.isPending ? <p className="px-1 text-xs text-muted-foreground">Thinking…</p> : null}
+        {thread.ask.isPending ? <ThinkingIndicator /> : null}
       </div>
 
       <div className="shrink-0 border-t border-border p-2">
@@ -147,24 +155,37 @@ export function DocThreadPanel({
             </button>
           </div>
         ) : null}
-        <textarea
-          ref={input}
-          aria-label="Ask AI"
+        <AiComposer
+          textareaRef={input}
+          ariaLabel="Ask AI"
           rows={3}
           value={prompt}
+          onChange={setPrompt}
           placeholder={selection ? 'How should the selection change?' : 'How should the doc change?'}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-ring"
+          canSend={prompt.trim().length > 0 && !thread.ask.isPending}
+          onSend={send}
+          mic={mic}
+          boxClassName={MEDIA_PROMPT_BOX}
+          leading={
+            <AgentModelPicker
+              testId="doc-ask-picker"
+              agents={headless}
+              primaryAgentId={primaryAgent}
+              agentId={agentId}
+              onAgentChange={(id) => {
+                setAgentId(id);
+                setModel('default');
+              }}
+              model={model}
+              onModelChange={setModel}
+            />
+          }
+          trailing={<SpeechToggle voice={voice} />}
+          testIdPrefix="doc-ask"
         />
         {session.dirty ? <p className="mt-1 text-[10px] text-muted-foreground">Saving…</p> : null}
       </div>
-    </div>
+    </AiThreadFrame>
   );
 }
 

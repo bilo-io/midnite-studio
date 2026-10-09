@@ -54,6 +54,7 @@ const baseState: NavigationState = {
     'apps-spotify': false,
     'apps-google-calendar': false,
     'apps-youtube': false,
+    game: false,
   },
   locked: false,
   repoId: 'r1',
@@ -101,7 +102,7 @@ describe('resolveNavigation — one case per branch', () => {
   it('focuses an already-detached page rather than opening a second copy', () => {
     expect(
       resolveNavigation(navigate({ view: 'graph' }), { ...baseState, detachedPages: ['graph'] }),
-    ).toEqual({ kind: 'focus-window', role: 'graph', title: 'Graph' });
+    ).toEqual({ kind: 'focus-window', role: 'graph', title: 'Timeline' });
   });
 
   it('resolves an ordinary view, with its optional page/issue riding along', () => {
@@ -154,13 +155,13 @@ describe('navigateCompanion', () => {
   it('changes the view and says "here\'s the X"', async () => {
     const outcome = await navigateCompanion(navigate({ view: 'graph' }));
     expect(useUiStore.getState().activeView).toBe('graph');
-    expect(outcome.say).toBe('Here\'s the Commit Graph.');
+    expect(outcome.say).toBe('Here\'s the Commit Timeline.');
   });
 
   it('says "you\'re already on" rather than "here\'s" for a view that did not change', async () => {
     useUiStore.setState({ activeView: 'graph' });
     const outcome = await navigateCompanion(navigate({ view: 'graph' }));
-    expect(outcome.say).toBe("You're already on the Commit Graph.");
+    expect(outcome.say).toBe("You're already on the Commit Timeline.");
   });
 
   it('navigates to a settings page and names it', async () => {
@@ -183,7 +184,7 @@ describe('navigateCompanion', () => {
     expect(mocks.focusRole).toHaveBeenCalledWith({ role: 'graph' });
     // No second copy: the main window's own active view is untouched.
     expect(useUiStore.getState().activeView).toBe('dashboard');
-    expect(outcome.say).toBe('The Graph is in its own window — bringing it forward.');
+    expect(outcome.say).toBe('The Timeline is in its own window — bringing it forward.');
   });
 
   it('refuses while the screen is locked', async () => {
@@ -229,7 +230,7 @@ describe('navigateCompanion', () => {
       queueMicrotask(() =>
         mocks.onRelayedHandler?.({
           kind: 'companion',
-          payload: { result: { ok: true, say: "Here's the Commit Graph." }, replyTo: message.payload.replyTo },
+          payload: { result: { ok: true, say: "Here's the Commit Timeline." }, replyTo: message.payload.replyTo },
         }),
       );
     });
@@ -239,7 +240,7 @@ describe('navigateCompanion', () => {
     const sent = mocks.relay.mock.calls[0]?.[0];
     expect(sent).toMatchObject({ kind: 'companion' });
     expect(sent.payload.action).toEqual({ kind: 'navigate', view: 'graph' });
-    expect(outcome.say).toBe("Here's the Commit Graph.");
+    expect(outcome.say).toBe("Here's the Commit Timeline.");
     // Never touched this (popout) renderer's own store.
     expect(useUiStore.getState().activeView).toBe('dashboard');
   });

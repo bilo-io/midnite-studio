@@ -5,6 +5,7 @@ import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useCommitBoxStore } from '../../store/commit-box-store';
+import { DIFF_BAR_CLASS } from '../../components/diff-pane-frame';
 import { WorkingTreeInlinePanel } from '../graph/graph-inline-panels';
 
 /**
@@ -142,6 +143,42 @@ describe('the working-tree parts in the graph inline panel', () => {
     expect(button.disabled).toBe(false);
     expect(button.className).toContain('brand-gradient-button');
     expect(button.textContent).toBe('Commit 1 file');
+  });
+
+  it('gives the left totals header and the right files header the same height token', async () => {
+    open();
+    await screen.findByRole('heading', { name: 'Changes' });
+    fireEvent.click(screen.getByRole('button', { name: 'View all changes' }));
+    const right = await screen.findByTestId('changes-accordion-header');
+    const left = screen.getByTestId('working-tree-header-bar');
+    for (const bar of [left, right]) {
+      for (const cls of DIFF_BAR_CLASS.split(' ')) expect(bar.classList.contains(cls)).toBe(true);
+      expect(bar.classList.contains('items-center')).toBe(true);
+      expect(bar.classList.contains('px-3')).toBe(true);
+    }
+  });
+});
+
+describe('the panel layout', () => {
+  it('has one close button, last in the diff header, and the commit box after the file list', async () => {
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
+    await screen.findByRole('heading', { name: 'Changes' });
+    const closes = screen.getAllByRole('button', { name: 'Close' });
+    expect(closes).toHaveLength(1);
+    expect(screen.queryByTestId('diff-viewer-header')).toBeNull();
+    const header = closes[0]!.closest('header')!;
+    const kids = Array.from(header.children);
+    expect(kids[kids.length - 1]).toBe(closes[0]);
+    expect(kids.indexOf(screen.getByRole('button', { name: 'Collapse all files' }))).toBeLessThan(kids.length - 1);
+    const input = screen.getByPlaceholderText('Commit message');
+    const heading = screen.getByRole('heading', { name: 'Changes' });
+    expect(heading.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('bolds the totals', async () => {
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });
+    await screen.findByRole('heading', { name: 'Changes' });
+    expect(screen.getAllByTestId('change-totals')[0]!.querySelector('.font-bold')).not.toBeNull();
   });
 });
 

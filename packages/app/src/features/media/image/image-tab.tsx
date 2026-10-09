@@ -7,8 +7,11 @@ import {
   type MediaExportFormat,
 } from '@midnite/studio-shared';
 import { useMemo, useReducer, useState } from 'react';
+import { LuImage, LuSparkles } from 'react-icons/lu';
+import { PiSparkleFill } from 'react-icons/pi';
 
 import { useDialogs } from '../../../components/dialog-host';
+import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { previewKindForFile } from '../../../lib/languages';
 import { useRepoFiles } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
@@ -181,6 +184,14 @@ function ImageTabBody({ repoId }: { repoId: string }) {
           </div>
         }
         content={
+          images.length === 0 && pendingCount === 0 ? (
+            <EmptyState
+              icon={LuImage}
+              title="No images yet"
+              body="Describe what you want in the create panel and generate your first image."
+              action={<EmptyStateButton icon={LuSparkles} filledIcon={PiSparkleFill} label="Generate image" onClick={() => openMediaPane('image', 'detail')} />}
+            />
+          ) : (
           <MasonryGallery
             images={images}
             pendingCount={pendingCount}
@@ -188,6 +199,7 @@ function ImageTabBody({ repoId }: { repoId: string }) {
             onCreate={() => openMediaPane('image', 'detail')}
             onOpen={setLightbox}
           />
+          )
         }
         detail={
           <CreatePanel
@@ -198,6 +210,7 @@ function ImageTabBody({ repoId }: { repoId: string }) {
             error={generation.lastError}
             onGenerate={onGenerate}
             onCancel={generation.cancelAll}
+            onPick={prefs.setDefault}
           />
         }
       />

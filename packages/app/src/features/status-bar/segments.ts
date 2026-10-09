@@ -17,7 +17,6 @@ import { McpIndicator } from './mcp-indicator';
 import { NotificationBell } from './notification-bell';
 import { OpProgressSegment } from './op-progress';
 import { PaletteToggle } from './palette-toggle';
-import { ReattachedNote } from './reattached-note';
 import { ReposToggle } from './repos-toggle';
 import { SearchProgressSegment } from './search-progress';
 import { TerminalToggle } from './terminal-toggle';
@@ -101,28 +100,6 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
   // kind of statement. One member, and it returns `null` for a repository
   // nobody has measured, which is why separators are DOM-derived.
   { id: 'diagnostics', zone: 'left', group: 'health', priority: 60, label: 'Diagnostics', El: DiagnosticsSegment },
-  // `live`: what is running right now.
-  //
-  // Down to one member: the live-agent count and the loop-launcher strip both
-  // moved to the title bar's right cluster
-  // (`components/title-bar-agents.tsx`), which is why the priorities here jump
-  // 60 → 80.
-  //
-  // The zone still DECLARES two separators — `shortcuts` | `health` and
-  // `health` | `live` — but `ReattachedNote` is a dismissible one-shot notice,
-  // so the trailing one is now normally stranded and pruned. Each of the two
-  // states therefore draws one rule fewer than it used to: none at all when
-  // diagnostics has nothing to say either, and one when it does. That is
-  // `strandedSeparators` doing exactly its job rather than something to fix,
-  // and `shortcut-rail.spec.ts` pins both counts.
-  {
-    id: 'reattached-note',
-    zone: 'left',
-    group: 'live',
-    priority: 80,
-    label: 'Reattached sessions',
-    El: ReattachedNote,
-  },
   // ---- Centre zone -----------------------------------------------------
   { id: 'search-progress', zone: 'center', group: 'progress', priority: 5, label: 'Search progress', El: SearchProgressSegment },
   { id: 'op-progress', zone: 'center', group: 'progress', priority: 10, label: 'Operation progress', El: OpProgressSegment },

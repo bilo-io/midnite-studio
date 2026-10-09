@@ -1,8 +1,19 @@
 import { unlinkSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 
-import { EVENT_CHANNELS, CHANNELS, perfEnabled, SetupProbeRequest } from '@midnite/studio-shared';
-import { BrowserWindow, app, session } from 'electron';
+import { totalmem } from 'node:os';
+
+import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
+import {
+  EVENT_CHANNELS,
+  CHANNELS,
+  GitIdentitySetRequest,
+  failure,
+  perfEnabled,
+  SetupProbeRequest,
+  SetupRevealRequest,
+} from '@midnite/studio-shared';
+import { BrowserWindow, app, session, shell } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -24,6 +35,7 @@ import { registerApiClientHandlers } from './ipc/api-client-handlers';
 import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
+import { registerMarketsHandlers } from './ipc/markets-handlers';
 import { configureSecrets, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
 import { createForgeAccountVault } from './forge/forge-account-vault';
@@ -40,6 +52,7 @@ import { createSttCredentials } from './companion/stt/credentials';
 import { configureUiBridge } from './companion/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
+import { configureChats, disposeChats, registerChatsHandlers } from './ipc/chats-handlers';
 import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
 import { createSessionHistoryStore } from './session-history-store';
 import { createNotesStore } from './notes-store';
@@ -56,11 +69,13 @@ import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
 import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
 import { registerOptimizerHandlers } from './ipc/optimizer-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
+import { bindAgentProbeToWindow, startAgentProbeAtBoot } from './agent-probe-runtime';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
 import { registerTrashHandlers } from './ipc/trash-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerRebaseHandlers } from './ipc/rebase-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
+import { registerRepoLogoHandlers } from './ipc/repo-logo-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
 import { registerHooksHandlers } from './ipc/hooks-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
@@ -121,8 +136,15 @@ import { createWorkflowRunsStore } from './workflow-runs-store';
 import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
-import { registerMediaAudioHandlers } from './ipc/media-audio-handlers';
+import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
+import { registerMediaMusicGmHandlers } from './ipc/media-music-gm-handlers';
+import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
+import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
+import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
+import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
+import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
+import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaPullQueue } from './ollama/pull-queue';
@@ -131,7 +153,7 @@ import { createOllamaSettingsStore } from './ollama/settings-store';
 import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
-import { installMgitFileProtocol, registerMgitFileScheme, setVideoFileRootProvider } from './fs-protocol';
+import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
 import { createFileSink } from './log-sink';
@@ -140,9 +162,32 @@ import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
-import { closeAllPopouts, configureWindowsStore, registerMainWindow } from './window-manager';
+import {
+  beginShutdown,
+  broadcastToAllWindows,
+  closeAllPopouts,
+  configureReopenStore,
+  configureWindowsStore,
+  createRoleWindow,
+  registerMainWindow,
+  restoreReopenedPopouts,
+} from './window-manager';
 import { registerWindowHandlers } from './ipc/window-handlers';
-import { createWindowsStore } from './windows-store';
+import { registerGamesHandlers } from './ipc/games-handlers';
+import { createGameRunner } from './games/game-runner';
+import { createGameMcpTools } from './games/game-mcp';
+import { createPlaytests } from './games/playtest';
+import { createGameExport } from './games/game-export';
+import { createGamePopout } from './games/game-popout';
+import { createGameService } from './games/game-service';
+import { createAssetBridge } from './games/asset-bridge';
+import { createGameAgentService } from './games/game-agent-service';
+import { createIterativeHost } from './media/model/iterative-host';
+import { createLlmCall } from './media/model/engines';
+import { setGameTools } from './mcp/game-tools';
+import { createGamesSettingsStore } from './games/games-settings-store';
+import { mediaGameTemplateRoot } from './template-path';
+import { createReopenStore, createWindowsStore } from './windows-store';
 import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './forge/gitlab/gitlab-languages';
 
 /**
@@ -155,6 +200,10 @@ import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './
 
 let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
+
+/** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
+let gameService: ReturnType<typeof createGameService> | null = null;
+let gameAgentService: ReturnType<typeof createGameAgentService> | null = null;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -342,7 +391,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   // Chromium fixes the privileged-scheme list at startup — must precede ready.
-  registerMgitFileScheme();
+  registerPrivilegedSchemes();
 
   void app.whenReady().then(async () => {
     bootMark('when-ready');
@@ -382,6 +431,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRemoteHandlers();
     registerHooksHandlers();
     registerClipboardHandlers();
+    registerRepoLogoHandlers();
     registerForgeHandlers();
     registerForgeAccountHandlers();
     registerForgeProjectHandlers();
@@ -403,6 +453,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDiagHandlers();
     registerSessionsHandlers();
     registerNotesHandlers();
+    registerChatsHandlers();
     registerDbHandlers(getMainWindow);
     registerKnowledgeHandlers();
     registerScaffoldHandlers();
@@ -463,10 +514,18 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaHandlers();
     registerMediaImageHandlers();
     registerMediaAudioHandlers();
+    registerMediaMusicGmHandlers();
+    registerMediaMusicHandlers();
+    registerMediaModelHandlers();
+    registerMediaModelSf3dHandlers();
+    registerMediaTerrainHandlers();
+    registerMediaSpriteHandlers();
+    registerMediaMapHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
     registerFinanceHandlers();
+    registerMarketsHandlers();
     registerApiClientHandlers(getMainWindow);
     registerMcpHandlers();
     registerCompanionHandlers();
@@ -480,11 +539,31 @@ if (!app.requestSingleInstanceLock()) {
       (req) => probeSetupItems(req.ids),
       () => ({ results: [] }),
     );
+    handle(
+      CHANNELS.setupReveal,
+      SetupRevealRequest,
+      async (req) => {
+        const found = (await probeSetupItems([req.id])).results[0];
+        if (!found?.installed || !found.path) return { ok: false, message: 'tool path unknown' };
+        shell.showItemInFolder(found.path);
+        return { ok: true };
+      },
+      () => ({ ok: false, message: 'invalid request' }),
+    );
+    handleBare(CHANNELS.gitIdentityGet, () => getGlobalGitIdentity());
+    handle(
+      CHANNELS.gitIdentitySet,
+      GitIdentitySetRequest,
+      (req) => setGlobalGitIdentity(req),
+      (issue) => failure(issue),
+    );
+    handleBare(CHANNELS.systemMemory, () => ({ totalBytes: totalmem() }));
     registerOptimizerHandlers(getMainWindow);
     registerTrashHandlers();
     registerPerfHandlers();
     registerReportHandlers({ log: defaultLogger });
     installMgitFileProtocol();
+    installMapTileProtocol();
     installMenu(getMainWindow);
     bootMark('handlers-registered');
 
@@ -568,6 +647,7 @@ if (!app.requestSingleInstanceLock()) {
     // three parallel chains below for data with no reader yet.
     const windowsStore = createWindowsStore(userData);
     void windowsStore.load().then((initial) => configureWindowsStore(windowsStore, initial));
+    configureReopenStore(createReopenStore(userData));
     // Loaded lazily on the first GitLab reachable-repos listing, not here.
     configureGitlabLanguageCache(createGitlabLanguageCacheStore(userData));
     /*
@@ -623,6 +703,80 @@ if (!app.requestSingleInstanceLock()) {
     gateApprovalTimer.unref();
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
     setVideoFileRootProvider(effectiveVideoRoot);
+    // Media ▸ Games (Phase 107): one service over the runner, the settings
+    // file and the repo registry. Registering a game repo is the same path
+    // `repoClone` takes — `openRepo`, then reconcile the watchers.
+    const gameRunner = createGameRunner({ getWindow: getMainWindow, log: defaultLogger, send: broadcastToAllWindows });
+    gameService = createGameService({
+      settings: createGamesSettingsStore(userData),
+      runner: gameRunner,
+      templateDir: mediaGameTemplateRoot(),
+      registerRepo: async (path) => {
+        const opened = await openRepo(path);
+        if (!opened.ok) return { ok: false, kind: 'error', message: opened.message };
+        const repos = (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path }));
+        await reconcileWatchers(repos);
+        reconcileFetchScheduler(repos);
+        return { ok: true };
+      },
+      listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+      // Pop out (Theme B): the `game` role window hosts one game's view.
+      popout: createGamePopout({
+        runner: gameRunner,
+        openWindow: () => createRoleWindow('game', defaultLogger),
+        send: broadcastToAllWindows,
+        log: defaultLogger,
+      }),
+    });
+    // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.
+    const mcpGameService = gameService;
+    // The asset bridge (Theme N): copies media into a game's assets/, one commit per import.
+    const gameAssets = createAssetBridge({
+      resolve: (gameId) => mcpGameService.resolve(gameId),
+      listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+      gamesRoot: async () => (await mcpGameService.settings.get()).resolvedRoot,
+      repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+    });
+    // Play-test depth (Theme O): deterministic restarts, replays and assertions through the kit hook.
+    const gamePlaytests = createPlaytests({
+      resolve: (target) => mcpGameService.resolve(target),
+      runDeterministic: (gameId, seed) => mcpGameService.run(gameId, { determinism: { seed, paused: true } }),
+      setRunState: (gameId, state) => mcpGameService.toolbar(gameId, state),
+      page: (gameId) => {
+        const wc = gameRunner.view(gameId)?.webContents;
+        if (!wc || wc.isDestroyed()) return null;
+        return { evaluate: (code) => wc.executeJavaScript(code, false), capture: async () => (await wc.capturePage()).toPNG() };
+      },
+    });
+    const gameMcpTools = createGameMcpTools({
+      service: mcpGameService,
+      webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null,
+      importAsset: (req) => gameAssets.importAsset(req),
+      playtests: gamePlaytests,
+    });
+    setGameTools(gameMcpTools);
+    // Create and iterate (Theme M): agent CLIs on a private MCP server, or Ollama, one commit per changing pass.
+    const gameLlm = createLlmCall(modelEngines);
+    gameAgentService = createGameAgentService({
+      resolve: (gameId) => mcpGameService.resolve(gameId),
+      squashRunCommits: async () => (await mcpGameService.settings.get()).settings.squashRunCommits,
+      host: createIterativeHost(),
+      tools: () => gameMcpTools,
+      ollama: ({ model, prompt, signal }) => gameLlm({ engine: { kind: 'ollama', model }, repoId: '', prompt, signal, json: true }),
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+    });
+    registerGamesHandlers(
+      gameService,
+      gameAgentService,
+      gameAssets,
+      gamePlaytests,
+      createGameExport({ resolve: (gameId) => mcpGameService.resolve(gameId) }),
+    );
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
@@ -645,6 +799,7 @@ if (!app.requestSingleInstanceLock()) {
     */
     configureKnowledge(join(userData, 'knowledge-cache'));
     configureNotes(createNotesStore(userData));
+    configureChats(userData);
     /*
       The companion's per-repo "last greeted" mark (Phase 79 Theme B, Decision
       11) — a `companion.json` beside `mcp.json`, wired here beside every other
@@ -676,6 +831,9 @@ if (!app.requestSingleInstanceLock()) {
       mirroring `inproc-pty.ts`'s `loadNodePty()`.
     */
     configureCompanionTtsBroker(userData);
+    // Media ▸ Audio's local music engine — same lazy-fork shape; weights cache under `userData/audio-models`.
+    configureMusicBroker(userData);
+    configureSf3d(userData);
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential
@@ -779,9 +937,20 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
 
+    /*
+      The agent install probe starts here — after `whenReady`, fire and forget,
+      and ahead of the window so it overlaps Chromium's load instead of
+      following it. Not awaited: it must never delay first paint. It waits on
+      the login-shell PATH itself, and every renderer load re-forces it
+      (`bindAgentProbeToWindow`).
+    */
+    loginShellReady.then(() => startAgentProbeAtBoot()).catch(() => undefined);
+
     mainWindow = createWindow();
     bootMark('create-window');
     registerMainWindow(mainWindow);
+    // Detached windows that were open at the last shutdown (Notes) come back.
+    void restoreReopenedPopouts(defaultLogger);
     mainWindow.on('closed', () => {
       // The main window is the app; popouts are satellites of it.
       closeAllPopouts();
@@ -792,6 +961,7 @@ if (!app.requestSingleInstanceLock()) {
     // footer nobody can see.
     bindMetricsToWindow(metrics, mainWindow);
     bindRenderProcessGone(mainWindow, defaultLogger);
+    bindAgentProbeToWindow(mainWindow);
 
     if (pendingDeepLink) {
       handleDeepLinkUrl(pendingDeepLink);
@@ -812,6 +982,7 @@ if (!app.requestSingleInstanceLock()) {
       if (BrowserWindow.getAllWindows().length === 0) {
         mainWindow = createWindow();
         registerMainWindow(mainWindow);
+        void restoreReopenedPopouts(defaultLogger);
         mainWindow.on('closed', () => {
           closeAllPopouts();
           mainWindow = null;
@@ -821,6 +992,7 @@ if (!app.requestSingleInstanceLock()) {
         // sampler never pauses again for the rest of the session.
         bindMetricsToWindow(metrics, mainWindow);
         bindRenderProcessGone(mainWindow, defaultLogger);
+        bindAgentProbeToWindow(mainWindow);
       }
     });
   });
@@ -836,6 +1008,7 @@ if (!app.requestSingleInstanceLock()) {
   let flushed = false;
   let mcpClosed = false;
   app.on('before-quit', (event) => {
+    beginShutdown();
     /*
       `before-quit` is synchronous and `McpServerHandle.close()` is not
       (Phase 57 Theme B), so `close()` is called fire-and-forget and the
@@ -857,6 +1030,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     }
 
+    disposeChats();
     stopAllWatchers();
     stopMediaWatchers();
     destroyAllBrowserTabs();
@@ -865,6 +1039,9 @@ if (!app.requestSingleInstanceLock()) {
     // leak / an orphaned headless Chrome the user cannot see — Theme C's own
     // doc names this exact wiring as its one open item, owned by Theme H.
     stopAllVideoProcesses();
+    // Every running game is a renderer process of its own.
+    gameAgentService?.cancelAll();
+    gameService?.stopAll();
     // The pm.* script runner's utilityProcess (Phase 70 Theme B) — same
     // reasoning as the two calls below: nothing in it is worth flushing,
     // only worth not leaving behind.
@@ -872,6 +1049,10 @@ if (!app.requestSingleInstanceLock()) {
     // The local voice engine's own utilityProcess (Ad Hoc "TTS synthesis
     // blocks the UI") — the identical reasoning, one call below it.
     disposeCompanionTtsBroker();
+    disposeMusicBroker();
+    disposeSf3d();
+    disposeTerrainBroker();
+    disposeMapCaptureBroker();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no
