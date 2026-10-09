@@ -1,55 +1,159 @@
-import { MUSIC_PPQ, SongSchema, type Song } from '@midnite/studio-shared';
-import { useMemo } from 'react';
-import { LuMusic } from 'react-icons/lu';
+import { emptySong, type Song } from '@midnite/studio-shared';
+import { useEffect, useMemo, useState } from 'react';
+import { LuFileUp, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons/lu';
 
+import { IconButton } from '../../../components/icon-button';
+import { Arrangement } from './arrangement';
 import { useMusicEngine } from './engine/use-music-engine';
+import { SNAP_DIVISIONS, gridTicks, quantizeNotes } from './model/song-edit';
+import { PianoRoll } from './piano-roll';
 import { TransportBar } from './transport-bar';
+import { useSongDocument, type SaveState } from './use-song-document';
 
-/** A C-major scale, so the transport has something to play until Theme E loads a project's songs. */
-const previewSong = (): Song =>
-  SongSchema.parse({
-    name: 'Preview',
-    tracks: [
-      {
-        id: 'preview',
-        name: 'Piano',
-        notes: [60, 62, 64, 65, 67, 69, 71, 72].map((pitch, i) => ({
-          pitch,
-          startTick: i * (MUSIC_PPQ / 2),
-          durationTicks: MUSIC_PPQ / 2,
-          velocity: 90,
-        })),
-      },
-    ],
-  });
+const SAVE_LABEL: Record<SaveState, string> = {
+  idle: '',
+  dirty: 'Unsaved',
+  saving: 'Saving…',
+  saved: 'Saved',
+  error: 'Save failed',
+};
 
 /**
- * Media ▸ Audio ▸ Editor (Phase 101). Theme A only lands the tab: the song
- * model (B), the Tone.js engine (C) and the piano roll (E) fill it in later.
- * Tone.js is never imported statically — `use-music-engine` loads it when the tab opens.
+ * Media ▸ Audio ▸ Editor (Phase 101). The project's real songs load and save through the music IPC
+ * (`use-song-document`), the arrangement edits tracks, the piano roll edits notes, and every edit is
+ * one undo step. Tone.js is never imported statically — `use-music-engine` loads it when the tab opens.
+ *
+ * Agent edits (Theme H's `music-changed` event) belong in `doc.applyExternal(song)`, which lands
+ * them as a single undoable step; the event subscription lands with H (see outstanding.md).
  */
-export function EditorTab({ project }: { project: string | null }) {
-  const song = useMemo(previewSong, []);
+export function EditorTab({ repoId, project }: { repoId: string; project: string | null }) {
+  const doc = useSongDocument(repoId, project);
+  const blank = useMemo(() => emptySong(), []);
+  const song: Song = doc.song ?? blank;
   const { engine, state } = useMusicEngine(song);
+  const [activeTrack, setActiveTrack] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Set<number>>(new Set());
+  const [division, setDivision] = useState<number>(16);
+  const grid = division === 0 ? 0 : gridTicks(division);
+
+  // Keep a valid active track as songs open and tracks come and go.
+  useEffect(() => {
+    if (!song.tracks.some((t) => t.id === activeTrack)) setActiveTrack(song.tracks[0]?.id ?? null);
+  }, [song, activeTrack]);
+  useEffect(() => setSelection(new Set()), [doc.name, activeTrack]);
+  useEffect(() => {
+    const count = song.tracks.find((t) => t.id === activeTrack)?.notes.length ?? 0;
+    setSelection((cur) => (cur.size && [...cur].some((i) => i >= count) ? new Set([...cur].filter((i) => i < count)) : cur));
+  }, [song, activeTrack]);
+
+  if (!project) return <Empty>Pick or create an audio project to compose in.</Empty>;
+  if (doc.status === 'loading') return <Empty>Loading songs…</Empty>;
+
+  const togglePlay = () => (state === 'playing' ? engine?.pause() : void engine?.play());
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div data-testid="music-editor" className="flex h-full min-h-0 flex-col">
       <TransportBar engine={engine} state={state} song={song} />
-      <div
-        data-testid="music-editor-empty"
-        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-8 text-center"
-      >
-        <span className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground">
-          <LuMusic className="h-6 w-6" aria-hidden />
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1 text-xs">
+        <select
+          aria-label="Song"
+          value={doc.name ?? ''}
+          disabled={doc.songs.length === 0}
+          onChange={(e) => void doc.open(e.target.value)}
+          className="h-6 rounded border border-border bg-background px-1.5 text-xs"
+        >
+          {doc.songs.length === 0 && <option value="">No songs</option>}
+          {doc.songs.map((s) => (
+            <option key={s.name} value={s.name}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <IconButton icon={LuPlus} label="New song" onClick={() => void doc.create()} />
+        <IconButton icon={LuFileUp} label="Import .mid" onClick={() => void doc.importMidi()} />
+        <span className="mx-1 h-4 w-px bg-border" />
+        <IconButton icon={LuUndo2} label="Undo" disabled={!doc.canUndo} onClick={doc.undo} />
+        <IconButton icon={LuRedo2} label="Redo" disabled={!doc.canRedo} onClick={doc.redo} />
+        <span className="mx-1 h-4 w-px bg-border" />
+        <label className="flex items-center gap-1 text-muted-foreground">
+          Snap
+          <select
+            aria-label="Snap"
+            value={division}
+            onChange={(e) => setDivision(Number(e.target.value))}
+            className="h-6 rounded border border-border bg-background px-1 text-xs text-foreground"
+          >
+            <option value={0}>Off</option>
+            {SNAP_DIVISIONS.map((d) => (
+              <option key={d} value={d}>
+                1/{d}
+              </option>
+            ))}
+          </select>
+        </label>
+        <IconButton
+          icon={LuWand}
+          label="Quantise (Q)"
+          disabled={!activeTrack}
+          onClick={() =>
+            activeTrack &&
+            doc.commit(quantizeNotes(song, activeTrack, selection.size ? selection : 'all', grid || gridTicks(16)))
+          }
+        />
+        <span data-testid="song-save-state" className="ml-auto text-muted-foreground">
+          {doc.error ?? SAVE_LABEL[doc.save]}
         </span>
-        <h2 className="text-sm font-medium text-foreground">Music editor</h2>
-        <p className="max-w-sm text-xs text-muted-foreground">
-          Compose MIDI by hand or with an agent, in {project ? <b>{project}</b> : 'a project'}.
-          Songs sit beside generated tracks and export as .mid, WAV and MP3.
-        </p>
-        <p className="text-[11px] text-muted-foreground/70">
-          The piano roll and playback are coming next.
-        </p>
       </div>
+      {doc.status === 'ready' && doc.song ? (
+        <>
+          <div className="max-h-[42%] min-h-[96px] overflow-hidden">
+            <Arrangement
+              song={doc.song}
+              activeTrack={activeTrack}
+              onActiveTrack={setActiveTrack}
+              onCommit={doc.commit}
+              engine={engine}
+            />
+          </div>
+          <PianoRoll
+            song={doc.song}
+            trackId={activeTrack}
+            selection={selection}
+            onSelection={setSelection}
+            onCommit={doc.commit}
+            grid={grid}
+            engine={engine}
+            onTogglePlay={togglePlay}
+            onUndo={doc.undo}
+            onRedo={doc.redo}
+          />
+        </>
+      ) : (
+        <Empty>
+          {doc.status === 'error' ? (doc.error ?? 'This song could not be opened.') : 'This project has no songs yet.'}
+          {doc.status === 'empty' && (
+            <button
+              type="button"
+              onClick={() => void doc.create()}
+              className="mt-3 rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground"
+            >
+              New song
+            </button>
+          )}
+        </Empty>
+      )}
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      data-testid="music-editor-empty"
+      className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-8 text-center text-xs text-muted-foreground"
+    >
+      <LuMusic className="h-6 w-6" aria-hidden />
+      <div>{children}</div>
     </div>
   );
 }

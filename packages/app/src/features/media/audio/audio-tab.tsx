@@ -188,7 +188,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
           content={
             mode === 'editor' ? (
               <Suspense fallback={null}>
-                <EditorTab project={activeProject} />
+                <EditorTab repoId={repoId} project={activeProject} />
               </Suspense>
             ) : (
               <SessionList
