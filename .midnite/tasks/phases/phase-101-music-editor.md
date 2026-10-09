@@ -59,7 +59,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme G — Clips, loops and the drum grid.** ◻ Not started.
 
-**Theme H — `music_*` MCP tools and the agent engines.** ◻ Not started.
+**Theme H — `music_*` MCP tools and the agent engines.** ✅ Landed. Fourteen `music_*` tools (midi-file-mcp's names, inputs derived from `SongSchema`) sit in the shared `MCP_TOOLS` registry (`media-music-mcp.ts`) and are implemented in `main/media/music/music-mcp.ts` over per-song working copies: every edit validates the whole result against `SongSchema`, answers `{ok:false, errors}` instead of throwing, and pushes one `mstudio:media:music-changed` event carrying the song; `music_save` writes the `.mid` and `.song.json`. `music_render_preview` draws a piano-roll PNG in main (`music-preview.ts`). Every tool that changes a song, opens it or saves is gated by the new default-off Settings ▸ MCP "Let agents edit music" switch (`allowMusic`, `mcp-store` v9); reads work whenever the server is on. Engines (`music-agents.ts`, IPC `music.agent.run/cancel` plus a progress event): Claude and Codex refine over a private per-run server through `iterative-host.ts` with a preview budget, tool-call ceiling and Cancel; Ollama writes the song as JSON with up to three repair rounds; Antigravity writes in one pass until the user registers Midnite in `~/.gemini/antigravity/mcp_config.json` (consent step in Settings, `agy-registration.ts`), then refines through the app's global server, falling back to one pass when that is off. Decision: a registered agy cannot use a per-run socket, so it needs the MCP server and the music switch on.
 
 **Theme I — The agent chat in the composer.** ◻ Not started. Blocked on the Chats page merging.
 
@@ -141,9 +141,9 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 - [ ] **Drum grid:** a step-sequencer editor for drum tracks with 16/32 steps, per-step velocity and swing. It reads and writes the same notes as the piano roll.
 - [ ] Vitest: clip expansion to notes, the step grid ↔ notes round trip, and swing.
 
-## H — `music_*` MCP tools and the agent engines (M)
+## H — `music_*` MCP tools and the agent engines (M) ✅ DONE
 
-- [ ] Tools in the shared `MCP_TOOLS` registry, dispatched in main, with input schemas derived from `SongSchema`:
+- [x] Tools in the shared `MCP_TOOLS` registry, dispatched in main, with input schemas derived from `SongSchema`:
   - `music_list`
   - `music_open`
   - `music_get_info`
@@ -158,15 +158,15 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
   - `music_add_track`
   - `music_save`
   - The names mirror midi-file-mcp's, so prompts written for it carry over.
-- [ ] `music_render_preview` returns a piano-roll PNG of a bar range. If the renderer is open it can also return a short rendered WAV clip as an audio block, with the PNG as the fallback.
-- [ ] Validation problems are returned as `{ok:false, errors:[…]}`, never thrown.
-- [ ] Every edit pushes `mstudio:media:music-changed` to the open editor as one undoable step. `music_open` brings the Editor tab up.
-- [ ] A Settings ▸ MCP switch, **"Let agents edit music"**, is off by default and gates every write tool. Reads work whenever the server is on.
-- [ ] **Agent engines:**
+- [x] `music_render_preview` returns a piano-roll PNG of a bar range. The optional WAV clip from an open renderer is deferred until Theme C's engine exists (see `outstanding.md`); the PNG is the answer today.
+- [x] Validation problems are returned as `{ok:false, errors:[…]}`, never thrown.
+- [x] Every edit pushes `mstudio:media:music-changed` to the open editor as one undoable step. `music_open` brings the Editor tab up. The events and `media.audio.music.onChanged`/`onOpen` ship here; the editor-side listener, undo entry and tab switch land with Theme E (see `outstanding.md`).
+- [x] A Settings ▸ MCP switch, **"Let agents edit music"**, is off by default and gates every write tool. Reads work whenever the server is on.
+- [x] **Agent engines:**
   - **Claude and Codex** refine over several passes through a private per-run MCP socket, reusing `iterative-host.ts`, with an iteration budget and Cancel.
   - **Ollama** writes the song as JSON in a single pass, with repair rounds.
   - **Antigravity** writes in a single pass by default. **"Register Midnite in Antigravity"** in Settings asks first, then writes the server into agy's own MCP config. Once registered, agy refines over several passes too. The button can also unregister.
-- [ ] Vitest: tool schemas and dispatch, note add/remove semantics, validation-error results, the gating switch, and the agy registration (with a fake config file, consent required).
+- [x] Vitest: tool schemas and dispatch, note add/remove semantics, validation-error results, the gating switch, and the agy registration (with a fake config file, consent required).
 
 ## I — The agent chat in the composer (M)
 

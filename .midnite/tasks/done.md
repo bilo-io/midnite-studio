@@ -7,6 +7,14 @@ A lazy engine wraps `Tone.Transport` (play, pause, stop, seek, loop region, metr
 
 - [x] C: engine, scheduler, offline render, gesture/visibility gates, vitests, bundle delta
 
+## 2026-10-09 — Phase 101 Theme H — `music_*` MCP tools and the agent engines
+
+Agents get fourteen `music_*` tools (`music_list`, `music_open`, `music_get_info`, `music_set_tempo`, `music_get_tracks`, `music_get_track`, `music_get_notes`, `music_add_notes`, `music_remove_notes`, `music_add_cc`, `music_add_pitchbends`, `music_add_track`, `music_save`, `music_render_preview`). Edits go through per-song working copies validated against `SongSchema`, push one `music-changed` event each, and the writes sit behind a new default-off Settings ▸ MCP "Let agents edit music" switch (`mcp-store` v9). Claude and Codex refine over a private per-run socket, Ollama writes JSON with repair rounds, Antigravity writes in one pass until Midnite is registered in its MCP config (consent step in Settings), and refines after.
+
+- [x] Tools + schemas in `MCP_TOOLS`, dispatch, `allowMusic` gate, piano-roll PNG preview, validation results, live `music-changed`/`music-open` events
+- [x] Agent engines: iterative (Claude/Codex), single pass with repair (Ollama), Antigravity registration, run/cancel IPC with progress
+- [x] Vitests: schemas and dispatch, note add/remove, validation results, gate, engines, agy registration (fake config, consent required), Settings page
+
 ## 2026-10-09 — Phase 101 Themes A + B — Editor | Generator tabs, song model and MIDI files
 
 Media ▸ Audio gets persisted Editor | Generator tabs (Generator default, unchanged). The shared `SongSchema`, `.mid` read/write and import through `@tonejs/midi`, the `<name>.song.json` sidecar and the `music-{list,read,write,import,delete}` IPC land with vitest round trips for type-0 and type-1 files.
