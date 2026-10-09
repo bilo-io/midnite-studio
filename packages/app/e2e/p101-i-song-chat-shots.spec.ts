@@ -29,14 +29,26 @@ const song = {
     { id: 'kit', name: 'Kit', channel: 9, color: '#f59e0b', notes: [] },
   ],
 };
-const edited = {
+/** An agent's event carries a schema-parsed song, so spell out the defaults the editor expects. */
+const full = (s: typeof song) => ({
+  version: 1,
+  ppq: 480,
+  timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
+  keySignatures: [],
+  meta: [],
+  clips: [],
+  mixer: { master: { volume: 0.8, pan: 0, mute: false, solo: false } },
+  ...s,
+  tracks: s.tracks.map((t) => ({ channel: 0, program: 0, controlChanges: [], pitchBends: [], automation: [], effects: [], mixer: { volume: 0.8, pan: 0, mute: false, solo: false }, ...t })),
+});
+const edited = full({
   ...song,
   tracks: [
     song.tracks[0],
     { ...song.tracks[1], notes: [...bass, ...run(5, [36, 43, 36, 43]), ...run(6, [38, 45, 38, 45]), ...run(7, [41, 48, 41, 48]), ...run(8, [43, 38, 43, 36])] },
     song.tracks[2],
   ],
-};
+});
 
 const DATA: MockFixtures = {
   ...fixtures,
