@@ -30,7 +30,7 @@ const song = {
   ],
 };
 /** An agent's event carries a schema-parsed song, so spell out the defaults the editor expects. */
-const full = (s: typeof song) => ({
+const full = (s: { tracks: Array<Record<string, unknown>> } & Record<string, unknown>) => ({
   version: 1,
   ppq: 480,
   timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
@@ -44,9 +44,9 @@ const full = (s: typeof song) => ({
 const edited = full({
   ...song,
   tracks: [
-    song.tracks[0],
-    { ...song.tracks[1], notes: [...bass, ...run(5, [36, 43, 36, 43]), ...run(6, [38, 45, 38, 45]), ...run(7, [41, 48, 41, 48]), ...run(8, [43, 38, 43, 36])] },
-    song.tracks[2],
+    song.tracks[0]!,
+    { ...song.tracks[1]!, notes: [...bass, ...run(5, [36, 43, 36, 43]), ...run(6, [38, 45, 38, 45]), ...run(7, [41, 48, 41, 48]), ...run(8, [43, 38, 43, 36])] },
+    song.tracks[2]!,
   ],
 });
 
