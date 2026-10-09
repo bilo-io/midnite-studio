@@ -52,6 +52,7 @@ export * from './media-terrain-mcp';
 export * from './media-sprite-mcp';
 export * from './media-map-mcp';
 export * from './media-music';
+export * from './media-music-clips';
 export * from './media-music-export';
 export * from './media-music-mcp';
 export * from './model-geometry';

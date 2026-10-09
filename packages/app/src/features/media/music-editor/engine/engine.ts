@@ -1,4 +1,4 @@
-import { MUSIC_PPQ, type Song, type SongTrack } from '@midnite/studio-shared';
+import { MUSIC_PPQ, expandClips, type Song, type SongTrack } from '@midnite/studio-shared';
 
 import {
   audibleTracks,
@@ -174,7 +174,9 @@ export function createMusicEngine(host: EngineHost) {
     );
   }
 
-  async function syncSong(next: Song) {
+  async function syncSong(authored: Song) {
+    // Clips expand to plain notes here, so the scheduler only ever sees notes.
+    const next = expandClips(authored);
     const prevTempo = tempoSig;
     const nextTempo = tempoSignature(next);
     const tempoMoved = prevTempo !== nextTempo;
