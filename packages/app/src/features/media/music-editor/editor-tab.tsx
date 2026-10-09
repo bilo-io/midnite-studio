@@ -1,9 +1,10 @@
-import { emptySong, type Song } from '@midnite/studio-shared';
+import { MUSIC_DRUM_CHANNEL, emptySong, type Song } from '@midnite/studio-shared';
 import { useEffect, useMemo, useState } from 'react';
 import { LuFileUp, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
 import { Arrangement } from './arrangement';
+import { DrumGrid } from './drum-grid';
 import { publishEditorSong, publishLoopRegion } from './editor-session';
 import { AutomationPanel } from './automation-panel';
 import { useMusicEngine } from './engine/use-music-engine';
@@ -61,6 +62,7 @@ export function EditorTab({
   const [activeTrack, setActiveTrack] = useState<string | null>(null);
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [lower, setLower] = useState<LowerView>('roll');
+  const [drumView, setDrumView] = useState<'grid' | 'roll'>('grid');
   const [division, setDivision] = useState<number>(16);
   const grid = division === 0 ? 0 : gridTicks(division);
 
@@ -71,12 +73,17 @@ export function EditorTab({
   useEffect(() => setSelection(new Set()), [doc.name, activeTrack]);
   useEffect(() => {
     const count = song.tracks.find((t) => t.id === activeTrack)?.notes.length ?? 0;
-    setSelection((cur) => (cur.size && [...cur].some((i) => i >= count) ? new Set([...cur].filter((i) => i < count)) : cur));
+    setSelection((cur) =>
+      cur.size && [...cur].some((i) => i >= count)
+        ? new Set([...cur].filter((i) => i < count))
+        : cur,
+    );
   }, [song, activeTrack]);
 
   if (!project) return <Empty>Pick or create an audio project to compose in.</Empty>;
   if (doc.status === 'loading') return <Empty>Loading songs…</Empty>;
 
+  const isDrums = song.tracks.find((t) => t.id === activeTrack)?.channel === MUSIC_DRUM_CHANNEL;
   const togglePlay = () => (state === 'playing' ? engine?.pause() : void engine?.play());
 
   return (
@@ -125,7 +132,14 @@ export function EditorTab({
           disabled={!activeTrack}
           onClick={() =>
             activeTrack &&
-            doc.commit(quantizeNotes(song, activeTrack, selection.size ? selection : 'all', grid || gridTicks(16)))
+            doc.commit(
+              quantizeNotes(
+                song,
+                activeTrack,
+                selection.size ? selection : 'all',
+                grid || gridTicks(16),
+              ),
+            )
           }
         />
         <div role="tablist" aria-label="Lower panel" className="flex rounded border border-border">
@@ -158,27 +172,72 @@ export function EditorTab({
             />
           </div>
           {lower === 'mixer' && (
-            <MixerPanel song={doc.song} activeTrack={activeTrack} onActiveTrack={setActiveTrack} onCommit={doc.commit} engine={engine} />
+            <MixerPanel
+              song={doc.song}
+              activeTrack={activeTrack}
+              onActiveTrack={setActiveTrack}
+              onCommit={doc.commit}
+              engine={engine}
+            />
           )}
-          {lower === 'automation' && <AutomationPanel song={doc.song} trackId={activeTrack} grid={grid} onCommit={doc.commit} />}
+          {lower === 'automation' && (
+            <AutomationPanel
+              song={doc.song}
+              trackId={activeTrack}
+              grid={grid}
+              onCommit={doc.commit}
+            />
+          )}
           {lower === 'roll' && (
-          <PianoRoll
-            song={doc.song}
-            trackId={activeTrack}
-            selection={selection}
-            onSelection={setSelection}
-            onCommit={doc.commit}
-            grid={grid}
-            engine={engine}
-            onTogglePlay={togglePlay}
-            onUndo={doc.undo}
-            onRedo={doc.redo}
-          />
+            <>
+              {isDrums && (
+                <div
+                  className="flex items-center gap-1 border-b border-border px-3 py-1 text-xs"
+                  role="group"
+                  aria-label="Drum editor"
+                >
+                  {(['grid', 'roll'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={drumView === v}
+                      onClick={() => setDrumView(v)}
+                      className={`rounded px-2 py-0.5 ${drumView === v ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+                    >
+                      {v === 'grid' ? 'Drum grid' : 'Piano roll'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isDrums && drumView === 'grid' && activeTrack ? (
+                <DrumGrid
+                  song={doc.song}
+                  trackId={activeTrack}
+                  onCommit={doc.commit}
+                  engine={engine}
+                />
+              ) : (
+                <PianoRoll
+                  song={doc.song}
+                  trackId={activeTrack}
+                  selection={selection}
+                  onSelection={setSelection}
+                  onCommit={doc.commit}
+                  grid={grid}
+                  engine={engine}
+                  onTogglePlay={togglePlay}
+                  onUndo={doc.undo}
+                  onRedo={doc.redo}
+                />
+              )}
+            </>
           )}
         </>
       ) : (
         <Empty>
-          {doc.status === 'error' ? (doc.error ?? 'This song could not be opened.') : 'This project has no songs yet.'}
+          {doc.status === 'error'
+            ? (doc.error ?? 'This song could not be opened.')
+            : 'This project has no songs yet.'}
           {doc.status === 'empty' && (
             <button
               type="button"
