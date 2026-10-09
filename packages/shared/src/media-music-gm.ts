@@ -16,8 +16,14 @@ import { z } from 'zod';
  * popover shows {@link GM_ATTRIBUTION}.
  */
 
-/** The one place the third-party sample host is named. Mirroring into `midnite-apps` is deferred (outstanding.md). */
-export const GM_SAMPLE_BASE_URL = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM';
+/**
+ * The one place the sample host is named. The 128 sets are mirrored unmodified from
+ * `gleitz.github.io/midi-js-soundfonts/FluidR3_GM` into a release of the public `bilo-io/midnite-apps`
+ * repo (tag `midnite-studio/gm-samples/v1`, slash URL-encoded) as flat `<id>-mp3.js` assets; the
+ * release also carries NOTICE.txt and the upstream licences. github.com redirects to its asset CDN.
+ */
+export const GM_SAMPLE_BASE_URL =
+  'https://github.com/bilo-io/midnite-apps/releases/download/midnite-studio%2Fgm-samples%2Fv1';
 
 /** The 0-based MIDI channel General MIDI reserves for percussion ("channel 10"). */
 export const GM_DRUM_CHANNEL = 9;
