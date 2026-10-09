@@ -4,6 +4,7 @@ import { EVENT_CHANNELS, GAMES_MAX_RUNNING } from '@midnite/studio-shared';
 
 import {
   createGameRunner,
+  gameEntryUrl,
   gamePartition,
   isGamePermissionAllowed,
   isGameRequestAllowed,
@@ -157,6 +158,16 @@ describe('createGameRunner', () => {
     });
     expect(prefs).not.toHaveProperty('preload');
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads index.html, with the deterministic-mode query when the run asks for it (Theme O)', () => {
+    expect(gameEntryUrl({ gameId: 'ga' })).toBe('mstudio-game://ga/index.html');
+    expect(gameEntryUrl({ gameId: 'ga', determinism: { seed: 7, paused: false } })).toBe(
+      'mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=7',
+    );
+    expect(gameEntryUrl({ gameId: 'ga', determinism: { seed: -3, paused: true } })).toBe(
+      'mstudio-game://ga/index.html?midnite-deterministic=1&midnite-seed=-3&midnite-paused=1',
+    );
   });
 
   it('uses a fresh in-memory partition per run, and a persistent one with keepSaveData', async () => {
@@ -367,11 +378,66 @@ describe('createGameRunner', () => {
     expect((await runner.toolbar('nope', 'pause')).ok).toBe(false);
   });
 
+  it('reads and patches the juice settings through the game hook, and trusts nothing the page answers', async () => {
+    const settings = { enabled: true, intensity: 1.5, shake: false, flash: true, particles: true, postfx: true, volume: 0.4, reducedMotion: 'auto' };
+    expect(await runner.juice('nope', 'get')).toEqual({ ok: false, kind: 'error', message: 'That game is not running.' });
+    await runner.run(game('ga'));
+    const wc = viewOf('ga').webContents;
+
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify(settings));
+    const read = await runner.juice('ga', 'get');
+    // `reducedMotion` is the game's own and is dropped from what we surface.
+    expect(read).toEqual({ ok: true, value: { enabled: true, intensity: 1.5, shake: false, flash: true, particles: true, postfx: true, volume: 0.4 } });
+
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify(settings));
+    await runner.juice('ga', 'set', { shake: false, volume: 0.4 });
+    const code = String((wc.executeJavaScript.mock.calls.at(-1) as unknown[] | undefined)?.[0]);
+    expect(code).toContain('j.set({"shake":false,"volume":0.4})');
+
+    wc.executeJavaScript.mockResolvedValueOnce(null);
+    expect((await runner.juice('ga', 'get')).ok).toBe(false);
+    wc.executeJavaScript.mockResolvedValueOnce(JSON.stringify({ enabled: 'yes' }));
+    expect((await runner.juice('ga', 'get')).ok).toBe(false);
+    wc.executeJavaScript.mockRejectedValueOnce(new Error('gone'));
+    expect(await runner.juice('ga', 'reset')).toEqual({ ok: false, kind: 'error', message: 'Could not reach the game.' });
+  });
+
   it('reloads a running game and refuses to reload one that is not running', async () => {
     expect(runner.reload('ga').ok).toBe(false);
     await runner.run(game('ga'));
     expect(runner.reload('ga').ok).toBe(true);
     expect(viewOf('ga').webContents.reloadIgnoringCache).toHaveBeenCalled();
+  });
+
+  it('pops a live view out to another window and docks it back hidden (Pop out)', async () => {
+    await runner.run(game('ga'));
+    const view = viewOf('ga');
+    const popout = fakeWindow();
+
+    runner.reparent('ga', popout, { visible: true });
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(view);
+    expect(view.visible).toBe(true);
+
+    runner.reparent('ga', null, { visible: false });
+    expect(popout.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(win.contentView.addChildView).toHaveBeenLastCalledWith(view);
+    expect(view.visible).toBe(false);
+  });
+
+  it('starts a popped-out game in its popout, so Restart stays there', async () => {
+    const popout = fakeWindow();
+    runner.reparent('ga', popout, { visible: true }); // not running yet: only remembered
+    await runner.run(game('ga'));
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(viewOf('ga'));
+    expect(win.contentView.addChildView).not.toHaveBeenCalled();
+  });
+
+  it('reports the current run state for a fresh renderer, and null once stopped', async () => {
+    const result = await runner.run(game('ga'));
+    expect(runner.runState('ga')).toEqual({ gameId: 'ga', runId: result.ok ? result.value.runId : '', state: 'starting' });
+    runner.stop('ga');
+    expect(runner.runState('ga')).toBeNull();
   });
 });
 
@@ -385,7 +451,9 @@ describe('isReloadTrigger', () => {
     ['vendor/phaser/phaser.js', false],
     ['node_modules/x/y.js', false],
     ['playtests/results/run-1.json', false],
-    ['playtests/a.json', true],
+    ['playtests/a.json', false],
+    ['playtests/baselines/smoke@60.png', false],
+    ['playtestsuite.js', true],
   ])('%s -> %s', (path, expected) => {
     expect(isReloadTrigger(path)).toBe(expected);
   });

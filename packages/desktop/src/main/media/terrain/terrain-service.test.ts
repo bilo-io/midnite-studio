@@ -2,11 +2,11 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { TERRAIN_BUILD_CANCELLED, TERRAIN_NOT_AVAILABLE, type TerrainStats } from '@midnite/studio-shared';
+import { TERRAIN_BUILD_CANCELLED, type TerrainStats } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { encodePngGrey16, encodePngRgba8 } from '../png/png-codec';
-import { createTerrainService, NOT_AN_IMAGE, notAvailableYet, type TerrainServiceDeps } from './terrain-service';
+import { decodePng, encodePngGrey16, encodePngRgba8 } from '../png/png-codec';
+import { createTerrainService, NOT_AN_IMAGE, type TerrainServiceDeps } from './terrain-service';
 import type { TerrainBroker, TerrainRunResult } from './terrain-broker';
 
 const stats: TerrainStats = {
@@ -338,9 +338,133 @@ describe('build', () => {
   });
 });
 
-describe('channels whose theme has not landed', () => {
-  it('answers a readable error rather than hanging', () => {
-    expect(notAvailableYet()).toEqual({ ok: false, kind: 'error', message: TERRAIN_NOT_AVAILABLE });
-    expect(TERRAIN_NOT_AVAILABLE).toBe('Terrain building is not available yet.');
+describe('roadKey (Theme H)', () => {
+  /** 32² RGBA: a cyan band over rows 12–19 on black. */
+  const roadsPng = () => {
+    const data = new Uint8Array(32 * 32 * 4);
+    for (let y = 0; y < 32; y += 1) for (let x = 0; x < 32; x += 1) data.set(y >= 12 && y < 20 ? [0, 255, 255, 255] : [0, 0, 0, 255], (y * 32 + x) * 4);
+    return encodePngRgba8(data, 32, 32);
+  };
+
+  it('refuses without a roads mask', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    expect(await service.roadKey(target)).toEqual({ ok: false, kind: 'error', message: 'Attach a roads mask first.' });
+  });
+
+  it('previews the keyed mask at 512², detecting cyan, and picks a colour under the eyedropper', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    await service.setInput(attach(target, roadsPng(), 'roads'));
+    const keyed = await service.roadKey({ ...target, tolerance: 0.2 });
+    if (!keyed.ok) throw new Error(keyed.kind === 'error' ? keyed.message : keyed.kind);
+    expect(keyed.value.colour).toBe('#00ffff');
+    expect(keyed.value.detected).toBe('#00ffff');
+    const png = decodePng(Buffer.from(keyed.value.pngBase64, 'base64'));
+    if (!png.ok) throw new Error(png.message);
+    expect([png.image.width, png.image.height]).toEqual([512, 512]);
+    expect(png.image.data[256 * 512 + 10]).toBe(255); // the band, at mid-height
+    expect(png.image.data[10]).toBe(0);
+
+    const picked = await service.roadKey({ ...target, pick: [0.5, 0.05] });
+    expect(picked.ok && picked.value.colour).toBe('#000000');
+  });
+});
+
+describe('captured road graph and geo (Phase 108 Theme F)', () => {
+  const graphBytes = (edges = 1) =>
+    new TextEncoder().encode(
+      JSON.stringify({
+        version: 1,
+        worldSize: 1000,
+        nodes: [
+          { id: 0, p: [-10, 0] },
+          { id: 1, p: [10, 0] },
+        ],
+        edges: Array.from({ length: edges }, (_, i) => ({ id: i, a: 0, b: 1, points: [[-10, 0], [10, 0]], cls: 'residential', widthM: 7 })),
+      }),
+    );
+  const roadsPng = () => encodePngRgba8(new Uint8Array(4 * 4).fill(255), 2, 2);
+
+  it('setRoadsGraph writes the file and records inputs.roadsGraph; remove undoes both', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const set = await service.setRoadsGraph(target, graphBytes(1));
+    expect(set).toEqual({ ok: true, value: { edges: 1 } });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.roadsGraph).toEqual({ file: 'inputs/roads.graph.json', edges: 1 });
+    const dir = join(root, target.project, target.terrain);
+    expect((await stat(join(dir, 'inputs', 'roads.graph.json'))).isFile()).toBe(true);
+
+    expect((await service.setRoadsGraph(target, { remove: true })).ok).toBe(true);
+    const after = await service.get(target);
+    expect(after.ok && after.value.spec.inputs.roadsGraph).toBeUndefined();
+    expect(await stat(join(dir, 'inputs', 'roads.graph.json')).then(() => true, () => false)).toBe(false);
+  });
+
+  it('refuses an invalid graph without touching the spec', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const bad = await service.setRoadsGraph(target, new TextEncoder().encode('{"version":2}'));
+    expect(bad).toMatchObject({ ok: false, message: expect.stringContaining('road graph is not valid') });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.roadsGraph).toBeUndefined();
+  });
+
+  it('removing or replacing the roads mask drops the graph that went with it', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    await service.setInput(attach(target, roadsPng(), 'roads'));
+    await service.setRoadsGraph(target, graphBytes());
+    // Replacing the mask clears the stale graph.
+    await service.setInput(attach(target, roadsPng(), 'roads'));
+    expect((await service.get(target)).ok && (await service.get(target) as { value: { spec: { inputs: object } } }).value.spec.inputs).not.toHaveProperty('roadsGraph');
+    // Set again, then remove the mask.
+    await service.setRoadsGraph(target, graphBytes());
+    await service.setInput({ ...target, slot: 'roads', remove: true });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs).toEqual({});
+    expect(await stat(join(root, target.project, target.terrain, 'inputs', 'roads.graph.json')).then(() => true, () => false)).toBe(false);
+  });
+
+  it('setBuildingsFootprints writes the file and records inputs.buildingsFootprints; remove undoes both', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const body = JSON.stringify({ version: 1, worldSize: 100, buildings: [{ id: 1, polygon: [[0, 0], [0, 5], [5, 5]], heightM: 9 }] });
+    expect(await service.setBuildingsFootprints(target, new TextEncoder().encode(body))).toEqual({ ok: true, value: { count: 1 } });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.buildingsFootprints).toEqual({ file: 'inputs/buildings.footprints.json', count: 1 });
+    const dir = join(root, target.project, target.terrain);
+    expect((await stat(join(dir, 'inputs', 'buildings.footprints.json'))).isFile()).toBe(true);
+    expect((await service.setBuildingsFootprints(target, { remove: true })).ok).toBe(true);
+    const after = await service.get(target);
+    expect(after.ok && after.value.spec.inputs.buildingsFootprints).toBeUndefined();
+    expect(await stat(join(dir, 'inputs', 'buildings.footprints.json')).then(() => true, () => false)).toBe(false);
+  });
+
+  it('refuses invalid building footprints without touching the spec', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const bad = await service.setBuildingsFootprints(target, new TextEncoder().encode('{"version":2}'));
+    expect(bad).toMatchObject({ ok: false, message: expect.stringContaining('building footprints are not valid') });
+    const got = await service.get(target);
+    expect(got.ok && got.value.spec.inputs.buildingsFootprints).toBeUndefined();
+  });
+
+  it('setSpec stores and validates the geo block', async () => {
+    const { service } = makeService(fakeBroker(() => ({ ok: true, stats })));
+    const target = await createTerrain(service);
+    const geo = {
+      center: [18.4, -33.9],
+      bbox: [18.3, -34, 18.5, -33.8],
+      sideM: 8000,
+      capture: { project: 'maps', name: 'cape-20261007-100000' },
+      attributions: ['x'],
+      capturedAt: '2026-10-07T10:00:00.000Z',
+    };
+    const ok = await service.setSpec({ ...target, patch: { geo } });
+    expect(ok.ok && ok.value.spec.geo).toMatchObject({ sideM: 8000, capture: { project: 'maps' } });
+    const bad = await service.setSpec({ ...target, patch: { geo: { ...geo, center: [999, 0] } } });
+    expect(bad.ok).toBe(false);
   });
 });

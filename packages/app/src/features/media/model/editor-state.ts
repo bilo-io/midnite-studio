@@ -2,6 +2,7 @@ import {
   applyClipOps,
   applyRigOps,
   copyClips,
+  revertSculptToParts,
   setAnatomy,
   type Mat4,
   type ModelAnatomy,
@@ -10,9 +11,13 @@ import {
   type ModelModifier,
   type ModelPart,
   type ModelRigOp,
+  type ModelPbr,
+  type ModelSculptPart,
   type ModelSpec,
   type RigEditOutcome,
 } from '@midnite/studio-shared';
+
+import { withSculptFile } from './sculpt/sculpt-file';
 
 import {
   alignParts,
@@ -105,6 +110,22 @@ export type EditorAction =
   | { type: 'clips'; ops: ModelClipOp[] }
   /** Copy another model's clips onto this rig. */
   | { type: 'retarget'; from: ModelSpec; replace?: boolean }
+  /** Theme B: adopt the design a conversion produced (primitives hidden, a `sculpt` part appended) as one undo step, and select the new part. */
+  | { type: 'convert'; spec: ModelSpec; partId: string }
+  /** Theme B: drop the `sculpt` part at `index` and un-hide the primitives it was converted from. */
+  | { type: 'revertSculpt'; index: number }
+  /** Theme C: adopt the design an SDF bake produced (a new or re-baked `sculpt` part at `index`) as one undo step, and select it. */
+  | { type: 'sdf'; spec: ModelSpec; index: number }
+  /**
+   * Theme D: a sculpt edit (a stroke, mask edit, subdivide, level step or remesh) finished in the sculpt
+   * worker — one undo step that bumps the part's `revision` (undo then walks the worker back), drops its
+   * SDF tree on the first edit, and records new counts after a topology change.
+   */
+  | { type: 'sculptEdit'; id: string; revision: number; multiresLevel?: number; vertices?: number; triangles?: number }
+  /** Theme D: the live sculpt mesh was written to `file`; repoint the part at it without a history step. */
+  | { type: 'sculptFlushed'; id: string; file: { src: string; hash: string; vertices: number; triangles: number; multiresLevel: number } }
+  /** Theme G: paint mode wrote its textures; repoint the part's material at them without a history step. */
+  | { type: 'paintFlushed'; id: string; pbr: ModelPbr }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'markSaved' }
@@ -249,6 +270,50 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return applyRig(state, (spec) => applyClipOps(spec, action.ops));
     case 'retarget':
       return applyRig(state, (spec) => copyClips(action.from, spec, action.replace === true));
+    case 'convert': {
+      const at = action.spec.parts.findIndex((p) => p.id === action.partId);
+      return commit(state, action.spec, at >= 0 ? [at] : []);
+    }
+    case 'sdf':
+      return commit(state, action.spec, action.spec.parts[action.index] ? [action.index] : []);
+    case 'revertSculpt': {
+      const id = state.spec.parts[action.index]?.id;
+      const reverted = id ? revertSculptToParts(state.spec, id) : null;
+      return reverted ? commit(state, reverted, []) : state;
+    }
+    case 'sculptEdit': {
+      const at = state.spec.parts.findIndex((p) => p.id === action.id);
+      const part = state.spec.parts[at];
+      if (!part || part.shape !== 'sculpt') return state;
+      const { sdf: _sdf, ...rest } = part;
+      const next: ModelSculptPart = {
+        ...rest,
+        revision: action.revision,
+        ...(action.multiresLevel !== undefined ? { multiresLevel: action.multiresLevel > 0 ? action.multiresLevel : undefined } : {}),
+        ...(action.vertices !== undefined ? { vertices: action.vertices } : {}),
+        ...(action.triangles !== undefined ? { triangles: action.triangles } : {}),
+      };
+      if (next.multiresLevel === undefined) delete next.multiresLevel;
+      const parts = state.spec.parts.slice();
+      parts[at] = next;
+      return commit(state, { ...state.spec, parts }, state.selection);
+    }
+    case 'sculptFlushed': {
+      const at = state.spec.parts.findIndex((p) => p.id === action.id);
+      const part = state.spec.parts[at];
+      if (!part || part.shape !== 'sculpt') return state;
+      const parts = state.spec.parts.slice();
+      parts[at] = withSculptFile(part, action.file);
+      return { ...state, spec: { ...state.spec, parts } };
+    }
+    case 'paintFlushed': {
+      const at = state.spec.parts.findIndex((p) => p.id === action.id);
+      const part = state.spec.parts[at];
+      if (!part || part.shape !== 'sculpt') return state;
+      const parts = state.spec.parts.slice();
+      parts[at] = { ...part, pbr: action.pbr };
+      return { ...state, spec: { ...state.spec, parts } };
+    }
     case 'undo': {
       const previous = state.past.at(-1);
       if (!previous) return state;

@@ -578,6 +578,32 @@ html[data-motion='reduced'] .battery-flash-fast {
   animation: none;
 }
 
+/* Battery charging indicator green shimmer — an active charging state
+ * indicator that sweeps a green highlight across the battery widget. */
+.battery-charging-shimmer {
+  animation: pill-shimmer 2.4s ease-in-out infinite paused;
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    rgba(16, 185, 129, 0.45) 50%,
+    transparent 85%
+  );
+}
+
+html:not([data-window-focused='false']) .battery-charging-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .battery-charging-shimmer {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .battery-charging-shimmer {
+  animation: none;
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-6px); }
@@ -4380,7 +4406,12 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   width: 6.5rem;
 }
 
+.graph-diff-chart-col {
+  width: 6.5rem;
+}
+
 [data-graph-hide~='diff'] .graph-diff-col,
+[data-graph-hide~='diffChart'] .graph-diff-chart-col,
 [data-graph-hide~='branchTag'] .graph-ref-col,
 [data-graph-hide~='branchTag'] .graph-ref-col-handle,
 [data-graph-hide~='author'] .graph-col-author,

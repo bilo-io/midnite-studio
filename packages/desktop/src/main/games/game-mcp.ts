@@ -1,10 +1,9 @@
 import {
   EVENT_CHANNELS,
-  GAME_STATE_MAX_BYTES,
-  GAME_STATE_MAX_DEPTH,
-  GameStateSchema,
-  jsonDepth,
+  gameEngineWarnings,
   MCP_CONTENT_KEY,
+  type GameImportAssetRequest,
+  type GameImportAssetResult,
   type GameInputEvent,
   type GameLogLevel,
   type GameSummary,
@@ -15,7 +14,9 @@ import {
 import type { WebContents } from 'electron';
 
 import { McpToolError } from '../mcp/errors';
+import { clipError, readGameState } from './game-state';
 import type { GameService } from './game-service';
+import type { Playtests } from './playtest';
 
 /**
  * The `game_*` MCP tools (Phase 107 Theme D): thin adapters over `GameService`
@@ -45,6 +46,10 @@ export type GameMcpDeps = {
   service: Pick<GameService, 'resolve' | 'list' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
   webContents: (gameId: string) => GameWebContents | null;
+  /** The asset bridge's import (Theme N). */
+  importAsset?: (req: GameImportAssetRequest) => Promise<{ ok: true; value: GameImportAssetResult } | { ok: false; kind: string; message?: string }>;
+  /** Play-test depth (Theme O): replays, assertions and `playtests/*.json`. */
+  playtests?: Playtests;
   /** Injected so tests can drive time. */
   sleep?: (ms: number) => Promise<void>;
 };
@@ -62,11 +67,16 @@ export type GameMcpTools = {
     | 'game_screenshot'
     | 'game_logs'
     | 'game_input'
-    | 'game_state']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
+    | 'game_state'
+    | 'game_import_asset'
+    | 'game_replay_record'
+    | 'game_replay_play'
+    | 'game_assert_state'
+    | 'game_assert_frame'
+    | 'game_playtest']: (input: McpToolInput<K>) => Promise<McpToolOutput<K>>;
 };
 
-/** A hostile `getState` has this long before the call gives up. */
-export const GAME_STATE_TIMEOUT_MS = 2000;
+export { GAME_STATE_TIMEOUT_MS } from './game-state';
 /** After the last input event the call waits this long, so the game can react before the next screenshot. */
 export const GAME_INPUT_SETTLE_MS = 100;
 /** A screenshot burst stops adding frames once its base64 passes this (the response cap is 4 MB). */
@@ -74,10 +84,9 @@ export const GAME_SCREENSHOT_BYTES_MAX = 3 * 1024 * 1024;
 const NOT_RUNNING = 'Run the game first.';
 const NOT_A_GAME_PATH = 'That folder is not a Midnite game.';
 const NO_GAMEPAD_HOOK = 'This game has no gamepad hook (window.__midnite.input.gamepad), so gamepad events cannot be sent.';
-const ERROR_TEXT_MAX = 300;
 
 const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-const clip = (text: string): string => (text.length <= ERROR_TEXT_MAX ? text : `${text.slice(0, ERROR_TEXT_MAX - 1)}…`);
+const clip = clipError;
 
 /** Electron's `keyCode` for a DOM `key` value: only the space bar differs between the two vocabularies. */
 export function toElectronKeyCode(key: string): string {
@@ -124,53 +133,21 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     return ('value' in result ? result.value : undefined) as T;
   };
 
-  async function readState(wc: GameWebContents): Promise<unknown> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new McpToolError('error', 'getState() did not answer within 2 s.')), GAME_STATE_TIMEOUT_MS);
-    });
-    let raw: unknown;
-    try {
-      raw = await Promise.race([
-        wc.executeJavaScript(
-          '(() => { try { return JSON.stringify(window.__midnite?.getState?.() ?? null) } catch (e) { return JSON.stringify({ __error: String(e) }) } })()',
-          false,
-        ),
-        timeout,
-      ]);
-    } catch (error) {
-      if (error instanceof McpToolError) throw error;
-      throw new McpToolError('error', clip(`getState() failed: ${error instanceof Error ? error.message : String(error)}`));
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-    // The page's answer is untrusted data: a string we cap, parse and validate — never code we evaluate.
-    if (typeof raw !== 'string') throw new McpToolError('error', 'getState() did not return JSON.');
-    if (raw.length > GAME_STATE_MAX_BYTES) throw new McpToolError('error', 'getState() returned more than 256 KB.');
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new McpToolError('error', 'getState() did not return valid JSON.');
-    }
-    if (parsed === null) throw new McpToolError('error', 'This game has no state hook (window.__midnite.getState).');
-    if (jsonDepth(parsed) > GAME_STATE_MAX_DEPTH) {
-      throw new McpToolError('error', `getState() is nested deeper than ${GAME_STATE_MAX_DEPTH} levels.`);
-    }
-    const error = (parsed as { __error?: unknown }).__error;
-    if (typeof error === 'string') throw new McpToolError('error', clip(`getState() threw: ${error}`));
-    const valid = GameStateSchema.safeParse(parsed);
-    if (!valid.success) throw new McpToolError('error', 'getState() must return an object.');
-    return valid.data;
-  }
+  const playtests = (): Playtests => {
+    if (!deps.playtests) throw new McpToolError('error', 'Play-tests are not ready yet.');
+    return deps.playtests;
+  };
+
+  const readState = (wc: GameWebContents): Promise<unknown> => readGameState((code) => wc.executeJavaScript(code, false));
 
   return {
     async game_list() {
       return { games: await deps.service.list() };
     },
 
-    async game_create(input) {
-      return unwrap(await deps.service.create(input));
+    async game_create({ writer, ...input }) {
+      const created = unwrap(await deps.service.create(input));
+      return { ...created, warnings: gameEngineWarnings(writer) };
     },
 
     async game_open({ game }) {
@@ -285,6 +262,50 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
       }
       await sleep(GAME_INPUT_SETTLE_MS);
       return { sent: events.length };
+    },
+
+    async game_import_asset({ game, source, name }) {
+      const found = await need(game);
+      if (!deps.importAsset) throw new McpToolError('error', 'The asset bridge is not ready yet.');
+      const imported = unwrap(await deps.importAsset({ gameId: found.gameId, source, ...(name ? { name } : {}) }));
+      return { gameId: found.gameId, ...imported };
+    },
+
+    async game_replay_record({ game, action, name, seed }) {
+      return playtests().replayRecord(game, { action, ...(name ? { name } : {}), ...(seed === undefined ? {} : { seed }) });
+    },
+
+    async game_replay_play({ game, replay, speed }) {
+      const played = await playtests().replayPlay(game, { replay, speed });
+      return { ...played, state: played.state as McpToolOutput<'game_replay_play'>['state'] };
+    },
+
+    async game_assert_state({ game, frame, path, op, value, epsilon }) {
+      return playtests().assertState(game, { frame, path, op, ...(value === undefined ? {} : { value }), ...(epsilon === undefined ? {} : { epsilon }) });
+    },
+
+    async game_assert_frame({ game, frame, name, tolerance }) {
+      const { png, diffPng, ...result } = await playtests().assertFrame(game, { frame, name, tolerance });
+      const blocks: McpContentBlock[] = [{ type: 'text', text: JSON.stringify(result) }];
+      blocks.push({ type: 'text', text: `frame ${frame}` }, { type: 'image', data: png.toString('base64'), mimeType: 'image/png' });
+      if (diffPng) blocks.push({ type: 'text', text: 'diff (changed pixels in magenta)' }, { type: 'image', data: diffPng.toString('base64'), mimeType: 'image/png' });
+      return { [MCP_CONTENT_KEY]: blocks };
+    },
+
+    async game_playtest({ game, name, playtest }) {
+      const { failures, ...result } = await playtests().run(game, playtest ? { inline: playtest } : name ? { names: [name] } : {});
+      const blocks: McpContentBlock[] = [{ type: 'text', text: JSON.stringify(result) }];
+      let bytes = 0;
+      for (const png of failures) {
+        const data = png.toString('base64');
+        if (bytes + data.length > GAME_SCREENSHOT_BYTES_MAX) {
+          blocks.push({ type: 'text', text: 'More failure images are in playtests/results/ (the response size limit was reached).' });
+          break;
+        }
+        bytes += data.length;
+        blocks.push({ type: 'image', data, mimeType: 'image/png' });
+      }
+      return { [MCP_CONTENT_KEY]: blocks };
     },
 
     async game_state({ game }) {

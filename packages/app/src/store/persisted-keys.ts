@@ -24,6 +24,7 @@ import type { PersistedUi } from './ui-store';
  */
 export const PREFERENCE_KEYS = [
   'mediaExportDir', // media-page.tsx
+  'mapUnits', // media-page.tsx (Phase 108 Theme G)
   // Already registered — each has a control in an existing settings page.
   'activityTimeframe', // activity-timeline-settings.tsx
   'activityTimelineAreaLayout', // activity-timeline-settings.tsx
@@ -178,6 +179,7 @@ export const SESSION_STATE_KEYS = [
   'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
+  'audioTabByRepo', // Media > Audio: Editor or Generator, per repo
   'projectViewByProject', // last-viewed view per project
   'projectsMode', // last-viewed mode per repo
   'repoGroupMembership', // user-created content, edited in the repos panel, not a setting

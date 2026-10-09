@@ -137,8 +137,12 @@ import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trig
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
+import { registerMediaMusicGmHandlers } from './ipc/media-music-gm-handlers';
+import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
-import { registerMediaModelHandlers } from './ipc/media-model-handlers';
+import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
+import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
+import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
@@ -164,6 +168,7 @@ import {
   closeAllPopouts,
   configureReopenStore,
   configureWindowsStore,
+  createRoleWindow,
   registerMainWindow,
   restoreReopenedPopouts,
 } from './window-manager';
@@ -171,7 +176,14 @@ import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerGamesHandlers } from './ipc/games-handlers';
 import { createGameRunner } from './games/game-runner';
 import { createGameMcpTools } from './games/game-mcp';
+import { createPlaytests } from './games/playtest';
+import { createGameExport } from './games/game-export';
+import { createGamePopout } from './games/game-popout';
 import { createGameService } from './games/game-service';
+import { createAssetBridge } from './games/asset-bridge';
+import { createGameAgentService } from './games/game-agent-service';
+import { createIterativeHost } from './media/model/iterative-host';
+import { createLlmCall } from './media/model/engines';
 import { setGameTools } from './mcp/game-tools';
 import { createGamesSettingsStore } from './games/games-settings-store';
 import { mediaGameTemplateRoot } from './template-path';
@@ -191,6 +203,7 @@ const getMainWindow = (): BrowserWindow | null => mainWindow;
 
 /** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
 let gameService: ReturnType<typeof createGameService> | null = null;
+let gameAgentService: ReturnType<typeof createGameAgentService> | null = null;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -501,9 +514,13 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaHandlers();
     registerMediaImageHandlers();
     registerMediaAudioHandlers();
+    registerMediaMusicGmHandlers();
+    registerMediaMusicHandlers();
     registerMediaModelHandlers();
     registerMediaModelSf3dHandlers();
     registerMediaTerrainHandlers();
+    registerMediaSpriteHandlers();
+    registerMediaMapHandlers();
     registerOllamaHandlers();
     registerDemoApiHandlers();
     registerSecretsHandlers();
@@ -546,6 +563,7 @@ if (!app.requestSingleInstanceLock()) {
     registerPerfHandlers();
     registerReportHandlers({ log: defaultLogger });
     installMgitFileProtocol();
+    installMapTileProtocol();
     installMenu(getMainWindow);
     bootMark('handlers-registered');
 
@@ -704,11 +722,61 @@ if (!app.requestSingleInstanceLock()) {
       listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
       send: broadcastToAllWindows,
       log: defaultLogger,
+      // Pop out (Theme B): the `game` role window hosts one game's view.
+      popout: createGamePopout({
+        runner: gameRunner,
+        openWindow: () => createRoleWindow('game', defaultLogger),
+        send: broadcastToAllWindows,
+        log: defaultLogger,
+      }),
     });
-    registerGamesHandlers(gameService);
     // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.
     const mcpGameService = gameService;
-    setGameTools(createGameMcpTools({ service: mcpGameService, webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null }));
+    // The asset bridge (Theme N): copies media into a game's assets/, one commit per import.
+    const gameAssets = createAssetBridge({
+      resolve: (gameId) => mcpGameService.resolve(gameId),
+      listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
+      gamesRoot: async () => (await mcpGameService.settings.get()).resolvedRoot,
+      repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+    });
+    // Play-test depth (Theme O): deterministic restarts, replays and assertions through the kit hook.
+    const gamePlaytests = createPlaytests({
+      resolve: (target) => mcpGameService.resolve(target),
+      runDeterministic: (gameId, seed) => mcpGameService.run(gameId, { determinism: { seed, paused: true } }),
+      setRunState: (gameId, state) => mcpGameService.toolbar(gameId, state),
+      page: (gameId) => {
+        const wc = gameRunner.view(gameId)?.webContents;
+        if (!wc || wc.isDestroyed()) return null;
+        return { evaluate: (code) => wc.executeJavaScript(code, false), capture: async () => (await wc.capturePage()).toPNG() };
+      },
+    });
+    const gameMcpTools = createGameMcpTools({
+      service: mcpGameService,
+      webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null,
+      importAsset: (req) => gameAssets.importAsset(req),
+      playtests: gamePlaytests,
+    });
+    setGameTools(gameMcpTools);
+    // Create and iterate (Theme M): agent CLIs on a private MCP server, or Ollama, one commit per changing pass.
+    const gameLlm = createLlmCall(modelEngines);
+    gameAgentService = createGameAgentService({
+      resolve: (gameId) => mcpGameService.resolve(gameId),
+      squashRunCommits: async () => (await mcpGameService.settings.get()).settings.squashRunCommits,
+      host: createIterativeHost(),
+      tools: () => gameMcpTools,
+      ollama: ({ model, prompt, signal }) => gameLlm({ engine: { kind: 'ollama', model }, repoId: '', prompt, signal, json: true }),
+      send: broadcastToAllWindows,
+      log: defaultLogger,
+    });
+    registerGamesHandlers(
+      gameService,
+      gameAgentService,
+      gameAssets,
+      gamePlaytests,
+      createGameExport({ resolve: (gameId) => mcpGameService.resolve(gameId) }),
+    );
     configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
@@ -972,6 +1040,7 @@ if (!app.requestSingleInstanceLock()) {
     // doc names this exact wiring as its one open item, owned by Theme H.
     stopAllVideoProcesses();
     // Every running game is a renderer process of its own.
+    gameAgentService?.cancelAll();
     gameService?.stopAll();
     // The pm.* script runner's utilityProcess (Phase 70 Theme B) — same
     // reasoning as the two calls below: nothing in it is worth flushing,
@@ -983,6 +1052,7 @@ if (!app.requestSingleInstanceLock()) {
     disposeMusicBroker();
     disposeSf3d();
     disposeTerrainBroker();
+    disposeMapCaptureBroker();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

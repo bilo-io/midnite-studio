@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import { MEDIA_TABS, MEDIA_TAB_EXPORT_FORMATS, REPO_SCOPED_MEDIA_TABS } from './media';
 import {
+  GAME_REPLAY_MAX_FRAMES,
+  GamePlaytestSchema,
+  GameReplaySchema,
+  checkGameOllamaPath,
   DEFAULT_GAMES_SETTINGS,
+  GAME_PASSES_DEFAULT,
+  GAME_PASSES_MAX,
+  GameAgentRunRequestSchema,
+  GameAgentUndoRequestSchema,
+  gameEngineWarnings,
+  GAMES_OLLAMA_WARNING,
   GameManifestSchema,
   GamesSettingsSchema,
   gameSlug,
@@ -91,5 +101,57 @@ describe('the game tab', () => {
     expect(MEDIA_TABS).toContain('game');
     expect(REPO_SCOPED_MEDIA_TABS).not.toContain('game');
     expect(MEDIA_TAB_EXPORT_FORMATS.game).toEqual(['game-html', 'game-zip', 'game-folder']);
+  });
+});
+
+describe('Theme M — create and iterate', () => {
+  it('accepts only .js/.json paths under src/ in an Ollama envelope', () => {
+    expect(checkGameOllamaPath('src/main.js')).toEqual({ ok: true, path: 'src/main.js' });
+    expect(checkGameOllamaPath('./src//data/quests.json')).toEqual({ ok: true, path: 'src/data/quests.json' });
+    for (const bad of ['kit/core/rng.js', 'vendor/phaser.js', '../src/main.js', 'src/../kit/x.js', '/src/main.js', 'C:/src/x.js', 'src/readme.md', 'src\\..\\kit\\x.js']) {
+      expect(checkGameOllamaPath(bad).ok, bad).toBe(false);
+    }
+  });
+
+  it('warns for Ollama engines only, and bounds a run request', () => {
+    expect(gameEngineWarnings({ kind: 'ollama', model: 'qwen' })).toEqual([GAMES_OLLAMA_WARNING]);
+    expect(gameEngineWarnings({ kind: 'agent', agentId: 'claude' })).toEqual([]);
+    expect(gameEngineWarnings(undefined)).toEqual([]);
+    const base = { gameId: 'g1', prompt: 'jump', engine: { kind: 'agent', agentId: 'claude' } };
+    expect(GameAgentRunRequestSchema.parse(base).passes).toBe(GAME_PASSES_DEFAULT);
+    expect(GameAgentRunRequestSchema.safeParse({ ...base, passes: GAME_PASSES_MAX + 1 }).success).toBe(false);
+    expect(GameAgentRunRequestSchema.safeParse({ ...base, prompt: '  ' }).success).toBe(false);
+    expect(GameAgentUndoRequestSchema.safeParse({ gameId: 'g1', sha: '--abort' }).success).toBe(false);
+  });
+});
+
+describe('play-test schemas (Theme O)', () => {
+  const replay = { version: 1, seed: 7, frames: 120, events: [{ f: 0, action: 'right', down: true }, { f: 90, action: 'right', down: false }] };
+
+  it('round-trips a replay through JSON', () => {
+    const parsed = GameReplaySchema.parse(JSON.parse(JSON.stringify(replay)));
+    expect(GameReplaySchema.parse(JSON.parse(JSON.stringify(parsed)))).toEqual(replay);
+  });
+
+  it('refuses an event past the replay’s end and a frame count past the cap', () => {
+    expect(GameReplaySchema.safeParse({ ...replay, events: [{ f: 121, action: 'right', down: true }] }).success).toBe(false);
+    expect(GameReplaySchema.safeParse({ ...replay, frames: GAME_REPLAY_MAX_FRAMES + 1 }).success).toBe(false);
+  });
+
+  it('accepts a play-test with an inline replay or a path, and both assertion kinds', () => {
+    const playtest = {
+      version: 1,
+      name: 'smoke',
+      replay,
+      asserts: [
+        { frame: 120, kind: 'state', path: '$.scene', op: 'eq', value: 'level' },
+        { frame: 120, kind: 'frame', tolerance: 0.02 },
+      ],
+    };
+    expect(GamePlaytestSchema.safeParse(playtest).success).toBe(true);
+    expect(GamePlaytestSchema.safeParse({ ...playtest, replay: 'playtests/replays/walk.replay.json' }).success).toBe(true);
+    expect(GamePlaytestSchema.safeParse({ ...playtest, asserts: [] }).success).toBe(false);
+    expect(GamePlaytestSchema.safeParse({ ...playtest, name: '../x' }).success).toBe(false);
+    expect(GamePlaytestSchema.safeParse({ ...playtest, asserts: [{ frame: 1, kind: 'state', path: '$', op: 'matches' }] }).success).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { execGit } from '@midnite/studio-git-engine';
-import { GAME_MANIFEST_FILE, parseGameManifest } from '@midnite/studio-shared';
+import { GAME_KIT_VERSION, GAME_MANIFEST_FILE, defaultGameOptions, parseGameManifest } from '@midnite/studio-shared';
 
 import { createGame, gameIdForPath } from './game-scaffold';
 import { listGames } from './game-list';
@@ -56,7 +56,7 @@ describe('createGame', () => {
         dimension: '2d',
         network: 'off',
         starter: 'blank',
-        kitVersion: '0.1.0',
+        kitVersion: GAME_KIT_VERSION,
         vendored: { phaser: '3.90.0' },
       });
     }
@@ -64,6 +64,9 @@ describe('createGame', () => {
     expect(await readFile(join(path, 'index.html'), 'utf8')).toContain('"phaser": "./vendor/phaser/phaser.esm.js"');
     expect(await readFile(join(path, 'index.html'), 'utf8')).not.toContain('"three"');
     expect(await readFile(join(path, 'AGENTS.md'), 'utf8')).toContain('# Moon Rover');
+    for (const dir of ['.claude', '.agents', '.codex']) {
+      expect(await readFile(join(path, dir, 'skills', 'midnite-media-game-build', 'SKILL.md'), 'utf8')).toContain('name: midnite-media-game-build');
+    }
     expect(await readFile(join(path, 'jsconfig.json'), 'utf8')).toContain('compilerOptions');
     expect(await readFile(join(path, 'vendor', 'phaser', 'phaser.esm.js'), 'utf8')).toBeTruthy();
     expect(await readFile(join(path, 'kit', 'core', 'hook.js'), 'utf8')).toBeTruthy();
@@ -73,6 +76,26 @@ describe('createGame', () => {
     const subject = await execGit(path, ['log', '-1', '--format=%s']);
     expect(subject.stdout.trim()).toBe('Create Moon Rover from blank');
     expect(registerRepo).toHaveBeenCalledWith(path);
+  });
+
+  it('writes the wizard options into the manifest and game.config.js, and omits them when none are given', async () => {
+    const options = { ...defaultGameOptions('open-world'), dayNight: { enabled: true, minutesPerDay: 12 } };
+    const made = await createGame(
+      { name: 'Wide World', engine: 'three', perspective: 'third-person', genre: 'open-world', starter: 'open-world@third-person', options },
+      deps(),
+    );
+    expect(made, JSON.stringify(made)).toMatchObject({ ok: true });
+    const path = join(parent, 'wide-world');
+    const manifest = JSON.parse(await readFile(join(path, GAME_MANIFEST_FILE), 'utf8'));
+    expect(manifest.options).toEqual(options);
+    expect(parseGameManifest(manifest).ok).toBe(true);
+    const config = await readFile(join(path, 'src', 'game.config.js'), 'utf8');
+    expect(config).toContain('"minutesPerDay":12');
+
+    const plain = await createGame({ ...request, name: 'Plain' }, deps());
+    expect(plain.ok).toBe(true);
+    const plainManifest = JSON.parse(await readFile(join(parent, 'plain', GAME_MANIFEST_FILE), 'utf8'));
+    expect('options' in plainManifest).toBe(false);
   });
 
   it('refuses an existing non-empty folder with the folder in the message', async () => {

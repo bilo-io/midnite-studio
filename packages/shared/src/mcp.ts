@@ -18,6 +18,8 @@ import {
   GameCreateInputSchema,
   GameCreateOutputSchema,
   GameGetManifestOutputSchema,
+  GameImportAssetInputSchema,
+  GameImportAssetOutputSchema,
   GameInputInputSchema,
   GameInputOutputSchema,
   GameListOutputSchema,
@@ -30,9 +32,38 @@ import {
   GameSetManifestInputSchema,
   GameStateOutputSchema,
   GameToolTargetSchema,
+  GameAssertFrameInputSchema,
+  GameAssertStateInputSchema,
+  GameAssertStateOutputSchema,
+  GameContentOutputSchema,
+  GamePlaytestInputSchema,
+  GameReplayPlayInputSchema,
+  GameReplayPlayOutputSchema,
+  GameReplayRecordInputSchema,
+  GameReplayRecordOutputSchema,
 } from './media-game-mcp';
 import {
   ModelAutoRigInputSchema,
+  ModelBakeInputSchema,
+  ModelDecimateInputSchema,
+  ModelExportInputSchema,
+  ModelLayerAddInputSchema,
+  ModelLayerListInputSchema,
+  ModelSetReferenceViewsInputSchema,
+  ModelCompareReferenceInputSchema,
+  ModelLayerListResultSchema,
+  ModelLayerRemoveInputSchema,
+  ModelLayerUpdateInputSchema,
+  ModelMaterialSetInputSchema,
+  ModelPaintStrokeInputSchema,
+  ModelLandmarksResultSchema,
+  ModelMaskInputSchema,
+  ModelRemeshInputSchema,
+  ModelRetopoInputSchema,
+  ModelSculptStrokeInputSchema,
+  ModelSculptUndoInputSchema,
+  ModelSubdivideInputSchema,
+  ModelUnwrapInputSchema,
   ModelEditResultSchema,
   ModelGetRigResultSchema,
   ModelListInputSchema,
@@ -41,6 +72,10 @@ import {
   ModelPatchRigInputSchema,
   ModelRenderPreviewInputSchema,
   ModelRetargetInputSchema,
+  ModelConvertToMeshInputSchema,
+  ModelSdfBakeInputSchema,
+  ModelSdfPatchInputSchema,
+  ModelSdfSetInputSchema,
   ModelSetSpecInputSchema,
   ModelToolTargetSchema,
   ModelGenerateSf3dInputSchema,
@@ -48,6 +83,85 @@ import {
   ModelSf3dStatusInputSchema,
   ModelSf3dStatusResultSchema,
 } from './media-model-mcp';
+import {
+  TerrainMcpBuildResultSchema,
+  TerrainEditResultSchema,
+  TerrainExportInputSchema,
+  TerrainExportOutputSchema,
+  TerrainGetSpecResultSchema,
+  TerrainGetStatsResultSchema,
+  TerrainListInputSchema,
+  TerrainListResultSchema,
+  TerrainOpenResultSchema,
+  TerrainRenderPreviewInputSchema,
+  TerrainSetInputInputSchema,
+  TerrainMcpSetInputResultSchema,
+  TerrainSetSpecInputSchema,
+  TerrainToolTargetSchema,
+} from './media-terrain-mcp';
+import {
+  MapGenerateInputSchema,
+  MapGetResultSchema,
+  MapPatchInputSchema,
+  MapPatchResultSchema,
+  SpriteCancelOutputSchema,
+  SpriteEditResultSchema,
+  SpriteExportInputSchema,
+  SpriteExportOutputSchema,
+  SpriteGenerateInputSchema,
+  SpriteGetReportResultSchema,
+  SpriteGetSpecResultSchema,
+  SpriteJobInputSchema,
+  SpriteJobStartedSchema,
+  SpriteJobStatusOutputSchema,
+  SpriteListInputSchema,
+  SpriteListResultSchema,
+  SpriteOpenResultSchema,
+  SpritePatchFramesInputSchema,
+  SpritePatchFramesOutputSchema,
+  SpriteRecommendInputSchema,
+  SpriteRecommendResultSchema,
+  SpriteRegenerateFramesInputSchema,
+  SpriteRenderPreviewInputSchema,
+  SpriteSetSpecInputSchema,
+  SpriteToolTargetOrSpecSchema,
+  SpriteToolTargetSchema,
+} from './media-sprite-mcp';
+import {
+  MapCaptureTerrainInputSchema,
+  MapCaptureTerrainResultSchema,
+  MapGotoInputSchema,
+  MapGotoResultSchema,
+  MapListInputSchema,
+  MapListResultSchema,
+  MapMeasureInputSchema,
+  MapMeasureResultSchema,
+} from './media-map-mcp';
+import {
+  MusicAddCcInputSchema,
+  MusicAddNotesInputSchema,
+  MusicAddPitchbendsInputSchema,
+  MusicAddTrackInputSchema,
+  MusicEditResultSchema,
+  MusicGetInfoInputSchema,
+  MusicGetNotesInputSchema,
+  MusicGetNotesResultSchema,
+  MusicGetTrackInputSchema,
+  MusicGetTrackResultSchema,
+  MusicGetTracksInputSchema,
+  MusicGetTracksResultSchema,
+  MusicInfoResultSchema,
+  MusicToolListInputSchema,
+  MusicToolListResultSchema,
+  MusicOpenInputSchema,
+  MusicOpenResultSchema,
+  MusicRemoveNotesInputSchema,
+  MusicRenderPreviewInputSchema,
+  MusicRenderPreviewResultSchema,
+  MusicSaveInputSchema,
+  MusicSaveResultSchema,
+  MusicSetTempoInputSchema,
+} from './media-music-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -106,11 +220,34 @@ type McpToolEntry = {
     | 'model_patch_parts'
     | 'model_render_preview'
     | 'model_get_reference_image'
+    | 'model_set_reference_views'
+    | 'model_compare_reference'
     | 'model_get_rig'
     | 'model_auto_rig'
     | 'model_patch_rig'
     | 'model_patch_animations'
     | 'model_retarget'
+    | 'model_convert_to_mesh'
+    | 'model_sdf_set'
+    | 'model_sdf_patch'
+    | 'model_sdf_bake'
+    | 'model_get_landmarks'
+    | 'model_sculpt_stroke'
+    | 'model_mask'
+    | 'model_subdivide'
+    | 'model_remesh'
+    | 'model_sculpt_undo'
+    | 'model_decimate'
+    | 'model_retopo'
+    | 'model_unwrap'
+    | 'model_bake'
+    | 'model_export'
+    | 'model_layer_list'
+    | 'model_material_set'
+    | 'model_layer_add'
+    | 'model_layer_update'
+    | 'model_layer_remove'
+    | 'model_paint_stroke'
     | 'model_save'
     | 'model_sf3d_status'
     | 'model_generate_sf3d'
@@ -125,7 +262,58 @@ type McpToolEntry = {
     | 'game_screenshot'
     | 'game_logs'
     | 'game_input'
-    | 'game_state';
+    | 'game_state'
+    | 'game_import_asset'
+    | 'game_replay_record'
+    | 'game_replay_play'
+    | 'game_assert_state'
+    | 'game_assert_frame'
+    | 'game_playtest'
+    | 'terrain_list'
+    | 'terrain_open'
+    | 'terrain_get_spec'
+    | 'terrain_set_spec'
+    | 'terrain_set_input'
+    | 'terrain_build'
+    | 'terrain_render_preview'
+    | 'terrain_get_stats'
+    | 'terrain_export'
+    | 'sprite_list'
+    | 'sprite_open'
+    | 'sprite_get_spec'
+    | 'sprite_set_spec'
+    | 'sprite_recommend_method'
+    | 'sprite_generate'
+    | 'sprite_regenerate_frames'
+    | 'sprite_patch_frames'
+    | 'sprite_render_preview'
+    | 'sprite_get_report'
+    | 'sprite_job_status'
+    | 'sprite_cancel'
+    | 'tileset_generate'
+    | 'background_generate'
+    | 'map_generate'
+    | 'map_get'
+    | 'map_patch'
+    | 'sprite_export'
+    | 'map_list'
+    | 'map_measure'
+    | 'map_goto'
+    | 'map_capture_terrain'
+    | 'music_list'
+    | 'music_open'
+    | 'music_get_info'
+    | 'music_set_tempo'
+    | 'music_get_tracks'
+    | 'music_get_track'
+    | 'music_get_notes'
+    | 'music_add_notes'
+    | 'music_remove_notes'
+    | 'music_add_cc'
+    | 'music_add_pitchbends'
+    | 'music_add_track'
+    | 'music_save'
+    | 'music_render_preview';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -419,6 +607,24 @@ export const MCP_TOOLS = {
     output: z.object({ _content: z.array(z.unknown()) }),
     readOnly: true,
   },
+  model_set_reference_views: {
+    id: 'model_set_reference_views',
+    title: 'Match the reference picture to the model',
+    description:
+      'Saves front/side/top orthographic views (scale, offset) registering the reference picture to the model, or fits one to a given height — use before `model_compare_reference`; refused unless its switch is on.',
+    input: ModelSetReferenceViewsInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_compare_reference: {
+    id: 'model_compare_reference',
+    title: 'Score the model against the reference',
+    description:
+      'Scores the model’s silhouette and width profile against the matched reference views, names regions too wide/narrow/tall/short, draws an overlay and plans the next pass — use after `model_set_reference_views`.',
+    input: ModelCompareReferenceInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
   model_get_rig: {
     id: 'model_get_rig',
     title: 'Read a model’s rig and clips',
@@ -462,6 +668,194 @@ export const MCP_TOOLS = {
       'Copies another rigged model’s clips onto this one by canonical bone name — use instead of re-adding them with `model_patch_animations`; refused unless its own Settings switch is on.',
     input: ModelRetargetInputSchema,
     output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_convert_to_mesh: {
+    id: 'model_convert_to_mesh',
+    title: 'Convert primitives to a sculpt mesh',
+    description:
+      'Converts a design’s primitives (or the named `parts`) into one watertight sculpt mesh, keeping the primitives hidden; refused unless its own Settings switch is on.',
+    input: ModelConvertToMeshInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sdf_set: {
+    id: 'model_sdf_set',
+    title: 'Set an SDF shape',
+    description:
+      'Blocks out an organic form as a signed-distance `tree` (primitives, smooth booleans, modifiers) baked into a sculpt part — use instead of stacking primitives; refused unless its own Settings switch is on.',
+    input: ModelSdfSetInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sdf_patch: {
+    id: 'model_sdf_patch',
+    title: 'Edit an SDF shape',
+    description:
+      'Adds, updates, moves, wraps or removes an SDF part’s nodes by name and re-bakes it — use instead of resending the tree to `model_sdf_set`; refused unless its own Settings switch is on.',
+    input: ModelSdfPatchInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sdf_bake: {
+    id: 'model_sdf_bake',
+    title: 'Re-bake an SDF shape',
+    description:
+      'Rebakes an SDF part’s tree at another `resolution` (16–256), finer once the form is right — use instead of resending it to `model_sdf_set`; refused unless its own Settings switch is on.',
+    input: ModelSdfBakeInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_get_landmarks: {
+    id: 'model_get_landmarks',
+    title: 'Read a model’s landmarks',
+    description:
+      'Returns the named points (top_of_head, nose_tip, chin, ears, hands, feet) found on a model, with any the design overrides — use instead of guessing coordinates for a `model_sculpt_stroke` target.',
+    input: ModelToolTargetSchema,
+    output: ModelLandmarksResultSchema,
+    readOnly: true,
+  },
+  model_sculpt_stroke: {
+    id: 'model_sculpt_stroke',
+    title: 'Sculpt with a brush stroke',
+    description:
+      'Sculpts a sculpt part with a brush aimed by preview pixels, a bone, landmark, group, world path or the open mask, with a thumbnail — use after `model_sdf_set`; refused unless its own Settings switch is on.',
+    input: ModelSculptStrokeInputSchema,
+    output: z.union([ModelEditResultSchema, z.object({ _content: z.array(z.unknown()) })]),
+    readOnly: false,
+  },
+  model_mask: {
+    id: 'model_mask',
+    title: 'Mask part of a sculpt',
+    description:
+      'Masks, unmasks, grows, shrinks, inverts or clears a sculpt part’s mask by region or lasso so strokes spare it — use before `model_sculpt_stroke`; refused unless its own Settings switch is on.',
+    input: ModelMaskInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_subdivide: {
+    id: 'model_subdivide',
+    title: 'Subdivide a sculpt',
+    description:
+      'Adds Loop-subdivision levels to a sculpt part so detail can be carved finer, keeping its shape — use instead of `model_remesh` when the topology is already even; refused unless its own Settings switch is on.',
+    input: ModelSubdivideInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_remesh: {
+    id: 'model_remesh',
+    title: 'Voxel-remesh a sculpt',
+    description:
+      'Retessellates a sculpt part into even, watertight topology by `voxelSize` or `targetVertices`, dropping its multires levels — use after heavy strokes stretch it; refused unless its own Settings switch is on.',
+    input: ModelRemeshInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_sculpt_undo: {
+    id: 'model_sculpt_undo',
+    title: 'Undo or redo sculpt edits',
+    description:
+      'Steps a sculpt part back (or forward, with `redo`) through this session’s strokes, masks and remeshes, returning a thumbnail — use instead of countering a stroke; refused unless its own Settings switch is on.',
+    input: ModelSculptUndoInputSchema,
+    output: z.union([ModelEditResultSchema, z.object({ _content: z.array(z.unknown()) })]),
+    readOnly: false,
+  },
+  model_decimate: {
+    id: 'model_decimate',
+    title: 'Decimate a sculpt to a low-poly part',
+    description:
+      'Reduces a sculpt part to a target triangle count or ratio by quadric edge collapse, keeping borders and the rig, hiding the original as bake source — use before `model_unwrap`; refused unless its switch is on.',
+    input: ModelDecimateInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_retopo: {
+    id: 'model_retopo',
+    title: 'Retopologise a sculpt to quads',
+    description:
+      'Rebuilds a sculpt part as even, quad-dominant topology near a target face count, hiding the original as bake source — use instead of `model_decimate`; refused unless its own Settings switch is on.',
+    input: ModelRetopoInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_unwrap: {
+    id: 'model_unwrap',
+    title: 'Unwrap a sculpt’s UVs',
+    description:
+      'Unwraps a sculpt part’s UVs with seams by angle and curvature, then packs the charts and reports texel density — use before `model_bake`; refused unless its own Settings switch is on.',
+    input: ModelUnwrapInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_bake: {
+    id: 'model_bake',
+    title: 'Bake maps from a high-poly sculpt',
+    description:
+      'Bakes tangent-space normal, occlusion, curvature and cavity maps from the high-poly sculpt onto an unwrapped low-poly part as PNGs — use after `model_unwrap`; refused unless its own Settings switch is on.',
+    input: ModelBakeInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_export: {
+    id: 'model_export',
+    title: 'Export a model’s files',
+    description:
+      'Writes the model as `.glb` (PBR, skin, clips, baked maps), `.obj` and `.fbx` beside its design, by format — use instead of `model_save` for engine files only; refused unless its own Settings switch is on.',
+    input: ModelExportInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_list: {
+    id: 'model_layer_list',
+    title: 'Read a sculpt part’s material layers',
+    description:
+      'Returns a sculpt part’s PBR base, texture sizes, layer stack (bottom to top), the bakes masks can use and the flattened files — use before `model_layer_update` or `model_paint_stroke`.',
+    input: ModelLayerListInputSchema,
+    output: ModelLayerListResultSchema,
+    readOnly: true,
+  },
+  model_material_set: {
+    id: 'model_material_set',
+    title: 'Set a sculpt part’s PBR material',
+    description:
+      'Sets an unwrapped sculpt part’s base colour, roughness, metalness, emissive and texture sizes, or applies a preset stack (skin, metal, wood…) — use after `model_unwrap`; refused unless its Settings switch is on.',
+    input: ModelMaterialSetInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_add: {
+    id: 'model_layer_add',
+    title: 'Add a material layer',
+    description:
+      'Adds a fill layer (channel values, noise) or an empty paint layer to a sculpt part’s stack, with a blend mode, opacity and a bake or painted mask — use before `model_paint_stroke`; refused unless its switch is on.',
+    input: ModelLayerAddInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_update: {
+    id: 'model_layer_update',
+    title: 'Change a material layer',
+    description:
+      'Renames, hides, reorders or retunes a layer — opacity, blend mode, fill values, mask — and re-flattens the textures — use instead of `model_layer_remove` plus re-adding; refused unless its Settings switch is on.',
+    input: ModelLayerUpdateInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_layer_remove: {
+    id: 'model_layer_remove',
+    title: 'Remove a material layer',
+    description: 'Removes a layer from a sculpt part’s stack and re-flattens its textures — use instead of hiding it with `model_layer_update` when it is not coming back; refused unless its Settings switch is on.',
+    input: ModelLayerRemoveInputSchema,
+    output: ModelEditResultSchema,
+    readOnly: false,
+  },
+  model_paint_stroke: {
+    id: 'model_paint_stroke',
+    title: 'Paint a texture with a brush stroke',
+    description:
+      'Paints a paint layer’s colour, roughness, metalness, normal, glow or mask with brush, eraser, fill, smudge, clone or stamp, aimed like `model_sculpt_stroke`, with a thumbnail; refused unless its switch is on.',
+    input: ModelPaintStrokeInputSchema,
+    output: z.union([ModelEditResultSchema, z.object({ _content: z.array(z.unknown()) })]),
     readOnly: false,
   },
   model_save: {
@@ -603,6 +997,492 @@ export const MCP_TOOLS = {
       'Reads the state a running game reports through `window.__midnite.getState()` as size-capped JSON — use instead of guessing from a screenshot.',
     input: GameToolTargetSchema,
     output: GameStateOutputSchema,
+    readOnly: true,
+  },
+  game_import_asset: {
+    id: 'game_import_asset',
+    title: 'Import media into a game',
+    description:
+      'Copies a Terrain, Sprite, Model, Image or Audio item into a game’s `assets/` and registers it in the index — use instead of `cp` into the repo; refused unless its Settings switch is on.',
+    input: GameImportAssetInputSchema,
+    output: GameImportAssetOutputSchema,
+    readOnly: false,
+  },
+  game_replay_record: {
+    id: 'game_replay_record',
+    title: 'Record an input replay',
+    description:
+      'Starts recording a playthrough from a deterministic restart, or stops and writes `playtests/replays/<name>.replay.json` — use instead of writing input sequences by hand; refused unless its own Settings switch is on.',
+    input: GameReplayRecordInputSchema,
+    output: GameReplayRecordOutputSchema,
+    readOnly: false,
+  },
+  game_replay_play: {
+    id: 'game_replay_play',
+    title: 'Play an input replay',
+    description:
+      'Restarts the game deterministically and plays a frame-indexed replay at 1× or as fast as possible, answering the final state — use instead of `game_input` with timings; refused unless its own Settings switch is on.',
+    input: GameReplayPlayInputSchema,
+    output: GameReplayPlayOutputSchema,
+    readOnly: false,
+  },
+  game_assert_state: {
+    id: 'game_assert_state',
+    title: 'Assert on a game’s state at a frame',
+    description:
+      'Steps a running game to a frame and checks a JSON path of `getState()` with eq, ne, lt, gt, exists or approx — use instead of reading `game_state` and comparing by eye; refused unless its own Settings switch is on.',
+    input: GameAssertStateInputSchema,
+    output: GameAssertStateOutputSchema,
+    readOnly: false,
+  },
+  game_assert_frame: {
+    id: 'game_assert_frame',
+    title: 'Compare a frame with a baseline',
+    description:
+      'Steps a running game to a frame and diffs it against `playtests/baselines/<name>@<frame>.png` (written when missing) — use instead of comparing screenshots by eye; refused unless its Settings switch is on.',
+    input: GameAssertFrameInputSchema,
+    output: GameContentOutputSchema,
+    readOnly: false,
+  },
+  game_playtest: {
+    id: 'game_playtest',
+    title: 'Run a game’s play-tests',
+    description:
+      'Runs `playtests/*.json` (by name, inline, or all) deterministically, answering pass/fail per assertion with failure screenshots — use instead of a hand-driven play session; refused unless its Settings switch is on.',
+    input: GamePlaytestInputSchema,
+    output: GameContentOutputSchema,
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Terrain (Phase 105 Theme J) — shape a terrain iteratively: pick a height source, build,
+   * look at the pictures, adjust, export. The read tools and the preview render work whenever the
+   * server is on; everything that changes a terrain, runs a build or writes an export is gated by
+   * `Settings ▸ MCP ▸ Let agents edit terrains` (`allowTerrains`), off by default. A terrain is
+   * addressed by `repoPath` + `project` + `terrain` (`terrain_list` returns them). Schemas:
+   * `media-terrain-mcp.ts`.
+   */
+  terrain_list: {
+    id: 'terrain_list',
+    title: 'List terrains',
+    description:
+      'Lists the Terrain projects and the terrains in them with whether each is built — use instead of `ls .midnite/media/terrain`; the `terrain` name it returns is what every other terrain tool takes.',
+    input: TerrainListInputSchema,
+    output: TerrainListResultSchema,
+    readOnly: true,
+  },
+  terrain_open: {
+    id: 'terrain_open',
+    title: 'Show a terrain in the Terrain tab',
+    description:
+      'Opens one terrain in the Terrain tab so the user watches builds land live — use after `terrain_list`; refused unless its own Settings switch is on.',
+    input: TerrainToolTargetSchema,
+    output: TerrainOpenResultSchema,
+    readOnly: false,
+  },
+  terrain_get_spec: {
+    id: 'terrain_get_spec',
+    title: 'Read a terrain’s spec and the schema',
+    description:
+      'Returns a terrain’s spec with its JSON schema and limits — use instead of reading `terrain.json`; call it first to learn the fields and which of the three inputs are attached.',
+    input: TerrainToolTargetSchema,
+    output: TerrainGetSpecResultSchema,
+    readOnly: true,
+  },
+  terrain_set_spec: {
+    id: 'terrain_set_spec',
+    title: 'Change a terrain’s spec',
+    description:
+      'Merges a partial spec (resolution, worldSize, heightRange, noise, foliage, roads, …) over the stored one — use instead of editing `terrain.json`; invalid fields come back as errors, nothing changes.',
+    input: TerrainSetSpecInputSchema,
+    output: TerrainEditResultSchema,
+    readOnly: false,
+  },
+  terrain_set_input: {
+    id: 'terrain_set_input',
+    title: 'Attach or remove a terrain input image',
+    description:
+      'Attaches a heightmap, satellite or roads image from a repo path, or paints the heightmap from a prompt — use instead of copying a file into the terrain’s `inputs` folder; paths outside the repo are refused.',
+    input: TerrainSetInputInputSchema,
+    output: TerrainMcpSetInputResultSchema,
+    readOnly: false,
+  },
+  terrain_build: {
+    id: 'terrain_build',
+    title: 'Build a terrain',
+    description:
+      'Builds the heightfield, satellite maps, roads, foliage and buildings from the spec — use instead of a `node` generator script; with no heightmap and no noise it asks you to choose, never guessing.',
+    input: TerrainToolTargetSchema,
+    output: TerrainMcpBuildResultSchema,
+    readOnly: false,
+  },
+  terrain_render_preview: {
+    id: 'terrain_render_preview',
+    title: 'Render the terrain from named views',
+    description:
+      'Renders a built terrain to PNG images from top, oblique, horizon, landcover and roads views — use instead of judging `terrain_get_stats` numbers; returns image content, at most 768 px each.',
+    input: TerrainRenderPreviewInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  terrain_get_stats: {
+    id: 'terrain_get_stats',
+    title: 'Read a terrain’s build statistics',
+    description:
+      'Returns the last build’s heights, land-cover percentages, road count and length and building count — use instead of parsing `terrain.json`; answers built false when there is no build.',
+    input: TerrainToolTargetSchema,
+    output: TerrainGetStatsResultSchema,
+    readOnly: true,
+  },
+  terrain_export: {
+    id: 'terrain_export',
+    title: 'Export a terrain',
+    description:
+      'Writes the terrain pack folder (manifest, heightfield, chunk glbs, maps) or one glb inside the repo — use instead of copying files out of `build`; an existing pack is never overwritten.',
+    input: TerrainExportInputSchema,
+    output: TerrainExportOutputSchema,
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Sprites (Phase 106 Theme K) — 2D game assets: choose a method, generate as an asynchronous
+   * job, poll it, read the badges, re-roll, preview the motion, export. Reads and previews work whenever
+   * the server is on; everything that changes an asset, starts or stops a job or writes an export is
+   * gated by `Settings ▸ MCP ▸ Let agents edit sprites and maps` (`allowSprites`), off by default. An
+   * asset is addressed by `repoPath` + `group` + `asset` (`sprite_list` returns them). Schemas:
+   * `media-sprite-mcp.ts`.
+   */
+  sprite_list: {
+    id: 'sprite_list',
+    title: 'List sprite assets',
+    description:
+      'Lists the sprite assets in the five groups (characters, objects, tilesets, backgrounds, maps) with kind and whether built — use instead of `ls .midnite/media/sprite`; the asset names it returns go to every sprite tool.',
+    input: SpriteListInputSchema,
+    output: SpriteListResultSchema,
+    readOnly: true,
+  },
+  sprite_open: {
+    id: 'sprite_open',
+    title: 'Show an asset in the Sprites tab',
+    description:
+      'Opens one sprite asset in the Sprites tab so the user watches jobs land live — use after `sprite_list`; refused unless its own Settings switch is on.',
+    input: SpriteToolTargetSchema,
+    output: SpriteOpenResultSchema,
+    readOnly: false,
+  },
+  sprite_get_spec: {
+    id: 'sprite_get_spec',
+    title: 'Read an asset’s spec and the schema',
+    description:
+      'Returns a sprite asset’s spec with the JSON schema of every kind — use instead of reading `sprite.json`; call it first to learn the fields, limits and what to do next.',
+    input: SpriteToolTargetSchema,
+    output: SpriteGetSpecResultSchema,
+    readOnly: true,
+  },
+  sprite_set_spec: {
+    id: 'sprite_set_spec',
+    title: 'Change an asset’s spec',
+    description:
+      'Merges a partial spec (clips, frameSize, directions, terrains, layers, …) over the stored one — use instead of editing `sprite.json`; invalid fields come back as errors and nothing changes.',
+    input: SpriteSetSpecInputSchema,
+    output: SpriteEditResultSchema,
+    readOnly: false,
+  },
+  sprite_recommend_method: {
+    id: 'sprite_recommend_method',
+    title: 'Recommend a sheet method',
+    description:
+      'Answers which of hand-drawn, rendered-from-3D or one-shot suits a sheet and why — use instead of guessing in `sprite.json`; call it before `sprite_generate`, for a stored asset or a draft spec.',
+    input: SpriteRecommendInputSchema,
+    output: SpriteRecommendResultSchema,
+    readOnly: true,
+  },
+  sprite_generate: {
+    id: 'sprite_generate',
+    title: 'Generate a sprite sheet',
+    description:
+      'Starts a job that draws a sheet’s frames (all clips or named ones), creating the asset from a spec if given — use instead of an image script; returns a jobId at once, poll `sprite_job_status`.',
+    input: SpriteGenerateInputSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  sprite_regenerate_frames: {
+    id: 'sprite_regenerate_frames',
+    title: 'Re-roll frames',
+    description:
+      'Starts a job that redraws only the named frames, such as the badged ones `sprite_get_report` lists — use instead of regenerating the whole sheet; returns a jobId at once.',
+    input: SpriteRegenerateFramesInputSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  sprite_patch_frames: {
+    id: 'sprite_patch_frames',
+    title: 'Edit frames',
+    description:
+      'Reorders, deletes, restores or flips frames and nudges their anchor — use instead of moving PNGs in `frames/`; a reroll op starts a job and returns its jobId.',
+    input: SpritePatchFramesInputSchema,
+    output: SpritePatchFramesOutputSchema,
+    readOnly: false,
+  },
+  sprite_render_preview: {
+    id: 'sprite_render_preview',
+    title: 'Render a contact sheet and an animation',
+    description:
+      'Renders one contact sheet PNG per clip (or the tileset, layers, props or map) and with `animate` one APNG of a clip — use instead of opening `frames/` to judge motion; returns image content.',
+    input: SpriteRenderPreviewInputSchema,
+    output: z.object({ _content: z.array(z.unknown()) }),
+    readOnly: true,
+  },
+  sprite_get_report: {
+    id: 'sprite_get_report',
+    title: 'Read the validation badges',
+    description:
+      'Lists the frames the pipeline badged (empty, clipped, height, drift, inconsistent, unchecked, grid) with the rule each broke — use instead of reading `frames/frames.json`; re-roll them next.',
+    input: SpriteToolTargetSchema,
+    output: SpriteGetReportResultSchema,
+    readOnly: true,
+  },
+  sprite_job_status: {
+    id: 'sprite_job_status',
+    title: 'Poll a generation job',
+    description:
+      'Reports a sprite job’s state (running, done, failed, cancelled), progress and message — use instead of `sleep` and listing files; poll about every 10 s until it is no longer running.',
+    input: SpriteJobInputSchema,
+    output: SpriteJobStatusOutputSchema,
+    readOnly: true,
+  },
+  sprite_cancel: {
+    id: 'sprite_cancel',
+    title: 'Cancel a generation job',
+    description:
+      'Cancels a running sprite job, keeping every frame already written — use instead of quitting the app or `kill`; refused unless its Settings switch is on.',
+    input: SpriteJobInputSchema,
+    output: SpriteCancelOutputSchema,
+    readOnly: false,
+  },
+  tileset_generate: {
+    id: 'tileset_generate',
+    title: 'Generate a tileset',
+    description:
+      'Starts a job that draws seamless terrain bases and composites every autotile transition into `tileset.png` and `tileset.tsj`, creating it from a spec if given — use instead of a tiling script; returns a jobId.',
+    input: SpriteToolTargetOrSpecSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  background_generate: {
+    id: 'background_generate',
+    title: 'Generate a parallax background',
+    description:
+      'Starts a job that draws each parallax layer, cuts it out and makes it wrap, writing `background.json`, creating it from a spec if given — use instead of an image script; returns a jobId.',
+    input: SpriteToolTargetOrSpecSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  map_generate: {
+    id: 'map_generate',
+    title: 'Generate a map',
+    description:
+      'Starts a job where the layout engine lays out regions, rooms and paths and autotiles them into `map.tmj`, creating the map from a spec if given — use instead of hand-writing Tiled JSON; returns a jobId.',
+    input: MapGenerateInputSchema,
+    output: SpriteJobStartedSchema,
+    readOnly: false,
+  },
+  map_get: {
+    id: 'map_get',
+    title: 'Read a map',
+    description:
+      'Returns a map’s layout spec, its tileset’s terrains and each layer’s size — use instead of parsing `map.tmj`; tile arrays are never included.',
+    input: SpriteToolTargetSchema,
+    output: MapGetResultSchema,
+    readOnly: true,
+  },
+  map_patch: {
+    id: 'map_patch',
+    title: 'Edit a map',
+    description:
+      'Paints ground cells, adds or moves spawns, exits and points, or refills, then re-autotiles `map.tmj` — use instead of editing the `.tmj`; invalid edits come back as errors and nothing changes.',
+    input: MapPatchInputSchema,
+    output: MapPatchResultSchema,
+    readOnly: false,
+  },
+  sprite_export: {
+    id: 'sprite_export',
+    title: 'Export an asset',
+    description:
+      'Writes the asset’s pack (atlas.json and anims.json, a .tsj, background.json or a .tmj with its images) inside the repo — use instead of copying files out of `export`; an existing pack is never overwritten.',
+    input: SpriteExportInputSchema,
+    output: SpriteExportOutputSchema,
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Maps (Phase 108 Theme I). `map_list` and `map_measure` answer whenever the server is on;
+   * `map_goto` (moves the user's view) and `map_capture_terrain` (writes files, creates a terrain) are
+   * gated by `Settings ▸ MCP ▸ Let agents capture maps` (`allowMaps`), off by default. Schemas:
+   * `media-map-mcp.ts`.
+   */
+  map_list: {
+    id: 'map_list',
+    title: 'List map projects, captures and layers',
+    description:
+      'Lists the Maps projects with their terrain captures (centre, side, heights, layers) and GeoJSON layers — use instead of `ls .midnite/media/map`; read-only.',
+    input: MapListInputSchema,
+    output: MapListResultSchema,
+    readOnly: true,
+  },
+  map_measure: {
+    id: 'map_measure',
+    title: 'Measure distances on the map',
+    description:
+      'Measures a path (each leg and the total) or a circle (ring of lon/lat vertices) on the WGS84 ellipsoid — use instead of a hand-rolled `haversine`; read-only.',
+    input: MapMeasureInputSchema,
+    output: MapMeasureResultSchema,
+    readOnly: true,
+  },
+  map_goto: {
+    id: 'map_goto',
+    title: 'Fly the Maps tab to a place',
+    description:
+      'Moves the Maps tab to a place name or lon/lat at a zoom — use instead of telling the user to search; refused unless `Let agents capture maps` is on.',
+    input: MapGotoInputSchema,
+    output: MapGotoResultSchema,
+    readOnly: false,
+  },
+  map_capture_terrain: {
+    id: 'map_capture_terrain',
+    title: 'Capture a map square for Terrain',
+    description:
+      'Captures a square of the real world (heightmap, satellite, roads, buildings) into a Terrain — use instead of hand-fetching tiles; then `terrain_build`; refused unless `Let agents capture maps` is on.',
+    input: MapCaptureTerrainInputSchema,
+    output: MapCaptureTerrainResultSchema,
+    readOnly: false,
+  },
+  /*
+   * Media ▸ Audio ▸ Editor (Phase 101 Theme H). The read tools answer whenever the server is on; every
+   * tool that changes a song, opens it or writes it is gated by `Settings ▸ MCP ▸ Let agents edit music`
+   * (`allowMusic`), off by default. Schemas: `media-music-mcp.ts`.
+   */
+  music_list: {
+    id: 'music_list',
+    title: 'List songs',
+    description:
+      'Lists the songs in each Audio project, with whether the editor’s sidecar exists — use instead of `ls .midnite/media/audio`; read-only.',
+    input: MusicToolListInputSchema,
+    output: MusicToolListResultSchema,
+    readOnly: true,
+  },
+  music_open: {
+    id: 'music_open',
+    title: 'Open a song in the editor',
+    description:
+      'Loads a song into the editor and brings the Editor tab up — use instead of telling the user to open it; refused unless `Let agents edit music` is on.',
+    input: MusicOpenInputSchema,
+    output: MusicOpenResultSchema,
+    readOnly: false,
+  },
+  music_get_info: {
+    id: 'music_get_info',
+    title: 'Read a song’s header',
+    description:
+      'Returns a song’s tempo map, time signatures, track and note counts and length in bars — use instead of parsing the `.mid` with a script; read-only.',
+    input: MusicGetInfoInputSchema,
+    output: MusicInfoResultSchema,
+    readOnly: true,
+  },
+  music_set_tempo: {
+    id: 'music_set_tempo',
+    title: 'Set the tempo',
+    description:
+      'Sets the tempo at a tick, replacing the event there or adding a tempo change — use instead of editing the `.mid` header; refused unless `Let agents edit music` is on.',
+    input: MusicSetTempoInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_get_tracks: {
+    id: 'music_get_tracks',
+    title: 'List a song’s tracks',
+    description:
+      'Lists a song’s tracks with instrument, channel, colour and counts — use instead of decoding the `.mid` yourself; read-only.',
+    input: MusicGetTracksInputSchema,
+    output: MusicGetTracksResultSchema,
+    readOnly: true,
+  },
+  music_get_track: {
+    id: 'music_get_track',
+    title: 'Read one track',
+    description:
+      'Returns one track’s instrument, counts, pitch range and tick span by id or index — use instead of scanning every note with `music_get_notes`; read-only.',
+    input: MusicGetTrackInputSchema,
+    output: MusicGetTrackResultSchema,
+    readOnly: true,
+  },
+  music_get_notes: {
+    id: 'music_get_notes',
+    title: 'Read a track’s notes',
+    description:
+      'Returns a track’s notes in a tick range, in ticks at 480 per quarter note — use instead of dumping the `.song.json`; at most 5000 per call, read-only.',
+    input: MusicGetNotesInputSchema,
+    output: MusicGetNotesResultSchema,
+    readOnly: true,
+  },
+  music_add_notes: {
+    id: 'music_add_notes',
+    title: 'Add notes to a track',
+    description:
+      'Adds notes (pitch, startTick, durationTicks, velocity) to a track as one undoable step — use instead of rewriting the `.mid`; invalid notes come back as errors; refused unless `Let agents edit music` is on.',
+    input: MusicAddNotesInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_remove_notes: {
+    id: 'music_remove_notes',
+    title: 'Remove notes from a track',
+    description:
+      'Removes the notes of a track that start in a tick range, optionally only certain pitches — use instead of regenerating the track; refused unless `Let agents edit music` is on.',
+    input: MusicRemoveNotesInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_add_cc: {
+    id: 'music_add_cc',
+    title: 'Add controller changes',
+    description:
+      'Adds control-change events (volume, pan, modulation, sustain) to a track — use instead of hand-writing CC bytes; refused unless `Let agents edit music` is on.',
+    input: MusicAddCcInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_add_pitchbends: {
+    id: 'music_add_pitchbends',
+    title: 'Add pitch bends',
+    description:
+      'Adds 14-bit pitch-bend events to a track — use instead of hand-writing bend bytes; refused unless `Let agents edit music` is on.',
+    input: MusicAddPitchbendsInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_add_track: {
+    id: 'music_add_track',
+    title: 'Add a track',
+    description:
+      'Adds an empty track with a General MIDI program, channel and colour — use instead of editing the `.mid` chunks; refused unless `Let agents edit music` is on.',
+    input: MusicAddTrackInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_save: {
+    id: 'music_save',
+    title: 'Save the song',
+    description:
+      'Writes the working copy to `<name>.mid` and `<name>.song.json` — use instead of writing the files yourself; refused unless `Let agents edit music` is on.',
+    input: MusicSaveInputSchema,
+    output: MusicSaveResultSchema,
+    readOnly: false,
+  },
+  music_render_preview: {
+    id: 'music_render_preview',
+    title: 'Render a piano-roll preview',
+    description:
+      'Renders a bar range as a piano-roll PNG, all tracks colour-coded — use instead of judging `music_get_notes` numbers; returns image content, read-only.',
+    input: MusicRenderPreviewInputSchema,
+    output: MusicRenderPreviewResultSchema,
     readOnly: true,
   },
 } satisfies Record<string, McpToolEntry>;

@@ -45,38 +45,38 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## Headlines
 
-**Theme A — Editor and Generator tabs.** ◻ Not started.
+**Theme A — Editor and Generator tabs.** ✅ Landed. Media ▸ Audio has an Editor | Generator switch (`audio-sub-tabs.tsx`), persisted in `ui-store`, Generator the default and its body unchanged. Both tabs share the projects list; the Editor tab is a placeholder (`music-editor/editor-tab.tsx`) until Theme E. `media.audio.editor` / `media.audio.generator` are chord-free commands in `keybindings.ts`.
 
-**Theme B — The song model and MIDI files.** ◻ Not started.
+**Theme B — The song model and MIDI files.** ✅ Landed. `shared/media-music.ts` holds `SongSchema` (tempo map, time signature, tracks, notes in ticks, CC, pitch bend, automation, clips, mixer) with named limits. Main reads and writes `.mid` through `@tonejs/midi` (type 0/1, rescaled to 480 PPQ) in `main/media/music/midi-io.ts`, and keeps full editor state in a `<name>.song.json` sidecar. `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes (`media.audio.music.*` on the bridge, mock bridge updated). `.mid` is not an audio extension, so the Generator's variant list never sees songs.
 
-**Theme C — The Tone.js engine.** ◻ Not started.
+**Theme C — The Tone.js engine.** ✅ Landed. `music-editor/engine/` splits into pure logic and one Tone adapter. `tick-map.ts` converts ticks and seconds through the tempo map and lists metronome clicks; `scheduler.ts` builds per-track timed events and signatures, so a note edit reschedules only the touched track while a tempo change reschedules all; `engine.ts` runs play, pause, stop, seek, loop region and metronome against an `EngineHost`; `tone-host.ts` is the only file that imports Tone (dynamic), pinning the Transport at 60 BPM so transport seconds are real seconds. `offline.ts` renders audible tracks through `Tone.Offline` to a 16-bit WAV (`wav.ts`). The context resumes only on `play()` (a click); a hidden window pauses and suspends it, and does not auto-resume. A transport bar sits above the Editor tab, which plays a C-major preview song until Theme E loads project songs. Tone stays in lazy chunks: the entry chunk moved +1.0 KB.
 
-**Theme D — General MIDI instruments.** ◻ Not started.
+**Theme D — General MIDI instruments.** ✅ Landed. Licence gate passed: FluidR3_GM.sf2 is MIT (Frank Wen) and the `gleitz/midi-js-soundfonts` pre-rendered sets are CC BY 3.0 (code MIT), so attribution is shown in `GmAttribution`. Main downloads one program's sample set on first use into `userData/gm-samples/` and streams progress on `mstudio:media:gm-progress` (`media.audio.gm.*` on the bridge); the 128-program catalogue lives in `shared/media-music-gm.ts`; the renderer's per-track `Tone.Sampler` factory (`music-editor/gm-sampler.ts`) loads Tone lazily and falls back to a synth with a "not downloaded" hint. Upstream has no FluidR3 percussion set, so the channel-10 kit is synthesised. Samples still load from the third-party host via `GM_SAMPLE_BASE_URL` (mirroring deferred, see outstanding.md); the picker is mounted in Settings ▸ Media ▸ Audio until Theme E's per-track UI exists.
 
-**Theme E — Piano roll and arrangement.** ◻ Not started.
+**Theme E — Piano roll and arrangement.** ✅ Landed. The Editor tab now loads and saves the project's real songs through the music IPC (`use-song-document.ts`: song picker, New, Import .mid, 600 ms debounced autosave) and the built-in preview song is gone. `model/` holds the pure parts, all vitest: `song-edit.ts` (add, move, resize, delete, duplicate, quantise, velocity, track ops, instrument choice with the drum kit on channel 10), `history.ts` (snapshot undo/redo, key coalescing for held nudges, `commitExternal` for agent edits as one step), `roll-math.ts` (view transform, hit test, marquee, gesture deltas), `ruler.ts` and `keymap.ts` (Space, Delete, Mod+D, Mod+A, arrows, Q, Mod+Z). `piano-roll.tsx` is one canvas for keyboard gutter, grid and notes plus a velocity lane, so a 10k-note track is a single paint; the gutter previews pitches through `engine.previewNote`. `arrangement.tsx` and `track-row.tsx` give each track a name, colour, mute, solo and Theme D's GM picker, beside a bar/beat ruler, per-track thumbnails and the playhead. Pointer drag on the canvas is covered by `e2e/piano-roll.spec.ts` (e2e cap 476 to 478). H's live edits (`onChanged`) are one undo step each and `onOpen` shows the song.
 
 **Theme F — Mixer, effects and automation.** ◻ Not started.
 
 **Theme G — Clips, loops and the drum grid.** ◻ Not started.
 
-**Theme H — `music_*` MCP tools and the agent engines.** ◻ Not started.
+**Theme H — `music_*` MCP tools and the agent engines.** ✅ Landed. Fourteen `music_*` tools (midi-file-mcp's names, inputs derived from `SongSchema`) sit in the shared `MCP_TOOLS` registry (`media-music-mcp.ts`) and are implemented in `main/media/music/music-mcp.ts` over per-song working copies: every edit validates the whole result against `SongSchema`, answers `{ok:false, errors}` instead of throwing, and pushes one `mstudio:media:music-changed` event carrying the song; `music_save` writes the `.mid` and `.song.json`. `music_render_preview` draws a piano-roll PNG in main (`music-preview.ts`). Every tool that changes a song, opens it or saves is gated by the new default-off Settings ▸ MCP "Let agents edit music" switch (`allowMusic`, `mcp-store` v9); reads work whenever the server is on. Engines (`music-agents.ts`, IPC `music.agent.run/cancel` plus a progress event): Claude and Codex refine over a private per-run server through `iterative-host.ts` with a preview budget, tool-call ceiling and Cancel; Ollama writes the song as JSON with up to three repair rounds; Antigravity writes in one pass until the user registers Midnite in `~/.gemini/antigravity/mcp_config.json` (consent step in Settings, `agy-registration.ts`), then refines through the app's global server, falling back to one pass when that is off. Decision: a registered agy cannot use a per-run socket, so it needs the MCP server and the music switch on.
 
 **Theme I — The agent chat in the composer.** ◻ Not started. Blocked on the Chats page merging.
 
 **Theme J — Export.** ◻ Not started.
 
-**Theme K — Send to Generator.** ◻ Not started. Opens with a research spike.
+**Theme K — Send to Generator.** 🔄 spike done; build pending B/C/J. MusicGen-melody is **not** available as ONNX: no `Xenova/` or `onnx-community/` repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` (3.8.1 and 4.3.1) has no `musicgen_melody` model type or chroma extractor. Estimated cost if we exported it ourselves is about 1.9 GB download, 6-8 GB RAM and 4-20x slower than real time, which does not fit an 8 GB Mac. The build therefore takes the fallback: a rendered reference plus a deterministic text description. Write-up: [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
 
 ## A — Editor and Generator tabs (S)
 
-- [ ] Media › Audio gets top-level **Editor | Generator** tabs. The choice is persisted per repo in `ui-store`, and Generator is the default for existing users.
-- [ ] Generator renders today's `audio-tab.tsx` body unchanged.
-- [ ] Both tabs share the left-hand projects list. A project can hold MusicGen variants and songs side by side.
-- [ ] Keybindings in [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) switch tabs: `media.audio.editor` and `media.audio.generator`, chord-free unless a free chord fits.
+- [x] Media › Audio gets top-level **Editor | Generator** tabs. The choice is persisted per repo in `ui-store`, and Generator is the default for existing users.
+- [x] Generator renders today's `audio-tab.tsx` body unchanged.
+- [x] Both tabs share the left-hand projects list. A project can hold MusicGen variants and songs side by side.
+- [x] Keybindings in [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) switch tabs: `media.audio.editor` and `media.audio.generator`, chord-free unless a free chord fits.
 
 ## B — The song model and MIDI files (M)
 
-- [ ] [`shared/src/media-music.ts`](../../../packages/shared/src/media-music.ts) holds a zod `SongSchema` with:
+- [x] [`shared/src/media-music.ts`](../../../packages/shared/src/media-music.ts) holds a zod `SongSchema` with:
   - tempo and tempo map
   - time signature
   - tracks with a GM program, channel and colour
@@ -86,47 +86,47 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
   - clips
   - mixer state
   - Limits are named constants.
-- [ ] Main reads and writes `.mid` through `@tonejs/midi`. The editor's own state goes in a `<song>.json` sidecar, and the `.mid` is always the interchange file.
-- [ ] **Import .mid.** Any Standard MIDI File, type 0 or 1, opens as a song. Unsupported events are kept as passthrough wherever `@tonejs/midi` allows.
-- [ ] IPC: `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes. The mock bridge is updated.
-- [ ] Vitest: schema, `.mid` round trip (notes, CC, pitch bend, tempo map), and importing type-0 and type-1 fixtures.
+- [x] Main reads and writes `.mid` through `@tonejs/midi`. The editor's own state goes in a `<song>.json` sidecar, and the `.mid` is always the interchange file.
+- [x] **Import .mid.** Any Standard MIDI File, type 0 or 1, opens as a song. Unsupported events are kept as passthrough wherever `@tonejs/midi` allows.
+- [x] IPC: `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes. The mock bridge is updated.
+- [x] Vitest: schema, `.mid` round trip (notes, CC, pitch bend, tempo map), and importing type-0 and type-1 fixtures.
 
 ## C — The Tone.js engine (M)
 
-- [ ] A lazy `music-engine` chunk wraps `Tone.Transport`. It provides:
+- [x] A lazy `music-engine` chunk wraps `Tone.Transport`. It provides:
   - play, pause and stop
   - seek
   - a loop region
   - a metronome
   - a tempo-map-aware tick ↔ seconds conversion
-- [ ] A scheduler turns the song model into `Tone.Part`s per track. Edits during playback reschedule only the touched track.
-- [ ] Offline rendering (`Tone.Offline`) produces WAV for export and previews.
-- [ ] `AudioContext` is resumed only on a user gesture. Playback is suspended when the window is hidden, following the existing visibility gates.
-- [ ] Vitest: the scheduler and tick maths run against a fake transport. Real audio is Playwright-only, if needed at all.
-- [ ] Bundle delta reported with `scripts/perf/bundle-report.mjs`.
+- [x] A scheduler turns the song model into `Tone.Part`s per track. Edits during playback reschedule only the touched track.
+- [x] Offline rendering (`Tone.Offline`) produces WAV for export and previews.
+- [x] `AudioContext` is resumed only on a user gesture. Playback is suspended when the window is hidden, following the existing visibility gates.
+- [x] Vitest: the scheduler and tick maths run against a fake transport. Real audio is Playwright-only, if needed at all.
+- [x] Bundle delta reported with `scripts/perf/bundle-report.mjs`.
 
 ## D — General MIDI instruments (M)
 
-- [ ] **Licence check first.** Confirm the licence of the FluidR3_GM pre-rendered sample sets (e.g. `gleitz/midi-js-soundfonts`) and record it in the PR. If it is not clearly permissive, fall back to another GM set and record why.
-- [ ] Main downloads one instrument's samples the first time it is used, caches them under `userData`, and reports progress over an event channel. The pattern is the same as MusicGen's model download.
-- [ ] A per-track `Tone.Sampler` loads the GM program's samples. Channel 10 maps to a GM drum kit.
-- [ ] Instrument picker covers all 128 GM programs, grouped by family, with a download or cached badge.
-- [ ] Offline: a missing instrument falls back to a Tone.js synth with a visible "not downloaded" hint, never silence.
-- [ ] A licence and attribution notice appears in the Editor's about popover.
+- [x] **Licence check first.** Confirm the licence of the FluidR3_GM pre-rendered sample sets (e.g. `gleitz/midi-js-soundfonts`) and record it in the PR. If it is not clearly permissive, fall back to another GM set and record why.
+- [x] Main downloads one instrument's samples the first time it is used, caches them under `userData`, and reports progress over an event channel. The pattern is the same as MusicGen's model download.
+- [x] A per-track `Tone.Sampler` loads the GM program's samples. Channel 10 maps to a GM drum kit.
+- [x] Instrument picker covers all 128 GM programs, grouped by family, with a download or cached badge.
+- [x] Offline: a missing instrument falls back to a Tone.js synth with a visible "not downloaded" hint, never silence.
+- [x] A licence and attribution notice appears in the Editor's about popover.
 
 ## E — Piano roll and arrangement (L)
 
-- [ ] **Piano roll:**
+- [x] **Piano roll:**
   - draw, select (click and marquee), move, resize, duplicate and delete notes
   - quantise and snap
   - velocity lane
   - keyboard gutter that previews pitches
   - horizontal and vertical zoom
-- [ ] **Arrangement:** a track list with name, instrument, colour, mute and solo, plus a timeline with a bar/beat ruler and the playhead.
-- [ ] Undo and redo across every edit, including agent edits (see Theme H).
-- [ ] Keyboard shortcuts: Space play, Delete, Mod+D duplicate, Mod+A select all, arrows nudge, Q quantise.
-- [ ] Canvas or virtualised rendering, so a 10k-note song stays smooth.
-- [ ] Vitest: selection and edit reducers, quantise, snap. Playwright only for pointer drag on the real canvas, named in the spec header.
+- [x] **Arrangement:** a track list with name, instrument, colour, mute and solo, plus a timeline with a bar/beat ruler and the playhead.
+- [x] Undo and redo across every edit, including agent edits (see Theme H). Theme H's `music.onChanged` event lands through `useSongDocument` as one undoable step, and `music.onOpen` brings the Editor up on that song.
+- [x] Keyboard shortcuts: Space play, Delete, Mod+D duplicate, Mod+A select all, arrows nudge, Q quantise.
+- [x] Canvas or virtualised rendering, so a 10k-note song stays smooth.
+- [x] Vitest: selection and edit reducers, quantise, snap. Playwright only for pointer drag on the real canvas, named in the spec header.
 
 ## F — Mixer, effects and automation (L)
 
@@ -141,9 +141,9 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 - [ ] **Drum grid:** a step-sequencer editor for drum tracks with 16/32 steps, per-step velocity and swing. It reads and writes the same notes as the piano roll.
 - [ ] Vitest: clip expansion to notes, the step grid ↔ notes round trip, and swing.
 
-## H — `music_*` MCP tools and the agent engines (M)
+## H — `music_*` MCP tools and the agent engines (M) ✅ DONE
 
-- [ ] Tools in the shared `MCP_TOOLS` registry, dispatched in main, with input schemas derived from `SongSchema`:
+- [x] Tools in the shared `MCP_TOOLS` registry, dispatched in main, with input schemas derived from `SongSchema`:
   - `music_list`
   - `music_open`
   - `music_get_info`
@@ -158,15 +158,15 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
   - `music_add_track`
   - `music_save`
   - The names mirror midi-file-mcp's, so prompts written for it carry over.
-- [ ] `music_render_preview` returns a piano-roll PNG of a bar range. If the renderer is open it can also return a short rendered WAV clip as an audio block, with the PNG as the fallback.
-- [ ] Validation problems are returned as `{ok:false, errors:[…]}`, never thrown.
-- [ ] Every edit pushes `mstudio:media:music-changed` to the open editor as one undoable step. `music_open` brings the Editor tab up.
-- [ ] A Settings ▸ MCP switch, **"Let agents edit music"**, is off by default and gates every write tool. Reads work whenever the server is on.
-- [ ] **Agent engines:**
+- [x] `music_render_preview` returns a piano-roll PNG of a bar range. The optional WAV clip from an open renderer is deferred until Theme C's engine exists (see `outstanding.md`); the PNG is the answer today.
+- [x] Validation problems are returned as `{ok:false, errors:[…]}`, never thrown.
+- [x] Every edit pushes `mstudio:media:music-changed` to the open editor as one undoable step. `music_open` brings the Editor tab up. The events and `media.audio.music.onChanged`/`onOpen` ship here; the editor-side listener, undo entry and tab switch land with Theme E (see `outstanding.md`).
+- [x] A Settings ▸ MCP switch, **"Let agents edit music"**, is off by default and gates every write tool. Reads work whenever the server is on.
+- [x] **Agent engines:**
   - **Claude and Codex** refine over several passes through a private per-run MCP socket, reusing `iterative-host.ts`, with an iteration budget and Cancel.
   - **Ollama** writes the song as JSON in a single pass, with repair rounds.
   - **Antigravity** writes in a single pass by default. **"Register Midnite in Antigravity"** in Settings asks first, then writes the server into agy's own MCP config. Once registered, agy refines over several passes too. The button can also unregister.
-- [ ] Vitest: tool schemas and dispatch, note add/remove semantics, validation-error results, the gating switch, and the agy registration (with a fake config file, consent required).
+- [x] Vitest: tool schemas and dispatch, note add/remove semantics, validation-error results, the gating switch, and the agy registration (with a fake config file, consent required).
 
 ## I — The agent chat in the composer (M)
 
@@ -184,8 +184,8 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## K — Send to Generator (M, research)
 
-- [ ] **Spike.** Is MusicGen-melody available as ONNX for `@huggingface/transformers`? Record the download size, RAM use and speed on an 8 GB Mac.
-- [ ] If it is: an **"Send to Generator"** button renders the arrangement (or loop region) to audio and hands it to Generator as melody conditioning beside the text prompt.
+- [x] **Spike.** Is MusicGen-melody available as ONNX for `@huggingface/transformers`? Record the download size, RAM use and speed on an 8 GB Mac. **No.** No ONNX export on the hub and no `musicgen_melody` support in transformers.js 3.8.1 or 4.3.1, so nothing could be measured. Small is 656 MB measured; melody is an *estimate* of about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which rules out 8 GB Macs. Verdict: take the fallback branch. See [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
+- [x] ~~If it is: an **"Send to Generator"** button renders the arrangement (or loop region) to audio and hands it to Generator as melody conditioning beside the text prompt.~~ Not applicable, per the spike.
 - [ ] If it is not: hand Generator a rendered reference plus a generated text description (key, tempo, instrumentation, mood, derived deterministically from the song), and record the limitation.
 - [ ] The resulting variant in Generator links back to the song it came from.
 
@@ -220,4 +220,4 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 7. **Open — sample hosting.** *Recommendation:* mirror the GM sample sets into `bilo-io/midnite-apps` (versioned, under our control) instead of loading them from a third party's GitHub Pages at runtime.
 8. **Open — FluidR3_GM licence.** *Recommendation:* verify it before Theme D starts; Theme D's first item is the gate.
 9. **Open — preview format for agents.** *Recommendation:* the piano-roll PNG is always available. The audio clip is a bonus only when the renderer is open, because main has no Web Audio.
-10. **Open — Theme K fallback.** *Recommendation:* if MusicGen-melody is not available as ONNX, ship the reference render plus a deterministic text description, and keep the button.
+10. **Resolved — Theme K fallback.** The spike found MusicGen-melody is not available as ONNX and transformers.js cannot load it, so Theme K ships the reference render plus a deterministic text description (key, tempo, instrumentation, mood), and keeps the button. Revisit only if an ONNX export and a `musicgen_melody` model type appear upstream. Evidence: [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).

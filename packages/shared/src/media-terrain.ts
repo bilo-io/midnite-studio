@@ -61,6 +61,10 @@ export const TERRAIN_BUILD_FILES = [
   'landcover.png',
   'landcover.json',
   'splat.png',
+  'roads-mask.png',
+  'roads.json',
+  'foliage.json',
+  'buildings.json',
 ] as const;
 
 export const TERRAIN_SHADING_MODES = ['shaded', 'wireframe', 'height', 'slope', 'landcover', 'splat', 'roads'] as const;
@@ -91,6 +95,42 @@ export const TerrainInputRefSchema = z.object({
   bitDepth: z.union([z.literal(8), z.literal(16)]),
 });
 export type TerrainInputRef = z.infer<typeof TerrainInputRefSchema>;
+
+/**
+ * The captured OSM road graph a Maps capture hands over (Phase 108 Theme F). Not a fourth input slot:
+ * `TerrainInputRefSchema.file` is PNG-only, and this is JSON that only a main-side `setRoadsGraph` writes.
+ */
+export const TERRAIN_ROADS_GRAPH_FILE = 'inputs/roads.graph.json' as const;
+export const TerrainRoadsGraphRefSchema = z.object({
+  file: z.literal(TERRAIN_ROADS_GRAPH_FILE),
+  edges: z.number().int().nonnegative(),
+});
+export type TerrainRoadsGraphRef = z.infer<typeof TerrainRoadsGraphRefSchema>;
+
+/**
+ * The captured OSM building footprints a Maps capture hands over. Like the road graph it is JSON, so not
+ * an input slot. When present the build's `buildings` stage uses these (real shapes and heights) in place of
+ * footprints traced from the satellite land cover, and writes the same `build/buildings.json` layer — so
+ * viewer, export and previews treat it exactly like the traced one.
+ */
+export const TERRAIN_BUILDINGS_FOOTPRINTS_FILE = 'inputs/buildings.footprints.json' as const;
+export const TerrainBuildingsFootprintsRefSchema = z.object({
+  file: z.literal(TERRAIN_BUILDINGS_FOOTPRINTS_FILE),
+  count: z.number().int().nonnegative(),
+});
+export type TerrainBuildingsFootprintsRef = z.infer<typeof TerrainBuildingsFootprintsRefSchema>;
+
+/** Where a terrain came from, when a Maps capture made it (Phase 108 Decision 16). */
+export const TerrainGeoSchema = z.object({
+  center: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
+  /** `[west, south, east, north]` in degrees. */
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  sideM: z.number().positive(),
+  capture: z.object({ repoId: z.string().optional(), project: z.string(), name: z.string() }),
+  attributions: z.array(z.string()),
+  capturedAt: z.string(),
+});
+export type TerrainGeo = z.infer<typeof TerrainGeoSchema>;
 
 export const TerrainNoiseSchema = z.object({
   kind: z.enum(['fbm', 'ridged']).default('fbm'),
@@ -129,6 +169,7 @@ export const TerrainStatsSchema = z.object({
   classPercent: z.record(z.enum(TERRAIN_CLASSES), z.number()).optional(),
   roadCount: z.number().int().nonnegative().optional(),
   roadLengthM: z.number().nonnegative().optional(),
+  roadAgreement: z.number().min(0).max(1).optional(),
   buildingCount: z.number().int().nonnegative().optional(),
   foliageCount: z.number().int().nonnegative().optional(),
   warnings: z.array(z.string()),
@@ -151,6 +192,10 @@ export const TerrainSpecSchema = z
         heightmap: TerrainInputRefSchema.optional(),
         satellite: TerrainInputRefSchema.optional(),
         roads: TerrainInputRefSchema.optional(),
+        /** Set only by a Maps capture; pairs with `roads` and is removed with it. */
+        roadsGraph: TerrainRoadsGraphRefSchema.optional(),
+        /** Set only by a Maps capture: real OSM building footprints with heights. */
+        buildingsFootprints: TerrainBuildingsFootprintsRefSchema.optional(),
       })
       .default({}),
     resolution: z
@@ -219,6 +264,8 @@ export const TerrainSpecSchema = z
         spurMinM: z.number().default(8),
       })
       .default({}),
+    /** Present when a Maps capture made this terrain. */
+    geo: TerrainGeoSchema.optional(),
     createdAt: z.string().optional(),
     updatedAt: z.string().optional(),
     lastBuild: TerrainLastBuildSchema.optional(),
@@ -338,9 +385,101 @@ export const TerrainPaintRequestSchema = TerrainTargetSchema.extend({
 });
 export type TerrainPaintRequest = z.infer<typeof TerrainPaintRequestSchema>;
 
-/** Themes H and I own these two; until they land each answers {@link TERRAIN_NOT_AVAILABLE}. */
-export const TerrainRoadKeyRequestSchema = TerrainTargetSchema.passthrough();
-export const TerrainExportRequestSchema = TerrainTargetSchema.passthrough();
+/**
+ * Theme H: key the roads image without a build — the panel's live preview while the tolerance slider
+ * moves, and its eyedropper (`pick`, an image UV with a top-left origin, samples the colour there).
+ * Without `colour` or `pick`, the spec's colour (else the detected one) is used.
+ */
+export const TerrainRoadKeyRequestSchema = TerrainTargetSchema.extend({
+  colour: Hex.optional(),
+  tolerance: z.number().min(0).max(1).optional(),
+  pick: z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]).optional(),
+});
+export type TerrainRoadKeyRequest = z.infer<typeof TerrainRoadKeyRequestSchema>;
+
+/** Side of the `roadKey` preview mask, pixels. */
+export const TERRAIN_ROAD_PREVIEW_SIZE = 512;
+
+export const TerrainRoadKeyResultSchema = z.object({
+  /** A {@link TERRAIN_ROAD_PREVIEW_SIZE}² greyscale PNG (white = road), base64 without a `data:` prefix. */
+  pngBase64: z.string(),
+  /** The colour keyed on; `null` is the luminance fallback (no dominant hue). */
+  colour: Hex.nullable(),
+  /** What auto-detection found, so the panel can offer it back after a manual pick. */
+  detected: Hex.nullable(),
+});
+export type TerrainRoadKeyResult = z.infer<typeof TerrainRoadKeyResultSchema>;
+
+// --- export (Theme I) -----------------------------------------------------------
+
+export const TERRAIN_EXPORT_FORMATS = ['terrain-pack', 'glb'] as const;
+export const TERRAIN_EXPORT_TEXTURES = ['drape', 'splat-bake', 'none'] as const;
+export type TerrainExportTexture = (typeof TERRAIN_EXPORT_TEXTURES)[number];
+
+/** Export options; `dest` is the folder the pack or glb is written into (the toolbar picks it). */
+export const TerrainExportRequestSchema = TerrainTargetSchema.extend({
+  format: z.enum(TERRAIN_EXPORT_FORMATS).default('terrain-pack'),
+  dest: z.string().min(1),
+  /** The glb's chunk LOD, 0 (finest) to 3. */
+  lod: z.number().int().min(0).max(3).default(1),
+  texture: z.enum(TERRAIN_EXPORT_TEXTURES).default('drape'),
+  foliage: z.boolean().default(true),
+  roads: z.boolean().default(true),
+  buildings: z.boolean().default(true),
+});
+export type TerrainExportRequest = z.input<typeof TerrainExportRequestSchema>;
+export type TerrainExportOptions = z.output<typeof TerrainExportRequestSchema>;
+export const TerrainExportResultSchema = z.object({ path: z.string(), bytes: z.number().int().nonnegative() });
+export type TerrainExportResult = z.infer<typeof TerrainExportResultSchema>;
+
+export const TERRAIN_MANIFEST_FILE = 'terrain.manifest.json';
+export const terrainExistsMessage = (name: string): string => `${name} already exists in that folder.`;
+
+const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
+const RelPath = z.string().min(1);
+const MaterialTile = z.object({ albedo: RelPath, normal: RelPath });
+
+/**
+ * `terrain.manifest.json` — the contract Phase 107's three.js kit loads. Every path is relative to the
+ * manifest's own folder. `version` bumps only on a breaking change; readers ignore unknown keys.
+ */
+export const TerrainManifestSchema = z.object({
+  version: z.literal(1),
+  name: z.string(),
+  generator: z.literal('midnite-studio'),
+  worldSize: z.number().positive(),
+  heightRange: z.tuple([z.number(), z.number()]),
+  bounds: z.object({ min: Vec3, max: Vec3 }),
+  heightfield: z.object({ png: RelPath, json: RelPath }),
+  chunks: z.object({
+    verts: z.number().int().positive(),
+    perSide: z.number().int().positive(),
+    lods: z.array(z.object({ lod: z.number().int().min(0).max(3), glb: RelPath })),
+  }),
+  maps: z.object({
+    drape: RelPath.optional(),
+    splat: RelPath.optional(),
+    landcover: RelPath.optional(),
+    landcoverLegend: RelPath.optional(),
+  }),
+  materials: z.object({ grass: MaterialTile, rock: MaterialTile, dirt: MaterialTile, snow: MaterialTile }).optional(),
+  foliage: RelPath.optional(),
+  buildings: RelPath.optional(),
+  roads: RelPath.optional(),
+  foliageAssets: z.array(z.object({ name: z.string(), glb: RelPath })).optional(),
+});
+export type TerrainManifest = z.infer<typeof TerrainManifestSchema>;
+
+/** `heightfield.json`: what a physics heightfield collider needs beside `heightfield.png`. */
+export const TerrainHeightfieldJsonSchema = z.object({
+  version: z.literal(1),
+  resolution: z.number().int().positive(),
+  worldSize: z.number().positive(),
+  heightRange: z.tuple([z.number(), z.number()]),
+  rowMajor: z.literal('z'),
+  origin: z.literal('centre'),
+});
+export type TerrainHeightfieldJson = z.infer<typeof TerrainHeightfieldJsonSchema>;
 
 export const TerrainProgressEventSchema = z.object({
   buildId: z.string(),
@@ -367,6 +506,8 @@ export const TerrainResultSchemas = {
   setSpec: GitOpResultOf(z.object({ spec: TerrainSpecSchema })),
   setInput: GitOpResultOf(TerrainSetInputResultSchema),
   build: GitOpResultOf(TerrainBuildResultSchema),
+  roadKey: GitOpResultOf(TerrainRoadKeyResultSchema),
+  export: GitOpResultOf(TerrainExportResultSchema),
   generic: GitOpResultSchema,
 } as const;
 
@@ -392,3 +533,57 @@ export const TerrainChunksFileSchema = z.object({
   ),
 });
 export type TerrainChunksFile = z.infer<typeof TerrainChunksFileSchema>;
+
+/** `build/foliage.json`: scattered instances for instanced rendering and export (Theme G). */
+export const TerrainFoliageFileSchema = z.object({
+  version: z.literal(1).default(1),
+  assets: z.array(z.string()),
+  /** [assetIndex, x, y, z, yawRad, scale] in world metres */
+  instances: z.array(z.tuple([z.number(), z.number(), z.number(), z.number(), z.number(), z.number()])),
+});
+export type TerrainFoliageFile = z.infer<typeof TerrainFoliageFileSchema>;
+
+/** Individual building extracted from the land cover (Theme G). */
+export const TerrainBuildingSchema = z.object({
+  polygon: z.array(z.tuple([z.number(), z.number()])),
+  baseY: z.number(),
+  height: z.number(),
+});
+export type TerrainBuilding = z.infer<typeof TerrainBuildingSchema>;
+
+/** `build/buildings.json`: footprint polygons and extrusion heights (Theme G). */
+export const TerrainBuildingsFileSchema = z.object({
+  version: z.literal(1).default(1),
+  buildings: z.array(TerrainBuildingSchema),
+});
+export type TerrainBuildingsFile = z.infer<typeof TerrainBuildingsFileSchema>;
+
+export const TerrainRoadNodeSchema = z.object({
+  id: z.number().int().nonnegative(),
+  p: z.tuple([z.number(), z.number(), z.number()]),
+  degree: z.number().int().nonnegative(),
+});
+export type TerrainRoadNode = z.infer<typeof TerrainRoadNodeSchema>;
+
+export const TerrainRoadEdgeSchema = z.object({
+  id: z.number().int().nonnegative(),
+  a: z.number().int().nonnegative(),
+  b: z.number().int().nonnegative(),
+  points: z.array(z.tuple([z.number(), z.number(), z.number()])),
+  widthM: z.number().positive(),
+  kind: z.enum(['path', 'street', 'avenue']),
+  /** The OSM highway class, when the edge came from a Maps capture's road graph. */
+  cls: z.string().optional(),
+  name: z.string().optional(),
+  lengthM: z.number().nonnegative(),
+});
+export type TerrainRoadEdge = z.infer<typeof TerrainRoadEdgeSchema>;
+
+/** `build/roads.json`: road graph with centerlines, widths, elevations, junctions (Theme H). */
+export const TerrainRoadsFileSchema = z.object({
+  version: z.literal(1).default(1),
+  nodes: z.array(TerrainRoadNodeSchema),
+  edges: z.array(TerrainRoadEdgeSchema),
+});
+export type TerrainRoadsFile = z.infer<typeof TerrainRoadsFileSchema>;
+

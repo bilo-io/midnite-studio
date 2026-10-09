@@ -1,4 +1,4 @@
-import { EVENT_CHANNELS, GAMES_OFF_MESSAGE, MCP_TOOLS, type GameLogEntry, type GameSummary } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, GAMES_OFF_MESSAGE, GAMES_OLLAMA_WARNING, MCP_TOOLS, type GameLogEntry, type GameSummary } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { dispatchMcpCall } from '../mcp/dispatch';
@@ -41,7 +41,15 @@ function fakeWebContents(executeJavaScript: GameWebContents['executeJavaScript']
   };
 }
 
-function setup(wc: GameWebContents | null, opts: { logs?: GameLogEntry[]; manifest?: Record<string, unknown> } = {}) {
+function setup(
+  wc: GameWebContents | null,
+  opts: {
+    logs?: GameLogEntry[];
+    manifest?: Record<string, unknown>;
+    importAsset?: Parameters<typeof createGameMcpTools>[0]['importAsset'];
+    playtests?: Parameters<typeof createGameMcpTools>[0]['playtests'];
+  } = {},
+) {
   const emitted: Array<[string, unknown]> = [];
   const manifestSet = vi.fn(async () => ({ ok: true as const }));
   const tools = createGameMcpTools({
@@ -59,12 +67,76 @@ function setup(wc: GameWebContents | null, opts: { logs?: GameLogEntry[]; manife
       isRunning: () => wc !== null,
     },
     webContents: () => wc,
+    importAsset: opts.importAsset,
+    playtests: opts.playtests,
   });
   setGameTools(tools);
   return { emitted, manifestSet };
 }
 
 const entry = (seq: number, level: GameLogEntry['level'] = 'log'): GameLogEntry => ({ seq, at: seq, level, text: `line ${seq}` });
+
+describe('game_import_asset', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('imports into the resolved game once the switch is on, and answers the import with the gameId', async () => {
+    const importAsset = vi.fn(async (req: { gameId: string }) => ({
+      ok: true as const,
+      value: { name: 'hero', kind: 'sprite' as const, path: 'assets/sprite/hero', sha256: 'abc', commit: 'sha1', entry: req.gameId && 'atlas.json' },
+    }));
+    setup(null, { importAsset });
+    setMcpAllowGamesState(true);
+    const result = await dispatchMcpCall('game_import_asset', { game: GAME.path, source: { tab: 'sprite', repoPath: '/r', path: 'characters/hero' }, name: 'hero' });
+    expect(result).toMatchObject({ ok: true, value: { gameId: 'gabc', name: 'hero', path: 'assets/sprite/hero', commit: 'sha1' } });
+    expect(importAsset).toHaveBeenCalledWith({ gameId: 'gabc', source: { tab: 'sprite', repoPath: '/r', path: 'characters/hero' }, name: 'hero' });
+  });
+
+  it('answers a failed import with its message, and rejects a bad name or an unknown game', async () => {
+    setup(null, { importAsset: async () => ({ ok: false as const, kind: 'error', message: 'That item was not found.' }) });
+    setMcpAllowGamesState(true);
+    expect(await dispatchMcpCall('game_import_asset', { game: 'gabc', source: { packPath: '/p' } })).toMatchObject({ ok: false, message: 'That item was not found.' });
+    expect(MCP_TOOLS.game_import_asset.input.safeParse({ game: 'gabc', source: { packPath: '/p' }, name: '../x' }).success).toBe(false);
+    expect(await dispatchMcpCall('game_import_asset', { game: 'nope', source: { packPath: '/p' } })).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+});
+
+describe('play-test tools (Theme O)', () => {
+  beforeEach(() => resetMcpAllowUiStateForTests());
+  afterEach(() => setGameTools(null));
+
+  it('answers game_playtest as a JSON block plus failure images, and game_assert_frame with the frame and its diff', async () => {
+    const playtests = {
+      run: vi.fn(async () => ({ gameId: 'gabc', passed: false, runs: [], failures: [Buffer.from('shot')] })),
+      assertFrame: vi.fn(async () => ({
+        gameId: 'gabc',
+        ok: false,
+        status: 'fail' as const,
+        message: '3.00% of pixels changed',
+        baseline: 'playtests/baselines/end@60.png',
+        changedFraction: 0.03,
+        png: Buffer.from('frame'),
+        diffPng: Buffer.from('diff'),
+      })),
+    } as unknown as NonNullable<Parameters<typeof createGameMcpTools>[0]['playtests']>;
+    setup(fakeWebContents(), { playtests });
+    setMcpAllowGamesState(true);
+    const run = await dispatchMcpCall('game_playtest', { game: 'gabc', name: 'smoke' });
+    expect(playtests.run).toHaveBeenCalledWith('gabc', { names: ['smoke'] });
+    expect(run).toEqual({
+      ok: true,
+      value: {
+        _content: [
+          { type: 'text', text: JSON.stringify({ gameId: 'gabc', passed: false, runs: [] }) },
+          { type: 'image', data: Buffer.from('shot').toString('base64'), mimeType: 'image/png' },
+        ],
+      },
+    });
+    const frame = (await dispatchMcpCall('game_assert_frame', { game: 'gabc', frame: 60, name: 'end' })) as { ok: true; value: { _content: { type: string }[] } };
+    expect(playtests.assertFrame).toHaveBeenCalledWith('gabc', { frame: 60, name: 'end', tolerance: 0.01 });
+    expect(frame.value._content.map((b) => b.type)).toEqual(['text', 'text', 'image', 'text', 'image']);
+  });
+});
 
 describe('game_* over the global MCP dispatcher', () => {
   beforeEach(() => resetMcpAllowUiStateForTests());
@@ -79,6 +151,20 @@ describe('game_* over the global MCP dispatcher', () => {
     }
   });
 
+  it('game_create carries the Ollama warning when the writer is an Ollama engine, and none for an agent', async () => {
+    setup(null);
+    setMcpAllowGamesState(true);
+    const base = { name: 'X', engine: 'phaser', perspective: 'top-down' };
+    expect(await dispatchMcpCall('game_create', { ...base, writer: { kind: 'ollama', model: 'qwen2.5-coder:7b' } })).toEqual({
+      ok: true,
+      value: { path: '/games/new', gameId: 'gnew', warnings: [GAMES_OLLAMA_WARNING] },
+    });
+    expect(await dispatchMcpCall('game_create', { ...base, writer: { kind: 'agent', agentId: 'claude' } })).toEqual({
+      ok: true,
+      value: { path: '/games/new', gameId: 'gnew', warnings: [] },
+    });
+  });
+
   it('refuses every write tool with the named reason while the switch is off, touching nothing', async () => {
     const wc = fakeWebContents();
     const { manifestSet, emitted } = setup(wc);
@@ -90,6 +176,12 @@ describe('game_* over the global MCP dispatcher', () => {
       ['game_stop', { game: 'gabc' }],
       ['game_reload', { game: 'gabc' }],
       ['game_input', { game: 'gabc', events: [{ t: 0, type: 'keyDown', key: 'a' }] }],
+      ['game_import_asset', { game: 'gabc', source: { packPath: '/tmp/p' } }],
+      ['game_replay_record', { game: 'gabc', action: 'start' }],
+      ['game_replay_play', { game: 'gabc', replay: 'playtests/replays/a.replay.json' }],
+      ['game_assert_state', { game: 'gabc', frame: 1, path: '$.scene', op: 'exists' }],
+      ['game_assert_frame', { game: 'gabc', frame: 1, name: 'start' }],
+      ['game_playtest', { game: 'gabc' }],
     ] as const) {
       expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: GAMES_OFF_MESSAGE });
     }
@@ -169,6 +261,12 @@ describe('game_* over the global MCP dispatcher', () => {
 
     it('returns a valid object as data', async () => {
       expect(await state(JSON.stringify({ score: 3, entities: [{ x: 1 }] }))).toEqual({ ok: true, value: { state: { score: 3, entities: [{ x: 1 }] } } });
+      // Theme E: the kit's common keys are typed when present.
+      expect(await state(JSON.stringify({ version: 1, scene: 'level-1', frame: 4, time: 66, player: { position: [1, 2] } }))).toMatchObject({ ok: true });
+      expect(await state(JSON.stringify({ player: { position: ['x', 2] } }))).toMatchObject({
+        ok: false,
+        message: expect.stringContaining('getState() returned a bad player.position.0'),
+      });
     });
 
     it('bounds a 300 KB answer', async () => {

@@ -2,7 +2,7 @@ import { LuX } from 'react-icons/lu';
 
 import { formatChord, SHORTCUTS, type Shortcut } from './shortcuts';
 
-const GROUPS: Shortcut['group'][] = ['Tools', 'Edit', 'Selection', 'View'];
+const GROUPS: Shortcut['group'][] = ['Tools', 'Edit', 'Selection', 'View', 'Sculpt'];
 const isMac = (): boolean => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
 /** The editor's keyboard cheat sheet, read from the one `SHORTCUTS` table the handler is tested against. */

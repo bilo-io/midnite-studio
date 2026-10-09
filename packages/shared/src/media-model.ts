@@ -17,6 +17,9 @@ import { z } from 'zod';
 import { LoopModelSchema } from './loops';
 import { MediaProjectNameSchema } from './media';
 import { MODEL_MAX_CLIPS, ModelAnatomySchema, ModelClipSchema, ModelRigSchema } from './media-model-rig';
+import { ModelMapFileSchema, ModelPbrSchema } from './media-model-pbr';
+import { ModelSculptSdfSchema } from './media-model-sdf';
+import { ReferenceViewsSchema } from './media-model-reference';
 
 // --- the spec an LLM writes ----------------------------------------------------
 
@@ -153,6 +156,17 @@ export const ModelAssetSrcSchema = z
   .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.glb$/i, 'must be a relative .glb path')
   .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
 
+/** A sculpt mesh file beside the design: relative segments, no `..`, ending `.mesh.bin` (Phase 104). */
+export const ModelSculptSrcSchema = z
+  .string()
+  .min(10)
+  .max(200)
+  .regex(/^[^/\\\0]+(\/[^/\\\0]+)*\.mesh\.bin$/i, 'must be a relative .mesh.bin path')
+  .refine((src) => !src.split('/').some((segment) => segment === '..' || segment === '.'), 'must stay inside the model folder');
+
+/** Deepest multires level a sculpt part records (each level quadruples the faces). */
+export const MODEL_SCULPT_MAX_LEVEL = 8;
+
 const ModelSectionSchema = z.object({ y: coord, outline: z.array(point2).min(3).max(32) });
 export type ModelSection = z.infer<typeof ModelSectionSchema>;
 
@@ -249,6 +263,73 @@ export const ModelPartSchema = z.discriminatedUnion('shape', [
     vertices: z.number().int().nonnegative().optional(),
     triangles: z.number().int().nonnegative().optional(),
   }),
+  /**
+   * A sculpted mesh (Phase 104): an editable, dense mesh whose vertices live in `src`, a versioned
+   * binary beside the design (`model-geometry/mesh/mesh-bin.ts`), never inlined in JSON. Resolved by
+   * `hash` through the same registry as `asset`; made by converting parts or baking an SDF, never
+   * hand-written. Transform, material, visibility and rig binding work as on any other part.
+   */
+  z.object({
+    ...partBase,
+    shape: z.literal('sculpt'),
+    /** The `.mesh.bin` file, relative to the model's folder (`head.mesh.bin`). */
+    src: ModelSculptSrcSchema,
+    /** Content hash of `src` (`modelAssetHash`), so a changed file is never mistaken for this one. */
+    hash: z.string().regex(/^[0-9a-f]{8,64}$/, 'must be a lower-case hex hash'),
+    /** Counts at the last save, for listings that do not load the file. */
+    vertices: z.number().int().nonnegative().optional(),
+    triangles: z.number().int().nonnegative().optional(),
+    /** The multires level the file holds (0 = the base mesh). */
+    multiresLevel: z.number().int().min(0).max(MODEL_SCULPT_MAX_LEVEL).optional(),
+    /**
+     * How many sculpt edits (brush strokes, mask edits, subdivides, level steps, remeshes) the mesh has had
+     * (Theme D). Each edit is one undo step that bumps it, so undo and redo in the editor say which state the
+     * live mesh must walk to; absent means none yet.
+     */
+    revision: z.number().int().nonnegative().optional(),
+    /**
+     * Ids of the primitive parts this mesh was converted from (Theme B). They stay in the design, hidden,
+     * so "revert to parts" and undo can bring them back.
+     */
+    sources: z.array(z.string().trim().min(1).max(40)).max(MODEL_MAX_PARTS).optional(),
+    /** The vertex groups the file's per-vertex group indices name: one per converted source part, keeping its colour. */
+    groups: z.array(z.object({ name: z.string().trim().min(1).max(MODEL_NAME_MAX), color: ModelColorSchema })).max(256).optional(),
+    /**
+     * The signed-distance tree this mesh was baked from (Theme C) and the bake's resolution. Present until
+     * the first brush stroke, so the shape can still be edited and re-baked from the tree.
+     */
+    sdf: ModelSculptSdfSchema.optional(),
+    /**
+     * The unwrap this mesh carries (Theme F): `.mesh.bin` then holds one uv pair per vertex, with seams as split
+     * vertices — so the mesh can no longer be sculpted without tearing. `model_unwrap` with `clear` welds it back.
+     */
+    uv: z
+      .object({
+        charts: z.number().int().min(1),
+        /** Texels per metre (area-weighted mean and the extremes) at `textureSize`. */
+        density: z.object({ mean: z.number(), min: z.number(), max: z.number() }),
+        textureSize: z.number().int().min(16).max(8192),
+        /** Share of the unit square the charts cover (0–1). */
+        coverage: z.number().min(0).max(1),
+      })
+      .optional(),
+    /** The hidden high-resolution sculpt part (id) a decimate or retopology made this one from — what `model_bake` bakes from by default. */
+    bakeFrom: z.string().trim().min(1).max(40).optional(),
+    /** Maps baked from a higher-resolution mesh onto this one (Theme F); each a `.png` beside the design. */
+    maps: z
+      .object({
+        normal: ModelMapFileSchema.optional(),
+        ao: ModelMapFileSchema.optional(),
+        curvature: ModelMapFileSchema.optional(),
+        cavity: ModelMapFileSchema.optional(),
+      })
+      .optional(),
+    /**
+     * The PBR material and its layer stack (Theme G): fill and paint layers over the part's colour, material and
+     * baked maps, flattened to glTF's texture set. Needs an unwrapped mesh (`uv`).
+     */
+    pbr: ModelPbrSchema.optional(),
+  }),
   /** A copy of another part (or a whole group) at this part's own transform — repeats geometry without repeating its fields. */
   z.object({ ...partBase, shape: z.literal('instance'), source: partRef }),
 ]);
@@ -257,10 +338,14 @@ export type ModelPart = z.infer<typeof ModelPartSchema>;
 /** The shapes a part can be, in prompt order — derived from the union, so a new kind appears here by being added there. */
 export const MODEL_SHAPES = ModelPartSchema.options.map((option) => option.shape.shape.value) as ModelPart['shape'][];
 /** Shapes that are imported, never written by hand or offered in an "add part" menu. */
-export const MODEL_IMPORTED_SHAPES: readonly ModelPart['shape'][] = ['asset'];
+export const MODEL_IMPORTED_SHAPES: readonly ModelPart['shape'][] = ['asset', 'sculpt'];
 /** The shapes a person or an LLM may author. */
 export const MODEL_AUTHORED_SHAPES = MODEL_SHAPES.filter((shape) => !MODEL_IMPORTED_SHAPES.includes(shape));
 export type ModelAssetPart = Extract<ModelPart, { shape: 'asset' }>;
+export type ModelSculptPart = Extract<ModelPart, { shape: 'sculpt' }>;
+/** Parts whose geometry is a file beside the design, resolved by content hash. */
+export type ModelMeshFilePart = ModelAssetPart | ModelSculptPart;
+export const isMeshFilePart = (part: ModelPart): part is ModelMeshFilePart => part.shape === 'asset' || part.shape === 'sculpt';
 export type ModelPartInput = z.input<typeof ModelPartSchema>;
 
 export const ModelSpecSchema = z.object({
@@ -273,6 +358,10 @@ export const ModelSpecSchema = z.object({
   rig: ModelRigSchema.optional(),
   /** Clips: a generated motion kind plus parameters and additive keys; exported as glTF animations. */
   animations: z.array(ModelClipSchema).max(MODEL_MAX_CLIPS).optional(),
+  /** Named points on the model (`nose_tip`, `leftHand`…), model space — they override the auto-detected landmarks (Phase 104 Theme E). */
+  landmarks: z.record(z.string().trim().min(1).max(40), z.tuple([coord, coord, coord])).optional().refine((l) => !l || Object.keys(l).length <= 64, 'at most 64 landmarks'),
+  /** Orthographic front/side/top cameras matched to the reference picture, so `model_compare_reference` can score against it (Phase 104 Theme H). */
+  referenceViews: ReferenceViewsSchema.optional(),
 });
 export type ModelSpec = z.infer<typeof ModelSpecSchema>;
 
@@ -461,6 +550,8 @@ export const ModelGenerateProgressEventSchema = z.object({
   stage: ModelGenerateStageSchema.optional(),
   /** Iterative runs: which preview-and-refine pass this is, out of the budget. */
   iteration: z.object({ n: z.number().int().min(0), max: z.number().int().min(1) }).optional(),
+  /** Iterative runs with a matched reference: the latest silhouette score (0–1) and every score so far, one per comparison. */
+  score: z.object({ value: z.number().min(0).max(1), history: z.array(z.number().min(0).max(1)).max(200) }).optional(),
   /** Iterative runs: the latest tool the agent called, in words ("Added 3 parts"). */
   action: z.string().optional(),
   /** Iterative runs: the `.obj` the agent is editing, so the editor can follow it live. */

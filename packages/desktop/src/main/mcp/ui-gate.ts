@@ -15,6 +15,10 @@ let allowUi = false;
 let allowGateDecide = false;
 let allowModels = false;
 let allowGames = false;
+let allowTerrains = false;
+let allowSprites = false;
+let allowMaps = false;
+let allowMusic = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -56,10 +60,54 @@ export function setMcpAllowGamesState(next: boolean): void {
   allowGames = next;
 }
 
+/** Read synchronously by the `terrain_*` write tools (Phase 105 Theme J) before they touch a terrain. */
+export function getMcpAllowTerrains(): boolean {
+  return allowTerrains;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowTerrainsState(next: boolean): void {
+  allowTerrains = next;
+}
+
+/** Read synchronously by the sprite write tools (Phase 106 Theme K) before they change an asset, start a job or export. */
+export function getMcpAllowSprites(): boolean {
+  return allowSprites;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowSpritesState(next: boolean): void {
+  allowSprites = next;
+}
+
+/** Read synchronously by `map_goto` and `map_capture_terrain` (Phase 108 Theme I) before they move the view or capture. */
+export function getMcpAllowMaps(): boolean {
+  return allowMaps;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowMapsState(next: boolean): void {
+  allowMaps = next;
+}
+
+/** Read synchronously by the `music_*` write tools (Phase 101 Theme H) before they change, add or save a song. */
+export function getMcpAllowMusic(): boolean {
+  return allowMusic;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowMusicState(next: boolean): void {
+  allowMusic = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
   allowGateDecide = false;
   allowModels = false;
   allowGames = false;
+  allowTerrains = false;
+  allowSprites = false;
+  allowMaps = false;
+  allowMusic = false;
 }

@@ -9,6 +9,9 @@ import {
   GAME_MANIFEST_FILE,
   gameSlug,
   GameCreateRequestSchema,
+  isStarterAvailable,
+  parseStarterId,
+  dimensionOf,
   ok,
   type GameCreateRequest,
   type GameCreateResult,
@@ -16,7 +19,9 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 
+import { composeStarter } from './compose';
 import { validateGamesRoot } from './games-root';
+import { seedGameSkills } from './skills';
 import { vendorEngines } from './vendor';
 
 /** The only starter available until Phase 107's kits and genre starters land. */
@@ -65,7 +70,7 @@ export function initialManifest(
     perspective: req.perspective,
     genre: req.genre,
     starter: req.starter,
-    cameraPresets: [],
+    cameraPresets: req.cameras ?? [],
     entry: 'index.html',
     kitVersion: GAME_KIT_VERSION,
     vendored,
@@ -73,6 +78,7 @@ export function initialManifest(
     network,
     deterministic: false,
     keepSaveData: false,
+    ...(req.options ? { options: req.options } : {}),
   };
 }
 
@@ -94,7 +100,15 @@ export async function createGame(
   const req = parsed.data;
 
   if (req.starter !== BLANK_STARTER) {
-    return failure(`The "${req.starter}" starter is not available yet — create a blank game for now.`);
+    const available = isStarterAvailable(req.starter);
+    if (!available.ok) return failure(available.reason);
+    const parsedStarter = parseStarterId(req.starter)!;
+    if (parsedStarter.perspective !== req.perspective || parsedStarter.genre !== req.genre) {
+      return failure(`The "${req.starter}" starter does not match the chosen perspective and genre.`);
+    }
+    if ((dimensionOf(req.perspective) === '2d') !== (req.engine === 'phaser')) {
+      return failure(`The "${req.starter}" starter does not run on ${req.engine}.`);
+    }
   }
 
   const parent = req.folder ?? deps.gamesRoot;
@@ -112,7 +126,17 @@ export async function createGame(
 
   const temp = join(parent, `.${basename(target)}.creating-${randomBytes(4).toString('hex')}`);
   try {
-    await composeBlank(deps.templateDir, temp, req.name);
+    if (req.starter === BLANK_STARTER) await composeBlank(deps.templateDir, temp, req.name);
+    else {
+      const composed = await composeStarter(req.starter, temp, {
+        templateDir: deps.templateDir,
+        name: req.name,
+        ...(req.cameras ? { cameras: req.cameras } : {}),
+        ...(req.options ? { options: req.options } : {}),
+      });
+      if (!composed.ok) throw new Error(composed.kind === 'error' ? composed.message : 'Could not compose the starter.');
+    }
+    await seedGameSkills(deps.templateDir, temp);
     const vendored = await vendorEngines(req.engine, temp, deps.enginesDir);
     const manifest = initialManifest(req, req.network ?? deps.defaultNetwork, vendored);
     await writeFile(join(temp, GAME_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');

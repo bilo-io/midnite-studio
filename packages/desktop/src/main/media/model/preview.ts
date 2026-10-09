@@ -5,9 +5,13 @@ import {
   MODEL_PREVIEW_SIZE_MAX,
   MODEL_PREVIEW_SIZE_MIN,
   MODEL_PREVIEW_VIEWS,
+  modelTexture,
+  previewCamera,
   type MeshPart,
-  type ModelPreviewView,
+  type AimView,
 } from '@midnite/studio-shared';
+
+import { decodePng } from '../png/png-codec';
 
 
 /**
@@ -26,7 +30,8 @@ import {
  *
  * Look: lambert shading with a head-light plus a key light, per-part colour, and a PBR approximation
  * (metalness tints a Blinn-Phong highlight and a sky/ground reflection, roughness widens it, emissive adds
- * glow, opacity blends over what is behind), a 1 px darker outline wherever the part or the depth changes — which
+ * glow, opacity blends over what is behind), a painted part's flattened base colour sampled per pixel (Phase 104
+ * Theme G — so an agent sees its paint), a 1 px darker outline wherever the part or the depth changes — which
  * is what makes two same-coloured parts readable as two parts.
  */
 
@@ -37,21 +42,12 @@ const BACKGROUND: Vec = [244, 245, 247];
 const OUTLINE = 0.45;
 
 const dot = (a: Vec, b: Vec): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const unit = (v: Vec): Vec => {
   const len = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / len, v[1] / len, v[2] / len];
 };
 
-/** Where each camera looks (forward = camera → model) and which way is up on screen. */
-const CAMERAS: Record<ModelPreviewView, { forward: Vec; up: Vec }> = {
-  front: { forward: [0, 0, -1], up: [0, 1, 0] },
-  side: { forward: [-1, 0, 0], up: [0, 1, 0] },
-  top: { forward: [0, -1, 0], up: [0, 0, -1] },
-  iso: { forward: unit([-1, -0.8, -1]), up: [0, 1, 0] },
-};
-
-export type RenderedView = { view: ModelPreviewView; size: number; png: Buffer };
+export type RenderedView = { view: AimView; size: number; png: Buffer };
 
 export const clampPreviewSize = (size: number | undefined): number =>
   Math.min(MODEL_PREVIEW_SIZE_MAX, Math.max(MODEL_PREVIEW_SIZE_MIN, Math.round(size ?? MODEL_PREVIEW_SIZE_DEFAULT)));
@@ -63,11 +59,16 @@ const hexToRgb = (hex: string): Vec => {
 };
 
 /** Rasterise one camera into an RGB buffer of `size × size` pixels. */
-export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, size: number): Uint8Array {
-  const { forward, up: upHint } = CAMERAS[view];
-  const right = unit(cross(forward, upHint));
-  const up = cross(right, forward);
+export function renderView(parts: readonly MeshPart[], view: AimView, size: number): Uint8Array {
+  const camera = previewCamera(parts, view, size);
   const big = size * SUPERSAMPLE;
+  const color = new Uint8Array(big * big * 3);
+  for (let i = 0; i < big * big; i += 1) color.set(BACKGROUND, i * 3);
+  if (!camera) return downsample(color, size);
+  const { forward, right, up, extent } = camera;
+  const scale = camera.scale * SUPERSAMPLE;
+  const offsetX = camera.offsetX * SUPERSAMPLE;
+  const offsetY = camera.offsetY * SUPERSAMPLE;
 
   // Project every vertex once: screen x/y in model units, depth along `forward`.
   const projected = parts.map((part) => {
@@ -83,28 +84,6 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
     }
     return { xs, ys, zs };
   });
-
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
-  for (const { xs, ys } of projected) {
-    for (let i = 0; i < xs.length; i += 1) {
-      minX = Math.min(minX, xs[i]!);
-      maxX = Math.max(maxX, xs[i]!);
-      minY = Math.min(minY, ys[i]!);
-      maxY = Math.max(maxY, ys[i]!);
-    }
-  }
-
-  const color = new Uint8Array(big * big * 3);
-  for (let i = 0; i < big * big; i += 1) color.set(BACKGROUND, i * 3);
-  if (!Number.isFinite(minX)) return downsample(color, size);
-
-  const extent = Math.max(maxX - minX, maxY - minY, 1e-6);
-  const scale = (big * 0.86) / extent;
-  const offsetX = big / 2 - ((minX + maxX) / 2) * scale;
-  const offsetY = big / 2 + ((minY + maxY) / 2) * scale;
 
   const depth = new Float32Array(big * big).fill(Infinity);
   const ids = new Uint16Array(big * big);
@@ -130,6 +109,9 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
     // Dielectrics reflect ~4% white; metals reflect their own colour.
     const specColor = base.map((c) => (255 * 0.04 * (1 - metalness) + c * metalness) / 255) as Vec;
     const rgb = new Float32Array(xs.length * 3);
+    // A painted part: light per vertex as usual, but keep the diffuse term apart so the albedo can be read per pixel.
+    const albedo = part.uvs && part.pbr?.baseColor ? decodedTexture(part.pbr.baseColor.hash) : null;
+    const diffuseOf = albedo ? new Float32Array(xs.length) : null;
     for (let i = 0; i < xs.length; i += 1) {
       let n: Vec = [part.normals[i * 3]!, part.normals[i * 3 + 1]!, part.normals[i * 3 + 2]!];
       // Face the camera whatever the winding, so an open or inverted mesh is not drawn black.
@@ -142,10 +124,11 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
       const env = 0.5 + 0.5 * Math.max(-1, Math.min(1, reflectY));
       const envRgb: Vec = [90 + 110 * env, 85 + 130 * env, 80 + 155 * env];
       const envWeight = metalness * (1 - roughness * 0.6);
+      if (diffuseOf) diffuseOf[i] = diffuse;
       for (let ch = 0; ch < 3; ch += 1) {
         rgb[i * 3 + ch] = Math.min(
           255,
-          base[ch]! * diffuse + 255 * spec * specColor[ch]! * 0.7 + envRgb[ch]! * specColor[ch]! * envWeight * 0.8 + glow[ch]!,
+          (diffuseOf ? 0 : base[ch]! * diffuse) + 255 * spec * specColor[ch]! * 0.7 + envRgb[ch]! * specColor[ch]! * envWeight * 0.8 + glow[ch]!,
         );
       }
     }
@@ -182,8 +165,19 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
             depth[at] = z;
             ids[at] = partIndex + 1;
           }
+          let tex: number[] | null = null;
+          if (albedo && diffuseOf) {
+            const uvs = part.uvs!;
+            const u = w0 * uvs[a * 2]! + w1 * uvs[b * 2]! + w2 * uvs[c * 2]!;
+            const v = w0 * uvs[a * 2 + 1]! + w1 * uvs[b * 2 + 1]! + w2 * uvs[c * 2 + 1]!;
+            const tx = Math.min(albedo.width - 1, Math.max(0, Math.floor(u * albedo.width)));
+            const ty = Math.min(albedo.height - 1, Math.max(0, Math.floor(v * albedo.height)));
+            const d = w0 * diffuseOf[a]! + w1 * diffuseOf[b]! + w2 * diffuseOf[c]!;
+            const k = (ty * albedo.width + tx) * albedo.channels;
+            tex = [albedo.data[k]! * d, albedo.data[k + (albedo.channels >= 3 ? 1 : 0)]! * d, albedo.data[k + (albedo.channels >= 3 ? 2 : 0)]! * d];
+          }
           for (let ch = 0; ch < 3; ch += 1) {
-            const lit = Math.min(255, w0 * rgb[a * 3 + ch]! + w1 * rgb[b * 3 + ch]! + w2 * rgb[c * 3 + ch]!);
+            const lit = Math.min(255, (tex ? tex[ch]! : 0) + w0 * rgb[a * 3 + ch]! + w1 * rgb[b * 3 + ch]! + w2 * rgb[c * 3 + ch]!);
             color[at * 3 + ch] = opacity >= 1 ? lit : color[at * 3 + ch]! * (1 - opacity) + lit * opacity;
           }
         }
@@ -208,6 +202,21 @@ export function renderView(parts: readonly MeshPart[], view: ModelPreviewView, s
     }
   }
   return downsample(outlined, size);
+}
+
+type Decoded = { width: number; height: number; channels: number; data: Uint8Array };
+const decodedCache = new Map<string, Decoded | null>();
+/** A registered texture's pixels (8-bit), decoded once per hash; `null` when it is missing or not a PNG this reads. */
+function decodedTexture(hash: string): Decoded | null {
+  if (decodedCache.has(hash)) return decodedCache.get(hash)!;
+  const file = modelTexture(hash);
+  const decoded = file ? decodePng(file.data) : null;
+  const out = decoded && decoded.ok && decoded.image.bitDepth === 8 ? { width: decoded.image.width, height: decoded.image.height, channels: decoded.image.channels, data: decoded.image.data as Uint8Array } : null;
+  if (file) {
+    decodedCache.set(hash, out);
+    while (decodedCache.size > 8) decodedCache.delete(decodedCache.keys().next().value!);
+  }
+  return out;
 }
 
 /** Box-filter the supersampled buffer down to `size × size`. */
@@ -278,7 +287,7 @@ export function encodePng(width: number, height: number, rgb: Uint8Array): Buffe
 /** The requested views of a scene as PNGs, in request order, duplicates dropped. */
 export function renderPreviews(
   parts: readonly MeshPart[],
-  options: { views?: readonly ModelPreviewView[] | undefined; size?: number | undefined } = {},
+  options: { views?: readonly AimView[] | undefined; size?: number | undefined } = {},
 ): RenderedView[] {
   const size = clampPreviewSize(options.size);
   const views = [...new Set(options.views ?? MODEL_PREVIEW_VIEWS)];

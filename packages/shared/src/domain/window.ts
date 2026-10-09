@@ -24,6 +24,9 @@ export const PANEL_WINDOW_ROLES = [
   'apps-spotify',
   'apps-google-calendar',
   'apps-youtube',
+  // Phase 107 Theme B: a running game's sandboxed view, moved out of Media ▸
+  // Games. One role, so one popped-out game at a time.
+  'game',
 ] as const;
 
 /**

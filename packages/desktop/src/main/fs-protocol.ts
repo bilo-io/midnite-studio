@@ -9,6 +9,7 @@ import {
   isSafeBlobRev,
   MSTUDIO_BLOB_MAX_BYTES,
   MSTUDIO_FILE_SCHEME,
+  MSTUDIO_TILE_SCHEME,
   MSTUDIO_IMAGE_ONLY_PARAM,
   MSTUDIO_IMAGE_ONLY_VALUE,
 } from '@midnite/studio-shared';
@@ -52,6 +53,8 @@ export function registerPrivilegedSchemes(): void {
       scheme: MSTUDIO_GAME_SCHEME,
       privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
     },
+    // Phase 108 Theme B: map tiles, served by main/media/map/tile-protocol.ts.
+    { scheme: MSTUDIO_TILE_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   ]);
 }
 

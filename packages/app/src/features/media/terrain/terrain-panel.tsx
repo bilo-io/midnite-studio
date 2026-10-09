@@ -6,8 +6,10 @@ import { IconButton } from '../../../components/icon-button';
 import { IconSelect } from '../../../components/icon-select';
 import { Spinner } from '../../../components/skeleton';
 import { NumberField } from '../model/fields';
+import { focusMapCapture } from '../map/map-focus';
 import { AlignmentControls } from './alignment-controls';
 import { HeightmapPromptDialog, NoHeightmapDialog } from './no-heightmap-dialog';
+import { BuildingsSection, FoliageSection, RoadsSection } from './terrain-feature-sections';
 import { TerrainInputSlot } from './terrain-input-slot';
 import { useTerrainActions, useTerrainProgress, type BuildOutcome, type TerrainRef } from './use-terrain';
 
@@ -77,6 +79,7 @@ export function TerrainPanel({
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-3" data-testid="terrain-panel">
       <h2 className="truncate text-sm font-semibold">{spec.name}</h2>
+      {spec.geo ? <CapturedFromMaps geo={spec.geo} name={spec.name} /> : null}
 
       <div className="flex flex-col gap-3">
         {TERRAIN_INPUT_SLOTS.map((slot) => (
@@ -161,6 +164,10 @@ export function TerrainPanel({
         </div>
       ) : null}
 
+      {spec.inputs.roads ? (
+        <RoadsSection repoId={repoId} terrainRef={terrainRef} spec={spec} commit={(patch) => void commit(patch)} roadKey={actions.roadKey} />
+      ) : null}
+
       {spec.inputs.satellite ? (
         <div className="flex flex-col gap-2 border-t border-border pt-3">
           <div className="flex items-center justify-between">
@@ -183,6 +190,13 @@ export function TerrainPanel({
             </label>
           </div>
         </div>
+      ) : null}
+
+      {spec.inputs.satellite ? (
+        <>
+          <FoliageSection spec={spec} commit={(patch) => void commit(patch)} />
+          <BuildingsSection spec={spec} commit={(patch) => void commit(patch)} />
+        </>
       ) : null}
 
       {noise ? (
@@ -258,6 +272,28 @@ export function TerrainPanel({
           else setPromptError(result.kind === 'error' ? result.message : 'Could not generate a heightmap.');
         }}
       />
+    </div>
+  );
+}
+
+/** Where a capture-made terrain came from, with a way back to its frame (Phase 108 Theme F). */
+function CapturedFromMaps({ geo, name }: { geo: NonNullable<TerrainSpec['geo']>; name: string }) {
+  const side = geo.sideM < 1000 ? `${Math.round(geo.sideM)} m` : `${(geo.sideM / 1000).toFixed(1)} km`;
+  return (
+    <div className="space-y-1 rounded border border-border bg-muted/30 px-2 py-1.5 text-[11px]" data-testid="terrain-geo">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate">
+          Captured from Maps · {name} · {side}
+        </span>
+        <button
+          type="button"
+          className="shrink-0 rounded border border-border px-1.5 py-0.5 hover:bg-accent"
+          onClick={() => focusMapCapture({ project: geo.capture.project, name: geo.capture.name, center: geo.center, sideM: geo.sideM })}
+        >
+          Show on map
+        </button>
+      </div>
+      {geo.attributions.length > 0 ? <p className="text-[10px] text-muted-foreground">{geo.attributions.join(' · ')}</p> : null}
     </div>
   );
 }

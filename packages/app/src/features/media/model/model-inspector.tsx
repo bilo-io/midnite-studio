@@ -1,5 +1,5 @@
-import { descendantIndices, type BuildIssue, type ModelPart } from '@midnite/studio-shared';
-import { useState, type Dispatch } from 'react';
+import { descendantIndices, type BuildIssue, type ModelPart, type ModelSpec } from '@midnite/studio-shared';
+import { useEffect, useState, type Dispatch } from 'react';
 import { LuCopy, LuTrash2 } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
@@ -9,9 +9,16 @@ import { ClipPanel, type RetargetSource } from './clip-panel';
 import type { EditorAction, EditorState } from './editor-state';
 import { ColorField, NumberField, SECTION, SelectField, TextField, VecRow } from './fields';
 import { MaterialPanel } from './material-panel';
+import { MeshPanel, type ConvertFn } from './mesh-panel';
 import { ModifierPanel } from './modifier-panel';
 import { Outliner } from './outliner-panel';
 import { RigPanel } from './rig-panel';
+import { PaintPanel } from './paint-panel';
+import type { PaintController, PaintSnapshot } from './paint/paint-controller';
+import { SculptPanel } from './sculpt-panel';
+import { SdfPanel } from './sdf-panel';
+import type { SculptController, SculptSnapshot } from './sculpt/sculpt-controller';
+import type { SdfBaker } from './sculpt/use-sdf';
 import type { RigModel } from './rig-pose';
 import type { RigView, UpdateRigView } from './rig-view';
 import type { EditorScene } from './spec-geometry';
@@ -22,9 +29,9 @@ import type { EditorScene } from './spec-geometry';
  * parts selected it shows the arrange tools and edits material for all of them. Rig and Animation
  * are about the whole design, so they show whatever is selected.
  */
-const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Rig', 'Animation'] as const;
+const TABS = ['Properties', 'Material', 'Boolean', 'Modifiers', 'Mesh', 'SDF', 'Sculpt', 'Paint', 'Rig', 'Animation'] as const;
 type Tab = (typeof TABS)[number];
-const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Rig', 'Animation']);
+const DESIGN_TABS: ReadonlySet<Tab> = new Set(['Mesh', 'SDF', 'Sculpt', 'Paint', 'Rig', 'Animation']);
 
 /** What the Rig and Animation tabs share with the viewport and the timeline. */
 export type InspectorRig = { view: RigView; onView: UpdateRigView; model: RigModel | null; scene: EditorScene; sources?: readonly RetargetSource[] };
@@ -39,16 +46,39 @@ export function ModelInspector({
   dispatch,
   issues,
   rig,
+  onConvert,
+  sdf,
+  sculpt,
+  paint,
 }: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
   issues: readonly BuildIssue[];
   rig?: InspectorRig;
+  /** Converts the design's primitives to a sculpt mesh (Phase 104 Theme B); the Mesh tab shows only with it. */
+  onConvert?: ConvertFn;
+  /** SDF modelling (Phase 104 Theme C): the baker and the viewport's preview seam; the SDF tab shows only with it. */
+  sdf?: { baker: SdfBaker; onPreview: (spec: ModelSpec | null) => void };
+  /** Sculpt mode (Phase 104 Theme D): the controller and its state; the Sculpt tab shows only with it. */
+  sculpt?: { controller: SculptController; snapshot: SculptSnapshot };
+  /** Paint mode (Phase 104 Theme G): the controller and its state; the Paint tab shows only with it. */
+  paint?: { controller: PaintController; snapshot: PaintSnapshot };
 }) {
   const [tab, setTab] = useState<Tab>('Properties');
+  // Entering sculpt mode from anywhere brings its settings up.
+  const sculptOpen = sculpt?.snapshot.status === 'ready';
+  useEffect(() => {
+    if (sculptOpen) setTab('Sculpt');
+  }, [sculptOpen]);
+  const paintOpen = paint?.snapshot.status === 'ready';
+  useEffect(() => {
+    if (paintOpen) setTab('Paint');
+  }, [paintOpen]);
   const { spec, selected, selection } = state;
   const part = selected !== null ? spec.parts[selected] : undefined;
   const hasGroup = selection.some((i) => spec.parts[i]?.shape === 'group');
+  const available = (name: Tab): boolean => (name === 'Mesh' ? !!onConvert : name === 'SDF' ? !!sdf : name === 'Sculpt' ? !!sculpt : name === 'Paint' ? !!paint : name === 'Rig' || name === 'Animation' ? !!rig : true);
+  const designTab = DESIGN_TABS.has(tab) && available(tab);
 
   return (
     <div className="flex h-56 shrink-0 border-t border-border/60 text-xs" data-testid="model-inspector">
@@ -57,7 +87,7 @@ export function ModelInspector({
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div role="tablist" aria-label="Part panels" className="flex shrink-0 items-center gap-0.5 border-b border-border/60 px-1.5 py-1">
-          {TABS.filter((name) => rig || !DESIGN_TABS.has(name)).map((name) => (
+          {TABS.filter(available).map((name) => (
             <button
               key={name}
               type="button"
@@ -70,15 +100,23 @@ export function ModelInspector({
             </button>
           ))}
           <span className="ml-auto" />
-          {rig && DESIGN_TABS.has(tab) ? null : <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />}
+          {designTab ? null : <ArrangeBar count={selection.length} hasGroup={hasGroup} dispatch={dispatch} />}
         </div>
-        {rig && DESIGN_TABS.has(tab) ? (
-          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : 'Animation'}>
-            {tab === 'Rig' ? (
+        {designTab ? (
+          <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={tab === 'Rig' ? 'Rig' : tab === 'Mesh' ? 'Mesh tools' : tab === 'SDF' ? 'SDF tools' : tab === 'Sculpt' ? 'Sculpt tools' : tab === 'Paint' ? 'Paint tools' : 'Animation'}>
+            {tab === 'Mesh' && onConvert ? (
+              <MeshPanel state={state} dispatch={dispatch} onConvert={onConvert} />
+            ) : tab === 'Sculpt' && sculpt ? (
+              <SculptPanel state={state} dispatch={dispatch} controller={sculpt.controller} snapshot={sculpt.snapshot} {...(onConvert ? { onConvert } : {})} />
+            ) : tab === 'Paint' && paint ? (
+              <PaintPanel state={state} dispatch={dispatch} controller={paint.controller} snapshot={paint.snapshot} />
+            ) : tab === 'SDF' && sdf ? (
+              <SdfPanel state={state} dispatch={dispatch} baker={sdf.baker} onPreview={sdf.onPreview} />
+            ) : rig && tab === 'Rig' ? (
               <RigPanel state={state} dispatch={dispatch} view={rig.view} onView={rig.onView} model={rig.model} scene={rig.scene} />
-            ) : (
+            ) : rig ? (
               <ClipPanel state={state} dispatch={dispatch} view={rig.view} onView={rig.onView} {...(rig.sources ? { sources: rig.sources } : {})} />
-            )}
+            ) : null}
           </div>
         ) : part && selected !== null ? (
           <div className="hide-scrollbar min-h-0 flex-1 overflow-auto p-2" role="group" aria-label={`Properties of ${part.name}`}>
@@ -111,7 +149,7 @@ function Properties({ state, part, index, dispatch }: { state: EditorState; part
   const patch = (p: Record<string, unknown>) => (selection.length > 1 ? dispatch({ type: 'patchMany', indices: selection, patch: p }) : dispatch({ type: 'patch', index, patch: p }));
   const record = part as Record<string, unknown>;
   // An imported mesh's counts describe the file, they are not dimensions to edit.
-  const numericKeys = part.shape === 'asset' ? [] : Object.keys(record).filter((k) => !BASE_KEYS.has(k) && typeof record[k] === 'number');
+  const numericKeys = part.shape === 'asset' || part.shape === 'sculpt' ? [] : Object.keys(record).filter((k) => !BASE_KEYS.has(k) && typeof record[k] === 'number');
   const vecKeys = Object.keys(record).filter(
     (k) => !BASE_KEYS.has(k) && Array.isArray(record[k]) && (record[k] as unknown[]).length === 3 && (record[k] as unknown[]).every((n) => typeof n === 'number'),
   );
@@ -154,17 +192,20 @@ function Properties({ state, part, index, dispatch }: { state: EditorState; part
           />
         </label>
       ))}
-      {part.shape === 'asset' ? (
+      {part.shape === 'asset' || part.shape === 'sculpt' ? (
         <>
-          <p className={SECTION}>imported mesh</p>
-          <p className="text-[11px] text-muted-foreground" data-testid="asset-part-info">
+          <p className={SECTION}>{part.shape === 'sculpt' ? 'sculpt mesh' : 'imported mesh'}</p>
+          <p className="text-[11px] text-muted-foreground" data-testid={part.shape === 'sculpt' ? 'sculpt-part-info' : 'asset-part-info'}>
             <span className="font-mono text-foreground">{part.src}</span>
             {part.vertices !== undefined ? ` · ${part.vertices.toLocaleString()} verts` : ''}
             {part.triangles !== undefined ? ` · ${part.triangles.toLocaleString()} tris` : ''}
+            {part.shape === 'sculpt' && part.multiresLevel ? ` · multires ${part.multiresLevel}` : ''}
+            {part.shape === 'sculpt' && part.uv ? ` · unwrapped (${part.uv.charts} charts, ${part.uv.density.mean} texels/m at ${part.uv.textureSize})` : ''}
+            {part.shape === 'sculpt' && part.maps ? ` · maps: ${Object.keys(part.maps).join(', ')}` : ''}
           </p>
         </>
       ) : null}
-      {part.shape !== 'group' && part.shape !== 'asset' ? (
+      {part.shape !== 'group' && part.shape !== 'asset' && part.shape !== 'sculpt' ? (
         <div className="flex gap-3">
           <label className="flex flex-1 items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="w-16 shrink-0">Segments</span>

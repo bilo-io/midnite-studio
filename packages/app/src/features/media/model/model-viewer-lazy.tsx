@@ -1,4 +1,8 @@
+import type { ModelSpec } from '@midnite/studio-shared';
 import type { RetargetSource } from './clip-panel';
+import type { ConvertFn } from './mesh-panel';
+import type { SdfBaker } from './sculpt/use-sdf';
+import type { SculptIO } from './sculpt/sculpt-controller';
 import { Component, type Dispatch, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react';
 
 import { Spinner } from '../../../components/skeleton';
@@ -58,9 +62,12 @@ export function LazyModelViewer(props: {
 export function LazyModelEditor(props: {
   state: EditorState;
   dispatch: Dispatch<EditorAction>;
-  onSave: () => void;
+  onSave: (spec?: ModelSpec) => void;
   saving: boolean;
   retargetSources?: readonly RetargetSource[];
+  onConvert?: ConvertFn;
+  sdfBaker?: SdfBaker;
+  sculptIO?: SculptIO;
 }) {
   return (
     <ViewerBoundary>

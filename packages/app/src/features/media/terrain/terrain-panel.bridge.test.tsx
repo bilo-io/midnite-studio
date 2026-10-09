@@ -5,6 +5,7 @@ import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
 import { useUiStore } from '../../../store/ui-store';
+import { useMapFocus } from '../map/map-focus';
 import { MediaView } from '../media-view';
 
 /**
@@ -189,5 +190,104 @@ describe('stats readout', () => {
     expect(screen.getByText('Nothing built yet. Attach images or choose noise, then Generate.')).toBeTruthy();
     expect(screen.queryByTestId('viewer-stub')).toBeNull();
     expect(screen.queryByTestId('terrain-stats')).toBeNull();
+  });
+});
+
+describe('roads, foliage and buildings sections (Phase 105 G + H)', () => {
+  const roadsInput = { ...input, file: 'inputs/roads.png' };
+  const satelliteInput = { ...input, file: 'inputs/satellite.png' };
+
+  it('the Roads section only appears with a roads mask, and shows the detected colour as Auto', async () => {
+    let panel = await open();
+    expect(within(panel).queryByTestId('terrain-roads-section')).toBeNull();
+    cleanup();
+    panel = await open(spec({ inputs: { heightmap: input, roads: roadsInput } }));
+    const section = await within(panel).findByTestId('terrain-roads-section');
+    expect(await within(section).findByText('Auto · #00ffff')).toBeTruthy();
+    expect(within(section).getByRole('img', { name: 'Roads image' }).getAttribute('src')).toContain('inputs/roads.png');
+  });
+
+  it('the eyedropper samples the clicked point and commits the colour', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, roads: roadsInput } }));
+    const api = window.midniteStudio!.media.terrain;
+    const roadKey = vi.spyOn(api, 'roadKey');
+    const setSpec = vi.spyOn(api, 'setSpec');
+    const section = await within(panel).findByTestId('terrain-roads-section');
+    const pipette = within(section).getByRole('button', { name: 'Pick the road colour from the image' });
+    fireEvent.click(pipette);
+    expect(within(section).getByRole('button', { name: 'Cancel colour pick' }).getAttribute('aria-pressed')).toBe('true');
+    const image = within(section).getByRole('img', { name: 'Roads image' });
+    image.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.click(image, { clientX: 50, clientY: 75 });
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(roadKey.mock.calls.map((c) => c[0].pick).filter(Boolean)).toEqual([[0.25, 0.75]]);
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { roads: { colour: '#00fefe', tolerance: 0.25 } } });
+  });
+
+  it('dragging the tolerance previews through roadKey (debounced) and commits on release', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, roads: roadsInput } }));
+    const api = window.midniteStudio!.media.terrain;
+    const section = await within(panel).findByTestId('terrain-roads-section');
+    await within(section).findByRole('img', { name: 'Road mask preview' });
+    const roadKey = vi.spyOn(api, 'roadKey');
+    const setSpec = vi.spyOn(api, 'setSpec');
+    const slider = within(section).getByRole('slider', { name: 'Road colour tolerance' });
+    fireEvent.change(slider, { target: { value: '0.4' } });
+    fireEvent.change(slider, { target: { value: '0.5' } });
+    expect(setSpec).not.toHaveBeenCalled();
+    await waitFor(() => expect(roadKey).toHaveBeenCalledTimes(1));
+    expect(roadKey.mock.calls[0]![0]).toMatchObject({ tolerance: 0.5 });
+    expect(within(section).getByRole('img', { name: 'Road mask preview' }).getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+    fireEvent.pointerUp(slider);
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { roads: { tolerance: 0.5 } } });
+  });
+
+  it('foliage asset toggles and building heights commit to the spec', async () => {
+    const panel = await open(spec({ inputs: { heightmap: input, satellite: satelliteInput } }));
+    const setSpec = vi.spyOn(window.midniteStudio!.media.terrain, 'setSpec');
+    const foliage = within(panel).getByTestId('terrain-foliage-section');
+    const trees = within(foliage).getByRole('group', { name: 'Tree assets' });
+    expect(within(trees).getByRole('button', { name: 'pine' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(trees).getByRole('button', { name: 'pine' }));
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(1));
+    expect(setSpec.mock.calls[0]![0]).toMatchObject({ patch: { foliage: { assets: { tree: ['broadleaf', 'birch'], grass: ['grass-clump', 'bush'] } } } });
+
+    const buildings = within(panel).getByTestId('terrain-buildings-section');
+    const max = within(buildings).getByRole('spinbutton', { name: 'Building height maximum' });
+    fireEvent.change(max, { target: { value: '30' } });
+    fireEvent.blur(max);
+    await waitFor(() => expect(setSpec).toHaveBeenCalledTimes(2));
+    expect(setSpec.mock.calls[1]![0]).toMatchObject({ patch: { buildings: { height: [4, 30] } } });
+  });
+});
+
+describe('captured from Maps (Phase 108 Theme F)', () => {
+  const geo = {
+    center: [18.4, -33.9],
+    bbox: [18.3, -34, 18.5, -33.8],
+    sideM: 8000,
+    capture: { project: 'maps', name: 'cape-20261007-100000' },
+    attributions: ['Terrain Tiles: Mapzen, AWS Open Data'],
+    capturedAt: '2026-10-07T10:00:00.000Z',
+  };
+
+  it('shows the row, attributions and a Show on map button for a capture-made terrain', async () => {
+    await open(spec({ geo }));
+    const row = await screen.findByTestId('terrain-geo');
+    expect(row.textContent).toContain('Captured from Maps · dunes · 8.0 km');
+    expect(row.textContent).toContain('Terrain Tiles: Mapzen, AWS Open Data');
+    // The mounted Maps tab consumes the request at once, so record it as it is posted.
+    const seen: unknown[] = [];
+    const off = useMapFocus.subscribe((state) => state.request && seen.push(state.request));
+    fireEvent.click(within(row).getByRole('button', { name: 'Show on map' }));
+    off();
+    expect(seen[0]).toMatchObject({ project: 'maps', name: 'cape-20261007-100000', center: [18.4, -33.9], sideM: 8000 });
+    expect(useUiStore.getState().mediaTab).toBe('map');
+  });
+
+  it('shows no row for a terrain that was not captured', async () => {
+    await open();
+    expect(screen.queryByTestId('terrain-geo')).toBeNull();
   });
 });

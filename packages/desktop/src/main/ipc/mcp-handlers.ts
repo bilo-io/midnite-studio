@@ -1,7 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { getMcpCallLog } from '../mcp/audit';
-import { getMcpStatus, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowModels, setMcpAllowUi, setMcpEnabled } from '../mcp';
+import { getMcpStatus, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowMaps, setMcpAllowModels, setMcpAllowMusic, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
 import { handle, handleBare } from './handle';
 
 /**
@@ -27,7 +27,7 @@ export function registerMcpHandlers(): void {
   handle(
     CHANNELS.mcpSet,
     schemas.McpSetRequest,
-    async ({ enabled, allowUi, allowGateDecide, allowModels, allowGames }) => {
+    async ({ enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites, allowMaps, allowMusic }) => {
       if (enabled !== undefined) {
         const result = await setMcpEnabled(enabled);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
@@ -46,6 +46,22 @@ export function registerMcpHandlers(): void {
       }
       if (allowGames !== undefined) {
         const result = await setMcpAllowGames(allowGames);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowTerrains !== undefined) {
+        const result = await setMcpAllowTerrains(allowTerrains);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowSprites !== undefined) {
+        const result = await setMcpAllowSprites(allowSprites);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowMaps !== undefined) {
+        const result = await setMcpAllowMaps(allowMaps);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowMusic !== undefined) {
+        const result = await setMcpAllowMusic(allowMusic);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
       }
       return getMcpStatus();

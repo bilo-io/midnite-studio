@@ -22,7 +22,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOL_IDS, MCP_TOOLS, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
+import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOL_IDS, MCP_TOOLS, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
@@ -86,6 +86,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     ...(explicitSocket ? { socketPath: explicitSocket } : {}),
     ...(isModelMcpToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
     ...(isGameSlowToolId(name) ? { timeoutMs: GAME_CALL_TIMEOUT_MS } : {}),
+    ...(isTerrainSlowToolId(name) ? { timeoutMs: TERRAIN_CALL_TIMEOUT_MS } : {}),
+    ...(isSpriteSlowToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
+    ...(isMapSlowToolId(name) ? { timeoutMs: MAP_CALL_TIMEOUT_MS } : {}),
   });
 
   if (response.ok) {

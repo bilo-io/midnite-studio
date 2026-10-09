@@ -5,7 +5,12 @@ import { join } from 'node:path';
 import { WriteQueue } from '@midnite/studio-git-engine';
 import {
   DEFAULT_TERRAIN_PROJECT,
+  detectRoadColour,
+  extractRoadMask,
   failure,
+  MapBuildingsFileSchema,
+  MapRoadGraphFileSchema,
+  pickColour,
   needsHeightSource,
   ok,
   parseTerrainSpec,
@@ -14,11 +19,15 @@ import {
   TERRAIN_HEIGHTMAP_PROMPT,
   TERRAIN_INPUT_MAX_BYTES,
   TERRAIN_INPUT_MAX_SIDE,
-  TERRAIN_NOT_AVAILABLE,
+  TERRAIN_ROAD_PREVIEW_SIZE,
+  TERRAIN_BUILDINGS_FOOTPRINTS_FILE,
+  TERRAIN_ROADS_GRAPH_FILE,
   TERRAIN_SPEC_FILE,
   terrainSlug,
   terrainTimeStamp,
   type GitOpResult,
+  type MapBuildingsFile,
+  type MapRoadGraphFile,
   type ImageProviderId,
   type TerrainBuildRequest,
   type TerrainBuildResult,
@@ -31,10 +40,15 @@ import {
   type TerrainLibraryResult,
   type TerrainPaintRequest,
   type TerrainProgressEvent,
+  type RasterImage,
+  type TerrainRoadKeyRequest,
+  type TerrainRoadKeyResult,
   type TerrainSetInputRequest,
   type TerrainSetInputResult,
   type TerrainSetSpecRequest,
   type TerrainSpec,
+  type TerrainExportOptions,
+  type TerrainExportResult,
   type TerrainTarget,
 } from '@midnite/studio-shared';
 
@@ -42,6 +56,7 @@ import { confineToRoot, joinWithin } from '../../fs-scope';
 import { decodePng, encodePngGrey8 } from '../png/png-codec';
 import type { VisionCall } from '../model/engines';
 import { plannedStages } from './build-pipeline';
+import { exportTerrain } from './terrain-export';
 import type { TerrainBroker } from './terrain-broker';
 
 /**
@@ -287,10 +302,13 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       if ('remove' in req) {
         const updated = await updateSpec(req, dir, (spec) => {
           const { [req.slot]: _gone, ...inputs } = spec.inputs;
+          // The captured graph and its mask are a pair: removing one removes the other.
+          if (req.slot === 'roads') delete inputs.roadsGraph;
           return { spec: { ...spec, inputs } };
         });
         if (!updated.ok) return updated;
         await rm(join(dir, file), { force: true });
+        if (req.slot === 'roads') await rm(join(dir, TERRAIN_ROADS_GRAPH_FILE), { force: true });
         announce(req);
         return ok({ warnings: [] });
       }
@@ -349,7 +367,8 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       const updated = await updateSpec(req, dir, (spec) => ({
         spec: {
           ...spec,
-          inputs: { ...spec.inputs, [req.slot]: input },
+          // A new roads mask replaces the captured graph that described the old one.
+          inputs: req.slot === 'roads' ? { ...withoutGraph(spec.inputs), roads: input } : { ...spec.inputs, [req.slot]: input },
           // A heightmap's pre-smooth is decided here: an 8-bit source terraces, so it is softened by default.
           ...(req.slot === 'heightmap' ? { preSmooth: bitDepth === 8 ? 1 : 0 } : {}),
         },
@@ -358,6 +377,86 @@ export function createTerrainService(deps: TerrainServiceDeps) {
       if (req.slot === 'heightmap' && bitDepth === 8) warnings.push('8-bit heightmap: expect visible terracing. Pre-smooth is on.');
       announce(req);
       return ok({ input, warnings });
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /**
+   * Main-only (no IPC channel): attaches or removes the captured road graph a Maps capture made
+   * (Phase 108 Theme F). Validated, written inside the per-terrain queue, recorded as `inputs.roadsGraph`.
+   */
+  async function setRoadsGraph(target: TerrainTarget, graph: Uint8Array | { remove: true }): Promise<GitOpResult<{ edges: number }>> {
+    try {
+      const located = await locate(target);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      if ('remove' in graph) {
+        const updated = await updateSpec(target, dir, (spec) => ({ spec: { ...spec, inputs: withoutGraph(spec.inputs) } }));
+        if (!updated.ok) return updated;
+        await rm(join(dir, TERRAIN_ROADS_GRAPH_FILE), { force: true });
+        announce(target);
+        return ok({ edges: 0 });
+      }
+      let parsed: MapRoadGraphFile;
+      try {
+        parsed = MapRoadGraphFileSchema.parse(JSON.parse(Buffer.from(graph).toString('utf8')));
+      } catch (error) {
+        return failure(`The road graph is not valid: ${error instanceof Error ? firstIssue(error) : String(error)}`);
+      }
+      const written = await deps.writeBytes({
+        repoId: target.repoId,
+        project: target.project,
+        path: `${target.terrain}/${TERRAIN_ROADS_GRAPH_FILE}`,
+        data: Buffer.from(graph),
+      });
+      if (!written.ok) return written;
+      const updated = await updateSpec(target, dir, (spec) => ({
+        spec: { ...spec, inputs: { ...spec.inputs, roadsGraph: { file: TERRAIN_ROADS_GRAPH_FILE, edges: parsed.edges.length } } },
+      }));
+      if (!updated.ok) return updated;
+      announce(target);
+      return ok({ edges: parsed.edges.length });
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /**
+   * Main-only (no IPC channel): attaches or removes the captured OSM building footprints (heights where
+   * OSM has them). Validated, written inside the per-terrain queue, recorded as `inputs.buildingsFootprints`.
+   */
+  async function setBuildingsFootprints(target: TerrainTarget, data: Uint8Array | { remove: true }): Promise<GitOpResult<{ count: number }>> {
+    try {
+      const located = await locate(target);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      if ('remove' in data) {
+        const updated = await updateSpec(target, dir, (spec) => ({ spec: { ...spec, inputs: withoutFootprints(spec.inputs) } }));
+        if (!updated.ok) return updated;
+        await rm(join(dir, TERRAIN_BUILDINGS_FOOTPRINTS_FILE), { force: true });
+        announce(target);
+        return ok({ count: 0 });
+      }
+      let parsed: MapBuildingsFile;
+      try {
+        parsed = MapBuildingsFileSchema.parse(JSON.parse(Buffer.from(data).toString('utf8')));
+      } catch (error) {
+        return failure(`The building footprints are not valid: ${error instanceof Error ? firstIssue(error) : String(error)}`);
+      }
+      const written = await deps.writeBytes({
+        repoId: target.repoId,
+        project: target.project,
+        path: `${target.terrain}/${TERRAIN_BUILDINGS_FOOTPRINTS_FILE}`,
+        data: Buffer.from(data),
+      });
+      if (!written.ok) return written;
+      const updated = await updateSpec(target, dir, (spec) => ({
+        spec: { ...spec, inputs: { ...spec.inputs, buildingsFootprints: { file: TERRAIN_BUILDINGS_FOOTPRINTS_FILE, count: parsed.buildings.length } } },
+      }));
+      if (!updated.ok) return updated;
+      announce(target);
+      return ok({ count: parsed.buildings.length });
     } catch (error) {
       return failure(error instanceof Error ? error.message : String(error));
     }
@@ -453,12 +552,84 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     }
   }
 
+  /**
+   * Theme H: keys the roads image at {@link TERRAIN_ROAD_PREVIEW_SIZE}² without a build. `pick`
+   * samples the full-resolution image (the eyedropper); otherwise the request's colour, the spec's,
+   * or the detected one, in that order. Image space — no alignment — since the panel shows the image.
+   */
+  async function roadKey(req: TerrainRoadKeyRequest): Promise<GitOpResult<TerrainRoadKeyResult>> {
+    try {
+      const located = await locate(req);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      const current = await readSpec(dir);
+      if (!current.ok) return current;
+      const spec = current.value;
+      if (!spec.inputs.roads) return failure('Attach a roads mask first.');
+      const bytes = await readFile(join(dir, spec.inputs.roads.file)).catch(() => null);
+      if (!bytes) return failure('The roads mask file is missing — attach it again.');
+      const decoded = decodePng(bytes);
+      if (!decoded.ok) return failure(decoded.message);
+      const detectedColour = detectRoadColour(decoded.image).colour;
+      const colour = req.pick
+        ? pickColour(decoded.image, req.pick[0], req.pick[1])
+        : req.colour ?? spec.roads.colour ?? detectedColour;
+      const size = TERRAIN_ROAD_PREVIEW_SIZE;
+      const mask = extractRoadMask(previewRaster(decoded.image, size), colour, req.tolerance ?? spec.roads.tolerance);
+      for (let i = 0; i < mask.length; i += 1) mask[i] = mask[i] ? 255 : 0;
+      return ok({ pngBase64: encodePngGrey8(mask, size, size).toString('base64'), colour, detected: detectedColour });
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   function cancel(buildId: string): GitOpResult {
     deps.broker.cancel(buildId);
     return ok();
   }
 
-  return { library, get, setSpec, setInput, build, cancel, paint };
+  async function exportPack(req: TerrainExportOptions & TerrainTarget): Promise<GitOpResult<TerrainExportResult>> {
+    const located = await locate(req);
+    if (!located.ok) return located;
+    const { dir } = located.value;
+    const spec = await readSpec(dir);
+    if (!spec.ok) return spec;
+    // Serialised with writes to this terrain, so an export never reads a build that is being swapped in.
+    return queue.run(dir, () => exportTerrain({ dir, spec: spec.value, options: req }));
+  }
+
+  /** The terrain's folder, for the callers that read its files directly (the MCP preview and export). */
+  async function dirOf(target: Pick<TerrainTarget, 'repoId' | 'project' | 'terrain'>): Promise<GitOpResult<string>> {
+    const located = await locate(target);
+    return located.ok ? ok(located.value.dir) : located;
+  }
+
+  return { library, get, setSpec, setInput, setRoadsGraph, setBuildingsFootprints, build, cancel, paint, roadKey, export: exportPack, dirOf };
+}
+
+/** Nearest-neighbour resample of any raster to a `size`² one with the same channels. */
+function withoutGraph(inputs: TerrainSpec['inputs']): TerrainSpec['inputs'] {
+  const { roadsGraph: _graph, ...rest } = inputs;
+  return rest;
+}
+
+function withoutFootprints(inputs: TerrainSpec['inputs']): TerrainSpec['inputs'] {
+  const { buildingsFootprints: _footprints, ...rest } = inputs;
+  return rest;
+}
+
+function previewRaster(image: RasterImage, size: number): RasterImage {
+  const { width, height, channels } = image;
+  const data = image.bitDepth === 16 ? new Uint16Array(size * size * channels) : new Uint8Array(size * size * channels);
+  for (let y = 0; y < size; y += 1) {
+    const sy = Math.min(height - 1, Math.floor(((y + 0.5) * height) / size));
+    for (let x = 0; x < size; x += 1) {
+      const sx = Math.min(width - 1, Math.floor(((x + 0.5) * width) / size));
+      const from = (sy * width + sx) * channels;
+      for (let c = 0; c < channels; c += 1) data[(y * size + x) * channels + c] = image.data[from + c]!;
+    }
+  }
+  return { width: size, height: size, channels, bitDepth: image.bitDepth, data };
 }
 
 function rasterizeStroke(
@@ -507,9 +678,6 @@ function rasterizeStroke(
 }
 
 export type TerrainService = ReturnType<typeof createTerrainService>;
-
-/** What the handlers answer for the channels whose theme has not landed (paint, road key, export). */
-export const notAvailableYet = (): GitOpResult => failure(TERRAIN_NOT_AVAILABLE);
 
 function firstIssue(error: Error): string {
   const issues = (error as { issues?: Array<{ path: Array<string | number>; message: string }> }).issues;

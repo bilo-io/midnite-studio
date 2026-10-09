@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { LuArrowDown, LuArrowUp, LuBatteryCharging } from 'react-icons/lu';
+import { LuArrowDown, LuArrowUp, LuZap } from 'react-icons/lu';
 import { type MetricId } from '@midnite/studio-shared';
 
 import { BatteryIcon } from '../battery/battery-icon';
@@ -121,12 +121,30 @@ export function LockScreenBatteryWidget() {
       className="flex h-9 items-center"
     >
       <div
-        className={`flex items-center gap-2 font-mono text-3xl font-semibold tabular-nums tracking-tight ${textClass} ${flashClass}`}
+        className={`relative flex items-center gap-2 font-mono text-3xl font-semibold tabular-nums tracking-tight px-1.5 py-0.5 rounded-lg ${textClass} ${flashClass}`}
         style={glowStyle}
+        data-charging={battery?.isCharging ? 'true' : undefined}
       >
+        {battery?.isCharging && (
+          <LuZap
+            className="h-7 w-7 shrink-0 text-emerald-500 dark:text-emerald-400"
+            data-testid="battery-charging-bolt"
+            aria-hidden="true"
+          />
+        )}
         <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-7 w-7" />
-        {battery?.isCharging ? <LuBatteryCharging className="h-6 w-6" /> : null}
         <span>{rounded}%</span>
+        {battery?.isCharging && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg"
+          >
+            <span
+              data-testid="battery-charging-shimmer"
+              className="battery-charging-shimmer absolute inset-0"
+            />
+          </span>
+        )}
       </div>
     </div>
   );

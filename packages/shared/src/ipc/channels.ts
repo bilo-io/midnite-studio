@@ -897,8 +897,29 @@ export const CHANNELS = {
   gamesSetBounds: 'mstudio:games:set-bounds',
   gamesSetVisible: 'mstudio:games:set-visible',
   gamesToolbar: 'mstudio:games:toolbar',
+  gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Move a game's runner view into the `game` popout window (Theme B). */
+  gamesPopOut: 'mstudio:games:pop-out',
+  /** Which game the `game` popout hosts, if any. */
+  gamesPopped: 'mstudio:games:popped',
+  /** Start an agent (or Ollama) run on a game — commit per changing pass (Theme M). */
+  gamesAgentRun: 'mstudio:games:agent-run',
+  gamesAgentCancel: 'mstudio:games:agent-cancel',
+  /** Undo turn: revert the game's newest agent commit. */
+  gamesAgentUndo: 'mstudio:games:agent-undo',
+  /** The picker's candidates for one tab, across the registered repos (Theme N). */
+  gamesAssetSources: 'mstudio:games:asset-sources',
+  /** Copy a media item into a game's `assets/` and commit it (Theme N). */
+  gamesImportAsset: 'mstudio:games:import-asset',
+  /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
+  gamesResync: 'mstudio:games:resync',
+  /** Play-tests (Theme O): list `playtests/*.json`, and run some or all of them. */
+  gamesPlaytests: 'mstudio:games:playtests',
+  gamesPlaytestRun: 'mstudio:games:playtest-run',
+  /** Export a game as a folder, a zip or one HTML file (Theme P). */
+  gamesExport: 'mstudio:games:export',
 
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
@@ -933,6 +954,20 @@ export const CHANNELS = {
   mediaAudioEngine: 'mstudio:media:audio-engine',
   mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
   mediaAudioExpand: 'mstudio:media:audio-expand',
+  // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
+  mediaGmStatus: 'mstudio:media:gm-status',
+  mediaGmEnsure: 'mstudio:media:gm-ensure',
+  mediaGmLoad: 'mstudio:media:gm-load',
+  // Music editor (Phase 101 Theme B): songs are <name>.mid + <name>.song.json inside an Audio project; main owns the MIDI I/O.
+  mediaMusicList: 'mstudio:media:music-list',
+  mediaMusicRead: 'mstudio:media:music-read',
+  mediaMusicWrite: 'mstudio:media:music-write',
+  mediaMusicImport: 'mstudio:media:music-import',
+  mediaMusicDelete: 'mstudio:media:music-delete',
+  // Music agents (Phase 101 Theme H): an engine writes or refines a song; Antigravity's MCP registration lives in Settings.
+  mediaMusicAgentRun: 'mstudio:media:music-agent-run',
+  mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',
+  mediaMusicAgy: 'mstudio:media:music-agy',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -941,6 +976,8 @@ export const CHANNELS = {
   mediaModelSaveEdit: 'mstudio:media:model-save-edit',
   /** The Models library (folders, groups, model.json) — see `ModelLibraryRequestSchema`. */
   mediaModelLibrary: 'mstudio:media:model-library',
+  /** Sculpt meshes (Phase 104 Theme A) — `ModelMeshRequestSchema`'s `op` union over `.mesh.bin` + `.ops.jsonl`. */
+  mediaModelMesh: 'mstudio:media:model-mesh',
   /** SF3D, the opt-in local image-to-3D tier — see `Sf3dRequestSchema`. Progress on `mediaModelSf3dProgress`. */
   mediaModelSf3d: 'mstudio:media:model-sf3d',
   // Terrain (`main/media/terrain/`, Phase 105): library ops, spec, inputs, build. Progress on `mediaTerrainProgress`.
@@ -956,6 +993,35 @@ export const CHANNELS = {
   mediaTerrainRoadKey: 'mstudio:media:terrain-road-key',
   /** Theme I — the terrain pack. Answers "not available yet" until it lands. */
   mediaTerrainExport: 'mstudio:media:terrain-export',
+  // Sprites (`main/media/sprite/`, Phase 106): library ops, spec, reference, generation jobs. Progress on `mediaSpriteProgress`.
+  mediaSpriteLibrary: 'mstudio:media:sprite-library',
+  mediaSpriteGet: 'mstudio:media:sprite-get',
+  mediaSpriteSetSpec: 'mstudio:media:sprite-set-spec',
+  mediaSpriteSetReference: 'mstudio:media:sprite-set-reference',
+  mediaSpriteGenerate: 'mstudio:media:sprite-generate',
+  mediaSpriteCancel: 'mstudio:media:sprite-cancel',
+  mediaSpritePatchFrames: 'mstudio:media:sprite-patch-frames',
+  /** Theme G — the sprite pack. Answers "not available yet" until it lands. */
+  mediaSpriteExport: 'mstudio:media:sprite-export',
+  /** Theme J — import a Tiled `.tmj` (tilesets embedded or `.tsj` beside it) as a new map asset. */
+  mediaSpriteImportMap: 'mstudio:media:sprite-import-map',
+  /** Theme E — the window answers a `mediaSpriteRenderRequest` (within 10 s, or the job fails). */
+  mediaSpriteRenderReady: 'mstudio:media:sprite-render-ready',
+  /** Theme E — one batch of rendered frames; resolves once main has processed it (the back-pressure). */
+  mediaSpriteRenderFrames: 'mstudio:media:sprite-render-frames',
+  // Maps (`main/media/map/`, Phase 108): the project file and the tile sources served on `mstudio-tile:`.
+  /** `{repoId, project}` → `map.json` (defaults when missing; defaults + `warning` when corrupt). */
+  mediaMapGet: 'mstudio:media:map-get',
+  /** Shallow-merges a validated patch into `map.json` (the renderer debounces viewport saves). */
+  mediaMapSetView: 'mstudio:media:map-set-view',
+  /** Which sources are usable — a keyed source learns only *whether* its key is set. */
+  mediaMapSources: 'mstudio:media:map-sources',
+  /** The tile cache under userData: `status` / `clear` / `set-cap`. */
+  mediaMapCache: 'mstudio:media:map-cache',
+  /** Capture for Terrain (Theme D): resolves with the result when the run ends; one at a time. */
+  mediaMapCapture: 'mstudio:media:map-capture',
+  /** `{captureId}` — aborts the running capture and leaves nothing behind. */
+  mediaMapCaptureCancel: 'mstudio:media:map-capture-cancel',
   /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
   mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
   /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
@@ -1511,6 +1577,10 @@ export const EVENT_CHANNELS = {
   gamesConsole: 'mstudio:games:console',
   /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */
   gamesOpen: 'mstudio:games:open',
+  /** The popped-out game changed — see `GamesPopStatePayload`. */
+  gamesPopState: 'mstudio:games:pop-state',
+  /** A game agent run advanced — see `GamesAgentProgressPayload`. */
+  gamesAgentProgress: 'mstudio:games:agent-progress',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
@@ -1519,6 +1589,8 @@ export const EVENT_CHANNELS = {
   mediaAudioProgress: 'mstudio:media:audio-progress',
   /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
   mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
+  mediaGmProgress: 'mstudio:media:gm-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
   mediaModelProgress: 'mstudio:media:model-progress',
   /** An agent edited a model (in-app iterative run or an MCP session) — see `ModelChangedEventSchema`. */
@@ -1533,6 +1605,24 @@ export const EVENT_CHANNELS = {
   mediaTerrainChanged: 'mstudio:media:terrain-changed',
   /** `terrain_open` (Theme J) asked the window to show a terrain — see `TerrainOpenEventSchema`. */
   mediaTerrainOpen: 'mstudio:media:terrain-open',
+  /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
+  mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
+  /** An agent edited a song (an engine's run or an MCP session) — see `MusicChangedEventSchema`. */
+  mediaMusicChanged: 'mstudio:media:music-changed',
+  /** `music_open` asked the window to show a song — see `MusicOpenEventSchema`. */
+  mediaMusicOpen: 'mstudio:media:music-open',
+  /** A music agent run advanced — see `MusicAgentProgressEventSchema`. */
+  mediaMusicAgentProgress: 'mstudio:media:music-agent-progress',
+  /** `map_goto` (Phase 108 Theme I) asked the window to fly the map somewhere — see `MapOpenEventSchema`. */
+  mediaMapOpen: 'mstudio:media:map-open',
+  /** A sprite job advanced — see `SpriteProgressEventSchema`. */
+  mediaSpriteProgress: 'mstudio:media:sprite-progress',
+  /** A sprite asset's spec, frames or job state changed (revision bump) — see `SpriteChangedEventSchema`. */
+  mediaSpriteChanged: 'mstudio:media:sprite-changed',
+  /** `sprite_open` (Theme K) asked the window to show an asset — see `SpriteOpenEventSchema`. */
+  mediaSpriteOpen: 'mstudio:media:sprite-open',
+  /** Main asks the window to render a Models character into frames (Theme E) — see `SpriteRenderRequestEventSchema`. */
+  mediaSpriteRenderRequest: 'mstudio:media:sprite-render-request',
   /** A chat turn's text or state advanced — see `ChatEventSchema`. */
   chatsEvent: 'mstudio:chats:event',
   /** An export advanced — see `MediaExportProgressEventSchema`. */

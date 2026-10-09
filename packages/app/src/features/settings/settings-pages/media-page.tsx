@@ -1,11 +1,12 @@
 import { Accordion } from '@bilo-io/ui';
 import { FFMPEG_INSTALL_COMMAND } from '@midnite/studio-shared';
-import { LuAudioLines, LuClapperboard, LuFolderOpen, LuGamepad2, LuImage, LuSettings2, LuX } from 'react-icons/lu';
+import { LuAudioLines, LuClapperboard, LuFolderOpen, LuGamepad2, LuImage, LuMap, LuSettings2, LuX } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { AudioSettingsSection } from '../../media/audio/audio-settings';
 import { ImageSettingsSection } from '../../media/image/image-settings';
+import { MapSettingsSection } from '../../media/map/map-settings';
 import { useFfmpegStatus } from '../../media/use-media';
 import { submitCommand } from '../../terminal/submit-command';
 import { GamesRootSection } from './games-root-section';
@@ -20,6 +21,7 @@ import { VideoRootSection } from './video-root-section';
  * - **Video**: Phase 44's video root, unchanged.
  * - **Images** (Theme C): default provider/model and API keys (`ImageSettingsSection`).
  * - **Audio** (Theme E): prompt-form defaults and the MP3 bitrate (`AudioSettingsSection`).
+ * - **Maps** (Phase 108 Theme B): the optional MapTiler key and the tile cache (`MapSettingsSection`).
  * - **Games** (Phase 107 Theme A): the games location, default engine and network (`GamesRootSection`).
  */
 export function MediaSettingsPage() {
@@ -39,6 +41,10 @@ export function MediaSettingsPage() {
       </Accordion>
       <Accordion title="Audio" icon={<LuAudioLines className="h-4 w-4" />}>
         <AudioSettingsSection />
+      </Accordion>
+      <Accordion title="Maps" icon={<LuMap className="h-4 w-4" />}>
+        <MapUnitsRow />
+        <MapSettingsSection />
       </Accordion>
       <Accordion title="Games" icon={<LuGamepad2 className="h-4 w-4" />}>
         <GamesRootSection />
@@ -123,5 +129,25 @@ function ExportFolderRow() {
         {mediaExportDir ? 'Change folder…' : 'Choose folder…'}
       </button>
     </div>
+  );
+}
+
+/** Settings ▸ Media ▸ Maps ▸ Units (Phase 108 Theme G): how the measure tools print distance and area. */
+function MapUnitsRow() {
+  const mapUnits = useUiStore((s) => s.mapUnits);
+  const setMapUnits = useUiStore((s) => s.setMapUnits);
+  return (
+    <label className="flex items-center justify-between gap-3 px-3 pt-3 text-xs text-foreground">
+      <span>Measurement units</span>
+      <select
+        aria-label="Map measurement units"
+        value={mapUnits}
+        onChange={(event) => setMapUnits(event.target.value === 'imperial' ? 'imperial' : 'metric')}
+        className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+      >
+        <option value="metric">Metric (m, km)</option>
+        <option value="imperial">Imperial (ft, mi)</option>
+      </select>
+    </label>
   );
 }

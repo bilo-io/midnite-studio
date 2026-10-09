@@ -390,6 +390,10 @@ export type LayoutSizes = {
   mediaModelDetailWidth: number;
   mediaTerrainExplorerWidth: number;
   mediaTerrainDetailWidth: number;
+  mediaSpriteExplorerWidth: number;
+  mediaSpriteDetailWidth: number;
+  mediaMapExplorerWidth: number;
+  mediaMapDetailWidth: number;
   mediaGameExplorerWidth: number;
   mediaGameDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
@@ -514,6 +518,10 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaModelDetailWidth: 360,
   mediaTerrainExplorerWidth: 224,
   mediaTerrainDetailWidth: 360,
+  mediaSpriteExplorerWidth: 224,
+  mediaSpriteDetailWidth: 380,
+  mediaMapExplorerWidth: 240,
+  mediaMapDetailWidth: 300,
   mediaGameExplorerWidth: 240,
   mediaGameDetailWidth: 380,
   // Workflows (Phase 43) — list left, inspector / history right.
@@ -610,6 +618,10 @@ export const LAYOUT_BOUNDS = {
   mediaModelDetailWidth: { min: 260, max: 640 },
   mediaTerrainExplorerWidth: { min: 180, max: 480 },
   mediaTerrainDetailWidth: { min: 260, max: 640 },
+  mediaSpriteExplorerWidth: { min: 180, max: 480 },
+  mediaSpriteDetailWidth: { min: 280, max: 680 },
+  mediaMapExplorerWidth: { min: 180, max: 480 },
+  mediaMapDetailWidth: { min: 240, max: 520 },
   mediaGameExplorerWidth: { min: 180, max: 480 },
   mediaGameDetailWidth: { min: 300, max: 680 },
   workflowListWidth: { min: 180, max: 480 },
@@ -1114,6 +1126,9 @@ export type UiState = {
   setMediaLastVideoProject: (repoId: string, projectId: string) => void;
   /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
   mediaSpeechOn: boolean;
+  /** Settings ▸ Media ▸ Maps — how the measure tools print distance and area (Phase 108 Theme G). */
+  mapUnits: 'metric' | 'imperial';
+  setMapUnits: (units: 'metric' | 'imperial') => void;
   setMediaSpeechOn: (on: boolean) => void;
   setMediaExportDir: (dir: string | null) => void;
   /**
@@ -1486,6 +1501,12 @@ export type UiState = {
    * never had a board picked, which the view reads as "show the picker".
    */
   projectBoardByRepo: Record<string, string>;
+  /**
+   * Phase 101 Theme A: which of Media ▸ Audio's Editor | Generator tabs a repo
+   * last had open. Absent = Generator, so existing users land where they did.
+   */
+  audioTabByRepo: Record<string, 'editor' | 'generator'>;
+  setAudioTab: (repoId: string, tab: 'editor' | 'generator') => void;
   setProjectBoard: (repoId: string, projectId: string) => void;
   /**
    * Tasks, on its built-in Repo issues source for the selected repo — what
@@ -2186,6 +2207,7 @@ export type PersistedUi = Pick<
   | 'mediaLastDoc'
   | 'mediaLastVideoProject'
   | 'mediaSpeechOn'
+  | 'mapUnits'
   | 'collapsedAccordionSections'
   | 'graphColumns'
   | 'graphColumnVisibility'
@@ -2246,6 +2268,7 @@ export type PersistedUi = Pick<
   | 'forgeSyncGhAuthSwitch'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
+  | 'audioTabByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
   | 'cardSkillByTask'
@@ -2432,6 +2455,7 @@ export const useUiStore = create<UiState>()(
       forgeWritesEnabled: false,
       activeEnvironmentByRepo: {},
       projectBoardByRepo: {},
+      audioTabByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
       cardSkillByTask: {},
@@ -2784,6 +2808,8 @@ export const useUiStore = create<UiState>()(
             : { mediaLastVideoProject: { ...state.mediaLastVideoProject, [repoId]: projectId } },
         ),
       mediaSpeechOn: false,
+      mapUnits: 'metric',
+      setMapUnits: (mapUnits) => set({ mapUnits }),
       setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
       setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
       collapsedAccordionSections: [],
@@ -3168,6 +3194,8 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           activeEnvironmentByRepo: { ...state.activeEnvironmentByRepo, [repoId]: environmentId },
         })),
+      setAudioTab: (repoId, tab) =>
+        set((state) => ({ audioTabByRepo: { ...state.audioTabByRepo, [repoId]: tab } })),
       setProjectBoard: (repoId, projectId) =>
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
@@ -3251,6 +3279,7 @@ export const useUiStore = create<UiState>()(
         mediaLastDoc: state.mediaLastDoc,
         mediaLastVideoProject: state.mediaLastVideoProject,
         mediaSpeechOn: state.mediaSpeechOn,
+        mapUnits: state.mapUnits,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
         graphColumnVisibility: state.graphColumnVisibility,
@@ -3306,6 +3335,7 @@ export const useUiStore = create<UiState>()(
         forgeWritesEnabled: state.forgeWritesEnabled,
         activeEnvironmentByRepo: state.activeEnvironmentByRepo,
         projectBoardByRepo: state.projectBoardByRepo,
+        audioTabByRepo: state.audioTabByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
         cardSkillByTask: state.cardSkillByTask,
@@ -3702,6 +3732,7 @@ export const useUiStore = create<UiState>()(
             ...saved.activeEnvironmentByRepo,
           },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
+          audioTabByRepo: { ...current.audioTabByRepo, ...saved.audioTabByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
@@ -3758,7 +3789,9 @@ const MEDIA_LAYOUT_KEYS = {
   audio: { explorer: 'mediaAudioExplorerWidth', detail: 'mediaAudioDetailWidth' },
   model: { explorer: 'mediaModelExplorerWidth', detail: 'mediaModelDetailWidth' },
   terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
+  sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
   game: { explorer: 'mediaGameExplorerWidth', detail: 'mediaGameDetailWidth' },
+  map: { explorer: 'mediaMapExplorerWidth', detail: 'mediaMapDetailWidth' },
 } as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
 
 /** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */

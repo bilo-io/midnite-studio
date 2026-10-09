@@ -173,22 +173,43 @@ stops when the page is hidden or the window blurred.
 
 **Theme F — Satellite: land-cover classification and splat materials.** ✅ Landed. Pure TS deterministic classifier in `shared/src/terrain/classify.ts` (ExG and variance for trees/grass, slope for rock, flat sub-sea-level for water, Lab k-means for roads/buildings/bare ground) producing `build/landcover.png` and `landcover.json`. Optional Ollama vision relabeling pass (`createVisionCall`). Interactive painting via `ClassBrushPalette` (key **B** / `LuBrush`, 1–64px radius, erase + 8 classes) saving overrides to `overrides/landcover.png` and re-baking. `generateSplatMap` outputs `build/splat.png` with 4-way material weights (grass, rock, dirt, snow with `snowLineM`), and four CC0 tiled PBR materials (`resources/terrain-materials/`) blended via custom `createSplatMaterial` shader fading to drape with distance.
 
-**Theme G — Foliage and buildings from the land cover.** ◻ Not started. Seeded Poisson-disk scatter
-with exclusions, five built-in foliage designs as Models specs, footprints by morphology + contour +
-Douglas-Peucker + right-angle snap, flat-roof extrusion, and data files Phase 107 places itself.
+**Theme G — Foliage and buildings from the land cover.** ✅ Landed (built-in assets only). Seeded Bridson
+scatter per class in `shared/src/terrain/scatter.ts` (seeded from class texels so every small patch is reached,
+kept out of water/road/building plus the cleaned roads mask by a distance-transform margin, slope tested
+against tan(limit), 200 000 cap with a warning); `footprints.ts` (3×3 open/close, padded Moore tracing,
+Douglas-Peucker, least-squares right-angle snap, min-area filter); `flattenFootprints` in `conform.ts` runs
+after the road conform, then `reseatFoliage` drops instances back onto the final field. Five low-poly
+Models-spec designs (`foliage-designs.ts`). `build/foliage.json` and `build/buildings.json` are data, not
+meshes; the viewer's `terrain-layers.tsx` meshes buildings (`buildingsMesh`) and draws one `InstancedMesh`
+per (asset, chunk) with a 600 m draw distance. Panel **Foliage** (densities, slope, seed, built-in asset
+toggles per class) and **Buildings** (height range, min area, scale-by-area). A Models-library asset id
+falls back to the built-ins with a warning; the **Add from Models…** picker is deferred (`outstanding.md`).
 
-**Theme H — Roads from the roads mask.** ◻ Not started. Hue-keyed extraction with luminance fallback,
-Zhang–Suen skeleton to a graph, Catmull-Rom splines, widths from the distance transform, ribbon meshes,
-and a bounded cut/fill conform.
+**Theme H — Roads from the roads mask.** ✅ Landed. `road-mask.ts` keys the dominant saturated hue (36-bin
+histogram, luminance fallback) and cleans the mask; `skeleton.ts` (Zhang–Suen plus staircase removal) feeds
+`road-graph.ts` (junction clustering, spur pruning, node merge, Douglas-Peucker, centripetal Catmull-Rom,
+width = 2·median(dt) × `widthScale` clamped, path/street/avenue). `conformRoads` levels each cross-section to
+a 30 m moving average with a `blendM` falloff and clamped cut/fill warnings (≤ 10); `road-mesh.ts` builds
+ribbons every 2 m, 0.05 m above the conformed surface, with junction fans. Build stages `roads → conform`
+write `build/roads-mask.png` and `build/roads.json`; `media.terrain.roadKey` previews the mask at 512²
+without a build and samples the eyedropper's pick in main. Panel **Roads**: swatch (Auto shows the detected
+colour), `LuPipette` eyedropper on the source image, a debounced (150 ms) live tolerance preview committed on
+release, and width scale. The viewer draws the network over the shaded modes and the road-mask mode. Build
+rasters now load with `flipY = false`, so drape, land cover, splat and the road mask register with the
+world-space layers (they had been mirrored in z since Theme E).
 
-**Theme I — Export and the game-engine manifest.** ◻ Not started. `gltf-writer.ts` learns
+**Theme I — Export and the game-engine manifest.** ✅ `gltf-writer.ts` learns
 `EXT_mesh_gpu_instancing`; `terrain-pack` is a folder (not a zip) holding the 16-bit heightfield, one
 glb per LOD, the maps and the data files; `TerrainManifestSchema` (`version: 1`) is the contract
-Phase 107 reads.
+Phase 107 reads. `terrain-export.ts` writes it (default dest `<terrain>/export`, an existing pack is
+refused, never overwritten); the Terrain toolbar carries glb options (LOD, texture, foliage, roads,
+buildings) and a split export button.
 
-**Theme J — Terrain over MCP, and the skill.** ◻ Not started. Ten `terrain_*` tools, gated by a new
-`allowTerrains` switch (`mcp.json` version bump), a 5-minute shim timeout for build and export,
-repo-confined input paths, and a `midnite-media-terrain-build` skill in six copies.
+**Theme J — Terrain over MCP, and the skill.** ✅ Nine `terrain_*` tools (the plan said ten but listed
+nine), gated by a new `allowTerrains` switch (`mcp.json` v6; Settings ▸ MCP ▸ Let agents edit terrains),
+a 5-minute shim timeout for slow tools, repo-confined input and export paths, a software-rendered
+five-view preview, and a `midnite-media-terrain-build` skill in six copies pinned by
+`scripts/skill-copies.test.mjs`.
 
 **Theme K — Verification.** ◻ Not started. The gate, packaged perf numbers read off the Stats readout,
 an `MSTUDIO_SHOTS` spec, a three.js manifest-load test, and two human passes.
@@ -646,7 +667,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
 
 ## G — Foliage and buildings from the land cover (L)
 
-- [ ] **Foliage scatter**:
+- [x] **Foliage scatter**:
   - Poisson-disk sampling with density driven by the `tree` and `grass` classes, a seed, a slope limit and a min and max scale
   - kept out of `road`, `building` and `water`, plus a margin
   - `shared/src/terrain/scatter.ts`: `scatterFoliage(landcover: Uint8Array, lcRes, field, opts: TerrainSpec['foliage']): TerrainFoliageInstance[]`
@@ -655,18 +676,18 @@ The satellite image tells the app *what* is where, not just what colour it is.
     texel (via a distance transform). Rotation is a seeded yaw; scale is seeded uniform in `scale`.
   - Hard cap `TERRAIN_FOLIAGE_MAX = 200_000` instances; above it density is scaled down uniformly and
     _"Foliage capped at 200 000 instances."_ joins the warnings.
-- [ ] Built-in low-poly foliage (2–3 trees, a bush, a grass clump), authored as Models primitive designs so they come from the existing kernel. Swappable per class for any Models asset
+- [ ] Built-in low-poly foliage (2–3 trees, a bush, a grass clump), authored as Models primitive designs so they come from the existing kernel. Swappable per class for any Models asset — ◐ the five built-ins and per-class toggles landed; **Add from Models…** is deferred to `outstanding.md`
   - Five designs in `shared/src/terrain/foliage-designs.ts` as `ModelSpec` values built only from
     `model-geometry` primitives: `pine`, `broadleaf`, `birch`, `bush`, `grass-clump`, each ≤ 300 triangles.
     Default assets: `tree → ['pine', 'broadleaf', 'birch']`, `grass → ['grass-clump', 'bush']`.
   - Swap: the panel's **Foliage** section has an asset list per class; **Add from Models…** opens a picker
     over the Models library (`media.model.library.list`) and stores the library path in `spec.foliage.assets`.
     A missing or unparsable asset at build time falls back to the built-in default and warns.
-- [ ] Instanced rendering in the viewer (one `InstancedMesh` per asset per chunk), culled by chunk
+- [x] Instanced rendering in the viewer (one `InstancedMesh` per asset per chunk), culled by chunk
   - The viewer builds each built-in design once with the Models kernel, then one `InstancedMesh` per
     (asset, chunk) from `foliage.json`; chunks outside the frustum hide their meshes; instances farther than
     600 m are not drawn (a fixed draw distance, tunable later).
-- [ ] **Building footprints** from the `building` class:
+- [x] **Building footprints** from the `building` class:
   - morphological open/close
   - contour tracing, then Douglas-Peucker simplification and snapping to right angles where the angles are within tolerance
   - minimum area filter
@@ -675,16 +696,16 @@ The satellite image tells the app *what* is where, not just what colour it is.
     `snapToleranceDeg` of 90° snapped by least-squares orthogonalisation, polygons below `minAreaM2` dropped.
     Shared morphology helpers (`dilate`, `erode`, `distanceTransform`) live in `shared/src/terrain/morphology.ts`,
     reused by H.
-- [ ] Buildings are extruded with flat roofs from a height range (random within a range, seeded, optionally scaled by footprint area). The terrain is flattened under each footprint to its mean height, with a short blend
+- [x] Buildings are extruded with flat roofs from a height range (random within a range, seeded, optionally scaled by footprint area). The terrain is flattened under each footprint to its mean height, with a short blend
   - Height = `lerp(min, max, rng())`, times `clamp(sqrt(area / 200), 0.75, 1.5)` when `scaleByArea`.
     `shared/src/terrain/conform.ts` `flattenFootprints(field, buildings, blendM)` sets heights inside the
     polygon to its mean and blends linearly over `flattenBlendM` outside it. Buildings are flattened
     **after** roads (H), so a building never re-tilts a road.
-- [ ] Both sets are stored as data, not baked into the mesh: `build/foliage.json` (asset id, position, rotation, scale) and `build/buildings.json` (polygon, height, base height). Phase 107 places them itself
+- [x] Both sets are stored as data, not baked into the mesh: `build/foliage.json` (asset id, position, rotation, scale) and `build/buildings.json` (polygon, height, base height). Phase 107 places them itself
   - Schemas in `media-terrain.ts`: `TerrainFoliageFileSchema = { version: 1, assets: string[], instances: [assetIndex, x, y, z, yawRad, scale][] }`
     (tuples keep 200 000 instances under ~10 MB) and `TerrainBuildingsFileSchema = { version: 1, buildings: { polygon: [x, z][], baseY: number, height: number }[] }`,
     all coordinates in world metres, terrain centred on the origin, Y up.
-- [ ] Vitest: the scatter respects exclusion classes and the slope limit, the same seed gives the same instances, a square footprint traces to four corners, and the flattening leaves the footprint level
+- [x] Vitest: the scatter respects exclusion classes and the slope limit, the same seed gives the same instances, a square footprint traces to four corners, and the flattening leaves the footprint level
   - `shared/src/terrain/scatter.test.ts`, `footprints.test.ts` (a 20×20 px square → 4 corners; a square
     rotated 10° with a 2 px notch → 4 corners after snap; a 3 px blob is dropped), and `conform.test.ts`
     (height variance inside a flattened footprint < 1e-9).
@@ -693,7 +714,7 @@ The satellite image tells the app *what* is where, not just what colour it is.
 
 The roads image is a mask: light roads on a dark background, **often cyan** (user, 2026-10-04).
 
-- [ ] **Road extraction**:
+- [x] **Road extraction**:
   - auto-detect the dominant saturated hue (cyan is the default guess); otherwise fall back to luminance above a threshold
   - an eyedropper in the panel to pick the road colour, and a tolerance slider
   - the extracted mask shows live in the road-mask debug mode
@@ -705,28 +726,28 @@ The roads image is a mask: light roads on a dark background, **often cyan** (use
     point on the onion-skin roads overlay sets `spec.roads.colour`. **Live** preview: dragging the tolerance
     slider calls `media.terrain.roadKey({ …target, colour, tolerance })`, which returns a 512² preview mask
     PNG as base64 (debounced 150 ms) without a full build; the full mask is `build/roads-mask.png`.
-- [ ] Clean-up: morphological close to bridge small gaps, open to drop specks, and a minimum-component-size filter
+- [x] Clean-up: morphological close to bridge small gaps, open to drop specks, and a minimum-component-size filter
   - 3×3 close then 3×3 open (`morphology.ts`), then components under `spurMinM` × width-in-px pixels are dropped.
-- [ ] Skeletonise (Zhang–Suen thinning). Extract a graph with nodes at junctions and endpoints. Prune spurs below a length, merge near-duplicate nodes, simplify, and fit Catmull-Rom splines per edge
+- [x] Skeletonise (Zhang–Suen thinning). Extract a graph with nodes at junctions and endpoints. Prune spurs below a length, merge near-duplicate nodes, simplify, and fit Catmull-Rom splines per edge
   - `shared/src/terrain/skeleton.ts` (`zhangSuen(mask, w, h): Uint8Array`) and
     `shared/src/terrain/road-graph.ts` (`skeletonToGraph`, `pruneSpurs(graph, minM)`, `mergeNodes(graph, epsM = 3)`,
     `fitSplines(graph)` — centripetal Catmull-Rom, control points every ~10 m after Douglas-Peucker ε = 1 px).
-- [ ] **Width per edge** from the distance transform of the mask, times `widthScale`, clamped to a sane min and max
+- [x] **Width per edge** from the distance transform of the mask, times `widthScale`, clamped to a sane min and max
   - Width = `2 × median(distanceTransform)` sampled along the edge's skeleton pixels, in metres, × `widthScale`,
     clamped to `widthClampM`.
-- [ ] **Road meshes**: ribbons along the splines with UVs along the length, plus junction patches. Placed slightly above the conformed terrain
+- [x] **Road meshes**: ribbons along the splines with UVs along the length, plus junction patches. Placed slightly above the conformed terrain
   - `shared/src/terrain/road-mesh.ts` `roadMeshes(graph, field): MeshPart-like { positions, normals, uvs, indices }[]`
     sampled every 2 m, 0.05 m above the conformed surface; junction patches are triangle fans over the
     node's incident ribbon ends. U runs across (0–1), V = metres / width.
-- [ ] **Terrain conform**: flatten along each road to its cross-section height, with a falloff blend on either side and a cut/fill limit, so roads never float or dig trenches
+- [x] **Terrain conform**: flatten along each road to its cross-section height, with a falloff blend on either side and a cut/fill limit, so roads never float or dig trenches
   - `conform.ts` `conformRoads(field, graph, { blendM, maxCutFillM })`: the road height along an edge is the
     terrain height smoothed by a 30 m moving average; across the width the surface is level; outside it
     blends over `blendM`. A change larger than `maxCutFillM` is clamped and the road follows the clamped
     surface (the road tilts rather than trenches); each clamp adds one warning per edge, at most 10 listed.
-- [ ] Output: `build/roads.json` as a road graph (nodes, edges, spline control points, width, and a `kind` from width: path, street or avenue). Phase 107's open-world starter routes traffic and pedestrians on it
+- [x] Output: `build/roads.json` as a road graph (nodes, edges, spline control points, width, and a `kind` from width: path, street or avenue). Phase 107's open-world starter routes traffic and pedestrians on it
   - `TerrainRoadsFileSchema = { version: 1, nodes: { id: number, p: [x, y, z], degree: number }[], edges: { id, a, b, points: [x, y, z][], widthM, kind: 'path' | 'street' | 'avenue', lengthM }[] }`
     with `kind` thresholds `< 4 m` path, `< 10 m` street, else avenue.
-- [ ] Vitest:
+- [x] Vitest:
   - a straight cyan line yields one edge whose width matches the drawn width
   - a plus-shaped mask yields one 4-way junction
   - spurs below the threshold are pruned
@@ -740,7 +761,7 @@ The roads image is a mask: light roads on a dark background, **often cyan** (use
 
 What leaves the app, and the contract Phase 107 reads.
 
-- [ ] **`.glb` export** through the existing `gltf-writer.ts`: chunk meshes at a chosen LOD, the drape or a baked splat texture, road meshes, building meshes, and foliage as separate nodes (or `EXT_mesh_gpu_instancing` if the writer can support it cleanly; decide here). Re-imports through three's `GLTFLoader` in vitest
+- [x] **`.glb` export** through the existing `gltf-writer.ts`: chunk meshes at a chosen LOD, the drape or a baked splat texture, road meshes, building meshes, and foliage as separate nodes (or `EXT_mesh_gpu_instancing` if the writer can support it cleanly; decide here). Re-imports through three's `GLTFLoader` in vitest
   - **Resolved: `EXT_mesh_gpu_instancing`** (Decision 10, closes the original open). `buildGltf` gains a
     fourth optional parameter `instancing: GltfInstancing | null = null` with
     `GltfInstancing = { meshes: { part: MeshPart; translations: Float32Array; rotations: Float32Array; scales: Float32Array }[] }`;
@@ -753,10 +774,10 @@ What leaves the app, and the contract Phase 107 reads.
     on `MeshPart.texture` exactly as Models textures are.
   - Export options (detail column, shown when the format is `glb`): LOD `0–3` (default 1), Texture
     `drape | splat-bake | none`, Include foliage / roads / buildings (all on).
-- [ ] **Raw export for engines**: `heightfield.png` (16-bit greyscale) plus `heightfield.json` (resolution, world size, height range), so a Rapier heightfield collider is built from exact data rather than from the mesh
+- [x] **Raw export for engines**: `heightfield.png` (16-bit greyscale) plus `heightfield.json` (resolution, world size, height range), so a Rapier heightfield collider is built from exact data rather than from the mesh
   - `heightfield.png` is `encodePngGrey16` of `round((h − min) / (max − min) × 65535)`;
     `heightfield.json` = `{ version: 1, resolution, worldSize, heightRange: [min, max], rowMajor: 'z', origin: 'centre' }`.
-- [ ] **`terrain.manifest.json`**, versioned with a zod schema in `shared/src/media-terrain.ts` (`TerrainManifestSchema`). It lists:
+- [x] **`terrain.manifest.json`**, versioned with a zod schema in `shared/src/media-terrain.ts` (`TerrainManifestSchema`). It lists:
   - the heightfield
   - the chunk files and their LODs
   - the splat and land-cover maps with their legend
@@ -772,7 +793,7 @@ What leaves the app, and the contract Phase 107 reads.
   - Chunk files: one glb per LOD (`chunks/lod0.glb` … `lod3.glb`), each with one node per chunk named
     `chunk_<cx>_<cz>` (Decision 12): Phase 107 streams by node, and 4 files beat 4 096.
   - Built-in foliage designs are exported once each as `foliage/<name>.glb` so the kit can instance them.
-- [ ] `MEDIA_TAB_EXPORT_FORMATS` lists `glb` and `terrain-pack` (the manifest folder, zipped) for the tab, and `ExportToolbar` offers both
+- [x] `MEDIA_TAB_EXPORT_FORMATS` lists `glb` and `terrain-pack` (the manifest folder, zipped) for the tab, and `ExportToolbar` offers both
   - **Resolved: `terrain-pack` is a folder, not a zip** (Decision 13). There is no zip writer in
     production code; Phase 107's asset bridge copies a folder; and a folder is what a human opens in a
     file browser. `MEDIA_EXPORT_FORMATS` gains `'terrain-pack'` and `MEDIA_EXPORT_FORMAT_INFO['terrain-pack'] = { label: 'Terrain pack (folder)', ext: '', needsFfmpeg: false }`;
@@ -783,7 +804,7 @@ What leaves the app, and the contract Phase 107 reads.
     `<dest>/<terrain>.glb`, same rule.
   - `terrain-export` returns `GitOpResult<{ path: string; bytes: number }>`; the toolbar shows a toast with
     **Reveal** (`media.reveal`).
-- [ ] Vitest: the manifest validates, every path it lists exists, the heightfield PNG round-trips through the B decoder bit-exactly, and the glb re-imports with the expected node count
+- [x] Vitest: the manifest validates, every path it lists exists, the heightfield PNG round-trips through the B decoder bit-exactly, and the glb re-imports with the expected node count
   - `desktop/src/main/media/terrain/terrain-export.test.ts` against a 129² fixture terrain built in a temp
     dir: `TerrainManifestSchema.parse` succeeds; every listed path `existsSync`; `decodePng(heightfield.png)`
     equals the quantised heights; `new GLTFLoader().parseAsync(ab(glb), '')` (the `export-fidelity.test.ts`
@@ -797,7 +818,7 @@ What leaves the app, and the contract Phase 107 reads.
 
 ## J — Terrain over MCP, and the skill (M)
 
-- [ ] `shared/src/media-terrain-mcp.ts` tool family, spread into `MCP_TOOLS`:
+- [x] `shared/src/media-terrain-mcp.ts` tool family, spread into `MCP_TOOLS`:
   - `terrain_list`, `terrain_open` and `terrain_get_spec`
   - `terrain_set_spec`, validated by zod; failures come back as results
   - `terrain_set_input`: attach a heightmap, satellite or roads image by path, or generate the heightmap from a prompt
@@ -824,7 +845,7 @@ What leaves the app, and the contract Phase 107 reads.
     New file `main/media/terrain/terrain-preview.ts`; sizes clamp with `clampPreviewSize`.
   - `terrain_get_stats` returns `TerrainStats` from `terrain.json`'s `lastBuild`; with no build it answers
     `{ built: false }`.
-- [ ] Handlers in `main/media/terrain/terrain-mcp.ts`. A `main/mcp/terrain-tools.ts` binder and gate, keyed off a new **Settings ▸ MCP ▸ Let agents edit terrains** switch (default off, like models), with entries in `dispatch.ts` and the slow-tool predicate in the shim for build and preview
+- [x] Handlers in `main/media/terrain/terrain-mcp.ts`. A `main/mcp/terrain-tools.ts` binder and gate, keyed off a new **Settings ▸ MCP ▸ Let agents edit terrains** switch (default off, like models), with entries in `dispatch.ts` and the slow-tool predicate in the shim for build and preview
   - `terrain-mcp.ts` exports `createTerrainTools(deps: TerrainMcpDeps)` with
     `deps = { service: TerrainService; emitChanged; emitOpen: (e: TerrainOpenEvent) => void; resolveRepoPath }`;
     `terrain-tools.ts` exports `setTerrainTools(tools | null)` and one wrapper per tool; write wrappers call
@@ -845,9 +866,9 @@ What leaves the app, and the contract Phase 107 reads.
     against the target repo, refuses symlink escapes and anything but `.png/.jpg/.jpeg/.webp`, and answers
     `McpToolError('refused', 'Input images must be inside the repository.')` otherwise — an agent cannot copy
     an arbitrary file from disk into the repo.
-- [ ] The no-heightmap rule holds over MCP too: `terrain_build` with neither a heightmap nor noise params returns a result telling the agent to choose (it never silently picks noise)
+- [x] The no-heightmap rule holds over MCP too: `terrain_build` with neither a heightmap nor noise params returns a result telling the agent to choose (it never silently picks noise)
   - Output arm `{ status: 'needs-height-source', message: 'No heightmap and no noise settings. Call terrain_set_input with a heightmap, or terrain_set_spec with a noise block, then build again.' }`.
-- [ ] Skill `midnite-media-terrain-build` in all copies (`.claude/`, `.agents/`, `.codex/`, `templates/midnite/{.claude,.agents}/`). It covers the inputs, the build → preview → adjust loop, and the export contract
+- [x] Skill `midnite-media-terrain-build` in all copies (`.claude/`, `.agents/`, `.codex/`, `templates/midnite/{.claude,.agents}/`). It covers the inputs, the build → preview → adjust loop, and the export contract
   - **Correction (x1):** six byte-identical copies, as `midnite-media-model-build` has:
     `.claude/skills/`, `.agents/skills/`, `.codex/skills/`, and `templates/midnite/{.claude,.agents,.codex}/skills/`,
     each `midnite-media-terrain-build/SKILL.md`. Sections: front matter (`name`, `description`), Inputs (the
@@ -856,14 +877,14 @@ What leaves the app, and the contract Phase 107 reads.
     and the switch name to ask the user for.
   - A new vitest `scripts/skill-copies.test.mjs` asserts every `midnite-media-*-build` skill's copies are
     byte-identical (none exists today); Phases 106 and 107 extend the same list.
-- [ ] Vitest: tool schemas derive from the zod specs, write tools are refused when the switch is off, invalid input comes back as a validation result, and a full set_input → build → preview → export round trip works against a fixture
+- [x] Vitest: tool schemas derive from the zod specs, write tools are refused when the switch is off, invalid input comes back as a validation result, and a full set_input → build → preview → export round trip works against a fixture
   - `shared/src/mcp.test.ts` (existing): the new entries pass the description rule and the minimal-value parse.
   - `desktop/src/main/media/terrain/terrain-mcp.test.ts`: with `setMcpAllowTerrainsState(false)` every
     write tool answers `[refused] Terrain editing is off …`; `terrain_set_spec({ resolution: 500 })` answers
     `{ ok: false, errors: [{ path: 'resolution', … }] }`; a `../outside.png` path is refused; the round trip on
     a 129² noise terrain produces a pack whose manifest validates and a preview with five image blocks.
   - `desktop/src/main/mcp-store.test.ts`: a `version: 4` file loads with `allowTerrains: false`.
-- [ ] `TerrainService` is the one implementation both IPC and MCP call
+- [x] `TerrainService` is the one implementation both IPC and MCP call
   - `main/media/terrain/terrain-service.ts` exports `createTerrainService(deps: { store: MediaStore; broker: TerrainBroker; imageService; describeImage; log })`
     with `get`, `setSpec`, `setInput`, `build`, `cancel`, `paint`, `roadKey`, `export`, `library`. IPC
     handlers and `terrain-mcp.ts` are thin adapters over it, so the needs-height-source rule, the

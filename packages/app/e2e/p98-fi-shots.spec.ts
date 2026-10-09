@@ -1,8 +1,7 @@
 import { test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { installMockBridge } from '../test-support/mock-bridge';
-import { settle, setTheme } from './shots-helper';
+import { installMockBridge, settle, setTheme } from './shots-helper';
 
 /** Phase 98 Themes F, I — screenshots of the accounts and Ollama pages. Run with MSTUDIO_SHOTS=1. */
 test.skip(!process.env.MSTUDIO_SHOTS, 'screenshots only');

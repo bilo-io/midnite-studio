@@ -1,60 +1,77 @@
 import {
-  GAME_PERSPECTIVES,
+  GAME_CAMERA_IDS,
+  normalizeGameOptions,
+  renderGameOptionsPrompt,
+  type GameDimension,
   type GameEngine,
   type GamePerspective,
 } from '@midnite/studio-shared';
-import { useState } from 'react';
+import { useReducer, useState } from 'react';
 
-import { SelectField } from '../../../components/form/select-field';
 import { Spinner } from '../../../components/skeleton';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
+import { PromptTextarea } from '../prompt-input';
+import { useGameAgentStore } from './game-agent-store';
+import { GameEngineFields, startGameAgentRun, useGameEngines } from './game-iterate-panel';
+import { perspectivesOf } from './game-labels';
+import { GameWizardBody, GameWizardNav, wizardKeyHandler } from './game-wizard';
+import { deriveWizard, initialWizardState, wizardReducer } from './game-wizard-model';
 import { useCreateGame, useGamesSettings } from './use-games';
-
-const ENGINE_OPTIONS: readonly { value: GameEngine; label: string }[] = [
-  { value: 'phaser', label: 'Phaser (2D)' },
-  { value: 'three', label: 'three.js + Rapier (3D)' },
-];
-
-const PERSPECTIVE_LABEL: Record<GamePerspective, string> = {
-  platformer: 'Platformer',
-  'top-down': 'Top-down',
-  isometric: 'Isometric',
-  raycaster: '2.5D raycaster',
-  'first-person': 'First person',
-  'third-person': 'Third person',
-};
-
-const TWO_D: readonly GamePerspective[] = ['platformer', 'top-down', 'isometric', 'raycaster'];
 
 /** The perspectives an engine can start from. */
 export const perspectivesFor = (engine: GameEngine): readonly GamePerspective[] =>
-  engine === 'phaser' ? TWO_D : GAME_PERSPECTIVES.filter((p) => !TWO_D.includes(p));
+  perspectivesOf(engine === 'phaser' ? '2d' : '3d');
 
 /**
- * New-game form (Phase 107 Theme A). Creates a repo from the blank scaffold —
- * the genre starters and the perspective × genre gallery arrive with the later
- * themes and replace this panel's body, not its place in the tab.
+ * New-game form: a name, then a four-step wizard (dimension, perspective,
+ * genre, fine-tune) in the scrolling body, with its Back / dots / Next row and
+ * the first prompt pinned in the footer. The starter id carries the
+ * perspective and genre; the engine follows the dimension. The fine-tune
+ * options go into the manifest and, with a first prompt, into the agent's
+ * "Requested features" list.
  */
 export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => void }) {
   const settings = useGamesSettings();
   const create = useCreateGame();
   const [name, setName] = useState('');
-  const [engine, setEngine] = useState<GameEngine | null>(null);
-  const [perspective, setPerspective] = useState<GamePerspective | null>(null);
+  const [state, dispatch] = useReducer(wizardReducer, undefined, initialWizardState);
+  const [firstPrompt, setFirstPrompt] = useState('');
+  const { choice } = useGameEngines();
+  const passes = useGameAgentStore((s) => s.passes);
 
-  const chosenEngine = engine ?? settings.data?.settings.defaultEngine ?? 'phaser';
-  const options = perspectivesFor(chosenEngine);
-  const chosenPerspective = perspective && options.includes(perspective) ? perspective : options[0]!;
+  const defaultDimension: GameDimension =
+    settings.data?.settings.defaultEngine === 'three' ? '3d' : '2d';
+  const derived = deriveWizard(state, defaultDimension);
+  const wizard = { state, derived, dispatch };
+  const engine: GameEngine = derived.dimension === '2d' ? 'phaser' : 'three';
   const valid = name.trim().length > 0;
 
   const submit = () => {
     if (!valid) return;
+    const options = normalizeGameOptions(state.options, { genre: derived.genre, perspective: derived.perspective });
     create.mutate(
-      { name: name.trim(), engine: chosenEngine, perspective: chosenPerspective },
+      {
+        name: name.trim(),
+        engine,
+        perspective: derived.perspective,
+        genre: derived.genre,
+        starter: derived.starter,
+        options,
+        // All five on is the default, which the manifest stores as an empty list.
+        ...(derived.thirdPerson && state.cameras.length < GAME_CAMERA_IDS.length ? { cameras: [...state.cameras] } : {}),
+      },
       {
         onSuccess: (result) => {
           if (result.ok) {
             setName('');
+            dispatch({ type: 'reset' });
             onCreated(result.value.gameId);
+            // Create and iterate (Theme M): an optional first prompt starts an agent on the new repo.
+            const text = firstPrompt.trim();
+            if (text) {
+              setFirstPrompt('');
+              void startGameAgentRun(result.value.gameId, `${text}\n\n${renderGameOptionsPrompt(options)}`, choice, passes);
+            }
           }
         },
       },
@@ -62,55 +79,58 @@ export function GameCreatePanel({ onCreated }: { onCreated: (gameId: string) => 
   };
 
   return (
-    <form
-      className="flex flex-col gap-3 p-3"
+    <MediaPanelLayout
+      as="form"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
+      onKeyDown={wizardKeyHandler(wizard)}
       data-testid="game-create-panel"
     >
-      <div>
-        <h2 className="text-sm font-semibold">New game</h2>
-        <p className="text-[11px] text-muted-foreground">
-          A game is its own git repository
-          {settings.data ? ` in ${settings.data.resolvedRoot}` : ''}, written by an agent against {chosenEngine === 'phaser' ? 'Phaser' : 'three.js'}.
-        </p>
-      </div>
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        Name
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Moon Rover"
-          maxLength={80}
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs font-normal outline-none focus:ring-1 focus:ring-ring"
-        />
-      </label>
-      <div className="flex flex-col gap-1 text-xs font-medium">
-        Engine
-        <SelectField<GameEngine> label="Engine" value={chosenEngine} onChange={setEngine} options={ENGINE_OPTIONS} />
-      </div>
-      <div className="flex flex-col gap-1 text-xs font-medium">
-        Perspective
-        <SelectField<GamePerspective>
-          label="Perspective"
-          value={chosenPerspective}
-          onChange={setPerspective}
-          options={options.map((value) => ({ value, label: PERSPECTIVE_LABEL[value] }))}
-        />
-      </div>
-      <p className="text-[11px] text-muted-foreground">
-        Starts from a blank scaffold. Genre starters arrive in a later update.
-      </p>
-      <button
-        type="submit"
-        disabled={!valid || create.isPending}
-        className="flex items-center justify-center gap-2 self-start rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-      >
-        {create.isPending ? <Spinner className="h-3.5 w-3.5" /> : null}
-        Create game
-      </button>
-    </form>
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
+        <div>
+          <h2 className="text-sm font-semibold">New game</h2>
+          <p className="text-[11px] text-muted-foreground">
+            A game is its own git repository
+            {settings.data ? ` in ${settings.data.resolvedRoot}` : ''}, written by an agent against{' '}
+            {engine === 'phaser' ? 'Phaser' : 'three.js'}.
+          </p>
+        </div>
+        <label className="flex flex-col gap-1 text-xs font-medium">
+          Name
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Moon Rover"
+            maxLength={80}
+            className="rounded-md border border-input bg-background px-2 py-1 text-xs font-normal outline-none focus:ring-1 focus:ring-ring"
+          />
+        </label>
+        <GameWizardBody wizard={wizard} />
+      </MediaPanelBody>
+      <MediaPanelFooter className="flex flex-col gap-3 border-t border-border/50 p-3">
+        <GameWizardNav wizard={wizard} />
+        <label className="flex flex-col gap-1 text-xs font-medium">
+          First prompt (optional)
+          <PromptTextarea
+            aria-label="First prompt"
+            rows={3}
+            value={firstPrompt}
+            onChange={(event) => setFirstPrompt(event.target.value)}
+            placeholder="A rover that collects crystals on a moon, avoiding craters"
+          />
+        </label>
+        {firstPrompt.trim() ? <GameEngineFields /> : null}
+        <button
+          type="submit"
+          disabled={!valid || create.isPending}
+          className="flex items-center justify-center gap-2 self-start rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {create.isPending ? <Spinner className="h-3.5 w-3.5" /> : null}
+          {firstPrompt.trim() ? 'Create and run' : 'Create game'}
+        </button>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }

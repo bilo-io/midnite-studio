@@ -97,50 +97,155 @@ that autotile. Planned 2026-10-04; refined x1 the same day, which pinned every s
 format and test, corrected two stale claims (no provider takes a reference image; Phaser neither
 autotiles nor reads external tilesets), and resolved all three opens plus fifteen new decisions.
 
-**Theme A — Sprites tab, specs and library.** ◻ Not started. Lands first. `'sprite'` joins `MEDIA_TABS`
+**Theme A — Sprites tab, specs and library.** ✅ Landed (PR pending number; MCP exposure of `SpriteService` and the render/export channels left to E/G). Lands first. `'sprite'` joins `MEDIA_TABS`
 (repo-scoped, `LuPersonStanding`); `sprite.json` is a `kind`-discriminated spec in a new
 `shared/src/media-sprite.ts`; assets live under five fixed kind folders; ten `mstudio:media:sprite-*`
 channels carry it, with generation as cancellable jobs.
 
-**Theme B — Frame pipeline: background removal, alignment, pixel-art mode.** ◻ Not started. Lands with
-A. Pure-TS keying, bounds, anchor, quantise, outline and validation in `shared/src/sprite/`, run in main
-one frame at a time (yielding between frames); OpenAI is asked for real transparency, everything else
-for a magenta or green chroma background.
+**Theme B — Frame pipeline: background removal, alignment, pixel-art mode.** ✅ Landed (PR #747).
+Pure-TS kernels in `shared/src/sprite/` (`image`, `key`, `align`, `quantise`, `outline`, `validate`);
+`main/media/sprite/frame-pipeline.ts` decodes, keys (skipped when a provider returned alpha),
+normalises onto the anchor at one sheet-wide scale per direction, writes each frame at once and yields
+between frames, then runs the pixel palette/outline pass and the badges. Frame sources hand raw bytes to
+`SpriteJobContext.submitFrame`; `frames.json` gains `referenceHeights` so a re-generated clip scales like
+the rest. OpenAI's adapter sends `background: 'transparent'` when `ImageAdapterRequest.transparent` is
+set; `spriteBackgroundRequest` gives every other provider the chroma clause. `SPRITE_BADGES` is now the
+doc's seven. `anchorNudge` is metadata applied where frames are composed (G), not baked in.
 
-**Theme C — Method picker and the recommendation.** ◻ Not started. `recommendSpriteMethod(spec)`
+**Theme C — Method picker and the recommendation.** ✅ Landed with A. `recommendSpriteMethod(spec)`
 returns `{method, reason}` from a fixed table; one-shot is only ever a checkbox; clip presets per
 perspective are data.
 
-**Theme D — Hand-drawn: reference-locked frame generation.** ◻ Not started. Gemini and OpenAI learn
-reference images (`supportsReference` on the catalogue); a turnaround is approved then locked; pose
-tables drive one prompt per frame; an Ollama vision score re-rolls up to a budget and flags the rest.
+**Theme D — Hand-drawn: reference-locked frame generation.** ✅ Landed (PR pending number). The image
+seam takes reference images: `supportsReference` on the catalogue (Gemini's `gemini-*-image` and
+OpenAI only), `references`/`transparent` on `ImageAdapterRequest` and `ImageGenerateRequestSchema`
+(paths resolved through the media store), Gemini `inline_data` parts, OpenAI `/v1/images/edits`
+multipart, and `imageService.generateImage` for bytes without a file — which never falls back to the
+key-less agy route when a reference is attached. `main/media/sprite/hand-drawn.ts` is the frame
+source: a `generate({turnaround: true})` job draws the 3:2 turnaround as the unapproved reference;
+`setReference({approve})` locks it (and `frames: 'mark'` badges existing frames `unchecked`); frame
+jobs are refused until then (`handDrawnPreflight`). Prompts come from `shared/src/sprite/pose-tables.ts`;
+each direction's reference frame goes first, then two requests in flight. The vision check scores the
+raw candidate before the B pass, re-rolls up to the budget and keeps the best, flagging `inconsistent`
+with `issues`; no vision model keeps frames `unchecked` and the job's final event says why. Side
+sheets submit the `e` bytes again as `w` with `flipped: true` (G applies the flip). The tab gains a
+reference card (Approve / Regenerate / Attach, Keep or Mark all for re-roll) and a flagged-frames list.
 
-**Theme E — Rendered from a Models character.** ◻ Not started. A root-level lazy
-`SpriteRenderHost` renders with three into an offscreen target at 4×, posts frames to main in
-batches, and is what MCP drives too — no hidden window.
+**Theme E — Rendered from a Models character.** ✅ Landed (PR #762). `useSpriteRenderHost`
+(`app/features/media/sprite/render/`) is mounted beside the app root's other listeners, acknowledges a
+`mediaSpriteRenderRequest` at once and imports `render-job.ts` (three) lazily: it reads the attached
+design, builds it with the Models editor's own `editorScene`/`rigModel`/`posedScene` and lights, and
+draws each pose at `supersample ×` into a transparent `WebGLRenderer` on an `OffscreenCanvas`, then
+box-downsamples and posts PNG batches of ≤ 32 on `mstudio:media:sprite-render-frames` — each answer
+waits for main to process the batch (the back-pressure), and a refused answer (cancelled) stops it.
+Main's `render-relay.ts` sends to the focused main window (else the first) and fails the job with
+_"Rendering from 3D needs the Midnite Studio window open."_ when nothing acknowledges in 10 s; MCP (K)
+gets the same path. `shared/src/sprite/camera.ts` names directions by screen compass (`s` 0°, `w` 90°,
+`e` 270°) plus a shared `azimuthDeg`, so **every preset's azimuth is 0** (the doc's 90°/45° would have
+turned a 1-direction side sheet's `e` the wrong way) and isometric is `atan(0.5)`; a rig facing other
+than `+z` is turned to match. `orthoFit` keeps one scale over every sampled pose and direction; frames
+enter the pipeline as `source: 'rendered'` — no keying, `scale: 1`, anchored — and each clip's real
+frame count (`round(duration × fps)`) is written back to `sprite.json`. The Sheet form's Rendered card
+gets a rigged-model picker (Models assets whose `model.json` has a rig and animations; the design file
+is the reference path), the clip mapping with `SPRITE_CLIP_ALIASES`, one-click "also on the model"
+clips, and camera / shading (lit, toon, flat) / outline (an inverted hull pushed along normals rather
+than scaled 1.02, so thin limbs keep it) / supersample. `sprite-render.spec.ts` renders a real biped
+in Chromium (e2e cap 475 → 476).
 
-**Theme F — One-shot sheet (form toggle).** ◻ Not started. A versioned prompt, aspect chosen from the
-grid, projection-profile grid detection, and a per-row verdict that can hand one clip to Hand-drawn.
+**Theme F — One-shot sheet (form toggle).** ✅ Landed (PR #762). `ONE_SHOT_PROMPT_VERSION = 1`
+and `oneShotPrompt` in `shared/src/sprite/one-shot-prompt.ts`: rows are clips × the directions
+Hand-drawn would draw (a mirrored side sheet draws `e` and mirrors `w`), columns the longest clip, cells
+at the frame size with an eighth-width gutter; past 8 × 8 the job is refused before any request, and the
+aspect is `nearestAspect` (D's, imported) of the sheet's size. `main/media/sprite/one-shot.ts` makes one
+request, keeps the answer as `reference/one-shot-sheet.png`, keys it and runs `detectGrid` (projection
+profiles; gutters are near-empty runs ≥ 2 px). A count that differs from the request is written to
+`sprite.json`'s `oneShot.mismatch` and fails the job — nothing is sliced. Otherwise each cell, widened to
+the gutter midpoints, goes through B as `source: 'sliced'`, each direction's reference frame first, with
+`grid` on cells > 20 % off the median span. `oneShotVerdict` derives "row 3, attack: 2 of 6 frames
+clipped" from `oneShot.rows` and the badges, so no extra file is needed. The overview's One-shot card
+draws the detected cells over the sheet and the verdict; a failing row's **Regenerate this clip with
+Hand-drawn** uses a new `setReference({fromFrame})` (frame `000` becomes the approved reference) and
+`generate({clips: [clip], method: 'hand-drawn'})` — a one-job method override; the stored sheet stays
+one-shot. Disabled with D's reason when the provider cannot take a reference.
 
-**Theme G — Atlas packing and the animation previewer.** ◻ Not started. MaxRects with trim, padding
-and extrude; one `atlas.json` that is both a Phaser JSON-hash atlas and an Aseprite JSON (frame
-`duration`, `meta.frameTags`), plus a Phaser `anims.json`; a previewer and an undoable frame strip.
+**Theme G — Atlas packing and the animation previewer.** ✅ Landed (PR #763). `shared/src/sprite/pack.ts`
+is MaxRects (best short-side fit, never rotated) with trim, padding, a 1 px extrude, POT pages and
+spill-over; `atlas.ts` writes one `atlas.json` that is Phaser's JSON-hash and an Aseprite JSON at once
+(per-frame `duration`, contiguous `<clip>/<dir>` `frameTags`), Phaser's multiatlas past one page (tags
+dropped, with the warning), and `anims.json` for `AnimationManager.fromJSON`, each with a zod schema.
+`frames.ts` is the one frame-set rule the previewer, strip and packer share: a 1-direction side sheet is
+`e` + `w`, nothing past `clip.frames` plays or packs, holes are skipped. `sprite-export.ts` composes each
+frame (`flipped` about the anchor column, then `anchorNudge`), trims, packs and writes `<asset>.sprite/`
+(refusing an existing one) plus the asset's own `export/`, which 107's asset bridge imports; other kinds
+wait for H–J. `patchFrames` takes `SpritePatchOp[]` (`nudge`, `flip`, `delete` to `frames/.trash/`,
+`restore`, `move` keeping holes, `reroll` as a frames-only job — hand-drawn redraws a mirrored `w` through
+`e`; one-shot refuses); a finished job prunes frames past their clip (E's stale-frame deferral). The
+centre column gains `SpritePreviewer` (2D canvas, `previewClock`, compass, onion skin, checker/solid,
+pixel zoom, anchor/baseline overlay, focus-scoped keys) and `SpriteFrameStrip` (badges with rule
+tooltips, roving focus on `,`/`.` since the arrows nudge, `H`/Delete/`R`/`Alt+←/→`, drag reorder,
+`Mod+Z` undo over a ≤ 100 inverse-op session stack), with **Export** to the Media export folder.
 
-**Theme H — Tilesets with autotiling.** ◻ Not started. Seam-checked base tiles, procedural 47-blob
-(Tiled `mixed`) or 16-tile corner (Tiled `corner`) transitions that match by construction, and a
-`.tsj` with wangsets for Tiled editing.
+**Theme H — Tilesets with autotiling.** ✅ Landed (PR #764). `seamless.ts` scores a tile's wrapped seam
+against its interior steps (premultiplied, so a transparent layer's silhouette counts) and repairs a
+failure by blending the edge band with the half-shifted copy; a base tile is drawn at 1:1, downsampled
+(nearest in pixel style), repaired, drawn once more if still failing and kept with a `seam` warning.
+`autotile.ts` composites transitions instead of generating them: a blob-47 tile's coverage is a bilinear
+field per quadrant over the centre, the four edge midpoints and the four vertices (a vertex is `b` only
+when all four cells around it are), thresholded after **periodic** noise; the outermost ring is sampled
+on the edge, so the touching columns of every pair that may adjoin are byte-identical (the vitest walks
+all of them, both axes) and an edge beside the surrounding terrain is plain terrain. Corner-16 is the
+same field from four corner values. `tiled.ts` writes the `.tsj` (collision as a string property; one
+`mixed` or `corner` wangset per transition) and the `.tmj` (embedded tileset), each with a zod schema.
+`TilesetSpec` is now terrains `{id, label, prompt, collision}` (2–8), transitions `{a, b}`, `scheme`,
+`seed` and an optional pixel `palette`; the job (`tileset.ts`) writes `terrains/<id>.png`,
+`terrains/seams.json`, `tileset.png` and `tileset.tsj`, and the Environment form edits all of it.
 
-**Theme I — Isometric tiles, parallax backgrounds and prop sheets.** ◻ Not started. Diamond
-re-projection, a Phase 105 terrain rendered to a tile grid plus `.tmj`, x-seamless parallax layers with
-scroll factors, and prop sheets through B and G.
+**Theme I — Isometric tiles, parallax backgrounds and prop sheets.** ✅ Landed (PR #764). `iso.ts`
+re-projects a tile onto a 2:1 diamond (its top-left corner lands on the left vertex), draws a block
+with side faces darkened 20 % and 40 % (`size / 2` tall, so a cell is `2·size × 1.5·size` and the
+`.tsj`'s `tileheight` is the block height) and turns a tileset into diamond floors under the same ids
+plus a block per terrain, each tagged `kind`. `terrain-tiles.ts` cuts a Phase 105 terrain's `drape.png`
+(the splat bake when it has none) into `worldSize / metresPerTile` tiles per side, dedupes, takes
+collision from the land-cover class and refuses past 256 × 256 or 4096 distinct tiles; it runs as a job
+on a tileset with `fromTerrain` and writes `map.tmj` beside the tileset (isometric output is flat, and
+says so). Parallax backgrounds draw each layer (all but `sky` keyed to alpha), resize it, hold it to
+`seamScore(img, 'x')` and write `layers/*.png` plus `background.json`; prop sheets draw one prop per
+request, key, crop and fit it bottom-centre into the cell and export through the sprite packer with no
+`anims.json`. The export now writes `<asset>.tileset/`, `.background/` and `.sprite/` for props. The
+kind stays `'prop-sheet'` (the doc's `'props'` would have broken Theme A's union and the asset bridge).
 
-**Theme J — Maps as Tiled `.tmj`.** ◻ Not started. An LLM writes a zod `MapSpec` (two repair rounds);
-the kernel fills, autotiles, scatters and derives collision; the `.tmj` embeds its tilesets because
-Phaser cannot load external ones.
+**Theme J — Maps as Tiled `.tmj`.** ✅ Landed (PR #765). `MapSpecSchema` (8–256 tiles a side;
+`base`, `regions` rect/ellipse/polygon, `rooms` with an optional floor — else the first walkable terrain
+that is not the base — L-shaped `corridors`, 4-connected `paths`, `objects`, plus `cells` overrides for
+`map_patch`) and a fuller `MapAssetSpec` (`tileset` ref — an old bare folder name still loads — `engine`,
+`decorations`, `seed`, `imported`). `spriteMapPrompt` gives the engine the tileset's own terrain ids;
+`checkMapSpec`/`mapSpecIssues` reject unknown terrains (`regions[2].terrain: "lava" is not in this tileset
+(…)`), wrong point counts, objects off the map and duplicate names, sent back for `SPRITE_MAP_MAX_REPAIRS
+= 2` rounds. `map-fill.ts` derives tile ids from the `TilesetSpec` alone, autotiles each cell against the
+transition whose `a` is its commonest other neighbour (off-map counts as itself; a full mask is the base
+tile), scatters props by seeded Poisson-disk on walkable cells and builds the four layers — `ground`,
+`decoration`, hidden `collision` (a two-tile `collision` tileset) and `objects` — with every tileset
+embedded. The map's orientation follows the tileset's projection. The job (`map-generate.ts`) copies
+`tileset.png`/`.tsj` beside `map.tmj` with `collision.png` and `props.png`; `layout: 'keep'` refills
+without the engine. `mediaSpriteImportMap` imports a `.tmj` (external `.tsj` embedded, images flattened
+beside it; a missing image, a `.tsx` tileset or an infinite map is refused). The Map form takes a
+tileset, size, decorations and the Models tab's engine; `SpriteMapPreview` pans, zooms in whole steps,
+toggles layers and draws the collision overlay from the tiles' own `collision` property. Exports as
+`<asset>.map/`.
 
-**Theme K — Sprites over MCP, and the skill.** ◻ Not started. Eighteen tools behind a new
-`allowSprites` switch; generation is an asynchronous job polled with `sprite_job_status`; a
-`midnite-media-sprite-build` skill in six copies.
+**Theme K — Sprites over MCP, and the skill.** ✅ Landed (PR #765). Eighteen tools in
+`media-sprite-mcp.ts` (eleven writes) behind `allowSprites` (`mcp.json` version 7); `sprite-mcp.ts` is a
+thin adapter over `SpriteService`. Every `*_generate` tool takes an existing asset or a `spec` it creates
+first, so no separate create tool is needed; `sprite_generate` also takes `turnaround` and
+`approveReference`, the agent's way through hand-drawn's two steps (a reference is otherwise
+protected). Jobs answer `{jobId, requests}` at once; `estimateSpriteRequests` is each job's worst case
+(re-roll budget included; rendered costs 0, a map 3) and a job over `SPRITE_MCP_MAX_REQUESTS = 200` is
+refused before anything is created. `sprite_render_preview` returns contact sheets (≤ 8 columns, on a
+checker, small art enlarged) and an APNG (`png/apng.ts` re-wraps `encodePngRgba8`'s IDAT as `fdAT`), or
+the tileset, layers, props or `renderTiledMap`'s drawing of a map; it alone uses the shim's slow timeout.
+`map_patch` (`set` a ground cell, place an `object`, `refill`) validates, saves and waits for the refill.
+`sprite_open` is answered by a root-level `useSpriteOpenListener`. The `midnite-media-sprite-build`
+skill ships in all six copies, and a vitest keeps its tool names exactly the eighteen.
 
 **Theme L — Verification.** ◻ Not started. The gate, an `MSTUDIO_SHOTS` spec, one Phaser smoke e2e
 against an exact-pinned dev-only `phaser`, and three human passes.
@@ -159,7 +264,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
 
 ## A — Sprites tab, specs and library (M)
 
-- [ ] `'sprite'` added to `MEDIA_TABS`, labelled **Sprites**, with every `Record<MediaTab, …>` the compiler flags filled in (`MEDIA_TAB_META` with a `react-icons/lu` glyph, `TAB_BODY`, `MEDIA_TAB_EXPORT_FORMATS`), `MEDIA_LAYOUT_KEYS` plus two `LayoutSizes` keys, and listed in `REPO_SCOPED_MEDIA_TABS`
+- [x] `'sprite'` added to `MEDIA_TABS`, labelled **Sprites**, with every `Record<MediaTab, …>` the compiler flags filled in (`MEDIA_TAB_META` with a `react-icons/lu` glyph, `TAB_BODY`, `MEDIA_TAB_EXPORT_FORMATS`), `MEDIA_LAYOUT_KEYS` plus two `LayoutSizes` keys, and listed in `REPO_SCOPED_MEDIA_TABS`
   - Appended after `'terrain'` (or after `'model'` if 105 has not landed): `[…, 'terrain', 'sprite']`.
   - `MEDIA_TAB_META.sprite = { label: 'Sprites', icon: LuPersonStanding }` (add the name to
     `components/icons/icon-names.test.ts`).
@@ -169,7 +274,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     (380, `{280, 680}` — the forms are wider than Models'); `MEDIA_LAYOUT_KEYS.sprite` names them.
     Persist `version` stays `31` (the `layout` merge default-fills new keys).
   - `REPO_SCOPED_MEDIA_TABS` gains `'sprite'`; with no repo the tab shows `NoRepoMediaState({tab: 'sprite'})`.
-- [ ] Schemas in a new `shared/src/media-sprite.ts`:
+- [x] Schemas in a new `shared/src/media-sprite.ts`:
   - `SpriteSheetSpecSchema`:
     - `name`, `style` (`pixel`, `hand-drawn`, `painterly`, `flat`)
     - `targetPerspective` (`side`, `top-down`, `isometric`, `front`)
@@ -194,7 +299,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
       are declared here with their theme's fields so A's union is complete from the first PR.
   - Directions are named: `SPRITE_DIRECTIONS = { 1: [<facing>], 4: ['s', 'w', 'n', 'e'], 8: ['s', 'sw', 'w', 'nw', 'n', 'ne', 'e', 'se'] }`
     where a 1-direction sheet's facing is `'e'` for `side` and `'s'` otherwise (`spriteDirections(spec)` returns the list).
-- [ ] Library layout `.midnite/media/sprite/<group>/<asset>/`:
+- [x] Library layout `.midnite/media/sprite/<group>/<asset>/`:
   - `sprite.json` (spec, source of truth)
   - `reference/`
   - `frames/<clip>/<dir>/<n>.png` (normalised frames, the editable truth)
@@ -211,7 +316,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     **Correction (x1):** there is no separate library manifest; like `model.json`, `sprite.json` carries
     `createdAt`, `updatedAt` and a `lastReport?: { frames, failing, at }` summary the explorer reads.
   - Asset folder name: `${spriteSlug(name)}-${YYYYMMDD-HHMMSS}` (`spriteSlug` imitates `modelSlug`).
-- [ ] Create panel with two modes, **Sheet** and **Environment**, which swap the form below the shared prompt input (`prompt-input.tsx`)
+- [x] Create panel with two modes, **Sheet** and **Environment**, which swap the form below the shared prompt input (`prompt-input.tsx`)
   - `SpriteCreatePanel` in `sprite-create-panel.tsx`: a two-option segmented control (**Sheet** ·
     **Environment**, `role="radiogroup"`, arrow keys move between them) above a `PromptTextarea`
     (`prompt-input.tsx`, with `MEDIA_PROMPT_BOX`). The mode is remembered per session in component state,
@@ -221,7 +326,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     provider picker (`ProviderModelPicker`), and **Generate**.
   - Environment form: a kind selector (**Tileset** · **Isometric tiles** · **Parallax background** ·
     **Prop sheet** · **Map**), each swapping in its theme's fields (H, I, J).
-- [ ] `mstudio:media:sprite-*` IPC channels with `GitOpResult` envelopes and progress events. Generation is cancellable
+- [x] `mstudio:media:sprite-*` IPC channels with `GitOpResult` envelopes and progress events. Generation is cancellable
   - `CHANNELS`: `mediaSpriteLibrary: 'mstudio:media:sprite-library'` (op-union `create | rename | duplicate | delete`),
     `mediaSpriteGet: 'mstudio:media:sprite-get'` → `{ spec, frames: SpriteFramesFile, report }`,
     `mediaSpriteSetSpec: 'mstudio:media:sprite-set-spec'`, `mediaSpriteSetReference: 'mstudio:media:sprite-set-reference'`,
@@ -242,7 +347,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     latest-wins: a job may be minutes of paid API calls). Jobs of different assets run concurrently, each
     limited to 2 in-flight image requests. Cancel aborts the in-flight requests through the image
     service's `AbortSignal`, keeps every frame already written, and ends the job with `cancelled`.
-- [ ] Vitest: schema defaults and round trip, the tab registers, and the explorer groups seeded assets via the mock bridge
+- [x] Vitest: schema defaults and round trip, the tab registers, and the explorer groups seeded assets via the mock bridge
   - `shared/src/media-sprite.test.ts`: `SpriteAssetSpecSchema.parse({ kind: 'sheet', name: 'hero' })`
     fills every default; each kind round-trips; a clip name `Walk!` is rejected; `spriteDirections` for
     `side`/1 is `['e']` and for 8 is the eight names in order.
@@ -251,7 +356,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
     **Sprites**, the explorer shows the five groups and **hero** under Characters.
   - `mock-bridge.ts` learns `media.sprite.*` (`generate` resolves a `jobId` and emits two progress events).
 
-- [ ] `SpriteService` is the one implementation both IPC and MCP call
+- [x] `SpriteService` is the one implementation both IPC and MCP call
   - `main/media/sprite/sprite-service.ts` exports `createSpriteService(deps: { store: MediaStore; imageService; visionCall: VisionCall; llmCall: LlmCall; renderRelay; log })`
     with `library`, `get`, `setSpec`, `setReference`, `generate`, `jobStatus`, `cancel`, `patchFrames`,
     `renderPreview`, `export`; `media-sprite-handlers.ts` and `sprite-mcp.ts` are thin adapters, so the job
@@ -264,7 +369,7 @@ against an exact-pinned dev-only `phaser`, and three human passes.
 
 What makes a sheet *precise*, whichever method produced the frames.
 
-- [ ] **Background removal**:
+- [x] **Background removal**:
   - use the provider's alpha when it returns one
   - otherwise generation asks for a flat chroma background (magenta `#ff00ff`, or green if the subject is magenta) and the pipeline keys it out with despill and a 1px edge clean-up
   - **Resolved per provider** (Decision 6): `ImageAdapterRequest` gains `transparent?: boolean`; the
@@ -278,7 +383,7 @@ What makes a sheet *precise*, whichever method produced the frames.
     and `tolerance + softness`), despill by clamping the chroma's dominant channels to the max of the other
     two on semi-transparent pixels, then a 1 px erode of alpha < 0.5 edges.
   - A frame that arrives with any alpha < 255 pixel skips keying (the provider's alpha wins).
-- [ ] **Normalisation per frame**: crop to the alpha bounds, scale so the character's height matches the clip's reference height (taken from the first idle frame), and place on the shared anchor:
+- [x] **Normalisation per frame**: crop to the alpha bounds, scale so the character's height matches the clip's reference height (taken from the first idle frame), and place on the shared anchor:
   - horizontal centroid of the lower body band
   - baseline at the lowest opaque row
 
@@ -290,27 +395,27 @@ What makes a sheet *precise*, whichever method produced the frames.
     first clip. Scaling uses area averaging when shrinking and nearest-neighbour in pixel mode.
   - The anchor point (`anchor.x × w`, `anchor.y × h`) receives the band centroid and the baseline;
     `anchorNudge` from `frames.json` is added after.
-- [ ] **Pixel-art mode**: nearest-neighbour downscale to the frame size, palette quantisation (median cut, or a fixed palette from the spec), optional 1px outline, and no anti-aliased edges
+- [x] **Pixel-art mode**: nearest-neighbour downscale to the frame size, palette quantisation (median cut, or a fixed palette from the spec), optional 1px outline, and no anti-aliased edges
   - `shared/src/sprite/quantise.ts` `medianCut(pixels, size)` and `mapToPalette(img, palette)` (nearest in
     Lab); `shared/src/sprite/outline.ts` `outline1px(img, colour = darkest palette colour)`. Alpha is
     thresholded at 128 in pixel mode (no partial alpha).
   - The sheet palette is computed once over all approved frames (not per frame), so colours do not drift
     between frames, and stored back into `spec.palette.colours`.
-- [ ] **Validation report** per frame: empty frame, subject touching the frame edge (clipped), height outside tolerance of the clip median, and anchor drift above N px. Shown in G's frame strip as badges, and returned over MCP
+- [x] **Validation report** per frame: empty frame, subject touching the frame edge (clipped), height outside tolerance of the clip median, and anchor drift above N px. Shown in G's frame strip as badges, and returned over MCP
   - `shared/src/sprite/validate.ts` `validateFrames(frames, spec): Record<frameKey, SpriteBadge[]>` with
     `SpriteBadge = 'empty' | 'clipped' | 'height' | 'drift' | 'inconsistent' | 'unchecked' | 'grid'`:
     `empty` < 1 % opaque; `clipped` any opaque pixel on the outer row/column before normalisation;
     `height` bounds height outside ±12 % of the clip median; `drift` centroid more than
     `max(2, 0.04 × frameWidth)` px from the anchor after normalisation. `inconsistent`/`unchecked` come
     from D, `grid` from F.
-- [ ] Pure TS in `shared/src/sprite/` (keying, bounds, centroid, quantise, outline) over RGBA typed arrays. Decode and encode in main
+- [x] Pure TS in `shared/src/sprite/` (keying, bounds, centroid, quantise, outline) over RGBA typed arrays. Decode and encode in main
   - `RgbaImage = { width, height, data: Uint8ClampedArray }` in `shared/src/sprite/image.ts`.
   - **Resolved: the pipeline runs in main, one frame at a time** (Decision 7) —
     `processFrame(bytes, spec, ctx)` in `main/media/sprite/frame-pipeline.ts`: `nativeImage` transcodes
     JPEG/WebP to PNG, `decodePng` → `RgbaImage`, the shared kernels, `encodePngRgba8` → `frames/…png` via
     `mediaStore.writeBytes`. Between frames it `await`s `setImmediate`, so a 512-frame render never holds
     the main loop for more than one frame's work (≈ 2 ms at 128²).
-- [ ] Vitest: a keyed magenta fixture has a clean alpha with no fringe, two frames with offset subjects align to the same anchor, quantisation respects the palette size, and each validation rule fires on its fixture
+- [x] Vitest: a keyed magenta fixture has a clean alpha with no fringe, two frames with offset subjects align to the same anchor, quantisation respects the palette size, and each validation rule fires on its fixture
   - `shared/src/sprite/key.test.ts`: a red disc on `#ff00ff` keys to alpha 0 outside, 255 inside, and no
     pixel with alpha > 0 has G < R − 0.3 (no magenta fringe); `chooseChroma('a pink dragon')` is green.
   - `align.test.ts`: two discs offset by (7, 3) px normalise to identical images.
@@ -321,7 +426,7 @@ What makes a sheet *precise*, whichever method produced the frames.
 
 All three methods are always available. The form *recommends* one (user, 2026-10-04).
 
-- [ ] Method selector in the Sheet form: **Hand-drawn**, **Rendered from 3D** and **One-shot sheet**. The recommended method carries a "Recommended" badge and a one-line reason:
+- [x] Method selector in the Sheet form: **Hand-drawn**, **Rendered from 3D** and **One-shot sheet**. The recommended method carries a "Recommended" badge and a one-line reason:
   - **Hand-drawn**: `side` perspective (platformers, side-scrollers), or `hand-drawn`/`painterly` style
   - **Rendered from 3D**: `top-down` or `isometric` with 4 or 8 directions, or when a rigged Models asset is attached
   - **One-shot sheet** is never auto-recommended. It is a **Try generating the whole sheet in one image** checkbox, which switches the method when ticked
@@ -332,7 +437,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     cards; unticking restores the previous card.
   - **Rendered from 3D** with no rigged Models asset attached shows **Attach a rigged model…** instead of
     Generate.
-- [ ] The recommendation is a pure function in `shared` (`recommendSpriteMethod(spec)`), so the UI, MCP and skill agree
+- [x] The recommendation is a pure function in `shared` (`recommendSpriteMethod(spec)`), so the UI, MCP and skill agree
   - `shared/src/sprite/recommend.ts`: `recommendSpriteMethod(spec): { method: 'hand-drawn' | 'rendered'; reason: string }`.
     Rules, first match wins: a `reference.kind === 'model'` → rendered, _"A rigged model is attached:
     rendering keeps every direction consistent."_; perspective `top-down`/`isometric` with directions
@@ -340,13 +445,13 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     guarantees it."_; perspective `side` → hand-drawn, _"Side-scrollers need one facing; hand-drawn frames
     look best."_; style `hand-drawn`/`painterly` → hand-drawn, _"Painterly styles come out best drawn
     frame by frame."_; otherwise hand-drawn, _"Hand-drawn is the general default."_
-- [ ] Clip presets per perspective (side: idle, walk, run, jump, fall, attack, hurt, die; top-down and isometric: idle, walk, attack and die, per direction) with frame counts and fps, editable
+- [x] Clip presets per perspective (side: idle, walk, run, jump, fall, attack, hurt, die; top-down and isometric: idle, walk, attack and die, per direction) with frame counts and fps, editable
   - `SPRITE_CLIP_PRESETS` in `shared/src/sprite/presets.ts`: side — idle 4@6 loop, walk 8@10 loop,
     run 8@12 loop, jump 4@10 once, fall 2@8 loop, attack 6@12 once, hurt 2@8 once, die 6@8 once;
     top-down/isometric — idle 4@6, walk 8@10, attack 6@12 once, die 6@8 once; front — idle 4@6, walk 8@10.
     Changing perspective replaces clips only if the user has not edited them (a `clipsEdited` flag in form
     state), otherwise asks _"Replace your clips with the <perspective> preset?"_.
-- [ ] Vitest: the recommendation table, and preset clips per perspective
+- [x] Vitest: the recommendation table, and preset clips per perspective
   - `shared/src/sprite/recommend.test.ts`: one case per rule plus precedence (model attached + side →
     rendered); `presets.test.ts`: frame counts above.
   - `app/src/features/media/sprite/sprite-method-picker.test.tsx`: the badge sits on the card
@@ -354,7 +459,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
 
 ## D — Hand-drawn: reference-locked frame generation (L)
 
-- [ ] Step 1, **reference**: generate a character turnaround (front, side, back) or attach one. The user approves it, and the approved reference is locked onto the spec
+- [x] Step 1, **reference**: generate a character turnaround (front, side, back) or attach one. The user approves it, and the approved reference is locked onto the spec
   - **Generate turnaround** sends `SPRITE_TURNAROUND_PROMPT(spec)` (one image, aspect `3:2`, transparent
     or chroma per B) and writes `reference/turnaround.png`; **Attach** takes a PNG/JPEG/WebP through the
     same bytes path as Phase 105's slots (`media.sprite.setReference({…target, bytes, name})`).
@@ -362,7 +467,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     `reference.approved = true` and copies it to `reference/reference.png`. Step 2's Generate is disabled
     until approved (tooltip _"Approve a reference first."_). Changing the reference after frames exist asks
     _"Frames were made from the old reference. Keep them?"_ (**Keep** / **Mark all for re-roll**).
-- [ ] Step 2, **per clip, per frame**: prompts built from a pose table. Built-in pose tables cover each preset clip (for example, the walk cycle's contact, down, passing and up key poses, mirrored for the second half). Each frame is generated with the locked reference attached, through `image-service.ts`, then sent through B
+- [x] Step 2, **per clip, per frame**: prompts built from a pose table. Built-in pose tables cover each preset clip (for example, the walk cycle's contact, down, passing and up key poses, mirrored for the second half). Each frame is generated with the locked reference attached, through `image-service.ts`, then sent through B
   - `shared/src/sprite/pose-tables.ts`: `SPRITE_POSE_TABLES: Record<presetClipName, string[]>` with one
     pose phrase per preset frame (walk = `contact (left foot forward)`, `down`, `passing`, `up`, then the
     mirrored four); `framePrompt(spec, clip, dir, i): string` composes style + perspective + direction +
@@ -371,7 +476,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     `frame <i+1> of <n> of a <clip> animation`.
   - Generation order: clip by clip, direction by direction, frame by frame, 2 requests in flight; each
     result goes straight through `processFrame` and is visible in the strip as it lands.
-- [ ] Providers without reference-image input are disabled for this method, with the reason. The chosen provider and model are recorded on the spec
+- [x] Providers without reference-image input are disabled for this method, with the reason. The chosen provider and model are recorded on the spec
   - **Resolved: add reference images to the image seam** (Decision 5). `ImageAdapterRequest` gains
     `references?: { bytes: Buffer; mime: string }[]` (≤ 4); `ImageProviderInfo` gains
     `supportsReference: boolean`; `ImageGenerateRequestSchema` gains `references?: string[]` (paths inside
@@ -382,7 +487,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     `supportsReference: false`.
   - The picker shows unsupported providers disabled with _"<Provider> can't use a reference image, so
     frames would not match. Pick Gemini or OpenAI."_ The chosen `provider` and `model` are written to the spec.
-- [ ] **Consistency check**: a vision model (via `engines.ts`) scores each frame against the reference (same outfit, palette, proportions). Frames under the threshold are re-rolled up to a budget, and the remaining failures are flagged, never silently kept
+- [x] **Consistency check**: a vision model (via `engines.ts`) scores each frame against the reference (same outfit, palette, proportions). Frames under the threshold are re-rolled up to a budget, and the remaining failures are flagged, never silently kept
   - `createVisionCall` with `images: [reference, frame]`, `json: true`, and `SPRITE_CONSISTENCY_PROMPT`
     asking for `{"score": 0..1, "issues": string[]}` (parsed by `SpriteConsistencySchema`). Score <
     `consistency.threshold` → re-roll that frame, up to `rerollBudget` times per frame; still failing →
@@ -392,18 +497,18 @@ All three methods are always available. The form *recommends* one (user, 2026-10
     shows the install hint. A frame is never silently treated as consistent.
   - The check runs in `stage: 'checking'` after each frame's B pass; it can be switched off per sheet
     (`consistency.enabled`, default true when a vision model exists).
-- [ ] Mirroring: for side views, generate one facing and mirror it, with an option to generate both when the design is asymmetric
+- [x] Mirroring: for side views, generate one facing and mirror it, with an option to generate both when the design is asymmetric
   - Side sheets with 1 direction generate only `e`; **Mirror for the west facing** (default on) writes
     `w` frames as horizontal flips with `source: 'mirrored'` and adds `w` to the export's directions.
     **My character is asymmetric** turns mirroring off and generates `w` with the same pose table.
-- [ ] Vitest with a stub provider: the pose table expands to the right prompts per frame, re-roll stops at the budget, and failing frames carry their badge into the strip
+- [x] Vitest with a stub provider: the pose table expands to the right prompts per frame, re-roll stops at the budget, and failing frames carry their badge into the strip
   - `desktop/src/main/media/sprite/hand-drawn.test.ts` with a stub `ImageProvider` and stub `VisionCall`:
     a walk clip yields 8 prompts containing the eight pose phrases in order; a vision stub always scoring 0.2
     with budget 2 makes exactly 3 requests for that frame and leaves `inconsistent`; a failing vision call
     leaves `unchecked`; mirroring writes 8 `w` frames with `flipped: true`.
   - `desktop/src/main/media/image/image-adapters.test.ts` (existing, extended): with references, OpenAI posts multipart to `/v1/images/edits` and Gemini adds `inline_data` parts.
 
-- [ ] The image seam takes reference images and transparency
+- [x] The image seam takes reference images and transparency
   - The `ImageAdapterRequest`/`ImageProviderInfo`/`ImageGenerateRequestSchema` changes in item 3 and Theme
     B's `transparent` land together in one PR, before any D frame generation, with `IMAGE_PROVIDERS` set to
     `supportsReference: true` for `gemini` and `openai`, `false` for `agy` and `ollama`.
@@ -411,14 +516,14 @@ All three methods are always available. The form *recommends* one (user, 2026-10
 
 ## E — Rendered from a Models character (M/L)
 
-- [ ] Pick a Models asset that has a Phase 103 rig and clips. The clip list maps onto sprite clips (`walk` → `walk`), and unmatched clips are listed
+- [x] Pick a Models asset that has a Phase 103 rig and clips. The clip list maps onto sprite clips (`walk` → `walk`), and unmatched clips are listed
   - **Attach a rigged model…** opens a picker over `media.model.library.list` filtered to manifests with
     `rig` and `animations`; the choice sets `reference: { kind: 'model', project, path }`.
   - Mapping: a sprite clip maps to the model clip of the same name (case-insensitive), else to the first of
     `SPRITE_CLIP_ALIASES` (`run → ['sprint', 'jog']`, `attack → ['punch', 'slash', 'swing']`, `die → ['death']`,
     `hurt → ['hit']`). Unmatched sprite clips list under _"No matching animation: jump, fall"_ and are
     skipped; unmatched model clips can be added as new sprite clips with one click.
-- [ ] Camera presets, orthographic:
+- [x] Camera presets, orthographic:
   - `side`
   - `top-down` (steep, about 60°)
   - `isometric` (2:1, a camera elevation of about 30°)
@@ -429,10 +534,10 @@ All three methods are always available. The form *recommends* one (user, 2026-10
   - `shared/src/sprite/camera.ts` `spriteCameraMatrix(settings, dirIndex, directions): Mat4` (view
     matrix; yaw = `azimuth + dirIndex × 360° / directions`) and `orthoFit(bounds, frameSize)` (fits the
     model's bounds over all sampled frames, so scale is constant across the whole sheet).
-- [ ] Directions 1, 4 or 8 (yaw steps), sampled at the clip's fps
+- [x] Directions 1, 4 or 8 (yaw steps), sampled at the clip's fps
   - Sample times `t_i = i / fps` for `i < frames`, where `frames = round(clipDuration × fps)` overrides
     the preset's count (shown in the form as _"walk: 12 frames at 10 fps from the model's 1.2 s clip"_).
-- [ ] Rendering happens in the renderer with three (`editor-scene.tsx`'s material path) into an offscreen canvas at 2–4× the frame size, then downsampled. Frames are sent to main over IPC for B and storage. Over MCP the render is routed through the open window, the way the Models tools use `emitOpen`; decide here whether a hidden window is needed for headless use, and record why
+- [x] Rendering happens in the renderer with three (`editor-scene.tsx`'s material path) into an offscreen canvas at 2–4× the frame size, then downsampled. Frames are sent to main over IPC for B and storage. Over MCP the render is routed through the open window, the way the Models tools use `emitOpen`; decide here whether a hidden window is needed for headless use, and record why
   - **Resolved: a root-level lazy render host, no hidden window** (Decision 8). `SpriteRenderHost` in
     `app/features/media/sprite/render/sprite-render-host.tsx` is mounted once in the app root (beside the
     other global listeners in `app.tsx`) and imports its three code lazily on the first
@@ -446,14 +551,14 @@ All three methods are always available. The form *recommends* one (user, 2026-10
   - Why not a hidden window: it would load a second full renderer (~300 MB) for a path the user's own
     window already serves; macOS keeps the app alive with zero windows only by explicit quit, which the
     message covers.
-- [ ] Shading presets: lit (matches Models), toon (2–3 band ramp) and flat. Optional outline pass
+- [x] Shading presets: lit (matches Models), toon (2–3 band ramp) and flat. Optional outline pass
   - `lit` = the Models editor's lights; `toon` = `MeshToonMaterial` with a 3-step `gradientMap`
     (`DataTexture` 3×1, `NearestFilter`); `flat` = `MeshBasicMaterial` in each part's colour. Outline = an
     inverted-hull pass (back faces, scaled 1.02, `#000000`) when `outline` is on.
-- [ ] Pixel-art mode from B applies on top. This is the precise path for retro 8-direction sprites
+- [x] Pixel-art mode from B applies on top. This is the precise path for retro 8-direction sprites
   - Rendered frames enter `processFrame` with keying skipped (real alpha) and normalisation's scaling
     disabled (the ortho fit already fixes scale), so only pixel mode, outline and validation apply.
-- [ ] Vitest: the camera matrices for each preset and direction, and clip sampling at fps hits the expected times. A render smoke test runs in e2e only (it needs WebGL), with the browser capability named in the spec header
+- [x] Vitest: the camera matrices for each preset and direction, and clip sampling at fps hits the expected times. A render smoke test runs in e2e only (it needs WebGL), with the browser capability named in the spec header
   - `shared/src/sprite/camera.test.ts`: isometric elevation is 26.565° ± 0.001; direction 2 of 8 is yaw
     +90°; `orthoFit` keeps a 2 m tall model at the same pixel height across all 8 directions.
   - `shared/src/sprite/sampling.test.ts`: a 1.2 s clip at 10 fps samples 12 times at `0, 0.1, … 1.1`.
@@ -466,7 +571,7 @@ All three methods are always available. The form *recommends* one (user, 2026-10
 
 A strong system prompt and strict post-processing (user, 2026-10-04).
 
-- [ ] System prompt in `shared/src/sprite/one-shot-prompt.ts`, versioned and unit-tested as text. It specifies:
+- [x] System prompt in `shared/src/sprite/one-shot-prompt.ts`, versioned and unit-tested as text. It specifies:
   - an exact grid (columns × rows, cell size, gutter)
   - one clip per row, in a stated order
   - a flat chroma background
@@ -478,31 +583,31 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     (`oneShot: { promptVersion, grid, aspect }`).
   - A sheet whose grid exceeds 8 columns × 8 rows is refused before any request with _"Too many frames
     for one image — use at most 8 frames and 8 rows, or switch to Hand-drawn."_
-- [ ] Request sizing: the image size is computed from the grid, and the provider's nearest supported size is chosen and recorded
+- [x] Request sizing: the image size is computed from the grid, and the provider's nearest supported size is chosen and recorded
   - The provider takes an aspect, not a size: `nearestAspect(columns × cellW, rows × cellH)` picks the
     `ImageAspect` with the smallest |log(ratio)| difference; the cells are then laid out in the returned
     image's actual pixel size (read from the PNG), not the requested one.
-- [ ] **Grid detection instead of trust**: projection profiles of non-background pixels find the real gutters, and the result is compared with the requested grid. A mismatch is reported, not forced
+- [x] **Grid detection instead of trust**: projection profiles of non-background pixels find the real gutters, and the result is compared with the requested grid. A mismatch is reported, not forced
   - `shared/src/sprite/grid-detect.ts` `detectGrid(img, chroma): { columns: number[][]; rows: number[][] }`
     (runs of near-empty columns/rows ≥ 2 px wide are gutters); a mismatch with the requested counts makes
     the whole sheet's verdict _"Expected 8 × 4 cells, found 7 × 4. Nothing was sliced."_ and every frame
     gets nothing (no forced re-cut).
-- [ ] Slicing, then the same B pipeline (keying, normalisation, validation)
+- [x] Slicing, then the same B pipeline (keying, normalisation, validation)
   - Each detected cell → `processFrame` with `source: 'sliced'`; a cell bigger than ±20 % of the median
     cell gets badge `grid`.
-- [ ] A per-row verdict ("row 3, attack: 2 of 6 frames clipped"), with **Regenerate this clip with Hand-drawn**, which hands the failing clip to D using frame 1 of the sheet as the reference
+- [x] A per-row verdict ("row 3, attack: 2 of 6 frames clipped"), with **Regenerate this clip with Hand-drawn**, which hands the failing clip to D using frame 1 of the sheet as the reference
   - `SpriteOneShotVerdict = { rows: { clip, dir, ok: boolean, summary: string }[] }` rendered as a list
     above the strip; a failing row's button sets `reference` to that row's frame `000` (written to
     `reference/reference.png`, `approved: true`) and starts a D job for that clip only, provided the
     provider `supportsReference` (else the button is disabled with D's reason).
-- [ ] Vitest: grid detection on fixtures with clean, uneven and missing gutters, slicing yields the right cells, and a mismatched grid is reported, not silently re-cut
+- [x] Vitest: grid detection on fixtures with clean, uneven and missing gutters, slicing yields the right cells, and a mismatched grid is reported, not silently re-cut
   - `shared/src/sprite/grid-detect.test.ts` and `one-shot-prompt.test.ts` (the prompt for a 4×2 grid
     contains `4 columns`, `2 rows`, the chroma hex, and `no text`; `nearestAspect(512, 256)` is `16:9`;
     an 8 × 9 grid is refused).
 
 ## G — Atlas packing and the animation previewer (M)
 
-- [ ] Packer in `shared/src/sprite/pack.ts`:
+- [x] Packer in `shared/src/sprite/pack.ts`:
   - MaxRects (best short-side fit)
   - trim with `spriteSourceSize`/`sourceSize` offsets
   - padding and 1px extrude against bleeding
@@ -510,7 +615,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - `packRects(rects: { key, w, h }[], opts: { maxSize: 2048 | 4096 (2048), padding: 0–8 (2), extrude: 0 | 1 (1), pot: boolean (true) }): { pages: { w, h, placements: { key, x, y }[] }[] }`.
     Rotation is never used (Phaser's JSON-hash `rotated` stays false).
   - `trimFrame(img)` returns the trimmed image plus `spriteSourceSize`/`sourceSize`.
-- [ ] Export:
+- [x] Export:
   - `atlas.png` plus `atlas.json` in **Phaser JSON-hash** format, with an `anims` section
   - an **Aseprite-style** `frameTags` JSON for the same frames
   - frame names `<clip>/<dir>/<n>`
@@ -532,7 +637,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - Export destination: a `sprite-pack` folder `<dest>/<asset>.sprite/` (`atlas.png`/`atlas.json`/`anims.json`,
     plus `sprite.json` for provenance), same no-overwrite rule as Phase 105's terrain pack.
     `MEDIA_EXPORT_FORMATS` gains `'sprite-pack'` with `MEDIA_EXPORT_FORMAT_INFO['sprite-pack'] = { label: 'Sprite pack (folder)', ext: '', needsFfmpeg: false }`.
-- [ ] **Animation previewer** (centre column):
+- [x] **Animation previewer** (centre column):
   - clip list; play and pause; fps override; `loop`, `once` and `ping-pong`
   - a direction switcher (a compass for 4 or 8 directions)
   - onion skin (previous and next frames)
@@ -550,7 +655,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - Overlays: the anchor as a 5 px cross and the baseline as a 1 px line, both `#ff3b30`.
   - Empty state: _"No frames yet. Pick a method and Generate."_; mid-job, frames appear as they land with
     a `Spinner` + `done / total` from `mediaSpriteProgress`.
-- [ ] **Frame strip** under the player with each frame's B badges, and per-frame re-roll, delete, reorder (drag), nudge the anchor (arrow keys) and flip. All edits are undoable and saved to `frames/`, then re-packed
+- [x] **Frame strip** under the player with each frame's B badges, and per-frame re-roll, delete, reorder (drag), nudge the anchor (arrow keys) and flip. All edits are undoable and saved to `frames/`, then re-packed
   - `SpriteFrameStrip` in `sprite-frame-strip.tsx`: one 64 px thumbnail per frame of the current
     clip/direction with badge pills (`empty`, `clipped`, `height`, `drift`, `inconsistent`, `unchecked`,
     `grid`; each has a tooltip naming the rule). Roving tabindex across thumbnails; on a focused frame:
@@ -563,7 +668,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - Undo/redo: `Mod+Z`/`Mod+Shift+Z` while the strip has focus, from a session-only stack
     (`use-sprite-history.ts`, max 100) of inverse ops; `delete` is undoable because main moves a deleted
     frame to `frames/.trash/` until the asset is closed. Re-roll is not undoable (it is a new generation).
-- [ ] Vitest: the packer never overlaps rects and respects padding and max size, the Phaser JSON validates against a fixture Phaser accepts, the Aseprite tags match the clips, and the previewer steps frames at the given fps with fake timers
+- [x] Vitest: the packer never overlaps rects and respects padding and max size, the Phaser JSON validates against a fixture Phaser accepts, the Aseprite tags match the clips, and the previewer steps frames at the given fps with fake timers
   - `shared/src/sprite/pack.test.ts`: 500 random rects → no overlap incl. padding, every page ≤ maxSize,
     POT dims when `pot`; `atlas.test.ts`: `PhaserAtlasJsonSchema` (zod, written from Phaser's
     `JSONHash` parser fields) and `AsepriteJsonSchema` parse the output; the tags' `from..to` cover exactly
@@ -573,19 +678,23 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
   - `app/src/features/media/sprite/sprite-frame-strip.test.tsx`: ArrowRight sends a `nudge` op with
     `dx: 1`; `Mod+Z` sends its inverse.
 
-- [ ] `sprite-export` writes the pack folder for every asset kind
+- [x] `sprite-export` writes the pack folder for every asset kind
   - `sprite-export.ts` `exportSprite(asset, dest): GitOpResult<{ path; bytes }>` writes `<asset>.sprite/`
     (sheet/props: `atlas.png`, `atlas.json`, `anims.json`), `<asset>.tileset/` (`tileset.png`, `tileset.tsj`),
     `<asset>.background/` (layer PNGs + `background.json`) or `<asset>.map/` (`map.tmj` with embedded
     tilesets + `tileset.png` + `tileset.tsj`), each with a copy of `sprite.json`; an existing folder is
     refused (_"<name> already exists in that folder."_). Destination is `mediaExportDir` or
     `repos.pickDirectory()`, as in Phase 105.
+  - **Landed for sheets (PR #763), tilesets, backgrounds and prop sheets (PR #764):** `exportSprite` writes
+    `<asset>.sprite/` (a prop sheet's has no `anims.json`), `<asset>.tileset/` (plus `map.tmj` when the
+    tileset was cut from a terrain) and `<asset>.background/`, and refreshes the asset's own `export/`; a map
+    answers _"Map export is not available yet."_ until J adds its branch.
   - Vitest `sprite-export.test.ts`: each kind's folder contains exactly those files and they parse with
     their schemas.
 
 ## H — Tilesets with autotiling (L)
 
-- [ ] **Seamless base tiles** per terrain type (grass, dirt, sand, water, stone…), generated through `image-service.ts` with a "tileable, top-down" prompt. Each passes a seam check (wrap-offset by half, then measure edge difference) and, if needed, a seam repair (blend across the wrapped edge) in `shared/src/sprite/seamless.ts`
+- [x] **Seamless base tiles** per terrain type (grass, dirt, sand, water, stone…), generated through `image-service.ts` with a "tileable, top-down" prompt. Each passes a seam check (wrap-offset by half, then measure edge difference) and, if needed, a seam repair (blend across the wrapped edge) in `shared/src/sprite/seamless.ts`
   - `TilesetSpecSchema`: `kind: 'tileset'`, `name`, `tileSize: 16 | 32 | 48 | 64` (32), `style`, `palette?`,
     `terrains: { id: /^[a-z][a-z0-9-]*$/, label, prompt, collision: 'walkable' | 'solid' | 'water' }[]` (2–8),
     `transitions: { a, b }[]`, `scheme: 'blob47' | 'corner16'` ('blob47'), `seed`.
@@ -594,21 +703,21 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     cross-fades a band of `tileSize / 8` px across the wrapped edge; a tile still failing after repair is
     re-generated once, then kept with a `seam` warning in the report.
   - Generation happens at 256² then downsamples to `tileSize` (pixel mode via B's nearest + palette).
-- [ ] **Transition sets built procedurally, not generated tile by tile.** Between two base tiles, composite masks produce a **47-tile blob** set or a **16-tile Wang corner** set (user picks), with mask edges shaped by noise so borders look natural. This is what makes the set precise: every edge matches by construction
+- [x] **Transition sets built procedurally, not generated tile by tile.** Between two base tiles, composite masks produce a **47-tile blob** set or a **16-tile Wang corner** set (user picks), with mask edges shaped by noise so borders look natural. This is what makes the set precise: every edge matches by construction
   - `shared/src/sprite/autotile.ts`: `BLOB47_MASKS` (the 47 valid 8-neighbour configurations, indexed by
     the standard blob bitmask) and `CORNER16` (4-bit corner index); `transitionMask(config, tileSize, seed)`
     builds an alpha mask whose boundary is displaced by seeded 1-D value noise that is **identical on
     shared edges** (the noise is a function of the edge's world position and the pair, not the tile), so
     neighbours match exactly; `compositeTile(a, b, mask)`.
-- [ ] Tile sizes 16, 32, 48 or 64, pixel-art mode from B, and collision flags per tile (solid, water, walkable)
+- [x] Tile sizes 16, 32, 48 or 64, pixel-art mode from B, and collision flags per tile (solid, water, walkable)
   - A transition tile's collision is the more restrictive of its two terrains (`solid` > `water` > `walkable`).
-- [ ] Export: tileset atlas PNG plus Tiled `.tsj` with **wangsets**, so Tiled and Phaser autotile with it
+- [x] Export: tileset atlas PNG plus Tiled `.tsj` with **wangsets**, so Tiled and Phaser autotile with it
   - **Correction (x1):** Phaser does not autotile at runtime and ignores wangsets; autotiling happens when
     a map is filled (J) and when a human edits in Tiled. The `.tsj` = `{ type: 'tileset', version: '1.10', tiledversion: '1.11.0', name, tilewidth, tileheight, tilecount, columns, image: 'tileset.png', imagewidth, imageheight, margin: 0, spacing: 0, tiles: [{ id, properties: [{ name: 'collision', type: 'string', value }] }], wangsets: [{ name, type: 'mixed' | 'corner', tile: -1, colors: [{ name, color, tile, probability: 1 }], wangtiles: [{ tileid, wangid: number[8] }] }] }`
     — `blob47` is a Tiled `mixed` set, `corner16` a `corner` set.
   - The tileset pack folder is `<asset>.tileset/` (`tileset.png`, `tileset.tsj`, `sprite.json`), exported
     through the same `sprite-pack` format id.
-- [ ] Vitest: every blob or Wang tile's edges match its neighbours in all 47 or 16 configurations, the seam check catches a non-tiling fixture, and the `.tsj` validates against a Tiled fixture
+- [x] Vitest: every blob or Wang tile's edges match its neighbours in all 47 or 16 configurations, the seam check catches a non-tiling fixture, and the `.tsj` validates against a Tiled fixture
   - `shared/src/sprite/autotile.test.ts`: for every pair of configurations that may be adjacent, the
     touching pixel columns/rows are byte-identical; `seamless.test.ts`: a gradient tile fails, a
     wrapped-noise tile passes, `repairSeam` turns the gradient into a pass;
@@ -616,12 +725,12 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
 
 ## I — Isometric tiles, parallax backgrounds and prop sheets (M)
 
-- [ ] **Isometric tiles**: 2:1 diamond floor tiles and wall/cliff blocks, made by re-projecting H's top-down tiles (affine to the diamond) or by generating them with an isometric prompt. Same export as H
+- [x] **Isometric tiles**: 2:1 diamond floor tiles and wall/cliff blocks, made by re-projecting H's top-down tiles (affine to the diamond) or by generating them with an isometric prompt. Same export as H
   - `shared/src/sprite/iso.ts` `toDiamond(tile): RgbaImage` (rotate 45° then scale Y by 0.5, bilinear,
     output `2·size × size`); wall/cliff blocks = the diamond top plus two side faces made from the base tile
     darkened 20 % and 40 %, height `size`. The iso tileset `.tsj` gives each tile a string property
     `kind: 'floor' | 'block'`, and its `tileheight` is the block height so Tiled draws blocks unclipped.
-- [ ] **From a Phase 105 terrain**: render a terrain's splat and drape, top-down or isometric, into a tile grid plus a matching `.tmj` (J), so a 3D terrain becomes a 2D map
+- [x] **From a Phase 105 terrain**: render a terrain's splat and drape, top-down or isometric, into a tile grid plus a matching `.tmj` (J), so a 3D terrain becomes a 2D map
   - Input: a terrain picked from the Terrain tab's explorer (`media.terrain.get`); `terrainToTiles(drape, cols, rows, tileSize)`
     in `shared/src/sprite/terrain-tiles.ts` slices `build/drape.png` (or the splat bake when no drape)
     into `cols × rows` tiles with `cols = rows = round(worldSize / metresPerTile)` (`metresPerTile` 1–16,
@@ -629,43 +738,43 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     references them; `collision` comes from the land-cover class per tile (`water` → water, `building` →
     solid). Isometric output re-projects each tile with `toDiamond` and ignores height (stated in the UI:
     _"Isometric maps from terrain are flat; height is not drawn."_). A grid over 256 × 256 is refused.
-- [ ] **Parallax backgrounds**: 3–5 layers (sky, far, mid, near), each horizontally seamless (the H seam check on the x axis only) with alpha, plus scroll factors in the export JSON
+- [x] **Parallax backgrounds**: 3–5 layers (sky, far, mid, near), each horizontally seamless (the H seam check on the x axis only) with alpha, plus scroll factors in the export JSON
   - `BackgroundSpecSchema`: `kind: 'background'`, `name`, `prompt`, `size: [w, h]` (`[1920, 1080]`),
     `layers: { name, prompt, scrollFactor: 0–1 }[]` (3–5; default sky 0, far 0.2, mid 0.5, near 0.8).
     Layers except `sky` are generated transparent/chroma-keyed; each passes `seamScore(img, 'x')`.
     Export `background.json` = `{ version: 1, size, layers: { image, scrollFactor }[] }`.
-- [ ] **Prop sheets**: a list of props (trees, rocks, crates, barrels, signs) generated one per cell through B, then packed by G
+- [x] **Prop sheets**: a list of props (trees, rocks, crates, barrels, signs) generated one per cell through B, then packed by G
   - `PropSheetSpecSchema`: `kind: 'props'`, `name`, `style`, `cellSize: [w, h]`, `props: { name, prompt }[]` (1–64);
     each prop is one frame `props/<name>/000` through B (no anchor drift rule), packed and exported as a
     G atlas with no `anims.json`.
-- [ ] Vitest: diamond re-projection maps corners correctly, parallax layers wrap seamlessly on x, and the terrain-to-tiles grid size matches the terrain extent
+- [x] Vitest: diamond re-projection maps corners correctly, parallax layers wrap seamlessly on x, and the terrain-to-tiles grid size matches the terrain extent
   - `iso.test.ts`: the tile's top-left corner lands at the diamond's left vertex `(0, size/2)`;
     `terrain-tiles.test.ts`: a 1024 m terrain at 4 m/tile gives 256 × 256; identical tiles dedupe;
     `seamless.test.ts` x-axis case.
 
 ## J — Maps as Tiled `.tmj` (M)
 
-- [ ] Layout from a prompt: an LLM writes a small `MapSpec` (regions, rooms, corridors, paths, spawn and exit points), limited to the terrain types the chosen tileset has, then validated by zod with a repair round, exactly as the Models pipeline repairs designs
+- [x] Layout from a prompt: an LLM writes a small `MapSpec` (regions, rooms, corridors, paths, spawn and exit points), limited to the terrain types the chosen tileset has, then validated by zod with a repair round, exactly as the Models pipeline repairs designs
   - `MapSpecSchema` in `media-sprite.ts`: `{ width: 8–256, height: 8–256, orientation: 'orthogonal' | 'isometric', base: terrainId, regions: { terrain, shape: 'rect' | 'ellipse' | 'polygon', points: [x, y][] }[], rooms?: { x, y, w, h }[], corridors?: { from: [x, y], to: [x, y], width: 1–4, terrain }[], paths?: { points: [x, y][], terrain }[], objects: { type: 'spawn' | 'exit' | 'point', name, x, y }[] }` (tile units).
     `MapAssetSpecSchema = { kind: 'map', name, prompt, tileset: { group: 'tilesets', asset }, mapSpec?: MapSpec, engine: ModelEngine, decorations?: { props: { group: 'objects', asset }, density: 0–1 } }`.
   - `createLlmCall` with `json: true` and `SPRITE_MAP_PROMPT(prompt, tilesetTerrains)`; parse failures are
     described (`describeIssues`-style, one line per issue) and sent back for up to
     `SPRITE_MAP_MAX_REPAIRS = 2` rounds; a terrain id not in the tileset is an issue
     (`regions[2].terrain: "lava" is not in this tileset (grass, dirt, water)`).
-- [ ] Fill in the kernel: regions → terrain-type grid → autotile with H's blob or Wang rules → decoration scatter → collision layer from tile flags
+- [x] Fill in the kernel: regions → terrain-type grid → autotile with H's blob or Wang rules → decoration scatter → collision layer from tile flags
   - `shared/src/sprite/map-fill.ts` `fillMap(mapSpec, tileset, seed): TiledMap` — rasterise in order
     base, regions, rooms, corridors, paths (later wins); autotile each cell with `BLOB47_MASKS`/`CORNER16`
     from its 8 neighbours; scatter decorations by seeded Poisson-disk on `walkable` cells only.
-- [ ] Orthogonal and isometric maps. Layers: `ground`, `decoration`, `collision`, and an `objects` layer with spawns, exits and named points
+- [x] Orthogonal and isometric maps. Layers: `ground`, `decoration`, `collision`, and an `objects` layer with spawns, exits and named points
   - `.tmj` = `{ type: 'map', version: '1.10', tiledversion: '1.11.0', orientation, renderorder: 'right-down', width, height, tilewidth, tileheight (half the width for isometric), infinite: false, layers: [ground, decoration (tilelayers, CSV data), collision (tilelayer, one tile per flag, `visible: false`), objects (objectgroup)], tilesets: [embedded] }`.
   - **Resolved: tilesets are embedded in the `.tmj`** (Decision 12) — Phaser's `load.tilemapTiledJSON`
     cannot resolve external `.tsj` references; the `.tsj` is also written beside it for Tiled.
-- [ ] Map preview with pan and zoom, a layer toggle and a collision overlay. Existing `.tmj` files can be imported
+- [x] Map preview with pan and zoom, a layer toggle and a collision overlay. Existing `.tmj` files can be imported
   - `SpriteMapPreview` in `sprite-map-preview.tsx`: a 2D canvas, drag to pan, wheel/`+`/`-` to zoom
     (integer zoom for pixel tiles), checkboxes per layer, collision drawn as 40 % red (`solid`) / blue
     (`water`). **Import .tmj…** accepts a map whose tilesets are embedded or whose `.tsj` sits beside it;
     one referencing a missing image is refused with _"This map's tileset image <name> is missing."_
-- [ ] Vitest: autotile fill picks the right tile for each neighbourhood, the collision layer matches the flags, the `.tmj` validates against a Tiled fixture, and a spec naming an unknown terrain type comes back as a validation result
+- [x] Vitest: autotile fill picks the right tile for each neighbourhood, the collision layer matches the flags, the `.tmj` validates against a Tiled fixture, and a spec naming an unknown terrain type comes back as a validation result
   - `shared/src/sprite/map-fill.test.ts` (a 5×5 grass map with a 3×3 water island picks the 9 expected blob
     ids), `tiled.test.ts` (`TiledMapSchema` parses; tilesets are embedded),
     `desktop/src/main/media/sprite/map-generate.test.ts` (a stub `LlmCall` returning `lava` gets one repair
@@ -673,7 +782,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
 
 ## K — Sprites over MCP, and the skill (M)
 
-- [ ] `shared/src/media-sprite-mcp.ts` tool family:
+- [x] `shared/src/media-sprite-mcp.ts` tool family:
   - `sprite_list`, `sprite_open`, `sprite_get_spec` and `sprite_set_spec`
   - `sprite_recommend_method`
   - `sprite_generate`, for a whole sheet or named clips, by method
@@ -702,7 +811,7 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     see the first frame still get the contact sheet.
   - `map_patch` takes `{ ops: ({ op: 'set'; layer; x; y; terrain } | { op: 'object'; type; name; x; y } | { op: 'refill' })[] }`
     and re-runs the autotile; `map_get` returns the `MapSpec` plus layer sizes (not tile arrays).
-- [ ] Handlers in `main/media/sprite/sprite-mcp.ts`. A `main/mcp/sprite-tools.ts` gate behind **Settings ▸ MCP ▸ Let agents edit sprites and maps** (default off), with `dispatch.ts` entries and slow-tool timeouts for generate and render
+- [x] Handlers in `main/media/sprite/sprite-mcp.ts`. A `main/mcp/sprite-tools.ts` gate behind **Settings ▸ MCP ▸ Let agents edit sprites and maps** (default off), with `dispatch.ts` entries and slow-tool timeouts for generate and render
   - `createSpriteTools(deps)` over the same `SpriteService` the IPC handlers use; `setSpriteTools`; private
     `allowed()` → `getMcpAllowSprites()`. Switch: `allowSprites` on `McpSettings` (version +1, `=== true`
     read), `McpSetRequest`, `setMcpAllowSprites` in `main/mcp/index.ts`, `ui-gate.ts` getters, and an
@@ -712,13 +821,13 @@ A strong system prompt and strict post-processing (user, 2026-10-04).
     included); a job that would exceed it is refused up front with the computed count, so an agent cannot
     run up an unbounded API bill.
   - `sprite_set_spec` and `map_patch` validation failures return `{ ok: false, errors: { path, message }[] }`.
-- [ ] Skill `midnite-media-sprite-build` in all copies. It covers method choice (call `sprite_recommend_method` first), the generate → report → re-roll loop, and the export formats Phase 107 consumes
+- [x] Skill `midnite-media-sprite-build` in all copies. It covers method choice (call `sprite_recommend_method` first), the generate → report → re-roll loop, and the export formats Phase 107 consumes
   - Six byte-identical copies (`.claude/`, `.agents/`, `.codex/`, `templates/midnite/{.claude,.agents,.codex}/skills/midnite-media-sprite-build/SKILL.md`),
     added to the list `scripts/skill-copies.test.mjs` (Phase 105 Theme J) checks. Sections: method choice;
     the job loop (`sprite_generate` → poll `sprite_job_status` every ~10 s → `sprite_get_report` →
     `sprite_regenerate_frames` for badged frames → `sprite_render_preview`); environments; export
     (`atlas.json`/`anims.json`/`.tsj`/`.tmj` and what Phase 107's kit reads); the switch to ask for.
-- [ ] Vitest: schemas derive from zod, write tools are refused when the switch is off, a failed validation comes back as a result, and a stub-provider generate → report → export round trip works
+- [x] Vitest: schemas derive from zod, write tools are refused when the switch is off, a failed validation comes back as a result, and a stub-provider generate → report → export round trip works
   - `shared/src/mcp.test.ts` (description rule, minimal parse); `desktop/src/main/media/sprite/sprite-mcp.test.ts`:
     every write tool answers `[refused] Sprite editing is off …` when off; a 300-request job is refused;
     with a stub provider `sprite_generate` → poll until `done` → `sprite_get_report` lists badges →

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   LuBug,
+  LuExternalLink,
   LuGauge,
   LuPause,
   LuPlay,
@@ -16,7 +17,9 @@ import { bridge } from '../../../services/bridge';
 import { useToastStore } from '../../../store/toast-store';
 import { isLive, useGameRunStore } from './game-run-store';
 import type { GameResolution } from './game-runner-host';
-import { useRunGame, useStopGame } from './use-games';
+import { GameJuiceMenu, useApplyStoredJuice } from './game-juice-menu';
+import { PlaytestsMenu } from './playtests-menu';
+import { usePopOutGame, useRunGame, useStopGame } from './use-games';
 
 const RESOLUTIONS: readonly { value: GameResolution; label: string }[] = [
   { value: 'fit', label: 'Fit' },
@@ -26,26 +29,31 @@ const RESOLUTIONS: readonly { value: GameResolution; label: string }[] = [
 
 /**
  * The runner's controls (Phase 107 Theme B): play/pause (the kit's
- * `__midnite` hook), restart, stop, a resolution preset, mute, the fps overlay
- * and DevTools. Pop out is not here yet — it needs a `game` window role, which
- * lands with the later themes that touch the detach plumbing.
+ * `__midnite` hook), restart, stop, a resolution preset, mute, the fps overlay,
+ * DevTools, the Juice settings popover, the Playtests menu (Theme O) and Pop out. The popout window renders the same bar without Pop out —
+ * its frame's own Re-dock button is the way back.
  */
 export function GameRunnerToolbar({
   gameId,
   resolution,
   onResolution,
+  inPopout = false,
 }: {
   gameId: string | null;
   resolution: GameResolution;
   onResolution: (next: GameResolution) => void;
+  inPopout?: boolean;
 }) {
   const info = useGameRunStore((s) => (gameId ? s.runs[gameId] : undefined));
+  const popped = useGameRunStore((s) => s.popped);
   const run = useRunGame();
   const stop = useStopGame();
+  const popOut = usePopOutGame();
   const [muted, setMuted] = useState(false);
   const [overlay, setOverlay] = useState(false);
   const live = isLive(info?.state);
   const paused = info?.state === 'paused';
+  useApplyStoredJuice(gameId, info?.runId, info?.state === 'running');
 
   const toolbar = async (action: 'pause' | 'resume' | 'mute' | 'unmute' | 'devtools' | 'overlay', value?: boolean) => {
     if (!gameId) return false;
@@ -109,6 +117,17 @@ export function GameRunnerToolbar({
         }}
       />
       <IconButton icon={LuBug} label="DevTools" size="sm" disabled={!live} onClick={() => void toolbar('devtools')} />
+      <GameJuiceMenu gameId={gameId} live={live} />
+      <PlaytestsMenu gameId={gameId} />
+      {inPopout ? null : (
+        <IconButton
+          icon={LuExternalLink}
+          label={gameId !== null && popped === gameId ? 'Show game window' : 'Pop out'}
+          size="sm"
+          disabled={!gameId || popOut.isPending}
+          onClick={() => gameId && popOut.mutate(gameId)}
+        />
+      )}
     </div>
   );
 }

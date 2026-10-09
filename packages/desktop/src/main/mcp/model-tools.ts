@@ -59,6 +59,84 @@ export const modelRetarget = async (input: McpToolInput<'model_retarget'>): Prom
   allowed();
   return tools().model_retarget(input);
 };
+export const modelConvertToMesh = async (input: McpToolInput<'model_convert_to_mesh'>): Promise<McpToolOutput<'model_convert_to_mesh'>> => {
+  allowed();
+  return tools().model_convert_to_mesh(input);
+};
+export const modelSdfSet = async (input: McpToolInput<'model_sdf_set'>): Promise<McpToolOutput<'model_sdf_set'>> => {
+  allowed();
+  return tools().model_sdf_set(input);
+};
+export const modelSdfPatch = async (input: McpToolInput<'model_sdf_patch'>): Promise<McpToolOutput<'model_sdf_patch'>> => {
+  allowed();
+  return tools().model_sdf_patch(input);
+};
+export const modelSdfBake = async (input: McpToolInput<'model_sdf_bake'>): Promise<McpToolOutput<'model_sdf_bake'>> => {
+  allowed();
+  return tools().model_sdf_bake(input);
+};
+export const modelGetLandmarks = async (input: McpToolInput<'model_get_landmarks'>): Promise<McpToolOutput<'model_get_landmarks'>> => tools().model_get_landmarks(input);
+export const modelSculptStroke = async (input: McpToolInput<'model_sculpt_stroke'>): Promise<McpToolOutput<'model_sculpt_stroke'>> => {
+  allowed();
+  return tools().model_sculpt_stroke(input);
+};
+export const modelMask = async (input: McpToolInput<'model_mask'>): Promise<McpToolOutput<'model_mask'>> => {
+  allowed();
+  return tools().model_mask(input);
+};
+export const modelSubdivide = async (input: McpToolInput<'model_subdivide'>): Promise<McpToolOutput<'model_subdivide'>> => {
+  allowed();
+  return tools().model_subdivide(input);
+};
+export const modelRemesh = async (input: McpToolInput<'model_remesh'>): Promise<McpToolOutput<'model_remesh'>> => {
+  allowed();
+  return tools().model_remesh(input);
+};
+export const modelSculptUndo = async (input: McpToolInput<'model_sculpt_undo'>): Promise<McpToolOutput<'model_sculpt_undo'>> => {
+  allowed();
+  return tools().model_sculpt_undo(input);
+};
+export const modelDecimate = async (input: McpToolInput<'model_decimate'>): Promise<McpToolOutput<'model_decimate'>> => {
+  allowed();
+  return tools().model_decimate(input);
+};
+export const modelRetopo = async (input: McpToolInput<'model_retopo'>): Promise<McpToolOutput<'model_retopo'>> => {
+  allowed();
+  return tools().model_retopo(input);
+};
+export const modelUnwrap = async (input: McpToolInput<'model_unwrap'>): Promise<McpToolOutput<'model_unwrap'>> => {
+  allowed();
+  return tools().model_unwrap(input);
+};
+export const modelBake = async (input: McpToolInput<'model_bake'>): Promise<McpToolOutput<'model_bake'>> => {
+  allowed();
+  return tools().model_bake(input);
+};
+export const modelExport = async (input: McpToolInput<'model_export'>): Promise<McpToolOutput<'model_export'>> => {
+  allowed();
+  return tools().model_export(input);
+};
+export const modelLayerList = async (input: McpToolInput<'model_layer_list'>): Promise<McpToolOutput<'model_layer_list'>> => tools().model_layer_list(input);
+export const modelMaterialSet = async (input: McpToolInput<'model_material_set'>): Promise<McpToolOutput<'model_material_set'>> => {
+  allowed();
+  return tools().model_material_set(input);
+};
+export const modelLayerAdd = async (input: McpToolInput<'model_layer_add'>): Promise<McpToolOutput<'model_layer_add'>> => {
+  allowed();
+  return tools().model_layer_add(input);
+};
+export const modelLayerUpdate = async (input: McpToolInput<'model_layer_update'>): Promise<McpToolOutput<'model_layer_update'>> => {
+  allowed();
+  return tools().model_layer_update(input);
+};
+export const modelLayerRemove = async (input: McpToolInput<'model_layer_remove'>): Promise<McpToolOutput<'model_layer_remove'>> => {
+  allowed();
+  return tools().model_layer_remove(input);
+};
+export const modelPaintStroke = async (input: McpToolInput<'model_paint_stroke'>): Promise<McpToolOutput<'model_paint_stroke'>> => {
+  allowed();
+  return tools().model_paint_stroke(input);
+};
 export const modelOpen = async (input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> => {
   allowed();
   return tools().model_open(input);
@@ -98,3 +176,9 @@ export const modelGenerateSf3d = async (input: McpToolInput<'model_generate_sf3d
   allowed();
   return sf3dTools().model_generate_sf3d(input);
 };
+export const modelSetReferenceViews = async (input: McpToolInput<'model_set_reference_views'>): Promise<McpToolOutput<'model_set_reference_views'>> => {
+  allowed();
+  return tools().model_set_reference_views(input);
+};
+export const modelCompareReference = async (input: McpToolInput<'model_compare_reference'>): Promise<McpToolOutput<'model_compare_reference'>> =>
+  tools().model_compare_reference(input);

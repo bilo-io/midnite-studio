@@ -2,6 +2,7 @@ import type { ModelPart, ModelSpec } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState, type Dispatch } from 'react';
 import {
   LuBox,
+  LuBrush,
   LuChevronDown,
   LuChevronRight,
   LuCircle,
@@ -50,6 +51,7 @@ const SHAPE_ICONS: Record<ModelPart['shape'], IconComponent> = {
   loft: LuShapes,
   mesh: LuGrid3X3,
   asset: LuPackage,
+  sculpt: LuBrush,
   group: LuFolder,
   instance: LuCopy,
 };

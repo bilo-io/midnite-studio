@@ -1,5 +1,6 @@
 import { failure, ok, type ModelChangedEvent, type ModelOpenEvent } from '@midnite/studio-shared';
 
+import { createSculptStore } from './sculpt-store';
 import { createModelService, type ModelServiceDeps } from './model-service';
 import { createModelTools, type ModelMcpDeps, type ModelTools } from './model-mcp';
 
@@ -45,6 +46,17 @@ export function memoryModelKit(overrides: { service?: Partial<ModelServiceDeps>;
     ...overrides.service,
   });
 
+  const sculpt = createSculptStore({
+    readBytes: async ({ project, path }) => {
+      const found = files.get(keyOf(project, path));
+      return found ? ok(found) : failure('File not found.');
+    },
+    writeBytes: async ({ project, path, data }) => {
+      files.set(keyOf(project, path), data);
+      return ok({ size: data.length });
+    },
+  });
+
   const tools = createModelTools({
     resolveRepo: async (path) =>
       path.startsWith(repoPath) ? { ok: true, repoId } : { ok: false, kind: 'refused', message: `"${path}" is not a repository Midnite Studio has open.` },
@@ -64,6 +76,12 @@ export function memoryModelKit(overrides: { service?: Partial<ModelServiceDeps>;
     },
     saveSpec: (req) => service.saveEdit(req),
     writeSidecar: (req) => service.writeSidecar(req),
+    writeMesh: (req) => sculpt.handle(req),
+    writeFile: async ({ project, path, data }) => {
+      files.set(keyOf(project, path), data);
+      return ok({ size: data.length });
+    },
+    exportModel: (req) => service.exportModel(req),
     createModel: (req) => service.createModel(req),
     emitChanged: (event) => changed.push(event),
     emitOpen: (event) => opened.push(event),

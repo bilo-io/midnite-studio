@@ -1,4 +1,34 @@
 export * from './math';
+export {
+  AIM_VIEWS,
+  CAMERA_DIRECTIONS,
+  pixelRay,
+  PREVIEW_CAMERA_VIEWS,
+  PREVIEW_FILL,
+  PREVIEW_SUPERSAMPLE,
+  previewCamera,
+  projectPoint,
+  type AimView,
+  type PreviewCamera,
+  type PreviewCameraView,
+} from './camera';
+export {
+  applyConversion,
+  convertOpEntry,
+  convertToSculptMesh,
+  encodeConverted,
+  finishConversion,
+  freshPartId,
+  nextSculptPartId,
+  planConversion,
+  revertSculptToParts,
+  sculptSourceIds,
+  type ConversionPlan,
+  type ConvertGroup,
+  type ConvertOptions,
+  type ConvertResult,
+  type ConvertedFile,
+} from './convert';
 export { csg, CSG_MAX_TRIANGLES, type CsgOutcome } from './csg';
 export {
   applyModifiers,
@@ -48,14 +78,24 @@ export {
   type LocalPart,
   type MeshPart,
   type PartIndex,
+  type PartMap,
+  type PartMaps,
+  type PartPbr,
   type ResolvedMaterial,
 } from './scene';
 export * from './quat';
 export {
   clearModelAssets,
+  clearModelTextures,
   hasModelAsset,
+  MODEL_TEXTURE_CACHE_LIMIT,
+  missingModelMaps,
+  modelTexture,
+  registerModelTexture,
   MODEL_ASSET_CACHE_LIMIT,
+  meshBinToAsset,
   missingModelAssets,
+  missingSculptMeshes,
   modelAsset,
   modelAssetBounds,
   modelAssetEpoch,
@@ -63,6 +103,7 @@ export {
   modelAssetPath,
   parseGlbMesh,
   registerModelAsset,
+  registerSculptMesh,
   subscribeModelAssets,
   type ModelAssetMesh,
   type ModelAssetTexture,
@@ -94,3 +135,8 @@ export {
 export { bakeClip, boneNamesFor, CLIP_BAKE_FPS, retargetClips, samplePose, type BakedClip } from './clips';
 export { RIG_EXAMPLE_BIPED, RIG_EXAMPLE_QUADRUPED, RIG_EXAMPLE_VEHICLE } from './rig-examples';
 export { applyClipOps, applyRigOps, copyClips, setAnatomy, type RigEditIssue, type RigEditOutcome } from './rig-ops';
+export * from './mesh';
+export * from './sdf';
+export * from './sculpt';
+export * from './paint';
+export * from './reference';

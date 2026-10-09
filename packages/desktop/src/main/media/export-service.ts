@@ -18,7 +18,7 @@ import {
  * Themes C–E add knobs through `MediaExportOptions`, not new code paths.
  */
 
-type FfmpegFormat = Exclude<MediaExportFormat, 'md' | 'html' | 'pdf' | 'obj' | 'fbx' | 'fbx-ascii' | 'glb' | 'game-html' | 'game-zip' | 'game-folder'>;
+type FfmpegFormat = Exclude<MediaExportFormat, 'md' | 'html' | 'pdf' | 'obj' | 'fbx' | 'fbx-ascii' | 'glb' | 'game-html' | 'game-zip' | 'game-folder' | 'sprite-pack' | 'terrain-pack' | 'geojson' | 'kml'>;
 
 /** jpeg's `-q:v` runs 2 (best) … 31 (worst); map a 1–100 quality onto it. */
 export const jpegQscale = (quality: number): number =>

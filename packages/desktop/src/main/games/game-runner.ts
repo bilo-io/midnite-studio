@@ -7,13 +7,19 @@ import {
   EVENT_CHANNELS,
   failure,
   GAME_CONSOLE_BATCH_MS,
+  GAME_DETERMINISM_PARAMS,
   GAMES_MAX_RUNNING,
+  GameJuicePatchSchema,
+  GameJuiceSettingsSchema,
   MSTUDIO_GAME_SCHEME,
   ok,
   type BrowserBounds,
+  type GameJuicePatch,
+  type GameJuiceSettings,
   type GameLogEntry,
   type GameNetwork,
   type GameRunState,
+  type GameRunStatePayload,
   type GitOpResult,
 } from '@midnite/studio-shared';
 
@@ -42,7 +48,24 @@ export type RunnableGame = {
   network: GameNetwork;
   /** `persist:game-<gameId>` instead of a fresh in-memory partition per run. */
   keepSaveData: boolean;
+  /**
+   * Deterministic mode (Theme O): the kit seeds randomness and runs on a virtual clock.
+   * `paused` starts the loop paused after its first step — how a play-test begins.
+   */
+  determinism?: { seed: number; paused: boolean } | null;
 };
+
+/** The URL a run loads: `index.html`, plus the deterministic-mode query the kit reads before any game module. */
+export function gameEntryUrl(game: Pick<RunnableGame, 'gameId' | 'determinism'>): string {
+  const base = `${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`;
+  if (!game.determinism) return base;
+  const query = new URLSearchParams({
+    [GAME_DETERMINISM_PARAMS.deterministic]: '1',
+    [GAME_DETERMINISM_PARAMS.seed]: String(Math.trunc(game.determinism.seed)),
+    ...(game.determinism.paused ? { [GAME_DETERMINISM_PARAMS.paused]: '1' } : {}),
+  });
+  return `${base}?${query.toString()}`;
+}
 
 export type GameRunnerDeps = {
   /** The window a new run's view attaches to. */
@@ -60,9 +83,19 @@ export type GameRunner = {
   setBounds(gameId: string, bounds: BrowserBounds): void;
   setVisible(gameId: string, visible: boolean): void;
   toolbar(gameId: string, action: ToolbarAction, value?: string | number | boolean): Promise<GitOpResult>;
+  /** Read or change the game's juice settings through `window.__midnite.juice` (`get`, `set` a patch, or `reset`). */
+  juice(gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>>;
   logs(gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] };
   view(gameId: string): WebContentsView | null;
   isRunning(gameId: string): boolean;
+  /** The current run's lifecycle state, or `null` when the game is not running. */
+  runState(gameId: string): GameRunStatePayload | null;
+  /**
+   * Host a game in `win` instead of the main window (Pop out, Theme B) — or back
+   * in the main window with `null`. A live view moves now; a later run of the
+   * same game starts in the same host, so Restart from a popout stays in it.
+   */
+  reparent(gameId: string, win: BrowserWindow | null, opts: { visible: boolean }): void;
 };
 
 export type ToolbarAction = 'pause' | 'resume' | 'mute' | 'unmute' | 'devtools' | 'overlay';
@@ -85,7 +118,8 @@ type Run = {
 
 /** Path segments whose changes never reload the game. */
 const WATCH_IGNORED = ['.git', 'vendor', 'node_modules'];
-const WATCH_IGNORED_PREFIXES = ['playtests/results'];
+// Play-tests write baselines, replays and results while the game runs (Theme O): none of it is game code.
+const WATCH_IGNORED_PREFIXES = ['playtests'];
 export const GAME_RELOAD_DEBOUNCE_MS = 200;
 
 /** Whether a changed path should trigger a hot reload. Pure — tested directly. */
@@ -144,6 +178,14 @@ const HOOK_CALL = (method: string, arg = ''): string =>
 export function createGameRunner(deps: GameRunnerDeps): GameRunner {
   const runs = new Map<string, Run>();
   const lastBounds = new Map<string, BrowserBounds>();
+  /** A game hosted outside the main window (its popout). */
+  const hosts = new Map<string, BrowserWindow>();
+
+  const hostFor = (gameId: string): BrowserWindow | null => {
+    const host = hosts.get(gameId);
+    if (host && !host.isDestroyed()) return host;
+    return deps.getWindow();
+  };
 
   const emitState = (run: Run, state: GameRunState, reason?: string): void => {
     run.state = state;
@@ -317,7 +359,7 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
       if (runs.size >= GAMES_MAX_RUNNING) {
         return failure(`Stop a running game first (${GAMES_MAX_RUNNING} are running).`);
       }
-      const win = deps.getWindow();
+      const win = hostFor(game.gameId);
       if (!win || win.isDestroyed()) return failure('There is no window to run the game in.');
 
       const runId = `r${randomBytes(4).toString('hex')}`;
@@ -373,7 +415,7 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
         flush(run);
         emitState(run, 'crashed', description);
       });
-      void view.webContents.loadURL(`${MSTUDIO_GAME_SCHEME}://${game.gameId}/index.html`).catch(() => undefined);
+      void view.webContents.loadURL(gameEntryUrl(game)).catch(() => undefined);
       return ok({ runId });
     },
 
@@ -431,6 +473,24 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
       }
     },
 
+    async juice(gameId, action, patch) {
+      const run = runs.get(gameId);
+      if (!run) return failure('That game is not running.');
+      // The patch is validated (booleans and bounded numbers), so its JSON is a safe literal to splice in.
+      const arg = action === 'set' ? JSON.stringify(GameJuicePatchSchema.parse(patch ?? {})) : '';
+      const method = action === 'get' ? 'get' : action;
+      const code = `(() => { const j = window.__midnite && window.__midnite.juice; if (!j || typeof j.${method} !== 'function') return null; const r = j.${method}(${arg}); return JSON.stringify(typeof r === 'object' && r ? r : j.get()); })()`;
+      try {
+        const raw: unknown = await run.view.webContents.executeJavaScript(code);
+        if (typeof raw !== 'string') return failure('This game has no juice settings.');
+        // The page's answer is untrusted: parse it against the schema, which also drops keys we do not surface.
+        const parsed = GameJuiceSettingsSchema.safeParse(JSON.parse(raw));
+        return parsed.success ? ok(parsed.data) : failure('This game answered with settings Midnite Studio does not understand.');
+      } catch {
+        return failure('Could not reach the game.');
+      }
+    },
+
     logs(gameId, since) {
       const run = runs.get(gameId);
       return run ? { runId: run.runId, entries: run.buffer.entriesSince(since) } : { runId: null, entries: [] };
@@ -438,6 +498,35 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
 
     view: (gameId) => runs.get(gameId)?.view ?? null,
     isRunning: (gameId) => runs.has(gameId),
+
+    runState(gameId) {
+      const run = runs.get(gameId);
+      if (!run) return null;
+      return {
+        gameId,
+        runId: run.runId,
+        state: run.state,
+        ...(run.crashReason === null ? {} : { reason: run.crashReason }),
+      };
+    },
+
+    reparent(gameId, win, opts) {
+      if (win) hosts.set(gameId, win);
+      else hosts.delete(gameId);
+      const run = runs.get(gameId);
+      if (!run) return;
+      const next = hostFor(gameId);
+      if (!next || next.isDestroyed()) return;
+      if (run.win !== next) {
+        if (!run.win.isDestroyed()) run.win.contentView.removeChildView(run.view);
+        next.contentView.addChildView(run.view);
+        run.win = next;
+      }
+      if (!run.view.webContents.isDestroyed()) {
+        run.view.setVisible(opts.visible);
+        run.view.webContents.setBackgroundThrottling(true);
+      }
+    },
   };
 }
 

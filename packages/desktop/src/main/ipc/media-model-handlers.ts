@@ -33,6 +33,7 @@ import { resolveWorkdir } from '../repo-registry';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleFromSender } from './handle';
 import { createModelLibrary } from '../media/model/model-library';
+import { createSculptStore } from '../media/model/sculpt-store';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
@@ -49,7 +50,8 @@ const ollama: OllamaSeam = {
   capabilities: async (model) => (await ollamaShow(model, { baseUrl: await ollamaBaseUrl(), timeoutMs: 1500 })).capabilities ?? [],
 };
 
-const engines = {
+/** Ollama + agent engines; also the vision model the sprite consistency check uses (Phase 106 Theme D). */
+export const engines = {
   ollama,
   runAgent: async (req: { agentId: string; model: LoopModel | undefined; repoId: string; prompt: string }) =>
     runHeadlessText(
@@ -118,11 +120,33 @@ async function shrinkImage(data: Buffer, mime: string): Promise<{ data: Buffer; 
   return { data: resized.toJPEG(85), mime: 'image/jpeg' };
 }
 
+/** Decodes a JPEG/WebP reference picture to RGBA for `model_compare_reference` (`toBitmap` is BGRA). */
+async function decodeImage(data: Buffer): Promise<{ width: number; height: number; data: Uint8Array } | null> {
+  const image = nativeImage.createFromBuffer(data);
+  const { width, height } = image.getSize();
+  if (width === 0 || height === 0) return null;
+  const bgra = image.toBitmap();
+  const out = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i += 1) {
+    out[i * 4] = bgra[i * 4 + 2]!;
+    out[i * 4 + 1] = bgra[i * 4 + 1]!;
+    out[i * 4 + 2] = bgra[i * 4]!;
+    out[i * 4 + 3] = bgra[i * 4 + 3]!;
+  }
+  return { width, height, data: out };
+}
+
 /**
  * The `model_*` MCP tools, over the same media store and service as the tab. The app's global MCP
  * server answers them behind the `allowModels` switch (`mcp/model-tools.ts`); an iterative run
  * answers them on its own private server.
  */
+/** Sculpt mesh binaries and their op logs (Phase 104 Theme A), inside the media store's jail. */
+const sculptStore = createSculptStore({
+  readBytes: (req) => mediaStore.readBytes(req),
+  writeBytes: (req) => mediaStore.writeBytes(req),
+});
+
 const modelTools = createModelTools({
   resolveRepo: async (repoPath) => {
     const resolved = await resolveRegisteredRepo(repoPath);
@@ -137,10 +161,14 @@ const modelTools = createModelTools({
   },
   saveSpec: (req) => service.saveEdit(req),
   writeSidecar: (req) => service.writeSidecar(req),
+  writeMesh: (req) => sculptStore.handle(req),
+  writeFile: (req) => mediaStore.writeBytes(req),
+  exportModel: (req) => service.exportModel(req),
   createModel: (req) => service.createModel(req),
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelChanged, event),
   emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelOpen, event),
   shrinkImage,
+  decodeImage,
 });
 setModelTools(modelTools);
 
@@ -156,6 +184,18 @@ const library = createModelLibrary({
 });
 
 export function registerMediaModelHandlers(): void {
+  handle(
+    CHANNELS.mediaModelMesh,
+    schemas.MediaModelMeshRequest,
+    async (req) => {
+      try {
+        return await sculptStore.handle(req);
+      } catch (error) {
+        return failure(error instanceof Error ? error.message : String(error));
+      }
+    },
+    (issue) => failure(issue),
+  );
   handle(
     CHANNELS.mediaModelLibrary,
     schemas.MediaModelLibraryRequest,

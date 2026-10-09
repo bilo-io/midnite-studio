@@ -1,5 +1,29 @@
 import {
   applyClipOps,
+  applyConversion,
+  convertOpEntry,
+  convertToSculptMesh,
+  encodeConverted,
+  nextSculptPartId,
+  registerSculptMesh,
+  sculptMeshSrcFor,
+  applySdfBake,
+  applySdfOps,
+  bakeSdf,
+  encodeSdfBake,
+  findSdfPart,
+  SdfBakeError,
+  SdfOpSchema,
+  sdfMeshSrcFor,
+  sdfNodeNames,
+  sdfOpEntry,
+  sdfTargetId,
+  SdfTreeSchema,
+  SDF_RESOLUTION_DEFAULT,
+  withPartIds,
+  type SdfTree,
+  type ModelMeshRequest,
+  type ModelMeshResult,
   applyRigOps,
   buildScene,
   computeSkin,
@@ -27,11 +51,15 @@ import {
   type ModelOpenEvent,
   type ModelSidecar,
   type ModelSpec,
+  previewCamera,
+  type PreviewCamera,
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '../../mcp/errors';
 import { designDir, loadModelAssets } from './model-assets';
 import { renderPreviews } from './preview';
+import { createReferenceTools } from './reference-tools';
+import { createMeshTools, type MeshToolEnv } from './sculpt-tools';
 import { applyPatchOps, describeEdit, ensurePartIds, validateDesign } from './spec-ops';
 import { modelSpecJsonSchema, modelSpecReference } from './spec-reference';
 
@@ -61,12 +89,20 @@ export type ModelMcpDeps = {
   saveSpec: (req: { repoId: string; project: string; path: string; spec: ModelSpec }) => Promise<GitOpResult<{ files: string[] }>>;
   /** Rewrite only the sidecar — an agent's intermediate edits, cheap enough to do per call. */
   writeSidecar: (req: Scope & { path: string; sidecar: ModelSidecar }) => Promise<GitOpResult<unknown>>;
+  /** Save a sculpt mesh (`.mesh.bin` plus its op-log entries) beside the design — `sculpt-store`'s `write` op. */
+  writeMesh: (req: ModelMeshRequest) => Promise<GitOpResult<ModelMeshResult>>;
+  /** Write a binary file (a baked map) beside the design. */
+  writeFile?: (req: Scope & { path: string; data: Buffer }) => Promise<GitOpResult<unknown>>;
+  /** Write the chosen export formats (`.glb`, `.obj`+`.mtl`, `.fbx`) for a design. */
+  exportModel?: (req: { repoId: string; project: string; path: string; spec: ModelSpec; formats: ('glb' | 'obj' | 'fbx')[] }) => Promise<GitOpResult<{ files: string[] }>>;
   /** Start a new model: sidecar plus the trio, so it shows up in the explorer. */
   createModel: (req: { repoId: string; project: string; stem: string; spec: ModelSpec; engine: string }) => Promise<GitOpResult<{ primary: string }>>;
   emitChanged: (event: ModelChangedEvent) => void;
   emitOpen: (event: ModelOpenEvent) => void;
   /** Shrink a picture to fit an MCP response (`nativeImage` in production). */
   shrinkImage?: (data: Buffer, mime: string) => Promise<{ data: Buffer; mime: string }>;
+  /** Decode a non-PNG picture (JPEG, WebP…) to RGBA — `nativeImage` in production; PNGs are decoded without it. */
+  decodeImage?: (data: Buffer, mime: string) => Promise<{ width: number; height: number; data: Uint8Array } | null>;
   now?: () => Date;
 };
 
@@ -99,6 +135,8 @@ export function createModelTools(deps: ModelMcpDeps) {
   const now = deps.now ?? (() => new Date());
   const revisions = new Map<string, number>();
   const locks = new Map<string, Promise<unknown>>();
+  /** The cameras each model's last previews used, so a stroke aims by the pixels the agent saw. */
+  const cameras = new Map<string, Map<string, PreviewCamera>>();
 
   /** Serialise read-modify-write per model: an agent firing parallel calls must not interleave. */
   function locked<T>(key: string, run: () => Promise<T>): Promise<T> {
@@ -160,10 +198,11 @@ export function createModelTools(deps: ModelMcpDeps) {
     deps.emitChanged({ repoId: l.repoId, project: l.project, path: objPath(l), spec, saved, revision });
   }
 
-  async function writeEdit(l: Loaded, sidecar: ModelSidecar, spec: ModelSpec): Promise<McpToolOutput<'model_set_spec'>> {
+  async function writeEdit(l: Loaded, sidecar: ModelSidecar, spec: ModelSpec, options: { keepCameras?: boolean } = {}): Promise<McpToolOutput<'model_set_spec'>> {
     const wrote = await deps.writeSidecar({ ...l.scope, path: `${l.stem}.json`, sidecar: { ...sidecar, spec } });
     if (!wrote.ok) throw new McpToolError('error', wrote.kind === 'error' ? wrote.message : 'Could not write the design.');
     const revision = bump(keyOf(l));
+    if (!options.keepCameras) cameras.delete(keyOf(l));
     announce(l, spec, false, revision);
     return { ok: true, model: objPath(l), revision, ...describeEdit(spec) };
   }
@@ -222,6 +261,12 @@ export function createModelTools(deps: ModelMcpDeps) {
       posed = ` Posed: "${clip.name}" at ${input.pose.time}s.`;
     }
     const rendered = renderPreviews(parts, { views: input.views, size: input.size });
+    const seen = cameras.get(keyOf(l)) ?? new Map<string, PreviewCamera>();
+    for (const shot of rendered) {
+      const camera = previewCamera(parts, shot.view, shot.size);
+      if (camera) seen.set(shot.view, camera);
+    }
+    cameras.set(keyOf(l), seen);
     const info = describeEdit(spec);
     const content: McpContentBlock[] = [
       text(
@@ -344,6 +389,158 @@ export function createModelTools(deps: ModelMcpDeps) {
     });
   }
 
+  async function modelConvertToMesh(input: McpToolInput<'model_convert_to_mesh'>): Promise<McpToolOutput<'model_convert_to_mesh'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const converted = convertToSculptMesh(sidecar.spec, { parts: input.parts, voxelSize: input.voxelSize, targetVertices: input.targetVertices });
+      if (!converted.ok) return { ok: false, errors: [{ path: input.parts ? 'parts' : '(root)', message: converted.error }] };
+      const { bytes, file } = encodeConverted(converted);
+      const partId = nextSculptPartId(converted);
+      const dir = designDir(fresh.stem);
+      const base = fresh.stem.split('/').pop()!;
+      const src = sculptMeshSrcFor(base, partId);
+      const wrote = await deps.writeMesh({
+        op: 'write',
+        repoId: fresh.repoId,
+        project: fresh.project,
+        dir,
+        src,
+        data: bytes,
+        ops: [convertOpEntry(converted, file.hash, 'agent', now().toISOString())],
+      });
+      if (!wrote.ok) throw new McpToolError('error', wrote.kind === 'error' ? wrote.message : 'Could not write the sculpt mesh.');
+      // Draw it from here on: the registry is what `describeEdit` and every preview build from.
+      registerSculptMesh(file.hash, bytes);
+      const { spec } = applyConversion(converted, { src, ...file }, { id: partId });
+      const written = await writeEdit(fresh, sidecar, spec);
+      if (!written.ok) return written;
+      return {
+        ...written,
+        warnings: [...(written.warnings ?? []), ...converted.warnings.map((message) => ({ path: 'parts', message }))],
+        converted: {
+          id: partId,
+          src,
+          vertices: file.vertices,
+          triangles: file.triangles,
+          voxelSize: Number(converted.voxelSize.toFixed(5)),
+          sources: converted.sourceIds,
+          groups: converted.groupTable.map((g) => g.name),
+        },
+      };
+    });
+  }
+
+  // --- SDF modelling (Phase 104 Theme C) -------------------------------------
+
+  type SdfOutput = McpToolOutput<'model_sdf_set'>;
+  type SdfLoaded = Awaited<ReturnType<typeof load>>;
+
+  /** Bakes `tree`, writes the mesh and its op log, and lands the part (`index` replaces, `null` adds). */
+  async function bakeAndApply(fresh: SdfLoaded, sidecar: ModelSidecar, spec: ModelSpec, tree: SdfTree, index: number | null, resolution: number, name?: string): Promise<SdfOutput> {
+    let bake;
+    try {
+      bake = bakeSdf(tree, { resolution });
+    } catch (error) {
+      if (error instanceof SdfBakeError) return { ok: false, errors: [{ path: 'tree', message: error.message }] };
+      throw error;
+    }
+    const encoded = encodeSdfBake(bake);
+    const id = sdfTargetId(spec, index);
+    const base = fresh.stem.split('/').pop()!;
+    const src = sdfMeshSrcFor(base, id, encoded.hash);
+    const wrote = await deps.writeMesh({
+      op: 'write',
+      repoId: fresh.repoId,
+      project: fresh.project,
+      dir: designDir(fresh.stem),
+      src,
+      data: encoded.bytes,
+      ops: [sdfOpEntry(tree, bake, encoded.hash, 'agent', now().toISOString())],
+    });
+    if (!wrote.ok) throw new McpToolError('error', wrote.kind === 'error' ? wrote.message : 'Could not write the SDF mesh.');
+    registerSculptMesh(encoded.hash, encoded.bytes);
+    const file = { src, hash: encoded.hash, vertices: encoded.vertices, triangles: encoded.triangles };
+    const applied = applySdfBake(spec, { tree, bake, file, index, id, ...(name ? { name } : {}) });
+    const written = await writeEdit(fresh, sidecar, applied.spec);
+    if (!written.ok) return written;
+    const nodes = bake.dims[0] * bake.dims[1] * bake.dims[2];
+    return {
+      ...written,
+      sdf: {
+        id,
+        src,
+        vertices: file.vertices,
+        triangles: file.triangles,
+        resolution: bake.resolution,
+        voxelSize: Number(bake.voxelSize.toFixed(5)),
+        nodes: sdfNodeNames(tree),
+        evaluatedShare: Number(Math.min(1, bake.evaluated / nodes).toFixed(3)),
+      },
+    };
+  }
+
+  const treeIssues = (error: { issues: { path: (string | number)[]; message: string }[] }, prefix: string) =>
+    error.issues.map((issue) => ({ path: [prefix, ...issue.path].join('.'), message: issue.message }));
+
+  async function modelSdfSet(input: McpToolInput<'model_sdf_set'>): Promise<McpToolOutput<'model_sdf_set'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      if (!fresh.sidecar) {
+        throw new McpToolError('not-found', `No model "${input.model}" with a saved design in project "${input.project}". Start one with model_set_spec (any placeholder part), then add the SDF shape.`);
+      }
+      const sidecar = fresh.sidecar;
+      const parsed = SdfTreeSchema.safeParse(input.tree);
+      if (!parsed.success) return { ok: false, errors: treeIssues(parsed.error, 'tree') };
+      const spec = withPartIds(sidecar.spec);
+      let index: number | null = null;
+      if (input.part !== undefined) {
+        const found = findSdfPart(spec, input.part);
+        if (!found.ok) return { ok: false, errors: [{ path: 'part', message: found.error }] };
+        index = found.index;
+      }
+      return bakeAndApply(fresh, sidecar, spec, parsed.data, index, input.resolution ?? SDF_RESOLUTION_DEFAULT, input.name);
+    });
+  }
+
+  async function modelSdfPatch(input: McpToolInput<'model_sdf_patch'>): Promise<McpToolOutput<'model_sdf_patch'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const spec = withPartIds(sidecar.spec);
+      const found = findSdfPart(spec, input.part);
+      if (!found.ok) return { ok: false, errors: [{ path: 'part', message: found.error }] };
+      const part = spec.parts[found.index]!;
+      if (part.shape !== 'sculpt' || !part.sdf) return { ok: false, errors: [{ path: 'part', message: 'Not an SDF part.' }] };
+      const ops = [];
+      for (const [i, raw] of input.ops.entries()) {
+        const op = SdfOpSchema.safeParse(raw);
+        if (!op.success) return { ok: false, errors: treeIssues(op.error, `ops.${i}`).map((e) => ({ ...e, opIndex: i })) };
+        ops.push(op.data);
+      }
+      const edited = applySdfOps(part.sdf.tree, ops);
+      if (!edited.ok) return { ok: false, errors: edited.errors };
+      return bakeAndApply(fresh, sidecar, spec, edited.tree, found.index, input.resolution ?? part.sdf.resolution);
+    });
+  }
+
+  async function modelSdfBake(input: McpToolInput<'model_sdf_bake'>): Promise<McpToolOutput<'model_sdf_bake'>> {
+    const l = await load(input);
+    return locked(keyOf(l), async () => {
+      const fresh = await load(input);
+      const sidecar = need(fresh, input);
+      const spec = withPartIds(sidecar.spec);
+      const found = findSdfPart(spec, input.part);
+      if (!found.ok) return { ok: false, errors: [{ path: 'part', message: found.error }] };
+      const part = spec.parts[found.index]!;
+      if (part.shape !== 'sculpt' || !part.sdf) return { ok: false, errors: [{ path: 'part', message: 'Not an SDF part.' }] };
+      return bakeAndApply(fresh, sidecar, spec, part.sdf.tree, found.index, input.resolution);
+    });
+  }
+
   async function modelOpen(input: McpToolInput<'model_open'>): Promise<McpToolOutput<'model_open'>> {
     const l = await load(input);
     need(l, input);
@@ -362,7 +559,25 @@ export function createModelTools(deps: ModelMcpDeps) {
     });
   }
 
+  const meshEnv: MeshToolEnv = {
+    deps,
+    now,
+    load,
+    need,
+    locked,
+    keyOf,
+    writeEdit: async (l, sidecar, spec, options) => {
+      const out = await writeEdit(l, sidecar, spec, options);
+      if (!out.ok) throw new McpToolError('error', 'Could not write the design.');
+      return out;
+    },
+    cameras: (l) => cameras.get(keyOf(l)) ?? new Map<string, PreviewCamera>(),
+    revision: (l) => revisions.get(keyOf(l)) ?? 0,
+  };
+  const meshTools = { ...createMeshTools(meshEnv), ...createReferenceTools(meshEnv) };
+
   return {
+    ...meshTools,
     model_list: modelList,
     model_open: modelOpen,
     model_get_spec: modelGetSpec,
@@ -375,6 +590,10 @@ export function createModelTools(deps: ModelMcpDeps) {
     model_patch_rig: modelPatchRig,
     model_patch_animations: modelPatchAnimations,
     model_retarget: modelRetarget,
+    model_convert_to_mesh: modelConvertToMesh,
+    model_sdf_set: modelSdfSet,
+    model_sdf_patch: modelSdfPatch,
+    model_sdf_bake: modelSdfBake,
     model_save: modelSave,
   };
 }

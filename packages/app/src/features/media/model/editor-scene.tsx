@@ -2,14 +2,14 @@ import { Edges, GizmoHelper, GizmoViewport, Grid, Html, Line, OrbitControls, Ort
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import type { MeshPart } from '@midnite/studio-shared';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch } from 'react';
-import { Box3, Matrix4, Object3D, PMREMGenerator, Vector3, type Mesh } from 'three';
+import { Box3, Matrix4, MOUSE, Object3D, PMREMGenerator, Vector3, type Mesh } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 import { movableSelection, type EditorAction, type EditorState } from './editor-state';
 import type { LightingPreset } from './lighting';
 import { boundsOf, centreOf, distanceBetween, formatSize, orthoZoom, sizeOf, VIEW_DIRECTIONS, VIEW_PLANE, type CameraView } from './scene-bounds';
 import { effectiveStep, type SnapSettings } from './snap';
-import { assetTexture } from './model-assets';
+import { assetTexture, mapTexture, useModelMapEpoch } from './model-assets';
 import { editorScene, meshGeometry, type EditorScene } from './spec-geometry';
 import { anchorWorld, withDescendants } from './spec-edit';
 import { framingFor } from './model-utils';
@@ -38,9 +38,14 @@ export type SceneProps = {
   snap: SnapSettings;
   shift: boolean;
   measure: boolean;
+  /** Sculpt mode (Phase 104 Theme D): left-drag belongs to the brush, so no gizmo, no picking, and orbit moves to the right button. */
+  sculpting?: boolean;
   measurePoints: MeasurePoints;
   onMeasurePoint: (p: [number, number, number]) => void;
 };
+
+/** Sculpt mode's orbit buttons: the left one is the brush's. */
+const SCULPT_MOUSE = { LEFT: null as unknown as MOUSE, MIDDLE: MOUSE.PAN, RIGHT: MOUSE.ROTATE };
 
 /** Everything inside the R3F canvas. */
 export function EditorScene(props: SceneProps) {
@@ -73,6 +78,7 @@ export function EditorScene(props: SceneProps) {
             locked={state.spec.parts[part.sourceIndex]?.locked === true}
             registry={meshes.current}
             onPick={(event, point) => {
+              if (props.sculpting) return;
               if (props.measure) {
                 props.onMeasurePoint(point);
                 return;
@@ -84,10 +90,15 @@ export function EditorScene(props: SceneProps) {
           />
         ))}
       </group>
-      {!props.measure ? <Gizmo {...props} meshes={meshes.current} /> : null}
+      {!props.measure && !props.sculpting ? <Gizmo {...props} meshes={meshes.current} /> : null}
       {props.dimensions ? <Dimensions scene={scene} selection={selectedSet} hasSelection={state.selection.length > 0} /> : null}
       {props.measurePoints.length > 0 ? <MeasureOverlay points={props.measurePoints} /> : null}
-      <OrbitControls makeDefault enableDamping={false} enableRotate={cameraView === 'perspective'} />
+      <OrbitControls
+        makeDefault
+        enableDamping={false}
+        enableRotate={cameraView === 'perspective'}
+        {...(props.sculpting ? { mouseButtons: SCULPT_MOUSE } : {})}
+      />
       <GizmoHelper alignment="bottom-right" margin={[56, 56]}>
         <GizmoViewport axisColors={['#e5484d', '#30a46c', '#3e63dd']} labelColor="white" />
       </GizmoHelper>
@@ -159,7 +170,18 @@ function PartMesh({
   const see = xray || m.opacity < 1;
   // An imported mesh draws with its baked texture; the image decodes once and then asks for a frame.
   const invalidate = useThree((s) => s.invalidate);
-  const map = useMemo(() => (part.texture && part.uvs ? assetTexture(part.texture, () => invalidate()) : null), [part.texture, part.uvs, invalidate]);
+  const mapsEpoch = useModelMapEpoch();
+  // A painted sculpt part (Theme G) draws its flattened PBR set; an unpainted, baked one its normal and occlusion maps.
+  const pbr = useMemo(() => {
+    if (!part.uvs) return null;
+    const tex = (file: { hash: string } | undefined, srgb: boolean) => (file ? mapTexture(file.hash, srgb, () => invalidate()) : null);
+    if (part.pbr) return { map: tex(part.pbr.baseColor, true), orm: tex(part.pbr.orm, false), normal: tex(part.pbr.normal, false), emissive: tex(part.pbr.emissive, true), ao: null };
+    if (part.maps) return { map: null, orm: null, normal: tex(part.maps.normal, false), emissive: null, ao: tex(part.maps.ao, false) };
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the epoch says a map was registered since
+  }, [part.uvs, part.pbr, part.maps, invalidate, mapsEpoch]);
+  const map = useMemo(() => pbr?.map ?? (part.texture && part.uvs ? assetTexture(part.texture, () => invalidate()) : null), [pbr, part.texture, part.uvs, invalidate]);
+  const painted = !!pbr?.orm;
   return (
     <mesh
       ref={ref}
@@ -177,13 +199,17 @@ function PartMesh({
         <meshNormalMaterial transparent={xray} opacity={xray ? 0.4 : 1} depthWrite={!xray} />
       ) : (
         <meshStandardMaterial
-          key={map ? 'textured' : 'flat'}
+          key={`${map ? 'textured' : 'flat'}-${painted}-${!!pbr?.normal}-${!!pbr?.emissive}-${!!pbr?.ao}`}
           map={map}
-          color={part.color}
-          roughness={m.roughness}
-          metalness={m.metalness}
-          emissive={m.emissive}
-          emissiveIntensity={m.emissiveIntensity}
+          color={painted || pbr?.map ? '#ffffff' : part.color}
+          roughness={painted ? 1 : m.roughness}
+          metalness={painted ? 1 : m.metalness}
+          {...(painted ? { roughnessMap: pbr!.orm, metalnessMap: pbr!.orm, aoMap: pbr!.orm } : {})}
+          {...(pbr?.ao ? { aoMap: pbr.ao } : {})}
+          {...(pbr?.normal ? { normalMap: pbr.normal } : {})}
+          emissive={pbr?.emissive ? '#ffffff' : m.emissive}
+          {...(pbr?.emissive ? { emissiveMap: pbr.emissive } : {})}
+          emissiveIntensity={pbr?.emissive ? Math.max(1, m.emissiveIntensity) : m.emissiveIntensity}
           transparent={see}
           opacity={xray ? Math.min(m.opacity, 0.35) : m.opacity}
           depthWrite={!see}

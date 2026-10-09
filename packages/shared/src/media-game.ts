@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { LoopModelSchema } from './loops';
 import { MediaTabSchema } from './media';
 
 // --- constants ---------------------------------------------------------------
@@ -39,7 +40,7 @@ export const GAME_STATE_MAX_DEPTH = 32;
 
 /** Shown in Settings ▸ Media ▸ Games, and over MCP and in the iterate panel once agents land. */
 export const GAMES_OLLAMA_WARNING =
-  'Local Ollama models are much weaker at writing whole games than a roster agent CLI. Expect small, focused edits to work and large rewrites to break — and review every change before you play it.';
+  'Local models struggle to write whole games. Expect better results from small, focused edits; an agent engine is recommended for creating games.';
 
 /** The exact-pinned engine versions vendored into game repositories (Phase 107 Theme C). */
 export const GAME_ENGINE_VERSIONS = {
@@ -50,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.1.0';
+export const GAME_KIT_VERSION = '0.11.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -103,6 +104,18 @@ export const GAME_CAMERA_IDS = [
 export const GameCameraIdSchema = z.enum(GAME_CAMERA_IDS);
 export type GameCameraId = z.infer<typeof GameCameraIdSchema>;
 
+/**
+ * Each third-person camera's offset `[x, y, z]` in metres from the player's head-height pivot
+ * (+x right, +y up, +z behind). The kit's `kit/core/cameras.js` carries the same table.
+ */
+export const GAME_CAMERA_OFFSETS: Readonly<Record<GameCameraId, readonly [number, number, number]>> = {
+  'over-shoulder-left': [-0.7, 0.2, 2.4],
+  'over-shoulder-right': [0.7, 0.2, 2.4],
+  behind: [0, 0.4, 4.0],
+  'further-behind': [0, 1.2, 7.0],
+  'much-further-behind': [0, 3.0, 12.0],
+};
+
 export const GameNetworkSchema = z.enum(['off', 'on']);
 export type GameNetwork = z.infer<typeof GameNetworkSchema>;
 
@@ -126,12 +139,60 @@ export const GameAssetProvenanceSchema = z.object({
   source: z.object({
     tab: MediaTabSchema,
     repoId: z.string().nullable(),
+    /** Relative to `<repoPath>/.midnite/media/<tab>/`, or absolute for a pack folder (no `repoPath`). */
     path: z.string(),
+    /** The repo the asset was picked from (Theme N); absent for a pack folder. */
+    repoPath: z.string().optional(),
   }),
+  /** Of the copy in the game: of the file, or of the sorted `path\0sha256\n` list for a folder. */
   sha256: z.string(),
+  /** Of the source as it was imported, which is what a re-sync compares (a terrain's copy is an export, so differs). */
+  sourceSha256: z.string().optional(),
   importedAt: z.string(),
 });
 export type GameAssetProvenance = z.infer<typeof GameAssetProvenanceSchema>;
+
+/**
+ * Fine-tune options from the new-game wizard. They are recorded in
+ * `midnite-game.json` (`options`) and rendered into the agent's first prompt as a
+ * "Requested features" list, so the building agent implements them. A starter
+ * may also read the flags it already supports (open world's day/night clock).
+ */
+export const GAME_DAY_MINUTES_MIN = 2;
+export const GAME_DAY_MINUTES_MAX = 60;
+export const GAME_DAY_MINUTES_DEFAULT = 4;
+
+export const GameDayNightOptionSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** Real-time minutes one full in-game day lasts. */
+  minutesPerDay: z.number().int().min(GAME_DAY_MINUTES_MIN).max(GAME_DAY_MINUTES_MAX).default(GAME_DAY_MINUTES_DEFAULT),
+});
+
+export const GAME_FEATURE_KEYS = [
+  'npcs',
+  'enemies',
+  'bosses',
+  'lawEnforcement',
+  'wanted',
+  'revenge',
+  'missions',
+] as const;
+export type GameFeatureKey = (typeof GAME_FEATURE_KEYS)[number];
+
+export const GameOptionsSchema = z.object({
+  dayNight: GameDayNightOptionSchema.default({ enabled: false, minutesPerDay: GAME_DAY_MINUTES_DEFAULT }),
+  npcs: z.boolean().default(false),
+  enemies: z.boolean().default(false),
+  bosses: z.boolean().default(false),
+  lawEnforcement: z.boolean().default(false),
+  /** Wanted level / bounty system. */
+  wanted: z.boolean().default(false),
+  revenge: z.boolean().default(false),
+  missions: z.boolean().default(false),
+});
+export type GameOptions = z.infer<typeof GameOptionsSchema>;
+export type GameOptionsInput = z.input<typeof GameOptionsSchema>;
+
 
 /**
  * `midnite-game.json`. `.passthrough()` so an agent may add keys of its own;
@@ -164,6 +225,8 @@ export const GameManifestSchema = z
     deterministic: z.boolean().default(false),
     /** Keep localStorage / IndexedDB across runs (`persist:game-<id>` instead of an in-memory partition). */
     keepSaveData: z.boolean().default(false),
+    /** Wizard fine-tune options; absent on games made before the wizard. */
+    options: GameOptionsSchema.optional(),
   })
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
@@ -261,6 +324,10 @@ export const GameCreateRequestSchema = z.object({
   /** Parent folder; defaults to the games location setting. */
   folder: z.string().min(1).optional(),
   network: GameNetworkSchema.optional(),
+  /** Third-person cameras the cycle is limited to; empty or omitted = all five. */
+  cameras: z.array(GameCameraIdSchema).max(5).optional(),
+  /** Fine-tune options from the wizard; written to the manifest. */
+  options: GameOptionsSchema.optional(),
 });
 export type GameCreateRequest = z.input<typeof GameCreateRequestSchema>;
 
@@ -332,6 +399,40 @@ export const GameToolbarRequest = z.object({
   value: z.union([z.string(), z.number(), z.boolean()]).optional(),
 });
 
+/**
+ * The kit's per-game juice settings (`kit/core/juice-settings.js`, on `window.__midnite.juice`): what the
+ * runner toolbar's Juice popover reads and writes. `reducedMotion` stays the game's own (it follows the OS).
+ */
+export const GameJuiceSettingsSchema = z.object({
+  enabled: z.boolean(),
+  intensity: z.number().min(0).max(2),
+  shake: z.boolean(),
+  flash: z.boolean(),
+  particles: z.boolean(),
+  postfx: z.boolean(),
+  volume: z.number().min(0).max(1),
+});
+export type GameJuiceSettings = z.infer<typeof GameJuiceSettingsSchema>;
+export const GameJuicePatchSchema = GameJuiceSettingsSchema.partial();
+export type GameJuicePatch = z.infer<typeof GameJuicePatchSchema>;
+/** Mirrors the kit's `DEFAULT_JUICE_SETTINGS`. */
+export const GAME_JUICE_DEFAULTS: GameJuiceSettings = {
+  enabled: true,
+  intensity: 1,
+  shake: true,
+  flash: true,
+  particles: true,
+  postfx: true,
+  volume: 0.8,
+};
+export const GAME_JUICE_ACTIONS = ['get', 'set', 'reset'] as const;
+export const GameJuiceRequest = z.object({
+  gameId: z.string().min(1),
+  action: z.enum(GAME_JUICE_ACTIONS),
+  /** For `set`: the keys to change. */
+  patch: GameJuicePatchSchema.optional(),
+});
+
 export const GameLogsRequest = z.object({
   gameId: z.string().min(1),
   /** Cursor: only entries with `seq` greater than this. */
@@ -348,13 +449,48 @@ export type GamesChangedEvent = z.infer<typeof GamesChangedSchema>;
 
 // --- play-test state (Theme D) ---------------------------------------------------
 
+/** The player block every kit preset reports: a 2D or 3D position, and health when the genre has it. */
+export const GamePlayerStateSchema = z
+  .object({
+    position: z.array(z.number()).min(2).max(3),
+    health: z.number().optional(),
+  })
+  .passthrough();
+
 /**
- * What the kit's `window.__midnite.getState()` returns. Untrusted data from the
- * page: the shape is open (`.passthrough()`) because each genre reports its own
- * keys; Theme E tightens the common ones.
+ * What a game's `window.__midnite.getState()` returns, as `game_state` accepts
+ * it. Untrusted data from the page. Theme E tightens the common keys: each one
+ * is optional (a hand-written game with no kit reports whatever it likes), but
+ * when present it must have the kit's type, so an agent can rely on
+ * `state.player.position` being numbers whenever it exists. Everything else
+ * passes through — each genre reports its own keys.
  */
-export const GameStateSchema = z.object({}).passthrough();
+export const GameStateSchema = z
+  .object({
+    version: z.literal(1).optional(),
+    scene: z.string().optional(),
+    frame: z.number().int().nonnegative().optional(),
+    time: z.number().nonnegative().optional(),
+    player: GamePlayerStateSchema.optional(),
+    score: z.number().optional(),
+  })
+  .passthrough();
 export type GameState = z.infer<typeof GameStateSchema>;
+
+/**
+ * The kit's own contract (`kit/core/hook.js`, Theme E): what every kit-built
+ * game's `getState()` reports at minimum. `kit-core.test.ts` holds the kit to it.
+ */
+export const KitGameStateSchema = GameStateSchema.extend({
+  version: z.literal(1),
+  scene: z.string(),
+  frame: z.number().int().nonnegative(),
+  time: z.number().nonnegative(),
+});
+export type KitGameState = z.infer<typeof KitGameStateSchema>;
+
+/** `window.__midnite.version` — bumped when the hook's shape changes. */
+export const GAME_HOOK_VERSION = 1;
 
 /** Nesting depth of a JSON value (a scalar is 0). Iterative, so a hostile value cannot overflow the stack. */
 export function jsonDepth(value: unknown): number {
@@ -373,3 +509,439 @@ export function jsonDepth(value: unknown): number {
 /** Pushed on `mstudio:games:open` when an agent's `game_open` asks the window to show a game. */
 export const GamesOpenEventSchema = z.object({ gameId: z.string().min(1) });
 export type GamesOpenEvent = z.infer<typeof GamesOpenEventSchema>;
+
+// --- pop out (Theme B) ------------------------------------------------------------
+
+/**
+ * Which game the `game` popout window hosts, or `null` when none is popped out.
+ * There is one `game` window role, so at most one game is popped out at a time —
+ * popping a second docks the first. Answered by `gamesPopped` and pushed on
+ * `gamesPopState` whenever it changes, to every window.
+ */
+export const GamePopStateSchema = z.object({ gameId: z.string().min(1).nullable() });
+export type GamePopState = z.infer<typeof GamePopStateSchema>;
+
+/**
+ * `gamesPopped`'s answer: the popped game plus its current run, so the popout's
+ * own renderer — a fresh process that missed every earlier `gamesRunState` push —
+ * knows at once whether to show the stage or a Run button.
+ */
+export const GamePoppedResponseSchema = GamePopStateSchema.extend({ run: GameRunStatePayload.nullable() });
+export type GamePoppedResponse = z.infer<typeof GamePoppedResponseSchema>;
+
+// --- create and iterate (Theme M) ---------------------------------------------
+
+/** Refinement passes a game agent run may ask for: each pass is a full CLI run in the repo, so 20, not Models' 100. */
+export const GAME_PASSES_MAX = 20;
+export const GAME_PASSES_DEFAULT = 3;
+/** The longest prompt a run accepts. */
+export const GAME_PROMPT_MAX = 8000;
+
+/**
+ * Who writes the game: a roster agent CLI that speaks MCP (Claude Code, Codex),
+ * or a local Ollama model, which only ever returns whole `src/` files.
+ */
+export const GameAgentEngineSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('agent'), agentId: z.string().min(1).max(64), model: LoopModelSchema.optional() }),
+  z.object({ kind: z.literal('ollama'), model: z.string().min(1).max(200) }),
+]);
+export type GameAgentEngine = z.infer<typeof GameAgentEngineSchema>;
+
+/** The warnings a run (or `game_create`) carries for an engine: Ollama's, else none. */
+export const gameEngineWarnings = (engine: GameAgentEngine | undefined | null): string[] =>
+  engine?.kind === 'ollama' ? [GAMES_OLLAMA_WARNING] : [];
+
+export const GameAgentRunRequestSchema = z.object({
+  gameId: z.string().min(1),
+  prompt: z.string().trim().min(1).max(GAME_PROMPT_MAX),
+  engine: GameAgentEngineSchema,
+  passes: z.number().int().min(1).max(GAME_PASSES_MAX).default(GAME_PASSES_DEFAULT),
+});
+export type GameAgentRunRequest = z.input<typeof GameAgentRunRequestSchema>;
+export const GameAgentRunResultSchema = z.object({ runId: z.string(), warnings: z.array(z.string()) });
+export type GameAgentRunResult = z.infer<typeof GameAgentRunResultSchema>;
+
+/** Undo turn: revert one agent commit. Only the game's newest commit, and only an agent's, is accepted. */
+export const GameAgentUndoRequestSchema = z.object({ gameId: z.string().min(1), sha: z.string().regex(/^[0-9a-f]{7,64}$/i) });
+export type GameAgentUndoRequest = z.infer<typeof GameAgentUndoRequestSchema>;
+
+/** Every agent commit's subject starts with this, which is how Undo turn recognises one. */
+export const GAME_AGENT_COMMIT_PREFIX = 'agent: ';
+
+export const GameAgentCommitSchema = z.object({ sha: z.string(), files: z.array(z.string()) });
+export type GameAgentCommit = z.infer<typeof GameAgentCommitSchema>;
+
+export const GAME_AGENT_OUTCOMES = ['done', 'cancelled', 'failed'] as const;
+
+/**
+ * `mstudio:games:agent-progress` — one event per step of a run: a pass starting,
+ * a tool the agent called (`action`), a pass's commit, and the run's end.
+ */
+export const GameAgentProgressSchema = z.object({
+  gameId: z.string(),
+  runId: z.string(),
+  pass: z.number().int().nonnegative(),
+  of: z.number().int().positive(),
+  action: z.string().optional(),
+  commit: GameAgentCommitSchema.optional(),
+  finished: z
+    .object({
+      outcome: z.enum(GAME_AGENT_OUTCOMES),
+      message: z.string(),
+      /** The commits the run left (after a squash, the one squashed commit). */
+      commits: z.array(GameAgentCommitSchema),
+    })
+    .optional(),
+});
+export type GameAgentProgress = z.infer<typeof GameAgentProgressSchema>;
+
+/** Ollama's reply: whole-file replacements, under `src/` only. */
+export const GAME_OLLAMA_MAX_FILES = 10;
+export const GAME_OLLAMA_FILE_MAX_BYTES = 200 * 1024;
+/** How much of the repo an Ollama pass is shown. */
+export const GAME_OLLAMA_CONTEXT_MAX_BYTES = 60 * 1024;
+export const GameOllamaEnvelopeSchema = z.object({
+  files: z
+    .array(z.object({ path: z.string().min(1).max(300), content: z.string().max(GAME_OLLAMA_FILE_MAX_BYTES) }))
+    .max(GAME_OLLAMA_MAX_FILES),
+  summary: z.string().max(2000).default(''),
+});
+export type GameOllamaEnvelope = z.infer<typeof GameOllamaEnvelopeSchema>;
+
+/**
+ * Normalises a path an Ollama envelope names, or explains why it is refused:
+ * only `.js`/`.json` files under `src/`, never `..`, `kit/`, `vendor/` or an absolute path.
+ */
+export function checkGameOllamaPath(raw: string): { ok: true; path: string } | { ok: false; message: string } {
+  const refused = { ok: false as const, message: `The model tried to edit ${raw}; only files under src/ can be changed.` };
+  if (raw.includes('\0') || raw.split(/[\\/]/).includes('..')) return refused;
+  const path = raw.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/{2,}/g, '/');
+  if (path.startsWith('/') || /^[a-z]:/i.test(path)) return refused;
+  if (!/^src\/[^\0]+\.(js|json)$/.test(path)) return refused;
+  return { ok: true, path };
+}
+
+// --- asset bridge (Theme N) ----------------------------------------------------------
+
+/** `assets/index.json` — the one lookup the kits use (`kit/core/asset-index.js`). */
+export const GameAssetIndexEntrySchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(GAME_ASSET_KINDS),
+  /** Relative to the repo root, `/`-separated. A folder, or the file itself for a single-file asset. */
+  path: z.string().min(1),
+  /** The file inside a folder asset that opens it: `terrain.manifest.json`, `atlas.json`, `map.tmj`, ... */
+  entry: z.string().optional(),
+});
+export type GameAssetIndexEntry = z.infer<typeof GameAssetIndexEntrySchema>;
+
+export const GameAssetIndexSchema = z.object({
+  version: z.literal(1),
+  assets: z.array(GameAssetIndexEntrySchema).default([]),
+});
+export type GameAssetIndex = z.infer<typeof GameAssetIndexSchema>;
+export const GAME_ASSET_INDEX_FILE = 'assets/index.json';
+
+/** The tabs a game can import from. */
+export const GAME_ASSET_SOURCE_TABS = ['terrain', 'sprite', 'model', 'image', 'audio'] as const;
+export const GameAssetSourceTabSchema = z.enum(GAME_ASSET_SOURCE_TABS);
+export type GameAssetSourceTab = z.infer<typeof GameAssetSourceTabSchema>;
+
+const GAME_ASSET_PATH = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine((p) => !p.includes('\0'), 'must not contain NUL')
+  .refine((p) => !p.startsWith('/'), 'must be relative')
+  .refine((p) => !p.split('/').some((seg) => seg === '..' || seg === ''), 'must not traverse');
+
+/** Where an import comes from: an item in a repo's media store, or a pack folder picked from disk. */
+export const GameAssetSourceSchema = z.union([
+  z.object({ tab: GameAssetSourceTabSchema, repoPath: z.string().min(1), path: GAME_ASSET_PATH }),
+  z.object({ packPath: z.string().min(1) }),
+]);
+export type GameAssetSource = z.infer<typeof GameAssetSourceSchema>;
+
+export const GameAssetNameSchema = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'use letters, digits, dot, dash and underscore');
+
+export const GameImportAssetRequestSchema = z.object({
+  gameId: z.string().min(1),
+  source: GameAssetSourceSchema,
+  name: GameAssetNameSchema.optional(),
+});
+export type GameImportAssetRequest = z.infer<typeof GameImportAssetRequestSchema>;
+
+export const GameImportAssetResultSchema = z.object({
+  name: z.string(),
+  kind: z.enum(GAME_ASSET_KINDS),
+  path: z.string(),
+  entry: z.string().optional(),
+  sha256: z.string(),
+  /** The `assets: import <name>` commit, or `null` when the commit was left out (nothing changed). */
+  commit: z.string().nullable(),
+});
+export type GameImportAssetResult = z.infer<typeof GameImportAssetResultSchema>;
+
+/** Candidates for the picker: one list per registered repo that has media in that tab. */
+export const GameAssetSourcesRequestSchema = z.object({ tab: GameAssetSourceTabSchema });
+export const GameAssetSourceItemSchema = z.object({
+  /** Relative to `<repoPath>/.midnite/media/<tab>/`. */
+  path: z.string(),
+  label: z.string(),
+  kind: z.enum(GAME_ASSET_KINDS),
+  bytes: z.number().int().nonnegative(),
+});
+export type GameAssetSourceItem = z.infer<typeof GameAssetSourceItemSchema>;
+export const GameAssetSourcesResultSchema = z.object({
+  repos: z.array(z.object({ repoPath: z.string(), name: z.string(), items: z.array(GameAssetSourceItemSchema) })),
+});
+export type GameAssetSourcesResult = z.infer<typeof GameAssetSourcesResultSchema>;
+
+/**
+ * Re-sync. `check: true` only reports; without it, `names` (default: every changed one) are
+ * re-imported over their copies in one `assets: re-import <names>` commit.
+ */
+export const GameResyncRequestSchema = z.object({
+  gameId: z.string().min(1),
+  check: z.boolean().default(false),
+  names: z.array(z.string().min(1)).optional(),
+});
+export type GameResyncRequest = z.input<typeof GameResyncRequestSchema>;
+export const GAME_ASSET_SYNC_STATES = ['current', 'changed', 'missing'] as const;
+export const GameResyncResultSchema = z.object({
+  assets: z.array(
+    z.object({ name: z.string(), kind: z.enum(GAME_ASSET_KINDS), state: z.enum(GAME_ASSET_SYNC_STATES), importedAt: z.string() }),
+  ),
+  changed: z.number().int().nonnegative(),
+  reimported: z.array(z.string()),
+  commit: z.string().nullable(),
+});
+export type GameResyncResult = z.infer<typeof GameResyncResultSchema>;
+
+// --- play-test depth (Theme O) -----------------------------------------------------
+
+/**
+ * Where a game keeps its play-tests: `playtests/<name>.json` (a replay plus
+ * assertions), recorded input at `playtests/replays/<name>.replay.json`, frame
+ * baselines at `playtests/baselines/<name>@<frame>.png`, and the last results
+ * at `playtests/results/<name>.json` (git-ignored by the template).
+ */
+export const GAME_PLAYTESTS_DIR = 'playtests' as const;
+export const GAME_REPLAYS_DIR = 'playtests/replays' as const;
+export const GAME_BASELINES_DIR = 'playtests/baselines' as const;
+export const GAME_RESULTS_DIR = 'playtests/results' as const;
+
+/**
+ * The query the runner adds to `index.html` for a deterministic run, read by
+ * `kit/core/determinism.js` before any game module runs. `paused` starts the
+ * kit loop paused after its first step, so a play-test begins at a known frame.
+ */
+export const GAME_DETERMINISM_PARAMS = {
+  deterministic: 'midnite-deterministic',
+  seed: 'midnite-seed',
+  paused: 'midnite-paused',
+} as const;
+
+/** A replay longer than this (ten minutes at 60 Hz) is refused. */
+export const GAME_REPLAY_MAX_FRAMES = 36_000;
+export const GAME_REPLAY_MAX_EVENTS = 20_000;
+/** A replay or play-test file, or a recording the page answers with, larger than this is refused. */
+export const GAME_REPLAY_MAX_BYTES = 2 * 1024 * 1024;
+export const GAME_PLAYTEST_MAX_ASSERTS = 100;
+
+/** A play-test, replay or baseline name: a file name without its extension. */
+export const GamePlaytestNameSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/, 'use letters, digits, `-` and `_` (at most 64)');
+
+/** One input change: action `action` goes down (or up) before step `f`. Kit action names, never keys. */
+export const GameReplayEventSchema = z.object({
+  f: z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES),
+  action: z.string().min(1).max(64),
+  down: z.boolean(),
+});
+export type GameReplayEvent = z.infer<typeof GameReplayEventSchema>;
+
+/**
+ * `.replay.json`: frame-indexed actions, not wall-clock times, so playback is
+ * frame-exact at 1× or as fast as possible. `f` counts kit steps since the game
+ * booted (the same count `getState().frame` reports); `frames` is where it ends.
+ */
+export const GameReplaySchema = z
+  .object({
+    version: z.literal(1),
+    seed: z.number().int(),
+    frames: z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES),
+    events: z.array(GameReplayEventSchema).max(GAME_REPLAY_MAX_EVENTS),
+  })
+  .refine((replay) => replay.events.every((event) => event.f <= replay.frames), {
+    message: 'every event must be at or before `frames`',
+    path: ['events'],
+  });
+export type GameReplay = z.infer<typeof GameReplaySchema>;
+
+export const GAME_STATE_ASSERT_OPS = ['eq', 'ne', 'lt', 'gt', 'exists', 'approx'] as const;
+export const GameStateAssertOpSchema = z.enum(GAME_STATE_ASSERT_OPS);
+
+const assertFrame = z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES);
+export const GameStateAssertSchema = z.object({
+  frame: assertFrame,
+  kind: z.literal('state'),
+  /** A restricted JSON path: `$`, `.key`, `["key"]`, `[n]` (`shared/src/game/json-path.ts`). */
+  path: z.string().min(1).max(256),
+  op: GameStateAssertOpSchema,
+  value: z.unknown().optional(),
+  /** `approx` only; default 1e-6. */
+  epsilon: z.number().nonnegative().optional(),
+});
+export const GameFrameAssertSchema = z.object({
+  frame: assertFrame,
+  kind: z.literal('frame'),
+  /** Baseline name; the file is `playtests/baselines/<baseline>@<frame>.png`. Defaults to the play-test's name. */
+  baseline: GamePlaytestNameSchema.optional(),
+  /** Largest changed fraction that still passes (default 0.01). */
+  tolerance: z.number().min(0).max(1).optional(),
+});
+export const GamePlaytestAssertSchema = z.discriminatedUnion('kind', [GameStateAssertSchema, GameFrameAssertSchema]);
+export type GamePlaytestAssert = z.infer<typeof GamePlaytestAssertSchema>;
+
+/**
+ * `playtests/<name>.json`: a replay (a path relative to the repo, or inline)
+ * plus assertions at frames. Running one forces deterministic mode.
+ */
+export const GamePlaytestSchema = z.object({
+  version: z.literal(1),
+  name: GamePlaytestNameSchema,
+  description: z.string().max(500).optional(),
+  replay: z.union([z.string().min(1).max(256), GameReplaySchema]),
+  asserts: z.array(GamePlaytestAssertSchema).min(1).max(GAME_PLAYTEST_MAX_ASSERTS),
+});
+export type GamePlaytest = z.infer<typeof GamePlaytestSchema>;
+
+/** `baseline-created` is neither a pass nor a fail: the first run of a frame assertion writes its baseline. */
+export const GAME_ASSERT_STATUSES = ['pass', 'fail', 'baseline-created', 'error'] as const;
+export const GameAssertStatusSchema = z.enum(GAME_ASSERT_STATUSES);
+export type GameAssertStatus = z.infer<typeof GameAssertStatusSchema>;
+
+export const GameAssertResultSchema = z.object({
+  assertIndex: z.number().int().nonnegative(),
+  frame: z.number().int().nonnegative(),
+  kind: z.enum(['state', 'frame']),
+  /** `false` only for `fail` and `error`. */
+  ok: z.boolean(),
+  status: GameAssertStatusSchema,
+  message: z.string(),
+  /** A failure's screenshot, relative to the repo (`playtests/results/…png`). */
+  screenshot: z.string().optional(),
+  /** A failed frame assertion's diff image, relative to the repo. */
+  diff: z.string().optional(),
+  changedFraction: z.number().optional(),
+});
+export type GameAssertResult = z.infer<typeof GameAssertResultSchema>;
+
+export const GamePlaytestResultSchema = z.object({
+  name: z.string(),
+  passed: z.boolean(),
+  ranAt: z.string(),
+  frames: z.number().int().nonnegative(),
+  ms: z.number().nonnegative(),
+  results: z.array(GameAssertResultSchema),
+  /** Set when the play-test could not run at all (bad file, no hook, game crashed). */
+  error: z.string().optional(),
+});
+export type GamePlaytestResult = z.infer<typeof GamePlaytestResultSchema>;
+
+export const GamePlaytestEntrySchema = z.object({
+  name: z.string(),
+  file: z.string(),
+  valid: z.boolean(),
+  issue: z.string().nullable(),
+  /** The last saved result, when there is one. */
+  last: GamePlaytestResultSchema.nullable(),
+});
+export type GamePlaytestEntry = z.infer<typeof GamePlaytestEntrySchema>;
+export const GamePlaytestListSchema = z.object({ playtests: z.array(GamePlaytestEntrySchema) });
+export type GamePlaytestList = z.infer<typeof GamePlaytestListSchema>;
+
+export const GamePlaytestRunRequestSchema = z.object({
+  gameId: z.string().min(1),
+  /** Empty or omitted: every valid play-test (Run all). */
+  names: z.array(GamePlaytestNameSchema).max(100).optional(),
+});
+export type GamePlaytestRunRequest = z.infer<typeof GamePlaytestRunRequestSchema>;
+export const GamePlaytestRunResultSchema = z.object({
+  passed: z.boolean(),
+  runs: z.array(GamePlaytestResultSchema),
+});
+export type GamePlaytestRunResult = z.infer<typeof GamePlaytestRunResultSchema>;
+
+// --- web export (Theme P) -----------------------------------------------------
+
+/** Directories and files a web export leaves out: history, agent files, play-tests and dev-only config. */
+export const GAME_EXPORT_EXCLUDE = [
+  '.git/',
+  '.claude/',
+  '.agents/',
+  '.codex/',
+  'playtests/',
+  'node_modules/',
+  'AGENTS.md',
+  'CLAUDE.md',
+  'GEMINI.md',
+  'jsconfig.json',
+  '**/*.d.ts',
+  '.*',
+] as const;
+
+/**
+ * Whether a repo-relative, `/`-separated path is left out of an export: anything under an excluded
+ * directory, a named dev file at the root, a `.d.ts` anywhere, or any dotfile or dot-folder.
+ */
+export function isGameExportExcluded(relPath: string): boolean {
+  const parts = relPath.split('/').filter((p) => p.length > 0);
+  if (parts.length === 0) return false;
+  if (parts.some((p) => p.startsWith('.'))) return true;
+  const dirs = parts.slice(0, -1);
+  if (dirs[0] === 'playtests' || dirs.includes('node_modules')) return true;
+  const last = parts[parts.length - 1]!;
+  if (parts.length === 1 && ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'jsconfig.json'].includes(last)) return true;
+  return last.endsWith('.d.ts');
+}
+
+/** A single-file export larger than this warns: browsers get slow opening a page this big. */
+export const GAME_SINGLE_FILE_WARN_BYTES = 50 * 1024 * 1024;
+/** No zip64: an archive (or any one entry) at or over 4 GB is refused. */
+export const GAME_ZIP_MAX_BYTES = 0xffff_ffff;
+
+export const GAME_EXPORT_FORMATS = ['game-html', 'game-zip', 'game-folder'] as const;
+export const GameExportFormatSchema = z.enum(GAME_EXPORT_FORMATS);
+export type GameExportFormat = z.infer<typeof GameExportFormatSchema>;
+
+export const gameSingleFileWarning = (bytes: number): string =>
+  `This file is ${Math.round(bytes / (1024 * 1024))} MB; browsers may be slow to open it.`;
+export const gameExportExistsMessage = (name: string): string => `${name} already exists in that folder.`;
+
+export const GameExportRequestSchema = z.object({
+  gameId: z.string().min(1),
+  format: GameExportFormatSchema,
+  /**
+   * `game-folder`: the parent folder (the export is `<slug>-web/` inside it, and refuses an existing one).
+   * `game-html` / `game-zip`: the file to write; omitted, main asks with its native save dialog.
+   */
+  dest: z.string().min(1).optional(),
+  /** Replace an existing file at `dest` (the native save dialog has already asked). Never applies to a folder. */
+  overwrite: z.boolean().optional(),
+});
+export type GameExportRequest = z.input<typeof GameExportRequestSchema>;
+
+export const GameExportResultSchema = z.object({
+  path: z.string(),
+  /** Bytes written (the sum of the files for a folder). */
+  bytes: z.number().int().nonnegative(),
+  files: z.number().int().nonnegative(),
+  warnings: z.array(z.string()),
+});
+export type GameExportResult = z.infer<typeof GameExportResultSchema>;

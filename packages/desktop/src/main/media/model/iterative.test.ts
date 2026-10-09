@@ -12,6 +12,7 @@ import {
   allowedClaudeTools,
   buildCliArgs,
   MODEL_ITERATIVE_MAX_CALLS,
+  MODEL_ITERATIVE_SCULPT_CALLS_FLOOR,
   runIterative,
   type CliRequest,
   type CliResult,
@@ -76,7 +77,7 @@ async function setup(script: Script, options: { maxIterations?: number; agent?: 
   const target = { repoPath: kit.repoPath, project: 'gen', model: 'crate-20261003-141502/crate-20261003-141502.obj' };
   const { host, closed, requests } = fakeHost((ctx) => script({ ...ctx, target }), options.agent === undefined ? CLAUDE : options.agent);
   const controller = new AbortController();
-  const progress: { iteration: { n: number; max: number }; action?: string }[] = [];
+  const progress: { iteration: { n: number; max: number }; action?: string; score?: { value: number; history: number[] } }[] = [];
   const run = () =>
     runIterative({
       host,
@@ -208,6 +209,26 @@ describe('runIterative', () => {
     });
     expect(await run()).toMatchObject({ kind: 'done', edits: 1 });
     expect(seen[0]).toMatchObject({ ok: true, value: { ok: false, errors: [{ path: 'parts.0.radius' }] } });
+  });
+
+  it('bounds sculpt calls by the refinement slider without spending the render budget', async () => {
+    const results: string[] = [];
+    // Stubbed like the call cap below: the budget is a counter, not a sculpt.
+    const { run } = await setup(
+      async ({ call, target }) => {
+        for (let i = 0; i <= MODEL_ITERATIVE_SCULPT_CALLS_FLOOR; i += 1) {
+          const r = await call('model_sculpt_stroke', { ...target, brush: 'draw', target: { mode: 'world', points: [[0, 0, 0]] } });
+          results.push(r.ok ? 'ok' : `${r.kind}: ${r.message}`);
+        }
+        results.push((await call('model_render_preview', { ...target, views: ['front'], size: 128 })).ok ? 'render ok' : 'render refused');
+      },
+      { maxIterations: 1, toolOverrides: { model_sculpt_stroke: async () => ({ _content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] }) } },
+    );
+    const outcome = await run();
+    expect(results.slice(0, MODEL_ITERATIVE_SCULPT_CALLS_FLOOR).every((r) => r === 'ok')).toBe(true);
+    expect(results[MODEL_ITERATIVE_SCULPT_CALLS_FLOOR]).toMatch(/^refused: Sculpt budget used up/);
+    expect(results.at(-1)).toBe('render ok');
+    expect(outcome).toMatchObject({ kind: 'done', edits: MODEL_ITERATIVE_SCULPT_CALLS_FLOOR });
   });
 
   it('caps the total tool calls whatever the agent does', async () => {
@@ -381,5 +402,29 @@ describe('generate with an iterative agent engine', () => {
       expect(requests).toHaveLength(0);
       expect(script).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe('runIterative with a matched reference (Phase 104 Theme H)', () => {
+  it('reports the silhouette score of each comparison as progress, without spending a render pass', async () => {
+    const answers = [0.62, 0.81];
+    const compare = vi.fn(async () => {
+      const score = answers.shift()!;
+      return { _content: [{ type: 'text', text: JSON.stringify({ score, history: score === 0.62 ? [0.62] : [0.62, 0.81] }) }] };
+    });
+    const { run, progress } = await setup(
+      async ({ call, target }) => {
+        await call('model_compare_reference', target);
+        await call('model_compare_reference', target);
+      },
+      { toolOverrides: { model_compare_reference: compare } },
+    );
+    const outcome = await run();
+    expect(outcome).toMatchObject({ renders: 0 });
+    const scores = progress.filter((p) => p.score).map((p) => [p.action, p.score]);
+    expect(scores).toEqual([
+      ['Matched the reference: 0.62', { value: 0.62, history: [0.62] }],
+      ['Matched the reference: 0.81', { value: 0.81, history: [0.62, 0.81] }],
+    ]);
   });
 });

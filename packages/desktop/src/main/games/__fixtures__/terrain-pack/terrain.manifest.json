@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "fixture",
+  "generator": "midnite-studio",
+  "worldSize": 128,
+  "heightRange": [0, 20],
+  "bounds": { "min": [-64, 0, -64], "max": [64, 20, 64] },
+  "heightfield": { "png": "heightfield.png", "json": "heightfield.json" },
+  "chunks": {
+    "verts": 65,
+    "perSide": 2,
+    "lods": [
+      { "lod": 0, "glb": "chunks/lod0.glb" },
+      { "lod": 1, "glb": "chunks/lod1.glb" },
+      { "lod": 2, "glb": "chunks/lod2.glb" },
+      { "lod": 3, "glb": "chunks/lod3.glb" }
+    ]
+  },
+  "maps": { "drape": "maps/drape.png", "landcover": "maps/landcover.png", "landcoverLegend": "maps/landcover.json" },
+  "foliage": "foliage.json",
+  "buildings": "buildings.json",
+  "roads": "roads.json",
+  "foliageAssets": [{ "name": "pine", "glb": "foliage/pine.glb" }]
+}

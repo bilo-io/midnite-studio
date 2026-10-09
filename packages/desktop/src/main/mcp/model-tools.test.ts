@@ -31,6 +31,33 @@ describe('model_* over the global MCP dispatcher', () => {
     expect(kit.files.size).toBe(0);
   });
 
+  it('refuses every sculpt and mesh-pipeline write tool while the switch is off, but lets landmarks be read', async () => {
+    const base = { ...target, model: 'x.obj' };
+    for (const [tool, input] of [
+      ['model_sculpt_stroke', { ...base, brush: 'draw', target: { mode: 'world', points: [[0, 0, 0]] } }],
+      ['model_mask', { ...base, op: 'clear' }],
+      ['model_subdivide', base],
+      ['model_remesh', base],
+      ['model_sculpt_undo', base],
+      ['model_decimate', base],
+      ['model_retopo', { ...base, targetFaces: 500 }],
+      ['model_unwrap', base],
+      ['model_bake', base],
+      ['model_export', base],
+      ['model_material_set', { ...base, preset: 'wood' }],
+      ['model_layer_add', { ...base, kind: 'paint' }],
+      ['model_set_reference_views', { ...base, clear: true }],
+      ['model_layer_update', { ...base, layer: 'paint', opacity: 0.5 }],
+      ['model_layer_remove', { ...base, layer: 'paint' }],
+      ['model_paint_stroke', { ...base, brush: 'brush', target: { mode: 'world', points: [[0, 0, 0]] } }],
+    ] as const) {
+      expect(await dispatchMcpCall(tool, input), tool).toEqual({ ok: false, kind: 'refused', message: MODELS_OFF_MESSAGE });
+    }
+    expect(await dispatchMcpCall('model_get_landmarks', base)).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await dispatchMcpCall('model_layer_list', base)).toMatchObject({ ok: false, kind: 'not-found' });
+    expect(await dispatchMcpCall('model_compare_reference', base)).toMatchObject({ ok: false, kind: 'not-found' });
+  });
+
   it('lets an external session read, list and render with the switch off', async () => {
     setMcpAllowModelsState(true);
     const made = await dispatchMcpCall('model_set_spec', { ...target, spec: BOX_SPEC });

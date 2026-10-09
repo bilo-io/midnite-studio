@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+import {
+  MapCaptureCancelRequestSchema,
+  MapCaptureProgressEventSchema,
+  MapCaptureRequestSchema,
+  MapCaptureResultSchema,
+} from '../media-map-capture';
+import { MapOpenEventSchema } from '../media-map-mcp';
+
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
 import {
   ChatAttachmentSchema,
@@ -221,8 +229,29 @@ import {
 } from '../media';
 import { DocExportFormatSchema } from '../media';
 import {
+  GmLoadResultSchema,
+  GmProgramRequestSchema,
+  GmProgressSchema,
+  GmStatusResponseSchema,
+} from '../media-music-gm';
+import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
+  GameAgentProgressSchema,
+  GameAssetSourcesRequestSchema,
+  GameAssetSourcesResultSchema,
+  GameImportAssetRequestSchema,
+  GameImportAssetResultSchema,
+  GameResyncRequestSchema,
+  GameResyncResultSchema,
+  GamePlaytestListSchema,
+  GamePlaytestRunRequestSchema,
+  GamePlaytestRunResultSchema,
+  GameExportRequestSchema,
+  GameExportResultSchema,
+  GameAgentRunRequestSchema,
+  GameAgentRunResultSchema,
+  GameAgentUndoRequestSchema,
   GameCreateRequestSchema,
   GameCreateResultSchema,
   GameIdRequest as GameIdRequestSchema,
@@ -232,12 +261,16 @@ import {
   GameManifestSetRequest as GameManifestSetRequestSchema,
   GameRunResult as GameRunResultSchema,
   GameRunStatePayload as GameRunStatePayloadSchema,
+  GamePopStateSchema,
+  GamePoppedResponseSchema,
   GamesChangedSchema,
   GamesOpenEventSchema,
   GamesListSchema,
   GamesSettingsReadSchema,
   GamesSettingsPatchSchema,
   GameToolbarRequest as GameToolbarRequestSchema,
+  GameJuiceRequest as GameJuiceRequestSchema,
+  GameJuiceSettingsSchema,
   GameVisibleRequest as GameVisibleRequestSchema,
 } from '../media-game';
 import {
@@ -249,6 +282,7 @@ import {
   ModelSaveEditRequestSchema,
 } from '../media-model';
 import { ModelLibraryNodeSchema, ModelLibraryRequestSchema } from '../media-model-library';
+import { ModelMeshRequestSchema, ModelMeshResultSchema } from '../media-model-mesh';
 import {
   TerrainBuildRequestSchema,
   TerrainCancelRequestSchema,
@@ -264,6 +298,48 @@ import {
   TerrainTargetSchema,
   TerrainLibraryRequestSchema,
 } from '../media-terrain';
+import {
+  MusicDeleteRequestSchema,
+  MusicImportRequestSchema,
+  MusicListRequestSchema,
+  MusicReadRequestSchema,
+  MusicResultSchemas,
+  MusicWriteRequestSchema,
+} from '../media-music';
+import {
+  MusicAgentCancelRequestSchema,
+  MusicAgentProgressEventSchema,
+  MusicAgentResultSchemas,
+  MusicAgentRunRequestSchema,
+  MusicAgyRegisterRequestSchema,
+  MusicChangedEventSchema,
+  MusicOpenEventSchema,
+} from '../media-music-mcp';
+import {
+  SpriteCancelRequestSchema,
+  SpriteChangedEventSchema,
+  SpriteExportRequestSchema,
+  SpriteImportMapRequestSchema,
+  SpriteGenerateRequestSchema,
+  SpriteLibraryRequestSchema,
+  SpriteOpenEventSchema,
+  SpritePatchFramesRequestSchema,
+  SpriteProgressEventSchema,
+  SpriteRenderFramesRequestSchema,
+  SpriteRenderReadyRequestSchema,
+  SpriteRenderRequestEventSchema,
+  SpriteResultSchemas,
+  SpriteSetReferenceRequestSchema,
+  SpriteSetSpecRequestSchema,
+  SpriteTargetSchema,
+} from '../media-sprite';
+import {
+  MapCacheRequestSchema,
+  MapResultSchemas,
+  MapSetViewRequestSchema,
+  MapSourcesResponseSchema,
+  MapTargetSchema,
+} from '../media-map';
 import { Sf3dRequestSchema, Sf3dGenerateResultSchema, Sf3dProgressEventSchema, Sf3dStatusSchema } from '../media-model-sf3d';
 import { ModelChangedEventSchema, ModelOpenEventSchema } from '../media-model-mcp';
 import {
@@ -3203,6 +3279,39 @@ export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
 export const MediaAudioExpandRequest = AudioExpandRequestSchema;
 export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
 
+// General MIDI sample cache (Phase 101 Theme D)
+export const MediaGmStatusResponse = GmStatusResponseSchema;
+export const MediaGmEnsureRequest = GmProgramRequestSchema;
+export const MediaGmEnsureResponse = GitOpResultSchema;
+export const MediaGmLoadRequest = GmProgramRequestSchema;
+export const MediaGmLoadResponse = GitOpResultOf(GmLoadResultSchema);
+export const MediaGmProgressPayload = GmProgressSchema;
+// Music editor (Phase 101 Theme B)
+export const MediaMusicListRequest = MusicListRequestSchema;
+export const MediaMusicListResponse = MusicResultSchemas.list;
+export const MediaMusicReadRequest = MusicReadRequestSchema;
+export const MediaMusicReadResponse = MusicResultSchemas.read;
+export const MediaMusicWriteRequest = MusicWriteRequestSchema;
+export const MediaMusicWriteResponse = MusicResultSchemas.write;
+export const MediaMusicImportRequest = MusicImportRequestSchema;
+export const MediaMusicImportResponse = MusicResultSchemas.import;
+export const MediaMusicDeleteRequest = MusicDeleteRequestSchema;
+export const MediaMusicDeleteResponse = MusicResultSchemas.delete;
+export const MediaMusicChangedPayload = MusicChangedEventSchema;
+export const MediaMusicOpenPayload = MusicOpenEventSchema;
+export const MediaMusicAgentRunRequest = MusicAgentRunRequestSchema;
+export const MediaMusicAgentRunResponse = MusicAgentResultSchemas.run;
+export const MediaMusicAgentCancelRequest = MusicAgentCancelRequestSchema;
+export const MediaMusicAgentCancelResponse = GitOpResultSchema;
+export const MediaMusicAgentProgressPayload = MusicAgentProgressEventSchema;
+/** Antigravity registration (Settings ▸ MCP): one channel, three ops. */
+export const MediaMusicAgyRequest = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('status') }),
+  z.object({ op: z.literal('register'), ...MusicAgyRegisterRequestSchema.shape }),
+  z.object({ op: z.literal('unregister') }),
+]);
+export const MediaMusicAgyResponse = MusicAgentResultSchemas.agyStatus;
+
 // Models (3D)
 export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });
 /** Resolves once the files are written (or the run failed / was cancelled). */
@@ -3226,6 +3335,9 @@ export const MediaModelLibraryResponse = GitOpResultOf(
     skipped: z.number().int().nonnegative().optional(),
   }),
 );
+/** Sculpt meshes (Phase 104): read / write `.mesh.bin`, append / read the op log — one channel, an `op` union. */
+export const MediaModelMeshRequest = ModelMeshRequestSchema;
+export const MediaModelMeshResponse = GitOpResultOf(ModelMeshResultSchema);
 // Terrain (Phase 105)
 export const MediaTerrainLibraryRequest = TerrainLibraryRequestSchema;
 export const MediaTerrainLibraryResponse = TerrainResultSchemas.library;
@@ -3243,12 +3355,55 @@ export const MediaTerrainCancelResponse = TerrainResultSchemas.generic;
 export const MediaTerrainPaintRequest = TerrainPaintRequestSchema;
 export const MediaTerrainPaintResponse = TerrainResultSchemas.generic;
 export const MediaTerrainRoadKeyRequest = TerrainRoadKeyRequestSchema;
-export const MediaTerrainRoadKeyResponse = TerrainResultSchemas.generic;
+export const MediaTerrainRoadKeyResponse = TerrainResultSchemas.roadKey;
 export const MediaTerrainExportRequest = TerrainExportRequestSchema;
-export const MediaTerrainExportResponse = TerrainResultSchemas.generic;
+export const MediaTerrainExportResponse = TerrainResultSchemas.export;
 export const MediaTerrainProgressPayload = TerrainProgressEventSchema;
 export const MediaTerrainChangedPayload = TerrainChangedEventSchema;
 export const MediaTerrainOpenPayload = TerrainOpenEventSchema;
+
+// Sprites (Phase 106)
+export const MediaSpriteLibraryRequest = SpriteLibraryRequestSchema;
+export const MediaSpriteLibraryResponse = SpriteResultSchemas.library;
+export const MediaSpriteGetRequest = SpriteTargetSchema;
+export const MediaSpriteGetResponse = SpriteResultSchemas.get;
+export const MediaSpriteSetSpecRequest = SpriteSetSpecRequestSchema;
+export const MediaSpriteSetSpecResponse = SpriteResultSchemas.setSpec;
+export const MediaSpriteSetReferenceRequest = SpriteSetReferenceRequestSchema;
+export const MediaSpriteSetReferenceResponse = SpriteResultSchemas.generic;
+export const MediaSpriteGenerateRequest = SpriteGenerateRequestSchema;
+export const MediaSpriteGenerateResponse = SpriteResultSchemas.generate;
+export const MediaSpriteCancelRequest = SpriteCancelRequestSchema;
+export const MediaSpriteCancelResponse = SpriteResultSchemas.generic;
+export const MediaSpritePatchFramesRequest = SpritePatchFramesRequestSchema;
+export const MediaSpritePatchFramesResponse = SpriteResultSchemas.patchFrames;
+export const MediaSpriteExportRequest = SpriteExportRequestSchema;
+export const MediaSpriteExportResponse = SpriteResultSchemas.export;
+export const MediaSpriteImportMapRequest = SpriteImportMapRequestSchema;
+export const MediaSpriteImportMapResponse = SpriteResultSchemas.library;
+export const MediaSpriteProgressPayload = SpriteProgressEventSchema;
+export const MediaSpriteChangedPayload = SpriteChangedEventSchema;
+export const MediaSpriteOpenPayload = SpriteOpenEventSchema;
+export const MediaSpriteRenderReadyRequest = SpriteRenderReadyRequestSchema;
+export const MediaSpriteRenderReadyResponse = SpriteResultSchemas.generic;
+export const MediaSpriteRenderFramesRequest = SpriteRenderFramesRequestSchema;
+export const MediaSpriteRenderFramesResponse = SpriteResultSchemas.generic;
+
+// Maps (Phase 108)
+export const MediaMapGetRequest = MapTargetSchema;
+export const MediaMapGetResponse = MapResultSchemas.get;
+export const MediaMapSetViewRequest = MapSetViewRequestSchema;
+export const MediaMapSetViewResponse = MapResultSchemas.setView;
+export const MediaMapSourcesResponse = MapSourcesResponseSchema;
+export const MediaMapCacheRequest = MapCacheRequestSchema;
+export const MediaMapCacheResponse = MapResultSchemas.cache;
+export const MediaMapCaptureRequest = MapCaptureRequestSchema;
+export const MediaMapCaptureResponse = GitOpResultOf(MapCaptureResultSchema);
+export const MediaMapCaptureCancelRequest = MapCaptureCancelRequestSchema;
+export const MediaMapCaptureCancelResponse = GitOpResultOf(z.object({ cancelled: z.boolean() }));
+export const MediaMapCaptureProgressPayload = MapCaptureProgressEventSchema;
+export const MediaMapOpenPayload = MapOpenEventSchema;
+export const MediaSpriteRenderRequestPayload = SpriteRenderRequestEventSchema;
 export const MediaModelProgressPayload = ModelGenerateProgressEventSchema;
 export const MediaModelChangedPayload = ModelChangedEventSchema;
 export const MediaModelOpenPayload = ModelOpenEventSchema;
@@ -3829,6 +3984,14 @@ export const McpGetResponse = z.object({
   allowModels: z.boolean(),
   /** Phase 107 Theme D's fifth switch — whether the `game_*` tools that create, run or drive a game may act. */
   allowGames: z.boolean(),
+  /** Phase 105 Theme J's sixth switch — whether the `terrain_*` tools that change a terrain, build or export may act. */
+  allowTerrains: z.boolean(),
+  /** Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a job or export may act. */
+  allowSprites: z.boolean(),
+  /** Phase 108 Theme I's eighth switch — whether `map_goto` and `map_capture_terrain` may move the view or capture a map. */
+  allowMaps: z.boolean(),
+  /** Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song may act. */
+  allowMusic: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3843,6 +4006,10 @@ export const McpSetRequest = z.object({
   allowGateDecide: z.boolean().optional(),
   allowModels: z.boolean().optional(),
   allowGames: z.boolean().optional(),
+  allowTerrains: z.boolean().optional(),
+  allowSprites: z.boolean().optional(),
+  allowMaps: z.boolean().optional(),
+  allowMusic: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
@@ -4333,6 +4500,8 @@ export const GamesReloadRequest = GameIdRequestSchema;
 export const GamesSetBoundsRequest = GameBoundsRequestSchema;
 export const GamesSetVisibleRequest = GameVisibleRequestSchema;
 export const GamesToolbarRequest = GameToolbarRequestSchema;
+export const GamesJuiceRequest = GameJuiceRequestSchema;
+export const GamesJuiceResponse = GitOpResultOf(GameJuiceSettingsSchema);
 export const GamesLogsRequest = GameLogsRequestSchema;
 export const GamesLogsResponse = GameLogsResponseSchema;
 export const GamesChangedPayload = GamesChangedSchema;
@@ -4342,3 +4511,25 @@ export const GamesConsolePayload = GameConsolePayloadSchema;
 export const GamesKitUpgradeRequest = GameIdRequestSchema;
 export const GamesKitUpgradeResultSchema = z.object({ branch: z.string() });
 export const GamesKitUpgradeResponse = GitOpResultOf(GamesKitUpgradeResultSchema);
+export const GamesPopOutRequest = GameIdRequestSchema;
+export const GamesPoppedResponse = GamePoppedResponseSchema;
+export const GamesPopStatePayload = GamePopStateSchema;
+export const GamesAgentRunRequest = GameAgentRunRequestSchema;
+export const GamesAgentRunResponse = GitOpResultOf(GameAgentRunResultSchema);
+export const GamesAgentCancelRequest = GameIdRequestSchema;
+export const GamesAgentUndoRequest = GameAgentUndoRequestSchema;
+export const GamesAgentProgressPayload = GameAgentProgressSchema;
+export const GamesAssetSourcesRequest = GameAssetSourcesRequestSchema;
+export const GamesAssetSourcesResponse = GitOpResultOf(GameAssetSourcesResultSchema);
+export const GamesImportAssetRequest = GameImportAssetRequestSchema;
+export const GamesImportAssetResponse = GitOpResultOf(GameImportAssetResultSchema);
+export const GamesResyncRequest = GameResyncRequestSchema;
+export const GamesResyncResponse = GitOpResultOf(GameResyncResultSchema);
+// Play-tests (Theme O): the runner toolbar's Playtests menu.
+export const GamesPlaytestsRequest = GameIdRequestSchema;
+export const GamesPlaytestsResponse = GitOpResultOf(GamePlaytestListSchema);
+export const GamesPlaytestRunRequest = GamePlaytestRunRequestSchema;
+export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchema);
+// Web export (Theme P).
+export const GamesExportRequest = GameExportRequestSchema;
+export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);

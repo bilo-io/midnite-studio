@@ -14,12 +14,21 @@
 import { z } from 'zod';
 
 import {
+  GameAgentEngineSchema,
+  GameAssetNameSchema,
+  GameAssetSourceSchema,
+  GameImportAssetResultSchema,
   GameCreateRequestSchema,
   GameLogEntrySchema,
   GameManifestSchema,
   GameSummarySchema,
   GAME_LOG_LEVELS,
   GameStateSchema,
+  GamePlaytestNameSchema,
+  GamePlaytestSchema,
+  GameReplaySchema,
+  GameStateAssertOpSchema,
+  GAME_REPLAY_MAX_FRAMES,
 } from './media-game';
 
 /** Ids of the tools, in the order an agent meets them. Themes N and O append their own. */
@@ -36,6 +45,12 @@ export const GAME_MCP_TOOL_IDS = [
   'game_logs',
   'game_input',
   'game_state',
+  'game_import_asset',
+  'game_replay_record',
+  'game_replay_play',
+  'game_assert_state',
+  'game_assert_frame',
+  'game_playtest',
 ] as const;
 export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
@@ -51,7 +66,15 @@ export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
 ];
 
 /** Tools that outlast the shim's default 60 s call timeout (a run boots a renderer, a burst waits between frames). */
-export const GAME_SLOW_TOOL_IDS: readonly string[] = ['game_create', 'game_run', 'game_screenshot', 'game_input'];
+export const GAME_SLOW_TOOL_IDS: readonly string[] = [
+  'game_create',
+  'game_run',
+  'game_screenshot',
+  'game_input',
+  'game_replay_play',
+  'game_playtest',
+  'game_import_asset',
+];
 export const isGameSlowToolId = (value: string): boolean => GAME_SLOW_TOOL_IDS.includes(value);
 
 /** What the shim allows a slow `game_*` call before giving up. */
@@ -63,7 +86,13 @@ export const GAMES_OFF_MESSAGE = 'Game running and editing is off — Settings �
 /** Which game a call is about: a `gameId` from `game_list`, or the game repo's absolute path. */
 export const GameToolTargetSchema = z.object({ game: z.string().min(1) });
 
-export const GameCreateInputSchema = GameCreateRequestSchema.omit({ folder: true });
+export const GameCreateInputSchema = GameCreateRequestSchema.omit({ folder: true }).extend({
+  /**
+   * The engine that will write the game (Theme M), when the caller knows it. Naming an
+   * Ollama engine creates the game all the same, and adds `GAMES_OLLAMA_WARNING` to `warnings`.
+   */
+  writer: GameAgentEngineSchema.optional(),
+});
 
 export const GameSetManifestInputSchema = GameToolTargetSchema.extend({
   /** Merged over the stored manifest and re-validated; `vendored` and `kitVersion` cannot change this way. */
@@ -100,6 +129,12 @@ export const GameInputEventSchema = z.discriminatedUnion('type', [
   z.object({ t: inputTime, type: z.literal('gamepad'), button: z.number().int().min(0).max(16), pressed: z.boolean() }),
 ]);
 export type GameInputEvent = z.infer<typeof GameInputEventSchema>;
+export const GameImportAssetInputSchema = GameToolTargetSchema.extend({
+  /** An item in a registered repo's media store, or a pack folder under a registered repo or the games location. */
+  source: GameAssetSourceSchema,
+  name: GameAssetNameSchema.optional(),
+});
+
 export const GameInputInputSchema = GameToolTargetSchema.extend({
   events: z.array(GameInputEventSchema).max(GAME_INPUT_MAX_EVENTS),
 });
@@ -107,7 +142,7 @@ export const GameInputInputSchema = GameToolTargetSchema.extend({
 // --- outputs ---------------------------------------------------------------------
 
 export const GameListOutputSchema = z.object({ games: z.array(GameSummarySchema) });
-export const GameCreateOutputSchema = z.object({ path: z.string(), gameId: z.string() });
+export const GameCreateOutputSchema = z.object({ path: z.string(), gameId: z.string(), warnings: z.array(z.string()) });
 export const GameOpenOutputSchema = z.object({ opened: z.literal(true), gameId: z.string() });
 export const GameGetManifestOutputSchema = z.object({
   gameId: z.string(),
@@ -119,3 +154,77 @@ export const GameRunOutputSchema = z.object({ gameId: z.string(), runId: z.strin
 export const GameLogsOutputSchema = z.object({ entries: z.array(GameLogEntrySchema), next: z.number().int().nonnegative() });
 export const GameInputOutputSchema = z.object({ sent: z.number().int().nonnegative() });
 export const GameStateOutputSchema = z.object({ state: GameStateSchema });
+export const GameImportAssetOutputSchema = GameImportAssetResultSchema.extend({ gameId: z.string() });
+
+// --- play-test depth (Theme O) ----------------------------------------------------
+
+/**
+ * `start` restarts the game in deterministic mode (paused at its first step), starts the kit's
+ * recorder and resumes, so a human plays from a known state; `stop` writes
+ * `playtests/replays/<name>.replay.json`.
+ */
+export const GameReplayRecordInputSchema = GameToolTargetSchema.extend({
+  action: z.enum(['start', 'stop']),
+  /** Required on `stop`: the replay's file name, without `.replay.json`. */
+  name: GamePlaytestNameSchema.optional(),
+  /** `start` only; default 1. */
+  seed: z.number().int().optional(),
+});
+export const GameReplayRecordOutputSchema = z.object({
+  gameId: z.string(),
+  recording: z.boolean(),
+  seed: z.number().int().optional(),
+  /** `stop`: where the replay was written, relative to the repo. */
+  path: z.string().optional(),
+  frames: z.number().int().nonnegative().optional(),
+  events: z.number().int().nonnegative().optional(),
+});
+
+export const GameReplaySpeedSchema = z.union([z.literal(1), z.literal('max')]);
+export const GameReplayPlayInputSchema = GameToolTargetSchema.extend({
+  /** A path relative to the repo (`playtests/replays/walk.replay.json`), or a replay inline. */
+  replay: z.union([z.string().min(1).max(256), GameReplaySchema]),
+  /** `1` plays in real time (watchable); `max` steps as fast as the page can. */
+  speed: GameReplaySpeedSchema.default('max'),
+});
+export const GameReplayPlayOutputSchema = z.object({
+  gameId: z.string(),
+  frames: z.number().int().nonnegative(),
+  state: GameStateSchema,
+});
+
+/**
+ * A state expectation at frame `frame` of the current run. The game is paused and stepped
+ * forward to that frame (with the loaded replay's input, if any); a frame already passed is an
+ * error — re-run with `game_replay_play` or `game_playtest` to go back.
+ */
+export const GameAssertStateInputSchema = GameToolTargetSchema.extend({
+  frame: z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES),
+  path: z.string().min(1).max(256),
+  op: GameStateAssertOpSchema,
+  value: z.unknown().optional(),
+  epsilon: z.number().nonnegative().optional(),
+});
+export const GameAssertStateOutputSchema = z.object({
+  gameId: z.string(),
+  ok: z.boolean(),
+  status: z.enum(['pass', 'fail', 'error']),
+  message: z.string(),
+  actual: z.unknown().optional(),
+});
+
+/** Compare frame `frame` with `playtests/baselines/<name>@<frame>.png`; a missing baseline is written. */
+export const GameAssertFrameInputSchema = GameToolTargetSchema.extend({
+  frame: z.number().int().nonnegative().max(GAME_REPLAY_MAX_FRAMES),
+  name: GamePlaytestNameSchema,
+  tolerance: z.number().min(0).max(1).default(0.01),
+});
+
+/** Run play-tests: a name in `playtests/`, an inline play-test, or every one when neither is given. */
+export const GamePlaytestInputSchema = GameToolTargetSchema.extend({
+  name: GamePlaytestNameSchema.optional(),
+  playtest: GamePlaytestSchema.optional(),
+});
+
+/** `game_assert_frame` and `game_playtest` answer a JSON text block, then any diff or failure images. */
+export const GameContentOutputSchema = z.object({ _content: z.array(z.unknown()) });

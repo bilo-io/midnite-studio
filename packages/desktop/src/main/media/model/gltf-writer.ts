@@ -6,6 +6,7 @@ import {
   MAX_INFLUENCES,
   type MeshPart,
   modelAsset,
+  modelTexture,
   type ModelSpec,
   type PartSkin,
   qIdentity,
@@ -40,6 +41,14 @@ const UNSIGNED_INT = 5125;
 
 type Json = Record<string, unknown>;
 
+/**
+ * `EXT_mesh_gpu_instancing` (Phase 105 Theme I): one node per entry, drawn once per instance. `colors`
+ * (rgb floats, one per vertex) go out as `COLOR_0`, so a multi-coloured design shares one primitive.
+ */
+export type GltfInstancing = {
+  meshes: { part: MeshPart; translations: Float32Array; rotations: Float32Array; scales: Float32Array; colors?: Float32Array }[];
+};
+
 export type GltfBuild = { json: Json; bin: Buffer };
 
 /** A rigged design's skeleton, per-part skins (same order as the parts) and clips baked at 30 fps. */
@@ -59,7 +68,15 @@ export function gltfRigging(spec: ModelSpec, parts: readonly MeshPart[]): GltfRi
  * a skinned primitive (`JOINTS_0`/`WEIGHTS_0`) bound to one shared skin, and every clip a glTF
  * animation: a rotation channel per bone and a translation channel for each bone that moves.
  */
-export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null): GltfBuild {
+export function buildGltf(
+  basePartsIn: readonly MeshPart[],
+  title = 'model',
+  rigging: GltfRigging | null = null,
+  instancing: GltfInstancing | null = null,
+): GltfBuild {
+  // Instanced meshes ride after the plain parts, so the material and name tables are shared; `null` leaves `parts === basePartsIn`.
+  const baseCount = basePartsIn.length;
+  const parts: readonly MeshPart[] = instancing && instancing.meshes.length > 0 ? [...basePartsIn, ...instancing.meshes.map((m) => m.part)] : basePartsIn;
   // Bone names are the contract retargeting reads, so a part that shares one ("head") yields its name.
   const boneNames = new Set(rigging?.rig.bones.map((b) => b.name) ?? []);
   const names = uniqueNames(parts).map((n) => (boneNames.has(n) ? `${n}_mesh` : n));
@@ -86,23 +103,68 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
   // Textured parts: one image, texture and material per distinct (texture, tint, surface).
   const images: Json[] = [];
   const textures: Json[] = [];
-  const texturedMaterials: { color: string; material: MeshPart['material']; texture: number }[] = [];
+  type Surface = { color: string; material: MeshPart['material']; texture?: number; normal?: number; occlusion?: number; orm?: number; emissiveMap?: number; painted?: boolean };
+  const texturedMaterials: Surface[] = [];
   const imageOf = new Map<string, number>();
   const texturedKey = new Map<string, number>();
-  const materialFor = (part: MeshPart, index: number): number => {
-    const image = part.texture ? modelAsset(part.texture)?.texture : undefined;
-    if (!image || !part.uvs) return indexOf[index]!;
-    let texture = imageOf.get(part.texture!);
-    if (texture === undefined) {
+  /** One glTF texture per distinct image (base colour, normal and occlusion maps share the table). */
+  const textureIndex = (hash: string, image: { mime: string; data: Uint8Array }): number => {
+    let at = imageOf.get(hash);
+    if (at === undefined) {
       images.push({ bufferView: addView(Buffer.from(image.data)), mimeType: image.mime });
       textures.push({ source: images.length - 1, sampler: 0 });
-      texture = textures.length - 1;
-      imageOf.set(part.texture!, texture);
+      at = textures.length - 1;
+      imageOf.set(hash, at);
     }
-    const key = [texture, part.color, part.material.metalness, part.material.roughness, part.material.opacity, part.material.emissive, part.material.emissiveIntensity].join('|');
+    return at;
+  };
+  const materialFor = (part: MeshPart, index: number): number => {
+    if (part.uvs && part.pbr) {
+      // A painted sculpt part (Theme G): the flattened set already holds its colour, material and bakes.
+      const tex = (file: { hash: string } | undefined): number | undefined => {
+        const image = file ? modelTexture(file.hash) : undefined;
+        return image ? textureIndex(file!.hash, image) : undefined;
+      };
+      const texture = tex(part.pbr.baseColor);
+      const orm = tex(part.pbr.orm);
+      const normal = tex(part.pbr.normal);
+      const emissiveMap = tex(part.pbr.emissive);
+      if (texture !== undefined || orm !== undefined || normal !== undefined || emissiveMap !== undefined) {
+        const key = ['pbr', texture, orm, normal, emissiveMap, part.material.opacity, part.material.emissiveIntensity].join('|');
+        let at = texturedKey.get(key);
+        if (at === undefined) {
+          texturedMaterials.push({
+            color: '#ffffff',
+            material: part.material,
+            painted: true,
+            ...(texture !== undefined ? { texture } : {}),
+            ...(orm !== undefined ? { orm, occlusion: orm } : {}),
+            ...(normal !== undefined ? { normal } : {}),
+            ...(emissiveMap !== undefined ? { emissiveMap } : {}),
+          });
+          at = materials.length + texturedMaterials.length - 1;
+          texturedKey.set(key, at);
+        }
+        return at;
+      }
+    }
+    const base = part.texture ? modelAsset(part.texture)?.texture : undefined;
+    const normalImage = part.maps?.normal ? modelTexture(part.maps.normal.hash) : undefined;
+    const occlusionImage = part.maps?.ao ? modelTexture(part.maps.ao.hash) : undefined;
+    if (!part.uvs || (!base && !normalImage && !occlusionImage)) return indexOf[index]!;
+    const texture = base ? textureIndex(part.texture!, base) : undefined;
+    const normal = normalImage ? textureIndex(part.maps!.normal!.hash, normalImage) : undefined;
+    const occlusion = occlusionImage ? textureIndex(part.maps!.ao!.hash, occlusionImage) : undefined;
+    const key = [texture, normal, occlusion, part.color, part.material.metalness, part.material.roughness, part.material.opacity, part.material.emissive, part.material.emissiveIntensity].join('|');
     let at = texturedKey.get(key);
     if (at === undefined) {
-      texturedMaterials.push({ color: part.color, material: part.material, texture });
+      texturedMaterials.push({
+        color: part.color,
+        material: part.material,
+        ...(texture !== undefined ? { texture } : {}),
+        ...(normal !== undefined ? { normal } : {}),
+        ...(occlusion !== undefined ? { occlusion } : {}),
+      });
       at = materials.length + texturedMaterials.length - 1;
       texturedKey.set(key, at);
     }
@@ -153,11 +215,30 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
       accessors.push({ bufferView: addView(floats(skin.weights), ARRAY_BUFFER), componentType: FLOAT, count: vertexCount, type: 'VEC4' });
     }
 
+    const instanced = index >= baseCount ? instancing!.meshes[index - baseCount]! : null;
+    if (instanced?.colors && instanced.colors.length === vertexCount * 3) {
+      attributes.COLOR_0 = accessors.length;
+      accessors.push({ bufferView: addView(floats(Array.from(instanced.colors)), ARRAY_BUFFER), componentType: FLOAT, count: vertexCount, type: 'VEC3' });
+    }
+    let instanceExtension: Json | undefined;
+    if (instanced) {
+      const count = instanced.translations.length / 3;
+      const attr = (data: Float32Array, type: 'VEC3' | 'VEC4'): number => {
+        accessors.push({ bufferView: addView(floats(Array.from(data))), componentType: FLOAT, count, type });
+        return accessors.length - 1;
+      };
+      instanceExtension = {
+        EXT_mesh_gpu_instancing: {
+          attributes: { TRANSLATION: attr(instanced.translations, 'VEC3'), ROTATION: attr(instanced.rotations, 'VEC4'), SCALE: attr(instanced.scales, 'VEC3') },
+        },
+      };
+    }
+
     meshes.push({
       name: names[index],
       primitives: [{ attributes, indices: indexAccessor, material: materialFor(part, index), mode: 4 }],
     });
-    nodes.push({ name: names[index], mesh: meshes.length - 1, ...(skin ? { skin: 0 } : {}) });
+    nodes.push({ name: names[index], mesh: meshes.length - 1, ...(skin ? { skin: 0 } : {}), ...(instanceExtension ? { extensions: instanceExtension } : {}) });
     meshNodes.push(nodes.length - 1);
   });
 
@@ -211,8 +292,8 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     });
   }
 
-  const allMaterials: { color: string; material: MeshPart['material']; texture?: number }[] = [...materials, ...texturedMaterials];
-  const usesEmissiveStrength = allMaterials.some((m) => m.material.emissive !== '#000000' && m.material.emissiveIntensity > 1);
+  const allMaterials: Surface[] = [...materials, ...texturedMaterials];
+  const usesEmissiveStrength = allMaterials.some((m) => (m.painted ? m.emissiveMap !== undefined : m.material.emissive !== '#000000') && m.material.emissiveIntensity > 1);
   const gltfMaterials = allMaterials.map((entry, index) => {
     const [r, g, b] = hexToRgb(entry.color).map(srgbToLinear);
     const { metalness, roughness, opacity, emissive, emissiveIntensity } = entry.material;
@@ -223,7 +304,24 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
       doubleSided: false,
     };
     if (entry.texture !== undefined) (material.pbrMetallicRoughness as Json).baseColorTexture = { index: entry.texture };
+    if (entry.normal !== undefined) material.normalTexture = { index: entry.normal };
+    if (entry.occlusion !== undefined) material.occlusionTexture = { index: entry.occlusion };
     if (opacity < 1) material.alphaMode = 'BLEND';
+    if (entry.painted) {
+      // The ORM image carries roughness (G) and metalness (B) outright, so the factors stay at 1.
+      if (entry.orm !== undefined) {
+        const pbr = material.pbrMetallicRoughness as Json;
+        pbr.metallicRoughnessTexture = { index: entry.orm };
+        pbr.metallicFactor = 1;
+        pbr.roughnessFactor = 1;
+      }
+      if (entry.emissiveMap !== undefined) {
+        material.emissiveTexture = { index: entry.emissiveMap };
+        material.emissiveFactor = [1, 1, 1];
+        if (emissiveIntensity > 1) material.extensions = { KHR_materials_emissive_strength: { emissiveStrength: round(emissiveIntensity) } };
+      }
+      return material;
+    }
     if (emissive !== '#000000') {
       const scale = Math.min(1, emissiveIntensity);
       material.emissiveFactor = glow.map((c) => round(c * scale));
@@ -246,13 +344,14 @@ export function buildGltf(parts: readonly MeshPart[], title = 'model', rigging: 
     bufferViews,
     buffers: [{ byteLength: length }],
   };
-  if (usesEmissiveStrength) json.extensionsUsed = ['KHR_materials_emissive_strength'];
+  const used = [...(usesEmissiveStrength ? ['KHR_materials_emissive_strength'] : []), ...(instancing && instancing.meshes.length > 0 ? ['EXT_mesh_gpu_instancing'] : [])];
+  if (used.length > 0) json.extensionsUsed = used;
   return { json, bin: Buffer.concat(chunks) };
 }
 
 /** The `.glb` container: header, a space-padded JSON chunk, a zero-padded BIN chunk. */
-export function writeGlb(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null): Buffer {
-  const { json, bin } = buildGltf(parts, title, rigging);
+export function writeGlb(parts: readonly MeshPart[], title = 'model', rigging: GltfRigging | null = null, instancing: GltfInstancing | null = null): Buffer {
+  const { json, bin } = buildGltf(parts, title, rigging, instancing);
   const jsonText = Buffer.from(JSON.stringify(json), 'utf8');
   const jsonChunk = Buffer.concat([jsonText, Buffer.alloc((4 - (jsonText.length % 4)) % 4, 0x20)]);
   const binChunk = Buffer.concat([bin, Buffer.alloc((4 - (bin.length % 4)) % 4)]);

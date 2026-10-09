@@ -152,7 +152,7 @@ describe('registerPrivilegedSchemes', () => {
 
     expect(register).toHaveBeenCalledTimes(1);
     const schemes = register.mock.calls[0]![0];
-    expect(schemes.map((entry) => entry.scheme)).toEqual(['mstudio-file', 'mstudio-game']);
+    expect(schemes.map((entry) => entry.scheme)).toEqual(['mstudio-file', 'mstudio-game', 'mstudio-tile']);
     expect(schemes[1]!.privileges).toEqual({
       standard: true,
       secure: true,

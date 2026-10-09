@@ -17,7 +17,7 @@ import type { SecretKey } from './domain/secrets';
 // --- tabs --------------------------------------------------------------------
 
 /** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'model', 'terrain', 'game'] as const;
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model', 'sprite', 'game'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -27,7 +27,7 @@ export type MediaTab = z.infer<typeof MediaTabSchema>;
  * Phase 44's global setting, so it keeps working with no repo open; Games (Phase 107) likewise resolves its
  * own root (the games location setting).
  */
-export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'model', 'terrain'];
+export const REPO_SCOPED_MEDIA_TABS: readonly MediaTab[] = ['doc', 'image', 'audio', 'map', 'terrain', 'model', 'sprite'];
 
 /** `<repo>/.midnite/media` — joined with the tab id for each tab's root. */
 export const MEDIA_ROOT_DIR = '.midnite/media';
@@ -61,6 +61,12 @@ export const MEDIA_EXPORT_FORMATS = [
   'game-html',
   'game-zip',
   'game-folder',
+  // sprites (Phase 106) — a pack is a folder of PNG atlas + JSON, written by main
+  'sprite-pack',
+  'terrain-pack',
+  // maps (Phase 108) — the selected GeoJSON layer, written by Theme H
+  'geojson',
+  'kml',
 ] as const;
 export const MediaExportFormatSchema = z.enum(MEDIA_EXPORT_FORMATS);
 export type MediaExportFormat = z.infer<typeof MediaExportFormatSchema>;
@@ -91,9 +97,13 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   fbx: { label: 'Autodesk FBX (binary)', ext: 'fbx', needsFfmpeg: false },
   'fbx-ascii': { label: 'Autodesk FBX (ASCII)', ext: 'fbx', needsFfmpeg: false },
   glb: { label: 'glTF binary (PBR)', ext: 'glb', needsFfmpeg: false },
+  'terrain-pack': { label: 'Terrain pack (folder)', ext: '', needsFfmpeg: false },
   'game-html': { label: 'Single HTML file', ext: 'html', needsFfmpeg: false },
   'game-zip': { label: 'Zip archive', ext: 'zip', needsFfmpeg: false },
   'game-folder': { label: 'Static folder', ext: '', needsFfmpeg: false },
+  'sprite-pack': { label: 'Sprite pack (folder)', ext: '', needsFfmpeg: false },
+  geojson: { label: 'GeoJSON layer', ext: 'geojson', needsFfmpeg: false },
+  kml: { label: 'KML layer', ext: 'kml', needsFfmpeg: false },
 };
 
 /** Each tab's export menu, first entry = the split button's default. */
@@ -103,9 +113,13 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   video: ['mp4', 'webm', 'gif', 'prores'],
   audio: ['mp3', 'wav', 'flac'],
   model: ['obj', 'fbx', 'glb', 'fbx-ascii'],
-  // Theme I (Phase 105) puts `terrain-pack` first; until then a terrain exports as one glb.
-  terrain: ['glb'],
+  // The pack (a folder, not a zip: Phase 105 Decision 13) is the default; the glb is one file for a DCC tool.
+  terrain: ['terrain-pack', 'glb'],
+  // Theme G (Phase 106) writes the pack; until then the tab's export answers "not available yet".
+  sprite: ['sprite-pack'],
   game: ['game-html', 'game-zip', 'game-folder'],
+  // Phase 108: the split button exports the selected layer (Theme H).
+  map: ['geojson', 'kml'],
 };
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */
@@ -201,6 +215,11 @@ export type ImageProviderInfo = {
   models: readonly ImageModelInfo[];
   /** Set when the provider can never be picked in this build — shown as the option's tooltip. */
   disabledReason?: string;
+  /**
+   * Whether the adapter can attach reference images (Phase 106 Theme D, Decision 5): Gemini sends them
+   * as `inline_data` parts (`gemini-*-image` models only), OpenAI switches to `/v1/images/edits`.
+   */
+  supportsReference: boolean;
 };
 
 export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
@@ -213,6 +232,7 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
       { id: 'imagen-4.0-generate-001', label: 'Imagen 4' },
       { id: 'imagen-4.0-fast-generate-001', label: 'Imagen 4 Fast' },
     ],
+    supportsReference: true,
   },
   {
     id: 'openai',
@@ -222,15 +242,30 @@ export const IMAGE_PROVIDERS: readonly ImageProviderInfo[] = [
       { id: 'gpt-image-1', label: 'GPT Image 1' },
       { id: 'gpt-image-1-mini', label: 'GPT Image 1 Mini' },
     ],
+    supportsReference: true,
   },
   {
     id: 'agy',
     label: 'Antigravity CLI',
     secretKey: null,
     models: [{ id: 'agy-default', label: 'Gemini 2.5 Flash Image' }],
+    supportsReference: false,
   },
-  { id: 'ollama', label: 'Ollama', secretKey: null, models: [] },
+  { id: 'ollama', label: 'Ollama', secretKey: null, models: [], supportsReference: false },
 ];
+
+/** At most this many reference images ride along with one request. */
+export const IMAGE_MAX_REFERENCES = 4;
+
+/** Gemini's Imagen models answer `:predict`, which takes no reference image. */
+export function imageModelSupportsReference(provider: ImageProviderId, model: string): boolean {
+  if (!imageProviderInfo(provider).supportsReference) return false;
+  return !(provider === 'gemini' && model.startsWith('imagen-'));
+}
+
+/** Why a provider cannot draw reference-locked frames — the picker's tooltip and the job's refusal. */
+export const imageReferenceUnsupportedReason = (label: string): string =>
+  `${label} can't use a reference image, so frames would not match. Pick Gemini or OpenAI.`;
 
 export function imageProviderInfo(id: ImageProviderId): ImageProviderInfo {
   return IMAGE_PROVIDERS.find((p) => p.id === id)!;
@@ -310,6 +345,13 @@ export const ImageGenerateRequestSchema = z.object({
   aspect: ImageAspectSchema.default('1:1'),
   count: z.number().int().min(1).max(IMAGE_MAX_COUNT).default(1),
   seed: z.number().int().nonnegative().optional(),
+  /**
+   * Reference images (Phase 106 Theme D): paths inside the same repo's `.midnite/media/`
+   * (`<tab>/<project>/<path>`), confined by the media store. Only providers with `supportsReference`.
+   */
+  references: z.array(z.string().min(1).max(1024)).max(IMAGE_MAX_REFERENCES).optional(),
+  /** Ask for a real transparent background where the provider can return one (OpenAI). */
+  transparent: z.boolean().optional(),
 });
 export type ImageGenerateRequest = z.infer<typeof ImageGenerateRequestSchema>;
 

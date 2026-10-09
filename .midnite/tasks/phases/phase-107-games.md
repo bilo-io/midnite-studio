@@ -149,8 +149,7 @@ copies a **blank** scaffold from `templates/media-game/common/`, writes the mani
 The Games tab lists game repos with no repo open, and Settings ▸ Media ▸ Games carries the location, engine, network
 and squash settings and the Ollama warning.
 
-**Theme B — The sandboxed runner.** 🔄 Mostly landed; **Pop out** (the `game` window role, `reparentGameView`) and the
-real-Chromium e2e are still open. One `WebContentsView` per run on an in-memory `game-<gameId>-<runId>` partition
+**Theme B — The sandboxed runner.** ✅ Landed, bar the real-Chromium e2e, which moves to Theme Q. **Pop out** ships as a games IPC (`gamesPopOut`, `gamesPopped`, `gamesPopState`) over a `game` window role: one popped game at a time, runs of a popped game start in the popout, and closing it docks the view back to main. One `WebContentsView` per run on an in-memory `game-<gameId>-<runId>` partition
 (`persist:game-<id>` with `keepSaveData`), no preload; `mstudio-game://<gameId>/` registered by
 `registerPrivilegedSchemes()` alongside `mstudio-file` and handled only on that session, with traversal, symlink,
 dotfile and wrong-host refusals, CSP and `nosniff` on every response, `onBeforeRequest` blocking, a four-permission
@@ -170,49 +169,43 @@ with `// @ts-check` for editor typing without a build; kit versioning with `GAME
 Settings ▸ MCP; untrusted `game_state` capped at 256 KB with depth validation; burst screenshot capture and
 sequenced input via `sendInputEvent`; covered by comprehensive vitest suites.
 
-**Theme E — Phaser kit and the 2D perspective presets.** ◻ Not started. `kit/core/` (engine-free,
-vitest) plus `kit/phaser/`; the `window.__midnite` hook contract (`GameStateSchema`); four presets
-including a DDA raycaster.
+**Theme E — Phaser kit and the 2D perspective presets.** ✅ Landed. Engine-free `kit/core/` (rng, clock, iso, raycast, anim-names, input-map, jump, tiled-objects, asset-index, save, hook, preset-defaults) covered by `kit-core.test.ts`, plus `kit/phaser/` (boot, scenes, input, camera, animator, tiled, hud, audio) and the platformer, top-down, isometric and DDA raycaster presets, all smoke-tested in real Chromium. `window.__midnite` is installed by `hook.js`; `KitGameStateSchema` is the kit's required contract while `GameStateSchema` types the same fields as optional so a hand-written game may report anything. `GAME_KIT_VERSION` is 0.2.0.
 
-**Theme F — three.js kit, physics and the camera rigs.** ◻ Not started. A fixed-timestep loop, a
-Rapier character controller, the Phase 105 terrain loader (heightfield collider from the 16-bit PNG),
-five named third-person cameras with numeric offsets, a raycast vehicle, and an optional navmesh.
+**Theme F — three.js kit, physics and the camera rigs.** ✅ Landed. Engine-free `kit/core/` additions —
+`createFixedStep(hz, maxSteps = 5)` in `clock.js`, `cameras.js` (the five presets with the doc's offsets, `springArmDistance`,
+`relaxArm`, lock-on, versus, head bob, camera-relative movement), `lod.js` (Phase 105's `selectLod` constants),
+`terrain-manifest.js` (a plain-JS mirror of `TerrainManifestSchema`, version 1 only), `png16.js` (16-bit PNG via
+`DecompressionStream`), `heightfield.js` (whose `heightAt` uses the same cell diagonal as Rapier's heightfield, and whose
+`toRapierHeights` transposes the z-major PNG into Rapier's column order), `clip-names.js`, `vehicle.js`, `road-ribbon.js`,
+`nav-policy.js` and `dom-keys.js` — plus `kit/three/{loop,input,physics,character,gltf,animator,terrain,hud,audio,cameras,vehicle,nav}.js`.
+The terrain loader falls back to one mesh built from the heightfield when a pack lists no chunk glbs. The camera ids stay
+the ones shared already shipped in Theme A's manifest schema (`over-shoulder-left/right`, `behind`, `further-behind`,
+`much-further-behind`), not the doc's `shoulder-left` spellings, so existing manifests stay valid; `GAME_CAMERA_OFFSETS`
+joins them in shared. The vehicle's engine force is 3000 (Rapier applies it as a raw impulse, so it has to carry a 1200 kg
+chassis). Fixes a Theme C bug: three r186's `three.module.js` imports `./three.core.js`, which the vendoring script did not
+copy, so every 3D game 404'd. `GAME_KIT_VERSION` is 0.3.0. Tested in `kit-core-three.test.ts` (22 tests, including a real
+Rapier heightfield checked against `heightAt`) and smoke-tested in SwiftShader Chromium on a synthetic terrain pack (third
+person, first person, camera cycling, driving, the nav path); rendering e2e stays with Theme Q.
 
-**Theme G — Perspective base starters.** ◻ Not started. Six bases under `templates/media-game/bases/`,
-each with a smoke replay and CC0 art listed in `ASSETS.md`.
+**Theme G — Perspective base starters.** ✅ Landed. Six bases under `templates/media-game/bases/` (`platformer`, `top-down`, `isometric`, `raycaster`, `first-person`, `third-person`), each a minimal playable level on the Theme E/F kit: a player, one hazard or enemy, placeholder art drawn in code (so `ASSETS.md` is an empty table and `assets/index.json` an empty index, ready for the asset bridge), a `src/genre/index.js` seam a genre module replaces, and `playtests/smoke.json`. The 3D arena is a Rapier ground, three boxes, a ramp and a door that opens on `interact`; animation states are reported in `getState()` until a Models asset supplies clips. All six verified in real Chromium. Tested through `compose.test.ts`.
 
-**Theme H — 2D genre starters.** ◻ Not started. FPS, RTS, ARPG, top-down crime as genre modules with
-named engine-free systems under `kit/core/genre/`.
+**Theme H — 2D genre starters.** ✅ Landed. FPS (`fps@raycaster`), RTS (`rts@top-down`/`isometric`), ARPG (`arpg@isometric`/`top-down`) and top-down crime (`crime@top-down`/`isometric`) in `templates/media-game/genres/<genre>/`, each replacing the base's `src/genre/index.js` seam, with `GAME_GENRES_AVAILABLE` flipped so their gallery cells are creatable. Engine-free systems sit in `kit/core/genre/{fps,rts,arpg,crime}/` (weapon table and sight; A*, flow field, selection, economy, fog, scripted AI; loot, inventory, dungeon; wanted reducer and `car2dStep`) and are covered by `kit-genres.test.ts`. RTS/ARPG/crime simulate in tile units and draw through the new `kit/phaser/world2d.js`, so one module runs top-down and isometric. Levels are Tiled-shaped maps built in code (`levels.js`, `city.js`). `composeStarter` copies only the chosen genre's `kit/core/genre/<g>/` plus any a `genre.json` lists in `kitGenres` (ARPG and crime reuse RTS's A*). The raycaster rig now exposes `map`, `sprites`, `pos`, `isSolid` and `openDoor`. Kit is 0.4.0. Also fixed a Theme G bug: `boot()` left the page's empty `<canvas id="game">` over Phaser's own canvas, so every starter showed a black screen. All seven starters were booted in real Chromium.
 
-**Theme I — 3D genre starters, part one: shooter, fighter, soulslike.** ◻ Not started. Same shape; the
-fighter's `versus` camera is a sixth rig, outside the five third-person presets.
+**Theme I — 3D genre starters, part one: shooter, fighter, soulslike.** ✅ Landed. Shooter (`shooter@first-person`/`third-person`), fighter (`fighter@third-person`) and soulslike (`soulslike@third-person`) in `templates/media-game/genres/<genre>/`, with `GAME_GENRES_AVAILABLE` flipped so their gallery cells are creatable. Engine-free systems sit in `kit/core/genre/{shooter,fighter,soulslike}/` (arsenal with magazines, reloads, fire rate and recoil, `spreadCone`/`spreadDirection`, `pickCover` over occluder rects; frame data counted from 1 so a 10/3/15 move is active on 10–12, string cancel windows, combo damage scaling, hit/hurt boxes and `resolveHit`, a round/timer reducer, a seeded CPU; the stamina economy and `bossPhase`/`bossChooseAttack`) and are covered by `kit-genres-3d.test.ts` (a separate file from H's so J can append without conflicts). The souls folder is `soulslike`, the genre id, so `composeStarter` copies it with no `genre.json`. Shooter and soulslike replace only `src/genre/index.js` on the shared arena; both 3D bases gained an optional `intent(wish, dt, frame)` seam a genre uses to reshape the step's movement (roll, rooted attacks), and the third-person base now draws a stand-in avatar. The fighter ships its own `src/scenes/level.js` — a dojo, two primitive fighters, no Rapier — on the kit's `versus` rig; the gallery hides the camera picker for it and says why. Shooter enemies path on the recast navmesh (straight-line fallback if it fails to build) and break line of sight when hurt; `kit/three/damage-numbers.js` is new and shared. Kit is 0.5.0. All four starters were booted in SwiftShader Chromium and driven through `__midnite` (fire, reload, launcher-into-juggle, roll i-frames, lock-on).
 
-**Theme J — 3D genre starters, part two: RPG, character action, open world.** ◻ Not started. Open world
-lands last, on a fixture Phase 105 terrain, routing on `roads.json`.
+**Theme J — 3D genre starters, part two: RPG, character action, open world.** ✅ Landed. RPG (`rpg@third-person`/`first-person`), character action (`character-action@third-person`) and open world (`open-world@third-person`/`first-person`) in `templates/media-game/genres/<genre>/`, with `GAME_GENRES_AVAILABLE` now listing every genre, so no gallery cell is left waiting. Engine-free systems sit in `kit/core/genre/{rpg,character-action,open-world}/` (folder = genre id, as in I): a data-driven quest log that moves only on its stage's listed event, JSON dialogue trees with gated choices and effects plus `reachableEnds`/`everyNodeCanEnd`, stats and levelling, NPC schedules that wrap midnight; `comboStep` with inclusive cancel windows (a press outside is dropped, not buffered), ground/air openers and a launcher, a D→SSS style meter that rewards variety and drains by rank, an arena wave reducer; `routeOnRoads` (Dijkstra by `lengthM`), `routePolyline`/`pointAlong`, seeded `trafficSpawn`/`trafficStep` that turn at junctions and U-turn at dead ends, a day/night `skyAt`, and a land-cover minimap. All covered in `kit-genres-3d.test.ts`, which reads the RPG's own `src/data/*.json` and the fixture's `roads.json`. The RPG keeps the base arena (a village, three NPCs, wolves, herbs; data loaded with JSON import attributes) and reuses the ARPG inventory through `genre.json`; character action and open world ship their own `src/scenes/level.js`. The open world runs on `assets/terrain/fixture.terrain/`, a 512 m, 257² pack built and exported by Phase 105's own pipeline from the noise preset and a plus-shaped roads mask (`open-world-fixture.test.ts` regenerates it behind `MSTUDIO_REGEN_OPEN_WORLD_FIXTURE=1` and checks it: valid manifest, one 4-way junction, under 2 MB — 1.2 MB after dropping LOD 0, the splat and the material tiles), named in `assets/index.json` as `terrain/world`; F's cars with enter/exit, traffic, pedestrians, police routed on the roads, and the crime starter's `wanted.js`. `kit/three/terrain.js` now drapes a pack's UV-less chunks from above. Kit is 0.6.0. All five starters pass their provisional `smoke.json` in SwiftShader Chromium, and the RPG quest loop, combo/juggle/waves, and driving to night were driven through `__midnite`.
 
-**Theme K — Template gallery: the perspective × genre matrix.** ◻ Not started. `GAME_TEMPLATE_MATRIX`
-in `shared/src/media-game-templates.ts` is the validity table; `composeStarter` writes one copy of each
-system; the gallery disables invalid cells with their reason.
+**Theme K — Template gallery: the perspective × genre matrix.** ✅ Landed; every genre cell is creatable since Theme J. `GAME_TEMPLATE_MATRIX`, `starterId`, `parseStarterId`, `isValidStarter` (the matrix's refusal reasons) and `isStarterAvailable` live in `shared/src/media-game-templates.ts`. `composeStarter` (`main/games/compose.ts`) writes `common/` + `kit/core` + the one engine's kit + the base + the genre module when present, then `src/game.config.js`; `createGame` calls it for any non-blank starter and records the chosen cameras in `cameraPresets`. The create panel is now `GameGallery`: a 2D/3D toggle, genres down, perspectives across, a No-genre row for the bases, disabled cells with their reason, roving-tabindex arrow keys and the five camera checkboxes on third person. Every genre cell currently reads "Not available yet".
 
-**Theme L — Genre recipe skills and the build skill.** ◻ Not started. Eleven skills under
-`templates/media-game/skills/`, seeded into each repo's three skill dirs and mirrored into the app
-repo's six.
+**Theme L — Genre recipe skills and the build skill.** ✅ Landed. Eleven skills in `templates/media-game/skills/`: `midnite-media-game-build` (layout, manifest, the `__midnite` hook, the play-test loop through the `game_*` tools, the asset index, the rules) and one recipe per genre (`-fps`, `-rts`, `-arpg`, `-crime`, `-shooter`, `-fighter`, `-soulslike`, `-rpg`, `-character-action`, `-open-world`), each listing the kit files and exports the genre uses, tuning numbers, a build order and a play-test checklist keyed to that genre's `getState()` fields. `seedGameSkills` (`main/games/skills.ts`) copies them into `.claude/`, `.agents/` and `.codex/skills/` of every new game, blank or starter, and the convention stubs point at them. Only the build skill is mirrored into the app repo's six skill dirs; `scripts/skill-copies.test.mjs` pins those and the template source. `skills.test.ts` checks front matter, that every `game_*` token is a real tool, that 33 files are seeded, and that every `` `NAME = number` `` quoted in a skill equals a kit or genre default. The crime recipe is `midnite-media-game-crime` (the genre id), not the `-topdown-crime` the checklist first named. The build skill describes `createAssetIndex(...).url()` rather than `assetUrl(name)`, which does not exist until Theme N.
 
-**Theme M — Create and iterate: agents, Ollama and commit-per-turn history.** ◻ Not started. Agents run
-in the repo through `createIterativeHost` with only file tools and the game's MCP tools (no shell);
-each pass that changes files is one commit; Undo turn is a new `revertCommit`; Ollama returns
-`src/`-only whole files.
+**Theme M — Create and iterate: agents, Ollama and commit-per-turn history.** ✅ Landed. `main/games/game-agent.ts` runs a game in passes: `runGameAgent` starts one private MCP server per run (`createIterativeHost`) whose dispatcher answers only this game's `game_*` tools (not `game_create`/`game_open`), fixed to its `gameId` or path, under `MODEL_ITERATIVE_MAX_CALLS`, and runs the CLI once per pass with the repo as cwd. Claude Code gets `--tools Read,Edit,Write,Glob,Grep`, those plus `mcp__midnite__game_*` in `--allowedTools`, and `--strict-mcp-config`; Codex gets `--sandbox workspace-write` with network off; any other CLI is refused, since it cannot be held to file tools and no shell. `runGameTurns` is the shared commit-per-pass loop: a changing pass is `stagePaths(['.'])` + `commit` with `agent: <prompt, 60 chars> (pass n/N)`, a no-op pass commits nothing, a cancelled or failed pass still commits what it left, and `squashRunCommits` folds a run into one commit with `reset --soft`. Ollama passes (`runGameOllama`) see `midnite-game.json` + `src/**/*.js` up to 60 KB (largest file truncated with a marker), answer a `GameOllamaEnvelopeSchema` (fenced or bare JSON), and one path outside `src/` (`checkGameOllamaPath`) refuses the whole envelope with nothing written. `game-agent-service.ts` holds one run per game, refuses a dirty tree or an in-progress operation (else the user's own edits would land in, and be undone with, an agent commit), streams `gamesAgentProgress`, and implements **Undo turn** with git-engine's new `revertCommit` (`commands/revert.ts`, `revert --no-edit --end-of-options`, conflicts as `conflict('revert')`) — only on the newest agent commit, and only while it is still HEAD. `GAMES_OLLAMA_WARNING` now carries the doc's sentence; `game_create` takes an optional `writer` engine and answers `warnings`. The renderer adds `GameIteratePanel` (engine select with MCP agents then Ollama models, the amber dismissible banner, a 1–20 Passes slider, prompt, Run agent/Cancel) under the selected game's details, `GameEditThread` (actions, per-pass commits with files, squashed/undone marks, Undo turn on the newest), and an optional **First prompt** on the create form that starts a run on the new repo. The console drawer's log is now named "Console output" so the two logs on the tab stay addressable.
 
-**Theme N — Asset bridge.** ◻ Not started. Copies into `assets/<kind>/<name>/` with sha256 provenance,
-`assets/index.json` as the one lookup the kits use, and re-sync as its own commit.
+**Theme N — Asset bridge.** ✅ Landed. `createAssetBridge` (`main/games/asset-bridge.ts`) copies a Terrain, Sprites, Models, Images or Audio item (or a pack folder) into the game as `assets/<kind>/<name>/` (folders) or `assets/<kind>/<name>.<ext>` (one file), never a link: symlinks are skipped, a media-store source must sit under a registered repo's `.midnite/media/<tab>/`, a pack folder under a registered repo or the games location, and an import is capped at 512 MB / 5000 files. Terrains from the media store are exported to a scratch pack on the way in (`exportTerrain`, `terrain-pack`); a sprite asset's kind comes from its group (`characters`/`objects` → `sprite`, `tilesets`, `backgrounds`, `maps`), and its `export/` folder is copied instead of the asset folder once Phase 106 writes one (it does not yet, so the asset folder itself is copied). Names are unique across kinds (`-2`, `-3`). Each import writes provenance to the manifest (`GameAssetProvenance` gained `source.repoPath` and `sourceSha256`, the hash of the source as imported, which is what re-sync compares since a terrain's copy is an export), registers `{ name, kind, path, entry? }` in `assets/index.json` (`GameAssetIndexSchema`) and commits only its own paths as `assets: import <name>`; it refuses while `midnite-game.json` or the index has uncommitted edits or something else is staged, so the commit never holds an agent's or the user's work. **Re-sync** (`gamesResync`): `check: true` reports `current | changed | missing` per asset and writes nothing; without it the changed ones (or `names`) are re-imported over their copies in one `assets: re-import <names>` commit, and a missing source is reported, never deleted. IPC `gamesAssetSources` / `gamesImportAsset` / `gamesResync` (bridge `games.assets.{sources,import,resync}`) and the MCP tool `game_import_asset` (a write tool behind `allowGames`; 13 `game_*` tools now, the run's private agent server answers it too). Kit 0.7.0: `kit/core/asset-index.js` gains `entry`, `byName` and `assetUrl(name, file?)` (the entry file by default), and the build skill now documents the index, `assetUrl` and `game_import_asset` in all seven copies. The renderer adds `GameAssetsPanel` under the game's details (imported assets with their sync state, an amber "N assets changed" strip with **Re-import**), `GameAssetPicker` (five source tabs listing registered repos' media, plus **Choose a pack folder…** for Terrain/Sprites) and an explorer badge, refreshed on window focus, `media:changed` and `games:changed`. Tested in `asset-bridge.test.ts` (17: copy not link, provenance and hashes, the terrain fixture pack through `parseTerrainManifest`, a sprite `anims.json` through `animName`, re-sync, confinement, the tree guard) and `game-assets-panel.test.tsx`.
 
-**Theme O — Play-test depth: determinism, input replays and frame assertions.** ◻ Not started. Seeded
-`Math.random` and a virtual clock in deterministic mode, frame-indexed `.replay.json` injected through
-the kit (not OS events), JSON-path and frame-diff assertions, and `playtests/*.json`.
+**Theme O — Play-test depth: determinism, input replays and frame assertions.** ✅ Landed (PR #759). `kit/core/determinism.js` reads the runner's `?midnite-deterministic=1&midnite-seed=N&midnite-paused=1` (`gameEntryUrl` in `game-runner.ts`; the manifest's `deterministic: true` runs with seed 1, a play-test forces it) and, before any game module runs (a `<script type="module">` ahead of `src/main.js` in `index.html`, with `hook.js` importing it as a backstop for older pages), replaces `Math.random` with a seeded mulberry32 on its own stream and `performance.now`/`Date.now` with a virtual clock; Phaser's `boot()` and three's `startLoop()` then take exactly one 1/60 s step per animation frame and call `beforeKitStep` before every step. `kit/core/replay.js` is the frame-exact replayer: `.replay.json` is `GameReplaySchema` (`f` = kit steps since boot, kit action names), pressed on a new virtual action layer in `input-map.js` that every input map reads, and recorded by observing every map's sampled transitions — so a replay needs no OS input at all. `window.__midnite` gained `ready`, `deterministic` and `replay` (`record`, `stop`, `load`, `seek`, `play(replay, { speed: 1 | 'max' })`, `status`); a play-test run pauses after its first step, and `load` applies events already due, so an `f: 0` press takes effect on step 2. `shared/src/game/json-path.ts` (`$`, `.key`, `["key"]`, `[n]`; own properties only; `eq`/`ne`/`lt`/`gt`/`exists`/`approx`) and `frame-diff.ts` (`diffFrames`, threshold 16, magenta diff image) back the assertions; `GamePlaytestSchema` is `playtests/<name>.json`. `main/games/playtest.ts` (`createPlaytests`) is the one runner behind five new MCP tools (`game_replay_record`, `game_replay_play`, `game_assert_state`, `game_assert_frame`, `game_playtest`, all write tools behind `allowGames`; 18 `game_*` tools now) and the IPC `gamesPlaytests`/`gamesPlaytestRun`: restart deterministically, wait for `ready`, load the replay, seek to each assertion's frame in 600-step chunks, read state (`readGameState`, moved to `game-state.ts`) or capture and diff against `playtests/baselines/<name>@<frame>.png` (missing → written, `baseline-created`), save failure screenshots and diffs plus `playtests/results/<name>.json`. The hot-reload watcher now ignores all of `playtests/`. The runner toolbar gained a **Playtests** menu (list with last results and failures, Run, Run all). Every base and genre `playtests/smoke.json` moved to the real format (inline replay, `gt`/`lt` against the starting position instead of `increasedFromFrame`), and all 22 available starters pass it twice in SwiftShader Chromium with identical end states; frame baselines matched pixel-for-pixel on reruns, a 1× replay ends where a `max` one does, and a keyboard-recorded session replays to the same state. Kit 0.8.0. The build skill documents the format and tools in all seven copies. The real-Chromium `game-playtest.spec.ts` moves to Theme Q with the e2e budget raise.
 
-**Theme P — Web export.** ◻ Not started. A folder, a zip from a small `node:zlib` zip writer, and a
-single HTML file whose modules become `data:` URLs behind an import map and whose assets resolve through
-an inlined `assets/index.json`.
+**Theme P — Web export.** ✅ Landed (PR #760). `main/games/game-export.ts` writes a game as a **static folder** (`<slug>-web/`, assembled beside its name and renamed in, refused if it exists), a **zip** (`main/games/zip-writer.ts`: `node:zlib` `deflateRawSync` plus Phase 105's `crc32`, UTF-8 names, no zip64, refused at 4 GB) or a **single HTML file** (`main/games/single-file.ts`). What ships is the repo minus `GAME_EXPORT_EXCLUDE` (`isGameExportExcluded` in shared: `.git/`, `.claude/`, `.agents/`, `.codex/`, `playtests/`, `node_modules/`, the three convention files, `jsconfig.json`, `*.d.ts`, any dotfile) and never a symlink; reads are realpath-confined to the repo, a destination inside the game or a relative one is refused, and nothing in the repo is touched. The single file collects every module reachable from the page's module scripts (`scanImportSites`, which also reads multi-line and JSON-attribute imports and ignores comments), rewrites each specifier to `@game/<path>`, makes each module a `data:` URL behind one import map (so import cycles need no URL to contain another; JSON imports become `data:application/json`), and inlines `assets/index.json` plus every file it names as `window.__MIDNITE_ASSETS__ = { index, files }`. Kit 0.9.0: `asset-index.js` reads that global, so `assetUrl(name)` returns the inlined `data:` URL and `loadAssetIndex` needs no fetch. Warnings come back with the result (above 50 MB: "This file is 63 MB; browsers may be slow to open it."; unresolved or external imports; a **terrain pack is warned about** because its loader reads sibling files by relative path, which one file cannot serve, so the folder or zip is the format for it). IPC `gamesExport` (`games.export`); a file format with no `dest` asks with the native save dialog (which asks about replacing), a folder takes its parent from the directory picker. The toolbar gains `GameExportBar` over the shared `ExportToolbar` (`MEDIA_TAB_EXPORT_FORMATS.game`, single HTML file first). Tested in `export.test.ts` (34: exclusion table, the zip re-read with the system `unzip -tq/-p`, the module graph and cycles, no `src=`/`href=` but `data:`, a 51 MB fixture warning, folder/zip/HTML over a real composed platformer, refusals) and `game-export-bar.test.tsx`. The platformer, top-down and third-person single-file exports were opened from `file://` in SwiftShader Chromium: all reach `ready`, and the platformer's own `smoke.json` replay passes in the exported file (player x 705 against `gt 200`) with no request that is not `data:`. The real-Chromium `game-export.spec.ts` moves to Theme Q with the e2e budget raise, as O's did.
 
 **Theme Q — Verification.** ◻ Not started. The gate, bundle numbers, a deliberate e2e budget raise, a
 hostile-game e2e, screenshots and three human passes.
@@ -395,7 +388,7 @@ renderer, because that shares a process with the bridge.
     `node_modules/`, `playtests/results/` ignored; debounced 200 ms; reload = `webContents.reloadIgnoringCache()`.
     A burst of agent writes therefore reloads once. The watcher closes on Stop.
   - Reload keeps the partition; Restart = stop + run (new `runId`, new partition); Stop destroys the view.
-- [ ] Runner toolbar: play/pause (with the kit's hook, E/F), restart, a resolution preset (16:9 at 720p/1080p, or fit), mute, an fps/frame-time overlay, a DevTools toggle, and **Pop out** into its own window (Phase 55 detachable panels)
+- [x] Runner toolbar: play/pause (with the kit's hook, E/F), restart, a resolution preset (16:9 at 720p/1080p, or fit), mute, an fps/frame-time overlay, a DevTools toggle, and **Pop out** into its own window (Phase 55 detachable panels)
   - **Partly landed (Phase 107 A + B PR):** play/pause (kit hook), restart, stop, resolution, mute, overlay and DevTools shipped; **Pop out** (the `game` window role and `reparentGameView`) is still open.
   - `GameRunnerToolbar` (`game-runner-toolbar.tsx`), `IconButton`s with tooltips: Play/Pause (`LuPlay`/`LuPause`;
     calls `__midnite.pause()`/`resume()` via `executeJavaScript`; disabled with _"This game has no pause
@@ -521,7 +514,7 @@ Lands early so every later theme is built with the agent able to play.
 
 ## E — Phaser kit and the 2D perspective presets (L)
 
-- [ ] `kit/` modules for Phaser:
+- [x] `kit/` modules for Phaser:
   - boot and scene manager
   - input mapping (keyboard, gamepad, pointer → named actions)
   - camera follow with a deadzone, and screen shake
@@ -544,11 +537,11 @@ Lands early so every later theme is built with the agent able to play.
     → `{ isDown(action), justPressed(action), axis(neg, pos) }`; default bindings per preset.
   - `save.js` saves under `localStorage['midnite:<gameName>:<slot>']` (only persisted when the run's
     partition is `persist:`; the HUD says _"Saves last until Stop"_ otherwise).
-- [ ] **Debug hook contract** `window.__midnite`, shared with F: `getState()`, `pause()`, `step(n)`, `setSeed(n)` and `version`. Each starter fills `getState()` with what matters (player position, health, score, scene)
+- [x] **Debug hook contract** `window.__midnite`, shared with F: `getState()`, `pause()`, `step(n)`, `setSeed(n)` and `version`. Each starter fills `getState()` with what matters (player position, health, score, scene)
   - `kit/core/hook.js` `installHook(impl)` defines `window.__midnite = { version: 1, getState, pause, resume, step, setSeed, setOverlay, input: { gamepad }, replay: { load, play, stop } }`
     (O fills `replay`). `GameStateSchema` (shared) = `{ version: 1, scene: string, frame: number, time: number, player?: { position: number[] /* 2 or 3 */, health?: number }, score?: number }`
     + passthrough. The kit prints `console.log('midnite-ready')` once the first scene starts.
-- [ ] **Presets**, each a kit module plus a config:
+- [x] **Presets**, each a kit module plus a config:
   - **platformer**: arcade physics, coyote time, jump buffer, variable jump height, one-way platforms
   - **top-down**: 8-direction movement, facing
   - **isometric**: iso projection, depth sorting, tile picking under the pointer
@@ -559,7 +552,7 @@ Lands early so every later theme is built with the agent able to play.
     jump cut ×0.5; raycaster: 320×200 internal resolution scaled up, FOV 66°).
   - `iso.js`: `isoToScreen(x, y, tileW, tileH)`, `screenToIso(px, py, …)`, `isoDepth(x, y)`;
     `raycast.js`: `castRay(map, pos, dir) → { distance, side, cellX, cellY, wallX }` (DDA).
-- [ ] Vitest (kit logic is engine-free where possible): input mapping, iso projection and picking, raycaster DDA hits and distances, animator naming from a 106 atlas fixture. Boot and draw are covered by e2e only
+- [x] Vitest (kit logic is engine-free where possible): input mapping, iso projection and picking, raycaster DDA hits and distances, animator naming from a 106 atlas fixture. Boot and draw are covered by e2e only
   - `desktop/src/main/games/kit-core.test.ts` imports `templates/media-game/kit/core/*.js` directly:
     `screenToIso(isoToScreen(p))` round-trips; a ray down an 8-cell corridor hits at distance 7.5 ± 1e-9;
     `animName('hero', 'walk', [1, 1])` picks `se` on an 8-direction atlas fixture and `e` on a 4-direction
@@ -567,7 +560,7 @@ Lands early so every later theme is built with the agent able to play.
 
 ## F — three.js kit, physics and the camera rigs (L)
 
-- [ ] `kit/` modules for three.js:
+- [x] `kit/` modules for three.js:
   - a fixed-timestep game loop with interpolation
   - input mapping
   - **Rapier** world, with a kinematic character controller (slopes, steps, ground snap)
@@ -593,7 +586,7 @@ Lands early so every later theme is built with the agent able to play.
     `DecompressionStream('deflate')`; `createImageBitmap` would quantise to 8 bits), instances foliage
     per asset (`InstancedMesh`), extrudes `buildings.json` polygons, and exposes
     `terrain.roads` (`{ nodes, edges }`) and `terrain.heightAt(x, z)`.
-- [ ] **Camera rigs**:
+- [x] **Camera rigs**:
   - **first person**: mouse-look with pointer lock, head bob, FOV setting
   - **third person, five presets** (user, 2026-10-04): **over the shoulder left**, **over the shoulder right**, **directly behind**, **further behind** and **much further behind**, cycled by one action and switchable in game
   - all third-person presets use a spring arm (raycast to avoid clipping into walls), with lock-on support for I's fighter and soulslike
@@ -605,14 +598,14 @@ Lands early so every later theme is built with the agent able to play.
   - Spring arm: `springArmDistance(desired, hitDistance, margin = 0.2)` in `kit/core/cameras.js`; lerps
     back out at 4 m/s. Lock-on: `chooseLockTarget(player, forward, candidates, maxDist = 20, maxAngle = 60°)`.
   - The fighter's **versus** camera (`'versus'`) is a sixth rig in `cameras.js`, outside the cycle.
-- [ ] A raycast **vehicle controller** on Rapier (wheels, suspension, enter and exit) for the open world and top-down-crime 3D variants
+- [x] A raycast **vehicle controller** on Rapier (wheels, suspension, enter and exit) for the open world and top-down-crime 3D variants
   - `vehicle.js` on `world.createVehicleController(chassis)` (Rapier's `DynamicRayCastVehicleController`),
     4 wheels; enter/exit with the `interact` action within 2.5 m of a door point.
-- [ ] Navigation: a navmesh via `recast-navigation-js` vendored like the engines (verify the licence in C), behind a kit module so starters that do not need it do not load it
+- [x] Navigation: a navmesh via `recast-navigation-js` vendored like the engines (verify the licence in C), behind a kit module so starters that do not need it do not load it
   - `nav.js` is imported dynamically (`await import('kit/three/nav.js')`) only by starters whose
     manifest genre is `shooter`, `rpg`, `soulslike` or `open-world`; it builds a navmesh from tagged
     walkable meshes and exposes `findPath(from, to)`.
-- [ ] Vitest (engine-free maths): spring-arm distance under occlusion, preset offsets for each of the five cameras, fixed-timestep accumulation, and manifest parsing against a Phase 105 fixture. Rendering is covered by e2e
+- [x] Vitest (engine-free maths): spring-arm distance under occlusion, preset offsets for each of the five cameras, fixed-timestep accumulation, and manifest parsing against a Phase 105 fixture. Rendering is covered by e2e
   - In `kit-core.test.ts`: the five offsets equal the table; `springArmDistance(4, 1.5)` is 1.3;
     `createFixedStep(60).advance(50)` gives 3 steps and alpha 0; `advance(1000)` is capped at 5;
     `terrain-manifest.js` accepts Phase 105's committed fixture manifest and rejects `version: 2`;
@@ -620,24 +613,26 @@ Lands early so every later theme is built with the agent able to play.
 
 ## G — Perspective base starters (M)
 
+> **Landed (PR #TBD).** The e2e half of the last item (`game-starters.spec.ts`) moves to Theme Q: all six bases were booted in SwiftShader Chromium (kit-vendored engines, `__midnite.step(180)` under held input) and moved as the smoke replay asserts, but a committed spec waits for Q's e2e budget raise. The replay's shape (`playtests/smoke.json`: `input`/`assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`) is Theme O's to finalise; 3D bases assert `position[2]` decreasing, because forward is -z.
+
 One minimal, playable starter per perspective. These are the bases the genres and the gallery compose
 on.
 
-- [ ] 2D: **platformer**, **top-down**, **isometric** and **2.5D raycaster**. Each has a test level, a player, one enemy or obstacle, and placeholder art
+- [x] 2D: **platformer**, **top-down**, **isometric** and **2.5D raycaster**. Each has a test level, a player, one enemy or obstacle, and placeholder art
   - `templates/media-game/bases/{platformer,top-down,isometric,raycaster}/` each with `src/main.js`,
     `src/scenes/level.js`, `src/game.config.js`, `assets/` and `assets/index.json`; ids
     `GAME_PERSPECTIVES_2D = ['platformer', 'top-down', 'isometric', 'raycaster']`.
-- [ ] 3D: **first person** and **third person**, the latter with all five cameras. Each has a test arena, a player with animation states, and one interactable
+- [x] 3D: **first person** and **third person**, the latter with all five cameras. Each has a test arena, a player with animation states, and one interactable
   - `bases/{first-person,third-person}/`; ids `GAME_PERSPECTIVES_3D = ['first-person', 'third-person']`.
     The arena is a flat Rapier ground + 3 boxes + a ramp; the interactable is a door that opens on `interact`.
-- [ ] Placeholder art and audio are CC0 or generated in-house, with their licences recorded in the starter's `ASSETS.md`. Every starter swaps cleanly to Phase 105/106/Models assets through N
+- [x] Placeholder art and audio are CC0 or generated in-house, with their licences recorded in the starter's `ASSETS.md`. Every starter swaps cleanly to Phase 105/106/Models assets through N
   - `ASSETS.md` is a table (`File · Source URL · Licence · Author`); a vitest asserts every file under
     `assets/` (except `index.json`) has a row. Starters reference art only through `assets/index.json`
     names (`kit/core/asset-index.js` `assetUrl(name)`), which is what makes N's swap a data change.
-- [ ] Each starter ships a **smoke play-test script** (an O replay) that walks it for a few seconds and checks `getState()`
+- [x] Each starter ships a **smoke play-test script** (an O replay) that walks it for a few seconds and checks `getState()`
   - `playtests/smoke.json` = 180 frames of `right` (2D) or `forward` (3D) input, asserting at frame 180
     that `$.player.position[0]` increased and `$.scene` is `level`.
-- [ ] Vitest: every starter's file set resolves every import through its import map, and its manifest validates. An e2e boots each starter and passes its smoke script
+- [x] Vitest: every starter's file set resolves every import through its import map, and its manifest validates. An e2e boots each starter and passes its smoke script
   - `desktop/src/main/games/starters.test.ts`: for each base, `composeStarter` output is scanned with a
     static import scanner (`scanImports(js)`: `import … from '…'` and `import('…')` string literals)
     and every specifier resolves via the import map to an existing file; the manifest parses; `ASSETS.md`
@@ -647,10 +642,10 @@ on.
 
 ## H — 2D genre starters (L)
 
-- [ ] **FPS** (raycaster): weapon switching, hitscan and projectile weapons, enemies with sight and chase, pickups (health, ammo, keys), keyed doors, and levels from Tiled
+- [x] **FPS** (raycaster): weapon switching, hitscan and projectile weapons, enemies with sight and chase, pickups (health, ammo, keys), keyed doors, and levels from Tiled
   - `templates/media-game/genres/fps/` (systems in `src/genre/`: `weapons.js`, `enemies.js`, `pickups.js`, `doors.js`);
     the engine-free parts (`weapon-table.js`, `sight.js`) live in `kit/core/genre/fps/`.
-- [ ] **RTS** (StarCraft-style, top-down or isometric):
+- [x] **RTS** (StarCraft-style, top-down or isometric):
   - box and click selection, control groups
   - A* pathing on the tile grid, with flow fields for group moves
   - resource gathering, a build queue, unit production
@@ -658,15 +653,15 @@ on.
   - Engine-free: `kit/core/genre/rts/{astar.js,flow-field.js,selection.js,economy.js,fog.js,ai.js}` —
     `astar(grid, from, to)` (8-neighbour, octile heuristic), `flowField(grid, goal)`,
     `selectInBox(units, rect)`, `fogUpdate(visibility, units, radius)`.
-- [ ] **ARPG** (Diablo-style, isometric): click-to-move, a skills hotbar, health and mana, loot tables with rarity, inventory and equipment, and a procedural dungeon of connected rooms
+- [x] **ARPG** (Diablo-style, isometric): click-to-move, a skills hotbar, health and mana, loot tables with rarity, inventory and equipment, and a procedural dungeon of connected rooms
   - Engine-free: `kit/core/genre/arpg/{loot.js,inventory.js,dungeon.js}` — `rollLoot(table, rng)`
     (rarities common/magic/rare/unique at 70/22/7/1 %), `generateDungeon(seed, rooms = 12)` returns rooms +
     corridors guaranteed connected.
-- [ ] **Top-down crime** (original GTA): enter and exit vehicles, top-down car handling, pedestrians on paths, a wanted level with pursuing police, and a city from a Tiled map
+- [x] **Top-down crime** (original GTA): enter and exit vehicles, top-down car handling, pedestrians on paths, a wanted level with pursuing police, and a city from a Tiled map
   - Engine-free: `kit/core/genre/crime/{wanted.js,car2d.js}` — `wantedReducer(state, event)` (levels
     0–5; crimes raise, 30 s unseen decays one level), `car2dStep(state, input, dt)`. J's open world imports
     the same `wanted.js`.
-- [ ] Vitest for the engine-free systems: A* and flow fields, loot rolls with a seed, the wanted-level state machine, and RTS selection maths. An e2e smoke run per starter
+- [x] Vitest for the engine-free systems: A* and flow fields, loot rolls with a seed, the wanted-level state machine, and RTS selection maths. An e2e smoke run per starter
   - `desktop/src/main/games/kit-genres.test.ts` (A* finds the known shortest path on a fixture grid and
     returns `null` when walled; the flow field points downhill everywhere; 10 000 loot rolls with seed 1
     land within ±1 % of the rarity weights; wanted 3 decays to 2 after 30 s unseen); the e2e
@@ -674,31 +669,35 @@ on.
 
 ## I — 3D genre starters, part one: shooter, fighter, soulslike (L)
 
-- [ ] **Shooter**: first- and third-person (camera presets switchable), hitscan and projectile weapons, recoil and spread, ammo and reload, AI enemies on the navmesh with cover-lite (seek line-of-sight breakers), and damage numbers
+> **Landed (PR #TBD).** As with H, the per-starter e2e smoke run waits for Theme O's replay runner and Theme Q's budget raise: each starter ships a provisional `playtests/smoke.json` (genre state under `$.shooter`, `$.fighter`, `$.souls`; 3D forward is -z) and was driven by hand in SwiftShader Chromium. Differences from the plan: the soulslike's engine-free folder is `kit/core/genre/soulslike/` (the genre id), not `souls/`; the versus camera keeps Theme F's framing (`max(4, 0.9 × separation + 2)`), not `max(4, 1.2 × separation)`; the engine-free tests live in `kit-genres-3d.test.ts`.
+
+- [x] **Shooter**: first- and third-person (camera presets switchable), hitscan and projectile weapons, recoil and spread, ammo and reload, AI enemies on the navmesh with cover-lite (seek line-of-sight breakers), and damage numbers
   - `genres/shooter/`; engine-free `kit/core/genre/shooter/{weapons.js,spread.js,cover.js}`
     (`spreadCone(base, recoil, moving)`; `pickCover(enemy, player, coverPoints)` = nearest point with no
     line of sight to the player).
-- [ ] **Fighter** (Tekken-style): two fighters on a 3D lane with sidestep, a dedicated **versus camera** (it frames both fighters; neither first nor third person), move lists with frame data (startup, active, recovery), hit and hurt boxes, combos and juggles, blocking, a round and timer system, and a CPU opponent
+- [x] **Fighter** (Tekken-style): two fighters on a 3D lane with sidestep, a dedicated **versus camera** (it frames both fighters; neither first nor third person), move lists with frame data (startup, active, recovery), hit and hurt boxes, combos and juggles, blocking, a round and timer system, and a CPU opponent
   - `genres/fighter/`; engine-free `kit/core/genre/fighter/{frame-data.js,hitboxes.js,rounds.js,cpu.js}`;
     a move is `{ name, input, startup, active, recovery, damage, onHit, onBlock, launcher? }` at 60 fps;
     the versus camera frames the midpoint at a distance `max(4, 1.2 × separation)`.
-- [ ] **Soulslike**: stamina, lock-on, dodge roll with invulnerability frames, light and heavy attacks, checkpoint bonfires (respawn and reset enemies), and a boss with a phase-based pattern
+- [x] **Soulslike**: stamina, lock-on, dodge roll with invulnerability frames, light and heavy attacks, checkpoint bonfires (respawn and reset enemies), and a boss with a phase-based pattern
   - Engine-free `kit/core/genre/souls/{stamina.js,boss.js}`: stamina max 100, regen 25/s after 0.8 s,
     roll 20 with i-frames 0.1–0.4 s, light 15, heavy 30; `bossPhase(hpFraction)` switches at 0.66 and 0.33.
-- [ ] Vitest for engine-free systems: frame-data timing, the stamina economy, the lock-on target choice, and boss phase transitions. An e2e smoke run per starter
+- [x] Vitest for engine-free systems: frame-data timing, the stamina economy, the lock-on target choice, and boss phase transitions. An e2e smoke run per starter
   - In `kit-genres.test.ts`: a 10/3/15 move is active exactly on frames 10–12; stamina never goes
     negative and regen waits 0.8 s; `chooseLockTarget` picks the nearest within the cone; boss phases flip
     at 66 % and 33 %.
 
 ## J — 3D genre starters, part two: RPG, character action, open world (L)
 
-- [ ] **RPG**: quests (a data-driven quest log), dialogue trees from JSON, stats and levelling, inventory and equipment, NPCs with schedules, and an optional first-person camera
+> **Landed (PR #755).** As with H and I, the per-starter e2e smoke run waits for Theme O's replay runner and Theme Q's budget raise: each starter ships a provisional `playtests/smoke.json` (genre state under `$.rpg`, `$.action`, `$.openWorld`; 3D forward is -z), and all five passed it in SwiftShader Chromium. Differences from the plan: the engine-free folders are the genre ids (`kit/core/genre/character-action/`, `kit/core/genre/open-world/`), not `action/` and `openworld/`, so `composeStarter` copies them with no `genre.json`; the RPG's inventory is the ARPG's `inventory.js` (declared in `genre.json`) rather than a fourth RPG module, and its data is `quests.json`, `dialogue.json` and `npcs.json`; the fixture pack is 512 m and ships LODs 1-3 only to stay under 2 MB; the tests live in `kit-genres-3d.test.ts`.
+
+- [x] **RPG**: quests (a data-driven quest log), dialogue trees from JSON, stats and levelling, inventory and equipment, NPCs with schedules, and an optional first-person camera
   - Engine-free `kit/core/genre/rpg/{quests.js,dialogue.js,stats.js,schedule.js}`; quests and dialogue
     are JSON under `src/data/` with plain-JS validators.
-- [ ] **Character action** (Devil May Cry-style): combo strings with cancel windows, launchers and air combos, a style meter, and enemy waves in arenas
+- [x] **Character action** (Devil May Cry-style): combo strings with cancel windows, launchers and air combos, a style meter, and enemy waves in arenas
   - Engine-free `kit/core/genre/action/{combos.js,style.js}`: `comboStep(state, input, frame)` honours
     cancel windows; style ranks D→SSS by decaying score.
-- [ ] **Open world** (GTA-style), **last**:
+- [x] **Open world** (GTA-style), **last**:
   - a Phase 105 terrain with streaming chunks
   - traffic and pedestrians routed on Phase 105's road graph
   - F's vehicles, with enter and exit
@@ -709,16 +708,18 @@ on.
     terrain. Engine-free `kit/core/genre/openworld/{route.js,traffic.js}`: `routeOnRoads(roads, from, to)`
     (Dijkstra over `roads.json` edges by `lengthM`), `trafficSpawn(edges, density, rng)`. Minimap reads
     `maps.landcover` with `landcoverLegend` colours.
-- [ ] Vitest for engine-free systems: quest state, dialogue graph traversal, cancel windows, and road-graph routing. An e2e smoke run per starter (open world against a small fixture terrain)
+- [x] Vitest for engine-free systems: quest state, dialogue graph traversal, cancel windows, and road-graph routing. An e2e smoke run per starter (open world against a small fixture terrain)
   - In `kit-genres.test.ts`: a quest advances only on its listed events; dialogue reaches every end node
     from the root; an attack cancelled inside its window chains, outside does not; `routeOnRoads` on the
     plus fixture goes through the 4-way node.
 
 ## K — Template gallery: the perspective × genre matrix (M)
 
+> **Landed (PR #TBD).** Genre cells ship as *not available yet* until Themes H-J add `templates/media-game/genres/<genre>/` and list the genre in `GAME_GENRES_AVAILABLE`; `composeStarter` and the gallery pick it up with no further change. Differences from the plan: the genre id stays `crime` (shipped in Theme A's `GAME_GENRES`), not `topdown-crime`; cells show a per-perspective glyph rather than a PNG, so `gamesThumbnail` was not added; the e2e for `rts@isometric` / `rpg@first-person` waits on H/J and Theme Q.
+
 Every valid combination instantiates and runs, composed from the kits rather than copied.
 
-- [ ] A **validity table** in `shared/src/media-game-templates.ts` (recommended; adjust in this theme):
+- [x] A **validity table** in `shared/src/media-game-templates.ts` (recommended; adjust in this theme):
 
   | Genre | Native perspective | Also offered |
   |---|---|---|
@@ -742,20 +743,20 @@ Every valid combination instantiates and runs, composed from the kits rather tha
   - `starterId(perspective, genre | null)` = `perspective` or `${genre}@${perspective}`;
     `isValidStarter(id): { ok: true } | { ok: false; reason: string }` with reasons like
     _"Fighters use the versus camera only."_ and _"The FPS genre needs the raycaster."_
-- [ ] **Composition**: a combination is the perspective base (G) plus the genre's systems module (H/I/J) plus a preset config. It is generated at creation from the kit and genre modules, so there is one copy of each system and no per-combination fork
+- [x] **Composition**: a combination is the perspective base (G) plus the genre's systems module (H/I/J) plus a preset config. It is generated at creation from the kit and genre modules, so there is one copy of each system and no per-combination fork
   - `composeStarter(id, dest): Promise<GitOpResult<{ files: string[] }>>` in `main/games/compose.ts`:
     copy `common/` → `kit/core/` + `kit/<engine>/` (and `kit/core/genre/<genre>/` only) → `bases/<perspective>/`
     → `genres/<genre>/` (genre files win on conflict, except `src/main.js`, which the genre extends via
     `src/genre/index.js` imported by the base) → write `src/game.config.js` (`export default { perspective, genre, cameras }`)
     and `index.html`'s import map for the engine. A genre that declares `requires: ['nav']` gets `kit/three/nav.js`.
-- [ ] **Gallery UI** in the create panel: a 2D/3D toggle, perspective and genre grids, invalid cells disabled with the reason, a thumbnail and one-line pitch per cell, and the camera preset picker for third person
+- [x] **Gallery UI** in the create panel: a 2D/3D toggle, perspective and genre grids, invalid cells disabled with the reason, a thumbnail and one-line pitch per cell, and the camera preset picker for third person
   - `GameGallery` (`game-gallery.tsx`): a 2D/3D segmented control, then a grid with genres as rows and
     perspectives as columns plus a "No genre" row (the bases). Each cell is a `button` with the pitch and a
     thumbnail from `templates/media-game/thumbnails/<starterId>.png` (served to the renderer through a new
     `gamesThumbnail(starterId)` channel returning base64; invalid cells have `aria-disabled` and the reason
     as tooltip). Arrow keys move between cells (grid roving tabindex), Enter picks. Third-person cells show
     the five camera checkboxes (all on).
-- [ ] Vitest: every valid cell composes to a file set whose imports resolve and whose manifest validates, and invalid cells are refused with the reason. An e2e boots one non-native combination per dimension (for example isometric RTS, first-person RPG)
+- [x] Vitest: every valid cell composes to a file set whose imports resolve and whose manifest validates, and invalid cells are refused with the reason. An e2e boots one non-native combination per dimension (for example isometric RTS, first-person RPG)
   - `desktop/src/main/games/compose.test.ts` loops over every valid id (import scan + manifest parse) and
     over `fighter@first-person`, `fps@top-down` (refused with their reasons);
     `shared/src/media-game-templates.test.ts` (table shape); e2e `game-starters.spec.ts` adds
@@ -763,7 +764,7 @@ Every valid combination instantiates and runs, composed from the kits rather tha
 
 ## L — Genre recipe skills and the build skill (M)
 
-- [ ] `midnite-media-game-build`: orients an agent in a game repo. It covers:
+- [x] `midnite-media-game-build`: orients an agent in a game repo. It covers:
   - the manifest and kit API
   - the debug hook contract
   - the play-test loop (run → screenshot → logs → input → state, then fix)
@@ -771,31 +772,31 @@ Every valid combination instantiates and runs, composed from the kits rather tha
   - the rules: extend the kit rather than rewrite it, keep `getState()` truthful, never touch `vendor/`
   - Also: load assets only through `assetUrl(name)` (single-file export depends on it, P), keep
     `src/` free of network calls unless `network: 'on'`, and write a `playtests/*.json` for every bug fixed.
-- [ ] One **recipe skill per genre** (10): `midnite-media-game-<genre>`. Each covers the systems that genre needs, their file layout in the kit's terms, tuning values that feel right (jump arcs, stamina costs, frame data, RTS supply curves), and a play-test checklist. These are what lets an agent build a combination no starter covers, or deepen one that exists
+- [x] One **recipe skill per genre** (10): `midnite-media-game-<genre>`. Each covers the systems that genre needs, their file layout in the kit's terms, tuning values that feel right (jump arcs, stamina costs, frame data, RTS supply curves), and a play-test checklist. These are what lets an agent build a combination no starter covers, or deepen one that exists
   - Names use the genre ids: `midnite-media-game-fps`, `-rts`, `-arpg`, `-topdown-crime`, `-shooter`,
     `-fighter`, `-soulslike`, `-rpg`, `-character-action`, `-open-world`. Tuning numbers quoted in a skill
     must equal the kit defaults (a vitest greps each skill for the constants it names and compares).
-- [ ] Skills ship in `templates/media-game/` and are seeded into each repo's `.claude/`, `.agents/` and `.codex/` at creation (the `main/video/scaffold.ts` pattern), and mirrored into the app repo's skill dirs for agents working outside a game repo
+- [x] Skills ship in `templates/media-game/` and are seeded into each repo's `.claude/`, `.agents/` and `.codex/` at creation (the `main/video/scaffold.ts` pattern), and mirrored into the app repo's skill dirs for agents working outside a game repo
   - Source of truth: `templates/media-game/skills/<name>/SKILL.md`; seeding copies to the game repo's
     `.claude/skills/`, `.agents/skills/`, `.codex/skills/`. The app repo mirrors **only**
     `midnite-media-game-build` (six copies, added to `scripts/skill-copies.test.mjs`) — the ten recipes stay
     game-repo-only so the app repo's skill list does not grow by ten (Decision 10).
-- [ ] Vitest: every skill's front matter parses, every tool a skill names exists in `MCP_TOOLS`, and seeding writes all three copies
+- [x] Vitest: every skill's front matter parses, every tool a skill names exists in `MCP_TOOLS`, and seeding writes all three copies
   - `desktop/src/main/games/skills.test.ts`: front matter has `name` = folder and a `description`; every
     `game_[a-z_]+` token in a skill is an `isGameMcpToolId`; seeding a temp repo writes 33 files
     (11 × 3).
 
 ## M — Create and iterate: agents, Ollama and commit-per-turn history (M)
 
-- [ ] Create and iterate panel: a prompt, the gallery (K) when creating, an engine picker (roster agents or Ollama), and a refinement-pass budget (the Models 1–100 slider pattern)
+- [x] Create and iterate panel: a prompt, the gallery (K) when creating, an engine picker (roster agents or Ollama), and a refinement-pass budget (the Models 1–100 slider pattern)
   - `GameIteratePanel` (`game-iterate-panel.tsx`): `PromptTextarea`; an engine select (roster agents from
     the agents list, then Ollama models); **Passes** `<input type="range" min={1} max={GAME_PASSES_MAX = 20}>`
     (aria-label "Refinement passes", the `model-panel.tsx` pattern; 20 not 100 because each pass is a full
     CLI run in a repo); **Run** / **Cancel**.
-- [ ] **Ollama is allowed, with a warning** (user, 2026-10-04). Selecting an Ollama engine shows a non-blocking banner: _"Local models struggle to write whole games. Expect better results from small, focused edits; an agent engine is recommended for creating games."_ The same warning appears in the `game_create` result when an Ollama engine is named over MCP
+- [x] **Ollama is allowed, with a warning** (user, 2026-10-04). Selecting an Ollama engine shows a non-blocking banner: _"Local models struggle to write whole games. Expect better results from small, focused edits; an agent engine is recommended for creating games."_ The same warning appears in the `game_create` result when an Ollama engine is named over MCP
   - `GAMES_OLLAMA_WARNING` (shared) holds the sentence; the banner is `role="status"`, amber, dismissible
     per session. `game_create`'s output carries `warnings: string[]`.
-- [ ] Agent runs execute **in the game repo** via `runAgent`, with the private MCP socket from `iterative-host.ts` exposing D and O's tools, so the agent plays the game it is editing. Progress streams into an edit thread (the `video-edit-thread.tsx` pattern)
+- [x] Agent runs execute **in the game repo** via `runAgent`, with the private MCP socket from `iterative-host.ts` exposing D and O's tools, so the agent plays the game it is editing. Progress streams into an edit thread (the `video-edit-thread.tsx` pattern)
   - **Correction (x1):** there is no `runAgent` in `iterative-host.ts`; the reusable pieces are
     `createIterativeHost()` and the `runIterative` loop shape. New `main/games/game-agent.ts`
     `runGameAgent(opts: { host: IterativeHost; agentId; modelArgs; prompt; game: GameRef; passes; signal; onProgress })`:
@@ -809,7 +810,7 @@ Every valid combination instantiates and runs, composed from the kits rather tha
     (`app/features/media/video/video-edit-thread.tsx`) fed by `gamesAgentProgress`
     (`{ pass, of, action?, commit?: { sha, files } }`); limits per run: `MODEL_ITERATIVE_MAX_CALLS` tool
     calls and `MODEL_ITERATIVE_TIMEOUT_MS` per pass.
-- [ ] **Commit per turn**: each agent turn that changed files is committed through the write queue with a generated message, so the Timeline shows the game's history and **Undo turn** is a revert. Only the scaffold commit is automatic outside agent turns
+- [x] **Commit per turn**: each agent turn that changed files is committed through the write queue with a generated message, so the Timeline shows the game's history and **Undo turn** is a revert. Only the scaffold commit is automatic outside agent turns
   - **Resolved: on by default; a turn is one pass** (Decision 4, closes the original open). After each
     pass: `getStatus` → if anything changed, `stagePaths(path, ['.'])` + `commit({ message: 'agent: <first 60 chars of prompt> (pass n/N)' })`
     via the write queue (no attribution trailers). With `squashRunCommits` (Settings ▸ Media ▸ Games, default
@@ -818,12 +819,12 @@ Every valid combination instantiates and runs, composed from the kits rather tha
     (`commands/revert.ts`, `revert --no-edit --end-of-options <sha>` in the write queue; conflicts →
     `conflict('revert', files)`). Offered on the last agent commit only; a conflict renders the standard
     conflict envelope.
-- [ ] Ollama runs (no CLI to edit files) receive the relevant files and return whole-file replacements in a fenced, zod-validated envelope that main applies. They are limited to files under `src/` and refused for `kit/` and `vendor/`
+- [x] Ollama runs (no CLI to edit files) receive the relevant files and return whole-file replacements in a fenced, zod-validated envelope that main applies. They are limited to files under `src/` and refused for `kit/` and `vendor/`
   - Context: `src/**/*.js` plus `midnite-game.json`, up to 60 KB total (largest files truncated with a
     marker). `createLlmCall({ json: true })`; `GameOllamaEnvelopeSchema = { files: { path: string, content: string }[] (≤ 10, each ≤ 200 KB), summary: string }`.
     A path not matching `^src/[^\0]+\.(js|json)$` after normalisation, or containing `..`, refuses the
     whole envelope (_"The model tried to edit <path>; only files under src/ can be changed."_).
-- [ ] Vitest: an Ollama envelope outside `src/` is refused, commit-per-turn creates one commit per changing turn and none for a no-op turn, and the warning appears for Ollama engines in UI and MCP
+- [x] Vitest: an Ollama envelope outside `src/` is refused, commit-per-turn creates one commit per changing turn and none for a no-op turn, and the warning appears for Ollama engines in UI and MCP
   - `desktop/src/main/games/game-agent.test.ts` (stub `IterativeHost` on a `TempRepo`: 3 passes, one
     no-op → 2 commits; squash → 1; `kit/x.js` and `../x` envelopes refused);
     `git-engine/src/commands/revert.test.ts`; `app/src/features/media/game/game-iterate-panel.test.tsx`
@@ -831,45 +832,53 @@ Every valid combination instantiates and runs, composed from the kits rather tha
 
 ## N — Asset bridge (M)
 
-- [ ] **Import from** Terrain (a Phase 105 manifest folder), Sprites (Phase 106 atlases, tilesets, maps, backgrounds), Models (`.glb` with clips), Images (PNG/JPEG/WebP) and Audio. Pick from a media picker, or over MCP with `game_import_asset`
+- [x] **Import from** Terrain (a Phase 105 manifest folder), Sprites (Phase 106 atlases, tilesets, maps, backgrounds), Models (`.glb` with clips), Images (PNG/JPEG/WebP) and Audio. Pick from a media picker, or over MCP with `game_import_asset`
   - `GameAssetPicker` lists sources by tab from the *selected repo's* media (Terrain, Sprites, Models,
     Images, Audio) and, for Terrain/Sprites, also accepts a pack folder via `repos.pickDirectory()`.
     Terrain/Sprites import their **export** (the pack is produced on the fly through
     `media.terrain.export`/`media.sprite.export` into a temp dir). `game_import_asset` takes
     `{ game, source: { tab, repoPath, path } | { packPath }, name? }`, with `repoPath`/`packPath` confined to
     registered repos or `gamesRoot`.
-- [ ] Imports are **copies** into `assets/<kind>/`, never links, so a game repo is self-contained and exportable. Provenance (source tab, path, hash, time) is recorded in the manifest
+- [x] Imports are **copies** into `assets/<kind>/`, never links, so a game repo is self-contained and exportable. Provenance (source tab, path, hash, time) is recorded in the manifest
   - Destination `assets/<kind>/<name>/` (folders) or `assets/<kind>/<name>.<ext>` (single files);
     `sha256` is of the file, or of the sorted `path\0sha256\n` list for a folder. A name collision gets
     `-2`, `-3`… suffixes.
-- [ ] **Re-sync**: when a source's hash changes, the Games tab offers to re-import. It never overwrites silently, and a re-import is its own commit
+- [x] **Re-sync**: when a source's hash changes, the Games tab offers to re-import. It never overwrites silently, and a re-import is its own commit
   - On tab focus and on `media:changed`, `gamesResync({ gameId, check: true })` recomputes source hashes
     and the explorer badges the game _"2 assets changed"_; **Re-import** replaces those copies and commits
     `assets: re-import <names>`. A missing source is reported, never deleted from the game.
-- [ ] Kit wiring per kind: the E animator and Tiled loader, F's glTF and terrain loaders. Imported assets are registered in `assets/index.json`, which the kits read, so the agent references assets by name
+- [x] Kit wiring per kind: the E animator and Tiled loader, F's glTF and terrain loaders. Imported assets are registered in `assets/index.json`, which the kits read, so the agent references assets by name
   - `GameAssetIndexSchema = { version: 1, assets: { name, kind, path, entry?: string /* atlas.json, map.tmj, terrain.manifest.json, … */ }[] }`;
     each import also commits (`assets: import <name>`).
-- [ ] Vitest: imports copy and record provenance, a changed source is detected, the asset index is valid, and importing a Phase 105 or 106 fixture yields files the kit loaders accept
+- [x] Vitest: imports copy and record provenance, a changed source is detected, the asset index is valid, and importing a Phase 105 or 106 fixture yields files the kit loaders accept
   - `desktop/src/main/games/asset-bridge.test.ts` (copy not symlink; provenance hash; touch source →
     flagged; index parses; the 105 fixture pack passes `kit/core/terrain-manifest.js`; a 106 fixture
     `anims.json` keys resolve through `animName`).
 
 ## O — Play-test depth: determinism, input replays and frame assertions (L)
 
-- [ ] **Deterministic mode** (manifest `deterministic: true`): the kit seeds all randomness from `setSeed`, runs on a fixed timestep driven by a virtual clock, and patches `Math.random`/`performance.now` inside the kit's loop. The same seed plus the same inputs gives the same `getState()` trace
+> **Landed (PR #759).** The e2e half of the last item (`game-playtest.spec.ts`) moves to Theme Q with the
+> budget raise: the top-down base (and every other starter) replayed `smoke.json` twice to identical
+> states in SwiftShader Chromium through an untracked harness driving `playtest.ts`. Differences from
+> the plan: the play-test file names its replay under `replay` and its assertions under `asserts`, as
+> planned, but frame assertions take `baseline` (a name) rather than a path; results add `status`
+> (`pass | fail | baseline-created | error`) beside `ok`; and the toolbar menu has no Record control
+> (recording is `game_replay_record`).
+
+- [x] **Deterministic mode** (manifest `deterministic: true`): the kit seeds all randomness from `setSeed`, runs on a fixed timestep driven by a virtual clock, and patches `Math.random`/`performance.now` inside the kit's loop. The same seed plus the same inputs gives the same `getState()` trace
   - **Resolved: global patches at boot when deterministic** (Decision 12): `kit/core/determinism.js`
     replaces `Math.random` with the seeded `rng.js` mulberry32 and `performance.now`/`Date.now` with the
     virtual clock before any game module runs (the import map loads `kit/core/determinism.js` first from
     `index.html` when `deterministic`). The loop advances the virtual clock by exactly `1000/60` ms per step
     and ignores wall time. Not deterministic: physics engines' own SIMD paths across machines (stated in the
     skill; Rapier's `-compat` build is deterministic on one machine).
-- [ ] **Input replays**: a `.replay.json` format (frame-indexed actions, not wall-clock). `game_replay_record` records a human playthrough in the runner, and `game_replay_play` plays one back at 1× or as fast as possible
+- [x] **Input replays**: a `.replay.json` format (frame-indexed actions, not wall-clock). `game_replay_record` records a human playthrough in the runner, and `game_replay_play` plays one back at 1× or as fast as possible
   - `GameReplaySchema = { version: 1, seed: number, frames: number, events: { f: number, action: string, down: boolean }[] }`
     (kit action names, not keys). Played through the kit (`__midnite.replay.play(replay, { speed: 1 | 'max' })`),
     not `sendInputEvent`, so playback is frame-exact. Recording: `__midnite.replay.record()` /
     `stop()` returns the JSON; `game_replay_record({ action: 'start' | 'stop', name })` writes
     `playtests/replays/<name>.replay.json` on stop. A game without the hook refuses both tools.
-- [ ] **Assertions**:
+- [x] **Assertions**:
   - `game_assert_state`: a JSON-path expectation on `getState()` at frame N
   - `game_assert_frame`: compare a frame at N with a stored baseline, with a tolerance and a returned diff image
   - JSON path is a restricted subset (`$`, `.key`, `[n]`) implemented in `shared/src/game/json-path.ts`
@@ -878,12 +887,12 @@ Every valid combination instantiates and runs, composed from the kits rather tha
     (a pixel differs if any channel differs by > threshold); pass if `changedFraction ≤ tolerance`
     (default 0.01). Baselines at `playtests/baselines/<name>@<frame>.png`; a missing baseline is written
     and the assertion reports `baseline-created` (not pass/fail).
-- [ ] **Play-test scripts** in the repo (`playtests/*.json`): a replay plus assertions, runnable from the runner toolbar and over MCP as `game_playtest`. Results are a pass/fail list with screenshots of failures
+- [x] **Play-test scripts** in the repo (`playtests/*.json`): a replay plus assertions, runnable from the runner toolbar and over MCP as `game_playtest`. Results are a pass/fail list with screenshots of failures
   - `GamePlaytestSchema = { version: 1, name, replay: string /* path */ | GameReplay, asserts: ({ frame, kind: 'state', path, op, value?, epsilon? } | { frame, kind: 'frame', baseline?, tolerance? })[] }`.
     Runs force deterministic mode for the run. Results in `playtests/results/<name>.json` (git-ignored by
     the template's `.gitignore`) and returned: `{ passed, results: { assertIndex, ok, message, screenshot? }[] }`.
   - Toolbar: a **Playtests** menu listing `playtests/*.json`, **Run all**, and a results popover.
-- [ ] Vitest: replay serialisation round-trips, frame-indexed playback is independent of wall time (fake timers), state assertions evaluate JSON paths, and the frame diff reports a known changed region. An e2e: a deterministic starter replays to an identical state trace twice
+- [x] Vitest: replay serialisation round-trips, frame-indexed playback is independent of wall time (fake timers), state assertions evaluate JSON paths, and the frame diff reports a known changed region. An e2e: a deterministic starter replays to an identical state trace twice
   - `shared/src/game/json-path.test.ts`, `frame-diff.test.ts` (a 10×10 changed square in 100×100 →
     0.01); `kit-core.test.ts` (`replay` playback with a fake clock produces the same event frames at
     1× and max); e2e `game-playtest.spec.ts` (header: "real Chromium, canvas"): the `top-down` base,
@@ -891,7 +900,7 @@ Every valid combination instantiates and runs, composed from the kits rather tha
 
 ## P — Web export (S/M)
 
-- [ ] **Static folder** (the repo minus `.git`, `playtests/` and dev-only files), **zip** of the same, and **single-file HTML**: modules inlined in import order, assets as data URIs, Rapier's wasm base64-inlined, with a warning above a size threshold
+- [x] **Static folder** (the repo minus `.git`, `playtests/` and dev-only files), **zip** of the same, and **single-file HTML**: modules inlined in import order, assets as data URIs, Rapier's wasm base64-inlined, with a warning above a size threshold
   - Exclusions (`GAME_EXPORT_EXCLUDE`): `.git/`, `.claude/`, `.agents/`, `.codex/`, `playtests/`,
     `node_modules/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `jsconfig.json`, `**/*.d.ts`, dotfiles.
   - **Zip:** a new `main/games/zip-writer.ts` `writeZip(entries: { path; bytes }[]): Buffer` on
@@ -904,11 +913,11 @@ Every valid combination instantiates and runs, composed from the kits rather tha
     those URLs; `assets/index.json` is inlined as `window.__MIDNITE_ASSETS__` with `data:` URLs so
     `assetUrl(name)` resolves without a server. Rapier `-compat` already embeds its wasm. Size warning above
     `GAME_SINGLE_FILE_WARN_BYTES = 50 MB` (_"This file is 63 MB; browsers may be slow to open it."_).
-- [ ] Export goes through `ExportToolbar`, with `MEDIA_TAB_EXPORT_FORMATS` listing `game-folder`, `game-zip` and `game-html` for the tab, and the native save dialog
+- [x] Export goes through `ExportToolbar`, with `MEDIA_TAB_EXPORT_FORMATS` listing `game-folder`, `game-zip` and `game-html` for the tab, and the native save dialog
   - `MEDIA_EXPORT_FORMATS` + `MEDIA_EXPORT_FORMAT_INFO`: `game-html` (`Single HTML file`, `html`),
     `game-zip` (`Zip`, `zip`), `game-folder` (`Folder`, `''`); first = default. File formats use the
     native save dialog; the folder uses `repos.pickDirectory()` and refuses an existing `<name>-web/`.
-- [ ] Vitest: export excludes `.git` and playtests, the single-file HTML contains no external references, and a size warning fires above the threshold. An e2e opens a single-file export from `file://` and passes the starter's smoke script
+- [x] Vitest: export excludes `.git` and playtests, the single-file HTML contains no external references, and a size warning fires above the threshold. An e2e opens a single-file export from `file://` and passes the starter's smoke script
   - `desktop/src/main/games/export.test.ts` (no excluded path in the folder or zip listing; the zip
     re-reads with the system `unzip -l` in the test; the HTML has no `src="`/`href="` to anything but
     `data:`; a 51 MB fixture warns); e2e `game-export.spec.ts` (header: "real Chromium from file://")

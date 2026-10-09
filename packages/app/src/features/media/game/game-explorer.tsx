@@ -3,6 +3,7 @@ import { LuBox, LuLayers, LuPlus, LuTriangleAlert } from 'react-icons/lu';
 
 import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { LoadingRegion, Skeleton } from '../../../components/skeleton';
+import { GameAssetsBadge } from './game-assets-panel';
 import { useGames } from './use-games';
 
 /**
@@ -87,7 +88,10 @@ function GameRow({
         ) : (
           <LuTriangleAlert aria-label="Invalid manifest" className="h-3.5 w-3.5 shrink-0 text-amber-500" />
         )}
-        <span className="min-w-0 flex-1 truncate">{game.name}</span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate">{game.name}</span>
+          <GameAssetsBadge game={game} />
+        </span>
         {game.dirty ? (
           <span role="img" aria-label="Uncommitted changes" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
         ) : null}

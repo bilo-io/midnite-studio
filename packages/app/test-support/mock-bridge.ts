@@ -5,6 +5,8 @@ import type {
   ReachableRepo,
   ForgeCapability,
   ForgeKind,
+  GamePlaytestEntry,
+  GamePlaytestResult,
   Note,
   SyncStatusEvent,
   TestPackage,
@@ -51,6 +53,7 @@ export type PopoutRole =
   | 'apps-youtube';
 
 export type MockFixtures = {
+  commitStats?: Record<string, { added: number; deleted: number; files: number } | null>;
   /**
    * The Finance dashboard's market data and simulated portfolio (`markets.*`).
    * Everything is generated in-process from a seeded PRNG — a spec that mounts
@@ -738,6 +741,24 @@ export type MockFixtures = {
     };
     resolvedRoot?: string;
     rootProblem?: string | null;
+    /** The game the `game` popout hosts at boot (Theme B Pop out). */
+    popped?: string | null;
+    /** Theme N: picker candidates by tab, and the re-sync answer (`state` per imported asset). */
+    assetSources?: Record<
+      string,
+      Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
+    >;
+    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
+    /**
+     * Theme O: `playtests/*.json` as the Playtests menu lists them. A run answers `playtestRun` when
+     * given, else marks every requested valid play-test passed, and saves it as that entry's `last`.
+     */
+    playtests?: GamePlaytestEntry[];
+    playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
+    /** The juice settings a game starts with (default: the kit's). */
+    juice?: Record<string, unknown>;
+    /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
+    exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
   /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
@@ -747,6 +768,8 @@ export type MockFixtures = {
   media?: {
     files?: Record<string, Record<string, string>>;
     /** SF3D (Phase 103 Theme J): the starting install state; `licenceSha256` = consent already given. */
+    /** Maps (Phase 108): `keySet` makes the MapTiler sources available; the cache readout. */
+    map?: { keySet?: boolean; cacheBytes?: number; cacheCapMB?: number };
     sf3d?: { state?: 'not-installed' | 'installed'; licenceSha256?: string; hold?: boolean; holdFraction?: number };
     ffmpeg?:
       { found: true; path: string; version: string | null } | { found: false; reason: string };
@@ -764,6 +787,8 @@ export type MockFixtures = {
       };
       ollama: { running: boolean; models: string[]; model: string | null; recommended: string };
     };
+    /** Phase 101 Theme D: GM programs already cached (`media.audio.gm.status()`); defaults to `[0]`. */
+    gmCached?: number[];
     imageProviders?: Array<{
       id: 'gemini' | 'openai' | 'agy' | 'ollama';
       available: boolean;
@@ -787,6 +812,8 @@ export type MockFixtures = {
      * Terrain tab: `media.terrain.*`. Terrains live in `files['terrain:<group>']` as
      * `<terrain>/terrain.json`. `build` answers `needs-height-source` when the spec has neither a
      * heightmap nor noise, else `built` with `stats` (default: a 513² terrain).
+     *
+     * Sprites: `media.sprite.*`; assets live in `files['sprite:<group>']` as `<asset>/sprite.json`.
      */
     terrain?: { stats?: Record<string, unknown> };
   };
@@ -971,7 +998,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -1157,6 +1184,12 @@ export async function installMockBridge(
   add it for real.
 */
 export function buildMockBridge(data: MockFixtures) {
+  const musicChanged = new Set<(event: never) => void>();
+  const musicOpen = new Set<(event: never) => void>();
+  (globalThis as { __mockMusicEmit?: unknown }).__mockMusicEmit = {
+    changed: (event: unknown) => musicChanged.forEach((h) => h(event as never)),
+    open: (event: unknown) => musicOpen.forEach((h) => h(event as never)),
+  };
   // Helpers live INSIDE the function: it is serialised into the page whole, so module scope is not there.
   /**
    * The Models library tree, derived from the mock's flat `model:<project>` file maps: a top-level key is a
@@ -1676,7 +1709,17 @@ export function buildMockBridge(data: MockFixtures) {
         hunks: data.conflictRegions?.[req.path] ?? [],
         truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
       }),
-      commitStats: async () => ({ stats: {} }),
+      commitStats: async (req: { shas: string[] }) => {
+        const stats: Record<string, { added: number; deleted: number; files: number } | null> = {};
+        if (data.commitStats) {
+          for (const sha of req.shas) {
+            if (sha in data.commitStats) {
+              stats[sha] = data.commitStats[sha] ?? null;
+            }
+          }
+        }
+        return { stats };
+      },
       blobExists: async (req: { rev: string; path: string }) => ({
         exists: data.blobExists?.[`${req.rev}:${req.path}`] ?? true,
       }),
@@ -3238,6 +3281,7 @@ export function buildMockBridge(data: MockFixtures) {
       },
       list: async () => ({ games: gamesList }),
       create: async (req: { name: string; engine: string; perspective: string }) => {
+        gamesCalls.push({ call: 'create', ...req });
         const slug = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
         const gameId = `g${String(gamesList.length + 1).padStart(12, '0')}`;
         const path = `${data.games?.resolvedRoot ?? '/Users/test/Midnite Games'}/${slug}`;
@@ -3285,8 +3329,30 @@ export function buildMockBridge(data: MockFixtures) {
         gamesCalls.push({ call: 'toolbar', ...req });
         return { ok: true as const };
       },
+      // Juice settings: a per-game in-memory copy of the kit defaults; `set` merges, `reset` restores.
+      juice: async (req: { gameId: string; action: 'get' | 'set' | 'reset'; patch?: Record<string, unknown> }) => {
+        gamesCalls.push({ call: 'juice', ...req });
+        const defaults = { enabled: true, intensity: 1, shake: true, flash: true, particles: true, postfx: true, volume: 0.8 };
+        const current = gamesJuice.get(req.gameId) ?? data.games?.juice ?? defaults;
+        const next = req.action === 'set' ? { ...current, ...req.patch } : req.action === 'reset' ? defaults : current;
+        gamesJuice.set(req.gameId, next);
+        return { ok: true as const, value: next };
+      },
       logs: async () => ({ runId: null, entries: [] }),
       kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
+      popOut: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'popOut', ...req });
+        gamesPopped = req.gameId;
+        gamesPopStateHandlers.forEach((h) => h({ gameId: req.gameId }));
+        return { ok: true as const };
+      },
+      popped: async () => ({ gameId: gamesPopped, run: null }),
+      onPopState: (handler: (event: unknown) => void) => {
+        gamesPopStateHandlers.push(handler);
+        return () => {
+          gamesPopStateHandlers = gamesPopStateHandlers.filter((h) => h !== handler);
+        };
+      },
       onChanged: (handler: (event: unknown) => void) => {
         gamesChangedHandlers.push(handler);
         return () => {
@@ -3310,6 +3376,68 @@ export function buildMockBridge(data: MockFixtures) {
         return () => {
           gamesConsoleHandlers = gamesConsoleHandlers.filter((h) => h !== handler);
         };
+      },
+      // Theme M: runs are recorded; a spec drives progress through `__mstudioMockGames.agentProgress(...)`.
+      agent: {
+        // Warnings stay empty: the panel's own banner is what shows the Ollama warning.
+        run: async (req: { gameId: string }) => {
+          const runId = `ar${gamesCalls.length + 1}`;
+          gamesCalls.push({ call: 'agentRun', runId, ...req });
+          return { ok: true as const, value: { runId, warnings: [] as string[] } };
+        },
+        cancel: async (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'agentCancel', ...req });
+          return { ok: true as const };
+        },
+        undo: async (req: { gameId: string; sha: string }) => {
+          gamesCalls.push({ call: 'agentUndo', ...req });
+          return { ok: true as const };
+        },
+        onProgress: (handler: (event: unknown) => void) => {
+          gamesAgentHandlers.push(handler);
+          return () => {
+            gamesAgentHandlers = gamesAgentHandlers.filter((h) => h !== handler);
+          };
+        },
+      },
+      // Theme O: play-tests. Listing answers the fixture; a run is recorded and updates each entry's `last`.
+      playtests: {
+        list: async () => ({ ok: true as const, value: { playtests: gamesPlaytests } }),
+        run: async (req: { gameId: string; names?: string[] }) => {
+          gamesCalls.push({ call: 'playtestRun', ...req });
+          const wanted = gamesPlaytests.filter((p) => p.valid && (!req.names || req.names.length === 0 || req.names.includes(p.name)));
+          const answer = data.games?.playtestRun ?? {
+            passed: true,
+            runs: wanted.map((p) => ({ name: p.name, passed: true, ranAt: '2026-10-07T10:00:00.000Z', frames: 180, ms: 900, results: [] })),
+          };
+          gamesPlaytests = gamesPlaytests.map((p) => ({ ...p, last: answer.runs.find((r) => r.name === p.name) ?? p.last }));
+          return { ok: true as const, value: answer };
+        },
+      },
+      // Theme P: web export. Recorded; answers `exportResult` or a success at the chosen (or a dialog) path.
+      export: async (req: { gameId: string; format: string; dest?: string; overwrite?: boolean }) => {
+        gamesCalls.push({ call: 'export', ...req });
+        const answer = data.games?.exportResult;
+        if (answer && !answer.ok) return { ok: false as const, kind: 'error' as const, message: answer.message };
+        const ext = req.format === 'game-html' ? 'html' : req.format === 'game-zip' ? 'zip' : 'web';
+        const path = req.format === 'game-folder' ? `${req.dest ?? '/exports'}/game-web` : (req.dest ?? `/exports/game.${ext}`);
+        return { ok: true as const, value: { path, bytes: 2_048_000, files: 42, warnings: answer?.warnings ?? [] } };
+      },
+      // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
+      assets: {
+        sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
+        import: async (req: { gameId: string; source: unknown; name?: string }) => {
+          gamesCalls.push({ call: 'assetImport', ...req });
+          const name = req.name ?? 'asset';
+          return { ok: true as const, value: { name, kind: 'sprite' as const, path: `assets/sprite/${name}`, sha256: 'abc', commit: 'a1b2c3d' } };
+        },
+        resync: async (req: { gameId: string; check?: boolean; names?: string[] }) => {
+          gamesCalls.push({ call: 'assetResync', ...req });
+          const assets = data.games?.assetSync ?? [];
+          const changed = assets.filter((a: { state: string }) => a.state === 'changed');
+          const reimported = req.check ? [] : changed.map((a: { name: string }) => a.name);
+          return { ok: true as const, value: { assets, changed: req.check ? changed.length : 0, reimported, commit: req.check || reimported.length === 0 ? null : 'd4e5f6a' } };
+        },
       },
     },
     media: {
@@ -3489,6 +3617,15 @@ export function buildMockBridge(data: MockFixtures) {
         }),
         installEngine: async () => ({ ok: true as const }),
         onEngineProgress: unsubscribe,
+        gm: {
+          status: async () => ({ cached: data.media?.gmCached ?? [0] }),
+          ensure: async () => ({ ok: true as const }),
+          load: async (req: { program: number }) => ({
+            ok: true as const,
+            value: { program: req.program, notes: {} as Record<string, string> },
+          }),
+          onProgress: unsubscribe,
+        },
         expand: async (req: { title: string; style: string[] }) => ({
           ok: true as const,
           value: {
@@ -3541,6 +3678,89 @@ export function buildMockBridge(data: MockFixtures) {
           return { ok: true as const, value: { sessionId, files } };
         },
         onProgress: unsubscribe,
+      },
+      // Phase 101 Theme B — songs are `<name>.mid` (a stand-in) + `<name>.song.json` in the audio project.
+      music: {
+        // Tests push an agent edit with `window.__mockMusicEmit.changed(event)` / `.open(event)`.
+        onChanged: (handler: (event: never) => void) => {
+          musicChanged.add(handler);
+          return () => void musicChanged.delete(handler);
+        },
+        onOpen: (handler: (event: never) => void) => {
+          musicOpen.add(handler);
+          return () => void musicOpen.delete(handler);
+        },
+        agent: {
+          run: async () => ({ ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } }),
+          cancel: async () => ({ ok: true as const }),
+          onProgress: () => () => {},
+        },
+        agy: {
+          status: async () => ({ ok: true as const, value: { registered: musicAgyRegistered, configPath: '~/.gemini/antigravity/mcp_config.json' } }),
+          register: async () => {
+            musicAgyRegistered = true;
+            return { ok: true as const, value: { registered: true, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+          unregister: async () => {
+            musicAgyRegistered = false;
+            return { ok: true as const, value: { registered: false, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+        },
+        list: async (req: { project: string }) => ({
+          ok: true as const,
+          value: Object.keys(mediaFiles[`audio:${req.project}`] ?? {})
+            .filter((path) => path.endsWith('.mid') && !path.includes('/'))
+            .map((path) => ({
+              name: path.slice(0, -4),
+              path,
+              hasSidecar: `${path.slice(0, -4)}.song.json` in (mediaFiles[`audio:${req.project}`] ?? {}),
+              size: 1,
+              mtimeMs: 1,
+            })),
+        }),
+        read: async (req: { project: string; name: string }) => {
+          const sidecar = mediaFiles[`audio:${req.project}`]?.[`${req.name}.song.json`];
+          if (sidecar === undefined) return { ok: false as const, kind: 'error' as const, message: 'Song not found.' };
+          return { ok: true as const, value: JSON.parse(sidecar) as unknown };
+        },
+        write: async (req: { project: string; name: string; song: unknown }) => {
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              [`${req.name}.mid`]: 'mid',
+              [`${req.name}.song.json`]: JSON.stringify(req.song),
+            },
+          };
+          return { ok: true as const, value: { size: 1, largeFile: false } };
+        },
+        import: async (req: { project: string }) => {
+          const song = {
+            version: 1,
+            name: 'Imported',
+            ppq: 480,
+            tempos: [{ tick: 0, bpm: 120 }],
+            timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
+            keySignatures: [],
+            meta: [],
+            tracks: [],
+            clips: [],
+            mixer: { master: { volume: 0.8, pan: 0, mute: false, solo: false } },
+          };
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), 'Imported.mid': 'mid', 'Imported.song.json': JSON.stringify(song) },
+          };
+          return { ok: true as const, value: [{ name: 'Imported', song }] };
+        },
+        delete: async (req: { project: string; name: string }) => {
+          const key = `audio:${req.project}`;
+          const { [`${req.name}.mid`]: _mid, [`${req.name}.song.json`]: _side, ...rest } = mediaFiles[key] ?? {};
+          mediaFiles = { ...mediaFiles, [key]: rest };
+          return { ok: true as const };
+        },
       },
       model: {
         providers: async () => ({
@@ -3705,6 +3925,10 @@ export function buildMockBridge(data: MockFixtures) {
         const defaults = {
           version: 1, name: 'Terrain', inputs: {}, resolution: 513, worldSize: 1024, heightRange: [0, 200], preSmooth: 0,
           alignment: { roads: 'satellite' }, textureSize: 2048,
+          // Phase 105 G + H: the schema's own defaults, inlined (this file is serialised into the page).
+          foliage: { seed: 1, treeDensity: 4, grassDensity: 30, slopeLimitDeg: 35, scale: [0.8, 1.3], margin: 2 },
+          buildings: { seed: 1, height: [4, 18], scaleByArea: true, minAreaM2: 20, snapToleranceDeg: 12, flattenBlendM: 3 },
+          roads: { tolerance: 0.25, widthScale: 1, widthClampM: [2, 30], blendM: 6, maxCutFillM: 4, spurMinM: 8 },
         };
         const stats = data.media?.terrain?.stats ?? {
           resolution: 513, worldSize: 1024, vertexCount: 263169, triangleCount: 524288, chunkCount: 64, lodCount: 4,
@@ -3768,8 +3992,16 @@ export function buildMockBridge(data: MockFixtures) {
           },
           cancel: async () => ({ ok: true as const }),
           paint: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
-          roadKey: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
-          export: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          // A 1×1 black PNG: enough for the panel's preview <img> and the eyedropper round trip.
+          roadKey: async (req: { pick?: [number, number]; colour?: string }) => ({
+            ok: true as const,
+            value: {
+              pngBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==',
+              colour: req.pick ? '#00fefe' : (req.colour ?? '#00ffff'),
+              detected: '#00ffff',
+            },
+          }),
+          export: async (req: { terrain: string; format: string; dest: string }) => ({ ok: true as const, value: { path: `${req.dest}/${req.terrain}.${req.format === 'glb' ? 'glb' : 'terrain'}`, bytes: 1024 } }),
           onProgress: (handler: (event: unknown) => void) => {
             listeners.progress.add(handler);
             return () => listeners.progress.delete(handler);
@@ -3782,6 +4014,195 @@ export function buildMockBridge(data: MockFixtures) {
             listeners.open.add(handler);
             return () => listeners.open.delete(handler);
           },
+        };
+      })(),
+      /** Maps (Phase 108): `map.json` per project under `files['map:<project>']`; tiles never load in the mock. */
+      map: (() => {
+        const defaults = { version: 1, view: { center: [18.4241, -33.9249], zoom: 10, bearing: 0, pitch: 0 }, basemap: 'streets', terrain3d: { on: false, exaggeration: 1.5 }, layerOrder: [], layerStyle: {} };
+        let cacheCapMB = data.media?.map?.cacheCapMB ?? 1024;
+        let cacheBytes = data.media?.map?.cacheBytes ?? 312 * 1024 * 1024;
+        return {
+          get: async (req: { project: string }) => {
+            const raw = mediaFiles[`map:${req.project}`]?.['map.json'];
+            return { ok: true as const, value: { map: raw ? { ...defaults, ...JSON.parse(raw) } : defaults } };
+          },
+          setView: async (req: { project: string; patch: Record<string, unknown> }) => {
+            const key = `map:${req.project}`;
+            const current = mediaFiles[key]?.['map.json'] ? JSON.parse(mediaFiles[key]!['map.json']!) : defaults;
+            const next = { ...current, ...req.patch };
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), 'map.json': JSON.stringify(next) } };
+            return { ok: true as const, value: { map: next } };
+          },
+          sources: async () => ({
+            sources: ['aws-terrarium', 'openfreemap', 'openfreemap-relief', 'eox-s2cloudless-2016', 'maptiler-satellite', 'maptiler-terrain-rgb', 'maptiler-streets'].map((id) =>
+              id.startsWith('maptiler') && !data.media?.map?.keySet ? { id, available: false, reason: 'Add a MapTiler key in Settings ▸ Media.' } : { id, available: true },
+            ),
+          }),
+          cache: async (req: { op: string; capMB?: number }) => {
+            if (req.op === 'clear') cacheBytes = 0;
+            if (req.op === 'set-cap' && req.capMB) cacheCapMB = req.capMB;
+            return { ok: true as const, value: { bytes: cacheBytes, tiles: Math.round(cacheBytes / 20_000), capMB: cacheCapMB } };
+          },
+          capture: async (req: { center: [number, number]; sideM: number; size: number; handoff?: boolean }) => ({
+            ok: true as const,
+            value: {
+              ...(req.handoff ? { terrain: { project: 'terrains', terrain: 'cape-town-20260101-000000' } } : {}),
+              captureId: 'mock-capture',
+              name: 'mock-capture-20260101-000000',
+              dir: 'captures/mock-capture-20260101-000000',
+              capture: {
+                version: 1 as const,
+                name: 'mock-capture-20260101-000000',
+                center: req.center,
+                sideM: req.sideM,
+                size: req.size,
+                mPerPx: req.sideM / (req.size - 1),
+                bbox: [req.center[0] - 0.01, req.center[1] - 0.01, req.center[0] + 0.01, req.center[1] + 0.01] as [number, number, number, number],
+                heightMinM: 0,
+                heightMaxM: 1085,
+                hasSea: true,
+                sources: { dem: 'aws-terrarium' as const },
+                demZoom: 13,
+                attributions: ['Terrain Tiles: Mapzen, AWS Open Data — see sources list'],
+                files: ['heightmap.png', 'heightmap.r32', 'heightmap.tif', 'capture.json', 'ATTRIBUTION.txt'],
+                missing: [],
+                capturedAt: '2026-01-01T00:00:00.000Z',
+              },
+            },
+          }),
+          captureCancel: async () => ({ ok: true as const, value: { cancelled: true } }),
+          onCaptureProgress: () => () => undefined,
+          onOpen: () => () => undefined,
+        };
+      })(),
+      sprite: (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a loose stand-in for the spec JSON
+        type Spec = Record<string, any>;
+        const slug = (text: string) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sprite';
+        const groupOf = (spec: Spec) =>
+          spec.kind === 'sheet' ? (spec.category === 'object' ? 'objects' : 'characters') : spec.kind === 'prop-sheet' ? 'objects' : ({ tileset: 'tilesets', background: 'backgrounds', map: 'maps' } as Record<string, string>)[spec.kind as string];
+        const read = (group: string, asset: string): Spec | null => {
+          const raw = mediaFiles[`sprite:${group}`]?.[`${asset}/sprite.json`];
+          return raw ? (JSON.parse(raw) as Spec) : null;
+        };
+        const write = (group: string, asset: string, spec: Spec) => {
+          const key = `sprite:${group}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${asset}/sprite.json`]: JSON.stringify(spec) } };
+        };
+        const missing = { ok: false as const, kind: 'error' as const, message: 'Sprite not found.' };
+        const listeners = { progress: new Set<(e: unknown) => void>(), changed: new Set<(e: unknown) => void>(), open: new Set<(e: unknown) => void>() };
+        return {
+          library: async (req: Spec) => {
+            if (req.op === 'create') {
+              const group = groupOf(req.spec);
+              const asset = `${slug(req.spec.name)}-20261004-120000`;
+              write(group as string, asset, { version: 1, ...req.spec });
+              return { ok: true as const, value: { group, asset } };
+            }
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            if (req.op === 'delete') {
+              const key = `sprite:${req.group}`;
+              const { [`${req.asset}/sprite.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+              return { ok: true as const, value: {} };
+            }
+            const asset = req.op === 'rename' ? `${slug(req.to)}-20261004-120000` : `${req.asset}-copy`;
+            write(req.group, asset, { ...spec, name: req.op === 'rename' ? req.to : `${spec.name} copy` });
+            return { ok: true as const, value: { group: req.group, asset } };
+          },
+          get: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            // The real service parses through the zod schema; the mock fills the defaults the UI reads.
+            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, anchor: { x: 0.5, y: 1 }, mirror: true, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, scheme: 'blob47', terrains: [{ id: 'grass', label: 'Grass', prompt: '', collision: 'walkable' }, { id: 'dirt', label: 'Dirt', prompt: '', collision: 'walkable' }], transitions: [{ a: 'grass', b: 'dirt' }], seed: 1 } : {}), ...(spec.kind === 'background' ? { size: [1920, 1080], layers: [{ name: 'sky', prompt: '', scrollFactor: 0 }, { name: 'far', prompt: '', scrollFactor: 0.2 }, { name: 'mid', prompt: '', scrollFactor: 0.5 }, { name: 'near', prompt: '', scrollFactor: 0.8 }] } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
+            // A map's asset refs: the form sends bare folder names, which the schema's preprocess turns into refs.
+            if (filled.kind === 'map' && typeof filled.tileset === 'string') filled.tileset = { group: 'tilesets', asset: filled.tileset };
+            if (filled.kind === 'map' && filled.decorations && typeof filled.decorations.props === 'string') filled.decorations = { ...filled.decorations, props: { group: 'objects', asset: filled.decorations.props } };
+            const framesRaw = mediaFiles[`sprite:${req.group}`]?.[`${req.asset}/frames/frames.json`];
+            const frames = framesRaw ? { version: 1, referenceHeights: {}, ...(JSON.parse(framesRaw) as Spec) } : { version: 1, frames: {}, referenceHeights: {} };
+            return { ok: true as const, value: { spec: filled, frames, report: filled.lastReport ?? null } };
+          },
+          setSpec: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const next = { ...spec, ...req.patch, kind: spec.kind };
+            write(req.group, req.asset, next);
+            return { ok: true as const, value: { spec: next } };
+          },
+          // Hand-drawn (Phase 106 Theme D): an attached image is unapproved until `approve` locks it.
+          setReference: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            if ('approve' in req) {
+              if (spec.reference?.kind !== 'image') return { ok: false as const, kind: 'error' as const, message: 'Generate or attach a reference first.' };
+              write(req.group, req.asset, { ...spec, reference: { ...spec.reference, approved: true } });
+            } else if ('remove' in req) {
+              const { reference: _gone, ...rest } = spec;
+              write(req.group, req.asset, rest);
+            } else if ('model' in req) {
+              write(req.group, req.asset, { ...spec, reference: { kind: 'model', ...req.model } });
+            } else if ('fromFrame' in req) {
+              // One-shot's hand-off (Theme F): a frame becomes the approved reference.
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: true } });
+            } else {
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
+            }
+            listeners.changed.forEach((h) => h({ repoId: req.repoId, group: req.group, asset: req.asset, revision: Date.now() }));
+            return { ok: true as const };
+          },
+          generate: async (req: Spec) => {
+            const current = read(req.group, req.asset);
+            if (!current) return missing;
+            if (req.turnaround) write(req.group, req.asset, { ...current, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
+            // An environment job reports what it built (Themes H and I).
+            if (current.kind === 'tileset' || current.kind === 'background' || current.kind === 'prop-sheet' || current.kind === 'map') {
+              const size = (current.size as [number, number] | undefined) ?? [40, 24];
+              const count = current.kind === 'tileset' ? 49 : current.kind === 'background' ? (current.layers as unknown[]).length : current.kind === 'map' ? size[0] * size[1] : (current.props as unknown[]).length;
+              write(req.group, req.asset, { ...current, lastReport: { frames: count, failing: 0, at: '2026-10-07T10:00:00.000Z' } });
+            }
+            const jobId = `job-${Date.now()}`;
+            for (const [step, done] of [[0, 1], [10, 2]] as const) {
+              setTimeout(() => listeners.progress.forEach((h) => h({ jobId, done, total: 2, stage: 'generating' })), step);
+            }
+            return { ok: true as const, value: { jobId } };
+          },
+          cancel: async () => ({ ok: true as const }),
+          // Frame-strip edits (Theme G): accepted as-is; a spec spies on the call to see the ops.
+          patchFrames: async (req: Spec) => {
+            const rerolls = (req.ops as Spec[]).some((op) => op.op === 'reroll');
+            return { ok: true as const, value: rerolls ? { jobId: `job-${Date.now()}` } : {} };
+          },
+          export: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const suffix = ({ tileset: 'tileset', background: 'background', map: 'map' } as Record<string, string>)[spec.kind as string] ?? 'sprite';
+            const path = req.dest ? `${req.dest}/${slug(spec.name)}.${suffix}` : `${req.asset}/export`;
+            return { ok: true as const, value: { path, bytes: 2048, frames: 8, pages: 1, warnings: [] } };
+          },
+          onProgress: (handler: (event: unknown) => void) => {
+            listeners.progress.add(handler);
+            return () => listeners.progress.delete(handler);
+          },
+          onChanged: (handler: (event: unknown) => void) => {
+            listeners.changed.add(handler);
+            return () => listeners.changed.delete(handler);
+          },
+          onOpen: (handler: (event: unknown) => void) => {
+            listeners.open.add(handler);
+            return () => listeners.open.delete(handler);
+          },
+          // Theme J: the dialog is never shown; the import lands a map asset named `imported`.
+          importMap: async (req: Spec) => {
+            const asset = 'imported-20261004-120000';
+            write('maps', asset, { version: 1, kind: 'map', name: 'imported', imported: true, lastReport: { frames: 4, failing: 0, at: '2026-10-07T10:00:00.000Z' } });
+            listeners.changed.forEach((h) => h({ repoId: req.repoId, group: 'maps', asset, revision: Date.now() }));
+            return { ok: true as const, value: { group: 'maps', asset } };
+          },
+          // Rendered from 3D (Theme E): main never asks the mock window to render.
+          onRenderRequest: () => () => undefined,
+          renderReady: async () => ({ ok: true as const }),
+          renderFrames: async () => ({ ok: true as const }),
         };
       })(),
       reveal: async () => ({ ok: true as const }),
@@ -4949,6 +5370,10 @@ export function buildMockBridge(data: MockFixtures) {
         allowGateDecide: mcpAllowGateDecide,
         allowModels: mcpAllowModels,
         allowGames: mcpAllowGames,
+        allowTerrains: mcpAllowTerrains,
+        allowSprites: mcpAllowSprites,
+        allowMaps: mcpAllowMaps,
+        allowMusic: mcpAllowMusic,
       }),
       set: async (req: {
         enabled?: boolean;
@@ -4956,12 +5381,20 @@ export function buildMockBridge(data: MockFixtures) {
         allowGateDecide?: boolean;
         allowModels?: boolean;
         allowGames?: boolean;
+        allowTerrains?: boolean;
+        allowSprites?: boolean;
+        allowMaps?: boolean;
+        allowMusic?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
         if (req.allowModels !== undefined) mcpAllowModels = req.allowModels;
         if (req.allowGames !== undefined) mcpAllowGames = req.allowGames;
+        if (req.allowTerrains !== undefined) mcpAllowTerrains = req.allowTerrains;
+        if (req.allowSprites !== undefined) mcpAllowSprites = req.allowSprites;
+        if (req.allowMaps !== undefined) mcpAllowMaps = req.allowMaps;
+        if (req.allowMusic !== undefined) mcpAllowMusic = req.allowMusic;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -4974,6 +5407,10 @@ export function buildMockBridge(data: MockFixtures) {
           allowGateDecide: mcpAllowGateDecide,
           allowModels: mcpAllowModels,
           allowGames: mcpAllowGames,
+          allowTerrains: mcpAllowTerrains,
+          allowSprites: mcpAllowSprites,
+          allowMaps: mcpAllowMaps,
+          allowMusic: mcpAllowMusic,
         };
       },
       calls: async () => ({
@@ -5185,6 +5622,18 @@ export function buildMockBridge(data: MockFixtures) {
   // Phase 107 Theme D's fifth switch — same off-by-default posture.
   // eslint-disable-next-line no-var
   var mcpAllowGames = data.mcp?.allowGames ?? false;
+  // Phase 105 Theme J's sixth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowTerrains = data.mcp?.allowTerrains ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowSprites =data.mcp?.allowSprites ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowMaps = data.mcp?.allowMaps ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowMusic = data.mcp?.allowMusic ?? false;
+  // Phase 101 Theme H: whether Midnite is registered in Antigravity's MCP config (Settings ▸ MCP).
+  // eslint-disable-next-line no-var
+  var musicAgyRegistered = false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {
@@ -5267,6 +5716,10 @@ export function buildMockBridge(data: MockFixtures) {
   var councilRunCounter = 0;
   // --- games (Phase 107) ------------------------------------------------------
   // eslint-disable-next-line no-var
+  var gamesPlaytests: GamePlaytestEntry[] = data.games?.playtests ?? [];
+  // eslint-disable-next-line no-var
+  var gamesJuice = new Map<string, Record<string, unknown>>();
+  // eslint-disable-next-line no-var
   var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
     engine: 'phaser',
     dimension: '2d',
@@ -5296,11 +5749,23 @@ export function buildMockBridge(data: MockFixtures) {
   var gamesChangedHandlers: Array<(event: unknown) => void> = [];
   // eslint-disable-next-line no-var
   var gamesOpenHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesPopStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesAgentHandlers: Array<(event: unknown) => void> = [];
+  /** The popped-out game (Theme B Pop out), seeded by `games.popped` and moved by `popOut`. */
+  // eslint-disable-next-line no-var
+  var gamesPopped: string | null = data.games?.popped ?? null;
   (window as unknown as { __mstudioMockGames: unknown }).__mstudioMockGames = {
     calls: gamesCalls,
+    popState: (event: { gameId: string | null }) => {
+      gamesPopped = event.gameId;
+      gamesPopStateHandlers.forEach((h) => h(event));
+    },
     runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
     console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
     open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),
+    agentProgress: (event: unknown) => gamesAgentHandlers.forEach((h) => h(event)),
   };
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // eslint-disable-next-line no-var

@@ -8,13 +8,14 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 26/90 | `███░░░░░░░` | 29% | B | E F G H I J K L M N O P Q |
-| [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | ◻ TODO | x1 | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K L |
-| [105 · Terrain](phases/phase-105-terrain.md) | 🔄 WIP | x1 | 39/72 | `█████░░░░░` | 54% | G, H | I J K |
-| [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
+| [108 · Maps](phases/phase-108-maps.md) | ✅ DONE | x1 | 54/54 | `██████████` | 100% | — | — |
+| [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 81/90 | `█████████░` | 90% | — | Q |
+| [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | 🔄 WIP | x1 | 62/68 | `█████████░` | 91% | — | L |
+| [105 · Terrain](phases/phase-105-terrain.md) | 🔄 WIP | x1 | 64/72 | `█████████░` | 89% | — | K |
+| [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | 🔄 WIP | — | 60/69 | `█████████░` | 87% | — | I |
 | [103 · Models: fidelity, rigging and animation](phases/phase-103-models-rig-anim.md) | 🔄 WIP | — | 60/62 | `██████████` | 97% | J, L | — |
 | [102 · Chats page](phases/phase-102-chats-page.md) | 🔄 WIP | — | 24/26 | `█████████░` | 92% | — | (D: live per-edit approval; F: packaged-app pass against the real CLIs) |
-| [101 · Music editor with Tone.js and MIDI agents](phases/phase-101-music-editor.md) | ◻ TODO | — | 0/61 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
+| [101 · Music editor with Tone.js and MIDI agents](phases/phase-101-music-editor.md) | 🔄 WIP | — | 36/61 | `██████░░░░` | 59% | F J K | G I |
 | [100 · Finance dashboard](phases/phase-100-finance-dashboard.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | G | (1 human pass: packaged app with live network) |
 | [99 · Media page](phases/phase-99-media-page.md) | 🔄 WIP | — | 71/89 | `████████░░` | 80% | — | (verification items, mostly human/packaged-app passes; F: on-device Ollama pass; G: real Codex + packaged pass; H: HyperFrames packaged pass; I: human pass on model fidelity in the packaged app; K: 🔄 WIP media skills) |
 | [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | 🔄 WIP | — | 55/67 | `████████░░` | 82% | — | Verification (human passes) |

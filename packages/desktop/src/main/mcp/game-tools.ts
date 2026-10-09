@@ -67,3 +67,27 @@ export const gameInput = async (input: McpToolInput<'game_input'>): Promise<McpT
   allowed();
   return tools().game_input(input);
 };
+export const gameImportAsset = async (input: McpToolInput<'game_import_asset'>): Promise<McpToolOutput<'game_import_asset'>> => {
+  allowed();
+  return tools().game_import_asset(input);
+};
+export const gameReplayRecord = async (input: McpToolInput<'game_replay_record'>): Promise<McpToolOutput<'game_replay_record'>> => {
+  allowed();
+  return tools().game_replay_record(input);
+};
+export const gameReplayPlay = async (input: McpToolInput<'game_replay_play'>): Promise<McpToolOutput<'game_replay_play'>> => {
+  allowed();
+  return tools().game_replay_play(input);
+};
+export const gameAssertState = async (input: McpToolInput<'game_assert_state'>): Promise<McpToolOutput<'game_assert_state'>> => {
+  allowed();
+  return tools().game_assert_state(input);
+};
+export const gameAssertFrame = async (input: McpToolInput<'game_assert_frame'>): Promise<McpToolOutput<'game_assert_frame'>> => {
+  allowed();
+  return tools().game_assert_frame(input);
+};
+export const gamePlaytest = async (input: McpToolInput<'game_playtest'>): Promise<McpToolOutput<'game_playtest'>> => {
+  allowed();
+  return tools().game_playtest(input);
+};

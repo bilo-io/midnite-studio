@@ -34,7 +34,53 @@ export const MODEL_MCP_SERVER_NAME = MCP_SERVER_NAME;
 /** A run is a conversation of many tool calls; 20 minutes is generous without being open-ended. */
 export const MODEL_ITERATIVE_TIMEOUT_MS = 20 * 60_000;
 /** Hard ceiling on tool calls in one run, whatever the agent does. */
-export const MODEL_ITERATIVE_MAX_CALLS = 250;
+export const MODEL_ITERATIVE_MAX_CALLS = 400;
+/**
+ * Sculpt and mesh-pipeline calls (Phase 104) are cheap — a stroke is a few milliseconds — so they do not spend the
+ * render budget, but they are bounded by it: a run may make this many per refinement pass (never fewer than the
+ * floor), so the 1–100 slider still sizes the whole run.
+ */
+export const MODEL_ITERATIVE_SCULPT_CALLS_PER_PASS = 12;
+export const MODEL_ITERATIVE_SCULPT_CALLS_FLOOR = 24;
+/** The tools that edit a sculpt mesh or run the mesh pipeline over MCP. */
+export const MODEL_SCULPT_TOOL_IDS = [
+  'model_sculpt_stroke',
+  'model_mask',
+  'model_subdivide',
+  'model_remesh',
+  'model_sculpt_undo',
+  'model_decimate',
+  'model_retopo',
+  'model_unwrap',
+  'model_bake',
+] as const;
+const isSculptTool = (tool: string): boolean => (MODEL_SCULPT_TOOL_IDS as readonly string[]).includes(tool);
+
+/** The score a `model_compare_reference` answer carries (its first text block is the JSON summary). */
+function scoreOf(value: unknown): { value: number; history: number[] } | null {
+  const first = (value as { _content?: { type?: string; text?: string }[] } | null)?._content?.[0];
+  if (first?.type !== 'text' || !first.text) return null;
+  try {
+    const parsed = JSON.parse(first.text) as { score?: unknown; history?: unknown };
+    if (typeof parsed.score !== 'number' || !Array.isArray(parsed.history)) return null;
+    return { value: parsed.score, history: parsed.history.filter((n): n is number => typeof n === 'number') };
+  } catch {
+    return null;
+  }
+}
+
+/** Whether a tool's answer reports success: an edit result's `ok`, or the first text block of a content answer. */
+function answeredOk(value: unknown): boolean {
+  const direct = value as { ok?: boolean; _content?: { type: string; text?: string }[] };
+  if (direct.ok !== undefined) return direct.ok;
+  const first = direct._content?.find((b) => b.type === 'text')?.text;
+  if (!first) return false;
+  try {
+    return (JSON.parse(first) as { ok?: boolean }).ok === true;
+  } catch {
+    return false;
+  }
+}
 
 export type DispatchResult = { ok: true; value: unknown } | { ok: false; kind: 'error' | 'not-found' | 'refused'; message: string };
 export type ScopedDispatch = (tool: string, input: unknown) => Promise<DispatchResult>;
@@ -70,6 +116,8 @@ export type IterativeHost = {
 export type IterativeProgress = {
   iteration: { n: number; max: number };
   action?: string;
+  /** The latest `model_compare_reference` score and the history of them (Phase 104 Theme H). */
+  score?: { value: number; history: number[] };
 };
 
 export type IterativeOptions = {
@@ -109,6 +157,8 @@ export function buildCliArgs(
   shim: { command: string; args: string[]; env: Record<string, string> },
   prompt: string,
   modelArgs: string[],
+  /** Claude Code's allowlist; defaults to the `model_*` tools (the music engine passes its own). */
+  allowedTools: string[] = allowedClaudeTools(),
 ): string[] | null {
   const head = [...agent.baseArgs, ...agent.headlessArgs, ...modelArgs];
   if (agent.id === 'claude') {
@@ -124,7 +174,7 @@ export function buildCliArgs(
       '--permission-mode',
       'dontAsk',
       '--allowedTools',
-      ...allowedClaudeTools(),
+      ...allowedTools,
     ];
   }
   if (agent.id === 'codex') {
@@ -160,10 +210,12 @@ function describePatch(ops: readonly ModelPatchOp[]): string {
 export async function runIterative(opts: IterativeOptions): Promise<IterativeOutcome> {
   const { host, tools, target, signal } = opts;
   const max = Math.max(1, opts.maxIterations || MODEL_ITERATIONS_DEFAULT);
-  const state = { edits: 0, renders: 0, calls: 0, saved: false, dirty: false };
+  const state = { edits: 0, renders: 0, calls: 0, sculpts: 0, saved: false, dirty: false };
+  const sculptBudget = Math.max(MODEL_ITERATIVE_SCULPT_CALLS_FLOOR, max * MODEL_ITERATIVE_SCULPT_CALLS_PER_PASS);
   let lastSpecSummary = '';
 
-  const progress = (action?: string): void => opts.onProgress({ iteration: { n: state.renders, max }, ...(action ? { action } : {}) });
+  const progress = (action?: string, score?: IterativeProgress['score']): void =>
+    opts.onProgress({ iteration: { n: state.renders, max }, ...(action ? { action } : {}), ...(score ? { score } : {}) });
 
   /** The one dispatcher a run's private server answers with. */
   const dispatch: ScopedDispatch = async (tool, rawInput) => {
@@ -180,6 +232,12 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
     if (signal.aborted) return { ok: false, kind: 'refused', message: 'This run was cancelled.' };
     state.calls += 1;
     if (state.calls > MODEL_ITERATIVE_MAX_CALLS) return { ok: false, kind: 'refused', message: 'Tool-call limit reached. Call model_save and finish.' };
+    if (isSculptTool(tool)) {
+      if (state.sculpts >= sculptBudget) {
+        return { ok: false, kind: 'refused', message: `Sculpt budget used up (${sculptBudget} sculpt calls for ${max} refinement pass(es)). Call model_save now to finish.` };
+      }
+      state.sculpts += 1;
+    }
     if (tool === 'model_render_preview') {
       if (state.renders >= max) {
         return { ok: false, kind: 'refused', message: `Render budget used up (${max} of ${max}). Call model_save now to finish.` };
@@ -202,12 +260,20 @@ export async function runIterative(opts: IterativeOptions): Promise<IterativeOut
         const ops = (parsed.data as unknown as { ops: ModelPatchOp[] }).ops;
         lastSpecSummary = `${plural(result.partCount ?? 0, 'part')}`;
         progress(`Patched: ${describePatch(ops)} (${lastSpecSummary})`);
+      } else if (isSculptTool(tool) && tool !== 'model_mask' && answeredOk(value)) {
+        state.edits += 1;
+        state.dirty = true;
+        progress(`Sculpting: ${tool.replace('model_', '').replace(/_/g, ' ')}`);
       } else if (tool === 'model_render_preview') progress(`Rendered a preview (pass ${state.renders} of ${max})`);
       else if (tool === 'model_save') {
         state.saved = true;
         state.dirty = false;
         progress('Saved the model');
       } else if (tool === 'model_get_reference_image') progress('Looked at the reference picture');
+      else if (tool === 'model_compare_reference') {
+        const score = scoreOf(value);
+        progress(score ? `Matched the reference: ${score.value.toFixed(2)}` : 'Compared with the reference', score ?? undefined);
+      }
       else if (tool === 'model_get_spec') progress('Read the design format');
       else if ((tool === 'model_set_spec' || tool === 'model_patch_parts') && result.ok === false) progress('An edit was rejected — retrying');
       return { ok: true, value };
