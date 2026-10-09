@@ -157,6 +157,8 @@ export function buildCliArgs(
   shim: { command: string; args: string[]; env: Record<string, string> },
   prompt: string,
   modelArgs: string[],
+  /** Claude Code's allowlist; defaults to the `model_*` tools (the music engine passes its own). */
+  allowedTools: string[] = allowedClaudeTools(),
 ): string[] | null {
   const head = [...agent.baseArgs, ...agent.headlessArgs, ...modelArgs];
   if (agent.id === 'claude') {
@@ -172,7 +174,7 @@ export function buildCliArgs(
       '--permission-mode',
       'dontAsk',
       '--allowedTools',
-      ...allowedClaudeTools(),
+      ...allowedTools,
     ];
   }
   if (agent.id === 'codex') {

@@ -48,7 +48,8 @@ export type MusicMcpDeps = {
 };
 
 type Target = { repoPath: string; project: string; name: string };
-type Session = { repoId: string; project: string; name: string; song: Song; saved: boolean };
+/** `revision` counts accepted edits, so a caller can tell whether a run changed anything. */
+type Session = { repoId: string; project: string; name: string; song: Song; saved: boolean; revision: number };
 
 const LIST_LIMIT = 200;
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -75,7 +76,7 @@ export function createMusicTools(deps: MusicMcpDeps) {
     if (held) return held;
     const read = await deps.readSong(repoId, target.project, target.name);
     if (!read.ok) throw new McpToolError('not-found', read.kind === 'error' ? read.message : `Song "${target.name}" was not found.`);
-    const created: Session = { repoId, project: target.project, name: target.name, song: read.value, saved: true };
+    const created: Session = { repoId, project: target.project, name: target.name, song: read.value, saved: true, revision: 0 };
     sessions.set(key, created);
     return created;
   }
@@ -97,6 +98,7 @@ export function createMusicTools(deps: MusicMcpDeps) {
     }
     s.song = parsed.data;
     s.saved = false;
+    s.revision += 1;
     deps.emitChanged({ repoId: s.repoId, project: s.project, name: s.name, song: parsed.data, summary, saved: false });
     return { ok: true };
   }
@@ -320,6 +322,14 @@ export function createMusicTools(deps: MusicMcpDeps) {
     music_add_track,
     music_save,
     music_render_preview,
+    /**
+     * Replace a whole song (a single-pass engine's answer) — validated like any edit, announced as one
+     * `music-changed` event. A song that does not validate changes nothing.
+     */
+    adopt: async (target: Target, song: unknown, summary: string): Promise<{ ok: true } | { ok: false; errors: MusicIssue[] }> => {
+      const s = await session(target);
+      return commit(s, song as Song, summary);
+    },
     /** The working copy, when one is held — what an engine reads back after a run. */
     peek: (repoId: string, project: string, name: string): Session | undefined => sessions.get(keyOf(repoId, project, name)),
     /** Forget a working copy so the next call reloads from disk. */
@@ -329,4 +339,4 @@ export function createMusicTools(deps: MusicMcpDeps) {
 
 export type MusicTools = ReturnType<typeof createMusicTools>;
 /** The tools an MCP call can name (everything but the engine helpers). */
-export type MusicToolHandlers = Omit<MusicTools, 'peek' | 'drop'>;
+export type MusicToolHandlers = Omit<MusicTools, 'peek' | 'drop' | 'adopt'>;
