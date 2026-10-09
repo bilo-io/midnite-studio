@@ -307,6 +307,15 @@ import {
   MusicWriteRequestSchema,
 } from '../media-music';
 import {
+  MusicAgentCancelRequestSchema,
+  MusicAgentProgressEventSchema,
+  MusicAgentResultSchemas,
+  MusicAgentRunRequestSchema,
+  MusicAgyRegisterRequestSchema,
+  MusicChangedEventSchema,
+  MusicOpenEventSchema,
+} from '../media-music-mcp';
+import {
   SpriteCancelRequestSchema,
   SpriteChangedEventSchema,
   SpriteExportRequestSchema,
@@ -3288,6 +3297,20 @@ export const MediaMusicImportRequest = MusicImportRequestSchema;
 export const MediaMusicImportResponse = MusicResultSchemas.import;
 export const MediaMusicDeleteRequest = MusicDeleteRequestSchema;
 export const MediaMusicDeleteResponse = MusicResultSchemas.delete;
+export const MediaMusicChangedPayload = MusicChangedEventSchema;
+export const MediaMusicOpenPayload = MusicOpenEventSchema;
+export const MediaMusicAgentRunRequest = MusicAgentRunRequestSchema;
+export const MediaMusicAgentRunResponse = MusicAgentResultSchemas.run;
+export const MediaMusicAgentCancelRequest = MusicAgentCancelRequestSchema;
+export const MediaMusicAgentCancelResponse = GitOpResultSchema;
+export const MediaMusicAgentProgressPayload = MusicAgentProgressEventSchema;
+/** Antigravity registration (Settings ▸ MCP): one channel, three ops. */
+export const MediaMusicAgyRequest = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('status') }),
+  z.object({ op: z.literal('register'), ...MusicAgyRegisterRequestSchema.shape }),
+  z.object({ op: z.literal('unregister') }),
+]);
+export const MediaMusicAgyResponse = MusicAgentResultSchemas.agyStatus;
 
 // Models (3D)
 export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });
@@ -3967,6 +3990,8 @@ export const McpGetResponse = z.object({
   allowSprites: z.boolean(),
   /** Phase 108 Theme I's eighth switch — whether `map_goto` and `map_capture_terrain` may move the view or capture a map. */
   allowMaps: z.boolean(),
+  /** Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song may act. */
+  allowMusic: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3984,6 +4009,7 @@ export const McpSetRequest = z.object({
   allowTerrains: z.boolean().optional(),
   allowSprites: z.boolean().optional(),
   allowMaps: z.boolean().optional(),
+  allowMusic: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });

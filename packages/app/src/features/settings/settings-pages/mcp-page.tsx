@@ -1,5 +1,6 @@
 import { Accordion } from '@bilo-io/ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { LuCopy, LuServer } from 'react-icons/lu';
 
 import { MCP_TOOLS, MCP_TOOL_IDS } from '@midnite/studio-shared';
@@ -8,6 +9,7 @@ import { SettingsSwitchRow } from '../../../components/form/settings-switch-row'
 import { bridge } from '../../../services/bridge';
 
 const MCP_STATUS_KEY = ['mcp-status'] as const;
+const AGY_STATUS_KEY = ['mcp-agy-status'] as const;
 const MCP_CALLS_KEY = ['mcp-calls'] as const;
 
 /** Pulled on an interval while this page is mounted, never pushed (Theme F's own rule). */
@@ -38,6 +40,7 @@ export function McpSettingsPage() {
         allowTerrains: false,
         allowSprites: false,
         allowMaps: false,
+        allowMusic: false,
       },
   });
 
@@ -116,6 +119,32 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song (open, tempo,
+   * notes, controllers, tracks, save) may act. Off by default.
+   */
+  const setAllowMusic = useMutation({
+    mutationFn: async (nextAllowMusic: boolean) => bridge()?.mcp.set({ allowMusic: nextAllowMusic }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  const agy = useQuery({
+    queryKey: AGY_STATUS_KEY,
+    queryFn: async () => {
+      const result = await bridge()?.media.music.agy.status();
+      return result && result.ok ? result.value : { registered: false, configPath: '' };
+    },
+  });
+  const [agyConsent, setAgyConsent] = useState(false);
+  const agyChange = useMutation({
+    mutationFn: async (next: 'register' | 'unregister') =>
+      next === 'register' ? bridge()?.media.music.agy.register({ consent: true }) : bridge()?.media.music.agy.unregister(),
+    onSettled: () => {
+      setAgyConsent(false);
+      void client.invalidateQueries({ queryKey: AGY_STATUS_KEY });
+    },
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -135,6 +164,7 @@ export function McpSettingsPage() {
   const allowTerrains = status.data?.allowTerrains ?? false;
   const allowSprites = status.data?.allowSprites ?? false;
   const allowMaps = status.data?.allowMaps ?? false;
+  const allowMusic = status.data?.allowMusic ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
@@ -326,6 +356,71 @@ export function McpSettingsPage() {
           />
 
           {setAllowMaps.data?.error && <div className="text-xs text-destructive">{setAllowMaps.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit music" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-music"
+            label="Let agents edit music"
+            description="A ninth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the music tools that change a song: opening one in the editor, setting the tempo, adding or removing notes, controllers and pitch bends, adding tracks and saving. Listing songs, reading tracks and notes and rendering a preview always work once the server is on."
+            on={allowMusic}
+            onToggle={(_id, next) => setAllowMusic.mutate(next)}
+            testId="mcp-allow-music"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowMusic.data?.error && <div className="text-xs text-destructive">{setAllowMusic.data.error}</div>}
+
+          <div className="flex flex-col gap-2" data-testid="mcp-agy-register">
+            <div className="text-sm font-medium">Antigravity</div>
+            <p className="text-xs text-muted-foreground">
+              Antigravity writes a song in a single pass by default. Registering Midnite adds its server to Antigravity&apos;s own MCP
+              config{agy.data?.configPath ? ` (${agy.data.configPath})` : ''}, after which it refines over several passes like Claude and
+              Codex. It can be removed again here.
+            </p>
+            {agy.data?.registered ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Registered.</span>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs"
+                  data-testid="mcp-agy-unregister"
+                  onClick={() => agyChange.mutate('unregister')}
+                >
+                  Unregister Midnite in Antigravity
+                </button>
+              </div>
+            ) : agyConsent ? (
+              <div className="flex flex-col gap-2 rounded border border-border p-2" data-testid="mcp-agy-consent">
+                <span className="text-xs">This edits a file outside Midnite&apos;s own data. Continue?</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded border border-border px-2 py-1 text-xs"
+                    data-testid="mcp-agy-confirm"
+                    onClick={() => agyChange.mutate('register')}
+                  >
+                    Register
+                  </button>
+                  <button type="button" className="rounded border border-border px-2 py-1 text-xs" onClick={() => setAgyConsent(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="self-start rounded border border-border px-2 py-1 text-xs"
+                data-testid="mcp-agy-register-button"
+                onClick={() => setAgyConsent(true)}
+              >
+                Register Midnite in Antigravity
+              </button>
+            )}
+          </div>
         </div>
       </Accordion>
 

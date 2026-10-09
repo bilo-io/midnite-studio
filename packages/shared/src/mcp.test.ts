@@ -83,6 +83,14 @@ describe('MCP_TOOLS', () => {
     'sprite_cancel',
     'map_goto',
     'map_capture_terrain',
+    'music_open',
+    'music_set_tempo',
+    'music_add_notes',
+    'music_remove_notes',
+    'music_add_cc',
+    'music_add_pitchbends',
+    'music_add_track',
+    'music_save',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -279,6 +287,23 @@ describe('MCP_TOOLS', () => {
       },
       missing: [],
     },
+    music_list: { projects: [{ name: 'songs', songs: [{ name: 'intro', hasSidecar: true, size: 120 }] }] },
+    music_open: { opened: true, name: 'intro', trackCount: 2, noteCount: 40 },
+    music_get_info: {
+      name: 'intro', ppq: 480, tempos: [{ tick: 0, bpm: 120 }], timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
+      keySignatures: [], trackCount: 2, noteCount: 40, endTick: 7680, bars: 4, unsaved: false,
+    },
+    music_set_tempo: { ok: true, unsaved: true },
+    music_get_tracks: { tracks: [{ index: 0, id: 't1', name: 'Bass', channel: 0, program: 33, color: '#6366f1', noteCount: 8, controlChangeCount: 0, pitchBendCount: 0 }] },
+    music_get_track: { index: 0, id: 't1', name: 'Bass', channel: 0, program: 33, color: '#6366f1', noteCount: 8, controlChangeCount: 0, pitchBendCount: 0, pitchRange: [36, 48], tickRange: [0, 1920] },
+    music_get_notes: { notes: [{ pitch: 36, startTick: 0, durationTicks: 480, velocity: 100 }], total: 1, truncated: false },
+    music_add_notes: { ok: false, errors: [{ path: 'notes[0].pitch', message: 'Too big' }] },
+    music_remove_notes: { ok: true, removed: 2, unsaved: true },
+    music_add_cc: { ok: true, added: 1, unsaved: true },
+    music_add_pitchbends: { ok: true, added: 1, unsaved: true },
+    music_add_track: { ok: true, trackId: 't2', trackIndex: 1, unsaved: true },
+    music_save: { ok: true, size: 120 },
+    music_render_preview: { _content: [] },
   };
 
   it('every output schema parses a minimal well-formed value', () => {

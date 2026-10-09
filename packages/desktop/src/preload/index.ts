@@ -631,6 +631,18 @@ const bridge: Pick<
       write: (req) => call(CHANNELS.mediaMusicWrite, req),
       import: (req) => call(CHANNELS.mediaMusicImport, req),
       delete: (req) => call(CHANNELS.mediaMusicDelete, req),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaMusicChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMusicOpen, handler),
+      agent: {
+        run: (req) => call(CHANNELS.mediaMusicAgentRun, req),
+        cancel: (req) => call(CHANNELS.mediaMusicAgentCancel, req),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMusicAgentProgress, handler),
+      },
+      agy: {
+        status: () => call(CHANNELS.mediaMusicAgy, { op: 'status' }),
+        register: (req) => call(CHANNELS.mediaMusicAgy, { op: 'register', ...req }),
+        unregister: () => call(CHANNELS.mediaMusicAgy, { op: 'unregister' }),
+      },
     },
     model: {
       providers: () => call(CHANNELS.mediaModelProviders),

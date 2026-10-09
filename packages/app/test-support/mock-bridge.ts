@@ -998,7 +998,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -3675,6 +3675,24 @@ export function buildMockBridge(data: MockFixtures) {
       },
       // Phase 101 Theme B — songs are `<name>.mid` (a stand-in) + `<name>.song.json` in the audio project.
       music: {
+        onChanged: () => () => {},
+        onOpen: () => () => {},
+        agent: {
+          run: async () => ({ ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } }),
+          cancel: async () => ({ ok: true as const }),
+          onProgress: () => () => {},
+        },
+        agy: {
+          status: async () => ({ ok: true as const, value: { registered: musicAgyRegistered, configPath: '~/.gemini/antigravity/mcp_config.json' } }),
+          register: async () => {
+            musicAgyRegistered = true;
+            return { ok: true as const, value: { registered: true, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+          unregister: async () => {
+            musicAgyRegistered = false;
+            return { ok: true as const, value: { registered: false, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+        },
         list: async (req: { project: string }) => ({
           ok: true as const,
           value: Object.keys(mediaFiles[`audio:${req.project}`] ?? {})
@@ -5342,6 +5360,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowTerrains: mcpAllowTerrains,
         allowSprites: mcpAllowSprites,
         allowMaps: mcpAllowMaps,
+        allowMusic: mcpAllowMusic,
       }),
       set: async (req: {
         enabled?: boolean;
@@ -5352,6 +5371,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowTerrains?: boolean;
         allowSprites?: boolean;
         allowMaps?: boolean;
+        allowMusic?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
@@ -5361,6 +5381,7 @@ export function buildMockBridge(data: MockFixtures) {
         if (req.allowTerrains !== undefined) mcpAllowTerrains = req.allowTerrains;
         if (req.allowSprites !== undefined) mcpAllowSprites = req.allowSprites;
         if (req.allowMaps !== undefined) mcpAllowMaps = req.allowMaps;
+        if (req.allowMusic !== undefined) mcpAllowMusic = req.allowMusic;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -5376,6 +5397,7 @@ export function buildMockBridge(data: MockFixtures) {
           allowTerrains: mcpAllowTerrains,
           allowSprites: mcpAllowSprites,
           allowMaps: mcpAllowMaps,
+          allowMusic: mcpAllowMusic,
         };
       },
       calls: async () => ({
@@ -5594,6 +5616,11 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowSprites =data.mcp?.allowSprites ?? false;
   // eslint-disable-next-line no-var
   var mcpAllowMaps = data.mcp?.allowMaps ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowMusic = data.mcp?.allowMusic ?? false;
+  // Phase 101 Theme H: whether Midnite is registered in Antigravity's MCP config (Settings ▸ MCP).
+  // eslint-disable-next-line no-var
+  var musicAgyRegistered = false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {

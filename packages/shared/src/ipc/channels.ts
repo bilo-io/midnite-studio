@@ -964,6 +964,10 @@ export const CHANNELS = {
   mediaMusicWrite: 'mstudio:media:music-write',
   mediaMusicImport: 'mstudio:media:music-import',
   mediaMusicDelete: 'mstudio:media:music-delete',
+  // Music agents (Phase 101 Theme H): an engine writes or refines a song; Antigravity's MCP registration lives in Settings.
+  mediaMusicAgentRun: 'mstudio:media:music-agent-run',
+  mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',
+  mediaMusicAgy: 'mstudio:media:music-agy',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -1603,6 +1607,12 @@ export const EVENT_CHANNELS = {
   mediaTerrainOpen: 'mstudio:media:terrain-open',
   /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
   mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
+  /** An agent edited a song (an engine's run or an MCP session) — see `MusicChangedEventSchema`. */
+  mediaMusicChanged: 'mstudio:media:music-changed',
+  /** `music_open` asked the window to show a song — see `MusicOpenEventSchema`. */
+  mediaMusicOpen: 'mstudio:media:music-open',
+  /** A music agent run advanced — see `MusicAgentProgressEventSchema`. */
+  mediaMusicAgentProgress: 'mstudio:media:music-agent-progress',
   /** `map_goto` (Phase 108 Theme I) asked the window to fly the map somewhere — see `MapOpenEventSchema`. */
   mediaMapOpen: 'mstudio:media:map-open',
   /** A sprite job advanced — see `SpriteProgressEventSchema`. */

@@ -2,9 +2,13 @@ import { readFile } from 'node:fs/promises';
 
 import { dialog, type BrowserWindow } from 'electron';
 
-import { CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, schemas } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, schemas } from '@midnite/studio-shared';
 
+import { createMusicTools } from '../media/music/music-mcp';
 import { createMusicService } from '../media/music/music-service';
+import { setMusicTools } from '../mcp/music-tools';
+import { resolveRegisteredRepo } from '../mcp/tools';
+import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleFromSender } from './handle';
 import { mediaStore } from './media-handlers';
 
@@ -28,6 +32,29 @@ const service = createMusicService<BrowserWindow>({
     return picked.canceled ? null : picked.filePaths;
   },
 });
+
+/**
+ * The `music_*` MCP tools (Phase 101 Theme H): thin adapters over this file's own song service, so an
+ * agent's edit lands in the same `.mid` + `.song.json` the editor writes. Every tool that changes a
+ * song sits behind the `allowMusic` switch (`mcp/music-tools.ts`); edits are broadcast to every window
+ * as one `music-changed` event each, and `music_open` as `music-open`.
+ */
+export const musicTools = createMusicTools({
+  resolveRepo: async (repoPath) => {
+    const resolved = await resolveRegisteredRepo(repoPath);
+    if (resolved.ok) return { ok: true, repoId: resolved.repo.descriptor.id };
+    return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
+  },
+  listProjects: (repoId) => mediaStore.listProjects({ repoId, tab: 'audio' }),
+  listSongs: (repoId, project) => service.list(repoId, project),
+  readSong: (repoId, project, name) => service.read(repoId, project, name),
+  writeSong: (repoId, project, name, song) => service.write(repoId, project, name, song),
+  emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMusicChanged, event),
+  emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMusicOpen, event),
+});
+setMusicTools(musicTools);
+
+export const musicService = service;
 
 export function registerMediaMusicHandlers(): void {
   const invalid = (issue: string) => failure(issue);

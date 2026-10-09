@@ -1328,6 +1328,22 @@ export type MidniteStudioBridge = {
       write: (req: In<typeof S.MediaMusicWriteRequest>) => Promise<z.infer<typeof S.MediaMusicWriteResponse>>;
       import: (req: In<typeof S.MediaMusicImportRequest>) => Promise<z.infer<typeof S.MediaMusicImportResponse>>;
       delete: (req: In<typeof S.MediaMusicDeleteRequest>) => Promise<z.infer<typeof S.MediaMusicDeleteResponse>>;
+      /** An agent edited a song (engine run or MCP): one event, one undoable step (Theme H). */
+      onChanged: (handler: (event: z.infer<typeof S.MediaMusicChangedPayload>) => void) => Unsubscribe;
+      /** `music_open` asked for a song to be shown; the Editor tab comes up. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaMusicOpenPayload>) => void) => Unsubscribe;
+      /** Agent engines: Claude/Codex refine over passes, Ollama and Antigravity write in one pass. */
+      agent: {
+        run: (req: In<typeof S.MediaMusicAgentRunRequest>) => Promise<z.infer<typeof S.MediaMusicAgentRunResponse>>;
+        cancel: (req: In<typeof S.MediaMusicAgentCancelRequest>) => Promise<GitOpResult>;
+        onProgress: (handler: (event: z.infer<typeof S.MediaMusicAgentProgressPayload>) => void) => Unsubscribe;
+      };
+      /** Settings ▸ MCP: register Midnite's server in Antigravity's own MCP config (consent required). */
+      agy: {
+        status: () => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+        register: (req: { consent: true }) => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+        unregister: () => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+      };
     };
     /** Models: LLM-authored 3D (Ollama or an agent CLI), written as .obj/.mtl/.fbx, all in main. */
     model: {
