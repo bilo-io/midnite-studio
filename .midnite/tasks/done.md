@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme D — General MIDI instruments
+
+All 128 GM programs are pickable (grouped by family, with a downloaded badge). Main downloads a program's FluidR3_GM sample set on first use into `userData/gm-samples/` and streams progress; the renderer loads a per-track `Tone.Sampler` lazily and falls back to a synth with a "not downloaded" hint offline. Licence gate: FluidR3_GM is MIT, the gleitz pre-rendered sets CC BY 3.0 (attribution shown); drums are synthesised since no percussion set exists upstream.
+
+- [x] D: licence check, sample cache + progress IPC, catalogue, picker, Tone Sampler factory, attribution notice
+
 ## 2026-10-08 — Phase 108 — Maps
 
 [Phase 108](phases/phase-108-maps.md) marked ✅ DONE (54/54 items verified). Media ▸ Maps ships across #770–#776: the Maps tab over the `mstudio-tile:` protocol, 3D preview and capture frame, heightmap / satellite / roads capture, hand-off to Terrain, measure and draw, GeoJSON/KML layers, and four `map_*` MCP tools with the `midnite-media-map-build` skill. Gate green on `58a18aaf` (typecheck, lint, full test; one load-timeout in the MCP shim test passes alone); kernel and roads tests run offline; MapLibre is a lazy 1041 KB chunk with the entry at 703.5 KB of 1520 KB; human passes signed off by the user.
