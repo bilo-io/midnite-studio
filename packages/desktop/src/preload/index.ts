@@ -640,6 +640,10 @@ const bridge: Pick<
         cancel: (req) => call(CHANNELS.mediaMusicAgentCancel, req),
         onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMusicAgentProgress, handler),
       },
+      chat: {
+        read: (req) => call(CHANNELS.mediaMusicChat, { op: 'read', ...req }),
+        write: (req) => call(CHANNELS.mediaMusicChat, { op: 'write', ...req }),
+      },
       agy: {
         status: () => call(CHANNELS.mediaMusicAgy, { op: 'status' }),
         register: (req) => call(CHANNELS.mediaMusicAgy, { op: 'register', ...req }),

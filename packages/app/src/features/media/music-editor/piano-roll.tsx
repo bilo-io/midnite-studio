@@ -397,6 +397,7 @@ export function PianoRoll({ song, trackId, selection, onSelection, onCommit, gri
       tabIndex={0}
       onKeyDown={onKeyDown}
       data-testid="piano-roll"
+      data-selected-count={selection.size}
       aria-label="Piano roll"
       className="relative min-h-0 flex-1 text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >

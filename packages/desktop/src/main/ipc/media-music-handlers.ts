@@ -173,6 +173,12 @@ export function registerMediaMusicHandlers(): void {
   handle(CHANNELS.mediaMusicAgentRun, schemas.MediaMusicAgentRunRequest, (r) => musicAgents.run(r), invalid);
   handle(CHANNELS.mediaMusicAgentCancel, schemas.MediaMusicAgentCancelRequest, (r) => musicAgents.cancel(r.runId), invalid);
   handle(
+    CHANNELS.mediaMusicChat,
+    schemas.MediaMusicChatRequest,
+    (r) => (r.op === 'write' ? service.writeChat(r.repoId, r.project, r.name, r.chat) : service.readChat(r.repoId, r.project, r.name)),
+    invalid,
+  );
+  handle(
     CHANNELS.mediaMusicAgy,
     schemas.MediaMusicAgyRequest,
     (r) =>

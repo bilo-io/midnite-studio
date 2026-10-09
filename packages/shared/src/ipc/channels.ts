@@ -971,6 +971,8 @@ export const CHANNELS = {
   mediaMusicAgentRun: 'mstudio:media:music-agent-run',
   mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',
   mediaMusicAgy: 'mstudio:media:music-agy',
+  // Phase 101 Theme I: the song's chat thread, stored beside it as <name>.chat.json.
+  mediaMusicChat: 'mstudio:media:music-chat',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',

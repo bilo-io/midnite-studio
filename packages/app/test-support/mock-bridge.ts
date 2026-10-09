@@ -1186,9 +1186,11 @@ export async function installMockBridge(
 export function buildMockBridge(data: MockFixtures) {
   const musicChanged = new Set<(event: never) => void>();
   const musicOpen = new Set<(event: never) => void>();
+  const musicProgress = new Set<(event: never) => void>();
   (globalThis as { __mockMusicEmit?: unknown }).__mockMusicEmit = {
     changed: (event: unknown) => musicChanged.forEach((h) => h(event as never)),
     open: (event: unknown) => musicOpen.forEach((h) => h(event as never)),
+    progress: (event: unknown) => musicProgress.forEach((h) => h(event as never)),
   };
   // Helpers live INSIDE the function: it is serialised into the page whole, so module scope is not there.
   /**
@@ -3698,9 +3700,32 @@ export function buildMockBridge(data: MockFixtures) {
           return { ok: true as const, value: { file, sessionId: 's-mock', description: 'Instrumental, relaxed, bright mood, C major, 120 BPM in 4/4, played on Acoustic Grand Piano.', tags: ['relaxed', 'bright', 'C major', '120 bpm', 'acoustic grand piano'] } };
         },
         agent: {
-          run: async () => ({ ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } }),
-          cancel: async () => ({ ok: true as const }),
-          onProgress: () => () => {},
+          // Tests (and screenshots) script a turn with `globalThis.__mockMusicRun = async (req) => result`.
+          run: async (req: unknown) => {
+            const script = (globalThis as { __mockMusicRun?: (req: unknown) => Promise<unknown> }).__mockMusicRun;
+            if (script) return (await script(req)) as never;
+            return { ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } };
+          },
+          cancel: async (req: { runId: string }) => {
+            (globalThis as { __mockMusicCancel?: (id: string) => void }).__mockMusicCancel?.(req.runId);
+            return { ok: true as const };
+          },
+          onProgress: (handler: (event: never) => void) => {
+            musicProgress.add(handler);
+            return () => void musicProgress.delete(handler);
+          },
+        },
+        chat: {
+          read: async (req: { project: string; name: string }) => {
+            const raw = (mediaFiles[`audio:${req.project}`] ?? {})[`${req.name}.chat.json`];
+            const parsed = raw ? JSON.parse(raw) : {};
+            return { ok: true as const, value: { version: 1 as const, engine: null, model: null, messages: [], ...parsed } };
+          },
+          write: async (req: { project: string; name: string; chat: unknown }) => {
+            const key = `audio:${req.project}`;
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${req.name}.chat.json`]: JSON.stringify(req.chat) } };
+            return { ok: true as const, value: req.chat as never };
+          },
         },
         agy: {
           status: async () => ({ ok: true as const, value: { registered: musicAgyRegistered, configPath: '~/.gemini/antigravity/mcp_config.json' } }),
