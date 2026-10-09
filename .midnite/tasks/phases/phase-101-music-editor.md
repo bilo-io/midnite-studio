@@ -53,7 +53,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme D — General MIDI instruments.** ✅ Landed. Licence gate passed: FluidR3_GM.sf2 is MIT (Frank Wen) and the `gleitz/midi-js-soundfonts` pre-rendered sets are CC BY 3.0 (code MIT), so attribution is shown in `GmAttribution`. Main downloads one program's sample set on first use into `userData/gm-samples/` and streams progress on `mstudio:media:gm-progress` (`media.audio.gm.*` on the bridge); the 128-program catalogue lives in `shared/media-music-gm.ts`; the renderer's per-track `Tone.Sampler` factory (`music-editor/gm-sampler.ts`) loads Tone lazily and falls back to a synth with a "not downloaded" hint. Upstream has no FluidR3 percussion set, so the channel-10 kit is synthesised. Samples still load from the third-party host via `GM_SAMPLE_BASE_URL` (mirroring deferred, see outstanding.md); the picker is mounted in Settings ▸ Media ▸ Audio until Theme E's per-track UI exists.
 
-**Theme E — Piano roll and arrangement.** ◻ Not started.
+**Theme E — Piano roll and arrangement.** ✅ Landed. The Editor tab now loads and saves the project's real songs through the music IPC (`use-song-document.ts`: song picker, New, Import .mid, 600 ms debounced autosave) and the built-in preview song is gone. `model/` holds the pure parts, all vitest: `song-edit.ts` (add, move, resize, delete, duplicate, quantise, velocity, track ops, instrument choice with the drum kit on channel 10), `history.ts` (snapshot undo/redo, key coalescing for held nudges, `commitExternal` for agent edits as one step), `roll-math.ts` (view transform, hit test, marquee, gesture deltas), `ruler.ts` and `keymap.ts` (Space, Delete, Mod+D, Mod+A, arrows, Q, Mod+Z). `piano-roll.tsx` is one canvas for keyboard gutter, grid and notes plus a velocity lane, so a 10k-note track is a single paint; the gutter previews pitches through `engine.previewNote`. `arrangement.tsx` and `track-row.tsx` give each track a name, colour, mute, solo and Theme D's GM picker, beside a bar/beat ruler, per-track thumbnails and the playhead. Pointer drag on the canvas is covered by `e2e/piano-roll.spec.ts` (e2e cap 476 to 478). Left for H: wiring its `music-changed` event into `applyExternal`.
 
 **Theme F — Mixer, effects and automation.** ◻ Not started.
 
@@ -116,17 +116,17 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## E — Piano roll and arrangement (L)
 
-- [ ] **Piano roll:**
+- [x] **Piano roll:**
   - draw, select (click and marquee), move, resize, duplicate and delete notes
   - quantise and snap
   - velocity lane
   - keyboard gutter that previews pitches
   - horizontal and vertical zoom
-- [ ] **Arrangement:** a track list with name, instrument, colour, mute and solo, plus a timeline with a bar/beat ruler and the playhead.
-- [ ] Undo and redo across every edit, including agent edits (see Theme H).
-- [ ] Keyboard shortcuts: Space play, Delete, Mod+D duplicate, Mod+A select all, arrows nudge, Q quantise.
-- [ ] Canvas or virtualised rendering, so a 10k-note song stays smooth.
-- [ ] Vitest: selection and edit reducers, quantise, snap. Playwright only for pointer drag on the real canvas, named in the spec header.
+- [x] **Arrangement:** a track list with name, instrument, colour, mute and solo, plus a timeline with a bar/beat ruler and the playhead.
+- [x] Undo and redo across every edit, including agent edits (see Theme H). `useSongDocument.applyExternal` lands an outside edit as one undoable step; subscribing it to H's `music-changed` event is recorded in `outstanding.md`.
+- [x] Keyboard shortcuts: Space play, Delete, Mod+D duplicate, Mod+A select all, arrows nudge, Q quantise.
+- [x] Canvas or virtualised rendering, so a 10k-note song stays smooth.
+- [x] Vitest: selection and edit reducers, quantise, snap. Playwright only for pointer drag on the real canvas, named in the spec header.
 
 ## F — Mixer, effects and automation (L)
 
