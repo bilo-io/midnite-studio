@@ -10,7 +10,7 @@ import {
   type WorkflowNodeStatus,
 } from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen, LuWorkflow } from 'react-icons/lu';
+import { LuPanelLeftClose, LuPanelLeftOpen, LuPanelRightClose, LuPanelRightOpen } from 'react-icons/lu';
 
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
@@ -50,6 +50,7 @@ import { useInspectorCollapse } from './use-inspector-collapse';
 import { useSaveWorkflow, useSaveWorkflowTemplate, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
 import { WorkflowToolbar } from './workflow-toolbar';
+import { VIEW_ICON } from '../../components/nav-icons';
 
 /**
  * The right-hand panel's own navigation (Phase 52 Theme F) — `NodeInspector`
@@ -130,7 +131,7 @@ export function WorkflowsView() {
       >
         <WorkflowList selectedId={selectedId} onSelect={setSelectedId} />
       </div>
-      <ResizeHandle resizable={list} axis="x" label="Resize workflows list" />
+      <ResizeHandle resizable={list} axis="x" label="Resize graphs list" />
       <div className="min-h-0 min-w-0 flex-1">
         {selected ? (
           <WorkflowEditor
@@ -140,8 +141,8 @@ export function WorkflowsView() {
           />
         ) : (
           <EmptyState
-            icon={LuWorkflow}
-            title="Select a workflow"
+            icon={VIEW_ICON.workflows}
+            title="Select a graph"
             body="Pick one on the left, or create a new one to get started."
           />
         )}
@@ -536,7 +537,7 @@ function WorkflowEditor({
           />
         </div>
 
-        {inspector.collapsed ? null : <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />}
+        {inspector.collapsed ? null : <ResizeHandle resizable={detail} axis="x" label="Resize graph detail" />}
         {/*
           Collapsed is zero width — no rail, no border, no gutter — so the
           canvas takes the whole row; the show/hide toggle lives in the

@@ -10,6 +10,7 @@ import { usePaletteStore } from '../features/themes/palette-store';
 import { useActionsStore, type ActionsState } from '../store/actions-store';
 import { useAppearanceStore, type AppearanceState } from '../store/appearance-store';
 import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store/browser-store';
+import { applyNotesDelta, diffNotes, useNotesStore, type NotesDelta } from '../store/notes-store';
 import { useSessionsStore, type SessionsState } from '../store/sessions-store';
 import { useUiStore, type UiState } from '../store/ui-store';
 import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
@@ -72,7 +73,8 @@ type SyncKind =
   | 'actions'
   | 'files'
   | 'workbench'
-  | 'sessions';
+  | 'sessions'
+  | 'notes';
 type SyncMessage = { id: string; origin: string; kind: SyncKind; payload: Record<string, unknown> };
 
 const newId = (): string =>
@@ -236,6 +238,20 @@ function applyIncoming(message: SyncMessage, client: QueryClient): void {
       case 'sessions':
         useSessionsStore.setState(message.payload as unknown as SessionsSlice);
         break;
+      case 'notes': {
+        /*
+          Applied with `setState`, never through the store's own actions: those
+          call `bridge().notes.save`, and the window that made the edit has
+          already persisted it. Going through them here would write every
+          note to disk once per open window.
+        */
+        const delta = message.payload as unknown as NotesDelta;
+        useNotesStore.setState((state) => {
+          const notes = applyNotesDelta(state.notes, delta);
+          return notes === state.notes ? state : { notes };
+        });
+        break;
+      }
     }
   } finally {
     applying = false;
@@ -438,6 +454,30 @@ export function useBroadcastSync(): void {
       send('sessions', next);
     });
 
+    /*
+      Notes (detachable Notes window). Syncs a per-note delta, not a slice: the
+      notes record is real user data, so two windows must merge, not overwrite.
+      Hydration is skipped — each window lists notes from disk itself, and
+      relaying that would only echo what every peer already read.
+    */
+    let lastNotes = useNotesStore.getState().notes;
+    let lastHydrated = useNotesStore.getState().hydrated;
+    const unsubNotes = useNotesStore.subscribe((state) => {
+      if (applying) {
+        // A peer's change: advance the baseline so it is never diffed back out.
+        lastNotes = state.notes;
+        return;
+      }
+      const hydrating = state.hydrated !== lastHydrated;
+      lastHydrated = state.hydrated;
+      if (state.notes === lastNotes) return;
+      const delta = diffNotes(lastNotes, state.notes);
+      lastNotes = state.notes;
+      if (hydrating) return;
+      if (delta.upserts.length === 0 && delta.deletedIds.length === 0) return;
+      send('notes', delta);
+    });
+
     // ThemeProvider (`@bilo-io/ui`) exposes no change listener, so the `dark`
     // class it writes on `<html>` is observed instead — the same signal
     // `useWindowBackgroundSync` (`app.tsx`) already keys its own resync off.
@@ -477,6 +517,7 @@ export function useBroadcastSync(): void {
       unsubFiles();
       unsubWorkbench();
       unsubSessions();
+      unsubNotes();
       unsubPalette();
       themeObserver?.disconnect();
     };

@@ -10,8 +10,8 @@ import { usePlayer } from './player-store';
 
 /**
  * Phase 99 Theme E — the Audio tab through the mock bridge: sessions and
- * variants read from project.json + sidecars, Create's "later phase" state,
- * Import landing a session, and the bottom player surviving a tab switch but
+ * variants read from project.json + sidecars, Create rendering a session through
+ * the local engine, the model-download and Ollama-enhance states, Import landing a session, and the bottom player surviving a tab switch but
  * pausing when the Media view is left.
  */
 const history = {
@@ -70,22 +70,102 @@ describe('Audio tab', () => {
     open();
     const session = await screen.findByRole('region', { name: 'Night drive' });
     expect(within(session).getByText('Take A')).toBeTruthy();
+    expect(within(session).queryByText('synthwave')).toBeNull();
+    fireEvent.click(within(session).getAllByRole('button', { name: /Show details for/ })[0]!);
     expect(within(session).getByText('synthwave')).toBeTruthy();
     expect(within(session).getAllByTestId('waveform')).toHaveLength(2);
     expect(within(session).getAllByText('1:05')).toHaveLength(2);
     expect(screen.getByRole('region', { name: 'Unsorted' })).toBeTruthy();
   });
 
-  it('Create answers the later-phase state; Import lands a new session', async () => {
+  it('Create renders variants into a new session; Import still lands one too', async () => {
     open();
     await screen.findByRole('region', { name: 'Night drive' });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    expect(screen.getByRole('status').textContent).toMatch(/later phase/);
     fireEvent.change(screen.getByPlaceholderText('Night drive'), { target: { value: 'Morning' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create' }).getAttribute('aria-disabled')).toBeNull());
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Import audio…' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     });
     expect(await screen.findByRole('region', { name: 'Morning' })).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText('Night drive'), { target: { value: 'Evening' } });
+    // Import lives behind the lyrics composer's "+" drop-up.
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Import audio…' }));
+    });
+    expect(await screen.findByRole('region', { name: 'Evening' })).toBeTruthy();
+  });
+
+  it('offers Import exactly once (the + menu) beside the MusicGen provider picker', async () => {
+    open();
+    await screen.findByRole('region', { name: 'Night drive' });
+    expect(screen.getByTestId('audio-picker')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
+    expect(screen.getAllByText(/Import/i).filter((el) => el.closest('[role="menuitem"]'))).toHaveLength(1);
+  });
+
+  it('blocks Create until the local model is downloaded, and offers the download', async () => {
+    open({
+      ...withAudio,
+      media: {
+        ...withAudio.media,
+        audioEngine: {
+          musicgen: { state: 'missing', downloadBytes: 660_000_000 },
+          ollama: { running: false, models: [], model: null, recommended: 'llama3.2:3b' },
+        },
+      },
+    });
+    const card = await screen.findByTestId('audio-engine');
+    await waitFor(() => expect(within(card).getByRole('button', { name: 'Download model' })).toBeTruthy());
+    expect(within(card).getByText(/660 MB/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create' }).getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('shows the engine failure reason when the native runtime is unavailable', async () => {
+    open({
+      ...withAudio,
+      media: {
+        ...withAudio.media,
+        audioEngine: {
+          musicgen: { state: 'unavailable', downloadBytes: 0, reason: "Cannot find module 'onnxruntime-node'" },
+          ollama: { running: true, models: [], model: null, recommended: 'llama3.2:3b' },
+        },
+      },
+    });
+    expect((await screen.findByRole('alert')).textContent).toMatch(/onnxruntime-node/);
+  });
+
+  it('Enhance fills the caption and section arc from Ollama, and Clear drops the arc', async () => {
+    open();
+    await screen.findByRole('region', { name: 'Night drive' });
+    fireEvent.change(screen.getByLabelText('Style'), { target: { value: 'lofi,' } });
+    const enhance = await screen.findByRole('button', { name: /Enhance with Ollama/ });
+    await waitFor(() => expect((enhance as HTMLButtonElement).disabled).toBe(false));
+    await act(async () => {
+      fireEvent.click(enhance);
+    });
+    await waitFor(() => expect((screen.getByLabelText('Caption sent to MusicGen') as HTMLTextAreaElement).value).toBe('lofi, warm analog synths, 90 bpm'));
+    expect(screen.getByText(/2 section captions/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect((screen.getByLabelText('Caption sent to MusicGen') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('disables Enhance with the reason when Ollama is not running', async () => {
+    open({
+      ...withAudio,
+      media: {
+        ...withAudio.media,
+        audioEngine: {
+          musicgen: { state: 'ready', downloadBytes: 0 },
+          ollama: { running: false, models: [], model: null, recommended: 'llama3.2:3b' },
+        },
+      },
+    });
+    fireEvent.change(await screen.findByPlaceholderText('Night drive'), { target: { value: 'Rain' } });
+    const enhance = await screen.findByRole('button', { name: /Enhance with Ollama/ });
+    await waitFor(() => expect((enhance as HTMLButtonElement).disabled).toBe(true));
+    expect(enhance.getAttribute('title')).toMatch(/not running/);
   });
 
   it('plays into the docked player, survives a tab switch, and pauses on leaving Media', async () => {
@@ -113,5 +193,13 @@ describe('Audio tab', () => {
     expect(usePlayer.getState().playing).toBe(true);
     fireEvent.keyDown(document.body, { key: ' ' });
     expect(usePlayer.getState().playing).toBe(false);
+  });
+
+  it('an empty audio tab offers a CTA that reopens the prompt panel', async () => {
+    useUiStore.setState({ mediaPaneCollapsed: { audio: { detail: true } } });
+    open(fixtures);
+    expect(await screen.findByText('No audio yet')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Write a prompt' }));
+    expect(useUiStore.getState().mediaPaneCollapsed.audio?.detail).toBe(false);
   });
 });

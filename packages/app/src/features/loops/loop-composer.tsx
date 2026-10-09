@@ -33,9 +33,11 @@ import {
   LuTarget,
 } from 'react-icons/lu';
 
+import { AiComposer, useComposerMic } from '../../components/ai-thread';
 import { RadioRow, SwitchRow, SwitchTrack } from '../../components/form/toggle-rows';
 import { resolveAgentIcon } from '../../components/icons';
 import type { IconComponent } from '../../components/icon-button';
+import { appendDictation } from '../media/voice/use-voice-thread';
 import { IconSelect, MultiIconSelect, type IconSelectOption } from '../../components/select/icon-select';
 
 /**
@@ -154,6 +156,7 @@ export function LoopComposer({
     Open-by-default also means nothing a loop declares is ever one click away
     from being invisible when you first look at the tab.
   */
+  const mic = useComposerMic({ onTranscript: (text) => onExtras(appendDictation(extras, text)) });
   const [closed, setClosed] = useState<Record<string, true>>({});
   const toggleSection = (id: string): void =>
     setClosed((current) => {
@@ -257,44 +260,30 @@ export function LoopComposer({
           </ComposerSection>
 
           {/*
-            One column, not a row: the Start button sits UNDER the field at
-            full width rather than beside it. Beside it, the button was the
-            width of the word "Start" against a field that had already been
-            narrowed to make room — and the panel's one commit action was the
-            smallest target on the surface. Full width also gives its gradient
-            border something to be: a 60px pill wearing a rainbow reads as a
-            decoration, a full-width one reads as the button.
+            Start is the extras composer's own Send — there is no separate
+            Start button under it any more, so the panel has one way to launch
+            a loop rather than two that do the same thing.
           */}
           <div className="flex flex-col gap-2 border-t border-border/50 px-2 py-2">
-            <textarea
+            {/*
+              A textarea, so a paragraph of standing instructions is written
+              and re-read rather than scrolled through a one-line box — Return
+              is therefore a newline, and Cmd/Ctrl+Return sends (= Start).
+              Send and Mic sit inside the box, bottom-left, like every prompt.
+            */}
+            <AiComposer
               value={extras}
-              spellCheck={false}
+              onChange={onExtras}
+              onSend={onStart}
+              canSend={!disabled}
+              enterToSend={false}
               rows={2}
               placeholder="Extra instructions…"
-              aria-label={`Extra instructions for ${loop.label}`}
-              onChange={(event) => onExtras(event.target.value)}
-              /*
-                A textarea, so a paragraph of standing instructions is written
-                and re-read rather than scrolled through a one-line box — and
-                Return therefore has to mean "newline". Start keeps the
-                accelerator it would otherwise have taken.
-              */
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !disabled) {
-                  event.preventDefault();
-                  onStart();
-                }
-              }}
-              className="loop-spectrum-field min-h-[3.25rem] w-full min-w-0 resize-y rounded px-2 py-1 text-[11px] leading-relaxed outline-none"
-            />
-            <StartStopButton
-              running={false}
-              waiting={false}
-              thinking={false}
-              fullWidth
-              disabled={disabled}
-              disabledReason={disabledReason}
-              onClick={onStart}
+              ariaLabel={`Extra instructions for ${loop.label}`}
+              sendAriaLabel={`Start ${loop.label} with these instructions`}
+              sendTooltip={disabled ? disabledReason : 'Start (Cmd/Ctrl+Enter)'}
+              mic={mic}
+              testIdPrefix="loop-extras"
             />
           </div>
         </div>

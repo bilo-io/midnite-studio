@@ -19,8 +19,8 @@ const FOUND_TOOLCHAIN: VideoToolchain = {
   node: { found: true, path: '/usr/bin/node' },
   npx: { found: true, path: '/usr/bin/npx' },
   skills: {
-    videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
-    videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+    videoWriteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md' },
+    videoExecuteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md' },
   },
 };
 
@@ -77,7 +77,10 @@ describe('VideoStudioPane', () => {
     const { start } = installBridge({ state: 'stopped' });
     renderPane('p1');
 
-    fireEvent.click(await screen.findByRole('button', { name: /Start studio/ }));
+    const button = await screen.findByRole('button', { name: /Start studio/ });
+    // The shared empty-state CTA — the same look as Models' Start Ollama.
+    expect(button.getAttribute('data-testid')).toBe('empty-state-cta');
+    fireEvent.click(button);
     await waitFor(() => expect(start).toHaveBeenCalledWith({ projectId: 'p1' }));
   });
 

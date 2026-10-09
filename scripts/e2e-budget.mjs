@@ -182,7 +182,50 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // terminal is a layout claim (the frame's `getBoundingClientRect` sits beside
 // the view, and a real pointer drag on its left-edge handle resizes it), which
 // jsdom cannot measure. The store and button logic are vitest.
-export const MAX_DECLARED_E2E = 462;
+//
+// Raised 462 -> 464 for `content-modal-bounds.spec.ts` (2 tests): a content-scoped
+// dialog must sit inside the view box, clear of the terminal frame, and win
+// `elementFromPoint` over it. That is real layout and hit-testing; the bounds
+// maths and the Modal scope prop are vitest.
+//
+// Raised 464 -> 466 for `diff-header-alignment.spec.ts` (2 tests): header bars
+// across the divider of the working-copy panel and the commit split layout must
+// share top/height/bottom, which is only measurable with real layout
+// (getBoundingClientRect) — jsdom has none.
+// Raised 466 -> 469 for Media ▸ Models' `model-editor.spec.ts` (3 tests): the
+// 3D editor is a react-three-fiber WebGL canvas, which jsdom cannot create at
+// all. The tests prove what only a real browser can — pixels that change with
+// selection and view mode, a real pointer click ray-cast against the meshes,
+// and a real drag orbiting the camera. Reducer, undo/redo, the inspector and
+// the save/export bridge calls are all vitest.
+//
+// Raised 469 -> 470 for the Finance dashboard's `finance-dashboard.spec.ts` (1
+// test): a card resized by a real pointer drag on its react-grid-layout handle
+// (real getBoundingClientRect, real pointer capture), the new footprint landing
+// in the persisted board, and the Insights button's hover fill — a CSS ::before
+// opacity that only a real style engine computes. Every other Finance
+// behaviour (cards, portfolio rules, sorting, summary, modals) is vitest.
+//
+// Raised 470 -> 472 for the Chats page's `chats-layout.spec.ts` (2 tests): the composer's centring and
+// pinning (real getBoundingClientRect, and "the document itself never scrolls") and the thread's
+// stick-to-bottom behaviour against real scrollHeight/clientHeight and a real wheel, all of which
+// jsdom reports as 0. The scroll decisions are vitest against faked geometry; everything else on the
+// page (filters, streaming, markdown, Stop, the review card and modal) is vitest too.
+//
+// Raised 472 -> 474 for `diff-blank-rows.spec.ts` (2 tests): a diff virtualizer's window offset only
+// goes wrong against real layout and a real scroll (elementFromPoint down the scroller after each
+// scroll step, collapse and file switch); jsdom has no geometry, so the vitest twin only proves rows mount.
+//
+// Raised 474 -> 475 for Media > Models' `model-explorer.spec.ts` (1 test): the explorer's drag-and-drop
+// move rides a native DataTransfer drag, which jsdom cannot fire; everything else is vitest.
+//
+// Raised 475 -> 476 for Media > Sprites' `sprite-render.spec.ts` (1 test, Phase 106 Theme E): rendering a
+// rigged model into sprite frames needs real WebGL and OffscreenCanvas, which jsdom has neither of; the
+// camera maths, clip sampling and the main-side render relay are all vitest.
+// Raised 476 -> 478 for Phase 101 Theme E's `piano-roll.spec.ts` (2 tests): drawing, moving, resizing and
+// deleting notes by real pointer drag on the piano roll's canvas, which has no DOM to hit-test in jsdom. The edit
+// maths, history, keymap and track controls all have vitest suites.
+export const MAX_DECLARED_E2E = 478;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

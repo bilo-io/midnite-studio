@@ -5,6 +5,8 @@ import type {
   ReachableRepo,
   ForgeCapability,
   ForgeKind,
+  GamePlaytestEntry,
+  GamePlaytestResult,
   Note,
   SyncStatusEvent,
   TestPackage,
@@ -51,6 +53,34 @@ export type PopoutRole =
   | 'apps-youtube';
 
 export type MockFixtures = {
+  commitStats?: Record<string, { added: number; deleted: number; files: number } | null>;
+  /**
+   * The Finance dashboard's market data and simulated portfolio (`markets.*`).
+   * Everything is generated in-process from a seeded PRNG — a spec that mounts
+   * the Finance dashboard never reaches a network, and the same symbol always
+   * draws the same chart.
+   */
+  markets?: {
+    /** Cash per currency, in that currency's own units. Default USD 1,000 / EUR 500 / ZAR 10,000. */
+    balances?: Record<string, number>;
+    /** Held assets. Default 0.5 BTC and 10 AAPL. */
+    holdings?: {
+      symbol: string;
+      name: string;
+      kind: 'crypto' | 'stock' | 'etf';
+      quantity: number;
+    }[];
+    watchlist?: string[];
+    /** Make every series/quote call answer with an error — the "provider down" path. */
+    down?: boolean;
+    news?: {
+      title: string;
+      link: string;
+      source: string;
+      origin: string;
+      publishedAt: number | null;
+    }[];
+  };
   /**
    * Commit signatures to graft onto the mock agent roster, keyed by `agentId`.
    *
@@ -673,7 +703,12 @@ export type MockFixtures = {
      * `global` source at `root ?? '/videos'`, so a spec that seeds only
      * `projects` sees them; `{root: null, source: null}` shows Setup Video.
      */
-    resolution?: { root: string | null; source: string | null; setupTarget: string | null };
+    resolution?: {
+      root: string | null;
+      source: string | null;
+      setupTarget: string | null;
+      engine?: string;
+    };
     projects?: Array<{ id: string; [key: string]: unknown }>;
     studioStatus?: Record<string, { state: string; [key: string]: unknown }>;
     toolchain?: Record<string, { node: unknown; npx: unknown; [key: string]: unknown }>;
@@ -682,18 +717,78 @@ export type MockFixtures = {
     renders?: Record<string, Array<{ id: string; [key: string]: unknown }>>;
   };
   /**
+   * Media ▸ Games (Phase 107 Themes A + B). `list` seeds the explorer; `settings` the Settings page.
+   * `create`/`run`/`stop` mutate an in-memory copy. Run state and console output are pushed from a spec
+   * through `window.__mstudioMockGames.runState(...)` / `.console(...)`, which the mock installs.
+   */
+  games?: {
+    list?: Array<{
+      gameId: string;
+      name: string;
+      path: string;
+      engine?: 'phaser' | 'three' | null;
+      dimension?: '2d' | '3d' | null;
+      starter?: string | null;
+      dirty?: boolean;
+      valid?: boolean;
+      issue?: string | null;
+    }>;
+    settings?: {
+      gamesRoot?: string | null;
+      defaultEngine?: 'phaser' | 'three';
+      defaultNetwork?: 'off' | 'on';
+      squashRunCommits?: boolean;
+    };
+    resolvedRoot?: string;
+    rootProblem?: string | null;
+    /** The game the `game` popout hosts at boot (Theme B Pop out). */
+    popped?: string | null;
+    /** Theme N: picker candidates by tab, and the re-sync answer (`state` per imported asset). */
+    assetSources?: Record<
+      string,
+      Array<{ repoPath: string; name: string; items: Array<{ path: string; label: string; kind: string; bytes: number }> }>
+    >;
+    assetSync?: Array<{ name: string; kind: string; state: 'current' | 'changed' | 'missing'; importedAt: string }>;
+    /**
+     * Theme O: `playtests/*.json` as the Playtests menu lists them. A run answers `playtestRun` when
+     * given, else marks every requested valid play-test passed, and saves it as that entry's `last`.
+     */
+    playtests?: GamePlaytestEntry[];
+    playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
+    /** The juice settings a game starts with (default: the kit's). */
+    juice?: Record<string, unknown>;
+    /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
+    exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
+  };
+  /**
    * Media page (Phase 99 Theme A). `files` is keyed `<tab>:<project>` → file
    * path → text content; a project with no files is `{}`. `ffmpeg` defaults to
    * found. Writes and removes mutate an in-memory copy, like `video.projects`.
    */
   media?: {
     files?: Record<string, Record<string, string>>;
-    ffmpeg?: { found: true; path: string; version: string | null } | { found: false; reason: string };
+    /** SF3D (Phase 103 Theme J): the starting install state; `licenceSha256` = consent already given. */
+    /** Maps (Phase 108): `keySet` makes the MapTiler sources available; the cache readout. */
+    map?: { keySet?: boolean; cacheBytes?: number; cacheCapMB?: number };
+    sf3d?: { state?: 'not-installed' | 'installed'; licenceSha256?: string; hold?: boolean; holdFraction?: number };
+    ffmpeg?:
+      { found: true; path: string; version: string | null } | { found: false; reason: string };
     /**
      * Theme C: `media.image.providers()`'s answer. Defaults to Gemini ready,
      * OpenAI missing its key, agy disabled, Ollama without image models.
      * `generate` writes `count` placeholder files into `image:<project>`.
      */
+    /** Local audio engine + Ollama status (`media.audio.engine()`); defaults to model ready, Ollama up with llama3.2:3b. */
+    audioEngine?: {
+      musicgen: {
+        state: 'missing' | 'downloading' | 'ready' | 'unavailable';
+        downloadBytes: number;
+        reason?: string;
+      };
+      ollama: { running: boolean; models: string[]; model: string | null; recommended: string };
+    };
+    /** Phase 101 Theme D: GM programs already cached (`media.audio.gm.status()`); defaults to `[0]`. */
+    gmCached?: number[];
     imageProviders?: Array<{
       id: 'gemini' | 'openai' | 'agy' | 'ollama';
       available: boolean;
@@ -701,6 +796,48 @@ export type MockFixtures = {
       missingKey: boolean;
       models: { id: string; label: string }[];
     }>;
+    /**
+     * Models tab: `media.model.providers()`'s answer. Defaults to Ollama
+     * running with a text model and a vision model installed. `generate`
+     * writes the `.json/.mtl/.obj/.fbx` quartet into `model:<project>`.
+     */
+    modelProviders?: {
+      ollama: {
+        available: boolean;
+        reason?: string;
+        models: { id: string; label: string; vision: boolean; embedding?: boolean }[];
+      };
+    };
+    /**
+     * Terrain tab: `media.terrain.*`. Terrains live in `files['terrain:<group>']` as
+     * `<terrain>/terrain.json`. `build` answers `needs-height-source` when the spec has neither a
+     * heightmap nor noise, else `built` with `stats` (default: a 513² terrain).
+     *
+     * Sprites: `media.sprite.*`; assets live in `files['sprite:<group>']` as `<asset>/sprite.json`.
+     */
+    terrain?: { stats?: Record<string, unknown> };
+  };
+  /**
+   * The Chats page (`chats.*`). `seed` is a list of whole `Chat` objects
+   * (the persisted shape); absent means no chats. `reply` is the text the fake
+   * agent streams back in three chunks (default "Here is the answer."), and
+   * `changes` makes every reply carry a pending change set with two files, one
+   * of them two hunks — enough to drive the card and the review modal.
+   */
+  chats?: {
+    seed?: Array<Record<string, unknown>>;
+    reply?: string;
+    changes?: boolean;
+    /** Make `send` fail with this message, for the "put the message back" path. */
+    sendError?: string;
+    /** Accepting this path answers a conflict instead of applying. */
+    conflictOn?: string;
+    /** Milliseconds between streamed chunks (default 20) — raise it to hold a reply mid-stream. */
+    chunkMs?: number;
+    /** What `chats.skills` answers (the composer's `/` picker); a small default set when absent. */
+    skills?: Array<{ name: string; description: string; scope: 'project' | 'user' | 'plugin' }>;
+    /** What `chats.files` answers (the composer's `@` picker); a small default tree when absent. */
+    files?: string[];
   };
   /**
    * Database connections (Phase 61). Absent means an empty list — the
@@ -861,7 +998,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -893,8 +1030,20 @@ export type MockFixtures = {
    */
   knowledge?: {
     graph?: {
-      nodes: { id: string; label: string; community: number; communityName: string; fileType: string }[];
-      links: { source: string; target: string; relation: string; weight: number; confidence: number }[];
+      nodes: {
+        id: string;
+        label: string;
+        community: number;
+        communityName: string;
+        fileType: string;
+      }[];
+      links: {
+        source: string;
+        target: string;
+        relation: string;
+        weight: number;
+        confidence: number;
+      }[];
       positions: Record<string, { x: number; y: number }>;
       builtAtCommit?: string;
       cached?: boolean;
@@ -903,6 +1052,7 @@ export type MockFixtures = {
     nodeDetails?: Record<string, { sourceFile: string; sourceLocation: string }>;
   };
 };
+
 
 /*
   The packaged app ships macOS-only (`electron-builder.yml`: `mac` only,
@@ -1034,6 +1184,114 @@ export async function installMockBridge(
   add it for real.
 */
 export function buildMockBridge(data: MockFixtures) {
+  const musicChanged = new Set<(event: never) => void>();
+  const musicOpen = new Set<(event: never) => void>();
+  (globalThis as { __mockMusicEmit?: unknown }).__mockMusicEmit = {
+    changed: (event: unknown) => musicChanged.forEach((h) => h(event as never)),
+    open: (event: unknown) => musicOpen.forEach((h) => h(event as never)),
+  };
+  // Helpers live INSIDE the function: it is serialised into the page whole, so module scope is not there.
+  /**
+   * The Models library tree, derived from the mock's flat `model:<project>` file maps: a top-level key is a
+   * group; a file under `<folder>/` belongs to that model folder (nested groups: any directory without a
+   * 3D file); loose files are legacy sets.
+   */
+  function mockModelTree(files: Record<string, Record<string, string>>): unknown[] {
+    const names = (paths: string[]) => paths.map((name) => ({ name, size: 1, mtimeMs: 1 }));
+    const manifestOf = (text: string | undefined): unknown => {
+      if (!text) return null;
+      try {
+        const parsed = JSON.parse(text) as Record<string, unknown>;
+        return parsed.version === 1 && parsed.agent && parsed.details ? parsed : null;
+      } catch {
+        return null;
+      }
+    };
+    const has3d = (list: string[]) => list.some((n) => /\.(obj|fbx|glb)$/.test(n));
+    return Object.keys(files)
+      .filter((key) => key.startsWith('model:'))
+      .sort()
+      .map((key) => {
+        const project = key.slice('model:'.length);
+        const entries = Object.entries(files[key] ?? {});
+        const build = (prefix: string, depth: number): unknown[] => {
+          const under = entries.filter(([path]) => path.startsWith(prefix));
+          const direct = under.filter(([path]) => !path.slice(prefix.length).includes('/'));
+          const dirs = [...new Set(under.map(([path]) => path.slice(prefix.length)).filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0]!))];
+          const out: unknown[] = dirs.map((dir) => {
+            const dirPrefix = `${prefix}${dir}/`;
+            const inside = entries.filter(([path]) => path.startsWith(dirPrefix));
+            const directNames = inside.filter(([path]) => !path.slice(dirPrefix.length).includes('/')).map(([path]) => path.slice(dirPrefix.length));
+            const path = `${project}/${dirPrefix}`.replace(/\/$/, '');
+            if (has3d(directNames) || directNames.includes('model.json')) {
+              return {
+                kind: 'model',
+                name: dir,
+                path,
+                manifest: manifestOf(files[key]?.[`${dirPrefix}model.json`]),
+                files: names(directNames),
+                legacy: false,
+                mtimeMs: 1,
+              };
+            }
+            return { kind: 'group', name: dir, path, children: build(dirPrefix, depth + 1), mtimeMs: 1 };
+          });
+          const stems = new Map<string, string[]>();
+          for (const [path] of direct) {
+            const name = path.slice(prefix.length);
+            const stem = name.replace(/\.ref\.[^./]+$/, '').replace(/\.[^./]+$/, '');
+            stems.set(stem, [...(stems.get(stem) ?? []), name]);
+          }
+          for (const [stem, list] of stems) {
+            if (!has3d(list)) continue;
+            out.push({ kind: 'model', name: stem, path: `${project}/${prefix}${stem}`.replace(/\/$/, ''), manifest: null, files: names(list), legacy: true, mtimeMs: 1 });
+          }
+          return out;
+        };
+        return { kind: 'group', name: project, path: project, children: build('', 1), mtimeMs: 1 };
+      });
+  }
+
+  /** Moves (`to` set), copies (`copy`) or removes (`to === null`) a library path in the mock's file maps. */
+  function mockMoveModelPath(
+    files: Record<string, Record<string, string>>,
+    from: string,
+    to: string | null,
+    copy = false,
+  ): Record<string, Record<string, string>> {
+    const next = { ...files };
+    const [fromProject, ...fromRest] = from.split('/');
+    const fromKey = `model:${fromProject}`;
+    const prefix = fromRest.join('/');
+    const toParts = to === null ? null : to.split('/');
+    if (prefix === '') {
+      // A top-level group.
+      if (to === null) {
+        delete next[fromKey];
+      } else {
+        next[`model:${toParts![0]}`] = files[fromKey] ?? {};
+        if (!copy) delete next[fromKey];
+      }
+      return next;
+    }
+    const source = files[fromKey] ?? {};
+    const kept: Record<string, string> = {};
+    const moved: Record<string, string> = {};
+    for (const [path, content] of Object.entries(source)) {
+      if (path === prefix || path.startsWith(`${prefix}/`)) moved[path] = content;
+      else kept[path] = content;
+    }
+    next[fromKey] = copy ? source : kept;
+    if (toParts) {
+      const toKey = `model:${toParts[0]}`;
+      const toPrefix = toParts.slice(1).join('/');
+      const target = { ...(next[toKey] ?? {}) };
+      for (const [path, content] of Object.entries(moved)) target[toPrefix + path.slice(prefix.length)] = content;
+      next[toKey] = target;
+    }
+    return next;
+  }
+
   /*
       Every method on an api object, held for `forgeLatencyMs` before it
       answers. Applied to the whole `forge` namespace at once rather than to
@@ -1057,6 +1315,40 @@ export function buildMockBridge(data: MockFixtures) {
 
   const noop = () => undefined;
   const unsubscribe = () => noop;
+  /** What the mock install probe reports — OpenClaude missing, the rest present. */
+  const AGENT_STATUS = [
+    {
+      id: 'claude',
+      installed: true,
+      resolvedPath: '/Users/e2e/.local/bin/claude',
+      version: '2.1.34',
+    },
+    {
+      id: 'cursor',
+      installed: true,
+      resolvedPath: '/usr/local/bin/cursor-agent',
+      version: '2026.09.10',
+    },
+    { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy', version: '1.2.2' },
+    { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
+    { id: 'copilot', installed: true, resolvedPath: '/usr/local/bin/copilot', version: '1.0.83' },
+    { id: 'openclaude', installed: false, resolvedPath: null },
+    {
+      id: 'opencode',
+      installed: true,
+      resolvedPath: '/opt/homebrew/bin/opencode',
+      version: '1.18.30',
+    },
+    { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo', version: '7.5.6' },
+    {
+      id: 'aider',
+      installed: true,
+      resolvedPath: '/Users/e2e/.local/bin/aider',
+      version: '0.86.2',
+    },
+    { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline', version: '3.0.60' },
+  ];
+
   const ok = async () => ({ ok: true as const });
 
   /**
@@ -1417,6 +1709,17 @@ export function buildMockBridge(data: MockFixtures) {
         hunks: data.conflictRegions?.[req.path] ?? [],
         truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
       }),
+      commitStats: async (req: { shas: string[] }) => {
+        const stats: Record<string, { added: number; deleted: number; files: number } | null> = {};
+        if (data.commitStats) {
+          for (const sha of req.shas) {
+            if (sha in data.commitStats) {
+              stats[sha] = data.commitStats[sha] ?? null;
+            }
+          }
+        }
+        return { stats };
+      },
       blobExists: async (req: { rev: string; path: string }) => ({
         exists: data.blobExists?.[`${req.rev}:${req.path}`] ?? true,
       }),
@@ -1451,155 +1754,157 @@ export function buildMockBridge(data: MockFixtures) {
       */
     forge: {
       ...slowed({
-      cliStatus: async () => forgeCli(),
-      runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
-      pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
-        cli: forgeCli(),
-        pulls:
-          (req.repoId ? data.forge?.pullsByRepo?.[req.repoId] : undefined) ??
-          data.forge?.pullsByScope?.[req.scope ?? 'all'] ??
-          data.forge?.pulls ??
-          [],
-        error: forgeError(),
-      }),
-      issues: async () => ({
-        cli: forgeCli(),
-        issues: data.forge?.issues ?? [],
-        disabled: data.forge?.issuesDisabled === true,
-        error: forgeError(),
-      }),
-      issueDetail: async (req: { number: number }) => {
-        const seeded = data.forge?.issueDetail?.[String(req.number)];
-        if (!seeded) return { cli: forgeCli(), issue: null, error: forgeError() };
-        // The listing row fills the `issue` half, the same "listing first,
-        // detail fills in" split `pullDetail` follows — a spec should not
-        // have to restate an issue it already listed in `issues`.
-        const listed = (data.forge?.issues ?? []).find(
-          (row) => (row as { number?: number }).number === req.number,
-        );
-        return {
+        cliStatus: async () => forgeCli(),
+        runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
+        pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
           cli: forgeCli(),
-          issue: { issue: seeded.issue ?? listed, body: seeded.body ?? '' },
-          error: null,
-        };
-      },
-      issueComments: async (req: { number: number }) => ({
-        cli: forgeCli(),
-        comments: data.forge?.issueComments?.[String(req.number)] ?? [],
-        error: forgeError(),
-      }),
-      runDetail: async (req: { runId: string }) => {
-        const seeded = data.forge?.runDetail?.[req.runId];
-        if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
-        // A run with no seeded `run` half still needs one: the real payload
-        // always carries both, and a spec should not have to restate a run
-        // it already listed above.
-        const listed = (data.forge?.runs ?? []).find(
-          (row) => (row as { id?: string }).id === req.runId,
-        );
-        return {
+          pulls:
+            (req.repoId ? data.forge?.pullsByRepo?.[req.repoId] : undefined) ??
+            data.forge?.pullsByScope?.[req.scope ?? 'all'] ??
+            data.forge?.pulls ??
+            [],
+          error: forgeError(),
+        }),
+        issues: async () => ({
           cli: forgeCli(),
-          detail: { run: seeded.run ?? listed, jobs: seeded.jobs ?? [] },
-          error: null,
-        };
-      },
-      runLog: async (req: { runId: string; full?: boolean }) => {
-        const seeded = data.forge?.runLogs?.[req.runId];
-        // No fixture means a run that has not finished — GitHub serves no log
-        // for one, which is a `pending`, not an error.
-        if (!seeded) return { cli: forgeCli(), log: null, pending: true, error: null };
+          issues: data.forge?.issues ?? [],
+          disabled: data.forge?.issuesDisabled === true,
+          error: forgeError(),
+        }),
+        issueDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.issueDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), issue: null, error: forgeError() };
+          // The listing row fills the `issue` half, the same "listing first,
+          // detail fills in" split `pullDetail` follows — a spec should not
+          // have to restate an issue it already listed in `issues`.
+          const listed = (data.forge?.issues ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            issue: { issue: seeded.issue ?? listed, body: seeded.body ?? '' },
+            error: null,
+          };
+        },
+        issueComments: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          comments: data.forge?.issueComments?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
+        runDetail: async (req: { runId: string }) => {
+          const seeded = data.forge?.runDetail?.[req.runId];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // A run with no seeded `run` half still needs one: the real payload
+          // always carries both, and a spec should not have to restate a run
+          // it already listed above.
+          const listed = (data.forge?.runs ?? []).find(
+            (row) => (row as { id?: string }).id === req.runId,
+          );
+          return {
+            cli: forgeCli(),
+            detail: { run: seeded.run ?? listed, jobs: seeded.jobs ?? [] },
+            error: null,
+          };
+        },
+        runLog: async (req: { runId: string; full?: boolean }) => {
+          const seeded = data.forge?.runLogs?.[req.runId];
+          // No fixture means a run that has not finished — GitHub serves no log
+          // for one, which is a `pending`, not an error.
+          if (!seeded) return { cli: forgeCli(), log: null, pending: true, error: null };
 
-        const whole = req.full === true && seeded.full !== undefined;
-        return {
+          const whole = req.full === true && seeded.full !== undefined;
+          return {
+            cli: forgeCli(),
+            log: {
+              lines: whole ? seeded.full : seeded.lines,
+              truncated: whole ? false : (seeded.truncated ?? false),
+              omittedLines: whole ? 0 : (seeded.omittedLines ?? 0),
+              totalBytes: seeded.totalBytes ?? 0,
+              complete: whole || seeded.truncated !== true,
+            },
+            pending: false,
+            error: null,
+          };
+        },
+        workflows: async () => ({
           cli: forgeCli(),
-          log: {
-            lines: whole ? seeded.full : seeded.lines,
-            truncated: whole ? false : (seeded.truncated ?? false),
-            omittedLines: whole ? 0 : (seeded.omittedLines ?? 0),
-            totalBytes: seeded.totalBytes ?? 0,
-            complete: whole || seeded.truncated !== true,
-          },
-          pending: false,
-          error: null,
-        };
-      },
-      workflows: async () => ({
-        cli: forgeCli(),
-        workflows: data.forge?.workflows ?? [],
-        error: forgeError(),
-      }),
-      // The graph's CI column: the seeded run list, matched per commit on its
-      // head sha exactly as main's `commit-runs.ts` does.
-      commitRuns: async (req: { shas: string[] }) => ({
-        cli: forgeCli(),
-        runs: Object.fromEntries(
-          req.shas.map((sha) => [
-            sha,
-            (data.forge?.runs ?? []).filter((row) => (row as { headSha?: string }).headSha === sha),
-          ]),
-        ),
-        error: forgeError(),
-      }),
-      pullDetail: async (req: { number: number }) => {
-        const seeded = data.forge?.pullDetail?.[String(req.number)];
-        if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
-        // The listing row fills the `pull` half, exactly as the real parser
-        // does — a spec should not have to restate a PR it already listed.
-        const listed = (data.forge?.pulls ?? []).find(
-          (row) => (row as { number?: number }).number === req.number,
-        );
-        return {
+          workflows: data.forge?.workflows ?? [],
+          error: forgeError(),
+        }),
+        // The graph's CI column: the seeded run list, matched per commit on its
+        // head sha exactly as main's `commit-runs.ts` does.
+        commitRuns: async (req: { shas: string[] }) => ({
           cli: forgeCli(),
-          detail: {
-            pull: seeded['pull'] ?? listed,
-            body: seeded['body'] ?? '',
-            headSha: seeded['headSha'] ?? null,
-            // Phase 26 Theme H — the base sha the image diff and "Fetch to
-            // compare" (`use-base-blob-exists.ts`) both key off.
-            baseSha: seeded['baseSha'] ?? null,
-            baseBranch: seeded['baseBranch'] ?? '',
-            additions: seeded['additions'] ?? 0,
-            deletions: seeded['deletions'] ?? 0,
-            changedFiles: seeded['changedFiles'] ?? 0,
-            createdAt: seeded['createdAt'] ?? null,
-            updatedAt: seeded['updatedAt'] ?? null,
-            mergeable: seeded['mergeable'] ?? null,
-            // Phase 20 F's blast radius, and G's reviewer suggestions.
-            commitCount: seeded['commitCount'] ?? 0,
-            commits: seeded['commits'] ?? [],
-            reviewRequests: seeded['reviewRequests'] ?? [],
-          },
-          error: null,
-        };
-      },
-      pullFiles: async (req: { number: number }) => {
-        const seeded = data.forge?.pullFiles?.[String(req.number)];
-        // No fixture is "no diff to show", not an empty one: `files: []`
-        // would render "this pull request changes no files" as a fact.
-        if (!seeded) return { cli: forgeCli(), files: null, error: forgeError() };
-        return {
+          runs: Object.fromEntries(
+            req.shas.map((sha) => [
+              sha,
+              (data.forge?.runs ?? []).filter(
+                (row) => (row as { headSha?: string }).headSha === sha,
+              ),
+            ]),
+          ),
+          error: forgeError(),
+        }),
+        pullDetail: async (req: { number: number }) => {
+          const seeded = data.forge?.pullDetail?.[String(req.number)];
+          if (!seeded) return { cli: forgeCli(), detail: null, error: forgeError() };
+          // The listing row fills the `pull` half, exactly as the real parser
+          // does — a spec should not have to restate a PR it already listed.
+          const listed = (data.forge?.pulls ?? []).find(
+            (row) => (row as { number?: number }).number === req.number,
+          );
+          return {
+            cli: forgeCli(),
+            detail: {
+              pull: seeded['pull'] ?? listed,
+              body: seeded['body'] ?? '',
+              headSha: seeded['headSha'] ?? null,
+              // Phase 26 Theme H — the base sha the image diff and "Fetch to
+              // compare" (`use-base-blob-exists.ts`) both key off.
+              baseSha: seeded['baseSha'] ?? null,
+              baseBranch: seeded['baseBranch'] ?? '',
+              additions: seeded['additions'] ?? 0,
+              deletions: seeded['deletions'] ?? 0,
+              changedFiles: seeded['changedFiles'] ?? 0,
+              createdAt: seeded['createdAt'] ?? null,
+              updatedAt: seeded['updatedAt'] ?? null,
+              mergeable: seeded['mergeable'] ?? null,
+              // Phase 20 F's blast radius, and G's reviewer suggestions.
+              commitCount: seeded['commitCount'] ?? 0,
+              commits: seeded['commits'] ?? [],
+              reviewRequests: seeded['reviewRequests'] ?? [],
+            },
+            error: null,
+          };
+        },
+        pullFiles: async (req: { number: number }) => {
+          const seeded = data.forge?.pullFiles?.[String(req.number)];
+          // No fixture is "no diff to show", not an empty one: `files: []`
+          // would render "this pull request changes no files" as a fact.
+          if (!seeded) return { cli: forgeCli(), files: null, error: forgeError() };
+          return {
+            cli: forgeCli(),
+            files: {
+              files: seeded.files ?? [],
+              truncated: seeded.truncated ?? false,
+              omittedFiles: seeded.omittedFiles ?? 0,
+              totalBytes: seeded.totalBytes ?? 0,
+            },
+            error: null,
+          };
+        },
+        pullComments: async (req: { number: number }) => ({
           cli: forgeCli(),
-          files: {
-            files: seeded.files ?? [],
-            truncated: seeded.truncated ?? false,
-            omittedFiles: seeded.omittedFiles ?? 0,
-            totalBytes: seeded.totalBytes ?? 0,
-          },
-          error: null,
-        };
-      },
-      pullComments: async (req: { number: number }) => ({
-        cli: forgeCli(),
-        comments: data.forge?.pullComments?.[String(req.number)] ?? [],
-        error: forgeError(),
-      }),
-      pullThreads: async (req: { number: number }) => ({
-        cli: forgeCli(),
-        threads: data.forge?.pullThreads?.[String(req.number)] ?? [],
-        error: forgeError(),
-      }),
+          comments: data.forge?.pullComments?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
+        pullThreads: async (req: { number: number }) => ({
+          cli: forgeCli(),
+          threads: data.forge?.pullThreads?.[String(req.number)] ?? [],
+          error: forgeError(),
+        }),
 
-      /*
+        /*
           The writes.
 
           They mutate `data.forge.pullThreads` in the page's own copy of the
@@ -1614,72 +1919,72 @@ export function buildMockBridge(data: MockFixtures) {
           with the head sha and a position — which no amount of re-reading the
           list can show.
         */
-      reviewComment: async (req: Record<string, unknown>) => {
-        recordWrite('reviewComment', req);
-        if (writeError() !== null) return writeResult(false);
-        const key = String(req['number']);
-        const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
-        threads.push({
-          id: `PRRT_new_${String(threads.length + 1)}`,
-          path: req['path'],
-          line: req['line'],
-          originalLine: req['line'],
-          startLine: null,
-          side: 'RIGHT',
-          resolved: false,
-          outdated: false,
-          fileLevel: false,
-          comments: [
-            {
-              id: `PRRC_new_${String(threads.length + 1)}`,
-              databaseId: String(9000 + threads.length),
+        reviewComment: async (req: Record<string, unknown>) => {
+          recordWrite('reviewComment', req);
+          if (writeError() !== null) return writeResult(false);
+          const key = String(req['number']);
+          const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
+          threads.push({
+            id: `PRRT_new_${String(threads.length + 1)}`,
+            path: req['path'],
+            line: req['line'],
+            originalLine: req['line'],
+            startLine: null,
+            side: 'RIGHT',
+            resolved: false,
+            outdated: false,
+            fileLevel: false,
+            comments: [
+              {
+                id: `PRRC_new_${String(threads.length + 1)}`,
+                databaseId: String(9000 + threads.length),
+                author: 'you',
+                body: req['body'],
+                createdAt: '2026-08-27T12:00:00Z',
+                url: '',
+              },
+            ],
+          });
+          if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
+          return writeResult(true);
+        },
+        reviewReply: async (req: Record<string, unknown>) => {
+          recordWrite('reviewReply', req);
+          if (writeError() !== null) return writeResult(false);
+          const key = String(req['number']);
+          const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
+          for (const thread of threads) {
+            const comments = (thread['comments'] ?? []) as Record<string, unknown>[];
+            // The reply goes into whichever thread owns the target comment —
+            // the same lookup the real endpoint does by `comment_id`.
+            if (!comments.some((c) => c['databaseId'] === req['commentId'])) continue;
+            comments.push({
+              id: `PRRC_reply_${String(comments.length + 1)}`,
+              databaseId: String(9500 + comments.length),
               author: 'you',
               body: req['body'],
-              createdAt: '2026-08-27T12:00:00Z',
+              createdAt: '2026-08-27T12:05:00Z',
               url: '',
-            },
-          ],
-        });
-        if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
-        return writeResult(true);
-      },
-      reviewReply: async (req: Record<string, unknown>) => {
-        recordWrite('reviewReply', req);
-        if (writeError() !== null) return writeResult(false);
-        const key = String(req['number']);
-        const threads = (data.forge?.pullThreads?.[key] ?? []) as Record<string, unknown>[];
-        for (const thread of threads) {
-          const comments = (thread['comments'] ?? []) as Record<string, unknown>[];
-          // The reply goes into whichever thread owns the target comment —
-          // the same lookup the real endpoint does by `comment_id`.
-          if (!comments.some((c) => c['databaseId'] === req['commentId'])) continue;
-          comments.push({
-            id: `PRRC_reply_${String(comments.length + 1)}`,
-            databaseId: String(9500 + comments.length),
-            author: 'you',
-            body: req['body'],
-            createdAt: '2026-08-27T12:05:00Z',
-            url: '',
-          });
-          thread['comments'] = comments;
-          break;
-        }
-        if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
-        return writeResult(true);
-      },
-      resolveThread: async (req: Record<string, unknown>) => {
-        recordWrite('resolveThread', req);
-        if (writeError() !== null) return writeResult(false);
-        // Not repo-scoped in the request — a node id identifies the thread
-        // globally — so every seeded PR is searched, exactly as GraphQL does.
-        for (const threads of Object.values(data.forge?.pullThreads ?? {})) {
-          for (const thread of threads as Record<string, unknown>[]) {
-            if (thread['id'] === req['threadId']) thread['resolved'] = req['resolved'];
+            });
+            thread['comments'] = comments;
+            break;
           }
-        }
-        return writeResult(true);
-      },
-      /*
+          if (data.forge) data.forge.pullThreads = { ...data.forge.pullThreads, [key]: threads };
+          return writeResult(true);
+        },
+        resolveThread: async (req: Record<string, unknown>) => {
+          recordWrite('resolveThread', req);
+          if (writeError() !== null) return writeResult(false);
+          // Not repo-scoped in the request — a node id identifies the thread
+          // globally — so every seeded PR is searched, exactly as GraphQL does.
+          for (const threads of Object.values(data.forge?.pullThreads ?? {})) {
+            for (const thread of threads as Record<string, unknown>[]) {
+              if (thread['id'] === req['threadId']) thread['resolved'] = req['resolved'];
+            }
+          }
+          return writeResult(true);
+        },
+        /*
           Themes F and G — the verdict, the merge and the nudges.
 
           Deliberately thinner than Theme E's three above: those mutate the
@@ -1689,39 +1994,39 @@ export function buildMockBridge(data: MockFixtures) {
           REQUEST — that the app sent the verb the user chose, with the body they
           typed — plus how the UI behaves on refusal. Both are what these serve.
         */
-      pullReview: async (req: Record<string, unknown>) => {
-        recordWrite('pullReview', req);
-        return writeResult(writeError() === null);
-      },
-      pullComment: async (req: Record<string, unknown>) => {
-        recordWrite('pullComment', req);
-        return writeResult(writeError() === null);
-      },
-      pullMerge: async (req: Record<string, unknown>) => {
-        recordWrite('pullMerge', req);
-        return writeResult(writeError() === null);
-      },
-      pullRequestReview: async (req: Record<string, unknown>) => {
-        recordWrite('pullRequestReview', req);
-        return writeResult(writeError() === null);
-      },
-      pullReady: async (req: Record<string, unknown>) => {
-        recordWrite('pullReady', req);
-        return writeResult(writeError() === null);
-      },
-      runRerun: async (req: Record<string, unknown>) => {
-        recordWrite('runRerun', req);
-        return writeResult(writeError() === null);
-      },
-      /** Phase 54 Theme G — the two issue writes, and only two. */
-      issueComment: async (req: Record<string, unknown>) => {
-        recordWrite('issueComment', req);
-        return writeResult(writeError() === null);
-      },
-      issueSetState: async (req: Record<string, unknown>) => {
-        recordWrite('issueSetState', req);
-        return writeResult(writeError() === null);
-      },
+        pullReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullComment: async (req: Record<string, unknown>) => {
+          recordWrite('pullComment', req);
+          return writeResult(writeError() === null);
+        },
+        pullMerge: async (req: Record<string, unknown>) => {
+          recordWrite('pullMerge', req);
+          return writeResult(writeError() === null);
+        },
+        pullRequestReview: async (req: Record<string, unknown>) => {
+          recordWrite('pullRequestReview', req);
+          return writeResult(writeError() === null);
+        },
+        pullReady: async (req: Record<string, unknown>) => {
+          recordWrite('pullReady', req);
+          return writeResult(writeError() === null);
+        },
+        runRerun: async (req: Record<string, unknown>) => {
+          recordWrite('runRerun', req);
+          return writeResult(writeError() === null);
+        },
+        /** Phase 54 Theme G — the two issue writes, and only two. */
+        issueComment: async (req: Record<string, unknown>) => {
+          recordWrite('issueComment', req);
+          return writeResult(writeError() === null);
+        },
+        issueSetState: async (req: Record<string, unknown>) => {
+          recordWrite('issueSetState', req);
+          return writeResult(writeError() === null);
+        },
       }),
       // Phase 84 Theme C — interest-based polling. One-way `send`s, not
       // `invoke`s, so left outside `slowed()`'s async-wrapping (which would
@@ -2212,9 +2517,7 @@ export function buildMockBridge(data: MockFixtures) {
     },
     notes: {
       list: async (req?: { repoId?: string }) => {
-        const filtered = req?.repoId
-          ? notes.filter((n) => n.repoId === req.repoId)
-          : notes;
+        const filtered = req?.repoId ? notes.filter((n) => n.repoId === req.repoId) : notes;
         return { notes: [...filtered] };
       },
       save: (req: { note: Note }) => {
@@ -2237,7 +2540,9 @@ export function buildMockBridge(data: MockFixtures) {
         const byId = new Map(currentRepoNotes.map((n) => [n.id, n]));
         const rest = currentRepoNotes
           .filter((n) => !namedSet.has(n.id))
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0));
+          .sort(
+            (a, b) => (a.order ?? 0) - (b.order ?? 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0),
+          );
         const reordered: Note[] = [];
         [...req.noteIds, ...rest.map((n) => n.id)].forEach((id, index) => {
           const note = byId.get(id);
@@ -2256,157 +2561,150 @@ export function buildMockBridge(data: MockFixtures) {
           exactly one of the menu builder's four cases.
         */
       list: async () => ({
-        agents: graftSignatures([
-          {
-            id: 'claude',
-            label: 'Claude',
-            command: 'claude',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#D97757',
-            install: 'curl -fsSL https://claude.ai/install.sh | bash',
-            update: 'claude update',
-            uninstall: 'npm rm -g @anthropic-ai/claude-code',
-            docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
-            apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-          },
-          {
-            id: 'cursor',
-            label: 'Cursor',
-            command: 'cursor-agent',
-            args: [],
-            resume: ['--continue'],
-            accent: '#0066FF',
-            icon: 'SiCursor',
-            install: 'curl https://cursor.com/install -fsS | bash',
-            update: 'curl https://cursor.com/install -fsS | bash',
-            uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
-            docsUrl: 'https://docs.cursor.com',
-            apiKeyEnvVar: 'CURSOR_API_KEY',
-          },
-          {
-            id: 'agy',
-            label: 'Antigravity',
-            command: 'agy',
-            args: [],
-            accent: '#4285F4',
-            icon: 'antigravity',
-            install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
-            update: 'agy update',
-            uninstall: 'rm -f ~/.local/bin/agy',
-            docsUrl: 'https://github.com/google-deepmind/antigravity',
-            apiKeyEnvVar: 'GEMINI_API_KEY',
-          },
-          {
-            id: 'codex',
-            label: 'Codex',
-            command: 'codex',
-            args: [],
-            resume: ['resume', '--last'],
-            backends: ['ollama'],
-            accent: '#10A37F',
-            install: 'npm i -g @openai/codex',
-            update: 'npm update -g @openai/codex',
-            uninstall: 'npm rm -g @openai/codex',
-            docsUrl: 'https://github.com/openai/codex',
-            apiKeyEnvVar: 'OPENAI_API_KEY',
-          },
-          {
-            id: 'copilot',
-            label: 'Copilot',
-            command: 'copilot',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#6E40C9',
-            icon: 'SiGithubcopilot',
-            install: 'npm i -g @github/copilot',
-            update: 'npm update -g @github/copilot',
-            uninstall: 'npm rm -g @github/copilot',
-            docsUrl: 'https://docs.github.com/en/copilot',
-            apiKeyEnvVar: 'GITHUB_TOKEN',
-          },
-          {
-            id: 'openclaude',
-            label: 'OpenClaude',
-            command: 'openclaude',
-            args: [],
-            accent: '#8B5CF6',
-            install: 'npm i -g @gitlawb/openclaude',
-            update: 'npm update -g @gitlawb/openclaude',
-            uninstall: 'npm rm -g @gitlawb/openclaude',
-            docsUrl: 'https://github.com/openclaude/openclaude',
-            apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-          },
-          {
-            id: 'opencode',
-            label: 'OpenCode',
-            command: 'opencode',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#03B000',
-            install: 'npm i -g opencode-ai',
-            update: 'npm update -g opencode-ai',
-            uninstall: 'npm rm -g opencode-ai',
-            docsUrl: 'https://github.com/opencode/opencode',
-            apiKeyEnvVar: 'OPENAI_API_KEY',
-          },
-          {
-            id: 'kilo',
-            label: 'Kilo Code',
-            command: 'kilo',
-            args: [],
-            resume: ['--continue'],
-            accent: '#FF5500',
-            install: 'npm i -g @kilocode/cli',
-            update: 'npm update -g @kilocode/cli',
-            uninstall: 'npm rm -g @kilocode/cli',
-            docsUrl: 'https://github.com/kilo-code/kilo',
-            apiKeyEnvVar: 'KILO_API_KEY',
-          },
-          {
-            id: 'aider',
-            label: 'Aider',
-            command: 'aider',
-            args: [],
-            resume: ['--restore-chat-history'],
-            accent: '#D93838',
-            install: 'pip install aider-chat',
-            update: 'pip install --upgrade aider-chat',
-            uninstall: 'pip uninstall -y aider-chat',
-            docsUrl: 'https://aider.chat/docs',
-            apiKeyEnvVar: 'OPENAI_API_KEY',
-          },
-          {
-            id: 'cline',
-            label: 'Cline',
-            command: 'cline',
-            args: [],
-            resume: ['--continue'],
-            backends: ['ollama'],
-            accent: '#5F52FF',
-            icon: 'SiCline',
-            install: 'npm i -g cline',
-            update: 'npm update -g cline',
-            uninstall: 'npm rm -g cline',
-            docsUrl: 'https://github.com/cline/cline',
-            apiKeyEnvVar: 'ANTHROPIC_API_KEY',
-          },
-        ], data.agentSignatures),
-        status: [
-          { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude', version: '2.1.34' },
-          { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor-agent', version: '2026.09.10' },
-          { id: 'agy', installed: true, resolvedPath: '/Users/e2e/.local/bin/agy', version: '1.2.2' },
-          { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
-          { id: 'copilot', installed: true, resolvedPath: '/usr/local/bin/copilot', version: '1.0.83' },
-          { id: 'openclaude', installed: false, resolvedPath: null },
-          { id: 'opencode', installed: true, resolvedPath: '/opt/homebrew/bin/opencode', version: '1.18.30' },
-          { id: 'kilo', installed: true, resolvedPath: '/Users/e2e/.local/bin/kilo', version: '7.5.6' },
-          { id: 'aider', installed: true, resolvedPath: '/Users/e2e/.local/bin/aider', version: '0.86.2' },
-          { id: 'cline', installed: true, resolvedPath: '/usr/local/bin/cline', version: '3.0.60' },
-        ],
+        agents: graftSignatures(
+          [
+            {
+              id: 'claude',
+              label: 'Claude',
+              command: 'claude',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#D97757',
+              install: 'curl -fsSL https://claude.ai/install.sh | bash',
+              update: 'claude update',
+              uninstall: 'npm rm -g @anthropic-ai/claude-code',
+              docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
+              apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+            },
+            {
+              id: 'cursor',
+              label: 'Cursor',
+              command: 'cursor-agent',
+              args: [],
+              resume: ['--continue'],
+              accent: '#0066FF',
+              icon: 'SiCursor',
+              install: 'curl https://cursor.com/install -fsS | bash',
+              update: 'curl https://cursor.com/install -fsS | bash',
+              uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
+              docsUrl: 'https://docs.cursor.com',
+              apiKeyEnvVar: 'CURSOR_API_KEY',
+            },
+            {
+              id: 'agy',
+              label: 'Antigravity',
+              command: 'agy',
+              args: [],
+              accent: '#4285F4',
+              icon: 'antigravity',
+              install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+              update: 'agy update',
+              uninstall: 'rm -f ~/.local/bin/agy',
+              docsUrl: 'https://github.com/google-deepmind/antigravity',
+              apiKeyEnvVar: 'GEMINI_API_KEY',
+            },
+            {
+              id: 'codex',
+              label: 'Codex',
+              command: 'codex',
+              args: [],
+              resume: ['resume', '--last'],
+              backends: ['ollama'],
+              accent: '#10A37F',
+              install: 'npm i -g @openai/codex',
+              update: 'npm update -g @openai/codex',
+              uninstall: 'npm rm -g @openai/codex',
+              docsUrl: 'https://github.com/openai/codex',
+              apiKeyEnvVar: 'OPENAI_API_KEY',
+            },
+            {
+              id: 'copilot',
+              label: 'Copilot',
+              command: 'copilot',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#6E40C9',
+              icon: 'SiGithubcopilot',
+              install: 'npm i -g @github/copilot',
+              update: 'npm update -g @github/copilot',
+              uninstall: 'npm rm -g @github/copilot',
+              docsUrl: 'https://docs.github.com/en/copilot',
+              apiKeyEnvVar: 'GITHUB_TOKEN',
+            },
+            {
+              id: 'openclaude',
+              label: 'OpenClaude',
+              command: 'openclaude',
+              args: [],
+              accent: '#8B5CF6',
+              install: 'npm i -g @gitlawb/openclaude',
+              update: 'npm update -g @gitlawb/openclaude',
+              uninstall: 'npm rm -g @gitlawb/openclaude',
+              docsUrl: 'https://github.com/openclaude/openclaude',
+              apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+            },
+            {
+              id: 'opencode',
+              label: 'OpenCode',
+              command: 'opencode',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#03B000',
+              install: 'npm i -g opencode-ai',
+              update: 'npm update -g opencode-ai',
+              uninstall: 'npm rm -g opencode-ai',
+              docsUrl: 'https://github.com/opencode/opencode',
+              apiKeyEnvVar: 'OPENAI_API_KEY',
+            },
+            {
+              id: 'kilo',
+              label: 'Kilo Code',
+              command: 'kilo',
+              args: [],
+              resume: ['--continue'],
+              accent: '#FF5500',
+              install: 'npm i -g @kilocode/cli',
+              update: 'npm update -g @kilocode/cli',
+              uninstall: 'npm rm -g @kilocode/cli',
+              docsUrl: 'https://github.com/kilo-code/kilo',
+              apiKeyEnvVar: 'KILO_API_KEY',
+            },
+            {
+              id: 'aider',
+              label: 'Aider',
+              command: 'aider',
+              args: [],
+              resume: ['--restore-chat-history'],
+              accent: '#D93838',
+              install: 'pip install aider-chat',
+              update: 'pip install --upgrade aider-chat',
+              uninstall: 'pip uninstall -y aider-chat',
+              docsUrl: 'https://aider.chat/docs',
+              apiKeyEnvVar: 'OPENAI_API_KEY',
+            },
+            {
+              id: 'cline',
+              label: 'Cline',
+              command: 'cline',
+              args: [],
+              resume: ['--continue'],
+              backends: ['ollama'],
+              accent: '#5F52FF',
+              icon: 'SiCline',
+              install: 'npm i -g cline',
+              update: 'npm update -g cline',
+              uninstall: 'npm rm -g cline',
+              docsUrl: 'https://github.com/cline/cline',
+              apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+            },
+          ],
+          data.agentSignatures,
+        ),
+        status: AGENT_STATUS,
+        probe: 'ready' as const,
       }),
       claudeInfo: async () => ({
         installed: true,
@@ -2416,6 +2714,8 @@ export function buildMockBridge(data: MockFixtures) {
       }),
       claudeUpdate: async () => ({ ok: true as const, exitCode: 0 }),
       onClaudeUpdateData: unsubscribe,
+      recheck: async () => ({ status: AGENT_STATUS, probe: 'ready' as const }),
+      onStatus: unsubscribe,
       revealPath: async () => ({ ok: true }),
     },
     /*
@@ -2612,12 +2912,20 @@ export function buildMockBridge(data: MockFixtures) {
       // Phase 97 Theme D — mutates the matching node in place, exactly like
       // the real engine's settle, so a fixture that seeds a `waiting` gate
       // node can assert the run panel's decide round trip end to end.
-      gateDecide: async (req: { runId: string; nodeId: string; decision: 'approved' | 'rejected'; note?: string }) => {
+      gateDecide: async (req: {
+        runId: string;
+        nodeId: string;
+        decision: 'approved' | 'rejected';
+        note?: string;
+      }) => {
         const run = workflowRuns.find((r) => r.id === req.runId);
-        const node = (run?.nodes as Array<{ nodeId: string; status: string; settledPort?: string; output?: unknown }> | undefined)?.find(
-          (n) => n.nodeId === req.nodeId,
-        );
-        if (!run || !node) return { ok: false as const, kind: 'error' as const, message: 'Gate not found.' };
+        const node = (
+          run?.nodes as
+            | Array<{ nodeId: string; status: string; settledPort?: string; output?: unknown }>
+            | undefined
+        )?.find((n) => n.nodeId === req.nodeId);
+        if (!run || !node)
+          return { ok: false as const, kind: 'error' as const, message: 'Gate not found.' };
         node.status = 'succeeded';
         node.settledPort = req.decision;
         node.output = { decision: req.decision, note: req.note ?? null, decidedBy: 'panel' };
@@ -2664,6 +2972,8 @@ export function buildMockBridge(data: MockFixtures) {
       quote: async () => ({ ok: true as const, value: { price: 0, currency: 'USD' } }),
       history: async () => ({ ok: true as const, value: [] }),
     },
+    markets: createMockMarkets(),
+    chats: createMockChats(),
     loopRuns: {
       list: async () => ({ runs: loopRuns }),
       start: async (req: {
@@ -2805,7 +3115,10 @@ export function buildMockBridge(data: MockFixtures) {
       // flow. Empty/false by default so an unrelated spec exercising a
       // cloud-model session (`use-terminal-ipc.ts`) sees "signed out, no
       // key" and falls back to the local daemon exactly as before.
-      search: async () => ({ ok: true as const, value: { items: [], stale: false, updatedAt: '' } }),
+      search: async () => ({
+        ok: true as const,
+        value: { items: [], stale: false, updatedAt: '' },
+      }),
       cloudList: async () => ({ ok: true as const, value: { models: [] } }),
       signInStatus: async () => ({ signedIn: false }),
     },
@@ -2888,11 +3201,11 @@ export function buildMockBridge(data: MockFixtures) {
           skills: {
             videoWriteScript: {
               found: true,
-              path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md',
+              path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md',
             },
             videoExecuteScript: {
               found: true,
-              path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md',
+              path: '/videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md',
             },
           },
         },
@@ -2910,16 +3223,222 @@ export function buildMockBridge(data: MockFixtures) {
         set: async (req: { root: string | null }) => ({ root: req.root }),
         resolve: async () => videoResolution,
       },
-      setup: async () => {
+      setup: async (req: { engine?: string }) => {
         videoResolution = {
           root: '/repo/.midnite/media/video',
           source: 'repo-media',
           setupTarget: '/repo/.midnite/media/video',
+          engine: req.engine ?? 'remotion',
         };
         return { ok: true as const, value: videoResolution };
       },
+      // Phase 99 Theme H — the engine switch; HyperFrames reports a pending install, like a first visit.
+      engine: {
+        get: async () => ({
+          root: videoResolution.root,
+          engine: videoResolution.engine ?? 'remotion',
+          needsInstall: false,
+          appDir: videoResolution.root ? `${videoResolution.root}/video-editor` : null,
+        }),
+        set: async (req: { engine: string }) => {
+          videoResolution = { ...videoResolution, engine: req.engine };
+          return {
+            ok: true as const,
+            value: {
+              root: videoResolution.root,
+              engine: req.engine,
+              needsInstall: req.engine === 'hyperframes',
+              appDir: videoResolution.root
+                ? `${videoResolution.root}/${req.engine === 'hyperframes' ? 'hyperframes-editor' : 'video-editor'}`
+                : null,
+            },
+          };
+        },
+      },
       onStudioChanged: unsubscribe,
       onRenderProgress: unsubscribe,
+    },
+    games: {
+      settings: {
+        get: async () => ({
+          settings: gamesSettings,
+          resolvedRoot:
+            data.games?.resolvedRoot ?? (gamesSettings.gamesRoot as string | null) ?? '/Users/test/Midnite Games',
+          rootProblem: data.games?.rootProblem ?? null,
+        }),
+        set: async (patch: Record<string, unknown>) => {
+          gamesSettings = { ...gamesSettings, ...patch };
+          return {
+            ok: true as const,
+            value: {
+              settings: gamesSettings,
+              resolvedRoot:
+                data.games?.resolvedRoot ?? (gamesSettings.gamesRoot as string | null) ?? '/Users/test/Midnite Games',
+              rootProblem: null,
+            },
+          };
+        },
+      },
+      list: async () => ({ games: gamesList }),
+      create: async (req: { name: string; engine: string; perspective: string }) => {
+        gamesCalls.push({ call: 'create', ...req });
+        const slug = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
+        const gameId = `g${String(gamesList.length + 1).padStart(12, '0')}`;
+        const path = `${data.games?.resolvedRoot ?? '/Users/test/Midnite Games'}/${slug}`;
+        gamesList = [
+          ...gamesList,
+          {
+            gameId,
+            name: req.name,
+            path,
+            engine: req.engine,
+            dimension: req.engine === 'phaser' ? '2d' : '3d',
+            starter: 'blank',
+            dirty: false,
+            valid: true,
+            issue: null,
+          },
+        ];
+        gamesChangedHandlers.forEach((h) => h({ reason: 'created' }));
+        return { ok: true as const, value: { path, gameId } };
+      },
+      manifest: {
+        get: async () => ({ manifest: null, issues: [] }),
+        set: async () => ({ ok: true as const }),
+      },
+      run: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'run', ...req });
+        const runId = `r${gamesCalls.length}`;
+        gamesRunStateHandlers.forEach((h) => h({ gameId: req.gameId, runId, state: 'starting' }));
+        gamesRunStateHandlers.forEach((h) => h({ gameId: req.gameId, runId, state: 'running' }));
+        return { ok: true as const, value: { runId } };
+      },
+      stop: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'stop', ...req });
+        gamesRunStateHandlers.forEach((h) => h({ gameId: req.gameId, runId: 'r0', state: 'stopped' }));
+        return { ok: true as const };
+      },
+      reload: async () => ({ ok: true as const }),
+      setBounds: (req: Record<string, unknown>) => {
+        gamesCalls.push({ call: 'setBounds', ...req });
+      },
+      setVisible: (req: Record<string, unknown>) => {
+        gamesCalls.push({ call: 'setVisible', ...req });
+      },
+      toolbar: async (req: Record<string, unknown>) => {
+        gamesCalls.push({ call: 'toolbar', ...req });
+        return { ok: true as const };
+      },
+      // Juice settings: a per-game in-memory copy of the kit defaults; `set` merges, `reset` restores.
+      juice: async (req: { gameId: string; action: 'get' | 'set' | 'reset'; patch?: Record<string, unknown> }) => {
+        gamesCalls.push({ call: 'juice', ...req });
+        const defaults = { enabled: true, intensity: 1, shake: true, flash: true, particles: true, postfx: true, volume: 0.8 };
+        const current = gamesJuice.get(req.gameId) ?? data.games?.juice ?? defaults;
+        const next = req.action === 'set' ? { ...current, ...req.patch } : req.action === 'reset' ? defaults : current;
+        gamesJuice.set(req.gameId, next);
+        return { ok: true as const, value: next };
+      },
+      logs: async () => ({ runId: null, entries: [] }),
+      kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
+      popOut: async (req: { gameId: string }) => {
+        gamesCalls.push({ call: 'popOut', ...req });
+        gamesPopped = req.gameId;
+        gamesPopStateHandlers.forEach((h) => h({ gameId: req.gameId }));
+        return { ok: true as const };
+      },
+      popped: async () => ({ gameId: gamesPopped, run: null }),
+      onPopState: (handler: (event: unknown) => void) => {
+        gamesPopStateHandlers.push(handler);
+        return () => {
+          gamesPopStateHandlers = gamesPopStateHandlers.filter((h) => h !== handler);
+        };
+      },
+      onChanged: (handler: (event: unknown) => void) => {
+        gamesChangedHandlers.push(handler);
+        return () => {
+          gamesChangedHandlers = gamesChangedHandlers.filter((h) => h !== handler);
+        };
+      },
+      onOpen: (handler: (event: unknown) => void) => {
+        gamesOpenHandlers.push(handler);
+        return () => {
+          gamesOpenHandlers = gamesOpenHandlers.filter((h) => h !== handler);
+        };
+      },
+      onRunState: (handler: (event: unknown) => void) => {
+        gamesRunStateHandlers.push(handler);
+        return () => {
+          gamesRunStateHandlers = gamesRunStateHandlers.filter((h) => h !== handler);
+        };
+      },
+      onConsole: (handler: (event: unknown) => void) => {
+        gamesConsoleHandlers.push(handler);
+        return () => {
+          gamesConsoleHandlers = gamesConsoleHandlers.filter((h) => h !== handler);
+        };
+      },
+      // Theme M: runs are recorded; a spec drives progress through `__mstudioMockGames.agentProgress(...)`.
+      agent: {
+        // Warnings stay empty: the panel's own banner is what shows the Ollama warning.
+        run: async (req: { gameId: string }) => {
+          const runId = `ar${gamesCalls.length + 1}`;
+          gamesCalls.push({ call: 'agentRun', runId, ...req });
+          return { ok: true as const, value: { runId, warnings: [] as string[] } };
+        },
+        cancel: async (req: { gameId: string }) => {
+          gamesCalls.push({ call: 'agentCancel', ...req });
+          return { ok: true as const };
+        },
+        undo: async (req: { gameId: string; sha: string }) => {
+          gamesCalls.push({ call: 'agentUndo', ...req });
+          return { ok: true as const };
+        },
+        onProgress: (handler: (event: unknown) => void) => {
+          gamesAgentHandlers.push(handler);
+          return () => {
+            gamesAgentHandlers = gamesAgentHandlers.filter((h) => h !== handler);
+          };
+        },
+      },
+      // Theme O: play-tests. Listing answers the fixture; a run is recorded and updates each entry's `last`.
+      playtests: {
+        list: async () => ({ ok: true as const, value: { playtests: gamesPlaytests } }),
+        run: async (req: { gameId: string; names?: string[] }) => {
+          gamesCalls.push({ call: 'playtestRun', ...req });
+          const wanted = gamesPlaytests.filter((p) => p.valid && (!req.names || req.names.length === 0 || req.names.includes(p.name)));
+          const answer = data.games?.playtestRun ?? {
+            passed: true,
+            runs: wanted.map((p) => ({ name: p.name, passed: true, ranAt: '2026-10-07T10:00:00.000Z', frames: 180, ms: 900, results: [] })),
+          };
+          gamesPlaytests = gamesPlaytests.map((p) => ({ ...p, last: answer.runs.find((r) => r.name === p.name) ?? p.last }));
+          return { ok: true as const, value: answer };
+        },
+      },
+      // Theme P: web export. Recorded; answers `exportResult` or a success at the chosen (or a dialog) path.
+      export: async (req: { gameId: string; format: string; dest?: string; overwrite?: boolean }) => {
+        gamesCalls.push({ call: 'export', ...req });
+        const answer = data.games?.exportResult;
+        if (answer && !answer.ok) return { ok: false as const, kind: 'error' as const, message: answer.message };
+        const ext = req.format === 'game-html' ? 'html' : req.format === 'game-zip' ? 'zip' : 'web';
+        const path = req.format === 'game-folder' ? `${req.dest ?? '/exports'}/game-web` : (req.dest ?? `/exports/game.${ext}`);
+        return { ok: true as const, value: { path, bytes: 2_048_000, files: 42, warnings: answer?.warnings ?? [] } };
+      },
+      // Theme N: the asset bridge. Sources and re-sync answer from fixtures; imports are recorded.
+      assets: {
+        sources: async (req: { tab: string }) => ({ ok: true as const, value: { repos: data.games?.assetSources?.[req.tab] ?? [] } }),
+        import: async (req: { gameId: string; source: unknown; name?: string }) => {
+          gamesCalls.push({ call: 'assetImport', ...req });
+          const name = req.name ?? 'asset';
+          return { ok: true as const, value: { name, kind: 'sprite' as const, path: `assets/sprite/${name}`, sha256: 'abc', commit: 'a1b2c3d' } };
+        },
+        resync: async (req: { gameId: string; check?: boolean; names?: string[] }) => {
+          gamesCalls.push({ call: 'assetResync', ...req });
+          const assets = data.games?.assetSync ?? [];
+          const changed = assets.filter((a: { state: string }) => a.state === 'changed');
+          const reimported = req.check ? [] : changed.map((a: { name: string }) => a.name);
+          return { ok: true as const, value: { assets, changed: req.check ? changed.length : 0, reimported, commit: req.check || reimported.length === 0 ? null : 'd4e5f6a' } };
+        },
+      },
     },
     media: {
       project: {
@@ -2936,7 +3455,8 @@ export function buildMockBridge(data: MockFixtures) {
         }),
         create: async (req: { tab: string; project: string }) => {
           const key = `${req.tab}:${req.project}`;
-          if (mediaFiles[key]) return { ok: false as const, kind: 'error' as const, message: 'exists' };
+          if (mediaFiles[key])
+            return { ok: false as const, kind: 'error' as const, message: 'exists' };
           mediaFiles = { ...mediaFiles, [key]: {} };
           return { ok: true as const, value: { name: req.project, fileCount: 0, mtimeMs: 1 } };
         },
@@ -2954,11 +3474,13 @@ export function buildMockBridge(data: MockFixtures) {
       file: {
         list: async (req: { tab: string; project: string }) => ({
           ok: true as const,
-          value: Object.entries(mediaFiles[`${req.tab}:${req.project}`] ?? {}).map(([path, content]) => ({
-            path,
-            size: content.length,
-            mtimeMs: 1,
-          })),
+          value: Object.entries(mediaFiles[`${req.tab}:${req.project}`] ?? {}).map(
+            ([path, content]) => ({
+              path,
+              size: content.length,
+              mtimeMs: 1,
+            }),
+          ),
         }),
         read: async (req: { tab: string; project: string; path: string }) => {
           const content = mediaFiles[`${req.tab}:${req.project}`]?.[req.path];
@@ -2968,7 +3490,10 @@ export function buildMockBridge(data: MockFixtures) {
         },
         write: async (req: { tab: string; project: string; path: string; content: string }) => {
           const key = `${req.tab}:${req.project}`;
-          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [req.path]: req.content } };
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), [req.path]: req.content },
+          };
           return { ok: true as const, value: { size: req.content.length, largeFile: false } };
         },
         rename: async (req: { tab: string; project: string; path: string; to: string }) => {
@@ -2995,13 +3520,22 @@ export function buildMockBridge(data: MockFixtures) {
               missingKey: true,
               models: [],
             },
-            { id: 'agy' as const, available: false, reason: 'disabled', missingKey: false, models: [] },
+            {
+              id: 'agy' as const,
+              available: false,
+              reason: 'disabled',
+              missingKey: false,
+              models: [],
+            },
             { id: 'ollama' as const, available: false, missingKey: false, models: [] },
           ],
         }),
         generate: async (req: { project: string; count: number; generationId: string }) => {
           const key = `image:${req.project}`;
-          const files = Array.from({ length: req.count }, (_, i) => `${req.generationId}-${i + 1}.png`);
+          const files = Array.from(
+            { length: req.count },
+            (_, i) => `${req.generationId}-${i + 1}.png`,
+          );
           const added = Object.fromEntries(files.map((file) => [file, 'png']));
           mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), ...added } };
           return { ok: true as const, value: { files } };
@@ -3013,7 +3547,92 @@ export function buildMockBridge(data: MockFixtures) {
       // with sidecars, and appends one session to project.json.
       audio: {
         providers: async () => ({
-          providers: [{ id: 'import' as const, available: true, generates: false }],
+          providers: [
+            { id: 'musicgen' as const, available: true, generates: true },
+            { id: 'import' as const, available: true, generates: false },
+          ],
+        }),
+        // Local generation: lands `count` placeholder wavs as one `create` session.
+        generate: async (req: {
+          project: string;
+          importId: string;
+          prompt: { title: string; count: number };
+        }) => {
+          const key = `audio:${req.project}`;
+          const sessionId = `sess-${req.importId}`;
+          const files = Array.from(
+            { length: req.prompt.count },
+            (_, i) => `${req.importId}-${i + 1}.wav`,
+          );
+          const current = { ...(mediaFiles[key] ?? {}) };
+          const history = (() => {
+            try {
+              return JSON.parse(current['project.json'] ?? '') as {
+                version: 1;
+                sessions: unknown[];
+              };
+            } catch {
+              return { version: 1 as const, sessions: [] as unknown[] };
+            }
+          })();
+          for (const file of files) {
+            current[file] = 'wav';
+            current[file.replace(/\.wav$/, '.json')] = JSON.stringify({
+              version: 1,
+              file,
+              sessionId,
+              provider: 'musicgen',
+              title: req.prompt.title || file,
+              createdAt: '2026-09-30T12:00:00.000Z',
+            });
+          }
+          current['project.json'] = JSON.stringify({
+            version: 1,
+            sessions: [
+              ...history.sessions,
+              {
+                id: sessionId,
+                kind: 'create',
+                provider: 'musicgen',
+                prompt: req.prompt,
+                variants: files,
+                createdAt: '2026-09-30T12:00:00.000Z',
+              },
+            ],
+          });
+          mediaFiles = { ...mediaFiles, [key]: current };
+          return { ok: true as const, value: { sessionId, files } };
+        },
+        cancel: async () => ({ ok: true as const }),
+        engine: async () => ({
+          engine: data.media?.audioEngine ?? {
+            musicgen: { state: 'ready' as const, downloadBytes: 0 },
+            ollama: {
+              running: true,
+              models: ['llama3.2:3b'],
+              model: 'llama3.2:3b',
+              recommended: 'llama3.2:3b',
+            },
+          },
+        }),
+        installEngine: async () => ({ ok: true as const }),
+        onEngineProgress: unsubscribe,
+        gm: {
+          status: async () => ({ cached: data.media?.gmCached ?? [0] }),
+          ensure: async () => ({ ok: true as const }),
+          load: async (req: { program: number }) => ({
+            ok: true as const,
+            value: { program: req.program, notes: {} as Record<string, string> },
+          }),
+          onProgress: unsubscribe,
+        },
+        expand: async (req: { title: string; style: string[] }) => ({
+          ok: true as const,
+          value: {
+            musicPrompt: `${req.style.join(', ') || 'ambient'}, warm analog synths, 90 bpm`,
+            sections: ['soft intro', 'full groove'],
+            model: 'llama3.2:3b',
+          },
         }),
         import: async (req: { project: string; importId: string; prompt: { title: string } }) => {
           const key = `audio:${req.project}`;
@@ -3022,7 +3641,10 @@ export function buildMockBridge(data: MockFixtures) {
           const current = { ...(mediaFiles[key] ?? {}) };
           const history = (() => {
             try {
-              return JSON.parse(current['project.json'] ?? '') as { version: 1; sessions: unknown[] };
+              return JSON.parse(current['project.json'] ?? '') as {
+                version: 1;
+                sessions: unknown[];
+              };
             } catch {
               return { version: 1 as const, sessions: [] as unknown[] };
             }
@@ -3042,7 +3664,14 @@ export function buildMockBridge(data: MockFixtures) {
             version: 1,
             sessions: [
               ...history.sessions,
-              { id: sessionId, kind: 'import', provider: 'import', prompt: req.prompt, variants: files, createdAt: '2026-09-30T12:00:00.000Z' },
+              {
+                id: sessionId,
+                kind: 'import',
+                provider: 'import',
+                prompt: req.prompt,
+                variants: files,
+                createdAt: '2026-09-30T12:00:00.000Z',
+              },
             ],
           });
           mediaFiles = { ...mediaFiles, [key]: current };
@@ -3050,9 +3679,546 @@ export function buildMockBridge(data: MockFixtures) {
         },
         onProgress: unsubscribe,
       },
+      // Phase 101 Theme B — songs are `<name>.mid` (a stand-in) + `<name>.song.json` in the audio project.
+      music: {
+        // Tests push an agent edit with `window.__mockMusicEmit.changed(event)` / `.open(event)`.
+        onChanged: (handler: (event: never) => void) => {
+          musicChanged.add(handler);
+          return () => void musicChanged.delete(handler);
+        },
+        onOpen: (handler: (event: never) => void) => {
+          musicOpen.add(handler);
+          return () => void musicOpen.delete(handler);
+        },
+        export: async (req: { name: string; format: string }) => ({ ok: true as const, value: { dest: `/tmp/${req.name}.${req.format}` } }),
+        sendToGenerator: async (req: { project: string; name: string; durationS: number }) => {
+          const file = `${req.name.toLowerCase()}-reference-20260101-000000.wav`;
+          const key = `audio:${req.project}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [file]: 'RIFF' } };
+          return { ok: true as const, value: { file, sessionId: 's-mock', description: 'Instrumental, relaxed, bright mood, C major, 120 BPM in 4/4, played on Acoustic Grand Piano.', tags: ['relaxed', 'bright', 'C major', '120 bpm', 'acoustic grand piano'] } };
+        },
+        agent: {
+          run: async () => ({ ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } }),
+          cancel: async () => ({ ok: true as const }),
+          onProgress: () => () => {},
+        },
+        agy: {
+          status: async () => ({ ok: true as const, value: { registered: musicAgyRegistered, configPath: '~/.gemini/antigravity/mcp_config.json' } }),
+          register: async () => {
+            musicAgyRegistered = true;
+            return { ok: true as const, value: { registered: true, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+          unregister: async () => {
+            musicAgyRegistered = false;
+            return { ok: true as const, value: { registered: false, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+        },
+        list: async (req: { project: string }) => ({
+          ok: true as const,
+          value: Object.keys(mediaFiles[`audio:${req.project}`] ?? {})
+            .filter((path) => path.endsWith('.mid') && !path.includes('/'))
+            .map((path) => ({
+              name: path.slice(0, -4),
+              path,
+              hasSidecar: `${path.slice(0, -4)}.song.json` in (mediaFiles[`audio:${req.project}`] ?? {}),
+              size: 1,
+              mtimeMs: 1,
+            })),
+        }),
+        read: async (req: { project: string; name: string }) => {
+          const sidecar = mediaFiles[`audio:${req.project}`]?.[`${req.name}.song.json`];
+          if (sidecar === undefined) return { ok: false as const, kind: 'error' as const, message: 'Song not found.' };
+          return { ok: true as const, value: JSON.parse(sidecar) as unknown };
+        },
+        write: async (req: { project: string; name: string; song: unknown }) => {
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              [`${req.name}.mid`]: 'mid',
+              [`${req.name}.song.json`]: JSON.stringify(req.song),
+            },
+          };
+          return { ok: true as const, value: { size: 1, largeFile: false } };
+        },
+        import: async (req: { project: string }) => {
+          const song = {
+            version: 1,
+            name: 'Imported',
+            ppq: 480,
+            tempos: [{ tick: 0, bpm: 120 }],
+            timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
+            keySignatures: [],
+            meta: [],
+            tracks: [],
+            clips: [],
+            mixer: { master: { volume: 0.8, pan: 0, mute: false, solo: false } },
+          };
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), 'Imported.mid': 'mid', 'Imported.song.json': JSON.stringify(song) },
+          };
+          return { ok: true as const, value: [{ name: 'Imported', song }] };
+        },
+        delete: async (req: { project: string; name: string }) => {
+          const key = `audio:${req.project}`;
+          const { [`${req.name}.mid`]: _mid, [`${req.name}.song.json`]: _side, ...rest } = mediaFiles[key] ?? {};
+          mediaFiles = { ...mediaFiles, [key]: rest };
+          return { ok: true as const };
+        },
+      },
+      model: {
+        providers: async () => ({
+          providers: data.media?.modelProviders ?? {
+            ollama: {
+              available: true,
+              models: [
+                { id: 'qwen2.5-coder:7b', label: 'qwen2.5-coder:7b', vision: false },
+                { id: 'qwen2.5vl:7b', label: 'qwen2.5vl:7b', vision: true },
+              ],
+            },
+          },
+        }),
+        generate: async (req: { project: string; generationId: string; prompt: string }) => {
+          const key = `model:${req.project}`;
+          const stem = `${req.generationId}`;
+          const files = [`${stem}/${stem}.json`, `${stem}/${stem}.mtl`, `${stem}/${stem}.obj`, `${stem}/${stem}.fbx`, `${stem}/model.json`];
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              ...Object.fromEntries(
+                files.map((file) => [file, file.endsWith('.json') ? '{}' : 'x']),
+              ),
+            },
+          };
+          return { ok: true as const, value: { files, primary: `${stem}/${stem}.obj` } };
+        },
+        library: {
+          list: async () => ({ ok: true as const, value: { tree: mockModelTree(mediaFiles) } }),
+          migrate: async () => ({ ok: true as const, value: { migrated: 0, skipped: 0 } }),
+          newGroup: async (req: { parent: string; name: string }) => {
+            if (req.parent === '') mediaFiles = { ...mediaFiles, [`model:${req.name}`]: {} };
+            return { ok: true as const, value: { path: req.parent ? `${req.parent}/${req.name}` : req.name } };
+          },
+          rename: async (req: { path: string; to: string }) => {
+            const parent = req.path.split('/').slice(0, -1).join('/');
+            const to = parent ? `${parent}/${req.to}` : req.to;
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, to);
+            return { ok: true as const, value: { path: to } };
+          },
+          move: async (req: { path: string; toGroup: string }) => {
+            const base = req.path.split('/').pop() ?? req.path;
+            const to = req.toGroup ? `${req.toGroup}/${base}` : base;
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, to);
+            return { ok: true as const, value: { path: to } };
+          },
+          delete: async (req: { path: string }) => {
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, null);
+            return { ok: true as const };
+          },
+          duplicate: async (req: { path: string }) => {
+            const to = `${req.path} copy`;
+            mediaFiles = mockMoveModelPath(mediaFiles, req.path, to, true);
+            return { ok: true as const, value: { path: to } };
+          },
+        },
+        cancel: async () => ({ ok: true as const }),
+        export: async (req: { path: string; format: string }) => ({
+          ok: true as const,
+          value: { dest: `/tmp/${req.path.replace(/\.[^.]+$/, '')}.${req.format}` },
+        }),
+        saveEdit: async (req: { project: string; path: string; spec: unknown }) => {
+          const key = `model:${req.project}`;
+          const sidecarPath = req.path.replace(/\.[^.]+$/, '.json');
+          let previous: Record<string, unknown> = {};
+          try {
+            previous = JSON.parse(mediaFiles[key]?.[sidecarPath] ?? '{}') as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            previous = {};
+          }
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              [sidecarPath]: JSON.stringify({ ...previous, spec: req.spec }),
+            },
+          };
+          return { ok: true as const, value: { files: [sidecarPath] } };
+        },
+        sf3d: {
+          status: async () => ({ ok: true as const, value: { ...sf3dState } }),
+          consent: async (req: { licenceSha256: string }) => {
+            sf3dState = { ...sf3dState, consent: { licenceSha256: req.licenceSha256, acceptedAt: '2026-10-04T12:00:00.000Z', revenueAcknowledged: true } };
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          revokeConsent: async () => {
+            sf3dState = { ...sf3dState, consent: null };
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          install: async () => {
+            const emit = (progress: Record<string, unknown>) => sf3dListeners.forEach((handler) => handler({ kind: 'install', progress }));
+            const total = sf3dState.totalBytes;
+            if (data.media?.sf3d?.hold) {
+              sf3dState = { ...sf3dState, state: 'installing' };
+              const fraction = data.media.sf3d.holdFraction ?? 0.42;
+              emit({ phase: 'download', file: 'onnx/backbone_fp16.onnx', receivedBytes: Math.round(total * fraction), totalBytes: total, fraction });
+              return new Promise((resolve) => {
+                sf3dCancelHeld = () => {
+                  sf3dState = { ...sf3dState, state: 'not-installed', bytesOnDisk: Math.round(total * fraction) };
+                  emit({ phase: 'cancelled', receivedBytes: Math.round(total * fraction), totalBytes: total, fraction });
+                  resolve({ ok: false as const, kind: 'error' as const, message: 'cancelled' });
+                };
+              });
+            }
+            emit({ phase: 'download', file: 'onnx/backbone_fp16.onnx', receivedBytes: total / 2, totalBytes: total, fraction: 0.5 });
+            sf3dState = { ...sf3dState, state: 'installed', bytesOnDisk: total };
+            emit({ phase: 'ready', receivedBytes: total, totalBytes: total, fraction: 1 });
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          cancelInstall: async () => {
+            sf3dCancelHeld?.();
+            sf3dCancelHeld = null;
+            return { ok: true as const };
+          },
+          uninstall: async () => {
+            sf3dState = { ...sf3dState, state: 'not-installed', consent: null, bytesOnDisk: 0 };
+            return { ok: true as const, value: { ...sf3dState } };
+          },
+          generate: async (req: { project: string; generationId: string; image: { name: string } }) => {
+            const stem = req.image.name.replace(/\.[^.]+$/, '');
+            const files = [`${stem}/${stem}.glb`, `${stem}/${stem}.ref.png`, `${stem}/model.json`];
+            const key = `model:${req.project}`;
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), ...Object.fromEntries(files.map((f) => [f, f.endsWith('.json') ? '{}' : 'x'])) } };
+            return { ok: true as const, value: { files, primary: files[0]!, vertices: 3000, triangles: 1000 } };
+          },
+          cancelGenerate: async () => ({ ok: true as const }),
+          onProgress: (handler: (event: unknown) => void) => {
+            sf3dListeners.add(handler);
+            return () => sf3dListeners.delete(handler);
+          },
+        },
+        onProgress: (handler: (event: unknown) => void) => {
+          modelEvents.progress.add(handler);
+          return () => modelEvents.progress.delete(handler);
+        },
+        // Specs fire these through `window.__mockModelEvents` to stand in for an agent editing a model.
+        onChanged: (handler: (event: unknown) => void) => {
+          modelEvents.changed.add(handler);
+          return () => modelEvents.changed.delete(handler);
+        },
+        onOpen: (handler: (event: unknown) => void) => {
+          modelEvents.open.add(handler);
+          return () => modelEvents.open.delete(handler);
+        },
+      },
+      terrain: (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a loose stand-in for the spec JSON
+        type Spec = Record<string, any>;
+        const readSpec = (group: string, terrain: string): Spec | null => {
+          const raw = mediaFiles[`terrain:${group}`]?.[`${terrain}/terrain.json`];
+          return raw ? (JSON.parse(raw) as Spec) : null;
+        };
+        const writeSpec = (group: string, terrain: string, spec: Spec) => {
+          const key = `terrain:${group}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${terrain}/terrain.json`]: JSON.stringify(spec) } };
+        };
+        const missing = { ok: false as const, kind: 'error' as const, message: 'Terrain not found.' };
+        const defaults = {
+          version: 1, name: 'Terrain', inputs: {}, resolution: 513, worldSize: 1024, heightRange: [0, 200], preSmooth: 0,
+          alignment: { roads: 'satellite' }, textureSize: 2048,
+          // Phase 105 G + H: the schema's own defaults, inlined (this file is serialised into the page).
+          foliage: { seed: 1, treeDensity: 4, grassDensity: 30, slopeLimitDeg: 35, scale: [0.8, 1.3], margin: 2 },
+          buildings: { seed: 1, height: [4, 18], scaleByArea: true, minAreaM2: 20, snapToleranceDeg: 12, flattenBlendM: 3 },
+          roads: { tolerance: 0.25, widthScale: 1, widthClampM: [2, 30], blendM: 6, maxCutFillM: 4, spurMinM: 8 },
+        };
+        const stats = data.media?.terrain?.stats ?? {
+          resolution: 513, worldSize: 1024, vertexCount: 263169, triangleCount: 524288, chunkCount: 64, lodCount: 4,
+          buildMs: 420, minHeight: 0, maxHeight: 200, histogram: new Array(16).fill(100), warnings: [],
+        };
+        const listeners = { progress: new Set<(e: unknown) => void>(), changed: new Set<(e: unknown) => void>(), open: new Set<(e: unknown) => void>() };
+        return {
+          library: async (req: Spec) => {
+            if (req.op === 'create') {
+              const project = req.project ?? 'terrains';
+              const terrain = `${String(req.name).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-20261004-120000`;
+              writeSpec(project, terrain, { ...defaults, name: req.name });
+              return { ok: true as const, value: { project, terrain } };
+            }
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            if (req.op === 'delete') {
+              const key = `terrain:${req.project}`;
+              const { [`${req.terrain}/terrain.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+              return { ok: true as const, value: {} };
+            }
+            const terrain = req.op === 'rename' ? `${String(req.to).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-20261004-120000` : `${req.terrain}-copy`;
+            writeSpec(req.project, terrain, { ...spec, name: req.op === 'rename' ? req.to : `${spec.name} copy` });
+            if (req.op === 'rename') {
+              const key = `terrain:${req.project}`;
+              const { [`${req.terrain}/terrain.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+            }
+            return { ok: true as const, value: { project: req.project, terrain } };
+          },
+          get: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            return spec ? { ok: true as const, value: { spec: { ...defaults, ...spec }, built: Boolean(spec.lastBuild) } } : missing;
+          },
+          setSpec: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            const next = { ...defaults, ...spec, ...req.patch };
+            writeSpec(req.project, req.terrain, next);
+            return { ok: true as const, value: { spec: next } };
+          },
+          setInput: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            if (req.remove) {
+              const { [req.slot]: _gone, ...inputs } = spec.inputs ?? {};
+              writeSpec(req.project, req.terrain, { ...spec, inputs });
+              return { ok: true as const, value: { warnings: [] } };
+            }
+            const input = { file: `inputs/${req.slot}.png`, sourceName: req.name ?? 'generated.png', width: 512, height: 512, bitDepth: 16 };
+            writeSpec(req.project, req.terrain, { ...spec, inputs: { ...(spec.inputs ?? {}), [req.slot]: input } });
+            return { ok: true as const, value: { input, warnings: [] } };
+          },
+          build: async (req: Spec) => {
+            const spec = readSpec(req.project, req.terrain);
+            if (!spec) return missing;
+            if (!spec.inputs?.heightmap && !spec.noise) return { ok: true as const, value: { status: 'needs-height-source' as const } };
+            writeSpec(req.project, req.terrain, { ...spec, lastBuild: { at: '2026-10-04T12:00:00.000Z', buildMs: 420, stats } });
+            return { ok: true as const, value: { status: 'built' as const, stats } };
+          },
+          cancel: async () => ({ ok: true as const }),
+          paint: async () => ({ ok: false as const, kind: 'error' as const, message: 'Terrain building is not available yet.' }),
+          // A 1×1 black PNG: enough for the panel's preview <img> and the eyedropper round trip.
+          roadKey: async (req: { pick?: [number, number]; colour?: string }) => ({
+            ok: true as const,
+            value: {
+              pngBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==',
+              colour: req.pick ? '#00fefe' : (req.colour ?? '#00ffff'),
+              detected: '#00ffff',
+            },
+          }),
+          export: async (req: { terrain: string; format: string; dest: string }) => ({ ok: true as const, value: { path: `${req.dest}/${req.terrain}.${req.format === 'glb' ? 'glb' : 'terrain'}`, bytes: 1024 } }),
+          onProgress: (handler: (event: unknown) => void) => {
+            listeners.progress.add(handler);
+            return () => listeners.progress.delete(handler);
+          },
+          onChanged: (handler: (event: unknown) => void) => {
+            listeners.changed.add(handler);
+            return () => listeners.changed.delete(handler);
+          },
+          onOpen: (handler: (event: unknown) => void) => {
+            listeners.open.add(handler);
+            return () => listeners.open.delete(handler);
+          },
+        };
+      })(),
+      /** Maps (Phase 108): `map.json` per project under `files['map:<project>']`; tiles never load in the mock. */
+      map: (() => {
+        const defaults = { version: 1, view: { center: [18.4241, -33.9249], zoom: 10, bearing: 0, pitch: 0 }, basemap: 'streets', terrain3d: { on: false, exaggeration: 1.5 }, layerOrder: [], layerStyle: {} };
+        let cacheCapMB = data.media?.map?.cacheCapMB ?? 1024;
+        let cacheBytes = data.media?.map?.cacheBytes ?? 312 * 1024 * 1024;
+        return {
+          get: async (req: { project: string }) => {
+            const raw = mediaFiles[`map:${req.project}`]?.['map.json'];
+            return { ok: true as const, value: { map: raw ? { ...defaults, ...JSON.parse(raw) } : defaults } };
+          },
+          setView: async (req: { project: string; patch: Record<string, unknown> }) => {
+            const key = `map:${req.project}`;
+            const current = mediaFiles[key]?.['map.json'] ? JSON.parse(mediaFiles[key]!['map.json']!) : defaults;
+            const next = { ...current, ...req.patch };
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), 'map.json': JSON.stringify(next) } };
+            return { ok: true as const, value: { map: next } };
+          },
+          sources: async () => ({
+            sources: ['aws-terrarium', 'openfreemap', 'openfreemap-relief', 'eox-s2cloudless-2016', 'maptiler-satellite', 'maptiler-terrain-rgb', 'maptiler-streets'].map((id) =>
+              id.startsWith('maptiler') && !data.media?.map?.keySet ? { id, available: false, reason: 'Add a MapTiler key in Settings ▸ Media.' } : { id, available: true },
+            ),
+          }),
+          cache: async (req: { op: string; capMB?: number }) => {
+            if (req.op === 'clear') cacheBytes = 0;
+            if (req.op === 'set-cap' && req.capMB) cacheCapMB = req.capMB;
+            return { ok: true as const, value: { bytes: cacheBytes, tiles: Math.round(cacheBytes / 20_000), capMB: cacheCapMB } };
+          },
+          capture: async (req: { center: [number, number]; sideM: number; size: number; handoff?: boolean }) => ({
+            ok: true as const,
+            value: {
+              ...(req.handoff ? { terrain: { project: 'terrains', terrain: 'cape-town-20260101-000000' } } : {}),
+              captureId: 'mock-capture',
+              name: 'mock-capture-20260101-000000',
+              dir: 'captures/mock-capture-20260101-000000',
+              capture: {
+                version: 1 as const,
+                name: 'mock-capture-20260101-000000',
+                center: req.center,
+                sideM: req.sideM,
+                size: req.size,
+                mPerPx: req.sideM / (req.size - 1),
+                bbox: [req.center[0] - 0.01, req.center[1] - 0.01, req.center[0] + 0.01, req.center[1] + 0.01] as [number, number, number, number],
+                heightMinM: 0,
+                heightMaxM: 1085,
+                hasSea: true,
+                sources: { dem: 'aws-terrarium' as const },
+                demZoom: 13,
+                attributions: ['Terrain Tiles: Mapzen, AWS Open Data — see sources list'],
+                files: ['heightmap.png', 'heightmap.r32', 'heightmap.tif', 'capture.json', 'ATTRIBUTION.txt'],
+                missing: [],
+                capturedAt: '2026-01-01T00:00:00.000Z',
+              },
+            },
+          }),
+          captureCancel: async () => ({ ok: true as const, value: { cancelled: true } }),
+          onCaptureProgress: () => () => undefined,
+          onOpen: () => () => undefined,
+        };
+      })(),
+      sprite: (() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a loose stand-in for the spec JSON
+        type Spec = Record<string, any>;
+        const slug = (text: string) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sprite';
+        const groupOf = (spec: Spec) =>
+          spec.kind === 'sheet' ? (spec.category === 'object' ? 'objects' : 'characters') : spec.kind === 'prop-sheet' ? 'objects' : ({ tileset: 'tilesets', background: 'backgrounds', map: 'maps' } as Record<string, string>)[spec.kind as string];
+        const read = (group: string, asset: string): Spec | null => {
+          const raw = mediaFiles[`sprite:${group}`]?.[`${asset}/sprite.json`];
+          return raw ? (JSON.parse(raw) as Spec) : null;
+        };
+        const write = (group: string, asset: string, spec: Spec) => {
+          const key = `sprite:${group}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${asset}/sprite.json`]: JSON.stringify(spec) } };
+        };
+        const missing = { ok: false as const, kind: 'error' as const, message: 'Sprite not found.' };
+        const listeners = { progress: new Set<(e: unknown) => void>(), changed: new Set<(e: unknown) => void>(), open: new Set<(e: unknown) => void>() };
+        return {
+          library: async (req: Spec) => {
+            if (req.op === 'create') {
+              const group = groupOf(req.spec);
+              const asset = `${slug(req.spec.name)}-20261004-120000`;
+              write(group as string, asset, { version: 1, ...req.spec });
+              return { ok: true as const, value: { group, asset } };
+            }
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            if (req.op === 'delete') {
+              const key = `sprite:${req.group}`;
+              const { [`${req.asset}/sprite.json`]: _gone, ...rest } = mediaFiles[key] ?? {};
+              mediaFiles = { ...mediaFiles, [key]: rest };
+              return { ok: true as const, value: {} };
+            }
+            const asset = req.op === 'rename' ? `${slug(req.to)}-20261004-120000` : `${req.asset}-copy`;
+            write(req.group, asset, { ...spec, name: req.op === 'rename' ? req.to : `${spec.name} copy` });
+            return { ok: true as const, value: { group: req.group, asset } };
+          },
+          get: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            // The real service parses through the zod schema; the mock fills the defaults the UI reads.
+            const filled: Spec = { prompt: '', style: 'pixel', ...(spec.kind === 'sheet' ? { category: 'character', targetPerspective: 'side', frameSize: [64, 64], directions: 1, anchor: { x: 0.5, y: 1 }, mirror: true, method: 'hand-drawn', clips: [] } : {}), ...(spec.kind === 'tileset' ? { projection: 'orthogonal', tileSize: 32, scheme: 'blob47', terrains: [{ id: 'grass', label: 'Grass', prompt: '', collision: 'walkable' }, { id: 'dirt', label: 'Dirt', prompt: '', collision: 'walkable' }], transitions: [{ a: 'grass', b: 'dirt' }], seed: 1 } : {}), ...(spec.kind === 'background' ? { size: [1920, 1080], layers: [{ name: 'sky', prompt: '', scrollFactor: 0 }, { name: 'far', prompt: '', scrollFactor: 0.2 }, { name: 'mid', prompt: '', scrollFactor: 0.5 }, { name: 'near', prompt: '', scrollFactor: 0.8 }] } : {}), ...(spec.kind === 'prop-sheet' ? { cell: [64, 64], props: [] } : {}), ...(spec.kind === 'map' ? { size: [40, 24], tileSize: 32 } : {}), ...spec };
+            // A map's asset refs: the form sends bare folder names, which the schema's preprocess turns into refs.
+            if (filled.kind === 'map' && typeof filled.tileset === 'string') filled.tileset = { group: 'tilesets', asset: filled.tileset };
+            if (filled.kind === 'map' && filled.decorations && typeof filled.decorations.props === 'string') filled.decorations = { ...filled.decorations, props: { group: 'objects', asset: filled.decorations.props } };
+            const framesRaw = mediaFiles[`sprite:${req.group}`]?.[`${req.asset}/frames/frames.json`];
+            const frames = framesRaw ? { version: 1, referenceHeights: {}, ...(JSON.parse(framesRaw) as Spec) } : { version: 1, frames: {}, referenceHeights: {} };
+            return { ok: true as const, value: { spec: filled, frames, report: filled.lastReport ?? null } };
+          },
+          setSpec: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const next = { ...spec, ...req.patch, kind: spec.kind };
+            write(req.group, req.asset, next);
+            return { ok: true as const, value: { spec: next } };
+          },
+          // Hand-drawn (Phase 106 Theme D): an attached image is unapproved until `approve` locks it.
+          setReference: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            if ('approve' in req) {
+              if (spec.reference?.kind !== 'image') return { ok: false as const, kind: 'error' as const, message: 'Generate or attach a reference first.' };
+              write(req.group, req.asset, { ...spec, reference: { ...spec.reference, approved: true } });
+            } else if ('remove' in req) {
+              const { reference: _gone, ...rest } = spec;
+              write(req.group, req.asset, rest);
+            } else if ('model' in req) {
+              write(req.group, req.asset, { ...spec, reference: { kind: 'model', ...req.model } });
+            } else if ('fromFrame' in req) {
+              // One-shot's hand-off (Theme F): a frame becomes the approved reference.
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: true } });
+            } else {
+              write(req.group, req.asset, { ...spec, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
+            }
+            listeners.changed.forEach((h) => h({ repoId: req.repoId, group: req.group, asset: req.asset, revision: Date.now() }));
+            return { ok: true as const };
+          },
+          generate: async (req: Spec) => {
+            const current = read(req.group, req.asset);
+            if (!current) return missing;
+            if (req.turnaround) write(req.group, req.asset, { ...current, reference: { kind: 'image', file: 'reference/reference.png', approved: false } });
+            // An environment job reports what it built (Themes H and I).
+            if (current.kind === 'tileset' || current.kind === 'background' || current.kind === 'prop-sheet' || current.kind === 'map') {
+              const size = (current.size as [number, number] | undefined) ?? [40, 24];
+              const count = current.kind === 'tileset' ? 49 : current.kind === 'background' ? (current.layers as unknown[]).length : current.kind === 'map' ? size[0] * size[1] : (current.props as unknown[]).length;
+              write(req.group, req.asset, { ...current, lastReport: { frames: count, failing: 0, at: '2026-10-07T10:00:00.000Z' } });
+            }
+            const jobId = `job-${Date.now()}`;
+            for (const [step, done] of [[0, 1], [10, 2]] as const) {
+              setTimeout(() => listeners.progress.forEach((h) => h({ jobId, done, total: 2, stage: 'generating' })), step);
+            }
+            return { ok: true as const, value: { jobId } };
+          },
+          cancel: async () => ({ ok: true as const }),
+          // Frame-strip edits (Theme G): accepted as-is; a spec spies on the call to see the ops.
+          patchFrames: async (req: Spec) => {
+            const rerolls = (req.ops as Spec[]).some((op) => op.op === 'reroll');
+            return { ok: true as const, value: rerolls ? { jobId: `job-${Date.now()}` } : {} };
+          },
+          export: async (req: Spec) => {
+            const spec = read(req.group, req.asset);
+            if (!spec) return missing;
+            const suffix = ({ tileset: 'tileset', background: 'background', map: 'map' } as Record<string, string>)[spec.kind as string] ?? 'sprite';
+            const path = req.dest ? `${req.dest}/${slug(spec.name)}.${suffix}` : `${req.asset}/export`;
+            return { ok: true as const, value: { path, bytes: 2048, frames: 8, pages: 1, warnings: [] } };
+          },
+          onProgress: (handler: (event: unknown) => void) => {
+            listeners.progress.add(handler);
+            return () => listeners.progress.delete(handler);
+          },
+          onChanged: (handler: (event: unknown) => void) => {
+            listeners.changed.add(handler);
+            return () => listeners.changed.delete(handler);
+          },
+          onOpen: (handler: (event: unknown) => void) => {
+            listeners.open.add(handler);
+            return () => listeners.open.delete(handler);
+          },
+          // Theme J: the dialog is never shown; the import lands a map asset named `imported`.
+          importMap: async (req: Spec) => {
+            const asset = 'imported-20261004-120000';
+            write('maps', asset, { version: 1, kind: 'map', name: 'imported', imported: true, lastReport: { frames: 4, failing: 0, at: '2026-10-07T10:00:00.000Z' } });
+            listeners.changed.forEach((h) => h({ repoId: req.repoId, group: 'maps', asset, revision: Date.now() }));
+            return { ok: true as const, value: { group: 'maps', asset } };
+          },
+          // Rendered from 3D (Theme E): main never asks the mock window to render.
+          onRenderRequest: () => () => undefined,
+          renderReady: async () => ({ ok: true as const }),
+          renderFrames: async () => ({ ok: true as const }),
+        };
+      })(),
       reveal: async () => ({ ok: true as const }),
       ffmpegStatus: async () => ({
-        ffmpeg: data.media?.ffmpeg ?? { found: true as const, path: '/opt/homebrew/bin/ffmpeg', version: '7.1' },
+        ffmpeg: data.media?.ffmpeg ?? {
+          found: true as const,
+          path: '/opt/homebrew/bin/ffmpeg',
+          version: '7.1',
+        },
       }),
       export: async () => ({ ok: true as const, value: { dest: '/tmp/export.out' } }),
       cancelExport: async () => ({ ok: true as const }),
@@ -3061,7 +4227,9 @@ export function buildMockBridge(data: MockFixtures) {
       doc: {
         edit: async (req: { selection?: string; markdown: string; prompt: string }) => ({
           ok: true as const,
-          value: { replacement: `${(req.selection ?? req.markdown).trim()}\n\n_Edited: ${req.prompt}_\n` },
+          value: {
+            replacement: `${(req.selection ?? req.markdown).trim()}\n\n_Edited: ${req.prompt}_\n`,
+          },
         }),
         export: async (req: { name: string; format: string }) => ({
           ok: true as const,
@@ -3421,7 +4589,8 @@ export function buildMockBridge(data: MockFixtures) {
     sync: {
       onStatus: (handler: (e: SyncStatusEvent) => void) => {
         syncStatusHandlers.push(handler as (e: unknown) => void);
-        return () => syncStatusHandlers.splice(syncStatusHandlers.indexOf(handler as (e: unknown) => void), 1);
+        return () =>
+          syncStatusHandlers.splice(syncStatusHandlers.indexOf(handler as (e: unknown) => void), 1);
       },
     },
     window: {
@@ -3463,8 +4632,8 @@ export function buildMockBridge(data: MockFixtures) {
         ok: true,
         value: {
           installed: true,
-          path: '/usr/local/bin/midnite-studio',
-          target: '/usr/local/bin/midnite-studio',
+          path: '/usr/local/bin/midnite',
+          target: '/usr/local/bin/midnite',
           managed: true,
         },
       }),
@@ -3491,11 +4660,18 @@ export function buildMockBridge(data: MockFixtures) {
         results: req.ids.map((id) => ({
           id,
           installed: id === 'homebrew' || id === 'git',
-          version: id === 'git' ? 'git version 2.45.0' : id === 'homebrew' ? 'Homebrew 4.4.18' : null,
+          version:
+            id === 'git' ? 'git version 2.45.0' : id === 'homebrew' ? 'Homebrew 4.4.18' : null,
           path: id === 'git' ? '/usr/bin/git' : id === 'homebrew' ? '/opt/homebrew/bin/brew' : null,
         })),
       }),
     },
+    // Phase 98 Themes F, I: the global git identity and installed RAM.
+    gitIdentity: {
+      get: async () => ({ ok: true, value: { name: 'Ada Lovelace', email: 'ada@example.com' } }),
+      set: async (req: { name: string; email: string }) => ({ ok: true, value: req }),
+    },
+    systemMemory: async () => ({ totalBytes: 16 * 1024 ** 3 }),
     systemHealth: async () => ({
       git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
       shell: '/bin/zsh',
@@ -4199,11 +5375,33 @@ export function buildMockBridge(data: MockFixtures) {
           '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
         allowUi: mcpAllowUi,
         allowGateDecide: mcpAllowGateDecide,
+        allowModels: mcpAllowModels,
+        allowGames: mcpAllowGames,
+        allowTerrains: mcpAllowTerrains,
+        allowSprites: mcpAllowSprites,
+        allowMaps: mcpAllowMaps,
+        allowMusic: mcpAllowMusic,
       }),
-      set: async (req: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean }) => {
+      set: async (req: {
+        enabled?: boolean;
+        allowUi?: boolean;
+        allowGateDecide?: boolean;
+        allowModels?: boolean;
+        allowGames?: boolean;
+        allowTerrains?: boolean;
+        allowSprites?: boolean;
+        allowMaps?: boolean;
+        allowMusic?: boolean;
+      }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         if (req.allowGateDecide !== undefined) mcpAllowGateDecide = req.allowGateDecide;
+        if (req.allowModels !== undefined) mcpAllowModels = req.allowModels;
+        if (req.allowGames !== undefined) mcpAllowGames = req.allowGames;
+        if (req.allowTerrains !== undefined) mcpAllowTerrains = req.allowTerrains;
+        if (req.allowSprites !== undefined) mcpAllowSprites = req.allowSprites;
+        if (req.allowMaps !== undefined) mcpAllowMaps = req.allowMaps;
+        if (req.allowMusic !== undefined) mcpAllowMusic = req.allowMusic;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -4214,6 +5412,12 @@ export function buildMockBridge(data: MockFixtures) {
             '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
           allowUi: mcpAllowUi,
           allowGateDecide: mcpAllowGateDecide,
+          allowModels: mcpAllowModels,
+          allowGames: mcpAllowGames,
+          allowTerrains: mcpAllowTerrains,
+          allowSprites: mcpAllowSprites,
+          allowMaps: mcpAllowMaps,
+          allowMusic: mcpAllowMusic,
         };
       },
       calls: async () => ({
@@ -4419,6 +5623,51 @@ export function buildMockBridge(data: MockFixtures) {
   // Phase 97 Theme D's third switch — same off-by-default, independent posture.
   // eslint-disable-next-line no-var
   var mcpAllowGateDecide = data.mcp?.allowGateDecide ?? false;
+  // Phase 99 Theme G's fourth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowModels = data.mcp?.allowModels ?? false;
+  // Phase 107 Theme D's fifth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowGames = data.mcp?.allowGames ?? false;
+  // Phase 105 Theme J's sixth switch — same off-by-default posture.
+  // eslint-disable-next-line no-var
+  var mcpAllowTerrains = data.mcp?.allowTerrains ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowSprites =data.mcp?.allowSprites ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowMaps = data.mcp?.allowMaps ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowMusic = data.mcp?.allowMusic ?? false;
+  // Phase 101 Theme H: whether Midnite is registered in Antigravity's MCP config (Settings ▸ MCP).
+  // eslint-disable-next-line no-var
+  var musicAgyRegistered = false;
+  // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
+  // eslint-disable-next-line no-var
+  var modelEvents = {
+    progress: new Set<(event: unknown) => void>(),
+    changed: new Set<(event: unknown) => void>(),
+    open: new Set<(event: unknown) => void>(),
+  };
+  (window as unknown as { __mockModelEvents: unknown }).__mockModelEvents = {
+    progress: (event: unknown) => modelEvents.progress.forEach((handler) => handler(event)),
+    changed: (event: unknown) => modelEvents.changed.forEach((handler) => handler(event)),
+    open: (event: unknown) => modelEvents.open.forEach((handler) => handler(event)),
+  };
+  // Phase 103 Theme J: SF3D's install state machine, in memory. `hold` keeps an install running at
+  // `holdFraction` until `cancelInstall` (what a screenshot of the progress needs).
+  // eslint-disable-next-line no-var
+  var sf3dState = {
+    state: data.media?.sf3d?.state ?? 'not-installed',
+    consent: data.media?.sf3d?.licenceSha256
+      ? { licenceSha256: data.media.sf3d.licenceSha256, acceptedAt: '2026-10-04T12:00:00.000Z', revenueAcknowledged: true as const }
+      : null,
+    bytesOnDisk: data.media?.sf3d?.state === 'installed' ? 1_730_000_000 : 0,
+    totalBytes: 1_730_000_000,
+  } as { state: string; consent: { licenceSha256: string; acceptedAt: string; revenueAcknowledged: true } | null; bytesOnDisk: number; totalBytes: number };
+  // eslint-disable-next-line no-var
+  var sf3dListeners = new Set<(event: unknown) => void>();
+  // eslint-disable-next-line no-var
+  var sf3dCancelHeld: (() => void) | null = null;
 
   // Which STT providers a key has been "saved" for in this page's lifetime
   // (Theme F) — mutated by `sttSet`, read by `sttStatus`, so a spec can
@@ -4472,6 +5721,59 @@ export function buildMockBridge(data: MockFixtures) {
   var councilRuns: Array<{ id: string; councilId: string; [key: string]: unknown }> = [];
   // eslint-disable-next-line no-var
   var councilRunCounter = 0;
+  // --- games (Phase 107) ------------------------------------------------------
+  // eslint-disable-next-line no-var
+  var gamesPlaytests: GamePlaytestEntry[] = data.games?.playtests ?? [];
+  // eslint-disable-next-line no-var
+  var gamesJuice = new Map<string, Record<string, unknown>>();
+  // eslint-disable-next-line no-var
+  var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
+    engine: 'phaser',
+    dimension: '2d',
+    starter: 'blank',
+    dirty: false,
+    valid: true,
+    issue: null,
+    ...g,
+  }));
+  // eslint-disable-next-line no-var
+  var gamesSettings: Record<string, unknown> = {
+    version: 1,
+    gamesRoot: null,
+    defaultEngine: 'phaser',
+    defaultNetwork: 'off',
+    squashRunCommits: false,
+    ...(data.games?.settings ?? {}),
+  };
+  /** Every `games.run`/`stop`/`toolbar`/`setBounds`/`setVisible` call — the spec's assertion surface. */
+  // eslint-disable-next-line no-var
+  var gamesCalls: Array<Record<string, unknown>> = [];
+  // eslint-disable-next-line no-var
+  var gamesRunStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesConsoleHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesChangedHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesOpenHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesPopStateHandlers: Array<(event: unknown) => void> = [];
+  // eslint-disable-next-line no-var
+  var gamesAgentHandlers: Array<(event: unknown) => void> = [];
+  /** The popped-out game (Theme B Pop out), seeded by `games.popped` and moved by `popOut`. */
+  // eslint-disable-next-line no-var
+  var gamesPopped: string | null = data.games?.popped ?? null;
+  (window as unknown as { __mstudioMockGames: unknown }).__mstudioMockGames = {
+    calls: gamesCalls,
+    popState: (event: { gameId: string | null }) => {
+      gamesPopped = event.gameId;
+      gamesPopStateHandlers.forEach((h) => h(event));
+    },
+    runState: (event: unknown) => gamesRunStateHandlers.forEach((h) => h(event)),
+    console: (event: unknown) => gamesConsoleHandlers.forEach((h) => h(event)),
+    open: (event: unknown) => gamesOpenHandlers.forEach((h) => h(event)),
+    agentProgress: (event: unknown) => gamesAgentHandlers.forEach((h) => h(event)),
+  };
   // --- media (Phase 99 Theme A) ----------------------------------------------
   // eslint-disable-next-line no-var
   var mediaFiles: Record<string, Record<string, string>> = { ...(data.media?.files ?? {}) };
@@ -4487,12 +5789,16 @@ export function buildMockBridge(data: MockFixtures) {
     ...(data.video?.studioStatus ?? {}),
   };
   // eslint-disable-next-line no-var
-  var videoResolution: { root: string | null; source: string | null; setupTarget: string | null } =
-    data.video?.resolution ?? {
-      root: data.video?.root ?? '/videos',
-      source: 'global',
-      setupTarget: '/repo/.midnite/media/video',
-    };
+  var videoResolution: {
+    root: string | null;
+    source: string | null;
+    setupTarget: string | null;
+    engine?: string;
+  } = data.video?.resolution ?? {
+    root: data.video?.root ?? '/videos',
+    source: 'global',
+    setupTarget: '/repo/.midnite/media/video',
+  };
   // eslint-disable-next-line no-var
   var videoRenders: Record<string, Array<{ id: string; [key: string]: unknown }>> = {
     ...(data.video?.renders ?? {}),
@@ -4836,22 +6142,22 @@ export function buildMockBridge(data: MockFixtures) {
   (window as unknown as { __mstudioBrowserStopCalls: unknown }).__mstudioBrowserStopCalls = () => [
     ...browserStopCalls,
   ];
-  (window as unknown as { __mstudioBrowserKeepAwakeCalls: unknown }).__mstudioBrowserKeepAwakeCalls =
-    () => [...browserKeepAwakeCalls];
-  (window as unknown as { __mstudioBrowserDiscardMsCalls: unknown }).__mstudioBrowserDiscardMsCalls =
-    () => [...browserDiscardMsCalls];
+  (
+    window as unknown as { __mstudioBrowserKeepAwakeCalls: unknown }
+  ).__mstudioBrowserKeepAwakeCalls = () => [...browserKeepAwakeCalls];
+  (
+    window as unknown as { __mstudioBrowserDiscardMsCalls: unknown }
+  ).__mstudioBrowserDiscardMsCalls = () => [...browserDiscardMsCalls];
   (window as unknown as { __mstudioAppsEnableCalls: unknown }).__mstudioAppsEnableCalls = () => [
     ...appsEnableCalls,
   ];
   (window as unknown as { __mstudioAppsDisableCalls: unknown }).__mstudioAppsDisableCalls = () => [
     ...appsDisableCalls,
   ];
-  (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls = () => [
-    ...appsActivateCalls,
-  ];
-  (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls = () => [
-    ...settingsSyncCalls,
-  ];
+  (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls =
+    () => [...appsActivateCalls];
+  (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls =
+    () => [...settingsSyncCalls];
   (window as unknown as { __mstudioEmitSyncStatus: unknown }).__mstudioEmitSyncStatus = (
     event: SyncStatusEvent,
   ) => {
@@ -4908,6 +6214,583 @@ export function buildMockBridge(data: MockFixtures) {
       }
     }
   };
+
+  /**
+   * The `chats` namespace — an in-memory stand-in for `main/chats/`. Self-contained
+   * for the same reason as `createMockMarkets` below: the whole function is
+   * serialised into the page. It keeps the observable contract (a send answers at
+   * once and the reply streams on `onEvent`; a decision updates hunk/file status
+   * and the derived card status; cancel settles the message as cancelled) and
+   * nothing of the real engine.
+   */
+  function createMockChats() {
+    // Loosely typed on purpose: this is a stand-in for main, not the contract.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type MockMessage = Record<string, any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    type MockChat = Record<string, any>;
+    const cfg = data.chats ?? {};
+    const store = new Map<string, MockChat>(
+      (cfg.seed ?? []).map((chat) => [chat['id'] as string, JSON.parse(JSON.stringify(chat)) as MockChat]),
+    );
+    const handlers: Array<(event: Record<string, unknown>) => void> = [];
+    const emit = (event: Record<string, unknown>) => {
+      for (const handler of [...handlers]) handler(event);
+    };
+    const timers = new Map<string, ReturnType<typeof setTimeout>[]>();
+    let seq = 0;
+    const id = (prefix: string) => `${prefix}-${++seq}`;
+    const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+    const fileStatus = (file: MockMessage): string => {
+      if (file['conflict'] !== undefined) return 'conflict';
+      const states: string[] = file['hunks'].length > 0 ? file['hunks'].map((h: MockMessage) => h['status']) : [file['fileStatus']];
+      if (states.every((s) => s === 'pending')) return 'pending';
+      if (states.every((s) => s === 'accepted')) return 'accepted';
+      if (states.every((s) => s === 'rejected')) return 'rejected';
+      return 'partial';
+    };
+    const setStatus = (set: MockMessage): void => {
+      const files: MockMessage[] = set['files'];
+      for (const file of files) file['status'] = fileStatus(file);
+      set['status'] = files.some((f) => f['status'] === 'conflict')
+        ? 'conflict'
+        : files.every((f) => f['status'] === 'pending')
+          ? 'pending'
+          : files.every((f) => f['status'] === 'accepted')
+            ? 'accepted'
+            : files.every((f) => f['status'] === 'rejected')
+              ? 'rejected'
+              : 'partial';
+    };
+    const needsReview = (set: MockMessage): boolean =>
+      set['files'].some(
+        (f: MockMessage) =>
+          f['status'] === 'conflict' ||
+          (f['hunks'].length > 0 ? f['hunks'].some((h: MockMessage) => h['status'] === 'pending') : f['fileStatus'] === 'pending'),
+      );
+
+    const summary = (chat: MockChat) => {
+      const messages: MockMessage[] = chat['messages'];
+      const last = [...messages].reverse().find((m) => String(m['text']).trim().length > 0);
+      return {
+        id: chat['id'],
+        title: chat['title'],
+        engine: chat['engine'],
+        model: chat['model'] ?? null,
+        mode: chat['mode'],
+        repoId: chat['repoId'] ?? null,
+        repoName: chat['repoName'] ?? null,
+        pinned: chat['pinned'] === true,
+        createdAt: chat['createdAt'],
+        updatedAt: chat['updatedAt'],
+        messageCount: messages.length,
+        preview: last ? String(last['text']).replace(/\s+/g, ' ').slice(0, 90) : '',
+        running: messages.some((m) => m['status'] === 'streaming'),
+        pendingChanges: messages.some((m) => m['changeSet'] && needsReview(m['changeSet'])),
+        worktree: chat['worktree'] ?? null,
+      };
+    };
+
+    const mockDiff = (path: string) => ({
+      path,
+      oldPath: null,
+      change: 'modified',
+      binary: false,
+      oldMode: null,
+      newMode: null,
+      insertions: 3,
+      deletions: 2,
+      contextLines: 3,
+      combined: false,
+      truncated: false,
+      droppedLines: 0,
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 4,
+          newStart: 1,
+          newLines: 4,
+          heading: '',
+          lines: [
+            { kind: 'ctx', oldNo: 1, newNo: 1, text: 'export function greet(name: string) {', ranges: [], noNewline: false },
+            { kind: 'del', oldNo: 2, newNo: null, text: "  return 'Hello ' + name;", ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 2, text: '  return `Hello, ${name}!`;', ranges: [], noNewline: false },
+            { kind: 'ctx', oldNo: 3, newNo: 3, text: '}', ranges: [], noNewline: false },
+          ],
+        },
+        {
+          oldStart: 20,
+          oldLines: 4,
+          newStart: 20,
+          newLines: 5,
+          heading: 'export function shout(name: string) {',
+          lines: [
+            { kind: 'ctx', oldNo: 20, newNo: 20, text: '  const text = greet(name);', ranges: [], noNewline: false },
+            { kind: 'del', oldNo: 21, newNo: null, text: '  return text.toUpperCase();', ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 21, text: "  return text.toUpperCase() + '!';", ranges: [], noNewline: false },
+            { kind: 'ctx', oldNo: 22, newNo: 22, text: '}', ranges: [], noNewline: false },
+            { kind: 'add', oldNo: null, newNo: 23, text: "export const DEFAULT_NAME = 'world';", ranges: [], noNewline: false },
+          ],
+        },
+      ],
+    });
+
+    const buildChangeSet = () => {
+      const set: MockMessage = {
+        id: id('cs'),
+        createdAt: Date.now(),
+        status: 'pending',
+        files: [
+          {
+            path: 'src/greeting.ts',
+            oldPath: null,
+            change: 'modified',
+            binary: false,
+            insertions: 3,
+            deletions: 2,
+            preview: ["-  return 'Hello ' + name;", '+  return `Hello, ${name}!`;', '-  return text.toUpperCase();'],
+            hunks: [
+              { header: '@@ -1,4 +1,4 @@', insertions: 1, deletions: 1, status: 'pending' },
+              { header: '@@ -20,4 +20,5 @@', insertions: 2, deletions: 1, status: 'pending' },
+            ],
+            fileStatus: 'pending',
+            status: 'pending',
+          },
+          {
+            path: 'src/config.ts',
+            oldPath: null,
+            change: 'added',
+            binary: false,
+            insertions: 2,
+            deletions: 0,
+            preview: ['+export const GREETING = true;', '+export const LOUD = false;'],
+            hunks: [{ header: '@@ -0,0 +1,2 @@', insertions: 2, deletions: 0, status: 'pending' }],
+            fileStatus: 'pending',
+            status: 'pending',
+          },
+        ],
+      };
+      return set;
+    };
+
+    const err = (message: string) => ({ ok: false as const, kind: 'error' as const, message });
+
+    return {
+      list: async () => ({ chats: [...store.values()].map(summary).sort((a, b) => b.updatedAt - a.updatedAt) }),
+      get: async (req: { id: string }) => {
+        const chat = store.get(req.id);
+        return chat ? { ok: true as const, value: { chat: clone(chat) } } : err('That chat no longer exists.');
+      },
+      create: async (req: { engine: string; model?: string | null; mode?: string; repoId?: string | null }) => {
+        const at = Date.now();
+        const chat: MockChat = {
+          id: id('chat'),
+          title: 'New chat',
+          engine: req.engine,
+          model: req.model ?? null,
+          mode: req.mode ?? 'edit',
+          repoId: req.repoId ?? null,
+          repoName: req.repoId ? String(req.repoId).split('/').pop() : null,
+          repoPath: req.repoId ? String(req.repoId).replace(/^repo:/, '') : null,
+          pinned: false,
+          createdAt: at,
+          updatedAt: at,
+          messages: [],
+          session: null,
+        };
+        store.set(chat['id'], chat);
+        emit({ kind: 'chat', chatId: chat['id'] });
+        return { ok: true as const, value: { chat: clone(chat) } };
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      update: async (req: Record<string, any>) => {
+        const chat = store.get(req['id']);
+        if (!chat) return err('That chat no longer exists.');
+        for (const key of ['title', 'pinned', 'engine', 'model', 'mode', 'repoId']) {
+          if (req[key] !== undefined) chat[key] = req[key];
+        }
+        if (req['repoId'] !== undefined) {
+          chat['repoName'] = req['repoId'] ? String(req['repoId']).split('/').pop() : null;
+          chat['repoPath'] = req['repoId'] ? String(req['repoId']).replace(/^repo:/, '') : null;
+        }
+        emit({ kind: 'chat', chatId: chat['id'] });
+        return { ok: true as const, value: { chat: clone(chat) } };
+      },
+      delete: async (req: { ids: string[] }) => {
+        for (const chatId of req.ids) {
+          for (const t of timers.get(chatId) ?? []) clearTimeout(t);
+          store.delete(chatId);
+          emit({ kind: 'removed', chatId });
+        }
+        return { ok: true as const };
+      },
+      send: async (req: { chatId: string; text?: string; attachments?: unknown[]; fromMessageId?: string }) => {
+        if (cfg.sendError) return err(cfg.sendError);
+        const chat = store.get(req.chatId);
+        if (!chat) return err('That chat no longer exists.');
+        let text = req.text;
+        if (req.fromMessageId !== undefined) {
+          const index = chat['messages'].findIndex((m: MockMessage) => m['id'] === req.fromMessageId);
+          if (index < 0) return err('That message cannot be re-sent.');
+          text = text ?? chat['messages'][index]['text'];
+          chat['messages'].splice(index);
+        }
+        const body = (text ?? '').trim();
+        if (!body) return err('Write a message first.');
+        const at = Date.now();
+        const user: MockMessage = { id: id('u'), role: 'user', text: body, createdAt: at, status: 'done', ...(req.attachments?.length ? { attachments: req.attachments } : {}) };
+        const assistant: MockMessage = { id: id('a'), role: 'assistant', text: '', createdAt: at + 1, status: 'streaming', engine: chat['engine'], model: chat['model'] ?? null };
+        if (chat['title'] === 'New chat') chat['title'] = (body.split('\n')[0] ?? '').slice(0, 48);
+        chat['messages'].push(user, assistant);
+        chat['updatedAt'] = at;
+        emit({ kind: 'message', chatId: chat['id'], message: clone(user) });
+        emit({ kind: 'message', chatId: chat['id'], message: clone(assistant) });
+        emit({ kind: 'chat', chatId: chat['id'] });
+
+        const reply = cfg.reply ?? 'Here is the answer.';
+        const third = Math.ceil(reply.length / 3);
+        const chunks = [reply.slice(0, third), reply.slice(third, third * 2), reply.slice(third * 2)].filter((c) => c.length > 0);
+        const mine: ReturnType<typeof setTimeout>[] = [];
+        timers.set(chat['id'], mine);
+        chunks.forEach((chunk, i) => {
+          mine.push(
+            setTimeout(() => {
+              assistant['text'] += chunk;
+              emit({ kind: 'delta', chatId: chat['id'], messageId: assistant['id'], text: chunk });
+            }, (cfg.chunkMs ?? 20) * (i + 1)),
+          );
+        });
+        mine.push(
+          setTimeout(() => {
+            assistant['status'] = 'done';
+            if (cfg.changes && chat['mode'] === 'edit') assistant['changeSet'] = buildChangeSet();
+            chat['updatedAt'] = Date.now();
+            emit({ kind: 'message', chatId: chat['id'], message: clone(assistant) });
+            emit({ kind: 'chat', chatId: chat['id'] });
+          }, (cfg.chunkMs ?? 20) * (chunks.length + 2)),
+        );
+        return { ok: true as const, value: { messageId: assistant['id'] } };
+      },
+      cancel: async (req: { chatId: string }) => {
+        const chat = store.get(req.chatId);
+        if (!chat) return { ok: true as const };
+        for (const t of timers.get(req.chatId) ?? []) clearTimeout(t);
+        const streaming = chat['messages'].find((m: MockMessage) => m['status'] === 'streaming');
+        if (streaming) {
+          streaming['status'] = 'cancelled';
+          emit({ kind: 'message', chatId: chat['id'], message: clone(streaming) });
+          emit({ kind: 'chat', chatId: chat['id'] });
+        }
+        return { ok: true as const };
+      },
+      changeDiffs: async (req: { chatId: string; changeSetId: string }) => {
+        const chat = store.get(req.chatId);
+        const set = chat?.['messages'].map((m: MockMessage) => m['changeSet']).find((s: MockMessage | undefined) => s?.['id'] === req.changeSetId);
+        if (!set) return err('Those changes are no longer in the chat.');
+        return {
+          ok: true as const,
+          value: {
+            files: set['files'].map((f: MockMessage) => ({
+              path: f['path'],
+              diff: f['path'] === 'src/config.ts'
+                ? {
+                    ...mockDiff(f['path']),
+                    change: 'added',
+                    insertions: 2,
+                    deletions: 0,
+                    hunks: [
+                      {
+                        oldStart: 0,
+                        oldLines: 0,
+                        newStart: 1,
+                        newLines: 2,
+                        heading: '',
+                        lines: [
+                          { kind: 'add', oldNo: null, newNo: 1, text: 'export const GREETING = true;', ranges: [], noNewline: false },
+                          { kind: 'add', oldNo: null, newNo: 2, text: 'export const LOUD = false;', ranges: [], noNewline: false },
+                        ],
+                      },
+                    ],
+                  }
+                : mockDiff(f['path']),
+            })),
+          },
+        };
+      },
+      resolveChanges: async (req: { chatId: string; changeSetId: string; decisions: Array<{ path: string; action: string; hunks?: number[] }> }) => {
+        const chat = store.get(req.chatId);
+        const message = chat?.['messages'].find((m: MockMessage) => m['changeSet']?.['id'] === req.changeSetId);
+        if (!chat || !message) return err('Those changes are no longer in the chat.');
+        const set: MockMessage = message['changeSet'];
+        const conflicts: string[] = [];
+        for (const decision of req.decisions) {
+          const file = set['files'].find((f: MockMessage) => f['path'] === decision.path);
+          if (!file) continue;
+          if (decision.action === 'accept' && cfg.conflictOn === decision.path) {
+            file['conflict'] = 'Your working tree changed since this edit was made, so it no longer applies.';
+            conflicts.push(decision.path);
+            continue;
+          }
+          delete file['conflict'];
+          const target = decision.action === 'accept' ? 'accepted' : 'rejected';
+          if (file['hunks'].length === 0) {
+            if (file['fileStatus'] === 'pending') file['fileStatus'] = target;
+          } else {
+            file['hunks'].forEach((hunk: MockMessage, index: number) => {
+              if (hunk['status'] === 'pending' && (!decision.hunks || decision.hunks.includes(index))) hunk['status'] = target;
+            });
+          }
+        }
+        setStatus(set);
+        emit({ kind: 'message', chatId: chat['id'], message: clone(message) });
+        if (conflicts.length > 0) return { ok: false as const, kind: 'conflict' as const, files: conflicts, op: 'change-apply' as const };
+        return { ok: true as const, value: { changeSet: clone(set) } };
+      },
+      skills: async (_req: { engine: string; repoId?: string | null }) => ({
+        ok: true as const,
+        value: {
+          skills: clone(
+            cfg.skills ?? [
+              { name: 'midnite-create', description: 'Pick unblocked themes, build them in a worktree, open a PR, drive CI green, merge.', scope: 'project' as const },
+              { name: 'midnite-sitrep', description: 'Post the standing sitrep table for whatever is in flight.', scope: 'project' as const },
+              { name: 'code-review', description: 'Review the current diff for correctness bugs.', scope: 'user' as const },
+              { name: 'vercel:deploy', description: 'Deploy the current project to Vercel.', scope: 'plugin' as const },
+            ],
+          ),
+        },
+      }),
+      files: async (_req: { repoId?: string | null; chatId?: string | null }) => ({
+        ok: true as const,
+        value: {
+          files: clone(
+            cfg.files ?? ['README.md', 'package.json', 'src/app.tsx', 'src/features/chats/chat-composer.tsx', 'src/features/chats/chat-pane.tsx'],
+          ),
+          truncated: false,
+        },
+      }),
+      onEvent: (handler: (event: Record<string, unknown>) => void) => {
+        handlers.push(handler);
+        return () => {
+          handlers.splice(handlers.indexOf(handler), 1);
+        };
+      },
+    };
+  }
+
+  /**
+   * The `markets` namespace. Self-contained on purpose — this whole function is
+   * serialised into the page, so it can import nothing at runtime, and the
+   * portfolio rules below are a deliberately small copy of the real ones (main
+   * enforces those; the specs only need the same observable behaviour).
+   */
+  function createMockMarkets() {
+    const cfg = data.markets ?? {};
+    const rates: Record<string, number> = { USD: 1, EUR: 0.9, ZAR: 20, GBP: 0.8, JPY: 150 };
+    const basePrice: Record<string, number> = {
+      BTC: 60000,
+      ETH: 3000,
+      SOL: 150,
+      AAPL: 200,
+      MSFT: 400,
+      NVDA: 120,
+      TSLA: 250,
+      SPY: 550,
+    };
+    const catalogue = [
+      ['BTC', 'Bitcoin', 'crypto'],
+      ['ETH', 'Ethereum', 'crypto'],
+      ['SOL', 'Solana', 'crypto'],
+      ['AAPL', 'Apple', 'stock'],
+      ['MSFT', 'Microsoft', 'stock'],
+      ['NVDA', 'NVIDIA', 'stock'],
+      ['TSLA', 'Tesla', 'stock'],
+      ['SPY', 'SPDR S&P 500 ETF', 'etf'],
+    ] as const;
+    let txCounter = 0;
+    const portfolio = {
+      version: 1 as const,
+      balances: { ...(cfg.balances ?? { USD: 1000, EUR: 500, ZAR: 10000 }) } as Record<
+        string,
+        number
+      >,
+      holdings: (
+        cfg.holdings ?? [
+          { symbol: 'BTC', name: 'Bitcoin', kind: 'crypto' as const, quantity: 0.5 },
+          { symbol: 'AAPL', name: 'Apple', kind: 'stock' as const, quantity: 10 },
+        ]
+      ).map((h) => ({ ...h })),
+      transactions: [] as Record<string, unknown>[],
+      watchlist: [...(cfg.watchlist ?? ['BTC', 'ETH', 'AAPL'])],
+      extraAssets: [] as { symbol: string; name: string; kind: 'crypto' | 'stock' | 'etf' }[],
+    };
+
+    const rng = (seed: number) => () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const hash = (text: string) => [...text].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7);
+    const spans: Record<string, number> = {
+      '1D': 86400000,
+      '1W': 7 * 86400000,
+      '1M': 30 * 86400000,
+      '3M': 90 * 86400000,
+      '1Y': 365 * 86400000,
+      '5Y': 5 * 365 * 86400000,
+      ALL: 10 * 365 * 86400000,
+    };
+    const NOW = 1_800_000_000_000;
+    const candles = (symbol: string, timescale: string) => {
+      const next = rng(hash(symbol));
+      const count = 60;
+      const step = (spans[timescale] ?? spans['1M']!) / count;
+      let price = (basePrice[symbol] ?? 100) * 0.9;
+      return Array.from({ length: count }, (_, i) => {
+        const open = price;
+        price = Math.max(1, price * (1 + (next() - 0.45) * 0.03));
+        return {
+          t: NOW - (count - i) * step,
+          o: open,
+          h: Math.max(open, price) * 1.005,
+          l: Math.min(open, price) * 0.995,
+          c: price,
+        };
+      });
+    };
+    const priceOf = (symbol: string) => candles(symbol, '1D').at(-1)!.c;
+    const fail = (message: string) => ({ ok: false as const, kind: 'error' as const, message });
+    const cash = (usd: number, currency: string) => usd * (rates[currency] ?? 1);
+
+    return {
+      series: async (req: { assets: { symbol: string }[]; timescale: string }) => ({
+        ok: true as const,
+        value: {
+          series: Object.fromEntries(
+            req.assets.map((a) => [
+              a.symbol,
+              cfg.down
+                ? {
+                    candles: [],
+                    fetchedAt: null,
+                    stale: false,
+                    source: null,
+                    error: 'Provider down',
+                  }
+                : {
+                    candles: candles(a.symbol, req.timescale),
+                    fetchedAt: NOW,
+                    stale: false,
+                    source: 'Mock',
+                  },
+            ]),
+          ),
+        },
+      }),
+      quotes: async (req: { assets: { symbol: string }[] }) => ({
+        ok: true as const,
+        value: {
+          quotes: Object.fromEntries(
+            req.assets.map((a) => [
+              a.symbol,
+              cfg.down
+                ? { price: null, t: null, stale: false, error: 'Provider down' }
+                : { price: priceOf(a.symbol), t: NOW, stale: false },
+            ]),
+          ),
+        },
+      }),
+      search: async (req: { query: string }) => ({
+        ok: true as const,
+        value: catalogue
+          .filter(([symbol, name]) =>
+            `${symbol} ${name}`.toLowerCase().includes(req.query.toLowerCase()),
+          )
+          .map(([symbol, name, kind]) => ({ symbol, name, kind })),
+      }),
+      rates: async () => ({
+        ok: true as const,
+        value: { base: 'USD' as const, rates, fetchedAt: NOW, stale: false },
+      }),
+      portfolio: async () => ({ ok: true as const, value: structuredClone(portfolio) }),
+      apply: async (op: Record<string, unknown>) => {
+        const currency = String(op.currency ?? 'USD');
+        const kind = op.op as string;
+        if (kind === 'addCard') {
+          portfolio.balances[currency] ??= 0;
+        } else if (kind === 'watch') {
+          const asset = op.asset as {
+            symbol: string;
+            name: string;
+            kind: 'crypto' | 'stock' | 'etf';
+          };
+          const has = portfolio.watchlist.includes(asset.symbol);
+          if (op.watched && !has) portfolio.watchlist.push(asset.symbol);
+          if (!op.watched && has)
+            portfolio.watchlist = portfolio.watchlist.filter((s) => s !== asset.symbol);
+        } else if (kind === 'deposit' || kind === 'withdraw') {
+          const amount = Number(op.amount);
+          const balance = portfolio.balances[currency] ?? 0;
+          if (kind === 'withdraw' && amount > balance) return fail('Insufficient balance');
+          portfolio.balances[currency] =
+            Math.round((balance + (kind === 'deposit' ? amount : -amount)) * 100) / 100;
+          portfolio.transactions.push({
+            id: `mock-${++txCounter}`,
+            ts: NOW,
+            type: kind,
+            currency,
+            fiatAmount: amount,
+            valueUsd: amount / (rates[currency] ?? 1),
+          });
+        } else if (kind === 'buy' || kind === 'sell') {
+          const asset = op.asset as {
+            symbol: string;
+            name: string;
+            kind: 'crypto' | 'stock' | 'etf';
+          };
+          const quantity = Number(op.quantity);
+          const price = priceOf(asset.symbol);
+          const fiat = cash(quantity * price, currency);
+          const balance = portfolio.balances[currency] ?? 0;
+          const held = portfolio.holdings.find((h) => h.symbol === asset.symbol);
+          if (kind === 'buy') {
+            if (fiat > balance) return fail(`Insufficient ${currency}`);
+            portfolio.balances[currency] = balance - fiat;
+            if (held) held.quantity += quantity;
+            else portfolio.holdings.push({ ...asset, quantity });
+          } else {
+            if (!held || held.quantity < quantity) return fail('Not enough held');
+            held.quantity -= quantity;
+            portfolio.holdings = portfolio.holdings.filter((h) => h.quantity > 0);
+            portfolio.balances[currency] = balance + fiat;
+          }
+          portfolio.transactions.push({
+            id: `mock-${++txCounter}`,
+            ts: NOW,
+            type: kind,
+            currency,
+            fiatAmount: fiat,
+            symbol: asset.symbol,
+            assetName: asset.name,
+            assetKind: asset.kind,
+            quantity,
+            priceUsd: price,
+            valueUsd: quantity * price,
+          });
+        }
+        return { ok: true as const, value: structuredClone(portfolio) };
+      },
+      news: async () => ({
+        ok: true as const,
+        value: {
+          items: (cfg.news ?? []).map((item, i) => ({ id: `n${i}`, ...item })),
+          stale: false,
+          failed: [] as string[],
+        },
+      }),
+    };
+  }
 
   return bridge;
 }

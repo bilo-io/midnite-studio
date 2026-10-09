@@ -9,16 +9,16 @@ import { MidniteCliPage } from './midnite-cli-page';
 const MISSING: CliStatusResponse = { installed: false, path: null, target: null, managed: false };
 const INSTALLED: CliStatusResponse = {
   installed: true,
-  path: '/usr/local/bin/midnite-studio',
-  target: '/usr/local/bin/midnite-studio',
+  path: '/usr/local/bin/midnite',
+  target: '/usr/local/bin/midnite',
   managed: true,
   onPath: true,
   pathExportLine: null,
 };
 const OFF_PATH: CliStatusResponse = {
   installed: true,
-  path: '/Users/me/.local/bin/midnite-studio',
-  target: '/Users/me/.local/bin/midnite-studio',
+  path: '/Users/me/.local/bin/midnite',
+  target: '/Users/me/.local/bin/midnite',
   managed: true,
   onPath: false,
   pathExportLine: 'export PATH="/Users/me/.local/bin:$PATH"',
@@ -41,16 +41,29 @@ describe('MidniteCliPage', () => {
   it('says what the command does', () => {
     installBridge(MISSING);
     render(<MidniteCliPage />);
-    expect(screen.getByText('midnite-studio open <path>')).toBeTruthy();
-    expect(screen.getByText('midnite-studio clone <url>')).toBeTruthy();
+    expect(screen.getByText('midnite open <path>')).toBeTruthy();
+    expect(screen.getByText('midnite clone <url>')).toBeTruthy();
   });
 
   it('installed and on PATH: ready, with no hint', async () => {
     installBridge(INSTALLED);
     render(<MidniteCliPage />);
     await waitFor(() => expect(rowStatus()).toBe('ready'));
-    expect(screen.getByText('/usr/local/bin/midnite-studio')).toBeTruthy();
+    expect(screen.getByText('/usr/local/bin/midnite')).toBeTruthy();
     expect(screen.queryByTestId('setup-cli-path-hint')).toBeNull();
+  });
+
+  it('a foreign midnite was left alone: shows the alias-only reason from main', async () => {
+    installBridge({
+      ...INSTALLED,
+      path: '/usr/local/bin/midnite-studio',
+      command: 'midnite-studio',
+      aliasInstalled: true,
+      notice: 'A `midnite` command already exists at /usr/local/bin/midnite and is not Midnite Studio\'s, so it was left untouched.',
+    });
+    render(<MidniteCliPage />);
+    await waitFor(() => expect(rowStatus()).toBe('ready'));
+    expect(screen.getByText(/left untouched/)).toBeTruthy();
   });
 
   it("missing: Install calls cliInstall({target: 'auto'}) and lands on ready", async () => {
@@ -71,7 +84,10 @@ describe('MidniteCliPage', () => {
   });
 
   it('a failed install says why and stays missing', async () => {
-    installBridge(MISSING, vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'EACCES' }));
+    installBridge(
+      MISSING,
+      vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'EACCES' }),
+    );
     render(<MidniteCliPage />);
     await waitFor(() => expect(rowStatus()).toBe('missing'));
     fireEvent.click(screen.getByRole('button', { name: 'Install' }));
@@ -90,6 +106,8 @@ describe('MidniteCliPage', () => {
   it('without a bridge: missing, and Install is disabled', () => {
     render(<MidniteCliPage />);
     expect(rowStatus()).toBe('missing');
-    expect((screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 });

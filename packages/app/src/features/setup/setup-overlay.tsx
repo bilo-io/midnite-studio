@@ -1,8 +1,10 @@
 import { COMMANDS } from '@midnite/studio-shared';
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { LuArrowDownRight, LuChevronRight, LuX } from 'react-icons/lu';
+import { LuArrowDownRight, LuChevronLeft, LuChevronRight, LuX } from 'react-icons/lu';
+import { PiArrowRight, PiArrowRightFill, PiRocketLaunch, PiRocketLaunchFill } from 'react-icons/pi';
 
 import { BrandMark, Wordmark } from '../../components/brand';
+import { EmptyStateButton } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { ThemeToggle } from '../../components/theme-toggle';
 import { useDismiss } from '../../components/use-dismiss';
@@ -14,18 +16,23 @@ import { chordFor, displayChord } from '../status-bar/chord-hint';
 import {
   CHOREO,
   centredRect,
+  completionTimeline,
   dissolveTimeline,
   handoffTimeline,
   introTimeline,
   isReducedMotion,
+  pageEnter,
   playGlide,
   playTimeline,
+  type CompletionPhase,
   type HandoffPhase,
   type IntroFrame,
+  type PageDirection,
   type RectLike,
 } from './setup-choreography';
 import {
   dotStates,
+  FINALE,
   initialStep,
   nextStep,
   prevStep,
@@ -56,7 +63,12 @@ const INTRO_MARK_PX = 64;
  *   page, `null` when it stays put (every page-to-page move: the anchor is
  *   the frame's, so it does not move between pages at all).
  */
-type Arrival = { mode: 'typed' | 'instant'; glideFrom: RectLike | 'centre' | null };
+type Arrival = {
+  mode: 'typed' | 'instant';
+  glideFrom: RectLike | 'centre' | null;
+  /** Which way a page-to-page move went, so its content slides in from that side. */
+  direction?: PageDirection;
+};
 type View = { step: SetupStep; arrival: Arrival };
 
 /** Theme C: the handoff under way, and the FAB it points at (`null`: hidden, so no arrow). */
@@ -105,20 +117,28 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   // otherwise change a timeline's shape halfway through playing it.
   const [reduced] = useState(isReducedMotion);
   const [view, setView] = useState<View>(() => {
-    const start = resume
-      ? resumePageId(PAGE_IDS, useUiStore.getState().setupState)
-      : startPageId;
+    const start = resume ? resumePageId(PAGE_IDS, useUiStore.getState().setupState) : startPageId;
     const step = initialStep(start, PAGE_IDS);
     // Opened straight onto a page (a resume, a Settings deep link): no intro,
     // but the mark still arrives from the centre into the anchor.
     const glideFrom = step.kind === 'page' && !reduced ? 'centre' : null;
-    return { step, arrival: { mode: reduced ? 'instant' : 'typed', glideFrom } };
+    return { step, arrival: { mode: reduced ? 'instant' : 'typed', glideFrom, direction: 'forward' } };
   });
   const { step, arrival } = view;
   const [typedFor, setTypedFor] = useState<string | null>(null);
   const [introLeaving, setIntroLeaving] = useState(false);
   const [handoff, setHandoff] = useState<Handoff | null>(null);
-  const timers = useRef<{ intro?: ReturnType<typeof setTimeout>; handoff?: () => void }>({});
+  // Theme J: leaving the last page (`leaving` until the finale takes over) and
+  // where the bloom sweeps out from; `closing` is Get started fading to the app.
+  const [completion, setCompletion] = useState<CompletionPhase | null>(null);
+  const [bloom, setBloom] = useState<{ x: number; y: number } | null>(null);
+  const [closing, setClosing] = useState(false);
+  const timers = useRef<{
+    intro?: ReturnType<typeof setTimeout>;
+    handoff?: () => void;
+    completion?: () => void;
+    closing?: () => void;
+  }>({});
   const skippedPageIds = useUiStore((s) => s.setupState.skippedPageIds);
   const aside = useSetupStore((s) => s.aside);
 
@@ -136,6 +156,8 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     () => () => {
       clearTimeout(timers.current.intro);
       timers.current.handoff?.();
+      timers.current.completion?.();
+      timers.current.closing?.();
     },
     [],
   );
@@ -149,7 +171,10 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     if (from === null || !anchor) return;
     const origin =
       from === 'centre'
-        ? centredRect(containerRef.current?.getBoundingClientRect() ?? viewportRect(), INTRO_MARK_PX)
+        ? centredRect(
+            containerRef.current?.getBoundingClientRect() ?? viewportRect(),
+            INTRO_MARK_PX,
+          )
         : from;
     playGlide(anchor, origin);
   }, [view]); // eslint-disable-line react-hooks/exhaustive-deps -- once per arrival, which `view` identifies
@@ -176,7 +201,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   };
 
   const leave = (skip: boolean): void => {
-    if (handoff) return;
+    if (handoff || completion || closing) return;
     const { updateSetupState, setSetupPageSkipped } = useUiStore.getState();
     if (skip && page) setSetupPageSkipped(page.id, true);
     updateSetupState({ dismissedAt: new Date().toISOString(), lastPageId: page?.id ?? null });
@@ -190,9 +215,44 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     runHandoff(timeline);
   };
 
+  /** Get started: the overlay fades to the app, then setup is recorded complete. */
   const complete = (): void => {
-    useUiStore.getState().updateSetupState({ completedAt: new Date().toISOString(), lastPageId: null });
-    useSetupStore.getState().closeSetup();
+    if (closing) return;
+    setClosing(true);
+    timers.current.closing = playTimeline(dissolveTimeline(reduced), (phase) => {
+      if (phase !== 'done') return;
+      timers.current.closing = undefined;
+      useUiStore
+        .getState()
+        .updateSetupState({ completedAt: new Date().toISOString(), lastPageId: null });
+      useSetupStore.getState().closeSetup();
+    });
+  };
+
+  /**
+   * Last page → finale (Theme J). The page content dissolves and a bloom
+   * sweeps out from the anchor; then the finale takes over and the mark glides
+   * from the anchor into its heading. The anchor's rect is taken now, while it
+   * still exists, because it is gone by the time the finale mounts.
+   */
+  const completeSetup = (): void => {
+    if (page) useUiStore.getState().setSetupPageSkipped(page.id, false);
+    const rect = anchorRef.current?.getBoundingClientRect();
+    const from = rect && rect.width > 0 ? toRect(rect) : null;
+    if (!reduced) {
+      // No measurable anchor (a window with no layout): bloom from mid-window.
+      const origin = from ?? centredRect(viewportRect(), 0);
+      setBloom({ x: origin.left + origin.width / 2, y: origin.top + origin.height / 2 });
+    }
+    timers.current.completion?.();
+    timers.current.completion = playTimeline(completionTimeline(reduced), (phase) => {
+      if (phase === 'leaving') setCompletion('leaving');
+      else {
+        timers.current.completion = undefined;
+        setCompletion(null);
+        go(FINALE, { mode: 'typed', glideFrom: from });
+      }
+    });
   };
 
   const canAdvance = page?.canAdvance?.() ?? true;
@@ -211,15 +271,19 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     setIntroLeaving(true);
     timers.current.intro = setTimeout(() => {
       const rect = introMarkRef.current?.getBoundingClientRect();
-      go(upcoming, { mode: 'typed', glideFrom: rect ? toRect(rect) : null });
+      go(upcoming, { mode: 'typed', glideFrom: rect ? toRect(rect) : null, direction: 'forward' });
     }, CHOREO.wordFadeMs);
   };
 
   const next = (): void => {
-    if (!canAdvance || handoff) return;
+    if (!canAdvance || handoff || completion || closing) return;
     const upcoming = nextStep(step, pageCount);
     if (upcoming.kind === 'closed') {
       complete();
+      return;
+    }
+    if (step.kind === 'page' && upcoming.kind === 'finale') {
+      completeSetup();
       return;
     }
     if (step.kind === 'intro') {
@@ -230,14 +294,15 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
     // recorded on an earlier visit (Settings ▸ Accounts' "Resume setup" lands
     // back on the page it was recorded for).
     if (page) useUiStore.getState().setSetupPageSkipped(page.id, false);
-    go(upcoming, { mode: 'typed', glideFrom: null });
+    go(upcoming, { mode: 'typed', glideFrom: null, direction: 'forward' });
   };
 
   const back = (): void => {
-    if (handoff) return;
+    if (handoff || completion || closing) return;
+    setBloom(null);
     const previous = prevStep(step, pageCount);
     if (previous.kind === 'intro') setIntroLeaving(false);
-    go(previous, { mode: 'instant', glideFrom: null });
+    go(previous, { mode: 'instant', glideFrom: null, direction: 'back' });
   };
 
   // Escape is the X path — or, once the handoff is showing, "go now".
@@ -260,22 +325,44 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (keysRef.current.aside) return;
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
       if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
       if (isEditable(event.target)) return;
       event.preventDefault();
       if (event.key === 'ArrowRight') {
         if (!keysRef.current.atFinale) keysRef.current.next();
-      }
-      else keysRef.current.back();
+      } else keysRef.current.back();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const label =
-    step.kind === 'page' && page ? page.title : step.kind === 'finale' ? 'Setup complete' : 'Set up Midnite Studio';
-  const dots = dotStates(step, PAGE_IDS, skippedPageIds);
+    step.kind === 'page' && page
+      ? page.title
+      : step.kind === 'finale'
+        ? 'Setup complete'
+        : 'Set up Midnite Studio';
+  const rawDots = dotStates(step, PAGE_IDS, skippedPageIds);
+  // Theme J: leaving the last page resolves every dot into one filled state.
+  const dots: DotState[] =
+    completion !== null || step.kind === 'finale' ? rawDots.map(() => 'done') : rawDots;
+  // The page's title, body and buttons dissolve while the anchor mark stays to move.
+  const pageFade = {
+    style: {
+      opacity: completion ? 0 : 1,
+      transition: `opacity ${CHOREO.completeFadeMs}ms ease-in-out`,
+    },
+    'aria-hidden': completion ? true : undefined,
+  } as const;
+  const enter = pageEnter(arrival.direction ?? null, reduced);
   const bodyShown = page !== undefined && (arrival.mode === 'instant' || typedFor === page.id);
   // The page content, faded out and made inert once the handoff starts.
   const content = {
@@ -302,7 +389,7 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
         data-handoff={handoff?.phase}
         onClick={handoff ? dissolveNow : undefined}
         style={{
-          opacity: handoff?.phase === 'dissolving' ? 0 : 1,
+          opacity: handoff?.phase === 'dissolving' || closing ? 0 : 1,
           transition: `opacity ${reduced ? 0 : CHOREO.dissolveMs}ms ease-in-out`,
         }}
         className={`fixed inset-0 z-dialog ${aside ? 'hidden' : 'flex'} flex-col bg-background text-foreground outline-none`}
@@ -312,7 +399,10 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
           <ThemeToggle elevated />
         </header>
 
-        <main {...content} className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6">
+        <main
+          {...content}
+          className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6"
+        >
           {/*
             Pages sit at a fixed height from the top rather than centred: a
             centred column re-centres whenever its body grows, which would move
@@ -343,52 +433,66 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
                   <span ref={anchorRef} data-testid="setup-title-anchor" className="shrink-0">
                     <BrandMark className="h-8 w-8" />
                   </span>
-                  <PageTitle
-                    key={page.id}
-                    title={page.titleTyped}
-                    instant={arrival.mode === 'instant'}
-                    delayMs={arrival.glideFrom !== null ? CHOREO.glideMs : 0}
-                    onTyped={() => setTypedFor(page.id)}
-                  />
+                  <div {...pageFade}>
+                    <PageTitle
+                      key={page.id}
+                      title={page.titleTyped}
+                      instant={arrival.mode === 'instant'}
+                      delayMs={arrival.glideFrom !== null ? CHOREO.glideMs : 0}
+                      onTyped={() => setTypedFor(page.id)}
+                    />
+                  </div>
                 </div>
                 {bodyShown ? (
                   <div
                     key={page.id}
                     data-testid="setup-page-body"
-                    className={arrival.mode === 'typed' ? 'animate-fade-in' : undefined}
-                    style={arrival.mode === 'typed' ? { animationDuration: '280ms' } : undefined}
+                    {...enter}
+                    aria-hidden={pageFade['aria-hidden']}
+                    inert={completion !== null}
+                    style={{ ...enter.style, ...pageFade.style }}
                   >
                     <page.Component />
                   </div>
                 ) : null}
                 {/* Arrives with the body, so the buttons do not sit alone under a title still typing. */}
                 <div
-                  className={`flex items-center justify-between gap-2 ${bodyShown && arrival.mode === 'typed' ? 'animate-fade-in' : ''}`}
+                  className={`flex items-center justify-between gap-2 ${bodyShown ? (enter.className ?? '') : ''}`}
+                  data-dir={bodyShown ? enter['data-dir'] : undefined}
                   style={{
                     visibility: bodyShown ? 'visible' : 'hidden',
-                    ...(arrival.mode === 'typed' ? { animationDuration: '280ms' } : {}),
+                    ...(bodyShown ? enter.style : {}),
+                    ...pageFade.style,
                   }}
+                  inert={completion !== null}
                 >
                   <button
                     type="button"
                     onClick={back}
-                    className="rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="flex items-center gap-1 rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
+                    <LuChevronLeft aria-hidden className="h-3.5 w-3.5" />
                     Back
                   </button>
-                  <button
-                    type="button"
+                  <EmptyStateButton
+                    icon={PiArrowRight}
+                    filledIcon={PiArrowRightFill}
+                    label="Next"
                     onClick={next}
                     disabled={!canAdvance}
-                    className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Next
-                  </button>
+                  />
                 </div>
               </>
             ) : null}
 
-            {step.kind === 'finale' ? <Finale onBack={back} onDone={complete} /> : null}
+            {step.kind === 'finale' ? (
+              <Finale
+                reduced={reduced}
+                glideFrom={arrival.glideFrom === 'centre' ? null : arrival.glideFrom}
+                onBack={back}
+                onDone={complete}
+              />
+            ) : null}
           </div>
         </main>
 
@@ -401,7 +505,11 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
                   aria-label={`${row.title} (page ${index + 1} of ${pageCount})`}
                   aria-current={dots[index] === 'active' ? 'step' : undefined}
                   data-dot={dots[index]}
-                  onClick={() => go({ kind: 'page', index }, { mode: 'instant', glideFrom: null })}
+                  onClick={() => {
+                    if (completion || closing) return;
+                    setBloom(null);
+                    go({ kind: 'page', index }, { mode: 'instant', glideFrom: null });
+                  }}
                   className={`block h-2 rounded-full transition-all ${DOT_CLASS[dots[index] ?? 'upcoming']}`}
                 />
               </li>
@@ -421,6 +529,16 @@ function SetupFrame({ startPageId, resume }: { startPageId: string | null; resum
             <span aria-hidden className="block h-5" />
           )}
         </footer>
+
+        {bloom ? (
+          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+            <span
+              data-testid="setup-bloom"
+              className="setup-bloom absolute h-12 w-12 rounded-full"
+              style={{ left: bloom.x - 24, top: bloom.y - 24 }}
+            />
+          </div>
+        ) : null}
 
         {handoff && handoff.phase !== 'fading' ? <HandoffCue target={handoff.target} /> : null}
       </div>
@@ -470,7 +588,11 @@ function Intro({
   };
 
   return (
-    <div data-testid="setup-intro" data-intro={frame.phase} className="flex flex-col items-center gap-6 text-center">
+    <div
+      data-testid="setup-intro"
+      data-intro={frame.phase}
+      className="flex flex-col items-center gap-6 text-center"
+    >
       <div className="flex items-center gap-4">
         <span ref={markRef} className="shrink-0">
           <BrandMark className="h-16 w-16" />
@@ -492,13 +614,12 @@ function Intro({
           A few minutes to get this Mac ready: git, your forges and accounts, and the tools agents
           lean on. Every page is optional.
         </p>
-        <button
-          type="button"
+        <EmptyStateButton
+          icon={PiArrowRight}
+          filledIcon={PiArrowRightFill}
+          label="Begin setup"
           onClick={onBegin}
-          className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Begin setup
-        </button>
+        />
       </div>
     </div>
   );
@@ -606,10 +727,17 @@ function HandoffCue({ target }: { target: RectLike | null }) {
           bottom: root.clientHeight - target.top + gap,
         }}
       >
-        <p role="status" className="whitespace-nowrap text-right text-sm font-medium text-foreground">
+        <p
+          role="status"
+          className="whitespace-nowrap text-right text-sm font-medium text-foreground"
+        >
           You can always continue setup from here
         </p>
-        <span aria-hidden data-testid="setup-handoff-arrow" className="setup-handoff-arrow inline-block text-primary">
+        <span
+          aria-hidden
+          data-testid="setup-handoff-arrow"
+          className="setup-handoff-arrow inline-block text-primary"
+        >
           <LuArrowDownRight className="h-10 w-10" />
         </span>
       </div>
@@ -639,33 +767,59 @@ function viewportRect(): RectLike {
   return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
 }
 
-/** Static until Theme J adds the completion transition. */
-function Finale({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+/**
+ * The finale (Theme J): "Welcome to [mark] Midnite Studio". The mark arrives
+ * by the same FLIP glide the intro uses, from where the title anchor sat on the
+ * last page into the line between "to" and the wordmark; only "Midnite" wears
+ * the brand face and gradient, "Studio" stays in the UI font (`Wordmark`).
+ * Reduced motion has no glide and no fade: the heading is simply there.
+ */
+function Finale({
+  reduced,
+  glideFrom,
+  onBack,
+  onDone,
+}: {
+  reduced: boolean;
+  glideFrom: RectLike | null;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const markRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (markRef.current && glideFrom) playGlide(markRef.current, glideFrom);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on arrival
+  const fade = reduced ? '' : 'animate-fade-in';
+
   return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <h1 className="flex flex-wrap items-center justify-center gap-2 text-2xl font-semibold">
-        <span>Welcome to</span>
-        <BrandMark className="h-8 w-8" />
-        <Wordmark />
+    <div data-testid="setup-finale" className="flex flex-col items-center gap-5 text-center">
+      <h1 className="flex flex-wrap items-center justify-center gap-3 text-3xl font-semibold">
+        <span className={fade}>Welcome to</span>
+        <span ref={markRef} data-testid="setup-finale-mark" className="shrink-0">
+          <BrandMark className="h-10 w-10" />
+        </span>
+        <span className={fade}>
+          <Wordmark gradient />
+        </span>
       </h1>
-      <p className="max-w-sm text-sm text-muted-foreground">
+      <p className={`max-w-sm text-sm text-muted-foreground ${fade}`}>
         You can run setup again any time from the command palette.
       </p>
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${fade}`}>
         <button
           type="button"
           onClick={onBack}
-          className="rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-1 rounded px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
+          <LuChevronLeft aria-hidden className="h-3.5 w-3.5" />
           Back
         </button>
-        <button
-          type="button"
+        <EmptyStateButton
+          icon={PiRocketLaunch}
+          filledIcon={PiRocketLaunchFill}
+          label="Get started"
           onClick={onDone}
-          className="rounded bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Get started
-        </button>
+        />
       </div>
     </div>
   );

@@ -81,7 +81,7 @@ const ISSUE_DETAIL_FIELDS = `${ISSUE_FIELDS},body`;
 const WORKFLOW_FIELDS = 'id,name,path,state';
 const PULL_FIELDS =
   'id,number,title,state,isDraft,reviewDecision,headRefName,author,url,statusCheckRollup,' +
-  'mergedAt,closedAt';
+  'mergedAt,closedAt,comments';
 /*
   `gh pr view --json` accepts every `pr list` field plus the ones only a single
   PR has. `headRefOid` is the one that matters most here: it is the head sha the

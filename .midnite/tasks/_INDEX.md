@@ -8,8 +8,17 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [99 · Media page](phases/phase-99-media-page.md) | 🔄 WIP | — | 41/55 | `███████░░░` | 75% | — | (verification items, mostly human/packaged-app passes) |
-| [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | 🔄 WIP | — | 28/67 | `████░░░░░░` | 42% | — | E F H I J |
+| [108 · Maps](phases/phase-108-maps.md) | ✅ DONE | x1 | 54/54 | `██████████` | 100% | — | — |
+| [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 81/90 | `█████████░` | 90% | — | Q |
+| [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | 🔄 WIP | x1 | 62/68 | `█████████░` | 91% | — | L |
+| [105 · Terrain](phases/phase-105-terrain.md) | 🔄 WIP | x1 | 64/72 | `█████████░` | 89% | — | K |
+| [104 · Models: sculpting, SDF and mesh fidelity](phases/phase-104-models-sculpting.md) | 🔄 WIP | — | 60/69 | `█████████░` | 87% | — | I |
+| [103 · Models: fidelity, rigging and animation](phases/phase-103-models-rig-anim.md) | 🔄 WIP | — | 60/62 | `██████████` | 97% | J, L | — |
+| [102 · Chats page](phases/phase-102-chats-page.md) | 🔄 WIP | — | 24/26 | `█████████░` | 92% | — | (D: live per-edit approval; F: packaged-app pass against the real CLIs) |
+| [101 · Music editor with Tone.js and MIDI agents](phases/phase-101-music-editor.md) | 🔄 WIP | — | 41/61 | `███████░░░` | 67% | F G | I |
+| [100 · Finance dashboard](phases/phase-100-finance-dashboard.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | G | (1 human pass: packaged app with live network) |
+| [99 · Media page](phases/phase-99-media-page.md) | 🔄 WIP | — | 71/89 | `████████░░` | 80% | — | (verification items, mostly human/packaged-app passes; F: on-device Ollama pass; G: real Codex + packaged pass; H: HyperFrames packaged pass; I: human pass on model fidelity in the packaged app; K: 🔄 WIP media skills) |
+| [98 · Setup wizard overlay](phases/phase-98-setup-wizard-overlay.md) | 🔄 WIP | — | 55/67 | `████████░░` | 82% | — | Verification (human passes) |
 | [97 · Workflow graph primitives, loops and templates](phases/phase-97-workflow-graph-primitives.md) | 🔄 WIP | — | 81/91 | `█████████░` | 89% | — | (10 verification items, mostly human/packaged-app passes) |
 | [96 · Ollama: local and cloud models for agents](phases/phase-96-ollama-local-and-cloud-models.md) | 🔄 WIP | — | 58/73 | `████████░░` | 79% | — | (15 verification items, mostly human/packaged-app passes) |
 | [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 63/76 | `████████░░` | 83% | — | (13 verification items, mostly human/packaged-app passes) |
@@ -25,7 +34,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 52/75 | `███████░░░` | 69% | — | C D G |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 57/75 | `████████░░` | 76% | — | C D G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 50/53 | `█████████░` | 94% | — | — |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 57/67 | `█████████░` | 85% | — | — |

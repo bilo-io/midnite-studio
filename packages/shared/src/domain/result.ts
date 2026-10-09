@@ -9,7 +9,7 @@ import { z } from 'zod';
  * `Error: Error invoking remote method ...` string with the real stderr lost.
  * Everything therefore comes back as this discriminated union.
  */
-export const ConflictOpSchema = z.enum(['merge', 'rebase', 'cherry-pick', 'revert', 'stash-apply']);
+export const ConflictOpSchema = z.enum(['merge', 'rebase', 'cherry-pick', 'revert', 'stash-apply', 'change-apply']);
 export type ConflictOp = z.infer<typeof ConflictOpSchema>;
 
 /**

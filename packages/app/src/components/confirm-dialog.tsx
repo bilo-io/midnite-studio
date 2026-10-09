@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { LuTriangleAlert } from 'react-icons/lu';
 
+import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
@@ -132,6 +134,11 @@ export type ConfirmRequest = {
    * same thing here. See `notify` in `dialog-host`.
    */
   hideCancel?: boolean;
+  /**
+   * Render inside this (positioned) element rather than over the window — the
+   * scrim covers only it and the dialog centres in it. See `Modal`'s `container`.
+   */
+  container?: HTMLElement | null;
   onConfirm: () => void;
   /**
    * A third way out, between Cancel and the primary action — Discard beside
@@ -171,12 +178,17 @@ export function ConfirmDialog({
   */
   useDismiss(true, onCancel, { layer: 'dialog' });
 
+  const container = request.container ?? null;
+  const content = useContentOverlay('center', !container);
+  const overlayStyle = container ? undefined : content.overlayStyle;
+  const panelMaxHeight = container ? undefined : content.panelMaxHeight;
   const radius = request.blastRadius;
   const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-dialog flex items-center justify-center bg-background/70 p-6"
+      className={`${container ? 'absolute' : 'fixed'} inset-0 z-dialog flex items-center justify-center bg-background/70 ${overlayStyle ? '' : 'p-6'}`}
+      style={overlayStyle}
       role="dialog"
       aria-modal="true"
       aria-label={request.title}
@@ -194,7 +206,8 @@ export function ConfirmDialog({
       <div
         ref={containerRef}
         tabIndex={-1}
-        className={`w-full max-w-md overflow-hidden rounded-lg border bg-popover shadow-xl ${
+        style={panelMaxHeight === undefined ? undefined : { maxHeight: panelMaxHeight }}
+        className={`w-full max-w-md overflow-y-auto rounded-lg border bg-popover shadow-xl ${
           request.danger ? 'border-destructive/60 ring-1 ring-destructive/25' : 'border-border'
         }`}
       >
@@ -314,4 +327,5 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+  return container ? createPortal(overlay, container) : overlay;
 }

@@ -22,8 +22,8 @@ import { app } from 'electron';
  * reader) asks the question, so there is exactly one path to get right.
  */
 export function templateRoot(): string {
-  const packaged = join(process.resourcesPath, 'templates', 'midnite');
-  if (app.isPackaged || existsSync(packaged)) return packaged;
+  const packaged = process.resourcesPath ? join(process.resourcesPath, 'templates', 'midnite') : '';
+  if (app?.isPackaged || (packaged && existsSync(packaged))) return packaged;
   // Unpackaged: dist/bundle/main.js → ../../../../templates/midnite
   return join(__dirname, '..', '..', '..', '..', 'templates', 'midnite');
 }
@@ -34,7 +34,32 @@ export function templateRoot(): string {
  * already ships through `extraResources`.
  */
 export function mediaVideoTemplateRoot(): string {
-  const packaged = join(process.resourcesPath, 'templates', 'media-video');
-  if (app.isPackaged || existsSync(packaged)) return packaged;
+  const packaged = process.resourcesPath ? join(process.resourcesPath, 'templates', 'media-video') : '';
+  if (app?.isPackaged || (packaged && existsSync(packaged))) return packaged;
   return join(__dirname, '..', '..', '..', '..', 'templates', 'media-video');
 }
+
+/**
+ * `templates/media-game/` — the files every new game repo starts from (Phase
+ * 107 Theme A). Same packaged-vs-dev split as the others.
+ */
+export function mediaGameTemplateRoot(): string {
+  const packaged = process.resourcesPath ? join(process.resourcesPath, 'templates', 'media-game') : '';
+  if (app?.isPackaged || (packaged && existsSync(packaged))) return packaged;
+  return join(__dirname, '..', '..', '..', '..', 'templates', 'media-game');
+}
+
+/**
+ * `resources/game-engines/` — the vendored engine files copied into game repos
+ * (Phase 107 Theme C).
+ *
+ * Packaged: `extraResources` copies `resources/game-engines` to `process.resourcesPath/game-engines`.
+ * Unpackaged / dev: `packages/desktop/resources/game-engines`.
+ */
+export function gameEnginesDir(): string {
+  if (process.env['MSTUDIO_GAME_ENGINES_DIR']) return process.env['MSTUDIO_GAME_ENGINES_DIR'];
+  const packaged = process.resourcesPath ? join(process.resourcesPath, 'game-engines') : '';
+  if (app?.isPackaged || (packaged && existsSync(packaged))) return packaged;
+  return join(__dirname, '..', '..', '..', '..', 'packages', 'desktop', 'resources', 'game-engines');
+}
+

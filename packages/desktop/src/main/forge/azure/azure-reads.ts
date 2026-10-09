@@ -274,6 +274,7 @@ function mapPull(forge: Forge, raw: AzurePrRow): ForgePull {
     url: `${repoWebUrl(forge)}/pullrequest/${id}`,
     mergedAt: status === 'completed' ? asNullableIso(raw['closedDate']) : null,
     closedAt: status === 'abandoned' ? asNullableIso(raw['closedDate']) : null,
+    commentCount: 0, // Comment threads need a per-PR /threads call the listing does not make.
   };
 }
 
@@ -584,6 +585,9 @@ export async function pullThreads(
       body: asStringLoose(c['content']),
       createdAt: asString(c['publishedDate']) ?? new Date(0).toISOString(),
       url: '',
+      // The notes payload carries no diff text and no review object.
+      diffHunk: '',
+      reviewId: null,
     }));
 
     threads.push({

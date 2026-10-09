@@ -6,6 +6,7 @@ import { EmptyState } from '../../../components/empty-state';
 import { MarkdownPreview } from '../../files/preview/markdown-preview';
 import { openVideoFile, revealVideoFile, useVideoFiles, useVideoProjectFile } from './use-video';
 import { VideoCompareDialog } from './video-compare-dialog';
+import { MediaPanelBody, MediaPanelLayout } from '../media-panel-layout';
 import { VideoProjectDetail } from './video-project-detail';
 import { formatBytes, formatDuration, mediaKindOf, type VideoSelection } from './video-selection';
 
@@ -69,7 +70,8 @@ function MediaPreview({ url, name, size }: { url: string; name: string; size: nu
 function AssetDetail({ path, size }: { path: string; size: number }) {
   const name = path.split('/').pop() ?? path;
   return (
-    <div className="flex flex-col gap-3 p-3 text-xs">
+    <MediaPanelLayout className="text-xs">
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
       <div>
         <h2 className="truncate text-sm font-semibold text-foreground">{name}</h2>
         <p className="truncate text-muted-foreground">assets/{path}</p>
@@ -80,7 +82,8 @@ function AssetDetail({ path, size }: { path: string; size: number }) {
           <LuFolderOpen aria-hidden className="h-3 w-3" /> Reveal
         </button>
       </div>
-    </div>
+      </MediaPanelBody>
+    </MediaPanelLayout>
   );
 }
 

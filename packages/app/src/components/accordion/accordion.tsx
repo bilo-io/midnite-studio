@@ -25,7 +25,19 @@ export type AccordionSection = {
 
 export const accordionKey = (accordionId: string, sectionId: string): string => `${accordionId}:${sectionId}`;
 
-export function Accordion({ id, sections }: { id: string; sections: AccordionSection[] }) {
+export function Accordion({
+  id,
+  sections,
+  tone,
+  tinted,
+}: {
+  id: string;
+  sections: AccordionSection[];
+  /** `primary` tints section headings with the active theme's primary colour. */
+  tone?: 'primary';
+  /** A translucent primary-colour wash behind each header (Media ▸ Models). */
+  tinted?: boolean;
+}) {
   const collapsed = useUiStore((s) => s.collapsedAccordionSections);
   const toggle = useUiStore((s) => s.toggleAccordionSection);
 
@@ -44,6 +56,8 @@ export function Accordion({ id, sections }: { id: string; sections: AccordionSec
             open={!collapsed.includes(key)}
             onToggle={() => toggle(key)}
             hideWhenEmpty={false}
+            {...(tone ? { tone } : {})}
+            {...(tinted ? { tinted } : {})}
           >
             {section.children}
           </TreeSection>

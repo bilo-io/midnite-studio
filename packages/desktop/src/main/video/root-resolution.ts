@@ -2,7 +2,7 @@ import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  VIDEO_LAYOUT_MARKERS,
+  VIDEO_APP_DIRS,
   VIDEO_REPO_MEDIA_DIR,
   type VideoRootResolution,
 } from '@midnite/studio-shared';
@@ -31,7 +31,9 @@ export const isDirectory: IsDir = (path) => {
 };
 
 export function hasVideoLayout(dir: string, isDir: IsDir = isDirectory): boolean {
-  return VIDEO_LAYOUT_MARKERS.every((marker) => isDir(join(dir, marker)));
+  // `projects/` plus whichever engine's editor app the workspace carries
+  // (Phase 99 Theme H) — `video-editor/` for Remotion, `hyperframes-editor/`.
+  return isDir(join(dir, 'projects')) && VIDEO_APP_DIRS.some((app) => isDir(join(dir, app)));
 }
 
 export function resolveVideoRoot(

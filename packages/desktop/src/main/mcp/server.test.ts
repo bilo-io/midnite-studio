@@ -245,4 +245,41 @@ describe('startMcpServer', () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  /**
+   * Phase 99 Theme G — an in-app iterative run's private server: its own socket, its own
+   * dispatcher, the same frame/permission/audit code. It answers only what its dispatcher
+   * lets through, and an unrelated tool is the dispatcher's refusal, not the app's registry.
+   */
+  it('serves a private socket through its own dispatcher, audited like any other call', async () => {
+    const socketPath = join(tempDir(), 'run.sock');
+    const seen: string[] = [];
+    const result = await startMcpServer({
+      userDataDir: tempDir(),
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+      socketPath,
+      dispatch: async (tool) => {
+        seen.push(tool);
+        return tool === 'model_get_spec'
+          ? { ok: true, value: { hello: 'run' } }
+          : { ok: false, kind: 'refused', message: 'This run edits one model.' };
+      },
+    });
+    if (!result.ok) throw new Error(result.message);
+    handles.push(result.handle);
+    expect(result.handle.socketPath).toBe(socketPath);
+    expect(statSync(socketPath).mode & 0o777).toBe(0o600);
+
+    const socket = await connect(socketPath);
+    expect(await call(socket, { id: 'a', tool: 'model_get_spec', input: { repoPath: '/r' } })).toEqual({ id: 'a', ok: true, value: { hello: 'run' } });
+    expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toMatchObject({ ok: false, kind: 'refused' });
+    socket.destroy();
+    expect(seen).toEqual(['model_get_spec', 'repo.list']);
+    expect(getMcpCallLog().map((c) => [c.tool, c.ok])).toEqual([
+      ['repo.list', false],
+      ['model_get_spec', true],
+    ]);
+  });
 });

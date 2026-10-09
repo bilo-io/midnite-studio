@@ -9,12 +9,12 @@ cp -R projects/_template projects/acme/marketing/001-my-video
 
 Then fill in `project.json`, drop the brief in `input/BRIEF.md` (and the
 original video, if this edit has one, beside it), and run
-`/video-write-editorial-script`.
+`/midnite-media-video-write-editorial-script`.
 
 ```
 projects/<brand>/<category>/NNN-name/
 ├── project.json          ← id, title, composition id, paths (read by scripts/render.mjs)
-├── EDITORIAL_SCRIPT.md   ← written by /video-write-editorial-script; the source of truth
+├── EDITORIAL_SCRIPT.md   ← written by /midnite-media-video-write-editorial-script; the source of truth
 ├── input/                ← supplied and derived build inputs
 │   └── BRIEF.md
 ├── notes/                ← scratch notes, superseded drafts
@@ -25,4 +25,6 @@ projects/<brand>/<category>/NNN-name/
 
 Anything reusable across videos (logos, b-roll, music, fonts) belongs in the
 workspace-level `assets/`, not in `input/`. The matching composition folder is
-`video-editor/src/projects/<same path>/`.
+`video-editor/src/projects/<same path>/` (Remotion) or
+`hyperframes-editor/projects/<same path>/index.html` (HyperFrames) — whichever
+`video.config.json` at the workspace root names.

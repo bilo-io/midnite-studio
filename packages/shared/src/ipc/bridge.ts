@@ -25,11 +25,59 @@ import type {
 } from '../domain';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
+import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
+import type { ModelMeshResult } from '../media-model-mesh';
+import type { ModelOpEntry } from '../model-geometry/mesh/ops-log';
+import type { Sf3dGenerateRequest, Sf3dGenerateResult, Sf3dProgressEvent, Sf3dStatus } from '../media-model-sf3d';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
-import type { SetupProbeRequest, SetupProbeResponse } from '../setup';
+import type { GitIdentitySetRequest, GitIdentityGetResponse, GitIdentitySetResponse } from '../git-identity';
+import type {
+  SetupProbeRequest,
+  SetupProbeResponse,
+  SetupRevealRequest,
+  SetupRevealResponse,
+} from '../setup';
+import type { SystemMemoryResponse } from '../system-memory';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
+
+/** `mediaModelLibrary`'s `op` union, one typed method per op (all over the same channel). */
+export type ModelLibraryBridge = {
+  list: (req: { repoId: string }) => Promise<GitOpResult<{ tree: ModelLibraryNode[] }>>;
+  /** Move flat outputs into per-model folders; never deletes. Idempotent. */
+  migrate: (req: { repoId: string }) => Promise<GitOpResult<ModelLibraryMigrateResult>>;
+  rename: (req: { repoId: string; path: string; to: string }) => Promise<GitOpResult<{ path: string }>>;
+  move: (req: { repoId: string; path: string; toGroup: string }) => Promise<GitOpResult<{ path: string }>>;
+  delete: (req: { repoId: string; path: string }) => Promise<GitOpResult>;
+  duplicate: (req: { repoId: string; path: string }) => Promise<GitOpResult<{ path: string }>>;
+  newGroup: (req: { repoId: string; parent: string; name: string }) => Promise<GitOpResult<{ path: string }>>;
+};
+
+/** `mediaModelMesh`'s `op` union (Phase 104 Theme A): sculpt mesh files and their op log. */
+export type ModelMeshBridge = {
+  read: (req: ModelMeshScope) => Promise<GitOpResult<ModelMeshResult>>;
+  write: (req: ModelMeshScope & { data: Uint8Array; ops?: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
+  appendOps: (req: ModelMeshScope & { ops: ModelOpEntry[] }) => Promise<GitOpResult<ModelMeshResult>>;
+  readOps: (req: ModelMeshScope & { limit?: number }) => Promise<GitOpResult<ModelMeshResult>>;
+  /** A texture PNG beside the design (Phase 104 Theme G); `src` is a `.png` path. */
+  writeTexture: (req: ModelMeshScope & { data: Uint8Array }) => Promise<GitOpResult<ModelMeshResult>>;
+};
+type ModelMeshScope = { repoId: string; project: string; dir: string; src: string };
+
+/** `mediaModelSf3d`'s `op` union, one typed method per op (Phase 103 Theme J). */
+export type Sf3dBridge = {
+  status: () => Promise<GitOpResult<Sf3dStatus>>;
+  consent: (req: { licenceSha256: string; revenueAcknowledged: true }) => Promise<GitOpResult<Sf3dStatus>>;
+  revokeConsent: () => Promise<GitOpResult<Sf3dStatus>>;
+  /** Resolves when the install ends (verified, failed or cancelled); progress arrives on `onProgress`. */
+  install: () => Promise<GitOpResult<Sf3dStatus>>;
+  cancelInstall: () => Promise<GitOpResult>;
+  uninstall: () => Promise<GitOpResult<Sf3dStatus>>;
+  generate: (req: Sf3dGenerateRequest) => Promise<GitOpResult<Sf3dGenerateResult>>;
+  cancelGenerate: (req: { generationId: string }) => Promise<GitOpResult>;
+  onProgress: (handler: (event: Sf3dProgressEvent) => void) => Unsubscribe;
+};
 
 /**
  * Unsubscribe handle. Every subscription returns one — the renderer's effects
@@ -100,6 +148,7 @@ export type MidniteStudioBridge = {
   repos: {
     open: (req: In<typeof S.RepoOpenRequest>) => Promise<z.infer<typeof S.RepoOpenResponse>>;
     list: () => Promise<RepoDescriptor[]>;
+    logo: (req: In<typeof S.RepoLogoRequest>) => Promise<z.infer<typeof S.RepoLogoResponse>>;
     close: (req: In<typeof S.RepoCloseRequest>) => Promise<void>;
     refs: (req: In<typeof S.RepoRefsRequest>) => Promise<Ref[]>;
     worktrees: (req: In<typeof S.RepoWorktreesRequest>) => Promise<Worktree[]>;
@@ -182,6 +231,10 @@ export type MidniteStudioBridge = {
     blobExists: (
       req: In<typeof S.BlobExistsRequest>,
     ) => Promise<z.infer<typeof S.BlobExistsResponse>>;
+    /** Diff stat per commit for a page of visible graph rows (the Diff column). */
+    commitStats: (
+      req: In<typeof S.CommitStatsRequest>,
+    ) => Promise<z.infer<typeof S.CommitStatsResponse>>;
   };
 
   /**
@@ -503,6 +556,10 @@ export type MidniteStudioBridge = {
    * it here rather than under `forge` or `forgeProject` either.
    */
   ai: {
+    /** "Write with AI" on the commit box — read-only, fastest model. */
+    commitMessage: (
+      req: In<typeof S.AiCommitMessageRequest>,
+    ) => Promise<z.infer<typeof S.AiCommitMessageResponse>>;
     improveField: (
       req: In<typeof S.AiImproveFieldRequest>,
     ) => Promise<z.infer<typeof S.AiImproveFieldResponse>>;
@@ -760,6 +817,10 @@ export type MidniteStudioBridge = {
   /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */
   agent: {
     list: () => Promise<z.infer<typeof S.AgentListResponse>>;
+    /** Force an install re-probe, bypassing the TTL. Answers with the fresh snapshot. */
+    recheck: () => Promise<z.infer<typeof S.AgentStatusEvent>>;
+    /** The install probe started, answered or failed. */
+    onStatus: (handler: (e: z.infer<typeof S.AgentStatusEvent>) => void) => Unsubscribe;
     /** Installed version + install method; `installed: false` when absent. */
     claudeInfo: () => Promise<z.infer<typeof S.ClaudeInfoResponse>>;
     /** Runs the update to completion; output streams on `onClaudeUpdateData`. */
@@ -814,6 +875,34 @@ export type MidniteStudioBridge = {
     ) => Promise<z.infer<typeof S.LoopRunStartResponse>>;
     stop: (req: In<typeof S.LoopRunStopRequest>) => Promise<z.infer<typeof S.LoopRunStopResponse>>;
     onChanged: (handler: () => void) => Unsubscribe;
+  };
+
+  /**
+   * Chats — conversations with the roster's agent CLIs and local Ollama models.
+   * Stored and run in main; `send` resolves once the turn has STARTED and its
+   * text arrives on `onEvent`. Changes an agent makes in `edit` mode come back
+   * as a change set the renderer reviews through `changeDiffs` and
+   * `resolveChanges` — nothing lands in the working tree before an accept.
+   */
+  chats: {
+    list: () => Promise<z.infer<typeof S.ChatsListResponse>>;
+    get: (req: In<typeof S.ChatsGetRequest>) => Promise<z.infer<typeof S.ChatsGetResponse>>;
+    create: (req: In<typeof S.ChatsCreateRequest>) => Promise<z.infer<typeof S.ChatsCreateResponse>>;
+    update: (req: In<typeof S.ChatsUpdateRequest>) => Promise<z.infer<typeof S.ChatsUpdateResponse>>;
+    delete: (req: In<typeof S.ChatsDeleteRequest>) => Promise<z.infer<typeof S.ChatsDeleteResponse>>;
+    send: (req: In<typeof S.ChatsSendRequest>) => Promise<z.infer<typeof S.ChatsSendResponse>>;
+    cancel: (req: In<typeof S.ChatsCancelRequest>) => Promise<z.infer<typeof S.ChatsCancelResponse>>;
+    changeDiffs: (
+      req: In<typeof S.ChatsChangeDiffsRequest>,
+    ) => Promise<z.infer<typeof S.ChatsChangeDiffsResponse>>;
+    resolveChanges: (
+      req: In<typeof S.ChatsResolveChangesRequest>,
+    ) => Promise<z.infer<typeof S.ChatsResolveChangesResponse>>;
+    /** Skills for the composer's `/` picker. */
+    skills: (req: In<typeof S.ChatsSkillsRequest>) => Promise<z.infer<typeof S.ChatsSkillsResponse>>;
+    /** Files for the composer's `@` picker. */
+    files: (req: In<typeof S.ChatsFilesRequest>) => Promise<z.infer<typeof S.ChatsFilesResponse>>;
+    onEvent: (handler: (event: z.infer<typeof S.ChatsEventPayload>) => void) => Unsubscribe;
   };
 
   /**
@@ -988,6 +1077,21 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The Finance dashboard's data (key-free, fetched in main, USD-denominated)
+   * and its simulated portfolio. Every op resolves with a `GitOpResult` — a
+   * rate-limited provider or a refused withdrawal is an outcome, not a throw.
+   */
+  markets: {
+    series: (req: In<typeof S.MarketsSeriesRequest>) => Promise<z.infer<typeof S.MarketsSeriesResponse>>;
+    quotes: (req: In<typeof S.MarketsQuotesRequest>) => Promise<z.infer<typeof S.MarketsQuotesResponse>>;
+    search: (req: In<typeof S.MarketsSearchRequest>) => Promise<z.infer<typeof S.MarketsSearchResponse>>;
+    rates: () => Promise<z.infer<typeof S.MarketsRatesResponse>>;
+    portfolio: () => Promise<z.infer<typeof S.MarketsPortfolioResponse>>;
+    apply: (req: In<typeof S.MarketsPortfolioOpRequest>) => Promise<z.infer<typeof S.MarketsPortfolioResponse>>;
+    news: (req: In<typeof S.MarketsNewsRequest>) => Promise<z.infer<typeof S.MarketsNewsResponse>>;
+  };
+
+  /**
    * Video Studio (Phase 44) — global, not per-repo, and this app ships no
    * Remotion dependency anywhere; see `video.ts`. Projects are discovered
    * from disk, not registered, so there is no `save` — only `create` (copy
@@ -1056,12 +1160,88 @@ export type MidniteStudioBridge = {
     };
     /** Phase 99 Theme D — Setup Video scaffold into `<repo>/.midnite/media/video/`. */
     setup: (req: In<typeof S.VideoSetupRequest>) => Promise<z.infer<typeof S.VideoSetupResponse>>;
+    /** Phase 99 Theme H — the video root's engine (Remotion | HyperFrames): read it, or switch it. */
+    engine: {
+      get: (req: In<typeof S.VideoEngineGetRequest>) => Promise<z.infer<typeof S.VideoEngineGetResponse>>;
+      set: (req: In<typeof S.VideoEngineSetRequest>) => Promise<z.infer<typeof S.VideoEngineSetResponse>>;
+    };
     onStudioChanged: (
       handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void,
     ) => Unsubscribe;
     onRenderProgress: (
       handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void,
     ) => Unsubscribe;
+  };
+
+  /**
+   * Media ▸ Games (Phase 107 Themes A + B) — game repos, the games location
+   * setting and the sandboxed runner. Global, not per-repo: a game is its own
+   * git repo. Ops answer `GitOpResult` envelopes; runner state and console
+   * output arrive on the `on*` subscriptions.
+   */
+  games: {
+    settings: {
+      get: () => Promise<z.infer<typeof S.GamesSettingsGetResponse>>;
+      set: (req: In<typeof S.GamesSettingsSetRequest>) => Promise<z.infer<typeof S.GamesSettingsSetResponse>>;
+    };
+    list: () => Promise<z.infer<typeof S.GamesListResponse>>;
+    create: (req: In<typeof S.GamesCreateRequest>) => Promise<z.infer<typeof S.GamesCreateResponse>>;
+    manifest: {
+      get: (req: In<typeof S.GamesGetManifestRequest>) => Promise<z.infer<typeof S.GamesGetManifestResponse>>;
+      set: (req: In<typeof S.GamesSetManifestRequest>) => Promise<GitOpResult>;
+    };
+    run: (req: In<typeof S.GamesRunRequest>) => Promise<z.infer<typeof S.GamesRunResponse>>;
+    stop: (req: In<typeof S.GamesStopRequest>) => Promise<GitOpResult>;
+    reload: (req: In<typeof S.GamesReloadRequest>) => Promise<GitOpResult>;
+    /** One-way: the centre column's measured rect, in CSS pixels. */
+    setBounds: (req: In<typeof S.GamesSetBoundsRequest>) => void;
+    /** One-way: hide / show the runner's native view. */
+    setVisible: (req: In<typeof S.GamesSetVisibleRequest>) => void;
+    toolbar: (req: In<typeof S.GamesToolbarRequest>) => Promise<GitOpResult>;
+    /** Read or change the running game's juice settings through its `window.__midnite.juice` hook. */
+    juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
+    logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
+    kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
+    /** Move a game's runner into the `game` popout window; closing that window docks it back. */
+    popOut: (req: In<typeof S.GamesPopOutRequest>) => Promise<GitOpResult>;
+    /** Which game the `game` popout hosts — how the popout's own renderer learns what to show. */
+    popped: () => Promise<z.infer<typeof S.GamesPoppedResponse>>;
+    onPopState: (handler: (event: z.infer<typeof S.GamesPopStatePayload>) => void) => Unsubscribe;
+    onChanged: (handler: (event: z.infer<typeof S.GamesChangedPayload>) => void) => Unsubscribe;
+    /** An agent's `game_open` asked the window to show a game. */
+    onOpen: (handler: (event: z.infer<typeof S.GamesOpenPayload>) => void) => Unsubscribe;
+    onRunState: (handler: (event: z.infer<typeof S.GamesRunStatePayload>) => void) => Unsubscribe;
+    onConsole: (handler: (event: z.infer<typeof S.GamesConsolePayload>) => void) => Unsubscribe;
+    /**
+     * Create and iterate (Theme M): an agent CLI (file tools + this game's `game_*` tools, no
+     * shell) or an Ollama model edits the repo; every pass that changed files is one commit.
+     */
+    agent: {
+      run: (req: In<typeof S.GamesAgentRunRequest>) => Promise<z.infer<typeof S.GamesAgentRunResponse>>;
+      cancel: (req: In<typeof S.GamesAgentCancelRequest>) => Promise<GitOpResult>;
+      /** Revert the newest agent commit as a new commit; a conflict is the standard envelope. */
+      undo: (req: In<typeof S.GamesAgentUndoRequest>) => Promise<GitOpResult>;
+      onProgress: (handler: (event: z.infer<typeof S.GamesAgentProgressPayload>) => void) => Unsubscribe;
+    };
+    /**
+     * The asset bridge (Theme N): copy media into a game's `assets/<kind>/<name>/` with
+     * provenance, and re-import it when the source changes. Each import and re-import is its own commit.
+     */
+    assets: {
+      sources: (req: In<typeof S.GamesAssetSourcesRequest>) => Promise<z.infer<typeof S.GamesAssetSourcesResponse>>;
+      import: (req: In<typeof S.GamesImportAssetRequest>) => Promise<z.infer<typeof S.GamesImportAssetResponse>>;
+      resync: (req: In<typeof S.GamesResyncRequest>) => Promise<z.infer<typeof S.GamesResyncResponse>>;
+    };
+    /**
+     * Play-tests (Theme O): `playtests/*.json` with their last results, and a run of some or
+     * all of them in deterministic mode. The same runner `game_playtest` drives over MCP.
+     */
+    playtests: {
+      list: (req: In<typeof S.GamesPlaytestsRequest>) => Promise<z.infer<typeof S.GamesPlaytestsResponse>>;
+      run: (req: In<typeof S.GamesPlaytestRunRequest>) => Promise<z.infer<typeof S.GamesPlaytestRunResponse>>;
+    };
+    /** Web export (Theme P): a folder, a zip or a single HTML file; never overwrites without being told. */
+    export: (req: In<typeof S.GamesExportRequest>) => Promise<z.infer<typeof S.GamesExportResponse>>;
   };
 
   /**
@@ -1113,6 +1293,149 @@ export type MidniteStudioBridge = {
       onProgress: (
         handler: (event: z.infer<typeof S.MediaAudioProgressPayload>) => void,
       ) => Unsubscribe;
+      /** Local generation (MusicGen in a utility process); progress arrives on `onProgress`. */
+      generate: (
+        req: In<typeof S.MediaAudioGenerateRequest>,
+      ) => Promise<z.infer<typeof S.MediaAudioGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaAudioCancelRequest>) => Promise<GitOpResult>;
+      /** Is the local model on disk, and is Ollama up (and with which model)? */
+      engine: () => Promise<z.infer<typeof S.MediaAudioEngineResponse>>;
+      /** Download + load the local model; progress arrives on `onEngineProgress`. */
+      installEngine: () => Promise<GitOpResult>;
+      onEngineProgress: (
+        handler: (event: z.infer<typeof S.MediaAudioEngineProgressPayload>) => void,
+      ) => Unsubscribe;
+      /** Ollama prompt expansion — fails soft when the daemon is down. */
+      expand: (req: In<typeof S.MediaAudioExpandRequest>) => Promise<z.infer<typeof S.MediaAudioExpandResponse>>;
+      /** General MIDI instrument samples (Phase 101 Theme D); cached per program under `userData`. */
+      gm: {
+        /** Which programs are already on disk. */
+        status: () => Promise<z.infer<typeof S.MediaGmStatusResponse>>;
+        /** Download one program's samples if missing; progress arrives on `onProgress`. */
+        ensure: (req: In<typeof S.MediaGmEnsureRequest>) => Promise<z.infer<typeof S.MediaGmEnsureResponse>>;
+        /** Read a cached program's samples (base64 MP3 per note); fails if not downloaded. */
+        load: (req: In<typeof S.MediaGmLoadRequest>) => Promise<z.infer<typeof S.MediaGmLoadResponse>>;
+        onProgress: (handler: (event: z.infer<typeof S.MediaGmProgressPayload>) => void) => Unsubscribe;
+      };
+    };
+    /**
+     * Music editor (Phase 101 Theme B): songs in an Audio project — `<name>.mid` plus the editor's
+     * `<name>.song.json`. `import` opens a native picker in main; every call answers a `GitOpResult`.
+     */
+    music: {
+      list: (req: In<typeof S.MediaMusicListRequest>) => Promise<z.infer<typeof S.MediaMusicListResponse>>;
+      read: (req: In<typeof S.MediaMusicReadRequest>) => Promise<z.infer<typeof S.MediaMusicReadResponse>>;
+      write: (req: In<typeof S.MediaMusicWriteRequest>) => Promise<z.infer<typeof S.MediaMusicWriteResponse>>;
+      import: (req: In<typeof S.MediaMusicImportRequest>) => Promise<z.infer<typeof S.MediaMusicImportResponse>>;
+      delete: (req: In<typeof S.MediaMusicDeleteRequest>) => Promise<z.infer<typeof S.MediaMusicDeleteResponse>>;
+      /** Theme J: save a song as .mid / WAV / MP3 through main's save dialog. */
+      export: (req: In<typeof S.MediaMusicExportRequest>) => Promise<z.infer<typeof S.MediaMusicExportResponse>>;
+      /** Theme K: land a rendered reference in the project as a Generator variant that links back to the song. */
+      sendToGenerator: (req: In<typeof S.MediaMusicSendToGeneratorRequest>) => Promise<z.infer<typeof S.MediaMusicSendToGeneratorResponse>>;
+      /** An agent edited a song (engine run or MCP): one event, one undoable step (Theme H). */
+      onChanged: (handler: (event: z.infer<typeof S.MediaMusicChangedPayload>) => void) => Unsubscribe;
+      /** `music_open` asked for a song to be shown; the Editor tab comes up. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaMusicOpenPayload>) => void) => Unsubscribe;
+      /** Agent engines: Claude/Codex refine over passes, Ollama and Antigravity write in one pass. */
+      agent: {
+        run: (req: In<typeof S.MediaMusicAgentRunRequest>) => Promise<z.infer<typeof S.MediaMusicAgentRunResponse>>;
+        cancel: (req: In<typeof S.MediaMusicAgentCancelRequest>) => Promise<GitOpResult>;
+        onProgress: (handler: (event: z.infer<typeof S.MediaMusicAgentProgressPayload>) => void) => Unsubscribe;
+      };
+      /** Settings ▸ MCP: register Midnite's server in Antigravity's own MCP config (consent required). */
+      agy: {
+        status: () => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+        register: (req: { consent: true }) => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+        unregister: () => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+      };
+    };
+    /** Models: LLM-authored 3D (Ollama or an agent CLI), written as .obj/.mtl/.fbx, all in main. */
+    model: {
+      providers: () => Promise<z.infer<typeof S.MediaModelProvidersResponse>>;
+      generate: (
+        req: In<typeof S.MediaModelGenerateRequest>,
+      ) => Promise<z.infer<typeof S.MediaModelGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaModelCancelRequest>) => Promise<GitOpResult>;
+      export: (
+        req: In<typeof S.MediaModelExportRequest>,
+      ) => Promise<z.infer<typeof S.MediaModelExportResponse>>;
+      saveEdit: (
+        req: In<typeof S.MediaModelSaveEditRequest>,
+      ) => Promise<z.infer<typeof S.MediaModelSaveEditResponse>>;
+      /** Folder/group operations over `.midnite/media/model/` — every one answers a `GitOpResult`. */
+      library: ModelLibraryBridge;
+      /** Sculpt mesh binaries and op logs (Phase 104). */
+      mesh: ModelMeshBridge;
+      /** SF3D, the opt-in local image-to-3D tier. */
+      sf3d: Sf3dBridge;
+      onProgress: (
+        handler: (event: z.infer<typeof S.MediaModelProgressPayload>) => void,
+      ) => Unsubscribe;
+      /** An agent edited a model — the open editor adopts the new design live. */
+      onChanged: (
+        handler: (event: z.infer<typeof S.MediaModelChangedPayload>) => void,
+      ) => Unsubscribe;
+      /** `model_open` asked for a model to be shown. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaModelOpenPayload>) => void) => Unsubscribe;
+    };
+    /** Terrain (Phase 105): a heightfield from up to three optional images, built in a utility process. */
+    terrain: {
+      library: (req: In<typeof S.MediaTerrainLibraryRequest>) => Promise<z.infer<typeof S.MediaTerrainLibraryResponse>>;
+      get: (req: In<typeof S.MediaTerrainGetRequest>) => Promise<z.infer<typeof S.MediaTerrainGetResponse>>;
+      setSpec: (req: In<typeof S.MediaTerrainSetSpecRequest>) => Promise<z.infer<typeof S.MediaTerrainSetSpecResponse>>;
+      /** Attach (as bytes — the renderer never names a path) or remove one of the three images. */
+      setInput: (req: In<typeof S.MediaTerrainSetInputRequest>) => Promise<z.infer<typeof S.MediaTerrainSetInputResponse>>;
+      /** Resolves when the build ends; progress arrives on `onProgress`. */
+      build: (req: In<typeof S.MediaTerrainBuildRequest>) => Promise<z.infer<typeof S.MediaTerrainBuildResponse>>;
+      cancel: (req: In<typeof S.MediaTerrainCancelRequest>) => Promise<GitOpResult>;
+      paint: (req: In<typeof S.MediaTerrainPaintRequest>) => Promise<GitOpResult>;
+      /** Theme H: a live roads-mask preview (and eyedropper) without a build. */
+      roadKey: (req: In<typeof S.MediaTerrainRoadKeyRequest>) => Promise<z.infer<typeof S.MediaTerrainRoadKeyResponse>>;
+      export: (req: In<typeof S.MediaTerrainExportRequest>) => Promise<z.infer<typeof S.MediaTerrainExportResponse>>;
+      onProgress: (handler: (event: z.infer<typeof S.MediaTerrainProgressPayload>) => void) => Unsubscribe;
+      onChanged: (handler: (event: z.infer<typeof S.MediaTerrainChangedPayload>) => void) => Unsubscribe;
+      /** `terrain_open` asked for a terrain to be shown. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaTerrainOpenPayload>) => void) => Unsubscribe;
+    };
+    /** Sprites (Phase 106): precise 2D assets, generated as cancellable jobs. */
+    sprite: {
+      library: (req: In<typeof S.MediaSpriteLibraryRequest>) => Promise<z.infer<typeof S.MediaSpriteLibraryResponse>>;
+      get: (req: In<typeof S.MediaSpriteGetRequest>) => Promise<z.infer<typeof S.MediaSpriteGetResponse>>;
+      setSpec: (req: In<typeof S.MediaSpriteSetSpecRequest>) => Promise<z.infer<typeof S.MediaSpriteSetSpecResponse>>;
+      /** Attach a reference image (as bytes), point at a Models asset, or remove it. */
+      setReference: (req: In<typeof S.MediaSpriteSetReferenceRequest>) => Promise<GitOpResult>;
+      /** Starts a job and resolves with its id at once; progress arrives on `onProgress`. */
+      generate: (req: In<typeof S.MediaSpriteGenerateRequest>) => Promise<z.infer<typeof S.MediaSpriteGenerateResponse>>;
+      cancel: (req: In<typeof S.MediaSpriteCancelRequest>) => Promise<GitOpResult>;
+      /** Frame-strip edits (Theme G); `jobId` comes back when the patch re-rolled frames. */
+      patchFrames: (req: In<typeof S.MediaSpritePatchFramesRequest>) => Promise<z.infer<typeof S.MediaSpritePatchFramesResponse>>;
+      /** Packs the atlas into the asset's `export/`, and into `<dest>/<name>.sprite/` when `dest` is set. */
+      export: (req: In<typeof S.MediaSpriteExportRequest>) => Promise<z.infer<typeof S.MediaSpriteExportResponse>>;
+      /** Imports a Tiled `.tmj` as a new map asset; with no `path`, main asks with a file dialog (cancel answers `{}`). */
+      importMap: (req: In<typeof S.MediaSpriteImportMapRequest>) => Promise<z.infer<typeof S.MediaSpriteImportMapResponse>>;
+      onProgress: (handler: (event: z.infer<typeof S.MediaSpriteProgressPayload>) => void) => Unsubscribe;
+      onChanged: (handler: (event: z.infer<typeof S.MediaSpriteChangedPayload>) => void) => Unsubscribe;
+      /** `sprite_open` asked for an asset to be shown. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaSpriteOpenPayload>) => void) => Unsubscribe;
+      /** Rendered from 3D (Theme E): main asks this window to render a Models character. */
+      onRenderRequest: (handler: (event: z.infer<typeof S.MediaSpriteRenderRequestPayload>) => void) => Unsubscribe;
+      /** Acknowledges a render request; main fails the job if no window does within 10 s. */
+      renderReady: (req: In<typeof S.MediaSpriteRenderReadyRequest>) => Promise<GitOpResult>;
+      /** Posts one batch of rendered frames; a failed answer means the job is gone (cancelled) — stop rendering. */
+      renderFrames: (req: In<typeof S.MediaSpriteRenderFramesRequest>) => Promise<GitOpResult>;
+    };
+    /** Maps (Phase 108): the project file and the tile sources (every tile itself is fetched on `mstudio-tile:`). */
+    map: {
+      get: (req: In<typeof S.MediaMapGetRequest>) => Promise<z.infer<typeof S.MediaMapGetResponse>>;
+      setView: (req: In<typeof S.MediaMapSetViewRequest>) => Promise<z.infer<typeof S.MediaMapSetViewResponse>>;
+      sources: () => Promise<z.infer<typeof S.MediaMapSourcesResponse>>;
+      cache: (req: In<typeof S.MediaMapCacheRequest>) => Promise<z.infer<typeof S.MediaMapCacheResponse>>;
+      /** Theme D: capture a square of the real world as a heightmap (16-bit PNG, `.r32`, GeoTIFF). */
+      capture: (req: In<typeof S.MediaMapCaptureRequest>) => Promise<z.infer<typeof S.MediaMapCaptureResponse>>;
+      captureCancel: (req: In<typeof S.MediaMapCaptureCancelRequest>) => Promise<z.infer<typeof S.MediaMapCaptureCancelResponse>>;
+      onCaptureProgress: (handler: (event: z.infer<typeof S.MediaMapCaptureProgressPayload>) => void) => Unsubscribe;
+      /** `map_goto` asked the map to fly to a place. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaMapOpenPayload>) => void) => Unsubscribe;
     };
     reveal: (req: In<typeof S.MediaRevealRequest>) => Promise<GitOpResult>;
     ffmpegStatus: () => Promise<z.infer<typeof S.MediaFfmpegStatusResponse>>;
@@ -1306,7 +1629,17 @@ export type MidniteStudioBridge = {
    */
   setup: {
     probe: (req: In<typeof SetupProbeRequest>) => Promise<SetupProbeResponse>;
+    /** Reveal a tool's binary in Finder. A hand-off outcome, never throws. */
+    reveal: (req: In<typeof SetupRevealRequest>) => Promise<SetupRevealResponse>;
   };
+
+  /** The global git identity (Phase 98 Theme F) — `git config --global`, `GitOpResult`-wrapped. */
+  gitIdentity: {
+    get: () => Promise<z.infer<typeof GitIdentityGetResponse>>;
+    set: (req: In<typeof GitIdentitySetRequest>) => Promise<z.infer<typeof GitIdentitySetResponse>>;
+  };
+  /** Installed RAM (Phase 98 Theme I). */
+  systemMemory: () => Promise<SystemMemoryResponse>;
 
   /**
    * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull

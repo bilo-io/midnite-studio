@@ -40,6 +40,7 @@ function pull(over: Partial<ForgePull> = {}): ForgePull {
     url: 'https://github.com/o/r/pull/1',
     mergedAt: null,
     closedAt: null,
+    commentCount: 0,
     ...over,
   };
 }

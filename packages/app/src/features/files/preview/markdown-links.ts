@@ -6,7 +6,7 @@
  */
 export type ResolvedMarkdownLink =
   | { kind: 'external'; url: string }
-  | { kind: 'internal'; relPath: string };
+  | { kind: 'internal'; relPath: string; anchor?: string };
 
 const EXTERNAL_SCHEMES = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
@@ -53,5 +53,45 @@ export function resolveMarkdownLinkTarget(
     }
   }
 
-  return { kind: 'internal', relPath: stack.join('/') };
+  const hashAt = href.indexOf('#');
+  const anchor = hashAt >= 0 ? decodeAnchor(href.slice(hashAt + 1)) : '';
+  return anchor
+    ? { kind: 'internal', relPath: stack.join('/'), anchor }
+    : { kind: 'internal', relPath: stack.join('/') };
+}
+
+function decodeAnchor(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/** `#section` → `section`; anything that is not a pure in-page anchor → null. */
+export function inPageAnchor(href: string | undefined): string | null {
+  if (!href || !href.startsWith('#') || href.length < 2) return null;
+  return decodeAnchor(href.slice(1));
+}
+
+/** GitHub-style heading slug: lower-case, drop punctuation, spaces to hyphens. */
+export function slugifyHeading(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, '')
+    .replace(/\s/g, '-');
+}
+
+/** Finds the heading (or element id) an anchor names, with GitHub's `-1` de-dupe suffixes. */
+export function findAnchorTarget(root: HTMLElement, anchor: string): HTMLElement | null {
+  const wanted = anchor.toLowerCase();
+  const seen = new Map<string, number>();
+  for (const heading of root.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6')) {
+    const base = slugifyHeading(heading.textContent ?? '');
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    if ((n === 0 ? base : `${base}-${n}`) === wanted) return heading;
+  }
+  return Array.from(root.querySelectorAll<HTMLElement>('[id]')).find((el) => el.id === anchor) ?? null;
 }

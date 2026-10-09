@@ -66,3 +66,38 @@ export function parseStoredState(value: unknown): Partial<Record<WindowRole, Win
   }
   return result;
 }
+
+/**
+ * Which popout roles were open when the app last ran, so a launch can put them
+ * back — a separate file from `windows.json`, whose `save` rewrites the whole
+ * document from `boundsCache` on every popout close and would otherwise clobber
+ * a sibling field. Only roles in `window-manager`'s `REOPEN_ON_LAUNCH` are
+ * ever written here.
+ */
+export type ReopenStore = {
+  load: () => Promise<WindowRole[]>;
+  save: (roles: readonly WindowRole[]) => Promise<void>;
+};
+
+export function createReopenStore(directory: string): ReopenStore {
+  const file = join(directory, 'windows-reopen.json');
+  return {
+    load: async () => {
+      try {
+        const parsed = JSON.parse(await readFile(file, 'utf8')) as { roles?: unknown };
+        return Array.isArray(parsed.roles)
+          ? (parsed.roles.filter((r) => typeof r === 'string') as WindowRole[])
+          : [];
+      } catch {
+        return [];
+      }
+    },
+    save: async (roles) => {
+      try {
+        await writeFile(file, `${JSON.stringify({ version: 1, roles }, null, 2)}\n`, 'utf8');
+      } catch {
+        // Not remembering which windows were open is not worth failing over.
+      }
+    },
+  };
+}

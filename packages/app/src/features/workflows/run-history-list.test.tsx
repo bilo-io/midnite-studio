@@ -107,7 +107,7 @@ describe('RunHistoryList', () => {
       fireEvent.click(await screen.findByRole('option', { name: 'Failed' }));
 
       expect(await screen.findByText('No matches')).not.toBeNull();
-      expect(screen.queryByText("Hit Run to start this workflow's first run.")).toBeNull();
+      expect(screen.queryByText("Hit Run to start this graph's first run.")).toBeNull();
     });
   });
 });

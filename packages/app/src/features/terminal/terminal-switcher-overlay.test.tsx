@@ -5,6 +5,7 @@ import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
 
 import { createTestQueryClient, renderView } from '../../../test-support/render';
 import { keys } from '../../services/queries';
+import { useAgentProbeStore } from '../agent/agent-probe-store';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from './terminal-store';
 import { TerminalSwitcherOverlay } from './terminal-switcher-overlay';
@@ -45,7 +46,9 @@ function open() {
   // `['agents']`/`keys.repos` query, and pre-populating the cache is what
   // makes every assertion below synchronous — no `waitFor` for a fetch that
   // would otherwise race the fallback roster it starts from.
-  queryClient.setQueryData(['agents'], { agents, status });
+  // The roster is the query; install status lives in the one shared probe store.
+  queryClient.setQueryData(['agents'], agents);
+  useAgentProbeStore.setState({ status, probe: 'ready', pushed: true });
   queryClient.setQueryData(keys.repos, [{ id: REPO_ID, name: 'demo', path: CWD, worktrees: [] }]);
   return renderView(<TerminalSwitcherOverlay />, { queryClient });
 }

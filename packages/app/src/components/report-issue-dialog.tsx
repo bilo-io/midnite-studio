@@ -155,7 +155,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
   };
 
   return (
-    <Modal open={open} onClose={close} title="Report an issue" size="md" testId="report-issue-dialog">
+    <Modal open={open} onClose={close} scope="window" title="Report an issue" size="md" testId="report-issue-dialog">
       <div className="flex flex-col gap-3 p-4">
         <h2 className="text-sm font-semibold">Report an issue</h2>
 

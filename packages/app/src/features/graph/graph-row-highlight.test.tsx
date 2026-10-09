@@ -83,6 +83,12 @@ describe('selected commit row', () => {
     expect(el.style.getPropertyValue('--lane-l')).toBe(`${l}%`);
   });
 
+  it('shows a pointer cursor, not the default arrow', () => {
+    const el = renderRow(makeRow('abc', 3));
+    expect(el.className).toContain('cursor-pointer');
+    expect(el.className).not.toContain('cursor-default');
+  });
+
   it('does not paint the accent hue behind the selection any more', () => {
     const el = renderRow(makeRow('abc', 3), { selected: true, glowColorIdx: 3 });
     expect(el.className).not.toContain('bg-accent');

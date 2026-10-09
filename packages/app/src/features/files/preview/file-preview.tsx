@@ -44,7 +44,7 @@ export type FilePreviewProps = {
   /** A find-in-files result's line, to scroll to and briefly highlight. */
   targetLine?: number;
   /** Navigate to another file (e.g. from a relative markdown link). */
-  onNavigate?: (relPath: string) => void;
+  onNavigate?: (relPath: string, anchor?: string) => void;
 };
 
 export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePreviewProps) {
@@ -335,6 +335,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             </>
           ) : kind === 'markdown' && !showSource ? (
             <MarkdownPreview
+              scope={scope}
               content={data.content}
               label={fileName}
               currentRelPath={relPath}

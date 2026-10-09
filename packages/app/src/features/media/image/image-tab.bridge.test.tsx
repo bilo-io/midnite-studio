@@ -54,14 +54,34 @@ describe('Images tab', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('shows the provider on the chosen value and generates into the project', async () => {
-    open();
+  it('shows the picker in the composer on the recommended model and generates into the project', async () => {
+    open({
+      ...withImages,
+      media: {
+        ...withImages.media,
+        imageProviders: [
+          { id: 'gemini', available: true, missingKey: false, models: [] },
+          { id: 'agy', available: true, missingKey: false, models: [] },
+        ],
+      },
+    });
     await screen.findByRole('button', { name: 'Open a.png' });
-    expect(screen.getAllByText('Gemini').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Provider: Antigravity CLI' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Model: Gemini 2.5 Flash Image' })).toBeTruthy();
     fireEvent.change(screen.getByPlaceholderText(/lighthouse/), { target: { value: 'a fox' } });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Generate$/ }));
     });
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^Open img-/ })).toHaveLength(1));
+  });
+
+  it('an empty gallery offers a Generate image CTA that opens the create panel', async () => {
+    useUiStore.setState({ mediaPaneCollapsed: { image: { detail: true } } });
+    open(fixtures);
+    expect(await screen.findByText('No images yet')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
+    });
+    expect(useUiStore.getState().mediaPaneCollapsed.image?.detail).toBe(false);
   });
 });

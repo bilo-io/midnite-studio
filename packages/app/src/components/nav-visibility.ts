@@ -10,8 +10,9 @@ export type { NavVisibility };
 export const RAIL_VIEW_IDS: readonly ViewId[] = [
   'dashboard',
   'notes',
-  'knowledge',
+  'chats',
   'sessions',
+  'knowledge',
   'files',
   'search',
   'optimizer',
@@ -48,6 +49,7 @@ export const COMMAND_NAV_VIEW: Partial<Record<CommandId, ViewId>> = {
   'view.media': 'media',
   'view.video': 'media',
   'view.models': 'models',
+  'view.chats': 'chats',
   'view.apiClient': 'apiClient',
   'status.focus': 'graph',
   'workflow.run': 'workflows',

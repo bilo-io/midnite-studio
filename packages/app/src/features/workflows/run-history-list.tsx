@@ -69,7 +69,7 @@ export function RunHistoryList({
   if (all.length === 0) {
     return (
       <div className="flex h-full flex-col p-2">
-        <EmptyState bodySize="xs" title="No runs yet" body="Hit Run to start this workflow's first run." />
+        <EmptyState bodySize="xs" title="No runs yet" body="Hit Run to start this graph's first run." />
       </div>
     );
   }

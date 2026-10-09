@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useMetricsStore } from '../../store/metrics-store';
 import { useFinanceStore } from '../finance/finance-store';
 import { useWeatherStore } from '../weather/weather-store';
+import { LockScreenChrome } from './lock-screen-chrome';
 import { LockScreenBatteryWidget, LockScreenWeatherWidget, LockScreenWidgets } from './lock-screen-widgets';
 
 function stubFinanceBridge(prices: [number, number][]) {
@@ -239,6 +240,37 @@ describe('LockScreenBatteryWidget (Phase 46 Theme B)', () => {
     expect(screen.queryByText('Battery')).toBeNull();
   });
 
+  it('renders left lightning bolt and green shimmer on screensaver widget when charging', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 82, isCharging: true, devices: [] } },
+    });
+    render(<LockScreenBatteryWidget />);
+    const widget = screen.getByTestId('lock-battery-widget');
+    const container = widget.firstElementChild as HTMLElement;
+    expect(container.getAttribute('data-charging')).toBe('true');
+
+    // Left lightning bolt exists and is the first svg
+    const bolt = screen.getByTestId('battery-charging-bolt');
+    expect(bolt).toBeTruthy();
+    const svgs = widget.querySelectorAll('svg');
+    expect(svgs.length).toBeGreaterThanOrEqual(2);
+    expect(svgs[0]).toBe(bolt);
+
+    // Green shimmer exists
+    const shimmer = screen.getByTestId('battery-charging-shimmer');
+    expect(shimmer).toBeTruthy();
+    expect(shimmer.className).toContain('battery-charging-shimmer');
+  });
+
+  it('does not render lightning bolt or shimmer on screensaver widget when not charging', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 82, isCharging: false, devices: [] } },
+    });
+    render(<LockScreenBatteryWidget />);
+    expect(screen.queryByTestId('battery-charging-bolt')).toBeNull();
+    expect(screen.queryByTestId('battery-charging-shimmer')).toBeNull();
+  });
+
   it('falls back to the first connected device when there is no primary percent', () => {
     useMetricsStore.setState({
       latest: {
@@ -252,4 +284,61 @@ describe('LockScreenBatteryWidget (Phase 46 Theme B)', () => {
     render(<LockScreenBatteryWidget />);
     expect(screen.getByText('41%')).toBeTruthy();
   });
+
+  it('applies text-3xl font-semibold and green tier without text-primary for high capacity', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 85, isCharging: false, devices: [] } },
+    });
+    render(<LockScreenBatteryWidget />);
+    const widget = screen.getByTestId('lock-battery-widget');
+    const textContainer = widget.firstElementChild as HTMLElement;
+    expect(textContainer.className).toContain('text-3xl');
+    expect(textContainer.className).toContain('font-semibold');
+    expect(textContainer.className).toContain('text-emerald-500');
+
+    // The battery icon SVG must inherit currentColor, not text-primary
+    const svg = widget.querySelector('svg');
+    expect(svg?.getAttribute('class')).not.toContain('text-primary');
+    expect(svg?.getAttribute('class')).toContain('h-7 w-7');
+  });
+
+  it('applies amber tier for medium capacity (30-69%) and rose tier for low (<30%)', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 50, isCharging: false, devices: [] } },
+    });
+    const { rerender } = render(<LockScreenBatteryWidget />);
+    let widget = screen.getByTestId('lock-battery-widget');
+    expect(widget.firstElementChild?.className).toContain('text-amber-500');
+
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 15, isCharging: false, devices: [] } },
+    });
+    rerender(<LockScreenBatteryWidget />);
+    widget = screen.getByTestId('lock-battery-widget');
+    expect(widget.firstElementChild?.className).toContain('text-rose-500');
+  });
 });
+
+describe('LockScreenChrome', () => {
+  afterEach(cleanup);
+
+  it('renders battery indicator in the top-right slot next to local time when present', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: true, percent: 90, isCharging: false, devices: [] } },
+    });
+    render(<LockScreenChrome />, { wrapper: createWrapper() });
+    expect(screen.getByText('Local Time')).toBeTruthy();
+    expect(screen.getByTestId('lock-battery-widget')).toBeTruthy();
+    expect(screen.getByText('90%')).toBeTruthy();
+  });
+
+  it('renders only local time in top-right slot when machine has no battery', () => {
+    useMetricsStore.setState({
+      latest: { at: 1, battery: { hasBattery: false, devices: [] } },
+    });
+    render(<LockScreenChrome />, { wrapper: createWrapper() });
+    expect(screen.getByText('Local Time')).toBeTruthy();
+    expect(screen.queryByTestId('lock-battery-widget')).toBeNull();
+  });
+});
+

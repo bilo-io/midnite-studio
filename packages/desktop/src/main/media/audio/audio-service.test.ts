@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 
 import { audioSlug, createAudioService } from './audio-service';
 import { importAudioProvider } from './import-adapter';
+import { createMusicgenProvider } from './musicgen/provider';
+import type { MusicEngine } from './musicgen/engine';
 
-function harness(existing: Record<string, string> = {}) {
+function harness(existing: Record<string, string> = {}, engine: MusicEngine = { render: async () => ({ samples: new Float32Array(32000), sampleRate: 32000 }) }) {
   const written = new Map<string, Buffer>(Object.entries(existing).map(([k, v]) => [k, Buffer.from(v)]));
   const events: string[] = [];
   const service = createAudioService({
-    providers: { import: importAudioProvider },
+    providers: { musicgen: createMusicgenProvider(engine), import: importAudioProvider },
     writeBytes: async ({ path, data }) => {
       written.set(path, data);
       return ok({ size: data.length, largeFile: false });
@@ -18,7 +20,7 @@ function harness(existing: Record<string, string> = {}) {
       return data ? ok(data.toString('utf8')) : { ok: false, kind: 'error', message: 'File not found.' };
     },
     readFile: async (abs) => Buffer.from(`bytes of ${abs}`),
-    emit: (event) => events.push(`${event.status}:${event.completed}/${event.total}`),
+    emit: (event) => events.push(`${event.status}:${event.completed}/${event.total}${event.stage ? `:${event.stage}` : ''}`),
     now: () => new Date(2026, 8, 30, 14, 15, 2),
     mintId: () => 'sess-1',
   });
@@ -86,8 +88,11 @@ describe('audio service — import adapter', () => {
     expect(events.at(-1)).toBe('failed:0/1');
   });
 
-  it('reports Import as available but not generating', () => {
-    expect(harness().service.providerStatuses()).toEqual([{ id: 'import', available: true, generates: false }]);
+  it('reports MusicGen as generating and Import as not', () => {
+    expect(harness().service.providerStatuses()).toEqual([
+      { id: 'musicgen', available: true, generates: true },
+      { id: 'import', available: true, generates: false },
+    ]);
   });
 });
 
@@ -95,5 +100,62 @@ describe('audioSlug', () => {
   it('drops the extension and punctuation', () => {
     expect(audioSlug('My Song (demo).wav')).toBe('my-song-demo');
     expect(audioSlug('!!!')).toBe('audio');
+  });
+});
+
+describe('audio service — generating provider', () => {
+  const generateReq = { ...req, importId: 'gen-1', provider: 'musicgen' as const, prompt: { ...req.prompt, durationS: 10, count: 2 } };
+
+  it('renders each variant, lands wav + sidecar, records a create session and streams stages', async () => {
+    const { service, written, events } = harness();
+    const result = await service.generate(generateReq);
+
+    expect(result).toEqual({
+      ok: true,
+      value: { sessionId: 'sess-1', files: ['lofi-20260930-141502-1.wav', 'lofi-20260930-141502-2.wav'] },
+    });
+    expect(written.get('lofi-20260930-141502-1.wav')!.subarray(0, 4).toString('ascii')).toBe('RIFF');
+    expect(parseAudioSidecar(written.get('lofi-20260930-141502-1.json')!.toString())).toMatchObject({
+      provider: 'musicgen',
+      title: 'lofi',
+    });
+    const history = parseAudioProjectFile(written.get('project.json')!.toString());
+    expect(history.sessions[0]).toMatchObject({ kind: 'create', provider: 'musicgen' });
+    expect(events.some((e) => e.includes('Rendering variant 1/2'))).toBe(true);
+    expect(events.at(-1)).toMatch(/^succeeded:2\/2/);
+  });
+
+  it('refuses a provider that only imports', async () => {
+    const { service } = harness();
+    const result = await service.generate({ ...generateReq, provider: 'import' });
+    expect(result).toMatchObject({ ok: false, message: 'That provider does not generate audio.' });
+  });
+
+  it('keeps variants that landed when the run is cancelled mid-way, and reports cancelled', async () => {
+    let calls = 0;
+    const ref: { service?: ReturnType<typeof harness>['service'] } = {};
+    const engine: MusicEngine = {
+      render: async () => {
+        calls += 1;
+        if (calls === 2) ref.service?.cancel('gen-1');
+        return { samples: new Float32Array(32000), sampleRate: 32000 };
+      },
+    };
+    const h = harness({}, engine);
+    ref.service = h.service;
+    const result = await h.service.generate(generateReq);
+
+    expect(result).toMatchObject({ ok: false, message: 'cancelled' });
+    expect(h.events.at(-1)).toMatch(/^cancelled:1\/2/);
+    const history = parseAudioProjectFile(h.written.get('project.json')!.toString());
+    expect(history.sessions[0]!.variants).toEqual(['lofi-20260930-141502-1.wav']);
+  });
+
+  it('reports an engine failure verbatim and writes no session when nothing landed', async () => {
+    const h = harness({}, { render: async () => Promise.reject(new Error('model failed to load')) });
+    const result = await h.service.generate(generateReq);
+    expect(result).toMatchObject({ ok: false, message: 'model failed to load' });
+    expect(h.written.has('project.json')).toBe(false);
+    expect(h.events.at(-1)).toMatch(/^failed/);
   });
 });

@@ -194,7 +194,7 @@ describe('WorkflowCanvas', () => {
     const { container } = render(
       <Harness initial={{ nodes: [], edges: [] }} onChangeSpy={onChangeSpy} />,
     );
-    const surface = screen.getByRole('application', { name: 'Workflow canvas' });
+    const surface = screen.getByRole('application', { name: 'Graph canvas' });
     fireEvent.drop(surface, {
       clientX: 100,
       clientY: 100,
@@ -210,7 +210,7 @@ describe('WorkflowCanvas', () => {
   it('a drop is ignored in read-only mode', () => {
     const onChangeSpy = vi.fn();
     render(<Harness initial={{ nodes: [], edges: [] }} onChangeSpy={onChangeSpy} readOnly />);
-    fireEvent.drop(screen.getByRole('application', { name: 'Workflow canvas' }), {
+    fireEvent.drop(screen.getByRole('application', { name: 'Graph canvas' }), {
       clientX: 100,
       clientY: 100,
       dataTransfer: { getData: () => 'delay' },

@@ -76,7 +76,7 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'loops-and-boards',
     question: 'How do loops and the kanban board actually run agents?',
     answer: [
-      'A loop is a named, repeatable agent invocation (Guard, Concepts, Develop, Patrol, Medic, Overhaul) composed from a base prompt plus the run settings you tick before pressing Start: which jobs it does, whether it works in a worktree, whether it may open PRs or only report. Press Start and it spawns the agent in a real terminal session on an interval, and every run is recorded with the exact prompt it carried.',
+      'A loop is a named, repeatable agent invocation (Guard, Ideate, Create, Patrol, Medic, Overhaul) composed from a base prompt plus the run settings you tick before pressing Start: which jobs it does, whether it works in a worktree, whether it may open PRs or only report. Press Start and it spawns the agent in a real terminal session on an interval, and every run is recorded with the exact prompt it carried.',
       'The board is the same mechanism aimed at one card. A card on the project board can own a terminal, so the agent runs against that card’s branch or worktree and the card shows its live state (thinking, waiting on you, or done) while it does. There is no hidden queue, no server doing the work somewhere else, and no prompt you cannot read before it is sent.',
     ],
   },

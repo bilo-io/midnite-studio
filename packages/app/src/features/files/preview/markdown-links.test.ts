@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { resolveMarkdownLinkTarget } from './markdown-links';
+import { findAnchorTarget, inPageAnchor, resolveMarkdownLinkTarget, slugifyHeading } from './markdown-links';
+
+describe('anchors', () => {
+  it('slugifies like GitHub and de-dupes', () => {
+    document.body.innerHTML = '<div id="r"><h2>Second Part!</h2><h2>Second Part!</h2></div>';
+    const r = document.getElementById('r')!;
+    expect(slugifyHeading('Second Part!')).toBe('second-part');
+    expect(findAnchorTarget(r, 'second-part')).toBe(r.children[0]);
+    expect(findAnchorTarget(r, 'second-part-1')).toBe(r.children[1]);
+    expect(inPageAnchor('#a%20b')).toBe('a b');
+    expect(inPageAnchor('x.md#a')).toBeNull();
+  });
+});
 
 describe('resolveMarkdownLinkTarget', () => {
   it('returns external for http and https urls', () => {
@@ -64,10 +76,12 @@ describe('resolveMarkdownLinkTarget', () => {
     expect(resolveMarkdownLinkTarget('phase-1.md#section', 'todo/_INDEX.md')).toEqual({
       kind: 'internal',
       relPath: 'todo/phase-1.md',
+      anchor: 'section',
     });
     expect(resolveMarkdownLinkTarget('../docs/INITIAL_PLAN.md?foo=bar#baz', 'todo/_INDEX.md')).toEqual({
       kind: 'internal',
       relPath: 'docs/INITIAL_PLAN.md',
+      anchor: 'baz',
     });
   });
 

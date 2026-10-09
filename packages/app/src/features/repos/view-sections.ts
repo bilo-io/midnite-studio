@@ -193,6 +193,8 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   // Same formality (Phase 87 Theme C): the knowledge graph is per-repo but
   // has no sidebar section of its own to narrow.
   knowledge: WORK_IN_PROGRESS,
+  // Same formality again: Chats are stored app-wide and show no sidebar section.
+  chats: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
   search: WORK_IN_PROGRESS,
   /**

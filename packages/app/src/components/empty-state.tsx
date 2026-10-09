@@ -42,3 +42,68 @@ export function EmptyState({
     </div>
   );
 }
+
+/**
+ * The primary call-to-action under an `EmptyState` — pass as its `action`.
+ * One shared look so every empty page offers the same obvious next step.
+ *
+ * Styled after the Models view's "Start Ollama" button: an outlined primary
+ * tint at rest. On hover (or keyboard focus) it fills with the primary colour,
+ * glows, turns its text and icon white, and swaps `icon` for `filledIcon`
+ * when the glyph has a filled variant — CSS-only, both glyphs are rendered
+ * and `group-hover` picks one, so there is no state to keep in sync.
+ */
+export function EmptyStateButton({
+  icon: Icon,
+  filledIcon: FilledIcon,
+  label,
+  onClick,
+  disabled = false,
+  busy,
+  type = 'button',
+  className,
+}: {
+  icon?: IconComponent;
+  /** The filled variant of `icon`, shown while hovered — omit when the glyph has none. */
+  filledIcon?: IconComponent;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  /** Replaces the icon while the action is in flight (e.g. a spinner). */
+  busy?: ReactNode;
+  /** `submit` for a button inside a `<form>`. */
+  type?: 'button' | 'submit';
+  /** Extra classes appended after the shared look (e.g. a larger padding). */
+  className?: string;
+}) {
+  const swap = FilledIcon !== undefined && !disabled && busy === undefined;
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid="empty-state-cta"
+      className={`group inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-[background-color,color,box-shadow] duration-150 enabled:hover:bg-primary enabled:hover:text-white enabled:hover:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:bg-primary focus-visible:text-white focus-visible:shadow-[0_0_16px_hsl(var(--primary)/0.55)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50${className ? ` ${className}` : ''}`}
+    >
+      {busy ?? (
+        <>
+          {Icon ? (
+            <Icon
+              aria-hidden
+              data-icon="outline"
+              className={`h-3.5 w-3.5 ${swap ? 'group-hover:hidden group-focus-visible:hidden' : ''}`}
+            />
+          ) : null}
+          {swap ? (
+            <FilledIcon
+              aria-hidden
+              data-icon="filled"
+              className="hidden h-3.5 w-3.5 group-hover:block group-focus-visible:block"
+            />
+          ) : null}
+        </>
+      )}
+      {label}
+    </button>
+  );
+}

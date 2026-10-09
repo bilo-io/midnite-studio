@@ -67,6 +67,12 @@ const store = createMediaStore({
 /** Shared with `media-image-handlers.ts` (Theme C), which writes generated images through the same jail. */
 export { store as mediaStore };
 
+/** Ping the renderer (debounced) and make sure the repo's media watcher runs — for writers that bypass the store. */
+export function notifyMediaChanged(repoId: string, tab: MediaTab): void {
+  emitChanged(repoId, tab);
+  void ensureWatcher(repoId);
+}
+
 /** One recursive watcher per repo on `<repo>/.midnite/media`, started lazily. */
 const watchers = new Map<string, FSWatcher>();
 

@@ -3,6 +3,7 @@ import { useId, useMemo, useState } from 'react';
 
 import type { ChangedFile } from '../../components/build-change-tree';
 import { ChangeTotals, Counts } from '../../components/change-tree';
+import { DIFF_BAR_CLASS, DiffPaneClose } from '../../components/diff-pane-frame';
 import { IconButton } from '../../components/icon-button';
 import {
   EXPAND_ALL_LIMIT,
@@ -55,7 +56,7 @@ export function CommitAllChanges({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-2 border-y border-border px-3 py-1.5">
+      <header className={`flex items-center gap-2 px-3 ${DIFF_BAR_CLASS}`}>
         <ChangeTotals {...totals} />
 
         <IconButton
@@ -70,6 +71,7 @@ export function CommitAllChanges({
           size="sm"
           onClick={() => setExpanded(NOTHING_EXPANDED)}
         />
+        <DiffPaneClose />
       </header>
 
       {/* Said out loud, not swallowed — see `AllChangesView`'s copy of this note. */}
@@ -119,7 +121,7 @@ function CommitFileAccordion({
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={bodyId}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
+          className="flex min-w-0 cursor-pointer flex-1 items-center gap-2 text-left text-[13px] transition-colors hover:text-foreground"
         >
           <LuChevronRight
             aria-hidden

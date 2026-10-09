@@ -2,6 +2,8 @@ import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { useUiStore } from '../../store/ui-store';
+import { useChatsStore } from '../chats/chats-store';
 import { RefAgentAvatar } from './ref-agent-avatar';
 
 const revealSessionMock = vi.fn((_sessionId: string) => true);
@@ -77,6 +79,25 @@ describe('RefAgentAvatar', () => {
     fireEvent.click(getByTestId('ref-agent-reveal-session'));
 
     expect(revealSessionMock).toHaveBeenCalledWith('session-1');
+  });
+
+  it('for a running chat, offers "Open chat" and takes you to that chat', () => {
+    const setActiveView = vi.spyOn(useUiStore.getState(), 'setActiveView');
+    const select = vi.spyOn(useChatsStore.getState(), 'select').mockImplementation(() => undefined);
+    const { getByTestId, container } = render(
+      <RefAgentAvatar chat={{ id: 'chat-1', title: 'Fix the bug' }} agentId="codex" />,
+    );
+
+    fireEvent.mouseEnter(container.firstElementChild as HTMLElement);
+    const button = getByTestId('ref-agent-reveal-session');
+    expect(button.textContent).toContain('Open chat');
+    fireEvent.click(button);
+
+    expect(setActiveView).toHaveBeenCalledWith('chats');
+    expect(select).toHaveBeenCalledWith('chat-1');
+    expect(revealSessionMock).not.toHaveBeenCalled();
+    setActiveView.mockRestore();
+    select.mockRestore();
   });
 
   it('hides the button again once the pointer leaves the hover group', () => {

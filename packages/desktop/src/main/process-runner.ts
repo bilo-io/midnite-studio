@@ -38,14 +38,17 @@ export type SpawnFn = (
   command: string,
   args: readonly string[],
   cwd: string,
+  /** Extra environment on top of `process.env` — e.g. `DO_NOT_TRACK` for a tool with its own telemetry. */
+  env?: Readonly<Record<string, string>>,
 ) => SpawnedProcess;
 
 /** The real thing: `spawn` with everything that could change behaviour pinned. */
-export const realSpawn: SpawnFn = (command, args, cwd) => {
+export const realSpawn: SpawnFn = (command, args, cwd, extraEnv) => {
   const child = nodeSpawn(command, [...args], {
     cwd,
     env: {
       ...process.env,
+      ...extraEnv,
       // Colour codes would land inside a JSON payload a sink is trying to parse.
       NO_COLOR: '1',
       CLICOLOR: '0',
@@ -105,6 +108,8 @@ export type RunProcessDeps<T> = {
   now?: () => number;
   timeoutMs?: number;
   sink: ProcessSink<T>;
+  /** Extra environment for the child, on top of `process.env`. */
+  env?: Readonly<Record<string, string>>;
   /** Called with every stdout chunk as it arrives — for a live output stream. */
   onChunk?: (chunk: string) => void;
   /** Called once, right after a successful spawn — the caller's hook for cancellation. */
@@ -152,7 +157,7 @@ export function runProcess<T>(
 
     let child: SpawnedProcess;
     try {
-      child = spawn(command, args, cwd);
+      child = deps.env ? spawn(command, args, cwd, deps.env) : spawn(command, args, cwd);
     } catch (error) {
       // `spawn` can throw synchronously (an invalid cwd, for one) rather than
       // emitting 'error'. Both paths have to reach the same reason code.

@@ -31,6 +31,7 @@ import {
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree } from '../../components/change-tree';
+import { DIFF_BAR_CLASS, DiffPaneFrame } from '../../components/diff-pane-frame';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -108,6 +109,7 @@ export function CommitDetail({
   sha,
   onClose,
   layout = 'stacked',
+  dividerGradient,
 }: {
   repoId: string;
   sha: string;
@@ -120,6 +122,8 @@ export function CommitDetail({
    * file. Same state, same parts; only the arrangement differs.
    */
   layout?: 'stacked' | 'split';
+  /** Lane colours for the split layout's divider (graph inline panel only). */
+  dividerGradient?: { from: string; to: string };
 }) {
   const split = layout === 'split';
   const { data, isLoading } = useCommitDetail(repoId, sha);
@@ -373,7 +377,14 @@ export function CommitDetail({
       the tree/list toggle. Pinned rather than scrolled, because it now also
       carries the control that reveals everything below it.
     */
-    <div className="flex shrink-0 items-center gap-1 py-2 pl-1 pr-2">
+    <div
+      className={
+        layout === 'split'
+          ? `flex items-center gap-1 pl-1 pr-2 ${DIFF_BAR_CLASS}`
+          : 'flex shrink-0 items-center gap-1 py-2 pl-1 pr-2'
+      }
+      data-testid="commit-header-bar"
+    >
       <button
         type="button"
         onClick={toggleMeta}
@@ -432,7 +443,7 @@ export function CommitDetail({
           onToggleAll={toggleShowAll}
         />
       </div>
-      {onClose ? <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} /> : null}
+      {onClose && !split ? <IconButton icon={LuX} label="Close" size="sm" onClick={onClose} /> : null}
     </div>
   );
 
@@ -507,10 +518,11 @@ export function CommitDetail({
     return (
       <div className="flex h-full min-h-0" data-commit-layout="split">
         <div
-          className={`flex shrink-0 flex-col border-r border-border ${
+          className={`flex h-full min-h-0 shrink-0 flex-col self-stretch border-r border-border ${
             listColumn.dragging ? '' : 'transition-[width] duration-150 ease-in-out'
           }`}
           style={{ width: listColumn.current }}
+          data-testid="commit-left-panel"
         >
           {headerRow}
           {/*
@@ -532,8 +544,14 @@ export function CommitDetail({
             </div>
           )}
         </div>
-        <ResizeHandle resizable={listColumn} axis="x" label="Resize the commit file list" />
-        <div className="min-w-0 flex-1" data-testid="commit-diff-pane">
+        <ResizeHandle
+          resizable={listColumn}
+          axis="x"
+          label="Resize the commit file list"
+          gradient={dividerGradient}
+        />
+        <div className="h-full min-w-0 flex-1" data-testid="commit-diff-pane">
+          <DiffPaneFrame onClose={onClose}>
           {data.files.length === 0 ? null : selected !== null ? (
             singleDiff
           ) : pickedFiles.length > 1 ? (
@@ -558,6 +576,7 @@ export function CommitDetail({
               totals={{ fileCount: data.files.length, insertions, deletions }}
             />
           )}
+          </DiffPaneFrame>
         </div>
       </div>
     );

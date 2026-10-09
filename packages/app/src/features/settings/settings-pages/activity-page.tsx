@@ -8,7 +8,6 @@ import {
   LuSparkles,
   LuSquareKanban,
   LuSquareTerminal,
-  LuWorkflow,
 } from 'react-icons/lu';
 
 import {
@@ -26,6 +25,7 @@ import {
 } from '../../activity/activity-palette-store';
 import { resolveActivePalette } from '../../activity/resolve-active-palette';
 import { Choice, Field } from './controls';
+import { VIEW_ICON } from '../../../components/nav-icons';
 
 /** Scannable labels for the nine `ActivityStatus` values — nowhere else in
  * the app needed one until this page. */
@@ -390,7 +390,7 @@ function PreviewStrip() {
           <LuSparkles aria-hidden className="h-3 w-3" /> Graph node
         </span>
         <span className="flex items-center gap-1">
-          <LuWorkflow aria-hidden className="h-3 w-3" /> Workflow node
+          <VIEW_ICON.workflows className="h-3 w-3" /> Workflow node
         </span>
         <span className="flex items-center gap-1">
           <LuSquareTerminal aria-hidden className="h-3 w-3" /> Terminal row

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "description": "Talk to the elder, take the wolves quest, and walk off.",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "frames": 180,
+    "events": [
+      {"f": 1, "action": "interact", "down": true},
+      {"f": 3, "action": "interact", "down": false},
+      {"f": 10, "action": "choice-1", "down": true},
+      {"f": 12, "action": "choice-1", "down": false},
+      {"f": 20, "action": "interact", "down": true},
+      {"f": 22, "action": "interact", "down": false},
+      {"f": 30, "action": "interact", "down": true},
+      {"f": 32, "action": "interact", "down": false},
+      {"f": 40, "action": "forward", "down": true}
+    ]
+  },
+  "asserts": [
+    {"frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level"},
+    {"frame": 8, "kind": "state", "path": "$.rpg.dialogue.with", "op": "eq", "value": "elder"},
+    {"frame": 180, "kind": "state", "path": "$.rpg.quests.wolves", "op": "eq", "value": "active"},
+    {"frame": 180, "kind": "state", "path": "$.rpg.dialogue", "op": "eq", "value": null},
+    {"frame": 180, "kind": "state", "path": "$.player.position[2]", "op": "lt", "value": 4}
+  ]
+}

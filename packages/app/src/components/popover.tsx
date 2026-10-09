@@ -38,6 +38,8 @@ export function Popover({
   side = 'top',
   align = 'end',
   label,
+  title,
+  disabled = false,
   panelClassName = '',
   triggerClassName,
   open: controlledOpen,
@@ -52,6 +54,10 @@ export function Popover({
   align?: 'start' | 'center' | 'end';
   /** Accessible name for the trigger button. */
   label: string;
+  /** Optional title attribute for the trigger button. */
+  title?: string;
+  /** Whether the trigger button is disabled. */
+  disabled?: boolean;
   panelClassName?: string;
   /**
    * Replaces the trigger's default look outright rather than appending to it.
@@ -205,12 +211,21 @@ export function Popover({
       <button
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? id : undefined}
         aria-label={label}
+        title={title}
         data-testid={testId}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => {
+          if (disabled) return;
+          if (open) {
+            close();
+          } else {
+            setOpen(true);
+          }
+        }}
         className={
           triggerClassName ??
           'flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent'

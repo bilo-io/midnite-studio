@@ -5,14 +5,29 @@ import {
   LuActivity,
   LuArrowDown,
   LuArrowUp,
+  LuBot,
   LuCalendar,
+  LuCalendarDays,
+  LuChartColumn,
+  LuChartCandlestick,
+  LuChartPie,
   LuCircleDot,
+  LuClock,
+  LuCoins,
+  LuCreditCard,
   LuGitPullRequest,
   LuHeartPulse,
+  LuHistory,
   LuLayoutGrid,
+  LuNewspaper,
   LuPlay,
+  LuReceipt,
   LuRefreshCw,
+  LuRepeat,
   LuRotateCcw,
+  LuStar,
+  LuStickyNote,
+  LuTerminal,
   LuTrash2,
   LuUsers,
 } from 'react-icons/lu';
@@ -21,7 +36,6 @@ import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layou
 import { BrandMark } from '../../components/brand';
 import type { MenuItem } from '../../components/context-menu';
 import { EmptyState } from '../../components/empty-state';
-import { useDialogs } from '../../components/dialog-host';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { MultiSelectMenu } from '../../components/multi-select-menu';
 import { formatNumber } from '../../lib/format-number';
@@ -36,6 +50,7 @@ import {
 } from '../../services/queries';
 import {
   boardFor,
+  boardKeyFor,
   inReadingOrder,
   useDashboardStore,
   type WidgetLayout,
@@ -44,13 +59,31 @@ import { useUiStore } from '../../store/ui-store';
 import { byCommits, scopeStats } from './dashboard-derive';
 import { GRID_COLS, GRID_MARGIN, ROW_HEIGHT, isWidgetId, type WidgetId } from './widget-ids';
 import { DRAG_HANDLE_CLASS, NO_DRAG_CLASS, WidgetFrame } from './widget-frame';
+import { DashboardTabs } from './dashboard-tabs';
+import { WidgetPicker } from './widget-picker';
 import { availableWidgets, needsChurn, renderableWidgets, WIDGETS } from './widget-registry';
+import {
+  AgentActivityWidget,
+  AgentRosterWidget,
+  LiveSessionsWidget,
+  LoopRunsWidget,
+  RecentSessionsWidget,
+} from './widgets/agent-widgets';
+import { ClockWidget, DateWidget, ScratchpadWidget } from './widgets/general-widgets';
 import { ActivityWidget } from './widgets/activity-widget';
 import { CalendarWidget } from './widgets/calendar-widget';
 import { ContributorsWidget } from './widgets/contributors-widget';
 import { IssuesWidget, PullsWidget, RunsWidget } from './widgets/forge-widgets';
 import { HealthWidget } from './widgets/health-widget';
 import { PageDetachMark } from '../../components/page-detach-mark';
+import { AllocationWidget } from '../finance-dashboard/allocation-widget';
+import { AssetListWidget } from '../finance-dashboard/asset-list-widget';
+import { AssetStackWidget } from '../finance-dashboard/asset-stack-widget';
+import { BankCardsWidget } from '../finance-dashboard/bank-cards-widget';
+import { BigChartWidget } from '../finance-dashboard/big-chart-widget';
+import { FinanceHeaderControls } from '../finance-dashboard/finance-header-controls';
+import { NewsWidget } from '../finance-dashboard/news-widget';
+import { TransactionsWidget } from '../finance-dashboard/transactions-widget';
 
 /**
  * The repository's front page.
@@ -91,6 +124,22 @@ const WIDGET_ICON: Record<WidgetId, IconComponent> = {
   issues: LuCircleDot,
   runs: LuPlay,
   health: LuHeartPulse,
+  'agent-roster': LuBot,
+  'live-sessions': LuTerminal,
+  'recent-sessions': LuHistory,
+  'agent-activity': LuChartColumn,
+  'loop-runs': LuRepeat,
+  'fin-bank-cards': LuCreditCard,
+  'fin-assets': LuCoins,
+  'fin-allocation': LuChartPie,
+  'fin-chart': LuChartCandlestick,
+  'fin-watchlist': LuStar,
+  'fin-markets': LuLayoutGrid,
+  'fin-transactions': LuReceipt,
+  'fin-news': LuNewspaper,
+  clock: LuClock,
+  date: LuCalendarDays,
+  scratchpad: LuStickyNote,
 };
 
 export function DashboardView() {
@@ -99,7 +148,14 @@ export function DashboardView() {
   const selectCommit = useUiStore((s) => s.selectCommit);
 
   const boards = useDashboardStore((s) => s.boards);
-  const board = boardFor(boards, selectedRepoId);
+  const activeId = useDashboardStore((s) => s.activeId);
+  const setScratch = useDashboardStore((s) => s.setScratch);
+  /*
+    The Git dashboard is per repository (its key is the repo id); every other
+    dashboard is global and keyed `dash:<id>`. `null` only for Git with no repo.
+  */
+  const boardKey = boardKeyFor(activeId, selectedRepoId);
+  const board = boardFor(boards, boardKey);
   const setLayout = useDashboardStore((s) => s.setLayout);
   const addWidget = useDashboardStore((s) => s.addWidget);
   const removeWidget = useDashboardStore((s) => s.removeWidget);
@@ -117,11 +173,16 @@ export function DashboardView() {
   const onBoard = useMemo(() => new Set(specs.map((spec) => spec.id)), [specs]);
 
   const withChurn = needsChurn(layoutIds);
+  // Only a board that shows a repository-derived card pays for the traversal —
+  // the Agents dashboard, say, never touches git.
+  const usesStats = specs.some((spec) => spec.source === 'stats' || spec.source === 'both');
+  const usesRepo = usesStats || specs.some((spec) => spec.source === 'forge');
+  const usesFinance = specs.some((spec) => spec.category === 'finance');
   const {
     data: rawStats,
     isFetching: statsFetching,
     error: statsError,
-  } = useRepoStats(selectedRepoId, board.window, withChurn);
+  } = useRepoStats(selectedRepoId, board.window, withChurn, usesStats);
   const refreshStats = useRefreshStats(selectedRepoId);
 
   const pulls = useForgePulls(selectedRepoId, hasForge && onBoard.has('pulls'));
@@ -139,7 +200,6 @@ export function DashboardView() {
   );
 
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const dialogs = useDialogs();
 
   const authorOptions = useMemo(
     () =>
@@ -152,11 +212,13 @@ export function DashboardView() {
     [rawStats?.contributors],
   );
 
-  if (!selectedRepoId) return <NoRepo />;
+  // Only the Git dashboard needs a repository to say anything at all; a custom
+  // dashboard renders without one (its repo-derived cards just stay empty).
+  if (boardKey === null) return <NoRepo tabs />;
 
   // Error before anything else. `statsError` covers the whole four-widget
   // group, so a shimmering board would be four lies at once.
-  if (statsError) {
+  if (statsError && usesStats) {
     return (
       <EmptyState
         icon={LuHeartPulse}
@@ -166,7 +228,7 @@ export function DashboardView() {
     );
   }
 
-  const repoId = selectedRepoId;
+  const repoId = boardKey;
 
   const toggleAuthor = (email: string): void =>
     setAuthors(
@@ -177,22 +239,12 @@ export function DashboardView() {
     );
 
   /**
-   * The board's own menu: which widgets are on it, and Reset layout.
-   *
-   * Only widgets this repository could ever populate appear — a repo with no
-   * GitHub remote offers no PRs, issues or runs entry at all, rather than three
-   * entries that add a permanently empty tile.
+   * Everything this dashboard could offer. Only widgets this repository could
+   * ever populate appear — a repo with no GitHub remote offers no PRs, issues or
+   * runs entry at all, rather than three entries that add a permanently empty
+   * tile.
    */
-  const boardMenu: MenuItem[] = [
-    ...availableWidgets(hasForge).map((spec) => ({
-      label: `${onBoard.has(spec.id) ? '✓ ' : ''}${spec.title}`,
-      icon: WIDGET_ICON[spec.id],
-      onSelect: () =>
-        onBoard.has(spec.id) ? removeWidget(repoId, spec.id) : addWidget(repoId, spec.id),
-    })),
-    { type: 'separator' as const },
-    { label: 'Reset layout', icon: LuRotateCcw, onSelect: () => resetLayout(repoId) },
-  ];
+  const offered = availableWidgets(hasForge);
 
   const ordered = inReadingOrder(board.layout);
   const widgetMenu = (id: WidgetId): MenuItem[] => {
@@ -224,60 +276,76 @@ export function DashboardView() {
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <PageDetachMark role="dashboard" />
-        <h2 className="mr-auto text-sm font-semibold tracking-tight">Dashboard</h2>
+        <h2 className="sr-only">Dashboard</h2>
+        <DashboardTabs />
 
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="sr-only sm:not-sr-only">Window</span>
-          <select
-            aria-label="Statistics window"
-            value={board.window}
-            onChange={(event) => setWindow(repoId, event.target.value as StatsWindow)}
-            className="rounded border border-border bg-background px-1.5 py-1 text-xs"
-          >
-            {(Object.keys(WINDOW_LABELS) as StatsWindow[]).map((value) => (
-              <option key={value} value={value}>
-                {WINDOW_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/*
+          The Finance cards' global controls (timescale, display currency).
+          Keyed on the cards actually on the board rather than on which
+          dashboard is active, so a custom dashboard that borrowed one still
+          gets them.
+        */}
+        {usesFinance ? <FinanceHeaderControls /> : null}
 
-        <MultiSelectMenu
-          options={authorOptions}
-          selected={board.authors}
-          onChange={(next) => setAuthors(repoId, next)}
-          icon={<LuUsers aria-hidden className="h-3.5 w-3.5" />}
-          allLabel="All authors"
-          searchPlaceholder="Filter authors…"
-          emptyLabel="No contributors in this window."
-          label="Filter the board by author"
-          summarise={(count) => `${count} authors`}
-        />
+        {usesStats ? (
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="sr-only sm:not-sr-only">Window</span>
+            <select
+              aria-label="Statistics window"
+              value={board.window}
+              onChange={(event) => setWindow(repoId, event.target.value as StatsWindow)}
+              className="rounded border border-border bg-background px-1.5 py-1 text-xs"
+            >
+              {(Object.keys(WINDOW_LABELS) as StatsWindow[]).map((value) => (
+                <option key={value} value={value}>
+                  {WINDOW_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        {usesStats ? (
+          <MultiSelectMenu
+            options={authorOptions}
+            selected={board.authors}
+            onChange={(next) => setAuthors(repoId, next)}
+            icon={<LuUsers aria-hidden className="h-3.5 w-3.5" />}
+            allLabel="All authors"
+            searchPlaceholder="Filter authors…"
+            emptyLabel="No contributors in this window."
+            label="Filter the board by author"
+            summarise={(count) => `${count} authors`}
+          />
+        ) : null}
+
+        {usesRepo ? (
+          <IconButton
+            icon={LuRefreshCw}
+            label="Recompute repository statistics"
+            size="sm"
+            busy={statsFetching}
+            onClick={refreshStats}
+          />
+        ) : null}
 
         <IconButton
-          icon={LuRefreshCw}
-          label="Recompute repository statistics"
+          icon={LuRotateCcw}
+          label="Reset layout"
           size="sm"
-          busy={statsFetching}
-          onClick={refreshStats}
+          onClick={() => resetLayout(repoId)}
         />
 
-        <IconButton
-          icon={LuLayoutGrid}
-          label="Widgets and layout"
-          size="sm"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            dialogs.openMenu(
-              { clientX: event.clientX || rect.right, clientY: event.clientY || rect.bottom },
-              boardMenu,
-            );
-          }}
+        <WidgetPicker
+          specs={offered}
+          onBoard={onBoard}
+          icons={WIDGET_ICON}
+          onAdd={(id) => addWidget(repoId, id)}
         />
       </header>
 
       <Board
-        repoId={repoId}
+        revealKey={`${activeId}:${selectedRepoId ?? ''}`}
         specs={specs}
         layout={board.layout}
         onLayoutChange={(next) => setLayout(repoId, next)}
@@ -331,6 +399,43 @@ export function DashboardView() {
               return <RunsWidget result={runs.data} isFetching={runs.isFetching} repoId={repoId} />;
             case 'health':
               return <HealthWidget stats={stats} loading={statsFetching && !rawStats} />;
+            case 'agent-roster':
+              return <AgentRosterWidget />;
+            case 'live-sessions':
+              return <LiveSessionsWidget />;
+            case 'recent-sessions':
+              return <RecentSessionsWidget />;
+            case 'agent-activity':
+              return <AgentActivityWidget />;
+            case 'loop-runs':
+              return <LoopRunsWidget />;
+            case 'fin-bank-cards':
+              return <BankCardsWidget />;
+            case 'fin-assets':
+              return <AssetStackWidget />;
+            case 'fin-allocation':
+              return <AllocationWidget />;
+            case 'fin-chart':
+              return <BigChartWidget />;
+            case 'fin-watchlist':
+              return <AssetListWidget list="watchlist" />;
+            case 'fin-markets':
+              return <AssetListWidget list="markets" />;
+            case 'fin-transactions':
+              return <TransactionsWidget />;
+            case 'fin-news':
+              return <NewsWidget />;
+            case 'clock':
+              return <ClockWidget />;
+            case 'date':
+              return <DateWidget />;
+            case 'scratchpad':
+              return (
+                <ScratchpadWidget
+                  text={board.scratch ?? ''}
+                  onChange={(text) => setScratch(repoId, text)}
+                />
+              );
           }
         }}
         widgetMenu={widgetMenu}
@@ -340,14 +445,14 @@ export function DashboardView() {
 }
 
 function Board({
-  repoId,
+  revealKey,
   specs,
   layout,
   onLayoutChange,
   renderWidget,
   widgetMenu,
 }: {
-  repoId: string;
+  revealKey: string;
   specs: readonly { id: WidgetId; title: string; minW: number; minH: number }[];
   layout: readonly WidgetLayout[];
   onLayoutChange: (next: WidgetLayout[]) => void;
@@ -364,7 +469,7 @@ function Board({
     `specs` order still reads as one board arriving together rather than a
     literal row-by-row wipe.
   */
-  const cascade = useCascadeReveal({ revealKey: repoId });
+  const cascade = useCascadeReveal({ revealKey });
   /*
     The library's own container hook, not `WidthProvider`.
 
@@ -398,7 +503,7 @@ function Board({
         <EmptyState
           icon={LuLayoutGrid}
           title="No widgets on this board"
-          body="Use Widgets and layout, in the header above, to add some."
+          body="Use Add widget, in the header above, to add some."
         />
       </div>
     );
@@ -424,6 +529,15 @@ function Board({
             a drag instead of a click.
           */
           dragConfig={{ handle: `.${DRAG_HANDLE_CLASS}`, cancel: `.${NO_DRAG_CLASS}` }}
+          /*
+            Every card resizes from its corners and edges, not only the
+            south-east corner the library defaults to — a tall chart card is
+            far easier to widen from its left edge than to drag a 20px corner
+            across the board. The north edge is left out on purpose: the
+            header is the drag handle, and a resize strip on top of it would
+            fight the drag. Minimums come from the registry (`minW`/`minH`).
+          */
+          resizeConfig={{ handles: ['se', 'sw', 'e', 'w', 's'] }}
           onLayoutChange={(next) =>
             onLayoutChange(
               next
@@ -455,14 +569,21 @@ function Board({
   );
 }
 
-function NoRepo() {
+function NoRepo({ tabs }: { tabs?: boolean }) {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <BrandMark className="h-14 w-14 opacity-80" />
-      <h1 className="text-lg font-semibold tracking-tight">Dashboard</h1>
-      <p className="max-w-md text-sm text-muted-foreground">
-        Select a repository on the left to see its history, contributors and CI at a glance.
-      </p>
+    <div className="flex h-full min-h-0 flex-col">
+      {tabs ? (
+        <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+          <DashboardTabs />
+        </header>
+      ) : null}
+      <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center gap-3 text-center">
+        <BrandMark className="h-14 w-14 opacity-80" />
+        <h1 className="text-lg font-semibold tracking-tight">Dashboard</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
+          Select a repository on the left to see its history, contributors and CI at a glance.
+        </p>
+      </div>
     </div>
   );
 }

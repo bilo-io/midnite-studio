@@ -1,0 +1,66 @@
+{
+  "elder": {
+    "id": "elder",
+    "root": "greet",
+    "nodes": {
+      "greet": {
+        "speaker": "Elder",
+        "text": "Traveller! Wolves have been taking our sheep.",
+        "choices": [
+          { "text": "I'll deal with the wolves.", "next": "accept", "requires": { "quest": "wolves", "status": "inactive" }, "effects": [{ "type": "start-quest", "quest": "wolves" }] },
+          { "text": "About the wolves...", "next": "report", "requires": { "quest": "wolves", "status": "active" } },
+          { "text": "Goodbye.", "next": "bye" }
+        ]
+      },
+      "accept": { "speaker": "Elder", "text": "Three of them, out past the fields. Take care.", "next": "bye" },
+      "report": {
+        "speaker": "Elder",
+        "text": "Is it done? Then the village owes you.",
+        "next": "bye",
+        "effects": [{ "type": "quest-event", "event": { "type": "talk", "target": "elder" } }]
+      },
+      "bye": { "speaker": "Elder", "text": "Safe roads, traveller.", "end": true }
+    }
+  },
+  "healer": {
+    "id": "healer",
+    "root": "greet",
+    "nodes": {
+      "greet": {
+        "speaker": "Healer",
+        "text": "My stores are bare. Have you seen the glowing herbs?",
+        "choices": [
+          { "text": "I'll find some.", "next": "accept", "requires": { "quest": "herbs", "status": "inactive" }, "effects": [{ "type": "start-quest", "quest": "herbs" }] },
+          { "text": "Here are your herbs.", "next": "thanks", "requires": { "quest": "herbs", "status": "active" } },
+          { "text": "Can you heal me?", "next": "heal" },
+          { "text": "Goodbye.", "next": "bye" }
+        ]
+      },
+      "accept": { "speaker": "Healer", "text": "Two will do. They grow by the old stones.", "next": "bye" },
+      "thanks": {
+        "speaker": "Healer",
+        "text": "Bless you. Take this, it was my son's.",
+        "next": "bye",
+        "effects": [{ "type": "quest-event", "event": { "type": "talk", "target": "healer" } }]
+      },
+      "heal": { "speaker": "Healer", "text": "Hold still... there.", "next": "bye", "effects": [{ "type": "heal" }] },
+      "bye": { "speaker": "Healer", "text": "Go well.", "end": true }
+    }
+  },
+  "smith": {
+    "id": "smith",
+    "root": "greet",
+    "nodes": {
+      "greet": {
+        "speaker": "Smith",
+        "text": "Forge is hot. Need something?",
+        "choices": [
+          { "text": "A cap, for 20 gold.", "next": "sold", "effects": [{ "type": "buy", "item": "cloth-cap", "price": 20 }] },
+          { "text": "Just looking.", "next": "bye" }
+        ]
+      },
+      "sold": { "speaker": "Smith", "text": "Wear it well.", "next": "bye" },
+      "bye": { "speaker": "Smith", "text": "Mind the sparks.", "end": true }
+    }
+  }
+}

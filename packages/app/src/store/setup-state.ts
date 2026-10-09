@@ -22,6 +22,8 @@ export type SetupState = {
    * Settings ▸ Accounts to say "you skipped this" and offer it again.
    */
   skippedPageIds: string[];
+  /** The forges ticked on the setup overlay's forge page (Theme E) — `ForgeKind` ids; drives the CLI page's rows. */
+  forges: string[];
 };
 
 export const INITIAL_SETUP_STATE: SetupState = {
@@ -29,6 +31,7 @@ export const INITIAL_SETUP_STATE: SetupState = {
   dismissedAt: null,
   lastPageId: null,
   skippedPageIds: [],
+  forges: [],
 };
 
 /** The pre-v28 fields the migration reads. All optional — any of them may be absent. */

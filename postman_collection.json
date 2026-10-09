@@ -1,0 +1,524 @@
+{
+  "info": {
+    "_postman_id": "3e9b1d5c-8902-4fc8-9f22-d7b1a2c34567",
+    "name": "Midnite Studio Workflow Demo API",
+    "description": "Collection for Midnite Studio's embedded HTTP Workflow Demo API (Phase 43 Theme D & Phase 97 Theme M). Covers root discovery, CRUD collections, and deterministic scripted workflow routes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System & Discovery",
+      "item": [
+        {
+          "name": "Get API Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Returns service identifier and available collection hints."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Collections CRUD",
+      "item": [
+        {
+          "name": "List Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/:collection?limit=10&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Page size"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Page offset"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}",
+                  "description": "Collection name (e.g. items, users)"
+                }
+              ]
+            },
+            "description": "Lists records in the specified collection. Returns x-total-count header and { records, total }."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Example Task\",\n  \"status\": \"open\",\n  \"priority\": \"high\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/:collection",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection"],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}",
+                  "description": "Collection name"
+                }
+              ]
+            },
+            "description": "Creates a new record with an auto-generated id. Returns 201 Created."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Record by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/:collection/:id",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection", ":id"],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}"
+                },
+                {
+                  "key": "id",
+                  "value": "{{recordId}}"
+                }
+              ]
+            },
+            "description": "Retrieves a record by its ID. Returns 404 if not found."
+          },
+          "response": []
+        },
+        {
+          "name": "Replace Record (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Replaced Task\",\n  \"status\": \"in-progress\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/:collection/:id",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection", ":id"],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}"
+                },
+                {
+                  "key": "id",
+                  "value": "{{recordId}}"
+                }
+              ]
+            },
+            "description": "Replaces all fields in the record while preserving its ID. Returns 200 or 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Merge Record (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/:collection/:id",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection", ":id"],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}"
+                },
+                {
+                  "key": "id",
+                  "value": "{{recordId}}"
+                }
+              ]
+            },
+            "description": "Merges partial fields into the record. Returns 200 or 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Record",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/:collection/:id",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection", ":id"],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}"
+                },
+                {
+                  "key": "id",
+                  "value": "{{recordId}}"
+                }
+              ]
+            },
+            "description": "Deletes the record. Returns 204 No Content."
+          },
+          "response": []
+        },
+        {
+          "name": "Probe Collection (HEAD)",
+          "request": {
+            "method": "HEAD",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/:collection",
+              "host": ["{{baseUrl}}"],
+              "path": [":collection"],
+              "variable": [
+                {
+                  "key": "collection",
+                  "value": "{{collection}}"
+                }
+              ]
+            },
+            "description": "Returns headers without body, including x-total-count."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Scripted Workflow Demo Routes",
+      "item": [
+        {
+          "name": "Echo Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Custom-Trace",
+                "value": "workflow-step-1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ping\": \"pong\",\n  \"step\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/demo/echo?trace=active",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "echo"],
+              "query": [
+                {
+                  "key": "trace",
+                  "value": "active"
+                }
+              ]
+            },
+            "description": "Reflects incoming method, query params, headers, and parsed or raw body."
+          },
+          "response": []
+        },
+        {
+          "name": "Delay Simulation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/demo/delay?ms=500",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "delay"],
+              "query": [
+                {
+                  "key": "ms",
+                  "value": "500",
+                  "description": "Milliseconds to delay (capped at 60000ms)"
+                }
+              ]
+            },
+            "description": "Simulates latency and async response delays."
+          },
+          "response": []
+        },
+        {
+          "name": "Fail N Times (Retry Testing)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/demo/fail-n?key={{retryKey}}&n=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "fail-n"],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "{{retryKey}}",
+                  "description": "Counter scope key"
+                },
+                {
+                  "key": "n",
+                  "value": "2",
+                  "description": "Fail count before succeeding"
+                }
+              ]
+            },
+            "description": "Returns 500 for the first n attempts for the given key, then 200 OK. Perfect for retry logic."
+          },
+          "response": []
+        },
+        {
+          "name": "Flaky Route (Deterministic PRNG)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/demo/flaky?rate=0.5&seed={{flakySeed}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "flaky"],
+              "query": [
+                {
+                  "key": "rate",
+                  "value": "0.5",
+                  "description": "Failure probability (0.0 to 1.0)"
+                },
+                {
+                  "key": "seed",
+                  "value": "{{flakySeed}}",
+                  "description": "Seed for deterministic pseudo-random roll"
+                }
+              ]
+            },
+            "description": "Deterministically fails with 500 or succeeds with 200 based on rate, seed, and invocation index."
+          },
+          "response": []
+        },
+        {
+          "name": "Classify Risk",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/demo/classify?risk=0.8",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "classify"],
+              "query": [
+                {
+                  "key": "risk",
+                  "value": "0.8",
+                  "description": "Risk score (0-1) or band name ('low', 'medium', 'high')"
+                }
+              ]
+            },
+            "description": "Maps numeric scores or risk inputs to risk bands ('low', 'medium', 'high')."
+          },
+          "response": []
+        },
+        {
+          "name": "Research Lane Findings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/demo/research/:lane",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "research", ":lane"],
+              "variable": [
+                {
+                  "key": "lane",
+                  "value": "{{researchLane}}",
+                  "description": "Research lane name (e.g. sales, architecture, security)"
+                }
+              ]
+            },
+            "description": "Returns canned deterministic findings for a research lane."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify State",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/demo/verify?key={{verifyKey}}&passAfter=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "verify"],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "{{verifyKey}}",
+                  "description": "State counter key"
+                },
+                {
+                  "key": "passAfter",
+                  "value": "3",
+                  "description": "Attempt number from which pass becomes true"
+                }
+              ]
+            },
+            "description": "Returns { pass: false } until attempt >= passAfter, then { pass: true }."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000",
+      "type": "string"
+    },
+    {
+      "key": "collection",
+      "value": "items",
+      "type": "string"
+    },
+    {
+      "key": "recordId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "retryKey",
+      "value": "workflow-retry-test",
+      "type": "string"
+    },
+    {
+      "key": "flakySeed",
+      "value": "midnite-seed",
+      "type": "string"
+    },
+    {
+      "key": "researchLane",
+      "value": "security",
+      "type": "string"
+    },
+    {
+      "key": "verifyKey",
+      "value": "approval-check",
+      "type": "string"
+    }
+  ]
+}

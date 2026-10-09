@@ -1,0 +1,16 @@
+{
+  "places": {
+    "square": [1.5, 4],
+    "home-elder": [-12, 10],
+    "garden": [-8, 2],
+    "home-healer": [-12, 14],
+    "forge": [10, 8],
+    "tavern": [12, 14],
+    "home-smith": [14, 4]
+  },
+  "npcs": [
+    { "id": "elder", "name": "Elder", "dialogue": "elder", "color": "#d6b26e", "schedule": [{ "from": 6, "to": 18, "at": "square" }, { "from": 18, "to": 6, "at": "home-elder" }] },
+    { "id": "healer", "name": "Healer", "dialogue": "healer", "color": "#7fbf7f", "schedule": [{ "from": 8, "to": 17, "at": "garden" }, { "from": 17, "to": 8, "at": "home-healer" }] },
+    { "id": "smith", "name": "Smith", "dialogue": "smith", "color": "#c46a3a", "schedule": [{ "from": 7, "to": 19, "at": "forge" }, { "from": 19, "to": 23, "at": "tavern" }] }
+  ]
+}

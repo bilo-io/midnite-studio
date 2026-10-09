@@ -17,7 +17,7 @@ import { parseJsonPayload } from './github/gh-parse';
  * added before an adapter exists for it. When `http.ts` lands, this module's
  * three `fetch` calls are what it replaces.
  */
-export type WhoamiResult = { login: string; displayName: string; avatarUrl: string | null };
+export type WhoamiResult = { login: string; displayName: string; avatarUrl: string | null; email?: string | null };
 
 const WHOAMI_TIMEOUT_MS = 10_000;
 
@@ -61,6 +61,7 @@ export async function githubWhoami(host: string, token?: string): Promise<Whoami
     login,
     displayName: asString(row['name']) ?? login,
     avatarUrl: sanitizeAvatarUrl(row['avatar_url']),
+    email: asString(row['email']),
   };
 }
 
@@ -109,6 +110,7 @@ export async function gitlabWhoami(host: string, token: string): Promise<WhoamiR
     login,
     displayName: asString(row['name']) ?? login,
     avatarUrl: sanitizeAvatarUrl(row['avatar_url']),
+    email: asString(row['email']) ?? asString(row['public_email']),
   };
 }
 

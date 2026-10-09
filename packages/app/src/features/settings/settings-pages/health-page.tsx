@@ -418,7 +418,7 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
             ) : (
               <LuX className="h-4 w-4 text-muted-foreground" />
             )}
-            <span className="font-medium text-xs">midnite-studio CLI</span>
+            <span className="font-medium text-xs">midnite CLI</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">

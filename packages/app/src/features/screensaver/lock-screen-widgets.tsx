@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { LuArrowDown, LuArrowUp, LuBatteryCharging } from 'react-icons/lu';
+import { LuArrowDown, LuArrowUp, LuZap } from 'react-icons/lu';
 import { type MetricId } from '@midnite/studio-shared';
 
 import { BatteryIcon } from '../battery/battery-icon';
@@ -40,10 +40,8 @@ export function LockScreenWidgets({ topCentre }: { topCentre?: ReactNode } = {})
       <LockScreenSlotIsland slot="bottom-left">
         <LockScreenFintechWidget />
       </LockScreenSlotIsland>
-      {/* Battery stacks above the system monitor in the same corner (Theme B) — both
-          are machine vitals, and the slot's own gap is what keeps them apart. */}
+      {/* System monitor in bottom-right corner. */}
       <LockScreenSlotIsland slot="bottom-right">
-        <LockScreenBatteryWidget />
         <LockScreenSysmonWidget />
       </LockScreenSlotIsland>
       <LockScreenSlotIsland slot="top-centre">
@@ -94,7 +92,7 @@ export function LockScreenWeatherWidget() {
 }
 
 /**
- * Battery, bottom right (Phase 46 Theme B) — pure reuse of `features/battery/`.
+ * Battery, top right beside time — pure reuse of `features/battery/`.
  * No new IPC, no new sampling, no new schema: `BatteryReadingSchema` is
  * already an optional field on the metrics sample, exactly as the status
  * bar's own `BatterySegment` reads it.
@@ -120,15 +118,33 @@ export function LockScreenBatteryWidget() {
   return (
     <div
       data-testid="lock-battery-widget"
-      className="flex min-w-[280px] items-center rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
+      className="flex h-9 items-center"
     >
       <div
-        className={`flex items-center gap-2.5 font-mono text-2xl font-bold tabular-nums ${textClass} ${flashClass}`}
+        className={`relative flex items-center gap-2 font-mono text-3xl font-semibold tabular-nums tracking-tight px-1.5 py-0.5 rounded-lg ${textClass} ${flashClass}`}
         style={glowStyle}
+        data-charging={battery?.isCharging ? 'true' : undefined}
       >
-        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-7 w-7 text-primary" />
-        {battery?.isCharging ? <LuBatteryCharging className="h-6 w-6" /> : null}
+        {battery?.isCharging && (
+          <LuZap
+            className="h-7 w-7 shrink-0 text-emerald-500 dark:text-emerald-400"
+            data-testid="battery-charging-bolt"
+            aria-hidden="true"
+          />
+        )}
+        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-7 w-7" />
         <span>{rounded}%</span>
+        {battery?.isCharging && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg"
+          >
+            <span
+              data-testid="battery-charging-shimmer"
+              className="battery-charging-shimmer absolute inset-0"
+            />
+          </span>
+        )}
       </div>
     </div>
   );

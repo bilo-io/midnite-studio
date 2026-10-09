@@ -325,7 +325,7 @@ export const COMMANDS = [
    * `repos.toggle`: you rarely need this while mid-command with the terminal
    * focused, and it must not conflict with the terminal's own Ctrl+G binding.
    */
-  { id: 'view.graph', label: 'Go to Graph', group: 'graph', chord: 'Mod+Shift+g' },
+  { id: 'view.graph', label: 'Go to Timeline', group: 'graph', chord: 'Mod+Shift+g' },
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
   /**
    * Kept as `status.focus` (a persisted keymap override names the id) and
@@ -377,7 +377,7 @@ export const COMMANDS = [
   // Declared, unbound: like `sync.fetch`, chord-free by choice rather than by
   // exhaustion — a run action does not need a global chord, and the canvas's
   // own Run button (Theme F) is already one click away once the view is open.
-  { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
+  { id: 'workflow.run', label: 'Run Graph', group: 'view' },
   /**
    * Phase 95 Theme H. Chord-free, like `op.abort`/`op.continue` above — a
    * kill switch is reached often enough to want a palette row and rarely
@@ -398,11 +398,21 @@ export const COMMANDS = [
   { id: 'media.tab.image', label: 'Media: Images', group: 'view' },
   { id: 'media.tab.video', label: 'Media: Video', group: 'view' },
   { id: 'media.tab.audio', label: 'Media: Audio', group: 'view' },
+  { id: 'media.tab.model', label: 'Media: Models (3D)', group: 'view' },
+  /** Phase 101 Theme A — chord-free; Audio's Editor | Generator sub-tabs. */
+  { id: 'media.audio.editor', label: 'Audio: Editor', group: 'view' },
+  { id: 'media.audio.generator', label: 'Audio: Generator', group: 'view' },
   /**
    * Phase 96 Theme C. Chord-free, same reasoning as `view.video` right
    * above — reachable from the rail and the palette.
    */
   { id: 'view.models', label: 'Go to Models', group: 'view' },
+  /**
+   * Chats page. Chord-free like `view.models`: `Mod+Shift+c` is DevTools' element
+   * picker and `Mod+c` is copy, so the letter that names the feature is taken, and
+   * a mnemonic that does not name it teaches nothing. Rail and palette reach it.
+   */
+  { id: 'view.chats', label: 'Go to Chats', group: 'view' },
   /**
    * Phase 66 Theme B. Chord-free like `view.video` above rather than a
    * `Mod+Shift+…` chord (Decision 5): only five of nineteen views wear one,

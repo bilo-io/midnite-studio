@@ -30,6 +30,8 @@ export function TreeSection({
   onToggle,
   hideWhenEmpty = true,
   depth = 0,
+  tone,
+  tinted = false,
   children,
 }: {
   title: string;
@@ -67,6 +69,13 @@ export function TreeSection({
    * `TREE_INDENT` holds the ladder both this and the rows are measured on.
    */
   depth?: 0 | 1 | 2 | 3;
+  /** `primary` paints the chevron and heading in the active theme's primary colour. */
+  tone?: 'primary';
+  /**
+   * A wash of the user's primary colour behind the heading. `bg-primary/15` is the theme token with
+   * alpha, so it follows whichever primary the user picked — never a literal colour.
+   */
+  tinted?: boolean;
   children: ReactNode;
 }) {
   const bodyId = useId();
@@ -77,13 +86,17 @@ export function TreeSection({
       {collapsible ? (
         <LuChevronRight
           aria-hidden
-          className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+          className={`h-3 w-3 shrink-0 ${tone === 'primary' ? 'text-primary' : 'text-muted-foreground'} transition-transform duration-150 ease-in-out ${
             open ? 'rotate-90' : ''
           }`}
         />
       ) : null}
       {icon}
-      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <h3
+        className={`text-[11px] font-semibold uppercase tracking-wide ${
+          tone === 'primary' ? 'text-primary' : 'text-muted-foreground'
+        }`}
+      >
         {title}
       </h3>
       {count === undefined ? null : (
@@ -102,7 +115,7 @@ export function TreeSection({
         Reviews (which do not), and the sidebar's section rhythm visibly
         stuttered. Pinning the row means an optional control cannot change it.
       */}
-      <header className={`flex h-7 items-center gap-1.5 pr-2 ${TREE_INDENT[depth]}`}>
+      <header className={`flex h-7 items-center gap-1.5 pr-2 ${TREE_INDENT[depth]} ${tinted ? 'bg-primary/15' : ''}`}>
         {collapsible ? (
           <button
             type="button"

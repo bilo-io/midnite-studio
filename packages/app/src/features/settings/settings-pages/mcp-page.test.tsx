@@ -51,6 +51,16 @@ describe('McpSettingsPage', () => {
     expect(screen.getByText('/tmp/x.sock')).toBeTruthy();
   });
 
+  it('registers the server as `midnite` and explains how to re-register an old midnite-studio entry', async () => {
+    installBridge({ get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js' }) });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText('claude mcp add midnite -- node /app/mcp-shim.js')).toBeTruthy();
+    const note = screen.getByTestId('mcp-rename-note');
+    expect(note.textContent).toContain('claude mcp remove midnite-studio && claude mcp add midnite');
+    expect(note.textContent).toContain('mcp__midnite__*');
+  });
+
   it('toggling the switch calls mcp.set with the new value', async () => {
     const { set } = installBridge();
     render(<McpSettingsPage />, { wrapper: createWrapper() });
@@ -86,6 +96,170 @@ describe('McpSettingsPage', () => {
     fireEvent.click(checkbox);
 
     await waitFor(() => expect(set).toHaveBeenCalledWith({ allowGateDecide: true }));
+  });
+
+  it('toggling the model-editing switch calls mcp.set with allowModels, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit 3D models' }));
+    expect(((await screen.findByTestId('mcp-allow-models')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowGateDecide: false, allowModels: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit 3D models' }));
+    const checkbox = await screen.findByTestId('mcp-allow-models');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    // The page tells a user how to point their own Claude session at it.
+    expect(screen.getByText(/Use your own Claude Code session/)).toBeTruthy();
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowModels: true }));
+  });
+
+  it('toggling the games switch calls mcp.set with allowGames, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents run and edit games' }));
+    expect(((await screen.findByTestId('mcp-allow-games')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowGames: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents run and edit games' }));
+    const checkbox = await screen.findByTestId('mcp-allow-games');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowGames: true }));
+  });
+
+  it('toggling the terrains switch calls mcp.set with allowTerrains, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit terrains' }));
+    expect(((await screen.findByTestId('mcp-allow-terrains')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowTerrains: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit terrains' }));
+    const checkbox = await screen.findByTestId('mcp-allow-terrains');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowTerrains: true }));
+  });
+
+  it('toggling the sprites switch calls mcp.set with allowSprites, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit sprites and maps' }));
+    expect(((await screen.findByTestId('mcp-allow-sprites')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowSprites: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit sprites and maps' }));
+    const checkbox = await screen.findByTestId('mcp-allow-sprites');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowSprites: true }));
+  });
+
+  it('toggling the maps switch calls mcp.set with allowMaps, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents capture maps' }));
+    expect(((await screen.findByTestId('mcp-allow-maps')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowMaps: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents capture maps' }));
+    const checkbox = await screen.findByTestId('mcp-allow-maps');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowMaps: true }));
+  });
+
+  it('toggling the music switch calls mcp.set with allowMusic, and it is disabled with the server off', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit music' }));
+    expect(((await screen.findByTestId('mcp-allow-music')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({ enabled: true, running: true, socketPath: '/tmp/x.sock', shimPath: '/app/mcp-shim.js', allowMusic: false }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit music' }));
+    const checkbox = await screen.findByTestId('mcp-allow-music');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    expect((checkbox as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowMusic: true }));
+  });
+
+  it('registers Midnite in Antigravity only after an explicit confirmation, and can unregister', async () => {
+    const agyState = { registered: false };
+    const agy = {
+      status: vi.fn(async () => ({ ok: true as const, value: { registered: agyState.registered, configPath: '~/.gemini/antigravity/mcp_config.json' } })),
+      register: vi.fn(async () => {
+        agyState.registered = true;
+        return { ok: true as const, value: { registered: true, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+      }),
+      unregister: vi.fn(async () => {
+        agyState.registered = false;
+        return { ok: true as const, value: { registered: false, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+      }),
+    };
+    installBridge();
+    (window as unknown as { midniteStudio: { media: unknown } }).midniteStudio.media = { music: { agy } };
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents edit music' }));
+
+    fireEvent.click(await screen.findByTestId('mcp-agy-register-button'));
+    // Asking is not registering: nothing is written until the user confirms.
+    expect(agy.register).not.toHaveBeenCalled();
+    expect(await screen.findByTestId('mcp-agy-consent')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('mcp-agy-confirm'));
+    await waitFor(() => expect(agy.register).toHaveBeenCalledWith({ consent: true }));
+
+    fireEvent.click(await screen.findByTestId('mcp-agy-unregister'));
+    await waitFor(() => expect(agy.unregister).toHaveBeenCalled());
+  });
+
+  it('lists the model tools among the registered tools', async () => {
+    installBridge();
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Tools' }));
+    for (const id of ['model_set_spec', 'model_patch_parts', 'model_render_preview']) {
+      expect(await screen.findByText(id)).toBeTruthy();
+    }
+  });
+
+  it('lists the game tools among the registered tools', async () => {
+    installBridge();
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Tools' }));
+    for (const id of ['game_list', 'game_create', 'game_screenshot', 'game_state', 'game_input']) {
+      expect(await screen.findByText(id)).toBeTruthy();
+    }
   });
 
   it('renders an empty state with no calls', async () => {

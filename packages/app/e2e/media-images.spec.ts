@@ -14,6 +14,9 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * - **The "+" tile glow**: a hover-driven `box-shadow`/`border-color` change is
  *   real CSS; jsdom never computes either. Reduced motion keeps the glow (it is
  *   colour, not movement) but drops its transition.
+ * - **The detail pane on a short window**: `scrollHeight > clientHeight` and bounding boxes only mean
+ *   something under real layout. The create panel's body must scroll while its composer footer stays
+ *   pinned to the pane bottom (class structure is vitest, `media-panel-layout.test.tsx`).
  */
 const images: Record<string, string> = Object.fromEntries(
   Array.from({ length: 9 }, (_, i) => [`shot-${i + 1}.png`, 'png']),
@@ -59,7 +62,7 @@ test('masonry flows into columns led by the "+" tile, and the lightbox covers th
   await expect(dialog).toBeHidden();
 });
 
-test('the "+" tile glows on hover, and keeps the glow without a transition under reduced motion', async ({ page }) => {
+test('the "+" tile glows on hover and keeps the glow without a transition under reduced motion; on a short window the detail body scrolls with the composer pinned', async ({ page }) => {
   await openImages(page);
   const plus = page.getByRole('button', { name: 'Generate image' });
   const shadow = () => plus.evaluate((el) => getComputedStyle(el).boxShadow);
@@ -75,4 +78,20 @@ test('the "+" tile glows on hover, and keeps the glow without a transition under
   // `none` here, or the shell-wide reduced-motion reset's 0.001ms — either way, no visible transition.
   expect(parseFloat(await plus.evaluate((el) => getComputedStyle(el).transitionDuration))).toBeLessThan(0.01);
   expect(await shadow()).toContain('rgba(139, 92, 246');
+
+  // Short window: the settings no longer fit, so the body scrolls and the composer footer stays put.
+  await page.setViewportSize({ width: 1280, height: 380 });
+  const pane = page.locator('[data-media-pane="detail"]');
+  const body = pane.locator('[data-media-panel-body]');
+  const footer = pane.locator('[data-media-panel-footer]');
+  await expect(footer).toBeVisible();
+  const overflow = await body.evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
+  expect(overflow.scroll).toBeGreaterThan(overflow.client);
+  const paneBox = (await pane.boundingBox())!;
+  const before = (await footer.boundingBox())!;
+  expect(Math.abs(before.y + before.height - (paneBox.y + paneBox.height))).toBeLessThanOrEqual(2);
+  await body.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  expect(await body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  const after = (await footer.boundingBox())!;
+  expect(Math.round(after.y)).toBe(Math.round(before.y));
 });

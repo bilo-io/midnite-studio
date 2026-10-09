@@ -3,7 +3,14 @@ import { persist } from 'zustand/middleware';
 
 import type { StatsWindow } from '@midnite/studio-shared';
 
-import { DEFAULT_LAYOUT, type WidgetId } from '../features/dashboard/widget-ids';
+import {
+  AGENTS_LAYOUT,
+  DEFAULT_LAYOUT,
+  FINANCE_LAYOUT,
+  NEW_DASHBOARD_LAYOUT,
+  WIDGET_DEFAULT_SIZE,
+  type WidgetId,
+} from '../features/dashboard/widget-ids';
 
 import { adoptRenamedPersistKey } from './persist-rename';
 
@@ -46,11 +53,60 @@ export type DashboardBoard = {
    */
   authors: string[];
   window: StatsWindow;
+  /** The Scratchpad card's text — per board, so each dashboard keeps its own. */
+  scratch?: string;
 };
 
+/**
+ * One dashboard: a tab in the strip above the board (midnite's `DashboardTab`).
+ * `pinned` tabs sort into a zone between the anchor and the rest and cannot be
+ * closed.
+ */
+export type DashboardTab = { id: string; name: string; pinned?: boolean };
+
+/** The original single dashboard, renamed. Its boards stay keyed by repo id. */
+export const GIT_DASHBOARD_ID = 'git';
+/** The second default dashboard; its layout is seeded lazily, see `defaultBoardFor`. */
+export const AGENTS_DASHBOARD_ID = 'agents';
+/** The third default dashboard — market cards, a simulated wallet, charts and news. */
+export const FINANCE_DASHBOARD_ID = 'finance';
+/** Hard ceiling on dashboards, as in midnite. */
+export const MAX_DASHBOARDS = 10;
+const MAX_NAME_LEN = 40;
+
+export const DEFAULT_TABS: DashboardTab[] = [
+  { id: GIT_DASHBOARD_ID, name: 'Git' },
+  { id: AGENTS_DASHBOARD_ID, name: 'Agents' },
+  { id: FINANCE_DASHBOARD_ID, name: 'Finance' },
+];
+
+/**
+ * Which `boards` entry a dashboard reads and writes.
+ *
+ * The Git dashboard is per repository (its panels describe one repo), so its
+ * key is the repo id — exactly what the single dashboard always used, which is
+ * why migrating needed no data move. Every other dashboard is global: its key is
+ * `dash:<id>` and does not follow the sidebar selection (its git panels, if it
+ * has any, read whichever repo is selected).
+ */
+export const boardKeyFor = (dashboardId: string, repoId: string | null): string | null =>
+  dashboardId === GIT_DASHBOARD_ID ? repoId : `dash:${dashboardId}`;
+
 type DashboardState = {
-  /** Keyed by repoId. A repo with no entry gets `DEFAULT_BOARD`. */
+  /** Keyed by `boardKeyFor`. An entry-less key gets `defaultBoardFor(key)`. */
   boards: Record<string, DashboardBoard>;
+  /** The dashboards, in canonical order: Git, pinned, then the rest. */
+  tabs: DashboardTab[];
+  activeId: string;
+  setActive: (id: string) => void;
+  /** Returns the new id, or null at the ceiling. */
+  addDashboard: (name: string) => string | null;
+  closeDashboard: (id: string) => void;
+  renameDashboard: (id: string, name: string) => void;
+  togglePin: (id: string) => void;
+  /** New order for the non-Git tabs; same-zone moves only. */
+  reorderDashboards: (orderedNonGitIds: string[]) => void;
+  setScratch: (key: string, text: string) => void;
   setLayout: (repoId: string, layout: WidgetLayout[]) => void;
   addWidget: (repoId: string, id: WidgetId) => void;
   removeWidget: (repoId: string, id: WidgetId) => void;
@@ -67,11 +123,47 @@ export const DEFAULT_BOARD: DashboardBoard = {
   window: '90d',
 };
 
+export const AGENTS_BOARD: DashboardBoard = {
+  layout: AGENTS_LAYOUT,
+  authors: [],
+  window: '90d',
+};
+
+export const FINANCE_BOARD: DashboardBoard = {
+  layout: FINANCE_LAYOUT,
+  authors: [],
+  window: '90d',
+};
+
+export const NEW_DASHBOARD_BOARD: DashboardBoard = {
+  layout: NEW_DASHBOARD_LAYOUT,
+  authors: [],
+  window: '90d',
+};
+
+/**
+ * What a key shows before anyone has touched it. Lazy rather than written at
+ * migration time, so a fresh install and a migrated one both get the Agents
+ * seed without a write — and neither disturbs a persisted Git board.
+ */
+export const defaultBoardFor = (key: string): DashboardBoard => {
+  if (key === `dash:${AGENTS_DASHBOARD_ID}`) return AGENTS_BOARD;
+  if (key === `dash:${FINANCE_DASHBOARD_ID}`) return FINANCE_BOARD;
+  return key.startsWith('dash:') ? NEW_DASHBOARD_BOARD : DEFAULT_BOARD;
+};
+
+/** Git first, then pinned, then the rest — each group keeping its order. */
+export const canonicalizeTabs = (tabs: DashboardTab[]): DashboardTab[] => {
+  const git = tabs.filter((t) => t.id === GIT_DASHBOARD_ID);
+  const rest = tabs.filter((t) => t.id !== GIT_DASHBOARD_ID);
+  return [...git, ...rest.filter((t) => t.pinned), ...rest.filter((t) => !t.pinned)];
+};
+
 /** The board for a repo, or the shared default for one nobody has customised. */
 export const boardFor = (
   boards: Record<string, DashboardBoard>,
-  repoId: string | null,
-): DashboardBoard => (repoId ? (boards[repoId] ?? DEFAULT_BOARD) : DEFAULT_BOARD);
+  key: string | null,
+): DashboardBoard => (key ? (boards[key] ?? defaultBoardFor(key)) : DEFAULT_BOARD);
 
 /**
  * Reading order — top-to-bottom, then left-to-right.
@@ -94,8 +186,8 @@ export const inReadingOrder = (layout: readonly WidgetLayout[]): WidgetLayout[] 
  */
 const placeBelow = (layout: readonly WidgetLayout[], id: WidgetId): WidgetLayout => {
   const bottom = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
-  const spec = DEFAULT_LAYOUT.find((item) => item.i === id);
-  return { i: id, x: 0, y: bottom, w: spec?.w ?? 6, h: spec?.h ?? 6 };
+  const size = WIDGET_DEFAULT_SIZE[id];
+  return { i: id, x: 0, y: bottom, w: size.w, h: size.h };
 };
 
 /** Apply a change to one repo's board, materialising the default first. */
@@ -104,7 +196,7 @@ const edit =
   (state: DashboardState): Partial<DashboardState> => ({
     boards: {
       ...state.boards,
-      [repoId]: change(state.boards[repoId] ?? DEFAULT_BOARD),
+      [repoId]: change(state.boards[repoId] ?? defaultBoardFor(repoId)),
     },
   });
 
@@ -125,9 +217,50 @@ const V1_DEFAULT_LAYOUT = [
  */
 adoptRenamedPersistKey('midnite-studio.dashboard', 'midnite-studio.dashboard');
 
+/**
+ * Persisted-state migration.
+ *
+ * v1 -> v2: the default board moved the calendar beside contributors and
+ * activity. A board whose layout is byte-for-byte the old default was never
+ * customised (any edit writes a copy), so it adopts the new one; anything else
+ * is a person's choice and is left alone.
+ *
+ * v2 -> v3: multiple dashboards. The existing per-repo `boards` ARE the Git
+ * dashboard, untouched (their keys are repo ids, which is what the Git
+ * dashboard keeps using); all that is added is the tab list — Git, then the
+ * Agents dashboard, whose layout is seeded lazily by `defaultBoardFor`.
+ *
+ * v3 -> v4: the Finance dashboard. Appended to the existing tab list rather
+ * than replacing it — a person's own dashboards, their order, their pins and
+ * which one was active all survive untouched; the new tab simply joins the end
+ * of its zone. Its board, like Agents', is seeded lazily, so nothing is written
+ * for it here. A list that already carries a `finance` tab is left alone, which
+ * keeps the migration idempotent.
+ */
+export const migrateDashboardState = (persisted: unknown, version: number): DashboardState => {
+  const state = (persisted ?? {}) as Partial<DashboardState>;
+  if (version < 2 && state.boards) {
+    for (const board of Object.values(state.boards)) {
+      if (JSON.stringify(board.layout) === JSON.stringify(V1_DEFAULT_LAYOUT)) {
+        board.layout = DEFAULT_LAYOUT;
+      }
+    }
+  }
+  if (version < 3) {
+    state.tabs = DEFAULT_TABS;
+    state.activeId = GIT_DASHBOARD_ID;
+  } else if (version < 4 && Array.isArray(state.tabs)) {
+    const tabs = state.tabs;
+    if (!tabs.some((tab) => tab.id === FINANCE_DASHBOARD_ID)) {
+      state.tabs = canonicalizeTabs([...tabs, { id: FINANCE_DASHBOARD_ID, name: 'Finance' }]);
+    }
+  }
+  return state as DashboardState;
+};
+
 export const useDashboardStore = create<DashboardState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       boards: {},
 
       /*
@@ -215,28 +348,77 @@ export const useDashboardStore = create<DashboardState>()(
         numbers as well as the boxes.
       */
       resetLayout: (repoId) =>
-        set(edit(repoId, (board) => ({ ...board, layout: DEFAULT_LAYOUT }))),
+        set(edit(repoId, (board) => ({ ...board, layout: defaultBoardFor(repoId).layout }))),
+
+      setScratch: (key, text) => set(edit(key, (board) => ({ ...board, scratch: text }))),
+
+      tabs: DEFAULT_TABS,
+      activeId: GIT_DASHBOARD_ID,
+
+      setActive: (id) =>
+        set((state) => (state.tabs.some((t) => t.id === id) ? { activeId: id } : state)),
+
+      addDashboard: (name) => {
+        if (get().tabs.length >= MAX_DASHBOARDS) return null;
+        const id = crypto.randomUUID();
+        const trimmed = name.trim().slice(0, MAX_NAME_LEN) || 'Dashboard';
+        set((state) => ({
+          tabs: canonicalizeTabs([...state.tabs, { id, name: trimmed }]),
+          activeId: id,
+        }));
+        return id;
+      },
+
+      closeDashboard: (id) =>
+        set((state) => {
+          const tab = state.tabs.find((t) => t.id === id);
+          // The Git anchor, a pinned (locked) tab and the last tab stay.
+          if (!tab || tab.id === GIT_DASHBOARD_ID || tab.pinned || state.tabs.length <= 1) {
+            return state;
+          }
+          const tabs = state.tabs.filter((t) => t.id !== id);
+          const boards = { ...state.boards };
+          delete boards[`dash:${id}`];
+          return {
+            tabs,
+            boards,
+            activeId: state.activeId === id ? (tabs[0]?.id ?? GIT_DASHBOARD_ID) : state.activeId,
+          };
+        }),
+
+      renameDashboard: (id, name) => {
+        const trimmed = name.trim().slice(0, MAX_NAME_LEN);
+        if (!trimmed) return;
+        set((state) => ({
+          tabs: state.tabs.map((t) => (t.id === id ? { ...t, name: trimmed } : t)),
+        }));
+      },
+
+      togglePin: (id) =>
+        set((state) =>
+          id === GIT_DASHBOARD_ID
+            ? state
+            : {
+                tabs: canonicalizeTabs(
+                  state.tabs.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)),
+                ),
+              },
+        ),
+
+      reorderDashboards: (orderedNonGitIds) =>
+        set((state) => {
+          const byId = new Map(state.tabs.map((t) => [t.id, t]));
+          const git = state.tabs.filter((t) => t.id === GIT_DASHBOARD_ID);
+          const reordered = orderedNonGitIds
+            .map((id) => byId.get(id))
+            .filter((t): t is DashboardTab => t !== undefined);
+          return { tabs: canonicalizeTabs([...git, ...reordered]) };
+        }),
     }),
     {
       name: 'midnite-studio.dashboard',
-      version: 2,
-      /*
-        v1 -> v2: the default board moved the calendar beside contributors and
-        activity. A board whose layout is byte-for-byte the old default was
-        never customised (any edit writes a copy), so it adopts the new one;
-        anything else is a person's choice and is left alone.
-      */
-      migrate: (persisted, version) => {
-        const state = persisted as { boards?: Record<string, DashboardBoard> };
-        if (version < 2 && state?.boards) {
-          for (const board of Object.values(state.boards)) {
-            if (JSON.stringify(board.layout) === JSON.stringify(V1_DEFAULT_LAYOUT)) {
-              board.layout = DEFAULT_LAYOUT;
-            }
-          }
-        }
-        return state as DashboardState;
-      },
+      version: 4,
+      migrate: (persisted, version) => migrateDashboardState(persisted, version),
       /*
         Boards for repositories that are no longer open are kept.
 
@@ -245,7 +427,11 @@ export const useDashboardStore = create<DashboardState>()(
         would make the persistence pointless. An entry is a handful of integers,
         so the unbounded growth is theoretical rather than real.
       */
-      partialize: (state) => ({ boards: state.boards }),
+      partialize: (state) => ({
+        boards: state.boards,
+        tabs: state.tabs,
+        activeId: state.activeId,
+      }),
     },
   ),
 );

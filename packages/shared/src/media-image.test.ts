@@ -14,14 +14,15 @@ import {
 } from './media';
 
 describe('image provider catalogue (Phase 99 Theme C)', () => {
-  it('lists every provider once, in id order, with Gemini as the default', () => {
+  it('lists every provider once, in id order, with Antigravity as the default', () => {
     expect(IMAGE_PROVIDERS.map((p) => p.id)).toEqual([...IMAGE_PROVIDER_IDS]);
-    expect(DEFAULT_IMAGE_PROVIDER).toBe('gemini');
+    expect(DEFAULT_IMAGE_PROVIDER).toBe('agy');
     expect(imageProviderInfo('gemini').disabledReason).toBeUndefined();
   });
 
-  it('keeps agy listed but disabled with a reason', () => {
-    expect(imageProviderInfo('agy').disabledReason).toMatch(/headless/);
+  it('lists agy as a key-free provider that is never statically disabled', () => {
+    expect(imageProviderInfo('agy').disabledReason).toBeUndefined();
+    expect(imageProviderInfo('agy').secretKey).toBeNull();
   });
 
   it('names only vault keys that exist', () => {

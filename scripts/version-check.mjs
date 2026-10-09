@@ -9,7 +9,7 @@
 // packages/shared/src/version.ts; this script is just the repo-wide invariant
 // guard. Keep the two in agreement.
 //
-// The CLI wrapper (packages/desktop/resources/bin/midnite-studio) is
+// The CLI wrapper (packages/desktop/resources/bin/midnite) is
 // deliberately NOT in the file list below — Phase 53 Theme B made it *derive*
 // its version from the bundle it ships inside rather than adding a sixth
 // hand-written site for this script to remember to check.

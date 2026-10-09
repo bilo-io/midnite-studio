@@ -1,5 +1,6 @@
 import { Accordion } from '@bilo-io/ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { LuCopy, LuServer } from 'react-icons/lu';
 
 import { MCP_TOOLS, MCP_TOOL_IDS } from '@midnite/studio-shared';
@@ -8,6 +9,7 @@ import { SettingsSwitchRow } from '../../../components/form/settings-switch-row'
 import { bridge } from '../../../services/bridge';
 
 const MCP_STATUS_KEY = ['mcp-status'] as const;
+const AGY_STATUS_KEY = ['mcp-agy-status'] as const;
 const MCP_CALLS_KEY = ['mcp-calls'] as const;
 
 /** Pulled on an interval while this page is mounted, never pushed (Theme F's own rule). */
@@ -33,6 +35,12 @@ export function McpSettingsPage() {
         shimPath: null,
         allowUi: false,
         allowGateDecide: false,
+        allowModels: false,
+        allowGames: false,
+        allowTerrains: false,
+        allowSprites: false,
+        allowMaps: false,
+        allowMusic: false,
       },
   });
 
@@ -65,6 +73,78 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 99 Theme G's fourth switch — as narrow as the other two: it never
+   * touches the socket, only whether the `model_*` tools that change a 3D
+   * model (or open it in the window) act once a call reaches them.
+   */
+  const setAllowModels = useMutation({
+    mutationFn: async (nextAllowModels: boolean) => bridge()?.mcp.set({ allowModels: nextAllowModels }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  /**
+   * Phase 107 Theme D's fifth switch — gates the game_* tools that create, run
+   * or drive games in the runner. Off by default.
+   */
+  const setAllowGames = useMutation({
+    mutationFn: async (nextAllowGames: boolean) => bridge()?.mcp.set({ allowGames: nextAllowGames }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  /**
+   * Phase 105 Theme J's sixth switch — gates the terrain_* tools that change a terrain, run a
+   * build or write an export. Off by default.
+   */
+  const setAllowTerrains = useMutation({
+    mutationFn: async (nextAllowTerrains: boolean) => bridge()?.mcp.set({ allowTerrains: nextAllowTerrains }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  /**
+   * Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a
+   * generation job (paid image or LLM requests) or write an export may act. Off by default.
+   */
+  const setAllowSprites = useMutation({
+    mutationFn: async (nextAllowSprites: boolean) => bridge()?.mcp.set({ allowSprites: nextAllowSprites }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  /**
+   * Phase 108 Theme I's eighth switch — whether `map_goto` (moves the user's view) and
+   * `map_capture_terrain` (writes files, creates a terrain) may act. Off by default.
+   */
+  const setAllowMaps = useMutation({
+    mutationFn: async (nextAllowMaps: boolean) => bridge()?.mcp.set({ allowMaps: nextAllowMaps }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  /**
+   * Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song (open, tempo,
+   * notes, controllers, tracks, save) may act. Off by default.
+   */
+  const setAllowMusic = useMutation({
+    mutationFn: async (nextAllowMusic: boolean) => bridge()?.mcp.set({ allowMusic: nextAllowMusic }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  const agy = useQuery({
+    queryKey: AGY_STATUS_KEY,
+    queryFn: async () => {
+      const result = await bridge()?.media?.music?.agy.status();
+      return result && result.ok ? result.value : { registered: false, configPath: '' };
+    },
+  });
+  const [agyConsent, setAgyConsent] = useState(false);
+  const agyChange = useMutation({
+    mutationFn: async (next: 'register' | 'unregister') =>
+      next === 'register' ? bridge()?.media?.music?.agy.register({ consent: true }) : bridge()?.media?.music?.agy.unregister(),
+    onSettled: () => {
+      setAgyConsent(false);
+      void client.invalidateQueries({ queryKey: AGY_STATUS_KEY });
+    },
+  });
+
   const calls = useQuery({
     queryKey: MCP_CALLS_KEY,
     queryFn: async () => (await bridge()?.mcp.calls())?.calls ?? [],
@@ -79,7 +159,13 @@ export function McpSettingsPage() {
   const running = status.data?.running ?? false;
   const allowUi = status.data?.allowUi ?? false;
   const allowGateDecide = status.data?.allowGateDecide ?? false;
-  const shimCommand = status.data?.shimPath ? `claude mcp add midnite-studio -- node ${status.data.shimPath}` : null;
+  const allowModels = status.data?.allowModels ?? false;
+  const allowGames = status.data?.allowGames ?? false;
+  const allowTerrains = status.data?.allowTerrains ?? false;
+  const allowSprites = status.data?.allowSprites ?? false;
+  const allowMaps = status.data?.allowMaps ?? false;
+  const allowMusic = status.data?.allowMusic ?? false;
+  const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -88,7 +174,7 @@ export function McpSettingsPage() {
           <SettingsSwitchRow
             id="mcp-enabled"
             label="Enable MCP server"
-            description="Serves eight read-only tools (repo, status, graph, diff, branches, pull requests, checks) over a local Unix socket, so an agent started in this app's own terminal can ask instead of shelling out to git/gh. Off by default — turning it on widens this app's attack surface to any process on the machine that can reach the socket."
+            description="Serves read-only tools (repo, status, graph, diff, branches, pull requests, checks, 3D model reads and previews) over a local Unix socket, so an agent started in this app's own terminal can ask instead of shelling out to git/gh. Off by default — turning it on widens this app's attack surface to any process on the machine that can reach the socket."
             on={enabled}
             onToggle={(_id, next) => setEnabled.mutate(next)}
           />
@@ -129,6 +215,13 @@ export function McpSettingsPage() {
                   <LuCopy aria-hidden className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <p className="text-[11px] text-muted-foreground" data-testid="mcp-rename-note">
+                The server is now named <code className="font-mono">midnite</code> (it was{' '}
+                <code className="font-mono">midnite-studio</code>). A client already registered under the old
+                name keeps working, because the shim path is unchanged. To switch:{' '}
+                <code className="select-all font-mono">claude mcp remove midnite-studio &amp;&amp; claude mcp add midnite -- node &lt;shim&gt;</code>
+                . Allow-listed tools are named <code className="font-mono">mcp__midnite__*</code> after the switch.
+              </p>
               <p className="text-[11px] text-muted-foreground">
                 `codex` and `opencode` have their own MCP config formats — point them at the same socket
                 path above, through their own config.
@@ -187,6 +280,164 @@ export function McpSettingsPage() {
           {setAllowGateDecide.data?.error && (
             <div className="text-xs text-destructive">{setAllowGateDecide.data.error}</div>
           )}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit 3D models" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-models"
+            label="Let agents edit 3D models"
+            description="A fourth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the model_* tools that change something: model_set_spec, model_patch_parts, model_auto_rig, model_patch_rig, model_patch_animations, model_retarget, model_convert_to_mesh, model_sdf_set, model_sdf_patch, model_sdf_bake, model_sculpt_stroke, model_mask, model_subdivide, model_remesh, model_sculpt_undo, model_decimate, model_retopo, model_unwrap, model_bake, model_export, model_material_set, model_layer_add, model_layer_update, model_layer_remove, model_paint_stroke, model_save, model_open and model_generate_sf3d (which also needs SF3D installed from Media ▸ Models). Listing models, reading a design, rendering previews and reading a reference picture always work once the server is on. Edits appear live in Media ▸ Models. Generating a model with Claude Code or Codex from the Models tab does not need this switch — it uses its own one-model connection for that run."
+            on={allowModels}
+            onToggle={(_id, next) => setAllowModels.mutate(next)}
+            testId="mcp-allow-models"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowModels.data?.error && <div className="text-xs text-destructive">{setAllowModels.data.error}</div>}
+
+          <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
+            <p className="font-medium text-foreground">Use your own Claude Code session</p>
+            <p>
+              Connect it with the command under "MCP Server" above, then ask it to build a model: it calls model_set_spec to start one,
+              model_render_preview to see it, model_patch_parts to refine, and model_save to finish. Open the Models tab to watch.
+            </p>
+          </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit terrains" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-terrains"
+            label="Let agents edit terrains"
+            description="A sixth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the terrain_* tools that change something: terrain_open, terrain_set_spec, terrain_set_input, terrain_build and terrain_export. Listing terrains, reading a spec, rendering previews and reading the stats always work once the server is on. Edits appear live in Media ▸ Terrain. Input images must sit inside the repository."
+            on={allowTerrains}
+            onToggle={(_id, next) => setAllowTerrains.mutate(next)}
+            testId="mcp-allow-terrains"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowTerrains.data?.error && <div className="text-xs text-destructive">{setAllowTerrains.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit sprites and maps" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-sprites"
+            label="Let agents edit sprites and maps"
+            description="A seventh switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the sprite tools that change something or spend: opening and editing assets, generating sheets, tilesets, backgrounds and maps (image and LLM requests, at most 200 per job), patching frames and maps, cancelling and exporting. Listing, reading specs and reports, job status and previews always work once the server is on."
+            on={allowSprites}
+            onToggle={(_id, next) => setAllowSprites.mutate(next)}
+            testId="mcp-allow-sprites"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowSprites.data?.error && <div className="text-xs text-destructive">{setAllowSprites.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents capture maps" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-maps"
+            label="Let agents capture maps"
+            description="An eighth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the two map tools that act: map_goto moves the Maps tab to a place, and map_capture_terrain captures a square of the real world (heightmap, satellite, roads) into a new Terrain, which downloads map tiles. Listing captures and layers and measuring distances always work once the server is on."
+            on={allowMaps}
+            onToggle={(_id, next) => setAllowMaps.mutate(next)}
+            testId="mcp-allow-maps"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowMaps.data?.error && <div className="text-xs text-destructive">{setAllowMaps.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents edit music" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-music"
+            label="Let agents edit music"
+            description="A ninth switch, as narrow as the ones above — off by default, and disabled until the master switch is on. It gates the music tools that change a song: opening one in the editor, setting the tempo, adding or removing notes, controllers and pitch bends, adding tracks and saving. Listing songs, reading tracks and notes and rendering a preview always work once the server is on."
+            on={allowMusic}
+            onToggle={(_id, next) => setAllowMusic.mutate(next)}
+            testId="mcp-allow-music"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowMusic.data?.error && <div className="text-xs text-destructive">{setAllowMusic.data.error}</div>}
+
+          <div className="flex flex-col gap-2" data-testid="mcp-agy-register">
+            <div className="text-sm font-medium">Antigravity</div>
+            <p className="text-xs text-muted-foreground">
+              Antigravity writes a song in a single pass by default. Registering Midnite adds its server to Antigravity&apos;s own MCP
+              config{agy.data?.configPath ? ` (${agy.data.configPath})` : ''}, after which it refines over several passes like Claude and
+              Codex. It can be removed again here.
+            </p>
+            {agy.data?.registered ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Registered.</span>
+                <button
+                  type="button"
+                  className="rounded border border-border px-2 py-1 text-xs"
+                  data-testid="mcp-agy-unregister"
+                  onClick={() => agyChange.mutate('unregister')}
+                >
+                  Unregister Midnite in Antigravity
+                </button>
+              </div>
+            ) : agyConsent ? (
+              <div className="flex flex-col gap-2 rounded border border-border p-2" data-testid="mcp-agy-consent">
+                <span className="text-xs">This edits a file outside Midnite&apos;s own data. Continue?</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded border border-border px-2 py-1 text-xs"
+                    data-testid="mcp-agy-confirm"
+                    onClick={() => agyChange.mutate('register')}
+                  >
+                    Register
+                  </button>
+                  <button type="button" className="rounded border border-border px-2 py-1 text-xs" onClick={() => setAgyConsent(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="self-start rounded border border-border px-2 py-1 text-xs"
+                data-testid="mcp-agy-register-button"
+                onClick={() => setAgyConsent(true)}
+              >
+                Register Midnite in Antigravity
+              </button>
+            )}
+          </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents run and edit games" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-games"
+            label="Let agents run and edit games"
+            description="Agents can create game repos, run their code in a sandbox, and send input to them."
+            on={allowGames}
+            onToggle={(_id, next) => setAllowGames.mutate(next)}
+            testId="mcp-allow-games"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowGames.data?.error && <div className="text-xs text-destructive">{setAllowGames.data.error}</div>}
         </div>
       </Accordion>
 

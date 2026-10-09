@@ -11,13 +11,21 @@ const row = () => screen.getByTestId('setup-status-row');
 
 describe('setupRowStatus', () => {
   it('is installing while an install runs, whatever the probe says', () => {
-    expect(setupRowStatus({ loading: false, installing: true, installed: false })).toBe('installing');
-    expect(setupRowStatus({ loading: true, installing: true, installed: undefined })).toBe('installing');
+    expect(setupRowStatus({ loading: false, installing: true, installed: false })).toBe(
+      'installing',
+    );
+    expect(setupRowStatus({ loading: true, installing: true, installed: undefined })).toBe(
+      'installing',
+    );
   });
 
   it('is checking until there is an answer, then ready or missing', () => {
-    expect(setupRowStatus({ loading: true, installing: false, installed: undefined })).toBe('checking');
-    expect(setupRowStatus({ loading: false, installing: false, installed: undefined })).toBe('checking');
+    expect(setupRowStatus({ loading: true, installing: false, installed: undefined })).toBe(
+      'checking',
+    );
+    expect(setupRowStatus({ loading: false, installing: false, installed: undefined })).toBe(
+      'checking',
+    );
     expect(setupRowStatus({ loading: false, installing: false, installed: true })).toBe('ready');
     expect(setupRowStatus({ loading: false, installing: false, installed: false })).toBe('missing');
   });
@@ -25,14 +33,26 @@ describe('setupRowStatus', () => {
 
 describe('SetupStatusRow', () => {
   it('checking: a spinner, no action', () => {
-    render(<SetupStatusRow label="git" status="checking" action={<button type="button">Install</button>} />);
+    render(
+      <SetupStatusRow
+        label="git"
+        status="checking"
+        action={<button type="button">Install</button>}
+      />,
+    );
     expect(row().dataset['status']).toBe('checking');
     expect(screen.getByRole('img', { name: 'Checking' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
   });
 
   it('missing: shows the page action', () => {
-    render(<SetupStatusRow label="git" status="missing" action={<button type="button">Install</button>} />);
+    render(
+      <SetupStatusRow
+        label="git"
+        status="missing"
+        action={<button type="button">Install</button>}
+      />,
+    );
     expect(screen.getByRole('img', { name: 'Not installed' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Install' })).toBeTruthy();
   });
@@ -52,7 +72,15 @@ describe('SetupStatusRow', () => {
   });
 
   it('ready: the pulsing check, the brand-coloured icon and the version', () => {
-    render(<SetupStatusRow label="git" status="ready" icon={SiGit} brandColor="#F05032" detail="2.45.0" />);
+    render(
+      <SetupStatusRow
+        label="git"
+        status="ready"
+        icon={SiGit}
+        brandColor="#F05032"
+        detail="2.45.0"
+      />,
+    );
     const check = screen.getByRole('img', { name: 'Ready' });
     expect(check.classList.contains('setup-ready-check')).toBe(true);
     expect(screen.getByText('2.45.0')).toBeTruthy();

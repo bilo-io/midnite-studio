@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LuZap } from 'react-icons/lu';
 import { Popover } from '../../components/popover';
 import { useMetricsStore } from '../../store/metrics-store';
 import { useMetricsStream } from '../monitor/use-metrics-stream';
@@ -52,12 +53,20 @@ export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } 
       panelClassName="hide-scrollbar w-[320px] max-h-[380px] p-3 overflow-y-auto"
       trigger={
         <span
-          className={`flex items-center gap-1.5 font-medium transition-colors ${textClass} ${flashClass}`}
+          className={`relative flex items-center gap-1.5 font-medium transition-colors ${textClass} ${flashClass}`}
           style={glowStyle}
           data-testid="battery-trigger"
           data-tier={tier}
           data-flash-tier={flashTier}
+          data-charging={battery?.isCharging ? 'true' : undefined}
         >
+          {battery?.isCharging && (
+            <LuZap
+              className="h-3.5 w-3.5 shrink-0 text-emerald-500 dark:text-emerald-400"
+              aria-hidden="true"
+              data-testid="battery-charging-bolt"
+            />
+          )}
           <BatteryIcon
             percent={rounded}
             isCharging={battery?.isCharging}
@@ -68,6 +77,17 @@ export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } 
               moved into the title bar. The percentage stays put regardless
               of density or hover. */}
           <span className="tabular-nums">{rounded}%</span>
+          {battery?.isCharging && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded"
+            >
+              <span
+                data-testid="battery-charging-shimmer"
+                className="battery-charging-shimmer absolute inset-0"
+              />
+            </span>
+          )}
         </span>
       }
     >

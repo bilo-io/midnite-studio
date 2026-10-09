@@ -5,12 +5,13 @@ import {
   LuEllipsisVertical,
   LuEye,
   LuLightbulb,
-  LuNotebookPen,
   LuTrash2,
   LuZap,
 } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import { EmptyState } from '../../components/empty-state';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -227,7 +228,7 @@ export function NotesView() {
   if (!selectedRepoId) {
     return (
       <EmptyState
-        icon={LuNotebookPen}
+        icon={MdOutlineEditNote}
         title="No repository open"
         body="Open a repository to see its notes here, or capture one from anywhere with Mod+L then N."
       />
@@ -245,6 +246,7 @@ export function NotesView() {
         {/* Sidenav header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border/70 px-3 py-2">
           <div className="flex items-center gap-2">
+            <PageDetachMark role="notes" />
             <span className="text-sm font-semibold text-foreground">Notes</span>
             {selectedRepoId && (
               <span className="rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
@@ -292,7 +294,7 @@ export function NotesView() {
         <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto">
           {repoNotes.length === 0 ? (
             <EmptyState
-              icon={LuNotebookPen}
+              icon={MdOutlineEditNote}
               title="Nothing captured yet"
               body="Write the thought you'd otherwise lose."
             />
@@ -341,7 +343,7 @@ export function NotesView() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {selectedNote === null ? (
           <EmptyState
-            icon={LuNotebookPen}
+            icon={MdOutlineEditNote}
             title="Select a note to edit it"
             body="Pick a note from the list on the left to open it here."
           />

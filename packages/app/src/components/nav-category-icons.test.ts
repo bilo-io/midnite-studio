@@ -1,6 +1,7 @@
 import { BsRobot } from 'react-icons/bs';
 import { MdOutlineWorkspaces } from 'react-icons/md';
-import { SiBitbucket, SiGit, SiGithub, SiGitlab } from 'react-icons/si';
+import { VscTerminalGitBash } from 'react-icons/vsc';
+import { SiBitbucket, SiGithub, SiGitlab } from 'react-icons/si';
 import { VscAzureDevops } from 'react-icons/vsc';
 import { describe, expect, it } from 'vitest';
 
@@ -20,11 +21,11 @@ describe('gitCategoryIcon', () => {
   });
 
   it('falls back to the plain Git mark for an unrecognised forge', () => {
-    expect(gitCategoryIcon('unknown')).toEqual({ Icon: SiGit, color: '#F05032' });
+    expect(gitCategoryIcon('unknown')).toEqual({ Icon: VscTerminalGitBash, color: '#F05032' });
   });
 
   it('falls back to the plain Git mark when no repo is selected', () => {
-    expect(gitCategoryIcon(null)).toEqual({ Icon: SiGit, color: '#F05032' });
+    expect(gitCategoryIcon(null)).toEqual({ Icon: VscTerminalGitBash, color: '#F05032' });
   });
 });
 
@@ -40,13 +41,13 @@ describe('static category icons', () => {
 
 describe('categoryIconMaskUrl', () => {
   it('renders an icon to a data: URL usable as a CSS mask-image', () => {
-    const url = categoryIconMaskUrl(SiGit);
+    const url = categoryIconMaskUrl(VscTerminalGitBash);
     expect(url.startsWith('url("data:image/svg+xml,')).toBe(true);
     expect(url).toContain('svg');
     expect(url.endsWith('")')).toBe(true);
   });
 
   it('renders each icon to a distinct shape', () => {
-    expect(categoryIconMaskUrl(SiGit)).not.toEqual(categoryIconMaskUrl(SiGithub));
+    expect(categoryIconMaskUrl(VscTerminalGitBash)).not.toEqual(categoryIconMaskUrl(SiGithub));
   });
 });

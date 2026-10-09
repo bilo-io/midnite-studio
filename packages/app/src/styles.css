@@ -32,6 +32,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pointer cursor for every interactive control. Tailwind v3's preflight already
+ * sets `button, [role="button"] { cursor: pointer }` and `:disabled { cursor: default }`;
+ * this adds the roles/elements it leaves on the default arrow. Base layer, so any
+ * explicit `cursor-*` utility (cursor-default, cursor-grab, cursor-col-resize,
+ * cursor-text) still wins. Disabled / aria-disabled controls are excluded. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='menuitemcheckbox']:not([aria-disabled='true']),
+  [role='menuitemradio']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='treeitem']:not([aria-disabled='true']),
+  [role='switch']:not([aria-disabled='true']),
+  summary,
+  a[href],
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @layer base {
   :root {
     --font-brand: 'Quick Kiss', sans-serif;
@@ -283,6 +306,38 @@ html[data-motion='reduced'] .animate-fade-in-up {
   animation: none;
 }
 
+/*
+ * Setup wizard page transition: a page's body and button row slide in from the
+ * side the move came from (Next from the right, Back from the left) while
+ * cross-fading, on one symmetric ease-in-out curve. Duration and curve arrive
+ * as `--setup-page-ms` / `--setup-page-ease` from `pageEnter()` in
+ * `setup-choreography.ts`; the fallbacks keep the rule honest on its own.
+ * Reduced motion keeps the fade and drops the slide.
+ */
+@keyframes setup-page-in-forward {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes setup-page-in-back {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes setup-page-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.setup-page-enter {
+  animation-duration: var(--setup-page-ms, 300ms);
+  animation-timing-function: var(--setup-page-ease, cubic-bezier(0.65, 0, 0.35, 1));
+  animation-fill-mode: both;
+}
+.setup-page-enter[data-dir='forward'] { animation-name: setup-page-in-forward; }
+.setup-page-enter[data-dir='back'] { animation-name: setup-page-in-back; }
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .setup-page-enter { animation-name: setup-page-fade; }
+}
+html[data-motion='reduced'] .setup-page-enter { animation-name: setup-page-fade; }
+
 /* Live agent count (title bar) — the `{N} agents` readout wears the rainbow
  * ramp as its TEXT, not a ring, and breathes.
  *
@@ -374,8 +429,13 @@ html[data-motion='reduced'] .agent-count-text {
 
 /* Setup overlay (Phase 98 Themes B and C).
  *
- * - `.setup-brand-gradient` — the intro's typed "Midnite": the same
- *   `--rainbow-ramp` the agent count wears, clipped to the glyphs, but still —
+ * - `.setup-brand-gradient` — the intro's typed "Midnite" and the finale's
+ *   `<Wordmark gradient />`: midnite's signature brand sweep, `--brand-gradient`
+ *   from `@bilo-io/shell/appearance.css` (blue → violet → rose, theme-aware via
+ *   `.dark`) — the same gradient the midnite apps paint their own wordmark and
+ *   auth hero with, not the full-spectrum rainbow the agent count wears. The
+ *   palette arc after it is only a fallback should the shell ever stop
+ *   defining the variable. Clipped to the glyphs, but still —
  *   it is colour, not motion, so reduced motion keeps it. The padding is clip
  *   headroom: a script face's ink runs past its advance box, and a
  *   background clipped to text is only painted inside the element's own box.
@@ -391,7 +451,10 @@ html[data-motion='reduced'] .agent-count-text {
  *   guarded the same way; reduced motion leaves a still, un-glowing check. */
 .setup-brand-gradient {
   padding: 0.12em 0.15em;
-  background-image: linear-gradient(90deg, var(--rainbow-ramp));
+  background-image: var(
+    --brand-gradient,
+    linear-gradient(90deg, var(--rainbow-3), var(--rainbow-4), var(--rainbow-5))
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -426,6 +489,32 @@ html[data-motion='reduced'] .agent-count-text {
   animation: setup-ready-pulse 1.8s ease-in-out infinite paused;
 }
 
+/* Theme J — the completion bloom: one brand-gradient glow sweeping out from the
+ * title anchor as the last page is left. A one-shot, not a loop, so it needs no
+ * focus gate; it is not mounted at all under reduced motion, and the guards
+ * below remove it as well so a preference flipped mid-flight cannot strand it. */
+@keyframes setup-bloom {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(48);
+  }
+}
+
+.setup-bloom {
+  background: radial-gradient(
+    circle,
+    rgb(236 72 153 / 0.45) 0%,
+    rgb(59 130 246 / 0.3) 35%,
+    rgb(34 197 94 / 0.12) 55%,
+    transparent 70%
+  );
+  animation: setup-bloom 900ms ease-out forwards;
+}
+
 html:not([data-window-focused='false']) .setup-handoff-arrow,
 html:not([data-window-focused='false']) .setup-ready-check {
   animation-play-state: running;
@@ -433,6 +522,7 @@ html:not([data-window-focused='false']) .setup-ready-check {
 
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion='full']) .setup-caret,
+  html:not([data-motion='full']) .setup-bloom,
   html:not([data-motion='full']) .setup-handoff-arrow,
   html:not([data-motion='full']) .setup-ready-check {
     animation: none;
@@ -440,9 +530,14 @@ html:not([data-window-focused='false']) .setup-ready-check {
 }
 
 html[data-motion='reduced'] .setup-caret,
+html[data-motion='reduced'] .setup-bloom,
 html[data-motion='reduced'] .setup-handoff-arrow,
 html[data-motion='reduced'] .setup-ready-check {
   animation: none;
+}
+
+html[data-motion='reduced'] .setup-bloom {
+  display: none;
 }
 
 /* Battery status-bar segment — below 30% the low tier flashes, getting
@@ -480,6 +575,32 @@ html[data-motion='reduced'] .setup-ready-check {
 html[data-motion='reduced'] .battery-flash-slow,
 html[data-motion='reduced'] .battery-flash-medium,
 html[data-motion='reduced'] .battery-flash-fast {
+  animation: none;
+}
+
+/* Battery charging indicator green shimmer — an active charging state
+ * indicator that sweeps a green highlight across the battery widget. */
+.battery-charging-shimmer {
+  animation: pill-shimmer 2.4s ease-in-out infinite paused;
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    rgba(16, 185, 129, 0.45) 50%,
+    transparent 85%
+  );
+}
+
+html:not([data-window-focused='false']) .battery-charging-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .battery-charging-shimmer {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .battery-charging-shimmer {
   animation: none;
 }
 
@@ -543,6 +664,13 @@ nav[aria-label='Views']::-webkit-scrollbar {
 aside[aria-label="Views"].w-64,
 aside:has(> nav[aria-label="Views"]).w-64 {
   width: 13rem !important;
+}
+
+/* Collapsed sidenav is 8px wider: 3.5rem -> 4rem. Icons stay centred (the
+ * shell's rows are `items-center`); `--nav-offset` is set to match in app.tsx. */
+aside[aria-label="Views"].w-14,
+aside:has(> nav[aria-label="Views"]).w-14 {
+  width: 4rem !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -894,6 +1022,54 @@ section.bg-card\/60 {
 
 html[data-motion='reduced'] .gradient-border--glow {
   transition: none;
+}
+
+/*
+ * `.media-prompt` — every AI prompt box in Media (image prompt, audio style and
+ * lyrics) wears `.gradient-border`. At rest that is upstream's dim rainbow ring;
+ * on `:focus-within` upstream already brightens it and spins `--gradient-angle`
+ * (registered by @bilo-io/ui's tokens.css via @property), and this adds the
+ * pulse: a box-shadow bloom that breathes while the box has focus. The pulse is
+ * keyed to `:focus-within` only, so nothing animates at rest (idle-CPU).
+ */
+@keyframes media-prompt-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.25),
+      0 0 8px -2px rgba(59, 130, 246, 0.3),
+      0 0 14px -6px rgba(236, 72, 153, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.45),
+      0 0 16px -1px rgba(59, 130, 246, 0.55),
+      0 0 26px -4px rgba(236, 72, 153, 0.45);
+  }
+}
+
+.media-prompt {
+  /* Declared paused at rest and flipped to running on focus, the same
+   * play-state gate the other infinite loops use. */
+  animation:
+    gradient-border-spin 4s linear infinite paused,
+    media-prompt-pulse 2s ease-in-out infinite paused;
+}
+
+.media-prompt:focus-within {
+  animation-play-state: running, running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .media-prompt,
+  html:not([data-motion='full']) .media-prompt:focus-within {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .media-prompt,
+html[data-motion='reduced'] .media-prompt:focus-within {
+  animation: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1569,7 +1745,7 @@ html[data-motion='reduced'] .landing-slide-in {
   --fab-spec-5: 59 130 246; /* 180deg — blue */
 }
 
-/* innovate (Concepts): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
+/* innovate (Ideate): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
 [data-fab-tab='innovate'] {
   --fab-spec-1: 130 171 70; /*  90deg — amber/emerald midpoint */
   --fab-spec-2: 16 185 129; /* 120deg — emerald */
@@ -1578,7 +1754,7 @@ html[data-motion='reduced'] .landing-slide-in {
   --fab-spec-5: 99 111 246; /* 210deg — blue/violet midpoint */
 }
 
-/* automate (Develop): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
+/* automate (Create): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
 [data-fab-tab='automate'] {
   --fab-spec-1: 16 185 129; /* 120deg — emerald */
   --fab-spec-2: 37 157 187; /* 150deg — emerald/blue midpoint */
@@ -4221,6 +4397,28 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
   display: none;
 }
 
+/* The graph's columns menu (columns-menu.tsx). `data-graph-hide` on the same
+ * wrapper lists the optional columns that are switched off; hiding is CSS in
+ * the header, every commit row and the pseudo-rows at once, never a re-render
+ * of the memoised rows. The Diff column is fixed-width and listed here when
+ * off (its default). */
+.graph-diff-col {
+  width: 6.5rem;
+}
+
+.graph-diff-chart-col {
+  width: 6.5rem;
+}
+
+[data-graph-hide~='diff'] .graph-diff-col,
+[data-graph-hide~='diffChart'] .graph-diff-chart-col,
+[data-graph-hide~='branchTag'] .graph-ref-col,
+[data-graph-hide~='branchTag'] .graph-ref-col-handle,
+[data-graph-hide~='author'] .graph-col-author,
+[data-graph-hide~='sha'] .graph-col-sha {
+  display: none;
+}
+
 /* Narrow windows. The commit message is the one column the graph exists to be
  * read by, so it keeps a real minimum width and everything else gives way
  * first: the BRANCH / TAG column is the only shrinkable fixed column (down to
@@ -5523,4 +5721,453 @@ html[data-motion='reduced'] .media-plus-tile,
 html[data-motion='reduced'] .media-plus-tile__icon,
 html[data-motion='reduced'] .media-plus-tile__label {
   transition: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Shared AI thread (components/ai-thread/) — docs, companion and media chats.
+ *
+ * `.ai-thread-frame` wears `.gradient-frame` only while a turn is in flight
+ * (see thread-frame.tsx), so it reserves the same 2.5px border when idle and
+ * the layout never shifts. The arc is pinned to 120deg like the FAB's tabs:
+ * both properties are `inherits: false`, so host and `::before` each need it.
+ * ------------------------------------------------------------------------ */
+.ai-thread-frame {
+  border: 2.5px solid transparent;
+}
+
+.ai-thread-frame,
+.ai-thread-frame::before {
+  --fab-arc-from: -60deg;
+  --fab-arc-to: 60deg;
+}
+
+@keyframes thinking-dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+
+.thinking-dots::after {
+  content: '...';
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: thinking-dots 1.2s steps(1, end) infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-dots::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-dots::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .thinking-dots::after {
+  animation: none;
+}
+
+/* Docs editor — code-block syntax tokens, GitHub-style callouts, images
+ * (features/media/doc). lowlight emits highlight.js `hljs-*` classes; raw HSL
+ * triplets here, lifted in `.dark` like every other hue in this file. */
+:root {
+  --hljs-keyword: 330 70% 42%;
+  --hljs-string: 210 80% 36%;
+  --hljs-number: 25 85% 38%;
+  --hljs-title: 265 55% 45%;
+  --hljs-type: 25 85% 38%;
+  --hljs-comment: 215 12% 48%;
+  --hljs-meta: 175 70% 28%;
+  --hljs-addition: 140 60% 30%;
+  --hljs-deletion: 0 70% 45%;
+  --callout-note: 212 80% 48%;
+  --callout-tip: 140 55% 36%;
+  --callout-important: 265 55% 55%;
+  --callout-warning: 38 92% 45%;
+  --callout-caution: 0 72% 52%;
+}
+.dark {
+  --hljs-keyword: 330 80% 72%;
+  --hljs-string: 205 85% 74%;
+  --hljs-number: 30 90% 68%;
+  --hljs-title: 265 80% 78%;
+  --hljs-type: 30 90% 68%;
+  --hljs-comment: 215 12% 58%;
+  --hljs-meta: 175 60% 62%;
+  --hljs-addition: 140 55% 62%;
+  --hljs-deletion: 0 85% 70%;
+  --callout-note: 212 90% 66%;
+  --callout-tip: 140 55% 58%;
+  --callout-important: 265 80% 74%;
+  --callout-warning: 38 95% 58%;
+  --callout-caution: 0 85% 68%;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-section { color: hsl(var(--hljs-keyword)); }
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-attr,
+.hljs-attribute,
+.hljs-selector-attr,
+.hljs-selector-pseudo { color: hsl(var(--hljs-string)); }
+.hljs-number,
+.hljs-bullet,
+.hljs-link { color: hsl(var(--hljs-number)); }
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-function,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class { color: hsl(var(--hljs-title)); }
+.hljs-type,
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-params,
+.hljs-variable,
+.hljs-template-variable { color: hsl(var(--hljs-type)); }
+.hljs-comment,
+.hljs-quote { color: hsl(var(--hljs-comment)); font-style: italic; }
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-tag { color: hsl(var(--hljs-meta)); }
+.hljs-addition { color: hsl(var(--hljs-addition)); }
+.hljs-deletion { color: hsl(var(--hljs-deletion)); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+.ProseMirror .doc-code-block pre { padding-top: 2rem; }
+.ProseMirror img { max-width: 100%; height: auto; border-radius: 6px; margin: 0.5rem 0; }
+.ProseMirror img.ProseMirror-selectednode { outline: 2px solid hsl(var(--primary)); }
+.ProseMirror blockquote[data-callout] { border-left-width: 3px; border-radius: 0 6px 6px 0; padding: 0.25rem 0.75rem; color: inherit; }
+.ProseMirror blockquote[data-callout]::before { content: attr(data-callout); display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.ProseMirror blockquote[data-callout='note'] { border-color: hsl(var(--callout-note)); background: hsl(var(--callout-note) / 0.08); }
+.ProseMirror blockquote[data-callout='note']::before { color: hsl(var(--callout-note)); }
+.ProseMirror blockquote[data-callout='tip'] { border-color: hsl(var(--callout-tip)); background: hsl(var(--callout-tip) / 0.08); }
+.ProseMirror blockquote[data-callout='tip']::before { color: hsl(var(--callout-tip)); }
+.ProseMirror blockquote[data-callout='important'] { border-color: hsl(var(--callout-important)); background: hsl(var(--callout-important) / 0.08); }
+.ProseMirror blockquote[data-callout='important']::before { color: hsl(var(--callout-important)); }
+.ProseMirror blockquote[data-callout='warning'] { border-color: hsl(var(--callout-warning)); background: hsl(var(--callout-warning) / 0.1); }
+.ProseMirror blockquote[data-callout='warning']::before { color: hsl(var(--callout-warning)); }
+.ProseMirror blockquote[data-callout='caution'] { border-color: hsl(var(--callout-caution)); background: hsl(var(--callout-caution) / 0.08); }
+.ProseMirror blockquote[data-callout='caution']::before { color: hsl(var(--callout-caution)); }
+
+/* ---------------------------------------------------------------------------
+ * Finance dashboard — the "Insights" button.
+ *
+ * A rainbow gradient border with a soft rainbow glow at rest; on hover (or
+ * keyboard focus) the whole button fills with the rainbow and the glow
+ * strengthens. The border is the usual two-layer background trick — a
+ * card-coloured padding-box over a rainbow border-box — so it follows the
+ * theme's own card colour in light and dark, and needs no mask.
+ *
+ * The hover fill is a ::before whose OPACITY transitions: browsers cannot
+ * animate between two gradients, so cross-fading a second layer is how the fill
+ * eases in. Deliberately no @keyframes — nothing here loops, so nothing needs a
+ * reduced-motion guard beyond the transitions the shell already neutralises.
+ * ------------------------------------------------------------------------- */
+.rainbow-btn {
+  --rainbow: linear-gradient(
+    100deg,
+    #ff4d4d,
+    #ff9f1a,
+    #ffe14d,
+    #3ddc84,
+    #2bb6ff,
+    #6c5ce7,
+    #e056fd,
+    #ff4d4d
+  );
+  position: relative;
+  isolation: isolate;
+  border: 1.5px solid transparent;
+  border-radius: 9999px;
+  color: hsl(var(--foreground));
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    var(--rainbow) border-box;
+  box-shadow:
+    0 0 8px -1px rgb(255 77 77 / 0.35),
+    0 0 12px -2px rgb(43 182 255 / 0.32),
+    0 0 16px -3px rgb(224 86 253 / 0.3);
+  transition:
+    box-shadow 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.rainbow-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--rainbow);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.rainbow-btn:hover,
+.rainbow-btn:focus-visible,
+.rainbow-btn[aria-expanded='true'] {
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  box-shadow:
+    0 0 12px 0 rgb(255 77 77 / 0.55),
+    0 0 18px 0 rgb(43 182 255 / 0.5),
+    0 0 26px 2px rgb(224 86 253 / 0.45);
+}
+
+.rainbow-btn:hover::before,
+.rainbow-btn:focus-visible::before,
+.rainbow-btn[aria-expanded='true']::before {
+  opacity: 1;
+}
+
+.rainbow-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Chats' thinking ring (`features/chats/thinking-panel.tsx`).
+ *
+ * A rainbow border with a bright arc travelling round it while a turn is live.
+ * Both are painted by pseudo-elements masked down to a 1.5px ring (the
+ * content box subtracted from the border box), never by a real border, so the
+ * ring can move from the collapsed pill to the expanded panel without
+ * shifting a pixel of layout — that is what keeps the pill's centre on the
+ * provider icon's in both states.
+ *
+ * `::before` is the ramp, dimmed once the turn settles; `::after` is the arc,
+ * a conic comet whose start angle spins. Like every other always-on glow here
+ * it pauses with the window blurred and stops under reduced motion, where the
+ * arc is hidden rather than frozen at an arbitrary angle.
+ * ------------------------------------------------------------------------- */
+@property --thinking-arc-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes thinking-arc-spin {
+  to {
+    --thinking-arc-angle: 360deg;
+  }
+}
+
+.thinking-ring {
+  position: relative;
+}
+
+.thinking-ring::before,
+.thinking-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.thinking-ring::before {
+  background: conic-gradient(from 0deg, var(--rainbow-ramp));
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.thinking-ring::after {
+  background: conic-gradient(
+    from var(--thinking-arc-angle),
+    transparent 0deg,
+    transparent 240deg,
+    hsl(var(--foreground) / 0.15) 290deg,
+    hsl(var(--foreground) / 0.95) 360deg
+  );
+  opacity: 0;
+}
+
+.thinking-ring[data-live='true']::before {
+  opacity: 0.9;
+}
+
+.thinking-ring[data-live='true']::after {
+  opacity: 1;
+  animation: thinking-arc-spin 1.8s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-ring[data-live='true']::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-ring[data-live='true']::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+html[data-motion='reduced'] .thinking-ring[data-live='true']::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * `.composer-pill` — a `/skill` or `@file` token in the Chats composer.
+ *
+ * Two faces, by what the token is. A skill is AI — it wears the brand
+ * gradient (`--rainbow-ramp`, left to right, as `.brand-gradient-button` does)
+ * twice over: full strength in the 1px border, and seen through an 82%
+ * `--background` wash in the padding box, which reads as a semi-transparent
+ * gradient fill without a second copy of the stops. A file is not — it wears
+ * plain `--primary`: a solid border over a 15% primary fill.
+ *
+ * Both are painted on the textarea's mirror overlay, so neither may add
+ * advance: the 1px border + 1px padding on each side is cancelled by a -2px
+ * margin, or every glyph after it would drift from the caret.
+ * `box-decoration-break: clone` keeps a pill that wraps closed on both lines.
+ * ------------------------------------------------------------------------ */
+.composer-pill {
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  padding: 0 1px;
+  margin: 0 -2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.composer-pill--skill {
+  --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
+  background-image:
+    linear-gradient(hsl(var(--background) / 0.82), hsl(var(--background) / 0.82)),
+    var(--brand-gradient);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.composer-pill--file {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.15);
+}
+
+/* ---------------------------------------------------------------------------
+ * The rainbow panel — the shared frame of every Media composer / generator
+ * panel (Docs, Images, Audio, Models, Video…), applied once by `MediaLayout`
+ * to its right-hand detail pane.
+ *
+ * Two layers, one rotating angle (`--rainbow-panel-angle`, an animated
+ * `@property`, so the browser interpolates the angle and no JS runs):
+ *  - `::before` is the border — a conic gradient of the shared `--rainbow-ramp`
+ *    (the palette family the Finance "Insights" button wears), masked to a
+ *    1.5px ring;
+ *  - `::after` is the glow arc — a conic arc of the same ramp, masked to a band
+ *    along the *inside* of the panel and blurred, so it travels round the inner
+ *    edge. A faint static inset `box-shadow` on the host is the resting glow,
+ *    which is all that remains when motion is off.
+ * Reduced motion (Phase 46): both layers freeze at angle 0 — a static gradient
+ * ring and a static glow, no rotation. Idle cost: the animation is `paused`
+ * unless the window is focused, and a collapsed pane (`[data-collapsed]`) never
+ * runs it, so a blurred window or a hidden panel adds no frames.
+ * ------------------------------------------------------------------------- */
+@property --rainbow-panel-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rainbow-panel-spin {
+  to {
+    --rainbow-panel-angle: 360deg;
+  }
+}
+
+.rainbow-panel {
+  position: relative;
+  isolation: isolate;
+  box-shadow: inset 0 0 18px -8px rgb(139 92 246 / 0.35);
+}
+
+.rainbow-panel::before,
+.rainbow-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  animation: rainbow-panel-spin 8s linear infinite paused;
+}
+
+.rainbow-panel::before {
+  z-index: 2;
+  padding: 1.5px;
+  background: conic-gradient(from var(--rainbow-panel-angle), var(--rainbow-ramp));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.rainbow-panel::after {
+  z-index: 1;
+  padding: 14px;
+  opacity: 0.55;
+  background: conic-gradient(
+    from var(--rainbow-panel-angle),
+    transparent 0deg,
+    transparent 200deg,
+    var(--rainbow-3) 250deg,
+    var(--rainbow-4) 300deg,
+    var(--rainbow-5) 330deg,
+    transparent 360deg
+  );
+  filter: blur(12px);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+html:not([data-window-focused='false']) .rainbow-panel:not([data-collapsed])::before,
+html:not([data-window-focused='false']) .rainbow-panel:not([data-collapsed])::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .rainbow-panel::before,
+  html:not([data-motion='full']) .rainbow-panel::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .rainbow-panel::before,
+html[data-motion='reduced'] .rainbow-panel::after {
+  animation: none;
 }

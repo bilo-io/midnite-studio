@@ -228,6 +228,7 @@ export const keys = {
    * scrolling back to a page is a cache hit; under the forge prefix so the
    * forge Refresh drops it with everything else.
    */
+  commitStats: (repoId: string, shas: readonly string[]) => ['commit-stats', repoId, shas] as const,
   forgeCommitRuns: (repoId: string, shas: readonly string[]) =>
     ['repos', repoId, 'forge', 'commit-runs', shas.join(',')] as const,
   /**
@@ -401,6 +402,16 @@ export function useRepos() {
   return useQuery<RepoDescriptor[]>({
     queryKey: keys.repos,
     queryFn: async () => (await bridge()?.repos.list()) ?? [],
+  });
+}
+
+/** The repo's favicon/logo data URL, or null. Cached for the session: the finder is deterministic. */
+export function useRepoLogo(repoId: string | undefined) {
+  return useQuery<string | null>({
+    queryKey: ['repo-logo', repoId] as const,
+    queryFn: async () => (await bridge()?.repos.logo({ repoId: repoId as string }))?.dataUrl ?? null,
+    enabled: !!repoId,
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -1947,6 +1958,25 @@ export function useImproveField() {
       const api = bridge();
       if (!api) return { ok: false, kind: 'error', message: '' };
       return api.ai.improveField(withHeadlessAiModel(input));
+    },
+  });
+}
+
+/**
+ * "Write with AI" on the commit box — a Conventional Commits message from the
+ * staged (else working-tree) diff, drafted in main by the provider's fastest
+ * model. Read-only, so no cache to invalidate.
+ */
+export function useCommitMessageAi() {
+  return useMutation({
+    mutationFn: async (input: {
+      repoId: string;
+      worktreePath?: string;
+      agentId?: string;
+    }): Promise<GitOpResult<{ text: string; source: 'staged' | 'working' }>> => {
+      const api = bridge();
+      if (!api) return { ok: false, kind: 'error', message: '' };
+      return api.ai.commitMessage(withHeadlessAiModel(input));
     },
   });
 }
