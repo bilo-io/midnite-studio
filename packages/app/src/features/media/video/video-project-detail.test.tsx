@@ -21,8 +21,8 @@ const TOOLCHAIN_ALL_FOUND: VideoToolchain = {
   node: { found: true, path: '/usr/local/bin/node' },
   npx: { found: true, path: '/usr/local/bin/npx' },
   skills: {
-    videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
-    videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+    videoWriteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md' },
+    videoExecuteScript: { found: true, path: '/videos/.claude/skills/midnite-media-video-execute-editorial-script/SKILL.md' },
   },
 };
 
@@ -61,7 +61,7 @@ function installBridge(overrides: { renders?: VideoRender[]; toolchain?: VideoTo
 
 function renderDetail(projectId: string | null = 'p1') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <VideoProjectDetail projectId={projectId} />
     </QueryClientProvider>,
@@ -76,12 +76,14 @@ describe('VideoProjectDetail', () => {
     useTerminalStore.setState({ sessions: [], activeId: null, states: {} });
   });
 
-  it('renders the title, composition, and brief/script content', async () => {
+  it('renders the brief/script content, with the tab strip at the top and no title in the panel', async () => {
     installBridge();
-    renderDetail();
+    const { container } = renderDetail();
 
-    expect(await screen.findByText('COP31 showreel')).toBeDefined();
-    expect(screen.getByText('MyComp')).toBeDefined();
+    expect(screen.queryByText('COP31 showreel')).toBeNull();
+    await screen.findByText('The brief');
+    expect(container.querySelector('h2')).toBeNull();
+    expect((container.firstElementChild as HTMLElement).firstElementChild?.getAttribute('role')).toBe('tablist');
     expect(await screen.findByText('The brief')).toBeDefined();
     expect(await screen.findByText('The script')).toBeDefined();
   });
@@ -90,7 +92,7 @@ describe('VideoProjectDetail', () => {
     installBridge();
     renderDetail();
 
-    await screen.findByText('COP31 showreel');
+    await screen.findByText('The brief');
     expect(screen.getByRole('heading', { level: 3, name: 'Claude' })).toBeDefined();
     expect(screen.getByRole('button', { name: /Write editorial script/ })).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: /Execute editorial script/ })).toHaveProperty('disabled', true);
@@ -102,7 +104,7 @@ describe('VideoProjectDetail', () => {
     useUiStore.setState({ primaryAgent: 'codex' });
     renderDetail();
 
-    await screen.findByText('COP31 showreel');
+    await screen.findByText('The brief');
     expect(screen.getByRole('heading', { level: 3, name: 'Codex' })).toBeDefined();
   });
 
@@ -117,6 +119,10 @@ describe('VideoProjectDetail', () => {
     const session = useTerminalStore.getState().sessions[0]!;
     expect(session.repoId).toBe('repo1');
     expect(session.cwd).toBe('/videos/projects/p1');
+    // The typed command is the namespaced skill, never the pre-rename `/video-write-…`.
+    const typed = JSON.stringify([session, useTerminalStore.getState().pendingInput]);
+    expect(typed).toContain('midnite-media-video-write-editorial-script');
+    expect(typed).not.toMatch(/[/$]video-write-editorial-script/);
   });
 
   it('disables a Claude action whose skill is missing from the video root, with the reason', async () => {
@@ -127,7 +133,7 @@ describe('VideoProjectDetail', () => {
           ...TOOLCHAIN_ALL_FOUND.skills,
           videoWriteScript: {
             found: false,
-            reason: 'Not found at .claude/skills/video-write-editorial-script/SKILL.md in this video root.',
+            reason: 'Not found at .claude/skills/midnite-media-video-write-editorial-script/SKILL.md in this video root.',
           },
         },
       },
@@ -135,10 +141,10 @@ describe('VideoProjectDetail', () => {
     useUiStore.setState({ selectedRepoId: 'repo1' });
     renderDetail();
 
-    await screen.findByText('COP31 showreel');
+    await screen.findByText('The brief');
     const write = await screen.findByRole('button', { name: /Write editorial script/ });
     await waitFor(() => expect(write).toHaveProperty('disabled', true));
-    expect(write.title).toContain('Not found at .claude/skills/video-write-editorial-script/SKILL.md');
+    expect(write.title).toContain('Not found at .claude/skills/midnite-media-video-write-editorial-script/SKILL.md');
     // The other action's own skill is still found — not collaterally blocked.
     expect(screen.getByRole('button', { name: /Execute editorial script/ })).toHaveProperty('disabled', false);
   });

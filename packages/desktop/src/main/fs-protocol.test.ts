@@ -1,8 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { protocol, session } from 'electron';
 
-import { installMgitFileProtocol, resolveBlobRequest } from './fs-protocol';
+import { mstudioImageUrl } from '@midnite/studio-shared';
+
+import { installMgitFileProtocol, registerPrivilegedSchemes, resolveBlobRequest, resolveRequestPath } from './fs-protocol';
 
 // The module reaches for `electron` at import time; nothing under test here
 // touches it, so a stub keeps this a plain unit test.
@@ -66,5 +72,95 @@ describe('scheme registration scope (Phase 32 Theme B)', () => {
     // is what keeps the renderer's media path unreachable from a remote page.
     expect(protocol.handle).toHaveBeenCalledWith('mstudio-file', expect.any(Function));
     expect(session.fromPartition).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolveRequestPath — markdown images (?as=image)', () => {
+  let base: string;
+  let repo: string;
+  let outside: string;
+
+  beforeAll(async () => {
+    // realpath'd up front — macOS's tmpdir is itself a symlink (/var → /private/var).
+    base = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-mdimg-')));
+    repo = join(base, 'repo');
+    outside = join(base, 'outside');
+    await mkdir(join(repo, 'docs', 'screenshots'), { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(repo, 'docs', 'screenshots', 'a.png'), 'png');
+    await writeFile(join(repo, 'logo.svg'), '<svg/>');
+    await writeFile(join(repo, '.env'), 'SECRET=1');
+    await writeFile(join(outside, 'escape.png'), 'png');
+    // Inside-the-repo names that point elsewhere.
+    await symlink(join(outside, 'escape.png'), join(repo, 'linked-out.png'));
+    await symlink(join(repo, '.env'), join(repo, 'disguised.png'));
+  });
+
+  afterAll(async () => {
+    await rm(base, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    resolveWorkdir.mockReset();
+    resolveWorkdir.mockResolvedValue(repo);
+  });
+
+  it('serves an image inside the repo', async () => {
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'docs/screenshots/a.png'))).resolves.toBe(
+      join(repo, 'docs', 'screenshots', 'a.png'),
+    );
+  });
+
+  it('serves an image at the repo root — the target of an absolute /logo.svg src', async () => {
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'logo.svg'))).resolves.toBe(
+      join(repo, 'logo.svg'),
+    );
+  });
+
+  it('refuses a .. escape out of the root', async () => {
+    await expect(
+      resolveRequestPath('mstudio-file://repo/r1/..%2Foutside%2Fescape.png?as=image'),
+    ).resolves.toBeNull();
+  });
+
+  it('refuses a symlink inside the repo that points out of it', async () => {
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'linked-out.png'))).resolves.toBeNull();
+  });
+
+  it('refuses a non-image extension when the request is image-only', async () => {
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', '.env'))).resolves.toBeNull();
+    // The plain media URL is unchanged — the Files pane still opens the file.
+    await expect(resolveRequestPath('mstudio-file://repo/r1/.env')).resolves.toBe(join(repo, '.env'));
+  });
+
+  it('refuses an image-named symlink whose real target is not an image', async () => {
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'disguised.png'))).resolves.toBeNull();
+  });
+
+  it('refuses a missing image and an unknown repo', async () => {
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'docs/nope.png'))).resolves.toBeNull();
+    resolveWorkdir.mockResolvedValueOnce(null);
+    await expect(resolveRequestPath(mstudioImageUrl('repo', 'gone', 'logo.svg'))).resolves.toBeNull();
+  });
+});
+
+describe('registerPrivilegedSchemes', () => {
+  it('registers mstudio-file and mstudio-game in ONE call, because Electron keeps only the last list', () => {
+    const register = vi.mocked(protocol.registerSchemesAsPrivileged);
+    register.mockClear();
+    registerPrivilegedSchemes();
+
+    expect(register).toHaveBeenCalledTimes(1);
+    const schemes = register.mock.calls[0]![0];
+    expect(schemes.map((entry) => entry.scheme)).toEqual(['mstudio-file', 'mstudio-game', 'mstudio-tile']);
+    expect(schemes[1]!.privileges).toEqual({
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+    });
+    // The pre-existing scheme keeps exactly the privileges it always had.
+    expect(schemes[0]!.privileges).toEqual({ stream: true, supportFetchAPI: true });
   });
 });

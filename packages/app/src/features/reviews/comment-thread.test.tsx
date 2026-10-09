@@ -81,6 +81,8 @@ function thread(overrides: Partial<ForgeReviewThread> = {}): ForgeReviewThread {
         ),
         createdAt: '2026-09-01T00:00:00Z',
         url: '',
+        diffHunk: '',
+        reviewId: null,
       },
     ],
     ...overrides,

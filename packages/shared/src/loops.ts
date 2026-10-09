@@ -131,8 +131,10 @@ export const LoopModelSchema = z.enum([
   'default',
   'haiku-4-5',
   'sonnet-5',
+  'sonnet-5-5',
   'opus-4-8',
   'opus-5',
+  'opus-5-5',
   'fable-5',
   'fable-5-1',
 ]);
@@ -144,9 +146,10 @@ export type LoopModel = z.infer<typeof LoopModelSchema>;
  * standing bill rather than a single call, and the pill you reach for first
  * should be the one you can afford to leave running.
  *
- * Two older models are here on purpose. `opus-4-8` is the previous Opus, kept
+ * Older models are here on purpose. `opus-4-8` and `opus-5` are previous Opuses, `sonnet-5` the previous Sonnet, kept
  * because a long unattended run is exactly the case where a known-good model
  * beats the newest one. `fable-5` sits below `fable-5-1` for the same reason.
+ * There is no Haiku 5.5 (Anthropic's lineup still tops out at Haiku 4.5), so none is listed.
  * Ids are our own tokens, not the CLI strings — `cliModel` is the only place
  * an `--model` word is written, so a rename upstream is a one-line change and
  * a persisted store never holds a vendor string it cannot interpret.
@@ -155,8 +158,10 @@ export const LOOP_MODELS: readonly { id: LoopModel; label: string; cliModel: str
   { id: 'default', label: 'Default', cliModel: null },
   { id: 'haiku-4-5', label: 'Haiku 4.5', cliModel: 'claude-haiku-4-5' },
   { id: 'sonnet-5', label: 'Sonnet 5', cliModel: 'claude-sonnet-5' },
+  { id: 'sonnet-5-5', label: 'Sonnet 5.5', cliModel: 'claude-sonnet-5-5' },
   { id: 'opus-4-8', label: 'Opus 4.8', cliModel: 'claude-opus-4-8' },
   { id: 'opus-5', label: 'Opus 5', cliModel: 'claude-opus-5' },
+  { id: 'opus-5-5', label: 'Opus 5.5', cliModel: 'claude-opus-5-5' },
   { id: 'fable-5', label: 'Fable 5', cliModel: 'claude-fable-5' },
   { id: 'fable-5-1', label: 'Fable 5.1', cliModel: 'claude-fable-5-1' },
 ];
@@ -633,7 +638,7 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * so persisted `activeFabTab` values keep meaning what they meant.
  *
  * **Guard** runs security sweeps — secret scanning, dependency audits and
- * vulnerability reviews. **Concepts** brainstorms new phase docs. **Develop**
+ * vulnerability reviews. **Ideate** brainstorms new phase docs. **Create**
  * executes the backlog. **Patrol** walks the pull requests. **Medic** treats
  * what is already sick: the dependency bots' PRs and the issue backlog.
  * **Overhaul** is the performance loop — it profiles, measures and fixes.
@@ -730,7 +735,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'innovate',
-    label: 'Concepts',
+    label: 'Ideate',
     icon: 'brain',
     color: 'text-cyan-500',
     agentId: 'claude',
@@ -800,7 +805,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'automate',
-    label: 'Develop',
+    label: 'Create',
     icon: 'bot',
     color: 'text-blue-500',
     agentId: 'claude',

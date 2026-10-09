@@ -1,8 +1,9 @@
 import { MEDIA_TAB_EXPORT_FORMATS, type DocExportFormat, type MediaExportFormat } from '@midnite/studio-shared';
 import { lazy, Suspense, useCallback, useRef, useState } from 'react';
-import { LuFileText } from 'react-icons/lu';
+import { LuFilePlus, LuFileText } from 'react-icons/lu';
+import { PiFilePlusFill } from 'react-icons/pi';
 
-import { EmptyState } from '../../../components/empty-state';
+import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
 import { bridge } from '../../../services/bridge';
 import { noBridge, reportFailure } from '../../../services/bridge-result';
 import { useToastStore } from '../../../store/toast-store';
@@ -36,11 +37,22 @@ export function DocsTab() {
   const [aiSelection, setAiSelection] = useState<string | undefined>(undefined);
   const [focusToken, setFocusToken] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [createRequest, setCreateRequest] = useState(0);
   const handle = useRef<DocEditorHandle | null>(null);
 
   const doc: DocRef | null =
     repoId && selection?.path ? { repoId, project: selection.project, path: selection.path } : null;
   const session = useDocSession(doc);
+  const setLastDoc = useUiStore((s) => s.setMediaLastDoc);
+  // "Last edited" is by edit, not selection: only a real change records it.
+  const onEdit = useCallback(
+    (text: string) => {
+      if (doc && text !== session.draft) setLastDoc(doc.repoId, { project: doc.project, path: doc.path });
+      session.edit(text);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `session.edit`/`draft` change with `doc`.
+    [doc?.repoId, doc?.project, doc?.path, session.draft, session.edit, setLastDoc],
+  );
   const onReady = useCallback((h: DocEditorHandle | null) => {
     handle.current = h;
   }, []);
@@ -89,6 +101,7 @@ export function DocsTab() {
         <DocsExplorer
           repoId={repoId}
           selection={selection}
+          createRequest={createRequest}
           onSelect={(next) => {
             setSelection(next);
             setAiSelection(undefined);
@@ -97,7 +110,12 @@ export function DocsTab() {
       }
       content={
         !doc ? (
-          <EmptyState icon={LuFileText} title="Select a doc" body="Pick a doc on the left, or create a project." />
+          <EmptyState
+            icon={LuFileText}
+            title="No doc open"
+            body="Pick a doc on the left, or start a new one."
+            action={<EmptyStateButton icon={LuFilePlus} filledIcon={PiFilePlusFill} label="New doc" onClick={() => setCreateRequest((n) => n + 1)} />}
+          />
         ) : session.error ? (
           <EmptyState title="Could not open this doc" body={session.error} />
         ) : !session.ready ? (
@@ -123,7 +141,7 @@ export function DocsTab() {
                 <DocEditor
                   key={`${doc.project}/${doc.path}#${session.nonce}`}
                   markdown={session.draft}
-                  onChange={session.edit}
+                  onChange={onEdit}
                   onReady={onReady}
                   onAskAi={onAskAi}
                 />

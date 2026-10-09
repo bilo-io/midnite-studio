@@ -142,7 +142,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Theme B — A unit layer worth writing in.** ✅ A unit layer worth writing in: `test-support/`, `buildMockBridge` extracted from the `addInitScript` closure, `renderView`, promoted global stubs, `@testing-library/user-event`
 
-**Theme C — Migration waves.** 🔄 Migration waves: **all five landed** ([#326](https://github.com/bilo-io/midnite-studio/pull/326), [#328](https://github.com/bilo-io/midnite-studio/pull/328), [#333](https://github.com/bilo-io/midnite-studio/pull/333), [#334](https://github.com/bilo-io/midnite-studio/pull/334), [#337](https://github.com/bilo-io/midnite-studio/pull/337), [#338](https://github.com/bilo-io/midnite-studio/pull/338)) — e2e declared **976→465**, `app:test` **→4,065**. Open: a wave 6 for the four *partial*-keep files (`fab-loops`, `browser-pane`, `workflows`, `titlebar-agents`) that need per-test rather than per-file judgment, plus three jsdom traps and two harness gaps to write into `test-support/` guidance
+**Theme C — Migration waves.** 🔄 Migration waves: **all five landed** ([#326](https://github.com/bilo-io/midnite-studio/pull/326), [#328](https://github.com/bilo-io/midnite-studio/pull/328), [#333](https://github.com/bilo-io/midnite-studio/pull/333), [#334](https://github.com/bilo-io/midnite-studio/pull/334), [#337](https://github.com/bilo-io/midnite-studio/pull/337), [#338](https://github.com/bilo-io/midnite-studio/pull/338)) — e2e declared **976→465**, `app:test` **→4,065**. The wave 2-5 jsdom traps, harness gaps and porting hazard are now written into `packages/app/test-support/README.md`, their jsdom premises pinned by `src/test-support-premises.test.tsx` ([#680](https://github.com/bilo-io/midnite-studio/pull/680)). Open: a wave 6 for the four *partial*-keep files (`fab-loops`, `browser-pane`, `workflows`, `titlebar-agents`) that need per-test rather than per-file judgment
 
 **Theme D — A pixel-diff layer.** ◐ A pixel-diff layer: `playwright.visual.config.ts`, determinism fixes for fonts/motion/RNG, locator-cropped `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })`, a ~100-baseline/3 MB cap, Linux-only `snapshotPathTemplate`
 
@@ -255,7 +255,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `changes-panel`'s tree-grouping assertions already have partial unit coverage in
       `build-change-tree.test.ts` and should merge into that file rather than duplicate a
       second suite.
-- [ ] **A systematic jsdom trap wave 2 hit, to apply from wave 3 on.** A component behind a
+- [x] **A systematic jsdom trap wave 2 hit, to apply from wave 3 on.** A component behind a
       `React.lazy` boundary whose chunk pulls in a heavy ESM dependency makes a migrated test
       `await` a **compiler, not a render**. Wave 2's `commit-detail.bridge.test.tsx` and
       `diff-view.bridge.test.tsx` both awaited `commit-message` — `React.lazy`-loaded to keep
@@ -271,8 +271,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       again**: `palette`, `companion-thread` and several diff/editor surfaces sit behind lazy
       boundaries. Write the pattern into `test-support/` guidance so it is applied rather than
       rediscovered per wave.
+      ✅ Written into `packages/app/test-support/README.md` trap 4 ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
 - [x] Wave 3 (PR #334): `actions-view` 15→2 · `optimizer` 14→2 · `review-writes` 13→1. e2e declared 619→**582**, `app:test` 3,884→**3,922**. The lazy-chunk warm-up was checked and **not needed**, with a reason: wave 2's trap was `CommitMessage`'s own internal `lazy()` boundary, and none of these three views has one — the outer view registry lazy-loads the *view*, which mounting the component directly bypasses, and `PrDetail`'s `react-markdown` is a plain static import.
-- [ ] **A third jsdom trap, found by wave 4 — a component that only mounts on an interaction.**
+- [x] **A third jsdom trap, found by wave 4 — a component that only mounts on an interaction.**
       `Palette`'s row list is `@tanstack/react-virtual` like `search-view`'s, but unlike an
       already-mounted component it only mounts — and so only calls `ResizeObserver.observe()` —
       the instant `Meta+k` opens it. `vitest-setup.ts`'s `FiringResizeObserver` fires its callback
@@ -283,13 +284,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       any assertion reading content that the interaction under test is what mounted.** Wave 5
       audited every virtualised surface it touched against this and needed no fix, but checked
       file-by-file rather than assuming.
-- [ ] **A second wave-4 finding: disjoint `<mark>` elements break accname.** Fuzzy-match
+      ✅ Written into `packages/app/test-support/README.md`, premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
+- [x] **A second wave-4 finding: disjoint `<mark>` elements break accname.** Fuzzy-match
       highlighting wraps each matched character separately, so "tt" matching "Toggle Terminal"
       splits the row's accessible name across four sibling nodes in a way
       `dom-accessibility-api`'s accname computation does not reassemble — though plain
       `textContent` does. When a highlight assertion cannot find a row by name, filter
       `findAllByRole`'s array by `textContent` rather than weakening the query.
-- [ ] **Two harness gaps wave 5 found.** (a) `@monaco-editor/react`'s `MonacoField`
+      ✅ Written into `packages/app/test-support/README.md`, premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
+- [x] **Two harness gaps wave 5 found.** (a) `@monaco-editor/react`'s `MonacoField`
       (`features/api-client/monaco-field.tsx`) calls the real `getMonaco()` at **module scope**,
       unconditionally — not gated behind the tab that mounts it. Any test importing
       `ApiClientView`, even for an unrelated tab, pulls that in for real unless `./monaco-field`
@@ -299,12 +302,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       ported verbatim onto `getByRole` is a **typecheck** error, not a runtime one —
       `ByRoleOptions` has no `exact` field, that is `getByText`'s — so `vitest run` alone passes
       and only a real `moon run app:typecheck` catches it. It hit 7 files in wave 5.
-- [ ] **A porting hazard wave 3 found, to expect in every remaining wave.** Testing Library's
+      ✅ Written into `packages/app/test-support/README.md` traps 2 and 6, the `exact` premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
+- [x] **A porting hazard wave 3 found, to expect in every remaining wave.** Testing Library's
       `getByRole`/`getByText` default to a **whole-string** match; Playwright's default is
       **substring**. So an assertion ported verbatim from an e2e spec fails with "unable to find
       an element" — which reads as a render or timing problem and is actually a matcher
       mismatch. Several of wave 3's ported assertions needed a regex or an exact-string tweak.
       Check the matcher before debugging the render.
+      ✅ Written into `packages/app/test-support/README.md`, premise pinned by `src/test-support-premises.test.tsx` ([PR #680](https://github.com/bilo-io/midnite-studio/pull/680), 2026-10-02).
 - [x] Wave 4 ([PR #337](https://github.com/bilo-io/midnite-studio/pull/337)): `palette` 14→3 ·
       `repos-workbench` 18→8 · `companion-panel` 20→11 · `nav-shell` 9→4. e2e declared
       582→**546**, `app:test` 3,922→**3,952**. **The doc's estimates (13/13/11/8) were all low**:

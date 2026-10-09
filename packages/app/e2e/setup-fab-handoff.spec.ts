@@ -22,7 +22,7 @@ test('Skip points an arrow at the FAB, gets out of the way, and Resume setup reo
 
   const overlay = page.getByTestId('setup-overlay');
   await overlay.getByRole('button', { name: 'Begin setup' }).click();
-  await expect(overlay).toHaveAttribute('data-step', 'machine');
+  await expect(overlay).toHaveAttribute('data-step', 'git');
   await overlay.getByRole('button', { name: 'Skip' }).click();
 
   await expect(page.getByText('You can always continue setup from here')).toBeVisible();
@@ -52,7 +52,7 @@ test('Skip points an arrow at the FAB, gets out of the way, and Resume setup reo
   await page.getByTestId('fab-button').click();
   await page.getByTestId('quick-access-row-s').click();
 
-  // Skipped on `machine`, so it resumes on the page after — straight onto the
+  // Skipped on `git`, so it resumes on the page after — straight onto the
   // page, not the intro.
-  await expect(page.getByTestId('setup-overlay')).toHaveAttribute('data-step', 'forges');
+  await expect(page.getByTestId('setup-overlay')).toHaveAttribute('data-step', 'forge-select');
 });

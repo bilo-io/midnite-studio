@@ -61,7 +61,7 @@ describe('StatusBar, assembled through the real bridge', () => {
     await waitFor(() => expect(palette.getAttribute('aria-pressed')).toBe('false'));
   });
 
-  it('an empty health group prunes both of the zone’s separators', async () => {
+  it('an empty health group prunes the zone’s separator', async () => {
     const fx: MockFixtures = {
       ...fixtures,
       diagnostics: { trust: { state: 'no-command', command: null, trustedAt: null }, candidates: [] },
@@ -70,10 +70,11 @@ describe('StatusBar, assembled through the real bridge', () => {
 
     await waitFor(() => expect(screen.queryByTestId('diagnostics-enable')).toBeNull());
     expect(screen.queryByTestId('diagnostics-segment')).toBeNull();
+    expect(screen.queryByTestId('reattached-note')).toBeNull();
 
     const left = screen.getByTestId('status-bar-left');
     const separators = left.querySelectorAll('[data-status-sep]');
-    expect(separators).toHaveLength(2);
+    expect(separators).toHaveLength(1);
     expect([...separators].every((sep) => (sep as HTMLElement).hidden)).toBe(true);
   });
 

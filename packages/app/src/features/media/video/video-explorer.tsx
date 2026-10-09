@@ -66,7 +66,7 @@ function Row({
       onContextMenu={onContextMenu}
       aria-selected={selected || undefined}
       style={indent(depth)}
-      className={`flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors hover:bg-accent disabled:opacity-50 ${
+      className={`flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors hover:bg-primary/10 disabled:opacity-50 ${
         selected ? 'bg-accent text-foreground' : 'text-foreground/90'
       }`}
     >
@@ -318,31 +318,11 @@ function ProjectNodes({
   );
 }
 
-/**
- * The Video tab's explorer (Phase 99 Theme D): two accordions over the
- * resolved root — **Assets** (a tree of `assets/`, type icons) and
- * **Projects** (`<brand>/<category>/<NNN-name>`, each expanding to its
- * iterations newest first, then its `input/` and `notes/` files).
- *
- * Phase 44's error → skeleton → empty → content ladder is kept for the
- * project scan, which reads a directory that can vanish.
- */
-export function VideoExplorer({
-  selection,
-  onSelect,
-}: {
-  selection: VideoSelection | null;
-  onSelect: (selection: VideoSelection | null) => void;
-}) {
-  const projects = useVideoProjects();
+/** Opens the "New video project" prompt; shared by the explorer's + and the empty state's CTA. */
+export function useNewVideoProjectPrompt(onSelect: (selection: VideoSelection | null) => void): () => void {
   const create = useCreateVideoProject();
-  const remove = useRemoveVideoProject();
   const dialogs = useDialogs();
-  const expanded = useExpanded();
-  const all = projects.data ?? [];
-  const byId = new Map(all.map((project) => [project.id, project]));
-
-  const createProject = () => {
+  return () => {
     dialogs.prompt({
       title: 'New video project',
       label: 'Title',
@@ -362,6 +342,32 @@ export function VideoExplorer({
       },
     });
   };
+}
+
+/**
+ * The Video tab's explorer (Phase 99 Theme D): two accordions over the
+ * resolved root — **Assets** (a tree of `assets/`, type icons) and
+ * **Projects** (`<brand>/<category>/<NNN-name>`, each expanding to its
+ * iterations newest first, then its `input/` and `notes/` files).
+ *
+ * Phase 44's error → skeleton → empty → content ladder is kept for the
+ * project scan, which reads a directory that can vanish.
+ */
+export function VideoExplorer({
+  selection,
+  onSelect,
+}: {
+  selection: VideoSelection | null;
+  onSelect: (selection: VideoSelection | null) => void;
+}) {
+  const projects = useVideoProjects();
+  const remove = useRemoveVideoProject();
+  const dialogs = useDialogs();
+  const expanded = useExpanded();
+  const all = projects.data ?? [];
+  const byId = new Map(all.map((project) => [project.id, project]));
+
+  const createProject = useNewVideoProjectPrompt(onSelect);
 
   const menuFor = (id: string, title: string): MenuItem[] => [
     {
@@ -418,6 +424,7 @@ export function VideoExplorer({
       </div>
       <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
         <Accordion
+          tone="primary"
           id="media-video"
           sections={[
             {

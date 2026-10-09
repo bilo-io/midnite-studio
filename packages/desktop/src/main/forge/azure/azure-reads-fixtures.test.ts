@@ -71,6 +71,7 @@ describe('listPulls — fixture (azure-pr-list.json)', () => {
       url: 'https://dev.azure.com/contoso/platform/_git/studio/pullrequest/412',
       mergedAt: null,
       closedAt: null,
+      commentCount: 0,
     });
 
     expect(result.pulls[1]).toMatchObject({

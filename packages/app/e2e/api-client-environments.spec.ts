@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
@@ -25,9 +25,20 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * port (where no such scroll fires and a plain click is fine), the bug is
  * real here.
  */
-async function openEnvironmentSwitcher(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Select environment' }).focus();
-  await page.keyboard.press('Enter');
+async function openEnvironmentSwitcher(page: Page, revealed: Locator): Promise<void> {
+  // `Popover` dismisses on ANY capture-phase scroll in the app, and the rail
+  // scrolls its active link into view some time after navigation. When that
+  // scroll lands after the popover opened (observed on main CI run 37133242957,
+  // all three retries), the popover is gone and a single open never recovers.
+  // So the open is retried until the item it exists to reveal is on screen.
+  await expect(async () => {
+    const trigger = page.getByRole('button', { name: 'Select environment' });
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
+      await trigger.focus();
+      await page.keyboard.press('Enter');
+    }
+    await expect(revealed).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
 }
 
 const collection = {
@@ -57,12 +68,12 @@ test('an environment with no secret rows never needs the confirm, and switching 
   const switcher = page.getByRole('button', { name: 'Select environment' });
   await expect(switcher).toContainText('No environment');
 
-  await openEnvironmentSwitcher(page);
+  await openEnvironmentSwitcher(page, page.getByText('Prod', { exact: true }));
   await page.getByText('Prod', { exact: true }).click();
   await expect(switcher).toContainText('Prod');
 
   // Editing it back to empty and saving needs no confirm at all.
-  await openEnvironmentSwitcher(page);
+  await openEnvironmentSwitcher(page, page.getByLabel('Edit Prod'));
   await page.getByLabel('Edit Prod').click();
   const dialog = page.getByRole('dialog', { name: 'Edit environment "Prod"' });
   await dialog.getByRole('button', { name: 'Remove row' }).click();

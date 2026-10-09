@@ -1,6 +1,9 @@
 import {
+  DEFAULT_VIDEO_ENGINE,
   VIDEO_CODEC_INFO,
+  VIDEO_ENGINE_INFO,
   VIDEO_RENDER_CODECS,
+  type VideoEngine,
   type VideoRenderCodec,
   type VideoRenderOptions,
 } from '@midnite/studio-shared';
@@ -14,18 +17,26 @@ const SCALES = [0.25, 0.5, 1, 2] as const;
  * The render dialog (Phase 99 Theme D) — codec, crf/quality and resolution
  * scale, run through `remotion render --codec` in main. Renders land in the
  * project's next free `vN` like any other iteration.
+ *
+ * Engine-aware (Theme H): HyperFrames renders through `hyperframes render
+ * --format`, maps the same codec list onto its mp4/webm/mov/gif formats, and
+ * has no resolution *scale* (only fixed presets) — so the scale control is
+ * Remotion-only rather than a knob that silently does nothing.
  */
 export function VideoRenderDialog({
   open,
   onClose,
   onRender,
   compositionId,
+  engine = DEFAULT_VIDEO_ENGINE,
 }: {
   open: boolean;
   onClose: () => void;
   onRender: (options: VideoRenderOptions) => void;
   compositionId: string;
+  engine?: VideoEngine;
 }) {
+  const takesScale = engine === 'remotion';
   const [codec, setCodec] = useState<VideoRenderCodec>('h264');
   const [crf, setCrf] = useState(18);
   const [scale, setScale] = useState<number>(1);
@@ -38,14 +49,20 @@ export function VideoRenderDialog({
     onRender({
       codec,
       ...(takesCrf ? { crf } : {}),
-      ...(scale !== 1 ? { scale } : {}),
+      ...(takesScale && scale !== 1 ? { scale } : {}),
       ...(label ? { label } : {}),
     });
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Render ${compositionId}`} size="sm" testId="video-render-dialog">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Render ${compositionId}`}
+      size="sm"
+      testId="video-render-dialog"
+    >
       <form
         className="flex flex-col gap-3 p-4 text-xs"
         onSubmit={(event) => {
@@ -54,6 +71,9 @@ export function VideoRenderDialog({
         }}
       >
         <h2 className="text-sm font-semibold text-foreground">Render {compositionId}</h2>
+        <p data-testid="video-render-engine" className="-mt-2 text-[11px] text-muted-foreground">
+          Engine: {VIDEO_ENGINE_INFO[engine].label}
+        </p>
         <label className="flex flex-col gap-1">
           <span className="font-medium text-foreground">Codec</span>
           <select
@@ -71,7 +91,8 @@ export function VideoRenderDialog({
         </label>
         <label className="flex flex-col gap-1">
           <span className="font-medium text-foreground">
-            Quality (crf {takesCrf ? crf : '—'}) <span className="text-muted-foreground">lower is better</span>
+            Quality (crf {takesCrf ? crf : '—'}){' '}
+            <span className="text-muted-foreground">lower is better</span>
           </span>
           <input
             aria-label="Quality (crf)"
@@ -83,21 +104,23 @@ export function VideoRenderDialog({
             onChange={(event) => setCrf(Number(event.target.value))}
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-medium text-foreground">Resolution scale</span>
-          <select
-            aria-label="Resolution scale"
-            value={scale}
-            onChange={(event) => setScale(Number(event.target.value))}
-            className="h-8 rounded-md border border-border bg-card px-2"
-          >
-            {SCALES.map((s) => (
-              <option key={s} value={s}>
-                {s}×
-              </option>
-            ))}
-          </select>
-        </label>
+        {takesScale ? (
+          <label className="flex flex-col gap-1">
+            <span className="font-medium text-foreground">Resolution scale</span>
+            <select
+              aria-label="Resolution scale"
+              value={scale}
+              onChange={(event) => setScale(Number(event.target.value))}
+              className="h-8 rounded-md border border-border bg-card px-2"
+            >
+              {SCALES.map((s) => (
+                <option key={s} value={s}>
+                  {s}×
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="flex flex-col gap-1">
           <span className="font-medium text-foreground">Label</span>
           <input
@@ -108,11 +131,17 @@ export function VideoRenderDialog({
             className="h-8 rounded-md border border-border bg-card px-2"
           />
           {!labelValid ? (
-            <span className="text-destructive">Letters, digits, dot, dash and underscore only.</span>
+            <span className="text-destructive">
+              Letters, digits, dot, dash and underscore only.
+            </span>
           ) : null}
         </label>
         <div className="mt-1 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-1.5 hover:bg-accent">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 hover:bg-accent"
+          >
             Cancel
           </button>
           <button

@@ -163,12 +163,16 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
   runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
-  `ubuntu-24.04` purely for the 1x billing rate. **That cost argument is obsolete, not overridden:
-  this repo is public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard
-  GitHub-hosted runners — macOS included — are free on a public repo, so the "10x" those comments
-  repeat is a private-repo figure. `ci.yml`'s header carries the citations; read every "10x"/"1x"
-  in that file as history.
-- **Billing is free on macOS; CONCURRENCY is the scarce thing, and it is capped at 5.** The
+  `ubuntu-24.04` purely for the 1x billing rate. **This repo is private**
+  (`gh api repos/bilo-io/midnite-studio -q .visibility`), so Actions minutes are billed and a
+  macOS minute costs 10x a Linux one — `ci.yml`'s header once called that argument obsolete on
+  the belief that the repo was public, and its "free on a public repo" comments are wrong. The
+  macOS placement stands anyway, on correctness rather than cost: platform behaviour is only
+  validated on the platform. **When the Actions budget runs out**, every job fails in seconds with
+  "The job was not started because an Actions budget is preventing further use" — that is
+  billing, not a code failure, and a rerun will not help; the user decides whether to raise the
+  budget or merge on the local gate (`moon run :typecheck :lint :test`).
+- **CONCURRENCY is the other scarce thing, and it is capped at 5 macOS jobs.** The
   original sweep moved *every* default gate to macOS and tripled wall-clock — 13-14m to 21-42m —
   because it scheduled 15 macOS jobs per run against a hard cap of **5 concurrent macOS jobs**
   (measured: peak simultaneous `macos-14` jobs was exactly 5; in one run 13 of 16 macOS jobs were
@@ -205,6 +209,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   spec's own header comment. Unit tests must never assert wall-clock bounds
   (`expect(elapsed).toBeLessThan(...)`), which flakes under CI load. `scripts/e2e-budget.mjs`
   enforces the ratchet on declared e2e tests and visual baselines in CI.
+- **Screenshots are taken with the git repos side panel closed, like the terminal — unless the
+  shot is about that panel.** `installMockBridge` from `e2e/shots-helper.ts` seeds
+  `reposOpen: false` for every `*-shots.spec.ts` (merged into `midnite-studio.ui`, never
+  clobbering a spec's own seed); pass `{ reposOpen: true }` to opt a repos-panel shot back in.
+  Visual and functional specs are untouched, so baselines do not move.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,
@@ -259,6 +268,15 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   label is already on screen, so a bubble repeating it teaches nothing. The map names the command
   that navigates there *unconditionally*: `Mod+1` is shorter than `view.graph`'s `Mod+Shift+g` but
   becomes `browser.selectTab1` while the browser pane is open.
+- **The CLI and the MCP server are both named `midnite`; the old CLI name is a deprecated alias.**
+  The bundled command is `midnite` (`resources/bin/midnite`) and the MCP server registers as `midnite`
+  (`MCP_SERVER_NAME` in `shared/src/media-model-mcp.ts` — the shim's `Server` and every Claude
+  `mcp__midnite__*` allowlist or Codex `mcp_servers.midnite.*` key derive from it, so they cannot drift).
+  `midnite-studio` stays as a forwarding alias for one release (removal is tracked in
+  `outstanding.md`). The original midnite app ships its own `midnite` CLI, so the installer
+  (`main/ipc/cli-handlers.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
+  a foreign one is left untouched, only the alias is installed, and the reason comes back in
+  `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
 - **Public downloads and issues live in
   [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
   private, so nothing a user touches can be served from it — installers, release notes and the
@@ -358,7 +376,7 @@ renders the table:
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |
 |---|---|---|---|---|---|---|
-| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | @bilo-io | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 | posted the final `confineAllowlist` signature to the board |
+| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | @bilo-io | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 · ⛓ #609 | posted `confineAllowlist` to the board |
 
 - **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
   internal agent id — and **always a clickable link** to its PR (or issue, before a PR exists).
@@ -366,16 +384,20 @@ renders the table:
   reads as theirs at a glance. `—` before anyone owns it.
 - **A completion percentage in its own column**, always, drawn as a 10-cell progress bar before
   the number. An unknown percentage is `?`, never a blank.
-- **A diff column** once a PR exists — `🟩 +added 🟥 -deleted 📄 files` — and **an emoji status**
-  (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done; the skill has the full set).
+- **A diff column, always** — MUST ALWAYS use `🟩 +<added> 🟥 -<deleted> 📄 <files>` (straight from the
+  PR, or during local development in worktrees before a PR opens, derived from `git diff --shortstat`,
+  or `—` when empty). Plain text or code block formats like `+X/-Y` or `0/0` are forbidden.
+- **An emoji status**, always — (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done;
+  the skill has the full set), followed by any state tags (`⛓ #n` stacked, `⏸ held`, `🔵 audited`,
+  `🚀 deployed`). A state goes in Status, never in Notes.
 - **A remaining-time estimate (ETA) in its own column**, always — wall-clock time until that row
   merges or completes, derived from *observed* pace (elapsed time against the % so far, how long
   today's CI runs have actually taken, how many stages remain), never from an agent's own claim.
   `?` when there is no basis yet, `done` once merged. When more than one row is live, add one line
   under the table with the ETA for the whole batch, since the user's real question is "when is all
   of it done", and rows finishing in parallel do not add.
-- **A notes column**, always — what changed since the last sitrep, what it is blocked on, what it
-  handed another agent. An empty note is `—`.
+- **A notes column**, always, of **six words at most**: news since the last sitrep, the blocker by
+  name, or an ask. It never restates the status. An empty note is `—`, and most rows are empty.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
   something the table cannot carry — a decision needed from the user, or a failure.
 - The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is

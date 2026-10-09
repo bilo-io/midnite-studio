@@ -38,6 +38,10 @@ export const VIEW_IDS = [
   'landing',
   'dashboard',
   'notes',
+  // Chats page — agent-CLI conversations with reviewable changes. Pinned
+  // under Notes, ahead of Sessions and Knowledge (`app.tsx`'s rail order).
+  'chats',
+  'sessions',
   'knowledge',
   'files',
   'search',
@@ -62,7 +66,6 @@ export const VIEW_IDS = [
   // Phase 96 Theme C — global like `video` was: an Ollama daemon and its
   // models are not scoped to an open checkout.
   'models',
-  'sessions',
   'apiClient',
   'settings',
 ] as const;

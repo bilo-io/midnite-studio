@@ -44,7 +44,7 @@ export function DemoApiOfferBanner({ workflowId, nodes }: { workflowId: string; 
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border bg-accent/40 px-3 py-1.5 text-xs text-muted-foreground">
       <span className="min-w-0 flex-1 truncate">
-        This workflow uses the demo API ({'{{demo.baseUrl}}'}) — it isn&apos;t running.
+        This graph uses the demo API ({'{{demo.baseUrl}}'}) — it isn&apos;t running.
       </span>
       <button
         type="button"

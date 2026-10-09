@@ -1,3 +1,4 @@
+import type { ThinkingStyle } from '../components/ai-thread/thinking-style';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -66,6 +67,12 @@ import type { SortState } from '../features/tasks/sort';
 import { REPO_ISSUES_SOURCE_ID } from '../features/tasks/repo-issues-source';
 import { useFileEditorStore } from './file-editor-store';
 
+import {
+  DEFAULT_GRAPH_COLUMN_VISIBILITY,
+  normalizeColumnVisibility,
+  withColumnVisible,
+  type GraphColumnVisibility,
+} from '../features/graph/column-visibility';
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
@@ -306,6 +313,12 @@ export type LayoutSizes = {
    */
   commitFilesHeight: number;
   /**
+   * The Loops tab's form, above its run terminal, in px. `0` means "no
+   * choice made": the form takes its natural content height. Any other value
+   * is a dragged height, clamped to the pane on every render.
+   */
+  loopFormHeight: number;
+  /**
    * The Actions run detail's jobs tree, above its log pane.
    */
   actionsJobsHeight: number;
@@ -317,6 +330,8 @@ export type LayoutSizes = {
   reviewsListWidth: number;
   /** The Sessions view's closed-session list, left of the transcript pane (Phase 67 Theme C). */
   sessionsListWidth: number;
+  /** The Chats view's explorer, left of the thread. */
+  chatsListWidth: number;
   /** The Notes view's sidenav, left of the editor pane (Phase 86 Theme G). */
   notesListWidth: number;
   /** The Search view's results list, left of the detail preview (Phase 25 Theme C). */
@@ -371,6 +386,16 @@ export type LayoutSizes = {
   mediaVideoDetailWidth: number;
   mediaAudioExplorerWidth: number;
   mediaAudioDetailWidth: number;
+  mediaModelExplorerWidth: number;
+  mediaModelDetailWidth: number;
+  mediaTerrainExplorerWidth: number;
+  mediaTerrainDetailWidth: number;
+  mediaSpriteExplorerWidth: number;
+  mediaSpriteDetailWidth: number;
+  mediaMapExplorerWidth: number;
+  mediaMapDetailWidth: number;
+  mediaGameExplorerWidth: number;
+  mediaGameDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
   workflowListWidth: number;
   /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
@@ -439,6 +464,7 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   detailWidth: 384,
   filesTreeWidth: 320,
   commitFilesHeight: 200,
+  loopFormHeight: 0,
   actionsJobsHeight: 200,
   // Wider than the files tree: a run row carries a status pill, a workflow
   // name, a branch and an age, and the branch is the part that truncates first.
@@ -450,6 +476,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // Matches the old Issues list's 360px row width — a dot, a label, an agent icon and a
   // duration/age pair is the same footprint as a status pill, title and number.
   sessionsListWidth: 360,
+  // Same row shape as Sessions': an icon, a title and an age, plus hover actions.
+  chatsListWidth: 360,
   // A checkbox, a drag handle and a body preview — narrower than Sessions'
   // own row, which also carries a duration/age pair.
   notesListWidth: 320,
@@ -486,6 +514,16 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaVideoDetailWidth: 320,
   mediaAudioExplorerWidth: 224,
   mediaAudioDetailWidth: 360,
+  mediaModelExplorerWidth: 224,
+  mediaModelDetailWidth: 360,
+  mediaTerrainExplorerWidth: 224,
+  mediaTerrainDetailWidth: 360,
+  mediaSpriteExplorerWidth: 224,
+  mediaSpriteDetailWidth: 380,
+  mediaMapExplorerWidth: 240,
+  mediaMapDetailWidth: 300,
+  mediaGameExplorerWidth: 240,
+  mediaGameDetailWidth: 380,
   // Workflows (Phase 43) — list left, inspector / history right.
   workflowListWidth: 224,
   workflowDetailWidth: 320,
@@ -530,11 +568,15 @@ export const LAYOUT_BOUNDS = {
   // how tall the window is and a 720px file list in a short one would leave the
   // message above and the diff below with no room at all.
   commitFilesHeight: { min: 80, max: 720 },
+  // Static bounds only seed the type; the tab computes the real range from
+  // its own height (see `loop-form-size.ts`).
+  loopFormHeight: { min: 96, max: 2000 },
   actionsJobsHeight: { min: 80, max: 720 },
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
   sessionsListWidth: { min: 240, max: 640 },
+  chatsListWidth: { min: 240, max: 640 },
   notesListWidth: { min: 220, max: 560 },
   searchResultsWidth: { min: 280, max: 900 },
   /*
@@ -572,6 +614,16 @@ export const LAYOUT_BOUNDS = {
   mediaVideoDetailWidth: { min: 260, max: 600 },
   mediaAudioExplorerWidth: { min: 180, max: 480 },
   mediaAudioDetailWidth: { min: 260, max: 640 },
+  mediaModelExplorerWidth: { min: 180, max: 480 },
+  mediaModelDetailWidth: { min: 260, max: 640 },
+  mediaTerrainExplorerWidth: { min: 180, max: 480 },
+  mediaTerrainDetailWidth: { min: 260, max: 640 },
+  mediaSpriteExplorerWidth: { min: 180, max: 480 },
+  mediaSpriteDetailWidth: { min: 280, max: 680 },
+  mediaMapExplorerWidth: { min: 180, max: 480 },
+  mediaMapDetailWidth: { min: 240, max: 520 },
+  mediaGameExplorerWidth: { min: 180, max: 480 },
+  mediaGameDetailWidth: { min: 300, max: 680 },
   workflowListWidth: { min: 180, max: 480 },
   workflowDetailWidth: { min: 260, max: 600 },
   workflowPaletteWidth: { min: 160, max: 360 },
@@ -1049,10 +1101,15 @@ export type UiState = {
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
+  /** Which optional graph columns show (header columns menu). See `features/graph/column-visibility.ts`. */
+  graphColumnVisibility: GraphColumnVisibility;
   navMode: NavMode;
   collapsedNavSections: string[];
   /** Media page (Phase 99 Theme A) — the active tab, persisted. */
   mediaTab: MediaTab;
+  /** Media ▸ Video's right-hand panel tab. */
+  mediaVideoPanelTab: VideoPanelTab;
+  setMediaVideoPanelTab: (tab: VideoPanelTab) => void;
   setMediaTab: (tab: MediaTab) => void;
   /** Navigate to Media, optionally switching tab — what `view.video`/`media.tab.*` call. */
   openMedia: (tab?: MediaTab) => void;
@@ -1061,6 +1118,18 @@ export type UiState = {
   setMediaPaneCollapsed: (tab: MediaTab, pane: MediaPane, collapsed: boolean) => void;
   /** Settings ▸ Media ▸ General — the save dialog's starting folder; `null` = OS default. */
   mediaExportDir: string | null;
+  /** The doc most recently *edited* in Media ▸ Docs, per repo — what Docs reopens on entry. */
+  mediaLastDoc: Record<string, { project: string; path: string }>;
+  setMediaLastDoc: (repoId: string, doc: { project: string; path: string }) => void;
+  /** The video project most recently selected in Media ▸ Video, per repo — what Video reselects on entry. */
+  mediaLastVideoProject: Record<string, string>;
+  setMediaLastVideoProject: (repoId: string, projectId: string) => void;
+  /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
+  mediaSpeechOn: boolean;
+  /** Settings ▸ Media ▸ Maps — how the measure tools print distance and area (Phase 108 Theme G). */
+  mapUnits: 'metric' | 'imperial';
+  setMapUnits: (units: 'metric' | 'imperial') => void;
+  setMediaSpeechOn: (on: boolean) => void;
   setMediaExportDir: (dir: string | null) => void;
   /**
    * `Accordion` sections folded shut, by `<accordionId>:<sectionId>` — the
@@ -1316,6 +1385,7 @@ export type UiState = {
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
+  setGraphColumnVisible: (column: string, visible: boolean) => void;
   setNavMode: (mode: NavMode) => void;
   toggleSettingsGroup: (key: SettingsGroupId) => void;
   toggleNavSection: (key: string) => void;
@@ -1431,6 +1501,12 @@ export type UiState = {
    * never had a board picked, which the view reads as "show the picker".
    */
   projectBoardByRepo: Record<string, string>;
+  /**
+   * Phase 101 Theme A: which of Media ▸ Audio's Editor | Generator tabs a repo
+   * last had open. Absent = Generator, so existing users land where they did.
+   */
+  audioTabByRepo: Record<string, 'editor' | 'generator'>;
+  setAudioTab: (repoId: string, tab: 'editor' | 'generator') => void;
   setProjectBoard: (repoId: string, projectId: string) => void;
   /**
    * Tasks, on its built-in Repo issues source for the selected repo — what
@@ -1936,6 +2012,9 @@ export type UiState = {
    */
   companionSttEngine: CompanionSttEngine;
   setCompanionSttEngine: (engine: CompanionSttEngine) => void;
+  /** Loading indicator in every AI thread (docs, companion, media). Settings ▸ Appearance. */
+  aiThinkingStyle: ThinkingStyle;
+  setAiThinkingStyle: (style: ThinkingStyle) => void;
   setCompanionMusicOffer: (offer: boolean) => void;
   /**
    * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
@@ -2083,6 +2162,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   execSwarm: '/midnite-swarm',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
+  prAudit: '/midnite-pr-audit',
   triage: '/midnite-triage',
   releasePrep: '/midnite-release-prep',
   releaseComplete: '/midnite-release-complete',
@@ -2113,14 +2193,24 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
  * `keyof PersistedUi` exactly — a key added here and to neither list is then a
  * typecheck failure at the point of adding it, not a silently orphaned one.
  */
+/** Media ▸ Video's right-hand panel tabs. */
+export const VIDEO_PANEL_TABS = ['edit', 'brief', 'versions'] as const;
+export type VideoPanelTab = (typeof VIDEO_PANEL_TABS)[number];
+
 export type PersistedUi = Pick<
   UiState,
   | 'layout'
   | 'mediaTab'
+  | 'mediaVideoPanelTab'
   | 'mediaPaneCollapsed'
   | 'mediaExportDir'
+  | 'mediaLastDoc'
+  | 'mediaLastVideoProject'
+  | 'mediaSpeechOn'
+  | 'mapUnits'
   | 'collapsedAccordionSections'
   | 'graphColumns'
+  | 'graphColumnVisibility'
   | 'navMode'
   | 'collapsedNavSections'
   | 'collapsedSettingsGroups'
@@ -2178,6 +2268,7 @@ export type PersistedUi = Pick<
   | 'forgeSyncGhAuthSwitch'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
+  | 'audioTabByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
   | 'cardSkillByTask'
@@ -2237,6 +2328,7 @@ export type PersistedUi = Pick<
   | 'companionVolume'
   | 'companionMicMode'
   | 'companionSttEngine'
+  | 'aiThinkingStyle'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
@@ -2363,6 +2455,7 @@ export const useUiStore = create<UiState>()(
       forgeWritesEnabled: false,
       activeEnvironmentByRepo: {},
       projectBoardByRepo: {},
+      audioTabByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
       cardSkillByTask: {},
@@ -2494,6 +2587,8 @@ export const useUiStore = create<UiState>()(
       companionMicMode: 'push',
       setCompanionMicMode: (companionMicMode) => set({ companionMicMode }),
       companionSttEngine: 'server',
+      aiThinkingStyle: 'spinner',
+      setAiThinkingStyle: (aiThinkingStyle) => set({ aiThinkingStyle }),
       setCompanionSttEngine: (companionSttEngine) => set({ companionSttEngine }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
@@ -2678,9 +2773,12 @@ export const useUiStore = create<UiState>()(
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
+      graphColumnVisibility: DEFAULT_GRAPH_COLUMN_VISIBILITY,
       navMode: 'auto',
       collapsedNavSections: [],
       mediaTab: 'doc',
+      mediaVideoPanelTab: 'brief',
+      setMediaVideoPanelTab: (mediaVideoPanelTab) => set({ mediaVideoPanelTab }),
       setMediaTab: (mediaTab) => set({ mediaTab }),
       openMedia: (tab) => {
         if (tab) set({ mediaTab: tab });
@@ -2695,6 +2793,24 @@ export const useUiStore = create<UiState>()(
           },
         })),
       mediaExportDir: null,
+      mediaLastDoc: {},
+      setMediaLastDoc: (repoId, doc) =>
+        set((state) => {
+          const prev = state.mediaLastDoc[repoId];
+          if (prev?.project === doc.project && prev.path === doc.path) return state;
+          return { mediaLastDoc: { ...state.mediaLastDoc, [repoId]: doc } };
+        }),
+      mediaLastVideoProject: {},
+      setMediaLastVideoProject: (repoId, projectId) =>
+        set((state) =>
+          state.mediaLastVideoProject[repoId] === projectId
+            ? state
+            : { mediaLastVideoProject: { ...state.mediaLastVideoProject, [repoId]: projectId } },
+        ),
+      mediaSpeechOn: false,
+      mapUnits: 'metric',
+      setMapUnits: (mapUnits) => set({ mapUnits }),
+      setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
       setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
       collapsedAccordionSections: [],
       toggleAccordionSection: (key) =>
@@ -2915,6 +3031,10 @@ export const useUiStore = create<UiState>()(
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),
+      setGraphColumnVisible: (column, visible) =>
+        set((state) => ({
+          graphColumnVisibility: withColumnVisible(state.graphColumnVisibility, column, visible),
+        })),
       setNavMode: (navMode) => set({ navMode }),
       toggleNavSection: (key) =>
         set((state) => ({
@@ -3074,6 +3194,8 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           activeEnvironmentByRepo: { ...state.activeEnvironmentByRepo, [repoId]: environmentId },
         })),
+      setAudioTab: (repoId, tab) =>
+        set((state) => ({ audioTabByRepo: { ...state.audioTabByRepo, [repoId]: tab } })),
       setProjectBoard: (repoId, projectId) =>
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
@@ -3151,10 +3273,16 @@ export const useUiStore = create<UiState>()(
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
+        mediaVideoPanelTab: state.mediaVideoPanelTab,
         mediaPaneCollapsed: state.mediaPaneCollapsed,
         mediaExportDir: state.mediaExportDir,
+        mediaLastDoc: state.mediaLastDoc,
+        mediaLastVideoProject: state.mediaLastVideoProject,
+        mediaSpeechOn: state.mediaSpeechOn,
+        mapUnits: state.mapUnits,
         collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
+        graphColumnVisibility: state.graphColumnVisibility,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
         collapsedSettingsGroups: state.collapsedSettingsGroups,
@@ -3207,6 +3335,7 @@ export const useUiStore = create<UiState>()(
         forgeWritesEnabled: state.forgeWritesEnabled,
         activeEnvironmentByRepo: state.activeEnvironmentByRepo,
         projectBoardByRepo: state.projectBoardByRepo,
+        audioTabByRepo: state.audioTabByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
         cardSkillByTask: state.cardSkillByTask,
@@ -3274,6 +3403,7 @@ export const useUiStore = create<UiState>()(
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
         companionSttEngine: state.companionSttEngine,
+        aiThinkingStyle: state.aiThinkingStyle,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
@@ -3567,9 +3697,13 @@ export const useUiStore = create<UiState>()(
           mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
             ? (saved.mediaTab as MediaTab)
             : current.mediaTab,
+          mediaVideoPanelTab: (VIDEO_PANEL_TABS as readonly string[]).includes(saved.mediaVideoPanelTab ?? '')
+            ? (saved.mediaVideoPanelTab as VideoPanelTab)
+            : current.mediaVideoPanelTab,
           mediaPaneCollapsed: { ...current.mediaPaneCollapsed, ...saved.mediaPaneCollapsed },
           setupState: { ...current.setupState, ...saved.setupState },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
+          graphColumnVisibility: normalizeColumnVisibility(saved.graphColumnVisibility),
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
           navVisibility: parseNavVisibility(saved.navVisibility ?? current.navVisibility),
           /*
@@ -3598,6 +3732,7 @@ export const useUiStore = create<UiState>()(
             ...saved.activeEnvironmentByRepo,
           },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
+          audioTabByRepo: { ...current.audioTabByRepo, ...saved.audioTabByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
@@ -3652,6 +3787,11 @@ const MEDIA_LAYOUT_KEYS = {
   image: { explorer: 'mediaImageExplorerWidth', detail: 'mediaImageDetailWidth' },
   video: { explorer: 'mediaVideoExplorerWidth', detail: 'mediaVideoDetailWidth' },
   audio: { explorer: 'mediaAudioExplorerWidth', detail: 'mediaAudioDetailWidth' },
+  model: { explorer: 'mediaModelExplorerWidth', detail: 'mediaModelDetailWidth' },
+  terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
+  sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
+  game: { explorer: 'mediaGameExplorerWidth', detail: 'mediaGameDetailWidth' },
+  map: { explorer: 'mediaMapExplorerWidth', detail: 'mediaMapDetailWidth' },
 } as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
 
 /** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */

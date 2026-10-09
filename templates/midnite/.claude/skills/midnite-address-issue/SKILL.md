@@ -168,6 +168,11 @@ stage below checks it never got committed.
 ## 10 · Open the PR + link it back
 
 - Push, then `gh pr create --draft --base main`.
+- **Screenshots go in when the PR is created, not afterwards.** For any visual change, commit and
+  push the PNGs first, then run `gh pr create` with a body that already embeds them, so a reviewer
+  sees the change the moment the PR exists. Never open a visual PR without them and promise
+  images later. If a shot genuinely can't be captured (packaged-only, needs hardware), the body
+  says which one is missing and why.
 - **Title:** `fix(<area>): <what> [<size> · <time>]`
 - **Body:**
   - **Issue:** `Fixes #<N>` on its own line — same repo, so it **will** auto-close on merge.

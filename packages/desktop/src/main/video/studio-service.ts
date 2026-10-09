@@ -1,4 +1,6 @@
-import type { VideoStudioStatus } from '@midnite/studio-shared';
+import { join } from 'node:path';
+
+import { DEFAULT_VIDEO_ENGINE, type VideoEngine, type VideoStudioStatus } from '@midnite/studio-shared';
 
 import { realSpawn, type SpawnFn, type SpawnedProcess } from '../process-runner';
 
@@ -24,6 +26,43 @@ import { realSpawn, type SpawnFn, type SpawnedProcess } from '../process-runner'
  *  reach, so an argv vector is enough — no quoting concerns here. */
 const STUDIO_ARGS = ['remotion', 'studio', '--no-open'];
 
+/** HyperFrames' CLI reports anonymous usage unless told not to; this app never opts a user in. */
+export const HYPERFRAMES_ENV = { DO_NOT_TRACK: '1' } as const;
+
+export type StudioCommand = {
+  command: string;
+  args: string[];
+  cwd: string;
+  env?: Readonly<Record<string, string>>;
+};
+
+/**
+ * The argv for one project's studio, per engine (Phase 99 Theme H).
+ *
+ * - **Remotion**: one `remotion studio` in the editor app serves every
+ *   composition, deep-linked by URL.
+ * - **HyperFrames**: a studio is *one project's directory* —
+ *   `hyperframes preview projects/<id>` from the editor app. `--foreground`
+ *   keeps it attached (it detaches itself in a non-TTY otherwise, which would
+ *   orphan it from the kill this module owns), and a busy default port is
+ *   handled by the CLI itself (it picks the next one and prints it).
+ */
+export function buildStudioCommand(input: {
+  engine: VideoEngine;
+  appDir: string;
+  projectId: string;
+}): StudioCommand {
+  if (input.engine === 'hyperframes') {
+    return {
+      command: 'npx',
+      args: ['hyperframes', 'preview', join('projects', input.projectId), '--no-open', '--foreground'],
+      cwd: input.appDir,
+      env: HYPERFRAMES_ENV,
+    };
+  }
+  return { command: 'npx', args: STUDIO_ARGS, cwd: input.appDir };
+}
+
 /** The URL Remotion's own `printServerReadyComment` writes to stdout once the
  *  dev server is actually listening — see `start-studio.js`'s
  *  `Server ready - Local: http://localhost:<port>, …`. Matched directly
@@ -32,9 +71,14 @@ const STUDIO_ARGS = ['remotion', 'studio', '--no-open'];
  *  studio or an unrelated dev server on it is the normal case. */
 const STUDIO_URL_PATTERN = /https?:\/\/localhost:\d+/;
 
+/** HyperFrames prints `Studio    http://localhost:3002/#project/<name>` — the
+ *  hash selects the project, so the whole URL is kept, not just the origin. */
+const HYPERFRAMES_URL_PATTERN = /Studio\s+(https?:\/\/localhost:\d+\S*)/;
+
 /** Pure so the "which line in a chatty stdout is the real answer" question is
  *  reviewable against captured output rather than a live process. */
-export function parseStudioUrl(output: string): string | null {
+export function parseStudioUrl(output: string, engine: VideoEngine = DEFAULT_VIDEO_ENGINE): string | null {
+  if (engine === 'hyperframes') return HYPERFRAMES_URL_PATTERN.exec(output)?.[1] ?? null;
   return STUDIO_URL_PATTERN.exec(output)?.[0] ?? null;
 }
 
@@ -56,10 +100,12 @@ const studios = new Map<string, Tracked>();
 
 export type StudioDeps = {
   spawn: SpawnFn;
+  /** Phase 99 Theme H — absent = Remotion, exactly as before the engine choice. */
+  engine: VideoEngine;
   onStatus: (projectId: string, status: VideoStudioStatus) => void;
 };
 
-const REAL: Pick<StudioDeps, 'spawn'> = { spawn: realSpawn };
+const REAL: Pick<StudioDeps, 'spawn' | 'engine'> = { spawn: realSpawn, engine: DEFAULT_VIDEO_ENGINE };
 
 function setStatus(projectId: string, status: VideoStudioStatus, onStatus: StudioDeps['onStatus']): void {
   const tracked = studios.get(projectId);
@@ -74,12 +120,12 @@ export function getStudioStatus(projectId: string): VideoStudioStatus {
 /**
  * Start (or return) the studio for one project.
  *
- * `cwd` is the Remotion app's own directory, resolved by the caller — this
+ * `cwd` is the engine's editor app directory, resolved by the caller — this
  * module has no opinion on where projects live on disk, only on owning at most
  * one child per `projectId` once it is told to start one.
  */
 export function startStudio(projectId: string, cwd: string, deps: Partial<StudioDeps> & Pick<StudioDeps, 'onStatus'>): void {
-  const { spawn, onStatus } = { ...REAL, ...deps };
+  const { spawn, onStatus, engine } = { ...REAL, ...deps };
   const existing = studios.get(projectId);
   if (existing && (existing.status.state === 'starting' || existing.status.state === 'running')) {
     // Already active: report the current state, spawn nothing. A `failed` or
@@ -91,7 +137,10 @@ export function startStudio(projectId: string, cwd: string, deps: Partial<Studio
 
   let child: SpawnedProcess;
   try {
-    child = spawn('npx', STUDIO_ARGS, cwd);
+    const target = buildStudioCommand({ engine, appDir: cwd, projectId });
+    child = target.env
+      ? spawn(target.command, target.args, target.cwd, target.env)
+      : spawn(target.command, target.args, target.cwd);
   } catch (error) {
     studios.set(projectId, { status: { state: 'failed', stderr: [describeSpawnError(error)] } });
     onStatus(projectId, studios.get(projectId)!.status);
@@ -109,7 +158,7 @@ export function startStudio(projectId: string, cwd: string, deps: Partial<Studio
   child.onStdout((chunk) => {
     if (resolved) return;
     buffer += chunk;
-    const url = parseStudioUrl(buffer);
+    const url = parseStudioUrl(buffer, engine);
     if (url) {
       resolved = true;
       setStatus(projectId, { state: 'running', url }, onStatus);

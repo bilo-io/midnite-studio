@@ -42,7 +42,7 @@ test('stays off while idle, lights up once a loop is running, off again once it 
   await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   const composer = page.getByTestId('loop-composer-guard');
-  await composer.getByTestId('loop-start').click();
+  await composer.getByTestId('loop-extras-send').click();
   await expect(composer.getByTestId('loop-stop')).toBeVisible();
 
   await page.getByRole('button', { name: 'Lock screen' }).click();

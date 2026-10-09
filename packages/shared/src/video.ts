@@ -13,6 +13,8 @@
  */
 import { z } from 'zod';
 
+import { FFMPEG_INSTALL_COMMAND } from './media';
+
 // --- project (file format, portable in both directions) --------------------
 
 /**
@@ -73,7 +75,13 @@ export type VideoComposition = z.infer<typeof VideoCompositionSchema>;
 // --- renders -------------------------------------------------------------
 
 /** Mirrors the council/workflow run-status shape: five states, not a boolean. */
-export const VIDEO_RENDER_STATUSES = ['queued', 'rendering', 'succeeded', 'failed', 'cancelled'] as const;
+export const VIDEO_RENDER_STATUSES = [
+  'queued',
+  'rendering',
+  'succeeded',
+  'failed',
+  'cancelled',
+] as const;
 export const VideoRenderStatusSchema = z.enum(VIDEO_RENDER_STATUSES);
 export type VideoRenderStatus = z.infer<typeof VideoRenderStatusSchema>;
 
@@ -116,6 +124,89 @@ export const VideoStudioStatusSchema = z.discriminatedUnion('state', [
 ]);
 export type VideoStudioStatus = z.infer<typeof VideoStudioStatusSchema>;
 
+// --- Phase 99 Theme H: the video engine (Remotion | HyperFrames) -------------
+
+/**
+ * Which tool authors and renders a video root's compositions. Both engines
+ * share one workspace shape — `projects/<id>/{project.json,input/BRIEF.md}`,
+ * `assets/`, `scripts/`, the two editorial skills — and differ only in the
+ * editor app directory (`video-editor/` vs `hyperframes-editor/`) and the
+ * commands main spawns inside it.
+ */
+export const VIDEO_ENGINES = ['remotion', 'hyperframes'] as const;
+export const VideoEngineSchema = z.enum(VIDEO_ENGINES);
+export type VideoEngine = z.infer<typeof VideoEngineSchema>;
+
+/** What a root that carries no engine config has always been. */
+export const DEFAULT_VIDEO_ENGINE: VideoEngine = 'remotion';
+
+export const VIDEO_ENGINE_INFO: Record<
+  VideoEngine,
+  { label: string; appDir: string; studioLabel: string; blurb: string }
+> = {
+  remotion: {
+    label: 'Remotion',
+    appDir: 'video-editor',
+    studioLabel: 'Remotion Studio',
+    blurb: 'React components rendered frame by frame. One editor app serves every project.',
+  },
+  hyperframes: {
+    label: 'HyperFrames',
+    appDir: 'hyperframes-editor',
+    studioLabel: 'HyperFrames Studio',
+    blurb:
+      'HTML + GSAP compositions (HeyGen, Apache-2.0). Needs Node 22+ and ffmpeg; Chrome is fetched on first render.',
+  },
+};
+
+/** The root-level file that records the engine — absent means {@link DEFAULT_VIDEO_ENGINE}. */
+export const VIDEO_CONFIG_FILE = 'video.config.json';
+
+export const VideoConfigSchema = z.object({
+  engine: VideoEngineSchema.default(DEFAULT_VIDEO_ENGINE),
+});
+export type VideoConfig = z.infer<typeof VideoConfigSchema>;
+
+/**
+ * Pure, and forgiving by design: a missing, empty, malformed or unknown-engine
+ * `video.config.json` reads as Remotion, so a root that predates the engine
+ * choice (or was hand-edited into something odd) keeps working untouched.
+ */
+export function parseVideoConfig(text: string | null | undefined): VideoConfig {
+  if (!text) return { engine: DEFAULT_VIDEO_ENGINE };
+  try {
+    const parsed = VideoConfigSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : { engine: DEFAULT_VIDEO_ENGINE };
+  } catch {
+    return { engine: DEFAULT_VIDEO_ENGINE };
+  }
+}
+
+export function serializeVideoConfig(config: VideoConfig): string {
+  return `${JSON.stringify({ engine: config.engine }, null, 2)}\n`;
+}
+
+/** The engine a (possibly pre-engine) resolution or toolchain reports. */
+export function videoEngineOf(
+  value: { engine?: VideoEngine | undefined } | null | undefined,
+): VideoEngine {
+  return value?.engine ?? DEFAULT_VIDEO_ENGINE;
+}
+
+/** What an engine switch (or a fresh Setup) leaves on disk for the UI to act on. */
+export const VideoEngineStateSchema = z.object({
+  root: z.string().nullable(),
+  engine: VideoEngineSchema,
+  /** The engine's editor app has no `node_modules/` yet — the UI offers `npm install` in a terminal. */
+  needsInstall: z.boolean(),
+  /** Absolute path of the engine's editor app directory, `null` with no root. */
+  appDir: z.string().nullable(),
+});
+export type VideoEngineState = z.infer<typeof VideoEngineStateSchema>;
+
+/** The oldest Node HyperFrames' own `engines` field allows. */
+export const HYPERFRAMES_MIN_NODE_MAJOR = 22;
+
 // --- toolchain -----------------------------------------------------------
 
 /**
@@ -143,10 +234,20 @@ export type VideoToolBinary = z.infer<typeof VideoToolBinarySchema>;
  * `video-project-detail.tsx`'s own comment for why.
  */
 export const VIDEO_SKILLS = {
-  videoWriteScript: '/video-write-editorial-script',
-  videoExecuteScript: '/video-execute-editorial-script',
+  videoWriteScript: '/midnite-media-video-write-editorial-script',
+  videoExecuteScript: '/midnite-media-video-execute-editorial-script',
 } as const;
 export type VideoSkillId = keyof typeof VIDEO_SKILLS;
+
+/**
+ * The pre-namespace directory name of each editorial skill → its
+ * `midnite-media-video-*` name (Phase 99 Theme J). Only the migration of an
+ * already-scaffolded video root reads this; nothing else may reference the old names.
+ */
+export const VIDEO_SKILL_RENAMES: Readonly<Record<string, string>> = {
+  'video-write-editorial-script': 'midnite-media-video-write-editorial-script',
+  'video-execute-editorial-script': 'midnite-media-video-execute-editorial-script',
+};
 
 /**
  * `node`/`npx`, resolved through the existing login-shell probe (Theme C) —
@@ -162,6 +263,12 @@ export const VideoToolchainSchema = z.object({
   node: VideoToolBinarySchema,
   npx: VideoToolBinarySchema,
   remotionVersion: z.string().optional(),
+  /** Phase 99 Theme H — which engine this toolchain answer is for. Absent = Remotion. */
+  engine: VideoEngineSchema.optional(),
+  /** The `hyperframes` dependency's declared version, when the root uses that engine. */
+  hyperframesVersion: z.string().optional(),
+  /** `node -p process.versions.node` — HyperFrames needs 22+. */
+  nodeVersion: z.string().optional(),
   /** Phase 99 Theme A — the Media export service's required external tool. Optional so older fixtures stay valid. */
   ffmpeg: VideoToolBinarySchema.optional(),
   skills: z.object({
@@ -208,21 +315,26 @@ export const VideoRootResolutionSchema = z.object({
   source: VideoRootSourceSchema.nullable(),
   /** `<repo>/.midnite/media/video` for the active repo — where Setup Video scaffolds. `null` with no repo. */
   setupTarget: z.string().nullable(),
+  /** Phase 99 Theme H — the root's engine, from `video.config.json`. Absent on a pre-engine payload = Remotion. */
+  engine: VideoEngineSchema.optional(),
 });
 export type VideoRootResolution = z.infer<typeof VideoRootResolutionSchema>;
 
 /** `.midnite/media/video` — the repo-local video root Setup Video writes. */
 export const VIDEO_REPO_MEDIA_DIR = '.midnite/media/video';
 
-/** The two directories that mark a folder as a midnite-videos workspace. */
-export const VIDEO_LAYOUT_MARKERS = ['video-editor', 'projects'] as const;
+/** A midnite-videos workspace is `projects/` plus either engine's editor app (Phase 99 Theme H). */
+export const VIDEO_APP_DIRS = ['video-editor', 'hyperframes-editor'] as const;
 
 /** Remotion `--codec` values the render dialog offers. */
 export const VIDEO_RENDER_CODECS = ['h264', 'vp8', 'vp9', 'prores', 'gif'] as const;
 export const VideoRenderCodecSchema = z.enum(VIDEO_RENDER_CODECS);
 export type VideoRenderCodec = z.infer<typeof VideoRenderCodecSchema>;
 
-export const VIDEO_CODEC_INFO: Record<VideoRenderCodec, { label: string; ext: string; crf: boolean }> = {
+export const VIDEO_CODEC_INFO: Record<
+  VideoRenderCodec,
+  { label: string; ext: string; crf: boolean }
+> = {
   h264: { label: 'H.264 (mp4)', ext: 'mp4', crf: true },
   vp8: { label: 'VP8 (webm)', ext: 'webm', crf: true },
   vp9: { label: 'VP9 (webm)', ext: 'webm', crf: true },
@@ -317,8 +429,56 @@ export function changelogEntry(changelog: string, filename: string): string | nu
   return lines.slice(start, end).join('\n').trim();
 }
 
-/** Remotion Studio deep-links a composition at `/<compositionId>`. */
-export function studioCompositionUrl(studioUrl: string, compositionId: string | null): string {
-  if (!compositionId) return studioUrl;
+/**
+ * Remotion Studio deep-links a composition at `/<compositionId>`. HyperFrames
+ * Studio is one server per project (its working directory *is* the project),
+ * so there is nothing to append.
+ */
+export function studioCompositionUrl(
+  studioUrl: string,
+  compositionId: string | null,
+  engine: VideoEngine = DEFAULT_VIDEO_ENGINE,
+): string {
+  if (engine === 'hyperframes' || !compositionId) return studioUrl;
   return `${studioUrl.replace(/\/+$/, '')}/${encodeURIComponent(compositionId)}`;
+}
+
+/** One unmet requirement of the active engine, with the command that fixes it when there is one. */
+export type VideoEngineIssue = {
+  id: 'node' | 'npx' | 'node-version' | 'ffmpeg';
+  message: string;
+  command?: string;
+};
+
+/**
+ * What the active engine needs that this machine lacks — pure over the
+ * toolchain answer so the studio pane, render dialog and tests agree. Remotion
+ * needs only node/npx (ffmpeg is the *export* service's concern); HyperFrames
+ * additionally needs Node 22+ and ffmpeg/ffprobe (Chrome is fetched by its own
+ * CLI on first render, so it is not a gate here).
+ */
+export function videoEngineIssues(
+  engine: VideoEngine,
+  toolchain: Pick<VideoToolchain, 'node' | 'npx' | 'ffmpeg' | 'nodeVersion'>,
+): VideoEngineIssue[] {
+  const issues: VideoEngineIssue[] = [];
+  if (!toolchain.node.found) issues.push({ id: 'node', message: toolchain.node.reason });
+  if (!toolchain.npx.found) issues.push({ id: 'npx', message: toolchain.npx.reason });
+  if (engine === 'hyperframes') {
+    const major = Number(toolchain.nodeVersion?.split('.')[0]);
+    if (toolchain.node.found && Number.isFinite(major) && major < HYPERFRAMES_MIN_NODE_MAJOR) {
+      issues.push({
+        id: 'node-version',
+        message: `HyperFrames needs Node ${HYPERFRAMES_MIN_NODE_MAJOR}+ (found ${toolchain.nodeVersion}) — install a newer Node (nodejs.org, nvm, or brew install node).`,
+      });
+    }
+    if (toolchain.ffmpeg && !toolchain.ffmpeg.found) {
+      issues.push({
+        id: 'ffmpeg',
+        message: 'HyperFrames renders through ffmpeg, which was not found on PATH.',
+        command: FFMPEG_INSTALL_COMMAND,
+      });
+    }
+  }
+  return issues;
 }

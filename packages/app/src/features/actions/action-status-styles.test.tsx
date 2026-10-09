@@ -44,6 +44,7 @@ const makePull = (over: Partial<ForgePull>): ForgePull => ({
   checks: 'passing',
   mergedAt: null,
   closedAt: null,
+  commentCount: 0,
   ...over,
 });
 

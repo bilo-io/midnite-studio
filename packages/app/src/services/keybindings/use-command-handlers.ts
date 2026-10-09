@@ -8,6 +8,7 @@ import { activePanelBack, activePanelForward } from '../../components/panel-stac
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { devServerUrl } from '../../features/browser/dev-server';
 import { useDevServer } from '../../features/browser/use-dev-server';
+import { toggleNotes } from '../../features/notes/notes-window';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
@@ -63,7 +64,7 @@ function withNavVisibility(
 // — Councils (Phase 42) and, since Phase 50 Theme D, a board's card detail.
 // `Mod+[`/`Mod+]` stay disabled everywhere else rather than firing a silent
 // no-op through the registry.
-const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'tasks']);
+const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'tasks', 'files']);
 
 /**
  * The one dispatcher every source reads: the keyboard, the native menu, and
@@ -253,7 +254,7 @@ export function useCommandHandlers(): CommandRuntime {
           ? useUiStore.getState().setFabPanelOpen(false)
           : useUiStore.getState().toggleQuickAccess(),
     },
-    'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
+    'notes.toggle': { enabled: true, run: () => toggleNotes() },
     /*
       Phase 79 Theme C. Disabled — with a reason, so the palette row explains
       itself — while the companion is switched off: the panel would render
@@ -506,9 +507,30 @@ export function useCommandHandlers(): CommandRuntime {
     'media.tab.image': { enabled: true, run: () => useUiStore.getState().openMedia('image') },
     'media.tab.video': { enabled: true, run: () => useUiStore.getState().openMedia('video') },
     'media.tab.audio': { enabled: true, run: () => useUiStore.getState().openMedia('audio') },
+    'media.tab.model': { enabled: true, run: () => useUiStore.getState().openMedia('model') },
+    'media.audio.editor': {
+      enabled: true,
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.openMedia('audio');
+        if (ui.selectedRepoId) ui.setAudioTab(ui.selectedRepoId, 'editor');
+      },
+    },
+    'media.audio.generator': {
+      enabled: true,
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.openMedia('audio');
+        if (ui.selectedRepoId) ui.setAudioTab(ui.selectedRepoId, 'generator');
+      },
+    },
     'view.models': withNavVisibility(navVisibility, 'view.models', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('models'),
+    }),
+    'view.chats': withNavVisibility(navVisibility, 'view.chats', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('chats'),
     }),
     'view.apiClient': withNavVisibility(navVisibility, 'view.apiClient', {
       enabled: true,
@@ -601,10 +623,10 @@ export function useCommandHandlers(): CommandRuntime {
     // no-op there anyway.
     'panel.back': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelBack() }
-      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
     'panel.forward': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelForward() }
-      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
   };
 }
 

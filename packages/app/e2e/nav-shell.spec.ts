@@ -118,12 +118,13 @@ const panel = (page: Page) => page.getByRole('complementary', { name: 'Repositor
 const heading = (page: Page, name: string) =>
   panel(page).getByRole('heading', { name, exact: true });
 
-test('the rail carries all eighteen views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all nineteen views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
   for (const label of [
     'Dashboard',
     'Notes',
+    'Chats',
     'Knowledge',
     'Explorer',
     'Search',
@@ -131,12 +132,12 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
     'Database',
     'API Client',
     'Tasks',
-    'Graph',
+    'Timeline',
     'Actions',
     'Reviews',
     'History',
     'Councils',
-    'Workflows',
+    'Graphs',
     'Sessions',
   ]) {
     await expect(rail(page, label)).toBeVisible();
@@ -165,8 +166,9 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
   expect(hrefs).toEqual([
     '/dashboard',
     '/notes',
-    '/knowledge',
+    '/chats',
     '/sessions',
+    '/knowledge',
     '/files',
     '/search',
     '/tests',
@@ -187,7 +189,7 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
 test('each view is reachable and none of them answers as the graph', async ({ page }) => {
   await open(page);
 
-  for (const label of ['Dashboard', 'Explorer', 'Actions', 'Tests', 'Reviews', 'Graph']) {
+  for (const label of ['Dashboard', 'Explorer', 'Actions', 'Tests', 'Reviews', 'Timeline']) {
     await clickRail(page, label);
     await expect(rail(page, label)).toHaveAttribute('aria-current', 'page');
   }
@@ -238,7 +240,7 @@ test('standing in Actions when it disappears lands you on the graph', async ({ p
   await open(page, { ...base, remotes: [GITLAB_REMOTE], forge: undefined });
 
   await expect(rail(page, 'Actions')).toHaveCount(0);
-  await expect(rail(page, 'Graph')).toHaveAttribute('aria-current', 'page');
+  await expect(rail(page, 'Timeline')).toHaveAttribute('aria-current', 'page');
 });
 
 test('the ungrouped rows keep their height when the rail overflows', async ({ page }) => {

@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import type { Resizable } from './use-resizable';
 
 /**
@@ -17,6 +19,7 @@ export function ResizeHandle({
   label,
   gap,
   className = '',
+  gradient,
 }: {
   resizable: Resizable;
   axis: 'x' | 'y';
@@ -37,6 +40,12 @@ export function ResizeHandle({
    */
   gap?: number;
   className?: string;
+  /**
+   * A vertical gradient for the rule (x-axis handles only): `from` at the top,
+   * `to` at the bottom. Slightly more opaque, with a soft glow in the same two
+   * colours, on hover. Used by the graph's inline diff views only.
+   */
+  gradient?: { from: string; to: string };
 }) {
   const vertical = axis === 'x';
   const pull = gap === undefined ? undefined : -(HIT + gap) / 2;
@@ -86,8 +95,22 @@ export function ResizeHandle({
       */}
       <span
         aria-hidden
-        className={`pointer-events-none absolute bg-border transition-[background-color,width,height] group-hover:bg-primary/50 group-focus-visible:bg-primary ${
-          resizable.dragging ? '!bg-primary' : ''
+        data-resize-gradient={gradient ? '' : undefined}
+        style={
+          gradient
+            ? ({
+                backgroundImage: `linear-gradient(to bottom, ${gradient.from}, ${gradient.to})`,
+                '--divider-from': gradient.from,
+                '--divider-to': gradient.to,
+              } as CSSProperties)
+            : undefined
+        }
+        className={`pointer-events-none absolute bg-border transition-[background-color,width,height,opacity,box-shadow] ${
+          gradient
+            ? 'opacity-70 group-hover:opacity-100 group-hover:[box-shadow:0_-3px_8px_var(--divider-from),0_3px_8px_var(--divider-to)] group-focus-visible:opacity-100'
+            : 'group-hover:bg-primary/50 group-focus-visible:bg-primary'
+        } ${
+          resizable.dragging && !gradient ? '!bg-primary' : ''
         } ${
           vertical
             ? `inset-y-0 left-1/2 -translate-x-1/2 ${resizable.snap ? 'w-[5px]' : 'w-[2px]'}`

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "messages": [
+    {
+      "id": "m-mupd4loi-rjfi2g",
+      "role": "user",
+      "text": "Create an example entry / demo of all different block types supported by this editor",
+      "createdAt": 1790848784322
+    },
+    {
+      "id": "m-mupd51gg-3qzqcb",
+      "role": "assistant",
+      "text": "Proposed an edit to the document.",
+      "createdAt": 1790848804768,
+      "proposal": {
+        "scope": "doc",
+        "original": "# Overview\n",
+        "replacement": "# Overview\n\nThis page shows every block type the editor supports. Use it as a reference, or as a starting point for a new note.\n\n## Headings\n\n# Heading 1\n## Heading 2\n### Heading 3\n#### Heading 4\n##### Heading 5\n###### Heading 6\n\n## Paragraphs and inline formatting\n\nA plain paragraph is just text. Inline styles can be mixed freely: **bold**, *italic*, ***bold italic***, ~~strikethrough~~, `inline code`, and a [link to the repo](https://github.com/bilo-io/midnite-studio).\n\nA second paragraph starts after a blank line.  \nA line ending in two spaces makes a hard line break, like this one.\n\n## Lists\n\n### Bulleted list\n\n- Git client\n- Integrated terminal\n  - Agent roster\n  - Broker-backed sessions\n- Embedded browser\n\n### Numbered list\n\n1. Clone the repository\n2. Install the toolchain with `proto use`\n3. Run the gate:\n   1. `moon run :typecheck`\n   2. `moon run :lint`\n   3. `moon run :test`\n\n### Task list\n\n- [x] Write the overview\n- [x] Add a table\n- [ ] Review with the team\n- [ ] Publish\n\n## Blockquote\n\n> Destructive ops need a confirm dialog showing blast radius.\n>\n> > A nested quote sits inside the first one.\n\n## Code blocks\n\n```ts\nimport { z } from 'zod';\n\nexport const GitOpResultSchema = z.discriminatedUnion('ok', [\n  z.object({ ok: z.literal(true) }),\n  z.object({ ok: z.literal(false), kind: z.enum(['conflict', 'error']), message: z.string() }),\n]);\n```\n\n```sh\nexport GITHUB_PACKAGES_TOKEN=$(gh auth token)\npnpm install --frozen-lockfile\n```\n\n```json\n{\n  \"name\": \"midnite-studio\",\n  \"private\": true\n}\n```\n\n## Table\n\n| Package | Role | May import `electron` |\n|---|---|:---:|\n| `shared` | Wire contract (zod only) | ❌ |\n| `git-engine` | Everything that touches git | ❌ |\n| `app` | Renderer | ❌ |\n| `desktop` | Electron main + preload | ✅ |\n\n## Image\n\n![Midnite Studio wordmark candidates](docs/screenshots/website-wordmark/candidates.png)\n\n## Horizontal rule\n\nContent above the rule.\n\n---\n\nContent below the rule.\n\n## Footnote-style reference\n\nReference-style links keep long URLs out of the text: see the [design plan][plan].\n\n[plan]: docs/INITIAL_PLAN.md",
+        "status": "accepted"
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import {
   failure,
   ok,
   parseAudioProjectFile,
+  type AudioGenerateRequest,
   type AudioImportRequest,
   type AudioProgressEvent,
   type AudioProviderId,
@@ -60,6 +61,8 @@ export function audioTimeStamp(date: Date): string {
 export function createAudioService(deps: AudioServiceDeps) {
   const now = deps.now ?? (() => new Date());
   const mintId = deps.mintId ?? (() => `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`);
+  /** Runs in flight, so a renderer-side cancel can reach the provider's `AbortSignal`. */
+  const active = new Map<string, AbortController>();
 
   function providerStatuses(): AudioProviderStatus[] {
     return AUDIO_PROVIDER_IDS.map((id) => ({ id, available: true, generates: deps.providers[id].generates }));
@@ -78,6 +81,7 @@ export function createAudioService(deps: AudioServiceDeps) {
     const stamp = audioTimeStamp(createdAt);
     const files: string[] = [];
     const total = adapter.generates ? req.prompt.count : sources.length;
+    let stage: { stage: string; fraction: number } | null = null;
     const progress = (status: AudioProgressEvent['status'], error?: string) =>
       deps.emit({
         importId: req.importId,
@@ -88,10 +92,11 @@ export function createAudioService(deps: AudioServiceDeps) {
         total,
         files: [...files],
         ...(error ? { error } : {}),
+        ...(stage ? stage : {}),
       });
 
     const land = async (audio: ProducedAudio, index: number): Promise<void> => {
-      const base = audioSlug(audio.source ?? (req.prompt.title || 'audio'));
+      const base = audioSlug(audio.source ?? (req.prompt.title || req.prompt.style[0] || 'audio'));
       const file = `${base}-${stamp}${total > 1 ? `-${index + 1}` : ''}.${audio.ext}`;
       const wrote = await deps.writeBytes({ ...scope, path: file, data: audio.bytes });
       if (!wrote.ok) throw new AudioProviderError(wrote.kind === 'error' ? wrote.message : 'Could not write the audio.');
@@ -100,7 +105,7 @@ export function createAudioService(deps: AudioServiceDeps) {
         file,
         sessionId,
         provider,
-        title: req.prompt.title || audio.source?.replace(/\.[^.]+$/, '') || file,
+        title: req.prompt.title || audio.source?.replace(/\.[^.]+$/, '') || req.prompt.style.slice(0, 3).join(', ') || file,
         ...(audio.source ? { source: audio.source } : {}),
         createdAt: createdAt.toISOString(),
       };
@@ -117,17 +122,10 @@ export function createAudioService(deps: AudioServiceDeps) {
     let chain = Promise.resolve();
     let landed = 0;
     const controller = new AbortController();
-    try {
-      await adapter.generate(req.prompt, {
-        signal: controller.signal,
-        sources,
-        readFile: deps.readFile,
-        onAudio: (audio) => {
-          const index = landed++;
-          chain = chain.then(() => land(audio, index));
-        },
-      });
-      await chain;
+    active.set(req.importId, controller);
+
+    /** Append this run to `project.json` — also when it was cut short, so landed variants keep their session. */
+    const recordSession = async () => {
       const existing = await deps.readText({ ...scope, path: AUDIO_PROJECT_FILE });
       const history = parseAudioProjectFile(existing.ok ? existing.value : null);
       const session: AudioSession = {
@@ -144,13 +142,34 @@ export function createAudioService(deps: AudioServiceDeps) {
         path: AUDIO_PROJECT_FILE,
         data: Buffer.from(JSON.stringify(next, null, 2) + '\n', 'utf8'),
       });
+    };
+
+    try {
+      await adapter.generate(req.prompt, {
+        signal: controller.signal,
+        sources,
+        readFile: deps.readFile,
+        onProgress: (p) => {
+          stage = p;
+          progress('running');
+        },
+        onAudio: (audio) => {
+          const index = landed++;
+          chain = chain.then(() => land(audio, index));
+        },
+      });
+      await chain;
+      await recordSession();
       progress('succeeded');
       return ok({ sessionId, files });
     } catch (error) {
       await chain.catch(() => undefined);
       const message = error instanceof Error ? error.message : String(error);
-      progress('failed', message);
+      if (files.length > 0) await recordSession().catch(() => undefined);
+      progress(message === 'cancelled' ? 'cancelled' : 'failed', message === 'cancelled' ? undefined : message);
       return failure(message);
+    } finally {
+      active.delete(req.importId);
     }
   }
 
@@ -159,7 +178,19 @@ export function createAudioService(deps: AudioServiceDeps) {
     return run(req, 'import', sources);
   }
 
-  return { importFiles, providerStatuses };
+  /** Generate: the request names a generating provider; nothing is picked from disk. */
+  async function generate(req: AudioGenerateRequest) {
+    const adapter = deps.providers[req.provider];
+    if (!adapter?.generates) return failure('That provider does not generate audio.');
+    return run(req, req.provider, []);
+  }
+
+  function cancel(importId: string): GitOpResult {
+    active.get(importId)?.abort();
+    return ok(undefined);
+  }
+
+  return { importFiles, generate, cancel, providerStatuses };
 }
 
 export type AudioService = ReturnType<typeof createAudioService>;

@@ -2,24 +2,24 @@ import type { IconType } from 'react-icons';
 import { GoBeaker, GoGitPullRequest, GoGlobe, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import { PiTerminalDuotone } from 'react-icons/pi';
-import { SiGrapheneos, SiOllama } from 'react-icons/si';
+import { SiGrapheneos, SiMagic, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuAudioLines,
   LuBot,
   LuCircleUserRound,
-  LuLibrary,
   LuDatabase,
   LuDiff,
   LuDownload,
   LuFolderTree,
   LuGauge,
+  LuGitCommitVertical,
   LuHistory,
   LuHouse,
   LuLayoutDashboard,
   LuLayoutGrid,
   LuLock,
-  LuNotebookPen,
+  LuMessageSquare,
   LuPalette,
   LuPanelLeft,
   LuSearch,
@@ -35,8 +35,8 @@ import {
   LuStethoscope,
   LuTerminal,
   LuTrash2,
-  LuWorkflow,
 } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 import type { SettingsPageId, ViewId } from '../store/ui-store';
 import { CirclePileIcon } from './icons/circle-pile-icon';
@@ -63,16 +63,22 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Phase 86 Theme E — pinned directly under Dashboard, so it wears a glyph
   // that reads as "notes" rather than the file/document mark `files` already
   // owns.
-  notes: LuNotebookPen,
+  notes: MdOutlineEditNote,
+  // Chats page — conversations with the roster's agent CLIs. `LuBot` already
+  // belongs to Settings ▸ Agent and the companion, so the thread reads as a
+  // speech bubble instead.
+  chats: LuMessageSquare,
   // Phase 87 Theme C — Simple Icons' GrapheneOS mark, not a Lucide graph/node
-  // glyph: `graph` (the commit graph) already owns `IoIosGitNetwork`, and one
-  // icon per view is the whole point of this map.
+  // glyph: `workflows` (Graphs) owns `IoIosGitNetwork`, and one icon per view
+  // is the whole point of this map.
   knowledge: SiGrapheneos,
   files: LuFolderTree,
   search: LuSearch,
   tests: GoBeaker,
   database: LuDatabase,
-  graph: IoIosGitNetwork,
+  // Git ▸ Timeline wears the vertical commit glyph; the old commit-graph mark
+  // (IoIosGitNetwork) moved to `workflows`, now labelled Graphs.
+  graph: LuGitCommitVertical,
   // Actions and Reviews wear GitHub's own Octicons — `play` and
   // `git-pull-request` — rather than the nearest
   // Lucide/Font-Awesome match, so the rail reads identically to github.com's
@@ -89,9 +95,9 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
-  workflows: LuWorkflow,
+  workflows: IoIosGitNetwork,
   // Phase 99 Theme A — Media (Docs/Images/Video/Audio); Video's clapperboard is its tab glyph now.
-  media: LuLibrary,
+  media: SiMagic,
   // Phase 96 Theme C — Ollama's own mark, not a Lucide model/box glyph: this
   // view is specifically Ollama's models, and the phase doc's own research
   // already settled on `SiOllama` for it.
@@ -118,7 +124,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // (Phase 95 Theme B), so a "shine" mark reads truer than a heartbeat.
   activity: LuSparkles,
   privacy: LuShield,
-  graph: IoIosGitNetwork,
+  graph: LuGitCommitVertical,
   diff: LuDiff,
   sidebar: LuPanelLeft,
   search: LuSearch,
@@ -129,8 +135,8 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // front of the review actions, not the actions themselves.
   reviews: LuShieldCheck,
   projects: LuListTodo,
-  workflows: LuWorkflow,
-  media: LuLibrary,
+  workflows: IoIosGitNetwork,
+  media: SiMagic,
   ollama: SiOllama,
   gitSafety: LuShieldAlert,
   // A literal trash can, not a third shield glyph: `reviews` already owns

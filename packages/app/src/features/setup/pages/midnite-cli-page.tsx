@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { LuTerminal } from 'react-icons/lu';
+import { PiDownloadSimple, PiDownloadSimpleFill } from 'react-icons/pi';
 
 import type { CliStatusResponse } from '@midnite/studio-shared';
 
+import { EmptyStateButton } from '../../../components/empty-state';
+import { MidniteIcon } from '../../../components/icons/midnite-icon';
+import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 
-/** What the command does from a shell — the three forms `resources/bin/midnite-studio --help` lists. */
+/** What the command does from a shell — the three forms `resources/bin/midnite --help` lists. */
 const USAGE: readonly { command: string; does: string }[] = [
-  { command: 'midnite-studio .', does: 'open the repository you are in' },
-  { command: 'midnite-studio open <path>', does: 'open a repository by path' },
-  { command: 'midnite-studio clone <url>', does: 'clone a repository and open it' },
+  { command: 'midnite .', does: 'open the repository you are in' },
+  { command: 'midnite open <path>', does: 'open a repository by path' },
+  { command: 'midnite clone <url>', does: 'clone a repository and open it' },
 ];
 
 /**
@@ -69,7 +72,7 @@ export function MidniteCliPage() {
     ? 'Available in the desktop app.'
     : status?.installed
       ? status.managed
-        ? (status.version ?? status.path)
+        ? (status.notice ?? undefined)
         : `Installed outside Midnite Studio (${status.path})`
       : rowStatus === 'missing'
         ? 'Not installed'
@@ -80,12 +83,15 @@ export function MidniteCliPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
-        <code className="font-mono text-foreground">midnite-studio</code> opens Midnite Studio from any shell:
+        <code className="font-mono text-foreground">midnite</code> opens Midnite Studio from
+        any shell:
       </p>
       <ul className="flex flex-col gap-1.5 text-xs">
         {USAGE.map((row) => (
           <li key={row.command} className="flex items-baseline gap-2">
-            <code className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-foreground">{row.command}</code>
+            <code className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-foreground">
+              {row.command}
+            </code>
             <span className="text-muted-foreground">— {row.does}</span>
           </li>
         ))}
@@ -94,17 +100,26 @@ export function MidniteCliPage() {
       <SetupStatusRow
         label="Midnite CLI"
         status={rowStatus}
-        icon={LuTerminal}
+        icon={MidniteIcon}
+        brandColor="#8B5CF6"
         detail={detail}
+        meta={
+          status?.installed && status.managed && (status.version ?? status.path) ? (
+            status.version ? (
+              <SetupMeta kind="version" toolId="midnite" label="Midnite CLI" version={status.version} />
+            ) : (
+              <SetupMeta kind="path" toolId="midnite" label="Midnite CLI" path={status.path!} />
+            )
+          ) : undefined
+        }
         action={
-          <button
-            type="button"
+          <EmptyStateButton
+            icon={PiDownloadSimple}
+            filledIcon={PiDownloadSimpleFill}
+            label="Install"
             onClick={() => void install()}
             disabled={!cli}
-            className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Install
-          </button>
+          />
         }
       />
 
@@ -115,12 +130,17 @@ export function MidniteCliPage() {
       ) : null}
 
       {pathHint ? (
-        <div data-testid="setup-cli-path-hint" className="flex flex-col gap-1.5 rounded-md bg-muted/40 p-3 text-xs">
+        <div
+          data-testid="setup-cli-path-hint"
+          className="flex flex-col gap-1.5 rounded-md bg-muted/40 p-3 text-xs"
+        >
           <span className="text-muted-foreground">
             Installed where your shell does not look yet. Add this line to your shell profile (
             <code className="font-mono">~/.zshrc</code>), then open a new terminal:
           </span>
-          <code className="select-all rounded bg-background px-2 py-1 font-mono text-foreground">{pathHint}</code>
+          <code className="select-all rounded bg-background px-2 py-1 font-mono text-foreground">
+            {pathHint}
+          </code>
         </div>
       ) : null}
     </div>

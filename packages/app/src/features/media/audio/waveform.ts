@@ -57,3 +57,9 @@ export function formatDuration(seconds: number | undefined | null): string {
   const whole = Math.floor(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
+
+/** Bars before the playhead: `progress` (0..1, clamped) of `count` bars, floored. */
+export function playedBarCount(progress: number, count: number): number {
+  if (!Number.isFinite(progress) || count <= 0) return 0;
+  return Math.floor(Math.min(1, Math.max(0, progress)) * count);
+}

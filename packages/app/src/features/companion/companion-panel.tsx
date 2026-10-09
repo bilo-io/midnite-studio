@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { AiThreadFrame, ThinkingIndicator } from '../../components/ai-thread';
 import { PanelStack } from '../../components/panel-stack/panel-stack';
 import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
@@ -129,11 +130,18 @@ export function CompanionPanel({
         child refuses to shrink below its content and the input bar walks off
         the bottom of a long transcript.
       */}
-      <PanelStack
-        history={history}
-        className="min-h-0 flex-1"
-        render={() => <CompanionThread turns={transcript} />}
-      />
+      <AiThreadFrame
+        loading={state === 'thinking'}
+        className="flex min-h-0 flex-1 flex-col"
+        testId="companion-thread-frame"
+      >
+        <PanelStack
+          history={history}
+          className="min-h-0 flex-1"
+          render={() => <CompanionThread turns={transcript} />}
+        />
+        {state === 'thinking' ? <ThinkingIndicator className="shrink-0 pb-1.5" /> : null}
+      </AiThreadFrame>
       {pendingAction ? <CompanionPendingActionBar label={pendingAction.label} /> : null}
       <CompanionInputBar
         disabled={state === 'thinking'}

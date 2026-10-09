@@ -263,9 +263,11 @@ describe('LoopComposer — idle', () => {
     expect((combobox('Days') as HTMLInputElement).disabled).toBe(false);
   });
 
-  it('offers Start, not Stop', () => {
+  it('offers Start as the extras Send, not Stop', () => {
     renderComposer();
-    expect(screen.getByTestId('loop-start')).not.toBeNull();
+    expect(screen.getByTestId('loop-extras-send').getAttribute('aria-label')).toMatch(
+      /^Start .+ with these instructions$/,
+    );
     expect(screen.queryByTestId('loop-stop')).toBeNull();
   });
 
@@ -298,30 +300,28 @@ describe('LoopComposer — idle', () => {
     expect(blocked.props.onStart).not.toHaveBeenCalled();
   });
 
-  it('disables Start with a reason when there is nowhere to run', () => {
-    renderComposer({ disabled: true, disabledReason: 'Select a repository first.' });
-    const start = screen.getByTestId('loop-start') as HTMLButtonElement;
-    expect(start.disabled).toBe(true);
-    expect(start.title).toBe('Select a repository first.');
+  it('disables Start when there is nowhere to run', () => {
+    const { props } = renderComposer({ disabled: true, disabledReason: 'Select a repository first.' });
+    const send = screen.getByTestId('loop-extras-send');
+    expect(send.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(send);
+    expect(props.onStart).not.toHaveBeenCalled();
   });
 
-  it('wears no glow while idle', () => {
-    renderComposer();
-    expect(screen.getByTestId('loop-start').className).not.toContain('loop-run-glow');
+  it('starts from the extras Send, with no second Start button beside it', () => {
+    const { props } = renderComposer();
+    expect(screen.queryByTestId('loop-start')).toBeNull();
+    fireEvent.click(screen.getByTestId('loop-extras-send'));
+    expect(props.onStart).toHaveBeenCalledOnce();
   });
 
-  it('sits Start under the extras field, full width, wearing the gradient border', () => {
+  it('puts Send and Mic inside the extras box, bottom-left', () => {
     renderComposer();
-    const start = screen.getByTestId('loop-start');
-    expect(start.className).toContain('w-full');
-    expect(start.className).toContain('loop-start-gradient');
-    // `border-border` would paint an opaque line over the gradient the
-    // two-layer `background-clip` in `.loop-start-gradient` exists to show.
-    expect(start.className).not.toContain('border-border');
-
-    const extras = screen.getByPlaceholderText('Extra instructions…');
-    expect(extras.parentElement).toBe(start.parentElement);
-    expect(extras.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const controls = screen.getByTestId('loop-extras-controls');
+    const box = screen.getByPlaceholderText('Extra instructions…').closest('.gradient-border')!;
+    expect(box.contains(controls)).toBe(true);
+    expect(controls.contains(screen.getByTestId('loop-extras-mic'))).toBe(true);
+    expect(controls.contains(screen.getByTestId('loop-extras-send'))).toBe(true);
   });
 
   it('keeps Stop inline in the running strip rather than full width', () => {

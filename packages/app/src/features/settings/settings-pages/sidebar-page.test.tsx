@@ -67,7 +67,7 @@ describe('Settings > Sidebar rail destinations', () => {
 
   it('still toggles visibility', () => {
     render(<SidebarPage />);
-    fireEvent.click(screen.getByRole('switch', { name: 'Graph' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Timeline' }));
     expect(useUiStore.getState().navVisibility.graph).toBe(false);
   });
 });

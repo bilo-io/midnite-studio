@@ -112,6 +112,7 @@ export function AudioProjects({
           />
         ) : (
           <Accordion
+            tone="primary"
             id="media-audio-projects"
             sections={all.map((project, i) => {
               const variants = (listings[i]?.data ?? []).filter((f) => isAudioPath(f.path));
@@ -161,7 +162,7 @@ export function AudioProjects({
                             aria-current={current || undefined}
                             onClick={() => onSelectVariant(project.name, file.path)}
                             className={`flex w-full items-center gap-1.5 truncate py-1 pl-6 pr-2 text-left text-xs ${
-                              current ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                              current ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
                             }`}
                           >
                             <LuFileAudio aria-hidden className="h-3.5 w-3.5 shrink-0" />

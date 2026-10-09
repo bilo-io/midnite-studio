@@ -22,17 +22,27 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { MCP_TOOL_IDS, MCP_TOOLS, isMcpToolId } from '@midnite/studio-shared';
+import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOL_IDS, MCP_TOOLS, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-import { callMcpTool } from './client';
+import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
+
+/**
+ * `--socket <path>` points the shim at one specific socket instead of finding the app's global one —
+ * how an in-app iterative run attaches its agent to that run's private server (Media ▸ Models).
+ */
+function socketFromArgv(argv: readonly string[]): string | undefined {
+  const at = argv.indexOf('--socket');
+  return at >= 0 ? argv[at + 1] : undefined;
+}
+const explicitSocket = socketFromArgv(process.argv);
 
 function logToStderr(message: string): void {
   process.stderr.write(`[mcp-shim] ${message}\n`);
 }
 
 const server = new Server(
-  { name: 'midnite-studio', version: '1.0.0' },
+  { name: MCP_SERVER_NAME, version: '1.0.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -72,9 +82,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  const response = await callMcpTool(name, args ?? {});
+  const response = await callMcpTool(name, args ?? {}, {
+    ...(explicitSocket ? { socketPath: explicitSocket } : {}),
+    ...(isModelMcpToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
+    ...(isGameSlowToolId(name) ? { timeoutMs: GAME_CALL_TIMEOUT_MS } : {}),
+    ...(isTerrainSlowToolId(name) ? { timeoutMs: TERRAIN_CALL_TIMEOUT_MS } : {}),
+    ...(isSpriteSlowToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
+    ...(isMapSlowToolId(name) ? { timeoutMs: MAP_CALL_TIMEOUT_MS } : {}),
+  });
 
   if (response.ok) {
+    // A tool that answers with pictures (`model_render_preview`) hands its content blocks over untouched.
+    const value = response.value as Record<string, unknown> | null;
+    const blocks = value && typeof value === 'object' ? value[MCP_CONTENT_KEY] : undefined;
+    if (Array.isArray(blocks)) {
+      const parsed = blocks.map((block) => McpContentBlockSchema.safeParse(block));
+      if (parsed.every((p) => p.success)) {
+        return { content: parsed.map((p) => (p.success ? p.data : { type: 'text' as const, text: '' })) };
+      }
+    }
     return { content: [{ type: 'text' as const, text: JSON.stringify(response.value) }] };
   }
 

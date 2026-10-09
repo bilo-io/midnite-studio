@@ -8,6 +8,8 @@ import { ImageProviderError, responseError, type GeneratedImage, type ImageProvi
  * count; they have three sizes, so the aspect maps to the nearest.
  */
 export const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
+/** With reference images the request becomes an edit: multipart, one `image[]` part per reference. */
+export const OPENAI_EDITS_URL = 'https://api.openai.com/v1/images/edits';
 
 export const OPENAI_SIZE: Record<ImageAspect, string> = {
   '1:1': '1024x1024',
@@ -17,8 +19,27 @@ export const OPENAI_SIZE: Record<ImageAspect, string> = {
   '9:16': '1024x1536',
 };
 
-export function openaiRequestBody(prompt: string, model: string, aspect: ImageAspect, count: number) {
-  return { model, prompt, n: count, size: OPENAI_SIZE[aspect], output_format: 'png' };
+/** With `transparent`, gpt-image returns real alpha (`background: 'transparent'` needs PNG output). */
+export function openaiRequestBody(prompt: string, model: string, aspect: ImageAspect, count: number, transparent = false) {
+  return { model, prompt, n: count, size: OPENAI_SIZE[aspect], output_format: 'png', ...(transparent ? { background: 'transparent' } : {}) };
+}
+
+/** The `/v1/images/edits` form: the generation fields as strings plus each reference as `image[]`. */
+export function openaiEditsForm(
+  prompt: string,
+  model: string,
+  aspect: ImageAspect,
+  count: number,
+  references: readonly GeneratedImage[],
+  transparent = false,
+): FormData {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(openaiRequestBody(prompt, model, aspect, count, transparent))) form.append(key, String(value));
+  references.forEach((ref, i) => {
+    const ext = ref.mime === 'image/jpeg' ? 'jpg' : ref.mime === 'image/webp' ? 'webp' : 'png';
+    form.append('image[]', new Blob([new Uint8Array(ref.bytes)], { type: ref.mime }), `reference-${i + 1}.${ext}`);
+  });
+  return form;
 }
 
 type ImagesResponse = { data?: { b64_json?: string }[] };
@@ -35,12 +56,21 @@ export const openaiImageProvider: ImageProvider = {
   id: 'openai',
   async generate(req, deps) {
     if (!deps.apiKey) throw new ImageProviderError('Add an OpenAI API key in Settings ▸ Media.');
-    const res = await deps.fetch(OPENAI_IMAGES_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${deps.apiKey}` },
-      body: JSON.stringify(openaiRequestBody(req.prompt, req.model, req.aspect, req.count)),
-      signal: deps.signal,
-    });
+    const transparent = req.transparent === true;
+    const res = req.references?.length
+      ? // No content-type header: fetch sets the multipart boundary itself.
+        await deps.fetch(OPENAI_EDITS_URL, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${deps.apiKey}` },
+          body: openaiEditsForm(req.prompt, req.model, req.aspect, req.count, req.references, transparent),
+          signal: deps.signal,
+        })
+      : await deps.fetch(OPENAI_IMAGES_URL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${deps.apiKey}` },
+          body: JSON.stringify(openaiRequestBody(req.prompt, req.model, req.aspect, req.count, transparent)),
+          signal: deps.signal,
+        });
     if (!res.ok) throw await responseError('OpenAI', res);
     const images = parseOpenaiImages((await res.json()) as ImagesResponse);
     images.forEach((image) => deps.onImage?.(image));

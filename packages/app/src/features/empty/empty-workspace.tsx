@@ -72,7 +72,7 @@ export function EmptyWorkspace() {
     },
     {
       id: 'graph',
-      label: 'Git Graph',
+      label: 'Git Timeline',
       chord: displayChord(chordFor('view.graph', 'Mod+Shift+g')),
       icon: LuGitFork,
       onClick: () => useUiStore.getState().setActiveView('graph'),

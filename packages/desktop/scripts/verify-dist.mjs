@@ -85,21 +85,25 @@ if (!existsSync(templateIndexPath)) {
 }
 
 // Phase 53 Theme A: the CLI wrapper is resolved at runtime from
-// `${process.resourcesPath}/bin/midnite-studio` (see `cli-handlers.ts`'s
+// `${process.resourcesPath}/bin/midnite` (see `cli-handlers.ts`'s
 // `getBundleBinPath()`) but was never in `extraResources`, so every packaged
 // build shipped with the integration pointing at a path that does not exist.
 // This bug survived Phase 33's own verification because that verification
 // never looked here.
 console.log('Verifying the CLI wrapper shipped into Resources...');
-const cliWrapperPath = join(appPath, 'Contents', 'Resources', 'bin', 'midnite-studio');
-if (!existsSync(cliWrapperPath)) {
-  console.error(`Missing CLI wrapper at ${cliWrapperPath}`);
-  process.exit(1);
-}
-const cliWrapperMode = statSync(cliWrapperPath).mode;
-if ((cliWrapperMode & 0o111) === 0) {
-  console.error(`CLI wrapper at ${cliWrapperPath} is not executable (mode ${cliWrapperMode.toString(8)})`);
-  process.exit(1);
+// `midnite` is the CLI; `midnite-studio` is the deprecated one-release alias
+// wrapper. Both must ship executable or the installer links to nothing.
+for (const name of ['midnite', 'midnite-studio']) {
+  const cliWrapperPath = join(appPath, 'Contents', 'Resources', 'bin', name);
+  if (!existsSync(cliWrapperPath)) {
+    console.error(`Missing CLI wrapper at ${cliWrapperPath}`);
+    process.exit(1);
+  }
+  const cliWrapperMode = statSync(cliWrapperPath).mode;
+  if ((cliWrapperMode & 0o111) === 0) {
+    console.error(`CLI wrapper at ${cliWrapperPath} is not executable (mode ${cliWrapperMode.toString(8)})`);
+    process.exit(1);
+  }
 }
 
 // Same failure mode as the CLI wrapper check above, for the completions
@@ -107,7 +111,7 @@ if ((cliWrapperMode & 0o111) === 0) {
 // against the repo's own working tree and only fails once packaged.
 console.log('Verifying shell completions shipped into Resources...');
 const completionsDir = join(appPath, 'Contents', 'Resources', 'completions');
-for (const file of ['_midnite-studio', 'midnite-studio.bash', 'midnite-studio.fish']) {
+for (const file of ['_midnite', 'midnite.bash', 'midnite.fish']) {
   const completionPath = join(completionsDir, file);
   if (!existsSync(completionPath)) {
     console.error(`Missing shell completion at ${completionPath}`);

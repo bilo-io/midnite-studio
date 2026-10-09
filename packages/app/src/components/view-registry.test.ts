@@ -53,6 +53,8 @@ describe('VIEW_COMPONENT', () => {
         'database',
         'sessions',
         'notes',
+        // The Chats page: app-wide storage, each chat remembers its repo.
+        'chats',
       ]),
     );
   });

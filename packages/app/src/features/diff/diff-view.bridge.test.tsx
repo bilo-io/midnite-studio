@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FileDiff } from '@midnite/studio-shared';
 
@@ -304,4 +304,53 @@ describe('DiffView, assembled through the real bridge', () => {
       expect(rightCell?.textContent).toContain('42');
     });
   });
+
+  it('inline diffs mount every row in flow instead of windowing against the page scroller', async () => {
+    const lines = Array.from({ length: 300 }, (_, n) => ({
+      kind: 'add' as const,
+      oldNo: null,
+      newNo: n + 1,
+      text: `line ${n + 1}`,
+      ranges: [],
+      noNewline: false,
+    }));
+    const bigDiff: FileDiff = {
+      path: 'big.ts',
+      oldPath: null,
+      change: 'modified',
+      binary: false,
+      combined: false,
+      oldMode: null,
+      newMode: null,
+      insertions: 300,
+      deletions: 0,
+      contextLines: 3,
+      truncated: false,
+      droppedLines: 0,
+      hunks: [
+        { oldStart: 1, oldLines: 0, newStart: 1, newLines: 300, heading: '@@ -1,0 +1,300 @@', lines },
+      ],
+    };
+    // Everything "near the viewport": every slab mounts, none is windowed by offset maths.
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(private cb: (entries: { isIntersecting: boolean }[]) => void) {}
+        observe() {
+          this.cb([{ isIntersecting: true }]);
+        }
+        disconnect() {}
+        unobserve() {}
+      },
+    );
+    renderView(
+      <div className="overflow-y-auto">
+        <DiffView diff={bigDiff} inline tooNarrowForSplit={false} />
+      </div>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('diff-view').querySelectorAll('[data-index]').length).toBe(301);
+    });
+    vi.unstubAllGlobals();
+  }, 30_000);
 });

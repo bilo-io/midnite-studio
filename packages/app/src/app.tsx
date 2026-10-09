@@ -34,6 +34,7 @@ import { AppsRailRow } from './features/apps/apps-rail-row';
 import { useAppsSync } from './features/apps/use-apps-sync';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
+import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
 import { ToastHost } from './components/toast-host';
 import {
@@ -54,6 +55,10 @@ import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
+import { useModelOpenListener } from './features/media/model/use-model-agent-events';
+import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
+import { useTerrainOpenListener } from './features/media/terrain/use-terrain-agent-events';
+import { useSpriteOpenListener } from './features/media/sprite/use-sprite-agent-events';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -80,6 +85,7 @@ import { ThemeToggle } from './components/theme-toggle';
 import { AccountSwitcherSlot } from './components/account-switcher';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
+import { TitleBarOllama } from './components/title-bar-ollama';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
 import { TitleBarBattery } from './features/battery/battery-titlebar';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
@@ -98,6 +104,7 @@ import { useKnowledgeGraphExists } from './features/knowledge/use-knowledge-grap
 import { SyncActions } from './features/status/sync-actions';
 import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
+import { fabPlacementFor, useFabPlacementFlip } from './features/status-bar/fab-placement';
 import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
@@ -141,6 +148,7 @@ import {
   type NavMode,
   type ViewId,
 } from './store/ui-store';
+import { useRefetchModelsOnPullDone } from './features/models/use-models';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -211,7 +219,7 @@ const queryClient = new QueryClient({
  * its min-content size, so once the rail's content is taller than the window
  * the browser shrinks each row it can down to one line box — 36px to 20px.
  *
- * Only the ungrouped rows (Dashboard, Notes, Knowledge, Sessions) actually lost the
+ * Only the ungrouped rows (Dashboard, Notes, Chats, Sessions, Knowledge) actually lost the
  * space, which is why the bug read as "the pinned items have no padding": they
  * are direct children of the scrolling `<nav>`, while every sectioned row sits
  * inside its section's `<Collapse>` grid, which clips rather than compresses.
@@ -409,7 +417,19 @@ const PINNED_ITEM: NavItem = pinnedItem('dashboard');
 const NOTES_ITEM: NavItem = pinnedItem('notes');
 
 /**
- * Knowledge, pinned directly under Notes (Phase 87 Theme C).
+ * Chats, pinned directly under Notes — the order is Notes → Chats → Sessions →
+ * Knowledge.
+ *
+ * A top-level view of the whole app like its neighbours: conversations are
+ * stored app-wide (`chats: { global: true }` in `view-registry.tsx`), each one
+ * remembering the repo it was started in, so it is not a tool scoped to one
+ * checkout section.
+ */
+const CHATS_ITEM: NavItem = pinnedItem('chats');
+
+/**
+ * Knowledge, pinned at the bottom of the pinned group, under Sessions (Phase 87
+ * Theme C put it under Notes; the Chats page moved it below Sessions).
  *
  * `pinned` rather than `WORKSPACE_NAV_ITEMS` for the same reason as
  * `NOTES_ITEM`: it is one of the app's top-level "views of the whole thing",
@@ -424,12 +444,13 @@ const NOTES_ITEM: NavItem = pinnedItem('notes');
 const KNOWLEDGE_ITEM: NavItem = pinnedItem('knowledge');
 
 /**
- * Sessions, pinned directly under Knowledge (adhoc sidenav reorder).
+ * Sessions, pinned directly under Chats (adhoc sidenav reorder, then the Chats
+ * page).
  *
- * Same slot as `KNOWLEDGE_ITEM` and `NOTES_ITEM`: a top-level view of agent
+ * Same slot as `CHATS_ITEM` and `NOTES_ITEM`: a top-level view of agent
  * work across the repo, not a tool scoped to one checkout section. It stays
  * out of `AGENT_NAV_ITEMS` so the Agents section header does not sit between
- * Knowledge and Sessions.
+ * the pinned rows and the sections.
  */
 const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
 
@@ -450,8 +471,9 @@ const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
 export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
   NOTES_ITEM,
-  KNOWLEDGE_ITEM,
+  CHATS_ITEM,
   SESSIONS_ITEM,
+  KNOWLEDGE_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
   ...AGENT_NAV_ITEMS,
@@ -701,8 +723,13 @@ function Shell() {
     // raced that effect and could leave `--nav-offset` unset (not merely
     // wrong) whenever this one ran last, which is what broke `--nav-offset`
     // for every non-expanded state, hover-expanded included.
-    if (navMode !== 'expanded') return;
-    document.documentElement.style.setProperty('--nav-offset', '13rem');
+    // Collapsed strip is 4rem (shell's 3.5rem + 8px; see the `.w-14` rule in
+    // styles.css). Our effect runs after AppFrame's (child effects first), so
+    // this wins for 'auto'/'collapsed' too.
+    document.documentElement.style.setProperty(
+      '--nav-offset',
+      navMode === 'expanded' ? '13rem' : '4rem',
+    );
   }, [navMode]);
 
   useDefaultSelection();
@@ -751,6 +778,8 @@ function Shell() {
   // broadcast — see the hook's own doc.
   useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
+  // App level (Phase 98 Theme I): a pull the setup wizard starts must keep reporting after the Models view is left or never opened.
+  useRefetchModelsOnPullDone();
   // Auto-fetch itself runs in main now (Phase 84 Theme B); this only keeps
   // main's mirror of the setting current.
   useSettingsSync();
@@ -782,6 +811,14 @@ function Shell() {
   // windowRole guard lives inside the hook itself, not here, since main is
   // the only window `ui-bridge.ts` (main-side) ever targets.
   useCompanionUiRequests();
+  // Media ▸ Models — an agent's `model_open` brings the tab up on that model.
+  useModelOpenListener();
+  // Media ▸ Terrain — an agent's `terrain_open` does the same for a terrain.
+  useTerrainOpenListener();
+  // Media ▸ Sprites — an agent's `sprite_open` does the same for a sprite asset (Phase 106 Theme K).
+  useSpriteOpenListener();
+  // Rendered-from-3D sprite jobs (Phase 106 Theme E): three.js loads only on the first request.
+  useSpriteRenderHost();
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
@@ -1024,6 +1061,13 @@ function Shell() {
     */
     animateKey: `${terminalDocked}:${terminalMaximized}:${terminalDock}`,
   });
+  // Publishes the content area's rect (view stack minus the docked terminal's final size) for
+  // content-scoped modals to centre in; see `store/content-bounds-store.ts`.
+  useContentBoundsSync(
+    stackRef,
+    terminalRight ? 'right' : 'bottom',
+    terminalDocked && !terminalMaximized ? terminalFrameSize : null,
+  );
   /*
     The browser gets BOTH reveal primitives, one per layout, because the two
     layouts are structurally different panes: full screen is an overlay that
@@ -1242,13 +1286,16 @@ function Shell() {
   const nav: NavConfig = useMemo(
     () => ({
       // Ungrouped, above the sections — the shell's own slot for exactly
-      // this. Notes rides directly under Dashboard (Phase 86 Theme E),
-      // Knowledge directly under Notes (Phase 87 Theme C), and Sessions
-      // directly under Knowledge (adhoc sidenav reorder); the hairline
-      // between Dashboard and Notes is `ViewLink`'s job, not this array's.
+      // this. Notes rides directly under Dashboard (Phase 86 Theme E), then
+      // Chats, Sessions and Knowledge in that order (Knowledge was under
+      // Notes from Phase 87 Theme C until the Chats page moved it below
+      // Sessions); the hairline between Dashboard and Notes is `ViewLink`'s
+      // job, not this array's.
       pinned: [
         visibleNavItem(PINNED_ITEM),
         visibleNavItem(NOTES_ITEM),
+        visibleNavItem(CHATS_ITEM),
+        visibleNavItem(SESSIONS_ITEM),
         visibleNavItem(KNOWLEDGE_ITEM)
           ? {
               ...navItem(KNOWLEDGE_ITEM),
@@ -1270,7 +1317,6 @@ function Shell() {
               ),
             }
           : null,
-        visibleNavItem(SESSIONS_ITEM),
       ].filter((item): item is NonNullable<typeof item> => item !== null),
       sections: [
         {
@@ -1408,6 +1454,7 @@ function Shell() {
       */}
       <TitleBarPrimaryAgent />
       <TitleBarAgents />
+      <TitleBarOllama />
       <TitleBarStatus />
       <TitleBarBattery />
       {/*
@@ -1468,6 +1515,59 @@ function Shell() {
    * window gets its own slim strip rather than losing them entirely.
    */
   const framed = !windowChrome?.frameless;
+
+  const fabPlacement = fabPlacementFor({ view: activeView, terminalOpen: terminalDocked });
+  const fabInStatusBar = fabPlacement === 'statusbar';
+  useFabPlacementFlip(fabPlacement, fabButtonRef);
+  const fabNode = (
+    <>
+      <FabLoopHalo tab={activeFabTab} />
+      <button
+        ref={fabMorphRef}
+        type="button"
+        onClick={() => {
+          // Detached (Phase 55): the panel already lives in its own
+          // window, so this focuses it rather than opening a second
+          // copy docked here.
+          if (fabDetached) {
+            bridge()?.window.focusRole({ role: 'fab' });
+            return;
+          }
+          captureFabMorphOrigin(fabButtonRef.current);
+          useUiStore.getState().toggleQuickAccess();
+        }}
+        aria-label={
+          fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
+        }
+        title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
+        data-testid="fab-button"
+        data-loops-running={loopsRunning.running ? 'true' : undefined}
+        data-fab-tab={activeFabTab}
+        /*
+          Theme H. A sibling attribute to `data-loop-state`, not a
+          second animation system — the rules live beside that block in
+          `styles.css` and win over it when both are set, because the
+          companion is the thing you are talking to. `undefined` for
+          `off`/`idle` (see `fabCompanionState`) leaves today's look
+          completely untouched, which is the only honest way to say
+          "no rule".
+        */
+        data-companion-state={fabCompanionState(companionState)}
+        /*
+          `relative` is load-bearing: the halo sits at `-z-10` behind this
+          button, and a static box would paint UNDER a negative-z
+          positioned sibling rather than over it — the halo's opaque disc
+          would swallow the brand mark. `.loop-run-glow` happens to set
+          `position: relative` too, but only while a loop runs, which is
+          too load-bearing a coincidence to lean on.
+        */
+        className={`companion-face companion-face--primary relative flex ${fabInStatusBar ? 'h-5 w-5' : 'h-10 w-10'} items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
+      >
+        <BrandMark className="h-full w-full" />
+      </button>
+    </>
+  );
+  const fabHidden = fabPanelDocked || companionDocked;
 
   return (
     <AppFrame
@@ -1851,7 +1951,7 @@ function Shell() {
                       goes false (closing or detaching) while this frame's
                       own exit tween is still playing.
                     */
-                    reserveFabSpace={!fabPanelDocked && !companionDocked}
+                    reserveFabSpace={!fabPanelDocked && !companionDocked && !fabInStatusBar}
                   />
                 )}
               </div>
@@ -1898,52 +1998,9 @@ function Shell() {
             `companionEnabled` (above), so a disabled companion never
             suppresses this button.
           */}
-          {!fabPanelDocked && !companionDocked ? (
+          {!fabPanelDocked && !companionDocked && !fabInStatusBar ? (
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
-              <FabLoopHalo tab={activeFabTab} />
-              <button
-                ref={fabMorphRef}
-                type="button"
-                onClick={() => {
-                  // Detached (Phase 55): the panel already lives in its own
-                  // window, so this focuses it rather than opening a second
-                  // copy docked here.
-                  if (fabDetached) {
-                    bridge()?.window.focusRole({ role: 'fab' });
-                    return;
-                  }
-                  captureFabMorphOrigin(fabButtonRef.current);
-                  useUiStore.getState().toggleQuickAccess();
-                }}
-                aria-label={
-                  fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
-                }
-                title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
-                data-testid="fab-button"
-                data-loops-running={loopsRunning.running ? 'true' : undefined}
-                data-fab-tab={activeFabTab}
-                /*
-                  Theme H. A sibling attribute to `data-loop-state`, not a
-                  second animation system — the rules live beside that block in
-                  `styles.css` and win over it when both are set, because the
-                  companion is the thing you are talking to. `undefined` for
-                  `off`/`idle` (see `fabCompanionState`) leaves today's look
-                  completely untouched, which is the only honest way to say
-                  "no rule".
-                */
-                data-companion-state={fabCompanionState(companionState)}
-                /*
-                  `relative` is load-bearing: the halo sits at `-z-10` behind this
-                  button, and a static box would paint UNDER a negative-z
-                  positioned sibling rather than over it — the halo's opaque disc
-                  would swallow the brand mark. `.loop-run-glow` happens to set
-                  `position: relative` too, but only while a loop runs, which is
-                  too load-bearing a coincidence to lean on.
-                */
-                className={`companion-face companion-face--primary relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
-              >
-                <BrandMark className="h-full w-full" />
-              </button>
+              {fabNode}
             </div>
           ) : null}
         </div>
@@ -1954,7 +2011,7 @@ function Shell() {
           keeps the stackHeight reasoning above intact.
         */}
         <CommitActivityPanel slot="bottom" />
-        <StatusBar />
+        <StatusBar fab={fabInStatusBar && !fabHidden ? fabNode : null} />
         {/*
           Eager, not lazy, and for the same reason `BrowserPane` is: this is
           what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch
@@ -1977,6 +2034,7 @@ function Shell() {
         {quickAccessOpen ? (
           <QuickAccessMenu
             trigger={fabButtonRef}
+            anchor={fabInStatusBar ? fabButtonRef : undefined}
             onClose={() => useUiStore.getState().setQuickAccessOpen(false)}
           />
         ) : null}

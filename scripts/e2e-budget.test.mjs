@@ -72,7 +72,7 @@ describe('checkE2eBudget', () => {
     expect(result.message).toContain('Found 1 wall-clock duration assertion(s)');
   });
 
-  it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport -> 459 graph CI column connector -> 461 graph inline panels -> 463 media images masonry + glow -> 461 Changes view removed)', () => {
-    expect(MAX_DECLARED_E2E).toBe(462);
+  it('the committed ratchet cap matches its own committed value (449 -> 454 Theme G drag-to-skill -> 456 Theme I workflow editor React Flow port -> 457 Phase 98 Theme C FAB handoff -> 458 workflow panel-collapse viewport -> 459 graph CI column connector -> 461 graph inline panels -> 463 media images masonry + glow -> 461 Changes view removed -> 462 terminal right dock -> 464 content-bounds modal centring -> 466 diff header alignment -> 469 media models 3D editor -> 470 finance dashboard resize + insights hover -> 472 chats layout + scroll pinning -> 474 diff blank-band probe -> 475 models explorer drag-move -> 476 sprite render WebGL smoke -> 478 piano roll pointer drag)', () => {
+    expect(MAX_DECLARED_E2E).toBe(478);
   });
 });

@@ -15,7 +15,7 @@ const fakeProvider = (id: ImageProviderId, impl?: ImageProvider['generate']): Im
     }),
 });
 
-function setup(overrides: { keys?: Record<string, string>; provider?: ImageProvider['generate'] } = {}) {
+function setup(overrides: { keys?: Record<string, string>; provider?: ImageProvider['generate']; agy?: boolean } = {}) {
   const writes: { path: string; content: string; encoding: string }[] = [];
   const events: ImageGenerateProgressEvent[] = [];
   const service = createImageService({
@@ -33,6 +33,7 @@ function setup(overrides: { keys?: Record<string, string>; provider?: ImageProvi
     emit: (event) => events.push(event),
     fetch: vi.fn() as unknown as typeof fetch,
     discoverOllamaModels: async () => [],
+    agyAvailable: async () => overrides.agy ?? false,
     now: () => new Date(2026, 8, 30, 14, 15, 2),
   });
   return { service, writes, events };
@@ -59,13 +60,50 @@ describe('image service', () => {
     expect(imageFileName('b', 1, 3, 'image/png')).toBe('b-2.png');
   });
 
-  it('refuses without a key, and refuses agy outright', async () => {
+  it('fails with a clear result (never a throw) when there is neither a key nor agy', async () => {
     const { service } = setup();
-    expect(await service.generate(request)).toMatchObject({ ok: false, message: expect.stringMatching(/Gemini API key/) });
+    expect(await service.generate(request)).toMatchObject({
+      ok: false,
+      message: expect.stringMatching(/No Gemini API key.*Antigravity CLI/),
+    });
     expect(await service.generate({ ...request, provider: 'agy', model: 'agy-default' })).toMatchObject({
       ok: false,
-      message: expect.stringMatching(/Antigravity/),
+      message: expect.stringMatching(/install the Antigravity CLI/),
     });
+  });
+
+  it('routes a keyless request through agy when the CLI exists, recording agy in the sidecar', async () => {
+    const used: string[] = [];
+    const { writes } = setup({ agy: true });
+    const probe = createImageService({
+      providers: {
+        gemini: fakeProvider('gemini', async () => {
+          used.push('gemini');
+          return [];
+        }),
+        openai: fakeProvider('openai'),
+        agy: fakeProvider('agy', async (req, deps) => {
+          used.push(`agy:${req.model}`);
+          deps.onImage?.({ bytes: Buffer.from('px'), mime: 'image/png' });
+          return [];
+        }),
+        ollama: fakeProvider('ollama'),
+      },
+      readKey: async () => null,
+      writeFile: async (req) => {
+        writes.push(req);
+        return ok({ size: 1, largeFile: false });
+      },
+      emit: () => undefined,
+      fetch: vi.fn() as unknown as typeof fetch,
+      discoverOllamaModels: async () => [],
+      agyAvailable: async () => true,
+    });
+    const result = await probe.generate({ ...request, count: 1 });
+    expect(result.ok).toBe(true);
+    expect(used).toEqual(['agy:agy-default']);
+    const sidecar = parseImageSidecar(writes.find((w) => w.path.endsWith('.json'))!.content);
+    expect(sidecar).toMatchObject({ provider: 'agy', model: 'agy-default' });
   });
 
   it('writes each image as base64 plus a parseable sidecar, streaming progress', async () => {
@@ -121,6 +159,14 @@ describe('image service', () => {
       ['gemini', false, true],
       ['openai', true, false],
       ['agy', false, false],
+      ['ollama', false, false],
+    ]);
+    // With agy installed a missing key no longer blocks Generate.
+    const withAgy = await setup({ agy: true }).service.providerStatuses();
+    expect(withAgy.map((s) => [s.id, s.available, s.missingKey])).toEqual([
+      ['gemini', true, true],
+      ['openai', true, true],
+      ['agy', true, false],
       ['ollama', false, false],
     ]);
   });

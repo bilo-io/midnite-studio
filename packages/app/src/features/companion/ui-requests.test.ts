@@ -113,7 +113,7 @@ describe('resolveUiAction — ui.navigate', () => {
     const result = await resolveUiAction(navigate());
     expect(useUiStore.getState().activeView).toBe('graph');
     expect(result).toEqual({ ok: true, value: { did: 'navigated', view: 'graph' } });
-    expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('Agent: opened Commit Graph.');
+    expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('Agent: opened Commit Timeline.');
   });
 
   it('posts no companion turn when the companion is disabled, one when it is enabled', async () => {
@@ -124,7 +124,7 @@ describe('resolveUiAction — ui.navigate', () => {
     await resolveUiAction(navigate());
     const turns = useCompanionStore.getState().transcript;
     expect(turns).toHaveLength(1);
-    expect(turns[0]).toMatchObject({ role: 'companion', text: 'An agent opened the Commit Graph.' });
+    expect(turns[0]).toMatchObject({ role: 'companion', text: 'An agent opened the Commit Timeline.' });
   });
 
   it('focuses an already-detached page instead of opening a second copy', async () => {

@@ -78,7 +78,7 @@ export function CliPage() {
       <Accordion title="Command line integration" icon={<LuTerminal className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
-            label="midnite-studio CLI"
+            label="midnite CLI"
             hint={
               !hasBridge
                 ? 'Available in the desktop app.'
@@ -86,7 +86,7 @@ export function CliPage() {
                   ? status.managed
                     ? `Symlinked at ${status.path}`
                     : `Managed outside Midnite Studio (${status.path})`
-                  : 'Install midnite-studio into your system PATH to open repositories from the shell.'
+                  : 'Install midnite into your system PATH to open repositories from the shell.'
             }
           >
             <div className="flex flex-col gap-2">
@@ -114,6 +114,18 @@ export function CliPage() {
 
               {error && <div className="text-xs text-destructive">{error}</div>}
 
+              {status?.installed && status.notice && (
+                <div data-testid="cli-notice" className="text-xs text-muted-foreground">
+                  {status.notice}
+                </div>
+              )}
+
+              <div data-testid="cli-alias-note" className="text-xs text-muted-foreground">
+                The command used to be <code className="font-mono">midnite-studio</code>. It stays installed as a
+                deprecated alias for one more release — it is removed in the release after the one that ships
+                this rename — so switch scripts to <code className="font-mono">midnite</code>.
+              </div>
+
               {status?.installed && status.path?.includes('.local/bin') && (
                 <div className="mt-2 flex flex-col gap-1 rounded bg-muted/40 p-2 text-xs">
                   <span className="text-muted-foreground">Add to your shell profile (.zshrc / .bashrc) if not on PATH:</span>
@@ -139,13 +151,13 @@ export function CliPage() {
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground">bash — add to ~/.bashrc:</span>
                 <code className="select-all rounded bg-muted/40 p-1 font-mono text-foreground">
-                  source &quot;/Applications/Midnite Studio.app/Contents/Resources/completions/midnite-studio.bash&quot;
+                  source &quot;/Applications/Midnite Studio.app/Contents/Resources/completions/midnite.bash&quot;
                 </code>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground">fish — add to ~/.config/fish/config.fish:</span>
                 <code className="select-all rounded bg-muted/40 p-1 font-mono text-foreground">
-                  source &quot;/Applications/Midnite Studio.app/Contents/Resources/completions/midnite-studio.fish&quot;
+                  source &quot;/Applications/Midnite Studio.app/Contents/Resources/completions/midnite.fish&quot;
                 </code>
               </div>
             </div>

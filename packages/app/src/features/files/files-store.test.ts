@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useFilesStore } from './files-store';
 
 const reset = () =>
-  useFilesStore.setState({ scopeKey: null, expanded: {}, selectedPath: null, editing: null });
+  useFilesStore.setState({ scopeKey: null, expanded: {}, selectedPath: null, editing: null, nav: { entries: [], index: -1 } });
 
 beforeEach(reset);
 

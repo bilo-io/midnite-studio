@@ -1,6 +1,328 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Themes J + K — Export and Send to Generator
+
+The Editor exports `.mid`, WAV and MP3 for the whole song or the loop region, and Send to Generator lands a rendered reference in the project with a deterministic description (key, tempo, instruments, mood) that seeds the Generator prompt. The variant links back to its song. MusicGen-melody has no ONNX build, so the reference does not condition generation; that limitation is recorded in the phase doc.
+
+- [x] J: `.mid`, WAV and MP3 export through the Media export toolbar; whole song or loop region
+- [x] J: vitest for export format plumbing
+- [x] K: reference render plus generated text description (fallback branch)
+- [x] K: the Generator variant links back to its source song
+
+## 2026-10-09 — Phase 101 Theme E — Piano roll and arrangement
+
+The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; Theme H's live `music.onChanged` edits land as one undo step and `music.onOpen` shows the song. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
+
+- [x] E: piano roll, arrangement, undo/redo, shortcuts, canvas rendering, vitests and pointer e2e
+
+## 2026-10-09 — Phase 101 Theme C — The Tone.js engine
+
+A lazy engine wraps `Tone.Transport` (play, pause, stop, seek, loop region, metronome) over a tempo-map-aware tick/seconds conversion. A scheduler turns the song into per-track `Tone.Part`s and reschedules only the touched track on an edit. `Tone.Offline` renders WAV. The AudioContext resumes on a user gesture only and is suspended while the window is hidden. A transport bar tops the Editor tab. Vitest runs the scheduler and maths against a fake host; entry chunk +1.0 KB.
+
+- [x] C: engine, scheduler, offline render, gesture/visibility gates, vitests, bundle delta
+
+## 2026-10-09 — Phase 101 Theme H — `music_*` MCP tools and the agent engines
+
+Agents get fourteen `music_*` tools (`music_list`, `music_open`, `music_get_info`, `music_set_tempo`, `music_get_tracks`, `music_get_track`, `music_get_notes`, `music_add_notes`, `music_remove_notes`, `music_add_cc`, `music_add_pitchbends`, `music_add_track`, `music_save`, `music_render_preview`). Edits go through per-song working copies validated against `SongSchema`, push one `music-changed` event each, and the writes sit behind a new default-off Settings ▸ MCP "Let agents edit music" switch (`mcp-store` v9). Claude and Codex refine over a private per-run socket, Ollama writes JSON with repair rounds, Antigravity writes in one pass until Midnite is registered in its MCP config (consent step in Settings), and refines after.
+
+- [x] Tools + schemas in `MCP_TOOLS`, dispatch, `allowMusic` gate, piano-roll PNG preview, validation results, live `music-changed`/`music-open` events
+- [x] Agent engines: iterative (Claude/Codex), single pass with repair (Ollama), Antigravity registration, run/cancel IPC with progress
+- [x] Vitests: schemas and dispatch, note add/remove, validation results, gate, engines, agy registration (fake config, consent required), Settings page
+
+## 2026-10-09 — Phase 101 Themes A + B — Editor | Generator tabs, song model and MIDI files
+
+Media ▸ Audio gets persisted Editor | Generator tabs (Generator default, unchanged). The shared `SongSchema`, `.mid` read/write and import through `@tonejs/midi`, the `<name>.song.json` sidecar and the `music-{list,read,write,import,delete}` IPC land with vitest round trips for type-0 and type-1 files.
+
+- [x] A: tabs, persistence, shared projects list, `media.audio.editor` / `media.audio.generator` commands
+- [x] B: `SongSchema`, `.mid` IO, import, IPC + mock bridge, vitests
+
+## 2026-10-09 — Phase 101 Theme D — General MIDI instruments
+
+All 128 GM programs are pickable (grouped by family, with a downloaded badge). Main downloads a program's FluidR3_GM sample set on first use into `userData/gm-samples/` and streams progress; the renderer loads a per-track `Tone.Sampler` lazily and falls back to a synth with a "not downloaded" hint offline. Licence gate: FluidR3_GM is MIT, the gleitz pre-rendered sets CC BY 3.0 (attribution shown); drums are synthesised since no percussion set exists upstream.
+
+- [x] D: licence check, sample cache + progress IPC, catalogue, picker, Tone Sampler factory, attribution notice
+
+## 2026-10-08 — Phase 108 — Maps
+
+[Phase 108](phases/phase-108-maps.md) marked ✅ DONE (54/54 items verified). Media ▸ Maps ships across #770–#776: the Maps tab over the `mstudio-tile:` protocol, 3D preview and capture frame, heightmap / satellite / roads capture, hand-off to Terrain, measure and draw, GeoJSON/KML layers, and four `map_*` MCP tools with the `midnite-media-map-build` skill. Gate green on `58a18aaf` (typecheck, lint, full test; one load-timeout in the MCP shim test passes alone); kernel and roads tests run offline; MapLibre is a lazy 1041 KB chunk with the entry at 703.5 KB of 1520 KB; human passes signed off by the user.
+
+## 2026-10-08 — Phase 108 Theme E — Satellite and roads capture ([#775](https://github.com/bilo-io/midnite-studio/pull/775))
+
+A capture now writes the satellite image and the roads beside the heightmap. `satellite.png` is stitched at the zoom matching Terrain's `textureSize` and sampled pixel-centred in the capture worker (EOX Sentinel-2 cloudless 2016 by default, MapTiler with a key, a display-only source refused with its licence reason). Roads come from one Overpass query in main per capture (frames up to 25 km), become `roads.graph.json` in Terrain's centred frame (split at shared nodes, clipped, class and name kept, width by class or lanes) and a cyan-on-black `roads.png` Terrain keys without a hint. A failed layer lands in `capture.json`'s `missing` with a reason and never costs the heightmap; `ATTRIBUTION.txt` covers every source. The capture section gets Satellite and Roads toggles and lists what is missing.
+
+- [x] E: `osm-roads.ts` (`osmToRoadGraph`, `rasterizeRoads`, class widths), `overpass.ts`, worker satellite/roads runs + `capture-dispatch.ts`, capture-service layers and partial results, `roads-skipped` warning, panel toggles and missing list, vitests (kernel, Overpass client faked, service incl. cancel mid-Overpass, satellite orientation golden)
+## 2026-10-08 — Phase 108 Theme I — Maps over MCP, and the skill ([#776](https://github.com/bilo-io/midnite-studio/pull/776))
+
+Agents get four `map_*` tools: `map_list` and `map_measure` always, `map_goto` and `map_capture_terrain` behind a new default-off Settings ▸ MCP "Let agents capture maps" switch (`mcp-store` v8). The capture tool runs the Maps tab's own capture and Terrain hand-off; the skill `midnite-media-map-build` ships in all six copies.
+
+- [x] Tools `map_goto`, `map_capture_terrain`, `map_measure`, `map_list` registered with the midnite MCP server (`media-map-mcp.ts`, `map-mcp.ts`, `map-tools.ts`, `mediaMapOpen` event)
+- [x] Settings ▸ MCP "Maps" switch (default off), same gating as Terrain; descriptions ≤ 220 chars; registry, store migration and gate tests
+- [x] `midnite-media-map-build` skill in all six skill dirs, pinned by the skill copies test
+
+## 2026-10-08 — Phase 108 Themes G + H — Measure and draw; layers ([#774](https://github.com/bilo-io/midnite-studio/pull/774))
+
+Maps gains five tools (pan, distance, radius circle, area, pin) with geodesic readouts, place search over the Open-Meteo geocoder, and drawings saved as git-tracked GeoJSON layers: a layer list with visibility, colour, rename, Trash delete and reorder, `.geojson`/`.kml` import and export, and external-edit pickup. Geodesy is the Theme D Vincenty kernel plus a new `measure.ts`; layers go through the generic media file channels, so no new IPC.
+
+- [x] G: `shared/src/map/measure.ts`, `map-tools.ts` reducer, `map-format.ts`, `map-toolbar.tsx`, `map-place-search.tsx`, `features/geo/geocode.ts`, `mapUnits` in the ui-store and Settings ▸ Media, canvas drawing layers/clicks/keys, `map-drawing-section.tsx`, vitest
+- [x] H: `MapLayerFileSchema` + `stringifyLayer`, `use-map-layers.ts`, `map-layer-list.tsx`, `kml.ts`, `map-layer-export.ts`, vitest, Playwright shots
+
+## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain ([#773](https://github.com/bilo-io/midnite-studio/pull/773))
+
+A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps capture section) run the capture, then main calls the terrain service directly — create, attach the heightmap (and satellite, roads mask and captured road graph when the capture carries them), apply the spec (`worldSize`, `heightRange`, `resolution`, `textureSize`, `seaLevel`, `geo`), ask every window to open it and optionally start the build. Terrain's roads stage uses the captured OSM graph when `inputs.roadsGraph` is set (real widths, `cls`/`name` into `roads.json`); a mask-only terrain builds byte-for-byte as before. The Terrain panel shows a "Captured from Maps" row with Show on map.
+
+- [x] F: `TerrainGeoSchema`, `inputs.roadsGraph`, `TerrainRoadEdgeSchema.cls/name`, `MapRoadGraphFileSchema`, `handoffSpec`, `setRoadsGraph` + `terrainService()`, `roadGraphFromCapture`, the pipeline branch, capture-service hand-off, `map-focus.ts`, panel row, vitests (pipeline hash pin, service, capture-service, panel, handoff spec)
+
+## 2026-10-08 — Phase 108 Theme C — 3D preview and capture framing ([#772](https://github.com/bilo-io/midnite-studio/pull/772))
+
+The Maps tab gains a 3D preview (`setTerrain` over the Terrarium DEM, hillshade, a 1×–3× exaggeration slider, pitch eased to 60) and a capture frame that stays square in metres at any latitude (drag to move, corner handles to resize, 16 m – 65.5 km), with an `aria-live` readout of side, centre, metres/pixel and preview-sampled min/max elevation, a Terrain-resolution size picker, and literal-copy warnings. Keys on the focused map: arrows pan, `+`/`-` zoom, `F` frame, `T` 3D. Capture is disabled until Theme D.
+
+- [x] C: `MapFrame` in `shared/src/media-map.ts`, `map-frame.ts`, `use-map-framing.ts`, `map-canvas.tsx` (terrain, frame layers, drag, keys), `map-panel.tsx` capture section, vitest (`media-map`, `media-map-frame`, `map-frame`, `map-canvas`, `map-capture-panel`)
+
+## 2026-10-08 — Phase 108 Theme D — Heightmap capture ([#771](https://github.com/bilo-io/midnite-studio/pull/771))
+
+Frame a square of the real world and capture its elevation: the deepest useful Terrarium zoom within a 1 024-tile budget, stitched, resampled bicubically onto a vertex-centred square in true metres (azimuthal-equidistant local frame, Vincenty WGS84), written as a 16-bit `heightmap.png`, a float32 `heightmap.r32` and a GeoTIFF with the frame's CRS, plus `capture.json` and `ATTRIBUTION.txt`, under `captures/<name>/`. Tiles come through Theme B's shared fetcher and cache; resampling and encoding run in a `map-capture-worker` utility process, cancellable, and a cancel or failure leaves no files.
+
+- [x] D: `shared/src/map/` kernel + goldens, `media-map-capture.ts` contract, `main/media/map/` (`capture-service`, `capture-broker`, `capture-run`, `capture-protocol`), `map-capture-worker`, IPC `map-capture`/`map-capture-cancel` + progress event, preload/mock bridge, the "Capture heightmap" detail section, and vitest for each
+
+## 2026-10-07 — Phase 108 Themes A + B — Maps tab and library; tile sources fetched in main ([#770](https://github.com/bilo-io/midnite-studio/pull/770))
+
+Media gets a ninth tab, Maps: a MapLibre canvas (own lazy chunk) with a Streets / Satellite / Terrain / Dark basemap picker, a per-project `map.json` that restores the last viewport (saved 750 ms after the map settles and on unmount), a projects/layers explorer, a view and tile-source panel, and loading, tiles-failed and offline states. Every tile, style, glyph and sprite byte arrives through a `mstudio-tile://` scheme registered in the single privileged-schemes call: main injects the optional MapTiler key, retries with backoff under a per-host cap, and keeps an LRU disk cache (1 GB default, Settings ▸ Media ▸ Maps slider and confirmed Clear). The CSP gains `mstudio-tile:` and no third-party host.
+
+- [x] A: `shared/src/media-map.ts` + `media.ts` tab/formats, `features/media/map/` (tab, canvas + lazy wrapper, style, states, explorer, panel, hooks, settings), ui-store layout keys, mock bridge, the `maplibre-gl` eslint rule, vitest (`map-style`, `map-states`, `map-canvas`, `use-map`, `map-settings`) and `phase-108-maps-ab-shots.spec.ts`
+- [x] B: `main/media/map/` (`tile-cache`, `tile-fetch`, `tile-protocol`, `map-service`) with their vitests, `media-map-handlers.ts`, preload `media.map`, `mstudio-tile` in `registerPrivilegedSchemes()`, CSP `connect-src`/`img-src`, geojson/kml excluded from ffmpeg export
+
+## 2026-10-07 — Phase 104 Theme H — Reference-driven agent loop ([#769](https://github.com/bilo-io/midnite-studio/pull/769))
+
+A design can carry matched front, side and top views of a reference picture (`spec.referenceViews`). The kernel scores the model's silhouette against the picture (IoU plus width-profile agreement), names the regions that are too wide, narrow, tall or short, and plans the next pass until the score reaches the target, plateaus or the refinement budget runs out. `model_set_reference_views` and `model_compare_reference` expose it over MCP, iterative runs stream the score, and the model panel shows one "Reference match" line. Tested in vitest (identical silhouettes score 1, a known widening is reported in the right region, the loop stops on plateau).
+
+- [x] H: `media-model-reference.ts`, `model-geometry/reference/`, `reference-tools.ts`, iterative progress score, prompt and six skill copies. Editor alignment UI deferred.
+
+## 2026-10-07 — Phase 104 Theme G — Texture painting and PBR materials ([#767](https://github.com/bilo-io/midnite-studio/pull/767))
+
+An unwrapped sculpt part carries a PBR layer stack — fill and paint layers with opacity, eight blend modes and masks from the Theme F bakes or painted by hand — flattened into glTF's base colour, packed ORM, normal and emissive textures beside the design. Paint brushes (brush, eraser, island fill, smudge, clone, stamp) land on uv texels through the BVH with seam bleed, from the editor's new Paint tab (live PBR viewport, presets, layer list, matcap toggle for sculpting) or over MCP (`model_paint_stroke` aimed like a sculpt stroke, `model_material_set`, `model_layer_*`), and `.glb` exports the full set.
+
+- [x] G: `media-model-pbr.ts`, `model-geometry/paint/` (surface, brushes, history, flatten, presets, stack), `writeTexture` on the mesh channel, `paint-tools.ts` (six MCP tools) + registry/gating, glTF/MTL texture writers, textured previews, `paint/` (controller, PNG codec, viewport layer, hook), `paint-panel.tsx`, PBR maps in `editor-scene.tsx`, sculpt matcap, the skill ×6, and vitest (`paint.test.ts`, `model-paint-mcp.test.ts`, `sculpt-store.test.ts`, `model-tools.test.ts`, `mcp.test.ts`, `paint-panel.test.tsx`) plus `p104-g-paint-shots.spec.ts`.
+
+## 2026-10-07 — Phase 104 Themes E + F — Sculpting over MCP; the mesh pipeline ([#766](https://github.com/bilo-io/midnite-studio/pull/766))
+
+**E.** An agent aims a brush by the pixels of a preview it just looked at (the preview's own camera, shared as data), by rig bone, landmark, vertex group or primitive part, by world path, or over whatever the mask leaves open; strokes, masks, subdivide, remesh and undo keep a live document per sculpt part and answer a summary with a thumbnail. **F.** Decimation (quadric collapse, borders and UV seams locked), an LSCM unwrap with packing and a texel-density readout, normal/occlusion/curvature/cavity bakes, an even quad-dominant retopology, skin transfer that proves the rig survives, and `.glb`/`.obj`/`.fbx` export with UVs and baked maps. Skin is derived per vertex, so rigs survive by construction; the sculpt-after-unwrap case is refused.
+
+- [x] E: `model-geometry/camera.ts`, `sculpt/aim.ts`, `sculpt/landmarks.ts`, `SculptDocument.strokeBreak/editMask`, `ModelSculptTargetSchema`, `spec.landmarks`, `desktop/.../sculpt-tools.ts` (stroke, mask, subdivide, remesh, undo, landmarks), the `model_*` registry entries and gating, iterative sculpt budgets, the skill (six copies)
+- [x] F: `mesh/decimate.ts`, `uv.ts`, `bake.ts`, `retopo.ts`, `skin-transfer.ts`, `Bvh.closestPoint`, `mesh.bin` v2 (uvs), part `uv`/`maps`/`bakeFrom`, texture registry, glTF normal/occlusion textures, OBJ `vt`/`map_Bump`, FBX UV layer, `model_decimate`/`retopo`/`unwrap`/`bake`/`export`, the editor's unwrapped-mesh guard
+
+## 2026-10-07 — Phase 106 Themes J + K — Maps as Tiled `.tmj`; sprites over MCP and the skill ([#765](https://github.com/bilo-io/midnite-studio/pull/765))
+
+**J.** A map is a small `MapSpec` an engine writes from the prompt (Ollama or a roster agent, the Models tab's choice), limited to the chosen tileset's terrains and repaired up to twice, then filled by a pure kernel — rasterised, autotiled with the tileset's own blob or corner rules, decorated by a seeded Poisson-disk scatter of a prop sheet, with a collision layer from the tiles' flags — into a `.tmj` that embeds every tileset (Phaser cannot load external ones) and ships with its images as `<asset>.map/`. Maps can also be imported from Tiled. The Map form picks the tileset, size and decorations; the previewer pans, zooms, toggles layers and overlays collision. **K.** Eighteen MCP tools over the same `SpriteService`, behind a seventh switch (`allowSprites`, off by default): generation is an asynchronous job polled with `sprite_job_status`, every job's worst-case provider requests are capped at 200 up front, validation failures come back as results, and the preview returns contact sheets plus an APNG of a clip. The `midnite-media-sprite-build` skill teaches the method choice, the job loop and the export formats in all six copies.
+
+- [x] J: `MapSpecSchema`/`MapAssetSpec`, `map-fill.ts`, `map-prompt.ts`, `map-view.ts` (`readTmj`, `renderTiledMap`), `map-generate.ts`, `map-import.ts` + `mediaSpriteImportMap`, the map export branch, the Map form, `sprite-map-preview.tsx`, and vitest (`map-fill.test.ts`, `map-view.test.ts`, `media-sprite.test.ts`, `map-generate.test.ts`, `sprite-export.test.ts`, `sprite-form.test.ts`, `sprite-map.bridge.test.tsx`).
+- [x] K: `media-sprite-mcp.ts`, the `MCP_TOOLS` entries, `sprite-mcp.ts`, `sprite-preview.ts`, `png/apng.ts`, `mcp/sprite-tools.ts` + dispatch, `allowSprites` (store v7, ui-gate, `setMcpAllowSprites`, IPC, Settings ▸ MCP), the shim's preview timeout, `useSpriteOpenListener`, the skill ×6, and vitest (`mcp.test.ts`, `media-sprite-mcp.test.ts`, `sprite-mcp.test.ts`, `apng.test.ts`, `mcp-store.test.ts`, `mcp-page.test.tsx`, `skill-copies.test.mjs`).
+
+## 2026-10-07 — Phase 106 Themes H + I — Tilesets with autotiling; isometric tiles, parallax backgrounds and prop sheets ([#764](https://github.com/bilo-io/midnite-studio/pull/764))
+
+A tileset is seam-checked base tiles plus procedurally composited transitions — a 47-tile blob (Tiled `mixed`) or a 16-tile corner set whose touching edges are byte-identical by construction — with collision per tile and a `.tsj` carrying wangsets. The same tiles re-project to 2:1 isometric diamonds and blocks; a Phase 105 terrain cuts into a deduped tile grid plus an embedded-tileset `.tmj`; parallax backgrounds (3–5 x-seamless layers with scroll factors, `background.json`) and prop sheets (one cut-out prop per cell, packed with the sprite packer) generate as jobs and export as `<asset>.tileset/`, `.background/` and `.sprite/`. The Environment form edits terrains, transitions, autotiling, layers and props, and the asset overview previews the sheet, the parallax stage (a camera slider) and the props.
+
+- [x] H: `seamless.ts`, `autotile.ts`, `tiled.ts`, `tileset.ts` (assembly), `env-prompts.ts`, the tileset runner (`desktop/.../sprite/tileset.ts`), `TilesetSpec` terrains/transitions/scheme/seed/palette, and vitest (`seamless.test.ts`, `autotile.test.ts`, `tiled.test.ts`, `tileset.test.ts`, `environment.test.ts`).
+- [x] I: `iso.ts`, `terrain-tiles.ts`, `background.ts`, the background and prop runners (`environment.ts`), `terrain-source.ts`, the three export branches in `sprite-export.ts`, `sprite-environment-form.tsx`, `sprite-environment-preview.tsx`, and vitest (`iso.test.ts`, `terrain-tiles.test.ts`, `background.test.ts`, `terrain-source.test.ts`, `sprite-environment.bridge.test.tsx`, `sprite-form.test.ts`).
+
+## 2026-10-07 — Phase 106 Theme G — Atlas packing and the animation previewer ([#763](https://github.com/bilo-io/midnite-studio/pull/763))
+
+A sheet's frames pack into one `atlas.json` that is both Phaser's JSON-hash atlas and an Aseprite JSON (MaxRects with trim, padding, extrude, POT pages; a multiatlas without tags past one page) plus Phaser's `anims.json`, written as `<asset>.sprite/` and into the asset's own `export/`. The centre column plays the animation on a 2D canvas (compass, onion skin, checker or solid, pixel zoom, anchor and baseline) over a frame strip whose nudge, flip, delete, move and re-roll are one `patchFrames` call each and undoable; frames past their clip are pruned when a job finishes and never played or packed.
+
+- [x] `pack.ts`, `atlas.ts`, `frames.ts`, `SpritePatchOpSchema`/`SpriteExportRequestSchema`, `sprite-export.ts`, the service's `patchFrames`/`export`/stale-frame prune, per-frame re-roll in the hand-drawn and rendered runners, `SpritePreviewer`, `preview-clock.ts`, `SpriteFrameStrip`, `use-sprite-history.ts`, `SpriteAnimator` with the pack export, and vitest (`pack.test.ts`, `atlas.test.ts`, `frames.test.ts`, `sprite-export.test.ts`, `sprite-service.test.ts`, `hand-drawn.test.ts`, `preview-clock.test.ts`, `sprite-frame-strip.test.tsx`, `sprite-animator.bridge.test.tsx`).
+
+## 2026-10-07 — Phase 106 Themes E + F — Rendered from a Models character; one-shot sheet ([#762](https://github.com/bilo-io/midnite-studio/pull/762))
+
+**E.** A rigged Models character renders into sprite frames in the user's own window: a root-level, lazily loaded `SpriteRenderHost` builds the design with the Models editor's kernel and lights, shoots it through an orthographic camera per direction (compass yaw, `atan(0.5)` isometric) at one sheet-wide scale, supersamples and posts PNG batches that main's render relay feeds through the frame pipeline at scale 1 (10 s acknowledgement or _"Rendering from 3D needs the Midnite Studio window open."_). The Sheet form gains the rigged-model picker, clip mapping with aliases, and camera/shading/outline/supersample. **F.** The one-shot toggle asks for the whole sheet in one image under a versioned prompt, refuses past 8 × 8, detects the returned sheet's real gutters by projection profile and slices only when the grid matches; the overview shows the detected grid over the sheet, a per-row verdict, and hands a failing clip to Hand-drawn with frame 1 as the approved reference.
+
+- [x] E: `camera.ts`, `sampling.ts`, render IPC (`mediaSpriteRenderRequest`/`RenderReady`/`RenderFrames`), `render-relay.ts`, `rendered.ts`, `render-job.ts` + `sprite-render-host.tsx`, `sprite-rendered-options.tsx`, and vitest (`camera.test.ts`, `sampling.test.ts`, `render-relay.test.ts`, `rendered.test.ts`, `sprite-render-host.test.ts`, `sprite-rendered.bridge.test.tsx`) plus the real-WebGL `sprite-render.spec.ts`.
+- [x] F: `one-shot-prompt.ts`, `grid-detect.ts` (`detectGrid`, `oneShotVerdict`), `one-shot.ts`, `setReference({fromFrame})` and `generate({method: 'hand-drawn'})`, `sprite-one-shot-panel.tsx`, and vitest (`one-shot-prompt.test.ts`, `grid-detect.test.ts`, `one-shot.test.ts`, `sprite-one-shot.bridge.test.tsx`).
+
+## 2026-10-07 — Phase 107 Theme P — Web export ([#760](https://github.com/bilo-io/midnite-studio/pull/760))
+
+A game exports as a static folder, a zip from a small `node:zlib` writer, or one HTML file whose modules are `data:` URLs behind an import map and whose assets resolve through an inlined `assets/index.json`. Exclusions (`.git`, agent files, play-tests, dev config, dotfiles, symlinks) are shared with the folder and zip; a destination is never overwritten without being told; a file over 50 MB warns. Kit 0.9.0 reads `window.__MIDNITE_ASSETS__`. The platformer's own `smoke.json` replay passes in its single-file export opened from `file://`.
+
+- [x] `zip-writer.ts`, `single-file.ts`, `game-export.ts`, the `gamesExport` IPC, `GameExportBar`, kit 0.9.0, and vitest (`export.test.ts`, `game-export-bar.test.tsx`, `kit-core.test.ts`).
+- [ ] `game-export.spec.ts` (real Chromium from `file://`) moves to Theme Q with the e2e budget raise.
+
+## 2026-10-07 — Phase 107 Theme O — Play-test depth: determinism, input replays and frame assertions ([#759](https://github.com/bilo-io/midnite-studio/pull/759))
+
+Deterministic mode (seeded `Math.random`, a virtual clock, one fixed step per frame), frame-indexed `.replay.json` pressed through the kit's virtual action layer rather than OS events, restricted JSON-path and frame-diff assertions, and `playtests/*.json` run from the runner toolbar's Playtests menu or over MCP (`game_replay_record`, `game_replay_play`, `game_assert_state`, `game_assert_frame`, `game_playtest`). Every starter's `smoke.json` migrated to the real format and passes twice with identical states in real Chromium. Kit 0.8.0.
+
+- [x] Deterministic mode, input replays, assertions, play-test scripts, and vitest (`json-path.test.ts`, `frame-diff.test.ts`, `kit-core.test.ts`, `playtest.test.ts`, `game-mcp.test.ts`, `game-runner.test.ts`, `compose.test.ts`, `media-game.test.ts`, `playtests-menu.test.tsx`).
+- [ ] `game-playtest.spec.ts` (real Chromium) moves to Theme Q with the e2e budget raise.
+
+## 2026-10-07 — Phase 107 Theme N — Asset bridge
+
+Media is copied into a game repo as `assets/<kind>/<name>/` with provenance (source tab, path, sha256 of the source and the copy) in the manifest and a registration in `assets/index.json`, each import its own `assets: import <name>` commit and each re-sync its own `assets: re-import <names>` commit that never overwrites silently and never deletes for a missing source. Sources are Terrain (exported on the way in), Sprites, Models (.glb), Images and Audio from registered repos, or a pack folder; reached from the Games tab's picker and assets panel, or over MCP with `game_import_asset`. Kit 0.7.0 adds `assetUrl(name)` to the asset index and the build skill documents it.
+
+- [x] `asset-bridge.ts`, `GameAssetIndexSchema` and the import/sources/re-sync IPC, `game_import_asset`, `GameAssetPicker`/`GameAssetsPanel`/explorer badge, kit 0.7.0, build skill copies, and vitest (`asset-bridge.test.ts`, `game-assets-panel.test.tsx`, `game-mcp.test.ts`, `kit-core.test.ts`).
+
+## 2026-10-07 — Phase 107 Theme M — Create and iterate: agents, Ollama and commit-per-turn history
+
+An agent CLI (Claude Code or Codex, held to file tools and this game's `game_*` tools on a private MCP server, no shell) or an Ollama model (whole `src/` files in a validated envelope) edits a game repo in passes; every pass that changed files is one `agent: …` commit, a no-op pass is none, and `squashRunCommits` folds a run into one. Undo turn reverts the newest agent commit with git-engine's new `revertCommit`. The Games tab gains the iterate panel (engine, Ollama warning, passes, Run agent/Cancel), the edit thread, and a first prompt on the create form; `game_create` answers `warnings`.
+
+- [x] Iterate panel, Ollama warning in UI and MCP, agent runs in the repo with progress, commit per turn and Undo turn, Ollama envelopes under `src/` only, and vitest (`game-agent.test.ts`, `revert.test.ts`, `game-iterate-panel.test.tsx`, `media-game.test.ts`, `game-mcp.test.ts`).
+
+## 2026-10-07 — Phase 107 Theme L — Genre recipe skills and the build skill
+
+Eleven skills under `templates/media-game/skills/` (`midnite-media-game-build` plus one recipe per genre), seeded into each new game's `.claude/`, `.agents/` and `.codex/skills/` by `seedGameSkills`, with the build skill mirrored into the app repo's six skill dirs. Tuning numbers quoted in a skill are checked against the kit by `skills.test.ts`.
+
+- [x] Build skill and ten recipe skills, seeding, the copies test, and `skills.test.ts`.
+
+## 2026-10-07 — Phase 107 Theme J — 3D genre starters, part two
+
+RPG (third or first person), character action (third person) and open world (third or first person) as genre modules, with engine-free systems under `kit/core/genre/{rpg,character-action,open-world}/`: quests, dialogue trees, stats and NPC schedules; combo strings with cancel windows, a style meter and arena waves; road-graph routing, traffic, day/night and a land-cover minimap. The open world runs on a committed Phase 105 terrain pack (a plus of roads, built by the real pipeline) and reuses F's cars and the crime starter's wanted level. `GAME_GENRES_AVAILABLE` now lists every genre. `kit/three/terrain.js` drapes UV-less chunks. Kit 0.6.0. PR #755.
+
+- [x] RPG, character action, open world starters, the fixture terrain pack, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `open-world-fixture.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+## 2026-10-07 — Phase 104 Theme D — Sculpt mode and brushes
+
+Sculpt mode in the Models editor: a kernel brush set (draw, clay strips, inflate, smooth, grab, crease, flatten, pinch, mask) with falloff presets, spacing, pressure and front-faces-only; X/Y/Z symmetry in local or world space, applied in the kernel; Loop-subdivision multires that keeps detail per level; voxel remesh in sculpt mode; a `SculptDocument` per-stroke history the editor's undo walks through a new part `revision`; a Sculpt tab, a viewport brush layer with lazy mouse, and sculpt-only keys (`F`/`Shift+F`, `[`/`]`, `Mod+I`, `Alt+M`). Edits are written to a content-named `.mesh.bin` on Done or Save.
+
+- [x] Sculpt mode toggle, brushes, brush controls, symmetry, multires, voxel remesh in sculpt mode, per-stroke undo, lazy mouse and pressure, and vitest for each brush, symmetry, multires, history, the worker pipeline, the controller and the Sculpt tab.
+## 2026-10-07 — Phase 107 Theme I — 3D genre starters, part one
+
+Shooter (first or third person), fighter (versus camera) and soulslike as genre modules over the Theme G 3D bases, with engine-free systems under `kit/core/genre/{shooter,fighter,soulslike}/` and a shared `kit/three/damage-numbers.js`. `GAME_GENRES_AVAILABLE` lists the three, so their gallery cells are creatable; the fighter's cell swaps the camera picker for a versus-camera note. The 3D bases gained a movement `intent` seam and the third-person base a stand-in avatar. Kit 0.5.0. PR: see the pull request.
+
+- [x] Shooter, fighter, soulslike starters, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+## 2026-10-07 — Phase 104 Theme C — SDF modelling
+
+Organic forms as signed-distance trees: a recursive schema (seven primitives, smooth union/subtract/intersect, displace/twist/bend/round/shell/mirror, edits by name), a compiled evaluator with bounds and a Lipschitz bound, an octree-pruned bake through surface nets with per-primitive vertex groups, a `sculpt` part that keeps its tree (and an op log that opens with it), an editor SDF tab with a node tree, live low-resolution preview and bake on release, and the `model_sdf_set` / `model_sdf_patch` / `model_sdf_bake` MCP tools. PR: see the pull request.
+
+- [x] SDF node schema, kernel evaluator with pruning, surface-nets isosurface into a sculpt part whose op log starts with its tree, SDF tree panel, three MCP tools, vitest (primitive distances, smooth-union continuity, closed sphere at the analytic radius, sparse = dense, modifiers, groups, MCP, panel).
+
+## 2026-10-06 — Phase 107 Theme H — 2D genre starters
+
+FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with named engine-free systems under `kit/core/genre/` and a shared `kit/phaser/world2d.js` so RTS, ARPG and crime run top-down and isometric from one module. `GAME_GENRES_AVAILABLE` lists the four, so their gallery cells are creatable. `composeStarter` ships only the chosen genre's systems. Kit 0.4.0; `boot()` no longer leaves a blank canvas over the game.
+
+- [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+
+
+## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
+
+Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
+
+- [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
+
+## 2026-10-06 — Phase 106 Theme D — Hand-drawn, reference-locked frames
+
+The image seam takes reference images (Gemini `inline_data`, OpenAI `/v1/images/edits`; `supportsReference` on the catalogue) and `transparent` end to end, and `main/media/sprite/hand-drawn.ts` draws a sheet frame by frame against an approved turnaround: pose-table prompts, two requests in flight, an Ollama vision consistency check with re-rolls and `inconsistent`/`unchecked` badges, and mirrored west facings. The Sprites tab gains the reference card and a flagged-frames list. PR: see the pull request.
+
+- [x] Turnaround + approve/lock, pose tables and per-frame prompts, reference-capable providers only, consistency check with re-roll budget, mirroring, image seam references + transparency, vitest.
+- [ ] Per-frame re-roll and the flip at composition belong to G's frame strip and packer; the Images tab has no UI for references or transparency.
+
+## 2026-10-06 — Phase 106 Theme B — Sprite frame pipeline
+
+Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #747](https://github.com/bilo-io/midnite-studio/pull/747).
+
+- [x] Background removal, normalisation, pixel-art mode, validation report, kernels in shared + pipeline in main, vitest.
+- [ ] No frame source calls `submitFrame` yet (Themes D/E/F); badges are first shown by G's frame strip.
+
+## 2026-10-06 — Phase 107 Themes G + K — Perspective bases and the template gallery
+
+Six playable perspective base starters, the perspective × genre validity matrix, `composeStarter`, and the create panel's gallery. Genre cells render as not-yet-available until Themes H-J. PR: see the pull request.
+
+- [x] Bases: platformer, top-down, isometric, raycaster, first person, third person (five cameras), each with a smoke replay and `ASSETS.md`.
+- [x] `GAME_TEMPLATE_MATRIX`, `starterId`/`isValidStarter`, `composeStarter`, `GameGallery` with refusal reasons and camera picker; vitest across all of it.
+- [ ] Real-Chromium `game-starters.spec.ts` (Theme Q); genre cells (Themes H-J).
+## 2026-10-06 — Phase 104 Theme A — Mesh core and storage
+
+Sculpt-mesh foundation: `EditableMesh` with CSR adjacency and dirty-region normals, a refittable triangle BVH, the versioned and checksummed `.mesh.bin`, the capped `.ops.jsonl` op log, an optional `sculpt` part on `ModelSpecSchema`, the `mstudio:media:model-mesh` channel in main, a `model.json` sculpt summary, and a renderer Web Worker that owns the live mesh and posts transferable deltas the display uploads with `addUpdateRange`. PR: see the pull request.
+
+- [x] EditableMesh, BVH, sculpt part, `.mesh.bin`, op log, sculpt worker, partial attribute updates, `model.json` summary, vitest.
+- [ ] Brushes (D), conversion (B), MCP tools (E); a 1M-vertex sculpt still hits the 400k scene-triangle cap through `buildScene`.
+
+## 2026-10-06 — Phase 106 Themes A + C — Sprites tab, method picker
+
+New Media ▸ Sprites tab: `sprite.json` spec (`media-sprite.ts`), five-group library explorer, Sheet/Environment create panel, `mstudio:media:sprite-*` channels and `SpriteService`, plus the pure `recommendSpriteMethod` and per-perspective clip presets. PR: see the pull request.
+
+- [x] Tab, schemas, library, create panel, IPC, method picker, recommendation, presets, vitest.
+- [ ] Generation needs Theme B/D (fails with `SPRITE_FRAME_SOURCES_PENDING`); render and export channels (E/G) and MCP exposure of `SpriteService` still open.
+
+## 2026-10-06 — Phase 107 Themes B + E — Pop out and the Phaser kit
+
+Pop out a running game into its own window (`game` role), plus the Phaser kit, core modules and four 2D perspective presets (platformer, top-down, isometric, raycaster). PR: see the pull request.
+
+- [x] Pop out: `gamesPopOut`/`gamesPopped`/`gamesPopState`, dock on close, placeholder in the host.
+- [x] Phaser kit, `window.__midnite` hook, kit-core vitest, kit 0.2.0.
+- [ ] Real-Chromium game-runner e2e (Theme Q).
+
+## 2026-10-03 — Phase 102 — Chats page
+
+New top-level Chats page (rail: Notes, Chats, Sessions, Knowledge). Conversations with Claude Code, Codex, `agy`, other print-mode agents and Ollama, streamed, multi-turn by each CLI's own resume, stored globally under `userData/chats/`. Edit-mode turns run in a throwaway snapshot of the repo; changes come back as a card and a review modal (accept/reject per file and hunk), applied through the per-repo write queue, conflicts as `GitOpResult` `conflict`. [PR #695](https://github.com/bilo-io/midnite-studio/pull/695).
+
+- [x] Nav, wire contract, global per-chat store, engine drivers, change review in the git engine, page UI, companion switch.
+- [ ] Live per-edit approval via `--permission-prompt-tool`; packaged-app pass with the real CLIs.
+
+## 2026-10-03 — Ad hoc — agent install detection at startup and on every reload
+
+Main now probes which agent CLIs are installed right after `whenReady` (fire and forget, after the login-shell PATH is ready, never on the first-paint path) and force-re-probes, bypassing the 30 s TTL, on every renderer `did-finish-load` (Mod+R, Mod+Shift+R, new window). Results are pushed on `mstudio:agent:status` into ONE renderer zustand store (`features/agent/agent-probe-store.ts`) that `useAgents()` reads, so no consumer probes on its own. A distinct `checking` state (picker rows say "checking…", Agents cards say "Checking…") replaces silently assuming installed; a probe that errors or times out is `unknown` (fail-soft: nothing greyed, cards say "Unknown"). The Agents page re-probe button now calls `agent.recheck` (forced). Consumers on the store: `+` picker, title-bar primary agent, switcher overlay, terminal panel/header, Settings agent roster and primary picker, dashboard agent widgets, command handlers; roster-only readers (Sessions, Media Docs/Models/Video pickers, Loops, tasks, graph, palette) read the same hook. Startup cost: `startup-report --runs=5` ready-to-show 423 ms vs 418 ms on main, first-view-rendered 178 ms vs 184 ms (noise).
+## 2026-10-03 — Rename the MCP server and the CLI to `midnite` (ad hoc)
+
+The MCP server registers as `midnite` (was `midnite-studio`) and the CLI command is `midnite`; `midnite-studio` stays as a deprecated CLI alias for one release. The original midnite app also ships a `midnite` CLI, so the installer never overwrites a `midnite` it does not own. PR: see the pull request for `feature/rename-mcp-cli-midnite`.
+
+- [x] MCP: one `MCP_SERVER_NAME` constant (shared) feeds the shim's `Server` and every allowlist (`mcp__midnite__model_*`, Codex `mcp_servers.midnite.*`); Settings ▸ MCP shows `claude mcp add midnite` and the re-register line.
+- [x] CLI: bundled `bin/midnite` plus a `bin/midnite-studio` forwarding wrapper, completions renamed, `verify-dist`/`afterpack` updated.
+- [x] Installer: "owned" = symlink resolves into this bundle (same test for status, install, uninstall); foreign `midnite` (symlink or plain file) is left alone and only the alias is installed, with the reason returned in `CliStatusResponse.notice`; an old-name install migrates to `midnite` + alias.
+- [x] Tests: allowlist lockstep, own/foreign symlink, foreign plain binary, old-name migration, alias install, uninstall.
+- Left as `midnite-studio`: the app name, the `midnite-studio://` protocol, release tags, repo, userData, package scopes.
+
+## 2026-10-03 — Phase 99 Theme E follow-up — local music generation (ad hoc)
+
+Media ▸ Audio generates music offline with MusicGen-small (ONNX, `utilityProcess`), no API key; optional Ollama prompt expansion (`llama3.2:3b`). [PR #688](https://github.com/bilo-io/midnite-studio/pull/688).
+
+- [x] `musicgen` provider, worker, broker, model download with progress, cancel, stitched sections up to 2 min.
+- [x] Enhance with Ollama (fails soft), Settings model picker, engine status card in the prompt form.
+
+## 2026-10-02 — Phase 82 Theme C — e2e-porting traps written into `test-support/`
+
+[PR #680](https://github.com/bilo-io/midnite-studio/pull/680). `packages/app/test-support/README.md` lists six porting traps; `src/test-support-premises.test.tsx` pins the jsdom behaviour behind four of them. Wave 6 is still open.
+
+- [x] Lazy-chunk trap (wave 2): warm a component's own `React.lazy` chunk in `beforeAll`.
+- [x] Interaction-mount trap (wave 4): `await findBy*` for content the interaction mounted; `FiringResizeObserver` fires on a microtask.
+- [x] Disjoint `<mark>` accname (wave 4): jsdom names the row `"T oggle T erminal"`; filter by `textContent`.
+- [x] Two harness gaps (wave 5): `MonacoField`'s module-scope `getMonaco()` (also noted in `module-mocks.ts`), and `getByRole` has no `exact` (pinned with `@ts-expect-error`).
+- [x] Porting hazard (wave 3): whole-string vs substring default matching.
+
+## 2026-10-01 — Phase 98 Theme J — Completion transition and Welcome finale
+
+Reuses Theme B/C choreography (`playTimeline`, `playGlide`, `dissolveTimeline`, `.setup-brand-gradient`); no second animation system.
+
+- [x] Leaving the last page: content dissolves, `.setup-bloom` sweeps from the anchor, dots resolve to filled (`completionTimeline`).
+- [x] Finale "Welcome to [mark] Midnite Studio": mark glides from the anchor into the heading; only "Midnite" wears the brand face and gradient (`Wordmark gradient`).
+- [x] Get started fades the overlay out, then sets `completedAt` (Resume leaf disappears).
+- [x] Reduced motion: static finale, no bloom, no fades.
+- [x] Linux visual baseline: `e2e/visual/setup-finale.spec.ts` + `setup-finale-{light,dark}-linux.png`, in a follow-up PR.
+
+## 2026-09-30 — Phase 98 Themes E + H — Git, forge and toolchain wizard pages
+
+[PR #632](https://github.com/bilo-io/midnite-studio/pull/632). Pages over Theme D's catalogue, probe, planner and status row; no new IPC.
+
+- [x] Git page (version vs 2.30.0; first renderer of the brew / Homebrew-bootstrap / Xcode-CLT offers), replacing the interim machine page.
+- [x] Forge multi-select persisted in `setupState.forges`.
+- [x] Forge CLI rows for gh / glab / az (gh sign-in from `forge.cliStatus`); Bitbucket "token-based, no CLI needed".
+- [x] `gh`, `glab`, `az` catalogue rows.
+- [x] Vitest for the git and forge pages.
+- [x] Toolchain catalogue: agent CLIs, JS, containers (Docker or OrbStack), media, with brand-coloured icons.
+- [x] Toolchain page with ticked-and-locked installed rows and Install selected (one brew line).
+- [x] Vitest: grouping, default selection, either-runtime rule, composed line, icon exports.
+
+## 2026-09-30 — Phase 98 Themes F + I — Accounts and git identity; local models with Ollama
+
+[PR #631](https://github.com/bilo-io/midnite-studio/pull/631). Two wizard pages over existing pieces: Phase 90's forge accounts and Phase 96's Ollama client and pull queue.
+
+- [x] `gitIdentityGet`/`gitIdentitySet` channels: global `git config` through git-engine and the write queue, `GitOpResult`-wrapped.
+- [x] Optional `email` on `ForgeAccount`, best-effort from `whoami`.
+- [x] Accounts page: account cards that switch the active account and pre-fill the identity form, plus an add-account flow.
+- [x] Vitest: identity schema and prefill, git-engine integration against a temp `HOME`, the page.
+- [x] Ollama page: education, detect/install/start through Theme D's runner (new `ollama` catalogue row).
+- [x] `systemMemory` channel and the curated model catalogue with fits/tight/too-big badges.
+- [x] Pull-progress subscription lifted from `ModelsView` to `Shell`; background downloads via `ollamaPull`.
+- [x] Vitest: RAM thresholds, catalogue schema, the page, and the store fed with the Models view unmounted.
+
 ## 2026-09-30 — Phase 98 Themes D + G — Setup catalogue, probes and the install runner; Midnite CLI page
 
 [PR #630](https://github.com/bilo-io/midnite-studio/pull/630). The plumbing every remaining setup page needs: a catalogue of tools, an id-keyed probe channel, a brew-in-a-visible-terminal install runner, and one status row. The Midnite CLI page is the first page built on them.
@@ -14143,3 +14465,178 @@ against a real throwaway repo via `git-engine`'s `TempRepo`. The Settings checkb
 `hooks.status` (live disk state) on every render rather than a remembered preference, so it can
 never drift from a hook a user deleted or replaced by hand. New `mstudio:hooks:status/install/uninstall`
 IPC channels and a `getHooksPath` read added to `git-engine`.
+
+### Ad hoc — multiple dashboards (Git + Agents), add/remove panels
+
+Ported midnite's multi-dashboard model to the Dashboard view. The existing board is now the
+**Git** dashboard (anchor tab, still keyed per repo, so no persisted layout moved); a default
+**Agents** dashboard (agent roster, live sessions, recent sessions, per-agent activity, loop runs)
+is seeded lazily for fresh and migrated installs alike. Tabs create/rename (double-click)/pin/close/
+drag-reorder (max 10); a searchable, categorised "Add widget" picker replaces the layout menu.
+New panels: five agent cards plus Clock, Date and Scratchpad; Git panels are offered on any
+dashboard. `midnite-studio.dashboard` persist v2 -> v3 (`migrateDashboardState`, tested).
+
+### Ad hoc — Media ▸ Models (LLM-authored 3D, .obj + .fbx, in-app editor)
+
+A fifth Media tab. Describe an object, or attach a picture of one, and an LLM designs it as a validated list of coloured primitives; main builds the mesh and writes `.obj` + `.mtl` + `.fbx` + a design sidecar into `.midnite/media/model/`. Local Ollama is the default engine (`qwen2.5-coder:7b`; `qwen2.5vl:7b`/`gemma3:4b` read the picture), any headless agent CLI is the alternative. The centre pane is a lazy react-three-fiber + drei editor (select, W/E/R gizmo, solid/wireframe/normals, per-part colour, undo/redo, camera, grid/axes) whose edits save back to the sidecar and export to .obj/.fbx. FBX is a hand-written 7.4 writer (binary default, ASCII too), round-tripped through three's `FBXLoader`. See Phase 99 Theme F.
+
+### Ad hoc — Media ▸ Models over MCP (Phase 99 Theme G)
+
+Agents now build 3D models iteratively through eight `model_*` MCP tools (list, open, get_spec, set_spec, patch_parts, render_preview, get_reference_image, save) and see their work: previews are rendered in main by a deterministic software rasterizer (front/side/top/iso, <= 768 px PNG) and returned as MCP image content. Claude Code (verified end to end) and Codex run an iterative engine on a private one-model MCP server per run (build, render, compare, refine within an iteration budget, save; clean cancel; one-shot fallback), while Ollama and other CLIs stay one-shot. Edits stream live into the open 3D editor (`model-changed` / `model-open` events) with a pass counter, latest action and Cancel in the input panel. The app's global MCP server answers the same tools for a user's own Claude session, behind a new `Settings > MCP > Let agents edit 3D models` switch (`mcp.json` v4). Tool schemas and the prompt's format reference derive from the shared spec schema; `MODEL_MAX_PARTS` is one constant (128). See Phase 99 Theme G.
+
+### Phase 100 — Finance dashboard (Themes A–F)
+
+A third default dashboard, **Finance**, built on the multiple-dashboards framework. Key-free market
+data is fetched in main only (CNBC and Yahoo for stocks and ETFs, Binance and CoinGecko for crypto,
+open.er-api.com and Frankfurter for FX, Nasdaq and CoinGecko for search), cached on disk with
+per-timescale TTLs and served stale-with-a-hint when a provider is down; every price is stored in USD
+and shown through an hourly-refreshed exchange-rate table in a display currency chosen in the
+dashboard header, beside a global timescale (1D to ALL). The portfolio — fiat balances, holdings,
+a transaction log and the watchlist — is simulated and persisted main-side in
+`userData/finance/portfolio.json`, with its rules as pure shared functions. Eight cards, each an
+ordinary registry widget: bank cards (fan-out stack, deposit/withdraw modals), asset cards, allocation
+donut, Watchlist and Markets (one component), a lazy Lightweight Charts card with search, five chart
+types, a deterministic data-derived summary and an **Insights** breakdown, the transaction table, and
+a news feed with editable feeds and keywords. `midnite-studio.dashboard` persist v3 -> v4 appends the
+tab without touching existing dashboards; every dashboard's tiles now resize from the corners and
+edges, not only the south-east corner. See Phase 100.
+
+### Ad hoc — Media ▸ Video engine: Remotion | HyperFrames (Phase 99 Theme H)
+
+Media ▸ Video gains a second engine, HeyGen's HyperFrames (Apache-2.0), beside Remotion. The choice is made
+at Setup Video, switched later per video root (Video toolbar, Settings ▸ Media), and recorded in the root's
+own `video.config.json`; no file means Remotion, so existing setups are untouched. One template carries both
+editor apps over one shared workspace (`projects/`, `assets/`, `scripts/`, the two editorial skills, now with
+an engine section each); the studio, render, toolchain and root-resolution services, the render dialog and the
+Studio pane are all engine-aware, with install hints for Node 22+ and ffmpeg. Both engines were smoke-tested
+end to end (scaffold, install, studio, render, ffprobe). HyperFrames' own skills are referenced, not vendored.
+
+### Phase 99 Theme I — Models fidelity
+
+One shared geometry kernel (`packages/shared/src/model-geometry`) now builds every model for files, previews and the live editor. The spec gains capsule, roundedBox, wedge, prism, ellipsoid, tube, sweep, loft and mesh shapes, groups and instances, PBR materials, boolean CSG (in-house BSP) and a modifier stack (bevel, subdivide, mirror, arrays, twist, taper, bend); saved designs load unchanged. Export adds glTF/GLB and ASCII FBX, and OBJ/MTL and FBX carry the new materials. Previews render the new kinds and a PBR approximation. The editor gains an outliner with groups and multi-select, snapping, align/distribute/mirror, boolean, modifier and material panels, bundled lighting presets, orthographic views, x-ray, measure, stats, copy/paste and a shortcut help. See Phase 99 Theme H.
+### Ad hoc — Notes is detachable into its own window
+
+Notes joins `PAGE_WINDOW_ROLES`, so the Phase 55 page-popout machinery (`window.detach`/`dock`/`focusRole`,
+`DetachedRoot`, `PageDetachMark`) carries it with no second mechanism: a mark in the Notes sidenav header
+opens it, focuses it, or (inside the window) closes it. Note edits sync between windows through a new
+`notes` kind on `broadcast-sync`, sent as a per-note delta and merged last-writer-wins on `updatedAt`; a
+peer's change is applied with `setState`, so only the window that made an edit writes it to disk. Main
+remembers the window's bounds as for every popout and now also reopens Notes on the next launch if it was
+open at quit (`windows-reopen.json`, `REOPEN_ON_LAUNCH`). `Mod+l` then `N` and `notes.toggle` focus the
+detached window instead of opening the modal.
+
+## Phase 99 Theme K — Media skills (2026-10-03)
+
+Video skills renamed to `midnite-media-video-{write,execute}-editorial-script` across the template, manifest, toolchain, UI and docs, with a non-destructive migration (`main/video/skills-migrate.ts`: stock copies renamed, user-edited ones copied under the new name and the old dir kept). Added thin `midnite-media-{docs-write,image-generate,audio-generate,model-build,video-project}` skills to the repo and `templates/midnite/` mirrors (.claude/.agents/.codex).
+
+### Phase 99 Theme J — Models explorer, model.json and the rainbow composer
+
+Every Models generation now lives in its own folder (exports, the editable design and a new `model.json` recording agent and model, author, prompt, image attachment, vertex/polygon/part counts, bounds, materials and timestamps; schema in `shared`, open to future `anatomy`/`rig`/`animations`). Flat outputs are read as before and migrated into folders by renames only, never losing a file. The explorer shows tinted group accordions and per-model rows with the provider icon and a tooltip naming the model, supports drag-and-drop moves, and has context menus everywhere (rename, duplicate, move, new group, reveal, copy path, delete behind a confirm that lists what is lost). The centre pane switches between the 3D editor, a JSON viewer, the read-only 3D viewer (now including `.glb`) and an image view. Every Media composer panel gets a rotating rainbow border and an inner glow arc that stop under reduced motion and when the window is blurred or the pane is collapsed.
+
+### Phase 103 Themes B–I — Models rigging and animation (2026-10-04)
+
+A design can now be rigged and animated. `ModelSpec` gains optional `anatomy`, `rig` and `animations`, so
+saved designs load unchanged, and `shared/src/media-model-rig.ts` is the single source of truth for bone
+names: VRM 1.0 humanoid plus `root` for bipeds, a quadruped table with tails, and `wheel_FL`-style vehicle
+names, with Mixamo/Unreal/Rigify/Unity aliases. The kernel auto-rigs from part names and positions, skins
+with a part-aware envelope (`falloff` 0 = rigid), and generates ten biped, three quadruped and six vehicle
+clips as kind plus parameters with additive keys, baked at 30 fps and retargetable by canonical name. One
+set of edit ops (`model-geometry/rig-ops.ts`) backs both the editor and five new MCP tools (`model_get_rig`,
+`model_auto_rig`, `model_patch_rig`, `model_patch_animations`, `model_retarget`); `model_render_preview`
+renders a pose. The editor gains Rig and Animation inspector tabs (anatomy, Auto-rig, bone outliner, weight
+view, pose-mode keying, clip parameters, retarget from the library), a skeleton overlay with pickable joints,
+and a timeline that plays only while playing. `.glb` exports a skin with joints and one animation per clip,
+checked by re-importing through `GLTFLoader` and comparing three's posed vertices with the kernel's.
+`model.json` summarises anatomy, bone count and clips. Deferred: bone rename, FBX skin, and the SF3D tier
+(approved, its own PR next).
+
+### Phase 103 Theme J — SF3D, the opt-in local image-to-3D tier (2026-10-04)
+
+Media ▸ Models gains a tier switch: Procedural (the LLM-designed parts) or SF3D (Stable Fast 3D), a neural
+network that turns a picture of one object into a textured `.glb`. It is opt-in end to end: nothing ships in
+the bundle and nothing downloads until a consent dialog has shown the Stability AI Community License verbatim
+and its US$1M annual-revenue line and the user has ticked both boxes. The install then fetches the community
+ONNX port (`needle-tools/SF3D-webgpu`, ~1.73 GB, pinned revision) into `<userData>/sf3d/`, resumes after a
+cancel with HTTP `Range`, verifies every file's sha256 against the pinned `assets-manifest.json`, and an
+uninstall removes the weights, the partials and the consent. Inference runs on the `onnxruntime-node` the app
+already bundles, in a new `sf3d-worker` utility process (no Python); marching tetrahedra, vertex offsets, a
+UV atlas, the colour-MLP texture bake, a PNG encoder and the textured `.glb` are TypeScript. Results land as
+`<group>/<model>/` with `model.json` naming `agent.provider: 'sf3d'`. `model_sf3d_status` and
+`model_generate_sf3d` expose it over MCP. Every op answers `GitOpResult`. Tested in vitest with a mocked
+inference session; a real run against the weights has not happened yet and is the open item.
+
+### Phase 103 Theme J — SF3D output as a riggable asset part (2026-10-04)
+
+An SF3D result is no longer a dead `.glb`. `ModelService.importAsset` writes it as `<stem>/<stem>.asset.glb` with
+a sidecar holding one `asset` part (relative `.glb` path plus a content hash), so geometry beyond the 2000-vertex
+`mesh` cap stays out of the JSON. A content-keyed registry loads the glb in main (service, MCP) and the renderer,
+where the editor draws it with its baked texture. Auto-rig splits an imported mesh into pseudo-parts (head,
+torso, arms, legs; quadruped legs; vehicle wheels) so the existing bone rules apply unchanged, skinning weights
+each vertex by distance to the bone segments (top 4, normalised) and the skinned `.glb` keeps its texture and
+UVs. The SF3D engine sits behind the existing engine seam. Tested in vitest on a synthetic textured figure.
+No real SF3D output was produced and the rigged `.glb` has not been checked in Blender or a game engine; both
+remain human items beside the real-weights run.
+
+### Phase 105 Themes A + B — Terrain tab, spec, image decode and the heightfield build (2026-10-04)
+
+Media gains a sixth tab, **Terrain**. A terrain is a folder under `.midnite/media/terrain/<group>/<terrain>/` holding
+`terrain.json` (the spec and the last build's stats), the attached images and a disposable `build/`. Up to three
+optional images attach as bytes (heightmap, satellite, roads mask); JPEG and WebP become PNG once, at attach, and a
+16-bit PNG heightmap is read by a new `node:zlib` codec that keeps all 65 536 steps. Generate runs in a `terrain-worker`
+utility process: it decodes the heightmap, resamples it onto a 129 to 4097 grid in metres, cuts it into 65/129-vertex
+chunks with four LODs and writes `heights.f32` and `chunks.json`, which main swaps in atomically so a cancelled or failed
+build leaves the previous one. Cancel kills the worker; a newer build of the same terrain supersedes the older. Nine
+`terrain-*` channels carry it (`paint`, `road-key` and `export` answer "not available yet" until F, H and I). The
+centre shows the build's stats until Theme D's viewport lands. Tested in vitest: spec defaults and rejection, the codec
+(bit-exact 16-bit, five filters, three literal refusals), resample/normals/LOD crack-freedom, the broker, the service and a
+real build into a temp folder, and the tab through the mock bridge. No viewport, noise, satellite or road handling yet.
+
+
+### Phase 107 Themes A + B — Game repos, the Games tab and the sandboxed runner (2026-10-04)
+
+Media gains a **Games** tab. A game is its own git repo under `~/Midnite Games` (configurable in Settings ▸ Media ▸ Games,
+validated outside any other repo): `initRepo` is the app's first production `git init`, creation copies a blank scaffold,
+writes `midnite-game.json` and registers the repo like a clone. The runner puts each run in a sandboxed `WebContentsView`
+(no preload, in-memory partition per run) served from a privileged `mstudio-game://` scheme handled only on that session,
+with a CSP and `nosniff` on every response, request blocking, a four-permission policy, a navigation lock, console and
+exception capture over `console-message` and the CDP debugger, hot reload and a toolbar. Thirteen `mstudio:games:*`
+channels and three events carry it. Tested in vitest (init, manifest, root validation, scaffold, scheme refusals, runner
+with fakes, ring buffer, privileged-scheme call, the tab and settings through the mock bridge). Not built: Pop out, the
+real-Chromium e2e, starters, vendored engines and the agent loop (later themes). No real game has been run in Electron yet.
+
+### Phase 105 Themes C + D — No-heightmap choice, noise terrains and the 3D viewport (2026-10-04)
+
+A terrain with no heightmap now asks instead of guessing: the build answers `needs-height-source` and a dialog offers noise,
+an upload or a heightmap generated from a prompt through the Images service. Noise terrains are seeded fBm or ridged
+multifractal with an optional island falloff and bounded particle erosion (new pure-TS `noise.ts` and `erosion.ts` in
+`shared/src/terrain/`), built by the existing worker with `heightfield` and `erosion` stages. The centre column is now a lazy
+React Three Fiber viewport that streams chunks from `build/heights.f32` (at most four meshes a frame, nearest first, coarser
+LOD as fallback) with orbit and fly cameras, a sun slider, a water plane and shaded/wireframe/height/slope shading, plus a
+stats readout with a live frame time; parameter commits re-bake. Tested in vitest (noise determinism, erosion mass
+conservation and clamp, noise build and prompt-attach in the service, the dialog, shading modes and re-bake through the mock
+bridge, chunk-stream rules). Not built: land cover, splat and road shading maps (Themes E, F, H), and the packaged perf numbers (K).
+
+### Phase 107 Themes C + D — No-build runtime, vendored engines and MCP play-test loop (2026-10-04)
+
+Vendors exact-pinned Phaser 3 (`phaser@3.90.0`), three.js (`three@0.186.1`), Rapier 3D (`@dimforge/rapier3d-compat@0.21.0`), and Recast Navigation (`recast-navigation@0.43.1`, `@recast-navigation/core`, `@recast-navigation/three`) from desktop devDependencies into git-ignored `resources/game-engines/` at bundle time via `scripts/vendor-game-engines.mjs`. Fresh game repos receive vendored runtime files, typings, and licences filtered for 2D (Phaser) or 3D (three.js) in `vendor/`, an import map in `index.html`, and `jsconfig.json` with `// @ts-check` for editor intelligence without a build step. Kit versioning stamped with `GAME_KIT_VERSION = '0.1.0'` and verified by `kit-hash.json`; `gamesKitUpgrade` safely creates `kit-upgrade/<v>` branches for non-destructive updates. Licences documented in `docs/MEDIA_GAMES.md`. Theme D implements 12 `game_*` MCP tools (`game_list`, `game_create`, `game_open`, `game_get_manifest`, `game_set_manifest`, `game_run`, `game_stop`, `game_reload`, `game_screenshot`, `game_logs`, `game_input`, `game_state`) gated behind `allowGames` MCP consent switch in Settings ▸ MCP. `game_state` safely bounds, parses, and validates untrusted game state (256 KB cap, max depth 32); burst screenshot captures and sequenced input events map into trusted `WebContents` operations. Tested in vitest (17 MCP tool tests, 12 settings tests, vendor filtering, kit upgrade branch creation, kit hash verification, game scaffold).
+
+### Phase 105 Themes E + F — Satellite drape, alignment, land-cover classification and splat materials (2026-10-04)
+
+Satellite imagery can now be resampled into `build/drape.png` (RGBA8, 1K–8K power of two) through `TerrainAlignment` (offset X/Z, scale X/Z, rotation about centre). The viewport shaded mode applies the drape as an albedo texture, and an interactive Align toggle (`LuMove` / `LuLockOpen`) provides an onion-skin quad overlay over the height ramp with opacity control and `TransformControls` gizmos (move, rotate, scale) that commit to `terrain.json` on release. Roads can optionally follow the satellite alignment (`alignment.roads === 'satellite'`). A deterministic land-cover classifier (`shared/src/terrain/classify.ts`) evaluates ExG variance (trees vs grass), slope (rock), flat sub-sea-level elevation (water), and Lab k-means (roads, buildings, bare ground) to output `build/landcover.png` and `landcover.json`. An optional Ollama vision relabeling pass (`createVisionCall`) refines regional classification. The interactive class brush (`B` key / `LuBrush`, 1–64px radius, erase + 8 classes) rasterizes overrides to `overrides/landcover.png` and re-bakes. `generateSplatMap` outputs `build/splat.png` with 4-way material weights (grass, rock, dirt, snow with configurable `snowLineM`), blended via a custom Three.js shader using four CC0 tiled PBR materials (`resources/terrain-materials/{grass,rock,dirt,snow}`) with distance-based fading to drape albedo. Tested in vitest (alignment matrix/UV transforms, deterministic classifier, splat weight calculations, 8-bit grey PNG encoding, vision relabeling pass, build pipeline drape/landcover/splat stages, brush paint rasterization, viewport shader and UI controls).
+
+
+### Phase 105 Themes G + H — Foliage, buildings and roads from the land cover and the roads mask (2026-10-06)
+
+The build gains four stages after the splat: `roads` keys the roads image (dominant saturated hue, luminance fallback), cleans the mask and turns it into a graph (Zhang–Suen skeleton, junction clustering, spur pruning, node merge, Catmull-Rom splines, width from the distance transform, path/street/avenue); `conform` levels the ground under each road (30 m moving average, `blendM` falloff, clamped cut/fill with at most ten warnings); `foliage` scatters trees and grass with a seeded Bridson pass per class, kept off water, roads, buildings and the cleaned roads mask; `buildings` traces footprints (open/close, Moore tracing, Douglas-Peucker, right-angle snap, min area), extrudes them over a seeded height range and flattens the ground beneath them after the roads, before foliage is re-seated on the final field. Outputs are data — `build/roads-mask.png`, `roads.json`, `foliage.json`, `buildings.json` — and the viewer meshes them itself (`terrain-layers.tsx`: one merged road geometry, vertex-coloured buildings, one `InstancedMesh` per asset per chunk with a 600 m draw distance). `media.terrain.roadKey` previews the keyed mask at 512² without a build and samples the panel's eyedropper in main. The panel gains Roads (swatch with Auto/detected colour, `LuPipette` eyedropper, debounced live tolerance preview, width scale), Foliage (densities, slope limit, seed, built-in asset toggles per class) and Buildings (height range, min area, scale by area). Build rasters now load with `flipY = false`, fixing a z-mirror of the drape, land cover, splat and road mask against the heightfield that dated from Theme E. The scatter's candidate test got cheaper (neighbour test before slope, tan(limit) instead of atan). Deferred: the **Add from Models…** foliage asset picker (`outstanding.md`). Tested in vitest across the shared kernels, the desktop build pipeline (G + H end-to-end through the overrides layer) and `roadKey`, the app panel sections and the layer data helpers.
+
+### Phase 107 Theme F — three.js kit, Rapier physics and camera rigs (2026-10-06)
+
+The game kit gains its 3D half. Engine-free `kit/core/` modules — a fixed-step clock (`createFixedStep`, at most five steps a frame), the camera maths (five third-person presets with numeric offsets, spring arm, lock-on, versus, head bob, FOV clamp), Phase 105's LOD rules, a plain-JS terrain manifest validator, a 16-bit PNG decoder on `DecompressionStream`, a heightfield sampler that matches Rapier's triangulation, clip-name aliases, vehicle and road-ribbon helpers and the navmesh genre policy — sit under `kit/three/` adapters: the loop (interpolated, wired to `window.__midnite` pause/step), input, a Rapier world, a kinematic character (45° slopes, 0.35 m autostep, ground snap), glTF loading and an animator state machine, the terrain loader (heightfield collider, LOD chunks or a heightfield-mesh fallback, instanced foliage, extruded buildings, road ribbons and graph), a DOM HUD, audio, the camera rig, a ray-cast vehicle with enter/exit, and a dynamically imported Recast navmesh. Camera ids keep shared's existing names; `GAME_CAMERA_OFFSETS` joins them. `GAME_KIT_VERSION` is 0.3.0. Fixes Theme C's vendoring, which missed three r186's `three.core.js` and so 404'd every 3D game. Tested in vitest (`kit-core-three.test.ts`, 22 tests including a real Rapier heightfield against `heightAt`; `kit-hash.test.ts`) and smoke-tested in SwiftShader Chromium on a synthetic terrain pack; rendering e2e is Theme Q.
+
+### Phase 105 Themes I + J — Export, the game-engine manifest, and Terrain over MCP (2026-10-06)
+
+`terrain-pack` (a folder: 16-bit heightfield png + json, per-LOD glb chunks, maps, placements, `terrain.manifest.json`) and a single `.glb` export with foliage as `EXT_mesh_gpu_instancing`; `TerrainManifestSchema` v1 is the contract Phase 107 reads. Nine `terrain_*` MCP tools behind the `allowTerrains` switch (mcp.json v6), a software preview renderer, a 5-minute shim timeout for slow tools, and the `midnite-media-terrain-build` skill in six copies with a copies test.
+
+### Phase 101 Theme K — research spike: MusicGen-melody is not available as ONNX (2026-10-09)
+
+No `Xenova/` or `onnx-community/` melody repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` 3.8.1 and 4.3.1 have no `musicgen_melody` model type or chroma extractor. Nothing could be measured; small is 656 MB, and melody is estimated at about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which does not fit an 8 GB Mac. Decision: Theme K takes the fallback (rendered reference plus a deterministic text description). Build still pending Themes B, C and J. Write-up in `docs/research/musicgen-melody-onnx.md`.

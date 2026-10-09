@@ -117,7 +117,7 @@ export function FabLaunchers() {
       <div data-testid="fab-launchers" data-expanded="false" {...strip}>
         {/* `side="bottom"`: the strip is at the top edge of the window now, so a
             tooltip above it would be drawn off-screen. */}
-        <Tooltip label="Agent loops — Guard, Concepts, Develop, Patrol, Medic, Overhaul" side="bottom">
+        <Tooltip label="Agent loops — Guard, Ideate, Create, Patrol, Medic, Overhaul" side="bottom">
           <button
             type="button"
             data-testid="fab-launchers-collapsed"

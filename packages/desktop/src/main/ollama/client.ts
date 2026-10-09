@@ -443,7 +443,12 @@ export async function ollamaPull(
   });
 }
 
-export type OllamaChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+export type OllamaChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  /** Base64 images (no `data:` prefix) for a vision-capable model — Media ▸ Models' reference picture. */
+  images?: string[];
+};
 
 /**
  * `POST /api/chat`, one-shot (`stream: false`) — Theme I's wand and Plan with
@@ -460,7 +465,14 @@ export type OllamaChatMessage = { role: 'system' | 'user' | 'assistant'; content
  * export here; there is just no NDJSON stream to interrupt mid-line.
  */
 export async function ollamaChat(
-  req: { model: string; messages: OllamaChatMessage[] },
+  req: {
+    model: string;
+    messages: OllamaChatMessage[];
+    /** `'json'` constrains decoding to valid JSON — Media ▸ Models' spec writer. */
+    format?: 'json';
+    /** Sampling options, e.g. `{ temperature: 0.2, num_ctx: 8192 }`. */
+    options?: Record<string, number>;
+  },
   opts: { baseUrl?: string; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<string> {
   const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
@@ -469,7 +481,13 @@ export async function ollamaChat(
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: req.model, messages: req.messages, stream: false }),
+      body: JSON.stringify({
+        model: req.model,
+        messages: req.messages,
+        stream: false,
+        ...(req.format ? { format: req.format } : {}),
+        ...(req.options ? { options: req.options } : {}),
+      }),
     },
     opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     opts.signal,
@@ -479,4 +497,61 @@ export async function ollamaChat(
   const content = asString(asRecord(asRecord(body)?.message)?.content);
   if (content === undefined) throw new Error('Ollama /api/chat returned no message content.');
   return content;
+}
+
+/**
+ * `POST /api/chat`, streamed (`stream: true`) — the Chats page's Ollama engine.
+ * `onDelta` gets each piece of the reply as it arrives and the full text comes
+ * back at the end; `opts.signal` aborts mid-stream (Stop). The whole thread goes
+ * in `messages`, which is what makes an Ollama chat multi-turn: the model has no
+ * session of its own to resume.
+ */
+export async function ollamaChatStream(
+  req: { model: string; messages: OllamaChatMessage[] },
+  opts: {
+    baseUrl?: string;
+    signal?: AbortSignal;
+    onDelta: (text: string) => void;
+    /** A thinking model's reasoning, which Ollama streams in `message.thinking`. */
+    onThinking?: (text: string) => void;
+    /** From the closing `done` chunk: generated tokens, and prompt + generated as the context in use. */
+    onUsage?: (usage: { outputTokens?: number; contextTokens?: number }) => void;
+    timeoutMs?: number;
+  },
+): Promise<string> {
+  const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
+  const res = await fetchWithTimeout(
+    `${baseUrl}/api/chat`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: req.model, messages: req.messages, stream: true }),
+    },
+    opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    opts.signal,
+  );
+  if (!res.ok || !res.body) throw new Error(`Ollama /api/chat returned ${res.status} for "${req.model}".`);
+  let full = '';
+  await consumeNdjson(res.body, (line) => {
+    if (typeof line.error === 'string') throw new Error(line.error);
+    const thought = asString(asRecord(line.message)?.thinking);
+    if (thought) opts.onThinking?.(thought);
+    const piece = asString(asRecord(line.message)?.content);
+    if (piece) {
+      full += piece;
+      opts.onDelta(piece);
+    }
+    if (line.done === true && opts.onUsage) {
+      const count = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : undefined);
+      const prompt = count(line.prompt_eval_count);
+      const output = count(line.eval_count);
+      if (output !== undefined || prompt !== undefined) {
+        opts.onUsage({
+          ...(output !== undefined ? { outputTokens: output } : {}),
+          ...(prompt !== undefined ? { contextTokens: prompt + (output ?? 0) } : {}),
+        });
+      }
+    }
+  });
+  return full;
 }

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { agyImageProvider } from './agy';
+import { agyArgs, agyImagePrompt, createAgyImageProvider } from './agy';
 import {
   GEMINI_API_BASE,
+  GEMINI_IMAGEN_NO_REFERENCE,
   geminiGenerateContentBody,
   geminiImageProvider,
   imagenPredictBody,
@@ -10,7 +11,7 @@ import {
   parsePredict,
 } from './gemini';
 import { createOllamaImageProvider, imageCapableModels, ollamaImageRequestBody, parseOllamaImage } from './ollama';
-import { OPENAI_IMAGES_URL, openaiImageProvider, openaiRequestBody } from './openai';
+import { OPENAI_EDITS_URL, OPENAI_IMAGES_URL, openaiImageProvider, openaiRequestBody } from './openai';
 
 /** No network anywhere in here: every adapter gets a fake `fetch`. */
 const PNG_B64 = Buffer.from('fake-png').toString('base64');
@@ -110,6 +111,11 @@ describe('openai adapter', () => {
     expect(openaiRequestBody('p', 'gpt-image-1', '2:3', 1).size).toBe('1024x1536');
   });
 
+  it('asks for a transparent background only when the request does', () => {
+    expect(openaiRequestBody('p', 'gpt-image-1', '1:1', 1)).not.toHaveProperty('background');
+    expect(openaiRequestBody('p', 'gpt-image-1', '1:1', 1, true)).toMatchObject({ background: 'transparent', output_format: 'png' });
+  });
+
   it('sends a bearer key and reads data[].b64_json', async () => {
     const fetchMock = vi.fn(async () => json({ data: [{ b64_json: PNG_B64 }] }));
     const images = await openaiImageProvider.generate(
@@ -120,6 +126,61 @@ describe('openai adapter', () => {
     const sent = call(fetchMock);
     expect(sent.url).toBe(OPENAI_IMAGES_URL);
     expect((sent.init.headers as Record<string, string>).authorization).toBe('Bearer k-test');
+  });
+});
+
+describe('reference images (Phase 106 Theme D)', () => {
+  const reference = { bytes: Buffer.from('ref-png'), mime: 'image/png' };
+
+  it('gemini adds inline_data parts before the text part', async () => {
+    const fetchMock = vi.fn(async () =>
+      json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: PNG_B64 } }] } }] }),
+    );
+    await geminiImageProvider.generate(
+      { prompt: 'walk frame', model: 'gemini-2.5-flash-image', aspect: '1:1', count: 1, references: [reference] },
+      deps(fetchMock as unknown as typeof fetch),
+    );
+    const parts = (call(fetchMock).body.contents as { parts: unknown[] }[])[0]!.parts;
+    expect(parts).toEqual([
+      { inline_data: { mime_type: 'image/png', data: Buffer.from('ref-png').toString('base64') } },
+      { text: 'walk frame' },
+    ]);
+  });
+
+  it('gemini refuses references on an Imagen model before any request', async () => {
+    const fetchMock = vi.fn();
+    await expect(
+      geminiImageProvider.generate(
+        { prompt: 'p', model: 'imagen-4.0-generate-001', aspect: '1:1', count: 1, references: [reference] },
+        deps(fetchMock as unknown as typeof fetch),
+      ),
+    ).rejects.toThrow(GEMINI_IMAGEN_NO_REFERENCE);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('openai posts multipart to /v1/images/edits with one image[] part per reference', async () => {
+    const fetchMock = vi.fn(async () => json({ data: [{ b64_json: PNG_B64 }] }));
+    await openaiImageProvider.generate(
+      { prompt: 'walk frame', model: 'gpt-image-1', aspect: '1:1', count: 1, transparent: true, references: [reference, reference] },
+      deps(fetchMock as unknown as typeof fetch),
+    );
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(OPENAI_EDITS_URL);
+    expect((init.headers as Record<string, string>)['content-type']).toBeUndefined();
+    const form = init.body as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect(form.get('prompt')).toBe('walk frame');
+    expect(form.get('model')).toBe('gpt-image-1');
+    expect(form.get('background')).toBe('transparent');
+    const images = form.getAll('image[]') as Blob[];
+    expect(images).toHaveLength(2);
+    expect(Buffer.from(await images[0]!.arrayBuffer()).toString()).toBe('ref-png');
+  });
+
+  it('openai stays on /generations without references', async () => {
+    const fetchMock = vi.fn(async () => json({ data: [{ b64_json: PNG_B64 }] }));
+    await openaiImageProvider.generate({ prompt: 'p', model: 'gpt-image-1', aspect: '1:1', count: 1 }, deps(fetchMock as unknown as typeof fetch));
+    expect(call(fetchMock).url).toBe(OPENAI_IMAGES_URL);
   });
 });
 
@@ -153,9 +214,27 @@ describe('ollama adapter', () => {
 });
 
 describe('agy adapter', () => {
-  it('is disabled and says why', async () => {
+  it('builds a print-mode invocation asking for a file in the cwd', () => {
+    expect(agyArgs('x')).toEqual(['-p', 'x', '--mode', 'accept-edits']);
+    expect(agyImagePrompt('a fox', '16:9', 'image.png')).toMatch(/a fox[\s\S]*16:9[\s\S]*image\.png/);
+  });
+
+  it('reads back the image the CLI wrote into its working directory', async () => {
+    const run = vi.fn(async (_args: string[], { cwd }: { cwd: string }) => {
+      const { writeFile } = await import('node:fs/promises');
+      await writeFile(`${cwd}/image.png`, 'bytes');
+    });
+    const d = deps(vi.fn(), null);
+    const images = await createAgyImageProvider(run).generate({ prompt: 'p', model: 'agy-default', aspect: '1:1', count: 2 }, d);
+    expect(images).toHaveLength(2);
+    expect(images[0]).toMatchObject({ mime: 'image/png' });
+    expect(images[0]!.bytes.toString()).toBe('bytes');
+    expect(d.onImage).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports a clear error when the CLI produced no image', async () => {
     await expect(
-      agyImageProvider.generate({ prompt: 'p', model: 'agy-default', aspect: '1:1', count: 1 }, deps(vi.fn())),
-    ).rejects.toThrow(/no headless image output/);
+      createAgyImageProvider(async () => undefined).generate({ prompt: 'p', model: 'm', aspect: '1:1', count: 1 }, deps(vi.fn(), null)),
+    ).rejects.toThrow(/without producing an image/);
   });
 });

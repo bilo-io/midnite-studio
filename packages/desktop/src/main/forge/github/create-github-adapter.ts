@@ -6,7 +6,6 @@ import {
   issueComments,
   issueDetail,
   listIssues,
-  listPulls,
   listRuns,
   listWorkflows,
   pullComments,
@@ -16,7 +15,7 @@ import {
   runDetail,
   runLog,
 } from './gh-cli';
-import { pullThreads } from './gh-graphql';
+import { listPullsWithReviewComments, pullThreads } from './gh-graphql';
 import { linkIssues, unlinkIssues } from './gh-issue-links';
 import { listProjects, projectFields, projectItems } from './gh-project';
 import {
@@ -64,7 +63,7 @@ export function createGitHubAdapter(): ForgeAdapter {
     runLog,
     listWorkflows,
 
-    listPulls,
+    listPulls: listPullsWithReviewComments,
     pullDetail,
     pullFiles,
     pullComments,

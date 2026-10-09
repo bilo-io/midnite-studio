@@ -2,7 +2,7 @@ import { Editor } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
 
 import { selectionMarkdown } from './doc-editor';
-import { docExtensions } from './doc-extensions';
+import { CODE_LANGUAGES, docExtensions } from './doc-extensions';
 import { normalizeMarkdown } from './doc-thread';
 
 /**
@@ -41,6 +41,15 @@ const FIXTURES: Record<string, string> = {
   marks: 'Some **bold**, *italic*, ~~struck~~ and `code`.',
   quote: '> quoted',
   rule: 'above\n\n---\n\nbelow',
+  deepHeadings: '#### Four\n\n##### Five\n\n###### Six',
+  image: '![A cat](https://example.com/cat.png)',
+  imageTitled: '![A cat](https://example.com/cat.png "Tabby")',
+  codeNoLang: '```\nplain\n```',
+  codeAlias: '```rs\nfn main() {}\n```',
+  codeLong: '```typescript\nconst a: number = 1;\n```',
+  calloutNote: '> [!NOTE]\n> Useful information.',
+  calloutWarning: '> [!WARNING]\n> First line.\n>\n> Second paragraph.',
+  calloutBlocks: '> [!TIP]\n> - one\n> - two',
 };
 
 describe('Docs markdown round-trip', () => {
@@ -79,5 +88,42 @@ describe('Docs markdown round-trip', () => {
     expect(selected).toBe('First paragraph with **bold**.');
     expect(editor.getMarkdown()).toContain(selected);
     editor.destroy();
+  });
+
+  it('parses a GitHub alert into a blockquote with a callout kind and no marker text', () => {
+    const editor = load('> [!WARNING]\n> Careful here.');
+    const quote = editor.state.doc.child(0);
+    expect(quote.type.name).toBe('blockquote');
+    expect(quote.attrs.callout).toBe('warning');
+    expect(quote.textContent).toBe('Careful here.');
+    editor.destroy();
+  });
+
+  it('keeps a plain quote plain, and a quote that merely starts with brackets', () => {
+    expect(roundTrip('> [!NOPE]\n> text')).toBe('> \\[!NOPE\\]\n> text');
+    const editor = load('> just a quote');
+    expect(editor.state.doc.child(0).attrs.callout).toBeNull();
+    editor.destroy();
+  });
+
+  it('turns a fence info string into the code block language, and a changed language back into the fence', () => {
+    const editor = load('```ts\nconst a = 1;\n```');
+    expect(editor.state.doc.child(0).attrs.language).toBe('ts');
+    editor.commands.updateAttributes('codeBlock', { language: 'python' });
+    expect(normalizeMarkdown(editor.getMarkdown()).trim()).toBe('```python\nconst a = 1;\n```');
+    editor.commands.updateAttributes('codeBlock', { language: null });
+    expect(normalizeMarkdown(editor.getMarkdown()).trim()).toBe('```\nconst a = 1;\n```');
+    editor.destroy();
+  });
+
+  it('registers every lowlight language for the dropdown', () => {
+    expect(CODE_LANGUAGES.length).toBeGreaterThan(150);
+    expect(CODE_LANGUAGES).toContain('typescript');
+    expect(CODE_LANGUAGES).toContain('plaintext');
+  });
+
+  it('keeps an image that sits between paragraphs', () => {
+    const doc = 'before\n\n![shot](https://example.com/a.png)\n\nafter';
+    expect(roundTrip(doc)).toBe(doc);
   });
 });

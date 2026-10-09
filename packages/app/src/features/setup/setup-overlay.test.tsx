@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { INITIAL_SETUP_STATE } from '../../store/setup-state';
 import { useUiStore } from '../../store/ui-store';
 import { CHOREO } from './setup-choreography';
+import { ToastHost } from '../../components/toast-host';
 import { SetupOverlay } from './setup-overlay';
 import { SETUP_PAGES } from './setup-pages';
 import { useSetupStore } from './setup-store';
@@ -47,7 +48,9 @@ function renderOverlay() {
   return render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <SetupOverlay />
+        <ToastHost>
+          <SetupOverlay />
+        </ToastHost>
       </QueryClientProvider>
     </ThemeProvider>,
   );
@@ -155,25 +158,25 @@ describe('SetupOverlay — navigation', () => {
   it('Next and Back walk intro → pages → finale and back', () => {
     renderOverlay();
     fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
-    expect(stepOf()).toBe('machine');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('forges');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('cli');
+    // Driven by the registry, so appending a page never breaks this walk.
+    SETUP_PAGES.forEach((page, index) => {
+      if (index > 0) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(stepOf()).toBe(page.id);
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(stepOf()).toBe('finale');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(stepOf()).toBe('cli');
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]?.id);
   });
 
   it('→ and ← step between pages', () => {
     renderOverlay();
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('forge-select');
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
   });
 
   it('ignores arrows typed into a text field, and arrows with a modifier', async () => {
@@ -188,7 +191,8 @@ describe('SetupOverlay — navigation', () => {
 
   it('→ on the finale does not finish setup — only Get started does', () => {
     renderOverlay();
-    for (let i = 0; i <= SETUP_PAGES.length; i += 1) fireEvent.keyDown(window, { key: 'ArrowRight' });
+    for (let i = 0; i <= SETUP_PAGES.length; i += 1)
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(stepOf()).toBe('finale');
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(stepOf()).toBe('finale');
@@ -197,7 +201,8 @@ describe('SetupOverlay — navigation', () => {
 
   it('Get started on the finale completes setup and closes', () => {
     renderOverlay();
-    for (let i = 0; i <= SETUP_PAGES.length; i += 1) fireEvent.keyDown(window, { key: 'ArrowRight' });
+    for (let i = 0; i <= SETUP_PAGES.length; i += 1)
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
     fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
     expect(useUiStore.getState().setupState.completedAt).not.toBeNull();
     expect(overlay()).toBeNull();
@@ -230,7 +235,7 @@ describe('SetupOverlay — leaving early', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close setup' }));
     const state = useUiStore.getState().setupState;
     expect(state.skippedPageIds).toEqual([]);
-    expect(state.lastPageId).toBe('machine');
+    expect(state.lastPageId).toBe('git');
     expect(state.dismissedAt).not.toBeNull();
     dismissHandoff();
     expect(overlay()).toBeNull();
@@ -247,7 +252,9 @@ describe('SetupOverlay — leaving early', () => {
   });
 
   it('Next through a page skipped on an earlier visit clears that skip', () => {
-    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, completedAt: DONE, skippedPageIds: ['forges'] } });
+    useUiStore.setState({
+      setupState: { ...INITIAL_SETUP_STATE, completedAt: DONE, skippedPageIds: ['forges'] },
+    });
     renderOverlay();
     act(() => useSetupStore.getState().openSetup('forges'));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -300,7 +307,16 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     expect(introPhase()).toBe('typing');
     act(() => vi.advanceTimersByTime(CHOREO.introSettleMs));
     expect(introPhase()).toBe('ready');
-    expect(screen.getByRole('button', { name: 'Begin setup' }).parentElement?.style.visibility).toBe('visible');
+    expect(
+      screen.getByRole('button', { name: 'Begin setup' }).parentElement?.style.visibility,
+    ).toBe('visible');
+  });
+
+  it('the intro word wears the brand gradient, not the rainbow', () => {
+    renderOverlay();
+    const el = screen.getByTestId('setup-intro-word');
+    expect(el.className).toContain('setup-brand-gradient');
+    expect(el.className).not.toMatch(/rainbow/);
   });
 
   it('Begin fades the word, then the page title types and only then does the body fade in', () => {
@@ -310,26 +326,26 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     // The word fades first; the step has not moved yet.
     expect(stepOf()).toBe('intro');
     act(() => vi.advanceTimersByTime(CHOREO.wordFadeMs));
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     // Held back while the mark glides into the anchor.
     expect(title()).toBe('');
     expect(body()).toBeNull();
     act(() => vi.advanceTimersByTime(CHOREO.glideMs + 60));
     expect(title().length).toBeGreaterThan(0);
-    expect(title()).not.toBe('Check your machine');
+    expect(title()).not.toBe('Get git ready');
     expect(body()).toBeNull();
     act(() => vi.advanceTimersByTime(1000));
-    expect(title()).toBe('Check your machine');
+    expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
-    expect(body()?.className).toContain('animate-fade-in');
+    expect(body()?.className).toContain('setup-page-enter');
   });
 
   it('a page-to-page Next types without waiting for a glide; Back is instant', () => {
-    act(() => useSetupStore.getState().openSetup('machine'));
+    act(() => useSetupStore.getState().openSetup('git'));
     renderOverlay();
     act(() => vi.advanceTimersByTime(2000));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('forge-select');
     expect(body()).toBeNull();
     act(() => vi.advanceTimersByTime(60));
     expect(title().length).toBeGreaterThan(0);
@@ -337,7 +353,7 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     expect(body()).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(title()).toBe('Check your machine');
+    expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
   });
 
@@ -366,16 +382,38 @@ describe('SetupOverlay — brand choreography (Theme B)', () => {
     }
   });
 
+  it('Back wears a left chevron and Next is the shared CTA', () => {
+    act(() => useSetupStore.getState().openSetup('git'));
+    renderOverlay();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByRole('button', { name: 'Back' }).querySelector('svg')).not.toBeNull();
+    const next = screen.getByRole('button', { name: 'Next' });
+    expect(next.getAttribute('data-testid')).toBe('empty-state-cta');
+  });
+
+  it('pages slide in from the side they came from: Next from the right, Back from the left', () => {
+    act(() => useSetupStore.getState().openSetup('git'));
+    renderOverlay();
+    act(() => vi.advanceTimersByTime(2000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(body()?.getAttribute('data-dir')).toBe('forward');
+    expect(body()?.className).toContain('setup-page-enter');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(body()?.getAttribute('data-dir')).toBe('back');
+    expect(body()?.className).toContain('setup-page-enter');
+  });
+
   it('reduced motion resolves every step at once', () => {
     document.documentElement.dataset['motion'] = 'reduced';
     renderOverlay();
     expect(introPhase()).toBe('ready');
     expect(word()).toBe('Midnite');
     fireEvent.click(screen.getByRole('button', { name: 'Begin setup' }));
-    expect(stepOf()).toBe('machine');
-    expect(title()).toBe('Check your machine');
+    expect(stepOf()).toBe('git');
+    expect(title()).toBe('Get git ready');
     expect(body()).not.toBeNull();
-    expect(body()?.className ?? '').not.toContain('animate-fade-in');
+    expect(body()?.className ?? '').not.toContain('setup-page-enter');
   });
 });
 
@@ -389,7 +427,7 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
 
   it('Skip points at the FAB with a hint, then any click lets the app back', () => {
     mountFab();
-    act(() => useSetupStore.getState().openSetup('machine'));
+    act(() => useSetupStore.getState().openSetup('git'));
     renderOverlay();
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
 
@@ -437,16 +475,23 @@ describe('SetupOverlay — the FAB handoff (Theme C)', () => {
 
   it('Resume setup reopens at the first page neither passed nor skipped, past the intro', () => {
     useUiStore.setState({
-      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'machine', skippedPageIds: ['machine'] },
+      setupState: {
+        ...INITIAL_SETUP_STATE,
+        dismissedAt: DONE,
+        lastPageId: 'git',
+        skippedPageIds: ['git'],
+      },
     });
     renderOverlay();
     expect(overlay()).toBeNull();
     act(() => useSetupStore.getState().resumeSetup());
-    expect(stepOf()).toBe('forges');
+    expect(stepOf()).toBe('forge-select');
   });
 
   it('Resume after X reopens the page X was pressed on', () => {
-    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'forges' } });
+    useUiStore.setState({
+      setupState: { ...INITIAL_SETUP_STATE, dismissedAt: DONE, lastPageId: 'forges' },
+    });
     renderOverlay();
     act(() => useSetupStore.getState().resumeSetup());
     expect(stepOf()).toBe('forges');
@@ -461,12 +506,73 @@ describe('SetupOverlay — stepping aside for the terminal (Theme D)', () => {
     expect(overlay()?.hidden).toBe(true);
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
     expect(useUiStore.getState().setupState.dismissedAt).toBeNull();
 
     fireEvent.click(screen.getByTestId('setup-return'));
     expect(overlay()?.hidden).toBe(false);
     expect(screen.queryByTestId('setup-return')).toBeNull();
-    expect(stepOf()).toBe('machine');
+    expect(stepOf()).toBe('git');
+  });
+});
+
+describe('SetupOverlay — completion transition and finale (Theme J)', () => {
+  /** Reaches the last page with reduced motion's instant steps, then flips nothing: callers set motion first. */
+  function toLastPage() {
+    act(() => useSetupStore.getState().openSetup(SETUP_PAGES[SETUP_PAGES.length - 1]!.id));
+    renderOverlay();
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+  }
+
+  it('full motion: leaving the last page blooms and fades first, then the finale arrives', () => {
+    document.documentElement.dataset['motion'] = 'full';
+    vi.useFakeTimers();
+    toLastPage();
+    act(() => vi.advanceTimersByTime(5000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    // Still on the page while it dissolves; the bloom is out and Next is inert.
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+    expect(screen.getByTestId('setup-bloom')).toBeTruthy();
+    const dots = screen.getAllByRole('button').filter((b) => b.hasAttribute('data-dot'));
+    expect(new Set(dots.map((d) => d.getAttribute('data-dot')))).toEqual(new Set(['done']));
+    fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    expect(stepOf()).toBe(SETUP_PAGES[SETUP_PAGES.length - 1]!.id);
+    act(() => vi.advanceTimersByTime(CHOREO.completeFadeMs));
+    expect(stepOf()).toBe('finale');
+    expect(screen.getByTestId('setup-finale-mark')).toBeTruthy();
+  });
+
+  it('full motion: Get started fades the overlay out, then records completion', () => {
+    document.documentElement.dataset['motion'] = 'full';
+    vi.useFakeTimers();
+    toLastPage();
+    act(() => vi.advanceTimersByTime(5000));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    act(() => vi.advanceTimersByTime(CHOREO.completeFadeMs));
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    expect(overlay()?.style.opacity).toBe('0');
+    expect(useUiStore.getState().setupState.completedAt).toBeNull();
+    act(() => vi.advanceTimersByTime(CHOREO.dissolveMs));
+    expect(useUiStore.getState().setupState.completedAt).not.toBeNull();
+    expect(overlay()).toBeNull();
+  });
+
+  it('reduced motion: the finale is static, with no bloom, in the same render', () => {
+    toLastPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(stepOf()).toBe('finale');
+    expect(screen.queryByTestId('setup-bloom')).toBeNull();
+    expect(screen.getByRole('heading', { name: /Welcome to\s*Midnite\s*Studio/ })).toBeTruthy();
+  });
+
+  it('the finale wordmark wears the brand gradient, and Studio does not', () => {
+    toLastPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    const heading = screen.getByRole('heading', { name: /Welcome to\s*Midnite\s*Studio/ });
+    const midnite = screen.getByText('Midnite', { selector: 'span' });
+    expect(heading.contains(midnite)).toBe(true);
+    expect(midnite.className).toContain('setup-brand-gradient');
+    expect(midnite.className).not.toMatch(/rainbow/);
+    expect(screen.getByText('Studio').className).not.toContain('setup-brand-gradient');
   });
 });

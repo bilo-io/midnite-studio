@@ -6,6 +6,8 @@ import { LuExternalLink } from 'react-icons/lu';
 import { resolveAgentIcon } from '../../components/icons';
 import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
+import { useUiStore } from '../../store/ui-store';
+import { useChatsStore } from '../chats/chats-store';
 import { revealSession } from '../terminal/reveal-session';
 import { useAgents } from '../terminal/use-agents';
 import { useHoverGroup } from './ref-badge';
@@ -43,9 +45,13 @@ const STRIP_GAP = 3;
  */
 export function RefAgentAvatar({
   session,
+  chat,
   agentId,
 }: {
-  session: TerminalSession;
+  /** A terminal agent session — "Reveal session" brings its pane forward. */
+  session?: TerminalSession | undefined;
+  /** Or a Chats turn running in the chat's worktree — "Open chat" goes to it. */
+  chat?: { id: string; title: string } | undefined;
   agentId: string | undefined;
 }) {
   // Same roster lookup `SessionIcon` (`terminal-session-list.tsx`) does for
@@ -92,7 +98,7 @@ export function RefAgentAvatar({
       onMouseLeave={leave}
       className="relative inline-flex shrink-0 items-center"
     >
-      <Tooltip label={session.title}>
+      <Tooltip label={session?.title ?? chat?.title ?? ''}>
         <span
           data-testid="ref-agent-avatar"
           className="flex shrink-0 select-none items-center justify-center rounded-full text-foreground"
@@ -138,13 +144,17 @@ export function RefAgentAvatar({
                 // The avatar sits inside a clickable row; a click here means
                 // this button, not the row underneath it.
                 event.stopPropagation();
-                revealSession(session.id);
+                if (session) revealSession(session.id);
+                else if (chat) {
+                  useUiStore.getState().setActiveView('chats');
+                  useChatsStore.getState().select(chat.id);
+                }
               }}
               style={{ left: placed.x, top: placed.y }}
               className="fixed z-popover flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-[3px] border border-border bg-popover px-1.5 py-0.5 text-[11px] text-foreground shadow-md animate-fade-in hover:bg-accent"
             >
               <LuExternalLink aria-hidden className="h-3 w-3 shrink-0" />
-              Reveal session
+              {session ? 'Reveal session' : 'Open chat'}
             </button>,
             document.body,
           )

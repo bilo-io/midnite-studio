@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CHOREO,
   centredRect,
+  completionTimeline,
   dissolveTimeline,
   flipKeyframes,
   handoffTimeline,
@@ -27,18 +28,29 @@ describe('introTimeline', () => {
   it('starts empty and typing, adds one letter per frame, and ends ready', () => {
     const frames = introTimeline('Midnite', false);
     expect(frames[0]).toEqual({ at: 0, frame: { typed: '', phase: 'typing' } });
-    expect(frames.slice(1, 8).map((f) => f.frame.typed)).toEqual(['M', 'Mi', 'Mid', 'Midn', 'Midni', 'Midnit', 'Midnite']);
+    expect(frames.slice(1, 8).map((f) => f.frame.typed)).toEqual([
+      'M',
+      'Mi',
+      'Mid',
+      'Midn',
+      'Midni',
+      'Midnit',
+      'Midnite',
+    ]);
     expect(frames[1]!.at).toBe(CHOREO.introLeadMs);
     expect(frames[2]!.at - frames[1]!.at).toBe(CHOREO.introCharMs);
     const last = frames[frames.length - 1]!;
     expect(last.frame).toEqual({ typed: 'Midnite', phase: 'ready' });
     expect(last.at - frames[7]!.at).toBe(CHOREO.introSettleMs);
     // Strictly increasing: nothing lands out of order.
-    for (let i = 1; i < frames.length; i += 1) expect(frames[i]!.at).toBeGreaterThan(frames[i - 1]!.at);
+    for (let i = 1; i < frames.length; i += 1)
+      expect(frames[i]!.at).toBeGreaterThan(frames[i - 1]!.at);
   });
 
   it('reduced motion is one frame, at 0, already whole and ready', () => {
-    expect(introTimeline('Midnite', true)).toEqual([{ at: 0, frame: { typed: 'Midnite', phase: 'ready' } }]);
+    expect(introTimeline('Midnite', true)).toEqual([
+      { at: 0, frame: { typed: 'Midnite', phase: 'ready' } },
+    ]);
   });
 });
 
@@ -107,7 +119,10 @@ describe('FLIP', () => {
       { left: 200, top: 300, width: 64, height: 64 },
       { left: 40, top: 60, width: 32, height: 32 },
     );
-    expect(from).toEqual({ transformOrigin: 'top left', transform: 'translate(160px, 240px) scale(2)' });
+    expect(from).toEqual({
+      transformOrigin: 'top left',
+      transform: 'translate(160px, 240px) scale(2)',
+    });
     expect(to).toEqual({ transformOrigin: 'top left', transform: 'none' });
   });
 
@@ -126,10 +141,54 @@ describe('isReducedMotion', () => {
     document.documentElement.dataset['motion'] = 'reduced';
     expect(isReducedMotion()).toBe(true);
     document.documentElement.dataset['motion'] = 'full';
-    const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockReturnValue({ matches: true } as MediaQueryList);
     expect(isReducedMotion()).toBe(false);
     delete document.documentElement.dataset['motion'];
     expect(isReducedMotion()).toBe(true);
     media.mockRestore();
+  });
+});
+
+describe('completionTimeline', () => {
+  it('leaves, then lands on the finale after the fade', () => {
+    expect(completionTimeline(false)).toEqual([
+      { at: 0, frame: 'leaving' },
+      { at: CHOREO.completeFadeMs, frame: 'finale' },
+    ]);
+  });
+
+  it('reduced motion is one frame at 0, already on the finale', () => {
+    expect(completionTimeline(true)).toEqual([{ at: 0, frame: 'finale' }]);
+  });
+});
+
+describe('page transition', () => {
+  it('uses the eased curve and a 280-340ms duration', async () => {
+    const { PAGE_EASING, pageEnter } = await import('./setup-choreography');
+    expect(PAGE_EASING).toBe('cubic-bezier(0.65, 0, 0.35, 1)');
+    expect(CHOREO.pageEnterMs).toBeGreaterThanOrEqual(280);
+    expect(CHOREO.pageEnterMs).toBeLessThanOrEqual(340);
+    const fwd = pageEnter('forward', false);
+    expect(fwd.className).toBe('setup-page-enter');
+    expect(fwd['data-dir']).toBe('forward');
+    expect(fwd.style?.['--setup-page-ease']).toBe(PAGE_EASING);
+    expect(pageEnter('back', false)['data-dir']).toBe('back');
+  });
+
+  it('is absent under reduced motion, and for an arrival with no direction', async () => {
+    const { pageEnter } = await import('./setup-choreography');
+    expect(pageEnter('forward', true)).toEqual({});
+    expect(pageEnter(null, false)).toEqual({});
+  });
+
+  it('is styled as an opacity change plus a slide each way, with a fade-only reduced guard', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(`${process.cwd()}/src/styles.css`, 'utf8');
+    expect(css).toMatch(/@keyframes setup-page-in-forward\s*\{[^}]*opacity: 0;[^}]*translateX\(24px\)/);
+    expect(css).toMatch(/@keyframes setup-page-in-back\s*\{[^}]*opacity: 0;[^}]*translateX\(-24px\)/);
+    expect(css).toContain("html[data-motion='reduced'] .setup-page-enter { animation-name: setup-page-fade; }");
+    expect(css).toContain('cubic-bezier(0.65, 0, 0.35, 1)');
   });
 });

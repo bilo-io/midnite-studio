@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SpawnFn, SpawnedProcess } from '../process-runner';
-import { getStudioStatus, parseStudioUrl, resetVideoStudioState, startStudio, stopAllStudios, stopStudio } from './studio-service';
+import {
+  HYPERFRAMES_ENV,
+  buildStudioCommand,
+  getStudioStatus,
+  parseStudioUrl,
+  resetVideoStudioState,
+  startStudio,
+  stopAllStudios,
+  stopStudio,
+} from './studio-service';
 
 function fakeChild() {
   const handlers: {
@@ -48,7 +57,11 @@ describe('startStudio', () => {
     const child = fakeChild();
     const spawn = vi.fn<SpawnFn>(() => child.process);
     startStudio('p1', '/root/video-editor', { spawn, onStatus: vi.fn() });
-    expect(spawn).toHaveBeenCalledWith('npx', ['remotion', 'studio', '--no-open'], '/root/video-editor');
+    expect(spawn).toHaveBeenCalledWith(
+      'npx',
+      ['remotion', 'studio', '--no-open'],
+      '/root/video-editor',
+    );
   });
 
   it('reports starting, then running once the URL is printed', () => {
@@ -85,7 +98,10 @@ describe('startStudio', () => {
     });
     const onStatus = vi.fn();
     startStudio('p1', '/root/video-editor', { spawn, onStatus });
-    expect(getStudioStatus('p1')).toEqual({ state: 'failed', stderr: ['npx was not found on PATH.'] });
+    expect(getStudioStatus('p1')).toEqual({
+      state: 'failed',
+      stderr: ['npx was not found on PATH.'],
+    });
   });
 });
 
@@ -116,5 +132,95 @@ describe('stopAllStudios', () => {
     stopAllStudios();
     expect(childA.kill).toHaveBeenCalledTimes(1);
     expect(childB.kill).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('buildStudioCommand — per engine (Phase 99 Theme H)', () => {
+  it('Remotion: one `remotion studio` in the editor app, exactly as before the engine choice', () => {
+    expect(
+      buildStudioCommand({ engine: 'remotion', appDir: '/r/video-editor', projectId: 'a/b/001-x' }),
+    ).toEqual({
+      command: 'npx',
+      args: ['remotion', 'studio', '--no-open'],
+      cwd: '/r/video-editor',
+    });
+  });
+
+  it('HyperFrames: `hyperframes preview` on the project folder, attached, telemetry off', () => {
+    expect(
+      buildStudioCommand({
+        engine: 'hyperframes',
+        appDir: '/r/hyperframes-editor',
+        projectId: 'a/b/001-x',
+      }),
+    ).toEqual({
+      command: 'npx',
+      args: ['hyperframes', 'preview', 'projects/a/b/001-x', '--no-open', '--foreground'],
+      cwd: '/r/hyperframes-editor',
+      env: HYPERFRAMES_ENV,
+    });
+    expect(HYPERFRAMES_ENV).toEqual({ DO_NOT_TRACK: '1' });
+  });
+});
+
+describe('parseStudioUrl — HyperFrames', () => {
+  const output = [
+    '┌  hyperframes preview',
+    '◇  Studio running',
+    '  Port 3002 is in use, using 3003 instead',
+    '  Studio    http://localhost:3003/#project/001-x',
+    '  Server    http://localhost:3003',
+  ].join('\n');
+
+  it('keeps the project hash and the port the CLI actually chose', () => {
+    expect(parseStudioUrl(output, 'hyperframes')).toBe('http://localhost:3003/#project/001-x');
+  });
+
+  it('is null until the Studio line has printed', () => {
+    expect(parseStudioUrl('◇  Studio running', 'hyperframes')).toBeNull();
+    expect(parseStudioUrl('Port 3002 is in use', 'hyperframes')).toBeNull();
+  });
+});
+
+describe('startStudio — engine', () => {
+  it('spawns the HyperFrames command with the telemetry opt-out in its environment', () => {
+    const child = fakeChild();
+    const spawn = vi.fn<SpawnFn>(() => child.process);
+    startStudio('a/001-x', '/r/hyperframes-editor', {
+      spawn,
+      engine: 'hyperframes',
+      onStatus: vi.fn(),
+    });
+    expect(spawn).toHaveBeenCalledWith(
+      'npx',
+      ['hyperframes', 'preview', 'projects/a/001-x', '--no-open', '--foreground'],
+      '/r/hyperframes-editor',
+      { DO_NOT_TRACK: '1' },
+    );
+  });
+
+  it('turns running once HyperFrames prints its Studio URL, and keeps one studio per project', () => {
+    const child = fakeChild();
+    const spawn = vi.fn<SpawnFn>(() => child.process);
+    const onStatus = vi.fn();
+    startStudio('p', '/r/hyperframes-editor', { spawn, engine: 'hyperframes', onStatus });
+    child.stdout('  Studio    http://localhost:3002/#project/p\n');
+    expect(getStudioStatus('p')).toEqual({
+      state: 'running',
+      url: 'http://localhost:3002/#project/p',
+    });
+    startStudio('p', '/r/hyperframes-editor', { spawn, engine: 'hyperframes', onStatus });
+    expect(spawn).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mistake a Remotion-style line for a HyperFrames studio', () => {
+    const child = fakeChild();
+    startStudio('p', '/r/hyperframes-editor', {
+      spawn: () => child.process,
+      engine: 'hyperframes',
+      onStatus: vi.fn(),
+    });
+    child.stdout('Server ready - Local: http://localhost:3000, Network: http://x:3000');
+    expect(getStudioStatus('p')).toEqual({ state: 'starting' });
   });
 });

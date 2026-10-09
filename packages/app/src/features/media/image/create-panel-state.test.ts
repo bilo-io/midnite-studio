@@ -56,6 +56,12 @@ describe('create panel reducer (Phase 99 Theme C)', () => {
     expect(generateBlockedReason(ready, { available: false, reason: 'no key' }, false)).toBe('no key');
     expect(generateBlockedReason(ready, { available: true }, true)).toBe('Generating…');
   });
+
+  it('does not block Generate when a key is missing but the agy CLI can serve the request', () => {
+    const ready = createPanelReducer(initialCreateState('gemini', 'gemini-2.5-flash-image'), { type: 'prompt', prompt: 'fox' });
+    // main reports `available: true, missingKey: true` when agy is the fallback.
+    expect(generateBlockedReason(ready, { available: true, reason: 'No Gemini API key — will use agy.' }, false)).toBeUndefined();
+  });
 });
 
 describe('lightbox stepping', () => {

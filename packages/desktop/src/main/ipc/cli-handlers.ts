@@ -1,18 +1,71 @@
-import { symlinkSync, unlinkSync, readlinkSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readlinkSync, symlinkSync, unlinkSync } from 'node:fs';
+import { basename, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { app } from 'electron';
 import { CHANNELS } from '@midnite/studio-shared';
 import { handleBare, handleOp } from './handle.js';
-import { pathExportLine, preferredTargets, type CliInstallState } from '../cli-path.js';
+import {
+  CLI_NAME,
+  LEGACY_CLI_NAME,
+  aliasTargetFor,
+  pathExportLine,
+  preferredTargets,
+  type CliInstallState,
+} from '../cli-path.js';
 import * as S from '@midnite/studio-shared';
 
-function getBundleBinPath(): string {
+/** Directory holding the bundled `midnite` script and the deprecated `midnite-studio` wrapper. */
+function getBundleBinDir(): string {
   if (app.isPackaged) {
-    return `${process.resourcesPath}/bin/midnite-studio`;
+    return `${process.resourcesPath}/bin`;
   }
-  return `${app.getAppPath()}/resources/bin/midnite-studio`;
+  return `${app.getAppPath()}/resources/bin`;
 }
+
+/**
+ * What sits at a would-be install path.
+ *
+ * "Owned" means the symlink resolves into this app's bundle — the same test
+ * for the status badge, the installer and the uninstaller, so they can never
+ * disagree about whose file it is. Anything else (a plain binary, or a link
+ * into another tool — notably the original midnite app's `@midnite/cli`,
+ * which also names its command `midnite`) is foreign and is never touched.
+ */
+export type LinkState = 'none' | 'owned' | 'foreign';
+
+/** Bundle layouts an owned link can resolve to, old installs and dev checkouts included. */
+const OWNED_BIN = /(Midnite Studio\.app\/Contents\/Resources|packages\/desktop\/resources)\/bin\/midnite(-studio)?$/;
+
+export function linkState(path: string, bundleBinDir: string = getBundleBinDir()): LinkState {
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch {
+    return 'none';
+  }
+  if (!stat.isSymbolicLink()) return 'foreign';
+  let resolved: string;
+  try {
+    resolved = resolve(dirname(path), readlinkSync(path));
+  } catch {
+    return 'foreign';
+  }
+  const name = basename(resolved);
+  const inBundle = dirname(resolved) === bundleBinDir && (name === CLI_NAME || name === LEGACY_CLI_NAME);
+  return inBundle || OWNED_BIN.test(resolved) ? 'owned' : 'foreign';
+}
+
+/** An owned link whose target still exists (a dangling one is stale and gets replaced, not reported). */
+const liveOwned = (path: string): boolean => linkState(path) === 'owned' && existsSync(path);
+
+function relink(linkPath: string, to: string): void {
+  if (linkState(linkPath) !== 'none') unlinkSync(linkPath);
+  symlinkSync(to, linkPath);
+}
+
+const foreignPrimaryNotice = (path: string, aliasInstalled: boolean): string =>
+  `A \`${CLI_NAME}\` command already exists at ${path} and is not Midnite Studio's (it may belong to the original midnite app), so it was left untouched.` +
+  (aliasInstalled ? ` Only the deprecated \`${LEGACY_CLI_NAME}\` alias is installed.` : '');
 
 /**
  * Whether `target`'s directory is on PATH (Phase 98 Theme G). `shell-path.ts`
@@ -29,29 +82,52 @@ export function onPathFields(
 }
 
 function getCliStatus(): CliInstallState {
-  const targets = preferredTargets(homedir());
+  for (const target of preferredTargets(homedir())) {
+    const alias = aliasTargetFor(target);
+    const primary = linkState(target);
+    const legacy = linkState(alias);
+    const aliasInstalled = liveOwned(alias);
 
-  for (const target of targets) {
-    if (existsSync(target)) {
-      try {
-        const resolved = readlinkSync(target);
-        const managed = resolved.includes('midnite-studio') || resolved.includes('Midnite Studio');
+    if (primary === 'owned' && existsSync(target)) {
+      return {
+        installed: true,
+        path: target,
+        target,
+        managed: true,
+        command: CLI_NAME,
+        aliasInstalled,
+        ...onPathFields(target),
+      };
+    }
+    if (primary === 'foreign') {
+      if (aliasInstalled) {
         return {
           installed: true,
-          path: target,
-          target,
-          managed,
-          ...onPathFields(target),
-        };
-      } catch {
-        return {
-          installed: true,
-          path: target,
-          target,
-          managed: false,
-          ...onPathFields(target),
+          path: alias,
+          target: alias,
+          managed: true,
+          command: LEGACY_CLI_NAME,
+          aliasInstalled: true,
+          notice: foreignPrimaryNotice(target, true),
+          ...onPathFields(alias),
         };
       }
+      return { installed: true, path: target, target, managed: false, ...onPathFields(target) };
+    }
+    if (aliasInstalled) {
+      return {
+        installed: true,
+        path: alias,
+        target: alias,
+        managed: true,
+        command: LEGACY_CLI_NAME,
+        aliasInstalled: true,
+        notice: `Installed under the old name \`${LEGACY_CLI_NAME}\`. Reinstall to migrate to \`${CLI_NAME}\`.`,
+        ...onPathFields(alias),
+      };
+    }
+    if (legacy === 'foreign') {
+      return { installed: true, path: alias, target: alias, managed: false, ...onPathFields(alias) };
     }
   }
 
@@ -69,42 +145,38 @@ export function registerCliHandlers(): void {
   });
 
   handleOp(CHANNELS.cliInstall, S.CliInstallRequest, async (req) => {
-    const home = homedir();
-    const targets = preferredTargets(home);
-    const bundleBin = getBundleBinPath();
+    const targets = preferredTargets(homedir());
+    const binDir = getBundleBinDir();
 
     const targetList: string[] = req.target === 'user' ? (targets[1] ? [targets[1]] : []) : targets;
-    let installedTarget: string | null = null;
+    let installed = false;
     let lastError: Error | null = null;
+    let notice: string | null = null;
 
     for (const target of targetList) {
       if (!target) continue;
       try {
         const dir = dirname(target);
-        if (!existsSync(dir)) {
-          mkdirSync(dir, { recursive: true });
+        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        const alias = aliasTargetFor(target);
+        const primaryForeign = linkState(target) === 'foreign';
+        const aliasForeign = linkState(alias) === 'foreign';
+        if (primaryForeign && aliasForeign) {
+          throw new Error(`${target} and ${alias} already exist and are unmanaged`);
         }
-        if (existsSync(target)) {
-          try {
-            const resolved = String(readlinkSync(target));
-            if (!resolved.includes('midnite-studio') && !resolved.includes('Midnite Studio')) {
-              throw new Error(`Target ${target} exists and is unmanaged`);
-            }
-            unlinkSync(target);
-          } catch (e: unknown) {
-            const err = e as Error;
-            if (err.message?.includes('unmanaged')) throw err;
-          }
-        }
-        symlinkSync(bundleBin, target);
-        installedTarget = target;
+        // Never clobber a `midnite` that is not ours; the alias still goes in so
+        // the command people already know keeps working.
+        if (!primaryForeign) relink(target, `${binDir}/${CLI_NAME}`);
+        if (!aliasForeign) relink(alias, `${binDir}/${LEGACY_CLI_NAME}`);
+        notice = primaryForeign ? foreignPrimaryNotice(target, true) : null;
+        installed = true;
         break;
       } catch (err: unknown) {
         lastError = err as Error;
       }
     }
 
-    if (!installedTarget) {
+    if (!installed) {
       return {
         ok: false,
         kind: 'error',
@@ -112,36 +184,40 @@ export function registerCliHandlers(): void {
       };
     }
 
-    return {
-      ok: true,
-      value: getCliStatus(),
-    };
+    const value = getCliStatus();
+    return { ok: true, value: notice ? { ...value, notice } : value };
   });
 
   handleOp(CHANNELS.cliUninstall, S.CliUninstallRequest, async () => {
-    const status = getCliStatus();
-    if (!status.installed || !status.target) {
-      return { ok: true, value: getCliStatus() };
+    let removed = false;
+    let foreign: string | null = null;
+    try {
+      for (const target of preferredTargets(homedir())) {
+        for (const path of [target, aliasTargetFor(target)]) {
+          const state = linkState(path);
+          if (state === 'owned') {
+            unlinkSync(path);
+            removed = true;
+          } else if (state === 'foreign') {
+            foreign = path;
+          }
+        }
+      }
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        kind: 'error',
+        message: (err as Error).message ?? 'Failed to uninstall CLI symlink',
+      };
     }
 
-    if (!status.managed) {
+    if (!removed && foreign) {
       return {
         ok: false,
         kind: 'error',
         message: 'CLI symlink is unmanaged and cannot be uninstalled automatically',
       };
     }
-
-    try {
-      unlinkSync(status.target);
-      return { ok: true, value: getCliStatus() };
-    } catch (err: unknown) {
-      const error = err as Error;
-      return {
-        ok: false,
-        kind: 'error',
-        message: error.message ?? 'Failed to uninstall CLI symlink',
-      };
-    }
+    return { ok: true, value: getCliStatus() };
   });
 }

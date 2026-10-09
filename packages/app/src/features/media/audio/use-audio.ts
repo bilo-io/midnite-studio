@@ -7,6 +7,10 @@ import {
   mstudioFileUrl,
   parseAudioProjectFile,
   parseAudioSidecar,
+  type AudioEngineProgress,
+  type AudioEngineStatus,
+  type AudioExpandRequest,
+  type AudioGenerateRequest,
   type AudioImportRequest,
   type AudioProgressEvent,
   type AudioProviderId,
@@ -40,6 +44,8 @@ type AudioPrefs = {
   durationS: number;
   count: number;
   mp3BitrateKbps: number;
+  /** Ollama model Enhance uses; empty picks the first preferred model that is installed. */
+  ollamaModel: string;
   set: (patch: Partial<Omit<AudioPrefs, 'set'>>) => void;
 };
 
@@ -50,9 +56,19 @@ export const useAudioPrefs = create<AudioPrefs>()(
       durationS: 120,
       count: 2,
       mp3BitrateKbps: 192,
+      ollamaModel: '',
       set: (patch) => set(patch),
     }),
-    { name: 'mstudio.media.audio-prefs', storage: createJSONStorage(() => localStorage), version: 1 },
+    {
+      name: 'mstudio.media.audio-prefs',
+      storage: createJSONStorage(() => localStorage),
+      version: 2,
+      // v1 shipped Import as the only (default) provider; generation now exists, so default to it.
+      migrate: (persisted) => {
+        const prefs = (persisted ?? {}) as Partial<AudioPrefs>;
+        return { ...prefs, provider: prefs.provider === 'import' || !prefs.provider ? DEFAULT_AUDIO_PROVIDER : prefs.provider };
+      },
+    },
   ),
 );
 
@@ -170,7 +186,60 @@ export function useWaveform(repoId: string, variant: AudioVariant): Waveform | n
   return query.data ?? null;
 }
 
-export type PendingImport = { importId: string; project: string; total: number; completed: number };
+/** Local MusicGen model + Ollama availability; polled while the model downloads. */
+export function useAudioEngine() {
+  return useQuery<AudioEngineStatus | null>({
+    queryKey: ['media-audio-engine'],
+    queryFn: async () => (await bridge()?.media.audio.engine())?.engine ?? null,
+    staleTime: 15_000,
+  });
+}
+
+/** Download + load the local model, tracking its progress. */
+export function useAudioEngineInstall() {
+  const client = useQueryClient();
+  const [progress, setProgress] = useState<AudioEngineProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const off = bridge()?.media.audio.onEngineProgress((event) => setProgress(event));
+    return () => off?.();
+  }, []);
+
+  const install = useMutation({
+    mutationFn: async () => {
+      setError(null);
+      setProgress({ phase: 'download', fraction: 0 });
+      const result = (await bridge()?.media.audio.installEngine()) ?? noBridge();
+      if (!result.ok) setError(result.kind === 'error' ? result.message : 'The model could not be installed.');
+      setProgress(null);
+      await client.invalidateQueries({ queryKey: ['media-audio-engine'] });
+      return result;
+    },
+  });
+  return { install, progress, error };
+}
+
+/** Ask a local Ollama model to expand the form into a MusicGen caption. Fails soft; the error is for inline display. */
+export function useExpandPrompt() {
+  return useMutation({
+    mutationFn: async (req: Partial<AudioExpandRequest>) => {
+      const result = (await bridge()?.media.audio.expand(req as AudioExpandRequest)) ?? noBridge<never>();
+      if (!result.ok) throw new Error(result.kind === 'error' ? result.message : 'Could not enhance the prompt.');
+      return result.value;
+    },
+  });
+}
+
+export type PendingImport = {
+  importId: string;
+  project: string;
+  total: number;
+  completed: number;
+  stage?: string;
+  /** Overall 0..1, when the provider reports it. */
+  fraction?: number;
+};
 
 /** Start an Import (main opens the dialog) and track its progress for one repo. */
 export function useAudioImport(repoId: string) {
@@ -183,7 +252,7 @@ export function useAudioImport(repoId: string) {
       if (event.repoId !== repoId) return;
       setPending((current) =>
         current && current.importId === event.importId && event.status === 'running'
-          ? { ...current, total: event.total, completed: event.completed }
+          ? { ...current, total: event.total, completed: event.completed, stage: event.stage, fraction: event.fraction }
           : current,
       );
     });
@@ -209,5 +278,29 @@ export function useAudioImport(repoId: string) {
     },
   });
 
-  return { start, pending, lastError };
+  const generate = useMutation({
+    mutationFn: async (input: Omit<AudioGenerateRequest, 'importId' | 'repoId'>) => {
+      const importId = `aud-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setLastError(null);
+      setPending({ importId, project: input.project, total: input.prompt.count, completed: 0 });
+      const result =
+        (await bridge()?.media.audio.generate({ ...input, importId, repoId })) ??
+        noBridge<{ sessionId: string; files: string[] }>();
+      setPending(null);
+      const cancelled = !result.ok && result.kind === 'error' && result.message === 'cancelled';
+      if (!result.ok && !cancelled) {
+        setLastError(result.kind === 'error' ? result.message : 'Generation failed.');
+        reportFailure(result);
+      }
+      // A cancelled run may still have landed variants; refresh either way.
+      void client.invalidateQueries({ queryKey: MEDIA_KEYS.tab(repoId, 'audio') });
+      return result;
+    },
+  });
+
+  const cancel = () => {
+    if (pending) void bridge()?.media.audio.cancel({ importId: pending.importId });
+  };
+
+  return { start, generate, cancel, pending, lastError };
 }
