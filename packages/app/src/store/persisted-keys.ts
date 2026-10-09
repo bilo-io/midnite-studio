@@ -179,6 +179,7 @@ export const SESSION_STATE_KEYS = [
   'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
+  'audioTabByRepo', // Media > Audio: Editor or Generator, per repo
   'projectViewByProject', // last-viewed view per project
   'projectsMode', // last-viewed mode per repo
   'repoGroupMembership', // user-created content, edited in the repos panel, not a setting
