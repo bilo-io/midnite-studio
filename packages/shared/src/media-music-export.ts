@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import { GitOpResultOf } from './domain/result';
 import { MediaProjectNameSchema } from './media';
+import { expandClips } from './media-music-clips';
 import { gmProgram } from './media-music-gm';
 import { MUSIC_DRUM_CHANNEL, MUSIC_PPQ, SongNameSchema, SongSchema, songEndTick, type Song } from './media-music';
 
@@ -32,8 +33,9 @@ const clampTick = (value: number, max: number): number => Math.max(0, Math.min(m
  * signature in force at its start become the new first entries, and clips are dropped (they refer to
  * the original arrangement). A null region returns the song untouched.
  */
-export function sliceSong(song: Song, region: MusicRegion | null): Song {
-  if (!region) return song;
+export function sliceSong(source: Song, region: MusicRegion | null): Song {
+  if (!region) return source;
+  const song = expandClips(source);
   const start = clampTick(region.startTick, songEndTick(song) + MUSIC_PPQ * 4);
   const end = Math.max(start + 1, region.endTick);
   const inWindow = <T extends { tick: number }>(events: readonly T[]): T[] =>
@@ -132,7 +134,8 @@ export type SongDescription = {
 };
 
 /** Same song in, same words out: no randomness, no clock, no model. */
-export function describeSong(song: Song): SongDescription {
+export function describeSong(source: Song): SongDescription {
+  const song = expandClips(source);
   const bpm = Math.round(song.tempos[0]?.bpm ?? 120);
   const sig = song.timeSignatures[0];
   const timeSignature = `${sig?.numerator ?? 4}/${sig?.denominator ?? 4}`;

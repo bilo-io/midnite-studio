@@ -1,6 +1,7 @@
 import { Midi } from '@tonejs/midi';
 import {
   MUSIC_MAX_AUTOMATION_POINTS,
+  expandClips,
   MUSIC_MAX_MIDI_BYTES,
   MUSIC_MAX_NOTES_PER_TRACK,
   MUSIC_MAX_TICKS,
@@ -60,7 +61,9 @@ function mixerControlChanges(track: SongTrack): { tick: number; controller: numb
   return out;
 }
 
-export function songToMidi(song: Song): Uint8Array {
+export function songToMidi(source: Song): Uint8Array {
+  // Clips play out into plain notes: a .mid has no clips, and a DAW must hear what the editor plays.
+  const song = expandClips(source);
   const midi = new Midi();
   midi.header.name = song.name;
   midi.header.tempos = song.tempos.map((t) => ({ ticks: t.tick, bpm: t.bpm }));

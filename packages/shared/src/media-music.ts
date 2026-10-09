@@ -180,6 +180,14 @@ export const SongTrackSchema = z.object({
   mixer: SongMixerChannelSchema.default({}),
   /** Insert effects between the instrument and the mixer strip, first to last. */
   effects: z.array(SongEffectSchema).max(MUSIC_MAX_EFFECTS_PER_TRACK).default([]),
+  /** The drum grid's view of this track (Theme G): steps per bar and swing. Absent until used. */
+  grid: z
+    .object({
+      steps: z.union([z.literal(16), z.literal(32)]).default(16),
+      /** Fraction of a step every odd step is delayed by: 0 = straight, 1/3 a triplet feel, 0.5 the most. */
+      swing: z.number().min(0).max(0.5).default(0),
+    })
+    .optional(),
 });
 export type SongTrack = z.infer<typeof SongTrackSchema>;
 
@@ -193,6 +201,11 @@ export const SongClipSchema = z.object({
   /** Source range inside the track's notes. */
   sourceStartTick: tick.default(0),
   loop: z.boolean().default(false),
+  /**
+   * How much of the source the clip repeats (Theme G). Absent means `lengthTicks`, so a clip made
+   * before looping existed plays its source once.
+   */
+  sourceLengthTicks: z.number().int().min(1).max(MUSIC_MAX_TICKS).optional(),
 });
 export type SongClip = z.infer<typeof SongClipSchema>;
 

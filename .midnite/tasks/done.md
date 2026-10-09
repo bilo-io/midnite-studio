@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme G — Clips, loops and the drum grid
+
+The arrangement now holds clips (loop, split, join, duplicate, delete, drag to move or resize) and drum tracks edit as a step grid (16 or 32 steps, per-step velocity, swing) over the same notes the piano roll shows. Clips expand to plain notes for the scheduler, the offline render, the `.mid` and Send to Generator. Schema changes are additive and optional. Vitest covers clip expansion, clip edits, the step grid round trip, swing and the editor flows.
+
+- [x] G: clips on the arrangement timeline (loop, split, join, duplicate)
+- [x] G: drum grid with 16/32 steps, per-step velocity and swing, reading and writing the piano roll's notes
+- [x] G: vitest for clip expansion, step grid round trip and swing
+
 ## 2026-10-09 — Phase 101 Theme F — Mixer, effects and automation
 
 A Mixer panel gives every track a fader, pan, mute, solo and meter, plus a master, beside the active track's effects chain (reverb, delay, EQ, compressor, chorus, distortion, filter: add, remove, reorder, bypass). An Automation panel draws linear or step breakpoint lanes for volume, pan and any effect parameter. State lives in the song model (`track.effects` is the only new field, defaulting to empty). CC 7 and CC 10 mirror volume and pan to and from the `.mid`.
