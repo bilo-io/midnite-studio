@@ -23,11 +23,19 @@ const SAVE_LABEL: Record<SaveState, string> = {
  * (`use-song-document`), the arrangement edits tracks, the piano roll edits notes, and every edit is
  * one undo step. Tone.js is never imported statically — `use-music-engine` loads it when the tab opens.
  *
- * Agent edits (Theme H's `music-changed` event) belong in `doc.applyExternal(song)`, which lands
- * them as a single undoable step; the event subscription lands with H (see outstanding.md).
+ * Agent edits (Theme H's `music.onChanged`) land through `use-song-document` as a single undoable step.
  */
-export function EditorTab({ repoId, project }: { repoId: string; project: string | null }) {
-  const doc = useSongDocument(repoId, project);
+export function EditorTab({
+  repoId,
+  project,
+  requested = null,
+}: {
+  repoId: string;
+  project: string | null;
+  /** A song an agent's `music_open` asked to show. `seq` makes a repeat request a new one. */
+  requested?: { name: string; seq: number } | null;
+}) {
+  const doc = useSongDocument(repoId, project, requested);
   const blank = useMemo(() => emptySong(), []);
   const song: Song = doc.song ?? blank;
   const { engine, state } = useMusicEngine(song);

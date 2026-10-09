@@ -20,7 +20,7 @@ export type DocStatus = 'loading' | 'empty' | 'ready' | 'error';
  * the user — an agent's `music_*` call (Theme H) — go through {@link applyExternal}, which lands
  * them as one undoable step.
  */
-export function useSongDocument(repoId: string, project: string | null) {
+export function useSongDocument(repoId: string, project: string | null, requested: { name: string; seq: number } | null = null) {
   const [songs, setSongs] = useState<MusicSongEntry[]>([]);
   const [name, setName] = useState<string | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -100,7 +100,8 @@ export function useSongDocument(repoId: string, project: string | null) {
     void (async () => {
       const list = await refreshList();
       if (cancelled) return;
-      if (list[0]) await open(list[0].name);
+      const wanted = list.find((entry) => entry.name === requested?.name) ?? list[0];
+      if (wanted) await open(wanted.name);
       else setStatus('empty');
     })();
     return () => {
@@ -121,14 +122,40 @@ export function useSongDocument(repoId: string, project: string | null) {
     };
   }, [history?.present, flush]);
 
-  const apply = useCallback((fn: (h: History) => History) => {
+  const apply = useCallback((fn: (h: History) => History, persisted = false) => {
     setHistory((h) => {
       if (!h) return h;
       const next = fn(h);
-      if (next.present !== h.present) dirtyRef.current = true;
+      if (next.present !== h.present && !persisted) dirtyRef.current = true;
       return next;
     });
   }, []);
+
+  // Theme H: an agent's `music_*` edit arrives whole, as one undoable step. An edit to a song that
+  // is not open just refreshes the list; one that main already wrote to disk is not saved again.
+  useEffect(() => {
+    const api = bridge()?.media.music;
+    if (!api?.onChanged || !project) return;
+    return api.onChanged((event) => {
+      if (event.repoId !== repoId || event.project !== project) return;
+      if (event.name !== nameRef.current) {
+        void refreshList();
+        return;
+      }
+      apply((h) => commitExternal(h, event.song), event.saved);
+    });
+  }, [repoId, project, apply, refreshList]);
+
+  // `music_open` (or the audio tab) asks for a particular song.
+  const requestSeq = requested?.seq;
+  useEffect(() => {
+    if (!requested || !project) return;
+    void (async () => {
+      await refreshList();
+      await open(requested.name);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestSeq]);
 
   const create = useCallback(
     async (wanted?: string) => {
@@ -176,7 +203,7 @@ export function useSongDocument(repoId: string, project: string | null) {
     /** One user edit. Commits sharing `key` fold into one undo step. */
     commit: (next: Song, key: string | null = null) => apply((h) => commitStep(h, next, key)),
     /** One edit from outside the editor (an agent), always its own undo step. */
-    applyExternal: (next: Song) => apply((h) => commitExternal(h, next)),
+    applyExternal: (next: Song, persisted = false) => apply((h) => commitExternal(h, next), persisted),
     undo: () => apply(undoStep),
     redo: () => apply(redoStep),
     flush,

@@ -5,6 +5,7 @@ import {
 } from '@midnite/studio-shared';
 import { lazy, Suspense, useEffect, useMemo, useReducer, useState } from 'react';
 
+import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout, openMediaPane } from '../media-layout';
@@ -65,6 +66,17 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const [bitrate, setBitrate] = useState(prefs.mp3BitrateKbps);
   const mode = useUiStore((s) => s.audioTabByRepo[repoId]) ?? 'generator';
   const setAudioTab = useUiStore((s) => s.setAudioTab);
+  const [requestedSong, setRequestedSong] = useState<{ name: string; seq: number } | null>(null);
+
+  // An agent's `music_open` brings the Editor up on that song (Phase 101 Theme H).
+  useEffect(() => {
+    return bridge()?.media.music.onOpen?.((event) => {
+      if (event.repoId !== repoId) return;
+      setProject(event.project);
+      setAudioTab(repoId, 'editor');
+      setRequestedSong((cur) => ({ name: event.name, seq: (cur?.seq ?? 0) + 1 }));
+    });
+  }, [repoId, setAudioTab]);
 
   const projects = useMediaProjects(repoId, 'audio');
   const activeProject =
@@ -188,7 +200,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
           content={
             mode === 'editor' ? (
               <Suspense fallback={null}>
-                <EditorTab repoId={repoId} project={activeProject} />
+                <EditorTab repoId={repoId} project={activeProject} requested={requestedSong} />
               </Suspense>
             ) : (
               <SessionList

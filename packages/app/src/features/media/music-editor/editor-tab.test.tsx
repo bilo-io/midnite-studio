@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { SongSchema } from '@midnite/studio-shared';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
@@ -77,5 +78,26 @@ describe('Music editor', () => {
     await screen.findByText('This project has no songs yet.');
     fireEvent.click(screen.getByText('New song', { selector: 'button' }));
     await waitFor(() => expect((screen.getByLabelText('Song') as HTMLSelectElement).value).toBe('Song 1'));
+  });
+
+  it('applies an agent edit as one undo step and ignores other songs', async () => {
+    await openEditor();
+    await screen.findAllByTestId('track-row');
+    const emit = (globalThis as unknown as { __mockMusicEmit: { changed: (e: unknown) => void } }).__mockMusicEmit;
+    const edited = SongSchema.parse({ ...demo, tracks: [...demo.tracks, { id: 'pad', name: 'Pad' }] });
+    act(() => emit.changed({ repoId: 'repo-1', project: 'album', name: 'Other', song: edited, summary: 'x', saved: true }));
+    expect(screen.getAllByTestId('track-row')).toHaveLength(2);
+    act(() => emit.changed({ repoId: 'repo-1', project: 'album', name: 'Demo', song: edited, summary: 'x', saved: true }));
+    await waitFor(() => expect(screen.getAllByTestId('track-row')).toHaveLength(3));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(screen.getAllByTestId('track-row')).toHaveLength(2));
+  });
+
+  it('shows the song an agent opens', async () => {
+    await openEditor();
+    await screen.findAllByTestId('track-row');
+    const emit = (globalThis as unknown as { __mockMusicEmit: { open: (e: unknown) => void } }).__mockMusicEmit;
+    act(() => emit.open({ repoId: 'repo-1', project: 'album', name: 'Demo' }));
+    expect(await screen.findAllByTestId('track-row')).toHaveLength(2);
   });
 });

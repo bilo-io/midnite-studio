@@ -1184,6 +1184,12 @@ export async function installMockBridge(
   add it for real.
 */
 export function buildMockBridge(data: MockFixtures) {
+  const musicChanged = new Set<(event: never) => void>();
+  const musicOpen = new Set<(event: never) => void>();
+  (globalThis as { __mockMusicEmit?: unknown }).__mockMusicEmit = {
+    changed: (event: unknown) => musicChanged.forEach((h) => h(event as never)),
+    open: (event: unknown) => musicOpen.forEach((h) => h(event as never)),
+  };
   // Helpers live INSIDE the function: it is serialised into the page whole, so module scope is not there.
   /**
    * The Models library tree, derived from the mock's flat `model:<project>` file maps: a top-level key is a
@@ -3675,8 +3681,15 @@ export function buildMockBridge(data: MockFixtures) {
       },
       // Phase 101 Theme B — songs are `<name>.mid` (a stand-in) + `<name>.song.json` in the audio project.
       music: {
-        onChanged: () => () => {},
-        onOpen: () => () => {},
+        // Tests push an agent edit with `window.__mockMusicEmit.changed(event)` / `.open(event)`.
+        onChanged: (handler: (event: never) => void) => {
+          musicChanged.add(handler);
+          return () => void musicChanged.delete(handler);
+        },
+        onOpen: (handler: (event: never) => void) => {
+          musicOpen.add(handler);
+          return () => void musicOpen.delete(handler);
+        },
         agent: {
           run: async () => ({ ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } }),
           cancel: async () => ({ ok: true as const }),

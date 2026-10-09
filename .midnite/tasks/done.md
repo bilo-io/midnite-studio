@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-09 — Phase 101 Theme E — Piano roll and arrangement
 
-The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; `applyExternal` is the hook for agent edits. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
+The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; Theme H's live `music.onChanged` edits land as one undo step and `music.onOpen` shows the song. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
 
 - [x] E: piano roll, arrangement, undo/redo, shortcuts, canvas rendering, vitests and pointer e2e
 
