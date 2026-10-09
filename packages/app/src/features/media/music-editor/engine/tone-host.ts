@@ -44,6 +44,7 @@ export async function createToneHost(bridge?: GmBridge): Promise<EngineHost> {
     resumeContext: async () => {
       await Tone.start();
     },
+    now: () => Tone.now(),
     suspendContext: async () => {
       await (Tone.getContext().rawContext as AudioContext).suspend?.();
     },

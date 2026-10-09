@@ -175,4 +175,16 @@ describe('music engine', () => {
     expect(live(parts)).toHaveLength(0);
     expect(instruments.every((i) => i.dispose.mock.calls.length > 0)).toBe(true);
   });
+
+  it('previews a pitch on the track instrument outside the transport', async () => {
+    const { host, instruments } = fakeHost();
+    host.now = () => 12.5;
+    const engine = createMusicEngine(host);
+    await engine.setSong(song());
+    await engine.previewNote('a', 67, 0.5, 0.2);
+    expect(host.resumeContext).toHaveBeenCalled();
+    expect(instruments[0]!.play).toHaveBeenCalledWith({ time: 0, pitch: 67, duration: 0.2, velocity: 0.5 }, 12.5);
+    await engine.previewNote('missing', 60);
+    expect(instruments[0]!.play).toHaveBeenCalledTimes(1);
+  });
 });
