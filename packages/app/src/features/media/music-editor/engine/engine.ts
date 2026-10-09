@@ -30,6 +30,8 @@ export type InstrumentHandle = {
 
 export type EngineHost = {
   resumeContext: () => Promise<void>;
+  /** The audio context clock, for notes that fire outside the transport (keyboard previews). */
+  now?: () => number;
   suspendContext: () => Promise<void>;
   transport: {
     start: () => void;
@@ -183,6 +185,16 @@ export function createMusicEngine(host: EngineHost) {
     loadedTrackIds: () => [...slots.entries()].filter(([, s]) => s.part).map(([id]) => id),
     /** A synth is standing in for a sampled program on at least one track. */
     hasMissingInstrument: () => [...slots.values()].some((s) => s.instrument?.missing),
+    /**
+     * Sound one pitch on a track's instrument, outside the transport (the piano roll's keyboard
+     * gutter, and a note just drawn). Needs a click: it resumes the context like `play()`.
+     */
+    async previewNote(trackId: string, pitch: number, velocity = 0.8, seconds = 0.4) {
+      const instrument = slots.get(trackId)?.instrument;
+      if (disposed || !instrument) return;
+      await host.resumeContext();
+      instrument.play({ time: 0, pitch, duration: seconds, velocity }, host.now?.() ?? 0);
+    },
     getState: () => state,
     getPositionTicks: () => Math.round(map.secondsToTicks(host.transport.seconds)),
     getPositionSeconds: () => host.transport.seconds,

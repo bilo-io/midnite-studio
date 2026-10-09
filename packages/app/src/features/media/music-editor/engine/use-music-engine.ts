@@ -24,6 +24,7 @@ export function useMusicEngine(song: Song) {
         import('./engine'),
         import('./tone-host'),
       ]);
+      if (cancelled) return;
       const host = await createToneHost(bridge()?.media.audio);
       if (cancelled) return host.dispose();
       created = createMusicEngine(host);

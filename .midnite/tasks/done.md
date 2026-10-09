@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme E — Piano roll and arrangement
+
+The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; Theme H's live `music.onChanged` edits land as one undo step and `music.onOpen` shows the song. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
+
+- [x] E: piano roll, arrangement, undo/redo, shortcuts, canvas rendering, vitests and pointer e2e
+
 ## 2026-10-09 — Phase 101 Theme C — The Tone.js engine
 
 A lazy engine wraps `Tone.Transport` (play, pause, stop, seek, loop region, metronome) over a tempo-map-aware tick/seconds conversion. A scheduler turns the song into per-track `Tone.Part`s and reschedules only the touched track on an edit. `Tone.Offline` renders WAV. The AudioContext resumes on a user gesture only and is suspended while the window is hidden. A transport bar tops the Editor tab. Vitest runs the scheduler and maths against a fake host; entry chunk +1.0 KB.
