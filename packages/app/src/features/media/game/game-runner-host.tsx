@@ -38,7 +38,9 @@ export function letterbox(
  * nothing — not even the hide on unmount, which would blank the popout.
  */
 function useGameBounds(gameId: string | null, live: boolean, resolution: GameResolution, hosted: boolean) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  // A callback ref backed by state, not `useRef`: the host first renders with no game (the
+  // empty state, no container), and the observer below must attach once the container mounts.
+  const [container, containerRef] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const occluders = useUiStore((s) => s.occluders);
   const pageVisible = usePageVisible();
@@ -46,19 +48,18 @@ function useGameBounds(gameId: string | null, live: boolean, resolution: GameRes
   const [stage, setStage] = useState<{ width: number; height: number } | null>(null);
 
   const measure = useCallback(() => {
-    const box = containerRef.current?.getBoundingClientRect();
+    const box = container?.getBoundingClientRect();
     if (!box || box.width === 0 || box.height === 0) return;
     setStage(letterbox({ width: box.width, height: box.height }, resolution));
-  }, [resolution]);
+  }, [container, resolution]);
 
   useLayoutEffect(() => {
     measure();
-    const el = containerRef.current;
-    if (!el) return undefined;
+    if (!container) return undefined;
     const observer = new ResizeObserver(measure);
-    observer.observe(el);
+    observer.observe(container);
     return () => observer.disconnect();
-  }, [measure]);
+  }, [container, measure]);
 
   const hostedRef = useRef(hosted);
   hostedRef.current = hosted;
