@@ -1,0 +1,30 @@
+name: visual-regen-tmp
+on:
+  push:
+    branches: [fix/visual-baselines]
+permissions:
+  contents: read
+  packages: read
+jobs:
+  regen:
+    runs-on: ubuntu-26.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm exec moon run shared:build
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: cd packages/app && pnpm exec playwright test --config playwright.visual.config.ts -u
+      - uses: actions/upload-artifact@v7
+        with:
+          name: regen-baselines
+          path: packages/app/e2e/visual/__screenshots__
