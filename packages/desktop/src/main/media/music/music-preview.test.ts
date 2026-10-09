@@ -44,7 +44,7 @@ describe('renderPianoRoll', () => {
   });
 
   it('counts bars in the first time signature', () => {
-    const waltz = { ...emptySong('w'), timeSignatures: [{ tick: 0, numerator: 3, denominator: 4 }] };
+    const waltz = { ...emptySong('w'), timeSignatures: [{ tick: 0, numerator: 3, denominator: 4 as const }] };
     expect(ticksPerBarOf(waltz)).toBe(1440);
     expect(ticksPerBarOf(emptySong('x'))).toBe(1920);
   });

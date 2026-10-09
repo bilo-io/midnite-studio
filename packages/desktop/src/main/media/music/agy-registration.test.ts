@@ -26,8 +26,8 @@ function kit(initial: string | null) {
 describe('Antigravity registration', () => {
   it('refuses to write without consent', async () => {
     const { registration, writes } = kit(null);
-    // @ts-expect-error — the wire type forbids `false`; main must refuse it anyway.
-    const result = await registration.register({ consent: false });
+    // The wire type forbids `false`; main must refuse it anyway.
+    const result = await registration.register({ consent: false } as never);
     expect(result).toMatchObject({ ok: false });
     expect(writes).toHaveLength(0);
     expect(await registration.status()).toMatchObject({ ok: true, value: { registered: false, configPath: PATH } });
