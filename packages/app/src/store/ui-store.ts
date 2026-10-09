@@ -1501,6 +1501,12 @@ export type UiState = {
    * never had a board picked, which the view reads as "show the picker".
    */
   projectBoardByRepo: Record<string, string>;
+  /**
+   * Phase 101 Theme A: which of Media ▸ Audio's Editor | Generator tabs a repo
+   * last had open. Absent = Generator, so existing users land where they did.
+   */
+  audioTabByRepo: Record<string, 'editor' | 'generator'>;
+  setAudioTab: (repoId: string, tab: 'editor' | 'generator') => void;
   setProjectBoard: (repoId: string, projectId: string) => void;
   /**
    * Tasks, on its built-in Repo issues source for the selected repo — what
@@ -2262,6 +2268,7 @@ export type PersistedUi = Pick<
   | 'forgeSyncGhAuthSwitch'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
+  | 'audioTabByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
   | 'cardSkillByTask'
@@ -2448,6 +2455,7 @@ export const useUiStore = create<UiState>()(
       forgeWritesEnabled: false,
       activeEnvironmentByRepo: {},
       projectBoardByRepo: {},
+      audioTabByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
       cardSkillByTask: {},
@@ -3186,6 +3194,8 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           activeEnvironmentByRepo: { ...state.activeEnvironmentByRepo, [repoId]: environmentId },
         })),
+      setAudioTab: (repoId, tab) =>
+        set((state) => ({ audioTabByRepo: { ...state.audioTabByRepo, [repoId]: tab } })),
       setProjectBoard: (repoId, projectId) =>
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
@@ -3325,6 +3335,7 @@ export const useUiStore = create<UiState>()(
         forgeWritesEnabled: state.forgeWritesEnabled,
         activeEnvironmentByRepo: state.activeEnvironmentByRepo,
         projectBoardByRepo: state.projectBoardByRepo,
+        audioTabByRepo: state.audioTabByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
         cardSkillByTask: state.cardSkillByTask,
@@ -3721,6 +3732,7 @@ export const useUiStore = create<UiState>()(
             ...saved.activeEnvironmentByRepo,
           },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
+          audioTabByRepo: { ...current.audioTabByRepo, ...saved.audioTabByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },

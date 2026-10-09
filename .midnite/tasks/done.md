@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Themes A + B — Editor | Generator tabs, song model and MIDI files
+
+Media ▸ Audio gets persisted Editor | Generator tabs (Generator default, unchanged). The shared `SongSchema`, `.mid` read/write and import through `@tonejs/midi`, the `<name>.song.json` sidecar and the `music-{list,read,write,import,delete}` IPC land with vitest round trips for type-0 and type-1 files.
+
+- [x] A: tabs, persistence, shared projects list, `media.audio.editor` / `media.audio.generator` commands
+- [x] B: `SongSchema`, `.mid` IO, import, IPC + mock bridge, vitests
+
 ## 2026-10-09 — Phase 101 Theme D — General MIDI instruments
 
 All 128 GM programs are pickable (grouped by family, with a downloaded badge). Main downloads a program's FluidR3_GM sample set on first use into `userData/gm-samples/` and streams progress; the renderer loads a per-track `Tone.Sampler` lazily and falls back to a synth with a "not downloaded" hint offline. Licence gate: FluidR3_GM is MIT, the gleitz pre-rendered sets CC BY 3.0 (attribution shown); drums are synthesised since no percussion set exists upstream.

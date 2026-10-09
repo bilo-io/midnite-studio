@@ -625,6 +625,13 @@ const bridge: Pick<
         onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaGmProgress, handler),
       },
     },
+    music: {
+      list: (req) => call(CHANNELS.mediaMusicList, req),
+      read: (req) => call(CHANNELS.mediaMusicRead, req),
+      write: (req) => call(CHANNELS.mediaMusicWrite, req),
+      import: (req) => call(CHANNELS.mediaMusicImport, req),
+      delete: (req) => call(CHANNELS.mediaMusicDelete, req),
+    },
     model: {
       providers: () => call(CHANNELS.mediaModelProviders),
       generate: (req) => call(CHANNELS.mediaModelGenerate, req),

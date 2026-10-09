@@ -45,9 +45,9 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## Headlines
 
-**Theme A — Editor and Generator tabs.** ◻ Not started.
+**Theme A — Editor and Generator tabs.** ✅ Landed. Media ▸ Audio has an Editor | Generator switch (`audio-sub-tabs.tsx`), persisted in `ui-store`, Generator the default and its body unchanged. Both tabs share the projects list; the Editor tab is a placeholder (`music-editor/editor-tab.tsx`) until Theme E. `media.audio.editor` / `media.audio.generator` are chord-free commands in `keybindings.ts`.
 
-**Theme B — The song model and MIDI files.** ◻ Not started.
+**Theme B — The song model and MIDI files.** ✅ Landed. `shared/media-music.ts` holds `SongSchema` (tempo map, time signature, tracks, notes in ticks, CC, pitch bend, automation, clips, mixer) with named limits. Main reads and writes `.mid` through `@tonejs/midi` (type 0/1, rescaled to 480 PPQ) in `main/media/music/midi-io.ts`, and keeps full editor state in a `<name>.song.json` sidecar. `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes (`media.audio.music.*` on the bridge, mock bridge updated). `.mid` is not an audio extension, so the Generator's variant list never sees songs.
 
 **Theme C — The Tone.js engine.** ◻ Not started.
 
@@ -69,14 +69,14 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## A — Editor and Generator tabs (S)
 
-- [ ] Media › Audio gets top-level **Editor | Generator** tabs. The choice is persisted per repo in `ui-store`, and Generator is the default for existing users.
-- [ ] Generator renders today's `audio-tab.tsx` body unchanged.
-- [ ] Both tabs share the left-hand projects list. A project can hold MusicGen variants and songs side by side.
-- [ ] Keybindings in [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) switch tabs: `media.audio.editor` and `media.audio.generator`, chord-free unless a free chord fits.
+- [x] Media › Audio gets top-level **Editor | Generator** tabs. The choice is persisted per repo in `ui-store`, and Generator is the default for existing users.
+- [x] Generator renders today's `audio-tab.tsx` body unchanged.
+- [x] Both tabs share the left-hand projects list. A project can hold MusicGen variants and songs side by side.
+- [x] Keybindings in [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) switch tabs: `media.audio.editor` and `media.audio.generator`, chord-free unless a free chord fits.
 
 ## B — The song model and MIDI files (M)
 
-- [ ] [`shared/src/media-music.ts`](../../../packages/shared/src/media-music.ts) holds a zod `SongSchema` with:
+- [x] [`shared/src/media-music.ts`](../../../packages/shared/src/media-music.ts) holds a zod `SongSchema` with:
   - tempo and tempo map
   - time signature
   - tracks with a GM program, channel and colour
@@ -86,10 +86,10 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
   - clips
   - mixer state
   - Limits are named constants.
-- [ ] Main reads and writes `.mid` through `@tonejs/midi`. The editor's own state goes in a `<song>.json` sidecar, and the `.mid` is always the interchange file.
-- [ ] **Import .mid.** Any Standard MIDI File, type 0 or 1, opens as a song. Unsupported events are kept as passthrough wherever `@tonejs/midi` allows.
-- [ ] IPC: `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes. The mock bridge is updated.
-- [ ] Vitest: schema, `.mid` round trip (notes, CC, pitch bend, tempo map), and importing type-0 and type-1 fixtures.
+- [x] Main reads and writes `.mid` through `@tonejs/midi`. The editor's own state goes in a `<song>.json` sidecar, and the `.mid` is always the interchange file.
+- [x] **Import .mid.** Any Standard MIDI File, type 0 or 1, opens as a song. Unsupported events are kept as passthrough wherever `@tonejs/midi` allows.
+- [x] IPC: `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes. The mock bridge is updated.
+- [x] Vitest: schema, `.mid` round trip (notes, CC, pitch bend, tempo map), and importing type-0 and type-1 fixtures.
 
 ## C — The Tone.js engine (M)
 

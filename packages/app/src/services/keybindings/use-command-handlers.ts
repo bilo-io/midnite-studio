@@ -508,6 +508,22 @@ export function useCommandHandlers(): CommandRuntime {
     'media.tab.video': { enabled: true, run: () => useUiStore.getState().openMedia('video') },
     'media.tab.audio': { enabled: true, run: () => useUiStore.getState().openMedia('audio') },
     'media.tab.model': { enabled: true, run: () => useUiStore.getState().openMedia('model') },
+    'media.audio.editor': {
+      enabled: true,
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.openMedia('audio');
+        if (ui.selectedRepoId) ui.setAudioTab(ui.selectedRepoId, 'editor');
+      },
+    },
+    'media.audio.generator': {
+      enabled: true,
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.openMedia('audio');
+        if (ui.selectedRepoId) ui.setAudioTab(ui.selectedRepoId, 'generator');
+      },
+    },
     'view.models': withNavVisibility(navVisibility, 'view.models', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('models'),

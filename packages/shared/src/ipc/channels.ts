@@ -958,6 +958,12 @@ export const CHANNELS = {
   mediaGmStatus: 'mstudio:media:gm-status',
   mediaGmEnsure: 'mstudio:media:gm-ensure',
   mediaGmLoad: 'mstudio:media:gm-load',
+  // Music editor (Phase 101 Theme B): songs are <name>.mid + <name>.song.json inside an Audio project; main owns the MIDI I/O.
+  mediaMusicList: 'mstudio:media:music-list',
+  mediaMusicRead: 'mstudio:media:music-read',
+  mediaMusicWrite: 'mstudio:media:music-write',
+  mediaMusicImport: 'mstudio:media:music-import',
+  mediaMusicDelete: 'mstudio:media:music-delete',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',

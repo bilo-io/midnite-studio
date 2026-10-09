@@ -3673,6 +3673,64 @@ export function buildMockBridge(data: MockFixtures) {
         },
         onProgress: unsubscribe,
       },
+      // Phase 101 Theme B — songs are `<name>.mid` (a stand-in) + `<name>.song.json` in the audio project.
+      music: {
+        list: async (req: { project: string }) => ({
+          ok: true as const,
+          value: Object.keys(mediaFiles[`audio:${req.project}`] ?? {})
+            .filter((path) => path.endsWith('.mid') && !path.includes('/'))
+            .map((path) => ({
+              name: path.slice(0, -4),
+              path,
+              hasSidecar: `${path.slice(0, -4)}.song.json` in (mediaFiles[`audio:${req.project}`] ?? {}),
+              size: 1,
+              mtimeMs: 1,
+            })),
+        }),
+        read: async (req: { project: string; name: string }) => {
+          const sidecar = mediaFiles[`audio:${req.project}`]?.[`${req.name}.song.json`];
+          if (sidecar === undefined) return { ok: false as const, kind: 'error' as const, message: 'Song not found.' };
+          return { ok: true as const, value: JSON.parse(sidecar) as unknown };
+        },
+        write: async (req: { project: string; name: string; song: unknown }) => {
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              [`${req.name}.mid`]: 'mid',
+              [`${req.name}.song.json`]: JSON.stringify(req.song),
+            },
+          };
+          return { ok: true as const, value: { size: 1, largeFile: false } };
+        },
+        import: async (req: { project: string }) => {
+          const song = {
+            version: 1,
+            name: 'Imported',
+            ppq: 480,
+            tempos: [{ tick: 0, bpm: 120 }],
+            timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
+            keySignatures: [],
+            meta: [],
+            tracks: [],
+            clips: [],
+            mixer: { master: { volume: 0.8, pan: 0, mute: false, solo: false } },
+          };
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), 'Imported.mid': 'mid', 'Imported.song.json': JSON.stringify(song) },
+          };
+          return { ok: true as const, value: [{ name: 'Imported', song }] };
+        },
+        delete: async (req: { project: string; name: string }) => {
+          const key = `audio:${req.project}`;
+          const { [`${req.name}.mid`]: _mid, [`${req.name}.song.json`]: _side, ...rest } = mediaFiles[key] ?? {};
+          mediaFiles = { ...mediaFiles, [key]: rest };
+          return { ok: true as const };
+        },
+      },
       model: {
         providers: async () => ({
           providers: data.media?.modelProviders ?? {
