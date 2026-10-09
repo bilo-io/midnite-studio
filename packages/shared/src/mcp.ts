@@ -137,6 +137,31 @@ import {
   MapMeasureInputSchema,
   MapMeasureResultSchema,
 } from './media-map-mcp';
+import {
+  MusicAddCcInputSchema,
+  MusicAddNotesInputSchema,
+  MusicAddPitchbendsInputSchema,
+  MusicAddTrackInputSchema,
+  MusicEditResultSchema,
+  MusicGetInfoInputSchema,
+  MusicGetNotesInputSchema,
+  MusicGetNotesResultSchema,
+  MusicGetTrackInputSchema,
+  MusicGetTrackResultSchema,
+  MusicGetTracksInputSchema,
+  MusicGetTracksResultSchema,
+  MusicInfoResultSchema,
+  MusicToolListInputSchema,
+  MusicToolListResultSchema,
+  MusicOpenInputSchema,
+  MusicOpenResultSchema,
+  MusicRemoveNotesInputSchema,
+  MusicRenderPreviewInputSchema,
+  MusicRenderPreviewResultSchema,
+  MusicSaveInputSchema,
+  MusicSaveResultSchema,
+  MusicSetTempoInputSchema,
+} from './media-music-mcp';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -274,7 +299,21 @@ type McpToolEntry = {
     | 'map_list'
     | 'map_measure'
     | 'map_goto'
-    | 'map_capture_terrain';
+    | 'map_capture_terrain'
+    | 'music_list'
+    | 'music_open'
+    | 'music_get_info'
+    | 'music_set_tempo'
+    | 'music_get_tracks'
+    | 'music_get_track'
+    | 'music_get_notes'
+    | 'music_add_notes'
+    | 'music_remove_notes'
+    | 'music_add_cc'
+    | 'music_add_pitchbends'
+    | 'music_add_track'
+    | 'music_save'
+    | 'music_render_preview';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1314,6 +1353,137 @@ export const MCP_TOOLS = {
     input: MapCaptureTerrainInputSchema,
     output: MapCaptureTerrainResultSchema,
     readOnly: false,
+  },
+  /*
+   * Media ▸ Audio ▸ Editor (Phase 101 Theme H). The read tools answer whenever the server is on; every
+   * tool that changes a song, opens it or writes it is gated by `Settings ▸ MCP ▸ Let agents edit music`
+   * (`allowMusic`), off by default. Schemas: `media-music-mcp.ts`.
+   */
+  music_list: {
+    id: 'music_list',
+    title: 'List songs',
+    description:
+      'Lists the songs in each Audio project, with whether the editor’s sidecar exists — use instead of `ls .midnite/media/audio`; read-only.',
+    input: MusicToolListInputSchema,
+    output: MusicToolListResultSchema,
+    readOnly: true,
+  },
+  music_open: {
+    id: 'music_open',
+    title: 'Open a song in the editor',
+    description:
+      'Loads a song into the editor and brings the Editor tab up — use instead of telling the user to open it; refused unless `Let agents edit music` is on.',
+    input: MusicOpenInputSchema,
+    output: MusicOpenResultSchema,
+    readOnly: false,
+  },
+  music_get_info: {
+    id: 'music_get_info',
+    title: 'Read a song’s header',
+    description:
+      'Returns a song’s tempo map, time signatures, track and note counts and length in bars — use instead of parsing the `.mid` with a script; read-only.',
+    input: MusicGetInfoInputSchema,
+    output: MusicInfoResultSchema,
+    readOnly: true,
+  },
+  music_set_tempo: {
+    id: 'music_set_tempo',
+    title: 'Set the tempo',
+    description:
+      'Sets the tempo at a tick, replacing the event there or adding a tempo change — use instead of editing the `.mid` header; refused unless `Let agents edit music` is on.',
+    input: MusicSetTempoInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_get_tracks: {
+    id: 'music_get_tracks',
+    title: 'List a song’s tracks',
+    description:
+      'Lists a song’s tracks with instrument, channel, colour and counts — use instead of decoding the `.mid` yourself; read-only.',
+    input: MusicGetTracksInputSchema,
+    output: MusicGetTracksResultSchema,
+    readOnly: true,
+  },
+  music_get_track: {
+    id: 'music_get_track',
+    title: 'Read one track',
+    description:
+      'Returns one track’s instrument, counts, pitch range and tick span by id or index — use instead of scanning every note with `music_get_notes`; read-only.',
+    input: MusicGetTrackInputSchema,
+    output: MusicGetTrackResultSchema,
+    readOnly: true,
+  },
+  music_get_notes: {
+    id: 'music_get_notes',
+    title: 'Read a track’s notes',
+    description:
+      'Returns a track’s notes in a tick range, in ticks at 480 per quarter note — use instead of dumping the `.song.json`; at most 5000 per call, read-only.',
+    input: MusicGetNotesInputSchema,
+    output: MusicGetNotesResultSchema,
+    readOnly: true,
+  },
+  music_add_notes: {
+    id: 'music_add_notes',
+    title: 'Add notes to a track',
+    description:
+      'Adds notes (pitch, startTick, durationTicks, velocity) to a track as one undoable step — use instead of rewriting the `.mid`; invalid notes come back as errors; refused unless `Let agents edit music` is on.',
+    input: MusicAddNotesInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_remove_notes: {
+    id: 'music_remove_notes',
+    title: 'Remove notes from a track',
+    description:
+      'Removes the notes of a track that start in a tick range, optionally only certain pitches — use instead of regenerating the track; refused unless `Let agents edit music` is on.',
+    input: MusicRemoveNotesInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_add_cc: {
+    id: 'music_add_cc',
+    title: 'Add controller changes',
+    description:
+      'Adds control-change events (volume, pan, modulation, sustain) to a track — use instead of hand-writing CC bytes; refused unless `Let agents edit music` is on.',
+    input: MusicAddCcInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_add_pitchbends: {
+    id: 'music_add_pitchbends',
+    title: 'Add pitch bends',
+    description:
+      'Adds 14-bit pitch-bend events to a track — use instead of hand-writing bend bytes; refused unless `Let agents edit music` is on.',
+    input: MusicAddPitchbendsInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_add_track: {
+    id: 'music_add_track',
+    title: 'Add a track',
+    description:
+      'Adds an empty track with a General MIDI program, channel and colour — use instead of editing the `.mid` chunks; refused unless `Let agents edit music` is on.',
+    input: MusicAddTrackInputSchema,
+    output: MusicEditResultSchema,
+    readOnly: false,
+  },
+  music_save: {
+    id: 'music_save',
+    title: 'Save the song',
+    description:
+      'Writes the working copy to `<name>.mid` and `<name>.song.json` — use instead of writing the files yourself; refused unless `Let agents edit music` is on.',
+    input: MusicSaveInputSchema,
+    output: MusicSaveResultSchema,
+    readOnly: false,
+  },
+  music_render_preview: {
+    id: 'music_render_preview',
+    title: 'Render a piano-roll preview',
+    description:
+      'Renders a bar range as a piano-roll PNG, all tracks colour-coded — use instead of judging `music_get_notes` numbers; returns image content, read-only.',
+    input: MusicRenderPreviewInputSchema,
+    output: MusicRenderPreviewResultSchema,
+    readOnly: true,
   },
 } satisfies Record<string, McpToolEntry>;
 

@@ -109,6 +109,7 @@ import {
   tilesetGenerate,
 } from './sprite-tools';
 import { mapCaptureTerrain, mapGoto, mapList, mapMeasure } from './map-tools';
+import { musicAddCc, musicAddNotes, musicAddPitchbends, musicAddTrack, musicGetInfo, musicGetNotes, musicGetTrack, musicGetTracks, musicList, musicOpen, musicRemoveNotes, musicRenderPreview, musicSave, musicSetTempo } from './music-tools';
 
 /**
  * `MCP_HANDLERS` — a mapped type over the registry, so a tool added to
@@ -218,6 +219,20 @@ export const MCP_HANDLERS: {
   map_measure: mapMeasure,
   map_goto: mapGoto,
   map_capture_terrain: mapCaptureTerrain,
+  music_list: musicList,
+  music_open: musicOpen,
+  music_get_info: musicGetInfo,
+  music_set_tempo: musicSetTempo,
+  music_get_tracks: musicGetTracks,
+  music_get_track: musicGetTrack,
+  music_get_notes: musicGetNotes,
+  music_add_notes: musicAddNotes,
+  music_remove_notes: musicRemoveNotes,
+  music_add_cc: musicAddCc,
+  music_add_pitchbends: musicAddPitchbends,
+  music_add_track: musicAddTrack,
+  music_save: musicSave,
+  music_render_preview: musicRenderPreview,
 };
 
 export type McpDispatchResult =

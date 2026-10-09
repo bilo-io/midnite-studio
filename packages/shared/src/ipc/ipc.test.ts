@@ -999,6 +999,7 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         allowTerrains: false,
         allowSprites: false,
         allowMaps: false,
+        allowMusic: false,
       }).success,
     ).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);
@@ -1877,6 +1878,12 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaMusicWrite: ['MediaMusicWriteRequest', 'MediaMusicWriteResponse'],
       mediaMusicImport: ['MediaMusicImportRequest', 'MediaMusicImportResponse'],
       mediaMusicDelete: ['MediaMusicDeleteRequest', 'MediaMusicDeleteResponse'],
+      mediaMusicAgentRun: ['MediaMusicAgentRunRequest', 'MediaMusicAgentRunResponse'],
+      mediaMusicAgentCancel: ['MediaMusicAgentCancelRequest', 'MediaMusicAgentCancelResponse'],
+      mediaMusicAgy: ['MediaMusicAgyRequest', 'MediaMusicAgyResponse'],
+      mediaMusicChanged: ['MediaMusicChangedPayload'],
+      mediaMusicOpen: ['MediaMusicOpenPayload'],
+      mediaMusicAgentProgress: ['MediaMusicAgentProgressPayload'],
       mediaModelProviders: ['MediaModelProvidersResponse'],
       mediaModelGenerate: ['MediaModelGenerateRequest', 'MediaModelGenerateResponse'],
       mediaModelCancel: ['MediaModelCancelRequest', 'MediaModelCancelResponse'],
