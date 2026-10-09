@@ -61,7 +61,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme H — `music_*` MCP tools and the agent engines.** ✅ Landed. Fourteen `music_*` tools (midi-file-mcp's names, inputs derived from `SongSchema`) sit in the shared `MCP_TOOLS` registry (`media-music-mcp.ts`) and are implemented in `main/media/music/music-mcp.ts` over per-song working copies: every edit validates the whole result against `SongSchema`, answers `{ok:false, errors}` instead of throwing, and pushes one `mstudio:media:music-changed` event carrying the song; `music_save` writes the `.mid` and `.song.json`. `music_render_preview` draws a piano-roll PNG in main (`music-preview.ts`). Every tool that changes a song, opens it or saves is gated by the new default-off Settings ▸ MCP "Let agents edit music" switch (`allowMusic`, `mcp-store` v9); reads work whenever the server is on. Engines (`music-agents.ts`, IPC `music.agent.run/cancel` plus a progress event): Claude and Codex refine over a private per-run server through `iterative-host.ts` with a preview budget, tool-call ceiling and Cancel; Ollama writes the song as JSON with up to three repair rounds; Antigravity writes in one pass until the user registers Midnite in `~/.gemini/antigravity/mcp_config.json` (consent step in Settings, `agy-registration.ts`), then refines through the app's global server, falling back to one pass when that is off. Decision: a registered agy cannot use a per-run socket, so it needs the MCP server and the music switch on.
 
-**Theme I — The agent chat in the composer.** ◻ Not started. Blocked on the Chats page merging.
+**Theme I — The agent chat in the composer.** ✅ Landed (PR #806). The Editor has a Chat column (toolbar toggle) built from the Chats page's parts: `AiComposer`, `ProviderModelPicker`, `UserMessage`/`AssistantMessage` and `MarkdownBody`; no third composer. Each song keeps its thread beside it as `<song>.chat.json` (`mediaMusicChat` channel, one op each for read and write; deleted with the song). The pickers are the Chats engines, each marked "refines" or "one pass" with a hint line, using the same rule as main's `modeFor`. A run goes through Theme H's `music.agent.run` after the editor flushes its unsaved edits; a progress line shows "Pass n of N" and the latest tool action, with Stop directly left of Send. The reply is built by diffing the song before and after the run (`chat/change-summary.ts`): tracks, bars and note counts touched plus tempo, instrument and track edits, and a link per track that selects exactly the touched notes in the piano roll. Pure parts (change summary, progress reducer, engine mapping) and the panel wiring are vitest; screenshots are in `docs/screenshots/p101-i/`.
 
 **Theme J — Export.** ✅ Landed. The Editor's Export split button offers `.mid`, WAV and MP3 (`MEDIA_AUDIO_EDITOR_EXPORT_FORMATS`; `mid` joined `MediaExportFormat`, no ffmpeg). A Range select exports the whole song or the loop region (`sliceSong` cuts and rebases the song). `.mid` is encoded in main; WAV is the Theme C `Tone.Offline` render handed to main over `mediaMusicExport`; MP3 is that WAV through ffmpeg at the chosen `AUDIO_MP3_BITRATES` rate. The toolbar sits beside the Editor and reads the song the editor publishes through `editor-session.ts`, so the plumbing is song-agnostic. Per-track stems are not built.
 
@@ -168,13 +168,13 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
   - **Antigravity** writes in a single pass by default. **"Register Midnite in Antigravity"** in Settings asks first, then writes the server into agy's own MCP config. Once registered, agy refines over several passes too. The button can also unregister.
 - [x] Vitest: tool schemas and dispatch, note add/remove semantics, validation-error results, the gating switch, and the agy registration (with a fake config file, consent required).
 
-## I — The agent chat in the composer (M)
+## I — The agent chat in the composer (M) ✅ DONE (PR #806, 2026-10-09)
 
-- [ ] **Blocked on the Chats page PR.** Reuse its composer, message thread and markdown renderer; do not build a third composer.
-- [ ] Each song has its own chat thread, persisted beside the song, e.g. "make the bridge sadder" or "add a walking bass on track 3".
-- [ ] Engine and model pickers in the composer, showing which engines refine over several passes and which write in one.
-- [ ] Pass progress ("Pass n of N") and the latest tool action, with **Stop directly left of Send**.
-- [ ] Assistant replies summarise what changed (tracks and bars touched), with a link that selects those notes in the piano roll.
+- [x] Reuse its composer, message thread and markdown renderer; do not build a third composer.
+- [x] Each song has its own chat thread, persisted beside the song, e.g. "make the bridge sadder" or "add a walking bass on track 3".
+- [x] Engine and model pickers in the composer, showing which engines refine over several passes and which write in one.
+- [x] Pass progress ("Pass n of N") and the latest tool action, with **Stop directly left of Send**.
+- [x] Assistant replies summarise what changed (tracks and bars touched), with a link that selects those notes in the piano roll.
 
 ## J — Export (S) ✅ DONE
 
