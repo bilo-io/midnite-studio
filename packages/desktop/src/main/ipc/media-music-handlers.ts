@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { dialog, type BrowserWindow } from 'electron';
@@ -11,6 +11,8 @@ import { createIterativeHost } from '../media/model/iterative-host';
 import { createLlmCall } from '../media/model/engines';
 import { createMusicAgents } from '../media/music/music-agents';
 import { createMusicTools } from '../media/music/music-mcp';
+import { runFfmpegExport } from '../media/export-service';
+import { createMusicExporter } from '../media/music/music-export';
 import { createMusicService } from '../media/music/music-service';
 import { getMcpAllowMusic, getMcpStatus, mcpShimScriptPath } from '../mcp';
 import { setMusicTools } from '../mcp/music-tools';
@@ -18,7 +20,7 @@ import { resolveWorkdir } from '../repo-registry';
 import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleFromSender } from './handle';
-import { mediaStore } from './media-handlers';
+import { ffmpegStatus, mediaStore } from './media-handlers';
 import { engines } from './media-model-handlers';
 
 /**
@@ -86,6 +88,43 @@ export const agyRegistration = createAgyRegistration({
   shimLaunch: () => ({ command: process.execPath, args: [mcpShimScriptPath()], env: { ELECTRON_RUN_AS_NODE: '1' } }),
 });
 
+/** Themes J/K: save dialog + ffmpeg live here; the song/session logic is `music-export.ts`. */
+const exporter = createMusicExporter<BrowserWindow>({
+  pickSavePath: async (win, req) => {
+    const options = {
+      defaultPath: join(req.defaultDir ?? '', req.defaultName),
+      filters: [{ name: req.label, extensions: [req.ext] }],
+    };
+    const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+    return picked.canceled || !picked.filePath ? null : picked.filePath;
+  },
+  writeLocal: async (path, data) => {
+    await writeFile(path, data);
+  },
+  transcodeMp3: async ({ exportId, wav, dest, bitrateKbps }) => {
+    const ffmpeg = await ffmpegStatus();
+    if (!ffmpeg.found) return failure(ffmpeg.reason);
+    const input = join(tmpdir(), `midnite-music-${exportId}.wav`);
+    await writeFile(input, wav);
+    try {
+      return await runFfmpegExport(
+        { exportId, format: 'mp3', input, dest, options: { bitrateKbps } },
+        { ffmpegPath: ffmpeg.path, emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaExportProgress, event) },
+      );
+    } finally {
+      await rm(input, { force: true });
+    }
+  },
+  writeBytes: (req) => mediaStore.writeBytes(req),
+  readText: (req) => mediaStore.readFile({ ...req, encoding: 'utf8' }),
+  ensureSong: async (repoId, project, name, song) => {
+    const existing = await service.read(repoId, project, name);
+    if (existing.ok) return ok();
+    const written = await service.write(repoId, project, name, song);
+    return written.ok ? ok() : written;
+  },
+});
+
 const llm = createLlmCall(engines);
 const musicAgents = createMusicAgents({
   tools: musicTools,
@@ -124,6 +163,13 @@ export function registerMediaMusicHandlers(): void {
     invalid,
   );
   handle(CHANNELS.mediaMusicDelete, schemas.MediaMusicDeleteRequest, (r) => service.remove(r.repoId, r.project, r.name), invalid);
+  handleFromSender(
+    CHANNELS.mediaMusicExport,
+    schemas.MediaMusicExportRequest,
+    (r, win) => exporter.exportSong(r, win ?? undefined),
+    invalid,
+  );
+  handle(CHANNELS.mediaMusicSendToGenerator, schemas.MediaMusicSendToGeneratorRequest, (r) => exporter.sendToGenerator(r), invalid);
   handle(CHANNELS.mediaMusicAgentRun, schemas.MediaMusicAgentRunRequest, (r) => musicAgents.run(r), invalid);
   handle(CHANNELS.mediaMusicAgentCancel, schemas.MediaMusicAgentCancelRequest, (r) => musicAgents.cancel(r.runId), invalid);
   handle(

@@ -964,6 +964,9 @@ export const CHANNELS = {
   mediaMusicWrite: 'mstudio:media:music-write',
   mediaMusicImport: 'mstudio:media:music-import',
   mediaMusicDelete: 'mstudio:media:music-delete',
+  // Phase 101 Themes J/K: export a song (.mid/WAV/MP3) and hand a rendered reference to Generator.
+  mediaMusicExport: 'mstudio:media:music-export',
+  mediaMusicSendToGenerator: 'mstudio:media:music-send-to-generator',
   // Music agents (Phase 101 Theme H): an engine writes or refines a song; Antigravity's MCP registration lives in Settings.
   mediaMusicAgentRun: 'mstudio:media:music-agent-run',
   mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',

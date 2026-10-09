@@ -70,3 +70,16 @@ describe('prompt form — local engine', () => {
   });
 });
 
+
+describe('seed (Send to Generator, Phase 101 Theme K)', () => {
+  it('fills the caption, tags and duration from the song description, instrumental on', () => {
+    const next = promptFormReducer(initialPromptForm({ provider: 'musicgen', durationS: 60, count: 2 }), {
+      type: 'seed',
+      title: 'Tune',
+      style: ['relaxed', 'bright', 'C major'],
+      musicPrompt: 'Instrumental, relaxed.',
+      durationS: 3,
+    });
+    expect(next).toMatchObject({ title: 'Tune', style: ['relaxed', 'bright', 'C major'], musicPrompt: 'Instrumental, relaxed.', instrumental: true, durationS: 10 });
+  });
+});

@@ -163,6 +163,15 @@ function VariantDetails({ id, view, variant }: { id: string; view: AudioSessionV
           {variant.sidecar?.source ? ` · ${variant.sidecar.source}` : ''}
         </dd>
       </div>
+      {variant.sidecar?.fromSong ? (
+        <div className="flex gap-2">
+          <dt className="w-14 shrink-0">Song</dt>
+          <dd data-testid="variant-from-song">
+            Rendered from <b>{variant.sidecar.fromSong.name}</b> in the Editor
+            {variant.sidecar.description ? ` — ${variant.sidecar.description}` : ''}
+          </dd>
+        </div>
+      ) : null}
       {session ? (
         <div className="flex gap-2">
           <dt className="w-14 shrink-0">Date</dt>

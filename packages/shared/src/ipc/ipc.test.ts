@@ -1878,6 +1878,8 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaMusicWrite: ['MediaMusicWriteRequest', 'MediaMusicWriteResponse'],
       mediaMusicImport: ['MediaMusicImportRequest', 'MediaMusicImportResponse'],
       mediaMusicDelete: ['MediaMusicDeleteRequest', 'MediaMusicDeleteResponse'],
+      mediaMusicExport: ['MediaMusicExportRequest', 'MediaMusicExportResponse'],
+      mediaMusicSendToGenerator: ['MediaMusicSendToGeneratorRequest', 'MediaMusicSendToGeneratorResponse'],
       mediaMusicAgentRun: ['MediaMusicAgentRunRequest', 'MediaMusicAgentRunResponse'],
       mediaMusicAgentCancel: ['MediaMusicAgentCancelRequest', 'MediaMusicAgentCancelResponse'],
       mediaMusicAgy: ['MediaMusicAgyRequest', 'MediaMusicAgyResponse'],

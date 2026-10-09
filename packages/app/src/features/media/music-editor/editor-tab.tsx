@@ -4,6 +4,7 @@ import { LuFileUp, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons
 
 import { IconButton } from '../../../components/icon-button';
 import { Arrangement } from './arrangement';
+import { publishEditorSong, publishLoopRegion } from './editor-session';
 import { useMusicEngine } from './engine/use-music-engine';
 import { SNAP_DIVISIONS, gridTicks, quantizeNotes } from './model/song-edit';
 import { PianoRoll } from './piano-roll';
@@ -39,6 +40,15 @@ export function EditorTab({
   const blank = useMemo(() => emptySong(), []);
   const song: Song = doc.song ?? blank;
   const { engine, state } = useMusicEngine(song);
+  // Phase 101 J/K: the Media toolbar exports whatever song the editor holds (null while none is open).
+  const openSong = doc.song;
+  useEffect(() => {
+    publishEditorSong(openSong);
+    return () => {
+      publishEditorSong(null);
+      publishLoopRegion(null);
+    };
+  }, [openSong]);
   const [activeTrack, setActiveTrack] = useState<string | null>(null);
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [division, setDivision] = useState<number>(16);

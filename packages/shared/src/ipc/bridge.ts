@@ -1328,6 +1328,10 @@ export type MidniteStudioBridge = {
       write: (req: In<typeof S.MediaMusicWriteRequest>) => Promise<z.infer<typeof S.MediaMusicWriteResponse>>;
       import: (req: In<typeof S.MediaMusicImportRequest>) => Promise<z.infer<typeof S.MediaMusicImportResponse>>;
       delete: (req: In<typeof S.MediaMusicDeleteRequest>) => Promise<z.infer<typeof S.MediaMusicDeleteResponse>>;
+      /** Theme J: save a song as .mid / WAV / MP3 through main's save dialog. */
+      export: (req: In<typeof S.MediaMusicExportRequest>) => Promise<z.infer<typeof S.MediaMusicExportResponse>>;
+      /** Theme K: land a rendered reference in the project as a Generator variant that links back to the song. */
+      sendToGenerator: (req: In<typeof S.MediaMusicSendToGeneratorRequest>) => Promise<z.infer<typeof S.MediaMusicSendToGeneratorResponse>>;
       /** An agent edited a song (engine run or MCP): one event, one undoable step (Theme H). */
       onChanged: (handler: (event: z.infer<typeof S.MediaMusicChangedPayload>) => void) => Unsubscribe;
       /** `music_open` asked for a song to be shown; the Editor tab comes up. */
