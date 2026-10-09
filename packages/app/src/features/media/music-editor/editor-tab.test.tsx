@@ -101,3 +101,67 @@ describe('Music editor', () => {
     expect(await screen.findAllByTestId('track-row')).toHaveLength(2);
   });
 });
+
+/** Phase 101 Theme F — mixer, effects chain and automation lanes. DOM roles only, so vitest/jsdom. */
+describe('Music editor mixer, effects and automation', () => {
+  const openLower = async (tab: string) => {
+    await openEditor();
+    fireEvent.click(await screen.findByRole('tab', { name: tab }));
+  };
+
+  it('shows a strip per track and a master, and a fader drag is one undo step', async () => {
+    await openLower('Mixer');
+    expect(await screen.findAllByTestId('mixer-strip')).toHaveLength(2);
+    expect(screen.getByTestId('mixer-master')).toBeTruthy();
+    const fader = screen.getByLabelText('Lead volume') as HTMLInputElement;
+    expect(fader.value).toBe('0.8');
+    fireEvent.change(fader, { target: { value: '1.2' } });
+    fireEvent.change(fader, { target: { value: '1.4' } });
+    await waitFor(() => expect((screen.getByLabelText('Lead volume') as HTMLInputElement).value).toBe('1.4'));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect((screen.getByLabelText('Lead volume') as HTMLInputElement).value).toBe('0.8'));
+  });
+
+  it('mutes and solos a strip and changes the master', async () => {
+    await openLower('Mixer');
+    fireEvent.click(await screen.findByRole('button', { name: 'Mute Lead' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Unmute Lead' }).getAttribute('aria-pressed')).toBe('true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Solo Kit' }));
+    fireEvent.change(screen.getByLabelText('Master volume'), { target: { value: '0.5' } });
+    await waitFor(() => expect(screen.getByText('50%')).toBeTruthy());
+  });
+
+  it('adds, bypasses, reorders and removes effects on the active track', async () => {
+    await openLower('Mixer');
+    const add = await screen.findByLabelText('Add effect');
+    fireEvent.change(add, { target: { value: 'reverb' } });
+    fireEvent.change(await screen.findByLabelText('Add effect'), { target: { value: 'delay' } });
+    await waitFor(() => expect(screen.getAllByTestId('effect-card')).toHaveLength(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Bypass Reverb' }));
+    await waitFor(() => expect(screen.getAllByTestId('effect-card')[0]!.getAttribute('data-bypassed')).toBe('true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Reverb later' }));
+    await waitFor(() => expect(screen.getAllByTestId('effect-card')[1]!.textContent).toContain('Reverb'));
+    fireEvent.change(screen.getByLabelText('Delay Feedback'), { target: { value: '0.6' } });
+    await waitFor(() => expect((screen.getByLabelText('Delay Feedback') as HTMLInputElement).value).toBe('0.6'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Delay' }));
+    await waitFor(() => expect(screen.getAllByTestId('effect-card')).toHaveLength(1));
+  });
+
+  it('adds an automation lane, draws a point and deletes it', async () => {
+    await openLower('Automation');
+    fireEvent.change(await screen.findByLabelText('Add automation lane'), { target: { value: 'volume' } });
+    // jsdom has no PointerEvent, so clientX/clientY would be dropped from the synthetic event.
+    (window as unknown as { PointerEvent: typeof MouseEvent }).PointerEvent ??= MouseEvent;
+    const lane = await screen.findByTestId('automation-lane');
+    expect(lane.getAttribute('data-target')).toBe('volume');
+    expect(screen.queryAllByTestId('automation-point')).toHaveLength(0);
+    fireEvent.pointerDown(screen.getByLabelText('Volume automation'), { clientX: 0, clientY: 20 });
+    const point = await screen.findByTestId('automation-point');
+    fireEvent.doubleClick(point);
+    await waitFor(() => expect(screen.queryAllByTestId('automation-point')).toHaveLength(0));
+    fireEvent.change(screen.getByLabelText('Volume curve'), { target: { value: 'step' } });
+    await waitFor(() => expect((screen.getByLabelText('Volume curve') as HTMLSelectElement).value).toBe('step'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Volume lane' }));
+    await waitFor(() => expect(screen.queryByTestId('automation-lane')).toBeNull());
+  });
+});

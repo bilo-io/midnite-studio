@@ -3,6 +3,7 @@ import type { MidniteStudioBridge, SongTrack } from '@midnite/studio-shared';
 import { createGmInstrument } from '../gm-sampler';
 import type { EngineHost, InstrumentHandle } from './engine';
 import type { ScheduledNote } from './scheduler';
+import { createToneMixer } from './tone-mixer';
 
 type ToneModule = typeof import('tone');
 type GmBridge = Pick<MidniteStudioBridge['media']['audio'], 'gm'>;
@@ -14,6 +15,8 @@ export async function makeGmInstrument(
   track: SongTrack,
   bridge: GmBridge | undefined,
   tone: ToneModule,
+  /** Where the instrument's sound goes: the track's mixer strip, or the destination when omitted. */
+  output?: unknown,
 ): Promise<InstrumentHandle> {
   const gm = await createGmInstrument({
     program: track.program,
@@ -21,7 +24,7 @@ export async function makeGmInstrument(
     bridge,
     loadTone: async () => tone,
   });
-  gm.connect(tone.getDestination());
+  gm.connect(output ?? tone.getDestination());
   return {
     missing: gm.missing,
     play: (note: ScheduledNote, time: number) =>
@@ -35,6 +38,7 @@ export async function createToneHost(bridge?: GmBridge): Promise<EngineHost> {
   const Tone = await loadTone();
   const transport = Tone.getTransport();
   transport.bpm.value = 60;
+  const mixer = createToneMixer(Tone, transport);
   const click = new Tone.Synth({
     oscillator: { type: 'square' },
     envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.01 },
@@ -66,7 +70,9 @@ export async function createToneHost(bridge?: GmBridge): Promise<EngineHost> {
       },
       setLoopPoints: (start, end) => transport.setLoopPoints(start, end),
     },
-    createInstrument: (track) => makeGmInstrument(track, bridge, Tone),
+    createInstrument: (track) => makeGmInstrument(track, bridge, Tone, mixer.inputFor(track.id)),
+    syncMixer: (spec, seconds) => mixer.sync(spec, seconds),
+    levels: () => mixer.levels(),
     schedulePart: (events, fire) => {
       const part = new Tone.Part<ScheduledNote>((time, note) => fire(note, time), [...events]);
       part.start(0);
@@ -84,6 +90,7 @@ export async function createToneHost(bridge?: GmBridge): Promise<EngineHost> {
       transport.stop();
       transport.cancel();
       click.dispose();
+      mixer.dispose();
     },
   };
 }

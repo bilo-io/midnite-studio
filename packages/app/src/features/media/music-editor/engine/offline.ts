@@ -1,7 +1,9 @@
 import { type MidniteStudioBridge, type Song } from '@midnite/studio-shared';
 
 import { audibleTracks, trackEvents, type ScheduledNote } from './scheduler';
+import { buildMixerSpec } from './mixer-spec';
 import { createTickMap } from './tick-map';
+import { createToneMixer } from './tone-mixer';
 import { loadTone, makeGmInstrument } from './tone-host';
 import { encodeWav } from './wav';
 
@@ -39,14 +41,16 @@ export async function renderSongToWav(
   const buffer = await Tone.Offline(
     async ({ transport }) => {
       transport.bpm.value = 60;
+      const mixer = createToneMixer(Tone, transport);
       for (const track of tracks) {
-        const instrument = await makeGmInstrument(track, options.bridge, Tone);
+        const instrument = await makeGmInstrument(track, options.bridge, Tone, mixer.inputFor(track.id));
         const part = new Tone.Part<ScheduledNote>(
           (time, note) => instrument.play(note, time),
           trackEvents(track, map),
         );
         part.start(0);
       }
+      mixer.sync(buildMixerSpec(song, map), 0);
       transport.start(0);
     },
     durationSeconds,

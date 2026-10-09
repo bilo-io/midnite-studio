@@ -1,5 +1,6 @@
 import { Midi } from '@tonejs/midi';
 import {
+  MUSIC_MAX_AUTOMATION_POINTS,
   MUSIC_MAX_MIDI_BYTES,
   MUSIC_MAX_NOTES_PER_TRACK,
   MUSIC_MAX_TICKS,
@@ -32,6 +33,33 @@ const PALETTE = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#8b5cf6
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 const asVelocity = (n: number): number => (n + 0.5) / 127;
 
+/**
+ * Theme F: CC 7 (channel volume) and CC 10 (pan) are the mixer's, not loose controllers. In the song
+ * they live in `mixer` and the `volume`/`pan` automation lanes; in the file they are those CCs.
+ * Volume maps 0..1 to 0..127 (louder than unity, which MIDI cannot say, is written at 127); pan maps
+ * -1..1 to 0..127 around the centre at 64.
+ */
+export const CC_VOLUME = 7;
+export const CC_PAN = 10;
+export const volumeToCc = (volume: number): number => clamp(Math.round(volume * 127), 0, 127);
+export const ccToVolume = (value: number): number => clamp(value, 0, 127) / 127;
+export const panToCc = (pan: number): number => clamp(Math.round(pan * 63 + 64), 0, 127);
+export const ccToPan = (value: number): number => clamp((value - 64) / 63, -1, 1);
+const DEFAULT_VOLUME = 0.8;
+
+/** The CC events a track's mixer strip and its volume/pan lanes write, for the `.mid`. */
+function mixerControlChanges(track: SongTrack): { tick: number; controller: number; value: number }[] {
+  const out: { tick: number; controller: number; value: number }[] = [];
+  const lane = (target: string) => track.automation.find((l) => l.target === target && l.points.length > 0);
+  const volumeLane = lane('volume');
+  const panLane = lane('pan');
+  if (volumeLane) for (const p of volumeLane.points) out.push({ tick: p.tick, controller: CC_VOLUME, value: volumeToCc(p.value) });
+  else if (track.mixer.volume !== DEFAULT_VOLUME) out.push({ tick: 0, controller: CC_VOLUME, value: volumeToCc(track.mixer.volume) });
+  if (panLane) for (const p of panLane.points) out.push({ tick: p.tick, controller: CC_PAN, value: panToCc(p.value) });
+  else if (track.mixer.pan !== 0) out.push({ tick: 0, controller: CC_PAN, value: panToCc(track.mixer.pan) });
+  return out;
+}
+
 export function songToMidi(song: Song): Uint8Array {
   const midi = new Midi();
   midi.header.name = song.name;
@@ -58,7 +86,11 @@ export function songToMidi(song: Song): Uint8Array {
         velocity: asVelocity(note.velocity),
       });
     }
-    for (const cc of source.controlChanges) {
+    const mirrored = mixerControlChanges(source);
+    const taken = new Set(mirrored.map((cc) => `${cc.tick}:${cc.controller}`));
+    // A raw CC 7/10 an agent wrote loses to the mixer's own at the same tick.
+    const raw = source.controlChanges.filter((cc) => !taken.has(`${cc.tick}:${cc.controller}`));
+    for (const cc of [...mirrored, ...raw]) {
       track.addCC({ number: cc.controller, ticks: cc.tick, value: asVelocity(cc.value) });
     }
     for (const bend of source.pitchBends) track.addPitchBend({ ticks: bend.tick, value: bend.value });
@@ -100,10 +132,28 @@ export function midiToSong(bytes: Uint8Array, fallbackName = ''): Song {
       durationTicks: Math.max(1, Math.round((n.durationTicks * MUSIC_PPQ) / ppq)),
       velocity: clamp(Math.round(n.velocity * 127), 1, 127),
     }));
-    const controlChanges = Object.values(source.controlChanges)
+    const allCc = Object.values(source.controlChanges)
       .flat()
       .map((cc) => ({ tick: at(cc.ticks), controller: clamp(cc.number, 0, 127), value: clamp(Math.round(cc.value * 127), 0, 127) }))
-      .sort((a, b) => a.tick - b.tick);
+      .sort((a, b) => a.tick - b.tick || a.controller - b.controller);
+    const controlChanges = allCc.filter((cc) => cc.controller !== CC_VOLUME && cc.controller !== CC_PAN);
+    const mixer = { volume: DEFAULT_VOLUME, pan: 0, mute: false, solo: false };
+    const automation: SongTrack['automation'] = [];
+    for (const [controller, target] of [[CC_VOLUME, 'volume'], [CC_PAN, 'pan']] as const) {
+      const events = allCc.filter((cc) => cc.controller === controller);
+      const convert = controller === CC_VOLUME ? ccToVolume : ccToPan;
+      const first = events[0];
+      if (first && first.tick === 0) mixer[target] = convert(first.value);
+      // A single opening value is just the fader; a moving one becomes a lane.
+      if (events.length > 1 || (first && first.tick > 0)) {
+        automation.push({
+          id: `lane${automation.length + 1}`,
+          target,
+          curve: 'step',
+          points: events.slice(0, MUSIC_MAX_AUTOMATION_POINTS).map((cc) => ({ tick: cc.tick, value: convert(cc.value) })),
+        });
+      }
+    }
     const pitchBends = source.pitchBends.map((pb) => ({
       tick: at(pb.ticks),
       value: clamp(Math.round(pb.value * 8192), MUSIC_PITCH_BEND_MIN, MUSIC_PITCH_BEND_MAX),
@@ -117,8 +167,9 @@ export function midiToSong(bytes: Uint8Array, fallbackName = ''): Song {
       notes,
       controlChanges,
       pitchBends,
-      automation: [],
-      mixer: { volume: 0.8, pan: 0, mute: false, solo: false },
+      automation,
+      mixer,
+      effects: [],
     };
   });
 

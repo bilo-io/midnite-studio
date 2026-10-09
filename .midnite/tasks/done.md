@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme F — Mixer, effects and automation
+
+A Mixer panel gives every track a fader, pan, mute, solo and meter, plus a master, beside the active track's effects chain (reverb, delay, EQ, compressor, chorus, distortion, filter: add, remove, reorder, bypass). An Automation panel draws linear or step breakpoint lanes for volume, pan and any effect parameter. State lives in the song model (`track.effects` is the only new field, defaulting to empty). CC 7 and CC 10 mirror volume and pan to and from the `.mid`.
+
+- [x] F: mixer strips, per-track effects chain, automation lanes, CC 7/10 mirror, vitests for chain graph and interpolation
+
 ## 2026-10-09 — Phase 101 Themes J + K — Export and Send to Generator
 
 The Editor exports `.mid`, WAV and MP3 for the whole song or the loop region, and Send to Generator lands a rendered reference in the project with a deterministic description (key, tempo, instruments, mood) that seeds the Generator prompt. The variant links back to its song. MusicGen-melody has no ONNX build, so the reference does not condition generation; that limitation is recorded in the phase doc.

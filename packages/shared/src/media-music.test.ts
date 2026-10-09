@@ -7,6 +7,7 @@ import {
   SongNameSchema,
   SongSchema,
   emptySong,
+  parseAutomationTarget,
   songEndTick,
 } from './media-music';
 
@@ -92,5 +93,48 @@ describe('SongSchema (Phase 101 Theme B)', () => {
     expect(SongNameSchema.safeParse('../x').success).toBe(false);
     expect(SongNameSchema.safeParse('project').success).toBe(false);
     expect(MusicWriteRequestSchema.safeParse({ repoId: 'r', project: 'p', name: 'a', song: {} }).success).toBe(true);
+  });
+
+  describe('mixer, effects and automation (Theme F)', () => {
+    const fx = { id: 'fx1', type: 'reverb' as const };
+
+    it('an old track without effects still parses, with an empty chain', () => {
+      const song = SongSchema.parse({ tracks: [track('a')] });
+      expect(song.tracks[0]!.effects).toEqual([]);
+      expect(song.tracks[0]!.mixer).toEqual({ volume: 0.8, pan: 0, mute: false, solo: false });
+    });
+
+    it('round-trips effects, mixer and automation through JSON unchanged', () => {
+      const song = SongSchema.parse({
+        tracks: [
+          track('a', {
+            mixer: { volume: 1.2, pan: -0.25, mute: false, solo: true },
+            effects: [{ ...fx, params: { decay: 3 } }, { id: 'fx2', type: 'delay', bypass: true }],
+            automation: [
+              { id: 'l1', target: 'volume', curve: 'step', points: [{ tick: 0, value: 1 }] },
+              { id: 'l2', target: 'fx:fx1:decay', points: [{ tick: 480, value: 2 }] },
+            ],
+          }),
+        ],
+        mixer: { master: { volume: 0.5 } },
+      });
+      expect(SongSchema.parse(JSON.parse(JSON.stringify(song)))).toEqual(song);
+      expect(song.tracks[0]!.automation[1]!.curve).toBe('linear');
+    });
+
+    it('rejects duplicate effect ids, unknown effect types and dangling automation targets', () => {
+      expect(SongSchema.safeParse({ tracks: [track('a', { effects: [fx, fx] })] }).success).toBe(false);
+      expect(SongSchema.safeParse({ tracks: [track('a', { effects: [{ id: 'x', type: 'flanger' }] })] }).success).toBe(false);
+      const lane = (target: string) => ({ automation: [{ id: 'l', target }] });
+      expect(SongSchema.safeParse({ tracks: [track('a', lane('fx:nope:decay'))] }).success).toBe(false);
+      expect(SongSchema.safeParse({ tracks: [track('a', lane('cutoff'))] }).success).toBe(false);
+      expect(SongSchema.safeParse({ tracks: [track('a', { effects: [fx], ...lane('fx:fx1:decay') })] }).success).toBe(true);
+    });
+
+    it('parses automation targets', () => {
+      expect(parseAutomationTarget('volume')).toEqual({ kind: 'volume' });
+      expect(parseAutomationTarget('fx:a:b')).toEqual({ kind: 'effect', effectId: 'a', param: 'b' });
+      expect(parseAutomationTarget('fx:a')).toBeNull();
+    });
   });
 });

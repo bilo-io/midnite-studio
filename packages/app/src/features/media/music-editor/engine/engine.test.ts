@@ -187,4 +187,42 @@ describe('music engine', () => {
     await engine.previewNote('missing', 60);
     expect(instruments[0]!.play).toHaveBeenCalledTimes(1);
   });
+
+  it('hands the mixer to the host on every song change without rescheduling notes', async () => {
+    const { host, parts } = fakeHost();
+    const syncMixer = vi.fn();
+    host.syncMixer = syncMixer;
+    const engine = createMusicEngine(host);
+    const first = song();
+    await engine.setSong(first);
+    const louder = structuredClone(first);
+    louder.tracks[0]!.mixer.volume = 1.5;
+    louder.tracks[1]!.effects = [{ id: 'fx1', type: 'reverb', bypass: false, params: {} }];
+    await engine.setSong(louder);
+    expect(parts).toHaveLength(2);
+    expect(syncMixer).toHaveBeenCalledTimes(2);
+    const spec = syncMixer.mock.calls[1]![0];
+    expect(spec.tracks.a.gain).toBe(1.5);
+    expect(spec.tracks.b.chain.map((n: { type: string }) => n.type)).toEqual(['reverb']);
+  });
+
+  it('re-syncs the mixer at the new position on seek, play and stop', async () => {
+    const { host } = fakeHost();
+    const syncMixer = vi.fn();
+    host.syncMixer = syncMixer;
+    const engine = createMusicEngine(host);
+    await engine.setSong(song());
+    syncMixer.mockClear();
+    engine.seek(960);
+    expect(syncMixer).toHaveBeenLastCalledWith(expect.anything(), 1);
+    await engine.play();
+    engine.stop();
+    expect(syncMixer).toHaveBeenCalledTimes(3);
+    expect(syncMixer).toHaveBeenLastCalledWith(expect.anything(), 0);
+  });
+
+  it('reports no levels when the host has no meters', () => {
+    const { host } = fakeHost();
+    expect(createMusicEngine(host).getLevels()).toEqual({ tracks: {}, master: 0 });
+  });
 });

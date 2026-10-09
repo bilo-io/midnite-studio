@@ -8,6 +8,7 @@ import {
   trackEvents,
   type ScheduledNote,
 } from './scheduler';
+import { buildMixerSpec, type MixerSpec } from './mixer-spec';
 import { createTickMap, metronomeClicks, type TickMap } from './tick-map';
 
 /**
@@ -48,8 +49,17 @@ export type EngineHost = {
     fire: (note: ScheduledNote, time: number) => void,
   ) => Disposable;
   scheduleClicks: (clicks: ReadonlyArray<{ time: number; accent: boolean }>) => Disposable;
+  /**
+   * Theme F: rebuild the mixer from `spec` — chain shape, strip levels, automation — and set every
+   * automated value to what it is at `seconds`. Cheap to call often; the host diffs against its last spec.
+   */
+  syncMixer?: (spec: MixerSpec, seconds: number) => void;
+  /** Peak levels 0..1 per track id, and the master. */
+  levels?: () => MixerLevels;
   dispose: () => void;
 };
+
+export type MixerLevels = { tracks: Record<string, number>; master: number };
 
 export type EngineState = 'stopped' | 'playing' | 'paused';
 export type LoopRegion = { startTick: number; endTick: number };
@@ -77,6 +87,11 @@ export function createMusicEngine(host: EngineHost) {
   let disposed = false;
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((fn) => fn());
+
+  let mixerSpec: MixerSpec | null = null;
+  const syncMixer = () => {
+    if (mixerSpec) host.syncMixer?.(mixerSpec, host.transport.seconds);
+  };
 
   const setState = (next: EngineState) => {
     if (state === next) return;
@@ -176,6 +191,8 @@ export function createMusicEngine(host: EngineHost) {
     await Promise.all(touched.map((id) => scheduleTrack(byId.get(id)!, audible.has(id))));
     if (tempoMoved || metronome) scheduleClicks();
     applyLoop();
+    mixerSpec = buildMixerSpec(next, map);
+    syncMixer();
   }
 
   return {
@@ -195,6 +212,8 @@ export function createMusicEngine(host: EngineHost) {
       await host.resumeContext();
       instrument.play({ time: 0, pitch, duration: seconds, velocity }, host.now?.() ?? 0);
     },
+    /** Meter levels for the mixer strips; zeros when the host has no meters (tests, offline render). */
+    getLevels: (): MixerLevels => host.levels?.() ?? { tracks: {}, master: 0 },
     getState: () => state,
     getPositionTicks: () => Math.round(map.secondsToTicks(host.transport.seconds)),
     getPositionSeconds: () => host.transport.seconds,
@@ -202,6 +221,7 @@ export function createMusicEngine(host: EngineHost) {
     async play() {
       if (disposed) return;
       await host.resumeContext();
+      syncMixer();
       host.transport.start();
       setState('playing');
     },
@@ -213,10 +233,12 @@ export function createMusicEngine(host: EngineHost) {
     stop() {
       host.transport.stop();
       host.transport.seconds = 0;
+      syncMixer();
       setState('stopped');
     },
     seek(tick: number) {
       host.transport.seconds = map.ticksToSeconds(Math.max(0, tick));
+      syncMixer();
       emit();
     },
     setLoop(region: LoopRegion | null) {
