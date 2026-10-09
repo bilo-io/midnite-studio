@@ -5,10 +5,22 @@ import { createMusicEngine, type EngineHost, type InstrumentHandle } from './eng
 import type { ScheduledNote } from './scheduler';
 
 function fakeHost() {
-  const parts: { events: readonly ScheduledNote[]; disposed: boolean; fire: (n: ScheduledNote, t: number) => void }[] = [];
-  const clickParts: { clicks: readonly { time: number; accent: boolean }[]; disposed: boolean }[] = [];
+  const parts: {
+    events: readonly ScheduledNote[];
+    disposed: boolean;
+    fire: (n: ScheduledNote, t: number) => void;
+  }[] = [];
+  const clickParts: { clicks: readonly { time: number; accent: boolean }[]; disposed: boolean }[] =
+    [];
   const instruments: { play: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] = [];
-  const transport = { start: vi.fn(), pause: vi.fn(), stop: vi.fn(), seconds: 0, loop: false, setLoopPoints: vi.fn() };
+  const transport = {
+    start: vi.fn(),
+    pause: vi.fn(),
+    stop: vi.fn(),
+    seconds: 0,
+    loop: false,
+    setLoopPoints: vi.fn(),
+  };
   const host: EngineHost = {
     resumeContext: vi.fn(async () => undefined),
     suspendContext: vi.fn(async () => undefined),

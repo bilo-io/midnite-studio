@@ -7,7 +7,12 @@ import { renderSongToWav } from './offline';
 function fakeTone() {
   const parts: unknown[][] = [];
   const node = () => {
-    const self = { connect: vi.fn(() => self), dispose: vi.fn(), triggerAttackRelease: vi.fn(), toDestination: vi.fn(() => self) };
+    const self = {
+      connect: vi.fn(() => self),
+      dispose: vi.fn(),
+      triggerAttackRelease: vi.fn(),
+      toDestination: vi.fn(() => self),
+    };
     return self;
   };
   return {
@@ -22,11 +27,18 @@ function fakeTone() {
         parts.push(events);
         return { start: vi.fn() };
       }),
-      Offline: vi.fn(async (cb: (ctx: { transport: { bpm: { value: number }; start: () => void } }) => Promise<void>, duration: number, _ch: number, rate: number) => {
-        await cb({ transport: { bpm: { value: 0 }, start: vi.fn() } });
-        const frames = Math.ceil(duration * rate);
-        return { numberOfChannels: 2, getChannelData: () => new Float32Array(frames) };
-      }),
+      Offline: vi.fn(
+        async (
+          cb: (ctx: { transport: { bpm: { value: number }; start: () => void } }) => Promise<void>,
+          duration: number,
+          _ch: number,
+          rate: number,
+        ) => {
+          await cb({ transport: { bpm: { value: 0 }, start: vi.fn() } });
+          const frames = Math.ceil(duration * rate);
+          return { numberOfChannels: 2, getChannelData: () => new Float32Array(frames) };
+        },
+      ),
     },
   };
 }
@@ -38,10 +50,18 @@ describe('renderSongToWav', () => {
       tempos: [{ tick: 0, bpm: 60 }],
       tracks: [
         { id: 'a', notes: [{ pitch: 60, startTick: 0, durationTicks: 480, velocity: 100 }] },
-        { id: 'muted', mixer: { mute: true }, notes: [{ pitch: 62, startTick: 0, durationTicks: 480, velocity: 100 }] },
+        {
+          id: 'muted',
+          mixer: { mute: true },
+          notes: [{ pitch: 62, startTick: 0, durationTicks: 480, velocity: 100 }],
+        },
       ],
     });
-    const result = await renderSongToWav(song, { loadTone: async () => Tone as never, sampleRate: 8000, tailSeconds: 0.5 });
+    const result = await renderSongToWav(song, {
+      loadTone: async () => Tone as never,
+      sampleRate: 8000,
+      tailSeconds: 0.5,
+    });
     expect(parts).toHaveLength(1);
     expect(result.durationSeconds).toBeCloseTo(1.5);
     expect(String.fromCharCode(...result.bytes.slice(0, 4))).toBe('RIFF');

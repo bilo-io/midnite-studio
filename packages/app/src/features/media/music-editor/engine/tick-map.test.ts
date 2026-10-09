@@ -29,7 +29,16 @@ describe('tick map', () => {
 describe('metronomeClicks', () => {
   it('accents the first beat of each bar', () => {
     const clicks = metronomeClicks([{ tick: 0, numerator: 4, denominator: 4 }], 480 * 8);
-    expect(clicks.map((c) => c.accent)).toEqual([true, false, false, false, true, false, false, false]);
+    expect(clicks.map((c) => c.accent)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+    ]);
   });
 
   it('honors a time signature change', () => {

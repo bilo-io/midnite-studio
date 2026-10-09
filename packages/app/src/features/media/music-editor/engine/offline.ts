@@ -1,6 +1,6 @@
 import { type MidniteStudioBridge, type Song } from '@midnite/studio-shared';
 
-import { audibleTracks, trackEvents } from './scheduler';
+import { audibleTracks, trackEvents, type ScheduledNote } from './scheduler';
 import { createTickMap } from './tick-map';
 import { loadTone, makeGmInstrument } from './tone-host';
 import { encodeWav } from './wav';
@@ -41,11 +41,9 @@ export async function renderSongToWav(
       transport.bpm.value = 60;
       for (const track of tracks) {
         const instrument = await makeGmInstrument(track, options.bridge, Tone);
-        const part = new Tone.Part<ReturnType<typeof trackEvents>[number]>(
+        const part = new Tone.Part<ScheduledNote>(
           (time, note) => instrument.play(note, time),
-          trackEvents(track, map).map(
-            (e) => [e.time, e] as [number, ReturnType<typeof trackEvents>[number]],
-          ),
+          trackEvents(track, map),
         );
         part.start(0);
       }

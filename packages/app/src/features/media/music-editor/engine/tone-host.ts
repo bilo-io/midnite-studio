@@ -45,7 +45,7 @@ export async function createToneHost(bridge?: GmBridge): Promise<EngineHost> {
       await Tone.start();
     },
     suspendContext: async () => {
-      await Tone.getContext().rawContext.suspend?.();
+      await (Tone.getContext().rawContext as AudioContext).suspend?.();
     },
     transport: {
       start: () => transport.start(),
@@ -67,17 +67,14 @@ export async function createToneHost(bridge?: GmBridge): Promise<EngineHost> {
     },
     createInstrument: (track) => makeGmInstrument(track, bridge, Tone),
     schedulePart: (events, fire) => {
-      const part = new Tone.Part<ScheduledNote>(
-        (time, note) => fire(note, time),
-        events.map((e) => [e.time, e] as [number, ScheduledNote]),
-      );
+      const part = new Tone.Part<ScheduledNote>((time, note) => fire(note, time), [...events]);
       part.start(0);
       return { dispose: () => part.dispose() };
     },
     scheduleClicks: (clicks) => {
-      const part = new Tone.Part<{ accent: boolean }>(
+      const part = new Tone.Part<{ time: number; accent: boolean }>(
         (time, c) => click.triggerAttackRelease(c.accent ? 'C6' : 'G5', '32n', time),
-        clicks.map((c) => [c.time, { accent: c.accent }] as [number, { accent: boolean }]),
+        [...clicks],
       );
       part.start(0);
       return { dispose: () => part.dispose() };
