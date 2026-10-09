@@ -40,6 +40,7 @@ export const MUSIC_MAX_META_EVENTS = 4096;
 export const MUSIC_MAX_AUTOMATION_LANES_PER_TRACK = 16;
 export const MUSIC_MAX_AUTOMATION_POINTS = 10_000;
 export const MUSIC_MAX_CLIPS = 4096;
+export const MUSIC_MAX_EFFECTS_PER_TRACK = 8;
 export const MUSIC_MIN_BPM = 20;
 export const MUSIC_MAX_BPM = 400;
 export const MUSIC_DEFAULT_BPM = 120;
@@ -116,6 +117,17 @@ export type SongMetaEvent = z.infer<typeof SongMetaEventSchema>;
 /** `volume`/`pan` or an effect parameter (`fx:<effectId>:<param>`, Theme F). */
 export const SongAutomationTargetSchema = z.string().min(1).max(96);
 
+export type AutomationTarget = { kind: 'volume' } | { kind: 'pan' } | { kind: 'effect'; effectId: string; param: string };
+
+/** `volume`, `pan` or `fx:<effectId>:<param>`; null for anything else. */
+export function parseAutomationTarget(target: string): AutomationTarget | null {
+  if (target === 'volume') return { kind: 'volume' };
+  if (target === 'pan') return { kind: 'pan' };
+  const m = /^fx:([^:]+):([^:]+)$/.exec(target);
+  return m ? { kind: 'effect', effectId: m[1]!, param: m[2]! } : null;
+}
+export const effectAutomationTarget = (effectId: string, param: string): string => `fx:${effectId}:${param}`;
+
 export const SongAutomationPointSchema = z.object({ tick, value: z.number().finite() });
 
 export const SongAutomationLaneSchema = z.object({
@@ -136,6 +148,20 @@ export const SongMixerChannelSchema = z.object({
 });
 export type SongMixerChannel = z.infer<typeof SongMixerChannelSchema>;
 
+/** The effects a track's chain can hold (Theme F). Parameters and ranges live in the editor. */
+export const MUSIC_EFFECT_TYPES = ['reverb', 'delay', 'eq3', 'compressor', 'chorus', 'distortion', 'filter'] as const;
+export const SongEffectTypeSchema = z.enum(MUSIC_EFFECT_TYPES);
+export type SongEffectType = z.infer<typeof SongEffectTypeSchema>;
+
+/** One effect in a track's chain, in signal order. A parameter left out takes the effect's default. */
+export const SongEffectSchema = z.object({
+  id: idString,
+  type: SongEffectTypeSchema,
+  bypass: z.boolean().default(false),
+  params: z.record(z.string().min(1).max(32), z.number().finite()).default({}),
+});
+export type SongEffect = z.infer<typeof SongEffectSchema>;
+
 export const SongTrackSchema = z.object({
   id: idString,
   name: z.string().max(120).default(''),
@@ -152,6 +178,8 @@ export const SongTrackSchema = z.object({
   pitchBends: z.array(SongPitchBendSchema).max(MUSIC_MAX_PITCH_BENDS_PER_TRACK).default([]),
   automation: z.array(SongAutomationLaneSchema).max(MUSIC_MAX_AUTOMATION_LANES_PER_TRACK).default([]),
   mixer: SongMixerChannelSchema.default({}),
+  /** Insert effects between the instrument and the mixer strip, first to last. */
+  effects: z.array(SongEffectSchema).max(MUSIC_MAX_EFFECTS_PER_TRACK).default([]),
 });
 export type SongTrack = z.infer<typeof SongTrackSchema>;
 
@@ -191,6 +219,19 @@ export const SongSchema = z
     song.tracks.forEach((track, index) => {
       if (ids.has(track.id)) ctx.addIssue({ code: 'custom', path: ['tracks', index, 'id'], message: 'duplicate track id' });
       ids.add(track.id);
+    });
+    song.tracks.forEach((track, ti) => {
+      const effectIds = new Set<string>();
+      track.effects.forEach((fx, fi) => {
+        if (effectIds.has(fx.id)) ctx.addIssue({ code: 'custom', path: ['tracks', ti, 'effects', fi, 'id'], message: 'duplicate effect id' });
+        effectIds.add(fx.id);
+      });
+      track.automation.forEach((lane, li) => {
+        const target = parseAutomationTarget(lane.target);
+        if (!target || (target.kind === 'effect' && !effectIds.has(target.effectId))) {
+          ctx.addIssue({ code: 'custom', path: ['tracks', ti, 'automation', li, 'target'], message: 'unknown automation target' });
+        }
+      });
     });
     song.clips.forEach((clip, index) => {
       if (!ids.has(clip.trackId)) ctx.addIssue({ code: 'custom', path: ['clips', index, 'trackId'], message: 'unknown track' });
