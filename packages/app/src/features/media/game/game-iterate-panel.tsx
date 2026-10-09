@@ -1,20 +1,23 @@
 import {
   agentIteratesModel,
   GAME_PASSES_MAX,
-  GAME_PROMPT_MAX,
   GAMES_OLLAMA_WARNING,
   type GameAgentEngine,
   type GameSummary,
 } from '@midnite/studio-shared';
-import { useMemo, useState } from 'react';
-import { LuPlay, LuSquare, LuTriangleAlert, LuX } from 'react-icons/lu';
+import { useMemo, useState, type ReactNode } from 'react';
+import { LuSquare, LuTriangleAlert, LuX } from 'react-icons/lu';
+import { SiOllama } from 'react-icons/si';
 
+import { AiComposer, ProviderModelPicker, type PickerModel, type PickerProvider } from '../../../components/ai-thread';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
+import { agentPickerProviders } from '../agent-model-picker';
 import { textModels } from '../model/model-utils';
 import { useModelProviders } from '../model/use-model';
-import { PromptTextarea } from '../prompt-input';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
+import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { useGameAgentStore, type GameEngineChoice } from './game-agent-store';
 import { GameEditThread } from './game-edit-thread';
 
@@ -44,73 +47,137 @@ export function useGameEngines(): {
   options: GameEngineOption[];
   choice: GameEngineChoice | null;
   setChoice: (value: GameEngineChoice) => void;
+  pickerProviders: PickerProvider[];
+  currentProvider: string;
+  pickerModels: PickerModel[];
+  currentModel: string;
+  isOllama: boolean;
+  dismissed: boolean;
+  dismiss: () => void;
+  passes: number;
+  setPasses: (passes: number) => void;
+  installedText: Array<{ id: string; label: string }>;
 } {
   const { agents } = useAgents();
   const providers = useModelProviders();
   const primaryAgent = useUiStore((s) => s.primaryAgent);
   const picked = useGameAgentStore((s) => s.engine);
   const setChoice = useGameAgentStore((s) => s.setEngine);
+  const passes = useGameAgentStore((s) => s.passes);
+  const setPasses = useGameAgentStore((s) => s.setPasses);
+  const dismissed = useGameAgentStore((s) => s.ollamaWarningDismissed);
+  const dismiss = useGameAgentStore((s) => s.dismissOllamaWarning);
   const ollama = providers.data?.ollama;
+
+  const iterativeAgents = useMemo(() => agents.filter((a) => agentIteratesModel(a.id)), [agents]);
+  const installedText = useMemo(() => (ollama?.available ? textModels(ollama.models) : []), [ollama]);
+
   const options = useMemo<GameEngineOption[]>(
     () => [
-      ...agents
-        .filter((a) => agentIteratesModel(a.id))
-        .map((a) => ({ value: `agent:${a.id}`, label: a.label, group: 'Agents' as const })),
-      ...(ollama?.available ? textModels(ollama.models) : []).map((m) => ({
+      ...iterativeAgents.map((a) => ({ value: `agent:${a.id}`, label: a.label, group: 'Agents' as const })),
+      ...installedText.map((m) => ({
         value: `ollama:${m.id}`,
         label: m.label,
         group: 'Ollama' as const,
       })),
     ],
-    [agents, ollama],
+    [iterativeAgents, installedText],
   );
-  const fallback =
-    options.find((o) => o.value === `agent:${primaryAgent}`)?.value ?? options[0]?.value ?? null;
-  const choice = picked && options.some((o) => o.value === picked) ? picked : fallback;
-  return { options, choice, setChoice };
+
+  const pickerProviders = useMemo<PickerProvider[]>(() => [
+    ...agentPickerProviders(iterativeAgents, primaryAgent),
+    ...(ollama?.available
+      ? [{ id: 'ollama', label: 'Ollama (local)', icon: SiOllama, color: '#F5F5F5' }]
+      : []),
+  ], [iterativeAgents, primaryAgent, ollama?.available]);
+
+  const fallback = useMemo(() => {
+    if (iterativeAgents.some((a) => a.id === primaryAgent)) return `agent:${primaryAgent}`;
+    if (iterativeAgents[0]) return `agent:${iterativeAgents[0].id}`;
+    if (ollama?.available && installedText[0]) return `ollama:${installedText[0].id}`;
+    return null;
+  }, [iterativeAgents, primaryAgent, ollama?.available, installedText]);
+
+  const choice = picked && (
+    (picked.startsWith('agent:') && iterativeAgents.some((a) => `agent:${a.id}` === picked)) ||
+    (picked.startsWith('ollama:') && ollama?.available && installedText.some((m) => `ollama:${m.id}` === picked))
+  ) ? picked : fallback;
+
+  const currentProvider = choice?.startsWith('ollama:')
+    ? 'ollama'
+    : (choice?.startsWith('agent:') ? choice.slice(6) : '');
+
+  const currentModel = choice?.startsWith('ollama:') ? choice.slice(7) : '';
+
+  const pickerModels = useMemo<PickerModel[]>(() => {
+    if (currentProvider === 'ollama') {
+      return installedText.map((m, i) => ({ id: m.id, label: m.label, ...(i === 0 ? { recommended: true } : {}) }));
+    }
+    return [];
+  }, [currentProvider, installedText]);
+
+  const isOllama = choice?.startsWith('ollama:') ?? false;
+
+  return {
+    options,
+    choice,
+    setChoice,
+    pickerProviders,
+    currentProvider,
+    pickerModels,
+    currentModel,
+    isOllama,
+    dismissed,
+    dismiss,
+    passes,
+    setPasses,
+    installedText,
+  };
 }
 
 /** Engine picker, Ollama warning and the passes slider — shared by the create form and the iterate panel. */
 export function GameEngineFields({ disabled = false }: { disabled?: boolean }) {
-  const { options, choice, setChoice } = useGameEngines();
-  const passes = useGameAgentStore((s) => s.passes);
-  const setPasses = useGameAgentStore((s) => s.setPasses);
-  const dismissed = useGameAgentStore((s) => s.ollamaWarningDismissed);
-  const dismiss = useGameAgentStore((s) => s.dismissOllamaWarning);
-  const isOllama = choice?.startsWith('ollama:') ?? false;
+  const {
+    setChoice,
+    pickerProviders,
+    currentProvider,
+    pickerModels,
+    currentModel,
+    isOllama,
+    dismissed,
+    dismiss,
+    passes,
+    setPasses,
+    installedText,
+  } = useGameEngines();
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1 text-xs font-medium">
-        Engine
-        <select
-          aria-label="Engine"
-          value={choice ?? ''}
-          disabled={disabled || options.length === 0}
-          onChange={(event) => setChoice(event.target.value)}
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs font-normal outline-none focus:ring-1 focus:ring-ring"
-        >
-          {options.length === 0 ? (
-            <option value="">No agent or Ollama model available</option>
-          ) : null}
-          {(['Agents', 'Ollama'] as const).map((group) =>
-            options.some((o) => o.group === group) ? (
-              <optgroup
-                key={group}
-                label={group === 'Agents' ? 'Agents (recommended)' : 'Ollama (local)'}
-              >
-                {options
-                  .filter((o) => o.group === group)
-                  .map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-              </optgroup>
-            ) : null,
-          )}
-        </select>
-      </label>
+      {pickerProviders.length > 0 ? (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium">Engine</span>
+          <ProviderModelPicker
+            testId="game-engine-picker"
+            providers={pickerProviders}
+            provider={currentProvider}
+            onProviderChange={(id) => {
+              if (id === 'ollama') {
+                const first = installedText[0]?.id ?? '';
+                setChoice(`ollama:${first}`);
+              } else {
+                setChoice(`agent:${id}`);
+              }
+            }}
+            models={pickerModels}
+            model={currentModel}
+            onModelChange={(modelId) => {
+              if (currentProvider === 'ollama') {
+                setChoice(`ollama:${modelId}`);
+              }
+            }}
+          />
+        </div>
+      ) : null}
       {isOllama && !dismissed ? (
         <div
           role="status"
@@ -184,11 +251,24 @@ export async function startGameAgentRun(
  * then Ollama models), a passes budget, Run/Cancel, and the edit thread. Every
  * pass that changes files is one commit in the game's repo.
  */
-export function GameIteratePanel({ game }: { game: GameSummary }) {
+/** `children` render above the thread inside the scrolling body (the detail panel passes the game summary). */
+export function GameIteratePanel({ game, children }: { game: GameSummary; children?: ReactNode }) {
   const [prompt, setPrompt] = useState('');
   const [undoing, setUndoing] = useState(false);
-  const { choice } = useGameEngines();
-  const passes = useGameAgentStore((s) => s.passes);
+  const {
+    choice,
+    setChoice,
+    pickerProviders,
+    currentProvider,
+    pickerModels,
+    currentModel,
+    isOllama,
+    dismissed,
+    dismiss,
+    passes,
+    setPasses,
+    installedText,
+  } = useGameEngines();
   const entries = useGameAgentStore((s) => s.threads[game.gameId]) ?? EMPTY;
   const run = useGameAgentStore((s) => s.runs[game.gameId]) ?? null;
   const [starting, setStarting] = useState(false);
@@ -226,39 +306,97 @@ export function GameIteratePanel({ game }: { game: GameSummary }) {
   };
 
   return (
-    <section
-      aria-label="Create and iterate"
-      data-testid="game-iterate-panel"
-      className="flex min-h-0 flex-1 flex-col border-t border-border/50"
-    >
-      <GameEditThread
-        entries={entries}
-        running={run}
-        onUndo={(sha) => void onUndo(sha)}
-        undoing={undoing}
-      />
-      <form
-        className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void onRun();
-        }}
-      >
-        <GameEngineFields disabled={busy} />
-        <PromptTextarea
-          aria-label="Prompt"
-          rows={3}
-          maxLength={GAME_PROMPT_MAX}
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              void onRun();
-            }
-          }}
-          placeholder="Add a double jump, and make the coins spin"
+    <MediaPanelLayout as="section" aria-label="Create and iterate" data-testid="game-iterate-panel">
+      <MediaPanelBody className="flex flex-col">
+        {children ? <div className="shrink-0">{children}</div> : null}
+        <GameEditThread
+          entries={entries}
+          running={run}
+          onUndo={(sha) => void onUndo(sha)}
+          undoing={undoing}
         />
+      </MediaPanelBody>
+      <MediaPanelFooter className="flex flex-col gap-2 border-t border-border/50 p-3">
+        {isOllama && !dismissed ? (
+          <div
+            role="status"
+            data-testid="games-ollama-banner"
+            className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300"
+          >
+            <LuTriangleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">{GAMES_OLLAMA_WARNING}</span>
+            <button
+              type="button"
+              aria-label="Dismiss warning"
+              onClick={dismiss}
+              className="shrink-0 rounded p-0.5 hover:bg-amber-500/20"
+            >
+              <LuX aria-hidden className="h-3 w-3" />
+            </button>
+          </div>
+        ) : null}
+
+        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          Passes
+          <input
+            type="range"
+            aria-label="Refinement passes"
+            min={1}
+            max={GAME_PASSES_MAX}
+            step={1}
+            value={passes}
+            disabled={busy}
+            onChange={(event) => setPasses(Number(event.target.value))}
+            className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+          />
+          <span className="w-6 text-right tabular-nums text-foreground">{passes}</span>
+        </label>
+
+        <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
+          Prompt
+          <AiComposer
+            ariaLabel="Prompt"
+            value={prompt}
+            onChange={setPrompt}
+            onSend={() => void onRun()}
+            canSend={canRun}
+            enterToSend={false}
+            sendTooltip={
+              !canRun
+                ? (busy ? 'Agent is running' : prompt.trim().length === 0 ? 'Describe changes first' : 'Select an engine')
+                : 'Run agent (Cmd/Ctrl+Enter)'
+            }
+            sendAriaLabel="Run agent"
+            rows={3}
+            dimmed={busy}
+            placeholder="Add a double jump, and make the coins spin"
+            boxClassName={MEDIA_PROMPT_BOX}
+            testIdPrefix="game-prompt"
+            leading={
+              <ProviderModelPicker
+                testId="game-engine-picker"
+                providers={pickerProviders}
+                provider={currentProvider}
+                onProviderChange={(id) => {
+                  if (id === 'ollama') {
+                    const first = installedText[0]?.id ?? '';
+                    setChoice(`ollama:${first}`);
+                  } else {
+                    setChoice(`agent:${id}`);
+                  }
+                }}
+                models={pickerModels}
+                model={currentModel}
+                onModelChange={(modelId) => {
+                  if (currentProvider === 'ollama') {
+                    setChoice(`ollama:${modelId}`);
+                  }
+                }}
+              />
+            }
+          />
+        </div>
+
         {busy ? (
           <button
             type="button"
@@ -268,18 +406,9 @@ export function GameIteratePanel({ game }: { game: GameSummary }) {
             <LuSquare aria-hidden className="h-3.5 w-3.5" />
             Cancel
           </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!canRun}
-            className="flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            <LuPlay aria-hidden className="h-3.5 w-3.5" />
-            Run agent
-          </button>
-        )}
-      </form>
-    </section>
+        ) : null}
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }
 

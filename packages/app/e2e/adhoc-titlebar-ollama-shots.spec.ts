@@ -1,8 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { installMockBridge } from '../test-support/mock-bridge';
-import { setTheme, settle } from './shots-helper';
+import { installMockBridge, setTheme, settle } from './shots-helper';
 
 /**
  * Ad hoc screenshots of the title bar's Ollama menu (`TitleBarOllama`) in its

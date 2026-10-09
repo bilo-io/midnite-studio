@@ -18,6 +18,7 @@ let allowGames = false;
 let allowTerrains = false;
 let allowSprites = false;
 let allowMaps = false;
+let allowMusic = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -89,6 +90,16 @@ export function setMcpAllowMapsState(next: boolean): void {
   allowMaps = next;
 }
 
+/** Read synchronously by the `music_*` write tools (Phase 101 Theme H) before they change, add or save a song. */
+export function getMcpAllowMusic(): boolean {
+  return allowMusic;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowMusicState(next: boolean): void {
+  allowMusic = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
@@ -98,4 +109,5 @@ export function resetMcpAllowUiStateForTests(): void {
   allowTerrains = false;
   allowSprites = false;
   allowMaps = false;
+  allowMusic = false;
 }

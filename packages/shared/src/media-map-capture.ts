@@ -25,6 +25,10 @@ export const MAP_ROADS_MAX_SIDE_M = 25_000;
 export const MAP_ROADS_TOO_LARGE = 'Roads are captured for frames up to 25 km a side.';
 export const MAP_ROADS_BUSY = "OpenStreetMap's Overpass server is busy — try again in a minute.";
 export const MAP_ROADS_NONE = 'No roads in this area.';
+/** Buildings are captured for frames up to this side; a city-sized bbox is tens of MB of OSM ways. */
+export const MAP_BUILDINGS_MAX_SIDE_M = 10_000;
+export const MAP_BUILDINGS_TOO_LARGE = 'Buildings are captured for frames up to 10 km a side.';
+export const MAP_BUILDINGS_NONE = 'No buildings in this area.';
 export const OSM_ATTRIBUTION_TEXT = '© OpenStreetMap contributors (ODbL) — via the Overpass API';
 
 export const MapCaptureRequestSchema = z.object({
@@ -43,6 +47,8 @@ export const MapCaptureRequestSchema = z.object({
   satellite: z.boolean().optional(),
   /** Theme E: capture the OSM road graph and mask (frames up to 25 km a side). Default on. */
   roads: z.boolean().optional(),
+  /** Capture OSM building footprints with heights (frames up to 10 km a side). Default on. */
+  buildings: z.boolean().optional(),
   /** Defaults to MapTiler when its key is set, else EOX Sentinel-2 cloudless 2016. */
   satelliteSource: MapSourceIdSchema.optional(),
   /** Theme F: create a Terrain from the capture (main calls the terrain service directly). */
@@ -80,9 +86,28 @@ export const MapRoadGraphFileSchema = z.object({
 });
 export type MapRoadGraphFile = z.infer<typeof MapRoadGraphFileSchema>;
 
+/**
+ * `buildings.json` (a capture writes it, the hand-off gives it to Terrain as `inputs/buildings.footprints.json`):
+ * OSM building footprints in Terrain's centred frame — `x` east, `z` south, metres. `heightM` is the roof
+ * above ground where OSM states or implies it; Terrain picks a height for the rest.
+ */
+export const MapBuildingsFileSchema = z.object({
+  version: z.literal(1),
+  worldSize: z.number().positive(),
+  buildings: z.array(
+    z.object({
+      id: z.number().int(),
+      polygon: z.array(z.tuple([z.number(), z.number()])).min(3),
+      heightM: z.number().positive().optional(),
+      minHeightM: z.number().positive().optional(),
+    }),
+  ),
+});
+export type MapBuildingsFile = z.infer<typeof MapBuildingsFileSchema>;
+
 export const MapCaptureCancelRequestSchema = z.object({ captureId: z.string().min(1) });
 
-export const MAP_CAPTURE_STAGES = ['plan', 'dem', 'satellite', 'roads', 'encode', 'handoff'] as const;
+export const MAP_CAPTURE_STAGES = ['plan', 'dem', 'satellite', 'roads', 'buildings', 'encode', 'handoff'] as const;
 export type MapCaptureStage = (typeof MAP_CAPTURE_STAGES)[number];
 
 export const MapCaptureProgressEventSchema = z.object({
@@ -108,6 +133,7 @@ export const MapCaptureFileSchema = z
       dem: MapSourceIdSchema,
       satellite: MapSourceIdSchema.optional(),
       roads: z.string().optional(),
+      buildings: z.string().optional(),
     }),
     demZoom: z.number().int(),
     satelliteZoom: z.number().int().optional(),
@@ -192,7 +218,7 @@ export function captureFolderName(
 }
 
 /** Warnings shown below the frame readout; `blocking` ones disable Capture. */
-export type CaptureWarning = { code: 'over-cap' | 'under-min' | 'dem-coarser' | 'roads-skipped'; message: string; blocking: boolean };
+export type CaptureWarning = { code: 'over-cap' | 'under-min' | 'dem-coarser' | 'roads-skipped' | 'buildings-skipped'; message: string; blocking: boolean };
 
 export function captureWarnings(
   frame: { sideM: number; center: [number, number] },
@@ -213,5 +239,7 @@ export function captureWarnings(
     });
   if (frame.sideM > MAP_ROADS_MAX_SIDE_M && frame.sideM <= MAP_CAPTURE_MAX_SIDE_M)
     out.push({ code: 'roads-skipped', message: MAP_ROADS_TOO_LARGE, blocking: false });
+  if (frame.sideM > MAP_BUILDINGS_MAX_SIDE_M && frame.sideM <= MAP_CAPTURE_MAX_SIDE_M)
+    out.push({ code: 'buildings-skipped', message: MAP_BUILDINGS_TOO_LARGE, blocking: false });
   return out;
 }

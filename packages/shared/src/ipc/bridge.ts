@@ -25,6 +25,7 @@ import type {
 } from '../domain';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
+import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
 import type { ModelMeshResult } from '../media-model-mesh';
 import type { ModelOpEntry } from '../model-geometry/mesh/ops-log';
@@ -1198,6 +1199,8 @@ export type MidniteStudioBridge = {
     /** One-way: hide / show the runner's native view. */
     setVisible: (req: In<typeof S.GamesSetVisibleRequest>) => void;
     toolbar: (req: In<typeof S.GamesToolbarRequest>) => Promise<GitOpResult>;
+    /** Read or change the running game's juice settings through its `window.__midnite.juice` hook. */
+    juice: (req: In<typeof S.GamesJuiceRequest>) => Promise<z.infer<typeof S.GamesJuiceResponse>>;
     logs: (req: In<typeof S.GamesLogsRequest>) => Promise<z.infer<typeof S.GamesLogsResponse>>;
     kitUpgrade: (req: In<typeof S.GamesKitUpgradeRequest>) => Promise<z.infer<typeof S.GamesKitUpgradeResponse>>;
     /** Move a game's runner into the `game` popout window; closing that window docks it back. */
@@ -1305,6 +1308,52 @@ export type MidniteStudioBridge = {
       ) => Unsubscribe;
       /** Ollama prompt expansion — fails soft when the daemon is down. */
       expand: (req: In<typeof S.MediaAudioExpandRequest>) => Promise<z.infer<typeof S.MediaAudioExpandResponse>>;
+      /** General MIDI instrument samples (Phase 101 Theme D); cached per program under `userData`. */
+      gm: {
+        /** Which programs are already on disk. */
+        status: () => Promise<z.infer<typeof S.MediaGmStatusResponse>>;
+        /** Download one program's samples if missing; progress arrives on `onProgress`. */
+        ensure: (req: In<typeof S.MediaGmEnsureRequest>) => Promise<z.infer<typeof S.MediaGmEnsureResponse>>;
+        /** Read a cached program's samples (base64 MP3 per note); fails if not downloaded. */
+        load: (req: In<typeof S.MediaGmLoadRequest>) => Promise<z.infer<typeof S.MediaGmLoadResponse>>;
+        onProgress: (handler: (event: z.infer<typeof S.MediaGmProgressPayload>) => void) => Unsubscribe;
+      };
+    };
+    /**
+     * Music editor (Phase 101 Theme B): songs in an Audio project — `<name>.mid` plus the editor's
+     * `<name>.song.json`. `import` opens a native picker in main; every call answers a `GitOpResult`.
+     */
+    music: {
+      list: (req: In<typeof S.MediaMusicListRequest>) => Promise<z.infer<typeof S.MediaMusicListResponse>>;
+      read: (req: In<typeof S.MediaMusicReadRequest>) => Promise<z.infer<typeof S.MediaMusicReadResponse>>;
+      write: (req: In<typeof S.MediaMusicWriteRequest>) => Promise<z.infer<typeof S.MediaMusicWriteResponse>>;
+      import: (req: In<typeof S.MediaMusicImportRequest>) => Promise<z.infer<typeof S.MediaMusicImportResponse>>;
+      delete: (req: In<typeof S.MediaMusicDeleteRequest>) => Promise<z.infer<typeof S.MediaMusicDeleteResponse>>;
+      /** Theme J: save a song as .mid / WAV / MP3 through main's save dialog. */
+      export: (req: In<typeof S.MediaMusicExportRequest>) => Promise<z.infer<typeof S.MediaMusicExportResponse>>;
+      /** Theme K: land a rendered reference in the project as a Generator variant that links back to the song. */
+      sendToGenerator: (req: In<typeof S.MediaMusicSendToGeneratorRequest>) => Promise<z.infer<typeof S.MediaMusicSendToGeneratorResponse>>;
+      /** An agent edited a song (engine run or MCP): one event, one undoable step (Theme H). */
+      onChanged: (handler: (event: z.infer<typeof S.MediaMusicChangedPayload>) => void) => Unsubscribe;
+      /** `music_open` asked for a song to be shown; the Editor tab comes up. */
+      onOpen: (handler: (event: z.infer<typeof S.MediaMusicOpenPayload>) => void) => Unsubscribe;
+      /** Agent engines: Claude/Codex refine over passes, Ollama and Antigravity write in one pass. */
+      agent: {
+        run: (req: In<typeof S.MediaMusicAgentRunRequest>) => Promise<z.infer<typeof S.MediaMusicAgentRunResponse>>;
+        cancel: (req: In<typeof S.MediaMusicAgentCancelRequest>) => Promise<GitOpResult>;
+        onProgress: (handler: (event: z.infer<typeof S.MediaMusicAgentProgressPayload>) => void) => Unsubscribe;
+      };
+      /** Theme I: the song's chat thread (`<song>.chat.json`): read it, or write the whole thread. */
+      chat: {
+        read: (req: { repoId: string; project: string; name: string }) => Promise<z.infer<typeof S.MediaMusicChatResponse>>;
+        write: (req: { repoId: string; project: string; name: string; chat: SongChat }) => Promise<z.infer<typeof S.MediaMusicChatResponse>>;
+      };
+      /** Settings ▸ MCP: register Midnite's server in Antigravity's own MCP config (consent required). */
+      agy: {
+        status: () => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+        register: (req: { consent: true }) => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+        unregister: () => Promise<z.infer<typeof S.MediaMusicAgyResponse>>;
+      };
     };
     /** Models: LLM-authored 3D (Ollama or an agent CLI), written as .obj/.mtl/.fbx, all in main. */
     model: {

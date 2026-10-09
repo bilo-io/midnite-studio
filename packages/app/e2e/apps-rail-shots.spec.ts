@@ -1,8 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
-import { seedEnabledApps, seedUiState, setTheme, settle, shotPath } from './shots-helper';
+import {
+  installMockBridge,
+  type MockFixtures,
+  seedEnabledApps,
+  seedUiState,
+  setTheme,
+  settle,
+  shotPath,
+} from './shots-helper';
 
 /**
  * Phase 83 — the third-party apps rail's own screenshot set: the rail row

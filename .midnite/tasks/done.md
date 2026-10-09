@@ -1,6 +1,68 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme I — The agent chat in the composer
+
+The Editor gains a Chat column built from the Chats page's composer, message components and markdown renderer. Each song keeps its own thread beside it (`<song>.chat.json`), the engine and model pickers say which engines refine over passes and which write in one, a progress line shows "Pass n of N" and the latest tool action with Stop directly left of Send, and replies list the tracks and bars touched with a link that selects those notes in the piano roll. PR #806.
+
+- [x] I: reuse of the Chats composer/thread/markdown, per-song persisted thread, engine and model pickers, pass progress with Stop beside Send, change-summary replies with a piano-roll selection link
+
+## 2026-10-09 — Phase 101 Theme G — Clips, loops and the drum grid
+
+The arrangement now holds clips (loop, split, join, duplicate, delete, drag to move or resize) and drum tracks edit as a step grid (16 or 32 steps, per-step velocity, swing) over the same notes the piano roll shows. Clips expand to plain notes for the scheduler, the offline render, the `.mid` and Send to Generator. Schema changes are additive and optional. Vitest covers clip expansion, clip edits, the step grid round trip, swing and the editor flows.
+
+- [x] G: clips on the arrangement timeline (loop, split, join, duplicate)
+- [x] G: drum grid with 16/32 steps, per-step velocity and swing, reading and writing the piano roll's notes
+- [x] G: vitest for clip expansion, step grid round trip and swing
+
+## 2026-10-09 — Phase 101 Theme F — Mixer, effects and automation
+
+A Mixer panel gives every track a fader, pan, mute, solo and meter, plus a master, beside the active track's effects chain (reverb, delay, EQ, compressor, chorus, distortion, filter: add, remove, reorder, bypass). An Automation panel draws linear or step breakpoint lanes for volume, pan and any effect parameter. State lives in the song model (`track.effects` is the only new field, defaulting to empty). CC 7 and CC 10 mirror volume and pan to and from the `.mid`.
+
+- [x] F: mixer strips, per-track effects chain, automation lanes, CC 7/10 mirror, vitests for chain graph and interpolation
+
+## 2026-10-09 — Phase 101 Themes J + K — Export and Send to Generator
+
+The Editor exports `.mid`, WAV and MP3 for the whole song or the loop region, and Send to Generator lands a rendered reference in the project with a deterministic description (key, tempo, instruments, mood) that seeds the Generator prompt. The variant links back to its song. MusicGen-melody has no ONNX build, so the reference does not condition generation; that limitation is recorded in the phase doc.
+
+- [x] J: `.mid`, WAV and MP3 export through the Media export toolbar; whole song or loop region
+- [x] J: vitest for export format plumbing
+- [x] K: reference render plus generated text description (fallback branch)
+- [x] K: the Generator variant links back to its source song
+
+## 2026-10-09 — Phase 101 Theme E — Piano roll and arrangement
+
+The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; Theme H's live `music.onChanged` edits land as one undo step and `music.onOpen` shows the song. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
+
+- [x] E: piano roll, arrangement, undo/redo, shortcuts, canvas rendering, vitests and pointer e2e
+
+## 2026-10-09 — Phase 101 Theme C — The Tone.js engine
+
+A lazy engine wraps `Tone.Transport` (play, pause, stop, seek, loop region, metronome) over a tempo-map-aware tick/seconds conversion. A scheduler turns the song into per-track `Tone.Part`s and reschedules only the touched track on an edit. `Tone.Offline` renders WAV. The AudioContext resumes on a user gesture only and is suspended while the window is hidden. A transport bar tops the Editor tab. Vitest runs the scheduler and maths against a fake host; entry chunk +1.0 KB.
+
+- [x] C: engine, scheduler, offline render, gesture/visibility gates, vitests, bundle delta
+
+## 2026-10-09 — Phase 101 Theme H — `music_*` MCP tools and the agent engines
+
+Agents get fourteen `music_*` tools (`music_list`, `music_open`, `music_get_info`, `music_set_tempo`, `music_get_tracks`, `music_get_track`, `music_get_notes`, `music_add_notes`, `music_remove_notes`, `music_add_cc`, `music_add_pitchbends`, `music_add_track`, `music_save`, `music_render_preview`). Edits go through per-song working copies validated against `SongSchema`, push one `music-changed` event each, and the writes sit behind a new default-off Settings ▸ MCP "Let agents edit music" switch (`mcp-store` v9). Claude and Codex refine over a private per-run socket, Ollama writes JSON with repair rounds, Antigravity writes in one pass until Midnite is registered in its MCP config (consent step in Settings), and refines after.
+
+- [x] Tools + schemas in `MCP_TOOLS`, dispatch, `allowMusic` gate, piano-roll PNG preview, validation results, live `music-changed`/`music-open` events
+- [x] Agent engines: iterative (Claude/Codex), single pass with repair (Ollama), Antigravity registration, run/cancel IPC with progress
+- [x] Vitests: schemas and dispatch, note add/remove, validation results, gate, engines, agy registration (fake config, consent required), Settings page
+
+## 2026-10-09 — Phase 101 Themes A + B — Editor | Generator tabs, song model and MIDI files
+
+Media ▸ Audio gets persisted Editor | Generator tabs (Generator default, unchanged). The shared `SongSchema`, `.mid` read/write and import through `@tonejs/midi`, the `<name>.song.json` sidecar and the `music-{list,read,write,import,delete}` IPC land with vitest round trips for type-0 and type-1 files.
+
+- [x] A: tabs, persistence, shared projects list, `media.audio.editor` / `media.audio.generator` commands
+- [x] B: `SongSchema`, `.mid` IO, import, IPC + mock bridge, vitests
+
+## 2026-10-09 — Phase 101 Theme D — General MIDI instruments
+
+All 128 GM programs are pickable (grouped by family, with a downloaded badge). Main downloads a program's FluidR3_GM sample set on first use into `userData/gm-samples/` and streams progress; the renderer loads a per-track `Tone.Sampler` lazily and falls back to a synth with a "not downloaded" hint offline. Licence gate: FluidR3_GM is MIT, the gleitz pre-rendered sets CC BY 3.0 (attribution shown); drums are synthesised since no percussion set exists upstream.
+
+- [x] D: licence check, sample cache + progress IPC, catalogue, picker, Tone Sampler factory, attribution notice
+
 ## 2026-10-08 — Phase 108 — Maps
 
 [Phase 108](phases/phase-108-maps.md) marked ✅ DONE (54/54 items verified). Media ▸ Maps ships across #770–#776: the Maps tab over the `mstudio-tile:` protocol, 3D preview and capture frame, heightmap / satellite / roads capture, hand-off to Terrain, measure and draw, GeoJSON/KML layers, and four `map_*` MCP tools with the `midnite-media-map-build` skill. Gate green on `58a18aaf` (typecheck, lint, full test; one load-timeout in the MCP shim test passes alone); kernel and roads tests run offline; MapLibre is a lazy 1041 KB chunk with the entry at 703.5 KB of 1520 KB; human passes signed off by the user.
@@ -14594,3 +14656,7 @@ The game kit gains its 3D half. Engine-free `kit/core/` modules — a fixed-step
 ### Phase 105 Themes I + J — Export, the game-engine manifest, and Terrain over MCP (2026-10-06)
 
 `terrain-pack` (a folder: 16-bit heightfield png + json, per-LOD glb chunks, maps, placements, `terrain.manifest.json`) and a single `.glb` export with foliage as `EXT_mesh_gpu_instancing`; `TerrainManifestSchema` v1 is the contract Phase 107 reads. Nine `terrain_*` MCP tools behind the `allowTerrains` switch (mcp.json v6), a software preview renderer, a 5-minute shim timeout for slow tools, and the `midnite-media-terrain-build` skill in six copies with a copies test.
+
+### Phase 101 Theme K — research spike: MusicGen-melody is not available as ONNX (2026-10-09)
+
+No `Xenova/` or `onnx-community/` melody repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` 3.8.1 and 4.3.1 have no `musicgen_melody` model type or chroma extractor. Nothing could be measured; small is 656 MB, and melody is estimated at about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which does not fit an 8 GB Mac. Decision: Theme K takes the fallback (rendered reference plus a deterministic text description). Build still pending Themes B, C and J. Write-up in `docs/research/musicgen-melody-onnx.md`.

@@ -39,7 +39,7 @@ The user must enable Settings ▸ MCP and "Let agents edit terrains". Without it
 
 1. `terrain_get_spec` for the schema and a hint about what is missing.
 2. Give the ground a source: `terrain_set_input` a heightmap, or `terrain_set_spec` a `noise` block. A build with neither is refused with `needs-height-source` — ask the user or choose, never assume.
-3. Attach `satellite` (drives land cover, foliage and the drape) and `roads` if the user has them.
+3. Attach `satellite` (drives land cover, foliage and the drape) and `roads` if the user has them. A terrain handed over by `map_capture_terrain` may also carry real OSM building footprints (`terrain_get_spec` lists `buildings` among the attached inputs); the build then raises those instead of tracing buildings off the satellite image, into the same `buildings` layer.
 4. `terrain_set_spec` for `resolution` (129, 257, 513, 1025, 2049 or 4097), `worldSize` (metres per side), `heightRange` (metres, `[min, max]`), `seaLevel`, and the `foliage`, `buildings` and `roads` blocks.
 5. `terrain_build`, then `terrain_render_preview` and actually look. A view that lacks its layer comes back as a height ramp with a note saying why.
 6. Adjust with `terrain_set_spec` and rebuild; repeat until it reads right. Keep resolution low while iterating, raise it for the final build.

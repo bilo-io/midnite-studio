@@ -6,9 +6,15 @@
  * assets, and positional sounds attached to objects. Browsers keep audio
  * suspended until the first user gesture, so `unlock()` is wired to the first
  * click or key press.
+ *
+ * `audio.sfx` is the kit's synthesized sound-effect player (`kit/core/sfx.js`, no files to
+ * load) on the same AudioContext: `audio.sfx.play('jump')`, or `play('hit', { position })` to
+ * pan and attenuate by where the camera is. Muting the audio mutes it too.
  */
 
 import * as THREE from 'three';
+
+import { createSfx } from '../core/sfx.js';
 
 /**
  * @param {THREE.Camera} camera
@@ -20,6 +26,14 @@ export function createAudio(camera) {
   /** @type {Map<string, Promise<AudioBuffer>>} */
   const buffers = new Map();
   let muted = false;
+  const sfx = createSfx({
+    context: listener.context,
+    listener: () => {
+      camera.updateWorldMatrix(true, false);
+      const e = camera.matrixWorld.elements;
+      return { position: [e[12] ?? 0, e[13] ?? 0, e[14] ?? 0], right: [e[0] ?? 1, e[1] ?? 0, e[2] ?? 0] };
+    },
+  });
 
   const unlock = () => {
     if (listener.context.state === 'suspended') void listener.context.resume();
@@ -39,6 +53,8 @@ export function createAudio(camera) {
 
   return {
     listener,
+    /** Synthesized sound effects; see `kit/core/sfx.js`. */
+    sfx,
     /** Preload sounds so the first `play` is instant. */
     preload: (/** @type {string[]} */ urls) => Promise.all(urls.map(buffer)),
     /**
@@ -76,6 +92,7 @@ export function createAudio(camera) {
     setMuted(/** @type {boolean} */ on) {
       muted = on;
       listener.setMasterVolume(on ? 0 : 1);
+      sfx.setMuted(on);
     },
   };
 }

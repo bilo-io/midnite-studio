@@ -39,3 +39,9 @@ Boss: phases at 66% and 33% health (`BOSS_PHASE_THRESHOLDS`), with timings divid
 - A hit during the invulnerable window does no damage; one outside it does.
 - Reduce boss hp below 66%: `boss.phase` becomes 2 and its attacks speed up; below 33%, phase 3.
 - Die: `deaths` increments and the player returns to the bonfire; resting (`E`) increments `rests`, heals, and respawns the hollows.
+
+## Game feel
+
+`src/genre/moments.js` holds the heavy, low-pitched moments (`hit-heavy`, `stagger`, `roll`, `parry`, `bonfire-rest`, `you-died`, `stamina-out`). A roll whose invulnerable frames swallow an attack plays `parry`. Dying starts the `YOU DIED` curtain (`src/genre/curtain.js`); the player is set down at the bonfire behind the black screen (`dead` is true until then, in `getState().souls.dead`). The bonfire flicker is `flicker(clock)`, so it replays exactly. `?juice=off` silences it.
+
+Sky and sound (kit v0.11.0): the courtyard is `createEnvironment({ preset: 'night', fog: [14, 60], ... })` (stars, a cold moon, thick fog) with `env.follow` each frame; the bonfire's point light is the only warm one. The roll uses `roll`, a parry or a roll through a blow uses `sword-clash`, resting at the bonfire plays `heal`, and a hit on a staggered enemy is the `riposte` moment with `critical`. `fx.ambience('ambience-wind', ...)` is the night wind; it follows the juice volume and stops with the loop (`fx.shutdown()`).

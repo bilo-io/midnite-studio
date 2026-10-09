@@ -399,6 +399,9 @@ export const COMMANDS = [
   { id: 'media.tab.video', label: 'Media: Video', group: 'view' },
   { id: 'media.tab.audio', label: 'Media: Audio', group: 'view' },
   { id: 'media.tab.model', label: 'Media: Models (3D)', group: 'view' },
+  /** Phase 101 Theme A — chord-free; Audio's Editor | Generator sub-tabs. */
+  { id: 'media.audio.editor', label: 'Audio: Editor', group: 'view' },
+  { id: 'media.audio.generator', label: 'Audio: Generator', group: 'view' },
   /**
    * Phase 96 Theme C. Chord-free, same reasoning as `view.video` right
    * above — reachable from the rail and the palette.

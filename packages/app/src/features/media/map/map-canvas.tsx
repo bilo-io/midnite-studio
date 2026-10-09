@@ -31,7 +31,7 @@ export type MapCanvasProps = {
   onFrameChange?: (frame: { center: LonLat; sideM: number }) => void;
   /** Min/max elevation sampled inside the frame from the loaded preview tiles; `null` when 3D is off. */
   onElevation?: (range: { min: number; max: number } | null) => void;
-  onToggleFrame?: () => void;
+  onToggleFrame?: (view?: MapView) => void;
   onToggle3d?: () => void;
   handleRef?: Ref<MapCanvasHandle>;
   /** The active measure/draw tool (Theme G); `pan` (or absent) leaves clicks to the map. */
@@ -52,7 +52,12 @@ export type MapCanvasProps = {
   children?: ReactNode;
 };
 
-export type MapCanvasHandle = { resetNorth: () => void; flyTo: (center: LonLat, zoom: number) => void };
+export type MapCanvasHandle = {
+  resetNorth: () => void;
+  flyTo: (center: LonLat, zoom: number) => void;
+  getView: () => MapView | null;
+  getCenter: () => LonLat | null;
+};
 
 const TOOL_KEYS: Record<string, MapTool> = { d: 'distance', c: 'circle', a: 'area', p: 'pin' };
 const DRAWING_LAYERS = ['drawings-fill', 'drawings-line', 'drawings-pin'];
@@ -368,6 +373,8 @@ export default function MapCanvas({
     const handle: MapCanvasHandle = {
       resetNorth: () => mapRef.current?.easeTo({ bearing: 0 }),
       flyTo: (center, zoom) => mapRef.current?.flyTo({ center, zoom }),
+      getView: () => (mapRef.current ? readView(mapRef.current) : null),
+      getCenter: () => (mapRef.current ? readView(mapRef.current).center : null),
     };
     if (typeof handleRef === 'function') handleRef(handle);
     else (handleRef as { current: MapCanvasHandle | null }).current = handle;
@@ -384,7 +391,7 @@ export default function MapCanvas({
     if (pan[e.key]) map.panBy(pan[e.key]!);
     else if (e.key === '+' || e.key === '=') map.zoomIn();
     else if (e.key === '-' || e.key === '_') map.zoomOut();
-    else if (e.key === 'f' || e.key === 'F') live.current.onToggleFrame?.();
+    else if (e.key === 'f' || e.key === 'F') live.current.onToggleFrame?.(readView(map));
     else if (e.key === 't' || e.key === 'T') live.current.onToggle3d?.();
     else if (TOOL_KEYS[e.key.toLowerCase()]) live.current.onSelectTool?.(TOOL_KEYS[e.key.toLowerCase()]!);
     else if (e.key === 'Escape') live.current.onCancelDraft?.();

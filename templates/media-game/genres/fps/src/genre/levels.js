@@ -8,14 +8,15 @@
  *   #  wall        D  door         R  red locked door     V  violet locked door
  *   P  player      g  grunt        h  health   a  ammo     k  red key   v  violet key
  *   s  shotgun     r  rocket launcher
+ *   ,  open floor under the sky (a courtyard; otherwise the same as .)
  */
 
 export const LEVEL_ASCII = [
   '########################',
-  '#P..a.#........#...v...#',
-  '#.....#...g....#...h...#',
-  '#.....D........R.......#',
-  '#..g..#........#...g...#',
+  '#P..a.#........#,,,v,,,#',
+  '#.....#...g....#,,,h,,,#',
+  '#.....D........R,,,,,,,#',
+  '#..g..#........#,,,g,,,#',
   '###D###...r....#########',
   '#.....#........#.......#',
   '#..h..#........#...g...#',
@@ -24,6 +25,17 @@ export const LEVEL_ASCII = [
   '#..k..#........#...a...#',
   '########################',
 ];
+
+/**
+ * Cells open to the sky, as a `(cellX, cellY) => boolean` for the raycaster's `setSky`. The east hall is a courtyard: no
+ * roof, so the ceiling there is the sky and the room tone gives way to wind. Everything else keeps its stone ceiling.
+ * @param {readonly string[]} [rows]
+ */
+export function skylitCells(rows = LEVEL_ASCII) {
+  const open = new Set();
+  rows.forEach((row, y) => [...row].forEach((ch, x) => ch === ',' && open.add(`${x},${y}`)));
+  return (/** @type {number} */ x, /** @type {number} */ y) => open.has(`${x},${y}`);
+}
 
 const WALL_CELLS = { '#': 1, D: 9, R: 3, V: 5 };
 const OBJECT_TYPES = {

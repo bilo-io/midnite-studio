@@ -26,6 +26,10 @@ vi.mock('maplibre-gl', () => {
     flyTo = vi.fn();
     getStyle = vi.fn(() => ({}));
     queryRenderedFeatures = vi.fn(() => []);
+    getCenter = vi.fn(() => ({ lng: 10, lat: 20 }));
+    getZoom = vi.fn(() => 5);
+    getBearing = vi.fn(() => 0);
+    getPitch = vi.fn(() => 0);
     constructor() {
       instances.push(this as unknown as Fake);
     }
@@ -44,7 +48,7 @@ vi.mock('maplibre-gl', () => {
   return { default: { Map, AttributionControl: Control, NavigationControl: Control } };
 });
 
-import MapCanvas from './map-canvas';
+import MapCanvas, { type MapCanvasHandle } from './map-canvas';
 
 class FakeResizeObserver {
   observe() {}
@@ -110,8 +114,19 @@ describe('MapCanvas keys (Phase 108 Theme C)', () => {
     expect(map.zoomOut).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(root, { key: 'f' });
     fireEvent.keyDown(root, { key: 'T' });
-    expect(onToggleFrame).toHaveBeenCalledTimes(1);
+    expect(onToggleFrame).toHaveBeenCalledWith({ center: [10, 20], zoom: 5, bearing: 0, pitch: 0 });
     expect(onToggle3d).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes getView, getCenter, resetNorth, and flyTo on handleRef', () => {
+    const handleRef = { current: null as MapCanvasHandle | null };
+    render(<MapCanvas {...props} handleRef={handleRef} />);
+    expect(handleRef.current?.getView()).toEqual({ center: [10, 20], zoom: 5, bearing: 0, pitch: 0 });
+    expect(handleRef.current?.getCenter()).toEqual([10, 20]);
+    handleRef.current?.resetNorth();
+    expect(instances[0]!.easeTo).toHaveBeenCalledWith({ bearing: 0 });
+    handleRef.current?.flyTo([1, 2], 10);
+    expect(instances[0]!.flyTo).toHaveBeenCalledWith({ center: [1, 2], zoom: 10 });
   });
 
   it('ignores keys typed in a text field inside the canvas', () => {

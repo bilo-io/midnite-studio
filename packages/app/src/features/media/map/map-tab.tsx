@@ -126,7 +126,16 @@ function MapCentre({ repoId, project, save, framing, drawing }: { repoId: string
     },
     [save],
   );
-  const toggleFrame = () => map.data && framing.toggleFrame(viewRef.current ?? map.data.map.view);
+  const toggleFrame = useCallback(
+    (canvasView?: unknown) => {
+      const liveView =
+        canvasView && typeof canvasView === 'object' && 'center' in canvasView
+          ? (canvasView as MapView)
+          : handle.current?.getView() ?? viewRef.current ?? map.data?.map.view;
+      if (liveView) framing.toggleFrame(liveView);
+    },
+    [framing, map.data?.map.view],
+  );
   const pick = (next: MapBasemap) => {
     setBasemapOverride(next);
     save({ basemap: next });
@@ -186,7 +195,7 @@ function MapCentre({ repoId, project, save, framing, drawing }: { repoId: string
             </button>
           </Tooltip>
           <Tooltip label="Toggle capture frame (F)">
-            <button type="button" aria-label="Toggle capture frame (F)" aria-pressed={framing.visible} onClick={toggleFrame} className={`px-2 py-1 ${framing.visible ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
+            <button type="button" aria-label="Toggle capture frame (F)" aria-pressed={framing.visible} onClick={() => toggleFrame()} className={`px-2 py-1 ${framing.visible ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground hover:bg-accent'}`}>
               Frame
             </button>
           </Tooltip>

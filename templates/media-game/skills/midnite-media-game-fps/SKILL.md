@@ -25,6 +25,10 @@ Ammo caps: `bullets = 99`, `shells = 30`, `rockets = 12`.
 
 A new weapon is a row in the table with a `kind` of `hitscan` or `projectile`; do not special-case it in the scene. Keep cooldown above ~300 ms for a hitscan weapon or it outclasses everything.
 
+## Game feel
+
+The raycaster base opens its ceiling to a sky: `view.setSky(preset | hour | null, { skylit(cx, cy), light })` swaps the stone ceiling for a gradient, sun glow and stars (kit `sky.js` presets) over the cells `skylit` accepts; the starter's `,` cells in `levels.js` are a courtyard under a dusk sky. Weapons use the kit reports (`gunshot-pistol`, `gunshot-shotgun`; grunts fire `gunshot-rifle`), `R` reloads (a pause plus `reload`), a dry fire is `empty-click`, a health pickup is `heal`. The bed is one `fx.ambience(name)` call: wind in the courtyard, `ambience-room` indoors, and calling it again replaces rather than stacks. `fx.loop(name, opts)` returns `{ stop, set }` and ends with the scene; loops are silent while juice is off or the volume is 0.
+
 ## Build order
 
 1. Map and wall grid in `levels.js`, doors as the preset's `doorCell` value.

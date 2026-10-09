@@ -47,3 +47,9 @@ CPU: `CPU_RANGE = 1.35`; `easy` guards `guard = 0.25`, `normal` `guard = 0.55`, 
 - A high move whiffs on a crouching defender.
 - Chain jab into the next string inside the cancel window; press outside it and the extra input is dropped.
 - Take hp to 0: the round ends, wins increment, a new round starts; at 2 wins the match is over.
+
+## Game feel
+
+The fight is frame-counted, so hit-stop and slow motion are applied in `src/scenes/level.js` by feeding the genre fewer or no 1/60 steps (`simSteps`), never by scaling its dt. `src/genre/moments.js` maps a landed blow to `hit-light`, `hit-heavy` or `launcher` (`classifyHit`), a block to `guard`, and the KO to a slow-motion `ko`; the combo counter pops through `comboTier`. A new move needs no code: its damage and `launcher` flag pick the moment. `?juice=off` silences it.
+
+Sky and sound (kit v0.11.0): the dojo is lit by `createEnvironment({ preset: 'dusk', ... })` (the lantern posts stay the warm light); add no lights or `scene.background` beside it. `combo-hit` is the kit's rising tick for each connected hit and the launcher adds `critical`. `fx.ambience('ambience-crowd', ...)` keeps a crowd murmur under the fight; it follows the juice volume and stops with the loop (`fx.shutdown()`).

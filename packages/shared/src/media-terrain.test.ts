@@ -111,9 +111,8 @@ describe('naming', () => {
 });
 
 describe('the Terrain media tab', () => {
-  it('is appended after Models and is repo-scoped', () => {
-    // Sliced: later tabs (Games, Phase 107) append after Terrain.
-    expect(MEDIA_TABS.slice(0, 6)).toEqual(['doc', 'image', 'video', 'audio', 'model', 'terrain']);
+  it('sits after Maps and before Models, and is repo-scoped', () => {
+    expect(MEDIA_TABS.slice(0, 7)).toEqual(['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model']);
     expect(REPO_SCOPED_MEDIA_TABS).toContain('terrain');
   });
 });

@@ -229,6 +229,12 @@ import {
 } from '../media';
 import { DocExportFormatSchema } from '../media';
 import {
+  GmLoadResultSchema,
+  GmProgramRequestSchema,
+  GmProgressSchema,
+  GmStatusResponseSchema,
+} from '../media-music-gm';
+import {
   GameBoundsRequest as GameBoundsRequestSchema,
   GameConsolePayload as GameConsolePayloadSchema,
   GameAgentProgressSchema,
@@ -263,6 +269,8 @@ import {
   GamesSettingsReadSchema,
   GamesSettingsPatchSchema,
   GameToolbarRequest as GameToolbarRequestSchema,
+  GameJuiceRequest as GameJuiceRequestSchema,
+  GameJuiceSettingsSchema,
   GameVisibleRequest as GameVisibleRequestSchema,
 } from '../media-game';
 import {
@@ -290,6 +298,25 @@ import {
   TerrainTargetSchema,
   TerrainLibraryRequestSchema,
 } from '../media-terrain';
+import { MusicChatRequestSchema, MusicChatResultSchema } from '../media-music-chat';
+import { MusicExportRequestSchema, MusicExportResultSchemas, MusicSendToGeneratorRequestSchema } from '../media-music-export';
+import {
+  MusicDeleteRequestSchema,
+  MusicImportRequestSchema,
+  MusicListRequestSchema,
+  MusicReadRequestSchema,
+  MusicResultSchemas,
+  MusicWriteRequestSchema,
+} from '../media-music';
+import {
+  MusicAgentCancelRequestSchema,
+  MusicAgentProgressEventSchema,
+  MusicAgentResultSchemas,
+  MusicAgentRunRequestSchema,
+  MusicAgyRegisterRequestSchema,
+  MusicChangedEventSchema,
+  MusicOpenEventSchema,
+} from '../media-music-mcp';
 import {
   SpriteCancelRequestSchema,
   SpriteChangedEventSchema,
@@ -3254,6 +3281,46 @@ export const MediaAudioEngineProgressPayload = AudioEngineProgressSchema;
 export const MediaAudioExpandRequest = AudioExpandRequestSchema;
 export const MediaAudioExpandResponse = GitOpResultOf(AudioExpandResultSchema);
 
+// General MIDI sample cache (Phase 101 Theme D)
+export const MediaGmStatusResponse = GmStatusResponseSchema;
+export const MediaGmEnsureRequest = GmProgramRequestSchema;
+export const MediaGmEnsureResponse = GitOpResultSchema;
+export const MediaGmLoadRequest = GmProgramRequestSchema;
+export const MediaGmLoadResponse = GitOpResultOf(GmLoadResultSchema);
+export const MediaGmProgressPayload = GmProgressSchema;
+// Music editor (Phase 101 Theme B)
+export const MediaMusicListRequest = MusicListRequestSchema;
+export const MediaMusicListResponse = MusicResultSchemas.list;
+export const MediaMusicReadRequest = MusicReadRequestSchema;
+export const MediaMusicReadResponse = MusicResultSchemas.read;
+export const MediaMusicWriteRequest = MusicWriteRequestSchema;
+export const MediaMusicWriteResponse = MusicResultSchemas.write;
+export const MediaMusicImportRequest = MusicImportRequestSchema;
+export const MediaMusicImportResponse = MusicResultSchemas.import;
+export const MediaMusicDeleteRequest = MusicDeleteRequestSchema;
+export const MediaMusicDeleteResponse = MusicResultSchemas.delete;
+export const MediaMusicExportRequest = MusicExportRequestSchema;
+export const MediaMusicExportResponse = MusicExportResultSchemas.export;
+export const MediaMusicSendToGeneratorRequest = MusicSendToGeneratorRequestSchema;
+export const MediaMusicSendToGeneratorResponse = MusicExportResultSchemas.sendToGenerator;
+export const MediaMusicChangedPayload = MusicChangedEventSchema;
+export const MediaMusicOpenPayload = MusicOpenEventSchema;
+export const MediaMusicAgentRunRequest = MusicAgentRunRequestSchema;
+export const MediaMusicAgentRunResponse = MusicAgentResultSchemas.run;
+export const MediaMusicAgentCancelRequest = MusicAgentCancelRequestSchema;
+export const MediaMusicAgentCancelResponse = GitOpResultSchema;
+export const MediaMusicAgentProgressPayload = MusicAgentProgressEventSchema;
+/** Antigravity registration (Settings ▸ MCP): one channel, three ops. */
+export const MediaMusicAgyRequest = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('status') }),
+  z.object({ op: z.literal('register'), ...MusicAgyRegisterRequestSchema.shape }),
+  z.object({ op: z.literal('unregister') }),
+]);
+export const MediaMusicAgyResponse = MusicAgentResultSchemas.agyStatus;
+/** The song chat (Phase 101 Theme I): read or write `<song>.chat.json`. */
+export const MediaMusicChatRequest = MusicChatRequestSchema;
+export const MediaMusicChatResponse = MusicChatResultSchema;
+
 // Models (3D)
 export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });
 /** Resolves once the files are written (or the run failed / was cancelled). */
@@ -3932,6 +3999,8 @@ export const McpGetResponse = z.object({
   allowSprites: z.boolean(),
   /** Phase 108 Theme I's eighth switch — whether `map_goto` and `map_capture_terrain` may move the view or capture a map. */
   allowMaps: z.boolean(),
+  /** Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song may act. */
+  allowMusic: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -3949,6 +4018,7 @@ export const McpSetRequest = z.object({
   allowTerrains: z.boolean().optional(),
   allowSprites: z.boolean().optional(),
   allowMaps: z.boolean().optional(),
+  allowMusic: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
@@ -4439,6 +4509,8 @@ export const GamesReloadRequest = GameIdRequestSchema;
 export const GamesSetBoundsRequest = GameBoundsRequestSchema;
 export const GamesSetVisibleRequest = GameVisibleRequestSchema;
 export const GamesToolbarRequest = GameToolbarRequestSchema;
+export const GamesJuiceRequest = GameJuiceRequestSchema;
+export const GamesJuiceResponse = GitOpResultOf(GameJuiceSettingsSchema);
 export const GamesLogsRequest = GameLogsRequestSchema;
 export const GamesLogsResponse = GameLogsResponseSchema;
 export const GamesChangedPayload = GamesChangedSchema;

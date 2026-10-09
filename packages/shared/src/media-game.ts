@@ -51,7 +51,7 @@ export const GAME_ENGINE_VERSIONS = {
 } as const;
 
 /** The current kit version (Theme C). Bumped whenever `templates/media-game/kit/` changes. */
-export const GAME_KIT_VERSION = '0.9.0';
+export const GAME_KIT_VERSION = '0.11.0';
 
 // --- enums -------------------------------------------------------------------
 
@@ -153,6 +153,48 @@ export const GameAssetProvenanceSchema = z.object({
 export type GameAssetProvenance = z.infer<typeof GameAssetProvenanceSchema>;
 
 /**
+ * Fine-tune options from the new-game wizard. They are recorded in
+ * `midnite-game.json` (`options`) and rendered into the agent's first prompt as a
+ * "Requested features" list, so the building agent implements them. A starter
+ * may also read the flags it already supports (open world's day/night clock).
+ */
+export const GAME_DAY_MINUTES_MIN = 2;
+export const GAME_DAY_MINUTES_MAX = 60;
+export const GAME_DAY_MINUTES_DEFAULT = 4;
+
+export const GameDayNightOptionSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** Real-time minutes one full in-game day lasts. */
+  minutesPerDay: z.number().int().min(GAME_DAY_MINUTES_MIN).max(GAME_DAY_MINUTES_MAX).default(GAME_DAY_MINUTES_DEFAULT),
+});
+
+export const GAME_FEATURE_KEYS = [
+  'npcs',
+  'enemies',
+  'bosses',
+  'lawEnforcement',
+  'wanted',
+  'revenge',
+  'missions',
+] as const;
+export type GameFeatureKey = (typeof GAME_FEATURE_KEYS)[number];
+
+export const GameOptionsSchema = z.object({
+  dayNight: GameDayNightOptionSchema.default({ enabled: false, minutesPerDay: GAME_DAY_MINUTES_DEFAULT }),
+  npcs: z.boolean().default(false),
+  enemies: z.boolean().default(false),
+  bosses: z.boolean().default(false),
+  lawEnforcement: z.boolean().default(false),
+  /** Wanted level / bounty system. */
+  wanted: z.boolean().default(false),
+  revenge: z.boolean().default(false),
+  missions: z.boolean().default(false),
+});
+export type GameOptions = z.infer<typeof GameOptionsSchema>;
+export type GameOptionsInput = z.input<typeof GameOptionsSchema>;
+
+
+/**
  * `midnite-game.json`. `.passthrough()` so an agent may add keys of its own;
  * everything the app reads is below.
  */
@@ -183,6 +225,8 @@ export const GameManifestSchema = z
     deterministic: z.boolean().default(false),
     /** Keep localStorage / IndexedDB across runs (`persist:game-<id>` instead of an in-memory partition). */
     keepSaveData: z.boolean().default(false),
+    /** Wizard fine-tune options; absent on games made before the wizard. */
+    options: GameOptionsSchema.optional(),
   })
   .passthrough();
 export type GameManifest = z.infer<typeof GameManifestSchema>;
@@ -282,6 +326,8 @@ export const GameCreateRequestSchema = z.object({
   network: GameNetworkSchema.optional(),
   /** Third-person cameras the cycle is limited to; empty or omitted = all five. */
   cameras: z.array(GameCameraIdSchema).max(5).optional(),
+  /** Fine-tune options from the wizard; written to the manifest. */
+  options: GameOptionsSchema.optional(),
 });
 export type GameCreateRequest = z.input<typeof GameCreateRequestSchema>;
 
@@ -351,6 +397,40 @@ export const GameToolbarRequest = z.object({
   gameId: z.string().min(1),
   action: z.enum(GAME_TOOLBAR_ACTIONS),
   value: z.union([z.string(), z.number(), z.boolean()]).optional(),
+});
+
+/**
+ * The kit's per-game juice settings (`kit/core/juice-settings.js`, on `window.__midnite.juice`): what the
+ * runner toolbar's Juice popover reads and writes. `reducedMotion` stays the game's own (it follows the OS).
+ */
+export const GameJuiceSettingsSchema = z.object({
+  enabled: z.boolean(),
+  intensity: z.number().min(0).max(2),
+  shake: z.boolean(),
+  flash: z.boolean(),
+  particles: z.boolean(),
+  postfx: z.boolean(),
+  volume: z.number().min(0).max(1),
+});
+export type GameJuiceSettings = z.infer<typeof GameJuiceSettingsSchema>;
+export const GameJuicePatchSchema = GameJuiceSettingsSchema.partial();
+export type GameJuicePatch = z.infer<typeof GameJuicePatchSchema>;
+/** Mirrors the kit's `DEFAULT_JUICE_SETTINGS`. */
+export const GAME_JUICE_DEFAULTS: GameJuiceSettings = {
+  enabled: true,
+  intensity: 1,
+  shake: true,
+  flash: true,
+  particles: true,
+  postfx: true,
+  volume: 0.8,
+};
+export const GAME_JUICE_ACTIONS = ['get', 'set', 'reset'] as const;
+export const GameJuiceRequest = z.object({
+  gameId: z.string().min(1),
+  action: z.enum(GAME_JUICE_ACTIONS),
+  /** For `set`: the keys to change. */
+  patch: GameJuicePatchSchema.optional(),
 });
 
 export const GameLogsRequest = z.object({

@@ -222,7 +222,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 475 -> 476 for Media > Sprites' `sprite-render.spec.ts` (1 test, Phase 106 Theme E): rendering a
 // rigged model into sprite frames needs real WebGL and OffscreenCanvas, which jsdom has neither of; the
 // camera maths, clip sampling and the main-side render relay are all vitest.
-export const MAX_DECLARED_E2E = 476;
+// Raised 476 -> 478 for Phase 101 Theme E's `piano-roll.spec.ts` (2 tests): drawing, moving, resizing and
+// deleting notes by real pointer drag on the piano roll's canvas, which has no DOM to hit-test in jsdom. The edit
+// maths, history, keymap and track controls all have vitest suites.
+export const MAX_DECLARED_E2E = 478;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

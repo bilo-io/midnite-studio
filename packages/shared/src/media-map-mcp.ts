@@ -58,7 +58,7 @@ export const MapListResultSchema = z.object({
           heightMinM: z.number(),
           heightMaxM: z.number(),
           capturedAt: z.string(),
-          /** Which layers the capture holds: `heightmap`, `satellite`, `roads`. */
+          /** Which layers the capture holds: `heightmap`, `satellite`, `roads`, `buildings`. */
           layers: z.array(z.string()),
         }),
       ),
@@ -129,6 +129,8 @@ export const MapCaptureTerrainInputSchema = z.object({
   size: TerrainSize,
   /** A place name for the capture's folder. */
   place: z.string().max(80).optional(),
+  /** Capture OSM building footprints with heights, up to 10 km a side (default true). */
+  buildings: z.boolean().optional(),
   /** Create a Terrain from the capture (default true). */
   handoff: z.boolean().optional(),
   /** Also start that terrain's build (default false). */

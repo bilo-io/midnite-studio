@@ -10,6 +10,8 @@ import {
   type BrowserBounds,
   type GameCreateRequest,
   type GameCreateResult,
+  type GameJuicePatch,
+  type GameJuiceSettings,
   type GameLogEntry,
   type GameManifest,
   type GameManifestIssue,
@@ -196,6 +198,8 @@ export function createGameService(deps: GameServiceDeps) {
     setVisible: (gameId: string, visible: boolean): void => deps.runner.setVisible(gameId, visible),
     toolbar: (gameId: string, action: ToolbarAction, value?: string | number | boolean): Promise<GitOpResult> =>
       deps.runner.toolbar(gameId, action, value),
+    juice: (gameId: string, action: 'get' | 'set' | 'reset', patch?: GameJuicePatch): Promise<GitOpResult<GameJuiceSettings>> =>
+      deps.runner.juice(gameId, action, patch),
     logs: (gameId: string, since?: number): { runId: string | null; entries: GameLogEntry[] } =>
       deps.runner.logs(gameId, since),
     async kitUpgrade(gameId: string): Promise<GitOpResult<{ branch: string }>> {

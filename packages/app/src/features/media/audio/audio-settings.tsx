@@ -6,6 +6,7 @@ import {
   AUDIO_MP3_BITRATES,
 } from '@midnite/studio-shared';
 
+import { GmInstrumentLibrary } from '../music-editor/gm-instrument-library';
 import { useAudioEngine, useAudioPrefs } from './use-audio';
 import { formatDuration } from './waveform';
 
@@ -88,6 +89,7 @@ export function AudioSettingsSection() {
             ? ` For Enhance, run: ollama pull ${ollama.recommended} (about 2 GB, fits an 8 GB Mac).`
             : ''}
       </p>
+      <GmInstrumentLibrary />
     </div>
   );
 }

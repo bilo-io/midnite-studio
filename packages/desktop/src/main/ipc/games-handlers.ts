@@ -88,6 +88,13 @@ export function registerGamesHandlers(
   );
 
   handle(
+    CHANNELS.gamesJuice,
+    schemas.GamesJuiceRequest,
+    ({ gameId, action, patch }) => service.juice(gameId, action, patch),
+    (issue) => failure(issue),
+  );
+
+  handle(
     CHANNELS.gamesLogs,
     schemas.GamesLogsRequest,
     ({ gameId, since }) => service.logs(gameId, since),

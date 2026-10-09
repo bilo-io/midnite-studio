@@ -8,6 +8,7 @@ import {
   detectRoadColour,
   extractRoadMask,
   failure,
+  MapBuildingsFileSchema,
   MapRoadGraphFileSchema,
   pickColour,
   needsHeightSource,
@@ -19,11 +20,13 @@ import {
   TERRAIN_INPUT_MAX_BYTES,
   TERRAIN_INPUT_MAX_SIDE,
   TERRAIN_ROAD_PREVIEW_SIZE,
+  TERRAIN_BUILDINGS_FOOTPRINTS_FILE,
   TERRAIN_ROADS_GRAPH_FILE,
   TERRAIN_SPEC_FILE,
   terrainSlug,
   terrainTimeStamp,
   type GitOpResult,
+  type MapBuildingsFile,
   type MapRoadGraphFile,
   type ImageProviderId,
   type TerrainBuildRequest,
@@ -419,6 +422,46 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     }
   }
 
+  /**
+   * Main-only (no IPC channel): attaches or removes the captured OSM building footprints (heights where
+   * OSM has them). Validated, written inside the per-terrain queue, recorded as `inputs.buildingsFootprints`.
+   */
+  async function setBuildingsFootprints(target: TerrainTarget, data: Uint8Array | { remove: true }): Promise<GitOpResult<{ count: number }>> {
+    try {
+      const located = await locate(target);
+      if (!located.ok) return located;
+      const { dir } = located.value;
+      if ('remove' in data) {
+        const updated = await updateSpec(target, dir, (spec) => ({ spec: { ...spec, inputs: withoutFootprints(spec.inputs) } }));
+        if (!updated.ok) return updated;
+        await rm(join(dir, TERRAIN_BUILDINGS_FOOTPRINTS_FILE), { force: true });
+        announce(target);
+        return ok({ count: 0 });
+      }
+      let parsed: MapBuildingsFile;
+      try {
+        parsed = MapBuildingsFileSchema.parse(JSON.parse(Buffer.from(data).toString('utf8')));
+      } catch (error) {
+        return failure(`The building footprints are not valid: ${error instanceof Error ? firstIssue(error) : String(error)}`);
+      }
+      const written = await deps.writeBytes({
+        repoId: target.repoId,
+        project: target.project,
+        path: `${target.terrain}/${TERRAIN_BUILDINGS_FOOTPRINTS_FILE}`,
+        data: Buffer.from(data),
+      });
+      if (!written.ok) return written;
+      const updated = await updateSpec(target, dir, (spec) => ({
+        spec: { ...spec, inputs: { ...spec.inputs, buildingsFootprints: { file: TERRAIN_BUILDINGS_FOOTPRINTS_FILE, count: parsed.buildings.length } } },
+      }));
+      if (!updated.ok) return updated;
+      announce(target);
+      return ok({ count: parsed.buildings.length });
+    } catch (error) {
+      return failure(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   // --- build -----------------------------------------------------------------------
 
   async function build(req: TerrainBuildRequest): Promise<GitOpResult<TerrainBuildResult>> {
@@ -561,12 +604,17 @@ export function createTerrainService(deps: TerrainServiceDeps) {
     return located.ok ? ok(located.value.dir) : located;
   }
 
-  return { library, get, setSpec, setInput, setRoadsGraph, build, cancel, paint, roadKey, export: exportPack, dirOf };
+  return { library, get, setSpec, setInput, setRoadsGraph, setBuildingsFootprints, build, cancel, paint, roadKey, export: exportPack, dirOf };
 }
 
 /** Nearest-neighbour resample of any raster to a `size`² one with the same channels. */
 function withoutGraph(inputs: TerrainSpec['inputs']): TerrainSpec['inputs'] {
   const { roadsGraph: _graph, ...rest } = inputs;
+  return rest;
+}
+
+function withoutFootprints(inputs: TerrainSpec['inputs']): TerrainSpec['inputs'] {
+  const { buildingsFootprints: _footprints, ...rest } = inputs;
   return rest;
 }
 

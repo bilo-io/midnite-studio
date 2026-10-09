@@ -1,11 +1,12 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { gameCsp, gameProtocolHandler, GAME_MIME_BY_EXT } from './game-protocol';
+import { gameCsp, gameProtocolHandler, GAME_MIME_BY_EXT, importMapHashes } from './game-protocol';
 
 // `net.fetch` of a `file:` URL reads the bytes back; that is all the handler asks of it.
 vi.mock('electron', () => ({
@@ -15,6 +16,9 @@ vi.mock('electron', () => ({
 }));
 
 const GAME_ID = 'g0123456789ab';
+// The index.html every new game is created from.
+const TEMPLATE_INDEX = resolve(__dirname, '../../../../../templates/media-game/common/index.html');
+const sha = (text: string): string => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 let root: string;
 let outside: string;
 
@@ -28,6 +32,8 @@ beforeAll(async () => {
   await writeFile(join(root, 'src', 'main.js'), 'console.log("hi")');
   await writeFile(join(root, 'vendor', 'rapier', 'rapier.wasm'), Buffer.from([0, 0x61, 0x73, 0x6d]));
   await writeFile(join(root, '.git', 'config'), '[core]');
+  await mkdir(join(root, 'templated'), { recursive: true });
+  await writeFile(join(root, 'templated', 'index.html'), await readFile(TEMPLATE_INDEX, 'utf8'));
   await writeFile(join(root, '.env'), 'SECRET=1');
   await writeFile(join(outside, 'secret.txt'), 'outside');
   await symlink(join(outside, 'secret.txt'), join(root, 'link.txt'));
@@ -98,5 +104,36 @@ describe('mstudio-game scheme handler', () => {
     // Scripts never come from the network, on or off.
     expect(on).toContain("script-src 'self' 'wasm-unsafe-eval'");
     expect(off).toContain("frame-src 'none'");
+  });
+
+  it("allows the template's inline import map by hash, and nothing else inline", async () => {
+    const html = await readFile(TEMPLATE_INDEX, 'utf8');
+    const body = /<script type="importmap">([\s\S]*?)<\/script>/.exec(html)?.[1];
+    expect(body).toBeDefined();
+    const csp = (await get('/templated/index.html')).headers.get('content-security-policy');
+    expect(csp).toContain(`script-src 'self' 'wasm-unsafe-eval' ${sha(body ?? '')};`);
+    const scriptSrc = csp?.split('; ').find((directive) => directive.startsWith('script-src'));
+    expect(scriptSrc).not.toContain('unsafe-inline');
+    // A non-HTML response never carries a hash.
+    expect((await get('/src/main.js')).headers.get('content-security-policy')).toBe(gameCsp('off'));
+  });
+});
+
+describe('importMapHashes', () => {
+  it('hashes only import maps, deduplicated', () => {
+    const html =
+      '<script type="importmap">{"imports":{}}</script>' +
+      "<SCRIPT TYPE='importmap' data-x>{\"imports\":{}}</SCRIPT>" +
+      '<script>alert(1)</script><script type="module">x()</script>' +
+      '<script type="importmapx">{}</script>';
+    expect(importMapHashes(html)).toEqual([sha('{"imports":{}}')]);
+  });
+
+  it('hashes the text the parser sees, with CRLF folded to LF', () => {
+    expect(importMapHashes('<script type="importmap">\r\n{}\r\n</script>')).toEqual([sha('\n{}\n')]);
+  });
+
+  it('returns nothing for a document without one', () => {
+    expect(importMapHashes('<!doctype html><title>g</title>')).toEqual([]);
   });
 });

@@ -17,6 +17,7 @@ import { AntigravityIcon, CodexIcon } from '../../../components/icons';
 import type { PickerProvider } from '../../../components/ai-thread';
 import { useUiStore } from '../../../store/ui-store';
 import { AiComposer, ProviderModelPicker, useComposerMic } from '../../../components/ai-thread';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
@@ -95,15 +96,15 @@ export function CreatePanel({
   };
 
   return (
-    <form
+    <MediaPanelLayout
+      as="form"
       aria-label="Create image"
-      className="flex h-full min-h-0 flex-col"
       onSubmit={(event) => {
         event.preventDefault();
         if (!blocked) onGenerate();
       }}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+      <MediaPanelBody className="flex flex-col gap-3 p-3">
         <div className="flex gap-2">
           <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-muted-foreground">
             Aspect
@@ -150,13 +151,13 @@ export function CreatePanel({
             {error}
           </p>
         ) : null}
-      </div>
+      </MediaPanelBody>
 
       {/*
         The prompt sits at the bottom of the whole panel, like every chat
         input, under the controls that shape it. Generate is its Send.
       */}
-      <div className="flex shrink-0 flex-col gap-2 border-t border-border/50 p-3">
+      <MediaPanelFooter className="flex flex-col gap-2 border-t border-border/50 p-3">
         <div className="flex flex-col gap-1 text-[11px] font-medium text-muted-foreground">
           Prompt
           <AiComposer
@@ -208,7 +209,7 @@ export function CreatePanel({
             </button>
           </div>
         ) : null}
-      </div>
-    </form>
+      </MediaPanelFooter>
+    </MediaPanelLayout>
   );
 }

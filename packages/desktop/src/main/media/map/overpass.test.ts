@@ -20,6 +20,12 @@ describe('overpass', () => {
     expect(q).toContain('(-34.1000000,18.3000000,-33.9000000,18.5000000);(._;>;);out body;');
   });
 
+  it('builds a building query for the buildings kind', () => {
+    const q = overpassQuery(BBOX, 'buildings');
+    expect(q).toContain('way["building"]["building"!="no"](-34.1000000,18.3000000,-33.9000000,18.5000000);(._;>;);out body;');
+    expect(q).not.toContain('highway');
+  });
+
   it('POSTs once with a User-Agent and parses the JSON', async () => {
     const fetch = vi.fn(async () => reply(200, '{"elements":[{"type":"node","id":1,"lat":0,"lon":0}]}'));
     const client = createOverpassClient({ fetch, userAgent: 'UA/1' });

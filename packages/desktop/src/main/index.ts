@@ -137,6 +137,8 @@ import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trig
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
+import { registerMediaMusicGmHandlers } from './ipc/media-music-gm-handlers';
+import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
@@ -512,6 +514,8 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaHandlers();
     registerMediaImageHandlers();
     registerMediaAudioHandlers();
+    registerMediaMusicGmHandlers();
+    registerMediaMusicHandlers();
     registerMediaModelHandlers();
     registerMediaModelSf3dHandlers();
     registerMediaTerrainHandlers();

@@ -8,6 +8,7 @@ import {
   ok,
   parseStarterId,
   type GameCameraId,
+  type GameOptions,
   type GitOpResult,
 } from '@midnite/studio-shared';
 
@@ -49,7 +50,7 @@ const escapeHtml = (text: string): string =>
 export async function composeStarter(
   id: string,
   dest: string,
-  options: { templateDir: string; name: string; cameras?: readonly GameCameraId[] },
+  options: { templateDir: string; name: string; cameras?: readonly GameCameraId[]; options?: GameOptions },
 ): Promise<GitOpResult<{ files: string[] }>> {
   const available = isStarterAvailable(id);
   if (!available.ok) return failure(available.reason);
@@ -95,10 +96,15 @@ export async function composeStarter(
     }
   }
 
-  const config = { perspective: parsed.perspective, genre: parsed.genre, cameras: [...(options.cameras ?? [])] };
+  const config = {
+    perspective: parsed.perspective,
+    genre: parsed.genre,
+    cameras: [...(options.cameras ?? [])],
+    ...(options.options ? { options: options.options } : {}),
+  };
   await writeFile(
     join(dest, 'src', 'game.config.js'),
-    `// Written by Midnite Studio when the game is created; edit freely.\n// \`cameras\` limits the third-person cycle (empty = all five).\nexport default ${JSON.stringify(config)};\n`,
+    `// Written by Midnite Studio when the game is created; edit freely.\n// \`cameras\` limits the third-person cycle (empty = all five); \`options\` mirrors the manifest.\nexport default ${JSON.stringify(config)};\n`,
     'utf8',
   );
 

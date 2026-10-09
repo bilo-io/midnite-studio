@@ -9,12 +9,14 @@ import * as THREE from 'three';
 /**
  * @param {number} color the gi
  * @param {number} belt
+ * @param {ReturnType<typeof import('kit/three/materials.js').createMaterials>} [materials] when given, the gi is a
+ *   normal-mapped cloth (a soft 'dirt' weave tinted to the gi colour) instead of a flat colour
  */
-export function createFighterModel(color, belt) {
+export function createFighterModel(color, belt, materials) {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const gi = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
+  const gi = materials ? materials.get('stone', { repeat: [2, 2], tint: new THREE.Color(color).multiplyScalar(1.9).getHex(), normalScale: 0.5, bumpScale: 0.25, roughness: 0.9 }) : new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
   const skin = new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.6 });
   const beltMat = new THREE.MeshStandardMaterial({ color: belt });
 

@@ -897,6 +897,7 @@ export const CHANNELS = {
   gamesSetBounds: 'mstudio:games:set-bounds',
   gamesSetVisible: 'mstudio:games:set-visible',
   gamesToolbar: 'mstudio:games:toolbar',
+  gamesJuice: 'mstudio:games:juice',
   gamesLogs: 'mstudio:games:logs',
   gamesKitUpgrade: 'mstudio:games:kit-upgrade',
   /** Move a game's runner view into the `game` popout window (Theme B). */
@@ -953,6 +954,25 @@ export const CHANNELS = {
   mediaAudioEngine: 'mstudio:media:audio-engine',
   mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
   mediaAudioExpand: 'mstudio:media:audio-expand',
+  // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
+  mediaGmStatus: 'mstudio:media:gm-status',
+  mediaGmEnsure: 'mstudio:media:gm-ensure',
+  mediaGmLoad: 'mstudio:media:gm-load',
+  // Music editor (Phase 101 Theme B): songs are <name>.mid + <name>.song.json inside an Audio project; main owns the MIDI I/O.
+  mediaMusicList: 'mstudio:media:music-list',
+  mediaMusicRead: 'mstudio:media:music-read',
+  mediaMusicWrite: 'mstudio:media:music-write',
+  mediaMusicImport: 'mstudio:media:music-import',
+  mediaMusicDelete: 'mstudio:media:music-delete',
+  // Phase 101 Themes J/K: export a song (.mid/WAV/MP3) and hand a rendered reference to Generator.
+  mediaMusicExport: 'mstudio:media:music-export',
+  mediaMusicSendToGenerator: 'mstudio:media:music-send-to-generator',
+  // Music agents (Phase 101 Theme H): an engine writes or refines a song; Antigravity's MCP registration lives in Settings.
+  mediaMusicAgentRun: 'mstudio:media:music-agent-run',
+  mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',
+  mediaMusicAgy: 'mstudio:media:music-agy',
+  // Phase 101 Theme I: the song's chat thread, stored beside it as <name>.chat.json.
+  mediaMusicChat: 'mstudio:media:music-chat',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -1574,6 +1594,8 @@ export const EVENT_CHANNELS = {
   mediaAudioProgress: 'mstudio:media:audio-progress',
   /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
   mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
+  mediaGmProgress: 'mstudio:media:gm-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
   mediaModelProgress: 'mstudio:media:model-progress',
   /** An agent edited a model (in-app iterative run or an MCP session) — see `ModelChangedEventSchema`. */
@@ -1590,6 +1612,12 @@ export const EVENT_CHANNELS = {
   mediaTerrainOpen: 'mstudio:media:terrain-open',
   /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
   mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
+  /** An agent edited a song (an engine's run or an MCP session) — see `MusicChangedEventSchema`. */
+  mediaMusicChanged: 'mstudio:media:music-changed',
+  /** `music_open` asked the window to show a song — see `MusicOpenEventSchema`. */
+  mediaMusicOpen: 'mstudio:media:music-open',
+  /** A music agent run advanced — see `MusicAgentProgressEventSchema`. */
+  mediaMusicAgentProgress: 'mstudio:media:music-agent-progress',
   /** `map_goto` (Phase 108 Theme I) asked the window to fly the map somewhere — see `MapOpenEventSchema`. */
   mediaMapOpen: 'mstudio:media:map-open',
   /** A sprite job advanced — see `SpriteProgressEventSchema`. */

@@ -80,10 +80,10 @@ describe('One-shot sheet', () => {
     fireEvent.click(within(panel).getByRole('checkbox', { name: 'Try generating the whole sheet in one image' }));
     const options = within(panel).getByTestId('one-shot-options');
     expect(options.textContent).toContain('One image: 8 columns × 8 rows of 64×64 cells, 8 px gutters');
-    expect(within(panel).getByRole('button', { name: 'Generate' })).toHaveProperty('disabled', false);
+    expect(within(panel).getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBeNull();
     fireEvent.change(within(panel).getByLabelText('walk frames'), { target: { value: '9' } });
     expect(within(options).getByRole('alert').textContent).toBe('Too many frames for one image — use at most 8 frames and 8 rows, or switch to Hand-drawn.');
-    expect(within(panel).getByRole('button', { name: 'Generate' })).toHaveProperty('disabled', true);
+    expect(within(panel).getByRole('button', { name: 'Generate' }).getAttribute('aria-disabled')).toBe('true');
   }, 30_000);
 
   it('shows the grid preview and per-row verdict, and hands a failing row to Hand-drawn', async () => {

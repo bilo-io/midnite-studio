@@ -755,6 +755,8 @@ export type MockFixtures = {
      */
     playtests?: GamePlaytestEntry[];
     playtestRun?: { passed: boolean; runs: GamePlaytestResult[] };
+    /** The juice settings a game starts with (default: the kit's). */
+    juice?: Record<string, unknown>;
     /** Theme P: what an export answers (default: success at a path built from the format and `dest`). */
     exportResult?: { ok: false; message: string } | { ok: true; warnings?: string[] };
   };
@@ -785,6 +787,8 @@ export type MockFixtures = {
       };
       ollama: { running: boolean; models: string[]; model: string | null; recommended: string };
     };
+    /** Phase 101 Theme D: GM programs already cached (`media.audio.gm.status()`); defaults to `[0]`. */
+    gmCached?: number[];
     imageProviders?: Array<{
       id: 'gemini' | 'openai' | 'agy' | 'ollama';
       available: boolean;
@@ -994,7 +998,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -1180,6 +1184,14 @@ export async function installMockBridge(
   add it for real.
 */
 export function buildMockBridge(data: MockFixtures) {
+  const musicChanged = new Set<(event: never) => void>();
+  const musicOpen = new Set<(event: never) => void>();
+  const musicProgress = new Set<(event: never) => void>();
+  (globalThis as { __mockMusicEmit?: unknown }).__mockMusicEmit = {
+    changed: (event: unknown) => musicChanged.forEach((h) => h(event as never)),
+    open: (event: unknown) => musicOpen.forEach((h) => h(event as never)),
+    progress: (event: unknown) => musicProgress.forEach((h) => h(event as never)),
+  };
   // Helpers live INSIDE the function: it is serialised into the page whole, so module scope is not there.
   /**
    * The Models library tree, derived from the mock's flat `model:<project>` file maps: a top-level key is a
@@ -3271,6 +3283,7 @@ export function buildMockBridge(data: MockFixtures) {
       },
       list: async () => ({ games: gamesList }),
       create: async (req: { name: string; engine: string; perspective: string }) => {
+        gamesCalls.push({ call: 'create', ...req });
         const slug = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'game';
         const gameId = `g${String(gamesList.length + 1).padStart(12, '0')}`;
         const path = `${data.games?.resolvedRoot ?? '/Users/test/Midnite Games'}/${slug}`;
@@ -3317,6 +3330,15 @@ export function buildMockBridge(data: MockFixtures) {
       toolbar: async (req: Record<string, unknown>) => {
         gamesCalls.push({ call: 'toolbar', ...req });
         return { ok: true as const };
+      },
+      // Juice settings: a per-game in-memory copy of the kit defaults; `set` merges, `reset` restores.
+      juice: async (req: { gameId: string; action: 'get' | 'set' | 'reset'; patch?: Record<string, unknown> }) => {
+        gamesCalls.push({ call: 'juice', ...req });
+        const defaults = { enabled: true, intensity: 1, shake: true, flash: true, particles: true, postfx: true, volume: 0.8 };
+        const current = gamesJuice.get(req.gameId) ?? data.games?.juice ?? defaults;
+        const next = req.action === 'set' ? { ...current, ...req.patch } : req.action === 'reset' ? defaults : current;
+        gamesJuice.set(req.gameId, next);
+        return { ok: true as const, value: next };
       },
       logs: async () => ({ runId: null, entries: [] }),
       kitUpgrade: async () => ({ ok: true as const, value: { branch: 'kit-upgrade/0.1.0' } }),
@@ -3597,6 +3619,15 @@ export function buildMockBridge(data: MockFixtures) {
         }),
         installEngine: async () => ({ ok: true as const }),
         onEngineProgress: unsubscribe,
+        gm: {
+          status: async () => ({ cached: data.media?.gmCached ?? [0] }),
+          ensure: async () => ({ ok: true as const }),
+          load: async (req: { program: number }) => ({
+            ok: true as const,
+            value: { program: req.program, notes: {} as Record<string, string> },
+          }),
+          onProgress: unsubscribe,
+        },
         expand: async (req: { title: string; style: string[] }) => ({
           ok: true as const,
           value: {
@@ -3649,6 +3680,119 @@ export function buildMockBridge(data: MockFixtures) {
           return { ok: true as const, value: { sessionId, files } };
         },
         onProgress: unsubscribe,
+      },
+      // Phase 101 Theme B — songs are `<name>.mid` (a stand-in) + `<name>.song.json` in the audio project.
+      music: {
+        // Tests push an agent edit with `window.__mockMusicEmit.changed(event)` / `.open(event)`.
+        onChanged: (handler: (event: never) => void) => {
+          musicChanged.add(handler);
+          return () => void musicChanged.delete(handler);
+        },
+        onOpen: (handler: (event: never) => void) => {
+          musicOpen.add(handler);
+          return () => void musicOpen.delete(handler);
+        },
+        export: async (req: { name: string; format: string }) => ({ ok: true as const, value: { dest: `/tmp/${req.name}.${req.format}` } }),
+        sendToGenerator: async (req: { project: string; name: string; durationS: number }) => {
+          const file = `${req.name.toLowerCase()}-reference-20260101-000000.wav`;
+          const key = `audio:${req.project}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [file]: 'RIFF' } };
+          return { ok: true as const, value: { file, sessionId: 's-mock', description: 'Instrumental, relaxed, bright mood, C major, 120 BPM in 4/4, played on Acoustic Grand Piano.', tags: ['relaxed', 'bright', 'C major', '120 bpm', 'acoustic grand piano'] } };
+        },
+        agent: {
+          // Tests (and screenshots) script a turn with `globalThis.__mockMusicRun = async (req) => result`.
+          run: async (req: unknown) => {
+            const script = (globalThis as { __mockMusicRun?: (req: unknown) => Promise<unknown> }).__mockMusicRun;
+            if (script) return (await script(req)) as never;
+            return { ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } };
+          },
+          cancel: async (req: { runId: string }) => {
+            (globalThis as { __mockMusicCancel?: (id: string) => void }).__mockMusicCancel?.(req.runId);
+            return { ok: true as const };
+          },
+          onProgress: (handler: (event: never) => void) => {
+            musicProgress.add(handler);
+            return () => void musicProgress.delete(handler);
+          },
+        },
+        chat: {
+          read: async (req: { project: string; name: string }) => {
+            const raw = (mediaFiles[`audio:${req.project}`] ?? {})[`${req.name}.chat.json`];
+            const parsed = raw ? JSON.parse(raw) : {};
+            return { ok: true as const, value: { version: 1 as const, engine: null, model: null, messages: [], ...parsed } };
+          },
+          write: async (req: { project: string; name: string; chat: unknown }) => {
+            const key = `audio:${req.project}`;
+            mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [`${req.name}.chat.json`]: JSON.stringify(req.chat) } };
+            return { ok: true as const, value: req.chat as never };
+          },
+        },
+        agy: {
+          status: async () => ({ ok: true as const, value: { registered: musicAgyRegistered, configPath: '~/.gemini/antigravity/mcp_config.json' } }),
+          register: async () => {
+            musicAgyRegistered = true;
+            return { ok: true as const, value: { registered: true, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+          unregister: async () => {
+            musicAgyRegistered = false;
+            return { ok: true as const, value: { registered: false, configPath: '~/.gemini/antigravity/mcp_config.json' } };
+          },
+        },
+        list: async (req: { project: string }) => ({
+          ok: true as const,
+          value: Object.keys(mediaFiles[`audio:${req.project}`] ?? {})
+            .filter((path) => path.endsWith('.mid') && !path.includes('/'))
+            .map((path) => ({
+              name: path.slice(0, -4),
+              path,
+              hasSidecar: `${path.slice(0, -4)}.song.json` in (mediaFiles[`audio:${req.project}`] ?? {}),
+              size: 1,
+              mtimeMs: 1,
+            })),
+        }),
+        read: async (req: { project: string; name: string }) => {
+          const sidecar = mediaFiles[`audio:${req.project}`]?.[`${req.name}.song.json`];
+          if (sidecar === undefined) return { ok: false as const, kind: 'error' as const, message: 'Song not found.' };
+          return { ok: true as const, value: JSON.parse(sidecar) as unknown };
+        },
+        write: async (req: { project: string; name: string; song: unknown }) => {
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: {
+              ...(mediaFiles[key] ?? {}),
+              [`${req.name}.mid`]: 'mid',
+              [`${req.name}.song.json`]: JSON.stringify(req.song),
+            },
+          };
+          return { ok: true as const, value: { size: 1, largeFile: false } };
+        },
+        import: async (req: { project: string }) => {
+          const song = {
+            version: 1,
+            name: 'Imported',
+            ppq: 480,
+            tempos: [{ tick: 0, bpm: 120 }],
+            timeSignatures: [{ tick: 0, numerator: 4, denominator: 4 }],
+            keySignatures: [],
+            meta: [],
+            tracks: [],
+            clips: [],
+            mixer: { master: { volume: 0.8, pan: 0, mute: false, solo: false } },
+          };
+          const key = `audio:${req.project}`;
+          mediaFiles = {
+            ...mediaFiles,
+            [key]: { ...(mediaFiles[key] ?? {}), 'Imported.mid': 'mid', 'Imported.song.json': JSON.stringify(song) },
+          };
+          return { ok: true as const, value: [{ name: 'Imported', song }] };
+        },
+        delete: async (req: { project: string; name: string }) => {
+          const key = `audio:${req.project}`;
+          const { [`${req.name}.mid`]: _mid, [`${req.name}.song.json`]: _side, ...rest } = mediaFiles[key] ?? {};
+          mediaFiles = { ...mediaFiles, [key]: rest };
+          return { ok: true as const };
+        },
       },
       model: {
         providers: async () => ({
@@ -5261,6 +5405,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowTerrains: mcpAllowTerrains,
         allowSprites: mcpAllowSprites,
         allowMaps: mcpAllowMaps,
+        allowMusic: mcpAllowMusic,
       }),
       set: async (req: {
         enabled?: boolean;
@@ -5271,6 +5416,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowTerrains?: boolean;
         allowSprites?: boolean;
         allowMaps?: boolean;
+        allowMusic?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
@@ -5280,6 +5426,7 @@ export function buildMockBridge(data: MockFixtures) {
         if (req.allowTerrains !== undefined) mcpAllowTerrains = req.allowTerrains;
         if (req.allowSprites !== undefined) mcpAllowSprites = req.allowSprites;
         if (req.allowMaps !== undefined) mcpAllowMaps = req.allowMaps;
+        if (req.allowMusic !== undefined) mcpAllowMusic = req.allowMusic;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -5295,6 +5442,7 @@ export function buildMockBridge(data: MockFixtures) {
           allowTerrains: mcpAllowTerrains,
           allowSprites: mcpAllowSprites,
           allowMaps: mcpAllowMaps,
+          allowMusic: mcpAllowMusic,
         };
       },
       calls: async () => ({
@@ -5513,6 +5661,11 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowSprites =data.mcp?.allowSprites ?? false;
   // eslint-disable-next-line no-var
   var mcpAllowMaps = data.mcp?.allowMaps ?? false;
+  // eslint-disable-next-line no-var
+  var mcpAllowMusic = data.mcp?.allowMusic ?? false;
+  // Phase 101 Theme H: whether Midnite is registered in Antigravity's MCP config (Settings ▸ MCP).
+  // eslint-disable-next-line no-var
+  var musicAgyRegistered = false;
   // Models tab agent events: handlers the bridge registered, fired by specs through `window.__mockModelEvents`.
   // eslint-disable-next-line no-var
   var modelEvents = {
@@ -5596,6 +5749,8 @@ export function buildMockBridge(data: MockFixtures) {
   // --- games (Phase 107) ------------------------------------------------------
   // eslint-disable-next-line no-var
   var gamesPlaytests: GamePlaytestEntry[] = data.games?.playtests ?? [];
+  // eslint-disable-next-line no-var
+  var gamesJuice = new Map<string, Record<string, unknown>>();
   // eslint-disable-next-line no-var
   var gamesList: Array<Record<string, unknown>> = (data.games?.list ?? []).map((g) => ({
     engine: 'phaser',

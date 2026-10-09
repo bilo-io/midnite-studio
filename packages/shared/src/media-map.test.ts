@@ -16,10 +16,10 @@ import { MEDIA_TABS, MEDIA_TAB_EXPORT_FORMATS, REPO_SCOPED_MEDIA_TABS } from './
 import { SECRET_KEYS } from './domain/secrets';
 
 describe('Maps tab (Phase 108 Theme A)', () => {
-  it('is the ninth tab, appended last so every persisted tab index is unchanged', () => {
+  it('is the fifth tab, after Audio; ids are unchanged so only the order moves', () => {
     expect(MEDIA_TABS).toHaveLength(9);
-    expect(MEDIA_TABS[8]).toBe('map');
-    expect(REPO_SCOPED_MEDIA_TABS.at(-1)).toBe('map');
+    expect(MEDIA_TABS).toEqual(['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model', 'sprite', 'game']);
+    expect(REPO_SCOPED_MEDIA_TABS).toContain('map');
     expect(MEDIA_TAB_EXPORT_FORMATS.map).toEqual(['geojson', 'kml']);
   });
 

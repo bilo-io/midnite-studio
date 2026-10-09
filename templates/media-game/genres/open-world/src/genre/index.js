@@ -16,6 +16,8 @@
 import * as THREE from 'three';
 
 import { createWanted, pursuit, wantedReducer } from 'kit/core/genre/crime/wanted.js';
+import config from '../game.config.js';
+import { dayLengthSeconds } from './day-length.js';
 import { clockText, hourAt, skyAt } from 'kit/core/genre/open-world/daynight.js';
 import { minimapPixels, worldToMinimap } from 'kit/core/genre/open-world/minimap.js';
 import { nearestNode, pointAlong, polylineLength, routeOnRoads, routePolyline } from 'kit/core/genre/open-world/route.js';
@@ -25,7 +27,7 @@ import { resolveTerrainPath } from 'kit/core/terrain-manifest.js';
 import { createRng } from 'kit/core/rng.js';
 
 /** Seconds in one game day; the world wakes at 09:00. */
-const DAY_SECONDS = 240;
+const DAY_SECONDS = dayLengthSeconds(config.options?.dayNight);
 const MINIMAP_PX = 168;
 const SIGHT = 45;
 const POLICE_SPEED = 16;
@@ -33,20 +35,21 @@ const POLICE_SPEED = 16;
 /**
  * @param {THREE.Scene} scene
  * @param {{
+ *   juice: ReturnType<typeof import('kit/three/juice.js').createJuice>,
+ *   sfx: ReturnType<typeof import('kit/core/sfx.js').createSfx>,
  *   rig: ReturnType<typeof import('kit/three/cameras.js').createCameraRig>,
  *   hud: ReturnType<typeof import('kit/three/hud.js').createHud>,
  *   input: ReturnType<typeof import('kit/three/input.js').createInput>,
  *   terrain: Awaited<ReturnType<typeof import('kit/three/terrain.js').loadTerrain>>,
  *   terrainUrl: string,
  *   cars: ReturnType<typeof import('kit/three/vehicle.js').createVehicle>[],
- *   lights: { sun: THREE.DirectionalLight, ambient: THREE.HemisphereLight },
  *   driving: () => ReturnType<typeof import('kit/three/vehicle.js').createVehicle> | null,
  *   playerPosition: () => number[],
  *   bust: () => void,
  * }} ctx
  */
 export function installGenre(scene, ctx) {
-  const { hud, input, terrain, lights } = ctx;
+  const { hud, input, terrain, juice, sfx } = ctx;
   const roads = terrain.roads;
   const index = indexRoads(roads);
   const rng = createRng(7);
@@ -90,7 +93,11 @@ export function installGenre(scene, ctx) {
     const before = wanted.level;
     wanted = wantedReducer(wanted, { type: 'crime', crime });
     crimes += 1;
-    if (wanted.level > before) hud.banner(`WANTED ${'★'.repeat(wanted.level)}`);
+    if (wanted.level > before) {
+      hud.banner(`WANTED ${'★'.repeat(wanted.level)}`);
+      sfx.play('hurt', { pitch: 0.7, power: 1.1 });
+      juice.screenFlash(0xff3030, 0.16, 0.35);
+    }
     setTimeout(() => hud.banner(null), 1200);
   };
 
@@ -182,15 +189,8 @@ export function installGenre(scene, ctx) {
 
       // --- day and night ------------------------------------------------------------------
       const hour = hourAt(seconds, DAY_SECONDS, 9);
+      // The sky, sun, fog and hemisphere light are the stage's (`createEnvironment` in `../scenes/level.js`); this reads the hour for the clock and the street lights.
       const sky = skyAt(hour);
-      const [sr = 0, sg = 0, sb = 0] = sky.sky;
-      /** @type {THREE.Color} */ (scene.background).setRGB(sr / 255, sg / 255, sb / 255, THREE.SRGBColorSpace);
-      scene.fog?.color.setRGB(sr / 255, sg / 255, sb / 255, THREE.SRGBColorSpace);
-      lights.sun.intensity = sky.sun;
-      lights.ambient.intensity = sky.ambient;
-      const r = 120;
-      lights.sun.position.set((me[0] ?? 0) + Math.sin(sky.azimuth) * Math.cos(sky.elevation) * r, Math.max(5, Math.sin(sky.elevation) * r), (me[2] ?? 0) + Math.cos(sky.azimuth) * r * 0.4);
-      lights.sun.target.position.set(me[0] ?? 0, me[1] ?? 0, me[2] ?? 0);
 
       // --- traffic and pedestrians ------------------------------------------------------------
       for (const a of agents) {
@@ -212,15 +212,21 @@ export function installGenre(scene, ctx) {
         if (driving && Math.abs(driving.speed) > 5 && d < (ped ? 2.2 : 2.8)) {
           a.down = 8;
           a.mesh.visible = false;
+          juice.trigger('hit', { position: [x, y + 1, z], strength: ped ? 0.9 : 1.4 });
+          juice.burst('impact', [x, y + 0.8, z], { scale: ped ? 0.8 : 1.3 });
           commit(ped ? 'pedestrian' : 'vehicle');
         } else if (!driving && ped && punch > 0 && d < 1.6) {
           a.down = 8;
           a.mesh.visible = false;
+          juice.trigger('hit', { position: [x, y + 1, z], strength: 0.6 });
           commit('pedestrian');
           punch = 0;
         }
       }
-      if (!driving && input.justPressed('attack')) punch = 0.25;
+      if (!driving && input.justPressed('attack')) {
+        punch = 0.25;
+        sfx.play('swing', { pitch: 1.1 });
+      }
       punch = Math.max(0, punch - dt);
 
       // --- police: route on the roads, then close in ------------------------------------------
@@ -267,11 +273,14 @@ export function installGenre(scene, ctx) {
         cop.mesh.rotation.y = cop.yaw;
         const bar = /** @type {THREE.Mesh} */ (cop.mesh.children[0]);
         /** @type {THREE.MeshStandardMaterial} */ (bar.material).emissive.setHex(frame % 20 < 10 ? 0xff0000 : 0x0044ff);
+        // A two-tone siren from the nearest car that is in earshot.
+        if (d < 60 && cop === police[0] && frame % 30 === 0) sfx.play('laser', { pitch: frame % 60 === 0 ? 1.7 : 1.3, power: 0.35, position: [cop.p[0] ?? 0, 1, cop.p[2] ?? 0], volume: 0.5 });
         // Caught on foot: busted.
         if (!driving && d < 2.5) {
           busted += 1;
           wanted = wantedReducer(wanted, { type: 'clear' });
           ctx.bust();
+          juice.trigger('death', { position: [me[0] ?? 0, me[1] ?? 0, me[2] ?? 0], strength: 0.6 });
           hud.banner('BUSTED');
           setTimeout(() => hud.banner(null), 1500);
           break;
@@ -289,6 +298,10 @@ export function installGenre(scene, ctx) {
         marker.position.set(target.p[0] ?? 0, (target.p[1] ?? 0) + 15, target.p[2] ?? 0);
         if (Math.hypot((target.p[0] ?? 0) - (me[0] ?? 0), (target.p[2] ?? 0) - (me[2] ?? 0)) < 6) {
           deliveries += 1;
+          sfx.play('win');
+          sfx.play('coin', { pitch: 1.2 });
+          juice.text([me[0] ?? 0, (me[1] ?? 0) + 2, me[2] ?? 0], '+ delivered', 'heal');
+          juice.burst('spark', [me[0] ?? 0, (me[1] ?? 0) + 1, me[2] ?? 0], { count: 40, colors: [0xfacc15, 0xffffff] });
           const others = ends.filter((n) => n !== target);
           target = others[Math.floor(rng.next() * others.length)] ?? target;
           hud.banner('Delivered! New drop marked.');

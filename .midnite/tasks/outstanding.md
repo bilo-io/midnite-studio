@@ -2,6 +2,10 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Phase 101 Theme H leftovers.** (1) ~~Editor does not listen to `onChanged`/`onOpen`~~ — done in Theme E: `use-song-document` applies each event as one undo step and `audio-tab` opens the requested song on the Editor tab. (2) `music_render_preview` returns the piano-roll PNG only; the optional short WAV clip from an open renderer needs Theme C's engine. (3) A registered Antigravity reaches the app's global MCP server, which does not scope a call to one song, unlike the private per-run server Claude and Codex get.
+- **Phase 101 Theme G leftovers.** `music_get_notes`, `music_add_notes` and `music_remove_notes` work on a track's raw notes and know nothing about clips: an agent sees the source notes, not what a clip plays, and cannot create or edit clips or the drum grid's steps/swing. Clip-aware tools (`music_get_clips`, `music_add_clip`, expanded reads) are not built. The drum grid also edits one bar at a time and has no copy-bar action.
+- **Mirror the GM sample sets into `bilo-io/midnite-apps` (needs user sign-off).** Phase 101 Theme D loads FluidR3_GM instrument samples from `gleitz.github.io/midi-js-soundfonts` through the single `GM_SAMPLE_BASE_URL` constant (`packages/shared/src/media-music-gm.ts`). Mirroring them into the public `midnite-apps` repo (versioned, under our control, with the CC BY 3.0 / MIT notices alongside) is outward-facing, so it waits for the user; the switch is changing that one constant. Also open: upstream publishes no FluidR3 percussion set, so the channel-10 drum kit is synthesised — sampled drums would need a different GM set.
+
 - **Linux and Windows support.** macOS (arm64) is the only officially supported platform for now
   (README, *Supported platform*). The consequences are recorded rather than removed, so
   un-deferring is a revert of one commit and not an archaeology exercise: every default CI gate

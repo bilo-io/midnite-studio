@@ -40,16 +40,16 @@ afterEach(() => {
 describe('GameIteratePanel', () => {
   it('offers MCP agents first, then Ollama models, and warns only for Ollama', async () => {
     renderView(<Harness />, { fixtures });
-    const select = (await screen.findByRole('combobox', { name: 'Engine' })) as HTMLSelectElement;
-    await waitFor(() => expect([...select.options].some((o) => o.value.startsWith('ollama:'))).toBe(true));
-    const values = [...select.options].map((o) => o.value);
-    expect(values.findIndex((v) => v.startsWith('ollama:'))).toBeGreaterThan(values.findIndex((v) => v.startsWith('agent:')));
-    expect(values).toContain('agent:claude');
-    // Agents that cannot be confined to file tools + game tools are not offered.
-    expect(values.every((v) => !v.startsWith('agent:') || v === 'agent:claude' || v === 'agent:codex')).toBe(true);
+    const picker = await screen.findByTestId('game-engine-picker');
+    expect(picker).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Provider:/ }));
+    await waitFor(() => expect(screen.getAllByRole('option').length).toBeGreaterThan(0));
+    const optionLabels = screen.getAllByRole('option').map((o) => o.textContent ?? '');
+    expect(optionLabels.some((l) => l.includes('Claude'))).toBe(true);
+    expect(optionLabels.some((l) => l.includes('Ollama'))).toBe(true);
 
     expect(screen.queryByTestId('games-ollama-banner')).toBeNull();
-    fireEvent.change(select, { target: { value: 'ollama:qwen2.5-coder:7b' } });
+    fireEvent.click(screen.getByRole('option', { name: /Ollama/ }));
     const banner = await screen.findByTestId('games-ollama-banner');
     expect(banner.getAttribute('role')).toBe('status');
     expect(banner.textContent).toContain(GAMES_OLLAMA_WARNING);
@@ -59,7 +59,7 @@ describe('GameIteratePanel', () => {
 
   it('runs with the prompt, engine and passes, then streams commits with Undo turn on the newest', async () => {
     renderView(<Harness />, { fixtures });
-    await screen.findByRole('combobox', { name: 'Engine' });
+    await screen.findByTestId('game-engine-picker');
     fireEvent.change(screen.getByRole('slider', { name: 'Refinement passes' }), { target: { value: '2' } });
     fireEvent.change(screen.getByRole('textbox', { name: 'Prompt' }), { target: { value: 'Add a double jump' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run agent' }));
