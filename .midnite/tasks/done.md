@@ -14600,3 +14600,7 @@ The game kit gains its 3D half. Engine-free `kit/core/` modules — a fixed-step
 ### Phase 105 Themes I + J — Export, the game-engine manifest, and Terrain over MCP (2026-10-06)
 
 `terrain-pack` (a folder: 16-bit heightfield png + json, per-LOD glb chunks, maps, placements, `terrain.manifest.json`) and a single `.glb` export with foliage as `EXT_mesh_gpu_instancing`; `TerrainManifestSchema` v1 is the contract Phase 107 reads. Nine `terrain_*` MCP tools behind the `allowTerrains` switch (mcp.json v6), a software preview renderer, a 5-minute shim timeout for slow tools, and the `midnite-media-terrain-build` skill in six copies with a copies test.
+
+### Phase 101 Theme K — research spike: MusicGen-melody is not available as ONNX (2026-10-09)
+
+No `Xenova/` or `onnx-community/` melody repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` 3.8.1 and 4.3.1 have no `musicgen_melody` model type or chroma extractor. Nothing could be measured; small is 656 MB, and melody is estimated at about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which does not fit an 8 GB Mac. Decision: Theme K takes the fallback (rendered reference plus a deterministic text description). Build still pending Themes B, C and J. Write-up in `docs/research/musicgen-melody-onnx.md`.
