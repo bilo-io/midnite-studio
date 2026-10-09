@@ -2,10 +2,11 @@ import { Midi } from '@tonejs/midi';
 import { SongSchema, type Song } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { midiToSong, songToMidi } from './midi-io';
+import { ccToPan, ccToVolume, midiToSong, panToCc, songToMidi, volumeToCc } from './midi-io';
 
 const baseTrack = {
   automation: [],
+  effects: [],
   mixer: { volume: 0.8, pan: 0, mute: false, solo: false },
   color: '#6366f1',
 };
@@ -79,9 +80,8 @@ describe('songToMidi / midiToSong (Phase 101 Theme B)', () => {
     expect(piano.channel).toBe(0);
     expect(piano.program).toBe(4);
     expect(piano.notes).toEqual([...byName(song, 'Piano').notes].sort((a, b) => a.startTick - b.startTick));
-    expect(piano.controlChanges).toEqual(
-      [...byName(song, 'Piano').controlChanges].sort((a, b) => a.tick - b.tick || a.controller - b.controller),
-    );
+    // CC 7 and 10 belong to the mixer (see the Theme F tests below); the rest stay loose controllers.
+    expect(piano.controlChanges).toEqual([{ tick: 960, controller: 64, value: 127 }]);
     expect(piano.pitchBends).toEqual(byName(song, 'Piano').pitchBends);
 
     const drums = byName(back, 'Drums');
@@ -144,5 +144,54 @@ describe('songToMidi / midiToSong (Phase 101 Theme B)', () => {
 
   it('throws on bytes that are not a MIDI file', () => {
     expect(() => midiToSong(new Uint8Array([1, 2, 3, 4]))).toThrow();
+  });
+
+  describe('CC 7 and CC 10 mirror the mixer (Phase 101 Theme F)', () => {
+    const mixed = (extra: Record<string, unknown>) =>
+      SongSchema.parse({ tracks: [{ id: 't1', name: 'A', notes: [{ pitch: 60, startTick: 0, durationTicks: 480, velocity: 90 }], ...extra }] });
+
+    it('imports an opening CC 7 and CC 10 as the fader and pan', () => {
+      const back = midiToSong(songToMidi(mixed({ mixer: { volume: 0.5, pan: -0.5, mute: false, solo: false } })));
+      const t = back.tracks[0]!;
+      expect(t.mixer.volume).toBeCloseTo(0.5, 1);
+      expect(t.mixer.pan).toBeCloseTo(-0.5, 1);
+      expect(t.automation).toEqual([]);
+      expect(t.controlChanges).toEqual([]);
+    });
+
+    it('writes nothing for a default strip', () => {
+      const t = midiToSong(songToMidi(mixed({}))).tracks[0]!;
+      expect(t.mixer).toEqual({ volume: 0.8, pan: 0, mute: false, solo: false });
+    });
+
+    it('writes volume and pan lanes as CC events and reads moving ones back as lanes', () => {
+      const song2 = mixed({
+        automation: [
+          { id: 'l1', target: 'volume', curve: 'linear', points: [{ tick: 0, value: 0 }, { tick: 960, value: 1 }] },
+          { id: 'l2', target: 'pan', curve: 'step', points: [{ tick: 480, value: 1 }] },
+        ],
+      });
+      const t = midiToSong(songToMidi(song2)).tracks[0]!;
+      expect(t.mixer.volume).toBe(0);
+      expect(t.automation.find((l) => l.target === 'volume')!.points).toEqual([{ tick: 0, value: 0 }, { tick: 960, value: 1 }]);
+      expect(t.automation.find((l) => l.target === 'pan')!.points).toEqual([{ tick: 480, value: 1 }]);
+    });
+
+    it('lets the mixer win over a raw CC 7 at the same tick', () => {
+      const t = midiToSong(
+        songToMidi(mixed({ mixer: { volume: 1, pan: 0, mute: false, solo: false }, controlChanges: [{ tick: 0, controller: 7, value: 10 }] })),
+      ).tracks[0]!;
+      expect(t.mixer.volume).toBe(1);
+    });
+
+    it('converts the value ranges both ways', () => {
+      expect(volumeToCc(1)).toBe(127);
+      expect(volumeToCc(2)).toBe(127);
+      expect(panToCc(0)).toBe(64);
+      expect(panToCc(-1)).toBe(1);
+      expect(ccToPan(64)).toBe(0);
+      expect(ccToPan(127)).toBe(1);
+      expect(ccToVolume(127)).toBe(1);
+    });
   });
 });
