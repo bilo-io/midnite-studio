@@ -63,9 +63,9 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme I — The agent chat in the composer.** ◻ Not started. Blocked on the Chats page merging.
 
-**Theme J — Export.** ◻ Not started.
+**Theme J — Export.** ✅ Landed. The Editor's Export split button offers `.mid`, WAV and MP3 (`MEDIA_AUDIO_EDITOR_EXPORT_FORMATS`; `mid` joined `MediaExportFormat`, no ffmpeg). A Range select exports the whole song or the loop region (`sliceSong` cuts and rebases the song). `.mid` is encoded in main; WAV is the Theme C `Tone.Offline` render handed to main over `mediaMusicExport`; MP3 is that WAV through ffmpeg at the chosen `AUDIO_MP3_BITRATES` rate. The toolbar sits beside the Editor and reads the song the editor publishes through `editor-session.ts`, so the plumbing is song-agnostic. Per-track stems are not built.
 
-**Theme K — Send to Generator.** 🔄 spike done; build pending B/C/J. MusicGen-melody is **not** available as ONNX: no `Xenova/` or `onnx-community/` repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` (3.8.1 and 4.3.1) has no `musicgen_melody` model type or chroma extractor. Estimated cost if we exported it ourselves is about 1.9 GB download, 6-8 GB RAM and 4-20x slower than real time, which does not fit an 8 GB Mac. The build therefore takes the fallback: a rendered reference plus a deterministic text description. Write-up: [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
+**Theme K — Send to Generator.** ✅ Landed on the fallback branch. MusicGen-melody is **not** available as ONNX: no `Xenova/` or `onnx-community/` repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` (3.8.1 and 4.3.1) has no `musicgen_melody` model type or chroma extractor. Estimated cost if we exported it ourselves is about 1.9 GB download, 6-8 GB RAM and 4-20x slower than real time, which does not fit an 8 GB Mac. The build therefore takes the fallback: a rendered reference plus a deterministic text description. Write-up: [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md). Build: **Send to Generator** renders the song (or loop region), lands it in the project as `<song>-reference-<stamp>.wav` and records an import session. `describeSong` derives a deterministic description (Krumhansl-Schmuckler key or the declared key signature, tempo, time signature, GM instruments, a tempo+mode mood) that seeds the prompt form's caption and style tags. The variant's sidecar carries `fromSong` and `description`, and the expanded variant row shows "Rendered from <song>". **Limitation:** the clip is a reference only; nothing conditions generation on the melody, because MusicGen-melody has no ONNX build.
 
 ## A — Editor and Generator tabs (S)
 
@@ -176,18 +176,18 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 - [ ] Pass progress ("Pass n of N") and the latest tool action, with **Stop directly left of Send**.
 - [ ] Assistant replies summarise what changed (tracks and bars touched), with a link that selects those notes in the piano roll.
 
-## J — Export (S)
+## J — Export (S) ✅ DONE
 
-- [ ] `.mid` (the interchange file), **WAV** (offline Tone.js render) and **MP3** (the Generator's existing encoder and `AUDIO_MP3_BITRATES`), through the Media export toolbar (`MEDIA_TAB_EXPORT_FORMATS`).
-- [ ] Export the whole song or the loop region. Per-track stems are optional.
-- [ ] Vitest: export format plumbing. The render is covered by Theme C.
+- [x] `.mid` (the interchange file), **WAV** (offline Tone.js render) and **MP3** (the Generator's existing encoder and `AUDIO_MP3_BITRATES`), through the Media export toolbar (`MEDIA_TAB_EXPORT_FORMATS`).
+- [x] Export the whole song or the loop region. Per-track stems are optional.
+- [x] Vitest: export format plumbing. The render is covered by Theme C.
 
-## K — Send to Generator (M, research)
+## K — Send to Generator (M, research) ✅ DONE (fallback branch)
 
 - [x] **Spike.** Is MusicGen-melody available as ONNX for `@huggingface/transformers`? Record the download size, RAM use and speed on an 8 GB Mac. **No.** No ONNX export on the hub and no `musicgen_melody` support in transformers.js 3.8.1 or 4.3.1, so nothing could be measured. Small is 656 MB measured; melody is an *estimate* of about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which rules out 8 GB Macs. Verdict: take the fallback branch. See [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
 - [x] ~~If it is: an **"Send to Generator"** button renders the arrangement (or loop region) to audio and hands it to Generator as melody conditioning beside the text prompt.~~ Not applicable, per the spike.
-- [ ] If it is not: hand Generator a rendered reference plus a generated text description (key, tempo, instrumentation, mood, derived deterministically from the song), and record the limitation.
-- [ ] The resulting variant in Generator links back to the song it came from.
+- [x] If it is not: hand Generator a rendered reference plus a generated text description (key, tempo, instrumentation, mood, derived deterministically from the song), and record the limitation.
+- [x] The resulting variant in Generator links back to the song it came from.
 
 ## Files this phase touches
 

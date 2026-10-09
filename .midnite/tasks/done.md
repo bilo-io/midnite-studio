@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Themes J + K — Export and Send to Generator
+
+The Editor exports `.mid`, WAV and MP3 for the whole song or the loop region, and Send to Generator lands a rendered reference in the project with a deterministic description (key, tempo, instruments, mood) that seeds the Generator prompt. The variant links back to its song. MusicGen-melody has no ONNX build, so the reference does not condition generation; that limitation is recorded in the phase doc.
+
+- [x] J: `.mid`, WAV and MP3 export through the Media export toolbar; whole song or loop region
+- [x] J: vitest for export format plumbing
+- [x] K: reference render plus generated text description (fallback branch)
+- [x] K: the Generator variant links back to its source song
+
 ## 2026-10-09 — Phase 101 Theme E — Piano roll and arrangement
 
 The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; Theme H's live `music.onChanged` edits land as one undo step and `music.onOpen` shows the song. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
