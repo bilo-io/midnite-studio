@@ -7,12 +7,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createMcpStore } from '../mcp-store';
 import {
   getMcpAllowGateDecide,
+  getMcpAllowMusic,
   getMcpAllowUi,
   getMcpServerHandle,
   getMcpStatus,
   registerMcpServer,
   resetMcpServerStateForTests,
   setMcpAllowGateDecide,
+  setMcpAllowMusic,
   setMcpAllowUi,
   setMcpEnabled,
 } from './index';
@@ -194,6 +196,21 @@ describe('setMcpAllowUi', () => {
   it('answers ok:false before registerMcpServer has run', async () => {
     const result = await setMcpAllowUi(true);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('setMcpAllowMusic (Phase 101 Theme H)', () => {
+  it('is off by default, persists, never starts the socket, and preserves the other switches', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 9, enabled: false, allowUi: true, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: true, allowMusic: false });
+    await registerMcpServer({ userDataDir, appVersion: '0.0.0-test', buildId: 'test', isPackaged: false });
+    expect(getMcpAllowMusic()).toBe(false);
+
+    const result = await setMcpAllowMusic(true);
+    expect(result.ok && result.status.allowMusic).toBe(true);
+    expect(getMcpServerHandle()).toBeNull();
+    expect(await createMcpStore(userDataDir).load()).toMatchObject({ version: 9, allowUi: true, allowMaps: true, allowMusic: true });
+    expect(await getMcpStatus()).toMatchObject({ allowMusic: true });
   });
 });
 

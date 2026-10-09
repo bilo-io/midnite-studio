@@ -999,6 +999,7 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         allowTerrains: false,
         allowSprites: false,
         allowMaps: false,
+        allowMusic: false,
       }).success,
     ).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);

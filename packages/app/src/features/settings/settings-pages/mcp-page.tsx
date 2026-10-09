@@ -131,14 +131,14 @@ export function McpSettingsPage() {
   const agy = useQuery({
     queryKey: AGY_STATUS_KEY,
     queryFn: async () => {
-      const result = await bridge()?.media.music.agy.status();
+      const result = await bridge()?.media?.music?.agy.status();
       return result && result.ok ? result.value : { registered: false, configPath: '' };
     },
   });
   const [agyConsent, setAgyConsent] = useState(false);
   const agyChange = useMutation({
     mutationFn: async (next: 'register' | 'unregister') =>
-      next === 'register' ? bridge()?.media.music.agy.register({ consent: true }) : bridge()?.media.music.agy.unregister(),
+      next === 'register' ? bridge()?.media?.music?.agy.register({ consent: true }) : bridge()?.media?.music?.agy.unregister(),
     onSettled: () => {
       setAgyConsent(false);
       void client.invalidateQueries({ queryKey: AGY_STATUS_KEY });

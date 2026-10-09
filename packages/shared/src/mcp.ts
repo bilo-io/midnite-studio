@@ -1480,7 +1480,7 @@ export const MCP_TOOLS = {
     id: 'music_render_preview',
     title: 'Render a piano-roll preview',
     description:
-      'Renders a bar range as a piano-roll PNG, all tracks colour-coded — use instead of judging the notes as numbers; returns image content, read-only.',
+      'Renders a bar range as a piano-roll PNG, all tracks colour-coded — use instead of judging `music_get_notes` numbers; returns image content, read-only.',
     input: MusicRenderPreviewInputSchema,
     output: MusicRenderPreviewResultSchema,
     readOnly: true,
