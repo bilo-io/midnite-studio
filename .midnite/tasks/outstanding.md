@@ -2,6 +2,8 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Mirror the GM sample sets into `bilo-io/midnite-apps` (needs user sign-off).** Phase 101 Theme D loads FluidR3_GM instrument samples from `gleitz.github.io/midi-js-soundfonts` through the single `GM_SAMPLE_BASE_URL` constant (`packages/shared/src/media-music-gm.ts`). Mirroring them into the public `midnite-apps` repo (versioned, under our control, with the CC BY 3.0 / MIT notices alongside) is outward-facing, so it waits for the user; the switch is changing that one constant. Also open: upstream publishes no FluidR3 percussion set, so the channel-10 drum kit is synthesised — sampled drums would need a different GM set.
+
 - **Linux and Windows support.** macOS (arm64) is the only officially supported platform for now
   (README, *Supported platform*). The consequences are recorded rather than removed, so
   un-deferring is a revert of one commit and not an archaeology exercise: every default CI gate

@@ -618,6 +618,12 @@ const bridge: Pick<
       installEngine: () => call(CHANNELS.mediaAudioEngineInstall),
       onEngineProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioEngineProgress, handler),
       expand: (req) => call(CHANNELS.mediaAudioExpand, req),
+      gm: {
+        status: () => call(CHANNELS.mediaGmStatus),
+        ensure: (req) => call(CHANNELS.mediaGmEnsure, req),
+        load: (req) => call(CHANNELS.mediaGmLoad, req),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaGmProgress, handler),
+      },
     },
     model: {
       providers: () => call(CHANNELS.mediaModelProviders),

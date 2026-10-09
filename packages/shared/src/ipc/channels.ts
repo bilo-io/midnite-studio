@@ -954,6 +954,10 @@ export const CHANNELS = {
   mediaAudioEngine: 'mstudio:media:audio-engine',
   mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
   mediaAudioExpand: 'mstudio:media:audio-expand',
+  // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
+  mediaGmStatus: 'mstudio:media:gm-status',
+  mediaGmEnsure: 'mstudio:media:gm-ensure',
+  mediaGmLoad: 'mstudio:media:gm-load',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -1575,6 +1579,8 @@ export const EVENT_CHANNELS = {
   mediaAudioProgress: 'mstudio:media:audio-progress',
   /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
   mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
+  mediaGmProgress: 'mstudio:media:gm-progress',
   /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
   mediaModelProgress: 'mstudio:media:model-progress',
   /** An agent edited a model (in-app iterative run or an MCP session) — see `ModelChangedEventSchema`. */

@@ -51,7 +51,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme C — The Tone.js engine.** ◻ Not started.
 
-**Theme D — General MIDI instruments.** ◻ Not started.
+**Theme D — General MIDI instruments.** ✅ Landed. Licence gate passed: FluidR3_GM.sf2 is MIT (Frank Wen) and the `gleitz/midi-js-soundfonts` pre-rendered sets are CC BY 3.0 (code MIT), so attribution is shown in `GmAttribution`. Main downloads one program's sample set on first use into `userData/gm-samples/` and streams progress on `mstudio:media:gm-progress` (`media.audio.gm.*` on the bridge); the 128-program catalogue lives in `shared/media-music-gm.ts`; the renderer's per-track `Tone.Sampler` factory (`music-editor/gm-sampler.ts`) loads Tone lazily and falls back to a synth with a "not downloaded" hint. Upstream has no FluidR3 percussion set, so the channel-10 kit is synthesised. Samples still load from the third-party host via `GM_SAMPLE_BASE_URL` (mirroring deferred, see outstanding.md); the picker is mounted in Settings ▸ Media ▸ Audio until Theme E's per-track UI exists.
 
 **Theme E — Piano roll and arrangement.** ◻ Not started.
 
@@ -107,12 +107,12 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## D — General MIDI instruments (M)
 
-- [ ] **Licence check first.** Confirm the licence of the FluidR3_GM pre-rendered sample sets (e.g. `gleitz/midi-js-soundfonts`) and record it in the PR. If it is not clearly permissive, fall back to another GM set and record why.
-- [ ] Main downloads one instrument's samples the first time it is used, caches them under `userData`, and reports progress over an event channel. The pattern is the same as MusicGen's model download.
-- [ ] A per-track `Tone.Sampler` loads the GM program's samples. Channel 10 maps to a GM drum kit.
-- [ ] Instrument picker covers all 128 GM programs, grouped by family, with a download or cached badge.
-- [ ] Offline: a missing instrument falls back to a Tone.js synth with a visible "not downloaded" hint, never silence.
-- [ ] A licence and attribution notice appears in the Editor's about popover.
+- [x] **Licence check first.** Confirm the licence of the FluidR3_GM pre-rendered sample sets (e.g. `gleitz/midi-js-soundfonts`) and record it in the PR. If it is not clearly permissive, fall back to another GM set and record why.
+- [x] Main downloads one instrument's samples the first time it is used, caches them under `userData`, and reports progress over an event channel. The pattern is the same as MusicGen's model download.
+- [x] A per-track `Tone.Sampler` loads the GM program's samples. Channel 10 maps to a GM drum kit.
+- [x] Instrument picker covers all 128 GM programs, grouped by family, with a download or cached badge.
+- [x] Offline: a missing instrument falls back to a Tone.js synth with a visible "not downloaded" hint, never silence.
+- [x] A licence and attribution notice appears in the Editor's about popover.
 
 ## E — Piano roll and arrangement (L)
 
