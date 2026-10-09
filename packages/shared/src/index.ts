@@ -54,6 +54,7 @@ export * from './media-map-mcp';
 export * from './media-music';
 export * from './media-music-clips';
 export * from './media-music-export';
+export * from './media-music-chat';
 export * from './media-music-mcp';
 export * from './model-geometry';
 export * from './sprite';

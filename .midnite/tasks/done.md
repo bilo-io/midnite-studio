@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme I — The agent chat in the composer
+
+The Editor gains a Chat column built from the Chats page's composer, message components and markdown renderer. Each song keeps its own thread beside it (`<song>.chat.json`), the engine and model pickers say which engines refine over passes and which write in one, a progress line shows "Pass n of N" and the latest tool action with Stop directly left of Send, and replies list the tracks and bars touched with a link that selects those notes in the piano roll. PR #806.
+
+- [x] I: reuse of the Chats composer/thread/markdown, per-song persisted thread, engine and model pickers, pass progress with Stop beside Send, change-summary replies with a piano-roll selection link
+
 ## 2026-10-09 — Phase 101 Theme G — Clips, loops and the drum grid
 
 The arrangement now holds clips (loop, split, join, duplicate, delete, drag to move or resize) and drum tracks edit as a step grid (16 or 32 steps, per-step velocity, swing) over the same notes the piano roll shows. Clips expand to plain notes for the scheduler, the offline render, the `.mid` and Send to Generator. Schema changes are additive and optional. Vitest covers clip expansion, clip edits, the step grid round trip, swing and the editor flows.
