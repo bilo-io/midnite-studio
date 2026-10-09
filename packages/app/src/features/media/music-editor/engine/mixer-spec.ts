@@ -13,12 +13,15 @@ import type { TickMap } from './tick-map';
 export type ChainNode = { id: string; type: string; params: Record<string, number> };
 
 export type LaneSpec =
-  | { kind: 'volume' | 'pan'; events: TimedValue[] }
+  | { kind: 'volume'; events: TimedValue[] }
+  | { kind: 'pan'; events: TimedValue[] }
   | { kind: 'effect'; effectId: string; param: string; events: TimedValue[] };
 
 export type StripSpec = {
   /** Linear gain, 0 when the track is silenced by mute or by another track's solo. */
   gain: number;
+  /** True when mute or another track's solo silences the strip; an automated volume cannot undo that. */
+  silenced: boolean;
   pan: number;
   /** Effects in signal order with the bypassed ones already left out. */
   chain: ChainNode[];
@@ -58,6 +61,7 @@ export function buildMixerSpec(song: Song, map: TickMap): MixerSpec {
   for (const track of song.tracks) {
     tracks[track.id] = {
       gain: gainOf(track.mixer.volume, audible.has(track.id)),
+      silenced: !audible.has(track.id),
       pan: track.mixer.pan,
       chain: chainFor(track),
       lanes: lanesFor(track, map),
@@ -76,7 +80,7 @@ export function stripValuesAt(strip: StripSpec, seconds: number): { gain: number
   let pan = strip.pan;
   const effects: Record<string, Record<string, number>> = {};
   for (const lane of strip.lanes) {
-    if (lane.kind === 'volume') gain = strip.gain === 0 ? 0 : valueAtSeconds(lane.events, seconds, gain);
+    if (lane.kind === 'volume') gain = strip.silenced ? 0 : valueAtSeconds(lane.events, seconds, gain);
     else if (lane.kind === 'pan') pan = valueAtSeconds(lane.events, seconds, pan);
     else (effects[lane.effectId] ??= {})[lane.param] = valueAtSeconds(lane.events, seconds, NaN);
   }

@@ -12,6 +12,10 @@ function fakeTone() {
       dispose: vi.fn(),
       triggerAttackRelease: vi.fn(),
       toDestination: vi.fn(() => self),
+      disconnect: vi.fn(),
+      volume: { value: 0, setValueAtTime: vi.fn() },
+      pan: { value: 0, setValueAtTime: vi.fn() },
+      getValue: () => -Infinity,
     };
     return self;
   };
@@ -19,6 +23,8 @@ function fakeTone() {
     parts,
     Tone: {
       Gain: vi.fn(node),
+      Channel: vi.fn(node),
+      Meter: vi.fn(node),
       PolySynth: vi.fn(node),
       Synth: vi.fn(),
       getDestination: () => ({}),
@@ -29,12 +35,12 @@ function fakeTone() {
       }),
       Offline: vi.fn(
         async (
-          cb: (ctx: { transport: { bpm: { value: number }; start: () => void } }) => Promise<void>,
+          cb: (ctx: { transport: { bpm: { value: number }; start: () => void; schedule: () => number; clear: () => void } }) => Promise<void>,
           duration: number,
           _ch: number,
           rate: number,
         ) => {
-          await cb({ transport: { bpm: { value: 0 }, start: vi.fn() } });
+          await cb({ transport: { bpm: { value: 0 }, start: vi.fn(), schedule: () => 0, clear: vi.fn() } });
           const frames = Math.ceil(duration * rate);
           return { numberOfChannels: 2, getChannelData: () => new Float32Array(frames) };
         },
