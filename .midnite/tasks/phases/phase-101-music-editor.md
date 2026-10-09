@@ -49,7 +49,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme B — The song model and MIDI files.** ✅ Landed. `shared/media-music.ts` holds `SongSchema` (tempo map, time signature, tracks, notes in ticks, CC, pitch bend, automation, clips, mixer) with named limits. Main reads and writes `.mid` through `@tonejs/midi` (type 0/1, rescaled to 480 PPQ) in `main/media/music/midi-io.ts`, and keeps full editor state in a `<name>.song.json` sidecar. `mstudio:media:music-{list,read,write,import,delete}` return `GitOpResult` envelopes (`media.audio.music.*` on the bridge, mock bridge updated). `.mid` is not an audio extension, so the Generator's variant list never sees songs.
 
-**Theme C — The Tone.js engine.** ◻ Not started.
+**Theme C — The Tone.js engine.** ✅ Landed. `music-editor/engine/` splits into pure logic and one Tone adapter. `tick-map.ts` converts ticks and seconds through the tempo map and lists metronome clicks; `scheduler.ts` builds per-track timed events and signatures, so a note edit reschedules only the touched track while a tempo change reschedules all; `engine.ts` runs play, pause, stop, seek, loop region and metronome against an `EngineHost`; `tone-host.ts` is the only file that imports Tone (dynamic), pinning the Transport at 60 BPM so transport seconds are real seconds. `offline.ts` renders audible tracks through `Tone.Offline` to a 16-bit WAV (`wav.ts`). The context resumes only on `play()` (a click); a hidden window pauses and suspends it, and does not auto-resume. A transport bar sits above the Editor tab, which plays a C-major preview song until Theme E loads project songs. Tone stays in lazy chunks: the entry chunk moved +1.0 KB.
 
 **Theme D — General MIDI instruments.** ✅ Landed. Licence gate passed: FluidR3_GM.sf2 is MIT (Frank Wen) and the `gleitz/midi-js-soundfonts` pre-rendered sets are CC BY 3.0 (code MIT), so attribution is shown in `GmAttribution`. Main downloads one program's sample set on first use into `userData/gm-samples/` and streams progress on `mstudio:media:gm-progress` (`media.audio.gm.*` on the bridge); the 128-program catalogue lives in `shared/media-music-gm.ts`; the renderer's per-track `Tone.Sampler` factory (`music-editor/gm-sampler.ts`) loads Tone lazily and falls back to a synth with a "not downloaded" hint. Upstream has no FluidR3 percussion set, so the channel-10 kit is synthesised. Samples still load from the third-party host via `GM_SAMPLE_BASE_URL` (mirroring deferred, see outstanding.md); the picker is mounted in Settings ▸ Media ▸ Audio until Theme E's per-track UI exists.
 
@@ -93,17 +93,17 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## C — The Tone.js engine (M)
 
-- [ ] A lazy `music-engine` chunk wraps `Tone.Transport`. It provides:
+- [x] A lazy `music-engine` chunk wraps `Tone.Transport`. It provides:
   - play, pause and stop
   - seek
   - a loop region
   - a metronome
   - a tempo-map-aware tick ↔ seconds conversion
-- [ ] A scheduler turns the song model into `Tone.Part`s per track. Edits during playback reschedule only the touched track.
-- [ ] Offline rendering (`Tone.Offline`) produces WAV for export and previews.
-- [ ] `AudioContext` is resumed only on a user gesture. Playback is suspended when the window is hidden, following the existing visibility gates.
-- [ ] Vitest: the scheduler and tick maths run against a fake transport. Real audio is Playwright-only, if needed at all.
-- [ ] Bundle delta reported with `scripts/perf/bundle-report.mjs`.
+- [x] A scheduler turns the song model into `Tone.Part`s per track. Edits during playback reschedule only the touched track.
+- [x] Offline rendering (`Tone.Offline`) produces WAV for export and previews.
+- [x] `AudioContext` is resumed only on a user gesture. Playback is suspended when the window is hidden, following the existing visibility gates.
+- [x] Vitest: the scheduler and tick maths run against a fake transport. Real audio is Playwright-only, if needed at all.
+- [x] Bundle delta reported with `scripts/perf/bundle-report.mjs`.
 
 ## D — General MIDI instruments (M)
 

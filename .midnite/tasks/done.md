@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-09 — Phase 101 Theme C — The Tone.js engine
+
+A lazy engine wraps `Tone.Transport` (play, pause, stop, seek, loop region, metronome) over a tempo-map-aware tick/seconds conversion. A scheduler turns the song into per-track `Tone.Part`s and reschedules only the touched track on an edit. `Tone.Offline` renders WAV. The AudioContext resumes on a user gesture only and is suspended while the window is hidden. A transport bar tops the Editor tab. Vitest runs the scheduler and maths against a fake host; entry chunk +1.0 KB.
+
+- [x] C: engine, scheduler, offline render, gesture/visibility gates, vitests, bundle delta
+
 ## 2026-10-09 — Phase 101 Themes A + B — Editor | Generator tabs, song model and MIDI files
 
 Media ▸ Audio gets persisted Editor | Generator tabs (Generator default, unchanged). The shared `SongSchema`, `.mid` read/write and import through `@tonejs/midi`, the `<name>.song.json` sidecar and the `music-{list,read,write,import,delete}` IPC land with vitest round trips for type-0 and type-1 files.
