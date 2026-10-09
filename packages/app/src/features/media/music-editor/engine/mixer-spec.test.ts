@@ -47,7 +47,7 @@ describe('buildMixerSpec', () => {
   });
   it('turns lanes into timed events and skips empty ones', () => {
     let song = addEffect(song0(), 'a', 'reverb')!.song;
-    let r = addLane(song, 'a', 'fx:fx1:wet')!;
+    const r = addLane(song, 'a', 'fx:fx1:wet')!;
     song = addLanePoint(r.song, 'a', r.id, { tick: 0, value: 0 });
     song = addLanePoint(song, 'a', r.id, { tick: 960, value: 1 });
     song = addLane(song, 'a', 'pan')!.song;

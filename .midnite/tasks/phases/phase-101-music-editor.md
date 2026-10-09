@@ -55,7 +55,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme E — Piano roll and arrangement.** ✅ Landed. The Editor tab now loads and saves the project's real songs through the music IPC (`use-song-document.ts`: song picker, New, Import .mid, 600 ms debounced autosave) and the built-in preview song is gone. `model/` holds the pure parts, all vitest: `song-edit.ts` (add, move, resize, delete, duplicate, quantise, velocity, track ops, instrument choice with the drum kit on channel 10), `history.ts` (snapshot undo/redo, key coalescing for held nudges, `commitExternal` for agent edits as one step), `roll-math.ts` (view transform, hit test, marquee, gesture deltas), `ruler.ts` and `keymap.ts` (Space, Delete, Mod+D, Mod+A, arrows, Q, Mod+Z). `piano-roll.tsx` is one canvas for keyboard gutter, grid and notes plus a velocity lane, so a 10k-note track is a single paint; the gutter previews pitches through `engine.previewNote`. `arrangement.tsx` and `track-row.tsx` give each track a name, colour, mute, solo and Theme D's GM picker, beside a bar/beat ruler, per-track thumbnails and the playhead. Pointer drag on the canvas is covered by `e2e/piano-roll.spec.ts` (e2e cap 476 to 478). H's live edits (`onChanged`) are one undo step each and `onOpen` shows the song.
 
-**Theme F — Mixer, effects and automation.** ◻ Not started.
+**Theme F — Mixer, effects and automation.** ✅ Landed. The Editor's lower panel now switches Piano roll | Mixer | Automation. The song model gained one additive field, `track.effects` (`{id, type, bypass, params}`, max 8, default `[]`), so every existing `.song.json` still parses; mixer strips and automation lanes were already in `SongSchema` and are now used. `SongSchema` also rejects duplicate effect ids and automation targets that are not `volume`, `pan` or `fx:<effectId>:<param>` of an existing effect. Pure parts, all vitest: `model/effects.ts` (the seven-effect catalogue with parameter ranges), `model/automation.ts` (linear/step interpolation, expansion to timed events, point edits), `model/mixer-edit.ts` (strip, chain and lane edits, one undo step per gesture) and `engine/mixer-spec.ts` (the song as plain strip data: bypassed effects dropped, mute/solo folded into gain, lanes as timed values). `engine/tone-mixer.ts` maps that onto Tone channels, effect nodes, meters and Transport-scheduled automation, and both the live host and the offline render use it, so an exported WAV carries the mix. The engine calls `host.syncMixer` after every song change, seek, play and stop, and notes are not rescheduled for a mixer edit. In main, `.mid` export writes volume and pan as CC 7 and CC 10 (fader at tick 0 when not the default, plus lane points) and import reads them back into `mixer` and `volume`/`pan` lanes, so CC 7/10 are no longer loose controllers. Decisions: effect parameters are numeric only (the filter is fixed low-pass); linear lanes expand to events at most 0.1 s apart so effect options glide; there is no master effects chain; volume above unity is written to the `.mid` at 127. Screenshots: `docs/screenshots/p101-f/`.
 
 **Theme G — Clips, loops and the drum grid.** ◻ Not started.
 
@@ -128,12 +128,12 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 - [x] Canvas or virtualised rendering, so a 10k-note song stays smooth.
 - [x] Vitest: selection and edit reducers, quantise, snap. Playwright only for pointer drag on the real canvas, named in the spec header.
 
-## F — Mixer, effects and automation (L)
+## F — Mixer, effects and automation (L) ✅ DONE
 
-- [ ] Mixer strip per track with volume, pan, mute, solo and a meter, plus a master strip.
-- [ ] **Per-track effects chain** of Tone.js effects (reverb, delay, EQ3, compressor, chorus, distortion, filter), which can be added, removed, reordered and bypassed.
-- [ ] **Automation lanes** for volume, pan and any effect parameter, using breakpoint editing with linear and step curves. They are written to the song model; CC 7 and CC 10 are mirrored to the `.mid` where they map.
-- [ ] Vitest: chain graph building and automation interpolation.
+- [x] Mixer strip per track with volume, pan, mute, solo and a meter, plus a master strip.
+- [x] **Per-track effects chain** of Tone.js effects (reverb, delay, EQ3, compressor, chorus, distortion, filter), which can be added, removed, reordered and bypassed.
+- [x] **Automation lanes** for volume, pan and any effect parameter, using breakpoint editing with linear and step curves. They are written to the song model; CC 7 and CC 10 are mirrored to the `.mid` where they map.
+- [x] Vitest: chain graph building and automation interpolation.
 
 ## G — Clips, loops and the drum grid (M)
 

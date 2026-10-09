@@ -9,7 +9,7 @@ function song(): Song {
   return {
     ...emptySong('s'),
     tracks: [
-      { id: 'a', name: 'A', channel: 0, program: 0, color: '#ff0000', notes: [{ pitch: 60, startTick: 0, durationTicks: 1920, velocity: 127 }], controlChanges: [], pitchBends: [], automation: [], mixer: { volume: 0.8, pan: 0, mute: false, solo: false } },
+      { id: 'a', name: 'A', channel: 0, program: 0, color: '#ff0000', notes: [{ pitch: 60, startTick: 0, durationTicks: 1920, velocity: 127 }], controlChanges: [], pitchBends: [], automation: [], effects: [], mixer: { volume: 0.8, pan: 0, mute: false, solo: false } },
     ],
   };
 }

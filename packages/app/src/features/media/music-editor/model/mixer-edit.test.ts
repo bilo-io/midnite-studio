@@ -93,7 +93,8 @@ describe('automation lanes', () => {
     );
   });
   it('clamps points into the target range and sorts them', () => {
-    let { song, id } = addLane(base(), 'a', 'pan')!;
+    const { id, ...first } = addLane(base(), 'a', 'pan')!;
+    let song = first.song;
     song = addLanePoint(song, 'a', id, { tick: 960, value: 7 });
     song = addLanePoint(song, 'a', id, { tick: 0, value: -0.5 });
     expect(song.tracks[0]!.automation[0]!.points).toEqual([
@@ -102,7 +103,8 @@ describe('automation lanes', () => {
     ]);
   });
   it('switches curve and removes a lane', () => {
-    let { song, id } = addLane(base(), 'a', 'volume')!;
+    const { id, ...first } = addLane(base(), 'a', 'volume')!;
+    let song = first.song;
     song = setLaneCurve(song, 'a', id, 'step');
     expect(song.tracks[0]!.automation[0]!.curve).toBe('step');
     expect(removeLane(song, 'a', id).tracks[0]!.automation).toEqual([]);
