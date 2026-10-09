@@ -1,4 +1,4 @@
-import { type MidniteStudioBridge, type Song } from '@midnite/studio-shared';
+import { expandClips, type MidniteStudioBridge, type Song } from '@midnite/studio-shared';
 
 import { audibleTracks, trackEvents, type ScheduledNote } from './scheduler';
 import { buildMixerSpec } from './mixer-spec';
@@ -26,9 +26,10 @@ export type RenderedWav = { bytes: Uint8Array; durationSeconds: number; sampleRa
  * Honors mute/solo and the tempo map exactly as live playback does.
  */
 export async function renderSongToWav(
-  song: Song,
+  authored: Song,
   options: RenderOptions = {},
 ): Promise<RenderedWav> {
+  const song = expandClips(authored);
   const Tone = await (options.loadTone ?? loadTone)();
   const map = createTickMap(song.tempos);
   const tracks = audibleTracks(song);

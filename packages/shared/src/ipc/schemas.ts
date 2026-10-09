@@ -298,6 +298,7 @@ import {
   TerrainTargetSchema,
   TerrainLibraryRequestSchema,
 } from '../media-terrain';
+import { MusicChatRequestSchema, MusicChatResultSchema } from '../media-music-chat';
 import { MusicExportRequestSchema, MusicExportResultSchemas, MusicSendToGeneratorRequestSchema } from '../media-music-export';
 import {
   MusicDeleteRequestSchema,
@@ -3316,6 +3317,9 @@ export const MediaMusicAgyRequest = z.discriminatedUnion('op', [
   z.object({ op: z.literal('unregister') }),
 ]);
 export const MediaMusicAgyResponse = MusicAgentResultSchemas.agyStatus;
+/** The song chat (Phase 101 Theme I): read or write `<song>.chat.json`. */
+export const MediaMusicChatRequest = MusicChatRequestSchema;
+export const MediaMusicChatResponse = MusicChatResultSchema;
 
 // Models (3D)
 export const MediaModelProvidersResponse = z.object({ providers: ModelProvidersSchema });

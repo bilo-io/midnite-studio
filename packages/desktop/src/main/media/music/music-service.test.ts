@@ -113,4 +113,24 @@ describe('music service (Phase 101 Theme B)', () => {
     expect(songNameFromFile('/a/.hidden.mid')).toBe('hidden');
     expect(songNameFromFile('/a/project.mid')).toBe('project-song');
   });
+  it('keeps a song chat beside the song, starts empty, survives a damaged file, and goes with the song', async () => {
+    const { service, files } = memory();
+    await service.write('r', 'album', 'Demo', song);
+    const fresh = await service.readChat('r', 'album', 'Demo');
+    expect(fresh).toMatchObject({ ok: true, value: { messages: [], engine: null, model: null } });
+
+    const chat = { version: 1 as const, engine: 'claude', model: null, messages: [{ id: 'm1', role: 'user' as const, text: 'add a bass', at: 1 }] };
+    expect((await service.writeChat('r', 'album', 'Demo', chat)).ok).toBe(true);
+    expect([...files.keys()]).toContain('Demo.chat.json');
+    expect(await service.readChat('r', 'album', 'Demo')).toEqual({ ok: true, value: chat });
+    // The chat file is not a song.
+    expect((await service.list('r', 'album'))).toMatchObject({ value: [{ name: 'Demo' }] });
+
+    files.set('Demo.chat.json', Buffer.from('{not json'));
+    expect(await service.readChat('r', 'album', 'Demo')).toMatchObject({ ok: true, value: { messages: [] } });
+
+    await service.writeChat('r', 'album', 'Demo', chat);
+    await service.remove('r', 'album', 'Demo');
+    expect(files.has('Demo.chat.json')).toBe(false);
+  });
 });

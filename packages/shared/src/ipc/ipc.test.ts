@@ -1883,6 +1883,7 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaMusicAgentRun: ['MediaMusicAgentRunRequest', 'MediaMusicAgentRunResponse'],
       mediaMusicAgentCancel: ['MediaMusicAgentCancelRequest', 'MediaMusicAgentCancelResponse'],
       mediaMusicAgy: ['MediaMusicAgyRequest', 'MediaMusicAgyResponse'],
+      mediaMusicChat: ['MediaMusicChatRequest', 'MediaMusicChatResponse'],
       mediaMusicChanged: ['MediaMusicChangedPayload'],
       mediaMusicOpen: ['MediaMusicOpenPayload'],
       mediaMusicAgentProgress: ['MediaMusicAgentProgressPayload'],

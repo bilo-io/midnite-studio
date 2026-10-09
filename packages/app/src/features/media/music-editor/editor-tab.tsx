@@ -1,9 +1,11 @@
-import { emptySong, type Song } from '@midnite/studio-shared';
-import { useEffect, useMemo, useState } from 'react';
-import { LuFileUp, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons/lu';
+import { MUSIC_DRUM_CHANNEL, emptySong, type Song } from '@midnite/studio-shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LuFileUp, LuMessageSquare, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
 import { Arrangement } from './arrangement';
+import { SongChatPanel } from './chat/song-chat-panel';
+import { DrumGrid } from './drum-grid';
 import { publishEditorSong, publishLoopRegion } from './editor-session';
 import { AutomationPanel } from './automation-panel';
 import { useMusicEngine } from './engine/use-music-engine';
@@ -61,7 +63,20 @@ export function EditorTab({
   const [activeTrack, setActiveTrack] = useState<string | null>(null);
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [lower, setLower] = useState<LowerView>('roll');
+  const [drumView, setDrumView] = useState<'grid' | 'roll'>('grid');
   const [division, setDivision] = useState<number>(16);
+  const [chatOpen, setChatOpen] = useState(true);
+  // Theme I: the chat reads the song back after a run, and flushes pending edits before one.
+  const songRef = useRef<Song | null>(null);
+  songRef.current = doc.song;
+  const flushDoc = doc.flush;
+  const getSong = useCallback(() => songRef.current, []);
+  const showChange = useCallback((change: { trackId: string; noteIndices: number[] }) => {
+    setActiveTrack(change.trackId);
+    setLower('roll');
+    // The active-track effect clears the selection, so set it after that has run.
+    window.setTimeout(() => setSelection(new Set(change.noteIndices)), 0);
+  }, []);
   const grid = division === 0 ? 0 : gridTicks(division);
 
   // Keep a valid active track as songs open and tracks come and go.
@@ -71,16 +86,22 @@ export function EditorTab({
   useEffect(() => setSelection(new Set()), [doc.name, activeTrack]);
   useEffect(() => {
     const count = song.tracks.find((t) => t.id === activeTrack)?.notes.length ?? 0;
-    setSelection((cur) => (cur.size && [...cur].some((i) => i >= count) ? new Set([...cur].filter((i) => i < count)) : cur));
+    setSelection((cur) =>
+      cur.size && [...cur].some((i) => i >= count)
+        ? new Set([...cur].filter((i) => i < count))
+        : cur,
+    );
   }, [song, activeTrack]);
 
   if (!project) return <Empty>Pick or create an audio project to compose in.</Empty>;
   if (doc.status === 'loading') return <Empty>Loading songs…</Empty>;
 
+  const isDrums = song.tracks.find((t) => t.id === activeTrack)?.channel === MUSIC_DRUM_CHANNEL;
   const togglePlay = () => (state === 'playing' ? engine?.pause() : void engine?.play());
 
   return (
-    <div data-testid="music-editor" className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0">
+    <div data-testid="music-editor" className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <TransportBar engine={engine} state={state} song={song} />
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-1 text-xs">
         <select
@@ -125,7 +146,14 @@ export function EditorTab({
           disabled={!activeTrack}
           onClick={() =>
             activeTrack &&
-            doc.commit(quantizeNotes(song, activeTrack, selection.size ? selection : 'all', grid || gridTicks(16)))
+            doc.commit(
+              quantizeNotes(
+                song,
+                activeTrack,
+                selection.size ? selection : 'all',
+                grid || gridTicks(16),
+              ),
+            )
           }
         />
         <div role="tablist" aria-label="Lower panel" className="flex rounded border border-border">
@@ -142,6 +170,7 @@ export function EditorTab({
             </button>
           ))}
         </div>
+        <IconButton icon={LuMessageSquare} label={chatOpen ? 'Hide chat' : 'Show chat'} onClick={() => setChatOpen((o) => !o)} />
         <span data-testid="song-save-state" className="ml-auto text-muted-foreground">
           {doc.error ?? SAVE_LABEL[doc.save]}
         </span>
@@ -158,27 +187,72 @@ export function EditorTab({
             />
           </div>
           {lower === 'mixer' && (
-            <MixerPanel song={doc.song} activeTrack={activeTrack} onActiveTrack={setActiveTrack} onCommit={doc.commit} engine={engine} />
+            <MixerPanel
+              song={doc.song}
+              activeTrack={activeTrack}
+              onActiveTrack={setActiveTrack}
+              onCommit={doc.commit}
+              engine={engine}
+            />
           )}
-          {lower === 'automation' && <AutomationPanel song={doc.song} trackId={activeTrack} grid={grid} onCommit={doc.commit} />}
+          {lower === 'automation' && (
+            <AutomationPanel
+              song={doc.song}
+              trackId={activeTrack}
+              grid={grid}
+              onCommit={doc.commit}
+            />
+          )}
           {lower === 'roll' && (
-          <PianoRoll
-            song={doc.song}
-            trackId={activeTrack}
-            selection={selection}
-            onSelection={setSelection}
-            onCommit={doc.commit}
-            grid={grid}
-            engine={engine}
-            onTogglePlay={togglePlay}
-            onUndo={doc.undo}
-            onRedo={doc.redo}
-          />
+            <>
+              {isDrums && (
+                <div
+                  className="flex items-center gap-1 border-b border-border px-3 py-1 text-xs"
+                  role="group"
+                  aria-label="Drum editor"
+                >
+                  {(['grid', 'roll'] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={drumView === v}
+                      onClick={() => setDrumView(v)}
+                      className={`rounded px-2 py-0.5 ${drumView === v ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+                    >
+                      {v === 'grid' ? 'Drum grid' : 'Piano roll'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isDrums && drumView === 'grid' && activeTrack ? (
+                <DrumGrid
+                  song={doc.song}
+                  trackId={activeTrack}
+                  onCommit={doc.commit}
+                  engine={engine}
+                />
+              ) : (
+                <PianoRoll
+                  song={doc.song}
+                  trackId={activeTrack}
+                  selection={selection}
+                  onSelection={setSelection}
+                  onCommit={doc.commit}
+                  grid={grid}
+                  engine={engine}
+                  onTogglePlay={togglePlay}
+                  onUndo={doc.undo}
+                  onRedo={doc.redo}
+                />
+              )}
+            </>
           )}
         </>
       ) : (
         <Empty>
-          {doc.status === 'error' ? (doc.error ?? 'This song could not be opened.') : 'This project has no songs yet.'}
+          {doc.status === 'error'
+            ? (doc.error ?? 'This song could not be opened.')
+            : 'This project has no songs yet.'}
           {doc.status === 'empty' && (
             <button
               type="button"
@@ -190,6 +264,12 @@ export function EditorTab({
           )}
         </Empty>
       )}
+    </div>
+    {chatOpen && doc.status === 'ready' ? (
+      <div className="h-full w-80 shrink-0">
+        <SongChatPanel repoId={repoId} project={project} name={doc.name} getSong={getSong} flush={flushDoc} onShowChange={showChange} />
+      </div>
+    ) : null}
     </div>
   );
 }

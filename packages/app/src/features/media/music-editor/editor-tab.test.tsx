@@ -8,23 +8,37 @@ import { useUiStore } from '../../../store/ui-store';
 import { MediaView } from '../media-view';
 
 // Tone.js needs a real AudioContext; the engine has its own tests.
-vi.mock('./engine/use-music-engine', () => ({ useMusicEngine: () => ({ engine: null, state: 'stopped' }) }));
+vi.mock('./engine/use-music-engine', () => ({
+  useMusicEngine: () => ({ engine: null, state: 'stopped' }),
+}));
 
 /** Phase 101 Theme E — loading, arrangement controls and undo. DOM roles only, so vitest/jsdom. */
 const demo = {
   name: 'Demo',
   tracks: [
-    { id: 'lead', name: 'Lead', program: 40, notes: [{ pitch: 60, startTick: 0, durationTicks: 480, velocity: 90 }] },
+    {
+      id: 'lead',
+      name: 'Lead',
+      program: 40,
+      notes: [{ pitch: 60, startTick: 0, durationTicks: 480, velocity: 90 }],
+    },
     { id: 'kit', name: 'Kit', channel: 9 },
   ],
 };
 const data = () => ({
   ...fixtures,
-  media: { files: { 'audio:album': { 'Demo.mid': 'mid', 'Demo.song.json': JSON.stringify(demo) } } },
+  media: {
+    files: { 'audio:album': { 'Demo.mid': 'mid', 'Demo.song.json': JSON.stringify(demo) } },
+  },
 });
 
 const openEditor = async () => {
-  useUiStore.setState({ mediaTab: 'audio', mediaPaneCollapsed: {}, activeView: 'media', audioTabByRepo: { 'repo-1': 'editor' } });
+  useUiStore.setState({
+    mediaTab: 'audio',
+    mediaPaneCollapsed: {},
+    activeView: 'media',
+    audioTabByRepo: { 'repo-1': 'editor' },
+  });
   renderView(<MediaView />, { fixtures: data(), uiState: { selectedRepoId: 'repo-1' } });
   await screen.findByTestId('arrangement');
 };
@@ -54,7 +68,9 @@ describe('Music editor', () => {
     expect(undo.disabled).toBe(false);
     fireEvent.click(undo);
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Unmute' })).toBeNull());
-    expect((screen.getByRole('button', { name: 'Redo' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: 'Redo' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
   });
 
   it('adds and removes tracks', async () => {
@@ -69,25 +85,61 @@ describe('Music editor', () => {
     await openEditor();
     fireEvent.click(await screen.findByRole('button', { name: /Instrument for Lead/ }));
     fireEvent.click(await screen.findByRole('option', { name: /Acoustic Grand Piano/ }));
-    await waitFor(() => expect(screen.getAllByTestId('track-instrument')[0]!.textContent).toBe('Acoustic Grand Piano'));
+    await waitFor(() =>
+      expect(screen.getAllByTestId('track-instrument')[0]!.textContent).toBe(
+        'Acoustic Grand Piano',
+      ),
+    );
   });
 
   it('offers a first song for an empty project', async () => {
-    useUiStore.setState({ mediaTab: 'audio', mediaPaneCollapsed: {}, activeView: 'media', audioTabByRepo: { 'repo-1': 'editor' } });
-    renderView(<MediaView />, { fixtures: { ...fixtures, media: { files: { 'audio:album': { 'x.wav': 'wav' } } } }, uiState: { selectedRepoId: 'repo-1' } });
+    useUiStore.setState({
+      mediaTab: 'audio',
+      mediaPaneCollapsed: {},
+      activeView: 'media',
+      audioTabByRepo: { 'repo-1': 'editor' },
+    });
+    renderView(<MediaView />, {
+      fixtures: { ...fixtures, media: { files: { 'audio:album': { 'x.wav': 'wav' } } } },
+      uiState: { selectedRepoId: 'repo-1' },
+    });
     await screen.findByText('This project has no songs yet.');
     fireEvent.click(screen.getByText('New song', { selector: 'button' }));
-    await waitFor(() => expect((screen.getByLabelText('Song') as HTMLSelectElement).value).toBe('Song 1'));
+    await waitFor(() =>
+      expect((screen.getByLabelText('Song') as HTMLSelectElement).value).toBe('Song 1'),
+    );
   });
 
   it('applies an agent edit as one undo step and ignores other songs', async () => {
     await openEditor();
     await screen.findAllByTestId('track-row');
-    const emit = (globalThis as unknown as { __mockMusicEmit: { changed: (e: unknown) => void } }).__mockMusicEmit;
-    const edited = SongSchema.parse({ ...demo, tracks: [...demo.tracks, { id: 'pad', name: 'Pad' }] });
-    act(() => emit.changed({ repoId: 'repo-1', project: 'album', name: 'Other', song: edited, summary: 'x', saved: true }));
+    const emit = (globalThis as unknown as { __mockMusicEmit: { changed: (e: unknown) => void } })
+      .__mockMusicEmit;
+    const edited = SongSchema.parse({
+      ...demo,
+      tracks: [...demo.tracks, { id: 'pad', name: 'Pad' }],
+    });
+    act(() =>
+      emit.changed({
+        repoId: 'repo-1',
+        project: 'album',
+        name: 'Other',
+        song: edited,
+        summary: 'x',
+        saved: true,
+      }),
+    );
     expect(screen.getAllByTestId('track-row')).toHaveLength(2);
-    act(() => emit.changed({ repoId: 'repo-1', project: 'album', name: 'Demo', song: edited, summary: 'x', saved: true }));
+    act(() =>
+      emit.changed({
+        repoId: 'repo-1',
+        project: 'album',
+        name: 'Demo',
+        song: edited,
+        summary: 'x',
+        saved: true,
+      }),
+    );
     await waitFor(() => expect(screen.getAllByTestId('track-row')).toHaveLength(3));
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     await waitFor(() => expect(screen.getAllByTestId('track-row')).toHaveLength(2));
@@ -96,9 +148,45 @@ describe('Music editor', () => {
   it('shows the song an agent opens', async () => {
     await openEditor();
     await screen.findAllByTestId('track-row');
-    const emit = (globalThis as unknown as { __mockMusicEmit: { open: (e: unknown) => void } }).__mockMusicEmit;
+    const emit = (globalThis as unknown as { __mockMusicEmit: { open: (e: unknown) => void } })
+      .__mockMusicEmit;
     act(() => emit.open({ repoId: 'repo-1', project: 'album', name: 'Demo' }));
     expect(await screen.findAllByTestId('track-row')).toHaveLength(2);
+  });
+
+  it('makes a clip from the track notes, loops it and undoes both', async () => {
+    await openEditor();
+    fireEvent.click(await screen.findByRole('button', { name: 'New clip from notes' }));
+    expect(await screen.findByTestId('clip-name')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Loop clip' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Loop clip' }).getAttribute('aria-pressed')).toBe(
+        'true',
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate clip' }));
+    const undo = screen.getByRole('button', { name: 'Undo' });
+    fireEvent.click(undo);
+    await waitFor(() => expect(screen.queryByTestId('clip-name')).toBeNull());
+    fireEvent.click(undo);
+    fireEvent.click(undo);
+    await waitFor(() => expect((undo as HTMLButtonElement).disabled).toBe(true));
+  });
+
+  it('edits a drum track as steps, with undo, and can switch to the piano roll', { timeout: 20000 }, async () => {
+    await openEditor();
+    fireEvent.pointerDown((await screen.findAllByTestId('track-row'))[1]!);
+    const kick = await screen.findByTestId('step-36-0');
+    expect(kick.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(kick);
+    await waitFor(() =>
+      expect(screen.getByTestId('step-36-0').getAttribute('aria-pressed')).toBe('true'),
+    );
+    fireEvent.change(screen.getByLabelText('Step velocity'), { target: { value: '40' } });
+    fireEvent.change(screen.getByLabelText('Steps per bar'), { target: { value: '32' } });
+    await waitFor(() => expect(screen.getByTestId('step-36-31')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Piano roll' }));
+    await waitFor(() => expect(screen.queryByTestId('drum-grid')).toBeNull());
   });
 });
 

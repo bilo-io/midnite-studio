@@ -57,11 +57,11 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme F — Mixer, effects and automation.** ✅ Landed. The Editor's lower panel now switches Piano roll | Mixer | Automation. The song model gained one additive field, `track.effects` (`{id, type, bypass, params}`, max 8, default `[]`), so every existing `.song.json` still parses; mixer strips and automation lanes were already in `SongSchema` and are now used. `SongSchema` also rejects duplicate effect ids and automation targets that are not `volume`, `pan` or `fx:<effectId>:<param>` of an existing effect. Pure parts, all vitest: `model/effects.ts` (the seven-effect catalogue with parameter ranges), `model/automation.ts` (linear/step interpolation, expansion to timed events, point edits), `model/mixer-edit.ts` (strip, chain and lane edits, one undo step per gesture) and `engine/mixer-spec.ts` (the song as plain strip data: bypassed effects dropped, mute/solo folded into gain, lanes as timed values). `engine/tone-mixer.ts` maps that onto Tone channels, effect nodes, meters and Transport-scheduled automation, and both the live host and the offline render use it, so an exported WAV carries the mix. The engine calls `host.syncMixer` after every song change, seek, play and stop, and notes are not rescheduled for a mixer edit. In main, `.mid` export writes volume and pan as CC 7 and CC 10 (fader at tick 0 when not the default, plus lane points) and import reads them back into `mixer` and `volume`/`pan` lanes, so CC 7/10 are no longer loose controllers. Decisions: effect parameters are numeric only (the filter is fixed low-pass); linear lanes expand to events at most 0.1 s apart so effect options glide; there is no master effects chain; volume above unity is written to the `.mid` at 127. Screenshots: `docs/screenshots/p101-f/`.
 
-**Theme G — Clips, loops and the drum grid.** ◻ Not started.
+**Theme G — Clips, loops and the drum grid.** ✅ Landed. A clip is a window onto its track's own notes: the notes whose start lies in `[sourceStartTick, + source length)` belong to it and play where the clip sits, repeating while `loop` fills the clip; notes no clip owns play as written, so old songs are unchanged. `expandClips` (`shared/media-music-clips.ts`) is the one place that knows this, and the engine's `setSong`, the offline WAV render, `songToMidi` (so the `.mid` gets the expanded notes), `sliceSong` and `describeSong` all call it first. Schema stays additive: `clip.sourceLengthTicks?` and `track.grid?` (steps 16/32, swing). The arrangement draws clips over each track's thumbnail, drags to move or resize (beat snap, one coalesced undo step) and has New clip, Loop, Split at playhead, Join, Duplicate and Delete (`model/clip-edit.ts`). Drum tracks open a drum grid (`drum-grid.tsx`, `model/drum-grid.ts`): 16 or 32 steps per bar, bar paging, per-step velocity, swing as the share of a step odd steps are delayed by, baked into the note ticks; a step is just a note on a slot, so the piano roll (toggle beside the grid) edits the same data. Decisions taken unattended: split of a looping clip snaps to a repeat boundary; deleting a clip frees its notes to play where they sit; the grid ignores notes more than a quarter step off a slot rather than snapping them.
 
 **Theme H — `music_*` MCP tools and the agent engines.** ✅ Landed. Fourteen `music_*` tools (midi-file-mcp's names, inputs derived from `SongSchema`) sit in the shared `MCP_TOOLS` registry (`media-music-mcp.ts`) and are implemented in `main/media/music/music-mcp.ts` over per-song working copies: every edit validates the whole result against `SongSchema`, answers `{ok:false, errors}` instead of throwing, and pushes one `mstudio:media:music-changed` event carrying the song; `music_save` writes the `.mid` and `.song.json`. `music_render_preview` draws a piano-roll PNG in main (`music-preview.ts`). Every tool that changes a song, opens it or saves is gated by the new default-off Settings ▸ MCP "Let agents edit music" switch (`allowMusic`, `mcp-store` v9); reads work whenever the server is on. Engines (`music-agents.ts`, IPC `music.agent.run/cancel` plus a progress event): Claude and Codex refine over a private per-run server through `iterative-host.ts` with a preview budget, tool-call ceiling and Cancel; Ollama writes the song as JSON with up to three repair rounds; Antigravity writes in one pass until the user registers Midnite in `~/.gemini/antigravity/mcp_config.json` (consent step in Settings, `agy-registration.ts`), then refines through the app's global server, falling back to one pass when that is off. Decision: a registered agy cannot use a per-run socket, so it needs the MCP server and the music switch on.
 
-**Theme I — The agent chat in the composer.** ◻ Not started. Blocked on the Chats page merging.
+**Theme I — The agent chat in the composer.** ✅ Landed (PR #806). The Editor has a Chat column (toolbar toggle) built from the Chats page's parts: `AiComposer`, `ProviderModelPicker`, `UserMessage`/`AssistantMessage` and `MarkdownBody`; no third composer. Each song keeps its thread beside it as `<song>.chat.json` (`mediaMusicChat` channel, one op each for read and write; deleted with the song). The pickers are the Chats engines, each marked "refines" or "one pass" with a hint line, using the same rule as main's `modeFor`. A run goes through Theme H's `music.agent.run` after the editor flushes its unsaved edits; a progress line shows "Pass n of N" and the latest tool action, with Stop directly left of Send. The reply is built by diffing the song before and after the run (`chat/change-summary.ts`): tracks, bars and note counts touched plus tempo, instrument and track edits, and a link per track that selects exactly the touched notes in the piano roll. Pure parts (change summary, progress reducer, engine mapping) and the panel wiring are vitest; screenshots are in `docs/screenshots/p101-i/`.
 
 **Theme J — Export.** ✅ Landed. The Editor's Export split button offers `.mid`, WAV and MP3 (`MEDIA_AUDIO_EDITOR_EXPORT_FORMATS`; `mid` joined `MediaExportFormat`, no ffmpeg). A Range select exports the whole song or the loop region (`sliceSong` cuts and rebases the song). `.mid` is encoded in main; WAV is the Theme C `Tone.Offline` render handed to main over `mediaMusicExport`; MP3 is that WAV through ffmpeg at the chosen `AUDIO_MP3_BITRATES` rate. The toolbar sits beside the Editor and reads the song the editor publishes through `editor-session.ts`, so the plumbing is song-agnostic. Per-track stems are not built.
 
@@ -135,11 +135,11 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 - [x] **Automation lanes** for volume, pan and any effect parameter, using breakpoint editing with linear and step curves. They are written to the song model; CC 7 and CC 10 are mirrored to the `.mid` where they map.
 - [x] Vitest: chain graph building and automation interpolation.
 
-## G — Clips, loops and the drum grid (M)
+## G — Clips, loops and the drum grid (M) ✅ DONE
 
-- [ ] Clips on the arrangement timeline. A clip is a note range that can be looped, split, joined and duplicated.
-- [ ] **Drum grid:** a step-sequencer editor for drum tracks with 16/32 steps, per-step velocity and swing. It reads and writes the same notes as the piano roll.
-- [ ] Vitest: clip expansion to notes, the step grid ↔ notes round trip, and swing.
+- [x] Clips on the arrangement timeline. A clip is a note range that can be looped, split, joined and duplicated.
+- [x] **Drum grid:** a step-sequencer editor for drum tracks with 16/32 steps, per-step velocity and swing. It reads and writes the same notes as the piano roll.
+- [x] Vitest: clip expansion to notes, the step grid ↔ notes round trip, and swing.
 
 ## H — `music_*` MCP tools and the agent engines (M) ✅ DONE
 
@@ -168,13 +168,13 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
   - **Antigravity** writes in a single pass by default. **"Register Midnite in Antigravity"** in Settings asks first, then writes the server into agy's own MCP config. Once registered, agy refines over several passes too. The button can also unregister.
 - [x] Vitest: tool schemas and dispatch, note add/remove semantics, validation-error results, the gating switch, and the agy registration (with a fake config file, consent required).
 
-## I — The agent chat in the composer (M)
+## I — The agent chat in the composer (M) ✅ DONE (PR #806, 2026-10-09)
 
-- [ ] **Blocked on the Chats page PR.** Reuse its composer, message thread and markdown renderer; do not build a third composer.
-- [ ] Each song has its own chat thread, persisted beside the song, e.g. "make the bridge sadder" or "add a walking bass on track 3".
-- [ ] Engine and model pickers in the composer, showing which engines refine over several passes and which write in one.
-- [ ] Pass progress ("Pass n of N") and the latest tool action, with **Stop directly left of Send**.
-- [ ] Assistant replies summarise what changed (tracks and bars touched), with a link that selects those notes in the piano roll.
+- [x] Reuse its composer, message thread and markdown renderer; do not build a third composer.
+- [x] Each song has its own chat thread, persisted beside the song, e.g. "make the bridge sadder" or "add a walking bass on track 3".
+- [x] Engine and model pickers in the composer, showing which engines refine over several passes and which write in one.
+- [x] Pass progress ("Pass n of N") and the latest tool action, with **Stop directly left of Send**.
+- [x] Assistant replies summarise what changed (tracks and bars touched), with a link that selects those notes in the piano roll.
 
 ## J — Export (S) ✅ DONE
 

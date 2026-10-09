@@ -9,7 +9,10 @@ import {
   SongSchema,
   failure,
   musicMidiPath,
+  musicChatPath,
   musicSidecarPath,
+  SongChatSchema,
+  type SongChat,
   ok,
   type GitOpResult,
   type MediaFileEntry,
@@ -158,10 +161,34 @@ export function createMusicService<W = unknown>(deps: MusicServiceDeps<W>) {
     const mid = await deps.removeFile({ ...scope, path: musicMidiPath(name) });
     // The sidecar may not exist (a bare .mid); only the interchange file is required.
     await deps.removeFile({ ...scope, path: musicSidecarPath(name) });
+    await deps.removeFile({ ...scope, path: musicChatPath(name) });
     return mid.ok ? ok() : failure(`Song "${name}" was not found.`);
   }
 
-  return { list, read, write, importFiles, remove };
+  /** The song's chat. A song with no chat file, or a damaged one, simply starts a fresh thread. */
+  async function readChat(repoId: string, project: string, name: string): Promise<GitOpResult<SongChat>> {
+    const file = await deps.readFile({ ...scopeOf(repoId, project), path: musicChatPath(name), encoding: 'utf8' });
+    if (file.ok) {
+      try {
+        const parsed = SongChatSchema.safeParse(JSON.parse(file.value));
+        if (parsed.success) return ok(parsed.data);
+      } catch {
+        // fall through to an empty thread
+      }
+    }
+    return ok(SongChatSchema.parse({}));
+  }
+
+  async function writeChat(repoId: string, project: string, name: string, chat: SongChat): Promise<GitOpResult<SongChat>> {
+    const wrote = await deps.writeBytes({
+      ...scopeOf(repoId, project),
+      path: musicChatPath(name),
+      data: Buffer.from(JSON.stringify(chat, null, 2) + '\n', 'utf8'),
+    });
+    return wrote.ok ? ok(chat) : wrote;
+  }
+
+  return { list, read, write, importFiles, remove, readChat, writeChat };
 }
 
 export type MusicService = ReturnType<typeof createMusicService>;

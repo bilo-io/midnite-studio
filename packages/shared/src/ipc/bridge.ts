@@ -25,6 +25,7 @@ import type {
 } from '../domain';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
+import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
 import type { ModelMeshResult } from '../media-model-mesh';
 import type { ModelOpEntry } from '../model-geometry/mesh/ops-log';
@@ -1341,6 +1342,11 @@ export type MidniteStudioBridge = {
         run: (req: In<typeof S.MediaMusicAgentRunRequest>) => Promise<z.infer<typeof S.MediaMusicAgentRunResponse>>;
         cancel: (req: In<typeof S.MediaMusicAgentCancelRequest>) => Promise<GitOpResult>;
         onProgress: (handler: (event: z.infer<typeof S.MediaMusicAgentProgressPayload>) => void) => Unsubscribe;
+      };
+      /** Theme I: the song's chat thread (`<song>.chat.json`): read it, or write the whole thread. */
+      chat: {
+        read: (req: { repoId: string; project: string; name: string }) => Promise<z.infer<typeof S.MediaMusicChatResponse>>;
+        write: (req: { repoId: string; project: string; name: string; chat: SongChat }) => Promise<z.infer<typeof S.MediaMusicChatResponse>>;
       };
       /** Settings ▸ MCP: register Midnite's server in Antigravity's own MCP config (consent required). */
       agy: {
