@@ -2,7 +2,9 @@ import {
   AUDIO_MP3_BITRATES,
   MEDIA_TAB_EXPORT_FORMATS,
   type MediaExportFormat,
+  type MusicSendToGeneratorResult,
 } from '@midnite/studio-shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useReducer, useState } from 'react';
 
 import { bridge } from '../../../services/bridge';
@@ -10,7 +12,8 @@ import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout, openMediaPane } from '../media-layout';
 import { NoRepoMediaState } from '../repo-media-tab';
-import { useMediaExport, useMediaProjects } from '../use-media';
+import { EditorExportBar } from '../music-editor/editor-export-bar';
+import { MEDIA_KEYS, useMediaExport, useMediaProjects } from '../use-media';
 import { AudioProjects } from './audio-projects';
 import { AudioSubTabs } from './audio-sub-tabs';
 import { BottomPlayer } from './bottom-player';
@@ -88,6 +91,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const engine = useAudioEngine();
   const importer = useAudioImport(repoId);
   const exporter = useMediaExport();
+  const client = useQueryClient();
   const hasTrack = usePlayer((s) => s.pos >= 0);
 
   const variants = useMemo(() => (sessions.data ?? []).flatMap((s) => s.variants), [sessions.data]);
@@ -129,6 +133,22 @@ function AudioTabBody({ repoId }: { repoId: string }) {
       { project: target, prompt: checked.prompt, provider: form.provider },
       { onSuccess: (result) => result.ok && setProject(target) },
     );
+  };
+
+  /** Theme K: the reference landed — show it in Generator with the description already in the prompt form. */
+  const onSent = (target: string, result: MusicSendToGeneratorResult) => {
+    void client.invalidateQueries({ queryKey: MEDIA_KEYS.tab(repoId, 'audio') });
+    void client.invalidateQueries({ queryKey: MEDIA_KEYS.projects(repoId, 'audio') });
+    setProject(target);
+    setSelectedKey(`${target}/${result.file}`);
+    dispatch({
+      type: 'seed',
+      title: result.file.replace(/-reference-.*$/, ''),
+      style: result.tags,
+      musicPrompt: result.description,
+      durationS: form.durationS,
+    });
+    setAudioTab(repoId, 'generator');
   };
 
   const onExport = (format: MediaExportFormat) => {
@@ -179,7 +199,14 @@ function AudioTabBody({ repoId }: { repoId: string }) {
                     busy={exporter.progress?.status === 'running'}
                   />
                 </>
-              ) : null}
+              ) : (
+                <EditorExportBar
+                  repoId={repoId}
+                  project={activeProject}
+                  defaultBitrate={bitrate}
+                  onSent={onSent}
+                />
+              )}
             </>
           }
           explorer={

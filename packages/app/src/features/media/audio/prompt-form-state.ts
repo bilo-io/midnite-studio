@@ -1,4 +1,6 @@
 import {
+  AUDIO_DURATION_MAX_S,
+  AUDIO_DURATION_MIN_S,
   AUDIO_LOCAL_MAX_DURATION_S,
   AUDIO_MAX_VARIANTS,
   AUDIO_STYLE_TAG_MAX,
@@ -27,6 +29,7 @@ export type PromptFormAction =
   | { type: 'caption'; value: string }
   | { type: 'expanded'; musicPrompt: string; sections: string[] }
   | { type: 'clearCaption' }
+  | { type: 'seed'; title: string; style: readonly string[]; musicPrompt: string; durationS: number }
   | { type: 'reset' };
 
 export function initialPromptForm(defaults: {
@@ -87,6 +90,18 @@ export function promptFormReducer(state: PromptFormState, action: PromptFormActi
       return { ...state, musicPrompt: action.value, sections: undefined };
     case 'expanded':
       return { ...state, musicPrompt: action.musicPrompt, sections: action.sections.length > 0 ? action.sections : undefined };
+    case 'seed':
+      // Send to Generator (Phase 101 Theme K): the song's deterministic description becomes the caption.
+      return {
+        ...state,
+        title: action.title,
+        style: mergeTags([], action.style.join(',')),
+        musicPrompt: action.musicPrompt,
+        sections: undefined,
+        instrumental: true,
+        durationS: Math.max(AUDIO_DURATION_MIN_S, Math.min(AUDIO_DURATION_MAX_S, action.durationS)),
+        tagDraft: '',
+      };
     case 'clearCaption':
       return { ...state, musicPrompt: undefined, sections: undefined };
     case 'reset':

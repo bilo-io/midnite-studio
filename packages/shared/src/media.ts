@@ -52,6 +52,8 @@ export const MEDIA_EXPORT_FORMATS = [
   'mp3',
   'wav',
   'flac',
+  // music editor (Phase 101 Theme J) — the song's own interchange file, encoded by main
+  'mid',
   // model (3D) — written by main's own exporters, no ffmpeg
   'obj',
   'fbx',
@@ -91,6 +93,7 @@ export const MEDIA_EXPORT_FORMAT_INFO: Record<MediaExportFormat, MediaExportForm
   gif: { label: 'GIF', ext: 'gif', needsFfmpeg: true },
   prores: { label: 'ProRes', ext: 'mov', needsFfmpeg: true },
   mp3: { label: 'MP3', ext: 'mp3', needsFfmpeg: true },
+  mid: { label: 'MIDI', ext: 'mid', needsFfmpeg: false },
   wav: { label: 'WAV', ext: 'wav', needsFfmpeg: true },
   flac: { label: 'FLAC', ext: 'flac', needsFfmpeg: true },
   obj: { label: 'Wavefront OBJ', ext: 'obj', needsFfmpeg: false },
@@ -121,6 +124,9 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   // Phase 108: the split button exports the selected layer (Theme H).
   map: ['geojson', 'kml'],
 };
+
+/** The Audio ▸ Editor's menu (Phase 101 Theme J): the .mid, the offline WAV render, and its MP3. */
+export const MEDIA_AUDIO_EDITOR_EXPORT_FORMATS: readonly MediaExportFormat[] = ['mid', 'wav', 'mp3'];
 
 /** Every ffmpeg-backed format — the domain of `export-service.ts`'s preset table. */
 export const FFMPEG_EXPORT_FORMATS = MEDIA_EXPORT_FORMATS.filter(
@@ -482,6 +488,10 @@ export const AudioSidecarSchema = z.object({
   /** Normalised 0..1 per-bucket peaks, computed once with Web Audio. */
   peaks: z.array(z.number().min(0).max(1)).max(1024).optional(),
   createdAt: z.string().min(1),
+  /** Theme K: the editor song this clip was rendered from, so the variant links back to it. */
+  fromSong: z.object({ project: MediaProjectNameSchema, name: z.string().min(1) }).optional(),
+  /** Theme K: the deterministic description derived from that song (MusicGen-melody has no ONNX build). */
+  description: z.string().optional(),
 });
 export type AudioSidecar = z.infer<typeof AudioSidecarSchema>;
 

@@ -298,6 +298,7 @@ import {
   TerrainTargetSchema,
   TerrainLibraryRequestSchema,
 } from '../media-terrain';
+import { MusicExportRequestSchema, MusicExportResultSchemas, MusicSendToGeneratorRequestSchema } from '../media-music-export';
 import {
   MusicDeleteRequestSchema,
   MusicImportRequestSchema,
@@ -3297,6 +3298,10 @@ export const MediaMusicImportRequest = MusicImportRequestSchema;
 export const MediaMusicImportResponse = MusicResultSchemas.import;
 export const MediaMusicDeleteRequest = MusicDeleteRequestSchema;
 export const MediaMusicDeleteResponse = MusicResultSchemas.delete;
+export const MediaMusicExportRequest = MusicExportRequestSchema;
+export const MediaMusicExportResponse = MusicExportResultSchemas.export;
+export const MediaMusicSendToGeneratorRequest = MusicSendToGeneratorRequestSchema;
+export const MediaMusicSendToGeneratorResponse = MusicExportResultSchemas.sendToGenerator;
 export const MediaMusicChangedPayload = MusicChangedEventSchema;
 export const MediaMusicOpenPayload = MusicOpenEventSchema;
 export const MediaMusicAgentRunRequest = MusicAgentRunRequestSchema;

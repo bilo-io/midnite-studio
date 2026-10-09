@@ -3690,6 +3690,13 @@ export function buildMockBridge(data: MockFixtures) {
           musicOpen.add(handler);
           return () => void musicOpen.delete(handler);
         },
+        export: async (req: { name: string; format: string }) => ({ ok: true as const, value: { dest: `/tmp/${req.name}.${req.format}` } }),
+        sendToGenerator: async (req: { project: string; name: string; durationS: number }) => {
+          const file = `${req.name.toLowerCase()}-reference-20260101-000000.wav`;
+          const key = `audio:${req.project}`;
+          mediaFiles = { ...mediaFiles, [key]: { ...(mediaFiles[key] ?? {}), [file]: 'RIFF' } };
+          return { ok: true as const, value: { file, sessionId: 's-mock', description: 'Instrumental, relaxed, bright mood, C major, 120 BPM in 4/4, played on Acoustic Grand Piano.', tags: ['relaxed', 'bright', 'C major', '120 bpm', 'acoustic grand piano'] } };
+        },
         agent: {
           run: async () => ({ ok: true as const, value: { mode: 'single-pass' as const, edits: 1, passes: 1, saved: true, summary: 'Wrote a song.' } }),
           cancel: async () => ({ ok: true as const }),

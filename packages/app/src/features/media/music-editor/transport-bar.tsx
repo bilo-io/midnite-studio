@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { LuPause, LuPlay, LuRepeat, LuSquare, LuTimer } from 'react-icons/lu';
 
 import { IconButton } from '../../../components/icon-button';
+import { publishLoopRegion } from './editor-session';
 import type { EngineState, MusicEngine } from './engine/engine';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -61,19 +62,19 @@ export function TransportBar({
         onClick={() => {
           const next = !loop;
           setLoop(next);
-          engine?.setLoop(
-            next
-              ? {
-                  startTick: 0,
-                  endTick: Math.max(
-                    1,
-                    song.tracks
-                      .flatMap((t) => t.notes)
-                      .reduce((m, n) => Math.max(m, n.startTick + n.durationTicks), 0),
-                  ),
-                }
-              : null,
-          );
+          const region = next
+            ? {
+                startTick: 0,
+                endTick: Math.max(
+                  1,
+                  song.tracks
+                    .flatMap((t) => t.notes)
+                    .reduce((m, n) => Math.max(m, n.startTick + n.durationTicks), 0),
+                ),
+              }
+            : null;
+          engine?.setLoop(region);
+          publishLoopRegion(region);
         }}
       />
       <IconButton
