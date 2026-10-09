@@ -1,6 +1,14 @@
 import type * as ToneNs from 'tone';
 
-import { gainToDb, chainShapeKey, lanesKey, stripValuesAt, type ChainNode, type MixerSpec, type StripSpec } from './mixer-spec';
+import {
+  gainToDb,
+  chainShapeKey,
+  lanesKey,
+  stripValuesAt,
+  type ChainNode,
+  type MixerSpec,
+  type StripSpec,
+} from './mixer-spec';
 import type { MixerLevels } from './engine';
 
 /**
@@ -18,7 +26,10 @@ type FxNode = {
   dispose: () => unknown;
   set: (options: Record<string, unknown>) => unknown;
 };
-export type TransportLike = { schedule: (cb: (time: number) => void, at: number) => number; clear: (id: number) => unknown };
+export type TransportLike = {
+  schedule: (cb: (time: number) => void, at: number) => number;
+  clear: (id: number) => unknown;
+};
 
 type Strip = {
   input: ToneNs.Gain;
@@ -34,24 +45,47 @@ function createEffectNode(Tone: ToneModule, node: ChainNode): FxNode {
   const p = node.params;
   switch (node.type) {
     case 'reverb':
-      return new Tone.Reverb({ decay: p.decay, preDelay: p.preDelay, wet: p.wet }) as unknown as FxNode;
+      return new Tone.Reverb({
+        decay: p.decay,
+        preDelay: p.preDelay,
+        wet: p.wet,
+      }) as unknown as FxNode;
     case 'delay':
-      return new Tone.FeedbackDelay({ delayTime: p.delayTime, feedback: p.feedback, wet: p.wet }) as unknown as FxNode;
+      return new Tone.FeedbackDelay({
+        delayTime: p.delayTime,
+        feedback: p.feedback,
+        wet: p.wet,
+      }) as unknown as FxNode;
     case 'eq3':
       return new Tone.EQ3({ low: p.low, mid: p.mid, high: p.high }) as unknown as FxNode;
     case 'compressor':
-      return new Tone.Compressor({ threshold: p.threshold, ratio: p.ratio, attack: p.attack, release: p.release }) as unknown as FxNode;
+      return new Tone.Compressor({
+        threshold: p.threshold,
+        ratio: p.ratio,
+        attack: p.attack,
+        release: p.release,
+      }) as unknown as FxNode;
     case 'chorus':
-      return new Tone.Chorus({ frequency: p.frequency, delayTime: 3.5, depth: p.depth, wet: p.wet }).start() as unknown as FxNode;
+      return new Tone.Chorus({
+        frequency: p.frequency,
+        delayTime: 3.5,
+        depth: p.depth,
+        wet: p.wet,
+      }).start() as unknown as FxNode;
     case 'distortion':
       return new Tone.Distortion({ distortion: p.distortion, wet: p.wet }) as unknown as FxNode;
     default:
-      return new Tone.Filter({ type: 'lowpass', frequency: p.frequency, Q: p.Q }) as unknown as FxNode;
+      return new Tone.Filter({
+        type: 'lowpass',
+        frequency: p.frequency,
+        Q: p.Q,
+      }) as unknown as FxNode;
   }
 }
 
 /** dB to a 0..1 meter position over a 60 dB window. */
-const meterLevel = (db: number): number => (Number.isFinite(db) ? Math.min(1, Math.max(0, (db + 60) / 60)) : 0);
+const meterLevel = (db: number): number =>
+  Number.isFinite(db) ? Math.min(1, Math.max(0, (db + 60) / 60)) : 0;
 const readMeter = (m: ToneNs.Meter): number => {
   const v = m.getValue();
   return meterLevel(Array.isArray(v) ? Math.max(...v) : v);
@@ -94,7 +128,12 @@ export function createToneMixer(Tone: ToneModule, transport: TransportLike) {
         existing.node.dispose();
         strip.nodes.delete(spec.id);
       }
-      if (!strip.nodes.has(spec.id)) strip.nodes.set(spec.id, { node: createEffectNode(Tone, spec), type: spec.type, last: { ...spec.params } });
+      if (!strip.nodes.has(spec.id))
+        strip.nodes.set(spec.id, {
+          node: createEffectNode(Tone, spec),
+          type: spec.type,
+          last: { ...spec.params },
+        });
     }
     strip.input.disconnect();
     for (const entry of strip.nodes.values()) entry.node.disconnect();

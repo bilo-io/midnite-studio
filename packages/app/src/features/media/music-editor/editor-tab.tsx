@@ -5,11 +5,20 @@ import { LuFileUp, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons
 import { IconButton } from '../../../components/icon-button';
 import { Arrangement } from './arrangement';
 import { publishEditorSong, publishLoopRegion } from './editor-session';
+import { AutomationPanel } from './automation-panel';
 import { useMusicEngine } from './engine/use-music-engine';
+import { MixerPanel } from './mixer-panel';
 import { SNAP_DIVISIONS, gridTicks, quantizeNotes } from './model/song-edit';
 import { PianoRoll } from './piano-roll';
 import { TransportBar } from './transport-bar';
 import { useSongDocument, type SaveState } from './use-song-document';
+
+type LowerView = 'roll' | 'mixer' | 'automation';
+const LOWER_VIEWS: { id: LowerView; label: string }[] = [
+  { id: 'roll', label: 'Piano roll' },
+  { id: 'mixer', label: 'Mixer' },
+  { id: 'automation', label: 'Automation' },
+];
 
 const SAVE_LABEL: Record<SaveState, string> = {
   idle: '',
@@ -51,6 +60,7 @@ export function EditorTab({
   }, [openSong]);
   const [activeTrack, setActiveTrack] = useState<string | null>(null);
   const [selection, setSelection] = useState<Set<number>>(new Set());
+  const [lower, setLower] = useState<LowerView>('roll');
   const [division, setDivision] = useState<number>(16);
   const grid = division === 0 ? 0 : gridTicks(division);
 
@@ -118,6 +128,20 @@ export function EditorTab({
             doc.commit(quantizeNotes(song, activeTrack, selection.size ? selection : 'all', grid || gridTicks(16)))
           }
         />
+        <div role="tablist" aria-label="Lower panel" className="flex rounded border border-border">
+          {LOWER_VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={lower === v.id}
+              onClick={() => setLower(v.id)}
+              className={`px-2 py-0.5 text-xs ${lower === v.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
         <span data-testid="song-save-state" className="ml-auto text-muted-foreground">
           {doc.error ?? SAVE_LABEL[doc.save]}
         </span>
@@ -133,6 +157,11 @@ export function EditorTab({
               engine={engine}
             />
           </div>
+          {lower === 'mixer' && (
+            <MixerPanel song={doc.song} activeTrack={activeTrack} onActiveTrack={setActiveTrack} onCommit={doc.commit} engine={engine} />
+          )}
+          {lower === 'automation' && <AutomationPanel song={doc.song} trackId={activeTrack} grid={grid} onCommit={doc.commit} />}
+          {lower === 'roll' && (
           <PianoRoll
             song={doc.song}
             trackId={activeTrack}
@@ -145,6 +174,7 @@ export function EditorTab({
             onUndo={doc.undo}
             onRedo={doc.redo}
           />
+          )}
         </>
       ) : (
         <Empty>

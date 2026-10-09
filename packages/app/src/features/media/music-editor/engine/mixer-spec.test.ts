@@ -1,7 +1,14 @@
 import { SongSchema } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { addEffect, addLane, addLanePoint, setChannel, setEffectBypass, setEffectParam } from '../model/mixer-edit';
+import {
+  addEffect,
+  addLane,
+  addLanePoint,
+  setChannel,
+  setEffectBypass,
+  setEffectParam,
+} from '../model/mixer-edit';
 import { buildMixerSpec, chainShapeKey, gainToDb, stripValuesAt } from './mixer-spec';
 import { createTickMap } from './tick-map';
 
@@ -33,7 +40,9 @@ describe('buildMixerSpec', () => {
     expect(solo.tracks.b!.gain).toBe(0.8);
   });
   it('carries master volume, pan and mute', () => {
-    expect(buildMixerSpec(setChannel(song0(), 'master', { volume: 0.5, pan: 0.25 }), map).master).toEqual({ gain: 0.5, pan: 0.25 });
+    expect(
+      buildMixerSpec(setChannel(song0(), 'master', { volume: 0.5, pan: 0.25 }), map).master,
+    ).toEqual({ gain: 0.5, pan: 0.25 });
     expect(buildMixerSpec(setChannel(song0(), 'master', { mute: true }), map).master.gain).toBe(0);
   });
   it('turns lanes into timed events and skips empty ones', () => {

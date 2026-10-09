@@ -1,4 +1,8 @@
-import { MUSIC_MAX_AUTOMATION_POINTS, MUSIC_MAX_TICKS, type SongAutomationLane } from '@midnite/studio-shared';
+import {
+  MUSIC_MAX_AUTOMATION_POINTS,
+  MUSIC_MAX_TICKS,
+  type SongAutomationLane,
+} from '@midnite/studio-shared';
 
 import type { TickMap } from '../engine/tick-map';
 
@@ -21,7 +25,11 @@ export function normalisePoints(points: readonly AutomationPoint[]): AutomationP
 }
 
 /** The lane's value at `tick`, or `fallback` for a lane with no points. */
-export function valueAt(lane: Pick<SongAutomationLane, 'curve' | 'points'>, tick: number, fallback: number): number {
+export function valueAt(
+  lane: Pick<SongAutomationLane, 'curve' | 'points'>,
+  tick: number,
+  fallback: number,
+): number {
   const pts = lane.points;
   if (pts.length === 0) return fallback;
   if (tick <= pts[0]!.tick) return pts[0]!.value;
@@ -68,7 +76,10 @@ export function laneEvents(
     const b = pts[i + 1];
     if (!b || lane.curve === 'step' || a.value === b.value) continue;
     const tb = map.ticksToSeconds(b.tick);
-    const steps = Math.min(Math.ceil((tb - ta) / resolution), Math.max(0, MAX_EXPANDED_EVENTS - out.length));
+    const steps = Math.min(
+      Math.ceil((tb - ta) / resolution),
+      Math.max(0, MAX_EXPANDED_EVENTS - out.length),
+    );
     for (let s = 1; s < steps; s++) {
       const f = s / steps;
       out.push({ time: ta + (tb - ta) * f, value: a.value + (b.value - a.value) * f });
@@ -78,7 +89,11 @@ export function laneEvents(
 }
 
 /** The value a lane holds at `seconds` of transport time, from its expanded events. */
-export function valueAtSeconds(events: readonly TimedValue[], seconds: number, fallback: number): number {
+export function valueAtSeconds(
+  events: readonly TimedValue[],
+  seconds: number,
+  fallback: number,
+): number {
   let value = fallback;
   let seen = false;
   for (const e of events) {
@@ -94,20 +109,31 @@ export function valueAtSeconds(events: readonly TimedValue[], seconds: number, f
 
 // --- edits ---------------------------------------------------------------------
 
-export function insertPoint(points: readonly AutomationPoint[], point: AutomationPoint): AutomationPoint[] | null {
+export function insertPoint(
+  points: readonly AutomationPoint[],
+  point: AutomationPoint,
+): AutomationPoint[] | null {
+  if (!Number.isFinite(point.tick) || !Number.isFinite(point.value)) return null;
   const tick = Math.min(MUSIC_MAX_TICKS, Math.max(0, Math.round(point.tick)));
   const replacing = points.some((p) => p.tick === tick);
   if (!replacing && points.length >= MUSIC_MAX_AUTOMATION_POINTS) return null;
   return normalisePoints([...points.filter((p) => p.tick !== tick), { tick, value: point.value }]);
 }
 
-export const removePoint = (points: readonly AutomationPoint[], index: number): AutomationPoint[] =>
+export const removePoint = (
+  points: readonly AutomationPoint[],
+  index: number,
+): AutomationPoint[] =>
   index >= 0 && index < points.length ? points.filter((_, i) => i !== index) : [...points];
 
 /** Move one breakpoint; it cannot cross its neighbours' ticks (that would reorder the lane mid-drag). */
-export function movePoint(points: readonly AutomationPoint[], index: number, to: AutomationPoint): AutomationPoint[] {
+export function movePoint(
+  points: readonly AutomationPoint[],
+  index: number,
+  to: AutomationPoint,
+): AutomationPoint[] {
   const cur = points[index];
-  if (!cur) return [...points];
+  if (!cur || !Number.isFinite(to.tick) || !Number.isFinite(to.value)) return [...points];
   const lo = index > 0 ? points[index - 1]!.tick + 1 : 0;
   const hi = index < points.length - 1 ? points[index + 1]!.tick - 1 : MUSIC_MAX_TICKS;
   const tick = Math.min(hi, Math.max(lo, Math.round(to.tick)));

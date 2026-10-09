@@ -28,7 +28,10 @@ export type StripSpec = {
   lanes: LaneSpec[];
 };
 
-export type MixerSpec = { tracks: Record<string, StripSpec>; master: { gain: number; pan: number } };
+export type MixerSpec = {
+  tracks: Record<string, StripSpec>;
+  master: { gain: number; pan: number };
+};
 
 const gainOf = (volume: number, audible: boolean): number => (audible ? volume : 0);
 
@@ -40,7 +43,8 @@ export function chainFor(track: Pick<SongTrack, 'effects'>): ChainNode[] {
 }
 
 /** Changes when the chain's shape does (effects added, removed, reordered, bypassed), not its values. */
-export const chainShapeKey = (chain: readonly ChainNode[]): string => chain.map((n) => `${n.id}:${n.type}`).join('|');
+export const chainShapeKey = (chain: readonly ChainNode[]): string =>
+  chain.map((n) => `${n.id}:${n.type}`).join('|');
 
 /** The track's lanes as timed events. A lane aimed at a bypassed or missing effect is kept: it still sets the value. */
 export function lanesFor(track: Pick<SongTrack, 'automation'>, map: TickMap): LaneSpec[] {
@@ -49,7 +53,8 @@ export function lanesFor(track: Pick<SongTrack, 'automation'>, map: TickMap): La
     const target = parseAutomationTarget(lane.target);
     if (!target || lane.points.length === 0) continue;
     const events = laneEvents(lane, map);
-    if (target.kind === 'effect') out.push({ kind: 'effect', effectId: target.effectId, param: target.param, events });
+    if (target.kind === 'effect')
+      out.push({ kind: 'effect', effectId: target.effectId, param: target.param, events });
     else out.push({ kind: target.kind, events });
   }
   return out;
@@ -75,12 +80,16 @@ export function buildMixerSpec(song: Song, map: TickMap): MixerSpec {
 export const gainToDb = (gain: number): number => (gain <= 0.00001 ? -100 : 20 * Math.log10(gain));
 
 /** A strip's static value for a lane kind, overridden by the lane's value at `seconds` when it has one. */
-export function stripValuesAt(strip: StripSpec, seconds: number): { gain: number; pan: number; effects: Record<string, Record<string, number>> } {
+export function stripValuesAt(
+  strip: StripSpec,
+  seconds: number,
+): { gain: number; pan: number; effects: Record<string, Record<string, number>> } {
   let gain = strip.gain;
   let pan = strip.pan;
   const effects: Record<string, Record<string, number>> = {};
   for (const lane of strip.lanes) {
-    if (lane.kind === 'volume') gain = strip.silenced ? 0 : valueAtSeconds(lane.events, seconds, gain);
+    if (lane.kind === 'volume')
+      gain = strip.silenced ? 0 : valueAtSeconds(lane.events, seconds, gain);
     else if (lane.kind === 'pan') pan = valueAtSeconds(lane.events, seconds, pan);
     else (effects[lane.effectId] ??= {})[lane.param] = valueAtSeconds(lane.events, seconds, NaN);
   }

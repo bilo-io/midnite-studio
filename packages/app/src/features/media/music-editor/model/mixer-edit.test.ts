@@ -42,7 +42,11 @@ describe('mixer strips', () => {
 describe('effects chain', () => {
   it('adds with unique ids in order and validates against the schema', () => {
     const song = withChain();
-    expect(song.tracks[0]!.effects.map((e) => `${e.id}:${e.type}`)).toEqual(['fx1:reverb', 'fx2:delay', 'fx3:eq3']);
+    expect(song.tracks[0]!.effects.map((e) => `${e.id}:${e.type}`)).toEqual([
+      'fx1:reverb',
+      'fx2:delay',
+      'fx3:eq3',
+    ]);
     expect(SongSchema.safeParse(song).success).toBe(true);
   });
   it('refuses beyond the limit', () => {
@@ -51,8 +55,16 @@ describe('effects chain', () => {
     expect(addEffect(song, 'a', 'filter')).toBeNull();
   });
   it('reorders, clamping the target index', () => {
-    expect(moveEffect(withChain(), 'a', 'fx3', 0).tracks[0]!.effects.map((e) => e.id)).toEqual(['fx3', 'fx1', 'fx2']);
-    expect(moveEffect(withChain(), 'a', 'fx1', 99).tracks[0]!.effects.map((e) => e.id)).toEqual(['fx2', 'fx3', 'fx1']);
+    expect(moveEffect(withChain(), 'a', 'fx3', 0).tracks[0]!.effects.map((e) => e.id)).toEqual([
+      'fx3',
+      'fx1',
+      'fx2',
+    ]);
+    expect(moveEffect(withChain(), 'a', 'fx1', 99).tracks[0]!.effects.map((e) => e.id)).toEqual([
+      'fx2',
+      'fx3',
+      'fx1',
+    ]);
   });
   it('bypasses and clamps parameters', () => {
     let song = setEffectBypass(withChain(), 'a', 'fx2', true);
@@ -76,13 +88,18 @@ describe('automation lanes', () => {
     const song = addLane(withChain(), 'a', 'fx:fx2:feedback')!.song;
     expect(addLane(song, 'a', 'fx:fx2:feedback')).toBeNull();
     expect(addLane(song, 'a', 'fx:nope:wet')).toBeNull();
-    expect(availableTargets(song.tracks[0]!).some((t) => t.target === 'fx:fx2:feedback')).toBe(false);
+    expect(availableTargets(song.tracks[0]!).some((t) => t.target === 'fx:fx2:feedback')).toBe(
+      false,
+    );
   });
   it('clamps points into the target range and sorts them', () => {
     let { song, id } = addLane(base(), 'a', 'pan')!;
     song = addLanePoint(song, 'a', id, { tick: 960, value: 7 });
     song = addLanePoint(song, 'a', id, { tick: 0, value: -0.5 });
-    expect(song.tracks[0]!.automation[0]!.points).toEqual([{ tick: 0, value: -0.5 }, { tick: 960, value: 1 }]);
+    expect(song.tracks[0]!.automation[0]!.points).toEqual([
+      { tick: 0, value: -0.5 },
+      { tick: 960, value: 1 },
+    ]);
   });
   it('switches curve and removes a lane', () => {
     let { song, id } = addLane(base(), 'a', 'volume')!;
@@ -93,7 +110,11 @@ describe('automation lanes', () => {
   it('describes the range of each target kind', () => {
     const track = withChain().tracks[0]!;
     expect(targetRange(track, 'volume')).toMatchObject({ min: 0, max: 2 });
-    expect(targetRange(track, 'fx:fx1:decay')).toMatchObject({ min: 0.1, max: 10, label: 'Reverb Decay' });
+    expect(targetRange(track, 'fx:fx1:decay')).toMatchObject({
+      min: 0.1,
+      max: 10,
+      label: 'Reverb Decay',
+    });
     expect(targetRange(track, 'fx:zz:decay')).toBeNull();
   });
 });
