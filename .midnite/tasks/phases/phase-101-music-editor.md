@@ -65,7 +65,7 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 **Theme J — Export.** ◻ Not started.
 
-**Theme K — Send to Generator.** ◻ Not started. Opens with a research spike.
+**Theme K — Send to Generator.** 🔄 spike done; build pending B/C/J. MusicGen-melody is **not** available as ONNX: no `Xenova/` or `onnx-community/` repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` (3.8.1 and 4.3.1) has no `musicgen_melody` model type or chroma extractor. Estimated cost if we exported it ourselves is about 1.9 GB download, 6-8 GB RAM and 4-20x slower than real time, which does not fit an 8 GB Mac. The build therefore takes the fallback: a rendered reference plus a deterministic text description. Write-up: [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
 
 ## A — Editor and Generator tabs (S)
 
@@ -184,8 +184,8 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 
 ## K — Send to Generator (M, research)
 
-- [ ] **Spike.** Is MusicGen-melody available as ONNX for `@huggingface/transformers`? Record the download size, RAM use and speed on an 8 GB Mac.
-- [ ] If it is: an **"Send to Generator"** button renders the arrangement (or loop region) to audio and hands it to Generator as melody conditioning beside the text prompt.
+- [x] **Spike.** Is MusicGen-melody available as ONNX for `@huggingface/transformers`? Record the download size, RAM use and speed on an 8 GB Mac. **No.** No ONNX export on the hub and no `musicgen_melody` support in transformers.js 3.8.1 or 4.3.1, so nothing could be measured. Small is 656 MB measured; melody is an *estimate* of about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which rules out 8 GB Macs. Verdict: take the fallback branch. See [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
+- [x] ~~If it is: an **"Send to Generator"** button renders the arrangement (or loop region) to audio and hands it to Generator as melody conditioning beside the text prompt.~~ Not applicable, per the spike.
 - [ ] If it is not: hand Generator a rendered reference plus a generated text description (key, tempo, instrumentation, mood, derived deterministically from the song), and record the limitation.
 - [ ] The resulting variant in Generator links back to the song it came from.
 
@@ -220,4 +220,4 @@ nothing in it is removed. Both tabs share the same projects under `.midnite/medi
 7. **Open — sample hosting.** *Recommendation:* mirror the GM sample sets into `bilo-io/midnite-apps` (versioned, under our control) instead of loading them from a third party's GitHub Pages at runtime.
 8. **Open — FluidR3_GM licence.** *Recommendation:* verify it before Theme D starts; Theme D's first item is the gate.
 9. **Open — preview format for agents.** *Recommendation:* the piano-roll PNG is always available. The audio clip is a bonus only when the renderer is open, because main has no Web Audio.
-10. **Open — Theme K fallback.** *Recommendation:* if MusicGen-melody is not available as ONNX, ship the reference render plus a deterministic text description, and keep the button.
+10. **Resolved — Theme K fallback.** The spike found MusicGen-melody is not available as ONNX and transformers.js cannot load it, so Theme K ships the reference render plus a deterministic text description (key, tempo, instrumentation, mood), and keeps the button. Revisit only if an ONNX export and a `musicgen_melody` model type appear upstream. Evidence: [`docs/research/musicgen-melody-onnx.md`](../../../docs/research/musicgen-melody-onnx.md).
