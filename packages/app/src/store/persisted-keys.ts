@@ -186,6 +186,7 @@ export const SESSION_STATE_KEYS = [
   'mediaLastDoc', // current selection — Docs reopens the last edited doc
   'mediaLastVideoProject', // current selection — Video reselects the last selected project, per repo
   'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
+  'primaryModelByAgent', // current selection — model per agent, toggled from TitleBar / companion / views
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'audioTabByRepo', // Media > Audio: Editor or Generator, per repo

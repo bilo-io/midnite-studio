@@ -1691,6 +1691,13 @@ export type UiState = {
   primaryAgent: string;
   setPrimaryAgent: (id: string) => void;
   /**
+   * Currently selected model per agent (Phase 111 Theme A).
+   * Maps agent id (e.g. `'claude'`, `'codex'`, `'agy'`) to a model id or null (default).
+   */
+  primaryModelByAgent: Record<string, string | null>;
+  setPrimaryModel: (agentId: string, modelId: string | null) => void;
+  setPrimaryAgentAndModel: (agentId: string, modelId?: string | null) => void;
+  /**
    * Non-persisted: the Settings ▸ Agents row `AgentsRoster` should scroll to
    * and briefly highlight next. Set by `focusAgentInSettings` when a
    * dropdown routes a click on an unconfigured agent to that page — cleared
@@ -2319,6 +2326,7 @@ export type PersistedUi = Pick<
   | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
+  | 'primaryModelByAgent'
   | 'agentModes'
   | 'agentApiKeys'
   | 'agentBackends'
@@ -2514,6 +2522,7 @@ export const useUiStore = create<UiState>()(
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
+      primaryModelByAgent: {},
       pendingAgentFocus: null,
       agentModes: {},
       setAgentMode: (agentId, mode) =>
@@ -3313,6 +3322,21 @@ export const useUiStore = create<UiState>()(
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
+      setPrimaryModel: (agentId, modelId) =>
+        set((state) => ({
+          primaryModelByAgent: {
+            ...state.primaryModelByAgent,
+            [agentId]: modelId,
+          },
+        })),
+      setPrimaryAgentAndModel: (agentId, modelId) =>
+        set((state) => ({
+          primaryAgent: agentId,
+          primaryModelByAgent: {
+            ...state.primaryModelByAgent,
+            ...(modelId !== undefined ? { [agentId]: modelId } : {}),
+          },
+        })),
       focusAgentInSettings: (agentId) => {
         get().setActiveView('settings');
         get().setSettingsPage('agent');
@@ -3322,7 +3346,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 32,
+      version: 33,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3398,6 +3422,7 @@ export const useUiStore = create<UiState>()(
         blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
+        primaryModelByAgent: state.primaryModelByAgent,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
         agentBackends: state.agentBackends,
@@ -3566,6 +3591,8 @@ export const useUiStore = create<UiState>()(
        * automatic resolution, so a migrated install transcribes exactly as it
        * did. `??=` for the reason v27 → v28's `setupState` gives: a test
        * profile seeded straight into the persist key may already hold them.
+       * v32 → v33: seed `primaryModelByAgent = {}` and preserve `primaryAgent`
+       * (Phase 111 Theme A) — global agent and model state contract.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3621,6 +3648,7 @@ export const useUiStore = create<UiState>()(
           forgeActiveAccountId?: string | null;
           forgeScopeReposToActiveAccount?: boolean;
           forgeSyncGhAuthSwitch?: boolean;
+          primaryModelByAgent?: Record<string, string | null>;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -3750,6 +3778,9 @@ export const useUiStore = create<UiState>()(
           state.companionProfiles ??= [];
           state.companionActiveProfile ??= null;
         }
+        if (version < 33) {
+          state.primaryModelByAgent ??= {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -3791,6 +3822,7 @@ export const useUiStore = create<UiState>()(
             which reaches the terminal as the string "undefined".
           */
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
+          primaryModelByAgent: { ...current.primaryModelByAgent, ...(saved.primaryModelByAgent ?? {}) },
           agentModes: { ...current.agentModes, ...(saved.agentModes ?? {}) },
           agentApiKeys: { ...current.agentApiKeys, ...(saved.agentApiKeys ?? {}) },
           agentBackends: { ...current.agentBackends, ...(saved.agentBackends ?? {}) },
