@@ -169,6 +169,7 @@ export function buildAskPrompt(input: CompanionAskInput): string {
     'as {"kind":"command","id":"<one of the above>","body":"<the rest of the request>"}.',
     'If it asks to change repository, use {"kind":"switchRepo","name":"<name>"}.',
     ...(input.vocabulary ? routeVocabularyLines(input.vocabulary) : []),
+    ...(input.vocabulary ? tuneVocabularyLines() : []),
     'If none of that fits, OMIT `intent` entirely — never guess an id that is not listed.',
     '',
     grounding,
@@ -277,6 +278,27 @@ function agentVocabularyLines(agents: CompanionVocabulary['agents']): string[] {
       const modelsPart = a.models && a.models.length > 0 ? ` (${a.models.join(', ')})` : '';
       return `${a.id} — ${a.label}${modelsPart}`;
     }),
+  ];
+}
+
+/**
+ * Phase 109 Theme H — how the router reaches "tune me" and quick tweaks.
+ *
+ * The two intents carry no text for personality or About me, only a target
+ * or a one-line instruction: those fields change through the `'persona'`
+ * mode's interview or tweak, read back and confirmed, never by a router
+ * writing them (Decision 4). Gated on the vocabulary like the lines above, so
+ * a prompt built without one reads as it always did.
+ */
+function tuneVocabularyLines(): string[] {
+  return [
+    '',
+    'If it asks to change your personality or how you come across overall, use',
+    '{"kind":"tune","target":"companionPersonality"}; if it wants to tell you about themselves,',
+    '{"kind":"tune","target":"companionAboutUser"}. For one change to how you talk ("be more',
+    'sarcastic", "talk less"), use {"kind":"tweak","instruction":"<that request, in a few words>"}.',
+    'What the user wants to be called is a setting, not a tweak. Never write personality or',
+    'About me text yourself — those two only ever change through tune or tweak.',
   ];
 }
 
