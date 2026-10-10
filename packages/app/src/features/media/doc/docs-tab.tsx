@@ -1,5 +1,5 @@
 import { MEDIA_TAB_EXPORT_FORMATS, type DocExportFormat, type MediaExportFormat } from '@midnite/studio-shared';
-import { lazy, Suspense, useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { LuFilePlus, LuFileText } from 'react-icons/lu';
 import { PiFilePlusFill } from 'react-icons/pi';
 
@@ -16,6 +16,7 @@ import type { DocEditorHandle } from './doc-editor';
 import { DocThreadPanel } from './doc-thread-panel';
 import { DocsExplorer } from './docs-explorer';
 import { useDocSession, type DocRef } from './use-doc-session';
+import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /**
  * Media ▸ Docs (Phase 99 Theme B): project accordion, the Tiptap editor over
@@ -39,6 +40,14 @@ export function DocsTab() {
   const [exporting, setExporting] = useState(false);
   const [createRequest, setCreateRequest] = useState(0);
   const handle = useRef<DocEditorHandle | null>(null);
+  // Phase 112 Theme E — a reveal selects a doc (or a project) the same way a click in the explorer does.
+  const openRequest = useMediaOpenFor('doc', repoId ?? null);
+  useEffect(() => {
+    if (!openRequest) return;
+    setSelection({ project: openRequest.project, path: openRequest.path ?? null });
+    setAiSelection(undefined);
+    useMediaOpenRequest.getState().clear();
+  }, [openRequest]);
 
   const doc: DocRef | null =
     repoId && selection?.path ? { repoId, project: selection.project, path: selection.path } : null;

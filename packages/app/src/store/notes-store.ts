@@ -10,6 +10,9 @@ export { NoteSchema };
 export type NotesState = {
   notes: Record<string, Note>;
   hydrated: boolean;
+  /** The note open in the Notes view — session state, never persisted or synced (Phase 112 Theme E). */
+  selectedNoteId: string | null;
+  selectNote: (id: string | null) => void;
   hydrate: () => Promise<void>;
   addNote: (repoId: string, body: string) => Note;
   setBody: (id: string, body: string) => void;
@@ -208,6 +211,8 @@ adoptRenamedPersistKey(NOTES_PERSIST_KEY, NOTES_PERSIST_KEY);
 export const useNotesStore = create<NotesState>()((set, get) => ({
   notes: {},
   hydrated: false,
+  selectedNoteId: null,
+  selectNote: (id) => set({ selectedNoteId: id }),
 
   hydrate: async () => {
     if (get().hydrated) return;

@@ -28,6 +28,7 @@ import {
   useAudioProviders,
   useAudioSessions,
 } from './use-audio';
+import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /** Phase 101: the Editor chunk loads only once its tab opens (Tone.js will hang off it). */
 const EditorTab = lazy(() =>
@@ -71,15 +72,20 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const setAudioTab = useUiStore((s) => s.setAudioTab);
   const [requestedSong, setRequestedSong] = useState<{ name: string; seq: number } | null>(null);
 
-  // An agent's `music_open` brings the Editor up on that song (Phase 101 Theme H).
+  // An agent's `music_open` brings the Editor up on that song (Phase 101 Theme H). Heard by the app
+  // shell (`useMediaOpenListeners`) now, so it works from any view, and handed over as a request;
+  // a reveal of an audio project or song arrives the same way (Phase 112 Theme E).
+  const openRequest = useMediaOpenFor('audio', repoId);
   useEffect(() => {
-    return bridge()?.media.music.onOpen?.((event) => {
-      if (event.repoId !== repoId) return;
-      setProject(event.project);
+    if (!openRequest) return;
+    setProject(openRequest.project);
+    if (openRequest.path) {
       setAudioTab(repoId, 'editor');
-      setRequestedSong((cur) => ({ name: event.name, seq: (cur?.seq ?? 0) + 1 }));
-    });
-  }, [repoId, setAudioTab]);
+      const name = openRequest.path;
+      setRequestedSong((cur) => ({ name, seq: (cur?.seq ?? 0) + 1 }));
+    }
+    useMediaOpenRequest.getState().clear();
+  }, [openRequest, repoId, setAudioTab]);
 
   const projects = useMediaProjects(repoId, 'audio');
   const activeProject =

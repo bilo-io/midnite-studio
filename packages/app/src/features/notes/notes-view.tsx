@@ -91,24 +91,21 @@ export function NotesView() {
   const dialogs = useDialogs();
 
   // ── content pane local state ───────────────────────────────────────────────
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const selectedNoteId = useNotesStore((s) => s.selectedNoteId);
+  const setSelectedNoteId = useNotesStore((s) => s.selectNote);
   const [showPreview, setShowPreview] = useState(false);
 
   /**
-   * If the selected note disappears (deleted, repo switch) clear the selection
-   * so the content pane falls through to its empty state rather than showing
-   * a ghost.
+   * Clear the selection when its note is gone (deleted) or belongs to another
+   * repository, so the content pane falls through to its empty state rather
+   * than showing a ghost. A comparison rather than a clear-on-repo-change: a
+   * reveal selects the note after switching repo, and must survive the mount.
    */
   useEffect(() => {
-    if (selectedNoteId && !allNotesRecord[selectedNoteId]) {
-      setSelectedNoteId(null);
-    }
-  }, [allNotesRecord, selectedNoteId]);
-
-  /** Clear selection on repo change. */
-  useEffect(() => {
-    setSelectedNoteId(null);
-  }, [selectedRepoId]);
+    if (!selectedNoteId) return;
+    const note = allNotesRecord[selectedNoteId];
+    if (!note || note.repoId !== selectedRepoId) setSelectedNoteId(null);
+  }, [allNotesRecord, selectedNoteId, selectedRepoId, setSelectedNoteId]);
 
   const selectedNote: Note | null = selectedNoteId ? (allNotesRecord[selectedNoteId] ?? null) : null;
 
