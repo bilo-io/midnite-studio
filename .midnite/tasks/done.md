@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-10 — Phase 111 Themes D, E — Title bar model pill and MCP agent tools
 
-[PR #PRN](https://github.com/bilo-io/midnite-studio/pull/PRN). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+[PR #822](https://github.com/bilo-io/midnite-studio/pull/822). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
 Themes D and E: the title bar shows which model the primary agent is on and lets you change it, and a background
 agent can read and switch the agent and model over MCP.
 

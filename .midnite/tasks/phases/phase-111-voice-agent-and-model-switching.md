@@ -24,9 +24,9 @@ Scope guardrails:
 
 **Theme C — Voice Execution & Spoken Read-backs.** ◻ Wire `switchAgent` into companion `act()` dispatcher with spoken confirmations, invalid model refusals, and one-step undo integration.
 
-**Theme D — Title Bar Model Pill & Quick Switcher.** ✅ Landed in PR #PRN. `TitleBarPrimaryAgent` shows a model pill beside the agent icon when a non-default model is chosen, and its picker gains a Model section (Claude's catalogue, Ollama's pulled models) in the same ArrowUp/ArrowDown/Enter walk as the agent rows.
+**Theme D — Title Bar Model Pill & Quick Switcher.** ✅ Landed in PR #822. `TitleBarPrimaryAgent` shows a model pill beside the agent icon when a non-default model is chosen, and its picker gains a Model section (Claude's catalogue, Ollama's pulled models) in the same ArrowUp/ArrowDown/Enter walk as the agent rows.
 
-**Theme E — MCP Agent & Model Tools.** ✅ Landed in PR #PRN. `companion_agent_get`, `companion_agent_set` and `companion_models_list` on the `midnite` MCP server, behind the existing `allowCompanionSettings` switch; the renderer half (`agent-switch.ts`) validates agent aliases, models, install state and Ollama's daemon, and writes through `setPrimaryAgentAndModel`.
+**Theme E — MCP Agent & Model Tools.** ✅ Landed in PR #822. `companion_agent_get`, `companion_agent_set` and `companion_models_list` on the `midnite` MCP server, behind the existing `allowCompanionSettings` switch; the renderer half (`agent-switch.ts`) validates agent aliases, models, install state and Ollama's daemon, and writes through `setPrimaryAgentAndModel`.
 
 **Theme F — View Synchronization & End-to-End Verification.** ◻ Propagate global agent/model changes to Chats, Media generators, and Tasks; add vitest unit tests and Playwright verification specs.
 
