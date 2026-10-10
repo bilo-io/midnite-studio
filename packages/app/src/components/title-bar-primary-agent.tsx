@@ -226,7 +226,7 @@ function PrimaryAgentPickerPanel({
         role="menu"
         aria-label="Select primary agent"
         aria-orientation="vertical"
-        className="hide-scrollbar max-h-80 overflow-auto p-1"
+        className="hide-scrollbar max-h-64 overflow-auto p-1"
       >
         {noMatches ? (
           <p className="px-2.5 py-6 text-center text-xs text-muted-foreground">
@@ -286,7 +286,9 @@ function PrimaryAgentPickerPanel({
             </div>
           ))
         )}
-        {query.trim() ? null : (
+      </div>
+      {query.trim() ? null : (
+        <div className="hide-scrollbar max-h-44 overflow-auto border-t border-border p-1">
           <ModelSection
             agentId={primaryAgent}
             selected={primaryModel}
@@ -296,8 +298,8 @@ function PrimaryAgentPickerPanel({
             onSelect={onSelectModel}
             onModels={setModels}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 111 Themes D, E — Title bar model pill and MCP agent tools
+
+[PR #PRN](https://github.com/bilo-io/midnite-studio/pull/PRN). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Themes D and E: the title bar shows which model the primary agent is on and lets you change it, and a background
+agent can read and switch the agent and model over MCP.
+
+- **app:** `TitleBarPrimaryAgent` gets a model pill (only for a non-default model) and a Model section in the picker, in one keyboard walk with the agent rows. `agent-switch.ts` answers the three new `ui-requests` arms.
+- **shared:** `companion_agent_get`, `companion_agent_set`, `companion_models_list` in `MCP_TOOLS`; schemas in `companion-mcp.ts`; `agentState`/`agentSet`/`modelsList` arms on the companion UI action and result.
+- **desktop:** three handlers in `companion-tools.ts`, registered in `MCP_HANDLERS`; same `allowCompanionSettings` switch as the rest of the family.
 ## 2026-10-10 — Phase 109 Theme F — Voice audition
 
 [PR #820](https://github.com/bilo-io/midnite-studio/pull/820). [Phase 109](phases/phase-109-companion-settings-by-voice.md)

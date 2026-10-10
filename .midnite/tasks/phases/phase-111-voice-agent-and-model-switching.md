@@ -24,9 +24,9 @@ Scope guardrails:
 
 **Theme C — Voice Execution & Spoken Read-backs.** ◻ Wire `switchAgent` into companion `act()` dispatcher with spoken confirmations, invalid model refusals, and one-step undo integration.
 
-**Theme D — Title Bar Model Pill & Quick Switcher.** ◻ Update `TitleBarPrimaryAgent` to display the active model badge alongside the agent icon and support model selection inside the dropdown.
+**Theme D — Title Bar Model Pill & Quick Switcher.** ✅ Landed in PR #PRN. `TitleBarPrimaryAgent` shows a model pill beside the agent icon when a non-default model is chosen, and its picker gains a Model section (Claude's catalogue, Ollama's pulled models) in the same ArrowUp/ArrowDown/Enter walk as the agent rows.
 
-**Theme E — MCP Agent & Model Tools.** ◻ Expose `companion_agent_set`, `companion_agent_get`, and `companion_models_list` tools on the `midnite` MCP server.
+**Theme E — MCP Agent & Model Tools.** ✅ Landed in PR #PRN. `companion_agent_get`, `companion_agent_set` and `companion_models_list` on the `midnite` MCP server, behind the existing `allowCompanionSettings` switch; the renderer half (`agent-switch.ts`) validates agent aliases, models, install state and Ollama's daemon, and writes through `setPrimaryAgentAndModel`.
 
 **Theme F — View Synchronization & End-to-End Verification.** ◻ Propagate global agent/model changes to Chats, Media generators, and Tasks; add vitest unit tests and Playwright verification specs.
 
@@ -95,20 +95,20 @@ Scope guardrails:
 
 ### D — Title Bar Model Pill & Quick Switcher (S)
 
-- [ ] **Update `TitleBarPrimaryAgent`** ([`packages/app/src/components/title-bar-primary-agent.tsx`](../../../packages/app/src/components/title-bar-primary-agent.tsx)):
+- [x] **Update `TitleBarPrimaryAgent`** ([`packages/app/src/components/title-bar-primary-agent.tsx`](../../../packages/app/src/components/title-bar-primary-agent.tsx)):
   - Render an active model pill next to the agent icon when a non-default model is selected (e.g. `[Claude · Opus 5]`).
   - Add an inline model selector submenu in `PrimaryAgentPickerPanel` for agents offering multiple models (Claude, Ollama).
   - Ensure popover keyboard navigation (`ArrowDown`, `Enter`, `Escape`) supports model list exploration.
-- [ ] **Visual testing**:
+- [x] **Visual testing**:
   - Add visual screenshot tests covering the updated title bar with and without an active model tag.
 
 ### E — MCP Agent & Model Tools (S)
 
-- [ ] **Tools on `midnite` MCP server** ([`packages/desktop/src/main/mcp/`](../../../packages/desktop/src/main/mcp/)):
+- [x] **Tools on `midnite` MCP server** ([`packages/desktop/src/main/mcp/`](../../../packages/desktop/src/main/mcp/)):
   - `companion_agent_get`: Returns current `primaryAgent`, active model, and list of installed agents.
   - `companion_agent_set`: Sets primary agent and optional model id with validation.
   - `companion_models_list`: Lists available models for an agent (including probed Ollama models).
-- [ ] **MCP tool unit tests**:
+- [x] **MCP tool unit tests**:
   - Test input validation, error responses for unknown models, and broadcast notifications.
 
 ### F — View Synchronization & End-to-End Verification (M)
