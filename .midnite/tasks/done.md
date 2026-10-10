@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-10 — Ad hoc — What was just said scrolls into view
 
-Not phase-tracked. The user asked that, after they speak, the composer and the views around the
+[PR #812](https://github.com/bilo-io/midnite-studio/pull/812). Not phase-tracked. The user asked that, after they speak, the composer and the views around the
 prompt scroll to what was just entered. A survey found two gaps. Chats already handled this,
 because it forces a stick-to-bottom on a new user turn. Docs and Video already scroll on every
 message. Song chat and game iterate have no mic, Loops history lists the newest run first, and
