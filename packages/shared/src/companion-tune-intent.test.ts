@@ -83,6 +83,14 @@ describe('parseIntent — tune and tweak', () => {
     expect(parse(text).kind).toBe(kind);
   });
 
+  it("each tuned field's own example — the page's \"Try: …\" hint — starts that field's interview", () => {
+    for (const target of COMPANION_TUNE_TARGETS) {
+      const example = COMPANION_SETTING_SPECS[target].example;
+      expect(example).not.toBeNull();
+      expect(parse(example as string)).toEqual({ kind: 'tune', target });
+    }
+  });
+
   it('needs the vocabulary, like every settings phrase', () => {
     expect(parseIntent('tune yourself').kind).toBe('freeform');
     expect(parseIntent('be more sarcastic').kind).toBe('freeform');
