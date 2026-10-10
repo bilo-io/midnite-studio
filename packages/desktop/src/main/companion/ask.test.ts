@@ -295,15 +295,35 @@ describe('buildAskPrompt', () => {
       expect(prompt).toContain('Open repositories: midnite-studio, bilo-mono.');
     });
 
-    it('carries one example each of navigate/run/confirm/help, and the unchanged refusal line', () => {
+    it('carries one example each of navigate/run/confirm/help/switchAgent, and the unchanged refusal line', () => {
       const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
       expect(prompt).toContain('{"kind":"navigate"');
       expect(prompt).toContain('{"kind":"run","id":"<a command id above>"}');
       expect(prompt).toContain('{"kind":"confirm"}');
       expect(prompt).toContain('{"kind":"help"}');
+      expect(prompt).toContain('{"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"}');
       // Verbatim — Theme A's own instruction, which now covers all five
       // lists by context rather than by being reworded.
       expect(prompt).toContain('never guess an id that is not listed');
+    });
+
+    it('lists available agents and models when vocabulary includes them (Phase 111 Theme B)', () => {
+      const prompt = buildAskPrompt({
+        kind: 'route',
+        text: 'switch to claude opus',
+        repoPath: null,
+        vocabulary: {
+          ...vocabulary,
+          agents: [
+            { id: 'claude', label: 'Claude', models: ['haiku-4-5', 'sonnet-5-5', 'opus-5'] },
+            { id: 'codex', label: 'Codex', models: ['gpt-5-mini'] },
+          ],
+        },
+      });
+      expect(prompt).toContain('Available primary agents and their models, as `id — label (models)`:');
+      expect(prompt).toContain('claude — Claude (haiku-4-5, sonnet-5-5, opus-5)');
+      expect(prompt).toContain('codex — Codex (gpt-5-mini)');
+      expect(prompt).toContain('{"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"}');
     });
 
     it('never lists a never-tier command, because the vocabulary never carries one', () => {

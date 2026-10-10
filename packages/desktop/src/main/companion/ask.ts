@@ -201,6 +201,8 @@ function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
     'Use {"kind":"run","id":"<a command id above>"} to run a palette command.',
     'Use {"kind":"confirm"} for a bare confirmation of something already asked.',
     'Use {"kind":"help"} if it asks what you can do.',
+    'Use {"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"} to change the active agent or model.',
+    ...agentVocabularyLines(vocabulary.agents),
     ...settingsVocabularyLines(vocabulary.settings),
     ...profileVocabularyLines(vocabulary.profiles),
   ];
@@ -247,6 +249,21 @@ function settingsVocabularyLines(settings: CompanionVocabulary['settings']): str
     'step with "op":"step"; for a voice by name, the name as heard with "op":"match".',
     'Only keys from this list — anything else stays on the Settings page, so omit `intent`.',
     'Use {"kind":"undoSetting"} if it asks to undo the last settings change.',
+  ];
+}
+
+/**
+ * Phase 111 Theme B — Agents and models vocabulary for the companion router.
+ */
+function agentVocabularyLines(agents: CompanionVocabulary['agents']): string[] {
+  if (!agents || agents.length === 0) return [];
+  return [
+    '',
+    'Available primary agents and their models, as `id — label (models)`:',
+    ...agents.map((a) => {
+      const modelsPart = a.models && a.models.length > 0 ? ` (${a.models.join(', ')})` : '';
+      return `${a.id} — ${a.label}${modelsPart}`;
+    }),
   ];
 }
 
