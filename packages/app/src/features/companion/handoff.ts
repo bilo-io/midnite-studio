@@ -15,6 +15,8 @@ import {
   type CompanionIntent,
   type CompanionSettingIntent,
   type CompanionSettingKey,
+  type CompanionPersonaReply,
+  type CompanionPersonaRequest,
   type CompanionVocabulary,
   type GitOpResult,
   type RepoDescriptor,
@@ -117,6 +119,15 @@ export type HandoffDeps = ConciergeDeps & {
    * a port for the reason `navigate` is one: this file never touches a store.
    */
   companionSettings: CompanionSettingsPort;
+  /**
+   * `window.midniteStudio.companion.ask` in `'persona'` mode (Phase 109 Theme
+   * H): personality or About me text from an interview or a tweak, or why
+   * there is none. A reply that was not the `{text, summary}` shape comes back
+   * as a failure, so the interview falls back to its template.
+   */
+  persona: (request: CompanionPersonaRequest) => Promise<GitOpResult<CompanionPersonaReply>>;
+  /** Whether the agent roster has anything with a headless mode — without one a tweak points to the page. */
+  hasAgentCli: () => boolean;
 };
 
 /**
