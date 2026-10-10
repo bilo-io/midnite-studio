@@ -1,6 +1,21 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 109 Theme F — Voice audition
+
+[PR #820](https://github.com/bilo-io/midnite-studio/pull/820). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme F: "try some British voices" plays three or four numbered samples, each in the voice it names. "Number
+two", "that one", "next", "again" and "none" answer it, and the pick is read back in the new voice and can be
+undone.
+
+- **shared:** `companion-audition.ts` (phrase matcher, deterministic grade-ordered selection with female and
+  male alternating, even 3–4 batches, a system-voice filter, and the reply grammar). An `audition` intent
+  arm, parsed inside the vocabulary gate. The `companionTtsModelOnDisk` channel and its schemas.
+- **app:** `audition.ts` is the turn state machine, intercepting in `submitInput`. A pick goes through
+  `proposeSetting` → E's read-back and the undo slot. Falls back to system voices (said once). Barge-in
+  through `bargeInAudition()` from `voice-ports.ts` and from `conversation.ts`, which un-gates only for local
+  samples. The wake trigger passes a bare reply through. `CompanionSpeakOptions.voice` is a one-off voice.
+- **desktop:** a `companionTtsModelOnDisk` handler that reads the model off disk without spawning the worker.
 ## 2026-10-10 — Phase 111 Theme B — Companion Intent Schema & Grammar
 
 [PR #819](https://github.com/bilo-io/midnite-studio/pull/819). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
