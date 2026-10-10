@@ -256,7 +256,9 @@ describe('help', () => {
     const posted = store.transcript.at(-1)?.text ?? '';
     expect(posted).toContain('**Settings**');
     expect(posted).toContain('- Local voice — "use voice Bella"');
-    expect(speaker.spoken.join(' ')).toContain('You can tell me to change my voice, what I call you, or how loud I am.');
+    expect(speaker.spoken.join(' ')).toContain(
+      'You can tell me to change my voice, what I call you, or how loud I am — or say "tune yourself".',
+    );
   });
 });
 

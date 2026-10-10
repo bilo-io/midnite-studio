@@ -15,7 +15,7 @@ import {
 } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { currentTuneSession } from './conversation';
+import { currentTuneSession } from './tune-interview';
 import { fakeConciergeDeps, fakeStore, type FakeStore } from './test-doubles';
 import {
   TWEAK_NEEDS_CLI,

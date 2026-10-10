@@ -17,7 +17,7 @@ import {
   type TuneDraft,
   type TuneSession,
   type TuneStep,
-} from './conversation';
+} from './tune-interview';
 
 const PERSONALITY = COMPANION_TUNE_QUESTIONS.companionPersonality.map((q) => q.ask);
 const ABOUT = COMPANION_TUNE_QUESTIONS.companionAboutUser.map((q) => q.ask);

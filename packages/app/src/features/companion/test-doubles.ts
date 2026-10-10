@@ -206,6 +206,7 @@ export function fakeCompanionSettings(
     }
     const guard = checkCompanionGuard(companionSettingSpec(change.key), state[change.key], change.value, {
       source: 'voice',
+      ...(change.tuned === true ? { tuned: true } : {}),
     });
     if (!guard.ok) return { ok: false, key: change.key, reason: 'guard', message: guard.reason };
     return { ok: true, key: change.key, previous: state[change.key], next: change.value, tier };
