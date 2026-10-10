@@ -19,7 +19,7 @@ import {
   stepTuneSession,
   type TuneDraft,
   type TuneSession,
-} from './conversation';
+} from './tune-interview';
 
 /**
  * "Tune me" and quick tweaks, out loud — Phase 109 Theme H.
