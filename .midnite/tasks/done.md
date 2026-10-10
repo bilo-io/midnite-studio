@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-10 — Phase 109 Themes C + E — The companion changes its own settings, says so, and undoes it
 
-[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+[PR #815](https://github.com/bilo-io/midnite-studio/pull/815). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
 Themes C and E. You can tell the companion to change itself, by voice or typing: "use voice Bella", "volume 50",
 "louder", "call me boss", "I'll call you Nova", "stop talking out loud", "push to talk", "conversation mode
 on", "turn elevator music off". It reads the change back, and "undo that" reverts it.
