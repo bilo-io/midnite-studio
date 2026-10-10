@@ -16,6 +16,7 @@ import {
   workflowGateDecide,
   workflowGatesList,
 } from './tools';
+import { companionSettingsGet, companionSettingsSet, companionVoicesList } from './companion-tools';
 import { McpToolError } from './errors';
 import {
   gameCreate,
@@ -233,6 +234,9 @@ export const MCP_HANDLERS: {
   music_add_track: musicAddTrack,
   music_save: musicSave,
   music_render_preview: musicRenderPreview,
+  companion_settings_get: companionSettingsGet,
+  companion_settings_set: companionSettingsSet,
+  companion_voices_list: companionVoicesList,
 };
 
 export type McpDispatchResult =

@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -10,6 +9,8 @@ import {
   type CompanionLocalVoiceId,
   type GitOpResult,
 } from '@midnite/studio-shared';
+
+import { KOKORO_MODEL_ID, kokoroModelCacheDir, kokoroModelOnDisk } from './tts-model-files';
 
 // `kokoro-js` (and the `@huggingface/transformers` it re-exports through
 // `loadModule` below) is loaded lazily, not imported here — see
@@ -140,14 +141,11 @@ type KokoroTtsInstance = InstanceType<KokoroModule['KokoroTTS']>;
  */
 export const VOICE_ID = COMPANION_LOCAL_VOICE_DEFAULT;
 
-/** `kokoro-js`'s own default ONNX export of Kokoro-82M v1.0 on the Hugging Face Hub. */
-const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+/** `kokoro-js`'s own default ONNX export of Kokoro-82M v1.0 on the Hugging Face Hub (`tts-model-files.ts`). */
+const MODEL_ID = KOKORO_MODEL_ID;
 
 /** See the module doc's quantisation note. */
 const DTYPE = 'q8';
-
-/** The on-disk file `dtype: 'q8'` resolves to — used only by `modelReady()`'s cheap existence check. */
-const QUANTIZED_MODEL_FILE = 'model_quantized.onnx';
 
 /** Give up on a stalled download rather than hanging the first "Say hello" forever. `transformers.js` has no built-in fetch timeout of its own. */
 const MODEL_LOAD_TIMEOUT_MS = 120_000;
@@ -281,33 +279,9 @@ export function resetCompanionTtsForTest(overrides: Partial<CompanionTtsDeps> = 
   }
 }
 
-/**
- * Under `app.getPath('userData')`, never `transformers.js`'s own default
- * `<package>/.cache/` (unwritable once packaged into an asar) nor the user's
- * home dotfiles — the module doc's point 2, and the exact failure mode that
- * already burned this feature once.
- */
-function modelCacheDir(directory: string): string {
-  return join(directory, 'companion-voice', 'kokoro');
-}
-
-/**
- * A cheap on-disk existence check, mirroring the old `voiceReady()` — cheap
- * enough for `getCompanionTtsStatus` to poll without spinning up a full ONNX
- * session just to answer a Settings page. `transformers.js`'s `FileCache`
- * joins `env.cacheDir` with `${model_id}/${filename}` verbatim (no revision
- * segment) — empirically confirmed against this build's own cache directory
- * — so the path below is deterministic for the fixed `MODEL_ID`/`DTYPE` this
- * module always requests.
- */
-function modelReady(directory: string): boolean {
-  const dir = modelCacheDir(directory);
-  return (
-    existsSync(join(dir, MODEL_ID, 'onnx', QUANTIZED_MODEL_FILE)) &&
-    existsSync(join(dir, MODEL_ID, 'tokenizer.json')) &&
-    existsSync(join(dir, MODEL_ID, 'config.json'))
-  );
-}
+/** The model's cache directory and its cheap on-disk check — shared with main through `tts-model-files.ts` (Phase 109 Theme D). */
+const modelCacheDir = kokoroModelCacheDir;
+const modelReady = kokoroModelOnDisk;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
