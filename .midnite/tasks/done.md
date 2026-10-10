@@ -1,6 +1,41 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Ad hoc — Conversation mode: hands-free voice turns, optional wake word
+
+Not phase-tracked. The user asked for a second button beside every composer's mic. When on, the
+mic stays open and each phrase is sent by itself when the user pauses, with no press per phrase.
+When off, the mic works as before. Two follow-ups added a trigger choice in Settings ("Always on",
+or "Wake word" using the existing `companionNames`) and made **Manual** the default.
+
+Two persisted keys sit behind one three-way choice in Settings ▸ Companion ▸ Microphone:
+`voiceConversation` (off = Manual) and `voiceConversationTrigger` (`always`/`wake`). The
+composer's `LuSpeech` toggle flips the first and keeps the second. `conversation.ts` holds the
+engine:
+
+- **Segmenter** (pure). It takes the first frame as the room's noise level, lets that floor fall
+  fast and rise slowly (so a fan isn't heard as speech), and keeps 300 ms of audio from before
+  each phrase. A phrase ends after 1 s of silence, at 28 s at most.
+- **Capture.** One `getUserMedia` stream feeds a `ScriptProcessorNode`, since an analyser can
+  only be polled.
+- **Session.** One composer owns it at a time; the last to start listening takes it over. It
+  ignores audio while the companion is speaking, transcribes phrases in order through the
+  existing transcribe IPC, reports an engine failure once per run of failures, and stops when
+  the setting goes off, the window is hidden, or its composer unmounts.
+
+`parseWakePhrase` (shared) only matches a name at the start of a phrase, optionally after
+"hey"/"ok", unlike `matchesCompanionName`. The longest name wins. A name said on its own arms the
+next phrase for 8 s. Auto-send is an effect in `AiComposer`, keyed on a counter that
+`useComposerMic` bumps in the same render as the transcript. It waits for `canSend` and drops a
+pending send if the mode is turned off. `pressStart` checks the mode, so the companion's Space
+shortcut and `VoiceControls` start and stop listening without changes. The mic is never opened
+without a click, including when the mode was left on at the last quit.
+
+Verified against a real build with Chromium's fake capture device playing looping clips. "Always
+on" sent five separate phrases from one click. "Wake word" sent only "list the open pull
+requests." and ignored the phrase that didn't start with the name. Screenshots:
+`docs/screenshots/voice-conversation/`.
+
 ## 2026-10-10 — Ad hoc — The microphone was refused by the app's own permission handler
 
 [PR #810](https://github.com/bilo-io/midnite-studio/pull/810). Not phase-tracked. The user's report: macOS Privacy ▸ Microphone was on, speech output worked,

@@ -409,7 +409,7 @@ export function CompanionPage() {
           */}
           <Choice<'manual' | 'always' | 'wake'>
             label="Conversation mode"
-            hint="Also the speech-bubble button beside every composer's mic. Choosing a mode here doesn't open the mic — click the mic (or that button) in a composer to start listening. Every phrase is transcribed to find the ones to send, so with an OpenAI key, every phrase is a paid request."
+            hint="The button beside every composer's mic switches between Manual and the mode chosen here. Choosing a mode doesn't open the mic — click the mic (or that button) in a composer to start listening. Every phrase is transcribed to find the ones to send, so with an OpenAI key, every phrase is a paid request."
             value={voiceConversation ? voiceConversationTrigger : 'manual'}
             onChange={(mode) => {
               if (mode === 'manual') {
