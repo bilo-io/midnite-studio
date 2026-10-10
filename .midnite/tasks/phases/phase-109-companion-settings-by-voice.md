@@ -108,7 +108,7 @@ Scope guardrails:
 
 **Theme F — Voice audition.** ◻ Not started. "Try some British voices" plays 3–4 numbered samples, and you pick with "number two", "that one" or "next". It falls back to system voices when Kokoro is unavailable.
 
-**Theme G — Persona profiles.** ◻ Not started. Named bundles of voice, personality and honorifics; names stay global. Save, switch and delete them by voice, from a Profiles section on the page, or over `companion_profile_*` MCP tools.
+**Theme G — Persona profiles.** ✅ Done ([PR #818](https://github.com/bilo-io/midnite-studio/pull/818)). A profile bundles voice (local and system), personality and honorifics, never names, so a switch can't change the wake word. The new `app/features/companion/profiles.ts` saves, switches, deletes and renames them. A switch writes all five keys through `applyCompanionSettings` as one undo step; personality goes in with `confirmed` and `tuned`, because the switch is the consent and the text was never dictation. "Undo that" restores the whole bundle and says "Pirate again." Save, rename and delete edit the list directly; saving makes that profile active, and the store holds at most 20. Editing a bundled field marks the active profile *modified* (`isCompanionProfileModified`, derived, never stored) and never rewrites it. `companionActiveProfile` can now only be written by a switch, so `companion_settings_set` refuses it and points at `companion_profile_switch`. By voice, a new `profile` intent (`save`/`switch`/`delete`/`list`) handles "save this as Narrator" (which asks first when it would overwrite), "switch to Narrator"/"be Narrator" (only when Narrator is a saved name), "delete the Narrator profile" (always asks) and "what profiles do I have?". The questions go through the pending slot's `onConfirm` arm. The router learns the names, live through `withCompanionProfiles`. Settings ▸ Companion ▸ Profiles lists them with an Active badge and a Modified dot, and offers Save current as… (prefilled with the active name), Rename, Delete via `confirm-dialog.tsx`, and Set active (Revert on a modified active row). `companionProfiles` and `companionActiveProfile` left `KNOWN_ORPHANS`. On MCP, `companion_profile_list`, `_save`, `_switch` and `_delete` sit behind `allowCompanionSettings`. A delete, and a save over a taken name, wait up to 30 s through the generalised `askToConfirmMcpProfile`.
 
 **Theme H — "Tune me" and quick tweaks.** ◻ Not started. A spoken interview plus one-line tweaks. A new `'persona'` mode in `ask.ts` writes the text and a summary; you hear the summary and confirm. With no CLI, the interview fills a local template. Raw dictation is never accepted.
 
@@ -236,16 +236,16 @@ Scope guardrails:
 
 ### G — Persona profiles (M)
 
-- [ ] **`CompanionProfileSchema`** `{ id, name, voices: { local, system }, personality, honorifics, createdAt }` in [`companion.ts`](../../../packages/shared/src/companion.ts). It deliberately excludes names, so the wake word never changes on a profile switch (Decision 5). The store holds `companionProfiles` (≤20) and `companionActiveProfile` (id or null), both added by B's v32 migration.
-- [ ] **Switching is one change.** A switch writes the profile's voice, personality and honorifics through the setter as a single change, and undo restores all of them. Editing any of those fields while a profile is active marks it *modified* rather than silently rewriting it.
-- [ ] **Voice commands:**
+- [x] **`CompanionProfileSchema`** `{ id, name, voices: { local, system }, personality, honorifics, createdAt }` in [`companion.ts`](../../../packages/shared/src/companion.ts). It deliberately excludes names, so the wake word never changes on a profile switch (Decision 5). The store holds `companionProfiles` (≤20) and `companionActiveProfile` (id or null), both added by B's v32 migration.
+- [x] **Switching is one change.** A switch writes the profile's voice, personality and honorifics through the setter as a single change, and undo restores all of them. Editing any of those fields while a profile is active marks it *modified* rather than silently rewriting it.
+- [x] **Voice commands:**
   - "save this as Narrator" (confirm if the name exists, since it overwrites);
   - "switch to Narrator" / "be Narrator" (direct);
   - "delete the Narrator profile" (confirm);
   - "what profiles do I have?" (lists them).
-- [ ] **A Profiles section on the page.** It shows the list with an active badge and a modified dot, and offers Save current as…, Rename, Delete (via `confirm-dialog.tsx`) and Set active.
-- [ ] **MCP:** `companion_profile_list` (read), and `companion_profile_save`, `_switch` and `_delete`. Delete is confirm-tier and waits like D. All four are behind `allowCompanionSettings`.
-- [ ] **Tests:**
+- [x] **A Profiles section on the page.** It shows the list with an active badge and a modified dot, and offers Save current as…, Rename, Delete (via `confirm-dialog.tsx`) and Set active.
+- [x] **MCP:** `companion_profile_list` (read), and `companion_profile_save`, `_switch` and `_delete`. Delete is confirm-tier and waits like D. All four are behind `allowCompanionSettings`.
+- [x] **Tests:**
   - schema;
   - switch-as-one-undo;
   - overwrite confirm;
