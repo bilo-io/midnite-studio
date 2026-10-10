@@ -1,6 +1,35 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Ad hoc — The microphone was refused by the app's own permission handler
+
+[PR #810](https://github.com/bilo-io/midnite-studio/pull/810). Not phase-tracked. The user's report: macOS Privacy ▸ Microphone was on, speech output worked,
+but every mic press, in the companion and in every composer, said "permission was refused. Allow
+microphone access … in System Settings". Several earlier fixes had all gone to the renderer or
+the STT engine. The cause was in main: `browser-security.ts`'s `isAppOrigin` accepted the literal
+strings `"file://"`, `"file://."` and `"null"`, plus a dev origin without its slash. A probe that
+logged Electron 33.4.11's real handler arguments showed `"file:///"` (a URL spec), once the full
+`file:///…/index.html` page URL, and `"http://localhost:5173/"`. None of those matched, so the
+app refused its own `getUserMedia` in every build since Phase 79 Theme F. It now parses the origin
+as a URL: any `file:` URL, or the dev server's exact origin. It also refuses a subframe and an
+opaque `"null"` origin. Tests now pin the *recorded* strings; four of them fail against the old
+code.
+
+Two things rode along. `CompanionSttStatusResponse` gains an optional `microphoneAccess` (from
+`systemPreferences.getMediaAccessStatus`), so a refused press says who refused it. "macOS allows
+it, but Midnite Studio refused its own request" now reads differently from "turn it on in System
+Settings, then reopen". And `voice-ports.ts` had a start race: a release, an interrupt or a second
+press while `getUserMedia` was pending left a capture open that no gesture could stop. The
+first-ever press hits this, because macOS's permission prompt blurs the window and
+`use-composer-mic` counts that as a release. Such a capture is now cancelled the moment it opens.
+
+Verified against real builds as well as in vitest. Pressing the companion mic in the installed
+build, with Chromium's fake capture device playing a `say` clip, reproduces the refusal. The same
+press in this branch's `app:build desktop:bundle` puts the transcript in the textarea through the
+offline Whisper engine. Screenshots: `docs/screenshots/fix-mic-permission-origin/`. Not fixed
+here: on a fresh profile, the first transcribe waits out the one-time ~100 MB model download
+inside the 15 s deadline and then reports a timeout.
+
 ## 2026-10-09 — Phase 101 Theme I — The agent chat in the composer
 
 The Editor gains a Chat column built from the Chats page's composer, message components and markdown renderer. Each song keeps its own thread beside it (`<song>.chat.json`), the engine and model pickers say which engines refine over passes and which write in one, a progress line shows "Pass n of N" and the latest tool action with Stop directly left of Send, and replies list the tracks and bars touched with a link that selects those notes in the piano roll. PR #806.

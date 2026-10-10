@@ -6,8 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // (Ad Hoc "TTS synthesis blocks the UI"): `companionTtsCancel` registers
 // through `handleSend`/`ipcMain.on`, the first one-way channel this file
 // had to capture; Theme F's `companionUiReply` is the second.
-const { handle, on } = vi.hoisted(() => ({ handle: vi.fn(), on: vi.fn() }));
-vi.mock('electron', () => ({ ipcMain: { handle, on } }));
+const { handle, on, getMediaAccessStatus } = vi.hoisted(() => ({
+  handle: vi.fn(),
+  on: vi.fn(),
+  getMediaAccessStatus: vi.fn((_mediaType: string): string => 'granted'),
+}));
+vi.mock('electron', () => ({ ipcMain: { handle, on }, systemPreferences: { getMediaAccessStatus } }));
 
 // The engine itself — real `tts.ts` internals, `.generate()` and all — is
 // `tts.test.ts`'s job; the broker's own request/queue/cancel plumbing is
@@ -30,7 +34,7 @@ vi.mock('../companion/tts-broker', () => ({
   reloadCompanionTtsBroker,
 }));
 
-import { registerCompanionHandlers } from './companion-handlers';
+import { readMicrophoneAccess, registerCompanionHandlers } from './companion-handlers';
 
 /** The `ipcMain.handle` listener main registered for `channel`, invoked the way `ipcRenderer.invoke` would. */
 function invoke(channel: string, raw?: unknown): unknown {
@@ -53,6 +57,8 @@ afterEach(() => {
   getCompanionTtsStatusAsync.mockReset();
   cancelQueuedSynthesis.mockReset();
   reloadCompanionTtsBroker.mockReset();
+  getMediaAccessStatus.mockReset();
+  getMediaAccessStatus.mockImplementation(() => 'granted');
 });
 
 describe('registerCompanionHandlers', () => {
@@ -177,7 +183,23 @@ describe('registerCompanionHandlers', () => {
       // engine's own deps are unset — reported honestly as idle rather than
       // a throw.
       localModel: { state: 'idle', reason: null, message: null },
+      // macOS's own verdict, so a refused press can say which side refused.
+      microphoneAccess: 'granted',
     });
+    expect(getMediaAccessStatus).toHaveBeenCalledWith('microphone');
+  });
+
+  it("reports macOS's microphone verdict as-is, and anything it can't read as unknown", () => {
+    for (const status of ['granted', 'denied', 'restricted', 'not-determined'] as const) {
+      getMediaAccessStatus.mockImplementation(() => status);
+      expect(readMicrophoneAccess()).toBe(status);
+    }
+    getMediaAccessStatus.mockImplementation(() => 'something-new');
+    expect(readMicrophoneAccess()).toBe('unknown');
+    getMediaAccessStatus.mockImplementation(() => {
+      throw new Error('not on this platform');
+    });
+    expect(readMicrophoneAccess()).toBe('unknown');
   });
 
   it('accepts a key write against the null vault without complaint', async () => {

@@ -4345,7 +4345,23 @@ export const CompanionSttStatusRequest = z.object({ retry: z.boolean().optional(
  * `CompanionTtsStatusResponse` reports for the local voice engine — a
  * one-time model download has to be a visible state, not a mic press that
  * silently hangs for however long a ~100 MB fetch takes.
+ *
+ * `microphoneAccess` is the OS's own answer
+ * (`systemPreferences.getMediaAccessStatus('microphone')`), read when a press
+ * is refused. A `NotAllowedError` looks identical whether macOS refused or the
+ * app's own permission handler did, and telling a user to flip a System
+ * Settings switch that is already on is how the second case hid for weeks.
+ * Optional, so a bridge that predates it reads as "unknown".
  */
+export const MicrophoneAccessSchema = z.enum([
+  'granted',
+  'denied',
+  'restricted',
+  'not-determined',
+  'unknown',
+]);
+export type MicrophoneAccess = z.infer<typeof MicrophoneAccessSchema>;
+
 export const CompanionSttStatusResponse = z.object({
   configured: z.array(SttProviderIdSchema),
   /** `safeStorage.isEncryptionAvailable()`. False means a key cannot be persisted at all. */
@@ -4357,6 +4373,7 @@ export const CompanionSttStatusResponse = z.object({
     reason: z.enum(['native-module-missing', 'download-failed', 'recognition-error']).nullable(),
     message: z.string().nullable(),
   }),
+  microphoneAccess: MicrophoneAccessSchema.optional(),
 });
 
 /** Which provider to prove reachable. */
