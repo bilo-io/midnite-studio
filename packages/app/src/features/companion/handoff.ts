@@ -412,6 +412,14 @@ async function resolvePending(deps: HandoffDeps): Promise<void> {
     await say(deps, "Nothing's waiting.");
     return;
   }
+  // Phase 109 Theme D: an agent's change waiting on this yes. Asked before the
+  // slot clears, so the asker reads it as a yes rather than a dismissal.
+  if (pending.onConfirm !== undefined) {
+    const line = pending.onConfirm();
+    deps.setPendingAction(null);
+    if (line !== null) await say(deps, line);
+    return;
+  }
   deps.setPendingAction(null);
   // The vocabulary's own row if it is still there (labels/tiers can only
   // change on the next release, so this is almost always a hit); the pending

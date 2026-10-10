@@ -2,9 +2,16 @@ import { useEffect } from 'react';
 
 import {
   COMMANDS,
+  COMPANION_MCP_CONFIRM_MS,
+  COMPANION_SETTING_KEYS,
+  companionSettingReadBack,
+  companionSettingSpec,
   failure,
+  isCompanionLocalVoiceId,
   ok,
   type CommandId,
+  type CompanionSettingKey,
+  type CompanionSettingsSetOutput,
   type CompanionUiAction,
   type CompanionUiReplyResult,
   type CompanionUiRequest,
@@ -23,6 +30,15 @@ import { VIEW_LABELS } from '../../services/palette/providers';
 import { COMMAND_ACCESS } from '../palette/safety';
 import { runCommand } from './command-runtime';
 import { resolveNavigation, SETTINGS_PAGE_LABEL, type NavigationState } from './navigate';
+import { askToConfirmMcpSetting } from './mcp-setting-confirm';
+import {
+  applyCompanionSetting,
+  previewCompanionSetting,
+  readCompanionSetting,
+  type CompanionSettingApplied,
+  type CompanionSettingRefused,
+} from './settings-apply';
+import { loadCompanionVoices } from './speaker';
 
 /**
  * The main window's side of the ui.* MCP tools (Phase 81 Theme F) — the
@@ -64,6 +80,14 @@ async function handleUiRequest(req: CompanionUiRequest): Promise<void> {
 /** Exported for `ui-requests.test.ts` — resolves one action without the request/reply envelope around it, since a test asserts on the outcome, not the wire shape. */
 export async function resolveUiAction(action: CompanionUiAction): Promise<CompanionUiReplyResult> {
   if (action.kind === 'state') return ok(await buildStateReply());
+
+  // Phase 109 Theme D's three arms answer before the lock check below: the
+  // reads answer while locked, as `state` does, and the setter refuses a
+  // locked write itself — as a `refused` status an agent can read, rather
+  // than a bare failure.
+  if (action.kind === 'settingsState') return ok(buildSettingsStateReply());
+  if (action.kind === 'voices') return ok(await buildVoicesReply());
+  if (action.kind === 'setting') return ok(await resolveSettingAction(action));
 
   // Both write actions share the lock check — a misheard sentence and an
   // unattended agent are the identical hazard while the screen is locked.
@@ -240,6 +264,91 @@ function resolveCommandAction(action: Extract<CompanionUiAction, { kind: 'comman
   const label = COMMAND_LABEL[id] ?? id;
   announce(`Agent: ran ${label}.`, `An agent ran ${label}.`);
   return ok({ did: 'ran', label });
+}
+
+// --- companion_settings_* and companion_voices_list (Phase 109 Theme D) ----------
+
+type SettingReply = Extract<CompanionUiReplyResult, { ok: true }>['value'];
+
+function buildSettingsStateReply(): SettingReply {
+  const ui = useUiStore.getState();
+  const values = Object.fromEntries(
+    COMPANION_SETTING_KEYS.map((key) => [key, readCompanionSetting(ui, key)]),
+  ) as Record<CompanionSettingKey, unknown>;
+  return { did: 'settingsState', values, locked: ui.screensaverLocked };
+}
+
+async function buildVoicesReply(): Promise<SettingReply> {
+  const voices = await loadCompanionVoices();
+  const { companionVoices } = useUiStore.getState();
+  return {
+    did: 'voices',
+    system: voices.map((voice) => ({
+      voiceURI: voice.voiceURI,
+      name: voice.name,
+      lang: voice.lang,
+      default: voice.default,
+    })),
+    selected: {
+      local: isCompanionLocalVoiceId(companionVoices.local) ? companionVoices.local : null,
+      system: companionVoices.system,
+    },
+  };
+}
+
+function settingAnswer(
+  status: CompanionSettingsSetOutput['status'],
+  result: CompanionSettingApplied | CompanionSettingRefused,
+): SettingReply {
+  if (!result.ok) {
+    return { did: 'setting', status: 'refused', key: result.key, reason: result.reason, message: result.message };
+  }
+  return { did: 'setting', status, key: result.key, previous: result.previous, next: result.next };
+}
+
+/**
+ * `companion_settings_set` — B's setter with `source: 'mcp'`, which enforces
+ * the tier itself. A `direct` change applies at once. A `confirm` one comes
+ * back refused for want of a yes; it is previewed as if confirmed first, so a
+ * change the guards or the value schema would refuse anyway is refused without
+ * asking anyone, and then the user is asked (Decision 3). Only an approval
+ * inside the deadline writes it.
+ */
+async function resolveSettingAction(action: Extract<CompanionUiAction, { kind: 'setting' }>): Promise<SettingReply> {
+  const change = { key: action.key, value: action.value };
+  const first = applyCompanionSetting(change, 'mcp');
+  if (first.ok) {
+    announceSetting(first);
+    return settingAnswer('applied', first);
+  }
+  if (first.reason !== 'confirm') return settingAnswer('refused', first);
+
+  const preview = previewCompanionSetting({ ...change, confirmed: true }, 'mcp');
+  if (!preview.ok) return settingAnswer('refused', preview);
+
+  const answer = await askToConfirmMcpSetting({
+    key: preview.key,
+    previous: preview.previous,
+    next: preview.next,
+    deadline: Date.now() + COMPANION_MCP_CONFIRM_MS,
+  });
+  if (answer !== 'approved') return { did: 'setting', status: answer, key: action.key };
+
+  // Checked again, not trusted from the preview: the screen may have locked,
+  // or the value moved, while the question was open.
+  const applied = applyCompanionSetting({ ...change, confirmed: true }, 'mcp');
+  if (!applied.ok) return settingAnswer('refused', applied);
+  announceSetting(applied);
+  return settingAnswer('approved', applied);
+}
+
+/** An agent's change is never silent: the toast and transcript line every steer gets. Theme E's spoken read-back with Undo replaces this. */
+function announceSetting(result: CompanionSettingApplied): void {
+  const label = companionSettingSpec(result.key).label;
+  announce(
+    `Agent: changed ${label}.`,
+    `Your agent changed my ${label.toLowerCase()}. ${companionSettingReadBack(result.key, result.next)}`,
+  );
 }
 
 // --- making a steer visible --------------------------------------------------
