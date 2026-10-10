@@ -95,6 +95,7 @@ describe('MCP_TOOLS', () => {
     'companion_profile_save',
     'companion_profile_switch',
     'companion_profile_delete',
+    'companion_agent_set',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -315,6 +316,9 @@ describe('MCP_TOOLS', () => {
     companion_profile_save: { status: 'applied', name: 'Narrator', overwritten: false },
     companion_profile_switch: { status: 'refused', name: 'Pirate', reason: 'notFound', message: 'No such profile.' },
     companion_profile_delete: { status: 'timeout', name: 'Narrator' },
+    companion_agent_get: { primaryAgent: 'claude', model: null, agents: [], locked: false },
+    companion_agent_set: { status: 'applied', next: { agentId: 'codex', modelId: null } },
+    companion_models_list: { agentId: 'claude', models: [], selected: null },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -416,6 +420,7 @@ describe('MCP_TOOLS', () => {
       companion_profile_save: { name: 'Narrator' },
       companion_profile_switch: { name: 'Narrator' },
       companion_profile_delete: { name: 'Narrator' },
+      companion_agent_set: { agent: 'claude', model: 'opus-5' },
       terrain_open: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_get_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_set_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000', patch: { resolution: 129 } },

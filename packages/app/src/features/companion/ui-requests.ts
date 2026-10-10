@@ -50,6 +50,7 @@ import {
 } from './settings-apply';
 import { announceCompanionProfileSwitch, announceCompanionSettingChange } from './settings-announce';
 import { loadCompanionVoices } from './speaker';
+import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './agent-switch';
 
 /**
  * The main window's side of the ui.* MCP tools (Phase 81 Theme F) — the
@@ -105,6 +106,10 @@ export async function resolveUiAction(action: CompanionUiAction): Promise<Compan
   if (action.kind === 'profileSave') return ok(await resolveProfileSave(action.name));
   if (action.kind === 'profileSwitch') return ok(resolveProfileSwitch(action.name));
   if (action.kind === 'profileDelete') return ok(await resolveProfileDelete(action.name));
+  // Phase 111 Theme E: the reads answer while locked; the write refuses a locked screen as a status.
+  if (action.kind === 'agentState') return ok({ did: 'agentState', ...(await buildAgentStateReply()) });
+  if (action.kind === 'modelsList') return ok({ did: 'modelsList', ...(await buildModelsListReply(action)) });
+  if (action.kind === 'agentSet') return ok(await resolveAgentSetAction(action));
 
   // Both write actions share the lock check — a misheard sentence and an
   // unattended agent are the identical hazard while the screen is locked.
@@ -453,6 +458,20 @@ async function resolveProfileDelete(name: string): Promise<SettingReply> {
   if (!deleted.ok) return profileRefused('profileDelete', name, deleted);
   announce(`Your agent deleted the companion profile ${found.name}.`, `Your agent deleted the ${found.name} profile.`);
   return { did: 'profileDelete', status: 'approved', name: found.name, profile: summary };
+}
+
+// --- companion_agent_set (Phase 111 Theme E) --------------------------------------
+
+async function resolveAgentSetAction(action: Extract<CompanionUiAction, { kind: 'agentSet' }>): Promise<SettingReply> {
+  const answer = await resolveAgentSet(action);
+  if (answer.status === 'applied' && answer.next) {
+    const model = answer.next.modelId ? ` (${answer.next.modelId})` : '';
+    announce(
+      `Agent: switched primary agent to ${answer.next.agentId}${model}.`,
+      `Your agent switched the primary agent to ${answer.next.agentId}${model}.`,
+    );
+  }
+  return { did: 'agentSet', ...answer };
 }
 
 // --- making a steer visible --------------------------------------------------
