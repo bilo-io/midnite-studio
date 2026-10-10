@@ -4,6 +4,7 @@ import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { isElevatorPlaying } from './audio/elevator';
 import { encodeWav } from './audio/wav';
+import { auditionActive, auditionSampleBargeable, bargeInAudition } from './audition';
 import {
   RecorderError,
   cancelRecording,
@@ -51,6 +52,10 @@ import { describeMicFailure, reportVoiceError } from './voice-ports';
  * than segmented, so a spoken reply is never transcribed back as the user's
  * next message. Echo cancellation would cover the same ground only for audio
  * Chromium itself plays, which the system `speechSynthesis` voice is not.
+ * The one exception is a voice-audition sample on the local engine (Phase 109
+ * Theme F): that is Chromium's own audio, so frames keep flowing, and speech
+ * starting over it cuts the sample off — the user's "number two" is the next
+ * phrase.
  */
 
 // --- the segmenter ----------------------------------------------------------
@@ -296,6 +301,20 @@ export type ConversationDeps = {
   segmenterOptions?: Omit<SegmenterOptions, 'sampleRate'>;
   /** Defaults to {@link WAKE_FOLLOW_UP_MS}. */
   wakeFollowUpMs?: number;
+  /**
+   * Phase 109 Theme F's barge-in. `bargeable` — the sound now playing is a
+   * voice-audition sample the user may talk over, so frames are not gated
+   * while it plays; `bargeIn` — they started talking: cut the sample and the
+   * rest of its batch off. Only local-engine samples are bargeable (see
+   * `audition.ts`): Chromium's echo canceller hears Web Audio, not the OS voice.
+   */
+  bargeable: () => boolean;
+  bargeIn: () => void;
+  /**
+   * An audition is waiting on "number two" — under the `wake` trigger that
+   * reply needs no name in front of it, the way an armed session's does not.
+   */
+  expectingReply: () => boolean;
 };
 
 const defaultDeps = (): ConversationDeps => ({
@@ -304,6 +323,12 @@ const defaultDeps = (): ConversationDeps => ({
   // The elevator music fills the companion's thinking time, which is exactly
   // when an open mic would otherwise transcribe it as the next request.
   isSpeaking: () => companionTtsSpeaker.isSpeaking() || isElevatorPlaying(),
+  bargeable: auditionSampleBargeable,
+  bargeIn: () => {
+    bargeInAudition();
+    companionTtsSpeaker.cancel();
+  },
+  expectingReply: auditionActive,
 });
 
 let deps: ConversationDeps = defaultDeps();
@@ -398,15 +423,23 @@ function commandFor(owned: Session, text: string): string | null {
     disarm(owned);
     return text;
   }
+  if (deps.expectingReply()) return text;
   return null;
 }
 
 function onFrame(owned: Session, frame: Float32Array): void {
   if (session !== owned || owned.segmenter === null) return;
-  const { onset, utterance } = owned.segmenter.push(frame, deps.isSpeaking());
+  const speaking = deps.isSpeaking();
+  // Half-duplex, except over an audition sample the user may talk over.
+  const bargeable = speaking && deps.bargeable();
+  const { onset, utterance } = owned.segmenter.push(frame, speaking && !bargeable);
+  if (onset && bargeable) deps.bargeIn();
   // Under the wake trigger, sound alone is not a turn — only an armed
-  // session shows "listening" as speech starts.
-  if (onset && (useUiStore.getState().voiceConversationTrigger === 'always' || owned.armed !== null)) {
+  // session (or an audition waiting on its reply) shows "listening".
+  if (
+    onset &&
+    (useUiStore.getState().voiceConversationTrigger === 'always' || owned.armed !== null || deps.expectingReply())
+  ) {
     useCompanionStore.getState().send('listen');
   }
   if (utterance === null) return;
