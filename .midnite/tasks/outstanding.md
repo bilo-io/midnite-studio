@@ -166,6 +166,13 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   settings page). Nothing about a pill bar wants a settings-page mirror; this entry exists only so
   `persisted-keys.test.ts`'s exhaustiveness check has somewhere to point a reader.
 
+- **Two persisted companion preferences waiting for their page — `companionProfiles` and
+  `companionActiveProfile`.** [Phase 109](phases/phase-109-companion-settings-by-voice.md) Theme B
+  seeds both in the phase's one v31 → v32 migration, so Theme G (persona profiles) lands without a
+  second one; the Profiles section on `companion-page.tsx` that reads and writes them is Theme G's.
+  Until it lands they sit in `persisted-keys.ts`'s `KNOWN_ORPHANS`, and Theme G removes them from
+  that list and this entry together.
+
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared

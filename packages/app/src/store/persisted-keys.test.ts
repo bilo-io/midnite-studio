@@ -99,6 +99,10 @@ describe('persisted-keys partition', () => {
         'layoutId',
         // The Knowledge canvas's detail budget, same reasoning: the detail pill row.
         'knowledgeDetailId',
+        // Phase 109 Theme G's two, seeded by Theme B's v32 migration ahead of
+        // the Profiles section on `companion-page.tsx` that will own them.
+        'companionProfiles',
+        'companionActiveProfile',
       ].sort(),
     );
   });

@@ -141,6 +141,13 @@ export const PREFERENCE_KEYS = [
   'companionSttEngine', // companion-page.tsx (Microphone ▸ recognition engine, Ad Hoc)
   'voiceConversation', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
   'voiceConversationTrigger', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
+  'companionSttProvider', // companion-page.tsx (Microphone ▸ Provider, Phase 109 Theme B — was local state)
+  // Phase 109 Theme B seeds Theme G's two in the phase's one v32 migration,
+  // ahead of the Profiles section that will control them — orphans for
+  // exactly that gap, the way Phase 79 Theme A's five sat in `KNOWN_ORPHANS`
+  // until Theme H built the page. See `outstanding.md`.
+  'companionProfiles',
+  'companionActiveProfile',
   // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
   // real control already — the Knowledge view's own pill bar
   // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
@@ -237,6 +244,8 @@ export const KNOWN_ORPHANS = [
   'rendererVariant',
   'layoutId',
   'knowledgeDetailId',
+  'companionProfiles',
+  'companionActiveProfile',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];
