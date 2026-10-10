@@ -48,6 +48,8 @@ export type McpSettingQuestion = {
   deadline: number;
 };
 
+const lowerFirst = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
+
 const joinWords = (parts: readonly string[]): string =>
   parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 
@@ -140,7 +142,9 @@ function askThroughCompanion(question: McpSettingQuestion): Promise<McpSettingAn
 
     useUiStore.getState().setCompanionPanelOpen(true);
     const ask = `Your agent wants to set my ${companionSettingSpec(question.key).label.toLowerCase()} to ${describeSettingValue(question.key, question.next)}. Allow it? Say yes, press Return, or tap Run.`;
-    speakLine(previous ? `Never mind ${previous.label} — ${ask}` : ask);
+    // A command's label is a name ("Push"); a question's is a sentence, read mid-sentence here.
+    const replaced = previous?.onConfirm !== undefined ? lowerFirst(previous.label) : previous?.label;
+    speakLine(replaced !== undefined ? `Never mind ${replaced} — ${ask}` : ask);
   });
 }
 

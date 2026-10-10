@@ -325,6 +325,8 @@ async function resolveSettingAction(action: Extract<CompanionUiAction, { kind: '
 
   const preview = previewCompanionSetting({ ...change, confirmed: true }, 'mcp');
   if (!preview.ok) return settingAnswer('refused', preview);
+  // Already set that way: nothing to ask about, and nothing is written.
+  if (JSON.stringify(preview.previous) === JSON.stringify(preview.next)) return settingAnswer('applied', preview);
 
   const answer = await askToConfirmMcpSetting({
     key: preview.key,

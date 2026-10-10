@@ -226,7 +226,7 @@ describe('setting — confirm tier through the companion', () => {
 
     expect(await first).toMatchObject({ value: { status: 'declined', key: 'companionNames' } });
     expect(useCompanionStore.getState().pendingAction?.label).toMatch(/microphone button/);
-    expect(useCompanionStore.getState().transcript.at(-1)?.text).toMatch(/^Never mind Let your agent set what you call it/);
+    expect(useCompanionStore.getState().transcript.at(-1)?.text).toMatch(/^Never mind let your agent set what you call it/);
 
     useCompanionStore.getState().pendingAction?.onConfirm?.();
     useCompanionStore.getState().setPendingAction(null);
@@ -241,6 +241,12 @@ describe('setting — confirm tier through the companion', () => {
 
     expect(await pendingResult).toMatchObject({ value: { status: 'refused', reason: 'locked' } });
     expect(useUiStore.getState().companionNames).toEqual(['Companion']);
+  });
+
+  it('does not ask about a change to the value it already has', async () => {
+    const result = await set('companionNames', ['Companion']);
+    expect(result).toMatchObject({ value: { status: 'applied', previous: ['Companion'], next: ['Companion'] } });
+    expect(useCompanionStore.getState().pendingAction).toBeNull();
   });
 
   it('turning speech back on is direct — no question', async () => {

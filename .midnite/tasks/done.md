@@ -1,6 +1,28 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 109 Theme D — `companion_settings_*` on `midnite`
+
+[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme D: an agent in a terminal can read and change the companion's settings for the user, through
+the same spec table and setter the companion's voice and the Settings page use.
+
+- **Tools:** `companion_settings_get`, `companion_settings_set` and `companion_voices_list`, behind a
+  new default-off `Settings ▸ MCP ▸ Let agents change companion settings` switch
+  (`allowCompanionSettings`, `mcp.json` v10) that refuses all three, reads included. Schemas and the
+  pure listing are in a new `shared/src/companion-mcp.ts`; handlers in
+  `desktop/src/main/mcp/companion-tools.ts`.
+- **Wire:** `setting`, `settingsState` and `voices` arms on `CompanionUiActionSchema` and its result
+  union. `requestUiAction` takes a per-action `timeoutMs` (5 s stays the default).
+- **Consent:** a `direct` change applies at once; a `never` key, or one the guards or schema would
+  refuse, is refused without asking; a `confirm` key asks in the app — the companion's chip and
+  voice when it is on in this window (`PendingAction` gains an `onConfirm` arm), `confirm-dialog.tsx`
+  otherwise — and the call waits up to 30 s for `approved`, `declined` or `timeout`. Nothing applies
+  after the deadline; a late "yes" hears "Too late — ask your agent again."
+- **Visibility:** each agent change takes the one-step undo slot and posts a toast and a transcript
+  line. Theme E's spoken read-back replaces that announcement. `outstanding.md` records this
+  family's consent answer.
+
 ## 2026-10-10 — Phase 109 Themes A + B — One companion settings list, and one setter
 
 [PR #813](https://github.com/bilo-io/midnite-studio/pull/813). [Phase 109](phases/phase-109-companion-settings-by-voice.md)

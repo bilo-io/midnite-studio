@@ -5667,6 +5667,8 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowMaps = data.mcp?.allowMaps ?? false;
   // eslint-disable-next-line no-var
   var mcpAllowMusic = data.mcp?.allowMusic ?? false;
+  // Phase 109 Theme D's tenth switch — gates every companion_* tool, reads included.
+  // eslint-disable-next-line no-var
   var mcpAllowCompanionSettings = data.mcp?.allowCompanionSettings ?? false;
   // Phase 101 Theme H: whether Midnite is registered in Antigravity's MCP config (Settings ▸ MCP).
   // eslint-disable-next-line no-var
