@@ -2,6 +2,13 @@ import { z } from 'zod';
 
 import { cleanPtyText } from './ansi';
 import {
+  COMPANION_TUNE_TARGETS,
+  COMPANION_TWEAK_INSTRUCTION_MAX,
+  CompanionPersonaReplySchema,
+  matchTunePhrase,
+  matchTweakPhrase,
+} from './companion-tune';
+import {
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
   RepoDescriptorSchema,
@@ -2864,6 +2871,21 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
     agentId: z.string(),
     modelId: z.string().nullable().optional(),
   }),
+  /**
+   * "Tune yourself." "Let me tell you about me." (Phase 109 Theme H.) Starts
+   * the interview that writes `target` — a target and never text, because
+   * personality and About me are never dictated (Decision 4).
+   */
+  z.object({ kind: z.literal('tune'), target: z.enum(COMPANION_TUNE_TARGETS) }),
+  /**
+   * "Be more sarcastic." "Talk less." (Phase 109 Theme H.) One instruction the
+   * agent CLI applies to the current personality — the instruction, never the
+   * text it produces, which is read back and confirmed first.
+   */
+  z.object({
+    kind: z.literal('tweak'),
+    instruction: z.string().trim().min(1).max(COMPANION_TWEAK_INSTRUCTION_MAX),
+  }),
   z.object({ kind: z.literal('freeform'), text: z.string() }),
 ]).superRefine((intent, ctx) => {
   if (intent.kind !== 'setting') return;
@@ -3038,6 +3060,13 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     }
     const setting = trySettingPhrase(settingsCore(bare));
     if (setting) return setting;
+
+    // Phase 109 Theme H, after the settings phrases so "don't call me boss"
+    // and "be quieter" stay theirs.
+    const tuneTarget = matchTunePhrase(bare);
+    if (tuneTarget) return { kind: 'tune', target: tuneTarget };
+    const tweak = matchTweakPhrase(bare);
+    if (tweak) return { kind: 'tweak', instruction: tweak };
 
     const navigated = tryNavigate(bare, vocabulary);
     if (navigated) return navigated;
@@ -4241,6 +4270,12 @@ export function companionSettingIntentProblem(intent: {
   op?: CompanionSettingOp | undefined;
 }): string | null {
   const spec = companionSettingSpec(intent.key);
+  // Personality and About me are never dictated (Phase 109 Decision 4): only
+  // a `tune` interview or a `tweak` may produce them, read back and confirmed.
+  // Refusing them here drops a router reply that tries, like an unknown key.
+  if (spec.guards?.includes('tunedText')) {
+    return `${spec.label} changes through "tune yourself" or a tweak, never dictation.`;
+  }
   const { value } = intent;
   switch (intent.op ?? 'set') {
     case 'set': {
@@ -4676,8 +4711,23 @@ export const CompanionAskReplySchema = z.object({
    * and once as raw text, is noise.
    */
   raw: z.string().optional(),
+  /**
+   * A `'persona'` ask's answer (Phase 109 Theme H): the rewritten personality
+   * or About me text and the summary read back before the confirm. Present
+   * only on that kind — {@link parseAskReply} strips it from every other — so
+   * a router reply can never carry text into those fields.
+   */
+  persona: CompanionPersonaReplySchema.optional(),
 });
 export type CompanionAskReply = z.infer<typeof CompanionAskReplySchema>;
+
+/**
+ * The three jobs `mstudio:companion:ask` does: route a sentence, summarise an
+ * agent's answer for speech, and (Phase 109 Theme H) write personality or
+ * About me text from an interview or a tweak.
+ */
+export const COMPANION_ASK_KINDS = ['route', 'summarise', 'persona'] as const;
+export type CompanionAskKind = (typeof COMPANION_ASK_KINDS)[number];
 
 /** What the companion says when the router answered something unparseable. */
 export const COMPANION_ASK_FALLBACK = "I didn't follow that.";
@@ -4691,8 +4741,12 @@ export const COMPANION_ASK_FALLBACK = "I didn't follow that.";
  * whole of stdout, and a failure returns `null` for the caller to turn into
  * {@link COMPANION_ASK_FALLBACK}. Pure, so the parsing is unit-testable
  * without spawning anything.
+ *
+ * `kind` is the job that was asked for. A `'persona'` reply is the
+ * `{text, summary}` pair (Phase 109 Theme H), returned as `persona` with the
+ * summary as `say`; every other kind is the `{say, intent}` shape.
  */
-export function parseAskReply(stdout: string): CompanionAskReply | null {
+export function parseAskReply(stdout: string, kind: CompanionAskKind = 'route'): CompanionAskReply | null {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(stdout);
   const candidates = [fenced?.[1], stdout].filter(
     (value): value is string => typeof value === 'string',
@@ -4707,11 +4761,39 @@ export function parseAskReply(stdout: string): CompanionAskReply | null {
     } catch {
       continue;
     }
+    if (kind === 'persona') {
+      const persona = parsePersonaReplyValue(value);
+      if (persona) return { say: persona.summary, persona };
+      continue;
+    }
     const parsed = CompanionAskReplySchema.safeParse(value);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) {
+      // Only a `'persona'` ask may answer with text for personality or About
+      // me (Phase 109 Theme H, Decision 4) — anything else carrying one has it
+      // dropped, never trusted.
+      const { persona: _ignored, ...reply } = parsed.data;
+      void _ignored;
+      return reply;
+    }
   }
 
   return null;
+}
+
+/**
+ * A `'persona'` reply as asked — `{"text", "summary"}` — or the same pair
+ * wrapped as `{"persona": {…}}`, which a CLI that has seen the router's
+ * `{"say", "intent"}` shape is apt to produce. Over-long text or summary is
+ * dropped rather than cut: the caller falls back to the template, which is
+ * better than writing a personality truncated mid-sentence.
+ */
+function parsePersonaReplyValue(value: unknown): z.infer<typeof CompanionPersonaReplySchema> | null {
+  const wrapped =
+    typeof value === 'object' && value !== null && 'persona' in value
+      ? (value as { persona: unknown }).persona
+      : value;
+  const parsed = CompanionPersonaReplySchema.safeParse(wrapped);
+  return parsed.success ? parsed.data : null;
 }
 
 /**

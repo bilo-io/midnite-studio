@@ -15,6 +15,8 @@ import {
   type CompanionIntent,
   type CompanionSettingIntent,
   type CompanionSettingKey,
+  type CompanionPersonaReply,
+  type CompanionPersonaRequest,
   type CompanionVocabulary,
   type GitOpResult,
   type RepoDescriptor,
@@ -26,6 +28,7 @@ import type { PendingAction } from '../../store/companion-store';
 import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
 import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
+import { continueTune, startTuneInterview, startTuneTweak, type TuneDeps } from './tune';
 import type { Speaker } from './ports';
 import type {
   CompanionSettingChange,
@@ -117,6 +120,15 @@ export type HandoffDeps = ConciergeDeps & {
    * a port for the reason `navigate` is one: this file never touches a store.
    */
   companionSettings: CompanionSettingsPort;
+  /**
+   * `window.midniteStudio.companion.ask` in `'persona'` mode (Phase 109 Theme
+   * H): personality or About me text from an interview or a tweak, or why
+   * there is none. A reply that was not the `{text, summary}` shape comes back
+   * as a failure, so the interview falls back to its template.
+   */
+  persona: (request: CompanionPersonaRequest) => Promise<GitOpResult<CompanionPersonaReply>>;
+  /** Whether the agent roster has anything with a headless mode — without one a tweak points to the page. */
+  hasAgentCli: () => boolean;
 };
 
 /**
@@ -199,6 +211,9 @@ export async function submitInput(text: string, deps: HandoffDeps): Promise<void
   if (trimmed === '') return;
 
   deps.store.addTurn({ role: 'user', text: trimmed, spoken: false });
+
+  // Phase 109 Theme H: mid-interview, the line is an answer, not a request.
+  if (await continueTune(trimmed, tuneDeps(deps))) return;
 
   const chosen = takeVoiceChoice(trimmed);
   if (chosen) {
@@ -305,6 +320,13 @@ async function act(
 
     case 'pageOnlySetting':
       return offerSettingsPage(deps);
+
+    // Phase 109 Theme H — personality and About me, by interview or tweak only.
+    case 'tune':
+      return startTuneInterview(intent.target, tuneDeps(deps));
+
+    case 'tweak':
+      return startTuneTweak(intent.instruction, tuneDeps(deps));
 
     case 'freeform':
       return route(intent.text || original, deps, depth);
@@ -536,7 +558,10 @@ async function resolvePending(deps: HandoffDeps): Promise<void> {
   deps.setPendingAction(null);
 
   if (pending.kind === 'setting') {
-    return applySetting({ key: pending.key, value: pending.value, confirmed: true }, deps);
+    return applySetting(
+      { key: pending.key, value: pending.value, confirmed: true, ...(pending.tuned ? { tuned: true } : {}) },
+      deps,
+    );
   }
 
   if (pending.kind === 'openSettings') {
@@ -609,7 +634,9 @@ async function speakHelp(deps: HandoffDeps): Promise<void> {
     (skillNames.length > 0 ? `: ${skillNames.join(', ')}` : '') +
     '.' +
     // Phase 109 Theme C: the settings the companion can change by voice.
-    (settings.length > 0 ? ' You can tell me to change my voice, what I call you, or how loud I am.' : '') +
+    (settings.length > 0
+      ? ' You can tell me to change my voice, what I call you, or how loud I am — or say "tune yourself".'
+      : '') +
     ` Say "what can you do" any time.`;
 
   const markdown = [
@@ -771,6 +798,7 @@ async function proposeSetting(change: CompanionSettingChange, deps: HandoffDeps)
       value: checked.next,
       label: question,
       at: Date.now(),
+      ...(change.tuned ? { tuned: true as const } : {}),
     });
     await say(
       deps,
@@ -804,9 +832,35 @@ async function applySetting(change: CompanionSettingChange, deps: HandoffDeps): 
  * A `never`-tier setting asked for out loud. Refused, with the page offered
  * as a pending action — "yes", Return or the Run chip opens it.
  */
-async function offerSettingsPage(deps: HandoffDeps): Promise<void> {
+async function offerSettingsPage(
+  deps: HandoffDeps,
+  line = "That one's in Settings, Companion — want me to open it?",
+): Promise<void> {
   replacePending(deps, { kind: 'openSettings', label: 'Open Settings ▸ Companion', at: Date.now() });
-  await say(deps, "That one's in Settings, Companion — want me to open it?");
+  await say(deps, line);
+}
+
+/**
+ * The tune flow's ports over this file's own (Phase 109 Theme H): the CLI and
+ * roster from `runtime.ts`, the current text from the settings port, and the
+ * confirm and the page offer through the one pending slot — so a tuned change
+ * asks exactly the way every other confirm-tier change does, and carries
+ * `tuned` through to the setter on the yes.
+ */
+function tuneDeps(deps: HandoffDeps): TuneDeps {
+  return {
+    ...deps,
+    tune: {
+      persona: deps.persona,
+      hasAgentCli: deps.hasAgentCli,
+      currentText: (target) => {
+        const current = deps.companionSettings.read(target);
+        return typeof current === 'string' ? current : '';
+      },
+      askToReplace: (target, text) => proposeSetting({ key: target, value: text, tuned: true }, deps),
+      offerSettingsPage: (line) => offerSettingsPage(deps, line),
+    },
+  };
 }
 
 /**

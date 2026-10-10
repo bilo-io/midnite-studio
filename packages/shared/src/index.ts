@@ -17,6 +17,7 @@ export * from './chats';
 export * from './companion';
 export * from './companion-profiles';
 export * from './companion-mcp';
+export * from './companion-tune';
 export * from './council';
 export * from './domain';
 export * from './fs';

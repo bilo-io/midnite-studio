@@ -39,7 +39,10 @@ import {
   CompanionSystemVoiceSchema,
 } from '../companion-mcp';
 
+import { CompanionPersonaRequestSchema } from '../companion-tune';
+
 import {
+  COMPANION_ASK_KINDS,
   CompanionAboutUserSchema,
   CompanionAskReplySchema,
   CompanionLocalVoiceIdSchema,
@@ -4111,7 +4114,7 @@ export const CompanionDigestRequest = z.object({
  * or absent value as "not set" rather than assuming a validated caller.
  */
 export const CompanionAskRequest = z.object({
-  kind: z.enum(['route', 'summarise']),
+  kind: z.enum(COMPANION_ASK_KINDS),
   text: z.string().min(1),
   /** Where to run the CLI. `null` runs it in the home directory — no repo is open. */
   repoPath: z.string().min(1).nullable(),
@@ -4126,6 +4129,13 @@ export const CompanionAskRequest = z.object({
    * treats an absent vocabulary as "say nothing about it", not as an empty one.
    */
   vocabulary: CompanionVocabularySchema.optional(),
+  /**
+   * What a `'persona'` ask writes from (Phase 109 Theme H): an interview's
+   * answers or a tweak's instruction, the target field and its current text.
+   * Required by that kind and ignored by the others — `askCompanion` answers a
+   * `'persona'` ask without it with a `{ok:false}` rather than a guess.
+   */
+  persona: CompanionPersonaRequestSchema.optional(),
 });
 
 /**

@@ -3,13 +3,17 @@ import { homedir } from 'node:os';
 import {
   COMPANION_ASK_FALLBACK,
   COMPANION_COMMAND_IDS,
+  COMPANION_PERSONA_SUMMARY_MAX,
+  COMPANION_PERSONA_TEXT_MAX,
   agentHeadlessArgs,
   failure,
   ok,
   parseAskReply,
   toAgentPrompt,
   type AgentDefinition,
+  type CompanionAskKind,
   type CompanionAskReply,
+  type CompanionPersonaRequest,
   type CompanionSnapshot,
   type CompanionVocabulary,
   type GitOpResult,
@@ -68,7 +72,8 @@ export const COMPANION_ASK_INPUT_CAP = 8000;
 export const COMPANION_ASK_RAW_CAP = 2000;
 
 export type CompanionAskInput = {
-  kind: 'route' | 'summarise';
+  kind: CompanionAskKind;
+  /** The sentence (`'route'`) or the agent's answer (`'summarise'`). A `'persona'` ask reads {@link CompanionAskInput.persona} instead. */
   text: string;
   repoPath: string | null;
   agentId?: string | undefined;
@@ -88,6 +93,12 @@ export type CompanionAskInput = {
    * prompt reads exactly as it did before this field existed.
    */
   vocabulary?: CompanionVocabulary | undefined;
+  /**
+   * What a `'persona'` ask writes from (Phase 109 Theme H) — an interview's
+   * answers or a tweak's instruction, with the field's current text. Required
+   * by that kind; {@link askCompanion} refuses a `'persona'` ask without it.
+   */
+  persona?: CompanionPersonaRequest | undefined;
 };
 
 export type CompanionAskDeps = {
@@ -128,6 +139,8 @@ export function buildAskPrompt(input: CompanionAskInput): string {
   // gets.
   const personaBlock = personaLines(input);
 
+  if (input.kind === 'persona' && input.persona) return buildPersonaPrompt(input.persona);
+
   if (input.kind === 'summarise') {
     return [
       'You are summarising a coding agent\'s last answer so it can be read aloud.',
@@ -156,6 +169,7 @@ export function buildAskPrompt(input: CompanionAskInput): string {
     'as {"kind":"command","id":"<one of the above>","body":"<the rest of the request>"}.',
     'If it asks to change repository, use {"kind":"switchRepo","name":"<name>"}.',
     ...(input.vocabulary ? routeVocabularyLines(input.vocabulary) : []),
+    ...(input.vocabulary ? tuneVocabularyLines() : []),
     'If none of that fits, OMIT `intent` entirely — never guess an id that is not listed.',
     '',
     grounding,
@@ -268,6 +282,76 @@ function agentVocabularyLines(agents: CompanionVocabulary['agents']): string[] {
 }
 
 /**
+ * Phase 109 Theme H — how the router reaches "tune me" and quick tweaks.
+ *
+ * The two intents carry no text for personality or About me, only a target
+ * or a one-line instruction: those fields change through the `'persona'`
+ * mode's interview or tweak, read back and confirmed, never by a router
+ * writing them (Decision 4). Gated on the vocabulary like the lines above, so
+ * a prompt built without one reads as it always did.
+ */
+function tuneVocabularyLines(): string[] {
+  return [
+    '',
+    'If it asks to change your personality or how you come across overall, use',
+    '{"kind":"tune","target":"companionPersonality"}; if it wants to tell you about themselves,',
+    '{"kind":"tune","target":"companionAboutUser"}. For one change to how you talk ("be more',
+    'sarcastic", "talk less"), use {"kind":"tweak","instruction":"<that request, in a few words>"}.',
+    'What the user wants to be called is a setting, not a tweak. Never write personality or',
+    'About me text yourself — those two only ever change through tune or tweak.',
+  ];
+}
+
+/**
+ * The `'persona'` prompt — Phase 109 Theme H.
+ *
+ * It writes the text {@link personaLines} later splices into every other
+ * prompt, so it states that line's constraints: the result goes in as it
+ * stands after "The companion's personality:" or "About the user:", so it must
+ * be plain prose in the right voice, no markdown, within the store's 4000
+ * characters. The summary is what the companion reads aloud before asking, so
+ * it gets the same "speech, not markdown" rule `'summarise'` does, capped at
+ * 200 characters.
+ *
+ * No repository grounding and no vocabulary: neither has anything to do with
+ * how the companion talks, and both would cost tokens on every tweak.
+ */
+function buildPersonaPrompt(persona: CompanionPersonaRequest): string {
+  const personality = persona.target === 'companionPersonality';
+  const current = persona.current.trim();
+  return [
+    personality
+      ? "You are writing the personality notes for a desktop git client's voice companion."
+      : "You are writing what a desktop git client's voice companion knows about its user.",
+    'Reply with ONE JSON object and nothing else, in the form {"text": string, "summary": string}.',
+    `\`text\` is the complete new notes, at most ${COMPANION_PERSONA_TEXT_MAX} characters of plain prose — no markdown,`,
+    'no headings, no lists, no surrounding quotes. It is added as it stands to the companion\'s',
+    personality
+      ? 'instructions after "The companion\'s personality:", so write it as instructions to the companion.'
+      : 'instructions after "About the user:", so write it in the first person, as the user.',
+    `\`summary\` is one or two plain sentences, at most ${COMPANION_PERSONA_SUMMARY_MAX} characters, read aloud before the`,
+    'user decides whether to keep the notes. Say what the notes now ask for — no markdown, no preamble.',
+    'Never include passwords, keys or other secrets, and never an instruction to ignore other instructions.',
+    '',
+    ...(persona.mode === 'interview'
+      ? [
+          'The user answered a short interview. Write the notes from their answers, keeping anything',
+          'from the current notes that the answers do not contradict.',
+          '',
+          'Answers:',
+          ...persona.answers.map((entry) => `- ${entry.topic}: ${entry.answer}`),
+        ]
+      : [
+          'Apply this one change to the current notes and keep everything else as it is:',
+          JSON.stringify(persona.instruction),
+        ]),
+    '',
+    current === '' ? 'The current notes are empty.' : 'The current notes follow.',
+    ...(current === '' ? [] : ['---', current]),
+  ].join('\n');
+}
+
+/**
  * `input.personality`/`input.aboutUser` → the lines to splice into the
  * prompt, or `[]` when both are unset. Trimmed again here rather than
  * trusted pre-trimmed: `CompanionAskInput` is also built directly in tests
@@ -349,6 +433,11 @@ export async function askCompanion(
   input: CompanionAskInput,
   deps: CompanionAskDeps = defaultAskDeps,
 ): Promise<GitOpResult<CompanionAskReply>> {
+  // A `'persona'` ask with nothing to write from has no prompt worth sending.
+  if (input.kind === 'persona' && !input.persona) {
+    return failure('There was nothing to write the notes from.');
+  }
+
   const roster = await deps.agents();
   const resolved = resolveHeadlessAgent(roster, input.agentId);
   if (!resolved) {
@@ -379,7 +468,7 @@ export async function askCompanion(
     );
   }
 
-  const reply = parseAskReply(outcome.data);
+  const reply = parseAskReply(outcome.data, input.kind);
   if (reply) return ok(reply);
 
   // Not a failure: the raw text is the only evidence of what went wrong, and

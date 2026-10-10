@@ -91,6 +91,12 @@ export type PendingSettingAction = {
   label: string;
   at: number;
   onConfirm?: undefined;
+  /**
+   * Personality or About me text from Theme H's interview or tweak, already
+   * read back — the yes applies it with `tuned: true`, the only voice path
+   * past the `tunedText` guard.
+   */
+  tuned?: true;
 };
 
 /** The offer after a `never`-tier request: "That one's in Settings, Companion — want me to open it?" */
