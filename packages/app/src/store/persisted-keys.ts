@@ -142,12 +142,10 @@ export const PREFERENCE_KEYS = [
   'voiceConversation', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
   'voiceConversationTrigger', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
   'companionSttProvider', // companion-page.tsx (Microphone ▸ Provider, Phase 109 Theme B — was local state)
-  // Phase 109 Theme B seeds Theme G's two in the phase's one v32 migration,
-  // ahead of the Profiles section that will control them — orphans for
-  // exactly that gap, the way Phase 79 Theme A's five sat in `KNOWN_ORPHANS`
-  // until Theme H built the page. See `outstanding.md`.
-  'companionProfiles',
-  'companionActiveProfile',
+  // Phase 109 Theme B seeded these two in the phase's one v32 migration and
+  // parked them in `KNOWN_ORPHANS`; Theme G's Profiles section took them out.
+  'companionProfiles', // companion-profiles-section.tsx (Profiles ▸ the list, Save current as…, Rename, Delete)
+  'companionActiveProfile', // companion-profiles-section.tsx (Profiles ▸ the Active badge, Set active)
   // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
   // real control already — the Knowledge view's own pill bar
   // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
@@ -228,7 +226,9 @@ export const SESSION_STATE_KEYS = [
  * intended lifecycle for an entry in this list, and the one worth naming: an
  * orphan is parked here with a named page and leaves when that page ships.
  * `enabledApps` (Phase 83 Theme A/B, resolved by Theme E's `apps-page.tsx`)
- * is the identical shape a third time.
+ * is the identical shape a third time, and Phase 109's `companionProfiles` and
+ * `companionActiveProfile` (seeded by Theme B, resolved by Theme G's
+ * `companion-profiles-section.tsx`) a fourth.
  */
 export const KNOWN_ORPHANS = [
   'browserLayout',
@@ -245,8 +245,6 @@ export const KNOWN_ORPHANS = [
   'rendererVariant',
   'layoutId',
   'knowledgeDetailId',
-  'companionProfiles',
-  'companionActiveProfile',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];

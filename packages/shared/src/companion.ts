@@ -2314,6 +2314,18 @@ export const COMPANION_PAGE_ONLY_SETTING_KEYS = [
 export type CompanionPageOnlySettingKey = (typeof COMPANION_PAGE_ONLY_SETTING_KEYS)[number];
 
 /**
+ * What a `profile` intent does with a persona profile (Phase 109 Theme G):
+ * "save this as Narrator", "switch to Narrator", "delete the Narrator
+ * profile", "what profiles do I have?". Declared above
+ * {@link CompanionIntentSchema} for the reason the setting keys are.
+ */
+export const COMPANION_PROFILE_OPS = ['save', 'switch', 'delete', 'list'] as const;
+export type CompanionProfileOp = (typeof COMPANION_PROFILE_OPS)[number];
+
+/** The longest profile name — {@link CompanionProfileSchema}'s own cap, declared up here for the intent. */
+export const COMPANION_PROFILE_NAME_MAX = 64;
+
+/**
  * How a `setting` intent's `value` applies (Theme C).
  *
  * - `set` (the default) — `value` is the new value.
@@ -2516,6 +2528,13 @@ export const CompanionVocabularySchema = z.object({
       }),
     )
     .optional(),
+  /**
+   * The saved persona profiles' names (Phase 109 Theme G), so a bare
+   * "switch to Narrator" or "be Narrator" is a profile switch only when
+   * Narrator is one — and the router can name them. Read live in `runtime.ts`
+   * rather than cached with the rest, since saving one changes it.
+   */
+  profiles: z.array(z.string()).optional(),
 });
 export type CompanionVocabulary = z.infer<typeof CompanionVocabularySchema>;
 
@@ -2806,6 +2825,18 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
   /** "Undo that." "Put it back." One step, sixty seconds (Phase 109 Theme E). */
   z.object({ kind: z.literal('undoSetting') }),
   /**
+   * "Save this as Narrator." "Switch to Narrator." "Delete the Narrator
+   * profile." "What profiles do I have?" (Phase 109 Theme G.) `name` is the
+   * profile as said, matched case-insensitively in `act()`; `list` has none.
+   * A profile is a bundle of voice, personality and honorifics — never names,
+   * so no profile command can change the wake word (Decision 5).
+   */
+  z.object({
+    kind: z.literal('profile'),
+    op: z.enum(COMPANION_PROFILE_OPS),
+    name: z.string().trim().min(1).max(COMPANION_PROFILE_NAME_MAX).optional(),
+  }),
+  /**
    * "Turn yourself off." "Switch to web speech." A `never`-tier setting asked
    * for out loud — refused, with an offer to open Settings ▸ Companion.
    */
@@ -2969,6 +3000,12 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     // "run it") are not affected.
     if (COMPANION_CONFIRM_TOKENS.some((token) => token === lower)) return { kind: 'confirm' };
     if (COMPANION_HELP_TOKENS.some((token) => token === lower)) return { kind: 'help' };
+
+    // Phase 109 Theme G. Anchored like the settings phrases, and first among
+    // them: a bare "switch to Narrator" or "be Narrator" is only a profile
+    // switch when Narrator is a saved profile, which is a name the user chose.
+    const profile = tryProfilePhrase(settingsCore(bare), vocabulary.profiles ?? []);
+    if (profile) return profile;
 
     // Phase 109 Theme E, then C. Settings phrases are anchored whole-line
     // patterns, so they run before `navigate`: "switch to web speech" would
@@ -3301,6 +3338,103 @@ function tryBareVoiceSwitch(core: string): SettingIntent | null {
   return settingIntent('companionVoices.local', heard.trim(), 'match');
 }
 
+type ProfileIntent = Extract<CompanionIntent, { kind: 'profile' }>;
+
+/**
+ * A profile name as said: quotes and a leading article off, a trailing
+ * "profile" or "persona" off, one to four words, never a clause.
+ */
+function spokenProfileName(raw: string): string | null {
+  const name = raw
+    .replace(/^["“'`]+|["”'`]+$/g, '')
+    .replace(/^(?:the|my|a|an|your)\s+/i, '')
+    .replace(/\s+(?:profile|persona)$/i, '')
+    .replace(/^["“'`]+|["”'`]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (name === '' || name.length > COMPANION_PROFILE_NAME_MAX) return null;
+  const words = name.split(' ');
+  if (words.length > 4) return null;
+  if (NOT_A_NAME_START.has((words[0] as string).toLowerCase())) return null;
+  return name;
+}
+
+/** `heard` against the saved names, case-insensitively, articles off — the saved spelling, or `null`. */
+function knownProfileName(heard: string, profiles: readonly string[]): string | null {
+  const name = spokenProfileName(heard);
+  if (name === null) return null;
+  return profiles.find((saved) => saved.trim().toLowerCase() === name.toLowerCase()) ?? null;
+}
+
+/**
+ * "Save this as Narrator", "switch to Narrator", "be Narrator", "delete the
+ * Narrator profile", "what profiles do I have?" (Phase 109 Theme G).
+ *
+ * A phrase that says "profile" or "persona" is a profile command whatever the
+ * name, so "switch to the Pirate profile" with no Pirate gets "I don't have a
+ * profile called Pirate" rather than a trip to some view. A bare "switch to
+ * X", "be X" or "become X" is one only when X is in `profiles`, so every
+ * sentence those verbs already meant — a voice, a view, a repo, "be quieter" —
+ * keeps meaning it.
+ */
+function tryProfilePhrase(core: string, profiles: readonly string[]): ProfileIntent | null {
+  if (core === '') return null;
+  const noun = String.raw`(?:profiles|personas)`;
+
+  // --- list ---
+  if (
+    new RegExp(String.raw`^(?:what|which)\s+${noun}\s+(?:do\s+(?:i|you|we)\s+have|have\s+(?:i|you|we)\s+(?:got|saved)|are\s+there|(?:are\s+)?saved)$`, 'i').test(core) ||
+    new RegExp(String.raw`^(?:list|show(?:\s+me)?|tell\s+me|read(?:\s+me)?)\s+(?:all\s+)?(?:my\s+|your\s+|the\s+)?(?:saved\s+)?${noun}$`, 'i').test(core) ||
+    new RegExp(String.raw`^(?:my|your)\s+${noun}$`, 'i').test(core)
+  ) {
+    return { kind: 'profile', op: 'list' };
+  }
+
+  let match: RegExpExecArray | null;
+
+  // --- save ---
+  match =
+    /^(?:save|store|keep|remember)\s+(?:this|that|it|yourself|you|how\s+you\s+(?:are|sound)|(?:this|the\s+current|your\s+current|your)\s+(?:setup|set\s+up|voice|persona|profile|personality|one|settings))(?:\s+now)?\s+as\s+(?:a\s+(?:new\s+)?(?:profile|persona)\s+)?(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:save|create|make)\s+(?:a\s+)?(?:new\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core);
+  if (match) {
+    const name = spokenProfileName(match[1] as string);
+    return name === null ? null : { kind: 'profile', op: 'save', name };
+  }
+
+  // --- delete ---
+  match =
+    /^(?:delete|remove|forget|drop|get\s+rid\s+of)\s+(?:the\s+|my\s+|your\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:delete|remove|forget|drop|get\s+rid\s+of)\s+(.+?)\s+(?:profile|persona)$/i.exec(core);
+  if (match) {
+    const name = spokenProfileName(match[1] as string);
+    return name === null ? null : { kind: 'profile', op: 'delete', name };
+  }
+
+  // --- switch, naming "profile" ---
+  match =
+    /^(?:switch|change|go|go\s+back)\s+(?:over\s+|back\s+)?to\s+(?:the\s+|my\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:switch|change|go|go\s+back)\s+(?:over\s+|back\s+)?to\s+(.+?)\s+(?:profile|persona)$/i.exec(core) ??
+    /^(?:use|load|activate|apply|pick)\s+(?:the\s+|my\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:use|load|activate|apply|pick)\s+(.+?)\s+(?:profile|persona)$/i.exec(core);
+  if (match) {
+    const name = spokenProfileName(match[1] as string);
+    if (name === null) return null;
+    return { kind: 'profile', op: 'switch', name: knownProfileName(name, profiles) ?? name };
+  }
+
+  // --- switch, by a saved name alone ---
+  match =
+    /^(?:switch|change|go|go\s+back)\s+(?:over\s+|back\s+)?to\s+(?:being\s+)?(.+)$/i.exec(core) ??
+    /^(?:be|become)\s+(.+?)(?:\s+again)?$/i.exec(core) ??
+    /^(?:talk|sound|speak)\s+like\s+(.+?)(?:\s+again)?$/i.exec(core);
+  if (match) {
+    const name = knownProfileName(match[1] as string, profiles);
+    if (name !== null) return { kind: 'profile', op: 'switch', name };
+  }
+
+  return null;
+}
+
 /**
  * The names a user may address the companion by. At least one — deleting the
  * last one is blocked at the settings-page call site, not enforced by
@@ -3461,13 +3595,14 @@ export const COMPANION_PROFILES_MAX = 20;
  *
  * **Names are deliberately absent** (Decision 5): names are the wake words, so
  * a profile switch must never change what you say to wake the companion.
- * Declared now, in Theme A, only because the v32 migration seeds
- * `companionProfiles` and the slice schema below has to type it; saving,
- * switching and deleting are Theme G's.
+ * Declared in Theme A because the v32 migration seeds `companionProfiles`
+ * and the slice schema below has to type it. Saving, switching and deleting
+ * are Theme G's: `companion-profiles.ts` (shared) and
+ * `app/features/companion/profiles.ts`.
  */
 export const CompanionProfileSchema = z.object({
   id: z.string().min(1),
-  name: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(COMPANION_PROFILE_NAME_MAX),
   voices: CompanionVoiceSelectionSchema,
   personality: CompanionPersonalitySchema,
   honorifics: CompanionHonorificsSchema,

@@ -25,6 +25,7 @@ import { overlayDepth } from '../../components/dialog-host';
 import type { PendingAction } from '../../store/companion-store';
 import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
+import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
 import type { Speaker } from './ports';
 import type {
   CompanionSettingChange,
@@ -139,6 +140,8 @@ export type CompanionSettingsPort = {
   undoAndAnnounce: (speak: (text: string) => Promise<void>) => Promise<CompanionUndoResult>;
   /** `speechSynthesis`'s voices, which exist only in the renderer. */
   systemVoices: () => readonly { uri: string; name: string; lang?: string }[];
+  /** Persona profiles (Phase 109 Theme G): save, switch, delete and list — `profiles.ts` behind a port. */
+  profiles: CompanionProfilesPort;
   /**
    * The speaker to read back with once the write has landed — "speak out
    * loud" turns speech on mid-turn, after this turn's `deps.speaker` was
@@ -287,6 +290,10 @@ async function act(
 
     case 'help':
       return speakHelp(deps);
+
+    // Phase 109 Theme G — persona profiles, in `profile-handoff.ts`.
+    case 'profile':
+      return actOnProfile(intent, deps);
 
     // Phase 109 — the companion changes itself.
     case 'setting':

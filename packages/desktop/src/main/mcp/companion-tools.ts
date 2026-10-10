@@ -1,8 +1,11 @@
 import {
+  COMPANION_PROFILE_CONFIRM_TIMEOUT_MS,
   COMPANION_SETTINGS_OFF_MESSAGE,
   companionSettingSetTimeoutMs,
   describeCompanionLocalVoices,
   describeCompanionSettings,
+  type CompanionProfileOpOutput,
+  type CompanionUiAction,
   type CompanionUiReplyResult,
   type McpToolInput,
   type McpToolOutput,
@@ -87,4 +90,62 @@ export async function companionVoicesList(): Promise<McpToolOutput<'companion_vo
     system: result.value.system,
     selected: result.value.selected,
   };
+}
+
+// --- companion_profile_* (Phase 109 Theme G) ----------------------------------------
+
+export async function companionProfileList(): Promise<McpToolOutput<'companion_profile_list'>> {
+  requireSwitch();
+  const result = await requestUiAction({ kind: 'profileList' });
+  refuseIfFailed(result);
+  if (result.value.did !== 'profileList') {
+    throw new McpToolError('error', 'unexpected reply shape for companion_profile_list');
+  }
+  const { did: _did, ...answer } = result.value;
+  return answer;
+}
+
+type ProfileWrite = Extract<CompanionUiAction, { kind: 'profileSave' | 'profileSwitch' | 'profileDelete' }>['kind'];
+
+/**
+ * One profile write. A save or a delete may wait on the user (a delete
+ * always asks; a save asks when the name is taken, which only the renderer
+ * knows), so both get the prompt's wait plus its grace; a switch is direct.
+ */
+async function profileWrite(kind: ProfileWrite, name: string, tool: string): Promise<CompanionProfileOpOutput> {
+  requireSwitch();
+  const waits = kind !== 'profileSwitch';
+  const result = await requestUiAction(
+    { kind, name },
+    waits ? { timeoutMs: COMPANION_PROFILE_CONFIRM_TIMEOUT_MS } : {},
+  );
+  // The backstop fired with the user's question open: nothing applies after
+  // the renderer's own deadline, so this is the `timeout` it would have sent.
+  if (!result.ok && waits && result.kind === 'error' && result.message === UI_BRIDGE_TIMEOUT_MESSAGE) {
+    return { status: 'timeout', name };
+  }
+  refuseIfFailed(result);
+  if (result.value.did !== kind) {
+    throw new McpToolError('error', `unexpected reply shape for ${tool}`);
+  }
+  const { did: _did, ...answer } = result.value;
+  return answer;
+}
+
+export function companionProfileSave(
+  input: McpToolInput<'companion_profile_save'>,
+): Promise<McpToolOutput<'companion_profile_save'>> {
+  return profileWrite('profileSave', input.name, 'companion_profile_save');
+}
+
+export function companionProfileSwitch(
+  input: McpToolInput<'companion_profile_switch'>,
+): Promise<McpToolOutput<'companion_profile_switch'>> {
+  return profileWrite('profileSwitch', input.name, 'companion_profile_switch');
+}
+
+export function companionProfileDelete(
+  input: McpToolInput<'companion_profile_delete'>,
+): Promise<McpToolOutput<'companion_profile_delete'>> {
+  return profileWrite('profileDelete', input.name, 'companion_profile_delete');
 }

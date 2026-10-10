@@ -2,12 +2,17 @@ import { z } from 'zod';
 
 import {
   COMPANION_LOCAL_VOICES,
+  COMPANION_PROFILE_NAME_MAX,
+  COMPANION_PROFILES_MAX,
   COMPANION_SETTING_KEYS,
   CompanionLocalVoiceIdSchema,
+  CompanionProfileSchema,
   companionSettingSpec,
   companionSettingTier,
+  type CompanionProfile,
   type CompanionSettingKey,
 } from './companion';
+import { isCompanionProfileModified, type CompanionProfileSource } from './companion-profiles';
 
 /**
  * The `companion_*` tools on the `midnite` MCP server (Phase 109 Theme D):
@@ -162,6 +167,7 @@ export type CompanionVoicesListOutput = z.infer<typeof CompanionVoicesListOutput
 
 const NEVER_NOTE = 'Only from Settings ▸ Companion.';
 const TUNED_NOTE = "Only from Settings ▸ Companion or the companion's own tune-me interview.";
+const PROFILE_NOTE = 'Switch profiles with `companion_profile_switch`, which applies the whole bundle.';
 
 function allowedFor(key: CompanionSettingKey): CompanionSettingAllowed {
   const value = companionSettingSpec(key).value;
@@ -195,7 +201,10 @@ export function describeCompanionSettings(
   const settings = COMPANION_SETTING_KEYS.map((key): CompanionSettingEntry => {
     const spec = companionSettingSpec(key);
     const tunedOnly = spec.guards?.includes('tunedText') === true;
-    const settable = spec.tier !== 'never' && !tunedOnly;
+    // Setting the active profile's id alone would mark a profile active
+    // without applying it (Theme G); `companion_profile_switch` does both.
+    const profileOnly = key === 'companionActiveProfile';
+    const settable = spec.tier !== 'never' && !tunedOnly && !profileOnly;
     return {
       key,
       label: spec.label,
@@ -203,7 +212,9 @@ export function describeCompanionSettings(
       tier: spec.tier,
       ...(spec.directValues ? { directValues: [...spec.directValues] } : {}),
       settable,
-      ...(settable ? {} : { note: spec.tier === 'never' ? NEVER_NOTE : TUNED_NOTE }),
+      ...(settable
+        ? {}
+        : { note: spec.tier === 'never' ? NEVER_NOTE : profileOnly ? PROFILE_NOTE : TUNED_NOTE }),
       allowed: allowedFor(key),
     };
   });
@@ -221,4 +232,87 @@ export function describeCompanionLocalVoices(downloaded: boolean): CompanionVoic
     spoken: [...voice.spoken],
     downloaded,
   }));
+}
+
+// --- companion_profile_* (Phase 109 Theme G) ----------------------------------
+
+/**
+ * How long main waits for one `companion_profile_save` or `_delete`. Both can
+ * be `confirm`-tier — a delete always, a save when the name is taken, which
+ * only the renderer knows — so main gives each the prompt and its grace; the
+ * renderer answers a plain save at once. `_switch` and `_list` use the
+ * bridge's default.
+ */
+export const COMPANION_PROFILE_CONFIRM_TIMEOUT_MS = COMPANION_MCP_CONFIRM_MS + COMPANION_MCP_REPLY_GRACE_MS;
+
+/** One saved profile, as an agent sees it — the profile plus whether it is active and whether the companion has moved off it. */
+export const CompanionProfileSummarySchema = CompanionProfileSchema.extend({
+  active: z.boolean(),
+  /** Active, and a bundled field has changed since it was switched to or saved. Never `true` for an inactive profile. */
+  modified: z.boolean(),
+});
+export type CompanionProfileSummary = z.infer<typeof CompanionProfileSummarySchema>;
+
+export const CompanionProfileListOutputSchema = z.object({
+  profiles: z.array(CompanionProfileSummarySchema),
+  /** The active profile's id, or `null` when none is. */
+  active: z.string().nullable(),
+  /** How many the app keeps; `companion_profile_save` refuses a new one past it. */
+  max: z.number().int(),
+  /** While the screen is locked every profile write is refused. */
+  locked: z.boolean(),
+});
+export type CompanionProfileListOutput = z.infer<typeof CompanionProfileListOutputSchema>;
+
+/** `_save`, `_switch` and `_delete` all take one name — a profile's id works too, for one listed first. */
+export const CompanionProfileNameInputSchema = z.object({
+  name: z.string().trim().min(1).max(COMPANION_PROFILE_NAME_MAX),
+});
+export type CompanionProfileNameInput = z.infer<typeof CompanionProfileNameInputSchema>;
+
+/** Why a profile write was refused. `notFound`: no profile by that name; `full`: {@link COMPANION_PROFILES_MAX} already. */
+export const COMPANION_PROFILE_REFUSALS = ['locked', 'notFound', 'full', 'invalid', 'guard'] as const;
+export type CompanionProfileRefusal = (typeof COMPANION_PROFILE_REFUSALS)[number];
+
+export const CompanionProfileOpOutputSchema = z.object({
+  /**
+   * `applied`: done without asking (a new save, a switch). `approved`: the
+   * user said yes to an overwrite or a delete, and it is done. `declined`,
+   * `timeout`: nothing changed. `refused`: see `reason`.
+   */
+  status: z.enum(COMPANION_SETTING_SET_STATUSES),
+  /** The name as asked, or the profile's own spelling once found. */
+  name: z.string(),
+  reason: z.enum(COMPANION_PROFILE_REFUSALS).optional(),
+  message: z.string().optional(),
+  /** A save that replaced an existing profile of that name. */
+  overwritten: z.boolean().optional(),
+  /** The profile as it now stands (save, switch) or as it was (delete). */
+  profile: CompanionProfileSummarySchema.optional(),
+});
+export type CompanionProfileOpOutput = z.infer<typeof CompanionProfileOpOutputSchema>;
+
+/** One profile as an agent sees it, against the store's current values. */
+export function summarizeCompanionProfile(
+  profile: CompanionProfile,
+  activeId: string | null,
+  current: CompanionProfileSource,
+): CompanionProfileSummary {
+  const active = profile.id === activeId;
+  return { ...profile, active, modified: active && isCompanionProfileModified(profile, current) };
+}
+
+/** `companion_profile_list`'s answer, from the renderer's store. */
+export function describeCompanionProfiles(
+  profiles: readonly CompanionProfile[],
+  activeId: string | null,
+  current: CompanionProfileSource,
+  locked: boolean,
+): CompanionProfileListOutput {
+  return {
+    profiles: profiles.map((profile) => summarizeCompanionProfile(profile, activeId, current)),
+    active: profiles.some((profile) => profile.id === activeId) ? activeId : null,
+    max: COMPANION_PROFILES_MAX,
+    locked,
+  };
 }

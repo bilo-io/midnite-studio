@@ -26,6 +26,7 @@ import {
   LuRefreshCw,
   LuSmile,
   LuTriangleAlert,
+  LuUsers,
   LuVolume2,
   LuX,
 } from 'react-icons/lu';
@@ -38,6 +39,7 @@ import { IconButton } from '../../../components/icon-button';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
+import { CompanionProfilesSection } from './companion-profiles-section';
 import { Choice, Field, TextArea } from './controls';
 
 /**
@@ -564,6 +566,11 @@ export function CompanionPage() {
           />
           <TryHint settingKey="companionMusicOffer" />
         </div>
+      </Accordion>
+
+      {/* Phase 109 Theme G — persona profiles: the bundle of the two sections above. */}
+      <Accordion title="Profiles" icon={<LuUsers className="h-4 w-4" />}>
+        <CompanionProfilesSection />
       </Accordion>
     </div>
   );

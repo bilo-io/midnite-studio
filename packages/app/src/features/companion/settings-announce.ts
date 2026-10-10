@@ -163,10 +163,42 @@ const UNDO_OPENERS = ['Put it back.', 'Undone.', 'Back how it was.'] as const;
 export function companionUndoAnnouncement(
   restored: { keys: readonly CompanionSettingKey[]; restored: Partial<Record<CompanionSettingKey, unknown>> },
   rng: () => number = Math.random,
+  profileName: (id: string) => string | null = profileNameFromStore,
 ): string {
   const opener = UNDO_OPENERS[Math.min(UNDO_OPENERS.length - 1, Math.floor(rng() * UNDO_OPENERS.length))];
+  // A profile switch (Theme G) is five keys at once; one line about the
+  // profile says it, where five read-backs would be a paragraph.
+  if (restored.keys.includes('companionActiveProfile') && restored.keys.length > 1) {
+    const id = restored.restored.companionActiveProfile;
+    const name = typeof id === 'string' ? profileName(id) : null;
+    return `${opener} ${name !== null ? `${name} again.` : 'Back how I was before that profile.'}`;
+  }
   const lines = restored.keys.map((key) => pickReadBack(key, restored.restored[key], rng));
   return [opener, ...lines].join(' ');
+}
+
+function profileNameFromStore(id: string): string | null {
+  return useUiStore.getState().companionProfiles.find((profile) => profile.id === id)?.name ?? null;
+}
+
+const PROFILE_SWITCH_LINES = [
+  (name: string) => `This is ${name} now.`,
+  (name: string) => `${name} it is.`,
+  (name: string) => `Switched to ${name}.`,
+] as const;
+
+/**
+ * What the companion says after a profile switch (Theme G) — spoken after the
+ * write, so it is heard in the profile's own voice. An agent's switch says so.
+ */
+export function companionProfileSwitchAnnouncement(
+  name: string,
+  source: CompanionSettingSource,
+  rng: () => number = Math.random,
+): string {
+  if (source === 'mcp') return `Your agent switched me to ${name}.`;
+  const pick = PROFILE_SWITCH_LINES[Math.min(PROFILE_SWITCH_LINES.length - 1, Math.floor(rng() * PROFILE_SWITCH_LINES.length))];
+  return (pick ?? PROFILE_SWITCH_LINES[0])(name);
 }
 
 /** What "undo that" says when there is nothing it can do. */
@@ -207,9 +239,24 @@ export function showCompanionUndoToast(
 
   const label = companionSettingSpec(result.key).label;
   const value = valueForToast(result.key, result.next, deps);
+  showUndoToastFor(
+    change,
+    remaining,
+    source === 'mcp' ? `Your agent changed ${label} to ${value}.` : `${label} set to ${value}.`,
+    deps,
+  );
+}
+
+/** The toast itself — one at a time, its Undo only ever undoing `change`. */
+function showUndoToastFor(
+  change: Readonly<CompanionLastChange>,
+  remaining: number,
+  message: string,
+  deps: AnnounceDeps,
+): void {
   dismissCompanionUndoToast(deps);
   currentToast = deps.showToast({
-    message: source === 'mcp' ? `Your agent changed ${label} to ${value}.` : `${label} set to ${value}.`,
+    message,
     durationMs: remaining,
     action: {
       label: 'Undo',
@@ -253,6 +300,34 @@ export async function announceCompanionSettingChange(
 }
 
 /** The setter as this module uses it — injectable so a test can watch the write land between two sentences. */
+/**
+ * A profile switch from the voice or an agent (Theme G): an Undo toast for the
+ * whole bundle, then one line — after the write, so it is the profile's own
+ * voice saying it. Page switches, and switches that changed nothing, are
+ * silent.
+ */
+export async function announceCompanionProfileSwitch(
+  switched: { profile: { name: string }; changed: boolean },
+  source: CompanionSettingSource,
+  deps: AnnounceDeps = defaultAnnounceDeps(),
+): Promise<void> {
+  if (source === 'page' || !switched.changed) return;
+  const { name } = switched.profile;
+  const change = deps.lastChange();
+  if (change !== null && change.keys.includes('companionActiveProfile')) {
+    const remaining = COMPANION_UNDO_WINDOW_MS - (deps.now() - change.at);
+    if (remaining > 0) {
+      showUndoToastFor(
+        change,
+        remaining,
+        source === 'mcp' ? `Your agent switched the profile to ${name}.` : `Switched to ${name}.`,
+        deps,
+      );
+    }
+  }
+  await deps.speak(companionProfileSwitchAnnouncement(name, source, deps.rng));
+}
+
 export type AnnounceSetter = {
   preview: (change: CompanionSettingChange, source: CompanionSettingSource) => CompanionSettingResult;
   apply: (change: CompanionSettingChange, source: CompanionSettingSource) => CompanionSettingResult;

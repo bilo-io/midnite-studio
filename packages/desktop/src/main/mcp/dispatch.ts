@@ -16,7 +16,15 @@ import {
   workflowGateDecide,
   workflowGatesList,
 } from './tools';
-import { companionSettingsGet, companionSettingsSet, companionVoicesList } from './companion-tools';
+import {
+  companionProfileDelete,
+  companionProfileList,
+  companionProfileSave,
+  companionProfileSwitch,
+  companionSettingsGet,
+  companionSettingsSet,
+  companionVoicesList,
+} from './companion-tools';
 import { McpToolError } from './errors';
 import {
   gameCreate,
@@ -237,6 +245,10 @@ export const MCP_HANDLERS: {
   companion_settings_get: companionSettingsGet,
   companion_settings_set: companionSettingsSet,
   companion_voices_list: companionVoicesList,
+  companion_profile_list: companionProfileList,
+  companion_profile_save: companionProfileSave,
+  companion_profile_switch: companionProfileSwitch,
+  companion_profile_delete: companionProfileDelete,
 };
 
 export type McpDispatchResult =

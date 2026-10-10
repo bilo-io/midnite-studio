@@ -1,6 +1,25 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 109 Theme G — Persona profiles
+
+[PR #818](https://github.com/bilo-io/midnite-studio/pull/818). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme G: named bundles of the companion's voice, personality and what it calls you, never its names, so a
+switch can't change the wake word. You can save, switch and delete them by voice, from Settings ▸
+Companion ▸ Profiles, or over MCP.
+
+- **shared:** `companion-profiles.ts` (find, modified, name checks), a `profile` intent arm with its
+  anchored grammar, `CompanionVocabulary.profiles`, the `companion_profile_*` schemas in
+  `companion-mcp.ts`, four `MCP_TOOLS` entries, and four `CompanionUiActionSchema` arms.
+- **app:** `profiles.ts`. A switch is one undoable change through `applyCompanionSettings`; editing marks
+  the active profile *modified* (derived) and never rewrites it; only a switch may write
+  `companionActiveProfile`. `profile-handoff.ts` is the voice arm, which asks before an overwrite or a
+  delete. The `ui-requests.ts` MCP arms wait on the generalised `askToConfirmMcpProfile`. The Profiles
+  section has an Active badge, a Modified dot, Save current as…, Rename, Delete (confirm dialog) and Set
+  active. The two keys leave `KNOWN_ORPHANS`.
+- **desktop:** `companionProfileList`/`Save`/`Switch`/`Delete` behind `allowCompanionSettings`. A save
+  or a delete gets the 30 s confirm wait plus its grace, and the route prompt learns profile names.
+
 ## 2026-10-10 — Phase 111 Theme A — Global agent and model state contract
 
 [PR #817](https://github.com/bilo-io/midnite-studio/pull/817). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)

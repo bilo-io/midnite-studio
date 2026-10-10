@@ -457,7 +457,7 @@ export function McpSettingsPage() {
           <SettingsSwitchRow
             id="mcp-allow-companion-settings"
             label="Let agents change companion settings"
-            description="A tenth switch — off by default, and disabled until the master switch is on. Unlike the switches above it gates reads too, because the settings include what you told the companion about yourself: companion_settings_get, companion_settings_set and companion_voices_list all refuse while it is off. A voice, the volume or what it calls you changes at once. A change to its name, the mic, conversation mode or speaking aloud waits up to 30 seconds for you to allow it in the app, and nothing changes if you don’t. Enabling it, the speech engine and hands-free stay in Settings ▸ Companion only."
+            description="A tenth switch — off by default, and disabled until the master switch is on. Unlike the switches above it gates reads too, because the settings include what you told the companion about yourself: companion_settings_get, companion_settings_set, companion_voices_list and the four companion_profile_* tools all refuse while it is off. A voice, the volume, what it calls you or a profile switch changes at once. A change to its name, the mic, conversation mode or speaking aloud — and deleting a profile or saving over one — waits up to 30 seconds for you to allow it in the app, and nothing changes if you don’t. Enabling it, the speech engine and hands-free stay in Settings ▸ Companion only."
             on={allowCompanionSettings}
             onToggle={(_id, next) => setAllowCompanionSettings.mutate(next)}
             testId="mcp-allow-companion-settings"
