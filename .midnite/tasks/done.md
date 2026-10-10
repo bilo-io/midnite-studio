@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-10 — Ad hoc — Conversation mode: hands-free voice turns, optional wake word
 
-Not phase-tracked. The user asked for a second button beside every composer's mic. When on, the
+[PR #811](https://github.com/bilo-io/midnite-studio/pull/811). Not phase-tracked. The user asked for a second button beside every composer's mic. When on, the
 mic stays open and each phrase is sent by itself when the user pauses, with no press per phrase.
 When off, the mic works as before. Two follow-ups added a trigger choice in Settings ("Always on",
 or "Wake word" using the existing `companionNames`) and made **Manual** the default.
