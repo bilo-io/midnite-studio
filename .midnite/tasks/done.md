@@ -23,6 +23,18 @@ read back and confirmed. They are never dictated.
   schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
 
 
+## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
+
+[PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes A and B: one shape that names any thing in the app, and one engine that opens it. This is the
+foundation the per-kind revealers (C–F), the resolver (G), follow-ups (H) and MCP/deep link (I) build on.
+
+- **shared:** `domain/resource-ref.ts`, with `ResourceRefSchema` (20 kinds in four families), `RESOURCE_KINDS`, `MediaKind`,
+  `resourceRefLabel`, `resourceRefKey`/`resourceRefsEqual`/`resourceRefRepoId`. `navigate.target`/`reference`. `reveal`/`find`
+  UI actions and `revealed`/`found` results.
+- **app:** `features/companion/reveal/`, with `revealResource` (relay → lock → repo switch → view via `resolveNavigation` →
+  reveal → record), a total `REVEALERS` table spread from per-family stub files, and the `useRevealHistory` slot (last 20).
+  `navigateCompanion` routes `target`. The relay result carries `ok`/`reason`. `ui-requests.ts` answers `reveal`.
 ## 2026-10-10 — Phase 111 Themes D, E — Title bar model pill and MCP agent tools
 
 [PR #822](https://github.com/bilo-io/midnite-studio/pull/822). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)

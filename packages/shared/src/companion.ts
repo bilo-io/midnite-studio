@@ -17,6 +17,7 @@ import {
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
   RepoDescriptorSchema,
+  ResourceRefSchema,
   type Ref,
   type SettingsPageId,
   type ViewId,
@@ -2818,6 +2819,14 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
     page: z.enum(SETTINGS_PAGE_IDS).optional(),
     issue: z.number().int().positive().optional(),
     url: z.string().optional(),
+    /**
+     * Phase 112 Theme A — a specific thing inside a page ("the commit about
+     * the lock screen"), revealed by the app's `revealResource`. Takes
+     * precedence over `view`/`page`/`issue`, which keep working unchanged.
+     */
+    target: ResourceRefSchema.optional(),
+    /** Phase 112 — a follow-up ("this one", "the next one", "go back"); Theme H fills it. */
+    reference: z.enum(['this', 'next', 'previous', 'parent', 'back']).optional(),
   }),
   /**
    * "Push." "Fetch." "New terminal." `id` is `z.string().refine(isCommandId)`

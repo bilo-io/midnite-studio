@@ -51,6 +51,7 @@ import {
 import { announceCompanionProfileSwitch, announceCompanionSettingChange } from './settings-announce';
 import { loadCompanionVoices } from './speaker';
 import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './agent-switch';
+import { revealResource } from './reveal/reveal';
 
 /**
  * The main window's side of the ui.* MCP tools (Phase 81 Theme F) — the
@@ -117,7 +118,30 @@ export async function resolveUiAction(action: CompanionUiAction): Promise<Compan
     return failure('The screen is locked — unlock it first.');
   }
 
+  if (action.kind === 'reveal') return resolveRevealAction(action);
+  // Phase 112: `find` is Theme G's resolver; until it lands the action is refused, never guessed at.
+  if (action.kind === 'find') return failure('Finding resources is not available yet.');
+
   return action.kind === 'navigate' ? resolveNavigateAction(action) : resolveCommandAction(action);
+}
+
+// --- reveal (Phase 112 Theme B) ---------------------------------------------
+
+/**
+ * An agent's `reveal` runs the same `revealResource` engine a spoken "open
+ * that commit" does, with `caller: 'mcp'` — and, like every steer, is never
+ * silent: a landed reveal posts the "Agent: opened …" toast.
+ */
+async function resolveRevealAction(action: Extract<CompanionUiAction, { kind: 'reveal' }>): Promise<CompanionUiReplyResult> {
+  const outcome = await revealResource(action.ref, { caller: 'mcp' });
+  if (!outcome.ok) return failure(outcome.say);
+  announce(`Agent: opened ${outcome.label}.`, `An agent opened ${outcome.label}.`);
+  return ok({
+    did: 'revealed',
+    ref: action.ref,
+    label: outcome.label,
+    focusedWindow: outcome.did === 'focused-window',
+  });
 }
 
 // --- ui.state ----------------------------------------------------------------
