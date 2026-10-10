@@ -4252,6 +4252,12 @@ export const CompanionUiResultValueSchema = z.union([
   CompanionAgentGetOutputSchema.extend({ did: z.literal('agentState') }),
   CompanionAgentSetOutputSchema.extend({ did: z.literal('agentSet') }),
   CompanionModelsListOutputSchema.extend({ did: z.literal('modelsList') }),
+  /* Phase 112 — a `reveal` that landed, and a `find`'s candidates (titles and ids only, never bodies). */
+  z.object({ did: z.enum(['revealed', 'focused-window']), ref: ResourceRefSchema, label: z.string() }),
+  z.object({
+    did: z.literal('found'),
+    matches: z.array(z.object({ ref: ResourceRefSchema, title: z.string(), detail: z.string().optional() })),
+  }),
 ]);
 export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
 
