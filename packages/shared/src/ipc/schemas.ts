@@ -31,6 +31,9 @@ import {
 } from '../markets';
 import { MarketPortfolioOpSchema } from '../markets-portfolio';
 import {
+  CompanionProfileListOutputSchema,
+  CompanionProfileNameInputSchema,
+  CompanionProfileOpOutputSchema,
   CompanionSettingKeySchema,
   CompanionSettingsSetOutputSchema,
   CompanionSystemVoiceSchema,
@@ -4176,6 +4179,16 @@ export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('settingsState') }),
   /** `companion_voices_list`'s request — the system voices, which only the renderer can list. */
   z.object({ kind: z.literal('voices') }),
+  /*
+   * Phase 109 Theme G — the `companion_profile_*` tools. Profiles live in the
+   * renderer's store like every companion setting, so each tool is one of
+   * these arms; the renderer's `profiles.ts` does the work, and asks the user
+   * before a delete or an overwrite.
+   */
+  z.object({ kind: z.literal('profileList') }),
+  CompanionProfileNameInputSchema.extend({ kind: z.literal('profileSave') }),
+  CompanionProfileNameInputSchema.extend({ kind: z.literal('profileSwitch') }),
+  CompanionProfileNameInputSchema.extend({ kind: z.literal('profileDelete') }),
 ]);
 export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
 
@@ -4209,6 +4222,10 @@ export const CompanionUiResultValueSchema = z.union([
     system: z.array(CompanionSystemVoiceSchema),
     selected: z.object({ local: CompanionLocalVoiceIdSchema.nullable(), system: z.string().nullable() }),
   }),
+  /** `companion_profile_list`'s answer, built in the renderer (Phase 109 Theme G). */
+  CompanionProfileListOutputSchema.extend({ did: z.literal('profileList') }),
+  /** A profile write's outcome — `companion_profile_save`/`_switch`/`_delete`'s answer as it stands. */
+  CompanionProfileOpOutputSchema.extend({ did: z.enum(['profileSave', 'profileSwitch', 'profileDelete']) }),
 ]);
 export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
 

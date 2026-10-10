@@ -92,6 +92,9 @@ describe('MCP_TOOLS', () => {
     'music_add_track',
     'music_save',
     'companion_settings_set',
+    'companion_profile_save',
+    'companion_profile_switch',
+    'companion_profile_delete',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -308,6 +311,10 @@ describe('MCP_TOOLS', () => {
     companion_settings_get: { settings: [], locked: false },
     companion_settings_set: { status: 'applied', key: 'companionVolume', previous: 0.5, next: 0.8 },
     companion_voices_list: { local: [], system: [], selected: { local: null, system: null } },
+    companion_profile_list: { profiles: [], active: null, max: 20, locked: false },
+    companion_profile_save: { status: 'applied', name: 'Narrator', overwritten: false },
+    companion_profile_switch: { status: 'refused', name: 'Pirate', reason: 'notFound', message: 'No such profile.' },
+    companion_profile_delete: { status: 'timeout', name: 'Narrator' },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -406,6 +413,9 @@ describe('MCP_TOOLS', () => {
       music_save: { ...base, project: 'p', name: 'intro' },
       music_render_preview: { ...base, project: 'p', name: 'intro', fromBar: 1, bars: 4 },
       companion_settings_set: { key: 'companionVolume', value: 0.8 },
+      companion_profile_save: { name: 'Narrator' },
+      companion_profile_switch: { name: 'Narrator' },
+      companion_profile_delete: { name: 'Narrator' },
       terrain_open: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_get_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_set_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000', patch: { resolution: 129 } },

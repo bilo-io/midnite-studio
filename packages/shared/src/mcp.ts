@@ -14,6 +14,9 @@ import {
   WindowRoleSchema,
 } from './domain';
 import {
+  CompanionProfileListOutputSchema,
+  CompanionProfileNameInputSchema,
+  CompanionProfileOpOutputSchema,
   CompanionSettingsGetOutputSchema,
   CompanionSettingsSetInputSchema,
   CompanionSettingsSetOutputSchema,
@@ -322,7 +325,11 @@ type McpToolEntry = {
     | 'music_render_preview'
     | 'companion_settings_get'
     | 'companion_settings_set'
-    | 'companion_voices_list';
+    | 'companion_voices_list'
+    | 'companion_profile_list'
+    | 'companion_profile_save'
+    | 'companion_profile_switch'
+    | 'companion_profile_delete';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1528,6 +1535,49 @@ export const MCP_TOOLS = {
     input: z.object({}),
     output: CompanionVoicesListOutputSchema,
     readOnly: true,
+  },
+  /*
+   * Persona profiles (Phase 109 Theme G) — named bundles of voice,
+   * personality and what it calls you, never names. Behind the same
+   * `allowCompanionSettings` switch as the three above. A delete, and a save
+   * over an existing name, wait for the user's yes in the app like a
+   * confirm-tier `companion_settings_set`.
+   */
+  companion_profile_list: {
+    id: 'companion_profile_list',
+    title: 'List the companion profiles',
+    description:
+      'Lists the saved companion persona profiles with which is active and whether it was edited since — call before `companion_profile_switch` instead of guessing a name; read-only.',
+    input: z.object({}),
+    output: CompanionProfileListOutputSchema,
+    readOnly: true,
+  },
+  companion_profile_save: {
+    id: 'companion_profile_save',
+    title: 'Save a companion profile',
+    description:
+      'Saves the companion’s current voice, personality and honorifics as a named profile, waiting up to 30 s for a yes when the name exists — see `companion_profile_list` for names.',
+    input: CompanionProfileNameInputSchema,
+    output: CompanionProfileOpOutputSchema,
+    readOnly: false,
+  },
+  companion_profile_switch: {
+    id: 'companion_profile_switch',
+    title: 'Switch the companion profile',
+    description:
+      'Switches the companion to a saved profile by name, applying its voice, personality and honorifics as one undoable change — call `companion_profile_list` first.',
+    input: CompanionProfileNameInputSchema,
+    output: CompanionProfileOpOutputSchema,
+    readOnly: false,
+  },
+  companion_profile_delete: {
+    id: 'companion_profile_delete',
+    title: 'Delete a companion profile',
+    description:
+      'Deletes a saved companion profile by name, waiting up to 30 s for the user’s yes in the app — call `companion_profile_list` first to see the names.',
+    input: CompanionProfileNameInputSchema,
+    output: CompanionProfileOpOutputSchema,
+    readOnly: false,
   },
 } satisfies Record<string, McpToolEntry>;
 
