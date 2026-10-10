@@ -202,6 +202,27 @@ function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
     'Use {"kind":"confirm"} for a bare confirmation of something already asked.',
     'Use {"kind":"help"} if it asks what you can do.',
     ...settingsVocabularyLines(vocabulary.settings),
+    ...profileVocabularyLines(vocabulary.profiles),
+  ];
+}
+
+/**
+ * Phase 109 Theme G — persona profiles, so "sound like the narrator again"
+ * can route to a switch. Names only: a profile's contents never reach the
+ * prompt. Absent when the renderer sent no `profiles` field, so an older
+ * vocabulary reads as it did; an empty list still teaches the save shape.
+ */
+function profileVocabularyLines(profiles: CompanionVocabulary['profiles']): string[] {
+  if (profiles === undefined) return [];
+  return [
+    '',
+    profiles.length > 0
+      ? `Saved persona profiles (voice, personality and what you call the user): ${profiles.join(', ')}.`
+      : 'No persona profiles are saved yet.',
+    'Use {"kind":"profile","op":"switch","name":"<a profile above>"} to become one,',
+    '{"kind":"profile","op":"save","name":"<a new name>"} to save how you are now,',
+    '{"kind":"profile","op":"delete","name":"<a profile above>"} to delete one, and',
+    '{"kind":"profile","op":"list"} if it asks which profiles there are.',
   ];
 }
 
