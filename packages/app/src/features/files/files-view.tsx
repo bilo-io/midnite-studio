@@ -84,6 +84,9 @@ export function FilesView() {
   // one open-and-scroll gesture, unlike `selectedPath`, which the store owns
   // because switching checkouts has to reset it.
   const [targetLine, setTargetLine] = useState<number | null>(null);
+  // A reveal (Phase 112 Theme C) lands in the store, so it works before this
+  // view has mounted; a search hit's own local line wins when both are set.
+  const revealLine = useFilesStore((s) => s.revealLine);
 
   const scope: FsScopeInput | null = useMemo(
     () =>
@@ -268,7 +271,7 @@ export function FilesView() {
           key={`${scopeKey}:${selectedPath}`}
           scope={scope}
           relPath={selectedPath}
-          targetLine={targetLine ?? undefined}
+          targetLine={targetLine ?? revealLine ?? undefined}
           onNavigate={(relPath, anchor) =>
             useFileEditorStore.getState().guardNavigation(() => {
               navigate(relPath, anchor ?? null);

@@ -61,6 +61,15 @@ export type GraphState = {
    */
   requestRestream: () => void;
   restreamNonce: number;
+  /**
+   * The commit (and, for a ref reveal, the ref badge) the last
+   * `revealCommit` landed on (Phase 112 Theme C). A nonce so revealing the
+   * same commit twice pulses twice; `GraphView` reads it to centre the row and
+   * play the one-shot pulse. Survives a restream — a reveal that cleared the
+   * ref filter restarts the stream and the pulse must outlive that.
+   */
+  revealPulse: { sha: string; refFullName: string | null; nonce: number } | null;
+  pulseCommit: (sha: string, refFullName?: string | null) => void;
 };
 
 const DEFAULT_ROSTER: readonly AgentSignature[] = BUILTIN_AGENTS.flatMap((a) =>
@@ -82,6 +91,11 @@ const EMPTY = {
 export const useGraphStore = create<GraphState>((set, get) => ({
   ...EMPTY,
   restreamNonce: 0,
+  revealPulse: null,
+  pulseCommit: (sha, refFullName = null) =>
+    set((state) => ({
+      revealPulse: { sha, refFullName, nonce: (state.revealPulse?.nonce ?? 0) + 1 },
+    })),
 
   begin: (repoId, requestId) =>
     set((state) => ({

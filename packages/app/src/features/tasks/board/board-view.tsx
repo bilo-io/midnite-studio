@@ -24,11 +24,13 @@ import { VIEW_ICON } from '../../../components/nav-icons';
 import { ResizeHandle } from '../../../components/resizable/resize-handle';
 import type { Resizable } from '../../../components/resizable/use-resizable';
 import { useToasts } from '../../../components/toast-host';
+import { isReducedMotion } from '../../../lib/reduced-motion';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import { useClearProjectItemField, useSetProjectItemField } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
 import { useToastStore } from '../../../store/toast-store';
 import { revealSession } from '../../terminal/reveal-session';
+import { useBoardSelectionStore } from '../board-selection-store';
 import { resolveSessionAttribution } from '../../terminal/session-attribution';
 import { startAgent } from '../../terminal/start-agent';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
@@ -379,6 +381,46 @@ export function BoardView({
     setFocusedItemId(itemId);
     boardRef.current?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(itemId)}"]`)?.focus();
   };
+
+  /*
+    A card revealed from outside (Phase 112 Theme D): bring it into view and
+    pulse it. Selection already opened its panel; this is only the scroll.
+    Handled once per request, and retried for a few frames because the board
+    may still be loading its items when the reveal arrives.
+  */
+  const revealNonce = useBoardSelectionStore((s) => s.revealNonce);
+  const handledReveal = useRef(revealNonce);
+  useEffect(() => {
+    if (revealNonce === handledReveal.current || selectedItemId === null) return;
+    let tries = 0;
+    let frame = 0;
+    const find = () => {
+      const card = boardRef.current?.querySelector<HTMLElement>(
+        `[data-card-id="${CSS.escape(selectedItemId)}"]`,
+      );
+      if (!card) {
+        if (tries++ < 60) frame = requestAnimationFrame(find);
+        return;
+      }
+      handledReveal.current = revealNonce;
+      card.scrollIntoView?.({
+        block: 'center',
+        inline: 'center',
+        behavior: isReducedMotion() ? 'auto' : 'smooth',
+      });
+      if (!isReducedMotion()) {
+        card.animate?.(
+          [
+            { boxShadow: '0 0 0 0 hsl(var(--primary) / 0.8)' },
+            { boxShadow: '0 0 0 8px hsl(var(--primary) / 0)' },
+          ],
+          { duration: 1100, easing: 'ease-out', iterations: 2 },
+        );
+      }
+    };
+    find();
+    return () => cancelAnimationFrame(frame);
+  }, [revealNonce, selectedItemId, columns]);
 
   const handleBoardKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape') {
