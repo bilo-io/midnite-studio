@@ -484,13 +484,24 @@ function replacePending(deps: HandoffDeps, next: PendingAction | null): PendingA
   return previous;
 }
 
+/**
+ * How a replaced question is named in "Never mind …". A palette command keeps
+ * its label ("Never mind Push"); a question that is a sentence ("Answer to
+ * "Nova" from now on", an agent's "Let your agent set …") reads mid-sentence.
+ */
+function neverMind(previous: PendingAction): string {
+  if (previous.kind === undefined && previous.onConfirm === undefined) return previous.label;
+  if (previous.kind === 'command') return previous.label;
+  return `${previous.label.charAt(0).toLowerCase()}${previous.label.slice(1)}`;
+}
+
 /** Set (or replace) the one pending `confirm`-tier command, and ask for a yes. */
 async function askToConfirm(cmd: VocabCommand, deps: HandoffDeps): Promise<void> {
   const previous = replacePending(deps, { id: cmd.id as CommandId, label: cmd.label, at: Date.now() });
   await say(
     deps,
     previous
-      ? `Never mind ${previous.label} — ${cmd.label}? Say yes, press Return, or tap Run.`
+      ? `Never mind ${neverMind(previous)} — ${cmd.label}? Say yes, press Return, or tap Run.`
       : `${cmd.label}? Say yes, press Return, or tap Run.`,
   );
 }
@@ -757,7 +768,7 @@ async function proposeSetting(change: CompanionSettingChange, deps: HandoffDeps)
     await say(
       deps,
       previous
-        ? `Never mind ${previous.label} — ${question}? Say yes, press Return, or tap Run.`
+        ? `Never mind ${neverMind(previous)} — ${question}? Say yes, press Return, or tap Run.`
         : `${question}? Say yes, press Return, or tap Run.`,
     );
     return;

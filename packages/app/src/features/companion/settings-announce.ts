@@ -72,8 +72,14 @@ export function liveCompanionSpeaker(): Speaker {
   return ui.companionEnabled && ui.companionSpeakAloud ? companionTtsSpeaker : silentSpeaker;
 }
 
-/** The default `speak`: a companion turn in the thread, read aloud when there is a voice. */
+/**
+ * The default `speak`: a companion turn in the thread, read aloud when there is
+ * a voice. Nothing at all while the companion is switched off — an agent's
+ * change then shows only its Undo toast, the rule every agent steer follows
+ * (`ui-requests.ts`): a companion turn only when there is a companion to read it.
+ */
 async function speakIntoThread(text: string): Promise<void> {
+  if (!useUiStore.getState().companionEnabled) return;
   const turn = useCompanionStore.getState().addTurn({ role: 'companion', text, spoken: false });
   const speaker = liveCompanionSpeaker();
   if (speaker.available !== true) return;

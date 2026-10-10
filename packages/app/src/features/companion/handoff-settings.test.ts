@@ -180,25 +180,25 @@ describe('confirm tier', () => {
     expect(store.lines().at(-1)).toBe('companion: I need at least one name to answer to.');
   });
 
-  it('a pending change someone else is waiting on hears the answer instead of being applied', async () => {
-    const { settings, pending, deps } = setup({ companionNames: ['Companion'] });
-    const onAnswer = vi.fn();
-    pending.setPendingAction({
-      kind: 'setting',
-      key: 'companionNames',
-      value: ['Companion', 'Nova'],
-      label: 'Answer to "Nova" from now on',
-      at: Date.now(),
-      onAnswer,
-    });
+  it("an agent's question (Theme D's onConfirm arm) is answered, not applied by the companion", async () => {
+    const { store, settings, pending, deps } = setup({ companionNames: ['Companion'] });
+    const onConfirm = vi.fn(() => 'Done — your agent can carry on.');
+    pending.setPendingAction({ label: 'Let your agent set what you call it to Nova', at: Date.now(), onConfirm });
     await submitInput('yes', deps);
-    expect(onAnswer).toHaveBeenCalledWith('yes');
+    expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(settings.applied).toEqual([]);
+    expect(pending.pendingAction()).toBeNull();
+    expect(store.lines().at(-1)).toBe('companion: Done — your agent can carry on.');
+  });
 
-    const onNo = vi.fn();
-    pending.setPendingAction({ kind: 'setting', key: 'companionMicMode', value: 'toggle', label: 'x', at: Date.now(), onAnswer: onNo });
-    await submitInput('cancel', deps);
-    expect(onNo).toHaveBeenCalledWith('no');
+  it("a spoken setting replaces an agent's open question, and says so", async () => {
+    const { store, pending, deps } = setup({ companionNames: ['Companion'] });
+    pending.setPendingAction({ label: 'Let your agent set the mic button to tap to toggle', at: Date.now(), onConfirm: () => null });
+    await submitInput("I'll call you Nova", deps);
+    expect(pending.pendingAction()).toMatchObject({ kind: 'setting', key: 'companionNames' });
+    expect(store.lines().at(-1)).toBe(
+      'companion: Never mind let your agent set the mic button to tap to toggle — Answer to "Nova" from now on? Say yes, press Return, or tap Run.',
+    );
   });
 });
 
