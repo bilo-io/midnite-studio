@@ -24,7 +24,9 @@ import {
 const vocabulary: CompanionVocabulary = {
   views: [
     { id: 'graph', label: 'Commit Graph', keywords: 'git history commits branches log' },
-    { id: 'browser', label: 'Browser', keywords: 'browser web page url site' },
+    // "talk" and "conversation" are real keywords of the Chats view — the
+    // collision "switch to push to talk" has to survive.
+    { id: 'chats', label: 'Chats', keywords: 'chats chat conversation talk ask assistant prompt thread' },
     { id: 'tasks', label: 'Tasks', keywords: 'tasks issues bugs tracker board' },
   ],
   settingsPages: [
@@ -94,6 +96,7 @@ describe('parseIntent — settings phrases (Theme C)', () => {
     ['stop offering music', { kind: 'setting', key: 'companionMusicOffer', value: false }],
     // mic mode
     ['push to talk', { kind: 'setting', key: 'companionMicMode', value: 'push' }],
+    ['switch to push to talk', { kind: 'setting', key: 'companionMicMode', value: 'push' }],
     ['toggle the mic', { kind: 'setting', key: 'companionMicMode', value: 'toggle' }],
     ['use tap to toggle', { kind: 'setting', key: 'companionMicMode', value: 'toggle' }],
     // conversation mode
@@ -167,7 +170,8 @@ describe('parseIntent — the collision set (Theme C)', () => {
     // navigation and repo switching are not shadowed
     ['switch to the graph', { kind: 'switchRepo', name: 'graph' }],
     ['switch to bilo-mono', { kind: 'switchRepo', name: 'bilo-mono' }],
-    ['take me to the browser', { kind: 'navigate', view: 'browser' }],
+    ['take me to chats', { kind: 'navigate', view: 'chats' }],
+    ['show me the conversation', { kind: 'navigate', view: 'chats' }],
     ['open settings, companion', { kind: 'navigate', view: 'settings', page: 'companion' }],
     ['switch to jabberwocky', { kind: 'switchRepo', name: 'jabberwocky' }],
     // "push" alone is still the palette's push

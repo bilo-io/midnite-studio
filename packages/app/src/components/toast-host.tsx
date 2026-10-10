@@ -68,7 +68,8 @@ export function ToastHost({ children }: { children: ReactNode }) {
     (request: ToastRequest) => {
       const id = crypto.randomUUID();
       setToasts((current) => [...current, { id, request }]);
-      const durationMs = request.action ? DURATION_WITH_ACTION_MS : DURATION_PLAIN_MS;
+      const durationMs =
+        request.durationMs ?? (request.action ? DURATION_WITH_ACTION_MS : DURATION_PLAIN_MS);
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), durationMs),
@@ -117,6 +118,16 @@ export function ToastHost({ children }: { children: ReactNode }) {
 
   const api = useMemo<ToastApi>(() => ({ show, dismiss }), [show, dismiss]);
 
+  // The imperative door for plain functions with no hook to call (see
+  // `showToast` below). Last mounted wins; each window has exactly one host.
+  useEffect(() => {
+    mountedHosts.push(api);
+    return () => {
+      const index = mountedHosts.lastIndexOf(api);
+      if (index !== -1) mountedHosts.splice(index, 1);
+    };
+  }, [api]);
+
   return (
     <ToastContext.Provider value={api}>
       {children}
@@ -146,6 +157,25 @@ export function ToastHost({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   );
+}
+
+/** The hosts mounted in this window, newest last. */
+const mountedHosts: ToastApi[] = [];
+
+/**
+ * Show a toast from outside React — a plain function that outlives any
+ * render, like the companion's spoken settings change (Phase 109 Theme E),
+ * which has no component to call {@link useToasts} from. Returns the toast's
+ * id, or `null` when no host is mounted (a test, the moment before the app
+ * renders), in which case nothing is shown.
+ */
+export function showToast(request: ToastRequest): string | null {
+  return mountedHosts[mountedHosts.length - 1]?.show(request) ?? null;
+}
+
+/** Dismiss a toast {@link showToast} returned. A no-op for an id that is already gone. */
+export function dismissToast(id: string): void {
+  mountedHosts[mountedHosts.length - 1]?.dismiss(id);
 }
 
 export type { ToastAction, ToastRequest } from './toast';

@@ -3934,6 +3934,45 @@ export function describeCompanionSettingValue(key: CompanionSettingKey, value: u
   }
 }
 
+const quoted = (names: readonly string[]): string => oxfordJoin(names.map((name) => `"${name}"`));
+
+/**
+ * The yes/no question a `confirm`-tier change asks (Phase 109 Theme C), with
+ * no question mark — the pending bar adds its own. "Answer to "Nova" from now
+ * on", "Stop talking out loud". Shared so the MCP confirm (Theme D) asks the
+ * same question the companion's voice does.
+ */
+export function companionSettingQuestion(key: CompanionSettingKey, previous: unknown, next: unknown): string {
+  switch (key) {
+    case 'companionNames': {
+      const before = Array.isArray(previous) ? (previous as string[]) : [];
+      const after = Array.isArray(next) ? (next as string[]) : [];
+      const has = (list: readonly string[], name: string) => list.some((entry) => entry.toLowerCase() === name.toLowerCase());
+      const added = after.filter((name) => !has(before, name));
+      const removed = before.filter((name) => !has(after, name));
+      if (added.length > 0 && removed.length === 0) return `Answer to ${quoted(added)} from now on`;
+      if (removed.length > 0 && added.length === 0) return `Stop answering to ${quoted(removed)}`;
+      return `Answer to ${quoted(after)} from now on`;
+    }
+    case 'companionSpeakAloud':
+      return next === false ? 'Stop talking out loud' : 'Speak out loud again';
+    case 'companionMicMode':
+      return `Switch the mic to ${describeCompanionSettingValue(key, next)}`;
+    case 'voiceConversation':
+      return next === true ? 'Turn conversation mode on' : 'Turn conversation mode off';
+    case 'voiceConversationTrigger':
+      return next === 'wake'
+        ? 'In conversation mode, only take phrases that start with my name'
+        : 'In conversation mode, take every phrase';
+    case 'companionPersonality':
+      return 'Replace my personality notes';
+    case 'companionAboutUser':
+      return 'Replace what I know about you';
+    default:
+      return `Set ${companionSettingSpec(key).label.toLowerCase()} to ${describeCompanionSettingValue(key, next)}`;
+  }
+}
+
 /**
  * Why a `setting` intent's value does not fit its key and `op`, or `null` when
  * it does — the refinement behind {@link CompanionIntentSchema}, so a router

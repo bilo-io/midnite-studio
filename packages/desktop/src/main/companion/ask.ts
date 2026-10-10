@@ -201,6 +201,31 @@ function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
     'Use {"kind":"run","id":"<a command id above>"} to run a palette command.',
     'Use {"kind":"confirm"} for a bare confirmation of something already asked.',
     'Use {"kind":"help"} if it asks what you can do.',
+    ...settingsVocabularyLines(vocabulary.settings),
+  ];
+}
+
+/**
+ * Phase 109 Theme C — the companion's own settings, so "make your voice a bit
+ * more British" can route to a `setting`. Only the keys the vocabulary lists:
+ * the `never` tier is absent from it, and `CompanionIntentSchema` refuses one
+ * anyway, so a guessed key costs a spoken sentence with no change. Empty when
+ * the renderer sent no settings, keeping the prompt as it was before them.
+ */
+function settingsVocabularyLines(settings: CompanionVocabulary['settings']): string[] {
+  if (!settings || settings.length === 0) return [];
+  return [
+    '',
+    'It may also ask to change one of your own settings. Settings, as `key — label (aliases) [tier]: values`:',
+    ...settings.map(
+      (row) => `${row.key} — ${row.label} (${row.aliases.join(', ')}) [${row.tier}]: ${row.values}`,
+    ),
+    '',
+    'Use {"kind":"setting","key":"<a key above>","value":<the new value>} to change one.',
+    'For a list, send one word with "op":"add" or "op":"remove"; to nudge a number, a signed',
+    'step with "op":"step"; for a voice by name, the name as heard with "op":"match".',
+    'Only keys from this list — anything else stays on the Settings page, so omit `intent`.',
+    'Use {"kind":"undoSetting"} if it asks to undo the last settings change.',
   ];
 }
 

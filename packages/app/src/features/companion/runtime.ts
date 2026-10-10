@@ -19,6 +19,13 @@ import {
 } from './handoff';
 import { navigateCompanion } from './navigate';
 import { silentSpeaker, type Speaker } from './ports';
+import {
+  applyAndAnnounceCompanionSetting,
+  defaultAnnounceDeps,
+  liveCompanionSpeaker,
+  undoAndAnnounceCompanionSetting,
+} from './settings-announce';
+import { previewCompanionSetting, readCompanionSetting } from './settings-apply';
 import { vocabularyFor } from './vocabulary';
 import { skillHandoff } from '../agent/use-skill-handoff';
 import { startAgent } from '../terminal/start-agent';
@@ -219,6 +226,24 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
     vocabulary: () => vocabularyCache ?? vocabularyFor([]),
     navigate: (intent) => navigateCompanion(intent),
+    // Phase 109 Themes C and E: the companion's voice as a third way into the
+    // one settings setter, with the read-back and Undo toast around it.
+    companionSettings: {
+      read: (key) => readCompanionSetting(useUiStore.getState(), key),
+      preview: (change) => previewCompanionSetting(change, 'voice'),
+      applyAndAnnounce: (change, speak) =>
+        applyAndAnnounceCompanionSetting(change, 'voice', { ...defaultAnnounceDeps(), speak }),
+      undoAndAnnounce: (speak) => undoAndAnnounceCompanionSetting({ ...defaultAnnounceDeps(), speak }),
+      systemVoices: () =>
+        (typeof window === 'undefined' ? [] : (window.speechSynthesis?.getVoices() ?? [])).map((voice) => ({
+          uri: voice.voiceURI,
+          name: voice.name,
+          lang: voice.lang,
+        })),
+      // The registered speaker while speech is on (a test's double included);
+      // the store's answer the moment a change has just turned it on or off.
+      liveSpeaker: () => (speaker.available === false ? liveCompanionSpeaker() : speaker),
+    },
   };
 }
 

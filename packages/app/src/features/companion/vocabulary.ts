@@ -1,6 +1,7 @@
 import {
   COMMANDS,
   COMPANION_COMMAND_IDS,
+  companionSettingsVocabulary,
   type CompanionCommandId,
   type CompanionVocabulary,
   type RepoDescriptor,
@@ -42,6 +43,8 @@ export function buildVocabulary(repos: readonly RepoDescriptor[]): CompanionVoca
       isCompanionSkill(agent.id),
     ).map((agent) => ({ id: agent.id, label: agent.label, hint: agent.hint })),
     repos: repos.map((repo) => repo.name),
+    // Phase 109 Theme C — derived from the shared spec table, like every row above.
+    settings: companionSettingsVocabulary(),
   };
 }
 

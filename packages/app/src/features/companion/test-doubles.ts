@@ -1,9 +1,14 @@
 import {
+  checkCompanionGuard,
+  companionSettingReadBack,
+  companionSettingSpec,
+  companionSettingTier,
   emptyCompanionSnapshot,
   transition,
   type CompanionDigest,
   type CompanionEvent,
   type CompanionPhraseKind,
+  type CompanionSettingKey,
   type CompanionSnapshot,
   type CompanionState,
   type CompanionTurn,
@@ -12,8 +17,9 @@ import {
 } from '@midnite/studio-shared';
 
 import type { ConciergeDeps, ConciergeStore } from './concierge';
-import type { HandoffDeps } from './handoff';
+import type { CompanionSettingsPort, HandoffDeps } from './handoff';
 import { silentSpeaker, type Speaker } from './ports';
+import type { CompanionSettingChange, CompanionSettingResult } from './settings-apply';
 
 /**
  * Fakes for the companion flow's ports — Phase 79 Themes D and E.
@@ -169,6 +175,54 @@ export function fakeHandoffDeps(over: Partial<HandoffDeps> = {}): HandoffDeps {
     setPendingAction: () => {},
     vocabulary: () => vocabularyFixture(),
     navigate: async () => ({ say: 'Here.' }),
+    companionSettings: fakeCompanionSettings(),
+    ...over,
+  };
+}
+
+/**
+ * The settings port over a plain record: `preview` mirrors the setter's tier
+ * rule (a `confirm` key needs `confirmed`, a `never` key is refused), and
+ * `applyAndAnnounce` writes, then speaks the spec's own read-back. Enough for
+ * `act()`'s per-tier flow; `settings-announce.test.ts` covers the real
+ * ordering and the toast.
+ */
+export function fakeCompanionSettings(
+  values: Partial<Record<CompanionSettingKey, unknown>> = {},
+  over: Partial<CompanionSettingsPort> = {},
+): CompanionSettingsPort & { values: Partial<Record<CompanionSettingKey, unknown>>; applied: CompanionSettingChange[] } {
+  const state = { ...values };
+  const applied: CompanionSettingChange[] = [];
+  const preview = (change: CompanionSettingChange): CompanionSettingResult => {
+    const tier = companionSettingTier(change.key, change.value);
+    if (tier === 'never') return { ok: false, key: change.key, reason: 'never', message: 'Never.' };
+    if (tier === 'confirm' && change.confirmed !== true) {
+      return { ok: false, key: change.key, reason: 'confirm', message: 'That one needs a yes first.' };
+    }
+    const guard = checkCompanionGuard(companionSettingSpec(change.key), state[change.key], change.value, {
+      source: 'voice',
+    });
+    if (!guard.ok) return { ok: false, key: change.key, reason: 'guard', message: guard.reason };
+    return { ok: true, key: change.key, previous: state[change.key], next: change.value, tier };
+  };
+  return {
+    values: state,
+    applied,
+    read: (key) => state[key],
+    preview,
+    applyAndAnnounce: async (change, speak) => {
+      const result = preview(change);
+      if (!result.ok) return result;
+      state[change.key] = change.value;
+      applied.push(change);
+      await speak(companionSettingReadBack(change.key, change.value));
+      return result;
+    },
+    undoAndAnnounce: async (speak) => {
+      await speak('Nothing to undo.');
+      return { ok: false, reason: 'nothing' };
+    },
+    systemVoices: () => [],
     ...over,
   };
 }
