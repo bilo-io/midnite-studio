@@ -59,6 +59,12 @@ export type CompanionSettingChange = {
   confirmed?: boolean;
   /** Came out of Theme H's `tune`/`tweak` flow — the only voice path to personality and About me. */
   tuned?: boolean;
+  /**
+   * Part of a whole-profile switch (Theme G, `profiles.ts`) — the only way
+   * `companionActiveProfile` is written. Setting the id alone would mark a
+   * profile active without applying its voice, personality and honorifics.
+   */
+  profile?: boolean;
 };
 
 export type CompanionSettingRefusal = 'locked' | 'never' | 'confirm' | 'guard' | 'invalid';
@@ -127,6 +133,7 @@ type CompanionSettingsState = Pick<UiState, keyof CompanionSettings>;
 let lastChange: CompanionLastChange | null = null;
 
 const LOCKED_MESSAGE = 'The screen is locked — unlock it first.';
+const PROFILE_ONLY_MESSAGE = 'Profiles switch as a whole — say “switch to” and the profile’s name.';
 
 const isSettingKey = (key: unknown): key is CompanionSettingKey =>
   typeof key === 'string' && (COMPANION_SETTING_KEYS as readonly string[]).includes(key);
@@ -169,6 +176,9 @@ function evaluate(
     return refuse(key, 'invalid', "That isn't a setting I know.");
   }
   if (state.screensaverLocked) return refuse(key, 'locked', LOCKED_MESSAGE);
+  if (key === 'companionActiveProfile' && change.profile !== true) {
+    return refuse(key, 'invalid', PROFILE_ONLY_MESSAGE);
+  }
 
   const spec = companionSettingSpec(key);
   const parsed = parseCompanionSettingValue(key, change.value);

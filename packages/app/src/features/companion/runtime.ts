@@ -20,13 +20,22 @@ import {
 import { navigateCompanion } from './navigate';
 import { silentSpeaker, type Speaker } from './ports';
 import {
+  announceCompanionProfileSwitch,
   applyAndAnnounceCompanionSetting,
   defaultAnnounceDeps,
   liveCompanionSpeaker,
   undoAndAnnounceCompanionSetting,
 } from './settings-announce';
 import { previewCompanionSetting, readCompanionSetting } from './settings-apply';
-import { vocabularyFor } from './vocabulary';
+import {
+  deleteCompanionProfile,
+  previewDeleteCompanionProfile,
+  previewSaveCompanionProfile,
+  readCompanionProfiles,
+  saveCompanionProfile,
+  switchCompanionProfile,
+} from './profiles';
+import { vocabularyFor, withCompanionProfiles } from './vocabulary';
 import { skillHandoff } from '../agent/use-skill-handoff';
 import { startAgent } from '../terminal/start-agent';
 import { useTerminalStore } from '../terminal/terminal-store';
@@ -194,7 +203,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         // flow's own cache, same as `snapshot` above: fetching it fresh per
         // `ask` would be an IPC round trip (`repos.list`) this request does
         // not otherwise need.
-        vocabulary: vocabularyCache ?? undefined,
+        vocabulary: vocabularyCache ? withCompanionProfiles(vocabularyCache) : undefined,
       });
       return result ?? { ok: false, kind: 'error', message: 'The companion is not connected.' };
     },
@@ -224,7 +233,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     setActiveHandoff: (handoff) => useCompanionStore.getState().setActiveHandoff(handoff),
     pendingAction: () => useCompanionStore.getState().pendingAction,
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
-    vocabulary: () => vocabularyCache ?? vocabularyFor([]),
+    vocabulary: () => withCompanionProfiles(vocabularyCache ?? vocabularyFor([])),
     navigate: (intent) => navigateCompanion(intent),
     // Phase 109 Themes C and E: the companion's voice as a third way into the
     // one settings setter, with the read-back and Undo toast around it.
@@ -240,6 +249,21 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
           name: voice.name,
           lang: voice.lang,
         })),
+      // Phase 109 Theme G — persona profiles over `profiles.ts`.
+      profiles: {
+        state: () => readCompanionProfiles(),
+        previewSave: (name) => previewSaveCompanionProfile(name),
+        save: (name, overwrite) => saveCompanionProfile(name, { overwrite }),
+        switchAndAnnounce: async (name, speak) => {
+          const result = switchCompanionProfile(name, 'voice');
+          if (result.ok && result.op === 'switch') {
+            await announceCompanionProfileSwitch(result, 'voice', { ...defaultAnnounceDeps(), speak });
+          }
+          return result;
+        },
+        previewDelete: (name) => previewDeleteCompanionProfile(name),
+        delete: (name) => deleteCompanionProfile(name),
+      },
       // The registered speaker while speech is on (a test's double included);
       // the store's answer the moment a change has just turned it on or off.
       liveSpeaker: () => (speaker.available === false ? liveCompanionSpeaker() : speaker),

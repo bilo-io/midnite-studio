@@ -4,10 +4,14 @@ import {
   COMMANDS,
   COMPANION_MCP_CONFIRM_MS,
   COMPANION_SETTING_KEYS,
+  describeCompanionProfiles,
   failure,
   isCompanionLocalVoiceId,
   ok,
+  summarizeCompanionProfile,
   type CommandId,
+  type CompanionProfile,
+  type CompanionProfileOpOutput,
   type CompanionSettingKey,
   type CompanionSettingsSetOutput,
   type CompanionUiAction,
@@ -28,7 +32,16 @@ import { VIEW_LABELS } from '../../services/palette/providers';
 import { COMMAND_ACCESS } from '../palette/safety';
 import { runCommand } from './command-runtime';
 import { resolveNavigation, SETTINGS_PAGE_LABEL, type NavigationState } from './navigate';
-import { askToConfirmMcpSetting } from './mcp-setting-confirm';
+import { askToConfirmMcpProfile, askToConfirmMcpSetting } from './mcp-setting-confirm';
+import {
+  deleteCompanionProfile,
+  previewDeleteCompanionProfile,
+  previewSaveCompanionProfile,
+  readCompanionProfiles,
+  saveCompanionProfile,
+  switchCompanionProfile,
+  type CompanionProfileRefused,
+} from './profiles';
 import {
   applyCompanionSetting,
   previewCompanionSetting,
@@ -36,7 +49,7 @@ import {
   type CompanionSettingApplied,
   type CompanionSettingRefused,
 } from './settings-apply';
-import { announceCompanionSettingChange } from './settings-announce';
+import { announceCompanionProfileSwitch, announceCompanionSettingChange } from './settings-announce';
 import { loadCompanionVoices } from './speaker';
 
 /**
@@ -87,6 +100,12 @@ export async function resolveUiAction(action: CompanionUiAction): Promise<Compan
   if (action.kind === 'settingsState') return ok(buildSettingsStateReply());
   if (action.kind === 'voices') return ok(await buildVoicesReply());
   if (action.kind === 'setting') return ok(await resolveSettingAction(action));
+  // Phase 109 Theme G's four arms, on the same footing: the list answers while
+  // locked, and `profiles.ts` refuses a locked write as a status.
+  if (action.kind === 'profileList') return ok(buildProfileListReply());
+  if (action.kind === 'profileSave') return ok(await resolveProfileSave(action.name));
+  if (action.kind === 'profileSwitch') return ok(resolveProfileSwitch(action.name));
+  if (action.kind === 'profileDelete') return ok(await resolveProfileDelete(action.name));
 
   // Both write actions share the lock check — a misheard sentence and an
   // unattended agent are the identical hazard while the screen is locked.
@@ -342,6 +361,99 @@ async function resolveSettingAction(action: Extract<CompanionUiAction, { kind: '
   if (!applied.ok) return settingAnswer('refused', applied);
   void announceCompanionSettingChange(applied, 'mcp');
   return settingAnswer('approved', applied);
+}
+
+// --- companion_profile_* (Phase 109 Theme G) -------------------------------------
+
+type ProfileOp = 'profileSave' | 'profileSwitch' | 'profileDelete';
+
+function buildProfileListReply(): SettingReply {
+  const ui = useUiStore.getState();
+  return {
+    did: 'profileList',
+    ...describeCompanionProfiles(ui.companionProfiles, ui.companionActiveProfile, ui, ui.screensaverLocked),
+  };
+}
+
+/** A profile as it stands now — active and modified read after the write. */
+function profileSummary(profile: CompanionProfile): CompanionProfileOpOutput['profile'] {
+  const ui = useUiStore.getState();
+  return summarizeCompanionProfile(profile, ui.companionActiveProfile, ui);
+}
+
+function profileRefused(did: ProfileOp, name: string, refusal: CompanionProfileRefused): SettingReply {
+  // `confirm` never reaches an agent — the app asks instead — and `guard`
+  // covers what the setter refused inside a switch.
+  const reason = refusal.reason === 'confirm' ? 'invalid' : refusal.reason;
+  return { did, status: 'refused', name, reason, message: refusal.message };
+}
+
+/**
+ * `companion_profile_save` — a new name saves at once; a taken one asks the
+ * user first (Theme G), like a confirm-tier `companion_settings_set`, and
+ * only an approval inside the deadline saves over it.
+ */
+async function resolveProfileSave(name: string): Promise<SettingReply> {
+  const preview = previewSaveCompanionProfile(name);
+  if (!preview.ok) return profileRefused('profileSave', name, preview);
+
+  let status: 'applied' | 'approved' = 'applied';
+  if (preview.existing !== null) {
+    const answer = await askToConfirmMcpProfile({
+      op: 'overwrite',
+      name: preview.existing.name,
+      deadline: Date.now() + COMPANION_MCP_CONFIRM_MS,
+    });
+    if (answer !== 'approved') return { did: 'profileSave', status: answer, name: preview.existing.name };
+    status = 'approved';
+  }
+
+  // Checked again, not trusted from the preview: the screen may have locked
+  // while the question was open.
+  const saved = saveCompanionProfile(name, { overwrite: status === 'approved' });
+  if (!saved.ok) return profileRefused('profileSave', name, saved);
+  if (saved.op !== 'save') return profileRefused('profileSave', name, { ok: false, reason: 'invalid', message: 'Not saved.' });
+  announce(
+    `Your agent saved the companion profile ${saved.profile.name}.`,
+    `Your agent saved how I am now as the ${saved.profile.name} profile.`,
+  );
+  return {
+    did: 'profileSave',
+    status,
+    name: saved.profile.name,
+    overwritten: saved.overwritten,
+    profile: profileSummary(saved.profile),
+  };
+}
+
+/** `companion_profile_switch` — direct, one undoable change, read back in the new voice. */
+function resolveProfileSwitch(name: string): SettingReply {
+  const result = switchCompanionProfile(name, 'mcp');
+  if (!result.ok) return profileRefused('profileSwitch', name, result);
+  if (result.op !== 'switch') return profileRefused('profileSwitch', name, { ok: false, reason: 'invalid', message: 'Not switched.' });
+  // Not awaited: the agent's reply must not wait for a sentence to be spoken.
+  void announceCompanionProfileSwitch(result, 'mcp');
+  return { did: 'profileSwitch', status: 'applied', name: result.profile.name, profile: profileSummary(result.profile) };
+}
+
+/** `companion_profile_delete` — always asks; only an approval inside the deadline deletes. */
+async function resolveProfileDelete(name: string): Promise<SettingReply> {
+  const preview = previewDeleteCompanionProfile(name);
+  if (!preview.ok) return profileRefused('profileDelete', name, preview);
+  const found = preview.profile;
+  const summary = profileSummary(found);
+
+  const answer = await askToConfirmMcpProfile({
+    op: 'delete',
+    name: found.name,
+    deadline: Date.now() + COMPANION_MCP_CONFIRM_MS,
+  });
+  if (answer !== 'approved') return { did: 'profileDelete', status: answer, name: found.name };
+
+  const deleted = deleteCompanionProfile(found.id);
+  if (!deleted.ok) return profileRefused('profileDelete', name, deleted);
+  announce(`Your agent deleted the companion profile ${found.name}.`, `Your agent deleted the ${found.name} profile.`);
+  return { did: 'profileDelete', status: 'approved', name: found.name, profile: summary };
 }
 
 // --- making a steer visible --------------------------------------------------

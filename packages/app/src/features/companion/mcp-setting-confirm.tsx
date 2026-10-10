@@ -15,7 +15,9 @@ import { companionSpeaker } from './runtime';
 
 /**
  * Asking the user about an agent's confirm-tier companion change (Phase 109
- * Theme D, Decision 3). `companion_settings_set` waits on this answer.
+ * Theme D, Decision 3). `companion_settings_set` waits on this answer, and so
+ * do `companion_profile_delete` and a `companion_profile_save` over an
+ * existing name (Theme G), through {@link askToConfirmMcpProfile}.
  *
  * Two ways to ask, one answer:
  *
@@ -79,10 +81,83 @@ export function settingQuestionLabel(question: Pick<McpSettingQuestion, 'key' | 
   return `Let your agent set ${label} to ${describeSettingValue(question.key, question.next)}`;
 }
 
+/**
+ * One question, however it is asked — what the chip, the voice and the
+ * dialog each say. A setting change builds it from its key and values; a
+ * profile delete or overwrite (Theme G) from the profile's name.
+ */
+type McpConfirmPrompt = {
+  /** The chip's line (it renders "{label}?") — also what "Never mind …" names when a newer question replaces it. */
+  label: string;
+  /** What the companion says aloud, ending in how to answer. */
+  ask: string;
+  /** The dialog's title and body. */
+  title: string;
+  body: string;
+  /** The dialog's toast when the agent stops waiting. */
+  timeoutToast: string;
+  /** Epoch ms after which no answer counts. */
+  deadline: number;
+};
+
+function settingPrompt(question: McpSettingQuestion): McpConfirmPrompt {
+  const spec = companionSettingSpec(question.key);
+  return {
+    label: settingQuestionLabel(question),
+    ask: `Your agent wants to set my ${spec.label.toLowerCase()} to ${describeSettingValue(question.key, question.next)}. Allow it? Say yes, press Return, or tap Run.`,
+    title: `${settingQuestionLabel(question)}?`,
+    body: `${spec.label}: ${describeSettingValue(question.key, question.previous)} → ${describeSettingValue(question.key, question.next)}. An agent asked for this over the midnite MCP server; nothing changes unless you allow it.`,
+    timeoutToast: `Your agent stopped waiting — ${spec.label.toLowerCase()} is unchanged.`,
+    deadline: question.deadline,
+  };
+}
+
 /** Ask, and resolve once with the answer. */
 export function askToConfirmMcpSetting(question: McpSettingQuestion): Promise<McpSettingAnswer> {
+  return askToConfirmMcp(settingPrompt(question));
+}
+
+/**
+ * An agent's profile write that needs a yes (Phase 109 Theme G): deleting a
+ * profile, or saving over one that already has the name. Asked the same two
+ * ways as a setting, with the same deadline rule.
+ */
+export type McpProfileQuestion = {
+  op: 'delete' | 'overwrite';
+  /** The profile's own spelling. */
+  name: string;
+  deadline: number;
+};
+
+/** The chip's line and the dialog's title, less the "?". */
+export function profileQuestionLabel(question: Pick<McpProfileQuestion, 'op' | 'name'>): string {
+  return question.op === 'delete'
+    ? `Let your agent delete the ${question.name} profile`
+    : `Let your agent save over the ${question.name} profile`;
+}
+
+export function askToConfirmMcpProfile(question: McpProfileQuestion): Promise<McpSettingAnswer> {
+  const label = profileQuestionLabel(question);
+  const doing =
+    question.op === 'delete'
+      ? `delete the ${question.name} profile`
+      : `save over the ${question.name} profile with how I am now`;
+  return askToConfirmMcp({
+    label,
+    ask: `Your agent wants to ${doing}. Allow it? Say yes, press Return, or tap Run.`,
+    title: `${label}?`,
+    body:
+      question.op === 'delete'
+        ? `The ${question.name} profile — its voice, personality and what it calls you — is deleted. The companion keeps sounding the way it does now. An agent asked for this over the midnite MCP server; nothing changes unless you allow it.`
+        : `The ${question.name} profile is replaced with the companion's current voice, personality and what it calls you. An agent asked for this over the midnite MCP server; nothing changes unless you allow it.`,
+    timeoutToast: `Your agent stopped waiting — the ${question.name} profile is unchanged.`,
+    deadline: question.deadline,
+  });
+}
+
+function askToConfirmMcp(prompt: McpConfirmPrompt): Promise<McpSettingAnswer> {
   const ui = useUiStore.getState();
-  return ui.companionEnabled && !ui.companionDetached ? askThroughCompanion(question) : askThroughDialog(question);
+  return ui.companionEnabled && !ui.companionDetached ? askThroughCompanion(prompt) : askThroughDialog(prompt);
 }
 
 // --- the companion's chip -------------------------------------------------------
@@ -95,7 +170,7 @@ function speakLine(text: string): void {
   void speaker.speak(text).then(() => useCompanionStore.getState().markSpoken(turn.id));
 }
 
-function askThroughCompanion(question: McpSettingQuestion): Promise<McpSettingAnswer> {
+function askThroughCompanion(question: McpConfirmPrompt): Promise<McpSettingAnswer> {
   return new Promise((resolve) => {
     const companion = useCompanionStore;
     let settled = false;
@@ -107,7 +182,7 @@ function askThroughCompanion(question: McpSettingQuestion): Promise<McpSettingAn
       resolve(answer);
     };
 
-    const label = settingQuestionLabel(question);
+    const { label } = question;
     const previous = companion.getState().pendingAction;
     const pending: PendingAction = {
       label,
@@ -141,7 +216,7 @@ function askThroughCompanion(question: McpSettingQuestion): Promise<McpSettingAn
     }, PENDING_ACTION_MEMORY_MS);
 
     useUiStore.getState().setCompanionPanelOpen(true);
-    const ask = `Your agent wants to set my ${companionSettingSpec(question.key).label.toLowerCase()} to ${describeSettingValue(question.key, question.next)}. Allow it? Say yes, press Return, or tap Run.`;
+    const { ask } = question;
     // A command's label is a name ("Push"); a question's is a sentence, read mid-sentence here.
     const replaced = previous?.onConfirm !== undefined ? lowerFirst(previous.label) : previous?.label;
     speakLine(replaced !== undefined ? `Never mind ${replaced} — ${ask}` : ask);
@@ -162,10 +237,9 @@ export const useMcpSettingConfirmStore = create<{ request: McpSettingDialogReque
   request: null,
 }));
 
-function askThroughDialog(question: McpSettingQuestion): Promise<McpSettingAnswer> {
+function askThroughDialog(question: McpConfirmPrompt): Promise<McpSettingAnswer> {
   return new Promise((resolve) => {
     const dialogs = useMcpSettingConfirmStore;
-    const spec = companionSettingSpec(question.key);
     let settled = false;
     let unsubscribe: () => void = () => {};
     let request: McpSettingDialogRequest | null = null;
@@ -179,8 +253,8 @@ function askThroughDialog(question: McpSettingQuestion): Promise<McpSettingAnswe
     };
 
     request = {
-      title: `${settingQuestionLabel(question)}?`,
-      body: `${spec.label}: ${describeSettingValue(question.key, question.previous)} → ${describeSettingValue(question.key, question.next)}. An agent asked for this over the midnite MCP server; nothing changes unless you allow it.`,
+      title: question.title,
+      body: question.body,
       onConfirm: () => settle(Date.now() > question.deadline ? 'timeout' : 'approved'),
       onCancel: () => settle('declined'),
     };
@@ -192,10 +266,7 @@ function askThroughDialog(question: McpSettingQuestion): Promise<McpSettingAnswe
 
     const deadlineTimer = setTimeout(() => {
       settle('timeout');
-      useToastStore.getState().addToast({
-        message: `Your agent stopped waiting — ${spec.label.toLowerCase()} is unchanged.`,
-        status: 'info',
-      });
+      useToastStore.getState().addToast({ message: question.timeoutToast, status: 'info' });
     }, Math.max(0, question.deadline - Date.now()));
   });
 }

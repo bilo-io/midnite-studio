@@ -10,7 +10,7 @@ import {
 import { AGENT_COMMANDS } from '../agent/agent-commands';
 import { COMMAND_ACCESS } from '../palette/safety';
 import { VIEW_LABELS, VIEW_KEYWORDS } from '../../services/palette/providers';
-import { SETTINGS_PAGES, VIEW_IDS } from '../../store/ui-store';
+import { SETTINGS_PAGES, VIEW_IDS, useUiStore } from '../../store/ui-store';
 
 const COMPANION_COMMAND_ID_SET = new Set<string>(COMPANION_COMMAND_IDS);
 
@@ -61,4 +61,15 @@ export function vocabularyFor(repos: readonly RepoDescriptor[]): CompanionVocabu
   const vocabulary = buildVocabulary(repos);
   cache = { reposKey: repos, vocabulary };
   return vocabulary;
+}
+
+/**
+ * `vocabulary` with the saved persona profiles' names on it (Phase 109 Theme
+ * G), read from the store at the moment of asking. Kept off
+ * {@link vocabularyFor}'s cache, which is keyed by the repo list and would
+ * otherwise go on answering with the names from before the last save.
+ */
+export function withCompanionProfiles(vocabulary: CompanionVocabulary): CompanionVocabulary {
+  const profiles = useUiStore.getState().companionProfiles.map((profile) => profile.name);
+  return { ...vocabulary, profiles };
 }
