@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 import { cleanPtyText } from './ansi';
-import { CompanionPersonaReplySchema } from './companion-tune';
+import {
+  COMPANION_TUNE_TARGETS,
+  COMPANION_TWEAK_INSTRUCTION_MAX,
+  CompanionPersonaReplySchema,
+  matchTunePhrase,
+  matchTweakPhrase,
+} from './companion-tune';
 import {
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
@@ -2865,6 +2871,21 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
     agentId: z.string(),
     modelId: z.string().nullable().optional(),
   }),
+  /**
+   * "Tune yourself." "Let me tell you about me." (Phase 109 Theme H.) Starts
+   * the interview that writes `target` — a target and never text, because
+   * personality and About me are never dictated (Decision 4).
+   */
+  z.object({ kind: z.literal('tune'), target: z.enum(COMPANION_TUNE_TARGETS) }),
+  /**
+   * "Be more sarcastic." "Talk less." (Phase 109 Theme H.) One instruction the
+   * agent CLI applies to the current personality — the instruction, never the
+   * text it produces, which is read back and confirmed first.
+   */
+  z.object({
+    kind: z.literal('tweak'),
+    instruction: z.string().trim().min(1).max(COMPANION_TWEAK_INSTRUCTION_MAX),
+  }),
   z.object({ kind: z.literal('freeform'), text: z.string() }),
 ]).superRefine((intent, ctx) => {
   if (intent.kind !== 'setting') return;
@@ -3039,6 +3060,13 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     }
     const setting = trySettingPhrase(settingsCore(bare));
     if (setting) return setting;
+
+    // Phase 109 Theme H, after the settings phrases so "don't call me boss"
+    // and "be quieter" stay theirs.
+    const tuneTarget = matchTunePhrase(bare);
+    if (tuneTarget) return { kind: 'tune', target: tuneTarget };
+    const tweak = matchTweakPhrase(bare);
+    if (tweak) return { kind: 'tweak', instruction: tweak };
 
     const navigated = tryNavigate(bare, vocabulary);
     if (navigated) return navigated;
@@ -4242,6 +4270,12 @@ export function companionSettingIntentProblem(intent: {
   op?: CompanionSettingOp | undefined;
 }): string | null {
   const spec = companionSettingSpec(intent.key);
+  // Personality and About me are never dictated (Phase 109 Decision 4): only
+  // a `tune` interview or a `tweak` may produce them, read back and confirmed.
+  // Refusing them here drops a router reply that tries, like an unknown key.
+  if (spec.guards?.includes('tunedText')) {
+    return `${spec.label} changes through "tune yourself" or a tweak, never dictation.`;
+  }
   const { value } = intent;
   switch (intent.op ?? 'set') {
     case 'set': {
