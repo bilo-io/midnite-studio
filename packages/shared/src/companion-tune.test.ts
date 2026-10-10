@@ -13,6 +13,8 @@ import {
   classifyTuneReply,
   cleanTuneAnswer,
   firstSentence,
+  matchTunePhrase,
+  matchTweakPhrase,
   tuneAnswersForPrompt,
   type CompanionTuneQuestion,
   type CompanionTuneReplyKind,
@@ -328,5 +330,101 @@ describe("parseAskReply — 'persona' replies", () => {
 
   it("does not read a persona pair as a router reply — there is no `say`", () => {
     expect(parseAskReply(JSON.stringify({ text, summary }))).toBeNull();
+  });
+});
+
+describe('matchTunePhrase', () => {
+  it.each([
+    "Let's change your personality.",
+    'tune yourself',
+    'Tune your self.',
+    'June yourself',
+    'okay, could you tune yourself please',
+    'I want to change your personality',
+    'can we work on your personality',
+    'update the companion\'s personality',
+    'set up your personality',
+    'Customise yourself',
+    'personality interview',
+    'give yourself a new personality',
+    'change how you talk',
+  ])('%j → personality', (text) => {
+    expect(matchTunePhrase(text)).toBe('companionPersonality');
+  });
+
+  it.each([
+    'Let me tell you about me.',
+    'let me tell you about myself',
+    "I'd like to tell you a bit about myself",
+    'let me tell you who I am',
+    'update my about me',
+    'Change the About-me section.',
+    'update what you know about me',
+    'get to know me better',
+    'interview me',
+  ])('%j → About me', (text) => {
+    expect(matchTunePhrase(text)).toBe('companionAboutUser');
+  });
+
+  it.each([
+    'your personality is great',
+    'what is your personality',
+    'tell me about yourself',
+    'tune the build',
+    'refine your personality',
+    'let me tell you about the bug in the parser',
+    'my personality is sunny',
+  ])('%j → nothing', (text) => {
+    expect(matchTunePhrase(text)).toBeNull();
+  });
+});
+
+describe('matchTweakPhrase', () => {
+  it.each([
+    ['Be more sarcastic.', 'be more sarcastic'],
+    ['be a bit less formal please', 'be a bit less formal'],
+    ['Be way more to the point', 'be way more to the point'],
+    ['sound less robotic', 'sound less robotic'],
+    ['be funnier', 'be funnier'],
+    ['Talk less.', 'talk less'],
+    ['say a lot less', 'say a lot less'],
+    ['speak more plainly', 'speak more plainly'],
+    ['Stop being so formal', 'stop being so formal'],
+    ["don't be so chirpy", "don't be so chirpy"],
+    ['Don’t be so chirpy', "don't be so chirpy"],
+    ['stop apologising so much', 'stop apologising so much'],
+    ['no jargon', 'no jargon'],
+    ['fewer jokes', 'fewer jokes'],
+    ['tone it down', 'tone it down'],
+    ['keep it short', 'keep it short'],
+    ['could you be more concise', 'be more concise'],
+  ])('%j → %j', (text, instruction) => {
+    expect(matchTweakPhrase(text)).toBe(instruction);
+  });
+
+  it.each([
+    "don't call me boss",
+    'stop calling me boss',
+    'call me boss',
+    'be quieter',
+    'be a bit louder',
+    'be less loud',
+    'be quiet',
+    'stop',
+    'stop talking out loud',
+    'talk more about the release',
+    'be more careful with the push to main tonight',
+    'push',
+    'more detail',
+    'start a swarm',
+    'no music',
+  ])('%j → nothing — another intent, or the router, keeps it', (text) => {
+    expect(matchTweakPhrase(text)).toBeNull();
+  });
+
+  it('never matches what an interview starts with', () => {
+    for (const text of ['tune yourself', 'let me tell you about me', "let's change your personality"]) {
+      expect(matchTweakPhrase(text)).toBeNull();
+    }
   });
 });
