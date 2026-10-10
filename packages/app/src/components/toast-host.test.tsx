@@ -3,7 +3,7 @@ import { act } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ToastHost, useToasts } from './toast-host';
+import { ToastHost, dismissToast, showToast, useToasts } from './toast-host';
 
 afterEach(() => {
   cleanup();
@@ -146,5 +146,40 @@ describe('ToastHost', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => render(<Trigger />)).toThrow(/useToasts must be used inside <ToastHost>/);
     spy.mockRestore();
+  });
+});
+
+// Phase 109 Theme E — the companion's Undo toast is raised from a plain
+// function, with no component to call `useToasts()` from.
+describe('showToast — outside React', () => {
+  it('shows nothing and returns null when no host is mounted', () => {
+    expect(showToast({ message: 'Nobody home' })).toBeNull();
+  });
+
+  it('pushes onto the mounted host, honours durationMs, and can be dismissed by id', () => {
+    vi.useFakeTimers();
+    render(<ToastHost>{null}</ToastHost>);
+
+    let id: string | null = null;
+    act(() => {
+      id = showToast({
+        message: 'Local voice set to Bella.',
+        durationMs: 60_000,
+        action: { label: 'Undo', onAction: () => {} },
+      });
+    });
+    expect(id).not.toBeNull();
+    expect(screen.getByText('Local voice set to Bella.')).toBeTruthy();
+
+    // Past the 8 s an action toast normally gets, still up.
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(screen.queryByText('Local voice set to Bella.')).not.toBeNull();
+
+    act(() => {
+      dismissToast(id as unknown as string);
+    });
+    expect(screen.queryByText('Local voice set to Bella.')).toBeNull();
   });
 });
