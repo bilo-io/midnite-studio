@@ -31,6 +31,11 @@ import {
 } from '../markets';
 import { MarketPortfolioOpSchema } from '../markets-portfolio';
 import {
+  CompanionAgentGetOutputSchema,
+  CompanionAgentSetInputSchema,
+  CompanionAgentSetOutputSchema,
+  CompanionModelsListInputSchema,
+  CompanionModelsListOutputSchema,
   CompanionProfileListOutputSchema,
   CompanionProfileNameInputSchema,
   CompanionProfileOpOutputSchema,
@@ -4189,6 +4194,10 @@ export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
   CompanionProfileNameInputSchema.extend({ kind: z.literal('profileSave') }),
   CompanionProfileNameInputSchema.extend({ kind: z.literal('profileSwitch') }),
   CompanionProfileNameInputSchema.extend({ kind: z.literal('profileDelete') }),
+  /* Phase 111 Theme E — the `companion_agent_*` tools and `companion_models_list`, answered by the renderer's `ui-requests.ts`. */
+  z.object({ kind: z.literal('agentState') }),
+  CompanionAgentSetInputSchema.extend({ kind: z.literal('agentSet') }),
+  CompanionModelsListInputSchema.extend({ kind: z.literal('modelsList') }),
 ]);
 export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
 
@@ -4226,6 +4235,9 @@ export const CompanionUiResultValueSchema = z.union([
   CompanionProfileListOutputSchema.extend({ did: z.literal('profileList') }),
   /** A profile write's outcome — `companion_profile_save`/`_switch`/`_delete`'s answer as it stands. */
   CompanionProfileOpOutputSchema.extend({ did: z.enum(['profileSave', 'profileSwitch', 'profileDelete']) }),
+  CompanionAgentGetOutputSchema.extend({ did: z.literal('agentState') }),
+  CompanionAgentSetOutputSchema.extend({ did: z.literal('agentSet') }),
+  CompanionModelsListOutputSchema.extend({ did: z.literal('modelsList') }),
 ]);
 export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
 

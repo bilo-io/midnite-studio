@@ -14,6 +14,11 @@ import {
   WindowRoleSchema,
 } from './domain';
 import {
+  CompanionAgentGetOutputSchema,
+  CompanionAgentSetInputSchema,
+  CompanionAgentSetOutputSchema,
+  CompanionModelsListInputSchema,
+  CompanionModelsListOutputSchema,
   CompanionProfileListOutputSchema,
   CompanionProfileNameInputSchema,
   CompanionProfileOpOutputSchema,
@@ -329,7 +334,10 @@ type McpToolEntry = {
     | 'companion_profile_list'
     | 'companion_profile_save'
     | 'companion_profile_switch'
-    | 'companion_profile_delete';
+    | 'companion_profile_delete'
+    | 'companion_agent_get'
+    | 'companion_agent_set'
+    | 'companion_models_list';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1578,6 +1586,39 @@ export const MCP_TOOLS = {
     input: CompanionProfileNameInputSchema,
     output: CompanionProfileOpOutputSchema,
     readOnly: false,
+  },
+  /*
+   * The active agent and model (Phase 111 Theme E) — the same choice the
+   * title bar's picker and the companion's `switchAgent` intent write. Behind
+   * the same `allowCompanionSettings` switch as the rest of the family, reads
+   * included. Writes go through the renderer's `setPrimaryAgentAndModel`.
+   */
+  companion_agent_get: {
+    id: 'companion_agent_get',
+    title: 'Read the primary agent and model',
+    description:
+      'Reads the primary agent, its chosen model and every agent with its install state — call before `companion_agent_set` instead of guessing an id; read-only.',
+    input: z.object({}),
+    output: CompanionAgentGetOutputSchema,
+    readOnly: true,
+  },
+  companion_agent_set: {
+    id: 'companion_agent_set',
+    title: 'Switch the primary agent or model',
+    description:
+      'Switches the primary agent, and optionally its model, by name or id — refused for an unknown or uninstalled agent or an unknown model; see `companion_models_list`.',
+    input: CompanionAgentSetInputSchema,
+    output: CompanionAgentSetOutputSchema,
+    readOnly: false,
+  },
+  companion_models_list: {
+    id: 'companion_models_list',
+    title: 'List the models for an agent',
+    description:
+      'Lists the models an agent can use, including the models Ollama has pulled when its daemon is running — call before `companion_agent_set` to pick a model id; defaults to the primary agent.',
+    input: CompanionModelsListInputSchema,
+    output: CompanionModelsListOutputSchema,
+    readOnly: true,
   },
 } satisfies Record<string, McpToolEntry>;
 

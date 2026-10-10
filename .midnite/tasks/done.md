@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 111 Themes D, E — Title bar model pill and MCP agent tools
+
+[PR #822](https://github.com/bilo-io/midnite-studio/pull/822). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Themes D and E: the title bar shows which model the primary agent is on and lets you change it, and a background
+agent can read and switch the agent and model over MCP.
+
+- **app:** `TitleBarPrimaryAgent` gets a model pill (only for a non-default model) and a Model section in the picker, in one keyboard walk with the agent rows. `agent-switch.ts` answers the three new `ui-requests` arms.
+- **shared:** `companion_agent_get`, `companion_agent_set`, `companion_models_list` in `MCP_TOOLS`; schemas in `companion-mcp.ts`; `agentState`/`agentSet`/`modelsList` arms on the companion UI action and result.
+- **desktop:** three handlers in `companion-tools.ts`, registered in `MCP_HANDLERS`; same `allowCompanionSettings` switch as the rest of the family.
 ## 2026-10-10 — Phase 109 Theme F — Voice audition
 
 [PR #820](https://github.com/bilo-io/midnite-studio/pull/820). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
@@ -1203,7 +1212,7 @@ something honest and deterministic to call.
       `/:collection[/:id]` store: `echo`, `delay?ms=` (capped at `WORKFLOW_DELAY_MAX_MS`, the same
       constant the `delay` node uses), `fail-n?key=&n=` (fails the first *n* calls per key, then
       passes — what makes a loop template genuinely loop), `flaky?rate=&seed=` (a seeded mulberry32
-      PRNG, so a seed always replays the same pass/fail sequence), `classify?risk=`,
+      822G, so a seed always replays the same pass/fail sequence), `classify?risk=`,
       `research/:lane`, and `verify?key=&passAfter=`. `fail-n`/`verify` counters are module state,
       reset by `resetScriptedRoutes()` wired into `store.ts`'s `resetDemoStore()` so a demo-API stop
       clears both halves of server memory together. `/demo/delay`'s cap is unit-tested as a pure
