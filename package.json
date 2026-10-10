@@ -5,7 +5,7 @@
   "description": "A desktop workspace around a repository — git client, terminal, agents, embedded browser and forge. Electron + typed IPC, Vite + React renderer",
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": "22.23.2"
+    "node": "22.23.3"
   },
   "scripts": {
     "build": "moon run :build",
