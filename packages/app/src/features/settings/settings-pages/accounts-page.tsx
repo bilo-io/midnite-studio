@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -211,7 +211,7 @@ export function AccountsPage() {
           </div>
         </div>
       ) : null}
-      <Accordion title="Accounts" icon={<LuCircleUserRound className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Accounts" icon={<LuCircleUserRound className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           {accounts.length === 0 ? (
             <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -231,9 +231,9 @@ export function AccountsPage() {
             ))
           )}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Add an account" icon={<LuPlus className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Add an account" icon={<LuPlus className="h-4 w-4" />} defaultOpen>
         <form
           ref={addFormRef}
           aria-label="Add an account"
@@ -263,9 +263,9 @@ export function AccountsPage() {
             {addAccount.isPending ? 'Verifying…' : `Add ${PROVIDER_LABEL[kind]} account`}
           </button>
         </form>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="Account switching"
         icon={<LuArrowRightLeft className="h-4 w-4" />}
         defaultOpen
@@ -305,11 +305,11 @@ export function AccountsPage() {
             onToggle={(_id, next) => setSyncGhAuthSwitch(next)}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       {activeAccount ? <ReachableReposSection account={activeAccount} /> : null}
 
-      <Accordion title="How this works" icon={<LuInfo className="h-4 w-4" />}>
+      <SettingsAccordion title="How this works" icon={<LuInfo className="h-4 w-4" />}>
         <div className="flex flex-col gap-2 p-3 text-[11px] leading-relaxed text-muted-foreground">
           <p>
             Adding an account validates the token first — a token this app cannot verify is never
@@ -321,7 +321,7 @@ export function AccountsPage() {
             this page is only ever told whether a token exists — never what it is.
           </p>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }
@@ -477,7 +477,7 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
   };
 
   return (
-    <Accordion
+    <SettingsAccordion
       title="Reachable repositories"
       icon={<LuCloudDownload className="h-4 w-4" />}
     >
@@ -520,6 +520,6 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
           </p>
         ) : null}
       </div>
-    </Accordion>
+    </SettingsAccordion>
   );
 }

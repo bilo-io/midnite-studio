@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuHistory, LuTimer } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
@@ -56,7 +56,7 @@ export function WorkflowsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Defaults" icon={<LuTimer className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Defaults" icon={<LuTimer className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <div className="flex items-start justify-between gap-6">
             <div className="space-y-1">
@@ -92,9 +92,9 @@ export function WorkflowsPage() {
             {formatDuration(WORKFLOW_TIMEOUT_MIN_S)} – {formatDuration(WORKFLOW_TIMEOUT_MAX_S)})
           </p>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Run history" icon={<LuHistory className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Run history" icon={<LuHistory className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <div className="flex items-start justify-between gap-6">
             <div className="space-y-1">
@@ -131,7 +131,7 @@ export function WorkflowsPage() {
             {WORKFLOW_RUN_HISTORY_CAP_MAX})
           </p>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

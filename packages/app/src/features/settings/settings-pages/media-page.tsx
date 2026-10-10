@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { FFMPEG_INSTALL_COMMAND } from '@midnite/studio-shared';
 import { LuAudioLines, LuClapperboard, LuFolderOpen, LuGamepad2, LuImage, LuMap, LuSettings2, LuX } from 'react-icons/lu';
 
@@ -27,28 +27,28 @@ import { VideoRootSection } from './video-root-section';
 export function MediaSettingsPage() {
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="General" icon={<LuSettings2 className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="General" icon={<LuSettings2 className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <FfmpegRow />
           <ExportFolderRow />
         </div>
-      </Accordion>
-      <Accordion title="Video" icon={<LuClapperboard className="h-4 w-4" />} defaultOpen>
+      </SettingsAccordion>
+      <SettingsAccordion title="Video" icon={<LuClapperboard className="h-4 w-4" />} defaultOpen>
         <VideoRootSection />
-      </Accordion>
-      <Accordion title="Images" icon={<LuImage className="h-4 w-4" />}>
+      </SettingsAccordion>
+      <SettingsAccordion title="Images" icon={<LuImage className="h-4 w-4" />}>
         <ImageSettingsSection />
-      </Accordion>
-      <Accordion title="Audio" icon={<LuAudioLines className="h-4 w-4" />}>
+      </SettingsAccordion>
+      <SettingsAccordion title="Audio" icon={<LuAudioLines className="h-4 w-4" />}>
         <AudioSettingsSection />
-      </Accordion>
-      <Accordion title="Maps" icon={<LuMap className="h-4 w-4" />}>
+      </SettingsAccordion>
+      <SettingsAccordion title="Maps" icon={<LuMap className="h-4 w-4" />}>
         <MapUnitsRow />
         <MapSettingsSection />
-      </Accordion>
-      <Accordion title="Games" icon={<LuGamepad2 className="h-4 w-4" />}>
+      </SettingsAccordion>
+      <SettingsAccordion title="Games" icon={<LuGamepad2 className="h-4 w-4" />}>
         <GamesRootSection />
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

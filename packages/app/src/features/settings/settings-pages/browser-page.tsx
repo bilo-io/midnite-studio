@@ -58,7 +58,7 @@ export function BrowserPage() {
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
-        <h3 className="font-semibold text-foreground text-xs">Link handling</h3>
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="link-handling">Link handling</h3>
         {/*
           The help text names every modifier verbatim, and that is the point
           of it: a modifier nobody is told about is a modifier nobody uses.
@@ -91,7 +91,7 @@ export function BrowserPage() {
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
-        <h3 className="font-semibold text-foreground text-xs">Preview deployments</h3>
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="preview-deployments">Preview deployments</h3>
         <p className="text-muted-foreground text-[11px]">
           Hosts a check or a PR comment's own link is matched against, before Reviews offers to
           open it beside the diff. One per line. A self-hosted preview domain — the common case in
@@ -123,7 +123,7 @@ export function BrowserPage() {
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
-        <h3 className="font-semibold text-foreground text-xs">Memory</h3>
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="memory">Memory</h3>
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="font-medium text-foreground">Discard hidden tabs after</div>
@@ -154,7 +154,7 @@ export function BrowserPage() {
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
-        <h3 className="font-semibold text-foreground text-xs">Data</h3>
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="data">Data</h3>
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="font-medium text-foreground">Clear browsing data</div>

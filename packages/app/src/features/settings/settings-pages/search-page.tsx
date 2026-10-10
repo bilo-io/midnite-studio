@@ -15,7 +15,7 @@ export function SearchSettingsPage() {
       </div>
 
       <div className="flex flex-col gap-4 border border-border rounded-lg p-4 bg-card">
-        <h3 className="font-semibold text-foreground text-xs">Search Defaults</h3>
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="search-defaults">Search Defaults</h3>
         
         <SettingsSwitchRow
           id="search-case-sensitive"

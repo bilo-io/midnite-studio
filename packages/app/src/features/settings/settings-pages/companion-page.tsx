@@ -15,7 +15,7 @@ import {
   type CompanionSettingKey,
   type SttProviderId,
 } from '@midnite/studio-shared';
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   LuBot,
@@ -187,7 +187,7 @@ export function CompanionPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Companion" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Companion" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="companion-enabled"
@@ -198,9 +198,9 @@ export function CompanionPage() {
             testId="companion-enable"
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Voice" icon={<LuVolume2 className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Voice" icon={<LuVolume2 className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           {/*
             Above the voice picker, because it is the switch that decides
@@ -380,9 +380,9 @@ export function CompanionPage() {
             <TryHint settingKey="companionVolume" inField />
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Microphone" icon={<LuMic className="h-4 w-4" />}>
+      <SettingsAccordion title="Microphone" icon={<LuMic className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Chromium&apos;s recogniser doesn&apos;t reliably work in Electron, so the mic uses a
@@ -457,9 +457,9 @@ export function CompanionPage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Hands-free run" icon={<LuBot className="h-4 w-4" />}>
+      <SettingsAccordion title="Hands-free run" icon={<LuBot className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="companion-hands-free"
@@ -485,9 +485,9 @@ export function CompanionPage() {
             </ul>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Personality" icon={<LuSmile className="h-4 w-4" />}>
+      <SettingsAccordion title="Personality" icon={<LuSmile className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <PillListField
             label="What you call it"
@@ -566,12 +566,12 @@ export function CompanionPage() {
           />
           <TryHint settingKey="companionMusicOffer" />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       {/* Phase 109 Theme G — persona profiles: the bundle of the two sections above. */}
-      <Accordion title="Profiles" icon={<LuUsers className="h-4 w-4" />}>
+      <SettingsAccordion title="Profiles" icon={<LuUsers className="h-4 w-4" />}>
         <CompanionProfilesSection />
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }
