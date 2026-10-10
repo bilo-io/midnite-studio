@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-10 — Phase 109 Theme D — `companion_settings_*` on `midnite`
 
-[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+[PR #814](https://github.com/bilo-io/midnite-studio/pull/814). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
 Theme D: an agent in a terminal can read and change the companion's settings for the user, through
 the same spec table and setter the companion's voice and the Settings page use.
 
