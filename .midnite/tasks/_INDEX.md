@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [109 · Companion settings by voice](phases/phase-109-companion-settings-by-voice.md) | 🔄 WIP | — | 13/64 | `██░░░░░░░░` | 20% | D | C E F G H |
+| [109 · Companion settings by voice](phases/phase-109-companion-settings-by-voice.md) | 🔄 WIP | — | 13/64 | `██░░░░░░░░` | 20% | C D E | F G H |
 | [108 · Maps](phases/phase-108-maps.md) | ✅ DONE | x1 | 54/54 | `██████████` | 100% | — | — |
 | [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 81/90 | `█████████░` | 90% | — | Q |
 | [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | 🔄 WIP | x1 | 62/68 | `█████████░` | 91% | — | L |
