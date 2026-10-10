@@ -1212,7 +1212,7 @@ something honest and deterministic to call.
       `/:collection[/:id]` store: `echo`, `delay?ms=` (capped at `WORKFLOW_DELAY_MAX_MS`, the same
       constant the `delay` node uses), `fail-n?key=&n=` (fails the first *n* calls per key, then
       passes — what makes a loop template genuinely loop), `flaky?rate=&seed=` (a seeded mulberry32
-      PRNG, so a seed always replays the same pass/fail sequence), `classify?risk=`,
+      822G, so a seed always replays the same pass/fail sequence), `classify?risk=`,
       `research/:lane`, and `verify?key=&passAfter=`. `fail-n`/`verify` counters are module state,
       reset by `resetScriptedRoutes()` wired into `store.ts`'s `resetDemoStore()` so a demo-API stop
       clears both halves of server memory together. `/demo/delay`'s cap is unit-tested as a pure
