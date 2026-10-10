@@ -81,6 +81,7 @@ export function registerCompanionHandlers(): void {
         personality: req.personality,
         aboutUser: req.aboutUser,
         vocabulary: req.vocabulary,
+        persona: req.persona,
       }),
     (issue) => failure(issue),
   );
