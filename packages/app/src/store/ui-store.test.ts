@@ -1688,3 +1688,53 @@ describe('v24 -> v25 migration (Phase 95 Theme G: columnSkillByProject)', () => 
     expect(viewForPath('/projects')).toBe('tasks');
   });
 });
+
+describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
+  /*
+    A v31 blob as v31 wrote it: every companion key the store persisted at that
+    version, set away from its default so a migration that clobbered one would
+    show, and none of v32's three.
+  */
+  const V31_COMPANION = {
+    companionEnabled: true,
+    companionHandsFree: false,
+    companionHonorifics: ['boss'],
+    companionNames: ['Nova', 'Companion'],
+    companionPersonality: 'Dry.',
+    companionAboutUser: 'Works on the graph.',
+    companionVoices: { system: 'urn:voice:1', local: 'bf_emma' },
+    companionSpeakAloud: false,
+    companionMusicOffer: false,
+    companionVolume: 0.4,
+    companionMicMode: 'toggle',
+    companionSttEngine: 'server',
+    voiceConversation: true,
+    voiceConversationTrigger: 'wake',
+  };
+
+  it('seeds the provider, profiles and active profile, disturbing no companion key', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.({ ...V31_COMPANION }, 31) as Record<string, unknown>;
+    expect(migrated.companionSttProvider).toBeNull();
+    expect(migrated.companionProfiles).toEqual([]);
+    expect(migrated.companionActiveProfile).toBeNull();
+    for (const [key, value] of Object.entries(V31_COMPANION)) expect(migrated[key]).toEqual(value);
+  });
+
+  it('a persisted v31 blob round-trips through the real store with the three keys seeded', () => {
+    localStorage.setItem('midnite-studio.ui', JSON.stringify({ state: V31_COMPANION, version: 31 }));
+    void useUiStore.persist.rehydrate();
+    const state = useUiStore.getState();
+    expect(state.companionSttProvider).toBeNull();
+    expect(state.companionProfiles).toEqual([]);
+    expect(state.companionActiveProfile).toBeNull();
+    expect(state.companionNames).toEqual(['Nova', 'Companion']);
+    expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
+    expect(state.voiceConversationTrigger).toBe('wake');
+    expect(useUiStore.persist.getOptions().version).toBe(32);
+  });
+
+  it('leaves a v32 payload alone', () => {
+    const payload = { companionSttProvider: 'openai-whisper', companionProfiles: [], companionActiveProfile: null };
+    expect(useUiStore.persist.getOptions().migrate?.(payload, 32)).toBe(payload);
+  });
+});

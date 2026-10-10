@@ -9,6 +9,8 @@ import {
   interpolatePhrase,
   pickHonorific,
   pickPhrase,
+  pickSttProvider,
+  type CompanionSettingKey,
   type SttProviderId,
 } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
@@ -27,6 +29,7 @@ import {
 } from 'react-icons/lu';
 
 import { setCompanionVolume as applyCompanionVolume } from '../../companion/audio/context';
+import { applyCompanionSetting, applyCompanionSettings } from '../../companion/settings-apply';
 import { companionTtsSpeaker } from '../../companion/speaker';
 import { refreshMicAvailability } from '../../companion/voice-ports';
 import { IconButton } from '../../../components/icon-button';
@@ -63,37 +66,29 @@ import { Choice, Field, TextArea } from './controls';
  * visit and a stored key is reported as a line of text beside it. That is the
  * whole design, not a limitation: a key that can be read back out is a key
  * that a renderer bug can leak.
+ *
+ * **Every persisted control writes through `applyCompanionSetting(…, 'page')`**
+ * (Phase 109 Theme B), the same setter the companion's voice and the MCP tools
+ * use. Tiers don't bind the page — the click is the consent — but the guards
+ * do, and a page change takes the same undo slot, so "undo that" reaches it
+ * and the detached popout hears about it through `broadcast-sync.ts`.
  */
 export function CompanionPage() {
   const companionEnabled = useUiStore((s) => s.companionEnabled);
-  const setCompanionEnabled = useUiStore((s) => s.setCompanionEnabled);
   const companionHandsFree = useUiStore((s) => s.companionHandsFree);
-  const setCompanionHandsFree = useUiStore((s) => s.setCompanionHandsFree);
   const companionHonorifics = useUiStore((s) => s.companionHonorifics);
-  const setCompanionHonorifics = useUiStore((s) => s.setCompanionHonorifics);
   const companionNames = useUiStore((s) => s.companionNames);
-  const setCompanionNames = useUiStore((s) => s.setCompanionNames);
   const companionPersonality = useUiStore((s) => s.companionPersonality);
-  const setCompanionPersonality = useUiStore((s) => s.setCompanionPersonality);
   const companionAboutUser = useUiStore((s) => s.companionAboutUser);
-  const setCompanionAboutUser = useUiStore((s) => s.setCompanionAboutUser);
   const companionVoices = useUiStore((s) => s.companionVoices);
-  const setCompanionVoice = useUiStore((s) => s.setCompanionVoice);
   const companionSpeakAloud = useUiStore((s) => s.companionSpeakAloud);
-  const setCompanionSpeakAloud = useUiStore((s) => s.setCompanionSpeakAloud);
   const companionMusicOffer = useUiStore((s) => s.companionMusicOffer);
-  const setCompanionMusicOffer = useUiStore((s) => s.setCompanionMusicOffer);
 
   const companionVolume = useUiStore((s) => s.companionVolume);
-  const setCompanionVolume = useUiStore((s) => s.setCompanionVolume);
   const companionMicMode = useUiStore((s) => s.companionMicMode);
-  const setCompanionMicMode = useUiStore((s) => s.setCompanionMicMode);
   const companionSttEngine = useUiStore((s) => s.companionSttEngine);
-  const setCompanionSttEngine = useUiStore((s) => s.setCompanionSttEngine);
   const voiceConversation = useUiStore((s) => s.voiceConversation);
-  const setVoiceConversation = useUiStore((s) => s.setVoiceConversation);
   const voiceConversationTrigger = useUiStore((s) => s.voiceConversationTrigger);
-  const setVoiceConversationTrigger = useUiStore((s) => s.setVoiceConversationTrigger);
 
   const [showAllVoices, setShowAllVoices] = useState(false);
   const voices = useSpeechVoices();
@@ -195,7 +190,7 @@ export function CompanionPage() {
             label="Enable companion"
             description="Adds a chat panel and a quick-access row, and lets the app speak. Off by default — an app that talks unprompted has to be asked for."
             on={companionEnabled}
-            onToggle={(_id, next) => setCompanionEnabled(next)}
+            onToggle={(_id, next) => setFromPage('companionEnabled', next)}
             testId="companion-enable"
           />
         </div>
@@ -216,7 +211,7 @@ export function CompanionPage() {
             label="Speak replies aloud"
             description="On by default. Turn off to keep the thread and routing silent — a shared office, a call."
             on={companionSpeakAloud}
-            onToggle={(_id, next) => setCompanionSpeakAloud(next)}
+            onToggle={(_id, next) => setFromPage('companionSpeakAloud', next)}
             disabled={!companionEnabled}
             title={!companionEnabled ? 'Enable the companion first.' : undefined}
             testId="companion-speak-aloud"
@@ -247,7 +242,7 @@ export function CompanionPage() {
             <select
               value={companionVoices.local ?? ''}
               onChange={(event) =>
-                setCompanionVoice('local', event.target.value === '' ? null : event.target.value)
+                setFromPage('companionVoices.local', event.target.value === '' ? null : event.target.value)
               }
               aria-label="Local voice"
               data-testid="companion-voice-local"
@@ -282,7 +277,7 @@ export function CompanionPage() {
             <select
               value={companionVoices.system ?? ''}
               onChange={(event) =>
-                setCompanionVoice('system', event.target.value === '' ? null : event.target.value)
+                setFromPage('companionVoices.system', event.target.value === '' ? null : event.target.value)
               }
               aria-label="Speaking voice"
               data-testid="companion-voice"
@@ -366,7 +361,7 @@ export function CompanionPage() {
                 max={100}
                 step={5}
                 value={Math.round(companionVolume * 100)}
-                onChange={(event) => setCompanionVolume(Number(event.target.value) / 100)}
+                onChange={(event) => setFromPage('companionVolume', Number(event.target.value) / 100)}
                 aria-label="Companion volume"
                 data-testid="companion-volume"
                 className="h-1.5 w-40 accent-[hsl(var(--primary))]"
@@ -394,7 +389,7 @@ export function CompanionPage() {
             label="Microphone button"
             hint="Hold to talk can't leave the mic open by accident. Tap to toggle suits a long dictation."
             value={companionMicMode}
-            onChange={setCompanionMicMode}
+            onChange={(mode) => setFromPage('companionMicMode', mode)}
             options={[
               ['push', 'Hold to talk', 'Records while the mic button (or Space) is held down'],
               ['toggle', 'Tap to toggle', 'One tap starts recording, the next one stops it'],
@@ -413,11 +408,17 @@ export function CompanionPage() {
             value={voiceConversation ? voiceConversationTrigger : 'manual'}
             onChange={(mode) => {
               if (mode === 'manual') {
-                setVoiceConversation(false);
+                setFromPage('voiceConversation', false);
                 return;
               }
-              setVoiceConversationTrigger(mode);
-              setVoiceConversation(true);
+              // One change, not two: "undo that" puts back both the mode and its trigger.
+              applyCompanionSettings(
+                [
+                  { key: 'voiceConversationTrigger', value: mode },
+                  { key: 'voiceConversation', value: true },
+                ],
+                'page',
+              );
             }}
             options={[
               ['manual', 'Manual', 'Hold (or tap) the mic for each phrase; the text is left in the box for you to send'],
@@ -434,7 +435,7 @@ export function CompanionPage() {
             label="Recognition engine"
             hint="The browser's built-in recogniser usually fails with a network error inside Electron — it depends on a Google service and a key this app doesn't ship. Leave this on the offline/cloud engine unless you're specifically testing the browser one."
             value={companionSttEngine}
-            onChange={setCompanionSttEngine}
+            onChange={(engine) => setFromPage('companionSttEngine', engine)}
             options={[
               ['server', 'Offline / OpenAI Whisper', 'The engine above — recommended, and the default'],
               [
@@ -454,7 +455,7 @@ export function CompanionPage() {
             label="Allow hands-free run"
             description="Off: a prepared command is typed but left for you to send. On: the companion sends it itself, after saying which command out loud."
             on={companionHandsFree}
-            onToggle={(_id, next) => setCompanionHandsFree(next)}
+            onToggle={(_id, next) => setFromPage('companionHandsFree', next)}
             disabled={!companionEnabled}
             title={!companionEnabled ? 'Enable the companion first.' : undefined}
             testId="companion-hands-free"
@@ -481,7 +482,7 @@ export function CompanionPage() {
             label="What you call it"
             hint="Wakes the companion, typed or spoken. At least one name is always required."
             values={companionNames}
-            onChange={setCompanionNames}
+            onChange={(names) => setFromPage('companionNames', names)}
             validate={validateCompanionNames}
             minCount={1}
             minCountReason="The companion needs at least one name"
@@ -498,7 +499,7 @@ export function CompanionPage() {
             label="What it calls you"
             hint="Dropped into greetings and sign-offs. Empty by default — punctuation collapses cleanly with none set."
             values={companionHonorifics}
-            onChange={setCompanionHonorifics}
+            onChange={(honorifics) => setFromPage('companionHonorifics', honorifics)}
             validate={validateCompanionHonorifics}
             minCount={0}
             duplicateMessage={(candidate) => `"${candidate}" is already one of what it calls you.`}
@@ -517,7 +518,7 @@ export function CompanionPage() {
             <TextArea
               label="Personality"
               value={companionPersonality}
-              onChange={setCompanionPersonality}
+              onChange={(text) => setFromPage('companionPersonality', text)}
               disabled={!companionEnabled}
               placeholder="Dry, terse, never uses an exclamation point…"
               rows={4}
@@ -532,7 +533,7 @@ export function CompanionPage() {
             <TextArea
               label="About me"
               value={companionAboutUser}
-              onChange={setCompanionAboutUser}
+              onChange={(text) => setFromPage('companionAboutUser', text)}
               disabled={!companionEnabled}
               placeholder="What you're working on, how you like things explained…"
               rows={4}
@@ -545,7 +546,7 @@ export function CompanionPage() {
             label="Offer elevator music"
             description="After 20s waiting on an agent, offers something to listen to. Never plays without a yes."
             on={companionMusicOffer}
-            onToggle={(_id, next) => setCompanionMusicOffer(next)}
+            onToggle={(_id, next) => setFromPage('companionMusicOffer', next)}
             disabled={!companionEnabled}
             title={!companionEnabled ? 'Enable the companion first.' : undefined}
             testId="companion-music-offer"
@@ -1053,13 +1054,18 @@ function LocalSttStatus({
  * renderer bug can leak.
  */
 function SttCredentialFields({ disabled }: { disabled: boolean }) {
-  // `STT_PROVIDER_IDS[0]` is `whisper-local` — the key-free default is also
-  // the picker's own default selection, with no extra state needed to make
-  // it "the obvious one" (requirement: Settings makes the local provider the
-  // obvious default).
-  const [provider, setProvider] = useState<SttProviderId>(STT_PROVIDER_IDS[0]);
+  /*
+    Persisted (Phase 109 Theme B) — this was a local `useState` that forgot the
+    choice on every reload, while main went on resolving its own. `null` is
+    "automatic", and the select shows what automatic resolves to (the same
+    `pickSttProvider` main runs): offline Whisper, the key-free default, unless
+    exactly one cloud key is stored. Picking one pins it, and the mic sends it
+    with every `transcribe`.
+  */
+  const storedProvider = useUiStore((s) => s.companionSttProvider);
   const [key, setKey] = useState('');
   const [configured, setConfigured] = useState<SttProviderId[]>([]);
+  const provider = pickSttProvider(storedProvider, configured);
   const [encryptionAvailable, setEncryptionAvailable] = useState(true);
   const [localModel, setLocalModel] = useState<LocalSttStatusValue | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -1149,7 +1155,7 @@ function SttCredentialFields({ disabled }: { disabled: boolean }) {
       >
         <select
           value={provider}
-          onChange={(event) => setProvider(event.target.value as SttProviderId)}
+          onChange={(event) => setFromPage('companionSttProvider', event.target.value as SttProviderId)}
           disabled={disabled}
           aria-label="Speech provider"
           data-testid="companion-stt-provider"
@@ -1299,4 +1305,13 @@ function useSpeechVoices(): VoiceOption[] {
   }, []);
 
   return voices;
+}
+
+/**
+ * A page control's write: through the one companion setter, as `page`. The
+ * result is not read — a refused write (a locked screen, a value the schema
+ * won't take) simply leaves the controlled input showing the stored value.
+ */
+function setFromPage(key: CompanionSettingKey, value: unknown): void {
+  applyCompanionSetting({ key, value }, 'page');
 }

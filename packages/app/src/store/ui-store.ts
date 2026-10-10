@@ -14,7 +14,9 @@ import {
   type AgentOllamaBinding,
   type AppId,
   type CompanionMicMode,
+  type CompanionProfile,
   type CompanionSttEngine,
+  type SttProviderId,
   VOICE_CONVERSATION_TRIGGERS,
   type VoiceConversationTrigger,
   type CompanionVoiceEngine,
@@ -2015,6 +2017,24 @@ export type UiState = {
   companionSttEngine: CompanionSttEngine;
   setCompanionSttEngine: (engine: CompanionSttEngine) => void;
   /**
+   * Which recogniser transcribes the server engine's audio (Phase 109 Theme
+   * B) — the Settings ▸ Companion ▸ Microphone "Provider" select, which was a
+   * local `useState` before this and so forgot the choice on every reload.
+   * `null` is "automatic", today's resolution in main's `resolveProviderId`
+   * (the one configured cloud key if there is exactly one, else offline
+   * Whisper) and what every migrated install lands on. Sent with each
+   * `transcribe` request. `never`-tier: only the page changes it.
+   */
+  companionSttProvider: SttProviderId | null;
+  /**
+   * Named bundles of voice, personality and honorifics (Phase 109 Theme G),
+   * at most `COMPANION_PROFILES_MAX`. Seeded `[]` by the v32 migration in
+   * Theme B so Theme G lands without a second one.
+   */
+  companionProfiles: CompanionProfile[];
+  /** The id of the profile last switched to, or `null` — Theme G's, seeded by the same v32 migration. */
+  companionActiveProfile: string | null;
+  /**
    * Conversation mode (Ad Hoc) — one switch shared by every composer's mic.
    * Off is **Manual**, the default and the original behaviour: hold to talk,
    * and the text is left in the box unsent. On, the mic stays open once a
@@ -2349,6 +2369,9 @@ export type PersistedUi = Pick<
   | 'companionVolume'
   | 'companionMicMode'
   | 'companionSttEngine'
+  | 'companionSttProvider'
+  | 'companionProfiles'
+  | 'companionActiveProfile'
   | 'voiceConversation'
   | 'voiceConversationTrigger'
   | 'aiThinkingStyle'
@@ -2610,6 +2633,9 @@ export const useUiStore = create<UiState>()(
       companionMicMode: 'push',
       setCompanionMicMode: (companionMicMode) => set({ companionMicMode }),
       companionSttEngine: 'server',
+      companionSttProvider: null,
+      companionProfiles: [],
+      companionActiveProfile: null,
       aiThinkingStyle: 'spinner',
       setAiThinkingStyle: (aiThinkingStyle) => set({ aiThinkingStyle }),
       setCompanionSttEngine: (companionSttEngine) => set({ companionSttEngine }),
@@ -3296,7 +3322,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 31,
+      version: 32,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3430,6 +3456,9 @@ export const useUiStore = create<UiState>()(
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
         companionSttEngine: state.companionSttEngine,
+        companionSttProvider: state.companionSttProvider,
+        companionProfiles: state.companionProfiles,
+        companionActiveProfile: state.companionActiveProfile,
         voiceConversation: state.voiceConversation,
         voiceConversationTrigger: state.voiceConversationTrigger,
         aiThinkingStyle: state.aiThinkingStyle,
@@ -3530,6 +3559,13 @@ export const useUiStore = create<UiState>()(
        * see `migrateSetupState`. Either old latch closed counts as done, so an
        * existing install never sees the new overlay unasked. The three old
        * keys are deleted, not left to rot beside their replacement.
+       * v31 → v32: seed `companionSttProvider = null`, `companionProfiles = []`
+       * and `companionActiveProfile = null` (Phase 109 Theme B) — the phase's
+       * one persist bump, carrying Theme G's two profile keys as well so that
+       * theme lands without a second migration. `null` provider is today's
+       * automatic resolution, so a migrated install transcribes exactly as it
+       * did. `??=` for the reason v27 → v28's `setupState` gives: a test
+       * profile seeded straight into the persist key may already hold them.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3574,6 +3610,9 @@ export const useUiStore = create<UiState>()(
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
           companionSttEngine?: CompanionSttEngine;
+          companionSttProvider?: SttProviderId | null;
+          companionProfiles?: CompanionProfile[];
+          companionActiveProfile?: string | null;
           cardSkillByTask?: Record<string, string>;
           columnSkillByProject?: Record<string, Record<string, string>>;
           automateEnabledByProject?: Record<string, boolean>;
@@ -3706,6 +3745,11 @@ export const useUiStore = create<UiState>()(
         if (version < 29) migrateVideoToMedia(state);
         if (version < 30) migrateChangesToGraph(state);
         if (version < 31) migrateIssuesAndProjectsToTasks(state);
+        if (version < 32) {
+          state.companionSttProvider ??= null;
+          state.companionProfiles ??= [];
+          state.companionActiveProfile ??= null;
+        }
         return state as PersistedUi;
       },
       /**

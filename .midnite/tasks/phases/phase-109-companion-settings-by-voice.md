@@ -96,9 +96,9 @@ Scope guardrails:
 
 ## Headlines
 
-**Theme A — One settings list.** ◻ Not started. A zod `CompanionSettingsSchema` for the companion slice, plus `COMPANION_SETTING_SPECS`: aliases, value kind, tier, guard, read-back and example phrase for every key. Kokoro voices get spoken aliases and a fuzzy `matchVoice`.
+**Theme A — One settings list.** ✅ Done ([PR #813](https://github.com/bilo-io/midnite-studio/pull/813)). `shared/src/companion.ts` now has `CompanionSettingsSchema` for the whole companion slice, built from per-key `COMPANION_SETTING_VALUE_SCHEMAS`, with the store's own defaults and clamps; an app vitest checks the two agree. `COMPANION_SETTING_SPECS` covers all 17 `CompanionSettingKey`s, with the voice selection split into `companionVoices.local`/`.system`. Each spec has aliases, a value kind, a tier, guards, a read-back and an example phrase. Type assertions tie the key list to the slice schema and the store's persisted `companion*` keys, so a key added without a spec doesn't compile. `COMPANION_SETTING_KEYS` and `COMPANION_SETTING_TIERS` sit above `CompanionIntentSchema` so Theme C's intent arm can use them. `checkCompanionGuard` implements `lastName`, `wakeWord`, `muteLast` and `tunedText`; the last one lets the page and tuned changes through. Kokoro voices gain `spoken` aliases ("British Emma"). `matchVoice` allows two edits for names of six letters or more, one for four or five, and none for three, and asks between equally close names.
 
-**Theme B — One setter.** ◻ Not started. `applyCompanionSetting(change, source)` with tiers, guards, lock refusal and a one-step 60 s undo. The page writes through it too. Popout sync goes through `broadcast-sync`, and a persist v32 bump carries `companionSttProvider` and the profile fields.
+**Theme B — One setter.** ✅ Done ([PR #813](https://github.com/bilo-io/midnite-studio/pull/813)). `app/features/companion/settings-apply.ts` adds `applyCompanionSetting`, `applyCompanionSettings` (several keys as one undoable change), `previewCompanionSetting` (checks without writing, for Theme E's read-back-first) and `undoLastCompanionSetting` (one step, 60 s). Writes are refused while the screen is locked. A `never` key from voice or MCP is refused, and so is a `confirm` key unless the change carries `confirmed`. Guards apply to every source. Every persisted control on Settings ▸ Companion now writes through the setter as `page`; rapid page edits to one key within 5 s count as one undo step. A voice change from outside the page also updates the live volume. `broadcast-sync.ts` gains `COMPANION_SYNC_KEYS`, so the popout no longer speaks in a stale voice. The STT provider is now persisted: `null` means automatic, the select shows what that resolves to via a shared `pickSttProvider`, and the mic sends the choice with `transcribe`. The one v31 → v32 bump seeds `companionSttProvider`, `companionProfiles` and `companionActiveProfile`. The two profile keys sit in `KNOWN_ORPHANS` until Theme G builds the page section.
 
 **Theme C — The companion learns `setting`.** ◻ Not started. A `setting` intent across schema, grammar, `act()`, router vocabulary and `parseAskReply`. Confirm-tier changes use `pendingAction`, and never-tier ones are refused with an offer to open the page. The page gets "Try: …" hints.
 
@@ -116,26 +116,26 @@ Scope guardrails:
 
 ### A — One settings list (M)
 
-- [ ] **`CompanionSettingsSchema`** in [`companion.ts`](../../../packages/shared/src/companion.ts): a zod object covering every persisted companion key, including this phase's new `companionSttProvider`, `companionProfiles` and `companionActiveProfile`. It uses the same defaults and clamps the store applies today: volume clamped 0–1, names via `CompanionNamesSchema` (≥1), personality and About me trimmed ≤4000. The store keeps its own partialize and migrate code. A vitest asserts that the store's default companion state parses under the schema and that the two agree on every default.
-- [ ] **`COMPANION_SETTING_SPECS: Record<CompanionSettingKey, CompanionSettingSpec>`**, total over the settable-key union, so a companion key added to the store without a spec is a type error. Each spec holds:
+- [x] **`CompanionSettingsSchema`** in [`companion.ts`](../../../packages/shared/src/companion.ts): a zod object covering every persisted companion key, including this phase's new `companionSttProvider`, `companionProfiles` and `companionActiveProfile`. It uses the same defaults and clamps the store applies today: volume clamped 0–1, names via `CompanionNamesSchema` (≥1), personality and About me trimmed ≤4000. The store keeps its own partialize and migrate code. A vitest asserts that the store's default companion state parses under the schema and that the two agree on every default.
+- [x] **`COMPANION_SETTING_SPECS: Record<CompanionSettingKey, CompanionSettingSpec>`**, total over the settable-key union, so a companion key added to the store without a spec is a type error. Each spec holds:
   - `label` and `aliases: string[]`, the words people use for the setting;
   - `value`, one of `bool`, `enum {values, spoken}`, `number {min, max, step, spokenUnit}`, `text {max}` or `list {min}`;
   - `tier: 'direct' | 'confirm' | 'never'`;
   - an optional `guard`;
   - `readBack(next) → string` and an `example` phrase, used by C's page hints.
-- [ ] **The tier table, as settled in the brainstorm** (Decision 2):
+- [x] **The tier table, as settled in the brainstorm** (Decision 2):
   - **`never`**: `companionEnabled`, `companionSttEngine`, `companionSttProvider`, `companionHandsFree`.
   - **`confirm`**: `companionSpeakAloud` (only → `false`; → `true` is direct), `companionNames`, `companionMicMode`, `voiceConversation` / `voiceConversationTrigger`, `companionPersonality`, `companionAboutUser`.
   - **`direct`**: `companionVoices.local`, `companionVoices.system`, `companionVolume`, `companionHonorifics`, `companionMusicOffer`, `companionActiveProfile`.
 
   The STT API key is not a store key and gets no spec.
-- [ ] **Guards as pure functions** in shared: `checkCompanionGuard(spec, current, next) → { ok: true, effect?: 'readBackBeforeApply' } | { ok: false, reason }`.
+- [x] **Guards as pure functions** in shared: `checkCompanionGuard(spec, current, next) → { ok: true, effect?: 'readBackBeforeApply' } | { ok: false, reason }`.
   - **`lastName`**: refuses to empty the names list.
   - **`wakeWord`**: a names change speaks the new wake word *before* applying.
   - **`muteLast`**: `companionSpeakAloud → false` reads back first, then writes.
   - Text keys refuse anything that didn't come from H's `tune`/`tweak` flow (Decision 4).
-- [ ] **Spoken voice aliases.** `CompanionLocalVoiceInfo` gains `spoken: string[]` ("Heart", "Bella", "British Emma", …) beside the accent and gender descriptors it already carries. `matchVoice(text, voices) → { match } | { ambiguous: [a, b] } | { none }` normalises tokens and allows an edit distance ≤ 2, so whisper-tiny's "bela" or "hart" still resolve. System voices are matched by display name at runtime in the renderer, the only place that list exists.
-- [ ] **Unit tests (vitest, shared):**
+- [x] **Spoken voice aliases.** `CompanionLocalVoiceInfo` gains `spoken: string[]` ("Heart", "Bella", "British Emma", …) beside the accent and gender descriptors it already carries. `matchVoice(text, voices) → { match } | { ambiguous: [a, b] } | { none }` normalises tokens and allows an edit distance ≤ 2, so whisper-tiny's "bela" or "hart" still resolve. System voices are matched by display name at runtime in the renderer, the only place that list exists.
+- [x] **Unit tests (vitest, shared):**
   - the spec table is total;
   - every tier assignment above;
   - `matchVoice` against a table of mistranscriptions, including an ambiguous pair;
@@ -143,13 +143,13 @@ Scope guardrails:
 
 ### B — One setter (M)
 
-- [ ] **`applyCompanionSetting(change, source: 'voice' | 'mcp' | 'page')`** in a new `app/features/companion/settings-apply.ts`. It is a plain function over `useUiStore.getState()`, keeping [`runtime.ts`](../../../packages/app/src/features/companion/runtime.ts)'s no-hooks rule, because a turn outlives the render that started it. It validates against A's spec and schema, refuses while `screensaverLocked` (the check `ui-requests.ts` already makes), and refuses `never` keys from `voice` and `mcp`. It returns a typed `CompanionSettingResult`: `{ ok: true, previous, next }`, or `{ ok: false, reason: 'locked' | 'never' | 'guard' | 'invalid' }` with the guard's spoken reason.
-- [ ] **One-step undo.** A `lastChange { keys, previous, at, source }` slot (one change may touch several keys; see G), replaced by any change from any source. `undoLastCompanionSetting()` restores it within 60 s and otherwise reports `expired` or `nothing` (Decision 9).
-- [ ] **The page writes through the setter.** Every persisted control in [`companion-page.tsx`](../../../packages/app/src/features/settings/settings-pages/companion-page.tsx) (L68-96) calls `applyCompanionSetting(…, 'page')`. Tiers don't apply to `page`, because the click is the consent, but the guards do. A page change is therefore undoable by voice and reaches the popout.
-- [ ] **Popout sync.** Add the keys the companion popout reads to the [`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) allowlist (L268): voices, volume, speak aloud, names, honorifics, personality, About me, profiles and active profile. The detached popout then never reads back a stale voice (Decision 15).
-- [ ] **Persist the STT provider.** Add `companionSttProvider: 'whisper-local' | 'openai-whisper' | 'deepgram' | null` to the store. `null` keeps today's automatic resolution. Send it with the `transcribe` request so main's `resolveProviderId` ([`stt/index.ts`](../../../packages/desktop/src/main/companion/stt/index.ts) :100) honours it, and delete the page's local `useState` (L1060). The tier stays `never`.
-- [ ] **The phase's one persist bump, v31 → v32.** It adds `companionSttProvider` (null), `companionProfiles` (`[]`) and `companionActiveProfile` (null), so G lands without a second migration.
-- [ ] **Tests:**
+- [x] **`applyCompanionSetting(change, source: 'voice' | 'mcp' | 'page')`** in a new `app/features/companion/settings-apply.ts`. It is a plain function over `useUiStore.getState()`, keeping [`runtime.ts`](../../../packages/app/src/features/companion/runtime.ts)'s no-hooks rule, because a turn outlives the render that started it. It validates against A's spec and schema, refuses while `screensaverLocked` (the check `ui-requests.ts` already makes), and refuses `never` keys from `voice` and `mcp`. It returns a typed `CompanionSettingResult`: `{ ok: true, previous, next }`, or `{ ok: false, reason: 'locked' | 'never' | 'guard' | 'invalid' }` with the guard's spoken reason.
+- [x] **One-step undo.** A `lastChange { keys, previous, at, source }` slot (one change may touch several keys; see G), replaced by any change from any source. `undoLastCompanionSetting()` restores it within 60 s and otherwise reports `expired` or `nothing` (Decision 9).
+- [x] **The page writes through the setter.** Every persisted control in [`companion-page.tsx`](../../../packages/app/src/features/settings/settings-pages/companion-page.tsx) (L68-96) calls `applyCompanionSetting(…, 'page')`. Tiers don't apply to `page`, because the click is the consent, but the guards do. A page change is therefore undoable by voice and reaches the popout.
+- [x] **Popout sync.** Add the keys the companion popout reads to the [`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) allowlist (L268): voices, volume, speak aloud, names, honorifics, personality, About me, profiles and active profile. The detached popout then never reads back a stale voice (Decision 15).
+- [x] **Persist the STT provider.** Add `companionSttProvider: 'whisper-local' | 'openai-whisper' | 'deepgram' | null` to the store. `null` keeps today's automatic resolution. Send it with the `transcribe` request so main's `resolveProviderId` ([`stt/index.ts`](../../../packages/desktop/src/main/companion/stt/index.ts) :100) honours it, and delete the page's local `useState` (L1060). The tier stays `never`.
+- [x] **The phase's one persist bump, v31 → v32.** It adds `companionSttProvider` (null), `companionProfiles` (`[]`) and `companionActiveProfile` (null), so G lands without a second migration.
+- [x] **Tests:**
   - setter result per tier, guard and lock;
   - undo replace and expiry (fake timers);
   - a page toggle routes through the setter (RTL);
