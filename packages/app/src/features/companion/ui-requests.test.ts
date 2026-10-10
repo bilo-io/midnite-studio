@@ -28,6 +28,8 @@ vi.mock('../../services/bridge', () => ({
 }));
 
 import { resolveUiAction } from './ui-requests';
+import { REVEALERS } from './reveal/revealers';
+import { useRevealHistory } from './reveal/reveal-history';
 import { runCommand, setCommandRuntime } from './command-runtime';
 import { useCompanionStore } from '../../store/companion-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
@@ -199,5 +201,44 @@ describe('resolveUiAction — ui.command', () => {
     } as never);
     const result = await resolveUiAction(command('sync.fetch'));
     expect(result).toEqual({ ok: false, kind: 'error', message: 'Open a repository first' });
+  });
+});
+
+describe('resolveUiAction — reveal / find (Phase 112 Theme B)', () => {
+  const chat: CompanionUiAction = { kind: 'reveal', ref: { kind: 'chat', id: 'c1' } };
+
+  it('lands on the page and refuses plainly while the kind is still a stub', async () => {
+    const result = await resolveUiAction(chat);
+    expect(useUiStore.getState().activeView).toBe('chats');
+    expect(result).toMatchObject({ ok: false, message: "I can't pick out that chat yet." });
+  });
+
+  it('answers revealed, posts the toast and records lastRevealed when a revealer lands', async () => {
+    useRevealHistory.getState().clear();
+    const original = REVEALERS.chat;
+    REVEALERS.chat = { view: 'chats', reveal: async () => ({ ok: true, did: 'revealed', label: 'the Auth chat' }) };
+    try {
+      const result = await resolveUiAction(chat);
+      expect(result).toEqual({
+        ok: true,
+        value: { did: 'revealed', ref: { kind: 'chat', id: 'c1' }, label: 'the Auth chat', focusedWindow: false },
+      });
+      expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('Agent: opened the Auth chat.');
+      expect(useRevealHistory.getState().entries[0]?.ref).toEqual({ kind: 'chat', id: 'c1' });
+    } finally {
+      REVEALERS.chat = original;
+    }
+  });
+
+  it('refuses a reveal while locked', async () => {
+    useUiStore.setState({ screensaverLocked: true });
+    const result = await resolveUiAction(chat);
+    expect(result).toMatchObject({ ok: false, message: 'The screen is locked — unlock it first.' });
+    expect(useUiStore.getState().activeView).toBe('dashboard');
+  });
+
+  it('refuses find until the resolver lands', async () => {
+    const result = await resolveUiAction({ kind: 'find', query: 'auth' });
+    expect(result).toMatchObject({ ok: false, message: 'Finding resources is not available yet.' });
   });
 });

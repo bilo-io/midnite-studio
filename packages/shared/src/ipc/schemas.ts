@@ -177,6 +177,8 @@ import {
   TestTrustStatusSchema,
   TrashSummarySchema,
   VIEW_IDS,
+  ResourceKindSchema,
+  ResourceRefSchema,
   WatchEventSchema,
   WindowDescriptorSchema,
   WindowRoleSchema,
@@ -4198,6 +4200,18 @@ export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('agentState') }),
   CompanionAgentSetInputSchema.extend({ kind: z.literal('agentSet') }),
   CompanionModelsListInputSchema.extend({ kind: z.literal('modelsList') }),
+  /*
+   * Phase 112 Theme A — reveal one resource, or find candidates for a
+   * description. Both ride `companionUiRequest`; no new channel. The MCP tools
+   * that send them (`ui.reveal`/`ui.find`) are Theme I's.
+   */
+  z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema }),
+  z.object({
+    kind: z.literal('find'),
+    query: z.string().min(1),
+    kinds: z.array(ResourceKindSchema).optional(),
+    limit: z.number().int().positive().max(20).optional(),
+  }),
 ]);
 export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
 
@@ -4238,6 +4252,13 @@ export const CompanionUiResultValueSchema = z.union([
   CompanionAgentGetOutputSchema.extend({ did: z.literal('agentState') }),
   CompanionAgentSetOutputSchema.extend({ did: z.literal('agentSet') }),
   CompanionModelsListOutputSchema.extend({ did: z.literal('modelsList') }),
+  /* Phase 112 — a `reveal` that landed, and a `find`'s candidates (titles and ids only, never bodies). */
+  /* `did` stays `revealed` even when a detached page was focused — `focused-window` is `navigate`'s own arm, keyed on `view`. */
+  z.object({ did: z.literal('revealed'), ref: ResourceRefSchema, label: z.string(), focusedWindow: z.boolean() }),
+  z.object({
+    did: z.literal('found'),
+    matches: z.array(z.object({ ref: ResourceRefSchema, title: z.string(), detail: z.string().optional() })),
+  }),
 ]);
 export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
 

@@ -84,9 +84,9 @@ Scope guardrails:
 *The companion and MCP agents can open a specific commit, chat, session, note, card, model, table
 or setting — not just the page it lives on.* Planned 2026-10-10.
 
-**Theme A — `ResourceRef`, one shape for "a thing in the app".** ◻ Zod union in `shared` across git, agent work, notes/media and tools/settings; `navigate.target`; `CompanionUiAction` gains `reveal`/`find`; one spoken-label helper.
+**Theme A — `ResourceRef`, one shape for "a thing in the app".** ✅ [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). `ResourceRefSchema` in `shared/src/domain/resource-ref.ts` is a 20-kind discriminated union, written as four family tuples. It comes with `RESOURCE_KINDS`, a `MediaKind` alias of `MediaTab`, `resourceRefLabel` (spoken form: 7-character sha, URL host only, titles from a `names` map), `resourceRefKey`/`resourceRefsEqual`/`resourceRefRepoId`. `navigate` gains `target` and `reference`. `CompanionUiAction` gains `reveal`/`find`, and the result gains `revealed` (with a `focusedWindow` flag) and `found`.
 
-**Theme B — `revealResource`, the engine.** ◻ Plain function over a total per-kind revealer table, reusing Phase 81's window/popout/lock/unsaved-guard plan; a `last revealed` slot for follow-ups.
+**Theme B — `revealResource`, the engine.** ✅ [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). `reveal/reveal.ts` takes injected `RevealDeps` (live by default) and runs Phase 81's steps in order: relay from a popout, refuse when locked, switch repo first (`no-repo` if it isn't open), run `resolveNavigation` on the revealer's view (focus a detached page or `setActiveView`; `blocked-unsaved` if the guard holds it), then reveal and record. The total `REVEALERS` table is spread from four per-family files (`revealers/{git,agent,notes-media,tools}.ts`), so Themes C–F each edit only their own file. Every entry is still an `unavailable` stub. `reveal-history.ts` keeps the last 20. `navigateCompanion` handles `target`, so `handoff.ts` is untouched. The relay back from main now carries `ok` and `reason`. `ui-requests.ts` answers `reveal` and refuses `find` until Theme G.
 
 **Theme C — Git + forge revealers.** ◻ Commit reveal that always lands (page in, unfilter, scroll, pulse), branch/tag/stash, file + line, file diff within a commit, PR, issue, CI run/job.
 
@@ -108,7 +108,7 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### A — `ResourceRef`, one shape for "a thing in the app" (M)
 
-- [ ] New [`packages/shared/src/domain/resource-ref.ts`](../../../packages/shared/src/domain/resource-ref.ts):
+- [x] New [`packages/shared/src/domain/resource-ref.ts`](../../../packages/shared/src/domain/resource-ref.ts):
       `ResourceRefSchema`, a `z.discriminatedUnion('kind', …)`, re-exported from the package
       index. Every variant carries the minimum needed to find it again, and a repo-scoped one
       carries `repoId`:
@@ -132,39 +132,39 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
       Export `RESOURCE_KINDS` and `ResourceKind`.
   - *Acceptance:* `resource-ref.test.ts` round-trips one fixture per kind and rejects a missing
     discriminator, a negative `line` and an unknown `media`.
-- [ ] `resourceRefLabel(ref, names?)` in the same file — the **spoken/visible** short label
+- [x] `resourceRefLabel(ref, names?)` in the same file — the **spoken/visible** short label
       ("commit a1b2c3d", "PR 812", "the *Auth* chat", "the dragon model"), following Phase 80
       Theme A's spoken-form rules (short sha as 7 characters, never a full URL, host only).
       Pure; titles come from the optional `names` map so `shared` stays data-only.
-- [ ] The `navigate` intent in [`companion.ts`](../../../packages/shared/src/companion.ts) gains
+- [x] The `navigate` intent in [`companion.ts`](../../../packages/shared/src/companion.ts) gains
       `target?: ResourceRef` and a new `reference?: 'this' | 'next' | 'previous' | 'parent' | 'back'`
       (Theme H fills the second). Existing `view/page/issue/url` keep working unchanged; `issue` is
       kept as a shorthand that normalises to `{ kind: 'issue' }`.
-- [ ] `CompanionUiActionSchema` in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) gains
+- [x] `CompanionUiActionSchema` in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) gains
       `{ type: 'reveal'; ref: ResourceRef }` and `{ type: 'find'; query: string; kinds?: ResourceKind[]; limit?: number }`;
       the `ipc.test.ts` channel↔schema table needs no new channel (both ride `companionUiRequest`).
 
 ### B — `revealResource`, the engine (M)
 
-- [ ] New [`packages/app/src/features/companion/reveal/reveal.ts`](../../../packages/app/src/features/companion/reveal/reveal.ts):
+- [x] New [`packages/app/src/features/companion/reveal/reveal.ts`](../../../packages/app/src/features/companion/reveal/reveal.ts):
       `revealResource(ref, opts: { caller: 'companion' | 'mcp' | 'link' }) => Promise<RevealOutcome>`
       where `RevealOutcome = { ok: true; did: 'revealed' | 'focused-window'; label } | { ok: false; reason: 'locked' | 'not-found' | 'no-repo' | 'blocked-unsaved' | 'unavailable'; say }`.
       A plain function over `getState()` and `bridge()`, like the rest of the companion's
       [`runtime.ts`](../../../packages/app/src/features/companion/runtime.ts) — no hooks.
-- [ ] A **total** revealer table, `REVEALERS: { [K in ResourceKind]: Revealer<K> }` in
+- [x] A **total** revealer table, `REVEALERS: { [K in ResourceKind]: Revealer<K> }` in
       `reveal/revealers.ts`, each entry `{ view: ViewId; reveal(ref): Promise<RevealOutcome> }`.
       Adding a kind to `ResourceRefSchema` without a revealer is a type error. Themes C–F fill
       the entries; this theme lands them as `unavailable` stubs.
-- [ ] The plan step reuses [`navigate.ts`](../../../packages/app/src/features/companion/navigate.ts)
+- [x] The plan step reuses [`navigate.ts`](../../../packages/app/src/features/companion/navigate.ts)
       `resolveNavigation` for the revealer's `view`: detached page → `focusRole` then reveal in
       that window via the existing relay; popout companion → relay to main; locked → refused;
       `setActiveView` runs inside `guardNavigation`, and a blocked guard returns
       `blocked-unsaved` without selecting anything. A repo-scoped ref whose `repoId` is not the
       selected repo calls `selectRepo` first (the `use-model-agent-events.ts` order).
-- [ ] A **`lastRevealed`** slot (`reveal/reveal-history.ts`, a small zustand store, not
+- [x] A **`lastRevealed`** slot (`reveal/reveal-history.ts`, a small zustand store, not
       persisted): the last 20 successful refs with timestamps, read by Theme H's follow-ups and
       by `ui.state`.
-- [ ] `act()` in [`handoff.ts`](../../../packages/app/src/features/companion/handoff.ts): a
+- [x] `act()` in [`handoff.ts`](../../../packages/app/src/features/companion/handoff.ts): a
       `navigate` with `target` calls `revealResource` and speaks `say`/*"Here's {label}."*; speech
       and selection happen together (Phase 81 Theme B's rule).
   - *Acceptance:* `reveal.test.ts` — one case per plan branch (focus, relay, locked, unsaved
