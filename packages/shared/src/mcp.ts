@@ -13,6 +13,12 @@ import {
   VIEW_IDS,
   WindowRoleSchema,
 } from './domain';
+import {
+  CompanionSettingsGetOutputSchema,
+  CompanionSettingsSetInputSchema,
+  CompanionSettingsSetOutputSchema,
+  CompanionVoicesListOutputSchema,
+} from './companion-mcp';
 import { isCommandId } from './keybindings';
 import {
   GameCreateInputSchema,
@@ -313,7 +319,10 @@ type McpToolEntry = {
     | 'music_add_pitchbends'
     | 'music_add_track'
     | 'music_save'
-    | 'music_render_preview';
+    | 'music_render_preview'
+    | 'companion_settings_get'
+    | 'companion_settings_set'
+    | 'companion_voices_list';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -1483,6 +1492,41 @@ export const MCP_TOOLS = {
       'Renders a bar range as a piano-roll PNG, all tracks colour-coded — use instead of judging `music_get_notes` numbers; returns image content, read-only.',
     input: MusicRenderPreviewInputSchema,
     output: MusicRenderPreviewResultSchema,
+    readOnly: true,
+  },
+  /*
+   * The companion's own settings (Phase 109 Theme D), so an agent can change
+   * the companion for the user. One switch gates all three, reads included —
+   * `Settings ▸ MCP ▸ Let agents change companion settings`
+   * (`allowCompanionSettings`), off by default (Decision 13). A confirm-tier
+   * `companion_settings_set` waits for the user's answer in the app
+   * (Decision 3). Schemas and the full flow: `companion-mcp.ts`.
+   */
+  companion_settings_get: {
+    id: 'companion_settings_get',
+    title: 'Read the companion settings',
+    description:
+      'Reads every companion setting with its value, tier and allowed values — call before `companion_settings_set` instead of guessing a key; refused unless its Settings switch is on.',
+    input: z.object({}),
+    output: CompanionSettingsGetOutputSchema,
+    readOnly: true,
+  },
+  companion_settings_set: {
+    id: 'companion_settings_set',
+    title: 'Change a companion setting',
+    description:
+      'Changes one companion setting by key, waiting up to 30 s for the user to answer in the app when the key needs a yes — call `companion_settings_get` first to see what is settable.',
+    input: CompanionSettingsSetInputSchema,
+    output: CompanionSettingsSetOutputSchema,
+    readOnly: false,
+  },
+  companion_voices_list: {
+    id: 'companion_voices_list',
+    title: 'List the companion voices',
+    description:
+      'Lists the companion’s local Kokoro voices and the system voices with their ids — call before `companion_settings_set` to pick a voice by id; read-only.',
+    input: z.object({}),
+    output: CompanionVoicesListOutputSchema,
     readOnly: true,
   },
 } satisfies Record<string, McpToolEntry>;

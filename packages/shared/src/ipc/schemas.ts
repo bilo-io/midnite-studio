@@ -30,6 +30,11 @@ import {
   MarketTimescaleSchema,
 } from '../markets';
 import { MarketPortfolioOpSchema } from '../markets-portfolio';
+import {
+  CompanionSettingKeySchema,
+  CompanionSettingsSetOutputSchema,
+  CompanionSystemVoiceSchema,
+} from '../companion-mcp';
 
 import {
   CompanionAboutUserSchema,
@@ -4001,6 +4006,8 @@ export const McpGetResponse = z.object({
   allowMaps: z.boolean(),
   /** Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song may act. */
   allowMusic: z.boolean(),
+  /** Phase 109 Theme D's tenth switch — whether any `companion_*` tool answers, reads included. */
+  allowCompanionSettings: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -4019,6 +4026,7 @@ export const McpSetRequest = z.object({
   allowSprites: z.boolean().optional(),
   allowMaps: z.boolean().optional(),
   allowMusic: z.boolean().optional(),
+  allowCompanionSettings: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
@@ -4157,6 +4165,17 @@ export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('command'),
     id: z.string().refine(isCommandId, 'not a known command id'),
   }),
+  /*
+   * Phase 109 Theme D — the `companion_*` MCP tools. `setting` goes through
+   * `settings-apply.ts`'s `applyCompanionSetting` with `source: 'mcp'`, so its
+   * tier, guards and value schema are checked in the renderer — never here,
+   * and never in main. `value` stays `unknown` on the wire for that reason.
+   */
+  z.object({ kind: z.literal('setting'), key: CompanionSettingKeySchema, value: z.unknown() }),
+  /** `companion_settings_get`'s request — every settable key's current value. */
+  z.object({ kind: z.literal('settingsState') }),
+  /** `companion_voices_list`'s request — the system voices, which only the renderer can list. */
+  z.object({ kind: z.literal('voices') }),
 ]);
 export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
 
@@ -4178,6 +4197,18 @@ export const CompanionUiResultValueSchema = z.union([
   }),
   z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
   z.object({ did: z.literal('ran'), label: z.string() }),
+  /** A `setting` action's outcome — the `companion_settings_set` answer as it stands. */
+  CompanionSettingsSetOutputSchema.extend({ did: z.literal('setting') }),
+  z.object({
+    did: z.literal('settingsState'),
+    values: z.record(CompanionSettingKeySchema, z.unknown()),
+    locked: z.boolean(),
+  }),
+  z.object({
+    did: z.literal('voices'),
+    system: z.array(CompanionSystemVoiceSchema),
+    selected: z.object({ local: CompanionLocalVoiceIdSchema.nullable(), system: z.string().nullable() }),
+  }),
 ]);
 export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
 
