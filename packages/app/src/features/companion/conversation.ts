@@ -2,6 +2,7 @@ import { parseWakePhrase } from '@midnite/studio-shared';
 
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
+import { isElevatorPlaying } from './audio/elevator';
 import { encodeWav } from './audio/wav';
 import {
   RecorderError,
@@ -45,7 +46,8 @@ import { describeMicFailure, reportVoiceError } from './voice-ports';
  * the way a person would say it. Everything else the mic hears is dropped
  * after transcription, unsent and unshown.
  *
- * **Half-duplex.** While the companion is speaking, frames are ignored rather
+ * **Half-duplex.** While the companion is speaking (or its elevator music is
+ * playing), frames are ignored rather
  * than segmented, so a spoken reply is never transcribed back as the user's
  * next message. Echo cancellation would cover the same ground only for audio
  * Chromium itself plays, which the system `speechSynthesis` voice is not.
@@ -299,7 +301,9 @@ export type ConversationDeps = {
 const defaultDeps = (): ConversationDeps => ({
   openCapture: openConversationCapture,
   transcribe: (blob) => transcribeBlob(blob),
-  isSpeaking: () => companionTtsSpeaker.isSpeaking(),
+  // The elevator music fills the companion's thinking time, which is exactly
+  // when an open mic would otherwise transcribe it as the next request.
+  isSpeaking: () => companionTtsSpeaker.isSpeaking() || isElevatorPlaying(),
 });
 
 let deps: ConversationDeps = defaultDeps();
