@@ -44,6 +44,7 @@ const reset = () =>
     graphTheme: 'git-graph',
     agentSkills: DEFAULT_AGENT_SKILLS,
     primaryAgent: 'claude',
+    primaryModelByAgent: {},
     skillExecutionMode: 'interactive',
   });
 
@@ -1167,6 +1168,27 @@ describe('the primary agent', () => {
 
     expect(merged.primaryAgent).toBe('claude');
   });
+
+  it('manages primaryModelByAgent and setPrimaryModel', () => {
+    expect(useUiStore.getState().primaryModelByAgent).toEqual({});
+
+    useUiStore.getState().setPrimaryModel('claude', 'sonnet-5-5');
+    expect(useUiStore.getState().primaryModelByAgent).toEqual({ claude: 'sonnet-5-5' });
+
+    useUiStore.getState().setPrimaryModel('claude', null);
+    expect(useUiStore.getState().primaryModelByAgent).toEqual({ claude: null });
+  });
+
+  it('sets both primary agent and model together with setPrimaryAgentAndModel', () => {
+    useUiStore.getState().setPrimaryAgentAndModel('codex', 'gpt-5-mini');
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+    expect(useUiStore.getState().primaryModelByAgent['codex']).toBe('gpt-5-mini');
+
+    useUiStore.getState().setPrimaryAgentAndModel('agy');
+    expect(useUiStore.getState().primaryAgent).toBe('agy');
+    // Model for agy should remain undefined or untouched
+    expect(useUiStore.getState().primaryModelByAgent['agy']).toBeUndefined();
+  });
 });
 
 describe('the skill execution mode', () => {
@@ -1730,11 +1752,45 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(32);
+    expect(useUiStore.persist.getOptions().version).toBe(33);
   });
 
-  it('leaves a v32 payload alone', () => {
+  it('migrates a v32 payload to v33', () => {
     const payload = { companionSttProvider: 'openai-whisper', companionProfiles: [], companionActiveProfile: null };
-    expect(useUiStore.persist.getOptions().migrate?.(payload, 32)).toBe(payload);
+    const migrated = useUiStore.persist.getOptions().migrate?.(payload, 32) as Record<string, unknown>;
+    expect(migrated.primaryModelByAgent).toEqual({});
   });
 });
+
+describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
+  it('seeds primaryModelByAgent as empty object and preserves primaryAgent', () => {
+    const v32State = {
+      primaryAgent: 'agy',
+      agentSkills: { loopGuard: 'do something' },
+    };
+    const migrated = useUiStore.persist.getOptions().migrate?.(v32State, 32) as Record<string, unknown>;
+    expect(migrated.primaryModelByAgent).toEqual({});
+    expect(migrated.primaryAgent).toBe('agy');
+  });
+
+  it('a persisted v32 blob round-trips through the real store with primaryModelByAgent seeded', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { primaryAgent: 'codex' },
+        version: 32,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    const state = useUiStore.getState();
+    expect(state.primaryAgent).toBe('codex');
+    expect(state.primaryModelByAgent).toEqual({});
+    expect(useUiStore.persist.getOptions().version).toBe(33);
+  });
+
+  it('leaves a v33 payload alone', () => {
+    const payload = { primaryAgent: 'claude', primaryModelByAgent: { claude: 'sonnet-5-5' } };
+    expect(useUiStore.persist.getOptions().migrate?.(payload, 33)).toBe(payload);
+  });
+});
+
