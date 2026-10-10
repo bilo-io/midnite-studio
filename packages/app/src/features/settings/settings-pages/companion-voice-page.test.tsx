@@ -966,3 +966,34 @@ describe('Settings ▸ Companion ▸ Personality — "What it calls you" pills (
     expect(useUiStore.getState().companionHonorifics).toEqual([]);
   });
 });
+
+describe('Settings ▸ Companion ▸ Microphone ▸ Conversation mode (Ad Hoc)', () => {
+  it('offers Manual, Always on and Wake word, with Manual the default', async () => {
+    installBridge();
+    useUiStore.setState({ voiceConversation: false, voiceConversationTrigger: 'always' });
+    render(<CompanionPage />);
+
+    const group = await screen.findByRole('radiogroup', { name: 'Conversation mode' });
+    const radios = Array.from(group.querySelectorAll('[role="radio"]'));
+    expect(radios.map((radio) => radio.textContent)).toEqual(['Manual', 'Always on', 'Wake word']);
+    expect(radios.map((radio) => radio.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
+  });
+
+  it('turns conversation on with the chosen trigger, and Manual turns it off but keeps the trigger', async () => {
+    installBridge();
+    useUiStore.setState({ voiceConversation: false, voiceConversationTrigger: 'always', companionNames: ['Jarvis'] });
+    render(<CompanionPage />);
+
+    const group = await screen.findByRole('radiogroup', { name: 'Conversation mode' });
+    const radio = (label: string) =>
+      Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]')).find((el) => el.textContent === label)!;
+
+    fireEvent.click(radio('Wake word'));
+    expect(useUiStore.getState()).toMatchObject({ voiceConversation: true, voiceConversationTrigger: 'wake' });
+    // The wake word is the user's own name for it, not a fixed "Companion".
+    expect(group.parentElement?.textContent).toContain('“Jarvis, open the pull request”');
+
+    fireEvent.click(radio('Manual'));
+    expect(useUiStore.getState()).toMatchObject({ voiceConversation: false, voiceConversationTrigger: 'wake' });
+  });
+});
