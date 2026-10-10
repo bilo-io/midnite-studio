@@ -280,7 +280,7 @@ export async function uiNavigate(input: McpToolInput<'ui.navigate'>): Promise<Mc
     ...(input.issue === undefined ? {} : { issue: input.issue }),
   });
   refuseIfFailed(result);
-  if (!result.ok || result.value.did === 'state' || result.value.did === 'ran') {
+  if (!result.ok || (result.value.did !== 'navigated' && result.value.did !== 'focused-window')) {
     throw new McpToolError('error', 'unexpected reply shape for ui.navigate');
   }
 

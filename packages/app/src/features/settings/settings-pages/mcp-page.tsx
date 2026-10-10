@@ -41,6 +41,7 @@ export function McpSettingsPage() {
         allowSprites: false,
         allowMaps: false,
         allowMusic: false,
+        allowCompanionSettings: false,
       },
   });
 
@@ -128,6 +129,15 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 109 Theme D's tenth switch — whether any `companion_*` tool answers. Unlike the media
+   * switches it gates the reads too, because About me is personal (Decision 13). Off by default.
+   */
+  const setAllowCompanionSettings = useMutation({
+    mutationFn: async (next: boolean) => bridge()?.mcp.set({ allowCompanionSettings: next }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const agy = useQuery({
     queryKey: AGY_STATUS_KEY,
     queryFn: async () => {
@@ -165,6 +175,7 @@ export function McpSettingsPage() {
   const allowSprites = status.data?.allowSprites ?? false;
   const allowMaps = status.data?.allowMaps ?? false;
   const allowMusic = status.data?.allowMusic ?? false;
+  const allowCompanionSettings = status.data?.allowCompanionSettings ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
@@ -438,6 +449,25 @@ export function McpSettingsPage() {
           />
 
           {setAllowGames.data?.error && <div className="text-xs text-destructive">{setAllowGames.data.error}</div>}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents change companion settings" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-companion-settings"
+            label="Let agents change companion settings"
+            description="A tenth switch — off by default, and disabled until the master switch is on. Unlike the switches above it gates reads too, because the settings include what you told the companion about yourself: companion_settings_get, companion_settings_set and companion_voices_list all refuse while it is off. A voice, the volume or what it calls you changes at once. A change to its name, the mic, conversation mode or speaking aloud waits up to 30 seconds for you to allow it in the app, and nothing changes if you don’t. Enabling it, the speech engine and hands-free stay in Settings ▸ Companion only."
+            on={allowCompanionSettings}
+            onToggle={(_id, next) => setAllowCompanionSettings.mutate(next)}
+            testId="mcp-allow-companion-settings"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowCompanionSettings.data?.error && (
+            <div className="text-xs text-destructive">{setAllowCompanionSettings.data.error}</div>
+          )}
         </div>
       </Accordion>
 

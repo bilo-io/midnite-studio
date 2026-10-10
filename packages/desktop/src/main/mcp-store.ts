@@ -38,7 +38,7 @@ import { join } from 'node:path';
  * Theme F's own precedent for `allowUi`.
  */
 export type McpSettings = {
-  version: 9;
+  version: 10;
   enabled: boolean;
   allowUi: boolean;
   allowGateDecide: boolean;
@@ -48,6 +48,7 @@ export type McpSettings = {
   allowSprites: boolean;
   allowMaps: boolean;
   allowMusic: boolean;
+  allowCompanionSettings: boolean;
 };
 
 export type McpStore = {
@@ -58,7 +59,7 @@ export type McpStore = {
 const FILE_NAME = 'mcp.json';
 
 export const DEFAULT_MCP_SETTINGS: McpSettings = {
-  version: 9,
+  version: 10,
   enabled: false,
   allowUi: false,
   allowGateDecide: false,
@@ -68,6 +69,7 @@ export const DEFAULT_MCP_SETTINGS: McpSettings = {
   allowSprites: false,
   allowMaps: false,
   allowMusic: false,
+  allowCompanionSettings: false,
 };
 
 export function createMcpStore(directory: string): McpStore {
@@ -126,6 +128,11 @@ export function createMcpStore(directory: string): McpStore {
  * **`version: 9` adds `allowMusic`** (Phase 101 Theme H) — a NINTH switch, same posture, gating the
  * `music_*` tools that change a song, add notes or save. The read tools answer whenever the server is on.
  *
+ * **`version: 10` adds `allowCompanionSettings`** (Phase 109 Theme D) — a TENTH switch, same
+ * off-by-default posture, but unlike the media switches it gates the **whole** `companion_*` family,
+ * reads included (Decision 13): About me is personal. Older files have no key, which `=== true`
+ * already reads as `false`.
+ *
  * Validate without zod: this module is main-only and the shape is four
  * fields, matching `repo-store.ts`'s own reasoning for a hand-rolled guard.
  *
@@ -147,7 +154,20 @@ export function parseStoredSettings(value: unknown): McpSettings {
   const allowSprites = (value as { allowSprites?: unknown }).allowSprites === true;
   const allowMaps = (value as { allowMaps?: unknown }).allowMaps === true;
   const allowMusic = (value as { allowMusic?: unknown }).allowMusic === true;
-  return { version: 9, enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites, allowMaps, allowMusic };
+  const allowCompanionSettings = (value as { allowCompanionSettings?: unknown }).allowCompanionSettings === true;
+  return {
+    version: 10,
+    enabled,
+    allowUi,
+    allowGateDecide,
+    allowModels,
+    allowGames,
+    allowTerrains,
+    allowSprites,
+    allowMaps,
+    allowMusic,
+    allowCompanionSettings,
+  };
 }
 
 /** A store that always reports "off" — the fallback before one is configured. */

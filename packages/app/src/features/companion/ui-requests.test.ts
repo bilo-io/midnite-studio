@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/bridge', () => ({
+  // `speaker.ts` (Phase 109 Theme D's voice listing) reads it at import.
+  hasBridge: () => false,
   bridge: () =>
     ({
       windowRole: 'main',

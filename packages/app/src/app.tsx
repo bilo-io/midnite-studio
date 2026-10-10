@@ -54,6 +54,7 @@ import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
+import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
 import { useModelOpenListener } from './features/media/model/use-model-agent-events';
 import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
@@ -2186,6 +2187,8 @@ export function App() {
               </Suspense>
             </ErrorBoundary>
             <IssueModalSlot />
+            {/* Phase 109 Theme D — an agent's companion change waiting on the user, while the companion itself is off or popped out. */}
+            <McpSettingConfirmHost />
           </PaletteHost>
         </ToastHost>
       </DialogHost>

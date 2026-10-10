@@ -91,6 +91,7 @@ describe('MCP_TOOLS', () => {
     'music_add_pitchbends',
     'music_add_track',
     'music_save',
+    'companion_settings_set',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -304,6 +305,9 @@ describe('MCP_TOOLS', () => {
     music_add_track: { ok: true, trackId: 't2', trackIndex: 1, unsaved: true },
     music_save: { ok: true, size: 120 },
     music_render_preview: { _content: [] },
+    companion_settings_get: { settings: [], locked: false },
+    companion_settings_set: { status: 'applied', key: 'companionVolume', previous: 0.5, next: 0.8 },
+    companion_voices_list: { local: [], system: [], selected: { local: null, system: null } },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -401,6 +405,7 @@ describe('MCP_TOOLS', () => {
       music_add_track: { ...base, project: 'p', name: 'intro', trackName: 'Lead', program: 80 },
       music_save: { ...base, project: 'p', name: 'intro' },
       music_render_preview: { ...base, project: 'p', name: 'intro', fromBar: 1, bars: 4 },
+      companion_settings_set: { key: 'companionVolume', value: 0.8 },
       terrain_open: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_get_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_set_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000', patch: { resolution: 129 } },

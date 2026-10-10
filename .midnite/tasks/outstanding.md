@@ -288,6 +288,20 @@ So the open question is narrower than it was, not answered: **whether the same s
 shape is sufficient consent for a write that touches the repository**, where "one keystroke undoes
 it" stops being true.
 
+**Companion settings are settled as switch + tier + an in-app confirm the call waits for
+([Phase 109](phases/phase-109-companion-settings-by-voice.md) Theme D, Decisions 3 and 13).**
+`companion_settings_get`, `companion_settings_set` and `companion_voices_list` sit behind one
+default-off `Settings ▸ MCP ▸ Let agents change companion settings` switch (`allowCompanionSettings`)
+that gates the reads too, because About me is personal. The tier check runs in the renderer
+(`settings-apply.ts`, the same setter the companion's voice and the Settings page use): a `direct`
+change applies at once, a `never` key is refused, and a `confirm` key asks the user in the app — the
+companion's Run/Cancel chip and a spoken question when it is on, `confirm-dialog.tsx` when it is not —
+while the MCP call waits up to 30 s for `approved`, `declined` or `timeout`. Nothing applies after the
+deadline; a late "yes" hears "Too late — ask your agent again." Every change from an agent takes the
+one-step undo slot. **That answer is for this family only.** It works because every companion setting
+is small, visible and reversible in one step; it says nothing yet about repository writes, where the
+question above stays open.
+
 > **Note on Theme F's own last checklist item, which cannot be executed as written.** It asks that
 > *"`docs/INITIAL_PLAN.md`'s MCP section … gain one paragraph"* and that *"`outstanding.md`'s note
 > that MCP writes are deferred is amended"*. Neither exists. `INITIAL_PLAN.md` is the frozen

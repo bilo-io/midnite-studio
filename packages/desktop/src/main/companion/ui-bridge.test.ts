@@ -2,7 +2,13 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { configureUiBridge, requestUiAction, resetUiBridgeForTests, resolveUiReply } from './ui-bridge';
+import {
+  configureUiBridge,
+  requestUiAction,
+  resetUiBridgeForTests,
+  resolveUiReply,
+  UI_BRIDGE_TIMEOUT_MESSAGE,
+} from './ui-bridge';
 
 /** A `BrowserWindow` stand-in narrow enough for this module's own use of it. */
 function fakeWindow(): { win: BrowserWindow; sends: unknown[] } {
@@ -98,5 +104,53 @@ describe('requestUiAction', () => {
 
     // Arrives late — must not throw, and must not resolve anything twice.
     expect(() => resolveUiReply(sent.id, { ok: true, value: { did: 'ran', label: 'late' } })).not.toThrow();
+  });
+
+  // Phase 109 Theme D — a confirm-tier `companion_settings_set` waits for a person, not a render.
+  it('honours a per-action timeout, and keeps the 5 s default for every other request', async () => {
+    vi.useFakeTimers();
+    const { win, sends } = fakeWindow();
+    configureUiBridge(() => win);
+
+    let slow: unknown;
+    let quick: unknown;
+    void requestUiAction({ kind: 'setting', key: 'companionNames', value: ['Nova'] }, { timeoutMs: 35_000 }).then(
+      (r) => {
+        slow = r;
+      },
+    );
+    void requestUiAction({ kind: 'state' }).then((r) => {
+      quick = r;
+    });
+
+    await vi.advanceTimersByTimeAsync(5_001);
+    expect(quick).toEqual({ ok: false, kind: 'error', message: UI_BRIDGE_TIMEOUT_MESSAGE });
+    expect(slow).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(29_998);
+    expect(slow).toBeUndefined();
+
+    // The renderer's answer within the longer window still lands.
+    const sent = sends[0] as { id: string };
+    resolveUiReply(sent.id, { ok: true, value: { did: 'setting', status: 'approved', key: 'companionNames' } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(slow).toEqual({ ok: true, value: { did: 'setting', status: 'approved', key: 'companionNames' } });
+  });
+
+  it('times a per-action request out at its own deadline', async () => {
+    vi.useFakeTimers();
+    const { win } = fakeWindow();
+    configureUiBridge(() => win);
+
+    let settled: unknown;
+    void requestUiAction({ kind: 'setting', key: 'companionNames', value: ['Nova'] }, { timeoutMs: 35_000 }).then(
+      (r) => {
+        settled = r;
+      },
+    );
+    await vi.advanceTimersByTimeAsync(34_999);
+    expect(settled).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(2);
+    expect(settled).toEqual({ ok: false, kind: 'error', message: UI_BRIDGE_TIMEOUT_MESSAGE });
   });
 });

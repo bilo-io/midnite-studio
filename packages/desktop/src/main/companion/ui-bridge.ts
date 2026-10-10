@@ -19,7 +19,8 @@ import {
  * a command ran, or the renderer declined — so this needs an answer, and
  * this module is the smallest thing that can produce one.
  *
- * A pending map keyed by a request id, a 5 s timeout, and one rule that
+ * A pending map keyed by a request id, a 5 s timeout (per action since Phase
+ * 109 Theme D — see {@link RequestUiActionOptions}), and one rule that
  * makes both of those meaningful: it always targets `getMainWindow()`,
  * **never** `BrowserWindow.getFocusedWindow()`. `menu.ts` may reach for the
  * focused window because a native menu item is by definition on it; an
@@ -30,6 +31,25 @@ import {
  */
 
 const REQUEST_TIMEOUT_MS = 5_000;
+
+/**
+ * The reply every timed-out request resolves with. Exported so a caller that
+ * chose a longer wait (`companion-tools.ts`'s confirm-tier
+ * `companion_settings_set`) can tell "nobody answered in time" from "there is
+ * no window" without matching a sentence by hand.
+ */
+export const UI_BRIDGE_TIMEOUT_MESSAGE = 'the window did not answer';
+
+export type RequestUiActionOptions = {
+  /**
+   * How long to wait for this one reply (Phase 109 Theme D). Defaults to
+   * {@link REQUEST_TIMEOUT_MS}, which every action the renderer answers at
+   * once keeps. A confirm-tier `setting` waits for a person instead — the
+   * renderer's own prompt runs 30 s and this backstop a little longer, so the
+   * renderer's `timeout` reply is what normally arrives.
+   */
+  timeoutMs?: number;
+};
 
 type PendingEntry = {
   resolve: (result: CompanionUiReplyResult) => void;
@@ -51,13 +71,16 @@ export function configureUiBridge(getMainWindow: () => BrowserWindow | null): vo
  * Resolves with a `GitOpResult` failure — never rejects — for every way this
  * can fail to produce an answer: no main window at all (every window closed,
  * possible on macOS with the dock icon still running), or a reply that never
- * arrives within {@link REQUEST_TIMEOUT_MS}. A refusal the renderer *chose*
+ * arrives within {@link REQUEST_TIMEOUT_MS} (or `options.timeoutMs`). A refusal the renderer *chose*
  * to send (a `confirm`-tier command, a locked screen, an unknown view) is a
  * perfectly normal reply and resolves the same promise with `ok: true` and
  * the renderer's own message folded into whichever `did` shape it answered
  * with — `ui-requests.ts` is what decides that, not this module.
  */
-export function requestUiAction(action: CompanionUiAction): Promise<CompanionUiReplyResult> {
+export function requestUiAction(
+  action: CompanionUiAction,
+  options: RequestUiActionOptions = {},
+): Promise<CompanionUiReplyResult> {
   const win = mainWindowGetter?.() ?? null;
   if (!win || win.isDestroyed()) {
     return Promise.resolve(failure('Midnite Studio has no open window right now.'));
@@ -67,8 +90,8 @@ export function requestUiAction(action: CompanionUiAction): Promise<CompanionUiR
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       pending.delete(id);
-      resolve(failure('the window did not answer'));
-    }, REQUEST_TIMEOUT_MS);
+      resolve(failure(UI_BRIDGE_TIMEOUT_MESSAGE));
+    }, options.timeoutMs ?? REQUEST_TIMEOUT_MS);
     pending.set(id, { resolve, timer });
     win.webContents.send(EVENT_CHANNELS.companionUiRequest, { id, action });
   });
