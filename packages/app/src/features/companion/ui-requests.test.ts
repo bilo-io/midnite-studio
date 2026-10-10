@@ -221,7 +221,7 @@ describe('resolveUiAction — reveal / find (Phase 112 Theme B)', () => {
       const result = await resolveUiAction(chat);
       expect(result).toEqual({
         ok: true,
-        value: { did: 'revealed', ref: { kind: 'chat', id: 'c1' }, label: 'the Auth chat' },
+        value: { did: 'revealed', ref: { kind: 'chat', id: 'c1' }, label: 'the Auth chat', focusedWindow: false },
       });
       expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('Agent: opened the Auth chat.');
       expect(useRevealHistory.getState().entries[0]?.ref).toEqual({ kind: 'chat', id: 'c1' });

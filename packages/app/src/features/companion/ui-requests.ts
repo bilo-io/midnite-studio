@@ -136,7 +136,12 @@ async function resolveRevealAction(action: Extract<CompanionUiAction, { kind: 'r
   const outcome = await revealResource(action.ref, { caller: 'mcp' });
   if (!outcome.ok) return failure(outcome.say);
   announce(`Agent: opened ${outcome.label}.`, `An agent opened ${outcome.label}.`);
-  return ok({ did: outcome.did === 'focused-window' ? 'focused-window' : 'revealed', ref: action.ref, label: outcome.label });
+  return ok({
+    did: 'revealed',
+    ref: action.ref,
+    label: outcome.label,
+    focusedWindow: outcome.did === 'focused-window',
+  });
 }
 
 // --- ui.state ----------------------------------------------------------------
