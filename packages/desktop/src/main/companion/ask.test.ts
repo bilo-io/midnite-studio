@@ -522,6 +522,23 @@ describe('askCompanion', () => {
   });
 });
 
+describe("the router's tune and tweak lines — Phase 109 Theme H", () => {
+  const vocabulary: CompanionVocabulary = { views: [], settingsPages: [], commands: [], skills: [], repos: [] };
+
+  it('names the tune and tweak intent shapes, and that the router never writes the text itself', () => {
+    const prompt = buildAskPrompt({ kind: 'route', text: 'be a bit more sarcastic', repoPath: null, vocabulary });
+    expect(prompt).toContain('{"kind":"tune","target":"companionPersonality"}');
+    expect(prompt).toContain('{"kind":"tune","target":"companionAboutUser"}');
+    expect(prompt).toContain('{"kind":"tweak","instruction":"<that request, in a few words>"}');
+    expect(prompt).toContain('Never write personality or');
+  });
+
+  it('adds none of it without a vocabulary, or to the summariser', () => {
+    expect(buildAskPrompt({ kind: 'route', text: 'x', repoPath: null })).not.toContain('"kind":"tune"');
+    expect(buildAskPrompt({ kind: 'summarise', text: 'x', repoPath: null, vocabulary })).not.toContain('"kind":"tweak"');
+  });
+});
+
 describe("the 'persona' mode — Phase 109 Theme H", () => {
   const interview = {
     mode: 'interview' as const,
