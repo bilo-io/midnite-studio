@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-11 — Phase 112 Themes E, F — Notes, media, tools and settings revealers
+
+[PR #PRN](https://github.com/bilo-io/midnite-studio/pull/PRN). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes E and F: the notes, media, database, API-client, browser and settings kinds now open for real instead of answering `unavailable`.
+
+- **notes + media:** `selectNote(id)` lifted into `notes-store`; a generic `useMediaOpenRequest` store for doc, image, video, audio, map and game; app-level `music_open` / `map_goto` / `game_open` listeners routed through `revealResource` (so they work from any view).
+- **tools + settings:** `dbTable` (preview tab, not run), `apiRequest` (focus or open, never send), `browserTab` (focus or open), `setting` (page plus section scroll and highlight). `SettingsAccordion` anchors and the `SETTINGS_SECTIONS` table.
+
 ## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
 
 [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
