@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-10 — Ad hoc — The microphone was refused by the app's own permission handler
 
-Not phase-tracked. The user's report: macOS Privacy ▸ Microphone was on, speech output worked,
+[PR #810](https://github.com/bilo-io/midnite-studio/pull/810). Not phase-tracked. The user's report: macOS Privacy ▸ Microphone was on, speech output worked,
 but every mic press, in the companion and in every composer, said "permission was refused. Allow
 microphone access … in System Settings". Several earlier fixes had all gone to the renderer or
 the STT engine. The cause was in main: `browser-security.ts`'s `isAppOrigin` accepted the literal
