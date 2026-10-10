@@ -15,6 +15,8 @@ import {
   type AppId,
   type CompanionMicMode,
   type CompanionSttEngine,
+  VOICE_CONVERSATION_TRIGGERS,
+  type VoiceConversationTrigger,
   type CompanionVoiceEngine,
   type CompanionVoiceSelection,
   type Ecosystem,
@@ -2012,6 +2014,25 @@ export type UiState = {
    */
   companionSttEngine: CompanionSttEngine;
   setCompanionSttEngine: (engine: CompanionSttEngine) => void;
+  /**
+   * Conversation mode (Ad Hoc) — one switch shared by every composer's mic.
+   * Off is **Manual**, the default and the original behaviour: hold to talk,
+   * and the text is left in the box unsent. On, the mic stays open once a
+   * composer starts listening, each phrase is cut at its pause, and the
+   * composer sends it itself (`features/companion/conversation.ts`).
+   * Default off for the same reason push-to-talk is the default mic mode:
+   * an always-open microphone is a choice, never a fresh install's state.
+   */
+  voiceConversation: boolean;
+  setVoiceConversation: (on: boolean) => void;
+  /**
+   * What a conversation-mode turn needs (Settings ▸ Companion ▸ Microphone):
+   * `always` sends every phrase, `wake` only a phrase that starts with one of
+   * `companionNames`. Kept while `voiceConversation` is off, so the composer
+   * toggle turns back on to whichever trigger was last chosen.
+   */
+  voiceConversationTrigger: VoiceConversationTrigger;
+  setVoiceConversationTrigger: (trigger: VoiceConversationTrigger) => void;
   /** Loading indicator in every AI thread (docs, companion, media). Settings ▸ Appearance. */
   aiThinkingStyle: ThinkingStyle;
   setAiThinkingStyle: (style: ThinkingStyle) => void;
@@ -2328,6 +2349,8 @@ export type PersistedUi = Pick<
   | 'companionVolume'
   | 'companionMicMode'
   | 'companionSttEngine'
+  | 'voiceConversation'
+  | 'voiceConversationTrigger'
   | 'aiThinkingStyle'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
@@ -2590,6 +2613,10 @@ export const useUiStore = create<UiState>()(
       aiThinkingStyle: 'spinner',
       setAiThinkingStyle: (aiThinkingStyle) => set({ aiThinkingStyle }),
       setCompanionSttEngine: (companionSttEngine) => set({ companionSttEngine }),
+      voiceConversation: false,
+      setVoiceConversation: (voiceConversation) => set({ voiceConversation }),
+      voiceConversationTrigger: 'always',
+      setVoiceConversationTrigger: (voiceConversationTrigger) => set({ voiceConversationTrigger }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
       // turns the optimizer on.
@@ -3403,6 +3430,8 @@ export const useUiStore = create<UiState>()(
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
         companionSttEngine: state.companionSttEngine,
+        voiceConversation: state.voiceConversation,
+        voiceConversationTrigger: state.voiceConversationTrigger,
         aiThinkingStyle: state.aiThinkingStyle,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
@@ -3694,6 +3723,11 @@ export const useUiStore = create<UiState>()(
           ...current,
           ...saved,
           layout: { ...current.layout, ...saved.layout },
+          voiceConversationTrigger: (VOICE_CONVERSATION_TRIGGERS as readonly string[]).includes(
+            saved.voiceConversationTrigger ?? '',
+          )
+            ? (saved.voiceConversationTrigger as VoiceConversationTrigger)
+            : current.voiceConversationTrigger,
           mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
             ? (saved.mediaTab as MediaTab)
             : current.mediaTab,

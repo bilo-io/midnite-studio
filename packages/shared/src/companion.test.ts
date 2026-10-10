@@ -35,6 +35,7 @@ import {
   markdownToSpeech,
   matchesCompanionName,
   noRepeatWindow,
+  parseWakePhrase,
   parseAskReply,
   parseDoneEntries,
   parseIndexWipRows,
@@ -1302,6 +1303,54 @@ describe('COMPANION_COMMAND_IDS (Phase 81 Theme D)', () => {
 
   it('COMPANION_NEVER_AUTOSEND names only releasePrep', () => {
     expect(COMPANION_NEVER_AUTOSEND).toEqual(['releasePrep']);
+  });
+});
+
+describe('parseWakePhrase', () => {
+  const names = ['Companion', 'Jarvis'];
+
+  it('takes the command that follows a leading name', () => {
+    expect(parseWakePhrase('Companion, open the pull request.', names)).toEqual({
+      woke: true,
+      command: 'open the pull request.',
+    });
+    expect(parseWakePhrase('jarvis run the tests', names)).toEqual({ woke: true, command: 'run the tests' });
+  });
+
+  it('skips an opener and the punctuation an STT engine puts round a spoken name', () => {
+    expect(parseWakePhrase('Hey, Companion. Open the pull request.', names)).toEqual({
+      woke: true,
+      command: 'Open the pull request.',
+    });
+    expect(parseWakePhrase('OK Jarvis — ship it', names)).toEqual({ woke: true, command: 'ship it' });
+  });
+
+  it('reports a name said on its own as woken with no command', () => {
+    expect(parseWakePhrase('Companion.', names)).toEqual({ woke: true, command: '' });
+    expect(parseWakePhrase('  hey jarvis!  ', names)).toEqual({ woke: true, command: '' });
+  });
+
+  it('ignores the name anywhere but the start — a mention is not an address', () => {
+    expect(parseWakePhrase('I told the companion yesterday', names)).toEqual({ woke: false });
+    expect(parseWakePhrase('open the pull request, Companion', names)).toEqual({ woke: false });
+  });
+
+  it('is whole-word, and the longest name wins', () => {
+    expect(parseWakePhrase('Moses parted the sea', ['Mo'])).toEqual({ woke: false });
+    expect(parseWakePhrase('Mo Salah, play the goals', ['Mo', 'Mo Salah'])).toEqual({
+      woke: true,
+      command: 'play the goals',
+    });
+  });
+
+  it('treats a name with regex characters literally', () => {
+    expect(parseWakePhrase('C.3PO, translate this', ['C.3PO'])).toEqual({ woke: true, command: 'translate this' });
+    expect(parseWakePhrase('CX3PO, translate this', ['C.3PO'])).toEqual({ woke: false });
+  });
+
+  it('wakes on nothing for empty text or no names', () => {
+    expect(parseWakePhrase('', names)).toEqual({ woke: false });
+    expect(parseWakePhrase('Companion, hi', [])).toEqual({ woke: false });
   });
 });
 

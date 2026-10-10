@@ -268,7 +268,7 @@ function interrupt(): void {
  * The thread rather than a toast because it is the companion talking, and a
  * spoken sentence with no written copy is one a user cannot re-read.
  */
-function reportVoiceError(text: string): void {
+export function reportVoiceError(text: string): void {
   nextTranscriptSink = null;
   useCompanionStore.getState().addTurn({ role: 'companion', text, spoken: true });
   void companionTtsSpeaker.speak(text);
@@ -315,7 +315,7 @@ async function micPressStart(): Promise<void> {
     await startRecording();
   } catch (error) {
     useCompanionStore.getState().send('interrupt');
-    reportVoiceError(await recorderFailureText(error));
+    reportVoiceError(await describeMicFailure(error));
     return;
   } finally {
     captureStarting = false;
@@ -332,7 +332,7 @@ async function micPressStart(): Promise<void> {
  * macOS's own verdict first (`micDeniedMessage`), because "allow it in System
  * Settings" is only true when macOS is the side that refused.
  */
-async function recorderFailureText(error: unknown): Promise<string> {
+export async function describeMicFailure(error: unknown): Promise<string> {
   if (!(error instanceof RecorderError)) return recorderErrorMessage('failed');
   if (error.kind !== 'denied') return error.message;
   let access: MicrophoneAccess | undefined;

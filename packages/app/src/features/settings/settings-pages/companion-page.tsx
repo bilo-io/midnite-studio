@@ -90,6 +90,10 @@ export function CompanionPage() {
   const setCompanionMicMode = useUiStore((s) => s.setCompanionMicMode);
   const companionSttEngine = useUiStore((s) => s.companionSttEngine);
   const setCompanionSttEngine = useUiStore((s) => s.setCompanionSttEngine);
+  const voiceConversation = useUiStore((s) => s.voiceConversation);
+  const setVoiceConversation = useUiStore((s) => s.setVoiceConversation);
+  const voiceConversationTrigger = useUiStore((s) => s.voiceConversationTrigger);
+  const setVoiceConversationTrigger = useUiStore((s) => s.setVoiceConversationTrigger);
 
   const [showAllVoices, setShowAllVoices] = useState(false);
   const voices = useSpeechVoices();
@@ -394,6 +398,35 @@ export function CompanionPage() {
             options={[
               ['push', 'Hold to talk', 'Records while the mic button (or Space) is held down'],
               ['toggle', 'Tap to toggle', 'One tap starts recording, the next one stops it'],
+            ]}
+          />
+
+          {/*
+            Two persisted keys behind one three-way choice: Manual is
+            `voiceConversation` off; the other two turn it on with a trigger.
+            The composer's own toggle flips the same switch and keeps the
+            trigger, so it returns to whichever of the two was picked here.
+          */}
+          <Choice<'manual' | 'always' | 'wake'>
+            label="Conversation mode"
+            hint="Also the speech-bubble button beside every composer's mic. Choosing a mode here doesn't open the mic — click the mic (or that button) in a composer to start listening. Every phrase is transcribed to find the ones to send, so with an OpenAI key, every phrase is a paid request."
+            value={voiceConversation ? voiceConversationTrigger : 'manual'}
+            onChange={(mode) => {
+              if (mode === 'manual') {
+                setVoiceConversation(false);
+                return;
+              }
+              setVoiceConversationTrigger(mode);
+              setVoiceConversation(true);
+            }}
+            options={[
+              ['manual', 'Manual', 'Hold (or tap) the mic for each phrase; the text is left in the box for you to send'],
+              ['always', 'Always on', 'The mic stays open; each phrase is sent as soon as you pause'],
+              [
+                'wake',
+                'Wake word',
+                `The mic stays open, but only phrases starting with its name are sent — “${companionNames[0] ?? 'Companion'}, open the pull request”. Say the name on its own and the next phrase is the command`,
+              ],
             ]}
           />
 

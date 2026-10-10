@@ -2801,6 +2801,55 @@ export function matchesCompanionName(text: string, names: readonly string[]): bo
 }
 
 /**
+ * What starts a conversation-mode turn (Settings ▸ Companion ▸ Microphone).
+ * `always`: every phrase the open mic hears is sent. `wake`: only a phrase
+ * that begins with one of `companionNames` — the wake word — is acted on.
+ */
+export const VOICE_CONVERSATION_TRIGGERS = ['always', 'wake'] as const;
+export type VoiceConversationTrigger = (typeof VOICE_CONVERSATION_TRIGGERS)[number];
+
+/** Openers a wake word may follow: "hey Companion", "ok Companion". */
+const WAKE_OPENERS = ['hey', 'hi', 'hello', 'ok', 'okay', 'yo'];
+/** What may sit between an opener, the name and the command: spaces and the punctuation STT adds, dashes included. */
+const WAKE_SEPARATORS = '[\\s,.!?:;\\-\\u2013\\u2014]';
+
+export type WakePhrase =
+  | { woke: false }
+  /** `command` is what followed the name — `''` when the name was said on its own. */
+  | { woke: true; command: string };
+
+/**
+ * Was this phrase addressed to the companion, and what was asked?
+ *
+ * The wake word is any of the user's `companionNames`, at the **start** of
+ * the phrase (after an optional "hey"/"ok"), as a whole word — the same
+ * whole-word, case-insensitive rule as {@link matchesCompanionName}, which
+ * deliberately matches anywhere and so cannot be used here: "I told the
+ * companion yesterday" mentions the name without saying it to anybody.
+ * Punctuation an STT engine puts around a spoken name ("Hey, Companion.
+ * Open the pull request.") is skipped, and the longest matching name wins,
+ * so "Mo" never claims "Mo Salah, …" from a user who has both.
+ */
+export function parseWakePhrase(text: string, names: readonly string[]): WakePhrase {
+  const trimmed = text.trim();
+  if (trimmed === '') return { woke: false };
+  const candidates = names
+    .map((name) => name.trim())
+    .filter((name) => name !== '')
+    .sort((a, b) => b.length - a.length);
+  const openers = WAKE_OPENERS.join('|');
+  for (const name of candidates) {
+    const pattern = new RegExp(
+      `^(?:(?:${openers})${WAKE_SEPARATORS}+)?${escapeNameForRegExp(name)}\\b${WAKE_SEPARATORS}*([\\s\\S]*)$`,
+      'i',
+    );
+    const match = pattern.exec(trimmed);
+    if (match) return { woke: true, command: (match[1] ?? '').trim() };
+  }
+  return { woke: false };
+}
+
+/**
  * What the companion calls the user — Ad Hoc: "What it calls you" gained the
  * same closable-pill design `companionNames` already has ("What you call
  * it"), one step lighter. **No `.min(1)`** here, unlike

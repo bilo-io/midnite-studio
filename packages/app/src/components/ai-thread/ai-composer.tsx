@@ -6,9 +6,10 @@ import {
   type ReactNode,
   type Ref,
 } from 'react';
-import { LuMic, LuMicOff, LuSendHorizontal, LuSquare } from 'react-icons/lu';
+import { LuMic, LuMicOff, LuSendHorizontal, LuSpeech, LuSquare } from 'react-icons/lu';
 
 import { useMicLevelBars, type LevelBars } from '../../features/companion/audio/waveform';
+import { useUiStore } from '../../store/ui-store';
 import { GRADIENT_FIELD_CLASSES } from '../gradient-field';
 import { Tooltip } from '../tooltip';
 import type { ComposerMic } from './use-composer-mic';
@@ -32,6 +33,25 @@ export function LevelMeterBars({ bars, label, testId }: { bars: LevelBars; label
 function MicMeter({ testId }: { testId: string }) {
   const bars = useMicLevelBars(true);
   return <LevelMeterBars bars={bars} label="Microphone level" testId={testId} />;
+}
+
+/** The mic button's tooltip, in whichever mode it is in. */
+function micTooltip(mic: ComposerMic, wakeName: string | null): string {
+  if (!mic.available) return mic.reason;
+  if (!mic.conversation) return mic.held ? 'Listening — release to send' : 'Hold to talk';
+  if (!mic.listening) return 'Start listening';
+  if (mic.armed) return 'Listening for your command…';
+  return wakeName === null
+    ? 'Listening — each pause sends what you said. Click to stop'
+    : `Listening for “${wakeName}” — say “${wakeName}, …” to send. Click to stop`;
+}
+
+/** The conversation-mode toggle's tooltip. */
+function conversationTooltip(on: boolean, wakeName: string | null): string {
+  if (!on) return 'Conversation mode — talk hands-free; each phrase is sent when you pause';
+  return wakeName === null
+    ? 'Conversation mode on — every phrase is sent. Click for manual'
+    : `Conversation mode on — phrases starting “${wakeName}” are sent. Click for manual`;
 }
 
 /**
@@ -147,6 +167,32 @@ export function AiComposer({
     if (inner.current) onCaretChange?.(inner.current.selectionStart);
   };
 
+  /*
+    Conversation mode's send. The phrase and the bump to `autoSendSeq` land in
+    the same render (the hook updates both in one tick), so by the time this
+    runs `value` already holds the text and `canSend` reflects it. A turn that
+    cannot be sent yet — a reply still streaming, the companion mid-turn — is
+    sent as soon as it can be, which is what a spoken reply to a reply means.
+    Leaving conversation mode drops a pending send rather than firing it later.
+  */
+  const sentSeq = useRef(mic?.autoSendSeq ?? 0);
+  const autoSendSeq = mic?.autoSendSeq ?? 0;
+  useEffect(() => {
+    if (autoSendSeq === sentSeq.current) return;
+    if (!mic?.conversation) {
+      sentSeq.current = autoSendSeq;
+      return;
+    }
+    if (!canSend) return;
+    sentSeq.current = autoSendSeq;
+    onSend();
+  });
+
+  // The name a wake-word phrase starts with, for the tooltips; `null` under the `always` trigger.
+  const wakeName = useUiStore((state) =>
+    state.voiceConversationTrigger === 'wake' ? (state.companionNames[0] ?? null) : null,
+  );
+
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     onKeyDown?.(event);
     if (event.defaultPrevented) return;
@@ -204,24 +250,50 @@ export function AiComposer({
             extras (attach, speech toggle) bottom-left, Send alone bottom-right.
           */}
           <div className="flex items-center gap-0.5 px-1 pb-1" data-testid={`${testIdPrefix}-controls`}>
-            {mic?.held ? <MicMeter testId={`${testIdPrefix}-level-meter`} /> : leading}
+            {mic?.held || mic?.listening ? <MicMeter testId={`${testIdPrefix}-level-meter`} /> : leading}
             {mic ? (
-              <Tooltip label={mic.available ? (mic.held ? 'Listening — release to send' : 'Hold to talk') : mic.reason}>
+              <Tooltip label={micTooltip(mic, wakeName)}>
                 <button
                   type="button"
-                  aria-label="Hold to talk"
+                  aria-label={mic.conversation ? (mic.listening ? 'Stop listening' : 'Start listening') : 'Hold to talk'}
+                  aria-pressed={mic.conversation ? Boolean(mic.listening) : undefined}
                   aria-disabled={mic.available ? undefined : true}
                   data-testid={`${testIdPrefix}-mic`}
+                  data-listening={mic.listening ? 'true' : undefined}
                   onPointerDown={mic.pressStart}
                   className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
                     mic.available
-                      ? mic.held
-                        ? 'bg-primary/15 text-primary'
+                      ? mic.held || mic.listening
+                        ? `bg-primary/15 text-primary ${mic.armed ? 'animate-pulse' : ''}`
                         : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       : 'cursor-default text-muted-foreground/40'
                   }`}
                 >
                   {mic.available ? <LuMic aria-hidden className="h-3.5 w-3.5" /> : <LuMicOff aria-hidden className="h-3.5 w-3.5" />}
+                </button>
+              </Tooltip>
+            ) : null}
+            {mic?.toggleConversation ? (
+              <Tooltip label={conversationTooltip(Boolean(mic.conversation), wakeName)}>
+                <button
+                  type="button"
+                  aria-label="Conversation mode"
+                  aria-pressed={Boolean(mic.conversation)}
+                  // Turning it on needs a working mic; turning it off never does.
+                  aria-disabled={mic.available || mic.conversation ? undefined : true}
+                  data-testid={`${testIdPrefix}-conversation`}
+                  onClick={() => {
+                    if (mic.available || mic.conversation) mic.toggleConversation?.();
+                  }}
+                  className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+                    mic.conversation
+                      ? 'bg-primary/15 text-primary'
+                      : mic.available
+                        ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        : 'cursor-default text-muted-foreground/40'
+                  }`}
+                >
+                  <LuSpeech aria-hidden className="h-3.5 w-3.5" />
                 </button>
               </Tooltip>
             ) : null}
