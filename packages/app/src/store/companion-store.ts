@@ -65,6 +65,8 @@ export type PendingCommandAction = {
  * the same "yes" / Return / Run chip. `handoff.ts`'s `resolvePending` calls
  * `onConfirm` *before* clearing the slot, so the asker can tell a yes from a
  * dismissal, and speaks whatever sentence it returns (`null`: nothing).
+ * Theme G's voice asks through it too — "Delete the Narrator profile?", "Save
+ * over the Narrator profile?" — with an `onConfirm` that does it and says so.
  */
 export type PendingExternalAction = {
   kind?: undefined;
