@@ -1,5 +1,8 @@
 import { afterEach } from 'vitest';
 
+import { useBoardSelectionStore } from './features/tasks/board-selection-store';
+import { useWorkflowRevealStore } from './store/workflow-reveal-store';
+
 /**
  * jsdom environment gap-filling for every component test in this package.
  *
@@ -195,6 +198,18 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 
 afterEach(() => {
   resizeObserverRect = DEFAULT_RESIZE_OBSERVER_RECT;
+});
+
+/**
+ * Phase 112 Theme D lifted two selections out of component `useState` into
+ * stores (the open workflow, the open kanban card) so a reveal can set them
+ * before the view mounts. A store outlives a test's unmount where the local
+ * state did not, so reset them here and every view suite keeps starting from
+ * the same blank selection it always did.
+ */
+afterEach(() => {
+  useBoardSelectionStore.setState({ selected: null, revealNonce: 0 });
+  useWorkflowRevealStore.setState({ selectedId: null, pending: null });
 });
 
 // --- matchMedia ----------------------------------------------------------

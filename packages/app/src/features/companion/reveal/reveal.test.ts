@@ -5,6 +5,7 @@ import { RESOURCE_KINDS, type ResourceRef } from '@midnite/studio-shared';
 import type { NavigationState } from '../navigate';
 import { revealResource, revealSay, type RevealDeps } from './reveal';
 import { REVEALERS } from './revealers';
+import { unavailableRevealer } from './revealers/stub';
 import { REVEAL_HISTORY_LIMIT, lastRevealed, useRevealHistory } from './reveal-history';
 import type { RevealOutcome, RevealerTable } from './types';
 
@@ -166,10 +167,15 @@ describe('revealResource — the plan', () => {
   });
 });
 
-describe('the stub table (Theme B lands every kind as unavailable)', () => {
-  it.each([COMMIT, CHAT, BROWSER])('$kind says it cannot pick the thing out yet', async (ref) => {
+describe('the stub revealer (what a kind with no opener yet answers)', () => {
+  // Themes C and D replaced the git and agent stubs; the stub itself is still
+  // the placeholder for any kind added without an opener.
+  it.each([COMMIT, CHAT])('$kind says it cannot pick the thing out yet', async (ref) => {
     const { deps } = makeDeps();
-    deps.revealers = REVEALERS;
+    deps.revealers = {
+      ...deps.revealers,
+      [ref.kind]: unavailableRevealer(ref.kind === 'commit' ? 'graph' : 'chats'),
+    } as RevealerTable;
     const outcome = await revealResource(ref, { caller: 'companion' }, deps);
     expect(outcome).toMatchObject({ ok: false, reason: 'unavailable' });
     expect(revealSay(outcome)).toMatch(/^I can't pick out .+ yet\.$/);

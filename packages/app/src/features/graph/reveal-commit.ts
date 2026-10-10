@@ -43,11 +43,11 @@ type Wait = 'found' | 'settled' | 'timeout';
  */
 function waitForRow(repoId: string, sha: string, timeoutMs: number, after: string | null): Promise<Wait> {
   return new Promise((resolve) => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let unsubscribe: (() => void) | undefined;
+    const timer: { id?: ReturnType<typeof setTimeout> } = {};
+    const subscription: { off?: () => void } = {};
     const done = (outcome: Wait) => {
-      if (timer !== undefined) clearTimeout(timer);
-      unsubscribe?.();
+      if (timer.id !== undefined) clearTimeout(timer.id);
+      subscription.off?.();
       resolve(outcome);
     };
     const check = (): boolean => {
@@ -64,10 +64,10 @@ function waitForRow(repoId: string, sha: string, timeoutMs: number, after: strin
       return false;
     };
     if (check()) return;
-    unsubscribe = useGraphStore.subscribe(() => {
+    subscription.off = useGraphStore.subscribe(() => {
       check();
     });
-    timer = setTimeout(() => done('timeout'), timeoutMs);
+    timer.id = setTimeout(() => done('timeout'), timeoutMs);
   });
 }
 

@@ -111,7 +111,7 @@ export function WorkflowsView() {
     if (!revealPending) return;
     if (!workflows.data?.some((workflow) => workflow.id === revealPending.workflowId)) return;
     setSelectedId(revealPending.workflowId);
-  }, [revealPending, workflows.data]);
+  }, [revealPending, workflows.data, setSelectedId]);
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
