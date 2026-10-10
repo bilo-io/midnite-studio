@@ -11,6 +11,7 @@ import {
 } from './domain';
 import { isCommandId } from './keybindings';
 import { parseConventionalCommit } from './version';
+import { resolveAgentAndModel } from './ai-models';
 
 /**
  * The companion (Phase 79) — its state machine, the words it says, and the
@@ -2535,6 +2536,19 @@ export const CompanionVocabularySchema = z.object({
    * rather than cached with the rest, since saving one changes it.
    */
   profiles: z.array(z.string()).optional(),
+  /**
+   * Available agents and models for the router prompt (Phase 111 Theme B).
+   * Optional so older vocabularies and fixtures without agents still parse cleanly.
+   */
+  agents: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        models: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
 });
 export type CompanionVocabulary = z.infer<typeof CompanionVocabularySchema>;
 
@@ -2841,6 +2855,15 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
    * for out loud — refused, with an offer to open Settings ▸ Companion.
    */
   z.object({ kind: z.literal('pageOnlySetting'), key: z.enum(COMPANION_PAGE_ONLY_SETTING_KEYS) }),
+  /**
+   * "Switch to Claude Opus." "Use Codex." "Set model to haiku." (Phase 111 Theme B.)
+   * Changes the active primary agent and optional model.
+   */
+  z.object({
+    kind: z.literal('switchAgent'),
+    agentId: z.string(),
+    modelId: z.string().nullable().optional(),
+  }),
   z.object({ kind: z.literal('freeform'), text: z.string() }),
 ]).superRefine((intent, ctx) => {
   if (intent.kind !== 'setting') return;
@@ -3033,6 +3056,11 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     const voice = tryBareVoiceSwitch(settingsCore(bare));
     if (voice) return voice;
   }
+
+  // Phase 111 Theme B: Switch agent or model by natural phrasing.
+  // Runs before repo switch fallback, and validates against known agents / models via resolveAgentAndModel.
+  const agentSwitch = trySwitchAgent(settingsCore(bare));
+  if (agentSwitch) return agentSwitch;
 
   const switchTo =
     /\b(?:switch|change|move|go|hop)\s+(?:over\s+)?to\s+(?:the\s+)?(.+)$/i.exec(bare) ??
@@ -3430,6 +3458,95 @@ function tryProfilePhrase(core: string, profiles: readonly string[]): ProfileInt
   if (match) {
     const name = knownProfileName(match[1] as string, profiles);
     if (name !== null) return { kind: 'profile', op: 'switch', name };
+  }
+
+  return null;
+}
+
+type SwitchAgentIntent = Extract<CompanionIntent, { kind: 'switchAgent' }>;
+
+/**
+ * Phase 111 Theme B: Matches natural phrases for switching agents and models.
+ * Examples:
+ * - "switch to <agent>", "use <agent>", "switch primary agent to <agent>"
+ * - "use <agent> with <model>", "switch to <agent> with <model>"
+ * - "change model to <model>", "set model to <model>", "use model <model>"
+ */
+function trySwitchAgent(core: string): SwitchAgentIntent | null {
+  if (core === '') return null;
+
+  // 1. Agent + Model: "use <agent> with <model>", "switch to <agent> with <model>", "set agent to <agent> with model <model>"
+  const withModelMatch =
+    /^(?:switch|change|set)\s+(?:(?:over\s+)?to|primary\s+agent\s+to|agent\s+to)?\s*(.+?)\s+with\s+(?:model\s+)?(.+)$/i.exec(core) ??
+    /^(?:use|pick|choose)\s+(.+?)\s+with\s+(?:model\s+)?(.+)$/i.exec(core);
+
+  if (withModelMatch) {
+    const rawAgent = (withModelMatch[1] as string).replace(/^(?:the\s+agent\s+|the\s+|agent\s+)/i, '').trim();
+    const rawModel = (withModelMatch[2] as string).replace(/^(?:the\s+model\s+|model\s+|the\s+)/i, '').trim();
+    const resolved = resolveAgentAndModel(rawAgent, rawModel);
+    if (!('error' in resolved)) {
+      return {
+        kind: 'switchAgent',
+        agentId: resolved.agentId,
+        modelId: resolved.modelId,
+      };
+    }
+  }
+
+  // 2. Model-only phrasing: "change model to <model>", "set model to <model>", "use model <model>", "switch model to <model>"
+  const modelOnlyMatch =
+    /^(?:change|set|switch)\s+(?:my\s+|the\s+)?model\s+to\s+(.+)$/i.exec(core) ??
+    /^(?:use|try|pick|choose)\s+model\s+(.+)$/i.exec(core);
+
+  if (modelOnlyMatch) {
+    const rawModel = (modelOnlyMatch[1] as string).trim();
+    // Resolving model-only: search known models across all agents, preferring the model match
+    const candidateAgents = ['claude', 'codex', 'agy', 'cursor', 'ollama'];
+    for (const agentId of candidateAgents) {
+      const resolved = resolveAgentAndModel(agentId, rawModel);
+      if (!('error' in resolved) && resolved.modelId !== null) {
+        return {
+          kind: 'switchAgent',
+          agentId: resolved.agentId,
+          modelId: resolved.modelId,
+        };
+      }
+    }
+  }
+
+  // 3. Agent-only or composite phrasing:
+  // "switch to <agent>", "use <agent>", "switch primary agent to <agent>", "set agent to <agent>"
+  const agentMatch =
+    /^(?:switch|change)\s+(?:primary\s+agent\s+to|agent\s+to|(?:over\s+)?to\s+primary\s+agent|(?:over\s+)?to\s+agent|(?:over\s+)?to)\s+(.+)$/i.exec(core) ??
+    /^(?:set)\s+(?:primary\s+agent|agent)\s+to\s+(.+)$/i.exec(core) ??
+    /^(?:use|pick|choose)\s+(?:primary\s+agent\s+|agent\s+)?(.+)$/i.exec(core);
+
+  if (agentMatch) {
+    const target = (agentMatch[1] as string).replace(/^(?:the\s+agent\s+|the\s+|agent\s+)/i, '').trim();
+    // Check if target is composite like "claude opus" or "claude sonnet 5.5"
+    const words = target.split(/\s+/);
+    if (words.length > 1) {
+      const firstWord = words[0] as string;
+      const rest = words.slice(1).join(' ');
+      const resComposite = resolveAgentAndModel(firstWord, rest);
+      if (!('error' in resComposite)) {
+        return {
+          kind: 'switchAgent',
+          agentId: resComposite.agentId,
+          modelId: resComposite.modelId,
+        };
+      }
+    }
+
+    // Try target as agent name alone
+    const resAgent = resolveAgentAndModel(target);
+    if (!('error' in resAgent)) {
+      return {
+        kind: 'switchAgent',
+        agentId: resAgent.agentId,
+        modelId: resAgent.modelId,
+      };
+    }
   }
 
   return null;

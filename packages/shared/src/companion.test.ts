@@ -1262,6 +1262,119 @@ describe('parseIntent — confirm and help (Theme A, with a vocabulary)', () => 
   });
 });
 
+describe('parseIntent — switchAgent (Phase 111 Theme B)', () => {
+  it('parses agent-only phrases', () => {
+    expect(parseIntent('switch to claude')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: null,
+    });
+    expect(parseIntent('switch to codex')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: null,
+    });
+    expect(parseIntent('use antigravity')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'agy',
+      modelId: null,
+    });
+    expect(parseIntent('switch primary agent to claude code')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: null,
+    });
+    expect(parseIntent('set agent to gemini')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'agy',
+      modelId: null,
+    });
+  });
+
+  it('parses agent with model phrases', () => {
+    expect(parseIntent('use claude with model haiku')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'haiku-4-5',
+    });
+    expect(parseIntent('switch to claude with sonnet 5.5')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'sonnet-5-5',
+    });
+    expect(parseIntent('switch to claude with opus')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'opus-5',
+    });
+    expect(parseIntent('use codex with gpt-5-mini')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: 'gpt-5-mini',
+    });
+  });
+
+  it('parses composite agent and model phrases', () => {
+    expect(parseIntent('switch to claude opus')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'opus-5',
+    });
+    expect(parseIntent('use claude sonnet 5.5')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'sonnet-5-5',
+    });
+    expect(parseIntent('switch to claude haiku')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'haiku-4-5',
+    });
+  });
+
+  it('parses model-only phrases', () => {
+    expect(parseIntent('change model to haiku')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'haiku-4-5',
+    });
+    expect(parseIntent('set model to sonnet 5.5')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'sonnet-5-5',
+    });
+    expect(parseIntent('use model gpt-5-mini')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: 'gpt-5-mini',
+    });
+  });
+
+  it('handles case insensitivity and spoken aliases', () => {
+    expect(parseIntent('SWITCH TO CLAUDE')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: null,
+    });
+    expect(parseIntent('use OpenAI')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: null,
+    });
+  });
+
+  it('falls back to freeform for unrecognized phrases', () => {
+    expect(parseIntent('switch primary agent to unknown-agent-xyz')).toEqual({
+      kind: 'freeform',
+      text: 'switch primary agent to unknown-agent-xyz',
+    });
+    expect(parseIntent('use imaginary-agent-abc')).toEqual({
+      kind: 'freeform',
+      text: 'use imaginary-agent-abc',
+    });
+  });
+});
+
 describe('CompanionIntentSchema', () => {
   it('round-trips every arm parseIntent can produce', () => {
     for (const text of [
@@ -1665,6 +1778,32 @@ describe('parseAskReply', () => {
       expect(
         parseAskReply('{"say":"ok","intent":{"kind":"navigate","view":"not-a-view"}}'),
       ).toBeNull();
+    });
+
+    it('reads a switchAgent intent (Phase 111 Theme B)', () => {
+      expect(
+        parseAskReply(
+          '{"say":"Switching to Claude Opus.","intent":{"kind":"switchAgent","agentId":"claude","modelId":"opus-5"}}',
+        ),
+      ).toEqual({
+        say: 'Switching to Claude Opus.',
+        intent: {
+          kind: 'switchAgent',
+          agentId: 'claude',
+          modelId: 'opus-5',
+        },
+      });
+      expect(
+        parseAskReply(
+          '{"say":"Switching to Codex.","intent":{"kind":"switchAgent","agentId":"codex"}}',
+        ),
+      ).toEqual({
+        say: 'Switching to Codex.',
+        intent: {
+          kind: 'switchAgent',
+          agentId: 'codex',
+        },
+      });
     });
   });
 });
