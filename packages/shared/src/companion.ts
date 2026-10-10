@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import { cleanPtyText } from './ansi';
 import {
+  COMPANION_AUDITION_ACCENTS,
+  COMPANION_AUDITION_GENDERS,
+  matchAuditionPhrase,
+} from './companion-audition';
+import {
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
   RepoDescriptorSchema,
@@ -2864,6 +2869,16 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
     agentId: z.string(),
     modelId: z.string().nullable().optional(),
   }),
+  /**
+   * "Try some voices." "Audition British voices." "Let me hear female
+   * voices." (Phase 109 Theme F.) Plays three or four numbered samples and
+   * waits for "number two"; both filters are optional.
+   */
+  z.object({
+    kind: z.literal('audition'),
+    accent: z.enum(COMPANION_AUDITION_ACCENTS).optional(),
+    gender: z.enum(COMPANION_AUDITION_GENDERS).optional(),
+  }),
   z.object({ kind: z.literal('freeform'), text: z.string() }),
 ]).superRefine((intent, ctx) => {
   if (intent.kind !== 'setting') return;
@@ -3029,6 +3044,11 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     // switch when Narrator is a saved profile, which is a name the user chose.
     const profile = tryProfilePhrase(settingsCore(bare), vocabulary.profiles ?? []);
     if (profile) return profile;
+
+    // Phase 109 Theme F. "Try some British voices" — anchored, and it has to
+    // end in "voice(s)", so "try Bella" and "use voice Bella" stay changes.
+    const audition = matchAuditionPhrase(bare);
+    if (audition) return { kind: 'audition', ...audition };
 
     // Phase 109 Theme E, then C. Settings phrases are anchored whole-line
     // patterns, so they run before `navigate`: "switch to web speech" would

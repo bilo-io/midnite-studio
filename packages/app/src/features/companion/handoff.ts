@@ -23,6 +23,13 @@ import {
 
 import { overlayDepth } from '../../components/dialog-host';
 import type { PendingAction } from '../../store/companion-store';
+import {
+  continueAudition,
+  resetAuditionState,
+  startAudition,
+  type AuditionDeps,
+  type AuditionPort,
+} from './audition';
 import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
 import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
@@ -142,6 +149,8 @@ export type CompanionSettingsPort = {
   systemVoices: () => readonly { uri: string; name: string; lang?: string }[];
   /** Persona profiles (Phase 109 Theme G): save, switch, delete and list — `profiles.ts` behind a port. */
   profiles: CompanionProfilesPort;
+  /** The voice audition's samples (Phase 109 Theme F): is the local model there, and play one voice. */
+  audition: AuditionPort;
   /**
    * The speaker to read back with once the write has landed — "speak out
    * loud" turns speech on mid-turn, after this turn's `deps.speaker` was
@@ -185,6 +194,7 @@ export const VOICE_CHOICE_MEMORY_MS = 60 * 1000;
 export function resetHandoffState(): void {
   declined = null;
   voiceChoice = null;
+  resetAuditionState();
 }
 
 /**
@@ -199,6 +209,9 @@ export async function submitInput(text: string, deps: HandoffDeps): Promise<void
   if (trimmed === '') return;
 
   deps.store.addTurn({ role: 'user', text: trimmed, spoken: false });
+
+  // Phase 109 Theme F: mid-audition, "number two" is a reply, not a request.
+  if (await continueAudition(trimmed, auditionDeps(deps))) return;
 
   const chosen = takeVoiceChoice(trimmed);
   if (chosen) {
@@ -305,6 +318,10 @@ async function act(
 
     case 'pageOnlySetting':
       return offerSettingsPage(deps);
+
+    // Phase 109 Theme F — "try some British voices", in `audition.ts`.
+    case 'audition':
+      return startAudition(intent, auditionDeps(deps));
 
     case 'freeform':
       return route(intent.text || original, deps, depth);
@@ -798,6 +815,11 @@ async function applySetting(change: CompanionSettingChange, deps: HandoffDeps): 
   // Switching the offer off also ends whatever is playing now: "turn elevator
   // music off" said over the music means both.
   if (result.key === 'companionMusicOffer' && result.next === false) deps.onMusic?.(false);
+}
+
+/** The audition's deps: these, plus the tiered setter for the pick (Phase 109 Theme F). */
+function auditionDeps(deps: HandoffDeps): AuditionDeps {
+  return { ...deps, pick: (change) => proposeSetting(change, deps) };
 }
 
 /**

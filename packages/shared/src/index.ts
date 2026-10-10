@@ -15,6 +15,7 @@ export * from './ansi';
 export * from './automate';
 export * from './chats';
 export * from './companion';
+export * from './companion-audition';
 export * from './companion-profiles';
 export * from './companion-mcp';
 export * from './council';
