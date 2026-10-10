@@ -323,3 +323,96 @@ export function classifyTuneReply(text: string): CompanionTuneReplyKind {
   if (no && TUNE_REPLY_WORDS.no.includes(no[1] as string)) return 'no';
   return 'answer';
 }
+
+// --- the spoken grammar -------------------------------------------------------
+
+/**
+ * A line with the asking taken off both ends — "okay, could you tune yourself
+ * please" is "tune yourself". Lower-cased: nothing these phrases capture is
+ * stored as said except a tweak, which is an instruction to a CLI, not a name.
+ */
+function tuneCore(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/\s*,\s*/g, ' ')
+    .replace(/[.!?;:]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(
+      /^(?:(?:please|ok|okay|hey|so|and|right|alright|now|can\s+you|could\s+you|would\s+you|will\s+you|i\s+want\s+you\s+to|i'?d\s+like\s+you\s+to|i\s+need\s+you\s+to|try\s+to)\s+)+/,
+      '',
+    )
+    .replace(/(?:\s+(?:please|thanks|thank\s+you|for\s+me|from\s+now\s+on))+$/, '')
+    .trim();
+}
+
+/** "tune yourself", and whisper's "june your self". */
+const TUNE_VERB = String.raw`(?:change|tune|june|toon|adjust|update|redo|rewrite|set\s+up|work\s+on|edit|tweak|customi[sz]e|personali[sz]e)`;
+
+const TUNE_PERSONALITY: readonly RegExp[] = [
+  new RegExp(
+    String.raw`^(?:let'?s\s+|let\s+us\s+|i\s+want\s+to\s+|i'?d\s+like\s+to\s+|can\s+we\s+|could\s+we\s+|help\s+me\s+)?${TUNE_VERB}\s+(?:your|the\s+companion'?s|the)\s+personalit(?:y|ies)(?:\s+(?:settings|notes))?$`,
+  ),
+  /^(?:let'?s\s+)?(?:tune|june|toon|adjust|customi[sz]e)\s+(?:your\s*self|you)(?:\s+up)?$/,
+  /^(?:a\s+)?personality\s+interview$/,
+  /^(?:interview|quiz)\s+me\s+about\s+your\s+personality$/,
+  /^(?:give\s+yourself|get|have)\s+a\s+new\s+personality$/,
+  /^(?:change|work\s+on)\s+how\s+you\s+(?:talk|sound|behave|come\s+across)$/,
+];
+
+const TUNE_ABOUT_ME: readonly RegExp[] = [
+  /^(?:let\s+me|i\s+want\s+to|i'?d\s+like\s+to|can\s+i)\s+tell\s+you\s+(?:(?:a\s+bit|a\s+little|more|something|some\s+things)\s+)?(?:about\s+(?:me|myself)|who\s+i\s+am)$/,
+  /^(?:change|update|set\s+up|edit|redo|tune|fix|rewrite)\s+(?:my\s+|the\s+)?about[\s-]+me(?:\s+(?:section|notes|settings))?$/,
+  /^(?:change|update|redo)\s+what\s+you\s+know\s+about\s+me$/,
+  /^get\s+to\s+know\s+me(?:\s+(?:better|a\s+bit|a\s+little))?$/,
+  /^learn\s+(?:about\s+me|who\s+i\s+am)$/,
+  /^interview\s+me$/,
+];
+
+/**
+ * "Tune yourself", "let's change your personality", "let me tell you about
+ * me" — the target an interview should write, or `null`. Anchored to the
+ * whole line, so a sentence that only mentions a personality goes on to the
+ * router instead.
+ */
+export function matchTunePhrase(text: string): CompanionTuneTarget | null {
+  const core = tuneCore(text);
+  if (TUNE_PERSONALITY.some((pattern) => pattern.test(core))) return 'companionPersonality';
+  if (TUNE_ABOUT_ME.some((pattern) => pattern.test(core))) return 'companionAboutUser';
+  return null;
+}
+
+/** One to three words after "more"/"less" — "sarcastic", "to the point". */
+const QUALITY = String.raw`[a-z'-]+(?:\s+[a-z'-]+){0,2}`;
+const DEGREE = String.raw`(?:(?:a\s+(?:bit|little|tad|lot)|much|way|slightly|even|lots)\s+)?`;
+
+const TWEAK: readonly RegExp[] = [
+  // "be less loud" is the volume's, left for the router to read as one.
+  new RegExp(
+    String.raw`^(?:be|sound|act|make\s+yourself)\s+${DEGREE}(?:more|less)\s+(?!(?:loud|quiet|soft)$)${QUALITY}$`,
+  ),
+  // "be funnier", "be nicer" — but "be louder/quieter/softer" is the volume, not a personality.
+  new RegExp(String.raw`^be\s+${DEGREE}(?!(?:louder|quieter|softer)$)[a-z]+(?:ier|er)$`),
+  // Not "talk more about the release" — only a manner may follow.
+  new RegExp(
+    String.raw`^(?:talk|speak|say)\s+${DEGREE}(?:less|more)(?:\s+(?:slowly|plainly|simply|casually|formally|often|politely))?$`,
+  ),
+  /^(?:stop|quit)\s+being\s+(?:so\s+)?[a-z'-]+(?:\s+[a-z'-]+){0,2}$/,
+  /^(?:don'?t|do\s+not)\s+be\s+(?:so\s+)?[a-z'-]+(?:\s+[a-z'-]+){0,2}$/,
+  /^(?:stop|quit)\s+(?:joking|swearing|apologi[sz]ing|rambling|waffling|lecturing|hedging|using\s+(?:jargon|emojis?|slang|big\s+words))(?:\s+(?:so\s+much|around|all\s+the\s+time))?$/,
+  /^(?:no|fewer|less|more)\s+(?:jokes|jargon|emojis?|small\s+talk|puns|waffle|waffling|chit[\s-]?chat|sarcasm|enthusiasm)$/,
+  /^(?:tone\s+it\s+down|lighten\s+up|cheer\s+up|calm\s+down|get\s+to\s+the\s+point|keep\s+it\s+(?:short|brief|simple|snappy)|be\s+(?:brief|concise|blunt|direct|terse|nice|kind|gentle|honest|casual|formal|polite)|be\s+yourself)$/,
+];
+
+/**
+ * "Be more sarcastic", "talk less", "stop being so formal" — the instruction
+ * to send the `'persona'` mode, as said, or `null`. Personality only: what
+ * the companion calls you ("don't call me boss") is the `setting` grammar's,
+ * which runs first and keeps it.
+ */
+export function matchTweakPhrase(text: string): string | null {
+  const core = tuneCore(text);
+  if (core === '' || core.length > COMPANION_TWEAK_INSTRUCTION_MAX) return null;
+  return TWEAK.some((pattern) => pattern.test(core)) ? core : null;
+}
