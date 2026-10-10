@@ -160,6 +160,29 @@ export function AiComposer({
     if (overlay.current) overlay.current.scrollTop = el.scrollTop;
   }, [value, maxTextareaHeight]);
 
+  /*
+    Spoken text lands at the end of the draft — and stays visible there. A
+    draft taller than `maxTextareaHeight` scrolls inside the field, and an
+    externally changed `value` leaves `scrollTop` wherever it was, so without
+    this a long dictation would arrive below the fold. Declared after the
+    auto-grow effect above on purpose: effects run in order, so the field has
+    its new height before it is scrolled. The caret goes to the end too, so
+    the next keystroke continues what was just said rather than landing
+    wherever the caret was before the mic was pressed.
+  */
+  const dictationSeq = mic?.dictationSeq ?? 0;
+  const seenDictation = useRef(dictationSeq);
+  useEffect(() => {
+    if (dictationSeq === seenDictation.current) return;
+    seenDictation.current = dictationSeq;
+    const el = inner.current;
+    if (!el) return;
+    const end = el.value.length;
+    el.setSelectionRange(end, end);
+    el.scrollTop = el.scrollHeight;
+    if (overlay.current) overlay.current.scrollTop = el.scrollTop;
+  }, [dictationSeq]);
+
   const syncScroll = () => {
     if (overlay.current && inner.current) overlay.current.scrollTop = inner.current.scrollTop;
   };

@@ -1,6 +1,33 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Ad hoc — What was just said scrolls into view
+
+[PR #812](https://github.com/bilo-io/midnite-studio/pull/812). Not phase-tracked. The user asked that, after they speak, the composer and the views around the
+prompt scroll to what was just entered. A survey found two gaps. Chats already handled this,
+because it forces a stick-to-bottom on a new user turn. Docs and Video already scroll on every
+message. Song chat and game iterate have no mic, Loops history lists the newest run first, and
+Image, Model and Audio have no thread.
+
+**Composer.** `AiComposer` never moved the field's scroll position or the caret when `value`
+changed from outside. Once a draft grew past `maxTextareaHeight`, dictation landed below the fold.
+`useComposerMic` now bumps a `dictationSeq` for every phrase. Push-to-talk now wraps the sink it
+hands `setNextTranscriptSink`; conversation mode bumps the counter from `deliver`. `AiComposer`
+reacts in an effect declared after the auto-grow effect, so the field has its new height first: it
+moves the caret to the end and sets `scrollTop` to `scrollHeight`. Typing never triggers it.
+
+**Companion thread.** It followed new turns only while the user was already at the bottom, and
+`scrollToIndex` aims at a row's estimated end, so a wrapped turn measured taller after rendering
+stopped short. Now a new *user* turn re-pins the thread, as Chats does, while a companion turn still
+never pulls a reader back down. While pinned, the thread also follows the virtualizer's measured
+`getTotalSize()` to the true bottom.
+
+Verified in real builds. Chromium's fake mic played a clip into a long draft scrolled to its top,
+then into a 40-turn thread scrolled to its top. In this morning's DMG (`f0a50181`), `scrollTop`
+stayed 0 of 617 and the spoken turn was never rendered. In this branch, the field scrolled to
+457 of 617, the thread came back to the bottom, and the spoken turn was on screen. Screenshots:
+`docs/screenshots/voice-autoscroll/`.
+
 ## 2026-10-10 — Ad hoc — Conversation mode: hands-free voice turns, optional wake word
 
 [PR #811](https://github.com/bilo-io/midnite-studio/pull/811). Not phase-tracked. The user asked for a second button beside every composer's mic. When on, the
