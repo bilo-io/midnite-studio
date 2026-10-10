@@ -37,7 +37,6 @@ import {
   deleteCompanionProfile,
   previewDeleteCompanionProfile,
   previewSaveCompanionProfile,
-  readCompanionProfiles,
   saveCompanionProfile,
   switchCompanionProfile,
   type CompanionProfileRefused,
