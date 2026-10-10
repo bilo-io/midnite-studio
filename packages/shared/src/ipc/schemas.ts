@@ -177,6 +177,8 @@ import {
   TestTrustStatusSchema,
   TrashSummarySchema,
   VIEW_IDS,
+  ResourceKindSchema,
+  ResourceRefSchema,
   WatchEventSchema,
   WindowDescriptorSchema,
   WindowRoleSchema,
@@ -4198,6 +4200,18 @@ export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('agentState') }),
   CompanionAgentSetInputSchema.extend({ kind: z.literal('agentSet') }),
   CompanionModelsListInputSchema.extend({ kind: z.literal('modelsList') }),
+  /*
+   * Phase 112 Theme A — reveal one resource, or find candidates for a
+   * description. Both ride `companionUiRequest`; no new channel. The MCP tools
+   * that send them (`ui.reveal`/`ui.find`) are Theme I's.
+   */
+  z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema }),
+  z.object({
+    kind: z.literal('find'),
+    query: z.string().min(1),
+    kinds: z.array(ResourceKindSchema).optional(),
+    limit: z.number().int().positive().max(20).optional(),
+  }),
 ]);
 export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
 
