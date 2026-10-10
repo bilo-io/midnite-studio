@@ -84,9 +84,15 @@ export function denyAllPermissions(session: PermissionSession): void {
 export type PermissionRequestDetails = {
   /** Present only for `media`. `['audio']`, `['video']`, or both. */
   mediaTypes?: readonly string[];
-  /** The origin asking. `file://` for the packaged bundle, the dev server's origin in dev. */
+  /**
+   * The origin asking, as a URL spec rather than a serialised origin — so
+   * `"file:///"` for the packaged bundle and `"http://localhost:5173/"` (with
+   * the slash) in dev. See {@link isAppOrigin} for the recorded shapes.
+   */
   securityOrigin?: string;
   requestingUrl?: string;
+  /** `false` for a subframe. The app's own UI only ever asks from a main frame. */
+  isMainFrame?: boolean;
 };
 
 /** What the *check* handler is told instead — one media type, not a list. */
@@ -95,33 +101,55 @@ export type PermissionCheckDetails = {
   mediaType?: string;
   securityOrigin?: string;
   requestingUrl?: string;
+  isMainFrame?: boolean;
 };
 
 /**
  * Is this origin the app's own UI?
  *
- * Two shapes, because the renderer is loaded two different ways. A packaged
- * build is `win.loadFile(...)`, whose origin is the **opaque** `file://` — the
- * same opaque origin that forces Monaco's workers to be inlined (Phase 64).
- * Chromium reports it as the literal string `"file://"` here, and as `"null"`
- * through some paths, so both are accepted. Dev is `win.loadURL(...)` against
- * Vite, whose origin is a real one and is compared exactly.
+ * Two shapes, because the renderer is loaded two different ways: a packaged
+ * build is `win.loadFile(...)`, so any `file:` URL; dev is `win.loadURL(...)`
+ * against Vite, compared by origin.
+ *
+ * **What Electron actually passes, recorded against Electron 33.4.11** with a
+ * probe that logged both handlers' arguments while a page called
+ * `getUserMedia({ audio: true })` — not what the docs imply:
+ *
+ * - `loadFile`: `"file:///"` — a URL spec, three slashes — as the request's
+ *   `securityOrigin` and the check's `requestingOrigin`, and once the full
+ *   `"file:///…/index.html"` page URL as a check's `requestingOrigin`.
+ * - `loadURL`: `"http://localhost:5173/"`, trailing slash included.
+ *
+ * This used to compare against the literal strings `"file://"`, `"file://."`
+ * and `"null"` and against the dev origin *without* its slash, which matched
+ * none of those — so this carve-out refused the app's own microphone in every
+ * build, `getUserMedia` threw `NotAllowedError`, and the companion told users
+ * to fix a System Settings switch that was already on. Parsing as a URL and
+ * comparing the parts that mean something is what makes the spelling stop
+ * mattering.
  *
  * `devServerOrigin` is injected rather than read from `process.env` in here so
  * the rule is testable without a environment, and so a packaged build can pass
  * `null` and have the dev branch be unreachable rather than merely unused.
  *
- * **`file://` being opaque is not a loophole.** A page in the browser pane can
+ * **Accepting `file:` is not a loophole.** A page in the browser pane can
  * never reach `file:` at all — `checkNavigationUrl` above refuses the scheme —
  * and the browser pane is a different session with a different handler
- * regardless. The origin check is the second lock, not the only one.
+ * regardless. The origin check is the second lock, not the only one. An
+ * opaque `"null"` origin (a sandboxed or `data:` frame) is refused: the app's
+ * own UI never has one.
  */
 export function isAppOrigin(origin: string | undefined, devServerOrigin: string | null): boolean {
   if (origin === undefined) return false;
-  const trimmed = origin.trim();
-  if (trimmed === 'file://' || trimmed === 'file://.' || trimmed === 'null') return true;
+  let parsed: URL;
+  try {
+    parsed = new URL(origin.trim());
+  } catch {
+    return false;
+  }
+  if (parsed.protocol === 'file:') return true;
   if (devServerOrigin === null) return false;
-  return trimmed === normaliseOrigin(devServerOrigin);
+  return parsed.origin === normaliseOrigin(devServerOrigin);
 }
 
 /** `http://localhost:5173/` and `http://localhost:5173` are one origin; make them one string. */
@@ -151,6 +179,7 @@ export function isAudioOnlyAppRequest(
   if (permission !== 'media' && permission !== 'audioCapture' && permission !== 'microphone') {
     return false;
   }
+  if (details?.isMainFrame === false) return false;
   if (!isAppOrigin(details?.securityOrigin, devServerOrigin)) return false;
 
   const types = details?.mediaTypes;
@@ -177,6 +206,7 @@ export function isAudioOnlyAppCheck(
   // The check handler is given the origin as its own argument; `details` also
   // carries one, and either may be the populated one depending on the caller.
   const origin = requestingOrigin.length > 0 ? requestingOrigin : (details?.securityOrigin ?? '');
+  if (details?.isMainFrame === false) return false;
   if (!isAppOrigin(origin, devServerOrigin)) return false;
 
   const mediaType = details?.mediaType;

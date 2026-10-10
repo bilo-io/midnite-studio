@@ -2,6 +2,16 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **The first mic press on a fresh install times out behind the model download.** Found in the
+  2026-10-10 ad hoc mic-permission fix. `whisper-local`'s `transcribe` awaits `ensureModel` (the
+  one-time ~100 MB download) inside `transcribeUtterance`'s 15 s deadline. `raceAbort` only wraps
+  the recognizer and the decode. So a first press during the download blocks until the download
+  finishes (41 s, measured), then reports "took longer than 15 seconds … try a shorter
+  utterance". The download itself succeeds, and the next press works. The fix is to answer at
+  once when the model isn't on disk: "still downloading, try again in a minute". That breaks
+  `sherpa-local.test.ts`'s deliberate "downloads, extracts, and transcribes on a cold first call"
+  case, so it needs its own decision.
+
 - **Phase 101 Theme H leftovers.** (1) ~~Editor does not listen to `onChanged`/`onOpen`~~ — done in Theme E: `use-song-document` applies each event as one undo step and `audio-tab` opens the requested song on the Editor tab. (2) `music_render_preview` returns the piano-roll PNG only; the optional short WAV clip from an open renderer needs Theme C's engine. (3) A registered Antigravity reaches the app's global MCP server, which does not scope a call to one song, unlike the private per-run server Claude and Codex get.
 - **Phase 101 Theme G leftovers.** `music_get_notes`, `music_add_notes` and `music_remove_notes` work on a track's raw notes and know nothing about clips: an agent sees the source notes, not what a clip plays, and cannot create or edit clips or the drum grid's steps/swing. Clip-aware tools (`music_get_clips`, `music_add_clip`, expanded reads) are not built. The drum grid also edits one bar at a time and has no copy-bar action.
 - **GM percussion samples.** The GM sample sets are now mirrored (resolved, see Phase 101 Theme D). Still open: upstream publishes no FluidR3 percussion set, so the channel-10 drum kit is synthesised — sampled drums would need a different GM set.

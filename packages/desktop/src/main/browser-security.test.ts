@@ -127,29 +127,78 @@ describe('cancelDownload', () => {
 });
 
 
+/*
+  What Electron 33.4.11 actually hands the two handlers while a page calls
+  `getUserMedia({ audio: true })` — recorded with a probe that logged their
+  arguments, not inferred from the docs. The carve-out once compared against
+  `'file://'`/`'null'` and a slash-less dev origin, matched none of these, and
+  so refused the app's own microphone in every build. These are the strings a
+  future Electron upgrade has to keep passing.
+*/
+const RECORDED = {
+  packagedRequest: {
+    isMainFrame: true,
+    mediaTypes: ['audio'],
+    requestingUrl: 'file:///Applications/Midnite%20Studio.app/Contents/Resources/renderer/index.html',
+    securityOrigin: 'file:///',
+  },
+  packagedCheckOrigin: 'file:///',
+  packagedCheckOriginAsPageUrl:
+    'file:///Applications/Midnite%20Studio.app/Contents/Resources/renderer/index.html',
+  packagedCheck: {
+    embeddingOrigin: 'file:///',
+    isMainFrame: true,
+    mediaType: 'audio',
+    requestingUrl: 'file:///Applications/Midnite%20Studio.app/Contents/Resources/renderer/index.html',
+  },
+  devRequest: {
+    isMainFrame: true,
+    mediaTypes: ['audio'],
+    requestingUrl: 'http://localhost:5173/',
+    securityOrigin: 'http://localhost:5173/',
+  },
+  devCheckOrigin: 'http://localhost:5173/',
+  devCheck: {
+    embeddingOrigin: 'http://localhost:5173/',
+    isMainFrame: true,
+    mediaType: 'audio',
+    requestingUrl: 'http://localhost:5173/',
+  },
+} as const;
+
 describe('isAppOrigin', () => {
-  it('accepts the packaged bundle\'s opaque file origin, in every spelling Chromium uses', () => {
+  it('accepts every spelling of the packaged bundle Electron actually sends', () => {
+    expect(isAppOrigin(RECORDED.packagedCheckOrigin, null)).toBe(true);
+    expect(isAppOrigin(RECORDED.packagedCheckOriginAsPageUrl, null)).toBe(true);
+    // The serialised-origin spelling, which this used to accept exclusively.
     expect(isAppOrigin('file://', null)).toBe(true);
-    expect(isAppOrigin('null', null)).toBe(true);
   });
 
-  it('accepts the dev server only when one was passed', () => {
+  it('accepts the dev server only when one was passed, slash or no slash', () => {
+    expect(isAppOrigin(RECORDED.devCheckOrigin, 'http://localhost:5173')).toBe(true);
     expect(isAppOrigin('http://localhost:5173', 'http://localhost:5173')).toBe(true);
-    // Trailing slash, which Electron and Vite disagree about.
     expect(isAppOrigin('http://localhost:5173', 'http://localhost:5173/')).toBe(true);
-    expect(isAppOrigin('http://localhost:5173', null)).toBe(false);
+    expect(isAppOrigin(RECORDED.devCheckOrigin, null)).toBe(false);
   });
 
-  it('refuses everything else, a look-alike port included', () => {
+  it('refuses everything else, a look-alike port and an opaque origin included', () => {
     expect(isAppOrigin('https://example.com', 'http://localhost:5173')).toBe(false);
-    expect(isAppOrigin('http://localhost:5174', 'http://localhost:5173')).toBe(false);
+    expect(isAppOrigin('http://localhost:5174/', 'http://localhost:5173')).toBe(false);
+    expect(isAppOrigin('https://localhost:5173/', 'http://localhost:5173')).toBe(false);
     expect(isAppOrigin(undefined, 'http://localhost:5173')).toBe(false);
     expect(isAppOrigin('', 'http://localhost:5173')).toBe(false);
+    // A sandboxed or `data:` frame. The app's own UI never has one.
+    expect(isAppOrigin('null', null)).toBe(false);
   });
 });
 
 describe('isAudioOnlyAppRequest', () => {
   const dev = 'http://localhost:5173';
+
+  it('grants the recorded packaged and dev requests', () => {
+    expect(isAudioOnlyAppRequest('media', RECORDED.packagedRequest, null)).toBe(true);
+    expect(isAudioOnlyAppRequest('media', RECORDED.devRequest, dev)).toBe(true);
+  });
 
   it('grants media for the app origin when mediaTypes is exactly [audio]', () => {
     expect(
@@ -158,6 +207,12 @@ describe('isAudioOnlyAppRequest', () => {
     expect(
       isAudioOnlyAppRequest('media', { mediaTypes: ['audio'], securityOrigin: dev }, dev),
     ).toBe(true);
+  });
+
+  it('refuses a subframe even from our own origin', () => {
+    expect(
+      isAudioOnlyAppRequest('media', { ...RECORDED.packagedRequest, isMainFrame: false }, null),
+    ).toBe(false);
   });
 
   /*
@@ -214,6 +269,34 @@ describe('isAudioOnlyAppRequest', () => {
 });
 
 describe('isAudioOnlyAppCheck', () => {
+  it('grants the recorded packaged and dev checks', () => {
+    expect(
+      isAudioOnlyAppCheck('media', RECORDED.packagedCheck, RECORDED.packagedCheckOrigin, null),
+    ).toBe(true);
+    expect(
+      isAudioOnlyAppCheck(
+        'media',
+        RECORDED.packagedCheck,
+        RECORDED.packagedCheckOriginAsPageUrl,
+        null,
+      ),
+    ).toBe(true);
+    expect(
+      isAudioOnlyAppCheck('media', RECORDED.devCheck, RECORDED.devCheckOrigin, 'http://localhost:5173'),
+    ).toBe(true);
+  });
+
+  it('refuses a subframe even from our own origin', () => {
+    expect(
+      isAudioOnlyAppCheck(
+        'media',
+        { ...RECORDED.packagedCheck, isMainFrame: false },
+        RECORDED.packagedCheckOrigin,
+        null,
+      ),
+    ).toBe(false);
+  });
+
   it('reads the singular mediaType the check API is given', () => {
     expect(isAudioOnlyAppCheck('media', { mediaType: 'audio' }, 'file://', null)).toBe(true);
     expect(isAudioOnlyAppCheck('media', { mediaType: 'video' }, 'file://', null)).toBe(false);
@@ -267,5 +350,17 @@ describe('allowAppAudioOnly', () => {
       session.checks[0]?.(undefined, 'media', 'http://localhost:5173', { mediaType: 'audio' }),
     ).toBe(true);
     expect(session.checks[0]?.(undefined, 'notifications', 'file://')).toBe(false);
+  });
+
+  it('grants the packaged build its own microphone, both handlers', () => {
+    const session = fakeSession();
+    allowAppAudioOnly(session, null);
+
+    const callback = vi.fn();
+    session.requests[0]?.(undefined, 'media', callback, RECORDED.packagedRequest);
+    expect(callback).toHaveBeenLastCalledWith(true);
+    expect(
+      session.checks[0]?.(undefined, 'media', RECORDED.packagedCheckOrigin, RECORDED.packagedCheck),
+    ).toBe(true);
   });
 });

@@ -3,6 +3,7 @@ import {
   COMPANION_RECORDER_TIMESLICE_MS,
   failure,
   type GitOpResult,
+  type MicrophoneAccess,
   type SttProviderId,
 } from '@midnite/studio-shared';
 
@@ -64,6 +65,29 @@ export function recorderErrorMessage(kind: RecorderErrorKind): string {
     case 'failed':
     default:
       return 'The recording failed. Try again.';
+  }
+}
+
+/**
+ * `'denied'`, told apart by who refused.
+ *
+ * `getUserMedia` throws the same `NotAllowedError` whether macOS refused or
+ * main's own permission handler did, so `recorderErrorMessage('denied')` can
+ * only guess — and it guesses System Settings. When main's permission handler
+ * misread the app's origin, that sent every user to a switch that was already
+ * on. `access` is macOS's own verdict, read from main after the refusal;
+ * `undefined` (an older bridge) keeps the generic sentence.
+ */
+export function micDeniedMessage(access: MicrophoneAccess | undefined): string {
+  switch (access) {
+    case 'granted':
+      return 'I could not use the microphone. macOS allows it, but Midnite Studio refused its own request — that is a bug in the app, not a setting you need to change.';
+    case 'denied':
+      return 'I could not use the microphone — macOS has it turned off for Midnite Studio. Turn it on in System Settings, Privacy & Security, Microphone, then quit and reopen Midnite Studio.';
+    case 'restricted':
+      return 'I could not use the microphone — a device policy restricts it on this Mac. Type instead, and the rest still works.';
+    default:
+      return recorderErrorMessage('denied');
   }
 }
 

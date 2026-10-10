@@ -4,8 +4,10 @@ import type {
   CompanionDigest,
   CompanionSnapshot,
   GitOpResult,
+  MicrophoneAccess,
   SttProviderId,
 } from '@midnite/studio-shared';
+import { systemPreferences } from 'electron';
 import type { z } from 'zod';
 
 import { askCompanion } from '../companion/ask';
@@ -135,6 +137,7 @@ export function registerCompanionHandlers(): void {
         // "no key" apart from "a key for a provider that doesn't exist yet".
         implemented: Object.keys(STT_PROVIDER_FACTORIES) as SttProviderId[],
         localModel: await getLocalWhisperStatus(req.retry ?? false),
+        microphoneAccess: readMicrophoneAccess(),
       };
     },
     // Never actually invalid — every caller sends at least `{}` — but `handle` needs an arm.
@@ -197,4 +200,28 @@ export function registerCompanionHandlers(): void {
   handleOp(CHANNELS.companionTtsReload, schemas.CompanionTtsReloadRequest, async () =>
     ok(await reloadCompanionTtsBroker()),
   );
+}
+
+/**
+ * macOS's own microphone verdict for this app, for `CompanionSttStatusResponse`.
+ *
+ * Read rather than requested: Chromium raises the system prompt itself on the
+ * first `getUserMedia`, so this only has to tell a refusal macOS made apart
+ * from one the app's own permission handler made. `'unknown'` on a platform
+ * without the API, or if it throws, so the renderer falls back to its generic
+ * sentence rather than guessing.
+ */
+export function readMicrophoneAccess(): MicrophoneAccess {
+  try {
+    if (typeof systemPreferences?.getMediaAccessStatus !== 'function') return 'unknown';
+    const status = systemPreferences.getMediaAccessStatus('microphone');
+    return status === 'granted' ||
+      status === 'denied' ||
+      status === 'restricted' ||
+      status === 'not-determined'
+      ? status
+      : 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
