@@ -20,18 +20,25 @@ vi.mock('electron', () => ({ ipcMain: { handle, on }, systemPreferences: { getMe
 // broker entry points are stubbed rather than exercising a real
 // `utilityProcess.fork` (which this test's `electron` mock does not provide
 // at all).
-const { synthesizeSpeechAsync, getCompanionTtsStatusAsync, cancelQueuedSynthesis, reloadCompanionTtsBroker } =
-  vi.hoisted(() => ({
-    synthesizeSpeechAsync: vi.fn(),
-    getCompanionTtsStatusAsync: vi.fn(),
-    cancelQueuedSynthesis: vi.fn(),
-    reloadCompanionTtsBroker: vi.fn(),
-  }));
+const {
+  synthesizeSpeechAsync,
+  getCompanionTtsStatusAsync,
+  cancelQueuedSynthesis,
+  reloadCompanionTtsBroker,
+  companionTtsModelOnDisk,
+} = vi.hoisted(() => ({
+  synthesizeSpeechAsync: vi.fn(),
+  getCompanionTtsStatusAsync: vi.fn(),
+  cancelQueuedSynthesis: vi.fn(),
+  reloadCompanionTtsBroker: vi.fn(),
+  companionTtsModelOnDisk: vi.fn(),
+}));
 vi.mock('../companion/tts-broker', () => ({
   synthesizeSpeechAsync,
   getCompanionTtsStatusAsync,
   cancelQueuedSynthesis,
   reloadCompanionTtsBroker,
+  companionTtsModelOnDisk,
 }));
 
 import { readMicrophoneAccess, registerCompanionHandlers } from './companion-handlers';
@@ -62,7 +69,7 @@ afterEach(() => {
 });
 
 describe('registerCompanionHandlers', () => {
-  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four, Phase 80 Theme C's two, and Ad Hoc's reload", () => {
+  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four, Phase 80 Theme C's two, Ad Hoc's reload, and Phase 109 Theme F's model check", () => {
     registerCompanionHandlers();
     expect(handle.mock.calls.map(([channel]) => channel)).toEqual([
       CHANNELS.companionSnapshot,
@@ -75,6 +82,7 @@ describe('registerCompanionHandlers', () => {
       CHANNELS.companionTtsSynthesize,
       CHANNELS.companionTtsStatus,
       CHANNELS.companionTtsReload,
+      CHANNELS.companionTtsModelOnDisk,
     ]);
   });
 
@@ -300,6 +308,17 @@ describe('registerCompanionHandlers', () => {
       ok: true,
     });
     expect(reloadCompanionTtsBroker).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers the audition's model check from disk, without asking the worker (Phase 109 Theme F)", async () => {
+    companionTtsModelOnDisk.mockReturnValue(true);
+    registerCompanionHandlers();
+
+    await expect(invoke(CHANNELS.companionTtsModelOnDisk, {})).resolves.toEqual(ok({ onDisk: true }));
+    expect(getCompanionTtsStatusAsync).not.toHaveBeenCalled();
+
+    companionTtsModelOnDisk.mockReturnValue(false);
+    await expect(invoke(CHANNELS.companionTtsModelOnDisk, {})).resolves.toEqual(ok({ onDisk: false }));
   });
 
   it('registers the cancel channel through ipcMain.on (handleSend), and calls the broker when sent', () => {

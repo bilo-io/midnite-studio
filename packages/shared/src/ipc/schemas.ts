@@ -4339,6 +4339,10 @@ export const CompanionTtsCancelRequest = z.object({});
  */
 export const CompanionTtsReloadRequest = z.object({});
 
+/** No payload — `companionTtsModelOnDisk` (Phase 109 Theme F) is a bare question, like `companionTtsReload`. */
+export const CompanionTtsModelOnDiskRequest = z.object({});
+export const CompanionTtsModelOnDiskResponse = GitOpResultOf(z.object({ onDisk: z.boolean() }));
+
 /**
  * Always `{ok:true}` — this is a query, not an operation with a failure of
  * its own, so the state lives in the value rather than in `ok`

@@ -5369,6 +5369,8 @@ export function buildMockBridge(data: MockFixtures) {
       // rather than pretending the reload fixed anything. A spec wanting
       // to photograph a *successful* reload monkeypatches this the same
       // way `companion-shots.spec.ts` patches `ttsStatus`.
+      // Phase 109 Theme F's audition check — no model in this harness.
+      ttsModelOnDisk: async () => ({ ok: true as const, value: { onDisk: false } }),
       ttsReload: async () => ({
         ok: true as const,
         value: {
