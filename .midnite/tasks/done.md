@@ -1,6 +1,23 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 109 Themes A + B — One companion settings list, and one setter
+
+[PR #813](https://github.com/bilo-io/midnite-studio/pull/813). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Themes A and B: the base that the voice intent (C), the MCP tools (D) and the four experience
+layers (E–H) build on. Nothing looks different on screen.
+
+- **A (shared):** `CompanionSettingsSchema` for the companion slice, plus `COMPANION_SETTING_SPECS`
+  over 17 `CompanionSettingKey`s with aliases, value kind, tier, guards, read-back and example.
+  Also `checkCompanionGuard` (`lastName`, `wakeWord`, `muteLast`, `tunedText`), spoken aliases
+  for every Kokoro voice, and a fuzzy `matchVoice` that asks between equally close names.
+- **B (app):** `applyCompanionSetting`/`applyCompanionSettings`/`previewCompanionSetting` with lock
+  refusal, tier enforcement for voice and MCP, guards for everyone, and a one-step 60 s
+  `undoLastCompanionSetting`. The Settings ▸ Companion page writes through the setter.
+  `broadcast-sync` carries the popout's companion keys. The STT provider is persisted and sent
+  with `transcribe`. A v31 → v32 migration seeds `companionSttProvider`, `companionProfiles` and
+  `companionActiveProfile`.
+
 ## 2026-10-10 — Ad hoc — Conversation mode: hands-free voice turns, optional wake word
 
 [PR #811](https://github.com/bilo-io/midnite-studio/pull/811). Not phase-tracked. The user asked for a second button beside every composer's mic. When on, the
