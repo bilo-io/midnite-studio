@@ -316,3 +316,71 @@ export function describeCompanionProfiles(
     locked,
   };
 }
+
+// --- companion_agent_* and companion_models_list (Phase 111 Theme E) -----------
+
+/** Why `companion_agent_set` refused. `notInstalled`: the agent's CLI is not on PATH; `ollamaDown`: Ollama's daemon is not reachable. */
+export const COMPANION_AGENT_REFUSALS = ['locked', 'unknownAgent', 'unknownModel', 'notInstalled', 'ollamaDown'] as const;
+export type CompanionAgentRefusal = (typeof COMPANION_AGENT_REFUSALS)[number];
+
+export const CompanionAgentSummarySchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  /** `false` when the startup probe found no CLI for it; `null` when nothing is known. */
+  installed: z.boolean().nullable(),
+  /** The model chosen for this agent, or `null` for its own default. */
+  model: z.string().nullable(),
+});
+export type CompanionAgentSummary = z.infer<typeof CompanionAgentSummarySchema>;
+
+export const CompanionAgentGetOutputSchema = z.object({
+  primaryAgent: z.string(),
+  /** The model chosen for the primary agent, or `null` for its default. */
+  model: z.string().nullable(),
+  agents: z.array(CompanionAgentSummarySchema),
+  locked: z.boolean(),
+});
+export type CompanionAgentGetOutput = z.infer<typeof CompanionAgentGetOutputSchema>;
+
+export const CompanionAgentSetInputSchema = z.object({
+  /** An agent id or a spoken name — `claude`, `codex`, `antigravity`… */
+  agent: z.string().trim().min(1).max(100),
+  /** A model id or name from `companion_models_list`; omitted keeps the agent's current choice. */
+  model: z.string().trim().min(1).max(200).optional(),
+});
+export type CompanionAgentSetInput = z.infer<typeof CompanionAgentSetInputSchema>;
+
+const CompanionAgentChoiceSchema = z.object({ agentId: z.string(), modelId: z.string().nullable() });
+
+export const CompanionAgentSetOutputSchema = z.object({
+  status: z.enum(['applied', 'refused']),
+  reason: z.enum(COMPANION_AGENT_REFUSALS).optional(),
+  message: z.string().optional(),
+  previous: CompanionAgentChoiceSchema.optional(),
+  next: CompanionAgentChoiceSchema.optional(),
+});
+export type CompanionAgentSetOutput = z.infer<typeof CompanionAgentSetOutputSchema>;
+
+export const CompanionModelsListInputSchema = z.object({
+  /** An agent id or name; omitted means the primary agent. */
+  agent: z.string().trim().min(1).max(100).optional(),
+});
+export type CompanionModelsListInput = z.infer<typeof CompanionModelsListInputSchema>;
+
+export const CompanionModelsListOutputSchema = z.object({
+  agentId: z.string().nullable(),
+  models: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      tier: z.enum(['fast', 'cheap', 'default']).optional(),
+    }),
+  ),
+  /** The model currently chosen for this agent, or `null` for its default. */
+  selected: z.string().nullable(),
+  /** Only for Ollama: whether the daemon answered when the models were probed. */
+  ollamaRunning: z.boolean().optional(),
+  /** Set instead of a list when the agent could not be resolved. */
+  message: z.string().optional(),
+});
+export type CompanionModelsListOutput = z.infer<typeof CompanionModelsListOutputSchema>;

@@ -17,6 +17,9 @@ import {
   workflowGatesList,
 } from './tools';
 import {
+  companionAgentGet,
+  companionAgentSet,
+  companionModelsList,
   companionProfileDelete,
   companionProfileList,
   companionProfileSave,
@@ -249,6 +252,9 @@ export const MCP_HANDLERS: {
   companion_profile_save: companionProfileSave,
   companion_profile_switch: companionProfileSwitch,
   companion_profile_delete: companionProfileDelete,
+  companion_agent_get: companionAgentGet,
+  companion_agent_set: companionAgentSet,
+  companion_models_list: companionModelsList,
 };
 
 export type McpDispatchResult =

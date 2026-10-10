@@ -8,7 +8,7 @@ import { TitleBarPrimaryAgent } from './title-bar-primary-agent';
 
 describe('TitleBarPrimaryAgent', () => {
   beforeEach(() => {
-    useUiStore.setState({ primaryAgent: 'claude' });
+    useUiStore.setState({ primaryAgent: 'claude', primaryModelByAgent: {} });
   });
 
   afterEach(cleanup);
@@ -232,6 +232,55 @@ describe('TitleBarPrimaryAgent', () => {
       expect(useUiStore.getState().primaryAgent).toBe('claude');
       expect(useUiStore.getState().activeView).toBe('settings');
       expect(useUiStore.getState().pendingAgentFocus).toBe('openclaude');
+    });
+  });
+
+  describe('model pill and quick switcher (Phase 111 Theme D)', () => {
+    it('shows no pill on the default model', () => {
+      renderView(<TitleBarPrimaryAgent />);
+      expect(screen.queryByTestId('titlebar-primary-model')).toBeNull();
+    });
+
+    it('shows the chosen model beside the icon and in the label', () => {
+      useUiStore.setState({ primaryModelByAgent: { claude: 'opus-5' } });
+      renderView(<TitleBarPrimaryAgent />);
+      expect(screen.getByTestId('titlebar-primary-model').textContent).toBe('Opus 5');
+      expect(screen.getByTestId('titlebar-primary-agent').getAttribute('aria-label')).toBe(
+        'Primary agent: Claude · Opus 5',
+      );
+    });
+
+    it('lists the primary agent models and picks one on click', () => {
+      renderView(<TitleBarPrimaryAgent />);
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+      expect(screen.getByTestId('primary-model-section')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('primary-model-item-opus-5'));
+      expect(useUiStore.getState().primaryModelByAgent['claude']).toBe('opus-5');
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+    });
+
+    it('choosing Default clears the model', () => {
+      useUiStore.setState({ primaryModelByAgent: { claude: 'opus-5' } });
+      renderView(<TitleBarPrimaryAgent />);
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+      fireEvent.click(screen.getByTestId('primary-model-item-default'));
+      expect(useUiStore.getState().primaryModelByAgent['claude']).toBeNull();
+    });
+
+    it('ArrowUp from the first row wraps into the model list and Enter picks it', () => {
+      renderView(<TitleBarPrimaryAgent />);
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+      const input = screen.getByPlaceholderText('Find an agent…');
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(useUiStore.getState().primaryModelByAgent['claude']).toBe('haiku');
+    });
+
+    it('hides the model list for an agent with a single model', () => {
+      useUiStore.setState({ primaryAgent: 'codex' });
+      renderView(<TitleBarPrimaryAgent />);
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+      expect(screen.queryByTestId('primary-model-section')).toBeNull();
     });
   });
 });

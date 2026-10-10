@@ -149,3 +149,55 @@ export function companionProfileDelete(
 ): Promise<McpToolOutput<'companion_profile_delete'>> {
   return profileWrite('profileDelete', input.name, 'companion_profile_delete');
 }
+
+// --- companion_agent_* and companion_models_list (Phase 111 Theme E) ------------------
+
+/**
+ * The primary agent and model live in the renderer's `ui-store`, so each of
+ * these is one `requestUiAction` round trip to `ui-requests.ts`, behind the
+ * same `allowCompanionSettings` switch as the rest of the family. Validation
+ * (agent aliases, model catalogue, install and Ollama state) is the renderer's.
+ */
+export async function companionAgentGet(): Promise<McpToolOutput<'companion_agent_get'>> {
+  requireSwitch();
+  const result = await requestUiAction({ kind: 'agentState' });
+  refuseIfFailed(result);
+  if (result.value.did !== 'agentState') {
+    throw new McpToolError('error', 'unexpected reply shape for companion_agent_get');
+  }
+  const { did: _did, ...answer } = result.value;
+  return answer;
+}
+
+export async function companionAgentSet(
+  input: McpToolInput<'companion_agent_set'>,
+): Promise<McpToolOutput<'companion_agent_set'>> {
+  requireSwitch();
+  const result = await requestUiAction({
+    kind: 'agentSet',
+    agent: input.agent,
+    ...(input.model === undefined ? {} : { model: input.model }),
+  });
+  refuseIfFailed(result);
+  if (result.value.did !== 'agentSet') {
+    throw new McpToolError('error', 'unexpected reply shape for companion_agent_set');
+  }
+  const { did: _did, ...answer } = result.value;
+  return answer;
+}
+
+export async function companionModelsList(
+  input: McpToolInput<'companion_models_list'>,
+): Promise<McpToolOutput<'companion_models_list'>> {
+  requireSwitch();
+  const result = await requestUiAction({
+    kind: 'modelsList',
+    ...(input.agent === undefined ? {} : { agent: input.agent }),
+  });
+  refuseIfFailed(result);
+  if (result.value.did !== 'modelsList') {
+    throw new McpToolError('error', 'unexpected reply shape for companion_models_list');
+  }
+  const { did: _did, ...answer } = result.value;
+  return answer;
+}
