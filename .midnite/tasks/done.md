@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 111 Theme B — Companion Intent Schema & Grammar
+
+[PR #819](https://github.com/bilo-io/midnite-studio/pull/819). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme B: Companion intent extension and phrase grammar for switching agents and models by voice.
+- **shared:** Extended `CompanionIntentSchema` with `switchAgent` variant (`{ kind: 'switchAgent', agentId, modelId }`), added `agents` list to `CompanionVocabularySchema`, implemented deterministic `trySwitchAgent` phrase grammar in `parseIntent` matching natural expressions ("switch to <agent>", "use <agent> with <model>", "set model to <model>", composite phrases, spoken aliases), and added `switchAgent` tests in `companion.test.ts`.
+- **desktop:** Extended router prompt in `buildAskPrompt` (`ask.ts`) with `switchAgent` intent instruction and vocabulary lines listing available agents/models.
+
 ## 2026-10-10 — Phase 109 Theme G — Persona profiles
 
 [PR #818](https://github.com/bilo-io/midnite-studio/pull/818). [Phase 109](phases/phase-109-companion-settings-by-voice.md)

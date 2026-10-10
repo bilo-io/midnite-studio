@@ -20,7 +20,7 @@ Scope guardrails:
 
 **Theme A — Global Agent & Model State Contract.** ✅ Landed in PR #817. Added `primaryModelByAgent` in `ui-store`, migration v32 → v33, and model catalog resolution helpers in `shared/src/ai-models.ts`.
 
-**Theme B — Companion Intent Schema & Grammar.** ◻ Add `switchAgent` intent to `CompanionIntentSchema`, local deterministic phrase matcher in `parseIntent`, and router vocabulary expansion in `ask.ts`.
+**Theme B — Companion Intent Schema & Grammar.** ✅ Landed in PR #819. Added `switchAgent` to `CompanionIntentSchema`, natural phrase matcher in `parseIntent`, and router vocabulary expansion in `ask.ts`.
 
 **Theme C — Voice Execution & Spoken Read-backs.** ◻ Wire `switchAgent` into companion `act()` dispatcher with spoken confirmations, invalid model refusals, and one-step undo integration.
 
@@ -54,7 +54,7 @@ Scope guardrails:
 
 ### B — Companion Intent Schema & Grammar (M)
 
-- [ ] **`CompanionIntentSchema` extension** ([`packages/shared/src/companion.ts`](../../../packages/shared/src/companion.ts)):
+- [x] **`CompanionIntentSchema` extension** ([`packages/shared/src/companion.ts`](../../../packages/shared/src/companion.ts)):
   - Add `switchAgent` variant:
     ```ts
     z.object({
@@ -63,14 +63,14 @@ Scope guardrails:
       modelId: z.string().nullable().optional(),
     })
     ```
-- [ ] **Deterministic regex phrase matching in `parseIntent`**:
+- [x] **Deterministic regex phrase matching in `parseIntent`**:
   - Match common phrases before routing to the headless CLI:
     - *"switch (to|primary agent to) <agent>"*
     - *"use <agent> (with <model>)?"*
     - *"set (model|agent) to <model|agent>"*
     - *"change (my|the) model to <model>"*
   - Support spoken aliases: "claude", "codex", "gemini", "antigravity", "ollama", "haiku", "sonnet", "opus", "mini", "flash".
-- [ ] **Router vocabulary & prompt update in `ask.ts`** ([`packages/desktop/src/main/companion/ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)):
+- [x] **Router vocabulary & prompt update in `ask.ts`** ([`packages/desktop/src/main/companion/ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)):
   - Include available agents and known model options in `CompanionVocabulary`.
   - Teach the router prompt: `Use {"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"} to change the active agent or model.`
   - Update `parseAskReply` fixtures and unit tests in shared.
