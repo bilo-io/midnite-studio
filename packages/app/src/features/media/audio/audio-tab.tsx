@@ -7,7 +7,6 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, useReducer, useState } from 'react';
 
-import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { ExportToolbar } from '../export-toolbar';
 import { MediaLayout, openMediaPane } from '../media-layout';

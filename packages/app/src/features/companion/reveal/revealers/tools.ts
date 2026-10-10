@@ -5,9 +5,8 @@ import { apiTabId, useApiClientStore } from '../../../../store/api-client-store'
 import { useBrowserStore } from '../../../../store/browser-store';
 import { useDatabaseConnectionsStore } from '../../../../store/database-connections-store';
 import { useUiStore } from '../../../../store/ui-store';
-import { useWorkbenchStore } from '../../../../store/workbench-store';
 import { previewSql } from '../../../database/connection-tree';
-import { nextQueryLabel, openQueryTab } from '../../../database/use-database-tabs';
+import { openQueryTab } from '../../../database/use-database-tabs';
 import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';
 import { liveNavigationState } from '../../navigate';
 import type { FamilyRevealers, RevealOutcome } from '../types';
@@ -41,7 +40,7 @@ function sameUrl(a: string, b: string): boolean {
 
 /** The settings page's mounted anchor for `section`, once the page has rendered. */
 async function findSectionAnchor(section: string): Promise<HTMLElement | null> {
-  const selector = `[data-settings-section="${CSS.escape(section)}"]`;
+  const selector = `[data-settings-section="${section}"]`;
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const found = document.querySelector<HTMLElement>(selector);
     if (found) return found;

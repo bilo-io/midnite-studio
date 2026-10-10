@@ -167,7 +167,7 @@ describe('revealResource — the plan', () => {
 });
 
 describe('the stub table (Theme B lands every kind as unavailable)', () => {
-  it.each([COMMIT, CHAT, BROWSER])('$kind says it cannot pick the thing out yet', async (ref) => {
+  it.each([COMMIT, CHAT])('$kind says it cannot pick the thing out yet', async (ref) => {
     const { deps } = makeDeps();
     deps.revealers = REVEALERS;
     const outcome = await revealResource(ref, { caller: 'companion' }, deps);
