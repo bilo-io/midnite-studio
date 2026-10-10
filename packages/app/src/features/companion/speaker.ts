@@ -64,6 +64,12 @@ export type CompanionSpeakOptions = {
   onBoundary?: (charIndex: number) => void;
   /** Cancels this utterance without touching whatever is queued behind it. */
   signal?: AbortSignal;
+  /**
+   * Speak this one utterance in this voice rather than the stored one — a
+   * Kokoro id for the local engine, a `voiceURI` for the system one (Phase
+   * 109 Theme F's audition, which plays voices it has not chosen yet).
+   */
+  voice?: string;
 };
 
 /**
@@ -276,7 +282,7 @@ export function createSpeaker(overrides: Partial<SpeakerDeps> = {}): CompanionSp
     }
 
     const voices = synth.getVoices();
-    const voice = pickVoice(voices, deps.getVoiceUri(), deps.getLocale());
+    const voice = pickVoice(voices, item.opts.voice ?? deps.getVoiceUri(), deps.getLocale());
 
     let index = 0;
     const speakNext = (): void => {
@@ -399,6 +405,8 @@ export type LocalSpeakerDeps = {
   /** `bridge()?.companion.ttsSynthesize` — absent under jsdom/no-preload, where the local engine is simply unavailable. */
   synthesize: (
     text: string,
+    /** A one-off voice for this utterance; absent means the stored selection. */
+    voice?: string,
   ) => Promise<{ ok: true; audio: Uint8Array; mime: string } | { ok: false }>;
   /** The companion's shared `AudioContext`/master gain, or `null` where there is no Web Audio at all. */
   getAudio: () => { ctx: AudioContext; master: GainNode } | null;
@@ -422,7 +430,7 @@ export type LocalSpeakerDeps = {
 };
 
 export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
-  synthesize: async (text) => {
+  synthesize: async (text, override) => {
     /*
       Read at speak time, the same reason `SpeakerDeps.getVoiceUri` is, and
       narrowed with `isCompanionLocalVoiceId` before it ever reaches the wire
@@ -434,7 +442,7 @@ export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
       id instead lets `tts.ts` apply its own default silently, exactly as an
       absent selection already does.
     */
-    const stored = useUiStore.getState().companionVoices.local;
+    const stored = override ?? useUiStore.getState().companionVoices.local;
     const voice = isCompanionLocalVoiceId(stored) ? stored : undefined;
     const result = await bridge()?.companion.ttsSynthesize({ text, voice });
     return result?.ok === true
@@ -589,7 +597,7 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
       const promise = (async (): Promise<AudioBuffer | null> => {
         if (active !== item || item.opts.signal?.aborted === true) return null;
         try {
-          const result = await deps.synthesize(chunk);
+          const result = await deps.synthesize(chunk, item.opts.voice);
           if (active !== item) return null; // cancelled while the request was in flight
           if (!result.ok) return null;
 

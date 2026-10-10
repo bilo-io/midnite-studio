@@ -21,6 +21,7 @@ import type { ConciergeDeps, ConciergeStore } from './concierge';
 import type { CompanionSettingsPort, HandoffDeps } from './handoff';
 import { silentSpeaker, type Speaker } from './ports';
 import type { CompanionSettingChange, CompanionSettingResult } from './settings-apply';
+import type { AuditionPort } from './audition';
 import type { CompanionProfilesPort } from './profile-handoff';
 import type { CompanionProfileResult } from './profiles';
 
@@ -227,6 +228,7 @@ export function fakeCompanionSettings(
     },
     systemVoices: () => [],
     profiles: fakeCompanionProfiles(),
+    audition: fakeAuditionPort(),
     ...over,
   };
 }
@@ -297,6 +299,30 @@ export function fakeCompanionProfiles(
       const wasActive = active === profile.id;
       if (wasActive) active = null;
       return { ok: true, op: 'delete', profile, wasActive };
+    },
+  };
+}
+
+/**
+ * The audition's samples (Phase 109 Theme F): records each `[engine, voice,
+ * text]` it is asked to play and answers `played` — `false` for the local
+ * engine is a broker failure, the fallback's cue.
+ */
+export function fakeAuditionPort(
+  options: {
+    localReady?: boolean;
+    played?: (engine: 'local' | 'system', voice: string) => boolean;
+    onPlay?: (engine: 'local' | 'system', voice: string, signal: AbortSignal) => void | Promise<void>;
+  } = {},
+): AuditionPort & { samples: Array<[engine: 'local' | 'system', voice: string, text: string]> } {
+  const samples: Array<['local' | 'system', string, string]> = [];
+  return {
+    samples,
+    localReady: async () => options.localReady ?? true,
+    playSample: async (engine, voice, text, signal) => {
+      samples.push([engine, voice, text]);
+      await options.onPlay?.(engine, voice, signal);
+      return options.played?.(engine, voice) ?? true;
     },
   };
 }

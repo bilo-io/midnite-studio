@@ -18,6 +18,7 @@ import {
   type HandoffDeps,
 } from './handoff';
 import { navigateCompanion } from './navigate';
+import { companionTtsSpeaker } from './speaker';
 import { silentSpeaker, type Speaker } from './ports';
 import {
   announceCompanionProfileSwitch,
@@ -267,6 +268,23 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
       // The registered speaker while speech is on (a test's double included);
       // the store's answer the moment a change has just turned it on or off.
       liveSpeaker: () => (speaker.available === false ? liveCompanionSpeaker() : speaker),
+      // Phase 109 Theme F — the audition plays voices nobody has chosen yet,
+      // so it reaches the engine directly with a one-off voice, never through
+      // the registered speaker's stored selection.
+      audition: {
+        localReady: async () => {
+          try {
+            const answer = await api?.companion.ttsModelOnDisk?.();
+            // No answer (no bridge, or a preload older than the channel):
+            // try the local engine anyway — a failed sample falls back.
+            return answer === undefined ? api !== undefined : answer.ok && answer.value.onDisk;
+          } catch {
+            return false;
+          }
+        },
+        playSample: (engine, voice, text, signal) =>
+          companionTtsSpeaker.speakWithEngine(engine, text, { voice, signal }),
+      },
     },
   };
 }
