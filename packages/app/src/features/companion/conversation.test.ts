@@ -287,4 +287,66 @@ describe('the conversation session', () => {
       expect(chat.deliver).not.toHaveBeenCalled();
     });
   });
+
+  describe('during a voice audition (Phase 109 Theme F)', () => {
+    let bargeable: boolean;
+    let expectingReply: boolean;
+    let bargeIn: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      bargeable = false;
+      expectingReply = false;
+      bargeIn = vi.fn(() => {
+        // The barge-in cancels the sample, so the companion stops speaking.
+        speaking = false;
+      });
+      __setConversationDepsForTest({
+        openCapture: async (callback) => {
+          onFrame = callback;
+          return { stream: {} as MediaStream, sampleRate: RATE, close };
+        },
+        transcribe: transcribe as never,
+        isSpeaking: () => speaking,
+        bargeable: () => bargeable,
+        bargeIn,
+        expectingReply: () => expectingReply,
+      });
+    });
+
+    it('talking over a local sample cuts it off, and the reply is transcribed and sent', async () => {
+      speaking = true;
+      bargeable = true;
+      transcribe.mockResolvedValue(ok({ text: 'number two' }));
+      const chat = owner();
+      await startConversation(chat);
+      await say();
+      expect(bargeIn).toHaveBeenCalledTimes(1);
+      expect(chat.deliver).toHaveBeenCalledExactlyOnceWith('number two');
+    });
+
+    it('stays half-duplex over a system-voice sample: no barge-in, nothing transcribed', async () => {
+      speaking = true;
+      bargeable = false;
+      const chat = owner();
+      await startConversation(chat);
+      for (let index = 0; index < 30; index += 1) onFrame?.(index % 3 === 0 ? silence() : speech());
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(bargeIn).not.toHaveBeenCalled();
+      expect(transcribe).not.toHaveBeenCalled();
+    });
+
+    it('under the wake trigger, lets a bare reply through while the audition waits for one', async () => {
+      useUiStore.setState({ voiceConversationTrigger: 'wake', companionNames: ['Companion'] });
+      transcribe.mockResolvedValue(ok({ text: 'two' }));
+      const chat = owner();
+      await startConversation(chat);
+
+      await say();
+      expect(chat.deliver).not.toHaveBeenCalled();
+
+      expectingReply = true;
+      await say();
+      expect(chat.deliver).toHaveBeenCalledExactlyOnceWith('two');
+    });
+  });
 });

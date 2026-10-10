@@ -597,7 +597,8 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
       const promise = (async (): Promise<AudioBuffer | null> => {
         if (active !== item || item.opts.signal?.aborted === true) return null;
         try {
-          const result = await deps.synthesize(chunk, item.opts.voice);
+          const voice = item.opts.voice;
+          const result = await (voice === undefined ? deps.synthesize(chunk) : deps.synthesize(chunk, voice));
           if (active !== item) return null; // cancelled while the request was in flight
           if (!result.ok) return null;
 
