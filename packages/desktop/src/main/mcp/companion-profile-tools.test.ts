@@ -1,4 +1,4 @@
-import { COMPANION_SETTINGS_OFF_MESSAGE } from '@midnite/studio-shared';
+import { COMPANION_SETTINGS_OFF_MESSAGE, type CompanionProfileSummary } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as uiBridge from '../companion/ui-bridge';
@@ -46,7 +46,7 @@ async function refusal(promise: Promise<unknown>): Promise<McpToolError> {
   return error as McpToolError;
 }
 
-const narrator = {
+const narrator: CompanionProfileSummary = {
   id: 'p1',
   name: 'Narrator',
   voices: { local: 'bm_george', system: null },
