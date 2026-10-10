@@ -18,7 +18,7 @@ Scope guardrails:
 
 *Hands-free voice agent and model switching across the desktop workspace, title bar model selector, and MCP tooling.* Planned 2026-10-10.
 
-**Theme A — Global Agent & Model State Contract.** ◻ Add persisted `primaryModelByAgent` map to `ui-store`, version migration v32 → v33, and model catalog resolution helpers in shared.
+**Theme A — Global Agent & Model State Contract.** ✅ Landed in PR #817. Added `primaryModelByAgent` in `ui-store`, migration v32 → v33, and model catalog resolution helpers in `shared/src/ai-models.ts`.
 
 **Theme B — Companion Intent Schema & Grammar.** ◻ Add `switchAgent` intent to `CompanionIntentSchema`, local deterministic phrase matcher in `parseIntent`, and router vocabulary expansion in `ask.ts`.
 
@@ -36,19 +36,19 @@ Scope guardrails:
 
 ### A — Global Agent & Model State Contract (M)
 
-- [ ] **`primaryModelByAgent` in `useUiStore`** ([`packages/app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts)):
+- [x] **`primaryModelByAgent` in `useUiStore`** ([`packages/app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts)):
   - Store a `Record<string, string | null>` mapping each agent id (e.g. `claude`, `codex`, `agy`, `ollama`) to its currently selected model.
   - Defaults: `claude` → `null` (uses default/`default`), `ollama` → first available or `null`, other agents → `null`.
   - Add actions: `setPrimaryAgent(agentId: string)`, `setPrimaryModel(agentId: string, modelId: string | null)`, and `setPrimaryAgentAndModel(agentId: string, modelId?: string | null)`.
-- [ ] **Store migration v32 → v33**:
+- [x] **Store migration v32 → v33**:
   - Bump `midnite-studio.ui` store version to 33 in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts).
   - Migrate previous states by initializing `primaryModelByAgent: {}` and preserving existing `primaryAgent`.
   - Register `primaryModelByAgent` in [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts).
-- [ ] **Model resolution contracts in `shared`**:
+- [x] **Model resolution contracts in `shared`**:
   - Define `AgentModelInfo { id: string; label: string; cliModel?: string | null; tier?: 'fast' | 'cheap' | 'default' }` in [`packages/shared/src/ai-models.ts`](../../../packages/shared/src/ai-models.ts).
   - Provide helper `modelsForAgent(agentId: string, ollamaModels?: string[]): AgentModelInfo[]` unifying `LOOP_MODELS`, `cheapModelFor`/`fastModelFor`, and local Ollama model lists.
   - Implement `resolveAgentAndModel(agentInput: string, modelInput?: string, availableAgents?: AgentDefinition[]): { agentId: string; modelId: string | null } | { error: string }`.
-- [ ] **Unit tests (vitest, shared & app)**:
+- [x] **Unit tests (vitest, shared & app)**:
   - Verify `resolveAgentAndModel` against canonical and misspelled agent/model combinations.
   - Test `ui-store` migration v32 → v33 on serialized state fixtures.
 

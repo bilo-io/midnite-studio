@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [112 · Companion deep navigation: open any resource](phases/phase-112-companion-deep-navigation.md) | ◻ TODO | — | 0/48 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I |
-| [111 · Voice agent and model switching](phases/phase-111-voice-agent-and-model-switching.md) | 🔄 WIP | — | 0/23 | `░░░░░░░░░░` | 0% | A | B C D E F |
+| [111 · Voice agent and model switching](phases/phase-111-voice-agent-and-model-switching.md) | 🔄 WIP | — | 4/23 | `██░░░░░░░░` | 17% | — | B C D E F |
 | [110 · Prompt & Context Lab](phases/phase-110-prompt-and-context-lab.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [109 · Companion settings by voice](phases/phase-109-companion-settings-by-voice.md) | 🔄 WIP | — | 33/64 | `█████░░░░░` | 52% | G H | F |
 | [108 · Maps](phases/phase-108-maps.md) | ✅ DONE | x1 | 54/54 | `██████████` | 100% | — | — |

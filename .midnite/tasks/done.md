@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 111 Theme A — Global agent and model state contract
+
+[PR #817](https://github.com/bilo-io/midnite-studio/pull/817). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme A. Global `primaryModelByAgent` map and actions in `ui-store`, store migration v32 → v33, and model catalog resolution helpers (`modelsForAgent`, `resolveAgentAndModel`) in `shared/src/ai-models.ts`.
+
 ## 2026-10-10 — Phase 109 Themes C + E — The companion changes its own settings, says so, and undoes it
 
 [PR #815](https://github.com/bilo-io/midnite-studio/pull/815). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
