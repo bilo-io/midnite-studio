@@ -145,3 +145,32 @@ describe('Settings ▸ Companion ▸ Microphone ▸ Provider, persisted (Phase 1
     );
   });
 });
+
+describe('"Try: …" hints (Phase 109 Theme C)', () => {
+  it('puts the spec\'s example under each control the companion can change by voice', async () => {
+    render(<CompanionPage />);
+    expect((await screen.findByTestId('companion-try-companionVoices.local')).textContent).toBe('Try: “use voice Bella”');
+    expect(screen.getByTestId('companion-try-companionVolume').textContent).toBe('Try: “volume 50”');
+    expect(screen.getByTestId('companion-try-companionSpeakAloud').textContent).toBe('Try: “stop talking out loud”');
+    expect(screen.getByTestId('companion-try-companionNames').textContent).toBe('Try: “I\'ll call you Nova”');
+    expect(screen.getByTestId('companion-try-companionHonorifics').textContent).toBe('Try: “call me boss”');
+    expect(screen.getByTestId('companion-try-companionMusicOffer').textContent).toBe('Try: “turn elevator music off”');
+    expect(screen.getByTestId('companion-try-companionMicMode').textContent).toBe('Try: “push to talk”');
+    expect(screen.getByTestId('companion-try-voiceConversation').textContent).toBe('Try: “conversation mode on”');
+  });
+
+  it('gives a never-tier control no hint', async () => {
+    render(<CompanionPage />);
+    await screen.findByTestId('companion-try-companionVolume');
+    for (const key of ['companionEnabled', 'companionSttEngine', 'companionSttProvider', 'companionHandsFree']) {
+      expect(screen.queryByTestId(`companion-try-${key}`)).toBeNull();
+    }
+  });
+
+  it('promises nothing a later theme has yet to teach it — personality and About me', async () => {
+    render(<CompanionPage />);
+    await screen.findByTestId('companion-try-companionVolume');
+    expect(screen.queryByTestId('companion-try-companionPersonality')).toBeNull();
+    expect(screen.queryByTestId('companion-try-companionAboutUser')).toBeNull();
+  });
+});

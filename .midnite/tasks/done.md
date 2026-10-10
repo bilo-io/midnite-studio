@@ -1,6 +1,25 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-10 — Phase 109 Themes C + E — The companion changes its own settings, says so, and undoes it
+
+[PR #815](https://github.com/bilo-io/midnite-studio/pull/815). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Themes C and E. You can tell the companion to change itself, by voice or typing: "use voice Bella", "volume 50",
+"louder", "call me boss", "I'll call you Nova", "stop talking out loud", "push to talk", "conversation mode
+on", "turn elevator music off". It reads the change back, and "undo that" reverts it.
+
+- **C (shared, app, desktop):** a `setting` intent arm restricted to non-`never` keys, with a per-key, per-op
+  value refinement, plus `pageOnlySetting` and `undoSetting`. An anchored settings grammar sits in
+  `parseIntent`; a 40+-phrase table, whisper-style variants and a collision set run against the app's real
+  vocabulary. `act()` arms apply direct changes, ask before confirm-tier ones (`PendingAction` of kind
+  `setting`), refuse never-tier ones with an offer to open the page, and ask "Bella or Isabella?" when a
+  name is ambiguous. `CompanionVocabulary.settings` feeds the router prompt. Settings ▸ Companion gets
+  "Try: …" hints, and `help` mentions settings.
+- **E (app):** `settings-announce.ts`. The read-back comes after the write, or before it for a mute or a
+  rename. Phrasings vary per key. MCP changes lead with "Your agent changed…". `undoSetting` reads the
+  restored value back. Voice and MCP changes get an Undo toast for the rest of the 60 s window, via a new
+  `showToast` outside React.
+
 ## 2026-10-10 — Phase 109 Theme D — `companion_settings_*` on `midnite`
 
 [PR #814](https://github.com/bilo-io/midnite-studio/pull/814). [Phase 109](phases/phase-109-companion-settings-by-voice.md)

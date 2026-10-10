@@ -1,6 +1,7 @@
 import {
   BUILTIN_AGENTS,
   COMPANION_ASK_FALLBACK,
+  companionSettingsVocabulary,
   emptyCompanionSnapshot,
   type AgentDefinition,
   type CompanionVocabulary,
@@ -338,6 +339,32 @@ describe('buildAskPrompt', () => {
       };
       const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary: full });
       expect(prompt.length).toBeLessThan(6000);
+    });
+
+    // Phase 109 Theme C — the router learns the companion's own settings.
+    it('lists the voice-settable settings and the setting intent shapes when the vocabulary carries them', () => {
+      const prompt = buildAskPrompt({
+        kind: 'route',
+        text: 'make your voice a bit more British',
+        repoPath: null,
+        vocabulary: { ...vocabulary, settings: companionSettingsVocabulary() },
+      });
+      expect(prompt).toContain('companionVoices.local — Local voice');
+      expect(prompt).toContain('bf_emma (Emma)');
+      expect(prompt).toContain('companionNames — What you call it');
+      expect(prompt).toContain('[confirm]');
+      expect(prompt).toContain('{"kind":"setting","key":"<a key above>","value":<the new value>}');
+      expect(prompt).toContain('{"kind":"undoSetting"}');
+      // The never tier is not a word the router knows.
+      for (const key of ['companionEnabled', 'companionSttEngine', 'companionSttProvider', 'companionHandsFree']) {
+        expect(prompt).not.toContain(`${key} —`);
+      }
+    });
+
+    it('adds no settings lines when the vocabulary has none', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).not.toContain('"kind":"setting"');
+      expect(prompt).not.toContain('undoSetting');
     });
   });
 });

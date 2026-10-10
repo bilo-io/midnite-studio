@@ -29,6 +29,12 @@ export type ToastRequest = {
   danger?: boolean;
   /** An inline action — Theme H's Undo button. Absent means a plain notice. */
   action?: ToastAction;
+  /**
+   * How long it stays up, overriding the host's default (8 s with an action,
+   * 4 s without). Phase 109 Theme E's companion Undo toast stays for exactly
+   * what is left of the sixty-second undo window.
+   */
+  durationMs?: number;
 };
 
 export function Toast({

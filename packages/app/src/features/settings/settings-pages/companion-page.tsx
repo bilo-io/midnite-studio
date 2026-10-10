@@ -1,11 +1,13 @@
 import {
   COMPANION_LOCAL_VOICES,
   COMPANION_PHRASES,
+  COMPANION_SETTING_SPECS,
   CompanionHonorificsSchema,
   CompanionNamesSchema,
   STT_PROVIDERS_WITHOUT_KEY,
   STT_PROVIDER_IDS,
   STT_PROVIDER_LABELS,
+  companionSettingsVocabulary,
   interpolatePhrase,
   pickHonorific,
   pickPhrase,
@@ -216,6 +218,7 @@ export function CompanionPage() {
             title={!companionEnabled ? 'Enable the companion first.' : undefined}
             testId="companion-speak-aloud"
           />
+          <TryHint settingKey="companionSpeakAloud" />
 
           {/*
             Phase 80 Theme C: the companion now tries a bundled local voice
@@ -268,6 +271,7 @@ export function CompanionPage() {
                 Preview
               </button>
             </div>
+            <TryHint settingKey="companionVoices.local" inField />
           </Field>
 
           <Field
@@ -348,6 +352,7 @@ export function CompanionPage() {
                 ? 'Say hello uses the local offline voice.'
                 : 'Say hello uses the system voice above.'}
             </p>
+            <TryHint settingKey="companionVoices.system" inField />
           </Field>
 
           <Field
@@ -370,6 +375,7 @@ export function CompanionPage() {
                 {Math.round(companionVolume * 100)}%
               </span>
             </div>
+            <TryHint settingKey="companionVolume" inField />
           </Field>
         </div>
       </Accordion>
@@ -395,6 +401,7 @@ export function CompanionPage() {
               ['toggle', 'Tap to toggle', 'One tap starts recording, the next one stops it'],
             ]}
           />
+          <TryHint settingKey="companionMicMode" />
 
           {/*
             Two persisted keys behind one three-way choice: Manual is
@@ -430,6 +437,8 @@ export function CompanionPage() {
               ],
             ]}
           />
+          <TryHint settingKey="voiceConversation" />
+          <TryHint settingKey="voiceConversationTrigger" />
 
           <Choice<'server' | 'webSpeech'>
             label="Recognition engine"
@@ -494,6 +503,7 @@ export function CompanionPage() {
             pillsTestId="companion-names-pills"
             inputTestId="companion-names-input"
           />
+          <TryHint settingKey="companionNames" />
 
           <PillListField
             label="What it calls you"
@@ -510,6 +520,7 @@ export function CompanionPage() {
             pillsTestId="companion-honorifics-pills"
             inputTestId="companion-honorifics-input"
           />
+          <TryHint settingKey="companionHonorifics" />
 
           <Field
             label="Personality"
@@ -551,6 +562,7 @@ export function CompanionPage() {
             title={!companionEnabled ? 'Enable the companion first.' : undefined}
             testId="companion-music-offer"
           />
+          <TryHint settingKey="companionMusicOffer" />
         </div>
       </Accordion>
     </div>
@@ -650,6 +662,33 @@ function useCompanionTtsStatus(): {
 }
 
 /** Shared styling for the two moments this section offers a way to try again. */
+/**
+ * The keys the companion can change by voice today — the router's own list,
+ * so a hint never promises a phrase nothing understands. Personality and About
+ * me wait for Theme H's interview, the active profile for Theme G.
+ */
+const VOICE_SETTABLE_KEYS = new Set<CompanionSettingKey>(companionSettingsVocabulary().map((row) => row.key));
+
+/**
+ * "Try: “use voice Bella”" (Phase 109 Theme C) — one muted line under each
+ * control the companion can change by voice, from the spec's own example. A
+ * `never`-tier control has no example and gets no line.
+ */
+function TryHint({ settingKey, inField = false }: { settingKey: CompanionSettingKey; inField?: boolean }) {
+  const example = COMPANION_SETTING_SPECS[settingKey].example;
+  if (example === null || !VOICE_SETTABLE_KEYS.has(settingKey)) return null;
+  return (
+    <p
+      // A sibling in the section's gap-4 column sits closer to the control it
+      // hints at; inside a `Field` the field's own spacing already does.
+      className={`${inField ? '' : '-mt-2 '}text-[11px] italic leading-relaxed text-muted-foreground/80`}
+      data-testid={`companion-try-${settingKey}`}
+    >
+      Try: “{example}”
+    </p>
+  );
+}
+
 function RetryButton({ onClick, label, testId }: { onClick: () => void; label: string; testId: string }) {
   return (
     <button

@@ -4,8 +4,6 @@ import {
   COMMANDS,
   COMPANION_MCP_CONFIRM_MS,
   COMPANION_SETTING_KEYS,
-  companionSettingReadBack,
-  companionSettingSpec,
   failure,
   isCompanionLocalVoiceId,
   ok,
@@ -38,6 +36,7 @@ import {
   type CompanionSettingApplied,
   type CompanionSettingRefused,
 } from './settings-apply';
+import { announceCompanionSettingChange } from './settings-announce';
 import { loadCompanionVoices } from './speaker';
 
 /**
@@ -318,7 +317,8 @@ async function resolveSettingAction(action: Extract<CompanionUiAction, { kind: '
   const change = { key: action.key, value: action.value };
   const first = applyCompanionSetting(change, 'mcp');
   if (first.ok) {
-    announceSetting(first);
+    // Not awaited: the agent's reply must not wait for a sentence to be spoken.
+    void announceCompanionSettingChange(first, 'mcp');
     return settingAnswer('applied', first);
   }
   if (first.reason !== 'confirm') return settingAnswer('refused', first);
@@ -340,17 +340,8 @@ async function resolveSettingAction(action: Extract<CompanionUiAction, { kind: '
   // or the value moved, while the question was open.
   const applied = applyCompanionSetting({ ...change, confirmed: true }, 'mcp');
   if (!applied.ok) return settingAnswer('refused', applied);
-  announceSetting(applied);
+  void announceCompanionSettingChange(applied, 'mcp');
   return settingAnswer('approved', applied);
-}
-
-/** An agent's change is never silent: the toast and transcript line every steer gets. Theme E's spoken read-back with Undo replaces this. */
-function announceSetting(result: CompanionSettingApplied): void {
-  const label = companionSettingSpec(result.key).label;
-  announce(
-    `Agent: changed ${label}.`,
-    `Your agent changed my ${label.toLowerCase()}. ${companionSettingReadBack(result.key, result.next)}`,
-  );
 }
 
 // --- making a steer visible --------------------------------------------------

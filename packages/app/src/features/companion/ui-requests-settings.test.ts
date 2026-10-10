@@ -16,6 +16,13 @@ import {
  * `pendingAction` slot — and the dialog fallback through its own store.
  */
 
+// Theme E's announcer, watched rather than replaced: its own suite covers the
+// read-back and the Undo toast; this one only needs to see an agent's change reach it.
+vi.mock('./settings-announce', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./settings-announce')>();
+  return { ...actual, announceCompanionSettingChange: vi.fn(actual.announceCompanionSettingChange) };
+});
+
 vi.mock('../../services/bridge', () => ({
   hasBridge: () => false,
   bridge: () => ({ windowRole: 'main' }) as unknown,
@@ -25,6 +32,7 @@ import { useCompanionStore } from '../../store/companion-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
 import { useMcpSettingConfirmStore } from './mcp-setting-confirm';
+import { announceCompanionSettingChange } from './settings-announce';
 import { lastCompanionSettingChange, resetCompanionSettingUndoForTest } from './settings-apply';
 import { resolveUiAction } from './ui-requests';
 
@@ -103,7 +111,10 @@ describe('setting — direct tier', () => {
       value: { did: 'setting', status: 'applied', key: 'companionVolume', previous: initial.companionVolume, next: 0.8 },
     });
     expect(useUiStore.getState().companionVolume).toBe(0.8);
-    expect(useToastStore.getState().toasts.at(-1)?.message).toBe('Agent: changed Companion volume.');
+    expect(announceCompanionSettingChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ok: true, key: 'companionVolume', next: 0.8 }),
+      'mcp',
+    );
     expect(lastCompanionSettingChange()).toMatchObject({ keys: ['companionVolume'], source: 'mcp' });
     expect(useCompanionStore.getState().pendingAction).toBeNull();
   });
@@ -171,6 +182,11 @@ describe('setting — confirm tier through the companion', () => {
     });
     expect(useUiStore.getState().companionNames).toEqual(['Nova']);
     expect(lastCompanionSettingChange()).toMatchObject({ keys: ['companionNames'], source: 'mcp' });
+    // Approved and written, so Theme E reads it back: "Your agent changed…".
+    expect(announceCompanionSettingChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ok: true, key: 'companionNames', next: ['Nova'] }),
+      'mcp',
+    );
   });
 
   it('a "no" — anything that clears the slot — is declined, and nothing changes', async () => {
