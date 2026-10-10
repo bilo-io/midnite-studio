@@ -188,17 +188,17 @@ function evaluate(
   const tier = companionSettingTier(key, next);
   if (source !== 'page') {
     if (tier === 'never') {
-      return refuse(key, 'never', `That one's in Settings, Companion — I can't change ${spec.label.toLowerCase()} myself.`);
+      return refuse(key, 'never', "That one's in Settings, Companion — I can't change it myself.");
     }
     if (tier === 'confirm' && change.confirmed !== true) {
-      return refuse(key, 'confirm', `Changing ${spec.label.toLowerCase()} needs a yes first.`);
+      return refuse(key, 'confirm', 'That one needs a yes first.');
     }
   }
 
   const previous = readCompanionSetting(state, key);
   const guard = checkCompanionGuard(spec, previous, next, { source, tuned: change.tuned });
   if (!guard.ok) return refuse(key, 'guard', guard.reason);
-  if (!parsed.ok) return refuse(key, 'invalid', `That isn't something ${spec.label} can be set to.`);
+  if (!parsed.ok) return refuse(key, 'invalid', "I can't set it to that.");
 
   return { ok: true, key, previous, next, tier, ...(guard.effect ? { effect: guard.effect } : {}) };
 }
