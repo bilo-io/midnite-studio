@@ -101,6 +101,9 @@ beforeEach(() => {
     companionNames: ['Companion'],
     companionVolume: 0.7,
     companionMicMode: 'push',
+    // Persisted since Phase 109 Theme B, so a test that picks the cloud
+    // provider would otherwise leave it picked for the next one.
+    companionSttProvider: null,
   });
   installVoices(['en-US', 'en-GB', 'de-DE']);
 });

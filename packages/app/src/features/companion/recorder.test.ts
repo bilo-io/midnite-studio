@@ -1,12 +1,16 @@
 import { COMPANION_RECORDER_MIME, COMPANION_RECORDER_TIMESLICE_MS } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { MidniteStudioBridge } from '@midnite/studio-shared';
+
+import { useUiStore } from '../../store/ui-store';
 import {
   RecorderError,
   classifyMediaError,
   createRecorder,
   preferredRecorderMime,
   recorderErrorMessage,
+  transcribe,
   type RecorderDeps,
 } from './recorder';
 
@@ -303,6 +307,36 @@ describe('createRecorder', () => {
         kind: 'error',
       });
     });
+  });
+});
+
+/**
+ * Phase 109 Theme B — the Provider select is persisted, and the mic's own
+ * `transcribe` sends it, so main honours the choice instead of resolving its own.
+ */
+describe('transcribe — the persisted STT provider', () => {
+  function installTranscribe(): ReturnType<typeof vi.fn> {
+    const bridgeTranscribe = vi.fn().mockResolvedValue({ ok: true, value: { text: 'hi' } });
+    (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
+      companion: { transcribe: bridgeTranscribe },
+    } as unknown as Partial<MidniteStudioBridge>;
+    return bridgeTranscribe;
+  }
+
+  it('sends the pinned provider with the audio', async () => {
+    const bridgeTranscribe = installTranscribe();
+    useUiStore.setState({ companionSttProvider: 'openai-whisper' });
+    await transcribe(blobOf([1], COMPANION_RECORDER_MIME));
+    expect(bridgeTranscribe).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'openai-whisper' }));
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  it('sends no provider at all on automatic, leaving main to resolve it as before', async () => {
+    const bridgeTranscribe = installTranscribe();
+    useUiStore.setState({ companionSttProvider: null });
+    await transcribe(blobOf([1], COMPANION_RECORDER_MIME));
+    expect(bridgeTranscribe.mock.calls[0]?.[0]).not.toHaveProperty('providerId');
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
   });
 });
 

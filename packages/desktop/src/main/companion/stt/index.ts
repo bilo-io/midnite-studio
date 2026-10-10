@@ -1,7 +1,7 @@
 import {
   COMPANION_STT_MAX_BYTES,
   COMPANION_STT_TIMEOUT_MS,
-  DEFAULT_STT_PROVIDER_ID,
+  pickSttProvider,
   STT_PROVIDERS_WITHOUT_KEY,
   STT_PROVIDER_LABELS,
   failure,
@@ -102,8 +102,7 @@ export async function resolveProviderId(
   credentials: SttCredentials,
 ): Promise<SttProviderId> {
   if (requested !== undefined) return requested;
-  const configuredIds = await credentials.configured();
-  return configuredIds.length === 1 ? (configuredIds[0] as SttProviderId) : DEFAULT_STT_PROVIDER_ID;
+  return pickSttProvider(undefined, await credentials.configured());
 }
 
 export async function transcribeUtterance(

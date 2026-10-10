@@ -1377,6 +1377,21 @@ export type SttProviderId = (typeof STT_PROVIDER_IDS)[number];
 export const DEFAULT_STT_PROVIDER_ID: SttProviderId = 'whisper-local';
 
 /**
+ * Which provider a transcription uses: the one chosen, or — when none is
+ * (`null`/absent, the "automatic" a migrated install starts on) — the single
+ * provider with a stored key if there is exactly one, else the key-free
+ * default. Shared so main's `resolveProviderId` and the Settings select that
+ * shows the effective choice cannot disagree.
+ */
+export function pickSttProvider(
+  requested: SttProviderId | null | undefined,
+  configured: readonly SttProviderId[],
+): SttProviderId {
+  if (requested !== null && requested !== undefined) return requested;
+  return configured.length === 1 ? (configured[0] as SttProviderId) : DEFAULT_STT_PROVIDER_ID;
+}
+
+/**
  * Providers `transcribeUtterance` will construct with **no stored credential
  * at all**. Every id absent from this list needs a key in `safeStorage`
  * before its factory is even called — `whisper-local`'s factory ignores the
