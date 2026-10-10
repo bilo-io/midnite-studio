@@ -212,6 +212,26 @@ export function buildPersonaFromAnswers(
   return { text, summary: text === '' ? '' : firstSentence(text) };
 }
 
+/**
+ * An interview's answers as the `'persona'` prompt takes them: in question
+ * order, each cleaned like the template's ({@link cleanTuneAnswer}), and an
+ * answer that cleans to nothing dropped — so the prompt and the template
+ * always agree on what was actually said.
+ */
+export function tuneAnswersForPrompt(
+  target: CompanionTuneTarget,
+  answers: CompanionTuneAnswers,
+): { topic: string; answer: string }[] {
+  const out: { topic: string; answer: string }[] = [];
+  for (const question of COMPANION_TUNE_QUESTIONS[target]) {
+    const raw = answers[question.id];
+    if (raw === undefined) continue;
+    const answer = cleanTuneAnswer(question, raw);
+    if (answer !== '') out.push({ topic: question.topic, answer });
+  }
+  return out;
+}
+
 /** One answered question, as the `'persona'` prompt sees it. */
 export const CompanionTuneAnswerSchema = z.object({
   topic: z.string().min(1).max(80),

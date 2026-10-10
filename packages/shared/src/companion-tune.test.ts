@@ -13,6 +13,7 @@ import {
   classifyTuneReply,
   cleanTuneAnswer,
   firstSentence,
+  tuneAnswersForPrompt,
   type CompanionTuneQuestion,
   type CompanionTuneReplyKind,
 } from './companion-tune';
@@ -176,6 +177,23 @@ describe('buildPersonaFromAnswers — the no-CLI template (Decision 6)', () => {
       expect(persona.text.length).toBeLessThanOrEqual(COMPANION_PERSONA_TEXT_MAX);
       expect(CompanionPersonaReplySchema.safeParse(persona).success).toBe(true);
     }
+  });
+});
+
+describe('tuneAnswersForPrompt', () => {
+  it('pairs each cleaned answer with its topic, in question order, dropping skipped and filler-only ones', () => {
+    expect(
+      tuneAnswersForPrompt('companionPersonality', { avoid: 'No jargon.', humour: 'um', tone: 'Be warm' }),
+    ).toEqual([
+      { topic: 'the tone to take', answer: 'warm' },
+      { topic: 'what to avoid', answer: 'jargon' },
+    ]);
+  });
+
+  it('agrees with the template on what was said', () => {
+    const answers = { name: 'Call me Bilo', updates: 'uh' };
+    expect(tuneAnswersForPrompt('companionAboutUser', answers)).toHaveLength(1);
+    expect(buildPersonaFromAnswers('companionAboutUser', answers).text).toBe('Call me Bilo.');
   });
 });
 
