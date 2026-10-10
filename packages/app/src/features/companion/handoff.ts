@@ -1,4 +1,5 @@
 import {
+  BUILTIN_AGENTS,
   COMPANION_COMMAND_IDS,
   COMPANION_LOCAL_VOICES,
   COMPANION_NEVER_AUTOSEND,
@@ -8,6 +9,7 @@ import {
   describeCompanionSettingValue,
   extractLastAgentTurn,
   matchVoice,
+  modelsForAgent,
   parseIntent,
   type CommandId,
   type CompanionAskReply,
@@ -27,12 +29,13 @@ import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
 import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
 import type { Speaker } from './ports';
-import type {
-  CompanionSettingChange,
-  CompanionSettingResult,
-  CompanionUndoResult,
+import {
+  COMPANION_UNDO_WINDOW_MS,
+  type CompanionSettingChange,
+  type CompanionSettingResult,
+  type CompanionUndoResult,
 } from './settings-apply';
-import type { AgentCommandId } from '../../store/ui-store';
+import { useUiStore, type AgentCommandId } from '../../store/ui-store';
 
 /**
  * From "start a swarm" to hearing what the swarm did — Phase 79 Theme E.
@@ -182,9 +185,22 @@ let voiceChoice: {
 /** How long "Bella or Isabella?" waits for an answer — the same minute a confirm does. */
 export const VOICE_CHOICE_MEMORY_MS = 60 * 1000;
 
+/**
+ * The last primary agent/model switch (Phase 111 Theme C).
+ * Kept so "undo that" / `undoSetting` reverts the agent and model selection.
+ */
+let lastAgentSwitchChange: {
+  previousAgent: string;
+  previousModel: string | null;
+  newAgent: string;
+  newModel: string | null;
+  at: number;
+} | null = null;
+
 export function resetHandoffState(): void {
   declined = null;
   voiceChoice = null;
+  lastAgentSwitchChange = null;
 }
 
 /**
@@ -295,11 +311,18 @@ async function act(
     case 'profile':
       return actOnProfile(intent, deps);
 
+    // Phase 111 Theme C — Voice execution of primary agent and model switching.
+    case 'switchAgent':
+      return switchAgent(intent, deps);
+
     // Phase 109 — the companion changes itself.
     case 'setting':
       return changeSetting(intent, deps);
 
     case 'undoSetting':
+      if (lastAgentSwitchChange && Date.now() - lastAgentSwitchChange.at <= COMPANION_UNDO_WINDOW_MS) {
+        return undoAgentSwitch(deps);
+      }
       await deps.companionSettings.undoAndAnnounce(speakLive(deps));
       return;
 
@@ -627,6 +650,88 @@ async function speakHelp(deps: HandoffDeps): Promise<void> {
   ].join('\n');
 
   await say(deps, markdown, 'companion', summary);
+}
+
+// --- switching primary agent & model (Phase 111 Theme C) -------------------
+
+/**
+ * Switch the primary agent and optional model by voice.
+ * Speaks feedback e.g.:
+ * - "Switched primary agent to Claude Sonnet 5.5."
+ * - "Switched primary agent to Codex."
+ * - If unknown agent: "I don't recognize the agent <id>."
+ */
+async function switchAgent(
+  intent: Extract<CompanionIntent, { kind: 'switchAgent' }>,
+  deps: HandoffDeps,
+): Promise<void> {
+  const agent = BUILTIN_AGENTS.find((a) => a.id.toLowerCase() === intent.agentId.toLowerCase());
+  if (!agent) {
+    await say(deps, `I don't recognize the agent ${intent.agentId}.`);
+    return;
+  }
+
+  let modelLabel: string | null = null;
+  if (intent.modelId !== undefined && intent.modelId !== null) {
+    const knownModels = modelsForAgent(agent.id);
+    const foundModel = knownModels.find(
+      (m) =>
+        m.id.toLowerCase() === intent.modelId!.toLowerCase() ||
+        (m.cliModel && m.cliModel.toLowerCase() === intent.modelId!.toLowerCase()),
+    );
+    modelLabel = foundModel ? foundModel.label : intent.modelId;
+  }
+
+  const currentUi = useUiStore.getState();
+  const previousAgent = currentUi.primaryAgent;
+  const previousModel = currentUi.primaryModelByAgent[previousAgent] ?? null;
+
+  useUiStore.getState().setPrimaryAgentAndModel(agent.id, intent.modelId);
+
+  lastAgentSwitchChange = {
+    previousAgent,
+    previousModel,
+    newAgent: agent.id,
+    newModel: intent.modelId ?? null,
+    at: Date.now(),
+  };
+
+  const response = modelLabel
+    ? `Switched primary agent to ${agent.label} ${modelLabel}.`
+    : `Switched primary agent to ${agent.label}.`;
+
+  await say(deps, response);
+}
+
+/**
+ * Undo the last agent/model switch ("undo that").
+ */
+async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
+  if (!lastAgentSwitchChange) {
+    await say(deps, 'Nothing to undo.');
+    return;
+  }
+
+  const { previousAgent, previousModel } = lastAgentSwitchChange;
+  lastAgentSwitchChange = null;
+
+  useUiStore.getState().setPrimaryAgentAndModel(previousAgent, previousModel);
+
+  const prevAgentDef = BUILTIN_AGENTS.find((a) => a.id === previousAgent);
+  const prevAgentLabel = prevAgentDef ? prevAgentDef.label : previousAgent;
+
+  let prevModelLabel: string | null = null;
+  if (previousModel) {
+    const knownModels = modelsForAgent(previousAgent);
+    const foundModel = knownModels.find((m) => m.id === previousModel);
+    prevModelLabel = foundModel ? foundModel.label : previousModel;
+  }
+
+  const response = prevModelLabel
+    ? `Put it back. Switched primary agent to ${prevAgentLabel} ${prevModelLabel}.`
+    : `Put it back. Switched primary agent to ${prevAgentLabel}.`;
+
+  await say(deps, response);
 }
 
 // --- changing its own settings (Phase 109 Themes C and E) -------------------
