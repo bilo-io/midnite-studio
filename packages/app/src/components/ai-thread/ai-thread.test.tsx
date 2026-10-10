@@ -8,6 +8,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setCompanionPorts, resetCompanionPorts } from '../../features/companion/companion-ports';
 import { __setConversationDepsForTest, conversationOwner } from '../../features/companion/conversation';
+
+/*
+  Pass-through: the real `setNextTranscriptSink`, plus a copy of the sink a
+  held press installs — the only way to deliver a push-to-talk transcript here
+  without a microphone, since `voice-ports.ts` keeps its delivery internal.
+*/
+const pushSink = vi.hoisted(() => ({ current: null as ((text: string) => void) | null }));
+vi.mock('../../features/companion/voice-ports', async () => {
+  const actual = await vi.importActual<typeof import('../../features/companion/voice-ports')>(
+    '../../features/companion/voice-ports',
+  );
+  return {
+    ...actual,
+    setNextTranscriptSink: (sink: ((text: string) => void) | null) => {
+      pushSink.current = sink;
+      actual.setNextTranscriptSink(sink);
+    },
+  };
+});
 import { useUiStore } from '../../store/ui-store';
 import { AiComposer } from './ai-composer';
 import { ThinkingIndicator } from './thinking-indicator';
@@ -263,5 +282,73 @@ describe('AiComposer conversation mode', () => {
     unmount();
     expect(conversationOwner()).toBeNull();
     expect(close).toHaveBeenCalledOnce();
+  });
+});
+
+/*
+  What was just said stays on screen: the field scrolls to the end and the
+  caret follows, even when the draft is taller than the field.
+*/
+describe('AiComposer after dictation', () => {
+  function LongDraft({ busy = false }: { busy?: boolean }) {
+    const [value, setValue] = useState(Array.from({ length: 30 }, (_, i) => `line ${i}`).join('\n'));
+    const mic = useComposerMic({ onTranscript: (text) => setValue((current) => `${current} ${text}`) });
+    return (
+      <AiComposer value={value} onChange={setValue} onSend={() => {}} canSend={!busy} ariaLabel="Prompt" mic={mic} />
+    );
+  }
+
+  /** jsdom has no layout: give the field a scrollable height, and park the view and caret at the top. */
+  const tallField = (): HTMLTextAreaElement => {
+    const el = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Prompt' });
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => 900 });
+    Object.defineProperty(el, 'scrollTop', { configurable: true, writable: true, value: 0 });
+    el.setSelectionRange(0, 0);
+    return el;
+  };
+
+  beforeEach(() => {
+    pushSink.current = null;
+    setCompanionPorts({ micAvailable: () => true, micPressStart: vi.fn(), micPressEnd: vi.fn() });
+    useUiStore.setState({ voiceConversation: false, voiceConversationTrigger: 'always' });
+  });
+
+  afterEach(() => {
+    __setConversationDepsForTest(null);
+    useUiStore.setState({ voiceConversation: false });
+  });
+
+  it('scrolls a held-press transcript into view, caret at the end', () => {
+    render(<LongDraft />);
+    const el = tallField();
+    fireEvent.pointerDown(screen.getByTestId('ai-composer-mic'));
+    expect(pushSink.current).not.toBeNull();
+
+    act(() => pushSink.current!('and then deploy'));
+    expect(el.value.endsWith('and then deploy')).toBe(true);
+    expect(el.scrollTop).toBe(900);
+    expect(el.selectionStart).toBe(el.value.length);
+  });
+
+  it('scrolls a conversation-mode phrase into view while it waits to be sent', async () => {
+    __setConversationDepsForTest({ openCapture: async () => ({ stream: {} as MediaStream, sampleRate: 16_000, close: vi.fn() }) });
+    useUiStore.setState({ voiceConversation: true });
+    render(<LongDraft busy />);
+    const el = tallField();
+    fireEvent.pointerDown(screen.getByTestId('ai-composer-mic'));
+    await waitFor(() => expect(conversationOwner()).not.toBeNull());
+
+    act(() => conversationOwner()!.deliver('and then deploy'));
+    expect(el.value.endsWith('and then deploy')).toBe(true);
+    expect(el.scrollTop).toBe(900);
+    expect(el.selectionStart).toBe(el.value.length);
+  });
+
+  it('leaves the field alone when the change is typing, not speech', () => {
+    render(<LongDraft />);
+    const el = tallField();
+    el.scrollTop = 40;
+    fireEvent.change(el, { target: { value: `${el.value}x` } });
+    expect(el.scrollTop).toBe(40);
   });
 });
