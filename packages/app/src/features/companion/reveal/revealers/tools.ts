@@ -41,10 +41,12 @@ function sameUrl(a: string, b: string): boolean {
 /** The settings page's mounted anchor for `section`, once the page has rendered. */
 async function findSectionAnchor(section: string): Promise<HTMLElement | null> {
   const selector = `[data-settings-section="${section}"]`;
-  for (let attempt = 0; attempt < 10; attempt += 1) {
+  // The settings view and its page may be lazy chunks; poll for them rather than assume they are
+  // mounted. Timers, not animation frames — a hidden window never fires a frame.
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     const found = document.querySelector<HTMLElement>(selector);
     if (found) return found;
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
   }
   return null;
 }
