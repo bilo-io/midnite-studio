@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseIntent, type CompanionIntent, type CompanionVocabulary } from './companion';
+import { parseAskReply, parseIntent, type CompanionIntent, type CompanionVocabulary } from './companion';
 
 /**
  * Phase 112 Theme H — the target-phrase grammar. Four families, in the order
@@ -114,5 +114,32 @@ describe('parseIntent — resource grammar without a vocabulary', () => {
   it('is only recognised with a vocabulary, like every navigate phrase', () => {
     expect(parseIntent('open my chat about auth').kind).toBe('freeform');
     expect(parseIntent('go back').kind).not.toBe('navigate');
+  });
+});
+
+describe('parseAskReply — resource navigate shapes (Theme H router replies)', () => {
+  const reply = (intent: unknown): unknown => parseAskReply(JSON.stringify({ say: 'On it.', intent }))?.intent;
+
+  it.each([
+    [{ kind: 'navigate', query: 'my last chat about auth' }],
+    [{ kind: 'navigate', reference: 'next' }],
+    [{ kind: 'navigate', reference: 'this', about: 'commit' }],
+    [{ kind: 'navigate', reference: 'this', related: 'pull' }],
+    [{ kind: 'navigate', reference: 'back' }],
+    [{ kind: 'navigate', target: { kind: 'chat', id: 'c1' } }],
+    [{ kind: 'navigate', target: { kind: 'commit', repoId: 'r1', sha: 'abc1234' } }],
+    [{ kind: 'navigate', target: { kind: 'media', repoId: 'r1', media: 'model', project: 'dragon' } }],
+  ])('%j round-trips', (intent) => {
+    expect(reply(intent)).toEqual(intent);
+  });
+
+  it.each([
+    [{ kind: 'navigate', related: 'issue' }],
+    [{ kind: 'navigate', about: 'spaceship' }],
+    [{ kind: 'navigate', reference: 'sideways' }],
+    [{ kind: 'navigate', query: '' }],
+    [{ kind: 'navigate', target: { kind: 'chat' } }],
+  ])('%j is rejected', (intent) => {
+    expect(reply(intent)).toBeUndefined();
   });
 });
