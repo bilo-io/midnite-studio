@@ -721,3 +721,6 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   the 100-record history cap bounds it, but a byte budget would be tighter.
 - **The 250k / 1M-vertex stroke-latency bench is Theme I's.** Strokes were exercised at ~20k vertices
   in the screenshot run; no packaged-app number is recorded yet.
+
+## The title-bar agent picker has no Ollama row (Phase 111 Theme F)
+Ollama is not in `BUILTIN_AGENTS`, so `PrimaryAgentPickerPanel` lists no Ollama agent row to select. Voice and MCP can already set it (`agent-switch.ts` synthesises an Ollama agent), and the model section lists Ollama's pulled models once it is primary, but the pill itself cannot get you there. Fix: add a synthesised Ollama row to the picker, gated on the daemon.
