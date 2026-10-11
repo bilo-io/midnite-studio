@@ -52,6 +52,7 @@ import { announceCompanionProfileSwitch, announceCompanionSettingChange } from '
 import { loadCompanionVoices } from './speaker';
 import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './agent-switch';
 import { revealResource } from './reveal/reveal';
+import { findResources } from './reveal/resolve';
 
 /**
  * The main window's side of the ui.* MCP tools (Phase 81 Theme F) — the
@@ -119,10 +120,29 @@ export async function resolveUiAction(action: CompanionUiAction): Promise<Compan
   }
 
   if (action.kind === 'reveal') return resolveRevealAction(action);
-  // Phase 112: `find` is Theme G's resolver; until it lands the action is refused, never guessed at.
-  if (action.kind === 'find') return failure('Finding resources is not available yet.');
+  if (action.kind === 'find') return resolveFindAction(action);
 
   return action.kind === 'navigate' ? resolveNavigateAction(action) : resolveCommandAction(action);
+}
+
+// --- find (Phase 112 Theme G) -----------------------------------------------
+
+/**
+ * An agent's `find` runs the resolver and answers with titles and ids only —
+ * `ResourceMatch.score` stays here, and a source's matching-only text (a chat
+ * preview, a note body) was never a field to begin with. A find only reads,
+ * so it posts no toast; it still sits behind the lock check above, because it
+ * enumerates the user's work.
+ */
+async function resolveFindAction(action: Extract<CompanionUiAction, { kind: 'find' }>): Promise<CompanionUiReplyResult> {
+  const matches = await findResources(action.query, {
+    ...(action.kinds ? { kinds: action.kinds } : {}),
+    ...(action.limit !== undefined ? { limit: action.limit } : {}),
+  });
+  return ok({
+    did: 'found',
+    matches: matches.map(({ ref, title, detail }) => ({ ref, title, ...(detail === undefined ? {} : { detail }) })),
+  });
 }
 
 // --- reveal (Phase 112 Theme B) ---------------------------------------------
