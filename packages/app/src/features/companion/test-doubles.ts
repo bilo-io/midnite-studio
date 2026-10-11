@@ -179,6 +179,7 @@ export function fakeHandoffDeps(over: Partial<HandoffDeps> = {}): HandoffDeps {
     setPendingAction: () => {},
     vocabulary: () => vocabularyFixture(),
     navigate: async () => ({ say: 'Here.' }),
+    resource: { find: async () => [], followUp: async () => ({ ok: false, say: 'No.' }), exactScore: 1_000_000 },
     companionSettings: fakeCompanionSettings(),
     persona: async () => ({ ok: true, value: { text: 'Keep it short.', summary: 'Short answers.' } }),
     hasAgentCli: () => true,

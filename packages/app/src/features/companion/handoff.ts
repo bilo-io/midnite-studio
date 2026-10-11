@@ -34,6 +34,7 @@ import {
 } from './audition';
 import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
+import { actOnResource, confirmChoice, takeChoice, type CompanionResourcePort } from './resource-handoff';
 import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
 import { continueTune, startTuneInterview, startTuneTweak, type TuneDeps } from './tune';
 import type { Speaker } from './ports';
@@ -121,6 +122,8 @@ export type HandoffDeps = ConciergeDeps & {
   navigate: (
     intent: Extract<CompanionIntent, { kind: 'navigate' }>,
   ) => Promise<{ say: string }>;
+  /** Resolving "my last chat about auth" and "the next one" (Phase 112 Theme H) — `findResources` and `resolveFollowUp` in `runtime.ts`. */
+  resource: CompanionResourcePort;
   /**
    * The settings setter and Theme E's read-back, assembled in `runtime.ts`
    * over `settings-apply.ts` and `settings-announce.ts` (Phase 109 Theme C) —
@@ -227,6 +230,9 @@ export async function submitInput(text: string, deps: HandoffDeps): Promise<void
   // Phase 109 Theme H: mid-interview, the line is an answer, not a request.
   if (await continueTune(trimmed, tuneDeps(deps))) return;
 
+  // Phase 112 Theme H: "two" while chips are up picks the second one.
+  if (await takeChoice(trimmed, deps)) return;
+
   const chosen = takeVoiceChoice(trimmed);
   if (chosen) {
     await proposeSetting(chosen, deps);
@@ -251,6 +257,14 @@ async function act(
   original: string,
   depth = 0,
 ): Promise<void> {
+  // A new request replaces a pending choice (Phase 112 Theme H); a yes, a no
+  // and a "stop" are answers to it, handled by their own arms.
+  if (
+    deps.pendingAction()?.kind === 'choice' &&
+    !['confirm', 'stop', 'dismiss', 'repeat', 'anyway'].includes(intent.kind)
+  ) {
+    deps.setPendingAction(null);
+  }
   switch (intent.kind) {
     case 'stop':
       // A pending confirm is left, not merely interrupted — "stop" while the
@@ -304,6 +318,8 @@ async function act(
     // takes. The `run`/`confirm`/`help` arms below are Theme C's, and are no
     // longer stubs, so nothing falls through to "I can't do that yet." here.
     case 'navigate': {
+      if (intent.reference === 'back') return runAndReport({ id: 'panel.back', label: 'Back' }, deps);
+      if (intent.query !== undefined || intent.reference !== undefined) return actOnResource(intent, deps);
       const outcome = await deps.navigate(intent);
       await say(deps, outcome.say);
       return;
@@ -563,6 +579,8 @@ async function resolvePending(deps: HandoffDeps): Promise<void> {
     await say(deps, "Nothing's waiting.");
     return;
   }
+  // Phase 112 Theme H: a yes to "three chats match" is the first one.
+  if (pending.kind === 'choice') return confirmChoice(pending, deps);
   // Phase 109 Theme D: an agent's change waiting on this yes. Asked before the
   // slot clears, so the asker reads it as a yes rather than a dismissal.
   if (pending.onConfirm !== undefined) {
