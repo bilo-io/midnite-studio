@@ -2,6 +2,7 @@ import {
   COMPANION_LOCAL_VOICES,
   COMPANION_PHRASES,
   COMPANION_SETTING_SPECS,
+  COMPANION_TUNE_TARGETS,
   CompanionHonorificsSchema,
   CompanionNamesSchema,
   STT_PROVIDERS_WITHOUT_KEY,
@@ -537,6 +538,7 @@ export function CompanionPage() {
               rows={4}
               gradient
             />
+            <TryHint settingKey="companionPersonality" inField />
           </Field>
 
           <Field
@@ -552,6 +554,7 @@ export function CompanionPage() {
               rows={4}
               gradient
             />
+            <TryHint settingKey="companionAboutUser" inField />
           </Field>
 
           <SettingsSwitchRow
@@ -671,10 +674,14 @@ function useCompanionTtsStatus(): {
 /** Shared styling for the two moments this section offers a way to try again. */
 /**
  * The keys the companion can change by voice today — the router's own list,
- * so a hint never promises a phrase nothing understands. Personality and About
- * me wait for Theme H's interview, the active profile for Theme G.
+ * so a hint never promises a phrase nothing understands — plus personality and
+ * About me, which change by Theme H's interview ("tune yourself", "let me tell
+ * you about me") rather than a `setting`. The active profile waits for Theme G.
  */
-const VOICE_SETTABLE_KEYS = new Set<CompanionSettingKey>(companionSettingsVocabulary().map((row) => row.key));
+const VOICE_SETTABLE_KEYS = new Set<CompanionSettingKey>([
+  ...companionSettingsVocabulary().map((row) => row.key),
+  ...COMPANION_TUNE_TARGETS,
+]);
 
 /**
  * "Try: “use voice Bella”" (Phase 109 Theme C) — one muted line under each

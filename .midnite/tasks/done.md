@@ -8,6 +8,27 @@ Themes E and F: the notes, media, database, API-client, browser and settings kin
 
 - **notes + media:** `selectNote(id)` lifted into `notes-store`; a generic `useMediaOpenRequest` store for doc, image, video, audio, map and game; app-level `music_open` / `map_goto` / `game_open` listeners routed through `revealResource` (so they work from any view).
 - **tools + settings:** `dbTable` (preview tab, not run), `apiRequest` (focus or open, never send), `browserTab` (focus or open), `setting` (page plus section scroll and highlight). `SettingsAccordion` anchors and the `SETTINGS_SECTIONS` table.
+## 2026-10-10 — Phase 109 Theme H — "Tune me" and quick tweaks
+
+[PR #816](https://github.com/bilo-io/midnite-studio/pull/816). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme H: personality and About me change by voice through a short interview or a one-line tweak,
+read back and confirmed. They are never dictated.
+
+- **Interview:** "tune yourself" asks four questions (tone, how much to say, humour, what to avoid),
+  and "let me tell you about me" asks three (name, work, updates). "Skip", "start over" and "cancel"
+  work throughout. The pure machine is `app/features/companion/tune-interview.ts`, and `tune.ts` runs the flow.
+- **Writing:** a new `'persona'` mode in `ask.ts` returns `{text ≤4000, summary ≤200}`, validated by
+  `parseAskReply(stdout, 'persona')`. With no CLI or a bad reply, `buildPersonaFromAnswers` fills a
+  labelled template (Decision 6).
+- **Tweaks:** "be more sarcastic", "talk less" and "stop being so formal" revise the current
+  personality through the CLI. With no CLI the companion offers Settings ▸ Companion. Honorific
+  phrasings stay C's `setting`.
+- **Confirm:** the companion speaks the summary, posts the whole draft, and asks "Want to hear all of
+  it?" (Decision 11). The replace question uses the pending slot, and a yes applies with
+  `tuned: true` and `confirmed: true`.
+- **No raw dictation:** `tune`/`tweak` intents carry no text, a `setting` intent for either field is
+  schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
+
 
 ## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
 

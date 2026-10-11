@@ -167,10 +167,15 @@ describe('"Try: …" hints (Phase 109 Theme C)', () => {
     }
   });
 
-  it('promises nothing a later theme has yet to teach it — personality and About me', async () => {
+  it('points personality and About me at the interview, never at dictation (Phase 109 Theme H)', async () => {
+    render(<CompanionPage />);
+    expect((await screen.findByTestId('companion-try-companionPersonality')).textContent).toBe('Try: “tune yourself”');
+    expect(screen.getByTestId('companion-try-companionAboutUser').textContent).toBe('Try: “let me tell you about me”');
+  });
+
+  it('promises nothing a later theme has yet to teach it — the active profile', async () => {
     render(<CompanionPage />);
     await screen.findByTestId('companion-try-companionVolume');
-    expect(screen.queryByTestId('companion-try-companionPersonality')).toBeNull();
-    expect(screen.queryByTestId('companion-try-companionAboutUser')).toBeNull();
+    expect(screen.queryByTestId('companion-try-companionActiveProfile')).toBeNull();
   });
 });
