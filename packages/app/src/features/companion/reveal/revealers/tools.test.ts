@@ -63,7 +63,7 @@ describe('setting', () => {
     const out = await TOOLS_REVEALERS.setting.reveal({ kind: 'setting', page: 'terminal', section: 'memory' }, ctx);
     expect(out).toMatchObject({ ok: true });
     expect(useUiStore.getState().settingsPage).toBe('terminal');
-    expect(document.querySelector('[data-settings-section="memory"]')?.hasAttribute('data-settings-highlight')).toBe(true);
+    expect(document.querySelector('[data-settings-section="memory"]')?.classList.contains('settings-section-highlight')).toBe(true);
   });
 
   it('still lands on the page, and says so, when the section cannot be found', async () => {

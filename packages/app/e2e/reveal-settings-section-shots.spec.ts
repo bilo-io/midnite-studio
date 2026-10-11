@@ -22,13 +22,13 @@ async function reveal(page: Page, theme: 'light' | 'dark'): Promise<void> {
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
   await setReducedMotion(page);
   await setTheme(page, theme, { settleMs: 200 });
-  await page.evaluate(async () => {
-    const mod = await import(/* @vite-ignore */ '/src/features/companion/reveal/reveal.ts');
+  await page.evaluate(async (path) => {
+    const mod = await import(/* @vite-ignore */ path);
     return mod.revealResource({ kind: 'setting', page: 'terminal', section: 'memory' }, { caller: 'companion' });
-  });
+  }, '/src/features/companion/reveal/reveal.ts');
   // Off the rail: the expanded rail would cover the settings nav.
   await page.mouse.move(900, 500);
-  await expect(page.locator('[data-settings-section="memory"][data-settings-highlight]')).toBeVisible();
+  await expect(page.locator('[data-settings-section="memory"].settings-section-highlight')).toBeVisible();
 }
 
 for (const theme of ['light', 'dark'] as const) {

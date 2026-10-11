@@ -59,8 +59,8 @@ async function showSection(page: SettingsPageId, section: string): Promise<boole
   const header = anchor.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
   header?.click();
   anchor.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
-  anchor.setAttribute('data-settings-highlight', '');
-  setTimeout(() => anchor.removeAttribute('data-settings-highlight'), HIGHLIGHT_MS);
+  anchor.classList.add('settings-section-highlight');
+  setTimeout(() => anchor.classList.remove('settings-section-highlight'), HIGHLIGHT_MS);
   return true;
 }
 

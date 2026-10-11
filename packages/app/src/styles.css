@@ -6173,8 +6173,8 @@ html[data-motion='reduced'] .rainbow-panel::after {
 }
 
 /*
- * Phase 112 Theme F — a settings section a reveal has just scrolled to. The reveal sets the
- * attribute and removes it ~1.8s later; the ring fades on its own, and under reduced motion it is a
+ * Phase 112 Theme F — a settings section a reveal has just scrolled to. The reveal adds the class
+ * and removes it ~1.8s later; the ring fades on its own, and under reduced motion it is a
  * plain static ring for that same window rather than an animation.
  */
 @keyframes settings-section-flash {
@@ -6186,18 +6186,18 @@ html[data-motion='reduced'] .rainbow-panel::after {
   }
 }
 
-[data-settings-highlight] {
+.settings-section-highlight {
   border-radius: 0.5rem;
   box-shadow: 0 0 0 2px hsl(var(--primary) / 0.7);
   animation: settings-section-flash 1.8s ease-out forwards;
 }
 
-html[data-motion='reduced'] [data-settings-highlight] {
+html[data-motion='reduced'] .settings-section-highlight {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) [data-settings-highlight] {
+  html:not([data-motion='full']) .settings-section-highlight {
     animation: none;
   }
 }
