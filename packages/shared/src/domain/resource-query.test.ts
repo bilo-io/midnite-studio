@@ -52,6 +52,7 @@ describe('parseResourceQuery', () => {
   it('stops the head phrase at a preposition', () => {
     const q = parseResourceQuery('the run for the auth PR');
     expect(q.kinds).toEqual(['ciRun', 'workflow', 'council']);
+    expect(q.headWord).toBe('run');
     expect(q.softTerms).toEqual(['pr']);
     expect(q.terms).toEqual(['auth']);
   });

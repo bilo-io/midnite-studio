@@ -22,6 +22,8 @@ export type ResourceExactId =
 export type ParsedResourceQuery = {
   /** The query as given, trimmed. */
   text: string;
+  /** The kind word read as the head noun ("chat", "pull request"), or `null`. */
+  headWord: string | null;
   /** Kinds the head noun names; empty when the query names none. */
   kinds: ResourceKind[];
   /** Set only when the head noun is a media word ("the dragon model") — narrows `media` refs to these tabs. */
@@ -279,6 +281,7 @@ export function parseResourceQuery(query: string): ParsedResourceQuery {
 
   return {
     text,
+    headWord: headAt === -1 ? null : tokens[headAt]!,
     kinds: head ? [...head.kinds] : [],
     media: head?.media ? [...head.media] : [],
     recency,

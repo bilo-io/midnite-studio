@@ -204,7 +204,7 @@ describe('resolveUiAction — ui.command', () => {
   });
 });
 
-describe('resolveUiAction — reveal / find (Phase 112 Theme B)', () => {
+describe('resolveUiAction — reveal / find (Phase 112 Themes B, G)', () => {
   const chat: CompanionUiAction = { kind: 'reveal', ref: { kind: 'chat', id: 'c1' } };
 
   it('lands on the page and refuses plainly while the kind is still a stub', async () => {
@@ -237,8 +237,24 @@ describe('resolveUiAction — reveal / find (Phase 112 Theme B)', () => {
     expect(useUiStore.getState().activeView).toBe('dashboard');
   });
 
-  it('refuses find until the resolver lands', async () => {
-    const result = await resolveUiAction({ kind: 'find', query: 'auth' });
-    expect(result).toMatchObject({ ok: false, message: 'Finding resources is not available yet.' });
+  // Phase 112 Theme G — `find` runs the resolver. A settings query asks only the static settings
+  // source, so the mocked bridge needs nothing more.
+  it('answers find with ranked titles and ids, never a score', async () => {
+    const result = await resolveUiAction({ kind: 'find', query: 'appearance settings theme', limit: 3 });
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.value.did !== 'found') throw new Error('expected found');
+    expect(result.value.matches[0]).toEqual({
+      ref: { kind: 'setting', page: 'appearance', section: 'theme' },
+      title: 'Appearance settings — Theme',
+      detail: 'Appearance settings section',
+    });
+    expect(result.value.matches.length).toBeLessThanOrEqual(3);
+    expect(result.value.matches.every((match) => !('score' in match))).toBe(true);
+  });
+
+  it('refuses a find while locked — it enumerates the user’s work', async () => {
+    useUiStore.setState({ screensaverLocked: true });
+    const result = await resolveUiAction({ kind: 'find', query: 'appearance settings' });
+    expect(result).toMatchObject({ ok: false, message: 'The screen is locked — unlock it first.' });
   });
 });

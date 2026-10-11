@@ -18,7 +18,6 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
-import { QueryClient } from '@tanstack/react-query';
 import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
@@ -118,6 +117,7 @@ import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
 import { markOnce } from './lib/perf';
 import { bridge } from './services/bridge';
+import { appQueryClient } from './services/query-client';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
@@ -190,24 +190,6 @@ function IssueModalSlot() {
   );
 }
 
-/**
- * A QueryClient tuned for a desktop app talking to its own main process.
- *
- * No network is involved, so the usual web defaults are wrong: refetching on
- * window focus would re-run `git status` every time the user alts back into the
- * app, and retrying a failed call three times just delays an error the UI wants
- * to show. Freshness comes from the repo watcher invalidating precisely what
- * changed (Phase 10), not from polling.
- */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: false,
-      staleTime: Number.POSITIVE_INFINITY,
-    },
-  },
-});
 
 /**
  * AppFrame is router-agnostic: it takes an `activePath` string and renders links
@@ -2172,7 +2154,7 @@ export function App() {
   // Workflows view unmounted.
   useWaitingGateToasts();
   return (
-    <ShellProviders queryClient={queryClient}>
+    <ShellProviders queryClient={appQueryClient}>
       <DialogHost>
         <ToastHost>
           <PaletteHost>
