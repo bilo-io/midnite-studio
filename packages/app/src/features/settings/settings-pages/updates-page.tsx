@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LuDownload } from 'react-icons/lu';
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { Choice, Field } from './controls';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
@@ -53,7 +53,7 @@ export function UpdatesPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="App Updates" icon={<LuDownload className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="App Updates" icon={<LuDownload className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="updates-auto-check"
@@ -133,7 +133,7 @@ export function UpdatesPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

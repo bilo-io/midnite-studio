@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuActivity, LuShieldCheck } from 'react-icons/lu';
 
 import {
@@ -53,7 +53,7 @@ export function MonitorPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Metrics" icon={<LuActivity className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Metrics" icon={<LuActivity className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Metrics shown"
@@ -95,9 +95,9 @@ export function MonitorPage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Diagnostics" icon={<LuShieldCheck className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Diagnostics" icon={<LuShieldCheck className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <CrashReporting />
 
@@ -171,7 +171,7 @@ export function MonitorPage() {
             </div>
           )}
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

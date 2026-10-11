@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuClock, LuLock, LuMapPin, LuX } from 'react-icons/lu';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
@@ -89,7 +89,7 @@ export function ScreenLockPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Screensaver" icon={<LuClock className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Screensaver" icon={<LuClock className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <div className="flex items-start justify-between gap-6">
             <div className="space-y-1">
@@ -161,15 +161,15 @@ export function ScreenLockPage() {
             </p>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Weather" icon={<LuMapPin className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Weather" icon={<LuMapPin className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <WeatherLocationEditor />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Screen Lock" icon={<LuLock className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Screen Lock" icon={<LuLock className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="require-passcode"
@@ -221,7 +221,7 @@ export function ScreenLockPage() {
             </div>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <button

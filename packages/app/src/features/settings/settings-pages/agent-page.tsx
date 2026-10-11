@@ -15,7 +15,7 @@ import {
   LuTrash2,
 } from 'react-icons/lu';
 
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 
 import {
   CLAUDE_COMMANDS,
@@ -70,7 +70,7 @@ export function AgentPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Agents" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Agents" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-3 p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -91,9 +91,9 @@ export function AgentPage() {
           </div>
           <AgentsRoster />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Session stamping" icon={<LuGitCommitVertical className="h-4 w-4" />}>
+      <SettingsAccordion title="Session stamping" icon={<LuGitCommitVertical className="h-4 w-4" />}>
         <div className="flex flex-col gap-3 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Installs a <code>prepare-commit-msg</code> hook into a repository&rsquo;s hooks
@@ -104,9 +104,9 @@ export function AgentPage() {
           </p>
           <SessionStampingRepos />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Claude" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Claude" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Detected through your login shell, the same way the terminal resolves it.
@@ -116,9 +116,9 @@ export function AgentPage() {
             onRefresh={() => void queryClient.invalidateQueries({ queryKey: ['claude-info'] })}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="midnite menu" icon={<MidniteIcon className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="midnite menu" icon={<MidniteIcon className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             What each entry of the sidebar&rsquo;s midnite menu types at a fresh session with the
@@ -133,9 +133,9 @@ export function AgentPage() {
           <HeadlessAiModelPicker />
           <SkillFields />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Loops" icon={<LuRepeat className="h-4 w-4" />}>
+      <SettingsAccordion title="Loops" icon={<LuRepeat className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             The six loops the quick-access panel runs. Each takes its base prompt from the{' '}
@@ -146,16 +146,16 @@ export function AgentPage() {
           </p>
           <LoopDefaultFields />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Your agent's home folder — skills, projects, plans, settings. Read-only here.
           </p>
           <ClaudeHomeTree />
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

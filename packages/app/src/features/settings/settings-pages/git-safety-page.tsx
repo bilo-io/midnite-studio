@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuShieldAlert } from 'react-icons/lu';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
@@ -17,7 +17,7 @@ export function GitSafetyPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Force-push" icon={<LuShieldAlert className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Force-push" icon={<LuShieldAlert className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="allow-force-with-lease"
@@ -36,7 +36,7 @@ export function GitSafetyPage() {
             </ul>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

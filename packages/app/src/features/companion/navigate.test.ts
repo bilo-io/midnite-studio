@@ -267,7 +267,7 @@ describe('navigate { target } (Phase 112 Theme B)', () => {
   it('goes through the reveal engine and speaks its sentence', async () => {
     const outcome = await navigateCompanion(navigate({ target: { kind: 'note', id: 'n1' } }));
     expect(useUiStore.getState().activeView).toBe('notes');
-    expect(outcome.say).toBe("I can't pick out that note yet.");
+    expect(outcome.say).toBe("I couldn't find that note.");
   });
 
   it('answers a relayed reveal with its real outcome and reason', async () => {
@@ -275,7 +275,7 @@ describe('navigate { target } (Phase 112 Theme B)', () => {
     await vi.waitFor(() => expect(mocks.relay).toHaveBeenCalled());
     expect(mocks.relay.mock.calls[0]?.[0]).toMatchObject({
       kind: 'companion',
-      payload: { replyTo: 'reply-1', result: { ok: false, reason: 'unavailable' } },
+      payload: { replyTo: 'reply-1', result: { ok: false, reason: 'not-found' } },
     });
   });
 });

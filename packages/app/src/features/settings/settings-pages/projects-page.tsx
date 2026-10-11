@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { useState } from 'react';
 import { LuBot, LuCheck, LuColumns3, LuCopy, LuGitFork, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
 
@@ -34,7 +34,7 @@ export function ProjectsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Launch and run" icon={<LuPlay className="h-4 w-4" />}>
+      <SettingsAccordion title="Launch and run" icon={<LuPlay className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="launch-and-run-enabled"
@@ -53,9 +53,9 @@ export function ProjectsPage() {
             </p>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Missing permission" icon={<LuShieldAlert className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Missing permission" icon={<LuShieldAlert className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             ProjectV2 requires the <code>project</code> scope, which <code>gh auth login</code> does
@@ -64,9 +64,9 @@ export function ProjectsPage() {
           </p>
           <ScopeFixCommand />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="How this works" icon={<LuInfo className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="How this works" icon={<LuInfo className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-3 p-3">
           <div>
             <p className="text-xs font-medium">Default board</p>
@@ -83,9 +83,9 @@ export function ProjectsPage() {
             </p>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Dependency graph" icon={<LuGitFork className="h-4 w-4" />}>
+      <SettingsAccordion title="Dependency graph" icon={<LuGitFork className="h-4 w-4" />}>
         <div className="flex flex-col gap-3 p-3">
           <Field
             label="Blocked-by field name"
@@ -105,15 +105,15 @@ export function ProjectsPage() {
             />
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Column → skill" icon={<LuColumns3 className="h-4 w-4" />}>
+      <SettingsAccordion title="Column → skill" icon={<LuColumns3 className="h-4 w-4" />}>
         <ColumnSkillMapSection />
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Auto-mate" icon={<LuBot className="h-4 w-4" />}>
+      <SettingsAccordion title="Auto-mate" icon={<LuBot className="h-4 w-4" />}>
         <AutomateCapSection />
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

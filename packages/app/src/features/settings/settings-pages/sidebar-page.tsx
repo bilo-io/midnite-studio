@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuFilter, LuLayoutList, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
@@ -288,7 +288,7 @@ export function SidebarPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
         <div className="p-3">
           <Choice<NavMode>
             label="Side navigation"
@@ -306,9 +306,9 @@ export function SidebarPage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="Sidenav"
         icon={<LuLayoutList className="h-4 w-4" />}
         count={hiddenNavCount || undefined}
@@ -332,9 +332,9 @@ export function SidebarPage() {
             </button>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="View filters"
         icon={<LuFilter className="h-4 w-4" />}
         count={Object.keys(overrides).length || undefined}
@@ -371,9 +371,9 @@ export function SidebarPage() {
             </button>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Repository Sync" icon={<LuRefreshCw className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Repository Sync" icon={<LuRefreshCw className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="auto-fetch-enabled"
@@ -415,7 +415,7 @@ export function SidebarPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

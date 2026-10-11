@@ -6,7 +6,7 @@ import {
   mstudioFileUrl,
   type MediaExportFormat,
 } from '@midnite/studio-shared';
-import { useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { LuImage, LuSparkles } from 'react-icons/lu';
 import { PiSparkleFill } from 'react-icons/pi';
 
@@ -25,6 +25,7 @@ import { createPanelReducer, initialCreateState } from './create-panel-state';
 import { Lightbox } from './lightbox';
 import { MasonryGallery, type GalleryImage } from './masonry-gallery';
 import { useImageGeneration, useImagePrefs, useImageProviders } from './use-images';
+import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /** Where a Generate lands when the repo has no image project yet. */
 export const DEFAULT_IMAGE_PROJECT = 'generated';
@@ -46,6 +47,14 @@ function ImageTabBody({ repoId }: { repoId: string }) {
   const [allInRepo, setAllInRepo] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [quality, setQuality] = useState(85);
+  // Phase 112 Theme E — a reveal selects an image (or its project) the way an explorer click does.
+  const openRequest = useMediaOpenFor('image', repoId);
+  useEffect(() => {
+    if (!openRequest) return;
+    setAllInRepo(false);
+    setSelection({ project: openRequest.project, path: openRequest.path ?? null });
+    useMediaOpenRequest.getState().clear();
+  }, [openRequest]);
   const prefs = useImagePrefs();
   const [form, dispatch] = useReducer(createPanelReducer, undefined, () =>
     initialCreateState(prefs.provider, prefs.model),

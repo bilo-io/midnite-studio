@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuGauge, LuHardDrive } from 'react-icons/lu';
 
 import { useDialogs } from '../../../components/dialog-host';
@@ -28,7 +28,7 @@ export function OptimizerSettingsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Workspace Optimizer" icon={<LuGauge className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Workspace Optimizer" icon={<LuGauge className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="optimizer-enabled"
@@ -68,7 +68,7 @@ export function OptimizerSettingsPage() {
             </ul>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       {optimizerEnabled ? <SystemCachesSection /> : null}
     </div>
@@ -135,7 +135,7 @@ function SystemCachesSection() {
   };
 
   return (
-    <Accordion title="System caches" icon={<LuHardDrive className="h-4 w-4" />}>
+    <SettingsAccordion title="System caches" icon={<LuHardDrive className="h-4 w-4" />}>
       <div className="flex flex-col gap-4 p-3">
         <SettingsSwitchRow
           id="allow-system-cache-clean"
@@ -168,6 +168,6 @@ function SystemCachesSection() {
           </ul>
         </div>
       </div>
-    </Accordion>
+    </SettingsAccordion>
   );
 }
