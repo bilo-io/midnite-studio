@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { APP_DEFINITIONS, APP_IDS } from '@midnite/studio-shared';
 import { LuLayoutGrid } from 'react-icons/lu';
 
@@ -27,7 +27,7 @@ export function AppsPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Third-party apps" icon={<LuLayoutGrid className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Third-party apps" icon={<LuLayoutGrid className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] text-muted-foreground">
             Each app runs in its own isolated, persistent browser session — enabling one starts
@@ -69,7 +69,7 @@ export function AppsPage() {
             );
           })}
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

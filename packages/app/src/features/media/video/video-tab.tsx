@@ -43,6 +43,7 @@ import { VideoEnginePicker, VideoEngineSelect } from './video-engine-picker';
 import { VideoRenderDialog } from './video-render-dialog';
 import { selectionProjectId, type VideoSelection } from './video-selection';
 import { VideoStudioPane } from './video-studio-pane';
+import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /** The example project the Setup Video template ships — Studio opens on it. */
 export const SETUP_EXAMPLE_PROJECT = 'example/000-hello';
@@ -315,6 +316,19 @@ export function VideoTab() {
     }
   }, [root, projects.data, lastProject]);
   const newProject = useNewVideoProjectPrompt(select);
+
+  // Phase 112 Theme E — a reveal selects a video project, or one of its iterations when `path` names it.
+  const openRequest = useMediaOpenFor('video', repoId);
+  useEffect(() => {
+    if (!openRequest) return;
+    select(
+      openRequest.path
+        ? { kind: 'iteration', projectId: openRequest.project, filename: openRequest.path }
+        : { kind: 'project', projectId: openRequest.project },
+    );
+    useMediaOpenRequest.getState().clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `select` only closes over `repoId`.
+  }, [openRequest]);
 
   if (resolution.isPending || !resolution.data) {
     return (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LuGamepad2 } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
@@ -12,6 +12,7 @@ import { GameRunnerHost, type GameResolution } from './game-runner-host';
 import { GameRunnerToolbar } from './game-runner-toolbar';
 import { useGameAgentEvents } from './game-agent-store';
 import { useGameEvents, useGames } from './use-games';
+import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /**
  * Media ▸ Games (Phase 107). Unlike Docs/Images/Audio/Models it is not
@@ -31,6 +32,14 @@ export function GameTab() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [resolution, setResolution] = useState<GameResolution>('fit');
+  // Phase 112 Theme E — an agent's `game_open` and a reveal both arrive as a request for a game id.
+  const openRequest = useMediaOpenFor('game', null);
+  useEffect(() => {
+    if (!openRequest) return;
+    setSelectedId(openRequest.project);
+    setCreating(false);
+    useMediaOpenRequest.getState().clear();
+  }, [openRequest]);
   const selected = (games.data ?? []).find((game) => game.gameId === selectedId) ?? null;
 
   const select = (gameId: string) => {

@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuDiff, LuFolderTree } from 'react-icons/lu';
 
 import {
@@ -48,7 +48,7 @@ export function DiffPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Diff view" icon={<LuDiff className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Diff view" icon={<LuDiff className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Choice<DiffLayout>
             label="Layout"
@@ -86,9 +86,9 @@ export function DiffPage() {
             </button>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="File lists" icon={<LuFolderTree className="h-4 w-4" />}>
+      <SettingsAccordion title="File lists" icon={<LuFolderTree className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <Choice<CommitFileView>
             label="Commit files"
@@ -125,7 +125,7 @@ export function DiffPage() {
             </button>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

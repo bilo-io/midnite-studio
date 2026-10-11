@@ -92,9 +92,9 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 **Theme D — Agent-work revealers.** ◻ Chat, live/closed session, council (out of the hook-only history), workflow + run, kanban board + card (out of component state).
 
-**Theme E — Notes + media revealers.** ◻ Note and doc, and open-request stores for image, video, audio, map and game; fix the dead `game_open` and the mount-dependent `music_open`/`map_goto`.
+**Theme E — Notes + media revealers.** ✅ [PR #824](https://github.com/bilo-io/midnite-studio/pull/824). `selectedNoteId`/`selectNote` now live in `notes-store` (session-only, not persisted or synced); the view clears a selection only when its note is gone or belongs to another repo, so a reveal that switches repo first survives the mount. Doc, image, video, audio, map and game share one one-shot `useMediaOpenRequest` store (`features/media/media-open-request.ts`), consumed by each `*-tab.tsx` on mount and on change; model, terrain and sprite keep their existing stores. `music_open`, `map_goto` and `game_open` are now heard by an app-level `useMediaOpenListeners` and routed through `revealResource`, so they work from any view.
 
-**Theme F — Tools + settings revealers.** ◻ DB connection and table, API-client request, browser tab, settings section anchors.
+**Theme F — Tools + settings revealers.** ✅ [PR #824](https://github.com/bilo-io/midnite-studio/pull/824). `dbTable` selects the connection and opens or refocuses a query tab holding the table's preview SELECT, unrun. `apiRequest` finds the item in the loaded collection and focuses or opens its tab, never sending. `browserTab` shows the panel (or focuses its window) and activates the tab with that URL, else opens one. `setting` selects the page, then scrolls to, opens and rings a section. `SettingsAccordion` stamps `data-settings-section` (the heading slug) on every settings page that uses an accordion, plus the Browser and Search headings; `SETTINGS_SECTIONS` in `features/settings/settings-sections.ts` lists them, and a test keeps the table and the pages in step.
 
 **Theme G — The resolver.** ◻ `findResources(query, kinds?)` scanning existing lists with fuzzy ranking, recency words ("latest", "previous") and a cap; no new index.
 
@@ -208,15 +208,15 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### E — Notes + media revealers (M→L)
 
-- [ ] `note` → Notes view + a store-level `selectNote(id)` lifted from `notes-view.tsx`.
-- [ ] `media` → `setActiveView('media')`, `openMedia(tab)`, then the tab's selection. Model,
+- [x] `note` → Notes view + a store-level `selectNote(id)` lifted from `notes-view.tsx`.
+- [x] `media` → `setActiveView('media')`, `openMedia(tab)`, then the tab's selection. Model,
       terrain and sprite already have open-request stores; **add the same one-shot pattern** for
       doc, image, video, audio, map and game, each consumed by its `*-tab.tsx` on mount and on
       change.
-- [ ] Fix **`game_open`**: subscribe to `games.onOpen` in an app-level listener (beside the model/
+- [x] Fix **`game_open`**: subscribe to `games.onOpen` in an app-level listener (beside the model/
       terrain/sprite listeners mounted in [`app.tsx`](../../../packages/app/src/app.tsx)) that
       routes through `revealResource({ kind: 'media', media: 'game', … })`.
-- [ ] Fix **`music_open`** and **`map_goto`**: move their subscriptions from `audio-tab.tsx` /
+- [x] Fix **`music_open`** and **`map_goto`**: move their subscriptions from `audio-tab.tsx` /
       `map-tab.tsx` to app-level listeners that switch view and tab first, then hand the payload
       to the new open-request store — so they work from any view.
   - *Acceptance:* a vitest per media kind — a reveal while another view is active ends with
@@ -224,13 +224,13 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### F — Tools + settings revealers (M)
 
-- [ ] `dbTable` → `useDatabaseConnectionsStore.select(connectionId)`; with `table`, open (or focus
+- [x] `dbTable` → `useDatabaseConnectionsStore.select(connectionId)`; with `table`, open (or focus
       an existing) query tab via `useWorkbenchStore.openTab({ kind: 'query', … })` showing that
       table's preview query — **not executed** (reveal only shows).
-- [ ] `apiRequest` → API-client `openTab`/`focusTab` for that item; never sends.
-- [ ] `browserTab` → focus an existing tab with that URL, else `openTab(url)` (Phase 81's url path,
+- [x] `apiRequest` → API-client `openTab`/`focusTab` for that item; never sends.
+- [x] `browserTab` → focus an existing tab with that URL, else `openTab(url)` (Phase 81's url path,
       moved onto the table).
-- [ ] `setting` → `setSettingsPage(page)` and, with `section`, scroll to and briefly highlight an
+- [x] `setting` → `setSettingsPage(page)` and, with `section`, scroll to and briefly highlight an
       anchor. Add `id`/`data-settings-section` anchors to each settings page's section headers
       and a `SETTINGS_SECTIONS: Record<SettingsPageId, readonly { id; label; keywords }[]>` table
       in `app` that the resolver and grammar read.

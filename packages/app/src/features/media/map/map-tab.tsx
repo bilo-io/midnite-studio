@@ -26,6 +26,7 @@ import { basemapAttribution, buildMapStyle } from './map-style';
 import { useMapFraming } from './use-map-framing';
 import { mapKey, useBaseStyles, useMapProject, useMapSources, useSaveMapView } from './use-map';
 import { useMapStatus } from './use-map-status';
+import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 const NO_STATUSES: readonly MapSourceStatus[] = [];
 
@@ -61,18 +62,18 @@ function MapTabBody({ repoId }: { repoId: string }) {
   }, [focus, repoId, queryClient]);
   // `map_goto` (Phase 108 Theme I): main has already saved the view to the project's `map.json`, so
   // refetching and remounting the workspace is all it takes to land there.
-  useEffect(
-    () =>
-      bridge()?.media.map.onOpen((event) => {
-        if (event.repoId !== repoId) return;
-        void (async () => {
-          await queryClient.invalidateQueries({ queryKey: mapKey(repoId, event.project) });
-          setSelection({ project: event.project, path: null });
-          setFocusN((n) => n + 1);
-        })();
-      }),
-    [repoId, queryClient],
-  );
+  // Heard by the app shell (`useMediaOpenListeners`) now, so it works from any view; a reveal of a
+  // map project arrives the same way (Phase 112 Theme E).
+  const openRequest = useMediaOpenFor('map', repoId);
+  useEffect(() => {
+    if (!openRequest) return;
+    useMediaOpenRequest.getState().clear();
+    void (async () => {
+      await queryClient.invalidateQueries({ queryKey: mapKey(repoId, openRequest.project) });
+      setSelection({ project: openRequest.project, path: null });
+      setFocusN((n) => n + 1);
+    })();
+  }, [openRequest, repoId, queryClient]);
   return <MapWorkspace key={`${repoId}/${project}/${focusN}`} repoId={repoId} project={project} selection={selection} setSelection={setSelection} />;
 }
 
